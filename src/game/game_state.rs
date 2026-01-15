@@ -52,6 +52,7 @@ pub struct GameState {
     /// Damage timers for HCN (Hell Charge Note) in ms
     hcn_damage_timers: [f64; LANE_COUNT],
     random_option: RandomOption,
+    auto_scratch: bool,
     // BGA
     bga: BgaManager,
     pending_bga_load: Option<(PathBuf, HashMap<u32, String>)>,
@@ -80,6 +81,7 @@ impl GameState {
             active_long_notes: [const { None }; LANE_COUNT],
             hcn_damage_timers: [0.0; LANE_COUNT],
             random_option: RandomOption::Off,
+            auto_scratch: false,
             bga: BgaManager::new(),
             pending_bga_load: None,
         }
@@ -122,6 +124,12 @@ impl GameState {
             let seed = generate_seed();
             apply_random_option(&mut chart, settings.random_option, seed);
             println!("Applied random option: {:?}", settings.random_option);
+        }
+
+        // Apply auto scratch option
+        self.auto_scratch = settings.auto_scratch;
+        if self.auto_scratch {
+            println!("Auto scratch enabled");
         }
 
         let note_count = chart.note_count();
@@ -254,6 +262,9 @@ impl GameState {
             }
 
             self.process_input();
+            if self.auto_scratch {
+                self.process_auto_scratch();
+            }
             self.check_missed_notes();
             self.process_hcn_damage(get_frame_time() as f64 * 1000.0);
         }
@@ -543,6 +554,94 @@ impl GameState {
                         if let Some(gauge) = &mut self.gauge {
                             gauge.apply_judgment(JudgeResult::Poor);
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Process auto scratch notes (automatically hit scratch notes at the perfect timing)
+    fn process_auto_scratch(&mut self) {
+        use crate::bms::NoteChannel;
+
+        let (chart, audio, play_state) = match (&self.chart, &mut self.audio, &mut self.play_state)
+        {
+            (Some(c), Some(a), Some(p)) => (c, a, p),
+            _ => return,
+        };
+
+        let scratch_lane = NoteChannel::Scratch.lane_index();
+
+        for &i in &self.lane_index[scratch_lane] {
+            let note = &chart.notes[i];
+
+            if !play_state.get_state(i).is_some_and(|s| s.is_pending()) {
+                continue;
+            }
+
+            if !matches!(note.note_type, NoteType::Normal | NoteType::LongStart) {
+                continue;
+            }
+
+            let time_diff = note.time_ms - self.current_time_ms;
+
+            // Auto-hit scratch at PGREAT timing (within ~20ms)
+            if time_diff.abs() <= 20.0 {
+                let result = JudgeResult::PGreat;
+                play_state.set_judged(i, result);
+                self.score.add_judgment(result);
+                if let Some(gauge) = &mut self.gauge {
+                    gauge.apply_judgment(result);
+                }
+                self.timing_stats.record(result, time_diff);
+                audio.play(note.keysound_id);
+
+                // Trigger visual effects
+                self.effects.trigger_lane_flash(scratch_lane);
+                let effect_x = screen_width() / 2.0;
+                let effect_y = screen_height() / 2.0;
+                self.effects.trigger_judge(result, effect_x, effect_y);
+                self.effects.update_combo(self.score.combo);
+
+                // Handle long notes
+                if note.note_type == NoteType::LongStart {
+                    let ln_type = chart.metadata.ln_type;
+                    let end_time_ms = note.long_end_time_ms.unwrap_or(note.time_ms);
+                    self.active_long_notes[scratch_lane] = Some(ActiveLongNote {
+                        start_idx: i,
+                        end_time_ms,
+                        start_judgment: result,
+                        ln_type,
+                        is_holding: true,
+                    });
+                    self.hcn_damage_timers[scratch_lane] = 0.0;
+                }
+            }
+        }
+
+        // Auto-release scratch long notes at the end
+        if let Some(active_ln) = &self.active_long_notes[scratch_lane] {
+            let time_diff = active_ln.end_time_ms - self.current_time_ms;
+
+            // Release at or just after end time
+            if (-100.0..=20.0).contains(&time_diff) {
+                let active_ln = self.active_long_notes[scratch_lane].take().unwrap();
+
+                // Find the corresponding LongEnd note
+                for &i in &self.lane_index[scratch_lane] {
+                    let note = &chart.notes[i];
+                    if note.note_type == NoteType::LongEnd
+                        && note.time_ms > chart.notes[active_ln.start_idx].time_ms
+                        && play_state.get_state(i).is_some_and(|s| s.is_pending())
+                    {
+                        let result = active_ln.start_judgment;
+                        play_state.set_judged(i, result);
+                        self.score.add_judgment(result);
+                        if let Some(gauge) = &mut self.gauge {
+                            gauge.apply_judgment(result);
+                        }
+                        audio.play(note.keysound_id);
+                        break;
                     }
                 }
             }

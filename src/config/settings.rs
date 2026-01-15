@@ -340,6 +340,9 @@ pub struct GameSettings {
     /// Random option (MIRROR/RANDOM/R-RANDOM)
     #[serde(default)]
     pub random_option: RandomOption,
+    /// Auto scratch option
+    #[serde(default)]
+    pub auto_scratch: bool,
     /// Default scroll speed
     pub scroll_speed: f32,
     /// Default SUDDEN+ value
@@ -362,6 +365,7 @@ impl Default for GameSettings {
             judge_system: JudgeSystemType::Beatoraja,
             gauge_type: GaugeType::Normal,
             random_option: RandomOption::Off,
+            auto_scratch: false,
             scroll_speed: 1.0,
             sudden: 0,
             hidden: 0,

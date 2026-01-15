@@ -9,6 +9,7 @@ enum MenuItem {
     JudgeSystem,
     GaugeType,
     RandomOption,
+    AutoScratch,
     ScrollSpeed,
     Sudden,
     Hidden,
@@ -31,6 +32,7 @@ impl MenuItem {
             MenuItem::JudgeSystem,
             MenuItem::GaugeType,
             MenuItem::RandomOption,
+            MenuItem::AutoScratch,
             MenuItem::ScrollSpeed,
             MenuItem::Sudden,
             MenuItem::Hidden,
@@ -53,6 +55,7 @@ impl MenuItem {
             MenuItem::JudgeSystem => "Judge System",
             MenuItem::GaugeType => "Gauge Type",
             MenuItem::RandomOption => "Random",
+            MenuItem::AutoScratch => "Auto Scratch",
             MenuItem::ScrollSpeed => "Scroll Speed",
             MenuItem::Sudden => "SUDDEN+",
             MenuItem::Hidden => "HIDDEN+",
@@ -163,6 +166,9 @@ impl SettingsScene {
                     (RandomOption::HRandom, false) => RandomOption::SRandom,
                 };
             }
+            MenuItem::AutoScratch => {
+                self.settings.auto_scratch = !self.settings.auto_scratch;
+            }
             MenuItem::ScrollSpeed => {
                 let step = if delta > 0 { 0.25 } else { -0.25 };
                 self.settings.scroll_speed = (self.settings.scroll_speed + step).clamp(0.25, 10.0);
@@ -207,6 +213,13 @@ impl SettingsScene {
                 GaugeType::Hazard => "HAZARD".to_string(),
             },
             MenuItem::RandomOption => self.settings.random_option.display_name().to_string(),
+            MenuItem::AutoScratch => {
+                if self.settings.auto_scratch {
+                    "ON".to_string()
+                } else {
+                    "OFF".to_string()
+                }
+            }
             MenuItem::ScrollSpeed => format!("{:.2}x", self.settings.scroll_speed),
             MenuItem::Sudden => format!("{}", self.settings.sudden),
             MenuItem::Hidden => format!("{}", self.settings.hidden),
