@@ -145,6 +145,20 @@ impl GameState {
             self.scroll_speed = (self.scroll_speed - 0.1).max(0.1);
         }
 
+        // Lane cover controls
+        if is_key_pressed(KeyCode::Q) {
+            self.highway.lane_cover_mut().adjust_sudden(50);
+        }
+        if is_key_pressed(KeyCode::W) {
+            self.highway.lane_cover_mut().adjust_sudden(-50);
+        }
+        if is_key_pressed(KeyCode::A) {
+            self.highway.lane_cover_mut().adjust_lift(50);
+        }
+        if is_key_pressed(KeyCode::E) {
+            self.highway.lane_cover_mut().adjust_lift(-50);
+        }
+
         if self.playing {
             self.current_time_ms += get_frame_time() as f64 * 1000.0;
 
@@ -555,7 +569,7 @@ impl GameState {
         );
 
         draw_text(
-            "[Space] Play/Pause | [R] Reset | [Up/Down] Speed",
+            "[Space] Play/Pause | [R] Reset | [Up/Down] Speed | [Q/W] SUD+ | [A/E] LIFT",
             10.0,
             screen_height() - 20.0,
             16.0,

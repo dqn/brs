@@ -1,11 +1,13 @@
 use macroquad::prelude::*;
 
 use super::config::{HighwayConfig, LANE_COUNT};
+use super::lane_cover::LaneCover;
 use crate::bms::{Chart, Note, NoteType};
 use crate::game::GamePlayState;
 
 pub struct Highway {
     config: HighwayConfig,
+    lane_cover: LaneCover,
 }
 
 impl Highway {
@@ -14,7 +16,21 @@ impl Highway {
     }
 
     pub fn with_config(config: HighwayConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            lane_cover: LaneCover::default(),
+        }
+    }
+
+    /// Get mutable reference to lane cover for adjustments
+    pub fn lane_cover_mut(&mut self) -> &mut LaneCover {
+        &mut self.lane_cover
+    }
+
+    /// Get current lane cover settings
+    #[allow(dead_code)]
+    pub fn lane_cover(&self) -> &LaneCover {
+        &self.lane_cover
     }
 
     // Public API for drawing highway without game state (simple mode)
@@ -40,6 +56,7 @@ impl Highway {
         self.draw_lanes(highway_x);
         self.draw_notes_with_state(chart, play_state, current_time_ms, scroll_speed, highway_x);
         self.draw_judge_line(highway_x);
+        self.draw_lane_covers(highway_x);
         self.draw_info(chart);
     }
 
@@ -211,14 +228,60 @@ impl Highway {
     }
 
     fn draw_judge_line(&self, highway_x: f32) {
+        // Adjust judge line position based on LIFT
+        let lift_offset = self.lane_cover.judge_line_position() * self.config.judge_line_y;
+        let adjusted_judge_y = self.config.judge_line_y - lift_offset;
+
         draw_line(
             highway_x,
-            self.config.judge_line_y,
+            adjusted_judge_y,
             highway_x + self.config.lane_width * LANE_COUNT as f32,
-            self.config.judge_line_y,
+            adjusted_judge_y,
             3.0,
             Color::new(1.0, 0.8, 0.0, 1.0),
         );
+    }
+
+    fn draw_lane_covers(&self, highway_x: f32) {
+        let highway_width = self.config.lane_width * LANE_COUNT as f32;
+        let lane_height = self.config.judge_line_y; // Lane goes from top to judge line
+        let cover_color = Color::new(0.0, 0.0, 0.0, 0.9);
+
+        // Draw SUDDEN+ cover (top of lane)
+        if self.lane_cover.sudden > 0 {
+            let cover_height = (self.lane_cover.sudden as f32 / 1000.0) * lane_height;
+            draw_rectangle(highway_x, 0.0, highway_width, cover_height, cover_color);
+
+            // Draw white number display on cover
+            draw_text(
+                &format!("SUD+ {}", self.lane_cover.sudden),
+                highway_x + 10.0,
+                cover_height - 10.0,
+                18.0,
+                Color::new(0.5, 0.5, 0.5, 1.0),
+            );
+        }
+
+        // Draw LIFT cover (bottom, raises judge line visually)
+        if self.lane_cover.lift > 0 {
+            let cover_height = (self.lane_cover.lift as f32 / 1000.0) * lane_height;
+            let cover_y = self.config.judge_line_y - cover_height;
+            draw_rectangle(
+                highway_x,
+                cover_y,
+                highway_width,
+                cover_height + 50.0,
+                cover_color,
+            );
+
+            draw_text(
+                &format!("LIFT {}", self.lane_cover.lift),
+                highway_x + 10.0,
+                cover_y + 20.0,
+                18.0,
+                Color::new(0.5, 0.5, 0.5, 1.0),
+            );
+        }
     }
 
     fn draw_info(&self, chart: &Chart) {

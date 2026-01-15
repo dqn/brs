@@ -1,5 +1,6 @@
 mod config;
 mod highway;
+mod lane_cover;
 
 // Public API for library consumers
 #[allow(unused_imports)]
