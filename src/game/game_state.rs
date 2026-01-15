@@ -5,7 +5,7 @@ use macroquad::prelude::*;
 
 use crate::audio::{AudioManager, AudioScheduler};
 use crate::bms::{BmsLoader, Chart, LANE_COUNT, LnType, NoteType};
-use crate::render::Highway;
+use crate::render::{EffectManager, Highway};
 
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
@@ -35,6 +35,7 @@ pub struct GameState {
     judge: JudgeSystem,
     score: ScoreManager,
     gauge: Option<GaugeManager>,
+    effects: EffectManager,
     play_state: Option<GamePlayState>,
     timing_stats: TimingStats,
     scroll_speed: f32,
@@ -57,6 +58,7 @@ impl GameState {
             judge: JudgeSystem::default(),
             score: ScoreManager::new(),
             gauge: None,
+            effects: EffectManager::default(),
             play_state: None,
             timing_stats: TimingStats::default(),
             scroll_speed: 1.0,
@@ -169,6 +171,9 @@ impl GameState {
             self.process_input();
             self.check_missed_notes();
         }
+
+        // Update effects animation
+        self.effects.update(get_frame_time());
     }
 
     fn process_input(&mut self) {
@@ -185,6 +190,10 @@ impl GameState {
         // Handle key presses
         for lane in pressed_lanes {
             let lane_idx = lane.lane_index();
+
+            // Trigger lane flash effect
+            self.effects.trigger_lane_flash(lane_idx);
+
             for &i in &self.lane_index[lane_idx] {
                 let note = &chart.notes[i];
 
@@ -208,6 +217,12 @@ impl GameState {
                     self.last_judgment = Some(result);
                     self.last_timing_diff_ms = Some(time_diff);
                     audio.play(note.keysound_id);
+
+                    // Trigger visual effects
+                    let effect_x = screen_width() / 2.0;
+                    let effect_y = screen_height() / 2.0;
+                    self.effects.trigger_judge(result, effect_x, effect_y);
+                    self.effects.update_combo(self.score.combo);
 
                     if note.note_type == NoteType::LongStart {
                         let end_time_ms = note.long_end_time_ms.unwrap_or(note.time_ms);
@@ -412,6 +427,11 @@ impl GameState {
     pub fn draw(&self) {
         clear_background(BLACK);
 
+        // Draw lane flash effects (behind notes)
+        let highway_x = (screen_width() - 50.0 * 8.0) / 2.0;
+        self.effects
+            .draw_lane_flashes(highway_x, 50.0, screen_height());
+
         if let (Some(chart), Some(play_state)) = (&self.chart, &self.play_state) {
             self.highway.draw_with_state(
                 chart,
@@ -428,6 +448,10 @@ impl GameState {
                 WHITE,
             );
         }
+
+        // Draw judgment and combo effects
+        self.effects.draw_judge();
+        self.effects.draw_combo();
 
         self.draw_ui();
     }
@@ -532,18 +556,8 @@ impl GameState {
             );
         }
 
+        // Display FAST/SLOW for non-PGREAT judgments (below the animated judge effect)
         if let Some(result) = self.last_judgment {
-            let (text, color) = match result {
-                JudgeResult::PGreat => ("PGREAT", Color::new(1.0, 1.0, 0.0, 1.0)),
-                JudgeResult::Great => ("GREAT", Color::new(1.0, 0.8, 0.0, 1.0)),
-                JudgeResult::Good => ("GOOD", Color::new(0.0, 1.0, 0.5, 1.0)),
-                JudgeResult::Bad => ("BAD", Color::new(0.5, 0.5, 1.0, 1.0)),
-                JudgeResult::Poor => ("POOR", Color::new(1.0, 0.3, 0.3, 1.0)),
-            };
-            let x = screen_width() / 2.0 - 60.0;
-            draw_text(text, x, screen_height() / 2.0, 40.0, color);
-
-            // Display FAST/SLOW for non-PGREAT judgments
             if result != JudgeResult::PGreat {
                 if let Some(timing_diff) = self.last_timing_diff_ms {
                     use super::TimingDirection;
@@ -554,10 +568,11 @@ impl GameState {
                         TimingDirection::Exact => ("", WHITE),
                     };
                     if !timing_text.is_empty() {
+                        let x = screen_width() / 2.0 - 30.0;
                         draw_text(
                             timing_text,
                             x,
-                            screen_height() / 2.0 + 30.0,
+                            screen_height() / 2.0 + 40.0,
                             24.0,
                             timing_color,
                         );
