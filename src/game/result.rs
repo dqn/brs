@@ -45,6 +45,8 @@ impl ClearLamp {
 
 #[derive(Debug, Clone, Default)]
 pub struct PlayResult {
+    /// Chart file path (used as identifier for score storage)
+    pub chart_path: String,
     pub title: String,
     pub artist: String,
     pub ex_score: u32,

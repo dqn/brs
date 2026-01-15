@@ -41,7 +41,7 @@ impl Scene for GameplayScene {
         let should_finish = self.state.is_finished() || self.state.is_failed();
         if should_finish && !self.finished {
             self.finished = true;
-            let result = self.state.get_result();
+            let result = self.state.get_result(&self.chart_path);
             return SceneTransition::Replace(Box::new(ResultScene::new(result)));
         }
 

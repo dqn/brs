@@ -1,16 +1,53 @@
+use std::path::Path;
+
 use macroquad::prelude::*;
 
+use crate::database::{SavedScore, ScoreRepository, compute_file_hash};
 use crate::game::{ClearLamp, PlayResult};
 
 use super::{Scene, SceneTransition};
 
 pub struct ResultScene {
     result: PlayResult,
+    is_new_record: bool,
 }
 
 impl ResultScene {
     pub fn new(result: PlayResult) -> Self {
-        Self { result }
+        let is_new_record = Self::save_score(&result);
+        Self {
+            result,
+            is_new_record,
+        }
+    }
+
+    fn save_score(result: &PlayResult) -> bool {
+        // Compute hash from chart file
+        let hash = match compute_file_hash(Path::new(&result.chart_path)) {
+            Ok(h) => h,
+            Err(e) => {
+                eprintln!("Failed to compute chart hash: {}", e);
+                return false;
+            }
+        };
+
+        // Load repository and save score
+        let mut repo = match ScoreRepository::new() {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("Failed to load score repository: {}", e);
+                return false;
+            }
+        };
+
+        let new_score = SavedScore::from_play_result(hash.clone(), result);
+        let is_new_record = repo.update(&hash, new_score);
+
+        if let Err(e) = repo.save() {
+            eprintln!("Failed to save scores: {}", e);
+        }
+
+        is_new_record
     }
 
     fn clear_lamp_color(&self) -> Color {
@@ -46,6 +83,11 @@ impl Scene for ResultScene {
         let lamp_text = self.result.clear_lamp.display_name();
         let lamp_color = self.clear_lamp_color();
         draw_text(lamp_text, center_x - 100.0, 80.0, 24.0, lamp_color);
+
+        // New record indicator
+        if self.is_new_record {
+            draw_text("NEW RECORD!", center_x + 50.0, 80.0, 20.0, GOLD);
+        }
 
         draw_text(&self.result.title, center_x - 150.0, 120.0, 28.0, YELLOW);
         draw_text(&self.result.artist, center_x - 150.0, 150.0, 20.0, GRAY);

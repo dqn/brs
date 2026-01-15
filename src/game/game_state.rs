@@ -546,7 +546,7 @@ impl GameState {
         play_state.all_notes_processed(chart.notes.len())
     }
 
-    pub fn get_result(&self) -> PlayResult {
+    pub fn get_result(&self, chart_path: &str) -> PlayResult {
         let (title, artist) = self
             .chart
             .as_ref()
@@ -565,6 +565,7 @@ impl GameState {
         let clear_lamp = ClearLamp::from_gauge(best_clear, is_full_combo);
 
         PlayResult {
+            chart_path: chart_path.to_string(),
             title,
             artist,
             ex_score: self.score.ex_score(),
