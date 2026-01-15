@@ -96,12 +96,6 @@ src/
 ## Documentation
 
 - `docs/bms-specification.md` - BMS フォーマット仕様
-- `docs/architecture.md` - アーキテクチャ
-- `docs/technical-challenges.md` - 技術課題
-- `docs/feature-plans/` - 機能実装計画
-  - `02-judge-timing.md` - 判定タイミング仕様
-  - `04-long-notes.md` - LN/CN/HCN 判定仕様
-  - `06-timing-display.md` - FAST/SLOW、Green Number
 
 ## Design Principles
 
@@ -137,8 +131,6 @@ BPM 変更・拍子変更・STOP を正確に処理するため fraction で分�
 | GREAT | ±60ms | ±60ms |
 | GOOD | ±150ms | ±120ms |
 | BAD | ±220-280ms | ±200ms |
-
-詳細は `docs/feature-plans/02-judge-timing.md` を参照。
 
 ### Key Layout (7-key)
 ```
