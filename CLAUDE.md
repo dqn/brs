@@ -105,7 +105,7 @@ src/
 
 #### レーンオプション
 - [x] S-RANDOM
-- [ ] H-RANDOM
+- [x] H-RANDOM
 
 #### アシストオプション
 - [ ] AUTO SCRATCH

@@ -152,13 +152,15 @@ impl SettingsScene {
                     (RandomOption::Mirror, true) => RandomOption::Random,
                     (RandomOption::Random, true) => RandomOption::RRandom,
                     (RandomOption::RRandom, true) => RandomOption::SRandom,
-                    (RandomOption::SRandom, true) => RandomOption::Off,
+                    (RandomOption::SRandom, true) => RandomOption::HRandom,
+                    (RandomOption::HRandom, true) => RandomOption::Off,
 
-                    (RandomOption::Off, false) => RandomOption::SRandom,
+                    (RandomOption::Off, false) => RandomOption::HRandom,
                     (RandomOption::Mirror, false) => RandomOption::Off,
                     (RandomOption::Random, false) => RandomOption::Mirror,
                     (RandomOption::RRandom, false) => RandomOption::Random,
                     (RandomOption::SRandom, false) => RandomOption::RRandom,
+                    (RandomOption::HRandom, false) => RandomOption::SRandom,
                 };
             }
             MenuItem::ScrollSpeed => {

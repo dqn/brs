@@ -14,6 +14,7 @@ pub enum RandomOption {
     #[allow(dead_code)]
     RRandom,
     SRandom,
+    HRandom,
 }
 
 impl RandomOption {
@@ -26,6 +27,7 @@ impl RandomOption {
             Self::Random => "RANDOM",
             Self::RRandom => "R-RANDOM",
             Self::SRandom => "S-RANDOM",
+            Self::HRandom => "H-RANDOM",
         }
     }
 }
@@ -98,9 +100,9 @@ impl LaneMapping {
             RandomOption::Mirror => Self::mirror(),
             RandomOption::Random => Self::random(seed),
             RandomOption::RRandom => Self::rotate_random(seed),
-            RandomOption::SRandom => {
-                // S-RANDOM is not handled by LaneMapping
-                // It should be handled by apply_s_random directly
+            RandomOption::SRandom | RandomOption::HRandom => {
+                // S-RANDOM and H-RANDOM are not handled by LaneMapping
+                // They should be handled by apply_s_random/apply_h_random directly
                 Self::identity()
             }
         }
@@ -126,6 +128,11 @@ pub fn apply_random_option(chart: &mut Chart, option: RandomOption, seed: u64) {
 
     if option == RandomOption::SRandom {
         apply_s_random(chart, seed);
+        return;
+    }
+
+    if option == RandomOption::HRandom {
+        apply_h_random(chart, seed);
         return;
     }
 
@@ -198,6 +205,83 @@ fn apply_s_random(chart: &mut Chart, seed: u64) {
 
         if let Some(new_channel) = NoteChannel::from_key_lane(new_lane) {
             note.channel = new_channel;
+        }
+    }
+}
+
+/// Apply H-RANDOM option to a chart
+/// Similar to S-RANDOM but avoids placing notes on the same lane as the previous note
+/// to reduce consecutive same-lane patterns (縦連打)
+fn apply_h_random(chart: &mut Chart, seed: u64) {
+    use crate::bms::NoteType;
+    use std::collections::HashMap;
+
+    let mut rng = StdRng::seed_from_u64(seed);
+
+    // Track LN start positions to maintain LN start/end pair consistency
+    let mut ln_mappings: HashMap<(usize, i64), usize> = HashMap::new();
+
+    // Track the last assigned lane to avoid consecutive same-lane notes
+    let mut last_lane: Option<usize> = None;
+
+    for note in &mut chart.notes {
+        if !note.channel.is_key() {
+            continue;
+        }
+
+        let original_lane = note.channel.lane_index();
+
+        let new_lane = match note.note_type {
+            NoteType::LongStart => {
+                // Generate new random lane for LN start, avoiding last lane if possible
+                let new_lane = pick_random_lane_avoiding(&mut rng, last_lane);
+                let time_key = (note.time_ms * 1000.0) as i64;
+                ln_mappings.insert((original_lane, time_key), new_lane);
+                last_lane = Some(new_lane);
+                new_lane
+            }
+            NoteType::LongEnd => {
+                // Find the corresponding LN start mapping
+                let time_key = (note.time_ms * 1000.0) as i64;
+                let mapping_key = ln_mappings
+                    .keys()
+                    .filter(|(lane, _)| *lane == original_lane)
+                    .min_by_key(|(_, t)| (t - time_key).abs());
+
+                if let Some(&key) = mapping_key {
+                    // Don't update last_lane for LN end since it's paired with start
+                    ln_mappings.remove(&key).unwrap_or(original_lane)
+                } else {
+                    let new_lane = pick_random_lane_avoiding(&mut rng, last_lane);
+                    last_lane = Some(new_lane);
+                    new_lane
+                }
+            }
+            NoteType::Normal | NoteType::Invisible | NoteType::Landmine => {
+                // Normal notes get random lanes avoiding the last lane
+                let new_lane = pick_random_lane_avoiding(&mut rng, last_lane);
+                last_lane = Some(new_lane);
+                new_lane
+            }
+        };
+
+        if let Some(new_channel) = NoteChannel::from_key_lane(new_lane) {
+            note.channel = new_channel;
+        }
+    }
+}
+
+/// Pick a random lane (1-7) avoiding the specified lane if possible
+fn pick_random_lane_avoiding(rng: &mut StdRng, avoid: Option<usize>) -> usize {
+    match avoid {
+        Some(avoid_lane) if (1..=7).contains(&avoid_lane) => {
+            // Pick from lanes 1-7 excluding avoid_lane (6 choices)
+            let available: Vec<usize> = (1..=7).filter(|&l| l != avoid_lane).collect();
+            available[rng.random_range(0..available.len())]
+        }
+        _ => {
+            // No lane to avoid, pick any lane 1-7
+            rng.random_range(1..=7)
         }
     }
 }
@@ -363,5 +447,85 @@ mod tests {
     #[test]
     fn test_s_random_display_name() {
         assert_eq!(RandomOption::SRandom.display_name(), "S-RANDOM");
+    }
+
+    #[test]
+    fn test_h_random_avoids_consecutive_same_lane() {
+        // Create many consecutive notes on the same lane
+        let notes: Vec<Note> = (0..20)
+            .map(|i| create_test_note(NoteChannel::Key1, NoteType::Normal, i as f64 * 100.0))
+            .collect();
+        let mut chart = create_test_chart(notes);
+
+        apply_random_option(&mut chart, RandomOption::HRandom, 12345);
+
+        // Check that no two consecutive notes are on the same lane
+        for i in 1..chart.notes.len() {
+            assert_ne!(
+                chart.notes[i - 1].channel,
+                chart.notes[i].channel,
+                "Notes {} and {} should not be on the same lane",
+                i - 1,
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn test_h_random_is_deterministic() {
+        let notes = vec![
+            create_test_note(NoteChannel::Key1, NoteType::Normal, 0.0),
+            create_test_note(NoteChannel::Key2, NoteType::Normal, 100.0),
+            create_test_note(NoteChannel::Key3, NoteType::Normal, 200.0),
+        ];
+
+        let mut chart1 = create_test_chart(notes.clone());
+        let mut chart2 = create_test_chart(notes);
+
+        apply_random_option(&mut chart1, RandomOption::HRandom, 12345);
+        apply_random_option(&mut chart2, RandomOption::HRandom, 12345);
+
+        for (n1, n2) in chart1.notes.iter().zip(chart2.notes.iter()) {
+            assert_eq!(n1.channel, n2.channel);
+        }
+    }
+
+    #[test]
+    fn test_h_random_ln_consistency() {
+        let notes = vec![
+            create_test_note(NoteChannel::Key1, NoteType::LongStart, 0.0),
+            create_test_note(NoteChannel::Key1, NoteType::LongEnd, 500.0),
+        ];
+        let mut chart = create_test_chart(notes);
+
+        apply_random_option(&mut chart, RandomOption::HRandom, 12345);
+
+        // LN start and end should be on the same lane
+        assert_eq!(
+            chart.notes[0].channel, chart.notes[1].channel,
+            "LN start and end should be on the same lane"
+        );
+    }
+
+    #[test]
+    fn test_h_random_scratch_unchanged() {
+        let notes = vec![
+            create_test_note(NoteChannel::Scratch, NoteType::Normal, 0.0),
+            create_test_note(NoteChannel::Key1, NoteType::Normal, 100.0),
+        ];
+        let mut chart = create_test_chart(notes);
+
+        apply_random_option(&mut chart, RandomOption::HRandom, 12345);
+
+        assert_eq!(
+            chart.notes[0].channel,
+            NoteChannel::Scratch,
+            "Scratch should not be randomized"
+        );
+    }
+
+    #[test]
+    fn test_h_random_display_name() {
+        assert_eq!(RandomOption::HRandom.display_name(), "H-RANDOM");
     }
 }
