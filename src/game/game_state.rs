@@ -26,6 +26,8 @@ struct ActiveLongNote {
     start_judgment: JudgeResult,
     /// Long note type (LN/CN/HCN)
     ln_type: LnType,
+    /// Whether key is currently being held (for HCN)
+    is_holding: bool,
 }
 
 pub struct GameState {
@@ -47,6 +49,8 @@ pub struct GameState {
     last_judgment: Option<JudgeResult>,
     last_timing_diff_ms: Option<f64>,
     active_long_notes: [Option<ActiveLongNote>; LANE_COUNT],
+    /// Damage timers for HCN (Hell Charge Note) in ms
+    hcn_damage_timers: [f64; LANE_COUNT],
     random_option: RandomOption,
     // BGA
     bga: BgaManager,
@@ -74,6 +78,7 @@ impl GameState {
             last_judgment: None,
             last_timing_diff_ms: None,
             active_long_notes: [const { None }; LANE_COUNT],
+            hcn_damage_timers: [0.0; LANE_COUNT],
             random_option: RandomOption::Off,
             bga: BgaManager::new(),
             pending_bga_load: None,
@@ -200,6 +205,7 @@ impl GameState {
             self.playing = false;
             self.last_judgment = None;
             self.active_long_notes = [const { None }; LANE_COUNT];
+            self.hcn_damage_timers = [0.0; LANE_COUNT];
             self.bga.reset();
         }
 
@@ -246,6 +252,7 @@ impl GameState {
 
             self.process_input();
             self.check_missed_notes();
+            self.process_hcn_damage(get_frame_time() as f64 * 1000.0);
         }
 
         // Update effects animation
@@ -269,6 +276,16 @@ impl GameState {
 
             // Trigger lane flash effect
             self.effects.trigger_lane_flash(lane_idx);
+
+            // Check if this is an HCN re-press
+            if let Some(ref mut active_ln) = self.active_long_notes[lane_idx] {
+                if active_ln.ln_type == LnType::Hcn && !active_ln.is_holding {
+                    // Resume holding HCN
+                    active_ln.is_holding = true;
+                    self.hcn_damage_timers[lane_idx] = 0.0;
+                    continue;
+                }
+            }
 
             for &i in &self.lane_index[lane_idx] {
                 let note = &chart.notes[i];
@@ -307,7 +324,10 @@ impl GameState {
                             end_time_ms,
                             start_judgment: result,
                             ln_type,
+                            is_holding: true,
                         });
+                        // Reset HCN damage timer
+                        self.hcn_damage_timers[lane_idx] = 0.0;
                     }
                     break;
                 }
@@ -317,6 +337,19 @@ impl GameState {
         // Handle key releases for long notes
         for lane in released_lanes {
             let lane_idx = lane.lane_index();
+
+            // Check if this is an HCN that should continue tracking
+            if let Some(ref mut active_ln) = self.active_long_notes[lane_idx] {
+                if active_ln.ln_type == LnType::Hcn {
+                    let time_diff = active_ln.end_time_ms - self.current_time_ms;
+                    if time_diff > 0.0 {
+                        // HCN released before end - mark as not holding but keep tracking
+                        active_ln.is_holding = false;
+                        continue;
+                    }
+                }
+            }
+
             if let Some(active_ln) = self.active_long_notes[lane_idx].take() {
                 // Calculate time difference from end time
                 let time_diff = active_ln.end_time_ms - self.current_time_ms;
@@ -394,26 +427,15 @@ impl GameState {
                         }
                     }
                     LnType::Hcn => {
-                        // HCN: Similar to LN but with damage while released (handled elsewhere)
+                        // HCN: Released at or after end time - success
                         if let Some(end_idx) = long_end_idx {
-                            if time_diff <= 0.0 {
-                                play_state.set_judged(end_idx, active_ln.start_judgment);
-                                self.score.add_judgment(active_ln.start_judgment);
-                                if let Some(gauge) = &mut self.gauge {
-                                    gauge.apply_judgment(active_ln.start_judgment);
-                                }
-                                if let Some(audio) = &mut self.audio {
-                                    audio.play(chart.notes[end_idx].keysound_id);
-                                }
-                            } else {
-                                // Released during hold - continue tracking (re-press allowed)
-                                // For now, treat early release as POOR
-                                play_state.set_missed(end_idx);
-                                self.score.add_judgment(JudgeResult::Poor);
-                                if let Some(gauge) = &mut self.gauge {
-                                    gauge.apply_judgment(JudgeResult::Poor);
-                                }
-                                self.last_judgment = Some(JudgeResult::Poor);
+                            play_state.set_judged(end_idx, active_ln.start_judgment);
+                            self.score.add_judgment(active_ln.start_judgment);
+                            if let Some(gauge) = &mut self.gauge {
+                                gauge.apply_judgment(active_ln.start_judgment);
+                            }
+                            if let Some(audio) = &mut self.audio {
+                                audio.play(chart.notes[end_idx].keysound_id);
                             }
                         }
                     }
@@ -495,6 +517,30 @@ impl GameState {
                         self.active_long_notes[lane_idx] = None;
                     }
                     break;
+                }
+            }
+        }
+    }
+
+    /// Process HCN (Hell Charge Note) damage for released keys
+    fn process_hcn_damage(&mut self, delta_ms: f64) {
+        const HCN_DAMAGE_INTERVAL_MS: f64 = 100.0;
+
+        for lane_idx in 0..LANE_COUNT {
+            if let Some(ref active_ln) = self.active_long_notes[lane_idx] {
+                // Only process HCN that is not being held
+                if active_ln.ln_type == LnType::Hcn && !active_ln.is_holding {
+                    self.hcn_damage_timers[lane_idx] += delta_ms;
+
+                    // Apply damage every 100ms
+                    while self.hcn_damage_timers[lane_idx] >= HCN_DAMAGE_INTERVAL_MS {
+                        self.hcn_damage_timers[lane_idx] -= HCN_DAMAGE_INTERVAL_MS;
+
+                        // Apply POOR judgment damage to gauge
+                        if let Some(gauge) = &mut self.gauge {
+                            gauge.apply_judgment(JudgeResult::Poor);
+                        }
+                    }
                 }
             }
         }
