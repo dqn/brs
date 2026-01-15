@@ -8,8 +8,8 @@ use crate::bms::{BmsLoader, Chart, LANE_COUNT, LnType, NoteType};
 use crate::render::Highway;
 
 use super::{
-    ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeResult,
-    JudgeSystem, PlayResult, ScoreManager,
+    ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
+    JudgeResult, JudgeSystem, JudgeSystemType, PlayResult, ScoreManager,
 };
 
 /// Active long note state tracking
@@ -85,6 +85,12 @@ impl GameState {
         let note_count = chart.note_count();
         self.lane_index = chart.build_lane_index();
         self.play_state = Some(GamePlayState::new(chart.notes.len()));
+
+        // Initialize judge system based on chart rank
+        // TODO: Make system type configurable via settings
+        let judge_rank = JudgeRank::from_bms_rank(chart.metadata.rank);
+        self.judge = JudgeSystem::for_system(JudgeSystemType::Beatoraja, judge_rank);
+
         // Initialize gauge with GAS enabled (all gauges tracked)
         self.gauge = Some(GaugeManager::new_with_gas(
             GaugeType::Normal,
@@ -112,8 +118,10 @@ impl GameState {
             if let Some(play_state) = &mut self.play_state {
                 play_state.reset();
             }
-            // Reset gauge
+            // Reset gauge and judge
             if let Some(chart) = &self.chart {
+                let judge_rank = JudgeRank::from_bms_rank(chart.metadata.rank);
+                self.judge = JudgeSystem::for_system(JudgeSystemType::Beatoraja, judge_rank);
                 self.gauge = Some(GaugeManager::new_with_gas(
                     GaugeType::Normal,
                     GaugeSystem::Beatoraja,

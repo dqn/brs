@@ -1,3 +1,36 @@
+/// Judge system type (affects timing windows and empty POOR behavior)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum JudgeSystemType {
+    #[default]
+    Beatoraja,
+    #[allow(dead_code)] // Planned feature for LR2 compatibility mode
+    Lr2,
+}
+
+/// Judge difficulty rank (affects timing window size)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum JudgeRank {
+    VeryEasy,
+    #[default]
+    Easy,
+    Normal,
+    Hard,
+    VeryHard,
+}
+
+impl JudgeRank {
+    /// Convert from BMS #RANK value
+    pub fn from_bms_rank(rank: u32) -> Self {
+        match rank {
+            0 => JudgeRank::VeryHard,
+            1 => JudgeRank::Hard,
+            2 => JudgeRank::Normal,
+            3 => JudgeRank::Easy,
+            _ => JudgeRank::Easy,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JudgeResult {
     PGreat,
@@ -61,33 +94,63 @@ impl Default for ReleaseConfig {
 }
 
 impl JudgeConfig {
-    pub fn normal() -> Self {
+    /// Create beatoraja-style timing windows for given rank
+    pub fn beatoraja(rank: JudgeRank) -> Self {
+        let scale = match rank {
+            JudgeRank::VeryEasy => 1.25,
+            JudgeRank::Easy => 1.0,
+            JudgeRank::Normal => 0.75,
+            JudgeRank::Hard => 0.50,
+            JudgeRank::VeryHard => 0.25,
+        };
+
         Self {
-            pgreat_window: 20.0,
-            great_window: 60.0,
-            good_window: 150.0,
-            bad_window: 280.0,
+            pgreat_window: 20.0 * scale,
+            great_window: 60.0 * scale,
+            good_window: 150.0 * scale,
+            bad_window: 280.0 * scale,
         }
+    }
+
+    /// Create LR2-style timing windows for given rank
+    pub fn lr2(rank: JudgeRank) -> Self {
+        // LR2 uses fixed windows per rank (not scaled)
+        let pgreat_ms = match rank {
+            JudgeRank::VeryEasy | JudgeRank::Easy => 21.0,
+            JudgeRank::Normal => 18.0,
+            JudgeRank::Hard => 15.0,
+            JudgeRank::VeryHard => 8.0,
+        };
+
+        // Other windows scale proportionally
+        Self {
+            pgreat_window: pgreat_ms,
+            great_window: pgreat_ms * 3.0, // ~60ms for EASY
+            good_window: pgreat_ms * 6.0,  // ~120ms for EASY
+            bad_window: pgreat_ms * 10.0,  // ~200ms for EASY
+        }
+    }
+
+    /// Create timing config for the given system and rank
+    pub fn for_system(system: JudgeSystemType, rank: JudgeRank) -> Self {
+        match system {
+            JudgeSystemType::Beatoraja => Self::beatoraja(rank),
+            JudgeSystemType::Lr2 => Self::lr2(rank),
+        }
+    }
+
+    pub fn normal() -> Self {
+        Self::beatoraja(JudgeRank::Easy)
     }
 
     #[allow(dead_code)]
     pub fn easy() -> Self {
-        Self {
-            pgreat_window: 25.0,
-            great_window: 75.0,
-            good_window: 200.0,
-            bad_window: 350.0,
-        }
+        Self::beatoraja(JudgeRank::VeryEasy)
     }
 
     #[allow(dead_code)]
     pub fn hard() -> Self {
-        Self {
-            pgreat_window: 15.0,
-            great_window: 45.0,
-            good_window: 100.0,
-            bad_window: 200.0,
-        }
+        Self::beatoraja(JudgeRank::Hard)
     }
 
     #[allow(dead_code)]
@@ -145,14 +208,30 @@ impl JudgeConfigBuilder {
 }
 
 pub struct JudgeSystem {
+    system_type: JudgeSystemType,
+    #[allow(dead_code)]
+    rank: JudgeRank,
     config: JudgeConfig,
     release_config: ReleaseConfig,
 }
 
 impl JudgeSystem {
+    #[allow(dead_code)] // Alternative constructor for custom judge configs
     pub fn new(config: JudgeConfig) -> Self {
         Self {
+            system_type: JudgeSystemType::Beatoraja,
+            rank: JudgeRank::Easy,
             config,
+            release_config: ReleaseConfig::default(),
+        }
+    }
+
+    /// Create a JudgeSystem for the specified system type and rank
+    pub fn for_system(system_type: JudgeSystemType, rank: JudgeRank) -> Self {
+        Self {
+            system_type,
+            rank,
+            config: JudgeConfig::for_system(system_type, rank),
             release_config: ReleaseConfig::default(),
         }
     }
@@ -161,6 +240,12 @@ impl JudgeSystem {
     pub fn with_release_config(mut self, release_config: ReleaseConfig) -> Self {
         self.release_config = release_config;
         self
+    }
+
+    /// Get the current system type
+    #[allow(dead_code)]
+    pub fn system_type(&self) -> JudgeSystemType {
+        self.system_type
     }
 
     pub fn judge(&self, time_diff_ms: f64) -> Option<JudgeResult> {
@@ -201,6 +286,22 @@ impl JudgeSystem {
         time_diff_ms > self.release_config.bad_window
     }
 
+    /// Check if a button press should trigger empty POOR
+    /// time_diff_ms: current_time - nearest_note_time (positive = note is in the past)
+    #[allow(dead_code)]
+    pub fn is_empty_poor(&self, time_diff_ms: f64) -> bool {
+        match self.system_type {
+            JudgeSystemType::Beatoraja => {
+                // beatoraja: both early and late presses can trigger empty POOR
+                time_diff_ms.abs() > self.config.bad_window
+            }
+            JudgeSystemType::Lr2 => {
+                // LR2: only early presses trigger empty POOR (not after)
+                time_diff_ms < -self.config.bad_window
+            }
+        }
+    }
+
     // Public API for checking if time difference is within any judge window
     #[allow(dead_code)]
     pub fn is_in_window(&self, time_diff_ms: f64) -> bool {
@@ -219,6 +320,62 @@ impl JudgeSystem {
 
 impl Default for JudgeSystem {
     fn default() -> Self {
-        Self::new(JudgeConfig::default())
+        Self::for_system(JudgeSystemType::Beatoraja, JudgeRank::Easy)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_beatoraja_timing_windows() {
+        let config = JudgeConfig::beatoraja(JudgeRank::Easy);
+        assert!((config.pgreat_window - 20.0).abs() < 0.01);
+        assert!((config.great_window - 60.0).abs() < 0.01);
+        assert!((config.good_window - 150.0).abs() < 0.01);
+        assert!((config.bad_window - 280.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_beatoraja_rank_scaling() {
+        let easy = JudgeConfig::beatoraja(JudgeRank::Easy);
+        let hard = JudgeConfig::beatoraja(JudgeRank::Hard);
+
+        // Hard should be half of Easy
+        assert!((hard.pgreat_window - easy.pgreat_window * 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_lr2_timing_windows() {
+        let config = JudgeConfig::lr2(JudgeRank::Easy);
+        assert!((config.pgreat_window - 21.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_judge_rank_from_bms() {
+        assert_eq!(JudgeRank::from_bms_rank(0), JudgeRank::VeryHard);
+        assert_eq!(JudgeRank::from_bms_rank(1), JudgeRank::Hard);
+        assert_eq!(JudgeRank::from_bms_rank(2), JudgeRank::Normal);
+        assert_eq!(JudgeRank::from_bms_rank(3), JudgeRank::Easy);
+    }
+
+    #[test]
+    fn test_empty_poor_beatoraja() {
+        let judge = JudgeSystem::for_system(JudgeSystemType::Beatoraja, JudgeRank::Easy);
+
+        // Outside window (both directions) should be empty POOR
+        assert!(judge.is_empty_poor(300.0)); // Late
+        assert!(judge.is_empty_poor(-300.0)); // Early
+        assert!(!judge.is_empty_poor(100.0)); // Within window
+    }
+
+    #[test]
+    fn test_empty_poor_lr2() {
+        let judge = JudgeSystem::for_system(JudgeSystemType::Lr2, JudgeRank::Easy);
+
+        // LR2: Only early presses trigger empty POOR
+        assert!(judge.is_empty_poor(-300.0)); // Early - should be empty POOR
+        assert!(!judge.is_empty_poor(300.0)); // Late - should NOT be empty POOR
     }
 }
