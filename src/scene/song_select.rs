@@ -1,7 +1,11 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use macroquad::prelude::*;
 use walkdir::WalkDir;
+
+use crate::database::{SavedScore, ScoreRepository, compute_file_hash};
+use crate::game::ClearLamp;
 
 use super::{GameplayScene, Scene, SceneTransition, SettingsScene};
 
@@ -37,6 +41,7 @@ pub struct SongEntry {
     pub title: String,
     pub artist: String,
     pub level: u32,
+    pub hash: String,
 }
 
 pub struct SongSelectScene {
@@ -47,6 +52,7 @@ pub struct SongSelectScene {
     visible_count: usize,
     sort_key: SortKey,
     level_filter: Option<u32>, // Filter by minimum level
+    scores: HashMap<String, SavedScore>,
 }
 
 impl SongSelectScene {
@@ -59,6 +65,11 @@ impl SongSelectScene {
 
         let filtered_songs: Vec<usize> = (0..all_songs.len()).collect();
 
+        // Load scores from repository
+        let scores = ScoreRepository::new()
+            .map(|repo| repo.all().clone())
+            .unwrap_or_default();
+
         let mut scene = Self {
             all_songs,
             filtered_songs,
@@ -67,9 +78,30 @@ impl SongSelectScene {
             visible_count: 15,
             sort_key: SortKey::Title,
             level_filter: None,
+            scores,
         };
         scene.apply_sort();
         scene
+    }
+
+    fn get_clear_lamp(&self, hash: &str) -> ClearLamp {
+        self.scores
+            .get(hash)
+            .map(|s| ClearLamp::from_u8(s.clear_lamp))
+            .unwrap_or(ClearLamp::NoPlay)
+    }
+
+    fn clear_lamp_color(lamp: ClearLamp) -> Color {
+        match lamp {
+            ClearLamp::NoPlay => Color::new(0.2, 0.2, 0.2, 1.0),
+            ClearLamp::Failed => Color::new(0.5, 0.0, 0.0, 1.0),
+            ClearLamp::AssistEasy => Color::new(0.6, 0.3, 0.8, 1.0),
+            ClearLamp::Easy => Color::new(0.0, 0.8, 0.3, 1.0),
+            ClearLamp::Normal => Color::new(0.2, 0.6, 1.0, 1.0),
+            ClearLamp::Hard => Color::new(1.0, 0.5, 0.0, 1.0),
+            ClearLamp::ExHard => Color::new(1.0, 0.8, 0.0, 1.0),
+            ClearLamp::FullCombo => Color::new(1.0, 0.0, 0.5, 1.0),
+        }
     }
 
     fn apply_sort(&mut self) {
@@ -171,11 +203,15 @@ impl SongSelectScene {
             }
         }
 
+        // Compute hash for score lookup
+        let hash = compute_file_hash(&path).unwrap_or_default();
+
         Some(SongEntry {
             path,
             title,
             artist,
             level,
+            hash,
         })
     }
 
@@ -299,6 +335,11 @@ impl Scene for SongSelectScene {
             }
 
             let color = if is_selected { YELLOW } else { WHITE };
+
+            // Clear lamp indicator
+            let clear_lamp = self.get_clear_lamp(&song.hash);
+            let lamp_color = Self::clear_lamp_color(clear_lamp);
+            draw_rectangle(15.0, y, 6.0, item_height - 10.0, lamp_color);
 
             // Level display
             if song.level > 0 {
