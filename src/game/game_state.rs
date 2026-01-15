@@ -11,8 +11,8 @@ use crate::render::{BgaManager, EffectManager, Highway, LaneCover};
 
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
-    JudgeResult, JudgeSystem, JudgeSystemType, PlayResult, RandomOption, ScoreManager,
-    TimingStats, apply_random_option, generate_seed,
+    JudgeResult, JudgeSystem, JudgeSystemType, PlayResult, RandomOption, ScoreManager, TimingStats,
+    apply_random_option, generate_seed,
 };
 
 /// Active long note state tracking

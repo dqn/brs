@@ -502,8 +502,13 @@ mod tests {
 
     #[test]
     fn test_gas_shifts_gauge() {
-        let mut gauge =
-            GaugeManager::new_with_gas(GaugeType::ExHard, GaugeSystem::Beatoraja, 1000, 160.0, true);
+        let mut gauge = GaugeManager::new_with_gas(
+            GaugeType::ExHard,
+            GaugeSystem::Beatoraja,
+            1000,
+            160.0,
+            true,
+        );
 
         assert_eq!(gauge.active_gauge(), GaugeType::ExHard);
 
