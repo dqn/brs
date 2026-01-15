@@ -148,7 +148,12 @@ impl GameState {
             JudgeSystemType::Beatoraja => GaugeSystem::Beatoraja,
             JudgeSystemType::Lr2 => GaugeSystem::Lr2,
         };
-        self.judge = JudgeSystem::for_system(settings.judge_system, judge_rank);
+        let mut judge = JudgeSystem::for_system(settings.judge_system, judge_rank);
+        if settings.expand_judge {
+            judge = judge.with_expand();
+            println!("Expand judge enabled (1.5x judgment windows)");
+        }
+        self.judge = judge;
 
         // Initialize gauge with GAS enabled (all gauges tracked)
         let total_value = chart.metadata.total;

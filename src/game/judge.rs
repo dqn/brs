@@ -166,6 +166,20 @@ impl ReleaseConfig {
             self.bad_late_window
         }
     }
+
+    /// Create an expanded version of this config (multiply all windows by 1.5x)
+    /// Used for EXPAND JUDGE assist option
+    #[allow(dead_code)]
+    pub fn expand(&self) -> Self {
+        const EXPAND_MULTIPLIER: f64 = 1.5;
+        Self {
+            pgreat_window: self.pgreat_window * EXPAND_MULTIPLIER,
+            great_window: self.great_window * EXPAND_MULTIPLIER,
+            good_window: self.good_window * EXPAND_MULTIPLIER,
+            bad_early_window: self.bad_early_window * EXPAND_MULTIPLIER,
+            bad_late_window: self.bad_late_window * EXPAND_MULTIPLIER,
+        }
+    }
 }
 
 impl Default for ReleaseConfig {
@@ -272,6 +286,20 @@ impl JudgeConfig {
     pub fn max_bad_window(&self) -> f64 {
         self.bad_early_window.max(self.bad_late_window)
     }
+
+    /// Create an expanded version of this config (multiply all windows by 1.5x)
+    /// Used for EXPAND JUDGE assist option
+    #[allow(dead_code)]
+    pub fn expand(&self) -> Self {
+        const EXPAND_MULTIPLIER: f64 = 1.5;
+        Self {
+            pgreat_window: self.pgreat_window * EXPAND_MULTIPLIER,
+            great_window: self.great_window * EXPAND_MULTIPLIER,
+            good_window: self.good_window * EXPAND_MULTIPLIER,
+            bad_early_window: self.bad_early_window * EXPAND_MULTIPLIER,
+            bad_late_window: self.bad_late_window * EXPAND_MULTIPLIER,
+        }
+    }
 }
 
 impl Default for JudgeConfig {
@@ -368,6 +396,14 @@ impl JudgeSystem {
     #[allow(dead_code)]
     pub fn with_release_config(mut self, release_config: ReleaseConfig) -> Self {
         self.release_config = release_config;
+        self
+    }
+
+    /// Apply EXPAND JUDGE (multiply all windows by 1.5x)
+    #[allow(dead_code)]
+    pub fn with_expand(mut self) -> Self {
+        self.config = self.config.expand();
+        self.release_config = self.release_config.expand();
         self
     }
 

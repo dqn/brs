@@ -346,6 +346,9 @@ pub struct GameSettings {
     /// Legacy note option (convert LN to normal notes)
     #[serde(default)]
     pub legacy_note: bool,
+    /// Expand judge option (widen judgment windows by 1.5x)
+    #[serde(default)]
+    pub expand_judge: bool,
     /// Default scroll speed
     pub scroll_speed: f32,
     /// Default SUDDEN+ value
@@ -370,6 +373,7 @@ impl Default for GameSettings {
             random_option: RandomOption::Off,
             auto_scratch: false,
             legacy_note: false,
+            expand_judge: false,
             scroll_speed: 1.0,
             sudden: 0,
             hidden: 0,

@@ -11,6 +11,7 @@ enum MenuItem {
     RandomOption,
     AutoScratch,
     LegacyNote,
+    ExpandJudge,
     ScrollSpeed,
     Sudden,
     Hidden,
@@ -35,6 +36,7 @@ impl MenuItem {
             MenuItem::RandomOption,
             MenuItem::AutoScratch,
             MenuItem::LegacyNote,
+            MenuItem::ExpandJudge,
             MenuItem::ScrollSpeed,
             MenuItem::Sudden,
             MenuItem::Hidden,
@@ -59,6 +61,7 @@ impl MenuItem {
             MenuItem::RandomOption => "Random",
             MenuItem::AutoScratch => "Auto Scratch",
             MenuItem::LegacyNote => "Legacy Note",
+            MenuItem::ExpandJudge => "Expand Judge",
             MenuItem::ScrollSpeed => "Scroll Speed",
             MenuItem::Sudden => "SUDDEN+",
             MenuItem::Hidden => "HIDDEN+",
@@ -175,6 +178,9 @@ impl SettingsScene {
             MenuItem::LegacyNote => {
                 self.settings.legacy_note = !self.settings.legacy_note;
             }
+            MenuItem::ExpandJudge => {
+                self.settings.expand_judge = !self.settings.expand_judge;
+            }
             MenuItem::ScrollSpeed => {
                 let step = if delta > 0 { 0.25 } else { -0.25 };
                 self.settings.scroll_speed = (self.settings.scroll_speed + step).clamp(0.25, 10.0);
@@ -228,6 +234,13 @@ impl SettingsScene {
             }
             MenuItem::LegacyNote => {
                 if self.settings.legacy_note {
+                    "ON".to_string()
+                } else {
+                    "OFF".to_string()
+                }
+            }
+            MenuItem::ExpandJudge => {
+                if self.settings.expand_judge {
                     "ON".to_string()
                 } else {
                     "OFF".to_string()
