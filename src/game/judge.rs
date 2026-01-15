@@ -108,7 +108,10 @@ pub struct JudgeConfig {
     pub pgreat_window: f64,
     pub great_window: f64,
     pub good_window: f64,
-    pub bad_window: f64,
+    /// BAD window for early hits (positive value, player pressed too early)
+    pub bad_early_window: f64,
+    /// BAD window for late hits (positive value, player pressed too late)
+    pub bad_late_window: f64,
 }
 
 /// Release timing windows for CN (Charge Note)
@@ -118,28 +121,62 @@ pub struct ReleaseConfig {
     pub pgreat_window: f64,
     pub great_window: f64,
     pub good_window: f64,
-    pub bad_window: f64,
+    pub bad_early_window: f64,
+    pub bad_late_window: f64,
 }
 
 impl ReleaseConfig {
-    pub fn normal() -> Self {
+    /// Create beatoraja-style release windows
+    pub fn beatoraja() -> Self {
         Self {
             pgreat_window: 120.0,
             great_window: 160.0,
             good_window: 200.0,
-            bad_window: 280.0,
+            bad_early_window: 220.0,
+            bad_late_window: 280.0,
+        }
+    }
+
+    /// Create LR2-style release windows
+    /// LR2 uses the same window as normal note's GOOD window
+    pub fn lr2(rank: JudgeRank) -> Self {
+        let good_window = JudgeConfig::lr2(rank).good_window;
+        Self {
+            pgreat_window: good_window,
+            great_window: good_window,
+            good_window,
+            bad_early_window: good_window,
+            bad_late_window: good_window,
+        }
+    }
+
+    /// Create release config for the given system and rank
+    pub fn for_system(system: JudgeSystemType, rank: JudgeRank) -> Self {
+        match system {
+            JudgeSystemType::Beatoraja => Self::beatoraja(),
+            JudgeSystemType::Lr2 => Self::lr2(rank),
+        }
+    }
+
+    /// Get the BAD window for a given timing direction
+    pub fn bad_window(&self, early: bool) -> f64 {
+        if early {
+            self.bad_early_window
+        } else {
+            self.bad_late_window
         }
     }
 }
 
 impl Default for ReleaseConfig {
     fn default() -> Self {
-        Self::normal()
+        Self::beatoraja()
     }
 }
 
 impl JudgeConfig {
     /// Create beatoraja-style timing windows for given rank
+    /// beatoraja uses scale-based calculation with asymmetric BAD window
     pub fn beatoraja(rank: JudgeRank) -> Self {
         let scale = match rank {
             JudgeRank::VeryEasy => 1.25,
@@ -153,26 +190,44 @@ impl JudgeConfig {
             pgreat_window: 20.0 * scale,
             great_window: 60.0 * scale,
             good_window: 150.0 * scale,
-            bad_window: 280.0 * scale,
+            // beatoraja has asymmetric BAD: +220ms (early) / -280ms (late)
+            bad_early_window: 220.0 * scale,
+            bad_late_window: 280.0 * scale,
         }
     }
 
     /// Create LR2-style timing windows for given rank
+    /// LR2 uses fixed windows per rank with symmetric BAD
     pub fn lr2(rank: JudgeRank) -> Self {
-        // LR2 uses fixed windows per rank (not scaled)
-        let pgreat_ms = match rank {
-            JudgeRank::VeryEasy | JudgeRank::Easy => 21.0,
-            JudgeRank::Normal => 18.0,
-            JudgeRank::Hard => 15.0,
-            JudgeRank::VeryHard => 8.0,
-        };
-
-        // Other windows scale proportionally
-        Self {
-            pgreat_window: pgreat_ms,
-            great_window: pgreat_ms * 3.0, // ~60ms for EASY
-            good_window: pgreat_ms * 6.0,  // ~120ms for EASY
-            bad_window: pgreat_ms * 10.0,  // ~200ms for EASY
+        match rank {
+            JudgeRank::VeryEasy | JudgeRank::Easy => Self {
+                pgreat_window: 21.0,
+                great_window: 60.0,
+                good_window: 120.0,
+                bad_early_window: 200.0,
+                bad_late_window: 200.0,
+            },
+            JudgeRank::Normal => Self {
+                pgreat_window: 18.0,
+                great_window: 40.0,
+                good_window: 100.0,
+                bad_early_window: 200.0,
+                bad_late_window: 200.0,
+            },
+            JudgeRank::Hard => Self {
+                pgreat_window: 15.0,
+                great_window: 30.0,
+                good_window: 60.0,
+                bad_early_window: 200.0,
+                bad_late_window: 200.0,
+            },
+            JudgeRank::VeryHard => Self {
+                pgreat_window: 8.0,
+                great_window: 24.0,
+                good_window: 40.0,
+                bad_early_window: 200.0,
+                bad_late_window: 200.0,
+            },
         }
     }
 
@@ -202,6 +257,21 @@ impl JudgeConfig {
     pub fn builder() -> JudgeConfigBuilder {
         JudgeConfigBuilder::default()
     }
+
+    /// Get the BAD window for a given timing direction
+    pub fn bad_window(&self, early: bool) -> f64 {
+        if early {
+            self.bad_early_window
+        } else {
+            self.bad_late_window
+        }
+    }
+
+    /// Get the maximum BAD window (for miss detection)
+    #[allow(dead_code)]
+    pub fn max_bad_window(&self) -> f64 {
+        self.bad_early_window.max(self.bad_late_window)
+    }
 }
 
 impl Default for JudgeConfig {
@@ -216,7 +286,8 @@ pub struct JudgeConfigBuilder {
     pgreat_window: Option<f64>,
     great_window: Option<f64>,
     good_window: Option<f64>,
-    bad_window: Option<f64>,
+    bad_early_window: Option<f64>,
+    bad_late_window: Option<f64>,
 }
 
 #[allow(dead_code)]
@@ -236,8 +307,20 @@ impl JudgeConfigBuilder {
         self
     }
 
+    pub fn bad_early_window(mut self, ms: f64) -> Self {
+        self.bad_early_window = Some(ms);
+        self
+    }
+
+    pub fn bad_late_window(mut self, ms: f64) -> Self {
+        self.bad_late_window = Some(ms);
+        self
+    }
+
+    /// Set symmetric BAD window (same for early and late)
     pub fn bad_window(mut self, ms: f64) -> Self {
-        self.bad_window = Some(ms);
+        self.bad_early_window = Some(ms);
+        self.bad_late_window = Some(ms);
         self
     }
 
@@ -247,7 +330,8 @@ impl JudgeConfigBuilder {
             pgreat_window: self.pgreat_window.unwrap_or(default.pgreat_window),
             great_window: self.great_window.unwrap_or(default.great_window),
             good_window: self.good_window.unwrap_or(default.good_window),
-            bad_window: self.bad_window.unwrap_or(default.bad_window),
+            bad_early_window: self.bad_early_window.unwrap_or(default.bad_early_window),
+            bad_late_window: self.bad_late_window.unwrap_or(default.bad_late_window),
         }
     }
 }
@@ -277,7 +361,7 @@ impl JudgeSystem {
             system_type,
             rank,
             config: JudgeConfig::for_system(system_type, rank),
-            release_config: ReleaseConfig::default(),
+            release_config: ReleaseConfig::for_system(system_type, rank),
         }
     }
 
@@ -294,6 +378,9 @@ impl JudgeSystem {
     }
 
     pub fn judge(&self, time_diff_ms: f64) -> Option<JudgeResult> {
+        // time_diff_ms > 0 means player pressed early (note hasn't arrived yet)
+        // time_diff_ms < 0 means player pressed late (note has passed)
+        let early = time_diff_ms > 0.0;
         let abs_diff = time_diff_ms.abs();
 
         if abs_diff <= self.config.pgreat_window {
@@ -302,7 +389,7 @@ impl JudgeSystem {
             Some(JudgeResult::Great)
         } else if abs_diff <= self.config.good_window {
             Some(JudgeResult::Good)
-        } else if abs_diff <= self.config.bad_window {
+        } else if abs_diff <= self.config.bad_window(early) {
             Some(JudgeResult::Bad)
         } else {
             None
@@ -311,6 +398,7 @@ impl JudgeSystem {
 
     /// Judge release timing for CN (Charge Note)
     pub fn judge_release(&self, time_diff_ms: f64) -> Option<JudgeResult> {
+        let early = time_diff_ms > 0.0;
         let abs_diff = time_diff_ms.abs();
 
         if abs_diff <= self.release_config.pgreat_window {
@@ -319,7 +407,7 @@ impl JudgeSystem {
             Some(JudgeResult::Great)
         } else if abs_diff <= self.release_config.good_window {
             Some(JudgeResult::Good)
-        } else if abs_diff <= self.release_config.bad_window {
+        } else if abs_diff <= self.release_config.bad_window(early) {
             Some(JudgeResult::Bad)
         } else {
             None
@@ -328,21 +416,25 @@ impl JudgeSystem {
 
     /// Check if release is too early (before the release window)
     pub fn is_early_release(&self, time_diff_ms: f64) -> bool {
-        time_diff_ms > self.release_config.bad_window
+        time_diff_ms > self.release_config.bad_early_window
     }
 
     /// Check if a button press should trigger empty POOR
     /// time_diff_ms: current_time - nearest_note_time (positive = note is in the past)
     #[allow(dead_code)]
     pub fn is_empty_poor(&self, time_diff_ms: f64) -> bool {
+        let early = time_diff_ms > 0.0;
+        let abs_diff = time_diff_ms.abs();
+        let bad_window = self.config.bad_window(early);
+
         match self.system_type {
             JudgeSystemType::Beatoraja => {
                 // beatoraja: both early and late presses can trigger empty POOR
-                time_diff_ms.abs() > self.config.bad_window
+                abs_diff > bad_window
             }
             JudgeSystemType::Lr2 => {
                 // LR2: only early presses trigger empty POOR (not after)
-                time_diff_ms < -self.config.bad_window
+                time_diff_ms < 0.0 && abs_diff > self.config.bad_late_window
             }
         }
     }
@@ -350,16 +442,21 @@ impl JudgeSystem {
     // Public API for checking if time difference is within any judge window
     #[allow(dead_code)]
     pub fn is_in_window(&self, time_diff_ms: f64) -> bool {
-        time_diff_ms.abs() <= self.config.bad_window
+        let early = time_diff_ms > 0.0;
+        time_diff_ms.abs() <= self.config.bad_window(early)
     }
 
     pub fn is_missed(&self, time_diff_ms: f64) -> bool {
-        time_diff_ms < -self.config.bad_window
+        // Note is missed when it's past the late BAD window
+        time_diff_ms < -self.config.bad_late_window
     }
 
     #[allow(dead_code)]
     pub fn release_bad_window(&self) -> f64 {
-        self.release_config.bad_window
+        // Return the maximum for compatibility
+        self.release_config
+            .bad_early_window
+            .max(self.release_config.bad_late_window)
     }
 }
 
@@ -379,7 +476,9 @@ mod tests {
         assert!((config.pgreat_window - 20.0).abs() < 0.01);
         assert!((config.great_window - 60.0).abs() < 0.01);
         assert!((config.good_window - 150.0).abs() < 0.01);
-        assert!((config.bad_window - 280.0).abs() < 0.01);
+        // beatoraja has asymmetric BAD: +220ms (early) / -280ms (late)
+        assert!((config.bad_early_window - 220.0).abs() < 0.01);
+        assert!((config.bad_late_window - 280.0).abs() < 0.01);
     }
 
     #[test]
@@ -389,12 +488,40 @@ mod tests {
 
         // Hard should be half of Easy
         assert!((hard.pgreat_window - easy.pgreat_window * 0.5).abs() < 0.01);
+        assert!((hard.bad_early_window - easy.bad_early_window * 0.5).abs() < 0.01);
+        assert!((hard.bad_late_window - easy.bad_late_window * 0.5).abs() < 0.01);
     }
 
     #[test]
     fn test_lr2_timing_windows() {
         let config = JudgeConfig::lr2(JudgeRank::Easy);
         assert!((config.pgreat_window - 21.0).abs() < 0.01);
+        assert!((config.great_window - 60.0).abs() < 0.01);
+        assert!((config.good_window - 120.0).abs() < 0.01);
+        // LR2 has symmetric BAD
+        assert!((config.bad_early_window - 200.0).abs() < 0.01);
+        assert!((config.bad_late_window - 200.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_lr2_timing_windows_all_ranks() {
+        // NORMAL
+        let normal = JudgeConfig::lr2(JudgeRank::Normal);
+        assert!((normal.pgreat_window - 18.0).abs() < 0.01);
+        assert!((normal.great_window - 40.0).abs() < 0.01);
+        assert!((normal.good_window - 100.0).abs() < 0.01);
+
+        // HARD
+        let hard = JudgeConfig::lr2(JudgeRank::Hard);
+        assert!((hard.pgreat_window - 15.0).abs() < 0.01);
+        assert!((hard.great_window - 30.0).abs() < 0.01);
+        assert!((hard.good_window - 60.0).abs() < 0.01);
+
+        // VERY HARD
+        let vhard = JudgeConfig::lr2(JudgeRank::VeryHard);
+        assert!((vhard.pgreat_window - 8.0).abs() < 0.01);
+        assert!((vhard.great_window - 24.0).abs() < 0.01);
+        assert!((vhard.good_window - 40.0).abs() < 0.01);
     }
 
     #[test]
@@ -410,8 +537,10 @@ mod tests {
         let judge = JudgeSystem::for_system(JudgeSystemType::Beatoraja, JudgeRank::Easy);
 
         // Outside window (both directions) should be empty POOR
-        assert!(judge.is_empty_poor(300.0)); // Late
-        assert!(judge.is_empty_poor(-300.0)); // Early
+        // Early press (positive time_diff means note hasn't arrived)
+        assert!(judge.is_empty_poor(300.0)); // Way too early
+        // Late press (negative time_diff means note has passed)
+        assert!(judge.is_empty_poor(-300.0)); // Way too late
         assert!(!judge.is_empty_poor(100.0)); // Within window
     }
 
@@ -419,8 +548,44 @@ mod tests {
     fn test_empty_poor_lr2() {
         let judge = JudgeSystem::for_system(JudgeSystemType::Lr2, JudgeRank::Easy);
 
-        // LR2: Only early presses trigger empty POOR
-        assert!(judge.is_empty_poor(-300.0)); // Early - should be empty POOR
-        assert!(!judge.is_empty_poor(300.0)); // Late - should NOT be empty POOR
+        // LR2: Only late presses trigger empty POOR (after the note)
+        assert!(judge.is_empty_poor(-300.0)); // Late - should be empty POOR
+        assert!(!judge.is_empty_poor(300.0)); // Early - should NOT be empty POOR in LR2
+    }
+
+    #[test]
+    fn test_beatoraja_asymmetric_bad_judgment() {
+        let judge = JudgeSystem::for_system(JudgeSystemType::Beatoraja, JudgeRank::Easy);
+
+        // Early hit at 210ms should be BAD (within +220ms window)
+        assert_eq!(judge.judge(210.0), Some(JudgeResult::Bad));
+        // Early hit at 230ms should be None (outside +220ms window)
+        assert_eq!(judge.judge(230.0), None);
+
+        // Late hit at -270ms should be BAD (within -280ms window)
+        assert_eq!(judge.judge(-270.0), Some(JudgeResult::Bad));
+        // Late hit at -290ms should be None (outside -280ms window)
+        assert_eq!(judge.judge(-290.0), None);
+    }
+
+    #[test]
+    fn test_release_config_beatoraja() {
+        let config = ReleaseConfig::beatoraja();
+        assert!((config.pgreat_window - 120.0).abs() < 0.01);
+        assert!((config.great_window - 160.0).abs() < 0.01);
+        assert!((config.good_window - 200.0).abs() < 0.01);
+        assert!((config.bad_early_window - 220.0).abs() < 0.01);
+        assert!((config.bad_late_window - 280.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_release_config_lr2() {
+        let config = ReleaseConfig::lr2(JudgeRank::Easy);
+        // LR2 release uses GOOD window for all judgments
+        assert!((config.pgreat_window - 120.0).abs() < 0.01);
+        assert!((config.great_window - 120.0).abs() < 0.01);
+        assert!((config.good_window - 120.0).abs() < 0.01);
+        assert!((config.bad_early_window - 120.0).abs() < 0.01);
+        assert!((config.bad_late_window - 120.0).abs() < 0.01);
     }
 }
