@@ -84,14 +84,14 @@ src/
 - [x] コントローラー対応 (IIDX 専コン軸入力対応)
 - [x] BGA (静止画 + 動画)
 - [x] ロングノート描画
-- [ ] エフェクト
+- [x] エフェクト
 
 ### Phase 6: Essential Features ✅
 - [x] ゲージシステム (EASY/NORMAL/HARD/EX-HARD)
 - [x] Gauge Auto Shift (GAS)
 - [x] LR2/beatoraja 判定・ゲージ切替
 - [x] MIRROR/RANDOM オプション
-- [ ] スコア・クリアランプ保存
+- [x] スコア・クリアランプ保存
 - [x] SUDDEN+/HIDDEN/LIFT
 - [x] FAST/SLOW 表示 (ミリ秒表示対応)
 - [x] Green Number 表示
