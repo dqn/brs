@@ -687,21 +687,23 @@ impl GameState {
             );
         }
 
-        // Display FAST/SLOW for non-PGREAT judgments (below the animated judge effect)
+        // Display FAST/SLOW with milliseconds for non-PGREAT judgments
         if let Some(result) = self.last_judgment {
             if result != JudgeResult::PGreat {
                 if let Some(timing_diff) = self.last_timing_diff_ms {
                     use super::TimingDirection;
                     let direction = TimingDirection::from_timing_diff(timing_diff);
-                    let (timing_text, timing_color) = match direction {
+                    let (timing_label, timing_color) = match direction {
                         TimingDirection::Fast => ("FAST", Color::new(0.0, 0.8, 1.0, 1.0)),
                         TimingDirection::Slow => ("SLOW", Color::new(1.0, 0.5, 0.0, 1.0)),
                         TimingDirection::Exact => ("", WHITE),
                     };
-                    if !timing_text.is_empty() {
-                        let x = screen_width() / 2.0 - 30.0;
+                    if !timing_label.is_empty() {
+                        // Format: "FAST -15ms" or "SLOW +23ms"
+                        let timing_text = format!("{} {:+.0}ms", timing_label, -timing_diff);
+                        let x = screen_width() / 2.0 - 50.0;
                         draw_text(
-                            timing_text,
+                            &timing_text,
                             x,
                             screen_height() / 2.0 + 40.0,
                             24.0,
