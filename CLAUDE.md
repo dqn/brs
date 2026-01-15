@@ -58,35 +58,35 @@ src/
 - [x] BGM 再生
 - [x] STOP 対応
 
-### Phase 3: Core Gameplay (85%)
+### Phase 3: Core Gameplay ✅
 - [x] 入力システム
 - [x] ハイウェイスクロール
 - [x] ノーツ判定
 - [x] スコア・コンボ
-- [ ] ロングノート判定 (構造のみ定義済み)
+- [x] ロングノート判定 (LN/CN/HCN)
 
 ### Phase 4: Song Selection ✅
 - [x] フォルダスキャン
 - [x] 選曲 UI
 
-### Phase 5: Polish (70%)
+### Phase 5: Polish ✅
 - [x] リザルト画面
 - [x] 設定画面
 - [x] キーバインド設定
 - [x] コントローラー対応 (IIDX 専コン軸入力対応)
 - [x] BGA (静止画 + 動画)
-- [ ] ロングノート
+- [x] ロングノート描画
 - [ ] エフェクト
 
-### Phase 6: Essential Features
-- [ ] ゲージシステム (EASY/NORMAL/HARD/EX-HARD)
-- [ ] Gauge Auto Shift (GAS)
-- [ ] LR2/beatoraja 判定・ゲージ切替
-- [ ] MIRROR/RANDOM オプション
+### Phase 6: Essential Features ✅
+- [x] ゲージシステム (EASY/NORMAL/HARD/EX-HARD)
+- [x] Gauge Auto Shift (GAS)
+- [x] LR2/beatoraja 判定・ゲージ切替
+- [x] MIRROR/RANDOM オプション
 - [ ] スコア・クリアランプ保存
 - [x] SUDDEN+/HIDDEN/LIFT
-- [ ] FAST/SLOW 表示
-- [ ] Green Number 表示
+- [x] FAST/SLOW 表示 (ミリ秒表示対応)
+- [x] Green Number 表示
 
 ### Future
 - [ ] PMS 対応
