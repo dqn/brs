@@ -6,8 +6,8 @@ use bms_rs::bms::prelude::*;
 use fraction::Fraction;
 
 use super::{
-    BgmEvent, BmsError, BpmChange, Chart, MeasureLength, Metadata, Note, NoteChannel, NoteType,
-    StopEvent, TimingData,
+    BgmEvent, BmsError, BpmChange, Chart, LnType, MeasureLength, Metadata, Note, NoteChannel,
+    NoteType, StopEvent, TimingData,
 };
 
 pub struct BmsLoader;
@@ -50,6 +50,12 @@ impl BmsLoader {
         let judge = &bms.judge;
         let initial_bpm = bms.bpm.bpm.as_ref().map(decimal_to_f64).unwrap_or(130.0);
 
+        let ln_type = match bms.repr.ln_mode {
+            LnMode::Ln => LnType::Ln,
+            LnMode::Cn => LnType::Cn,
+            LnMode::Hcn => LnType::Hcn,
+        };
+
         Metadata {
             title: music_info.title.as_deref().unwrap_or("Unknown").to_string(),
             subtitle: music_info.subtitle.clone(),
@@ -63,6 +69,7 @@ impl BmsLoader {
             play_level: meta.play_level.unwrap_or(0) as u32,
             rank: judge.rank.map(judge_level_to_u32).unwrap_or(2),
             total: judge.total.as_ref().map(decimal_to_f64).unwrap_or(100.0),
+            ln_type,
         }
     }
 
@@ -116,8 +123,12 @@ impl BmsLoader {
     }
 
     fn extract_notes(bms: &Bms, timing: &TimingData) -> Result<(Vec<Note>, Vec<BgmEvent>)> {
-        let mut notes = Vec::new();
+        use super::LANE_COUNT;
+
+        let mut notes: Vec<Note> = Vec::new();
         let mut bgm_events = Vec::new();
+        // Track pending long note starts per lane
+        let mut pending_ln_starts: [Option<(usize, f64)>; LANE_COUNT] = [None; LANE_COUNT];
 
         for obj in bms.wav.notes.all_notes() {
             if obj.wav_id.is_null() {
@@ -144,15 +155,53 @@ impl BmsLoader {
                 });
             } else if let Some(note_channel) = channel_id_to_note_channel(&obj.channel_id) {
                 let time_ms = super::calculate_time_ms(measure, position, timing);
-                let note_type = channel_id_to_note_type(&obj.channel_id);
-                notes.push(Note {
-                    measure,
-                    position,
-                    time_ms,
-                    channel: note_channel,
-                    keysound_id,
-                    note_type,
-                });
+                let note_kind = obj
+                    .channel_id
+                    .try_into_map::<KeyLayoutBeat>()
+                    .map(|m| m.kind());
+
+                let lane_idx = note_channel.lane_index();
+
+                if note_kind == Some(NoteKind::Long) {
+                    // Long note handling: pair LongStart and LongEnd
+                    if let Some((start_idx, _start_time)) = pending_ln_starts[lane_idx].take() {
+                        // This is the end of a long note
+                        notes[start_idx].long_end_time_ms = Some(time_ms);
+                        notes.push(Note {
+                            measure,
+                            position,
+                            time_ms,
+                            channel: note_channel,
+                            keysound_id,
+                            note_type: NoteType::LongEnd,
+                            long_end_time_ms: None,
+                        });
+                    } else {
+                        // This is the start of a long note
+                        let idx = notes.len();
+                        pending_ln_starts[lane_idx] = Some((idx, time_ms));
+                        notes.push(Note {
+                            measure,
+                            position,
+                            time_ms,
+                            channel: note_channel,
+                            keysound_id,
+                            note_type: NoteType::LongStart,
+                            long_end_time_ms: None,
+                        });
+                    }
+                } else {
+                    let note_type = channel_id_to_note_type(&obj.channel_id);
+                    notes.push(Note {
+                        measure,
+                        position,
+                        time_ms,
+                        channel: note_channel,
+                        keysound_id,
+                        note_type,
+                        long_end_time_ms: None,
+                    });
+                }
             }
         }
 

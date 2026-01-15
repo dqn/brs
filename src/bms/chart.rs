@@ -19,6 +19,8 @@ pub struct Metadata {
     pub play_level: u32,
     pub rank: u32,
     pub total: f64,
+    /// Long note type (#LNTYPE)
+    pub ln_type: LnType,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -57,6 +59,8 @@ pub struct Note {
     pub channel: NoteChannel,
     pub keysound_id: u32,
     pub note_type: NoteType,
+    /// For LongStart: the end time in ms
+    pub long_end_time_ms: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,6 +112,18 @@ impl NoteChannel {
             Self::Key7 => 7,
         }
     }
+}
+
+/// Long note type (LN/CN/HCN)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum LnType {
+    /// Ez2DJ style - no release judgment
+    #[default]
+    Ln,
+    /// IIDX style - with release judgment (wider window)
+    Cn,
+    /// Hell Charge Note - damage while released
+    Hcn,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

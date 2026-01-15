@@ -4,10 +4,23 @@ use anyhow::Result;
 use macroquad::prelude::*;
 
 use crate::audio::{AudioManager, AudioScheduler};
-use crate::bms::{BmsLoader, Chart, LANE_COUNT, NoteType};
+use crate::bms::{BmsLoader, Chart, LnType, LANE_COUNT, NoteType};
 use crate::render::Highway;
 
 use super::{GamePlayState, InputHandler, JudgeResult, JudgeSystem, PlayResult, ScoreManager};
+
+/// Active long note state tracking
+#[derive(Clone, Copy)]
+struct ActiveLongNote {
+    /// Index of LongStart note
+    start_idx: usize,
+    /// End time in ms
+    end_time_ms: f64,
+    /// Judgment result from start press
+    start_judgment: JudgeResult,
+    /// Long note type (LN/CN/HCN)
+    ln_type: LnType,
+}
 
 pub struct GameState {
     chart: Option<Chart>,
@@ -23,7 +36,7 @@ pub struct GameState {
     current_time_ms: f64,
     playing: bool,
     last_judgment: Option<JudgeResult>,
-    active_long_notes: [Option<usize>; LANE_COUNT],
+    active_long_notes: [Option<ActiveLongNote>; LANE_COUNT],
 }
 
 impl GameState {
@@ -42,7 +55,7 @@ impl GameState {
             current_time_ms: 0.0,
             playing: false,
             last_judgment: None,
-            active_long_notes: [None; LANE_COUNT],
+            active_long_notes: [const { None }; LANE_COUNT],
         }
     }
 
@@ -89,7 +102,7 @@ impl GameState {
             }
             self.playing = false;
             self.last_judgment = None;
-            self.active_long_notes = [None; LANE_COUNT];
+            self.active_long_notes = [const { None }; LANE_COUNT];
         }
 
         if is_key_pressed(KeyCode::Up) {
@@ -118,6 +131,7 @@ impl GameState {
             _ => return,
         };
 
+        let ln_type = chart.metadata.ln_type;
         let pressed_lanes = self.input.get_pressed_lanes();
         let released_lanes = self.input.get_released_lanes();
 
@@ -144,7 +158,13 @@ impl GameState {
                     audio.play(note.keysound_id);
 
                     if note.note_type == NoteType::LongStart {
-                        self.active_long_notes[lane_idx] = Some(i);
+                        let end_time_ms = note.long_end_time_ms.unwrap_or(note.time_ms);
+                        self.active_long_notes[lane_idx] = Some(ActiveLongNote {
+                            start_idx: i,
+                            end_time_ms,
+                            start_judgment: result,
+                            ln_type,
+                        });
                     }
                     break;
                 }
@@ -154,33 +174,84 @@ impl GameState {
         // Handle key releases for long notes
         for lane in released_lanes {
             let lane_idx = lane.lane_index();
-            if let Some(_start_idx) = self.active_long_notes[lane_idx].take() {
-                // Find the corresponding LongEnd
+            if let Some(active_ln) = self.active_long_notes[lane_idx].take() {
+                // Calculate time difference from end time
+                let time_diff = active_ln.end_time_ms - self.current_time_ms;
+
+                // Find the corresponding LongEnd note
+                let mut long_end_idx = None;
                 for &i in &self.lane_index[lane_idx] {
                     let note = &chart.notes[i];
-
-                    if note.note_type != NoteType::LongEnd {
-                        continue;
-                    }
-
-                    if !play_state.get_state(i).is_some_and(|s| s.is_pending()) {
-                        continue;
-                    }
-
-                    let time_diff = note.time_ms - self.current_time_ms;
-
-                    if let Some(result) = self.judge.judge(time_diff) {
-                        play_state.set_judged(i, result);
-                        self.score.add_judgment(result);
-                        self.last_judgment = Some(result);
-                        audio.play(note.keysound_id);
+                    if note.note_type == NoteType::LongEnd
+                        && note.time_ms > chart.notes[active_ln.start_idx].time_ms
+                        && play_state.get_state(i).is_some_and(|s| s.is_pending())
+                    {
+                        long_end_idx = Some(i);
                         break;
-                    } else if time_diff < 0.0 {
-                        // Released too early
-                        play_state.set_missed(i);
-                        self.score.add_judgment(JudgeResult::Poor);
-                        self.last_judgment = Some(JudgeResult::Poor);
-                        break;
+                    }
+                }
+
+                match active_ln.ln_type {
+                    LnType::Ln => {
+                        // LN: No release judgment, just check if held until end
+                        if let Some(end_idx) = long_end_idx {
+                            if time_diff <= 0.0 {
+                                // Released at or after end time - success
+                                play_state.set_judged(end_idx, active_ln.start_judgment);
+                                self.score.add_judgment(active_ln.start_judgment);
+                                if let Some(audio) = &mut self.audio {
+                                    audio.play(chart.notes[end_idx].keysound_id);
+                                }
+                            } else {
+                                // Released too early - POOR
+                                play_state.set_missed(end_idx);
+                                self.score.add_judgment(JudgeResult::Poor);
+                                self.last_judgment = Some(JudgeResult::Poor);
+                            }
+                        }
+                    }
+                    LnType::Cn => {
+                        // CN: Judge the release timing
+                        if let Some(end_idx) = long_end_idx {
+                            if self.judge.is_early_release(time_diff) {
+                                // Released too early - POOR
+                                play_state.set_missed(end_idx);
+                                self.score.add_judgment(JudgeResult::Poor);
+                                self.last_judgment = Some(JudgeResult::Poor);
+                            } else if let Some(release_result) = self.judge.judge_release(time_diff)
+                            {
+                                // Release judgment
+                                play_state.set_judged(end_idx, release_result);
+                                self.score.add_judgment(release_result);
+                                self.last_judgment = Some(release_result);
+                                if let Some(audio) = &mut self.audio {
+                                    audio.play(chart.notes[end_idx].keysound_id);
+                                }
+                            } else {
+                                // Released too late - BAD
+                                play_state.set_judged(end_idx, JudgeResult::Bad);
+                                self.score.add_judgment(JudgeResult::Bad);
+                                self.last_judgment = Some(JudgeResult::Bad);
+                            }
+                        }
+                    }
+                    LnType::Hcn => {
+                        // HCN: Similar to LN but with damage while released (handled elsewhere)
+                        if let Some(end_idx) = long_end_idx {
+                            if time_diff <= 0.0 {
+                                play_state.set_judged(end_idx, active_ln.start_judgment);
+                                self.score.add_judgment(active_ln.start_judgment);
+                                if let Some(audio) = &mut self.audio {
+                                    audio.play(chart.notes[end_idx].keysound_id);
+                                }
+                            } else {
+                                // Released during hold - continue tracking (re-press allowed)
+                                // For now, treat early release as POOR
+                                play_state.set_missed(end_idx);
+                                self.score.add_judgment(JudgeResult::Poor);
+                                self.last_judgment = Some(JudgeResult::Poor);
+                            }
+                        }
                     }
                 }
             }
@@ -218,10 +289,10 @@ impl GameState {
             }
         }
 
-        // Check for missed long note ends (released too late)
+        // Check for missed long note ends (held too long without release)
         for lane_idx in 0..LANE_COUNT {
-            if let Some(start_idx) = self.active_long_notes[lane_idx] {
-                let start_note = &chart.notes[start_idx];
+            if let Some(active_ln) = &self.active_long_notes[lane_idx] {
+                let start_note = &chart.notes[active_ln.start_idx];
 
                 // Find the corresponding LongEnd
                 for &i in &self.lane_index[lane_idx] {
@@ -241,7 +312,13 @@ impl GameState {
 
                     let time_diff = note.time_ms - self.current_time_ms;
 
-                    if self.judge.is_missed(time_diff) {
+                    // For CN, use release window; for LN/HCN, use normal window
+                    let missed = match active_ln.ln_type {
+                        LnType::Cn => time_diff < -self.judge.release_bad_window(),
+                        _ => self.judge.is_missed(time_diff),
+                    };
+
+                    if missed {
                         play_state.set_missed(i);
                         self.score.add_judgment(JudgeResult::Poor);
                         self.last_judgment = Some(JudgeResult::Poor);

@@ -33,6 +33,33 @@ pub struct JudgeConfig {
     pub bad_window: f64,
 }
 
+/// Release timing windows for CN (Charge Note)
+/// These are wider than normal note windows
+#[derive(Debug, Clone)]
+pub struct ReleaseConfig {
+    pub pgreat_window: f64,
+    pub great_window: f64,
+    pub good_window: f64,
+    pub bad_window: f64,
+}
+
+impl ReleaseConfig {
+    pub fn normal() -> Self {
+        Self {
+            pgreat_window: 120.0,
+            great_window: 160.0,
+            good_window: 200.0,
+            bad_window: 280.0,
+        }
+    }
+}
+
+impl Default for ReleaseConfig {
+    fn default() -> Self {
+        Self::normal()
+    }
+}
+
 impl JudgeConfig {
     pub fn normal() -> Self {
         Self {
@@ -119,11 +146,21 @@ impl JudgeConfigBuilder {
 
 pub struct JudgeSystem {
     config: JudgeConfig,
+    release_config: ReleaseConfig,
 }
 
 impl JudgeSystem {
     pub fn new(config: JudgeConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            release_config: ReleaseConfig::default(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn with_release_config(mut self, release_config: ReleaseConfig) -> Self {
+        self.release_config = release_config;
+        self
     }
 
     pub fn judge(&self, time_diff_ms: f64) -> Option<JudgeResult> {
@@ -142,6 +179,28 @@ impl JudgeSystem {
         }
     }
 
+    /// Judge release timing for CN (Charge Note)
+    pub fn judge_release(&self, time_diff_ms: f64) -> Option<JudgeResult> {
+        let abs_diff = time_diff_ms.abs();
+
+        if abs_diff <= self.release_config.pgreat_window {
+            Some(JudgeResult::PGreat)
+        } else if abs_diff <= self.release_config.great_window {
+            Some(JudgeResult::Great)
+        } else if abs_diff <= self.release_config.good_window {
+            Some(JudgeResult::Good)
+        } else if abs_diff <= self.release_config.bad_window {
+            Some(JudgeResult::Bad)
+        } else {
+            None
+        }
+    }
+
+    /// Check if release is too early (before the release window)
+    pub fn is_early_release(&self, time_diff_ms: f64) -> bool {
+        time_diff_ms > self.release_config.bad_window
+    }
+
     // Public API for checking if time difference is within any judge window
     #[allow(dead_code)]
     pub fn is_in_window(&self, time_diff_ms: f64) -> bool {
@@ -150,6 +209,11 @@ impl JudgeSystem {
 
     pub fn is_missed(&self, time_diff_ms: f64) -> bool {
         time_diff_ms < -self.config.bad_window
+    }
+
+    #[allow(dead_code)]
+    pub fn release_bad_window(&self) -> f64 {
+        self.release_config.bad_window
     }
 }
 
