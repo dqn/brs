@@ -99,14 +99,9 @@ src/
 - `docs/architecture.md` - アーキテクチャ
 - `docs/technical-challenges.md` - 技術課題
 - `docs/feature-plans/` - 機能実装計画
-  - `01-gauge-system.md` - ゲージシステム、GAS、LR2/beatoraja切替
   - `02-judge-timing.md` - 判定タイミング仕様
-  - `03-random-options.md` - RANDOM/MIRROR アルゴリズム
   - `04-long-notes.md` - LN/CN/HCN 判定仕様
-  - `05-lane-cover.md` - SUDDEN+/HIDDEN/LIFT
   - `06-timing-display.md` - FAST/SLOW、Green Number
-  - `07-score-database.md` - スコア永続化
-  - `08-song-select.md` - フィルター・ソート機能
 
 ## Design Principles
 
