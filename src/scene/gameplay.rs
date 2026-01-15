@@ -37,7 +37,9 @@ impl Scene for GameplayScene {
 
         self.state.update();
 
-        if self.state.is_finished() && !self.finished {
+        // Check for game completion or failure
+        let should_finish = self.state.is_finished() || self.state.is_failed();
+        if should_finish && !self.finished {
             self.finished = true;
             let result = self.state.get_result();
             return SceneTransition::Replace(Box::new(ResultScene::new(result)));

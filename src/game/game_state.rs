@@ -4,10 +4,13 @@ use anyhow::Result;
 use macroquad::prelude::*;
 
 use crate::audio::{AudioManager, AudioScheduler};
-use crate::bms::{BmsLoader, Chart, LnType, LANE_COUNT, NoteType};
+use crate::bms::{BmsLoader, Chart, LANE_COUNT, LnType, NoteType};
 use crate::render::Highway;
 
-use super::{GamePlayState, InputHandler, JudgeResult, JudgeSystem, PlayResult, ScoreManager};
+use super::{
+    ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeResult,
+    JudgeSystem, PlayResult, ScoreManager,
+};
 
 /// Active long note state tracking
 #[derive(Clone, Copy)]
@@ -31,6 +34,7 @@ pub struct GameState {
     input: InputHandler,
     judge: JudgeSystem,
     score: ScoreManager,
+    gauge: Option<GaugeManager>,
     play_state: Option<GamePlayState>,
     scroll_speed: f32,
     current_time_ms: f64,
@@ -50,6 +54,7 @@ impl GameState {
             input: InputHandler::new(),
             judge: JudgeSystem::default(),
             score: ScoreManager::new(),
+            gauge: None,
             play_state: None,
             scroll_speed: 1.0,
             current_time_ms: 0.0,
@@ -77,9 +82,16 @@ impl GameState {
             println!("Loaded {} keysounds", loaded);
         }
 
-        let note_count = chart.notes.len();
+        let note_count = chart.note_count();
         self.lane_index = chart.build_lane_index();
-        self.play_state = Some(GamePlayState::new(note_count));
+        self.play_state = Some(GamePlayState::new(chart.notes.len()));
+        // Initialize gauge with GAS enabled (all gauges tracked)
+        self.gauge = Some(GaugeManager::new_with_gas(
+            GaugeType::Normal,
+            GaugeSystem::Beatoraja,
+            note_count,
+            true,
+        ));
         self.chart = Some(chart);
         self.audio = Some(audio);
         self.scheduler.reset();
@@ -99,6 +111,15 @@ impl GameState {
             self.score.reset();
             if let Some(play_state) = &mut self.play_state {
                 play_state.reset();
+            }
+            // Reset gauge
+            if let Some(chart) = &self.chart {
+                self.gauge = Some(GaugeManager::new_with_gas(
+                    GaugeType::Normal,
+                    GaugeSystem::Beatoraja,
+                    chart.note_count(),
+                    true,
+                ));
             }
             self.playing = false;
             self.last_judgment = None;
@@ -154,6 +175,9 @@ impl GameState {
                 if let Some(result) = self.judge.judge(time_diff) {
                     play_state.set_judged(i, result);
                     self.score.add_judgment(result);
+                    if let Some(gauge) = &mut self.gauge {
+                        gauge.apply_judgment(result);
+                    }
                     self.last_judgment = Some(result);
                     audio.play(note.keysound_id);
 
@@ -199,6 +223,9 @@ impl GameState {
                                 // Released at or after end time - success
                                 play_state.set_judged(end_idx, active_ln.start_judgment);
                                 self.score.add_judgment(active_ln.start_judgment);
+                                if let Some(gauge) = &mut self.gauge {
+                                    gauge.apply_judgment(active_ln.start_judgment);
+                                }
                                 if let Some(audio) = &mut self.audio {
                                     audio.play(chart.notes[end_idx].keysound_id);
                                 }
@@ -206,6 +233,9 @@ impl GameState {
                                 // Released too early - POOR
                                 play_state.set_missed(end_idx);
                                 self.score.add_judgment(JudgeResult::Poor);
+                                if let Some(gauge) = &mut self.gauge {
+                                    gauge.apply_judgment(JudgeResult::Poor);
+                                }
                                 self.last_judgment = Some(JudgeResult::Poor);
                             }
                         }
@@ -217,12 +247,18 @@ impl GameState {
                                 // Released too early - POOR
                                 play_state.set_missed(end_idx);
                                 self.score.add_judgment(JudgeResult::Poor);
+                                if let Some(gauge) = &mut self.gauge {
+                                    gauge.apply_judgment(JudgeResult::Poor);
+                                }
                                 self.last_judgment = Some(JudgeResult::Poor);
                             } else if let Some(release_result) = self.judge.judge_release(time_diff)
                             {
                                 // Release judgment
                                 play_state.set_judged(end_idx, release_result);
                                 self.score.add_judgment(release_result);
+                                if let Some(gauge) = &mut self.gauge {
+                                    gauge.apply_judgment(release_result);
+                                }
                                 self.last_judgment = Some(release_result);
                                 if let Some(audio) = &mut self.audio {
                                     audio.play(chart.notes[end_idx].keysound_id);
@@ -231,6 +267,9 @@ impl GameState {
                                 // Released too late - BAD
                                 play_state.set_judged(end_idx, JudgeResult::Bad);
                                 self.score.add_judgment(JudgeResult::Bad);
+                                if let Some(gauge) = &mut self.gauge {
+                                    gauge.apply_judgment(JudgeResult::Bad);
+                                }
                                 self.last_judgment = Some(JudgeResult::Bad);
                             }
                         }
@@ -241,6 +280,9 @@ impl GameState {
                             if time_diff <= 0.0 {
                                 play_state.set_judged(end_idx, active_ln.start_judgment);
                                 self.score.add_judgment(active_ln.start_judgment);
+                                if let Some(gauge) = &mut self.gauge {
+                                    gauge.apply_judgment(active_ln.start_judgment);
+                                }
                                 if let Some(audio) = &mut self.audio {
                                     audio.play(chart.notes[end_idx].keysound_id);
                                 }
@@ -249,6 +291,9 @@ impl GameState {
                                 // For now, treat early release as POOR
                                 play_state.set_missed(end_idx);
                                 self.score.add_judgment(JudgeResult::Poor);
+                                if let Some(gauge) = &mut self.gauge {
+                                    gauge.apply_judgment(JudgeResult::Poor);
+                                }
                                 self.last_judgment = Some(JudgeResult::Poor);
                             }
                         }
@@ -279,6 +324,9 @@ impl GameState {
             if self.judge.is_missed(time_diff) {
                 play_state.set_missed(i);
                 self.score.add_judgment(JudgeResult::Poor);
+                if let Some(gauge) = &mut self.gauge {
+                    gauge.apply_judgment(JudgeResult::Poor);
+                }
                 self.last_judgment = Some(JudgeResult::Poor);
 
                 // If LongStart is missed, also miss the held long note
@@ -321,6 +369,9 @@ impl GameState {
                     if missed {
                         play_state.set_missed(i);
                         self.score.add_judgment(JudgeResult::Poor);
+                        if let Some(gauge) = &mut self.gauge {
+                            gauge.apply_judgment(JudgeResult::Poor);
+                        }
                         self.last_judgment = Some(JudgeResult::Poor);
                         self.active_long_notes[lane_idx] = None;
                     }
@@ -394,6 +445,55 @@ impl GameState {
             GRAY,
         );
 
+        // Draw gauge
+        if let Some(gauge) = &self.gauge {
+            let gauge_type_str = match gauge.active_gauge() {
+                GaugeType::AssistEasy => "ASSIST",
+                GaugeType::Easy => "EASY",
+                GaugeType::Normal => "NORMAL",
+                GaugeType::Hard => "HARD",
+                GaugeType::ExHard => "EX-HARD",
+                GaugeType::Hazard => "HAZARD",
+            };
+            let hp = gauge.hp();
+            let gauge_color = if gauge.active_gauge().is_survival() {
+                if hp > 30.0 {
+                    Color::new(1.0, 0.2, 0.2, 1.0) // Red for survival gauges
+                } else {
+                    Color::new(1.0, 0.5, 0.0, 1.0) // Orange when low
+                }
+            } else if hp >= 80.0 {
+                Color::new(0.0, 1.0, 0.5, 1.0) // Green when cleared
+            } else {
+                Color::new(0.2, 0.6, 1.0, 1.0) // Blue for groove gauges
+            };
+
+            draw_text(
+                &format!("{}: {:.1}%", gauge_type_str, hp),
+                screen_width() - 200.0,
+                95.0,
+                20.0,
+                gauge_color,
+            );
+
+            // Draw gauge bar
+            let bar_x = screen_width() - 200.0;
+            let bar_y = 105.0;
+            let bar_width = 150.0;
+            let bar_height = 12.0;
+
+            // Background
+            draw_rectangle(bar_x, bar_y, bar_width, bar_height, DARKGRAY);
+            // Fill
+            draw_rectangle(
+                bar_x,
+                bar_y,
+                bar_width * (hp / 100.0),
+                bar_height,
+                gauge_color,
+            );
+        }
+
         if let Some(result) = self.last_judgment {
             let (text, color) = match result {
                 JudgeResult::PGreat => ("PGREAT", Color::new(1.0, 1.0, 0.0, 1.0)),
@@ -451,6 +551,11 @@ impl GameState {
             .map(|c| c.note_count() as u32)
             .unwrap_or(0);
 
+        // Determine clear lamp from gauge
+        let best_clear = self.gauge.as_ref().and_then(|g| g.best_clear());
+        let is_full_combo = self.score.bad_count == 0 && self.score.poor_count == 0;
+        let clear_lamp = ClearLamp::from_gauge(best_clear, is_full_combo);
+
         PlayResult {
             title,
             artist,
@@ -462,7 +567,13 @@ impl GameState {
             bad_count: self.score.bad_count,
             poor_count: self.score.poor_count,
             total_notes,
+            clear_lamp,
         }
+    }
+
+    /// Check if the player has failed (all gauges depleted)
+    pub fn is_failed(&self) -> bool {
+        self.gauge.as_ref().is_some_and(|g| g.is_failed())
     }
 }
 

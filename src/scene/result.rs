@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::game::PlayResult;
+use crate::game::{ClearLamp, PlayResult};
 
 use super::{Scene, SceneTransition};
 
@@ -11,6 +11,19 @@ pub struct ResultScene {
 impl ResultScene {
     pub fn new(result: PlayResult) -> Self {
         Self { result }
+    }
+
+    fn clear_lamp_color(&self) -> Color {
+        match self.result.clear_lamp {
+            ClearLamp::NoPlay => GRAY,
+            ClearLamp::Failed => Color::new(0.5, 0.0, 0.0, 1.0),
+            ClearLamp::AssistEasy => Color::new(0.6, 0.3, 0.8, 1.0),
+            ClearLamp::Easy => Color::new(0.0, 0.8, 0.3, 1.0),
+            ClearLamp::Normal => Color::new(0.2, 0.6, 1.0, 1.0),
+            ClearLamp::Hard => Color::new(1.0, 0.5, 0.0, 1.0),
+            ClearLamp::ExHard => Color::new(1.0, 0.8, 0.0, 1.0),
+            ClearLamp::FullCombo => Color::new(1.0, 0.0, 0.5, 1.0),
+        }
     }
 }
 
@@ -29,8 +42,13 @@ impl Scene for ResultScene {
 
         draw_text("RESULT", center_x - 60.0, 50.0, 40.0, WHITE);
 
-        draw_text(&self.result.title, center_x - 150.0, 100.0, 28.0, YELLOW);
-        draw_text(&self.result.artist, center_x - 150.0, 130.0, 20.0, GRAY);
+        // Clear lamp display
+        let lamp_text = self.result.clear_lamp.display_name();
+        let lamp_color = self.clear_lamp_color();
+        draw_text(lamp_text, center_x - 100.0, 80.0, 24.0, lamp_color);
+
+        draw_text(&self.result.title, center_x - 150.0, 120.0, 28.0, YELLOW);
+        draw_text(&self.result.artist, center_x - 150.0, 150.0, 20.0, GRAY);
 
         let rank = self.result.rank();
         let rank_color = match rank {
