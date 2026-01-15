@@ -1,11 +1,11 @@
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 
 use crate::bms::{Chart, NoteChannel};
 
 /// Random option for lane assignment
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum RandomOption {
     #[default]
     Off,

@@ -6,7 +6,7 @@ use directories::ProjectDirs;
 use macroquad::prelude::KeyCode;
 use serde::{Deserialize, Serialize};
 
-use crate::game::{GaugeType, JudgeSystemType};
+use crate::game::{GaugeType, JudgeSystemType, RandomOption};
 
 /// Key bindings for 7-key + scratch
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -337,6 +337,9 @@ pub struct GameSettings {
     pub judge_system: JudgeSystemType,
     /// Default gauge type
     pub gauge_type: GaugeType,
+    /// Random option (MIRROR/RANDOM/R-RANDOM)
+    #[serde(default)]
+    pub random_option: RandomOption,
     /// Default scroll speed
     pub scroll_speed: f32,
     /// Default SUDDEN+ value
@@ -358,6 +361,7 @@ impl Default for GameSettings {
         Self {
             judge_system: JudgeSystemType::Beatoraja,
             gauge_type: GaugeType::Normal,
+            random_option: RandomOption::Off,
             scroll_speed: 1.0,
             sudden: 0,
             hidden: 0,

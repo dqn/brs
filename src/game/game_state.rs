@@ -11,7 +11,8 @@ use crate::render::{BgaManager, EffectManager, Highway, LaneCover};
 
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
-    JudgeResult, JudgeSystem, JudgeSystemType, PlayResult, ScoreManager, TimingStats,
+    JudgeResult, JudgeSystem, JudgeSystemType, PlayResult, RandomOption, ScoreManager,
+    TimingStats, apply_random_option, generate_seed,
 };
 
 /// Active long note state tracking
@@ -46,6 +47,7 @@ pub struct GameState {
     last_judgment: Option<JudgeResult>,
     last_timing_diff_ms: Option<f64>,
     active_long_notes: [Option<ActiveLongNote>; LANE_COUNT],
+    random_option: RandomOption,
     // BGA
     bga: BgaManager,
     pending_bga_load: Option<(PathBuf, HashMap<u32, String>)>,
@@ -72,6 +74,7 @@ impl GameState {
             last_judgment: None,
             last_timing_diff_ms: None,
             active_long_notes: [const { None }; LANE_COUNT],
+            random_option: RandomOption::Off,
             bga: BgaManager::new(),
             pending_bga_load: None,
         }
@@ -80,7 +83,7 @@ impl GameState {
     pub fn load_chart(&mut self, path: &str) -> Result<()> {
         let path = Path::new(path);
         let result = BmsLoader::load_full(path)?;
-        let chart = result.chart;
+        let mut chart = result.chart;
         let wav_files = result.wav_files;
         let bmp_files = result.bmp_files;
 
@@ -105,12 +108,20 @@ impl GameState {
             }
         }
 
+        // Load settings
+        let settings = GameSettings::load();
+
+        // Apply random option before building lane index
+        self.random_option = settings.random_option;
+        if settings.random_option != RandomOption::Off {
+            let seed = generate_seed();
+            apply_random_option(&mut chart, settings.random_option, seed);
+            println!("Applied random option: {:?}", settings.random_option);
+        }
+
         let note_count = chart.note_count();
         self.lane_index = chart.build_lane_index();
         self.play_state = Some(GamePlayState::new(chart.notes.len()));
-
-        // Load settings
-        let settings = GameSettings::load();
 
         // Initialize judge system based on chart rank and settings
         let judge_rank = JudgeRank::from_bms_rank(chart.metadata.rank);
@@ -750,6 +761,7 @@ impl GameState {
             poor_count: self.score.poor_count,
             total_notes,
             clear_lamp,
+            random_option: self.random_option,
             fast_count: self.timing_stats.fast_count,
             slow_count: self.timing_stats.slow_count,
         }

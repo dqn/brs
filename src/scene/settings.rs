@@ -2,12 +2,13 @@ use macroquad::prelude::*;
 
 use super::{Scene, SceneTransition};
 use crate::config::GameSettings;
-use crate::game::{GaugeType, JudgeSystemType};
+use crate::game::{GaugeType, JudgeSystemType, RandomOption};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MenuItem {
     JudgeSystem,
     GaugeType,
+    RandomOption,
     ScrollSpeed,
     Sudden,
     Hidden,
@@ -29,6 +30,7 @@ impl MenuItem {
         &[
             MenuItem::JudgeSystem,
             MenuItem::GaugeType,
+            MenuItem::RandomOption,
             MenuItem::ScrollSpeed,
             MenuItem::Sudden,
             MenuItem::Hidden,
@@ -50,6 +52,7 @@ impl MenuItem {
         match self {
             MenuItem::JudgeSystem => "Judge System",
             MenuItem::GaugeType => "Gauge Type",
+            MenuItem::RandomOption => "Random",
             MenuItem::ScrollSpeed => "Scroll Speed",
             MenuItem::Sudden => "SUDDEN+",
             MenuItem::Hidden => "HIDDEN+",
@@ -143,6 +146,19 @@ impl SettingsScene {
                     (GaugeType::Hazard, false) => GaugeType::ExHard,
                 };
             }
+            MenuItem::RandomOption => {
+                self.settings.random_option = match (self.settings.random_option, delta > 0) {
+                    (RandomOption::Off, true) => RandomOption::Mirror,
+                    (RandomOption::Mirror, true) => RandomOption::Random,
+                    (RandomOption::Random, true) => RandomOption::RRandom,
+                    (RandomOption::RRandom, true) => RandomOption::Off,
+
+                    (RandomOption::Off, false) => RandomOption::RRandom,
+                    (RandomOption::Mirror, false) => RandomOption::Off,
+                    (RandomOption::Random, false) => RandomOption::Mirror,
+                    (RandomOption::RRandom, false) => RandomOption::Random,
+                };
+            }
             MenuItem::ScrollSpeed => {
                 let step = if delta > 0 { 0.25 } else { -0.25 };
                 self.settings.scroll_speed = (self.settings.scroll_speed + step).clamp(0.25, 10.0);
@@ -186,6 +202,7 @@ impl SettingsScene {
                 GaugeType::ExHard => "EX-HARD".to_string(),
                 GaugeType::Hazard => "HAZARD".to_string(),
             },
+            MenuItem::RandomOption => self.settings.random_option.display_name().to_string(),
             MenuItem::ScrollSpeed => format!("{:.2}x", self.settings.scroll_speed),
             MenuItem::Sudden => format!("{}", self.settings.sudden),
             MenuItem::Hidden => format!("{}", self.settings.hidden),

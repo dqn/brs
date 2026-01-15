@@ -3,7 +3,7 @@ use std::path::Path;
 use macroquad::prelude::*;
 
 use crate::database::{SavedScore, ScoreRepository, compute_file_hash};
-use crate::game::{ClearLamp, PlayResult};
+use crate::game::{ClearLamp, PlayResult, RandomOption};
 
 use super::{Scene, SceneTransition};
 
@@ -177,6 +177,17 @@ impl Scene for ResultScene {
             18.0,
             GRAY,
         );
+
+        // Random option display
+        if self.result.random_option != RandomOption::Off {
+            draw_text(
+                &format!("OPTION: {}", self.result.random_option.display_name()),
+                stats_x,
+                stats_start_y + line_height * 10.0,
+                18.0,
+                SKYBLUE,
+            );
+        }
 
         draw_text(
             "[Enter] Continue",
