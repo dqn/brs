@@ -448,8 +448,18 @@ impl GameState {
             WHITE,
         );
 
+        // Green Number: visible time in milliseconds
+        let green_number = self.calculate_green_number();
+        draw_text(
+            &format!("GREEN: {:.0}", green_number),
+            10.0,
+            70.0,
+            20.0,
+            Color::new(0.0, 1.0, 0.5, 1.0),
+        );
+
         let status = if self.playing { "Playing" } else { "Paused" };
-        draw_text(&format!("Status: {}", status), 10.0, 70.0, 20.0, WHITE);
+        draw_text(&format!("Status: {}", status), 10.0, 90.0, 20.0, WHITE);
 
         draw_text(
             &format!("EX Score: {}", self.score.ex_score()),
@@ -583,6 +593,29 @@ impl GameState {
             16.0,
             GRAY,
         );
+    }
+
+    /// Calculate Green Number (visible time in milliseconds)
+    /// Green Number represents how long a note is visible before reaching the judge line
+    fn calculate_green_number(&self) -> f32 {
+        // Base scroll time at 150 BPM, 1.0x speed for full lane visibility
+        // This gives roughly 1600ms at 150 BPM with 1.0x speed
+        let base_bpm = self
+            .chart
+            .as_ref()
+            .map(|c| c.metadata.bpm as f32)
+            .unwrap_or(150.0);
+
+        // Base time for notes to travel the visible lane at 150 BPM
+        let base_time_ms = 60000.0 / 150.0 * 4.0; // 4 beats visible
+
+        // Adjust for actual BPM and speed
+        let scroll_time = base_time_ms * 150.0 / base_bpm / self.scroll_speed;
+
+        // Apply lane cover visibility ratio
+        let visible_ratio = self.highway.lane_cover().visible_ratio();
+
+        scroll_time * visible_ratio
     }
 
     pub fn is_finished(&self) -> bool {
