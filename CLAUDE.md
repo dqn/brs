@@ -42,45 +42,84 @@ src/
 
 ## Task List
 
-### Phase 1: Foundation
-- [ ] プロジェクトセットアップ (Cargo.toml)
-- [ ] bms-rs で BMS ファイル読み込み
-- [ ] 内部 Chart 構造体への変換
-- [ ] タイミング計算実装
-- [ ] 静的ノーツ表示
+### Phase 1: Foundation ✅
+- [x] プロジェクトセットアップ (Cargo.toml)
+- [x] bms-rs で BMS ファイル読み込み
+- [x] 内部 Chart 構造体への変換
+- [x] タイミング計算実装
+- [x] 静的ノーツ表示
 
-### Phase 2: Audio System
-- [ ] Kira キー音読み込み
-- [ ] オーディオスケジューラー
-- [ ] BGM 再生
-- [ ] STOP 対応
+### Phase 2: Audio System ✅
+- [x] Kira キー音読み込み
+- [x] オーディオスケジューラー
+- [x] BGM 再生
+- [x] STOP 対応
 
-### Phase 3: Core Gameplay
-- [ ] 入力システム
-- [ ] ハイウェイスクロール
-- [ ] ノーツ判定
-- [ ] スコア・コンボ
+### Phase 3: Core Gameplay (85%)
+- [x] 入力システム
+- [x] ハイウェイスクロール
+- [x] ノーツ判定
+- [x] スコア・コンボ
+- [ ] ロングノート判定 (構造のみ定義済み)
 
-### Phase 4: Song Selection
-- [ ] フォルダスキャン
-- [ ] 選曲 UI
+### Phase 4: Song Selection ✅
+- [x] フォルダスキャン
+- [x] 選曲 UI
 
-### Phase 5: Polish
-- [ ] リザルト画面
+### Phase 5: Polish (30%)
+- [x] リザルト画面
 - [ ] ロングノート
 - [ ] エフェクト
 - [ ] 設定画面
 
+### Phase 6: Essential Features
+- [ ] ゲージシステム (EASY/NORMAL/HARD/EX-HARD)
+- [ ] Gauge Auto Shift (GAS)
+- [ ] LR2/beatoraja 判定・ゲージ切替
+- [ ] MIRROR/RANDOM オプション
+- [ ] スコア・クリアランプ保存
+- [ ] SUDDEN+/HIDDEN/LIFT
+- [ ] FAST/SLOW 表示
+- [ ] Green Number 表示
+
 ### Future
-- [ ] Mirror/Random
 - [ ] BGA
 - [ ] PMS 対応
+- [ ] インターネットランキング
+- [ ] ダブルプレイ (DP)
 
 ## Documentation
 
 - `docs/bms-specification.md` - BMS フォーマット仕様
 - `docs/architecture.md` - アーキテクチャ
 - `docs/technical-challenges.md` - 技術課題
+- `docs/feature-plans/` - 機能実装計画
+  - `01-gauge-system.md` - ゲージシステム、GAS、LR2/beatoraja切替
+  - `02-judge-timing.md` - 判定タイミング仕様
+  - `03-random-options.md` - RANDOM/MIRROR アルゴリズム
+  - `04-long-notes.md` - LN/CN/HCN 判定仕様
+  - `05-lane-cover.md` - SUDDEN+/HIDDEN/LIFT
+  - `06-timing-display.md` - FAST/SLOW、Green Number
+  - `07-score-database.md` - スコア永続化
+  - `08-song-select.md` - フィルター・ソート機能
+
+## Design Principles
+
+### LR2/beatoraja Compatibility
+ゲーム体験に関わる部分は他の BMS プレイヤーと同じ挙動を再現する。
+
+- **判定タイミング**: LR2 / beatoraja を選択可能
+- **ゲージシステム**: LR2 / beatoraja を選択可能
+- **Gauge Auto Shift (GAS)**: 全ゲージを並列計算し、最高クリアを自動達成
+
+### Key Differences: LR2 vs beatoraja
+
+| 項目 | LR2 | beatoraja |
+|------|-----|-----------|
+| PGREAT | ±21ms | ±20ms |
+| 空POOR | 手前のみ | 前後両方 |
+| ダメージ軽減 | 32%以下で半減 | 50%から徐々に軽減 |
+| LN早離し | BAD | POOR |
 
 ## Key Implementation Notes
 
@@ -90,11 +129,16 @@ Kira のクロックを時間の唯一のソースとして使用。ビジュア
 ### Timing Calculation
 BPM 変更・拍子変更・STOP を正確に処理するため fraction で分数計算。
 
-### Judgment Windows (beatoraja-style)
-- PGREAT: ±20ms
-- GREAT: ±60ms
-- GOOD: ±150ms
-- BAD: ±280ms
+### Judgment Windows
+
+| Judge | beatoraja (EASY) | LR2 (EASY) |
+|-------|------------------|------------|
+| PGREAT | ±20ms | ±21ms |
+| GREAT | ±60ms | ±60ms |
+| GOOD | ±150ms | ±120ms |
+| BAD | ±220-280ms | ±200ms |
+
+詳細は `docs/feature-plans/02-judge-timing.md` を参照。
 
 ### Key Layout (7-key)
 ```
