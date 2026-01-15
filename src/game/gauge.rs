@@ -187,18 +187,21 @@ pub struct GaugeManager {
     auto_shift: bool,
     /// Total notes in chart (for LR2 damage multiplier)
     total_notes: usize,
+    /// #TOTAL value from BMS (for LR2 recovery scaling)
+    total_value: f64,
 }
 
 impl GaugeManager {
     #[cfg(test)]
     pub fn new(gauge_type: GaugeType, system: GaugeSystem, total_notes: usize) -> Self {
-        Self::new_with_gas(gauge_type, system, total_notes, false)
+        Self::new_with_gas(gauge_type, system, total_notes, 160.0, false)
     }
 
     pub fn new_with_gas(
         gauge_type: GaugeType,
         system: GaugeSystem,
         total_notes: usize,
+        total_value: f64,
         auto_shift: bool,
     ) -> Self {
         let states = if auto_shift {
@@ -228,6 +231,7 @@ impl GaugeManager {
             active_gauge: gauge_type,
             auto_shift,
             total_notes,
+            total_value,
         }
     }
 
@@ -333,6 +337,17 @@ impl GaugeManager {
         judgment: JudgeResult,
     ) -> f32 {
         let mut modified = damage;
+
+        // LR2 TOTAL scaling for recovery (groove gauges only)
+        if damage > 0.0 && !gauge_type.is_survival() {
+            // Recovery = TOTAL / note_count (capped to reasonable range)
+            let recovery_rate = if self.total_notes > 0 {
+                (self.total_value / self.total_notes as f64).clamp(0.1, 2.0) as f32
+            } else {
+                1.0
+            };
+            modified *= recovery_rate;
+        }
 
         // LR2: Damage multiplier based on note count for survival gauges
         if gauge_type.is_survival()
@@ -488,7 +503,7 @@ mod tests {
     #[test]
     fn test_gas_shifts_gauge() {
         let mut gauge =
-            GaugeManager::new_with_gas(GaugeType::ExHard, GaugeSystem::Beatoraja, 1000, true);
+            GaugeManager::new_with_gas(GaugeType::ExHard, GaugeSystem::Beatoraja, 1000, 160.0, true);
 
         assert_eq!(gauge.active_gauge(), GaugeType::ExHard);
 

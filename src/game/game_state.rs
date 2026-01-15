@@ -137,10 +137,12 @@ impl GameState {
         self.judge = JudgeSystem::for_system(settings.judge_system, judge_rank);
 
         // Initialize gauge with GAS enabled (all gauges tracked)
+        let total_value = chart.metadata.total;
         self.gauge = Some(GaugeManager::new_with_gas(
             settings.gauge_type,
             gauge_system,
             note_count,
+            total_value,
             true,
         ));
         self.chart = Some(chart);
@@ -199,6 +201,7 @@ impl GameState {
                     GaugeType::Normal,
                     GaugeSystem::Beatoraja,
                     chart.note_count(),
+                    chart.metadata.total,
                     true,
                 ));
             }
