@@ -15,7 +15,7 @@ pub use input::InputHandler;
 #[allow(unused_imports)]
 pub use judge::{
     JudgeConfig, JudgeConfigBuilder, JudgeRank, JudgeResult, JudgeSystem, JudgeSystemType,
-    ReleaseConfig,
+    ReleaseConfig, TimingDirection, TimingStats,
 };
 #[allow(unused_imports)]
 pub use options::{LaneMapping, RandomOption, apply_random_option, generate_seed};

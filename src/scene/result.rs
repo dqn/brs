@@ -166,6 +166,18 @@ impl Scene for ResultScene {
             Color::new(1.0, 0.3, 0.3, 1.0),
         );
 
+        // FAST/SLOW statistics
+        draw_text(
+            &format!(
+                "FAST:{} / SLOW:{}",
+                self.result.fast_count, self.result.slow_count
+            ),
+            stats_x,
+            stats_start_y + line_height * 9.0,
+            18.0,
+            GRAY,
+        );
+
         draw_text(
             "[Enter] Continue",
             center_x - 80.0,

@@ -58,6 +58,9 @@ pub struct PlayResult {
     pub poor_count: u32,
     pub total_notes: u32,
     pub clear_lamp: ClearLamp,
+    /// FAST/SLOW timing statistics
+    pub fast_count: u32,
+    pub slow_count: u32,
 }
 
 impl PlayResult {

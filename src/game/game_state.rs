@@ -9,7 +9,7 @@ use crate::render::Highway;
 
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
-    JudgeResult, JudgeSystem, JudgeSystemType, PlayResult, ScoreManager,
+    JudgeResult, JudgeSystem, JudgeSystemType, PlayResult, ScoreManager, TimingStats,
 };
 
 /// Active long note state tracking
@@ -36,10 +36,12 @@ pub struct GameState {
     score: ScoreManager,
     gauge: Option<GaugeManager>,
     play_state: Option<GamePlayState>,
+    timing_stats: TimingStats,
     scroll_speed: f32,
     current_time_ms: f64,
     playing: bool,
     last_judgment: Option<JudgeResult>,
+    last_timing_diff_ms: Option<f64>,
     active_long_notes: [Option<ActiveLongNote>; LANE_COUNT],
 }
 
@@ -56,10 +58,12 @@ impl GameState {
             score: ScoreManager::new(),
             gauge: None,
             play_state: None,
+            timing_stats: TimingStats::default(),
             scroll_speed: 1.0,
             current_time_ms: 0.0,
             playing: false,
             last_judgment: None,
+            last_timing_diff_ms: None,
             active_long_notes: [const { None }; LANE_COUNT],
         }
     }
@@ -186,7 +190,9 @@ impl GameState {
                     if let Some(gauge) = &mut self.gauge {
                         gauge.apply_judgment(result);
                     }
+                    self.timing_stats.record(result, time_diff);
                     self.last_judgment = Some(result);
+                    self.last_timing_diff_ms = Some(time_diff);
                     audio.play(note.keysound_id);
 
                     if note.note_type == NoteType::LongStart {
@@ -512,7 +518,41 @@ impl GameState {
             };
             let x = screen_width() / 2.0 - 60.0;
             draw_text(text, x, screen_height() / 2.0, 40.0, color);
+
+            // Display FAST/SLOW for non-PGREAT judgments
+            if result != JudgeResult::PGreat {
+                if let Some(timing_diff) = self.last_timing_diff_ms {
+                    use super::TimingDirection;
+                    let direction = TimingDirection::from_timing_diff(timing_diff);
+                    let (timing_text, timing_color) = match direction {
+                        TimingDirection::Fast => ("FAST", Color::new(0.0, 0.8, 1.0, 1.0)),
+                        TimingDirection::Slow => ("SLOW", Color::new(1.0, 0.5, 0.0, 1.0)),
+                        TimingDirection::Exact => ("", WHITE),
+                    };
+                    if !timing_text.is_empty() {
+                        draw_text(
+                            timing_text,
+                            x,
+                            screen_height() / 2.0 + 30.0,
+                            24.0,
+                            timing_color,
+                        );
+                    }
+                }
+            }
         }
+
+        // Draw FAST/SLOW statistics
+        draw_text(
+            &format!(
+                "FAST:{} / SLOW:{}",
+                self.timing_stats.fast_count, self.timing_stats.slow_count
+            ),
+            screen_width() - 200.0,
+            130.0,
+            16.0,
+            GRAY,
+        );
 
         draw_text(
             "[Space] Play/Pause | [R] Reset | [Up/Down] Speed",
@@ -577,6 +617,8 @@ impl GameState {
             poor_count: self.score.poor_count,
             total_notes,
             clear_lamp,
+            fast_count: self.timing_stats.fast_count,
+            slow_count: self.timing_stats.slow_count,
         }
     }
 

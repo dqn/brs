@@ -1,3 +1,48 @@
+/// Timing direction for FAST/SLOW display
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TimingDirection {
+    Fast,
+    Exact,
+    Slow,
+}
+
+impl TimingDirection {
+    const EXACT_THRESHOLD_MS: f64 = 1.0;
+
+    pub fn from_timing_diff(timing_diff_ms: f64) -> Self {
+        if timing_diff_ms < -Self::EXACT_THRESHOLD_MS {
+            TimingDirection::Fast
+        } else if timing_diff_ms > Self::EXACT_THRESHOLD_MS {
+            TimingDirection::Slow
+        } else {
+            TimingDirection::Exact
+        }
+    }
+}
+
+/// Cumulative FAST/SLOW statistics during gameplay
+#[derive(Debug, Clone, Default)]
+pub struct TimingStats {
+    pub fast_count: u32,
+    pub slow_count: u32,
+}
+
+impl TimingStats {
+    pub fn record(&mut self, judge: JudgeResult, timing_diff_ms: f64) {
+        // Don't count PGREAT (it's within exact threshold)
+        if judge == JudgeResult::PGreat {
+            return;
+        }
+
+        let direction = TimingDirection::from_timing_diff(timing_diff_ms);
+        match direction {
+            TimingDirection::Fast => self.fast_count += 1,
+            TimingDirection::Slow => self.slow_count += 1,
+            TimingDirection::Exact => {}
+        }
+    }
+}
+
 /// Judge system type (affects timing windows and empty POOR behavior)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum JudgeSystemType {
