@@ -1,0 +1,16 @@
+*---------------------- HEADER FIELD
+
+#PLAYER 1
+#GENRE Test
+#TITLE BPM Change Test
+#ARTIST Test Artist
+#BPM 120
+
+#WAV01 kick.wav
+
+*---------------------- MAIN DATA FIELD
+
+#00111:01
+#00103:3C
+#00211:01
+
