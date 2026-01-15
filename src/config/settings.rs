@@ -343,6 +343,9 @@ pub struct GameSettings {
     /// Auto scratch option
     #[serde(default)]
     pub auto_scratch: bool,
+    /// Legacy note option (convert LN to normal notes)
+    #[serde(default)]
+    pub legacy_note: bool,
     /// Default scroll speed
     pub scroll_speed: f32,
     /// Default SUDDEN+ value
@@ -366,6 +369,7 @@ impl Default for GameSettings {
             gauge_type: GaugeType::Normal,
             random_option: RandomOption::Off,
             auto_scratch: false,
+            legacy_note: false,
             scroll_speed: 1.0,
             sudden: 0,
             hidden: 0,

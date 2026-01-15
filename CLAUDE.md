@@ -109,7 +109,7 @@ src/
 
 #### アシストオプション
 - [x] AUTO SCRATCH
-- [ ] LEGACY NOTE (LN → 通常ノート変換)
+- [x] LEGACY NOTE (LN → 通常ノート変換)
 - [ ] EXPAND JUDGE (判定幅拡大)
 - [ ] BATTLE (1P/2P 反転)
 

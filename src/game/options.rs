@@ -296,6 +296,26 @@ pub fn generate_seed() -> u64 {
         .unwrap_or(0)
 }
 
+/// Apply legacy note option to a chart (convert LN to normal notes)
+/// LongStart notes are converted to Normal notes, LongEnd notes are removed
+#[allow(dead_code)]
+pub fn apply_legacy_note(chart: &mut Chart) {
+    use crate::bms::NoteType;
+
+    // Convert LongStart to Normal and mark LongEnd for removal
+    for note in &mut chart.notes {
+        if note.note_type == NoteType::LongStart {
+            note.note_type = NoteType::Normal;
+            note.long_end_time_ms = None;
+        }
+    }
+
+    // Remove LongEnd notes
+    chart
+        .notes
+        .retain(|note| note.note_type != NoteType::LongEnd);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

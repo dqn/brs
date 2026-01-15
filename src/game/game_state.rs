@@ -12,7 +12,7 @@ use crate::render::{BgaManager, EffectManager, Highway, LaneCover};
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
     JudgeResult, JudgeSystem, JudgeSystemType, PlayResult, RandomOption, ScoreManager, TimingStats,
-    apply_random_option, generate_seed,
+    apply_legacy_note, apply_random_option, generate_seed,
 };
 
 /// Active long note state tracking
@@ -130,6 +130,12 @@ impl GameState {
         self.auto_scratch = settings.auto_scratch;
         if self.auto_scratch {
             println!("Auto scratch enabled");
+        }
+
+        // Apply legacy note option (convert LN to normal notes)
+        if settings.legacy_note {
+            apply_legacy_note(&mut chart);
+            println!("Legacy note enabled (LN converted to normal notes)");
         }
 
         let note_count = chart.note_count();
