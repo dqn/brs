@@ -7,6 +7,9 @@ Rust で実装する BMS (Be-Music Source) リズムゲームプレイヤー。
 - bms-rs: BMS パーシング
 - kira: オーディオ (クロックベースタイミング)
 - macroquad: 2D グラフィックス
+- gilrs: ゲームパッド入力 (IIDX 専コン対応)
+- ffmpeg-next: 動画 BGA デコード
+- image: 静止画読み込み
 - anyhow: エラーハンドリング
 
 ## Project Structure
@@ -66,11 +69,14 @@ src/
 - [x] フォルダスキャン
 - [x] 選曲 UI
 
-### Phase 5: Polish (30%)
+### Phase 5: Polish (70%)
 - [x] リザルト画面
+- [x] 設定画面
+- [x] キーバインド設定
+- [x] コントローラー対応 (IIDX 専コン軸入力対応)
+- [x] BGA (静止画 + 動画)
 - [ ] ロングノート
 - [ ] エフェクト
-- [ ] 設定画面
 
 ### Phase 6: Essential Features
 - [ ] ゲージシステム (EASY/NORMAL/HARD/EX-HARD)
@@ -78,12 +84,11 @@ src/
 - [ ] LR2/beatoraja 判定・ゲージ切替
 - [ ] MIRROR/RANDOM オプション
 - [ ] スコア・クリアランプ保存
-- [ ] SUDDEN+/HIDDEN/LIFT
+- [x] SUDDEN+/HIDDEN/LIFT
 - [ ] FAST/SLOW 表示
 - [ ] Green Number 表示
 
 ### Future
-- [ ] BGA
 - [ ] PMS 対応
 - [ ] インターネットランキング
 - [ ] ダブルプレイ (DP)
@@ -145,3 +150,11 @@ BPM 変更・拍子変更・STOP を正確に処理するため fraction で分�
 S 1 2 3 4 5 6 7
 ```
 Channel mapping: 16, 11, 12, 13, 14, 15, 18, 19
+
+### BGA Video Support
+動画 BGA には ffmpeg が必要:
+- **macOS**: `brew install ffmpeg`
+- **Linux**: `apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev`
+- **Windows**: vcpkg または事前ビルド済みバイナリ
+
+対応フォーマット: MPG, MPEG, AVI, WMV, MP4, WebM, M4V
