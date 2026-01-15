@@ -1,3 +1,3 @@
 mod settings;
 
-pub use settings::GameSettings;
+pub use settings::{ControllerBindings, GameSettings};

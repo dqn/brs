@@ -3,14 +3,22 @@
 pub struct LaneCover {
     /// SUDDEN+ cover amount (0-1000, covers top of lane)
     pub sudden: u16,
-    /// HIDDEN+ cover amount (0-1000, covers bottom before judge line, rarely used)
-    #[allow(dead_code)]
+    /// HIDDEN+ cover amount (0-1000, covers bottom after judge line)
     pub hidden: u16,
     /// LIFT amount (0-1000, raises judge line from bottom)
     pub lift: u16,
 }
 
 impl LaneCover {
+    /// Create a new LaneCover with specified values
+    pub fn new(sudden: u16, hidden: u16, lift: u16) -> Self {
+        Self {
+            sudden,
+            hidden,
+            lift,
+        }
+    }
+
     /// Get visible portion of lane (0.0-1.0)
     #[allow(dead_code)]
     pub fn visible_ratio(&self) -> f32 {
@@ -52,6 +60,12 @@ impl LaneCover {
     pub fn adjust_lift(&mut self, delta: i16) {
         let new_val = (self.lift as i16 + delta).clamp(0, 500);
         self.lift = new_val as u16;
+    }
+
+    /// Adjust HIDDEN+ value
+    pub fn adjust_hidden(&mut self, delta: i16) {
+        let new_val = (self.hidden as i16 + delta).clamp(0, 500);
+        self.hidden = new_val as u16;
     }
 
     /// Toggle SUDDEN+ on/off

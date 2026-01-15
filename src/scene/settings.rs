@@ -10,7 +10,16 @@ enum MenuItem {
     GaugeType,
     ScrollSpeed,
     Sudden,
+    Hidden,
     Lift,
+    KeyScratch,
+    Key1,
+    Key2,
+    Key3,
+    Key4,
+    Key5,
+    Key6,
+    Key7,
     Save,
     Back,
 }
@@ -22,7 +31,16 @@ impl MenuItem {
             MenuItem::GaugeType,
             MenuItem::ScrollSpeed,
             MenuItem::Sudden,
+            MenuItem::Hidden,
             MenuItem::Lift,
+            MenuItem::KeyScratch,
+            MenuItem::Key1,
+            MenuItem::Key2,
+            MenuItem::Key3,
+            MenuItem::Key4,
+            MenuItem::Key5,
+            MenuItem::Key6,
+            MenuItem::Key7,
             MenuItem::Save,
             MenuItem::Back,
         ]
@@ -34,9 +52,46 @@ impl MenuItem {
             MenuItem::GaugeType => "Gauge Type",
             MenuItem::ScrollSpeed => "Scroll Speed",
             MenuItem::Sudden => "SUDDEN+",
+            MenuItem::Hidden => "HIDDEN+",
             MenuItem::Lift => "LIFT",
+            MenuItem::KeyScratch => "Key: Scratch",
+            MenuItem::Key1 => "Key: 1",
+            MenuItem::Key2 => "Key: 2",
+            MenuItem::Key3 => "Key: 3",
+            MenuItem::Key4 => "Key: 4",
+            MenuItem::Key5 => "Key: 5",
+            MenuItem::Key6 => "Key: 6",
+            MenuItem::Key7 => "Key: 7",
             MenuItem::Save => "Save Settings",
             MenuItem::Back => "Back",
+        }
+    }
+
+    fn is_key_binding(&self) -> bool {
+        matches!(
+            self,
+            MenuItem::KeyScratch
+                | MenuItem::Key1
+                | MenuItem::Key2
+                | MenuItem::Key3
+                | MenuItem::Key4
+                | MenuItem::Key5
+                | MenuItem::Key6
+                | MenuItem::Key7
+        )
+    }
+
+    fn key_lane(&self) -> Option<usize> {
+        match self {
+            MenuItem::KeyScratch => Some(0),
+            MenuItem::Key1 => Some(1),
+            MenuItem::Key2 => Some(2),
+            MenuItem::Key3 => Some(3),
+            MenuItem::Key4 => Some(4),
+            MenuItem::Key5 => Some(5),
+            MenuItem::Key6 => Some(6),
+            MenuItem::Key7 => Some(7),
+            _ => None,
         }
     }
 }
@@ -45,6 +100,7 @@ pub struct SettingsScene {
     settings: GameSettings,
     selected_index: usize,
     modified: bool,
+    waiting_for_key: Option<usize>,
 }
 
 impl SettingsScene {
@@ -53,6 +109,7 @@ impl SettingsScene {
             settings: GameSettings::load(),
             selected_index: 0,
             modified: false,
+            waiting_for_key: None,
         }
     }
 
@@ -94,11 +151,24 @@ impl SettingsScene {
                 let step = if delta > 0 { 50 } else { -50 };
                 self.settings.sudden = (self.settings.sudden as i32 + step).clamp(0, 1000) as u16;
             }
+            MenuItem::Hidden => {
+                let step = if delta > 0 { 50 } else { -50 };
+                self.settings.hidden = (self.settings.hidden as i32 + step).clamp(0, 500) as u16;
+            }
             MenuItem::Lift => {
                 let step = if delta > 0 { 50 } else { -50 };
                 self.settings.lift = (self.settings.lift as i32 + step).clamp(0, 500) as u16;
             }
-            MenuItem::Save | MenuItem::Back => {}
+            MenuItem::KeyScratch
+            | MenuItem::Key1
+            | MenuItem::Key2
+            | MenuItem::Key3
+            | MenuItem::Key4
+            | MenuItem::Key5
+            | MenuItem::Key6
+            | MenuItem::Key7
+            | MenuItem::Save
+            | MenuItem::Back => {}
         }
     }
 
@@ -118,7 +188,16 @@ impl SettingsScene {
             },
             MenuItem::ScrollSpeed => format!("{:.2}x", self.settings.scroll_speed),
             MenuItem::Sudden => format!("{}", self.settings.sudden),
+            MenuItem::Hidden => format!("{}", self.settings.hidden),
             MenuItem::Lift => format!("{}", self.settings.lift),
+            MenuItem::KeyScratch => self.settings.key_bindings.scratch.clone(),
+            MenuItem::Key1 => self.settings.key_bindings.key1.clone(),
+            MenuItem::Key2 => self.settings.key_bindings.key2.clone(),
+            MenuItem::Key3 => self.settings.key_bindings.key3.clone(),
+            MenuItem::Key4 => self.settings.key_bindings.key4.clone(),
+            MenuItem::Key5 => self.settings.key_bindings.key5.clone(),
+            MenuItem::Key6 => self.settings.key_bindings.key6.clone(),
+            MenuItem::Key7 => self.settings.key_bindings.key7.clone(),
             MenuItem::Save => "".to_string(),
             MenuItem::Back => "".to_string(),
         }
@@ -135,6 +214,21 @@ impl SettingsScene {
 
 impl Scene for SettingsScene {
     fn update(&mut self) -> SceneTransition {
+        // Handle key binding input
+        if let Some(lane) = self.waiting_for_key {
+            if is_key_pressed(KeyCode::Escape) {
+                self.waiting_for_key = None;
+                return SceneTransition::None;
+            }
+
+            if let Some(key) = get_last_key_pressed() {
+                self.settings.key_bindings.set(lane, key);
+                self.modified = true;
+                self.waiting_for_key = None;
+            }
+            return SceneTransition::None;
+        }
+
         let items = MenuItem::all();
 
         if is_key_pressed(KeyCode::Up) && self.selected_index > 0 {
@@ -154,18 +248,25 @@ impl Scene for SettingsScene {
         }
 
         if is_key_pressed(KeyCode::Enter) {
-            match self.current_item() {
-                MenuItem::Save => {
-                    self.save_settings();
+            let current = self.current_item();
+            if current.is_key_binding() {
+                if let Some(lane) = current.key_lane() {
+                    self.waiting_for_key = Some(lane);
                 }
-                MenuItem::Back => {
-                    if self.modified {
+            } else {
+                match current {
+                    MenuItem::Save => {
                         self.save_settings();
                     }
-                    return SceneTransition::Pop;
-                }
-                _ => {
-                    self.adjust_value(1);
+                    MenuItem::Back => {
+                        if self.modified {
+                            self.save_settings();
+                        }
+                        return SceneTransition::Pop;
+                    }
+                    _ => {
+                        self.adjust_value(1);
+                    }
                 }
             }
         }
@@ -189,12 +290,26 @@ impl Scene for SettingsScene {
             draw_text("(modified)", 150.0, 40.0, 18.0, YELLOW);
         }
 
-        let start_y = 100.0;
-        let item_height = 45.0;
+        let start_y = 80.0;
+        let item_height = 35.0;
         let items = MenuItem::all();
+        let visible_items = ((screen_height() - 150.0) / item_height) as usize;
 
-        for (i, &item) in items.iter().enumerate() {
-            let y = start_y + i as f32 * item_height;
+        // Calculate scroll offset to keep selected item visible
+        let scroll_offset = if self.selected_index >= visible_items {
+            self.selected_index - visible_items + 1
+        } else {
+            0
+        };
+
+        for (i, &item) in items.iter().enumerate().skip(scroll_offset) {
+            let display_index = i - scroll_offset;
+            let y = start_y + display_index as f32 * item_height;
+
+            if y > screen_height() - 80.0 {
+                break;
+            }
+
             let is_selected = i == self.selected_index;
 
             if is_selected {
@@ -209,28 +324,40 @@ impl Scene for SettingsScene {
 
             let color = if is_selected { YELLOW } else { WHITE };
             let label = item.label();
-            let value = self.format_value(item);
+            let value = if self.waiting_for_key.is_some() && item.is_key_binding() && is_selected {
+                "Press any key...".to_string()
+            } else {
+                self.format_value(item)
+            };
 
-            draw_text(label, 30.0, y + 22.0, 24.0, color);
+            draw_text(label, 30.0, y + 18.0, 20.0, color);
 
             if !value.is_empty() {
-                let value_color = if is_selected { SKYBLUE } else { GRAY };
-                draw_text(&value, 300.0, y + 22.0, 24.0, value_color);
+                let value_color = if is_selected {
+                    if self.waiting_for_key.is_some() {
+                        ORANGE
+                    } else {
+                        SKYBLUE
+                    }
+                } else {
+                    GRAY
+                };
+                draw_text(&value, 250.0, y + 18.0, 20.0, value_color);
 
-                if is_selected {
-                    draw_text("<", 260.0, y + 22.0, 24.0, GRAY);
-                    let value_width = value.len() as f32 * 12.0;
-                    draw_text(">", 310.0 + value_width, y + 22.0, 24.0, GRAY);
+                if is_selected && !item.is_key_binding() && self.waiting_for_key.is_none() {
+                    draw_text("<", 220.0, y + 18.0, 20.0, GRAY);
+                    let value_width = value.len() as f32 * 10.0;
+                    draw_text(">", 260.0 + value_width, y + 18.0, 20.0, GRAY);
                 }
             }
         }
 
-        draw_text(
-            "[Up/Down] Select | [Left/Right] Adjust | [Enter] Confirm | [Esc] Back",
-            20.0,
-            screen_height() - 20.0,
-            16.0,
-            GRAY,
-        );
+        let help_text = if self.waiting_for_key.is_some() {
+            "[Any Key] Set binding | [Esc] Cancel"
+        } else {
+            "[Up/Down] Select | [Left/Right] Adjust | [Enter] Confirm/Set Key | [Esc] Back"
+        };
+
+        draw_text(help_text, 20.0, screen_height() - 20.0, 14.0, GRAY);
     }
 }

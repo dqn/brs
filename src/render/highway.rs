@@ -33,6 +33,11 @@ impl Highway {
         &self.lane_cover
     }
 
+    /// Set lane cover values
+    pub fn set_lane_cover(&mut self, lane_cover: LaneCover) {
+        self.lane_cover = lane_cover;
+    }
+
     // Public API for drawing highway without game state (simple mode)
     #[allow(dead_code)]
     pub fn draw(&self, chart: &Chart, current_time_ms: f64, scroll_speed: f32) {
@@ -278,6 +283,27 @@ impl Highway {
                 &format!("LIFT {}", self.lane_cover.lift),
                 highway_x + 10.0,
                 cover_y + 20.0,
+                18.0,
+                Color::new(0.5, 0.5, 0.5, 1.0),
+            );
+        }
+
+        // Draw HIDDEN+ cover (below judge line, covers notes after they pass)
+        if self.lane_cover.hidden > 0 {
+            let below_judge_height = screen_height() - self.config.judge_line_y;
+            let cover_height = (self.lane_cover.hidden as f32 / 1000.0) * below_judge_height;
+            draw_rectangle(
+                highway_x,
+                self.config.judge_line_y,
+                highway_width,
+                cover_height,
+                cover_color,
+            );
+
+            draw_text(
+                &format!("HID+ {}", self.lane_cover.hidden),
+                highway_x + 10.0,
+                self.config.judge_line_y + 20.0,
                 18.0,
                 Color::new(0.5, 0.5, 0.5, 1.0),
             );

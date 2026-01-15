@@ -6,14 +6,27 @@ use bms_rs::bms::prelude::*;
 use fraction::Fraction;
 
 use super::{
-    BgmEvent, BmsError, BpmChange, Chart, LnType, MeasureLength, Metadata, Note, NoteChannel,
-    NoteType, StopEvent, TimingData,
+    BgaEvent, BgaLayer, BgmEvent, BmsError, BpmChange, Chart, LnType, MeasureLength, Metadata,
+    Note, NoteChannel, NoteType, StopEvent, TimingData,
 };
 
 pub struct BmsLoader;
 
+/// Result of loading a BMS file
+pub struct BmsLoadResult {
+    pub chart: Chart,
+    pub wav_files: HashMap<u32, String>,
+    pub bmp_files: HashMap<u32, String>,
+}
+
 impl BmsLoader {
+    #[allow(dead_code)] // Used in future song select implementation
     pub fn load<P: AsRef<Path>>(path: P) -> Result<(Chart, HashMap<u32, String>)> {
+        let result = Self::load_full(path)?;
+        Ok((result.chart, result.wav_files))
+    }
+
+    pub fn load_full<P: AsRef<Path>>(path: P) -> Result<BmsLoadResult> {
         let path = path.as_ref();
         let source = std::fs::read_to_string(path).map_err(|e| BmsError::FileRead {
             path: path.to_path_buf(),
@@ -27,20 +40,27 @@ impl BmsLoader {
 
         let chart = Self::convert_to_chart(&bms)?;
         let wav_files = Self::extract_wav_files(&bms);
+        let bmp_files = Self::extract_bmp_files(&bms);
 
-        Ok((chart, wav_files))
+        Ok(BmsLoadResult {
+            chart,
+            wav_files,
+            bmp_files,
+        })
     }
 
     fn convert_to_chart(bms: &Bms) -> Result<Chart> {
         let metadata = Self::extract_metadata(bms);
         let timing_data = Self::extract_timing_data(bms);
         let (notes, bgm_events) = Self::extract_notes(bms, &timing_data)?;
+        let bga_events = Self::extract_bga_events(bms, &timing_data);
 
         Ok(Chart {
             metadata,
             timing_data,
             notes,
             bgm_events,
+            bga_events,
         })
     }
 
@@ -220,6 +240,47 @@ impl BmsLoader {
                 (id_num, path.to_string_lossy().to_string())
             })
             .collect()
+    }
+
+    fn extract_bmp_files(bms: &Bms) -> HashMap<u32, String> {
+        bms.bmp
+            .bmp_files
+            .iter()
+            .map(|(id, bmp)| {
+                let id_num: u32 = (*id).into();
+                (id_num, bmp.file.to_string_lossy().to_string())
+            })
+            .collect()
+    }
+
+    fn extract_bga_events(bms: &Bms, timing: &TimingData) -> Vec<BgaEvent> {
+        let mut events = Vec::new();
+
+        // All BGA events from bga_changes (unified in bms-rs 0.10+)
+        for (time, bga) in &bms.bmp.bga_changes {
+            let track = time.track().0 as u32;
+            let position = obj_time_to_fraction(time);
+            let time_ms = super::calculate_time_ms(track, position, timing);
+            let bga_id: u32 = bga.id.into();
+
+            // Map bms-rs BgaLayer to our internal BgaLayer
+            let layer = match bga.layer {
+                bms_rs::bms::prelude::BgaLayer::Base => BgaLayer::Base,
+                bms_rs::bms::prelude::BgaLayer::Poor => BgaLayer::Poor,
+                bms_rs::bms::prelude::BgaLayer::Overlay
+                | bms_rs::bms::prelude::BgaLayer::Overlay2 => BgaLayer::Overlay,
+                _ => BgaLayer::Overlay, // Treat unknown layers as Overlay for compatibility
+            };
+
+            events.push(BgaEvent {
+                time_ms,
+                bga_id,
+                layer,
+            });
+        }
+
+        events.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms));
+        events
     }
 }
 

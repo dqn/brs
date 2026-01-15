@@ -1,11 +1,13 @@
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use macroquad::prelude::*;
 
 use crate::audio::{AudioManager, AudioScheduler};
 use crate::bms::{BmsLoader, Chart, LANE_COUNT, LnType, NoteType};
-use crate::render::{EffectManager, Highway};
+use crate::config::GameSettings;
+use crate::render::{BgaManager, EffectManager, Highway, LaneCover};
 
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
@@ -44,6 +46,9 @@ pub struct GameState {
     last_judgment: Option<JudgeResult>,
     last_timing_diff_ms: Option<f64>,
     active_long_notes: [Option<ActiveLongNote>; LANE_COUNT],
+    // BGA
+    bga: BgaManager,
+    pending_bga_load: Option<(PathBuf, HashMap<u32, String>)>,
 }
 
 impl GameState {
@@ -67,12 +72,17 @@ impl GameState {
             last_judgment: None,
             last_timing_diff_ms: None,
             active_long_notes: [const { None }; LANE_COUNT],
+            bga: BgaManager::new(),
+            pending_bga_load: None,
         }
     }
 
     pub fn load_chart(&mut self, path: &str) -> Result<()> {
         let path = Path::new(path);
-        let (chart, wav_files) = BmsLoader::load(path)?;
+        let result = BmsLoader::load_full(path)?;
+        let chart = result.chart;
+        let wav_files = result.wav_files;
+        let bmp_files = result.bmp_files;
 
         println!(
             "Loaded: {} - {}",
@@ -81,26 +91,39 @@ impl GameState {
         println!("BPM: {}", chart.metadata.bpm);
         println!("Notes: {}", chart.note_count());
         println!("BGM events: {}", chart.bgm_events.len());
+        println!("BGA events: {}", chart.bga_events.len());
+        println!("BMP files: {}", bmp_files.len());
 
         let mut audio = AudioManager::new()?;
         if let Some(parent) = path.parent() {
             let loaded = audio.load_keysounds(parent, &wav_files)?;
             println!("Loaded {} keysounds", loaded);
+
+            // Store BMP files for async loading
+            if !bmp_files.is_empty() {
+                self.pending_bga_load = Some((parent.to_path_buf(), bmp_files));
+            }
         }
 
         let note_count = chart.note_count();
         self.lane_index = chart.build_lane_index();
         self.play_state = Some(GamePlayState::new(chart.notes.len()));
 
-        // Initialize judge system based on chart rank
-        // TODO: Make system type configurable via settings
+        // Load settings
+        let settings = GameSettings::load();
+
+        // Initialize judge system based on chart rank and settings
         let judge_rank = JudgeRank::from_bms_rank(chart.metadata.rank);
-        self.judge = JudgeSystem::for_system(JudgeSystemType::Beatoraja, judge_rank);
+        let gauge_system = match settings.judge_system {
+            JudgeSystemType::Beatoraja => GaugeSystem::Beatoraja,
+            JudgeSystemType::Lr2 => GaugeSystem::Lr2,
+        };
+        self.judge = JudgeSystem::for_system(settings.judge_system, judge_rank);
 
         // Initialize gauge with GAS enabled (all gauges tracked)
         self.gauge = Some(GaugeManager::new_with_gas(
-            GaugeType::Normal,
-            GaugeSystem::Beatoraja,
+            settings.gauge_type,
+            gauge_system,
             note_count,
             true,
         ));
@@ -109,10 +132,38 @@ impl GameState {
         self.scheduler.reset();
         self.score.reset();
 
+        // Apply lane cover and scroll speed settings
+        self.scroll_speed = settings.scroll_speed;
+        self.highway.set_lane_cover(LaneCover::new(
+            settings.sudden,
+            settings.hidden,
+            settings.lift,
+        ));
+
+        // Apply key bindings
+        self.input = InputHandler::with_bindings(settings.key_bindings.to_keycodes());
+
+        // Reset BGA state
+        self.bga.reset();
+
         Ok(())
     }
 
+    /// Load BGA textures asynchronously (call after load_chart)
+    #[allow(dead_code)] // BGA loading will be integrated when BGA rendering is complete
+    pub async fn load_bga(&mut self) {
+        if let Some((base_path, bmp_files)) = self.pending_bga_load.take() {
+            let loaded = self.bga.load_textures(&base_path, &bmp_files).await;
+            if loaded > 0 {
+                println!("Loaded {} BGA textures", loaded);
+            }
+        }
+    }
+
     pub fn update(&mut self) {
+        // Update gamepad input state
+        self.input.update();
+
         if is_key_pressed(KeyCode::Space) {
             self.playing = !self.playing;
         }
@@ -138,6 +189,7 @@ impl GameState {
             self.playing = false;
             self.last_judgment = None;
             self.active_long_notes = [const { None }; LANE_COUNT];
+            self.bga.reset();
         }
 
         if is_key_pressed(KeyCode::Up) {
@@ -160,12 +212,25 @@ impl GameState {
         if is_key_pressed(KeyCode::E) {
             self.highway.lane_cover_mut().adjust_lift(-50);
         }
+        if is_key_pressed(KeyCode::Key1) {
+            self.highway.lane_cover_mut().adjust_hidden(50);
+        }
+        if is_key_pressed(KeyCode::Key2) {
+            self.highway.lane_cover_mut().adjust_hidden(-50);
+        }
 
         if self.playing {
             self.current_time_ms += get_frame_time() as f64 * 1000.0;
 
             if let (Some(chart), Some(audio)) = (&self.chart, &mut self.audio) {
                 self.scheduler.update(chart, audio, self.current_time_ms);
+            }
+
+            // Update BGA
+            if let Some(chart) = &self.chart {
+                let is_poor = self.last_judgment == Some(JudgeResult::Poor);
+                self.bga
+                    .update(self.current_time_ms, &chart.bga_events, is_poor);
             }
 
             self.process_input();
@@ -427,6 +492,12 @@ impl GameState {
     pub fn draw(&self) {
         clear_background(BLACK);
 
+        // Draw BGA in the background (left side of screen)
+        if self.bga.has_textures() {
+            let bga_size = 256.0;
+            self.bga.draw(10.0, 100.0, bga_size, bga_size);
+        }
+
         // Draw lane flash effects (behind notes)
         let highway_x = (screen_width() - 50.0 * 8.0) / 2.0;
         self.effects
@@ -594,7 +665,7 @@ impl GameState {
         );
 
         draw_text(
-            "[Space] Play/Pause | [R] Reset | [Up/Down] Speed | [Q/W] SUD+ | [A/E] LIFT",
+            "[Space] Play/Pause | [R] Reset | [Up/Down] Speed | [Q/W] SUD+ | [1/2] HID+ | [A/E] LIFT",
             10.0,
             screen_height() - 20.0,
             16.0,

@@ -3,9 +3,332 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use directories::ProjectDirs;
+use macroquad::prelude::KeyCode;
 use serde::{Deserialize, Serialize};
 
 use crate::game::{GaugeType, JudgeSystemType};
+
+/// Key bindings for 7-key + scratch
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyBindings {
+    pub scratch: String,
+    pub key1: String,
+    pub key2: String,
+    pub key3: String,
+    pub key4: String,
+    pub key5: String,
+    pub key6: String,
+    pub key7: String,
+}
+
+impl Default for KeyBindings {
+    fn default() -> Self {
+        Self {
+            scratch: "LeftShift".to_string(),
+            key1: "Z".to_string(),
+            key2: "S".to_string(),
+            key3: "X".to_string(),
+            key4: "D".to_string(),
+            key5: "C".to_string(),
+            key6: "F".to_string(),
+            key7: "V".to_string(),
+        }
+    }
+}
+
+impl KeyBindings {
+    /// Convert to array of KeyCodes for InputHandler
+    pub fn to_keycodes(&self) -> [KeyCode; 8] {
+        [
+            string_to_keycode(&self.scratch).unwrap_or(KeyCode::LeftShift),
+            string_to_keycode(&self.key1).unwrap_or(KeyCode::Z),
+            string_to_keycode(&self.key2).unwrap_or(KeyCode::S),
+            string_to_keycode(&self.key3).unwrap_or(KeyCode::X),
+            string_to_keycode(&self.key4).unwrap_or(KeyCode::D),
+            string_to_keycode(&self.key5).unwrap_or(KeyCode::C),
+            string_to_keycode(&self.key6).unwrap_or(KeyCode::F),
+            string_to_keycode(&self.key7).unwrap_or(KeyCode::V),
+        ]
+    }
+
+    /// Set binding for a specific lane
+    pub fn set(&mut self, lane: usize, key: KeyCode) {
+        let key_str = keycode_to_string(key);
+        match lane {
+            0 => self.scratch = key_str,
+            1 => self.key1 = key_str,
+            2 => self.key2 = key_str,
+            3 => self.key3 = key_str,
+            4 => self.key4 = key_str,
+            5 => self.key5 = key_str,
+            6 => self.key6 = key_str,
+            7 => self.key7 = key_str,
+            _ => {}
+        }
+    }
+}
+
+/// Controller bindings for IIDX-style controllers
+///
+/// Format:
+/// - "Button:South" - Button input (A/Cross button)
+/// - "Axis:LeftStickX:+" - Axis input (positive direction)
+/// - "Axis:LeftStickX:-" - Axis input (negative direction)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ControllerBindings {
+    pub scratch: String,
+    pub key1: String,
+    pub key2: String,
+    pub key3: String,
+    pub key4: String,
+    pub key5: String,
+    pub key6: String,
+    pub key7: String,
+    /// Axis threshold for scratch detection (0.0-1.0)
+    pub axis_threshold: f32,
+}
+
+impl Default for ControllerBindings {
+    fn default() -> Self {
+        Self {
+            // Default: axis for scratch (for IIDX controllers with turntable)
+            scratch: "Axis:LeftStickX:+".to_string(),
+            key1: "Button:South".to_string(),
+            key2: "Button:East".to_string(),
+            key3: "Button:North".to_string(),
+            key4: "Button:West".to_string(),
+            key5: "Button:LeftTrigger".to_string(),
+            key6: "Button:RightTrigger".to_string(),
+            key7: "Button:LeftTrigger2".to_string(),
+            axis_threshold: 0.3,
+        }
+    }
+}
+
+/// Convert KeyCode to string for serialization
+pub fn keycode_to_string(key: KeyCode) -> String {
+    match key {
+        KeyCode::Space => "Space".to_string(),
+        KeyCode::Apostrophe => "Apostrophe".to_string(),
+        KeyCode::Comma => "Comma".to_string(),
+        KeyCode::Minus => "Minus".to_string(),
+        KeyCode::Period => "Period".to_string(),
+        KeyCode::Slash => "Slash".to_string(),
+        KeyCode::Key0 => "0".to_string(),
+        KeyCode::Key1 => "1".to_string(),
+        KeyCode::Key2 => "2".to_string(),
+        KeyCode::Key3 => "3".to_string(),
+        KeyCode::Key4 => "4".to_string(),
+        KeyCode::Key5 => "5".to_string(),
+        KeyCode::Key6 => "6".to_string(),
+        KeyCode::Key7 => "7".to_string(),
+        KeyCode::Key8 => "8".to_string(),
+        KeyCode::Key9 => "9".to_string(),
+        KeyCode::Semicolon => "Semicolon".to_string(),
+        KeyCode::Equal => "Equal".to_string(),
+        KeyCode::A => "A".to_string(),
+        KeyCode::B => "B".to_string(),
+        KeyCode::C => "C".to_string(),
+        KeyCode::D => "D".to_string(),
+        KeyCode::E => "E".to_string(),
+        KeyCode::F => "F".to_string(),
+        KeyCode::G => "G".to_string(),
+        KeyCode::H => "H".to_string(),
+        KeyCode::I => "I".to_string(),
+        KeyCode::J => "J".to_string(),
+        KeyCode::K => "K".to_string(),
+        KeyCode::L => "L".to_string(),
+        KeyCode::M => "M".to_string(),
+        KeyCode::N => "N".to_string(),
+        KeyCode::O => "O".to_string(),
+        KeyCode::P => "P".to_string(),
+        KeyCode::Q => "Q".to_string(),
+        KeyCode::R => "R".to_string(),
+        KeyCode::S => "S".to_string(),
+        KeyCode::T => "T".to_string(),
+        KeyCode::U => "U".to_string(),
+        KeyCode::V => "V".to_string(),
+        KeyCode::W => "W".to_string(),
+        KeyCode::X => "X".to_string(),
+        KeyCode::Y => "Y".to_string(),
+        KeyCode::Z => "Z".to_string(),
+        KeyCode::LeftBracket => "LeftBracket".to_string(),
+        KeyCode::Backslash => "Backslash".to_string(),
+        KeyCode::RightBracket => "RightBracket".to_string(),
+        KeyCode::GraveAccent => "GraveAccent".to_string(),
+        KeyCode::Escape => "Escape".to_string(),
+        KeyCode::Enter => "Enter".to_string(),
+        KeyCode::Tab => "Tab".to_string(),
+        KeyCode::Backspace => "Backspace".to_string(),
+        KeyCode::Insert => "Insert".to_string(),
+        KeyCode::Delete => "Delete".to_string(),
+        KeyCode::Right => "Right".to_string(),
+        KeyCode::Left => "Left".to_string(),
+        KeyCode::Down => "Down".to_string(),
+        KeyCode::Up => "Up".to_string(),
+        KeyCode::PageUp => "PageUp".to_string(),
+        KeyCode::PageDown => "PageDown".to_string(),
+        KeyCode::Home => "Home".to_string(),
+        KeyCode::End => "End".to_string(),
+        KeyCode::CapsLock => "CapsLock".to_string(),
+        KeyCode::ScrollLock => "ScrollLock".to_string(),
+        KeyCode::NumLock => "NumLock".to_string(),
+        KeyCode::PrintScreen => "PrintScreen".to_string(),
+        KeyCode::Pause => "Pause".to_string(),
+        KeyCode::F1 => "F1".to_string(),
+        KeyCode::F2 => "F2".to_string(),
+        KeyCode::F3 => "F3".to_string(),
+        KeyCode::F4 => "F4".to_string(),
+        KeyCode::F5 => "F5".to_string(),
+        KeyCode::F6 => "F6".to_string(),
+        KeyCode::F7 => "F7".to_string(),
+        KeyCode::F8 => "F8".to_string(),
+        KeyCode::F9 => "F9".to_string(),
+        KeyCode::F10 => "F10".to_string(),
+        KeyCode::F11 => "F11".to_string(),
+        KeyCode::F12 => "F12".to_string(),
+        KeyCode::LeftShift => "LeftShift".to_string(),
+        KeyCode::LeftControl => "LeftControl".to_string(),
+        KeyCode::LeftAlt => "LeftAlt".to_string(),
+        KeyCode::LeftSuper => "LeftSuper".to_string(),
+        KeyCode::RightShift => "RightShift".to_string(),
+        KeyCode::RightControl => "RightControl".to_string(),
+        KeyCode::RightAlt => "RightAlt".to_string(),
+        KeyCode::RightSuper => "RightSuper".to_string(),
+        KeyCode::Kp0 => "Kp0".to_string(),
+        KeyCode::Kp1 => "Kp1".to_string(),
+        KeyCode::Kp2 => "Kp2".to_string(),
+        KeyCode::Kp3 => "Kp3".to_string(),
+        KeyCode::Kp4 => "Kp4".to_string(),
+        KeyCode::Kp5 => "Kp5".to_string(),
+        KeyCode::Kp6 => "Kp6".to_string(),
+        KeyCode::Kp7 => "Kp7".to_string(),
+        KeyCode::Kp8 => "Kp8".to_string(),
+        KeyCode::Kp9 => "Kp9".to_string(),
+        KeyCode::KpDecimal => "KpDecimal".to_string(),
+        KeyCode::KpDivide => "KpDivide".to_string(),
+        KeyCode::KpMultiply => "KpMultiply".to_string(),
+        KeyCode::KpSubtract => "KpSubtract".to_string(),
+        KeyCode::KpAdd => "KpAdd".to_string(),
+        KeyCode::KpEnter => "KpEnter".to_string(),
+        KeyCode::KpEqual => "KpEqual".to_string(),
+        KeyCode::Menu => "Menu".to_string(),
+        KeyCode::Unknown => "Unknown".to_string(),
+        _ => "Unknown".to_string(),
+    }
+}
+
+/// Convert string to KeyCode for deserialization
+pub fn string_to_keycode(s: &str) -> Option<KeyCode> {
+    match s {
+        "Space" => Some(KeyCode::Space),
+        "Apostrophe" => Some(KeyCode::Apostrophe),
+        "Comma" => Some(KeyCode::Comma),
+        "Minus" => Some(KeyCode::Minus),
+        "Period" => Some(KeyCode::Period),
+        "Slash" => Some(KeyCode::Slash),
+        "0" => Some(KeyCode::Key0),
+        "1" => Some(KeyCode::Key1),
+        "2" => Some(KeyCode::Key2),
+        "3" => Some(KeyCode::Key3),
+        "4" => Some(KeyCode::Key4),
+        "5" => Some(KeyCode::Key5),
+        "6" => Some(KeyCode::Key6),
+        "7" => Some(KeyCode::Key7),
+        "8" => Some(KeyCode::Key8),
+        "9" => Some(KeyCode::Key9),
+        "Semicolon" => Some(KeyCode::Semicolon),
+        "Equal" => Some(KeyCode::Equal),
+        "A" => Some(KeyCode::A),
+        "B" => Some(KeyCode::B),
+        "C" => Some(KeyCode::C),
+        "D" => Some(KeyCode::D),
+        "E" => Some(KeyCode::E),
+        "F" => Some(KeyCode::F),
+        "G" => Some(KeyCode::G),
+        "H" => Some(KeyCode::H),
+        "I" => Some(KeyCode::I),
+        "J" => Some(KeyCode::J),
+        "K" => Some(KeyCode::K),
+        "L" => Some(KeyCode::L),
+        "M" => Some(KeyCode::M),
+        "N" => Some(KeyCode::N),
+        "O" => Some(KeyCode::O),
+        "P" => Some(KeyCode::P),
+        "Q" => Some(KeyCode::Q),
+        "R" => Some(KeyCode::R),
+        "S" => Some(KeyCode::S),
+        "T" => Some(KeyCode::T),
+        "U" => Some(KeyCode::U),
+        "V" => Some(KeyCode::V),
+        "W" => Some(KeyCode::W),
+        "X" => Some(KeyCode::X),
+        "Y" => Some(KeyCode::Y),
+        "Z" => Some(KeyCode::Z),
+        "LeftBracket" => Some(KeyCode::LeftBracket),
+        "Backslash" => Some(KeyCode::Backslash),
+        "RightBracket" => Some(KeyCode::RightBracket),
+        "GraveAccent" => Some(KeyCode::GraveAccent),
+        "Escape" => Some(KeyCode::Escape),
+        "Enter" => Some(KeyCode::Enter),
+        "Tab" => Some(KeyCode::Tab),
+        "Backspace" => Some(KeyCode::Backspace),
+        "Insert" => Some(KeyCode::Insert),
+        "Delete" => Some(KeyCode::Delete),
+        "Right" => Some(KeyCode::Right),
+        "Left" => Some(KeyCode::Left),
+        "Down" => Some(KeyCode::Down),
+        "Up" => Some(KeyCode::Up),
+        "PageUp" => Some(KeyCode::PageUp),
+        "PageDown" => Some(KeyCode::PageDown),
+        "Home" => Some(KeyCode::Home),
+        "End" => Some(KeyCode::End),
+        "CapsLock" => Some(KeyCode::CapsLock),
+        "ScrollLock" => Some(KeyCode::ScrollLock),
+        "NumLock" => Some(KeyCode::NumLock),
+        "PrintScreen" => Some(KeyCode::PrintScreen),
+        "Pause" => Some(KeyCode::Pause),
+        "F1" => Some(KeyCode::F1),
+        "F2" => Some(KeyCode::F2),
+        "F3" => Some(KeyCode::F3),
+        "F4" => Some(KeyCode::F4),
+        "F5" => Some(KeyCode::F5),
+        "F6" => Some(KeyCode::F6),
+        "F7" => Some(KeyCode::F7),
+        "F8" => Some(KeyCode::F8),
+        "F9" => Some(KeyCode::F9),
+        "F10" => Some(KeyCode::F10),
+        "F11" => Some(KeyCode::F11),
+        "F12" => Some(KeyCode::F12),
+        "LeftShift" => Some(KeyCode::LeftShift),
+        "LeftControl" => Some(KeyCode::LeftControl),
+        "LeftAlt" => Some(KeyCode::LeftAlt),
+        "LeftSuper" => Some(KeyCode::LeftSuper),
+        "RightShift" => Some(KeyCode::RightShift),
+        "RightControl" => Some(KeyCode::RightControl),
+        "RightAlt" => Some(KeyCode::RightAlt),
+        "RightSuper" => Some(KeyCode::RightSuper),
+        "Kp0" => Some(KeyCode::Kp0),
+        "Kp1" => Some(KeyCode::Kp1),
+        "Kp2" => Some(KeyCode::Kp2),
+        "Kp3" => Some(KeyCode::Kp3),
+        "Kp4" => Some(KeyCode::Kp4),
+        "Kp5" => Some(KeyCode::Kp5),
+        "Kp6" => Some(KeyCode::Kp6),
+        "Kp7" => Some(KeyCode::Kp7),
+        "Kp8" => Some(KeyCode::Kp8),
+        "Kp9" => Some(KeyCode::Kp9),
+        "KpDecimal" => Some(KeyCode::KpDecimal),
+        "KpDivide" => Some(KeyCode::KpDivide),
+        "KpMultiply" => Some(KeyCode::KpMultiply),
+        "KpSubtract" => Some(KeyCode::KpSubtract),
+        "KpAdd" => Some(KeyCode::KpAdd),
+        "KpEnter" => Some(KeyCode::KpEnter),
+        "KpEqual" => Some(KeyCode::KpEqual),
+        "Menu" => Some(KeyCode::Menu),
+        _ => None,
+    }
+}
 
 /// User settings for the game
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,8 +341,16 @@ pub struct GameSettings {
     pub scroll_speed: f32,
     /// Default SUDDEN+ value
     pub sudden: u16,
+    /// Default HIDDEN+ value
+    pub hidden: u16,
     /// Default LIFT value
     pub lift: u16,
+    /// Key bindings
+    #[serde(default)]
+    pub key_bindings: KeyBindings,
+    /// Controller bindings (for IIDX-style controllers)
+    #[serde(default)]
+    pub controller_bindings: ControllerBindings,
 }
 
 impl Default for GameSettings {
@@ -29,7 +360,10 @@ impl Default for GameSettings {
             gauge_type: GaugeType::Normal,
             scroll_speed: 1.0,
             sudden: 0,
+            hidden: 0,
             lift: 0,
+            key_bindings: KeyBindings::default(),
+            controller_bindings: ControllerBindings::default(),
         }
     }
 }

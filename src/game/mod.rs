@@ -1,4 +1,5 @@
 mod game_state;
+mod gamepad;
 mod gauge;
 mod input;
 mod judge;

@@ -7,6 +7,7 @@ pub struct Chart {
     pub timing_data: TimingData,
     pub notes: Vec<Note>,
     pub bgm_events: Vec<BgmEvent>,
+    pub bga_events: Vec<BgaEvent>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -69,6 +70,20 @@ pub struct BgmEvent {
     pub position: Fraction,
     pub time_ms: f64,
     pub keysound_id: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BgaEvent {
+    pub time_ms: f64,
+    pub bga_id: u32,
+    pub layer: BgaLayer,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BgaLayer {
+    Base,    // Channel 04
+    Poor,    // Channel 06
+    Overlay, // Channel 07
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
