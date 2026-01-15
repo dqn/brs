@@ -104,7 +104,7 @@ src/
 - [ ] FLAC 対応
 
 #### レーンオプション
-- [ ] S-RANDOM
+- [x] S-RANDOM
 - [ ] H-RANDOM
 
 #### アシストオプション

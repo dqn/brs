@@ -13,6 +13,7 @@ pub enum RandomOption {
     Random,
     #[allow(dead_code)]
     RRandom,
+    SRandom,
 }
 
 impl RandomOption {
@@ -24,6 +25,7 @@ impl RandomOption {
             Self::Mirror => "MIRROR",
             Self::Random => "RANDOM",
             Self::RRandom => "R-RANDOM",
+            Self::SRandom => "S-RANDOM",
         }
     }
 }
@@ -96,6 +98,11 @@ impl LaneMapping {
             RandomOption::Mirror => Self::mirror(),
             RandomOption::Random => Self::random(seed),
             RandomOption::RRandom => Self::rotate_random(seed),
+            RandomOption::SRandom => {
+                // S-RANDOM is not handled by LaneMapping
+                // It should be handled by apply_s_random directly
+                Self::identity()
+            }
         }
     }
 
@@ -117,6 +124,11 @@ pub fn apply_random_option(chart: &mut Chart, option: RandomOption, seed: u64) {
         return;
     }
 
+    if option == RandomOption::SRandom {
+        apply_s_random(chart, seed);
+        return;
+    }
+
     let mapping = LaneMapping::for_option(option, seed);
 
     for note in &mut chart.notes {
@@ -133,6 +145,63 @@ pub fn apply_random_option(chart: &mut Chart, option: RandomOption, seed: u64) {
     // Note: This is handled by the caller if needed
 }
 
+/// Apply S-RANDOM option to a chart
+/// Each note gets an independent random lane, but LN start/end pairs stay together
+fn apply_s_random(chart: &mut Chart, seed: u64) {
+    use crate::bms::NoteType;
+    use std::collections::HashMap;
+
+    let mut rng = StdRng::seed_from_u64(seed);
+
+    // Track LN start positions to maintain LN start/end pair consistency
+    // Key: (original_lane, time_ms of LongStart), Value: new_lane
+    let mut ln_mappings: HashMap<(usize, i64), usize> = HashMap::new();
+
+    for note in &mut chart.notes {
+        if !note.channel.is_key() {
+            continue;
+        }
+
+        let original_lane = note.channel.lane_index();
+
+        let new_lane = match note.note_type {
+            NoteType::LongStart => {
+                // Generate new random lane for LN start
+                let new_lane = rng.random_range(1..=7);
+                // Store mapping for the corresponding LN end
+                let time_key = (note.time_ms * 1000.0) as i64; // Convert to integer for HashMap key
+                ln_mappings.insert((original_lane, time_key), new_lane);
+                new_lane
+            }
+            NoteType::LongEnd => {
+                // Find the corresponding LN start mapping
+                // LN end should match with a previous LN start on the same original lane
+                let time_key = (note.time_ms * 1000.0) as i64;
+                // Search for the nearest LN start on this lane
+                let mapping_key = ln_mappings
+                    .keys()
+                    .filter(|(lane, _)| *lane == original_lane)
+                    .min_by_key(|(_, t)| (t - time_key).abs());
+
+                if let Some(&key) = mapping_key {
+                    ln_mappings.remove(&key).unwrap_or(original_lane)
+                } else {
+                    // Fallback: generate random lane if no matching LN start found
+                    rng.random_range(1..=7)
+                }
+            }
+            NoteType::Normal | NoteType::Invisible | NoteType::Landmine => {
+                // Normal notes get independent random lanes
+                rng.random_range(1..=7)
+            }
+        };
+
+        if let Some(new_channel) = NoteChannel::from_key_lane(new_lane) {
+            note.channel = new_channel;
+        }
+    }
+}
+
 /// Generate a random seed for replay reproducibility
 #[allow(dead_code)]
 pub fn generate_seed() -> u64 {
@@ -146,6 +215,8 @@ pub fn generate_seed() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bms::{Metadata, Note, NoteType, TimingData};
+    use fraction::Fraction;
 
     #[test]
     fn test_identity_mapping() {
@@ -192,5 +263,105 @@ mod tests {
     fn test_scratch_unchanged() {
         let mapping = LaneMapping::mirror();
         assert_eq!(mapping.transform(0), 0);
+    }
+
+    fn create_test_note(channel: NoteChannel, note_type: NoteType, time_ms: f64) -> Note {
+        Note {
+            measure: 0,
+            position: Fraction::from(0),
+            time_ms,
+            channel,
+            keysound_id: 0,
+            note_type,
+            long_end_time_ms: None,
+        }
+    }
+
+    fn create_test_chart(notes: Vec<Note>) -> Chart {
+        Chart {
+            metadata: Metadata::default(),
+            timing_data: TimingData::default(),
+            notes,
+            bgm_events: vec![],
+            bga_events: vec![],
+        }
+    }
+
+    #[test]
+    fn test_s_random_normal_notes() {
+        let notes = vec![
+            create_test_note(NoteChannel::Key1, NoteType::Normal, 0.0),
+            create_test_note(NoteChannel::Key2, NoteType::Normal, 100.0),
+            create_test_note(NoteChannel::Key3, NoteType::Normal, 200.0),
+        ];
+        let mut chart = create_test_chart(notes);
+
+        apply_random_option(&mut chart, RandomOption::SRandom, 12345);
+
+        // All notes should have valid key lanes (1-7)
+        for note in &chart.notes {
+            let lane = note.channel.lane_index();
+            assert!(lane >= 1 && lane <= 7, "Lane {} is out of range", lane);
+        }
+    }
+
+    #[test]
+    fn test_s_random_is_deterministic() {
+        let notes = vec![
+            create_test_note(NoteChannel::Key1, NoteType::Normal, 0.0),
+            create_test_note(NoteChannel::Key2, NoteType::Normal, 100.0),
+            create_test_note(NoteChannel::Key3, NoteType::Normal, 200.0),
+        ];
+
+        let mut chart1 = create_test_chart(notes.clone());
+        let mut chart2 = create_test_chart(notes);
+
+        apply_random_option(&mut chart1, RandomOption::SRandom, 12345);
+        apply_random_option(&mut chart2, RandomOption::SRandom, 12345);
+
+        for (n1, n2) in chart1.notes.iter().zip(chart2.notes.iter()) {
+            assert_eq!(n1.channel, n2.channel);
+        }
+    }
+
+    #[test]
+    fn test_s_random_ln_consistency() {
+        // Create LN start and end on the same lane
+        let notes = vec![
+            create_test_note(NoteChannel::Key1, NoteType::LongStart, 0.0),
+            create_test_note(NoteChannel::Key1, NoteType::LongEnd, 500.0),
+        ];
+        let mut chart = create_test_chart(notes);
+
+        apply_random_option(&mut chart, RandomOption::SRandom, 12345);
+
+        // LN start and end should be on the same lane
+        assert_eq!(
+            chart.notes[0].channel, chart.notes[1].channel,
+            "LN start and end should be on the same lane"
+        );
+    }
+
+    #[test]
+    fn test_s_random_scratch_unchanged() {
+        let notes = vec![
+            create_test_note(NoteChannel::Scratch, NoteType::Normal, 0.0),
+            create_test_note(NoteChannel::Key1, NoteType::Normal, 100.0),
+        ];
+        let mut chart = create_test_chart(notes);
+
+        apply_random_option(&mut chart, RandomOption::SRandom, 12345);
+
+        // Scratch should remain unchanged
+        assert_eq!(
+            chart.notes[0].channel,
+            NoteChannel::Scratch,
+            "Scratch should not be randomized"
+        );
+    }
+
+    #[test]
+    fn test_s_random_display_name() {
+        assert_eq!(RandomOption::SRandom.display_name(), "S-RANDOM");
     }
 }
