@@ -111,7 +111,7 @@ src/
 - [x] AUTO SCRATCH
 - [x] LEGACY NOTE (LN → 通常ノート変換)
 - [x] EXPAND JUDGE (判定幅拡大)
-- [ ] BATTLE (1P/2P 反転)
+- [x] BATTLE (1P/2P 反転)
 
 #### インターネットランキング
 - [ ] IR スコア送信

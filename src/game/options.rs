@@ -316,6 +316,28 @@ pub fn apply_legacy_note(chart: &mut Chart) {
         .retain(|note| note.note_type != NoteType::LongEnd);
 }
 
+/// Apply battle option to a chart (flip to 2P side layout)
+/// In SP, this mirrors the key lanes and moves scratch to the right side
+/// Layout change: S 1 2 3 4 5 6 7 -> 7 6 5 4 3 2 1 S
+#[allow(dead_code)]
+pub fn apply_battle(chart: &mut Chart) {
+    for note in &mut chart.notes {
+        let new_channel = match note.channel {
+            // Scratch moves to lane index 8 (rendered on right side)
+            NoteChannel::Scratch => NoteChannel::Scratch, // Scratch stays as Scratch but position changes
+            // Keys are mirrored: 1<->7, 2<->6, 3<->5, 4 stays
+            NoteChannel::Key1 => NoteChannel::Key7,
+            NoteChannel::Key2 => NoteChannel::Key6,
+            NoteChannel::Key3 => NoteChannel::Key5,
+            NoteChannel::Key4 => NoteChannel::Key4,
+            NoteChannel::Key5 => NoteChannel::Key3,
+            NoteChannel::Key6 => NoteChannel::Key2,
+            NoteChannel::Key7 => NoteChannel::Key1,
+        };
+        note.channel = new_channel;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

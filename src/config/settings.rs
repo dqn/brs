@@ -349,6 +349,9 @@ pub struct GameSettings {
     /// Expand judge option (widen judgment windows by 1.5x)
     #[serde(default)]
     pub expand_judge: bool,
+    /// Battle option (flip layout to 2P side - scratch on right)
+    #[serde(default)]
+    pub battle: bool,
     /// Default scroll speed
     pub scroll_speed: f32,
     /// Default SUDDEN+ value
@@ -374,6 +377,7 @@ impl Default for GameSettings {
             auto_scratch: false,
             legacy_note: false,
             expand_judge: false,
+            battle: false,
             scroll_speed: 1.0,
             sudden: 0,
             hidden: 0,

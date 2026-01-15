@@ -20,7 +20,7 @@ pub use judge::{
 };
 #[allow(unused_imports)]
 pub use options::{
-    LaneMapping, RandomOption, apply_legacy_note, apply_random_option, generate_seed,
+    LaneMapping, RandomOption, apply_battle, apply_legacy_note, apply_random_option, generate_seed,
 };
 pub use result::{ClearLamp, PlayResult};
 pub use score::ScoreManager;

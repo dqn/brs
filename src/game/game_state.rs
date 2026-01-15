@@ -12,7 +12,7 @@ use crate::render::{BgaManager, EffectManager, Highway, LaneCover};
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
     JudgeResult, JudgeSystem, JudgeSystemType, PlayResult, RandomOption, ScoreManager, TimingStats,
-    apply_legacy_note, apply_random_option, generate_seed,
+    apply_battle, apply_legacy_note, apply_random_option, generate_seed,
 };
 
 /// Active long note state tracking
@@ -136,6 +136,12 @@ impl GameState {
         if settings.legacy_note {
             apply_legacy_note(&mut chart);
             println!("Legacy note enabled (LN converted to normal notes)");
+        }
+
+        // Apply battle option (flip to 2P side layout)
+        if settings.battle {
+            apply_battle(&mut chart);
+            println!("Battle enabled (flipped to 2P side layout)");
         }
 
         let note_count = chart.note_count();
