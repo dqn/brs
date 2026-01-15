@@ -34,8 +34,9 @@ fn test_good_window() {
 fn test_bad_window() {
     let judge = JudgeSystem::new(JudgeConfig::normal());
 
+    // beatoraja Easy has asymmetric BAD: +220ms (early) / -280ms (late)
     assert_eq!(judge.judge(151.0), Some(JudgeResult::Bad));
-    assert_eq!(judge.judge(280.0), Some(JudgeResult::Bad));
+    assert_eq!(judge.judge(220.0), Some(JudgeResult::Bad));
     assert_eq!(judge.judge(-151.0), Some(JudgeResult::Bad));
     assert_eq!(judge.judge(-280.0), Some(JudgeResult::Bad));
 }
@@ -44,7 +45,8 @@ fn test_bad_window() {
 fn test_outside_window() {
     let judge = JudgeSystem::new(JudgeConfig::normal());
 
-    assert_eq!(judge.judge(281.0), None);
+    // beatoraja Easy has asymmetric BAD: +220ms (early) / -280ms (late)
+    assert_eq!(judge.judge(221.0), None);
     assert_eq!(judge.judge(-281.0), None);
     assert_eq!(judge.judge(1000.0), None);
 }
@@ -53,8 +55,12 @@ fn test_outside_window() {
 fn test_is_missed() {
     let judge = JudgeSystem::new(JudgeConfig::normal());
 
+    // is_missed only checks late (past) notes
+    // beatoraja Easy has asymmetric BAD: +220ms (early) / -280ms (late)
     assert!(!judge.is_missed(0.0));
-    assert!(!judge.is_missed(-280.0));
-    assert!(judge.is_missed(-281.0));
+    assert!(!judge.is_missed(220.0)); // Early notes are never "missed"
+    assert!(!judge.is_missed(1000.0)); // Early notes are never "missed"
+    assert!(!judge.is_missed(-280.0)); // Within late BAD window
+    assert!(judge.is_missed(-281.0)); // Outside late BAD window
     assert!(judge.is_missed(-1000.0));
 }

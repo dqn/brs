@@ -380,7 +380,6 @@ impl JudgeSystem {
     pub fn judge(&self, time_diff_ms: f64) -> Option<JudgeResult> {
         // time_diff_ms > 0 means player pressed early (note hasn't arrived yet)
         // time_diff_ms < 0 means player pressed late (note has passed)
-        let early = time_diff_ms > 0.0;
         let abs_diff = time_diff_ms.abs();
 
         if abs_diff <= self.config.pgreat_window {
@@ -389,16 +388,19 @@ impl JudgeSystem {
             Some(JudgeResult::Great)
         } else if abs_diff <= self.config.good_window {
             Some(JudgeResult::Good)
-        } else if abs_diff <= self.config.bad_window(early) {
-            Some(JudgeResult::Bad)
         } else {
-            None
+            // BAD window check - handle asymmetric windows
+            let early = time_diff_ms > 0.0;
+            if abs_diff <= self.config.bad_window(early) {
+                Some(JudgeResult::Bad)
+            } else {
+                None
+            }
         }
     }
 
     /// Judge release timing for CN (Charge Note)
     pub fn judge_release(&self, time_diff_ms: f64) -> Option<JudgeResult> {
-        let early = time_diff_ms > 0.0;
         let abs_diff = time_diff_ms.abs();
 
         if abs_diff <= self.release_config.pgreat_window {
@@ -407,10 +409,14 @@ impl JudgeSystem {
             Some(JudgeResult::Great)
         } else if abs_diff <= self.release_config.good_window {
             Some(JudgeResult::Good)
-        } else if abs_diff <= self.release_config.bad_window(early) {
-            Some(JudgeResult::Bad)
         } else {
-            None
+            // BAD window check - handle asymmetric windows
+            let early = time_diff_ms > 0.0;
+            if abs_diff <= self.release_config.bad_window(early) {
+                Some(JudgeResult::Bad)
+            } else {
+                None
+            }
         }
     }
 
