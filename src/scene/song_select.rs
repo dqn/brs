@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use macroquad::prelude::*;
 use walkdir::WalkDir;
 
-use super::{GameplayScene, Scene, SceneTransition};
+use super::{GameplayScene, Scene, SceneTransition, SettingsScene};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SortKey {
@@ -233,6 +233,10 @@ impl Scene for SongSelectScene {
             return SceneTransition::Pop;
         }
 
+        if is_key_pressed(KeyCode::S) {
+            return SceneTransition::Push(Box::new(SettingsScene::new()));
+        }
+
         SceneTransition::None
     }
 
@@ -307,7 +311,7 @@ impl Scene for SongSelectScene {
         }
 
         draw_text(
-            "[Up/Down] Select | [Enter] Play | [Tab] Sort | [F] Filter | [Esc] Quit",
+            "[Up/Down] Select | [Enter] Play | [Tab] Sort | [F] Filter | [S] Settings | [Esc] Quit",
             20.0,
             screen_height() - 20.0,
             16.0,

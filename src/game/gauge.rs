@@ -1,7 +1,7 @@
 use super::JudgeResult;
 
 /// Gauge type determining difficulty and pass conditions
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum GaugeType {
     AssistEasy,
     Easy,

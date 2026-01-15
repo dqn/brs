@@ -44,7 +44,7 @@ impl TimingStats {
 }
 
 /// Judge system type (affects timing windows and empty POOR behavior)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum JudgeSystemType {
     #[default]
     Beatoraja,

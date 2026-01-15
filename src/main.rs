@@ -1,5 +1,6 @@
 mod audio;
 mod bms;
+mod config;
 mod database;
 mod game;
 mod render;
