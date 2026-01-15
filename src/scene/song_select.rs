@@ -5,34 +5,127 @@ use walkdir::WalkDir;
 
 use super::{GameplayScene, Scene, SceneTransition};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SortKey {
+    #[default]
+    Title,
+    Artist,
+    Level,
+}
+
+impl SortKey {
+    fn next(self) -> Self {
+        match self {
+            SortKey::Title => SortKey::Artist,
+            SortKey::Artist => SortKey::Level,
+            SortKey::Level => SortKey::Title,
+        }
+    }
+
+    fn name(&self) -> &'static str {
+        match self {
+            SortKey::Title => "Title",
+            SortKey::Artist => "Artist",
+            SortKey::Level => "Level",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SongEntry {
     pub path: PathBuf,
     pub title: String,
     pub artist: String,
+    pub level: u32,
 }
 
 pub struct SongSelectScene {
-    songs: Vec<SongEntry>,
+    all_songs: Vec<SongEntry>,
+    filtered_songs: Vec<usize>, // Indices into all_songs
     selected_index: usize,
     scroll_offset: usize,
     visible_count: usize,
+    sort_key: SortKey,
+    level_filter: Option<u32>, // Filter by minimum level
 }
 
 impl SongSelectScene {
     pub fn new(search_path: Option<&str>) -> Self {
-        let songs = if let Some(path) = search_path {
+        let all_songs = if let Some(path) = search_path {
             Self::scan_songs(path)
         } else {
             Vec::new()
         };
 
-        Self {
-            songs,
+        let filtered_songs: Vec<usize> = (0..all_songs.len()).collect();
+
+        let mut scene = Self {
+            all_songs,
+            filtered_songs,
             selected_index: 0,
             scroll_offset: 0,
             visible_count: 15,
-        }
+            sort_key: SortKey::Title,
+            level_filter: None,
+        };
+        scene.apply_sort();
+        scene
+    }
+
+    fn apply_sort(&mut self) {
+        let all_songs = &self.all_songs;
+        let sort_key = self.sort_key;
+
+        self.filtered_songs.sort_by(|&a, &b| {
+            let song_a = &all_songs[a];
+            let song_b = &all_songs[b];
+            match sort_key {
+                SortKey::Title => song_a.title.cmp(&song_b.title),
+                SortKey::Artist => song_a.artist.cmp(&song_b.artist),
+                SortKey::Level => song_a.level.cmp(&song_b.level),
+            }
+        });
+    }
+
+    fn apply_filter(&mut self) {
+        self.filtered_songs = self
+            .all_songs
+            .iter()
+            .enumerate()
+            .filter(|(_, song)| {
+                if let Some(min_level) = self.level_filter {
+                    song.level >= min_level
+                } else {
+                    true
+                }
+            })
+            .map(|(i, _)| i)
+            .collect();
+        self.apply_sort();
+        self.selected_index = 0;
+        self.scroll_offset = 0;
+    }
+
+    fn cycle_sort(&mut self) {
+        self.sort_key = self.sort_key.next();
+        self.apply_sort();
+    }
+
+    fn cycle_level_filter(&mut self) {
+        self.level_filter = match self.level_filter {
+            None => Some(1),
+            Some(1) => Some(5),
+            Some(5) => Some(10),
+            Some(10) => Some(12),
+            Some(_) => None,
+        };
+        self.apply_filter();
+    }
+
+    fn get_song(&self, display_index: usize) -> Option<&SongEntry> {
+        self.filtered_songs
+            .get(display_index)
+            .map(|&i| &self.all_songs[i])
     }
 
     fn scan_songs(path: &str) -> Vec<SongEntry> {
@@ -54,7 +147,6 @@ impl SongSelectScene {
             }
         }
 
-        songs.sort_by(|a, b| a.title.cmp(&b.title));
         songs
     }
 
@@ -66,6 +158,7 @@ impl SongSelectScene {
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_default();
         let mut artist = String::from("Unknown");
+        let mut level = 0u32;
 
         for line in content.lines() {
             let line = line.trim();
@@ -73,9 +166,8 @@ impl SongSelectScene {
                 title = stripped.trim().to_string();
             } else if let Some(stripped) = line.strip_prefix("#ARTIST") {
                 artist = stripped.trim().to_string();
-            }
-            if !title.is_empty() && artist != "Unknown" {
-                break;
+            } else if let Some(stripped) = line.strip_prefix("#PLAYLEVEL") {
+                level = stripped.trim().parse().unwrap_or(0);
             }
         }
 
@@ -83,6 +175,7 @@ impl SongSelectScene {
             path,
             title,
             artist,
+            level,
         })
     }
 
@@ -97,7 +190,17 @@ impl SongSelectScene {
 
 impl Scene for SongSelectScene {
     fn update(&mut self) -> SceneTransition {
-        if self.songs.is_empty() {
+        if self.filtered_songs.is_empty() {
+            // Still allow sort/filter changes even with no songs
+            if is_key_pressed(KeyCode::Tab) {
+                self.cycle_sort();
+            }
+            if is_key_pressed(KeyCode::F) {
+                self.cycle_level_filter();
+            }
+            if is_key_pressed(KeyCode::Escape) {
+                return SceneTransition::Pop;
+            }
             return SceneTransition::None;
         }
 
@@ -106,15 +209,24 @@ impl Scene for SongSelectScene {
             self.update_scroll();
         }
 
-        if is_key_pressed(KeyCode::Down) && self.selected_index < self.songs.len() - 1 {
+        if is_key_pressed(KeyCode::Down) && self.selected_index < self.filtered_songs.len() - 1 {
             self.selected_index += 1;
             self.update_scroll();
         }
 
+        if is_key_pressed(KeyCode::Tab) {
+            self.cycle_sort();
+        }
+
+        if is_key_pressed(KeyCode::F) {
+            self.cycle_level_filter();
+        }
+
         if is_key_pressed(KeyCode::Enter) {
-            let song = &self.songs[self.selected_index];
-            let path = song.path.to_string_lossy().to_string();
-            return SceneTransition::Push(Box::new(GameplayScene::new(path)));
+            if let Some(song) = self.get_song(self.selected_index) {
+                let path = song.path.to_string_lossy().to_string();
+                return SceneTransition::Push(Box::new(GameplayScene::new(path)));
+            }
         }
 
         if is_key_pressed(KeyCode::Escape) {
@@ -128,17 +240,28 @@ impl Scene for SongSelectScene {
         clear_background(Color::new(0.05, 0.05, 0.1, 1.0));
 
         draw_text("SONG SELECT", 20.0, 40.0, 32.0, WHITE);
+
+        // Show filter/sort status
+        let filter_text = match self.level_filter {
+            None => "All".to_string(),
+            Some(lvl) => format!("☆{}+", lvl),
+        };
         draw_text(
-            &format!("{} songs found", self.songs.len()),
+            &format!(
+                "{} songs | Sort: {} | Filter: {}",
+                self.filtered_songs.len(),
+                self.sort_key.name(),
+                filter_text
+            ),
             20.0,
             70.0,
-            20.0,
+            18.0,
             GRAY,
         );
 
-        if self.songs.is_empty() {
+        if self.filtered_songs.is_empty() {
             draw_text(
-                "No songs found. Pass a folder path as argument.",
+                "No songs match the current filter.",
                 20.0,
                 screen_height() / 2.0,
                 24.0,
@@ -150,15 +273,16 @@ impl Scene for SongSelectScene {
         let start_y = 100.0;
         let item_height = 35.0;
 
-        for (i, song) in self
-            .songs
+        for (display_idx, &song_idx) in self
+            .filtered_songs
             .iter()
             .enumerate()
             .skip(self.scroll_offset)
             .take(self.visible_count)
         {
-            let y = start_y + (i - self.scroll_offset) as f32 * item_height;
-            let is_selected = i == self.selected_index;
+            let song = &self.all_songs[song_idx];
+            let y = start_y + (display_idx - self.scroll_offset) as f32 * item_height;
+            let is_selected = display_idx == self.selected_index;
 
             if is_selected {
                 draw_rectangle(
@@ -171,12 +295,19 @@ impl Scene for SongSelectScene {
             }
 
             let color = if is_selected { YELLOW } else { WHITE };
-            draw_text(&song.title, 30.0, y + 18.0, 22.0, color);
-            draw_text(&song.artist, 30.0, y + 32.0, 14.0, GRAY);
+
+            // Level display
+            if song.level > 0 {
+                draw_text(&format!("☆{}", song.level), 30.0, y + 18.0, 18.0, SKYBLUE);
+                draw_text(&song.title, 80.0, y + 18.0, 22.0, color);
+            } else {
+                draw_text(&song.title, 30.0, y + 18.0, 22.0, color);
+            }
+            draw_text(&song.artist, 80.0, y + 32.0, 14.0, GRAY);
         }
 
         draw_text(
-            "[Up/Down] Select | [Enter] Play | [Esc] Quit",
+            "[Up/Down] Select | [Enter] Play | [Tab] Sort | [F] Filter | [Esc] Quit",
             20.0,
             screen_height() - 20.0,
             16.0,
