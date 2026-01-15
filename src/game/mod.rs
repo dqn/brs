@@ -2,6 +2,7 @@ mod game_state;
 mod gauge;
 mod input;
 mod judge;
+mod options;
 mod result;
 mod score;
 mod state;
@@ -16,6 +17,8 @@ pub use judge::{
     JudgeConfig, JudgeConfigBuilder, JudgeRank, JudgeResult, JudgeSystem, JudgeSystemType,
     ReleaseConfig,
 };
+#[allow(unused_imports)]
+pub use options::{LaneMapping, RandomOption, apply_random_option, generate_seed};
 pub use result::{ClearLamp, PlayResult};
 pub use score::ScoreManager;
 #[allow(unused_imports)]

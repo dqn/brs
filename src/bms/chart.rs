@@ -112,6 +112,28 @@ impl NoteChannel {
             Self::Key7 => 7,
         }
     }
+
+    /// Convert lane index (1-7) to NoteChannel for keys
+    /// Returns None for scratch (0) or invalid indices
+    #[allow(dead_code)]
+    pub fn from_key_lane(lane: usize) -> Option<Self> {
+        match lane {
+            1 => Some(Self::Key1),
+            2 => Some(Self::Key2),
+            3 => Some(Self::Key3),
+            4 => Some(Self::Key4),
+            5 => Some(Self::Key5),
+            6 => Some(Self::Key6),
+            7 => Some(Self::Key7),
+            _ => None,
+        }
+    }
+
+    /// Check if this channel is a key (not scratch)
+    #[allow(dead_code)]
+    pub fn is_key(&self) -> bool {
+        !matches!(self, Self::Scratch)
+    }
 }
 
 /// Long note type (LN/CN/HCN)
