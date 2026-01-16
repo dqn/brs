@@ -136,6 +136,109 @@ impl KeyBindings9Key {
     }
 }
 
+/// Key bindings for DP 14-key mode (P1: scratch + 7 keys, P2: 7 keys + scratch)
+/// Default layout:
+/// P1: LeftShift(S) Z S X D C F V (1-7)
+/// P2: M K , L . ; / RightShift(S)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyBindingsDp {
+    // P1 side (lanes 0-7)
+    pub p1_scratch: String,
+    pub p1_key1: String,
+    pub p1_key2: String,
+    pub p1_key3: String,
+    pub p1_key4: String,
+    pub p1_key5: String,
+    pub p1_key6: String,
+    pub p1_key7: String,
+    // P2 side (lanes 8-15)
+    pub p2_key1: String,
+    pub p2_key2: String,
+    pub p2_key3: String,
+    pub p2_key4: String,
+    pub p2_key5: String,
+    pub p2_key6: String,
+    pub p2_key7: String,
+    pub p2_scratch: String,
+}
+
+impl Default for KeyBindingsDp {
+    fn default() -> Self {
+        Self {
+            // P1 side (left hand)
+            p1_scratch: "LeftShift".to_string(),
+            p1_key1: "Z".to_string(),
+            p1_key2: "S".to_string(),
+            p1_key3: "X".to_string(),
+            p1_key4: "D".to_string(),
+            p1_key5: "C".to_string(),
+            p1_key6: "F".to_string(),
+            p1_key7: "V".to_string(),
+            // P2 side (right hand)
+            p2_key1: "M".to_string(),
+            p2_key2: "K".to_string(),
+            p2_key3: "Comma".to_string(),
+            p2_key4: "L".to_string(),
+            p2_key5: "Period".to_string(),
+            p2_key6: "Semicolon".to_string(),
+            p2_key7: "Slash".to_string(),
+            p2_scratch: "RightShift".to_string(),
+        }
+    }
+}
+
+impl KeyBindingsDp {
+    /// Convert to array of KeyCodes for InputHandler (16 keys)
+    #[allow(dead_code)]
+    pub fn to_keycodes(&self) -> [KeyCode; 16] {
+        [
+            // P1 side
+            string_to_keycode(&self.p1_scratch).unwrap_or(KeyCode::LeftShift),
+            string_to_keycode(&self.p1_key1).unwrap_or(KeyCode::Z),
+            string_to_keycode(&self.p1_key2).unwrap_or(KeyCode::S),
+            string_to_keycode(&self.p1_key3).unwrap_or(KeyCode::X),
+            string_to_keycode(&self.p1_key4).unwrap_or(KeyCode::D),
+            string_to_keycode(&self.p1_key5).unwrap_or(KeyCode::C),
+            string_to_keycode(&self.p1_key6).unwrap_or(KeyCode::F),
+            string_to_keycode(&self.p1_key7).unwrap_or(KeyCode::V),
+            // P2 side
+            string_to_keycode(&self.p2_key1).unwrap_or(KeyCode::M),
+            string_to_keycode(&self.p2_key2).unwrap_or(KeyCode::K),
+            string_to_keycode(&self.p2_key3).unwrap_or(KeyCode::Comma),
+            string_to_keycode(&self.p2_key4).unwrap_or(KeyCode::L),
+            string_to_keycode(&self.p2_key5).unwrap_or(KeyCode::Period),
+            string_to_keycode(&self.p2_key6).unwrap_or(KeyCode::Semicolon),
+            string_to_keycode(&self.p2_key7).unwrap_or(KeyCode::Slash),
+            string_to_keycode(&self.p2_scratch).unwrap_or(KeyCode::RightShift),
+        ]
+    }
+
+    /// Set binding for a specific lane (0-15)
+    #[allow(dead_code)]
+    pub fn set(&mut self, lane: usize, key: KeyCode) {
+        let key_str = keycode_to_string(key);
+        match lane {
+            0 => self.p1_scratch = key_str,
+            1 => self.p1_key1 = key_str,
+            2 => self.p1_key2 = key_str,
+            3 => self.p1_key3 = key_str,
+            4 => self.p1_key4 = key_str,
+            5 => self.p1_key5 = key_str,
+            6 => self.p1_key6 = key_str,
+            7 => self.p1_key7 = key_str,
+            8 => self.p2_key1 = key_str,
+            9 => self.p2_key2 = key_str,
+            10 => self.p2_key3 = key_str,
+            11 => self.p2_key4 = key_str,
+            12 => self.p2_key5 = key_str,
+            13 => self.p2_key6 = key_str,
+            14 => self.p2_key7 = key_str,
+            15 => self.p2_scratch = key_str,
+            _ => {}
+        }
+    }
+}
+
 /// Controller bindings for IIDX-style controllers
 ///
 /// Format:
@@ -485,6 +588,9 @@ pub struct GameSettings {
     /// Key bindings for PMS 9-key mode
     #[serde(default)]
     pub key_bindings_9key: KeyBindings9Key,
+    /// Key bindings for DP 14-key mode
+    #[serde(default)]
+    pub key_bindings_dp: KeyBindingsDp,
     /// Controller bindings (for IIDX-style controllers)
     #[serde(default)]
     pub controller_bindings: ControllerBindings,
@@ -509,6 +615,7 @@ impl Default for GameSettings {
             lift: 0,
             key_bindings: KeyBindings::default(),
             key_bindings_9key: KeyBindings9Key::default(),
+            key_bindings_dp: KeyBindingsDp::default(),
             controller_bindings: ControllerBindings::default(),
             ir: IrSettings::default(),
         }

@@ -165,11 +165,13 @@ impl LaneFlash {
     }
 }
 
+use crate::bms::MAX_LANE_COUNT;
+
 /// Effect manager for all visual effects
 pub struct EffectManager {
     judge_effect: Option<JudgeEffect>,
     combo_effect: ComboEffect,
-    lane_flashes: [LaneFlash; 8],
+    lane_flashes: [LaneFlash; MAX_LANE_COUNT],
 }
 
 impl EffectManager {
@@ -177,7 +179,7 @@ impl EffectManager {
         Self {
             judge_effect: None,
             combo_effect: ComboEffect::new(0, combo_x, combo_y),
-            lane_flashes: [LaneFlash::default(); 8],
+            lane_flashes: [LaneFlash::default(); MAX_LANE_COUNT],
         }
     }
 
@@ -190,7 +192,7 @@ impl EffectManager {
     }
 
     pub fn trigger_lane_flash(&mut self, lane: usize) {
-        if lane < 8 {
+        if lane < MAX_LANE_COUNT {
             self.lane_flashes[lane].trigger();
         }
     }

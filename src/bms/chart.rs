@@ -3,10 +3,12 @@ use serde::{Deserialize, Serialize};
 
 /// Play mode for the chart
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[allow(clippy::enum_variant_names)]
 pub enum PlayMode {
     #[default]
     Bms7Key, // 7 keys + scratch (8 lanes)
     Pms9Key, // 9 keys (9 lanes)
+    Dp14Key, // DP mode: 14 keys + 2 scratches (16 lanes)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,7 +101,8 @@ pub enum BgaLayer {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NoteChannel {
-    Scratch,
+    // P1 side
+    Scratch, // P1 Scratch
     Key1,
     Key2,
     Key3,
@@ -107,8 +110,15 @@ pub enum NoteChannel {
     Key5,
     Key6,
     Key7,
-    Key8, // PMS only
-    Key9, // PMS only
+    // P2 side (also used for PMS Key8-9)
+    Key8,     // PMS lane 8, or DP P2 Key1
+    Key9,     // PMS lane 9, or DP P2 Key2
+    Key10,    // DP P2 Key3
+    Key11,    // DP P2 Key4
+    Key12,    // DP P2 Key5
+    Key13,    // DP P2 Key6
+    Key14,    // DP P2 Key7
+    Scratch2, // DP P2 Scratch
 }
 
 impl NoteChannel {
@@ -139,14 +149,21 @@ impl NoteChannel {
             Self::Key5 => 5,
             Self::Key6 => 6,
             Self::Key7 => 7,
-            Self::Key8 => 8, // PMS only
-            Self::Key9 => 9, // PMS only
+            Self::Key8 => 8,
+            Self::Key9 => 9,
+            Self::Key10 => 10,
+            Self::Key11 => 11,
+            Self::Key12 => 12,
+            Self::Key13 => 13,
+            Self::Key14 => 14,
+            Self::Scratch2 => 15,
         }
     }
 
     /// Get lane index based on play mode
     /// - BMS 7-key: lanes 0-7 (scratch + 7 keys)
     /// - PMS 9-key: lanes 0-8 (9 keys, no scratch)
+    /// - DP 14-key: lanes 0-15 (P1: scratch + 7 keys, P2: 7 keys + scratch)
     pub fn lane_index_for_mode(&self, mode: PlayMode) -> usize {
         match mode {
             PlayMode::Bms7Key => self.lane_index(),
@@ -161,7 +178,30 @@ impl NoteChannel {
                 Self::Key8 => 7,
                 Self::Key9 => 8,
                 Self::Scratch => 0, // Should not occur in PMS
+                _ => 0,             // Other channels not used in PMS
             },
+            PlayMode::Dp14Key => {
+                // DP layout: P1(S 1 2 3 4 5 6 7) + P2(1 2 3 4 5 6 7 S)
+                // Lanes: 0-7 for P1, 8-15 for P2
+                match self {
+                    Self::Scratch => 0, // P1 Scratch
+                    Self::Key1 => 1,    // P1 Key1
+                    Self::Key2 => 2,
+                    Self::Key3 => 3,
+                    Self::Key4 => 4,
+                    Self::Key5 => 5,
+                    Self::Key6 => 6,
+                    Self::Key7 => 7,      // P1 Key7
+                    Self::Key8 => 8,      // P2 Key1
+                    Self::Key9 => 9,      // P2 Key2
+                    Self::Key10 => 10,    // P2 Key3
+                    Self::Key11 => 11,    // P2 Key4
+                    Self::Key12 => 12,    // P2 Key5
+                    Self::Key13 => 13,    // P2 Key6
+                    Self::Key14 => 14,    // P2 Key7
+                    Self::Scratch2 => 15, // P2 Scratch
+                }
+            }
         }
     }
 
@@ -201,7 +241,53 @@ impl NoteChannel {
     /// Check if this channel is a key (not scratch)
     #[allow(dead_code)]
     pub fn is_key(&self) -> bool {
-        !matches!(self, Self::Scratch)
+        !matches!(self, Self::Scratch | Self::Scratch2)
+    }
+
+    /// Check if this channel is a scratch
+    #[allow(dead_code)]
+    pub fn is_scratch(&self) -> bool {
+        matches!(self, Self::Scratch | Self::Scratch2)
+    }
+
+    /// Check if this channel belongs to P2 side (DP mode)
+    #[allow(dead_code)]
+    pub fn is_p2(&self) -> bool {
+        matches!(
+            self,
+            Self::Key8
+                | Self::Key9
+                | Self::Key10
+                | Self::Key11
+                | Self::Key12
+                | Self::Key13
+                | Self::Key14
+                | Self::Scratch2
+        )
+    }
+
+    /// Convert lane index (0-15) to NoteChannel for DP 14-key mode
+    #[allow(dead_code)]
+    pub fn from_dp_lane(lane: usize) -> Option<Self> {
+        match lane {
+            0 => Some(Self::Scratch),
+            1 => Some(Self::Key1),
+            2 => Some(Self::Key2),
+            3 => Some(Self::Key3),
+            4 => Some(Self::Key4),
+            5 => Some(Self::Key5),
+            6 => Some(Self::Key6),
+            7 => Some(Self::Key7),
+            8 => Some(Self::Key8),
+            9 => Some(Self::Key9),
+            10 => Some(Self::Key10),
+            11 => Some(Self::Key11),
+            12 => Some(Self::Key12),
+            13 => Some(Self::Key13),
+            14 => Some(Self::Key14),
+            15 => Some(Self::Scratch2),
+            _ => None,
+        }
     }
 }
 
@@ -233,10 +319,14 @@ pub const LANE_COUNT_BMS: usize = 8;
 #[allow(dead_code)]
 pub const LANE_COUNT_PMS: usize = 9;
 
+/// Lane count for DP 14-key mode (P1: scratch + 7 keys, P2: 7 keys + scratch)
+pub const LANE_COUNT_DP: usize = 16;
+
 /// Maximum lane count across all modes
-pub const MAX_LANE_COUNT: usize = 9;
+pub const MAX_LANE_COUNT: usize = 16;
 
 /// Legacy constant for backward compatibility
+#[allow(dead_code)]
 pub const LANE_COUNT: usize = LANE_COUNT_BMS;
 
 /// Get lane count for a specific play mode
@@ -245,6 +335,7 @@ pub fn lane_count(mode: PlayMode) -> usize {
     match mode {
         PlayMode::Bms7Key => LANE_COUNT_BMS,
         PlayMode::Pms9Key => LANE_COUNT_PMS,
+        PlayMode::Dp14Key => LANE_COUNT_DP,
     }
 }
 
@@ -265,6 +356,7 @@ impl Chart {
     }
 
     /// Build lane index for BMS 7-key mode (legacy)
+    #[allow(dead_code)]
     pub fn build_lane_index(&self) -> [Vec<usize>; LANE_COUNT_BMS] {
         let mut index: [Vec<usize>; LANE_COUNT_BMS] = Default::default();
         for (i, note) in self.notes.iter().enumerate() {

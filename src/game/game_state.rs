@@ -5,7 +5,7 @@ use anyhow::Result;
 use macroquad::prelude::*;
 
 use crate::audio::{AudioManager, AudioScheduler};
-use crate::bms::{BmsLoader, Chart, LANE_COUNT, LnType, NoteType};
+use crate::bms::{BmsLoader, Chart, LnType, MAX_LANE_COUNT, NoteType};
 use crate::config::GameSettings;
 use crate::render::{BgaManager, EffectManager, Highway, LaneCover};
 
@@ -32,7 +32,7 @@ struct ActiveLongNote {
 
 pub struct GameState {
     chart: Option<Chart>,
-    lane_index: [Vec<usize>; LANE_COUNT],
+    lane_index: [Vec<usize>; MAX_LANE_COUNT],
     audio: Option<AudioManager>,
     scheduler: AudioScheduler,
     highway: Highway,
@@ -48,9 +48,9 @@ pub struct GameState {
     playing: bool,
     last_judgment: Option<JudgeResult>,
     last_timing_diff_ms: Option<f64>,
-    active_long_notes: [Option<ActiveLongNote>; LANE_COUNT],
+    active_long_notes: [Option<ActiveLongNote>; MAX_LANE_COUNT],
     /// Damage timers for HCN (Hell Charge Note) in ms
-    hcn_damage_timers: [f64; LANE_COUNT],
+    hcn_damage_timers: [f64; MAX_LANE_COUNT],
     random_option: RandomOption,
     auto_scratch: bool,
     legacy_note: bool,
@@ -81,8 +81,8 @@ impl GameState {
             playing: false,
             last_judgment: None,
             last_timing_diff_ms: None,
-            active_long_notes: [const { None }; LANE_COUNT],
-            hcn_damage_timers: [0.0; LANE_COUNT],
+            active_long_notes: [const { None }; MAX_LANE_COUNT],
+            hcn_damage_timers: [0.0; MAX_LANE_COUNT],
             random_option: RandomOption::Off,
             auto_scratch: false,
             legacy_note: false,
@@ -153,7 +153,7 @@ impl GameState {
         }
 
         let note_count = chart.note_count();
-        self.lane_index = chart.build_lane_index();
+        self.lane_index = chart.build_lane_index_for_mode();
         self.play_state = Some(GamePlayState::new(chart.notes.len()));
 
         // Initialize judge system based on chart rank and settings
@@ -241,8 +241,8 @@ impl GameState {
             }
             self.playing = false;
             self.last_judgment = None;
-            self.active_long_notes = [const { None }; LANE_COUNT];
-            self.hcn_damage_timers = [0.0; LANE_COUNT];
+            self.active_long_notes = [const { None }; MAX_LANE_COUNT];
+            self.hcn_damage_timers = [0.0; MAX_LANE_COUNT];
             self.bga.reset();
         }
 
@@ -519,7 +519,7 @@ impl GameState {
         }
 
         // Check for missed long note ends (held too long without release)
-        for lane_idx in 0..LANE_COUNT {
+        for lane_idx in 0..MAX_LANE_COUNT {
             if let Some(active_ln) = &self.active_long_notes[lane_idx] {
                 let start_note = &chart.notes[active_ln.start_idx];
 
@@ -566,7 +566,7 @@ impl GameState {
     fn process_hcn_damage(&mut self, delta_ms: f64) {
         const HCN_DAMAGE_INTERVAL_MS: f64 = 100.0;
 
-        for lane_idx in 0..LANE_COUNT {
+        for lane_idx in 0..MAX_LANE_COUNT {
             if let Some(ref active_ln) = self.active_long_notes[lane_idx] {
                 // Only process HCN that is not being held
                 if active_ln.ln_type == LnType::Hcn && !active_ln.is_holding {

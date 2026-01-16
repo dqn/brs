@@ -84,14 +84,14 @@ impl Highway {
     }
 
     fn highway_x(&self) -> f32 {
-        let lane_count = self.config.lane_count();
-        (screen_width() - self.config.lane_width * lane_count as f32) / 2.0
+        let total_width = self.config.total_width();
+        (screen_width() - total_width) / 2.0
     }
 
     fn draw_lanes(&self, highway_x: f32) {
         let lane_count = self.config.lane_count();
         for i in 0..lane_count {
-            let x = highway_x + i as f32 * self.config.lane_width;
+            let x = highway_x + self.config.lane_x_offset(i);
             draw_rectangle(
                 x,
                 0.0,
@@ -108,7 +108,9 @@ impl Highway {
                 Color::new(0.3, 0.3, 0.3, 1.0),
             );
         }
-        let last_x = highway_x + lane_count as f32 * self.config.lane_width;
+        // Draw right edge of last lane
+        let last_lane = lane_count - 1;
+        let last_x = highway_x + self.config.lane_x_offset(last_lane) + self.config.lane_width;
         draw_line(
             last_x,
             0.0,
@@ -117,6 +119,30 @@ impl Highway {
             1.0,
             Color::new(0.3, 0.3, 0.3, 1.0),
         );
+
+        // For DP mode, draw P1 right edge and P2 left edge
+        if self.config.play_mode == PlayMode::Dp14Key {
+            // P1 right edge (after lane 7)
+            let p1_right_x = highway_x + self.config.lane_x_offset(7) + self.config.lane_width;
+            draw_line(
+                p1_right_x,
+                0.0,
+                p1_right_x,
+                screen_height(),
+                1.0,
+                Color::new(0.3, 0.3, 0.3, 1.0),
+            );
+            // P2 left edge (before lane 8)
+            let p2_left_x = highway_x + self.config.lane_x_offset(8);
+            draw_line(
+                p2_left_x,
+                0.0,
+                p2_left_x,
+                screen_height(),
+                1.0,
+                Color::new(0.3, 0.3, 0.3, 1.0),
+            );
+        }
     }
 
     // Helper method for drawing notes without state (for simple mode)
@@ -216,7 +242,7 @@ impl Highway {
                 let end_y = self.config.judge_line_y - (end_time_diff * pixels_per_ms) as f32;
 
                 let lane = note.channel.lane_index_for_mode(play_mode);
-                let x = highway_x + lane as f32 * self.config.lane_width;
+                let x = highway_x + self.config.lane_x_offset(lane);
 
                 let bar_height = start_y - end_y;
                 if bar_height > 0.0 {
@@ -235,7 +261,7 @@ impl Highway {
     fn draw_note(&self, note: &Note, time_diff: f64, pixels_per_ms: f64, highway_x: f32) {
         let y = self.config.judge_line_y - (time_diff * pixels_per_ms) as f32;
         let lane = note.channel.lane_index_for_mode(self.config.play_mode);
-        let x = highway_x + lane as f32 * self.config.lane_width;
+        let x = highway_x + self.config.lane_x_offset(lane);
 
         let color = match note.note_type {
             NoteType::Normal => self.config.lane_color(lane),
@@ -258,11 +284,11 @@ impl Highway {
         let lift_offset = self.lane_cover.judge_line_position() * self.config.judge_line_y;
         let adjusted_judge_y = self.config.judge_line_y - lift_offset;
 
-        let lane_count = self.config.lane_count();
+        let highway_width = self.config.total_width();
         draw_line(
             highway_x,
             adjusted_judge_y,
-            highway_x + self.config.lane_width * lane_count as f32,
+            highway_x + highway_width,
             adjusted_judge_y,
             3.0,
             Color::new(1.0, 0.8, 0.0, 1.0),
@@ -270,8 +296,7 @@ impl Highway {
     }
 
     fn draw_lane_covers(&self, highway_x: f32) {
-        let lane_count = self.config.lane_count();
-        let highway_width = self.config.lane_width * lane_count as f32;
+        let highway_width = self.config.total_width();
         let lane_height = self.config.judge_line_y; // Lane goes from top to judge line
         let cover_color = Color::new(0.0, 0.0, 0.0, 0.9);
 

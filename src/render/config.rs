@@ -8,6 +8,12 @@ pub const LANE_COUNT_BMS: usize = 8;
 /// Lane count for PMS 9-key mode (9 keys)
 pub const LANE_COUNT_PMS: usize = 9;
 
+/// Lane count for DP 14-key mode (P1: scratch + 7 keys, P2: 7 keys + scratch)
+pub const LANE_COUNT_DP: usize = 16;
+
+/// Gap between P1 and P2 highways in DP mode (pixels)
+pub const DP_CENTER_GAP: f32 = 20.0;
+
 /// Legacy constant for backward compatibility
 #[allow(dead_code)]
 pub const LANE_COUNT: usize = LANE_COUNT_BMS;
@@ -17,6 +23,7 @@ pub fn lane_count(mode: PlayMode) -> usize {
     match mode {
         PlayMode::Bms7Key => LANE_COUNT_BMS,
         PlayMode::Pms9Key => LANE_COUNT_PMS,
+        PlayMode::Dp14Key => LANE_COUNT_DP,
     }
 }
 
@@ -47,6 +54,29 @@ pub const PMS_LANE_COLORS: [Color; LANE_COUNT_PMS] = [
     Color::new(1.0, 1.0, 1.0, 1.0), // Key9 - White
 ];
 
+/// DP 14-key lane colors (IIDX style, P1 + P2)
+/// P1: S 1 2 3 4 5 6 7 | P2: 1 2 3 4 5 6 7 S
+pub const DP_LANE_COLORS: [Color; LANE_COUNT_DP] = [
+    // P1 side (lanes 0-7)
+    Color::new(1.0, 0.3, 0.3, 1.0), // P1 Scratch - Red
+    Color::new(1.0, 1.0, 1.0, 1.0), // P1 Key1 - White
+    Color::new(0.3, 0.5, 1.0, 1.0), // P1 Key2 - Blue
+    Color::new(1.0, 1.0, 1.0, 1.0), // P1 Key3 - White
+    Color::new(0.3, 0.5, 1.0, 1.0), // P1 Key4 - Blue
+    Color::new(1.0, 1.0, 1.0, 1.0), // P1 Key5 - White
+    Color::new(0.3, 0.5, 1.0, 1.0), // P1 Key6 - Blue
+    Color::new(1.0, 1.0, 1.0, 1.0), // P1 Key7 - White
+    // P2 side (lanes 8-15)
+    Color::new(1.0, 1.0, 1.0, 1.0), // P2 Key1 - White
+    Color::new(0.3, 0.5, 1.0, 1.0), // P2 Key2 - Blue
+    Color::new(1.0, 1.0, 1.0, 1.0), // P2 Key3 - White
+    Color::new(0.3, 0.5, 1.0, 1.0), // P2 Key4 - Blue
+    Color::new(1.0, 1.0, 1.0, 1.0), // P2 Key5 - White
+    Color::new(0.3, 0.5, 1.0, 1.0), // P2 Key6 - Blue
+    Color::new(1.0, 1.0, 1.0, 1.0), // P2 Key7 - White
+    Color::new(1.0, 0.3, 0.3, 1.0), // P2 Scratch - Red
+];
+
 #[derive(Debug, Clone)]
 pub struct HighwayConfig {
     pub lane_width: f32,
@@ -63,6 +93,7 @@ impl HighwayConfig {
             lane_width: match mode {
                 PlayMode::Bms7Key => 50.0,
                 PlayMode::Pms9Key => 44.0, // Narrower lanes for 9 keys
+                PlayMode::Dp14Key => 40.0, // Narrower lanes for DP (16 lanes)
             },
             note_height: 10.0,
             judge_line_y: 500.0,
@@ -93,6 +124,40 @@ impl HighwayConfig {
                     Color::new(0.5, 0.5, 0.5, 1.0)
                 }
             }
+            PlayMode::Dp14Key => {
+                if lane < LANE_COUNT_DP {
+                    DP_LANE_COLORS[lane]
+                } else {
+                    Color::new(0.5, 0.5, 0.5, 1.0)
+                }
+            }
+        }
+    }
+
+    /// Get total highway width (including center gap for DP)
+    pub fn total_width(&self) -> f32 {
+        match self.play_mode {
+            PlayMode::Dp14Key => {
+                // P1 (8 lanes) + gap + P2 (8 lanes)
+                self.lane_width * 8.0 + DP_CENTER_GAP + self.lane_width * 8.0
+            }
+            _ => self.lane_width * self.lane_count() as f32,
+        }
+    }
+
+    /// Get X offset for a lane (handles DP center gap)
+    pub fn lane_x_offset(&self, lane: usize) -> f32 {
+        match self.play_mode {
+            PlayMode::Dp14Key => {
+                if lane < 8 {
+                    // P1 side
+                    lane as f32 * self.lane_width
+                } else {
+                    // P2 side (after center gap)
+                    8.0 * self.lane_width + DP_CENTER_GAP + (lane - 8) as f32 * self.lane_width
+                }
+            }
+            _ => lane as f32 * self.lane_width,
         }
     }
 }

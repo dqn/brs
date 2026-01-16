@@ -245,6 +245,14 @@ pub fn apply_random_option(chart: &mut Chart, option: RandomOption, seed: u64) {
                 }
             }
         }
+        PlayMode::Dp14Key => {
+            // For DP mode, apply MIRROR to both sides independently
+            if option == RandomOption::Mirror {
+                apply_mirror_dp(chart);
+            }
+            // RANDOM for DP is not yet fully implemented
+            // For now, just use MIRROR for other options too
+        }
     }
 
     // Rebuild lane index after modifying notes
@@ -270,6 +278,7 @@ fn apply_s_random(chart: &mut Chart, seed: u64, play_mode: PlayMode) {
     ) = match play_mode {
         PlayMode::Bms7Key => (1..=7, NoteChannel::from_key_lane),
         PlayMode::Pms9Key => (0..=8, NoteChannel::from_pms_lane),
+        PlayMode::Dp14Key => (1..=14, NoteChannel::from_dp_lane),
     };
 
     for note in &mut chart.notes {
@@ -335,6 +344,7 @@ fn apply_h_random(chart: &mut Chart, seed: u64, play_mode: PlayMode) {
     let lane_converter: fn(usize) -> Option<NoteChannel> = match play_mode {
         PlayMode::Bms7Key => NoteChannel::from_key_lane,
         PlayMode::Pms9Key => NoteChannel::from_pms_lane,
+        PlayMode::Dp14Key => NoteChannel::from_dp_lane,
     };
 
     for note in &mut chart.notes {
@@ -389,6 +399,7 @@ fn pick_random_lane_avoiding(rng: &mut StdRng, avoid: Option<usize>, play_mode: 
     let (lane_range, lane_count) = match play_mode {
         PlayMode::Bms7Key => (1..=7usize, 7),
         PlayMode::Pms9Key => (0..=8usize, 9),
+        PlayMode::Dp14Key => (1..=14usize, 14),
     };
 
     match avoid {
@@ -402,6 +413,7 @@ fn pick_random_lane_avoiding(rng: &mut StdRng, avoid: Option<usize>, play_mode: 
             match play_mode {
                 PlayMode::Bms7Key => rng.random_range(1..=lane_count),
                 PlayMode::Pms9Key => rng.random_range(0..lane_count),
+                PlayMode::Dp14Key => rng.random_range(1..=lane_count),
             }
         }
     }
@@ -454,11 +466,135 @@ pub fn apply_battle(chart: &mut Chart) {
             NoteChannel::Key5 => NoteChannel::Key3,
             NoteChannel::Key6 => NoteChannel::Key2,
             NoteChannel::Key7 => NoteChannel::Key1,
-            // PMS: Key8 and Key9 are not supported in BMS, so keep them as-is
-            NoteChannel::Key8 => NoteChannel::Key8,
-            NoteChannel::Key9 => NoteChannel::Key9,
+            // DP P2 side and PMS channels keep as-is for this SP option
+            other => other,
         };
         note.channel = new_channel;
+    }
+}
+
+/// Apply MIRROR option for DP mode
+/// Mirrors P1 and P2 sides independently
+/// P1: S 1 2 3 4 5 6 7 -> S 7 6 5 4 3 2 1
+/// P2: 1 2 3 4 5 6 7 S -> 7 6 5 4 3 2 1 S
+#[allow(dead_code)]
+pub fn apply_mirror_dp(chart: &mut Chart) {
+    for note in &mut chart.notes {
+        let new_channel = match note.channel {
+            // P1 side: Scratch stays, keys mirror
+            NoteChannel::Scratch => NoteChannel::Scratch,
+            NoteChannel::Key1 => NoteChannel::Key7,
+            NoteChannel::Key2 => NoteChannel::Key6,
+            NoteChannel::Key3 => NoteChannel::Key5,
+            NoteChannel::Key4 => NoteChannel::Key4,
+            NoteChannel::Key5 => NoteChannel::Key3,
+            NoteChannel::Key6 => NoteChannel::Key2,
+            NoteChannel::Key7 => NoteChannel::Key1,
+            // P2 side: Keys mirror, scratch stays
+            NoteChannel::Key8 => NoteChannel::Key14, // P2 Key1 <-> P2 Key7
+            NoteChannel::Key9 => NoteChannel::Key13, // P2 Key2 <-> P2 Key6
+            NoteChannel::Key10 => NoteChannel::Key12, // P2 Key3 <-> P2 Key5
+            NoteChannel::Key11 => NoteChannel::Key11, // P2 Key4 stays
+            NoteChannel::Key12 => NoteChannel::Key10, // P2 Key5 <-> P2 Key3
+            NoteChannel::Key13 => NoteChannel::Key9, // P2 Key6 <-> P2 Key2
+            NoteChannel::Key14 => NoteChannel::Key8, // P2 Key7 <-> P2 Key1
+            NoteChannel::Scratch2 => NoteChannel::Scratch2,
+        };
+        note.channel = new_channel;
+    }
+}
+
+/// Apply FLIP option for DP mode
+/// Swaps P1 and P2 sides entirely
+/// P1 (S 1 2 3 4 5 6 7) <-> P2 (1 2 3 4 5 6 7 S)
+#[allow(dead_code)]
+pub fn apply_flip(chart: &mut Chart) {
+    for note in &mut chart.notes {
+        let new_channel = match note.channel {
+            // P1 -> P2
+            NoteChannel::Scratch => NoteChannel::Scratch2,
+            NoteChannel::Key1 => NoteChannel::Key8,
+            NoteChannel::Key2 => NoteChannel::Key9,
+            NoteChannel::Key3 => NoteChannel::Key10,
+            NoteChannel::Key4 => NoteChannel::Key11,
+            NoteChannel::Key5 => NoteChannel::Key12,
+            NoteChannel::Key6 => NoteChannel::Key13,
+            NoteChannel::Key7 => NoteChannel::Key14,
+            // P2 -> P1
+            NoteChannel::Key8 => NoteChannel::Key1,
+            NoteChannel::Key9 => NoteChannel::Key2,
+            NoteChannel::Key10 => NoteChannel::Key3,
+            NoteChannel::Key11 => NoteChannel::Key4,
+            NoteChannel::Key12 => NoteChannel::Key5,
+            NoteChannel::Key13 => NoteChannel::Key6,
+            NoteChannel::Key14 => NoteChannel::Key7,
+            NoteChannel::Scratch2 => NoteChannel::Scratch,
+        };
+        note.channel = new_channel;
+    }
+}
+
+/// Lane mapping for DP 14-key mode
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct LaneMappingDp {
+    /// Mapping for P1 keys (indices 1-7 map Key1-Key7, 0 is Scratch)
+    p1_map: [usize; 8],
+    /// Mapping for P2 keys (indices 0-6 map Key8-Key14, 7 is Scratch2)
+    p2_map: [usize; 8],
+}
+
+impl LaneMappingDp {
+    /// Create identity mapping (no change)
+    #[allow(dead_code)]
+    pub fn identity() -> Self {
+        Self {
+            p1_map: [0, 1, 2, 3, 4, 5, 6, 7],
+            p2_map: [0, 1, 2, 3, 4, 5, 6, 7],
+        }
+    }
+
+    /// Create mirror mapping (P1 and P2 mirrored independently)
+    #[allow(dead_code)]
+    pub fn mirror() -> Self {
+        Self {
+            p1_map: [0, 7, 6, 5, 4, 3, 2, 1], // Scratch stays, keys mirror
+            p2_map: [6, 5, 4, 3, 2, 1, 0, 7], // Keys mirror, scratch stays
+        }
+    }
+
+    /// Create random mapping for both sides
+    #[allow(dead_code)]
+    pub fn random(seed: u64) -> Self {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+
+        let mut rng = StdRng::seed_from_u64(seed);
+
+        // P1 side: shuffle keys 1-7
+        let mut p1_keys: Vec<usize> = (1..=7).collect();
+        for i in (1..p1_keys.len()).rev() {
+            let j = rng.random_range(0..=i);
+            p1_keys.swap(i, j);
+        }
+
+        // P2 side: shuffle keys 0-6
+        let mut p2_keys: Vec<usize> = (0..=6).collect();
+        for i in (1..p2_keys.len()).rev() {
+            let j = rng.random_range(0..=i);
+            p2_keys.swap(i, j);
+        }
+
+        Self {
+            p1_map: [
+                0, p1_keys[0], p1_keys[1], p1_keys[2], p1_keys[3], p1_keys[4], p1_keys[5],
+                p1_keys[6],
+            ],
+            p2_map: [
+                p2_keys[0], p2_keys[1], p2_keys[2], p2_keys[3], p2_keys[4], p2_keys[5], p2_keys[6],
+                7,
+            ],
+        }
     }
 }
 

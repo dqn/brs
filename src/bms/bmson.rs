@@ -441,6 +441,25 @@ fn x_to_channel(x: i32, play_mode: PlayMode) -> Result<NoteChannel> {
             9 => Ok(NoteChannel::Key9),
             _ => Err(anyhow!("Invalid BMSON lane for popn-9k: {}", x)),
         },
+        PlayMode::Dp14Key => match x {
+            1 => Ok(NoteChannel::Scratch),   // P1 Scratch
+            2 => Ok(NoteChannel::Key1),      // P1 Key1
+            3 => Ok(NoteChannel::Key2),      // P1 Key2
+            4 => Ok(NoteChannel::Key3),      // P1 Key3
+            5 => Ok(NoteChannel::Key4),      // P1 Key4
+            6 => Ok(NoteChannel::Key5),      // P1 Key5
+            7 => Ok(NoteChannel::Key6),      // P1 Key6
+            8 => Ok(NoteChannel::Key7),      // P1 Key7
+            9 => Ok(NoteChannel::Key8),      // P2 Key1
+            10 => Ok(NoteChannel::Key9),     // P2 Key2
+            11 => Ok(NoteChannel::Key10),    // P2 Key3
+            12 => Ok(NoteChannel::Key11),    // P2 Key4
+            13 => Ok(NoteChannel::Key12),    // P2 Key5
+            14 => Ok(NoteChannel::Key13),    // P2 Key6
+            15 => Ok(NoteChannel::Key14),    // P2 Key7
+            16 => Ok(NoteChannel::Scratch2), // P2 Scratch
+            _ => Err(anyhow!("Invalid BMSON lane for beat-14k: {}", x)),
+        },
     }
 }
 

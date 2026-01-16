@@ -75,17 +75,20 @@ impl BmsLoader {
             .and_then(OsStr::to_str)
             .is_some_and(|ext| ext.eq_ignore_ascii_case("pms"));
 
-        let play_mode = if is_pms {
-            PlayMode::Pms9Key
-        } else {
-            PlayMode::Bms7Key
-        };
-
         // Parse BMS/PMS - bms-rs handles both formats
         let output = parse_bms(&source, default_config())
             .map_err(|e| BmsError::Parse(format!("{:?}", e)))?;
 
         let bms = output.bms;
+
+        // Detect play mode: PMS > DP > SP
+        let play_mode = if is_pms {
+            PlayMode::Pms9Key
+        } else if Self::has_p2_notes(&bms) {
+            PlayMode::Dp14Key
+        } else {
+            PlayMode::Bms7Key
+        };
 
         let chart = Self::convert_to_chart(&bms, play_mode)?;
         let wav_files = Self::extract_wav_files(&bms);
@@ -95,6 +98,21 @@ impl BmsLoader {
             chart,
             wav_files,
             bmp_files,
+        })
+    }
+
+    /// Check if the BMS has P2 notes (channels 21-29)
+    fn has_p2_notes(bms: &Bms) -> bool {
+        bms.wav.notes.all_notes().any(|obj| {
+            if let Some(mapping) = obj.channel_id.try_into_map::<KeyLayoutBeat>() {
+                match mapping.key() {
+                    Key::Scratch(2) => true,       // P2 scratch
+                    Key::Key(n) if n >= 8 => true, // P2 keys are 8-14
+                    _ => false,
+                }
+            } else {
+                false
+            }
         })
     }
 
@@ -353,7 +371,7 @@ fn obj_time_to_fraction(time: &ObjTime) -> Fraction {
     Fraction::new(time.numerator(), time.denominator().get())
 }
 
-/// Map channel ID to NoteChannel for BMS 7-key mode
+/// Map channel ID to NoteChannel for BMS 7-key SP mode
 fn channel_id_to_note_channel_bms(channel_id: &NoteChannelId) -> Option<NoteChannel> {
     let mapping = channel_id.try_into_map::<KeyLayoutBeat>()?;
     let key = mapping.key();
@@ -367,6 +385,36 @@ fn channel_id_to_note_channel_bms(channel_id: &NoteChannelId) -> Option<NoteChan
         Key::Key(5) => Some(NoteChannel::Key5),
         Key::Key(6) => Some(NoteChannel::Key6),
         Key::Key(7) => Some(NoteChannel::Key7),
+        _ => None,
+    }
+}
+
+/// Map channel ID to NoteChannel for BMS 14-key DP mode
+/// P1: channels 11-19 (scratch=16, keys=11-15,18-19)
+/// P2: channels 21-29 (scratch=26, keys=21-25,28-29)
+fn channel_id_to_note_channel_dp(channel_id: &NoteChannelId) -> Option<NoteChannel> {
+    let mapping = channel_id.try_into_map::<KeyLayoutBeat>()?;
+    let key = mapping.key();
+
+    match key {
+        // P1 scratch and keys
+        Key::Scratch(1) => Some(NoteChannel::Scratch), // P1 scratch
+        Key::Key(1) => Some(NoteChannel::Key1),
+        Key::Key(2) => Some(NoteChannel::Key2),
+        Key::Key(3) => Some(NoteChannel::Key3),
+        Key::Key(4) => Some(NoteChannel::Key4),
+        Key::Key(5) => Some(NoteChannel::Key5),
+        Key::Key(6) => Some(NoteChannel::Key6),
+        Key::Key(7) => Some(NoteChannel::Key7),
+        // P2 scratch and keys (map to Key8-14 and Scratch2)
+        Key::Scratch(2) => Some(NoteChannel::Scratch2), // P2 scratch
+        Key::Key(8) => Some(NoteChannel::Key8),         // P2 Key1
+        Key::Key(9) => Some(NoteChannel::Key9),         // P2 Key2
+        Key::Key(10) => Some(NoteChannel::Key10),       // P2 Key3
+        Key::Key(11) => Some(NoteChannel::Key11),       // P2 Key4
+        Key::Key(12) => Some(NoteChannel::Key12),       // P2 Key5
+        Key::Key(13) => Some(NoteChannel::Key13),       // P2 Key6
+        Key::Key(14) => Some(NoteChannel::Key14),       // P2 Key7
         _ => None,
     }
 }
@@ -401,13 +449,14 @@ fn channel_id_to_note_channel(
     match play_mode {
         PlayMode::Bms7Key => channel_id_to_note_channel_bms(channel_id),
         PlayMode::Pms9Key => channel_id_to_note_channel_pms(channel_id),
+        PlayMode::Dp14Key => channel_id_to_note_channel_dp(channel_id),
     }
 }
 
 /// Check if channel is displayable based on play mode
 fn is_channel_displayable(channel_id: &NoteChannelId, play_mode: PlayMode) -> bool {
     match play_mode {
-        PlayMode::Bms7Key => channel_id
+        PlayMode::Bms7Key | PlayMode::Dp14Key => channel_id
             .try_into_map::<KeyLayoutBeat>()
             .is_some_and(|map| map.kind().is_displayable()),
         PlayMode::Pms9Key => channel_id
@@ -419,7 +468,9 @@ fn is_channel_displayable(channel_id: &NoteChannelId, play_mode: PlayMode) -> bo
 /// Get note kind from channel ID based on play mode
 fn get_note_kind(channel_id: &NoteChannelId, play_mode: PlayMode) -> Option<NoteKind> {
     match play_mode {
-        PlayMode::Bms7Key => channel_id.try_into_map::<KeyLayoutBeat>().map(|m| m.kind()),
+        PlayMode::Bms7Key | PlayMode::Dp14Key => {
+            channel_id.try_into_map::<KeyLayoutBeat>().map(|m| m.kind())
+        }
         PlayMode::Pms9Key => channel_id.try_into_map::<KeyLayoutPms>().map(|m| m.kind()),
     }
 }
