@@ -105,6 +105,12 @@ impl Highway {
         (0..lane_count).map(|i| self.config.lane_color(i)).collect()
     }
 
+    /// Get judge line Y position adjusted for LIFT
+    fn adjusted_judge_line_y(&self) -> f32 {
+        let lift_offset = self.lane_cover.judge_line_position() * self.config.judge_line_y;
+        self.config.judge_line_y - lift_offset
+    }
+
     fn draw_lanes(&self, highway_x: f32) {
         let lane_count = self.config.lane_count();
         let background_color = self.config.background_color();
@@ -244,8 +250,9 @@ impl Highway {
                 let start_time_diff = note.time_ms - current_time_ms;
                 let end_time_diff = end.time_ms - current_time_ms;
 
-                let start_y = self.config.judge_line_y - (start_time_diff * pixels_per_ms) as f32;
-                let end_y = self.config.judge_line_y - (end_time_diff * pixels_per_ms) as f32;
+                let judge_y = self.adjusted_judge_line_y();
+                let start_y = judge_y - (start_time_diff * pixels_per_ms) as f32;
+                let end_y = judge_y - (end_time_diff * pixels_per_ms) as f32;
 
                 let lane = note.channel.lane_index_for_mode(play_mode);
                 let x = highway_x + self.config.lane_x_offset(lane);
@@ -265,7 +272,7 @@ impl Highway {
     }
 
     fn draw_note(&self, note: &Note, time_diff: f64, pixels_per_ms: f64, highway_x: f32) {
-        let y = self.config.judge_line_y - (time_diff * pixels_per_ms) as f32;
+        let y = self.adjusted_judge_line_y() - (time_diff * pixels_per_ms) as f32;
         let lane = note.channel.lane_index_for_mode(self.config.play_mode);
         let x = highway_x + self.config.lane_x_offset(lane);
 
@@ -286,10 +293,7 @@ impl Highway {
     }
 
     fn draw_judge_line(&self, highway_x: f32) {
-        // Adjust judge line position based on LIFT
-        let lift_offset = self.lane_cover.judge_line_position() * self.config.judge_line_y;
-        let adjusted_judge_y = self.config.judge_line_y - lift_offset;
-
+        let adjusted_judge_y = self.adjusted_judge_line_y();
         let highway_width = self.config.total_width();
         draw_line(
             highway_x,
