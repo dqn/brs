@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::game::{GaugeType, JudgeSystemType, RandomOption};
 
-/// Key bindings for 7-key + scratch
+/// Key bindings for 7-key + scratch (BMS mode)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyBindings {
     pub scratch: String,
@@ -63,6 +63,73 @@ impl KeyBindings {
             5 => self.key5 = key_str,
             6 => self.key6 = key_str,
             7 => self.key7 = key_str,
+            _ => {}
+        }
+    }
+}
+
+/// Key bindings for 9-key (PMS mode)
+/// Default layout: A S D F Space J K L ;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyBindings9Key {
+    pub key1: String,
+    pub key2: String,
+    pub key3: String,
+    pub key4: String,
+    pub key5: String,
+    pub key6: String,
+    pub key7: String,
+    pub key8: String,
+    pub key9: String,
+}
+
+impl Default for KeyBindings9Key {
+    fn default() -> Self {
+        Self {
+            key1: "A".to_string(),
+            key2: "S".to_string(),
+            key3: "D".to_string(),
+            key4: "F".to_string(),
+            key5: "Space".to_string(),
+            key6: "J".to_string(),
+            key7: "K".to_string(),
+            key8: "L".to_string(),
+            key9: "Semicolon".to_string(),
+        }
+    }
+}
+
+impl KeyBindings9Key {
+    /// Convert to array of KeyCodes for InputHandler
+    #[allow(dead_code)]
+    pub fn to_keycodes(&self) -> [KeyCode; 9] {
+        [
+            string_to_keycode(&self.key1).unwrap_or(KeyCode::A),
+            string_to_keycode(&self.key2).unwrap_or(KeyCode::S),
+            string_to_keycode(&self.key3).unwrap_or(KeyCode::D),
+            string_to_keycode(&self.key4).unwrap_or(KeyCode::F),
+            string_to_keycode(&self.key5).unwrap_or(KeyCode::Space),
+            string_to_keycode(&self.key6).unwrap_or(KeyCode::J),
+            string_to_keycode(&self.key7).unwrap_or(KeyCode::K),
+            string_to_keycode(&self.key8).unwrap_or(KeyCode::L),
+            string_to_keycode(&self.key9).unwrap_or(KeyCode::Semicolon),
+        ]
+    }
+
+    /// Set binding for a specific lane (0-8)
+    #[allow(dead_code)]
+    pub fn set(&mut self, lane: usize, key: KeyCode) {
+        let key_str = keycode_to_string(key);
+        match lane {
+            0 => self.key1 = key_str,
+            1 => self.key2 = key_str,
+            2 => self.key3 = key_str,
+            3 => self.key4 = key_str,
+            4 => self.key5 = key_str,
+            5 => self.key6 = key_str,
+            6 => self.key7 = key_str,
+            7 => self.key8 = key_str,
+            8 => self.key9 = key_str,
             _ => {}
         }
     }
@@ -360,9 +427,12 @@ pub struct GameSettings {
     pub hidden: u16,
     /// Default LIFT value
     pub lift: u16,
-    /// Key bindings
+    /// Key bindings for BMS 7-key mode
     #[serde(default)]
     pub key_bindings: KeyBindings,
+    /// Key bindings for PMS 9-key mode
+    #[serde(default)]
+    pub key_bindings_9key: KeyBindings9Key,
     /// Controller bindings (for IIDX-style controllers)
     #[serde(default)]
     pub controller_bindings: ControllerBindings,
@@ -383,6 +453,7 @@ impl Default for GameSettings {
             hidden: 0,
             lift: 0,
             key_bindings: KeyBindings::default(),
+            key_bindings_9key: KeyBindings9Key::default(),
             controller_bindings: ControllerBindings::default(),
         }
     }

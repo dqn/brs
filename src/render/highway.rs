@@ -1,8 +1,8 @@
 use macroquad::prelude::*;
 
-use super::config::{HighwayConfig, LANE_COUNT};
+use super::config::HighwayConfig;
 use super::lane_cover::LaneCover;
-use crate::bms::{Chart, Note, NoteType};
+use crate::bms::{Chart, Note, NoteType, PlayMode};
 use crate::game::GamePlayState;
 
 pub struct Highway {
@@ -15,11 +15,29 @@ impl Highway {
         Self::with_config(HighwayConfig::default())
     }
 
+    /// Create Highway for a specific play mode
+    #[allow(dead_code)]
+    pub fn for_mode(mode: PlayMode) -> Self {
+        Self::with_config(HighwayConfig::for_mode(mode))
+    }
+
     pub fn with_config(config: HighwayConfig) -> Self {
         Self {
             config,
             lane_cover: LaneCover::default(),
         }
+    }
+
+    /// Get current play mode
+    #[allow(dead_code)]
+    pub fn play_mode(&self) -> PlayMode {
+        self.config.play_mode
+    }
+
+    /// Set play mode (updates config accordingly)
+    #[allow(dead_code)]
+    pub fn set_play_mode(&mut self, mode: PlayMode) {
+        self.config = HighwayConfig::for_mode(mode);
     }
 
     /// Get mutable reference to lane cover for adjustments
@@ -66,11 +84,13 @@ impl Highway {
     }
 
     fn highway_x(&self) -> f32 {
-        (screen_width() - self.config.lane_width * LANE_COUNT as f32) / 2.0
+        let lane_count = self.config.lane_count();
+        (screen_width() - self.config.lane_width * lane_count as f32) / 2.0
     }
 
     fn draw_lanes(&self, highway_x: f32) {
-        for i in 0..LANE_COUNT {
+        let lane_count = self.config.lane_count();
+        for i in 0..lane_count {
             let x = highway_x + i as f32 * self.config.lane_width;
             draw_rectangle(
                 x,
@@ -88,7 +108,7 @@ impl Highway {
                 Color::new(0.3, 0.3, 0.3, 1.0),
             );
         }
-        let last_x = highway_x + LANE_COUNT as f32 * self.config.lane_width;
+        let last_x = highway_x + lane_count as f32 * self.config.lane_width;
         draw_line(
             last_x,
             0.0,
@@ -168,6 +188,7 @@ impl Highway {
         highway_x: f32,
     ) {
         let long_color = Color::new(0.0, 0.8, 0.4, 0.7);
+        let play_mode = self.config.play_mode;
 
         for (i, note) in chart.notes.iter().enumerate() {
             if note.note_type != NoteType::LongStart {
@@ -194,7 +215,7 @@ impl Highway {
                 let start_y = self.config.judge_line_y - (start_time_diff * pixels_per_ms) as f32;
                 let end_y = self.config.judge_line_y - (end_time_diff * pixels_per_ms) as f32;
 
-                let lane = note.channel.lane_index();
+                let lane = note.channel.lane_index_for_mode(play_mode);
                 let x = highway_x + lane as f32 * self.config.lane_width;
 
                 let bar_height = start_y - end_y;
@@ -213,11 +234,11 @@ impl Highway {
 
     fn draw_note(&self, note: &Note, time_diff: f64, pixels_per_ms: f64, highway_x: f32) {
         let y = self.config.judge_line_y - (time_diff * pixels_per_ms) as f32;
-        let lane = note.channel.lane_index();
+        let lane = note.channel.lane_index_for_mode(self.config.play_mode);
         let x = highway_x + lane as f32 * self.config.lane_width;
 
         let color = match note.note_type {
-            NoteType::Normal => self.config.lane_colors[lane],
+            NoteType::Normal => self.config.lane_color(lane),
             NoteType::LongStart | NoteType::LongEnd => Color::new(0.0, 1.0, 0.5, 1.0),
             NoteType::Invisible => Color::new(0.5, 0.5, 0.5, 0.5),
             NoteType::Landmine => Color::new(1.0, 0.0, 0.0, 0.8),
@@ -237,10 +258,11 @@ impl Highway {
         let lift_offset = self.lane_cover.judge_line_position() * self.config.judge_line_y;
         let adjusted_judge_y = self.config.judge_line_y - lift_offset;
 
+        let lane_count = self.config.lane_count();
         draw_line(
             highway_x,
             adjusted_judge_y,
-            highway_x + self.config.lane_width * LANE_COUNT as f32,
+            highway_x + self.config.lane_width * lane_count as f32,
             adjusted_judge_y,
             3.0,
             Color::new(1.0, 0.8, 0.0, 1.0),
@@ -248,7 +270,8 @@ impl Highway {
     }
 
     fn draw_lane_covers(&self, highway_x: f32) {
-        let highway_width = self.config.lane_width * LANE_COUNT as f32;
+        let lane_count = self.config.lane_count();
+        let highway_width = self.config.lane_width * lane_count as f32;
         let lane_height = self.config.judge_line_y; // Lane goes from top to judge line
         let cover_color = Color::new(0.0, 0.0, 0.0, 0.9);
 

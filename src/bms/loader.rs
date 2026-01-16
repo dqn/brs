@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::path::Path;
 
 use anyhow::Result;
@@ -7,7 +8,7 @@ use fraction::Fraction;
 
 use super::{
     BgaEvent, BgaLayer, BgmEvent, BmsError, BpmChange, Chart, LnType, MeasureLength, Metadata,
-    Note, NoteChannel, NoteType, StopEvent, TimingData,
+    Note, NoteChannel, NoteType, PlayMode, StopEvent, TimingData,
 };
 
 pub struct BmsLoader;
@@ -33,12 +34,25 @@ impl BmsLoader {
             source: e,
         })?;
 
+        // Detect PMS by file extension
+        let is_pms = path
+            .extension()
+            .and_then(OsStr::to_str)
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("pms"));
+
+        let play_mode = if is_pms {
+            PlayMode::Pms9Key
+        } else {
+            PlayMode::Bms7Key
+        };
+
+        // Parse BMS/PMS - bms-rs handles both formats
         let output = parse_bms(&source, default_config())
             .map_err(|e| BmsError::Parse(format!("{:?}", e)))?;
 
         let bms = output.bms;
 
-        let chart = Self::convert_to_chart(&bms)?;
+        let chart = Self::convert_to_chart(&bms, play_mode)?;
         let wav_files = Self::extract_wav_files(&bms);
         let bmp_files = Self::extract_bmp_files(&bms);
 
@@ -49,10 +63,10 @@ impl BmsLoader {
         })
     }
 
-    fn convert_to_chart(bms: &Bms) -> Result<Chart> {
-        let metadata = Self::extract_metadata(bms);
+    fn convert_to_chart(bms: &Bms, play_mode: PlayMode) -> Result<Chart> {
+        let metadata = Self::extract_metadata(bms, play_mode);
         let timing_data = Self::extract_timing_data(bms);
-        let (notes, bgm_events) = Self::extract_notes(bms, &timing_data)?;
+        let (notes, bgm_events) = Self::extract_notes(bms, &timing_data, play_mode)?;
         let bga_events = Self::extract_bga_events(bms, &timing_data);
 
         Ok(Chart {
@@ -64,7 +78,7 @@ impl BmsLoader {
         })
     }
 
-    fn extract_metadata(bms: &Bms) -> Metadata {
+    fn extract_metadata(bms: &Bms, play_mode: PlayMode) -> Metadata {
         let music_info = &bms.music_info;
         let meta = &bms.metadata;
         let judge = &bms.judge;
@@ -90,6 +104,7 @@ impl BmsLoader {
             rank: judge.rank.map(judge_level_to_u32).unwrap_or(2),
             total: judge.total.as_ref().map(decimal_to_f64).unwrap_or(100.0),
             ln_type,
+            play_mode,
         }
     }
 
@@ -142,13 +157,17 @@ impl BmsLoader {
         }
     }
 
-    fn extract_notes(bms: &Bms, timing: &TimingData) -> Result<(Vec<Note>, Vec<BgmEvent>)> {
-        use super::LANE_COUNT;
+    fn extract_notes(
+        bms: &Bms,
+        timing: &TimingData,
+        play_mode: PlayMode,
+    ) -> Result<(Vec<Note>, Vec<BgmEvent>)> {
+        use super::MAX_LANE_COUNT;
 
         let mut notes: Vec<Note> = Vec::new();
         let mut bgm_events = Vec::new();
-        // Track pending long note starts per lane
-        let mut pending_ln_starts: [Option<(usize, f64)>; LANE_COUNT] = [None; LANE_COUNT];
+        // Track pending long note starts per lane (use MAX_LANE_COUNT to support both BMS and PMS)
+        let mut pending_ln_starts: [Option<(usize, f64)>; MAX_LANE_COUNT] = [None; MAX_LANE_COUNT];
 
         for obj in bms.wav.notes.all_notes() {
             if obj.wav_id.is_null() {
@@ -160,10 +179,7 @@ impl BmsLoader {
             let position = obj_time_to_fraction(&obj.offset);
             let keysound_id: u32 = obj.wav_id.into();
 
-            let is_bgm = obj
-                .channel_id
-                .try_into_map::<KeyLayoutBeat>()
-                .is_none_or(|map| !map.kind().is_displayable());
+            let is_bgm = !is_channel_displayable(&obj.channel_id, play_mode);
 
             if is_bgm {
                 let time_ms = super::calculate_time_ms(measure, position, timing);
@@ -173,14 +189,13 @@ impl BmsLoader {
                     time_ms,
                     keysound_id,
                 });
-            } else if let Some(note_channel) = channel_id_to_note_channel(&obj.channel_id) {
+            } else if let Some(note_channel) =
+                channel_id_to_note_channel(&obj.channel_id, play_mode)
+            {
                 let time_ms = super::calculate_time_ms(measure, position, timing);
-                let note_kind = obj
-                    .channel_id
-                    .try_into_map::<KeyLayoutBeat>()
-                    .map(|m| m.kind());
+                let note_kind = get_note_kind(&obj.channel_id, play_mode);
 
-                let lane_idx = note_channel.lane_index();
+                let lane_idx = note_channel.lane_index_for_mode(play_mode);
 
                 if note_kind == Some(NoteKind::Long) {
                     // Long note handling: pair LongStart and LongEnd
@@ -211,7 +226,7 @@ impl BmsLoader {
                         });
                     }
                 } else {
-                    let note_type = channel_id_to_note_type(&obj.channel_id);
+                    let note_type = channel_id_to_note_type(&obj.channel_id, play_mode);
                     notes.push(Note {
                         measure,
                         position,
@@ -303,7 +318,8 @@ fn obj_time_to_fraction(time: &ObjTime) -> Fraction {
     Fraction::new(time.numerator(), time.denominator().get())
 }
 
-fn channel_id_to_note_channel(channel_id: &NoteChannelId) -> Option<NoteChannel> {
+/// Map channel ID to NoteChannel for BMS 7-key mode
+fn channel_id_to_note_channel_bms(channel_id: &NoteChannelId) -> Option<NoteChannel> {
     let mapping = channel_id.try_into_map::<KeyLayoutBeat>()?;
     let key = mapping.key();
 
@@ -320,9 +336,62 @@ fn channel_id_to_note_channel(channel_id: &NoteChannelId) -> Option<NoteChannel>
     }
 }
 
-fn channel_id_to_note_type(channel_id: &NoteChannelId) -> NoteType {
-    if let Some(mapping) = channel_id.try_into_map::<KeyLayoutBeat>() {
-        match mapping.kind() {
+/// Map channel ID to NoteChannel for PMS 9-key mode
+/// PMS uses KeyLayoutPms which maps:
+/// - P1 Key1-5 → Key1-5 (channels 11-15)
+/// - P2 Key2-5 → Key6-9 (channels 22-25)
+fn channel_id_to_note_channel_pms(channel_id: &NoteChannelId) -> Option<NoteChannel> {
+    let mapping = channel_id.try_into_map::<KeyLayoutPms>()?;
+    let key = mapping.key();
+
+    match key {
+        Key::Key(1) => Some(NoteChannel::Key1),
+        Key::Key(2) => Some(NoteChannel::Key2),
+        Key::Key(3) => Some(NoteChannel::Key3),
+        Key::Key(4) => Some(NoteChannel::Key4),
+        Key::Key(5) => Some(NoteChannel::Key5),
+        Key::Key(6) => Some(NoteChannel::Key6),
+        Key::Key(7) => Some(NoteChannel::Key7),
+        Key::Key(8) => Some(NoteChannel::Key8),
+        Key::Key(9) => Some(NoteChannel::Key9),
+        _ => None, // No scratch in PMS
+    }
+}
+
+/// Map channel ID to NoteChannel based on play mode
+fn channel_id_to_note_channel(
+    channel_id: &NoteChannelId,
+    play_mode: PlayMode,
+) -> Option<NoteChannel> {
+    match play_mode {
+        PlayMode::Bms7Key => channel_id_to_note_channel_bms(channel_id),
+        PlayMode::Pms9Key => channel_id_to_note_channel_pms(channel_id),
+    }
+}
+
+/// Check if channel is displayable based on play mode
+fn is_channel_displayable(channel_id: &NoteChannelId, play_mode: PlayMode) -> bool {
+    match play_mode {
+        PlayMode::Bms7Key => channel_id
+            .try_into_map::<KeyLayoutBeat>()
+            .is_some_and(|map| map.kind().is_displayable()),
+        PlayMode::Pms9Key => channel_id
+            .try_into_map::<KeyLayoutPms>()
+            .is_some_and(|map| map.kind().is_displayable()),
+    }
+}
+
+/// Get note kind from channel ID based on play mode
+fn get_note_kind(channel_id: &NoteChannelId, play_mode: PlayMode) -> Option<NoteKind> {
+    match play_mode {
+        PlayMode::Bms7Key => channel_id.try_into_map::<KeyLayoutBeat>().map(|m| m.kind()),
+        PlayMode::Pms9Key => channel_id.try_into_map::<KeyLayoutPms>().map(|m| m.kind()),
+    }
+}
+
+fn channel_id_to_note_type(channel_id: &NoteChannelId, play_mode: PlayMode) -> NoteType {
+    if let Some(kind) = get_note_kind(channel_id, play_mode) {
+        match kind {
             NoteKind::Visible => NoteType::Normal,
             NoteKind::Invisible => NoteType::Invisible,
             NoteKind::Long => NoteType::Normal,

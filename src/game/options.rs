@@ -2,7 +2,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 
-use crate::bms::{Chart, NoteChannel};
+use crate::bms::{Chart, NoteChannel, PlayMode};
 
 /// Random option for lane assignment
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ impl RandomOption {
     }
 }
 
-/// Lane mapping for random options
+/// Lane mapping for random options (BMS 7-key mode)
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct LaneMapping {
@@ -119,6 +119,88 @@ impl LaneMapping {
     }
 }
 
+/// Lane mapping for PMS 9-key mode
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct LaneMapping9Key {
+    /// Mapping from original key lane (0-8) to new lane (0-8)
+    map: [usize; 9],
+}
+
+impl LaneMapping9Key {
+    /// Create identity mapping (no change)
+    #[allow(dead_code)]
+    pub fn identity() -> Self {
+        Self {
+            map: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+        }
+    }
+
+    /// Create mirror mapping (reverse keys)
+    #[allow(dead_code)]
+    pub fn mirror() -> Self {
+        // Key1 <-> Key9, Key2 <-> Key8, Key3 <-> Key7, Key4 <-> Key6, Key5 stays
+        Self {
+            map: [8, 7, 6, 5, 4, 3, 2, 1, 0],
+        }
+    }
+
+    /// Create random mapping using Fisher-Yates shuffle
+    #[allow(dead_code)]
+    pub fn random(seed: u64) -> Self {
+        let mut rng = StdRng::seed_from_u64(seed);
+        let mut lanes: Vec<usize> = (0..9).collect();
+
+        // Fisher-Yates shuffle
+        for i in (1..lanes.len()).rev() {
+            let j = rng.random_range(0..=i);
+            lanes.swap(i, j);
+        }
+
+        Self {
+            map: [
+                lanes[0], lanes[1], lanes[2], lanes[3], lanes[4], lanes[5], lanes[6], lanes[7],
+                lanes[8],
+            ],
+        }
+    }
+
+    /// Create rotate-random mapping
+    #[allow(dead_code)]
+    pub fn rotate_random(seed: u64) -> Self {
+        let mut rng = StdRng::seed_from_u64(seed);
+        let offset = rng.random_range(0..9);
+
+        let mut map = [0usize; 9];
+        for (i, item) in map.iter_mut().enumerate() {
+            *item = (i + offset) % 9;
+        }
+
+        Self { map }
+    }
+
+    /// Create mapping for the given option
+    #[allow(dead_code)]
+    pub fn for_option(option: RandomOption, seed: u64) -> Self {
+        match option {
+            RandomOption::Off => Self::identity(),
+            RandomOption::Mirror => Self::mirror(),
+            RandomOption::Random => Self::random(seed),
+            RandomOption::RRandom => Self::rotate_random(seed),
+            RandomOption::SRandom | RandomOption::HRandom => {
+                // S-RANDOM and H-RANDOM are not handled by LaneMapping9Key
+                Self::identity()
+            }
+        }
+    }
+
+    /// Transform a PMS lane (0-8) to the new lane
+    #[allow(dead_code)]
+    pub fn transform(&self, lane: usize) -> usize {
+        if lane < 9 { self.map[lane] } else { lane }
+    }
+}
+
 /// Apply random option to a chart
 #[allow(dead_code)]
 pub fn apply_random_option(chart: &mut Chart, option: RandomOption, seed: u64) {
@@ -126,24 +208,41 @@ pub fn apply_random_option(chart: &mut Chart, option: RandomOption, seed: u64) {
         return;
     }
 
+    let play_mode = chart.metadata.play_mode;
+
     if option == RandomOption::SRandom {
-        apply_s_random(chart, seed);
+        apply_s_random(chart, seed, play_mode);
         return;
     }
 
     if option == RandomOption::HRandom {
-        apply_h_random(chart, seed);
+        apply_h_random(chart, seed, play_mode);
         return;
     }
 
-    let mapping = LaneMapping::for_option(option, seed);
-
-    for note in &mut chart.notes {
-        if note.channel.is_key() {
-            let original_lane = note.channel.lane_index();
-            let new_lane = mapping.transform(original_lane);
-            if let Some(new_channel) = NoteChannel::from_key_lane(new_lane) {
-                note.channel = new_channel;
+    match play_mode {
+        PlayMode::Bms7Key => {
+            let mapping = LaneMapping::for_option(option, seed);
+            for note in &mut chart.notes {
+                if note.channel.is_key() {
+                    let original_lane = note.channel.lane_index();
+                    let new_lane = mapping.transform(original_lane);
+                    if let Some(new_channel) = NoteChannel::from_key_lane(new_lane) {
+                        note.channel = new_channel;
+                    }
+                }
+            }
+        }
+        PlayMode::Pms9Key => {
+            let mapping = LaneMapping9Key::for_option(option, seed);
+            for note in &mut chart.notes {
+                if note.channel.is_key() {
+                    let original_lane = note.channel.lane_index_for_mode(PlayMode::Pms9Key);
+                    let new_lane = mapping.transform(original_lane);
+                    if let Some(new_channel) = NoteChannel::from_pms_lane(new_lane) {
+                        note.channel = new_channel;
+                    }
+                }
             }
         }
     }
@@ -154,7 +253,7 @@ pub fn apply_random_option(chart: &mut Chart, option: RandomOption, seed: u64) {
 
 /// Apply S-RANDOM option to a chart
 /// Each note gets an independent random lane, but LN start/end pairs stay together
-fn apply_s_random(chart: &mut Chart, seed: u64) {
+fn apply_s_random(chart: &mut Chart, seed: u64, play_mode: PlayMode) {
     use crate::bms::NoteType;
     use std::collections::HashMap;
 
@@ -164,17 +263,26 @@ fn apply_s_random(chart: &mut Chart, seed: u64) {
     // Key: (original_lane, time_ms of LongStart), Value: new_lane
     let mut ln_mappings: HashMap<(usize, i64), usize> = HashMap::new();
 
+    #[allow(clippy::type_complexity)]
+    let (lane_range, lane_converter): (
+        std::ops::RangeInclusive<usize>,
+        fn(usize) -> Option<NoteChannel>,
+    ) = match play_mode {
+        PlayMode::Bms7Key => (1..=7, NoteChannel::from_key_lane),
+        PlayMode::Pms9Key => (0..=8, NoteChannel::from_pms_lane),
+    };
+
     for note in &mut chart.notes {
         if !note.channel.is_key() {
             continue;
         }
 
-        let original_lane = note.channel.lane_index();
+        let original_lane = note.channel.lane_index_for_mode(play_mode);
 
         let new_lane = match note.note_type {
             NoteType::LongStart => {
                 // Generate new random lane for LN start
-                let new_lane = rng.random_range(1..=7);
+                let new_lane = rng.random_range(lane_range.clone());
                 // Store mapping for the corresponding LN end
                 let time_key = (note.time_ms * 1000.0) as i64; // Convert to integer for HashMap key
                 ln_mappings.insert((original_lane, time_key), new_lane);
@@ -194,16 +302,16 @@ fn apply_s_random(chart: &mut Chart, seed: u64) {
                     ln_mappings.remove(&key).unwrap_or(original_lane)
                 } else {
                     // Fallback: generate random lane if no matching LN start found
-                    rng.random_range(1..=7)
+                    rng.random_range(lane_range.clone())
                 }
             }
             NoteType::Normal | NoteType::Invisible | NoteType::Landmine => {
                 // Normal notes get independent random lanes
-                rng.random_range(1..=7)
+                rng.random_range(lane_range.clone())
             }
         };
 
-        if let Some(new_channel) = NoteChannel::from_key_lane(new_lane) {
+        if let Some(new_channel) = lane_converter(new_lane) {
             note.channel = new_channel;
         }
     }
@@ -212,7 +320,7 @@ fn apply_s_random(chart: &mut Chart, seed: u64) {
 /// Apply H-RANDOM option to a chart
 /// Similar to S-RANDOM but avoids placing notes on the same lane as the previous note
 /// to reduce consecutive same-lane patterns (縦連打)
-fn apply_h_random(chart: &mut Chart, seed: u64) {
+fn apply_h_random(chart: &mut Chart, seed: u64, play_mode: PlayMode) {
     use crate::bms::NoteType;
     use std::collections::HashMap;
 
@@ -224,17 +332,22 @@ fn apply_h_random(chart: &mut Chart, seed: u64) {
     // Track the last assigned lane to avoid consecutive same-lane notes
     let mut last_lane: Option<usize> = None;
 
+    let lane_converter: fn(usize) -> Option<NoteChannel> = match play_mode {
+        PlayMode::Bms7Key => NoteChannel::from_key_lane,
+        PlayMode::Pms9Key => NoteChannel::from_pms_lane,
+    };
+
     for note in &mut chart.notes {
         if !note.channel.is_key() {
             continue;
         }
 
-        let original_lane = note.channel.lane_index();
+        let original_lane = note.channel.lane_index_for_mode(play_mode);
 
         let new_lane = match note.note_type {
             NoteType::LongStart => {
                 // Generate new random lane for LN start, avoiding last lane if possible
-                let new_lane = pick_random_lane_avoiding(&mut rng, last_lane);
+                let new_lane = pick_random_lane_avoiding(&mut rng, last_lane, play_mode);
                 let time_key = (note.time_ms * 1000.0) as i64;
                 ln_mappings.insert((original_lane, time_key), new_lane);
                 last_lane = Some(new_lane);
@@ -252,36 +365,44 @@ fn apply_h_random(chart: &mut Chart, seed: u64) {
                     // Don't update last_lane for LN end since it's paired with start
                     ln_mappings.remove(&key).unwrap_or(original_lane)
                 } else {
-                    let new_lane = pick_random_lane_avoiding(&mut rng, last_lane);
+                    let new_lane = pick_random_lane_avoiding(&mut rng, last_lane, play_mode);
                     last_lane = Some(new_lane);
                     new_lane
                 }
             }
             NoteType::Normal | NoteType::Invisible | NoteType::Landmine => {
                 // Normal notes get random lanes avoiding the last lane
-                let new_lane = pick_random_lane_avoiding(&mut rng, last_lane);
+                let new_lane = pick_random_lane_avoiding(&mut rng, last_lane, play_mode);
                 last_lane = Some(new_lane);
                 new_lane
             }
         };
 
-        if let Some(new_channel) = NoteChannel::from_key_lane(new_lane) {
+        if let Some(new_channel) = lane_converter(new_lane) {
             note.channel = new_channel;
         }
     }
 }
 
-/// Pick a random lane (1-7) avoiding the specified lane if possible
-fn pick_random_lane_avoiding(rng: &mut StdRng, avoid: Option<usize>) -> usize {
+/// Pick a random lane avoiding the specified lane if possible
+fn pick_random_lane_avoiding(rng: &mut StdRng, avoid: Option<usize>, play_mode: PlayMode) -> usize {
+    let (lane_range, lane_count) = match play_mode {
+        PlayMode::Bms7Key => (1..=7usize, 7),
+        PlayMode::Pms9Key => (0..=8usize, 9),
+    };
+
     match avoid {
-        Some(avoid_lane) if (1..=7).contains(&avoid_lane) => {
-            // Pick from lanes 1-7 excluding avoid_lane (6 choices)
-            let available: Vec<usize> = (1..=7).filter(|&l| l != avoid_lane).collect();
+        Some(avoid_lane) if lane_range.contains(&avoid_lane) => {
+            // Pick from available lanes excluding avoid_lane
+            let available: Vec<usize> = lane_range.filter(|&l| l != avoid_lane).collect();
             available[rng.random_range(0..available.len())]
         }
         _ => {
-            // No lane to avoid, pick any lane 1-7
-            rng.random_range(1..=7)
+            // No lane to avoid, pick any lane
+            match play_mode {
+                PlayMode::Bms7Key => rng.random_range(1..=lane_count),
+                PlayMode::Pms9Key => rng.random_range(0..lane_count),
+            }
         }
     }
 }
@@ -333,6 +454,9 @@ pub fn apply_battle(chart: &mut Chart) {
             NoteChannel::Key5 => NoteChannel::Key3,
             NoteChannel::Key6 => NoteChannel::Key2,
             NoteChannel::Key7 => NoteChannel::Key1,
+            // PMS: Key8 and Key9 are not supported in BMS, so keep them as-is
+            NoteChannel::Key8 => NoteChannel::Key8,
+            NoteChannel::Key9 => NoteChannel::Key9,
         };
         note.channel = new_channel;
     }

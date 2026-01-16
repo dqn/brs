@@ -1,6 +1,14 @@
 use fraction::Fraction;
 use serde::{Deserialize, Serialize};
 
+/// Play mode for the chart
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum PlayMode {
+    #[default]
+    Bms7Key, // 7 keys + scratch (8 lanes)
+    Pms9Key, // 9 keys (9 lanes)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chart {
     pub metadata: Metadata,
@@ -22,6 +30,9 @@ pub struct Metadata {
     pub total: f64,
     /// Long note type (#LNTYPE)
     pub ln_type: LnType,
+    /// Play mode (BMS 7-key or PMS 9-key)
+    #[serde(default)]
+    pub play_mode: PlayMode,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -96,6 +107,8 @@ pub enum NoteChannel {
     Key5,
     Key6,
     Key7,
+    Key8, // PMS only
+    Key9, // PMS only
 }
 
 impl NoteChannel {
@@ -115,6 +128,7 @@ impl NoteChannel {
         }
     }
 
+    /// Get lane index for BMS 7-key mode (8 lanes: scratch + 7 keys)
     pub fn lane_index(&self) -> usize {
         match self {
             Self::Scratch => 0,
@@ -125,10 +139,33 @@ impl NoteChannel {
             Self::Key5 => 5,
             Self::Key6 => 6,
             Self::Key7 => 7,
+            Self::Key8 => 8, // PMS only
+            Self::Key9 => 9, // PMS only
         }
     }
 
-    /// Convert lane index (1-7) to NoteChannel for keys
+    /// Get lane index based on play mode
+    /// - BMS 7-key: lanes 0-7 (scratch + 7 keys)
+    /// - PMS 9-key: lanes 0-8 (9 keys, no scratch)
+    pub fn lane_index_for_mode(&self, mode: PlayMode) -> usize {
+        match mode {
+            PlayMode::Bms7Key => self.lane_index(),
+            PlayMode::Pms9Key => match self {
+                Self::Key1 => 0,
+                Self::Key2 => 1,
+                Self::Key3 => 2,
+                Self::Key4 => 3,
+                Self::Key5 => 4,
+                Self::Key6 => 5,
+                Self::Key7 => 6,
+                Self::Key8 => 7,
+                Self::Key9 => 8,
+                Self::Scratch => 0, // Should not occur in PMS
+            },
+        }
+    }
+
+    /// Convert lane index (1-7) to NoteChannel for keys (BMS 7-key)
     /// Returns None for scratch (0) or invalid indices
     #[allow(dead_code)]
     pub fn from_key_lane(lane: usize) -> Option<Self> {
@@ -140,6 +177,23 @@ impl NoteChannel {
             5 => Some(Self::Key5),
             6 => Some(Self::Key6),
             7 => Some(Self::Key7),
+            _ => None,
+        }
+    }
+
+    /// Convert lane index (0-8) to NoteChannel for PMS 9-key mode
+    #[allow(dead_code)]
+    pub fn from_pms_lane(lane: usize) -> Option<Self> {
+        match lane {
+            0 => Some(Self::Key1),
+            1 => Some(Self::Key2),
+            2 => Some(Self::Key3),
+            3 => Some(Self::Key4),
+            4 => Some(Self::Key5),
+            5 => Some(Self::Key6),
+            6 => Some(Self::Key7),
+            7 => Some(Self::Key8),
+            8 => Some(Self::Key9),
             _ => None,
         }
     }
@@ -172,7 +226,27 @@ pub enum NoteType {
     Landmine,
 }
 
-pub const LANE_COUNT: usize = 8;
+/// Lane count for BMS 7-key mode (scratch + 7 keys)
+pub const LANE_COUNT_BMS: usize = 8;
+
+/// Lane count for PMS 9-key mode (9 keys)
+#[allow(dead_code)]
+pub const LANE_COUNT_PMS: usize = 9;
+
+/// Maximum lane count across all modes
+pub const MAX_LANE_COUNT: usize = 9;
+
+/// Legacy constant for backward compatibility
+pub const LANE_COUNT: usize = LANE_COUNT_BMS;
+
+/// Get lane count for a specific play mode
+#[allow(dead_code)]
+pub fn lane_count(mode: PlayMode) -> usize {
+    match mode {
+        PlayMode::Bms7Key => LANE_COUNT_BMS,
+        PlayMode::Pms9Key => LANE_COUNT_PMS,
+    }
+}
 
 impl Chart {
     // Public API for querying chart's maximum measure
@@ -190,10 +264,28 @@ impl Chart {
             .count()
     }
 
-    pub fn build_lane_index(&self) -> [Vec<usize>; LANE_COUNT] {
-        let mut index: [Vec<usize>; LANE_COUNT] = Default::default();
+    /// Build lane index for BMS 7-key mode (legacy)
+    pub fn build_lane_index(&self) -> [Vec<usize>; LANE_COUNT_BMS] {
+        let mut index: [Vec<usize>; LANE_COUNT_BMS] = Default::default();
         for (i, note) in self.notes.iter().enumerate() {
-            index[note.channel.lane_index()].push(i);
+            let lane = note.channel.lane_index();
+            if lane < LANE_COUNT_BMS {
+                index[lane].push(i);
+            }
+        }
+        index
+    }
+
+    /// Build lane index that supports all play modes
+    #[allow(dead_code)]
+    pub fn build_lane_index_for_mode(&self) -> [Vec<usize>; MAX_LANE_COUNT] {
+        let mode = self.metadata.play_mode;
+        let mut index: [Vec<usize>; MAX_LANE_COUNT] = Default::default();
+        for (i, note) in self.notes.iter().enumerate() {
+            let lane = note.channel.lane_index_for_mode(mode);
+            if lane < MAX_LANE_COUNT {
+                index[lane].push(i);
+            }
         }
         index
     }
