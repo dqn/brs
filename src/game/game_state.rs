@@ -53,6 +53,9 @@ pub struct GameState {
     hcn_damage_timers: [f64; LANE_COUNT],
     random_option: RandomOption,
     auto_scratch: bool,
+    legacy_note: bool,
+    expand_judge: bool,
+    battle: bool,
     // BGA
     bga: BgaManager,
     pending_bga_load: Option<(PathBuf, HashMap<u32, String>)>,
@@ -82,6 +85,9 @@ impl GameState {
             hcn_damage_timers: [0.0; LANE_COUNT],
             random_option: RandomOption::Off,
             auto_scratch: false,
+            legacy_note: false,
+            expand_judge: false,
+            battle: false,
             bga: BgaManager::new(),
             pending_bga_load: None,
         }
@@ -133,12 +139,14 @@ impl GameState {
         }
 
         // Apply legacy note option (convert LN to normal notes)
+        self.legacy_note = settings.legacy_note;
         if settings.legacy_note {
             apply_legacy_note(&mut chart);
             println!("Legacy note enabled (LN converted to normal notes)");
         }
 
         // Apply battle option (flip to 2P side layout)
+        self.battle = settings.battle;
         if settings.battle {
             apply_battle(&mut chart);
             println!("Battle enabled (flipped to 2P side layout)");
@@ -155,6 +163,7 @@ impl GameState {
             JudgeSystemType::Lr2 => GaugeSystem::Lr2,
         };
         let mut judge = JudgeSystem::for_system(settings.judge_system, judge_rank);
+        self.expand_judge = settings.expand_judge;
         if settings.expand_judge {
             judge = judge.with_expand();
             println!("Expand judge enabled (1.5x judgment windows)");
@@ -898,6 +907,8 @@ impl GameState {
     }
 
     pub fn get_result(&self, chart_path: &str) -> PlayResult {
+        use crate::ir::PlayOptionFlags;
+
         let (title, artist) = self
             .chart
             .as_ref()
@@ -915,6 +926,13 @@ impl GameState {
         let is_full_combo = self.score.bad_count == 0 && self.score.poor_count == 0;
         let clear_lamp = ClearLamp::from_gauge(best_clear, is_full_combo);
 
+        // Get active gauge type for play options
+        let gauge_type = self
+            .gauge
+            .as_ref()
+            .map(|g| g.active_gauge())
+            .unwrap_or(GaugeType::Normal);
+
         PlayResult {
             chart_path: chart_path.to_string(),
             title,
@@ -931,6 +949,14 @@ impl GameState {
             random_option: self.random_option,
             fast_count: self.timing_stats.fast_count,
             slow_count: self.timing_stats.slow_count,
+            play_options: PlayOptionFlags {
+                random_option: self.random_option,
+                gauge_type,
+                auto_scratch: self.auto_scratch,
+                legacy_note: self.legacy_note,
+                expand_judge: self.expand_judge,
+                battle: self.battle,
+            },
         }
     }
 

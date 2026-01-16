@@ -47,6 +47,10 @@ src/
 ├── database/         # データ永続化
 │   ├── repository.rs # リポジトリ
 │   └── score.rs      # スコアデータ
+├── ir/               # Internet Ranking
+│   ├── client.rs     # HTTP クライアント
+│   ├── protocol.rs   # スコア送信/ランキングデータ
+│   └── validation.rs # MD5/スコアハッシュ生成
 └── config/           # 設定
     └── settings.rs   # ユーザー設定
 ```
@@ -114,7 +118,7 @@ src/
 - [x] BATTLE (1P/2P 反転)
 
 #### インターネットランキング
-- [ ] IR スコア送信
+- [x] IR スコア送信
 - [ ] 段位認定
 
 #### その他

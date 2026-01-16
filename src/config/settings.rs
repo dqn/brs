@@ -7,6 +7,7 @@ use macroquad::prelude::KeyCode;
 use serde::{Deserialize, Serialize};
 
 use crate::game::{GaugeType, JudgeSystemType, RandomOption};
+use crate::ir::IrServerType;
 
 /// Key bindings for 7-key + scratch (BMS mode)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -169,6 +170,57 @@ impl Default for ControllerBindings {
             key7: "Button:LeftTrigger2".to_string(),
             axis_threshold: 0.3,
         }
+    }
+}
+
+/// IR (Internet Ranking) settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IrSettings {
+    /// Enable IR score submission
+    pub enabled: bool,
+    /// IR server type
+    pub server_type: IrServerType,
+    /// Custom server URL (used when server_type is Custom)
+    pub server_url: String,
+    /// Player ID on the IR server
+    pub player_id: String,
+    /// Player name for display
+    pub player_name: String,
+    /// Auto-submit scores after play
+    pub auto_submit: bool,
+    /// Submit scores even when assist options are used
+    pub submit_with_assist: bool,
+    /// Secret key for score hash generation
+    pub secret_key: String,
+}
+
+impl Default for IrSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            server_type: IrServerType::default(),
+            server_url: String::new(),
+            player_id: String::new(),
+            player_name: String::new(),
+            auto_submit: true,
+            submit_with_assist: false,
+            secret_key: String::new(),
+        }
+    }
+}
+
+impl IrSettings {
+    /// Get the effective server URL based on server type
+    pub fn effective_url(&self) -> String {
+        match self.server_type {
+            IrServerType::Custom => self.server_url.clone(),
+            _ => self.server_type.default_url().to_string(),
+        }
+    }
+
+    /// Check if IR is properly configured for submission
+    pub fn is_configured(&self) -> bool {
+        self.enabled && !self.player_id.is_empty() && !self.effective_url().is_empty()
     }
 }
 
@@ -436,6 +488,9 @@ pub struct GameSettings {
     /// Controller bindings (for IIDX-style controllers)
     #[serde(default)]
     pub controller_bindings: ControllerBindings,
+    /// IR (Internet Ranking) settings
+    #[serde(default)]
+    pub ir: IrSettings,
 }
 
 impl Default for GameSettings {
@@ -455,6 +510,7 @@ impl Default for GameSettings {
             key_bindings: KeyBindings::default(),
             key_bindings_9key: KeyBindings9Key::default(),
             controller_bindings: ControllerBindings::default(),
+            ir: IrSettings::default(),
         }
     }
 }

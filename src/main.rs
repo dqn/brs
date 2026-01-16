@@ -3,6 +3,7 @@ mod bms;
 mod config;
 mod database;
 mod game;
+mod ir;
 mod render;
 mod scene;
 

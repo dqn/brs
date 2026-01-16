@@ -1,7 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use super::{GaugeType, RandomOption};
+use crate::ir::PlayOptionFlags;
 
 /// Clear lamp type for display purposes
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ClearLamp {
     #[default]
     NoPlay,
@@ -43,7 +46,7 @@ impl ClearLamp {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PlayResult {
     /// Chart file path (used as identifier for score storage)
     pub chart_path: String,
@@ -63,6 +66,38 @@ pub struct PlayResult {
     /// FAST/SLOW timing statistics
     pub fast_count: u32,
     pub slow_count: u32,
+    /// Play options for IR submission
+    pub play_options: PlayOptionFlags,
+}
+
+impl Default for PlayResult {
+    fn default() -> Self {
+        Self {
+            chart_path: String::new(),
+            title: String::new(),
+            artist: String::new(),
+            ex_score: 0,
+            max_combo: 0,
+            pgreat_count: 0,
+            great_count: 0,
+            good_count: 0,
+            bad_count: 0,
+            poor_count: 0,
+            total_notes: 0,
+            clear_lamp: ClearLamp::default(),
+            random_option: RandomOption::default(),
+            fast_count: 0,
+            slow_count: 0,
+            play_options: PlayOptionFlags {
+                random_option: RandomOption::Off,
+                gauge_type: GaugeType::Normal,
+                auto_scratch: false,
+                legacy_note: false,
+                expand_judge: false,
+                battle: false,
+            },
+        }
+    }
 }
 
 impl PlayResult {
