@@ -1,7 +1,46 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+
+/// Supported audio file extensions for fallback
+const AUDIO_EXTENSIONS: &[&str] = &["wav", "ogg", "mp3", "flac"];
+
+/// Try different extensions and case variations to find an existing audio file
+fn find_audio_file(base_path: &Path, filename: &str) -> Option<PathBuf> {
+    // Try original filename first
+    let file_path = base_path.join(filename);
+    if file_path.exists() {
+        return Some(file_path);
+    }
+
+    // Try lowercase filename
+    let lower = filename.to_lowercase();
+    let lower_path = base_path.join(&lower);
+    if lower_path.exists() {
+        return Some(lower_path);
+    }
+
+    // Try different extensions
+    let stem = Path::new(filename).file_stem()?.to_str()?;
+    for ext in AUDIO_EXTENSIONS {
+        // Original case with different extension
+        let alt_filename = format!("{}.{}", stem, ext);
+        let alt_path = base_path.join(&alt_filename);
+        if alt_path.exists() {
+            return Some(alt_path);
+        }
+
+        // Lowercase with different extension
+        let alt_lower = alt_filename.to_lowercase();
+        let alt_lower_path = base_path.join(&alt_lower);
+        if alt_lower_path.exists() {
+            return Some(alt_lower_path);
+        }
+    }
+
+    None
+}
 use kira::AudioManager as KiraAudioManager;
 use kira::AudioManagerSettings;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
@@ -53,15 +92,11 @@ impl AudioManager {
         let mut result = KeysoundLoadResult::default();
 
         for (&id, filename) in wav_files {
-            let file_path = base_path.join(filename);
-
-            // Try original filename first
-            if file_path.exists() {
+            if let Some(file_path) = find_audio_file(base_path, filename) {
                 match self.load_sound(&file_path) {
                     Ok(sound) => {
                         self.sounds.insert(id, sound);
                         result.loaded += 1;
-                        continue;
                     }
                     Err(e) => {
                         let error_msg = format!("Failed to decode: {}", e);
@@ -70,45 +105,15 @@ impl AudioManager {
                             id, filename, error_msg
                         );
                         result.failed.push((id, filename.clone(), error_msg));
-                        continue;
                     }
                 }
+            } else {
+                let error_msg = "File not found".to_string();
+                eprintln!("Warning: Keysound #{:02X} '{}' not found", id, filename);
+                result.failed.push((id, filename.clone(), error_msg));
             }
-
-            // Try lowercase filename as fallback (case-insensitive filesystems)
-            let lower = filename.to_lowercase();
-            let lower_path = base_path.join(&lower);
-            if lower_path.exists() {
-                match self.load_sound(&lower_path) {
-                    Ok(sound) => {
-                        self.sounds.insert(id, sound);
-                        result.loaded += 1;
-                        continue;
-                    }
-                    Err(e) => {
-                        let error_msg = format!("Failed to decode (lowercase): {}", e);
-                        eprintln!(
-                            "Warning: Failed to load keysound #{:02X} '{}': {}",
-                            id, filename, error_msg
-                        );
-                        result.failed.push((id, filename.clone(), error_msg));
-                        continue;
-                    }
-                }
-            }
-
-            // File not found
-            let error_msg = "File not found".to_string();
-            eprintln!(
-                "Warning: Keysound #{:02X} '{}' not found at {}",
-                id,
-                filename,
-                file_path.display()
-            );
-            result.failed.push((id, filename.clone(), error_msg));
         }
 
-        // Log summary
         if !result.failed.is_empty() {
             eprintln!(
                 "Keysound loading: {}/{} loaded, {} failed",
