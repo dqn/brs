@@ -249,6 +249,60 @@ impl InputHandler {
         }
     }
 
+    /// Get lane indices that are currently held down
+    pub fn get_held_lanes(&self) -> Vec<usize> {
+        match self.play_mode {
+            PlayMode::Bms7Key => self.get_held_lanes_bms(),
+            PlayMode::Pms9Key => self.get_held_lanes_pms(),
+            PlayMode::Dp14Key => self.get_held_lanes_dp(),
+        }
+    }
+
+    fn get_held_lanes_bms(&self) -> Vec<usize> {
+        let mut held = Vec::new();
+        for (lane, &key) in self.key_bindings_bms.iter().enumerate() {
+            let keyboard = is_key_down(key);
+            let gamepad = self
+                .gamepad
+                .as_ref()
+                .is_some_and(|g| g.is_button_down(lane));
+            if keyboard || gamepad {
+                held.push(lane);
+            }
+        }
+        held
+    }
+
+    fn get_held_lanes_pms(&self) -> Vec<usize> {
+        let mut held = Vec::new();
+        for (lane, &key) in self.key_bindings_pms.iter().enumerate() {
+            let keyboard = is_key_down(key);
+            let gamepad = self
+                .gamepad
+                .as_ref()
+                .is_some_and(|g| g.is_button_down(lane));
+            if keyboard || gamepad {
+                held.push(lane);
+            }
+        }
+        held
+    }
+
+    fn get_held_lanes_dp(&self) -> Vec<usize> {
+        let mut held = Vec::new();
+        for (lane, &key) in self.key_bindings_dp.iter().enumerate() {
+            let keyboard = is_key_down(key);
+            let gamepad = self
+                .gamepad
+                .as_ref()
+                .is_some_and(|g| g.is_button_down(lane));
+            if keyboard || gamepad {
+                held.push(lane);
+            }
+        }
+        held
+    }
+
     fn get_pressed_lanes_bms(&self) -> Vec<NoteChannel> {
         let channels = [
             NoteChannel::Scratch,

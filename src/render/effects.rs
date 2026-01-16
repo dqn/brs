@@ -172,6 +172,32 @@ impl Default for LaneFlash {
     }
 }
 
+/// Key beam effect displayed while key is held
+#[derive(Debug, Clone, Copy)]
+pub struct KeyBeam {
+    is_held: bool,
+}
+
+impl KeyBeam {
+    pub fn new() -> Self {
+        Self { is_held: false }
+    }
+
+    pub fn set_held(&mut self, held: bool) {
+        self.is_held = held;
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.is_held
+    }
+}
+
+impl Default for KeyBeam {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 use crate::bms::MAX_LANE_COUNT;
 
 /// Effect manager for all visual effects
@@ -179,6 +205,7 @@ pub struct EffectManager {
     judge_effect: Option<JudgeEffect>,
     combo_effect: ComboEffect,
     lane_flashes: [LaneFlash; MAX_LANE_COUNT],
+    key_beams: [KeyBeam; MAX_LANE_COUNT],
     effect_config: EffectConfig,
 }
 
@@ -193,6 +220,7 @@ impl EffectManager {
             judge_effect: None,
             combo_effect: ComboEffect::new(0, combo_x, combo_y, config.combo_duration),
             lane_flashes: [lane_flash; MAX_LANE_COUNT],
+            key_beams: [KeyBeam::new(); MAX_LANE_COUNT],
             effect_config: config,
         }
     }
@@ -254,6 +282,52 @@ impl EffectManager {
                 let alpha = flash.alpha() * max_alpha;
                 let color = Color::new(1.0, 1.0, 1.0, alpha);
                 draw_rectangle(x, 0.0, lane_width, highway_height, color);
+            }
+        }
+    }
+
+    /// Set key held state for a lane
+    pub fn set_key_held(&mut self, lane: usize, held: bool) {
+        if lane < MAX_LANE_COUNT {
+            self.key_beams[lane].set_held(held);
+        }
+    }
+
+    /// Draw key beams for held keys
+    /// Draws a gradient beam from judge_y upward with configurable alpha
+    pub fn draw_key_beams(
+        &self,
+        highway_x: f32,
+        lane_width: f32,
+        judge_y: f32,
+        lane_colors: &[Color],
+    ) {
+        let config = &self.effect_config.key_beam;
+        if !config.enabled {
+            return;
+        }
+
+        let beam_height = judge_y * config.height_ratio;
+
+        for (i, beam) in self.key_beams.iter().enumerate() {
+            if !beam.is_active() {
+                continue;
+            }
+
+            let x = highway_x + i as f32 * lane_width;
+            let base_color = lane_colors.get(i).copied().unwrap_or(WHITE);
+
+            // Draw gradient: more opaque at bottom (judge line), transparent at top
+            let segments = 20;
+            let segment_height = beam_height / segments as f32;
+
+            for seg in 0..segments {
+                let y = judge_y - (seg + 1) as f32 * segment_height;
+                let progress = seg as f32 / segments as f32;
+                // Interpolate alpha from max (bottom) to min (top)
+                let alpha = config.max_alpha * (1.0 - progress) + config.min_alpha * progress;
+                let color = Color::new(base_color.r, base_color.g, base_color.b, alpha);
+                draw_rectangle(x, y, lane_width, segment_height, color);
             }
         }
     }

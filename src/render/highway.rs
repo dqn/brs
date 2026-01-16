@@ -83,9 +83,26 @@ impl Highway {
         self.draw_info(chart);
     }
 
-    fn highway_x(&self) -> f32 {
+    /// Get highway X position
+    pub fn highway_x(&self) -> f32 {
         let total_width = self.config.total_width();
         (screen_width() - total_width) / 2.0
+    }
+
+    /// Get lane width
+    pub fn lane_width(&self) -> f32 {
+        self.config.lane_width
+    }
+
+    /// Get judge line Y position
+    pub fn judge_line_y(&self) -> f32 {
+        self.config.judge_line_y
+    }
+
+    /// Get lane colors for all lanes
+    pub fn get_lane_colors(&self) -> Vec<Color> {
+        let lane_count = self.config.lane_count();
+        (0..lane_count).map(|i| self.config.lane_color(i)).collect()
     }
 
     fn draw_lanes(&self, highway_x: f32) {

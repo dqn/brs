@@ -447,6 +447,30 @@ impl Default for ComboColors {
     }
 }
 
+/// Key beam configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyBeamConfig {
+    /// Maximum alpha at the bottom (near judge line)
+    pub max_alpha: f32,
+    /// Minimum alpha at the top
+    pub min_alpha: f32,
+    /// Height ratio of the beam relative to judge line position
+    pub height_ratio: f32,
+    /// Enable/disable key beams
+    pub enabled: bool,
+}
+
+impl Default for KeyBeamConfig {
+    fn default() -> Self {
+        Self {
+            max_alpha: 0.6,
+            min_alpha: 0.1,
+            height_ratio: 0.5,
+            enabled: true,
+        }
+    }
+}
+
 /// Effect configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EffectConfig {
@@ -466,6 +490,9 @@ pub struct EffectConfig {
     pub judge_font_size: f32,
     /// Combo text font size
     pub combo_font_size: f32,
+    /// Key beam configuration
+    #[serde(default)]
+    pub key_beam: KeyBeamConfig,
 }
 
 impl Default for EffectConfig {
@@ -479,6 +506,7 @@ impl Default for EffectConfig {
             lane_flash_alpha: 0.5,
             judge_font_size: 40.0,
             combo_font_size: 36.0,
+            key_beam: KeyBeamConfig::default(),
         }
     }
 }

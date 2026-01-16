@@ -303,6 +303,9 @@ impl GameState {
             self.process_hcn_damage(get_frame_time() as f64 * 1000.0);
         }
 
+        // Update key beam states
+        self.update_key_beams();
+
         // Update effects animation
         self.effects.update(get_frame_time());
     }
@@ -598,6 +601,14 @@ impl GameState {
         }
     }
 
+    /// Update key beam states based on held keys
+    fn update_key_beams(&mut self) {
+        let held_lanes = self.input.get_held_lanes();
+        for lane in 0..MAX_LANE_COUNT {
+            self.effects.set_key_held(lane, held_lanes.contains(&lane));
+        }
+    }
+
     /// Process auto scratch notes (automatically hit scratch notes at the perfect timing)
     fn process_auto_scratch(&mut self) {
         use crate::bms::NoteChannel;
@@ -708,6 +719,14 @@ impl GameState {
                 self.current_time_ms,
                 self.scroll_speed,
             );
+
+            // Draw key beams (after notes, before UI)
+            let highway_x = self.highway.highway_x();
+            let lane_width = self.highway.lane_width();
+            let judge_y = self.highway.judge_line_y();
+            let lane_colors = self.highway.get_lane_colors();
+            self.effects
+                .draw_key_beams(highway_x, lane_width, judge_y, &lane_colors);
         } else {
             draw_text(
                 "No chart loaded. Pass BMS file path as argument.",
