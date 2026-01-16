@@ -43,7 +43,8 @@ fn find_audio_file(base_path: &Path, filename: &str) -> Option<PathBuf> {
 }
 use kira::AudioManager as KiraAudioManager;
 use kira::AudioManagerSettings;
-use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
+use kira::Decibels;
+use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle, StaticSoundSettings};
 
 /// Result of loading keysounds
 #[derive(Debug, Default)]
@@ -70,6 +71,9 @@ impl KeysoundLoadResult {
 pub struct AudioManager {
     manager: KiraAudioManager,
     sounds: HashMap<u32, StaticSoundData>,
+    master_volume: f64,
+    keysound_volume: f64,
+    bgm_volume: f64,
 }
 
 impl AudioManager {
@@ -80,7 +84,36 @@ impl AudioManager {
         Ok(Self {
             manager,
             sounds: HashMap::new(),
+            master_volume: 1.0,
+            keysound_volume: 1.0,
+            bgm_volume: 1.0,
         })
+    }
+
+    /// Set master volume (0.0 - 1.0)
+    pub fn set_master_volume(&mut self, volume: f64) {
+        self.master_volume = volume.clamp(0.0, 1.0);
+    }
+
+    /// Set keysound volume (0.0 - 1.0)
+    pub fn set_keysound_volume(&mut self, volume: f64) {
+        self.keysound_volume = volume.clamp(0.0, 1.0);
+    }
+
+    /// Set BGM volume (0.0 - 1.0)
+    pub fn set_bgm_volume(&mut self, volume: f64) {
+        self.bgm_volume = volume.clamp(0.0, 1.0);
+    }
+
+    /// Convert amplitude (0.0-1.0) to Decibels
+    fn amplitude_to_decibels(amplitude: f64) -> Decibels {
+        if amplitude <= 0.0 {
+            Decibels::SILENCE
+        } else if amplitude >= 1.0 {
+            Decibels::IDENTITY
+        } else {
+            Decibels(20.0 * (amplitude as f32).log10())
+        }
     }
 
     pub fn load_keysounds<P: AsRef<Path>>(
@@ -132,9 +165,29 @@ impl AudioManager {
             .with_context(|| format!("Failed to load sound: {}", path.display()))
     }
 
+    /// Play keysound with current volume settings
     pub fn play(&mut self, keysound_id: u32) -> Option<StaticSoundHandle> {
         if let Some(sound_data) = self.sounds.get(&keysound_id) {
-            self.manager.play(sound_data.clone()).ok()
+            let effective_volume = self.master_volume * self.keysound_volume;
+            let decibels = Self::amplitude_to_decibels(effective_volume);
+            let settings = StaticSoundSettings::new().volume(decibels);
+            self.manager
+                .play(sound_data.clone().with_settings(settings))
+                .ok()
+        } else {
+            None
+        }
+    }
+
+    /// Play BGM with current volume settings
+    pub fn play_bgm(&mut self, keysound_id: u32) -> Option<StaticSoundHandle> {
+        if let Some(sound_data) = self.sounds.get(&keysound_id) {
+            let effective_volume = self.master_volume * self.bgm_volume;
+            let decibels = Self::amplitude_to_decibels(effective_volume);
+            let settings = StaticSoundSettings::new().volume(decibels);
+            self.manager
+                .play(sound_data.clone().with_settings(settings))
+                .ok()
         } else {
             None
         }

@@ -10,8 +10,21 @@ mod scene;
 mod skin;
 
 use macroquad::prelude::*;
+use macroquad::window::Conf;
 
+use config::GameSettings;
 use scene::{GameplayScene, Scene, SceneTransition, SongSelectScene};
+
+fn window_conf() -> Conf {
+    let settings = GameSettings::load();
+    Conf {
+        window_title: "BMS Player".to_owned(),
+        window_width: settings.display.width as i32,
+        window_height: settings.display.height as i32,
+        fullscreen: settings.display.fullscreen,
+        ..Default::default()
+    }
+}
 
 struct SceneManager {
     scenes: Vec<Box<dyn Scene>>,
@@ -53,7 +66,7 @@ impl SceneManager {
     }
 }
 
-#[macroquad::main("BMS Player")]
+#[macroquad::main(window_conf)]
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
 

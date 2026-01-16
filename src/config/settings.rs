@@ -327,6 +327,48 @@ impl IrSettings {
     }
 }
 
+/// Display settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisplaySettings {
+    /// Window width
+    pub width: u32,
+    /// Window height
+    pub height: u32,
+    /// Fullscreen mode
+    pub fullscreen: bool,
+}
+
+impl Default for DisplaySettings {
+    fn default() -> Self {
+        Self {
+            width: 1280,
+            height: 720,
+            fullscreen: false,
+        }
+    }
+}
+
+/// Volume settings (0-100)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VolumeSettings {
+    /// Master volume (0-100)
+    pub master: u8,
+    /// Key sound volume (0-100)
+    pub keysound: u8,
+    /// BGM volume (0-100)
+    pub bgm: u8,
+}
+
+impl Default for VolumeSettings {
+    fn default() -> Self {
+        Self {
+            master: 100,
+            keysound: 100,
+            bgm: 100,
+        }
+    }
+}
+
 /// Convert KeyCode to string for serialization
 pub fn keycode_to_string(key: KeyCode) -> String {
     match key {
@@ -600,6 +642,12 @@ pub struct GameSettings {
     /// Skin name (directory name in skins/)
     #[serde(default)]
     pub skin_name: String,
+    /// Display settings
+    #[serde(default)]
+    pub display: DisplaySettings,
+    /// Volume settings
+    #[serde(default)]
+    pub volume: VolumeSettings,
 }
 
 impl Default for GameSettings {
@@ -622,6 +670,8 @@ impl Default for GameSettings {
             controller_bindings: ControllerBindings::default(),
             ir: IrSettings::default(),
             skin_name: String::new(), // Empty means use built-in default
+            display: DisplaySettings::default(),
+            volume: VolumeSettings::default(),
         }
     }
 }

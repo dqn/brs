@@ -114,7 +114,15 @@ impl GameState {
         println!("BGA events: {}", chart.bga_events.len());
         println!("BMP files: {}", bmp_files.len());
 
+        // Load settings
+        let settings = GameSettings::load();
+
         let mut audio = AudioManager::new()?;
+        // Apply volume settings
+        audio.set_master_volume(settings.volume.master as f64 / 100.0);
+        audio.set_keysound_volume(settings.volume.keysound as f64 / 100.0);
+        audio.set_bgm_volume(settings.volume.bgm as f64 / 100.0);
+
         if let Some(parent) = path.parent() {
             let load_result = audio.load_keysounds(parent, &wav_files);
             println!(
@@ -128,9 +136,6 @@ impl GameState {
                 self.pending_bga_load = Some((parent.to_path_buf(), bmp_files));
             }
         }
-
-        // Load settings
-        let settings = GameSettings::load();
 
         // Apply random option before building lane index
         self.random_option = settings.random_option;
