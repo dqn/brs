@@ -1,4 +1,4 @@
-use bms_player::bms::{BpmChange, MeasureLength, StopEvent, TimingData, calculate_time_ms};
+use brs::bms::{BpmChange, MeasureLength, StopEvent, TimingData, calculate_time_ms};
 use fraction::Fraction;
 
 fn default_timing() -> TimingData {

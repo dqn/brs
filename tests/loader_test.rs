@@ -1,4 +1,4 @@
-use bms_player::bms::BmsLoader;
+use brs::bms::BmsLoader;
 
 #[test]
 fn test_load_simple_chart() {

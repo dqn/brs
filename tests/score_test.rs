@@ -1,4 +1,4 @@
-use bms_player::game::{JudgeResult, ScoreManager};
+use brs::game::{JudgeResult, ScoreManager};
 
 #[test]
 fn test_ex_score_calculation() {

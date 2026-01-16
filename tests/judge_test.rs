@@ -1,4 +1,4 @@
-use bms_player::game::{JudgeConfig, JudgeResult, JudgeSystem};
+use brs::game::{JudgeConfig, JudgeResult, JudgeSystem};
 
 #[test]
 fn test_pgreat_window() {

@@ -196,7 +196,7 @@ Score System ──────┬───────────────�
 ## Documentation
 
 - `docs/bms-specification.md` - BMS フォーマット仕様
-- `docs/bms-player-comparison.md` - BMS プレイヤー機能比較表（LR2/beatoraja/bms-rs）
+- `docs/brs-comparison.md` - BMS プレイヤー機能比較表（LR2/beatoraja/brs）
 - `docs/feature-plans/` - 長期機能実装計画
 
 ## Design Principles

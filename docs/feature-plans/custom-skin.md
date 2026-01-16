@@ -247,9 +247,9 @@ pub struct TimingElement {
 {
   "info": {
     "name": "Default Skin",
-    "author": "bms-rs",
+    "author": "brs",
     "version": "1.0.0",
-    "description": "Default skin for bms-rs"
+    "description": "Default skin for brs"
   },
   "resolution": {
     "width": 1920,

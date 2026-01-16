@@ -654,10 +654,10 @@ impl GameSettings {
     }
 
     fn settings_path() -> Result<PathBuf> {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "bms-rs", "bms-player") {
+        if let Some(proj_dirs) = ProjectDirs::from("com", "brs", "brs") {
             Ok(proj_dirs.config_dir().join("settings.json"))
         } else {
-            Ok(PathBuf::from(".bms-player-settings.json"))
+            Ok(PathBuf::from(".brs-settings.json"))
         }
     }
 }

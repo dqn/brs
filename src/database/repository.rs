@@ -29,11 +29,11 @@ impl ScoreRepository {
 
     /// Get the data directory for the application
     fn get_data_dir() -> Result<PathBuf> {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "bms-rs", "bms-player") {
+        if let Some(proj_dirs) = ProjectDirs::from("com", "brs", "brs") {
             Ok(proj_dirs.data_dir().to_path_buf())
         } else {
             // Fallback to current directory
-            Ok(PathBuf::from(".bms-player-data"))
+            Ok(PathBuf::from(".brs-data"))
         }
     }
 
@@ -95,7 +95,7 @@ impl ScoreRepository {
 impl Default for ScoreRepository {
     fn default() -> Self {
         Self::new().unwrap_or_else(|_| Self {
-            data_dir: PathBuf::from(".bms-player-data"),
+            data_dir: PathBuf::from(".brs-data"),
             scores: HashMap::new(),
         })
     }

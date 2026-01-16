@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::protocol::{ChartRanking, IrServerType, ScoreSubmission, SubmissionResponse};
 
-const USER_AGENT: &str = concat!("bms-player/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("brs/", env!("CARGO_PKG_VERSION"));
 
 /// IR client for score submission and ranking retrieval
 pub struct IrClient {

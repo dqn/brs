@@ -27,7 +27,7 @@ impl Default for SkinInfo {
     fn default() -> Self {
         Self {
             name: "Default".to_string(),
-            author: "bms-rs".to_string(),
+            author: "brs".to_string(),
             version: "1.0.0".to_string(),
             description: "Default built-in skin".to_string(),
         }

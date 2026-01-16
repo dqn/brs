@@ -426,7 +426,7 @@ pub struct DanRepository {
 
 impl DanRepository {
     pub fn load() -> Self {
-        // Load from ~/.local/share/bms-rs/bms-player/dan_records.json
+        // Load from ~/.local/share/brs/brs/dan_records.json
         // ...
     }
 
