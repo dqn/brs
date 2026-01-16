@@ -203,7 +203,7 @@ impl SongSelectScene {
     }
 
     fn parse_bms_header(path: PathBuf) -> Option<SongEntry> {
-        let content = std::fs::read_to_string(&path).ok()?;
+        let content = crate::bms::read_bms_file(&path).ok()?;
 
         let mut title = path
             .file_stem()

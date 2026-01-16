@@ -64,10 +64,7 @@ impl BmsLoader {
     }
 
     fn load_bms_or_pms(path: &Path) -> Result<BmsLoadResult> {
-        let source = std::fs::read_to_string(path).map_err(|e| BmsError::FileRead {
-            path: path.to_path_buf(),
-            source: e,
-        })?;
+        let source = super::read_bms_file(path)?;
 
         // Detect PMS by file extension
         let is_pms = path
