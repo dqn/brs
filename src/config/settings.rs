@@ -597,6 +597,9 @@ pub struct GameSettings {
     /// IR (Internet Ranking) settings
     #[serde(default)]
     pub ir: IrSettings,
+    /// Skin name (directory name in skins/)
+    #[serde(default)]
+    pub skin_name: String,
 }
 
 impl Default for GameSettings {
@@ -618,6 +621,7 @@ impl Default for GameSettings {
             key_bindings_dp: KeyBindingsDp::default(),
             controller_bindings: ControllerBindings::default(),
             ir: IrSettings::default(),
+            skin_name: String::new(), // Empty means use built-in default
         }
     }
 }

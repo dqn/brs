@@ -1,26 +1,24 @@
 use macroquad::prelude::*;
 
 use crate::game::JudgeResult;
-
-/// Time in seconds for effect animations
-const JUDGE_EFFECT_DURATION: f32 = 0.3;
-const COMBO_EFFECT_DURATION: f32 = 0.15;
-const LANE_FLASH_DURATION: f32 = 0.1;
+use crate::skin::EffectConfig;
 
 /// Judgment display effect
 #[derive(Debug, Clone)]
 pub struct JudgeEffect {
     result: JudgeResult,
     timer: f32,
+    duration: f32,
     x: f32,
     y: f32,
 }
 
 impl JudgeEffect {
-    pub fn new(result: JudgeResult, x: f32, y: f32) -> Self {
+    pub fn new(result: JudgeResult, x: f32, y: f32, duration: f32) -> Self {
         Self {
             result,
-            timer: JUDGE_EFFECT_DURATION,
+            timer: duration,
+            duration,
             x,
             y,
         }
@@ -34,21 +32,22 @@ impl JudgeEffect {
         self.timer > 0.0
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&self, config: &EffectConfig) {
         if !self.is_active() {
             return;
         }
 
-        let (text, base_color) = match self.result {
-            JudgeResult::PGreat => ("PGREAT", Color::new(1.0, 1.0, 0.0, 1.0)),
-            JudgeResult::Great => ("GREAT", Color::new(1.0, 0.8, 0.0, 1.0)),
-            JudgeResult::Good => ("GOOD", Color::new(0.0, 1.0, 0.5, 1.0)),
-            JudgeResult::Bad => ("BAD", Color::new(0.5, 0.5, 1.0, 1.0)),
-            JudgeResult::Poor => ("POOR", Color::new(1.0, 0.3, 0.3, 1.0)),
+        let text = match self.result {
+            JudgeResult::PGreat => "PGREAT",
+            JudgeResult::Great => "GREAT",
+            JudgeResult::Good => "GOOD",
+            JudgeResult::Bad => "BAD",
+            JudgeResult::Poor => "POOR",
         };
+        let base_color = config.judge_color(self.result);
 
         // Animation progress (1.0 -> 0.0)
-        let progress = self.timer / JUDGE_EFFECT_DURATION;
+        let progress = self.timer / self.duration;
 
         // Scale: starts big, shrinks to normal
         let scale = 1.0 + (1.0 - progress) * 0.3;
@@ -57,7 +56,7 @@ impl JudgeEffect {
         let alpha = if progress < 0.3 { progress / 0.3 } else { 1.0 };
 
         let color = Color::new(base_color.r, base_color.g, base_color.b, alpha);
-        let font_size = 40.0 * scale;
+        let font_size = config.judge_font_size * scale;
 
         // Calculate centered position
         let text_width = text.len() as f32 * font_size * 0.5;
@@ -72,15 +71,17 @@ impl JudgeEffect {
 pub struct ComboEffect {
     combo: u32,
     timer: f32,
+    duration: f32,
     x: f32,
     y: f32,
 }
 
 impl ComboEffect {
-    pub fn new(combo: u32, x: f32, y: f32) -> Self {
+    pub fn new(combo: u32, x: f32, y: f32, duration: f32) -> Self {
         Self {
             combo,
-            timer: COMBO_EFFECT_DURATION,
+            timer: duration,
+            duration,
             x,
             y,
         }
@@ -90,18 +91,18 @@ impl ComboEffect {
         self.timer -= dt;
     }
 
-    pub fn update_combo(&mut self, combo: u32) {
+    pub fn update_combo(&mut self, combo: u32, duration: f32) {
         self.combo = combo;
-        self.timer = COMBO_EFFECT_DURATION;
+        self.timer = duration;
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&self, config: &EffectConfig) {
         if self.combo < 2 {
             return;
         }
 
         // Animation progress (1.0 -> 0.0)
-        let progress = (self.timer / COMBO_EFFECT_DURATION).max(0.0);
+        let progress = (self.timer / self.duration).max(0.0);
 
         // Bounce effect: scale up then back to normal
         let scale = if progress > 0.5 {
@@ -110,20 +111,12 @@ impl ComboEffect {
             1.0
         };
 
-        let font_size = 36.0 * scale;
+        let font_size = config.combo_font_size * scale;
         let combo_text = format!("{} COMBO", self.combo);
         let text_width = combo_text.len() as f32 * font_size * 0.4;
 
-        // Color based on combo count
-        let color = if self.combo >= 1000 {
-            Color::new(1.0, 0.8, 0.0, 1.0) // Gold
-        } else if self.combo >= 500 {
-            Color::new(1.0, 0.5, 0.0, 1.0) // Orange
-        } else if self.combo >= 100 {
-            Color::new(1.0, 1.0, 0.0, 1.0) // Yellow
-        } else {
-            WHITE
-        };
+        // Color based on combo count (from skin config)
+        let color = config.combo_color(self.combo);
 
         draw_text(
             &combo_text,
@@ -136,14 +129,22 @@ impl ComboEffect {
 }
 
 /// Lane flash effect when key is pressed
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct LaneFlash {
     timer: f32,
+    duration: f32,
 }
 
 impl LaneFlash {
+    pub fn new(duration: f32) -> Self {
+        Self {
+            timer: 0.0,
+            duration,
+        }
+    }
+
     pub fn trigger(&mut self) {
-        self.timer = LANE_FLASH_DURATION;
+        self.timer = self.duration;
     }
 
     pub fn update(&mut self, dt: f32) {
@@ -157,11 +158,17 @@ impl LaneFlash {
     }
 
     pub fn alpha(&self) -> f32 {
-        if self.timer > 0.0 {
-            self.timer / LANE_FLASH_DURATION
+        if self.timer > 0.0 && self.duration > 0.0 {
+            self.timer / self.duration
         } else {
             0.0
         }
+    }
+}
+
+impl Default for LaneFlash {
+    fn default() -> Self {
+        Self::new(0.1) // Default 100ms
     }
 }
 
@@ -172,23 +179,42 @@ pub struct EffectManager {
     judge_effect: Option<JudgeEffect>,
     combo_effect: ComboEffect,
     lane_flashes: [LaneFlash; MAX_LANE_COUNT],
+    effect_config: EffectConfig,
 }
 
 impl EffectManager {
-    pub fn new(_judge_x: f32, _judge_y: f32, combo_x: f32, combo_y: f32) -> Self {
+    pub fn new(combo_x: f32, combo_y: f32) -> Self {
+        Self::with_config(combo_x, combo_y, EffectConfig::default())
+    }
+
+    pub fn with_config(combo_x: f32, combo_y: f32, config: EffectConfig) -> Self {
+        let lane_flash = LaneFlash::new(config.lane_flash_duration);
         Self {
             judge_effect: None,
-            combo_effect: ComboEffect::new(0, combo_x, combo_y),
-            lane_flashes: [LaneFlash::default(); MAX_LANE_COUNT],
+            combo_effect: ComboEffect::new(0, combo_x, combo_y, config.combo_duration),
+            lane_flashes: [lane_flash; MAX_LANE_COUNT],
+            effect_config: config,
         }
     }
 
+    /// Get the effect config
+    #[allow(dead_code)]
+    pub fn config(&self) -> &EffectConfig {
+        &self.effect_config
+    }
+
     pub fn trigger_judge(&mut self, result: JudgeResult, x: f32, y: f32) {
-        self.judge_effect = Some(JudgeEffect::new(result, x, y));
+        self.judge_effect = Some(JudgeEffect::new(
+            result,
+            x,
+            y,
+            self.effect_config.judge_duration,
+        ));
     }
 
     pub fn update_combo(&mut self, combo: u32) {
-        self.combo_effect.update_combo(combo);
+        self.combo_effect
+            .update_combo(combo, self.effect_config.combo_duration);
     }
 
     pub fn trigger_lane_flash(&mut self, lane: usize) {
@@ -212,19 +238,20 @@ impl EffectManager {
 
     pub fn draw_judge(&self) {
         if let Some(ref effect) = self.judge_effect {
-            effect.draw();
+            effect.draw(&self.effect_config);
         }
     }
 
     pub fn draw_combo(&self) {
-        self.combo_effect.draw();
+        self.combo_effect.draw(&self.effect_config);
     }
 
     pub fn draw_lane_flashes(&self, highway_x: f32, lane_width: f32, highway_height: f32) {
+        let max_alpha = self.effect_config.lane_flash_alpha;
         for (i, flash) in self.lane_flashes.iter().enumerate() {
             if flash.is_active() {
                 let x = highway_x + i as f32 * lane_width;
-                let alpha = flash.alpha() * 0.5;
+                let alpha = flash.alpha() * max_alpha;
                 let color = Color::new(1.0, 1.0, 1.0, alpha);
                 draw_rectangle(x, 0.0, lane_width, highway_height, color);
             }
@@ -234,11 +261,6 @@ impl EffectManager {
 
 impl Default for EffectManager {
     fn default() -> Self {
-        Self::new(
-            screen_width() / 2.0,
-            screen_height() / 2.0,
-            screen_width() / 2.0,
-            screen_height() / 2.0 + 50.0,
-        )
+        Self::new(screen_width() / 2.0, screen_height() / 2.0 + 50.0)
     }
 }

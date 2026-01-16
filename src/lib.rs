@@ -6,3 +6,4 @@ pub mod database;
 pub mod game;
 pub mod ir;
 pub mod render;
+pub mod skin;

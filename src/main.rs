@@ -7,6 +7,7 @@ mod game;
 mod ir;
 mod render;
 mod scene;
+mod skin;
 
 use macroquad::prelude::*;
 

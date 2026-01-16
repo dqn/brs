@@ -59,6 +59,11 @@ src/
 │   ├── client.rs     # HTTP クライアント
 │   ├── protocol.rs   # スコア送信/ランキングデータ
 │   └── validation.rs # MD5/スコアハッシュ生成
+├── skin/             # カスタムスキン
+│   ├── definition.rs # スキン定義 (JSON形式)
+│   ├── theme.rs      # テーマ設定 (色、判定エフェクト)
+│   ├── layout.rs     # UI配置設定
+│   └── loader.rs     # スキンファイル読み込み
 └── config/           # 設定
     └── settings.rs   # ユーザー設定
 ```
@@ -130,7 +135,7 @@ src/
 - [x] 段位認定
 
 #### その他
-- [ ] カスタムスキン
+- [x] カスタムスキン
 - [x] ダブルプレイ (DP)
 
 ## Long-term Roadmap

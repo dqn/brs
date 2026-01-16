@@ -90,6 +90,9 @@ impl Highway {
 
     fn draw_lanes(&self, highway_x: f32) {
         let lane_count = self.config.lane_count();
+        let background_color = self.config.background_color();
+        let border_color = self.config.border_color();
+
         for i in 0..lane_count {
             let x = highway_x + self.config.lane_x_offset(i);
             draw_rectangle(
@@ -97,28 +100,14 @@ impl Highway {
                 0.0,
                 self.config.lane_width,
                 screen_height(),
-                Color::new(0.1, 0.1, 0.1, 1.0),
+                background_color,
             );
-            draw_line(
-                x,
-                0.0,
-                x,
-                screen_height(),
-                1.0,
-                Color::new(0.3, 0.3, 0.3, 1.0),
-            );
+            draw_line(x, 0.0, x, screen_height(), 1.0, border_color);
         }
         // Draw right edge of last lane
         let last_lane = lane_count - 1;
         let last_x = highway_x + self.config.lane_x_offset(last_lane) + self.config.lane_width;
-        draw_line(
-            last_x,
-            0.0,
-            last_x,
-            screen_height(),
-            1.0,
-            Color::new(0.3, 0.3, 0.3, 1.0),
-        );
+        draw_line(last_x, 0.0, last_x, screen_height(), 1.0, border_color);
 
         // For DP mode, draw P1 right edge and P2 left edge
         if self.config.play_mode == PlayMode::Dp14Key {
@@ -130,7 +119,7 @@ impl Highway {
                 p1_right_x,
                 screen_height(),
                 1.0,
-                Color::new(0.3, 0.3, 0.3, 1.0),
+                border_color,
             );
             // P2 left edge (before lane 8)
             let p2_left_x = highway_x + self.config.lane_x_offset(8);
@@ -140,7 +129,7 @@ impl Highway {
                 p2_left_x,
                 screen_height(),
                 1.0,
-                Color::new(0.3, 0.3, 0.3, 1.0),
+                border_color,
             );
         }
     }
@@ -213,7 +202,7 @@ impl Highway {
         pixels_per_ms: f64,
         highway_x: f32,
     ) {
-        let long_color = Color::new(0.0, 0.8, 0.4, 0.7);
+        let long_color = self.config.long_note_color();
         let play_mode = self.config.play_mode;
 
         for (i, note) in chart.notes.iter().enumerate() {
@@ -265,9 +254,9 @@ impl Highway {
 
         let color = match note.note_type {
             NoteType::Normal => self.config.lane_color(lane),
-            NoteType::LongStart | NoteType::LongEnd => Color::new(0.0, 1.0, 0.5, 1.0),
-            NoteType::Invisible => Color::new(0.5, 0.5, 0.5, 0.5),
-            NoteType::Landmine => Color::new(1.0, 0.0, 0.0, 0.8),
+            NoteType::LongStart | NoteType::LongEnd => self.config.long_note_edge_color(),
+            NoteType::Invisible => self.config.invisible_note_color(),
+            NoteType::Landmine => self.config.landmine_note_color(),
         };
 
         draw_rectangle(
@@ -290,15 +279,16 @@ impl Highway {
             adjusted_judge_y,
             highway_x + highway_width,
             adjusted_judge_y,
-            3.0,
-            Color::new(1.0, 0.8, 0.0, 1.0),
+            self.config.judge_line_thickness(),
+            self.config.judge_line_color(),
         );
     }
 
     fn draw_lane_covers(&self, highway_x: f32) {
         let highway_width = self.config.total_width();
         let lane_height = self.config.judge_line_y; // Lane goes from top to judge line
-        let cover_color = Color::new(0.0, 0.0, 0.0, 0.9);
+        let cover_color = self.config.lane_cover_color();
+        let text_color = self.config.lane_cover_text_color();
 
         // Draw SUDDEN+ cover (top of lane)
         if self.lane_cover.sudden > 0 {
@@ -311,7 +301,7 @@ impl Highway {
                 highway_x + 10.0,
                 cover_height - 10.0,
                 18.0,
-                Color::new(0.5, 0.5, 0.5, 1.0),
+                text_color,
             );
         }
 
@@ -332,7 +322,7 @@ impl Highway {
                 highway_x + 10.0,
                 cover_y + 20.0,
                 18.0,
-                Color::new(0.5, 0.5, 0.5, 1.0),
+                text_color,
             );
         }
 
@@ -353,7 +343,7 @@ impl Highway {
                 highway_x + 10.0,
                 self.config.judge_line_y + 20.0,
                 18.0,
-                Color::new(0.5, 0.5, 0.5, 1.0),
+                text_color,
             );
         }
     }

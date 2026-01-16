@@ -8,6 +8,7 @@ use crate::audio::{AudioManager, AudioScheduler};
 use crate::bms::{BmsLoader, Chart, LnType, MAX_LANE_COUNT, NoteType};
 use crate::config::GameSettings;
 use crate::render::{BgaManager, EffectManager, Highway, LaneCover};
+use crate::skin::LayoutConfig;
 
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
@@ -59,6 +60,8 @@ pub struct GameState {
     // BGA
     bga: BgaManager,
     pending_bga_load: Option<(PathBuf, HashMap<u32, String>)>,
+    // Layout config for UI positioning
+    layout: LayoutConfig,
 }
 
 impl GameState {
@@ -90,6 +93,7 @@ impl GameState {
             battle: false,
             bga: BgaManager::new(),
             pending_bga_load: None,
+            layout: LayoutConfig::default(),
         }
     }
 
@@ -677,10 +681,11 @@ impl GameState {
     pub fn draw(&self) {
         clear_background(BLACK);
 
-        // Draw BGA in the background (left side of screen)
+        // Draw BGA in the background (position from layout config)
         if self.bga.has_textures() {
-            let bga_size = 256.0;
-            self.bga.draw(10.0, 100.0, bga_size, bga_size);
+            let bga_rect = self.layout.bga_rect();
+            self.bga
+                .draw(bga_rect.x, bga_rect.y, bga_rect.width, bga_rect.height);
         }
 
         // Draw lane flash effects (behind notes)
