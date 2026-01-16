@@ -43,10 +43,18 @@ src/
 │   ├── song_select.rs # 選曲画面
 │   ├── gameplay.rs    # プレイ画面
 │   ├── result.rs      # リザルト画面
-│   └── settings.rs    # 設定画面
+│   ├── settings.rs    # 設定画面
+│   ├── dan_select.rs  # 段位選択画面
+│   ├── dan_gameplay.rs # 段位プレイ画面
+│   └── dan_result.rs  # 段位結果画面
+├── dan/              # 段位認定システム
+│   ├── grade.rs      # DanGrade enum
+│   ├── course.rs     # コース定義
+│   └── course_state.rs # コース進行状態
 ├── database/         # データ永続化
 │   ├── repository.rs # リポジトリ
-│   └── score.rs      # スコアデータ
+│   ├── score.rs      # スコアデータ
+│   └── dan.rs        # 段位記録
 ├── ir/               # Internet Ranking
 │   ├── client.rs     # HTTP クライアント
 │   ├── protocol.rs   # スコア送信/ランキングデータ
@@ -119,7 +127,7 @@ src/
 
 #### インターネットランキング
 - [x] IR スコア送信
-- [ ] 段位認定
+- [x] 段位認定
 
 #### その他
 - [ ] カスタムスキン
