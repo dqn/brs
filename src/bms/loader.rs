@@ -7,8 +7,8 @@ use bms_rs::bms::prelude::*;
 use fraction::Fraction;
 
 use super::{
-    BgaEvent, BgaLayer, BgmEvent, BmsError, BpmChange, Chart, LnType, MeasureLength, Metadata,
-    Note, NoteChannel, NoteType, PlayMode, StopEvent, TimingData,
+    BgaEvent, BgaLayer, BgmEvent, BmsError, Bmson, BpmChange, Chart, LnType, MeasureLength,
+    Metadata, Note, NoteChannel, NoteType, PlayMode, StopEvent, TimingData,
 };
 
 pub struct BmsLoader;
@@ -29,6 +29,41 @@ impl BmsLoader {
 
     pub fn load_full<P: AsRef<Path>>(path: P) -> Result<BmsLoadResult> {
         let path = path.as_ref();
+
+        // Check for BMSON format
+        let is_bmson = path
+            .extension()
+            .and_then(OsStr::to_str)
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("bmson"));
+
+        if is_bmson {
+            return Self::load_bmson(path);
+        }
+
+        Self::load_bms_or_pms(path)
+    }
+
+    fn load_bmson(path: &Path) -> Result<BmsLoadResult> {
+        let content = std::fs::read_to_string(path).map_err(|e| BmsError::FileRead {
+            path: path.to_path_buf(),
+            source: e,
+        })?;
+
+        let bmson: Bmson =
+            serde_json::from_str(&content).map_err(|e| BmsError::Parse(format!("{}", e)))?;
+
+        let chart = bmson.to_chart()?;
+        let wav_files = bmson.collect_wav_files();
+        let bmp_files = bmson.collect_bmp_files();
+
+        Ok(BmsLoadResult {
+            chart,
+            wav_files,
+            bmp_files,
+        })
+    }
+
+    fn load_bms_or_pms(path: &Path) -> Result<BmsLoadResult> {
         let source = std::fs::read_to_string(path).map_err(|e| BmsError::FileRead {
             path: path.to_path_buf(),
             source: e,

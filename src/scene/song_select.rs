@@ -171,11 +171,12 @@ impl SongSelectScene {
             let path = entry.path();
             if let Some(ext) = path.extension() {
                 let ext_lower = ext.to_string_lossy().to_lowercase();
-                // Support BMS, BME, BML (BMS formats) and PMS (Pop'n Music format)
+                // Support BMS, BME, BML (BMS formats), PMS (Pop'n Music format), and BMSON
                 if ext_lower == "bms"
                     || ext_lower == "bme"
                     || ext_lower == "bml"
                     || ext_lower == "pms"
+                    || ext_lower == "bmson"
                 {
                     if let Some(entry) = Self::parse_header(path.to_path_buf()) {
                         songs.push(entry);
@@ -188,6 +189,20 @@ impl SongSelectScene {
     }
 
     fn parse_header(path: PathBuf) -> Option<SongEntry> {
+        // Check if BMSON format
+        let is_bmson = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("bmson"));
+
+        if is_bmson {
+            return Self::parse_bmson_header(path);
+        }
+
+        Self::parse_bms_header(path)
+    }
+
+    fn parse_bms_header(path: PathBuf) -> Option<SongEntry> {
         let content = std::fs::read_to_string(&path).ok()?;
 
         let mut title = path
@@ -207,6 +222,42 @@ impl SongSelectScene {
                 level = stripped.trim().parse().unwrap_or(0);
             }
         }
+
+        // Compute hash for score lookup
+        let hash = compute_file_hash(&path).unwrap_or_default();
+
+        Some(SongEntry {
+            path,
+            title,
+            artist,
+            level,
+            hash,
+        })
+    }
+
+    fn parse_bmson_header(path: PathBuf) -> Option<SongEntry> {
+        let content = std::fs::read_to_string(&path).ok()?;
+        let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+
+        let info = json.get("info")?;
+
+        let title = info
+            .get("title")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| {
+                path.file_stem()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_default()
+            });
+
+        let artist = info
+            .get("artist")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| String::from("Unknown"));
+
+        let level = info.get("level").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
 
         // Compute hash for score lookup
         let hash = compute_file_hash(&path).unwrap_or_default();
