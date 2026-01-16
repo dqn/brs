@@ -8,7 +8,7 @@ license = "MIT"
 
 [dependencies]
 bms-rs = "0.10"
-kira = { version = "0.10", features = ["cpal", "mp3", "ogg", "wav"] }
+kira = { version = "0.10", features = ["cpal", "mp3", "ogg", "wav", "flac"] }
 macroquad = "0.4"
 gilrs = "0.11"
 anyhow = "1.0"
