@@ -20,12 +20,15 @@ src/
 ├── bms/              # BMS データ処理
 │   ├── loader.rs     # ファイル読み込み
 │   ├── chart.rs      # Chart 構造体
-│   └── timing.rs     # タイミング計算
+│   ├── timing.rs     # タイミング計算
+│   ├── bmson.rs      # BMSON パーサー
+│   └── error.rs      # エラー型定義
 ├── audio/            # オーディオシステム
 │   ├── manager.rs    # Kira ラッパー
 │   └── scheduler.rs  # スケジューリング
 ├── game/             # ゲームプレイ
 │   ├── game_state.rs # ゲーム状態
+│   ├── state.rs      # ゲーム状態詳細
 │   ├── judge.rs      # 判定システム
 │   ├── gauge.rs      # ゲージシステム
 │   ├── input.rs      # 入力処理
@@ -38,7 +41,8 @@ src/
 │   ├── effects.rs    # 判定エフェクト
 │   ├── lane_cover.rs # SUDDEN+/HIDDEN/LIFT
 │   ├── bga.rs        # BGA 管理
-│   └── video.rs      # 動画デコード
+│   ├── video.rs      # 動画デコード
+│   └── config.rs     # レンダリング設定
 ├── scene/            # シーン管理
 │   ├── song_select.rs # 選曲画面
 │   ├── gameplay.rs    # プレイ画面
@@ -113,91 +117,10 @@ src/
 - [x] FAST/SLOW 表示 (ミリ秒表示対応)
 - [x] Green Number 表示
 
-### Future
-
-#### フォーマット対応
-- [x] PMS 対応
-- [x] BMSON 対応
-- [x] FLAC 対応
-
-#### レーンオプション
-- [x] S-RANDOM
-- [x] H-RANDOM
-
-#### アシストオプション
-- [x] AUTO SCRATCH
-- [x] LEGACY NOTE (LN → 通常ノート変換)
-- [x] EXPAND JUDGE (判定幅拡大)
-- [x] BATTLE (1P/2P 反転)
-
-#### インターネットランキング
-- [x] IR スコア送信
-- [x] 段位認定
-
-#### その他
-- [x] カスタムスキン
-- [x] ダブルプレイ (DP)
-
-## Long-term Roadmap
-
-各機能の詳細な実装計画は `docs/feature-plans/` を参照。
-
-### 推奨実装順序
-
-| 順序 | 機能 | 難易度 | 推定工数 | 詳細 |
-|------|------|--------|----------|------|
-| 1 | FLAC 対応 | 低 | 0.5日 | [flac-support.md](docs/feature-plans/flac-support.md) |
-| 2 | PMS 対応 | 中 | 2-3日 | [pms-support.md](docs/feature-plans/pms-support.md) |
-| 3 | BMSON 対応 | 高 | 4-5日 | [bmson-support.md](docs/feature-plans/bmson-support.md) |
-| 4 | IR スコア送信 | 高 | 5-7日 | [internet-ranking.md](docs/feature-plans/internet-ranking.md) |
-| 5 | DP モード | 高 | 4-5日 | [double-play.md](docs/feature-plans/double-play.md) |
-| 6 | 段位認定 | 高 | 4-5日 | [dan-certification.md](docs/feature-plans/dan-certification.md) |
-| 7 | カスタムスキン | 非常に高 | 7-10日 | [custom-skin.md](docs/feature-plans/custom-skin.md) |
-
-### 依存関係
-
-```
-FLAC ──────────────────────────────────┐
-                                       │
-PMS ───────────────┬───────────────────┤
-                   │                   │
-BMSON ─────────────┤                   │
-                   │                   │
-                   ▼                   │
-               DP Mode ────────────────┤
-                                       │
-Score System ──────┬───────────────────┤
-(実装済み)          │                   │
-                   ▼                   │
-                IR System              │
-                   │                   │
-                   ▼                   │
-               段位認定                 │
-                                       │
-                                       ▼
-                               カスタムスキン
-```
-
-### フェーズ分け
-
-**Phase 7: Format Support**
-- FLAC 対応（Cargo.toml 変更のみ）
-- PMS 対応（9キー、可変レーン数の基盤）
-- BMSON 対応（JSON パーサー）
-
-**Phase 8: Advanced Play Modes**
-- DP モード（14キー + 2スクラッチ）
-- 段位認定（コースプレイ、ゲージ継続）
-
-**Phase 9: Community Features**
-- IR スコア送信（ネットワーク、認証）
-- カスタムスキン（UI システム全体のリファクタ）
-
 ## Documentation
 
 - `docs/bms-specification.md` - BMS フォーマット仕様
 - `docs/brs-comparison.md` - BMS プレイヤー機能比較表（LR2/beatoraja/brs）
-- `docs/feature-plans/` - 長期機能実装計画
 
 ## Design Principles
 
