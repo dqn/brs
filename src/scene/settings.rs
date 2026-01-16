@@ -4,8 +4,25 @@ use super::{Scene, SceneTransition};
 use crate::config::GameSettings;
 use crate::game::{GaugeType, JudgeSystemType, RandomOption};
 
+/// Resolution presets
+const RESOLUTION_PRESETS: &[(u32, u32)] = &[
+    (1280, 720),
+    (1366, 768),
+    (1600, 900),
+    (1920, 1080),
+    (2560, 1440),
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MenuItem {
+    // Display
+    Resolution,
+    Fullscreen,
+    // Volume
+    MasterVolume,
+    KeysoundVolume,
+    BgmVolume,
+    // Gameplay
     JudgeSystem,
     GaugeType,
     RandomOption,
@@ -32,6 +49,14 @@ enum MenuItem {
 impl MenuItem {
     fn all() -> &'static [MenuItem] {
         &[
+            // Display
+            MenuItem::Resolution,
+            MenuItem::Fullscreen,
+            // Volume
+            MenuItem::MasterVolume,
+            MenuItem::KeysoundVolume,
+            MenuItem::BgmVolume,
+            // Gameplay
             MenuItem::JudgeSystem,
             MenuItem::GaugeType,
             MenuItem::RandomOption,
@@ -58,6 +83,11 @@ impl MenuItem {
 
     fn label(&self) -> &'static str {
         match self {
+            MenuItem::Resolution => "Resolution",
+            MenuItem::Fullscreen => "Fullscreen",
+            MenuItem::MasterVolume => "Master Volume",
+            MenuItem::KeysoundVolume => "Keysound Volume",
+            MenuItem::BgmVolume => "BGM Volume",
             MenuItem::JudgeSystem => "Judge System",
             MenuItem::GaugeType => "Gauge Type",
             MenuItem::RandomOption => "Random",
@@ -132,9 +162,49 @@ impl SettingsScene {
         MenuItem::all()[self.selected_index]
     }
 
+    fn cycle_resolution(&mut self, delta: i32) {
+        let current = (
+            self.settings.display.width,
+            self.settings.display.height,
+        );
+        let idx = RESOLUTION_PRESETS
+            .iter()
+            .position(|&r| r == current)
+            .unwrap_or(0);
+        let new_idx = if delta > 0 {
+            (idx + 1) % RESOLUTION_PRESETS.len()
+        } else {
+            (idx + RESOLUTION_PRESETS.len() - 1) % RESOLUTION_PRESETS.len()
+        };
+        let (w, h) = RESOLUTION_PRESETS[new_idx];
+        self.settings.display.width = w;
+        self.settings.display.height = h;
+    }
+
     fn adjust_value(&mut self, delta: i32) {
         self.modified = true;
         match self.current_item() {
+            MenuItem::Resolution => {
+                self.cycle_resolution(delta);
+            }
+            MenuItem::Fullscreen => {
+                self.settings.display.fullscreen = !self.settings.display.fullscreen;
+            }
+            MenuItem::MasterVolume => {
+                let step = if delta > 0 { 5 } else { -5 };
+                self.settings.volume.master =
+                    (self.settings.volume.master as i32 + step).clamp(0, 100) as u8;
+            }
+            MenuItem::KeysoundVolume => {
+                let step = if delta > 0 { 5 } else { -5 };
+                self.settings.volume.keysound =
+                    (self.settings.volume.keysound as i32 + step).clamp(0, 100) as u8;
+            }
+            MenuItem::BgmVolume => {
+                let step = if delta > 0 { 5 } else { -5 };
+                self.settings.volume.bgm =
+                    (self.settings.volume.bgm as i32 + step).clamp(0, 100) as u8;
+            }
             MenuItem::JudgeSystem => {
                 self.settings.judge_system = match self.settings.judge_system {
                     JudgeSystemType::Beatoraja => JudgeSystemType::Lr2,
@@ -218,6 +288,22 @@ impl SettingsScene {
 
     fn format_value(&self, item: MenuItem) -> String {
         match item {
+            MenuItem::Resolution => {
+                format!(
+                    "{}x{}",
+                    self.settings.display.width, self.settings.display.height
+                )
+            }
+            MenuItem::Fullscreen => {
+                if self.settings.display.fullscreen {
+                    "ON".to_string()
+                } else {
+                    "OFF".to_string()
+                }
+            }
+            MenuItem::MasterVolume => format!("{}%", self.settings.volume.master),
+            MenuItem::KeysoundVolume => format!("{}%", self.settings.volume.keysound),
+            MenuItem::BgmVolume => format!("{}%", self.settings.volume.bgm),
             MenuItem::JudgeSystem => match self.settings.judge_system {
                 JudgeSystemType::Beatoraja => "beatoraja".to_string(),
                 JudgeSystemType::Lr2 => "LR2".to_string(),
@@ -280,6 +366,12 @@ impl SettingsScene {
         if let Err(e) = self.settings.save() {
             eprintln!("Failed to save settings: {}", e);
         } else {
+            // Apply display settings immediately
+            request_new_screen_size(
+                self.settings.display.width as f32,
+                self.settings.display.height as f32,
+            );
+            set_fullscreen(self.settings.display.fullscreen);
             self.modified = false;
         }
     }
