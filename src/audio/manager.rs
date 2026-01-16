@@ -6,6 +6,28 @@ use kira::AudioManager as KiraAudioManager;
 use kira::AudioManagerSettings;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 
+/// Result of loading keysounds
+#[derive(Debug, Default)]
+pub struct KeysoundLoadResult {
+    /// Number of successfully loaded keysounds
+    pub loaded: usize,
+    /// List of failed keysounds: (id, filename, error message)
+    pub failed: Vec<(u32, String, String)>,
+}
+
+impl KeysoundLoadResult {
+    /// Total number of keysounds attempted
+    pub fn total(&self) -> usize {
+        self.loaded + self.failed.len()
+    }
+
+    /// Whether all keysounds loaded successfully
+    #[allow(dead_code)]
+    pub fn all_loaded(&self) -> bool {
+        self.failed.is_empty()
+    }
+}
+
 pub struct AudioManager {
     manager: KiraAudioManager,
     sounds: HashMap<u32, StaticSoundData>,
@@ -26,32 +48,77 @@ impl AudioManager {
         &mut self,
         base_path: P,
         wav_files: &HashMap<u32, String>,
-    ) -> Result<usize> {
+    ) -> KeysoundLoadResult {
         let base_path = base_path.as_ref();
-        let mut loaded = 0;
+        let mut result = KeysoundLoadResult::default();
 
         for (&id, filename) in wav_files {
             let file_path = base_path.join(filename);
 
-            if !file_path.exists() {
-                let lower = filename.to_lowercase();
-                let lower_path = base_path.join(&lower);
-                if lower_path.exists() {
-                    if let Ok(sound) = self.load_sound(&lower_path) {
+            // Try original filename first
+            if file_path.exists() {
+                match self.load_sound(&file_path) {
+                    Ok(sound) => {
                         self.sounds.insert(id, sound);
-                        loaded += 1;
+                        result.loaded += 1;
+                        continue;
+                    }
+                    Err(e) => {
+                        let error_msg = format!("Failed to decode: {}", e);
+                        eprintln!(
+                            "Warning: Failed to load keysound #{:02X} '{}': {}",
+                            id, filename, error_msg
+                        );
+                        result.failed.push((id, filename.clone(), error_msg));
+                        continue;
                     }
                 }
-                continue;
             }
 
-            if let Ok(sound) = self.load_sound(&file_path) {
-                self.sounds.insert(id, sound);
-                loaded += 1;
+            // Try lowercase filename as fallback (case-insensitive filesystems)
+            let lower = filename.to_lowercase();
+            let lower_path = base_path.join(&lower);
+            if lower_path.exists() {
+                match self.load_sound(&lower_path) {
+                    Ok(sound) => {
+                        self.sounds.insert(id, sound);
+                        result.loaded += 1;
+                        continue;
+                    }
+                    Err(e) => {
+                        let error_msg = format!("Failed to decode (lowercase): {}", e);
+                        eprintln!(
+                            "Warning: Failed to load keysound #{:02X} '{}': {}",
+                            id, filename, error_msg
+                        );
+                        result.failed.push((id, filename.clone(), error_msg));
+                        continue;
+                    }
+                }
             }
+
+            // File not found
+            let error_msg = "File not found".to_string();
+            eprintln!(
+                "Warning: Keysound #{:02X} '{}' not found at {}",
+                id,
+                filename,
+                file_path.display()
+            );
+            result.failed.push((id, filename.clone(), error_msg));
         }
 
-        Ok(loaded)
+        // Log summary
+        if !result.failed.is_empty() {
+            eprintln!(
+                "Keysound loading: {}/{} loaded, {} failed",
+                result.loaded,
+                result.total(),
+                result.failed.len()
+            );
+        }
+
+        result
     }
 
     fn load_sound<P: AsRef<Path>>(&self, path: P) -> Result<StaticSoundData> {

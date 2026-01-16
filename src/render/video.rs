@@ -3,6 +3,9 @@ use std::path::Path;
 use anyhow::{Result, anyhow};
 use ffmpeg_next as ffmpeg;
 
+/// Maximum number of decode attempts before giving up
+const MAX_DECODE_ATTEMPTS: u32 = 1000;
+
 /// Video decoder for BGA video files
 pub struct VideoDecoder {
     input_ctx: ffmpeg::format::context::Input,
@@ -14,6 +17,10 @@ pub struct VideoDecoder {
     time_base_ms: f64,
     frame_buffer: Vec<u8>,
     last_pts: Option<i64>,
+    /// Last requested time for detecting backwards seek
+    last_requested_time_ms: Option<f64>,
+    /// Counter for decode attempts to prevent infinite loops
+    decode_attempts: u32,
 }
 
 impl VideoDecoder {
@@ -59,6 +66,8 @@ impl VideoDecoder {
             time_base_ms,
             frame_buffer: vec![0u8; (width * height * 4) as usize],
             last_pts: None,
+            last_requested_time_ms: None,
+            decode_attempts: 0,
         })
     }
 
@@ -72,7 +81,16 @@ impl VideoDecoder {
 
     /// Decode and return the next frame as RGBA data
     pub fn decode_next_frame(&mut self) -> Option<&[u8]> {
+        self.decode_attempts = 0;
+
         loop {
+            // Prevent infinite loops
+            self.decode_attempts += 1;
+            if self.decode_attempts > MAX_DECODE_ATTEMPTS {
+                eprintln!("Warning: Video decode exceeded maximum attempts");
+                return None;
+            }
+
             // Try to receive a frame from decoder first
             let mut frame = ffmpeg::frame::Video::empty();
             if self.decoder.receive_frame(&mut frame).is_ok() {
@@ -84,9 +102,11 @@ impl VideoDecoder {
             loop {
                 match self.input_ctx.packets().next() {
                     Some((stream, packet)) => {
-                        if stream.index() == self.video_stream_index
-                            && self.decoder.send_packet(&packet).is_ok()
-                        {
+                        if stream.index() == self.video_stream_index {
+                            if let Err(e) = self.decoder.send_packet(&packet) {
+                                eprintln!("Warning: Failed to send packet to decoder: {:?}", e);
+                                continue;
+                            }
                             break; // Try to receive frame again
                         }
                     }
@@ -107,11 +127,43 @@ impl VideoDecoder {
 
     /// Get frame at approximately the given time (sequential decode)
     /// Note: For BGA playback, we decode sequentially and skip frames if needed
+    /// If time goes backwards (e.g., seeking), the decoder is reset
     pub fn decode_frame_at(&mut self, target_time_ms: f64) -> Option<&[u8]> {
+        // Detect backward seek and reset if needed
+        if let Some(last_time) = self.last_requested_time_ms {
+            if target_time_ms < last_time - 100.0 {
+                // Significant backward jump detected - reset to beginning
+                eprintln!(
+                    "Video seek detected: {} -> {} ms, resetting decoder",
+                    last_time, target_time_ms
+                );
+                if let Err(e) = self.reset() {
+                    eprintln!("Warning: Failed to reset video decoder: {}", e);
+                    return None;
+                }
+            }
+        }
+        self.last_requested_time_ms = Some(target_time_ms);
+
         let target_pts = (target_time_ms / self.time_base_ms) as i64;
+        let mut decode_count = 0u32;
 
         // If we're behind, decode frames until we catch up
         loop {
+            // Prevent infinite loops
+            decode_count += 1;
+            if decode_count > MAX_DECODE_ATTEMPTS {
+                eprintln!(
+                    "Warning: Video decode_frame_at exceeded maximum attempts at {} ms",
+                    target_time_ms
+                );
+                // Return current frame if available
+                if self.last_pts.is_some() {
+                    return Some(&self.frame_buffer);
+                }
+                return None;
+            }
+
             if let Some(last_pts) = self.last_pts {
                 if last_pts >= target_pts {
                     // We have a frame at or past the target time
@@ -142,7 +194,7 @@ impl VideoDecoder {
         }
     }
 
-    /// Reset decoder to beginning (for looping)
+    /// Reset decoder to beginning (for looping or seeking)
     #[allow(dead_code)]
     pub fn reset(&mut self) -> Result<()> {
         // Seek to beginning
@@ -153,6 +205,8 @@ impl VideoDecoder {
         // Flush decoder
         self.decoder.flush();
         self.last_pts = None;
+        self.last_requested_time_ms = None;
+        self.decode_attempts = 0;
 
         Ok(())
     }

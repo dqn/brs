@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
@@ -267,9 +269,12 @@ fn apply_s_random(chart: &mut Chart, seed: u64, play_mode: PlayMode) {
 
     let mut rng = StdRng::seed_from_u64(seed);
 
-    // Track LN start positions to maintain LN start/end pair consistency
-    // Key: (original_lane, time_ms of LongStart), Value: new_lane
-    let mut ln_mappings: HashMap<(usize, i64), usize> = HashMap::new();
+    // First pass: identify LN pairs by index
+    // Key: index of LongStart note, Value: index of corresponding LongEnd note
+    let ln_pairs = find_ln_pairs(chart, play_mode);
+
+    // Map from LongStart index to new lane
+    let mut ln_start_lanes: HashMap<usize, usize> = HashMap::new();
 
     #[allow(clippy::type_complexity)]
     let (lane_range, lane_converter): (
@@ -281,36 +286,29 @@ fn apply_s_random(chart: &mut Chart, seed: u64, play_mode: PlayMode) {
         PlayMode::Dp14Key => (1..=14, NoteChannel::from_dp_lane),
     };
 
-    for note in &mut chart.notes {
+    for (i, note) in chart.notes.iter_mut().enumerate() {
         if !note.channel.is_key() {
             continue;
         }
-
-        let original_lane = note.channel.lane_index_for_mode(play_mode);
 
         let new_lane = match note.note_type {
             NoteType::LongStart => {
                 // Generate new random lane for LN start
                 let new_lane = rng.random_range(lane_range.clone());
                 // Store mapping for the corresponding LN end
-                let time_key = (note.time_ms * 1000.0) as i64; // Convert to integer for HashMap key
-                ln_mappings.insert((original_lane, time_key), new_lane);
+                ln_start_lanes.insert(i, new_lane);
                 new_lane
             }
             NoteType::LongEnd => {
-                // Find the corresponding LN start mapping
-                // LN end should match with a previous LN start on the same original lane
-                let time_key = (note.time_ms * 1000.0) as i64;
-                // Search for the nearest LN start on this lane
-                let mapping_key = ln_mappings
-                    .keys()
-                    .filter(|(lane, _)| *lane == original_lane)
-                    .min_by_key(|(_, t)| (t - time_key).abs());
-
-                if let Some(&key) = mapping_key {
-                    ln_mappings.remove(&key).unwrap_or(original_lane)
+                // Find the corresponding LN start's lane
+                if let Some(&start_idx) = ln_pairs.get(&i) {
+                    // Use the same lane as the LN start
+                    ln_start_lanes.get(&start_idx).copied().unwrap_or_else(|| {
+                        // Fallback if start wasn't processed (shouldn't happen)
+                        rng.random_range(lane_range.clone())
+                    })
                 } else {
-                    // Fallback: generate random lane if no matching LN start found
+                    // Orphan LN end: generate random lane
                     rng.random_range(lane_range.clone())
                 }
             }
@@ -326,6 +324,50 @@ fn apply_s_random(chart: &mut Chart, seed: u64, play_mode: PlayMode) {
     }
 }
 
+/// Find LN pairs by matching LongStart and LongEnd notes on the same lane
+/// Returns a map from LongEnd index to LongStart index
+fn find_ln_pairs(chart: &Chart, play_mode: PlayMode) -> HashMap<usize, usize> {
+    use crate::bms::NoteType;
+    use std::collections::HashMap;
+
+    // Track active LN starts per lane: lane -> stack of (start_index, time_ms)
+    let mut active_ln_starts: HashMap<usize, Vec<(usize, f64)>> = HashMap::new();
+
+    // Result: LongEnd index -> LongStart index
+    let mut pairs: HashMap<usize, usize> = HashMap::new();
+
+    for (i, note) in chart.notes.iter().enumerate() {
+        if !note.channel.is_key() {
+            continue;
+        }
+
+        let lane = note.channel.lane_index_for_mode(play_mode);
+
+        match note.note_type {
+            NoteType::LongStart => {
+                // Push to stack for this lane
+                active_ln_starts
+                    .entry(lane)
+                    .or_default()
+                    .push((i, note.time_ms));
+            }
+            NoteType::LongEnd => {
+                // Find the earliest LN start on this lane that started before this end
+                if let Some(starts) = active_ln_starts.get_mut(&lane) {
+                    // Find the first start that is before this end (FIFO)
+                    if let Some(pos) = starts.iter().position(|(_, t)| *t < note.time_ms) {
+                        let (start_idx, _) = starts.remove(pos);
+                        pairs.insert(i, start_idx);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pairs
+}
+
 /// Apply H-RANDOM option to a chart
 /// Similar to S-RANDOM but avoids placing notes on the same lane as the previous note
 /// to reduce consecutive same-lane patterns (縦連打)
@@ -335,8 +377,11 @@ fn apply_h_random(chart: &mut Chart, seed: u64, play_mode: PlayMode) {
 
     let mut rng = StdRng::seed_from_u64(seed);
 
-    // Track LN start positions to maintain LN start/end pair consistency
-    let mut ln_mappings: HashMap<(usize, i64), usize> = HashMap::new();
+    // First pass: identify LN pairs by index
+    let ln_pairs = find_ln_pairs(chart, play_mode);
+
+    // Map from LongStart index to new lane
+    let mut ln_start_lanes: HashMap<usize, usize> = HashMap::new();
 
     // Track the last assigned lane to avoid consecutive same-lane notes
     let mut last_lane: Option<usize> = None;
@@ -347,34 +392,31 @@ fn apply_h_random(chart: &mut Chart, seed: u64, play_mode: PlayMode) {
         PlayMode::Dp14Key => NoteChannel::from_dp_lane,
     };
 
-    for note in &mut chart.notes {
+    for (i, note) in chart.notes.iter_mut().enumerate() {
         if !note.channel.is_key() {
             continue;
         }
-
-        let original_lane = note.channel.lane_index_for_mode(play_mode);
 
         let new_lane = match note.note_type {
             NoteType::LongStart => {
                 // Generate new random lane for LN start, avoiding last lane if possible
                 let new_lane = pick_random_lane_avoiding(&mut rng, last_lane, play_mode);
-                let time_key = (note.time_ms * 1000.0) as i64;
-                ln_mappings.insert((original_lane, time_key), new_lane);
+                ln_start_lanes.insert(i, new_lane);
                 last_lane = Some(new_lane);
                 new_lane
             }
             NoteType::LongEnd => {
-                // Find the corresponding LN start mapping
-                let time_key = (note.time_ms * 1000.0) as i64;
-                let mapping_key = ln_mappings
-                    .keys()
-                    .filter(|(lane, _)| *lane == original_lane)
-                    .min_by_key(|(_, t)| (t - time_key).abs());
-
-                if let Some(&key) = mapping_key {
+                // Find the corresponding LN start's lane
+                if let Some(&start_idx) = ln_pairs.get(&i) {
+                    // Use the same lane as the LN start
                     // Don't update last_lane for LN end since it's paired with start
-                    ln_mappings.remove(&key).unwrap_or(original_lane)
+                    ln_start_lanes.get(&start_idx).copied().unwrap_or_else(|| {
+                        let new_lane = pick_random_lane_avoiding(&mut rng, last_lane, play_mode);
+                        last_lane = Some(new_lane);
+                        new_lane
+                    })
                 } else {
+                    // Orphan LN end: generate random lane
                     let new_lane = pick_random_lane_avoiding(&mut rng, last_lane, play_mode);
                     last_lane = Some(new_lane);
                     new_lane

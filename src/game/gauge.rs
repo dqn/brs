@@ -1,5 +1,36 @@
 use super::JudgeResult;
 
+// ============================================================================
+// Gauge Constants
+// ============================================================================
+
+/// HP threshold for beatoraja damage reduction (gradual reduction starts here)
+const BEATORAJA_DAMAGE_REDUCTION_THRESHOLD: f32 = 50.0;
+
+/// Minimum damage multiplier when HP is very low (beatoraja)
+const BEATORAJA_MIN_DAMAGE_MULTIPLIER: f32 = 0.1;
+
+/// HP threshold for LR2 damage reduction (binary reduction applies below this)
+const LR2_DAMAGE_REDUCTION_THRESHOLD: f32 = 32.0;
+
+/// Damage multiplier when HP is below LR2 threshold
+const LR2_LOW_HP_DAMAGE_MULTIPLIER: f32 = 0.5;
+
+/// Note count thresholds for LR2 damage multiplier calculation
+mod lr2_note_thresholds {
+    pub const TIER_1: f32 = 1000.0; // >= 1000 notes: multiplier = 1.0
+    pub const TIER_2: f32 = 500.0; // >= 500 notes
+    pub const TIER_3: f32 = 250.0; // >= 250 notes
+    pub const TIER_4: f32 = 125.0; // >= 125 notes
+    pub const TIER_5: f32 = 60.0; // >= 60 notes
+    pub const TIER_6: f32 = 30.0; // >= 30 notes
+    pub const TIER_7: f32 = 20.0; // >= 20 notes: multiplier approaches 10.0
+}
+
+// ============================================================================
+// Gauge Types
+// ============================================================================
+
 /// Gauge type determining difficulty and pass conditions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum GaugeType {
@@ -320,10 +351,13 @@ impl GaugeManager {
         current_hp: f32,
         damage: f32,
     ) -> f32 {
-        // beatoraja: Gradual damage reduction starting from 50%
-        if damage < 0.0 && current_hp < 50.0 && !gauge_type.is_survival() {
-            let reduction = current_hp / 50.0;
-            damage * reduction.max(0.1)
+        // beatoraja: Gradual damage reduction starting from threshold
+        if damage < 0.0
+            && current_hp < BEATORAJA_DAMAGE_REDUCTION_THRESHOLD
+            && !gauge_type.is_survival()
+        {
+            let reduction = current_hp / BEATORAJA_DAMAGE_REDUCTION_THRESHOLD;
+            damage * reduction.max(BEATORAJA_MIN_DAMAGE_MULTIPLIER)
         } else {
             damage
         }
@@ -358,32 +392,45 @@ impl GaugeManager {
             modified *= multiplier;
         }
 
-        // LR2: Binary damage reduction below 32%
-        if current_hp < 32.0 && modified < 0.0 {
-            modified *= 0.5;
+        // LR2: Binary damage reduction below threshold
+        if current_hp < LR2_DAMAGE_REDUCTION_THRESHOLD && modified < 0.0 {
+            modified *= LR2_LOW_HP_DAMAGE_MULTIPLIER;
         }
 
         modified
     }
 
+    /// Calculate LR2 damage multiplier based on note count
+    /// Lower note counts result in higher damage multipliers
     fn calculate_lr2_damage_multiplier(&self) -> f32 {
+        use lr2_note_thresholds::*;
+
         let n = self.total_notes as f32;
 
-        if n >= 1000.0 {
+        // Damage multiplier increases as note count decreases
+        // This balances difficulty for shorter charts
+        if n >= TIER_1 {
             1.0
-        } else if n >= 500.0 {
-            1.0 + (1000.0 - n) * 0.002
-        } else if n >= 250.0 {
-            2.0 + (500.0 - n) * 0.004
-        } else if n >= 125.0 {
-            3.0 + (250.0 - n) * 0.008
-        } else if n >= 60.0 {
-            4.0 + (125.0 - n) / 65.0
-        } else if n >= 30.0 {
-            5.0 + (60.0 - n) / 15.0
-        } else if n >= 20.0 {
-            8.0 + (30.0 - n) * 0.2
+        } else if n >= TIER_2 {
+            // 500-999 notes: 1.0 to 2.0
+            1.0 + (TIER_1 - n) * 0.002
+        } else if n >= TIER_3 {
+            // 250-499 notes: 2.0 to 3.0
+            2.0 + (TIER_2 - n) * 0.004
+        } else if n >= TIER_4 {
+            // 125-249 notes: 3.0 to 4.0
+            3.0 + (TIER_3 - n) * 0.008
+        } else if n >= TIER_5 {
+            // 60-124 notes: 4.0 to 5.0
+            4.0 + (TIER_4 - n) / 65.0
+        } else if n >= TIER_6 {
+            // 30-59 notes: 5.0 to 7.0
+            5.0 + (TIER_5 - n) / 15.0
+        } else if n >= TIER_7 {
+            // 20-29 notes: 8.0 to 10.0
+            8.0 + (TIER_6 - n) * 0.2
         } else {
+            // < 20 notes: maximum multiplier
             10.0
         }
     }

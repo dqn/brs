@@ -116,8 +116,12 @@ impl GameState {
 
         let mut audio = AudioManager::new()?;
         if let Some(parent) = path.parent() {
-            let loaded = audio.load_keysounds(parent, &wav_files)?;
-            println!("Loaded {} keysounds", loaded);
+            let load_result = audio.load_keysounds(parent, &wav_files);
+            println!(
+                "Loaded {}/{} keysounds",
+                load_result.loaded,
+                load_result.total()
+            );
 
             // Store BMP files for async loading
             if !bmp_files.is_empty() {
