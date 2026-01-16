@@ -575,20 +575,24 @@ impl GameState {
         const HCN_DAMAGE_INTERVAL_MS: f64 = 100.0;
 
         for lane_idx in 0..MAX_LANE_COUNT {
-            if let Some(ref active_ln) = self.active_long_notes[lane_idx] {
-                // Only process HCN that is not being held
-                if active_ln.ln_type == LnType::Hcn && !active_ln.is_holding {
-                    self.hcn_damage_timers[lane_idx] += delta_ms;
+            let Some(ref active_ln) = self.active_long_notes[lane_idx] else {
+                continue;
+            };
 
-                    // Apply damage every 100ms
-                    while self.hcn_damage_timers[lane_idx] >= HCN_DAMAGE_INTERVAL_MS {
-                        self.hcn_damage_timers[lane_idx] -= HCN_DAMAGE_INTERVAL_MS;
+            // Only process HCN that is not being held
+            if active_ln.ln_type != LnType::Hcn || active_ln.is_holding {
+                continue;
+            }
 
-                        // Apply POOR judgment damage to gauge
-                        if let Some(gauge) = &mut self.gauge {
-                            gauge.apply_judgment(JudgeResult::Poor);
-                        }
-                    }
+            self.hcn_damage_timers[lane_idx] += delta_ms;
+
+            // Apply damage every 100ms
+            while self.hcn_damage_timers[lane_idx] >= HCN_DAMAGE_INTERVAL_MS {
+                self.hcn_damage_timers[lane_idx] -= HCN_DAMAGE_INTERVAL_MS;
+
+                // Apply POOR judgment damage to gauge
+                if let Some(gauge) = &mut self.gauge {
+                    gauge.apply_judgment(JudgeResult::Poor);
                 }
             }
         }
