@@ -136,9 +136,8 @@ impl Highway {
         // For DP mode, draw P1 right edge and P2 left edge
         if self.config.play_mode == PlayMode::Dp14Key {
             // P1 right edge (after lane 7)
-            let p1_right_x = highway_x
-                + self.config.lane_x_offset(7)
-                + self.config.lane_width_for_lane(7);
+            let p1_right_x =
+                highway_x + self.config.lane_x_offset(7) + self.config.lane_width_for_lane(7);
             draw_line(
                 p1_right_x,
                 0.0,

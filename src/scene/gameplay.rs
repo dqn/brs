@@ -194,6 +194,19 @@ impl Scene for GameplayScene {
     fn draw(&self) {
         if let Some(ref error) = self.error {
             self.draw_error(error);
+        } else if !self.loaded {
+            // Show loading screen while chart is being loaded
+            clear_background(Color::from_rgba(20, 20, 30, 255));
+            let text = "Loading...";
+            let text_size = 32.0;
+            let dims = measure_text_jp(text, text_size);
+            draw_text_jp(
+                text,
+                (screen_width() - dims.width) / 2.0,
+                screen_height() / 2.0,
+                text_size,
+                WHITE,
+            );
         } else {
             self.state.draw();
         }
