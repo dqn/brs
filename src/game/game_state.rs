@@ -9,7 +9,8 @@ use crate::bms::{BmsLoader, Chart, LnType, MAX_LANE_COUNT, NoteType};
 use crate::config::GameSettings;
 use crate::render::font::draw_text_jp;
 use crate::render::{
-    BgaManager, BpmDisplay, EffectManager, Highway, JudgeStats, LaneCover, ScoreGraph, Turntable,
+    BgaManager, BpmDisplay, EffectManager, Highway, JudgeStats, LaneCover, ProgressBar, ScoreGraph,
+    Turntable,
 };
 use crate::skin::{IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect};
 
@@ -76,6 +77,10 @@ pub struct GameState {
     judge_stats: JudgeStats,
     bpm_display: BpmDisplay,
     score_graph: ScoreGraph,
+    /// Cached measure start times for drawing measure lines
+    measure_times: Vec<f64>,
+    /// Progress bar showing song progress
+    progress_bar: ProgressBar,
 }
 
 impl GameState {
@@ -117,6 +122,8 @@ impl GameState {
             judge_stats: JudgeStats::new(),
             bpm_display: BpmDisplay::default(),
             score_graph: ScoreGraph::default(),
+            measure_times: Vec::new(),
+            progress_bar: ProgressBar::default(),
         }
     }
 
@@ -221,6 +228,12 @@ impl GameState {
         let bpm = chart.metadata.bpm as u32;
         // TODO: Calculate actual min/max BPM from bpm_events
         self.bpm_display.update(bpm, bpm, bpm);
+
+        // Cache measure start times for drawing measure lines
+        self.measure_times = chart.measure_start_times();
+
+        // Initialize progress bar with total duration
+        self.progress_bar = ProgressBar::new(chart.total_duration_ms());
 
         self.chart = Some(chart);
         self.audio = Some(audio);
@@ -358,15 +371,15 @@ impl GameState {
         let scratch_active = self.input.get_held_lanes().contains(&0);
         self.turntable.update(scratch_active, get_frame_time());
 
-        self.judge_stats.update(
-            self.score.pgreat_count,
-            self.score.great_count,
-            self.score.good_count,
-            self.score.bad_count,
-            self.score.poor_count,
-            self.timing_stats.fast_count,
-            self.timing_stats.slow_count,
-        );
+        self.judge_stats.update(crate::render::JudgeData {
+            pgreat: self.score.pgreat_count,
+            great: self.score.great_count,
+            good: self.score.good_count,
+            bad: self.score.bad_count,
+            poor: self.score.poor_count,
+            fast: self.timing_stats.fast_count,
+            slow: self.timing_stats.slow_count,
+        });
 
         self.score_graph.update(self.score.ex_score());
     }
@@ -592,7 +605,9 @@ impl GameState {
                         let end_note = &chart.notes[end_idx];
                         if end_note.note_type == NoteType::LongEnd
                             && end_note.time_ms > note.time_ms
-                            && play_state.get_state(end_idx).is_some_and(|s| s.is_pending())
+                            && play_state
+                                .get_state(end_idx)
+                                .is_some_and(|s| s.is_pending())
                         {
                             play_state.set_missed(end_idx);
                             break;
@@ -795,6 +810,16 @@ impl GameState {
         let gauge_rect = self.play_area_layout.gauge_rect(area);
         let score_rect = self.play_area_layout.score_rect(area);
 
+        // Draw progress bar on the left side of the play area
+        let progress_bar_rect = Rect::new(
+            area.x,
+            area.y,
+            8.0, // Thin vertical bar
+            highway_rect.height,
+        );
+        self.progress_bar
+            .draw(&progress_bar_rect, self.current_time_ms);
+
         // Draw highway
         if let (Some(chart), Some(play_state)) = (&self.chart, &self.play_state) {
             self.highway.draw_in_rect(
@@ -803,8 +828,22 @@ impl GameState {
                 play_state,
                 self.current_time_ms,
                 self.scroll_speed,
+                &self.measure_times,
             );
         }
+
+        // Draw key beams
+        let judge_y = self.highway.judge_y_in_rect(&highway_rect);
+        let lane_widths = self.highway.get_lane_widths();
+        let lane_colors = self.highway.get_lane_colors();
+        let scale = highway_rect.width / self.highway.total_width();
+        self.effects.draw_key_beams_in_rect(
+            &highway_rect,
+            &lane_widths,
+            &lane_colors,
+            scale,
+            judge_y,
+        );
 
         // Draw turntable
         self.turntable.draw(&turntable_rect);
@@ -829,7 +868,13 @@ impl GameState {
             - self.play_area_layout.score_area_height;
 
         // Background
-        draw_rectangle(kb_x, kb_y, kb_width, kb_height, Color::new(0.1, 0.1, 0.12, 1.0));
+        draw_rectangle(
+            kb_x,
+            kb_y,
+            kb_width,
+            kb_height,
+            Color::new(0.1, 0.1, 0.12, 1.0),
+        );
 
         // Draw 7 key indicators
         let key_width = kb_width / 7.0;
@@ -852,7 +897,13 @@ impl GameState {
                 Color::new(0.15, 0.2, 0.35, 1.0) // Blue key
             };
 
-            draw_rectangle(x + 2.0, kb_y + 5.0, key_width - 4.0, kb_height - 10.0, color);
+            draw_rectangle(
+                x + 2.0,
+                kb_y + 5.0,
+                key_width - 4.0,
+                kb_height - 10.0,
+                color,
+            );
         }
     }
 
@@ -885,13 +936,7 @@ impl GameState {
             draw_rectangle_lines(rect.x, rect.y, rect.width, rect.height, 1.0, GRAY);
 
             // GROOVE GAUGE label
-            draw_text_jp(
-                "GROOVE GAUGE",
-                rect.x + 5.0,
-                rect.y - 2.0,
-                12.0,
-                GRAY,
-            );
+            draw_text_jp("GROOVE GAUGE", rect.x + 5.0, rect.y - 2.0, 12.0, GRAY);
 
             // Percentage
             draw_text_jp(
@@ -906,7 +951,13 @@ impl GameState {
 
     fn draw_score_area(&self, rect: &Rect) {
         // Background
-        draw_rectangle(rect.x, rect.y, rect.width, rect.height, Color::new(0.05, 0.05, 0.08, 1.0));
+        draw_rectangle(
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height,
+            Color::new(0.05, 0.05, 0.08, 1.0),
+        );
 
         // SCORE label and value
         draw_text_jp("SCORE", rect.x + 10.0, rect.y + 20.0, 14.0, GRAY);
@@ -919,7 +970,13 @@ impl GameState {
         );
 
         // HI-SPEED
-        draw_text_jp("HI-SPEED", rect.x + rect.width / 2.0, rect.y + 20.0, 14.0, GRAY);
+        draw_text_jp(
+            "HI-SPEED",
+            rect.x + rect.width / 2.0,
+            rect.y + 20.0,
+            14.0,
+            GRAY,
+        );
         draw_text_jp(
             &format!("{:.2}", self.scroll_speed),
             rect.x + rect.width / 2.0,
@@ -931,7 +988,13 @@ impl GameState {
 
     fn draw_graph_area(&self, area: &Rect) {
         // Background
-        draw_rectangle(area.x, area.y, area.width, area.height, Color::new(0.08, 0.08, 0.1, 1.0));
+        draw_rectangle(
+            area.x,
+            area.y,
+            area.width,
+            area.height,
+            Color::new(0.08, 0.08, 0.1, 1.0),
+        );
 
         // Score graph
         let graph_rect = Rect::new(area.x, area.y, area.width, area.height * 0.7);
@@ -968,10 +1031,17 @@ impl GameState {
         // BGA
         let bga_rect = self.info_area_layout.bga_rect(area);
         if self.bga.has_textures() {
-            self.bga.draw(bga_rect.x, bga_rect.y, bga_rect.width, bga_rect.height);
+            self.bga
+                .draw(bga_rect.x, bga_rect.y, bga_rect.width, bga_rect.height);
         } else {
             // Black background when no BGA
-            draw_rectangle(bga_rect.x, bga_rect.y, bga_rect.width, bga_rect.height, BLACK);
+            draw_rectangle(
+                bga_rect.x,
+                bga_rect.y,
+                bga_rect.width,
+                bga_rect.height,
+                BLACK,
+            );
         }
 
         // Judge stats
@@ -985,11 +1055,23 @@ impl GameState {
 
     fn draw_song_header(&self, rect: &Rect) {
         // Background
-        draw_rectangle(rect.x, rect.y, rect.width, rect.height, Color::new(0.05, 0.05, 0.08, 1.0));
+        draw_rectangle(
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height,
+            Color::new(0.05, 0.05, 0.08, 1.0),
+        );
 
         if let Some(chart) = &self.chart {
             // Difficulty badge (simplified)
-            draw_rectangle(rect.x + 10.0, rect.y + 15.0, 80.0, 25.0, Color::new(0.8, 0.2, 0.2, 1.0));
+            draw_rectangle(
+                rect.x + 10.0,
+                rect.y + 15.0,
+                80.0,
+                25.0,
+                Color::new(0.8, 0.2, 0.2, 1.0),
+            );
             draw_text_jp(
                 &format!("Lv.{}", chart.metadata.play_level),
                 rect.x + 15.0,
