@@ -90,9 +90,17 @@ impl Highway {
         (screen_width() - total_width) / 2.0
     }
 
-    /// Get lane width
+    /// Get lane width (base width, not per-lane)
     pub fn lane_width(&self) -> f32 {
         self.config.lane_width
+    }
+
+    /// Get lane widths for all lanes
+    pub fn get_lane_widths(&self) -> Vec<f32> {
+        let lane_count = self.config.lane_count();
+        (0..lane_count)
+            .map(|i| self.config.lane_width_for_lane(i))
+            .collect()
     }
 
     /// Get judge line Y position
@@ -119,24 +127,23 @@ impl Highway {
 
         for i in 0..lane_count {
             let x = highway_x + self.config.lane_x_offset(i);
-            draw_rectangle(
-                x,
-                0.0,
-                self.config.lane_width,
-                screen_height(),
-                background_color,
-            );
+            let width = self.config.lane_width_for_lane(i);
+            draw_rectangle(x, 0.0, width, screen_height(), background_color);
             draw_line(x, 0.0, x, screen_height(), 1.0, border_color);
         }
         // Draw right edge of last lane
         let last_lane = lane_count - 1;
-        let last_x = highway_x + self.config.lane_x_offset(last_lane) + self.config.lane_width;
+        let last_x = highway_x
+            + self.config.lane_x_offset(last_lane)
+            + self.config.lane_width_for_lane(last_lane);
         draw_line(last_x, 0.0, last_x, screen_height(), 1.0, border_color);
 
         // For DP mode, draw P1 right edge and P2 left edge
         if self.config.play_mode == PlayMode::Dp14Key {
             // P1 right edge (after lane 7)
-            let p1_right_x = highway_x + self.config.lane_x_offset(7) + self.config.lane_width;
+            let p1_right_x = highway_x
+                + self.config.lane_x_offset(7)
+                + self.config.lane_width_for_lane(7);
             draw_line(
                 p1_right_x,
                 0.0,
@@ -255,27 +262,38 @@ impl Highway {
                 let start_y = judge_y - (start_time_diff * pixels_per_ms) as f32;
                 let end_y = judge_y - (end_time_diff * pixels_per_ms) as f32;
 
+                // Skip if entire bar is below judge line
+                if end_y > judge_y && start_y > judge_y {
+                    continue;
+                }
+
+                // Clamp start_y to judge_y (don't draw below judge line)
+                let clamped_start_y = start_y.min(judge_y);
+
                 let lane = note.channel.lane_index_for_mode(play_mode);
                 let x = highway_x + self.config.lane_x_offset(lane);
+                let width = self.config.lane_width_for_lane(lane);
 
-                let bar_height = start_y - end_y;
+                let bar_height = clamped_start_y - end_y;
                 if bar_height > 0.0 {
-                    draw_rectangle(
-                        x + 4.0,
-                        end_y,
-                        self.config.lane_width - 8.0,
-                        bar_height,
-                        long_color,
-                    );
+                    draw_rectangle(x + 4.0, end_y, width - 8.0, bar_height, long_color);
                 }
             }
         }
     }
 
     fn draw_note(&self, note: &Note, time_diff: f64, pixels_per_ms: f64, highway_x: f32) {
-        let y = self.adjusted_judge_line_y() - (time_diff * pixels_per_ms) as f32;
+        let judge_y = self.adjusted_judge_line_y();
+        let y = judge_y - (time_diff * pixels_per_ms) as f32;
+
+        // Skip notes below judge line
+        if y > judge_y {
+            return;
+        }
+
         let lane = note.channel.lane_index_for_mode(self.config.play_mode);
         let x = highway_x + self.config.lane_x_offset(lane);
+        let width = self.config.lane_width_for_lane(lane);
 
         let color = match note.note_type {
             NoteType::Normal => self.config.lane_color(lane),
@@ -287,7 +305,7 @@ impl Highway {
         draw_rectangle(
             x + 2.0,
             y - self.config.note_height / 2.0,
-            self.config.lane_width - 4.0,
+            width - 4.0,
             self.config.note_height,
             color,
         );
@@ -327,8 +345,9 @@ impl Highway {
             );
         }
 
-        // Draw LIFT cover (bottom, raises judge line visually)
+        // Draw LIFT cover (bottom, raises judge line visually, opaque)
         if self.lane_cover.lift > 0 {
+            let lift_color = self.config.lift_cover_color();
             let cover_height = (self.lane_cover.lift as f32 / 1000.0) * lane_height;
             let cover_y = self.config.judge_line_y - cover_height;
             draw_rectangle(
@@ -336,7 +355,7 @@ impl Highway {
                 cover_y,
                 highway_width,
                 cover_height + 50.0,
-                cover_color,
+                lift_color,
             );
 
             draw_text_jp(
