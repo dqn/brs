@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -65,7 +64,6 @@ pub struct GameState {
     battle: bool,
     // BGA
     bga: BgaManager,
-    pending_bga_load: Option<(PathBuf, HashMap<u32, String>)>,
     // Layout config for UI positioning
     #[allow(dead_code)]
     layout: LayoutConfig,
@@ -112,7 +110,6 @@ impl GameState {
             expand_judge: false,
             battle: false,
             bga: BgaManager::new(),
-            pending_bga_load: None,
             layout: LayoutConfig::default(),
             // IIDX-style layout components
             iidx_layout: IidxLayout::default(),
@@ -161,9 +158,12 @@ impl GameState {
                 load_result.total()
             );
 
-            // Store BMP files for async loading
+            // Load BGA media (images and videos)
             if !bmp_files.is_empty() {
-                self.pending_bga_load = Some((parent.to_path_buf(), bmp_files));
+                let (images, videos) = self.bga.load_media(parent, &bmp_files);
+                if images > 0 || videos > 0 {
+                    println!("Loaded {} BGA images and {} videos", images, videos);
+                }
             }
         }
 
@@ -258,17 +258,6 @@ impl GameState {
         self.playing = true;
 
         Ok(())
-    }
-
-    /// Load BGA textures asynchronously (call after load_chart)
-    #[allow(dead_code)] // BGA loading will be integrated when BGA rendering is complete
-    pub async fn load_bga(&mut self) {
-        if let Some((base_path, bmp_files)) = self.pending_bga_load.take() {
-            let loaded = self.bga.load_textures(&base_path, &bmp_files).await;
-            if loaded > 0 {
-                println!("Loaded {} BGA textures", loaded);
-            }
-        }
     }
 
     pub fn update(&mut self) {

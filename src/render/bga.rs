@@ -38,7 +38,6 @@ impl BgaManager {
 
     /// Load BGA media (images and videos) from disk
     /// Returns (images_loaded, videos_loaded)
-    #[allow(dead_code)] // For future BGA feature implementation
     pub fn load_media(
         &mut self,
         base_path: &Path,
@@ -290,7 +289,6 @@ impl Default for BgaManager {
 }
 
 /// Load texture synchronously using the image crate
-#[allow(dead_code)] // For future BGA feature implementation
 fn load_texture_sync(path: &Path) -> Option<Texture2D> {
     let img = image::open(path).ok()?;
     let rgba = img.to_rgba8();
