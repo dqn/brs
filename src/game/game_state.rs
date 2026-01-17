@@ -212,6 +212,9 @@ impl GameState {
         // Reset BGA state
         self.bga.reset();
 
+        // Start playing automatically after chart is loaded
+        self.playing = true;
+
         Ok(())
     }
 
