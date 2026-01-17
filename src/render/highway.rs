@@ -68,6 +68,7 @@ impl Highway {
         self.draw_info(chart);
     }
 
+    #[allow(dead_code)]
     pub fn draw_with_state(
         &self,
         chart: &Chart,
@@ -84,6 +85,280 @@ impl Highway {
         self.draw_info(chart);
     }
 
+    /// Draw highway within a specified rect (for IIDX-style layout)
+    pub fn draw_in_rect(
+        &self,
+        rect: &crate::skin::Rect,
+        chart: &Chart,
+        play_state: &GamePlayState,
+        current_time_ms: f64,
+        scroll_speed: f32,
+    ) {
+        // Calculate scale factor based on rect width vs original total width
+        let original_width = self.config.total_width();
+        let scale = rect.width / original_width;
+
+        // Calculate judge line Y position within the rect
+        let judge_y = rect.y + rect.height * 0.92; // Judge line at 92% height
+
+        self.draw_lanes_in_rect(rect, scale);
+        self.draw_notes_in_rect(
+            rect,
+            scale,
+            judge_y,
+            chart,
+            play_state,
+            current_time_ms,
+            scroll_speed,
+        );
+        self.draw_judge_line_in_rect(rect, scale, judge_y);
+        self.draw_lane_covers_in_rect(rect, scale, judge_y);
+    }
+
+    fn draw_lanes_in_rect(&self, rect: &crate::skin::Rect, scale: f32) {
+        let lane_count = self.config.lane_count();
+        let background_color = self.config.background_color();
+        let border_color = self.config.border_color();
+
+        for i in 0..lane_count {
+            let x = rect.x + self.config.lane_x_offset(i) * scale;
+            let width = self.config.lane_width_for_lane(i) * scale;
+            draw_rectangle(x, rect.y, width, rect.height, background_color);
+            draw_line(x, rect.y, x, rect.y + rect.height, 1.0, border_color);
+        }
+
+        // Draw right edge of last lane
+        let last_lane = lane_count - 1;
+        let last_x = rect.x
+            + (self.config.lane_x_offset(last_lane) + self.config.lane_width_for_lane(last_lane))
+                * scale;
+        draw_line(
+            last_x,
+            rect.y,
+            last_x,
+            rect.y + rect.height,
+            1.0,
+            border_color,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn draw_notes_in_rect(
+        &self,
+        rect: &crate::skin::Rect,
+        scale: f32,
+        judge_y: f32,
+        chart: &Chart,
+        play_state: &GamePlayState,
+        current_time_ms: f64,
+        scroll_speed: f32,
+    ) {
+        let pixels_per_ms = scroll_speed as f64 * 0.5;
+
+        // Draw long note bars first
+        self.draw_long_note_bars_in_rect(
+            rect,
+            scale,
+            judge_y,
+            chart,
+            play_state,
+            current_time_ms,
+            pixels_per_ms,
+        );
+
+        // Then draw notes
+        for (i, note) in chart.notes.iter().enumerate() {
+            if !play_state.get_state(i).is_some_and(|s| s.is_pending()) {
+                continue;
+            }
+
+            let time_diff = note.time_ms - current_time_ms;
+
+            if !(-100.0..=self.config.visible_range_ms).contains(&time_diff) {
+                continue;
+            }
+
+            self.draw_note_in_rect(rect, scale, judge_y, note, time_diff, pixels_per_ms);
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn draw_long_note_bars_in_rect(
+        &self,
+        rect: &crate::skin::Rect,
+        scale: f32,
+        judge_y: f32,
+        chart: &Chart,
+        play_state: &GamePlayState,
+        current_time_ms: f64,
+        pixels_per_ms: f64,
+    ) {
+        let play_mode = self.config.play_mode;
+
+        for (i, note) in chart.notes.iter().enumerate() {
+            if note.note_type != NoteType::LongStart {
+                continue;
+            }
+
+            let end_note_info = chart
+                .notes
+                .iter()
+                .enumerate()
+                .skip(i + 1)
+                .find(|(_, n)| n.channel == note.channel && n.note_type == NoteType::LongEnd);
+
+            let Some((end_idx, end)) = end_note_info else {
+                continue;
+            };
+
+            if !play_state.get_state(end_idx).is_some_and(|s| s.is_pending()) {
+                continue;
+            }
+
+            let start_time_diff = note.time_ms - current_time_ms;
+            let end_time_diff = end.time_ms - current_time_ms;
+
+            let start_y = judge_y - (start_time_diff * pixels_per_ms) as f32;
+            let end_y = judge_y - (end_time_diff * pixels_per_ms) as f32;
+
+            if end_y > judge_y && start_y > judge_y {
+                continue;
+            }
+
+            let clamped_start_y = start_y.min(judge_y);
+
+            let lane = note.channel.lane_index_for_mode(play_mode);
+            let x = rect.x + self.config.lane_x_offset(lane) * scale;
+            let width = self.config.lane_width_for_lane(lane) * scale;
+
+            let bar_height = clamped_start_y - end_y;
+            if bar_height > 0.0 {
+                let lane_color = self.config.lane_color(lane);
+                draw_rectangle(
+                    x + 4.0 * scale,
+                    end_y,
+                    width - 8.0 * scale,
+                    bar_height,
+                    lane_color,
+                );
+            }
+        }
+    }
+
+    fn draw_note_in_rect(
+        &self,
+        rect: &crate::skin::Rect,
+        scale: f32,
+        judge_y: f32,
+        note: &Note,
+        time_diff: f64,
+        pixels_per_ms: f64,
+    ) {
+        let y = judge_y - (time_diff * pixels_per_ms) as f32;
+
+        if y > judge_y {
+            return;
+        }
+
+        let lane = note.channel.lane_index_for_mode(self.config.play_mode);
+        let x = rect.x + self.config.lane_x_offset(lane) * scale;
+        let width = self.config.lane_width_for_lane(lane) * scale;
+        let note_height = self.config.note_height * scale.min(1.0);
+
+        let color = match note.note_type {
+            NoteType::Normal | NoteType::LongStart | NoteType::LongEnd => {
+                self.config.lane_color(lane)
+            }
+            NoteType::Invisible => self.config.invisible_note_color(),
+            NoteType::Landmine => self.config.landmine_note_color(),
+        };
+
+        draw_rectangle(
+            x + 2.0 * scale,
+            y - note_height / 2.0,
+            width - 4.0 * scale,
+            note_height,
+            color,
+        );
+    }
+
+    fn draw_judge_line_in_rect(
+        &self,
+        rect: &crate::skin::Rect,
+        scale: f32,
+        judge_y: f32,
+    ) {
+        let highway_width = self.config.total_width() * scale;
+        draw_line(
+            rect.x,
+            judge_y,
+            rect.x + highway_width,
+            judge_y,
+            self.config.judge_line_thickness(),
+            self.config.judge_line_color(),
+        );
+    }
+
+    fn draw_lane_covers_in_rect(
+        &self,
+        rect: &crate::skin::Rect,
+        scale: f32,
+        judge_y: f32,
+    ) {
+        let highway_width = self.config.total_width() * scale;
+        let lane_height = judge_y - rect.y;
+        let cover_color = self.config.lane_cover_color();
+        let text_color = self.config.lane_cover_text_color();
+
+        // SUDDEN+ cover
+        if self.lane_cover.sudden > 0 {
+            let cover_height = (self.lane_cover.sudden as f32 / 1000.0) * lane_height;
+            draw_rectangle(rect.x, rect.y, highway_width, cover_height, cover_color);
+            draw_text_jp(
+                &format!("SUD+ {}", self.lane_cover.sudden),
+                rect.x + 10.0,
+                rect.y + cover_height - 10.0,
+                16.0,
+                text_color,
+            );
+        }
+
+        // LIFT cover
+        if self.lane_cover.lift > 0 {
+            let lift_color = self.config.lift_cover_color();
+            let cover_height = (self.lane_cover.lift as f32 / 1000.0) * lane_height;
+            let cover_y = judge_y - cover_height;
+            draw_rectangle(
+                rect.x,
+                cover_y,
+                highway_width,
+                cover_height + 30.0,
+                lift_color,
+            );
+            draw_text_jp(
+                &format!("LIFT {}", self.lane_cover.lift),
+                rect.x + 10.0,
+                cover_y + 15.0,
+                16.0,
+                text_color,
+            );
+        }
+
+        // HIDDEN+ cover
+        if self.lane_cover.hidden > 0 {
+            let below_judge_height = rect.y + rect.height - judge_y;
+            let cover_height = (self.lane_cover.hidden as f32 / 1000.0) * below_judge_height;
+            draw_rectangle(rect.x, judge_y, highway_width, cover_height, cover_color);
+            draw_text_jp(
+                &format!("HID+ {}", self.lane_cover.hidden),
+                rect.x + 10.0,
+                judge_y + 15.0,
+                16.0,
+                text_color,
+            );
+        }
+    }
+
     /// Get highway X position
     pub fn highway_x(&self) -> f32 {
         let total_width = self.config.total_width();
@@ -91,6 +366,7 @@ impl Highway {
     }
 
     /// Get lane widths for all lanes
+    #[allow(dead_code)]
     pub fn get_lane_widths(&self) -> Vec<f32> {
         let lane_count = self.config.lane_count();
         (0..lane_count)
@@ -99,11 +375,13 @@ impl Highway {
     }
 
     /// Get judge line Y position
+    #[allow(dead_code)]
     pub fn judge_line_y(&self) -> f32 {
         self.config.judge_line_y
     }
 
     /// Get lane colors for all lanes
+    #[allow(dead_code)]
     pub fn get_lane_colors(&self) -> Vec<Color> {
         let lane_count = self.config.lane_count();
         (0..lane_count).map(|i| self.config.lane_color(i)).collect()
@@ -171,6 +449,7 @@ impl Highway {
         self.draw_notes_filtered(chart, None, current_time_ms, scroll_speed, highway_x);
     }
 
+    #[allow(dead_code)]
     fn draw_notes_with_state(
         &self,
         chart: &Chart,
@@ -323,6 +602,7 @@ impl Highway {
         );
     }
 
+    #[allow(dead_code)]
     fn draw_lane_covers(&self, highway_x: f32) {
         let highway_width = self.config.total_width();
         let lane_height = self.config.judge_line_y; // Lane goes from top to judge line

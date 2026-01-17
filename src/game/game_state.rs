@@ -8,8 +8,10 @@ use crate::audio::{AudioManager, AudioScheduler};
 use crate::bms::{BmsLoader, Chart, LnType, MAX_LANE_COUNT, NoteType};
 use crate::config::GameSettings;
 use crate::render::font::draw_text_jp;
-use crate::render::{BgaManager, EffectManager, Highway, LaneCover};
-use crate::skin::LayoutConfig;
+use crate::render::{
+    BgaManager, BpmDisplay, EffectManager, Highway, JudgeStats, LaneCover, ScoreGraph, Turntable,
+};
+use crate::skin::{IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect};
 
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
@@ -64,7 +66,16 @@ pub struct GameState {
     bga: BgaManager,
     pending_bga_load: Option<(PathBuf, HashMap<u32, String>)>,
     // Layout config for UI positioning
+    #[allow(dead_code)]
     layout: LayoutConfig,
+    // IIDX-style layout components
+    iidx_layout: IidxLayout,
+    play_area_layout: PlayAreaLayout,
+    info_area_layout: InfoAreaLayout,
+    turntable: Turntable,
+    judge_stats: JudgeStats,
+    bpm_display: BpmDisplay,
+    score_graph: ScoreGraph,
 }
 
 impl GameState {
@@ -98,6 +109,14 @@ impl GameState {
             bga: BgaManager::new(),
             pending_bga_load: None,
             layout: LayoutConfig::default(),
+            // IIDX-style layout components
+            iidx_layout: IidxLayout::default(),
+            play_area_layout: PlayAreaLayout::default(),
+            info_area_layout: InfoAreaLayout::default(),
+            turntable: Turntable::new(),
+            judge_stats: JudgeStats::new(),
+            bpm_display: BpmDisplay::default(),
+            score_graph: ScoreGraph::default(),
         }
     }
 
@@ -196,6 +215,13 @@ impl GameState {
             total_value,
             true,
         ));
+
+        // Initialize IIDX layout components (before chart is moved)
+        self.score_graph = ScoreGraph::new(note_count as u32);
+        let bpm = chart.metadata.bpm as u32;
+        // TODO: Calculate actual min/max BPM from bpm_events
+        self.bpm_display.update(bpm, bpm, bpm);
+
         self.chart = Some(chart);
         self.audio = Some(audio);
         self.scheduler.reset();
@@ -327,6 +353,22 @@ impl GameState {
 
         // Update effects animation
         self.effects.update(get_frame_time());
+
+        // Update IIDX layout components
+        let scratch_active = self.input.get_held_lanes().contains(&0);
+        self.turntable.update(scratch_active, get_frame_time());
+
+        self.judge_stats.update(
+            self.score.pgreat_count,
+            self.score.great_count,
+            self.score.good_count,
+            self.score.bad_count,
+            self.score.poor_count,
+            self.timing_stats.fast_count,
+            self.timing_stats.slow_count,
+        );
+
+        self.score_graph.update(self.score.ex_score());
     }
 
     fn process_input(&mut self) {
@@ -719,201 +761,259 @@ impl GameState {
     pub fn draw(&self) {
         clear_background(BLACK);
 
-        // Draw BGA in the background (position from layout config)
-        if self.bga.has_textures() {
-            let bga_rect = self.layout.bga_rect();
-            self.bga
-                .draw(bga_rect.x, bga_rect.y, bga_rect.width, bga_rect.height);
-        }
+        // Calculate IIDX-style 3-column layout
+        let areas = self
+            .iidx_layout
+            .calculate_areas(screen_width(), screen_height());
 
-        // Draw lane flash effects (behind notes)
-        let highway_x = self.highway.highway_x();
-        let lane_widths = self.highway.get_lane_widths();
-        self.effects
-            .draw_lane_flashes(highway_x, &lane_widths, screen_height());
+        // Draw each area
+        self.draw_play_area(&areas.play);
+        self.draw_graph_area(&areas.graph);
+        self.draw_info_area(&areas.info);
 
+        // Draw judgment and combo effects (centered in play area)
+        self.effects.draw_judge();
+        self.effects.draw_combo();
+    }
+
+    fn draw_play_area(&self, area: &Rect) {
+        // Calculate sub-areas
+        let highway_rect = self.play_area_layout.highway_rect(area);
+        let turntable_rect = self.play_area_layout.turntable_rect(area);
+        let gauge_rect = self.play_area_layout.gauge_rect(area);
+        let score_rect = self.play_area_layout.score_rect(area);
+
+        // Draw highway
         if let (Some(chart), Some(play_state)) = (&self.chart, &self.play_state) {
-            self.highway.draw_with_state(
+            self.highway.draw_in_rect(
+                &highway_rect,
                 chart,
                 play_state,
                 self.current_time_ms,
                 self.scroll_speed,
             );
-
-            // Draw key beams (after notes, before UI)
-            let judge_y = self.highway.judge_line_y();
-            let lane_colors = self.highway.get_lane_colors();
-            self.effects
-                .draw_key_beams(highway_x, &lane_widths, judge_y, &lane_colors);
-        } else {
-            draw_text_jp(
-                "No chart loaded. Pass BMS file path as argument.",
-                20.0,
-                screen_height() / 2.0,
-                30.0,
-                WHITE,
-            );
         }
 
-        // Draw judgment and combo effects
-        self.effects.draw_judge();
-        self.effects.draw_combo();
+        // Draw turntable
+        self.turntable.draw(&turntable_rect);
 
-        self.draw_ui();
+        // Draw keyboard visualization (simplified)
+        self.draw_keyboard_area(area);
+
+        // Draw gauge bar (horizontal)
+        self.draw_gauge_bar(&gauge_rect);
+
+        // Draw score and hi-speed
+        self.draw_score_area(&score_rect);
     }
 
-    fn draw_ui(&self) {
-        draw_text_jp(
-            &format!("Time: {:.2}s", self.current_time_ms / 1000.0),
-            10.0,
-            30.0,
-            20.0,
-            WHITE,
-        );
-        draw_text_jp(
-            &format!("Speed: {:.1}x", self.scroll_speed),
-            10.0,
-            50.0,
-            20.0,
-            WHITE,
-        );
+    fn draw_keyboard_area(&self, play_area: &Rect) {
+        let tt_width = play_area.width * self.play_area_layout.turntable_ratio;
+        let kb_x = play_area.x + tt_width;
+        let kb_y = play_area.y + play_area.height * self.play_area_layout.highway_height_ratio;
+        let kb_width = play_area.width - tt_width;
+        let kb_height = play_area.height * (1.0 - self.play_area_layout.highway_height_ratio)
+            - self.play_area_layout.gauge_height
+            - self.play_area_layout.score_area_height;
 
-        // Green Number: visible time in milliseconds
-        let green_number = self.calculate_green_number();
-        draw_text_jp(
-            &format!("GREEN: {:.0}", green_number),
-            10.0,
-            70.0,
-            20.0,
-            Color::new(0.0, 1.0, 0.5, 1.0),
-        );
+        // Background
+        draw_rectangle(kb_x, kb_y, kb_width, kb_height, Color::new(0.1, 0.1, 0.12, 1.0));
 
-        let status = if self.playing { "Playing" } else { "Paused" };
-        draw_text_jp(&format!("Status: {}", status), 10.0, 90.0, 20.0, WHITE);
+        // Draw 7 key indicators
+        let key_width = kb_width / 7.0;
+        let held_lanes = self.input.get_held_lanes();
 
-        draw_text_jp(
-            &format!("EX Score: {}", self.score.ex_score()),
-            screen_width() - 200.0,
-            30.0,
-            20.0,
-            YELLOW,
-        );
-        draw_text_jp(
-            &format!("Combo: {}", self.score.combo),
-            screen_width() - 200.0,
-            50.0,
-            20.0,
-            WHITE,
-        );
-        draw_text_jp(
-            &format!("Max Combo: {}", self.score.max_combo),
-            screen_width() - 200.0,
-            70.0,
-            20.0,
-            GRAY,
-        );
+        for i in 0..7 {
+            let lane_idx = i + 1; // Skip scratch (lane 0)
+            let x = kb_x + i as f32 * key_width;
+            let is_held = held_lanes.contains(&lane_idx);
 
-        // Draw gauge
-        if let Some(gauge) = &self.gauge {
-            let gauge_type_str = match gauge.active_gauge() {
-                GaugeType::AssistEasy => "ASSIST",
-                GaugeType::Easy => "EASY",
-                GaugeType::Normal => "NORMAL",
-                GaugeType::Hard => "HARD",
-                GaugeType::ExHard => "EX-HARD",
-                GaugeType::Hazard => "HAZARD",
+            let color = if is_held {
+                if i % 2 == 0 {
+                    Color::new(1.0, 1.0, 1.0, 0.9) // White key pressed
+                } else {
+                    Color::new(0.3, 0.5, 0.9, 0.9) // Blue key pressed
+                }
+            } else if i % 2 == 0 {
+                Color::new(0.3, 0.3, 0.3, 1.0) // White key
+            } else {
+                Color::new(0.15, 0.2, 0.35, 1.0) // Blue key
             };
+
+            draw_rectangle(x + 2.0, kb_y + 5.0, key_width - 4.0, kb_height - 10.0, color);
+        }
+    }
+
+    fn draw_gauge_bar(&self, rect: &Rect) {
+        if let Some(gauge) = &self.gauge {
             let hp = gauge.hp();
             let gauge_color = if gauge.active_gauge().is_survival() {
                 if hp > 30.0 {
-                    Color::new(1.0, 0.2, 0.2, 1.0) // Red for survival gauges
+                    Color::new(1.0, 0.2, 0.2, 1.0)
                 } else {
-                    Color::new(1.0, 0.5, 0.0, 1.0) // Orange when low
+                    Color::new(1.0, 0.5, 0.0, 1.0)
                 }
             } else if hp >= 80.0 {
-                Color::new(0.0, 1.0, 0.5, 1.0) // Green when cleared
+                Color::new(0.0, 1.0, 0.5, 1.0)
             } else {
-                Color::new(0.2, 0.6, 1.0, 1.0) // Blue for groove gauges
+                Color::new(0.2, 0.6, 1.0, 1.0)
             };
 
-            draw_text_jp(
-                &format!("{}: {:.1}%", gauge_type_str, hp),
-                screen_width() - 200.0,
-                95.0,
-                20.0,
-                gauge_color,
-            );
-
-            // Draw gauge bar
-            let bar_x = screen_width() - 200.0;
-            let bar_y = 105.0;
-            let bar_width = 150.0;
-            let bar_height = 12.0;
-
             // Background
-            draw_rectangle(bar_x, bar_y, bar_width, bar_height, DARKGRAY);
+            draw_rectangle(rect.x, rect.y, rect.width, rect.height, DARKGRAY);
             // Fill
             draw_rectangle(
-                bar_x,
-                bar_y,
-                bar_width * (hp / 100.0),
-                bar_height,
+                rect.x,
+                rect.y,
+                rect.width * (hp / 100.0),
+                rect.height,
                 gauge_color,
+            );
+            // Border
+            draw_rectangle_lines(rect.x, rect.y, rect.width, rect.height, 1.0, GRAY);
+
+            // GROOVE GAUGE label
+            draw_text_jp(
+                "GROOVE GAUGE",
+                rect.x + 5.0,
+                rect.y - 2.0,
+                12.0,
+                GRAY,
+            );
+
+            // Percentage
+            draw_text_jp(
+                &format!("{:.0}", hp),
+                rect.x + rect.width - 30.0,
+                rect.y + rect.height - 4.0,
+                14.0,
+                WHITE,
+            );
+        }
+    }
+
+    fn draw_score_area(&self, rect: &Rect) {
+        // Background
+        draw_rectangle(rect.x, rect.y, rect.width, rect.height, Color::new(0.05, 0.05, 0.08, 1.0));
+
+        // SCORE label and value
+        draw_text_jp("SCORE", rect.x + 10.0, rect.y + 20.0, 14.0, GRAY);
+        draw_text_jp(
+            &format!("{}", self.score.ex_score()),
+            rect.x + 10.0,
+            rect.y + 40.0,
+            24.0,
+            YELLOW,
+        );
+
+        // HI-SPEED
+        draw_text_jp("HI-SPEED", rect.x + rect.width / 2.0, rect.y + 20.0, 14.0, GRAY);
+        draw_text_jp(
+            &format!("{:.2}", self.scroll_speed),
+            rect.x + rect.width / 2.0,
+            rect.y + 40.0,
+            24.0,
+            WHITE,
+        );
+    }
+
+    fn draw_graph_area(&self, area: &Rect) {
+        // Background
+        draw_rectangle(area.x, area.y, area.width, area.height, Color::new(0.08, 0.08, 0.1, 1.0));
+
+        // Score graph
+        let graph_rect = Rect::new(area.x, area.y, area.width, area.height * 0.7);
+        self.score_graph.draw(&graph_rect);
+
+        // Option display
+        let option_y = area.y + area.height * 0.75;
+        if self.random_option != RandomOption::Off {
+            draw_text_jp(
+                &format!("{:?}", self.random_option),
+                area.x + 10.0,
+                option_y,
+                16.0,
+                Color::new(1.0, 0.3, 0.3, 1.0),
             );
         }
 
-        // Display FAST/SLOW with milliseconds for non-PGREAT judgments
-        if let Some(result) = self.last_judgment {
-            if result != JudgeResult::PGreat {
-                if let Some(timing_diff) = self.last_timing_diff_ms {
-                    use super::TimingDirection;
-                    let direction = TimingDirection::from_timing_diff(timing_diff);
-                    let (timing_label, timing_color) = match direction {
-                        TimingDirection::Fast => ("FAST", Color::new(0.0, 0.8, 1.0, 1.0)),
-                        TimingDirection::Slow => ("SLOW", Color::new(1.0, 0.5, 0.0, 1.0)),
-                        TimingDirection::Exact => ("", WHITE),
-                    };
-                    if !timing_label.is_empty() {
-                        // Format: "FAST -15ms" or "SLOW +23ms"
-                        let timing_text = format!("{} {:+.0}ms", timing_label, -timing_diff);
-                        let x = screen_width() / 2.0 - 50.0;
-                        draw_text_jp(
-                            &timing_text,
-                            x,
-                            screen_height() / 2.0 + 40.0,
-                            24.0,
-                            timing_color,
-                        );
-                    }
-                }
-            }
+        // Green number
+        let green_number = self.calculate_green_number();
+        draw_text_jp(
+            &format!("GREEN: {:.0}", green_number),
+            area.x + 10.0,
+            option_y + 25.0,
+            14.0,
+            Color::new(0.0, 1.0, 0.5, 1.0),
+        );
+    }
+
+    fn draw_info_area(&self, area: &Rect) {
+        // Header with song info
+        let header_rect = self.info_area_layout.header_rect(area);
+        self.draw_song_header(&header_rect);
+
+        // BGA
+        let bga_rect = self.info_area_layout.bga_rect(area);
+        if self.bga.has_textures() {
+            self.bga.draw(bga_rect.x, bga_rect.y, bga_rect.width, bga_rect.height);
+        } else {
+            // Black background when no BGA
+            draw_rectangle(bga_rect.x, bga_rect.y, bga_rect.width, bga_rect.height, BLACK);
         }
 
-        // Draw FAST/SLOW statistics
-        draw_text_jp(
-            &format!(
-                "FAST:{} / SLOW:{}",
-                self.timing_stats.fast_count, self.timing_stats.slow_count
-            ),
-            screen_width() - 200.0,
-            130.0,
-            16.0,
-            GRAY,
-        );
+        // Judge stats
+        let stats_rect = self.info_area_layout.judge_stats_rect(area);
+        self.judge_stats.draw(&stats_rect);
 
+        // BPM display
+        let bpm_rect = self.info_area_layout.bpm_rect(area);
+        self.bpm_display.draw(&bpm_rect);
+    }
+
+    fn draw_song_header(&self, rect: &Rect) {
+        // Background
+        draw_rectangle(rect.x, rect.y, rect.width, rect.height, Color::new(0.05, 0.05, 0.08, 1.0));
+
+        if let Some(chart) = &self.chart {
+            // Difficulty badge (simplified)
+            draw_rectangle(rect.x + 10.0, rect.y + 15.0, 80.0, 25.0, Color::new(0.8, 0.2, 0.2, 1.0));
+            draw_text_jp(
+                &format!("Lv.{}", chart.metadata.play_level),
+                rect.x + 15.0,
+                rect.y + 35.0,
+                16.0,
+                WHITE,
+            );
+
+            // Title
+            draw_text_jp(
+                &chart.metadata.title,
+                rect.x + 100.0,
+                rect.y + 25.0,
+                18.0,
+                WHITE,
+            );
+
+            // Artist
+            draw_text_jp(
+                &chart.metadata.artist,
+                rect.x + 100.0,
+                rect.y + 50.0,
+                14.0,
+                GRAY,
+            );
+        }
+    }
+
+    #[allow(dead_code)]
+    fn draw_ui(&self) {
+        // Help text (currently not used - IIDX layout handles all UI)
         draw_text_jp(
-            "[Space] Play/Pause | [R] Reset | [Up/Down] Speed | [Q/W] SUD+ | [1/2] HID+ | [A/E] LIFT",
+            "[Space] Play/Pause | [R] Reset | [Up/Down] Speed",
             10.0,
             screen_height() - 20.0,
-            16.0,
-            GRAY,
-        );
-
-        draw_text_jp(
-            "Keys: Shift=SC, Z/S/X/D/C/F/V = 1-7",
-            10.0,
-            screen_height() - 40.0,
-            16.0,
+            12.0,
             GRAY,
         );
     }
