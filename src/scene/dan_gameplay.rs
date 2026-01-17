@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use macroquad::prelude::*;
 
+use crate::config::GameSettings;
 use crate::dan::{CourseState, DanCourse};
 use crate::game::GameState;
 use crate::render::font::draw_text_jp;
@@ -91,6 +92,19 @@ impl DanGameplayScene {
             false
         }
     }
+
+    /// Save gameplay settings (scroll speed, lane cover) to persistent storage
+    fn save_gameplay_settings(&self) {
+        let (scroll_speed, sudden, hidden, lift) = self.game_state.get_gameplay_settings();
+        let mut settings = GameSettings::load();
+        settings.scroll_speed = scroll_speed;
+        settings.sudden = sudden;
+        settings.hidden = hidden;
+        settings.lift = lift;
+        if let Err(e) = settings.save() {
+            eprintln!("Failed to save settings: {}", e);
+        }
+    }
 }
 
 impl Scene for DanGameplayScene {
@@ -110,6 +124,7 @@ impl Scene for DanGameplayScene {
             DanPlayState::Playing => {
                 if is_key_pressed(KeyCode::Escape) {
                     // Quit course
+                    self.save_gameplay_settings();
                     self.course_state.mark_failed();
                     self.play_state = DanPlayState::Finished;
                     return SceneTransition::None;
@@ -166,6 +181,8 @@ impl Scene for DanGameplayScene {
             }
 
             DanPlayState::Finished => {
+                // Save settings before transitioning to result scene
+                self.save_gameplay_settings();
                 // Transition to result scene
                 let course_state = std::mem::replace(
                     &mut self.course_state,
