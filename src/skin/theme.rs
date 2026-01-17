@@ -260,7 +260,7 @@ impl Default for LaneCoverColors {
                 r: 0.0,
                 g: 0.0,
                 b: 0.0,
-                a: 0.9,
+                a: 1.0,
             },
             lift_cover: default_lift_cover(),
             text: SkinColor {
