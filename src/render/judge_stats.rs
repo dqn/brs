@@ -5,6 +5,17 @@ use macroquad::prelude::*;
 use super::font::draw_text_jp;
 use crate::skin::Rect;
 
+/// Judge statistics data
+pub struct JudgeData {
+    pub pgreat: u32,
+    pub great: u32,
+    pub good: u32,
+    pub bad: u32,
+    pub poor: u32,
+    pub fast: u32,
+    pub slow: u32,
+}
+
 /// Judge statistics display
 pub struct JudgeStats {
     pub pgreat: u32,
@@ -32,24 +43,15 @@ impl JudgeStats {
     }
 
     /// Update stats from score manager
-    pub fn update(
-        &mut self,
-        pgreat: u32,
-        great: u32,
-        good: u32,
-        bad: u32,
-        poor: u32,
-        fast: u32,
-        slow: u32,
-    ) {
-        self.pgreat = pgreat;
-        self.great = great;
-        self.good = good;
-        self.bad = bad;
-        self.poor = poor;
-        self.combo_break = bad + poor;
-        self.fast = fast;
-        self.slow = slow;
+    pub fn update(&mut self, data: JudgeData) {
+        self.pgreat = data.pgreat;
+        self.great = data.great;
+        self.good = data.good;
+        self.bad = data.bad;
+        self.poor = data.poor;
+        self.combo_break = data.bad + data.poor;
+        self.fast = data.fast;
+        self.slow = data.slow;
     }
 
     /// Draw the judge statistics within the specified rect
@@ -149,7 +151,13 @@ impl BpmDisplay {
             20.0,
             GRAY,
         );
-        draw_text_jp("MIN", rect.x + 10.0, y_start + line_height + 20.0, 12.0, DARKGRAY);
+        draw_text_jp(
+            "MIN",
+            rect.x + 10.0,
+            y_start + line_height + 20.0,
+            12.0,
+            DARKGRAY,
+        );
 
         draw_text_jp(
             &format!("{}", self.max_bpm),
@@ -167,7 +175,13 @@ impl BpmDisplay {
         );
 
         // BPM label
-        draw_text_jp("BPM", center_x - 20.0, y_start + line_height + 45.0, 14.0, GRAY);
+        draw_text_jp(
+            "BPM",
+            center_x - 20.0,
+            y_start + line_height + 45.0,
+            14.0,
+            GRAY,
+        );
     }
 }
 

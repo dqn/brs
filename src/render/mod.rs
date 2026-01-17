@@ -5,6 +5,7 @@ pub mod font;
 mod highway;
 mod judge_stats;
 mod lane_cover;
+mod progress_bar;
 mod score_graph;
 mod turntable;
 mod video;
@@ -15,8 +16,9 @@ pub use bga::BgaManager;
 pub use config::HighwayConfig;
 pub use effects::EffectManager;
 pub use highway::Highway;
-pub use judge_stats::{BpmDisplay, JudgeStats};
+pub use judge_stats::{BpmDisplay, JudgeData, JudgeStats};
 pub use lane_cover::LaneCover;
+pub use progress_bar::ProgressBar;
 pub use score_graph::ScoreGraph;
 pub use turntable::Turntable;
 #[allow(unused_imports)]

@@ -86,6 +86,7 @@ impl Highway {
     }
 
     /// Draw highway within a specified rect (for IIDX-style layout)
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_in_rect(
         &self,
         rect: &crate::skin::Rect,
@@ -93,15 +94,27 @@ impl Highway {
         play_state: &GamePlayState,
         current_time_ms: f64,
         scroll_speed: f32,
+        measure_times: &[f64],
     ) {
         // Calculate scale factor based on rect width vs original total width
         let original_width = self.config.total_width();
         let scale = rect.width / original_width;
 
         // Calculate judge line Y position within the rect
-        let judge_y = rect.y + rect.height * 0.92; // Judge line at 92% height
+        // LIFT=0: judge line at bottom, LIFT>0: offset upward
+        let lift_ratio = self.lane_cover.lift as f32 / 1000.0;
+        let judge_y = rect.y + rect.height * (1.0 - lift_ratio);
+        let pixels_per_ms = scroll_speed as f64 * 0.5;
 
         self.draw_lanes_in_rect(rect, scale);
+        self.draw_measure_lines_in_rect(
+            rect,
+            scale,
+            judge_y,
+            current_time_ms,
+            pixels_per_ms,
+            measure_times,
+        );
         self.draw_notes_in_rect(
             rect,
             scale,
@@ -111,8 +124,8 @@ impl Highway {
             current_time_ms,
             scroll_speed,
         );
-        self.draw_judge_line_in_rect(rect, scale, judge_y);
         self.draw_lane_covers_in_rect(rect, scale, judge_y);
+        self.draw_judge_line_in_rect(rect, scale, judge_y);
     }
 
     fn draw_lanes_in_rect(&self, rect: &crate::skin::Rect, scale: f32) {
@@ -211,7 +224,10 @@ impl Highway {
                 continue;
             };
 
-            if !play_state.get_state(end_idx).is_some_and(|s| s.is_pending()) {
+            if !play_state
+                .get_state(end_idx)
+                .is_some_and(|s| s.is_pending())
+            {
                 continue;
             }
 
@@ -282,12 +298,7 @@ impl Highway {
         );
     }
 
-    fn draw_judge_line_in_rect(
-        &self,
-        rect: &crate::skin::Rect,
-        scale: f32,
-        judge_y: f32,
-    ) {
+    fn draw_judge_line_in_rect(&self, rect: &crate::skin::Rect, scale: f32, judge_y: f32) {
         let highway_width = self.config.total_width() * scale;
         draw_line(
             rect.x,
@@ -299,12 +310,47 @@ impl Highway {
         );
     }
 
-    fn draw_lane_covers_in_rect(
+    /// Draw measure lines within a specified rect
+    fn draw_measure_lines_in_rect(
         &self,
         rect: &crate::skin::Rect,
         scale: f32,
         judge_y: f32,
+        current_time_ms: f64,
+        pixels_per_ms: f64,
+        measure_times: &[f64],
     ) {
+        let highway_width = self.config.total_width() * scale;
+        let measure_line_color = Color::new(0.5, 0.5, 0.5, 0.6);
+
+        for &time_ms in measure_times.iter() {
+            let time_diff = time_ms - current_time_ms;
+
+            // Skip if not in visible range
+            if !(-100.0..=self.config.visible_range_ms).contains(&time_diff) {
+                continue;
+            }
+
+            let y = judge_y - (time_diff * pixels_per_ms) as f32;
+
+            // Skip if below judge line or above rect
+            if y > judge_y || y < rect.y {
+                continue;
+            }
+
+            // Draw the measure line
+            draw_line(
+                rect.x,
+                y,
+                rect.x + highway_width,
+                y,
+                1.0,
+                measure_line_color,
+            );
+        }
+    }
+
+    fn draw_lane_covers_in_rect(&self, rect: &crate::skin::Rect, scale: f32, judge_y: f32) {
         let highway_width = self.config.total_width() * scale;
         let lane_height = judge_y - rect.y;
         let cover_color = self.config.lane_cover_color();
@@ -328,11 +374,12 @@ impl Highway {
             let lift_color = self.config.lift_cover_color();
             let cover_height = (self.lane_cover.lift as f32 / 1000.0) * lane_height;
             let cover_y = judge_y - cover_height;
+            let cover_bottom = rect.y + rect.height;
             draw_rectangle(
                 rect.x,
                 cover_y,
                 highway_width,
-                cover_height + 30.0,
+                cover_bottom - cover_y,
                 lift_color,
             );
             draw_text_jp(
@@ -366,7 +413,6 @@ impl Highway {
     }
 
     /// Get lane widths for all lanes
-    #[allow(dead_code)]
     pub fn get_lane_widths(&self) -> Vec<f32> {
         let lane_count = self.config.lane_count();
         (0..lane_count)
@@ -381,10 +427,20 @@ impl Highway {
     }
 
     /// Get lane colors for all lanes
-    #[allow(dead_code)]
     pub fn get_lane_colors(&self) -> Vec<Color> {
         let lane_count = self.config.lane_count();
         (0..lane_count).map(|i| self.config.lane_color(i)).collect()
+    }
+
+    /// Get total highway width
+    pub fn total_width(&self) -> f32 {
+        self.config.total_width()
+    }
+
+    /// Calculate judge line Y position within a rect, accounting for LIFT
+    pub fn judge_y_in_rect(&self, rect: &crate::skin::Rect) -> f32 {
+        let lift_ratio = self.lane_cover.lift as f32 / 1000.0;
+        rect.y + rect.height * (1.0 - lift_ratio)
     }
 
     /// Get judge line Y position adjusted for LIFT

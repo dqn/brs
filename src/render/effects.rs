@@ -341,6 +341,53 @@ impl EffectManager {
             x += width;
         }
     }
+
+    /// Draw key beams within a specified rect (for IIDX-style layout)
+    /// lane_widths should be scaled to the rect dimensions
+    pub fn draw_key_beams_in_rect(
+        &self,
+        rect: &crate::skin::Rect,
+        lane_widths: &[f32],
+        lane_colors: &[Color],
+        scale: f32,
+        judge_y: f32,
+    ) {
+        let config = &self.effect_config.key_beam;
+        if !config.enabled {
+            return;
+        }
+
+        let beam_height = (judge_y - rect.y) * config.height_ratio;
+
+        let mut x = rect.x;
+        for (i, beam) in self.key_beams.iter().enumerate() {
+            let base_width = lane_widths.get(i).copied().unwrap_or(50.0);
+            let width = base_width * scale;
+
+            if beam.is_active() {
+                let base_color = lane_colors.get(i).copied().unwrap_or(WHITE);
+
+                // Draw gradient: more opaque at bottom (judge line), transparent at top
+                let segments = 20;
+                let segment_height = beam_height / segments as f32;
+
+                for seg in 0..segments {
+                    let y = judge_y - (seg + 1) as f32 * segment_height;
+                    // Don't draw above the rect
+                    if y < rect.y {
+                        continue;
+                    }
+                    let progress = seg as f32 / segments as f32;
+                    // Interpolate alpha from max (bottom) to min (top)
+                    let alpha = config.max_alpha * (1.0 - progress) + config.min_alpha * progress;
+                    let color = Color::new(base_color.r, base_color.g, base_color.b, alpha);
+                    draw_rectangle(x, y, width, segment_height, color);
+                }
+            }
+
+            x += width;
+        }
+    }
 }
 
 impl Default for EffectManager {
