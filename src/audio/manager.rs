@@ -45,6 +45,7 @@ fn find_audio_file(base_path: &Path, filename: &str) -> Option<PathBuf> {
 use kira::AudioManager as KiraAudioManager;
 use kira::AudioManagerSettings;
 use kira::Decibels;
+use kira::sound::PlaybackState;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle, StaticSoundSettings};
 
 /// Result of loading keysounds
@@ -75,6 +76,10 @@ pub struct AudioManager {
     master_volume: f64,
     keysound_volume: f64,
     bgm_volume: f64,
+    /// Reference BGM handle for audio-based timing
+    reference_bgm: Option<StaticSoundHandle>,
+    /// Start time of the reference BGM in milliseconds
+    reference_bgm_start_time_ms: f64,
 }
 
 impl AudioManager {
@@ -88,6 +93,8 @@ impl AudioManager {
             master_volume: 1.0,
             keysound_volume: 1.0,
             bgm_volume: 1.0,
+            reference_bgm: None,
+            reference_bgm_start_time_ms: 0.0,
         })
     }
 
@@ -180,17 +187,55 @@ impl AudioManager {
     }
 
     /// Play BGM with current volume settings
-    pub fn play_bgm(&mut self, keysound_id: u32) -> Option<StaticSoundHandle> {
+    /// If the reference BGM is invalid (None or stopped), the new BGM will be used as reference
+    pub fn play_bgm(&mut self, keysound_id: u32, event_time_ms: f64) -> Option<StaticSoundHandle> {
         if let Some(sound_data) = self.sounds.get(&keysound_id) {
             let effective_volume = self.master_volume * self.bgm_volume;
             let decibels = Self::amplitude_to_decibels(effective_volume);
             let settings = StaticSoundSettings::new().volume(decibels);
-            self.manager
+            let handle = self
+                .manager
                 .play(sound_data.clone().with_settings(settings))
-                .ok()
+                .ok()?;
+
+            // Update reference BGM if current one is invalid (None or stopped)
+            if !self.is_reference_bgm_valid() {
+                self.reference_bgm_start_time_ms = event_time_ms;
+                self.reference_bgm = Some(handle);
+                None
+            } else {
+                Some(handle)
+            }
         } else {
             None
         }
+    }
+
+    /// Get current audio time in milliseconds based on the reference BGM
+    /// Returns None if no reference BGM has been set yet or if it has stopped playing
+    pub fn audio_time_ms(&self) -> Option<f64> {
+        self.reference_bgm.as_ref().and_then(|handle| {
+            // Only return time if BGM is still playing
+            if matches!(handle.state(), PlaybackState::Playing) {
+                let position_sec = handle.position();
+                Some(self.reference_bgm_start_time_ms + (position_sec * 1000.0))
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Check if the reference BGM is still valid (playing)
+    fn is_reference_bgm_valid(&self) -> bool {
+        self.reference_bgm
+            .as_ref()
+            .is_some_and(|h| matches!(h.state(), PlaybackState::Playing))
+    }
+
+    /// Reset the reference BGM (call when restarting playback)
+    pub fn reset_reference_bgm(&mut self) {
+        self.reference_bgm = None;
+        self.reference_bgm_start_time_ms = 0.0;
     }
 
     // Public API for querying loaded keysound count
