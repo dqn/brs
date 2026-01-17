@@ -586,6 +586,18 @@ impl GameState {
                 if note.note_type == NoteType::LongStart {
                     let lane_idx = note.channel.lane_index();
                     self.active_long_notes[lane_idx] = None;
+
+                    // Also mark the corresponding LongEnd as missed
+                    for &end_idx in &self.lane_index[lane_idx] {
+                        let end_note = &chart.notes[end_idx];
+                        if end_note.note_type == NoteType::LongEnd
+                            && end_note.time_ms > note.time_ms
+                            && play_state.get_state(end_idx).is_some_and(|s| s.is_pending())
+                        {
+                            play_state.set_missed(end_idx);
+                            break;
+                        }
+                    }
                 }
             }
         }
