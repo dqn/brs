@@ -341,10 +341,35 @@ pub fn lane_count(mode: PlayMode) -> usize {
 
 impl Chart {
     // Public API for querying chart's maximum measure
-    #[allow(dead_code)]
     pub fn max_measure(&self) -> u32 {
         let note_max = self.notes.iter().map(|n| n.measure).max().unwrap_or(0);
         let bgm_max = self.bgm_events.iter().map(|b| b.measure).max().unwrap_or(0);
+        note_max.max(bgm_max)
+    }
+
+    /// Get the start time in milliseconds for each measure
+    pub fn measure_start_times(&self) -> Vec<f64> {
+        use crate::bms::timing::calculate_time_ms;
+        let max_measure = self.max_measure();
+        let zero = Fraction::new(0u32, 1u32);
+        (0..=max_measure)
+            .map(|m| calculate_time_ms(m, zero, &self.timing_data))
+            .collect()
+    }
+
+    /// Get the total duration of the chart in milliseconds
+    pub fn total_duration_ms(&self) -> f64 {
+        // Find the maximum time from notes and BGM events
+        let note_max = self
+            .notes
+            .iter()
+            .map(|n| n.long_end_time_ms.unwrap_or(n.time_ms))
+            .fold(0.0f64, f64::max);
+        let bgm_max = self
+            .bgm_events
+            .iter()
+            .map(|b| b.time_ms)
+            .fold(0.0f64, f64::max);
         note_max.max(bgm_max)
     }
 
