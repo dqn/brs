@@ -1001,6 +1001,17 @@ impl GameState {
     pub fn is_failed(&self) -> bool {
         self.gauge.as_ref().is_some_and(|g| g.is_failed())
     }
+
+    /// Get current gameplay settings for persistence
+    pub fn get_gameplay_settings(&self) -> (f32, u16, u16, u16) {
+        let lane_cover = self.highway.lane_cover();
+        (
+            self.scroll_speed,
+            lane_cover.sudden,
+            lane_cover.hidden,
+            lane_cover.lift,
+        )
+    }
 }
 
 impl Default for GameState {

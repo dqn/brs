@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use macroquad::prelude::*;
 
 use super::{ResultScene, Scene, SceneTransition};
+use crate::config::GameSettings;
 use crate::game::GameState;
 use crate::render::font::{draw_text_jp, measure_text_jp};
 
@@ -152,6 +153,19 @@ impl GameplayScene {
             GameplayError::Other(e.to_string())
         }
     }
+
+    /// Save gameplay settings (scroll speed, lane cover) to persistent storage
+    fn save_gameplay_settings(&self) {
+        let (scroll_speed, sudden, hidden, lift) = self.state.get_gameplay_settings();
+        let mut settings = GameSettings::load();
+        settings.scroll_speed = scroll_speed;
+        settings.sudden = sudden;
+        settings.hidden = hidden;
+        settings.lift = lift;
+        if let Err(e) = settings.save() {
+            eprintln!("Failed to save settings: {}", e);
+        }
+    }
 }
 
 impl Scene for GameplayScene {
@@ -177,6 +191,7 @@ impl Scene for GameplayScene {
         }
 
         if is_key_pressed(KeyCode::Escape) {
+            self.save_gameplay_settings();
             return SceneTransition::Pop;
         }
 
@@ -186,6 +201,7 @@ impl Scene for GameplayScene {
         let should_finish = self.state.is_finished() || self.state.is_failed();
         if should_finish && !self.finished {
             self.finished = true;
+            self.save_gameplay_settings();
             let result = self.state.get_result(&self.chart_path);
             return SceneTransition::Replace(Box::new(ResultScene::new(result)));
         }
