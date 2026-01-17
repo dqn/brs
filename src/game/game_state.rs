@@ -48,6 +48,8 @@ pub struct GameState {
     scroll_speed: f32,
     current_time_ms: f64,
     playing: bool,
+    /// Skip first frame time delta after loading to avoid time drift
+    first_frame: bool,
     last_judgment: Option<JudgeResult>,
     last_timing_diff_ms: Option<f64>,
     active_long_notes: [Option<ActiveLongNote>; MAX_LANE_COUNT],
@@ -83,6 +85,7 @@ impl GameState {
             scroll_speed: 1.0,
             current_time_ms: 0.0,
             playing: false,
+            first_frame: true,
             last_judgment: None,
             last_timing_diff_ms: None,
             active_long_notes: [const { None }; MAX_LANE_COUNT],
@@ -291,7 +294,14 @@ impl GameState {
         }
 
         if self.playing {
-            self.current_time_ms += get_frame_time() as f64 * 1000.0;
+            // Skip first frame time delta to avoid time drift from loading
+            let delta_ms = if self.first_frame {
+                self.first_frame = false;
+                0.0
+            } else {
+                get_frame_time() as f64 * 1000.0
+            };
+            self.current_time_ms += delta_ms;
 
             if let (Some(chart), Some(audio)) = (&self.chart, &mut self.audio) {
                 self.scheduler.update(chart, audio, self.current_time_ms);
@@ -309,7 +319,7 @@ impl GameState {
                 self.process_auto_scratch();
             }
             self.check_missed_notes();
-            self.process_hcn_damage(get_frame_time() as f64 * 1000.0);
+            self.process_hcn_damage(delta_ms);
         }
 
         // Update key beam states
