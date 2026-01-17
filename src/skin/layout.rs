@@ -385,7 +385,12 @@ impl PlayAreaLayout {
     /// Calculate score display rect within play area
     pub fn score_rect(&self, play_area: &Rect) -> Rect {
         let score_y = play_area.y + play_area.height - self.score_area_height;
-        Rect::new(play_area.x, score_y, play_area.width, self.score_area_height)
+        Rect::new(
+            play_area.x,
+            score_y,
+            play_area.width,
+            self.score_area_height,
+        )
     }
 }
 
@@ -416,7 +421,12 @@ impl Default for InfoAreaLayout {
 impl InfoAreaLayout {
     /// Calculate header rect for song info
     pub fn header_rect(&self, info_area: &Rect) -> Rect {
-        Rect::new(info_area.x, info_area.y, info_area.width, self.header_height)
+        Rect::new(
+            info_area.x,
+            info_area.y,
+            info_area.width,
+            self.header_height,
+        )
     }
 
     /// Calculate BGA rect with aspect ratio preserved
@@ -441,7 +451,12 @@ impl InfoAreaLayout {
     pub fn judge_stats_rect(&self, info_area: &Rect) -> Rect {
         let bottom_y = info_area.y + info_area.height - self.bottom_panel_height;
         let width = info_area.width * self.judge_stats_width_ratio;
-        Rect::new(info_area.x + 10.0, bottom_y, width - 20.0, self.bottom_panel_height)
+        Rect::new(
+            info_area.x + 10.0,
+            bottom_y,
+            width - 20.0,
+            self.bottom_panel_height,
+        )
     }
 
     /// Calculate BPM display rect

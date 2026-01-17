@@ -137,7 +137,13 @@ impl ScoreGraph {
             };
 
             draw_text_jp("MYBEST", rect.x + 15.0, score_y + 25.0, 14.0, GRAY);
-            draw_text_jp(&diff_str, rect.x + rect.width - 80.0, score_y + 25.0, 18.0, diff_color);
+            draw_text_jp(
+                &diff_str,
+                rect.x + rect.width - 80.0,
+                score_y + 25.0,
+                18.0,
+                diff_color,
+            );
         }
     }
 }

@@ -41,7 +41,12 @@ impl Turntable {
         let radius = rect.width.min(rect.height) / 2.0 - 5.0;
 
         // Outer ring (dark blue border)
-        draw_circle(center_x, center_y, radius + 3.0, Color::new(0.1, 0.2, 0.4, 1.0));
+        draw_circle(
+            center_x,
+            center_y,
+            radius + 3.0,
+            Color::new(0.1, 0.2, 0.4, 1.0),
+        );
 
         // Main turntable body (blue gradient effect)
         let base_color = if self.is_active {
