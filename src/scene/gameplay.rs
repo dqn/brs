@@ -172,6 +172,8 @@ impl Scene for GameplayScene {
                 return SceneTransition::None;
             }
             self.loaded = true;
+            // Skip update on the frame load_chart completes to avoid time drift from loading time
+            return SceneTransition::None;
         }
 
         if is_key_pressed(KeyCode::Escape) {
