@@ -352,13 +352,12 @@ impl Highway {
 
     fn draw_lane_covers_in_rect(&self, rect: &crate::skin::Rect, scale: f32, judge_y: f32) {
         let highway_width = self.config.total_width() * scale;
-        let lane_height = judge_y - rect.y;
         let cover_color = self.config.lane_cover_color();
         let text_color = self.config.lane_cover_text_color();
 
-        // SUDDEN+ cover
+        // SUDDEN+ cover - use rect.height to be independent of LIFT
         if self.lane_cover.sudden > 0 {
-            let cover_height = (self.lane_cover.sudden as f32 / 1000.0) * lane_height;
+            let cover_height = (self.lane_cover.sudden as f32 / 1000.0) * rect.height;
             draw_rectangle(rect.x, rect.y, highway_width, cover_height, cover_color);
             draw_text_jp(
                 &format!("SUD+ {}", self.lane_cover.sudden),
@@ -369,23 +368,20 @@ impl Highway {
             );
         }
 
-        // LIFT cover
+        // LIFT cover - draw from judge line to bottom
         if self.lane_cover.lift > 0 {
             let lift_color = self.config.lift_cover_color();
-            let cover_height = (self.lane_cover.lift as f32 / 1000.0) * lane_height;
-            let cover_y = judge_y - cover_height;
-            let cover_bottom = rect.y + rect.height;
             draw_rectangle(
                 rect.x,
-                cover_y,
+                judge_y,
                 highway_width,
-                cover_bottom - cover_y,
+                rect.y + rect.height - judge_y,
                 lift_color,
             );
             draw_text_jp(
                 &format!("LIFT {}", self.lane_cover.lift),
                 rect.x + 10.0,
-                cover_y + 15.0,
+                judge_y + 15.0,
                 16.0,
                 text_color,
             );
