@@ -287,10 +287,6 @@ impl GameState {
                     true,
                 ));
             }
-            // Reset audio reference BGM for timing
-            if let Some(audio) = &mut self.audio {
-                audio.reset_reference_bgm();
-            }
             self.playing = false;
             self.first_frame = true;
             self.last_judgment = None;
@@ -335,18 +331,8 @@ impl GameState {
                 get_frame_time() as f64 * 1000.0
             };
 
-            // Update time: use audio clock if available, otherwise use frame-based time
-            if let Some(audio) = &self.audio {
-                if let Some(audio_time) = audio.audio_time_ms() {
-                    // Audio clock is available - use it as the source of truth
-                    self.current_time_ms = audio_time;
-                } else {
-                    // No BGM playing yet - use frame-based time
-                    self.current_time_ms += delta_ms;
-                }
-            } else {
-                self.current_time_ms += delta_ms;
-            }
+            // Update time using frame-based timing
+            self.current_time_ms += delta_ms;
 
             if let (Some(chart), Some(audio)) = (&self.chart, &mut self.audio) {
                 self.scheduler.update(chart, audio, self.current_time_ms);
