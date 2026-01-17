@@ -908,27 +908,24 @@ impl GameState {
         );
     }
 
-    /// Calculate Green Number (visible time in milliseconds)
-    /// Green Number represents how long a note is visible before reaching the judge line
+    /// Calculate Green Number (IIDX specification)
+    /// Unit: 0.1 frames at 60fps
+    /// Formula: G = 174.75 × (1000 - W) / B / HS
+    /// where W = white number (SUDDEN+ + LIFT), B = BPM, HS = HI-SPEED
     fn calculate_green_number(&self) -> f32 {
-        // Base scroll time at 150 BPM, 1.0x speed for full lane visibility
-        // This gives roughly 1600ms at 150 BPM with 1.0x speed
         let base_bpm = self
             .chart
             .as_ref()
             .map(|c| c.metadata.bpm as f32)
             .unwrap_or(150.0);
 
-        // Base time for notes to travel the visible lane at 150 BPM
-        let base_time_ms = 60000.0 / 150.0 * 4.0; // 4 beats visible
+        // IIDX formula: G = 174.75 × (1000 - W) / B / HS
+        // W = SUDDEN+ + LIFT (HIDDEN is not included in white number)
+        let lane_cover = self.highway.lane_cover();
+        let white_number = (lane_cover.sudden + lane_cover.lift) as f32;
+        let visible_lane = 1000.0 - white_number;
 
-        // Adjust for actual BPM and speed
-        let scroll_time = base_time_ms * 150.0 / base_bpm / self.scroll_speed;
-
-        // Apply lane cover visibility ratio
-        let visible_ratio = self.highway.lane_cover().visible_ratio();
-
-        scroll_time * visible_ratio
+        174.75 * visible_lane / base_bpm / self.scroll_speed
     }
 
     pub fn is_finished(&self) -> bool {
