@@ -11,6 +11,7 @@ use crate::ir::{
     validate_score,
 };
 use crate::render::font::draw_text_jp;
+use crate::render::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 
 use super::{Scene, SceneTransition};
 
@@ -264,7 +265,7 @@ impl Scene for ResultScene {
     fn draw(&self) {
         clear_background(Color::new(0.02, 0.02, 0.08, 1.0));
 
-        let center_x = screen_width() / 2.0;
+        let center_x = VIRTUAL_WIDTH / 2.0;
 
         draw_text_jp("RESULT", center_x - 60.0, 50.0, 40.0, WHITE);
 
@@ -390,7 +391,7 @@ impl Scene for ResultScene {
 
         let ir_text = ir_state.display_text();
         if !ir_text.is_empty() {
-            draw_text_jp(ir_text, screen_width() - 200.0, 30.0, 18.0, ir_color);
+            draw_text_jp(ir_text, VIRTUAL_WIDTH - 200.0, 30.0, 18.0, ir_color);
         }
 
         // Show IR rank if available
@@ -399,7 +400,7 @@ impl Scene for ResultScene {
                 let total = self.ir_total_players.lock().unwrap().unwrap_or(0);
                 draw_text_jp(
                     &format!("IR Rank: #{}/{}", rank, total),
-                    screen_width() - 200.0,
+                    VIRTUAL_WIDTH - 200.0,
                     50.0,
                     16.0,
                     GREEN,
@@ -409,13 +410,13 @@ impl Scene for ResultScene {
 
         // Show retry hint if failed
         if ir_state == IrSubmitState::Failed {
-            draw_text_jp("[R] Retry IR", screen_width() - 200.0, 50.0, 14.0, GRAY);
+            draw_text_jp("[R] Retry IR", VIRTUAL_WIDTH - 200.0, 50.0, 14.0, GRAY);
         }
 
         draw_text_jp(
             "[Enter] Continue",
             center_x - 80.0,
-            screen_height() - 30.0,
+            VIRTUAL_HEIGHT - 30.0,
             20.0,
             GRAY,
         );

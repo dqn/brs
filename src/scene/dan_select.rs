@@ -5,6 +5,7 @@ use macroquad::prelude::*;
 use crate::dan::{DanCourse, DanGrade, load_courses};
 use crate::database::DanRepository;
 use crate::render::font::draw_text_jp;
+use crate::render::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 
 use super::{DanGameplayScene, Scene, SceneTransition};
 
@@ -135,18 +136,18 @@ impl Scene for DanSelectScene {
             draw_text_jp(
                 "No courses found.",
                 20.0,
-                screen_height() / 2.0 - 40.0,
+                VIRTUAL_HEIGHT / 2.0 - 40.0,
                 24.0,
                 YELLOW,
             );
             draw_text_jp(
                 "Place course JSON files in dan_courses/ directory.",
                 20.0,
-                screen_height() / 2.0,
+                VIRTUAL_HEIGHT / 2.0,
                 20.0,
                 GRAY,
             );
-            draw_text_jp("[Esc] Back", 20.0, screen_height() - 20.0, 16.0, GRAY);
+            draw_text_jp("[Esc] Back", 20.0, VIRTUAL_HEIGHT - 20.0, 16.0, GRAY);
             return;
         }
 
@@ -167,7 +168,7 @@ impl Scene for DanSelectScene {
                 draw_rectangle(
                     10.0,
                     y - 5.0,
-                    screen_width() - 20.0,
+                    VIRTUAL_WIDTH - 20.0,
                     item_height,
                     Color::new(0.2, 0.3, 0.5, 1.0),
                 );
@@ -216,7 +217,7 @@ impl Scene for DanSelectScene {
         draw_text_jp(
             "[Up/Down] Select | [Enter] Start | [Esc] Back",
             20.0,
-            screen_height() - 20.0,
+            VIRTUAL_HEIGHT - 20.0,
             16.0,
             GRAY,
         );

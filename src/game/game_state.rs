@@ -9,7 +9,7 @@ use crate::config::GameSettings;
 use crate::render::font::draw_text_jp;
 use crate::render::{
     BgaManager, BpmDisplay, EffectManager, Highway, JudgeStats, LaneCover, ProgressBar, ScoreGraph,
-    Turntable,
+    Turntable, VIRTUAL_HEIGHT, VIRTUAL_WIDTH,
 };
 use crate::skin::{IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect};
 
@@ -287,7 +287,12 @@ impl GameState {
                     true,
                 ));
             }
+            // Reset audio reference BGM for timing
+            if let Some(audio) = &mut self.audio {
+                audio.reset_reference_bgm();
+            }
             self.playing = false;
+            self.first_frame = true;
             self.last_judgment = None;
             self.active_long_notes = [const { None }; MAX_LANE_COUNT];
             self.hcn_damage_timers = [0.0; MAX_LANE_COUNT];
@@ -329,7 +334,19 @@ impl GameState {
             } else {
                 get_frame_time() as f64 * 1000.0
             };
-            self.current_time_ms += delta_ms;
+
+            // Update time: use audio clock if available, otherwise use frame-based time
+            if let Some(audio) = &self.audio {
+                if let Some(audio_time) = audio.audio_time_ms() {
+                    // Audio clock is available - use it as the source of truth
+                    self.current_time_ms = audio_time;
+                } else {
+                    // No BGM playing yet - use frame-based time
+                    self.current_time_ms += delta_ms;
+                }
+            } else {
+                self.current_time_ms += delta_ms;
+            }
 
             if let (Some(chart), Some(audio)) = (&self.chart, &mut self.audio) {
                 self.scheduler.update(chart, audio, self.current_time_ms);
@@ -426,8 +443,8 @@ impl GameState {
                     audio.play(note.keysound_id);
 
                     // Trigger visual effects
-                    let effect_x = screen_width() / 2.0;
-                    let effect_y = screen_height() / 2.0;
+                    let effect_x = VIRTUAL_WIDTH / 2.0;
+                    let effect_y = VIRTUAL_HEIGHT / 2.0;
                     self.effects.trigger_judge(result, effect_x, effect_y);
                     self.effects.update_combo(self.score.combo);
 
@@ -724,8 +741,8 @@ impl GameState {
 
                 // Trigger visual effects
                 self.effects.trigger_lane_flash(scratch_lane);
-                let effect_x = screen_width() / 2.0;
-                let effect_y = screen_height() / 2.0;
+                let effect_x = VIRTUAL_WIDTH / 2.0;
+                let effect_y = VIRTUAL_HEIGHT / 2.0;
                 self.effects.trigger_judge(result, effect_x, effect_y);
                 self.effects.update_combo(self.score.combo);
 
@@ -780,7 +797,7 @@ impl GameState {
         // Calculate IIDX-style 3-column layout
         let areas = self
             .iidx_layout
-            .calculate_areas(screen_width(), screen_height());
+            .calculate_areas(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
         // Draw each area
         self.draw_play_area(&areas.play);
@@ -1097,7 +1114,7 @@ impl GameState {
         draw_text_jp(
             "[Space] Play/Pause | [R] Reset | [Up/Down] Speed",
             10.0,
-            screen_height() - 20.0,
+            VIRTUAL_HEIGHT - 20.0,
             12.0,
             GRAY,
         );

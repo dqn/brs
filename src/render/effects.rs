@@ -1,6 +1,7 @@
 use macroquad::prelude::*;
 
 use super::font::draw_text_jp;
+use super::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 use crate::game::JudgeResult;
 use crate::skin::EffectConfig;
 
@@ -292,12 +293,7 @@ impl EffectManager {
     /// center_x: horizontal center of the highway
     /// y: Y position to draw (typically judge_y - 120.0)
     /// timing_diff_ms: timing difference in ms (negative = early/FAST, positive = late/SLOW)
-    pub fn draw_judge_and_combo_at(
-        &self,
-        center_x: f32,
-        y: f32,
-        timing_diff_ms: Option<f64>,
-    ) {
+    pub fn draw_judge_and_combo_at(&self, center_x: f32, y: f32, timing_diff_ms: Option<f64>) {
         let Some(ref effect) = self.judge_effect else {
             return;
         };
@@ -473,6 +469,6 @@ impl EffectManager {
 
 impl Default for EffectManager {
     fn default() -> Self {
-        Self::new(screen_width() / 2.0, screen_height() / 2.0 + 50.0)
+        Self::new(VIRTUAL_WIDTH / 2.0, VIRTUAL_HEIGHT / 2.0 + 50.0)
     }
 }

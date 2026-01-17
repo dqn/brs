@@ -6,6 +6,7 @@ use super::{ResultScene, Scene, SceneTransition};
 use crate::config::GameSettings;
 use crate::game::GameState;
 use crate::render::font::{draw_text_jp, measure_text_jp};
+use crate::render::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 
 /// Error types that can occur during gameplay
 #[derive(Debug)]
@@ -55,8 +56,8 @@ impl GameplayScene {
     fn draw_error(&self, error: &GameplayError) {
         clear_background(Color::from_rgba(20, 20, 30, 255));
 
-        let screen_w = screen_width();
-        let screen_h = screen_height();
+        let screen_w = VIRTUAL_WIDTH;
+        let screen_h = VIRTUAL_HEIGHT;
 
         // Error title
         let title = "Error";
@@ -220,8 +221,8 @@ impl Scene for GameplayScene {
             let dims = measure_text_jp(text, text_size);
             draw_text_jp(
                 text,
-                (screen_width() - dims.width) / 2.0,
-                screen_height() / 2.0,
+                (VIRTUAL_WIDTH - dims.width) / 2.0,
+                VIRTUAL_HEIGHT / 2.0,
                 text_size,
                 WHITE,
             );

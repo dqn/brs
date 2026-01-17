@@ -59,7 +59,6 @@ impl JudgeStats {
         let line_height = 22.0;
         let label_x = rect.x + 10.0;
         let value_x = rect.x + 60.0;
-        let fast_slow_x = rect.x + 110.0;
 
         // Header
         draw_text_jp("JUDGE", label_x, rect.y + 20.0, 16.0, GRAY);
@@ -79,7 +78,7 @@ impl JudgeStats {
             draw_text_jp(&format!("{:5}", value), value_x, y, 16.0, *color);
         }
 
-        // FAST/SLOW stats
+        // FAST/SLOW stats - position SLOW at right edge of rect
         let fast_slow_y = rect.y + 45.0 + 6.0 * line_height + 10.0;
         draw_text_jp(
             &format!("FAST {:4}", self.fast),
@@ -90,7 +89,7 @@ impl JudgeStats {
         );
         draw_text_jp(
             &format!("{:4} SLOW", self.slow),
-            fast_slow_x,
+            rect.x + rect.width - 80.0,
             fast_slow_y,
             14.0,
             Color::new(1.0, 0.5, 0.0, 1.0),

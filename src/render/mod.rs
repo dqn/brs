@@ -10,6 +10,10 @@ mod score_graph;
 mod turntable;
 mod video;
 
+// Virtual resolution constants for scaling
+pub const VIRTUAL_WIDTH: f32 = 1920.0;
+pub const VIRTUAL_HEIGHT: f32 = 1080.0;
+
 // Public API for library consumers
 pub use bga::BgaManager;
 #[allow(unused_imports)]

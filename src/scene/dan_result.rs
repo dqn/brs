@@ -4,6 +4,7 @@ use crate::dan::{CoursePassResult, CourseState, DanGrade};
 use crate::database::{DanRecord, DanRepository};
 use crate::game::ClearLamp;
 use crate::render::font::draw_text_jp;
+use crate::render::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 
 use super::{Scene, SceneTransition};
 
@@ -105,7 +106,7 @@ impl Scene for DanResultScene {
     fn draw(&self) {
         clear_background(Color::new(0.02, 0.02, 0.08, 1.0));
 
-        let center_x = screen_width() / 2.0;
+        let center_x = VIRTUAL_WIDTH / 2.0;
         let course = self.course_state.course();
         let stats = self.course_state.total_stats();
 
@@ -312,7 +313,7 @@ impl Scene for DanResultScene {
         draw_text_jp(
             "[Enter] Continue",
             center_x - 60.0,
-            screen_height() - 30.0,
+            VIRTUAL_HEIGHT - 30.0,
             18.0,
             GRAY,
         );

@@ -4,6 +4,7 @@ use super::{Scene, SceneTransition};
 use crate::config::GameSettings;
 use crate::game::{GaugeType, JudgeSystemType, RandomOption};
 use crate::render::font::draw_text_jp;
+use crate::render::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 
 /// Resolution presets
 const RESOLUTION_PRESETS: &[(u32, u32)] = &[
@@ -456,7 +457,7 @@ impl Scene for SettingsScene {
         let start_y = 80.0;
         let item_height = 35.0;
         let items = MenuItem::all();
-        let visible_items = ((screen_height() - 150.0) / item_height) as usize;
+        let visible_items = ((VIRTUAL_HEIGHT - 150.0) / item_height) as usize;
 
         // Calculate scroll offset to keep selected item visible
         let scroll_offset = if self.selected_index >= visible_items {
@@ -469,7 +470,7 @@ impl Scene for SettingsScene {
             let display_index = i - scroll_offset;
             let y = start_y + display_index as f32 * item_height;
 
-            if y > screen_height() - 80.0 {
+            if y > VIRTUAL_HEIGHT - 80.0 {
                 break;
             }
 
@@ -479,7 +480,7 @@ impl Scene for SettingsScene {
                 draw_rectangle(
                     10.0,
                     y - 5.0,
-                    screen_width() - 20.0,
+                    VIRTUAL_WIDTH - 20.0,
                     item_height - 5.0,
                     Color::new(0.2, 0.3, 0.5, 1.0),
                 );
@@ -521,6 +522,6 @@ impl Scene for SettingsScene {
             "[Up/Down] Select | [Left/Right] Adjust | [Enter] Confirm/Set Key | [Esc] Back"
         };
 
-        draw_text_jp(help_text, 20.0, screen_height() - 20.0, 14.0, GRAY);
+        draw_text_jp(help_text, 20.0, VIRTUAL_HEIGHT - 20.0, 14.0, GRAY);
     }
 }

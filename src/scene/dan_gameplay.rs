@@ -6,6 +6,7 @@ use crate::config::GameSettings;
 use crate::dan::{CourseState, DanCourse};
 use crate::game::GameState;
 use crate::render::font::draw_text_jp;
+use crate::render::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 
 use super::{DanResultScene, Scene, SceneTransition};
 
@@ -207,15 +208,15 @@ impl Scene for DanGameplayScene {
                 let total = self.course_state.total_stages();
                 draw_text_jp(
                     &format!("STAGE {}/{}", stage, total),
-                    screen_width() / 2.0 - 80.0,
-                    screen_height() / 2.0 - 40.0,
+                    VIRTUAL_WIDTH / 2.0 - 80.0,
+                    VIRTUAL_HEIGHT / 2.0 - 40.0,
                     40.0,
                     WHITE,
                 );
                 draw_text_jp(
                     "Loading...",
-                    screen_width() / 2.0 - 50.0,
-                    screen_height() / 2.0 + 20.0,
+                    VIRTUAL_WIDTH / 2.0 - 50.0,
+                    VIRTUAL_HEIGHT / 2.0 + 20.0,
                     24.0,
                     GRAY,
                 );
@@ -231,7 +232,7 @@ impl Scene for DanGameplayScene {
                 draw_text_jp(
                     &format!("STAGE {}/{}", stage, total),
                     20.0,
-                    screen_height() - 60.0,
+                    VIRTUAL_HEIGHT - 60.0,
                     20.0,
                     YELLOW,
                 );
@@ -240,7 +241,7 @@ impl Scene for DanGameplayScene {
                 draw_text_jp(
                     &self.course_state.course().name,
                     20.0,
-                    screen_height() - 80.0,
+                    VIRTUAL_HEIGHT - 80.0,
                     16.0,
                     GRAY,
                 );
@@ -254,8 +255,8 @@ impl Scene for DanGameplayScene {
 
                 draw_text_jp(
                     &format!("STAGE {} COMPLETE!", stage),
-                    screen_width() / 2.0 - 120.0,
-                    screen_height() / 2.0 - 40.0,
+                    VIRTUAL_WIDTH / 2.0 - 120.0,
+                    VIRTUAL_HEIGHT / 2.0 - 40.0,
                     36.0,
                     GREEN,
                 );
@@ -263,8 +264,8 @@ impl Scene for DanGameplayScene {
                 if stage < total {
                     draw_text_jp(
                         &format!("Next: STAGE {}/{}", stage + 1, total),
-                        screen_width() / 2.0 - 80.0,
-                        screen_height() / 2.0 + 20.0,
+                        VIRTUAL_WIDTH / 2.0 - 80.0,
+                        VIRTUAL_HEIGHT / 2.0 + 20.0,
                         24.0,
                         WHITE,
                     );
@@ -274,16 +275,16 @@ impl Scene for DanGameplayScene {
                 let stats = self.course_state.total_stats();
                 draw_text_jp(
                     &format!("Total EX Score: {}", stats.ex_score),
-                    screen_width() / 2.0 - 80.0,
-                    screen_height() / 2.0 + 60.0,
+                    VIRTUAL_WIDTH / 2.0 - 80.0,
+                    VIRTUAL_HEIGHT / 2.0 + 60.0,
                     18.0,
                     YELLOW,
                 );
 
                 draw_text_jp(
                     "[Enter] Continue",
-                    screen_width() / 2.0 - 60.0,
-                    screen_height() - 40.0,
+                    VIRTUAL_WIDTH / 2.0 - 60.0,
+                    VIRTUAL_HEIGHT - 40.0,
                     16.0,
                     GRAY,
                 );
@@ -293,8 +294,8 @@ impl Scene for DanGameplayScene {
                 clear_background(BLACK);
                 draw_text_jp(
                     "Loading result...",
-                    screen_width() / 2.0 - 80.0,
-                    screen_height() / 2.0,
+                    VIRTUAL_WIDTH / 2.0 - 80.0,
+                    VIRTUAL_HEIGHT / 2.0,
                     24.0,
                     WHITE,
                 );

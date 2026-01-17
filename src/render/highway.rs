@@ -3,6 +3,7 @@ use macroquad::prelude::*;
 use super::config::HighwayConfig;
 use super::font::draw_text_jp;
 use super::lane_cover::LaneCover;
+use super::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 use crate::bms::{Chart, Note, NoteType, PlayMode};
 use crate::game::GamePlayState;
 
@@ -405,7 +406,7 @@ impl Highway {
     /// Get highway X position
     pub fn highway_x(&self) -> f32 {
         let total_width = self.config.total_width();
-        (screen_width() - total_width) / 2.0
+        (VIRTUAL_WIDTH - total_width) / 2.0
     }
 
     /// Get lane widths for all lanes
@@ -453,15 +454,15 @@ impl Highway {
         for i in 0..lane_count {
             let x = highway_x + self.config.lane_x_offset(i);
             let width = self.config.lane_width_for_lane(i);
-            draw_rectangle(x, 0.0, width, screen_height(), background_color);
-            draw_line(x, 0.0, x, screen_height(), 1.0, border_color);
+            draw_rectangle(x, 0.0, width, VIRTUAL_HEIGHT, background_color);
+            draw_line(x, 0.0, x, VIRTUAL_HEIGHT, 1.0, border_color);
         }
         // Draw right edge of last lane
         let last_lane = lane_count - 1;
         let last_x = highway_x
             + self.config.lane_x_offset(last_lane)
             + self.config.lane_width_for_lane(last_lane);
-        draw_line(last_x, 0.0, last_x, screen_height(), 1.0, border_color);
+        draw_line(last_x, 0.0, last_x, VIRTUAL_HEIGHT, 1.0, border_color);
 
         // For DP mode, draw P1 right edge and P2 left edge
         if self.config.play_mode == PlayMode::Dp14Key {
@@ -472,20 +473,13 @@ impl Highway {
                 p1_right_x,
                 0.0,
                 p1_right_x,
-                screen_height(),
+                VIRTUAL_HEIGHT,
                 1.0,
                 border_color,
             );
             // P2 left edge (before lane 8)
             let p2_left_x = highway_x + self.config.lane_x_offset(8);
-            draw_line(
-                p2_left_x,
-                0.0,
-                p2_left_x,
-                screen_height(),
-                1.0,
-                border_color,
-            );
+            draw_line(p2_left_x, 0.0, p2_left_x, VIRTUAL_HEIGHT, 1.0, border_color);
         }
     }
 
@@ -700,7 +694,7 @@ impl Highway {
 
         // Draw HIDDEN+ cover (below judge line, covers notes after they pass)
         if self.lane_cover.hidden > 0 {
-            let below_judge_height = screen_height() - self.config.judge_line_y;
+            let below_judge_height = VIRTUAL_HEIGHT - self.config.judge_line_y;
             let cover_height = (self.lane_cover.hidden as f32 / 1000.0) * below_judge_height;
             draw_rectangle(
                 highway_x,
@@ -722,7 +716,7 @@ impl Highway {
 
     fn draw_info(&self, chart: &Chart) {
         let info_x = 10.0;
-        let info_y = screen_height() - 80.0;
+        let info_y = VIRTUAL_HEIGHT - 80.0;
 
         draw_text_jp(&chart.metadata.title, info_x, info_y, 24.0, WHITE);
         draw_text_jp(&chart.metadata.artist, info_x, info_y + 25.0, 18.0, GRAY);

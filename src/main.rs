@@ -9,10 +9,13 @@ mod render;
 mod scene;
 mod skin;
 
+use macroquad::camera::{Camera2D, set_camera, set_default_camera};
 use macroquad::prelude::*;
+use macroquad::texture::{FilterMode, RenderTarget, render_target};
 use macroquad::window::Conf;
 
 use config::GameSettings;
+use render::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 use scene::{GameplayScene, Scene, SceneTransition, SongSelectScene};
 
 fn window_conf() -> Conf {
@@ -28,12 +31,23 @@ fn window_conf() -> Conf {
 
 struct SceneManager {
     scenes: Vec<Box<dyn Scene>>,
+    render_target: RenderTarget,
+    camera: Camera2D,
 }
 
 impl SceneManager {
     fn new(initial_scene: Box<dyn Scene>) -> Self {
+        let rt = render_target(VIRTUAL_WIDTH as u32, VIRTUAL_HEIGHT as u32);
+        rt.texture.set_filter(FilterMode::Linear);
+
+        let mut camera =
+            Camera2D::from_display_rect(Rect::new(0.0, 0.0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT));
+        camera.render_target = Some(rt.clone());
+
         Self {
             scenes: vec![initial_scene],
+            render_target: rt,
+            camera,
         }
     }
 
@@ -56,9 +70,32 @@ impl SceneManager {
     }
 
     fn draw(&self) {
+        // Render to virtual resolution
+        set_camera(&self.camera);
         if let Some(scene) = self.scenes.last() {
             scene.draw();
         }
+
+        // Draw to actual window with scaling
+        set_default_camera();
+        clear_background(BLACK);
+
+        let scale = f32::min(
+            screen_width() / VIRTUAL_WIDTH,
+            screen_height() / VIRTUAL_HEIGHT,
+        );
+
+        draw_texture_ex(
+            &self.render_target.texture,
+            (screen_width() - VIRTUAL_WIDTH * scale) * 0.5,
+            (screen_height() - VIRTUAL_HEIGHT * scale) * 0.5,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(VIRTUAL_WIDTH * scale, VIRTUAL_HEIGHT * scale)),
+                flip_y: true,
+                ..Default::default()
+            },
+        );
     }
 
     fn is_empty(&self) -> bool {

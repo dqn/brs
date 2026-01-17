@@ -7,6 +7,7 @@ use walkdir::WalkDir;
 use crate::database::{SavedScore, ScoreRepository, compute_file_hash};
 use crate::game::ClearLamp;
 use crate::render::font::draw_text_jp;
+use crate::render::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 
 use super::{DanSelectScene, GameplayScene, Scene, SceneTransition, SettingsScene};
 
@@ -364,7 +365,7 @@ impl Scene for SongSelectScene {
             draw_text_jp(
                 "No songs match the current filter.",
                 20.0,
-                screen_height() / 2.0,
+                VIRTUAL_HEIGHT / 2.0,
                 24.0,
                 YELLOW,
             );
@@ -389,7 +390,7 @@ impl Scene for SongSelectScene {
                 draw_rectangle(
                     10.0,
                     y - 5.0,
-                    screen_width() - 20.0,
+                    VIRTUAL_WIDTH - 20.0,
                     item_height,
                     Color::new(0.2, 0.3, 0.5, 1.0),
                 );
@@ -415,7 +416,7 @@ impl Scene for SongSelectScene {
         draw_text_jp(
             "[Up/Down] Select | [Enter] Play | [Tab] Sort | [F] Filter | [S] Settings | [D] Dan | [Esc] Quit",
             20.0,
-            screen_height() - 20.0,
+            VIRTUAL_HEIGHT - 20.0,
             16.0,
             GRAY,
         );
