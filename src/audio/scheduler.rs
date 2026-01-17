@@ -19,7 +19,7 @@ impl AudioScheduler {
             let event = &chart.bgm_events[self.bgm_index];
 
             if event.time_ms <= current_time_ms {
-                audio.play_bgm(event.keysound_id, event.time_ms);
+                audio.play_bgm(event.keysound_id);
                 self.bgm_index += 1;
             } else {
                 break;
