@@ -786,10 +786,6 @@ impl GameState {
         self.draw_play_area(&areas.play);
         self.draw_graph_area(&areas.graph);
         self.draw_info_area(&areas.info);
-
-        // Draw judgment and combo effects (centered in play area)
-        self.effects.draw_judge();
-        self.effects.draw_combo();
     }
 
     fn draw_play_area(&self, area: &Rect) {
@@ -833,6 +829,12 @@ impl GameState {
             scale,
             judge_y,
         );
+
+        // Draw judge text and combo (centered on highway, 120px above judge line)
+        let effect_center_x = highway_rect.x + highway_rect.width / 2.0;
+        let effect_y = judge_y - 120.0;
+        self.effects
+            .draw_judge_and_combo_at(effect_center_x, effect_y, self.last_timing_diff_ms);
 
         // Draw turntable
         self.turntable.draw(&turntable_rect);

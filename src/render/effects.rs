@@ -10,7 +10,9 @@ pub struct JudgeEffect {
     result: JudgeResult,
     timer: f32,
     duration: f32,
+    #[allow(dead_code)]
     x: f32,
+    #[allow(dead_code)]
     y: f32,
 }
 
@@ -33,6 +35,7 @@ impl JudgeEffect {
         self.timer > 0.0
     }
 
+    #[allow(dead_code)]
     pub fn draw(&self, config: &EffectConfig) {
         if !self.is_active() {
             return;
@@ -72,8 +75,11 @@ impl JudgeEffect {
 pub struct ComboEffect {
     combo: u32,
     timer: f32,
+    #[allow(dead_code)]
     duration: f32,
+    #[allow(dead_code)]
     x: f32,
+    #[allow(dead_code)]
     y: f32,
 }
 
@@ -97,6 +103,7 @@ impl ComboEffect {
         self.timer = duration;
     }
 
+    #[allow(dead_code)]
     pub fn draw(&self, config: &EffectConfig) {
         if self.combo < 2 {
             return;
@@ -268,14 +275,88 @@ impl EffectManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn draw_judge(&self) {
         if let Some(ref effect) = self.judge_effect {
             effect.draw(&self.effect_config);
         }
     }
 
+    #[allow(dead_code)]
     pub fn draw_combo(&self) {
         self.combo_effect.draw(&self.effect_config);
+    }
+
+    /// Draw judge text, combo, and fast/slow at the specified position
+    /// Format: "PGREAT 100" with FAST/SLOW displayed above in smaller font
+    /// center_x: horizontal center of the highway
+    /// y: Y position to draw (typically judge_y - 120.0)
+    /// timing_diff_ms: timing difference in ms (negative = early/FAST, positive = late/SLOW)
+    pub fn draw_judge_and_combo_at(
+        &self,
+        center_x: f32,
+        y: f32,
+        timing_diff_ms: Option<f64>,
+    ) {
+        let Some(ref effect) = self.judge_effect else {
+            return;
+        };
+        if !effect.is_active() {
+            return;
+        }
+
+        let config = &self.effect_config;
+
+        // Calculate alpha for fade out
+        let progress = effect.timer / effect.duration;
+        let alpha = if progress < 0.3 { progress / 0.3 } else { 1.0 };
+
+        let font_size = config.judge_font_size;
+
+        // Draw FAST/SLOW above the judge text (skip for PGREAT)
+        if effect.result != JudgeResult::PGreat {
+            if let Some(diff) = timing_diff_ms {
+                let (fs_text, fs_color) = if diff < 0.0 {
+                    ("FAST", Color::new(0.3, 0.5, 1.0, alpha)) // Blue
+                } else if diff > 0.0 {
+                    ("SLOW", Color::new(1.0, 0.3, 0.3, alpha)) // Red
+                } else {
+                    ("", Color::default())
+                };
+
+                if !fs_text.is_empty() {
+                    let fs_font_size = font_size * 0.6;
+                    let fs_width = fs_text.len() as f32 * fs_font_size * 0.5;
+                    let fs_x = center_x - fs_width / 2.0;
+                    let fs_y = y - font_size;
+                    draw_text_jp(fs_text, fs_x, fs_y, fs_font_size, fs_color);
+                }
+            }
+        }
+
+        // Build judge text: "PGREAT 100"
+        let judge_text = match effect.result {
+            JudgeResult::PGreat => "PGREAT",
+            JudgeResult::Great => "GREAT",
+            JudgeResult::Good => "GOOD",
+            JudgeResult::Bad => "BAD",
+            JudgeResult::Poor => "POOR",
+        };
+
+        // Always show combo count (>= 1)
+        let text = if self.combo_effect.combo >= 1 {
+            format!("{} {}", judge_text, self.combo_effect.combo)
+        } else {
+            judge_text.to_string()
+        };
+
+        let base_color = config.judge_color(effect.result);
+        let color = Color::new(base_color.r, base_color.g, base_color.b, alpha);
+
+        let text_width = text.len() as f32 * font_size * 0.5;
+        let x = center_x - text_width / 2.0;
+
+        draw_text_jp(&text, x, y, font_size, color);
     }
 
     #[allow(dead_code)]
