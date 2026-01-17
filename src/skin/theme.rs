@@ -329,16 +329,6 @@ impl SkinTheme {
         }
     }
 
-    /// Get long note body color
-    pub fn long_note_color(&self) -> Color {
-        self.note_colors.long_note.into()
-    }
-
-    /// Get long note edge color
-    pub fn long_note_edge_color(&self) -> Color {
-        self.note_colors.long_note_edge.into()
-    }
-
     /// Get invisible note color
     pub fn invisible_note_color(&self) -> Color {
         self.note_colors.invisible.into()

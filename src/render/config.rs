@@ -137,16 +137,6 @@ impl HighwayConfig {
         self.skin_theme.border_color(self.play_mode)
     }
 
-    /// Get long note body color
-    pub fn long_note_color(&self) -> Color {
-        self.skin_theme.long_note_color()
-    }
-
-    /// Get long note edge color
-    pub fn long_note_edge_color(&self) -> Color {
-        self.skin_theme.long_note_edge_color()
-    }
-
     /// Get invisible note color
     pub fn invisible_note_color(&self) -> Color {
         self.skin_theme.invisible_note_color()

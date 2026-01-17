@@ -90,11 +90,6 @@ impl Highway {
         (screen_width() - total_width) / 2.0
     }
 
-    /// Get lane width (base width, not per-lane)
-    pub fn lane_width(&self) -> f32 {
-        self.config.lane_width
-    }
-
     /// Get lane widths for all lanes
     pub fn get_lane_widths(&self) -> Vec<f32> {
         let lane_count = self.config.lane_count();
@@ -233,7 +228,6 @@ impl Highway {
         pixels_per_ms: f64,
         highway_x: f32,
     ) {
-        let long_color = self.config.long_note_color();
         let play_mode = self.config.play_mode;
 
         for (i, note) in chart.notes.iter().enumerate() {
@@ -276,7 +270,8 @@ impl Highway {
 
                 let bar_height = clamped_start_y - end_y;
                 if bar_height > 0.0 {
-                    draw_rectangle(x + 4.0, end_y, width - 8.0, bar_height, long_color);
+                    let lane_color = self.config.lane_color(lane);
+                    draw_rectangle(x + 4.0, end_y, width - 8.0, bar_height, lane_color);
                 }
             }
         }
@@ -296,8 +291,9 @@ impl Highway {
         let width = self.config.lane_width_for_lane(lane);
 
         let color = match note.note_type {
-            NoteType::Normal => self.config.lane_color(lane),
-            NoteType::LongStart | NoteType::LongEnd => self.config.long_note_edge_color(),
+            NoteType::Normal | NoteType::LongStart | NoteType::LongEnd => {
+                self.config.lane_color(lane)
+            }
             NoteType::Invisible => self.config.invisible_note_color(),
             NoteType::Landmine => self.config.landmine_note_color(),
         };
