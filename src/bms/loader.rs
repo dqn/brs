@@ -87,9 +87,13 @@ impl BmsLoader {
             PlayMode::Bms7Key
         };
 
-        let chart = Self::convert_to_chart(&bms, play_mode)?;
+        let mut chart = Self::convert_to_chart(&bms, play_mode)?;
         let wav_files = Self::extract_wav_files(&bms);
         let bmp_files = Self::extract_bmp_files(&bms);
+
+        // Extract BGA events directly from source to work around bms-rs limitation
+        // (bms-rs overwrites events at the same time with different layers)
+        chart.bga_events = Self::extract_bga_events_from_source(&source, &chart.timing_data);
 
         Ok(BmsLoadResult {
             chart,
@@ -342,6 +346,62 @@ impl BmsLoader {
                 bga_id,
                 layer,
             });
+        }
+
+        events.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms));
+        events
+    }
+
+    /// Extract BGA events directly from BMS source text
+    /// This works around bms-rs limitation where events at the same time overwrite each other
+    fn extract_bga_events_from_source(source: &str, timing: &TimingData) -> Vec<BgaEvent> {
+        use regex::Regex;
+
+        let mut events = Vec::new();
+
+        // Pattern: #xxxYY:data where xxx=measure, YY=channel, data=object IDs
+        // Channel 04 = BGA Base, 06 = BGA Poor, 07 = BGA Layer, 0A = BGA Layer2
+        let re = Regex::new(r"(?i)^#(\d{3})(04|06|07|0A):([0-9A-Za-z]+)").unwrap();
+
+        for line in source.lines() {
+            if let Some(caps) = re.captures(line.trim()) {
+                let measure: u32 = caps[1].parse().unwrap_or(0);
+                let channel = &caps[2].to_uppercase();
+                let data = &caps[3];
+
+                let layer = match channel.as_str() {
+                    "04" => BgaLayer::Base,
+                    "06" => BgaLayer::Poor,
+                    "07" => BgaLayer::Overlay,
+                    "0A" => BgaLayer::Overlay,
+                    _ => continue,
+                };
+
+                // Parse object IDs (2 characters each, base36)
+                let obj_count = data.len() / 2;
+                for i in 0..obj_count {
+                    let obj_str = &data[i * 2..(i + 1) * 2];
+                    if obj_str == "00" {
+                        continue; // Skip empty slots
+                    }
+
+                    // Parse base36 object ID
+                    let bga_id = u32::from_str_radix(obj_str, 36).unwrap_or(0);
+                    if bga_id == 0 {
+                        continue;
+                    }
+
+                    // Calculate position within measure
+                    let position = Fraction::new(i as u64, obj_count as u64);
+                    let time_ms = super::calculate_time_ms(measure, position, timing);
+
+                    events.push(BgaEvent {
+                        time_ms,
+                        bga_id,
+                        layer,
+                    });
+                }
+            }
         }
 
         events.sort_by(|a, b| a.time_ms.total_cmp(&b.time_ms));
