@@ -2,3 +2,4 @@
 /.agent
 sample
 .worktrees/
+.claude/plans
