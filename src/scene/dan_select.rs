@@ -4,6 +4,7 @@ use macroquad::prelude::*;
 
 use crate::dan::{DanCourse, DanGrade, load_courses};
 use crate::database::DanRepository;
+use crate::render::font::draw_text_jp;
 
 use super::{DanGameplayScene, Scene, SceneTransition};
 
@@ -121,8 +122,8 @@ impl Scene for DanSelectScene {
     fn draw(&self) {
         clear_background(Color::new(0.02, 0.02, 0.08, 1.0));
 
-        draw_text("DAN CERTIFICATION", 20.0, 40.0, 32.0, WHITE);
-        draw_text(
+        draw_text_jp("DAN CERTIFICATION", 20.0, 40.0, 32.0, WHITE);
+        draw_text_jp(
             &format!("{} courses", self.courses.len()),
             20.0,
             70.0,
@@ -131,21 +132,21 @@ impl Scene for DanSelectScene {
         );
 
         if self.courses.is_empty() {
-            draw_text(
+            draw_text_jp(
                 "No courses found.",
                 20.0,
                 screen_height() / 2.0 - 40.0,
                 24.0,
                 YELLOW,
             );
-            draw_text(
+            draw_text_jp(
                 "Place course JSON files in dan_courses/ directory.",
                 20.0,
                 screen_height() / 2.0,
                 20.0,
                 GRAY,
             );
-            draw_text("[Esc] Back", 20.0, screen_height() - 20.0, 16.0, GRAY);
+            draw_text_jp("[Esc] Back", 20.0, screen_height() - 20.0, 16.0, GRAY);
             return;
         }
 
@@ -181,7 +182,7 @@ impl Scene for DanSelectScene {
 
             // Grade display
             let grade_color = Self::grade_color(&entry.course.grade);
-            draw_text(
+            draw_text_jp(
                 &entry.course.grade.display_name(),
                 30.0,
                 y + 20.0,
@@ -191,10 +192,10 @@ impl Scene for DanSelectScene {
 
             // Course name
             let name_color = if is_selected { YELLOW } else { WHITE };
-            draw_text(&entry.course.name, 100.0, y + 20.0, 22.0, name_color);
+            draw_text_jp(&entry.course.name, 100.0, y + 20.0, 22.0, name_color);
 
             // Stage count
-            draw_text(
+            draw_text_jp(
                 &format!("{} stages", entry.course.stage_count()),
                 100.0,
                 y + 38.0,
@@ -209,10 +210,10 @@ impl Scene for DanSelectScene {
                 crate::game::GaugeType::Hazard => "HAZARD GAUGE",
                 _ => "GROOVE GAUGE",
             };
-            draw_text(gauge_text, 250.0, y + 38.0, 14.0, GRAY);
+            draw_text_jp(gauge_text, 250.0, y + 38.0, 14.0, GRAY);
         }
 
-        draw_text(
+        draw_text_jp(
             "[Up/Down] Select | [Enter] Start | [Esc] Back",
             20.0,
             screen_height() - 20.0,

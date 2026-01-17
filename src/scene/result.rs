@@ -10,6 +10,7 @@ use crate::ir::{
     IrClient, IrSubmitState, ScoreHashData, ScoreSubmission, compute_md5_hash, generate_score_hash,
     validate_score,
 };
+use crate::render::font::draw_text_jp;
 
 use super::{Scene, SceneTransition};
 
@@ -265,20 +266,20 @@ impl Scene for ResultScene {
 
         let center_x = screen_width() / 2.0;
 
-        draw_text("RESULT", center_x - 60.0, 50.0, 40.0, WHITE);
+        draw_text_jp("RESULT", center_x - 60.0, 50.0, 40.0, WHITE);
 
         // Clear lamp display
         let lamp_text = self.result.clear_lamp.display_name();
         let lamp_color = self.clear_lamp_color();
-        draw_text(lamp_text, center_x - 100.0, 80.0, 24.0, lamp_color);
+        draw_text_jp(lamp_text, center_x - 100.0, 80.0, 24.0, lamp_color);
 
         // New record indicator
         if self.is_new_record {
-            draw_text("NEW RECORD!", center_x + 50.0, 80.0, 20.0, GOLD);
+            draw_text_jp("NEW RECORD!", center_x + 50.0, 80.0, 20.0, GOLD);
         }
 
-        draw_text(&self.result.title, center_x - 150.0, 120.0, 28.0, YELLOW);
-        draw_text(&self.result.artist, center_x - 150.0, 150.0, 20.0, GRAY);
+        draw_text_jp(&self.result.title, center_x - 150.0, 120.0, 28.0, YELLOW);
+        draw_text_jp(&self.result.artist, center_x - 150.0, 150.0, 20.0, GRAY);
 
         let rank = self.result.rank();
         let rank_color = match rank {
@@ -290,8 +291,8 @@ impl Scene for ResultScene {
             _ => WHITE,
         };
 
-        draw_text(rank, center_x - 30.0, 220.0, 80.0, rank_color);
-        draw_text(
+        draw_text_jp(rank, center_x - 30.0, 220.0, 80.0, rank_color);
+        draw_text_jp(
             &format!("{:.2}%", self.result.accuracy()),
             center_x - 60.0,
             270.0,
@@ -303,14 +304,14 @@ impl Scene for ResultScene {
         let stats_start_y = 320.0;
         let line_height = 30.0;
 
-        draw_text(
+        draw_text_jp(
             &format!("EX SCORE: {}", self.result.ex_score),
             stats_x,
             stats_start_y,
             24.0,
             YELLOW,
         );
-        draw_text(
+        draw_text_jp(
             &format!("MAX COMBO: {}", self.result.max_combo),
             stats_x,
             stats_start_y + line_height,
@@ -318,35 +319,35 @@ impl Scene for ResultScene {
             WHITE,
         );
 
-        draw_text(
+        draw_text_jp(
             &format!("PGREAT: {}", self.result.pgreat_count),
             stats_x,
             stats_start_y + line_height * 3.0,
             20.0,
             Color::new(1.0, 1.0, 0.0, 1.0),
         );
-        draw_text(
+        draw_text_jp(
             &format!("GREAT: {}", self.result.great_count),
             stats_x,
             stats_start_y + line_height * 4.0,
             20.0,
             Color::new(1.0, 0.8, 0.0, 1.0),
         );
-        draw_text(
+        draw_text_jp(
             &format!("GOOD: {}", self.result.good_count),
             stats_x,
             stats_start_y + line_height * 5.0,
             20.0,
             Color::new(0.0, 1.0, 0.5, 1.0),
         );
-        draw_text(
+        draw_text_jp(
             &format!("BAD: {}", self.result.bad_count),
             stats_x,
             stats_start_y + line_height * 6.0,
             20.0,
             Color::new(0.5, 0.5, 1.0, 1.0),
         );
-        draw_text(
+        draw_text_jp(
             &format!("POOR: {}", self.result.poor_count),
             stats_x,
             stats_start_y + line_height * 7.0,
@@ -355,7 +356,7 @@ impl Scene for ResultScene {
         );
 
         // FAST/SLOW statistics
-        draw_text(
+        draw_text_jp(
             &format!(
                 "FAST:{} / SLOW:{}",
                 self.result.fast_count, self.result.slow_count
@@ -368,7 +369,7 @@ impl Scene for ResultScene {
 
         // Random option display
         if self.result.random_option != RandomOption::Off {
-            draw_text(
+            draw_text_jp(
                 &format!("OPTION: {}", self.result.random_option.display_name()),
                 stats_x,
                 stats_start_y + line_height * 10.0,
@@ -389,14 +390,14 @@ impl Scene for ResultScene {
 
         let ir_text = ir_state.display_text();
         if !ir_text.is_empty() {
-            draw_text(ir_text, screen_width() - 200.0, 30.0, 18.0, ir_color);
+            draw_text_jp(ir_text, screen_width() - 200.0, 30.0, 18.0, ir_color);
         }
 
         // Show IR rank if available
         if ir_state == IrSubmitState::Success {
             if let Some(rank) = *self.ir_rank.lock().unwrap() {
                 let total = self.ir_total_players.lock().unwrap().unwrap_or(0);
-                draw_text(
+                draw_text_jp(
                     &format!("IR Rank: #{}/{}", rank, total),
                     screen_width() - 200.0,
                     50.0,
@@ -408,10 +409,10 @@ impl Scene for ResultScene {
 
         // Show retry hint if failed
         if ir_state == IrSubmitState::Failed {
-            draw_text("[R] Retry IR", screen_width() - 200.0, 50.0, 14.0, GRAY);
+            draw_text_jp("[R] Retry IR", screen_width() - 200.0, 50.0, 14.0, GRAY);
         }
 
-        draw_text(
+        draw_text_jp(
             "[Enter] Continue",
             center_x - 80.0,
             screen_height() - 30.0,

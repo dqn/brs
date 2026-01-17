@@ -7,6 +7,7 @@ use macroquad::prelude::*;
 use crate::audio::{AudioManager, AudioScheduler};
 use crate::bms::{BmsLoader, Chart, LnType, MAX_LANE_COUNT, NoteType};
 use crate::config::GameSettings;
+use crate::render::font::draw_text_jp;
 use crate::render::{BgaManager, EffectManager, Highway, LaneCover};
 use crate::skin::LayoutConfig;
 
@@ -733,7 +734,7 @@ impl GameState {
             self.effects
                 .draw_key_beams(highway_x, lane_width, judge_y, &lane_colors);
         } else {
-            draw_text(
+            draw_text_jp(
                 "No chart loaded. Pass BMS file path as argument.",
                 20.0,
                 screen_height() / 2.0,
@@ -750,14 +751,14 @@ impl GameState {
     }
 
     fn draw_ui(&self) {
-        draw_text(
+        draw_text_jp(
             &format!("Time: {:.2}s", self.current_time_ms / 1000.0),
             10.0,
             30.0,
             20.0,
             WHITE,
         );
-        draw_text(
+        draw_text_jp(
             &format!("Speed: {:.1}x", self.scroll_speed),
             10.0,
             50.0,
@@ -767,7 +768,7 @@ impl GameState {
 
         // Green Number: visible time in milliseconds
         let green_number = self.calculate_green_number();
-        draw_text(
+        draw_text_jp(
             &format!("GREEN: {:.0}", green_number),
             10.0,
             70.0,
@@ -776,23 +777,23 @@ impl GameState {
         );
 
         let status = if self.playing { "Playing" } else { "Paused" };
-        draw_text(&format!("Status: {}", status), 10.0, 90.0, 20.0, WHITE);
+        draw_text_jp(&format!("Status: {}", status), 10.0, 90.0, 20.0, WHITE);
 
-        draw_text(
+        draw_text_jp(
             &format!("EX Score: {}", self.score.ex_score()),
             screen_width() - 200.0,
             30.0,
             20.0,
             YELLOW,
         );
-        draw_text(
+        draw_text_jp(
             &format!("Combo: {}", self.score.combo),
             screen_width() - 200.0,
             50.0,
             20.0,
             WHITE,
         );
-        draw_text(
+        draw_text_jp(
             &format!("Max Combo: {}", self.score.max_combo),
             screen_width() - 200.0,
             70.0,
@@ -823,7 +824,7 @@ impl GameState {
                 Color::new(0.2, 0.6, 1.0, 1.0) // Blue for groove gauges
             };
 
-            draw_text(
+            draw_text_jp(
                 &format!("{}: {:.1}%", gauge_type_str, hp),
                 screen_width() - 200.0,
                 95.0,
@@ -864,7 +865,7 @@ impl GameState {
                         // Format: "FAST -15ms" or "SLOW +23ms"
                         let timing_text = format!("{} {:+.0}ms", timing_label, -timing_diff);
                         let x = screen_width() / 2.0 - 50.0;
-                        draw_text(
+                        draw_text_jp(
                             &timing_text,
                             x,
                             screen_height() / 2.0 + 40.0,
@@ -877,7 +878,7 @@ impl GameState {
         }
 
         // Draw FAST/SLOW statistics
-        draw_text(
+        draw_text_jp(
             &format!(
                 "FAST:{} / SLOW:{}",
                 self.timing_stats.fast_count, self.timing_stats.slow_count
@@ -888,7 +889,7 @@ impl GameState {
             GRAY,
         );
 
-        draw_text(
+        draw_text_jp(
             "[Space] Play/Pause | [R] Reset | [Up/Down] Speed | [Q/W] SUD+ | [1/2] HID+ | [A/E] LIFT",
             10.0,
             screen_height() - 20.0,
@@ -896,7 +897,7 @@ impl GameState {
             GRAY,
         );
 
-        draw_text(
+        draw_text_jp(
             "Keys: Shift=SC, Z/S/X/D/C/F/V = 1-7",
             10.0,
             screen_height() - 40.0,

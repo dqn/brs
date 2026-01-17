@@ -1,6 +1,7 @@
 use macroquad::prelude::*;
 
 use super::config::HighwayConfig;
+use super::font::draw_text_jp;
 use super::lane_cover::LaneCover;
 use crate::bms::{Chart, Note, NoteType, PlayMode};
 use crate::game::GamePlayState;
@@ -317,7 +318,7 @@ impl Highway {
             draw_rectangle(highway_x, 0.0, highway_width, cover_height, cover_color);
 
             // Draw white number display on cover
-            draw_text(
+            draw_text_jp(
                 &format!("SUD+ {}", self.lane_cover.sudden),
                 highway_x + 10.0,
                 cover_height - 10.0,
@@ -338,7 +339,7 @@ impl Highway {
                 cover_color,
             );
 
-            draw_text(
+            draw_text_jp(
                 &format!("LIFT {}", self.lane_cover.lift),
                 highway_x + 10.0,
                 cover_y + 20.0,
@@ -359,7 +360,7 @@ impl Highway {
                 cover_color,
             );
 
-            draw_text(
+            draw_text_jp(
                 &format!("HID+ {}", self.lane_cover.hidden),
                 highway_x + 10.0,
                 self.config.judge_line_y + 20.0,
@@ -373,9 +374,9 @@ impl Highway {
         let info_x = 10.0;
         let info_y = screen_height() - 80.0;
 
-        draw_text(&chart.metadata.title, info_x, info_y, 24.0, WHITE);
-        draw_text(&chart.metadata.artist, info_x, info_y + 25.0, 18.0, GRAY);
-        draw_text(
+        draw_text_jp(&chart.metadata.title, info_x, info_y, 24.0, WHITE);
+        draw_text_jp(&chart.metadata.artist, info_x, info_y + 25.0, 18.0, GRAY);
+        draw_text_jp(
             &format!(
                 "BPM: {} | Notes: {}",
                 chart.metadata.bpm as u32,

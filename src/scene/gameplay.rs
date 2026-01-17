@@ -4,6 +4,7 @@ use macroquad::prelude::*;
 
 use super::{ResultScene, Scene, SceneTransition};
 use crate::game::GameState;
+use crate::render::font::{draw_text_jp, measure_text_jp};
 
 /// Error types that can occur during gameplay
 #[derive(Debug)]
@@ -59,8 +60,8 @@ impl GameplayScene {
         // Error title
         let title = "Error";
         let title_size = 48.0;
-        let title_dims = measure_text(title, None, title_size as u16, 1.0);
-        draw_text(
+        let title_dims = measure_text_jp(title, title_size);
+        draw_text_jp(
             title,
             (screen_w - title_dims.width) / 2.0,
             screen_h / 3.0,
@@ -71,7 +72,7 @@ impl GameplayScene {
         // Error message
         let message = error.to_string();
         let message_size = 24.0;
-        let message_dims = measure_text(&message, None, message_size as u16, 1.0);
+        let message_dims = measure_text_jp(&message, message_size);
 
         // Word wrap if message is too long
         let max_width = screen_w * 0.8;
@@ -87,7 +88,7 @@ impl GameplayScene {
                 } else {
                     format!("{} {}", current_line, word)
                 };
-                let test_dims = measure_text(&test_line, None, message_size as u16, 1.0);
+                let test_dims = measure_text_jp(&test_line, message_size);
                 if test_dims.width > max_width && !current_line.is_empty() {
                     lines.push(current_line);
                     current_line = word.to_string();
@@ -102,8 +103,8 @@ impl GameplayScene {
             let line_height = message_size * 1.5;
             let start_y = screen_h / 2.0;
             for (i, line) in lines.iter().enumerate() {
-                let line_dims = measure_text(line, None, message_size as u16, 1.0);
-                draw_text(
+                let line_dims = measure_text_jp(line, message_size);
+                draw_text_jp(
                     line,
                     (screen_w - line_dims.width) / 2.0,
                     start_y + (i as f32) * line_height,
@@ -112,7 +113,7 @@ impl GameplayScene {
                 );
             }
         } else {
-            draw_text(
+            draw_text_jp(
                 &message,
                 (screen_w - message_dims.width) / 2.0,
                 screen_h / 2.0,
@@ -124,8 +125,8 @@ impl GameplayScene {
         // Instructions
         let instruction = "Press ESC or Enter to return";
         let instruction_size = 20.0;
-        let instruction_dims = measure_text(instruction, None, instruction_size as u16, 1.0);
-        draw_text(
+        let instruction_dims = measure_text_jp(instruction, instruction_size);
+        draw_text_jp(
             instruction,
             (screen_w - instruction_dims.width) / 2.0,
             screen_h * 2.0 / 3.0,

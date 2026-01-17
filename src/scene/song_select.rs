@@ -6,6 +6,7 @@ use walkdir::WalkDir;
 
 use crate::database::{SavedScore, ScoreRepository, compute_file_hash};
 use crate::game::ClearLamp;
+use crate::render::font::draw_text_jp;
 
 use super::{DanSelectScene, GameplayScene, Scene, SceneTransition, SettingsScene};
 
@@ -339,14 +340,14 @@ impl Scene for SongSelectScene {
     fn draw(&self) {
         clear_background(Color::new(0.05, 0.05, 0.1, 1.0));
 
-        draw_text("SONG SELECT", 20.0, 40.0, 32.0, WHITE);
+        draw_text_jp("SONG SELECT", 20.0, 40.0, 32.0, WHITE);
 
         // Show filter/sort status
         let filter_text = match self.level_filter {
             None => "All".to_string(),
             Some(lvl) => format!("☆{}+", lvl),
         };
-        draw_text(
+        draw_text_jp(
             &format!(
                 "{} songs | Sort: {} | Filter: {}",
                 self.filtered_songs.len(),
@@ -360,7 +361,7 @@ impl Scene for SongSelectScene {
         );
 
         if self.filtered_songs.is_empty() {
-            draw_text(
+            draw_text_jp(
                 "No songs match the current filter.",
                 20.0,
                 screen_height() / 2.0,
@@ -403,15 +404,15 @@ impl Scene for SongSelectScene {
 
             // Level display
             if song.level > 0 {
-                draw_text(&format!("☆{}", song.level), 30.0, y + 18.0, 18.0, SKYBLUE);
-                draw_text(&song.title, 80.0, y + 18.0, 22.0, color);
+                draw_text_jp(&format!("☆{}", song.level), 30.0, y + 18.0, 18.0, SKYBLUE);
+                draw_text_jp(&song.title, 80.0, y + 18.0, 22.0, color);
             } else {
-                draw_text(&song.title, 30.0, y + 18.0, 22.0, color);
+                draw_text_jp(&song.title, 30.0, y + 18.0, 22.0, color);
             }
-            draw_text(&song.artist, 80.0, y + 32.0, 14.0, GRAY);
+            draw_text_jp(&song.artist, 80.0, y + 32.0, 14.0, GRAY);
         }
 
-        draw_text(
+        draw_text_jp(
             "[Up/Down] Select | [Enter] Play | [Tab] Sort | [F] Filter | [S] Settings | [D] Dan | [Esc] Quit",
             20.0,
             screen_height() - 20.0,

@@ -1,6 +1,7 @@
 mod bga;
 mod config;
 mod effects;
+pub mod font;
 mod highway;
 mod lane_cover;
 mod video;

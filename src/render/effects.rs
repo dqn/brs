@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 
+use super::font::draw_text_jp;
 use crate::game::JudgeResult;
 use crate::skin::EffectConfig;
 
@@ -62,7 +63,7 @@ impl JudgeEffect {
         let text_width = text.len() as f32 * font_size * 0.5;
         let draw_x = self.x - text_width / 2.0;
 
-        draw_text(text, draw_x, self.y, font_size, color);
+        draw_text_jp(text, draw_x, self.y, font_size, color);
     }
 }
 
@@ -118,7 +119,7 @@ impl ComboEffect {
         // Color based on combo count (from skin config)
         let color = config.combo_color(self.combo);
 
-        draw_text(
+        draw_text_jp(
             &combo_text,
             self.x - text_width / 2.0,
             self.y,

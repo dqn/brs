@@ -3,6 +3,7 @@ use macroquad::prelude::*;
 use crate::dan::{CoursePassResult, CourseState, DanGrade};
 use crate::database::{DanRecord, DanRepository};
 use crate::game::ClearLamp;
+use crate::render::font::draw_text_jp;
 
 use super::{Scene, SceneTransition};
 
@@ -109,7 +110,7 @@ impl Scene for DanResultScene {
         let stats = self.course_state.total_stats();
 
         // Title
-        draw_text("DAN RESULT", center_x - 80.0, 40.0, 36.0, WHITE);
+        draw_text_jp("DAN RESULT", center_x - 80.0, 40.0, 36.0, WHITE);
 
         // Pass/Fail display
         let (result_text, result_color) = match self.pass_result {
@@ -117,42 +118,42 @@ impl Scene for DanResultScene {
             CoursePassResult::Failed => ("FAILED", RED),
             CoursePassResult::Incomplete => ("INCOMPLETE", YELLOW),
         };
-        draw_text(result_text, center_x - 60.0, 90.0, 48.0, result_color);
+        draw_text_jp(result_text, center_x - 60.0, 90.0, 48.0, result_color);
 
         // New record indicator
         if self.is_new_record {
-            draw_text("NEW RECORD!", center_x + 80.0, 90.0, 20.0, GOLD);
+            draw_text_jp("NEW RECORD!", center_x + 80.0, 90.0, 20.0, GOLD);
         }
 
         // Grade and course name
         let grade_color = Self::grade_color(&course.grade);
-        draw_text(
+        draw_text_jp(
             &course.grade.display_name(),
             center_x - 150.0,
             140.0,
             28.0,
             grade_color,
         );
-        draw_text(&course.name, center_x - 80.0, 140.0, 28.0, YELLOW);
+        draw_text_jp(&course.name, center_x - 80.0, 140.0, 28.0, YELLOW);
 
         // Stage results
         let stage_start_y = 180.0;
         let stage_height = 30.0;
 
-        draw_text("Stage Results:", 50.0, stage_start_y, 18.0, GRAY);
+        draw_text_jp("Stage Results:", 50.0, stage_start_y, 18.0, GRAY);
 
         for (i, stage_result) in self.course_state.stage_results().iter().enumerate() {
             let y = stage_start_y + 30.0 + (i as f32) * stage_height;
 
             // Stage number
-            draw_text(&format!("STAGE {}", i + 1), 50.0, y, 16.0, WHITE);
+            draw_text_jp(&format!("STAGE {}", i + 1), 50.0, y, 16.0, WHITE);
 
             // Title (truncated)
             let title: String = stage_result.title.chars().take(20).collect();
-            draw_text(&title, 130.0, y, 16.0, GRAY);
+            draw_text_jp(&title, 130.0, y, 16.0, GRAY);
 
             // EX Score
-            draw_text(
+            draw_text_jp(
                 &format!("EX:{}", stage_result.ex_score),
                 350.0,
                 y,
@@ -162,7 +163,7 @@ impl Scene for DanResultScene {
 
             // Clear lamp
             let lamp_color = Self::clear_lamp_color(stage_result.clear_lamp);
-            draw_text(
+            draw_text_jp(
                 stage_result.clear_lamp.display_name(),
                 450.0,
                 y,
@@ -171,7 +172,7 @@ impl Scene for DanResultScene {
             );
 
             // End gauge
-            draw_text(
+            draw_text_jp(
                 &format!("{:.1}%", stage_result.end_gauge_hp),
                 580.0,
                 y,
@@ -188,7 +189,7 @@ impl Scene for DanResultScene {
         let stats_y =
             stage_start_y + 50.0 + (self.course_state.stage_results().len() as f32) * stage_height;
 
-        draw_text("Total Statistics:", 50.0, stats_y, 18.0, GRAY);
+        draw_text_jp("Total Statistics:", 50.0, stats_y, 18.0, GRAY);
 
         let rank = stats.rank();
         let rank_color = match rank {
@@ -200,8 +201,8 @@ impl Scene for DanResultScene {
             _ => WHITE,
         };
 
-        draw_text(rank, center_x - 30.0, stats_y + 60.0, 60.0, rank_color);
-        draw_text(
+        draw_text_jp(rank, center_x - 30.0, stats_y + 60.0, 60.0, rank_color);
+        draw_text_jp(
             &format!("{:.2}%", stats.accuracy()),
             center_x - 50.0,
             stats_y + 100.0,
@@ -213,14 +214,14 @@ impl Scene for DanResultScene {
         let left_col = 80.0;
         let right_col = 300.0;
 
-        draw_text(
+        draw_text_jp(
             &format!("EX SCORE: {}", stats.ex_score),
             left_col,
             stats_y + 140.0,
             20.0,
             YELLOW,
         );
-        draw_text(
+        draw_text_jp(
             &format!("MAX COMBO: {}", stats.max_combo),
             right_col,
             stats_y + 140.0,
@@ -228,42 +229,42 @@ impl Scene for DanResultScene {
             WHITE,
         );
 
-        draw_text(
+        draw_text_jp(
             &format!("PGREAT: {}", stats.pgreat_count),
             left_col,
             stats_y + 140.0 + line_height,
             18.0,
             Color::new(1.0, 1.0, 0.0, 1.0),
         );
-        draw_text(
+        draw_text_jp(
             &format!("GREAT: {}", stats.great_count),
             right_col,
             stats_y + 140.0 + line_height,
             18.0,
             Color::new(1.0, 0.8, 0.0, 1.0),
         );
-        draw_text(
+        draw_text_jp(
             &format!("GOOD: {}", stats.good_count),
             left_col,
             stats_y + 140.0 + line_height * 2.0,
             18.0,
             Color::new(0.0, 1.0, 0.5, 1.0),
         );
-        draw_text(
+        draw_text_jp(
             &format!("BAD: {}", stats.bad_count),
             right_col,
             stats_y + 140.0 + line_height * 2.0,
             18.0,
             Color::new(0.5, 0.5, 1.0, 1.0),
         );
-        draw_text(
+        draw_text_jp(
             &format!("POOR: {}", stats.poor_count),
             left_col,
             stats_y + 140.0 + line_height * 3.0,
             18.0,
             Color::new(1.0, 0.3, 0.3, 1.0),
         );
-        draw_text(
+        draw_text_jp(
             &format!("TOTAL NOTES: {}", stats.total_notes),
             right_col,
             stats_y + 140.0 + line_height * 3.0,
@@ -272,7 +273,7 @@ impl Scene for DanResultScene {
         );
 
         // FAST/SLOW
-        draw_text(
+        draw_text_jp(
             &format!("FAST:{} / SLOW:{}", stats.fast_count, stats.slow_count),
             left_col,
             stats_y + 140.0 + line_height * 4.0,
@@ -284,12 +285,12 @@ impl Scene for DanResultScene {
         let req = self.course_state.requirements();
         if req.max_bad_poor.is_some() || req.full_combo {
             let req_y = stats_y + 140.0 + line_height * 5.5;
-            draw_text("Requirements:", left_col, req_y, 16.0, GRAY);
+            draw_text_jp("Requirements:", left_col, req_y, 16.0, GRAY);
 
             if let Some(max_bp) = req.max_bad_poor {
                 let bp = stats.bad_count + stats.poor_count;
                 let bp_color = if bp <= max_bp { GREEN } else { RED };
-                draw_text(
+                draw_text_jp(
                     &format!("BAD+POOR: {}/{}", bp, max_bp),
                     left_col + 120.0,
                     req_y,
@@ -304,11 +305,11 @@ impl Scene for DanResultScene {
                 } else {
                     RED
                 };
-                draw_text("FULL COMBO REQUIRED", right_col, req_y, 16.0, fc_color);
+                draw_text_jp("FULL COMBO REQUIRED", right_col, req_y, 16.0, fc_color);
             }
         }
 
-        draw_text(
+        draw_text_jp(
             "[Enter] Continue",
             center_x - 60.0,
             screen_height() - 30.0,

@@ -3,6 +3,7 @@ use macroquad::prelude::*;
 use super::{Scene, SceneTransition};
 use crate::config::GameSettings;
 use crate::game::{GaugeType, JudgeSystemType, RandomOption};
+use crate::render::font::draw_text_jp;
 
 /// Resolution presets
 const RESOLUTION_PRESETS: &[(u32, u32)] = &[
@@ -163,10 +164,7 @@ impl SettingsScene {
     }
 
     fn cycle_resolution(&mut self, delta: i32) {
-        let current = (
-            self.settings.display.width,
-            self.settings.display.height,
-        );
+        let current = (self.settings.display.width, self.settings.display.height);
         let idx = RESOLUTION_PRESETS
             .iter()
             .position(|&r| r == current)
@@ -449,10 +447,10 @@ impl Scene for SettingsScene {
     fn draw(&self) {
         clear_background(Color::new(0.05, 0.05, 0.1, 1.0));
 
-        draw_text("SETTINGS", 20.0, 40.0, 32.0, WHITE);
+        draw_text_jp("SETTINGS", 20.0, 40.0, 32.0, WHITE);
 
         if self.modified {
-            draw_text("(modified)", 150.0, 40.0, 18.0, YELLOW);
+            draw_text_jp("(modified)", 150.0, 40.0, 18.0, YELLOW);
         }
 
         let start_y = 80.0;
@@ -495,7 +493,7 @@ impl Scene for SettingsScene {
                 self.format_value(item)
             };
 
-            draw_text(label, 30.0, y + 18.0, 20.0, color);
+            draw_text_jp(label, 30.0, y + 18.0, 20.0, color);
 
             if !value.is_empty() {
                 let value_color = if is_selected {
@@ -507,12 +505,12 @@ impl Scene for SettingsScene {
                 } else {
                     GRAY
                 };
-                draw_text(&value, 250.0, y + 18.0, 20.0, value_color);
+                draw_text_jp(&value, 250.0, y + 18.0, 20.0, value_color);
 
                 if is_selected && !item.is_key_binding() && self.waiting_for_key.is_none() {
-                    draw_text("<", 220.0, y + 18.0, 20.0, GRAY);
+                    draw_text_jp("<", 220.0, y + 18.0, 20.0, GRAY);
                     let value_width = value.len() as f32 * 10.0;
-                    draw_text(">", 260.0 + value_width, y + 18.0, 20.0, GRAY);
+                    draw_text_jp(">", 260.0 + value_width, y + 18.0, 20.0, GRAY);
                 }
             }
         }
@@ -523,6 +521,6 @@ impl Scene for SettingsScene {
             "[Up/Down] Select | [Left/Right] Adjust | [Enter] Confirm/Set Key | [Esc] Back"
         };
 
-        draw_text(help_text, 20.0, screen_height() - 20.0, 14.0, GRAY);
+        draw_text_jp(help_text, 20.0, screen_height() - 20.0, 14.0, GRAY);
     }
 }

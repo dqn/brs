@@ -68,6 +68,8 @@ impl SceneManager {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    render::font::init_font();
+
     let args: Vec<String> = std::env::args().collect();
 
     let initial_scene: Box<dyn Scene> = if args.len() > 1 {
