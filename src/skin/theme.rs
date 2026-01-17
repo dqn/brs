@@ -236,8 +236,21 @@ impl Default for JudgeLineConfig {
 /// Lane cover colors (SUDDEN+, HIDDEN+, LIFT)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LaneCoverColors {
+    /// SUDDEN+/HIDDEN+ cover color (semi-transparent)
     pub cover: SkinColor,
+    /// LIFT cover color (opaque)
+    #[serde(default = "default_lift_cover")]
+    pub lift_cover: SkinColor,
     pub text: SkinColor,
+}
+
+fn default_lift_cover() -> SkinColor {
+    SkinColor {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    }
 }
 
 impl Default for LaneCoverColors {
@@ -249,6 +262,7 @@ impl Default for LaneCoverColors {
                 b: 0.0,
                 a: 0.9,
             },
+            lift_cover: default_lift_cover(),
             text: SkinColor {
                 r: 0.5,
                 g: 0.5,
@@ -348,6 +362,11 @@ impl SkinTheme {
     /// Get lane cover color
     pub fn lane_cover_color(&self) -> Color {
         self.lane_cover.cover.into()
+    }
+
+    /// Get LIFT cover color (opaque)
+    pub fn lift_cover_color(&self) -> Color {
+        self.lane_cover.lift_cover.into()
     }
 
     /// Get lane cover text color

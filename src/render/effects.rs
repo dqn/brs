@@ -274,15 +274,17 @@ impl EffectManager {
         self.combo_effect.draw(&self.effect_config);
     }
 
-    pub fn draw_lane_flashes(&self, highway_x: f32, lane_width: f32, highway_height: f32) {
+    pub fn draw_lane_flashes(&self, highway_x: f32, lane_widths: &[f32], highway_height: f32) {
         let max_alpha = self.effect_config.lane_flash_alpha;
+        let mut x = highway_x;
         for (i, flash) in self.lane_flashes.iter().enumerate() {
+            let width = lane_widths.get(i).copied().unwrap_or(50.0);
             if flash.is_active() {
-                let x = highway_x + i as f32 * lane_width;
                 let alpha = flash.alpha() * max_alpha;
                 let color = Color::new(1.0, 1.0, 1.0, alpha);
-                draw_rectangle(x, 0.0, lane_width, highway_height, color);
+                draw_rectangle(x, 0.0, width, highway_height, color);
             }
+            x += width;
         }
     }
 
@@ -298,7 +300,7 @@ impl EffectManager {
     pub fn draw_key_beams(
         &self,
         highway_x: f32,
-        lane_width: f32,
+        lane_widths: &[f32],
         judge_y: f32,
         lane_colors: &[Color],
     ) {
@@ -309,26 +311,28 @@ impl EffectManager {
 
         let beam_height = judge_y * config.height_ratio;
 
+        let mut x = highway_x;
         for (i, beam) in self.key_beams.iter().enumerate() {
-            if !beam.is_active() {
-                continue;
+            let width = lane_widths.get(i).copied().unwrap_or(50.0);
+
+            if beam.is_active() {
+                let base_color = lane_colors.get(i).copied().unwrap_or(WHITE);
+
+                // Draw gradient: more opaque at bottom (judge line), transparent at top
+                let segments = 20;
+                let segment_height = beam_height / segments as f32;
+
+                for seg in 0..segments {
+                    let y = judge_y - (seg + 1) as f32 * segment_height;
+                    let progress = seg as f32 / segments as f32;
+                    // Interpolate alpha from max (bottom) to min (top)
+                    let alpha = config.max_alpha * (1.0 - progress) + config.min_alpha * progress;
+                    let color = Color::new(base_color.r, base_color.g, base_color.b, alpha);
+                    draw_rectangle(x, y, width, segment_height, color);
+                }
             }
 
-            let x = highway_x + i as f32 * lane_width;
-            let base_color = lane_colors.get(i).copied().unwrap_or(WHITE);
-
-            // Draw gradient: more opaque at bottom (judge line), transparent at top
-            let segments = 20;
-            let segment_height = beam_height / segments as f32;
-
-            for seg in 0..segments {
-                let y = judge_y - (seg + 1) as f32 * segment_height;
-                let progress = seg as f32 / segments as f32;
-                // Interpolate alpha from max (bottom) to min (top)
-                let alpha = config.max_alpha * (1.0 - progress) + config.min_alpha * progress;
-                let color = Color::new(base_color.r, base_color.g, base_color.b, alpha);
-                draw_rectangle(x, y, lane_width, segment_height, color);
-            }
+            x += width;
         }
     }
 }

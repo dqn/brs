@@ -713,9 +713,10 @@ impl GameState {
         }
 
         // Draw lane flash effects (behind notes)
-        let highway_x = (screen_width() - 50.0 * 8.0) / 2.0;
+        let highway_x = self.highway.highway_x();
+        let lane_widths = self.highway.get_lane_widths();
         self.effects
-            .draw_lane_flashes(highway_x, 50.0, screen_height());
+            .draw_lane_flashes(highway_x, &lane_widths, screen_height());
 
         if let (Some(chart), Some(play_state)) = (&self.chart, &self.play_state) {
             self.highway.draw_with_state(
@@ -726,12 +727,10 @@ impl GameState {
             );
 
             // Draw key beams (after notes, before UI)
-            let highway_x = self.highway.highway_x();
-            let lane_width = self.highway.lane_width();
             let judge_y = self.highway.judge_line_y();
             let lane_colors = self.highway.get_lane_colors();
             self.effects
-                .draw_key_beams(highway_x, lane_width, judge_y, &lane_colors);
+                .draw_key_beams(highway_x, &lane_widths, judge_y, &lane_colors);
         } else {
             draw_text(
                 "No chart loaded. Pass BMS file path as argument.",

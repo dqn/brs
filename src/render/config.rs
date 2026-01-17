@@ -172,36 +172,73 @@ impl HighwayConfig {
         self.skin_theme.lane_cover_color()
     }
 
+    /// Get LIFT cover color (opaque)
+    pub fn lift_cover_color(&self) -> Color {
+        self.skin_theme.lift_cover_color()
+    }
+
     /// Get lane cover text color
     pub fn lane_cover_text_color(&self) -> Color {
         self.skin_theme.lane_cover_text_color()
     }
 
-    /// Get total highway width (including center gap for DP)
-    pub fn total_width(&self) -> f32 {
+    /// Check if lane is scratch (scratch lanes are 2x width)
+    pub fn is_scratch_lane(&self, lane: usize) -> bool {
         match self.play_mode {
-            PlayMode::Dp14Key => {
-                // P1 (8 lanes) + gap + P2 (8 lanes)
-                self.lane_width * 8.0 + DP_CENTER_GAP + self.lane_width * 8.0
-            }
-            _ => self.lane_width * self.lane_count() as f32,
+            PlayMode::Bms7Key => lane == 0,
+            PlayMode::Pms9Key => false,
+            PlayMode::Dp14Key => lane == 0 || lane == 15,
         }
     }
 
-    /// Get X offset for a lane (handles DP center gap)
+    /// Get lane width for a specific lane (scratch is 2x width)
+    pub fn lane_width_for_lane(&self, lane: usize) -> f32 {
+        if self.is_scratch_lane(lane) {
+            self.lane_width * 2.0
+        } else {
+            self.lane_width
+        }
+    }
+
+    /// Get total highway width (including center gap for DP)
+    pub fn total_width(&self) -> f32 {
+        let mut width = 0.0;
+        for i in 0..self.lane_count() {
+            width += self.lane_width_for_lane(i);
+        }
+        if self.play_mode == PlayMode::Dp14Key {
+            width += DP_CENTER_GAP;
+        }
+        width
+    }
+
+    /// Get X offset for a lane (handles DP center gap and variable lane widths)
     pub fn lane_x_offset(&self, lane: usize) -> f32 {
+        let mut offset = 0.0;
         match self.play_mode {
             PlayMode::Dp14Key => {
                 if lane < 8 {
-                    // P1 side
-                    lane as f32 * self.lane_width
+                    for i in 0..lane {
+                        offset += self.lane_width_for_lane(i);
+                    }
                 } else {
-                    // P2 side (after center gap)
-                    8.0 * self.lane_width + DP_CENTER_GAP + (lane - 8) as f32 * self.lane_width
+                    // P1 side total + gap
+                    for i in 0..8 {
+                        offset += self.lane_width_for_lane(i);
+                    }
+                    offset += DP_CENTER_GAP;
+                    for i in 8..lane {
+                        offset += self.lane_width_for_lane(i);
+                    }
                 }
             }
-            _ => lane as f32 * self.lane_width,
+            _ => {
+                for i in 0..lane {
+                    offset += self.lane_width_for_lane(i);
+                }
+            }
         }
+        offset
     }
 }
 
