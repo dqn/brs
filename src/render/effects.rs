@@ -154,10 +154,12 @@ impl LaneFlash {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_active(&self) -> bool {
         self.timer > 0.0
     }
 
+    #[allow(dead_code)]
     pub fn alpha(&self) -> f32 {
         if self.timer > 0.0 && self.duration > 0.0 {
             self.timer / self.duration
@@ -188,6 +190,7 @@ impl KeyBeam {
         self.is_held = held;
     }
 
+    #[allow(dead_code)]
     pub fn is_active(&self) -> bool {
         self.is_held
     }
@@ -275,6 +278,7 @@ impl EffectManager {
         self.combo_effect.draw(&self.effect_config);
     }
 
+    #[allow(dead_code)]
     pub fn draw_lane_flashes(&self, highway_x: f32, lane_widths: &[f32], highway_height: f32) {
         let max_alpha = self.effect_config.lane_flash_alpha;
         let mut x = highway_x;
@@ -298,6 +302,7 @@ impl EffectManager {
 
     /// Draw key beams for held keys
     /// Draws a gradient beam from judge_y upward with configurable alpha
+    #[allow(dead_code)]
     pub fn draw_key_beams(
         &self,
         highway_x: f32,

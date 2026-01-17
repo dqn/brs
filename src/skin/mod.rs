@@ -12,7 +12,7 @@ mod loader;
 mod theme;
 
 // Re-export commonly used types
-pub use layout::LayoutConfig;
+pub use layout::{IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect};
 pub use theme::{EffectConfig, SkinTheme};
 
 // Keep for future use but suppress warnings
