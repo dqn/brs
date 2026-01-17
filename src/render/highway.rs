@@ -234,44 +234,48 @@ impl Highway {
                 continue;
             }
 
+            // Find corresponding LongEnd with its index
+            let end_note_info = chart
+                .notes
+                .iter()
+                .enumerate()
+                .skip(i + 1)
+                .find(|(_, n)| n.channel == note.channel && n.note_type == NoteType::LongEnd);
+
+            let Some((end_idx, end)) = end_note_info else {
+                continue;
+            };
+
+            // Skip if LongEnd is already judged (LN is complete)
             if let Some(state) = play_state {
-                if !state.get_state(i).is_some_and(|s| s.is_pending()) {
+                if !state.get_state(end_idx).is_some_and(|s| s.is_pending()) {
                     continue;
                 }
             }
 
-            // Find corresponding LongEnd
-            let end_note = chart
-                .notes
-                .iter()
-                .skip(i + 1)
-                .find(|n| n.channel == note.channel && n.note_type == NoteType::LongEnd);
+            let start_time_diff = note.time_ms - current_time_ms;
+            let end_time_diff = end.time_ms - current_time_ms;
 
-            if let Some(end) = end_note {
-                let start_time_diff = note.time_ms - current_time_ms;
-                let end_time_diff = end.time_ms - current_time_ms;
+            let judge_y = self.adjusted_judge_line_y();
+            let start_y = judge_y - (start_time_diff * pixels_per_ms) as f32;
+            let end_y = judge_y - (end_time_diff * pixels_per_ms) as f32;
 
-                let judge_y = self.adjusted_judge_line_y();
-                let start_y = judge_y - (start_time_diff * pixels_per_ms) as f32;
-                let end_y = judge_y - (end_time_diff * pixels_per_ms) as f32;
+            // Skip if entire bar is below judge line
+            if end_y > judge_y && start_y > judge_y {
+                continue;
+            }
 
-                // Skip if entire bar is below judge line
-                if end_y > judge_y && start_y > judge_y {
-                    continue;
-                }
+            // Clamp start_y to judge_y (don't draw below judge line)
+            let clamped_start_y = start_y.min(judge_y);
 
-                // Clamp start_y to judge_y (don't draw below judge line)
-                let clamped_start_y = start_y.min(judge_y);
+            let lane = note.channel.lane_index_for_mode(play_mode);
+            let x = highway_x + self.config.lane_x_offset(lane);
+            let width = self.config.lane_width_for_lane(lane);
 
-                let lane = note.channel.lane_index_for_mode(play_mode);
-                let x = highway_x + self.config.lane_x_offset(lane);
-                let width = self.config.lane_width_for_lane(lane);
-
-                let bar_height = clamped_start_y - end_y;
-                if bar_height > 0.0 {
-                    let lane_color = self.config.lane_color(lane);
-                    draw_rectangle(x + 4.0, end_y, width - 8.0, bar_height, lane_color);
-                }
+            let bar_height = clamped_start_y - end_y;
+            if bar_height > 0.0 {
+                let lane_color = self.config.lane_color(lane);
+                draw_rectangle(x + 4.0, end_y, width - 8.0, bar_height, lane_color);
             }
         }
     }
