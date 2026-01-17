@@ -54,18 +54,11 @@ impl BgaManager {
                 .unwrap_or("")
                 .to_lowercase();
 
-            match ext.as_str() {
-                // Static images
-                "png" | "jpg" | "jpeg" | "bmp" => {
-                    if let Some(tex) = load_texture_sync(&path) {
-                        self.textures.insert(id, tex);
-                        images_loaded += 1;
-                    }
-                }
+            // Try to load media file with fallback extension support
+            let loaded = match ext.as_str() {
                 // Video files
                 "mpg" | "mpeg" | "avi" | "wmv" | "mp4" | "webm" | "m4v" => {
                     if let Ok(decoder) = VideoDecoder::open(&path) {
-                        // Create empty texture for video frames
                         let tex = Texture2D::from_rgba8(
                             decoder.width() as u16,
                             decoder.height() as u16,
@@ -75,14 +68,17 @@ impl BgaManager {
                         self.video_textures.insert(id, tex);
                         self.videos.insert(id, decoder);
                         videos_loaded += 1;
+                        true
+                    } else {
+                        false
                     }
                 }
-                // Unknown extension - try as image first, then video
+                // Images or unknown - try as image first
                 _ => {
-                    // Try as image
                     if let Some(tex) = load_texture_sync(&path) {
                         self.textures.insert(id, tex);
                         images_loaded += 1;
+                        true
                     } else if let Ok(decoder) = VideoDecoder::open(&path) {
                         let tex = Texture2D::from_rgba8(
                             decoder.width() as u16,
@@ -93,19 +89,24 @@ impl BgaManager {
                         self.video_textures.insert(id, tex);
                         self.videos.insert(id, decoder);
                         videos_loaded += 1;
+                        true
                     } else {
-                        // Try fallback extensions for images
-                        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-                        let parent = path.parent().unwrap_or(base_path);
+                        false
+                    }
+                }
+            };
 
-                        for fallback_ext in ["png", "jpg", "jpeg", "bmp"] {
-                            let alt_path = parent.join(format!("{}.{}", stem, fallback_ext));
-                            if let Some(tex) = load_texture_sync(&alt_path) {
-                                self.textures.insert(id, tex);
-                                images_loaded += 1;
-                                break;
-                            }
-                        }
+            // If loading failed, try fallback extensions
+            if !loaded {
+                let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+                let parent = path.parent().unwrap_or(base_path);
+
+                for fallback_ext in ["png", "jpg", "jpeg", "bmp"] {
+                    let alt_path = parent.join(format!("{}.{}", stem, fallback_ext));
+                    if let Some(tex) = load_texture_sync(&alt_path) {
+                        self.textures.insert(id, tex);
+                        images_loaded += 1;
+                        break;
                     }
                 }
             }
