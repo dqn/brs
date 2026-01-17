@@ -278,6 +278,7 @@ dependencies = [
  "md-5",
  "pretty_assertions",
  "rand",
+ "rayon",
  "reqwest",
  "serde",
  "serde_json",

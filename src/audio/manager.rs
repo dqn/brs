@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use rayon::prelude::*;
 
 /// Supported audio file extensions for fallback
 const AUDIO_EXTENSIONS: &[&str] = &["wav", "ogg", "mp3", "flac"];
@@ -122,28 +123,33 @@ impl AudioManager {
         wav_files: &HashMap<u32, String>,
     ) -> KeysoundLoadResult {
         let base_path = base_path.as_ref();
-        let mut result = KeysoundLoadResult::default();
 
-        for (&id, filename) in wav_files {
-            if let Some(file_path) = find_audio_file(base_path, filename) {
-                match self.load_sound(&file_path) {
-                    Ok(sound) => {
-                        self.sounds.insert(id, sound);
-                        result.loaded += 1;
-                    }
-                    Err(e) => {
-                        let error_msg = format!("Failed to decode: {}", e);
-                        eprintln!(
-                            "Warning: Failed to load keysound #{:02X} '{}': {}",
-                            id, filename, error_msg
-                        );
-                        result.failed.push((id, filename.clone(), error_msg));
-                    }
+        // Load and decode audio files in parallel
+        let results: Vec<_> = wav_files
+            .par_iter()
+            .map(
+                |(&id, filename)| match find_audio_file(base_path, filename) {
+                    Some(file_path) => match StaticSoundData::from_file(&file_path) {
+                        Ok(sound) => Ok((id, sound)),
+                        Err(e) => Err((id, filename.clone(), format!("Failed to decode: {}", e))),
+                    },
+                    None => Err((id, filename.clone(), "File not found".to_string())),
+                },
+            )
+            .collect();
+
+        // Aggregate results
+        let mut result = KeysoundLoadResult::default();
+        for r in results {
+            match r {
+                Ok((id, sound)) => {
+                    self.sounds.insert(id, sound);
+                    result.loaded += 1;
                 }
-            } else {
-                let error_msg = "File not found".to_string();
-                eprintln!("Warning: Keysound #{:02X} '{}' not found", id, filename);
-                result.failed.push((id, filename.clone(), error_msg));
+                Err((id, filename, msg)) => {
+                    eprintln!("Warning: Keysound #{:02X} '{}': {}", id, filename, msg);
+                    result.failed.push((id, filename, msg));
+                }
             }
         }
 
@@ -157,12 +163,6 @@ impl AudioManager {
         }
 
         result
-    }
-
-    fn load_sound<P: AsRef<Path>>(&self, path: P) -> Result<StaticSoundData> {
-        let path = path.as_ref();
-        StaticSoundData::from_file(path)
-            .with_context(|| format!("Failed to load sound: {}", path.display()))
     }
 
     /// Play keysound with current volume settings
