@@ -19,6 +19,9 @@ use super::{
     apply_battle, apply_legacy_note, apply_random_option, generate_seed,
 };
 
+const START_DELAY_MS: f64 = 3000.0;
+const END_DELAY_MS: f64 = 1500.0;
+
 /// Active long note state tracking
 #[derive(Clone, Copy)]
 struct ActiveLongNote {
@@ -50,6 +53,8 @@ pub struct GameState {
     scroll_speed: f32,
     current_time_ms: f64,
     last_time_ms: f64,
+    start_delay_ms: f64,
+    end_delay_ms: f64,
     playing: bool,
     last_judgment: Option<JudgeResult>,
     last_timing_diff_ms: Option<f64>,
@@ -98,6 +103,8 @@ impl GameState {
             scroll_speed: 1.0,
             current_time_ms: 0.0,
             last_time_ms: 0.0,
+            start_delay_ms: START_DELAY_MS,
+            end_delay_ms: END_DELAY_MS,
             playing: false,
             last_judgment: None,
             last_timing_diff_ms: None,
@@ -261,13 +268,14 @@ impl GameState {
 
         audio.stop_clock();
         self.scheduler.reset();
-        self.scheduler.update(&chart, &mut audio, 0.0);
+        self.current_time_ms = -self.start_delay_ms;
+        self.last_time_ms = self.current_time_ms;
+        self.scheduler
+            .update(&chart, &mut audio, self.current_time_ms, self.start_delay_ms);
         audio.start_clock();
         self.chart = Some(chart);
         self.audio = Some(audio);
         self.score.reset();
-        self.current_time_ms = 0.0;
-        self.last_time_ms = 0.0;
 
         // Apply lane cover and scroll speed settings
         self.scroll_speed = settings.scroll_speed;
@@ -301,15 +309,15 @@ impl GameState {
                 } else {
                     audio.pause_clock();
                 }
-                let now_ms = audio.current_time_ms();
+                let now_ms = audio.current_time_ms() - self.start_delay_ms;
                 self.current_time_ms = now_ms;
                 self.last_time_ms = now_ms;
             }
         }
 
         if is_key_pressed(KeyCode::R) {
-            self.current_time_ms = 0.0;
-            self.last_time_ms = 0.0;
+            self.current_time_ms = -self.start_delay_ms;
+            self.last_time_ms = self.current_time_ms;
             self.scheduler.reset();
             self.score.reset();
             if let Some(play_state) = &mut self.play_state {
@@ -368,14 +376,15 @@ impl GameState {
             let now_ms = self
                 .audio
                 .as_ref()
-                .map(|audio| audio.current_time_ms())
+                .map(|audio| audio.current_time_ms() - self.start_delay_ms)
                 .unwrap_or(self.current_time_ms);
             let delta_ms = (now_ms - self.last_time_ms).max(0.0);
             self.current_time_ms = now_ms;
             self.last_time_ms = now_ms;
 
             if let (Some(chart), Some(audio)) = (&self.chart, &mut self.audio) {
-                self.scheduler.update(chart, audio, self.current_time_ms);
+                self.scheduler
+                    .update(chart, audio, self.current_time_ms, self.start_delay_ms);
             }
 
             // Update BGA
@@ -511,6 +520,8 @@ impl GameState {
             if let Some(active_ln) = self.active_long_notes[lane_idx].take() {
                 // Calculate time difference from end time
                 let time_diff = active_ln.end_time_ms - self.current_time_ms;
+                let effect_x = VIRTUAL_WIDTH / 2.0;
+                let effect_y = VIRTUAL_HEIGHT / 2.0;
 
                 // Find the corresponding LongEnd note
                 let mut long_end_idx = None;
@@ -539,6 +550,11 @@ impl GameState {
                                 if let Some(audio) = &mut self.audio {
                                     audio.play(chart.notes[end_idx].keysound_id);
                                 }
+                                self.effects
+                                    .trigger_judge(active_ln.start_judgment, effect_x, effect_y);
+                                self.effects.update_combo(self.score.combo);
+                                self.last_judgment = Some(active_ln.start_judgment);
+                                self.last_timing_diff_ms = None;
                             } else {
                                 // Released too early - POOR
                                 play_state.set_missed(end_idx);
@@ -546,7 +562,11 @@ impl GameState {
                                 if let Some(gauge) = &mut self.gauge {
                                     gauge.apply_judgment(JudgeResult::Poor);
                                 }
+                                self.effects
+                                    .trigger_judge(JudgeResult::Poor, effect_x, effect_y);
+                                self.effects.update_combo(self.score.combo);
                                 self.last_judgment = Some(JudgeResult::Poor);
+                                self.last_timing_diff_ms = None;
                             }
                         }
                     }
@@ -560,7 +580,11 @@ impl GameState {
                                 if let Some(gauge) = &mut self.gauge {
                                     gauge.apply_judgment(JudgeResult::Poor);
                                 }
+                                self.effects
+                                    .trigger_judge(JudgeResult::Poor, effect_x, effect_y);
+                                self.effects.update_combo(self.score.combo);
                                 self.last_judgment = Some(JudgeResult::Poor);
+                                self.last_timing_diff_ms = Some(time_diff);
                             } else if let Some(release_result) = self.judge.judge_release(time_diff)
                             {
                                 // Release judgment
@@ -573,6 +597,10 @@ impl GameState {
                                 if let Some(audio) = &mut self.audio {
                                     audio.play(chart.notes[end_idx].keysound_id);
                                 }
+                                self.effects
+                                    .trigger_judge(release_result, effect_x, effect_y);
+                                self.effects.update_combo(self.score.combo);
+                                self.last_timing_diff_ms = Some(time_diff);
                             } else {
                                 // Released too late - BAD
                                 play_state.set_judged(end_idx, JudgeResult::Bad);
@@ -580,7 +608,11 @@ impl GameState {
                                 if let Some(gauge) = &mut self.gauge {
                                     gauge.apply_judgment(JudgeResult::Bad);
                                 }
+                                self.effects
+                                    .trigger_judge(JudgeResult::Bad, effect_x, effect_y);
+                                self.effects.update_combo(self.score.combo);
                                 self.last_judgment = Some(JudgeResult::Bad);
+                                self.last_timing_diff_ms = Some(time_diff);
                             }
                         }
                     }
@@ -595,6 +627,11 @@ impl GameState {
                             if let Some(audio) = &mut self.audio {
                                 audio.play(chart.notes[end_idx].keysound_id);
                             }
+                            self.effects
+                                .trigger_judge(active_ln.start_judgment, effect_x, effect_y);
+                            self.effects.update_combo(self.score.combo);
+                            self.last_judgment = Some(active_ln.start_judgment);
+                            self.last_timing_diff_ms = None;
                         }
                     }
                 }
@@ -773,6 +810,8 @@ impl GameState {
                 self.effects.trigger_judge(result, effect_x, effect_y);
                 self.effects.trigger_bomb(scratch_lane);
                 self.effects.update_combo(self.score.combo);
+                self.last_judgment = Some(result);
+                self.last_timing_diff_ms = Some(time_diff);
 
                 // Handle long notes
                 if note.note_type == NoteType::LongStart {
@@ -812,6 +851,12 @@ impl GameState {
                             gauge.apply_judgment(result);
                         }
                         audio.play(note.keysound_id);
+                        let effect_x = VIRTUAL_WIDTH / 2.0;
+                        let effect_y = VIRTUAL_HEIGHT / 2.0;
+                        self.effects.trigger_judge(result, effect_x, effect_y);
+                        self.effects.update_combo(self.score.combo);
+                        self.last_judgment = Some(result);
+                        self.last_timing_diff_ms = None;
                         break;
                     }
                 }
@@ -1179,6 +1224,11 @@ impl GameState {
         };
 
         if !self.playing {
+            return false;
+        }
+
+        let end_time_ms = chart.total_duration_ms() + self.end_delay_ms;
+        if self.current_time_ms < end_time_ms {
             return false;
         }
 

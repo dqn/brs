@@ -10,9 +10,9 @@ impl TimingDirection {
     const EXACT_THRESHOLD_MS: f64 = 1.0;
 
     pub fn from_timing_diff(timing_diff_ms: f64) -> Self {
-        if timing_diff_ms < -Self::EXACT_THRESHOLD_MS {
+        if timing_diff_ms > Self::EXACT_THRESHOLD_MS {
             TimingDirection::Fast
-        } else if timing_diff_ms > Self::EXACT_THRESHOLD_MS {
+        } else if timing_diff_ms < -Self::EXACT_THRESHOLD_MS {
             TimingDirection::Slow
         } else {
             TimingDirection::Exact

@@ -173,11 +173,10 @@ impl SongSelectScene {
             let path = entry.path();
             if let Some(ext) = path.extension() {
                 let ext_lower = ext.to_string_lossy().to_lowercase();
-                // Support BMS, BME, BML (BMS formats), PMS (Pop'n Music format), and BMSON
+                // Support BMS, BME, BML (BMS formats), and BMSON
                 if ext_lower == "bms"
                     || ext_lower == "bme"
                     || ext_lower == "bml"
-                    || ext_lower == "pms"
                     || ext_lower == "bmson"
                 {
                     if let Some(entry) = Self::parse_header(path.to_path_buf()) {
@@ -242,6 +241,12 @@ impl SongSelectScene {
         let json: serde_json::Value = serde_json::from_str(&content).ok()?;
 
         let info = json.get("info")?;
+        if let Some(mode_hint) = info.get("mode_hint").and_then(|v| v.as_str()) {
+            let mode_hint = mode_hint.to_lowercase();
+            if mode_hint.contains("popn") || mode_hint.contains("10k") || mode_hint.contains("14k") {
+                return None;
+            }
+        }
 
         let title = info
             .get("title")

@@ -372,7 +372,7 @@ impl EffectManager {
     /// Format: "PGREAT 100" with FAST/SLOW displayed above in smaller font
     /// center_x: horizontal center of the highway
     /// y: Y position to draw (typically judge_y - 120.0)
-    /// timing_diff_ms: timing difference in ms (negative = early/FAST, positive = late/SLOW)
+    /// timing_diff_ms: timing difference in ms (positive = early/FAST, negative = late/SLOW)
     pub fn draw_judge_and_combo_at(&self, center_x: f32, y: f32, timing_diff_ms: Option<f64>) {
         let Some(ref effect) = self.judge_effect else {
             return;
@@ -392,9 +392,9 @@ impl EffectManager {
         // Draw FAST/SLOW above the judge text (skip for PGREAT)
         if effect.result != JudgeResult::PGreat {
             if let Some(diff) = timing_diff_ms {
-                let (fs_text, fs_color) = if diff < 0.0 {
+                let (fs_text, fs_color) = if diff > 0.0 {
                     ("FAST", Color::new(0.3, 0.5, 1.0, alpha)) // Blue
-                } else if diff > 0.0 {
+                } else if diff < 0.0 {
                     ("SLOW", Color::new(1.0, 0.3, 0.3, alpha)) // Red
                 } else {
                     ("", Color::default())

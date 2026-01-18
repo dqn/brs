@@ -1,10 +1,15 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use macroquad::prelude::*;
 
 use super::video::VideoDecoder;
 use crate::bms::{BgaEvent, BgaLayer};
+
+const VIDEO_EXTENSIONS: [&str; 9] = [
+    "mp4", "webm", "m4v", "mov", "mkv", "avi", "wmv", "mpg", "mpeg",
+];
+const IMAGE_FALLBACK_EXTENSIONS: [&str; 4] = ["png", "jpg", "jpeg", "bmp"];
 
 /// BGA (Background Animation) manager with video support
 pub struct BgaManager {
@@ -64,7 +69,7 @@ impl BgaManager {
             let loaded = match ext.as_str() {
                 // Video files
                 "mpg" | "mpeg" | "avi" | "wmv" | "mp4" | "webm" | "m4v" => {
-                    if let Ok(decoder) = VideoDecoder::open(&path) {
+                    if let Some(decoder) = select_best_video(&path) {
                         let tex = Texture2D::from_rgba8(
                             decoder.width() as u16,
                             decoder.height() as u16,
@@ -85,7 +90,7 @@ impl BgaManager {
                         self.textures.insert(id, tex);
                         images_loaded += 1;
                         true
-                    } else if let Ok(decoder) = VideoDecoder::open(&path) {
+                    } else if let Some(decoder) = select_best_video(&path) {
                         let tex = Texture2D::from_rgba8(
                             decoder.width() as u16,
                             decoder.height() as u16,
@@ -107,7 +112,7 @@ impl BgaManager {
                 let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
                 let parent = path.parent().unwrap_or(base_path);
 
-                for fallback_ext in ["png", "jpg", "jpeg", "bmp"] {
+                for fallback_ext in IMAGE_FALLBACK_EXTENSIONS {
                     let alt_path = parent.join(format!("{}.{}", stem, fallback_ext));
                     if let Some(tex) = load_texture_sync(&alt_path) {
                         self.textures.insert(id, tex);
@@ -145,7 +150,7 @@ impl BgaManager {
             let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
             let parent = path.parent().unwrap_or(base_path);
 
-            for ext in ["png", "jpg", "jpeg", "bmp"] {
+            for ext in IMAGE_FALLBACK_EXTENSIONS {
                 let alt_path = parent.join(format!("{}.{}", stem, ext));
                 if let Ok(texture) = load_texture(alt_path.to_str().unwrap_or("")).await {
                     texture.set_filter(FilterMode::Linear);
@@ -336,4 +341,52 @@ fn load_texture_sync(path: &Path) -> Option<Texture2D> {
     let texture = Texture2D::from_rgba8(rgba.width() as u16, rgba.height() as u16, rgba.as_raw());
     texture.set_filter(FilterMode::Linear);
     Some(texture)
+}
+
+fn select_best_video(path: &Path) -> Option<VideoDecoder> {
+    let mut best: Option<(VideoDecoder, u64)> = None;
+    for candidate in collect_video_candidates(path) {
+        let Ok(decoder) = VideoDecoder::open(&candidate) else {
+            continue;
+        };
+        let area = decoder.width() as u64 * decoder.height() as u64;
+        let replace = best
+            .as_ref()
+            .map_or(true, |(_, best_area)| area > *best_area);
+        if replace {
+            best = Some((decoder, area));
+        }
+    }
+    best.map(|(decoder, _)| decoder)
+}
+
+fn collect_video_candidates(path: &Path) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    let stem = path.file_stem().and_then(|s| s.to_str());
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+
+    if let Some(stem) = stem {
+        for ext in VIDEO_EXTENSIONS {
+            let alt_path = parent.join(format!("{}.{}", stem, ext));
+            if alt_path.exists() {
+                push_unique(&mut candidates, alt_path);
+            }
+        }
+    }
+
+    if path.exists() {
+        push_unique(&mut candidates, path.to_path_buf());
+    }
+
+    if candidates.is_empty() {
+        candidates.push(path.to_path_buf());
+    }
+
+    candidates
+}
+
+fn push_unique(list: &mut Vec<PathBuf>, path: PathBuf) {
+    if !list.iter().any(|existing| existing == &path) {
+        list.push(path);
+    }
 }

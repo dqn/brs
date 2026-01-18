@@ -19,4 +19,7 @@ pub enum BmsError {
 
     #[error("Keysound not found: {id}")]
     KeysoundNotFound { id: u32 },
+
+    #[error("Unsupported play mode: {mode}")]
+    UnsupportedPlayMode { mode: String },
 }

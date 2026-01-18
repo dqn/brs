@@ -53,6 +53,12 @@ impl BmsLoader {
             serde_json::from_str(&content).map_err(|e| BmsError::Parse(format!("{}", e)))?;
 
         let chart = bmson.to_chart()?;
+        if chart.metadata.play_mode != PlayMode::Bms7Key {
+            return Err(BmsError::UnsupportedPlayMode {
+                mode: format!("{:?}", chart.metadata.play_mode),
+            }
+            .into());
+        }
         let wav_files = bmson.collect_wav_files();
         let bmp_files = bmson.collect_bmp_files();
 
@@ -86,6 +92,13 @@ impl BmsLoader {
         } else {
             PlayMode::Bms7Key
         };
+
+        if play_mode != PlayMode::Bms7Key {
+            return Err(BmsError::UnsupportedPlayMode {
+                mode: format!("{:?}", play_mode),
+            }
+            .into());
+        }
 
         let mut chart = Self::convert_to_chart(&bms, play_mode)?;
         let wav_files = Self::extract_wav_files(&bms);
