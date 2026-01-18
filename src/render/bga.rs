@@ -350,9 +350,7 @@ fn select_best_video(path: &Path) -> Option<VideoDecoder> {
             continue;
         };
         let area = decoder.width() as u64 * decoder.height() as u64;
-        let replace = best
-            .as_ref()
-            .map_or(true, |(_, best_area)| area > *best_area);
+        let replace = best.as_ref().is_none_or(|(_, best_area)| area > *best_area);
         if replace {
             best = Some((decoder, area));
         }

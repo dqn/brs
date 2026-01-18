@@ -270,8 +270,12 @@ impl GameState {
         self.scheduler.reset();
         self.current_time_ms = -self.start_delay_ms;
         self.last_time_ms = self.current_time_ms;
-        self.scheduler
-            .update(&chart, &mut audio, self.current_time_ms, self.start_delay_ms);
+        self.scheduler.update(
+            &chart,
+            &mut audio,
+            self.current_time_ms,
+            self.start_delay_ms,
+        );
         audio.start_clock();
         self.chart = Some(chart);
         self.audio = Some(audio);
@@ -550,8 +554,11 @@ impl GameState {
                                 if let Some(audio) = &mut self.audio {
                                     audio.play(chart.notes[end_idx].keysound_id);
                                 }
-                                self.effects
-                                    .trigger_judge(active_ln.start_judgment, effect_x, effect_y);
+                                self.effects.trigger_judge(
+                                    active_ln.start_judgment,
+                                    effect_x,
+                                    effect_y,
+                                );
                                 self.effects.update_combo(self.score.combo);
                                 self.last_judgment = Some(active_ln.start_judgment);
                                 self.last_timing_diff_ms = None;
@@ -627,8 +634,11 @@ impl GameState {
                             if let Some(audio) = &mut self.audio {
                                 audio.play(chart.notes[end_idx].keysound_id);
                             }
-                            self.effects
-                                .trigger_judge(active_ln.start_judgment, effect_x, effect_y);
+                            self.effects.trigger_judge(
+                                active_ln.start_judgment,
+                                effect_x,
+                                effect_y,
+                            );
                             self.effects.update_combo(self.score.combo);
                             self.last_judgment = Some(active_ln.start_judgment);
                             self.last_timing_diff_ms = None;

@@ -243,7 +243,8 @@ impl SongSelectScene {
         let info = json.get("info")?;
         if let Some(mode_hint) = info.get("mode_hint").and_then(|v| v.as_str()) {
             let mode_hint = mode_hint.to_lowercase();
-            if mode_hint.contains("popn") || mode_hint.contains("10k") || mode_hint.contains("14k") {
+            if mode_hint.contains("popn") || mode_hint.contains("10k") || mode_hint.contains("14k")
+            {
                 return None;
             }
         }
