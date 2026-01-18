@@ -172,13 +172,15 @@ impl BgaManager {
 
             match event.layer {
                 BgaLayer::Base => {
-                    if self.current_base != Some(event.bga_id) || self.base_start_time_ms.is_none() {
+                    if self.current_base != Some(event.bga_id) || self.base_start_time_ms.is_none()
+                    {
                         self.current_base = Some(event.bga_id);
                         self.base_start_time_ms = Some(event.time_ms);
                     }
                 }
                 BgaLayer::Poor => {
-                    if self.current_poor != Some(event.bga_id) || self.poor_start_time_ms.is_none() {
+                    if self.current_poor != Some(event.bga_id) || self.poor_start_time_ms.is_none()
+                    {
                         self.current_poor = Some(event.bga_id);
                         self.poor_start_time_ms = Some(event.time_ms);
                     }
@@ -202,16 +204,8 @@ impl BgaManager {
 
     /// Update video frame textures
     fn update_video_frames(&mut self, current_time_ms: f64) {
-        self.update_video_frame_for(
-            self.current_base,
-            self.base_start_time_ms,
-            current_time_ms,
-        );
-        self.update_video_frame_for(
-            self.current_poor,
-            self.poor_start_time_ms,
-            current_time_ms,
-        );
+        self.update_video_frame_for(self.current_base, self.base_start_time_ms, current_time_ms);
+        self.update_video_frame_for(self.current_poor, self.poor_start_time_ms, current_time_ms);
         self.update_video_frame_for(
             self.current_overlay,
             self.overlay_start_time_ms,
