@@ -210,6 +210,66 @@ impl Default for KeyBeam {
     }
 }
 
+/// Bomb effect displayed when a note is hit
+#[derive(Debug, Clone, Copy)]
+pub struct BombEffect {
+    lane: usize,
+    timer: f32,
+    duration: f32,
+}
+
+impl BombEffect {
+    pub fn new(lane: usize, duration: f32) -> Self {
+        Self {
+            lane,
+            timer: duration,
+            duration,
+        }
+    }
+
+    pub fn update(&mut self, dt: f32) {
+        self.timer -= dt;
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.timer > 0.0
+    }
+
+    fn progress(&self) -> f32 {
+        if self.duration <= 0.0 {
+            return 1.0;
+        }
+        (1.0 - (self.timer / self.duration)).clamp(0.0, 1.0)
+    }
+
+    pub fn draw(&self, x: f32, y: f32, scale: f32, config: &EffectConfig) {
+        let bomb = &config.bomb;
+        if !bomb.enabled {
+            return;
+        }
+
+        let t = self.progress();
+        let eased = 1.0 - (1.0 - t) * (1.0 - t);
+        let radius = (bomb.start_radius + (bomb.end_radius - bomb.start_radius) * eased) * scale;
+        let alpha = (1.0 - t) * bomb.max_alpha;
+        if alpha <= 0.0 || radius <= 0.0 {
+            return;
+        }
+
+        let base_color: Color = bomb.color.into();
+        let color = Color::new(base_color.r, base_color.g, base_color.b, alpha);
+        let thickness = (bomb.line_thickness * scale).max(1.0);
+
+        draw_circle_lines(x, y, radius, thickness, color);
+
+        let glow_alpha = alpha * 0.25;
+        if glow_alpha > 0.0 {
+            let glow_color = Color::new(base_color.r, base_color.g, base_color.b, glow_alpha);
+            draw_circle(x, y, radius * 0.4, glow_color);
+        }
+    }
+}
+
 use crate::bms::MAX_LANE_COUNT;
 
 /// Effect manager for all visual effects
@@ -218,6 +278,7 @@ pub struct EffectManager {
     combo_effect: ComboEffect,
     lane_flashes: [LaneFlash; MAX_LANE_COUNT],
     key_beams: [KeyBeam; MAX_LANE_COUNT],
+    bombs: Vec<BombEffect>,
     effect_config: EffectConfig,
 }
 
@@ -233,6 +294,7 @@ impl EffectManager {
             combo_effect: ComboEffect::new(0, combo_x, combo_y, config.combo_duration),
             lane_flashes: [lane_flash; MAX_LANE_COUNT],
             key_beams: [KeyBeam::new(); MAX_LANE_COUNT],
+            bombs: Vec::new(),
             effect_config: config,
         }
     }
@@ -250,6 +312,20 @@ impl EffectManager {
             y,
             self.effect_config.judge_duration,
         ));
+    }
+
+    pub fn trigger_bomb(&mut self, lane: usize) {
+        if lane >= MAX_LANE_COUNT || !self.effect_config.bomb.enabled {
+            return;
+        }
+
+        const MAX_BOMBS: usize = 128;
+        if self.bombs.len() >= MAX_BOMBS {
+            self.bombs.remove(0);
+        }
+
+        self.bombs
+            .push(BombEffect::new(lane, self.effect_config.bomb.duration));
     }
 
     pub fn update_combo(&mut self, combo: u32) {
@@ -274,6 +350,10 @@ impl EffectManager {
         for flash in &mut self.lane_flashes {
             flash.update(dt);
         }
+        for bomb in &mut self.bombs {
+            bomb.update(dt);
+        }
+        self.bombs.retain(|bomb| bomb.is_active());
     }
 
     #[allow(dead_code)]
@@ -463,6 +543,34 @@ impl EffectManager {
             }
 
             x += width;
+        }
+    }
+
+    /// Draw bomb effects on the judge line for each lane
+    pub fn draw_bombs_in_rect(
+        &self,
+        rect: &crate::skin::Rect,
+        lane_widths: &[f32],
+        scale: f32,
+        judge_y: f32,
+    ) {
+        if self.bombs.is_empty() {
+            return;
+        }
+
+        let mut lane_centers = Vec::with_capacity(lane_widths.len());
+        let mut x = rect.x;
+        for width in lane_widths.iter().copied() {
+            let scaled_width = width * scale;
+            lane_centers.push(x + scaled_width * 0.5);
+            x += scaled_width;
+        }
+
+        for bomb in &self.bombs {
+            let Some(&center_x) = lane_centers.get(bomb.lane) else {
+                continue;
+            };
+            bomb.draw(center_x, judge_y, scale, &self.effect_config);
         }
     }
 }

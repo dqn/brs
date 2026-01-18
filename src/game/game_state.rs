@@ -8,10 +8,10 @@ use crate::bms::{BmsLoader, Chart, LnType, MAX_LANE_COUNT, NoteType};
 use crate::config::GameSettings;
 use crate::render::font::draw_text_jp;
 use crate::render::{
-    BgaManager, BpmDisplay, EffectManager, Highway, JudgeStats, LaneCover, ProgressBar, ScoreGraph,
-    Turntable, VIRTUAL_HEIGHT, VIRTUAL_WIDTH,
+    BgaManager, BpmDisplay, EffectManager, Highway, HighwayConfig, JudgeStats, LaneCover,
+    ProgressBar, ScoreGraph, Turntable, VIRTUAL_HEIGHT, VIRTUAL_WIDTH,
 };
-use crate::skin::{IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect};
+use crate::skin::{IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect, SkinLoader};
 
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
@@ -142,6 +142,31 @@ impl GameState {
 
         // Load settings
         let settings = GameSettings::load();
+        let skin = if settings.skin_name.is_empty() {
+            SkinLoader::load_default(None)
+        } else {
+            match SkinLoader::load_by_name(&settings.skin_name, None) {
+                Ok(skin) => skin,
+                Err(err) => {
+                    eprintln!(
+                        "Failed to load skin '{}': {}. Falling back to default.",
+                        settings.skin_name, err
+                    );
+                    SkinLoader::load_default(None)
+                }
+            }
+        };
+
+        self.layout = skin.layout.clone();
+        self.highway = Highway::with_config(HighwayConfig::for_mode_with_skin(
+            chart.metadata.play_mode,
+            skin.theme.clone(),
+        ));
+        self.effects = EffectManager::with_config(
+            VIRTUAL_WIDTH / 2.0,
+            VIRTUAL_HEIGHT / 2.0 + 50.0,
+            skin.effects.clone(),
+        );
 
         let mut audio = AudioManager::new()?;
         // Apply volume settings
@@ -447,6 +472,7 @@ impl GameState {
                     let effect_x = VIRTUAL_WIDTH / 2.0;
                     let effect_y = VIRTUAL_HEIGHT / 2.0;
                     self.effects.trigger_judge(result, effect_x, effect_y);
+                    self.effects.trigger_bomb(lane_idx);
                     self.effects.update_combo(self.score.combo);
 
                     if note.note_type == NoteType::LongStart {
@@ -745,6 +771,7 @@ impl GameState {
                 let effect_x = VIRTUAL_WIDTH / 2.0;
                 let effect_y = VIRTUAL_HEIGHT / 2.0;
                 self.effects.trigger_judge(result, effect_x, effect_y);
+                self.effects.trigger_bomb(scratch_lane);
                 self.effects.update_combo(self.score.combo);
 
                 // Handle long notes
@@ -847,6 +874,8 @@ impl GameState {
             scale,
             judge_y,
         );
+        self.effects
+            .draw_bombs_in_rect(&highway_rect, &lane_widths, scale, judge_y);
 
         // Draw judge text and combo (centered on highway, 120px above judge line)
         let effect_center_x = highway_rect.x + highway_rect.width / 2.0;

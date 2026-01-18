@@ -480,6 +480,49 @@ impl Default for KeyBeamConfig {
     }
 }
 
+/// Bomb effect configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BombEffectConfig {
+    /// Effect duration (seconds)
+    pub duration: f32,
+    /// Starting radius (pixels at virtual resolution)
+    pub start_radius: f32,
+    /// Ending radius (pixels at virtual resolution)
+    pub end_radius: f32,
+    /// Line thickness (pixels at virtual resolution)
+    pub line_thickness: f32,
+    /// Maximum alpha at start
+    pub max_alpha: f32,
+    /// Bomb color
+    #[serde(default = "default_bomb_color")]
+    pub color: SkinColor,
+    /// Enable/disable bomb effect
+    pub enabled: bool,
+}
+
+fn default_bomb_color() -> SkinColor {
+    SkinColor {
+        r: 1.0,
+        g: 0.9,
+        b: 0.4,
+        a: 1.0,
+    }
+}
+
+impl Default for BombEffectConfig {
+    fn default() -> Self {
+        Self {
+            duration: 0.18,
+            start_radius: 14.0,
+            end_radius: 90.0,
+            line_thickness: 3.0,
+            max_alpha: 0.9,
+            color: default_bomb_color(),
+            enabled: true,
+        }
+    }
+}
+
 /// Effect configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EffectConfig {
@@ -502,6 +545,9 @@ pub struct EffectConfig {
     /// Key beam configuration
     #[serde(default)]
     pub key_beam: KeyBeamConfig,
+    /// Bomb effect configuration
+    #[serde(default)]
+    pub bomb: BombEffectConfig,
 }
 
 impl Default for EffectConfig {
@@ -516,6 +562,7 @@ impl Default for EffectConfig {
             judge_font_size: 40.0,
             combo_font_size: 36.0,
             key_beam: KeyBeamConfig::default(),
+            bomb: BombEffectConfig::default(),
         }
     }
 }
