@@ -393,12 +393,7 @@ impl GaugeManager {
         }
     }
 
-    fn apply_modifiers(
-        &self,
-        gauge_type: GaugeType,
-        current_hp: f32,
-        damage: f32,
-    ) -> f32 {
+    fn apply_modifiers(&self, gauge_type: GaugeType, current_hp: f32, damage: f32) -> f32 {
         match self.system {
             GaugeSystem::Beatoraja => {
                 self.apply_beatoraja_modifiers(gauge_type, current_hp, damage)
@@ -429,10 +424,8 @@ impl GaugeManager {
         let mut modified = damage;
 
         // LR2: groove/easyはTOTAL/ノーツ数で回復量をスケール
-        if !gauge_type.is_survival() && modified > 0.0 {
-            if self.total_notes > 0 {
-                modified *= (self.total_value / self.total_notes as f64) as f32;
-            }
+        if !gauge_type.is_survival() && modified > 0.0 && self.total_notes > 0 {
+            modified *= (self.total_value / self.total_notes as f64) as f32;
         }
 
         // LR2: HARD系はTOTAL/ノーツ数でダメージ増幅
@@ -449,7 +442,9 @@ impl GaugeManager {
     /// LR2 HARD/EXHARD向けのダメージ倍率
     /// TOTAL値が低い譜面/ノート数が少ない譜面でダメージが増加する
     fn lr2_damage_multiplier(&self) -> f32 {
-        let fix1total = [240.0f32, 230.0, 210.0, 200.0, 180.0, 160.0, 150.0, 130.0, 120.0, 0.0];
+        let fix1total = [
+            240.0f32, 230.0, 210.0, 200.0, 180.0, 160.0, 150.0, 130.0, 120.0, 0.0,
+        ];
         let fix1table = [1.0f32, 1.11, 1.25, 1.5, 1.666, 2.0, 2.5, 3.333, 5.0, 10.0];
 
         let total = self.total_value as f32;
@@ -607,13 +602,8 @@ mod tests {
 
     #[test]
     fn test_lr2_normal_gauge_values() {
-        let mut gauge = GaugeManager::new_with_gas(
-            GaugeType::Normal,
-            GaugeSystem::Lr2,
-            200,
-            200.0,
-            false,
-        );
+        let mut gauge =
+            GaugeManager::new_with_gas(GaugeType::Normal, GaugeSystem::Lr2, 200, 200.0, false);
 
         assert!((gauge.hp() - 20.0).abs() < 0.01);
 
@@ -629,13 +619,8 @@ mod tests {
 
     #[test]
     fn test_lr2_easy_gauge_values() {
-        let mut gauge = GaugeManager::new_with_gas(
-            GaugeType::Easy,
-            GaugeSystem::Lr2,
-            200,
-            200.0,
-            false,
-        );
+        let mut gauge =
+            GaugeManager::new_with_gas(GaugeType::Easy, GaugeSystem::Lr2, 200, 200.0, false);
 
         gauge.apply_judgment(JudgeResult::PGreat);
         assert!((gauge.hp() - 21.2).abs() < 0.01);
@@ -649,13 +634,8 @@ mod tests {
 
     #[test]
     fn test_lr2_damage_multiplier_from_total() {
-        let gauge = GaugeManager::new_with_gas(
-            GaugeType::Hard,
-            GaugeSystem::Lr2,
-            1000,
-            120.0,
-            false,
-        );
+        let gauge =
+            GaugeManager::new_with_gas(GaugeType::Hard, GaugeSystem::Lr2, 1000, 120.0, false);
 
         let multiplier = gauge.lr2_damage_multiplier();
         assert!((multiplier - 5.0).abs() < 0.01);
@@ -663,13 +643,8 @@ mod tests {
 
     #[test]
     fn test_lr2_low_hp_damage_reduction() {
-        let gauge = GaugeManager::new_with_gas(
-            GaugeType::Hard,
-            GaugeSystem::Lr2,
-            1000,
-            240.0,
-            false,
-        );
+        let gauge =
+            GaugeManager::new_with_gas(GaugeType::Hard, GaugeSystem::Lr2, 1000, 240.0, false);
 
         let high_hp = gauge.apply_lr2_modifiers(GaugeType::Hard, 50.0, -6.0);
         assert!((high_hp + 6.0).abs() < 0.01);
