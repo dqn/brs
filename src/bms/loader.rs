@@ -165,19 +165,28 @@ impl BmsLoader {
     fn extract_timing_data(bms: &Bms) -> TimingData {
         let initial_bpm = bms.bpm.bpm.as_ref().map(decimal_to_f64).unwrap_or(130.0);
 
-        let bpm_changes: Vec<BpmChange> = bms
-            .bpm
-            .bpm_changes
-            .iter()
-            .map(|(time, change)| {
-                let track = time.track().0;
-                BpmChange {
-                    measure: track as u32,
-                    position: obj_time_to_fraction(time),
-                    bpm: decimal_to_f64(&change.bpm),
-                }
-            })
-            .collect();
+        let mut bpm_changes: Vec<BpmChange> = Vec::new();
+
+        for (time, change) in &bms.bpm.bpm_changes {
+            let track = time.track().0;
+            bpm_changes.push(BpmChange {
+                measure: track as u32,
+                position: obj_time_to_fraction(time),
+                bpm: decimal_to_f64(&change.bpm),
+            });
+        }
+
+        for (time, bpm) in &bms.bpm.bpm_changes_u8 {
+            if *bpm == 0 {
+                continue;
+            }
+            let track = time.track().0;
+            bpm_changes.push(BpmChange {
+                measure: track as u32,
+                position: obj_time_to_fraction(time),
+                bpm: *bpm as f64,
+            });
+        }
 
         let stops: Vec<StopEvent> = bms
             .stop
