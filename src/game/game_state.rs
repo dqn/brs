@@ -49,9 +49,8 @@ pub struct GameState {
     timing_stats: TimingStats,
     scroll_speed: f32,
     current_time_ms: f64,
+    last_time_ms: f64,
     playing: bool,
-    /// Skip first frame time delta after loading to avoid time drift
-    first_frame: bool,
     last_judgment: Option<JudgeResult>,
     last_timing_diff_ms: Option<f64>,
     active_long_notes: [Option<ActiveLongNote>; MAX_LANE_COUNT],
@@ -98,8 +97,8 @@ impl GameState {
             timing_stats: TimingStats::default(),
             scroll_speed: 1.0,
             current_time_ms: 0.0,
+            last_time_ms: 0.0,
             playing: false,
-            first_frame: true,
             last_judgment: None,
             last_timing_diff_ms: None,
             active_long_notes: [const { None }; MAX_LANE_COUNT],
@@ -235,10 +234,15 @@ impl GameState {
         // Initialize progress bar with total duration
         self.progress_bar = ProgressBar::new(chart.total_duration_ms());
 
+        audio.stop_clock();
+        self.scheduler.reset();
+        self.scheduler.update(&chart, &mut audio, 0.0);
+        audio.start_clock();
         self.chart = Some(chart);
         self.audio = Some(audio);
-        self.scheduler.reset();
         self.score.reset();
+        self.current_time_ms = 0.0;
+        self.last_time_ms = 0.0;
 
         // Apply lane cover and scroll speed settings
         self.scroll_speed = settings.scroll_speed;
@@ -266,10 +270,21 @@ impl GameState {
 
         if is_key_pressed(KeyCode::Space) {
             self.playing = !self.playing;
+            if let Some(audio) = &mut self.audio {
+                if self.playing {
+                    audio.start_clock();
+                } else {
+                    audio.pause_clock();
+                }
+                let now_ms = audio.current_time_ms();
+                self.current_time_ms = now_ms;
+                self.last_time_ms = now_ms;
+            }
         }
 
         if is_key_pressed(KeyCode::R) {
             self.current_time_ms = 0.0;
+            self.last_time_ms = 0.0;
             self.scheduler.reset();
             self.score.reset();
             if let Some(play_state) = &mut self.play_state {
@@ -288,11 +303,13 @@ impl GameState {
                 ));
             }
             self.playing = false;
-            self.first_frame = true;
             self.last_judgment = None;
             self.active_long_notes = [const { None }; MAX_LANE_COUNT];
             self.hcn_damage_timers = [0.0; MAX_LANE_COUNT];
             self.bga.reset();
+            if let Some(audio) = &mut self.audio {
+                audio.stop_clock();
+            }
         }
 
         if is_key_pressed(KeyCode::Up) {
@@ -323,16 +340,14 @@ impl GameState {
         }
 
         if self.playing {
-            // Skip first frame time delta to avoid time drift from loading
-            let delta_ms = if self.first_frame {
-                self.first_frame = false;
-                0.0
-            } else {
-                get_frame_time() as f64 * 1000.0
-            };
-
-            // Update time using frame-based timing
-            self.current_time_ms += delta_ms;
+            let now_ms = self
+                .audio
+                .as_ref()
+                .map(|audio| audio.current_time_ms())
+                .unwrap_or(self.current_time_ms);
+            let delta_ms = (now_ms - self.last_time_ms).max(0.0);
+            self.current_time_ms = now_ms;
+            self.last_time_ms = now_ms;
 
             if let (Some(chart), Some(audio)) = (&self.chart, &mut self.audio) {
                 self.scheduler.update(chart, audio, self.current_time_ms);

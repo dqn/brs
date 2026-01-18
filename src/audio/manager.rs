@@ -45,7 +45,10 @@ fn find_audio_file(base_path: &Path, filename: &str) -> Option<PathBuf> {
 use kira::AudioManager as KiraAudioManager;
 use kira::AudioManagerSettings;
 use kira::Decibels;
+use kira::clock::{ClockHandle, ClockSpeed, ClockTime};
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle, StaticSoundSettings};
+
+const AUDIO_CLOCK_TICKS_PER_SECOND: f64 = 1000.0;
 
 /// Result of loading keysounds
 #[derive(Debug, Default)]
@@ -75,12 +78,16 @@ pub struct AudioManager {
     master_volume: f64,
     keysound_volume: f64,
     bgm_volume: f64,
+    clock: ClockHandle,
 }
 
 impl AudioManager {
     pub fn new() -> Result<Self> {
-        let manager = KiraAudioManager::new(AudioManagerSettings::default())
+        let mut manager = KiraAudioManager::new(AudioManagerSettings::default())
             .context("Failed to create audio manager")?;
+        let clock = manager
+            .add_clock(ClockSpeed::TicksPerSecond(AUDIO_CLOCK_TICKS_PER_SECOND))
+            .context("Failed to create audio clock")?;
 
         Ok(Self {
             manager,
@@ -88,6 +95,7 @@ impl AudioManager {
             master_volume: 1.0,
             keysound_volume: 1.0,
             bgm_volume: 1.0,
+            clock,
         })
     }
 
@@ -180,6 +188,7 @@ impl AudioManager {
     }
 
     /// Play BGM with current volume settings
+    #[allow(dead_code)]
     pub fn play_bgm(&mut self, keysound_id: u32) -> Option<StaticSoundHandle> {
         if let Some(sound_data) = self.sounds.get(&keysound_id) {
             let effective_volume = self.master_volume * self.bgm_volume;
@@ -191,6 +200,48 @@ impl AudioManager {
         } else {
             None
         }
+    }
+
+    /// Schedule BGM to start at the given clock time (in ms)
+    pub fn play_bgm_at(&mut self, keysound_id: u32, time_ms: f64) -> Option<StaticSoundHandle> {
+        if let Some(sound_data) = self.sounds.get(&keysound_id) {
+            let effective_volume = self.master_volume * self.bgm_volume;
+            let decibels = Self::amplitude_to_decibels(effective_volume);
+            let start_time = self.ms_to_clock_time(time_ms);
+            let settings = StaticSoundSettings::new()
+                .volume(decibels)
+                .start_time(start_time);
+            self.manager
+                .play(sound_data.clone().with_settings(settings))
+                .ok()
+        } else {
+            None
+        }
+    }
+
+    pub fn start_clock(&mut self) {
+        self.clock.start();
+    }
+
+    pub fn pause_clock(&mut self) {
+        self.clock.pause();
+    }
+
+    pub fn stop_clock(&mut self) {
+        self.clock.stop();
+    }
+
+    pub fn current_time_ms(&self) -> f64 {
+        Self::clock_time_to_ms(self.clock.time())
+    }
+
+    fn clock_time_to_ms(time: ClockTime) -> f64 {
+        (time.ticks as f64 + time.fraction) * 1000.0 / AUDIO_CLOCK_TICKS_PER_SECOND
+    }
+
+    fn ms_to_clock_time(&self, time_ms: f64) -> ClockTime {
+        let ticks = time_ms * AUDIO_CLOCK_TICKS_PER_SECOND / 1000.0;
+        ClockTime::from_ticks_f64(self.clock.id(), ticks)
     }
 
     // Public API for querying loaded keysound count
