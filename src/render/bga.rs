@@ -18,6 +18,9 @@ pub struct BgaManager {
     current_base: Option<u32>,
     current_poor: Option<u32>,
     current_overlay: Option<u32>,
+    base_start_time_ms: Option<f64>,
+    poor_start_time_ms: Option<f64>,
+    overlay_start_time_ms: Option<f64>,
     show_poor: bool,
     event_index: usize,
 }
@@ -31,6 +34,9 @@ impl BgaManager {
             current_base: None,
             current_poor: None,
             current_overlay: None,
+            base_start_time_ms: None,
+            poor_start_time_ms: None,
+            overlay_start_time_ms: None,
             show_poor: false,
             event_index: 0,
         }
@@ -165,9 +171,26 @@ impl BgaManager {
             }
 
             match event.layer {
-                BgaLayer::Base => self.current_base = Some(event.bga_id),
-                BgaLayer::Poor => self.current_poor = Some(event.bga_id),
-                BgaLayer::Overlay => self.current_overlay = Some(event.bga_id),
+                BgaLayer::Base => {
+                    if self.current_base != Some(event.bga_id) || self.base_start_time_ms.is_none() {
+                        self.current_base = Some(event.bga_id);
+                        self.base_start_time_ms = Some(event.time_ms);
+                    }
+                }
+                BgaLayer::Poor => {
+                    if self.current_poor != Some(event.bga_id) || self.poor_start_time_ms.is_none() {
+                        self.current_poor = Some(event.bga_id);
+                        self.poor_start_time_ms = Some(event.time_ms);
+                    }
+                }
+                BgaLayer::Overlay => {
+                    if self.current_overlay != Some(event.bga_id)
+                        || self.overlay_start_time_ms.is_none()
+                    {
+                        self.current_overlay = Some(event.bga_id);
+                        self.overlay_start_time_ms = Some(event.time_ms);
+                    }
+                }
             }
 
             self.event_index += 1;
@@ -179,26 +202,46 @@ impl BgaManager {
 
     /// Update video frame textures
     fn update_video_frames(&mut self, current_time_ms: f64) {
-        // Collect active video IDs
-        let active_ids: Vec<u32> = [self.current_base, self.current_poor, self.current_overlay]
-            .into_iter()
-            .flatten()
-            .filter(|id| self.videos.contains_key(id))
-            .collect();
+        self.update_video_frame_for(
+            self.current_base,
+            self.base_start_time_ms,
+            current_time_ms,
+        );
+        self.update_video_frame_for(
+            self.current_poor,
+            self.poor_start_time_ms,
+            current_time_ms,
+        );
+        self.update_video_frame_for(
+            self.current_overlay,
+            self.overlay_start_time_ms,
+            current_time_ms,
+        );
+    }
 
-        for id in active_ids {
-            if let Some(decoder) = self.videos.get_mut(&id) {
-                let width = decoder.width() as u16;
-                let height = decoder.height() as u16;
-                if let Some(frame_data) = decoder.decode_frame_at(current_time_ms) {
-                    if let Some(texture) = self.video_textures.get(&id) {
-                        texture.update(&Image {
-                            bytes: frame_data.to_vec(),
-                            width,
-                            height,
-                        });
-                    }
-                }
+    fn update_video_frame_for(
+        &mut self,
+        id: Option<u32>,
+        start_time_ms: Option<f64>,
+        current_time_ms: f64,
+    ) {
+        let Some(id) = id else {
+            return;
+        };
+        let Some(decoder) = self.videos.get_mut(&id) else {
+            return;
+        };
+        let width = decoder.width() as u16;
+        let height = decoder.height() as u16;
+        let start_time_ms = start_time_ms.unwrap_or(0.0);
+        let relative_time_ms = (current_time_ms - start_time_ms).max(0.0);
+        if let Some(frame_data) = decoder.decode_frame_at(relative_time_ms) {
+            if let Some(texture) = self.video_textures.get(&id) {
+                texture.update(&Image {
+                    bytes: frame_data.to_vec(),
+                    width,
+                    height,
+                });
             }
         }
     }
@@ -208,6 +251,9 @@ impl BgaManager {
         self.current_base = None;
         self.current_poor = None;
         self.current_overlay = None;
+        self.base_start_time_ms = None;
+        self.poor_start_time_ms = None;
+        self.overlay_start_time_ms = None;
         self.show_poor = false;
         self.event_index = 0;
 
