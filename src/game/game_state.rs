@@ -19,8 +19,8 @@ use super::{
     apply_battle, apply_legacy_note, apply_random_option, generate_seed,
 };
 
-const START_DELAY_MS: f64 = 3000.0;
-const END_DELAY_MS: f64 = 1500.0;
+const START_DELAY_MS: f64 = 1500.0;
+const END_DELAY_MS: f64 = 3000.0;
 
 /// Active long note state tracking
 #[derive(Clone, Copy)]
