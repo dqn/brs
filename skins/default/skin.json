@@ -30,6 +30,13 @@
         "header_height": 20.0,
         "header_text_y": 16.0,
         "graph_padding": 20.0,
+        "score_label_x": 12.0,
+        "score_label_y": 118.0,
+        "score_value_y": 132.0,
+        "score_line_gap": 36.0,
+        "score_label_font_size": 14.0,
+        "score_value_font_size": 24.0,
+        "score_value_right_margin": 16.0,
         "option_position": {
           "x": 10.0,
           "y": 930.0

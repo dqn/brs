@@ -2,7 +2,7 @@
 
 use macroquad::prelude::*;
 
-use super::font::draw_text_jp;
+use super::font::{draw_text_jp, measure_text_jp};
 use crate::skin::{GraphAreaLayout, Rect as SkinRect};
 
 /// Score graph with grade lines and comparison
@@ -125,15 +125,26 @@ impl ScoreGraph {
         }
 
         // Score display below graph
-        let score_y = rect.y + rect.height - 100.0;
+        let score_label_y = rect.y + layout.score_label_y;
+        let score_value_y = rect.y + layout.score_value_y;
+        let label_x = rect.x + layout.score_label_x;
+        let value_right_x = rect.x + rect.width - layout.score_value_right_margin;
 
         // Current score
-        draw_text_jp("YOU", rect.x + 15.0, score_y, 14.0, GRAY);
+        let score_text = format!("{}", self.current_score);
+        let score_dims = measure_text_jp(&score_text, layout.score_value_font_size);
         draw_text_jp(
-            &format!("{}", self.current_score),
-            rect.x + rect.width - 80.0,
-            score_y,
-            20.0,
+            "YOU",
+            label_x,
+            score_label_y,
+            layout.score_label_font_size,
+            GRAY,
+        );
+        draw_text_jp(
+            &score_text,
+            value_right_x - score_dims.width,
+            score_value_y,
+            layout.score_value_font_size,
             WHITE,
         );
 
@@ -145,13 +156,19 @@ impl ScoreGraph {
             } else {
                 (format!("{}", diff), Color::new(1.0, 0.3, 0.3, 1.0))
             };
-
-            draw_text_jp("MYBEST", rect.x + 15.0, score_y + 25.0, 14.0, GRAY);
+            let diff_dims = measure_text_jp(&diff_str, layout.score_value_font_size);
+            draw_text_jp(
+                "MYBEST",
+                label_x,
+                score_label_y + layout.score_line_gap,
+                layout.score_label_font_size,
+                GRAY,
+            );
             draw_text_jp(
                 &diff_str,
-                rect.x + rect.width - 80.0,
-                score_y + 25.0,
-                18.0,
+                value_right_x - diff_dims.width,
+                score_value_y + layout.score_line_gap,
+                layout.score_value_font_size,
                 diff_color,
             );
         }

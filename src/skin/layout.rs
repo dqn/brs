@@ -526,6 +526,20 @@ pub struct GraphAreaLayout {
     pub header_text_y: f32,
     /// Graph padding inside the area
     pub graph_padding: f32,
+    /// Score label position X (relative to graph area)
+    pub score_label_x: f32,
+    /// Score label baseline Y (relative to graph area)
+    pub score_label_y: f32,
+    /// Score value baseline Y (relative to graph area)
+    pub score_value_y: f32,
+    /// Score line gap for stacked labels
+    pub score_line_gap: f32,
+    /// Score label font size
+    pub score_label_font_size: f32,
+    /// Score value font size
+    pub score_value_font_size: f32,
+    /// Right margin for score value alignment
+    pub score_value_right_margin: f32,
     /// Option text position (relative to graph area origin)
     pub option_position: Point,
     /// Green number text position (relative to graph area origin)
@@ -543,6 +557,13 @@ impl Default for GraphAreaLayout {
             header_height: 40.0,
             header_text_y: 25.0,
             graph_padding: 20.0,
+            score_label_x: 15.0,
+            score_label_y: 0.0,
+            score_value_y: 0.0,
+            score_line_gap: 25.0,
+            score_label_font_size: 14.0,
+            score_value_font_size: 20.0,
+            score_value_right_margin: 80.0,
             option_position: Point::new(10.0, 810.0),
             green_number_position: Point::new(10.0, 835.0),
             option_font_size: 16.0,
