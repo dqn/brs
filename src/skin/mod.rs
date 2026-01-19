@@ -13,7 +13,8 @@ mod theme;
 
 // Re-export commonly used types
 pub use layout::{
-    GraphAreaLayout, IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect,
+    BpmDisplayLayout, GraphAreaLayout, IidxLayout, InfoAreaLayout, JudgeStatsLayout, LayoutConfig,
+    PlayAreaLayout, Rect,
 };
 pub use loader::SkinLoader;
 pub use theme::{EffectConfig, SkinTheme};

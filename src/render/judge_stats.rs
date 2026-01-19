@@ -2,8 +2,8 @@
 
 use macroquad::prelude::*;
 
-use super::font::draw_text_jp;
-use crate::skin::Rect;
+use super::font::{draw_text_jp, measure_text_jp};
+use crate::skin::{BpmDisplayLayout, JudgeStatsLayout, Rect};
 
 /// Judge statistics data
 pub struct JudgeData {
@@ -55,13 +55,18 @@ impl JudgeStats {
     }
 
     /// Draw the judge statistics within the specified rect
-    pub fn draw(&self, rect: &Rect) {
-        let line_height = 22.0;
-        let label_x = rect.x + 10.0;
-        let value_x = rect.x + 60.0;
+    pub fn draw(&self, rect: &Rect, layout: &JudgeStatsLayout) {
+        let label_x = rect.x + layout.label_x;
+        let value_x = rect.x + layout.value_x;
 
         // Header
-        draw_text_jp("JUDGE", label_x, rect.y + 20.0, 16.0, GRAY);
+        draw_text_jp(
+            "JUDGE",
+            label_x,
+            rect.y + layout.header_y,
+            layout.header_font_size,
+            GRAY,
+        );
 
         let items = [
             ("PG:", self.pgreat, Color::new(0.0, 0.9, 0.9, 1.0)),
@@ -73,25 +78,34 @@ impl JudgeStats {
         ];
 
         for (i, (label, value, color)) in items.iter().enumerate() {
-            let y = rect.y + 45.0 + i as f32 * line_height;
-            draw_text_jp(label, label_x, y, 16.0, *color);
-            draw_text_jp(&format!("{:5}", value), value_x, y, 16.0, *color);
+            let y = rect.y + layout.item_start_y + i as f32 * layout.item_line_height;
+            draw_text_jp(label, label_x, y, layout.item_font_size, *color);
+            draw_text_jp(
+                &format!("{:5}", value),
+                value_x,
+                y,
+                layout.item_font_size,
+                *color,
+            );
         }
 
         // FAST/SLOW stats - position SLOW at right edge of rect
-        let fast_slow_y = rect.y + 45.0 + 6.0 * line_height + 10.0;
+        let fast_slow_y = rect.y + layout.fast_slow_y;
         draw_text_jp(
             &format!("FAST {:4}", self.fast),
-            label_x,
+            rect.x + layout.fast_label_x,
             fast_slow_y,
-            14.0,
+            layout.fast_slow_font_size,
             Color::new(0.0, 0.8, 1.0, 1.0),
         );
+        let slow_str = format!("{:4} SLOW", self.slow);
+        let slow_width = measure_text_jp(&slow_str, layout.fast_slow_font_size).width;
+        let slow_x = rect.x + rect.width - layout.slow_right_margin - slow_width;
         draw_text_jp(
-            &format!("{:4} SLOW", self.slow),
-            rect.x + rect.width - 80.0,
+            &slow_str,
+            slow_x,
             fast_slow_y,
-            14.0,
+            layout.fast_slow_font_size,
             Color::new(1.0, 0.5, 0.0, 1.0),
         );
     }
@@ -126,59 +140,64 @@ impl BpmDisplay {
     }
 
     /// Draw BPM display within the specified rect
-    pub fn draw(&self, rect: &Rect) {
+    pub fn draw(&self, rect: &Rect, layout: &BpmDisplayLayout) {
         let center_x = rect.x + rect.width / 2.0;
-        let y_start = rect.y + 30.0;
-        let line_height = 35.0;
 
         // Large current BPM in center
         let current_str = format!("{}", self.current_bpm);
-        let text_width = current_str.len() as f32 * 25.0;
+        let current_width = measure_text_jp(&current_str, layout.current_font_size).width;
+        let current_x = center_x - current_width / 2.0 + layout.current_center_offset_x;
         draw_text_jp(
             &current_str,
-            center_x - text_width / 2.0,
-            y_start + line_height,
-            48.0,
+            current_x,
+            rect.y + layout.current_y,
+            layout.current_font_size,
             YELLOW,
         );
 
         // MIN / MAX labels
+        let min_str = format!("{}", self.min_bpm);
         draw_text_jp(
-            &format!("{}", self.min_bpm),
-            rect.x + 10.0,
-            y_start + line_height,
-            20.0,
+            &min_str,
+            rect.x + layout.min_x,
+            rect.y + layout.min_y,
+            layout.min_font_size,
             GRAY,
         );
         draw_text_jp(
             "MIN",
-            rect.x + 10.0,
-            y_start + line_height + 20.0,
-            12.0,
+            rect.x + layout.min_x,
+            rect.y + layout.min_max_label_y,
+            layout.label_font_size,
             DARKGRAY,
         );
 
+        let max_str = format!("{}", self.max_bpm);
+        let max_width = measure_text_jp(&max_str, layout.max_font_size).width;
+        let max_x = rect.x + rect.width - layout.max_right_margin - max_width;
         draw_text_jp(
-            &format!("{}", self.max_bpm),
-            rect.x + rect.width - 50.0,
-            y_start + line_height,
-            20.0,
+            &max_str,
+            max_x,
+            rect.y + layout.max_y,
+            layout.max_font_size,
             GRAY,
         );
         draw_text_jp(
             "MAX",
-            rect.x + rect.width - 50.0,
-            y_start + line_height + 20.0,
-            12.0,
+            max_x,
+            rect.y + layout.min_max_label_y,
+            layout.label_font_size,
             DARKGRAY,
         );
 
         // BPM label
+        let bpm_width = measure_text_jp("BPM", layout.bpm_label_font_size).width;
+        let bpm_x = center_x - bpm_width / 2.0 + layout.bpm_label_center_offset_x;
         draw_text_jp(
             "BPM",
-            center_x - 20.0,
-            y_start + line_height + 45.0,
-            14.0,
+            bpm_x,
+            rect.y + layout.bpm_label_y,
+            layout.bpm_label_font_size,
             GRAY,
         );
     }

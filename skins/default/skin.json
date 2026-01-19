@@ -57,7 +57,36 @@
         "judge_stats_width_ratio": 0.55,
         "bottom_panel_height": 138.0,
         "bottom_panel_padding": 10.0,
-        "bottom_panel_gap": 10.0
+        "bottom_panel_gap": 10.0,
+        "judge_stats": {
+          "header_y": 16.0,
+          "header_font_size": 16.0,
+          "label_x": 12.0,
+          "value_x": 64.0,
+          "item_start_y": 42.5,
+          "item_line_height": 15.5,
+          "item_font_size": 16.0,
+          "fast_slow_y": 124.0,
+          "fast_label_x": 12.0,
+          "slow_right_margin": 12.0,
+          "fast_slow_font_size": 14.0
+        },
+        "bpm": {
+          "current_y": 55.0,
+          "current_font_size": 48.0,
+          "current_center_offset_x": 0.0,
+          "min_y": 52.0,
+          "min_font_size": 20.0,
+          "min_x": -10.0,
+          "max_y": 52.0,
+          "max_font_size": 20.0,
+          "max_right_margin": -10.0,
+          "min_max_label_y": 104.0,
+          "label_font_size": 12.0,
+          "bpm_label_y": 108.0,
+          "bpm_label_font_size": 14.0,
+          "bpm_label_center_offset_x": 0.0
+        }
       }
     }
   }

@@ -441,6 +441,12 @@ pub struct InfoAreaLayout {
     pub bottom_panel_padding: f32,
     /// Gap between judge stats and BPM panels
     pub bottom_panel_gap: f32,
+    /// Judge stats layout
+    #[serde(default)]
+    pub judge_stats: JudgeStatsLayout,
+    /// BPM display layout
+    #[serde(default)]
+    pub bpm: BpmDisplayLayout,
 }
 
 impl Default for InfoAreaLayout {
@@ -455,6 +461,109 @@ impl Default for InfoAreaLayout {
             bottom_panel_height: 180.0,
             bottom_panel_padding: 10.0,
             bottom_panel_gap: 10.0,
+            judge_stats: JudgeStatsLayout::default(),
+            bpm: BpmDisplayLayout::default(),
+        }
+    }
+}
+
+/// Judge stats layout configuration
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JudgeStatsLayout {
+    /// Header baseline offset from rect top
+    pub header_y: f32,
+    /// Header font size
+    pub header_font_size: f32,
+    /// Label offset from rect left
+    pub label_x: f32,
+    /// Value offset from rect left
+    pub value_x: f32,
+    /// First item baseline offset from rect top
+    pub item_start_y: f32,
+    /// Line height for items
+    pub item_line_height: f32,
+    /// Item font size
+    pub item_font_size: f32,
+    /// FAST/SLOW baseline offset from rect top
+    pub fast_slow_y: f32,
+    /// FAST label offset from rect left
+    pub fast_label_x: f32,
+    /// SLOW label right margin from rect right
+    pub slow_right_margin: f32,
+    /// FAST/SLOW font size
+    pub fast_slow_font_size: f32,
+}
+
+impl Default for JudgeStatsLayout {
+    fn default() -> Self {
+        Self {
+            header_y: 20.0,
+            header_font_size: 16.0,
+            label_x: 10.0,
+            value_x: 60.0,
+            item_start_y: 45.0,
+            item_line_height: 22.0,
+            item_font_size: 16.0,
+            fast_slow_y: 45.0 + 6.0 * 22.0 + 10.0,
+            fast_label_x: 10.0,
+            slow_right_margin: 80.0,
+            fast_slow_font_size: 14.0,
+        }
+    }
+}
+
+/// BPM display layout configuration
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BpmDisplayLayout {
+    /// Current BPM baseline offset from rect top
+    pub current_y: f32,
+    /// Current BPM font size
+    pub current_font_size: f32,
+    /// Current BPM horizontal offset from rect center
+    pub current_center_offset_x: f32,
+    /// Min BPM baseline offset from rect top
+    pub min_y: f32,
+    /// Min BPM font size
+    pub min_font_size: f32,
+    /// Min BPM offset from rect left
+    pub min_x: f32,
+    /// Max BPM baseline offset from rect top
+    pub max_y: f32,
+    /// Max BPM font size
+    pub max_font_size: f32,
+    /// Max BPM right margin from rect right
+    pub max_right_margin: f32,
+    /// MIN/MAX label baseline offset from rect top
+    pub min_max_label_y: f32,
+    /// MIN/MAX label font size
+    pub label_font_size: f32,
+    /// BPM label baseline offset from rect top
+    pub bpm_label_y: f32,
+    /// BPM label font size
+    pub bpm_label_font_size: f32,
+    /// BPM label horizontal offset from rect center
+    pub bpm_label_center_offset_x: f32,
+}
+
+impl Default for BpmDisplayLayout {
+    fn default() -> Self {
+        Self {
+            current_y: 65.0,
+            current_font_size: 48.0,
+            current_center_offset_x: 0.0,
+            min_y: 65.0,
+            min_font_size: 20.0,
+            min_x: 10.0,
+            max_y: 65.0,
+            max_font_size: 20.0,
+            max_right_margin: 50.0,
+            min_max_label_y: 85.0,
+            label_font_size: 12.0,
+            bpm_label_y: 110.0,
+            bpm_label_font_size: 14.0,
+            bpm_label_center_offset_x: 0.0,
         }
     }
 }

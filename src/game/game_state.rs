@@ -1182,11 +1182,13 @@ impl GameState {
 
         // Judge stats
         let stats_rect = self.info_area_layout.judge_stats_rect(area);
-        self.judge_stats.draw(&stats_rect);
+        self.judge_stats
+            .draw(&stats_rect, &self.info_area_layout.judge_stats);
 
         // BPM display
         let bpm_rect = self.info_area_layout.bpm_rect(area);
-        self.bpm_display.draw(&bpm_rect);
+        self.bpm_display
+            .draw(&bpm_rect, &self.info_area_layout.bpm);
     }
 
     fn draw_song_header(&self, rect: &Rect) {
