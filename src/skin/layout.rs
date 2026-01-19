@@ -360,6 +360,15 @@ pub struct PlayAreaLayout {
     pub key_padding_x: f32,
     /// Keyboard key vertical padding
     pub key_padding_y: f32,
+    /// Judge/combo effect position layout
+    #[serde(default)]
+    pub effects: PlayEffectsLayout,
+    /// Gauge display layout
+    #[serde(default)]
+    pub gauge_display: GaugeDisplayLayout,
+    /// Score/hi-speed display layout
+    #[serde(default)]
+    pub score_display: ScoreAreaLayout,
 }
 
 impl Default for PlayAreaLayout {
@@ -373,6 +382,90 @@ impl Default for PlayAreaLayout {
             progress_bar_offset_x: 0.0,
             key_padding_x: 2.0,
             key_padding_y: 5.0,
+            effects: PlayEffectsLayout::default(),
+            gauge_display: GaugeDisplayLayout::default(),
+            score_display: ScoreAreaLayout::default(),
+        }
+    }
+}
+
+/// Judge/combo effect position layout
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PlayEffectsLayout {
+    /// Offset from highway center (X) and judge line (Y)
+    pub offset: Point,
+}
+
+impl Default for PlayEffectsLayout {
+    fn default() -> Self {
+        Self {
+            offset: Point::new(0.0, -120.0),
+        }
+    }
+}
+
+/// Gauge display layout
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GaugeDisplayLayout {
+    /// Label position relative to gauge rect
+    pub label_position: Point,
+    /// Label font size
+    pub label_font_size: f32,
+    /// Percentage right margin from gauge rect right
+    pub value_right_margin: f32,
+    /// Percentage bottom margin from gauge rect bottom
+    pub value_bottom_margin: f32,
+    /// Percentage font size
+    pub value_font_size: f32,
+}
+
+impl Default for GaugeDisplayLayout {
+    fn default() -> Self {
+        Self {
+            label_position: Point::new(5.0, -2.0),
+            label_font_size: 12.0,
+            value_right_margin: 30.0,
+            value_bottom_margin: 4.0,
+            value_font_size: 14.0,
+        }
+    }
+}
+
+/// Score/hi-speed display layout
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ScoreAreaLayout {
+    /// Score label position
+    pub score_label_position: Point,
+    /// Score value position
+    pub score_value_position: Point,
+    /// Score label font size
+    pub score_label_font_size: f32,
+    /// Score value font size
+    pub score_value_font_size: f32,
+    /// Hi-speed label position
+    pub hispeed_label_offset: Point,
+    /// Hi-speed value position
+    pub hispeed_value_offset: Point,
+    /// Hi-speed label font size
+    pub hispeed_label_font_size: f32,
+    /// Hi-speed value font size
+    pub hispeed_value_font_size: f32,
+}
+
+impl Default for ScoreAreaLayout {
+    fn default() -> Self {
+        Self {
+            score_label_position: Point::new(10.0, 20.0),
+            score_value_position: Point::new(10.0, 40.0),
+            score_label_font_size: 14.0,
+            score_value_font_size: 24.0,
+            hispeed_label_offset: Point::new(0.0, 20.0),
+            hispeed_value_offset: Point::new(0.0, 40.0),
+            hispeed_label_font_size: 14.0,
+            hispeed_value_font_size: 24.0,
         }
     }
 }
@@ -425,6 +518,9 @@ impl PlayAreaLayout {
 pub struct InfoAreaLayout {
     /// Header height for song info
     pub header_height: f32,
+    /// Header layout
+    #[serde(default)]
+    pub header_layout: InfoHeaderLayout,
     /// BGA aspect ratio (width/height, default: 4/3)
     pub bga_aspect_ratio: f32,
     /// Horizontal margin for BGA area
@@ -441,6 +537,14 @@ pub struct InfoAreaLayout {
     pub bottom_panel_padding: f32,
     /// Gap between judge stats and BPM panels
     pub bottom_panel_gap: f32,
+    /// Bottom panel border thickness
+    pub bottom_panel_border_thickness: f32,
+    /// Bottom panel divider thickness (0.0 to disable)
+    pub bottom_panel_divider_thickness: f32,
+    /// Divider X offset from judge stats right edge
+    pub bottom_panel_divider_offset_x: f32,
+    /// Divider vertical padding from panel top/bottom
+    pub bottom_panel_divider_padding_y: f32,
     /// Judge stats layout
     #[serde(default)]
     pub judge_stats: JudgeStatsLayout,
@@ -453,6 +557,7 @@ impl Default for InfoAreaLayout {
     fn default() -> Self {
         Self {
             header_height: 80.0,
+            header_layout: InfoHeaderLayout::default(),
             bga_aspect_ratio: 4.0 / 3.0,
             bga_margin_x: 10.0,
             bga_margin_top: 10.0,
@@ -461,8 +566,49 @@ impl Default for InfoAreaLayout {
             bottom_panel_height: 180.0,
             bottom_panel_padding: 10.0,
             bottom_panel_gap: 10.0,
+            bottom_panel_border_thickness: 1.0,
+            bottom_panel_divider_thickness: 1.0,
+            bottom_panel_divider_offset_x: 5.0,
+            bottom_panel_divider_padding_y: 6.0,
             judge_stats: JudgeStatsLayout::default(),
             bpm: BpmDisplayLayout::default(),
+        }
+    }
+}
+
+/// Song info header layout
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
+pub struct InfoHeaderLayout {
+    /// Difficulty badge position (relative to header rect)
+    pub badge_position: Point,
+    /// Difficulty badge size
+    pub badge_size: Point,
+    /// Difficulty badge text offset from badge top-left
+    pub badge_text_offset: Point,
+    /// Difficulty badge font size
+    pub badge_font_size: f32,
+    /// Title position (relative to header rect)
+    pub title_position: Point,
+    /// Title font size
+    pub title_font_size: f32,
+    /// Artist position (relative to header rect)
+    pub artist_position: Point,
+    /// Artist font size
+    pub artist_font_size: f32,
+}
+
+impl Default for InfoHeaderLayout {
+    fn default() -> Self {
+        Self {
+            badge_position: Point::new(10.0, 15.0),
+            badge_size: Point::new(80.0, 25.0),
+            badge_text_offset: Point::new(5.0, 20.0),
+            badge_font_size: 16.0,
+            title_position: Point::new(100.0, 25.0),
+            title_font_size: 18.0,
+            artist_position: Point::new(100.0, 50.0),
+            artist_font_size: 14.0,
         }
     }
 }
@@ -631,10 +777,30 @@ pub struct GraphAreaLayout {
     pub score_graph_height_ratio: f32,
     /// Header bar height
     pub header_height: f32,
+    /// Header text X offset from graph area
+    pub header_text_x: f32,
     /// Header text baseline offset from top of graph area
     pub header_text_y: f32,
+    /// Header text font size
+    pub header_text_font_size: f32,
     /// Graph padding inside the area
     pub graph_padding: f32,
+    /// Grade label X offset from graph area
+    pub grade_label_x: f32,
+    /// Grade label Y offset from grade line
+    pub grade_label_offset_y: f32,
+    /// Grade label font size
+    pub grade_label_font_size: f32,
+    /// Grade line thickness
+    pub grade_line_thickness: f32,
+    /// Current score bar width ratio (relative to graph width)
+    pub bar_width_ratio: f32,
+    /// Current score bar X ratio (relative to graph width)
+    pub bar_x_ratio: f32,
+    /// Target score bar width ratio (relative to graph width)
+    pub target_bar_width_ratio: f32,
+    /// Target score bar X ratio (relative to graph width)
+    pub target_bar_x_ratio: f32,
     /// Score label position X (relative to graph area)
     pub score_label_x: f32,
     /// Score label baseline Y (relative to graph area)
@@ -664,8 +830,18 @@ impl Default for GraphAreaLayout {
         Self {
             score_graph_height_ratio: 0.7,
             header_height: 40.0,
+            header_text_x: 10.0,
             header_text_y: 25.0,
+            header_text_font_size: 16.0,
             graph_padding: 20.0,
+            grade_label_x: 2.0,
+            grade_label_offset_y: -2.0,
+            grade_label_font_size: 12.0,
+            grade_line_thickness: 1.0,
+            bar_width_ratio: 0.3,
+            bar_x_ratio: 0.35,
+            target_bar_width_ratio: 0.24,
+            target_bar_x_ratio: 0.65,
             score_label_x: 15.0,
             score_label_y: 0.0,
             score_value_y: 0.0,

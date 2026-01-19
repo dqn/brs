@@ -57,9 +57,9 @@ impl ScoreGraph {
         // Header
         draw_text_jp(
             "GRAPH INFORMATION",
-            rect.x + 10.0,
+            rect.x + layout.header_text_x,
             rect.y + layout.header_text_y,
-            16.0,
+            layout.header_text_font_size,
             Color::new(1.0, 0.6, 0.0, 1.0),
         );
 
@@ -87,18 +87,24 @@ impl ScoreGraph {
                 line_y,
                 graph_x + graph_width,
                 line_y,
-                1.0,
+                layout.grade_line_thickness,
                 Color::new(color.r, color.g, color.b, 0.5),
             );
-            draw_text_jp(label, graph_x + 2.0, line_y - 2.0, 12.0, color);
+            draw_text_jp(
+                label,
+                graph_x + layout.grade_label_x,
+                line_y + layout.grade_label_offset_y,
+                layout.grade_label_font_size,
+                color,
+            );
         }
 
         // Current score bar
         if self.max_score > 0 {
             let score_ratio = self.current_score as f32 / self.max_score as f32;
             let bar_height = graph_height * score_ratio;
-            let bar_width = graph_width * 0.3;
-            let bar_x = graph_x + graph_width * 0.35;
+            let bar_width = graph_width * layout.bar_width_ratio;
+            let bar_x = graph_x + graph_width * layout.bar_x_ratio;
 
             draw_rectangle(
                 bar_x,
@@ -112,12 +118,12 @@ impl ScoreGraph {
             if let Some(target) = self.target_score {
                 let target_ratio = target as f32 / self.max_score as f32;
                 let target_bar_height = graph_height * target_ratio;
-                let target_bar_x = graph_x + graph_width * 0.65;
+                let target_bar_x = graph_x + graph_width * layout.target_bar_x_ratio;
 
                 draw_rectangle(
                     target_bar_x,
                     graph_y + graph_height - target_bar_height,
-                    bar_width * 0.8,
+                    graph_width * layout.target_bar_width_ratio,
                     target_bar_height,
                     Color::new(0.0, 1.0, 0.5, 0.6),
                 );

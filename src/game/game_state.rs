@@ -6,7 +6,7 @@ use macroquad::prelude::*;
 use crate::audio::{AudioManager, AudioScheduler};
 use crate::bms::{BmsLoader, Chart, LnType, MAX_LANE_COUNT, NoteType};
 use crate::config::GameSettings;
-use crate::render::font::draw_text_jp;
+use crate::render::font::{draw_text_jp, measure_text_jp};
 use crate::render::{
     BgaManager, BpmDisplay, EffectManager, Highway, HighwayConfig, JudgeStats, LaneCover,
     ProgressBar, ScoreGraph, Turntable, VIRTUAL_HEIGHT, VIRTUAL_WIDTH,
@@ -943,8 +943,10 @@ impl GameState {
             .draw_bombs_in_rect(&highway_rect, &lane_widths, scale, judge_y);
 
         // Draw judge text and combo (centered on highway, 120px above judge line)
-        let effect_center_x = highway_rect.x + highway_rect.width / 2.0;
-        let effect_y = judge_y - 120.0;
+        let effect_center_x = highway_rect.x
+            + highway_rect.width / 2.0
+            + self.play_area_layout.effects.offset.x;
+        let effect_y = judge_y + self.play_area_layout.effects.offset.y;
         self.effects
             .draw_judge_and_combo_at(effect_center_x, effect_y, self.last_timing_diff_ms);
 
@@ -955,10 +957,10 @@ impl GameState {
         self.draw_keyboard_area(area);
 
         // Draw gauge bar (horizontal)
-        self.draw_gauge_bar(&gauge_rect);
+        self.draw_gauge_bar(&gauge_rect, &self.play_area_layout.gauge_display);
 
         // Draw score and hi-speed
-        self.draw_score_area(&score_rect);
+        self.draw_score_area(&score_rect, &self.play_area_layout.score_display);
     }
 
     fn draw_keyboard_area(&self, play_area: &Rect) {
@@ -1014,7 +1016,7 @@ impl GameState {
         }
     }
 
-    fn draw_gauge_bar(&self, rect: &Rect) {
+    fn draw_gauge_bar(&self, rect: &Rect, layout: &crate::skin::GaugeDisplayLayout) {
         if let Some(gauge) = &self.gauge {
             let hp = gauge.hp();
             let gauge_color = if gauge.active_gauge().is_survival() {
@@ -1043,20 +1045,28 @@ impl GameState {
             draw_rectangle_lines(rect.x, rect.y, rect.width, rect.height, 1.0, GRAY);
 
             // GROOVE GAUGE label
-            draw_text_jp("GROOVE GAUGE", rect.x + 5.0, rect.y - 2.0, 12.0, GRAY);
+            draw_text_jp(
+                "GROOVE GAUGE",
+                rect.x + layout.label_position.x,
+                rect.y + layout.label_position.y,
+                layout.label_font_size,
+                GRAY,
+            );
 
             // Percentage
+            let value_text = format!("{:.0}", hp);
+            let value_width = measure_text_jp(&value_text, layout.value_font_size).width;
             draw_text_jp(
-                &format!("{:.0}", hp),
-                rect.x + rect.width - 30.0,
-                rect.y + rect.height - 4.0,
-                14.0,
+                &value_text,
+                rect.x + rect.width - layout.value_right_margin - value_width,
+                rect.y + rect.height - layout.value_bottom_margin,
+                layout.value_font_size,
                 WHITE,
             );
         }
     }
 
-    fn draw_score_area(&self, rect: &Rect) {
+    fn draw_score_area(&self, rect: &Rect, layout: &crate::skin::ScoreAreaLayout) {
         // Background
         draw_rectangle(
             rect.x,
@@ -1067,28 +1077,35 @@ impl GameState {
         );
 
         // SCORE label and value
-        draw_text_jp("SCORE", rect.x + 10.0, rect.y + 20.0, 14.0, GRAY);
+        draw_text_jp(
+            "SCORE",
+            rect.x + layout.score_label_position.x,
+            rect.y + layout.score_label_position.y,
+            layout.score_label_font_size,
+            GRAY,
+        );
         draw_text_jp(
             &format!("{}", self.score.ex_score()),
-            rect.x + 10.0,
-            rect.y + 40.0,
-            24.0,
+            rect.x + layout.score_value_position.x,
+            rect.y + layout.score_value_position.y,
+            layout.score_value_font_size,
             YELLOW,
         );
 
         // HI-SPEED
+        let hispeed_center_x = rect.x + rect.width / 2.0;
         draw_text_jp(
             "HI-SPEED",
-            rect.x + rect.width / 2.0,
-            rect.y + 20.0,
-            14.0,
+            hispeed_center_x + layout.hispeed_label_offset.x,
+            rect.y + layout.hispeed_label_offset.y,
+            layout.hispeed_label_font_size,
             GRAY,
         );
         draw_text_jp(
             &format!("{:.2}", self.scroll_speed),
-            rect.x + rect.width / 2.0,
-            rect.y + 40.0,
-            24.0,
+            hispeed_center_x + layout.hispeed_value_offset.x,
+            rect.y + layout.hispeed_value_offset.y,
+            layout.hispeed_value_font_size,
             WHITE,
         );
     }
@@ -1155,14 +1172,17 @@ impl GameState {
             bottom_panel_rect.height,
             Color::new(0.05, 0.05, 0.08, 1.0),
         );
-        draw_rectangle_lines(
-            bottom_panel_rect.x,
-            bottom_panel_rect.y,
-            bottom_panel_rect.width,
-            bottom_panel_rect.height,
-            1.0,
-            Color::new(0.2, 0.2, 0.25, 1.0),
-        );
+        let border_color = Color::new(0.2, 0.2, 0.25, 1.0);
+        if self.info_area_layout.bottom_panel_border_thickness > 0.0 {
+            draw_rectangle_lines(
+                bottom_panel_rect.x,
+                bottom_panel_rect.y,
+                bottom_panel_rect.width,
+                bottom_panel_rect.height,
+                self.info_area_layout.bottom_panel_border_thickness,
+                border_color,
+            );
+        }
 
         // BGA
         let bga_rect = self.info_area_layout.bga_rect(area);
@@ -1189,6 +1209,24 @@ impl GameState {
         let bpm_rect = self.info_area_layout.bpm_rect(area);
         self.bpm_display
             .draw(&bpm_rect, &self.info_area_layout.bpm);
+
+        // Divider between judge stats and BPM
+        if self.info_area_layout.bottom_panel_divider_thickness > 0.0 {
+            let divider_x =
+                stats_rect.x + stats_rect.width + self.info_area_layout.bottom_panel_divider_offset_x;
+            let divider_top = bottom_panel_rect.y + self.info_area_layout.bottom_panel_divider_padding_y;
+            let divider_bottom = bottom_panel_rect.y
+                + bottom_panel_rect.height
+                - self.info_area_layout.bottom_panel_divider_padding_y;
+            draw_line(
+                divider_x,
+                divider_top,
+                divider_x,
+                divider_bottom,
+                self.info_area_layout.bottom_panel_divider_thickness,
+                border_color,
+            );
+        }
     }
 
     fn draw_song_header(&self, rect: &Rect) {
@@ -1202,37 +1240,38 @@ impl GameState {
         );
 
         if let Some(chart) = &self.chart {
+            let header = &self.info_area_layout.header_layout;
             // Difficulty badge (simplified)
             draw_rectangle(
-                rect.x + 10.0,
-                rect.y + 15.0,
-                80.0,
-                25.0,
+                rect.x + header.badge_position.x,
+                rect.y + header.badge_position.y,
+                header.badge_size.x,
+                header.badge_size.y,
                 Color::new(0.8, 0.2, 0.2, 1.0),
             );
             draw_text_jp(
                 &format!("Lv.{}", chart.metadata.play_level),
-                rect.x + 15.0,
-                rect.y + 35.0,
-                16.0,
+                rect.x + header.badge_position.x + header.badge_text_offset.x,
+                rect.y + header.badge_position.y + header.badge_text_offset.y,
+                header.badge_font_size,
                 WHITE,
             );
 
             // Title
             draw_text_jp(
                 &chart.metadata.title,
-                rect.x + 100.0,
-                rect.y + 25.0,
-                18.0,
+                rect.x + header.title_position.x,
+                rect.y + header.title_position.y,
+                header.title_font_size,
                 WHITE,
             );
 
             // Artist
             draw_text_jp(
                 &chart.metadata.artist,
-                rect.x + 100.0,
-                rect.y + 50.0,
-                14.0,
+                rect.x + header.artist_position.x,
+                rect.y + header.artist_position.y,
+                header.artist_font_size,
                 GRAY,
             );
         }
