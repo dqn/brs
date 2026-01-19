@@ -11,7 +11,9 @@ use crate::render::{
     BgaManager, BpmDisplay, EffectManager, Highway, HighwayConfig, JudgeStats, LaneCover,
     ProgressBar, ScoreGraph, Turntable, VIRTUAL_HEIGHT, VIRTUAL_WIDTH,
 };
-use crate::skin::{IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect, SkinLoader};
+use crate::skin::{
+    GraphAreaLayout, IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect, SkinLoader,
+};
 
 use super::{
     ClearLamp, GamePlayState, GaugeManager, GaugeSystem, GaugeType, InputHandler, JudgeRank,
@@ -75,6 +77,7 @@ pub struct GameState {
     iidx_layout: IidxLayout,
     play_area_layout: PlayAreaLayout,
     info_area_layout: InfoAreaLayout,
+    graph_area_layout: GraphAreaLayout,
     turntable: Turntable,
     judge_stats: JudgeStats,
     bpm_display: BpmDisplay,
@@ -121,6 +124,7 @@ impl GameState {
             iidx_layout: IidxLayout::default(),
             play_area_layout: PlayAreaLayout::default(),
             info_area_layout: InfoAreaLayout::default(),
+            graph_area_layout: GraphAreaLayout::default(),
             turntable: Turntable::new(),
             judge_stats: JudgeStats::new(),
             bpm_display: BpmDisplay::default(),
@@ -165,6 +169,10 @@ impl GameState {
         };
 
         self.layout = skin.layout.clone();
+        self.iidx_layout = skin.layout.iidx.screen;
+        self.play_area_layout = skin.layout.iidx.play;
+        self.info_area_layout = skin.layout.iidx.info;
+        self.graph_area_layout = skin.layout.iidx.graph;
         self.highway = Highway::with_config(HighwayConfig::for_mode_with_skin(
             chart.metadata.play_mode,
             skin.theme.clone(),
@@ -896,14 +904,16 @@ impl GameState {
         let score_rect = self.play_area_layout.score_rect(area);
 
         // Draw progress bar on the left side of the play area
-        let progress_bar_rect = Rect::new(
-            area.x,
-            area.y,
-            8.0, // Thin vertical bar
-            highway_rect.height,
-        );
-        self.progress_bar
-            .draw(&progress_bar_rect, self.current_time_ms);
+        if self.play_area_layout.progress_bar_width > 0.0 {
+            let progress_bar_rect = Rect::new(
+                area.x + self.play_area_layout.progress_bar_offset_x,
+                area.y,
+                self.play_area_layout.progress_bar_width,
+                highway_rect.height,
+            );
+            self.progress_bar
+                .draw(&progress_bar_rect, self.current_time_ms);
+        }
 
         // Draw highway
         if let (Some(chart), Some(play_state)) = (&self.chart, &self.play_state) {
@@ -972,6 +982,8 @@ impl GameState {
         // Draw 7 key indicators
         let key_width = kb_width / 7.0;
         let held_lanes = self.input.get_held_lanes();
+        let key_padding_x = self.play_area_layout.key_padding_x;
+        let key_padding_y = self.play_area_layout.key_padding_y;
 
         for i in 0..7 {
             let lane_idx = i + 1; // Skip scratch (lane 0)
@@ -990,11 +1002,13 @@ impl GameState {
                 Color::new(0.15, 0.2, 0.35, 1.0) // Blue key
             };
 
+            let key_draw_width = (key_width - key_padding_x * 2.0).max(0.0);
+            let key_draw_height = (kb_height - key_padding_y * 2.0).max(0.0);
             draw_rectangle(
-                x + 2.0,
-                kb_y + 5.0,
-                key_width - 4.0,
-                kb_height - 10.0,
+                x + key_padding_x,
+                kb_y + key_padding_y,
+                key_draw_width,
+                key_draw_height,
                 color,
             );
         }
@@ -1090,28 +1104,34 @@ impl GameState {
         );
 
         // Score graph
-        let graph_rect = Rect::new(area.x, area.y, area.width, area.height * 0.7);
-        self.score_graph.draw(&graph_rect);
+        let graph_rect = self.graph_area_layout.score_graph_rect(area);
+        self.score_graph
+            .draw(&graph_rect, &self.graph_area_layout);
 
         // Option display
-        let option_y = area.y + area.height * 0.75;
+        let option_pos = self
+            .graph_area_layout
+            .resolve_position(area, self.graph_area_layout.option_position);
         if self.random_option != RandomOption::Off {
             draw_text_jp(
                 &format!("{:?}", self.random_option),
-                area.x + 10.0,
-                option_y,
-                16.0,
+                option_pos.x,
+                option_pos.y,
+                self.graph_area_layout.option_font_size,
                 Color::new(1.0, 0.3, 0.3, 1.0),
             );
         }
 
         // Green number
         let green_number = self.calculate_green_number();
+        let green_pos = self
+            .graph_area_layout
+            .resolve_position(area, self.graph_area_layout.green_number_position);
         draw_text_jp(
             &format!("GREEN: {:.0}", green_number),
-            area.x + 10.0,
-            option_y + 25.0,
-            14.0,
+            green_pos.x,
+            green_pos.y,
+            self.graph_area_layout.green_number_font_size,
             Color::new(0.0, 1.0, 0.5, 1.0),
         );
     }
@@ -1120,6 +1140,29 @@ impl GameState {
         // Header with song info
         let header_rect = self.info_area_layout.header_rect(area);
         self.draw_song_header(&header_rect);
+
+        // Bottom panel background
+        let bottom_panel_rect = Rect::new(
+            area.x,
+            area.y + area.height - self.info_area_layout.bottom_panel_height,
+            area.width,
+            self.info_area_layout.bottom_panel_height,
+        );
+        draw_rectangle(
+            bottom_panel_rect.x,
+            bottom_panel_rect.y,
+            bottom_panel_rect.width,
+            bottom_panel_rect.height,
+            Color::new(0.05, 0.05, 0.08, 1.0),
+        );
+        draw_rectangle_lines(
+            bottom_panel_rect.x,
+            bottom_panel_rect.y,
+            bottom_panel_rect.width,
+            bottom_panel_rect.height,
+            1.0,
+            Color::new(0.2, 0.2, 0.25, 1.0),
+        );
 
         // BGA
         let bga_rect = self.info_area_layout.bga_rect(area);

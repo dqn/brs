@@ -1,0 +1,57 @@
+{
+  "info": {
+    "name": "Default",
+    "author": "brs",
+    "version": "1.0.0",
+    "description": "Default skin with IIDX layout"
+  },
+  "resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "layout": {
+    "iidx": {
+      "screen": {
+        "play_area_ratio": 0.2640625,
+        "graph_area_ratio": 0.234375
+      },
+      "play": {
+        "turntable_ratio": 0.3057199211,
+        "highway_height_ratio": 0.6712962963,
+        "gauge_height": 49.75,
+        "score_area_height": 71.25,
+        "progress_bar_width": 16.5,
+        "progress_bar_offset_x": 15.75,
+        "key_padding_x": 0.0,
+        "key_padding_y": 0.0
+      },
+      "graph": {
+        "score_graph_height_ratio": 0.8045139,
+        "header_height": 20.0,
+        "header_text_y": 16.0,
+        "graph_padding": 20.0,
+        "option_position": {
+          "x": 10.0,
+          "y": 930.0
+        },
+        "green_number_position": {
+          "x": 10.0,
+          "y": 960.0
+        },
+        "option_font_size": 16.0,
+        "green_number_font_size": 14.0
+      },
+      "info": {
+        "header_height": 174.0,
+        "bga_aspect_ratio": 1.0,
+        "bga_margin_x": 128.5,
+        "bga_margin_top": 8.0,
+        "bga_margin_bottom": 54.0,
+        "judge_stats_width_ratio": 0.55,
+        "bottom_panel_height": 138.0,
+        "bottom_panel_padding": 10.0,
+        "bottom_panel_gap": 10.0
+      }
+    }
+  }
+}

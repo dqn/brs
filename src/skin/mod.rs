@@ -12,6 +12,8 @@ mod loader;
 mod theme;
 
 // Re-export commonly used types
-pub use layout::{IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect};
+pub use layout::{
+    GraphAreaLayout, IidxLayout, InfoAreaLayout, LayoutConfig, PlayAreaLayout, Rect,
+};
 pub use loader::SkinLoader;
 pub use theme::{EffectConfig, SkinTheme};

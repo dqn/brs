@@ -3,7 +3,7 @@
 use macroquad::prelude::*;
 
 use super::font::draw_text_jp;
-use crate::skin::Rect as SkinRect;
+use crate::skin::{GraphAreaLayout, Rect as SkinRect};
 
 /// Score graph with grade lines and comparison
 pub struct ScoreGraph {
@@ -36,19 +36,29 @@ impl ScoreGraph {
     }
 
     /// Draw the score graph within the specified rect
-    pub fn draw(&self, rect: &SkinRect) {
-        let padding = 20.0;
-        let header_height = 40.0;
+    pub fn draw(&self, rect: &SkinRect, layout: &GraphAreaLayout) {
+        let padding = layout.graph_padding;
+        let header_height = layout.header_height;
         let graph_x = rect.x + padding;
         let graph_y = rect.y + header_height;
         let graph_width = rect.width - padding * 2.0;
         let graph_height = rect.height - header_height - padding;
 
+        if header_height > 0.0 {
+            draw_rectangle(
+                rect.x,
+                rect.y,
+                rect.width,
+                header_height,
+                Color::new(0.12, 0.12, 0.16, 1.0),
+            );
+        }
+
         // Header
         draw_text_jp(
             "GRAPH INFORMATION",
             rect.x + 10.0,
-            rect.y + 25.0,
+            rect.y + layout.header_text_y,
             16.0,
             Color::new(1.0, 0.6, 0.0, 1.0),
         );

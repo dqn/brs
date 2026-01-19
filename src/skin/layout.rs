@@ -203,21 +203,32 @@ impl Default for GreenNumberLayout {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LayoutConfig {
     /// BGA display settings
+    #[serde(default)]
     pub bga: BgaLayout,
     /// Score display settings
+    #[serde(default)]
     pub score: ScoreLayout,
     /// Gauge display settings
+    #[serde(default)]
     pub gauge: GaugeLayout,
     /// FAST/SLOW indicator settings
+    #[serde(default)]
     pub timing: TimingLayout,
     /// Judge effect settings
+    #[serde(default)]
     pub judge: JudgeLayout,
     /// Combo display settings
+    #[serde(default)]
     pub combo: ComboLayout,
     /// Song info settings
+    #[serde(default)]
     pub song_info: SongInfoLayout,
     /// Green number settings
+    #[serde(default)]
     pub green_number: GreenNumberLayout,
+    /// IIDX-style layout settings
+    #[serde(default)]
+    pub iidx: IidxLayoutConfig,
 }
 
 #[allow(dead_code)]
@@ -290,6 +301,7 @@ pub struct ScreenAreas {
 
 /// IIDX-style screen layout configuration
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
 pub struct IidxLayout {
     /// Screen width ratio for play area (default: 0.28)
     pub play_area_ratio: f32,
@@ -330,6 +342,7 @@ impl IidxLayout {
 
 /// Play area internal layout
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
 pub struct PlayAreaLayout {
     /// Turntable width ratio relative to play area width (default: 0.2)
     pub turntable_ratio: f32,
@@ -339,6 +352,14 @@ pub struct PlayAreaLayout {
     pub gauge_height: f32,
     /// Bottom margin for score display
     pub score_area_height: f32,
+    /// Progress bar width in pixels
+    pub progress_bar_width: f32,
+    /// Progress bar horizontal offset from play area left edge
+    pub progress_bar_offset_x: f32,
+    /// Keyboard key horizontal padding
+    pub key_padding_x: f32,
+    /// Keyboard key vertical padding
+    pub key_padding_y: f32,
 }
 
 impl Default for PlayAreaLayout {
@@ -348,6 +369,10 @@ impl Default for PlayAreaLayout {
             highway_height_ratio: 0.75,
             gauge_height: 20.0,
             score_area_height: 50.0,
+            progress_bar_width: 8.0,
+            progress_bar_offset_x: 0.0,
+            key_padding_x: 2.0,
+            key_padding_y: 5.0,
         }
     }
 }
@@ -396,15 +421,26 @@ impl PlayAreaLayout {
 
 /// Info area (right side) internal layout
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
 pub struct InfoAreaLayout {
     /// Header height for song info
     pub header_height: f32,
     /// BGA aspect ratio (width/height, default: 4/3)
     pub bga_aspect_ratio: f32,
+    /// Horizontal margin for BGA area
+    pub bga_margin_x: f32,
+    /// Top margin for BGA area (below header)
+    pub bga_margin_top: f32,
+    /// Bottom margin for BGA area (above bottom panel)
+    pub bga_margin_bottom: f32,
     /// Judge stats width ratio relative to info area width
     pub judge_stats_width_ratio: f32,
     /// Bottom panel height for judge stats and BPM
     pub bottom_panel_height: f32,
+    /// Bottom panel horizontal padding
+    pub bottom_panel_padding: f32,
+    /// Gap between judge stats and BPM panels
+    pub bottom_panel_gap: f32,
 }
 
 impl Default for InfoAreaLayout {
@@ -412,8 +448,13 @@ impl Default for InfoAreaLayout {
         Self {
             header_height: 80.0,
             bga_aspect_ratio: 4.0 / 3.0,
+            bga_margin_x: 10.0,
+            bga_margin_top: 10.0,
+            bga_margin_bottom: 10.0,
             judge_stats_width_ratio: 0.55,
             bottom_panel_height: 180.0,
+            bottom_panel_padding: 10.0,
+            bottom_panel_gap: 10.0,
         }
     }
 }
@@ -431,9 +472,12 @@ impl InfoAreaLayout {
 
     /// Calculate BGA rect with aspect ratio preserved
     pub fn bga_rect(&self, info_area: &Rect) -> Rect {
-        let available_height =
-            info_area.height - self.header_height - self.bottom_panel_height - 20.0;
-        let available_width = info_area.width - 20.0;
+        let available_height = info_area.height
+            - self.header_height
+            - self.bottom_panel_height
+            - self.bga_margin_top
+            - self.bga_margin_bottom;
+        let available_width = info_area.width - self.bga_margin_x * 2.0;
 
         let (width, height) = if available_width / available_height > self.bga_aspect_ratio {
             (available_height * self.bga_aspect_ratio, available_height)
@@ -442,7 +486,7 @@ impl InfoAreaLayout {
         };
 
         let x = info_area.x + (info_area.width - width) / 2.0;
-        let y = info_area.y + self.header_height + 10.0;
+        let y = info_area.y + self.header_height + self.bga_margin_top;
 
         Rect::new(x, y, width, height)
     }
@@ -452,9 +496,9 @@ impl InfoAreaLayout {
         let bottom_y = info_area.y + info_area.height - self.bottom_panel_height;
         let width = info_area.width * self.judge_stats_width_ratio;
         Rect::new(
-            info_area.x + 10.0,
+            info_area.x + self.bottom_panel_padding,
             bottom_y,
-            width - 20.0,
+            width - self.bottom_panel_padding,
             self.bottom_panel_height,
         )
     }
@@ -463,8 +507,93 @@ impl InfoAreaLayout {
     pub fn bpm_rect(&self, info_area: &Rect) -> Rect {
         let bottom_y = info_area.y + info_area.height - self.bottom_panel_height;
         let stats_width = info_area.width * self.judge_stats_width_ratio;
-        let bpm_x = info_area.x + stats_width;
-        let bpm_width = info_area.width - stats_width - 10.0;
+        let bpm_x = info_area.x + stats_width + self.bottom_panel_gap;
+        let bpm_width =
+            info_area.width - stats_width - self.bottom_panel_gap - self.bottom_panel_padding;
         Rect::new(bpm_x, bottom_y, bpm_width, self.bottom_panel_height)
+    }
+}
+
+/// Graph area layout configuration
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GraphAreaLayout {
+    /// Score graph height ratio relative to the graph area height
+    pub score_graph_height_ratio: f32,
+    /// Header bar height
+    pub header_height: f32,
+    /// Header text baseline offset from top of graph area
+    pub header_text_y: f32,
+    /// Graph padding inside the area
+    pub graph_padding: f32,
+    /// Option text position (relative to graph area origin)
+    pub option_position: Point,
+    /// Green number text position (relative to graph area origin)
+    pub green_number_position: Point,
+    /// Option text font size
+    pub option_font_size: f32,
+    /// Green number font size
+    pub green_number_font_size: f32,
+}
+
+impl Default for GraphAreaLayout {
+    fn default() -> Self {
+        Self {
+            score_graph_height_ratio: 0.7,
+            header_height: 40.0,
+            header_text_y: 25.0,
+            graph_padding: 20.0,
+            option_position: Point::new(10.0, 810.0),
+            green_number_position: Point::new(10.0, 835.0),
+            option_font_size: 16.0,
+            green_number_font_size: 14.0,
+        }
+    }
+}
+
+impl GraphAreaLayout {
+    pub fn score_graph_rect(&self, area: &Rect) -> Rect {
+        Rect::new(
+            area.x,
+            area.y,
+            area.width,
+            area.height * self.score_graph_height_ratio,
+        )
+    }
+
+    pub fn resolve_position(&self, area: &Rect, point: Point) -> Point {
+        Point {
+            x: if point.x < 0.0 {
+                area.x + area.width + point.x
+            } else {
+                area.x + point.x
+            },
+            y: if point.y < 0.0 {
+                area.y + area.height + point.y
+            } else {
+                area.y + point.y
+            },
+        }
+    }
+}
+
+/// IIDX layout configuration for skins
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct IidxLayoutConfig {
+    pub screen: IidxLayout,
+    pub play: PlayAreaLayout,
+    pub graph: GraphAreaLayout,
+    pub info: InfoAreaLayout,
+}
+
+impl Default for IidxLayoutConfig {
+    fn default() -> Self {
+        Self {
+            screen: IidxLayout::default(),
+            play: PlayAreaLayout::default(),
+            graph: GraphAreaLayout::default(),
+            info: InfoAreaLayout::default(),
+        }
     }
 }

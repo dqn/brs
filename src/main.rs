@@ -13,6 +13,9 @@ use macroquad::camera::{Camera2D, set_camera, set_default_camera};
 use macroquad::prelude::*;
 use macroquad::texture::{FilterMode, RenderTarget, render_target};
 use macroquad::window::Conf;
+use std::env;
+use std::fs;
+use std::path::Path;
 
 use config::GameSettings;
 use render::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
@@ -108,6 +111,12 @@ async fn main() {
     render::font::init_font();
 
     let args: Vec<String> = std::env::args().collect();
+    let screenshot_path = env::var("BRS_SCREENSHOT").ok();
+    let screenshot_delay_frames = env::var("BRS_SCREENSHOT_DELAY_FRAMES")
+        .ok()
+        .and_then(|value| value.parse::<u32>().ok())
+        .unwrap_or(120);
+    let mut frame_count: u32 = 0;
 
     let initial_scene: Box<dyn Scene> = if args.len() > 1 {
         let arg = &args[1];
@@ -134,6 +143,32 @@ async fn main() {
         }
 
         manager.draw();
+
+        if let Some(path) = screenshot_path.as_deref() {
+            if frame_count >= screenshot_delay_frames {
+                let path = Path::new(path);
+                if let Some(parent) = path.parent() {
+                    let _ = fs::create_dir_all(parent);
+                }
+                if let Some(path_str) = path.to_str() {
+                    get_screen_data().export_png(path_str);
+                    println!("Saved screenshot to {}", path.display());
+                }
+                break;
+            }
+        }
+
+        if is_key_pressed(KeyCode::F12) {
+            let path = Path::new("screenshots/iidx_capture.png");
+            if let Some(parent) = path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            if let Some(path_str) = path.to_str() {
+                get_screen_data().export_png(path_str);
+                println!("Saved screenshot to {}", path.display());
+            }
+        }
+        frame_count = frame_count.saturating_add(1);
         next_frame().await
     }
 }
