@@ -43,7 +43,12 @@ impl TimingEvent {
     }
 }
 
-/// Compare two Fractions
+/// Compare two Fractions safely.
+///
+/// This custom implementation is used instead of Fraction's built-in Ord because:
+/// 1. It handles edge cases where numer()/denom() return None (NaN-like values)
+/// 2. It explicitly checks for zero denominators to avoid division by zero panics
+/// 3. It uses i128 cross-multiplication for precise integer comparison
 fn compare_fractions(a: &Fraction, b: &Fraction) -> Ordering {
     let (a_numer, a_denom) = (a.numer(), a.denom());
     let (b_numer, b_denom) = (b.numer(), b.denom());
@@ -57,21 +62,6 @@ fn compare_fractions(a: &Fraction, b: &Fraction) -> Ordering {
         }
         _ => Ordering::Equal,
     }
-}
-
-/// Check if a Fraction is zero
-#[allow(dead_code)]
-fn is_zero(f: &Fraction) -> bool {
-    match f.numer() {
-        Some(n) => *n == 0,
-        None => true,
-    }
-}
-
-/// Check if a <= b for Fractions
-#[allow(dead_code)]
-fn fraction_le(a: &Fraction, b: &Fraction) -> bool {
-    matches!(compare_fractions(a, b), Ordering::Less | Ordering::Equal)
 }
 
 /// Check if a < b for Fractions
@@ -88,7 +78,13 @@ fn fraction_to_f64(f: &Fraction) -> f64 {
     }
 }
 
-/// Build sorted timing events from TimingData
+/// Build sorted timing events from TimingData.
+///
+/// TODO: Performance optimization - consider caching the built events in TimingData
+/// to avoid rebuilding on every `calculate_time_ms` call. This would require:
+/// 1. Adding a cached_events field to TimingData (with skip_serializing)
+/// 2. Using OnceCell or lazy initialization
+/// 3. Invalidating cache if timing data changes
 fn build_timing_events(timing: &TimingData) -> Vec<TimingEvent> {
     let mut events = Vec::with_capacity(timing.bpm_changes.len() + timing.stops.len());
 

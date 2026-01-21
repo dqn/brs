@@ -884,22 +884,11 @@ impl GraphAreaLayout {
 }
 
 /// IIDX layout configuration for skins
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct IidxLayoutConfig {
     pub screen: IidxLayout,
     pub play: PlayAreaLayout,
     pub graph: GraphAreaLayout,
     pub info: InfoAreaLayout,
-}
-
-impl Default for IidxLayoutConfig {
-    fn default() -> Self {
-        Self {
-            screen: IidxLayout::default(),
-            play: PlayAreaLayout::default(),
-            graph: GraphAreaLayout::default(),
-            info: InfoAreaLayout::default(),
-        }
-    }
 }

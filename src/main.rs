@@ -8,6 +8,7 @@ mod ir;
 mod render;
 mod scene;
 mod skin;
+mod util;
 
 use macroquad::camera::{Camera2D, set_camera, set_default_camera};
 use macroquad::prelude::*;
@@ -127,6 +128,8 @@ async fn main() {
         } else if path.is_dir() {
             Box::new(SongSelectScene::new(Some(arg)))
         } else {
+            eprintln!("Warning: Path does not exist: {}", arg);
+            eprintln!("Starting with default song selection.");
             Box::new(SongSelectScene::new(None))
         }
     } else {

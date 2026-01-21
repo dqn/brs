@@ -43,6 +43,9 @@ impl ScoreManager {
         self.max_combo = self.max_combo.max(self.combo);
     }
 
+    /// Calculate total EX score from judgment counts.
+    /// Uses the same scoring rules as `JudgeResult::ex_score()`:
+    /// PGREAT = 2, GREAT = 1, others = 0.
     pub fn ex_score(&self) -> u32 {
         self.pgreat_count * 2 + self.great_count
     }

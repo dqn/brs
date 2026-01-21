@@ -374,10 +374,21 @@ impl BmsLoader {
         events
     }
 
-    /// Extract BGA events directly from BMS source text
-    /// This works around bms-rs limitation where events at the same time overwrite each other
+    /// Extract BGA events directly from BMS source text.
+    ///
+    /// This works around bms-rs limitation where events at the same time overwrite each other.
+    ///
+    /// # Limitations
+    /// - Lines longer than 10,000 characters are skipped as a DoS protection measure.
+    /// - Only channels 04, 06, 07, 0A are processed.
+    /// - Object data is limited to 10,000 characters to prevent excessive memory allocation.
     fn extract_bga_events_from_source(source: &str, timing: &TimingData) -> Vec<BgaEvent> {
         use regex::Regex;
+
+        // DoS protection: skip excessively long lines
+        const MAX_LINE_LENGTH: usize = 10_000;
+        // Maximum object data length to process
+        const MAX_DATA_LENGTH: usize = 10_000;
 
         let mut events = Vec::new();
 
@@ -386,10 +397,21 @@ impl BmsLoader {
         let re = Regex::new(r"(?i)^#(\d{3})(04|06|07|0A):([0-9A-Za-z]+)").unwrap();
 
         for line in source.lines() {
-            if let Some(caps) = re.captures(line.trim()) {
+            // Skip lines that are too long (DoS protection)
+            if line.len() > MAX_LINE_LENGTH {
+                continue;
+            }
+
+            let trimmed = line.trim();
+            if let Some(caps) = re.captures(trimmed) {
                 let measure: u32 = caps[1].parse().unwrap_or(0);
                 let channel = &caps[2].to_uppercase();
                 let data = &caps[3];
+
+                // Skip excessively long data
+                if data.len() > MAX_DATA_LENGTH {
+                    continue;
+                }
 
                 let layer = match channel.as_str() {
                     "04" => BgaLayer::Base,

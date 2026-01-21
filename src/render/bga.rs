@@ -47,8 +47,8 @@ impl BgaManager {
         }
     }
 
-    /// Load BGA media (images and videos) from disk
-    /// Returns (images_loaded, videos_loaded)
+    /// Load BGA media (images and videos) from disk.
+    /// Returns (images_loaded, videos_loaded).
     pub fn load_media(
         &mut self,
         base_path: &Path,
@@ -65,65 +65,79 @@ impl BgaManager {
                 .unwrap_or("")
                 .to_lowercase();
 
-            // Try to load media file with fallback extension support
-            let loaded = match ext.as_str() {
-                // Video files
-                "mpg" | "mpeg" | "avi" | "wmv" | "mp4" | "webm" | "m4v" => {
-                    if let Some(decoder) = select_best_video(&path) {
-                        let tex = Texture2D::from_rgba8(
-                            decoder.width() as u16,
-                            decoder.height() as u16,
-                            &vec![0u8; (decoder.width() * decoder.height() * 4) as usize],
-                        );
-                        tex.set_filter(FilterMode::Linear);
-                        self.video_textures.insert(id, tex);
-                        self.videos.insert(id, decoder);
-                        videos_loaded += 1;
-                        true
-                    } else {
-                        false
-                    }
-                }
-                // Images or unknown - try as image first
-                _ => {
-                    if let Some(tex) = load_texture_sync(&path) {
-                        self.textures.insert(id, tex);
-                        images_loaded += 1;
-                        true
-                    } else if let Some(decoder) = select_best_video(&path) {
-                        let tex = Texture2D::from_rgba8(
-                            decoder.width() as u16,
-                            decoder.height() as u16,
-                            &vec![0u8; (decoder.width() * decoder.height() * 4) as usize],
-                        );
-                        tex.set_filter(FilterMode::Linear);
-                        self.video_textures.insert(id, tex);
-                        self.videos.insert(id, decoder);
-                        videos_loaded += 1;
-                        true
-                    } else {
-                        false
-                    }
-                }
+            // Determine loading strategy based on extension
+            let is_video_ext = matches!(
+                ext.as_str(),
+                "mpg" | "mpeg" | "avi" | "wmv" | "mp4" | "webm" | "m4v"
+            );
+
+            let loaded = if is_video_ext {
+                // Video extension: try video first
+                self.try_load_video(id, &path)
+            } else {
+                // Image or unknown: try image first, then video
+                self.try_load_image(id, &path)
+                    || self.try_load_video(id, &path)
             };
 
-            // If loading failed, try fallback extensions
-            if !loaded {
-                let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-                let parent = path.parent().unwrap_or(base_path);
-
-                for fallback_ext in IMAGE_FALLBACK_EXTENSIONS {
-                    let alt_path = parent.join(format!("{}.{}", stem, fallback_ext));
-                    if let Some(tex) = load_texture_sync(&alt_path) {
-                        self.textures.insert(id, tex);
-                        images_loaded += 1;
-                        break;
-                    }
+            // Update counters
+            if loaded {
+                if self.videos.contains_key(&id) {
+                    videos_loaded += 1;
+                } else {
+                    images_loaded += 1;
+                }
+            } else {
+                // Fallback: try alternative image extensions
+                if self.try_load_image_with_fallback(id, &path, base_path) {
+                    images_loaded += 1;
                 }
             }
         }
 
         (images_loaded, videos_loaded)
+    }
+
+    /// Try to load a video file and create associated texture.
+    fn try_load_video(&mut self, id: u32, path: &Path) -> bool {
+        if let Some(decoder) = select_best_video(path) {
+            let tex = Texture2D::from_rgba8(
+                decoder.width() as u16,
+                decoder.height() as u16,
+                &vec![0u8; (decoder.width() * decoder.height() * 4) as usize],
+            );
+            tex.set_filter(FilterMode::Linear);
+            self.video_textures.insert(id, tex);
+            self.videos.insert(id, decoder);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Try to load an image file.
+    fn try_load_image(&mut self, id: u32, path: &Path) -> bool {
+        if let Some(tex) = load_texture_sync(path) {
+            self.textures.insert(id, tex);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Try to load an image with fallback extensions.
+    fn try_load_image_with_fallback(&mut self, id: u32, path: &Path, base_path: &Path) -> bool {
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        let parent = path.parent().unwrap_or(base_path);
+
+        for fallback_ext in IMAGE_FALLBACK_EXTENSIONS {
+            let alt_path = parent.join(format!("{}.{}", stem, fallback_ext));
+            if let Some(tex) = load_texture_sync(&alt_path) {
+                self.textures.insert(id, tex);
+                return true;
+            }
+        }
+        false
     }
 
     /// Load BGA textures from disk (async version, images only)

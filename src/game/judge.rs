@@ -86,7 +86,9 @@ pub enum JudgeResult {
 }
 
 impl JudgeResult {
-    // Public API for calculating EX score contribution
+    /// Get EX score contribution for a single judgment result.
+    /// This is the canonical implementation of EX score values.
+    /// See also `ScoreManager::ex_score()` for cumulative score.
     #[allow(dead_code)]
     pub fn ex_score(&self) -> u32 {
         match self {

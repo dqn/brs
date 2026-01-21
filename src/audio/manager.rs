@@ -4,43 +4,14 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 
+use crate::util::find_file_with_extensions;
+
 /// Supported audio file extensions for fallback
 const AUDIO_EXTENSIONS: &[&str] = &["wav", "ogg", "mp3", "flac"];
 
 /// Try different extensions and case variations to find an existing audio file
 fn find_audio_file(base_path: &Path, filename: &str) -> Option<PathBuf> {
-    // Try original filename first
-    let file_path = base_path.join(filename);
-    if file_path.exists() {
-        return Some(file_path);
-    }
-
-    // Try lowercase filename
-    let lower = filename.to_lowercase();
-    let lower_path = base_path.join(&lower);
-    if lower_path.exists() {
-        return Some(lower_path);
-    }
-
-    // Try different extensions
-    let stem = Path::new(filename).file_stem()?.to_str()?;
-    for ext in AUDIO_EXTENSIONS {
-        // Original case with different extension
-        let alt_filename = format!("{}.{}", stem, ext);
-        let alt_path = base_path.join(&alt_filename);
-        if alt_path.exists() {
-            return Some(alt_path);
-        }
-
-        // Lowercase with different extension
-        let alt_lower = alt_filename.to_lowercase();
-        let alt_lower_path = base_path.join(&alt_lower);
-        if alt_lower_path.exists() {
-            return Some(alt_lower_path);
-        }
-    }
-
-    None
+    find_file_with_extensions(base_path, filename, AUDIO_EXTENSIONS)
 }
 use kira::AudioManager as KiraAudioManager;
 use kira::AudioManagerSettings;
@@ -79,6 +50,9 @@ pub struct AudioManager {
     keysound_volume: f64,
     bgm_volume: f64,
     clock: ClockHandle,
+    /// Holds active sound handles to prevent premature drops.
+    /// Keysounds are short-lived, so periodic cleanup is performed.
+    active_handles: Vec<StaticSoundHandle>,
 }
 
 impl AudioManager {
@@ -96,6 +70,7 @@ impl AudioManager {
             keysound_volume: 1.0,
             bgm_volume: 1.0,
             clock,
+            active_handles: Vec::new(),
         })
     }
 
@@ -173,7 +148,12 @@ impl AudioManager {
         result
     }
 
-    /// Play keysound with current volume settings
+    /// Play keysound with current volume settings.
+    ///
+    /// # Important
+    /// The returned `StaticSoundHandle` must be kept alive for the sound to play completely.
+    /// If the handle is dropped, the sound may stop prematurely.
+    /// Use `play_fire_and_forget()` if you don't need to control playback.
     pub fn play(&mut self, keysound_id: u32) -> Option<StaticSoundHandle> {
         if let Some(sound_data) = self.sounds.get(&keysound_id) {
             let effective_volume = self.master_volume * self.keysound_volume;
@@ -185,6 +165,23 @@ impl AudioManager {
         } else {
             None
         }
+    }
+
+    /// Play keysound without returning the handle (fire-and-forget).
+    /// The handle is stored internally to prevent premature drop.
+    #[allow(dead_code)]
+    pub fn play_fire_and_forget(&mut self, keysound_id: u32) {
+        if let Some(handle) = self.play(keysound_id) {
+            self.active_handles.push(handle);
+        }
+    }
+
+    /// Remove finished sound handles to free memory.
+    /// Call this periodically (e.g., once per frame or every few seconds).
+    #[allow(dead_code)]
+    pub fn cleanup_finished_sounds(&mut self) {
+        self.active_handles
+            .retain(|handle| handle.state() != kira::sound::PlaybackState::Stopped);
     }
 
     /// Play BGM with current volume settings

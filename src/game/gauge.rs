@@ -286,6 +286,8 @@ pub struct GaugeManager {
 }
 
 impl GaugeManager {
+    /// Create a GaugeManager for testing purposes.
+    /// Use `new_with_gas()` for production code.
     #[cfg(test)]
     pub fn new(gauge_type: GaugeType, system: GaugeSystem, total_notes: usize) -> Self {
         Self::new_with_gas(gauge_type, system, total_notes, 160.0, false)

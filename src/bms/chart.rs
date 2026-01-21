@@ -122,7 +122,8 @@ pub enum NoteChannel {
 }
 
 impl NoteChannel {
-    // Public API for converting BMS channel numbers to NoteChannel
+    /// Convert BMS channel numbers to NoteChannel.
+    /// Public API for future editor/converter integration.
     #[allow(dead_code)]
     pub fn from_bms_channel(channel: u32) -> Option<Self> {
         match channel {
@@ -205,8 +206,9 @@ impl NoteChannel {
         }
     }
 
-    /// Convert lane index (1-7) to NoteChannel for keys (BMS 7-key)
-    /// Returns None for scratch (0) or invalid indices
+    /// Convert lane index (1-7) to NoteChannel for keys (BMS 7-key).
+    /// Returns None for scratch (0) or invalid indices.
+    /// Public API for RANDOM/MIRROR implementation.
     #[allow(dead_code)]
     pub fn from_key_lane(lane: usize) -> Option<Self> {
         match lane {
@@ -221,7 +223,8 @@ impl NoteChannel {
         }
     }
 
-    /// Convert lane index (0-8) to NoteChannel for PMS 9-key mode
+    /// Convert lane index (0-8) to NoteChannel for PMS 9-key mode.
+    /// Public API for PMS mode support.
     #[allow(dead_code)]
     pub fn from_pms_lane(lane: usize) -> Option<Self> {
         match lane {
@@ -238,19 +241,22 @@ impl NoteChannel {
         }
     }
 
-    /// Check if this channel is a key (not scratch)
+    /// Check if this channel is a key (not scratch).
+    /// Public API for input handling logic.
     #[allow(dead_code)]
     pub fn is_key(&self) -> bool {
         !matches!(self, Self::Scratch | Self::Scratch2)
     }
 
-    /// Check if this channel is a scratch
+    /// Check if this channel is a scratch.
+    /// Public API for input handling logic.
     #[allow(dead_code)]
     pub fn is_scratch(&self) -> bool {
         matches!(self, Self::Scratch | Self::Scratch2)
     }
 
-    /// Check if this channel belongs to P2 side (DP mode)
+    /// Check if this channel belongs to P2 side (DP mode).
+    /// Public API for DP mode support.
     #[allow(dead_code)]
     pub fn is_p2(&self) -> bool {
         matches!(
@@ -266,7 +272,8 @@ impl NoteChannel {
         )
     }
 
-    /// Convert lane index (0-15) to NoteChannel for DP 14-key mode
+    /// Convert lane index (0-15) to NoteChannel for DP 14-key mode.
+    /// Public API for DP mode support.
     #[allow(dead_code)]
     pub fn from_dp_lane(lane: usize) -> Option<Self> {
         match lane {
@@ -315,7 +322,8 @@ pub enum NoteType {
 /// Lane count for BMS 7-key mode (scratch + 7 keys)
 pub const LANE_COUNT_BMS: usize = 8;
 
-/// Lane count for PMS 9-key mode (9 keys)
+/// Lane count for PMS 9-key mode (9 keys).
+/// Reserved for PMS mode support.
 #[allow(dead_code)]
 pub const LANE_COUNT_PMS: usize = 9;
 
@@ -325,11 +333,13 @@ pub const LANE_COUNT_DP: usize = 16;
 /// Maximum lane count across all modes
 pub const MAX_LANE_COUNT: usize = 16;
 
-/// Legacy constant for backward compatibility
+/// Legacy constant for backward compatibility.
+/// Use `lane_count(mode)` or mode-specific constants instead.
 #[allow(dead_code)]
 pub const LANE_COUNT: usize = LANE_COUNT_BMS;
 
-/// Get lane count for a specific play mode
+/// Get lane count for a specific play mode.
+/// Public API for mode-agnostic lane handling.
 #[allow(dead_code)]
 pub fn lane_count(mode: PlayMode) -> usize {
     match mode {
@@ -380,7 +390,8 @@ impl Chart {
             .count()
     }
 
-    /// Build lane index for BMS 7-key mode (legacy)
+    /// Build lane index for BMS 7-key mode.
+    /// Legacy API; use `build_lane_index_for_mode()` for multi-mode support.
     #[allow(dead_code)]
     pub fn build_lane_index(&self) -> [Vec<usize>; LANE_COUNT_BMS] {
         let mut index: [Vec<usize>; LANE_COUNT_BMS] = Default::default();
@@ -393,7 +404,8 @@ impl Chart {
         index
     }
 
-    /// Build lane index that supports all play modes
+    /// Build lane index that supports all play modes.
+    /// Public API for note lookup by lane.
     #[allow(dead_code)]
     pub fn build_lane_index_for_mode(&self) -> [Vec<usize>; MAX_LANE_COUNT] {
         let mode = self.metadata.play_mode;

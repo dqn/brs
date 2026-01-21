@@ -137,7 +137,11 @@ impl GameplayScene {
         );
     }
 
-    /// Convert anyhow::Error to GameplayError
+    /// Convert anyhow::Error to GameplayError.
+    ///
+    /// Note: This uses string matching as a heuristic since anyhow::Error
+    /// doesn't preserve the original error type. For better error handling,
+    /// consider using typed errors throughout the codebase.
     fn categorize_error(e: anyhow::Error, chart_path: &str) -> GameplayError {
         let error_str = e.to_string().to_lowercase();
 

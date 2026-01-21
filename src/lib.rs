@@ -7,3 +7,4 @@ pub mod game;
 pub mod ir;
 pub mod render;
 pub mod skin;
+pub mod util;
