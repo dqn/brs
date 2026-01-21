@@ -32,22 +32,22 @@
         },
         "gauge_display": {
           "label_position": {
-            "x": 5.0,
-            "y": 27.0
+            "x": 16.0,
+            "y": 22.0
           },
           "label_font_size": 12.0,
-          "value_right_margin": 30.0,
+          "value_right_margin": 44.0,
           "value_bottom_margin": 27.0,
           "value_font_size": 14.0
         },
         "score_display": {
           "score_label_position": {
-            "x": 10.0,
-            "y": 5.0
+            "x": 18.0,
+            "y": 8.0
           },
           "score_value_position": {
-            "x": 10.0,
-            "y": 25.0
+            "x": 18.0,
+            "y": 28.0
           },
           "score_label_font_size": 14.0,
           "score_value_font_size": 24.0,
@@ -66,31 +66,31 @@
       "graph": {
         "score_graph_height_ratio": 0.8045139,
         "header_height": 20.0,
-        "header_text_x": 37.0,
+        "header_text_x": 140.0,
         "header_text_y": 16.0,
         "header_text_font_size": 16.0,
         "graph_padding": 20.0,
-        "grade_label_x": 2.0,
-        "grade_label_offset_y": -2.0,
+        "grade_label_x": 20.0,
+        "grade_label_offset_y": 18.0,
         "grade_label_font_size": 12.0,
         "grade_line_thickness": 1.0,
-        "bar_width_ratio": 0.222,
+        "bar_width_ratio": 0.2195,
         "bar_x_ratio": 0.222,
         "target_bar_width_ratio": 0.217,
         "target_bar_x_ratio": 0.493,
-        "score_label_x": 12.0,
-        "score_label_y": 118.0,
-        "score_value_y": 132.0,
+        "score_label_x": 40.0,
+        "score_label_y": 156.0,
+        "score_value_y": 172.0,
         "score_line_gap": 36.0,
         "score_label_font_size": 14.0,
         "score_value_font_size": 24.0,
-        "score_value_right_margin": 16.0,
+        "score_value_right_margin": 48.0,
         "option_position": {
-          "x": 10.0,
+          "x": 60.0,
           "y": 930.0
         },
         "green_number_position": {
-          "x": 10.0,
+          "x": 60.0,
           "y": 960.0
         },
         "option_font_size": 16.0,
@@ -145,7 +145,7 @@
           "item_font_size": 16.0,
           "fast_slow_y": 124.0,
           "fast_label_x": 12.0,
-          "slow_right_margin": 12.0,
+          "slow_right_margin": 48.0,
           "fast_slow_font_size": 14.0
         },
         "bpm": {
@@ -154,10 +154,10 @@
           "current_center_offset_x": 0.0,
           "min_y": 52.0,
           "min_font_size": 20.0,
-          "min_x": -10.0,
+          "min_x": 32.0,
           "max_y": 52.0,
           "max_font_size": 20.0,
-          "max_right_margin": -10.0,
+          "max_right_margin": 32.0,
           "min_max_label_y": 104.0,
           "label_font_size": 12.0,
           "bpm_label_y": 108.0,
