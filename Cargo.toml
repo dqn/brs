@@ -5,6 +5,8 @@ edition = "2024"
 rust-version = "1.85"
 description = "BMS rhythm game player"
 license = "MIT"
+repository = "https://github.com/dqn/brs"
+readme = "README.md"
 
 [dependencies]
 bms-rs = "0.10"
