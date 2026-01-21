@@ -55,9 +55,9 @@ mod tests {
 
     #[test]
     fn test_find_file_exact_match() {
-        let dir = tempdir().unwrap();
+        let dir = tempdir().expect("failed to create temp directory");
         let file_path = dir.path().join("test.wav");
-        fs::write(&file_path, "").unwrap();
+        fs::write(&file_path, "").expect("failed to create test file");
 
         let result = find_file_with_extensions(dir.path(), "test.wav", &["ogg", "mp3"]);
         assert_eq!(result, Some(file_path));
@@ -65,27 +65,32 @@ mod tests {
 
     #[test]
     fn test_find_file_lowercase_fallback() {
-        let dir = tempdir().unwrap();
+        let dir = tempdir().expect("failed to create temp directory");
         let file_path = dir.path().join("test.wav");
-        fs::write(&file_path, "").unwrap();
+        fs::write(&file_path, "").expect("failed to create test file");
 
         let result = find_file_with_extensions(dir.path(), "TEST.WAV", &["ogg", "mp3"]);
         // On case-insensitive filesystems (macOS, Windows), the returned path
         // might have different casing but points to the same file
         assert!(result.is_some());
-        let result_path = result.unwrap();
+        let result_path = result.expect("expected Some but got None");
         assert!(result_path.exists());
         assert_eq!(
-            result_path.file_name().unwrap().to_str().unwrap().to_lowercase(),
+            result_path
+                .file_name()
+                .expect("expected file name")
+                .to_str()
+                .expect("expected valid UTF-8")
+                .to_lowercase(),
             "test.wav"
         );
     }
 
     #[test]
     fn test_find_file_extension_fallback() {
-        let dir = tempdir().unwrap();
+        let dir = tempdir().expect("failed to create temp directory");
         let file_path = dir.path().join("test.ogg");
-        fs::write(&file_path, "").unwrap();
+        fs::write(&file_path, "").expect("failed to create test file");
 
         let result = find_file_with_extensions(dir.path(), "test.wav", &["ogg", "mp3"]);
         assert_eq!(result, Some(file_path));
@@ -93,7 +98,7 @@ mod tests {
 
     #[test]
     fn test_find_file_not_found() {
-        let dir = tempdir().unwrap();
+        let dir = tempdir().expect("failed to create temp directory");
 
         let result = find_file_with_extensions(dir.path(), "nonexistent.wav", &["ogg", "mp3"]);
         assert_eq!(result, None);

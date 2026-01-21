@@ -76,8 +76,7 @@ impl BgaManager {
                 self.try_load_video(id, &path)
             } else {
                 // Image or unknown: try image first, then video
-                self.try_load_image(id, &path)
-                    || self.try_load_video(id, &path)
+                self.try_load_image(id, &path) || self.try_load_video(id, &path)
             };
 
             // Update counters

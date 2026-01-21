@@ -245,9 +245,15 @@ impl ScoreRepository {
 
 impl Default for ScoreRepository {
     fn default() -> Self {
-        Self::new().unwrap_or_else(|_| Self {
-            data_dir: PathBuf::from(".brs-data"),
-            scores: HashMap::new(),
+        Self::new().unwrap_or_else(|e| {
+            eprintln!(
+                "Warning: Failed to initialize ScoreRepository: {}. Using fallback.",
+                e
+            );
+            Self {
+                data_dir: PathBuf::from(".brs-data"),
+                scores: HashMap::new(),
+            }
         })
     }
 }

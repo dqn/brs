@@ -264,9 +264,26 @@ impl GameState {
 
         // Initialize IIDX layout components (before chart is moved)
         self.score_graph = ScoreGraph::new(note_count as u32);
-        let bpm = chart.metadata.bpm as u32;
-        // TODO: Calculate actual min/max BPM from bpm_events
-        self.bpm_display.update(bpm, bpm, bpm);
+
+        // Calculate actual min/max BPM from bpm_changes
+        let initial_bpm = chart.metadata.bpm;
+        let (min_bpm, max_bpm) = if chart.timing_data.bpm_changes.is_empty() {
+            (initial_bpm, initial_bpm)
+        } else {
+            let mut min = initial_bpm;
+            let mut max = initial_bpm;
+            for change in &chart.timing_data.bpm_changes {
+                if change.bpm < min {
+                    min = change.bpm;
+                }
+                if change.bpm > max {
+                    max = change.bpm;
+                }
+            }
+            (min, max)
+        };
+        self.bpm_display
+            .update(initial_bpm as u32, min_bpm as u32, max_bpm as u32);
 
         // Cache measure start times for drawing measure lines
         self.measure_times = chart.measure_start_times();
@@ -943,9 +960,8 @@ impl GameState {
             .draw_bombs_in_rect(&highway_rect, &lane_widths, scale, judge_y);
 
         // Draw judge text and combo (centered on highway, 120px above judge line)
-        let effect_center_x = highway_rect.x
-            + highway_rect.width / 2.0
-            + self.play_area_layout.effects.offset.x;
+        let effect_center_x =
+            highway_rect.x + highway_rect.width / 2.0 + self.play_area_layout.effects.offset.x;
         let effect_y = judge_y + self.play_area_layout.effects.offset.y;
         self.effects
             .draw_judge_and_combo_at(effect_center_x, effect_y, self.last_timing_diff_ms);
@@ -1122,8 +1138,7 @@ impl GameState {
 
         // Score graph
         let graph_rect = self.graph_area_layout.score_graph_rect(area);
-        self.score_graph
-            .draw(&graph_rect, &self.graph_area_layout);
+        self.score_graph.draw(&graph_rect, &self.graph_area_layout);
 
         // Option display
         let option_pos = self
@@ -1207,16 +1222,16 @@ impl GameState {
 
         // BPM display
         let bpm_rect = self.info_area_layout.bpm_rect(area);
-        self.bpm_display
-            .draw(&bpm_rect, &self.info_area_layout.bpm);
+        self.bpm_display.draw(&bpm_rect, &self.info_area_layout.bpm);
 
         // Divider between judge stats and BPM
         if self.info_area_layout.bottom_panel_divider_thickness > 0.0 {
-            let divider_x =
-                stats_rect.x + stats_rect.width + self.info_area_layout.bottom_panel_divider_offset_x;
-            let divider_top = bottom_panel_rect.y + self.info_area_layout.bottom_panel_divider_padding_y;
-            let divider_bottom = bottom_panel_rect.y
-                + bottom_panel_rect.height
+            let divider_x = stats_rect.x
+                + stats_rect.width
+                + self.info_area_layout.bottom_panel_divider_offset_x;
+            let divider_top =
+                bottom_panel_rect.y + self.info_area_layout.bottom_panel_divider_padding_y;
+            let divider_bottom = bottom_panel_rect.y + bottom_panel_rect.height
                 - self.info_area_layout.bottom_panel_divider_padding_y;
             draw_line(
                 divider_x,

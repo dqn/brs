@@ -242,7 +242,11 @@ impl BmsLoader {
 
         let mut notes: Vec<Note> = Vec::new();
         let mut bgm_events = Vec::new();
-        // Track pending long note starts per lane (use MAX_LANE_COUNT to support both BMS and PMS)
+        // Track pending long note starts per lane.
+        // MAX_LANE_COUNT (16) accommodates:
+        // - BMS 7-key SP: 8 lanes (scratch + 7 keys)
+        // - BMS 14-key DP: 16 lanes (2 scratches + 14 keys)
+        // - PMS 9-key: 9 lanes
         let mut pending_ln_starts: [Option<(usize, f64)>; MAX_LANE_COUNT] = [None; MAX_LANE_COUNT];
 
         for obj in bms.wav.notes.all_notes() {
@@ -384,6 +388,7 @@ impl BmsLoader {
     /// - Object data is limited to 10,000 characters to prevent excessive memory allocation.
     fn extract_bga_events_from_source(source: &str, timing: &TimingData) -> Vec<BgaEvent> {
         use regex::Regex;
+        use std::sync::OnceLock;
 
         // DoS protection: skip excessively long lines
         const MAX_LINE_LENGTH: usize = 10_000;
@@ -394,7 +399,12 @@ impl BmsLoader {
 
         // Pattern: #xxxYY:data where xxx=measure, YY=channel, data=object IDs
         // Channel 04 = BGA Base, 06 = BGA Poor, 07 = BGA Layer, 0A = BGA Layer2
-        let re = Regex::new(r"(?i)^#(\d{3})(04|06|07|0A):([0-9A-Za-z]+)").unwrap();
+        // Use OnceLock to compile regex only once for better performance
+        static BGA_REGEX: OnceLock<Regex> = OnceLock::new();
+        let re = BGA_REGEX.get_or_init(|| {
+            Regex::new(r"(?i)^#(\d{3})(04|06|07|0A):([0-9A-Za-z]+)")
+                .expect("BGA regex pattern is invalid")
+        });
 
         for line in source.lines() {
             // Skip lines that are too long (DoS protection)

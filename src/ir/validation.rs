@@ -133,10 +133,13 @@ pub fn validate_score(submission: &ScoreSubmission) -> ValidationResult {
     }
 
     // Get current time for timestamp validation
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+    let now = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_secs(),
+        Err(e) => {
+            eprintln!("Warning: Failed to get system time for validation: {}", e);
+            0
+        }
+    };
 
     // Check timestamp is not in the future (with 60 second tolerance)
     if submission.timestamp > now + 60 {

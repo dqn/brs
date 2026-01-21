@@ -48,11 +48,17 @@ impl ResultScene {
                     Arc::clone(&ir_message),
                 );
             } else {
-                *ir_state.lock().unwrap() = IrSubmitState::Disabled;
-                *ir_message.lock().unwrap() = Some("Assist option used".to_string());
+                if let Ok(mut state) = ir_state.lock() {
+                    *state = IrSubmitState::Disabled;
+                }
+                if let Ok(mut msg) = ir_message.lock() {
+                    *msg = Some("Assist option used".to_string());
+                }
             }
         } else if !settings.ir.enabled {
-            *ir_state.lock().unwrap() = IrSubmitState::Disabled;
+            if let Ok(mut state) = ir_state.lock() {
+                *state = IrSubmitState::Disabled;
+            }
         }
 
         Self {
@@ -73,15 +79,21 @@ impl ResultScene {
         ir_total_players: Arc<Mutex<Option<u32>>>,
         ir_message: Arc<Mutex<Option<String>>>,
     ) {
-        *ir_state.lock().unwrap() = IrSubmitState::Submitting;
+        if let Ok(mut state) = ir_state.lock() {
+            *state = IrSubmitState::Submitting;
+        }
 
         // Compute MD5 hash for LR2IR compatibility
         let chart_path = result.chart_path.clone();
         let chart_md5 = match compute_md5_hash(Path::new(&chart_path)) {
             Ok(hash) => hash,
             Err(e) => {
-                *ir_state.lock().unwrap() = IrSubmitState::Failed;
-                *ir_message.lock().unwrap() = Some(format!("Hash error: {}", e));
+                if let Ok(mut state) = ir_state.lock() {
+                    *state = IrSubmitState::Failed;
+                }
+                if let Ok(mut msg) = ir_message.lock() {
+                    *msg = Some(format!("Hash error: {}", e));
+                }
                 return;
             }
         };
@@ -90,8 +102,12 @@ impl ResultScene {
         let chart_hash = match compute_file_hash(Path::new(&chart_path)) {
             Ok(hash) => hash,
             Err(e) => {
-                *ir_state.lock().unwrap() = IrSubmitState::Failed;
-                *ir_message.lock().unwrap() = Some(format!("Hash error: {}", e));
+                if let Ok(mut state) = ir_state.lock() {
+                    *state = IrSubmitState::Failed;
+                }
+                if let Ok(mut msg) = ir_message.lock() {
+                    *msg = Some(format!("Hash error: {}", e));
+                }
                 return;
             }
         };
@@ -117,8 +133,12 @@ impl ResultScene {
         }) {
             Ok(hash) => hash,
             Err(e) => {
-                *ir_state.lock().unwrap() = IrSubmitState::Failed;
-                *ir_message.lock().unwrap() = Some(format!("Score hash error: {}", e));
+                if let Ok(mut state) = ir_state.lock() {
+                    *state = IrSubmitState::Failed;
+                }
+                if let Ok(mut msg) = ir_message.lock() {
+                    *msg = Some(format!("Score hash error: {}", e));
+                }
                 return;
             }
         };
@@ -145,8 +165,12 @@ impl ResultScene {
         // Validate score before submission
         let validation = validate_score(&submission);
         if !validation.is_valid {
-            *ir_state.lock().unwrap() = IrSubmitState::Failed;
-            *ir_message.lock().unwrap() = Some(format!("Invalid score: {:?}", validation.errors));
+            if let Ok(mut state) = ir_state.lock() {
+                *state = IrSubmitState::Failed;
+            }
+            if let Ok(mut msg) = ir_message.lock() {
+                *msg = Some(format!("Invalid score: {:?}", validation.errors));
+            }
             return;
         }
 
@@ -157,13 +181,29 @@ impl ResultScene {
         let server_type = settings.ir.server_type;
 
         std::thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = match tokio::runtime::Runtime::new() {
+                Ok(rt) => rt,
+                Err(e) => {
+                    eprintln!("Failed to create tokio runtime for IR submission: {}", e);
+                    if let Ok(mut state) = ir_state.lock() {
+                        *state = IrSubmitState::Failed;
+                    }
+                    if let Ok(mut msg) = ir_message.lock() {
+                        *msg = Some(format!("Runtime error: {}", e));
+                    }
+                    return;
+                }
+            };
             rt.block_on(async {
                 let client = match IrClient::new(base_url, player_id, secret_key, server_type) {
                     Ok(c) => c,
                     Err(e) => {
-                        *ir_state.lock().unwrap() = IrSubmitState::Failed;
-                        *ir_message.lock().unwrap() = Some(format!("Client error: {}", e));
+                        if let Ok(mut state) = ir_state.lock() {
+                            *state = IrSubmitState::Failed;
+                        }
+                        if let Ok(mut msg) = ir_message.lock() {
+                            *msg = Some(format!("Client error: {}", e));
+                        }
                         return;
                     }
                 };
@@ -171,17 +211,29 @@ impl ResultScene {
                 match client.submit_score(submission).await {
                     Ok(response) => {
                         if response.success {
-                            *ir_state.lock().unwrap() = IrSubmitState::Success;
-                            *ir_rank.lock().unwrap() = response.rank;
-                            *ir_total_players.lock().unwrap() = response.total_players;
-                        } else {
-                            *ir_state.lock().unwrap() = IrSubmitState::Failed;
+                            if let Ok(mut state) = ir_state.lock() {
+                                *state = IrSubmitState::Success;
+                            }
+                            if let Ok(mut rank) = ir_rank.lock() {
+                                *rank = response.rank;
+                            }
+                            if let Ok(mut total) = ir_total_players.lock() {
+                                *total = response.total_players;
+                            }
+                        } else if let Ok(mut state) = ir_state.lock() {
+                            *state = IrSubmitState::Failed;
                         }
-                        *ir_message.lock().unwrap() = response.message;
+                        if let Ok(mut msg) = ir_message.lock() {
+                            *msg = response.message;
+                        }
                     }
                     Err(e) => {
-                        *ir_state.lock().unwrap() = IrSubmitState::Failed;
-                        *ir_message.lock().unwrap() = Some(format!("Submit error: {}", e));
+                        if let Ok(mut state) = ir_state.lock() {
+                            *state = IrSubmitState::Failed;
+                        }
+                        if let Ok(mut msg) = ir_message.lock() {
+                            *msg = Some(format!("Submit error: {}", e));
+                        }
                     }
                 }
             });
@@ -253,8 +305,8 @@ impl Scene for ResultScene {
 
         // R key for IR retry
         if is_key_pressed(KeyCode::R) {
-            let state = *self.ir_state.lock().unwrap();
-            if state == IrSubmitState::Failed {
+            let state = self.ir_state.lock().ok().map(|s| *s);
+            if state == Some(IrSubmitState::Failed) {
                 self.retry_ir_submission();
             }
         }
@@ -380,7 +432,12 @@ impl Scene for ResultScene {
         }
 
         // IR status display
-        let ir_state = *self.ir_state.lock().unwrap();
+        let ir_state = self
+            .ir_state
+            .lock()
+            .ok()
+            .map(|s| *s)
+            .unwrap_or(IrSubmitState::Idle);
         let ir_color = match ir_state {
             IrSubmitState::Idle => GRAY,
             IrSubmitState::Submitting => YELLOW,
@@ -396,8 +453,13 @@ impl Scene for ResultScene {
 
         // Show IR rank if available
         if ir_state == IrSubmitState::Success {
-            if let Some(rank) = *self.ir_rank.lock().unwrap() {
-                let total = self.ir_total_players.lock().unwrap().unwrap_or(0);
+            if let Some(rank) = self.ir_rank.lock().ok().and_then(|r| *r) {
+                let total = self
+                    .ir_total_players
+                    .lock()
+                    .ok()
+                    .and_then(|t| *t)
+                    .unwrap_or(0);
                 draw_text_jp(
                     &format!("IR Rank: #{}/{}", rank, total),
                     VIRTUAL_WIDTH - 200.0,
