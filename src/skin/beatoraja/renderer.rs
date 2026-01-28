@@ -200,6 +200,102 @@ pub struct GaugeConfig {
     pub direction: i32,
 }
 
+// ==========================================================================
+// Advanced feature configurations (Phase 10)
+// ==========================================================================
+
+/// Lane cover configuration (SUDDEN+/HIDDEN/LIFT)
+#[derive(Debug, Clone, Default)]
+pub struct LaneCoverConfig {
+    /// SUDDEN+ cover image ID
+    pub sudden_image_id: Option<i32>,
+    /// HIDDEN cover image ID
+    pub hidden_image_id: Option<i32>,
+    /// LIFT cover image ID
+    pub lift_image_id: Option<i32>,
+    /// Cover X position
+    pub x: f32,
+    /// Cover width
+    pub width: f32,
+    /// Whether to use skin cover images (vs default)
+    pub use_skin_covers: bool,
+}
+
+/// BGA position configuration
+#[derive(Debug, Clone, Default)]
+pub struct BgaConfig {
+    /// BGA X position
+    pub x: f32,
+    /// BGA Y position
+    pub y: f32,
+    /// BGA width
+    pub width: f32,
+    /// BGA height
+    pub height: f32,
+    /// Whether BGA is enabled
+    pub enabled: bool,
+}
+
+/// Key beam effect configuration
+#[derive(Debug, Clone, Default)]
+pub struct KeyBeamConfig {
+    /// Key beam image IDs per lane
+    pub beam_image_ids: Vec<Option<i32>>,
+    /// Beam duration in milliseconds
+    pub duration_ms: i32,
+    /// Beam alpha (0.0-1.0)
+    pub alpha: f32,
+}
+
+/// Bomb/explosion effect configuration
+#[derive(Debug, Clone, Default)]
+pub struct BombConfig {
+    /// Bomb animation image IDs per lane
+    pub bomb_image_ids: Vec<Option<i32>>,
+    /// Animation cycle duration in milliseconds
+    pub cycle_ms: i32,
+    /// Number of animation frames
+    pub frame_count: i32,
+}
+
+/// Score graph configuration
+#[derive(Debug, Clone, Default)]
+pub struct ScoreGraphConfig {
+    /// Graph X position
+    pub x: f32,
+    /// Graph Y position
+    pub y: f32,
+    /// Graph width
+    pub width: f32,
+    /// Graph height
+    pub height: f32,
+    /// Graph border image ID
+    pub border_image_id: Option<i32>,
+    /// Player score line color (R, G, B, A)
+    pub player_color: (u8, u8, u8, u8),
+    /// Target score line color (R, G, B, A)
+    pub target_color: (u8, u8, u8, u8),
+}
+
+/// Hit error visualizer configuration
+#[derive(Debug, Clone, Default)]
+pub struct HitErrorConfig {
+    /// Visualizer X position
+    pub x: f32,
+    /// Visualizer Y position
+    pub y: f32,
+    /// Visualizer width
+    pub width: f32,
+    /// Visualizer height
+    pub height: f32,
+    /// Center line image ID
+    pub center_line_id: Option<i32>,
+    /// Hit marker image ID
+    pub marker_id: Option<i32>,
+    /// Marker duration in milliseconds
+    pub marker_duration_ms: i32,
+}
+
 /// Skin note renderer
 pub struct SkinRenderer {
     /// Loaded skin assets
@@ -225,6 +321,19 @@ pub struct SkinRenderer {
     property_manager: PropertyManager,
     /// Property definitions from skin
     property_definitions: Vec<CustomProperty>,
+    // Advanced feature configurations (Phase 10)
+    /// Lane cover configuration
+    lane_cover_config: LaneCoverConfig,
+    /// BGA configuration
+    bga_config: BgaConfig,
+    /// Key beam configuration
+    key_beam_config: KeyBeamConfig,
+    /// Bomb effect configuration
+    bomb_config: BombConfig,
+    /// Score graph configuration
+    score_graph_config: ScoreGraphConfig,
+    /// Hit error visualizer configuration
+    hit_error_config: HitErrorConfig,
 }
 
 impl SkinRenderer {
@@ -243,6 +352,12 @@ impl SkinRenderer {
             timer_manager: TimerManager::new(),
             property_manager: PropertyManager::new(),
             property_definitions: Vec::new(),
+            lane_cover_config: LaneCoverConfig::default(),
+            bga_config: BgaConfig::default(),
+            key_beam_config: KeyBeamConfig::default(),
+            bomb_config: BombConfig::default(),
+            score_graph_config: ScoreGraphConfig::default(),
+            hit_error_config: HitErrorConfig::default(),
         }
     }
 
@@ -279,6 +394,21 @@ impl SkinRenderer {
         let property_definitions = skin.property.clone();
         let property_manager = PropertyManager::from_definitions(&property_definitions);
 
+        // Extract BGA configuration from bga elements
+        let bga_config = skin.bga.first().map(|bga| {
+            if let Some(dst) = bga.dst.first() {
+                BgaConfig {
+                    x: dst.x as f32,
+                    y: dst.y as f32,
+                    width: dst.w as f32,
+                    height: dst.h as f32,
+                    enabled: true,
+                }
+            } else {
+                BgaConfig::default()
+            }
+        }).unwrap_or_default();
+
         Ok(Self {
             assets,
             play_config,
@@ -292,6 +422,12 @@ impl SkinRenderer {
             timer_manager: TimerManager::new(),
             property_manager,
             property_definitions,
+            lane_cover_config: LaneCoverConfig::default(),
+            bga_config,
+            key_beam_config: KeyBeamConfig::default(),
+            bomb_config: BombConfig::default(),
+            score_graph_config: ScoreGraphConfig::default(),
+            hit_error_config: HitErrorConfig::default(),
         })
     }
 
@@ -1256,6 +1392,80 @@ impl SkinRenderer {
     /// Get number of customizable properties
     pub fn property_count(&self) -> usize {
         self.property_definitions.len()
+    }
+
+    // ==========================================================================
+    // Advanced feature accessors (Phase 10)
+    // ==========================================================================
+
+    /// Get lane cover configuration
+    pub fn lane_cover_config(&self) -> &LaneCoverConfig {
+        &self.lane_cover_config
+    }
+
+    /// Get mutable lane cover configuration
+    pub fn lane_cover_config_mut(&mut self) -> &mut LaneCoverConfig {
+        &mut self.lane_cover_config
+    }
+
+    /// Get BGA configuration
+    pub fn bga_config(&self) -> &BgaConfig {
+        &self.bga_config
+    }
+
+    /// Get mutable BGA configuration
+    pub fn bga_config_mut(&mut self) -> &mut BgaConfig {
+        &mut self.bga_config
+    }
+
+    /// Get key beam configuration
+    pub fn key_beam_config(&self) -> &KeyBeamConfig {
+        &self.key_beam_config
+    }
+
+    /// Get mutable key beam configuration
+    pub fn key_beam_config_mut(&mut self) -> &mut KeyBeamConfig {
+        &mut self.key_beam_config
+    }
+
+    /// Get bomb effect configuration
+    pub fn bomb_config(&self) -> &BombConfig {
+        &self.bomb_config
+    }
+
+    /// Get mutable bomb effect configuration
+    pub fn bomb_config_mut(&mut self) -> &mut BombConfig {
+        &mut self.bomb_config
+    }
+
+    /// Get score graph configuration
+    pub fn score_graph_config(&self) -> &ScoreGraphConfig {
+        &self.score_graph_config
+    }
+
+    /// Get mutable score graph configuration
+    pub fn score_graph_config_mut(&mut self) -> &mut ScoreGraphConfig {
+        &mut self.score_graph_config
+    }
+
+    /// Get hit error visualizer configuration
+    pub fn hit_error_config(&self) -> &HitErrorConfig {
+        &self.hit_error_config
+    }
+
+    /// Get mutable hit error visualizer configuration
+    pub fn hit_error_config_mut(&mut self) -> &mut HitErrorConfig {
+        &mut self.hit_error_config
+    }
+
+    /// Check if skin has BGA configuration
+    pub fn has_bga(&self) -> bool {
+        self.bga_config.enabled
+    }
+
+    /// Check if skin has lane cover images
+    pub fn has_lane_cover_images(&self) -> bool {
+        self.lane_cover_config.use_skin_covers
     }
 }
 
