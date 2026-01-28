@@ -5,7 +5,21 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
+use super::beatoraja;
 use super::definition::SkinDefinition;
+
+/// Detected skin format type
+#[derive(Debug, Clone)]
+pub enum SkinFormatType {
+    /// brs native skin (skin.json)
+    BrsNative(PathBuf),
+    /// beatoraja JSON skin
+    BeatorajaJson(PathBuf),
+    /// beatoraja Lua skin
+    BeatorajaLua { wrapper: PathBuf, main: PathBuf },
+    /// Unknown or unsupported format
+    Unknown,
+}
 
 /// Skin loader utility
 #[allow(dead_code)]
@@ -121,6 +135,39 @@ impl SkinLoader {
             .with_context(|| format!("Failed to write skin file: {}", path.display()))?;
 
         Ok(())
+    }
+
+    /// Detect skin format in a directory
+    ///
+    /// Returns the detected format type and relevant paths.
+    pub fn detect_format(skin_dir: &Path) -> SkinFormatType {
+        // Check for brs native skin first
+        let brs_skin = skin_dir.join(Self::SKIN_FILENAME);
+        if brs_skin.exists() {
+            return SkinFormatType::BrsNative(brs_skin);
+        }
+
+        // Check for beatoraja skin
+        match beatoraja::detect_skin_format(skin_dir) {
+            beatoraja::SkinFormat::Json(path) => SkinFormatType::BeatorajaJson(path),
+            beatoraja::SkinFormat::Lua { wrapper, main } => {
+                SkinFormatType::BeatorajaLua { wrapper, main }
+            }
+            beatoraja::SkinFormat::None => SkinFormatType::Unknown,
+        }
+    }
+
+    /// Load a beatoraja skin from a directory
+    pub fn load_beatoraja_skin(skin_dir: &Path) -> Result<beatoraja::BeatorajaSkin> {
+        beatoraja::load_skin(skin_dir)
+    }
+
+    /// Check if a directory contains a beatoraja skin
+    pub fn is_beatoraja_skin(skin_dir: &Path) -> bool {
+        matches!(
+            beatoraja::detect_skin_format(skin_dir),
+            beatoraja::SkinFormat::Json(_) | beatoraja::SkinFormat::Lua { .. }
+        )
     }
 
     /// Export the default skin as a JSON file (for users to customize)

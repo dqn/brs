@@ -3,4 +3,5 @@
 sample
 .worktrees/
 .claude/plans
+.claude/work-log.md
 screenshots/

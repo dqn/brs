@@ -32,6 +32,8 @@ ffmpeg-next = "8"
 image = "0.25"
 rayon = "1.10"
 regex = "1"
+mlua = { version = "0.10", features = ["lua54", "vendored"] }
+lru = "0.12"
 
 [dev-dependencies]
 pretty_assertions = "1.4"

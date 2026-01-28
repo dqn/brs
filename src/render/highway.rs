@@ -6,10 +6,14 @@ use super::lane_cover::LaneCover;
 use super::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 use crate::bms::{Chart, Note, NoteType, PlayMode};
 use crate::game::GamePlayState;
+use crate::skin::beatoraja::SkinRenderer;
+use crate::skin::beatoraja::scene::NoteType as SkinNoteType;
 
 pub struct Highway {
     config: HighwayConfig,
     lane_cover: LaneCover,
+    /// Optional skin renderer for custom note textures
+    skin_renderer: Option<SkinRenderer>,
 }
 
 impl Highway {
@@ -27,7 +31,26 @@ impl Highway {
         Self {
             config,
             lane_cover: LaneCover::default(),
+            skin_renderer: None,
         }
+    }
+
+    /// Set skin renderer for custom note textures
+    #[allow(dead_code)]
+    pub fn set_skin_renderer(&mut self, renderer: SkinRenderer) {
+        self.skin_renderer = Some(renderer);
+    }
+
+    /// Remove skin renderer (use default rendering)
+    #[allow(dead_code)]
+    pub fn clear_skin_renderer(&mut self) {
+        self.skin_renderer = None;
+    }
+
+    /// Check if a skin renderer is set
+    #[allow(dead_code)]
+    pub fn has_skin_renderer(&self) -> bool {
+        self.skin_renderer.is_some()
     }
 
     /// Get current play mode
@@ -250,14 +273,29 @@ impl Highway {
 
             let bar_height = clamped_start_y - end_y;
             if bar_height > 0.0 {
-                let lane_color = self.config.lane_color(lane);
-                draw_rectangle(
-                    x + 4.0 * scale,
-                    end_y,
-                    width - 8.0 * scale,
-                    bar_height,
-                    lane_color,
-                );
+                // Try to use skin renderer for LN body
+                if let Some(ref renderer) = self.skin_renderer {
+                    // Check if LN is currently being held (start passed but end not yet)
+                    let is_active = start_time_diff < 0.0;
+                    renderer.draw_ln_body(
+                        lane,
+                        x + 4.0 * scale,
+                        end_y,
+                        width - 8.0 * scale,
+                        bar_height,
+                        is_active,
+                    );
+                } else {
+                    // Fallback to default rendering
+                    let lane_color = self.config.lane_color(lane);
+                    draw_rectangle(
+                        x + 4.0 * scale,
+                        end_y,
+                        width - 8.0 * scale,
+                        bar_height,
+                        lane_color,
+                    );
+                }
             }
         }
     }
@@ -282,6 +320,21 @@ impl Highway {
         let width = self.config.lane_width_for_lane(lane) * scale;
         let note_height = self.config.note_height * scale.min(1.0);
 
+        // Try to use skin renderer if available
+        if let Some(ref renderer) = self.skin_renderer {
+            let skin_note_type = SkinNoteType::from_bms_note_type(note.note_type);
+            renderer.draw_note(
+                lane,
+                skin_note_type,
+                x + 2.0 * scale,
+                y - note_height / 2.0,
+                width - 4.0 * scale,
+                note_height,
+            );
+            return;
+        }
+
+        // Fallback to default rendering
         let color = match note.note_type {
             NoteType::Normal | NoteType::LongStart | NoteType::LongEnd => {
                 self.config.lane_color(lane)
@@ -599,8 +652,15 @@ impl Highway {
 
             let bar_height = clamped_start_y - end_y;
             if bar_height > 0.0 {
-                let lane_color = self.config.lane_color(lane);
-                draw_rectangle(x + 4.0, end_y, width - 8.0, bar_height, lane_color);
+                // Try to use skin renderer for LN body
+                if let Some(ref renderer) = self.skin_renderer {
+                    let is_active = start_time_diff < 0.0;
+                    renderer.draw_ln_body(lane, x + 4.0, end_y, width - 8.0, bar_height, is_active);
+                } else {
+                    // Fallback to default rendering
+                    let lane_color = self.config.lane_color(lane);
+                    draw_rectangle(x + 4.0, end_y, width - 8.0, bar_height, lane_color);
+                }
             }
         }
     }
@@ -618,6 +678,21 @@ impl Highway {
         let x = highway_x + self.config.lane_x_offset(lane);
         let width = self.config.lane_width_for_lane(lane);
 
+        // Try to use skin renderer if available
+        if let Some(ref renderer) = self.skin_renderer {
+            let skin_note_type = SkinNoteType::from_bms_note_type(note.note_type);
+            renderer.draw_note(
+                lane,
+                skin_note_type,
+                x + 2.0,
+                y - self.config.note_height / 2.0,
+                width - 4.0,
+                self.config.note_height,
+            );
+            return;
+        }
+
+        // Fallback to default rendering
         let color = match note.note_type {
             NoteType::Normal | NoteType::LongStart | NoteType::LongEnd => {
                 self.config.lane_color(lane)
