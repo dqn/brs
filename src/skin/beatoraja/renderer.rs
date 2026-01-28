@@ -12,7 +12,8 @@ use super::conditions::{
     GameState as SkinGameState, GaugeType, JudgeType, TimingType, evaluate_conditions,
 };
 use super::scene::play::{NoteType as SkinNoteType, PlaySkinConfig};
-use super::types::{BeatorajaSkin, ImageDef, ImageElement, ValueDef};
+use super::timers::{JudgeTimerType, TimerManager, calculate_frame};
+use super::types::{BeatorajaSkin, Destination, ImageDef, ImageElement, ValueDef};
 use crate::game::JudgeResult;
 use crate::skin::assets::{ImageRegion, TextureCache, TextureId};
 
@@ -217,6 +218,8 @@ pub struct SkinRenderer {
     game_state: SkinGameState,
     /// Image elements from skin (for conditional rendering)
     image_elements: Vec<ImageElement>,
+    /// Timer manager for animations
+    timer_manager: TimerManager,
 }
 
 impl SkinRenderer {
@@ -232,6 +235,7 @@ impl SkinRenderer {
             scale_y: 1.0,
             game_state: SkinGameState::default(),
             image_elements: Vec::new(),
+            timer_manager: TimerManager::new(),
         }
     }
 
@@ -274,6 +278,7 @@ impl SkinRenderer {
             scale_y: 1.0,
             game_state: SkinGameState::default(),
             image_elements,
+            timer_manager: TimerManager::new(),
         })
     }
 
@@ -849,7 +854,7 @@ impl SkinRenderer {
         &self,
         element: &ImageElement,
         elapsed_ms: i32,
-    ) -> Option<super::types::Destination> {
+    ) -> Option<Destination> {
         if element.dst.is_empty() {
             return None;
         }
@@ -894,17 +899,306 @@ impl SkinRenderer {
             self.draw_image_element(element, elapsed_ms);
         }
     }
+
+    // ==========================================================================
+    // Timer management (Phase 6)
+    // ==========================================================================
+
+    /// Initialize timer manager with scene start time
+    pub fn init_timers(&mut self, scene_start: f64) {
+        self.timer_manager.init(scene_start);
+    }
+
+    /// Get timer manager reference
+    pub fn timer_manager(&self) -> &TimerManager {
+        &self.timer_manager
+    }
+
+    /// Get mutable timer manager reference
+    pub fn timer_manager_mut(&mut self) -> &mut TimerManager {
+        &mut self.timer_manager
+    }
+
+    /// Trigger play start event
+    pub fn on_play_start(&mut self, time: f64) {
+        self.timer_manager.on_play_start(time);
+    }
+
+    /// Trigger music start event
+    pub fn on_music_start(&mut self, time: f64) {
+        self.timer_manager.on_music_start(time);
+    }
+
+    /// Trigger play end event
+    pub fn on_play_end(&mut self, time: f64) {
+        self.timer_manager.on_play_end(time);
+    }
+
+    /// Trigger failed event
+    pub fn on_failed(&mut self, time: f64) {
+        self.timer_manager.on_failed(time);
+    }
+
+    /// Trigger judge event for 1P
+    pub fn on_judge(&mut self, result: JudgeResult, time: f64) {
+        let timer_type = match result {
+            JudgeResult::PGreat => JudgeTimerType::PGreat,
+            JudgeResult::Great => JudgeTimerType::Great,
+            JudgeResult::Good => JudgeTimerType::Good,
+            JudgeResult::Bad => JudgeTimerType::Bad,
+            JudgeResult::Poor => JudgeTimerType::Poor,
+        };
+        self.timer_manager.on_judge_1p(timer_type, time);
+    }
+
+    /// Trigger key press event
+    pub fn on_key_press(&mut self, lane: usize, time: f64) {
+        self.timer_manager.on_key_press_1p(lane, time);
+    }
+
+    /// Trigger key release event
+    pub fn on_key_release(&mut self, lane: usize, time: f64) {
+        self.timer_manager.on_key_release_1p(lane, time);
+    }
+
+    /// Trigger combo milestone event
+    pub fn on_combo_milestone(&mut self, combo: u32, time: f64) {
+        self.timer_manager.on_combo_milestone(combo, time);
+    }
+
+    // ==========================================================================
+    // Animation support (Phase 6)
+    // ==========================================================================
+
+    /// Draw an image element with timer-based animation
+    pub fn draw_animated_element(&self, element: &ImageElement, current_time: f64) {
+        // Check conditions
+        if !self.check_conditions(&element.base.operations) {
+            return;
+        }
+
+        // Get timer elapsed time
+        let timer_id = element.base.timer;
+        let elapsed_ms = match self.timer_manager.get_elapsed_ms(timer_id, current_time) {
+            Some(ms) => ms,
+            None => return, // Timer not started, don't draw
+        };
+
+        // Get current destination with interpolation
+        let Some(dst) = self.get_animated_destination(element, elapsed_ms) else {
+            return;
+        };
+
+        // Apply scale
+        let x = dst.x as f32 * self.scale_x;
+        let y = dst.y as f32 * self.scale_y;
+        let w = dst.w as f32 * self.scale_x;
+        let h = dst.h as f32 * self.scale_y;
+        let alpha = dst.a as f32 / 255.0;
+
+        if alpha <= 0.0 || w <= 0.0 || h <= 0.0 {
+            return;
+        }
+
+        // Get animation frame if element has frame animation
+        let img_def = self.assets.image_defs.get(&element.id);
+        let frame = if let Some(def) = img_def {
+            let total_frames = def.divx.max(1) * def.divy.max(1);
+            if total_frames > 1 {
+                let cycle = element.cycle;
+                let loop_type = element.loop_type;
+                calculate_frame(elapsed_ms, cycle, total_frames, loop_type).unwrap_or(0) as u32
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
+        // Draw with frame if animated
+        if frame > 0 {
+            self.draw_image_frame_with_alpha(element.id, frame, x, y, w, h, alpha);
+        } else {
+            self.draw_image_with_alpha(element.id, x, y, w, h, alpha);
+        }
+    }
+
+    /// Draw an image element frame with alpha
+    #[allow(clippy::too_many_arguments)]
+    fn draw_image_frame_with_alpha(
+        &self,
+        image_id: i32,
+        frame: u32,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        alpha: f32,
+    ) {
+        if let Some((texture, region)) = self.assets.get_texture_for_image_frame(image_id, frame) {
+            let source_rect = region.to_rect();
+            let color = Color::new(1.0, 1.0, 1.0, alpha);
+
+            draw_texture_ex(
+                &texture,
+                x,
+                y,
+                color,
+                DrawTextureParams {
+                    dest_size: Some(vec2(width, height)),
+                    source: Some(source_rect),
+                    ..Default::default()
+                },
+            );
+        }
+    }
+
+    /// Get animated destination with keyframe interpolation and easing
+    fn get_animated_destination(
+        &self,
+        element: &ImageElement,
+        elapsed_ms: i32,
+    ) -> Option<Destination> {
+        if element.dst.is_empty() {
+            return None;
+        }
+
+        // Single destination
+        if element.dst.len() == 1 {
+            return Some(element.dst[0].clone());
+        }
+
+        // Find keyframes to interpolate
+        let mut prev_idx = 0;
+        for (i, dst) in element.dst.iter().enumerate() {
+            if dst.time <= elapsed_ms {
+                prev_idx = i;
+            } else {
+                break;
+            }
+        }
+
+        let prev = &element.dst[prev_idx];
+        let next = element.dst.get(prev_idx + 1);
+
+        // Past all keyframes
+        if next.is_none() || elapsed_ms >= element.dst.last().map(|d| d.time).unwrap_or(0) {
+            return element.dst.last().cloned();
+        }
+
+        let next = next.unwrap();
+
+        // Interpolate with easing
+        let time_range = next.time - prev.time;
+        if time_range <= 0 {
+            return Some(prev.clone());
+        }
+
+        let t = (elapsed_ms - prev.time) as f32 / time_range as f32;
+        let t = apply_easing(t.clamp(0.0, 1.0), prev.acc);
+
+        Some(interpolate_destinations(prev, next, t))
+    }
+
+    /// Draw all image elements with timer-based animation
+    pub fn draw_all_animated(&self, current_time: f64) {
+        for element in &self.image_elements {
+            self.draw_animated_element(element, current_time);
+        }
+    }
+
+    /// Draw judge image with animation (fade out effect)
+    pub fn draw_judge_animated(
+        &self,
+        result: JudgeResult,
+        x: f32,
+        y: f32,
+        scale: f32,
+        current_time: f64,
+        fade_duration_ms: i32,
+    ) {
+        let Some(config) = &self.judge_config else {
+            return;
+        };
+
+        // Get timer for judge result
+        let timer_type = match result {
+            JudgeResult::PGreat => JudgeTimerType::PGreat,
+            JudgeResult::Great => JudgeTimerType::Great,
+            JudgeResult::Good => JudgeTimerType::Good,
+            JudgeResult::Bad => JudgeTimerType::Bad,
+            JudgeResult::Poor => JudgeTimerType::Poor,
+        };
+
+        let timer_id = match timer_type {
+            JudgeTimerType::PGreat => super::conditions::timers::JUDGE_1P_PGREAT,
+            JudgeTimerType::Great => super::conditions::timers::JUDGE_1P_GREAT,
+            JudgeTimerType::Good => super::conditions::timers::JUDGE_1P_GOOD,
+            JudgeTimerType::Bad => super::conditions::timers::JUDGE_1P_BAD,
+            JudgeTimerType::Poor => super::conditions::timers::JUDGE_1P_POOR,
+            JudgeTimerType::Miss => super::conditions::timers::JUDGE_1P_MISS,
+        };
+
+        let elapsed_ms = match self.timer_manager.get_elapsed_ms(timer_id, current_time) {
+            Some(ms) => ms,
+            None => return,
+        };
+
+        // Calculate fade alpha
+        let alpha = if fade_duration_ms > 0 && elapsed_ms > fade_duration_ms / 2 {
+            let fade_progress =
+                (elapsed_ms - fade_duration_ms / 2) as f32 / (fade_duration_ms / 2) as f32;
+            (1.0 - fade_progress).max(0.0)
+        } else {
+            1.0
+        };
+
+        if alpha <= 0.0 {
+            return;
+        }
+
+        // Map JudgeResult to image index
+        let idx = match result {
+            JudgeResult::PGreat => 0,
+            JudgeResult::Great => 1,
+            JudgeResult::Good => 2,
+            JudgeResult::Bad => 3,
+            JudgeResult::Poor => 4,
+        };
+
+        let Some(&image_id) = config.images.get(idx) else {
+            return;
+        };
+
+        if let Some((texture, region)) = self.assets.get_texture_for_image(image_id) {
+            let width = region.width as f32 * scale;
+            let height = region.height as f32 * scale;
+            let draw_x = x - width / 2.0;
+            let draw_y = y - height / 2.0;
+
+            let color = Color::new(1.0, 1.0, 1.0, alpha);
+            let source_rect = region.to_rect();
+
+            draw_texture_ex(
+                &texture,
+                draw_x,
+                draw_y,
+                color,
+                DrawTextureParams {
+                    dest_size: Some(vec2(width, height)),
+                    source: Some(source_rect),
+                    ..Default::default()
+                },
+            );
+        }
+    }
 }
 
 /// Interpolate between two destinations
-fn interpolate_destinations(
-    from: &super::types::Destination,
-    to: &super::types::Destination,
-    t: f32,
-) -> super::types::Destination {
+fn interpolate_destinations(from: &Destination, to: &Destination, t: f32) -> Destination {
     let lerp = |a: i32, b: i32| -> i32 { (a as f32 + (b - a) as f32 * t) as i32 };
 
-    super::types::Destination {
+    Destination {
         time: lerp(from.time, to.time),
         x: lerp(from.x, to.x),
         y: lerp(from.y, to.y),
@@ -916,6 +1210,26 @@ fn interpolate_destinations(
         b: lerp(from.b, to.b),
         angle: lerp(from.angle, to.angle),
         acc: to.acc,
+    }
+}
+
+/// Apply easing curve to progress (0.0 - 1.0)
+fn apply_easing(t: f32, acc: i32) -> f32 {
+    match acc {
+        0 => t,                           // Linear
+        1 => t * t,                       // Ease in (quadratic)
+        2 => 1.0 - (1.0 - t) * (1.0 - t), // Ease out (quadratic)
+        3 => {
+            // Ease in-out (quadratic)
+            if t < 0.5 {
+                2.0 * t * t
+            } else {
+                1.0 - (-2.0 * t + 2.0).powi(2) / 2.0
+            }
+        }
+        4 => t * t * t,               // Ease in (cubic)
+        5 => 1.0 - (1.0 - t).powi(3), // Ease out (cubic)
+        _ => t,                       // Default to linear
     }
 }
 
