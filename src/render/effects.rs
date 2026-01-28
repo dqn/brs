@@ -1,9 +1,12 @@
+use std::sync::Arc;
+
 use macroquad::prelude::*;
 
 use super::font::draw_text_jp;
 use super::{VIRTUAL_HEIGHT, VIRTUAL_WIDTH};
 use crate::game::JudgeResult;
 use crate::skin::EffectConfig;
+use crate::skin::beatoraja::SkinRenderer;
 
 /// Judgment display effect
 #[derive(Debug, Clone)]
@@ -280,6 +283,8 @@ pub struct EffectManager {
     key_beams: [KeyBeam; MAX_LANE_COUNT],
     bombs: Vec<BombEffect>,
     effect_config: EffectConfig,
+    /// Optional skin renderer for custom visuals
+    skin_renderer: Option<Arc<SkinRenderer>>,
 }
 
 impl EffectManager {
@@ -296,7 +301,20 @@ impl EffectManager {
             key_beams: [KeyBeam::new(); MAX_LANE_COUNT],
             bombs: Vec::new(),
             effect_config: config,
+            skin_renderer: None,
         }
+    }
+
+    /// Set skin renderer for custom judge/combo visuals
+    #[allow(dead_code)]
+    pub fn set_skin_renderer(&mut self, renderer: Arc<SkinRenderer>) {
+        self.skin_renderer = Some(renderer);
+    }
+
+    /// Clear skin renderer
+    #[allow(dead_code)]
+    pub fn clear_skin_renderer(&mut self) {
+        self.skin_renderer = None;
     }
 
     /// Get the effect config
@@ -410,7 +428,34 @@ impl EffectManager {
             }
         }
 
-        // Build judge text: "PGREAT 100"
+        // Try to use skin renderer for judge display
+        if let Some(ref renderer) = self.skin_renderer {
+            if renderer.has_judge_images() {
+                // Draw judge image
+                renderer.draw_judge(effect.result, center_x, y, 1.0, alpha);
+
+                // Draw combo number with skin
+                if self.combo_effect.combo >= 1 && renderer.has_combo_numbers() {
+                    renderer.draw_combo(
+                        self.combo_effect.combo,
+                        center_x + 80.0,
+                        y - font_size / 2.0,
+                        1.0,
+                    );
+                } else if self.combo_effect.combo >= 1 {
+                    // Fallback to text combo
+                    let combo_text = format!("{}", self.combo_effect.combo);
+                    let combo_width = combo_text.len() as f32 * font_size * 0.5;
+                    let combo_x = center_x + 60.0 - combo_width / 2.0;
+                    let base_color = config.judge_color(effect.result);
+                    let color = Color::new(base_color.r, base_color.g, base_color.b, alpha);
+                    draw_text_jp(&combo_text, combo_x, y, font_size, color);
+                }
+                return;
+            }
+        }
+
+        // Fallback: text-based rendering
         let judge_text = match effect.result {
             JudgeResult::PGreat => "PGREAT",
             JudgeResult::Great => "GREAT",
@@ -433,6 +478,30 @@ impl EffectManager {
         let x = center_x - text_width / 2.0;
 
         draw_text_jp(&text, x, y, font_size, color);
+    }
+
+    /// Draw gauge using skin textures if available
+    /// Falls back to default rectangle rendering
+    #[allow(dead_code)]
+    pub fn draw_gauge_with_skin(
+        &self,
+        value: f32,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: Color,
+    ) {
+        if let Some(ref renderer) = self.skin_renderer {
+            if renderer.has_gauge() {
+                renderer.draw_gauge(value, x, y, width, height);
+                return;
+            }
+        }
+
+        // Fallback: simple rectangle
+        let filled_width = width * value.clamp(0.0, 1.0);
+        draw_rectangle(x, y, filled_width, height, color);
     }
 
     #[allow(dead_code)]
