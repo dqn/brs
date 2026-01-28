@@ -11,9 +11,10 @@ use macroquad::prelude::*;
 use super::conditions::{
     GameState as SkinGameState, GaugeType, JudgeType, TimingType, evaluate_conditions,
 };
+use super::properties::PropertyManager;
 use super::scene::play::{NoteType as SkinNoteType, PlaySkinConfig};
 use super::timers::{JudgeTimerType, TimerManager, calculate_frame};
-use super::types::{BeatorajaSkin, Destination, ImageDef, ImageElement, ValueDef};
+use super::types::{BeatorajaSkin, CustomProperty, Destination, ImageDef, ImageElement, ValueDef};
 use crate::game::JudgeResult;
 use crate::skin::assets::{ImageRegion, TextureCache, TextureId};
 
@@ -220,6 +221,10 @@ pub struct SkinRenderer {
     image_elements: Vec<ImageElement>,
     /// Timer manager for animations
     timer_manager: TimerManager,
+    /// Property manager for skin customization
+    property_manager: PropertyManager,
+    /// Property definitions from skin
+    property_definitions: Vec<CustomProperty>,
 }
 
 impl SkinRenderer {
@@ -236,6 +241,8 @@ impl SkinRenderer {
             game_state: SkinGameState::default(),
             image_elements: Vec::new(),
             timer_manager: TimerManager::new(),
+            property_manager: PropertyManager::new(),
+            property_definitions: Vec::new(),
         }
     }
 
@@ -268,6 +275,10 @@ impl SkinRenderer {
         // Store image elements for conditional rendering
         let image_elements = skin.images.clone();
 
+        // Extract property definitions and initialize property manager
+        let property_definitions = skin.property.clone();
+        let property_manager = PropertyManager::from_definitions(&property_definitions);
+
         Ok(Self {
             assets,
             play_config,
@@ -279,6 +290,8 @@ impl SkinRenderer {
             game_state: SkinGameState::default(),
             image_elements,
             timer_manager: TimerManager::new(),
+            property_manager,
+            property_definitions,
         })
     }
 
@@ -1191,6 +1204,58 @@ impl SkinRenderer {
                 },
             );
         }
+    }
+
+    // ==========================================================================
+    // Property management (Phase 7)
+    // ==========================================================================
+
+    /// Get property definitions from skin
+    pub fn property_definitions(&self) -> &[CustomProperty] {
+        &self.property_definitions
+    }
+
+    /// Get property manager reference
+    pub fn property_manager(&self) -> &PropertyManager {
+        &self.property_manager
+    }
+
+    /// Get mutable property manager reference
+    pub fn property_manager_mut(&mut self) -> &mut PropertyManager {
+        &mut self.property_manager
+    }
+
+    /// Set property value
+    pub fn set_property(&mut self, operation: i32, value: i32) {
+        self.property_manager.set_value(operation, value);
+        // Update game state custom options
+        self.property_manager
+            .apply_to_conditions(&mut self.game_state.custom_options);
+    }
+
+    /// Get property value
+    pub fn get_property(&self, operation: i32) -> i32 {
+        self.property_manager.get_value(operation)
+    }
+
+    /// Load property values from a PropertyManager (e.g., from settings)
+    pub fn load_properties(&mut self, properties: &PropertyManager) {
+        for (&op, &value) in properties.all_values() {
+            self.property_manager.set_value(op, value);
+        }
+        // Update game state custom options
+        self.property_manager
+            .apply_to_conditions(&mut self.game_state.custom_options);
+    }
+
+    /// Check if skin has customizable properties
+    pub fn has_properties(&self) -> bool {
+        !self.property_definitions.is_empty()
+    }
+
+    /// Get number of customizable properties
+    pub fn property_count(&self) -> usize {
+        self.property_definitions.len()
     }
 }
 

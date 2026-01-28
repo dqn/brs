@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -8,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::game::{GaugeType, JudgeSystemType, RandomOption};
 use crate::ir::IrServerType;
+use crate::skin::beatoraja::PropertyManager;
 
 /// Key bindings for 7-key + scratch (BMS mode)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -648,6 +650,9 @@ pub struct GameSettings {
     /// Volume settings
     #[serde(default)]
     pub volume: VolumeSettings,
+    /// Skin properties by skin name
+    #[serde(default)]
+    pub skin_properties: HashMap<String, PropertyManager>,
 }
 
 impl Default for GameSettings {
@@ -672,6 +677,7 @@ impl Default for GameSettings {
             skin_name: String::new(), // Empty means use built-in default
             display: DisplaySettings::default(),
             volume: VolumeSettings::default(),
+            skin_properties: HashMap::new(),
         }
     }
 }
@@ -709,5 +715,31 @@ impl GameSettings {
         } else {
             Ok(PathBuf::from(".brs-settings.json"))
         }
+    }
+
+    /// Get property manager for a skin
+    pub fn get_skin_properties(&self, skin_name: &str) -> Option<&PropertyManager> {
+        self.skin_properties.get(skin_name)
+    }
+
+    /// Get mutable property manager for a skin, creating if needed
+    pub fn get_skin_properties_mut(&mut self, skin_name: &str) -> &mut PropertyManager {
+        self.skin_properties
+            .entry(skin_name.to_string())
+            .or_insert_with(PropertyManager::new)
+    }
+
+    /// Set property value for current skin
+    pub fn set_skin_property(&mut self, skin_name: &str, operation: i32, value: i32) {
+        self.get_skin_properties_mut(skin_name)
+            .set_value(operation, value);
+    }
+
+    /// Get property value for current skin
+    pub fn get_skin_property(&self, skin_name: &str, operation: i32) -> i32 {
+        self.skin_properties
+            .get(skin_name)
+            .map(|p| p.get_value(operation))
+            .unwrap_or(0)
     }
 }
