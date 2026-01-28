@@ -8,8 +8,11 @@ use std::path::Path;
 use anyhow::Result;
 use macroquad::prelude::*;
 
+use super::conditions::{
+    GameState as SkinGameState, GaugeType, JudgeType, TimingType, evaluate_conditions,
+};
 use super::scene::play::{NoteType as SkinNoteType, PlaySkinConfig};
-use super::types::{BeatorajaSkin, ImageDef, ValueDef};
+use super::types::{BeatorajaSkin, ImageDef, ImageElement, ValueDef};
 use crate::game::JudgeResult;
 use crate::skin::assets::{ImageRegion, TextureCache, TextureId};
 
@@ -210,6 +213,10 @@ pub struct SkinRenderer {
     /// Skin scale factors
     scale_x: f32,
     scale_y: f32,
+    /// Game state for condition evaluation
+    game_state: SkinGameState,
+    /// Image elements from skin (for conditional rendering)
+    image_elements: Vec<ImageElement>,
 }
 
 impl SkinRenderer {
@@ -223,6 +230,8 @@ impl SkinRenderer {
             combo_value_id: None,
             scale_x: 1.0,
             scale_y: 1.0,
+            game_state: SkinGameState::default(),
+            image_elements: Vec::new(),
         }
     }
 
@@ -252,6 +261,9 @@ impl SkinRenderer {
         // Find combo number value definition (typically refer=10 for combo)
         let combo_value_id = skin.number.iter().find(|n| n.value == 10).map(|n| n.id);
 
+        // Store image elements for conditional rendering
+        let image_elements = skin.images.clone();
+
         Ok(Self {
             assets,
             play_config,
@@ -260,6 +272,8 @@ impl SkinRenderer {
             combo_value_id,
             scale_x: 1.0,
             scale_y: 1.0,
+            game_state: SkinGameState::default(),
+            image_elements,
         })
     }
 
@@ -711,6 +725,197 @@ impl SkinRenderer {
     /// Get skin assets reference
     pub fn assets(&self) -> &SkinAssets {
         &self.assets
+    }
+
+    /// Get mutable reference to game state for updates
+    pub fn game_state_mut(&mut self) -> &mut SkinGameState {
+        &mut self.game_state
+    }
+
+    /// Get immutable reference to game state
+    pub fn game_state(&self) -> &SkinGameState {
+        &self.game_state
+    }
+
+    /// Update game state from brs game state
+    pub fn update_game_state(
+        &mut self,
+        gauge_value: f32,
+        gauge_type: crate::game::GaugeType,
+        last_judge: Option<JudgeResult>,
+        timing_diff_ms: Option<f64>,
+        keys_pressed: &[bool],
+        fullcombo_ongoing: bool,
+    ) {
+        self.game_state.gauge_value = gauge_value;
+        self.game_state.gauge_type = match gauge_type {
+            crate::game::GaugeType::AssistEasy => GaugeType::AssistEasy,
+            crate::game::GaugeType::Easy => GaugeType::Easy,
+            crate::game::GaugeType::Normal => GaugeType::Groove,
+            crate::game::GaugeType::Hard => GaugeType::Hard,
+            crate::game::GaugeType::ExHard | crate::game::GaugeType::Hazard => GaugeType::ExHard,
+        };
+
+        self.game_state.last_judge = last_judge.map(|j| match j {
+            JudgeResult::PGreat => JudgeType::PGreat,
+            JudgeResult::Great => JudgeType::Great,
+            JudgeResult::Good => JudgeType::Good,
+            JudgeResult::Bad => JudgeType::Bad,
+            JudgeResult::Poor => JudgeType::Poor,
+        });
+
+        self.game_state.last_timing = timing_diff_ms.map(|diff| {
+            if diff.abs() < 5.0 {
+                TimingType::Just
+            } else if diff > 0.0 {
+                TimingType::Fast
+            } else {
+                TimingType::Slow
+            }
+        });
+
+        for (i, &pressed) in keys_pressed.iter().enumerate() {
+            if i < 8 {
+                self.game_state.keys_pressed[i] = pressed;
+            }
+        }
+
+        self.game_state.fullcombo_ongoing = fullcombo_ongoing;
+    }
+
+    /// Set key pressed state
+    pub fn set_key_pressed(&mut self, lane: usize, pressed: bool) {
+        if lane < 8 {
+            self.game_state.keys_pressed[lane] = pressed;
+        }
+    }
+
+    /// Set LN active state
+    pub fn set_ln_active(&mut self, lane: usize, active: bool) {
+        if lane < 8 {
+            self.game_state.ln_active[lane] = active;
+        }
+    }
+
+    /// Set options state
+    pub fn set_options(
+        &mut self,
+        random: bool,
+        mirror: bool,
+        sudden: bool,
+        hidden: bool,
+        lift: bool,
+    ) {
+        self.game_state.random_enabled = random;
+        self.game_state.mirror_enabled = mirror;
+        self.game_state.sudden_enabled = sudden;
+        self.game_state.hidden_enabled = hidden;
+        self.game_state.lift_enabled = lift;
+    }
+
+    /// Check if an element's conditions are met
+    pub fn check_conditions(&self, operations: &[i32]) -> bool {
+        evaluate_conditions(operations, &self.game_state)
+    }
+
+    /// Draw an image element with condition checking
+    pub fn draw_image_element(&self, element: &ImageElement, elapsed_ms: i32) {
+        // Check conditions
+        if !self.check_conditions(&element.base.operations) {
+            return;
+        }
+
+        // Get destination for current time
+        let Some(dst) = self.get_current_destination(element, elapsed_ms) else {
+            return;
+        };
+
+        // Apply scale
+        let x = dst.x as f32 * self.scale_x;
+        let y = dst.y as f32 * self.scale_y;
+        let w = dst.w as f32 * self.scale_x;
+        let h = dst.h as f32 * self.scale_y;
+        let alpha = dst.a as f32 / 255.0;
+
+        if alpha <= 0.0 || w <= 0.0 || h <= 0.0 {
+            return;
+        }
+
+        self.draw_image_with_alpha(element.id, x, y, w, h, alpha);
+    }
+
+    /// Get current destination from keyframes
+    fn get_current_destination(
+        &self,
+        element: &ImageElement,
+        elapsed_ms: i32,
+    ) -> Option<super::types::Destination> {
+        if element.dst.is_empty() {
+            return None;
+        }
+
+        // Single destination
+        if element.dst.len() == 1 {
+            return Some(element.dst[0].clone());
+        }
+
+        // Find keyframes to interpolate
+        let mut prev = &element.dst[0];
+        let mut next = &element.dst[0];
+
+        for i in 0..element.dst.len() {
+            if element.dst[i].time <= elapsed_ms {
+                prev = &element.dst[i];
+                next = element.dst.get(i + 1).unwrap_or(prev);
+            } else {
+                break;
+            }
+        }
+
+        // Past all keyframes
+        if elapsed_ms >= element.dst.last().map(|d| d.time).unwrap_or(0) {
+            return element.dst.last().cloned();
+        }
+
+        // Interpolate
+        let time_range = next.time - prev.time;
+        let t = if time_range > 0 {
+            (elapsed_ms - prev.time) as f32 / time_range as f32
+        } else {
+            0.0
+        };
+
+        Some(interpolate_destinations(prev, next, t))
+    }
+
+    /// Draw all conditional image elements
+    pub fn draw_all_images(&self, elapsed_ms: i32) {
+        for element in &self.image_elements {
+            self.draw_image_element(element, elapsed_ms);
+        }
+    }
+}
+
+/// Interpolate between two destinations
+fn interpolate_destinations(
+    from: &super::types::Destination,
+    to: &super::types::Destination,
+    t: f32,
+) -> super::types::Destination {
+    let lerp = |a: i32, b: i32| -> i32 { (a as f32 + (b - a) as f32 * t) as i32 };
+
+    super::types::Destination {
+        time: lerp(from.time, to.time),
+        x: lerp(from.x, to.x),
+        y: lerp(from.y, to.y),
+        w: lerp(from.w, to.w),
+        h: lerp(from.h, to.h),
+        a: lerp(from.a, to.a),
+        r: lerp(from.r, to.r),
+        g: lerp(from.g, to.g),
+        b: lerp(from.b, to.b),
+        angle: lerp(from.angle, to.angle),
+        acc: to.acc,
     }
 }
 
