@@ -1,7 +1,9 @@
 /target
 /.agent
-sample
+bms/
 .worktrees/
-.claude/plans
-.claude/work-log.md
+.claude/**
+.claude/
 screenshots/
+skins/**
+!skins/default
