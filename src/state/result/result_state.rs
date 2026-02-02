@@ -3,7 +3,8 @@ use macroquad::prelude::*;
 use std::time::Instant;
 
 use crate::database::{ClearType, ScoreData, ScoreDatabaseAccessor, SongData};
-use crate::input::InputManager;
+use crate::input::{InputManager, KeyInputLog};
+use crate::replay::{ReplayRecorder, ReplaySlot, find_empty_slot, save_replay};
 use crate::state::play::{GaugeType, PlayResult, Rank};
 
 /// Actions available on the result screen.
@@ -55,10 +56,17 @@ impl ResultState {
         play_result: PlayResult,
         song_data: SongData,
         input_manager: InputManager,
+        input_logs: Option<Vec<KeyInputLog>>,
+        hi_speed: f32,
         score_db: &ScoreDatabaseAccessor,
     ) -> Self {
         let clear_type = Self::determine_clear_type(&play_result);
         let is_new_record = Self::save_score(score_db, &play_result, &song_data, clear_type);
+
+        // Save replay if input logs are available
+        if let Some(logs) = input_logs {
+            Self::save_replay_data(&song_data, &play_result, clear_type, logs, hi_speed);
+        }
 
         Self {
             play_result,
@@ -356,6 +364,45 @@ impl ResultState {
             GaugeType::Normal => ClearType::Normal,
             GaugeType::Hard => ClearType::Hard,
             GaugeType::ExHard | GaugeType::Hazard => ClearType::ExHard,
+        }
+    }
+
+    fn save_replay_data(
+        song_data: &SongData,
+        play_result: &PlayResult,
+        clear_type: ClearType,
+        logs: Vec<KeyInputLog>,
+        hi_speed: f32,
+    ) {
+        let gauge_type = match play_result.gauge_type {
+            GaugeType::AssistEasy => 0,
+            GaugeType::Easy => 1,
+            GaugeType::Normal => 2,
+            GaugeType::Hard => 3,
+            GaugeType::ExHard => 4,
+            GaugeType::Hazard => 5,
+        };
+
+        let mut recorder = ReplayRecorder::new(
+            song_data.sha256.clone(),
+            "Player".to_string(), // TODO: Get player name from config
+            gauge_type,
+            hi_speed,
+        );
+        recorder.set_input_logs(logs);
+        recorder.set_score(play_result, clear_type);
+
+        // Find empty slot or overwrite slot 0
+        let slot = find_empty_slot(&song_data.sha256).unwrap_or(ReplaySlot::SLOT_0);
+        let replay_data = recorder.into_replay_data();
+
+        match save_replay(&replay_data, slot) {
+            Ok(path) => {
+                println!("Replay saved to: {}", path.display());
+            }
+            Err(e) => {
+                eprintln!("Failed to save replay: {}", e);
+            }
         }
     }
 

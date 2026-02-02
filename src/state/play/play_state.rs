@@ -6,6 +6,7 @@ use crate::input::InputManager;
 use crate::model::note::{Lane, NoteType};
 use crate::model::{BMSModel, LaneConfig};
 use crate::render::{LaneRenderer, NoteRenderer};
+use crate::replay::ReplayPlayer;
 use crate::skin::{JudgeType, LastJudge, MainState, MainStateTimers, SkinRenderer};
 use crate::state::play::{
     GaugeType, GrooveGauge, JudgeManager, JudgeRank, JudgeWindow, NoteWithIndex, PlayResult, Score,
@@ -41,6 +42,8 @@ pub struct PlayState {
     last_judge_display: Option<(JudgeRank, f64)>,
     /// Optional skin renderer for custom UI.
     skin_renderer: Option<SkinRenderer>,
+    /// Optional replay player for playback mode.
+    replay_player: Option<ReplayPlayer>,
 }
 
 impl PlayState {
@@ -79,7 +82,35 @@ impl PlayState {
             all_notes,
             last_judge_display: None,
             skin_renderer: None,
+            replay_player: None,
         }
+    }
+
+    /// Create a new PlayState for replay playback.
+    pub fn new_replay(
+        model: BMSModel,
+        audio_driver: AudioDriver,
+        keysound_processor: KeysoundProcessor,
+        input_manager: InputManager,
+        gauge_type: GaugeType,
+        hi_speed: f32,
+        replay_player: ReplayPlayer,
+    ) -> Self {
+        let mut state = Self::new(
+            model,
+            audio_driver,
+            keysound_processor,
+            input_manager,
+            gauge_type,
+            hi_speed,
+        );
+        state.replay_player = Some(replay_player);
+        state
+    }
+
+    /// Check if this is a replay playback.
+    pub fn is_replay(&self) -> bool {
+        self.replay_player.is_some()
     }
 
     /// Set the skin renderer for custom UI rendering.
@@ -140,11 +171,20 @@ impl PlayState {
                 if self.current_time_ms >= 0.0 {
                     self.phase = PlayPhase::Playing;
                     self.input_manager.reset_time();
-                    self.input_manager.enable_logging();
+                    // Only enable logging for live play, not replay
+                    if self.replay_player.is_none() {
+                        self.input_manager.enable_logging();
+                    }
                 }
             }
             PlayPhase::Playing => {
                 self.current_time_ms += delta_ms;
+
+                // Update replay player if in replay mode
+                if let Some(ref mut player) = self.replay_player {
+                    let current_time_us = (self.current_time_ms * 1000.0).max(0.0) as u64;
+                    player.update(current_time_us);
+                }
 
                 // Process BGM
                 self.keysound_processor
@@ -174,10 +214,21 @@ impl PlayState {
 
     fn process_input(&mut self) -> Result<()> {
         for lane in Lane::all_7k() {
-            if self.input_manager.just_pressed(*lane) {
+            let just_pressed = if let Some(ref player) = self.replay_player {
+                player.just_pressed(*lane)
+            } else {
+                self.input_manager.just_pressed(*lane)
+            };
+            let just_released = if let Some(ref player) = self.replay_player {
+                player.just_released(*lane)
+            } else {
+                self.input_manager.just_released(*lane)
+            };
+
+            if just_pressed {
                 self.process_press(*lane)?;
             }
-            if self.input_manager.just_released(*lane) {
+            if just_released {
                 self.process_release(*lane)?;
             }
         }
@@ -185,7 +236,11 @@ impl PlayState {
     }
 
     fn process_press(&mut self, lane: Lane) -> Result<()> {
-        let press_time_us = self.input_manager.press_time_us(lane);
+        let press_time_us = if let Some(ref player) = self.replay_player {
+            player.press_time_us(lane)
+        } else {
+            self.input_manager.press_time_us(lane)
+        };
         let press_time_ms = press_time_us as f64 / 1000.0 + self.countdown_ms;
 
         let result =
@@ -224,7 +279,11 @@ impl PlayState {
     }
 
     fn process_release(&mut self, lane: Lane) -> Result<()> {
-        let release_time_us = self.input_manager.release_time_us(lane);
+        let release_time_us = if let Some(ref player) = self.replay_player {
+            player.release_time_us(lane)
+        } else {
+            self.input_manager.release_time_us(lane)
+        };
         let release_time_ms = release_time_us as f64 / 1000.0 + self.countdown_ms;
 
         if let Some(result) = self.judge_manager.judge_release(
@@ -649,15 +708,28 @@ impl PlayState {
             }
         }
 
-        // Key on/off timers from input manager
+        // Key on/off timers from input source (input manager or replay player)
         for lane in Lane::all_7k() {
             let lane_idx = lane.index();
-            if self.input_manager.is_pressed(*lane) {
-                let press_time = self.input_manager.press_time_us(*lane) as i64;
+            let is_pressed = if let Some(ref player) = self.replay_player {
+                player.is_pressed(*lane)
+            } else {
+                self.input_manager.is_pressed(*lane)
+            };
+            if is_pressed {
+                let press_time = if let Some(ref player) = self.replay_player {
+                    player.press_time_us(*lane) as i64
+                } else {
+                    self.input_manager.press_time_us(*lane) as i64
+                };
                 timers.keyon_1p[lane_idx] = press_time;
                 timers.keyoff_1p[lane_idx] = TIMER_OFF_VALUE;
             } else {
-                let release_time = self.input_manager.release_time_us(*lane);
+                let release_time = if let Some(ref player) = self.replay_player {
+                    player.release_time_us(*lane)
+                } else {
+                    self.input_manager.release_time_us(*lane)
+                };
                 if release_time > 0 {
                     timers.keyoff_1p[lane_idx] = release_time as i64;
                 }

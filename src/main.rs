@@ -1,7 +1,8 @@
 use brs::audio::{AudioConfig, AudioDriver, KeysoundProcessor};
-use brs::database::{Database, ScoreDatabaseAccessor};
+use brs::database::{Database, ScoreDatabaseAccessor, SongData};
 use brs::input::{InputManager, KeyConfig};
 use brs::model::{BMSModel, load_bms};
+use brs::replay::{ReplayPlayer, ReplaySlot, load_replay};
 use brs::state::decide::{DecideState, DecideTransition};
 use brs::state::play::{GaugeType, PlayState};
 use brs::state::result::{ResultState, ResultTransition};
@@ -163,7 +164,16 @@ async fn main() {
                 if play_state.is_finished() && is_key_pressed(KeyCode::Enter) {
                     // Transition to result screen
                     let play_result = play_state.take_result();
-                    let input_manager = play_state.take_input_manager();
+                    let hi_speed = play_state.hi_speed();
+                    let is_replay = play_state.is_replay();
+                    let mut input_manager = play_state.take_input_manager();
+
+                    // Extract input logs for replay saving (only for live play)
+                    let input_logs = if !is_replay {
+                        input_manager.take_logger().map(|l| l.into_logs())
+                    } else {
+                        None
+                    };
 
                     // Open score database for saving
                     match Database::open_score_db(Path::new("score.db")) {
@@ -173,6 +183,8 @@ async fn main() {
                                 play_result,
                                 song_data.as_ref().clone(),
                                 input_manager,
+                                input_logs,
+                                hi_speed,
                                 &score_accessor,
                             );
                             next_state = Some(AppState::Result(Box::new(result_state)));
@@ -196,14 +208,41 @@ async fn main() {
                         next_state = Some(return_to_select());
                     }
                     ResultTransition::Replay(song_data) => {
-                        // Create new play state for replay
+                        // Try to load replay data for this song
                         let input_manager = result_state.take_input_manager();
-                        match create_play_state_with_input(&song_data.path, input_manager) {
-                            Ok(play_state) => {
-                                next_state = Some(AppState::Play(Box::new(play_state), song_data));
+                        match load_replay(&song_data.sha256, ReplaySlot::SLOT_0) {
+                            Ok(Some(replay_data)) => {
+                                // Play with replay data
+                                match create_replay_play_state(
+                                    &song_data,
+                                    input_manager,
+                                    replay_data,
+                                ) {
+                                    Ok(play_state) => {
+                                        next_state =
+                                            Some(AppState::Play(Box::new(play_state), song_data));
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to create replay play state: {}", e);
+                                        next_state = Some(return_to_select());
+                                    }
+                                }
+                            }
+                            Ok(None) => {
+                                // No replay available, just replay the song normally
+                                match create_play_state_with_input(&song_data.path, input_manager) {
+                                    Ok(play_state) => {
+                                        next_state =
+                                            Some(AppState::Play(Box::new(play_state), song_data));
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to create play state: {}", e);
+                                        next_state = Some(return_to_select());
+                                    }
+                                }
                             }
                             Err(e) => {
-                                eprintln!("Failed to create play state for replay: {}", e);
+                                eprintln!("Failed to load replay: {}", e);
                                 next_state = Some(return_to_select());
                             }
                         }
@@ -313,6 +352,61 @@ fn return_to_select() -> AppState {
             std::process::exit(1);
         }
     }
+}
+
+/// Create play state with replay data for playback.
+fn create_replay_play_state(
+    song_data: &SongData,
+    input_manager: InputManager,
+    replay_data: brs::replay::ReplayData,
+) -> anyhow::Result<PlayState> {
+    // Initialize audio driver
+    let audio_config = AudioConfig::default();
+    let audio_driver = AudioDriver::new(audio_config)?;
+
+    // Load BMS model
+    let bms = load_bms(&song_data.path)?;
+    let model = BMSModel::from_bms(&bms)?;
+
+    println!("Loading replay for: {}", model.title);
+    println!("Replay recorded at: {}", replay_data.metadata.recorded_at);
+    println!("Replay inputs: {}", replay_data.input_logs.len());
+
+    // Load audio files
+    let mut audio_driver = audio_driver;
+    let bms_dir = song_data.path.parent().unwrap_or(Path::new("."));
+    match audio_driver.load_sounds(&model, bms_dir) {
+        Ok(progress) => {
+            println!(
+                "Loaded {} of {} sounds",
+                progress.loaded(),
+                progress.total()
+            );
+        }
+        Err(e) => {
+            eprintln!("Failed to load sounds: {}", e);
+        }
+    }
+
+    // Setup keysound processor
+    let mut keysound_processor = KeysoundProcessor::new();
+    keysound_processor.load_bgm_events(model.bgm_events.clone());
+
+    // Create replay player
+    let replay_player = ReplayPlayer::new(replay_data.input_logs);
+
+    // Create play state with replay
+    let play_state = PlayState::new_replay(
+        model,
+        audio_driver,
+        keysound_processor,
+        input_manager,
+        GaugeType::Normal, // TODO: Use gauge type from replay data
+        replay_data.metadata.hi_speed,
+        replay_player,
+    );
+
+    Ok(play_state)
 }
 
 fn draw_play_controls_help() {
