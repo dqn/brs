@@ -256,11 +256,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bms-rs",
+ "encoding_rs",
  "gilrs",
  "image 0.25.9",
  "kira",
  "macroquad",
  "mlua",
+ "num-traits",
  "rusqlite",
  "serde",
  "serde_json",
