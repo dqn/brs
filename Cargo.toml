@@ -1,0 +1,20 @@
+[package]
+name = "brs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+
+[dependencies]
+macroquad = "0.4"
+kira = { version = "0.10", features = ["mp3", "ogg", "flac", "wav"] }
+bms-rs = "0.10"
+mlua = { version = "0.10", features = ["lua54", "vendored"] }
+gilrs = "0.11"
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+image = "0.25"
+
+[dev-dependencies]
+tempfile = "3.15"
