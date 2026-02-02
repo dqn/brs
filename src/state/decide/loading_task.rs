@@ -4,6 +4,7 @@ use crate::model::{BMSModel, load_bms};
 use anyhow::Result;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use tracing::warn;
 
 /// Pre-loaded resources ready for PlayState.
 #[derive(Debug)]
@@ -160,7 +161,7 @@ impl LoadingTask {
             }
             Err(e) => {
                 // Log but don't fail - some sounds may be missing
-                eprintln!("Warning: Failed to load some sounds: {}", e);
+                warn!("Failed to load some sounds: {}", e);
             }
         }
 

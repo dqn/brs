@@ -9,6 +9,7 @@ use kira::{AudioManager, AudioManagerSettings, Capacities, Decibels, DefaultBack
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use tracing::warn;
 
 /// Audio driver using kira for low-latency audio playback.
 pub struct AudioDriver {
@@ -80,7 +81,7 @@ impl AudioDriver {
 
         for (wav_id, filename) in &model.wav_files {
             if let Err(e) = self.sound_pool.load(*wav_id, filename) {
-                eprintln!("Warning: Failed to load WAV {}: {}", wav_id, e);
+                warn!("Failed to load WAV {}: {}", wav_id, e);
             }
             loaded.fetch_add(1, Ordering::SeqCst);
         }

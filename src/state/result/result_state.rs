@@ -1,6 +1,7 @@
 use anyhow::Result;
 use macroquad::prelude::*;
 use std::time::Instant;
+use tracing::{error, info};
 
 use crate::database::{ClearType, ScoreData, ScoreDatabaseAccessor, SongData};
 use crate::input::{InputManager, KeyInputLog};
@@ -399,10 +400,10 @@ impl ResultState {
 
         match save_replay(&replay_data, slot) {
             Ok(path) => {
-                println!("Replay saved to: {}", path.display());
+                info!("Replay saved to: {}", path.display());
             }
             Err(e) => {
-                eprintln!("Failed to save replay: {}", e);
+                error!("Failed to save replay: {}", e);
             }
         }
     }
@@ -442,7 +443,7 @@ impl ResultState {
         };
 
         if let Err(e) = score_db.save_score(&score_data) {
-            eprintln!("Failed to save score: {}", e);
+            error!("Failed to save score: {}", e);
         }
 
         is_new_record

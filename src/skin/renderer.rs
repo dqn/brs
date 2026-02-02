@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::Result;
+use tracing::warn;
 
 use crate::skin::{ImageObject, LuaSkinLoader, MainState, Skin, SkinObject, SkinSourceManager};
 
@@ -26,7 +27,7 @@ impl SkinRenderer {
         // Load all texture sources
         for (id, source) in &skin.sources {
             if let Err(e) = sources.load_source(*id, &source.path).await {
-                eprintln!("Warning: Failed to load source {}: {}", id, e);
+                warn!("Failed to load source {}: {}", id, e);
             }
         }
 

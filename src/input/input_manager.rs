@@ -7,6 +7,7 @@ use crate::model::note::Lane;
 use anyhow::Result;
 use gilrs::{EventType, Gilrs};
 use std::time::Instant;
+use tracing::{debug, warn};
 
 /// Unified input manager for keyboard and gamepad.
 pub struct InputManager {
@@ -28,7 +29,7 @@ impl InputManager {
         let gilrs = match Gilrs::new() {
             Ok(g) => Some(g),
             Err(e) => {
-                eprintln!("Warning: Failed to initialize gamepad support: {}", e);
+                warn!("Failed to initialize gamepad support: {}", e);
                 None
             }
         };
@@ -93,12 +94,12 @@ impl InputManager {
                     EventType::Connected => {
                         if !self.gamepads.iter().any(|g| g.gamepad_id() == event.id) {
                             self.gamepads.push(GamepadInput::new(event.id));
-                            println!("Gamepad connected: {:?}", event.id);
+                            debug!("Gamepad connected: {:?}", event.id);
                         }
                     }
                     EventType::Disconnected => {
                         self.gamepads.retain(|g| g.gamepad_id() != event.id);
-                        println!("Gamepad disconnected: {:?}", event.id);
+                        debug!("Gamepad disconnected: {:?}", event.id);
                     }
                     _ => {
                         // Process input events

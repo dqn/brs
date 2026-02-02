@@ -7,8 +7,10 @@ use brs::state::decide::{DecideState, DecideTransition};
 use brs::state::play::{GaugeType, PlayState};
 use brs::state::result::{ResultState, ResultTransition};
 use brs::state::select::{SelectState, SelectTransition};
+use brs::util::logging::init_logging;
 use macroquad::prelude::*;
 use std::path::Path;
+use tracing::{debug, error, info, warn};
 
 fn window_conf() -> Conf {
     Conf {
@@ -30,11 +32,17 @@ enum AppState {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    // Initialize logging
+    if let Err(e) = init_logging(Some(Path::new("logs")), false) {
+        eprintln!("Failed to initialize logging: {}", e);
+    }
+    info!("brs starting...");
+
     // Open databases
     let song_db = match Database::open_song_db(Path::new("song.db")) {
         Ok(db) => db,
         Err(e) => {
-            eprintln!("Failed to open song database: {}", e);
+            error!("Failed to open song database: {}", e);
             return;
         }
     };
@@ -42,7 +50,7 @@ async fn main() {
     let score_db = match Database::open_score_db(Path::new("score.db")) {
         Ok(db) => db,
         Err(e) => {
-            eprintln!("Failed to open score database: {}", e);
+            error!("Failed to open score database: {}", e);
             return;
         }
     };
@@ -52,7 +60,7 @@ async fn main() {
     let input_manager = match InputManager::new(key_config) {
         Ok(manager) => manager,
         Err(e) => {
-            eprintln!("Failed to initialize input: {}", e);
+            error!("Failed to initialize input: {}", e);
             return;
         }
     };
@@ -61,7 +69,7 @@ async fn main() {
     let select_state = match SelectState::new(input_manager, song_db, score_db) {
         Ok(state) => state,
         Err(e) => {
-            eprintln!("Failed to create select state: {}", e);
+            error!("Failed to create select state: {}", e);
             return;
         }
     };
@@ -80,7 +88,7 @@ async fn main() {
         match &mut app_state {
             AppState::Select(select_state) => {
                 if let Err(e) = select_state.update() {
-                    eprintln!("Select error: {}", e);
+                    error!("Select error: {}", e);
                 }
                 select_state.draw();
 
@@ -94,7 +102,7 @@ async fn main() {
                                 next_state = Some(AppState::Decide(Box::new(decide_state)));
                             }
                             Err(e) => {
-                                eprintln!("Failed to create decide state: {}", e);
+                                error!("Failed to create decide state: {}", e);
                             }
                         }
                     }
@@ -106,7 +114,7 @@ async fn main() {
             }
             AppState::Decide(decide_state) => {
                 if let Err(e) = decide_state.update() {
-                    eprintln!("Decide error: {}", e);
+                    error!("Decide error: {}", e);
                 }
                 decide_state.draw();
 
@@ -131,7 +139,7 @@ async fn main() {
                         next_state = Some(return_to_select());
                     }
                     DecideTransition::Error(e) => {
-                        eprintln!("Decide error: {}", e);
+                        error!("Decide error: {}", e);
                         next_state = Some(return_to_select());
                     }
                     DecideTransition::None => {}
@@ -148,7 +156,7 @@ async fn main() {
 
                 // Update and draw
                 if let Err(e) = play_state.update(delta_ms) {
-                    eprintln!("Play error: {}", e);
+                    error!("Play error: {}", e);
                 }
                 play_state.draw();
 
@@ -190,7 +198,7 @@ async fn main() {
                             next_state = Some(AppState::Result(Box::new(result_state)));
                         }
                         Err(e) => {
-                            eprintln!("Failed to open score database: {}", e);
+                            error!("Failed to open score database: {}", e);
                             next_state = Some(return_to_select());
                         }
                     }
@@ -198,7 +206,7 @@ async fn main() {
             }
             AppState::Result(result_state) => {
                 if let Err(e) = result_state.update() {
-                    eprintln!("Result error: {}", e);
+                    error!("Result error: {}", e);
                 }
                 result_state.draw();
 
@@ -223,7 +231,7 @@ async fn main() {
                                             Some(AppState::Play(Box::new(play_state), song_data));
                                     }
                                     Err(e) => {
-                                        eprintln!("Failed to create replay play state: {}", e);
+                                        error!("Failed to create replay play state: {}", e);
                                         next_state = Some(return_to_select());
                                     }
                                 }
@@ -236,13 +244,13 @@ async fn main() {
                                             Some(AppState::Play(Box::new(play_state), song_data));
                                     }
                                     Err(e) => {
-                                        eprintln!("Failed to create play state: {}", e);
+                                        error!("Failed to create play state: {}", e);
                                         next_state = Some(return_to_select());
                                     }
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to load replay: {}", e);
+                                error!("Failed to load replay: {}", e);
                                 next_state = Some(return_to_select());
                             }
                         }
@@ -277,25 +285,25 @@ fn create_play_state_with_input(
     let bms = load_bms(bms_path)?;
     let model = BMSModel::from_bms(&bms)?;
 
-    println!("Loaded: {}", model.title);
-    println!("Artist: {}", model.artist);
-    println!("BPM: {}", model.initial_bpm);
-    println!("Total notes: {}", model.total_notes);
-    println!("BGM events: {}", model.bgm_events.len());
+    info!("Loaded: {}", model.title);
+    debug!("Artist: {}", model.artist);
+    debug!("BPM: {}", model.initial_bpm);
+    debug!("Total notes: {}", model.total_notes);
+    debug!("BGM events: {}", model.bgm_events.len());
 
     // Load audio files
     let mut audio_driver = audio_driver;
     let bms_dir = bms_path.parent().unwrap_or(Path::new("."));
     match audio_driver.load_sounds(&model, bms_dir) {
         Ok(progress) => {
-            println!(
+            info!(
                 "Loaded {} of {} sounds",
                 progress.loaded(),
                 progress.total()
             );
         }
         Err(e) => {
-            eprintln!("Failed to load sounds: {}", e);
+            warn!("Failed to load sounds: {}", e);
         }
     }
 
@@ -321,7 +329,7 @@ fn return_to_select() -> AppState {
     let song_db = match Database::open_song_db(Path::new("song.db")) {
         Ok(db) => db,
         Err(e) => {
-            eprintln!("Failed to open song database: {}", e);
+            error!("Failed to open song database: {}", e);
             std::process::exit(1);
         }
     };
@@ -329,7 +337,7 @@ fn return_to_select() -> AppState {
     let score_db = match Database::open_score_db(Path::new("score.db")) {
         Ok(db) => db,
         Err(e) => {
-            eprintln!("Failed to open score database: {}", e);
+            error!("Failed to open score database: {}", e);
             std::process::exit(1);
         }
     };
@@ -339,7 +347,7 @@ fn return_to_select() -> AppState {
     let input_manager = match InputManager::new(key_config) {
         Ok(manager) => manager,
         Err(e) => {
-            eprintln!("Failed to initialize input: {}", e);
+            error!("Failed to initialize input: {}", e);
             std::process::exit(1);
         }
     };
@@ -348,7 +356,7 @@ fn return_to_select() -> AppState {
     match SelectState::new(input_manager, song_db, score_db) {
         Ok(state) => AppState::Select(Box::new(state)),
         Err(e) => {
-            eprintln!("Failed to create select state: {}", e);
+            error!("Failed to create select state: {}", e);
             std::process::exit(1);
         }
     }
@@ -368,23 +376,23 @@ fn create_replay_play_state(
     let bms = load_bms(&song_data.path)?;
     let model = BMSModel::from_bms(&bms)?;
 
-    println!("Loading replay for: {}", model.title);
-    println!("Replay recorded at: {}", replay_data.metadata.recorded_at);
-    println!("Replay inputs: {}", replay_data.input_logs.len());
+    info!("Loading replay for: {}", model.title);
+    debug!("Replay recorded at: {}", replay_data.metadata.recorded_at);
+    debug!("Replay inputs: {}", replay_data.input_logs.len());
 
     // Load audio files
     let mut audio_driver = audio_driver;
     let bms_dir = song_data.path.parent().unwrap_or(Path::new("."));
     match audio_driver.load_sounds(&model, bms_dir) {
         Ok(progress) => {
-            println!(
+            info!(
                 "Loaded {} of {} sounds",
                 progress.loaded(),
                 progress.total()
             );
         }
         Err(e) => {
-            eprintln!("Failed to load sounds: {}", e);
+            warn!("Failed to load sounds: {}", e);
         }
     }
 
