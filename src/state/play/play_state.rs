@@ -6,6 +6,7 @@ use crate::input::InputManager;
 use crate::model::note::{Lane, NoteType};
 use crate::model::{BMSModel, LaneConfig};
 use crate::render::{LaneRenderer, NoteRenderer};
+use crate::skin::{JudgeType, LastJudge, MainState, MainStateTimers, SkinRenderer};
 use crate::state::play::{
     GaugeType, GrooveGauge, JudgeManager, JudgeRank, JudgeWindow, NoteWithIndex, PlayResult, Score,
 };
@@ -38,6 +39,8 @@ pub struct PlayState {
     notes_by_lane: [Vec<NoteWithIndex>; 8],
     all_notes: Vec<NoteWithIndex>,
     last_judge_display: Option<(JudgeRank, f64)>,
+    /// Optional skin renderer for custom UI.
+    skin_renderer: Option<SkinRenderer>,
 }
 
 impl PlayState {
@@ -75,7 +78,13 @@ impl PlayState {
             notes_by_lane,
             all_notes,
             last_judge_display: None,
+            skin_renderer: None,
         }
+    }
+
+    /// Set the skin renderer for custom UI rendering.
+    pub fn set_skin_renderer(&mut self, renderer: SkinRenderer) {
+        self.skin_renderer = Some(renderer);
     }
 
     fn create_gauge(gauge_type: GaugeType, total: f64, total_notes: usize) -> GrooveGauge {
@@ -266,6 +275,14 @@ impl PlayState {
 
     /// Draw the play state.
     pub fn draw(&self) {
+        // Draw skin if available
+        if let Some(ref skin) = self.skin_renderer {
+            let main_state = self.create_main_state();
+            let now_us = (self.current_time_ms.max(0.0) * 1000.0) as i64;
+            skin.draw(&main_state, now_us);
+        }
+
+        // Always draw lane and notes (skin typically doesn't handle these)
         let lane_renderer = LaneRenderer::new(&self.lane_config);
         lane_renderer.draw(&self.model.timelines, self.current_time_ms, self.hi_speed);
 
@@ -277,10 +294,15 @@ impl PlayState {
             |index| !self.judge_manager.is_judged(index),
         );
 
-        self.draw_gauge();
-        self.draw_score();
-        self.draw_combo();
-        self.draw_judge();
+        // Draw fallback UI if no skin
+        if self.skin_renderer.is_none() {
+            self.draw_gauge();
+            self.draw_score();
+            self.draw_combo();
+            self.draw_judge();
+        }
+
+        // Always show debug info
         self.draw_info();
     }
 
@@ -501,5 +523,140 @@ impl PlayState {
     /// Get the current phase.
     pub fn phase(&self) -> PlayPhase {
         self.phase
+    }
+
+    /// Create a MainState snapshot for skin rendering.
+    pub fn create_main_state(&self) -> MainState {
+        let mut state = MainState::new();
+
+        // Judge counts
+        state.pg_count = self.score.pg_count;
+        state.gr_count = self.score.gr_count;
+        state.gd_count = self.score.gd_count;
+        state.bd_count = self.score.bd_count;
+        state.pr_count = self.score.pr_count;
+        state.ms_count = self.score.ms_count;
+
+        // Combo
+        state.combo = self.score.combo;
+        state.max_combo = self.score.max_combo;
+
+        // Gauge
+        state.gauge_value = self.gauge.value();
+        state.gauge_type = Self::gauge_type_to_int(self.gauge.gauge_type());
+
+        // Score
+        state.ex_score = self.score.ex_score();
+        state.score_rate = self.score.clear_rate();
+
+        // BPM
+        state.current_bpm = self.model.initial_bpm;
+        state.min_bpm = self.model.initial_bpm;
+        state.max_bpm = self.model.initial_bpm;
+
+        // Time
+        state.current_time_ms = self.current_time_ms.max(0.0);
+        state.total_time_ms = self.model.timelines.last_time_ms();
+
+        // Notes
+        state.total_notes = self.model.total_notes as u32;
+
+        // Hi-speed
+        state.hi_speed = self.hi_speed;
+
+        // Play state flags
+        state.is_ready = self.phase == PlayPhase::Countdown;
+        state.is_playing = self.phase == PlayPhase::Playing;
+        state.is_finished = self.phase == PlayPhase::Finished;
+        state.is_clear = self.phase == PlayPhase::Finished && self.gauge.is_clear();
+        state.is_failed = self.phase == PlayPhase::Finished && !self.gauge.is_clear();
+
+        // Last judge
+        if let Some((rank, time)) = self.last_judge_display {
+            let is_early = self.judge_manager.fast_count() > self.judge_manager.slow_count();
+            state.last_judge = Some(LastJudge {
+                rank: Self::judge_rank_to_type(rank),
+                is_early,
+                time_ms: time,
+            });
+        }
+
+        // Timers
+        state.timers = self.create_timers();
+
+        state
+    }
+
+    /// Convert JudgeRank to skin JudgeType.
+    fn judge_rank_to_type(rank: JudgeRank) -> JudgeType {
+        match rank {
+            JudgeRank::PerfectGreat => JudgeType::Perfect,
+            JudgeRank::Great => JudgeType::Great,
+            JudgeRank::Good => JudgeType::Good,
+            JudgeRank::Bad => JudgeType::Bad,
+            JudgeRank::Poor => JudgeType::Poor,
+            JudgeRank::Miss => JudgeType::Miss,
+        }
+    }
+
+    /// Convert GaugeType to skin integer.
+    fn gauge_type_to_int(gauge_type: GaugeType) -> i32 {
+        match gauge_type {
+            GaugeType::AssistEasy => 1,
+            GaugeType::Easy => 1,
+            GaugeType::Normal => 0,
+            GaugeType::Hard => 2,
+            GaugeType::ExHard => 3,
+            GaugeType::Hazard => 3,
+        }
+    }
+
+    /// Create timer values for skin rendering.
+    fn create_timers(&self) -> MainStateTimers {
+        use crate::skin::skin_property::TIMER_OFF_VALUE;
+
+        let mut timers = MainStateTimers::new();
+
+        // Ready timer (starts at countdown start)
+        if self.phase != PlayPhase::Countdown || self.current_time_ms >= -self.countdown_ms {
+            timers.ready = 0; // Ready from the beginning
+        }
+
+        // Play timer (starts when playing begins)
+        if self.phase == PlayPhase::Playing || self.phase == PlayPhase::Finished {
+            timers.play = 0; // Play started
+        }
+
+        // Judge timer (set when judge happens)
+        if let Some((_, time)) = self.last_judge_display {
+            let elapsed = self.current_time_ms - time;
+            if elapsed < 500.0 {
+                timers.judge_1p = (time * 1000.0) as i64;
+            }
+        }
+
+        // Combo timer (same as judge timer for simplicity)
+        if self.score.combo > 0 {
+            if let Some((_, time)) = self.last_judge_display {
+                timers.combo_1p = (time * 1000.0) as i64;
+            }
+        }
+
+        // Key on/off timers from input manager
+        for lane in Lane::all_7k() {
+            let lane_idx = lane.index();
+            if self.input_manager.is_pressed(*lane) {
+                let press_time = self.input_manager.press_time_us(*lane) as i64;
+                timers.keyon_1p[lane_idx] = press_time;
+                timers.keyoff_1p[lane_idx] = TIMER_OFF_VALUE;
+            } else {
+                let release_time = self.input_manager.release_time_us(*lane);
+                if release_time > 0 {
+                    timers.keyoff_1p[lane_idx] = release_time as i64;
+                }
+            }
+        }
+
+        timers
     }
 }
