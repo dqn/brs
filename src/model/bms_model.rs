@@ -1,3 +1,4 @@
+use crate::audio::BgmEvent;
 use crate::model::note::{Lane, Note, NoteType};
 use crate::model::timeline::{Timeline, Timelines};
 use anyhow::Result;
@@ -31,6 +32,8 @@ pub struct BMSModel {
     pub play_mode: PlayMode,
     pub timelines: Timelines,
     pub wav_files: BTreeMap<u16, String>,
+    /// BGM events (auto-play keysounds) sorted by time.
+    pub bgm_events: Vec<BgmEvent>,
 }
 
 impl BMSModel {
@@ -60,7 +63,7 @@ impl BMSModel {
             .unwrap_or(120.0);
 
         let time_calc = TimeCalculator::new(bms, initial_bpm);
-        let mut timelines = build_timelines(bms, &time_calc)?;
+        let (mut timelines, bgm_events) = build_timelines(bms, &time_calc)?;
 
         let total_notes = timelines
             .all_notes()
@@ -91,6 +94,7 @@ impl BMSModel {
             play_mode: PlayMode::Beat7K,
             timelines,
             wav_files,
+            bgm_events,
         })
     }
 }
@@ -245,8 +249,9 @@ impl TimeCalculator {
     }
 }
 
-fn build_timelines(bms: &Bms, time_calc: &TimeCalculator) -> Result<Timelines> {
+fn build_timelines(bms: &Bms, time_calc: &TimeCalculator) -> Result<(Timelines, Vec<BgmEvent>)> {
     let mut timelines = Timelines::new();
+    let mut bgm_events = Vec::new();
 
     let max_measure = bms
         .notes()
@@ -277,14 +282,17 @@ fn build_timelines(bms: &Bms, time_calc: &TimeCalculator) -> Result<Timelines> {
             continue;
         }
 
+        let time_ms = time_calc.objtime_to_ms(&note.offset);
+        let wav_id = obj_id_to_u16(note.wav_id).unwrap_or(0);
+
         let lane = channel_to_lane(&note.channel_id);
+
+        // Notes without a lane mapping are BGM (auto-play) keysounds
         if lane.is_none() {
+            bgm_events.push(BgmEvent::new(time_ms, wav_id));
             continue;
         }
         let lane = lane.unwrap();
-
-        let time_ms = time_calc.objtime_to_ms(&note.offset);
-        let wav_id = obj_id_to_u16(note.wav_id).unwrap_or(0);
 
         let note_kind = get_note_kind(&note.channel_id);
 
@@ -318,7 +326,14 @@ fn build_timelines(bms: &Bms, time_calc: &TimeCalculator) -> Result<Timelines> {
         timelines.push(timeline);
     }
 
-    Ok(timelines)
+    // Sort BGM events by time
+    bgm_events.sort_by(|a, b| {
+        a.time_ms
+            .partial_cmp(&b.time_ms)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    Ok((timelines, bgm_events))
 }
 
 fn channel_to_lane(channel_id: &bms_rs::bms::command::channel::NoteChannelId) -> Option<Lane> {
