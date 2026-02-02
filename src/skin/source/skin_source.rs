@@ -4,10 +4,23 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
 
+use crate::skin::font::{FontInfo, parse_fnt};
+
+/// Loaded font with texture.
+#[derive(Debug)]
+pub struct LoadedFont {
+    /// Font information from .fnt file.
+    pub info: FontInfo,
+    /// Font texture.
+    pub texture: LoadedTexture,
+}
+
 /// Manager for skin image sources.
 pub struct SkinSourceManager {
     /// Loaded textures indexed by source ID.
     textures: HashMap<u32, LoadedTexture>,
+    /// Loaded fonts indexed by font ID.
+    fonts: HashMap<u32, LoadedFont>,
     /// Base directory for the skin.
     base_dir: PathBuf,
 }
@@ -28,6 +41,7 @@ impl SkinSourceManager {
     pub fn new(base_dir: PathBuf) -> Self {
         Self {
             textures: HashMap::new(),
+            fonts: HashMap::new(),
             base_dir,
         }
     }
@@ -61,6 +75,52 @@ impl SkinSourceManager {
     /// Check if a source is loaded.
     pub fn is_loaded(&self, id: u32) -> bool {
         self.textures.contains_key(&id)
+    }
+
+    /// Load a font from a .fnt file.
+    pub async fn load_font(&mut self, id: u32, fnt_path: &str) -> Result<()> {
+        let fnt_full_path = self.base_dir.join(fnt_path);
+
+        // Read and parse .fnt file
+        let fnt_content = std::fs::read_to_string(&fnt_full_path)
+            .with_context(|| format!("Failed to read font file: {}", fnt_full_path.display()))?;
+
+        let font_info = parse_fnt(&fnt_content)
+            .with_context(|| format!("Failed to parse font file: {}", fnt_full_path.display()))?;
+
+        // Load the texture (relative to .fnt file location)
+        let fnt_dir = fnt_full_path.parent().unwrap_or(Path::new("."));
+        let texture_path = fnt_dir.join(&font_info.texture_file);
+
+        let texture = load_texture(&texture_path.to_string_lossy())
+            .await
+            .with_context(|| format!("Failed to load font texture: {}", texture_path.display()))?;
+
+        texture.set_filter(FilterMode::Nearest);
+
+        let loaded_texture = LoadedTexture {
+            width: texture.width() as u32,
+            height: texture.height() as u32,
+            texture,
+        };
+
+        let loaded_font = LoadedFont {
+            info: font_info,
+            texture: loaded_texture,
+        };
+
+        self.fonts.insert(id, loaded_font);
+        Ok(())
+    }
+
+    /// Get font info and texture by ID.
+    pub fn get_font_info(&self, id: u32) -> Option<(&FontInfo, &LoadedTexture)> {
+        self.fonts.get(&id).map(|f| (&f.info, &f.texture))
+    }
+
+    /// Check if a font is loaded.
+    pub fn is_font_loaded(&self, id: u32) -> bool {
+        self.fonts.contains_key(&id)
     }
 
     /// Resolve a path pattern to an actual file path.

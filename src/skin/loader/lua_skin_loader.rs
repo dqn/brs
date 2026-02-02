@@ -5,8 +5,8 @@ use anyhow::{Context, Result, anyhow};
 use mlua::{Lua, Table, Value};
 
 use crate::skin::{
-    Destination, ImageDef, ImageSetDef, Skin, SkinHeader, SkinObjectData, SkinObjectType,
-    SkinSource, SkinType,
+    Destination, FontDef, ImageDef, ImageSetDef, NumberDef, Skin, SkinHeader, SkinObjectData,
+    SkinObjectType, SkinSource, SkinType, TextDef,
 };
 
 /// Helper trait to convert mlua::Result to anyhow::Result.
@@ -231,6 +231,21 @@ impl LuaSkinLoader {
             self.parse_imagesets(&imageset_table, &mut skin)?;
         }
 
+        // Parse value (number) definitions
+        if let Ok(value_table) = table.get::<Table>("value") {
+            self.parse_values(&value_table, &mut skin)?;
+        }
+
+        // Parse font definitions
+        if let Ok(font_table) = table.get::<Table>("font") {
+            self.parse_fonts(&font_table, &mut skin)?;
+        }
+
+        // Parse text definitions
+        if let Ok(text_table) = table.get::<Table>("text") {
+            self.parse_texts(&text_table, &mut skin)?;
+        }
+
         // Parse destination (objects)
         if let Ok(dst_table) = table.get::<Table>("destination") {
             self.parse_destinations(&dst_table, &mut skin)?;
@@ -340,6 +355,136 @@ impl LuaSkinLoader {
         Ok(())
     }
 
+    fn parse_values(&self, table: &Table, skin: &mut Skin) -> Result<()> {
+        for pair in table.pairs::<Value, Table>() {
+            let (_, val_table) = pair.to_anyhow()?;
+
+            let mut number_def = NumberDef::default();
+
+            if let Ok(id) = val_table.get::<String>("id") {
+                number_def.id = id;
+            }
+
+            if let Ok(src) = val_table.get::<u32>("src") {
+                number_def.src = src;
+            }
+
+            if let Ok(x) = val_table.get::<i32>("x") {
+                number_def.x = x;
+            }
+
+            if let Ok(y) = val_table.get::<i32>("y") {
+                number_def.y = y;
+            }
+
+            if let Ok(w) = val_table.get::<i32>("w") {
+                number_def.w = w;
+            }
+
+            if let Ok(h) = val_table.get::<i32>("h") {
+                number_def.h = h;
+            }
+
+            if let Ok(divx) = val_table.get::<i32>("divx") {
+                number_def.divx = divx;
+            }
+
+            if let Ok(divy) = val_table.get::<i32>("divy") {
+                number_def.divy = divy;
+            }
+
+            if let Ok(digit) = val_table.get::<i32>("digit") {
+                number_def.digit = digit;
+            }
+
+            if let Ok(ref_id) = val_table.get::<i32>("ref") {
+                number_def.ref_id = ref_id;
+            }
+
+            if let Ok(align) = val_table.get::<i32>("align") {
+                number_def.align = align;
+            }
+
+            if let Ok(zeropadding) = val_table.get::<i32>("padding") {
+                number_def.zeropadding = zeropadding;
+            }
+
+            if let Ok(space) = val_table.get::<i32>("space") {
+                number_def.space = space;
+            }
+
+            if let Ok(cycle) = val_table.get::<i32>("cycle") {
+                number_def.cycle = cycle;
+            }
+
+            if !number_def.id.is_empty() {
+                skin.numbers.insert(number_def.id.clone(), number_def);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn parse_fonts(&self, table: &Table, skin: &mut Skin) -> Result<()> {
+        for pair in table.pairs::<Value, Table>() {
+            let (_, font_table) = pair.to_anyhow()?;
+
+            let mut font_def = FontDef::default();
+
+            if let Ok(id) = font_table.get::<u32>("id") {
+                font_def.id = id;
+            }
+
+            if let Ok(path) = font_table.get::<String>("path") {
+                font_def.path = path;
+            }
+
+            if font_def.id > 0 && !font_def.path.is_empty() {
+                skin.fonts.insert(font_def.id, font_def);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn parse_texts(&self, table: &Table, skin: &mut Skin) -> Result<()> {
+        for pair in table.pairs::<Value, Table>() {
+            let (_, text_table) = pair.to_anyhow()?;
+
+            let mut text_def = TextDef::default();
+
+            if let Ok(id) = text_table.get::<String>("id") {
+                text_def.id = id;
+            }
+
+            if let Ok(font) = text_table.get::<u32>("font") {
+                text_def.font = font;
+            }
+
+            if let Ok(size) = text_table.get::<i32>("size") {
+                text_def.size = size;
+            }
+
+            if let Ok(align) = text_table.get::<i32>("align") {
+                text_def.align = align;
+            }
+
+            if let Ok(overflow) = text_table.get::<i32>("overflow") {
+                text_def.overflow = overflow;
+            }
+
+            if let Ok(ref_id) = text_table.get::<i32>("ref") {
+                text_def.ref_id = ref_id;
+            }
+
+            if !text_def.id.is_empty() {
+                skin.texts.insert(text_def.id.clone(), text_def);
+            }
+        }
+
+        Ok(())
+    }
+
     fn parse_destinations(&self, table: &Table, skin: &mut Skin) -> Result<()> {
         for pair in table.pairs::<Value, Table>() {
             let (_, dst_table) = pair.to_anyhow()?;
@@ -349,8 +494,12 @@ impl LuaSkinLoader {
             if let Ok(id) = dst_table.get::<String>("id") {
                 obj_data.id = id.clone();
 
-                // Determine object type based on whether it's an image or imageset
-                if skin.image_sets.contains_key(&id) {
+                // Determine object type based on definition type
+                if skin.numbers.contains_key(&id) {
+                    obj_data.object_type = SkinObjectType::Number;
+                } else if skin.texts.contains_key(&id) {
+                    obj_data.object_type = SkinObjectType::Text;
+                } else if skin.image_sets.contains_key(&id) {
                     obj_data.object_type = SkinObjectType::ImageSet;
                 } else {
                     obj_data.object_type = SkinObjectType::Image;

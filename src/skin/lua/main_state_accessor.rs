@@ -65,6 +65,17 @@ pub struct MainState {
 
     // Timers (microseconds, i64::MIN = off)
     pub timers: MainStateTimers,
+
+    // String properties for text display
+    pub song_title: String,
+    pub song_subtitle: String,
+    pub full_title: String,
+    pub genre: String,
+    pub artist: String,
+    pub subartist: String,
+    pub full_artist: String,
+    pub player_name: String,
+    pub rival_name: String,
 }
 
 /// Last judge information.
@@ -333,9 +344,19 @@ impl MainState {
     }
 
     /// Get text value by ID.
-    pub fn text(&self, _id: i32) -> String {
-        // TODO: Implement text properties
-        String::new()
+    pub fn text(&self, id: i32) -> String {
+        match id {
+            STRING_RIVAL => self.rival_name.clone(),
+            STRING_PLAYER => self.player_name.clone(),
+            STRING_TITLE => self.song_title.clone(),
+            STRING_SUBTITLE => self.song_subtitle.clone(),
+            STRING_FULLTITLE => self.full_title.clone(),
+            STRING_GENRE => self.genre.clone(),
+            STRING_ARTIST => self.artist.clone(),
+            STRING_SUBARTIST => self.subartist.clone(),
+            STRING_FULLARTIST => self.full_artist.clone(),
+            _ => String::new(),
+        }
     }
 
     /// Get float value by ID (for sliders/bargraphs).

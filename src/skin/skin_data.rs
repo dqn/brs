@@ -15,6 +15,12 @@ pub struct Skin {
     pub images: HashMap<String, ImageDef>,
     /// Image set definitions indexed by string ID.
     pub image_sets: HashMap<String, ImageSetDef>,
+    /// Number definitions indexed by string ID.
+    pub numbers: HashMap<String, NumberDef>,
+    /// Font definitions indexed by numeric ID.
+    pub fonts: HashMap<u32, FontDef>,
+    /// Text definitions indexed by string ID.
+    pub texts: HashMap<String, TextDef>,
 }
 
 impl Skin {
@@ -26,6 +32,9 @@ impl Skin {
             objects: Vec::new(),
             images: HashMap::new(),
             image_sets: HashMap::new(),
+            numbers: HashMap::new(),
+            fonts: HashMap::new(),
+            texts: HashMap::new(),
         }
     }
 }
@@ -90,6 +99,65 @@ pub struct ImageSetDef {
     pub mode: i32,
     /// List of image IDs in this set.
     pub images: Vec<String>,
+}
+
+/// Number definition for digit-based number display.
+#[derive(Debug, Clone, Default)]
+pub struct NumberDef {
+    /// Number ID (string).
+    pub id: String,
+    /// Source ID to reference.
+    pub src: u32,
+    /// Source X coordinate.
+    pub x: i32,
+    /// Source Y coordinate.
+    pub y: i32,
+    /// Source width.
+    pub w: i32,
+    /// Source height.
+    pub h: i32,
+    /// Horizontal division count (10=0-9, 11=+minus, 12=+space).
+    pub divx: i32,
+    /// Vertical division count.
+    pub divy: i32,
+    /// Number of digits to display.
+    pub digit: i32,
+    /// IntegerProperty ID to reference.
+    pub ref_id: i32,
+    /// Alignment (0=RIGHT, 1=LEFT, 2=CENTER).
+    pub align: i32,
+    /// Zero padding flag.
+    pub zeropadding: i32,
+    /// Space between digits.
+    pub space: i32,
+    /// Animation cycle in ms.
+    pub cycle: i32,
+}
+
+/// Font definition for bitmap fonts.
+#[derive(Debug, Clone, Default)]
+pub struct FontDef {
+    /// Font ID (numeric).
+    pub id: u32,
+    /// Path to .fnt file (relative to skin directory).
+    pub path: String,
+}
+
+/// Text definition for text display.
+#[derive(Debug, Clone, Default)]
+pub struct TextDef {
+    /// Text ID (string).
+    pub id: String,
+    /// Font ID to reference.
+    pub font: u32,
+    /// Font size.
+    pub size: i32,
+    /// Alignment (0=LEFT, 1=CENTER, 2=RIGHT).
+    pub align: i32,
+    /// Overflow handling (0=OVERFLOW, 1=SHRINK, 2=TRUNCATE).
+    pub overflow: i32,
+    /// StringProperty ID to reference.
+    pub ref_id: i32,
 }
 
 /// Skin object data for rendering.

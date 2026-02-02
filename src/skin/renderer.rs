@@ -3,7 +3,10 @@ use std::path::Path;
 use anyhow::Result;
 use tracing::warn;
 
-use crate::skin::{ImageObject, LuaSkinLoader, MainState, Skin, SkinObject, SkinSourceManager};
+use crate::skin::{
+    ImageObject, LuaSkinLoader, MainState, NumberObject, Skin, SkinObject, SkinObjectType,
+    SkinSourceManager, TextObject,
+};
 
 /// Runtime skin renderer that manages loaded skin objects.
 pub struct SkinRenderer {
@@ -31,12 +34,35 @@ impl SkinRenderer {
             }
         }
 
+        // Load all fonts
+        for (id, font_def) in &skin.fonts {
+            if let Err(e) = sources.load_font(*id, &font_def.path).await {
+                warn!("Failed to load font {}: {}", id, e);
+            }
+        }
+
         // Create skin objects
         let mut objects: Vec<Box<dyn SkinObject>> = Vec::new();
         for obj_data in &skin.objects {
-            let image_def = skin.images.get(&obj_data.id).cloned();
-            let obj = ImageObject::new(obj_data.clone(), image_def);
-            objects.push(Box::new(obj));
+            let obj: Box<dyn SkinObject> = match obj_data.object_type {
+                SkinObjectType::Number => {
+                    let number_def = skin.numbers.get(&obj_data.id).cloned();
+                    Box::new(NumberObject::new(obj_data.clone(), number_def))
+                }
+                SkinObjectType::Text => {
+                    let text_def = skin.texts.get(&obj_data.id).cloned();
+                    Box::new(TextObject::new(obj_data.clone(), text_def))
+                }
+                SkinObjectType::Image | SkinObjectType::ImageSet => {
+                    let image_def = skin.images.get(&obj_data.id).cloned();
+                    Box::new(ImageObject::new(obj_data.clone(), image_def))
+                }
+                _ => {
+                    let image_def = skin.images.get(&obj_data.id).cloned();
+                    Box::new(ImageObject::new(obj_data.clone(), image_def))
+                }
+            };
+            objects.push(obj);
         }
 
         // Prepare all objects
