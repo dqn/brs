@@ -23,8 +23,8 @@ pub enum SelectPhase {
 pub enum SelectTransition {
     /// No transition, stay in select screen.
     None,
-    /// Transition to play with the selected song.
-    Play(Box<SongData>),
+    /// Transition to decide screen with the selected song.
+    Decide(Box<SongData>),
     /// Exit the application.
     Exit,
 }
@@ -123,7 +123,7 @@ impl SelectState {
         if self.input_manager.is_start_pressed() || is_key_pressed(KeyCode::Enter) {
             if let Some(bar) = self.bar_manager.current_bar() {
                 if let Some(song_bar) = bar.as_song() {
-                    self.transition = SelectTransition::Play(Box::new(song_bar.song.clone()));
+                    self.transition = SelectTransition::Decide(Box::new(song_bar.song.clone()));
                     self.phase = SelectPhase::Decided;
                 }
             }

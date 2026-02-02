@@ -18,6 +18,7 @@ impl BgmEvent {
 }
 
 /// Processes keysound playback during gameplay.
+#[derive(Debug)]
 pub struct KeysoundProcessor {
     /// BGM events sorted by time.
     bgm_events: Vec<BgmEvent>,

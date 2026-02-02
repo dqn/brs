@@ -29,6 +29,16 @@ fn amplitude_to_db(amplitude: f64) -> Decibels {
     Decibels(20.0 * amplitude.log10() as f32)
 }
 
+impl std::fmt::Debug for AudioDriver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AudioDriver")
+            .field("active_sounds_count", &self.active_sounds.len())
+            .field("loaded_sounds_count", &self.sound_pool.len())
+            .field("config", &self.config)
+            .finish()
+    }
+}
+
 impl AudioDriver {
     /// Create a new AudioDriver with the given configuration.
     pub fn new(config: AudioConfig) -> Result<Self> {

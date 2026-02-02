@@ -1,7 +1,8 @@
 use brs::audio::{AudioConfig, AudioDriver, KeysoundProcessor};
-use brs::database::{Database, ScoreDatabaseAccessor, SongData};
+use brs::database::{Database, ScoreDatabaseAccessor};
 use brs::input::{InputManager, KeyConfig};
 use brs::model::{BMSModel, load_bms};
+use brs::state::decide::{DecideState, DecideTransition};
 use brs::state::play::{GaugeType, PlayState};
 use brs::state::result::{ResultState, ResultTransition};
 use brs::state::select::{SelectState, SelectTransition};
@@ -21,7 +22,8 @@ fn window_conf() -> Conf {
 /// Application state machine.
 enum AppState {
     Select(Box<SelectState>),
-    Play(Box<PlayState>, Box<SongData>),
+    Decide(Box<DecideState>),
+    Play(Box<PlayState>, Box<brs::database::SongData>),
     Result(Box<ResultState>),
 }
 
@@ -83,14 +85,15 @@ async fn main() {
 
                 // Check for transition
                 match select_state.take_transition() {
-                    SelectTransition::Play(song_data) => {
-                        // Transition to play state
-                        match create_play_state(select_state, &song_data.path) {
-                            Ok(play_state) => {
-                                next_state = Some(AppState::Play(Box::new(play_state), song_data));
+                    SelectTransition::Decide(song_data) => {
+                        // Transition to decide state
+                        let input_manager = select_state.take_input_manager();
+                        match DecideState::new(*song_data, input_manager) {
+                            Ok(decide_state) => {
+                                next_state = Some(AppState::Decide(Box::new(decide_state)));
                             }
                             Err(e) => {
-                                eprintln!("Failed to create play state: {}", e);
+                                eprintln!("Failed to create decide state: {}", e);
                             }
                         }
                     }
@@ -98,6 +101,39 @@ async fn main() {
                         should_exit = true;
                     }
                     SelectTransition::None => {}
+                }
+            }
+            AppState::Decide(decide_state) => {
+                if let Err(e) = decide_state.update() {
+                    eprintln!("Decide error: {}", e);
+                }
+                decide_state.draw();
+
+                // Check for transition
+                match decide_state.take_transition() {
+                    DecideTransition::Ready(prepared) => {
+                        let input_manager = decide_state.take_input_manager();
+                        let play_state = PlayState::new(
+                            prepared.model,
+                            prepared.audio_driver,
+                            prepared.keysound_processor,
+                            input_manager,
+                            GaugeType::Normal,
+                            1.0,
+                        );
+                        next_state = Some(AppState::Play(
+                            Box::new(play_state),
+                            Box::new(prepared.song_data),
+                        ));
+                    }
+                    DecideTransition::Cancel => {
+                        next_state = Some(return_to_select());
+                    }
+                    DecideTransition::Error(e) => {
+                        eprintln!("Decide error: {}", e);
+                        next_state = Some(return_to_select());
+                    }
+                    DecideTransition::None => {}
                 }
             }
             AppState::Play(play_state, song_data) => {
@@ -189,11 +225,7 @@ async fn main() {
     }
 }
 
-fn create_play_state(select_state: &mut SelectState, bms_path: &Path) -> anyhow::Result<PlayState> {
-    let input_manager = select_state.take_input_manager();
-    create_play_state_with_input(bms_path, input_manager)
-}
-
+/// Create play state from BMS path (used for replay).
 fn create_play_state_with_input(
     bms_path: &Path,
     input_manager: InputManager,
