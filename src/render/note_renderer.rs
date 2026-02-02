@@ -19,6 +19,23 @@ impl<'a> NoteRenderer<'a> {
         }
     }
 
+    /// Draw notes with a filter function that determines visibility by note index.
+    pub fn draw_with_filter<F>(
+        &self,
+        timelines: &Timelines,
+        current_time_ms: f64,
+        hi_speed: f32,
+        filter: F,
+    ) where
+        F: Fn(usize) -> bool,
+    {
+        for (index, note) in timelines.all_notes().enumerate() {
+            if filter(index) {
+                self.draw_note(note, current_time_ms, hi_speed);
+            }
+        }
+    }
+
     /// Draw a single note.
     fn draw_note(&self, note: &Note, current_time_ms: f64, hi_speed: f32) {
         let y = self
