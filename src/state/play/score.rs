@@ -1,7 +1,7 @@
 use crate::state::play::JudgeRank;
 
 /// Score tracker for gameplay.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Score {
     pub pg_count: u32,
     pub gr_count: u32,

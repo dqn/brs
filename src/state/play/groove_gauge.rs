@@ -9,6 +9,8 @@ pub enum GaugeType {
     Hard,
     ExHard,
     Hazard,
+    /// Class gauge for Dan/Course mode (similar to Hard but with gauge carry-over).
+    Class,
 }
 
 /// Gauge modification values for each judge rank.
@@ -53,6 +55,20 @@ impl GaugeProperty {
             init: 20.0,
             border: 80.0,
             modifier: GaugeModifier::new(1.0, 1.0, 0.5, -3.0, -6.0, -2.0),
+            guts: vec![],
+            use_total_modifier: true,
+        }
+    }
+
+    /// SEVENKEYS ASSIST EASY gauge.
+    pub fn sevenkeys_assist_easy() -> Self {
+        Self {
+            gauge_type: GaugeType::AssistEasy,
+            min: 2.0,
+            max: 100.0,
+            init: 20.0,
+            border: 60.0,
+            modifier: GaugeModifier::new(1.0, 1.0, 0.5, -1.0, -3.0, -0.5),
             guts: vec![],
             use_total_modifier: true,
         }
@@ -119,6 +135,27 @@ impl GaugeProperty {
             use_total_modifier: false,
         }
     }
+
+    /// SEVENKEYS CLASS gauge (for Dan/Course mode).
+    /// Similar to Hard gauge but designed for gauge carry-over.
+    pub fn sevenkeys_class() -> Self {
+        Self {
+            gauge_type: GaugeType::Class,
+            min: 0.0,
+            max: 100.0,
+            init: 100.0,
+            border: 0.0,
+            modifier: GaugeModifier::new(0.15, 0.12, 0.03, -5.0, -10.0, -5.0),
+            guts: vec![
+                (10.0, 0.4),
+                (20.0, 0.5),
+                (30.0, 0.6),
+                (40.0, 0.7),
+                (50.0, 0.8),
+            ],
+            use_total_modifier: false,
+        }
+    }
 }
 
 /// Groove gauge that tracks player health during gameplay.
@@ -145,6 +182,16 @@ impl GrooveGauge {
         }
     }
 
+    /// Create a new ASSIST EASY gauge.
+    pub fn assist_easy(total: f64, total_notes: usize) -> Self {
+        Self::new(GaugeProperty::sevenkeys_assist_easy(), total, total_notes)
+    }
+
+    /// Create a new EASY gauge.
+    pub fn easy(total: f64, total_notes: usize) -> Self {
+        Self::new(GaugeProperty::sevenkeys_easy(), total, total_notes)
+    }
+
     /// Create a new NORMAL gauge.
     pub fn normal(total: f64, total_notes: usize) -> Self {
         Self::new(GaugeProperty::sevenkeys_normal(), total, total_notes)
@@ -158,6 +205,23 @@ impl GrooveGauge {
     /// Create a new EXHARD gauge.
     pub fn exhard(total: f64, total_notes: usize) -> Self {
         Self::new(GaugeProperty::sevenkeys_exhard(), total, total_notes)
+    }
+
+    /// Create a new HAZARD gauge.
+    pub fn hazard(total: f64, total_notes: usize) -> Self {
+        Self::new(GaugeProperty::sevenkeys_hazard(), total, total_notes)
+    }
+
+    /// Create a new CLASS gauge (for Dan/Course mode).
+    pub fn class(total: f64, total_notes: usize) -> Self {
+        Self::new(GaugeProperty::sevenkeys_class(), total, total_notes)
+    }
+
+    /// Create a CLASS gauge with a specific initial value (for gauge carry-over).
+    pub fn class_with_initial(total: f64, total_notes: usize, initial_value: f64) -> Self {
+        let mut gauge = Self::class(total, total_notes);
+        gauge.value = initial_value.clamp(0.0, 100.0);
+        gauge
     }
 
     fn calculate_modifier(
@@ -216,11 +280,11 @@ impl GrooveGauge {
         self.value >= self.property.border
     }
 
-    /// Check if the gauge has reached 0 (for HARD/EXHARD).
+    /// Check if the gauge has reached 0 (for HARD/EXHARD/CLASS).
     pub fn is_dead(&self) -> bool {
         matches!(
             self.property.gauge_type,
-            GaugeType::Hard | GaugeType::ExHard | GaugeType::Hazard
+            GaugeType::Hard | GaugeType::ExHard | GaugeType::Hazard | GaugeType::Class
         ) && self.value <= 0.0
     }
 

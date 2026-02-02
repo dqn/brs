@@ -4,12 +4,13 @@ use macroquad::prelude::*;
 use crate::audio::{AudioDriver, KeysoundProcessor};
 use crate::input::InputManager;
 use crate::model::note::{Lane, NoteType};
-use crate::model::{BMSModel, LaneConfig};
+use crate::model::{BMSModel, LaneConfig, LaneCoverSettings};
 use crate::render::{LaneRenderer, NoteRenderer};
 use crate::replay::ReplayPlayer;
 use crate::skin::{JudgeType, LastJudge, MainState, MainStateTimers, SkinRenderer};
 use crate::state::play::{
-    GaugeType, GrooveGauge, JudgeManager, JudgeRank, JudgeWindow, NoteWithIndex, PlayResult, Score,
+    AutoplayMode, AutoplayProcessor, GaugeType, GrooveGauge, JudgeManager, JudgeRank, JudgeWindow,
+    NoteWithIndex, PlayResult, Score,
 };
 
 /// State of the play session.
@@ -33,6 +34,7 @@ pub struct PlayState {
     gauge: GrooveGauge,
     score: Score,
     lane_config: LaneConfig,
+    lane_cover: LaneCoverSettings,
     hi_speed: f32,
     current_time_ms: f64,
     countdown_ms: f64,
@@ -44,6 +46,8 @@ pub struct PlayState {
     skin_renderer: Option<SkinRenderer>,
     /// Optional replay player for playback mode.
     replay_player: Option<ReplayPlayer>,
+    /// Optional autoplay processor for automatic play.
+    autoplay_processor: Option<AutoplayProcessor>,
 }
 
 impl PlayState {
@@ -74,6 +78,7 @@ impl PlayState {
             gauge: Self::create_gauge(gauge_type, total, total_notes),
             score: Score::new(total_notes as u32),
             lane_config: LaneConfig::default_7k(),
+            lane_cover: LaneCoverSettings::default(),
             hi_speed,
             current_time_ms: -Self::DEFAULT_COUNTDOWN_MS,
             countdown_ms: Self::DEFAULT_COUNTDOWN_MS,
@@ -83,6 +88,7 @@ impl PlayState {
             last_judge_display: None,
             skin_renderer: None,
             replay_player: None,
+            autoplay_processor: None,
         }
     }
 
@@ -108,9 +114,47 @@ impl PlayState {
         state
     }
 
+    /// Create a new PlayState for autoplay.
+    pub fn new_autoplay(
+        model: BMSModel,
+        audio_driver: AudioDriver,
+        keysound_processor: KeysoundProcessor,
+        input_manager: InputManager,
+        gauge_type: GaugeType,
+        hi_speed: f32,
+        autoplay_mode: AutoplayMode,
+    ) -> Self {
+        let autoplay_processor = if autoplay_mode != AutoplayMode::Off {
+            Some(AutoplayProcessor::new(autoplay_mode, &model))
+        } else {
+            None
+        };
+
+        let mut state = Self::new(
+            model,
+            audio_driver,
+            keysound_processor,
+            input_manager,
+            gauge_type,
+            hi_speed,
+        );
+        state.autoplay_processor = autoplay_processor;
+        state
+    }
+
     /// Check if this is a replay playback.
     pub fn is_replay(&self) -> bool {
         self.replay_player.is_some()
+    }
+
+    /// Check if autoplay is active.
+    pub fn is_autoplay(&self) -> bool {
+        self.autoplay_processor.is_some()
+    }
+
+    /// Get the autoplay mode if active.
+    pub fn autoplay_mode(&self) -> Option<AutoplayMode> {
+        self.autoplay_processor.as_ref().map(|p| p.mode())
     }
 
     /// Set the skin renderer for custom UI rendering.
@@ -120,15 +164,13 @@ impl PlayState {
 
     fn create_gauge(gauge_type: GaugeType, total: f64, total_notes: usize) -> GrooveGauge {
         match gauge_type {
+            GaugeType::AssistEasy => GrooveGauge::assist_easy(total, total_notes),
+            GaugeType::Easy => GrooveGauge::easy(total, total_notes),
             GaugeType::Normal => GrooveGauge::normal(total, total_notes),
-            GaugeType::Easy => GrooveGauge::new(
-                crate::state::play::GaugeProperty::sevenkeys_easy(),
-                total,
-                total_notes,
-            ),
             GaugeType::Hard => GrooveGauge::hard(total, total_notes),
             GaugeType::ExHard => GrooveGauge::exhard(total, total_notes),
-            _ => GrooveGauge::normal(total, total_notes),
+            GaugeType::Hazard => GrooveGauge::hazard(total, total_notes),
+            GaugeType::Class => GrooveGauge::class(total, total_notes),
         }
     }
 
@@ -186,6 +228,11 @@ impl PlayState {
                     player.update(current_time_us);
                 }
 
+                // Update autoplay processor if in autoplay mode
+                if let Some(ref mut processor) = self.autoplay_processor {
+                    processor.update(self.current_time_ms);
+                }
+
                 // Process BGM
                 self.keysound_processor
                     .update(&mut self.audio_driver, self.current_time_ms)?;
@@ -214,16 +261,7 @@ impl PlayState {
 
     fn process_input(&mut self) -> Result<()> {
         for lane in Lane::all_7k() {
-            let just_pressed = if let Some(ref player) = self.replay_player {
-                player.just_pressed(*lane)
-            } else {
-                self.input_manager.just_pressed(*lane)
-            };
-            let just_released = if let Some(ref player) = self.replay_player {
-                player.just_released(*lane)
-            } else {
-                self.input_manager.just_released(*lane)
-            };
+            let (just_pressed, just_released) = self.get_lane_input(*lane);
 
             if just_pressed {
                 self.process_press(*lane)?;
@@ -235,12 +273,68 @@ impl PlayState {
         Ok(())
     }
 
+    /// Get input state for a lane, considering replay, autoplay, and manual input.
+    fn get_lane_input(&self, lane: Lane) -> (bool, bool) {
+        // Replay takes highest priority
+        if let Some(ref player) = self.replay_player {
+            return (player.just_pressed(lane), player.just_released(lane));
+        }
+
+        // Check if autoplay handles this lane
+        if let Some(ref processor) = self.autoplay_processor {
+            if processor.mode().handles_lane(lane) {
+                return (processor.just_pressed(lane), processor.just_released(lane));
+            }
+        }
+
+        // Fall back to manual input
+        (
+            self.input_manager.just_pressed(lane),
+            self.input_manager.just_released(lane),
+        )
+    }
+
+    /// Get press time for a lane in microseconds.
+    fn get_press_time_us(&self, lane: Lane) -> u64 {
+        if let Some(ref player) = self.replay_player {
+            return player.press_time_us(lane);
+        }
+        if let Some(ref processor) = self.autoplay_processor {
+            if processor.mode().handles_lane(lane) {
+                return processor.press_time_us(lane);
+            }
+        }
+        self.input_manager.press_time_us(lane)
+    }
+
+    /// Get release time for a lane in microseconds.
+    fn get_release_time_us(&self, lane: Lane) -> u64 {
+        if let Some(ref player) = self.replay_player {
+            return player.release_time_us(lane);
+        }
+        if let Some(ref processor) = self.autoplay_processor {
+            if processor.mode().handles_lane(lane) {
+                return processor.release_time_us(lane);
+            }
+        }
+        self.input_manager.release_time_us(lane)
+    }
+
+    /// Check if a lane is currently pressed.
+    fn is_lane_pressed(&self, lane: Lane) -> bool {
+        if let Some(ref player) = self.replay_player {
+            return player.is_pressed(lane);
+        }
+        if let Some(ref processor) = self.autoplay_processor {
+            if processor.mode().handles_lane(lane) {
+                return processor.is_pressed(lane);
+            }
+        }
+        self.input_manager.is_pressed(lane)
+    }
+
     fn process_press(&mut self, lane: Lane) -> Result<()> {
-        let press_time_us = if let Some(ref player) = self.replay_player {
-            player.press_time_us(lane)
-        } else {
-            self.input_manager.press_time_us(lane)
-        };
+        let press_time_us = self.get_press_time_us(lane);
         let press_time_ms = press_time_us as f64 / 1000.0 + self.countdown_ms;
 
         let result =
@@ -279,11 +373,7 @@ impl PlayState {
     }
 
     fn process_release(&mut self, lane: Lane) -> Result<()> {
-        let release_time_us = if let Some(ref player) = self.replay_player {
-            player.release_time_us(lane)
-        } else {
-            self.input_manager.release_time_us(lane)
-        };
+        let release_time_us = self.get_release_time_us(lane);
         let release_time_ms = release_time_us as f64 / 1000.0 + self.countdown_ms;
 
         if let Some(result) = self.judge_manager.judge_release(
@@ -346,12 +436,16 @@ impl PlayState {
         lane_renderer.draw(&self.model.timelines, self.current_time_ms, self.hi_speed);
 
         let note_renderer = NoteRenderer::new(&self.lane_config);
-        note_renderer.draw_with_filter(
+        note_renderer.draw_with_cover(
             &self.model.timelines,
             self.current_time_ms,
             self.hi_speed,
+            &self.lane_cover,
             |index| !self.judge_manager.is_judged(index),
         );
+
+        // Draw lane cover overlay
+        note_renderer.draw_cover_overlay(&self.lane_cover);
 
         // Draw fallback UI if no skin
         if self.skin_renderer.is_none() {
@@ -387,6 +481,7 @@ impl PlayState {
             GaugeType::Hard | GaugeType::ExHard | GaugeType::Hazard => {
                 Color::new(0.8, 0.2, 0.2, 1.0)
             }
+            GaugeType::Class => Color::new(0.8, 0.5, 0.2, 1.0), // Orange for Class
         };
         draw_rectangle(x, y, fill_width, height, gauge_color);
 
@@ -586,6 +681,21 @@ impl PlayState {
         self.hi_speed = hi_speed.clamp(0.25, 5.0);
     }
 
+    /// Get the lane cover settings.
+    pub fn lane_cover(&self) -> &LaneCoverSettings {
+        &self.lane_cover
+    }
+
+    /// Get mutable lane cover settings.
+    pub fn lane_cover_mut(&mut self) -> &mut LaneCoverSettings {
+        &mut self.lane_cover
+    }
+
+    /// Set the lane cover settings.
+    pub fn set_lane_cover(&mut self, cover: LaneCoverSettings) {
+        self.lane_cover = cover;
+    }
+
     /// Get the current phase.
     pub fn phase(&self) -> PlayPhase {
         self.phase
@@ -674,6 +784,7 @@ impl PlayState {
             GaugeType::Hard => 2,
             GaugeType::ExHard => 3,
             GaugeType::Hazard => 3,
+            GaugeType::Class => 4, // Distinct value for Class gauge
         }
     }
 
@@ -708,28 +819,17 @@ impl PlayState {
             }
         }
 
-        // Key on/off timers from input source (input manager or replay player)
+        // Key on/off timers from input source (input manager, replay player, or autoplay)
         for lane in Lane::all_7k() {
             let lane_idx = lane.index();
-            let is_pressed = if let Some(ref player) = self.replay_player {
-                player.is_pressed(*lane)
-            } else {
-                self.input_manager.is_pressed(*lane)
-            };
+            let is_pressed = self.is_lane_pressed(*lane);
+
             if is_pressed {
-                let press_time = if let Some(ref player) = self.replay_player {
-                    player.press_time_us(*lane) as i64
-                } else {
-                    self.input_manager.press_time_us(*lane) as i64
-                };
+                let press_time = self.get_press_time_us(*lane) as i64;
                 timers.keyon_1p[lane_idx] = press_time;
                 timers.keyoff_1p[lane_idx] = TIMER_OFF_VALUE;
             } else {
-                let release_time = if let Some(ref player) = self.replay_player {
-                    player.release_time_us(*lane)
-                } else {
-                    self.input_manager.release_time_us(*lane)
-                };
+                let release_time = self.get_release_time_us(*lane);
                 if release_time > 0 {
                     timers.keyoff_1p[lane_idx] = release_time as i64;
                 }

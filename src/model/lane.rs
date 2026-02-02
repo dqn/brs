@@ -88,6 +88,72 @@ impl LaneConfig {
         }
     }
 
+    /// Create a default 14-key (DP) configuration.
+    pub fn default_14k() -> Self {
+        let scratch_width = 50.0;
+        let white_key_width = 40.0;
+        let blue_key_width = 32.0;
+        let gap = 20.0; // Gap between 1P and 2P sides
+
+        let white_color = Color::new(0.9, 0.9, 0.9, 1.0);
+        let blue_color = Color::new(0.3, 0.5, 0.9, 1.0);
+        let scratch_color = Color::new(0.8, 0.2, 0.2, 1.0);
+
+        let mut layouts = Vec::new();
+        let mut x = 0.0;
+
+        // 1P side: Scratch + 7 keys
+        layouts.push(LaneLayout::new(x, scratch_width, scratch_color, true));
+        x += scratch_width;
+
+        let key_colors = [
+            white_color,
+            blue_color,
+            white_color,
+            blue_color,
+            white_color,
+            blue_color,
+            white_color,
+        ];
+        let key_widths = [
+            white_key_width,
+            blue_key_width,
+            white_key_width,
+            blue_key_width,
+            white_key_width,
+            blue_key_width,
+            white_key_width,
+        ];
+
+        for (color, width) in key_colors.iter().zip(key_widths.iter()) {
+            layouts.push(LaneLayout::new(x, *width, *color, false));
+            x += width;
+        }
+
+        x += gap;
+
+        // 2P side: Scratch + 7 keys
+        layouts.push(LaneLayout::new(x, scratch_width, scratch_color, true));
+        x += scratch_width;
+
+        for (color, width) in key_colors.iter().zip(key_widths.iter()) {
+            layouts.push(LaneLayout::new(x, *width, *color, false));
+            x += width;
+        }
+
+        let total_width = x;
+        let offset_x = 50.0; // Centered offset for wider layout
+
+        Self {
+            judge_line_y: 900.0,
+            lane_top_y: 100.0,
+            lane_height: 800.0,
+            layouts,
+            total_width,
+            offset_x,
+        }
+    }
+
     /// Get the layout for a specific lane.
     pub fn get_layout(&self, lane: Lane) -> Option<&LaneLayout> {
         self.layouts.get(lane.index())

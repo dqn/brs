@@ -4,6 +4,7 @@ pub mod config;
 pub mod database;
 pub mod input;
 pub mod model;
+pub mod pattern;
 pub mod render;
 pub mod replay;
 pub mod skin;

@@ -1,3 +1,4 @@
+pub mod course;
 pub mod decide;
 pub mod play;
 pub mod result;

@@ -23,6 +23,8 @@ hex = "0.4"
 walkdir = "2"
 flate2 = "1.0"
 dirs = "5.0"
+rand = "0.8"
 
 [dev-dependencies]
 tempfile = "3.15"
+rand_chacha = "0.3"

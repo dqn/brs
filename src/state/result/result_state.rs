@@ -362,7 +362,7 @@ impl ResultState {
             GaugeType::AssistEasy => ClearType::AssistEasy,
             GaugeType::Easy => ClearType::Easy,
             GaugeType::Normal => ClearType::Normal,
-            GaugeType::Hard => ClearType::Hard,
+            GaugeType::Hard | GaugeType::Class => ClearType::Hard,
             GaugeType::ExHard | GaugeType::Hazard => ClearType::ExHard,
         }
     }
@@ -381,6 +381,7 @@ impl ResultState {
             GaugeType::Hard => 3,
             GaugeType::ExHard => 4,
             GaugeType::Hazard => 5,
+            GaugeType::Class => 6,
         };
 
         let mut recorder = ReplayRecorder::new(

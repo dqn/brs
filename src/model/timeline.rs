@@ -72,6 +72,11 @@ impl Timelines {
         &self.entries
     }
 
+    /// Get all timelines mutably.
+    pub fn entries_mut(&mut self) -> &mut [Timeline] {
+        &mut self.entries
+    }
+
     /// Get all notes from all timelines.
     pub fn all_notes(&self) -> impl Iterator<Item = &Note> {
         self.entries.iter().flat_map(|t| t.notes.iter())
