@@ -510,6 +510,13 @@ impl PlayState {
         )
     }
 
+    /// Take the input manager from this state.
+    pub fn take_input_manager(&mut self) -> InputManager {
+        let key_config = self.input_manager.key_config().clone();
+        let dummy = InputManager::new(key_config).unwrap();
+        std::mem::replace(&mut self.input_manager, dummy)
+    }
+
     /// Get the current hi-speed.
     pub fn hi_speed(&self) -> f32 {
         self.hi_speed

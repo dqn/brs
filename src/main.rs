@@ -1,8 +1,9 @@
 use brs::audio::{AudioConfig, AudioDriver, KeysoundProcessor};
-use brs::database::Database;
+use brs::database::{Database, ScoreDatabaseAccessor, SongData};
 use brs::input::{InputManager, KeyConfig};
 use brs::model::{BMSModel, load_bms};
 use brs::state::play::{GaugeType, PlayState};
+use brs::state::result::{ResultState, ResultTransition};
 use brs::state::select::{SelectState, SelectTransition};
 use macroquad::prelude::*;
 use std::path::Path;
@@ -20,7 +21,8 @@ fn window_conf() -> Conf {
 /// Application state machine.
 enum AppState {
     Select(Box<SelectState>),
-    Play(Box<PlayState>),
+    Play(Box<PlayState>, Box<SongData>),
+    Result(Box<ResultState>),
 }
 
 #[macroquad::main(window_conf)]
@@ -85,7 +87,7 @@ async fn main() {
                         // Transition to play state
                         match create_play_state(select_state, &song_data.path) {
                             Ok(play_state) => {
-                                next_state = Some(AppState::Play(Box::new(play_state)));
+                                next_state = Some(AppState::Play(Box::new(play_state), song_data));
                             }
                             Err(e) => {
                                 eprintln!("Failed to create play state: {}", e);
@@ -98,7 +100,7 @@ async fn main() {
                     SelectTransition::None => {}
                 }
             }
-            AppState::Play(play_state) => {
+            AppState::Play(play_state, song_data) => {
                 // Handle hi-speed adjustment
                 if is_key_pressed(KeyCode::Up) {
                     play_state.set_hi_speed(play_state.hi_speed() + 0.25);
@@ -123,16 +125,54 @@ async fn main() {
                 }
 
                 if play_state.is_finished() && is_key_pressed(KeyCode::Enter) {
-                    // Show result and return to select
-                    let result = play_state.take_result();
-                    println!("=== RESULT ===");
-                    println!("EX-SCORE: {}", result.ex_score());
-                    println!("MAX COMBO: {}", result.max_combo());
-                    println!("BP: {}", result.bp());
-                    println!("Rank: {}", result.rank().as_str());
-                    println!("Clear: {}", if result.is_clear { "YES" } else { "NO" });
+                    // Transition to result screen
+                    let play_result = play_state.take_result();
+                    let input_manager = play_state.take_input_manager();
 
-                    next_state = Some(return_to_select());
+                    // Open score database for saving
+                    match Database::open_score_db(Path::new("score.db")) {
+                        Ok(score_db) => {
+                            let score_accessor = ScoreDatabaseAccessor::new(&score_db);
+                            let result_state = ResultState::new(
+                                play_result,
+                                song_data.as_ref().clone(),
+                                input_manager,
+                                &score_accessor,
+                            );
+                            next_state = Some(AppState::Result(Box::new(result_state)));
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to open score database: {}", e);
+                            next_state = Some(return_to_select());
+                        }
+                    }
+                }
+            }
+            AppState::Result(result_state) => {
+                if let Err(e) = result_state.update() {
+                    eprintln!("Result error: {}", e);
+                }
+                result_state.draw();
+
+                // Check for transition
+                match result_state.take_transition() {
+                    ResultTransition::Select => {
+                        next_state = Some(return_to_select());
+                    }
+                    ResultTransition::Replay(song_data) => {
+                        // Create new play state for replay
+                        let input_manager = result_state.take_input_manager();
+                        match create_play_state_with_input(&song_data.path, input_manager) {
+                            Ok(play_state) => {
+                                next_state = Some(AppState::Play(Box::new(play_state), song_data));
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to create play state for replay: {}", e);
+                                next_state = Some(return_to_select());
+                            }
+                        }
+                    }
+                    ResultTransition::None => {}
                 }
             }
         }
@@ -150,6 +190,14 @@ async fn main() {
 }
 
 fn create_play_state(select_state: &mut SelectState, bms_path: &Path) -> anyhow::Result<PlayState> {
+    let input_manager = select_state.take_input_manager();
+    create_play_state_with_input(bms_path, input_manager)
+}
+
+fn create_play_state_with_input(
+    bms_path: &Path,
+    input_manager: InputManager,
+) -> anyhow::Result<PlayState> {
     // Initialize audio driver
     let audio_config = AudioConfig::default();
     let audio_driver = AudioDriver::new(audio_config)?;
@@ -183,9 +231,6 @@ fn create_play_state(select_state: &mut SelectState, bms_path: &Path) -> anyhow:
     // Setup keysound processor
     let mut keysound_processor = KeysoundProcessor::new();
     keysound_processor.load_bgm_events(model.bgm_events.clone());
-
-    // Take input manager from select state
-    let input_manager = select_state.take_input_manager();
 
     // Create play state
     let play_state = PlayState::new(
@@ -248,7 +293,7 @@ fn draw_play_controls_help() {
     draw_text("  Z S X D C F V: Keys 1-7", x, y + 72.0, 16.0, GRAY);
     draw_text("  Escape: Return to select", x, y + 96.0, 16.0, GRAY);
     draw_text(
-        "  Enter (after finish): Show result",
+        "  Enter (after finish): Go to result",
         x,
         y + 120.0,
         16.0,
