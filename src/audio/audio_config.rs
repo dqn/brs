@@ -13,6 +13,10 @@ pub struct AudioConfig {
     pub sound_capacity: usize,
     /// Maximum memory usage for sound cache in MB.
     pub max_memory_mb: usize,
+    /// Audio buffer size in samples (affects latency).
+    pub buffer_size: usize,
+    /// Sample rate in Hz.
+    pub sample_rate: u32,
 }
 
 impl Default for AudioConfig {
@@ -23,6 +27,8 @@ impl Default for AudioConfig {
             bgm_volume: 1.0,
             sound_capacity: 512,
             max_memory_mb: 512,
+            buffer_size: 256, // Low latency default
+            sample_rate: 44100,
         }
     }
 }
