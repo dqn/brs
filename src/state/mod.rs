@@ -1,3 +1,4 @@
+pub mod config;
 pub mod course;
 pub mod decide;
 pub mod play;
