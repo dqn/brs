@@ -85,13 +85,11 @@ impl TimingEngine {
 
         let mut current_time = 0.0;
         let mut current_bpm = initial_bpm;
-        let mut prev = *breakpoints
-            .first()
-            .unwrap_or(&ObjTime::new(
-                0,
-                0,
-                NonZeroU64::new(1).expect("1 should be a valid NonZeroU64"),
-            ));
+        let mut prev = *breakpoints.first().unwrap_or(&ObjTime::new(
+            0,
+            0,
+            NonZeroU64::new(1).expect("1 should be a valid NonZeroU64"),
+        ));
 
         for (index, point) in breakpoints.iter().enumerate() {
             if index == 0 {
@@ -177,13 +175,10 @@ impl TimingEngine {
             }
         }
         for (time, bpm) in &bms.bpm.bpm_changes_u8 {
-            events
-                .entry(*time)
-                .or_default()
-                .push(BpmEvent {
-                    bpm: *bpm as f64,
-                    priority: 0,
-                });
+            events.entry(*time).or_default().push(BpmEvent {
+                bpm: *bpm as f64,
+                priority: 0,
+            });
         }
 
         for list in events.values_mut() {
@@ -237,12 +232,7 @@ impl TimingEngine {
         points.into_iter().collect()
     }
 
-    fn duration_between(
-        from: ObjTime,
-        to: ObjTime,
-        bpm: f64,
-        measure_lengths: &[f64],
-    ) -> f64 {
+    fn duration_between(from: ObjTime, to: ObjTime, bpm: f64, measure_lengths: &[f64]) -> f64 {
         if bpm <= 0.0 || from == to {
             return 0.0;
         }
@@ -404,7 +394,11 @@ mod tests {
         let mut bms = Bms::default();
         bms.bpm.bpm = Some(Decimal::from(120));
         let prompt = AlwaysUseNewer;
-        let half = ObjTime::new(0, 1, NonZeroU64::new(2).expect("2 should be a valid NonZeroU64"));
+        let half = ObjTime::new(
+            0,
+            1,
+            NonZeroU64::new(2).expect("2 should be a valid NonZeroU64"),
+        );
 
         bms.bpm
             .push_bpm_change(
@@ -434,7 +428,11 @@ mod tests {
     fn timing_engine_applies_stp_in_milliseconds() {
         let mut bms = Bms::default();
         bms.bpm.bpm = Some(Decimal::from(120));
-        let half = ObjTime::new(0, 1, NonZeroU64::new(2).expect("2 should be a valid NonZeroU64"));
+        let half = ObjTime::new(
+            0,
+            1,
+            NonZeroU64::new(2).expect("2 should be a valid NonZeroU64"),
+        );
 
         bms.stop.stp_events.insert(
             half,

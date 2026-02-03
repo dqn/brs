@@ -1,27 +1,9 @@
 //! BGA (Background Animation) processor for displaying background images.
 
+pub use crate::model::{BgaEvent, BgaLayer};
 use macroquad::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
-
-/// BGA change event.
-#[derive(Debug, Clone)]
-pub struct BgaEvent {
-    pub time_ms: f64,
-    pub bga_id: u16,
-    pub layer: BgaLayer,
-}
-
-/// BGA layer type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BgaLayer {
-    /// Main BGA layer.
-    Base,
-    /// Layer that appears on top of base.
-    Layer,
-    /// Layer that appears on poor judgment.
-    Poor,
-}
 
 /// Processor for BGA images during gameplay.
 pub struct BgaProcessor {
@@ -35,6 +17,8 @@ pub struct BgaProcessor {
     current_base_id: Option<u16>,
     /// Current layer BGA ID.
     current_layer_id: Option<u16>,
+    /// Current second layer BGA ID.
+    current_layer2_id: Option<u16>,
     /// Poor layer BGA ID.
     poor_layer_id: Option<u16>,
     /// Whether to show poor layer (on miss/poor judgment).
@@ -55,6 +39,7 @@ impl BgaProcessor {
             current_index: 0,
             current_base_id: None,
             current_layer_id: None,
+            current_layer2_id: None,
             poor_layer_id: None,
             show_poor: false,
             poor_trigger_time: None,
@@ -114,6 +99,7 @@ impl BgaProcessor {
             match event.layer {
                 BgaLayer::Base => self.current_base_id = Some(event.bga_id),
                 BgaLayer::Layer => self.current_layer_id = Some(event.bga_id),
+                BgaLayer::Layer2 => self.current_layer2_id = Some(event.bga_id),
                 BgaLayer::Poor => self.poor_layer_id = Some(event.bga_id),
             }
 
@@ -173,6 +159,22 @@ impl BgaProcessor {
             }
         }
 
+        // Draw second overlay layer
+        if let Some(id) = self.current_layer2_id {
+            if let Some(texture) = self.images.get(&id) {
+                draw_texture_ex(
+                    texture,
+                    x,
+                    y,
+                    WHITE,
+                    DrawTextureParams {
+                        dest_size: Some(vec2(width, height)),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
+
         // Draw poor layer if active
         if self.show_poor {
             if let Some(id) = self.poor_layer_id {
@@ -207,6 +209,7 @@ impl BgaProcessor {
         self.current_index = 0;
         self.current_base_id = None;
         self.current_layer_id = None;
+        self.current_layer2_id = None;
         self.show_poor = false;
         self.poor_trigger_time = None;
     }

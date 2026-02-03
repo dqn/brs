@@ -1,5 +1,6 @@
 use crate::input::key_config::KeyboardConfig;
 use crate::input::key_state::KeyState;
+use crate::model::note::LANE_COUNT;
 use macroquad::prelude::is_key_down;
 
 /// Keyboard input handler using macroquad.
@@ -16,12 +17,15 @@ impl KeyboardInput {
     pub fn update(
         &self,
         config: &KeyboardConfig,
-        states: &mut [KeyState; 8],
+        states: &mut [KeyState; LANE_COUNT],
         time_us: u64,
     ) -> Vec<(usize, bool)> {
         let mut changes = Vec::new();
 
         for (lane_idx, key) in config.lanes.iter().enumerate() {
+            if lane_idx >= states.len() {
+                break;
+            }
             if let Some(keycode) = key.to_keycode() {
                 let is_pressed = is_key_down(keycode);
                 let was_pressed = states[lane_idx].pressed;

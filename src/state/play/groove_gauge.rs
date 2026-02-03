@@ -4,6 +4,7 @@ use crate::state::play::JudgeRank;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GaugeType {
     AssistEasy,
+    LightAssistEasy,
     Easy,
     Normal,
     Hard,
@@ -69,6 +70,20 @@ impl GaugeProperty {
             init: 20.0,
             border: 60.0,
             modifier: GaugeModifier::new(1.0, 1.0, 0.5, -1.0, -3.0, -0.5),
+            guts: vec![],
+            use_total_modifier: true,
+        }
+    }
+
+    /// SEVENKEYS LIGHT ASSIST EASY gauge.
+    pub fn sevenkeys_light_assist_easy() -> Self {
+        Self {
+            gauge_type: GaugeType::LightAssistEasy,
+            min: 2.0,
+            max: 100.0,
+            init: 20.0,
+            border: 70.0,
+            modifier: GaugeModifier::new(1.0, 1.0, 0.5, -1.2, -3.5, -0.8),
             guts: vec![],
             use_total_modifier: true,
         }
@@ -187,6 +202,15 @@ impl GrooveGauge {
         Self::new(GaugeProperty::sevenkeys_assist_easy(), total, total_notes)
     }
 
+    /// Create a new LIGHT ASSIST EASY gauge.
+    pub fn light_assist_easy(total: f64, total_notes: usize) -> Self {
+        Self::new(
+            GaugeProperty::sevenkeys_light_assist_easy(),
+            total,
+            total_notes,
+        )
+    }
+
     /// Create a new EASY gauge.
     pub fn easy(total: f64, total_notes: usize) -> Self {
         Self::new(GaugeProperty::sevenkeys_easy(), total, total_notes)
@@ -224,6 +248,14 @@ impl GrooveGauge {
         gauge
     }
 
+    /// Reset the gauge to its initial state.
+    /// ゲージを初期状態に戻す。
+    pub fn reset(&mut self) {
+        self.value = self.property.init;
+        self.calculated_modifier =
+            Self::calculate_modifier(&self.property, self.total, self.total_notes);
+    }
+
     fn calculate_modifier(
         property: &GaugeProperty,
         total: f64,
@@ -253,6 +285,12 @@ impl GrooveGauge {
             change = self.apply_guts(change);
         }
 
+        self.value = (self.value + change).clamp(self.property.min, self.property.max);
+    }
+
+    /// Apply damage from a mine note (percentage of gauge).
+    pub fn apply_mine_damage(&mut self, damage: f64) {
+        let change = -damage.abs();
         self.value = (self.value + change).clamp(self.property.min, self.property.max);
     }
 

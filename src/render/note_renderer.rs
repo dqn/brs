@@ -148,6 +148,10 @@ impl<'a> NoteRenderer<'a> {
 
     /// Draw a single note.
     fn draw_note(&self, note: &Note, current_time_ms: f64, hi_speed: f32) {
+        if matches!(note.note_type, NoteType::Invisible | NoteType::LongEnd) {
+            return;
+        }
+
         let y = self
             .config
             .time_to_y(note.start_time_ms, current_time_ms, hi_speed);
@@ -173,6 +177,10 @@ impl<'a> NoteRenderer<'a> {
         hi_speed: f32,
         cover: &LaneCoverSettings,
     ) {
+        if matches!(note.note_type, NoteType::Invisible | NoteType::LongEnd) {
+            return;
+        }
+
         let effective_judge_y =
             cover.effective_judge_line_y(self.config.judge_line_y, self.config.lane_top_y);
 
@@ -300,6 +308,10 @@ impl<'a> NoteRenderer<'a> {
         let width = self.config.lane_width(note.lane);
         let height = 10.0;
 
+        if width <= 0.0 {
+            return;
+        }
+
         let color = self.get_note_color(note);
 
         draw_rectangle(x + 1.0, y - height / 2.0, width - 2.0, height, color);
@@ -321,6 +333,10 @@ impl<'a> NoteRenderer<'a> {
         let x = self.config.lane_x(note.lane);
         let width = self.config.lane_width(note.lane);
         let note_height = 10.0;
+
+        if width <= 0.0 {
+            return;
+        }
 
         let end_y = end_y.unwrap_or(self.config.lane_top_y);
         let body_top = end_y.min(start_y);

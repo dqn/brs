@@ -204,6 +204,7 @@ impl CoursePlayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::{ChartFormat, JudgeRankType, LongNoteMode, PlayMode};
     use crate::state::course::CourseConstraints;
     use crate::state::play::GaugeType;
     use std::path::PathBuf;
@@ -230,6 +231,12 @@ mod tests {
             play_time_ms: 60000.0,
             fast_count: 10,
             slow_count: 10,
+            play_mode: PlayMode::Beat7K,
+            long_note_mode: LongNoteMode::Ln,
+            judge_rank: 2,
+            judge_rank_type: JudgeRankType::BmsRank,
+            total: 200.0,
+            source_format: ChartFormat::Bms,
         }
     }
 
@@ -242,6 +249,12 @@ mod tests {
             play_time_ms: 30000.0,
             fast_count: 5,
             slow_count: 5,
+            play_mode: PlayMode::Beat7K,
+            long_note_mode: LongNoteMode::Ln,
+            judge_rank: 2,
+            judge_rank_type: JudgeRankType::BmsRank,
+            total: 200.0,
+            source_format: ChartFormat::Bms,
         }
     }
 

@@ -24,7 +24,10 @@ impl<'a> LaneRenderer<'a> {
     fn draw_lane_backgrounds(&self) {
         let bg_alpha = 0.15;
 
-        for layout in &self.config.layouts {
+        for lane in self.config.lanes() {
+            let Some(layout) = self.config.get_layout(*lane) else {
+                continue;
+            };
             let x = self.config.offset_x + layout.x;
             let bg_color = Color::new(layout.color.r, layout.color.g, layout.color.b, bg_alpha);
 
@@ -53,7 +56,10 @@ impl<'a> LaneRenderer<'a> {
             border_color,
         );
 
-        for layout in &self.config.layouts {
+        for lane in self.config.lanes() {
+            let Some(layout) = self.config.get_layout(*lane) else {
+                continue;
+            };
             let x = self.config.offset_x + layout.x + layout.width;
             draw_line(
                 x,

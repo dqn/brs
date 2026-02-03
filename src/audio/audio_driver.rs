@@ -162,6 +162,14 @@ impl AudioDriver {
         self.active_sounds.len()
     }
 
+    /// Stop all currently playing sounds without clearing the cache.
+    /// 再生中の音をすべて停止し、キャッシュは保持する。
+    pub fn stop_all(&mut self) {
+        for mut handle in self.active_sounds.drain(..) {
+            handle.stop(Tween::default());
+        }
+    }
+
     /// Stop all sounds and clear the cache.
     pub fn clear(&mut self) {
         for mut handle in self.active_sounds.drain(..) {

@@ -101,7 +101,7 @@ impl KeysoundProcessor {
         self.next_bgm_index = self
             .bgm_events
             .iter()
-            .position(|e| e.time_ms > time_ms)
+            .position(|e| e.time_ms >= time_ms)
             .unwrap_or(self.bgm_events.len());
     }
 

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
+use crate::model::note::LANE_COUNT;
 const KEY_CONFIG_FILE: &str = "keyconfig.json";
 
 /// Serializable key code representation using string names.
@@ -27,11 +28,11 @@ impl From<KeyCode> for SerializableKeyCode {
     }
 }
 
-/// Keyboard key bindings for 7-key + scratch.
+/// Keyboard key bindings for all supported lanes.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KeyboardConfig {
-    /// Lane keys: [Scratch, Key1, Key2, Key3, Key4, Key5, Key6, Key7]
-    pub lanes: [SerializableKeyCode; 8],
+    /// Lane keys indexed by Lane::index().
+    pub lanes: Vec<SerializableKeyCode>,
     /// Start/pause key.
     pub start: SerializableKeyCode,
     /// Select/back key.
@@ -41,7 +42,7 @@ pub struct KeyboardConfig {
 impl Default for KeyboardConfig {
     fn default() -> Self {
         Self {
-            lanes: [
+            lanes: vec![
                 SerializableKeyCode::from_keycode(KeyCode::LeftShift), // Scratch
                 SerializableKeyCode::from_keycode(KeyCode::Z),         // Key 1
                 SerializableKeyCode::from_keycode(KeyCode::S),         // Key 2
@@ -50,6 +51,14 @@ impl Default for KeyboardConfig {
                 SerializableKeyCode::from_keycode(KeyCode::C),         // Key 5
                 SerializableKeyCode::from_keycode(KeyCode::F),         // Key 6
                 SerializableKeyCode::from_keycode(KeyCode::V),         // Key 7
+                SerializableKeyCode::from_keycode(KeyCode::RightShift), // Scratch2
+                SerializableKeyCode::from_keycode(KeyCode::Slash),     // Key 8
+                SerializableKeyCode::from_keycode(KeyCode::Period),    // Key 9
+                SerializableKeyCode::from_keycode(KeyCode::Comma),     // Key 10
+                SerializableKeyCode::from_keycode(KeyCode::L),         // Key 11
+                SerializableKeyCode::from_keycode(KeyCode::K),         // Key 12
+                SerializableKeyCode::from_keycode(KeyCode::M),         // Key 13
+                SerializableKeyCode::from_keycode(KeyCode::J),         // Key 14
             ],
             start: SerializableKeyCode::from_keycode(KeyCode::Space),
             select: SerializableKeyCode::from_keycode(KeyCode::Escape),
@@ -60,9 +69,8 @@ impl Default for KeyboardConfig {
 /// Gamepad button bindings.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GamepadConfig {
-    /// Lane buttons: [Scratch, Key1, Key2, Key3, Key4, Key5, Key6, Key7]
-    /// Uses gilrs button names as strings.
-    pub lanes: [Option<String>; 8],
+    /// Lane buttons indexed by Lane::index() (gilrs button names).
+    pub lanes: Vec<Option<String>>,
     /// Axis name for analog scratch (e.g., "LeftStickX").
     pub scratch_axis: Option<String>,
     /// Threshold for axis-to-button conversion.
@@ -76,7 +84,7 @@ pub struct GamepadConfig {
 impl Default for GamepadConfig {
     fn default() -> Self {
         Self {
-            lanes: [
+            lanes: vec![
                 None,                              // Scratch (use axis)
                 Some("West".to_string()),          // Key 1 - X/Square
                 Some("LeftTrigger".to_string()),   // Key 2 - LB
@@ -85,6 +93,14 @@ impl Default for GamepadConfig {
                 Some("East".to_string()),          // Key 5 - B/Circle
                 Some("RightTrigger".to_string()),  // Key 6 - RB
                 Some("RightTrigger2".to_string()), // Key 7 - RT
+                None,                              // Scratch2 (axis not mapped)
+                None,                              // Key 8
+                None,                              // Key 9
+                None,                              // Key 10
+                None,                              // Key 11
+                None,                              // Key 12
+                None,                              // Key 13
+                None,                              // Key 14
             ],
             scratch_axis: Some("LeftStickX".to_string()),
             axis_threshold: 0.5,
@@ -123,7 +139,8 @@ impl KeyConfig {
             return Ok(Self::default());
         }
         let content = fs::read_to_string(path)?;
-        let config = serde_json::from_str(&content)?;
+        let mut config: Self = serde_json::from_str(&content)?;
+        config.normalize();
         Ok(config)
     }
 
@@ -137,6 +154,30 @@ impl KeyConfig {
         let content = serde_json::to_string_pretty(self)?;
         fs::write(path, content)?;
         Ok(())
+    }
+
+    fn normalize(&mut self) {
+        let defaults = Self::default();
+
+        if self.keyboard.lanes.len() < LANE_COUNT {
+            let start = self.keyboard.lanes.len();
+            self.keyboard
+                .lanes
+                .extend_from_slice(&defaults.keyboard.lanes[start..LANE_COUNT]);
+        } else if self.keyboard.lanes.len() > LANE_COUNT {
+            self.keyboard.lanes.truncate(LANE_COUNT);
+        }
+
+        if let Some(ref mut gamepad) = self.gamepad {
+            if gamepad.lanes.len() < LANE_COUNT {
+                let start = gamepad.lanes.len();
+                gamepad.lanes.extend_from_slice(
+                    &defaults.gamepad.as_ref().unwrap().lanes[start..LANE_COUNT],
+                );
+            } else if gamepad.lanes.len() > LANE_COUNT {
+                gamepad.lanes.truncate(LANE_COUNT);
+            }
+        }
     }
 }
 
@@ -405,7 +446,7 @@ mod tests {
     #[test]
     fn test_default_keyboard_config() {
         let config = KeyboardConfig::default();
-        assert_eq!(config.lanes.len(), 8);
+        assert_eq!(config.lanes.len(), LANE_COUNT);
         assert_eq!(config.lanes[0].0, "LeftShift");
         assert_eq!(config.lanes[1].0, "Z");
     }

@@ -1,5 +1,6 @@
 use crate::input::key_config::GamepadConfig;
 use crate::input::key_state::KeyState;
+use crate::model::note::LANE_COUNT;
 use gilrs::{Axis, Button, Event, EventType, GamepadId};
 
 /// Tracks axis position for scratch detection.
@@ -34,7 +35,7 @@ impl GamepadInput {
         &mut self,
         event: &Event,
         config: &GamepadConfig,
-        states: &mut [KeyState; 8],
+        states: &mut [KeyState; LANE_COUNT],
         time_us: u64,
     ) -> Vec<(usize, bool)> {
         if event.id != self.gamepad_id {
@@ -82,7 +83,7 @@ impl GamepadInput {
         axis: Axis,
         value: f32,
         config: &GamepadConfig,
-        states: &mut [KeyState; 8],
+        states: &mut [KeyState; LANE_COUNT],
         time_us: u64,
     ) -> Option<(usize, bool)> {
         let scratch_axis_name = config.scratch_axis.as_deref()?;

@@ -3,15 +3,16 @@ use macroquad::prelude::*;
 
 use crate::audio::{AudioDriver, KeysoundProcessor};
 use crate::input::InputManager;
-use crate::model::note::{Lane, NoteType};
+use crate::model::note::{LANE_COUNT, Lane, NoteType};
 use crate::model::{BMSModel, LaneConfig, LaneCoverSettings};
-use crate::render::{LaneRenderer, NoteRenderer};
+use crate::render::{BgaProcessor, LaneRenderer, NoteRenderer};
 use crate::replay::ReplayPlayer;
 use crate::skin::{JudgeType, LastJudge, MainState, MainStateTimers, SkinRenderer};
 use crate::state::play::{
     AutoplayMode, AutoplayProcessor, GaugeType, GrooveGauge, JudgeManager, JudgeRank, JudgeWindow,
     NoteWithIndex, PlayResult, Score,
 };
+use std::path::Path;
 
 /// State of the play session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,12 +37,16 @@ pub struct PlayState {
     lane_config: LaneConfig,
     lane_cover: LaneCoverSettings,
     hi_speed: f32,
+    playback_speed: f64,
+    practice_range: Option<(f64, f64)>,
+    input_time_offset_ms: f64,
     current_time_ms: f64,
     countdown_ms: f64,
     phase: PlayPhase,
-    notes_by_lane: [Vec<NoteWithIndex>; 8],
+    notes_by_lane: [Vec<NoteWithIndex>; LANE_COUNT],
     all_notes: Vec<NoteWithIndex>,
     last_judge_display: Option<(JudgeRank, f64)>,
+    bga_processor: Option<BgaProcessor>,
     /// Optional skin renderer for custom UI.
     skin_renderer: Option<SkinRenderer>,
     /// Optional replay player for playback mode.
@@ -53,6 +58,9 @@ pub struct PlayState {
 impl PlayState {
     /// Default countdown duration before play starts.
     const DEFAULT_COUNTDOWN_MS: f64 = 3000.0;
+    /// Default practice loop length when only start is set.
+    /// 練習開始のみ設定したときのデフォルトループ長。
+    const DEFAULT_PRACTICE_LENGTH_MS: f64 = 10000.0;
 
     /// Create a new PlayState.
     pub fn new(
@@ -64,8 +72,10 @@ impl PlayState {
         hi_speed: f32,
     ) -> Self {
         let total_notes = model.total_notes;
-        // Default TOTAL value (affects gauge recovery rate)
-        let total = 200.0;
+        let play_mode = model.play_mode;
+        let total = model.total;
+        let long_note_mode = model.long_note_mode;
+        let judge_window = JudgeWindow::from_model(&model);
 
         let (all_notes, notes_by_lane) = Self::organize_notes(&model);
 
@@ -74,18 +84,22 @@ impl PlayState {
             audio_driver,
             keysound_processor,
             input_manager,
-            judge_manager: JudgeManager::new(JudgeWindow::sevenkeys()),
+            judge_manager: JudgeManager::new(judge_window, long_note_mode),
             gauge: Self::create_gauge(gauge_type, total, total_notes),
             score: Score::new(total_notes as u32),
-            lane_config: LaneConfig::default_7k(),
+            lane_config: LaneConfig::for_mode(play_mode),
             lane_cover: LaneCoverSettings::default(),
             hi_speed,
+            playback_speed: 1.0,
+            practice_range: None,
+            input_time_offset_ms: 0.0,
             current_time_ms: -Self::DEFAULT_COUNTDOWN_MS,
             countdown_ms: Self::DEFAULT_COUNTDOWN_MS,
             phase: PlayPhase::Countdown,
             notes_by_lane,
             all_notes,
             last_judge_display: None,
+            bga_processor: None,
             skin_renderer: None,
             replay_player: None,
             autoplay_processor: None,
@@ -162,9 +176,45 @@ impl PlayState {
         self.skin_renderer = Some(renderer);
     }
 
+    /// Load BGA images and events for this play state.
+    pub async fn load_bga(&mut self, base_dir: &Path) -> usize {
+        if self.model.bga_files.is_empty() && self.model.poor_bga_file.is_none() {
+            return 0;
+        }
+
+        let mut processor = BgaProcessor::new();
+
+        let mut bga_files: std::collections::HashMap<u16, String> = self
+            .model
+            .bga_files
+            .iter()
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
+        let mut events = self.model.bga_events.clone();
+
+        if let Some(poor_file) = &self.model.poor_bga_file {
+            let mut poor_id = u16::MAX;
+            while bga_files.contains_key(&poor_id) {
+                poor_id = poor_id.saturating_sub(1);
+            }
+            bga_files.insert(poor_id, poor_file.clone());
+            events.push(crate::model::BgaEvent {
+                time_ms: 0.0,
+                bga_id: poor_id,
+                layer: crate::model::BgaLayer::Poor,
+            });
+        }
+
+        processor.set_events(events);
+        let loaded = processor.load_images(&bga_files, base_dir).await;
+        self.bga_processor = Some(processor);
+        loaded
+    }
+
     fn create_gauge(gauge_type: GaugeType, total: f64, total_notes: usize) -> GrooveGauge {
         match gauge_type {
             GaugeType::AssistEasy => GrooveGauge::assist_easy(total, total_notes),
+            GaugeType::LightAssistEasy => GrooveGauge::light_assist_easy(total, total_notes),
             GaugeType::Easy => GrooveGauge::easy(total, total_notes),
             GaugeType::Normal => GrooveGauge::normal(total, total_notes),
             GaugeType::Hard => GrooveGauge::hard(total, total_notes),
@@ -174,9 +224,9 @@ impl PlayState {
         }
     }
 
-    fn organize_notes(model: &BMSModel) -> (Vec<NoteWithIndex>, [Vec<NoteWithIndex>; 8]) {
+    fn organize_notes(model: &BMSModel) -> (Vec<NoteWithIndex>, [Vec<NoteWithIndex>; LANE_COUNT]) {
         let mut all_notes = Vec::new();
-        let mut notes_by_lane: [Vec<NoteWithIndex>; 8] = Default::default();
+        let mut notes_by_lane: [Vec<NoteWithIndex>; LANE_COUNT] = Default::default();
         let mut index = 0;
 
         for timeline in model.timelines.entries() {
@@ -186,7 +236,9 @@ impl PlayState {
                     note: note.clone(),
                 };
                 all_notes.push(nwi.clone());
-                notes_by_lane[note.lane.index()].push(nwi);
+                if note.lane.index() < notes_by_lane.len() {
+                    notes_by_lane[note.lane.index()].push(nwi);
+                }
                 index += 1;
             }
         }
@@ -213,14 +265,20 @@ impl PlayState {
                 if self.current_time_ms >= 0.0 {
                     self.phase = PlayPhase::Playing;
                     self.input_manager.reset_time();
+                    self.sync_input_time_offset();
                     // Only enable logging for live play, not replay
-                    if self.replay_player.is_none() {
+                    if self.replay_player.is_none() && self.should_record_replay() {
                         self.input_manager.enable_logging();
                     }
                 }
             }
             PlayPhase::Playing => {
-                self.current_time_ms += delta_ms;
+                let scaled_delta_ms = delta_ms * self.playback_speed;
+                self.current_time_ms += scaled_delta_ms;
+
+                if self.apply_practice_loop() {
+                    return Ok(());
+                }
 
                 // Update replay player if in replay mode
                 if let Some(ref mut player) = self.replay_player {
@@ -256,18 +314,23 @@ impl PlayState {
             PlayPhase::Finished => {}
         }
 
+        if let Some(ref mut bga) = self.bga_processor {
+            bga.update(self.current_time_ms);
+        }
+
         Ok(())
     }
 
     fn process_input(&mut self) -> Result<()> {
-        for lane in Lane::all_7k() {
-            let (just_pressed, just_released) = self.get_lane_input(*lane);
+        let lanes: Vec<Lane> = self.lane_config.lanes().to_vec();
+        for lane in lanes {
+            let (just_pressed, just_released) = self.get_lane_input(lane);
 
             if just_pressed {
-                self.process_press(*lane)?;
+                self.process_press(lane)?;
             }
             if just_released {
-                self.process_release(*lane)?;
+                self.process_release(lane)?;
             }
         }
         Ok(())
@@ -333,9 +396,45 @@ impl PlayState {
         self.input_manager.is_pressed(lane)
     }
 
+    fn scaled_input_time_ms(&self, time_us: u64) -> f64 {
+        (time_us as f64 / 1000.0) * self.playback_speed
+    }
+
+    fn press_time_ms_for_judge(&self, lane: Lane) -> f64 {
+        if let Some(ref player) = self.replay_player {
+            return player.press_time_us(lane) as f64 / 1000.0;
+        }
+        if let Some(ref processor) = self.autoplay_processor {
+            if processor.mode().handles_lane(lane) {
+                return processor.press_time_us(lane) as f64 / 1000.0;
+            }
+        }
+
+        let input_time_ms = self.scaled_input_time_ms(self.input_manager.press_time_us(lane));
+        input_time_ms - self.input_time_offset_ms
+    }
+
+    fn release_time_ms_for_judge(&self, lane: Lane) -> f64 {
+        if let Some(ref player) = self.replay_player {
+            return player.release_time_us(lane) as f64 / 1000.0;
+        }
+        if let Some(ref processor) = self.autoplay_processor {
+            if processor.mode().handles_lane(lane) {
+                return processor.release_time_us(lane) as f64 / 1000.0;
+            }
+        }
+
+        let input_time_ms = self.scaled_input_time_ms(self.input_manager.release_time_us(lane));
+        input_time_ms - self.input_time_offset_ms
+    }
+
+    fn sync_input_time_offset(&mut self) {
+        let input_time_ms = self.scaled_input_time_ms(self.input_manager.current_time_us());
+        self.input_time_offset_ms = input_time_ms - self.current_time_ms;
+    }
+
     fn process_press(&mut self, lane: Lane) -> Result<()> {
-        let press_time_us = self.get_press_time_us(lane);
-        let press_time_ms = press_time_us as f64 / 1000.0 + self.countdown_ms;
+        let press_time_ms = self.press_time_ms_for_judge(lane);
 
         let result =
             self.judge_manager
@@ -345,6 +444,9 @@ impl PlayState {
             self.score.update(result.rank);
             self.gauge.update(result.rank);
             self.last_judge_display = Some((result.rank, self.current_time_ms));
+            if matches!(result.rank, JudgeRank::Poor | JudgeRank::Miss) {
+                self.trigger_poor_bga();
+            }
 
             // Play keysound
             if let Some(nwi) = self.all_notes.iter().find(|n| n.index == result.note_index) {
@@ -352,11 +454,36 @@ impl PlayState {
                     .keysound_processor
                     .play_player_keysound(&mut self.audio_driver, nwi.note.wav_id);
             }
-        } else {
+        }
+
+        // Mine handling (applies even when a visible note was hit)
+        if let Some((mine_index, damage)) = self
+            .find_note_hit(lane, press_time_ms, NoteType::Mine)
+            .map(|mine| (mine.index, mine.note.mine_damage.unwrap_or(2.0)))
+        {
+            self.judge_manager.mark_judged(mine_index);
+            self.gauge.apply_mine_damage(damage);
+            self.last_judge_display = Some((JudgeRank::Poor, self.current_time_ms));
+            self.trigger_poor_bga();
+        }
+
+        if result.is_none() {
+            if let Some((invisible_index, wav_id)) = self
+                .find_note_hit(lane, press_time_ms, NoteType::Invisible)
+                .map(|invisible| (invisible.index, invisible.note.wav_id))
+            {
+                self.judge_manager.mark_judged(invisible_index);
+                let _ = self
+                    .keysound_processor
+                    .play_player_keysound(&mut self.audio_driver, wav_id);
+                return Ok(());
+            }
+
             // Empty press (Poor)
             self.score.update(JudgeRank::Poor);
             self.gauge.update(JudgeRank::Poor);
             self.last_judge_display = Some((JudgeRank::Poor, self.current_time_ms));
+            self.trigger_poor_bga();
 
             // Play the closest upcoming note's keysound
             let wav_id = self
@@ -373,8 +500,7 @@ impl PlayState {
     }
 
     fn process_release(&mut self, lane: Lane) -> Result<()> {
-        let release_time_us = self.get_release_time_us(lane);
-        let release_time_ms = release_time_us as f64 / 1000.0 + self.countdown_ms;
+        let release_time_ms = self.release_time_ms_for_judge(lane);
 
         if let Some(result) = self.judge_manager.judge_release(
             lane,
@@ -398,6 +524,9 @@ impl PlayState {
             self.score.update(result.rank);
             self.gauge.update(result.rank);
             self.last_judge_display = Some((result.rank, self.current_time_ms));
+            if matches!(result.rank, JudgeRank::Poor | JudgeRank::Miss) {
+                self.trigger_poor_bga();
+            }
         }
     }
 
@@ -417,6 +546,75 @@ impl PlayState {
             })
     }
 
+    fn find_note_hit(
+        &self,
+        lane: Lane,
+        press_time_ms: f64,
+        note_type: NoteType,
+    ) -> Option<&NoteWithIndex> {
+        let window = self.judge_manager.window();
+        self.notes_by_lane[lane.index()]
+            .iter()
+            .filter(|n| {
+                !self.judge_manager.is_judged(n.index)
+                    && n.note.note_type == note_type
+                    && (n.note.start_time_ms - press_time_ms).abs() <= window.pr
+            })
+            .min_by(|a, b| {
+                let diff_a = (a.note.start_time_ms - press_time_ms).abs();
+                let diff_b = (b.note.start_time_ms - press_time_ms).abs();
+                diff_a
+                    .partial_cmp(&diff_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+    }
+
+    fn trigger_poor_bga(&mut self) {
+        if let Some(ref mut bga) = self.bga_processor {
+            bga.trigger_poor(self.current_time_ms);
+        }
+    }
+
+    fn apply_practice_seek(&mut self, time_ms: f64) {
+        self.current_time_ms = time_ms.max(0.0);
+        self.score.reset();
+        self.gauge.reset();
+        self.judge_manager.reset();
+        self.last_judge_display = None;
+
+        self.keysound_processor.seek(self.current_time_ms);
+        self.audio_driver.stop_all();
+
+        if let Some(ref mut player) = self.replay_player {
+            let time_us = (self.current_time_ms * 1000.0).max(0.0) as u64;
+            player.seek(time_us);
+        }
+
+        if let Some(ref mut processor) = self.autoplay_processor {
+            processor.seek(self.current_time_ms);
+        }
+
+        if let Some(ref mut bga) = self.bga_processor {
+            bga.reset();
+            bga.update(self.current_time_ms);
+        }
+
+        self.sync_input_time_offset();
+    }
+
+    fn apply_practice_loop(&mut self) -> bool {
+        let Some((start_ms, end_ms)) = self.practice_range else {
+            return false;
+        };
+
+        if self.current_time_ms <= end_ms {
+            return false;
+        }
+
+        self.apply_practice_seek(start_ms);
+        true
+    }
+
     fn is_song_finished(&self) -> bool {
         let last_time = self.model.timelines.last_time_ms();
         self.current_time_ms > last_time + 1000.0
@@ -424,6 +622,10 @@ impl PlayState {
 
     /// Draw the play state.
     pub fn draw(&self) {
+        if let Some(ref bga) = self.bga_processor {
+            bga.draw(0.0, 0.0, screen_width(), screen_height());
+        }
+
         // Draw skin if available
         if let Some(ref skin) = self.skin_renderer {
             let main_state = self.create_main_state();
@@ -471,7 +673,10 @@ impl PlayState {
         // Gauge fill
         let fill_width = width * self.gauge.ratio() as f32;
         let gauge_color = match self.gauge.gauge_type() {
-            GaugeType::Normal | GaugeType::Easy | GaugeType::AssistEasy => {
+            GaugeType::Normal
+            | GaugeType::Easy
+            | GaugeType::AssistEasy
+            | GaugeType::LightAssistEasy => {
                 if self.gauge.is_clear() {
                     Color::new(0.2, 0.8, 0.2, 1.0)
                 } else {
@@ -661,6 +866,12 @@ impl PlayState {
             self.current_time_ms,
             self.judge_manager.fast_count(),
             self.judge_manager.slow_count(),
+            self.model.play_mode,
+            self.model.long_note_mode,
+            self.model.judge_rank,
+            self.model.judge_rank_type,
+            self.model.total,
+            self.model.source_format,
         )
     }
 
@@ -679,6 +890,85 @@ impl PlayState {
     /// Set the hi-speed.
     pub fn set_hi_speed(&mut self, hi_speed: f32) {
         self.hi_speed = hi_speed.clamp(0.25, 5.0);
+    }
+
+    /// Get the playback speed.
+    /// 再生速度を取得する。
+    pub fn playback_speed(&self) -> f64 {
+        self.playback_speed
+    }
+
+    /// Set the playback speed.
+    /// 再生速度を設定する。
+    pub fn set_playback_speed(&mut self, speed: f64) {
+        let clamped = speed.clamp(0.25, 4.0);
+        if (clamped - self.playback_speed).abs() < f64::EPSILON {
+            return;
+        }
+        self.playback_speed = clamped;
+        self.sync_input_time_offset();
+    }
+
+    /// Set practice start to the current time.
+    /// 現在時刻を練習開始として設定する。
+    pub fn set_practice_start(&mut self) {
+        let start_ms = self.current_time_ms.max(0.0);
+        let mut end_ms = self
+            .practice_range
+            .map(|(_, end)| end)
+            .unwrap_or(start_ms + Self::DEFAULT_PRACTICE_LENGTH_MS);
+        if end_ms <= start_ms {
+            end_ms = start_ms + 10.0;
+        }
+        self.practice_range = Some((start_ms, end_ms));
+
+        if self.phase == PlayPhase::Playing {
+            self.apply_practice_seek(start_ms);
+        }
+    }
+
+    /// Set practice end to the current time.
+    /// 現在時刻を練習終了として設定する。
+    pub fn set_practice_end(&mut self) {
+        let end_ms = self.current_time_ms.max(0.0);
+        let start_ms = self
+            .practice_range
+            .map(|(start, _)| start)
+            .unwrap_or((end_ms - Self::DEFAULT_PRACTICE_LENGTH_MS).max(0.0));
+        let end_ms = end_ms.max(start_ms + 10.0);
+        self.practice_range = Some((start_ms, end_ms));
+    }
+
+    /// Clear practice range.
+    /// 練習範囲を解除する。
+    pub fn clear_practice(&mut self) {
+        self.practice_range = None;
+    }
+
+    /// Get the practice range.
+    /// 練習範囲を取得する。
+    pub fn practice_range(&self) -> Option<(f64, f64)> {
+        self.practice_range
+    }
+
+    /// Check if practice mode is enabled.
+    /// 練習モードが有効かどうか。
+    pub fn is_practice(&self) -> bool {
+        self.practice_range.is_some()
+    }
+
+    /// Check if results should be saved.
+    /// リザルトを保存するかどうか。
+    pub fn should_save_result(&self) -> bool {
+        let speed_delta = (self.playback_speed - 1.0).abs();
+        self.practice_range.is_none()
+            && speed_delta < 0.0001
+            && !self.is_replay()
+            && !self.is_autoplay()
+    }
+
+    fn should_record_replay(&self) -> bool {
+        self.should_save_result()
     }
 
     /// Get the lane cover settings.
@@ -727,8 +1017,8 @@ impl PlayState {
 
         // BPM
         state.current_bpm = self.model.initial_bpm;
-        state.min_bpm = self.model.initial_bpm;
-        state.max_bpm = self.model.initial_bpm;
+        state.min_bpm = self.model.min_bpm;
+        state.max_bpm = self.model.max_bpm;
 
         // Time
         state.current_time_ms = self.current_time_ms.max(0.0);
@@ -779,6 +1069,7 @@ impl PlayState {
     fn gauge_type_to_int(gauge_type: GaugeType) -> i32 {
         match gauge_type {
             GaugeType::AssistEasy => 1,
+            GaugeType::LightAssistEasy => 1,
             GaugeType::Easy => 1,
             GaugeType::Normal => 0,
             GaugeType::Hard => 2,
@@ -820,8 +1111,11 @@ impl PlayState {
         }
 
         // Key on/off timers from input source (input manager, replay player, or autoplay)
-        for lane in Lane::all_7k() {
+        for lane in self.lane_config.lanes() {
             let lane_idx = lane.index();
+            if lane_idx >= timers.keyon_1p.len() {
+                continue;
+            }
             let is_pressed = self.is_lane_pressed(*lane);
 
             if is_pressed {

@@ -2,6 +2,7 @@
 
 use brs::audio::AudioConfig;
 use brs::input::KeyConfig;
+use brs::model::note::LANE_COUNT;
 use brs::state::play::{GaugeProperty, GrooveGauge, JudgeRank, Score};
 
 /// Test that all gauge types initialize correctly.
@@ -77,10 +78,11 @@ fn test_audio_config_defaults() {
     assert!(config.sample_rate > 0);
 }
 
-/// Test that key config has all 8 lanes configured.
+/// Test that key config has all lanes configured.
+/// キー設定が全レーン分定義されていることを確認する。
 #[test]
 fn test_key_config_has_all_lanes() {
     let config = KeyConfig::default();
 
-    assert_eq!(config.keyboard.lanes.len(), 8);
+    assert_eq!(config.keyboard.lanes.len(), LANE_COUNT);
 }

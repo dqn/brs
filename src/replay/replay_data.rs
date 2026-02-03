@@ -22,6 +22,24 @@ pub struct ReplayMetadata {
     pub gauge_type: i32,
     /// Hi-speed setting.
     pub hi_speed: f32,
+    /// Play mode (5/7/10/14/25/29).
+    #[serde(default)]
+    pub play_mode: i32,
+    /// Long note mode (0=normal, 1=LN, 2=CN, 3=HCN).
+    #[serde(default)]
+    pub long_note_mode: i32,
+    /// Judge rank value.
+    #[serde(default)]
+    pub judge_rank: i32,
+    /// Judge rank type (0=BMS, 1=DEFEXRANK, 2=BMSON).
+    #[serde(default)]
+    pub judge_rank_type: i32,
+    /// TOTAL value used for gauge scaling.
+    #[serde(default)]
+    pub total: f64,
+    /// Source format (0=BMS, 1=BMSON).
+    #[serde(default)]
+    pub source_format: i32,
 }
 
 /// Score data stored in replay.
@@ -76,6 +94,12 @@ impl ReplayData {
                     .unwrap_or(0),
                 gauge_type,
                 hi_speed,
+                play_mode: 0,
+                long_note_mode: 0,
+                judge_rank: 0,
+                judge_rank_type: 0,
+                total: 0.0,
+                source_format: 0,
             },
             score: ReplayScore {
                 ex_score: 0,

@@ -2,6 +2,7 @@
 
 use crate::database::ClearType;
 use crate::input::KeyInputLog;
+use crate::model::{ChartFormat, JudgeRankType, LongNoteMode, PlayMode};
 use crate::state::play::PlayResult;
 
 use super::replay_data::{ReplayData, ReplayScore};
@@ -26,6 +27,30 @@ impl ReplayRecorder {
 
     /// Set the final score data.
     pub fn set_score(&mut self, result: &PlayResult, clear_type: ClearType) {
+        self.replay_data.metadata.play_mode = match result.play_mode {
+            PlayMode::Beat5K => 5,
+            PlayMode::Beat7K => 7,
+            PlayMode::Beat10K => 10,
+            PlayMode::Beat14K => 14,
+            PlayMode::PopN5K => 25,
+            PlayMode::PopN9K => 29,
+        };
+        self.replay_data.metadata.long_note_mode = match result.long_note_mode {
+            LongNoteMode::Ln => 1,
+            LongNoteMode::Cn => 2,
+            LongNoteMode::Hcn => 3,
+        };
+        self.replay_data.metadata.judge_rank = result.judge_rank;
+        self.replay_data.metadata.judge_rank_type = match result.judge_rank_type {
+            JudgeRankType::BmsRank => 0,
+            JudgeRankType::BmsDefExRank => 1,
+            JudgeRankType::BmsonJudgeRank => 2,
+        };
+        self.replay_data.metadata.total = result.total;
+        self.replay_data.metadata.source_format = match result.source_format {
+            ChartFormat::Bms => 0,
+            ChartFormat::Bmson => 1,
+        };
         self.replay_data.score = ReplayScore {
             ex_score: result.ex_score(),
             max_combo: result.max_combo(),
@@ -50,6 +75,7 @@ impl ReplayRecorder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::{ChartFormat, JudgeRankType, LongNoteMode, PlayMode};
     use crate::state::play::{GaugeType, Score};
 
     #[test]
@@ -91,7 +117,21 @@ mod tests {
         score.gr_count = 50;
         score.max_combo = 150;
 
-        let result = PlayResult::new(score, 100.0, GaugeType::Normal, true, 60000.0, 10, 5);
+        let result = PlayResult::new(
+            score,
+            100.0,
+            GaugeType::Normal,
+            true,
+            60000.0,
+            10,
+            5,
+            PlayMode::Beat7K,
+            LongNoteMode::Ln,
+            2,
+            JudgeRankType::BmsRank,
+            200.0,
+            ChartFormat::Bms,
+        );
 
         recorder.set_score(&result, ClearType::Normal);
 

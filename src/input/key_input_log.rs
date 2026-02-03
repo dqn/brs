@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct KeyInputLog {
     /// Timestamp in microseconds from game start.
     pub time_us: u64,
-    /// Lane index (0 = Scratch, 1-7 = Key1-Key7).
+    /// Lane index (0 = Scratch, 1-14 = Key1-Key14, 8 = Scratch2).
     pub lane: u8,
     /// true = pressed, false = released.
     pub pressed: bool,

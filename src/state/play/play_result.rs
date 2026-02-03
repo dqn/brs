@@ -1,3 +1,4 @@
+use crate::model::{ChartFormat, JudgeRankType, LongNoteMode, PlayMode};
 use crate::state::play::{GaugeType, Score};
 
 /// Rank based on clear rate.
@@ -64,10 +65,17 @@ pub struct PlayResult {
     pub play_time_ms: f64,
     pub fast_count: u32,
     pub slow_count: u32,
+    pub play_mode: PlayMode,
+    pub long_note_mode: LongNoteMode,
+    pub judge_rank: i32,
+    pub judge_rank_type: JudgeRankType,
+    pub total: f64,
+    pub source_format: ChartFormat,
 }
 
 impl PlayResult {
     /// Create a new play result.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         score: Score,
         gauge_value: f64,
@@ -76,6 +84,12 @@ impl PlayResult {
         play_time_ms: f64,
         fast_count: u32,
         slow_count: u32,
+        play_mode: PlayMode,
+        long_note_mode: LongNoteMode,
+        judge_rank: i32,
+        judge_rank_type: JudgeRankType,
+        total: f64,
+        source_format: ChartFormat,
     ) -> Self {
         Self {
             score,
@@ -85,6 +99,12 @@ impl PlayResult {
             play_time_ms,
             fast_count,
             slow_count,
+            play_mode,
+            long_note_mode,
+            judge_rank,
+            judge_rank_type,
+            total,
+            source_format,
         }
     }
 

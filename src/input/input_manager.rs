@@ -3,7 +3,7 @@ use crate::input::key_config::KeyConfig;
 use crate::input::key_input_log::InputLogger;
 use crate::input::key_state::KeyState;
 use crate::input::keyboard::KeyboardInput;
-use crate::model::note::Lane;
+use crate::model::note::{LANE_COUNT, Lane};
 use anyhow::Result;
 use gilrs::{EventType, Gilrs};
 use std::time::Instant;
@@ -15,8 +15,8 @@ pub struct InputManager {
     keyboard: KeyboardInput,
     gamepads: Vec<GamepadInput>,
     key_config: KeyConfig,
-    /// Key states for 8 lanes: [Scratch, Key1..Key7]
-    lane_states: [KeyState; 8],
+    /// Key states for all supported lanes.
+    lane_states: [KeyState; LANE_COUNT],
     /// Reference time for microsecond timestamps.
     start_time: Instant,
     /// Input logger for replay recording.
@@ -39,7 +39,7 @@ impl InputManager {
             keyboard: KeyboardInput::new(),
             gamepads: Vec::new(),
             key_config,
-            lane_states: [KeyState::default(); 8],
+            lane_states: [KeyState::default(); LANE_COUNT],
             start_time: Instant::now(),
             logger: None,
         })
@@ -157,7 +157,7 @@ impl InputManager {
     }
 
     /// Get all lane states.
-    pub fn all_lane_states(&self) -> &[KeyState; 8] {
+    pub fn all_lane_states(&self) -> &[KeyState; LANE_COUNT] {
         &self.lane_states
     }
 

@@ -1,3 +1,6 @@
+/// Total number of lanes supported (Scratch + 14 keys).
+pub const LANE_COUNT: usize = 16;
+
 /// Represents a lane in the play area.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Lane {
@@ -22,6 +25,27 @@ pub enum Lane {
 }
 
 impl Lane {
+    /// Returns all lanes in order.
+    pub fn all() -> &'static [Lane] {
+        &[
+            Lane::Scratch,
+            Lane::Key1,
+            Lane::Key2,
+            Lane::Key3,
+            Lane::Key4,
+            Lane::Key5,
+            Lane::Key6,
+            Lane::Key7,
+            Lane::Scratch2,
+            Lane::Key8,
+            Lane::Key9,
+            Lane::Key10,
+            Lane::Key11,
+            Lane::Key12,
+            Lane::Key13,
+            Lane::Key14,
+        ]
+    }
     /// Returns all lanes in order for 7-key mode (1P).
     pub fn all_7k() -> &'static [Lane] {
         &[
@@ -135,6 +159,11 @@ impl Lane {
         !matches!(self, Lane::Scratch | Lane::Scratch2)
     }
 
+    /// Returns true if this lane is a scratch lane.
+    pub fn is_scratch(self) -> bool {
+        matches!(self, Lane::Scratch | Lane::Scratch2)
+    }
+
     /// Returns true if this lane is on the 1P side.
     pub fn is_1p(self) -> bool {
         matches!(
@@ -174,6 +203,7 @@ pub struct Note {
     pub end_time_ms: Option<f64>,
     pub wav_id: u16,
     pub note_type: NoteType,
+    pub mine_damage: Option<f64>,
 }
 
 impl Note {
@@ -185,6 +215,7 @@ impl Note {
             end_time_ms: None,
             wav_id,
             note_type: NoteType::Normal,
+            mine_damage: None,
         }
     }
 
@@ -196,17 +227,19 @@ impl Note {
             end_time_ms: Some(end_ms),
             wav_id,
             note_type: NoteType::LongStart,
+            mine_damage: None,
         }
     }
 
     /// Create a new mine note.
-    pub fn mine(lane: Lane, time_ms: f64, wav_id: u16) -> Self {
+    pub fn mine(lane: Lane, time_ms: f64, damage: f64) -> Self {
         Self {
             lane,
             start_time_ms: time_ms,
             end_time_ms: None,
-            wav_id,
+            wav_id: 0,
             note_type: NoteType::Mine,
+            mine_damage: Some(damage),
         }
     }
 
@@ -218,6 +251,19 @@ impl Note {
             end_time_ms: None,
             wav_id,
             note_type: NoteType::Invisible,
+            mine_damage: None,
+        }
+    }
+
+    /// Create a new long note end.
+    pub fn long_end(lane: Lane, time_ms: f64, wav_id: u16) -> Self {
+        Self {
+            lane,
+            start_time_ms: time_ms,
+            end_time_ms: None,
+            wav_id,
+            note_type: NoteType::LongEnd,
+            mine_damage: None,
         }
     }
 

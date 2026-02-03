@@ -1,10 +1,7 @@
 //! Autoplay processor for automatic note handling.
 
 use crate::model::BMSModel;
-use crate::model::note::{Lane, NoteType};
-
-/// Number of lanes supported.
-const LANE_COUNT: usize = 8;
+use crate::model::note::{LANE_COUNT, Lane, NoteType};
 
 /// Autoplay mode configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -174,6 +171,15 @@ impl AutoplayProcessor {
         }
     }
 
+    /// Seek to a specific time position.
+    /// 指定した時刻にシークする。
+    pub fn seek(&mut self, time_ms: f64) {
+        self.reset();
+        self.update(time_ms);
+        self.just_pressed = [false; LANE_COUNT];
+        self.just_released = [false; LANE_COUNT];
+    }
+
     /// Check if a lane is currently pressed.
     pub fn is_pressed(&self, lane: Lane) -> bool {
         self.lane_states[lane.index()]
@@ -215,6 +221,7 @@ mod tests {
     use super::*;
     use crate::model::note::Note;
     use crate::model::timeline::{Timeline, Timelines};
+    use crate::model::{ChartFormat, JudgeRankType, LongNoteMode, PlayMode, TotalType};
 
     fn create_test_model() -> BMSModel {
         let mut timelines = Timelines::new();
@@ -236,13 +243,31 @@ mod tests {
 
         BMSModel {
             title: "Test".to_string(),
+            subtitle: String::new(),
             artist: "Test".to_string(),
+            subartist: String::new(),
             genre: "Test".to_string(),
+            preview: None,
             initial_bpm: 120.0,
-            timelines,
+            min_bpm: 120.0,
+            max_bpm: 120.0,
             total_notes: 3,
-            play_mode: crate::model::bms_model::PlayMode::Beat7K,
+            total: 200.0,
+            total_type: TotalType::Bms,
+            judge_rank: 2,
+            judge_rank_type: JudgeRankType::BmsRank,
+            long_note_mode: LongNoteMode::Ln,
+            play_mode: PlayMode::Beat7K,
+            source_format: ChartFormat::Bms,
+            has_long_note: true,
+            has_mine: false,
+            has_invisible: false,
+            has_stop: false,
+            timelines,
             wav_files: std::collections::BTreeMap::new(),
+            bga_files: std::collections::BTreeMap::new(),
+            bga_events: Vec::new(),
+            poor_bga_file: None,
             bgm_events: Vec::new(),
         }
     }

@@ -62,6 +62,7 @@ mod tests {
     use super::*;
     use crate::model::note::Note;
     use crate::model::timeline::{Timeline, Timelines};
+    use crate::model::{ChartFormat, JudgeRankType, LongNoteMode, PlayMode, TotalType};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
@@ -77,13 +78,31 @@ mod tests {
 
         BMSModel {
             title: "Test".to_string(),
+            subtitle: String::new(),
             artist: "Test".to_string(),
+            subartist: String::new(),
             genre: "Test".to_string(),
+            preview: None,
             initial_bpm: 120.0,
-            timelines,
+            min_bpm: 120.0,
+            max_bpm: 120.0,
             total_notes: 4,
-            play_mode: crate::model::bms_model::PlayMode::Beat7K,
+            total: 200.0,
+            total_type: TotalType::Bms,
+            judge_rank: 2,
+            judge_rank_type: JudgeRankType::BmsRank,
+            long_note_mode: LongNoteMode::Ln,
+            play_mode: PlayMode::Beat7K,
+            source_format: ChartFormat::Bms,
+            has_long_note: false,
+            has_mine: false,
+            has_invisible: false,
+            has_stop: false,
+            timelines,
             wav_files: std::collections::BTreeMap::new(),
+            bga_files: std::collections::BTreeMap::new(),
+            bga_events: Vec::new(),
+            poor_bga_file: None,
             bgm_events: Vec::new(),
         }
     }

@@ -1,10 +1,7 @@
 //! Replay player for playback of recorded inputs.
 
 use crate::input::KeyInputLog;
-use crate::model::note::Lane;
-
-/// Number of lanes supported.
-const LANE_COUNT: usize = 8;
+use crate::model::note::{LANE_COUNT, Lane};
 
 /// Plays back recorded inputs during replay.
 pub struct ReplayPlayer {
@@ -109,6 +106,15 @@ impl ReplayPlayer {
         self.just_released = [false; LANE_COUNT];
         self.press_times = [0; LANE_COUNT];
         self.release_times = [0; LANE_COUNT];
+    }
+
+    /// Seek to a specific time position.
+    /// 指定した時刻にシークする。
+    pub fn seek(&mut self, time_us: u64) {
+        self.reset();
+        self.update(time_us);
+        self.just_pressed = [false; LANE_COUNT];
+        self.just_released = [false; LANE_COUNT];
     }
 
     /// Get the number of input logs.

@@ -1,8 +1,12 @@
 use anyhow::Result;
 use macroquad::prelude::*;
+use std::path::Path;
+use tracing::warn;
 
+use crate::audio::PreviewPlayer;
 use crate::database::{ClearType, Database, SongData};
 use crate::input::InputManager;
+use crate::model::load_chart;
 use crate::model::note::Lane;
 use crate::state::select::bar::Bar;
 use crate::state::select::bar_manager::BarManager;
@@ -37,6 +41,8 @@ pub struct SelectState {
     song_db: Database,
     score_db: Database,
     transition: SelectTransition,
+    preview_player: PreviewPlayer,
+    current_preview_sha256: Option<String>,
 }
 
 impl SelectState {
@@ -52,6 +58,8 @@ impl SelectState {
             song_db,
             score_db,
             transition: SelectTransition::None,
+            preview_player: PreviewPlayer::new()?,
+            current_preview_sha256: None,
         })
     }
 
@@ -95,6 +103,7 @@ impl SelectState {
         match self.phase {
             SelectPhase::Loading => {
                 self.bar_manager.load_songs(&self.song_db, &self.score_db)?;
+                self.update_preview();
                 self.phase = SelectPhase::Selecting;
             }
             SelectPhase::Selecting => {
@@ -109,6 +118,8 @@ impl SelectState {
     }
 
     fn process_input(&mut self) {
+        let prev_cursor = self.bar_manager.cursor();
+
         // Up: Key2 (S key / index 2)
         if self.input_manager.just_pressed(Lane::Key2) || is_key_pressed(KeyCode::Up) {
             self.bar_manager.move_up();
@@ -119,10 +130,15 @@ impl SelectState {
             self.bar_manager.move_down();
         }
 
+        if self.bar_manager.cursor() != prev_cursor {
+            self.update_preview();
+        }
+
         // Enter: Start or Enter key
         if self.input_manager.is_start_pressed() || is_key_pressed(KeyCode::Enter) {
             if let Some(bar) = self.bar_manager.current_bar() {
                 if let Some(song_bar) = bar.as_song() {
+                    self.preview_player.stop();
                     self.transition = SelectTransition::Decide(Box::new(song_bar.song.clone()));
                     self.phase = SelectPhase::Decided;
                 }
@@ -132,6 +148,50 @@ impl SelectState {
         // Escape: Exit
         if is_key_pressed(KeyCode::Escape) {
             self.transition = SelectTransition::Exit;
+        }
+    }
+
+    fn update_preview(&mut self) {
+        let Some(Bar::Song(song_bar)) = self.bar_manager.current_bar() else {
+            self.preview_player.stop();
+            self.current_preview_sha256 = None;
+            return;
+        };
+
+        if self
+            .current_preview_sha256
+            .as_deref()
+            .is_some_and(|sha| sha == song_bar.song.sha256)
+        {
+            return;
+        }
+
+        self.current_preview_sha256 = Some(song_bar.song.sha256.clone());
+
+        let loaded = match load_chart(&song_bar.song.path) {
+            Ok(loaded) => loaded,
+            Err(e) => {
+                warn!("Failed to load chart for preview: {}", e);
+                self.preview_player.stop();
+                return;
+            }
+        };
+
+        let preview = loaded
+            .bms
+            .music_info
+            .preview_music
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string());
+
+        if let Some(preview) = preview {
+            let base_dir = song_bar.song.path.parent().unwrap_or(Path::new("."));
+            let preview_path = base_dir.join(preview);
+            if let Err(e) = self.preview_player.play(&preview_path) {
+                warn!("Failed to play preview: {}", e);
+            }
+        } else {
+            self.preview_player.stop();
         }
     }
 

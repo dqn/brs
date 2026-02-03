@@ -1,6 +1,6 @@
 use crate::audio::{AudioConfig, AudioDriver, KeysoundProcessor};
 use crate::database::SongData;
-use crate::model::{BMSModel, load_bms};
+use crate::model::{BMSModel, load_chart};
 use anyhow::Result;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -101,7 +101,7 @@ impl LoadingTask {
             s.progress.stage = LoadingStage::ParsingBms;
         }
 
-        let bms = match load_bms(&song_data.path) {
+        let loaded = match load_chart(&song_data.path) {
             Ok(bms) => bms,
             Err(e) => {
                 let mut s = state.lock().unwrap();
@@ -112,7 +112,7 @@ impl LoadingTask {
             }
         };
 
-        let model = match BMSModel::from_bms(&bms) {
+        let model = match BMSModel::from_bms(&loaded.bms, loaded.format, Some(&song_data.path)) {
             Ok(m) => m,
             Err(e) => {
                 let mut s = state.lock().unwrap();

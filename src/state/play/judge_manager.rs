@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::model::note::{Lane, Note, NoteType};
+use crate::model::{BMSModel, JudgeRankType, LongNoteMode};
 
 /// Judge rank representing the accuracy of a note hit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -61,14 +62,51 @@ pub struct JudgeWindow {
 }
 
 impl JudgeWindow {
-    /// Returns the default judge window for SEVENKEYS mode.
-    pub fn sevenkeys() -> Self {
+    /// Base judge window used as the normal reference.
+    pub fn base() -> Self {
         Self {
             pg: 20.0,
             gr: 50.0,
             gd: 100.0,
             bd: 150.0,
-            pr: 500.0,
+            pr: 200.0,
+        }
+    }
+
+    /// Returns the default judge window for SEVENKEYS mode.
+    pub fn sevenkeys() -> Self {
+        Self::base()
+    }
+
+    /// Create a judge window based on the model's rank settings.
+    pub fn from_model(model: &BMSModel) -> Self {
+        Self::from_rank(model.judge_rank, model.judge_rank_type)
+    }
+
+    /// Create a judge window based on rank value and source type.
+    pub fn from_rank(rank: i32, rank_type: JudgeRankType) -> Self {
+        let base = Self::base();
+        let scale = match rank_type {
+            JudgeRankType::BmsRank => match rank {
+                0 => 0.7,
+                1 => 0.85,
+                2 => 1.0,
+                3 => 1.2,
+                _ => 1.0,
+            },
+            JudgeRankType::BmsDefExRank => (rank as f64 / 100.0).clamp(0.5, 2.0),
+            JudgeRankType::BmsonJudgeRank => (rank as f64 / 18.0).clamp(0.5, 2.0),
+        };
+        base.scale(scale)
+    }
+
+    fn scale(&self, factor: f64) -> Self {
+        Self {
+            pg: self.pg * factor,
+            gr: self.gr * factor,
+            gd: self.gd * factor,
+            bd: self.bd * factor,
+            pr: self.pr * factor,
         }
     }
 
@@ -82,6 +120,8 @@ impl JudgeWindow {
             Some(JudgeRank::Good)
         } else if diff_abs <= self.bd {
             Some(JudgeRank::Bad)
+        } else if diff_abs <= self.pr {
+            Some(JudgeRank::Poor)
         } else {
             None
         }
@@ -104,6 +144,7 @@ pub struct NoteWithIndex {
 /// Manages judgment logic for gameplay.
 pub struct JudgeManager {
     window: JudgeWindow,
+    long_note_mode: LongNoteMode,
     judged_notes: HashSet<usize>,
     ln_holding: HashMap<usize, LnHoldState>,
     fast_count: u32,
@@ -113,16 +154,15 @@ pub struct JudgeManager {
 /// State for a long note currently being held.
 #[derive(Debug, Clone)]
 struct LnHoldState {
-    start_rank: JudgeRank,
-    start_time_diff: f64,
     end_note_index: usize,
 }
 
 impl JudgeManager {
     /// Create a new JudgeManager with the given timing window.
-    pub fn new(window: JudgeWindow) -> Self {
+    pub fn new(window: JudgeWindow, long_note_mode: LongNoteMode) -> Self {
         Self {
             window,
+            long_note_mode,
             judged_notes: HashSet::new(),
             ln_holding: HashMap::new(),
             fast_count: 0,
@@ -130,9 +170,23 @@ impl JudgeManager {
         }
     }
 
+    /// Reset judgment state and counters.
+    /// 判定状態とカウンタをリセットする。
+    pub fn reset(&mut self) {
+        self.judged_notes.clear();
+        self.ln_holding.clear();
+        self.fast_count = 0;
+        self.slow_count = 0;
+    }
+
     /// Check if a note has been judged.
     pub fn is_judged(&self, note_index: usize) -> bool {
         self.judged_notes.contains(&note_index)
+    }
+
+    /// Mark a note as judged without producing a result.
+    pub fn mark_judged(&mut self, note_index: usize) {
+        self.judged_notes.insert(note_index);
     }
 
     /// Get the fast count.
@@ -143,6 +197,11 @@ impl JudgeManager {
     /// Get the slow count.
     pub fn slow_count(&self) -> u32 {
         self.slow_count
+    }
+
+    /// Get the judge window settings.
+    pub fn window(&self) -> &JudgeWindow {
+        &self.window
     }
 
     /// Judge a key press. Returns the judgment result if a note was hit.
@@ -168,7 +227,7 @@ impl JudgeManager {
             let diff = nwi.note.start_time_ms - press_time_ms;
             let diff_abs = diff.abs();
 
-            if diff_abs > self.window.bd {
+            if diff_abs > self.window.pr {
                 continue;
             }
 
@@ -179,24 +238,24 @@ impl JudgeManager {
 
         if let Some((index, diff_abs, nwi)) = best_match {
             let time_diff = nwi.note.start_time_ms - press_time_ms;
-            let rank = self.window.judge(diff_abs).unwrap_or(JudgeRank::Bad);
+            let rank = self.window.judge(diff_abs).unwrap_or(JudgeRank::Poor);
             let fast_slow = self.calc_fast_slow(time_diff, rank);
-
-            self.update_fast_slow(fast_slow);
 
             if nwi.note.note_type == NoteType::LongStart && nwi.note.end_time_ms.is_some() {
                 let end_note_index = self.find_ln_end_index(nwi, notes);
-                self.ln_holding.insert(
-                    index,
-                    LnHoldState {
-                        start_rank: rank,
-                        start_time_diff: time_diff,
-                        end_note_index,
-                    },
-                );
+
+                self.ln_holding
+                    .insert(index, LnHoldState { end_note_index });
+                self.judged_notes.insert(index);
+
+                if matches!(self.long_note_mode, LongNoteMode::Ln) {
+                    return None;
+                }
+            } else {
+                self.judged_notes.insert(index);
             }
 
-            self.judged_notes.insert(index);
+            self.update_fast_slow(fast_slow);
 
             Some(JudgeResult {
                 rank,
@@ -235,23 +294,26 @@ impl JudgeManager {
                 let diff = end_time - release_time_ms;
                 let diff_abs = diff.abs();
 
-                let end_rank = self.window.judge(diff_abs).unwrap_or(JudgeRank::Bad);
-                let final_rank = worse_rank(hold_state.start_rank, end_rank);
+                let end_rank = self.window.judge(diff_abs).unwrap_or(JudgeRank::Miss);
 
-                let final_diff = if hold_state.start_time_diff.abs() > diff.abs() {
-                    hold_state.start_time_diff
-                } else {
-                    diff
+                let final_rank = match self.long_note_mode {
+                    LongNoteMode::Ln => end_rank,
+                    LongNoteMode::Cn | LongNoteMode::Hcn => end_rank,
                 };
-                let fast_slow = self.calc_fast_slow(final_diff, final_rank);
+
+                let fast_slow = self.calc_fast_slow(diff, final_rank);
 
                 self.judged_notes.insert(hold_state.end_note_index);
                 self.ln_holding.remove(&start_index);
 
+                if final_rank != JudgeRank::Miss {
+                    self.update_fast_slow(fast_slow);
+                }
+
                 return Some(JudgeResult {
                     rank: final_rank,
                     fast_slow,
-                    time_diff_ms: final_diff,
+                    time_diff_ms: diff,
                     lane,
                     note_index: hold_state.end_note_index,
                 });
@@ -268,7 +330,7 @@ impl JudgeManager {
         notes: &[NoteWithIndex],
     ) -> Vec<JudgeResult> {
         let mut results = Vec::new();
-        let miss_threshold = self.window.bd;
+        let miss_threshold = self.window.pr;
 
         for nwi in notes {
             if self.judged_notes.contains(&nwi.index) {
@@ -372,10 +434,6 @@ impl JudgeManager {
 }
 
 /// Return the worse of two judge ranks.
-fn worse_rank(a: JudgeRank, b: JudgeRank) -> JudgeRank {
-    if a.index() > b.index() { a } else { b }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -387,6 +445,7 @@ mod tests {
         assert_eq!(window.gr, 50.0);
         assert_eq!(window.gd, 100.0);
         assert_eq!(window.bd, 150.0);
+        assert_eq!(window.pr, 200.0);
     }
 
     #[test]
@@ -401,7 +460,9 @@ mod tests {
         assert_eq!(window.judge(100.0), Some(JudgeRank::Good));
         assert_eq!(window.judge(101.0), Some(JudgeRank::Bad));
         assert_eq!(window.judge(150.0), Some(JudgeRank::Bad));
-        assert_eq!(window.judge(151.0), None);
+        assert_eq!(window.judge(151.0), Some(JudgeRank::Poor));
+        assert_eq!(window.judge(200.0), Some(JudgeRank::Poor));
+        assert_eq!(window.judge(201.0), None);
     }
 
     #[test]

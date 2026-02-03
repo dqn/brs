@@ -59,14 +59,21 @@ impl ResultState {
         input_manager: InputManager,
         input_logs: Option<Vec<KeyInputLog>>,
         hi_speed: f32,
+        save_score: bool,
         score_db: &ScoreDatabaseAccessor,
     ) -> Self {
         let clear_type = Self::determine_clear_type(&play_result);
-        let is_new_record = Self::save_score(score_db, &play_result, &song_data, clear_type);
+        let is_new_record = if save_score {
+            Self::save_score(score_db, &play_result, &song_data, clear_type)
+        } else {
+            false
+        };
 
         // Save replay if input logs are available
-        if let Some(logs) = input_logs {
-            Self::save_replay_data(&song_data, &play_result, clear_type, logs, hi_speed);
+        if save_score {
+            if let Some(logs) = input_logs {
+                Self::save_replay_data(&song_data, &play_result, clear_type, logs, hi_speed);
+            }
         }
 
         Self {
@@ -361,6 +368,7 @@ impl ResultState {
         // Based on gauge type
         match play_result.gauge_type {
             GaugeType::AssistEasy => ClearType::AssistEasy,
+            GaugeType::LightAssistEasy => ClearType::LightAssistEasy,
             GaugeType::Easy => ClearType::Easy,
             GaugeType::Normal => ClearType::Normal,
             GaugeType::Hard | GaugeType::Class => ClearType::Hard,
@@ -377,12 +385,13 @@ impl ResultState {
     ) {
         let gauge_type = match play_result.gauge_type {
             GaugeType::AssistEasy => 0,
-            GaugeType::Easy => 1,
-            GaugeType::Normal => 2,
-            GaugeType::Hard => 3,
-            GaugeType::ExHard => 4,
-            GaugeType::Hazard => 5,
-            GaugeType::Class => 6,
+            GaugeType::LightAssistEasy => 1,
+            GaugeType::Easy => 2,
+            GaugeType::Normal => 3,
+            GaugeType::Hard => 4,
+            GaugeType::ExHard => 5,
+            GaugeType::Hazard => 6,
+            GaugeType::Class => 7,
         };
 
         let mut recorder = ReplayRecorder::new(
@@ -422,7 +431,11 @@ impl ResultState {
 
         let score_data = ScoreData {
             sha256: song_data.sha256.clone(),
-            mode: 0, // Default LN mode
+            mode: match play_result.long_note_mode {
+                crate::model::LongNoteMode::Ln => 1,
+                crate::model::LongNoteMode::Cn => 2,
+                crate::model::LongNoteMode::Hcn => 3,
+            },
             clear: clear_type,
             ex_score: play_result.ex_score() as i32,
             max_combo: play_result.max_combo() as i32,

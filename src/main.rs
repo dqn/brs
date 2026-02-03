@@ -1,7 +1,7 @@
 use brs::audio::{AudioConfig, AudioDriver, KeysoundProcessor};
 use brs::database::{Database, ScoreDatabaseAccessor, SongData};
 use brs::input::{InputManager, KeyConfig};
-use brs::model::{BMSModel, load_bms};
+use brs::model::{BMSModel, load_chart};
 use brs::replay::{ReplayPlayer, ReplaySlot, load_replay};
 use brs::state::decide::{DecideState, DecideTransition};
 use brs::state::play::{GaugeType, PlayState};
@@ -122,7 +122,7 @@ async fn main() {
                 match decide_state.take_transition() {
                     DecideTransition::Ready(prepared) => {
                         let input_manager = decide_state.take_input_manager();
-                        let play_state = PlayState::new(
+                        let mut play_state = PlayState::new(
                             prepared.model,
                             prepared.audio_driver,
                             prepared.keysound_processor,
@@ -130,6 +130,8 @@ async fn main() {
                             GaugeType::Normal,
                             1.0,
                         );
+                        let bms_dir = prepared.song_data.path.parent().unwrap_or(Path::new("."));
+                        play_state.load_bga(bms_dir).await;
                         next_state = Some(AppState::Play(
                             Box::new(play_state),
                             Box::new(prepared.song_data),
@@ -153,6 +155,24 @@ async fn main() {
                 if is_key_pressed(KeyCode::Down) {
                     play_state.set_hi_speed(play_state.hi_speed() - 0.25);
                 }
+                if is_key_pressed(KeyCode::F2) {
+                    play_state.set_playback_speed(1.0);
+                }
+                if is_key_pressed(KeyCode::F3) {
+                    play_state.set_playback_speed(play_state.playback_speed() - 0.25);
+                }
+                if is_key_pressed(KeyCode::F4) {
+                    play_state.set_playback_speed(play_state.playback_speed() + 0.25);
+                }
+                if is_key_pressed(KeyCode::F5) {
+                    play_state.set_practice_start();
+                }
+                if is_key_pressed(KeyCode::F6) {
+                    play_state.set_practice_end();
+                }
+                if is_key_pressed(KeyCode::F7) {
+                    play_state.clear_practice();
+                }
 
                 // Update and draw
                 if let Err(e) = play_state.update(delta_ms) {
@@ -173,13 +193,14 @@ async fn main() {
                     // Transition to result screen
                     let play_result = play_state.take_result();
                     let hi_speed = play_state.hi_speed();
-                    let is_replay = play_state.is_replay();
+                    let save_result = play_state.should_save_result();
                     let mut input_manager = play_state.take_input_manager();
 
                     // Extract input logs for replay saving (only for live play)
-                    let input_logs = if !is_replay {
+                    let input_logs = if save_result {
                         input_manager.take_logger().map(|l| l.into_logs())
                     } else {
+                        input_manager.take_logger();
                         None
                     };
 
@@ -193,6 +214,7 @@ async fn main() {
                                 input_manager,
                                 input_logs,
                                 hi_speed,
+                                save_result,
                                 &score_accessor,
                             );
                             next_state = Some(AppState::Result(Box::new(result_state)));
@@ -225,7 +247,9 @@ async fn main() {
                                     &song_data,
                                     input_manager,
                                     replay_data,
-                                ) {
+                                )
+                                .await
+                                {
                                     Ok(play_state) => {
                                         next_state =
                                             Some(AppState::Play(Box::new(play_state), song_data));
@@ -238,7 +262,9 @@ async fn main() {
                             }
                             Ok(None) => {
                                 // No replay available, just replay the song normally
-                                match create_play_state_with_input(&song_data.path, input_manager) {
+                                match create_play_state_with_input(&song_data.path, input_manager)
+                                    .await
+                                {
                                     Ok(play_state) => {
                                         next_state =
                                             Some(AppState::Play(Box::new(play_state), song_data));
@@ -273,7 +299,7 @@ async fn main() {
 }
 
 /// Create play state from BMS path (used for replay).
-fn create_play_state_with_input(
+async fn create_play_state_with_input(
     bms_path: &Path,
     input_manager: InputManager,
 ) -> anyhow::Result<PlayState> {
@@ -282,8 +308,8 @@ fn create_play_state_with_input(
     let audio_driver = AudioDriver::new(audio_config)?;
 
     // Load BMS model
-    let bms = load_bms(bms_path)?;
-    let model = BMSModel::from_bms(&bms)?;
+    let loaded = load_chart(bms_path)?;
+    let model = BMSModel::from_bms(&loaded.bms, loaded.format, Some(bms_path))?;
 
     info!("Loaded: {}", model.title);
     debug!("Artist: {}", model.artist);
@@ -312,7 +338,7 @@ fn create_play_state_with_input(
     keysound_processor.load_bgm_events(model.bgm_events.clone());
 
     // Create play state
-    let play_state = PlayState::new(
+    let mut play_state = PlayState::new(
         model,
         audio_driver,
         keysound_processor,
@@ -320,6 +346,7 @@ fn create_play_state_with_input(
         GaugeType::Normal,
         1.0,
     );
+    play_state.load_bga(bms_dir).await;
 
     Ok(play_state)
 }
@@ -363,7 +390,7 @@ fn return_to_select() -> AppState {
 }
 
 /// Create play state with replay data for playback.
-fn create_replay_play_state(
+async fn create_replay_play_state(
     song_data: &SongData,
     input_manager: InputManager,
     replay_data: brs::replay::ReplayData,
@@ -373,8 +400,8 @@ fn create_replay_play_state(
     let audio_driver = AudioDriver::new(audio_config)?;
 
     // Load BMS model
-    let bms = load_bms(&song_data.path)?;
-    let model = BMSModel::from_bms(&bms)?;
+    let loaded = load_chart(&song_data.path)?;
+    let model = BMSModel::from_bms(&loaded.bms, loaded.format, Some(&song_data.path))?;
 
     info!("Loading replay for: {}", model.title);
     debug!("Replay recorded at: {}", replay_data.metadata.recorded_at);
@@ -404,7 +431,7 @@ fn create_replay_play_state(
     let replay_player = ReplayPlayer::new(replay_data.input_logs);
 
     // Create play state with replay
-    let play_state = PlayState::new_replay(
+    let mut play_state = PlayState::new_replay(
         model,
         audio_driver,
         keysound_processor,
@@ -413,6 +440,9 @@ fn create_replay_play_state(
         replay_data.metadata.hi_speed,
         replay_player,
     );
+    play_state
+        .load_bga(song_data.path.parent().unwrap_or(Path::new(".")))
+        .await;
 
     Ok(play_state)
 }

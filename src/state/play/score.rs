@@ -64,6 +64,19 @@ impl Score {
         }
     }
 
+    /// Reset score state to the initial values.
+    /// スコア状態を初期値に戻す。
+    pub fn reset(&mut self) {
+        self.pg_count = 0;
+        self.gr_count = 0;
+        self.gd_count = 0;
+        self.bd_count = 0;
+        self.pr_count = 0;
+        self.ms_count = 0;
+        self.combo = 0;
+        self.max_combo = 0;
+    }
+
     /// Calculate the EX-SCORE (PG*2 + GR).
     pub fn ex_score(&self) -> u32 {
         self.pg_count * 2 + self.gr_count
