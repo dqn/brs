@@ -7,3 +7,6 @@ bms/
 screenshots/
 skins/**
 !skins/default
+logs/
+score.db
+song.db
