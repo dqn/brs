@@ -1,12 +1,12 @@
 use crate::audio::BgmEvent;
 use crate::model::note::{Lane, Note, NoteType};
+use crate::model::timing::TimingEngine;
 use crate::model::timeline::{Timeline, Timelines};
 use anyhow::Result;
 use bms_rs::bms::command::channel::NoteKind;
 use bms_rs::bms::command::channel::mapper::KeyLayoutBeat;
 use bms_rs::bms::command::time::ObjTime;
 use bms_rs::bms::prelude::*;
-use num_traits::ToPrimitive;
 use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
@@ -55,15 +55,9 @@ impl BMSModel {
             .clone()
             .unwrap_or_else(|| "Unknown".to_string());
 
-        let initial_bpm = bms
-            .bpm
-            .bpm
-            .as_ref()
-            .and_then(|d| d.to_f64())
-            .unwrap_or(120.0);
-
-        let time_calc = TimeCalculator::new(bms, initial_bpm);
-        let (mut timelines, bgm_events) = build_timelines(bms, &time_calc)?;
+        let timing = TimingEngine::new(bms);
+        let initial_bpm = timing.initial_bpm();
+        let (mut timelines, bgm_events) = build_timelines(bms, &timing)?;
 
         let total_notes = timelines
             .all_notes()
@@ -99,157 +93,7 @@ impl BMSModel {
     }
 }
 
-/// Helper to calculate time from ObjTime considering BPM and section length changes.
-struct TimeCalculator {
-    initial_bpm: f64,
-    bpm_changes: Vec<(f64, f64)>,
-    section_lengths: BTreeMap<u32, f64>,
-    measure_start_times: BTreeMap<u64, f64>,
-}
-
-impl TimeCalculator {
-    fn new(bms: &Bms, initial_bpm: f64) -> Self {
-        let section_lengths: BTreeMap<u32, f64> = bms
-            .section_len
-            .section_len_changes
-            .iter()
-            .map(|(track, change)| (track.0 as u32, change.length.to_f64().unwrap_or(1.0)))
-            .collect();
-
-        let mut bpm_changes: Vec<(f64, f64)> = Vec::new();
-        let mut measure_start_times: BTreeMap<u64, f64> = BTreeMap::new();
-
-        let max_measure = bms
-            .notes()
-            .all_notes()
-            .map(|n| n.offset.track().0)
-            .max()
-            .unwrap_or(1);
-
-        let mut current_time = 0.0;
-        let mut current_bpm = initial_bpm;
-
-        for measure in 0..=max_measure + 1 {
-            measure_start_times.insert(measure, current_time);
-
-            let section_len = Self::get_section_length_at(&section_lengths, measure);
-
-            let bpm_changes_in_measure: Vec<_> = bms
-                .bpm
-                .bpm_changes
-                .iter()
-                .filter(|(time, _)| time.track().0 == measure)
-                .map(|(time, change)| {
-                    let pos = time.numerator() as f64 / time.denominator_u64() as f64;
-                    let bpm = change.bpm.to_f64().unwrap_or(initial_bpm);
-                    (pos, bpm)
-                })
-                .collect();
-
-            let mut positions: Vec<f64> = bpm_changes_in_measure.iter().map(|(p, _)| *p).collect();
-            positions.push(1.0);
-            positions.sort_by(|a: &f64, b: &f64| a.partial_cmp(b).unwrap());
-            positions.dedup();
-
-            let mut last_pos = 0.0;
-            for pos in positions {
-                if pos > last_pos {
-                    let duration = Self::calc_duration(pos - last_pos, section_len, current_bpm);
-                    current_time += duration;
-                }
-
-                for (change_pos, new_bpm) in &bpm_changes_in_measure {
-                    if (*change_pos - pos).abs() < 1e-9 {
-                        bpm_changes.push((current_time, *new_bpm));
-                        current_bpm = *new_bpm;
-                    }
-                }
-
-                last_pos = pos;
-            }
-        }
-
-        Self {
-            initial_bpm,
-            bpm_changes,
-            section_lengths,
-            measure_start_times,
-        }
-    }
-
-    fn get_section_length_at(section_lengths: &BTreeMap<u32, f64>, measure: u64) -> f64 {
-        section_lengths
-            .range(..=(measure as u32))
-            .last()
-            .map(|(_, len)| *len)
-            .unwrap_or(1.0)
-    }
-
-    fn calc_duration(fraction: f64, section_len: f64, bpm: f64) -> f64 {
-        let quarter_note_ms = 60000.0 / bpm;
-        let measure_ms = quarter_note_ms * 4.0 * section_len;
-        measure_ms * fraction
-    }
-
-    fn objtime_to_ms(&self, time: &ObjTime) -> f64 {
-        let measure = time.track().0;
-        let pos = time.numerator() as f64 / time.denominator_u64() as f64;
-
-        let measure_start = self
-            .measure_start_times
-            .get(&measure)
-            .copied()
-            .unwrap_or(0.0);
-
-        let bpm_at_measure_start = self
-            .bpm_changes
-            .iter()
-            .rev()
-            .find(|(t, _)| *t <= measure_start)
-            .map(|(_, bpm)| *bpm)
-            .unwrap_or(self.initial_bpm);
-
-        let section_len = Self::get_section_length_at(&self.section_lengths, measure);
-
-        let mut current_time = measure_start;
-        let mut current_bpm = bpm_at_measure_start;
-        let mut last_pos = 0.0;
-
-        let mut bpm_changes_in_measure: Vec<(f64, f64)> = self
-            .bpm_changes
-            .iter()
-            .filter(|(t, _)| {
-                *t >= measure_start
-                    && *t
-                        < self
-                            .measure_start_times
-                            .get(&(measure + 1))
-                            .copied()
-                            .unwrap_or(f64::MAX)
-            })
-            .map(|(_, bpm)| (0.0, *bpm))
-            .collect();
-
-        for (change_pos, new_bpm) in &mut bpm_changes_in_measure {
-            if *change_pos < pos {
-                let duration =
-                    Self::calc_duration(*change_pos - last_pos, section_len, current_bpm);
-                current_time += duration;
-                current_bpm = *new_bpm;
-                last_pos = *change_pos;
-            }
-        }
-
-        let remaining = pos - last_pos;
-        if remaining > 0.0 {
-            current_time += Self::calc_duration(remaining, section_len, current_bpm);
-        }
-
-        current_time
-    }
-}
-
-fn build_timelines(bms: &Bms, time_calc: &TimeCalculator) -> Result<(Timelines, Vec<BgmEvent>)> {
+fn build_timelines(bms: &Bms, timing: &TimingEngine) -> Result<(Timelines, Vec<BgmEvent>)> {
     let mut timelines = Timelines::new();
     let mut bgm_events = Vec::new();
 
@@ -262,15 +106,8 @@ fn build_timelines(bms: &Bms, time_calc: &TimeCalculator) -> Result<(Timelines, 
 
     for measure in 0..=max_measure {
         let time = ObjTime::new(measure, 0, NonZeroU64::new(1).unwrap());
-        let time_ms = time_calc.objtime_to_ms(&time);
-
-        let bpm = time_calc
-            .bpm_changes
-            .iter()
-            .rev()
-            .find(|(t, _)| *t <= time_ms)
-            .map(|(_, b)| *b)
-            .unwrap_or(time_calc.initial_bpm);
+        let time_ms = timing.objtime_to_ms(time);
+        let bpm = timing.bpm_at(time);
 
         timelines.push(Timeline::measure_line(time_ms, measure as u32, bpm));
     }
@@ -282,7 +119,7 @@ fn build_timelines(bms: &Bms, time_calc: &TimeCalculator) -> Result<(Timelines, 
             continue;
         }
 
-        let time_ms = time_calc.objtime_to_ms(&note.offset);
+        let time_ms = timing.objtime_to_ms(note.offset);
         let wav_id = obj_id_to_u16(note.wav_id).unwrap_or(0);
 
         let lane = channel_to_lane(&note.channel_id);
@@ -313,13 +150,7 @@ fn build_timelines(bms: &Bms, time_calc: &TimeCalculator) -> Result<(Timelines, 
         let measure = note.offset.track().0;
         let pos = note.offset.numerator() as f64 / note.offset.denominator_u64() as f64;
 
-        let bpm = time_calc
-            .bpm_changes
-            .iter()
-            .rev()
-            .find(|(t, _)| *t <= time_ms)
-            .map(|(_, b)| *b)
-            .unwrap_or(time_calc.initial_bpm);
+        let bpm = timing.bpm_at(note.offset);
 
         let mut timeline = Timeline::new(time_ms, measure as u32, pos, bpm);
         timeline.add_note(note_obj);
