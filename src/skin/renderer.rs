@@ -4,8 +4,8 @@ use anyhow::Result;
 use tracing::warn;
 
 use crate::skin::{
-    ImageObject, LuaSkinLoader, MainState, NumberObject, Skin, SkinObject, SkinObjectType,
-    SkinSourceManager, TextObject,
+    ImageObject, Lr2SkinLoader, LuaSkinLoader, MainState, NumberObject, Skin, SkinObject,
+    SkinObjectType, SkinSourceManager, TextObject,
 };
 
 /// Runtime skin renderer that manages loaded skin objects.
@@ -19,10 +19,21 @@ pub struct SkinRenderer {
 }
 
 impl SkinRenderer {
-    /// Load a skin from a .luaskin file.
+    /// Load a skin file (Lua or LR2).
+    /// Lua/LR2 のスキンファイルを読み込む。
     pub async fn load(skin_path: &Path) -> Result<Self> {
-        let loader = LuaSkinLoader::new()?;
-        let skin = loader.load(skin_path, &std::collections::HashMap::new())?;
+        let ext = skin_path
+            .extension()
+            .and_then(|v| v.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        let skin = if ext == "lr2skin" || ext == "csv" {
+            let loader = Lr2SkinLoader::new();
+            loader.load(skin_path, &std::collections::HashMap::new())?
+        } else {
+            let loader = LuaSkinLoader::new()?;
+            loader.load(skin_path, &std::collections::HashMap::new())?
+        };
 
         let base_dir = skin_path.parent().unwrap_or(Path::new(".")).to_path_buf();
         let mut sources = SkinSourceManager::new(base_dir);

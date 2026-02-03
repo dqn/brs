@@ -12,7 +12,7 @@ mod skin_type;
 pub mod source;
 
 pub use font::{FontInfo, GlyphInfo};
-pub use loader::LuaSkinLoader;
+pub use loader::{Lr2SkinLoader, LuaSkinLoader};
 pub use lua::{JudgeType, LastJudge, MainState, MainStateTimers};
 pub use object::{
     ImageObject, InterpolatedDest, NumberObject, SkinObject, TextObject, check_option_visibility,

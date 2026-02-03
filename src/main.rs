@@ -1,8 +1,9 @@
 use brs::audio::{AudioConfig, AudioDriver, KeysoundProcessor};
 use brs::database::{Database, ScoreDatabaseAccessor, SongData};
-use brs::input::{InputManager, KeyConfig};
+use brs::input::{HotkeyConfig, InputManager, KeyConfig, PlayHotkey};
 use brs::model::{BMSModel, load_chart};
 use brs::replay::{ReplayPlayer, ReplaySlot, load_replay};
+use brs::state::config::{ConfigState, ConfigTransition};
 use brs::state::decide::{DecideState, DecideTransition};
 use brs::state::play::{GaugeType, PlayState};
 use brs::state::result::{ResultState, ResultTransition};
@@ -25,6 +26,7 @@ fn window_conf() -> Conf {
 /// Application state machine.
 enum AppState {
     Select(Box<SelectState>),
+    Config(Box<ConfigState>),
     Decide(Box<DecideState>),
     Play(Box<PlayState>, Box<brs::database::SongData>),
     Result(Box<ResultState>),
@@ -56,7 +58,13 @@ async fn main() {
     };
 
     // Setup input manager
-    let key_config = KeyConfig::default();
+    let key_config = KeyConfig::load().unwrap_or_else(|e| {
+        warn!(
+            "Failed to load key config / キー設定の読み込みに失敗: {}",
+            e
+        );
+        KeyConfig::default()
+    });
     let input_manager = match InputManager::new(key_config) {
         Ok(manager) => manager,
         Err(e) => {
@@ -75,6 +83,10 @@ async fn main() {
     };
 
     let mut app_state = AppState::Select(Box::new(select_state));
+    let hotkeys = HotkeyConfig::load().unwrap_or_else(|e| {
+        warn!("Failed to load hotkeys / ホットキーの読み込みに失敗: {}", e);
+        HotkeyConfig::default()
+    });
 
     // Game loop
     loop {
@@ -106,10 +118,29 @@ async fn main() {
                             }
                         }
                     }
+                    SelectTransition::Config => {
+                        let input_manager = select_state.take_input_manager();
+                        let config_state = ConfigState::new(input_manager);
+                        next_state = Some(AppState::Config(Box::new(config_state)));
+                    }
                     SelectTransition::Exit => {
                         should_exit = true;
                     }
                     SelectTransition::None => {}
+                }
+            }
+            AppState::Config(config_state) => {
+                if let Err(e) = config_state.update() {
+                    error!("Config error: {}", e);
+                }
+                config_state.draw();
+
+                match config_state.take_transition() {
+                    ConfigTransition::Back => {
+                        let input_manager = config_state.take_input_manager();
+                        next_state = Some(return_to_select_with_input(input_manager));
+                    }
+                    ConfigTransition::None => {}
                 }
             }
             AppState::Decide(decide_state) => {
@@ -138,40 +169,45 @@ async fn main() {
                         ));
                     }
                     DecideTransition::Cancel => {
-                        next_state = Some(return_to_select());
+                        let input_manager = decide_state.take_input_manager();
+                        next_state = Some(return_to_select_with_input(input_manager));
                     }
                     DecideTransition::Error(e) => {
                         error!("Decide error: {}", e);
-                        next_state = Some(return_to_select());
+                        let input_manager = decide_state.take_input_manager();
+                        next_state = Some(return_to_select_with_input(input_manager));
                     }
                     DecideTransition::None => {}
                 }
             }
             AppState::Play(play_state, song_data) => {
                 // Handle hi-speed adjustment
-                if is_key_pressed(KeyCode::Up) {
+                if hotkeys.pressed_play(PlayHotkey::HiSpeedUp) {
                     play_state.set_hi_speed(play_state.hi_speed() + 0.25);
                 }
-                if is_key_pressed(KeyCode::Down) {
+                if hotkeys.pressed_play(PlayHotkey::HiSpeedDown) {
                     play_state.set_hi_speed(play_state.hi_speed() - 0.25);
                 }
-                if is_key_pressed(KeyCode::F2) {
+                if hotkeys.pressed_play(PlayHotkey::SpeedReset) {
                     play_state.set_playback_speed(1.0);
                 }
-                if is_key_pressed(KeyCode::F3) {
+                if hotkeys.pressed_play(PlayHotkey::SpeedDown) {
                     play_state.set_playback_speed(play_state.playback_speed() - 0.25);
                 }
-                if is_key_pressed(KeyCode::F4) {
+                if hotkeys.pressed_play(PlayHotkey::SpeedUp) {
                     play_state.set_playback_speed(play_state.playback_speed() + 0.25);
                 }
-                if is_key_pressed(KeyCode::F5) {
+                if hotkeys.pressed_play(PlayHotkey::PracticeStart) {
                     play_state.set_practice_start();
                 }
-                if is_key_pressed(KeyCode::F6) {
+                if hotkeys.pressed_play(PlayHotkey::PracticeEnd) {
                     play_state.set_practice_end();
                 }
-                if is_key_pressed(KeyCode::F7) {
+                if hotkeys.pressed_play(PlayHotkey::PracticeClear) {
                     play_state.clear_practice();
+                }
+                if hotkeys.pressed_play(PlayHotkey::ToggleBga) {
+                    play_state.toggle_bga();
                 }
 
                 // Update and draw
@@ -186,7 +222,8 @@ async fn main() {
                 // Check for exit or return to select
                 if is_key_pressed(KeyCode::Escape) {
                     // Return to select
-                    next_state = Some(return_to_select());
+                    let input_manager = play_state.take_input_manager();
+                    next_state = Some(return_to_select_with_input(input_manager));
                 }
 
                 if play_state.is_finished() && is_key_pressed(KeyCode::Enter) {
@@ -221,7 +258,7 @@ async fn main() {
                         }
                         Err(e) => {
                             error!("Failed to open score database: {}", e);
-                            next_state = Some(return_to_select());
+                            next_state = Some(return_to_select_with_input(input_manager));
                         }
                     }
                 }
@@ -235,7 +272,8 @@ async fn main() {
                 // Check for transition
                 match result_state.take_transition() {
                     ResultTransition::Select => {
-                        next_state = Some(return_to_select());
+                        let input_manager = result_state.take_input_manager();
+                        next_state = Some(return_to_select_with_input(input_manager));
                     }
                     ResultTransition::Replay(song_data) => {
                         // Try to load replay data for this song
@@ -277,7 +315,7 @@ async fn main() {
                             }
                             Err(e) => {
                                 error!("Failed to load replay: {}", e);
-                                next_state = Some(return_to_select());
+                                next_state = Some(return_to_select_with_input(input_manager));
                             }
                         }
                     }
@@ -352,6 +390,25 @@ async fn create_play_state_with_input(
 }
 
 fn return_to_select() -> AppState {
+    let key_config = KeyConfig::load().unwrap_or_else(|e| {
+        warn!(
+            "Failed to load key config / キー設定の読み込みに失敗: {}",
+            e
+        );
+        KeyConfig::default()
+    });
+    let input_manager = match InputManager::new(key_config) {
+        Ok(manager) => manager,
+        Err(e) => {
+            error!("Failed to initialize input: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    return_to_select_with_input(input_manager)
+}
+
+fn return_to_select_with_input(input_manager: InputManager) -> AppState {
     // Re-open databases
     let song_db = match Database::open_song_db(Path::new("song.db")) {
         Ok(db) => db,
@@ -365,16 +422,6 @@ fn return_to_select() -> AppState {
         Ok(db) => db,
         Err(e) => {
             error!("Failed to open score database: {}", e);
-            std::process::exit(1);
-        }
-    };
-
-    // Create new input manager
-    let key_config = KeyConfig::default();
-    let input_manager = match InputManager::new(key_config) {
-        Ok(manager) => manager,
-        Err(e) => {
-            error!("Failed to initialize input: {}", e);
             std::process::exit(1);
         }
     };

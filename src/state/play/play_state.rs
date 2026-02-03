@@ -47,6 +47,7 @@ pub struct PlayState {
     all_notes: Vec<NoteWithIndex>,
     last_judge_display: Option<(JudgeRank, f64)>,
     bga_processor: Option<BgaProcessor>,
+    bga_enabled: bool,
     /// Optional skin renderer for custom UI.
     skin_renderer: Option<SkinRenderer>,
     /// Optional replay player for playback mode.
@@ -100,6 +101,7 @@ impl PlayState {
             all_notes,
             last_judge_display: None,
             bga_processor: None,
+            bga_enabled: true,
             skin_renderer: None,
             replay_player: None,
             autoplay_processor: None,
@@ -622,8 +624,10 @@ impl PlayState {
 
     /// Draw the play state.
     pub fn draw(&self) {
-        if let Some(ref bga) = self.bga_processor {
-            bga.draw(0.0, 0.0, screen_width(), screen_height());
+        if self.bga_enabled {
+            if let Some(ref bga) = self.bga_processor {
+                bga.draw(0.0, 0.0, screen_width(), screen_height());
+            }
         }
 
         // Draw skin if available
@@ -890,6 +894,14 @@ impl PlayState {
     /// Set the hi-speed.
     pub fn set_hi_speed(&mut self, hi_speed: f32) {
         self.hi_speed = hi_speed.clamp(0.25, 5.0);
+    }
+
+    pub fn toggle_bga(&mut self) {
+        self.bga_enabled = !self.bga_enabled;
+    }
+
+    pub fn is_bga_enabled(&self) -> bool {
+        self.bga_enabled
     }
 
     /// Get the playback speed.

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use macroquad::prelude::*;
 
-use crate::input::{InputManager, KeyConfig};
+use crate::input::{ConfigHotkey, HotkeyConfig, InputManager, KeyConfig};
 use crate::state::config::key_config_screen::KeyConfigScreen;
 
 /// Available configuration screens.
@@ -26,6 +26,7 @@ pub struct ConfigState {
     selected_item: usize,
     key_config_screen: KeyConfigScreen,
     input_manager: InputManager,
+    hotkeys: HotkeyConfig,
     transition: ConfigTransition,
 }
 
@@ -37,6 +38,7 @@ impl ConfigState {
             selected_item: 0,
             key_config_screen: KeyConfigScreen::new(input_manager.key_config().clone()),
             input_manager,
+            hotkeys: HotkeyConfig::load().unwrap_or_default(),
             transition: ConfigTransition::None,
         }
     }
@@ -55,15 +57,18 @@ impl ConfigState {
 
     fn update_main_screen(&mut self) {
         // Navigation
-        if is_key_pressed(KeyCode::Up) {
+        if self.hotkeys.pressed_config(ConfigHotkey::Up) || is_key_pressed(KeyCode::Up) {
             self.selected_item = self.selected_item.saturating_sub(1);
         }
-        if is_key_pressed(KeyCode::Down) {
+        if self.hotkeys.pressed_config(ConfigHotkey::Down) || is_key_pressed(KeyCode::Down) {
             self.selected_item = (self.selected_item + 1).min(1); // 2 items
         }
 
         // Selection
-        if is_key_pressed(KeyCode::Enter) {
+        if self.hotkeys.pressed_config(ConfigHotkey::Confirm)
+            || self.input_manager.is_start_pressed()
+            || is_key_pressed(KeyCode::Enter)
+        {
             match self.selected_item {
                 0 => self.current_screen = ConfigScreen::KeyConfig,
                 1 => self.transition = ConfigTransition::Back,
@@ -72,7 +77,10 @@ impl ConfigState {
         }
 
         // Back
-        if is_key_pressed(KeyCode::Escape) {
+        if self.hotkeys.pressed_config(ConfigHotkey::Cancel)
+            || self.input_manager.is_select_pressed()
+            || is_key_pressed(KeyCode::Escape)
+        {
             self.transition = ConfigTransition::Back;
         }
     }
@@ -99,10 +107,10 @@ impl ConfigState {
         let x = 100.0;
         let mut y = 100.0;
 
-        draw_text("=== CONFIGURATION ===", x, y, 48.0, WHITE);
+        draw_text("=== CONFIGURATION / 設定 ===", x, y, 48.0, WHITE);
         y += 80.0;
 
-        let items = ["Key Config", "Back to Select"];
+        let items = ["Key Config / キー設定", "Back to Select / 選曲へ戻る"];
 
         for (i, item) in items.iter().enumerate() {
             let is_selected = i == self.selected_item;
@@ -114,11 +122,11 @@ impl ConfigState {
         }
 
         y += 30.0;
-        draw_text("Up/Down: Navigate", x, y, 16.0, DARKGRAY);
+        draw_text("Up/Down: Navigate / 移動", x, y, 16.0, DARKGRAY);
         y += 20.0;
-        draw_text("Enter: Select", x, y, 16.0, DARKGRAY);
+        draw_text("Enter: Select / 決定", x, y, 16.0, DARKGRAY);
         y += 20.0;
-        draw_text("Escape: Back", x, y, 16.0, DARKGRAY);
+        draw_text("Escape: Back / 戻る", x, y, 16.0, DARKGRAY);
     }
 
     /// Take the current transition.

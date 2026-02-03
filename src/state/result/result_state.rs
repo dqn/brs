@@ -5,6 +5,7 @@ use tracing::{error, info};
 
 use crate::database::{ClearType, ScoreData, ScoreDatabaseAccessor, SongData};
 use crate::input::{InputManager, KeyInputLog};
+use crate::ir;
 use crate::replay::{ReplayRecorder, ReplaySlot, find_empty_slot, save_replay};
 use crate::state::play::{GaugeType, PlayResult, Rank};
 
@@ -68,6 +69,10 @@ impl ResultState {
         } else {
             false
         };
+
+        if save_score {
+            ir::submit_score(&play_result, &song_data, clear_type, hi_speed);
+        }
 
         // Save replay if input logs are available
         if save_score {
