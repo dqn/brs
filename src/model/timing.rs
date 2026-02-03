@@ -303,6 +303,7 @@ impl TimingEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     fn make_bms_with_bpm_change() -> Bms {
         let mut bms = Bms::default();
@@ -396,5 +397,60 @@ mod tests {
         ));
 
         assert!((measure_two_start - 3000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn timing_engine_applies_bpm_before_stop_at_same_time() {
+        let mut bms = Bms::default();
+        bms.bpm.bpm = Some(Decimal::from(120));
+        let prompt = AlwaysUseNewer;
+        let half = ObjTime::new(0, 1, NonZeroU64::new(2).expect("2 should be a valid NonZeroU64"));
+
+        bms.bpm
+            .push_bpm_change(
+                BpmChangeObj {
+                    time: half,
+                    bpm: Decimal::from(240),
+                },
+                &prompt,
+            )
+            .expect("bpm change should be registered");
+        bms.stop.push_stop(StopObj {
+            time: half,
+            duration: Decimal::from(192),
+        });
+
+        let timing = TimingEngine::new(&bms);
+        let later = timing.objtime_to_ms(ObjTime::new(
+            0,
+            3,
+            NonZeroU64::new(4).expect("4 should be a valid NonZeroU64"),
+        ));
+
+        assert!((later - 2250.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn timing_engine_applies_stp_in_milliseconds() {
+        let mut bms = Bms::default();
+        bms.bpm.bpm = Some(Decimal::from(120));
+        let half = ObjTime::new(0, 1, NonZeroU64::new(2).expect("2 should be a valid NonZeroU64"));
+
+        bms.stop.stp_events.insert(
+            half,
+            StpEvent {
+                time: half,
+                duration: Duration::from_millis(500),
+            },
+        );
+
+        let timing = TimingEngine::new(&bms);
+        let later = timing.objtime_to_ms(ObjTime::new(
+            0,
+            3,
+            NonZeroU64::new(4).expect("4 should be a valid NonZeroU64"),
+        ));
+
+        assert!((later - 2000.0).abs() < 0.01);
     }
 }
