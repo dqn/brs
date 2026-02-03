@@ -6,6 +6,7 @@ use std::path::Path;
 const CONFIG_FILE: &str = "config.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct AppConfig {
     pub window_width: u32,
     pub window_height: u32,
@@ -13,6 +14,9 @@ pub struct AppConfig {
     pub vsync: bool,
     pub max_fps: u32,
     pub player_name: String,
+    pub song_folders: Vec<String>,
+    pub auto_scan_on_startup: bool,
+    pub play_skin_path: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -24,6 +28,9 @@ impl Default for AppConfig {
             vsync: true,
             max_fps: 240,
             player_name: String::new(),
+            song_folders: vec!["bms".to_string()],
+            auto_scan_on_startup: true,
+            play_skin_path: Some("skins/ECFN/play/play7.luaskin".to_string()),
         }
     }
 }
@@ -74,6 +81,12 @@ mod tests {
         assert!(config.vsync);
         assert_eq!(config.max_fps, 240);
         assert!(config.player_name.is_empty());
+        assert_eq!(config.song_folders, vec!["bms".to_string()]);
+        assert!(config.auto_scan_on_startup);
+        assert_eq!(
+            config.play_skin_path,
+            Some("skins/ECFN/play/play7.luaskin".to_string())
+        );
     }
 
     #[test]
@@ -85,6 +98,9 @@ mod tests {
             vsync: false,
             max_fps: 120,
             player_name: "TestPlayer".to_string(),
+            song_folders: vec!["songs".to_string(), "bms".to_string()],
+            auto_scan_on_startup: false,
+            play_skin_path: Some("skins/custom/play.luaskin".to_string()),
         };
 
         let json = serde_json::to_string(&config).unwrap();
@@ -105,6 +121,9 @@ mod tests {
             vsync: true,
             max_fps: 144,
             player_name: "Player1".to_string(),
+            song_folders: vec!["bms".to_string()],
+            auto_scan_on_startup: true,
+            play_skin_path: None,
         };
 
         config.save_to(&file_path).unwrap();

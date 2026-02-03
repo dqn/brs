@@ -1,10 +1,11 @@
 use anyhow::Result;
 use macroquad::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::warn;
 
 use crate::audio::PreviewPlayer;
-use crate::database::{ClearType, Database, SongData};
+use crate::config::AppConfig;
+use crate::database::{ClearType, Database, ScanProgress, SongData, SongScanTask};
 use crate::input::{HotkeyConfig, InputManager, SelectHotkey};
 use crate::model::load_chart;
 use crate::model::note::Lane;
@@ -12,6 +13,15 @@ use crate::state::select::FavoriteStore;
 use crate::state::select::bar::Bar;
 use crate::state::select::bar_manager::BarManager;
 use ::rand::seq::SliceRandom;
+
+/// Request type for song scanning on select screen.
+/// 選曲画面でのスキャン要求種別。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectScanRequest {
+    None,
+    Auto,
+    Manual,
+}
 
 /// Phase of the select screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +61,9 @@ pub struct SelectState {
     favorites: FavoriteStore,
     preview_enabled: bool,
     show_details: bool,
+    scan_task: Option<SongScanTask>,
+    scan_result: Option<ScanProgress>,
+    scan_error: Option<String>,
 }
 
 impl SelectState {
@@ -58,10 +71,15 @@ impl SelectState {
     const VISIBLE_BARS: usize = 15;
 
     /// Create a new SelectState.
-    pub fn new(input_manager: InputManager, song_db: Database, score_db: Database) -> Result<Self> {
+    pub fn new(
+        input_manager: InputManager,
+        song_db: Database,
+        score_db: Database,
+        scan_request: SelectScanRequest,
+    ) -> Result<Self> {
         let hotkeys = HotkeyConfig::load().unwrap_or_default();
         let favorites = FavoriteStore::load().unwrap_or_default();
-        Ok(Self {
+        let mut state = Self {
             bar_manager: BarManager::new(),
             input_manager,
             phase: SelectPhase::Loading,
@@ -74,7 +92,14 @@ impl SelectState {
             favorites,
             preview_enabled: true,
             show_details: true,
-        })
+            scan_task: None,
+            scan_result: None,
+            scan_error: None,
+        };
+
+        state.maybe_start_scan(scan_request);
+
+        Ok(state)
     }
 
     /// Get the current phase.
@@ -110,12 +135,111 @@ impl SelectState {
         self.input_manager = input_manager;
     }
 
+    fn maybe_start_scan(&mut self, request: SelectScanRequest) {
+        if request == SelectScanRequest::None {
+            return;
+        }
+
+        let config = self.load_app_config();
+        if request == SelectScanRequest::Auto && !config.auto_scan_on_startup {
+            return;
+        }
+
+        self.start_scan_with_config(config);
+    }
+
+    fn start_scan_with_config(&mut self, config: AppConfig) {
+        if self.scan_task.is_some() {
+            return;
+        }
+
+        let folders = Self::build_scan_folders(&config.song_folders);
+        if folders.is_empty() {
+            self.scan_error =
+                Some("No song folders configured. / 曲フォルダが設定されていません。".to_string());
+            return;
+        }
+
+        self.scan_task = Some(SongScanTask::start(PathBuf::from("song.db"), folders));
+        self.scan_result = None;
+        self.scan_error = None;
+        self.phase = SelectPhase::Loading;
+    }
+
+    fn load_app_config(&self) -> AppConfig {
+        AppConfig::load().unwrap_or_else(|e| {
+            warn!("Failed to load config / 設定の読み込みに失敗: {}", e);
+            AppConfig::default()
+        })
+    }
+
+    fn build_scan_folders(folders: &[String]) -> Vec<PathBuf> {
+        folders
+            .iter()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(Self::expand_path)
+            .collect()
+    }
+
+    fn expand_path(path: &str) -> PathBuf {
+        if path == "~" {
+            if let Ok(home) = std::env::var("HOME") {
+                return PathBuf::from(home);
+            }
+        }
+        if let Some(stripped) = path.strip_prefix("~/") {
+            if let Ok(home) = std::env::var("HOME") {
+                return PathBuf::from(home).join(stripped);
+            }
+        }
+        PathBuf::from(path)
+    }
+
+    fn is_scanning(&self) -> bool {
+        self.scan_task
+            .as_ref()
+            .is_some_and(|task| !task.is_complete())
+    }
+
+    fn is_cancel_requested(&self) -> bool {
+        self.hotkeys.pressed_select(SelectHotkey::Cancel) || is_key_pressed(KeyCode::Escape)
+    }
+
     /// Update the select state. Call once per frame.
     pub fn update(&mut self) -> Result<()> {
         self.input_manager.update();
 
         match self.phase {
             SelectPhase::Loading => {
+                if self.is_cancel_requested() {
+                    self.transition = SelectTransition::Exit;
+                    return Ok(());
+                }
+
+                if let Some(task) = &self.scan_task {
+                    if task.is_complete() {
+                        let progress = task.progress();
+                        let result = task.take_result();
+                        self.scan_task = None;
+                        self.scan_result = Some(progress);
+                        if let Some(result) = result {
+                            if let Err(e) = result {
+                                self.scan_error =
+                                    Some(format!("Scan failed: {} / スキャン失敗: {}", e, e));
+                            }
+                        }
+                        self.bar_manager.load_songs(&self.song_db, &self.score_db)?;
+                        self.bar_manager
+                            .set_favorites(self.favorites.items().clone());
+                        if self.preview_enabled {
+                            self.update_preview();
+                        }
+                        self.phase = SelectPhase::Selecting;
+                    }
+                    return Ok(());
+                }
+
                 self.bar_manager.load_songs(&self.song_db, &self.score_db)?;
                 self.bar_manager
                     .set_favorites(self.favorites.items().clone());
@@ -211,11 +335,8 @@ impl SelectState {
         }
 
         if self.hotkeys.pressed_select(SelectHotkey::ReloadDatabase) {
-            if let Err(e) = self.bar_manager.load_songs(&self.song_db, &self.score_db) {
-                warn!("Failed to reload songs / 曲の再読み込みに失敗: {}", e);
-            }
-            self.bar_manager
-                .set_favorites(self.favorites.items().clone());
+            let config = self.load_app_config();
+            self.start_scan_with_config(config);
         }
 
         if self.hotkeys.pressed_select(SelectHotkey::OpenConfig) {
@@ -368,28 +489,52 @@ impl SelectState {
         let toggle_x = 700.0;
         draw_text(preview_text, toggle_x, 50.0, 18.0, GRAY);
         draw_text(details_text, toggle_x, 70.0, 18.0, GRAY);
+
+        if let Some(progress) = &self.scan_result {
+            let summary = format!(
+                "Last scan: +{} ~{} -{} err {} / 最終スキャン: 追加{} 更新{} 削除{} エラー{}",
+                progress.added,
+                progress.updated,
+                progress.deleted,
+                progress.errors,
+                progress.added,
+                progress.updated,
+                progress.deleted,
+                progress.errors
+            );
+            draw_text(&summary, 50.0, 100.0, 16.0, GRAY);
+        }
     }
 
     fn draw_song_list(&self) {
         let start_x = 50.0;
-        let start_y = 100.0;
+        let start_y = if self.scan_result.is_some() { 120.0 } else { 100.0 };
         let row_height = 40.0;
 
+        if self.is_scanning() {
+            self.draw_scan_progress(start_x, start_y);
+            return;
+        }
+
         if self.bar_manager.is_empty() {
-            draw_text(
-                "No songs found. / 曲が見つかりません。",
-                start_x,
-                start_y + 50.0,
-                24.0,
-                GRAY,
-            );
-            draw_text(
-                "Please add BMS files to the database. / BMSファイルを追加してください。",
-                start_x,
-                start_y + 80.0,
-                18.0,
-                GRAY,
-            );
+            if let Some(error) = &self.scan_error {
+                draw_text(error, start_x, start_y + 50.0, 20.0, RED);
+            } else {
+                draw_text(
+                    "No songs found. / 曲が見つかりません。",
+                    start_x,
+                    start_y + 50.0,
+                    24.0,
+                    GRAY,
+                );
+                draw_text(
+                    "Please add BMS files to the database. / BMSファイルを追加してください。",
+                    start_x,
+                    start_y + 80.0,
+                    18.0,
+                    GRAY,
+                );
+            }
             return;
         }
 
@@ -434,6 +579,42 @@ impl SelectState {
                 draw_text(&level_text, start_x + 500.0, y, 18.0, level_color);
             }
         }
+    }
+
+    fn draw_scan_progress(&self, start_x: f32, start_y: f32) {
+        let Some(task) = &self.scan_task else {
+            return;
+        };
+        let progress = task.progress();
+
+        let title = progress
+            .message
+            .as_deref()
+            .unwrap_or("Scanning songs... / 曲をスキャン中...");
+        draw_text(title, start_x, start_y + 30.0, 22.0, YELLOW);
+
+        if let Some(folder) = progress.current_folder.as_deref() {
+            let folder_text = format!("Folder: {} / フォルダ: {}", folder, folder);
+            draw_text(&folder_text, start_x, start_y + 60.0, 18.0, LIGHTGRAY);
+        }
+
+        if let Some(file) = progress.current_file.as_deref() {
+            let file_text = format!("File: {} / ファイル: {}", file, file);
+            draw_text(&file_text, start_x, start_y + 85.0, 16.0, GRAY);
+        }
+
+        let count_text = format!(
+            "Added: {} Updated: {} Deleted: {} Errors: {} / 追加{} 更新{} 削除{} エラー{}",
+            progress.added,
+            progress.updated,
+            progress.deleted,
+            progress.errors,
+            progress.added,
+            progress.updated,
+            progress.deleted,
+            progress.errors
+        );
+        draw_text(&count_text, start_x, start_y + 115.0, 16.0, GRAY);
     }
 
     fn draw_song_info(&self) {
@@ -566,7 +747,7 @@ impl SelectState {
 
         let y2 = y + 20.0;
         draw_text(
-            "F2/F3: Sort / ソート  F4/F5: Filter / フィルタ  F: Favorite / お気に入り",
+            "F2/F3: Sort / ソート  F4/F5: Filter / フィルタ  F: Favorite / お気に入り  F12: Scan / スキャン",
             50.0,
             y2,
             16.0,

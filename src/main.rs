@@ -1,13 +1,15 @@
 use brs::audio::{AudioConfig, AudioDriver, KeysoundProcessor};
+use brs::config::AppConfig;
 use brs::database::{Database, ScoreDatabaseAccessor, SongData};
 use brs::input::{HotkeyConfig, InputManager, KeyConfig, PlayHotkey};
 use brs::model::{BMSModel, load_chart};
 use brs::replay::{ReplayPlayer, ReplaySlot, load_replay};
+use brs::skin::SkinRenderer;
 use brs::state::config::{ConfigState, ConfigTransition};
 use brs::state::decide::{DecideState, DecideTransition};
 use brs::state::play::{GaugeType, PlayState};
 use brs::state::result::{ResultState, ResultTransition};
-use brs::state::select::{SelectState, SelectTransition};
+use brs::state::select::{SelectScanRequest, SelectState, SelectTransition};
 use brs::util::logging::init_logging;
 use macroquad::prelude::*;
 use std::path::Path;
@@ -74,7 +76,12 @@ async fn main() {
     };
 
     // Start with select state
-    let select_state = match SelectState::new(input_manager, song_db, score_db) {
+    let select_state = match SelectState::new(
+        input_manager,
+        song_db,
+        score_db,
+        SelectScanRequest::Auto,
+    ) {
         Ok(state) => state,
         Err(e) => {
             error!("Failed to create select state: {}", e);
@@ -136,9 +143,14 @@ async fn main() {
                 config_state.draw();
 
                 match config_state.take_transition() {
-                    ConfigTransition::Back => {
+                    ConfigTransition::Back { rescan } => {
                         let input_manager = config_state.take_input_manager();
-                        next_state = Some(return_to_select_with_input(input_manager));
+                        let request = if rescan {
+                            SelectScanRequest::Manual
+                        } else {
+                            SelectScanRequest::None
+                        };
+                        next_state = Some(return_to_select_with_input(input_manager, request));
                     }
                     ConfigTransition::None => {}
                 }
@@ -161,6 +173,7 @@ async fn main() {
                             GaugeType::Normal,
                             1.0,
                         );
+                        apply_play_skin(&mut play_state).await;
                         let bms_dir = prepared.song_data.path.parent().unwrap_or(Path::new("."));
                         play_state.load_bga(bms_dir).await;
                         next_state = Some(AppState::Play(
@@ -170,12 +183,18 @@ async fn main() {
                     }
                     DecideTransition::Cancel => {
                         let input_manager = decide_state.take_input_manager();
-                        next_state = Some(return_to_select_with_input(input_manager));
+                        next_state = Some(return_to_select_with_input(
+                            input_manager,
+                            SelectScanRequest::None,
+                        ));
                     }
                     DecideTransition::Error(e) => {
                         error!("Decide error: {}", e);
                         let input_manager = decide_state.take_input_manager();
-                        next_state = Some(return_to_select_with_input(input_manager));
+                        next_state = Some(return_to_select_with_input(
+                            input_manager,
+                            SelectScanRequest::None,
+                        ));
                     }
                     DecideTransition::None => {}
                 }
@@ -223,7 +242,10 @@ async fn main() {
                 if is_key_pressed(KeyCode::Escape) {
                     // Return to select
                     let input_manager = play_state.take_input_manager();
-                    next_state = Some(return_to_select_with_input(input_manager));
+                    next_state = Some(return_to_select_with_input(
+                        input_manager,
+                        SelectScanRequest::None,
+                    ));
                 }
 
                 if play_state.is_finished() && is_key_pressed(KeyCode::Enter) {
@@ -258,7 +280,10 @@ async fn main() {
                         }
                         Err(e) => {
                             error!("Failed to open score database: {}", e);
-                            next_state = Some(return_to_select_with_input(input_manager));
+                            next_state = Some(return_to_select_with_input(
+                                input_manager,
+                                SelectScanRequest::None,
+                            ));
                         }
                     }
                 }
@@ -273,7 +298,10 @@ async fn main() {
                 match result_state.take_transition() {
                     ResultTransition::Select => {
                         let input_manager = result_state.take_input_manager();
-                        next_state = Some(return_to_select_with_input(input_manager));
+                        next_state = Some(return_to_select_with_input(
+                            input_manager,
+                            SelectScanRequest::None,
+                        ));
                     }
                     ResultTransition::Replay(song_data) => {
                         // Try to load replay data for this song
@@ -315,7 +343,10 @@ async fn main() {
                             }
                             Err(e) => {
                                 error!("Failed to load replay: {}", e);
-                                next_state = Some(return_to_select_with_input(input_manager));
+                                next_state = Some(return_to_select_with_input(
+                                    input_manager,
+                                    SelectScanRequest::None,
+                                ));
                             }
                         }
                     }
@@ -333,6 +364,35 @@ async fn main() {
         }
 
         next_frame().await;
+    }
+}
+
+async fn apply_play_skin(play_state: &mut PlayState) {
+    let config = AppConfig::load().unwrap_or_else(|e| {
+        warn!("Failed to load config / 設定の読み込みに失敗: {}", e);
+        AppConfig::default()
+    });
+
+    let Some(skin_path) = config.play_skin_path.as_deref() else {
+        return;
+    };
+
+    let path = Path::new(skin_path);
+    if !path.exists() {
+        warn!(
+            "Skin not found: {} / スキンが見つかりません: {}",
+            path.display(),
+            path.display()
+        );
+        return;
+    }
+
+    match SkinRenderer::load(path).await {
+        Ok(renderer) => play_state.set_skin_renderer(renderer),
+        Err(e) => warn!(
+            "Failed to load skin: {} / スキンの読み込みに失敗: {}",
+            e, e
+        ),
     }
 }
 
@@ -384,6 +444,7 @@ async fn create_play_state_with_input(
         GaugeType::Normal,
         1.0,
     );
+    apply_play_skin(&mut play_state).await;
     play_state.load_bga(bms_dir).await;
 
     Ok(play_state)
@@ -405,10 +466,13 @@ fn return_to_select() -> AppState {
         }
     };
 
-    return_to_select_with_input(input_manager)
+    return_to_select_with_input(input_manager, SelectScanRequest::None)
 }
 
-fn return_to_select_with_input(input_manager: InputManager) -> AppState {
+fn return_to_select_with_input(
+    input_manager: InputManager,
+    scan_request: SelectScanRequest,
+) -> AppState {
     // Re-open databases
     let song_db = match Database::open_song_db(Path::new("song.db")) {
         Ok(db) => db,
@@ -427,7 +491,7 @@ fn return_to_select_with_input(input_manager: InputManager) -> AppState {
     };
 
     // Create new select state
-    match SelectState::new(input_manager, song_db, score_db) {
+    match SelectState::new(input_manager, song_db, score_db, scan_request) {
         Ok(state) => AppState::Select(Box::new(state)),
         Err(e) => {
             error!("Failed to create select state: {}", e);
@@ -487,6 +551,7 @@ async fn create_replay_play_state(
         replay_data.metadata.hi_speed,
         replay_player,
     );
+    apply_play_skin(&mut play_state).await;
     play_state
         .load_bga(song_data.path.parent().unwrap_or(Path::new(".")))
         .await;

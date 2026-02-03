@@ -6,4 +6,4 @@ mod select_state;
 pub use bar::{Bar, FolderBar, SongBar};
 pub use bar_manager::BarManager;
 pub use favorites::FavoriteStore;
-pub use select_state::{SelectPhase, SelectState, SelectTransition};
+pub use select_state::{SelectPhase, SelectScanRequest, SelectState, SelectTransition};

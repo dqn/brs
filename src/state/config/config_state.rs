@@ -3,6 +3,9 @@ use macroquad::prelude::*;
 
 use crate::input::{ConfigHotkey, HotkeyConfig, InputManager, KeyConfig};
 use crate::state::config::key_config_screen::KeyConfigScreen;
+use crate::state::config::library_config_screen::{
+    LibraryConfigResult, LibraryConfigScreen,
+};
 
 /// Available configuration screens.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -10,6 +13,7 @@ pub enum ConfigScreen {
     #[default]
     Main,
     KeyConfig,
+    Library,
 }
 
 /// Transition from the config screen.
@@ -17,7 +21,7 @@ pub enum ConfigScreen {
 pub enum ConfigTransition {
     #[default]
     None,
-    Back,
+    Back { rescan: bool },
 }
 
 /// Configuration screen state.
@@ -25,9 +29,11 @@ pub struct ConfigState {
     current_screen: ConfigScreen,
     selected_item: usize,
     key_config_screen: KeyConfigScreen,
+    library_screen: LibraryConfigScreen,
     input_manager: InputManager,
     hotkeys: HotkeyConfig,
     transition: ConfigTransition,
+    pending_rescan: bool,
 }
 
 impl ConfigState {
@@ -37,9 +43,11 @@ impl ConfigState {
             current_screen: ConfigScreen::Main,
             selected_item: 0,
             key_config_screen: KeyConfigScreen::new(input_manager.key_config().clone()),
+            library_screen: LibraryConfigScreen::new(),
             input_manager,
             hotkeys: HotkeyConfig::load().unwrap_or_default(),
             transition: ConfigTransition::None,
+            pending_rescan: false,
         }
     }
 
@@ -50,6 +58,7 @@ impl ConfigState {
         match self.current_screen {
             ConfigScreen::Main => self.update_main_screen(),
             ConfigScreen::KeyConfig => self.update_key_config_screen(),
+            ConfigScreen::Library => self.update_library_screen(),
         }
 
         Ok(())
@@ -61,7 +70,7 @@ impl ConfigState {
             self.selected_item = self.selected_item.saturating_sub(1);
         }
         if self.hotkeys.pressed_config(ConfigHotkey::Down) || is_key_pressed(KeyCode::Down) {
-            self.selected_item = (self.selected_item + 1).min(1); // 2 items
+            self.selected_item = (self.selected_item + 1).min(2); // 3 items
         }
 
         // Selection
@@ -71,7 +80,12 @@ impl ConfigState {
         {
             match self.selected_item {
                 0 => self.current_screen = ConfigScreen::KeyConfig,
-                1 => self.transition = ConfigTransition::Back,
+                1 => self.current_screen = ConfigScreen::Library,
+                2 => {
+                    self.transition = ConfigTransition::Back {
+                        rescan: self.pending_rescan,
+                    };
+                }
                 _ => {}
             }
         }
@@ -81,7 +95,9 @@ impl ConfigState {
             || self.input_manager.is_select_pressed()
             || is_key_pressed(KeyCode::Escape)
         {
-            self.transition = ConfigTransition::Back;
+            self.transition = ConfigTransition::Back {
+                rescan: self.pending_rescan,
+            };
         }
     }
 
@@ -95,11 +111,25 @@ impl ConfigState {
         }
     }
 
+    fn update_library_screen(&mut self) {
+        match self
+            .library_screen
+            .update(&self.hotkeys, &self.input_manager)
+        {
+            LibraryConfigResult::None => {}
+            LibraryConfigResult::Back { rescan } => {
+                self.pending_rescan |= rescan;
+                self.current_screen = ConfigScreen::Main;
+            }
+        }
+    }
+
     /// Draw the config screen.
     pub fn draw(&self) {
         match self.current_screen {
             ConfigScreen::Main => self.draw_main_screen(),
             ConfigScreen::KeyConfig => self.key_config_screen.draw(),
+            ConfigScreen::Library => self.library_screen.draw(),
         }
     }
 
@@ -110,7 +140,11 @@ impl ConfigState {
         draw_text("=== CONFIGURATION / 設定 ===", x, y, 48.0, WHITE);
         y += 80.0;
 
-        let items = ["Key Config / キー設定", "Back to Select / 選曲へ戻る"];
+        let items = [
+            "Key Config / キー設定",
+            "Library & Skin / ライブラリ・スキン",
+            "Back to Select / 選曲へ戻る",
+        ];
 
         for (i, item) in items.iter().enumerate() {
             let is_selected = i == self.selected_item;
