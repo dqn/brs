@@ -17,6 +17,7 @@ pub struct TimingEngine {
 struct BpmEvent {
     bpm: f64,
     priority: u8,
+    order: u64,
 }
 
 impl TimingEngine {
@@ -138,10 +139,49 @@ impl TimingEngine {
         };
 
         consider(bms.notes().all_notes().map(|n| n.offset.track().0).max());
-        consider(bms.bpm.bpm_changes.keys().map(|t| t.track().0).max());
-        consider(bms.bpm.bpm_changes_u8.keys().map(|t| t.track().0).max());
-        consider(bms.stop.stops.keys().map(|t| t.track().0).max());
-        consider(bms.stop.stp_events.keys().map(|t| t.track().0).max());
+        consider(
+            bms.bpm
+                .bpm_changes
+                .values()
+                .filter_map(|change| {
+                    change
+                        .bpm
+                        .to_f64()
+                        .filter(|bpm| bpm.is_finite() && *bpm > 0.0)
+                        .map(|_| change.time.track().0)
+                })
+                .max(),
+        );
+        consider(
+            bms.bpm
+                .bpm_changes_u8
+                .iter()
+                .filter_map(|(time, bpm)| (*bpm > 0).then_some(time.track().0))
+                .max(),
+        );
+        consider(
+            bms.stop
+                .stops
+                .values()
+                .filter_map(|stop| {
+                    stop.duration
+                        .to_f64()
+                        .map(|units| units.abs())
+                        .filter(|units| units.is_finite() && *units > 0.0)
+                        .map(|_| stop.time.track().0)
+                })
+                .max(),
+        );
+        consider(
+            bms.stop
+                .stp_events
+                .values()
+                .filter_map(|event| {
+                    (event.duration.as_millis() > 0)
+                        .then_some(event.time.track().0)
+                })
+                .max(),
+        );
         consider(
             bms.section_len
                 .section_len_changes
@@ -166,23 +206,37 @@ impl TimingEngine {
 
     fn collect_bpm_events(bms: &Bms) -> BTreeMap<ObjTime, Vec<BpmEvent>> {
         let mut events: BTreeMap<ObjTime, Vec<BpmEvent>> = BTreeMap::new();
+        let mut order = 0_u64;
         for change in bms.bpm.bpm_changes.values() {
             if let Some(bpm) = change.bpm.to_f64() {
-                events
-                    .entry(change.time)
-                    .or_default()
-                    .push(BpmEvent { bpm, priority: 1 });
+                if bpm.is_finite() && bpm > 0.0 {
+                    events.entry(change.time).or_default().push(BpmEvent {
+                        bpm,
+                        priority: 1,
+                        order,
+                    });
+                    order = order.saturating_add(1);
+                }
             }
         }
         for (time, bpm) in &bms.bpm.bpm_changes_u8 {
-            events.entry(*time).or_default().push(BpmEvent {
-                bpm: *bpm as f64,
-                priority: 0,
-            });
+            let bpm = *bpm as f64;
+            if bpm > 0.0 {
+                events.entry(*time).or_default().push(BpmEvent {
+                    bpm,
+                    priority: 0,
+                    order,
+                });
+                order = order.saturating_add(1);
+            }
         }
 
         for list in events.values_mut() {
-            list.sort_by_key(|event| event.priority);
+            list.sort_by(|a, b| {
+                a.priority
+                    .cmp(&b.priority)
+                    .then_with(|| a.order.cmp(&b.order))
+            });
         }
 
         events
@@ -191,9 +245,11 @@ impl TimingEngine {
     fn collect_stop_events(bms: &Bms) -> BTreeMap<ObjTime, f64> {
         let mut events: BTreeMap<ObjTime, f64> = BTreeMap::new();
         for stop in bms.stop.stops.values() {
-            let units = stop.duration.to_f64().unwrap_or(0.0);
-            if units > 0.0 {
-                *events.entry(stop.time).or_insert(0.0) += units;
+            if let Some(units) = stop.duration.to_f64() {
+                let units = units.abs();
+                if units.is_finite() && units > 0.0 {
+                    *events.entry(stop.time).or_insert(0.0) += units;
+                }
             }
         }
         events
@@ -450,5 +506,61 @@ mod tests {
         ));
 
         assert!((later - 2000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn timing_engine_ignores_non_positive_bpm_changes() {
+        let mut bms = Bms::default();
+        bms.bpm.bpm = Some(Decimal::from(120));
+        let half = ObjTime::new(
+            0,
+            1,
+            NonZeroU64::new(2).expect("2 should be a valid NonZeroU64"),
+        );
+
+        bms.bpm.bpm_changes.insert(
+            half,
+            BpmChangeObj {
+                time: half,
+                bpm: Decimal::from(-240),
+            },
+        );
+
+        let timing = TimingEngine::new(&bms);
+        let later = timing.objtime_to_ms(ObjTime::new(
+            0,
+            3,
+            NonZeroU64::new(4).expect("4 should be a valid NonZeroU64"),
+        ));
+
+        assert!((later - 1500.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn timing_engine_treats_negative_stop_as_positive() {
+        let mut bms = Bms::default();
+        bms.bpm.bpm = Some(Decimal::from(120));
+        let half = ObjTime::new(
+            0,
+            1,
+            NonZeroU64::new(2).expect("2 should be a valid NonZeroU64"),
+        );
+
+        bms.stop.stops.insert(
+            half,
+            StopObj {
+                time: half,
+                duration: Decimal::from(-192),
+            },
+        );
+
+        let timing = TimingEngine::new(&bms);
+        let later = timing.objtime_to_ms(ObjTime::new(
+            0,
+            3,
+            NonZeroU64::new(4).expect("4 should be a valid NonZeroU64"),
+        ));
+
+        assert!((later - 3500.0).abs() < 0.01);
     }
 }
