@@ -164,8 +164,10 @@ impl SkinSourceManager {
             }
         }
 
-        // Fallback: return the pattern path
-        Ok(search_dir.join(file_pattern))
+        anyhow::bail!(
+            "No matching file for pattern: {}",
+            search_dir.join(file_pattern).display()
+        )
     }
 
     /// Unload all textures.

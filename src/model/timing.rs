@@ -177,8 +177,7 @@ impl TimingEngine {
                 .stp_events
                 .values()
                 .filter_map(|event| {
-                    (event.duration.as_millis() > 0)
-                        .then_some(event.time.track().0)
+                    (event.duration.as_millis() > 0).then_some(event.time.track().0)
                 })
                 .max(),
         );

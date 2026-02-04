@@ -1,6 +1,6 @@
 use crate::database::models::ScanResult;
 use crate::database::{Database, SongDatabaseAccessor, SongScanner};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -83,7 +83,10 @@ impl SongScanTask {
     /// スキャンが完了したかを確認する。
     pub fn is_complete(&self) -> bool {
         let state = self.state.lock().unwrap();
-        matches!(state.progress.stage, ScanStage::Complete | ScanStage::Failed)
+        matches!(
+            state.progress.stage,
+            ScanStage::Complete | ScanStage::Failed
+        )
     }
 
     /// Take the scan result, if available.

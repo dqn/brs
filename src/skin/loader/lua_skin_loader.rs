@@ -60,8 +60,15 @@ impl LuaSkinLoader {
         // Set up package.path for require
         self.setup_lua_path(skin_dir)?;
 
+        let mut resolved_options = options.clone();
+        if let Ok(defaults) = Self::default_options_from_file(path) {
+            for (key, value) in defaults {
+                resolved_options.entry(key).or_insert(value);
+            }
+        }
+
         // Set up skin_config global
-        self.setup_skin_config(options)?;
+        self.setup_skin_config(&resolved_options)?;
 
         // Execute the skin file
         let content = std::fs::read_to_string(path)
@@ -75,6 +82,69 @@ impl LuaSkinLoader {
             .to_anyhow()?;
 
         self.parse_skin(&result, skin_dir)
+    }
+
+    fn default_options_from_file(path: &Path) -> Result<HashMap<String, i32>> {
+        let loader = LuaSkinLoader::new()?;
+        loader.load_default_options(path)
+    }
+
+    fn load_default_options(&self, path: &Path) -> Result<HashMap<String, i32>> {
+        let skin_dir = path.parent().context("Invalid skin path")?;
+
+        self.setup_lua_path(skin_dir)?;
+        self.setup_main_state()?;
+        self.lua
+            .globals()
+            .set("skin_config", Value::Nil)
+            .to_anyhow()?;
+
+        let content = std::fs::read_to_string(path)
+            .with_context(|| format!("Failed to read skin file: {}", path.display()))?;
+
+        let result: Table = self
+            .lua
+            .load(&content)
+            .set_name(path.to_string_lossy())
+            .eval()
+            .to_anyhow()?;
+
+        self.collect_default_options(&result)
+    }
+
+    fn collect_default_options(&self, table: &Table) -> Result<HashMap<String, i32>> {
+        let mut options = HashMap::new();
+        let property_table = match table.get::<Table>("property") {
+            Ok(value) => value,
+            Err(_) => return Ok(options),
+        };
+
+        for prop in property_table.sequence_values::<Table>() {
+            let prop = prop.to_anyhow()?;
+            let name = match prop.get::<String>("name") {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            let items = match prop.get::<Table>("item") {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+
+            let mut selected = None;
+            for item in items.sequence_values::<Table>() {
+                let item = item.to_anyhow()?;
+                if let Ok(op) = item.get::<i32>("op") {
+                    selected = Some(op);
+                    break;
+                }
+            }
+
+            if let Some(op) = selected {
+                options.insert(name, op);
+            }
+        }
+
+        Ok(options)
     }
 
     fn setup_lua_path(&self, skin_dir: &Path) -> Result<()> {

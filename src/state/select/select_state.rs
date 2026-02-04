@@ -223,11 +223,9 @@ impl SelectState {
                         let result = task.take_result();
                         self.scan_task = None;
                         self.scan_result = Some(progress);
-                        if let Some(result) = result {
-                            if let Err(e) = result {
-                                self.scan_error =
-                                    Some(format!("Scan failed: {} / スキャン失敗: {}", e, e));
-                            }
+                        if let Some(Err(e)) = result {
+                            self.scan_error =
+                                Some(format!("Scan failed: {} / スキャン失敗: {}", e, e));
                         }
                         self.bar_manager.load_songs(&self.song_db, &self.score_db)?;
                         self.bar_manager
@@ -508,7 +506,11 @@ impl SelectState {
 
     fn draw_song_list(&self) {
         let start_x = 50.0;
-        let start_y = if self.scan_result.is_some() { 120.0 } else { 100.0 };
+        let start_y = if self.scan_result.is_some() {
+            120.0
+        } else {
+            100.0
+        };
         let row_height = 40.0;
 
         if self.is_scanning() {

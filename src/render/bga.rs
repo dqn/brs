@@ -58,11 +58,20 @@ impl BgaProcessor {
         for (&id, path) in bga_files {
             let full_path = base_dir.join(path);
 
+            let ext = full_path
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let is_image_ext = matches!(ext.as_str(), "bmp" | "png" | "jpg" | "jpeg");
+
             // Try loading with original extension
-            if let Ok(texture) = load_texture(full_path.to_string_lossy().as_ref()).await {
-                self.images.insert(id, texture);
-                loaded += 1;
-                continue;
+            if is_image_ext {
+                if let Ok(texture) = load_texture(full_path.to_string_lossy().as_ref()).await {
+                    self.images.insert(id, texture);
+                    loaded += 1;
+                    continue;
+                }
             }
 
             // Try common image extensions if original fails

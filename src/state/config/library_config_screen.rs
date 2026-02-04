@@ -83,8 +83,7 @@ impl LibraryConfigScreen {
             || input_manager.is_select_pressed()
             || is_key_pressed(KeyCode::Escape);
         let move_up = hotkeys.pressed_config(ConfigHotkey::Up) || is_key_pressed(KeyCode::Up);
-        let move_down =
-            hotkeys.pressed_config(ConfigHotkey::Down) || is_key_pressed(KeyCode::Down);
+        let move_down = hotkeys.pressed_config(ConfigHotkey::Down) || is_key_pressed(KeyCode::Down);
 
         let item_count = self.item_count();
         if move_up {
@@ -156,7 +155,13 @@ impl LibraryConfigScreen {
         let x = 100.0;
         let mut y = 100.0;
 
-        draw_text("=== LIBRARY & SKIN / ライブラリ・スキン ===", x, y, 42.0, WHITE);
+        draw_text(
+            "=== LIBRARY & SKIN / ライブラリ・スキン ===",
+            x,
+            y,
+            42.0,
+            WHITE,
+        );
         y += 60.0;
 
         draw_text("SONG FOLDERS / 曲フォルダ", x, y, 24.0, YELLOW);
@@ -288,13 +293,7 @@ impl LibraryConfigScreen {
             DARKGRAY,
         );
         y += 20.0;
-        draw_text(
-            "Delete: Remove Folder / フォルダ削除",
-            x,
-            y,
-            16.0,
-            DARKGRAY,
-        );
+        draw_text("Delete: Remove Folder / フォルダ削除", x, y, 16.0, DARKGRAY);
     }
 
     fn update_edit_mode(

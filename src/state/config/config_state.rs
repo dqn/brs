@@ -3,9 +3,7 @@ use macroquad::prelude::*;
 
 use crate::input::{ConfigHotkey, HotkeyConfig, InputManager, KeyConfig};
 use crate::state::config::key_config_screen::KeyConfigScreen;
-use crate::state::config::library_config_screen::{
-    LibraryConfigResult, LibraryConfigScreen,
-};
+use crate::state::config::library_config_screen::{LibraryConfigResult, LibraryConfigScreen};
 
 /// Available configuration screens.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -21,7 +19,9 @@ pub enum ConfigScreen {
 pub enum ConfigTransition {
     #[default]
     None,
-    Back { rescan: bool },
+    Back {
+        rescan: bool,
+    },
 }
 
 /// Configuration screen state.

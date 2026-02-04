@@ -76,18 +76,14 @@ async fn main() {
     };
 
     // Start with select state
-    let select_state = match SelectState::new(
-        input_manager,
-        song_db,
-        score_db,
-        SelectScanRequest::Auto,
-    ) {
-        Ok(state) => state,
-        Err(e) => {
-            error!("Failed to create select state: {}", e);
-            return;
-        }
-    };
+    let select_state =
+        match SelectState::new(input_manager, song_db, score_db, SelectScanRequest::Auto) {
+            Ok(state) => state,
+            Err(e) => {
+                error!("Failed to create select state: {}", e);
+                return;
+            }
+        };
 
     let mut app_state = AppState::Select(Box::new(select_state));
     let hotkeys = HotkeyConfig::load().unwrap_or_else(|e| {
@@ -389,10 +385,7 @@ async fn apply_play_skin(play_state: &mut PlayState) {
 
     match SkinRenderer::load(path).await {
         Ok(renderer) => play_state.set_skin_renderer(renderer),
-        Err(e) => warn!(
-            "Failed to load skin: {} / スキンの読み込みに失敗: {}",
-            e, e
-        ),
+        Err(e) => warn!("Failed to load skin: {} / スキンの読み込みに失敗: {}", e, e),
     }
 }
 
