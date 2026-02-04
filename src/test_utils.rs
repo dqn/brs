@@ -152,7 +152,11 @@ pub mod builders {
     }
 
     /// Create a simple chart with normal notes for testing.
-    pub fn create_simple_chart(note_count: usize, lane: Lane, interval_ms: f64) -> Vec<NoteWithIndex> {
+    pub fn create_simple_chart(
+        note_count: usize,
+        lane: Lane,
+        interval_ms: f64,
+    ) -> Vec<NoteWithIndex> {
         let mut builder = ChartBuilder::new();
         for i in 0..note_count {
             let time_ms = (i as f64) * interval_ms;
@@ -163,7 +167,9 @@ pub mod builders {
 
     /// Create a chart with a single long note for testing.
     pub fn create_ln_chart(lane: Lane, start_ms: f64, end_ms: f64) -> Vec<NoteWithIndex> {
-        ChartBuilder::new().long_note(lane, start_ms, end_ms).build()
+        ChartBuilder::new()
+            .long_note(lane, start_ms, end_ms)
+            .build()
     }
 }
 

@@ -433,10 +433,10 @@ impl JudgeManager {
     }
 }
 
-/// Return the worse of two judge ranks.
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_judge_window_sevenkeys() {
@@ -710,5 +710,69 @@ mod tests {
 
         assert_eq!(manager.fast_count(), 1);
         assert_eq!(manager.slow_count(), 1);
+    }
+
+    proptest! {
+        /// Test LN release timing produces correct judgments at boundaries.
+        #[test]
+        fn ln_release_boundary_timing(
+            release_offset in -250.0..250.0_f64,
+        ) {
+            let ln_start = 1000.0;
+            let ln_end = 2000.0;
+            let notes = create_ln_notes(Lane::Key1, ln_start, ln_end);
+            let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+            // Press perfectly at start
+            manager.judge_press(Lane::Key1, ln_start, &notes);
+
+            // Release with offset
+            let release_time = ln_end + release_offset;
+            let result = manager.judge_release(Lane::Key1, release_time, &notes);
+
+            prop_assert!(result.is_some(), "Release should produce a judgment");
+            let result = result.unwrap();
+
+            let diff_abs = release_offset.abs();
+            let expected_rank = if diff_abs <= 20.0 {
+                JudgeRank::PerfectGreat
+            } else if diff_abs <= 50.0 {
+                JudgeRank::Great
+            } else if diff_abs <= 100.0 {
+                JudgeRank::Good
+            } else if diff_abs <= 150.0 {
+                JudgeRank::Bad
+            } else if diff_abs <= 200.0 {
+                JudgeRank::Poor
+            } else {
+                JudgeRank::Miss
+            };
+
+            prop_assert_eq!(
+                result.rank, expected_rank,
+                "At offset {}, expected {:?} but got {:?}",
+                release_offset, expected_rank, result.rank
+            );
+        }
+
+        /// Test that LN duration doesn't affect start judgment.
+        #[test]
+        fn ln_start_judgment_independent_of_duration(
+            duration in 100.0..5000.0_f64,
+            press_offset in -200.0..200.0_f64,
+        ) {
+            let ln_start = 1000.0;
+            let ln_end = ln_start + duration;
+            let notes = create_ln_notes(Lane::Key1, ln_start, ln_end);
+            let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+            let press_time = ln_start + press_offset;
+            let result = manager.judge_press(Lane::Key1, press_time, &notes);
+
+            let diff_abs = press_offset.abs();
+            if diff_abs <= 200.0 {
+                prop_assert!(result.is_some());
+            }
+        }
     }
 }
