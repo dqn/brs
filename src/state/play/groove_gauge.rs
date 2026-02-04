@@ -176,7 +176,7 @@ impl GaugeProperty {
 /// Groove gauge that tracks player health during gameplay.
 pub struct GrooveGauge {
     property: GaugeProperty,
-    value: f64,
+    pub value: f64,
     #[allow(dead_code)]
     total: f64,
     #[allow(dead_code)]
@@ -340,6 +340,7 @@ impl GrooveGauge {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_normal_gauge_initial_value() {
@@ -408,5 +409,254 @@ mod tests {
             gauge.update(JudgeRank::PerfectGreat);
         }
         assert_eq!(gauge.value(), 100.0);
+    }
+
+    #[test]
+    fn test_class_gauge_initial_value() {
+        let gauge = GrooveGauge::class(200.0, 1000);
+        assert_eq!(gauge.value(), 100.0);
+        assert_eq!(gauge.border(), 0.0);
+        assert_eq!(gauge.gauge_type(), GaugeType::Class);
+    }
+
+    #[test]
+    fn test_class_gauge_with_initial() {
+        let gauge = GrooveGauge::class_with_initial(200.0, 1000, 50.0);
+        assert_eq!(gauge.value(), 50.0);
+    }
+
+    #[test]
+    fn test_class_gauge_with_initial_clamp() {
+        let gauge = GrooveGauge::class_with_initial(200.0, 1000, 150.0);
+        assert_eq!(gauge.value(), 100.0);
+
+        let gauge = GrooveGauge::class_with_initial(200.0, 1000, -50.0);
+        assert_eq!(gauge.value(), 0.0);
+    }
+
+    #[test]
+    fn test_mine_damage() {
+        let mut gauge = GrooveGauge::normal(200.0, 1000);
+        let initial = gauge.value();
+
+        gauge.apply_mine_damage(10.0);
+        assert_eq!(gauge.value(), initial - 10.0);
+
+        // Negative damage should be treated as positive
+        gauge.apply_mine_damage(-5.0);
+        assert_eq!(gauge.value(), initial - 15.0);
+    }
+
+    #[test]
+    fn test_gauge_reset() {
+        let mut gauge = GrooveGauge::normal(200.0, 1000);
+
+        // Change the value
+        for _ in 0..50 {
+            gauge.update(JudgeRank::PerfectGreat);
+        }
+        assert!(gauge.value() > 20.0);
+
+        // Reset
+        gauge.reset();
+        assert_eq!(gauge.value(), 20.0);
+    }
+
+    #[test]
+    fn test_gauge_ratio() {
+        let gauge = GrooveGauge::normal(200.0, 1000);
+        assert_eq!(gauge.ratio(), 0.2); // 20 / 100
+
+        let hard = GrooveGauge::hard(200.0, 1000);
+        assert_eq!(hard.ratio(), 1.0); // 100 / 100
+    }
+
+    #[test]
+    fn test_exhard_gauge_no_guts() {
+        let mut gauge = GrooveGauge::exhard(200.0, 1000);
+        gauge.value = 50.0;
+
+        let initial = gauge.value();
+        gauge.update(JudgeRank::Bad);
+
+        // ExHard has no guts, so full damage
+        let decrease = initial - gauge.value();
+        assert!((decrease - 8.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_hazard_gauge_instant_death() {
+        let mut gauge = GrooveGauge::hazard(200.0, 1000);
+        assert!(!gauge.is_dead());
+
+        gauge.update(JudgeRank::Bad);
+        assert!(gauge.is_dead());
+    }
+
+    #[test]
+    fn test_assist_easy_gauge() {
+        let gauge = GrooveGauge::assist_easy(200.0, 1000);
+        assert_eq!(gauge.gauge_type(), GaugeType::AssistEasy);
+        assert_eq!(gauge.border(), 60.0);
+    }
+
+    #[test]
+    fn test_light_assist_easy_gauge() {
+        let gauge = GrooveGauge::light_assist_easy(200.0, 1000);
+        assert_eq!(gauge.gauge_type(), GaugeType::LightAssistEasy);
+        assert_eq!(gauge.border(), 70.0);
+    }
+
+    #[test]
+    fn test_easy_gauge() {
+        let gauge = GrooveGauge::easy(200.0, 1000);
+        assert_eq!(gauge.gauge_type(), GaugeType::Easy);
+        assert_eq!(gauge.border(), 80.0);
+    }
+
+    #[test]
+    fn test_normal_gauge_is_not_dead() {
+        let mut gauge = GrooveGauge::normal(200.0, 100);
+
+        // Normal gauge cannot "die"
+        for _ in 0..100 {
+            gauge.update(JudgeRank::Miss);
+        }
+        assert!(!gauge.is_dead());
+        assert!(gauge.value() >= 2.0); // Min value
+    }
+
+    fn judge_rank_strategy() -> impl Strategy<Value = JudgeRank> {
+        prop_oneof![
+            Just(JudgeRank::PerfectGreat),
+            Just(JudgeRank::Great),
+            Just(JudgeRank::Good),
+            Just(JudgeRank::Bad),
+            Just(JudgeRank::Poor),
+            Just(JudgeRank::Miss),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn gauge_value_always_in_bounds(
+            ranks in proptest::collection::vec(judge_rank_strategy(), 0..100)
+        ) {
+            let mut gauge = GrooveGauge::normal(200.0, 1000);
+
+            for rank in ranks {
+                gauge.update(rank);
+                prop_assert!(
+                    gauge.value() >= 2.0,
+                    "Gauge value {} should be >= min (2.0)",
+                    gauge.value()
+                );
+                prop_assert!(
+                    gauge.value() <= 100.0,
+                    "Gauge value {} should be <= max (100.0)",
+                    gauge.value()
+                );
+            }
+        }
+
+        #[test]
+        fn hard_gauge_value_always_in_bounds(
+            ranks in proptest::collection::vec(judge_rank_strategy(), 0..100)
+        ) {
+            let mut gauge = GrooveGauge::hard(200.0, 1000);
+
+            for rank in ranks {
+                gauge.update(rank);
+                prop_assert!(
+                    gauge.value() >= 0.0,
+                    "Hard gauge value {} should be >= 0",
+                    gauge.value()
+                );
+                prop_assert!(
+                    gauge.value() <= 100.0,
+                    "Hard gauge value {} should be <= 100",
+                    gauge.value()
+                );
+            }
+        }
+
+        #[test]
+        fn guts_reduces_damage_at_low_gauge(
+            initial in 5.0..50.0_f64,
+        ) {
+            let mut gauge = GrooveGauge::hard(200.0, 1000);
+            gauge.value = initial;
+
+            let value_before = gauge.value();
+            gauge.update(JudgeRank::Bad);
+            let actual_damage = value_before - gauge.value();
+
+            // Base damage for Bad in hard gauge is 5.0
+            let base_damage = 5.0;
+
+            // If below guts thresholds, damage should be reduced
+            if initial < 10.0 {
+                // 40% multiplier
+                prop_assert!(
+                    (actual_damage - base_damage * 0.4).abs() < 0.01,
+                    "At gauge {}, expected damage {}, got {}",
+                    initial,
+                    base_damage * 0.4,
+                    actual_damage
+                );
+            } else if initial < 20.0 {
+                // 50% multiplier
+                prop_assert!(
+                    (actual_damage - base_damage * 0.5).abs() < 0.01,
+                    "At gauge {}, expected damage {}, got {}",
+                    initial,
+                    base_damage * 0.5,
+                    actual_damage
+                );
+            }
+        }
+
+        #[test]
+        fn total_affects_increase_rate(
+            total in 100.0..500.0_f64,
+            total_notes in 100usize..2000,
+        ) {
+            let mut gauge = GrooveGauge::normal(total, total_notes);
+            let initial = gauge.value();
+
+            gauge.update(JudgeRank::PerfectGreat);
+            let increase = gauge.value() - initial;
+
+            // Expected: base_modifier * (total / total_notes)
+            let expected = 1.0 * (total / total_notes as f64);
+            prop_assert!(
+                (increase - expected).abs() < 0.001,
+                "Expected increase {}, got {}",
+                expected,
+                increase
+            );
+        }
+
+        #[test]
+        fn class_gauge_guts_same_as_hard(
+            initial in 5.0..50.0_f64,
+        ) {
+            let mut hard_gauge = GrooveGauge::hard(200.0, 1000);
+            let mut class_gauge = GrooveGauge::class(200.0, 1000);
+
+            hard_gauge.value = initial;
+            class_gauge.value = initial;
+
+            hard_gauge.update(JudgeRank::Bad);
+            class_gauge.update(JudgeRank::Bad);
+
+            // Class gauge should behave the same as hard gauge
+            prop_assert!(
+                (hard_gauge.value() - class_gauge.value()).abs() < 0.001,
+                "Hard gauge {} should equal class gauge {}",
+                hard_gauge.value(),
+                class_gauge.value()
+            );
+        }
     }
 }

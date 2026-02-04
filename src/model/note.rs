@@ -272,3 +272,191 @@ impl Note {
         matches!(self.note_type, NoteType::LongStart)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lane_all_returns_all_16_lanes() {
+        let all = Lane::all();
+        assert_eq!(all.len(), 16);
+        assert_eq!(all[0], Lane::Scratch);
+        assert_eq!(all[15], Lane::Key14);
+    }
+
+    #[test]
+    fn test_lane_all_7k_returns_1p_lanes() {
+        let lanes = Lane::all_7k();
+        assert_eq!(lanes.len(), 8);
+        assert_eq!(lanes[0], Lane::Scratch);
+        assert_eq!(lanes[7], Lane::Key7);
+
+        for lane in lanes {
+            assert!(lane.is_1p());
+            assert!(!lane.is_2p());
+        }
+    }
+
+    #[test]
+    fn test_lane_all_14k_returns_all_lanes() {
+        let lanes = Lane::all_14k();
+        assert_eq!(lanes.len(), 16);
+
+        // First 8 are 1P
+        for lane in &lanes[0..8] {
+            assert!(lane.is_1p(), "{:?} should be 1P", lane);
+        }
+        // Last 8 are 2P
+        for lane in &lanes[8..16] {
+            assert!(lane.is_2p(), "{:?} should be 2P", lane);
+        }
+    }
+
+    #[test]
+    fn test_lane_all_2p_returns_2p_lanes() {
+        let lanes = Lane::all_2p();
+        assert_eq!(lanes.len(), 8);
+        assert_eq!(lanes[0], Lane::Scratch2);
+        assert_eq!(lanes[7], Lane::Key14);
+
+        for lane in lanes {
+            assert!(lane.is_2p());
+            assert!(!lane.is_1p());
+        }
+    }
+
+    #[test]
+    fn test_lane_index_round_trip() {
+        for lane in Lane::all() {
+            let index = lane.index();
+            let recovered = Lane::from_index(index);
+            assert_eq!(recovered, Some(*lane), "Round-trip failed for {:?}", lane);
+        }
+    }
+
+    #[test]
+    fn test_lane_from_index_invalid() {
+        assert_eq!(Lane::from_index(16), None);
+        assert_eq!(Lane::from_index(100), None);
+        assert_eq!(Lane::from_index(usize::MAX), None);
+    }
+
+    #[test]
+    fn test_lane_is_key() {
+        assert!(!Lane::Scratch.is_key());
+        assert!(!Lane::Scratch2.is_key());
+
+        for lane in Lane::keys_7k() {
+            assert!(lane.is_key(), "{:?} should be a key", lane);
+        }
+
+        // 2P keys should also be keys
+        assert!(Lane::Key8.is_key());
+        assert!(Lane::Key14.is_key());
+    }
+
+    #[test]
+    fn test_lane_is_scratch() {
+        assert!(Lane::Scratch.is_scratch());
+        assert!(Lane::Scratch2.is_scratch());
+
+        for lane in Lane::keys_7k() {
+            assert!(!lane.is_scratch(), "{:?} should not be scratch", lane);
+        }
+    }
+
+    #[test]
+    fn test_lane_keys_7k() {
+        let keys = Lane::keys_7k();
+        assert_eq!(keys.len(), 7);
+
+        for lane in keys {
+            assert!(lane.is_key());
+            assert!(!lane.is_scratch());
+            assert!(lane.is_1p());
+        }
+
+        // Should not include scratch
+        assert!(!keys.contains(&Lane::Scratch));
+    }
+
+    #[test]
+    fn test_lane_indices_are_sequential() {
+        let all = Lane::all();
+        for (expected_index, lane) in all.iter().enumerate() {
+            assert_eq!(
+                lane.index(),
+                expected_index,
+                "{:?} should have index {}",
+                lane,
+                expected_index
+            );
+        }
+    }
+
+    #[test]
+    fn test_lane_ordering() {
+        // Lanes should be orderable (used for sorting)
+        assert!(Lane::Scratch < Lane::Key1);
+        assert!(Lane::Key7 < Lane::Scratch2);
+        assert!(Lane::Scratch2 < Lane::Key8);
+    }
+
+    #[test]
+    fn test_note_normal_creation() {
+        let note = Note::normal(Lane::Key1, 1000.0, 42);
+        assert_eq!(note.lane, Lane::Key1);
+        assert_eq!(note.start_time_ms, 1000.0);
+        assert_eq!(note.end_time_ms, None);
+        assert_eq!(note.wav_id, 42);
+        assert_eq!(note.note_type, NoteType::Normal);
+        assert!(!note.is_long());
+    }
+
+    #[test]
+    fn test_note_long_start_creation() {
+        let note = Note::long_start(Lane::Key2, 1000.0, 2000.0, 42);
+        assert_eq!(note.lane, Lane::Key2);
+        assert_eq!(note.start_time_ms, 1000.0);
+        assert_eq!(note.end_time_ms, Some(2000.0));
+        assert_eq!(note.note_type, NoteType::LongStart);
+        assert!(note.is_long());
+    }
+
+    #[test]
+    fn test_note_long_end_creation() {
+        let note = Note::long_end(Lane::Key2, 2000.0, 42);
+        assert_eq!(note.lane, Lane::Key2);
+        assert_eq!(note.start_time_ms, 2000.0);
+        assert_eq!(note.end_time_ms, None);
+        assert_eq!(note.note_type, NoteType::LongEnd);
+        assert!(!note.is_long()); // LongEnd is not considered "long" itself
+    }
+
+    #[test]
+    fn test_note_mine_creation() {
+        let note = Note::mine(Lane::Key3, 1500.0, 50.0);
+        assert_eq!(note.lane, Lane::Key3);
+        assert_eq!(note.start_time_ms, 1500.0);
+        assert_eq!(note.note_type, NoteType::Mine);
+        assert_eq!(note.mine_damage, Some(50.0));
+        assert_eq!(note.wav_id, 0);
+    }
+
+    #[test]
+    fn test_note_invisible_creation() {
+        let note = Note::invisible(Lane::Key4, 1200.0, 42);
+        assert_eq!(note.lane, Lane::Key4);
+        assert_eq!(note.start_time_ms, 1200.0);
+        assert_eq!(note.note_type, NoteType::Invisible);
+        assert_eq!(note.wav_id, 42);
+    }
+
+    #[test]
+    fn test_note_type_equality() {
+        assert_eq!(NoteType::Normal, NoteType::Normal);
+        assert_ne!(NoteType::Normal, NoteType::LongStart);
+        assert_ne!(NoteType::LongStart, NoteType::LongEnd);
+    }
+}

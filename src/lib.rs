@@ -11,3 +11,6 @@ pub mod replay;
 pub mod skin;
 pub mod state;
 pub mod util;
+
+#[cfg(test)]
+mod test_utils;
