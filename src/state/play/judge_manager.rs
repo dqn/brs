@@ -474,4 +474,241 @@ mod tests {
         assert!(!JudgeRank::Poor.continues_combo());
         assert!(!JudgeRank::Miss.continues_combo());
     }
+
+    // Helper to create a simple LN chart with start and end notes
+    fn create_ln_notes(lane: Lane, start_ms: f64, end_ms: f64) -> Vec<NoteWithIndex> {
+        let ln_start = Note {
+            lane,
+            start_time_ms: start_ms,
+            end_time_ms: Some(end_ms),
+            wav_id: 1,
+            note_type: NoteType::LongStart,
+            mine_damage: None,
+        };
+        let ln_end = Note {
+            lane,
+            start_time_ms: end_ms,
+            end_time_ms: None,
+            wav_id: 1,
+            note_type: NoteType::LongEnd,
+            mine_damage: None,
+        };
+        vec![
+            NoteWithIndex {
+                index: 0,
+                note: ln_start,
+            },
+            NoteWithIndex {
+                index: 1,
+                note: ln_end,
+            },
+        ]
+    }
+
+    #[test]
+    fn test_ln_chart_has_long_end_note() {
+        let notes = create_ln_notes(Lane::Key1, 1000.0, 2000.0);
+
+        assert_eq!(notes.len(), 2);
+        assert_eq!(notes[0].note.note_type, NoteType::LongStart);
+        assert_eq!(notes[0].note.end_time_ms, Some(2000.0));
+        assert_eq!(notes[1].note.note_type, NoteType::LongEnd);
+        assert_eq!(notes[1].note.start_time_ms, 2000.0);
+    }
+
+    #[test]
+    fn test_ln_press_starts_holding() {
+        let notes = create_ln_notes(Lane::Key1, 1000.0, 2000.0);
+        let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+        // Press at the start of LN
+        let result = manager.judge_press(Lane::Key1, 1000.0, &notes);
+
+        // CN mode should return a result for the press
+        assert!(result.is_some());
+        let result = result.unwrap();
+        assert_eq!(result.rank, JudgeRank::PerfectGreat);
+        assert_eq!(result.note_index, 0);
+
+        // The LN start should be marked as judged
+        assert!(manager.is_judged(0));
+        // The LN end should NOT be judged yet
+        assert!(!manager.is_judged(1));
+    }
+
+    #[test]
+    fn test_ln_mode_press_returns_none() {
+        let notes = create_ln_notes(Lane::Key1, 1000.0, 2000.0);
+        let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Ln);
+
+        // In LN mode, press should return None (judgment at release)
+        let result = manager.judge_press(Lane::Key1, 1000.0, &notes);
+        assert!(result.is_none());
+
+        // But the note should still be tracked as holding
+        assert!(manager.is_judged(0));
+    }
+
+    #[test]
+    fn test_ln_release_judgment_perfect() {
+        let notes = create_ln_notes(Lane::Key1, 1000.0, 2000.0);
+        let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+        // Press at LN start
+        manager.judge_press(Lane::Key1, 1000.0, &notes);
+
+        // Release exactly at LN end
+        let result = manager.judge_release(Lane::Key1, 2000.0, &notes);
+
+        assert!(result.is_some());
+        let result = result.unwrap();
+        assert_eq!(result.rank, JudgeRank::PerfectGreat);
+        assert_eq!(result.note_index, 1); // LN end index
+
+        // Both notes should be judged
+        assert!(manager.is_judged(0));
+        assert!(manager.is_judged(1));
+    }
+
+    #[test]
+    fn test_ln_early_release_great() {
+        let notes = create_ln_notes(Lane::Key1, 1000.0, 2000.0);
+        let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+        manager.judge_press(Lane::Key1, 1000.0, &notes);
+
+        // Release 30ms early (within Great window)
+        let result = manager.judge_release(Lane::Key1, 1970.0, &notes);
+
+        assert!(result.is_some());
+        let result = result.unwrap();
+        assert_eq!(result.rank, JudgeRank::Great);
+    }
+
+    #[test]
+    fn test_ln_very_early_release_miss() {
+        let notes = create_ln_notes(Lane::Key1, 1000.0, 2000.0);
+        let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+        manager.judge_press(Lane::Key1, 1000.0, &notes);
+
+        // Release way too early (more than 200ms)
+        let result = manager.judge_release(Lane::Key1, 1700.0, &notes);
+
+        assert!(result.is_some());
+        let result = result.unwrap();
+        assert_eq!(result.rank, JudgeRank::Miss);
+    }
+
+    #[test]
+    fn test_ln_late_release_good() {
+        let notes = create_ln_notes(Lane::Key1, 1000.0, 2000.0);
+        let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+        manager.judge_press(Lane::Key1, 1000.0, &notes);
+
+        // Release 60ms late (within Good window)
+        let result = manager.judge_release(Lane::Key1, 2060.0, &notes);
+
+        assert!(result.is_some());
+        let result = result.unwrap();
+        assert_eq!(result.rank, JudgeRank::Good);
+    }
+
+    #[test]
+    fn test_ln_miss_without_press() {
+        let notes = create_ln_notes(Lane::Key1, 1000.0, 2000.0);
+        let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+        // Don't press, just check for misses after the start time
+        let misses = manager.check_misses(1300.0, &notes);
+
+        // LN start should be missed
+        assert_eq!(misses.len(), 1);
+        assert_eq!(misses[0].rank, JudgeRank::Miss);
+        assert_eq!(misses[0].note_index, 0);
+
+        // LN end should also be marked as judged (auto-failed with start)
+        assert!(manager.is_judged(1));
+    }
+
+    #[test]
+    fn test_ln_end_miss_when_held_too_long() {
+        let notes = create_ln_notes(Lane::Key1, 1000.0, 2000.0);
+        let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+        // Press at LN start
+        manager.judge_press(Lane::Key1, 1000.0, &notes);
+
+        // Hold past the miss threshold without releasing
+        let misses = manager.check_misses(2300.0, &notes);
+
+        // LN end should be missed
+        assert_eq!(misses.len(), 1);
+        assert_eq!(misses[0].rank, JudgeRank::Miss);
+        assert_eq!(misses[0].note_index, 1);
+    }
+
+    #[test]
+    fn test_release_without_hold_returns_none() {
+        let notes = create_ln_notes(Lane::Key1, 1000.0, 2000.0);
+        let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+        // Try to release without pressing first
+        let result = manager.judge_release(Lane::Key1, 2000.0, &notes);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_judge_window_from_rank_very_hard() {
+        let window = JudgeWindow::from_rank(0, JudgeRankType::BmsRank);
+        // RANK 0 (VERY HARD) = 0.7x scale
+        assert!((window.pg - 14.0).abs() < 0.01);
+        assert!((window.gr - 35.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_judge_window_from_rank_easy() {
+        let window = JudgeWindow::from_rank(3, JudgeRankType::BmsRank);
+        // RANK 3 (EASY) = 1.2x scale
+        assert!((window.pg - 24.0).abs() < 0.01);
+        assert!((window.gr - 60.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_judge_window_from_defexrank() {
+        let window = JudgeWindow::from_rank(150, JudgeRankType::BmsDefExRank);
+        // DEFEXRANK 150 = 1.5x scale
+        assert!((window.pg - 30.0).abs() < 0.01);
+        assert!((window.gr - 75.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_fast_slow_counting() {
+        let notes: Vec<NoteWithIndex> = (0..5)
+            .map(|i| NoteWithIndex {
+                index: i,
+                note: Note {
+                    lane: Lane::Key1,
+                    start_time_ms: (i as f64) * 500.0,
+                    end_time_ms: None,
+                    wav_id: 1,
+                    note_type: NoteType::Normal,
+                    mine_damage: None,
+                },
+            })
+            .collect();
+
+        let mut manager = JudgeManager::new(JudgeWindow::sevenkeys(), LongNoteMode::Cn);
+
+        // Press early (fast)
+        manager.judge_press(Lane::Key1, -30.0, &notes); // 30ms early
+        // Press late (slow)
+        manager.judge_press(Lane::Key1, 530.0, &notes); // 30ms late
+        // Press perfect
+        manager.judge_press(Lane::Key1, 1000.0, &notes); // exact
+
+        assert_eq!(manager.fast_count(), 1);
+        assert_eq!(manager.slow_count(), 1);
+    }
 }

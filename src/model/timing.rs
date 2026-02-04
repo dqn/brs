@@ -348,6 +348,7 @@ impl TimingEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
     use std::time::Duration;
 
     fn make_bms_with_bpm_change() -> Bms {
@@ -561,5 +562,221 @@ mod tests {
         ));
 
         assert!((later - 3500.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn timing_engine_multiple_bpm_changes_in_same_measure() {
+        let mut bms = Bms::default();
+        bms.bpm.bpm = Some(Decimal::from(120));
+        let prompt = AlwaysUseNewer;
+
+        // First BPM change at 1/4
+        bms.bpm
+            .push_bpm_change(
+                BpmChangeObj {
+                    time: ObjTime::new(
+                        0,
+                        1,
+                        NonZeroU64::new(4).expect("4 should be a valid NonZeroU64"),
+                    ),
+                    bpm: Decimal::from(60),
+                },
+                &prompt,
+            )
+            .expect("bpm change should be registered");
+
+        // Second BPM change at 3/4
+        bms.bpm
+            .push_bpm_change(
+                BpmChangeObj {
+                    time: ObjTime::new(
+                        0,
+                        3,
+                        NonZeroU64::new(4).expect("4 should be a valid NonZeroU64"),
+                    ),
+                    bpm: Decimal::from(240),
+                },
+                &prompt,
+            )
+            .expect("bpm change should be registered");
+
+        let timing = TimingEngine::new(&bms);
+
+        // At BPM 120: 0 to 1/4 = 500ms
+        let quarter = timing.objtime_to_ms(ObjTime::new(
+            0,
+            1,
+            NonZeroU64::new(4).expect("4 should be a valid NonZeroU64"),
+        ));
+        assert!((quarter - 500.0).abs() < 0.01);
+
+        // At BPM 60: 1/4 to 3/4 = 2000ms (half a measure at 60 BPM)
+        let three_quarter = timing.objtime_to_ms(ObjTime::new(
+            0,
+            3,
+            NonZeroU64::new(4).expect("4 should be a valid NonZeroU64"),
+        ));
+        assert!((three_quarter - 2500.0).abs() < 0.01);
+
+        // At BPM 240: 3/4 to end = 250ms (quarter measure at 240 BPM)
+        let end = timing.objtime_to_ms(ObjTime::new(
+            0,
+            1,
+            NonZeroU64::new(1).expect("1 should be a valid NonZeroU64"),
+        ));
+        assert!((end - 2750.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn timing_engine_bpm_at_returns_correct_bpm() {
+        let bms = make_bms_with_bpm_change();
+        let timing = TimingEngine::new(&bms);
+
+        // Before BPM change
+        let bpm_start = timing.bpm_at(ObjTime::new(
+            0,
+            0,
+            NonZeroU64::new(1).expect("1 should be a valid NonZeroU64"),
+        ));
+        assert!((bpm_start - 120.0).abs() < 0.01);
+
+        // After BPM change (at exact point)
+        let bpm_half = timing.bpm_at(ObjTime::new(
+            0,
+            1,
+            NonZeroU64::new(2).expect("2 should be a valid NonZeroU64"),
+        ));
+        assert!((bpm_half - 240.0).abs() < 0.01);
+
+        // After BPM change (later in measure)
+        let bpm_later = timing.bpm_at(ObjTime::new(
+            0,
+            3,
+            NonZeroU64::new(4).expect("4 should be a valid NonZeroU64"),
+        ));
+        assert!((bpm_later - 240.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn timing_engine_handles_empty_bms() {
+        let bms = Bms::default();
+        let timing = TimingEngine::new(&bms);
+
+        // Default BPM is 120
+        assert!((timing.initial_bpm() - 120.0).abs() < 0.01);
+
+        // Time at start should be 0
+        let time = timing.objtime_to_ms(ObjTime::new(
+            0,
+            0,
+            NonZeroU64::new(1).expect("1 should be a valid NonZeroU64"),
+        ));
+        assert!(time.abs() < 0.01);
+    }
+
+    proptest! {
+        #[test]
+        fn timing_monotonically_increasing(
+            bpm1 in 30.0..300.0_f64,
+            bpm2 in 30.0..300.0_f64,
+            bpm3 in 30.0..300.0_f64,
+        ) {
+            let mut bms = Bms::default();
+            bms.bpm.bpm = Some(Decimal::try_from(bpm1.to_string().as_str()).unwrap());
+            let prompt = AlwaysUseNewer;
+
+            // Add BPM changes at different points
+            if let Ok(bpm_dec) = Decimal::try_from(bpm2.to_string().as_str()) {
+                let _ = bms.bpm.push_bpm_change(
+                    BpmChangeObj {
+                        time: ObjTime::new(0, 1, NonZeroU64::new(2).unwrap()),
+                        bpm: bpm_dec,
+                    },
+                    &prompt,
+                );
+            }
+            if let Ok(bpm_dec) = Decimal::try_from(bpm3.to_string().as_str()) {
+                let _ = bms.bpm.push_bpm_change(
+                    BpmChangeObj {
+                        time: ObjTime::new(1, 0, NonZeroU64::new(1).unwrap()),
+                        bpm: bpm_dec,
+                    },
+                    &prompt,
+                );
+            }
+
+            let timing = TimingEngine::new(&bms);
+
+            // Check that timing is monotonically increasing
+            let times: Vec<f64> = (0..=8)
+                .map(|i| {
+                    timing.objtime_to_ms(ObjTime::new(
+                        i / 4,
+                        (i % 4) as u64,
+                        NonZeroU64::new(4).unwrap(),
+                    ))
+                })
+                .collect();
+
+            for window in times.windows(2) {
+                prop_assert!(
+                    window[1] >= window[0],
+                    "Timing should be monotonically increasing: {} >= {}",
+                    window[1],
+                    window[0]
+                );
+            }
+        }
+
+        #[test]
+        fn timing_with_section_length_variations(
+            section_len1 in 0.5..2.0_f64,
+            section_len2 in 0.5..2.0_f64,
+        ) {
+            let mut bms = Bms::default();
+            bms.bpm.bpm = Some(Decimal::from(120));
+            let prompt = AlwaysUseNewer;
+
+            // Set section lengths for measures 0 and 1
+            if let Ok(len_dec) = Decimal::try_from(section_len1.to_string().as_str()) {
+                let _ = bms.section_len.push_section_len_change(
+                    SectionLenChangeObj {
+                        track: Track(0),
+                        length: len_dec,
+                    },
+                    &prompt,
+                );
+            }
+            if let Ok(len_dec) = Decimal::try_from(section_len2.to_string().as_str()) {
+                let _ = bms.section_len.push_section_len_change(
+                    SectionLenChangeObj {
+                        track: Track(1),
+                        length: len_dec,
+                    },
+                    &prompt,
+                );
+            }
+
+            let timing = TimingEngine::new(&bms);
+
+            // Times should still be monotonically increasing
+            let t0 = timing.objtime_to_ms(ObjTime::new(0, 0, NonZeroU64::new(1).unwrap()));
+            let t1 = timing.objtime_to_ms(ObjTime::new(1, 0, NonZeroU64::new(1).unwrap()));
+            let t2 = timing.objtime_to_ms(ObjTime::new(2, 0, NonZeroU64::new(1).unwrap()));
+
+            prop_assert!(t0 <= t1, "t0 ({}) should be <= t1 ({})", t0, t1);
+            prop_assert!(t1 <= t2, "t1 ({}) should be <= t2 ({})", t1, t2);
+
+            // Verify the expected duration based on section length
+            // At 120 BPM, a normal measure (section_len=1.0) takes 2000ms
+            let expected_measure0 = 2000.0 * section_len1;
+            let actual_measure0 = t1 - t0;
+            prop_assert!(
+                (actual_measure0 - expected_measure0).abs() < 1.0,
+                "Measure 0 duration: expected {}, got {}",
+                expected_measure0,
+                actual_measure0
+            );
+        }
     }
 }
