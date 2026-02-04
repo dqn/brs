@@ -32,6 +32,7 @@ The application uses an enum-based state machine:
 ```
 Select → Decide → Play → Result
    ↑_______________________↓
+   (Config accessible from Select)
 ```
 
 Each state has:
@@ -39,29 +40,101 @@ Each state has:
 - `draw()` - Render to screen
 - `take_transition()` - Handle state changes
 
-### Directory Structure
-
-Feature-based organization (NOT layer-based):
+### Module Structure
 
 ```
 src/
-├── audio/      # Kira audio engine (keysounds, BGM)
-├── config/     # Application configuration
-├── database/   # SQLite persistence (song.db, score.db)
+├── app/        # Application controller (MainController)
+├── audio/      # Kira audio engine
+│   ├── audio_driver.rs      # Main audio management (dual tracks)
+│   ├── keysound_processor.rs # BGM event playback
+│   ├── sound_pool.rs        # Audio sample caching
+│   └── preview_player.rs    # Song preview for selection
+├── config/     # Application configuration (JSON + serde)
+├── database/   # SQLite persistence
+│   ├── connection.rs   # Database wrapper
+│   ├── song_db.rs      # Song metadata (SHA256-indexed)
+│   ├── score_db.rs     # Player scores
+│   └── scanner.rs      # BMS folder scanning
 ├── input/      # Keyboard + gamepad input
+│   ├── input_manager.rs  # Microsecond-precision timestamps
+│   ├── key_config.rs     # JSON key binding
+│   └── hotkey.rs         # In-game hotkeys
 ├── model/      # BMS data structures
-├── pattern/    # Pattern modifiers (Mirror, Random)
-├── render/     # Note/lane rendering
-├── replay/     # Replay recording/playback
+│   ├── bms_model.rs   # Core BMSModel struct
+│   ├── note.rs        # Note and Lane types
+│   ├── timing.rs      # TimingEngine for sync
+│   └── lane.rs        # LaneLayout and LaneConfig
+├── pattern/    # Pattern modifiers (Mirror, Random, S-Random)
+├── render/     # macroquad-based rendering
+├── replay/     # Replay recording/playback (flate2 compression)
 ├── skin/       # Lua-based skin system
+│   ├── lua/           # MLua 5.4 integration
+│   ├── object/        # SkinObject types
+│   └── font/          # Bitmap font support (FNT)
 ├── state/      # Game state machines
-│   ├── select/
-│   ├── decide/
-│   ├── play/
-│   ├── result/
-│   ├── course/
-│   └── config/
+│   ├── select/   # Song selection with bar manager
+│   ├── decide/   # Loading with resource preparation
+│   ├── play/     # Main gameplay
+│   │   ├── play_state.rs   # Core gameplay logic
+│   │   ├── groove_gauge.rs # 8 gauge types
+│   │   ├── judge_manager.rs # Judgement logic
+│   │   ├── autoplay.rs     # Automatic play mode
+│   │   └── score.rs        # Score tracking
+│   ├── result/   # Results screen
+│   ├── course/   # Dan/Course mode
+│   └── config/   # Configuration screens
 └── util/       # Logging, profiling, errors
+    ├── error.rs    # UserError (bilingual)
+    ├── logging.rs  # Tracing-based logging
+    └── profiler.rs # Feature-gated profiling
+```
+
+## Key Types
+
+### Lane System (`src/model/note.rs`)
+
+- 16 total lanes: `Scratch + Key1-7` (1P) + `Scratch2 + Key8-14` (2P)
+- Helper methods: `Lane::all_7k()`, `Lane::all_14k()`
+- Note types: `Normal`, `LongStart`, `LongEnd`, `Invisible`, `Mine`
+
+### Judge System (`src/state/play/judge_manager.rs`)
+
+```rust
+pub enum JudgeRank {
+    PerfectGreat,  // index 0
+    Great,         // index 1
+    Good,          // index 2
+    Bad,           // index 3
+    Poor,          // index 4
+    Miss,          // index 5
+}
+```
+
+Judge windows (base): PG=20ms, GR=50ms, GD=100ms, BD=150ms, PR=200ms
+
+### Gauge System (`src/state/play/groove_gauge.rs`)
+
+8 gauge types with different behaviors:
+- **Normal gauges** (start at 20%, border at 60-80%): AssistEasy, LightAssistEasy, Easy, Normal
+- **Survival gauges** (start at 100%, border at 0%): Hard, ExHard, Hazard, Class
+
+Guts system: Hard/Class gauges have reduced damage below thresholds (10-50%).
+
+### Clear Types (`src/database/models.rs`)
+
+11-level enum (beatoraja compatible), ordered for comparison:
+```rust
+NoPlay < Failed < AssistEasy < ... < ExHard < FullCombo < Perfect < Max
+```
+
+### Play Modes
+
+```rust
+pub enum Mode {
+    Beat5K = 5, Beat7K = 7, Beat10K = 10, Beat14K = 14,
+    PopN5K = 25, PopN9K = 29,
+}
 ```
 
 ## Coding Conventions
@@ -78,34 +151,81 @@ src/
 - Use transition enums (e.g., `SelectTransition::Decide(Box<SongData>)`)
 - Resources are transferred via Box to avoid copies
 
+### Resource Transfer
+
+Use `std::mem::replace()` for owned types during state transitions:
+```rust
+pub fn take_transition(&mut self) -> SelectTransition {
+    std::mem::replace(&mut self.transition, SelectTransition::None)
+}
+```
+
+### Configuration Pattern
+
+- JSON files with `serde` + `#[serde(default)]` for backward compatibility
+- Graceful fallback to defaults if file missing
+- Files: `config.json`, `hotkey.json`, `favorites.json`
+
 ### Timing Precision
 
-- Microsecond precision for input timestamps
-- Millisecond precision for note timing
+- Microsecond precision for input timestamps (replay recording)
+- Millisecond precision for note timing (gameplay)
 - Critical for audio/input synchronization
+
+### Derive Patterns
+
+- `#[repr(i32)]` on enums for database/beatoraja compatibility
+- `#[default]` variant marker with `derive(Default)`
+- Value types: `Debug, Clone, Copy, PartialEq, Eq`
+
+## Logging & Profiling
+
+- **Logging**: `tracing` crate with daily log rotation to `logs/`
+- **Profiling**: Feature-gated via `#[cfg(feature = "profiling")]`
+
+```bash
+# Run with profiling
+cargo build --features profiling
+```
+
+## Dependencies
+
+| Crate | Purpose |
+|-------|---------|
+| macroquad 0.4 | Graphics/window/input |
+| kira 0.10 | Low-latency audio |
+| bms-rs 0.10 | BMS file parsing |
+| mlua 0.10 | Lua 5.4 scripting (vendored) |
+| gilrs 0.11 | Gamepad support |
+| rusqlite 0.32 | SQLite (bundled) |
+| anyhow | Error handling |
+| serde + serde_json | Configuration |
+| flate2 | Replay compression |
+| tracing | Logging |
 
 ## Testing
 
-### Integration Tests
+### Unit Tests
+
+Co-located in `#[cfg(test)]` modules within source files.
 
 ```bash
 cargo test
 ```
 
 Tests cover:
-- Gauge behavior (all 6 types)
+- Gauge behavior (all 8 types)
 - Score tracking
 - Pattern modifiers
+- Clear type ordering
 
 ### Benchmarks
+
+Criterion-based benchmarks for hot paths:
 
 ```bash
 cargo bench
 ```
-
-Criterion-based benchmarks for:
-- Gauge update performance
-- Judge rank logic
 
 ## Important Notes
 
@@ -125,7 +245,7 @@ UserError::new("File not found", "ファイルが見つかりません")
 
 ### Databases
 
-- `song.db` - Scanned BMS library metadata
+- `song.db` - Scanned BMS library metadata (SHA256 + MD5 keys)
 - `score.db` - Player scores and clear types
 
 ### Replay Format
