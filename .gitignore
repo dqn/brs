@@ -10,3 +10,4 @@ skins/**
 logs/
 score.db
 song.db
+proptest-regressions/
