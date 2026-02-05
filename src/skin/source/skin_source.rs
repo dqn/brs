@@ -150,7 +150,14 @@ impl SkinSourceManager {
         if mapped.contains('*') {
             self.resolve_wildcard_path(&mapped)
         } else {
-            Ok(self.base_dir.join(mapped))
+            let direct = self.base_dir.join(&mapped);
+            if direct.exists() {
+                return Ok(direct);
+            }
+            if let Some(found) = self.resolve_case_insensitive_path(&mapped) {
+                return Ok(found);
+            }
+            Ok(direct)
         }
     }
 
@@ -169,7 +176,14 @@ impl SkinSourceManager {
             return Ok(None);
         }
 
-        Ok(Some(self.base_dir.join(mapped)))
+        let direct = self.base_dir.join(&mapped);
+        if direct.exists() {
+            return Ok(Some(direct));
+        }
+        if let Some(found) = self.resolve_case_insensitive_path(&mapped) {
+            return Ok(Some(found));
+        }
+        Ok(Some(direct))
     }
 
     /// Resolve a wildcard path pattern.
@@ -208,7 +222,9 @@ impl SkinSourceManager {
                     for entry in std::fs::read_dir(base)? {
                         let entry = entry?;
                         let name = entry.file_name().to_string_lossy().to_string();
-                        if !matches_wildcard(&name, component) {
+                        if !matches_wildcard(&name, component)
+                            && !matches_wildcard_case_insensitive(&name, component)
+                        {
                             continue;
                         }
                         let path = entry.path();
@@ -221,7 +237,12 @@ impl SkinSourceManager {
                         }
                     }
                 } else {
-                    let path = base.join(component);
+                    let mut path = base.join(component);
+                    if !path.exists() {
+                        if let Some(found) = find_case_insensitive_entry(base, component) {
+                            path = found;
+                        }
+                    }
                     if is_last {
                         if path.exists() {
                             return Ok(Some(path));
@@ -241,6 +262,32 @@ impl SkinSourceManager {
         }
 
         Ok(None)
+    }
+
+    fn resolve_case_insensitive_path(&self, relative: &str) -> Option<PathBuf> {
+        let mut current = self.base_dir.clone();
+        for component in Path::new(relative).components() {
+            match component {
+                std::path::Component::CurDir => {}
+                std::path::Component::ParentDir => {
+                    current = current.parent()?.to_path_buf();
+                }
+                std::path::Component::Normal(name) => {
+                    let name = name.to_string_lossy();
+                    let direct = current.join(name.as_ref());
+                    if direct.exists() {
+                        current = direct;
+                        continue;
+                    }
+                    let found = find_case_insensitive_entry(&current, name.as_ref())?;
+                    current = found;
+                }
+                _ => {
+                    return None;
+                }
+            }
+        }
+        Some(current)
     }
 
     fn apply_file_map(&self, pattern: &str) -> String {
@@ -355,13 +402,77 @@ fn matches_wildcard(value: &str, pattern: &str) -> bool {
     true
 }
 
+fn matches_wildcard_case_insensitive(value: &str, pattern: &str) -> bool {
+    let value = value.to_lowercase();
+    let pattern = pattern.to_lowercase();
+    matches_wildcard(&value, &pattern)
+}
+
+fn find_case_insensitive_entry(dir: &Path, name: &str) -> Option<PathBuf> {
+    if !dir.is_dir() {
+        return None;
+    }
+    let target = name.to_lowercase();
+    let mut matches = Vec::new();
+    for entry in std::fs::read_dir(dir).ok()? {
+        let entry = entry.ok()?;
+        let entry_name = entry.file_name().to_string_lossy().to_lowercase();
+        if entry_name == target {
+            matches.push(entry.path());
+        }
+    }
+    matches.sort_by(|left, right| {
+        left.file_name()
+            .map(|value| value.to_string_lossy().to_lowercase())
+            .cmp(
+                &right
+                    .file_name()
+                    .map(|value| value.to_string_lossy().to_lowercase()),
+            )
+    });
+    matches.into_iter().next()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
 
     #[test]
     fn test_source_manager_creation() {
         let manager = SkinSourceManager::new(PathBuf::from("skins/ECFN/play"));
         assert!(manager.textures.is_empty());
+    }
+
+    #[test]
+    fn test_resolve_case_insensitive_path() {
+        let dir = tempdir().unwrap();
+        let base = dir.path().join("skin");
+        std::fs::create_dir_all(&base).unwrap();
+        let file_path = base.join("Graph.png");
+        std::fs::write(&file_path, b"test").unwrap();
+
+        let manager = SkinSourceManager::new(base);
+        let resolved = manager.resolve_case_insensitive_path("graph.png").unwrap();
+        let resolved = resolved.canonicalize().unwrap();
+        let expected = file_path.canonicalize().unwrap();
+        assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn test_resolve_case_insensitive_wildcard() {
+        let dir = tempdir().unwrap();
+        let base = dir.path().join("skin");
+        let gauge_dir = base.join("gauge");
+        std::fs::create_dir_all(&gauge_dir).unwrap();
+        let file_path = gauge_dir.join("A.PNG");
+        std::fs::write(&file_path, b"test").unwrap();
+
+        let manager = SkinSourceManager::new(base);
+        let resolved = manager
+            .resolve_wildcard_recursive("gauge/*.png")
+            .unwrap()
+            .unwrap();
+        assert_eq!(resolved, file_path);
     }
 }
