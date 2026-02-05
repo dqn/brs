@@ -686,7 +686,7 @@ async fn run_screenshot_select(output_dir: &str, warmup_frames: u32) {
 }
 
 /// Capture screenshot of play state.
-async fn run_screenshot_play(output_dir: &str, bms_path: &str, _warmup_frames: u32) {
+async fn run_screenshot_play(output_dir: &str, bms_path: &str, warmup_frames: u32) {
     let bms_path = Path::new(bms_path);
     if !bms_path.exists() {
         error!("BMS file not found: {}", bms_path.display());
@@ -753,68 +753,27 @@ async fn run_screenshot_play(output_dir: &str, bms_path: &str, _warmup_frames: u
         GaugeType::Normal,
         1.0,
     );
-    // Temporarily disable skin for debugging - skin resources are missing
-    // apply_play_skin(&mut play_state).await;
+
+    // For screenshot mode, use built-in beatoraja-style renderer
+    // (External skins require texture assets which may not be available)
+    // No skin renderer is set, so draw_beatoraja_ui() will be used
+
     play_state.load_bga(bms_dir).await;
 
     // Simulate time to pass countdown and show notes
     // Run enough frames to get past countdown (3000ms default) and into gameplay
-    let frames_to_simulate = 250; // ~4 seconds at 60fps
-    for _ in 0..frames_to_simulate {
+    let frames_to_simulate = 250 + warmup_frames as usize; // ~4 seconds at 60fps + warmup
+    for i in 0..frames_to_simulate {
         clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
         let _ = play_state.update(16.67); // ~60fps
         play_state.draw();
-        next_frame().await;
-    }
 
-    // Capture screenshot using render target for reliable capture
-    let width = screen_width() as u32;
-    let height = screen_height() as u32;
-    let render_target = render_target(width, height);
-    render_target.texture.set_filter(FilterMode::Nearest);
-
-    // Draw to render target
-    set_camera(&Camera2D {
-        zoom: vec2(2.0 / screen_width(), 2.0 / screen_height()),
-        target: vec2(screen_width() / 2.0, screen_height() / 2.0),
-        render_target: Some(render_target.clone()),
-        ..Default::default()
-    });
-
-    clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
-    let _ = play_state.update(16.67);
-    play_state.draw();
-
-    set_default_camera();
-
-    // Save render target to file
-    let output_path = Path::new(output_dir).join("play.png");
-    if let Some(parent) = output_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-
-    let image_data = render_target.texture.get_texture_data();
-    let img = image::ImageBuffer::<image::Rgba<u8>, _>::from_raw(
-        width,
-        height,
-        image_data.bytes.to_vec(),
-    );
-
-    if let Some(img) = img {
-        let flipped = image::imageops::flip_vertical(&img);
-        match flipped.save(&output_path) {
-            Ok(()) => {
-                info!("Screenshot saved to: {}", output_path.display());
-                println!("Screenshot saved: {}", output_path.display());
-            }
-            Err(e) => {
-                error!("Failed to save screenshot: {}", e);
-                eprintln!("Failed to save screenshot: {}", e);
-            }
+        // Capture screenshot on the last frame before next_frame()
+        if i == frames_to_simulate - 1 {
+            save_screenshot(output_dir, "play.png");
         }
-    } else {
-        error!("Failed to create image buffer from render target");
-        eprintln!("Failed to create image buffer from render target");
+
+        next_frame().await;
     }
 }
 
