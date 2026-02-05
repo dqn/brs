@@ -759,9 +759,9 @@ async fn run_screenshot_play(output_dir: &str, bms_path: &str, warmup_frames: u3
         1.0,
     );
 
-    // For screenshot mode, use built-in beatoraja-style renderer
-    // (External skins require texture assets which may not be available)
-    // No skin renderer is set, so draw_beatoraja_ui() will be used
+    // Try to load configured skin for screenshots; fall back to built-in UI on failure.
+    // スクショ用に設定済みスキンを読み込み、失敗時は内蔵UIにフォールバックする。
+    apply_play_skin(&mut play_state).await;
 
     play_state.load_bga(bms_dir).await;
 
