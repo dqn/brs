@@ -58,7 +58,12 @@ impl SkinSourceManager {
 
     /// Load a texture from a source definition.
     pub async fn load_source(&mut self, id: u32, path_pattern: &str) -> Result<()> {
-        let resolved_path = self.resolve_path(path_pattern)?;
+        let Some(resolved_path) = self.resolve_source_path(path_pattern)? else {
+            return Ok(());
+        };
+        if !resolved_path.exists() {
+            return Ok(());
+        }
 
         let texture = load_texture(&resolved_path.to_string_lossy())
             .await
@@ -147,6 +152,24 @@ impl SkinSourceManager {
         } else {
             Ok(self.base_dir.join(mapped))
         }
+    }
+
+    fn resolve_source_path(&self, pattern: &str) -> Result<Option<PathBuf>> {
+        let mapped = self.apply_file_map(pattern);
+        if mapped.contains('*') {
+            if let Some(path) = self.resolve_wildcard_recursive(&mapped)? {
+                return Ok(Some(path));
+            }
+
+            let direct_path = self.base_dir.join(mapped.replace("/*", ""));
+            if direct_path.exists() {
+                return Ok(Some(direct_path));
+            }
+
+            return Ok(None);
+        }
+
+        Ok(Some(self.base_dir.join(mapped)))
     }
 
     /// Resolve a wildcard path pattern.
