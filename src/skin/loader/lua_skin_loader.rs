@@ -4,6 +4,7 @@ use std::path::Path;
 use anyhow::{Context, Result, anyhow};
 use mlua::{Lua, Table, Value};
 
+use crate::skin::skin_property::*;
 use crate::skin::{
     Destination, FontDef, ImageDef, ImageSetDef, NumberDef, Skin, SkinHeader, SkinObjectData,
     SkinObjectType, SkinSource, SkinType, TextDef,
@@ -18,6 +19,14 @@ impl<T> LuaResultExt<T> for mlua::Result<T> {
     fn to_anyhow(self) -> Result<T> {
         self.map_err(|e| anyhow!("Lua error: {}", e))
     }
+}
+
+/// Temporary holder for judge sub-objects parsed from skin.judge.
+struct JudgeSubObjects {
+    /// Image destination entries (PG, GR, GD, BD, PR, MS).
+    images: Vec<Table>,
+    /// Number destination entries (PG, GR, GD, BD, PR, MS).
+    numbers: Vec<Table>,
 }
 
 /// Lua skin loader for .luaskin files.
@@ -98,7 +107,7 @@ impl LuaSkinLoader {
         Ok(skin)
     }
 
-    fn default_options_from_file(path: &Path) -> Result<HashMap<String, i32>> {
+    pub(crate) fn default_options_from_file(path: &Path) -> Result<HashMap<String, i32>> {
         let loader = LuaSkinLoader::new()?;
         loader.load_default_options(path)
     }
@@ -167,6 +176,26 @@ impl LuaSkinLoader {
         }
 
         Ok(options)
+    }
+
+    fn get_i32(table: &Table, key: &str) -> Option<i32> {
+        if let Ok(value) = table.get::<i32>(key) {
+            return Some(value);
+        }
+        if let Ok(value) = table.get::<f64>(key) {
+            return Some(value as i32);
+        }
+        None
+    }
+
+    fn get_f32(table: &Table, key: &str) -> Option<f32> {
+        if let Ok(value) = table.get::<f32>(key) {
+            return Some(value);
+        }
+        if let Ok(value) = table.get::<f64>(key) {
+            return Some(value as f32);
+        }
+        None
     }
 
     fn setup_lua_path(&self, skin_dir: &Path) -> Result<()> {
@@ -308,15 +337,26 @@ impl LuaSkinLoader {
 
     fn parse_skin(&self, table: &Table, skin_dir: &Path, header: SkinHeader) -> Result<Skin> {
         let mut skin = Skin::new(header);
+        let mut source_name_map = HashMap::new();
 
         // Parse source array
         if let Ok(source_table) = table.get::<Table>("source") {
-            self.parse_sources(&source_table, skin_dir, &mut skin)?;
+            source_name_map = self.parse_sources(&source_table, skin_dir, &mut skin)?;
         }
 
         // Parse image definitions
         if let Ok(image_table) = table.get::<Table>("image") {
-            self.parse_images(&image_table, &mut skin)?;
+            self.parse_images(&image_table, &source_name_map, &mut skin)?;
+        }
+
+        // Parse slider definitions
+        if let Ok(slider_table) = table.get::<Table>("slider") {
+            self.parse_sliders(&slider_table, &source_name_map, &mut skin)?;
+        }
+
+        // Parse graph definitions (treated as static images for now)
+        if let Ok(graph_table) = table.get::<Table>("graph") {
+            self.parse_graphs(&graph_table, &source_name_map, &mut skin)?;
         }
 
         // Parse imageset definitions
@@ -326,7 +366,7 @@ impl LuaSkinLoader {
 
         // Parse value (number) definitions
         if let Ok(value_table) = table.get::<Table>("value") {
-            self.parse_values(&value_table, &mut skin)?;
+            self.parse_values(&value_table, &source_name_map, &mut skin)?;
         }
 
         // Parse font definitions
@@ -339,16 +379,30 @@ impl LuaSkinLoader {
             self.parse_texts(&text_table, &mut skin)?;
         }
 
+        // Parse BGA definitions
+        if let Ok(bga_table) = table.get::<Table>("bga") {
+            self.parse_bga(&bga_table, &mut skin)?;
+        }
+
+        // Parse judge definitions (composite judge objects)
+        let judge_map = if let Ok(judge_table) = table.get::<Table>("judge") {
+            self.parse_judge(&judge_table)?
+        } else {
+            HashMap::new()
+        };
+
         // Parse destination (objects)
         if let Ok(dst_table) = table.get::<Table>("destination") {
-            self.parse_destinations(&dst_table, &mut skin)?;
+            self.parse_destinations(&dst_table, &mut skin, &judge_map)?;
         }
 
         Ok(skin)
     }
 
     fn header_table(&self, table: &Table) -> Table {
-        table.get::<Table>("header").unwrap_or_else(|_| table.clone())
+        table
+            .get::<Table>("header")
+            .unwrap_or_else(|_| table.clone())
     }
 
     fn collect_file_map(&self, table: &Table) -> HashMap<String, String> {
@@ -376,20 +430,55 @@ impl LuaSkinLoader {
         file_map
     }
 
-    fn parse_sources(&self, table: &Table, _skin_dir: &Path, skin: &mut Skin) -> Result<()> {
+    fn parse_sources(
+        &self,
+        table: &Table,
+        _skin_dir: &Path,
+        skin: &mut Skin,
+    ) -> Result<HashMap<String, u32>> {
+        let mut numeric_entries = Vec::new();
+        let mut named_entries: Vec<(String, String)> = Vec::new();
+        let mut max_numeric_id = 0u32;
+
         for pair in table.pairs::<Value, Table>() {
             let (_, src_table) = pair.to_anyhow()?;
-
-            let id: u32 = src_table.get("id").unwrap_or(0);
             let path: String = src_table.get("path").unwrap_or_default();
+            if path.is_empty() {
+                continue;
+            }
 
+            if let Ok(id) = src_table.get::<u32>("id") {
+                max_numeric_id = max_numeric_id.max(id);
+                numeric_entries.push((id, path));
+            } else if let Ok(name) = src_table.get::<String>("id") {
+                named_entries.push((name, path));
+            }
+        }
+
+        for (id, path) in numeric_entries {
             skin.sources.insert(id, SkinSource { id, path });
         }
 
-        Ok(())
+        named_entries.sort_by(|left, right| left.0.cmp(&right.0));
+
+        let mut source_name_map = HashMap::new();
+        let mut next_id = max_numeric_id.saturating_add(1);
+        for (name, path) in named_entries {
+            let id = next_id;
+            next_id = next_id.saturating_add(1);
+            source_name_map.insert(name, id);
+            skin.sources.insert(id, SkinSource { id, path });
+        }
+
+        Ok(source_name_map)
     }
 
-    fn parse_images(&self, table: &Table, skin: &mut Skin) -> Result<()> {
+    fn parse_images(
+        &self,
+        table: &Table,
+        source_name_map: &HashMap<String, u32>,
+        skin: &mut Skin,
+    ) -> Result<()> {
         for pair in table.pairs::<Value, Table>() {
             let (_, img_table) = pair.to_anyhow()?;
 
@@ -397,10 +486,18 @@ impl LuaSkinLoader {
 
             if let Ok(id) = img_table.get::<String>("id") {
                 image_def.id = id;
+            } else if let Ok(id_num) = img_table.get::<i32>("id") {
+                image_def.id = id_num.to_string();
             }
 
             if let Ok(src) = img_table.get::<u32>("src") {
                 image_def.src = src;
+            } else if let Ok(src_name) = img_table.get::<String>("src") {
+                if let Some(id) = source_name_map.get(&src_name) {
+                    image_def.src = *id;
+                } else if let Ok(id) = src_name.parse::<u32>() {
+                    image_def.src = id;
+                }
             }
 
             if let Ok(x) = img_table.get::<i32>("x") {
@@ -443,6 +540,139 @@ impl LuaSkinLoader {
         Ok(())
     }
 
+    fn parse_sliders(
+        &self,
+        table: &Table,
+        source_name_map: &HashMap<String, u32>,
+        skin: &mut Skin,
+    ) -> Result<()> {
+        use crate::skin::SliderDef;
+
+        for pair in table.pairs::<Value, Table>() {
+            let (_, slider_table) = pair.to_anyhow()?;
+
+            let mut slider_def = SliderDef::default();
+
+            if let Ok(id) = slider_table.get::<String>("id") {
+                slider_def.id = id;
+            } else if let Ok(id_num) = slider_table.get::<i32>("id") {
+                slider_def.id = id_num.to_string();
+            }
+
+            if let Ok(src) = slider_table.get::<u32>("src") {
+                slider_def.src = src;
+            } else if let Ok(src_name) = slider_table.get::<String>("src") {
+                if let Some(id) = source_name_map.get(&src_name) {
+                    slider_def.src = *id;
+                } else if let Ok(id) = src_name.parse::<u32>() {
+                    slider_def.src = id;
+                }
+            }
+
+            if let Ok(x) = slider_table.get::<i32>("x") {
+                slider_def.x = x;
+            }
+            if let Ok(y) = slider_table.get::<i32>("y") {
+                slider_def.y = y;
+            }
+            if let Ok(w) = slider_table.get::<i32>("w") {
+                slider_def.w = w;
+            }
+            if let Ok(h) = slider_table.get::<i32>("h") {
+                slider_def.h = h;
+            }
+            if let Ok(divx) = slider_table.get::<i32>("divx") {
+                slider_def.divx = divx;
+            }
+            if let Ok(divy) = slider_table.get::<i32>("divy") {
+                slider_def.divy = divy;
+            }
+            if let Ok(timer) = slider_table.get::<i32>("timer") {
+                slider_def.timer = timer;
+            }
+            if let Ok(cycle) = slider_table.get::<i32>("cycle") {
+                slider_def.cycle = cycle;
+            }
+            if let Ok(angle) = slider_table.get::<i32>("angle") {
+                slider_def.angle = angle;
+            }
+            if let Ok(range) = slider_table.get::<i32>("range") {
+                slider_def.range = range;
+            }
+            if let Ok(slider_type) = slider_table.get::<i32>("type") {
+                slider_def.slider_type = slider_type;
+            }
+            if let Ok(min) = slider_table.get::<i32>("min") {
+                slider_def.min = Some(min);
+            }
+            if let Ok(max) = slider_table.get::<i32>("max") {
+                slider_def.max = Some(max);
+            }
+
+            if !slider_def.id.is_empty() {
+                skin.sliders.insert(slider_def.id.clone(), slider_def);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn parse_graphs(
+        &self,
+        table: &Table,
+        source_name_map: &HashMap<String, u32>,
+        skin: &mut Skin,
+    ) -> Result<()> {
+        for pair in table.pairs::<Value, Table>() {
+            let (_, graph_table) = pair.to_anyhow()?;
+
+            let mut image_def = ImageDef::default();
+
+            if let Ok(id) = graph_table.get::<String>("id") {
+                image_def.id = id;
+            } else if let Ok(id_num) = graph_table.get::<i32>("id") {
+                image_def.id = id_num.to_string();
+            }
+
+            if let Ok(src) = graph_table.get::<u32>("src") {
+                image_def.src = src;
+            } else if let Ok(src_name) = graph_table.get::<String>("src") {
+                if let Some(id) = source_name_map.get(&src_name) {
+                    image_def.src = *id;
+                } else if let Ok(id) = src_name.parse::<u32>() {
+                    image_def.src = id;
+                }
+            }
+
+            if let Ok(x) = graph_table.get::<i32>("x") {
+                image_def.x = x;
+            }
+            if let Ok(y) = graph_table.get::<i32>("y") {
+                image_def.y = y;
+            }
+            if let Ok(w) = graph_table.get::<i32>("w") {
+                image_def.w = w;
+            }
+            if let Ok(h) = graph_table.get::<i32>("h") {
+                image_def.h = h;
+            }
+            if let Ok(timer) = graph_table.get::<i32>("timer") {
+                image_def.timer = timer;
+            }
+
+            // Graph definitions are treated as static images to avoid unintended animation.
+            image_def.divx = 1;
+            image_def.divy = 1;
+            image_def.cycle = 0;
+
+            if !image_def.id.is_empty() {
+                skin.images.insert(image_def.id.clone(), image_def);
+            }
+        }
+
+        Ok(())
+    }
+
     fn parse_imagesets(&self, table: &Table, skin: &mut Skin) -> Result<()> {
         for pair in table.pairs::<Value, Table>() {
             let (_, set_table) = pair.to_anyhow()?;
@@ -451,10 +681,16 @@ impl LuaSkinLoader {
 
             if let Ok(id) = set_table.get::<String>("id") {
                 imageset_def.id = id;
+            } else if let Ok(id_num) = set_table.get::<i32>("id") {
+                imageset_def.id = id_num.to_string();
             }
 
             if let Ok(mode) = set_table.get::<i32>("mode") {
                 imageset_def.mode = mode;
+            }
+
+            if let Ok(ref_id) = set_table.get::<i32>("ref") {
+                imageset_def.ref_id = ref_id;
             }
 
             if let Ok(images) = set_table.get::<Table>("images") {
@@ -477,7 +713,12 @@ impl LuaSkinLoader {
         Ok(())
     }
 
-    fn parse_values(&self, table: &Table, skin: &mut Skin) -> Result<()> {
+    fn parse_values(
+        &self,
+        table: &Table,
+        source_name_map: &HashMap<String, u32>,
+        skin: &mut Skin,
+    ) -> Result<()> {
         for pair in table.pairs::<Value, Table>() {
             let (_, val_table) = pair.to_anyhow()?;
 
@@ -485,10 +726,18 @@ impl LuaSkinLoader {
 
             if let Ok(id) = val_table.get::<String>("id") {
                 number_def.id = id;
+            } else if let Ok(id_num) = val_table.get::<i32>("id") {
+                number_def.id = id_num.to_string();
             }
 
             if let Ok(src) = val_table.get::<u32>("src") {
                 number_def.src = src;
+            } else if let Ok(src_name) = val_table.get::<String>("src") {
+                if let Some(id) = source_name_map.get(&src_name) {
+                    number_def.src = *id;
+                } else if let Ok(id) = src_name.parse::<u32>() {
+                    number_def.src = id;
+                }
             }
 
             if let Ok(x) = val_table.get::<i32>("x") {
@@ -527,7 +776,10 @@ impl LuaSkinLoader {
                 number_def.align = align;
             }
 
-            if let Ok(zeropadding) = val_table.get::<i32>("padding") {
+            if let Ok(padding) = val_table.get::<i32>("padding") {
+                number_def.zeropadding = padding;
+            }
+            if let Ok(zeropadding) = val_table.get::<i32>("zeropadding") {
                 number_def.zeropadding = zeropadding;
             }
 
@@ -577,6 +829,8 @@ impl LuaSkinLoader {
 
             if let Ok(id) = text_table.get::<String>("id") {
                 text_def.id = id;
+            } else if let Ok(id_num) = text_table.get::<i32>("id") {
+                text_def.id = id_num.to_string();
             }
 
             if let Ok(font) = text_table.get::<u32>("font") {
@@ -607,22 +861,101 @@ impl LuaSkinLoader {
         Ok(())
     }
 
-    fn parse_destinations(&self, table: &Table, skin: &mut Skin) -> Result<()> {
-        for pair in table.pairs::<Value, Table>() {
-            let (_, dst_table) = pair.to_anyhow()?;
+    fn parse_bga(&self, table: &Table, skin: &mut Skin) -> Result<()> {
+        if let Ok(id) = table.get::<String>("id") {
+            if !id.is_empty() {
+                skin.bga_ids.insert(id);
+                return Ok(());
+            }
+        }
+
+        if let Ok(id_num) = table.get::<i32>("id") {
+            skin.bga_ids.insert(id_num.to_string());
+            return Ok(());
+        }
+
+        for entry in table.sequence_values::<Table>() {
+            let entry = entry.to_anyhow()?;
+            if let Ok(id) = entry.get::<String>("id") {
+                if !id.is_empty() {
+                    skin.bga_ids.insert(id);
+                }
+                continue;
+            }
+            if let Ok(id_num) = entry.get::<i32>("id") {
+                skin.bga_ids.insert(id_num.to_string());
+            }
+        }
+
+        Ok(())
+    }
+
+    fn parse_judge(&self, table: &Table) -> Result<HashMap<String, JudgeSubObjects>> {
+        let mut judge_map = HashMap::new();
+
+        for entry in table.sequence_values::<Table>() {
+            let entry = entry.to_anyhow()?;
+
+            let id = if let Ok(id) = entry.get::<String>("id") {
+                id
+            } else if let Ok(id_num) = entry.get::<i32>("id") {
+                id_num.to_string()
+            } else {
+                continue;
+            };
+
+            let mut sub = JudgeSubObjects {
+                images: Vec::new(),
+                numbers: Vec::new(),
+            };
+
+            if let Ok(images_table) = entry.get::<Table>("images") {
+                for img in images_table.sequence_values::<Table>() {
+                    sub.images.push(img.to_anyhow()?);
+                }
+            }
+
+            if let Ok(numbers_table) = entry.get::<Table>("numbers") {
+                for num in numbers_table.sequence_values::<Table>() {
+                    sub.numbers.push(num.to_anyhow()?);
+                }
+            }
+
+            judge_map.insert(id, sub);
+        }
+
+        Ok(judge_map)
+    }
+
+    fn parse_destinations(
+        &self,
+        table: &Table,
+        skin: &mut Skin,
+        judge_map: &HashMap<String, JudgeSubObjects>,
+    ) -> Result<()> {
+        for dst_entry in table.sequence_values::<Table>() {
+            let dst_table = dst_entry.to_anyhow()?;
 
             let mut obj_data = SkinObjectData::default();
 
             if let Ok(id) = dst_table.get::<String>("id") {
                 obj_data.id = id.clone();
+            } else if let Ok(id_num) = dst_table.get::<i32>("id") {
+                obj_data.id = id_num.to_string();
+            }
 
+            if !obj_data.id.is_empty() {
                 // Determine object type based on definition type
-                if skin.numbers.contains_key(&id) {
+                if skin.bga_ids.contains(&obj_data.id) {
+                    obj_data.object_type = SkinObjectType::Bga;
+                } else if skin.numbers.contains_key(&obj_data.id) {
                     obj_data.object_type = SkinObjectType::Number;
-                } else if skin.texts.contains_key(&id) {
+                } else if skin.texts.contains_key(&obj_data.id) {
                     obj_data.object_type = SkinObjectType::Text;
-                } else if skin.image_sets.contains_key(&id) {
+                } else if skin.image_sets.contains_key(&obj_data.id) {
                     obj_data.object_type = SkinObjectType::ImageSet;
+                } else if skin.sliders.contains_key(&obj_data.id) {
+                    obj_data.object_type = SkinObjectType::Slider;
                 } else {
                     obj_data.object_type = SkinObjectType::Image;
                 }
@@ -630,43 +963,69 @@ impl LuaSkinLoader {
 
             // Parse op (option conditions)
             if let Ok(op_table) = dst_table.get::<Table>("op") {
-                for pair in op_table.pairs::<Value, i32>() {
-                    let (_, op_id) = pair.to_anyhow()?;
-                    obj_data.op.push(op_id);
+                for pair in op_table.pairs::<Value, Value>() {
+                    let (_, op_value) = pair.to_anyhow()?;
+                    match op_value {
+                        Value::Integer(op_id) => obj_data.op.push(op_id as i32),
+                        Value::Number(op_id) => obj_data.op.push(op_id as i32),
+                        _ => {}
+                    }
                 }
             }
 
-            if let Ok(timer) = dst_table.get::<i32>("timer") {
+            if let Some(timer) = Self::get_i32(&dst_table, "timer") {
                 obj_data.timer = timer;
             }
 
-            if let Ok(loop_count) = dst_table.get::<i32>("loop") {
+            if let Some(loop_count) = Self::get_i32(&dst_table, "loop") {
                 obj_data.loop_count = loop_count;
             }
 
-            if let Ok(offset) = dst_table.get::<i32>("offset") {
+            if let Some(offset) = Self::get_i32(&dst_table, "offset") {
                 obj_data.offset = offset;
             }
 
-            if let Ok(blend) = dst_table.get::<i32>("blend") {
+            if let Ok(offsets_table) = dst_table.get::<Table>("offsets") {
+                for value in offsets_table.sequence_values::<Value>() {
+                    let value = value.to_anyhow()?;
+                    let offset_id = match value {
+                        Value::Integer(id) => Some(id as i32),
+                        Value::Number(id) => Some(id as i32),
+                        _ => None,
+                    };
+                    if let Some(offset_id) = offset_id {
+                        obj_data.offsets.push(offset_id);
+                    }
+                }
+            }
+
+            if let Some(blend) = Self::get_i32(&dst_table, "blend") {
                 obj_data.blend = blend;
             }
 
-            if let Ok(filter) = dst_table.get::<i32>("filter") {
+            if let Some(filter) = Self::get_i32(&dst_table, "filter") {
                 obj_data.filter = filter;
             }
 
-            if let Ok(stretch) = dst_table.get::<i32>("stretch") {
+            if let Some(stretch) = Self::get_i32(&dst_table, "stretch") {
                 obj_data.stretch = stretch;
             }
 
             // Parse dst array (keyframes)
             if let Ok(dst_array) = dst_table.get::<Table>("dst") {
-                for pair in dst_array.pairs::<Value, Table>() {
-                    let (_, keyframe_table) = pair.to_anyhow()?;
+                for keyframe_entry in dst_array.sequence_values::<Table>() {
+                    let keyframe_table = keyframe_entry.to_anyhow()?;
                     let dst = self.parse_destination_keyframe(&keyframe_table)?;
                     obj_data.dst.push(dst);
                 }
+            }
+
+            if !obj_data.id.is_empty() && obj_data.dst.is_empty() {
+                // Expand judge sub-objects if this is a judge placeholder
+                if let Some(judge_sub) = judge_map.get(&obj_data.id) {
+                    self.expand_judge_sub_objects(judge_sub, skin)?;
+                }
+                continue;
             }
 
             if !obj_data.id.is_empty() && !obj_data.dst.is_empty() {
@@ -677,54 +1036,180 @@ impl LuaSkinLoader {
         Ok(())
     }
 
+    /// Option IDs for each judge rank (PG, GR, GD, BD, PR, MS).
+    const JUDGE_OP_IDS: [i32; 6] = [
+        OPTION_1P_PERFECT,
+        OPTION_1P_GREAT,
+        OPTION_1P_GOOD,
+        OPTION_1P_BAD,
+        OPTION_1P_POOR,
+        OPTION_1P_MISS,
+    ];
+
+    fn expand_judge_sub_objects(&self, judge_sub: &JudgeSubObjects, skin: &mut Skin) -> Result<()> {
+        // Expand image sub-objects (one per judge rank)
+        for (i, sub_table) in judge_sub.images.iter().enumerate() {
+            let op_id = Self::JUDGE_OP_IDS.get(i).copied().unwrap_or(0);
+            let mut obj_data = self.parse_sub_object_entry(sub_table, skin)?;
+            obj_data.op.push(op_id);
+            if !obj_data.id.is_empty() && !obj_data.dst.is_empty() {
+                skin.objects.push(obj_data);
+            }
+        }
+
+        // Expand number sub-objects (one per judge rank)
+        for (i, sub_table) in judge_sub.numbers.iter().enumerate() {
+            let op_id = Self::JUDGE_OP_IDS.get(i).copied().unwrap_or(0);
+            let mut obj_data = self.parse_sub_object_entry(sub_table, skin)?;
+            obj_data.op.push(op_id);
+
+            // Override ref to NUMBER_COMBO for judge number display
+            if let Some(num_def) = skin.numbers.get_mut(&obj_data.id) {
+                num_def.ref_id = NUMBER_COMBO;
+            }
+
+            if !obj_data.id.is_empty() && !obj_data.dst.is_empty() {
+                skin.objects.push(obj_data);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Parse a judge sub-object entry (from skin.judge images/numbers arrays)
+    /// into a SkinObjectData, determining object type from the skin definitions.
+    fn parse_sub_object_entry(&self, sub_table: &Table, skin: &Skin) -> Result<SkinObjectData> {
+        let mut obj_data = SkinObjectData::default();
+
+        if let Ok(id) = sub_table.get::<String>("id") {
+            obj_data.id = id;
+        } else if let Ok(id_num) = sub_table.get::<i32>("id") {
+            obj_data.id = id_num.to_string();
+        }
+
+        // Determine object type
+        if !obj_data.id.is_empty() {
+            if skin.numbers.contains_key(&obj_data.id) {
+                obj_data.object_type = SkinObjectType::Number;
+            } else if skin.texts.contains_key(&obj_data.id) {
+                obj_data.object_type = SkinObjectType::Text;
+            } else if skin.image_sets.contains_key(&obj_data.id) {
+                obj_data.object_type = SkinObjectType::ImageSet;
+            } else {
+                obj_data.object_type = SkinObjectType::Image;
+            }
+        }
+
+        // Parse op
+        if let Ok(op_table) = sub_table.get::<Table>("op") {
+            for pair in op_table.pairs::<Value, Value>() {
+                let (_, op_value) = pair.to_anyhow()?;
+                match op_value {
+                    Value::Integer(op_id) => obj_data.op.push(op_id as i32),
+                    Value::Number(op_id) => obj_data.op.push(op_id as i32),
+                    _ => {}
+                }
+            }
+        }
+
+        if let Some(timer) = Self::get_i32(sub_table, "timer") {
+            obj_data.timer = timer;
+        }
+
+        if let Some(loop_count) = Self::get_i32(sub_table, "loop") {
+            obj_data.loop_count = loop_count;
+        }
+
+        if let Some(offset) = Self::get_i32(sub_table, "offset") {
+            obj_data.offset = offset;
+        }
+
+        if let Ok(offsets_table) = sub_table.get::<Table>("offsets") {
+            for value in offsets_table.sequence_values::<Value>() {
+                let value = value.to_anyhow()?;
+                let offset_id = match value {
+                    Value::Integer(id) => Some(id as i32),
+                    Value::Number(id) => Some(id as i32),
+                    _ => None,
+                };
+                if let Some(offset_id) = offset_id {
+                    obj_data.offsets.push(offset_id);
+                }
+            }
+        }
+
+        if let Some(blend) = Self::get_i32(sub_table, "blend") {
+            obj_data.blend = blend;
+        }
+
+        if let Some(filter) = Self::get_i32(sub_table, "filter") {
+            obj_data.filter = filter;
+        }
+
+        if let Some(stretch) = Self::get_i32(sub_table, "stretch") {
+            obj_data.stretch = stretch;
+        }
+
+        // Parse dst array (keyframes)
+        if let Ok(dst_array) = sub_table.get::<Table>("dst") {
+            for keyframe_entry in dst_array.sequence_values::<Table>() {
+                let keyframe_table = keyframe_entry.to_anyhow()?;
+                let dst = self.parse_destination_keyframe(&keyframe_table)?;
+                obj_data.dst.push(dst);
+            }
+        }
+
+        Ok(obj_data)
+    }
+
     fn parse_destination_keyframe(&self, table: &Table) -> Result<Destination> {
         let mut dst = Destination::default();
 
-        if let Ok(time) = table.get::<i32>("time") {
+        if let Some(time) = Self::get_i32(table, "time") {
             dst.time = time;
         }
 
-        if let Ok(x) = table.get::<f32>("x") {
+        if let Some(x) = Self::get_f32(table, "x") {
             dst.x = x;
         }
 
-        if let Ok(y) = table.get::<f32>("y") {
+        if let Some(y) = Self::get_f32(table, "y") {
             dst.y = y;
         }
 
-        if let Ok(w) = table.get::<f32>("w") {
+        if let Some(w) = Self::get_f32(table, "w") {
             dst.w = w;
         }
 
-        if let Ok(h) = table.get::<f32>("h") {
+        if let Some(h) = Self::get_f32(table, "h") {
             dst.h = h;
         }
 
-        if let Ok(acc) = table.get::<i32>("acc") {
+        if let Some(acc) = Self::get_i32(table, "acc") {
             dst.acc = acc;
         }
 
-        if let Ok(a) = table.get::<f32>("a") {
+        if let Some(a) = Self::get_f32(table, "a") {
             dst.a = a;
         }
 
-        if let Ok(r) = table.get::<f32>("r") {
+        if let Some(r) = Self::get_f32(table, "r") {
             dst.r = r;
         }
 
-        if let Ok(g) = table.get::<f32>("g") {
+        if let Some(g) = Self::get_f32(table, "g") {
             dst.g = g;
         }
 
-        if let Ok(b) = table.get::<f32>("b") {
+        if let Some(b) = Self::get_f32(table, "b") {
             dst.b = b;
         }
 
-        if let Ok(angle) = table.get::<f32>("angle") {
+        if let Some(angle) = Self::get_f32(table, "angle") {
             dst.angle = angle;
         }
 
-        if let Ok(center) = table.get::<i32>("center") {
+        if let Some(center) = Self::get_i32(table, "center") {
             dst.center = center;
         }
 
@@ -740,8 +1225,9 @@ impl Default for LuaSkinLoader {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     #[test]
     fn test_loader_creation() {

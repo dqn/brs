@@ -1,6 +1,7 @@
+use macroquad::prelude::Color;
+
 use crate::model::PlayMode;
 use crate::model::note::{LANE_COUNT, Lane};
-use macroquad::prelude::Color;
 
 /// Layout properties for a single lane.
 #[derive(Debug, Clone)]
@@ -101,6 +102,50 @@ impl LaneConfig {
             lane_order,
             total_width: x, // ~238px
             offset_x: 20.0,
+        }
+    }
+
+    /// Create a 7-key configuration matching ECFN (1P left) skin geometry.
+    /// ECFN スキン(1P左)のジオメトリに合わせた 7 キー設定。
+    pub fn ecfn_7k_left() -> Self {
+        let white = Color::new(0.9, 0.9, 0.9, 1.0);
+        let blue = Color::new(0.3, 0.5, 0.9, 1.0);
+        let scratch = Color::new(0.8, 0.2, 0.2, 1.0);
+
+        let specs = [
+            LaneSpec::new(Lane::Scratch, 89.0, scratch, true),
+            LaneSpec::new(Lane::Key1, 51.0, white, false),
+            LaneSpec::new(Lane::Key2, 39.0, blue, false),
+            LaneSpec::new(Lane::Key3, 51.0, white, false),
+            LaneSpec::new(Lane::Key4, 39.0, blue, false),
+            LaneSpec::new(Lane::Key5, 51.0, white, false),
+            LaneSpec::new(Lane::Key6, 39.0, blue, false),
+            LaneSpec::new(Lane::Key7, 51.0, white, false),
+        ];
+
+        let mut layouts: [Option<LaneLayout>; LANE_COUNT] = [(); LANE_COUNT].map(|_| None);
+        let mut lane_order = Vec::with_capacity(specs.len());
+        let mut x = 0.0;
+        let gap = 3.0;
+
+        for (idx, spec) in specs.iter().enumerate() {
+            layouts[spec.lane.index()] =
+                Some(LaneLayout::new(x, spec.width, spec.color, spec.is_scratch));
+            lane_order.push(spec.lane);
+            x += spec.width;
+            if idx + 1 < specs.len() {
+                x += gap;
+            }
+        }
+
+        Self {
+            judge_line_y: 684.0,
+            lane_top_y: 357.0,
+            lane_height: 723.0,
+            layouts,
+            lane_order,
+            total_width: x,
+            offset_x: 76.0,
         }
     }
 
