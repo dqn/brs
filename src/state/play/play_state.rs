@@ -508,6 +508,14 @@ impl PlayState {
         self.skin_timers.keyon_1p[lane_idx] = TIMER_OFF_VALUE;
     }
 
+    fn set_bomb_timer(&mut self, lane: Lane) {
+        let lane_idx = lane.index();
+        if lane_idx >= self.skin_timers.bomb_1p.len() {
+            return;
+        }
+        self.skin_timers.bomb_1p[lane_idx] = self.skin_time_us;
+    }
+
     fn process_press(&mut self, lane: Lane) -> Result<()> {
         self.set_keyon_timer(lane);
         let press_time_ms = self.press_time_ms_for_judge(lane);
@@ -520,6 +528,9 @@ impl PlayState {
             self.score.update(result.rank);
             self.gauge.update(result.rank);
             self.register_judge(result.rank);
+            if matches!(result.rank, JudgeRank::PerfectGreat | JudgeRank::Great) {
+                self.set_bomb_timer(lane);
+            }
             if matches!(result.rank, JudgeRank::Poor | JudgeRank::Miss) {
                 self.trigger_poor_bga();
             }
@@ -587,6 +598,9 @@ impl PlayState {
             self.score.update(result.rank);
             self.gauge.update(result.rank);
             self.register_judge(result.rank);
+            if matches!(result.rank, JudgeRank::PerfectGreat | JudgeRank::Great) {
+                self.set_bomb_timer(lane);
+            }
         }
 
         Ok(())
