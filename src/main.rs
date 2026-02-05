@@ -1,20 +1,20 @@
 use brs::audio::{AudioConfig, AudioDriver, KeysoundProcessor};
 use brs::config::AppConfig;
-use brs::database::{Database, ScoreDatabaseAccessor, SongData};
+use brs::database::{Database, Mode, ScoreDatabaseAccessor, SongData};
 use brs::input::{HotkeyConfig, InputManager, KeyConfig, PlayHotkey};
-use brs::model::{BMSModel, load_chart};
+use brs::model::{BMSModel, ChartFormat, JudgeRankType, LongNoteMode, PlayMode, load_chart};
 use brs::replay::{ReplayPlayer, ReplaySlot, load_replay};
 use brs::skin::SkinRenderer;
 use brs::state::config::{ConfigState, ConfigTransition};
 use brs::state::decide::{DecideState, DecideTransition};
-use brs::state::play::{GaugeType, PlayState};
+use brs::state::play::{GaugeType, PlayResult, PlayState, Score};
 use brs::state::result::{ResultState, ResultTransition};
 use brs::state::select::{SelectScanRequest, SelectState, SelectTransition};
 use brs::util::logging::init_logging;
 use brs::util::screenshot::capture_screenshot;
 use clap::Parser;
 use macroquad::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::{debug, error, info, warn};
 
 /// Command line arguments for brs.
@@ -22,13 +22,17 @@ use tracing::{debug, error, info, warn};
 #[command(name = "brs", about = "BMS player in Rust")]
 struct Args {
     /// Capture screenshot of specified state and exit.
-    /// Valid values: "select"
+    /// Valid values: "select", "play", "result"
     #[arg(long)]
     screenshot: Option<String>,
 
     /// Output directory for screenshot.
     #[arg(long, default_value = ".agent/screenshots/current")]
     screenshot_output: String,
+
+    /// BMS file path for play screenshot.
+    #[arg(long)]
+    bms: Option<String>,
 }
 
 fn window_conf() -> Conf {
@@ -63,7 +67,7 @@ async fn main() {
 
     // Handle screenshot mode
     if let Some(ref state_name) = args.screenshot {
-        run_screenshot_mode(state_name, &args.screenshot_output).await;
+        run_screenshot_mode(state_name, &args.screenshot_output, args.bms.as_deref()).await;
         return;
     }
 
@@ -597,80 +601,276 @@ fn draw_play_controls_help() {
 
 /// Run screenshot capture mode.
 /// Renders the specified state for a few frames, captures a screenshot, and exits.
-async fn run_screenshot_mode(state_name: &str, output_dir: &str) {
+async fn run_screenshot_mode(state_name: &str, output_dir: &str, bms_path: Option<&str>) {
     const WARMUP_FRAMES: u32 = 5;
 
     info!("Screenshot mode: capturing '{}' state", state_name);
 
     match state_name {
         "select" => {
-            // Open databases
-            let song_db = match Database::open_song_db(Path::new("song.db")) {
-                Ok(db) => db,
-                Err(e) => {
-                    error!("Failed to open song database: {}", e);
-                    return;
-                }
+            run_screenshot_select(output_dir, WARMUP_FRAMES).await;
+        }
+        "play" => {
+            let Some(bms) = bms_path else {
+                error!("--bms option is required for play screenshot");
+                eprintln!("Error: --bms option is required for play screenshot");
+                return;
             };
-
-            let score_db = match Database::open_score_db(Path::new("score.db")) {
-                Ok(db) => db,
-                Err(e) => {
-                    error!("Failed to open score database: {}", e);
-                    return;
-                }
-            };
-
-            // Setup input manager
-            let key_config = KeyConfig::load().unwrap_or_default();
-            let input_manager = match InputManager::new(key_config) {
-                Ok(manager) => manager,
-                Err(e) => {
-                    error!("Failed to initialize input: {}", e);
-                    return;
-                }
-            };
-
-            // Create select state
-            let mut select_state =
-                match SelectState::new(input_manager, song_db, score_db, SelectScanRequest::None) {
-                    Ok(state) => state,
-                    Err(e) => {
-                        error!("Failed to create select state: {}", e);
-                        return;
-                    }
-                };
-
-            // Render warmup frames to stabilize UI
-            for _ in 0..WARMUP_FRAMES {
-                clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
-                let _ = select_state.update();
-                select_state.draw();
-                next_frame().await;
-            }
-
-            // Capture screenshot
-            let output_path = Path::new(output_dir).join("select.png");
-            match capture_screenshot(&output_path) {
-                Ok(()) => {
-                    info!("Screenshot saved to: {}", output_path.display());
-                    println!("Screenshot saved: {}", output_path.display());
-                }
-                Err(e) => {
-                    error!("Failed to capture screenshot: {}", e);
-                    eprintln!("Failed to capture screenshot: {}", e);
-                }
-            }
+            run_screenshot_play(output_dir, bms, WARMUP_FRAMES).await;
+        }
+        "result" => {
+            run_screenshot_result(output_dir, WARMUP_FRAMES).await;
         }
         other => {
             error!(
-                "Unknown screenshot state: '{}'. Valid states: select",
+                "Unknown screenshot state: '{}'. Valid states: select, play, result",
                 other
             );
             eprintln!(
-                "Unknown screenshot state: '{}'. Valid states: select",
+                "Unknown screenshot state: '{}'. Valid states: select, play, result",
                 other
             );
+        }
+    }
+}
+
+/// Capture screenshot of select state.
+async fn run_screenshot_select(output_dir: &str, warmup_frames: u32) {
+    // Open databases
+    let song_db = match Database::open_song_db(Path::new("song.db")) {
+        Ok(db) => db,
+        Err(e) => {
+            error!("Failed to open song database: {}", e);
+            return;
+        }
+    };
+
+    let score_db = match Database::open_score_db(Path::new("score.db")) {
+        Ok(db) => db,
+        Err(e) => {
+            error!("Failed to open score database: {}", e);
+            return;
+        }
+    };
+
+    // Setup input manager
+    let key_config = KeyConfig::load().unwrap_or_default();
+    let input_manager = match InputManager::new(key_config) {
+        Ok(manager) => manager,
+        Err(e) => {
+            error!("Failed to initialize input: {}", e);
+            return;
+        }
+    };
+
+    // Create select state
+    let mut select_state =
+        match SelectState::new(input_manager, song_db, score_db, SelectScanRequest::None) {
+            Ok(state) => state,
+            Err(e) => {
+                error!("Failed to create select state: {}", e);
+                return;
+            }
+        };
+
+    // Render warmup frames to stabilize UI
+    for _ in 0..warmup_frames {
+        clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
+        let _ = select_state.update();
+        select_state.draw();
+        next_frame().await;
+    }
+
+    // Capture screenshot
+    save_screenshot(output_dir, "select.png");
+}
+
+/// Capture screenshot of play state.
+async fn run_screenshot_play(output_dir: &str, bms_path: &str, warmup_frames: u32) {
+    let bms_path = Path::new(bms_path);
+    if !bms_path.exists() {
+        error!("BMS file not found: {}", bms_path.display());
+        eprintln!("Error: BMS file not found: {}", bms_path.display());
+        return;
+    }
+
+    // Initialize audio driver
+    let audio_config = AudioConfig::default();
+    let audio_driver = match AudioDriver::new(audio_config) {
+        Ok(driver) => driver,
+        Err(e) => {
+            error!("Failed to initialize audio: {}", e);
+            return;
+        }
+    };
+
+    // Load BMS model
+    let loaded = match load_chart(bms_path) {
+        Ok(loaded) => loaded,
+        Err(e) => {
+            error!("Failed to load BMS: {}", e);
+            return;
+        }
+    };
+
+    let model = match BMSModel::from_bms(&loaded.bms, loaded.format, Some(bms_path)) {
+        Ok(model) => model,
+        Err(e) => {
+            error!("Failed to parse BMS: {}", e);
+            return;
+        }
+    };
+
+    info!("Loaded: {}", model.title);
+
+    // Load audio files
+    let mut audio_driver = audio_driver;
+    let bms_dir = bms_path.parent().unwrap_or(Path::new("."));
+    if let Err(e) = audio_driver.load_sounds(&model, bms_dir) {
+        warn!("Failed to load sounds: {}", e);
+    }
+
+    // Setup keysound processor
+    let mut keysound_processor = KeysoundProcessor::new();
+    keysound_processor.load_bgm_events(model.bgm_events.clone());
+
+    // Setup input manager
+    let key_config = KeyConfig::load().unwrap_or_default();
+    let input_manager = match InputManager::new(key_config) {
+        Ok(manager) => manager,
+        Err(e) => {
+            error!("Failed to initialize input: {}", e);
+            return;
+        }
+    };
+
+    // Create play state
+    let mut play_state = PlayState::new(
+        model,
+        audio_driver,
+        keysound_processor,
+        input_manager,
+        GaugeType::Normal,
+        1.0,
+    );
+    apply_play_skin(&mut play_state).await;
+    play_state.load_bga(bms_dir).await;
+
+    // Render warmup frames
+    for _ in 0..warmup_frames {
+        clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
+        let _ = play_state.update(16.67); // ~60fps
+        play_state.draw();
+        next_frame().await;
+    }
+
+    // Capture screenshot
+    save_screenshot(output_dir, "play.png");
+}
+
+/// Capture screenshot of result state with mock data.
+async fn run_screenshot_result(output_dir: &str, warmup_frames: u32) {
+    // Create mock play result
+    let mut score = Score::new(1000);
+    score.pg_count = 850;
+    score.gr_count = 120;
+    score.gd_count = 20;
+    score.bd_count = 5;
+    score.pr_count = 3;
+    score.ms_count = 2;
+    score.max_combo = 500;
+
+    let play_result = PlayResult::new(
+        score,
+        80.0,                   // gauge_value
+        GaugeType::Normal,      // gauge_type
+        true,                   // is_clear
+        180000.0,               // play_time_ms (3 minutes)
+        15,                     // fast_count
+        12,                     // slow_count
+        PlayMode::Beat7K,       // play_mode
+        LongNoteMode::Ln,       // long_note_mode
+        2,                      // judge_rank (NORMAL)
+        JudgeRankType::BmsRank, // judge_rank_type
+        300.0,                  // total
+        ChartFormat::Bms,       // source_format
+    );
+
+    // Create mock song data
+    let song_data = SongData {
+        sha256: "mock_sha256_for_screenshot".to_string(),
+        md5: "mock_md5".to_string(),
+        path: PathBuf::from("/mock/path/song.bms"),
+        folder: "Mock Folder".to_string(),
+        title: "Sample Song Title".to_string(),
+        subtitle: "~Subtitle~".to_string(),
+        artist: "Sample Artist".to_string(),
+        subartist: "feat. Guest".to_string(),
+        genre: "Sample Genre".to_string(),
+        mode: Mode::Beat7K,
+        level: 12,
+        difficulty: 4, // ANOTHER
+        max_bpm: 180,
+        min_bpm: 180,
+        notes: 1000,
+        date: 0,
+        add_date: 0,
+    };
+
+    // Setup input manager
+    let key_config = KeyConfig::load().unwrap_or_default();
+    let input_manager = match InputManager::new(key_config) {
+        Ok(manager) => manager,
+        Err(e) => {
+            error!("Failed to initialize input: {}", e);
+            return;
+        }
+    };
+
+    // Open a temporary score database (we won't actually save)
+    let score_db = match Database::open_score_db(Path::new("score.db")) {
+        Ok(db) => db,
+        Err(e) => {
+            error!("Failed to open score database: {}", e);
+            return;
+        }
+    };
+    let score_accessor = ScoreDatabaseAccessor::new(&score_db);
+
+    // Create result state (save_score=false to avoid writing mock data)
+    let mut result_state = ResultState::new(
+        play_result,
+        song_data,
+        input_manager,
+        None,  // input_logs
+        2.0,   // hi_speed
+        false, // save_score
+        &score_accessor,
+    );
+
+    // Render warmup frames
+    for _ in 0..warmup_frames {
+        clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
+        let _ = result_state.update();
+        result_state.draw();
+        next_frame().await;
+    }
+
+    // Capture screenshot
+    save_screenshot(output_dir, "result.png");
+}
+
+/// Helper to save screenshot and log result.
+fn save_screenshot(output_dir: &str, filename: &str) {
+    let output_path = Path::new(output_dir).join(filename);
+    match capture_screenshot(&output_path) {
+        Ok(()) => {
+            info!("Screenshot saved to: {}", output_path.display());
+            println!("Screenshot saved: {}", output_path.display());
+        }
+        Err(e) => {
+            error!("Failed to capture screenshot: {}", e);
+            eprintln!("Failed to capture screenshot: {}", e);
         }
     }
 }

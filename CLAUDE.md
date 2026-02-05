@@ -265,6 +265,12 @@ Claude Code can autonomously capture and compare screenshots for UI development.
 # Capture select screen
 cargo run --release -- --screenshot select
 
+# Capture play screen (requires --bms)
+cargo run --release -- --screenshot play --bms /path/to/song.bms
+
+# Capture result screen (uses mock data)
+cargo run --release -- --screenshot result
+
 # Custom output directory
 cargo run --release -- --screenshot select --screenshot-output /path/to/output
 ```
