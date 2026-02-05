@@ -4,6 +4,7 @@ use brs::database::{Database, Mode, ScoreDatabaseAccessor, SongData};
 use brs::input::{HotkeyConfig, InputManager, KeyConfig, PlayHotkey};
 use brs::model::{BMSModel, ChartFormat, JudgeRankType, LongNoteMode, PlayMode, load_chart};
 use brs::replay::{ReplayPlayer, ReplaySlot, load_replay};
+use brs::skin::path as skin_path;
 use brs::skin::SkinRenderer;
 use brs::state::config::{ConfigState, ConfigTransition};
 use brs::state::decide::{DecideState, DecideTransition};
@@ -403,16 +404,16 @@ async fn apply_play_skin(play_state: &mut PlayState) {
     };
 
     let path = Path::new(skin_path);
-    if !path.exists() {
+    let Some(resolved_path) = skin_path::resolve_skin_path(path) else {
         warn!(
             "Skin not found: {} / スキンが見つかりません: {}",
             path.display(),
             path.display()
         );
         return;
-    }
+    };
 
-    match SkinRenderer::load(path).await {
+    match SkinRenderer::load(&resolved_path).await {
         Ok(renderer) => play_state.set_skin_renderer(renderer),
         Err(e) => warn!("Failed to load skin: {} / スキンの読み込みに失敗: {}", e, e),
     }

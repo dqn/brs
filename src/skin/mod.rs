@@ -4,6 +4,7 @@ pub mod font;
 pub mod loader;
 pub mod lua;
 pub mod object;
+pub mod path;
 mod renderer;
 mod skin_data;
 mod skin_header;

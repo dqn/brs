@@ -1,5 +1,6 @@
 use crate::config::AppConfig;
 use crate::input::{ConfigHotkey, HotkeyConfig, InputManager};
+use crate::skin::path as skin_path;
 use macroquad::prelude::*;
 use std::path::Path;
 use walkdir::WalkDir;
@@ -409,11 +410,31 @@ impl LibraryConfigScreen {
 
         let mut selected_index = 0;
         if let Some(selected_path) = &config.play_skin_path {
-            if let Some(index) = options
+            let mut index = options
                 .iter()
-                .position(|opt| opt.path.as_deref() == Some(selected_path.as_str()))
-            {
-                selected_index = index;
+                .position(|opt| opt.path.as_deref() == Some(selected_path.as_str()));
+
+            if index.is_none() {
+                let resolved_selected = skin_path::resolve_skin_path(Path::new(selected_path));
+                if let Some(resolved_selected) = resolved_selected {
+                    for (i, option) in options.iter().enumerate() {
+                        let Some(option_path) = option.path.as_deref() else {
+                            continue;
+                        };
+                        if let Some(resolved_option) =
+                            skin_path::resolve_skin_path(Path::new(option_path))
+                        {
+                            if resolved_option == resolved_selected {
+                                index = Some(i);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Some(found) = index {
+                selected_index = found;
             } else {
                 options.push(SkinOption {
                     label: format!(
@@ -430,13 +451,16 @@ impl LibraryConfigScreen {
     }
 
     fn find_skin_paths() -> Vec<String> {
-        let root = Path::new("skins");
-        if !root.exists() {
+        let Some(root) = skin_path::find_skin_root() else {
             return Vec::new();
-        }
+        };
+        let root_label = root
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("skins");
 
         let mut paths = Vec::new();
-        for entry in WalkDir::new(root)
+        for entry in WalkDir::new(&root)
             .follow_links(true)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -451,7 +475,11 @@ impl LibraryConfigScreen {
                 .unwrap_or("")
                 .to_ascii_lowercase();
             if ext == "luaskin" || ext == "lr2skin" || ext == "csv" {
-                paths.push(path.to_string_lossy().to_string());
+                let display_path = match path.strip_prefix(&root) {
+                    Ok(relative) => Path::new(root_label).join(relative),
+                    Err(_) => path.to_path_buf(),
+                };
+                paths.push(display_path.to_string_lossy().to_string());
             }
         }
 
