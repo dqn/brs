@@ -1,7 +1,10 @@
+use std::path::Path;
+
 use anyhow::Result;
 use macroquad::prelude::*;
 
 use crate::audio::{AudioDriver, KeysoundProcessor};
+use crate::config::AppConfig;
 use crate::input::InputManager;
 use crate::model::note::{LANE_COUNT, Lane, NoteType};
 use crate::model::{BMSModel, LaneConfig, LaneCoverSettings, PlayMode};
@@ -12,7 +15,6 @@ use crate::state::play::{
     AutoplayMode, AutoplayProcessor, GaugeType, GrooveGauge, JudgeManager, JudgeRank, JudgeWindow,
     NoteWithIndex, PlayResult, Score,
 };
-use std::path::Path;
 
 /// State of the play session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,12 +44,19 @@ pub struct PlayState {
     input_time_offset_ms: f64,
     current_time_ms: f64,
     countdown_ms: f64,
+    skin_time_us: i64,
+    skin_timers: MainStateTimers,
     phase: PlayPhase,
     notes_by_lane: [Vec<NoteWithIndex>; LANE_COUNT],
     all_notes: Vec<NoteWithIndex>,
     last_judge_display: Option<(JudgeRank, f64)>,
     bga_processor: Option<BgaProcessor>,
     bga_enabled: bool,
+    stagefile_texture: Option<Texture2D>,
+    backbmp_texture: Option<Texture2D>,
+    banner_texture: Option<Texture2D>,
+    player_name: String,
+    rival_name: String,
     /// Optional skin renderer for custom UI.
     skin_renderer: Option<SkinRenderer>,
     /// Optional replay player for playback mode.
@@ -77,6 +86,7 @@ impl PlayState {
         let total = model.total;
         let long_note_mode = model.long_note_mode;
         let judge_window = JudgeWindow::from_model(&model);
+        let player_name = AppConfig::load().unwrap_or_default().player_name;
 
         let (all_notes, notes_by_lane) = Self::organize_notes(&model);
 
@@ -103,12 +113,23 @@ impl PlayState {
             input_time_offset_ms: 0.0,
             current_time_ms: -Self::DEFAULT_COUNTDOWN_MS,
             countdown_ms: Self::DEFAULT_COUNTDOWN_MS,
+            skin_time_us: 0,
+            skin_timers: {
+                let mut timers = MainStateTimers::new();
+                timers.ready = 0;
+                timers
+            },
             phase: PlayPhase::Countdown,
             notes_by_lane,
             all_notes,
             last_judge_display: None,
             bga_processor: None,
             bga_enabled: true,
+            stagefile_texture: None,
+            backbmp_texture: None,
+            banner_texture: None,
+            player_name,
+            rival_name: String::new(),
             skin_renderer: None,
             replay_player: None,
             autoplay_processor: None,
@@ -182,42 +203,92 @@ impl PlayState {
 
     /// Set the skin renderer for custom UI rendering.
     pub fn set_skin_renderer(&mut self, renderer: SkinRenderer) {
+        if renderer.header().playstart > 0 {
+            self.set_countdown_ms(renderer.header().playstart as f64);
+        }
         self.skin_renderer = Some(renderer);
+    }
+
+    /// Update countdown duration (ms) and reset timing if still in countdown.
+    pub fn set_countdown_ms(&mut self, countdown_ms: f64) {
+        use crate::skin::skin_property::TIMER_OFF_VALUE;
+
+        self.countdown_ms = countdown_ms;
+        if self.phase == PlayPhase::Countdown {
+            self.current_time_ms = -countdown_ms;
+            self.skin_time_us = 0;
+            self.skin_timers.ready = 0;
+            self.skin_timers.play = TIMER_OFF_VALUE;
+        }
     }
 
     /// Load BGA images and events for this play state.
     pub async fn load_bga(&mut self, base_dir: &Path) -> usize {
+        let mut loaded = 0;
         if self.model.bga_files.is_empty() && self.model.poor_bga_file.is_none() {
-            return 0;
-        }
+            self.bga_processor = None;
+        } else {
+            let mut processor = BgaProcessor::new();
 
-        let mut processor = BgaProcessor::new();
+            let mut bga_files: std::collections::HashMap<u16, String> = self
+                .model
+                .bga_files
+                .iter()
+                .map(|(k, v)| (*k, v.clone()))
+                .collect();
+            let mut events = self.model.bga_events.clone();
 
-        let mut bga_files: std::collections::HashMap<u16, String> = self
-            .model
-            .bga_files
-            .iter()
-            .map(|(k, v)| (*k, v.clone()))
-            .collect();
-        let mut events = self.model.bga_events.clone();
-
-        if let Some(poor_file) = &self.model.poor_bga_file {
-            let mut poor_id = u16::MAX;
-            while bga_files.contains_key(&poor_id) {
-                poor_id = poor_id.saturating_sub(1);
+            if let Some(poor_file) = &self.model.poor_bga_file {
+                let mut poor_id = u16::MAX;
+                while bga_files.contains_key(&poor_id) {
+                    poor_id = poor_id.saturating_sub(1);
+                }
+                bga_files.insert(poor_id, poor_file.clone());
+                events.push(crate::model::BgaEvent {
+                    time_ms: 0.0,
+                    bga_id: poor_id,
+                    layer: crate::model::BgaLayer::Poor,
+                });
             }
-            bga_files.insert(poor_id, poor_file.clone());
-            events.push(crate::model::BgaEvent {
-                time_ms: 0.0,
-                bga_id: poor_id,
-                layer: crate::model::BgaLayer::Poor,
-            });
+
+            processor.set_events(events);
+            loaded = processor.load_images(&bga_files, base_dir).await;
+            self.bga_processor = Some(processor);
         }
 
-        processor.set_events(events);
-        let loaded = processor.load_images(&bga_files, base_dir).await;
-        self.bga_processor = Some(processor);
+        self.stagefile_texture =
+            Self::load_optional_texture(base_dir, &self.model.stage_file).await;
+        self.backbmp_texture = Self::load_optional_texture(base_dir, &self.model.back_bmp).await;
+        self.banner_texture = Self::load_optional_texture(base_dir, &self.model.banner).await;
+
         loaded
+    }
+
+    async fn load_optional_texture(base_dir: &Path, path: &Option<String>) -> Option<Texture2D> {
+        let path = path.as_ref()?;
+        let full_path = base_dir.join(path);
+        let ext = full_path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        let is_image_ext = matches!(ext.as_str(), "bmp" | "png" | "jpg" | "jpeg");
+
+        if is_image_ext {
+            if let Some(texture) = crate::render::bga::load_texture_from_path(&full_path) {
+                return Some(texture);
+            }
+        }
+
+        let stem = full_path.with_extension("");
+        for ext in &["bmp", "png", "jpg", "jpeg"] {
+            let alt_path = stem.with_extension(ext);
+            if let Some(texture) = crate::render::bga::load_texture_from_path(&alt_path) {
+                return Some(texture);
+            }
+        }
+
+        None
     }
 
     fn create_gauge(gauge_type: GaugeType, total: f64, total_notes: usize) -> GrooveGauge {
@@ -266,6 +337,7 @@ impl PlayState {
 
     /// Update the play state. Call once per frame.
     pub fn update(&mut self, delta_ms: f64) -> Result<()> {
+        self.skin_time_us += (delta_ms * 1000.0) as i64;
         self.input_manager.update();
 
         match self.phase {
@@ -273,6 +345,9 @@ impl PlayState {
                 self.current_time_ms += delta_ms;
                 if self.current_time_ms >= 0.0 {
                     self.phase = PlayPhase::Playing;
+                    use crate::skin::skin_property::TIMER_OFF_VALUE;
+                    self.skin_timers.play = self.skin_time_us;
+                    self.skin_timers.ready = TIMER_OFF_VALUE;
                     self.input_manager.reset_time();
                     self.sync_input_time_offset();
                     // Only enable logging for live play, not replay
@@ -366,45 +441,6 @@ impl PlayState {
         )
     }
 
-    /// Get press time for a lane in microseconds.
-    fn get_press_time_us(&self, lane: Lane) -> u64 {
-        if let Some(ref player) = self.replay_player {
-            return player.press_time_us(lane);
-        }
-        if let Some(ref processor) = self.autoplay_processor {
-            if processor.mode().handles_lane(lane) {
-                return processor.press_time_us(lane);
-            }
-        }
-        self.input_manager.press_time_us(lane)
-    }
-
-    /// Get release time for a lane in microseconds.
-    fn get_release_time_us(&self, lane: Lane) -> u64 {
-        if let Some(ref player) = self.replay_player {
-            return player.release_time_us(lane);
-        }
-        if let Some(ref processor) = self.autoplay_processor {
-            if processor.mode().handles_lane(lane) {
-                return processor.release_time_us(lane);
-            }
-        }
-        self.input_manager.release_time_us(lane)
-    }
-
-    /// Check if a lane is currently pressed.
-    fn is_lane_pressed(&self, lane: Lane) -> bool {
-        if let Some(ref player) = self.replay_player {
-            return player.is_pressed(lane);
-        }
-        if let Some(ref processor) = self.autoplay_processor {
-            if processor.mode().handles_lane(lane) {
-                return processor.is_pressed(lane);
-            }
-        }
-        self.input_manager.is_pressed(lane)
-    }
-
     fn scaled_input_time_ms(&self, time_us: u64) -> f64 {
         (time_us as f64 / 1000.0) * self.playback_speed
     }
@@ -442,7 +478,38 @@ impl PlayState {
         self.input_time_offset_ms = input_time_ms - self.current_time_ms;
     }
 
+    fn register_judge(&mut self, rank: JudgeRank) {
+        self.last_judge_display = Some((rank, self.current_time_ms));
+        self.skin_timers.judge_1p = self.skin_time_us;
+        if self.score.combo > 0 {
+            self.skin_timers.combo_1p = self.skin_time_us;
+        }
+    }
+
+    fn set_keyon_timer(&mut self, lane: Lane) {
+        use crate::skin::skin_property::TIMER_OFF_VALUE;
+
+        let lane_idx = lane.index();
+        if lane_idx >= self.skin_timers.keyon_1p.len() {
+            return;
+        }
+        self.skin_timers.keyon_1p[lane_idx] = self.skin_time_us;
+        self.skin_timers.keyoff_1p[lane_idx] = TIMER_OFF_VALUE;
+    }
+
+    fn set_keyoff_timer(&mut self, lane: Lane) {
+        use crate::skin::skin_property::TIMER_OFF_VALUE;
+
+        let lane_idx = lane.index();
+        if lane_idx >= self.skin_timers.keyoff_1p.len() {
+            return;
+        }
+        self.skin_timers.keyoff_1p[lane_idx] = self.skin_time_us;
+        self.skin_timers.keyon_1p[lane_idx] = TIMER_OFF_VALUE;
+    }
+
     fn process_press(&mut self, lane: Lane) -> Result<()> {
+        self.set_keyon_timer(lane);
         let press_time_ms = self.press_time_ms_for_judge(lane);
 
         let result =
@@ -452,7 +519,7 @@ impl PlayState {
         if let Some(ref result) = result {
             self.score.update(result.rank);
             self.gauge.update(result.rank);
-            self.last_judge_display = Some((result.rank, self.current_time_ms));
+            self.register_judge(result.rank);
             if matches!(result.rank, JudgeRank::Poor | JudgeRank::Miss) {
                 self.trigger_poor_bga();
             }
@@ -472,7 +539,7 @@ impl PlayState {
         {
             self.judge_manager.mark_judged(mine_index);
             self.gauge.apply_mine_damage(damage);
-            self.last_judge_display = Some((JudgeRank::Poor, self.current_time_ms));
+            self.register_judge(JudgeRank::Poor);
             self.trigger_poor_bga();
         }
 
@@ -491,7 +558,7 @@ impl PlayState {
             // Empty press (Poor)
             self.score.update(JudgeRank::Poor);
             self.gauge.update(JudgeRank::Poor);
-            self.last_judge_display = Some((JudgeRank::Poor, self.current_time_ms));
+            self.register_judge(JudgeRank::Poor);
             self.trigger_poor_bga();
 
             // Play the closest upcoming note's keysound
@@ -509,6 +576,7 @@ impl PlayState {
     }
 
     fn process_release(&mut self, lane: Lane) -> Result<()> {
+        self.set_keyoff_timer(lane);
         let release_time_ms = self.release_time_ms_for_judge(lane);
 
         if let Some(result) = self.judge_manager.judge_release(
@@ -518,7 +586,7 @@ impl PlayState {
         ) {
             self.score.update(result.rank);
             self.gauge.update(result.rank);
-            self.last_judge_display = Some((result.rank, self.current_time_ms));
+            self.register_judge(result.rank);
         }
 
         Ok(())
@@ -532,7 +600,7 @@ impl PlayState {
         for result in results {
             self.score.update(result.rank);
             self.gauge.update(result.rank);
-            self.last_judge_display = Some((result.rank, self.current_time_ms));
+            self.register_judge(result.rank);
             if matches!(result.rank, JudgeRank::Poor | JudgeRank::Miss) {
                 self.trigger_poor_bga();
             }
@@ -585,11 +653,19 @@ impl PlayState {
     }
 
     fn apply_practice_seek(&mut self, time_ms: f64) {
+        use crate::skin::skin_property::TIMER_OFF_VALUE;
+
         self.current_time_ms = time_ms.max(0.0);
         self.score.reset();
         self.gauge.reset();
         self.judge_manager.reset();
         self.last_judge_display = None;
+        self.skin_timers.judge_1p = TIMER_OFF_VALUE;
+        self.skin_timers.combo_1p = TIMER_OFF_VALUE;
+        self.skin_timers.bomb_1p = [TIMER_OFF_VALUE; 8];
+        self.skin_timers.hold_1p = [TIMER_OFF_VALUE; 8];
+        self.skin_timers.keyon_1p = [TIMER_OFF_VALUE; 8];
+        self.skin_timers.keyoff_1p = [TIMER_OFF_VALUE; 8];
 
         self.keysound_processor.seek(self.current_time_ms);
         self.audio_driver.stop_all();
@@ -638,24 +714,50 @@ impl PlayState {
         }
 
         // Skin-based rendering
-        if self.bga_enabled {
-            if let Some(ref bga) = self.bga_processor {
-                bga.draw(0.0, 0.0, screen_width(), screen_height());
-            }
-        }
-
         // Draw skin
         if let Some(ref skin) = self.skin_renderer {
             let main_state = self.create_main_state();
-            let now_us = (self.current_time_ms.max(0.0) * 1000.0) as i64;
-            skin.draw(&main_state, now_us);
+            let now_us = self.skin_time_us;
+            skin.draw_with_bga(&main_state, now_us, |dst, obj_data| {
+                if !self.bga_enabled {
+                    return;
+                }
+
+                let fallback_texture = self
+                    .backbmp_texture
+                    .as_ref()
+                    .or(self.stagefile_texture.as_ref());
+                let stretch = obj_data.stretch;
+
+                let mut drew_bga = false;
+                if let Some(ref bga) = self.bga_processor {
+                    if bga.has_active_image() {
+                        bga.draw_with_alpha_and_stretch(dst.x, dst.y, dst.w, dst.h, dst.a, stretch);
+                        drew_bga = true;
+                    }
+                }
+
+                if !drew_bga {
+                    let color = Color::new(1.0, 1.0, 1.0, (dst.a / 255.0).clamp(0.0, 1.0));
+                    if let Some(texture) = fallback_texture {
+                        crate::render::bga::draw_texture_with_stretch(
+                            texture, dst.x, dst.y, dst.w, dst.h, color, stretch,
+                        );
+                    }
+                }
+            });
         }
 
         // Draw lane and notes
-        let lane_renderer = LaneRenderer::new(&self.lane_config);
-        lane_renderer.draw(&self.model.timelines, self.current_time_ms, self.hi_speed);
+        let render_lane_config = self.render_lane_config();
+        let lane_renderer = LaneRenderer::new(&render_lane_config);
+        if self.skin_renderer.is_some() {
+            lane_renderer.draw_for_skin(&self.model.timelines, self.current_time_ms, self.hi_speed);
+        } else {
+            lane_renderer.draw(&self.model.timelines, self.current_time_ms, self.hi_speed);
+        }
 
-        let note_renderer = NoteRenderer::new(&self.lane_config);
+        let note_renderer = NoteRenderer::new(&render_lane_config);
         note_renderer.draw_with_cover(
             &self.model.timelines,
             self.current_time_ms,
@@ -667,9 +769,12 @@ impl PlayState {
         // Draw lane cover overlay
         note_renderer.draw_cover_overlay(&self.lane_cover);
 
-        // Draw combo and judge
-        self.draw_combo();
-        self.draw_judge();
+        // Draw combo and judge only for built-in UI.
+        // ビルトインUIの場合のみコンボと判定を描画する。
+        if self.skin_renderer.is_none() {
+            self.draw_combo();
+            self.draw_judge();
+        }
     }
 
     #[allow(dead_code)]
@@ -933,6 +1038,42 @@ impl PlayState {
         // Draw combo and judge on lanes
         self.draw_combo();
         self.draw_judge();
+    }
+
+    #[allow(dead_code)]
+    fn draw_skin_bga(&self, skin: &SkinRenderer, state: &MainState, now_time_us: i64) {
+        if !self.bga_enabled {
+            return;
+        }
+        let fallback_texture = self
+            .backbmp_texture
+            .as_ref()
+            .or(self.stagefile_texture.as_ref());
+
+        for dst in skin.bga_destinations(state, now_time_us) {
+            let mut drew_bga = false;
+            if let Some(ref bga) = self.bga_processor {
+                if bga.has_active_image() {
+                    bga.draw_with_alpha(dst.x, dst.y, dst.w, dst.h, dst.a);
+                    drew_bga = true;
+                }
+            }
+            if !drew_bga {
+                let color = Color::new(1.0, 1.0, 1.0, (dst.a / 255.0).clamp(0.0, 1.0));
+                if let Some(texture) = fallback_texture {
+                    draw_texture_ex(
+                        texture,
+                        dst.x,
+                        dst.y,
+                        color,
+                        DrawTextureParams {
+                            dest_size: Some(vec2(dst.w, dst.h)),
+                            ..Default::default()
+                        },
+                    );
+                }
+            }
+        }
     }
 
     /// Draw left panel: lanes background, gauge, hi-speed info.
@@ -1480,11 +1621,42 @@ impl PlayState {
         // Score
         state.ex_score = self.score.ex_score();
         state.score_rate = self.score.clear_rate();
+        state.total_rate = state.score_rate;
+        state.miss_count = self.score.bp();
+        state.combo_break = self.score.bp();
+        let max_ex = (self.model.total_notes * 2) as f64;
+        let progress = if self.model.timelines.last_time_ms() > 0.0 {
+            (self.current_time_ms.max(0.0) / self.model.timelines.last_time_ms()).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        state.score_diff_ex = self.score.ex_score() as i32 - (max_ex * progress) as i32;
 
         // BPM
-        state.current_bpm = self.model.initial_bpm;
+        state.current_bpm = self.current_bpm();
         state.min_bpm = self.model.min_bpm;
         state.max_bpm = self.model.max_bpm;
+        state.bpm_change =
+            (self.model.max_bpm - self.model.min_bpm).abs() > 0.1 || self.model.has_stop;
+
+        // Chart info
+        state.play_level = self.model.play_level.unwrap_or(0) as i32;
+        state.difficulty = self.model.difficulty.unwrap_or(0) as i32;
+        state.has_long_note = self.model.has_long_note;
+        state.has_bga = self
+            .bga_processor
+            .as_ref()
+            .map(|bga| bga.has_images())
+            .unwrap_or(false);
+        state.has_stagefile = self.stagefile_texture.is_some();
+        state.has_backbmp = self.backbmp_texture.is_some();
+        state.has_banner = self.banner_texture.is_some();
+
+        state.is_7key = self.model.play_mode == PlayMode::Beat7K;
+        state.is_5key = matches!(self.model.play_mode, PlayMode::Beat5K | PlayMode::PopN5K);
+        state.is_14key = self.model.play_mode == PlayMode::Beat14K;
+        state.is_10key = self.model.play_mode == PlayMode::Beat10K;
+        state.is_9key = self.model.play_mode == PlayMode::PopN9K;
 
         // Time
         state.current_time_ms = self.current_time_ms.max(0.0);
@@ -1495,6 +1667,9 @@ impl PlayState {
 
         // Hi-speed
         state.hi_speed = self.hi_speed;
+        state.lane_cover_sudden = self.lane_cover.sudden_plus;
+        state.lane_cover_hidden = self.lane_cover.hidden_plus;
+        state.lane_cover_lift = self.lane_cover.lift;
 
         // Play state flags
         state.is_ready = self.phase == PlayPhase::Countdown;
@@ -1502,6 +1677,29 @@ impl PlayState {
         state.is_finished = self.phase == PlayPhase::Finished;
         state.is_clear = self.phase == PlayPhase::Finished && self.gauge.is_clear();
         state.is_failed = self.phase == PlayPhase::Finished && !self.gauge.is_clear();
+        state.is_replay = self.is_replay();
+        state.is_replay_recording = self.should_record_replay();
+        state.bga_enabled = self.bga_enabled;
+        state.autoplay_enabled = self.autoplay_processor.is_some();
+
+        state.song_title = self.model.title.clone();
+        state.song_subtitle = self.model.subtitle.clone();
+        state.full_title = if self.model.subtitle.is_empty() {
+            self.model.title.clone()
+        } else {
+            format!("{} {}", self.model.title, self.model.subtitle)
+        };
+        state.genre = self.model.genre.clone();
+        state.artist = self.model.artist.clone();
+        state.subartist = self.model.subartist.clone();
+        state.full_artist = if self.model.subartist.is_empty() {
+            self.model.artist.clone()
+        } else {
+            format!("{} {}", self.model.artist, self.model.subartist)
+        };
+        state.song_folder = self.model.folder.clone();
+        state.player_name = self.player_name.clone();
+        state.rival_name = self.rival_name.clone();
 
         // Last judge
         if let Some((rank, time)) = self.last_judge_display {
@@ -1517,6 +1715,27 @@ impl PlayState {
         state.timers = self.create_timers();
 
         state
+    }
+
+    fn current_bpm(&self) -> f64 {
+        let time = self.current_time_ms.max(0.0);
+        self.model
+            .timelines
+            .entries()
+            .iter()
+            .rev()
+            .find(|tl| tl.time_ms <= time)
+            .map(|tl| tl.bpm)
+            .unwrap_or(self.model.initial_bpm)
+    }
+
+    fn render_lane_config(&self) -> LaneConfig {
+        if let Some(renderer) = &self.skin_renderer {
+            if self.model.play_mode == PlayMode::Beat7K && renderer.name().contains("EC:FN") {
+                return LaneConfig::ecfn_7k_left();
+            }
+        }
+        self.lane_config.clone()
     }
 
     /// Convert JudgeRank to skin JudgeType.
@@ -1547,55 +1766,6 @@ impl PlayState {
 
     /// Create timer values for skin rendering.
     fn create_timers(&self) -> MainStateTimers {
-        use crate::skin::skin_property::TIMER_OFF_VALUE;
-
-        let mut timers = MainStateTimers::new();
-
-        // Ready timer (starts at countdown start)
-        if self.phase != PlayPhase::Countdown || self.current_time_ms >= -self.countdown_ms {
-            timers.ready = 0; // Ready from the beginning
-        }
-
-        // Play timer (starts when playing begins)
-        if self.phase == PlayPhase::Playing || self.phase == PlayPhase::Finished {
-            timers.play = 0; // Play started
-        }
-
-        // Judge timer (set when judge happens)
-        if let Some((_, time)) = self.last_judge_display {
-            let elapsed = self.current_time_ms - time;
-            if elapsed < 500.0 {
-                timers.judge_1p = (time * 1000.0) as i64;
-            }
-        }
-
-        // Combo timer (same as judge timer for simplicity)
-        if self.score.combo > 0 {
-            if let Some((_, time)) = self.last_judge_display {
-                timers.combo_1p = (time * 1000.0) as i64;
-            }
-        }
-
-        // Key on/off timers from input source (input manager, replay player, or autoplay)
-        for lane in self.lane_config.lanes() {
-            let lane_idx = lane.index();
-            if lane_idx >= timers.keyon_1p.len() {
-                continue;
-            }
-            let is_pressed = self.is_lane_pressed(*lane);
-
-            if is_pressed {
-                let press_time = self.get_press_time_us(*lane) as i64;
-                timers.keyon_1p[lane_idx] = press_time;
-                timers.keyoff_1p[lane_idx] = TIMER_OFF_VALUE;
-            } else {
-                let release_time = self.get_release_time_us(*lane);
-                if release_time > 0 {
-                    timers.keyoff_1p[lane_idx] = release_time as i64;
-                }
-            }
-        }
-
-        timers
+        self.skin_timers.clone()
     }
 }

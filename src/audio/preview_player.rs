@@ -1,8 +1,9 @@
+use std::path::Path;
+
 use anyhow::Result;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle, StaticSoundSettings};
 use kira::track::{TrackBuilder, TrackHandle};
 use kira::{AudioManager, AudioManagerSettings, Capacities, Decibels, DefaultBackend, Tween};
-use std::path::Path;
 
 /// Simple audio player for preview playback in the select screen.
 pub struct PreviewPlayer {

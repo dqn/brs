@@ -1,16 +1,18 @@
-use crate::audio::BgmEvent;
-use crate::model::note::{Lane, Note, NoteType};
-use crate::model::timeline::{Timeline, Timelines};
-use crate::model::timing::TimingEngine;
-use crate::model::{BgaEvent, BgaLayer, ChartFormat};
+use std::collections::BTreeMap;
+use std::num::NonZeroU64;
+
 use anyhow::Result;
 use bms_rs::bms::command::channel::NoteKind;
 use bms_rs::bms::command::channel::mapper::{KeyLayoutBeat, KeyLayoutPms};
 use bms_rs::bms::command::time::ObjTime;
 use bms_rs::bms::prelude::*;
 use num_traits::ToPrimitive;
-use std::collections::BTreeMap;
-use std::num::NonZeroU64;
+
+use crate::audio::BgmEvent;
+use crate::model::note::{Lane, Note, NoteType};
+use crate::model::timeline::{Timeline, Timelines};
+use crate::model::timing::TimingEngine;
+use crate::model::{BgaEvent, BgaLayer, ChartFormat};
 
 /// Play mode for the BMS chart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,6 +67,9 @@ pub struct BMSModel {
     pub subartist: String,
     pub genre: String,
     pub preview: Option<String>,
+    pub stage_file: Option<String>,
+    pub back_bmp: Option<String>,
+    pub banner: Option<String>,
     pub initial_bpm: f64,
     pub min_bpm: f64,
     pub max_bpm: f64,
@@ -80,6 +85,9 @@ pub struct BMSModel {
     pub has_mine: bool,
     pub has_invisible: bool,
     pub has_stop: bool,
+    pub play_level: Option<u8>,
+    pub difficulty: Option<u8>,
+    pub folder: String,
     pub timelines: Timelines,
     pub wav_files: BTreeMap<u16, String>,
     pub bga_files: BTreeMap<u16, String>,
@@ -118,6 +126,28 @@ impl BMSModel {
             .preview_music
             .as_ref()
             .map(|p| p.to_string_lossy().to_string());
+        let stage_file = bms
+            .sprite
+            .stage_file
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string());
+        let back_bmp = bms
+            .sprite
+            .back_bmp
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string());
+        let banner = bms
+            .sprite
+            .banner
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string());
+        let play_level = bms.metadata.play_level;
+        let difficulty = bms.metadata.difficulty;
+        let folder = source_path
+            .and_then(|p| p.parent())
+            .and_then(|p| p.file_name())
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_default();
 
         let play_mode = detect_mode(bms, source_path);
 
@@ -161,6 +191,9 @@ impl BMSModel {
             subartist,
             genre,
             preview,
+            stage_file,
+            back_bmp,
+            banner,
             initial_bpm,
             min_bpm,
             max_bpm,
@@ -176,6 +209,9 @@ impl BMSModel {
             has_mine,
             has_invisible,
             has_stop,
+            play_level,
+            difficulty,
+            folder,
             timelines,
             wav_files,
             bga_files,
@@ -319,8 +355,7 @@ fn channel_to_lane(
     play_mode: PlayMode,
 ) -> Option<Lane> {
     use bms_rs::bms::command::channel::mapper::KeyMapping;
-    use bms_rs::bms::prelude::Key;
-    use bms_rs::bms::prelude::PlayerSide;
+    use bms_rs::bms::prelude::{Key, PlayerSide};
 
     match play_mode {
         PlayMode::PopN5K | PlayMode::PopN9K => {
@@ -646,9 +681,10 @@ fn detect_mode(bms: &Bms, source_path: Option<&std::path::Path>) -> PlayMode {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
     use crate::model::bms_loader::load_chart;
-    use std::path::Path;
 
     #[test]
     fn test_bms_model_from_bms() {

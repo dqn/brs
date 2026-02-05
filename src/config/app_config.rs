@@ -1,7 +1,8 @@
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
 const CONFIG_FILE: &str = "config.json";
 
@@ -69,8 +70,9 @@ impl AppConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::tempdir;
+
+    use super::*;
 
     #[test]
     fn test_default_values() {

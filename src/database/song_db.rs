@@ -1,8 +1,10 @@
-use crate::database::connection::Database;
-use crate::database::models::{Mode, SongData};
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Result};
 use rusqlite::params;
-use std::path::{Path, PathBuf};
+
+use crate::database::connection::Database;
+use crate::database::models::{Mode, SongData};
 
 /// Accessor for song database operations.
 pub struct SongDatabaseAccessor<'a> {

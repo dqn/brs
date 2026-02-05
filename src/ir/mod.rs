@@ -1,10 +1,10 @@
+use std::collections::HashMap;
+use std::path::Path;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{fs, thread};
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{error, info, warn};
 
 use crate::config::AppConfig;

@@ -1,7 +1,10 @@
-use anyhow::Result;
 use std::path::Path;
+
+use anyhow::Result;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, fmt};
 
 /// Initialize the logging system with tracing.
 ///

@@ -3,9 +3,10 @@
 //! Compares two PNG images and outputs a text report suitable for
 //! Claude Code analysis.
 
+use std::path::Path;
+
 use clap::Parser;
 use image::{GenericImageView, Pixel, Rgba};
-use std::path::Path;
 
 #[derive(Parser)]
 #[command(

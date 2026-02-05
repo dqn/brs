@@ -1,5 +1,6 @@
-use crate::model::{LaneConfig, Timelines};
 use macroquad::prelude::*;
+
+use crate::model::{LaneConfig, Timelines};
 
 /// Renderer for lane backgrounds, borders, judge line, and measure lines.
 pub struct LaneRenderer<'a> {
@@ -16,6 +17,13 @@ impl<'a> LaneRenderer<'a> {
     pub fn draw(&self, timelines: &Timelines, current_time_ms: f64, hi_speed: f32) {
         self.draw_lane_backgrounds();
         self.draw_lane_borders();
+        self.draw_measure_lines(timelines, current_time_ms, hi_speed);
+        self.draw_judge_line();
+    }
+
+    /// Draw lane elements for skin rendering (measure lines and judge line only).
+    /// スキン描画向けに小節線と判定ラインのみ描画する。
+    pub fn draw_for_skin(&self, timelines: &Timelines, current_time_ms: f64, hi_speed: f32) {
         self.draw_measure_lines(timelines, current_time_ms, hi_speed);
         self.draw_judge_line();
     }

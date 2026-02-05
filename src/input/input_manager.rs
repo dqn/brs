@@ -1,13 +1,15 @@
+use std::time::Instant;
+
+use anyhow::Result;
+use gilrs::{EventType, Gilrs};
+use tracing::{debug, warn};
+
 use crate::input::gamepad::GamepadInput;
 use crate::input::key_config::KeyConfig;
 use crate::input::key_input_log::InputLogger;
 use crate::input::key_state::KeyState;
 use crate::input::keyboard::KeyboardInput;
 use crate::model::note::{LANE_COUNT, Lane};
-use anyhow::Result;
-use gilrs::{EventType, Gilrs};
-use std::time::Instant;
-use tracing::{debug, warn};
 
 /// Unified input manager for keyboard and gamepad.
 pub struct InputManager {

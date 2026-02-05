@@ -3,11 +3,11 @@ mod random;
 mod s_random;
 
 pub use mirror::MirrorModifier;
+use rand::Rng;
 pub use random::{RRandomModifier, RandomModifier};
 pub use s_random::SRandomModifier;
 
 use crate::model::BMSModel;
-use rand::Rng;
 
 /// Pattern modification option for gameplay.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -35,12 +35,13 @@ impl RandomOption {
 
 #[cfg(test)]
 mod tests {
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
     use super::*;
     use crate::model::note::{Lane, Note};
     use crate::model::timeline::{Timeline, Timelines};
     use crate::model::{ChartFormat, JudgeRankType, LongNoteMode, PlayMode, TotalType};
-    use rand::SeedableRng;
-    use rand_chacha::ChaCha8Rng;
 
     fn create_test_model() -> BMSModel {
         let mut timelines = Timelines::new();
@@ -62,6 +63,9 @@ mod tests {
             subartist: String::new(),
             genre: "Test".to_string(),
             preview: None,
+            stage_file: None,
+            back_bmp: None,
+            banner: None,
             initial_bpm: 120.0,
             min_bpm: 120.0,
             max_bpm: 120.0,
@@ -77,6 +81,9 @@ mod tests {
             has_mine: false,
             has_invisible: false,
             has_stop: false,
+            play_level: None,
+            difficulty: None,
+            folder: String::new(),
             timelines,
             wav_files: std::collections::BTreeMap::new(),
             bga_files: std::collections::BTreeMap::new(),

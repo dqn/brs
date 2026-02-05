@@ -1,39 +1,61 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-
 use macroquad::prelude::*;
-use tracing::info;
 
 use crate::skin::object::{
     SkinObject, apply_offsets, check_option_visibility, get_timer_elapsed, interpolate_destinations,
 };
-use crate::skin::{ImageDef, MainState, SkinObjectData, SkinSourceManager};
+use crate::skin::{ImageDef, ImageSetDef, MainState, SkinObjectData, SkinSourceManager};
 
-/// Skin object that renders a single image.
-pub struct ImageObject {
+/// Skin object that renders an image set selection.
+pub struct ImageSetObject {
     /// Object data from skin definition.
     pub data: SkinObjectData,
-    /// Image definition.
-    pub image_def: Option<ImageDef>,
+    /// Image definitions in this set.
+    pub images: Vec<ImageDef>,
+    /// Integer property ID for selection.
+    pub ref_id: i32,
     /// Whether the object is prepared.
     prepared: bool,
 }
 
-impl ImageObject {
-    /// Create a new image object.
-    pub fn new(data: SkinObjectData, image_def: Option<ImageDef>) -> Self {
+impl ImageSetObject {
+    /// Create a new image set object.
+    pub fn new(
+        data: SkinObjectData,
+        imageset_def: Option<ImageSetDef>,
+        images: &std::collections::HashMap<String, ImageDef>,
+    ) -> Self {
+        let mut defs = Vec::new();
+        let mut ref_id = 0;
+        if let Some(set_def) = imageset_def {
+            ref_id = set_def.ref_id;
+            for image_id in set_def.images {
+                if let Some(def) = images.get(&image_id) {
+                    defs.push(def.clone());
+                }
+            }
+        }
+
         Self {
             data,
-            image_def,
+            images: defs,
+            ref_id,
             prepared: false,
         }
     }
 
-    /// Get the current animation frame based on timer.
-    fn get_animation_frame(&self, elapsed_us: i64) -> usize {
-        let Some(ref image_def) = self.image_def else {
+    fn select_index(&self, state: &MainState) -> usize {
+        if self.images.is_empty() {
             return 0;
-        };
+        }
+        if self.ref_id == 0 {
+            return 0;
+        }
+        let value = state.number(self.ref_id);
+        let clamped = value.clamp(0, self.images.len().saturating_sub(1) as i32);
+        clamped as usize
+    }
 
+    fn get_animation_frame(&self, image_def: &ImageDef, elapsed_us: i64) -> usize {
         let total_frames = (image_def.divx * image_def.divy) as usize;
         if total_frames <= 1 || image_def.cycle <= 0 {
             return 0;
@@ -54,10 +76,7 @@ impl ImageObject {
         ((elapsed_in_cycle / frame_duration) as usize).min(total_frames - 1)
     }
 
-    /// Calculate source rectangle for a specific frame.
-    fn get_source_rect(&self, frame: usize) -> Option<Rect> {
-        let image_def = self.image_def.as_ref()?;
-
+    fn get_source_rect(&self, image_def: &ImageDef, frame: usize) -> Rect {
         let divx = image_def.divx.max(1) as usize;
         let divy = image_def.divy.max(1) as usize;
         let frame_w = image_def.w as f32 / divx as f32;
@@ -66,16 +85,16 @@ impl ImageObject {
         let frame_x = (frame % divx) as f32 * frame_w;
         let frame_y = (frame / divx) as f32 * frame_h;
 
-        Some(Rect::new(
+        Rect::new(
             image_def.x as f32 + frame_x,
             image_def.y as f32 + frame_y,
             frame_w,
             frame_h,
-        ))
+        )
     }
 }
 
-impl SkinObject for ImageObject {
+impl SkinObject for ImageSetObject {
     fn prepare(&mut self, _sources: &SkinSourceManager) {
         self.prepared = true;
     }
@@ -85,15 +104,21 @@ impl SkinObject for ImageObject {
             return;
         }
 
-        let Some(ref image_def) = self.image_def else {
+        if self.images.is_empty() {
             return;
+        }
+
+        let image_index = self.select_index(state);
+        let image_def = match self.images.get(image_index) {
+            Some(def) => def,
+            None => return,
         };
 
         let Some(texture) = sources.get(image_def.src) else {
             return;
         };
 
-        // Calculate elapsed time for animation
+        // Calculate elapsed time for destination
         let elapsed_us = get_timer_elapsed(self.data.timer, state, now_time_us);
         if elapsed_us < 0 {
             return; // Timer not active
@@ -112,37 +137,21 @@ impl SkinObject for ImageObject {
             return;
         }
 
-        // Get animation frame
         let animation_timer = if image_def.timer != 0 {
             image_def.timer
         } else {
             self.data.timer
         };
-        let anim_elapsed_us = get_timer_elapsed(animation_timer, state, now_time_us);
-        let frame = if anim_elapsed_us >= 0 {
-            self.get_animation_frame(anim_elapsed_us)
+        let anim_elapsed = get_timer_elapsed(animation_timer, state, now_time_us);
+        let frame = if anim_elapsed >= 0 {
+            self.get_animation_frame(image_def, anim_elapsed)
         } else {
             0
         };
-        let src_rect = self.get_source_rect(frame);
+        let src_rect = self.get_source_rect(image_def, frame);
 
         // Draw the texture
         let color = Color::new(dst.r / 255.0, dst.g / 255.0, dst.b / 255.0, dst.a / 255.0);
-
-        static LOG_BACKGROUND: AtomicBool = AtomicBool::new(false);
-        static LOG_SUBFRAME: AtomicBool = AtomicBool::new(false);
-        if self.data.id == "background" && !LOG_BACKGROUND.swap(true, Ordering::SeqCst) {
-            info!(
-                "Draw background dst x={} y={} w={} h={} a={} src={:?}",
-                dst.x, dst.y, dst.w, dst.h, dst.a, src_rect
-            );
-        }
-        if self.data.id == "sub_frame" && !LOG_SUBFRAME.swap(true, Ordering::SeqCst) {
-            info!(
-                "Draw sub_frame dst x={} y={} w={} h={} a={} src={:?}",
-                dst.x, dst.y, dst.w, dst.h, dst.a, src_rect
-            );
-        }
 
         draw_texture_ex(
             &texture.texture,
@@ -151,7 +160,7 @@ impl SkinObject for ImageObject {
             color,
             DrawTextureParams {
                 dest_size: Some(vec2(dst.w, dst.h)),
-                source: src_rect,
+                source: Some(src_rect),
                 rotation: dst.angle.to_radians(),
                 flip_x: false,
                 flip_y: false,
@@ -162,48 +171,5 @@ impl SkinObject for ImageObject {
 
     fn is_visible(&self, state: &MainState) -> bool {
         check_option_visibility(&self.data.op, state)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::skin::Destination;
-
-    #[test]
-    fn test_image_object_creation() {
-        let data = SkinObjectData {
-            id: "test".to_string(),
-            dst: vec![Destination {
-                x: 100.0,
-                y: 100.0,
-                w: 50.0,
-                h: 50.0,
-                ..Default::default()
-            }],
-            ..Default::default()
-        };
-        let obj = ImageObject::new(data, None);
-        assert!(!obj.prepared);
-    }
-
-    #[test]
-    fn test_animation_frame_calculation() {
-        let data = SkinObjectData::default();
-        let image_def = ImageDef {
-            id: "test".to_string(),
-            divx: 4,
-            divy: 1,
-            cycle: 400, // 400ms for 4 frames = 100ms per frame
-            ..Default::default()
-        };
-        let obj = ImageObject::new(data, Some(image_def));
-
-        // At t=0, frame 0
-        assert_eq!(obj.get_animation_frame(0), 0);
-        // At t=150ms (150000us), frame 1
-        assert_eq!(obj.get_animation_frame(150_000), 1);
-        // At t=250ms (250000us), frame 2
-        assert_eq!(obj.get_animation_frame(250_000), 2);
     }
 }

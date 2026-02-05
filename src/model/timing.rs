@@ -1,7 +1,8 @@
-use bms_rs::bms::prelude::*;
-use num_traits::ToPrimitive;
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU64;
+
+use bms_rs::bms::prelude::*;
+use num_traits::ToPrimitive;
 
 #[derive(Debug, Clone)]
 pub struct TimingEngine {
@@ -347,9 +348,11 @@ impl TimingEngine {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use proptest::prelude::*;
     use std::time::Duration;
+
+    use proptest::prelude::*;
+
+    use super::*;
 
     fn make_bms_with_bpm_change() -> Bms {
         let mut bms = Bms::default();

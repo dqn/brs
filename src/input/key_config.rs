@@ -1,8 +1,9 @@
+use std::fs;
+use std::path::Path;
+
 use anyhow::Result;
 use macroquad::prelude::KeyCode;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::Path;
 
 use crate::model::note::LANE_COUNT;
 const KEY_CONFIG_FILE: &str = "keyconfig.json";

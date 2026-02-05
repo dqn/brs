@@ -1,5 +1,6 @@
-use crate::model::{LaneConfig, LaneCoverSettings, Note, NoteType, Timelines};
 use macroquad::prelude::*;
+
+use crate::model::{LaneConfig, LaneCoverSettings, Note, NoteType, Timelines};
 
 /// Renderer for notes (normal, long, mine).
 pub struct NoteRenderer<'a> {

@@ -1,6 +1,7 @@
+use std::path::Path;
+
 use anyhow::{Context, Result};
 use rusqlite::Connection;
-use std::path::Path;
 
 const SONG_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS song (
@@ -133,8 +134,9 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::tempdir;
+
+    use super::*;
 
     #[test]
     fn test_open_song_db() {

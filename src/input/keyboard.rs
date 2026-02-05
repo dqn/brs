@@ -1,7 +1,8 @@
+use macroquad::prelude::is_key_down;
+
 use crate::input::key_config::KeyboardConfig;
 use crate::input::key_state::KeyState;
 use crate::model::note::LANE_COUNT;
-use macroquad::prelude::is_key_down;
 
 /// Keyboard input handler using macroquad.
 pub struct KeyboardInput;

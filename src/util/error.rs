@@ -78,8 +78,9 @@ impl UserError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::Path;
+
+    use super::*;
 
     #[test]
     fn test_bms_not_found() {

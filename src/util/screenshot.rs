@@ -1,9 +1,10 @@
 //! Screenshot capture utility for visual testing.
 
+use std::path::Path;
+
 use anyhow::Result;
 use image::{ImageBuffer, Rgba};
 use macroquad::prelude::*;
-use std::path::Path;
 
 /// Capture the current screen and save to a PNG file.
 /// Uses render target approach for reliable screenshot capture.
@@ -61,11 +62,33 @@ pub async fn capture_screenshot_via_render_target(output_path: &Path) -> Result<
     set_default_camera();
 
     // Get texture data
-    let texture = render_target.texture;
-    let image = texture.get_texture_data();
+    let image = render_target.texture.get_texture_data();
 
     let img = ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, image.bytes.to_vec())
         .ok_or_else(|| anyhow::anyhow!("Failed to create image buffer from render target"))?;
+
+    // Flip vertically
+    let flipped = image::imageops::flip_vertical(&img);
+
+    if let Some(parent) = output_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    flipped.save(output_path)?;
+
+    Ok(())
+}
+
+/// Capture a specific render target and save it to a PNG file.
+/// 特定のレンダーターゲットをPNGとして保存する。
+pub fn capture_render_target(render_target: &RenderTarget, output_path: &Path) -> Result<()> {
+    let image = render_target.texture.get_texture_data();
+
+    let img = ImageBuffer::<Rgba<u8>, _>::from_raw(
+        image.width as u32,
+        image.height as u32,
+        image.bytes.to_vec(),
+    )
+    .ok_or_else(|| anyhow::anyhow!("Failed to create image buffer from render target"))?;
 
     // Flip vertically
     let flipped = image::imageops::flip_vertical(&img);

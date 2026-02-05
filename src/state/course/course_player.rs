@@ -203,11 +203,12 @@ impl CoursePlayer {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
     use crate::model::{ChartFormat, JudgeRankType, LongNoteMode, PlayMode};
     use crate::state::course::CourseConstraints;
     use crate::state::play::GaugeType;
-    use std::path::PathBuf;
 
     fn create_test_course() -> Course {
         let songs = vec![

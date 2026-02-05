@@ -435,8 +435,9 @@ impl JudgeManager {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use proptest::prelude::*;
+
+    use super::*;
 
     #[test]
     fn test_judge_window_sevenkeys() {

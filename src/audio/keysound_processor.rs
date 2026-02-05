@@ -1,5 +1,6 @@
-use crate::audio::AudioDriver;
 use anyhow::Result;
+
+use crate::audio::AudioDriver;
 
 /// A BGM event representing a keysound to play at a specific time.
 #[derive(Debug, Clone)]

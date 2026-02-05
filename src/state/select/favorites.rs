@@ -1,8 +1,9 @@
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
+
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
 const FAVORITES_FILE: &str = "favorites.json";
 
@@ -73,8 +74,9 @@ impl FavoriteStore {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::tempdir;
+
+    use super::*;
 
     #[test]
     fn test_favorite_store_roundtrip() {

@@ -1,9 +1,10 @@
-use anyhow::Result;
-use macroquad::prelude::{KeyCode, is_key_pressed};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+
+use anyhow::Result;
+use macroquad::prelude::{KeyCode, is_key_pressed};
+use serde::{Deserialize, Serialize};
 
 use crate::input::key_config::SerializableKeyCode;
 

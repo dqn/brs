@@ -339,8 +339,9 @@ impl GrooveGauge {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use proptest::prelude::*;
+
+    use super::*;
 
     #[test]
     fn test_normal_gauge_initial_value() {

@@ -1,7 +1,8 @@
 //! Course data structures for Dan/Class mode.
 
-use crate::state::play::GaugeType;
 use std::path::PathBuf;
+
+use crate::state::play::GaugeType;
 
 /// A song entry in a course.
 #[derive(Debug, Clone)]

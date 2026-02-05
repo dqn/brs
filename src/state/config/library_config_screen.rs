@@ -1,9 +1,11 @@
+use std::path::Path;
+
+use macroquad::prelude::*;
+use walkdir::WalkDir;
+
 use crate::config::AppConfig;
 use crate::input::{ConfigHotkey, HotkeyConfig, InputManager};
 use crate::skin::path as skin_path;
-use macroquad::prelude::*;
-use std::path::Path;
-use walkdir::WalkDir;
 
 /// Result of the library config screen.
 /// ライブラリ設定画面の結果。
@@ -438,10 +440,7 @@ impl LibraryConfigScreen {
                 selected_index = found;
             } else if resolved_selected.is_some() {
                 options.push(SkinOption {
-                    label: format!(
-                        "Custom: {} / カスタム: {}",
-                        selected_path, selected_path
-                    ),
+                    label: format!("Custom: {} / カスタム: {}", selected_path, selected_path),
                     path: Some(selected_path.clone()),
                 });
                 selected_index = options.len().saturating_sub(1);

@@ -10,8 +10,7 @@ pub mod timeline;
 pub mod timing;
 
 pub use bga::{BgaEvent, BgaLayer};
-pub use bms_loader::load_bms;
-pub use bms_loader::{ChartFormat, LoadedChart, load_chart};
+pub use bms_loader::{ChartFormat, LoadedChart, load_bms, load_chart};
 pub use bms_model::{BMSModel, JudgeRankType, LongNoteMode, PlayMode, TotalType};
 pub use lane::{LaneConfig, LaneLayout};
 pub use lane_cover::LaneCoverSettings;

@@ -1,8 +1,10 @@
-use crate::database::models::ScanResult;
-use crate::database::{Database, SongDatabaseAccessor, SongScanner};
-use anyhow::{Result, anyhow};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+
+use anyhow::{Result, anyhow};
+
+use crate::database::models::ScanResult;
+use crate::database::{Database, SongDatabaseAccessor, SongScanner};
 
 /// Stage of the song scan process.
 /// 曲スキャン処理の段階。

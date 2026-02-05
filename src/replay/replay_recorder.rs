@@ -1,11 +1,10 @@
 //! Replay recorder for capturing gameplay inputs.
 
+use super::replay_data::{ReplayData, ReplayScore};
 use crate::database::ClearType;
 use crate::input::KeyInputLog;
 use crate::model::{ChartFormat, JudgeRankType, LongNoteMode, PlayMode};
 use crate::state::play::PlayResult;
-
-use super::replay_data::{ReplayData, ReplayScore};
 
 /// Records inputs during gameplay for replay.
 pub struct ReplayRecorder {

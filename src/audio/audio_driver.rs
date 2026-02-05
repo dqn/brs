@@ -1,15 +1,17 @@
-use crate::audio::audio_config::AudioConfig;
-use crate::audio::sound_pool::SoundPool;
-use crate::model::BMSModel;
+use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use anyhow::{Result, anyhow};
 use kira::sound::PlaybackState;
 use kira::sound::static_sound::{StaticSoundHandle, StaticSoundSettings};
 use kira::track::{TrackBuilder, TrackHandle};
 use kira::{AudioManager, AudioManagerSettings, Capacities, Decibels, DefaultBackend, Tween};
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::warn;
+
+use crate::audio::audio_config::AudioConfig;
+use crate::audio::sound_pool::SoundPool;
+use crate::model::BMSModel;
 
 /// Audio driver using kira for low-latency audio playback.
 pub struct AudioDriver {

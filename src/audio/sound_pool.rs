@@ -1,7 +1,8 @@
-use anyhow::{Result, anyhow};
-use kira::sound::static_sound::StaticSoundData;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
+use anyhow::{Result, anyhow};
+use kira::sound::static_sound::StaticSoundData;
 
 /// Cache for loaded audio data.
 pub struct SoundPool {

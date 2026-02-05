@@ -1,7 +1,8 @@
-use crate::model::BMSModel;
-use crate::model::note::Lane;
 use rand::Rng;
 use rand::seq::SliceRandom;
+
+use crate::model::BMSModel;
+use crate::model::note::Lane;
 
 /// Random modifier that shuffles key lane assignments.
 pub struct RandomModifier;
@@ -59,12 +60,13 @@ impl RRandomModifier {
 
 #[cfg(test)]
 mod tests {
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
     use super::*;
     use crate::model::note::Note;
     use crate::model::timeline::{Timeline, Timelines};
     use crate::model::{ChartFormat, JudgeRankType, LongNoteMode, PlayMode, TotalType};
-    use rand::SeedableRng;
-    use rand_chacha::ChaCha8Rng;
 
     fn create_test_model() -> BMSModel {
         let mut timelines = Timelines::new();
@@ -83,6 +85,9 @@ mod tests {
             subartist: String::new(),
             genre: "Test".to_string(),
             preview: None,
+            stage_file: None,
+            back_bmp: None,
+            banner: None,
             initial_bpm: 120.0,
             min_bpm: 120.0,
             max_bpm: 120.0,
@@ -98,6 +103,9 @@ mod tests {
             has_mine: false,
             has_invisible: false,
             has_stop: false,
+            play_level: None,
+            difficulty: None,
+            folder: String::new(),
             timelines,
             wav_files: std::collections::BTreeMap::new(),
             bga_files: std::collections::BTreeMap::new(),

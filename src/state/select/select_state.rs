@@ -1,6 +1,8 @@
+use std::path::{Path, PathBuf};
+
+use ::rand::seq::SliceRandom;
 use anyhow::Result;
 use macroquad::prelude::*;
-use std::path::{Path, PathBuf};
 use tracing::warn;
 
 use crate::audio::PreviewPlayer;
@@ -12,7 +14,6 @@ use crate::model::note::Lane;
 use crate::state::select::FavoriteStore;
 use crate::state::select::bar::Bar;
 use crate::state::select::bar_manager::BarManager;
-use ::rand::seq::SliceRandom;
 
 /// Request type for song scanning on select screen.
 /// 選曲画面でのスキャン要求種別。

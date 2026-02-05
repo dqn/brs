@@ -1,7 +1,8 @@
+use gilrs::{Axis, Button, Event, EventType, GamepadId};
+
 use crate::input::key_config::GamepadConfig;
 use crate::input::key_state::KeyState;
 use crate::model::note::LANE_COUNT;
-use gilrs::{Axis, Button, Event, EventType, GamepadId};
 
 /// Tracks axis position for scratch detection.
 #[derive(Debug, Default)]

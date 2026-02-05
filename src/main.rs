@@ -1,21 +1,22 @@
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
 use brs::audio::{AudioConfig, AudioDriver, KeysoundProcessor};
 use brs::config::AppConfig;
 use brs::database::{Database, Mode, ScoreDatabaseAccessor, SongData};
 use brs::input::{HotkeyConfig, InputManager, KeyConfig, PlayHotkey};
 use brs::model::{BMSModel, ChartFormat, JudgeRankType, LongNoteMode, PlayMode, load_chart};
 use brs::replay::{ReplayPlayer, ReplaySlot, load_replay};
-use brs::skin::path as skin_path;
-use brs::skin::SkinRenderer;
+use brs::skin::{SkinRenderer, path as skin_path};
 use brs::state::config::{ConfigState, ConfigTransition};
 use brs::state::decide::{DecideState, DecideTransition};
 use brs::state::play::{GaugeType, PlayResult, PlayState, Score};
 use brs::state::result::{ResultState, ResultTransition};
 use brs::state::select::{SelectScanRequest, SelectState, SelectTransition};
 use brs::util::logging::init_logging;
-use brs::util::screenshot::capture_screenshot;
+use brs::util::screenshot::{capture_render_target, capture_screenshot};
 use clap::Parser;
 use macroquad::prelude::*;
-use std::path::{Path, PathBuf};
 use tracing::{debug, error, info, warn};
 
 /// Command line arguments for brs.
@@ -37,11 +38,13 @@ struct Args {
 }
 
 fn window_conf() -> Conf {
+    let fullscreen = std::env::var("BRS_SCREENSHOT_FULLSCREEN").ok().as_deref() == Some("1");
     Conf {
         window_title: "brs".to_owned(),
         window_width: 1920,
         window_height: 1080,
-        fullscreen: false,
+        high_dpi: false,
+        fullscreen,
         ..Default::default()
     }
 }
@@ -58,6 +61,13 @@ enum AppState {
 /// Maximum frame time to avoid large time jumps after stalls.
 /// スタール後の大きな時間ジャンプを避けるための最大フレーム時間。
 const MAX_FRAME_MS: f64 = 100.0;
+
+/// Screenshot target width.
+/// スクリーンショットのターゲット幅。
+const SCREENSHOT_WIDTH: u32 = 1920;
+/// Screenshot target height.
+/// スクリーンショットのターゲット高さ。
+const SCREENSHOT_HEIGHT: u32 = 1080;
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -417,7 +427,15 @@ async fn apply_play_skin(play_state: &mut PlayState) {
         return;
     };
 
-    match SkinRenderer::load(&resolved_path).await {
+    let mut options = HashMap::new();
+    let resolved_str = resolved_path.to_string_lossy();
+    if resolved_str.contains("skins/ECFN/play") {
+        options.insert("スコアグラフ".to_string(), 901);
+        options.insert("スコア差分".to_string(), 909);
+        options.insert("ジャッジカウント".to_string(), 906);
+    }
+
+    match SkinRenderer::load_with_options(&resolved_path, &options).await {
         Ok(renderer) => play_state.set_skin_renderer(renderer),
         Err(e) => warn!("Failed to load skin: {} / スキンの読み込みに失敗: {}", e, e),
     }
@@ -765,17 +783,34 @@ async fn run_screenshot_play(output_dir: &str, bms_path: &str, warmup_frames: u3
 
     play_state.load_bga(bms_dir).await;
 
+    let render_target = render_target(SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT);
+    render_target.texture.set_filter(FilterMode::Nearest);
+
     // Simulate time to pass countdown and show notes
     // Run enough frames to get past countdown (3000ms default) and into gameplay
     let frames_to_simulate = 250 + warmup_frames as usize; // ~4 seconds at 60fps + warmup
     for i in 0..frames_to_simulate {
+        set_camera(&Camera2D {
+            zoom: vec2(
+                2.0 / SCREENSHOT_WIDTH as f32,
+                2.0 / SCREENSHOT_HEIGHT as f32,
+            ),
+            target: vec2(
+                SCREENSHOT_WIDTH as f32 / 2.0,
+                SCREENSHOT_HEIGHT as f32 / 2.0,
+            ),
+            render_target: Some(render_target.clone()),
+            ..Default::default()
+        });
+
         clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
         let _ = play_state.update(16.67); // ~60fps
         play_state.draw();
+        set_default_camera();
 
         // Capture screenshot on the last frame before next_frame()
         if i == frames_to_simulate - 1 {
-            save_screenshot(output_dir, "play.png");
+            save_render_target(output_dir, "play.png", &render_target);
         }
 
         next_frame().await;
@@ -906,4 +941,25 @@ fn save_screenshot(output_dir: &str, filename: &str) {
             eprintln!("Failed to capture screenshot: {}", e);
         }
     }
+}
+
+fn save_render_target(output_dir: &str, filename: &str, render_target: &RenderTarget) {
+    let output_path = Path::new(output_dir).join(filename);
+
+    if let Some(parent) = output_path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            error!("Failed to create directory: {}", e);
+            eprintln!("Failed to create directory: {}", e);
+            return;
+        }
+    }
+
+    if let Err(e) = capture_render_target(render_target, &output_path) {
+        error!("Failed to capture screenshot: {}", e);
+        eprintln!("Failed to capture screenshot: {}", e);
+        return;
+    }
+
+    info!("Screenshot saved to: {}", output_path.display());
+    println!("Screenshot saved: {}", output_path.display());
 }

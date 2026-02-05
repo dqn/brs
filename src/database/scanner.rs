@@ -1,5 +1,8 @@
-use crate::database::models::{Mode, ScanResult, SongData};
-use crate::database::song_db::SongDatabaseAccessor;
+use std::collections::HashSet;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
+
 use anyhow::{Context, Result};
 use bms_rs::bms::prelude::*;
 use bms_rs::bmson::prelude::parse_bmson;
@@ -7,11 +10,10 @@ use encoding_rs::{SHIFT_JIS, UTF_8};
 use md5::{Digest as Md5Digest, Md5};
 use num_traits::ToPrimitive;
 use sha2::Sha256;
-use std::collections::HashSet;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 use walkdir::WalkDir;
+
+use crate::database::models::{Mode, ScanResult, SongData};
+use crate::database::song_db::SongDatabaseAccessor;
 
 /// BMS file extensions to scan.
 const BMS_EXTENSIONS: &[&str] = &["bms", "bme", "bml", "pms", "bmson"];

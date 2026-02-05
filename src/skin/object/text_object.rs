@@ -2,7 +2,7 @@ use macroquad::prelude::*;
 
 use crate::skin::font::FontInfo;
 use crate::skin::object::{
-    SkinObject, check_option_visibility, get_timer_elapsed, interpolate_destinations,
+    SkinObject, apply_offsets, check_option_visibility, get_timer_elapsed, interpolate_destinations,
 };
 use crate::skin::{MainState, SkinObjectData, SkinSourceManager, TextDef};
 
@@ -141,6 +141,7 @@ impl SkinObject for TextObject {
         else {
             return;
         };
+        let dst = apply_offsets(dst, &self.data, state);
 
         // Skip if invisible
         if dst.a <= 0.0 || dst.w <= 0.0 || dst.h <= 0.0 {

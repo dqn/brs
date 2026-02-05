@@ -19,6 +19,9 @@ pub struct LoadedFont {
 pub struct SkinSourceManager {
     /// Loaded textures indexed by source ID.
     textures: HashMap<u32, LoadedTexture>,
+    /// Resolved image paths indexed by source ID.
+    /// ソースIDで引ける解決済み画像パス。
+    image_paths: HashMap<u32, PathBuf>,
     /// Loaded fonts indexed by font ID.
     fonts: HashMap<u32, LoadedFont>,
     /// Base directory for the skin.
@@ -43,6 +46,7 @@ impl SkinSourceManager {
     pub fn new(base_dir: PathBuf) -> Self {
         Self {
             textures: HashMap::new(),
+            image_paths: HashMap::new(),
             fonts: HashMap::new(),
             base_dir,
             file_map: Vec::new(),
@@ -64,6 +68,24 @@ impl SkinSourceManager {
         if !resolved_path.exists() {
             return Ok(());
         }
+        let resolved_path = if resolved_path.is_dir() {
+            match find_texture_in_dir(&resolved_path) {
+                Some(path) => path,
+                None => return Ok(()),
+            }
+        } else {
+            resolved_path
+        };
+
+        let ext = resolved_path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        let is_image_ext = matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "bmp");
+        if !is_image_ext {
+            return Ok(());
+        }
 
         let texture = load_texture(&resolved_path.to_string_lossy())
             .await
@@ -79,12 +101,19 @@ impl SkinSourceManager {
         };
 
         self.textures.insert(id, loaded);
+        self.image_paths.insert(id, resolved_path);
         Ok(())
     }
 
     /// Get a loaded texture by ID.
     pub fn get(&self, id: u32) -> Option<&LoadedTexture> {
         self.textures.get(&id)
+    }
+
+    /// Get the resolved path for a loaded texture by ID.
+    /// 読み込み済みテクスチャの解決済みパスを取得する。
+    pub fn get_path(&self, id: u32) -> Option<&PathBuf> {
+        self.image_paths.get(&id)
     }
 
     /// Check if a source is loaded.
@@ -219,6 +248,7 @@ impl SkinSourceManager {
                     if !base.is_dir() {
                         continue;
                     }
+                    let mut matches = Vec::new();
                     for entry in std::fs::read_dir(base)? {
                         let entry = entry?;
                         let name = entry.file_name().to_string_lossy().to_string();
@@ -230,11 +260,29 @@ impl SkinSourceManager {
                         let path = entry.path();
                         if is_last {
                             if path.exists() {
-                                return Ok(Some(path));
+                                matches.push(path);
                             }
                         } else if path.is_dir() {
-                            next_candidates.push(path);
+                            matches.push(path);
                         }
+                    }
+                    if matches.is_empty() {
+                        continue;
+                    }
+                    if is_last {
+                        if let Some(path) = pick_preferred_path(&matches) {
+                            return Ok(Some(path));
+                        }
+                    } else {
+                        let mut ordered = matches;
+                        ordered.sort_by(|left, right| {
+                            let left_score = preferred_score(left);
+                            let right_score = preferred_score(right);
+                            left_score
+                                .cmp(&right_score)
+                                .then_with(|| path_name_lower(left).cmp(&path_name_lower(right)))
+                        });
+                        next_candidates.extend(ordered);
                     }
                 } else {
                     let mut path = base.join(component);
@@ -306,6 +354,7 @@ impl SkinSourceManager {
     /// Unload all textures.
     pub fn unload_all(&mut self) {
         self.textures.clear();
+        self.image_paths.clear();
     }
 
     /// Get the number of loaded texture sources.
@@ -317,6 +366,97 @@ impl SkinSourceManager {
     pub fn font_count(&self) -> usize {
         self.fonts.len()
     }
+}
+
+fn find_texture_in_dir(dir: &Path) -> Option<PathBuf> {
+    let preferred = [
+        "main.png",
+        "main.jpg",
+        "main.jpeg",
+        "main.bmp",
+        "default.png",
+        "default.jpg",
+        "default.jpeg",
+        "default.bmp",
+    ];
+    for name in &preferred {
+        let candidate = dir.join(name);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)
+        .ok()?
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .filter(|path| {
+            path.is_file()
+                && path
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .map(|ext| {
+                        matches!(
+                            ext.to_ascii_lowercase().as_str(),
+                            "png" | "jpg" | "jpeg" | "bmp"
+                        )
+                    })
+                    .unwrap_or(false)
+        })
+        .collect();
+
+    entries.sort();
+    entries.into_iter().next()
+}
+
+fn path_name_lower(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().to_lowercase())
+        .unwrap_or_default()
+}
+
+fn path_stem_lower(path: &Path) -> String {
+    path.file_stem()
+        .map(|name| name.to_string_lossy().to_lowercase())
+        .unwrap_or_default()
+}
+
+fn preferred_score(path: &Path) -> i32 {
+    let stem = path_stem_lower(path);
+    if stem == "default" {
+        return 0;
+    }
+    if stem == "main" {
+        return 1;
+    }
+    if stem == "normal" {
+        return 2;
+    }
+    if stem.starts_with("default") {
+        return 3;
+    }
+    if stem.starts_with("main") {
+        return 4;
+    }
+    10
+}
+
+fn pick_preferred_path(paths: &[PathBuf]) -> Option<PathBuf> {
+    if paths.is_empty() {
+        return None;
+    }
+    let mut best = None;
+    let mut best_score = i32::MAX;
+    let mut best_name = String::new();
+    for path in paths {
+        let score = preferred_score(path);
+        let name = path_name_lower(path);
+        if score < best_score || (score == best_score && name < best_name) {
+            best = Some(path.clone());
+            best_score = score;
+            best_name = name;
+        }
+    }
+    best
 }
 
 /// Parameters for drawing a portion of a texture.
@@ -435,8 +575,9 @@ fn find_case_insensitive_entry(dir: &Path, name: &str) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::tempdir;
+
+    use super::*;
 
     #[test]
     fn test_source_manager_creation() {

@@ -1,6 +1,5 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
-
 use brs::state::play::{GaugeProperty, GrooveGauge, JudgeRank};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn gauge_update_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("gauge");

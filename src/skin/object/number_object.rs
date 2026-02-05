@@ -1,13 +1,13 @@
 use macroquad::prelude::*;
 
 use crate::skin::object::{
-    SkinObject, check_option_visibility, get_timer_elapsed, interpolate_destinations,
+    SkinObject, apply_offsets, check_option_visibility, get_timer_elapsed, interpolate_destinations,
 };
 use crate::skin::{MainState, NumberDef, SkinObjectData, SkinSourceManager};
 
 /// Alignment mode for number display.
-const ALIGN_RIGHT: i32 = 0;
-const ALIGN_LEFT: i32 = 1;
+const ALIGN_LEFT: i32 = 0;
+const ALIGN_RIGHT: i32 = 1;
 const ALIGN_CENTER: i32 = 2;
 
 /// Skin object that renders digit-based numbers.
@@ -174,6 +174,7 @@ impl SkinObject for NumberObject {
         else {
             return;
         };
+        let dst = apply_offsets(dst, &self.data, state);
 
         // Skip if invisible
         if dst.a <= 0.0 || dst.w <= 0.0 || dst.h <= 0.0 {
@@ -189,19 +190,17 @@ impl SkinObject for NumberObject {
         }
 
         // Calculate digit dimensions
-        let digit_count = digits.len();
         let digit_w = dst.w;
         let digit_h = dst.h;
         let spacing = number_def.space as f32;
-        let total_width = digit_w * digit_count as f32 + spacing * (digit_count - 1).max(0) as f32;
-
-        // Calculate starting X position based on alignment
-        let start_x = match number_def.align {
-            ALIGN_LEFT => dst.x,
-            ALIGN_CENTER => dst.x - total_width / 2.0,
-            ALIGN_RIGHT => dst.x - total_width + digit_w,
-            _ => dst.x - total_width + digit_w,
+        let shiftbase = digits.iter().take_while(|digit| **digit < 0).count();
+        let shift = match number_def.align {
+            ALIGN_LEFT => 0.0,
+            ALIGN_RIGHT => (digit_w + spacing) * shiftbase as f32,
+            ALIGN_CENTER => (digit_w + spacing) * 0.5 * shiftbase as f32,
+            _ => (digit_w + spacing) * 0.5 * shiftbase as f32,
         };
+        let start_x = dst.x - shift;
 
         let color = Color::new(dst.r / 255.0, dst.g / 255.0, dst.b / 255.0, dst.a / 255.0);
 

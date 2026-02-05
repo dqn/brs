@@ -1,7 +1,8 @@
-use crate::database::connection::Database;
-use crate::database::models::{ClearType, ScoreData};
 use anyhow::{Context, Result};
 use rusqlite::params;
+
+use crate::database::connection::Database;
+use crate::database::models::{ClearType, ScoreData};
 
 /// Accessor for score database operations.
 pub struct ScoreDatabaseAccessor<'a> {

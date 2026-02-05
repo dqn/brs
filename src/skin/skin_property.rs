@@ -237,6 +237,12 @@ pub const OPTION_NO_LN: i32 = 172;
 pub const OPTION_LN: i32 = 173;
 pub const OPTION_NO_BPMCHANGE: i32 = 176;
 pub const OPTION_BPMCHANGE: i32 = 177;
+pub const OPTION_NO_STAGEFILE: i32 = 190;
+pub const OPTION_STAGEFILE: i32 = 191;
+pub const OPTION_NO_BANNER: i32 = 192;
+pub const OPTION_BANNER: i32 = 193;
+pub const OPTION_NO_BACKBMP: i32 = 194;
+pub const OPTION_BACKBMP: i32 = 195;
 
 // Rank options (1P)
 pub const OPTION_1P_AAA: i32 = 200;
@@ -337,6 +343,10 @@ pub const STRING_GENRE: i32 = 13;
 pub const STRING_ARTIST: i32 = 14;
 pub const STRING_SUBARTIST: i32 = 15;
 pub const STRING_FULLARTIST: i32 = 16;
+pub const STRING_DIRECTORY: i32 = 1000;
+pub const STRING_TABLE_NAME: i32 = 1001;
+pub const STRING_TABLE_LEVEL: i32 = 1002;
+pub const STRING_TABLE_FULL: i32 = 1003;
 
 // ============================================================================
 // OFFSET IDs

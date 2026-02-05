@@ -1,9 +1,11 @@
+use std::time::Instant;
+
+use anyhow::Result;
+use macroquad::prelude::*;
+
 use crate::database::SongData;
 use crate::input::InputManager;
 use crate::state::decide::loading_task::{LoadingStage, LoadingTask, PreparedPlayData};
-use anyhow::Result;
-use macroquad::prelude::*;
-use std::time::Instant;
 
 /// Phase of the decide screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

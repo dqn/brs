@@ -1,3 +1,6 @@
+use std::collections::{HashMap, HashSet};
+
+use crate::skin::SkinOffset;
 use crate::skin::skin_property::*;
 
 /// Snapshot of the play state for skin rendering.
@@ -37,11 +40,32 @@ pub struct MainState {
     // Score
     pub ex_score: u32,
     pub score_rate: f64,
+    pub score_diff_ex: i32,
+    pub total_rate: f64,
+    pub miss_count: u32,
+    pub combo_break: u32,
 
     // BPM
     pub current_bpm: f64,
     pub min_bpm: f64,
     pub max_bpm: f64,
+    pub bpm_change: bool,
+
+    // Chart info
+    pub play_level: i32,
+    pub difficulty: i32,
+    pub has_long_note: bool,
+    pub has_bga: bool,
+    pub has_stagefile: bool,
+    pub has_backbmp: bool,
+    pub has_banner: bool,
+
+    // Key mode flags
+    pub is_7key: bool,
+    pub is_5key: bool,
+    pub is_14key: bool,
+    pub is_10key: bool,
+    pub is_9key: bool,
 
     // Play time
     pub current_time_ms: f64,
@@ -53,12 +77,23 @@ pub struct MainState {
     // Hi-speed
     pub hi_speed: f32,
 
+    // Lane cover settings
+    pub lane_cover_sudden: f32,
+    pub lane_cover_hidden: f32,
+    pub lane_cover_lift: f32,
+
     // Play state
     pub is_playing: bool,
     pub is_ready: bool,
     pub is_finished: bool,
     pub is_clear: bool,
     pub is_failed: bool,
+    pub is_replay: bool,
+    pub is_replay_recording: bool,
+    /// BGA enabled flag.
+    pub bga_enabled: bool,
+    /// Autoplay enabled flag.
+    pub autoplay_enabled: bool,
 
     // Last judge
     pub last_judge: Option<LastJudge>,
@@ -74,8 +109,17 @@ pub struct MainState {
     pub artist: String,
     pub subartist: String,
     pub full_artist: String,
+    pub song_folder: String,
     pub player_name: String,
     pub rival_name: String,
+
+    // Skin config option IDs that should be treated as enabled.
+    // 表示判定で有効扱いするスキン設定のオプションID。
+    pub skin_options: HashSet<i32>,
+
+    // Offset values for skin rendering.
+    // スキン描画用のオフセット値。
+    pub skin_offsets: HashMap<i32, SkinOffset>,
 }
 
 /// Last judge information.
@@ -148,9 +192,30 @@ impl MainState {
         }
     }
 
+    /// Apply skin config option IDs used for visibility checks.
+    /// 表示判定で使用するスキン設定のオプションIDを反映する。
+    pub fn set_skin_options(&mut self, options: &HashSet<i32>) {
+        self.skin_options = options.clone();
+    }
+
+    /// Apply skin offset values used for position adjustments.
+    /// 位置補正に使うスキンオフセット値を反映する。
+    pub fn set_skin_offsets(&mut self, offsets: &HashMap<i32, SkinOffset>) {
+        self.skin_offsets = offsets.clone();
+    }
+
+    /// Get offset values by ID.
+    pub fn offset(&self, id: i32) -> SkinOffset {
+        self.skin_offsets.get(&id).copied().unwrap_or_default()
+    }
+
     /// Get number value by ID.
     pub fn number(&self, id: i32) -> i32 {
         match id {
+            NUMBER_SCORE => self.ex_score as i32,
+            NUMBER_MAXSCORE => (self.total_notes * 2) as i32,
+            NUMBER_MISSCOUNT => self.miss_count as i32,
+
             NUMBER_PERFECT => self.pg_count as i32,
             NUMBER_GREAT => self.gr_count as i32,
             NUMBER_GOOD => self.gd_count as i32,
@@ -180,15 +245,23 @@ impl MainState {
             NUMBER_SCORE2 => self.ex_score as i32,
             NUMBER_SCORE_RATE => self.score_rate as i32,
             NUMBER_SCORE_RATE_AFTERDOT => ((self.score_rate * 100.0) as i32) % 100,
+            NUMBER_DIFF_EXSCORE => self.score_diff_ex,
+            NUMBER_TOTAL_RATE => self.total_rate as i32,
+            NUMBER_TOTAL_RATE_AFTERDOT => ((self.total_rate * 100.0) as i32) % 100,
 
+            NUMBER_MAINBPM => self.current_bpm as i32,
             NUMBER_NOWBPM => self.current_bpm as i32,
             NUMBER_MINBPM => self.min_bpm as i32,
             NUMBER_MAXBPM => self.max_bpm as i32,
+            NUMBER_PLAYLEVEL => self.play_level,
 
             NUMBER_TOTALNOTES | NUMBER_TOTALNOTES2 => self.total_notes as i32,
 
             NUMBER_HISPEED => (self.hi_speed * 100.0) as i32 / 100,
             NUMBER_HISPEED_AFTERDOT => (self.hi_speed * 100.0) as i32 % 100,
+            NUMBER_LANECOVER1 => (self.lane_cover_sudden * 100.0).round() as i32,
+            NUMBER_LIFT1 => (self.lane_cover_lift * 100.0).round() as i32,
+            NUMBER_HIDDEN1 => (self.lane_cover_hidden * 100.0).round() as i32,
 
             NUMBER_PLAYTIME_MINUTE => (self.current_time_ms / 60000.0).max(0.0) as i32,
             NUMBER_PLAYTIME_SECOND => ((self.current_time_ms / 1000.0).max(0.0) as i32) % 60,
@@ -208,6 +281,27 @@ impl MainState {
 
     /// Get option value by ID.
     pub fn option(&self, id: i32) -> bool {
+        if self.skin_options.contains(&id) {
+            return true;
+        }
+        let rate = self.score_rate;
+        let grade = if rate >= 88.89 {
+            0
+        } else if rate >= 77.78 {
+            1
+        } else if rate >= 66.67 {
+            2
+        } else if rate >= 55.56 {
+            3
+        } else if rate >= 44.45 {
+            4
+        } else if rate >= 33.34 {
+            5
+        } else if rate >= 22.23 {
+            6
+        } else {
+            7
+        };
         match id {
             OPTION_RESULT_CLEAR => self.is_clear,
             OPTION_RESULT_FAIL => self.is_failed,
@@ -267,9 +361,32 @@ impl MainState {
             OPTION_GAUGE_GROOVE => self.gauge_type == 0 || self.gauge_type == 1,
             OPTION_GAUGE_HARD => self.gauge_type == 2,
             OPTION_GAUGE_EX => self.gauge_type == 3,
+            OPTION_BGAON => self.bga_enabled,
+            OPTION_BGAOFF => !self.bga_enabled,
+            OPTION_AUTOPLAYOFF => !self.autoplay_enabled,
+            OPTION_AUTOPLAYON => self.autoplay_enabled,
+            OPTION_REPLAY_OFF => !self.is_replay && !self.is_replay_recording,
+            OPTION_REPLAY_RECORDING => self.is_replay_recording,
+            OPTION_REPLAY_PLAYING => self.is_replay,
 
             OPTION_NOW_LOADING => !self.is_ready && !self.is_playing && !self.is_finished,
             OPTION_LOADED => self.is_ready || self.is_playing || self.is_finished,
+            OPTION_STAGEFILE => self.has_stagefile,
+            OPTION_NO_STAGEFILE => !self.has_stagefile,
+            OPTION_BACKBMP => self.has_backbmp,
+            OPTION_NO_BACKBMP => !self.has_backbmp,
+            OPTION_BANNER => self.has_banner,
+            OPTION_NO_BANNER => !self.has_banner,
+            OPTION_NO_LN => !self.has_long_note,
+            OPTION_LN => self.has_long_note,
+            OPTION_BPMCHANGE => self.bpm_change,
+            OPTION_NO_BPMCHANGE => !self.bpm_change,
+
+            OPTION_7KEYSONG => self.is_7key,
+            OPTION_5KEYSONG => self.is_5key,
+            OPTION_14KEYSONG => self.is_14key,
+            OPTION_10KEYSONG => self.is_10key,
+            OPTION_9KEYSONG => self.is_9key,
 
             // Gauge range options
             OPTION_1P_0_9 => self.gauge_value < 10.0,
@@ -284,6 +401,35 @@ impl MainState {
             OPTION_1P_90_99 => (90.0..100.0).contains(&self.gauge_value),
             OPTION_1P_100 => self.gauge_value >= 100.0,
             OPTION_1P_BORDER_OR_MORE => self.gauge_value >= 80.0,
+
+            OPTION_LANECOVER1_CHANGING => {
+                self.lane_cover_sudden > 0.0
+                    || self.lane_cover_hidden > 0.0
+                    || self.lane_cover_lift > 0.0
+            }
+            OPTION_LANECOVER1_ON => self.lane_cover_sudden > 0.0,
+            OPTION_LIFT1_ON => self.lane_cover_lift > 0.0,
+            OPTION_HIDDEN1_ON => self.lane_cover_hidden > 0.0,
+
+            OPTION_1P_AAA => grade == 0,
+            OPTION_1P_AA => grade == 1,
+            OPTION_1P_A => grade == 2,
+            OPTION_1P_B => grade == 3,
+            OPTION_1P_C => grade == 4,
+            OPTION_1P_D => grade == 5,
+            OPTION_1P_E => grade == 6,
+            OPTION_1P_F => grade == 7,
+
+            OPTION_RESULT_AAA_1P => self.is_finished && grade == 0,
+            OPTION_RESULT_AA_1P => self.is_finished && grade == 1,
+            OPTION_RESULT_A_1P => self.is_finished && grade == 2,
+            OPTION_RESULT_B_1P => self.is_finished && grade == 3,
+            OPTION_RESULT_C_1P => self.is_finished && grade == 4,
+            OPTION_RESULT_D_1P => self.is_finished && grade == 5,
+            OPTION_RESULT_E_1P => self.is_finished && grade == 6,
+            OPTION_RESULT_F_1P => self.is_finished && grade == 7,
+
+            OPTION_CONSTANT => true,
 
             _ => false,
         }
@@ -355,6 +501,8 @@ impl MainState {
             STRING_ARTIST => self.artist.clone(),
             STRING_SUBARTIST => self.subartist.clone(),
             STRING_FULLARTIST => self.full_artist.clone(),
+            STRING_DIRECTORY | STRING_TABLE_FULL | STRING_TABLE_NAME => self.song_folder.clone(),
+            STRING_TABLE_LEVEL => self.play_level.to_string(),
             _ => String::new(),
         }
     }
@@ -363,6 +511,13 @@ impl MainState {
     pub fn float_number(&self, id: i32) -> f64 {
         match id {
             BARGRAPH_SCORERATE => self.score_rate / 100.0,
+            SLIDER_LANECOVER | SLIDER_LANECOVER2 => {
+                let mut lane = self.lane_cover_sudden;
+                if self.lane_cover_lift > 0.0 {
+                    lane *= 1.0 - self.lane_cover_lift;
+                }
+                lane as f64
+            }
             SLIDER_MUSIC_PROGRESS | BARGRAPH_MUSIC_PROGRESS => {
                 if self.total_time_ms > 0.0 {
                     (self.current_time_ms / self.total_time_ms).clamp(0.0, 1.0)

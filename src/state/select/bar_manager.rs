@@ -1,7 +1,9 @@
+use std::collections::HashSet;
+
+use anyhow::Result;
+
 use crate::database::{Database, ScoreDatabaseAccessor, SongDatabaseAccessor};
 use crate::state::select::bar::{Bar, SongBar};
-use anyhow::Result;
-use std::collections::HashSet;
 
 /// Manages the list of bars in the song selection screen.
 pub struct BarManager {

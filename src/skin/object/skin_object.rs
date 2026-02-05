@@ -1,4 +1,5 @@
-use crate::skin::{MainState, SkinSourceManager};
+use super::InterpolatedDest;
+use crate::skin::{MainState, SkinObjectData, SkinSourceManager};
 
 /// Trait for renderable skin objects.
 pub trait SkinObject {
@@ -48,4 +49,37 @@ pub fn get_timer_elapsed(timer_id: i32, state: &MainState, now_time_us: i64) -> 
         return -1; // Timer not active
     }
     now_time_us - timer_start
+}
+
+/// Apply skin offsets to an interpolated destination.
+pub fn apply_offsets(
+    mut dst: InterpolatedDest,
+    data: &SkinObjectData,
+    state: &MainState,
+) -> InterpolatedDest {
+    if data.offsets.is_empty() && data.offset == 0 {
+        return dst;
+    }
+
+    for offset_id in &data.offsets {
+        let offset = state.offset(*offset_id);
+        dst.x += offset.x - offset.w / 2.0;
+        dst.y += offset.y - offset.h / 2.0;
+        dst.w += offset.w;
+        dst.h += offset.h;
+        dst.angle += offset.r;
+        dst.a = (dst.a + offset.a).clamp(0.0, 255.0);
+    }
+
+    if data.offset != 0 {
+        let offset = state.offset(data.offset);
+        dst.x += offset.x - offset.w / 2.0;
+        dst.y += offset.y - offset.h / 2.0;
+        dst.w += offset.w;
+        dst.h += offset.h;
+        dst.angle += offset.r;
+        dst.a = (dst.a + offset.a).clamp(0.0, 255.0);
+    }
+
+    dst
 }

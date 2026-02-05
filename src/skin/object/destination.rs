@@ -34,7 +34,7 @@ impl Default for InterpolatedDest {
 pub fn interpolate_destinations(
     destinations: &[Destination],
     elapsed_ms: i64,
-    loop_count: i32,
+    loop_start: i32,
 ) -> Option<InterpolatedDest> {
     if destinations.is_empty() {
         return None;
@@ -73,22 +73,27 @@ pub fn interpolate_destinations(
         });
     }
 
-    // Handle looping
-    let effective_time = if loop_count < 0 {
-        // Infinite loop
-        elapsed_ms % total_duration
-    } else if loop_count == 0 {
-        // No loop - clamp to end
-        elapsed_ms.min(total_duration)
-    } else {
-        // Finite loops
-        let max_time = total_duration * (loop_count as i64 + 1);
-        if elapsed_ms >= max_time {
-            // Animation ended
+    let mut effective_time = elapsed_ms;
+    let start_time = destinations.first()?.time as i64;
+    let loop_start_time = loop_start as i64;
+
+    if loop_start < 0 {
+        if effective_time > total_duration {
             return None;
         }
-        elapsed_ms % total_duration
-    };
+    } else if total_duration > 0 && effective_time > loop_start_time {
+        if total_duration == loop_start_time {
+            effective_time = loop_start_time;
+        } else {
+            effective_time = (effective_time - loop_start_time)
+                % (total_duration - loop_start_time)
+                + loop_start_time;
+        }
+    }
+
+    if effective_time < start_time {
+        return None;
+    }
 
     // Find the two keyframes to interpolate between
     let mut prev_idx = 0;

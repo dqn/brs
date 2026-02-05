@@ -1,7 +1,8 @@
-use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
 use tracing::warn;
 
 use crate::skin::{
@@ -344,6 +345,7 @@ impl Lr2Parser {
                 timer,
                 loop_count,
                 offset: 0,
+                offsets: Vec::new(),
                 blend,
                 filter,
                 stretch: 0,

@@ -1,6 +1,7 @@
+use std::time::Instant;
+
 use anyhow::Result;
 use macroquad::prelude::*;
-use std::time::Instant;
 use tracing::{error, info};
 
 use crate::database::{ClearType, ScoreData, ScoreDatabaseAccessor, SongData};

@@ -1,8 +1,9 @@
+use std::path::Path;
+
 use anyhow::Result;
 use bms_rs::bms::prelude::*;
 use bms_rs::bmson::prelude::parse_bmson;
 use encoding_rs::{SHIFT_JIS, UTF_8};
-use std::path::Path;
 
 /// Source chart format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
