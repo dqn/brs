@@ -81,6 +81,10 @@ impl LuaSkinLoader {
             .eval()
             .to_anyhow()?;
 
+        let header_table = self.header_table(&result);
+        let header = self.parse_header(&header_table)?;
+        let file_map = self.collect_file_map(&header_table);
+
         // Check if the result has a 'main' function (beatoraja-style skin)
         // If so, call it to get the actual skin data
         let skin_table = if let Ok(main_fn) = result.get::<mlua::Function>("main") {
@@ -89,7 +93,9 @@ impl LuaSkinLoader {
             result
         };
 
-        self.parse_skin(&skin_table, skin_dir)
+        let mut skin = self.parse_skin(&skin_table, skin_dir, header)?;
+        skin.file_map = file_map;
+        Ok(skin)
     }
 
     fn default_options_from_file(path: &Path) -> Result<HashMap<String, i32>> {
@@ -249,57 +255,58 @@ impl LuaSkinLoader {
     fn parse_header(&self, table: &Table) -> Result<SkinHeader> {
         let mut header = SkinHeader::default();
 
-        if let Ok(name) = table.get::<String>("name") {
+        let header_table = self.header_table(table);
+
+        if let Ok(name) = header_table.get::<String>("name") {
             header.name = name;
         }
 
-        if let Ok(author) = table.get::<String>("author") {
+        if let Ok(author) = header_table.get::<String>("author") {
             header.author = author;
         }
 
-        if let Ok(skin_type) = table.get::<i32>("type") {
+        if let Ok(skin_type) = header_table.get::<i32>("type") {
             if let Some(st) = SkinType::from_i32(skin_type) {
                 header.skin_type = st;
             }
         }
 
-        if let Ok(w) = table.get::<u32>("w") {
+        if let Ok(w) = header_table.get::<u32>("w") {
             header.width = w;
         }
 
-        if let Ok(h) = table.get::<u32>("h") {
+        if let Ok(h) = header_table.get::<u32>("h") {
             header.height = h;
         }
 
-        if let Ok(loadend) = table.get::<i32>("loadend") {
+        if let Ok(loadend) = header_table.get::<i32>("loadend") {
             header.loadend = loadend;
         }
 
-        if let Ok(playstart) = table.get::<i32>("playstart") {
+        if let Ok(playstart) = header_table.get::<i32>("playstart") {
             header.playstart = playstart;
         }
 
-        if let Ok(scene) = table.get::<i32>("scene") {
+        if let Ok(scene) = header_table.get::<i32>("scene") {
             header.scene = scene;
         }
 
-        if let Ok(input) = table.get::<i32>("input") {
+        if let Ok(input) = header_table.get::<i32>("input") {
             header.input = input;
         }
 
-        if let Ok(close) = table.get::<i32>("close") {
+        if let Ok(close) = header_table.get::<i32>("close") {
             header.close = close;
         }
 
-        if let Ok(fadeout) = table.get::<i32>("fadeout") {
+        if let Ok(fadeout) = header_table.get::<i32>("fadeout") {
             header.fadeout = fadeout;
         }
 
         Ok(header)
     }
 
-    fn parse_skin(&self, table: &Table, skin_dir: &Path) -> Result<Skin> {
-        let header = self.parse_header(table)?;
+    fn parse_skin(&self, table: &Table, skin_dir: &Path, header: SkinHeader) -> Result<Skin> {
         let mut skin = Skin::new(header);
 
         // Parse source array
@@ -338,6 +345,35 @@ impl LuaSkinLoader {
         }
 
         Ok(skin)
+    }
+
+    fn header_table(&self, table: &Table) -> Table {
+        table.get::<Table>("header").unwrap_or_else(|_| table.clone())
+    }
+
+    fn collect_file_map(&self, table: &Table) -> HashMap<String, String> {
+        let mut file_map = HashMap::new();
+        let header_table = self.header_table(table);
+        let Ok(filepath_table) = header_table.get::<Table>("filepath") else {
+            return file_map;
+        };
+
+        for entry in filepath_table.sequence_values::<Table>() {
+            let Ok(entry) = entry else {
+                continue;
+            };
+            let Ok(path) = entry.get::<String>("path") else {
+                continue;
+            };
+            let Ok(def_value) = entry.get::<String>("def") else {
+                continue;
+            };
+            if !def_value.is_empty() {
+                file_map.insert(path, def_value);
+            }
+        }
+
+        file_map
     }
 
     fn parse_sources(&self, table: &Table, _skin_dir: &Path, skin: &mut Skin) -> Result<()> {

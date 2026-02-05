@@ -52,6 +52,7 @@ impl SkinRenderer {
 
         let base_dir = skin_path.parent().unwrap_or(Path::new(".")).to_path_buf();
         let mut sources = SkinSourceManager::new(base_dir);
+        sources.set_file_map(skin.file_map.clone());
 
         // Load all texture sources
         for (id, source) in &skin.sources {

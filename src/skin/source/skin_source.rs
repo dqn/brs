@@ -23,6 +23,8 @@ pub struct SkinSourceManager {
     fonts: HashMap<u32, LoadedFont>,
     /// Base directory for the skin.
     base_dir: PathBuf,
+    /// File map overrides (sorted by key length, desc).
+    file_map: Vec<(String, String)>,
 }
 
 /// A loaded texture with metadata.
@@ -43,7 +45,15 @@ impl SkinSourceManager {
             textures: HashMap::new(),
             fonts: HashMap::new(),
             base_dir,
+            file_map: Vec::new(),
         }
+    }
+
+    /// Set file map overrides for resolving wildcard paths.
+    pub fn set_file_map(&mut self, file_map: HashMap<String, String>) {
+        let mut entries: Vec<(String, String)> = file_map.into_iter().collect();
+        entries.sort_by(|(left, _), (right, _)| right.len().cmp(&left.len()));
+        self.file_map = entries;
     }
 
     /// Load a texture from a source definition.
@@ -79,7 +89,7 @@ impl SkinSourceManager {
 
     /// Load a font from a .fnt file.
     pub async fn load_font(&mut self, id: u32, fnt_path: &str) -> Result<()> {
-        let fnt_full_path = self.base_dir.join(fnt_path);
+        let fnt_full_path = self.resolve_path(fnt_path)?;
         // Canonicalize to resolve .. in path
         let fnt_full_path = fnt_full_path
             .canonicalize()
@@ -130,49 +140,97 @@ impl SkinSourceManager {
 
     /// Resolve a path pattern to an actual file path.
     fn resolve_path(&self, pattern: &str) -> Result<PathBuf> {
+        let mapped = self.apply_file_map(pattern);
         // If path contains wildcard, try to find a matching file
-        if pattern.contains('*') {
-            self.resolve_wildcard_path(pattern)
+        if mapped.contains('*') {
+            self.resolve_wildcard_path(&mapped)
         } else {
-            Ok(self.base_dir.join(pattern))
+            Ok(self.base_dir.join(mapped))
         }
     }
 
     /// Resolve a wildcard path pattern.
     fn resolve_wildcard_path(&self, pattern: &str) -> Result<PathBuf> {
-        // Split pattern into directory and file parts
-        let path = Path::new(pattern);
-        let parent = path.parent().unwrap_or(Path::new(""));
-        let file_pattern = path
-            .file_name()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_default();
-
-        let search_dir = self.base_dir.join(parent);
-
-        if !search_dir.exists() {
-            // Try without wildcard directory
-            let direct_path = self.base_dir.join(pattern.replace("/*", ""));
-            if direct_path.exists() {
-                return Ok(direct_path);
-            }
-            anyhow::bail!("Directory not found: {}", search_dir.display());
+        if let Some(path) = self.resolve_wildcard_recursive(pattern)? {
+            return Ok(path);
         }
 
-        // Find first matching file
-        let glob_pattern = file_pattern.replace('*', "");
-        for entry in std::fs::read_dir(&search_dir)? {
-            let entry = entry?;
-            let name = entry.file_name().to_string_lossy().to_string();
-            if name.contains(&glob_pattern) || glob_pattern.is_empty() || name.ends_with(".png") {
-                return Ok(entry.path());
-            }
+        let direct_path = self.base_dir.join(pattern.replace("/*", ""));
+        if direct_path.exists() {
+            return Ok(direct_path);
         }
 
         anyhow::bail!(
             "No matching file for pattern: {}",
-            search_dir.join(file_pattern).display()
+            self.base_dir.join(pattern).display()
         )
+    }
+
+    fn resolve_wildcard_recursive(&self, pattern: &str) -> Result<Option<PathBuf>> {
+        let mut candidates = vec![self.base_dir.clone()];
+        let components: Vec<String> = Path::new(pattern)
+            .components()
+            .map(|component| component.as_os_str().to_string_lossy().to_string())
+            .collect();
+
+        for (index, component) in components.iter().enumerate() {
+            let is_last = index + 1 == components.len();
+            let mut next_candidates = Vec::new();
+
+            for base in &candidates {
+                if component.contains('*') {
+                    if !base.is_dir() {
+                        continue;
+                    }
+                    for entry in std::fs::read_dir(base)? {
+                        let entry = entry?;
+                        let name = entry.file_name().to_string_lossy().to_string();
+                        if !matches_wildcard(&name, component) {
+                            continue;
+                        }
+                        let path = entry.path();
+                        if is_last {
+                            if path.exists() {
+                                return Ok(Some(path));
+                            }
+                        } else if path.is_dir() {
+                            next_candidates.push(path);
+                        }
+                    }
+                } else {
+                    let path = base.join(component);
+                    if is_last {
+                        if path.exists() {
+                            return Ok(Some(path));
+                        }
+                    } else if path.is_dir() {
+                        next_candidates.push(path);
+                    }
+                }
+            }
+
+            if !is_last {
+                if next_candidates.is_empty() {
+                    return Ok(None);
+                }
+                candidates = next_candidates;
+            }
+        }
+
+        Ok(None)
+    }
+
+    fn apply_file_map(&self, pattern: &str) -> String {
+        for (key, value) in &self.file_map {
+            if pattern.starts_with(key) {
+                if let Some(star_pos) = pattern.rfind('*') {
+                    let foot = &pattern[key.len()..];
+                    let prefix = &pattern[..star_pos];
+                    return format!("{}{}{}", prefix, value, foot);
+                }
+            }
+        }
+        pattern.to_string()
     }
 
     /// Unload all textures.
@@ -235,6 +293,43 @@ pub fn draw_texture_params(texture: &Texture2D, params: &DrawParams) {
         params.color,
         draw_params,
     );
+}
+
+fn matches_wildcard(value: &str, pattern: &str) -> bool {
+    if pattern == "*" {
+        return true;
+    }
+    if !pattern.contains('*') {
+        return value == pattern;
+    }
+
+    let starts_with_wildcard = pattern.starts_with('*');
+    let ends_with_wildcard = pattern.ends_with('*');
+    let parts: Vec<&str> = pattern.split('*').filter(|part| !part.is_empty()).collect();
+
+    if parts.is_empty() {
+        return true;
+    }
+
+    let mut remainder = value;
+    for (index, part) in parts.iter().enumerate() {
+        if let Some(found) = remainder.find(part) {
+            if index == 0 && !starts_with_wildcard && found != 0 {
+                return false;
+            }
+            remainder = &remainder[found + part.len()..];
+        } else {
+            return false;
+        }
+    }
+
+    if !ends_with_wildcard {
+        if let Some(last) = parts.last() {
+            return value.ends_with(last);
+        }
+    }
+
+    true
 }
 
 #[cfg(test)]

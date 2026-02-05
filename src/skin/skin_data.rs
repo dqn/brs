@@ -7,6 +7,8 @@ use super::SkinHeader;
 pub struct Skin {
     /// Skin header containing metadata.
     pub header: SkinHeader,
+    /// Path overrides for wildcard file mappings.
+    pub file_map: HashMap<String, String>,
     /// Image sources indexed by ID.
     pub sources: HashMap<u32, SkinSource>,
     /// Skin objects to draw.
@@ -28,6 +30,7 @@ impl Skin {
     pub fn new(header: SkinHeader) -> Self {
         Self {
             header,
+            file_map: HashMap::new(),
             sources: HashMap::new(),
             objects: Vec::new(),
             images: HashMap::new(),
