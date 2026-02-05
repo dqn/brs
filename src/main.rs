@@ -55,6 +55,10 @@ enum AppState {
     Result(Box<ResultState>),
 }
 
+/// Maximum frame time to avoid large time jumps after stalls.
+/// スタール後の大きな時間ジャンプを避けるための最大フレーム時間。
+const MAX_FRAME_MS: f64 = 100.0;
+
 #[macroquad::main(window_conf)]
 async fn main() {
     // Parse command line arguments
@@ -125,7 +129,7 @@ async fn main() {
     loop {
         clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
 
-        let delta_ms = get_frame_time() as f64 * 1000.0;
+        let delta_ms = (get_frame_time() as f64 * 1000.0).min(MAX_FRAME_MS);
 
         let mut next_state = None;
         let mut should_exit = false;
