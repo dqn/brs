@@ -413,10 +413,11 @@ impl LibraryConfigScreen {
             let mut index = options
                 .iter()
                 .position(|opt| opt.path.as_deref() == Some(selected_path.as_str()));
+            let mut resolved_selected = None;
 
             if index.is_none() {
-                let resolved_selected = skin_path::resolve_skin_path(Path::new(selected_path));
-                if let Some(resolved_selected) = resolved_selected {
+                resolved_selected = skin_path::resolve_skin_path(Path::new(selected_path));
+                if let Some(resolved_selected) = resolved_selected.as_ref() {
                     for (i, option) in options.iter().enumerate() {
                         let Some(option_path) = option.path.as_deref() else {
                             continue;
@@ -424,7 +425,7 @@ impl LibraryConfigScreen {
                         if let Some(resolved_option) =
                             skin_path::resolve_skin_path(Path::new(option_path))
                         {
-                            if resolved_option == resolved_selected {
+                            if &resolved_option == resolved_selected {
                                 index = Some(i);
                                 break;
                             }
@@ -435,6 +436,15 @@ impl LibraryConfigScreen {
 
             if let Some(found) = index {
                 selected_index = found;
+            } else if resolved_selected.is_some() {
+                options.push(SkinOption {
+                    label: format!(
+                        "Custom: {} / カスタム: {}",
+                        selected_path, selected_path
+                    ),
+                    path: Some(selected_path.clone()),
+                });
+                selected_index = options.len().saturating_sub(1);
             } else {
                 options.push(SkinOption {
                     label: format!(

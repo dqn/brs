@@ -716,7 +716,7 @@ mod tests {
     #[test]
     fn test_load_ecfn_header() {
         let loader = LuaSkinLoader::new().unwrap();
-        let skin_path = PathBuf::from("skins/ECFN/play/play7.luaskin");
+        let skin_path = PathBuf::from("skins/ECFN/play/play7main.lua");
 
         if skin_path.exists() {
             let header = loader.load_header(&skin_path);
@@ -733,7 +733,7 @@ mod tests {
     #[test]
     fn test_load_ecfn_skin() {
         let loader = LuaSkinLoader::new().unwrap();
-        let skin_path = PathBuf::from("skins/ECFN/play/play7.luaskin");
+        let skin_path = PathBuf::from("skins/ECFN/play/play7main.lua");
 
         if skin_path.exists() {
             let mut options = HashMap::new();

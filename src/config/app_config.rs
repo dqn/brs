@@ -30,7 +30,7 @@ impl Default for AppConfig {
             player_name: String::new(),
             song_folders: vec!["bms".to_string()],
             auto_scan_on_startup: true,
-            play_skin_path: Some("skins/ECFN/play/play7.luaskin".to_string()),
+            play_skin_path: Some("skins/ECFN/play/play7main.lua".to_string()),
         }
     }
 }
@@ -85,7 +85,7 @@ mod tests {
         assert!(config.auto_scan_on_startup);
         assert_eq!(
             config.play_skin_path,
-            Some("skins/ECFN/play/play7.luaskin".to_string())
+            Some("skins/ECFN/play/play7main.lua".to_string())
         );
     }
 
