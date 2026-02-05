@@ -263,16 +263,16 @@ Claude Code can autonomously capture and compare screenshots for UI development.
 
 ```bash
 # Capture select screen
-cargo run --release -- --screenshot select
+cargo run --release --bin brs -- --screenshot select
 
 # Capture play screen (requires --bms)
-cargo run --release -- --screenshot play --bms /path/to/song.bms
+cargo run --release --bin brs -- --screenshot play --bms /path/to/song.bms
 
 # Capture result screen (uses mock data)
-cargo run --release -- --screenshot result
+cargo run --release --bin brs -- --screenshot result
 
 # Custom output directory
-cargo run --release -- --screenshot select --screenshot-output /path/to/output
+cargo run --release --bin brs -- --screenshot select --screenshot-output /path/to/output
 ```
 
 Default output: `.agent/screenshots/current/<state>.png`
@@ -281,9 +281,9 @@ Default output: `.agent/screenshots/current/<state>.png`
 
 ```bash
 # Compare reference with current
-cargo run --bin screenshot_diff -- \
-  .agent/screenshots/select.png \
-  .agent/screenshots/current/select.png
+cargo run --release --bin screenshot_diff -- \
+  '.agent/screenshots/select.png' \
+  '.agent/screenshots/current/select.png'
 ```
 
 Output format:
@@ -309,8 +309,8 @@ Significant Differences:
 
 ### Claude Code Autonomous Workflow
 
-1. Capture screenshot: `cargo run --release -- --screenshot select`
-2. Compare with reference: `cargo run --bin screenshot_diff -- <ref> <current>`
+1. Capture screenshot: `cargo run --release --bin brs -- --screenshot select`
+2. Compare with reference: `cargo run --release --bin screenshot_diff -- '<ref>' '<current>'`
 3. Read the diff report to identify changed regions
 4. Modify rendering code in the relevant files
 5. Repeat until similarity reaches acceptable level
@@ -327,7 +327,7 @@ Significant Differences:
 
 For headless environments (CI):
 ```bash
-xvfb-run cargo run --release -- --screenshot select
+xvfb-run cargo run --release --bin brs -- --screenshot select
 ```
 
 ### Directory Structure
