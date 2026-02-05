@@ -870,16 +870,44 @@ impl PlayState {
         // Dark background
         clear_background(Color::new(0.05, 0.05, 0.08, 1.0));
 
-        // Draw BGA in right panel area
-        if self.bga_enabled {
+        // BGA area position (referenced by multiple panels)
+        let bga_x = 560.0;
+        let bga_y = 160.0;
+        let bga_w = 640.0;
+        let bga_h = 480.0;
+
+        // Draw BGA or SOUND ONLY
+        let bga_drawn = if self.bga_enabled {
             if let Some(ref bga) = self.bga_processor {
-                // BGA area: right side, with margin
-                let bga_x = 600.0;
-                let bga_y = 180.0;
-                let bga_w = 640.0;
-                let bga_h = 480.0;
-                bga.draw(bga_x, bga_y, bga_w, bga_h);
+                if bga.has_images() {
+                    bga.draw(bga_x, bga_y, bga_w, bga_h);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
             }
+        } else {
+            false
+        };
+
+        // If no BGA was drawn, show SOUND ONLY
+        if !bga_drawn {
+            draw_rectangle(
+                bga_x,
+                bga_y,
+                bga_w,
+                bga_h,
+                Color::new(0.15, 0.15, 0.18, 1.0),
+            );
+            draw_text(
+                "SOUND ONLY",
+                bga_x + bga_w / 2.0 - 80.0,
+                bga_y + bga_h / 2.0 + 10.0,
+                32.0,
+                Color::new(0.5, 0.5, 0.5, 1.0),
+            );
         }
 
         // Draw panels
