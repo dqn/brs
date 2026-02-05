@@ -686,24 +686,22 @@ mod tests {
             let prompt = AlwaysUseNewer;
 
             // Add BPM changes at different points
-            if let Ok(bpm_dec) = Decimal::try_from(bpm2.to_string().as_str()) {
-                let _ = bms.bpm.push_bpm_change(
-                    BpmChangeObj {
-                        time: ObjTime::new(0, 1, NonZeroU64::new(2).unwrap()),
-                        bpm: bpm_dec,
-                    },
-                    &prompt,
-                );
-            }
-            if let Ok(bpm_dec) = Decimal::try_from(bpm3.to_string().as_str()) {
-                let _ = bms.bpm.push_bpm_change(
-                    BpmChangeObj {
-                        time: ObjTime::new(1, 0, NonZeroU64::new(1).unwrap()),
-                        bpm: bpm_dec,
-                    },
-                    &prompt,
-                );
-            }
+            let bpm_dec = Decimal::try_from(bpm2.to_string().as_str()).unwrap();
+            let _ = bms.bpm.push_bpm_change(
+                BpmChangeObj {
+                    time: ObjTime::new(0, 1, NonZeroU64::new(2).unwrap()),
+                    bpm: bpm_dec,
+                },
+                &prompt,
+            );
+            let bpm_dec = Decimal::try_from(bpm3.to_string().as_str()).unwrap();
+            let _ = bms.bpm.push_bpm_change(
+                BpmChangeObj {
+                    time: ObjTime::new(1, 0, NonZeroU64::new(1).unwrap()),
+                    bpm: bpm_dec,
+                },
+                &prompt,
+            );
 
             let timing = TimingEngine::new(&bms);
 
@@ -738,24 +736,22 @@ mod tests {
             let prompt = AlwaysUseNewer;
 
             // Set section lengths for measures 0 and 1
-            if let Ok(len_dec) = Decimal::try_from(section_len1.to_string().as_str()) {
-                let _ = bms.section_len.push_section_len_change(
-                    SectionLenChangeObj {
-                        track: Track(0),
-                        length: len_dec,
-                    },
-                    &prompt,
-                );
-            }
-            if let Ok(len_dec) = Decimal::try_from(section_len2.to_string().as_str()) {
-                let _ = bms.section_len.push_section_len_change(
-                    SectionLenChangeObj {
-                        track: Track(1),
-                        length: len_dec,
-                    },
-                    &prompt,
-                );
-            }
+            let len_dec = Decimal::try_from(section_len1.to_string().as_str()).unwrap();
+            let _ = bms.section_len.push_section_len_change(
+                SectionLenChangeObj {
+                    track: Track(0),
+                    length: len_dec,
+                },
+                &prompt,
+            );
+            let len_dec = Decimal::try_from(section_len2.to_string().as_str()).unwrap();
+            let _ = bms.section_len.push_section_len_change(
+                SectionLenChangeObj {
+                    track: Track(1),
+                    length: len_dec,
+                },
+                &prompt,
+            );
 
             let timing = TimingEngine::new(&bms);
 

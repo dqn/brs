@@ -56,6 +56,7 @@ pub mod builders {
         }
 
         /// Create an invisible note builder.
+        #[allow(dead_code)]
         pub fn invisible(lane: Lane, time_ms: f64) -> Self {
             Self {
                 lane,
@@ -127,6 +128,7 @@ pub mod builders {
         }
 
         /// Add an invisible note.
+        #[allow(dead_code)]
         pub fn invisible(self, lane: Lane, time_ms: f64) -> Self {
             self.add(NoteBuilder::invisible(lane, time_ms).build())
         }
@@ -146,6 +148,7 @@ pub mod builders {
         }
 
         /// Build to a list of raw Notes.
+        #[allow(dead_code)]
         pub fn build_notes(self) -> Vec<Note> {
             self.notes
         }
@@ -179,6 +182,7 @@ pub mod input_sim {
 
     /// Input event for simulation.
     #[derive(Debug, Clone, Copy)]
+    #[allow(dead_code)]
     pub enum InputEvent {
         Press { lane: Lane, time_ms: f64 },
         Release { lane: Lane, time_ms: f64 },

@@ -13,6 +13,7 @@ struct GaugeTestCase {
 }
 
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 enum GaugeType {
     Normal,
     Hard,
