@@ -4,7 +4,7 @@ use macroquad::prelude::*;
 use crate::audio::{AudioDriver, KeysoundProcessor};
 use crate::input::InputManager;
 use crate::model::note::{LANE_COUNT, Lane, NoteType};
-use crate::model::{BMSModel, LaneConfig, LaneCoverSettings};
+use crate::model::{BMSModel, LaneConfig, LaneCoverSettings, PlayMode};
 use crate::render::{BgaProcessor, LaneRenderer, NoteRenderer};
 use crate::replay::ReplayPlayer;
 use crate::skin::{JudgeType, LastJudge, MainState, MainStateTimers, SkinRenderer};
@@ -80,6 +80,13 @@ impl PlayState {
 
         let (all_notes, notes_by_lane) = Self::organize_notes(&model);
 
+        // Use beatoraja-style narrow lane layout for 7K
+        let lane_config = if play_mode == PlayMode::Beat7K {
+            LaneConfig::beatoraja_7k()
+        } else {
+            LaneConfig::for_mode(play_mode)
+        };
+
         Self {
             model,
             audio_driver,
@@ -88,7 +95,7 @@ impl PlayState {
             judge_manager: JudgeManager::new(judge_window, long_note_mode),
             gauge: Self::create_gauge(gauge_type, total, total_notes),
             score: Score::new(total_notes as u32),
-            lane_config: LaneConfig::for_mode(play_mode),
+            lane_config,
             lane_cover: LaneCoverSettings::default(),
             hi_speed,
             playback_speed: 1.0,
@@ -624,20 +631,27 @@ impl PlayState {
 
     /// Draw the play state.
     pub fn draw(&self) {
+        // Use beatoraja-style UI if no skin is loaded
+        if self.skin_renderer.is_none() {
+            self.draw_beatoraja_ui();
+            return;
+        }
+
+        // Skin-based rendering
         if self.bga_enabled {
             if let Some(ref bga) = self.bga_processor {
                 bga.draw(0.0, 0.0, screen_width(), screen_height());
             }
         }
 
-        // Draw skin if available
+        // Draw skin
         if let Some(ref skin) = self.skin_renderer {
             let main_state = self.create_main_state();
             let now_us = (self.current_time_ms.max(0.0) * 1000.0) as i64;
             skin.draw(&main_state, now_us);
         }
 
-        // Always draw lane and notes (skin typically doesn't handle these)
+        // Draw lane and notes
         let lane_renderer = LaneRenderer::new(&self.lane_config);
         lane_renderer.draw(&self.model.timelines, self.current_time_ms, self.hi_speed);
 
@@ -653,18 +667,12 @@ impl PlayState {
         // Draw lane cover overlay
         note_renderer.draw_cover_overlay(&self.lane_cover);
 
-        // Draw fallback UI if no skin
-        if self.skin_renderer.is_none() {
-            self.draw_gauge();
-            self.draw_score();
-            self.draw_combo();
-            self.draw_judge();
-        }
-
-        // Always show debug info
-        self.draw_info();
+        // Draw combo and judge
+        self.draw_combo();
+        self.draw_judge();
     }
 
+    #[allow(dead_code)]
     fn draw_gauge(&self) {
         let x = 550.0;
         let y = 50.0;
@@ -710,6 +718,7 @@ impl PlayState {
         );
     }
 
+    #[allow(dead_code)]
     fn draw_score(&self) {
         let x = 550.0;
         let y = 90.0;
@@ -808,6 +817,7 @@ impl PlayState {
         }
     }
 
+    #[allow(dead_code)]
     fn draw_info(&self) {
         let x = 550.0;
         let y = 250.0;
@@ -852,6 +862,422 @@ impl PlayState {
             y + 100.0,
             16.0,
             GRAY,
+        );
+    }
+
+    /// Draw beatoraja-style UI layout.
+    pub fn draw_beatoraja_ui(&self) {
+        // Dark background
+        clear_background(Color::new(0.05, 0.05, 0.08, 1.0));
+
+        // Draw BGA in right panel area
+        if self.bga_enabled {
+            if let Some(ref bga) = self.bga_processor {
+                // BGA area: right side, with margin
+                let bga_x = 600.0;
+                let bga_y = 180.0;
+                let bga_w = 640.0;
+                let bga_h = 480.0;
+                bga.draw(bga_x, bga_y, bga_w, bga_h);
+            }
+        }
+
+        // Draw panels
+        self.draw_left_panel();
+        self.draw_center_panel();
+        self.draw_right_panel();
+        self.draw_bottom_panel();
+
+        // Draw lanes and notes (on top of left panel background)
+        let lane_renderer = LaneRenderer::new(&self.lane_config);
+        lane_renderer.draw(&self.model.timelines, self.current_time_ms, self.hi_speed);
+
+        let note_renderer = NoteRenderer::new(&self.lane_config);
+        note_renderer.draw_with_cover(
+            &self.model.timelines,
+            self.current_time_ms,
+            self.hi_speed,
+            &self.lane_cover,
+            |index| !self.judge_manager.is_judged(index),
+        );
+        note_renderer.draw_cover_overlay(&self.lane_cover);
+
+        // Draw combo and judge on lanes
+        self.draw_combo();
+        self.draw_judge();
+    }
+
+    /// Draw left panel: lanes background, gauge, hi-speed info.
+    fn draw_left_panel(&self) {
+        let panel_x = 0.0;
+        let panel_w = 280.0;
+        let panel_h = screen_height();
+
+        // Panel background
+        draw_rectangle(
+            panel_x,
+            0.0,
+            panel_w,
+            panel_h,
+            Color::new(0.08, 0.08, 0.12, 1.0),
+        );
+
+        // Groove Gauge at bottom
+        let gauge_x = 20.0;
+        let gauge_y = 920.0;
+        let gauge_w = 240.0;
+        let gauge_h = 20.0;
+
+        // Gauge label
+        draw_text("GROOVE GAUGE", gauge_x, gauge_y - 8.0, 14.0, GRAY);
+
+        // Gauge background
+        draw_rectangle(
+            gauge_x,
+            gauge_y,
+            gauge_w,
+            gauge_h,
+            Color::new(0.2, 0.2, 0.2, 1.0),
+        );
+
+        // Gauge fill
+        let fill_ratio = self.gauge.ratio() as f32;
+        let fill_w = gauge_w * fill_ratio;
+        let gauge_color = if self.gauge.is_clear() {
+            Color::new(0.2, 0.9, 0.3, 1.0) // Green when cleared
+        } else {
+            Color::new(0.3, 0.5, 0.9, 1.0) // Blue otherwise
+        };
+        draw_rectangle(gauge_x, gauge_y, fill_w, gauge_h, gauge_color);
+
+        // Border line
+        if self.gauge.border() > 0.0 {
+            let border_x = gauge_x + gauge_w * (self.gauge.border() / 100.0) as f32;
+            draw_line(border_x, gauge_y, border_x, gauge_y + gauge_h, 2.0, WHITE);
+        }
+
+        // Gauge percentage
+        draw_text(
+            &format!("{:.1}%", self.gauge.value()),
+            gauge_x + gauge_w + 8.0,
+            gauge_y + 15.0,
+            16.0,
+            WHITE,
+        );
+
+        // Hi-Speed display
+        let info_y = 960.0;
+        draw_text(
+            &format!("HI-SPEED: {:.2}", self.hi_speed),
+            gauge_x,
+            info_y,
+            16.0,
+            Color::new(0.7, 0.7, 0.7, 1.0),
+        );
+
+        // Subtitle info (removed level display as it's not available in BMSModel)
+        if !self.model.subtitle.is_empty() {
+            draw_text(
+                &self.model.subtitle,
+                gauge_x,
+                info_y + 20.0,
+                16.0,
+                Color::new(0.7, 0.7, 0.7, 1.0),
+            );
+        }
+    }
+
+    /// Draw center panel: score graph, comparisons.
+    fn draw_center_panel(&self) {
+        let panel_x = 280.0;
+        let panel_w = 320.0;
+
+        // Panel background
+        draw_rectangle(
+            panel_x,
+            0.0,
+            panel_w,
+            screen_height(),
+            Color::new(0.06, 0.06, 0.1, 1.0),
+        );
+
+        // Score Graph header
+        let header_y = 30.0;
+        draw_text("SCORE GRAPH", panel_x + 20.0, header_y, 18.0, GRAY);
+
+        // Current score
+        let score_y = 70.0;
+        draw_text("YOU", panel_x + 20.0, score_y, 14.0, GRAY);
+        draw_text(
+            &format!("{:05}", self.score.ex_score()),
+            panel_x + 80.0,
+            score_y,
+            20.0,
+            Color::new(0.3, 0.9, 1.0, 1.0),
+        );
+
+        // Max score (pacemaker)
+        let max_ex = (self.model.total_notes * 2) as u32;
+        draw_text("MAX", panel_x + 20.0, score_y + 30.0, 14.0, GRAY);
+        draw_text(
+            &format!("{:05}", max_ex),
+            panel_x + 80.0,
+            score_y + 30.0,
+            20.0,
+            Color::new(1.0, 0.8, 0.3, 1.0),
+        );
+
+        // Score graph area
+        let graph_x = panel_x + 20.0;
+        let graph_y = 140.0;
+        let graph_w = 280.0;
+        let graph_h = 400.0;
+
+        // Graph background
+        draw_rectangle(
+            graph_x,
+            graph_y,
+            graph_w,
+            graph_h,
+            Color::new(0.03, 0.03, 0.05, 1.0),
+        );
+
+        // Grade lines (AAA, AA, A)
+        let grades = [
+            ("AAA", 0.889, Color::new(1.0, 0.8, 0.0, 0.5)),
+            ("AA", 0.778, Color::new(0.8, 0.8, 0.8, 0.5)),
+            ("A", 0.667, Color::new(0.6, 0.6, 0.6, 0.5)),
+        ];
+        for (label, ratio, color) in grades {
+            let y = graph_y + graph_h * (1.0 - ratio as f32);
+            draw_line(graph_x, y, graph_x + graph_w, y, 1.0, color);
+            draw_text(label, graph_x + graph_w + 5.0, y + 4.0, 12.0, color);
+        }
+
+        // Progress line (current position in song)
+        let total_time = self.model.timelines.last_time_ms().max(1.0);
+        let progress = (self.current_time_ms / total_time).clamp(0.0, 1.0) as f32;
+        let progress_x = graph_x + graph_w * progress;
+        draw_line(
+            progress_x,
+            graph_y,
+            progress_x,
+            graph_y + graph_h,
+            2.0,
+            WHITE,
+        );
+
+        // Score progress (actual score vs theoretical max at this point)
+        if progress > 0.0 {
+            let current_max = (max_ex as f32 * progress) as u32;
+            let score_ratio = if current_max > 0 {
+                self.score.ex_score() as f32 / current_max as f32
+            } else {
+                0.0
+            };
+            let score_y_pos = graph_y + graph_h * (1.0 - score_ratio.min(1.0));
+            draw_circle(progress_x, score_y_pos, 4.0, Color::new(0.3, 0.9, 1.0, 1.0));
+        }
+
+        // Time left
+        let time_left_y = graph_y + graph_h + 30.0;
+        let remaining_ms = (total_time - self.current_time_ms).max(0.0);
+        let remaining_sec = (remaining_ms / 1000.0) as u32;
+        let min = remaining_sec / 60;
+        let sec = remaining_sec % 60;
+        draw_text("TIME LEFT", panel_x + 20.0, time_left_y, 14.0, GRAY);
+        draw_text(
+            &format!("{}:{:02}", min, sec),
+            panel_x + 100.0,
+            time_left_y,
+            18.0,
+            WHITE,
+        );
+
+        // Score difference
+        let diff_y = time_left_y + 40.0;
+        let theoretical_score = (max_ex as f64 * progress as f64) as i32;
+        let diff = self.score.ex_score() as i32 - theoretical_score;
+        let diff_color = if diff >= 0 {
+            Color::new(0.3, 0.9, 0.3, 1.0)
+        } else {
+            Color::new(0.9, 0.3, 0.3, 1.0)
+        };
+        draw_text(
+            &format!("{:+}", diff),
+            panel_x + 20.0,
+            diff_y,
+            24.0,
+            diff_color,
+        );
+    }
+
+    /// Draw right panel: song info, BGA area, BPM.
+    fn draw_right_panel(&self) {
+        let panel_x = 600.0;
+
+        // FREE STAGE indicator
+        draw_text(
+            "FREE STAGE",
+            panel_x + 20.0,
+            30.0,
+            16.0,
+            Color::new(0.5, 0.8, 1.0, 1.0),
+        );
+
+        // Song title
+        let title = if self.model.title.len() > 40 {
+            format!("{}...", &self.model.title[..40])
+        } else {
+            self.model.title.clone()
+        };
+        draw_text(&title, panel_x + 20.0, 70.0, 24.0, WHITE);
+
+        // Artist
+        let artist = if self.model.artist.len() > 50 {
+            format!("{}...", &self.model.artist[..50])
+        } else {
+            self.model.artist.clone()
+        };
+        draw_text(&artist, panel_x + 20.0, 100.0, 16.0, GRAY);
+
+        // Subtitle
+        if !self.model.subtitle.is_empty() {
+            draw_text(
+                &format!("[{}]", self.model.subtitle),
+                panel_x + 20.0,
+                130.0,
+                14.0,
+                Color::new(1.0, 0.6, 0.2, 1.0),
+            );
+        }
+
+        // BGA area frame (if no BGA loaded, show "SOUND ONLY")
+        if self.bga_processor.is_none() || !self.bga_enabled {
+            let bga_x = panel_x;
+            let bga_y = 180.0;
+            let bga_w = 640.0;
+            let bga_h = 480.0;
+            draw_rectangle(bga_x, bga_y, bga_w, bga_h, Color::new(0.1, 0.1, 0.1, 1.0));
+            draw_text(
+                "SOUND ONLY",
+                bga_x + bga_w / 2.0 - 60.0,
+                bga_y + bga_h / 2.0,
+                24.0,
+                GRAY,
+            );
+        }
+
+        // BPM display
+        let bpm_y = 700.0;
+        draw_text(
+            &format!("{:.0} BPM", self.model.initial_bpm),
+            panel_x + 20.0,
+            bpm_y,
+            28.0,
+            WHITE,
+        );
+        if (self.model.max_bpm - self.model.min_bpm).abs() > 0.1 {
+            draw_text(
+                &format!(
+                    "MIN {:.0}  MAX {:.0}",
+                    self.model.min_bpm, self.model.max_bpm
+                ),
+                panel_x + 20.0,
+                bpm_y + 30.0,
+                14.0,
+                GRAY,
+            );
+        }
+    }
+
+    /// Draw bottom panel: judge detail, notes count.
+    fn draw_bottom_panel(&self) {
+        let panel_y = 950.0;
+        let panel_h = 130.0;
+
+        // Panel background
+        draw_rectangle(
+            280.0,
+            panel_y,
+            screen_width() - 280.0,
+            panel_h,
+            Color::new(0.05, 0.05, 0.08, 1.0),
+        );
+
+        // Judge counts
+        let x_start = 300.0;
+        let y = panel_y + 30.0;
+        let spacing = 100.0;
+
+        let judges = [
+            ("PG", self.score.pg_count, Color::new(0.0, 1.0, 1.0, 1.0)),
+            ("GR", self.score.gr_count, Color::new(1.0, 1.0, 0.0, 1.0)),
+            ("GD", self.score.gd_count, Color::new(0.0, 1.0, 0.0, 1.0)),
+            ("BD", self.score.bd_count, Color::new(0.5, 0.5, 1.0, 1.0)),
+            ("PR", self.score.pr_count, Color::new(0.5, 0.5, 0.5, 1.0)),
+            ("MS", self.score.ms_count, Color::new(1.0, 0.3, 0.3, 1.0)),
+        ];
+
+        for (i, (label, count, color)) in judges.iter().enumerate() {
+            let x = x_start + i as f32 * spacing;
+            draw_text(label, x, y, 14.0, *color);
+            draw_text(&format!("{}", count), x, y + 24.0, 20.0, *color);
+        }
+
+        // Combo break count
+        let cb_x = x_start + 6.0 * spacing;
+        draw_text("CB", cb_x, y, 14.0, Color::new(0.8, 0.4, 0.4, 1.0));
+        draw_text(
+            &format!(
+                "{}",
+                self.score.bd_count + self.score.pr_count + self.score.ms_count
+            ),
+            cb_x,
+            y + 24.0,
+            20.0,
+            Color::new(0.8, 0.4, 0.4, 1.0),
+        );
+
+        // Notes count
+        let notes_x = x_start + 7.5 * spacing;
+        draw_text("NOTES", notes_x, y, 14.0, GRAY);
+        draw_text(
+            &format!("{}", self.model.total_notes),
+            notes_x,
+            y + 24.0,
+            20.0,
+            WHITE,
+        );
+
+        // Fast/Slow
+        let fs_x = x_start + 9.0 * spacing;
+        draw_text("FAST", fs_x, y, 14.0, Color::new(0.3, 0.6, 1.0, 1.0));
+        draw_text(
+            &format!("{}", self.judge_manager.fast_count()),
+            fs_x,
+            y + 24.0,
+            20.0,
+            Color::new(0.3, 0.6, 1.0, 1.0),
+        );
+        draw_text("SLOW", fs_x + 80.0, y, 14.0, Color::new(1.0, 0.6, 0.3, 1.0));
+        draw_text(
+            &format!("{}", self.judge_manager.slow_count()),
+            fs_x + 80.0,
+            y + 24.0,
+            20.0,
+            Color::new(1.0, 0.6, 0.3, 1.0),
+        );
+
+        // Max Combo
+        let combo_x = x_start + 11.0 * spacing;
+        draw_text("MAX COMBO", combo_x, y, 14.0, YELLOW);
+        draw_text(
+            &format!("{}", self.score.max_combo),
+            combo_x,
+            y + 24.0,
+            20.0,
+            YELLOW,
         );
     }
 

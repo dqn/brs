@@ -65,6 +65,45 @@ impl LaneConfig {
         Self::for_mode(PlayMode::Beat14K)
     }
 
+    /// Create a beatoraja-style 7-key configuration with narrow lanes at the left.
+    pub fn beatoraja_7k() -> Self {
+        let white = Color::new(0.9, 0.9, 0.9, 1.0);
+        let blue = Color::new(0.3, 0.5, 0.9, 1.0);
+        let scratch = Color::new(0.8, 0.2, 0.2, 1.0);
+
+        let specs = vec![
+            LaneSpec::new(Lane::Scratch, 40.0, scratch, true),
+            LaneSpec::new(Lane::Key1, 30.0, white, false),
+            LaneSpec::new(Lane::Key2, 26.0, blue, false),
+            LaneSpec::new(Lane::Key3, 30.0, white, false),
+            LaneSpec::new(Lane::Key4, 26.0, blue, false),
+            LaneSpec::new(Lane::Key5, 30.0, white, false),
+            LaneSpec::new(Lane::Key6, 26.0, blue, false),
+            LaneSpec::new(Lane::Key7, 30.0, white, false),
+        ];
+
+        let mut layouts: [Option<LaneLayout>; LANE_COUNT] = [(); LANE_COUNT].map(|_| None);
+        let mut lane_order = Vec::with_capacity(specs.len());
+        let mut x = 0.0;
+
+        for spec in &specs {
+            layouts[spec.lane.index()] =
+                Some(LaneLayout::new(x, spec.width, spec.color, spec.is_scratch));
+            lane_order.push(spec.lane);
+            x += spec.width;
+        }
+
+        Self {
+            judge_line_y: 850.0,
+            lane_top_y: 50.0,
+            lane_height: 800.0,
+            layouts,
+            lane_order,
+            total_width: x, // ~238px
+            offset_x: 20.0,
+        }
+    }
+
     /// Create a lane configuration for the given play mode.
     pub fn for_mode(play_mode: PlayMode) -> Self {
         let white = Color::new(0.9, 0.9, 0.9, 1.0);
