@@ -81,7 +81,15 @@ impl LuaSkinLoader {
             .eval()
             .to_anyhow()?;
 
-        self.parse_skin(&result, skin_dir)
+        // Check if the result has a 'main' function (beatoraja-style skin)
+        // If so, call it to get the actual skin data
+        let skin_table = if let Ok(main_fn) = result.get::<mlua::Function>("main") {
+            main_fn.call::<Table>(()).to_anyhow()?
+        } else {
+            result
+        };
+
+        self.parse_skin(&skin_table, skin_dir)
     }
 
     fn default_options_from_file(path: &Path) -> Result<HashMap<String, i32>> {
@@ -114,9 +122,17 @@ impl LuaSkinLoader {
 
     fn collect_default_options(&self, table: &Table) -> Result<HashMap<String, i32>> {
         let mut options = HashMap::new();
-        let property_table = match table.get::<Table>("property") {
-            Ok(value) => value,
-            Err(_) => return Ok(options),
+
+        // Try to get property directly, or from header (beatoraja-style skin)
+        let property_table = if let Ok(value) = table.get::<Table>("property") {
+            value
+        } else if let Ok(header) = table.get::<Table>("header") {
+            match header.get::<Table>("property") {
+                Ok(value) => value,
+                Err(_) => return Ok(options),
+            }
+        } else {
+            return Ok(options);
         };
 
         for prop in property_table.sequence_values::<Table>() {

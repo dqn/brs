@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::Result;
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::skin::{
     ImageObject, Lr2SkinLoader, LuaSkinLoader, MainState, NumberObject, Skin, SkinObject,
@@ -22,6 +23,15 @@ impl SkinRenderer {
     /// Load a skin file (Lua or LR2).
     /// Lua/LR2 のスキンファイルを読み込む。
     pub async fn load(skin_path: &Path) -> Result<Self> {
+        Self::load_with_options(skin_path, &HashMap::new()).await
+    }
+
+    /// Load a skin file with options.
+    /// オプション付きでスキンファイルを読み込む。
+    pub async fn load_with_options(
+        skin_path: &Path,
+        options: &HashMap<String, i32>,
+    ) -> Result<Self> {
         let ext = skin_path
             .extension()
             .and_then(|v| v.to_str())
@@ -29,10 +39,15 @@ impl SkinRenderer {
             .to_ascii_lowercase();
         let skin = if ext == "lr2skin" || ext == "csv" {
             let loader = Lr2SkinLoader::new();
-            loader.load(skin_path, &std::collections::HashMap::new())?
+            // Convert String keys to i32 for LR2 loader
+            let lr2_options: HashMap<i32, i32> = options
+                .iter()
+                .filter_map(|(k, v)| k.parse::<i32>().ok().map(|key| (key, *v)))
+                .collect();
+            loader.load(skin_path, &lr2_options)?
         } else {
             let loader = LuaSkinLoader::new()?;
-            loader.load(skin_path, &std::collections::HashMap::new())?
+            loader.load(skin_path, options)?
         };
 
         let base_dir = skin_path.parent().unwrap_or(Path::new(".")).to_path_buf();
@@ -80,6 +95,13 @@ impl SkinRenderer {
         for obj in &mut objects {
             obj.prepare(&sources);
         }
+
+        info!(
+            "Skin loaded: {} objects, {} sources, {} fonts",
+            objects.len(),
+            sources.source_count(),
+            sources.font_count()
+        );
 
         Ok(Self {
             skin,

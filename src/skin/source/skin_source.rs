@@ -80,10 +80,15 @@ impl SkinSourceManager {
     /// Load a font from a .fnt file.
     pub async fn load_font(&mut self, id: u32, fnt_path: &str) -> Result<()> {
         let fnt_full_path = self.base_dir.join(fnt_path);
+        // Canonicalize to resolve .. in path
+        let fnt_full_path = fnt_full_path
+            .canonicalize()
+            .unwrap_or_else(|_| fnt_full_path.clone());
 
-        // Read and parse .fnt file
-        let fnt_content = std::fs::read_to_string(&fnt_full_path)
+        // Read .fnt file as bytes and convert with lossy UTF-8 (font files may contain non-UTF8 chars)
+        let fnt_bytes = std::fs::read(&fnt_full_path)
             .with_context(|| format!("Failed to read font file: {}", fnt_full_path.display()))?;
+        let fnt_content = String::from_utf8_lossy(&fnt_bytes);
 
         let font_info = parse_fnt(&fnt_content)
             .with_context(|| format!("Failed to parse font file: {}", fnt_full_path.display()))?;
@@ -173,6 +178,16 @@ impl SkinSourceManager {
     /// Unload all textures.
     pub fn unload_all(&mut self) {
         self.textures.clear();
+    }
+
+    /// Get the number of loaded texture sources.
+    pub fn source_count(&self) -> usize {
+        self.textures.len()
+    }
+
+    /// Get the number of loaded fonts.
+    pub fn font_count(&self) -> usize {
+        self.fonts.len()
     }
 }
 
