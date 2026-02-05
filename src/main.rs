@@ -11,9 +11,25 @@ use brs::state::play::{GaugeType, PlayState};
 use brs::state::result::{ResultState, ResultTransition};
 use brs::state::select::{SelectScanRequest, SelectState, SelectTransition};
 use brs::util::logging::init_logging;
+use brs::util::screenshot::capture_screenshot;
+use clap::Parser;
 use macroquad::prelude::*;
 use std::path::Path;
 use tracing::{debug, error, info, warn};
+
+/// Command line arguments for brs.
+#[derive(Parser)]
+#[command(name = "brs", about = "BMS player in Rust")]
+struct Args {
+    /// Capture screenshot of specified state and exit.
+    /// Valid values: "select"
+    #[arg(long)]
+    screenshot: Option<String>,
+
+    /// Output directory for screenshot.
+    #[arg(long, default_value = ".agent/screenshots/current")]
+    screenshot_output: String,
+}
 
 fn window_conf() -> Conf {
     Conf {
@@ -36,11 +52,20 @@ enum AppState {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    // Parse command line arguments
+    let args = Args::parse();
+
     // Initialize logging
     if let Err(e) = init_logging(Some(Path::new("logs")), false) {
         eprintln!("Failed to initialize logging: {}", e);
     }
     info!("brs starting...");
+
+    // Handle screenshot mode
+    if let Some(ref state_name) = args.screenshot {
+        run_screenshot_mode(state_name, &args.screenshot_output).await;
+        return;
+    }
 
     // Open databases
     let song_db = match Database::open_song_db(Path::new("song.db")) {
@@ -568,4 +593,84 @@ fn draw_play_controls_help() {
         16.0,
         GRAY,
     );
+}
+
+/// Run screenshot capture mode.
+/// Renders the specified state for a few frames, captures a screenshot, and exits.
+async fn run_screenshot_mode(state_name: &str, output_dir: &str) {
+    const WARMUP_FRAMES: u32 = 5;
+
+    info!("Screenshot mode: capturing '{}' state", state_name);
+
+    match state_name {
+        "select" => {
+            // Open databases
+            let song_db = match Database::open_song_db(Path::new("song.db")) {
+                Ok(db) => db,
+                Err(e) => {
+                    error!("Failed to open song database: {}", e);
+                    return;
+                }
+            };
+
+            let score_db = match Database::open_score_db(Path::new("score.db")) {
+                Ok(db) => db,
+                Err(e) => {
+                    error!("Failed to open score database: {}", e);
+                    return;
+                }
+            };
+
+            // Setup input manager
+            let key_config = KeyConfig::load().unwrap_or_default();
+            let input_manager = match InputManager::new(key_config) {
+                Ok(manager) => manager,
+                Err(e) => {
+                    error!("Failed to initialize input: {}", e);
+                    return;
+                }
+            };
+
+            // Create select state
+            let mut select_state =
+                match SelectState::new(input_manager, song_db, score_db, SelectScanRequest::None) {
+                    Ok(state) => state,
+                    Err(e) => {
+                        error!("Failed to create select state: {}", e);
+                        return;
+                    }
+                };
+
+            // Render warmup frames to stabilize UI
+            for _ in 0..WARMUP_FRAMES {
+                clear_background(Color::new(0.1, 0.1, 0.1, 1.0));
+                let _ = select_state.update();
+                select_state.draw();
+                next_frame().await;
+            }
+
+            // Capture screenshot
+            let output_path = Path::new(output_dir).join("select.png");
+            match capture_screenshot(&output_path) {
+                Ok(()) => {
+                    info!("Screenshot saved to: {}", output_path.display());
+                    println!("Screenshot saved: {}", output_path.display());
+                }
+                Err(e) => {
+                    error!("Failed to capture screenshot: {}", e);
+                    eprintln!("Failed to capture screenshot: {}", e);
+                }
+            }
+        }
+        other => {
+            error!(
+                "Unknown screenshot state: '{}'. Valid states: select",
+                other
+            );
+            eprintln!(
+                "Unknown screenshot state: '{}'. Valid states: select",
+                other
+            );
+        }
+    }
 }

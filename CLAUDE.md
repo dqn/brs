@@ -254,3 +254,83 @@ Binary format with:
 - Input logs (microsecond timestamps)
 - Metadata (hi-speed, gauge_type, recorded_at)
 - flate2 compression
+
+## Visual Development Workflow
+
+Claude Code can autonomously capture and compare screenshots for UI development.
+
+### Screenshot Capture
+
+```bash
+# Capture select screen
+cargo run --release -- --screenshot select
+
+# Custom output directory
+cargo run --release -- --screenshot select --screenshot-output /path/to/output
+```
+
+Default output: `.agent/screenshots/current/<state>.png`
+
+### Screenshot Comparison
+
+```bash
+# Compare reference with current
+cargo run --bin screenshot_diff -- \
+  .agent/screenshots/select.png \
+  .agent/screenshots/current/select.png
+```
+
+Output format:
+```
+Screenshot Comparison Report
+============================
+Reference: .agent/screenshots/select.png
+Current:   .agent/screenshots/current/select.png
+
+Size: MATCH (1920x1080)
+
+Region Analysis (4x4 grid):
+  [0,0]: 2.3% diff (top-left)
+  [1,1]: 45.2% diff - SIGNIFICANT (middle-center)
+  ...
+
+Overall Similarity: 78.4%
+Status: SIGNIFICANT - Major differences detected
+
+Significant Differences:
+  - middle-center (45.2% diff): pixels (480, 270) to (960, 540)
+```
+
+### Claude Code Autonomous Workflow
+
+1. Capture screenshot: `cargo run --release -- --screenshot select`
+2. Compare with reference: `cargo run --bin screenshot_diff -- <ref> <current>`
+3. Read the diff report to identify changed regions
+4. Modify rendering code in the relevant files
+5. Repeat until similarity reaches acceptable level
+
+### Screen-Specific Files
+
+| Screen | Primary Files |
+|--------|---------------|
+| Select | `src/state/select/select_state.rs` |
+| Play | `src/state/play/play_state.rs`, `src/render/` |
+| Result | `src/state/result/result_state.rs` |
+
+### CI Usage
+
+For headless environments (CI):
+```bash
+xvfb-run cargo run --release -- --screenshot select
+```
+
+### Directory Structure
+
+```
+.agent/screenshots/
+├── play.png          # Reference screenshots
+├── select.png
+├── result.png
+└── current/          # Captured screenshots
+    └── select.png
+```
