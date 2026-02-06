@@ -3,10 +3,11 @@ use anyhow::Result;
 use crate::model::bms_model::{BmsModel, PlayerRule};
 use crate::model::note::{NoteType, PlayMode};
 use crate::play::clear_type::ClearType;
-use crate::play::gauge::gauge_property::GaugePropertyType;
+use crate::play::gauge::gauge_property::{GaugePropertyType, GaugeType};
 use crate::play::gauge::groove_gauge::GrooveGauge;
 use crate::play::judge::judge_manager::{
-    JudgeScore, JudgeTables, build_judge_tables, select_note, update_judge,
+    JudgeLevel, JudgeScore, JudgeTables, LaneJudgeState, build_judge_tables, determine_judge_index,
+    select_note, update_judge,
 };
 use crate::play::judge::judge_property::JudgeProperty;
 use crate::play::play_result::PlayResult;
@@ -44,7 +45,7 @@ const FINISH_MARGIN_US: i64 = 3_000_000;
 pub struct PlayConfig {
     pub model: BmsModel,
     pub mode: PlayMode,
-    pub gauge_type: usize,
+    pub gauge_type: GaugeType,
     pub autoplay_mode: AutoplayMode,
 }
 
@@ -53,6 +54,12 @@ pub struct PlayConfig {
 struct LaneState {
     /// Notes for this lane, sorted by time.
     notes: Vec<LaneNote>,
+    /// Index of the next note to check for miss processing.
+    next_miss_index: usize,
+    /// Judge state for LN processing.
+    judge_state: LaneJudgeState,
+    /// Index of the LN note currently being processed (start note index).
+    processing_note_idx: Option<usize>,
 }
 
 /// A note within a lane for judge tracking.
@@ -67,12 +74,24 @@ struct LaneNote {
     note_type: NoteType,
     /// Whether the note has been judged.
     judged: bool,
+    /// Whether the LN end has been judged.
+    end_judged: bool,
     /// WAV ID for keysound playback.
     wav_id: u32,
     /// Damage for mine notes.
     damage: f64,
     /// Press time (for judge tracking). 0 if not pressed.
     play_time: i64,
+}
+
+impl LaneNote {
+    /// Whether this note is a long note type.
+    fn is_long(&self) -> bool {
+        matches!(
+            self.note_type,
+            NoteType::LongNote | NoteType::ChargeNote | NoteType::HellChargeNote
+        )
+    }
 }
 
 /// Core play state managing the game loop.
@@ -112,6 +131,10 @@ pub struct PlayState {
     combo_cond: &'static [bool],
     /// Judge miss condition.
     miss_condition: crate::play::judge::judge_property::MissCondition,
+
+    // Reusable buffers to avoid per-press allocations.
+    candidates_buf: Vec<(i64, bool, i64)>,
+    playable_indices_buf: Vec<usize>,
 }
 
 impl PlayState {
@@ -135,7 +158,12 @@ impl PlayState {
 
         // Build per-lane note arrays
         let mut lanes: Vec<LaneState> = (0..lane_count)
-            .map(|_| LaneState { notes: Vec::new() })
+            .map(|_| LaneState {
+                notes: Vec::new(),
+                next_miss_index: 0,
+                judge_state: LaneJudgeState::default(),
+                processing_note_idx: None,
+            })
             .collect();
 
         let mut last_note_time_us = 0i64;
@@ -152,6 +180,7 @@ impl PlayState {
                     end_time_us: note.end_time_us,
                     note_type: note.note_type,
                     judged: false,
+                    end_judged: false,
                     wav_id: note.wav_id,
                     damage: note.damage,
                     play_time: 0,
@@ -194,6 +223,8 @@ impl PlayState {
             is_scratch_lane,
             combo_cond: judge_property.combo,
             miss_condition: judge_property.miss,
+            candidates_buf: Vec::new(),
+            playable_indices_buf: Vec::new(),
         }
     }
 
@@ -296,7 +327,7 @@ impl PlayState {
         // Update key-on/key-off timers
         let player = self
             .mode
-            .lane_to_player(event.key.min(self.mode.lane_count() - 1));
+            .lane_to_player(event.key.min(self.mode.lane_count().saturating_sub(1)));
         let skin_offset = if event.key < self.mode.lane_count() {
             self.mode.lane_to_skin_offset(event.key)
         } else {
@@ -334,23 +365,24 @@ impl PlayState {
             return;
         }
 
-        // Copy judge table data to avoid borrow conflict
-        let judge_table: Vec<[i64; 2]> = self.judge_tables.table_for_lane(is_scratch).to_vec();
         let judge_start = self.judge_tables.judge_start;
         let judge_end = self.judge_tables.judge_end;
 
-        // Build candidates for note selection
-        let candidates: Vec<(i64, bool, i64)> = self.lanes[lane]
-            .notes
-            .iter()
-            .filter(|n| !matches!(n.note_type, NoteType::Mine | NoteType::Invisible))
-            .map(|n| (n.time_us, !n.judged, n.play_time))
-            .collect();
+        // Build candidates and playable index map using reusable buffers.
+        self.candidates_buf.clear();
+        self.playable_indices_buf.clear();
+        for (i, n) in self.lanes[lane].notes.iter().enumerate() {
+            if !matches!(n.note_type, NoteType::Mine | NoteType::Invisible) {
+                self.candidates_buf
+                    .push((n.time_us, !n.judged, n.play_time));
+                self.playable_indices_buf.push(i);
+            }
+        }
 
         let result = select_note(
-            &candidates,
+            &self.candidates_buf,
             press_time,
-            &judge_table,
+            self.judge_tables.table_for_lane(is_scratch),
             judge_start,
             judge_end,
             crate::play::judge::judge_algorithm::JudgeAlgorithm::Combo,
@@ -358,24 +390,16 @@ impl PlayState {
         );
 
         if let Some((candidate_idx, judge)) = result {
-            // Find the actual note index to update
-            let playable_notes: Vec<usize> = self.lanes[lane]
-                .notes
-                .iter()
-                .enumerate()
-                .filter(|(_, n)| !matches!(n.note_type, NoteType::Mine | NoteType::Invisible))
-                .map(|(i, _)| i)
-                .collect();
-
             // Map candidate index back to lane note index
-            if candidate_idx < playable_notes.len() {
-                let note_idx = playable_notes[candidate_idx];
+            if candidate_idx < self.playable_indices_buf.len() {
+                let note_idx = self.playable_indices_buf[candidate_idx];
                 let note = &self.lanes[lane].notes[note_idx];
                 let time_diff = note.time_us - press_time;
                 let vanish = judge < 5;
                 let note_play_time = note.play_time;
+                let note_type = note.note_type;
+                let is_ln = note.is_long();
 
-                // Determine if this is a bomb-triggering judge (Great or better)
                 let player = self.mode.lane_to_player(lane);
                 let skin_offset = self.mode.lane_to_skin_offset(lane);
 
@@ -387,19 +411,50 @@ impl PlayState {
                     self.timer.set_bomb(skin_offset, player, press_time);
                 }
 
-                // Update judge score
-                update_judge(
-                    &mut self.judge_score,
-                    judge,
-                    time_diff,
-                    vanish,
-                    self.miss_condition,
-                    self.combo_cond,
-                    note_play_time,
-                );
-
-                // Update gauge
-                self.gauge.update_judge(judge);
+                if is_ln && vanish {
+                    // LN/CN/HCN start: set up processing state
+                    match note_type {
+                        NoteType::LongNote => {
+                            // LN: defer start judgment to release
+                            self.lanes[lane].judge_state.ln_start_judge = judge;
+                            self.lanes[lane].judge_state.ln_start_duration = time_diff;
+                            self.lanes[lane].judge_state.processing = true;
+                            self.lanes[lane].judge_state.release_time = None;
+                            self.lanes[lane].judge_state.ln_end_judge = None;
+                            self.lanes[lane].processing_note_idx = Some(note_idx);
+                        }
+                        NoteType::ChargeNote | NoteType::HellChargeNote => {
+                            // CN/HCN: judge start immediately, set up processing for end
+                            update_judge(
+                                &mut self.judge_score,
+                                judge,
+                                time_diff,
+                                vanish,
+                                self.miss_condition,
+                                self.combo_cond,
+                                note_play_time,
+                            );
+                            self.gauge.update_judge(judge);
+                            self.lanes[lane].judge_state.processing = true;
+                            self.lanes[lane].judge_state.release_time = None;
+                            self.lanes[lane].judge_state.ln_end_judge = None;
+                            self.lanes[lane].processing_note_idx = Some(note_idx);
+                        }
+                        _ => {}
+                    }
+                } else {
+                    // Normal note or non-vanishing LN: judge immediately
+                    update_judge(
+                        &mut self.judge_score,
+                        judge,
+                        time_diff,
+                        vanish,
+                        self.miss_condition,
+                        self.combo_cond,
+                        note_play_time,
+                    );
+                    self.gauge.update_judge(judge);
+                }
 
                 // Mark note as judged
                 self.lanes[lane].notes[note_idx].judged = true;
@@ -409,9 +464,99 @@ impl PlayState {
     }
 
     /// Process a key release on a lane (for LN/CN end judgment).
-    fn process_key_release(&mut self, _lane: usize, _release_time: i64) {
-        // LN end judgment is complex and will be refined later.
-        // For basic play, normal notes don't need release processing.
+    fn process_key_release(&mut self, lane: usize, release_time: i64) {
+        if !self.lanes[lane].judge_state.processing {
+            return;
+        }
+
+        let note_idx = match self.lanes[lane].processing_note_idx {
+            Some(idx) => idx,
+            None => return,
+        };
+
+        let note = &self.lanes[lane].notes[note_idx];
+        let end_time = note.end_time_us;
+        let note_type = note.note_type;
+        let play_time = note.play_time;
+        let is_scratch = self.is_scratch_lane.get(lane).copied().unwrap_or(false);
+        let ln_end_table: Vec<[i64; 2]> =
+            self.judge_tables.ln_end_table_for_lane(is_scratch).to_vec();
+
+        // dmtime = end_time - release_time (positive = released early, negative = released late)
+        let dmtime = end_time - release_time;
+        let judge = determine_judge_index(dmtime, &ln_end_table).unwrap_or(ln_end_table.len());
+
+        match note_type {
+            NoteType::ChargeNote | NoteType::HellChargeNote => {
+                // CN/HCN release: if judge is BD or worse (>=3) and early (dmtime > 0),
+                // defer the judgment.
+                if judge >= 3 && dmtime > 0 {
+                    self.lanes[lane].judge_state.release_time = Some(release_time);
+                    self.lanes[lane].judge_state.ln_end_judge = Some(judge);
+                } else {
+                    // Finalize CN/HCN end judgment immediately
+                    let final_judge = if judge >= ln_end_table.len() {
+                        4
+                    } else {
+                        judge
+                    };
+                    update_judge(
+                        &mut self.judge_score,
+                        final_judge,
+                        dmtime,
+                        true,
+                        self.miss_condition,
+                        self.combo_cond,
+                        play_time,
+                    );
+                    self.gauge.update_judge(final_judge);
+                    self.lanes[lane].notes[note_idx].end_judged = true;
+                    self.lanes[lane].judge_state.processing = false;
+                    self.lanes[lane].processing_note_idx = None;
+                    self.lanes[lane].judge_state.release_time = None;
+                    self.lanes[lane].judge_state.ln_end_judge = None;
+                }
+            }
+            NoteType::LongNote => {
+                // LN release: take the worse of start and end judge
+                let start_judge = self.lanes[lane].judge_state.ln_start_judge;
+                let start_duration = self.lanes[lane].judge_state.ln_start_duration;
+                let mut final_judge = judge.max(start_judge);
+                let final_dmtime = if start_duration.abs() > dmtime.abs() {
+                    start_duration
+                } else {
+                    dmtime
+                };
+
+                if final_judge >= 3 && dmtime > 0 {
+                    // Defer: released early with BD or worse
+                    // For LN, deferred judge is capped at BD (3)
+                    self.lanes[lane].judge_state.release_time = Some(release_time);
+                    self.lanes[lane].judge_state.ln_end_judge = Some(3);
+                } else {
+                    // Finalize LN end judgment
+                    if final_judge >= ln_end_table.len() {
+                        final_judge = 4; // Poor
+                    }
+                    update_judge(
+                        &mut self.judge_score,
+                        final_judge,
+                        final_dmtime,
+                        true,
+                        self.miss_condition,
+                        self.combo_cond,
+                        play_time,
+                    );
+                    self.gauge.update_judge(final_judge);
+                    self.lanes[lane].notes[note_idx].end_judged = true;
+                    self.lanes[lane].judge_state.processing = false;
+                    self.lanes[lane].processing_note_idx = None;
+                    self.lanes[lane].judge_state.release_time = None;
+                    self.lanes[lane].judge_state.ln_end_judge = None;
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Check for mine notes at the press time and apply damage.
@@ -434,45 +579,197 @@ impl PlayState {
         false
     }
 
+    /// Process deferred LN release judgments and LN end auto-completion.
+    fn process_ln_timers(&mut self, now_us: i64) {
+        for lane_idx in 0..self.lanes.len() {
+            if !self.lanes[lane_idx].judge_state.processing {
+                continue;
+            }
+
+            let note_idx = match self.lanes[lane_idx].processing_note_idx {
+                Some(idx) => idx,
+                None => continue,
+            };
+
+            let note = &self.lanes[lane_idx].notes[note_idx];
+            let note_type = note.note_type;
+            let end_time = note.end_time_us;
+            let play_time = note.play_time;
+            let is_scratch = self.is_scratch_lane.get(lane_idx).copied().unwrap_or(false);
+            let release_margin = self.judge_tables.release_margin_for_lane(is_scratch);
+
+            // Check deferred release (release_time + margin has elapsed)
+            if let Some(rel_time) = self.lanes[lane_idx].judge_state.release_time
+                && rel_time + release_margin <= now_us
+            {
+                let ln_end_judge = self.lanes[lane_idx].judge_state.ln_end_judge.unwrap_or(4);
+                let dmtime = end_time - rel_time;
+
+                update_judge(
+                    &mut self.judge_score,
+                    ln_end_judge,
+                    dmtime,
+                    true,
+                    self.miss_condition,
+                    self.combo_cond,
+                    play_time,
+                );
+                self.gauge.update_judge(ln_end_judge);
+                self.lanes[lane_idx].notes[note_idx].end_judged = true;
+                self.lanes[lane_idx].judge_state.processing = false;
+                self.lanes[lane_idx].processing_note_idx = None;
+                self.lanes[lane_idx].judge_state.release_time = None;
+                self.lanes[lane_idx].judge_state.ln_end_judge = None;
+                continue;
+            }
+
+            // LN auto-completion: if held past end time, use start judge
+            if note_type == NoteType::LongNote
+                && self.lanes[lane_idx].judge_state.release_time.is_none()
+                && end_time < now_us
+            {
+                let start_judge = self.lanes[lane_idx].judge_state.ln_start_judge;
+                let start_duration = self.lanes[lane_idx].judge_state.ln_start_duration;
+
+                update_judge(
+                    &mut self.judge_score,
+                    start_judge,
+                    start_duration,
+                    true,
+                    self.miss_condition,
+                    self.combo_cond,
+                    play_time,
+                );
+                self.gauge.update_judge(start_judge);
+                self.lanes[lane_idx].notes[note_idx].end_judged = true;
+                self.lanes[lane_idx].judge_state.processing = false;
+                self.lanes[lane_idx].processing_note_idx = None;
+                self.lanes[lane_idx].judge_state.release_time = None;
+                self.lanes[lane_idx].judge_state.ln_end_judge = None;
+            }
+
+            // CN/HCN end miss: if end time has passed the miss window without release
+            if matches!(note_type, NoteType::ChargeNote | NoteType::HellChargeNote)
+                && self.lanes[lane_idx].judge_state.release_time.is_none()
+            {
+                let judge_table = self.judge_tables.table_for_lane(is_scratch);
+                let miss_boundary = if !judge_table.is_empty() {
+                    judge_table[judge_table.len() - 1][0]
+                } else {
+                    continue;
+                };
+                let dmtime = end_time - now_us;
+                if dmtime < miss_boundary {
+                    // CN/HCN end missed
+                    update_judge(
+                        &mut self.judge_score,
+                        4, // Poor
+                        dmtime,
+                        true,
+                        self.miss_condition,
+                        self.combo_cond,
+                        play_time,
+                    );
+                    self.gauge.update_judge(4);
+                    self.lanes[lane_idx].notes[note_idx].end_judged = true;
+                    self.lanes[lane_idx].judge_state.processing = false;
+                    self.lanes[lane_idx].processing_note_idx = None;
+                    self.lanes[lane_idx].judge_state.release_time = None;
+                    self.lanes[lane_idx].judge_state.ln_end_judge = None;
+                }
+            }
+        }
+    }
+
     /// Process notes that have passed the miss window.
     fn process_miss_notes(&mut self, now_us: i64) {
+        // Process deferred LN releases and auto-completions first
+        self.process_ln_timers(now_us);
+
         for lane_idx in 0..self.lanes.len() {
             let is_scratch = self.is_scratch_lane.get(lane_idx).copied().unwrap_or(false);
             let judge_table = self.judge_tables.table_for_lane(is_scratch);
 
-            // Check unjudged notes that are past the late miss boundary
+            // Furthest late boundary (negative value).
             let miss_boundary = if !judge_table.is_empty() {
-                judge_table[judge_table.len() - 1][0] // Furthest late boundary
+                judge_table[judge_table.len() - 1][0]
             } else {
                 continue;
             };
 
-            for note in &mut self.lanes[lane_idx].notes {
+            let start = self.lanes[lane_idx].next_miss_index;
+            let notes = &mut self.lanes[lane_idx].notes;
+
+            let mut new_start = start;
+            for (i, note) in notes.iter_mut().enumerate().skip(start) {
+                let dmtime = note.time_us - now_us;
+
+                // Notes are sorted by time; if this note is still within or
+                // ahead of the judge window, all subsequent notes will be too.
+                if dmtime >= miss_boundary {
+                    break;
+                }
+
                 if note.judged {
+                    // For LN notes, also check if end was judged before advancing
+                    if note.is_long() && !note.end_judged {
+                        continue;
+                    }
+                    // Advance past already-judged notes so we skip them next frame.
+                    if i == new_start {
+                        new_start = i + 1;
+                    }
                     continue;
                 }
                 if matches!(note.note_type, NoteType::Mine | NoteType::Invisible) {
+                    if i == new_start {
+                        new_start = i + 1;
+                    }
                     continue;
                 }
 
-                let dmtime = note.time_us - now_us;
-                // Note is past the late boundary (dmtime < miss_boundary means it's too late)
-                if dmtime < miss_boundary {
-                    note.judged = true;
-                    let judge = 5; // Miss
-                    let time_diff = dmtime;
+                // Note is past the late boundary -> miss
+                note.judged = true;
+                let time_diff = dmtime;
+                let play_time = note.play_time;
+                let is_ln = note.is_long();
+                update_judge(
+                    &mut self.judge_score,
+                    5, // Miss
+                    time_diff,
+                    true,
+                    self.miss_condition,
+                    self.combo_cond,
+                    play_time,
+                );
+                self.gauge.update_judge(5);
+
+                // For CN/HCN, also miss the end note
+                if is_ln
+                    && matches!(
+                        note.note_type,
+                        NoteType::ChargeNote | NoteType::HellChargeNote
+                    )
+                {
+                    note.end_judged = true;
                     update_judge(
                         &mut self.judge_score,
-                        judge,
+                        4, // Poor for end
                         time_diff,
                         true,
                         self.miss_condition,
                         self.combo_cond,
-                        note.play_time,
+                        play_time,
                     );
-                    self.gauge.update_judge(judge);
+                    self.gauge.update_judge(4);
+                }
+
+                if i == new_start {
+                    new_start = i + 1;
                 }
             }
+
+            self.lanes[lane_idx].next_miss_index = new_start;
         }
     }
 
@@ -483,9 +780,9 @@ impl PlayState {
         score.late_counts = self.judge_score.late_counts;
         score.max_combo = self.judge_score.max_combo;
         score.pass_notes = self.judge_score.pass_notes;
-        score.min_bp = self.judge_score.judge_count(3)
-            + self.judge_score.judge_count(4)
-            + self.judge_score.judge_count(5);
+        score.min_bp = self.judge_score.judge_count(JudgeLevel::Bad)
+            + self.judge_score.judge_count(JudgeLevel::Poor)
+            + self.judge_score.judge_count(JudgeLevel::Miss);
 
         PlayResult::new(&self.gauge, score)
     }
@@ -546,6 +843,39 @@ mod tests {
             end_time_us: 0,
             wav_id: 0,
             damage,
+        }
+    }
+
+    fn make_ln_note(lane: usize, time_us: i64, end_time_us: i64) -> Note {
+        Note {
+            lane,
+            note_type: NoteType::LongNote,
+            time_us,
+            end_time_us,
+            wav_id: 0,
+            damage: 0.0,
+        }
+    }
+
+    fn make_cn_note(lane: usize, time_us: i64, end_time_us: i64) -> Note {
+        Note {
+            lane,
+            note_type: NoteType::ChargeNote,
+            time_us,
+            end_time_us,
+            wav_id: 0,
+            damage: 0.0,
+        }
+    }
+
+    fn make_hcn_note(lane: usize, time_us: i64, end_time_us: i64) -> Note {
+        Note {
+            lane,
+            note_type: NoteType::HellChargeNote,
+            time_us,
+            end_time_us,
+            wav_id: 0,
+            damage: 0.0,
         }
     }
 
@@ -612,7 +942,7 @@ mod tests {
             time_us: 5_000_000,
         });
 
-        assert_eq!(state.judge_score().judge_count(0), 1); // PG
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::PerfectGreat), 1); // PG
         assert_eq!(state.judge_score().combo, 1);
     }
 
@@ -630,7 +960,7 @@ mod tests {
             time_us: 4_960_000,
         });
 
-        assert_eq!(state.judge_score().judge_count(1), 1); // GR
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::Great), 1); // GR
     }
 
     #[test]
@@ -642,7 +972,7 @@ mod tests {
 
         // Let time pass beyond the miss window
         state.update(3_000_000).unwrap();
-        assert_eq!(state.judge_score().judge_count(5), 1); // Miss
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::Miss), 1); // Miss
         assert_eq!(state.judge_score().combo, 0);
     }
 
@@ -745,7 +1075,7 @@ mod tests {
         }
 
         // All notes should be PG
-        assert_eq!(state.judge_score().judge_count(0), 5);
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::PerfectGreat), 5);
         assert_eq!(state.judge_score().max_combo, 5);
     }
 
@@ -862,7 +1192,7 @@ mod tests {
         });
 
         let result = state.build_result();
-        assert_eq!(result.score.judge_count(0), 1);
+        assert_eq!(result.score.judge_count(JudgeLevel::PerfectGreat), 1);
         assert_eq!(result.score.exscore(), 2);
     }
 
@@ -899,6 +1229,241 @@ mod tests {
             time_us: 5_000_000,
         });
         // Should not panic or change state
-        assert_eq!(state.judge_score().judge_count(0), 0);
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::PerfectGreat), 0);
+    }
+
+    // =========================================================================
+    // LN release judgment tests
+    // =========================================================================
+
+    #[test]
+    fn ln_press_sets_processing_state() {
+        // LN start at 5s, end at 6s
+        let config = make_config(
+            vec![make_ln_note(0, 5_000_000, 6_000_000)],
+            AutoplayMode::Off,
+        );
+        let mut state = PlayState::new(config);
+        state.create().unwrap();
+        state.update(READY_DURATION_US + 1).unwrap();
+
+        // Press at exact start time
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: true,
+            time_us: 5_000_000,
+        });
+
+        // LN start should not produce a judge count yet (deferred to release)
+        assert_eq!(state.judge_score().pass_notes, 0);
+        assert!(state.lanes[0].judge_state.processing);
+        assert_eq!(state.lanes[0].processing_note_idx, Some(0));
+    }
+
+    #[test]
+    fn ln_release_at_end_produces_pg() {
+        let config = make_config(
+            vec![make_ln_note(0, 5_000_000, 6_000_000)],
+            AutoplayMode::Off,
+        );
+        let mut state = PlayState::new(config);
+        state.create().unwrap();
+        state.update(READY_DURATION_US + 1).unwrap();
+
+        // Press at exact start time (PG start)
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: true,
+            time_us: 5_000_000,
+        });
+
+        // Release at exact end time (PG end)
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: false,
+            time_us: 6_000_000,
+        });
+
+        // LN end should be judged as PG (max of PG start and PG end)
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::PerfectGreat), 1);
+        assert_eq!(state.judge_score().pass_notes, 1);
+        assert!(!state.lanes[0].judge_state.processing);
+    }
+
+    #[test]
+    fn ln_held_past_end_auto_completes() {
+        let config = make_config(
+            vec![make_ln_note(0, 5_000_000, 6_000_000)],
+            AutoplayMode::Off,
+        );
+        let mut state = PlayState::new(config);
+        state.create().unwrap();
+        state.update(READY_DURATION_US + 1).unwrap();
+
+        // Press at exact start time (PG start)
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: true,
+            time_us: 5_000_000,
+        });
+
+        // Hold past end time without releasing -> auto-complete with start judge
+        state.update(6_100_000).unwrap();
+
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::PerfectGreat), 1);
+        assert!(!state.lanes[0].judge_state.processing);
+    }
+
+    #[test]
+    fn ln_release_takes_worse_of_start_and_end() {
+        let config = make_config(
+            vec![make_ln_note(0, 5_000_000, 6_000_000)],
+            AutoplayMode::Off,
+        );
+        let mut state = PlayState::new(config);
+        state.create().unwrap();
+        state.update(READY_DURATION_US + 1).unwrap();
+
+        // Press 40ms early -> GR start
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: true,
+            time_us: 4_960_000,
+        });
+
+        // Release at exact end time -> PG end, but result = max(GR, PG) = GR
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: false,
+            time_us: 6_000_000,
+        });
+
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::Great), 1);
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::PerfectGreat), 0);
+    }
+
+    #[test]
+    fn cn_press_judges_start_immediately() {
+        let config = make_config(
+            vec![make_cn_note(0, 5_000_000, 6_000_000)],
+            AutoplayMode::Off,
+        );
+        let mut state = PlayState::new(config);
+        state.create().unwrap();
+        state.update(READY_DURATION_US + 1).unwrap();
+
+        // Press at exact start time
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: true,
+            time_us: 5_000_000,
+        });
+
+        // CN start is judged immediately (unlike LN)
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::PerfectGreat), 1);
+        assert_eq!(state.judge_score().pass_notes, 1);
+        assert!(state.lanes[0].judge_state.processing);
+    }
+
+    #[test]
+    fn cn_release_at_end_produces_pg() {
+        let config = make_config(
+            vec![make_cn_note(0, 5_000_000, 6_000_000)],
+            AutoplayMode::Off,
+        );
+        let mut state = PlayState::new(config);
+        state.create().unwrap();
+        state.update(READY_DURATION_US + 1).unwrap();
+
+        // Press at exact start time (PG start)
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: true,
+            time_us: 5_000_000,
+        });
+
+        // Release at exact end time (PG end)
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: false,
+            time_us: 6_000_000,
+        });
+
+        // CN start PG + CN end PG = 2 PG judgments
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::PerfectGreat), 2);
+        assert_eq!(state.judge_score().pass_notes, 2);
+        assert!(!state.lanes[0].judge_state.processing);
+    }
+
+    #[test]
+    fn cn_end_missed_produces_poor() {
+        let config = make_config(
+            vec![make_cn_note(0, 5_000_000, 6_000_000)],
+            AutoplayMode::Off,
+        );
+        let mut state = PlayState::new(config);
+        state.create().unwrap();
+        state.update(READY_DURATION_US + 1).unwrap();
+
+        // Press at exact start time
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: true,
+            time_us: 5_000_000,
+        });
+
+        // Don't release; let time pass far beyond end time
+        state.update(7_000_000).unwrap();
+
+        // Start was PG, end should be Poor (missed)
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::PerfectGreat), 1);
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::Poor), 1);
+        assert!(!state.lanes[0].judge_state.processing);
+    }
+
+    #[test]
+    fn hcn_release_at_end_produces_pg() {
+        let config = make_config(
+            vec![make_hcn_note(0, 5_000_000, 6_000_000)],
+            AutoplayMode::Off,
+        );
+        let mut state = PlayState::new(config);
+        state.create().unwrap();
+        state.update(READY_DURATION_US + 1).unwrap();
+
+        // Press at exact start time
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: true,
+            time_us: 5_000_000,
+        });
+
+        // Release at exact end time
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: false,
+            time_us: 6_000_000,
+        });
+
+        // HCN: start PG + end PG = 2 PG
+        assert_eq!(state.judge_score().judge_count(JudgeLevel::PerfectGreat), 2);
+        assert!(!state.lanes[0].judge_state.processing);
+    }
+
+    #[test]
+    fn release_on_non_processing_lane_is_noop() {
+        let config = make_config(vec![make_normal_note(0, 5_000_000)], AutoplayMode::Off);
+        let mut state = PlayState::new(config);
+        state.create().unwrap();
+        state.update(READY_DURATION_US + 1).unwrap();
+
+        // Release without any LN processing should be a no-op
+        state.process_key_event(KeyEvent {
+            key: 0,
+            pressed: false,
+            time_us: 5_000_000,
+        });
+
+        assert_eq!(state.judge_score().pass_notes, 0);
     }
 }
