@@ -24,6 +24,9 @@ impl MainStateAccessor {
         // Populate floats
         Self::populate_floats(&mut snap, play_state);
 
+        // Populate options
+        Self::populate_options(&mut snap);
+
         snap
     }
 
@@ -32,6 +35,8 @@ impl MainStateAccessor {
         use crate::state::play::timer_manager::*;
 
         let tm = play_state.timer();
+
+        snap.timers.insert(sp::TIMER_STARTINPUT, 0);
 
         // Map internal timer IDs to beatoraja skin property timer IDs
         let timer_map: &[(usize, i32)] = &[
@@ -156,6 +161,10 @@ impl MainStateAccessor {
         snap.numbers.insert(sp::NUMBER_COMBO, js.combo as i32);
         snap.numbers
             .insert(sp::NUMBER_MAXCOMBO2, js.max_combo as i32);
+        // Total notes
+        let total_notes = js.ghost.len() as i32;
+        snap.numbers.insert(sp::NUMBER_TOTALNOTES, total_notes);
+        snap.numbers.insert(sp::NUMBER_TOTALNOTES2, total_notes);
         // EX score
         let exscore = js.judge_count(JudgeLevel::PerfectGreat) as i32 * 2
             + js.judge_count(JudgeLevel::Great) as i32;
@@ -176,5 +185,17 @@ impl MainStateAccessor {
 
         let gauge_value = play_state.gauge().value();
         snap.floats.insert(sp::RATE_SCORE, gauge_value / 100.0);
+    }
+
+    fn populate_options(snap: &mut SkinStateSnapshot) {
+        use crate::skin::skin_property as sp;
+
+        // Default judge options to false (no last_judge_level available yet)
+        snap.options.insert(sp::OPTION_1P_PERFECT, false);
+        snap.options.insert(sp::OPTION_1P_GREAT, false);
+        snap.options.insert(sp::OPTION_1P_GOOD, false);
+        snap.options.insert(sp::OPTION_1P_BAD, false);
+        snap.options.insert(sp::OPTION_1P_POOR, false);
+        snap.options.insert(sp::OPTION_1P_MISS, false);
     }
 }

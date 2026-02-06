@@ -5,4 +5,5 @@ pub mod object;
 pub mod renderer;
 pub mod skin_data;
 pub mod skin_header;
+pub mod skin_loader;
 pub mod skin_property;

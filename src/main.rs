@@ -21,13 +21,21 @@ use brs::model::note::PlayMode;
 use brs::play::play_result::PlayResult;
 use brs::render::wgpu_renderer::WgpuRenderer;
 use brs::render::window::{GameLoop, WindowConfig, run_app};
+use brs::skin::lua::main_state_accessor::MainStateAccessor;
+use brs::skin::renderer::{SkinRenderer, SkinStateSnapshot};
+use brs::skin::skin_data::SkinData;
+use brs::skin::skin_loader;
 use brs::state::config::key_config::KeyConfig;
 use brs::state::decide::decide_state::{DecideConfig, DecideState};
+use brs::state::decide::skin_accessor::DecideSkinAccessor;
 use brs::state::game_state::{GameState, StateTransition};
 use brs::state::play::play_state::{self, PlayState};
 use brs::state::result::result_state::{ResultConfig, ResultState};
+use brs::state::result::skin_accessor::ResultSkinAccessor;
 use brs::state::select::bar::Bar;
 use brs::state::select::select_state::{SelectInput, SelectState};
+use brs::state::select::skin_accessor::SelectSkinAccessor;
+use brs::state::song_metadata::SongMetadata;
 use brs::traits::input::InputProvider;
 use brs::traits::render::{Color, FontId, RenderBackend};
 
@@ -97,6 +105,15 @@ struct BrsApp {
     // Last play result (for result screen)
     last_play_result: Option<PlayResult>,
     last_sha256: String,
+
+    // Skins
+    skin_select: Option<SkinData>,
+    skin_decide: Option<SkinData>,
+    skin_play: Option<SkinData>,
+    skin_result: Option<SkinData>,
+
+    // Song metadata (shared across Decide/Result scenes)
+    current_metadata: SongMetadata,
 }
 
 impl BrsApp {
@@ -136,6 +153,13 @@ impl BrsApp {
             selected_bms_path: None,
             last_play_result: None,
             last_sha256: String::new(),
+
+            skin_select: None,
+            skin_decide: None,
+            skin_play: None,
+            skin_result: None,
+
+            current_metadata: SongMetadata::default(),
         }
     }
 
@@ -251,12 +275,22 @@ impl BrsApp {
             return;
         }
 
-        // Capture selected BMS path from SelectState before transition
+        // Capture selected BMS path and metadata from SelectState before transition
         if let ActiveState::Select(select) = &self.state
             && transition == StateTransition::Next
             && let Some(Bar::Song(song_bar)) = select.bar_manager().selected()
         {
             self.selected_bms_path = Some(song_bar.song.path.clone());
+            self.current_metadata = SongMetadata {
+                title: song_bar.song.title.clone(),
+                subtitle: song_bar.song.subtitle.clone(),
+                artist: song_bar.song.artist.clone(),
+                subartist: song_bar.song.subartist.clone(),
+                genre: song_bar.song.genre.clone(),
+                level: song_bar.song.level,
+                max_bpm: song_bar.song.maxbpm,
+                min_bpm: song_bar.song.minbpm,
+            };
             tracing::info!("selected: {}", song_bar.title);
         }
 
@@ -280,6 +314,40 @@ impl BrsApp {
             }
             AppTransition::None => {}
         }
+    }
+
+    /// Render the skin for the current scene. Returns true if rendered.
+    fn render_skin(&mut self) -> Result<bool> {
+        let elapsed_us = self.elapsed_us;
+        let play_start_us = self.play_start_us;
+        let metadata = &self.current_metadata;
+
+        let (skin, snapshot): (&SkinData, SkinStateSnapshot) = match (
+            &self.state,
+            &self.skin_select,
+            &self.skin_decide,
+            &self.skin_play,
+            &self.skin_result,
+        ) {
+            (ActiveState::Select(s), Some(skin), _, _, _) => {
+                (skin, SelectSkinAccessor::snapshot(s, elapsed_us))
+            }
+            (ActiveState::Decide(s), _, Some(skin), _, _) => {
+                (skin, DecideSkinAccessor::snapshot(s, elapsed_us, metadata))
+            }
+            (ActiveState::Play(s), _, _, Some(skin), _) => {
+                let play_time_ms = (elapsed_us - play_start_us) / 1000;
+                (skin, MainStateAccessor::snapshot(s, play_time_ms))
+            }
+            (ActiveState::Result(s), _, _, _, Some(skin)) => {
+                (skin, ResultSkinAccessor::snapshot(s, elapsed_us, metadata))
+            }
+            _ => return Ok(false),
+        };
+
+        let renderer = self.renderer.as_mut().unwrap();
+        SkinRenderer::render(renderer, skin, &snapshot)?;
+        Ok(true)
     }
 
     /// Render debug UI showing current state and basic info.
@@ -420,6 +488,34 @@ impl GameLoop for BrsApp {
             Err(e) => tracing::warn!("failed to load font: {e}"),
         }
 
+        // Load skins
+        let (w, h) = (self.app_config.width, self.app_config.height);
+        let skin_paths = &self.app_config.skin_paths;
+        if !skin_paths.select.is_empty() {
+            match skin_loader::load_skin(Path::new(&skin_paths.select), &mut renderer, w, h) {
+                Ok(skin) => self.skin_select = Some(skin),
+                Err(e) => tracing::warn!("failed to load select skin: {e}"),
+            }
+        }
+        if !skin_paths.decide.is_empty() {
+            match skin_loader::load_skin(Path::new(&skin_paths.decide), &mut renderer, w, h) {
+                Ok(skin) => self.skin_decide = Some(skin),
+                Err(e) => tracing::warn!("failed to load decide skin: {e}"),
+            }
+        }
+        if !skin_paths.play.is_empty() {
+            match skin_loader::load_skin(Path::new(&skin_paths.play), &mut renderer, w, h) {
+                Ok(skin) => self.skin_play = Some(skin),
+                Err(e) => tracing::warn!("failed to load play skin: {e}"),
+            }
+        }
+        if !skin_paths.result.is_empty() {
+            match skin_loader::load_skin(Path::new(&skin_paths.result), &mut renderer, w, h) {
+                Ok(skin) => self.skin_result = Some(skin),
+                Err(e) => tracing::warn!("failed to load result skin: {e}"),
+            }
+        }
+
         self.renderer = Some(renderer);
 
         match AudioDriver::new() {
@@ -480,9 +576,12 @@ impl GameLoop for BrsApp {
             a: 1.0,
         })?;
 
-        // Drop renderer borrow so render_debug_ui can borrow self
+        // Drop renderer borrow so render_skin/render_debug_ui can borrow self
         let _ = renderer;
-        self.render_debug_ui()?;
+        let skin_rendered = self.render_skin()?;
+        if !skin_rendered {
+            self.render_debug_ui()?;
+        }
 
         let renderer = self.renderer.as_mut().unwrap();
         renderer.end_frame()?;

@@ -85,11 +85,16 @@ impl SkinRenderer {
                 SkinObject::Text(txt) => {
                     Self::render_text(renderer, txt, state)?;
                 }
-                // Complex objects - render as image for now
-                SkinObject::ImageSet(_)
-                | SkinObject::Graph(_)
-                | SkinObject::Gauge(_)
-                | SkinObject::Judge(_) => {}
+                SkinObject::ImageSet(is) => {
+                    Self::render_image_set(renderer, is, skin, state)?;
+                }
+                SkinObject::Graph(_) => {}
+                SkinObject::Gauge(gauge) => {
+                    Self::render_gauge(renderer, gauge, skin, state)?;
+                }
+                SkinObject::Judge(judge) => {
+                    Self::render_judge(renderer, judge, skin, state)?;
+                }
             }
         }
         Ok(())
@@ -462,6 +467,212 @@ impl SkinRenderer {
 
         let color = Color::new(interp.r, interp.g, interp.b, interp.a);
         renderer.draw_text(font_id, text, interp.x, interp.y, txt.size, color)?;
+        Ok(())
+    }
+
+    fn render_image_set(
+        renderer: &mut dyn RenderBackend,
+        is: &crate::skin::object::image_set::ImageSetObject,
+        skin: &SkinData,
+        state: &SkinStateSnapshot,
+    ) -> Result<()> {
+        if !Self::check_options(&is.dst, state) {
+            return Ok(());
+        }
+        let time = match Self::effective_time(&is.dst, state) {
+            Some(t) => t,
+            None => return Ok(()),
+        };
+        let interp = match is.dst.interpolate(time) {
+            Some(i) => i,
+            None => return Ok(()),
+        };
+        if interp.a <= 0.0 {
+            return Ok(());
+        }
+
+        let index = state.number(is.ref_id) as usize;
+        let entry = match is.images.get(index) {
+            Some(e) => e,
+            None => return Ok(()),
+        };
+        let texture = match entry.texture {
+            Some(t) => t,
+            None => return Ok(()),
+        };
+
+        Self::draw_sprite(
+            renderer,
+            texture,
+            entry.src_x as f32,
+            entry.src_y as f32,
+            entry.src_w as f32,
+            entry.src_h as f32,
+            &interp,
+            skin,
+            is.dst.blend,
+            is.dst.center,
+        )?;
+        Ok(())
+    }
+
+    fn render_gauge(
+        renderer: &mut dyn RenderBackend,
+        gauge: &crate::skin::object::gauge::GaugeObject,
+        _skin: &SkinData,
+        state: &SkinStateSnapshot,
+    ) -> Result<()> {
+        if !Self::check_options(&gauge.dst, state) {
+            return Ok(());
+        }
+        let time = match Self::effective_time(&gauge.dst, state) {
+            Some(t) => t,
+            None => return Ok(()),
+        };
+        let interp = match gauge.dst.interpolate(time) {
+            Some(i) => i,
+            None => return Ok(()),
+        };
+        if interp.a <= 0.0 {
+            return Ok(());
+        }
+
+        let parts = gauge.parts.max(1) as usize;
+        let gauge_value = state
+            .float_value(crate::skin::skin_property::RATE_SCORE)
+            .clamp(0.0, 1.0);
+        let filled_parts = (gauge_value * parts as f32).ceil() as usize;
+
+        let part_w = interp.w / parts as f32;
+        let color = Color::new(interp.r, interp.g, interp.b, interp.a);
+        let blend = Self::blend_mode(gauge.dst.blend);
+
+        // Use textures[0]=empty_normal, textures[1]=filled_normal
+        let empty_tex = gauge.textures.first();
+        let filled_tex = gauge.textures.get(1);
+
+        for i in 0..parts {
+            let is_filled = i < filled_parts;
+            let entry = if is_filled { filled_tex } else { empty_tex };
+            let entry = match entry {
+                Some(e) => e,
+                None => continue,
+            };
+            let texture = match entry.texture {
+                Some(t) => t,
+                None => continue,
+            };
+
+            let dx = interp.x + i as f32 * part_w;
+            renderer.draw_sprite(
+                texture,
+                SrcRect {
+                    x: entry.src_x as f32,
+                    y: entry.src_y as f32,
+                    w: entry.src_w as f32,
+                    h: entry.src_h as f32,
+                },
+                DstRect {
+                    x: dx,
+                    y: interp.y,
+                    w: part_w,
+                    h: interp.h,
+                },
+                color,
+                0.0,
+                blend,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn render_judge(
+        renderer: &mut dyn RenderBackend,
+        judge: &crate::skin::object::judge::JudgeObject,
+        _skin: &SkinData,
+        state: &SkinStateSnapshot,
+    ) -> Result<()> {
+        if !Self::check_options(&judge.dst, state) {
+            return Ok(());
+        }
+
+        // Check judge timer
+        let timer_id = match judge.player {
+            0 => crate::skin::skin_property::TIMER_JUDGE_1P,
+            1 => crate::skin::skin_property::TIMER_JUDGE_2P,
+            _ => crate::skin::skin_property::TIMER_JUDGE_3P,
+        };
+        let judge_timer = match state.timer_ms(timer_id) {
+            Some(t) => t,
+            None => return Ok(()), // timer off, don't render
+        };
+
+        let time = match Self::effective_time(&judge.dst, state) {
+            Some(t) => t,
+            None => return Ok(()),
+        };
+        let interp = match judge.dst.interpolate(time) {
+            Some(i) => i,
+            None => return Ok(()),
+        };
+        if interp.a <= 0.0 {
+            return Ok(());
+        }
+
+        // Get judge type from VALUE_JUDGE
+        let value_id = match judge.player {
+            0 => crate::skin::skin_property::VALUE_JUDGE_1P,
+            1 => crate::skin::skin_property::VALUE_JUDGE_2P,
+            _ => crate::skin::skin_property::VALUE_JUDGE_3P,
+        };
+        let judge_type = state.number(value_id).clamp(0, 5) as usize;
+
+        let entry = match judge.textures.get(judge_type) {
+            Some(e) => e,
+            None => return Ok(()),
+        };
+        let texture = match entry.texture {
+            Some(t) => t,
+            None => return Ok(()),
+        };
+
+        // Animation frame calculation
+        let div_x = entry.div_x.max(1);
+        let div_y = entry.div_y.max(1);
+        let total_frames = div_x * div_y;
+        let frame = if entry.cycle > 0 && total_frames > 1 {
+            let elapsed = (state.time_ms - judge_timer).max(0);
+            ((elapsed / entry.cycle as i64) % total_frames as i64) as i32
+        } else {
+            0
+        };
+
+        let frame_w = entry.src_w as f32 / div_x as f32;
+        let frame_h = entry.src_h as f32 / div_y as f32;
+        let fx = (frame % div_x) as f32 * frame_w;
+        let fy = (frame / div_x) as f32 * frame_h;
+
+        let color = Color::new(interp.r, interp.g, interp.b, interp.a);
+        let blend = Self::blend_mode(judge.dst.blend);
+
+        renderer.draw_sprite(
+            texture,
+            SrcRect {
+                x: entry.src_x as f32 + fx,
+                y: entry.src_y as f32 + fy,
+                w: frame_w,
+                h: frame_h,
+            },
+            DstRect {
+                x: interp.x,
+                y: interp.y,
+                w: interp.w,
+                h: interp.h,
+            },
+            color,
+            0.0,
+            blend,
+        )?;
         Ok(())
     }
 

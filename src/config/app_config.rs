@@ -3,6 +3,19 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+/// Per-scene skin paths.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SkinPaths {
+    #[serde(default)]
+    pub select: String,
+    #[serde(default)]
+    pub decide: String,
+    #[serde(default)]
+    pub play: String,
+    #[serde(default)]
+    pub result: String,
+}
+
 /// Application-level configuration.
 /// Controls display, audio driver, and general behavior.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +41,9 @@ pub struct AppConfig {
     /// Skin path.
     #[serde(default)]
     pub skin_path: String,
+    /// Per-scene skin paths.
+    #[serde(default)]
+    pub skin_paths: SkinPaths,
     /// BMS directories to scan for songs.
     #[serde(default)]
     pub bms_directories: Vec<String>,
@@ -65,6 +81,7 @@ impl Default for AppConfig {
             audio_driver: default_audio_driver(),
             audio_buffer_size: default_audio_buffer(),
             skin_path: String::new(),
+            skin_paths: SkinPaths::default(),
             bms_directories: Vec::new(),
             fullscreen: false,
         }
@@ -127,6 +144,7 @@ mod tests {
             audio_driver: "wasapi".to_string(),
             audio_buffer_size: 256,
             skin_path: "/path/to/skin".to_string(),
+            skin_paths: SkinPaths::default(),
             bms_directories: vec!["/bms1".to_string(), "/bms2".to_string()],
             fullscreen: true,
         };
