@@ -423,10 +423,13 @@ dependencies = [
 name = "brs"
 version = "0.1.0"
 dependencies = [
+ "ab_glyph",
  "anyhow",
  "base64",
  "bms-rs",
+ "bytemuck",
  "clap",
+ "crc32fast",
  "criterion",
  "encoding_rs",
  "flate2",

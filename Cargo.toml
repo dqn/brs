@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+ab_glyph = "0.2"
 anyhow = "1"
 base64 = "0.22"
+bytemuck = { version = "1", features = ["derive"] }
 bms-rs = "0.10"
 clap = { version = "4", features = ["derive", "env"] }
+crc32fast = "1"
 encoding_rs = "0.8"
 flate2 = "1"
 gilrs = "0.11"
