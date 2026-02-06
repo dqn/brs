@@ -249,6 +249,80 @@ impl JudgeWindowRule {
         judge_rank: [33, 50, 70, 100, 133],
         fix_judge: [true, false, false, true, true],
     };
+
+    /// Create scaled judge windows from base windows, judge_rank value, and per-window rate.
+    /// Corresponds to JudgeWindowRule.create() in beatoraja.
+    ///
+    /// `org`: base windows as &[[i64; 2]], indexed [PG, GR, GD, BD, MS].
+    /// `judgerank`: scaled judge rank value (percentage-like).
+    /// `judge_window_rate`: per-window rate [PG, GR, GD] (percentage, typically 100).
+    ///
+    /// Returns scaled windows with the same length as `org`.
+    #[allow(clippy::needless_range_loop)]
+    pub fn create(
+        &self,
+        org: &[[i64; 2]],
+        judgerank: i32,
+        judge_window_rate: &[i32; 3],
+    ) -> Vec<[i64; 2]> {
+        let len = org.len();
+        let mut judge: Vec<[i64; 2]> = Vec::with_capacity(len);
+
+        // Step 1: Apply judgerank scaling (skip if fixjudge)
+        for (i, window) in org.iter().enumerate() {
+            let scale = |v: i64| -> i64 {
+                if self.fix_judge[i] {
+                    v
+                } else {
+                    v * judgerank as i64 / 100
+                }
+            };
+            judge.push([scale(window[0]), scale(window[1])]);
+        }
+
+        // Step 2: Clamp between fixed bounds
+        // Uses index-based access because we cross-reference judge[i], judge[fixmin], judge[fixmax].
+        let clamp_len = len.min(4);
+        let mut fixmin: Option<usize> = None;
+        for i in 0..clamp_len {
+            if self.fix_judge[i] {
+                fixmin = Some(i);
+                continue;
+            }
+
+            let fixmax = ((i + 1)..4).find(|&j| self.fix_judge[j]);
+
+            for j in 0..2 {
+                if let Some(fm) = fixmin
+                    && judge[i][j].abs() < judge[fm][j].abs()
+                {
+                    judge[i][j] = judge[fm][j];
+                }
+                if let Some(fm) = fixmax
+                    && judge[i][j].abs() > judge[fm][j].abs()
+                {
+                    judge[i][j] = judge[fm][j];
+                }
+            }
+        }
+
+        // Step 3: judgeWindowRate correction for first 3 windows
+        // Uses index-based access because we reference judge[3] (BD) and judge[i-1].
+        let rate_len = len.min(3);
+        for i in 0..rate_len {
+            for j in 0..2 {
+                judge[i][j] = judge[i][j] * judge_window_rate[i] as i64 / 100;
+                if judge[i][j].abs() > judge[3][j].abs() {
+                    judge[i][j] = judge[3][j];
+                }
+                if i > 0 && judge[i][j].abs() < judge[i - 1][j].abs() {
+                    judge[i][j] = judge[i - 1][j];
+                }
+            }
+        }
+
+        judge
+    }
 }
 
 /// Player rule mapping mode to gauge/judge properties.
