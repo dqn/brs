@@ -88,6 +88,7 @@ struct BrsApp {
     // Timing
     last_frame: Instant,
     elapsed_us: i64,
+    play_start_us: i64,
 
     // Direct play mode
     direct_play_path: Option<String>,
@@ -129,6 +130,7 @@ impl BrsApp {
 
             last_frame: Instant::now(),
             elapsed_us: 0,
+            play_start_us: 0,
 
             direct_play_path: None,
             selected_bms_path: None,
@@ -196,6 +198,7 @@ impl BrsApp {
             }
             AppStateType::Play => {
                 let bms_path = self.selected_bms_path.clone().unwrap_or_default();
+                self.play_start_us = self.elapsed_us;
 
                 match load_and_create_play_state(&bms_path) {
                     Ok(mut play) => {
@@ -449,11 +452,13 @@ impl GameLoop for BrsApp {
             ActiveState::Select(s) => s.update(dt_us).unwrap_or(StateTransition::None),
             ActiveState::Decide(s) => s.update(dt_us).unwrap_or(StateTransition::None),
             ActiveState::Play(s) => {
+                let play_time_us = self.elapsed_us - self.play_start_us;
                 let events = self.input.poll_events();
-                for event in events {
+                for mut event in events {
+                    event.time_us -= self.play_start_us;
                     s.process_key_event(event);
                 }
-                s.update(dt_us).unwrap_or(StateTransition::None)
+                s.update(play_time_us).unwrap_or(StateTransition::None)
             }
             ActiveState::Result(s) => s.update(dt_us).unwrap_or(StateTransition::None),
             ActiveState::None => StateTransition::None,
