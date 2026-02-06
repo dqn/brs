@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 
 use crate::skin::destination::{InterpolatedDst, rotation_center};
@@ -12,71 +14,47 @@ pub struct SkinStateSnapshot {
     /// Current time in milliseconds.
     pub time_ms: i64,
     /// Timer values: timer_id -> start time in microseconds (or TIMER_OFF_VALUE).
-    pub timers: Vec<(i32, i64)>,
+    pub timers: HashMap<i32, i64>,
     /// Number values: number_id -> integer value.
-    pub numbers: Vec<(i32, i32)>,
+    pub numbers: HashMap<i32, i32>,
     /// Float values: float_id -> float value.
-    pub floats: Vec<(i32, f32)>,
+    pub floats: HashMap<i32, f32>,
     /// String values: string_id -> string value.
-    pub strings: Vec<(i32, String)>,
+    pub strings: HashMap<i32, String>,
     /// Option conditions: option_id -> bool.
-    pub options: Vec<(i32, bool)>,
+    pub options: HashMap<i32, bool>,
     /// Offset values: offset_id -> (x, y, w, h, r, a).
-    pub offsets: Vec<(i32, [f32; 6])>,
+    pub offsets: HashMap<i32, [f32; 6]>,
 }
 
 impl SkinStateSnapshot {
     /// Get a timer value in milliseconds. Returns None if off.
     pub fn timer_ms(&self, timer_id: i32) -> Option<i64> {
-        for &(id, val) in &self.timers {
-            if id == timer_id {
-                if val == TIMER_OFF_VALUE {
-                    return None;
-                }
-                return Some(val / 1000); // us -> ms
-            }
+        let &val = self.timers.get(&timer_id)?;
+        if val == TIMER_OFF_VALUE {
+            return None;
         }
-        None
+        Some(val / 1000) // us -> ms
     }
 
     /// Get a number value.
     pub fn number(&self, id: i32) -> i32 {
-        for &(nid, val) in &self.numbers {
-            if nid == id {
-                return val;
-            }
-        }
-        0
+        self.numbers.get(&id).copied().unwrap_or(0)
     }
 
     /// Get a float value.
     pub fn float_value(&self, id: i32) -> f32 {
-        for &(fid, val) in &self.floats {
-            if fid == id {
-                return val;
-            }
-        }
-        0.0
+        self.floats.get(&id).copied().unwrap_or(0.0)
     }
 
     /// Check if an option condition is met.
     pub fn option(&self, id: i32) -> bool {
-        for &(oid, val) in &self.options {
-            if oid == id {
-                return val;
-            }
-        }
-        false
+        self.options.get(&id).copied().unwrap_or(false)
     }
 
     /// Get a string value.
     pub fn string(&self, id: i32) -> &str {
-        for (sid, val) in &self.strings {
-            if *sid == id {
-                return val;
-            }
-        }
-        ""
+        self.strings.get(&id).map(|s| s.as_str()).unwrap_or("")
     }
 }
 
