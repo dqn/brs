@@ -12,6 +12,7 @@ use brs::app::controller::{AppController, AppStateType, AppTransition};
 use brs::audio::audio_driver::AudioDriver;
 use brs::config::app_config::AppConfig;
 use brs::config::player_config::PlayerConfig;
+use brs::database::scanner;
 use brs::database::score_db::ScoreDatabase;
 use brs::database::song_db::SongDatabase;
 use brs::input::input_manager::InputManager;
@@ -162,6 +163,16 @@ impl BrsApp {
                     .unwrap_or_else(|_| SongDatabase::open_in_memory().unwrap());
                 let score_db = ScoreDatabase::open(&self.score_db_path)
                     .unwrap_or_else(|_| ScoreDatabase::open_in_memory().unwrap());
+
+                // Scan BMS directories to populate the database.
+                match scanner::scan_directories(&song_db, &self.bms_roots) {
+                    Ok(count) => {
+                        if count > 0 {
+                            tracing::info!("scanned {count} BMS files");
+                        }
+                    }
+                    Err(e) => tracing::error!("BMS scan failed: {e}"),
+                }
 
                 let mut select = SelectState::new(song_db, score_db, self.bms_roots.clone());
                 if let Err(e) = select.create() {
