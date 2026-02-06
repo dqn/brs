@@ -207,32 +207,28 @@ impl WgpuRenderer {
         // Reuse vertex buffer if capacity is sufficient, otherwise recreate.
         if self.vertex_capacity < vertex_data.len() {
             self.vertex_capacity = vertex_data.len().next_power_of_two();
-            self.vertex_buffer = Some(self.device.create_buffer_init(
-                &wgpu::util::BufferInitDescriptor {
-                    label: Some("vertex_buffer"),
-                    contents: vertex_data,
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                },
-            ));
-        } else {
-            self.queue
-                .write_buffer(self.vertex_buffer.as_ref().unwrap(), 0, vertex_data);
+            self.vertex_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("vertex_buffer"),
+                size: self.vertex_capacity as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
         }
+        self.queue
+            .write_buffer(self.vertex_buffer.as_ref().unwrap(), 0, vertex_data);
 
         // Reuse index buffer if capacity is sufficient, otherwise recreate.
         if self.index_capacity < index_data.len() {
             self.index_capacity = index_data.len().next_power_of_two();
-            self.index_buffer = Some(self.device.create_buffer_init(
-                &wgpu::util::BufferInitDescriptor {
-                    label: Some("index_buffer"),
-                    contents: index_data,
-                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-                },
-            ));
-        } else {
-            self.queue
-                .write_buffer(self.index_buffer.as_ref().unwrap(), 0, index_data);
+            self.index_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("index_buffer"),
+                size: self.index_capacity as u64,
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
         }
+        self.queue
+            .write_buffer(self.index_buffer.as_ref().unwrap(), 0, index_data);
 
         let vertex_buffer = self.vertex_buffer.as_ref().unwrap();
         let index_buffer = self.index_buffer.as_ref().unwrap();
