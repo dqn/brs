@@ -7,7 +7,7 @@ use crate::skin::loader::json_loader::JsonSkinLoader;
 use crate::skin::loader::lr2_csv_loader::Lr2CsvLoader;
 use crate::skin::lua::lua_loader::LuaSkinLoader;
 use crate::skin::skin_data::{SkinData, SkinObject};
-use crate::traits::render::{RenderBackend, TextureId};
+use crate::traits::render::{FontId, RenderBackend, TextureId};
 
 /// Load a skin file, detecting format by extension, and load all textures.
 pub fn load_skin(
@@ -53,9 +53,23 @@ pub fn load_skin(
         }
     }
 
-    // Assign textures to objects
+    // Load fonts
+    let mut font_map: HashMap<i32, FontId> = HashMap::new();
+    for font_def in &skin_data.font_defs {
+        match renderer.load_font(&font_def.path) {
+            Ok(font_id) => {
+                font_map.insert(font_def.id, font_id);
+            }
+            Err(e) => {
+                tracing::warn!("Failed to load font {}: {}", font_def.path.display(), e);
+            }
+        }
+    }
+
+    // Assign textures and fonts to objects
     for obj in &mut skin_data.objects {
         assign_texture(obj, &texture_map);
+        assign_font(obj, &font_map);
     }
 
     Ok(skin_data)
@@ -100,5 +114,14 @@ fn assign_texture(obj: &mut SkinObject, texture_map: &HashMap<i32, TextureId>) {
         SkinObject::Text(_) => {
             // Text objects use font_id, not textures
         }
+    }
+}
+
+/// Assign fonts to text objects based on font ID string.
+fn assign_font(obj: &mut SkinObject, font_map: &HashMap<i32, FontId>) {
+    if let SkinObject::Text(text) = obj
+        && let Ok(font_id_num) = text.font.parse::<i32>()
+    {
+        text.font_id = font_map.get(&font_id_num).copied();
     }
 }

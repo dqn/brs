@@ -9,12 +9,67 @@ use crate::skin::object::graph::GraphObject;
 use crate::skin::object::image::ImageObject;
 use crate::skin::object::number::NumberObject;
 use crate::skin::object::slider::SliderObject;
-use crate::skin::skin_data::{SkinData, SkinObject, SkinSource};
+use crate::skin::object::text::TextObject;
+use crate::skin::skin_data::{FontDef, SkinData, SkinObject, SkinSource};
 use crate::skin::skin_header::{CustomFile, CustomOffset, CustomOption, SkinHeader, SkinType};
 
 /// Convert mlua::Error to anyhow::Error.
 fn lua_err(e: mlua::Error) -> anyhow::Error {
     anyhow!("Lua error: {}", e)
+}
+
+/// Object definition parsed from skin.image, skin.text, skin.slider, skin.graph, etc.
+/// These tables define object properties; skin.destination references them by id.
+enum ObjDef {
+    Image {
+        src: i32,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        div_x: i32,
+        div_y: i32,
+        cycle: i32,
+        timer: i32,
+    },
+    Text {
+        font: i32,
+        size: f32,
+        ref_id: i32,
+        overflow: i32,
+        align: i32,
+    },
+    Slider {
+        src: i32,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        range: f32,
+        direction: i32,
+        ref_id: i32,
+    },
+    Graph {
+        src: i32,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        graph_type: i32,
+        direction: i32,
+    },
+    Number {
+        src: i32,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        div_x: i32,
+        digit: i32,
+        padding: i32,
+        ref_id: i32,
+        align: i32,
+    },
 }
 
 /// Loads skin data from a Lua skin file (beatoraja Lua skin format).
@@ -79,9 +134,17 @@ impl LuaSkinLoader {
             self.parse_sources(&source_table, &mut skin_data)?;
         }
 
-        // Parse destinations (skin objects)
+        // Parse object definition tables (image, text, slider, graph, number)
+        let obj_defs = self.parse_obj_defs(&value)?;
+
+        // Parse fonts
+        if let Ok(font_table) = value.get::<LuaTable>("font") {
+            self.parse_fonts(&font_table, &mut skin_data)?;
+        }
+
+        // Parse destinations (skin objects), resolving references via obj_defs
         if let Ok(dst_table) = value.get::<LuaTable>("destination") {
-            self.parse_destinations(&dst_table, &mut skin_data)?;
+            self.parse_destinations(&dst_table, &mut skin_data, &obj_defs)?;
         }
 
         Ok(skin_data)
@@ -284,124 +347,314 @@ impl LuaSkinLoader {
         Ok(())
     }
 
-    fn parse_destinations(&self, table: &LuaTable, skin: &mut SkinData) -> Result<()> {
+    /// Parse all object definition tables (image, text, slider, graph, number)
+    /// and build a lookup map keyed by object ID string.
+    fn parse_obj_defs(&self, table: &LuaTable) -> Result<HashMap<String, ObjDef>> {
+        let mut defs = HashMap::new();
+
+        // skin.image
+        if let Ok(image_table) = table.get::<LuaTable>("image") {
+            for pair in image_table.sequence_values::<LuaTable>() {
+                let entry = pair.map_err(lua_err)?;
+                let id: String = entry.get("id").unwrap_or_default();
+                if id.is_empty() {
+                    continue;
+                }
+                // src can be an integer or a string; treat string src as -1
+                let src: i32 = entry.get::<i32>("src").unwrap_or(-1);
+                defs.insert(
+                    id,
+                    ObjDef::Image {
+                        src,
+                        x: entry.get("x").unwrap_or(0),
+                        y: entry.get("y").unwrap_or(0),
+                        w: entry.get("w").unwrap_or(0),
+                        h: entry.get("h").unwrap_or(0),
+                        div_x: entry.get("divx").unwrap_or(1),
+                        div_y: entry.get("divy").unwrap_or(1),
+                        cycle: entry.get("cycle").unwrap_or(0),
+                        timer: entry.get("timer").unwrap_or(0),
+                    },
+                );
+            }
+        }
+
+        // skin.text
+        if let Ok(text_table) = table.get::<LuaTable>("text") {
+            for pair in text_table.sequence_values::<LuaTable>() {
+                let entry = pair.map_err(lua_err)?;
+                let id: String = entry.get("id").unwrap_or_default();
+                if id.is_empty() {
+                    continue;
+                }
+                defs.insert(
+                    id,
+                    ObjDef::Text {
+                        font: entry.get("font").unwrap_or(0),
+                        size: entry.get("size").unwrap_or(24.0),
+                        ref_id: entry.get("ref").unwrap_or(0),
+                        overflow: entry.get("overflow").unwrap_or(0),
+                        align: entry.get("align").unwrap_or(0),
+                    },
+                );
+            }
+        }
+
+        // skin.slider
+        if let Ok(slider_table) = table.get::<LuaTable>("slider") {
+            for pair in slider_table.sequence_values::<LuaTable>() {
+                let entry = pair.map_err(lua_err)?;
+                let id: String = entry.get("id").unwrap_or_default();
+                if id.is_empty() {
+                    continue;
+                }
+                defs.insert(
+                    id,
+                    ObjDef::Slider {
+                        src: entry.get("src").unwrap_or(-1),
+                        x: entry.get("x").unwrap_or(0),
+                        y: entry.get("y").unwrap_or(0),
+                        w: entry.get("w").unwrap_or(0),
+                        h: entry.get("h").unwrap_or(0),
+                        range: entry.get("range").unwrap_or(0.0),
+                        direction: entry.get("angle").unwrap_or(0),
+                        ref_id: entry.get("type").unwrap_or(0),
+                    },
+                );
+            }
+        }
+
+        // skin.graph
+        if let Ok(graph_table) = table.get::<LuaTable>("graph") {
+            for pair in graph_table.sequence_values::<LuaTable>() {
+                let entry = pair.map_err(lua_err)?;
+                let id: String = entry.get("id").unwrap_or_default();
+                if id.is_empty() {
+                    continue;
+                }
+                defs.insert(
+                    id,
+                    ObjDef::Graph {
+                        src: entry.get("src").unwrap_or(-1),
+                        x: entry.get("x").unwrap_or(0),
+                        y: entry.get("y").unwrap_or(0),
+                        w: entry.get("w").unwrap_or(0),
+                        h: entry.get("h").unwrap_or(0),
+                        graph_type: entry.get("type").unwrap_or(0),
+                        direction: entry.get("angle").unwrap_or(0),
+                    },
+                );
+            }
+        }
+
+        // skin.number (if present)
+        if let Ok(number_table) = table.get::<LuaTable>("number") {
+            for pair in number_table.sequence_values::<LuaTable>() {
+                let entry = pair.map_err(lua_err)?;
+                let id: String = entry.get("id").unwrap_or_default();
+                if id.is_empty() {
+                    continue;
+                }
+                defs.insert(
+                    id,
+                    ObjDef::Number {
+                        src: entry.get("src").unwrap_or(-1),
+                        x: entry.get("x").unwrap_or(0),
+                        y: entry.get("y").unwrap_or(0),
+                        w: entry.get("w").unwrap_or(0),
+                        h: entry.get("h").unwrap_or(0),
+                        div_x: entry.get("divx").unwrap_or(10),
+                        digit: entry.get("digit").unwrap_or(0),
+                        padding: entry.get("padding").unwrap_or(0),
+                        ref_id: entry.get("ref").unwrap_or(0),
+                        align: entry.get("align").unwrap_or(0),
+                    },
+                );
+            }
+        }
+
+        Ok(defs)
+    }
+
+    /// Parse skin.font entries and store font definitions in skin_data.
+    fn parse_fonts(&self, table: &LuaTable, skin: &mut SkinData) -> Result<()> {
         for pair in table.sequence_values::<LuaTable>() {
             let entry = pair.map_err(lua_err)?;
-            if let Some(obj) = self.parse_skin_object(&entry, skin)? {
+            let id: i32 = entry.get("id").unwrap_or(-1);
+            let path_str: String = entry.get("path").unwrap_or_default();
+
+            if id < 0 || path_str.is_empty() {
+                continue;
+            }
+
+            let full_path = self.skin_dir.join(&path_str);
+            skin.font_defs.push(FontDef {
+                id,
+                path: full_path,
+            });
+        }
+        Ok(())
+    }
+
+    fn parse_destinations(
+        &self,
+        table: &LuaTable,
+        skin: &mut SkinData,
+        obj_defs: &HashMap<String, ObjDef>,
+    ) -> Result<()> {
+        for pair in table.sequence_values::<LuaTable>() {
+            let entry = pair.map_err(lua_err)?;
+            if let Some(obj) = self.parse_skin_object(&entry, skin, obj_defs)? {
                 skin.add_object(obj);
             }
         }
         Ok(())
     }
 
-    fn parse_skin_object(&self, table: &LuaTable, skin: &SkinData) -> Result<Option<SkinObject>> {
+    fn parse_skin_object(
+        &self,
+        table: &LuaTable,
+        skin: &SkinData,
+        obj_defs: &HashMap<String, ObjDef>,
+    ) -> Result<Option<SkinObject>> {
         let id: String = table.get("id").unwrap_or_default();
 
         // Parse destination set
         let dst = self.parse_destination_set(table, skin)?;
 
-        // Check if this is a number, slider, text, etc. based on fields
-        let ref_id: Option<i32> = table.get("ref").ok();
-        let digit: Option<i32> = table.get("digit").ok();
-        let direction: Option<i32> = table.get("direction").ok();
-        let range: Option<f32> = table.get("range").ok();
+        // Look up object definition by id
+        let def = obj_defs.get(&id);
 
-        let src_id: i32 = table.get("src").unwrap_or(-1);
-
-        // Determine type from fields
-        if digit.is_some() {
-            let mut num = NumberObject {
-                id,
-                ref_id: ref_id.unwrap_or(0),
-                src: src_id,
-                div_x: table.get("divx").unwrap_or(10),
-                digit: digit.unwrap_or(0),
-                padding: table.get("padding").unwrap_or(0),
-                align: table.get("align").unwrap_or(0),
-                dst,
-                ..Default::default()
-            };
-            Self::apply_source_rect_from_table(
-                table,
-                &mut num.src_x,
-                &mut num.src_y,
-                &mut num.src_w,
-                &mut num.src_h,
-            );
-            return Ok(Some(SkinObject::Number(num)));
-        }
-
-        if range.is_some() {
-            let mut sl = SliderObject {
-                id,
-                ref_id: ref_id.unwrap_or(0),
-                src: src_id,
-                range: range.unwrap_or(0.0),
-                direction: direction.unwrap_or(0),
-                dst,
-                ..Default::default()
-            };
-            Self::apply_source_rect_from_table(
-                table,
-                &mut sl.src_x,
-                &mut sl.src_y,
-                &mut sl.src_w,
-                &mut sl.src_h,
-            );
-            return Ok(Some(SkinObject::Slider(sl)));
-        }
-
-        if let Ok(graph_type) = table.get::<i32>("graph") {
-            let mut g = GraphObject {
-                id,
+        match def {
+            Some(ObjDef::Text {
+                font,
+                size,
+                ref_id,
+                overflow,
+                align,
+            }) => {
+                let text = TextObject {
+                    id,
+                    ref_id: *ref_id,
+                    font: font.to_string(),
+                    size: *size,
+                    align: *align,
+                    overflow: *overflow,
+                    dst,
+                    ..Default::default()
+                };
+                Ok(Some(SkinObject::Text(text)))
+            }
+            Some(ObjDef::Slider {
+                src,
+                x,
+                y,
+                w,
+                h,
+                range,
+                direction,
+                ref_id,
+            }) => {
+                let sl = SliderObject {
+                    id,
+                    ref_id: *ref_id,
+                    src: *src,
+                    src_x: *x,
+                    src_y: *y,
+                    src_w: *w,
+                    src_h: *h,
+                    range: *range,
+                    direction: *direction,
+                    dst,
+                    ..Default::default()
+                };
+                Ok(Some(SkinObject::Slider(sl)))
+            }
+            Some(ObjDef::Graph {
+                src,
+                x,
+                y,
+                w,
+                h,
                 graph_type,
-                src: src_id,
-                direction: direction.unwrap_or(0),
-                dst,
-                ..Default::default()
-            };
-            Self::apply_source_rect_from_table(
-                table,
-                &mut g.src_x,
-                &mut g.src_y,
-                &mut g.src_w,
-                &mut g.src_h,
-            );
-            return Ok(Some(SkinObject::Graph(g)));
+                direction,
+            }) => {
+                let g = GraphObject {
+                    id,
+                    graph_type: *graph_type,
+                    src: *src,
+                    src_x: *x,
+                    src_y: *y,
+                    src_w: *w,
+                    src_h: *h,
+                    direction: *direction,
+                    dst,
+                    ..Default::default()
+                };
+                Ok(Some(SkinObject::Graph(g)))
+            }
+            Some(ObjDef::Number {
+                src,
+                x,
+                y,
+                w,
+                h,
+                div_x,
+                digit,
+                padding,
+                ref_id,
+                align,
+            }) => {
+                let num = NumberObject {
+                    id,
+                    ref_id: *ref_id,
+                    src: *src,
+                    src_x: *x,
+                    src_y: *y,
+                    src_w: *w,
+                    src_h: *h,
+                    div_x: *div_x,
+                    digit: *digit,
+                    padding: *padding,
+                    align: *align,
+                    dst,
+                    ..Default::default()
+                };
+                Ok(Some(SkinObject::Number(num)))
+            }
+            Some(ObjDef::Image {
+                src,
+                x,
+                y,
+                w,
+                h,
+                div_x,
+                div_y,
+                cycle,
+                timer,
+            }) => {
+                let img = ImageObject {
+                    id,
+                    src: *src,
+                    src_x: *x,
+                    src_y: *y,
+                    src_w: *w,
+                    src_h: *h,
+                    div_x: *div_x,
+                    div_y: *div_y,
+                    cycle: *cycle,
+                    timer: *timer,
+                    dst,
+                    ..Default::default()
+                };
+                Ok(Some(SkinObject::Image(img)))
+            }
+            None => {
+                // No definition found; skip unknown objects
+                tracing::debug!("No object definition found for id: {id}");
+                Ok(None)
+            }
         }
-
-        // Default to image object
-        let mut img = ImageObject {
-            id,
-            src: src_id,
-            div_x: table.get("divx").unwrap_or(1),
-            div_y: table.get("divy").unwrap_or(1),
-            cycle: table.get("cycle").unwrap_or(0),
-            timer: table.get("timer").unwrap_or(0),
-            dst,
-            ..Default::default()
-        };
-        Self::apply_source_rect_from_table(
-            table,
-            &mut img.src_x,
-            &mut img.src_y,
-            &mut img.src_w,
-            &mut img.src_h,
-        );
-        Ok(Some(SkinObject::Image(img)))
-    }
-
-    fn apply_source_rect_from_table(
-        table: &LuaTable,
-        x: &mut i32,
-        y: &mut i32,
-        w: &mut i32,
-        h: &mut i32,
-    ) {
-        *x = table.get("x").unwrap_or(0);
-        *y = table.get("y").unwrap_or(0);
-        *w = table.get("w").unwrap_or(0);
-        *h = table.get("h").unwrap_or(0);
     }
 
     fn parse_destination_set(&self, table: &LuaTable, skin: &SkinData) -> Result<DestinationSet> {

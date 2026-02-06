@@ -13,6 +13,13 @@ use crate::skin::object::text::TextObject;
 use crate::skin::skin_header::SkinHeader;
 use crate::traits::render::TextureId;
 
+/// Font definition from skin file (id + path).
+#[derive(Debug, Clone)]
+pub struct FontDef {
+    pub id: i32,
+    pub path: PathBuf,
+}
+
 /// A skin object that can be one of several types.
 #[derive(Debug, Clone)]
 pub enum SkinObject {
@@ -43,6 +50,8 @@ pub struct SkinData {
     pub sources: HashMap<i32, SkinSource>,
     /// All skin objects in draw order.
     pub objects: Vec<SkinObject>,
+    /// Font definitions from the skin file.
+    pub font_defs: Vec<FontDef>,
     /// Scale factor X (dst_w / src_w).
     pub scale_x: f32,
     /// Scale factor Y (dst_h / src_h).
@@ -57,6 +66,7 @@ impl SkinData {
             header,
             sources: HashMap::new(),
             objects: Vec::new(),
+            font_defs: Vec::new(),
             scale_x,
             scale_y,
         }

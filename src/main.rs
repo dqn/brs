@@ -489,30 +489,39 @@ impl GameLoop for BrsApp {
         }
 
         // Load skins
-        let (w, h) = (self.app_config.width, self.app_config.height);
-        let skin_paths = &self.app_config.skin_paths;
-        if !skin_paths.select.is_empty() {
-            match skin_loader::load_skin(Path::new(&skin_paths.select), &mut renderer, w, h) {
-                Ok(skin) => self.skin_select = Some(skin),
-                Err(e) => tracing::warn!("failed to load select skin: {e}"),
+        let mut w = self.app_config.width;
+        let mut h = self.app_config.height;
+        let is_default_size = w == 1280 && h == 720;
+
+        let skin_paths = self.app_config.skin_paths.clone();
+        let skin_path_entries: [(&str, &mut Option<SkinData>); 4] = [
+            (&skin_paths.select, &mut self.skin_select),
+            (&skin_paths.decide, &mut self.skin_decide),
+            (&skin_paths.play, &mut self.skin_play),
+            (&skin_paths.result, &mut self.skin_result),
+        ];
+
+        for (path_str, slot) in skin_path_entries {
+            if path_str.is_empty() {
+                continue;
             }
-        }
-        if !skin_paths.decide.is_empty() {
-            match skin_loader::load_skin(Path::new(&skin_paths.decide), &mut renderer, w, h) {
-                Ok(skin) => self.skin_decide = Some(skin),
-                Err(e) => tracing::warn!("failed to load decide skin: {e}"),
-            }
-        }
-        if !skin_paths.play.is_empty() {
-            match skin_loader::load_skin(Path::new(&skin_paths.play), &mut renderer, w, h) {
-                Ok(skin) => self.skin_play = Some(skin),
-                Err(e) => tracing::warn!("failed to load play skin: {e}"),
-            }
-        }
-        if !skin_paths.result.is_empty() {
-            match skin_loader::load_skin(Path::new(&skin_paths.result), &mut renderer, w, h) {
-                Ok(skin) => self.skin_result = Some(skin),
-                Err(e) => tracing::warn!("failed to load result skin: {e}"),
+            match skin_loader::load_skin(Path::new(path_str), &mut renderer, w, h) {
+                Ok(skin) => {
+                    // Use the first skin's resolution as window size if config is default
+                    if is_default_size && w == 1280 && h == 720 {
+                        let src_w = skin.header.src_width;
+                        let src_h = skin.header.src_height;
+                        if src_w != w || src_h != h {
+                            w = src_w;
+                            h = src_h;
+                            let _ = window.request_inner_size(winit::dpi::PhysicalSize::new(w, h));
+                            renderer.resize(w, h);
+                            tracing::info!("resized window to skin resolution: {w}x{h}");
+                        }
+                    }
+                    *slot = Some(skin);
+                }
+                Err(e) => tracing::warn!("failed to load skin {path_str}: {e}"),
             }
         }
 
