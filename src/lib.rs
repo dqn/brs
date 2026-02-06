@@ -4,6 +4,7 @@ pub mod pattern;
 pub mod play;
 pub mod render;
 pub mod replay;
+pub mod skin;
 pub mod state;
 pub mod traits;
 pub mod util;
