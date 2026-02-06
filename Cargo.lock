@@ -436,6 +436,7 @@ dependencies = [
  "mlua",
  "num-traits",
  "proptest",
+ "rand",
  "rusqlite",
  "serde",
  "serde_json",
