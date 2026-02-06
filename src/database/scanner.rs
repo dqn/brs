@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 
 use anyhow::Result;
@@ -12,21 +13,42 @@ use crate::state::select::bar_manager::crc32_folder;
 const BMS_EXTENSIONS: &[&str] = &["bms", "bme", "bml", "bmson"];
 
 /// Scan BMS directories and populate the song database.
+/// Skips files already registered in the database and cleans up stale entries.
 pub fn scan_directories(song_db: &SongDatabase, roots: &[String]) -> Result<usize> {
+    let known_paths = song_db.get_all_paths()?;
+    let mut scanned_paths = HashSet::new();
     let mut count = 0;
+
+    let batch = song_db.begin_batch()?;
+
     for root in roots {
         let root_path = Path::new(root);
         if !root_path.is_dir() {
             tracing::warn!("BMS directory not found: {root}");
             continue;
         }
-        count += scan_directory(song_db, root_path, root)?;
+        count += scan_directory(song_db, root_path, root, &known_paths, &mut scanned_paths)?;
     }
+
+    // Clean up stale entries (files that no longer exist on disk).
+    let stale_count = song_db.delete_songs_not_in(&scanned_paths)?;
+    if stale_count > 0 {
+        tracing::info!("removed {stale_count} stale song entries");
+    }
+
+    batch.commit()?;
+
     Ok(count)
 }
 
 /// Recursively scan a single directory.
-fn scan_directory(song_db: &SongDatabase, dir: &Path, root: &str) -> Result<usize> {
+fn scan_directory(
+    song_db: &SongDatabase,
+    dir: &Path,
+    root: &str,
+    known_paths: &HashSet<String>,
+    scanned_paths: &mut HashSet<String>,
+) -> Result<usize> {
     let mut count = 0;
     let parent_crc = crc32_folder(dir.to_string_lossy().as_ref());
 
@@ -49,6 +71,14 @@ fn scan_directory(song_db: &SongDatabase, dir: &Path, root: &str) -> Result<usiz
             subdirs.push(path);
         } else if is_bms_file(&path) {
             has_bms_files = true;
+            let path_str = path.to_string_lossy().to_string();
+            scanned_paths.insert(path_str.clone());
+
+            // Skip files already registered in the database.
+            if known_paths.contains(&path_str) {
+                continue;
+            }
+
             if let Err(e) = register_bms(song_db, &path, &parent_crc) {
                 tracing::debug!("skip {}: {e}", path.display());
             } else {
@@ -75,7 +105,7 @@ fn scan_directory(song_db: &SongDatabase, dir: &Path, root: &str) -> Result<usiz
     }
 
     for subdir in subdirs {
-        count += scan_directory(song_db, &subdir, root)?;
+        count += scan_directory(song_db, &subdir, root, known_paths, scanned_paths)?;
     }
 
     Ok(count)
@@ -89,10 +119,12 @@ fn is_bms_file(path: &Path) -> bool {
 }
 
 /// Parse a BMS file and register it in the database.
+/// Reads the file once and reuses the bytes for both parsing and hashing.
 fn register_bms(song_db: &SongDatabase, path: &Path, parent_crc: &str) -> Result<()> {
-    let model = bms_loader::load_bms(path)?;
-
     let content = std::fs::read(path)?;
+
+    let model = bms_loader::load_bms_from_bytes(&content, path)?;
+
     let sha256 = format!("{:x}", Sha256::digest(&content));
     let md5 = format!("{:x}", md5::compute(&content));
 

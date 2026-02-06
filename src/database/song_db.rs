@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::Result;
 use rusqlite::{Connection, params};
 
@@ -303,6 +305,36 @@ impl SongDatabase {
         Ok(())
     }
 
+    /// Get all registered song paths.
+    pub fn get_all_paths(&self) -> Result<HashSet<String>> {
+        let mut stmt = self.conn.prepare("SELECT path FROM song")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut paths = HashSet::new();
+        for row in rows {
+            paths.insert(row?);
+        }
+        Ok(paths)
+    }
+
+    /// Delete songs whose paths are not in the given set.
+    pub fn delete_songs_not_in(&self, valid_paths: &HashSet<String>) -> Result<usize> {
+        let mut stmt = self.conn.prepare("SELECT path FROM song")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut to_delete = Vec::new();
+        for row in rows {
+            let path = row?;
+            if !valid_paths.contains(&path) {
+                to_delete.push(path);
+            }
+        }
+        let count = to_delete.len();
+        for path in &to_delete {
+            self.conn
+                .execute("DELETE FROM song WHERE path = ?1", params![path])?;
+        }
+        Ok(count)
+    }
+
     /// Get all songs count.
     pub fn song_count(&self) -> Result<i64> {
         let count: i64 = self
@@ -313,7 +345,7 @@ impl SongDatabase {
 
     /// Begin a transaction for batch operations.
     /// Returns a guard that commits on drop.
-    pub fn begin_batch(&mut self) -> Result<BatchGuard<'_>> {
+    pub fn begin_batch(&self) -> Result<BatchGuard<'_>> {
         self.conn.execute_batch("BEGIN TRANSACTION")?;
         Ok(BatchGuard { conn: &self.conn })
     }

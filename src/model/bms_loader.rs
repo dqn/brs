@@ -16,9 +16,13 @@ use super::timing::{BpmEvent, StopSpec, TimingEngine};
 /// Load a BMS/BME/BML file from the given path.
 pub fn load_bms(path: &Path) -> Result<BmsModel> {
     let content = std::fs::read(path)?;
+    load_bms_from_bytes(&content, path)
+}
 
+/// Load a BMS model from raw bytes (avoids redundant file reads).
+pub fn load_bms_from_bytes(data: &[u8], path: &Path) -> Result<BmsModel> {
     // BMS files are typically Shift_JIS encoded
-    let text = decode_bms_content(&content);
+    let text = decode_bms_content(data);
 
     parse_bms_text(&text, path)
 }
