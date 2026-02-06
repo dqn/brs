@@ -117,15 +117,17 @@ pub fn run_app<G: GameLoop + 'static>(config: WindowConfig, game: G) -> Result<(
         ) {
             match &event {
                 WindowEvent::CloseRequested => {
-                    if self.game.should_close() {
-                        event_loop.exit();
-                    }
+                    event_loop.exit();
                 }
                 WindowEvent::Resized(size) => {
                     self.game.on_resize(size.width, size.height);
                 }
                 WindowEvent::RedrawRequested => {
                     self.game.update();
+                    if self.game.should_close() {
+                        event_loop.exit();
+                        return;
+                    }
                     if let Err(e) = self.game.render() {
                         tracing::error!("render error: {e}");
                     }
