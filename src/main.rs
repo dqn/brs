@@ -1,12 +1,388 @@
-use anyhow::Result;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Instant;
+
+use anyhow::{Result, anyhow};
 use clap::Parser;
+use winit::event::WindowEvent;
+use winit::keyboard::KeyCode;
+use winit::window::Window;
+
+use brs::app::controller::{AppController, AppStateType, AppTransition};
+use brs::audio::audio_driver::AudioDriver;
+use brs::config::app_config::AppConfig;
+use brs::config::player_config::PlayerConfig;
+use brs::database::score_db::ScoreDatabase;
+use brs::database::song_db::SongDatabase;
+use brs::input::input_manager::InputManager;
+use brs::model::bms_loader;
+use brs::model::note::PlayMode;
+use brs::play::play_result::PlayResult;
+use brs::render::wgpu_renderer::WgpuRenderer;
+use brs::render::window::{GameLoop, WindowConfig, run_app};
+use brs::state::config::key_config::KeyConfig;
+use brs::state::decide::decide_state::{DecideConfig, DecideState};
+use brs::state::game_state::{GameState, StateTransition};
+use brs::state::play::play_state::{self, PlayState};
+use brs::state::result::result_state::{ResultConfig, ResultState};
+use brs::state::select::select_state::SelectState;
+use brs::traits::input::InputProvider;
+use brs::traits::render::{Color, RenderBackend};
 
 #[derive(Parser)]
 #[command(name = "brs", version, about = "BMS rhythm game player")]
-struct Cli {}
+struct Cli {
+    /// Path to the configuration directory.
+    #[arg(short, long, default_value = "~/.brs")]
+    config_dir: String,
+
+    /// BMS file to play directly (skips select screen).
+    #[arg(short, long)]
+    play: Option<String>,
+}
+
+/// Resolve ~ to home directory.
+fn resolve_path(path: &str) -> PathBuf {
+    if let Some(rest) = path.strip_prefix("~/")
+        && let Some(home) = home_dir()
+    {
+        return home.join(rest);
+    }
+    PathBuf::from(path)
+}
+
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
+}
+
+/// Active game state, holding the current state implementation.
+enum ActiveState {
+    Select(SelectState),
+    Decide(DecideState),
+    Play(PlayState),
+    Result(ResultState),
+    None,
+}
+
+/// Main game application integrating all subsystems.
+struct BrsApp {
+    controller: AppController,
+    state: ActiveState,
+
+    renderer: Option<WgpuRenderer>,
+    audio: Option<AudioDriver>,
+    input: InputManager,
+
+    #[allow(dead_code)]
+    app_config: AppConfig,
+    #[allow(dead_code)]
+    player_config: PlayerConfig,
+
+    song_db_path: String,
+    score_db_path: String,
+    bms_roots: Vec<String>,
+
+    // Timing
+    last_frame: Instant,
+    elapsed_us: i64,
+
+    // Direct play mode
+    direct_play_path: Option<String>,
+    // Selected BMS path (set by select screen)
+    selected_bms_path: Option<String>,
+    // Last play result (for result screen)
+    last_play_result: Option<PlayResult>,
+    last_sha256: String,
+}
+
+impl BrsApp {
+    fn new(app_config: AppConfig, player_config: PlayerConfig, config_dir: &str) -> Self {
+        let key_config = KeyConfig::default_7k();
+        let input = InputManager::new(key_config, PlayMode::Beat7K.key_count());
+
+        let config_path = resolve_path(config_dir);
+        let song_db_path = config_path
+            .join("songdata.db")
+            .to_string_lossy()
+            .to_string();
+        let score_db_path = config_path.join("score.db").to_string_lossy().to_string();
+        let bms_roots = app_config.bms_directories.clone();
+
+        Self {
+            controller: AppController::new(),
+            state: ActiveState::None,
+
+            renderer: None,
+            audio: None,
+            input,
+
+            app_config,
+            player_config,
+
+            song_db_path,
+            score_db_path,
+            bms_roots,
+
+            last_frame: Instant::now(),
+            elapsed_us: 0,
+
+            direct_play_path: None,
+            selected_bms_path: None,
+            last_play_result: None,
+            last_sha256: String::new(),
+        }
+    }
+
+    fn enter_state(&mut self, state_type: AppStateType) {
+        // Dispose current state
+        match &mut self.state {
+            ActiveState::Select(s) => s.dispose(),
+            ActiveState::Decide(s) => s.dispose(),
+            ActiveState::Play(_) => {} // PlayState has no dispose trait impl
+            ActiveState::Result(s) => s.dispose(),
+            ActiveState::None => {}
+        }
+
+        // Create new state
+        match state_type {
+            AppStateType::MusicSelect => {
+                if let Some(path) = self.direct_play_path.take() {
+                    // Direct play mode: skip select, go straight to decide
+                    self.selected_bms_path = Some(path);
+                    self.controller
+                        .apply_transition(&AppTransition::ChangeTo(AppStateType::Decide));
+                    self.enter_state(AppStateType::Decide);
+                    return;
+                }
+
+                let song_db = SongDatabase::open(&self.song_db_path)
+                    .unwrap_or_else(|_| SongDatabase::open_in_memory().unwrap());
+                let score_db = ScoreDatabase::open(&self.score_db_path)
+                    .unwrap_or_else(|_| ScoreDatabase::open_in_memory().unwrap());
+
+                let mut select = SelectState::new(song_db, score_db, self.bms_roots.clone());
+                if let Err(e) = select.create() {
+                    tracing::error!("failed to create select state: {e}");
+                }
+                self.state = ActiveState::Select(select);
+            }
+            AppStateType::Decide => {
+                let bms_path = self.selected_bms_path.clone().unwrap_or_default();
+
+                let config = DecideConfig {
+                    bms_path: bms_path.clone(),
+                    ..Default::default()
+                };
+                let mut decide = DecideState::new(config);
+                if let Err(e) = decide.create() {
+                    tracing::error!("failed to create decide state: {e}");
+                }
+                decide.set_loading_complete();
+                self.state = ActiveState::Decide(decide);
+            }
+            AppStateType::Play => {
+                let bms_path = self.selected_bms_path.clone().unwrap_or_default();
+
+                match load_and_create_play_state(&bms_path) {
+                    Ok(mut play) => {
+                        if let Err(e) = play.create() {
+                            tracing::error!("failed to create play state: {e}");
+                        }
+                        self.state = ActiveState::Play(play);
+                    }
+                    Err(e) => {
+                        tracing::error!("failed to load BMS {bms_path}: {e}");
+                        self.controller
+                            .apply_transition(&AppTransition::ChangeTo(AppStateType::MusicSelect));
+                        self.enter_state(AppStateType::MusicSelect);
+                        return;
+                    }
+                }
+            }
+            AppStateType::Result => {
+                let play_result = self.last_play_result.take();
+                let sha256 = std::mem::take(&mut self.last_sha256);
+
+                if let Some(result_data) = play_result {
+                    let mut result =
+                        ResultState::new(result_data, sha256, 0, ResultConfig::default());
+                    if let Err(e) = result.create() {
+                        tracing::error!("failed to create result state: {e}");
+                    }
+                    self.state = ActiveState::Result(result);
+                } else {
+                    // No play result; return to select
+                    self.controller
+                        .apply_transition(&AppTransition::ChangeTo(AppStateType::MusicSelect));
+                    self.enter_state(AppStateType::MusicSelect);
+                    return;
+                }
+            }
+            AppStateType::CourseResult | AppStateType::Config => {
+                self.controller
+                    .apply_transition(&AppTransition::ChangeTo(AppStateType::MusicSelect));
+                self.enter_state(AppStateType::MusicSelect);
+                return;
+            }
+        }
+
+        tracing::info!("entered state: {:?}", state_type);
+    }
+
+    fn process_transition(&mut self, transition: StateTransition) {
+        if transition == StateTransition::None {
+            return;
+        }
+
+        // Capture play result before transition
+        if let ActiveState::Play(play) = &self.state {
+            self.last_play_result = Some(play.build_result());
+            if let Some(path) = &self.selected_bms_path {
+                self.last_sha256 = path.clone();
+            }
+        }
+
+        let app_transition = self.controller.resolve_transition(transition);
+        self.controller.apply_transition(&app_transition);
+
+        match app_transition {
+            AppTransition::ChangeTo(new_state) => {
+                self.enter_state(new_state);
+            }
+            AppTransition::Exit => {
+                tracing::info!("exit requested");
+            }
+            AppTransition::None => {}
+        }
+    }
+}
+
+/// Load a BMS file and create a PlayState from it.
+fn load_and_create_play_state(bms_path: &str) -> Result<PlayState> {
+    let model = bms_loader::load_bms(Path::new(bms_path))?;
+    let mode = model.mode;
+
+    let config = play_state::PlayConfig {
+        model,
+        mode,
+        gauge_type: 3, // Normal gauge
+        autoplay_mode: brs::state::play::autoplay::AutoplayMode::Full,
+    };
+
+    Ok(PlayState::new(config))
+}
+
+impl GameLoop for BrsApp {
+    fn init(&mut self, window: &Window) -> Result<()> {
+        // SAFETY: The window reference is valid for the entire run_app() call.
+        // WgpuRenderer needs Arc<Window> for wgpu surface creation.
+        // We transmute the lifetime to 'static so we can wrap it in Arc.
+        let window_arc: Arc<Window> = unsafe {
+            Arc::from_raw(std::mem::transmute::<&Window, &'static Window>(window) as *const Window)
+        };
+
+        let renderer = pollster::block_on(WgpuRenderer::new(window_arc))
+            .map_err(|e| anyhow!("failed to create renderer: {e}"))?;
+        self.renderer = Some(renderer);
+
+        match AudioDriver::new() {
+            Ok(audio) => self.audio = Some(audio),
+            Err(e) => tracing::warn!("audio initialization failed: {e}"),
+        }
+
+        self.last_frame = Instant::now();
+
+        // Enter initial state
+        let initial = self.controller.current_state();
+        self.enter_state(initial);
+
+        Ok(())
+    }
+
+    fn update(&mut self) {
+        let now = Instant::now();
+        let dt = now.duration_since(self.last_frame);
+        let dt_us = dt.as_micros() as i64;
+        self.last_frame = now;
+        self.elapsed_us += dt_us;
+
+        // Poll gamepad
+        self.input.poll_gamepad(self.elapsed_us);
+
+        // Update current state
+        let transition = match &mut self.state {
+            ActiveState::Select(s) => s.update(dt_us).unwrap_or(StateTransition::None),
+            ActiveState::Decide(s) => s.update(dt_us).unwrap_or(StateTransition::None),
+            ActiveState::Play(s) => {
+                let events = self.input.poll_events();
+                for event in events {
+                    s.process_key_event(event);
+                }
+                s.update(dt_us).unwrap_or(StateTransition::None)
+            }
+            ActiveState::Result(s) => s.update(dt_us).unwrap_or(StateTransition::None),
+            ActiveState::None => StateTransition::None,
+        };
+
+        self.process_transition(transition);
+    }
+
+    fn render(&mut self) -> Result<()> {
+        let renderer = match &mut self.renderer {
+            Some(r) => r,
+            None => return Ok(()),
+        };
+
+        renderer.begin_frame()?;
+        renderer.clear(Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.05,
+            a: 1.0,
+        })?;
+
+        // Skin rendering would go here once a skin is loaded.
+        // SkinRenderer::render(renderer, &skin_data, &skin_snapshot)?;
+
+        renderer.end_frame()?;
+        Ok(())
+    }
+
+    fn should_close(&self) -> bool {
+        self.controller.should_exit()
+    }
+
+    fn on_resize(&mut self, width: u32, height: u32) {
+        if let Some(renderer) = &mut self.renderer {
+            renderer.resize(width, height);
+        }
+    }
+
+    fn on_input(&mut self, event: &WindowEvent) {
+        if let WindowEvent::KeyboardInput { event, .. } = event
+            && let winit::keyboard::PhysicalKey::Code(keycode) = event.physical_key
+        {
+            let pressed = event.state == winit::event::ElementState::Pressed;
+            self.input
+                .handle_keyboard(keycode, pressed, self.elapsed_us);
+
+            // ESC to exit/go back
+            if pressed && keycode == KeyCode::Escape {
+                match self.controller.current_state() {
+                    AppStateType::MusicSelect => {
+                        self.controller.request_exit();
+                    }
+                    _ => {
+                        self.process_transition(StateTransition::Back);
+                    }
+                }
+            }
+        }
+    }
+}
 
 fn main() -> Result<()> {
-    let _cli = Cli::parse();
+    let cli = Cli::parse();
 
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -14,5 +390,27 @@ fn main() -> Result<()> {
 
     tracing::info!("brs starting");
 
+    let config_dir = resolve_path(&cli.config_dir);
+    std::fs::create_dir_all(&config_dir)?;
+
+    let app_config = AppConfig::load_or_default(&config_dir);
+    let player_config = PlayerConfig::default();
+
+    let window_config = WindowConfig {
+        title: "brs".to_string(),
+        width: app_config.width,
+        height: app_config.height,
+        resizable: false,
+    };
+
+    let mut app = BrsApp::new(app_config, player_config, &cli.config_dir);
+
+    if let Some(bms_path) = cli.play {
+        app.direct_play_path = Some(bms_path);
+    }
+
+    run_app(window_config, app)?;
+
+    tracing::info!("brs exiting");
     Ok(())
 }
