@@ -76,7 +76,10 @@ impl WgpuRenderer {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: Some("brs_device"),
-                    required_limits: adapter.limits(),
+                    required_limits: wgpu::Limits {
+                        max_texture_dimension_2d: adapter.limits().max_texture_dimension_2d,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
                 None,
