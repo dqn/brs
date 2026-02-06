@@ -33,6 +33,7 @@ pub struct WgpuRenderer {
     texture_manager: TextureManager,
     text_manager: TextManager,
 
+    temp_textures: Vec<TextureId>,
     current_frame: Option<wgpu::SurfaceTexture>,
     current_render_target: Option<TextureId>,
 
@@ -151,6 +152,7 @@ impl WgpuRenderer {
             sprite_batch: SpriteBatch::new(),
             texture_manager: TextureManager::new(),
             text_manager: TextManager::new(),
+            temp_textures: Vec::new(),
             current_frame: None,
             current_render_target: None,
             screen_width: size.width,
@@ -258,6 +260,10 @@ impl WgpuRenderer {
 
 impl RenderBackend for WgpuRenderer {
     fn begin_frame(&mut self) -> Result<()> {
+        for id in self.temp_textures.drain(..) {
+            self.texture_manager.remove(id);
+        }
+
         let frame = self
             .surface
             .get_current_texture()
@@ -356,6 +362,7 @@ impl RenderBackend for WgpuRenderer {
                     w,
                     h,
                 );
+                self.temp_textures.push(tex_id);
 
                 self.sprite_batch.push(
                     tex_id,

@@ -135,6 +135,18 @@ impl TextureManager {
     pub fn get_view(&self, id: TextureId) -> Option<&wgpu::TextureView> {
         self.textures.get(&id).map(|e| &e.view)
     }
+
+    /// Remove a texture by ID, freeing GPU resources.
+    pub fn remove(&mut self, id: TextureId) {
+        self.textures.remove(&id);
+        self.path_cache.retain(|_, cached_id| *cached_id != id);
+    }
+
+    /// Remove all textures and clear caches.
+    pub fn clear(&mut self) {
+        self.textures.clear();
+        self.path_cache.clear();
+    }
 }
 
 fn create_texture_entry(
