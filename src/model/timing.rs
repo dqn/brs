@@ -152,7 +152,7 @@ impl TimingEngine {
                     let delta_beats = beat_pos - current_beat;
                     if delta_beats > 0.0 {
                         let delta_us = beats_to_us(delta_beats, current_bpm);
-                        current_time_us += delta_us;
+                        current_time_us = current_time_us.saturating_add(delta_us);
                         current_beat = *beat_pos;
                     }
                     current_bpm = *new_bpm;
@@ -166,12 +166,12 @@ impl TimingEngine {
                     let delta_beats = beat_pos - current_beat;
                     if delta_beats > 0.0 {
                         let delta_us = beats_to_us(delta_beats, current_bpm);
-                        current_time_us += delta_us;
+                        current_time_us = current_time_us.saturating_add(delta_us);
                         current_beat = *beat_pos;
                     }
                     // Add stop time
                     let stop_us = beats_to_us(*duration_beats, current_bpm);
-                    current_time_us += stop_us;
+                    current_time_us = current_time_us.saturating_add(stop_us);
                     // Push a timing point after the stop (same beat position, later time)
                     self.timing_points.push(TimingPoint {
                         beat_position: current_beat,
@@ -195,7 +195,8 @@ impl TimingEngine {
             }
         }
         let delta_beats = beat_position - best.beat_position;
-        best.time_us + beats_to_us(delta_beats, best.bpm)
+        best.time_us
+            .saturating_add(beats_to_us(delta_beats, best.bpm))
     }
 
     /// Convert an ObjTime to microseconds.
