@@ -485,6 +485,11 @@ impl GameLoop for BrsApp {
     }
 
     fn on_input(&mut self, event: &WindowEvent) {
+        if matches!(event, WindowEvent::CloseRequested) {
+            self.controller.request_exit();
+            return;
+        }
+
         if let WindowEvent::KeyboardInput { event, .. } = event
             && let winit::keyboard::PhysicalKey::Code(keycode) = event.physical_key
         {
@@ -547,7 +552,10 @@ fn main() -> Result<()> {
     let config_dir = resolve_path(&cli.config_dir);
     std::fs::create_dir_all(&config_dir)?;
 
-    let app_config = AppConfig::load_or_default(&config_dir);
+    let mut app_config = AppConfig::load_or_default(&config_dir);
+    if app_config.bms_directories.is_empty() {
+        app_config.bms_directories.push("./bms".to_string());
+    }
     let player_config = PlayerConfig::default();
 
     let window_config = WindowConfig {
