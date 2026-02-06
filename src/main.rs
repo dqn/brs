@@ -25,9 +25,10 @@ use brs::state::decide::decide_state::{DecideConfig, DecideState};
 use brs::state::game_state::{GameState, StateTransition};
 use brs::state::play::play_state::{self, PlayState};
 use brs::state::result::result_state::{ResultConfig, ResultState};
-use brs::state::select::select_state::SelectState;
+use brs::state::select::bar::Bar;
+use brs::state::select::select_state::{SelectInput, SelectState};
 use brs::traits::input::InputProvider;
-use brs::traits::render::{Color, RenderBackend};
+use brs::traits::render::{Color, FontId, RenderBackend};
 
 #[derive(Parser)]
 #[command(name = "brs", version, about = "BMS rhythm game player")]
@@ -72,6 +73,7 @@ struct BrsApp {
     renderer: Option<WgpuRenderer>,
     audio: Option<AudioDriver>,
     input: InputManager,
+    font: Option<FontId>,
 
     #[allow(dead_code)]
     app_config: AppConfig,
@@ -115,6 +117,7 @@ impl BrsApp {
             renderer: None,
             audio: None,
             input,
+            font: None,
 
             app_config,
             player_config,
@@ -234,6 +237,15 @@ impl BrsApp {
             return;
         }
 
+        // Capture selected BMS path from SelectState before transition
+        if let ActiveState::Select(select) = &self.state
+            && transition == StateTransition::Next
+            && let Some(Bar::Song(song_bar)) = select.bar_manager().selected()
+        {
+            self.selected_bms_path = Some(song_bar.song.path.clone());
+            tracing::info!("selected: {}", song_bar.title);
+        }
+
         // Capture play result before transition
         if let ActiveState::Play(play) = &self.state {
             self.last_play_result = Some(play.build_result());
@@ -254,6 +266,110 @@ impl BrsApp {
             }
             AppTransition::None => {}
         }
+    }
+
+    /// Render debug UI showing current state and basic info.
+    fn render_debug_ui(&mut self) -> Result<()> {
+        let font = match self.font {
+            Some(f) => f,
+            None => return Ok(()),
+        };
+        let renderer = match &mut self.renderer {
+            Some(r) => r,
+            None => return Ok(()),
+        };
+
+        let white = Color::WHITE;
+        let gray = Color::new(0.6, 0.6, 0.6, 1.0);
+
+        match &self.state {
+            ActiveState::Select(select) => {
+                renderer.draw_text(font, "MUSIC SELECT", 20.0, 20.0, 32.0, white)?;
+
+                let bars = select.bar_manager().bars();
+                let cursor = select.bar_manager().cursor();
+
+                if bars.is_empty() {
+                    renderer.draw_text(
+                        font,
+                        "No songs found. Add BMS directories to ~/.brs/config.json",
+                        20.0,
+                        80.0,
+                        20.0,
+                        gray,
+                    )?;
+                } else {
+                    // Show bars around cursor
+                    let start = cursor.saturating_sub(5);
+                    let end = (start + 15).min(bars.len());
+
+                    for (i, idx) in (start..end).enumerate() {
+                        let bar = &bars[idx];
+                        let y = 80.0 + i as f32 * 30.0;
+                        let color = if idx == cursor { white } else { gray };
+                        let prefix = if idx == cursor { "> " } else { "  " };
+                        let label = if bar.is_directory() {
+                            format!("{prefix}[{}]", bar.title())
+                        } else {
+                            format!("{prefix}{}", bar.title())
+                        };
+                        renderer.draw_text(font, &label, 20.0, y, 20.0, color)?;
+                    }
+
+                    let info = format!(
+                        "{}/{} | UP/DOWN: move  ENTER: select  ESC: exit",
+                        cursor + 1,
+                        bars.len()
+                    );
+                    renderer.draw_text(font, &info, 20.0, 560.0, 16.0, gray)?;
+                }
+            }
+            ActiveState::Decide(decide) => {
+                renderer.draw_text(font, "DECIDE", 20.0, 20.0, 32.0, white)?;
+                let phase = format!("Phase: {:?}", decide.phase());
+                renderer.draw_text(font, &phase, 20.0, 80.0, 20.0, gray)?;
+                if let Some(path) = &self.selected_bms_path {
+                    renderer.draw_text(font, path, 20.0, 120.0, 16.0, gray)?;
+                }
+            }
+            ActiveState::Play(play) => {
+                renderer.draw_text(font, "PLAYING", 20.0, 20.0, 32.0, white)?;
+                let phase = format!("Phase: {:?}", play.phase());
+                renderer.draw_text(font, &phase, 20.0, 80.0, 20.0, gray)?;
+                let score = play.judge_score();
+                let info = format!(
+                    "COMBO: {}  GAUGE: {:.1}%",
+                    score.combo,
+                    play.gauge().value()
+                );
+                renderer.draw_text(font, &info, 20.0, 120.0, 20.0, white)?;
+            }
+            ActiveState::Result(result) => {
+                renderer.draw_text(font, "RESULT", 20.0, 20.0, 32.0, white)?;
+                let pr = result.play_result();
+                let info = format!(
+                    "Clear: {:?}  Rank: {:?}  Gauge: {:.1}%",
+                    pr.clear_type, pr.rank, pr.gauge_value
+                );
+                renderer.draw_text(font, &info, 20.0, 80.0, 20.0, white)?;
+
+                let s = &pr.score;
+                let ex = s.exscore();
+                renderer.draw_text(
+                    font,
+                    &format!("EXSCORE: {ex}  COMBO: {}", s.max_combo),
+                    20.0,
+                    120.0,
+                    20.0,
+                    gray,
+                )?;
+
+                renderer.draw_text(font, "Press ENTER to continue", 20.0, 560.0, 16.0, gray)?;
+            }
+            ActiveState::None => {}
+        }
+
+        Ok(())
     }
 }
 
@@ -281,8 +397,16 @@ impl GameLoop for BrsApp {
             Arc::from_raw(std::mem::transmute::<&Window, &'static Window>(window) as *const Window)
         };
 
-        let renderer = pollster::block_on(WgpuRenderer::new(window_arc))
+        let mut renderer = pollster::block_on(WgpuRenderer::new(window_arc))
             .map_err(|e| anyhow!("failed to create renderer: {e}"))?;
+
+        // Load default font
+        let font_path = Path::new("assets/fonts/NotoSansJP-Regular.ttf");
+        match renderer.load_font(font_path) {
+            Ok(font_id) => self.font = Some(font_id),
+            Err(e) => tracing::warn!("failed to load font: {e}"),
+        }
+
         self.renderer = Some(renderer);
 
         match AudioDriver::new() {
@@ -341,9 +465,11 @@ impl GameLoop for BrsApp {
             a: 1.0,
         })?;
 
-        // Skin rendering would go here once a skin is loaded.
-        // SkinRenderer::render(renderer, &skin_data, &skin_snapshot)?;
+        // Drop renderer borrow so render_debug_ui can borrow self
+        let _ = renderer;
+        self.render_debug_ui()?;
 
+        let renderer = self.renderer.as_mut().unwrap();
         renderer.end_frame()?;
         Ok(())
     }
@@ -366,16 +492,44 @@ impl GameLoop for BrsApp {
             self.input
                 .handle_keyboard(keycode, pressed, self.elapsed_us);
 
-            // ESC to exit/go back
-            if pressed && keycode == KeyCode::Escape {
-                match self.controller.current_state() {
-                    AppStateType::MusicSelect => {
-                        self.controller.request_exit();
+            if !pressed {
+                return;
+            }
+
+            // State-specific key handling
+            match &mut self.state {
+                ActiveState::Select(select) => match keycode {
+                    KeyCode::ArrowUp => select.push_input(SelectInput::Up),
+                    KeyCode::ArrowDown => select.push_input(SelectInput::Down),
+                    KeyCode::Enter => select.push_input(SelectInput::Decide),
+                    KeyCode::Escape => {
+                        select.push_input(SelectInput::Back);
                     }
-                    _ => {
-                        self.process_transition(StateTransition::Back);
+                    _ => {}
+                },
+                ActiveState::Decide(decide) => {
+                    if keycode == KeyCode::Enter {
+                        decide.advance();
+                    } else if keycode == KeyCode::Escape {
+                        decide.cancel();
                     }
                 }
+                ActiveState::Play(_) => {
+                    // Play input is handled via InputManager in update()
+                }
+                ActiveState::Result(result) => {
+                    if keycode == KeyCode::Enter || keycode == KeyCode::Escape {
+                        result.advance();
+                    }
+                }
+                ActiveState::None => {}
+            }
+
+            // ESC from select exits the app
+            if keycode == KeyCode::Escape
+                && self.controller.current_state() == AppStateType::MusicSelect
+            {
+                self.controller.request_exit();
             }
         }
     }
