@@ -190,20 +190,21 @@ impl BrsApp {
                 let score_db = ScoreDatabase::open(&self.score_db_path)
                     .unwrap_or_else(|_| ScoreDatabase::open_in_memory().unwrap());
 
-                // Scan BMS directories to populate the database.
-                match scanner::scan_directories(&song_db, &self.bms_roots) {
-                    Ok(count) => {
-                        if count > 0 {
-                            tracing::info!("scanned {count} BMS files");
-                        }
-                    }
-                    Err(e) => tracing::error!("BMS scan failed: {e}"),
-                }
-
                 let mut select = SelectState::new(song_db, score_db, self.bms_roots.clone());
                 if let Err(e) = select.create() {
                     tracing::error!("failed to create select state: {e}");
                 }
+
+                // Scan BMS directories in background so the UI is shown immediately.
+                let scan_db_path = self.song_db_path.clone();
+                let scan_roots = self.bms_roots.clone();
+                let scan_handle = std::thread::spawn(move || {
+                    let scan_db = SongDatabase::open(&scan_db_path)
+                        .unwrap_or_else(|_| SongDatabase::open_in_memory().unwrap());
+                    scanner::scan_directories(&scan_db, &scan_roots)
+                });
+                select.set_scan_handle(scan_handle);
+
                 self.state = ActiveState::Select(select);
             }
             AppStateType::Decide => {
@@ -367,6 +368,10 @@ impl BrsApp {
         match &self.state {
             ActiveState::Select(select) => {
                 renderer.draw_text(font, "MUSIC SELECT", 20.0, 20.0, 32.0, white)?;
+
+                if select.scanning() {
+                    renderer.draw_text(font, "Scanning...", 20.0, 55.0, 16.0, gray)?;
+                }
 
                 let bars = select.bar_manager().bars();
                 let cursor = select.bar_manager().cursor();

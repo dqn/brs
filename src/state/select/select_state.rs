@@ -1,3 +1,5 @@
+use std::thread::JoinHandle;
+
 use anyhow::Result;
 
 use super::bar_manager::{BarManager, SortMode};
@@ -29,6 +31,10 @@ pub struct SelectState {
     search_query: Option<String>,
     /// Whether a song was selected and play should begin.
     song_selected: bool,
+    /// Handle for background BMS scan thread.
+    scan_handle: Option<JoinHandle<Result<usize>>>,
+    /// Whether a BMS scan is currently in progress.
+    scanning: bool,
 }
 
 impl SelectState {
@@ -41,7 +47,20 @@ impl SelectState {
             pending_inputs: Vec::new(),
             search_query: None,
             song_selected: false,
+            scan_handle: None,
+            scanning: false,
         }
+    }
+
+    /// Set the background scan handle.
+    pub fn set_scan_handle(&mut self, handle: JoinHandle<Result<usize>>) {
+        self.scan_handle = Some(handle);
+        self.scanning = true;
+    }
+
+    /// Whether a BMS scan is currently in progress.
+    pub fn scanning(&self) -> bool {
+        self.scanning
     }
 
     /// Queue an input to be processed in the next update.
@@ -123,6 +142,25 @@ impl GameState for SelectState {
     }
 
     fn update(&mut self, _dt_us: i64) -> Result<StateTransition> {
+        // Check if background scan has completed.
+        if let Some(handle) = &self.scan_handle
+            && handle.is_finished()
+        {
+            let handle = self.scan_handle.take().unwrap();
+            self.scanning = false;
+            match handle.join() {
+                Ok(Ok(count)) => {
+                    if count > 0 {
+                        tracing::info!("background scan found {count} BMS files");
+                    }
+                    // Reload the song list from the updated database.
+                    self.bar_manager.load_root(&self.song_db, &self.bms_roots);
+                }
+                Ok(Err(e)) => tracing::error!("background BMS scan failed: {e}"),
+                Err(_) => tracing::error!("background BMS scan thread panicked"),
+            }
+        }
+
         let transition = self.process_inputs();
         Ok(transition)
     }
