@@ -117,18 +117,21 @@ impl TimingEngine {
             let pos_b = match b {
                 Event::BpmChange(p, _) | Event::Stop(p, _) => *p,
             };
-            pos_a.partial_cmp(&pos_b).unwrap().then_with(|| {
-                // BPM changes before stops at the same position
-                let order_a = match a {
-                    Event::BpmChange(_, _) => 0,
-                    Event::Stop(_, _) => 1,
-                };
-                let order_b = match b {
-                    Event::BpmChange(_, _) => 0,
-                    Event::Stop(_, _) => 1,
-                };
-                order_a.cmp(&order_b)
-            })
+            pos_a
+                .partial_cmp(&pos_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| {
+                    // BPM changes before stops at the same position
+                    let order_a = match a {
+                        Event::BpmChange(_, _) => 0,
+                        Event::Stop(_, _) => 1,
+                    };
+                    let order_b = match b {
+                        Event::BpmChange(_, _) => 0,
+                        Event::Stop(_, _) => 1,
+                    };
+                    order_a.cmp(&order_b)
+                })
         });
 
         self.timing_points.clear();
@@ -223,7 +226,7 @@ impl TimingEngine {
 /// 1 beat = 60 / BPM seconds = 60_000_000 / BPM microseconds.
 fn beats_to_us(beats: f64, bpm: f64) -> i64 {
     if bpm <= 0.0 {
-        return 0;
+        return i64::MAX;
     }
     (beats * 60_000_000.0 / bpm) as i64
 }

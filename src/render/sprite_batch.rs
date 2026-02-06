@@ -84,6 +84,10 @@ impl SpriteBatch {
         angle: f32,
         blend: BlendMode,
     ) {
+        if tex_width == 0 || tex_height == 0 {
+            return;
+        }
+
         let tw = tex_width as f32;
         let th = tex_height as f32;
 

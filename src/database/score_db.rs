@@ -13,7 +13,7 @@ impl ScoreDatabase {
     /// Open or create a score database at the given path.
     pub fn open(path: &str) -> Result<Self> {
         let conn = Connection::open(path)?;
-        conn.execute_batch("PRAGMA synchronous = OFF; PRAGMA journal_mode = WAL;")?;
+        conn.execute_batch("PRAGMA synchronous = NORMAL; PRAGMA journal_mode = WAL;")?;
         let db = Self { conn };
         db.create_tables()?;
         Ok(db)

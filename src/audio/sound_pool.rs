@@ -24,7 +24,11 @@ impl<A: AudioBackend> SoundPool<A> {
 
     /// Load a sound, returning a cached ID if already loaded.
     pub fn load(&mut self, path: &Path) -> Result<SoundId> {
-        let key = path.to_string_lossy().to_string();
+        let key = path
+            .canonicalize()
+            .unwrap_or_else(|_| path.to_path_buf())
+            .to_string_lossy()
+            .to_string();
         if let Some(&id) = self.cache.get(&key) {
             return Ok(id);
         }
