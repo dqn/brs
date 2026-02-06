@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -32,6 +33,15 @@ pub struct WgpuRenderer {
     sprite_batch: SpriteBatch,
     texture_manager: TextureManager,
     text_manager: TextManager,
+
+    // Reusable vertex/index buffers to avoid per-frame allocation.
+    vertex_buffer: Option<wgpu::Buffer>,
+    vertex_capacity: usize,
+    index_buffer: Option<wgpu::Buffer>,
+    index_capacity: usize,
+
+    // Per-frame text texture cache keyed by (font, text, size bits).
+    text_cache: HashMap<(FontId, String, u32), TextureId>,
 
     temp_textures: Vec<TextureId>,
     current_frame: Option<wgpu::SurfaceTexture>,
@@ -152,6 +162,11 @@ impl WgpuRenderer {
             sprite_batch: SpriteBatch::new(),
             texture_manager: TextureManager::new(),
             text_manager: TextManager::new(),
+            vertex_buffer: None,
+            vertex_capacity: 0,
+            index_buffer: None,
+            index_capacity: 0,
+            text_cache: HashMap::new(),
             temp_textures: Vec::new(),
             current_frame: None,
             current_render_target: None,
@@ -182,21 +197,41 @@ impl WgpuRenderer {
             return;
         }
 
-        let vertex_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("vertex_buffer"),
-                contents: bytemuck::cast_slice(&self.sprite_batch.vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
+        let vertex_data = bytemuck::cast_slice(&self.sprite_batch.vertices);
+        let index_data = bytemuck::cast_slice(&self.sprite_batch.indices);
 
-        let index_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("index_buffer"),
-                contents: bytemuck::cast_slice(&self.sprite_batch.indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
+        // Reuse vertex buffer if capacity is sufficient, otherwise recreate.
+        if self.vertex_capacity < vertex_data.len() {
+            self.vertex_capacity = vertex_data.len().next_power_of_two();
+            self.vertex_buffer = Some(self.device.create_buffer_init(
+                &wgpu::util::BufferInitDescriptor {
+                    label: Some("vertex_buffer"),
+                    contents: vertex_data,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                },
+            ));
+        } else {
+            self.queue
+                .write_buffer(self.vertex_buffer.as_ref().unwrap(), 0, vertex_data);
+        }
+
+        // Reuse index buffer if capacity is sufficient, otherwise recreate.
+        if self.index_capacity < index_data.len() {
+            self.index_capacity = index_data.len().next_power_of_two();
+            self.index_buffer = Some(self.device.create_buffer_init(
+                &wgpu::util::BufferInitDescriptor {
+                    label: Some("index_buffer"),
+                    contents: index_data,
+                    usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                },
+            ));
+        } else {
+            self.queue
+                .write_buffer(self.index_buffer.as_ref().unwrap(), 0, index_data);
+        }
+
+        let vertex_buffer = self.vertex_buffer.as_ref().unwrap();
+        let index_buffer = self.index_buffer.as_ref().unwrap();
 
         let mut encoder = self
             .device
@@ -260,6 +295,7 @@ impl WgpuRenderer {
 
 impl RenderBackend for WgpuRenderer {
     fn begin_frame(&mut self) -> Result<()> {
+        self.text_cache.clear();
         for id in self.temp_textures.drain(..) {
             self.texture_manager.remove(id);
         }
@@ -327,7 +363,37 @@ impl RenderBackend for WgpuRenderer {
     }
 
     fn load_font(&mut self, path: &Path) -> Result<FontId> {
-        self.text_manager.load_font(path)
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        match ext.as_str() {
+            "ttf" | "otf" => self.text_manager.load_ttf(path),
+            "fnt" => {
+                let content = std::fs::read_to_string(path)
+                    .map_err(|e| anyhow!("failed to read FNT {}: {}", path.display(), e))?;
+                let font = crate::render::font::fnt_parser::parse_fnt(&content)?;
+                let font_dir = path.parent().unwrap_or(Path::new("."));
+
+                let mut page_textures = Vec::with_capacity(font.pages.len());
+                for page_file in &font.pages {
+                    let page_path = font_dir.join(page_file);
+                    let tex_id = self.texture_manager.load_from_file(
+                        &page_path,
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                        &self.sampler,
+                    )?;
+                    page_textures.push(tex_id);
+                }
+
+                Ok(self.text_manager.register_bitmap_font(font, page_textures))
+            }
+            _ => Err(anyhow!("unsupported font format: .{ext}")),
+        }
     }
 
     fn draw_text(
@@ -347,22 +413,33 @@ impl RenderBackend for WgpuRenderer {
 
         match font_data {
             FontData::TrueType(renderer) => {
-                // Clone the renderer reference data needed.
-                let (w, h, rgba) = renderer.rasterize(text, size)?;
-                if w == 0 || h == 0 {
-                    return Ok(());
-                }
+                let cache_key = (font, text.to_string(), size.to_bits());
+                let tex_id = if let Some(&cached) = self.text_cache.get(&cache_key) {
+                    cached
+                } else {
+                    let (w, h, rgba) = renderer.rasterize(text, size)?;
+                    if w == 0 || h == 0 {
+                        return Ok(());
+                    }
 
-                let tex_id = self.texture_manager.create_from_rgba(
-                    &self.device,
-                    &self.queue,
-                    &self.texture_bind_group_layout,
-                    &self.sampler,
-                    &rgba,
-                    w,
-                    h,
-                );
-                self.temp_textures.push(tex_id);
+                    let id = self.texture_manager.create_from_rgba(
+                        &self.device,
+                        &self.queue,
+                        &self.texture_bind_group_layout,
+                        &self.sampler,
+                        &rgba,
+                        w,
+                        h,
+                    );
+                    self.temp_textures.push(id);
+                    self.text_cache.insert(cache_key, id);
+                    id
+                };
+
+                let (w, h) = self
+                    .texture_manager
+                    .size(tex_id)
+                    .ok_or_else(|| anyhow!("text texture missing"))?;
 
                 self.sprite_batch.push(
                     tex_id,
@@ -387,9 +464,8 @@ impl RenderBackend for WgpuRenderer {
 
                 Ok(())
             }
-            FontData::Bitmap(bfont) => {
-                // Render using bitmap font character layout.
-                let scale = size / bfont.size as f32;
+            FontData::Bitmap(bfont_data) => {
+                let scale = size / bfont_data.font.size as f32;
                 let mut cursor_x = x;
                 let mut prev_char = None;
 
@@ -397,21 +473,44 @@ impl RenderBackend for WgpuRenderer {
                     let cp = ch as u32;
 
                     if let Some(prev) = prev_char
-                        && let Some(&kern) = bfont.kernings.get(&(prev, cp))
+                        && let Some(&kern) = bfont_data.font.kernings.get(&(prev, cp))
                     {
                         cursor_x += kern as f32 * scale;
                     }
 
-                    if let Some(glyph) = bfont.glyphs.get(&cp) {
+                    if let Some(glyph) = bfont_data.font.glyphs.get(&cp) {
                         let gx = cursor_x + glyph.xoffset as f32 * scale;
                         let gy = y + glyph.yoffset as f32 * scale;
                         let gw = glyph.width as f32 * scale;
                         let gh = glyph.height as f32 * scale;
 
-                        // The bitmap font page texture needs to be loaded separately.
-                        // For now we skip the actual draw since we'd need the page texture ID.
-                        // This will be wired up when the skin system loads bitmap font pages.
-                        let _ = (gx, gy, gw, gh);
+                        if let Some(&tex_id) = bfont_data.page_textures.get(glyph.page as usize) {
+                            let (tw, th) = self
+                                .texture_manager
+                                .size(tex_id)
+                                .ok_or_else(|| anyhow!("missing bitmap font page texture"))?;
+
+                            self.sprite_batch.push(
+                                tex_id,
+                                SrcRect {
+                                    x: glyph.x as f32,
+                                    y: glyph.y as f32,
+                                    w: glyph.width as f32,
+                                    h: glyph.height as f32,
+                                },
+                                DstRect {
+                                    x: gx,
+                                    y: gy,
+                                    w: gw,
+                                    h: gh,
+                                },
+                                tw,
+                                th,
+                                color,
+                                0.0,
+                                BlendMode::Alpha,
+                            );
+                        }
 
                         cursor_x += glyph.xadvance as f32 * scale;
                     }

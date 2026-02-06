@@ -3,14 +3,21 @@ use std::path::Path;
 
 use anyhow::{Result, anyhow};
 
-use crate::render::font::fnt_parser::{self, BitmapFont};
+use crate::render::font::fnt_parser::BitmapFont;
 use crate::render::font::ttf_renderer::TtfRenderer;
-use crate::traits::render::FontId;
+use crate::traits::render::{FontId, TextureId};
 
 /// Loaded font data (either TrueType or bitmap).
 pub enum FontData {
     TrueType(TtfRenderer),
-    Bitmap(BitmapFont),
+    Bitmap(BitmapFontData),
+}
+
+/// Bitmap font with associated page textures.
+pub struct BitmapFontData {
+    pub font: BitmapFont,
+    /// GPU texture IDs for each page, indexed by page number.
+    pub page_textures: Vec<TextureId>,
 }
 
 /// Manages font loading and text rendering.
@@ -33,32 +40,33 @@ impl TextManager {
         Self::default()
     }
 
-    /// Load a font file. Supports .ttf/.otf (TrueType) and .fnt (BMFont text format).
-    pub fn load_font(&mut self, path: &Path) -> Result<FontId> {
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_lowercase();
-
-        let font_data = match ext.as_str() {
-            "ttf" | "otf" => {
-                let data = std::fs::read(path)
-                    .map_err(|e| anyhow!("failed to read font {}: {}", path.display(), e))?;
-                FontData::TrueType(TtfRenderer::new(data)?)
-            }
-            "fnt" => {
-                let content = std::fs::read_to_string(path)
-                    .map_err(|e| anyhow!("failed to read FNT {}: {}", path.display(), e))?;
-                FontData::Bitmap(fnt_parser::parse_fnt(&content)?)
-            }
-            _ => return Err(anyhow!("unsupported font format: .{ext}")),
-        };
-
+    /// Load a TrueType font file (.ttf/.otf).
+    pub fn load_ttf(&mut self, path: &Path) -> Result<FontId> {
+        let data = std::fs::read(path)
+            .map_err(|e| anyhow!("failed to read font {}: {}", path.display(), e))?;
+        let font_data = FontData::TrueType(TtfRenderer::new(data)?);
         let id = FontId(self.next_id);
         self.next_id += 1;
         self.fonts.insert(id, font_data);
         Ok(id)
+    }
+
+    /// Register a bitmap font with its pre-loaded page textures.
+    pub fn register_bitmap_font(
+        &mut self,
+        font: BitmapFont,
+        page_textures: Vec<TextureId>,
+    ) -> FontId {
+        let id = FontId(self.next_id);
+        self.next_id += 1;
+        self.fonts.insert(
+            id,
+            FontData::Bitmap(BitmapFontData {
+                font,
+                page_textures,
+            }),
+        );
+        id
     }
 
     /// Get the loaded font data.
