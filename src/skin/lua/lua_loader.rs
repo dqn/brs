@@ -90,13 +90,12 @@ impl LuaSkinLoader {
     fn setup_lua_env(&self, lua: &Lua, path: &Path) -> Result<()> {
         let skin_dir = path.parent().unwrap_or(Path::new("."));
 
-        // Add skin directory to package.path
-        lua.load(format!(
-            "package.path = '{}' .. '/?.lua;' .. package.path",
-            skin_dir.display()
-        ))
-        .exec()
-        .map_err(lua_err)?;
+        // Safely set package.path via globals API to avoid code injection
+        let globals = lua.globals();
+        let package: mlua::Table = globals.get("package").map_err(lua_err)?;
+        let current_path: String = package.get("path").map_err(lua_err)?;
+        let new_path = format!("{}/?.lua;{}", skin_dir.display(), current_path);
+        package.set("path", new_path).map_err(lua_err)?;
 
         Ok(())
     }

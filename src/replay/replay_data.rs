@@ -74,17 +74,17 @@ impl Default for ReplayData {
 impl ReplayData {
     /// Compress keylog into the keyinput field (base64 + gzip).
     /// Follows beatoraja's shrink() format:
-    /// Each entry is 9 bytes: 1 byte keycode + 8 bytes time (little-endian).
+    /// Each entry is 10 bytes: 2 bytes keycode (i16 LE) + 8 bytes time (little-endian).
     /// Keycode = (key + 1) * (pressed ? 1 : -1).
     pub fn shrink(&mut self) -> Result<()> {
         if self.keylog.is_empty() {
             return Ok(());
         }
 
-        let mut raw = Vec::with_capacity(self.keylog.len() * 9);
+        let mut raw = Vec::with_capacity(self.keylog.len() * 10);
         for event in &self.keylog {
-            let keycode = (event.key as i8 + 1) * if event.pressed { 1 } else { -1 };
-            raw.push(keycode as u8);
+            let keycode: i16 = (event.key as i16 + 1) * if event.pressed { 1 } else { -1 };
+            raw.extend_from_slice(&keycode.to_le_bytes());
             raw.extend_from_slice(&event.time_us.to_le_bytes());
         }
 
@@ -113,11 +113,14 @@ impl ReplayData {
         let mut raw = Vec::new();
         decoder.read_to_end(&mut raw)?;
 
-        let mut keylog = Vec::with_capacity(raw.len() / 9);
+        let mut keylog = Vec::with_capacity(raw.len() / 10);
         let mut pos = 0;
-        while pos + 9 <= raw.len() {
-            let keycode = raw[pos] as i8;
-            let time_bytes: [u8; 8] = raw[pos + 1..pos + 9]
+        while pos + 10 <= raw.len() {
+            let keycode_bytes: [u8; 2] = raw[pos..pos + 2]
+                .try_into()
+                .map_err(|_| anyhow!("invalid keyinput data"))?;
+            let keycode = i16::from_le_bytes(keycode_bytes);
+            let time_bytes: [u8; 8] = raw[pos + 2..pos + 10]
                 .try_into()
                 .map_err(|_| anyhow!("invalid keyinput data"))?;
             let time_us = i64::from_le_bytes(time_bytes);
@@ -130,7 +133,7 @@ impl ReplayData {
                 pressed,
                 time_us,
             });
-            pos += 9;
+            pos += 10;
         }
 
         self.keylog = keylog;
