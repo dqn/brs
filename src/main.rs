@@ -404,14 +404,13 @@ fn load_and_create_play_state(bms_path: &str) -> Result<PlayState> {
 
 impl GameLoop for BrsApp {
     fn init(&mut self, window: &Window) -> Result<()> {
-        // SAFETY: The window reference is valid for the entire run_app() call.
-        // WgpuRenderer needs Arc<Window> for wgpu surface creation.
-        // We transmute the lifetime to 'static so we can wrap it in Arc.
-        let window_arc: Arc<Window> = unsafe {
-            Arc::from_raw(std::mem::transmute::<&Window, &'static Window>(window) as *const Window)
-        };
+        // SAFETY: We create an Arc from a raw pointer to the Window reference.
+        // ManuallyDrop prevents the Arc from calling drop on the Window when it goes out of scope,
+        // since the Window is owned by the event loop, not by us.
+        let window_arc =
+            std::mem::ManuallyDrop::new(unsafe { Arc::from_raw(window as *const Window) });
 
-        let mut renderer = pollster::block_on(WgpuRenderer::new(window_arc))
+        let mut renderer = pollster::block_on(WgpuRenderer::new(Arc::clone(&window_arc)))
             .map_err(|e| anyhow!("failed to create renderer: {e}"))?;
 
         // Load default font
