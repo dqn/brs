@@ -395,7 +395,7 @@ fn load_and_create_play_state(bms_path: &str) -> Result<PlayState> {
     let config = play_state::PlayConfig {
         model,
         mode,
-        gauge_type: 3, // Normal gauge
+        gauge_type: brs::play::gauge::gauge_property::GaugeType::Hard,
         autoplay_mode: brs::state::play::autoplay::AutoplayMode::Full,
     };
 

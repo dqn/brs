@@ -592,16 +592,64 @@ pub const EXHARDCLASS_LR2: GaugeElementProperty = GaugeElementProperty {
 // GaugeProperty: grouping per mode
 // =========================================================================
 
-/// Gauge type indices.
-pub const GAUGE_ASSIST_EASY: usize = 0;
-pub const GAUGE_EASY: usize = 1;
-pub const GAUGE_NORMAL: usize = 2;
-pub const GAUGE_HARD: usize = 3;
-pub const GAUGE_EXHARD: usize = 4;
-pub const GAUGE_HAZARD: usize = 5;
-pub const GAUGE_CLASS: usize = 6;
-pub const GAUGE_EXCLASS: usize = 7;
-pub const GAUGE_EXHARDCLASS: usize = 8;
+/// Gauge type enum for type-safe gauge selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[repr(u8)]
+pub enum GaugeType {
+    AssistEasy = 0,
+    Easy = 1,
+    Normal = 2,
+    Hard = 3,
+    ExHard = 4,
+    Hazard = 5,
+    Class = 6,
+    ExClass = 7,
+    ExHardClass = 8,
+}
+
+impl GaugeType {
+    /// Total number of gauge types.
+    pub const COUNT: usize = 9;
+
+    /// All gauge types in order.
+    pub const ALL: [GaugeType; 9] = [
+        Self::AssistEasy,
+        Self::Easy,
+        Self::Normal,
+        Self::Hard,
+        Self::ExHard,
+        Self::Hazard,
+        Self::Class,
+        Self::ExClass,
+        Self::ExHardClass,
+    ];
+
+    /// Convert from integer index.
+    pub fn from_index(index: usize) -> Option<Self> {
+        Self::ALL.get(index).copied()
+    }
+
+    /// Convert to usize index.
+    pub fn index(self) -> usize {
+        self as usize
+    }
+
+    /// Whether this is a course gauge (Class/ExClass/ExHardClass).
+    pub fn is_course_gauge(self) -> bool {
+        matches!(self, Self::Class | Self::ExClass | Self::ExHardClass)
+    }
+}
+
+/// Backward-compatible constants for gauge type indices.
+pub const GAUGE_ASSIST_EASY: GaugeType = GaugeType::AssistEasy;
+pub const GAUGE_EASY: GaugeType = GaugeType::Easy;
+pub const GAUGE_NORMAL: GaugeType = GaugeType::Normal;
+pub const GAUGE_HARD: GaugeType = GaugeType::Hard;
+pub const GAUGE_EXHARD: GaugeType = GaugeType::ExHard;
+pub const GAUGE_HAZARD: GaugeType = GaugeType::Hazard;
+pub const GAUGE_CLASS: GaugeType = GaugeType::Class;
+pub const GAUGE_EXCLASS: GaugeType = GaugeType::ExClass;
+pub const GAUGE_EXHARDCLASS: GaugeType = GaugeType::ExHardClass;
 
 /// Gauge property set for a mode.
 /// Corresponds to GaugeProperty enum in beatoraja.
@@ -854,11 +902,11 @@ mod tests {
     #[test]
     fn sevenkeys_elements_order() {
         let elems = GaugePropertyType::SevenKeys.elements();
-        assert!((elems[GAUGE_ASSIST_EASY].border - 60.0).abs() < 0.001);
-        assert!((elems[GAUGE_EASY].border - 80.0).abs() < 0.001);
-        assert!((elems[GAUGE_NORMAL].border - 80.0).abs() < 0.001);
-        assert!((elems[GAUGE_HARD].border - 0.0).abs() < 0.001);
-        assert!((elems[GAUGE_HAZARD].init - 100.0).abs() < 0.001);
+        assert!((elems[GAUGE_ASSIST_EASY.index()].border - 60.0).abs() < 0.001);
+        assert!((elems[GAUGE_EASY.index()].border - 80.0).abs() < 0.001);
+        assert!((elems[GAUGE_NORMAL.index()].border - 80.0).abs() < 0.001);
+        assert!((elems[GAUGE_HARD.index()].border - 0.0).abs() < 0.001);
+        assert!((elems[GAUGE_HAZARD.index()].init - 100.0).abs() < 0.001);
     }
 
     #[test]

@@ -166,9 +166,10 @@ impl JudgeScore {
     }
 
     /// Get total judge count for a level.
-    pub fn judge_count(&self, judge: usize) -> u32 {
-        if judge < 6 {
-            self.early_counts[judge] + self.late_counts[judge]
+    pub fn judge_count(&self, level: JudgeLevel) -> u32 {
+        let idx = level as usize;
+        if idx < 6 {
+            self.early_counts[idx] + self.late_counts[idx]
         } else {
             0
         }
@@ -535,9 +536,9 @@ mod tests {
         score.add_judge(0, true); // PG early
         score.add_judge(0, false); // PG late
         score.add_judge(1, true); // GR early
-        assert_eq!(score.judge_count(0), 2);
-        assert_eq!(score.judge_count(1), 1);
-        assert_eq!(score.judge_count(2), 0);
+        assert_eq!(score.judge_count(JudgeLevel::PerfectGreat), 2);
+        assert_eq!(score.judge_count(JudgeLevel::Great), 1);
+        assert_eq!(score.judge_count(JudgeLevel::Good), 0);
         assert_eq!(score.early_counts[0], 1);
         assert_eq!(score.late_counts[0], 1);
     }
@@ -586,7 +587,7 @@ mod tests {
             combo_cond,
             0,
         );
-        assert_eq!(score.judge_count(0), 1);
+        assert_eq!(score.judge_count(JudgeLevel::PerfectGreat), 1);
         assert_eq!(score.early_counts[0], 1);
         assert_eq!(score.combo, 1);
         assert_eq!(score.pass_notes, 1);
@@ -607,7 +608,7 @@ mod tests {
             combo_cond,
             12345,
         );
-        assert_eq!(score.judge_count(4), 0); // skipped
+        assert_eq!(score.judge_count(JudgeLevel::Poor), 0); // skipped
         assert_eq!(score.pass_notes, 1); // ghost still recorded
 
         // First PR with play_time == 0 should count
@@ -620,7 +621,7 @@ mod tests {
             combo_cond,
             0,
         );
-        assert_eq!(score.judge_count(4), 1);
+        assert_eq!(score.judge_count(JudgeLevel::Poor), 1);
     }
 
     #[test]
@@ -637,7 +638,7 @@ mod tests {
             combo_cond,
             12345,
         );
-        assert_eq!(score.judge_count(4), 1); // counted even with play_time != 0
+        assert_eq!(score.judge_count(JudgeLevel::Poor), 1); // counted even with play_time != 0
     }
 
     // =========================================================================

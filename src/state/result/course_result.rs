@@ -1,6 +1,7 @@
 use anyhow::Result;
 
 use crate::play::clear_type::ClearType;
+use crate::play::gauge::gauge_property::GaugeType;
 use crate::play::play_result::PlayResult;
 use crate::state::course::course_player::CoursePlayer;
 use crate::state::game_state::{GameState, StateTransition};
@@ -82,7 +83,7 @@ impl CourseResultState {
                 .song_results()
                 .last()
                 .map(|r| r.gauge_type)
-                .unwrap_or(2),
+                .unwrap_or(GaugeType::Normal),
         };
 
         Self {
@@ -176,6 +177,7 @@ impl GameState for CourseResultState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::play::gauge::gauge_property::GaugeType;
     use crate::play::score::{ScoreData, ScoreRank};
     use crate::state::course::course_data::{CourseData, CourseSong};
     use crate::state::course::course_player::CoursePlayer;
@@ -202,7 +204,7 @@ mod tests {
             clear_type: clear,
             rank: ScoreRank::AAA,
             gauge_value: gauge,
-            gauge_type: 2,
+            gauge_type: GaugeType::Normal,
         }
     }
 

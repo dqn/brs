@@ -1,4 +1,5 @@
 use super::clear_type::ClearType;
+use super::gauge::gauge_property::GaugeType;
 use super::gauge::groove_gauge::GrooveGauge;
 use super::score::{ScoreData, ScoreRank};
 
@@ -25,7 +26,7 @@ pub fn determine_clear_type(gauge: &GrooveGauge, score: &ScoreData) -> ClearType
         return ClearType::FullCombo;
     }
 
-    ClearType::from_gauge_type(gauge.gauge_type()).unwrap_or(ClearType::Normal)
+    ClearType::from_gauge_type(gauge.gauge_type())
 }
 
 /// Complete play result combining score and clear information.
@@ -40,7 +41,7 @@ pub struct PlayResult {
     /// The final gauge value.
     pub gauge_value: f32,
     /// The gauge type used.
-    pub gauge_type: usize,
+    pub gauge_type: GaugeType,
 }
 
 impl PlayResult {
@@ -63,7 +64,7 @@ mod tests {
     use super::*;
     use crate::play::gauge::gauge_property::*;
 
-    fn make_gauge(gauge_type: usize) -> GrooveGauge {
+    fn make_gauge(gauge_type: GaugeType) -> GrooveGauge {
         GrooveGauge::new(gauge_type, GaugePropertyType::SevenKeys, 300.0, 1000)
     }
 

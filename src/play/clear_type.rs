@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::gauge::gauge_property::GaugeType;
+
 /// Clear type for a play result.
 /// Corresponds to ClearType enum in beatoraja.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -38,25 +40,23 @@ impl ClearType {
         }
     }
 
-    /// Get ClearType corresponding to a gauge type index.
-    /// Returns None if no clear type maps to the given gauge type.
+    /// Get ClearType corresponding to a gauge type.
     ///
     /// Gauge type mapping (from beatoraja):
-    /// - LightAssistEasy: [0] (ASSIST_EASY)
-    /// - Easy: [1] (EASY)
-    /// - Normal: [2, 6] (NORMAL, CLASS)
-    /// - Hard: [3, 7] (HARD, EXCLASS)
-    /// - ExHard: [4, 8] (EXHARD, EXHARDCLASS)
-    /// - FullCombo: [5] (HAZARD)
-    pub fn from_gauge_type(gauge_type: usize) -> Option<Self> {
+    /// - LightAssistEasy: AssistEasy
+    /// - Easy: Easy
+    /// - Normal: Normal, Class
+    /// - Hard: Hard, ExClass
+    /// - ExHard: ExHard, ExHardClass
+    /// - FullCombo: Hazard
+    pub fn from_gauge_type(gauge_type: GaugeType) -> Self {
         match gauge_type {
-            0 => Some(Self::LightAssistEasy),
-            1 => Some(Self::Easy),
-            2 | 6 => Some(Self::Normal),
-            3 | 7 => Some(Self::Hard),
-            4 | 8 => Some(Self::ExHard),
-            5 => Some(Self::FullCombo),
-            _ => None,
+            GaugeType::AssistEasy => Self::LightAssistEasy,
+            GaugeType::Easy => Self::Easy,
+            GaugeType::Normal | GaugeType::Class => Self::Normal,
+            GaugeType::Hard | GaugeType::ExClass => Self::Hard,
+            GaugeType::ExHard | GaugeType::ExHardClass => Self::ExHard,
+            GaugeType::Hazard => Self::FullCombo,
         }
     }
 }
@@ -88,30 +88,38 @@ mod tests {
 
     #[test]
     fn from_gauge_type_matches_beatoraja() {
-        // LightAssistEasy: gauge type 0 (ASSIST_EASY)
-        assert_eq!(
-            ClearType::from_gauge_type(0),
-            Some(ClearType::LightAssistEasy)
-        );
-        // Easy: gauge type 1
-        assert_eq!(ClearType::from_gauge_type(1), Some(ClearType::Easy));
-        // Normal: gauge type 2 (NORMAL) and 6 (CLASS)
-        assert_eq!(ClearType::from_gauge_type(2), Some(ClearType::Normal));
-        assert_eq!(ClearType::from_gauge_type(6), Some(ClearType::Normal));
-        // Hard: gauge type 3 (HARD) and 7 (EXCLASS)
-        assert_eq!(ClearType::from_gauge_type(3), Some(ClearType::Hard));
-        assert_eq!(ClearType::from_gauge_type(7), Some(ClearType::Hard));
-        // ExHard: gauge type 4 (EXHARD) and 8 (EXHARDCLASS)
-        assert_eq!(ClearType::from_gauge_type(4), Some(ClearType::ExHard));
-        assert_eq!(ClearType::from_gauge_type(8), Some(ClearType::ExHard));
-        // FullCombo: gauge type 5 (HAZARD)
-        assert_eq!(ClearType::from_gauge_type(5), Some(ClearType::FullCombo));
-    }
+        use crate::play::gauge::gauge_property::GaugeType;
 
-    #[test]
-    fn from_gauge_type_unknown() {
-        assert_eq!(ClearType::from_gauge_type(9), None);
-        assert_eq!(ClearType::from_gauge_type(100), None);
+        assert_eq!(
+            ClearType::from_gauge_type(GaugeType::AssistEasy),
+            ClearType::LightAssistEasy
+        );
+        assert_eq!(ClearType::from_gauge_type(GaugeType::Easy), ClearType::Easy);
+        assert_eq!(
+            ClearType::from_gauge_type(GaugeType::Normal),
+            ClearType::Normal
+        );
+        assert_eq!(
+            ClearType::from_gauge_type(GaugeType::Class),
+            ClearType::Normal
+        );
+        assert_eq!(ClearType::from_gauge_type(GaugeType::Hard), ClearType::Hard);
+        assert_eq!(
+            ClearType::from_gauge_type(GaugeType::ExClass),
+            ClearType::Hard
+        );
+        assert_eq!(
+            ClearType::from_gauge_type(GaugeType::ExHard),
+            ClearType::ExHard
+        );
+        assert_eq!(
+            ClearType::from_gauge_type(GaugeType::ExHardClass),
+            ClearType::ExHard
+        );
+        assert_eq!(
+            ClearType::from_gauge_type(GaugeType::Hazard),
+            ClearType::FullCombo
+        );
     }
 
     #[test]

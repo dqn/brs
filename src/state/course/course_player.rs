@@ -127,6 +127,7 @@ impl CoursePlayer {
 mod tests {
     use super::*;
     use crate::play::clear_type::ClearType;
+    use crate::play::gauge::gauge_property::GaugeType;
     use crate::play::score::ScoreRank;
     use crate::state::course::course_data::CourseSong;
 
@@ -152,7 +153,7 @@ mod tests {
             clear_type: clear,
             rank: ScoreRank::AAA,
             gauge_value: gauge,
-            gauge_type: 2,
+            gauge_type: GaugeType::Normal,
         }
     }
 

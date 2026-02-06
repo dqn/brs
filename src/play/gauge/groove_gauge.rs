@@ -1,4 +1,4 @@
-use super::gauge_property::{GaugeElementProperty, GaugePropertyType};
+use super::gauge_property::{GaugeElementProperty, GaugePropertyType, GaugeType};
 
 /// A single gauge instance with current value and pre-computed gauge changes.
 /// Corresponds to GrooveGauge.Gauge inner class in beatoraja.
@@ -43,8 +43,12 @@ impl Gauge {
 
     /// Update gauge based on judge result.
     /// `judge`: judge index (0=PG, 1=GR, 2=GD, 3=BD, 4=PR, 5=MS).
+    /// Indices >= 6 (e.g., EmptyPoor) are ignored since they have no gauge effect.
     /// `rate`: multiplier for the gauge change (typically 1.0, 0.5 for HCN).
     pub fn update(&mut self, judge: usize, rate: f32) {
+        if judge >= self.gauge.len() {
+            return;
+        }
         let mut inc = self.gauge[judge] * rate;
         if inc < 0.0 {
             for gut in self.element.guts {
@@ -77,22 +81,22 @@ impl Gauge {
 /// Corresponds to GrooveGauge class in beatoraja.
 #[derive(Debug, Clone)]
 pub struct GrooveGauge {
-    /// The currently selected gauge type index.
-    gauge_type: usize,
+    /// The currently selected gauge type.
+    gauge_type: GaugeType,
     /// The original gauge type at construction time.
-    original_type: usize,
+    original_type: GaugeType,
     /// All 9 gauges.
     gauges: Vec<Gauge>,
 }
 
 impl GrooveGauge {
     /// Create a new GrooveGauge.
-    /// `gauge_type`: initial gauge type index (0-8).
+    /// `gauge_type`: initial gauge type.
     /// `property`: gauge property set for the mode.
     /// `total`: BMS model TOTAL value.
     /// `total_notes`: total playable notes.
     pub fn new(
-        gauge_type: usize,
+        gauge_type: GaugeType,
         property: GaugePropertyType,
         total: f64,
         total_notes: usize,
@@ -130,12 +134,12 @@ impl GrooveGauge {
 
     /// Get the current gauge value for the selected type.
     pub fn value(&self) -> f32 {
-        self.gauges[self.gauge_type].value()
+        self.gauges[self.gauge_type.index()].value()
     }
 
     /// Get the gauge value for a specific type.
-    pub fn value_of(&self, gauge_type: usize) -> f32 {
-        self.gauges[gauge_type].value()
+    pub fn value_of(&self, gauge_type: GaugeType) -> f32 {
+        self.gauges[gauge_type.index()].value()
     }
 
     /// Set the gauge value for all gauges.
@@ -146,22 +150,22 @@ impl GrooveGauge {
     }
 
     /// Set the gauge value for a specific type.
-    pub fn set_value_of(&mut self, gauge_type: usize, value: f32) {
-        self.gauges[gauge_type].set_value(value);
+    pub fn set_value_of(&mut self, gauge_type: GaugeType, value: f32) {
+        self.gauges[gauge_type.index()].set_value(value);
     }
 
     /// Whether the current gauge meets the clear condition.
     pub fn is_qualified(&self) -> bool {
-        self.gauges[self.gauge_type].is_qualified()
+        self.gauges[self.gauge_type.index()].is_qualified()
     }
 
-    /// Get the current gauge type index.
-    pub fn gauge_type(&self) -> usize {
+    /// Get the current gauge type.
+    pub fn gauge_type(&self) -> GaugeType {
         self.gauge_type
     }
 
     /// Set the current gauge type.
-    pub fn set_gauge_type(&mut self, gauge_type: usize) {
+    pub fn set_gauge_type(&mut self, gauge_type: GaugeType) {
         self.gauge_type = gauge_type;
     }
 
@@ -172,7 +176,7 @@ impl GrooveGauge {
 
     /// Whether the current gauge is a course gauge (CLASS/EXCLASS/EXHARDCLASS).
     pub fn is_course_gauge(&self) -> bool {
-        self.gauge_type >= 6 && self.gauge_type <= 8
+        self.gauge_type.is_course_gauge()
     }
 
     /// Get the number of gauge types.
@@ -181,24 +185,22 @@ impl GrooveGauge {
     }
 
     /// Get a reference to a specific gauge.
-    pub fn gauge(&self, gauge_type: usize) -> &Gauge {
-        &self.gauges[gauge_type]
+    pub fn gauge(&self, gauge_type: GaugeType) -> &Gauge {
+        &self.gauges[gauge_type.index()]
     }
 
     /// Get a mutable reference to a specific gauge.
-    pub fn gauge_mut(&mut self, gauge_type: usize) -> &mut Gauge {
-        &mut self.gauges[gauge_type]
+    pub fn gauge_mut(&mut self, gauge_type: GaugeType) -> &mut Gauge {
+        &mut self.gauges[gauge_type.index()]
     }
 
     /// Determine gauge type for grade (course) play.
     /// Corresponds to GrooveGauge.create() logic in beatoraja.
-    pub fn grade_gauge_type(base_type: usize) -> usize {
-        if base_type <= 2 {
-            6 // CLASS
-        } else if base_type == 3 {
-            7 // EXCLASS
-        } else {
-            8 // EXHARDCLASS
+    pub fn grade_gauge_type(base_type: GaugeType) -> GaugeType {
+        match base_type {
+            GaugeType::AssistEasy | GaugeType::Easy | GaugeType::Normal => GaugeType::Class,
+            GaugeType::Hard => GaugeType::ExClass,
+            _ => GaugeType::ExHardClass,
         }
     }
 }
@@ -208,7 +210,7 @@ mod tests {
     use super::*;
     use crate::play::gauge::gauge_property::*;
 
-    fn make_sevenkeys_gauge(gauge_type: usize) -> GrooveGauge {
+    fn make_sevenkeys_gauge(gauge_type: GaugeType) -> GrooveGauge {
         // total=300, total_notes=1000 (typical chart)
         GrooveGauge::new(gauge_type, GaugePropertyType::SevenKeys, 300.0, 1000)
     }
@@ -364,19 +366,34 @@ mod tests {
         let mut gg = make_sevenkeys_gauge(GAUGE_NORMAL);
         gg.set_value(50.0);
         // All gauges should be 50 (or clamped)
-        for i in 0..9 {
-            assert!(gg.value_of(i) <= 100.0);
+        for gt in GaugeType::ALL {
+            assert!(gg.value_of(gt) <= 100.0);
         }
     }
 
     #[test]
     fn groove_gauge_grade_type() {
-        assert_eq!(GrooveGauge::grade_gauge_type(0), 6); // ASSIST_EASY -> CLASS
-        assert_eq!(GrooveGauge::grade_gauge_type(1), 6); // EASY -> CLASS
-        assert_eq!(GrooveGauge::grade_gauge_type(2), 6); // NORMAL -> CLASS
-        assert_eq!(GrooveGauge::grade_gauge_type(3), 7); // HARD -> EXCLASS
-        assert_eq!(GrooveGauge::grade_gauge_type(4), 8); // EXHARD -> EXHARDCLASS
-        assert_eq!(GrooveGauge::grade_gauge_type(5), 8); // HAZARD -> EXHARDCLASS
+        assert_eq!(
+            GrooveGauge::grade_gauge_type(GAUGE_ASSIST_EASY),
+            GaugeType::Class
+        );
+        assert_eq!(GrooveGauge::grade_gauge_type(GAUGE_EASY), GaugeType::Class);
+        assert_eq!(
+            GrooveGauge::grade_gauge_type(GAUGE_NORMAL),
+            GaugeType::Class
+        );
+        assert_eq!(
+            GrooveGauge::grade_gauge_type(GAUGE_HARD),
+            GaugeType::ExClass
+        );
+        assert_eq!(
+            GrooveGauge::grade_gauge_type(GAUGE_EXHARD),
+            GaugeType::ExHardClass
+        );
+        assert_eq!(
+            GrooveGauge::grade_gauge_type(GAUGE_HAZARD),
+            GaugeType::ExHardClass
+        );
     }
 
     // =========================================================================

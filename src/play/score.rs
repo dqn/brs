@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::judge::judge_manager::JudgeLevel;
+
 /// Score rank (beatoraja 27-division rank system).
 /// Rank boundaries: rate = exscore / (total_notes * 2).
 /// F: rate < 2/9, E: >= 2/9, D: >= 4/9, C: >= 6/9, B: >= 8/9,
@@ -94,9 +96,10 @@ impl ScoreData {
     }
 
     /// Get total judge count for a level (early + late).
-    pub fn judge_count(&self, judge: usize) -> u32 {
-        if judge < 6 {
-            self.early_counts[judge] + self.late_counts[judge]
+    pub fn judge_count(&self, level: JudgeLevel) -> u32 {
+        let idx = level as usize;
+        if idx < 6 {
+            self.early_counts[idx] + self.late_counts[idx]
         } else {
             0
         }
@@ -104,7 +107,7 @@ impl ScoreData {
 
     /// EX score = PG * 2 + GR.
     pub fn exscore(&self) -> u32 {
-        self.judge_count(0) * 2 + self.judge_count(1)
+        self.judge_count(JudgeLevel::PerfectGreat) * 2 + self.judge_count(JudgeLevel::Great)
     }
 
     /// Score rate = exscore / (total_notes * 2).
@@ -130,17 +133,19 @@ impl ScoreData {
 
     /// Whether the score represents a perfect (all PG).
     pub fn is_perfect(&self) -> bool {
-        self.judge_count(0) == self.total_notes
-            && self.judge_count(1) == 0
-            && self.judge_count(2) == 0
-            && self.judge_count(3) == 0
-            && self.judge_count(4) == 0
-            && self.judge_count(5) == 0
+        self.judge_count(JudgeLevel::PerfectGreat) == self.total_notes
+            && self.judge_count(JudgeLevel::Great) == 0
+            && self.judge_count(JudgeLevel::Good) == 0
+            && self.judge_count(JudgeLevel::Bad) == 0
+            && self.judge_count(JudgeLevel::Poor) == 0
+            && self.judge_count(JudgeLevel::Miss) == 0
     }
 
     /// Whether the score represents a full combo (no BD/PR/MS).
     pub fn is_full_combo(&self) -> bool {
-        self.judge_count(3) == 0 && self.judge_count(4) == 0 && self.judge_count(5) == 0
+        self.judge_count(JudgeLevel::Bad) == 0
+            && self.judge_count(JudgeLevel::Poor) == 0
+            && self.judge_count(JudgeLevel::Miss) == 0
     }
 
     /// Whether the score represents max (all PG, full combo, max EX score).
@@ -246,7 +251,7 @@ mod tests {
         let sd = ScoreData::new(100);
         assert_eq!(sd.total_notes, 100);
         assert_eq!(sd.exscore(), 0);
-        assert_eq!(sd.judge_count(0), 0);
+        assert_eq!(sd.judge_count(JudgeLevel::PerfectGreat), 0);
     }
 
     #[test]
@@ -339,9 +344,9 @@ mod tests {
     }
 
     #[test]
-    fn judge_count_out_of_range() {
+    fn judge_count_empty_poor() {
         let sd = ScoreData::new(10);
-        assert_eq!(sd.judge_count(6), 0);
-        assert_eq!(sd.judge_count(100), 0);
+        // EmptyPoor (index 6) is beyond the 6-element array, returns 0.
+        assert_eq!(sd.judge_count(JudgeLevel::EmptyPoor), 0);
     }
 }

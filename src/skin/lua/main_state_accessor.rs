@@ -1,3 +1,4 @@
+use crate::play::judge::judge_manager::JudgeLevel;
 use crate::skin::renderer::SkinStateSnapshot;
 use crate::skin::skin_property::TIMER_OFF_VALUE;
 use crate::state::play::play_state::PlayState;
@@ -110,18 +111,20 @@ impl MainStateAccessor {
         let js = play_state.judge_score();
 
         // Judge counts
+        snap.numbers.insert(
+            sp::NUMBER_PERFECT,
+            js.judge_count(JudgeLevel::PerfectGreat) as i32,
+        );
         snap.numbers
-            .insert(sp::NUMBER_PERFECT, js.judge_count(0) as i32);
+            .insert(sp::NUMBER_GREAT, js.judge_count(JudgeLevel::Great) as i32);
         snap.numbers
-            .insert(sp::NUMBER_GREAT, js.judge_count(1) as i32);
+            .insert(sp::NUMBER_GOOD, js.judge_count(JudgeLevel::Good) as i32);
         snap.numbers
-            .insert(sp::NUMBER_GOOD, js.judge_count(2) as i32);
+            .insert(sp::NUMBER_BAD, js.judge_count(JudgeLevel::Bad) as i32);
         snap.numbers
-            .insert(sp::NUMBER_BAD, js.judge_count(3) as i32);
+            .insert(sp::NUMBER_POOR, js.judge_count(JudgeLevel::Poor) as i32);
         snap.numbers
-            .insert(sp::NUMBER_POOR, js.judge_count(4) as i32);
-        snap.numbers
-            .insert(sp::NUMBER_MISS, js.judge_count(5) as i32);
+            .insert(sp::NUMBER_MISS, js.judge_count(JudgeLevel::Miss) as i32);
 
         // Early/late counts
         snap.numbers
@@ -154,7 +157,8 @@ impl MainStateAccessor {
         snap.numbers
             .insert(sp::NUMBER_MAXCOMBO2, js.max_combo as i32);
         // EX score
-        let exscore = js.judge_count(0) as i32 * 2 + js.judge_count(1) as i32;
+        let exscore = js.judge_count(JudgeLevel::PerfectGreat) as i32 * 2
+            + js.judge_count(JudgeLevel::Great) as i32;
         snap.numbers.insert(sp::NUMBER_SCORE2, exscore);
 
         // Gauge

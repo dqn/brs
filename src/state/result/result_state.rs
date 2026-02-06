@@ -214,6 +214,7 @@ impl GameState for ResultState {
 mod tests {
     use super::*;
     use crate::play::clear_type::ClearType;
+    use crate::play::gauge::gauge_property::GaugeType;
     use crate::play::score::{ScoreData, ScoreRank};
 
     fn make_play_result() -> PlayResult {
@@ -228,7 +229,7 @@ mod tests {
             clear_type: ClearType::Normal,
             rank: ScoreRank::AAA,
             gauge_value: 85.0,
-            gauge_type: 2,
+            gauge_type: GaugeType::Normal,
         }
     }
 
