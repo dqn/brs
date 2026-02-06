@@ -76,6 +76,7 @@ impl WgpuRenderer {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: Some("brs_device"),
+                    required_limits: adapter.limits(),
                     ..Default::default()
                 },
                 None,
