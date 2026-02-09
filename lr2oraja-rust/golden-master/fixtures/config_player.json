@@ -1,0 +1,158 @@
+{
+  "id" : "player_001",
+  "name" : "TestPlayer",
+  "gauge" : 3,
+  "random" : 5,
+  "random2" : 2,
+  "doubleoption" : 1,
+  "chartReplicationMode" : "NONE",
+  "targetid" : "RATE_AA",
+  "targetlist" : [ "RATE_A", "RATE_AA", "MAX" ],
+  "judgetiming" : -15,
+  "notesDisplayTimingAutoAdjust" : true,
+  "mode" : "beat-7k",
+  "misslayerDuration" : 300,
+  "lnmode" : 1,
+  "forcedcnendings" : true,
+  "scrollMode" : 1,
+  "scrollSection" : 8,
+  "scrollRate" : 0.75,
+  "longnoteMode" : 2,
+  "longnoteRate" : 0.8,
+  "customJudge" : true,
+  "keyJudgeWindowRatePerfectGreat" : 200,
+  "keyJudgeWindowRateGreat" : 150,
+  "keyJudgeWindowRateGood" : 50,
+  "scratchJudgeWindowRatePerfectGreat" : 300,
+  "scratchJudgeWindowRateGreat" : 250,
+  "scratchJudgeWindowRateGood" : 80,
+  "mineMode" : 2,
+  "bpmguide" : true,
+  "extranoteType" : 1,
+  "extranoteDepth" : 5,
+  "extranoteScratch" : true,
+  "showjudgearea" : true,
+  "markprocessednote" : true,
+  "hranThresholdBpm" : 180,
+  "gaugeAutoShift" : 2,
+  "bottomShiftableGauge" : 1,
+  "autosavereplay" : [ 1, 0, 1, 0 ],
+  "sevenToNinePattern" : 3,
+  "sevenToNineType" : 1,
+  "exitPressDuration" : 2000,
+  "isGuideSe" : true,
+  "isWindowHold" : true,
+  "isRandomSelect" : true,
+  "skin" : [ ],
+  "skinHistory" : [ ],
+  "mode7" : {
+    "playconfig" : {
+      "hispeed" : 3.5,
+      "duration" : 300,
+      "enableConstant" : true,
+      "constantFadeinTime" : 50,
+      "fixhispeed" : 1,
+      "hispeedmargin" : 0.5,
+      "lanecover" : 0.3,
+      "enablelanecover" : false,
+      "lift" : 0.15,
+      "enablelift" : true,
+      "hidden" : 0.05,
+      "enablehidden" : true,
+      "lanecovermarginlow" : 0.002,
+      "lanecovermarginhigh" : 0.02,
+      "lanecoverswitchduration" : 300,
+      "hispeedautoadjust" : true,
+      "judgetype" : "Duration"
+    },
+    "keyboard" : {
+      "keys" : [ 54, 47, 52, 32, 31, 34, 50, 59, 129 ],
+      "start" : 45,
+      "select" : 51,
+      "duration" : 16,
+      "mouseScratchConfig" : {
+        "keys" : [ -1, -1, -1, -1, -1, -1, -1, -1, -1 ],
+        "start" : -1,
+        "select" : -1,
+        "mouseScratchEnabled" : false,
+        "mouseScratchTimeThreshold" : 150,
+        "mouseScratchDistance" : 12,
+        "mouseScratchMode" : 0
+      }
+    },
+    "controller" : [ {
+      "name" : "IIDX Controller",
+      "keys" : [ 3, 6, 2, 7, 1, 4, 39, 37, 36 ],
+      "start" : 8,
+      "select" : 9,
+      "duration" : 16,
+      "jkocHack" : true,
+      "analogScratch" : true,
+      "analogScratchMode" : 1,
+      "analogScratchThreshold" : 30
+    } ],
+    "midi" : {
+      "keys" : [ {
+        "type" : "NOTE",
+        "value" : 53
+      }, {
+        "type" : "NOTE",
+        "value" : 54
+      }, {
+        "type" : "NOTE",
+        "value" : 55
+      }, {
+        "type" : "NOTE",
+        "value" : 56
+      }, {
+        "type" : "NOTE",
+        "value" : 57
+      }, {
+        "type" : "NOTE",
+        "value" : 58
+      }, {
+        "type" : "NOTE",
+        "value" : 59
+      }, {
+        "type" : "NOTE",
+        "value" : 49
+      }, {
+        "type" : "NOTE",
+        "value" : 51
+      } ],
+      "start" : {
+        "type" : "NOTE",
+        "value" : 47
+      },
+      "select" : {
+        "type" : "NOTE",
+        "value" : 48
+      }
+    },
+    "version" : 1
+  },
+  "showhiddennote" : true,
+  "showpastnote" : true,
+  "chartPreview" : false,
+  "sort" : 3,
+  "sortid" : "TITLE",
+  "musicselectinput" : 1,
+  "irconfig" : [ {
+    "irname" : "LR2IR",
+    "userid" : "",
+    "cuserid" : "encrypted_user",
+    "password" : "",
+    "cpassword" : "encrypted_pass",
+    "irsend" : 1,
+    "importscore" : true,
+    "importrival" : false
+  } ],
+  "twitterConsumerKey" : null,
+  "twitterConsumerSecret" : null,
+  "twitterAccessToken" : null,
+  "twitterAccessTokenSecret" : null,
+  "enableRequest" : true,
+  "notifyRequest" : true,
+  "maxRequestCount" : 50,
+  "eventMode" : true
+}

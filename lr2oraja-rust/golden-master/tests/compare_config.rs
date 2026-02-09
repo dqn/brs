@@ -106,10 +106,7 @@ fn config_system_deserialize() {
     assert!(!config.enable_http);
     assert_eq!(config.download_source, "custom_source");
     assert_eq!(config.default_download_url, "https://download.example.com");
-    assert_eq!(
-        config.override_download_url,
-        "https://override.example.com"
-    );
+    assert_eq!(config.override_download_url, "https://override.example.com");
     assert_eq!(config.download_directory, "custom_download");
 
     // IR/Discord/screenshot
@@ -121,10 +118,7 @@ fn config_system_deserialize() {
     // Webhook
     assert_eq!(config.webhook_option, 1);
     assert_eq!(config.webhook_name, "TestHook");
-    assert_eq!(
-        config.webhook_avatar,
-        "https://example.com/avatar.png"
-    );
+    assert_eq!(config.webhook_avatar, "https://example.com/avatar.png");
     assert_eq!(
         config.webhook_url,
         vec!["https://discord.com/api/webhooks/test1"]
@@ -299,10 +293,7 @@ fn config_player_deserialize() {
     // Mode7 controller
     assert_eq!(mode7.controller.len(), 1);
     assert_eq!(mode7.controller[0].name, "IIDX Controller");
-    assert_eq!(
-        mode7.controller[0].keys,
-        vec![3, 6, 2, 7, 1, 4, 39, 37, 36]
-    );
+    assert_eq!(mode7.controller[0].keys, vec![3, 6, 2, 7, 1, 4, 39, 37, 36]);
     assert!(mode7.controller[0].jkoc_hack);
     assert!(mode7.controller[0].analog_scratch);
     assert_eq!(mode7.controller[0].analog_scratch_mode, 1);

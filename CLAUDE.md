@@ -285,10 +285,10 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 参照: `Config.java`, `PlayerConfig.java`, `PlayConfig.java`, `PlayModeConfig.java`, `SkinConfig.java`, `AudioConfig.java`, `IRConfig.java`
 
-- [ ] **6-1. Config structs** — `#[serde(rename_all = "camelCase")]`
-- [ ] **6-2. PlayerConfig / PlayConfig / PlayModeConfig**
-- [ ] **6-3. SkinConfig / AudioConfig / IRConfig**
-- [ ] **6-4. GM テスト**: JSON 読み書き互換テスト
+- [x] **6-1. Config structs** — `#[serde(rename_all = "camelCase")]`
+- [x] **6-2. PlayerConfig / PlayConfig / PlayModeConfig**
+- [x] **6-3. SkinConfig / AudioConfig / IRConfig**
+- [x] **6-4. GM テスト**: JSON 読み書き互換テスト (6 テスト通過: system/player deserialize + validate + round-trip)
 
 ### Phase 7: Input (`bms-input`)
 
