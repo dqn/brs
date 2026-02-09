@@ -1,0 +1,3648 @@
+{
+  "test_cases" : [ {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 50.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -3.0, -0.5 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -1.5, -3.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 50.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -3.0, -0.5 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -1.5, -3.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 50.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -3.0, -0.5 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -1.5, -3.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 50.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -3.0, -0.5 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -1.5, -3.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 50.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -3.0, -0.5 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -1.5, -3.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 75.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -4.5, -1.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -1.5, -4.5, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 75.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -4.5, -1.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -1.5, -4.5, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 75.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -4.5, -1.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -1.5, -4.5, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 75.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -4.5, -1.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -1.5, -4.5, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 75.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -4.5, -1.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -1.5, -4.5, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 75.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -3.0, -6.0, -2.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -3.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 75.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -3.0, -6.0, -2.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -3.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 75.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -3.0, -6.0, -2.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -3.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 75.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -3.0, -6.0, -2.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -3.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 75.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -3.0, -6.0, -2.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -3.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -10.0, -20.0, -10.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -10.0, -20.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -10.0, -20.0, -10.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -100.0, -200.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -10.0, -20.0, -10.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -20.0, -40.0, -20.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -10.0, -20.0, -10.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -20.0, -40.0, -20.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -10.0, -20.0, -10.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -100.0, -200.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.0, 0.0, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -0.5, -1.0, -0.5 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -0.5, -1.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -0.5, -1.0, -0.5 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -0.5, -1.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -0.5, -1.0, -0.5 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -0.5, -1.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -0.5, -1.0, -0.5 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -0.5, -1.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -0.5, -1.0, -0.5 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -0.5, -1.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -1.0, -2.0, -1.0 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -1.0, -2.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -1.0, -2.0, -1.0 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -1.0, -2.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -1.0, -2.0, -1.0 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -1.0, -2.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -1.0, -2.0, -1.0 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -1.0, -2.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -1.0, -2.0, -1.0 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -1.0, -2.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -2.5, -5.0, -2.5 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -2.5, -5.0, -2.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -2.5, -5.0, -2.5 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -2.5, -5.0, -2.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -2.5, -5.0, -2.5 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -2.5, -5.0, -2.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -2.5, -5.0, -2.5 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -2.5, -5.0, -2.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "FIVEKEYS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.01, 0.01, 0.0, -2.5, -5.0, -2.5 ],
+    "modified_values" : [ 0.01, 0.01, 0.0, -2.5, -5.0, -2.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 60.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -3.0, -0.5 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -1.5, -3.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 60.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -3.0, -0.5 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -1.5, -3.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 60.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -3.0, -0.5 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -1.5, -3.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 60.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -3.0, -0.5 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -1.5, -3.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 60.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -3.0, -0.5 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -1.5, -3.0, -0.5 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -4.5, -1.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -1.5, -4.5, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -4.5, -1.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -1.5, -4.5, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -4.5, -1.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -1.5, -4.5, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -4.5, -1.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -1.5, -4.5, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.5, -4.5, -1.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -1.5, -4.5, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -3.0, -6.0, -2.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -3.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -3.0, -6.0, -2.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -3.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -3.0, -6.0, -2.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -3.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -3.0, -6.0, -2.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -3.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -3.0, -6.0, -2.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -3.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -5.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -5.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -8.0, -16.0, -8.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -8.0, -16.0, -8.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -8.0, -16.0, -8.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -8.0, -16.0, -8.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -8.0, -16.0, -8.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -8.0, -16.0, -8.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -8.0, -16.0, -8.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -8.0, -16.0, -8.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -8.0, -16.0, -8.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -8.0, -16.0, -8.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -1.5 ],
+    "modified_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -1.5 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -1.5 ],
+    "modified_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -1.5 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -1.5 ],
+    "modified_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -1.5 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -1.5 ],
+    "modified_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -1.5 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -1.5 ],
+    "modified_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -1.5 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -3.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -3.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -3.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -3.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -3.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "SEVENKEYS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 65.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -2.0, -2.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -1.0, -2.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 65.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -2.0, -2.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -1.0, -2.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 65.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -2.0, -2.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -1.0, -2.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 65.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -2.0, -2.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -1.0, -2.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 65.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -2.0, -2.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -1.0, -2.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 85.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -3.0, -3.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -1.0, -3.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 85.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -3.0, -3.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -1.0, -3.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 85.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -3.0, -3.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -1.0, -3.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 85.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -3.0, -3.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -1.0, -3.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 85.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -3.0, -3.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -1.0, -3.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 85.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -2.0, -6.0, -6.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -2.0, -6.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 85.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -2.0, -6.0, -6.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -2.0, -6.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 85.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -2.0, -6.0, -6.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -2.0, -6.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 85.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -2.0, -6.0, -6.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -2.0, -6.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 120.0,
+    "init" : 30.0,
+    "border" : 85.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -2.0, -6.0, -6.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -2.0, -6.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -10.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -10.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -10.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -10.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -10.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -10.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -5.0, -10.0, -10.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -5.0, -10.0, -10.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -10.0, -15.0, -15.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -10.0, -15.0, -15.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -10.0, -15.0, -15.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -10.0, -15.0, -15.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -10.0, -15.0, -15.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -10.0, -15.0, -15.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -10.0, -15.0, -15.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -10.0, -15.0, -15.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -10.0, -15.0, -15.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -10.0, -15.0, -15.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -3.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -3.0 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -3.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -3.0 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -3.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -3.0 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -3.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -3.0 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -3.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.06, -1.5, -3.0, -3.0 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -6.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -6.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -6.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -6.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -6.0 ],
+    "modified_values" : [ 0.15, 0.12, 0.03, -3.0, -6.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "PMS",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -5.0, -10.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 30.0,
+    "border" : 50.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -2.0, -1.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -1.0, -2.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 30.0,
+    "border" : 50.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -2.0, -1.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -1.0, -2.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 30.0,
+    "border" : 50.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -2.0, -1.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -1.0, -2.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 30.0,
+    "border" : 50.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -2.0, -1.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -1.0, -2.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 30.0,
+    "border" : 50.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -2.0, -1.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -1.0, -2.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 70.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -3.0, -1.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -1.0, -3.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 70.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -3.0, -1.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -1.0, -3.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 70.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -3.0, -1.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -1.0, -3.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 70.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -3.0, -1.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -1.0, -3.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 70.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -1.0, -3.0, -1.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -1.0, -3.0, -1.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 70.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -2.0, -4.0, -2.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -2.0, -4.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 70.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -2.0, -4.0, -2.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -2.0, -4.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 70.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -2.0, -4.0, -2.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -2.0, -4.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 70.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -2.0, -4.0, -2.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -2.0, -4.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 70.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -2.0, -4.0, -2.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -2.0, -4.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -4.0, -8.0, -4.0 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -4.0, -8.0, -4.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -4.0, -8.0, -4.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -4.0, -8.0, -4.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -4.0, -8.0, -4.0 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -4.0, -8.0, -4.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -4.0, -8.0, -4.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -4.0, -8.0, -4.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -4.0, -8.0, -4.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -4.0, -8.0, -4.0 ],
+    "guts" : [ {
+      "threshold" : 10.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 30.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 40.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 50.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -6.0, -12.0, -6.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -6.0, -12.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -6.0, -12.0, -6.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -6.0, -12.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -6.0, -12.0, -6.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -6.0, -12.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -6.0, -12.0, -6.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -6.0, -12.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -6.0, -12.0, -6.0 ],
+    "modified_values" : [ 0.0, 0.0, 0.0, -6.0, -12.0, -6.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -100.0, -100.0, -100.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -100.0, -100.0, -100.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -1.5, -3.0, -1.5 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -1.5, -3.0, -1.5 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -1.5, -3.0, -1.5 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -1.5, -3.0, -1.5 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -1.5, -3.0, -1.5 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -1.5, -3.0, -1.5 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -1.5, -3.0, -1.5 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -1.5, -3.0, -1.5 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -1.5, -3.0, -1.5 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -1.5, -3.0, -1.5 ],
+    "guts" : [ {
+      "threshold" : 5.0,
+      "multiplier" : 0.4
+    }, {
+      "threshold" : 10.0,
+      "multiplier" : 0.5
+    }, {
+      "threshold" : 15.0,
+      "multiplier" : 0.6
+    }, {
+      "threshold" : 20.0,
+      "multiplier" : 0.7
+    }, {
+      "threshold" : 25.0,
+      "multiplier" : 0.8
+    } ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -3.0, -6.0, -3.0 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -3.0, -6.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -3.0, -6.0, -3.0 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -3.0, -6.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -3.0, -6.0, -3.0 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -3.0, -6.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -3.0, -6.0, -3.0 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -3.0, -6.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.2, 0.1, -3.0, -6.0, -3.0 ],
+    "modified_values" : [ 0.2, 0.2, 0.1, -3.0, -6.0, -3.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "KEYBOARD",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 0.0,
+    "base_values" : [ 0.2, 0.1, 0.0, -5.0, -10.0, -5.0 ],
+    "modified_values" : [ 0.2, 0.1, 0.0, -5.0, -10.0, -5.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 60.0,
+    "death" : 0.0,
+    "base_values" : [ 1.2, 1.2, 0.6, -3.2, -4.8, -1.6 ],
+    "modified_values" : [ 0.36, 0.36, 0.18, -3.2, -4.8, -1.6 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 60.0,
+    "death" : 0.0,
+    "base_values" : [ 1.2, 1.2, 0.6, -3.2, -4.8, -1.6 ],
+    "modified_values" : [ 2.4, 2.4, 1.2, -3.2, -4.8, -1.6 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 60.0,
+    "death" : 0.0,
+    "base_values" : [ 1.2, 1.2, 0.6, -3.2, -4.8, -1.6 ],
+    "modified_values" : [ 0.48000002, 0.48000002, 0.24000001, -3.2, -4.8, -1.6 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 60.0,
+    "death" : 0.0,
+    "base_values" : [ 1.2, 1.2, 0.6, -3.2, -4.8, -1.6 ],
+    "modified_values" : [ 0.192, 0.192, 0.096, -3.2, -4.8, -1.6 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "ASSIST_EASY",
+    "gauge_type_index" : 0,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 60.0,
+    "death" : 0.0,
+    "base_values" : [ 1.2, 1.2, 0.6, -3.2, -4.8, -1.6 ],
+    "modified_values" : [ 9.6, 9.6, 4.8, -3.2, -4.8, -1.6 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.2, 1.2, 0.6, -3.2, -4.8, -1.6 ],
+    "modified_values" : [ 0.36, 0.36, 0.18, -3.2, -4.8, -1.6 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.2, 1.2, 0.6, -3.2, -4.8, -1.6 ],
+    "modified_values" : [ 2.4, 2.4, 1.2, -3.2, -4.8, -1.6 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.2, 1.2, 0.6, -3.2, -4.8, -1.6 ],
+    "modified_values" : [ 0.48000002, 0.48000002, 0.24000001, -3.2, -4.8, -1.6 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.2, 1.2, 0.6, -3.2, -4.8, -1.6 ],
+    "modified_values" : [ 0.192, 0.192, 0.096, -3.2, -4.8, -1.6 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EASY",
+    "gauge_type_index" : 1,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.2, 1.2, 0.6, -3.2, -4.8, -1.6 ],
+    "modified_values" : [ 9.6, 9.6, 4.8, -3.2, -4.8, -1.6 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -4.0, -6.0, -2.0 ],
+    "modified_values" : [ 0.3, 0.3, 0.15, -4.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -4.0, -6.0, -2.0 ],
+    "modified_values" : [ 2.0, 2.0, 1.0, -4.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -4.0, -6.0, -2.0 ],
+    "modified_values" : [ 0.4, 0.4, 0.2, -4.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -4.0, -6.0, -2.0 ],
+    "modified_values" : [ 0.16, 0.16, 0.08, -4.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "NORMAL",
+    "gauge_type_index" : 2,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 2.0,
+    "max" : 100.0,
+    "init" : 20.0,
+    "border" : 80.0,
+    "death" : 0.0,
+    "base_values" : [ 1.0, 1.0, 0.5, -4.0, -6.0, -2.0 ],
+    "modified_values" : [ 8.0, 8.0, 4.0, -4.0, -6.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -60.0, -100.0, -20.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -4.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -4.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "HARD",
+    "gauge_type_index" : 3,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -60.0, -100.0, -20.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -120.0, -200.0, -20.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -24.0, -40.0, -4.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -24.0, -40.0, -4.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXHARD",
+    "gauge_type_index" : 4,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -120.0, -200.0, -20.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "HAZARD",
+    "gauge_type_index" : 5,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "modified_values" : [ 0.15, 0.06, 0.0, -100.0, -100.0, -10.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -2.0, -3.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -2.0, -3.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -2.0, -3.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -2.0, -3.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -2.0, -3.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -2.0, -3.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -2.0, -3.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -2.0, -3.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "CLASS",
+    "gauge_type_index" : 6,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -2.0, -3.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -2.0, -3.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXCLASS",
+    "gauge_type_index" : 7,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -6.0, -10.0, -2.0 ],
+    "guts" : [ {
+      "threshold" : 32.0,
+      "multiplier" : 0.6
+    } ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 300.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 100.0,
+    "total_notes" : 50,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 200.0,
+    "total_notes" : 500,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 160.0,
+    "total_notes" : 1000,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "guts" : [ ]
+  }, {
+    "mode" : "LR2",
+    "gauge_type" : "EXHARDCLASS",
+    "gauge_type_index" : 8,
+    "total" : 80.0,
+    "total_notes" : 10,
+    "min" : 0.0,
+    "max" : 100.0,
+    "init" : 100.0,
+    "border" : 0.0,
+    "death" : 2.0,
+    "base_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "modified_values" : [ 0.1, 0.1, 0.05, -12.0, -20.0, -2.0 ],
+    "guts" : [ ]
+  } ]
+}

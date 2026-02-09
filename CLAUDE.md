@@ -178,7 +178,7 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] PMS: judgerank [33,50,70,100,133] スケーリング (PG固定)
   - [x] LR2: `lr2_judge_scaling()` — LR2_SCALING テーブル + 2次元補間 (i64 整数演算のみ)
   - [x] `judge_window_rate` (fixjudge) 対応
-  - [ ] GM テスト: 全5モード × 全ランク × 4ノートタイプ × 3 judgeWindowRate
+  - [x] GM テスト: 全5モード × 全ランク × 4ノートタイプ × 3 judgeWindowRate (480ケース通過)
 - [x] **2-2. JudgeAlgorithm (判定アルゴリズム)**
   - [x] `Combo` — 最も近い1ノートを選択
   - [x] `Duration` — 判定窓内の最も古いノートを選択
@@ -189,12 +189,12 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] `GaugeModifier::Total` — `f * total / total_notes`
   - [x] `GaugeModifier::LimitIncrement` — 回復量制限
   - [x] `GaugeModifier::ModifyDamage` — TOTAL補正 × ノート数補正
-  - [ ] GM テスト: 全ゲージタイプの初期値・ボーダー・死亡閾値・増減値
+  - [x] GM テスト: 全ゲージタイプの初期値・ボーダー・死亡閾値・増減値 (225ケース通過)
 - [x] **2-4. GrooveGauge (ゲージ更新)**
   - [x] `update()` — 判定 → 増減 → guts 軽減 → clamp → 即死判定
   - [x] `value > 0` のときのみ更新 (復帰不可)
   - [x] guts テーブルによるダメージ軽減
-  - [ ] GM テスト: 判定シーケンス → 各ステップのゲージ値比較
+  - [x] GM テスト: 判定シーケンス → 各ステップのゲージ値比較 (80ケース通過)
 - [ ] **2-5. JudgeManager (判定処理)** ※ Phase 11 で実装 (AudioDriver, InputProcessor 等の依存が必要)
   - [ ] 通常ノート: 判定窓内で JudgeAlgorithm による最適選択
   - [ ] LN: 押下開始 + releasemargin 後の離し判定

@@ -1,5 +1,7 @@
 // Golden master test infrastructure: Java fixture comparison harness
 
+pub mod rule_fixtures;
+
 use std::path::Path;
 
 use anyhow::{Context, Result};
