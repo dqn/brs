@@ -33,7 +33,11 @@ golden-master-pattern-gen:
 golden-master-replay-gen:
     cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.ReplayExporter --args="$(pwd)/../lr2oraja-rust/golden-master/fixtures"
 
-# Generate all GM fixtures (parse + rule + pattern + replay)
-golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen golden-master-replay-gen
+# Generate database GM fixtures
+golden-master-database-gen:
+    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.DatabaseExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
+
+# Generate all GM fixtures (parse + rule + pattern + replay + database)
+golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen golden-master-replay-gen golden-master-database-gen
 
 all: check test clippy fmt-check

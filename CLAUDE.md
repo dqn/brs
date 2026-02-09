@@ -279,7 +279,7 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] `ScoreDataLogDatabase` — `open()`, `set_score_data_log()` (INSERT OR REPLACE)
 - [x] **5-4. PlayMode.mode_id()** — bms-model に mode_id()/from_mode_id() 追加
 - [x] **5-5. ユニットテスト** — 15 テスト通過 (schema 3 + song_database 5 + score_database 4 + score_log_database 1 + 他)
-- [ ] **5-6. GM テスト**: Java 生成 DB を Rust で読込 → 全レコード比較
+- [x] **5-6. GM テスト**: SongData::from_model() の Java 出力比較 (18 BMS/bmson × 22 フィールド = 396+ assertions 通過)
 
 ### Phase 6: Config (`bms-config`)
 

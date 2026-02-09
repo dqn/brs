@@ -68,7 +68,10 @@ impl SongData {
 
         for note in &model.notes {
             match note.note_type {
-                NoteType::LongNote => feature |= FEATURE_LONGNOTE,
+                // Java uses lnmode (default 0 = TYPE_UNDEFINED) for LN type in SongData.
+                // TYPE_UNDEFINED -> FEATURE_UNDEFINEDLN, TYPE_LONGNOTE -> FEATURE_LONGNOTE.
+                // Since lnmode is always forced to 0 in Java, LongNote maps to UNDEFINEDLN.
+                NoteType::LongNote => feature |= FEATURE_UNDEFINEDLN,
                 NoteType::ChargeNote => feature |= FEATURE_CHARGENOTE,
                 NoteType::HellChargeNote => feature |= FEATURE_HELLCHARGENOTE,
                 NoteType::Mine => feature |= FEATURE_MINENOTE,
@@ -80,13 +83,18 @@ impl SongData {
             feature |= FEATURE_STOPSEQUENCE;
         }
 
+        if model.has_random {
+            feature |= FEATURE_RANDOM;
+        }
+
         // CONTENT_BGA: check if bmp_defs is non-empty
         if !model.bmp_defs.is_empty() {
             content |= CONTENT_BGA;
         }
 
         // CONTENT_NOKEYSOUND: length >= 30000ms and few wav defs
-        let length_ms = (model.total_time_us / 1000) as i32;
+        // Use last_event_time_ms() to match Java's getLastTime()
+        let length_ms = model.last_event_time_ms();
         if length_ms >= 30000 && model.wav_defs.len() as i32 <= (length_ms / 50000) + 3 {
             content |= CONTENT_NOKEYSOUND;
         }
@@ -113,7 +121,7 @@ impl SongData {
             minbpm: model.min_bpm() as i32,
             length: length_ms,
             mode: model.mode.mode_id(),
-            judge: model.judge_rank,
+            judge: model.judge_rank_raw,
             feature,
             content,
             date: 0,
