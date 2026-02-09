@@ -14,6 +14,12 @@ use crate::mp3;
 use crate::msadpcm;
 use crate::pcm::Pcm;
 
+/// WAVE_FORMAT_EXTENSIBLE format tag (0xFFFE).
+///
+/// Used by WAV files with >2 channels, >16 bits per sample, or
+/// non-standard channel masks. The actual format is in the SubFormat GUID.
+const WAVE_FORMAT_EXTENSIBLE: u16 = 0xFFFE;
+
 /// WAV format header info extracted from the fmt chunk.
 struct WavHeader {
     format_type: u16,
@@ -112,15 +118,29 @@ fn seek_to_chunk<R: Read + Seek>(reader: &mut R, target: &[u8; 4]) -> Result<u32
 fn seek_and_parse_fmt<R: Read + Seek>(reader: &mut R) -> Result<WavHeader> {
     let fmt_size = seek_to_chunk(reader, b"fmt ")?;
 
-    let format_type = read_u16_le(reader)?;
+    let mut format_type = read_u16_le(reader)?;
     let channels = read_u16_le(reader)?;
     let sample_rate = read_u32_le(reader)?;
     let _byte_rate = read_u32_le(reader)?; // skip avg bytes/sec
     let block_align = read_u16_le(reader)?;
     let bits_per_sample = read_u16_le(reader)?;
 
-    // Skip any extra fmt bytes
-    if fmt_size > 16 {
+    if format_type == WAVE_FORMAT_EXTENSIBLE && fmt_size >= 40 {
+        // WAVE_FORMAT_EXTENSIBLE: read cbSize, validBitsPerSample, channelMask, SubFormat
+        let _cb_size = read_u16_le(reader)?; // 18: cbSize
+        let _valid_bits = read_u16_le(reader)?; // 20: validBitsPerSample
+        let _channel_mask = read_u32_le(reader)?; // 22: dwChannelMask
+        // SubFormat GUID: first 2 bytes are the actual format type
+        let sub_format = read_u16_le(reader)?; // 26: SubFormat[0..2]
+        format_type = sub_format;
+        // Skip remaining 14 bytes of SubFormat GUID
+        skip(reader, 14)?; // 28..40
+        // Skip any remaining extra bytes
+        if fmt_size > 40 {
+            skip(reader, (fmt_size - 40) as usize)?;
+        }
+    } else if fmt_size > 16 {
+        // Skip any extra fmt bytes for non-extensible formats
         skip(reader, (fmt_size - 16) as usize)?;
     }
 
