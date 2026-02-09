@@ -691,14 +691,15 @@ impl ConvergeRandomizer {
             self.renda_count.insert(k, 0);
         }
 
-        let rc = &self.renda_count;
+        // Split borrow: time_state and renda_count are separate fields
+        let rc = &mut self.renda_count;
         let random_map = self.time_state.time_based_shuffle(
             view,
             changeable_lane,
             assignable_lane,
             rng,
             &mut |lane, r| {
-                // Pick lane with max renda count
+                // Pick lane with max renda count (Java: selectLane)
                 let max_count = lane
                     .iter()
                     .map(|l| rc.get(l).copied().unwrap_or(0))
@@ -710,17 +711,12 @@ impl ConvergeRandomizer {
                     .filter(|l| rc.get(l).copied().unwrap_or(0) == max_count)
                     .collect();
                 let chosen = max_lanes[r.next_int(max_lanes.len() as i32) as usize];
+                // Java: rendaCount.put(l, rendaCount.get(l) + 1) inside selectLane
+                // Only primaryLane assignments increment renda count
+                *rc.entry(chosen).or_insert(0) += 1;
                 lane.iter().position(|&l| l == chosen).unwrap()
             },
         );
-
-        // Update renda counts for selected lanes
-        for (&src, &dest) in &random_map {
-            let has_note = !matches!(view.lane_note_types.get(&src), None | Some(&NoteType::Mine));
-            if has_note {
-                *self.renda_count.entry(dest).or_insert(0) += 1;
-            }
-        }
 
         self.time_state.update_note_time(view, &random_map);
         random_map

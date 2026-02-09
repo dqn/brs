@@ -223,8 +223,12 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] Flip
   - [x] Battle
   - [x] PlayableRandom (9! 全探索 + murioshiChords テーブル)
-- [ ] **3-3. NoteShuffleModifier**
-  - [ ] タイムライン単位の置換
+- [x] **3-3. NoteShuffleModifier**
+  - [x] タイムライン単位の置換 (SRandom, Spiral, AllScr, NoMurioshi, Converge — 5種)
+  - [x] TimelineView によるグループ化 + LN 追跡 (ln_active HashMap)
+  - [x] TimeBasedState (閾値ベース縦連打回避)
+  - [x] BUTTON_COMBINATION_TABLE (PMS 無理押し防止 10パターン)
+  - [x] enum dispatch (RandomizerImpl) による trait object 回避
 - [x] **3-4. LongNote pair 整合性維持**
 - [x] **3-5. GM テスト**: 固定 seed × 各パターン → 出力配列比較 (lane shuffle 102 + playable random 8 + battle 6 = 116 ケース通過)
 
