@@ -77,8 +77,10 @@ impl BmsonDecoder {
         model.genre = info.genre.clone();
 
         // judge_rank (Java line 76-85)
+        // bmson uses DEFEXRANK semantics; raw value equals scaled value
         if info.judge_rank >= 0 {
             model.judge_rank = info.judge_rank;
+            model.judge_rank_raw = info.judge_rank;
         }
 
         // total (Java line 87-92)

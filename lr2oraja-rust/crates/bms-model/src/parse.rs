@@ -118,6 +118,7 @@ impl BmsDecoder {
                         value,
                         active: true,
                     });
+                    model.has_random = true;
                     continue;
                 }
                 if let Some(rest) = upper.strip_prefix("IF ") {
@@ -168,17 +169,20 @@ impl BmsDecoder {
                     let bpm: f64 = rest[6..].trim().parse().unwrap_or(0.0);
                     extended_bpms.insert(id, bpm);
                 } else if let Some(rest) = upper.strip_prefix("RANK ") {
-                    model.judge_rank = rest.trim().parse().unwrap_or(2);
+                    let raw: i32 = rest.trim().parse().unwrap_or(2);
+                    model.judge_rank_raw = raw;
                     // Convert rank 0-4 to judgerank value
-                    model.judge_rank = match model.judge_rank {
+                    model.judge_rank = match raw {
                         0 => 100, // VERY HARD
                         1 => 75,  // HARD
                         2 => 50,  // NORMAL
                         3 => 25,  // EASY
-                        _ => model.judge_rank,
+                        _ => raw,
                     };
                 } else if let Some(rest) = upper.strip_prefix("DEFEXRANK ") {
-                    model.judge_rank = rest.trim().parse().unwrap_or(100);
+                    let raw: i32 = rest.trim().parse().unwrap_or(100);
+                    model.judge_rank = raw;
+                    model.judge_rank_raw = raw;
                 } else if let Some(rest) = upper.strip_prefix("TOTAL ") {
                     model.total = rest.trim().parse().unwrap_or(300.0);
                 } else if let Some(rest) = upper.strip_prefix("PLAYLEVEL ") {

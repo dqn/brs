@@ -23,7 +23,14 @@ pub struct BmsModel {
 
     // Difficulty
     pub play_level: i32,
+    /// Scaled judge rank value used for judge window calculation.
+    /// For `#RANK 0-4`: converted to 100/75/50/25 scale.
+    /// For `#DEFEXRANK`: raw value (1+).
+    /// Default: 100 (equivalent to `#RANK 0` / VERY HARD).
     pub judge_rank: i32,
+    /// Raw judge rank value as specified in BMS file, for database storage.
+    /// For `#RANK`: 0-4. For `#DEFEXRANK`: raw value. Default: 2 (NORMAL).
+    pub judge_rank_raw: i32,
     pub total: f64,
     pub difficulty: i32,
 
@@ -56,6 +63,9 @@ pub struct BmsModel {
 
     // Total play time in microseconds
     pub total_time_us: i64,
+
+    // Whether the chart contains #RANDOM commands
+    pub has_random: bool,
 }
 
 impl Default for BmsModel {
@@ -72,6 +82,7 @@ impl Default for BmsModel {
             preview: String::new(),
             play_level: 0,
             judge_rank: 100,
+            judge_rank_raw: 2,
             total: 300.0,
             difficulty: 0,
             mode: PlayMode::Beat7K,
@@ -88,6 +99,7 @@ impl Default for BmsModel {
             sha256: String::new(),
             total_measures: 0,
             total_time_us: 0,
+            has_random: false,
         }
     }
 }
@@ -131,5 +143,24 @@ impl BmsModel {
             .iter()
             .map(|c| c.bpm)
             .fold(self.initial_bpm, f64::max)
+    }
+
+    /// Time of the last note/event in milliseconds.
+    /// Equivalent to Java `BMSModel.getLastTime()` — returns the time of the last
+    /// timeline that contains any note (playable, invisible, or mine), including
+    /// LN end positions.
+    pub fn last_event_time_ms(&self) -> i32 {
+        self.notes
+            .iter()
+            .map(|n| {
+                if n.is_long_note() && n.end_time_us > n.time_us {
+                    n.end_time_us
+                } else {
+                    n.time_us
+                }
+            })
+            .max()
+            .map(|us| (us / 1000) as i32)
+            .unwrap_or(0)
     }
 }

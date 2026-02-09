@@ -359,6 +359,7 @@ fn build_model_from_chord_patterns(
         preview: String::new(),
         play_level: 0,
         judge_rank: 100,
+        judge_rank_raw: 2,
         total: 300.0,
         difficulty: 0,
         mode,
@@ -375,5 +376,6 @@ fn build_model_from_chord_patterns(
         sha256: String::new(),
         total_measures: 4,
         total_time_us: 0,
+        has_random: false,
     }
 }
