@@ -333,18 +333,36 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 参照: 52 Java ファイル (`JSONSkinLoader`, `LR2SkinCSVLoader`, `LuaSkinLoader`, SkinObject 各種, `SkinProperty`, `IntegerPropertyFactory`, `BooleanPropertyFactory`)
 
-- [ ] **9-1. SkinObject 型定義**
-  - [ ] Image, Number, Text, Slider, Graph, Gauge, Judge
-  - [ ] BPMGraph, HitErrorVisualizer, NoteDistributionGraph, TimingDistributionGraph, TimingVisualizer
-- [ ] **9-2. SkinProperty / SkinPropertyMapper**
-  - [ ] IntegerProperty (150+ ID)
-  - [ ] BooleanProperty
-  - [ ] FloatProperty, StringProperty, TimerProperty
-- [ ] **9-3. JSON スキンローダー**
-- [ ] **9-4. LR2 CSV スキンローダー**
-- [ ] **9-5. Lua スキンローダー** (mlua)
-- [ ] **9-6. SkinHeader パーサー**
-- [ ] **9-7. GM テスト**: 各ローダーでスキン読込 → SkinObject 構造 JSON 比較
+- [x] **9-1. 基盤型定義**
+  - [x] `property_id.rs` — 全プロパティ ID 定数 (Timer/Integer/Boolean/Float/String/Event newtypes + 2400+ 定数)
+  - [x] `property_mapper.rs` — SkinPropertyMapper (player/key → timer/value ID 計算)
+  - [x] `skin_object.rs` — SkinObjectBase (Destination, Rect, Color, SkinOffset, アニメーション補間, 描画条件)
+  - [x] `stretch_type.rs` — StretchType enum
+  - [x] `image_handle.rs` — ImageHandle, ImageRegion, ImageLoader trait, StubImageLoader
+- [x] **9-2. SkinObject 具象型**
+  - [x] Image, Number, Text, Slider, Graph, Gauge, Judge
+  - [x] BpmGraph, HitErrorVisualizer, NoteDistributionGraph, TimingDistributionGraph, TimingVisualizer
+  - [x] SkinObjectType enum dispatch (11 variants)
+- [x] **9-3. SkinSource 階層**
+  - [x] `skin_source.rs` — SkinImageSource (Reference/Frames), MovieSource
+- [x] **9-4. SkinHeader**
+  - [x] `skin_header.rs` — SkinHeader, CustomOption, CustomFile, CustomOffset, SkinFormat
+- [x] **9-5. Skin コンテナ**
+  - [x] `skin.rs` — Skin struct (全 SkinObject 保持, resolution scaling)
+  - [x] `custom_event.rs` — CustomEventDef, CustomTimerDef
+- [x] **9-6. JSON スキンローダー**
+  - [x] `json_skin.rs` — JsonSkinData デシリアライズ構造体 (serde)
+  - [x] `json_loader.rs` — JSON → Skin 変換 (SRC/DST, option/offset 解決, property mapping)
+- [x] **9-7. LR2 CSV スキンローダー**
+  - [x] `lr2_csv_loader.rs` — CSV パース + コマンドディスパッチ (SRC_IMAGE/NUMBER/TEXT/SLIDER/BARGRAPH/BUTTON, DST, #IF/#ELSE)
+  - [x] `lr2_header_loader.rs` — ヘッダー解析 (INFORMATION, CUSTOMOPTION, CUSTOMFILE, CUSTOMOFFSET, RESOLUTION)
+  - [x] `decode_ms932()` — MS932/Shift_JIS デコーディング (encoding_rs)
+- [x] **9-8. Lua スキンローダー**
+  - [x] `lua_loader.rs` — Lua 実行 → JSON 変換 → json_loader 委譲 (mlua)
+  - [x] Lua 環境セットアップ (package.path, skin_config, skin_property)
+  - [x] Lua table → serde_json::Value 再帰変換 (array/object 自動判定)
+- [x] **9-9. テスト** — 193 テスト通過, clippy clean, fmt applied
+  - [ ] GM テスト: 各ローダーでスキン読込 → SkinObject 構造 JSON 比較 (Phase 11 依存で後回し)
 
 ### Phase 10: Rendering (`bms-render`)
 
