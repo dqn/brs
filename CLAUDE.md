@@ -111,28 +111,28 @@ brs/
 
 参照: jbms-parser (`BMSModel`, `Note`, `TimeLine`, `Lane`, `Mode`, `BMSDecoder`)
 
-- [ ] **1-1. データ型定義**
-  - [ ] `PlayMode` enum (Beat5K, Beat7K, Beat10K, Beat14K, PopN9K, Keyboard24K)
-  - [ ] `NoteType` enum (Normal, LongNote, ChargeNote, HellChargeNote, Mine, Invisible)
-  - [ ] `Note` struct (lane, note_type, time_us, end_time_us, wav_id, damage)
-  - [ ] `BmsModel` struct (title, artist, mode, judge_rank, total, bpm, ln_mode, notes, etc.)
-  - [ ] `TimeLine`, `BpmChange`, `StopEvent` structs
-- [ ] **1-2. BMS パーサー**
-  - [ ] ヘッダコマンド (#PLAYER, #GENRE, #TITLE, #ARTIST, #BPM, #RANK, #TOTAL, #LNTYPE)
-  - [ ] WAV/BMP 定義 (#WAVxx, #BMPxx)
-  - [ ] チャンネルデータ (#xxxCH:data) パース
-  - [ ] BPM 変更チャンネル (03, 08)
-  - [ ] STOP チャンネル (09)
-  - [ ] LongNote (51-69 / LNTYPE 1,2)
-  - [ ] 地雷ノート (D1-D9)
-  - [ ] 不可視ノート (31-39)
-  - [ ] 小節長変更 (02)
-  - [ ] タイムライン構築 (BPM → μs 変換)
-- [ ] **1-3. エンコーディング対応**
-  - [ ] `encoding_rs` で Shift_JIS / EUC-JP / UTF-8 自動判定
-- [ ] **1-4. #RANDOM / #IF 対応**
+- [x] **1-1. データ型定義**
+  - [x] `PlayMode` enum (Beat5K, Beat7K, Beat10K, Beat14K, PopN9K, Keyboard24K)
+  - [x] `NoteType` enum (Normal, LongNote, ChargeNote, HellChargeNote, Mine, Invisible)
+  - [x] `Note` struct (lane, note_type, time_us, end_time_us, wav_id, damage)
+  - [x] `BmsModel` struct (title, artist, mode, judge_rank, total, bpm, ln_mode, notes, etc.)
+  - [x] `TimeLine`, `BpmChange`, `StopEvent` structs
+- [x] **1-2. BMS パーサー**
+  - [x] ヘッダコマンド (#PLAYER, #GENRE, #TITLE, #ARTIST, #BPM, #RANK, #TOTAL, #LNTYPE)
+  - [x] WAV/BMP 定義 (#WAVxx, #BMPxx)
+  - [x] チャンネルデータ (#xxxCH:data) パース
+  - [x] BPM 変更チャンネル (03, 08)
+  - [x] STOP チャンネル (09)
+  - [x] LongNote (51-69 / LNTYPE 1,2)
+  - [x] 地雷ノート (D1-D9)
+  - [x] 不可視ノート (31-39)
+  - [x] 小節長変更 (02)
+  - [x] タイムライン構築 (BPM → μs 変換)
+- [x] **1-3. エンコーディング対応**
+  - [x] `encoding_rs` で Shift_JIS / EUC-JP / UTF-8 自動判定
+- [x] **1-4. #RANDOM / #IF 対応**
 - [ ] **1-5. .bmson フォーマット対応**
-- [ ] **1-6. ハッシュ計算** (MD5, SHA256)
+- [x] **1-6. ハッシュ計算** (MD5, SHA256)
 - [ ] **1-7. Golden Master テスト**
   - [ ] Java で全テスト BMS をパース → fixture JSON 生成
   - [ ] Rust パース結果と fixture 比較 (ノート数, タイムライン, BPM, ハッシュ)
