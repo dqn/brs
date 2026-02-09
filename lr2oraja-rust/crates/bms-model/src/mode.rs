@@ -87,6 +87,13 @@ impl PlayMode {
         }
     }
 
+    /// Returns true if the given lane index is a scratch key.
+    ///
+    /// Matches Java `Mode.isScratchKey(int key)`.
+    pub fn is_scratch_key(self, lane: usize) -> bool {
+        self.scratch_keys().contains(&lane)
+    }
+
     /// Channel assignment table for 1P (index = channel - 0x11, value = lane or -1 for skip)
     pub fn channel_assign_1p(self) -> &'static [i8; 9] {
         match self {
