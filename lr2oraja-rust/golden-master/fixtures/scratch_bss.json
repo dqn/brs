@@ -1,0 +1,107 @@
+{
+  "metadata" : {
+    "title" : "Scratch and BSS Test",
+    "subtitle" : "",
+    "artist" : "brs-test",
+    "sub_artist" : "",
+    "genre" : "Test",
+    "initial_bpm" : 130.0,
+    "judge_rank" : 2,
+    "judge_rank_type" : "BMS_RANK",
+    "total" : 300.0,
+    "total_type" : "BMS",
+    "play_level" : "4",
+    "difficulty" : 0,
+    "player" : 1,
+    "mode" : "beat-5k",
+    "mode_key_count" : 6,
+    "ln_type" : 0,
+    "lnmode" : 0,
+    "banner" : "",
+    "stagefile" : "",
+    "backbmp" : "",
+    "preview" : ""
+  },
+  "hashes" : {
+    "md5" : "bcd655d8214277b4905ded4e5a16ae31",
+    "sha256" : "30dd3debd01cdd28e1aed0e40935fab59863153a63191dc0d6dded1ab1820c0d"
+  },
+  "statistics" : {
+    "total_notes" : 3,
+    "total_notes_key" : 1,
+    "total_notes_long_key" : 0,
+    "total_notes_scratch" : 1,
+    "total_notes_long_scratch" : 1,
+    "total_notes_mine" : 0,
+    "min_bpm" : 130.0,
+    "max_bpm" : 130.0,
+    "timeline_count" : 4
+  },
+  "timelines" : [ {
+    "time_us" : 0,
+    "section" : 0.0,
+    "bpm" : 130.0,
+    "stop_us" : 0,
+    "notes" : [ ]
+  }, {
+    "time_us" : 1846153,
+    "section" : 1.0,
+    "bpm" : 130.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 1846153,
+      "wav_id" : 1,
+      "type" : "Normal"
+    }, {
+      "lane" : 5,
+      "time_us" : 1846153,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 3692307,
+    "section" : 2.0,
+    "bpm" : 130.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 5,
+      "time_us" : 3692307,
+      "wav_id" : 0,
+      "type" : "LongNoteUndefined",
+      "end_time_us" : 5076923,
+      "end_wav_id" : -2
+    } ]
+  }, {
+    "time_us" : 5076923,
+    "section" : 2.75,
+    "bpm" : 130.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 5,
+      "time_us" : 5076923,
+      "wav_id" : -2,
+      "type" : "LongNoteEnd"
+    } ]
+  } ],
+  "notes" : [ {
+    "lane" : 0,
+    "time_us" : 1846153,
+    "wav_id" : 1,
+    "type" : "Normal"
+  }, {
+    "lane" : 5,
+    "time_us" : 1846153,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 5,
+    "time_us" : 3692307,
+    "wav_id" : 0,
+    "type" : "LongNoteUndefined",
+    "end_time_us" : 5076923,
+    "end_wav_id" : -2
+  } ],
+  "bpm_changes" : [ ],
+  "stop_events" : [ ]
+}

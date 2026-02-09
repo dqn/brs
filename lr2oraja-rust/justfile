@@ -13,4 +13,12 @@ fmt:
 fmt-check:
     cargo fmt --all -- --check
 
+# Generate Java golden master fixtures
+golden-master-gen:
+    cd ../lr2oraja-java && ./gradlew golden-master:run --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
+
+# Run golden master comparison tests
+golden-master-test:
+    cargo test -p golden-master -- --nocapture
+
 all: check test clippy fmt-check
