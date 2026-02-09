@@ -71,4 +71,33 @@ impl PlayMode {
             }
         }
     }
+
+    /// Channel assignment table for 1P (index = channel - 0x11, value = lane or -1 for skip)
+    pub fn channel_assign_1p(self) -> &'static [i8; 9] {
+        match self {
+            Self::Beat5K => &CHANNELASSIGN_BEAT5,
+            Self::Beat7K => &CHANNELASSIGN_BEAT7,
+            Self::PopN5K | Self::PopN9K => &CHANNELASSIGN_POPN,
+            _ => &CHANNELASSIGN_BEAT7,
+        }
+    }
+
+    /// Channel assignment table for 2P (index = channel - 0x21, value = lane or -1 for skip)
+    pub fn channel_assign_2p(self) -> &'static [i8; 9] {
+        match self {
+            Self::Beat10K => &CHANNELASSIGN_BEAT5_2P,
+            Self::Beat14K => &CHANNELASSIGN_BEAT7_2P,
+            _ => &CHANNELASSIGN_BEAT7_2P,
+        }
+    }
 }
+
+// Channel assignment tables (Java: Mode.java)
+// 1P: index = channel - 0x11, value = lane index (-1 = skip)
+pub const CHANNELASSIGN_BEAT5: [i8; 9] = [0, 1, 2, 3, 4, 5, -1, -1, -1];
+pub const CHANNELASSIGN_BEAT7: [i8; 9] = [0, 1, 2, 3, 4, 7, -1, 5, 6];
+pub const CHANNELASSIGN_POPN: [i8; 9] = [0, 1, 2, 3, 4, -1, -1, -1, -1];
+
+// 2P: index = channel - 0x21, value = lane index (-1 = skip)
+pub const CHANNELASSIGN_BEAT5_2P: [i8; 9] = [6, 7, 8, 9, 10, 11, -1, -1, -1];
+pub const CHANNELASSIGN_BEAT7_2P: [i8; 9] = [8, 9, 10, 11, 12, 15, -1, 13, 14];

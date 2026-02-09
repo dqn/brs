@@ -30,7 +30,10 @@ impl BmsDecoder {
     pub fn decode(path: &Path) -> Result<BmsModel> {
         let raw_bytes = std::fs::read(path)?;
         let content = detect_encoding_and_decode(&raw_bytes);
-        Self::decode_str(&content, path)
+        let mut model = Self::decode_str(&content, path)?;
+        // Recompute hashes from raw bytes (matches Java DigestInputStream behavior)
+        compute_hashes(&raw_bytes, &mut model);
+        Ok(model)
     }
 
     pub fn decode_str(content: &str, path: &Path) -> Result<BmsModel> {
@@ -233,13 +236,16 @@ impl BmsDecoder {
         model.total_measures = max_measure + 1;
 
         // Detect play mode
+        let is_pms = path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("pms"));
         if has_2p || model.player == 3 {
             if max_1p_channel > 6 {
                 model.mode = PlayMode::Beat14K;
             } else {
                 model.mode = PlayMode::Beat10K;
             }
-        } else if max_1p_channel > 8 {
+        } else if is_pms {
             model.mode = PlayMode::PopN9K;
         } else if max_1p_channel > 6 {
             model.mode = PlayMode::Beat7K;
@@ -259,10 +265,10 @@ impl BmsDecoder {
 
         for event in &events {
             if event.channel == 0x03 {
-                // Integer BPM change
+                // Integer BPM change (channel 03 data is hex 00-FF, not base36)
                 for &(pos, val) in &event.data {
                     if val > 0 {
-                        let bpm = val as f64;
+                        let bpm = base36_to_hex(val) as f64;
                         bpm_events_by_measure
                             .entry(event.measure)
                             .or_default()
@@ -388,32 +394,84 @@ impl BmsDecoder {
 
                 let (lane, note_kind) = match ch {
                     // 1P visible (11-19)
-                    0x11..=0x19 => ((ch - 0x11) as usize, NoteKind::Normal),
+                    0x11..=0x19 => {
+                        let idx = (ch - 0x11) as usize;
+                        let assign = model.mode.channel_assign_1p();
+                        let l = assign[idx];
+                        if l < 0 {
+                            continue;
+                        }
+                        (l as usize, NoteKind::Normal)
+                    }
                     // 2P visible (21-29)
                     0x21..=0x29 => {
-                        let base = model.mode.key_count() / 2;
-                        ((ch - 0x21) as usize + base, NoteKind::Normal)
+                        let idx = (ch - 0x21) as usize;
+                        let assign = model.mode.channel_assign_2p();
+                        let l = assign[idx];
+                        if l < 0 {
+                            continue;
+                        }
+                        (l as usize, NoteKind::Normal)
                     }
                     // 1P invisible (31-39)
-                    0x31..=0x39 => ((ch - 0x31) as usize, NoteKind::Invisible),
+                    0x31..=0x39 => {
+                        let idx = (ch - 0x31) as usize;
+                        let assign = model.mode.channel_assign_1p();
+                        let l = assign[idx];
+                        if l < 0 {
+                            continue;
+                        }
+                        (l as usize, NoteKind::Invisible)
+                    }
                     // 2P invisible (41-49)
                     0x41..=0x49 => {
-                        let base = model.mode.key_count() / 2;
-                        ((ch - 0x41) as usize + base, NoteKind::Invisible)
+                        let idx = (ch - 0x41) as usize;
+                        let assign = model.mode.channel_assign_2p();
+                        let l = assign[idx];
+                        if l < 0 {
+                            continue;
+                        }
+                        (l as usize, NoteKind::Invisible)
                     }
                     // 1P LN (51-59)
-                    0x51..=0x59 => ((ch - 0x51) as usize, NoteKind::LongNote),
+                    0x51..=0x59 => {
+                        let idx = (ch - 0x51) as usize;
+                        let assign = model.mode.channel_assign_1p();
+                        let l = assign[idx];
+                        if l < 0 {
+                            continue;
+                        }
+                        (l as usize, NoteKind::LongNote)
+                    }
                     // 2P LN (61-69)
                     0x61..=0x69 => {
-                        let base = model.mode.key_count() / 2;
-                        ((ch - 0x61) as usize + base, NoteKind::LongNote)
+                        let idx = (ch - 0x61) as usize;
+                        let assign = model.mode.channel_assign_2p();
+                        let l = assign[idx];
+                        if l < 0 {
+                            continue;
+                        }
+                        (l as usize, NoteKind::LongNote)
                     }
-                    // 1P mine (D1-D9) - channel values: 0xD1=209..0xD9=217
-                    0xD1..=0xD9 => ((ch - 0xD1) as usize, NoteKind::Mine),
+                    // 1P mine (D1-D9)
+                    0xD1..=0xD9 => {
+                        let idx = (ch - 0xD1) as usize;
+                        let assign = model.mode.channel_assign_1p();
+                        let l = assign[idx];
+                        if l < 0 {
+                            continue;
+                        }
+                        (l as usize, NoteKind::Mine)
+                    }
                     // 2P mine (E1-E9)
                     0xE1..=0xE9 => {
-                        let base = model.mode.key_count() / 2;
-                        ((ch - 0xE1) as usize + base, NoteKind::Mine)
+                        let idx = (ch - 0xE1) as usize;
+                        let assign = model.mode.channel_assign_2p();
+                        let l = assign[idx];
+                        if l < 0 {
+                            continue;
+                        }
+                        (l as usize, NoteKind::Mine)
                     }
                     _ => continue,
                 };
@@ -456,6 +514,19 @@ impl BmsDecoder {
         model
             .notes
             .sort_by(|a, b| a.time_us.cmp(&b.time_us).then_with(|| a.lane.cmp(&b.lane)));
+
+        // Deduplicate: when same (lane, time_us), keep highest priority note
+        // Priority: Normal/Invisible > LN > Mine
+        model.notes.dedup_by(|b, a| {
+            if a.lane == b.lane && a.time_us == b.time_us {
+                if note_priority(b) > note_priority(a) {
+                    std::mem::swap(a, b);
+                }
+                true
+            } else {
+                false
+            }
+        });
 
         // Build timelines
         let mut seen_times: Vec<i64> = model.notes.iter().map(|n| n.time_us).collect();
@@ -558,7 +629,7 @@ fn position_to_us(
     }
     if let Some(evts) = stop_events.get(&measure) {
         for &(p, id) in evts {
-            if p <= pos
+            if p < pos
                 && let Some(&ticks) = stop_defs.get(&id)
             {
                 timing.push((p, TimingEvent::Stop(ticks)));
@@ -581,6 +652,13 @@ fn position_to_us(
     time_offset += beats_to_us(remaining_beats, bpm);
 
     time_offset
+}
+
+/// Convert a base36-parsed value back to hex interpretation.
+/// Channel 03 data is hex (00-FF), but parse_channel_data reads it as base36.
+/// E.g., "B4" → base36: 11*36+4=400 → hex: 0xB4=180
+fn base36_to_hex(val: u16) -> u16 {
+    (val / 36) * 16 + (val % 36)
 }
 
 /// Parse base-36 two-character string to u16
@@ -668,6 +746,17 @@ fn parse_channel_data(data: &str) -> Vec<(f64, u16)> {
     }
 
     result
+}
+
+/// Note priority for deduplication: Normal/Invisible > LN > Mine
+fn note_priority(n: &Note) -> u8 {
+    match n.note_type {
+        crate::note::NoteType::Normal | crate::note::NoteType::Invisible => 2,
+        crate::note::NoteType::LongNote
+        | crate::note::NoteType::ChargeNote
+        | crate::note::NoteType::HellChargeNote => 1,
+        crate::note::NoteType::Mine => 0,
+    }
 }
 
 /// Find BPM at a given time
