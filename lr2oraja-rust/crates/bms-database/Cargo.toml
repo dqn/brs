@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 bms-model.workspace = true
+bms-rule.workspace = true
 anyhow.workspace = true
 rusqlite.workspace = true
 serde.workspace = true

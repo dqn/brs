@@ -263,10 +263,23 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 参照: `SQLiteSongDatabaseAccessor.java`, `ScoreDatabaseAccessor.java`, `SongData.java`, `FolderData.java`
 
-- [ ] **5-1. SongDatabase** — 楽曲 DB スキーマ + CRUD (rusqlite)
-- [ ] **5-2. ScoreDatabase** — スコア DB スキーマ + CRUD
-- [ ] **5-3. ScoreDataLogDatabase** — スコアログ
-- [ ] **5-4. GM テスト**: Java 生成 DB を Rust で読込 → 全レコード比較
+- [x] **5-1. SongDatabase** — 楽曲 DB スキーマ + CRUD (rusqlite)
+  - [x] `SongData` struct (29 DB カラム + feature/content flags + `from_model()`)
+  - [x] `FolderData` struct (10 DB カラム)
+  - [x] `schema.rs` — `ColumnDef`/`TableDef`, `ensure_table()` (CREATE TABLE + ALTER TABLE ADD COLUMN)
+  - [x] `SongDatabase` — `open()`, `get_song_datas(key, value)`, `get_song_datas_by_hashes()`, `get_song_datas_by_text()`, `set_song_datas()`, `get_folder_datas()`, `set_folder_datas()`
+  - [x] SQL injection prevention via key whitelist validation
+- [x] **5-2. ScoreDatabase** — スコア DB スキーマ + CRUD
+  - [x] `PlayerData` struct (17 フィールド, all i64)
+  - [x] `PlayerInformation` struct (id, name, rank)
+  - [x] `ScoreDatabase` — `open()`, `get_score_data()`, `get_score_datas()` (1000件チャンクローディング), `set_score_data()`, `delete_score_data()`, `get_player_datas()`, `set_player_data()`, `get_information()`, `set_information()`
+  - [x] DB `combo` カラム ↔ ScoreData `maxcombo` フィールドの名前マッピング
+  - [x] `avgjudge` DEFAULT 2147483647 (Java Integer.MAX_VALUE)
+- [x] **5-3. ScoreDataLogDatabase** — スコアログ
+  - [x] `ScoreDataLogDatabase` — `open()`, `set_score_data_log()` (INSERT OR REPLACE)
+- [x] **5-4. PlayMode.mode_id()** — bms-model に mode_id()/from_mode_id() 追加
+- [x] **5-5. ユニットテスト** — 15 テスト通過 (schema 3 + song_database 5 + score_database 4 + score_log_database 1 + 他)
+- [ ] **5-6. GM テスト**: Java 生成 DB を Rust で読込 → 全レコード比較
 
 ### Phase 6: Config (`bms-config`)
 

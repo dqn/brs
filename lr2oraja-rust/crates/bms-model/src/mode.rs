@@ -87,6 +87,35 @@ impl PlayMode {
         }
     }
 
+    /// Mode ID for database storage (matches Java Mode.id)
+    pub fn mode_id(self) -> i32 {
+        match self {
+            Self::Beat5K => 5,
+            Self::Beat7K => 7,
+            Self::Beat10K => 10,
+            Self::Beat14K => 14,
+            Self::PopN5K | Self::PopN9K => 9,
+            Self::Keyboard24K => 25,
+            Self::Keyboard24KDouble => 50,
+        }
+    }
+
+    /// Convert a mode ID back to PlayMode.
+    ///
+    /// Note: id=9 maps to PopN9K by default (PopN5K shares the same id).
+    pub fn from_mode_id(id: i32) -> Option<Self> {
+        match id {
+            5 => Some(Self::Beat5K),
+            7 => Some(Self::Beat7K),
+            10 => Some(Self::Beat10K),
+            14 => Some(Self::Beat14K),
+            9 => Some(Self::PopN9K),
+            25 => Some(Self::Keyboard24K),
+            50 => Some(Self::Keyboard24KDouble),
+            _ => None,
+        }
+    }
+
     /// Returns true if the given lane index is a scratch key.
     ///
     /// Matches Java `Mode.isScratchKey(int key)`.
