@@ -707,6 +707,7 @@ mod tests {
             stop_events: Vec::new(),
             timelines: Vec::new(),
             notes,
+            bg_notes: Vec::new(),
             wav_defs: Default::default(),
             bmp_defs: Default::default(),
             md5: String::new(),

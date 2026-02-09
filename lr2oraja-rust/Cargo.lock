@@ -1695,6 +1695,7 @@ dependencies = [
  "anyhow",
  "bms-config",
  "bms-model",
+ "encoding_rs",
  "image",
  "mlua",
  "serde",
