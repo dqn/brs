@@ -41,3 +41,31 @@ pub struct PlayableRandomTestCase {
     pub mapping: Vec<usize>,
     pub is_fallback: bool,
 }
+
+// =========================================================================
+// Battle
+// =========================================================================
+
+#[derive(Debug, Deserialize)]
+pub struct BattleFixture {
+    pub test_cases: Vec<BattleTestCase>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BattleTestCase {
+    pub name: String,
+    pub mode: String,
+    pub input_notes: Vec<BattleNote>,
+    pub output_notes: Vec<BattleNote>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct BattleNote {
+    pub lane: usize,
+    pub time_us: i64,
+    #[serde(rename = "type")]
+    pub note_type: String,
+    pub wav_id: u32,
+    #[serde(default)]
+    pub end_time_us: Option<i64>,
+}

@@ -352,12 +352,25 @@ impl PatternModifier for PlayerBattleShuffle {
         let original_len = model.notes.len();
 
         // Clone 1P notes to 2P
+        //
+        // Java's Battle clone logic for LN end notes uses the paired
+        // start note's wav_id (via pair traversal). We replicate this:
+        // LN end clones get wav_id from the corresponding start note.
         let clones: Vec<_> = model.notes[..original_len]
             .iter()
-            .map(|n| {
+            .enumerate()
+            .map(|(i, n)| {
                 let mut c = n.clone();
                 c.lane += half;
                 c.pair_index = usize::MAX; // will be fixed below
+                // Java compatibility: LN end clones inherit start note's wav_id
+                if n.is_long_note() && n.end_time_us == 0 {
+                    // This is an LN end note — find its paired start note
+                    let pair_idx = model.notes[i].pair_index;
+                    if pair_idx != usize::MAX && pair_idx < original_len {
+                        c.wav_id = model.notes[pair_idx].wav_id;
+                    }
+                }
                 c
             })
             .collect();

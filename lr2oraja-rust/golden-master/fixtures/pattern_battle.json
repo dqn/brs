@@ -1,0 +1,330 @@
+{
+  "test_cases" : [ {
+    "name" : "normal_only",
+    "mode" : "beat-14k",
+    "input_notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 3,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    }, {
+      "lane" : 7,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 3
+    } ],
+    "output_notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 3,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    }, {
+      "lane" : 8,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 11,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    }, {
+      "lane" : 7,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 3
+    }, {
+      "lane" : 15,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 3
+    } ]
+  }, {
+    "name" : "with_2p_notes",
+    "mode" : "beat-14k",
+    "input_notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 3,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    }, {
+      "lane" : 8,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 10
+    }, {
+      "lane" : 12,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 11
+    } ],
+    "output_notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 3,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    }, {
+      "lane" : 8,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 11,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    } ]
+  }, {
+    "name" : "longnote_pair",
+    "mode" : "beat-14k",
+    "input_notes" : [ {
+      "lane" : 2,
+      "time_us" : 1000000,
+      "type" : "LongNote",
+      "wav_id" : 5,
+      "end_time_us" : 2000000
+    }, {
+      "lane" : 2,
+      "time_us" : 2000000,
+      "type" : "LongNote",
+      "wav_id" : 6,
+      "end_time_us" : -1
+    } ],
+    "output_notes" : [ {
+      "lane" : 2,
+      "time_us" : 1000000,
+      "type" : "LongNote",
+      "wav_id" : 5,
+      "end_time_us" : 2000000
+    }, {
+      "lane" : 10,
+      "time_us" : 1000000,
+      "type" : "LongNote",
+      "wav_id" : 5,
+      "end_time_us" : 2000000
+    }, {
+      "lane" : 2,
+      "time_us" : 2000000,
+      "type" : "LongNote",
+      "wav_id" : 6,
+      "end_time_us" : -1
+    }, {
+      "lane" : 10,
+      "time_us" : 2000000,
+      "type" : "LongNote",
+      "wav_id" : 5,
+      "end_time_us" : -1
+    } ]
+  }, {
+    "name" : "mixed",
+    "mode" : "beat-14k",
+    "input_notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 2,
+      "time_us" : 1000000,
+      "type" : "LongNote",
+      "wav_id" : 5,
+      "end_time_us" : 2000000
+    }, {
+      "lane" : 5,
+      "time_us" : 1500000,
+      "type" : "Normal",
+      "wav_id" : 3
+    }, {
+      "lane" : 2,
+      "time_us" : 2000000,
+      "type" : "LongNote",
+      "wav_id" : 6,
+      "end_time_us" : -1
+    }, {
+      "lane" : 7,
+      "time_us" : 3000000,
+      "type" : "Normal",
+      "wav_id" : 4
+    } ],
+    "output_notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 2,
+      "time_us" : 1000000,
+      "type" : "LongNote",
+      "wav_id" : 5,
+      "end_time_us" : 2000000
+    }, {
+      "lane" : 8,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 10,
+      "time_us" : 1000000,
+      "type" : "LongNote",
+      "wav_id" : 5,
+      "end_time_us" : 2000000
+    }, {
+      "lane" : 5,
+      "time_us" : 1500000,
+      "type" : "Normal",
+      "wav_id" : 3
+    }, {
+      "lane" : 13,
+      "time_us" : 1500000,
+      "type" : "Normal",
+      "wav_id" : 3
+    }, {
+      "lane" : 2,
+      "time_us" : 2000000,
+      "type" : "LongNote",
+      "wav_id" : 6,
+      "end_time_us" : -1
+    }, {
+      "lane" : 10,
+      "time_us" : 2000000,
+      "type" : "LongNote",
+      "wav_id" : 5,
+      "end_time_us" : -1
+    }, {
+      "lane" : 7,
+      "time_us" : 3000000,
+      "type" : "Normal",
+      "wav_id" : 4
+    }, {
+      "lane" : 15,
+      "time_us" : 3000000,
+      "type" : "Normal",
+      "wav_id" : 4
+    } ]
+  }, {
+    "name" : "sp_noop",
+    "mode" : "beat-7k",
+    "input_notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 3,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    } ],
+    "output_notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 3,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    } ]
+  }, {
+    "name" : "multi_timeline",
+    "mode" : "beat-14k",
+    "input_notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 1,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    }, {
+      "lane" : 3,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 3
+    }, {
+      "lane" : 5,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 4
+    }, {
+      "lane" : 7,
+      "time_us" : 3000000,
+      "type" : "Normal",
+      "wav_id" : 5
+    } ],
+    "output_notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 1,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    }, {
+      "lane" : 8,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 1
+    }, {
+      "lane" : 9,
+      "time_us" : 1000000,
+      "type" : "Normal",
+      "wav_id" : 2
+    }, {
+      "lane" : 3,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 3
+    }, {
+      "lane" : 5,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 4
+    }, {
+      "lane" : 11,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 3
+    }, {
+      "lane" : 13,
+      "time_us" : 2000000,
+      "type" : "Normal",
+      "wav_id" : 4
+    }, {
+      "lane" : 7,
+      "time_us" : 3000000,
+      "type" : "Normal",
+      "wav_id" : 5
+    }, {
+      "lane" : 15,
+      "time_us" : 3000000,
+      "type" : "Normal",
+      "wav_id" : 5
+    } ]
+  } ]
+}
