@@ -368,11 +368,31 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 参照: `SpriteBatchHelper.java`, `ShaderManager.java`, `MessageRenderer.java`
 
-- [ ] **10-1. Bevy セットアップ** (window, camera, render pipeline)
-- [ ] **10-2. スプライトバッチ** (Bevy Sprite)
-- [ ] **10-3. ブレンドモード** (Alpha, Additive)
+- [x] **10-1. Bevy セットアップ** (window, camera, render pipeline)
+  - [x] `plugin.rs` — BmsRenderPlugin (Camera2d, skin_render_system)
+  - [x] `coord.rs` — 座標変換 (skin 左上原点 → Bevy 中央原点, SkinRect/ScreenSize/RotationParams 構造体)
+  - [x] 10 テスト通過
+- [x] **10-2. スプライトバッチ** (Bevy Sprite)
+  - [x] `texture_map.rs` — ImageHandle → Handle\<Image\> + dimensions マッピング (6 テスト)
+  - [x] `image_loader_bevy.rs` — BevyImageLoader (ImageLoader trait 実装, image crate → Bevy Image 変換)
+  - [x] `skin_renderer.rs` — SkinRenderState (Resource), setup_skin(), skin_render_system() (10 テスト)
+  - [x] `state_provider.rs` — SkinStateProvider trait + StaticStateProvider (15 テスト)
+  - [x] `draw/` モジュール — 7 サブモジュール (image, number, slider, graph, text, gauge, visualizer)
+    - [x] image: SkinImage 描画 (6 テスト)
+    - [x] number: 桁分解 + alignment/padding (10 テスト)
+    - [x] slider: 4 方向オフセット (4 テスト)
+    - [x] graph: Right/Up クリップ (4 テスト)
+    - [x] text: alignment 計算 (3 テスト)
+    - [x] gauge: ノード描画 + red zone threshold (5 テスト)
+    - [x] visualizer: スタブ (Phase 11 依存)
+- [x] **10-3. ブレンドモード** (Alpha, Additive, Invert)
+  - [x] `blend.rs` — BlendState ヘルパー (alpha/additive/invert, 5 テスト)
 - [ ] **10-4. フォントレンダリング** (TTF + ビットマップ)
+  - [ ] ビットマップフォント (.fnt) ローダー — Phase 11 以降で追加
+  - [ ] distance_field シェーダ — Phase 11 以降で追加
 - [ ] **10-5. テスト**: Screenshot + SSIM 比較 (image-compare crate)
+  - [ ] Bevy headless rendering でフレームバッファキャプチャ — GPU 環境依存のため後回し
+- [x] **10-6. テスト** — 82 テスト通過, clippy clean, fmt applied
 
 ### Phase 11: State Machine (`brs`)
 
