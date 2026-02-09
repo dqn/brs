@@ -294,12 +294,15 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 参照: `BMSPlayerInputProcessor.java`, `KeyBoardInputProcesseor.java`, `BMControllerInputProcessor.java`, `MidiInputProcessor.java`
 
-- [ ] **7-1. キーボード入力** (winit)
-- [ ] **7-2. ゲームパッド入力** (gilrs)
-- [ ] **7-3. MIDI 入力** (midir)
-- [ ] **7-4. マウススクラッチ**
-- [ ] **7-5. KeyInputLog** serialize/deserialize
-- [ ] **7-6. キーマッピング設定**
+- [x] **7-1. Core types** — device.rs (DeviceType, InputEvent), controller_keys.rs (bm_keys), control_keys.rs (ControlKeys 31種), key_command.rs (KeyCommand 15種)
+- [x] **7-2. KeyStateManager** — key_state.rs (256 key states, timestamps, analog tracking, 14 tests)
+- [x] **7-3. AnalogScratch** — analog_scratch.rs (V1/V2 algorithms, compute_analog_diff, 18 tests)
+- [x] **7-4. キーボード入力** — keyboard.rs (KeyboardBackend trait, VirtualKeyboardBackend, debounce, 14 tests)
+- [x] **7-5. マウススクラッチ** — mouse_scratch.rs (MouseBackend trait, V1/V2 algorithms, MouseToAnalog, 16 tests)
+- [x] **7-6. ゲームパッド入力** — controller.rs (poll_with generic, JKOC hack, analog scratch, 11 tests)
+- [x] **7-7. MIDI 入力** — midi.rs (midir + mpsc, NOTE_ON/OFF, PITCH_BEND 14-bit, CC, 17 tests)
+- [x] **7-8. InputProcessor + Autoplay** — input_processor.rs (key state + key logger orchestration, 14 tests), autoplay.rs (create_autoplay_log with BSS, 8 tests)
+- [x] **7-9. Quality checks** — 121 tests passed, clippy clean, fmt applied
 
 ### Phase 8: Audio (`bms-audio`)
 
