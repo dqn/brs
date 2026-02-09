@@ -1,0 +1,347 @@
+// MusicDecide state — ported from Java MusicDecide.java.
+//
+// Simplest full state: loads skin, runs timer-based sequence, transitions.
+// Skin loading and sound playback are deferred to later sub-phases.
+
+use tracing::info;
+
+use bms_skin::property_id::{TIMER_FADEOUT, TIMER_STARTINPUT};
+
+use crate::app_state::AppStateType;
+use crate::state::{GameStateHandler, StateContext};
+
+/// Default input delay in milliseconds (skin.getInput() placeholder).
+const DEFAULT_INPUT_DELAY_MS: i64 = 500;
+/// Default scene duration in milliseconds (skin.getScene() placeholder).
+const DEFAULT_SCENE_DURATION_MS: i64 = 3000;
+/// Default fadeout duration in milliseconds (skin.getFadeout() placeholder).
+const DEFAULT_FADEOUT_DURATION_MS: i64 = 500;
+
+/// Music decide state — brief interstitial between song selection and play.
+pub struct MusicDecideState {
+    cancel: bool,
+}
+
+impl MusicDecideState {
+    pub fn new() -> Self {
+        Self { cancel: false }
+    }
+}
+
+impl Default for MusicDecideState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GameStateHandler for MusicDecideState {
+    fn create(&mut self, ctx: &mut StateContext) {
+        self.cancel = false;
+        info!("MusicDecide: create");
+        // TODO: loadSkin(SkinType::DECIDE) — deferred to later sub-phase
+        ctx.resource.org_gauge_option = ctx.player_config.gauge;
+    }
+
+    fn prepare(&mut self, _ctx: &mut StateContext) {
+        info!("MusicDecide: prepare");
+        // TODO: play(DECIDE) — system sound deferred to later sub-phase
+    }
+
+    fn render(&mut self, ctx: &mut StateContext) {
+        let now = ctx.timer.now_time();
+
+        // Enable input after initial delay
+        if now > DEFAULT_INPUT_DELAY_MS {
+            ctx.timer.switch_timer(TIMER_STARTINPUT, true);
+        }
+
+        // Check fadeout -> transition
+        if ctx.timer.is_timer_on(TIMER_FADEOUT) {
+            if ctx.timer.now_time_of(TIMER_FADEOUT) > DEFAULT_FADEOUT_DURATION_MS {
+                let next = if self.cancel {
+                    AppStateType::MusicSelect
+                } else {
+                    AppStateType::Play
+                };
+                info!(next = %next, cancel = self.cancel, "MusicDecide: transition");
+                *ctx.transition = Some(next);
+            }
+        } else if now > DEFAULT_SCENE_DURATION_MS {
+            info!("MusicDecide: scene timer expired, starting fadeout");
+            ctx.timer.set_timer_on(TIMER_FADEOUT);
+        }
+    }
+
+    fn input(&mut self, ctx: &mut StateContext) {
+        if ctx.timer.is_timer_on(TIMER_FADEOUT) || !ctx.timer.is_timer_on(TIMER_STARTINPUT) {
+            return;
+        }
+
+        // TODO: Real input checking via BMSPlayerInputProcessor.
+        // For now, input is only handled through test helpers.
+        let _ = ctx;
+    }
+
+    fn shutdown(&mut self, _ctx: &mut StateContext) {
+        info!("MusicDecide: shutdown");
+    }
+}
+
+/// Test helper: simulates confirm input (key press to proceed to Play).
+#[cfg(test)]
+impl MusicDecideState {
+    pub(crate) fn confirm(&mut self, ctx: &mut StateContext) {
+        if !ctx.timer.is_timer_on(TIMER_FADEOUT) && ctx.timer.is_timer_on(TIMER_STARTINPUT) {
+            ctx.timer.set_timer_on(TIMER_FADEOUT);
+        }
+    }
+
+    pub(crate) fn cancel(&mut self, ctx: &mut StateContext) {
+        if !ctx.timer.is_timer_on(TIMER_FADEOUT) && ctx.timer.is_timer_on(TIMER_STARTINPUT) {
+            self.cancel = true;
+            ctx.timer.set_timer_on(TIMER_FADEOUT);
+        }
+    }
+
+    pub(crate) fn is_cancel(&self) -> bool {
+        self.cancel
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::player_resource::PlayerResource;
+    use crate::timer_manager::TimerManager;
+    use bms_config::{Config, PlayerConfig};
+
+    fn make_ctx<'a>(
+        timer: &'a mut TimerManager,
+        resource: &'a mut PlayerResource,
+        config: &'a Config,
+        player_config: &'a PlayerConfig,
+        transition: &'a mut Option<AppStateType>,
+    ) -> StateContext<'a> {
+        StateContext {
+            timer,
+            resource,
+            config,
+            player_config,
+            transition,
+        }
+    }
+
+    #[test]
+    fn create_resets_cancel() {
+        let mut state = MusicDecideState::new();
+        state.cancel = true;
+
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &player_config,
+            &mut transition,
+        );
+        state.create(&mut ctx);
+        assert!(!state.is_cancel());
+    }
+
+    #[test]
+    fn render_enables_input_after_delay() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        // Before delay
+        timer.set_now_micro_time(400_000); // 400ms
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &player_config,
+            &mut transition,
+        );
+        state.render(&mut ctx);
+        assert!(!timer.is_timer_on(TIMER_STARTINPUT));
+
+        // After delay
+        timer.set_now_micro_time(501_000); // 501ms
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &player_config,
+            &mut transition,
+        );
+        state.render(&mut ctx);
+        assert!(timer.is_timer_on(TIMER_STARTINPUT));
+    }
+
+    #[test]
+    fn render_starts_fadeout_after_scene_duration() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        timer.set_now_micro_time(3_001_000); // 3001ms
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &player_config,
+            &mut transition,
+        );
+        state.render(&mut ctx);
+        assert!(timer.is_timer_on(TIMER_FADEOUT));
+    }
+
+    #[test]
+    fn render_transitions_to_play_after_fadeout() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        // Set up: FADEOUT timer on at time 1000
+        timer.set_now_micro_time(1_000_000);
+        timer.set_timer_on(TIMER_FADEOUT);
+
+        // Advance past fadeout duration
+        timer.set_now_micro_time(1_501_000); // 501ms after FADEOUT
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &player_config,
+            &mut transition,
+        );
+        state.render(&mut ctx);
+        assert_eq!(transition, Some(AppStateType::Play));
+    }
+
+    #[test]
+    fn cancel_transitions_to_select() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        // Enable input and trigger cancel
+        timer.set_now_micro_time(600_000);
+        timer.switch_timer(TIMER_STARTINPUT, true);
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &player_config,
+            &mut transition,
+        );
+        state.cancel(&mut ctx);
+        assert!(state.is_cancel());
+        assert!(timer.is_timer_on(TIMER_FADEOUT));
+
+        // Advance past fadeout
+        timer.set_now_micro_time(1_200_000);
+        transition = None;
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &player_config,
+            &mut transition,
+        );
+        state.render(&mut ctx);
+        assert_eq!(transition, Some(AppStateType::MusicSelect));
+    }
+
+    #[test]
+    fn confirm_starts_fadeout() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        // Enable input
+        timer.set_now_micro_time(600_000);
+        timer.switch_timer(TIMER_STARTINPUT, true);
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &player_config,
+            &mut transition,
+        );
+        state.confirm(&mut ctx);
+        assert!(!state.is_cancel());
+        assert!(timer.is_timer_on(TIMER_FADEOUT));
+    }
+
+    #[test]
+    fn confirm_ignored_before_input_enabled() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        // Input not yet enabled
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &player_config,
+            &mut transition,
+        );
+        state.confirm(&mut ctx);
+        assert!(!timer.is_timer_on(TIMER_FADEOUT));
+    }
+
+    #[test]
+    fn confirm_ignored_during_fadeout() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        // Enable input and start fadeout
+        timer.set_now_micro_time(600_000);
+        timer.switch_timer(TIMER_STARTINPUT, true);
+        timer.set_timer_on(TIMER_FADEOUT);
+        let fadeout_time = timer.micro_timer(TIMER_FADEOUT);
+
+        // Trying to confirm should not change anything
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &player_config,
+            &mut transition,
+        );
+        state.confirm(&mut ctx);
+        assert_eq!(timer.micro_timer(TIMER_FADEOUT), fadeout_time);
+    }
+}

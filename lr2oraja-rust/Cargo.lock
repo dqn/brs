@@ -1715,6 +1715,7 @@ name = "brs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bevy",
  "bms-audio",
  "bms-config",
  "bms-database",

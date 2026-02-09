@@ -20,6 +20,7 @@ bms-launcher.workspace = true
 bms-stream.workspace = true
 bms-download.workspace = true
 anyhow.workspace = true
+bevy.workspace = true
 clap.workspace = true
 tokio.workspace = true
 tracing.workspace = true
