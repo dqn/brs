@@ -87,13 +87,16 @@ brs/
   - [x] 全 crate の `Cargo.toml` + `src/lib.rs` スタブ作成 (bms-model, bms-rule, bms-pattern, bms-replay, bms-database, bms-config, bms-input, bms-audio, bms-skin, bms-render, bms-ir, bms-external, bms-launcher, bms-stream, bms-download, brs)
   - [x] `golden-master/` crate 作成
   - [x] `cargo check --workspace` 通過確認
-- [ ] **0-2. Java ビルド確認**
-  - [ ] `cd lr2oraja-java && git submodule update --init --recursive`
-  - [ ] `./gradlew core:compileJava` 成功
-- [ ] **0-3. Golden Master テストインフラ**
-  - [ ] Java: `GoldenMasterExporter` クラス作成 (CLI で JSON 出力)
-  - [ ] parse / judge / gauge モジュールの export 対応
-  - [ ] Rust: `golden-master/src/lib.rs` に比較ハーネス作成
+- [x] **0-2. Java ビルド確認**
+  - [x] `cd lr2oraja-java && git submodule update --init --recursive`
+  - [x] `./gradlew golden-master:compileJava` 成功 (core:compileJava は JavaFX 依存欠落のため失敗; golden-master サブプロジェクトで回避)
+- [x] **0-3. Golden Master テストインフラ**
+  - [x] Java: `GoldenMasterExporter` クラス作成 (CLI で JSON 出力) — `lr2oraja-java/golden-master/`
+  - [x] parse モジュールの export 対応 (全13テスト BMS の fixture JSON 生成済み)
+  - [ ] judge / gauge モジュールの export 対応 (Phase 2 で追加)
+  - [x] Rust: `golden-master/src/lib.rs` に比較ハーネス作成
+  - [x] Rust: `golden-master/tests/compare_fixtures.rs` に各テスト BMS の比較テスト作成
+  - [x] 4/11 テスト通過 (minimal_7k, 5key, 14key_dp, empty_measures), 7 テスト失敗 (bms-model パーサーバグ検出)
 - [x] **0-4. テスト用 BMS ファイル作成**
   - [x] `test-bms/minimal_7k.bms`
   - [x] `test-bms/longnote_types.bms`
@@ -134,8 +137,14 @@ brs/
 - [ ] **1-5. .bmson フォーマット対応**
 - [x] **1-6. ハッシュ計算** (MD5, SHA256)
 - [ ] **1-7. Golden Master テスト**
-  - [ ] Java で全テスト BMS をパース → fixture JSON 生成
-  - [ ] Rust パース結果と fixture 比較 (ノート数, タイムライン, BPM, ハッシュ)
+  - [x] Java で全テスト BMS をパース → fixture JSON 生成 (`just golden-master-gen`)
+  - [ ] Rust パース結果と fixture 比較 — 4/11 通過, 要修正:
+    - [ ] BPM 変更チャンネル (ch 08) のパースバグ (max_bpm=400 vs 180)
+    - [ ] STOP イベントのタイムライン計算バグ
+    - [ ] LongNote ペアリングバグ (ノート数不一致)
+    - [ ] 地雷ノート (D1-D9) のチャンネル番号解析バグ
+    - [ ] 9key PMS モード検出バグ (PopN9K vs Beat7K)
+    - [ ] Shift_JIS ハッシュ計算 (Java は MS932 DigestInputStream 経由)
   - [ ] LongNote pair 整合性テスト
 
 ### Phase 2: Rule Engine (`bms-rule`) — CRITICAL
