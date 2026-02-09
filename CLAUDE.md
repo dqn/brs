@@ -82,11 +82,11 @@ brs/
 ### Phase 0: Foundation
 
 - [ ] **0-0. CLAUDE.md** — (完了済み)
-- [ ] **0-1. Rust workspace 初期化**
-  - [ ] `lr2oraja-rust/Cargo.toml` (workspace) 作成
-  - [ ] 全 crate の `Cargo.toml` + `src/lib.rs` スタブ作成 (bms-model, bms-rule, bms-pattern, bms-replay, bms-database, bms-config, bms-input, bms-audio, bms-skin, bms-render, bms-ir, bms-external, bms-launcher, bms-stream, bms-download, brs)
-  - [ ] `golden-master/` crate 作成
-  - [ ] `cargo check --workspace` 通過確認
+- [x] **0-1. Rust workspace 初期化**
+  - [x] `lr2oraja-rust/Cargo.toml` (workspace) 作成
+  - [x] 全 crate の `Cargo.toml` + `src/lib.rs` スタブ作成 (bms-model, bms-rule, bms-pattern, bms-replay, bms-database, bms-config, bms-input, bms-audio, bms-skin, bms-render, bms-ir, bms-external, bms-launcher, bms-stream, bms-download, brs)
+  - [x] `golden-master/` crate 作成
+  - [x] `cargo check --workspace` 通過確認
 - [ ] **0-2. Java ビルド確認**
   - [ ] `cd lr2oraja-java && git submodule update --init --recursive`
   - [ ] `./gradlew core:compileJava` 成功
@@ -94,18 +94,18 @@ brs/
   - [ ] Java: `GoldenMasterExporter` クラス作成 (CLI で JSON 出力)
   - [ ] parse / judge / gauge モジュールの export 対応
   - [ ] Rust: `golden-master/src/lib.rs` に比較ハーネス作成
-- [ ] **0-4. テスト用 BMS ファイル作成**
-  - [ ] `test-bms/minimal_7k.bms`
-  - [ ] `test-bms/longnote_types.bms`
-  - [ ] `test-bms/bpm_change.bms`
-  - [ ] `test-bms/stop_sequence.bms`
-  - [ ] `test-bms/mine_notes.bms`
-  - [ ] `test-bms/empty_measures.bms`
-  - [ ] `test-bms/5key.bms`, `test-bms/9key_pms.bms`, `test-bms/14key_dp.bms`
-  - [ ] `test-bms/scratch_bss.bms`
-  - [ ] `test-bms/random_if.bms`
-  - [ ] `test-bms/encoding_sjis.bms`, `test-bms/encoding_utf8.bms`
-- [ ] **0-5. justfile 作成**
+- [x] **0-4. テスト用 BMS ファイル作成**
+  - [x] `test-bms/minimal_7k.bms`
+  - [x] `test-bms/longnote_types.bms`
+  - [x] `test-bms/bpm_change.bms`
+  - [x] `test-bms/stop_sequence.bms`
+  - [x] `test-bms/mine_notes.bms`
+  - [x] `test-bms/empty_measures.bms`
+  - [x] `test-bms/5key.bms`, `test-bms/9key_pms.bms`, `test-bms/14key_dp.bms`
+  - [x] `test-bms/scratch_bss.bms`
+  - [x] `test-bms/random_if.bms`
+  - [x] `test-bms/encoding_sjis.bms`, `test-bms/encoding_utf8.bms`
+- [x] **0-5. justfile 作成**
 
 ### Phase 1: BMS Data Model (`bms-model`)
 
