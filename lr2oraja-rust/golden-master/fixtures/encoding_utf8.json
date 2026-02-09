@@ -1,10 +1,10 @@
 {
   "metadata" : {
-    "title" : "UTF-8繧ｨ繝ｳ繧ｳ繝ｼ繝�繧｣繝ｳ繧ｰ繝�繧ｹ繝�",
+    "title" : "UTF-8エンコーディングテスト",
     "subtitle" : "",
-    "artist" : "繝�繧ｹ繝井ｽ懆��",
+    "artist" : "テスト作者",
     "sub_artist" : "",
-    "genre" : "繝�繧ｹ繝医ず繝｣繝ｳ繝ｫ",
+    "genre" : "テストジャンル",
     "initial_bpm" : 120.0,
     "judge_rank" : 2,
     "judge_rank_type" : "BMS_RANK",

@@ -95,19 +95,31 @@ fn golden_master_encoding_sjis() {
     run_golden_master_test("encoding_sjis.bms");
 }
 
-// encoding_utf8: Java BMSDecoder hardcodes MS932 encoding, so Japanese
-// metadata is garbled. Hashes also differ because Java reads through MS932
-// DigestInputStream. Skipped until Java-side encoding detection is added.
 #[test]
-#[ignore]
 fn golden_master_encoding_utf8() {
     run_golden_master_test("encoding_utf8.bms");
 }
 
-// random_if: #RANDOM generates non-deterministic values, so note counts
-// differ between runs. Needs fixed-seed support to test.
 #[test]
-#[ignore]
 fn golden_master_random_if() {
-    run_golden_master_test("random_if.bms");
+    // Uses fixed selectedRandoms=[1] to select #IF 1 branch deterministically.
+    // Matching random_seeds.json on the Java side.
+    let fixture_path = fixtures_dir().join("random_if.json");
+    let bms_path = test_bms_dir().join("random_if.bms");
+
+    assert!(
+        fixture_path.exists(),
+        "Fixture not found: {}",
+        fixture_path.display()
+    );
+    assert!(
+        bms_path.exists(),
+        "BMS file not found: {}",
+        bms_path.display()
+    );
+
+    let fixture = load_fixture(&fixture_path).expect("Failed to load fixture");
+    let model = BmsDecoder::decode_with_randoms(&bms_path, &[1]).expect("Failed to parse BMS");
+
+    assert_model_matches_fixture(&model, &fixture);
 }

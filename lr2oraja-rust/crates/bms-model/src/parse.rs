@@ -11,6 +11,14 @@ use crate::timeline::{BpmChange, StopEvent, TimeLine};
 /// BMS file decoder
 pub struct BmsDecoder;
 
+/// Tracks #RANDOM state with optional fixed selections
+struct RandomResolver {
+    /// Pre-selected values (index into this as #RANDOM commands are encountered)
+    selected: Option<Vec<i32>>,
+    /// Count of #RANDOM commands seen so far
+    count: usize,
+}
+
 /// Internal representation of a channel event during parsing
 #[derive(Debug, Clone)]
 struct ChannelEvent {
@@ -26,6 +34,28 @@ struct LnState {
     time_us: i64,
 }
 
+impl RandomResolver {
+    fn new(selected: Option<Vec<i32>>) -> Self {
+        Self { selected, count: 0 }
+    }
+
+    /// Resolve the next #RANDOM value
+    fn next(&mut self, bound: i32) -> i32 {
+        let value = if let Some(ref selected) = self.selected {
+            // Use pre-selected value if available
+            if self.count < selected.len() {
+                selected[self.count]
+            } else {
+                simple_random(bound)
+            }
+        } else {
+            simple_random(bound)
+        };
+        self.count += 1;
+        value
+    }
+}
+
 impl BmsDecoder {
     pub fn decode(path: &Path) -> Result<BmsModel> {
         let raw_bytes = std::fs::read(path)?;
@@ -36,13 +66,32 @@ impl BmsDecoder {
         Ok(model)
     }
 
+    /// Decode with pre-selected #RANDOM values (for deterministic golden master testing)
+    pub fn decode_with_randoms(path: &Path, selected_randoms: &[i32]) -> Result<BmsModel> {
+        let raw_bytes = std::fs::read(path)?;
+        let content = detect_encoding_and_decode(&raw_bytes);
+        let mut model =
+            Self::decode_str_with_randoms(&content, path, Some(selected_randoms.to_vec()))?;
+        compute_hashes(&raw_bytes, &mut model);
+        Ok(model)
+    }
+
     pub fn decode_str(content: &str, path: &Path) -> Result<BmsModel> {
+        Self::decode_str_with_randoms(content, path, None)
+    }
+
+    fn decode_str_with_randoms(
+        content: &str,
+        path: &Path,
+        selected_randoms: Option<Vec<i32>>,
+    ) -> Result<BmsModel> {
         let mut model = BmsModel::default();
         let mut events: Vec<ChannelEvent> = Vec::new();
         let mut measure_lengths: HashMap<u32, f64> = HashMap::new();
         let mut extended_bpms: HashMap<u16, f64> = HashMap::new();
         let mut stop_defs: HashMap<u16, i64> = HashMap::new();
         let mut random_stack: Vec<RandomState> = Vec::new();
+        let mut random_resolver = RandomResolver::new(selected_randoms);
         let mut max_measure: u32 = 0;
 
         // Track which key channels are used for mode detection
@@ -63,7 +112,7 @@ impl BmsDecoder {
 
                 if let Some(rest) = upper.strip_prefix("RANDOM ") {
                     let bound: i32 = rest.trim().parse().unwrap_or(1);
-                    let value = simple_random(bound);
+                    let value = random_resolver.next(bound);
                     random_stack.push(RandomState {
                         bound,
                         value,
@@ -948,5 +997,135 @@ mod tests {
             assert_eq!(model.mode, PlayMode::Beat14K);
             assert_eq!(model.player, 3);
         }
+    }
+
+    // --- LN pair integrity tests ---
+
+    /// Helper to decode inline BMS content with a .bms dummy path
+    fn decode_inline(content: &str) -> BmsModel {
+        BmsDecoder::decode_str(content, Path::new("test.bms")).unwrap()
+    }
+
+    #[test]
+    fn test_ln_pair_basic() {
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#WAV01 test.wav
+#00151:01000001
+";
+        let model = decode_inline(bms);
+        let lns: Vec<&Note> = model.notes.iter().filter(|n| n.is_long_note()).collect();
+        assert_eq!(lns.len(), 1, "should have exactly 1 LN");
+        let ln = lns[0];
+        assert!(
+            ln.end_time_us > ln.time_us,
+            "end_time_us must be after time_us"
+        );
+        assert!(ln.is_long_note());
+        assert_eq!(ln.note_type, crate::note::NoteType::LongNote);
+    }
+
+    #[test]
+    fn test_ln_pair_sequential() {
+        // Two consecutive LNs on the same lane (ch51) across two measures
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#WAV01 test.wav
+#00151:01000001
+#00251:01000001
+";
+        let model = decode_inline(bms);
+        let lns: Vec<&Note> = model.notes.iter().filter(|n| n.is_long_note()).collect();
+        assert_eq!(lns.len(), 2, "should have 2 LNs");
+        // Second LN starts after first LN ends
+        assert!(
+            lns[1].time_us >= lns[0].end_time_us,
+            "second LN should start at or after first LN ends"
+        );
+    }
+
+    #[test]
+    fn test_ln_pair_multi_lane() {
+        // Simultaneous LNs on ch51 (lane 0) and ch52 (lane 1)
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#WAV01 test.wav
+#WAV02 test.wav
+#00151:01000001
+#00152:02000002
+";
+        let model = decode_inline(bms);
+        let lns: Vec<&Note> = model.notes.iter().filter(|n| n.is_long_note()).collect();
+        assert_eq!(lns.len(), 2, "should have 2 LNs on different lanes");
+        let lanes: Vec<usize> = lns.iter().map(|n| n.lane).collect();
+        assert!(
+            lanes.contains(&0) || lanes.contains(&1),
+            "should have LNs on distinct lanes"
+        );
+        assert_ne!(lns[0].lane, lns[1].lane, "LNs should be on different lanes");
+    }
+
+    #[test]
+    fn test_ln_unclosed_dropped() {
+        // Only a start marker with no end → should NOT produce an LN
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#WAV01 test.wav
+#00151:01
+";
+        let model = decode_inline(bms);
+        let lns: Vec<&Note> = model.notes.iter().filter(|n| n.is_long_note()).collect();
+        assert_eq!(lns.len(), 0, "unclosed LN should not produce a note");
+    }
+
+    #[test]
+    fn test_ln_end_wav_id() {
+        // Start wav=01, end wav=02 → end_wav_id should be 2
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#WAV01 start.wav
+#WAV02 end.wav
+#00151:01000002
+";
+        let model = decode_inline(bms);
+        let lns: Vec<&Note> = model.notes.iter().filter(|n| n.is_long_note()).collect();
+        assert_eq!(lns.len(), 1, "should have 1 LN");
+        assert_eq!(lns[0].wav_id, 1, "start wav_id should be 1");
+        assert_eq!(lns[0].end_wav_id, 2, "end wav_id should be 2");
+    }
+
+    #[test]
+    fn test_ln_type_charge_note() {
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#LNTYPE 2
+#WAV01 test.wav
+#00151:01000001
+";
+        let model = decode_inline(bms);
+        let lns: Vec<&Note> = model.notes.iter().filter(|n| n.is_long_note()).collect();
+        assert_eq!(lns.len(), 1, "should have 1 LN");
+        assert_eq!(lns[0].note_type, crate::note::NoteType::ChargeNote);
+    }
+
+    #[test]
+    fn test_ln_type_hell_charge_note() {
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#LNTYPE 3
+#WAV01 test.wav
+#00151:01000001
+";
+        let model = decode_inline(bms);
+        let lns: Vec<&Note> = model.notes.iter().filter(|n| n.is_long_note()).collect();
+        assert_eq!(lns.len(), 1, "should have 1 LN");
+        assert_eq!(lns[0].note_type, crate::note::NoteType::HellChargeNote);
     }
 }
