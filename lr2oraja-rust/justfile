@@ -25,7 +25,11 @@ golden-master-test:
 golden-master-rule-gen:
     cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.RuleExporter --args="$(pwd)/../lr2oraja-rust/golden-master/fixtures"
 
-# Generate all GM fixtures (parse + rule)
-golden-master-gen-all: golden-master-gen golden-master-rule-gen
+# Generate pattern shuffle GM fixtures
+golden-master-pattern-gen:
+    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.PatternExporter --args="$(pwd)/../lr2oraja-rust/golden-master/fixtures"
+
+# Generate all GM fixtures (parse + rule + pattern)
+golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen
 
 all: check test clippy fmt-check

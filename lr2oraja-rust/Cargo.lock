@@ -2893,6 +2893,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bms-model",
+ "bms-pattern",
  "bms-rule",
  "serde",
  "serde_json",

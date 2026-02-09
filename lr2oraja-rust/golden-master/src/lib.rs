@@ -1,5 +1,6 @@
 // Golden master test infrastructure: Java fixture comparison harness
 
+pub mod pattern_fixtures;
 pub mod rule_fixtures;
 
 use std::path::Path;

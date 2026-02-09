@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 bms-model.workspace = true
 bms-rule.workspace = true
+bms-pattern.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

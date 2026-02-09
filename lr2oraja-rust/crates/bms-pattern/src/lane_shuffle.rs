@@ -602,15 +602,14 @@ impl PatternModifier for LanePlayableRandomShuffle {
 /// Search all 9! permutations for ones that avoid murioshi patterns.
 ///
 /// Uses Heap's algorithm (iterative) matching the Java implementation.
-fn search_no_murioshi_combinations(original_patterns: &[u32]) -> Vec<Vec<usize>> {
+pub fn search_no_murioshi_combinations(original_patterns: &[u32]) -> Vec<Vec<usize>> {
     let mut results = Vec::new();
     let mut indexes = [0usize; 9];
     let mut lane_numbers: [usize; 9] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
-    // Check initial identity permutation
-    if !has_murioshi(&lane_numbers, original_patterns) {
-        results.push(lane_numbers.to_vec());
-    }
+    // Java's Heap's algorithm does NOT check the initial identity permutation.
+    // The loop starts from the first swap, so identity is excluded unless it
+    // also appears as a swapped result (it never does in Heap's algorithm).
 
     let mut i = 0;
     while i < 9 {
@@ -1054,16 +1053,19 @@ mod tests {
 
     #[test]
     fn test_search_no_murioshi_empty_patterns() {
-        // No chord patterns -> all permutations valid (minus mirror)
+        // No chord patterns -> all permutations valid minus identity and mirror
+        // Java Heap's algorithm skips identity (loop starts after first swap),
+        // then removes mirror. Total: 9! - 2 = 362878
         let results = search_no_murioshi_combinations(&[]);
-        // 9! - 1 (mirror removed) = 362879
-        assert_eq!(results.len(), 362879);
+        assert_eq!(results.len(), 362878);
     }
 
     #[test]
-    fn test_search_no_murioshi_excludes_mirror() {
+    fn test_search_no_murioshi_excludes_identity_and_mirror() {
         let results = search_no_murioshi_combinations(&[]);
+        let identity = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
         let mirror = vec![8, 7, 6, 5, 4, 3, 2, 1, 0];
+        assert!(!results.contains(&identity));
         assert!(!results.contains(&mirror));
     }
 

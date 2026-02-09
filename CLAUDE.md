@@ -226,7 +226,7 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 - [ ] **3-3. NoteShuffleModifier**
   - [ ] タイムライン単位の置換
 - [x] **3-4. LongNote pair 整合性維持**
-- [ ] **3-5. GM テスト**: 固定 seed × 各パターン → 出力配列比較
+- [x] **3-5. GM テスト**: 固定 seed × 各パターン → 出力配列比較 (lane shuffle 102 + playable random 8 = 110 ケース通過)
 
 ### Phase 4: Replay / Ghost (`bms-replay`)
 

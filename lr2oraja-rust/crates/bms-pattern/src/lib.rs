@@ -7,7 +7,7 @@ pub mod modifier;
 pub use java_random::JavaRandom;
 pub use lane_shuffle::{
     LaneCrossShuffle, LaneMirrorShuffle, LanePlayableRandomShuffle, LaneRandomShuffle,
-    LaneRotateShuffle, PlayerBattleShuffle, PlayerFlipShuffle,
+    LaneRotateShuffle, PlayerBattleShuffle, PlayerFlipShuffle, search_no_murioshi_combinations,
 };
 pub use modifier::{
     AssistLevel, PatternModifier, PatternModifyLog, RandomType, RandomUnit, get_keys, get_random,
