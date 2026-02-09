@@ -1,0 +1,124 @@
+use serde::{Deserialize, Serialize};
+
+/// LN mode defined by #LNTYPE header
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum LnType {
+    #[default]
+    LongNote = 1,
+    ChargeNote = 2,
+    HellChargeNote = 3,
+}
+
+/// The type of a note
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum NoteType {
+    Normal,
+    LongNote,
+    ChargeNote,
+    HellChargeNote,
+    Mine,
+    Invisible,
+}
+
+/// A single note in the chart
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Note {
+    /// Lane index (0-indexed)
+    pub lane: usize,
+    /// Note type
+    pub note_type: NoteType,
+    /// Start time in microseconds
+    pub time_us: i64,
+    /// End time in microseconds (for LN/CN/HCN only, 0 for others)
+    pub end_time_us: i64,
+    /// WAV definition ID
+    pub wav_id: u16,
+    /// End WAV definition ID (for LN end)
+    pub end_wav_id: u16,
+    /// Damage value (for mine notes)
+    pub damage: i32,
+    /// Index of paired end note in the notes vec (for LN start only, usize::MAX if none)
+    pub pair_index: usize,
+}
+
+impl Note {
+    pub fn normal(lane: usize, time_us: i64, wav_id: u16) -> Self {
+        Self {
+            lane,
+            note_type: NoteType::Normal,
+            time_us,
+            end_time_us: 0,
+            wav_id,
+            end_wav_id: 0,
+            damage: 0,
+            pair_index: usize::MAX,
+        }
+    }
+
+    pub fn long_note(
+        lane: usize,
+        time_us: i64,
+        end_time_us: i64,
+        wav_id: u16,
+        end_wav_id: u16,
+        ln_type: LnType,
+    ) -> Self {
+        let note_type = match ln_type {
+            LnType::LongNote => NoteType::LongNote,
+            LnType::ChargeNote => NoteType::ChargeNote,
+            LnType::HellChargeNote => NoteType::HellChargeNote,
+        };
+        Self {
+            lane,
+            note_type,
+            time_us,
+            end_time_us,
+            wav_id,
+            end_wav_id,
+            damage: 0,
+            pair_index: usize::MAX,
+        }
+    }
+
+    pub fn mine(lane: usize, time_us: i64, wav_id: u16, damage: i32) -> Self {
+        Self {
+            lane,
+            note_type: NoteType::Mine,
+            time_us,
+            end_time_us: 0,
+            wav_id,
+            end_wav_id: 0,
+            damage,
+            pair_index: usize::MAX,
+        }
+    }
+
+    pub fn invisible(lane: usize, time_us: i64, wav_id: u16) -> Self {
+        Self {
+            lane,
+            note_type: NoteType::Invisible,
+            time_us,
+            end_time_us: 0,
+            wav_id,
+            end_wav_id: 0,
+            damage: 0,
+            pair_index: usize::MAX,
+        }
+    }
+
+    pub fn is_long_note(&self) -> bool {
+        matches!(
+            self.note_type,
+            NoteType::LongNote | NoteType::ChargeNote | NoteType::HellChargeNote
+        )
+    }
+
+    pub fn is_playable(&self) -> bool {
+        !matches!(self.note_type, NoteType::Mine | NoteType::Invisible)
+    }
+
+    /// Duration in microseconds (for LN types)
+    pub fn duration_us(&self) -> i64 {
+        self.end_time_us - self.time_us
+    }
+}
