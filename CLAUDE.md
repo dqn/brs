@@ -398,14 +398,26 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 参照: `MainController.java`, `MainState.java`, `TimerManager.java`, 各 State クラス
 
-- [ ] **11-1. MainState enum** (Select, Decide, Play, Result, CourseResult, KeyConfig, SkinConfig)
-- [ ] **11-2. TimerManager**
-- [ ] **11-3. MusicSelect state**
-- [ ] **11-4. MusicDecide state**
-- [ ] **11-5. Play state** (BMSPlayer)
-- [ ] **11-6. Result state**
-- [ ] **11-7. CourseResult state**
-- [ ] **11-8. KeyConfiguration / SkinConfiguration states**
+- [x] **11-1. MainState enum** (Select, Decide, Play, Result, CourseResult, KeyConfig, SkinConfig)
+  - [x] `AppStateType` enum + `StateRegistry` ステートマシン (5 テスト)
+  - [x] `GameStateHandler` trait (create/prepare/render/input/shutdown/dispose)
+  - [x] `StateContext` — タイマー・リソース・設定・遷移要求のコンテキスト
+- [x] **11-2. TimerManager**
+  - [x] Java TimerManager.java 忠実移植 (μs 精度, TIMER_OFF = i64::MIN)
+  - [x] reset/update/now_time/is_timer_on/set_timer_on/switch_timer/frozen (12 テスト)
+- [x] **11-3. MusicSelect state** (スタブ: BMS ロード済みなら即 Decide 遷移)
+- [x] **11-4. MusicDecide state**
+  - [x] タイマーベース scene/fadeout/input フロー (8 テスト)
+  - [x] confirm/cancel 入力ハンドリング
+- [x] **11-5. Play state** (スタブ: 即 Result 遷移)
+- [x] **11-6. Result state** (スタブ: 即 MusicSelect 遷移)
+- [x] **11-7. CourseResult state** (スタブ: 即 MusicSelect 遷移)
+- [x] **11-8. KeyConfiguration / SkinConfiguration states** (スタブ: 即 MusicSelect 遷移)
+- [x] **11-A. PlayerResource** — ステート間共有データコンテナ
+- [x] **11-B. SharedGameState + GameStateProvider** — SkinStateProvider 実装 (5 テスト)
+  - [x] `sync_timer_state()` — TimerManager → SharedGameState 同期
+- [x] **11-C. Bevy App 統合** — CLI `--bms`, システムチェーン, リソースラッパー
+- [x] **11-AB テスト** — 30 テスト通過, clippy clean, fmt applied
 - [ ] **11-9. E2E テスト**: パース → Judge → Gauge → ScoreData 一気通貫
 
 ### Phase 12: Internet Ranking (`bms-ir`)
