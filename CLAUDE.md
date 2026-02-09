@@ -145,11 +145,17 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 - [x] **1-3. エンコーディング対応**
   - [x] `encoding_rs` で Shift_JIS / EUC-JP / UTF-8 自動判定
 - [x] **1-4. #RANDOM / #IF 対応**
-- [ ] **1-5. .bmson フォーマット対応**
+- [x] **1-5. .bmson フォーマット対応**
+  - [x] `bmson.rs` — JSON デシリアライズ構造体 (Bmson, BmsInfo, SoundChannel, SoundNote, MineChannel, BpmEvent, StopEvent, etc.)
+  - [x] `bmson_decode.rs` — BmsonDecoder 実装 (Java BMSONDecoder.java 忠実再現)
+  - [x] `PlayMode::from_mode_hint()` — mode_hint 文字列からモード判定
+  - [x] テスト bmson ファイル 5 種作成 (minimal_7k, bpm_change, longnote, stop_sequence, mine_invisible)
+  - [x] Java GoldenMasterExporter に .bmson 対応追加 (BMSONDecoder 使用)
+  - [x] Golden Master テスト 5/5 通過 (wav_id 比較含む)
 - [x] **1-6. ハッシュ計算** (MD5, SHA256)
 - [x] **1-7. Golden Master テスト**
-  - [x] Java で全テスト BMS をパース → fixture JSON 生成 (`just golden-master-gen`)
-  - [x] Rust パース結果と fixture 比較 — 13/13 通過 (ignore 0件)
+  - [x] Java で全テスト BMS/bmson をパース → fixture JSON 生成 (`just golden-master-gen`)
+  - [x] Rust パース結果と fixture 比較 — 18/18 通過 (BMS 13 + bmson 5, ignore 0件)
     - [x] BPM 変更チャンネル (ch 03) の hex 変換修正 (base36→hex)
     - [x] STOP イベントの位置判定条件修正 (p <= pos → p < pos)
     - [x] ノート重複除去 (Normal > LN > Mine 優先度)

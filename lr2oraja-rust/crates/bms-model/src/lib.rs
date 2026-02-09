@@ -1,11 +1,15 @@
 // BMS chart data model: parser, note types, timeline, mode definitions
 
+#[allow(dead_code)]
+mod bmson;
+mod bmson_decode;
 mod mode;
 mod model;
 mod note;
 mod parse;
 mod timeline;
 
+pub use bmson_decode::BmsonDecoder;
 pub use mode::PlayMode;
 pub use model::BmsModel;
 pub use note::{LnType, Note, NoteType};

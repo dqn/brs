@@ -48,6 +48,21 @@ impl PlayMode {
         }
     }
 
+    /// Detect play mode from bmson mode_hint string
+    pub fn from_mode_hint(hint: &str) -> Option<Self> {
+        match hint {
+            "beat-5k" => Some(Self::Beat5K),
+            "beat-7k" => Some(Self::Beat7K),
+            "beat-10k" => Some(Self::Beat10K),
+            "beat-14k" => Some(Self::Beat14K),
+            "popn-5k" => Some(Self::PopN5K),
+            "popn-9k" => Some(Self::PopN9K),
+            "keyboard-24k" => Some(Self::Keyboard24K),
+            "keyboard-24k-double" => Some(Self::Keyboard24KDouble),
+            _ => None,
+        }
+    }
+
     /// Detect play mode from #PLAYER value and key usage
     pub fn from_player_and_keys(player: i32, max_key_channel: usize) -> Self {
         match player {

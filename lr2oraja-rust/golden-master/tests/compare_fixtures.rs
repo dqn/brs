@@ -1,9 +1,11 @@
-// Golden master tests: compare Rust BMS parser output against Java fixtures
+// Golden master tests: compare Rust BMS/bmson parser output against Java fixtures
 
 use std::path::Path;
 
-use bms_model::BmsDecoder;
-use golden_master::{assert_model_matches_fixture, load_fixture};
+use bms_model::{BmsDecoder, BmsonDecoder};
+use golden_master::{
+    assert_bmson_model_matches_fixture, assert_model_matches_fixture, load_fixture,
+};
 
 fn fixtures_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -122,4 +124,54 @@ fn golden_master_random_if() {
     let model = BmsDecoder::decode_with_randoms(&bms_path, &[1]).expect("Failed to parse BMS");
 
     assert_model_matches_fixture(&model, &fixture);
+}
+
+// --- bmson golden master tests ---
+
+/// Test a single bmson file against its Java fixture
+fn run_bmson_golden_master_test(bmson_name: &str) {
+    let fixture_name = bmson_name.replace(".bmson", ".json");
+    let fixture_path = fixtures_dir().join(&fixture_name);
+    let bmson_path = test_bms_dir().join(bmson_name);
+
+    assert!(
+        fixture_path.exists(),
+        "Fixture not found: {}",
+        fixture_path.display()
+    );
+    assert!(
+        bmson_path.exists(),
+        "bmson file not found: {}",
+        bmson_path.display()
+    );
+
+    let fixture = load_fixture(&fixture_path).expect("Failed to load fixture");
+    let model = BmsonDecoder::decode(&bmson_path).expect("Failed to parse bmson");
+
+    assert_bmson_model_matches_fixture(&model, &fixture);
+}
+
+#[test]
+fn golden_master_bmson_minimal_7k() {
+    run_bmson_golden_master_test("bmson_minimal_7k.bmson");
+}
+
+#[test]
+fn golden_master_bmson_bpm_change() {
+    run_bmson_golden_master_test("bmson_bpm_change.bmson");
+}
+
+#[test]
+fn golden_master_bmson_longnote() {
+    run_bmson_golden_master_test("bmson_longnote.bmson");
+}
+
+#[test]
+fn golden_master_bmson_stop_sequence() {
+    run_bmson_golden_master_test("bmson_stop_sequence.bmson");
+}
+
+#[test]
+fn golden_master_bmson_mine_invisible() {
+    run_bmson_golden_master_test("bmson_mine_invisible.bmson");
 }

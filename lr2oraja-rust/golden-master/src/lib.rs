@@ -371,10 +371,65 @@ pub fn compare_model(model: &bms_model::BmsModel, fixture: &Fixture) -> Vec<Stri
     diffs
 }
 
+/// Compare a bmson-decoded Rust BmsModel against a Java fixture.
+/// Unlike BMS, bmson wav_id has the same semantics (0-based channel index)
+/// so wav_id comparison is enabled.
+pub fn compare_model_bmson(model: &bms_model::BmsModel, fixture: &Fixture) -> Vec<String> {
+    let mut diffs = compare_model(model, fixture);
+
+    // Additional wav_id comparison (bmson uses same 0-based index in both Java and Rust)
+    let rust_notes: Vec<&bms_model::Note> = model.notes.iter().collect();
+    let fixture_notes = &fixture.notes;
+    let min_len = rust_notes.len().min(fixture_notes.len());
+
+    for i in 0..min_len {
+        let rn = rust_notes[i];
+        let fn_ = &fixture_notes[i];
+
+        if rn.wav_id as i32 != fn_.wav_id {
+            diffs.push(format!(
+                "note[{}] wav_id: rust={} java={}",
+                i, rn.wav_id, fn_.wav_id
+            ));
+        }
+
+        // LN end_wav_id comparison
+        if let Some(end_wav_id) = fn_.end_wav_id
+            && rn.is_long_note()
+            && end_wav_id >= 0
+            && rn.end_wav_id as i32 != end_wav_id
+        {
+            diffs.push(format!(
+                "note[{}] end_wav_id: rust={} java={}",
+                i, rn.end_wav_id, end_wav_id
+            ));
+        }
+    }
+
+    diffs
+}
+
 /// Assert that a Rust BmsModel matches a Java fixture.
 /// Panics with detailed diff if differences are found.
 pub fn assert_model_matches_fixture(model: &bms_model::BmsModel, fixture: &Fixture) {
     let diffs = compare_model(model, fixture);
+    if !diffs.is_empty() {
+        panic!(
+            "Golden master mismatch ({} differences):\n{}",
+            diffs.len(),
+            diffs
+                .iter()
+                .map(|d| format!("  - {}", d))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+    }
+}
+
+/// Assert that a bmson-decoded Rust BmsModel matches a Java fixture.
+/// Includes wav_id comparison since bmson uses the same semantics.
+pub fn assert_bmson_model_matches_fixture(model: &bms_model::BmsModel, fixture: &Fixture) {
+    let diffs = compare_model_bmson(model, fixture);
     if !diffs.is_empty() {
         panic!(
             "Golden master mismatch ({} differences):\n{}",

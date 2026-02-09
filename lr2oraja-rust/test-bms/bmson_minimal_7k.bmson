@@ -1,0 +1,51 @@
+{
+  "version": "1.0.0",
+  "info": {
+    "title": "Minimal 7K Bmson Test",
+    "subtitle": "",
+    "genre": "Test",
+    "artist": "brs-test",
+    "subartists": [],
+    "mode_hint": "beat-7k",
+    "chart_name": "",
+    "judge_rank": 100,
+    "total": 300.0,
+    "init_bpm": 120.0,
+    "level": 1,
+    "back_image": "",
+    "eyecatch_image": "",
+    "banner_image": "",
+    "preview_music": "",
+    "resolution": 240
+  },
+  "lines": [
+    {"y": 0},
+    {"y": 960},
+    {"y": 1920}
+  ],
+  "bpm_events": [],
+  "stop_events": [],
+  "scroll_events": [],
+  "sound_channels": [
+    {
+      "name": "kick.wav",
+      "notes": [
+        {"x": 1, "y": 0, "l": 0, "c": false, "t": 0, "up": false},
+        {"x": 2, "y": 240, "l": 0, "c": false, "t": 0, "up": false},
+        {"x": 3, "y": 480, "l": 0, "c": false, "t": 0, "up": false},
+        {"x": 4, "y": 720, "l": 0, "c": false, "t": 0, "up": false}
+      ]
+    },
+    {
+      "name": "snare.wav",
+      "notes": [
+        {"x": 5, "y": 960, "l": 0, "c": false, "t": 0, "up": false},
+        {"x": 6, "y": 1200, "l": 0, "c": false, "t": 0, "up": false},
+        {"x": 7, "y": 1440, "l": 0, "c": false, "t": 0, "up": false},
+        {"x": 8, "y": 1680, "l": 0, "c": false, "t": 0, "up": false}
+      ]
+    }
+  ],
+  "mine_channels": [],
+  "key_channels": []
+}

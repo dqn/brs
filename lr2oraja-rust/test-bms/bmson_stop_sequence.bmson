@@ -1,0 +1,39 @@
+{
+  "version": "1.0.0",
+  "info": {
+    "title": "STOP Sequence Bmson Test",
+    "subtitle": "",
+    "genre": "Test",
+    "artist": "brs-test",
+    "subartists": [],
+    "mode_hint": "beat-7k",
+    "chart_name": "",
+    "judge_rank": 100,
+    "total": 300.0,
+    "init_bpm": 120.0,
+    "level": 1,
+    "resolution": 240
+  },
+  "lines": [
+    {"y": 0},
+    {"y": 960},
+    {"y": 1920}
+  ],
+  "bpm_events": [],
+  "stop_events": [
+    {"y": 480, "duration": 240}
+  ],
+  "scroll_events": [],
+  "sound_channels": [
+    {
+      "name": "sound.wav",
+      "notes": [
+        {"x": 1, "y": 0, "l": 0, "c": false, "t": 0, "up": false},
+        {"x": 1, "y": 480, "l": 0, "c": false, "t": 0, "up": false},
+        {"x": 1, "y": 960, "l": 0, "c": false, "t": 0, "up": false}
+      ]
+    }
+  ],
+  "mine_channels": [],
+  "key_channels": []
+}
