@@ -308,12 +308,26 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 参照: `KeySoundProcessor.java`, `AbstractAudioDriver.java`, `BMSRenderer.java`, `BMSLoudnessAnalyzer.java`, PCM 系, `MSADPCMDecoder.java`, `FlacProcessor.java`
 
-- [ ] **8-1. PCM デコーダー** (WAV, OGG, FLAC, MS-ADPCM)
-- [ ] **8-2. キー音プロセッサー** (Kira)
-- [ ] **8-3. オーディオドライバー**
-- [ ] **8-4. ラウドネス解析**
-- [ ] **8-5. BGM レンダラー**
-- [ ] **8-6. テスト**: キー音発音タイミング + 音量計算
+- [x] **8-1. PCM デコーダー** (WAV, OGG, FLAC, MP3, MS-ADPCM)
+  - [x] `pcm.rs` — 統一 f32 PCM struct (change_sample_rate, change_channels, change_frequency, slice, strip_trailing_silence)
+  - [x] `msadpcm.rs` — MS-ADPCM デコーダー (Java MSADPCMDecoder.java 忠実移植)
+  - [x] `wav.rs` — WAV パーサー (PCM 8/16/24/32bit, MS-ADPCM, IEEE float, MP3-in-WAV)
+  - [x] `ogg.rs` — OGG Vorbis デコーダー (lewton)
+  - [x] `flac.rs` — FLAC デコーダー (claxon, 8/16/24/32bit)
+  - [x] `mp3.rs` — MP3 デコーダー (minimp3)
+  - [x] `decode.rs` — 統合ローダー (拡張子判定 + .wav→.flac→.ogg→.mp3 fallback)
+- [x] **8-2. キー音プロセッサー**
+  - [x] `key_sound.rs` — KeySoundProcessor (BGM 自動再生, タイムラインポインタ方式)
+- [x] **8-3. オーディオドライバー**
+  - [x] `driver.rs` — AudioDriver trait + OfflineAudioDriver (wav_map, slice_map, set_model)
+  - [x] channel_id = wav_id * 256 + pitch + 128 (Java 互換)
+  - [x] BgNote struct + bg_notes を bms-model に追加 (ch 0x01 パース + bmson BGM)
+  - [x] Note に micro_starttime, micro_duration 追加 (bmson 音切り対応)
+- [x] **8-4. ラウドネス解析**
+  - [x] `loudness.rs` — LoudnessAnalyzer (ebur128 LUFS + SHA256 キャッシュ)
+- [x] **8-5. BGM レンダラー**
+  - [x] `renderer.rs` — BmsRenderer (オフライン f32 バッファミックス, -6dB headroom)
+- [x] **8-6. テスト** — 52 テスト通過 (PCM 12 + MS-ADPCM 8 + WAV 6 + FLAC 3 + decode 4 + driver 3 + key_sound 3 + renderer 5 + loudness 5 + その他 3), clippy clean, fmt applied
 
 ### Phase 9: Skin System (`bms-skin`) — LARGEST
 
