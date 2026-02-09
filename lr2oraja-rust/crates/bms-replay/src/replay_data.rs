@@ -13,6 +13,7 @@ use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use serde::{Deserialize, Serialize};
 
+use bms_config::PlayConfig;
 use bms_pattern::PatternModifyLog;
 
 use crate::key_input_log::KeyInputLog;
@@ -72,9 +73,9 @@ pub struct ReplayData {
     /// DP option.
     #[serde(default)]
     pub doubleoption: i32,
-    /// Play config (placeholder until Phase 6).
+    /// Play config snapshot at time of play.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub config: Option<serde_json::Value>,
+    pub config: Option<PlayConfig>,
 }
 
 impl Default for ReplayData {

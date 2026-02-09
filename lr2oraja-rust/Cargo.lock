@@ -1660,6 +1660,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "bms-config",
  "bms-model",
  "bms-pattern",
  "flate2",
@@ -2897,6 +2898,7 @@ name = "golden-master"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bms-config",
  "bms-database",
  "bms-model",
  "bms-pattern",
