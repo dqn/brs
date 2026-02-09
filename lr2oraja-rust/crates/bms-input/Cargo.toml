@@ -1,0 +1,10 @@
+[package]
+name = "bms-input"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+gilrs.workspace = true
+midir.workspace = true
+serde.workspace = true

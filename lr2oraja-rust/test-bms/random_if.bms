@@ -1,0 +1,34 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE RANDOM/IF Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 1
+#RANK 2
+#TOTAL 300
+
+#WAV01 pattern_a.wav
+#WAV02 pattern_b.wav
+#WAV03 pattern_c.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- Always present
+#00111:01
+
+*--- Random section
+#RANDOM 3
+#IF 1
+#00211:01
+#ENDIF
+#IF 2
+#00211:02
+#ENDIF
+#IF 3
+#00211:03
+#ENDIF
+#ENDRANDOM
+
+*--- After random section (always present)
+#00311:01

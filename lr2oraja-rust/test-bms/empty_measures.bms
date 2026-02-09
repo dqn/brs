@@ -1,0 +1,27 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE Empty Measures Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 1
+#RANK 2
+#TOTAL 300
+
+#WAV01 note.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: Has notes
+#00011:01
+#00111:01
+
+*--- Measures 1-3: Empty (no data)
+
+*--- Measure 4: Has notes again
+#00411:01
+
+*--- Measure 5: Empty
+
+*--- Measure 6: Has notes
+#00611:01

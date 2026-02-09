@@ -1,0 +1,67 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/bms-model",
+    "crates/bms-rule",
+    "crates/bms-pattern",
+    "crates/bms-replay",
+    "crates/bms-database",
+    "crates/bms-config",
+    "crates/bms-input",
+    "crates/bms-audio",
+    "crates/bms-skin",
+    "crates/bms-render",
+    "crates/bms-ir",
+    "crates/bms-external",
+    "crates/bms-launcher",
+    "crates/bms-stream",
+    "crates/bms-download",
+    "crates/brs",
+    "golden-master",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+# Workspace crates
+bms-model = { path = "crates/bms-model" }
+bms-rule = { path = "crates/bms-rule" }
+bms-pattern = { path = "crates/bms-pattern" }
+bms-replay = { path = "crates/bms-replay" }
+bms-database = { path = "crates/bms-database" }
+bms-config = { path = "crates/bms-config" }
+bms-input = { path = "crates/bms-input" }
+bms-audio = { path = "crates/bms-audio" }
+bms-skin = { path = "crates/bms-skin" }
+bms-render = { path = "crates/bms-render" }
+bms-ir = { path = "crates/bms-ir" }
+bms-external = { path = "crates/bms-external" }
+bms-launcher = { path = "crates/bms-launcher" }
+bms-stream = { path = "crates/bms-stream" }
+bms-download = { path = "crates/bms-download" }
+
+# External dependencies
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+clap = { version = "4", features = ["derive", "env"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+encoding_rs = "0.8"
+rusqlite = { version = "0.32", features = ["bundled"] }
+kira = "0.9"
+mlua = { version = "0.10", features = ["lua54", "vendored"] }
+bevy = "0.15"
+gilrs = "0.11"
+midir = "0.10"
+reqwest = { version = "0.12", features = ["json"] }
+md5 = "0.7"
+sha2 = "0.10"
+rand = "0.9"
+image = "0.25"
+
+# Dev/test dependencies
+tempfile = "3"

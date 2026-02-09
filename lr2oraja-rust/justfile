@@ -1,0 +1,16 @@
+check:
+    cargo check --workspace
+
+test:
+    cargo test --workspace
+
+clippy:
+    cargo clippy --workspace -- -D warnings
+
+fmt:
+    cargo fmt --all
+
+fmt-check:
+    cargo fmt --all -- --check
+
+all: check test clippy fmt-check

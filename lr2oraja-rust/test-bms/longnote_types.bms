@@ -1,0 +1,23 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE LongNote Types Test
+#ARTIST brs-test
+#BPM 150
+#PLAYLEVEL 3
+#RANK 2
+#TOTAL 300
+#LNTYPE 1
+
+#WAV01 note1.wav
+#WAV02 note2.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- LNTYPE 1: RDM-style (start/end pairs on same channel)
+#00151:01000001
+#00152:02000002
+
+*--- Normal notes for comparison
+#00111:01
+#00212:02

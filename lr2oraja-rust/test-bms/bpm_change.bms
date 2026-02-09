@@ -1,0 +1,31 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE BPM Change Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 2
+#RANK 2
+#TOTAL 300
+
+#WAV01 note.wav
+#BPM01 180
+#BPM02 90
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: BPM 120 (initial)
+#00011:01
+#00111:01
+
+*--- Measure 1: BPM change to 180 via channel 03 (integer)
+#00103:B4
+#00111:01
+
+*--- Measure 2: BPM change to 90 via channel 08 (extended)
+#00208:02
+#00211:01
+
+*--- Measure 3: BPM change back to 120 via channel 08
+#00308:01
+#00311:01

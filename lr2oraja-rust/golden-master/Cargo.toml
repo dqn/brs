@@ -1,0 +1,14 @@
+[package]
+name = "golden-master"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bms-model.workspace = true
+bms-rule.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

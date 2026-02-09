@@ -1,0 +1,13 @@
+[package]
+name = "bms-skin"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bms-model.workspace = true
+bms-config.workspace = true
+anyhow.workspace = true
+mlua.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+image.workspace = true

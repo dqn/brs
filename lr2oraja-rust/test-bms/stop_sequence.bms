@@ -1,0 +1,32 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE STOP Sequence Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 2
+#RANK 2
+#TOTAL 300
+
+#WAV01 note.wav
+#STOP01 48
+#STOP02 96
+#STOP03 192
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: Normal
+#00011:01
+#00111:01
+
+*--- Measure 1: STOP at beginning (48 = 1/4 beat stop at BPM 120)
+#00109:01
+#00111:01
+
+*--- Measure 2: STOP at middle (96 = 1/2 beat stop)
+#00209:0002
+#00211:01
+
+*--- Measure 3: STOP = 192 (full beat stop)
+#00309:03
+#00311:01

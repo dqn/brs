@@ -1,0 +1,26 @@
+[package]
+name = "brs"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bms-model.workspace = true
+bms-rule.workspace = true
+bms-pattern.workspace = true
+bms-replay.workspace = true
+bms-database.workspace = true
+bms-config.workspace = true
+bms-input.workspace = true
+bms-audio.workspace = true
+bms-skin.workspace = true
+bms-render.workspace = true
+bms-ir.workspace = true
+bms-external.workspace = true
+bms-launcher.workspace = true
+bms-stream.workspace = true
+bms-download.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

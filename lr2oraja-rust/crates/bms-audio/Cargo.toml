@@ -1,0 +1,9 @@
+[package]
+name = "bms-audio"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bms-model.workspace = true
+anyhow.workspace = true
+kira.workspace = true

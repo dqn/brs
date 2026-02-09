@@ -1,0 +1,8 @@
+[package]
+name = "bms-launcher"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bms-config.workspace = true
+anyhow.workspace = true

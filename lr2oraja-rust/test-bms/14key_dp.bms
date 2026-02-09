@@ -1,0 +1,36 @@
+*---------------------- HEADER FIELD
+#PLAYER 3
+#GENRE Test
+#TITLE 14Key DP Test
+#ARTIST brs-test
+#BPM 150
+#PLAYLEVEL 5
+#RANK 2
+#TOTAL 300
+
+#WAV01 note1.wav
+#WAV02 note2.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- 1P side (channels 11-18)
+#00111:01
+#00112:02
+#00113:01
+#00114:02
+#00115:01
+#00116:02
+#00118:01
+
+*--- 2P side (channels 21-28)
+#00121:02
+#00122:01
+#00123:02
+#00124:01
+#00125:02
+#00126:01
+#00128:02
+
+*--- Measure 1: Both sides
+#00211:0102
+#00221:0201

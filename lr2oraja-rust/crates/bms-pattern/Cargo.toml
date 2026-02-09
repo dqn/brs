@@ -1,0 +1,12 @@
+[package]
+name = "bms-pattern"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bms-model.workspace = true
+anyhow.workspace = true
+rand.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

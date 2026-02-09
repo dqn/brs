@@ -1,0 +1,10 @@
+[package]
+name = "bms-render"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bms-skin.workspace = true
+anyhow.workspace = true
+bevy.workspace = true
+image.workspace = true

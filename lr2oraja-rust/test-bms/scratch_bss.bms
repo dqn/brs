@@ -1,0 +1,25 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE Scratch and BSS Test
+#ARTIST brs-test
+#BPM 130
+#PLAYLEVEL 4
+#RANK 2
+#TOTAL 300
+#LNTYPE 1
+
+#WAV01 scratch.wav
+#WAV02 note.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: Normal scratch on channel 16 (7key scratch lane)
+#00116:01
+
+*--- Measure 1: Normal notes + scratch
+#00111:02
+#00116:01
+
+*--- Measure 2: BSS (backspin scratch) - LN on scratch channel
+#00256:01000001

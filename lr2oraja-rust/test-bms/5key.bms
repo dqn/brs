@@ -1,0 +1,25 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE 5Key Test
+#ARTIST brs-test
+#BPM 130
+#PLAYLEVEL 1
+#RANK 2
+#TOTAL 300
+
+#WAV01 note1.wav
+#WAV02 note2.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- 5key uses channels 11-15 (no 16-18 scratch)
+#00111:01
+#00112:02
+#00113:01
+#00114:02
+#00115:01
+
+#00211:0102
+#00213:0201
+#00215:0102

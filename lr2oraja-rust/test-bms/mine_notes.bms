@@ -1,0 +1,29 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE Mine Notes Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 5
+#RANK 2
+#TOTAL 300
+
+#WAV01 note.wav
+#WAV02 mine.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: Normal notes
+#00111:01
+#00112:01
+
+*--- Measure 1: Mine notes on channel D1-D7 (damage value in WAV slot)
+#001D1:02
+#001D2:02
+#001D3:02
+
+*--- Measure 2: Mixed normal and mines
+#00211:01
+#002D2:02
+#00213:01
+#002D4:02
