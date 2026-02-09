@@ -1,0 +1,2825 @@
+{
+  "test_cases" : [ {
+    "mode" : "beat-14k",
+    "ln_type" : 0,
+    "key_count" : 16,
+    "timeline_times" : [ 0, 1600000, 3200000, 4000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 9,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 10,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 11,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 12,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 13,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 14,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 15,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 16,
+      "pressed" : false
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 3,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 5,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 7,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 8,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 9,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 10,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 11,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 12,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 13,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 14,
+      "pressed" : false
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 15,
+      "pressed" : true
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 8,
+      "pressed" : true
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 9,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 10,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 11,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 12,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 13,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 14,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 15,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 16,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 8,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 9,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 10,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 11,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 12,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 13,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 14,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 15,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 16,
+      "pressed" : false
+    } ],
+    "filename" : "14key_dp.bms"
+  }, {
+    "mode" : "beat-5k",
+    "ln_type" : 0,
+    "key_count" : 6,
+    "timeline_times" : [ 0, 1846153, 3692307, 4615384 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 3,
+      "pressed" : true
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4615384,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4615384,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4615384,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 4615384,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4615384,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 4615384,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4615384,
+      "keycode" : 6,
+      "pressed" : false
+    } ],
+    "filename" : "5key.bms"
+  }, {
+    "mode" : "beat-7k",
+    "ln_type" : 0,
+    "key_count" : 8,
+    "timeline_times" : [ 0, 1714285, 3428571, 4000000, 4571428 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 1714285,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 1714285,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 1714285,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 1714285,
+      "keycode" : 3,
+      "pressed" : true
+    }, {
+      "presstime" : 1714285,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 1714285,
+      "keycode" : 5,
+      "pressed" : true
+    }, {
+      "presstime" : 1714285,
+      "keycode" : 6,
+      "pressed" : true
+    }, {
+      "presstime" : 1714285,
+      "keycode" : 7,
+      "pressed" : true
+    }, {
+      "presstime" : 3428571,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 3428571,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 3428571,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 3428571,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 3428571,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 3428571,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 3428571,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 3428571,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 3428571,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 4571428,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4571428,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4571428,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4571428,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4571428,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 4571428,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4571428,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4571428,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4571428,
+      "keycode" : 8,
+      "pressed" : false
+    } ],
+    "filename" : "9key_pms.bms"
+  }, {
+    "mode" : "beat-7k",
+    "ln_type" : 0,
+    "key_count" : 8,
+    "timeline_times" : [ 0, 1000000, 2000000, 2666666, 3333333 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 2666666,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2666666,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2666666,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2666666,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2666666,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2666666,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2666666,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2666666,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 2666666,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 8,
+      "pressed" : false
+    } ],
+    "filename" : "bmson_bpm_change.bmson"
+  }, {
+    "mode" : "beat-7k",
+    "ln_type" : 0,
+    "key_count" : 8,
+    "timeline_times" : [ 0, 1000000, 2000000, 4000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 8,
+      "pressed" : false
+    } ],
+    "filename" : "bmson_longnote.bmson"
+  }, {
+    "mode" : "beat-7k",
+    "ln_type" : 0,
+    "key_count" : 8,
+    "timeline_times" : [ 0, 250000, 500000, 1000000, 1250000, 1500000, 2000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 250000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 250000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 250000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 250000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 250000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 250000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 250000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 250000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 250000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 1250000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 1250000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 1250000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 1250000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 1250000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 1250000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 1250000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1250000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 1250000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 8,
+      "pressed" : false
+    } ],
+    "filename" : "bmson_mine_invisible.bmson"
+  }, {
+    "mode" : "beat-7k",
+    "ln_type" : 0,
+    "key_count" : 8,
+    "timeline_times" : [ 0, 500000, 1000000, 1500000, 2000000, 2500000, 3000000, 3500000, 4000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 500000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 500000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 3,
+      "pressed" : true
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 1500000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 5,
+      "pressed" : true
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 3000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 3000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 3000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 3000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 3000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 3000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 3000000,
+      "keycode" : 6,
+      "pressed" : true
+    }, {
+      "presstime" : 3000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 3000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 3500000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 3500000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 3500000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 3500000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 3500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 3500000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 3500000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 3500000,
+      "keycode" : 7,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 8,
+      "pressed" : false
+    } ],
+    "filename" : "bmson_minimal_7k.bmson"
+  }, {
+    "mode" : "beat-7k",
+    "ln_type" : 0,
+    "key_count" : 8,
+    "timeline_times" : [ 0, 1000000, 2500000, 4500000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 1000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 2500000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 8,
+      "pressed" : false
+    } ],
+    "filename" : "bmson_stop_sequence.bmson"
+  }, {
+    "mode" : "beat-5k",
+    "ln_type" : 0,
+    "key_count" : 6,
+    "timeline_times" : [ 0, 2000000, 3333333, 6000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 3333333,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 6,
+      "pressed" : false
+    } ],
+    "filename" : "bpm_change.bms"
+  }, {
+    "mode" : "beat-5k",
+    "ln_type" : 0,
+    "key_count" : 6,
+    "timeline_times" : [ 0, 2000000, 4000000, 6000000, 8000000, 10000000, 12000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 8000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 8000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 8000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 8000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 8000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 8000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 8000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 10000000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 10000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 10000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 10000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 10000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 10000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 10000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 12000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 12000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 12000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 12000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 12000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 12000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 12000000,
+      "keycode" : 6,
+      "pressed" : false
+    } ],
+    "filename" : "empty_measures.bms"
+  }, {
+    "mode" : "beat-5k",
+    "ln_type" : 0,
+    "key_count" : 6,
+    "timeline_times" : [ 0, 2000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    } ],
+    "filename" : "encoding_sjis.bms"
+  }, {
+    "mode" : "beat-5k",
+    "ln_type" : 0,
+    "key_count" : 6,
+    "timeline_times" : [ 0, 2000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    } ],
+    "filename" : "encoding_utf8.bms"
+  }, {
+    "mode" : "beat-5k",
+    "ln_type" : 0,
+    "key_count" : 6,
+    "timeline_times" : [ 0, 1600000, 2800000, 3200000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 1600000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2800000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 2800000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2800000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2800000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2800000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2800000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2800000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 3200000,
+      "keycode" : 6,
+      "pressed" : false
+    } ],
+    "filename" : "longnote_types.bms"
+  }, {
+    "mode" : "beat-5k",
+    "ln_type" : 0,
+    "key_count" : 6,
+    "timeline_times" : [ 0, 2000000, 4000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 6,
+      "pressed" : false
+    } ],
+    "filename" : "mine_notes.bms"
+  }, {
+    "mode" : "beat-7k",
+    "ln_type" : 0,
+    "key_count" : 8,
+    "timeline_times" : [ 0, 2000000, 4000000, 5000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 7,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 8,
+      "pressed" : false
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 8,
+      "pressed" : false
+    } ],
+    "filename" : "minimal_7k.bms"
+  }, {
+    "mode" : "beat-5k",
+    "ln_type" : 0,
+    "key_count" : 6,
+    "timeline_times" : [ 0, 2000000, 4000000, 6000000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 6000000,
+      "keycode" : 6,
+      "pressed" : false
+    } ],
+    "filename" : "random_if.bms"
+  }, {
+    "mode" : "beat-5k",
+    "ln_type" : 0,
+    "key_count" : 6,
+    "timeline_times" : [ 0, 1846153, 3692307, 5076923 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 1846153,
+      "keycode" : 5,
+      "pressed" : true
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 3692307,
+      "keycode" : 5,
+      "pressed" : true
+    }, {
+      "presstime" : 5076923,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 5076923,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 5076923,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 5076923,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 5076923,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 5076923,
+      "keycode" : 5,
+      "pressed" : false
+    } ],
+    "filename" : "scratch_bss.bms"
+  }, {
+    "mode" : "beat-5k",
+    "ln_type" : 0,
+    "key_count" : 6,
+    "timeline_times" : [ 0, 2000000, 4500000, 5500000, 7500000 ],
+    "log" : [ {
+      "presstime" : 0,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 0,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 0,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 4500000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 5500000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 5500000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 5500000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 5500000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 5500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 5500000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 5500000,
+      "keycode" : 6,
+      "pressed" : false
+    }, {
+      "presstime" : 7500000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 7500000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 7500000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 7500000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 7500000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 7500000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 7500000,
+      "keycode" : 6,
+      "pressed" : false
+    } ],
+    "filename" : "stop_sequence.bms"
+  } ]
+}
