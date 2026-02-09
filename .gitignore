@@ -13,3 +13,4 @@ song.db
 proptest-regressions/
 CLAUDE.local.md
 AGENTS.local.md
+beatoraja-java/**
