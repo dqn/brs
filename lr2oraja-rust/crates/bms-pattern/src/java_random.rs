@@ -67,6 +67,13 @@ impl JavaRandom {
         ((self.next(32) as i64) << 32) + self.next(32) as i64
     }
 
+    /// Re-seeds this generator.
+    ///
+    /// Matches `java.util.Random.setSeed(long seed)`.
+    pub fn set_seed(&mut self, seed: i64) {
+        self.seed = (seed ^ MULTIPLIER) & MASK;
+    }
+
     /// Returns the next pseudorandom f64 in [0.0, 1.0).
     ///
     /// Matches `java.util.Random.nextDouble()`.
