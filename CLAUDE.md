@@ -211,21 +211,21 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 参照: `LaneShuffleModifier.java`, `NoteShuffleModifier.java`
 
-- [ ] **3-1. java.util.Random LCG 再現**
-  - [ ] `seed = (seed * 0x5DEECE66D + 0xB) & ((1 << 48) - 1)`
-  - [ ] `next_int(bound)` の実装
-  - [ ] Java との出力列一致テスト
-- [ ] **3-2. LaneShuffleModifier (7種)**
-  - [ ] Mirror
-  - [ ] Rotate (n)
-  - [ ] Random
-  - [ ] Cross
-  - [ ] Flip
-  - [ ] Battle
-  - [ ] PlayableRandom (9! 全探索 + murioshiChords テーブル)
+- [x] **3-1. java.util.Random LCG 再現**
+  - [x] `seed = (seed * 0x5DEECE66D + 0xB) & ((1 << 48) - 1)`
+  - [x] `next_int(bound)` の実装
+  - [x] Java との出力列一致テスト
+- [x] **3-2. LaneShuffleModifier (7種)**
+  - [x] Mirror
+  - [x] Rotate (n)
+  - [x] Random
+  - [x] Cross
+  - [x] Flip
+  - [x] Battle
+  - [x] PlayableRandom (9! 全探索 + murioshiChords テーブル)
 - [ ] **3-3. NoteShuffleModifier**
   - [ ] タイムライン単位の置換
-- [ ] **3-4. LongNote pair 整合性維持**
+- [x] **3-4. LongNote pair 整合性維持**
 - [ ] **3-5. GM テスト**: 固定 seed × 各パターン → 出力配列比較
 
 ### Phase 4: Replay / Ghost (`bms-replay`)
