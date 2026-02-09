@@ -64,6 +64,11 @@ md5 = "0.7"
 sha2 = "0.10"
 rand = "0.9"
 image = "0.25"
+hound = "3"
+lewton = "0.10"
+claxon = "0.4"
+minimp3 = "0.5"
+ebur128 = "0.1"
 
 # Dev/test dependencies
 tempfile = "3"
