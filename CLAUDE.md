@@ -47,6 +47,17 @@ brs/
 - **Test BMS Files:** Claude creates minimal BMS files for each feature.
 - **Java Modifications Allowed:** Adding debug output / export methods to Java code is permitted for verification.
 
+### Golden Master Testing Lessons
+
+Lessons learned from Phase 0-3 implementation. Refer to these when implementing future GM tests.
+
+- **Watch for Java-Rust semantic differences:** The same field name may have different semantics (e.g., `wav_id` — Java uses wavlist array index 0-based with -2 for undefined, Rust uses raw base36 value). Verify that compared fields share the same semantics; skip or add conversion logic if they differ.
+- **Use ±2μs tolerance for timing comparisons:** BPM → μs conversion produces floating-point rounding differences. ±1μs causes false negatives.
+- **Java BMSDecoder hardcodes MS932:** UTF-8 BMS metadata and hashes are garbled on the Java side. Keep UTF-8 tests as `#[ignore]` until Java-side encoding detection is added.
+- **`#RANDOM` is non-deterministic:** Java exporter has no fixed-seed support, so GM tests for BMS files containing `#RANDOM` require adding a seed argument to the Java exporter.
+- **Avoid JavaFX dependencies:** `core:compileJava` fails due to JavaFX. Keep the GM exporter in the separate `golden-master` Gradle subproject depending only on jbms-parser + Jackson. Apply the same pattern when adding exports for new modules.
+- **Regenerate fixtures with `just golden-master-gen`:** Always regenerate after modifying the Java exporter to keep Rust tests in sync.
+
 ## Tech Stack
 
 | Area | Java | Rust |
