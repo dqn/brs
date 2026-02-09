@@ -5,7 +5,7 @@ use anyhow::Result;
 
 use crate::mode::PlayMode;
 use crate::model::BmsModel;
-use crate::note::{LnType, Note};
+use crate::note::{BgNote, LnType, Note};
 use crate::timeline::{BpmChange, StopEvent, TimeLine};
 
 /// BMS file decoder
@@ -417,8 +417,8 @@ impl BmsDecoder {
         for event in &events {
             let ch = event.channel;
 
-            // Skip timing channels (already processed)
-            if matches!(ch, 0x01 | 0x02 | 0x03 | 0x04 | 0x06 | 0x07 | 0x08 | 0x09) {
+            // Skip timing channels (already processed), but not 0x01 (BGM)
+            if matches!(ch, 0x02 | 0x03 | 0x04 | 0x06 | 0x07 | 0x08 | 0x09) {
                 continue;
             }
 
@@ -444,6 +444,17 @@ impl BmsDecoder {
                         &stop_defs,
                         &extended_bpms,
                     );
+
+                // BGM channel (01): add as background note
+                if ch == 0x01 {
+                    model.bg_notes.push(BgNote {
+                        wav_id,
+                        time_us,
+                        micro_starttime: 0,
+                        micro_duration: 0,
+                    });
+                    continue;
+                }
 
                 let (lane, note_kind) = match ch {
                     // 1P visible (11-19)
@@ -567,6 +578,9 @@ impl BmsDecoder {
         model
             .notes
             .sort_by(|a, b| a.time_us.cmp(&b.time_us).then_with(|| a.lane.cmp(&b.lane)));
+
+        // Sort background notes by time
+        model.bg_notes.sort_by_key(|n| n.time_us);
 
         // Deduplicate: when same (lane, time_us), keep highest priority note
         // Priority: Normal/Invisible > LN > Mine

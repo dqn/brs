@@ -12,6 +12,6 @@ mod timeline;
 pub use bmson_decode::BmsonDecoder;
 pub use mode::PlayMode;
 pub use model::BmsModel;
-pub use note::{LnType, Note, NoteType};
+pub use note::{BgNote, LnType, Note, NoteType};
 pub use parse::BmsDecoder;
 pub use timeline::{BpmChange, StopEvent, TimeLine};

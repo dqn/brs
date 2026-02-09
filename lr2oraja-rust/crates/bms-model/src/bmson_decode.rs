@@ -9,7 +9,7 @@ use anyhow::Result;
 use crate::bmson::Bmson;
 use crate::mode::PlayMode;
 use crate::model::BmsModel;
-use crate::note::{LnType, Note, NoteType};
+use crate::note::{BgNote, LnType, Note, NoteType};
 use crate::timeline::{BpmChange, StopEvent, TimeLine};
 
 /// bmson file decoder
@@ -238,7 +238,13 @@ impl BmsonDecoder {
                 };
 
                 if key < 0 {
-                    // BGM note (skip for now, TODO: Phase 8)
+                    // BGM note
+                    model.bg_notes.push(BgNote {
+                        wav_id,
+                        time_us: tl_time,
+                        micro_starttime: starttime,
+                        micro_duration: duration,
+                    });
                 } else if n.up {
                     // LN end sound definition — find matching LN and set end_wav_id
                     let lane = key as usize;
@@ -269,7 +275,13 @@ impl BmsonDecoder {
                     });
 
                     if inside_ln {
-                        // Inside LN: demote to BGM (skip for now)
+                        // Inside LN: demote to BGM
+                        model.bg_notes.push(BgNote {
+                            wav_id,
+                            time_us: tl_time,
+                            micro_starttime: starttime,
+                            micro_duration: duration,
+                        });
                     } else if n.l > 0 {
                         // Long note
                         let end_y = n.y + n.l;
@@ -311,7 +323,6 @@ impl BmsonDecoder {
                 }
 
                 starttime += duration;
-                let _ = starttime; // suppress unused warning (used for BGM in Phase 8)
             }
             wav_id += 1;
         }
@@ -374,6 +385,9 @@ impl BmsonDecoder {
         model
             .notes
             .sort_by(|a, b| a.time_us.cmp(&b.time_us).then_with(|| a.lane.cmp(&b.lane)));
+
+        // Sort background notes by time
+        model.bg_notes.sort_by_key(|n| n.time_us);
 
         // Deduplicate: same (lane, time_us) → keep highest priority
         model.notes.dedup_by(|b, a| {

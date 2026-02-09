@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::mode::PlayMode;
-use crate::note::{LnType, Note};
+use crate::note::{BgNote, LnType, Note};
 use crate::timeline::{BpmChange, StopEvent, TimeLine};
 
 /// Complete BMS chart model
@@ -47,6 +47,9 @@ pub struct BmsModel {
 
     // Notes
     pub notes: Vec<Note>,
+
+    // Background notes (BGM channel 0x01 / bmson BGM)
+    pub bg_notes: Vec<BgNote>,
 
     // WAV/BMP definitions
     #[serde(skip)]
@@ -93,6 +96,7 @@ impl Default for BmsModel {
             stop_events: Vec::new(),
             timelines: Vec::new(),
             notes: Vec::new(),
+            bg_notes: Vec::new(),
             wav_defs: HashMap::new(),
             bmp_defs: HashMap::new(),
             md5: String::new(),

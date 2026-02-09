@@ -39,6 +39,10 @@ pub struct Note {
     pub damage: i32,
     /// Index of paired end note in the notes vec (for LN start only, usize::MAX if none)
     pub pair_index: usize,
+    /// Audio slice start time in microseconds (bmson sound slicing, 0 = no slice)
+    pub micro_starttime: i64,
+    /// Audio slice duration in microseconds (bmson sound slicing, 0 = full length)
+    pub micro_duration: i64,
 }
 
 impl Note {
@@ -52,6 +56,8 @@ impl Note {
             end_wav_id: 0,
             damage: 0,
             pair_index: usize::MAX,
+            micro_starttime: 0,
+            micro_duration: 0,
         }
     }
 
@@ -77,6 +83,8 @@ impl Note {
             end_wav_id,
             damage: 0,
             pair_index: usize::MAX,
+            micro_starttime: 0,
+            micro_duration: 0,
         }
     }
 
@@ -90,6 +98,8 @@ impl Note {
             end_wav_id: 0,
             damage,
             pair_index: usize::MAX,
+            micro_starttime: 0,
+            micro_duration: 0,
         }
     }
 
@@ -103,6 +113,8 @@ impl Note {
             end_wav_id: 0,
             damage: 0,
             pair_index: usize::MAX,
+            micro_starttime: 0,
+            micro_duration: 0,
         }
     }
 
@@ -121,4 +133,20 @@ impl Note {
     pub fn duration_us(&self) -> i64 {
         self.end_time_us - self.time_us
     }
+}
+
+/// A background note (BGM channel 0x01 or bmson BGM).
+///
+/// Separate from `Note` because BG notes don't have lanes or note types —
+/// they only carry a wav_id and timing info for audio playback.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BgNote {
+    /// WAV definition ID
+    pub wav_id: u16,
+    /// Trigger time in microseconds
+    pub time_us: i64,
+    /// Audio slice start time in microseconds (bmson, 0 = no slice)
+    pub micro_starttime: i64,
+    /// Audio slice duration in microseconds (bmson, 0 = full length)
+    pub micro_duration: i64,
 }
