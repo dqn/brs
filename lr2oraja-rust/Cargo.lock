@@ -1595,6 +1595,9 @@ name = "bms-input"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bms-config",
+ "bms-model",
+ "bms-replay",
  "gilrs",
  "midir",
  "serde",

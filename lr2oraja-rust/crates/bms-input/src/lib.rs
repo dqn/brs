@@ -1,1 +1,12 @@
-// Keyboard, gamepad, MIDI input handling
+pub mod analog_scratch;
+pub mod autoplay;
+pub mod control_keys;
+pub mod controller;
+pub mod controller_keys;
+pub mod device;
+pub mod input_processor;
+pub mod key_command;
+pub mod key_state;
+pub mod keyboard;
+pub mod midi;
+pub mod mouse_scratch;
