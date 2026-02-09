@@ -1,0 +1,307 @@
+// Golden master tests: compare Rust create_autoplay_log() against Java KeyInputLog.createAutoplayLog()
+
+use std::path::Path;
+
+use bms_input::autoplay::create_autoplay_log;
+use bms_model::{BmsDecoder, BmsonDecoder, TimeLine};
+use golden_master::autoplay_fixtures::{AutoplayFixture, AutoplayLogEntry, AutoplayTestCase};
+
+fn fixtures_dir() -> &'static Path {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .leak()
+}
+
+fn test_bms_dir() -> &'static Path {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../test-bms")
+        .leak()
+}
+
+fn load_autoplay_fixture() -> AutoplayFixture {
+    let path = fixtures_dir().join("autoplay_log.json");
+    assert!(
+        path.exists(),
+        "Autoplay fixture not found: {}. Run `just golden-master-autoplay-gen` first.",
+        path.display()
+    );
+    let content = std::fs::read_to_string(&path).expect("Failed to read fixture");
+    serde_json::from_str(&content).expect("Failed to parse fixture")
+}
+
+fn find_test_case<'a>(fixture: &'a AutoplayFixture, filename: &str) -> &'a AutoplayTestCase {
+    fixture
+        .test_cases
+        .iter()
+        .find(|tc| tc.filename == filename)
+        .unwrap_or_else(|| panic!("Test case not found for {filename}"))
+}
+
+fn compare_autoplay_logs(
+    rust_log: &[bms_replay::key_input_log::KeyInputLog],
+    java_log: &[AutoplayLogEntry],
+    filename: &str,
+) -> Vec<String> {
+    let mut diffs = Vec::new();
+
+    if rust_log.len() != java_log.len() {
+        diffs.push(format!(
+            "log length: rust={} java={}",
+            rust_log.len(),
+            java_log.len()
+        ));
+    }
+
+    let min_len = rust_log.len().min(java_log.len());
+    for i in 0..min_len {
+        let r = &rust_log[i];
+        let j = &java_log[i];
+
+        // Allow ±2μs tolerance for timing
+        let time_diff = (r.presstime - j.presstime).abs();
+        if time_diff > 2 {
+            diffs.push(format!(
+                "{filename}[{i}] presstime: rust={} java={} (diff={})",
+                r.presstime, j.presstime, time_diff
+            ));
+        }
+
+        if r.keycode != j.keycode {
+            diffs.push(format!(
+                "{filename}[{i}] keycode: rust={} java={}",
+                r.keycode, j.keycode
+            ));
+        }
+
+        if r.pressed != j.pressed {
+            diffs.push(format!(
+                "{filename}[{i}] pressed: rust={} java={}",
+                r.pressed, j.pressed
+            ));
+        }
+    }
+
+    // Show first few extra entries on either side
+    if rust_log.len() > java_log.len() {
+        for i in min_len..rust_log.len().min(min_len + 5) {
+            let r = &rust_log[i];
+            diffs.push(format!(
+                "{filename}[{i}] extra rust: presstime={} keycode={} pressed={}",
+                r.presstime, r.keycode, r.pressed
+            ));
+        }
+    } else if java_log.len() > rust_log.len() {
+        for i in min_len..java_log.len().min(min_len + 5) {
+            let j = &java_log[i];
+            diffs.push(format!(
+                "{filename}[{i}] extra java: presstime={} keycode={} pressed={}",
+                j.presstime, j.keycode, j.pressed
+            ));
+        }
+    }
+
+    diffs
+}
+
+/// Override model timelines with Java's getAllTimeLines() times from fixture.
+/// This ensures we test autoplay algorithm equivalence independently of
+/// Rust's timeline construction (which may not include empty timelines).
+fn override_timelines(model: &mut bms_model::BmsModel, timeline_times: &[i64]) {
+    model.timelines = timeline_times
+        .iter()
+        .map(|&t| TimeLine {
+            time_us: t,
+            measure: 0,
+            position: 0.0,
+            bpm: 120.0,
+        })
+        .collect();
+}
+
+/// Run a single BMS autoplay golden master test
+fn run_autoplay_test(bms_name: &str) {
+    let fixture = load_autoplay_fixture();
+    let test_case = find_test_case(&fixture, bms_name);
+
+    let bms_path = test_bms_dir().join(bms_name);
+    assert!(
+        bms_path.exists(),
+        "BMS file not found: {}",
+        bms_path.display()
+    );
+
+    let mut model = BmsDecoder::decode(&bms_path).expect("Failed to parse BMS");
+    override_timelines(&mut model, &test_case.timeline_times);
+    let rust_log = create_autoplay_log(&model);
+
+    let diffs = compare_autoplay_logs(&rust_log, &test_case.log, bms_name);
+    if !diffs.is_empty() {
+        panic!(
+            "Autoplay mismatch for {} ({} differences):\n{}",
+            bms_name,
+            diffs.len(),
+            diffs
+                .iter()
+                .map(|d| format!("  - {d}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+    }
+}
+
+/// Run a BMS test with fixed random selections
+fn run_autoplay_test_with_randoms(bms_name: &str, randoms: &[i32]) {
+    let fixture = load_autoplay_fixture();
+    let test_case = find_test_case(&fixture, bms_name);
+
+    let bms_path = test_bms_dir().join(bms_name);
+    assert!(
+        bms_path.exists(),
+        "BMS file not found: {}",
+        bms_path.display()
+    );
+
+    let mut model =
+        BmsDecoder::decode_with_randoms(&bms_path, randoms).expect("Failed to parse BMS");
+    override_timelines(&mut model, &test_case.timeline_times);
+    let rust_log = create_autoplay_log(&model);
+
+    let diffs = compare_autoplay_logs(&rust_log, &test_case.log, bms_name);
+    if !diffs.is_empty() {
+        panic!(
+            "Autoplay mismatch for {} ({} differences):\n{}",
+            bms_name,
+            diffs.len(),
+            diffs
+                .iter()
+                .map(|d| format!("  - {d}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+    }
+}
+
+/// Run a bmson autoplay golden master test
+fn run_autoplay_test_bmson(bmson_name: &str) {
+    let fixture = load_autoplay_fixture();
+    let test_case = find_test_case(&fixture, bmson_name);
+
+    let bmson_path = test_bms_dir().join(bmson_name);
+    assert!(
+        bmson_path.exists(),
+        "bmson file not found: {}",
+        bmson_path.display()
+    );
+
+    let mut model = BmsonDecoder::decode(&bmson_path).expect("Failed to parse bmson");
+    override_timelines(&mut model, &test_case.timeline_times);
+    let rust_log = create_autoplay_log(&model);
+
+    let diffs = compare_autoplay_logs(&rust_log, &test_case.log, bmson_name);
+    if !diffs.is_empty() {
+        panic!(
+            "Autoplay mismatch for {} ({} differences):\n{}",
+            bmson_name,
+            diffs.len(),
+            diffs
+                .iter()
+                .map(|d| format!("  - {d}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+    }
+}
+
+// --- BMS tests ---
+
+#[test]
+fn autoplay_minimal_7k() {
+    run_autoplay_test("minimal_7k.bms");
+}
+
+#[test]
+fn autoplay_5key() {
+    run_autoplay_test("5key.bms");
+}
+
+#[test]
+fn autoplay_14key_dp() {
+    run_autoplay_test("14key_dp.bms");
+}
+
+#[test]
+fn autoplay_9key_pms() {
+    run_autoplay_test("9key_pms.bms");
+}
+
+#[test]
+fn autoplay_bpm_change() {
+    run_autoplay_test("bpm_change.bms");
+}
+
+#[test]
+fn autoplay_stop_sequence() {
+    run_autoplay_test("stop_sequence.bms");
+}
+
+#[test]
+fn autoplay_longnote_types() {
+    run_autoplay_test("longnote_types.bms");
+}
+
+#[test]
+fn autoplay_mine_notes() {
+    run_autoplay_test("mine_notes.bms");
+}
+
+#[test]
+fn autoplay_scratch_bss() {
+    run_autoplay_test("scratch_bss.bms");
+}
+
+#[test]
+fn autoplay_empty_measures() {
+    run_autoplay_test("empty_measures.bms");
+}
+
+#[test]
+fn autoplay_random_if() {
+    run_autoplay_test_with_randoms("random_if.bms", &[1]);
+}
+
+#[test]
+fn autoplay_encoding_sjis() {
+    run_autoplay_test("encoding_sjis.bms");
+}
+
+#[test]
+fn autoplay_encoding_utf8() {
+    run_autoplay_test("encoding_utf8.bms");
+}
+
+// --- bmson tests ---
+
+#[test]
+fn autoplay_bmson_minimal_7k() {
+    run_autoplay_test_bmson("bmson_minimal_7k.bmson");
+}
+
+#[test]
+fn autoplay_bmson_bpm_change() {
+    run_autoplay_test_bmson("bmson_bpm_change.bmson");
+}
+
+#[test]
+fn autoplay_bmson_longnote() {
+    run_autoplay_test_bmson("bmson_longnote.bmson");
+}
+
+#[test]
+fn autoplay_bmson_stop_sequence() {
+    run_autoplay_test_bmson("bmson_stop_sequence.bmson");
+}
+
+#[test]
+fn autoplay_bmson_mine_invisible() {
+    run_autoplay_test_bmson("bmson_mine_invisible.bmson");
+}

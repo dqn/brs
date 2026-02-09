@@ -2903,6 +2903,7 @@ dependencies = [
  "anyhow",
  "bms-config",
  "bms-database",
+ "bms-input",
  "bms-model",
  "bms-pattern",
  "bms-replay",
