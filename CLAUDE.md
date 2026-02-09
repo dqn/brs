@@ -149,14 +149,16 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 - [x] **1-6. ハッシュ計算** (MD5, SHA256)
 - [x] **1-7. Golden Master テスト**
   - [x] Java で全テスト BMS をパース → fixture JSON 生成 (`just golden-master-gen`)
-  - [x] Rust パース結果と fixture 比較 — 11/11 通過 (ignore 2件: encoding_utf8, random_if)
+  - [x] Rust パース結果と fixture 比較 — 13/13 通過 (ignore 0件)
     - [x] BPM 変更チャンネル (ch 03) の hex 変換修正 (base36→hex)
     - [x] STOP イベントの位置判定条件修正 (p <= pos → p < pos)
     - [x] ノート重複除去 (Normal > LN > Mine 優先度)
     - [x] Channel assignment table によるレーンマッピング修正
     - [x] PMS モード検出を .pms 拡張子ベースに修正
     - [x] Shift_JIS ハッシュ計算を raw bytes ベースに修正
-  - [ ] LongNote pair 整合性テスト
+    - [x] Java exporter に UTF-8 BOM 検出 + メタデータ上書きを追加 (encoding_utf8 テスト修正)
+    - [x] Java exporter に random_seeds.json サポート追加 + Rust decode_with_randoms API (random_if テスト修正)
+  - [x] LongNote pair 整合性テスト (7テスト: basic, sequential, multi_lane, unclosed, end_wav_id, charge_note, hell_charge_note)
 
 ### Phase 2: Rule Engine (`bms-rule`) — CRITICAL
 
