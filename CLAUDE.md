@@ -147,15 +147,15 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 - [x] **1-4. #RANDOM / #IF 対応**
 - [ ] **1-5. .bmson フォーマット対応**
 - [x] **1-6. ハッシュ計算** (MD5, SHA256)
-- [ ] **1-7. Golden Master テスト**
+- [x] **1-7. Golden Master テスト**
   - [x] Java で全テスト BMS をパース → fixture JSON 生成 (`just golden-master-gen`)
-  - [ ] Rust パース結果と fixture 比較 — 4/11 通過, 要修正:
-    - [ ] BPM 変更チャンネル (ch 08) のパースバグ (max_bpm=400 vs 180)
-    - [ ] STOP イベントのタイムライン計算バグ
-    - [ ] LongNote ペアリングバグ (ノート数不一致)
-    - [ ] 地雷ノート (D1-D9) のチャンネル番号解析バグ
-    - [ ] 9key PMS モード検出バグ (PopN9K vs Beat7K)
-    - [ ] Shift_JIS ハッシュ計算 (Java は MS932 DigestInputStream 経由)
+  - [x] Rust パース結果と fixture 比較 — 11/11 通過 (ignore 2件: encoding_utf8, random_if)
+    - [x] BPM 変更チャンネル (ch 03) の hex 変換修正 (base36→hex)
+    - [x] STOP イベントの位置判定条件修正 (p <= pos → p < pos)
+    - [x] ノート重複除去 (Normal > LN > Mine 優先度)
+    - [x] Channel assignment table によるレーンマッピング修正
+    - [x] PMS モード検出を .pms 拡張子ベースに修正
+    - [x] Shift_JIS ハッシュ計算を raw bytes ベースに修正
   - [ ] LongNote pair 整合性テスト
 
 ### Phase 2: Rule Engine (`bms-rule`) — CRITICAL
