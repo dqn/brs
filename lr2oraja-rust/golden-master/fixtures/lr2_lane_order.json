@@ -1,0 +1,25 @@
+[ {
+  "seed" : 0,
+  "encoded_lanes" : 1765342
+}, {
+  "seed" : 1,
+  "encoded_lanes" : 6534712
+}, {
+  "seed" : 42,
+  "encoded_lanes" : 3275641
+}, {
+  "seed" : 100,
+  "encoded_lanes" : 5174623
+}, {
+  "seed" : 4357,
+  "encoded_lanes" : 7542136
+}, {
+  "seed" : 12345,
+  "encoded_lanes" : 7263514
+}, {
+  "seed" : -1,
+  "encoded_lanes" : 2715346
+}, {
+  "seed" : 999999,
+  "encoded_lanes" : 1346527
+} ]

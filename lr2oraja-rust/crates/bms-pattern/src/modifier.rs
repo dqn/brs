@@ -4,6 +4,7 @@
 // the PatternModifier trait, and helper functions.
 
 use bms_model::{BmsModel, PlayMode};
+use serde::{Deserialize, Serialize};
 
 /// Unit of randomization for each shuffle type.
 ///
@@ -156,7 +157,7 @@ pub enum AssistLevel {
 /// Log of a pattern modification (for replay/export).
 ///
 /// Matches Java `PatternModifyLog`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PatternModifyLog {
     /// Measure section number
     pub section: f64,

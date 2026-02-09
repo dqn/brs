@@ -1639,6 +1639,7 @@ dependencies = [
  "anyhow",
  "bms-model",
  "rand 0.9.2",
+ "serde",
  "serde_json",
 ]
 
@@ -1657,7 +1658,10 @@ name = "bms-replay"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "bms-model",
+ "bms-pattern",
+ "flate2",
  "serde",
  "serde_json",
  "tempfile",
@@ -2894,6 +2898,7 @@ dependencies = [
  "anyhow",
  "bms-model",
  "bms-pattern",
+ "bms-replay",
  "bms-rule",
  "serde",
  "serde_json",

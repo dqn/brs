@@ -1,0 +1,475 @@
+[ {
+  "name" : "basic",
+  "keylog" : [ {
+    "presstime" : 0,
+    "keycode" : 0,
+    "pressed" : true
+  }, {
+    "presstime" : 100000,
+    "keycode" : 3,
+    "pressed" : true
+  }, {
+    "presstime" : 200000,
+    "keycode" : 0,
+    "pressed" : false
+  }, {
+    "presstime" : 300000,
+    "keycode" : 3,
+    "pressed" : false
+  }, {
+    "presstime" : 500000,
+    "keycode" : 6,
+    "pressed" : true
+  }, {
+    "presstime" : 600000,
+    "keycode" : 6,
+    "pressed" : false
+  } ],
+  "keyinput" : "H4sIAAAAAAAA_2NkgAKWBW2MYMZ_B15mMOPPg8ksYAa7wkJ2MOPnAXVOMAMAiTDqgzYAAAA=",
+  "validated" : [ {
+    "presstime" : 0,
+    "keycode" : 0,
+    "pressed" : true
+  }, {
+    "presstime" : 100000,
+    "keycode" : 3,
+    "pressed" : true
+  }, {
+    "presstime" : 200000,
+    "keycode" : 0,
+    "pressed" : false
+  }, {
+    "presstime" : 300000,
+    "keycode" : 3,
+    "pressed" : false
+  }, {
+    "presstime" : 500000,
+    "keycode" : 6,
+    "pressed" : true
+  }, {
+    "presstime" : 600000,
+    "keycode" : 6,
+    "pressed" : false
+  } ]
+}, {
+  "name" : "all_keycodes",
+  "keylog" : [ {
+    "presstime" : 0,
+    "keycode" : 0,
+    "pressed" : true
+  }, {
+    "presstime" : 5000,
+    "keycode" : 0,
+    "pressed" : false
+  }, {
+    "presstime" : 10000,
+    "keycode" : 1,
+    "pressed" : true
+  }, {
+    "presstime" : 15000,
+    "keycode" : 1,
+    "pressed" : false
+  }, {
+    "presstime" : 20000,
+    "keycode" : 2,
+    "pressed" : true
+  }, {
+    "presstime" : 25000,
+    "keycode" : 2,
+    "pressed" : false
+  }, {
+    "presstime" : 30000,
+    "keycode" : 3,
+    "pressed" : true
+  }, {
+    "presstime" : 35000,
+    "keycode" : 3,
+    "pressed" : false
+  }, {
+    "presstime" : 40000,
+    "keycode" : 4,
+    "pressed" : true
+  }, {
+    "presstime" : 45000,
+    "keycode" : 4,
+    "pressed" : false
+  }, {
+    "presstime" : 50000,
+    "keycode" : 5,
+    "pressed" : true
+  }, {
+    "presstime" : 55000,
+    "keycode" : 5,
+    "pressed" : false
+  }, {
+    "presstime" : 60000,
+    "keycode" : 6,
+    "pressed" : true
+  }, {
+    "presstime" : 65000,
+    "keycode" : 6,
+    "pressed" : false
+  }, {
+    "presstime" : 70000,
+    "keycode" : 7,
+    "pressed" : true
+  }, {
+    "presstime" : 75000,
+    "keycode" : 7,
+    "pressed" : false
+  }, {
+    "presstime" : 80000,
+    "keycode" : 8,
+    "pressed" : true
+  }, {
+    "presstime" : 85000,
+    "keycode" : 8,
+    "pressed" : false
+  }, {
+    "presstime" : 90000,
+    "keycode" : 9,
+    "pressed" : true
+  }, {
+    "presstime" : 95000,
+    "keycode" : 9,
+    "pressed" : false
+  }, {
+    "presstime" : 100000,
+    "keycode" : 10,
+    "pressed" : true
+  }, {
+    "presstime" : 105000,
+    "keycode" : 10,
+    "pressed" : false
+  }, {
+    "presstime" : 110000,
+    "keycode" : 11,
+    "pressed" : true
+  }, {
+    "presstime" : 115000,
+    "keycode" : 11,
+    "pressed" : false
+  }, {
+    "presstime" : 120000,
+    "keycode" : 12,
+    "pressed" : true
+  }, {
+    "presstime" : 125000,
+    "keycode" : 12,
+    "pressed" : false
+  }, {
+    "presstime" : 130000,
+    "keycode" : 13,
+    "pressed" : true
+  }, {
+    "presstime" : 135000,
+    "keycode" : 13,
+    "pressed" : false
+  }, {
+    "presstime" : 140000,
+    "keycode" : 14,
+    "pressed" : true
+  }, {
+    "presstime" : 145000,
+    "keycode" : 14,
+    "pressed" : false
+  }, {
+    "presstime" : 150000,
+    "keycode" : 15,
+    "pressed" : true
+  }, {
+    "presstime" : 155000,
+    "keycode" : 15,
+    "pressed" : false
+  }, {
+    "presstime" : 160000,
+    "keycode" : 16,
+    "pressed" : true
+  }, {
+    "presstime" : 165000,
+    "keycode" : 16,
+    "pressed" : false
+  }, {
+    "presstime" : 170000,
+    "keycode" : 17,
+    "pressed" : true
+  }, {
+    "presstime" : 175000,
+    "keycode" : 17,
+    "pressed" : false
+  }, {
+    "presstime" : 180000,
+    "keycode" : 18,
+    "pressed" : true
+  }, {
+    "presstime" : 185000,
+    "keycode" : 18,
+    "pressed" : false
+  }, {
+    "presstime" : 190000,
+    "keycode" : 19,
+    "pressed" : true
+  }, {
+    "presstime" : 195000,
+    "keycode" : 19,
+    "pressed" : false
+  }, {
+    "presstime" : 200000,
+    "keycode" : 20,
+    "pressed" : true
+  }, {
+    "presstime" : 205000,
+    "keycode" : 20,
+    "pressed" : false
+  }, {
+    "presstime" : 210000,
+    "keycode" : 21,
+    "pressed" : true
+  }, {
+    "presstime" : 215000,
+    "keycode" : 21,
+    "pressed" : false
+  }, {
+    "presstime" : 220000,
+    "keycode" : 22,
+    "pressed" : true
+  }, {
+    "presstime" : 225000,
+    "keycode" : 22,
+    "pressed" : false
+  }, {
+    "presstime" : 230000,
+    "keycode" : 23,
+    "pressed" : true
+  }, {
+    "presstime" : 235000,
+    "keycode" : 23,
+    "pressed" : false
+  }, {
+    "presstime" : 240000,
+    "keycode" : 24,
+    "pressed" : true
+  }, {
+    "presstime" : 245000,
+    "keycode" : 24,
+    "pressed" : false
+  }, {
+    "presstime" : 250000,
+    "keycode" : 25,
+    "pressed" : true
+  }, {
+    "presstime" : 255000,
+    "keycode" : 25,
+    "pressed" : false
+  } ],
+  "keyinput" : "H4sIAAAAAAAA_y3GO0gCAQCAYV_ZZamn9riaDhFsdIiQJjcTIhyDCG1rEiOCRpGIG12EIxoajYgaXaLExVFCwrEh7LJ89PTMrOD-vukzm_79Kj5iEYPkR10iVnmVDAubxBbaJd9FhYxEjsigck7s8TL5qt-S0WST9LUhEdIesxFdD5CxTJj0hBXiyCXIp7RDxo8PyMf8IZm4OCPv4RJxXtfI27JGXNUBeV1zW4y47_zkZWuRiN0Y6e5tEI9pm3SUfeIVVdJWT4lPviKtwg2ZDDXIc7FPpiJOq5Gnikym4wukWY-SmeQ6edRSREpniabnyWzmhDwIl2QuVyUN6Z78AcuArFrUAQAA",
+  "validated" : [ {
+    "presstime" : 0,
+    "keycode" : 0,
+    "pressed" : true
+  }, {
+    "presstime" : 5000,
+    "keycode" : 0,
+    "pressed" : false
+  }, {
+    "presstime" : 10000,
+    "keycode" : 1,
+    "pressed" : true
+  }, {
+    "presstime" : 15000,
+    "keycode" : 1,
+    "pressed" : false
+  }, {
+    "presstime" : 20000,
+    "keycode" : 2,
+    "pressed" : true
+  }, {
+    "presstime" : 25000,
+    "keycode" : 2,
+    "pressed" : false
+  }, {
+    "presstime" : 30000,
+    "keycode" : 3,
+    "pressed" : true
+  }, {
+    "presstime" : 35000,
+    "keycode" : 3,
+    "pressed" : false
+  }, {
+    "presstime" : 40000,
+    "keycode" : 4,
+    "pressed" : true
+  }, {
+    "presstime" : 45000,
+    "keycode" : 4,
+    "pressed" : false
+  }, {
+    "presstime" : 50000,
+    "keycode" : 5,
+    "pressed" : true
+  }, {
+    "presstime" : 55000,
+    "keycode" : 5,
+    "pressed" : false
+  }, {
+    "presstime" : 60000,
+    "keycode" : 6,
+    "pressed" : true
+  }, {
+    "presstime" : 65000,
+    "keycode" : 6,
+    "pressed" : false
+  }, {
+    "presstime" : 70000,
+    "keycode" : 7,
+    "pressed" : true
+  }, {
+    "presstime" : 75000,
+    "keycode" : 7,
+    "pressed" : false
+  }, {
+    "presstime" : 80000,
+    "keycode" : 8,
+    "pressed" : true
+  }, {
+    "presstime" : 85000,
+    "keycode" : 8,
+    "pressed" : false
+  }, {
+    "presstime" : 90000,
+    "keycode" : 9,
+    "pressed" : true
+  }, {
+    "presstime" : 95000,
+    "keycode" : 9,
+    "pressed" : false
+  }, {
+    "presstime" : 100000,
+    "keycode" : 10,
+    "pressed" : true
+  }, {
+    "presstime" : 105000,
+    "keycode" : 10,
+    "pressed" : false
+  }, {
+    "presstime" : 110000,
+    "keycode" : 11,
+    "pressed" : true
+  }, {
+    "presstime" : 115000,
+    "keycode" : 11,
+    "pressed" : false
+  }, {
+    "presstime" : 120000,
+    "keycode" : 12,
+    "pressed" : true
+  }, {
+    "presstime" : 125000,
+    "keycode" : 12,
+    "pressed" : false
+  }, {
+    "presstime" : 130000,
+    "keycode" : 13,
+    "pressed" : true
+  }, {
+    "presstime" : 135000,
+    "keycode" : 13,
+    "pressed" : false
+  }, {
+    "presstime" : 140000,
+    "keycode" : 14,
+    "pressed" : true
+  }, {
+    "presstime" : 145000,
+    "keycode" : 14,
+    "pressed" : false
+  }, {
+    "presstime" : 150000,
+    "keycode" : 15,
+    "pressed" : true
+  }, {
+    "presstime" : 155000,
+    "keycode" : 15,
+    "pressed" : false
+  }, {
+    "presstime" : 160000,
+    "keycode" : 16,
+    "pressed" : true
+  }, {
+    "presstime" : 165000,
+    "keycode" : 16,
+    "pressed" : false
+  }, {
+    "presstime" : 170000,
+    "keycode" : 17,
+    "pressed" : true
+  }, {
+    "presstime" : 175000,
+    "keycode" : 17,
+    "pressed" : false
+  }, {
+    "presstime" : 180000,
+    "keycode" : 18,
+    "pressed" : true
+  }, {
+    "presstime" : 185000,
+    "keycode" : 18,
+    "pressed" : false
+  }, {
+    "presstime" : 190000,
+    "keycode" : 19,
+    "pressed" : true
+  }, {
+    "presstime" : 195000,
+    "keycode" : 19,
+    "pressed" : false
+  }, {
+    "presstime" : 200000,
+    "keycode" : 20,
+    "pressed" : true
+  }, {
+    "presstime" : 205000,
+    "keycode" : 20,
+    "pressed" : false
+  }, {
+    "presstime" : 210000,
+    "keycode" : 21,
+    "pressed" : true
+  }, {
+    "presstime" : 215000,
+    "keycode" : 21,
+    "pressed" : false
+  }, {
+    "presstime" : 220000,
+    "keycode" : 22,
+    "pressed" : true
+  }, {
+    "presstime" : 225000,
+    "keycode" : 22,
+    "pressed" : false
+  }, {
+    "presstime" : 230000,
+    "keycode" : 23,
+    "pressed" : true
+  }, {
+    "presstime" : 235000,
+    "keycode" : 23,
+    "pressed" : false
+  }, {
+    "presstime" : 240000,
+    "keycode" : 24,
+    "pressed" : true
+  }, {
+    "presstime" : 245000,
+    "keycode" : 24,
+    "pressed" : false
+  }, {
+    "presstime" : 250000,
+    "keycode" : 25,
+    "pressed" : true
+  }, {
+    "presstime" : 255000,
+    "keycode" : 25,
+    "pressed" : false
+  } ]
+} ]

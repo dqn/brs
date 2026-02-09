@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 bms-model.workspace = true
 anyhow.workspace = true
+serde.workspace = true
 rand.workspace = true
 
 [dev-dependencies]

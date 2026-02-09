@@ -7,6 +7,7 @@ edition.workspace = true
 bms-model.workspace = true
 bms-rule.workspace = true
 bms-pattern.workspace = true
+bms-replay.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -1,0 +1,49 @@
+[ {
+  "input" : "E",
+  "expected" : [ 0 ]
+}, {
+  "input" : "E3",
+  "expected" : [ 0, 0, 0 ]
+}, {
+  "input" : "ED3CE2",
+  "expected" : [ 0, 1, 1, 1, 2, 0, 0 ]
+}, {
+  "input" : "EDCBA",
+  "expected" : [ 0, 1, 2, 3, 4 ]
+}, {
+  "input" : "FD",
+  "expected" : [ 0, 1 ]
+}, {
+  "input" : "E10",
+  "expected" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+}, {
+  "input" : "",
+  "expected" : [ ]
+}, {
+  "input" : "qD",
+  "expected" : [ 1, 0, 1, 0, 1 ]
+}, {
+  "input" : "rD",
+  "expected" : [ 1, 0, 1 ]
+}, {
+  "input" : "sD",
+  "expected" : [ 1, 0, 0, 1 ]
+}, {
+  "input" : "tD",
+  "expected" : [ 1, 0, 0, 0, 1 ]
+}, {
+  "input" : "uD",
+  "expected" : [ 1, 0, 0, 0, 0, 1 ]
+}, {
+  "input" : "kD",
+  "expected" : [ 4, 3, 1 ]
+}, {
+  "input" : "pD",
+  "expected" : [ 4, 4, 4, 1 ]
+}, {
+  "input" : "ESD",
+  "expected" : [ 0, 1, 1, 1 ]
+}, {
+  "input" : "E2FGH",
+  "expected" : [ 0, 0, 0, 0, 0, 0, 0, 0 ]
+} ]

@@ -236,10 +236,28 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 参照: `ReplayData.java`, `LR2GhostData.java`, `KeyInputLog.java`
 
-- [ ] **4-1. ReplayData** — serialize / deserialize
-- [ ] **4-2. LR2GhostData** — ゴーストデータ
-- [ ] **4-3. KeyInputLog** — 入力ログ
-- [ ] **4-4. GM テスト**: エンコード/デコード ラウンドトリップ + Java 出力比較
+- [x] **4-1. ReplayData** — serialize / deserialize
+  - [x] 全フィールド (player, sha256, mode, keylog, keyinput, gauge, pattern, lane_shuffle_pattern, rand, date, randomoption/seed, doubleoption, config)
+  - [x] `shrink()`: keylog → 9byte records (1byte keycode + 8byte i64 LE) → GZIP → Base64 URL-safe
+  - [x] `validate()`: Base64 decode → GZIP decompress → 9byte parse → keylog 復元
+  - [x] `.brd` ファイル I/O (`read_brd` / `write_brd`: GZIP JSON)
+- [x] **4-2. LR2GhostData** — ゴーストデータ
+  - [x] `GhostJudgment` enum, `LR2RandomOption` enum
+  - [x] `parse(csv)`: CSV パース → options/seed/ghost デコード
+  - [x] `decode_play_ghost(data)`: 文字置換テーブル (Java 順序厳守) → RLE デコード → judgment 配列
+  - [x] レーン shuffle: LR2Random(seed) + Fisher-Yates → decimal encoded lane order
+- [x] **4-3. KeyInputLog** — 入力ログ
+  - [x] struct (presstime, keycode, pressed, time) + serde
+  - [x] `get_time()` (presstime 優先、legacy time*1000 fallback), `validate()`
+- [x] **4-4. LR2Random** — MT19937 variant
+  - [x] 非標準 seeding: `69069 * seed + 1` (i32 wrapping)
+  - [x] `generate_mt()`: twist + tempering
+  - [x] `next_int(max)`: `(rand_mt() as u64 * max as u64) >> 32`
+- [x] **4-5. GM テスト**: エンコード/デコード ラウンドトリップ + Java 出力比較
+  - [x] LR2Random: 9 seeds × raw (700値) + nextInt (7 bounds × 20値) = 7560 assertions
+  - [x] Ghost decode: 16 cases (置換テーブル + RLE)
+  - [x] Keylog round-trip: 2 cases (basic + all keycodes 0..25)
+  - [x] Lane order: 8 seeds
 
 ### Phase 5: Database (`bms-database`)
 
