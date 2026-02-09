@@ -45,7 +45,11 @@ golden-master-config-gen:
 golden-master-autoplay-gen:
     cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.AutoplayExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
 
-# Generate all GM fixtures (parse + rule + pattern + replay + database + config + autoplay)
-golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen golden-master-replay-gen golden-master-database-gen golden-master-config-gen golden-master-autoplay-gen
+# Generate audio GM fixtures
+golden-master-audio-gen:
+    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.AudioExporter --args="$(pwd)/../lr2oraja-rust/test-bms/audio $(pwd)/../lr2oraja-rust/golden-master/fixtures/audio_fixtures.json"
+
+# Generate all GM fixtures (parse + rule + pattern + replay + database + config + autoplay + audio)
+golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen golden-master-replay-gen golden-master-database-gen golden-master-config-gen golden-master-autoplay-gen golden-master-audio-gen
 
 all: check test clippy fmt-check

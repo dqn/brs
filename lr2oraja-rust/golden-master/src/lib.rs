@@ -1,5 +1,6 @@
 // Golden master test infrastructure: Java fixture comparison harness
 
+pub mod audio_fixtures;
 pub mod autoplay_fixtures;
 pub mod database_fixtures;
 pub mod pattern_fixtures;

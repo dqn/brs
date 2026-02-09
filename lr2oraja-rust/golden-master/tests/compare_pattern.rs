@@ -377,5 +377,6 @@ fn build_model_from_chord_patterns(
         total_measures: 4,
         total_time_us: 0,
         has_random: false,
+        bg_notes: Vec::new(),
     }
 }
