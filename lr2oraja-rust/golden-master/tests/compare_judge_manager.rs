@@ -113,11 +113,12 @@ fn run_simulation(model: &BmsModel, tc: &JudgeTestCase) -> SimResult {
     let mut jm = JudgeManager::new(&config);
     let mut gauge = GrooveGauge::new(&rule.gauge, gauge_type, total, total_notes);
 
-    let key_count = model.mode.key_count();
+    let lp = LaneProperty::new(model.mode);
+    let physical_key_count = lp.physical_key_count();
 
     // Prime JudgeManager: set prev_time to -1 so notes at time_us=0 are not skipped.
-    let empty_states = vec![false; key_count];
-    let empty_times = vec![NOT_SET; key_count];
+    let empty_states = vec![false; physical_key_count];
+    let empty_times = vec![NOT_SET; physical_key_count];
     jm.update(-1, &judge_notes, &empty_states, &empty_times, &mut gauge);
 
     let last_note_time = judge_notes
@@ -129,8 +130,8 @@ fn run_simulation(model: &BmsModel, tc: &JudgeTestCase) -> SimResult {
 
     if tc.autoplay {
         // Autoplay: run with empty key states
-        let key_states = vec![false; key_count];
-        let key_times = vec![NOT_SET; key_count];
+        let key_states = vec![false; physical_key_count];
+        let key_times = vec![NOT_SET; physical_key_count];
         let mut time = 0i64;
         while time <= end_time {
             jm.update(time, &judge_notes, &key_states, &key_times, &mut gauge);
@@ -141,19 +142,20 @@ fn run_simulation(model: &BmsModel, tc: &JudgeTestCase) -> SimResult {
         let mut sorted_log: Vec<&_> = tc.input_log.iter().collect();
         sorted_log.sort_by_key(|e| e.presstime);
 
-        let mut key_states = vec![false; key_count];
+        let mut key_states = vec![false; physical_key_count];
         let mut log_cursor = 0;
         let mut time = 0i64;
 
         while time <= end_time {
-            let mut key_changed_times = vec![NOT_SET; key_count];
+            let mut key_changed_times = vec![NOT_SET; physical_key_count];
 
+            // Input log uses lane indices (keycodes); map directly to physical key indices.
             while log_cursor < sorted_log.len() && sorted_log[log_cursor].presstime <= time {
                 let event = &sorted_log[log_cursor];
-                let lane = event.keycode as usize;
-                if lane < key_count {
-                    key_states[lane] = event.pressed;
-                    key_changed_times[lane] = event.presstime;
+                let key = event.keycode as usize;
+                if key < physical_key_count {
+                    key_states[key] = event.pressed;
+                    key_changed_times[key] = event.presstime;
                 }
                 log_cursor += 1;
             }
