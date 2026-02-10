@@ -255,6 +255,200 @@ fn test_render_ecfn_select() {
 }
 
 // ---------------------------------------------------------------------------
+// State provider factories for various game states
+// ---------------------------------------------------------------------------
+
+/// Play screen: active gameplay.
+fn state_play_active() -> bms_render::state_provider::StaticStateProvider {
+    let mut p = bms_render::state_provider::StaticStateProvider::default();
+    p.time_ms = 30000;
+    // Timers
+    p.timers.insert(41, 30000); // TIMER_PLAY
+    p.timers.insert(46, 500); // TIMER_JUDGE_1P
+    p.timers.insert(446, 500); // TIMER_COMBO_1P
+    // Gauge
+    p.floats.insert(1107, 0.80); // FLOAT_GROOVEGAUGE_1P
+    p.integers.insert(107, 80); // NUMBER_GROOVEGAUGE
+    // Combo & Score
+    p.integers.insert(104, 150); // NUMBER_COMBO
+    p.integers.insert(75, 150); // NUMBER_MAXCOMBO
+    p.integers.insert(71, 85000); // NUMBER_SCORE
+    p.integers.insert(72, 200000); // NUMBER_MAXSCORE
+    // Judge counts
+    p.integers.insert(110, 120); // NUMBER_PERFECT
+    p.integers.insert(111, 25); // NUMBER_GREAT
+    p.integers.insert(112, 5); // NUMBER_GOOD
+    // BPM
+    p.integers.insert(160, 170); // NUMBER_NOWBPM
+    p.integers.insert(90, 170); // NUMBER_MAXBPM
+    p.integers.insert(91, 170); // NUMBER_MINBPM
+    p.integers.insert(92, 170); // NUMBER_MAINBPM
+    // Booleans
+    p.booleans.insert(173, true); // OPTION_LN
+    p.booleans.insert(160, true); // OPTION_7KEYSONG
+    p
+}
+
+/// Play screen: full combo, max gauge.
+fn state_play_fullcombo() -> bms_render::state_provider::StaticStateProvider {
+    let mut p = state_play_active();
+    p.floats.insert(1107, 1.0);
+    p.integers.insert(107, 100);
+    p.integers.insert(104, 500); // combo
+    p.integers.insert(75, 500); // maxcombo
+    p.timers.insert(48, 1000); // TIMER_FULLCOMBO_1P
+    p.timers.insert(44, 5000); // TIMER_GAUGE_MAX_1P
+    p
+}
+
+/// Play screen: danger zone (low gauge).
+fn state_play_danger() -> bms_render::state_provider::StaticStateProvider {
+    let mut p = state_play_active();
+    p.floats.insert(1107, 0.15);
+    p.integers.insert(107, 15);
+    p.integers.insert(104, 0); // combo broken
+    p.integers.insert(113, 20); // NUMBER_BAD
+    p.integers.insert(114, 15); // NUMBER_POOR
+    p
+}
+
+/// Result screen: clear.
+fn state_result_clear() -> bms_render::state_provider::StaticStateProvider {
+    let mut p = bms_render::state_provider::StaticStateProvider::default();
+    p.time_ms = 5000;
+    p.timers.insert(1, 5000); // TIMER_STARTINPUT
+    p.floats.insert(1107, 0.82);
+    p.integers.insert(107, 82);
+    p.integers.insert(71, 180000); // score
+    p.integers.insert(75, 350); // maxcombo
+    p.integers.insert(110, 300); // PERFECT
+    p.integers.insert(111, 40); // GREAT
+    p.integers.insert(112, 8); // GOOD
+    p.integers.insert(113, 2); // BAD
+    p.integers.insert(114, 0); // POOR
+    p.booleans.insert(90, true); // OPTION_RESULT_CLEAR
+    p
+}
+
+/// Result screen: fail.
+fn state_result_fail() -> bms_render::state_provider::StaticStateProvider {
+    let mut p = bms_render::state_provider::StaticStateProvider::default();
+    p.time_ms = 5000;
+    p.timers.insert(1, 5000);
+    p.floats.insert(1107, 0.0);
+    p.integers.insert(107, 0);
+    p.integers.insert(71, 30000);
+    p.integers.insert(75, 45);
+    p.integers.insert(110, 50);
+    p.integers.insert(111, 20);
+    p.integers.insert(112, 15);
+    p.integers.insert(113, 30);
+    p.integers.insert(114, 40);
+    p.booleans.insert(91, true); // OPTION_RESULT_FAIL
+    p
+}
+
+// ---------------------------------------------------------------------------
+// ECFN Lua skin tests
+// ---------------------------------------------------------------------------
+
+/// Helper: load a Lua skin from the ECFN directory, capture, and compare.
+fn run_ecfn_lua_test(
+    relative_path: &str,
+    state: bms_render::state_provider::StaticStateProvider,
+    fixture_name: &str,
+    width: u32,
+    height: u32,
+) {
+    let skin_path = ecfn_skin_dir().join(relative_path);
+    if !skin_path.exists() {
+        eprintln!("ECFN skin {} not found, skipping", relative_path);
+        return;
+    }
+
+    let mut harness = RenderTestHarness::new(width, height);
+    let resolution = if width >= 1920 {
+        bms_config::resolution::Resolution::Fullhd
+    } else if width >= 1280 {
+        bms_config::resolution::Resolution::Hd
+    } else {
+        bms_config::resolution::Resolution::Sd
+    };
+    harness.load_lua_skin_with_resolution(&skin_path, Box::new(state), resolution);
+
+    let tmp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let output_path = tmp_dir.path().join("screenshot.png");
+
+    harness.capture_frame(&output_path);
+
+    let actual = image::open(&output_path)
+        .expect("Failed to read captured screenshot")
+        .to_rgba8();
+
+    screenshot_compare::compare_or_update(&actual, &fixture_path(fixture_name), SSIM_THRESHOLD);
+}
+
+fn test_render_ecfn_decide() {
+    run_ecfn_lua_test(
+        "decide/decidemain.lua",
+        bms_render::state_provider::StaticStateProvider::default(),
+        "ecfn_decide",
+        1920,
+        1080,
+    );
+}
+
+fn test_render_ecfn_play7_active() {
+    run_ecfn_lua_test(
+        "play/play7main.lua",
+        state_play_active(),
+        "ecfn_play7_active",
+        1280,
+        720,
+    );
+}
+
+fn test_render_ecfn_play7_fullcombo() {
+    run_ecfn_lua_test(
+        "play/play7main.lua",
+        state_play_fullcombo(),
+        "ecfn_play7_fullcombo",
+        1280,
+        720,
+    );
+}
+
+fn test_render_ecfn_play7_danger() {
+    run_ecfn_lua_test(
+        "play/play7main.lua",
+        state_play_danger(),
+        "ecfn_play7_danger",
+        1280,
+        720,
+    );
+}
+
+fn test_render_ecfn_result_clear() {
+    run_ecfn_lua_test(
+        "RESULT/result.lua",
+        state_result_clear(),
+        "ecfn_result_clear",
+        1920,
+        1080,
+    );
+}
+
+fn test_render_ecfn_result_fail() {
+    run_ecfn_lua_test(
+        "RESULT/result.lua",
+        state_result_fail(),
+        "ecfn_result_fail",
+        1920,
+        1080,
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Custom test runner
 // ---------------------------------------------------------------------------
 
@@ -282,6 +476,24 @@ fn get_tests() -> Vec<(&'static str, fn())> {
             test_render_json_skin_with_condition,
         ),
         ("test_render_ecfn_select", test_render_ecfn_select),
+        ("test_render_ecfn_decide", test_render_ecfn_decide),
+        (
+            "test_render_ecfn_play7_active",
+            test_render_ecfn_play7_active,
+        ),
+        (
+            "test_render_ecfn_play7_fullcombo",
+            test_render_ecfn_play7_fullcombo,
+        ),
+        (
+            "test_render_ecfn_play7_danger",
+            test_render_ecfn_play7_danger,
+        ),
+        (
+            "test_render_ecfn_result_clear",
+            test_render_ecfn_result_clear,
+        ),
+        ("test_render_ecfn_result_fail", test_render_ecfn_result_fail),
     ]
 }
 

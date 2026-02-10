@@ -195,10 +195,60 @@ impl RenderTestHarness {
         });
 
         let preprocessed = bms_skin::loader::json_loader::preprocess_json(&json_str);
-        let raw: serde_json::Value = serde_json::from_str(&preprocessed)
-            .unwrap_or_else(|e| panic!("Failed to parse skin JSON: {}", e));
-
         let skin_dir = skin_json_path.parent().unwrap();
+
+        self.load_skin_from_json_str(
+            &json_str,
+            &preprocessed,
+            skin_dir,
+            Some(skin_json_path),
+            state_provider,
+            dest_resolution,
+        );
+    }
+
+    /// Load a Lua skin file with a specific destination resolution.
+    pub fn load_lua_skin_with_resolution(
+        &mut self,
+        lua_path: &Path,
+        state_provider: Box<dyn SkinStateProvider>,
+        dest_resolution: bms_config::resolution::Resolution,
+    ) {
+        let lua_source = std::fs::read_to_string(lua_path)
+            .unwrap_or_else(|e| panic!("Failed to read Lua skin {}: {}", lua_path.display(), e));
+
+        let json_str = bms_skin::loader::lua_loader::lua_to_json_string(
+            &lua_source,
+            Some(lua_path),
+            &HashSet::new(),
+            &[],
+        )
+        .unwrap_or_else(|e| panic!("Failed to convert Lua skin to JSON: {}", e));
+
+        let skin_dir = lua_path.parent().unwrap();
+
+        self.load_skin_from_json_str(
+            &json_str,
+            &json_str, // Lua output is already valid JSON, no preprocessing needed
+            skin_dir,
+            Some(lua_path),
+            state_provider,
+            dest_resolution,
+        );
+    }
+
+    /// Common logic for loading a skin from a JSON string.
+    fn load_skin_from_json_str(
+        &mut self,
+        json_str: &str,
+        preprocessed: &str,
+        skin_dir: &Path,
+        skin_path: Option<&Path>,
+        state_provider: Box<dyn SkinStateProvider>,
+        dest_resolution: bms_config::resolution::Resolution,
+    ) {
+        let raw: serde_json::Value = serde_json::from_str(preprocessed)
+            .unwrap_or_else(|e| panic!("Failed to parse skin JSON: {}", e));
 
         // Extract source definitions and load images
         let mut source_images: HashMap<String, ImageHandle> = HashMap::new();
@@ -248,10 +298,10 @@ impl RenderTestHarness {
 
         // Load skin with resolved images
         let skin = bms_skin::loader::json_loader::load_skin_with_images(
-            &json_str,
+            json_str,
             &HashSet::new(),
             dest_resolution,
-            Some(skin_json_path),
+            skin_path,
             &source_images,
         )
         .unwrap_or_else(|e| panic!("Failed to load skin: {}", e));

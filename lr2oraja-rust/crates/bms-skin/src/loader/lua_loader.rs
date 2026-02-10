@@ -45,6 +45,24 @@ pub fn load_lua_header(lua_source: &str, path: Option<&Path>) -> Result<SkinHead
     json_loader::load_header(&json_str)
 }
 
+/// Converts a Lua skin script to a JSON string.
+///
+/// Executes the Lua script and converts the resulting table to a JSON string.
+/// This is useful for tools that need the intermediate JSON representation
+/// (e.g., screenshot harness that reuses JSON image loading paths).
+pub fn lua_to_json_string(
+    lua_source: &str,
+    path: Option<&Path>,
+    enabled_options: &HashSet<i32>,
+    offsets: &[(i32, Offset)],
+) -> Result<String> {
+    let lua = create_lua_env(path)?;
+    export_skin_config(&lua, enabled_options, offsets)?;
+    let value = exec_lua(&lua, lua_source, path)?;
+    let json = lua_value_to_json(&value);
+    serde_json::to_string(&json).context("Failed to serialize Lua result to JSON")
+}
+
 /// Loads a full Skin from a Lua skin script.
 ///
 /// `lua_source` is the Lua script content (UTF-8).
