@@ -3,28 +3,20 @@
 // Compares Rust JudgeManager output against Java JudgeManagerExporter fixtures.
 // Covers: autoplay, manual input, gauge types, LN, and cross-mode tests (26 cases).
 //
-// Known difference — LN note counting:
-//   Java's JudgeManager processes LN start/end notes differently from Rust.
-//   Java keeps "phantom" LN end notes that stay at default POOR (ghost=4) without
-//   being judged. Rust's build_judge_notes() creates explicit start/end pairs that
-//   all get judged. This causes 4 test cases to have different note counts:
-//   - autoplay_longnote_types, autoplay_scratch_bss (A_autoplay)
-//   - ln_judge_count, scratch_judge_count (E_longnote)
-//   For these cases we verify functional equivalence: all actually-judged notes are
-//   PGREAT and gauge/qualified match, but raw counts may differ.
-//
 // Notes:
 // - JudgeManager.prev_time starts at 0, so notes at time_us=0 are skipped on
 //   the first frame. We prime the JudgeManager with update(-1) to work around this.
 // - LN notes are split into start+end pairs via build_judge_notes() for JudgeManager.
+// - Pure LN (LNTYPE_LONGNOTE) end notes are not independently judged — only 1
+//   judgment per LN pair, matching Java's behavior.
 
 use std::path::Path;
 
 use bms_model::{BmsDecoder, BmsModel, LaneProperty};
 use bms_rule::gauge_property::GaugeType;
 use bms_rule::judge_manager::{JudgeConfig, JudgeManager};
-use bms_rule::{GrooveGauge, JUDGE_PG, JudgeAlgorithm, PlayerRule};
-use golden_master::judge_fixtures::{ExpectedScore, JudgeFixtures, JudgeTestCase};
+use bms_rule::{GrooveGauge, JudgeAlgorithm, PlayerRule};
+use golden_master::judge_fixtures::{JudgeFixtures, JudgeTestCase};
 
 /// Sentinel for "not set" timestamps (matches JudgeManager internal).
 const NOT_SET: i64 = i64::MIN;
@@ -37,15 +29,6 @@ const TAIL_TIME: i64 = 1_000_000;
 
 /// Gauge value comparison tolerance (f32 rounding).
 const GAUGE_TOLERANCE: f32 = 0.02;
-
-/// Test cases with known LN note-counting differences between Java and Rust.
-/// Java keeps phantom LN end notes (ghost=POOR), Rust judges all build_judge_notes entries.
-const LN_DIFF_CASES: &[&str] = &[
-    "autoplay_longnote_types",
-    "autoplay_scratch_bss",
-    "ln_judge_count",
-    "scratch_judge_count",
-];
 
 fn test_bms_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -181,7 +164,10 @@ fn run_simulation(model: &BmsModel, tc: &JudgeTestCase) -> SimResult {
     }
 }
 
-fn compare_score(actual: &bms_rule::ScoreData, expected: &ExpectedScore) -> Vec<String> {
+fn compare_score(
+    actual: &bms_rule::ScoreData,
+    expected: &golden_master::judge_fixtures::ExpectedScore,
+) -> Vec<String> {
     let mut diffs = Vec::new();
     let fields = [
         ("epg", actual.epg, expected.epg),
@@ -207,78 +193,16 @@ fn compare_score(actual: &bms_rule::ScoreData, expected: &ExpectedScore) -> Vec<
     diffs
 }
 
-/// Verify LN-diff test case: all judged notes should be PGREAT, gauge should match.
-fn verify_ln_diff_case(result: &SimResult, tc: &JudgeTestCase) -> Vec<String> {
-    let mut diffs = Vec::new();
-
-    // All Rust ghost entries should be PGREAT (autoplay LN tests)
-    for (i, &g) in result.ghost.iter().enumerate() {
-        if g != JUDGE_PG {
-            diffs.push(format!("ghost[{i}]: rust={g}, expected PG (0)"));
-        }
-    }
-
-    // All Java non-default ghost entries should also be PGREAT
-    for (i, &g) in tc.expected.ghost.iter().enumerate() {
-        if g != JUDGE_PG && g != 4 {
-            // 4 = POOR (default/unjudged)
-            diffs.push(format!(
-                "java ghost[{i}]={g}, expected PG (0) or default POOR (4)"
-            ));
-        }
-    }
-
-    // Gauge should match exactly
-    if (result.gauge_value - tc.expected.gauge_value).abs() > GAUGE_TOLERANCE {
-        diffs.push(format!(
-            "gauge_value: rust={} java={}",
-            result.gauge_value, tc.expected.gauge_value
-        ));
-    }
-    if result.gauge_qualified != tc.expected.gauge_qualified {
-        diffs.push(format!(
-            "gauge_qualified: rust={} java={}",
-            result.gauge_qualified, tc.expected.gauge_qualified
-        ));
-    }
-
-    diffs
-}
-
 #[test]
 fn compare_judge_manager() {
     let fixtures = JudgeFixtures::load().expect("Failed to load judge_manager.json");
 
     let mut failures: Vec<String> = Vec::new();
     let mut pass_count = 0;
-    let mut ln_diff_count = 0;
 
     for tc in &fixtures.test_cases {
         let model = load_bms(&tc.filename);
         let result = run_simulation(&model, tc);
-
-        let is_ln_diff = LN_DIFF_CASES.contains(&tc.name.as_str());
-
-        if is_ln_diff {
-            // Known LN representation difference: verify functional equivalence only
-            let diffs = verify_ln_diff_case(&result, tc);
-            if diffs.is_empty() {
-                ln_diff_count += 1;
-            } else {
-                failures.push(format!(
-                    "[{}/{}] (LN-diff) {} differences:\n{}",
-                    tc.group,
-                    tc.name,
-                    diffs.len(),
-                    diffs
-                        .iter()
-                        .map(|d| format!("    - {d}"))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                ));
-            }
-            continue;
-        }
 
         let mut diffs: Vec<String> = Vec::new();
 
@@ -358,8 +282,7 @@ fn compare_judge_manager() {
 
     if !failures.is_empty() {
         panic!(
-            "JudgeManager GM test: {pass_count}/{} strict passed, \
-             {ln_diff_count} LN-diff verified, {} failed:\n\n{}",
+            "JudgeManager GM test: {pass_count}/{} passed, {} failed:\n\n{}",
             fixtures.test_cases.len(),
             failures.len(),
             failures.join("\n\n")
@@ -367,7 +290,7 @@ fn compare_judge_manager() {
     }
 
     println!(
-        "JudgeManager GM test: {pass_count} strict + {ln_diff_count} LN-diff = {} total passed",
-        pass_count + ln_diff_count,
+        "JudgeManager GM test: {pass_count}/{} all passed",
+        fixtures.test_cases.len(),
     );
 }

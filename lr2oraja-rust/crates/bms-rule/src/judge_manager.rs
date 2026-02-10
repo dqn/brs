@@ -342,7 +342,25 @@ impl JudgeManager {
         }
 
         // Total playable notes for ghost array
-        let total_notes = config.notes.iter().filter(|n| n.is_playable()).count();
+        // Exclude pure LN end notes (not independently judged in pure LN mode)
+        let total_notes = config
+            .notes
+            .iter()
+            .filter(|n| {
+                if !n.is_playable() {
+                    return false;
+                }
+                // Pure LN end: LongNote type, end_time_us == 0 (end marker), has pair link
+                if n.note_type == NoteType::LongNote
+                    && n.end_time_us == 0
+                    && n.pair_index != usize::MAX
+                    && config.ln_type == LnType::LongNote
+                {
+                    return false;
+                }
+                true
+            })
+            .count();
 
         // Initialize ghost array (default to JUDGE_PR = 4)
         let ghost = vec![JUDGE_PR; total_notes];
@@ -573,42 +591,36 @@ impl JudgeManager {
                                     self.sckey[sc_idx] = first_key as i32;
                                 }
                             }
-                            // LN end in autoplay (all LN types including pure LN)
+                            // LN end in autoplay (CN/HCN only; pure LN end handled by phase_release_margin)
                             if (note.end_time_us <= note.time_us || note.pair_index == usize::MAX)
                                 && self.note_states[note_idx] == 0
                             {
-                                // BSS autoplay end: release starting key, press alternate key
-                                if let Some(sc_idx) = self.lane_property.scratch_index(lane_idx) {
-                                    let keys = self.lane_property.scratch_keys(sc_idx);
-                                    self.auto_presstime[keys[0]] = NOT_SET;
-                                    self.auto_presstime[keys[1]] = time_us;
-                                }
+                                let is_cn_hcn_end = note.note_type == NoteType::ChargeNote
+                                    || note.note_type == NoteType::HellChargeNote
+                                    || (note.note_type == NoteType::LongNote
+                                        && self.ln_type != LnType::LongNote);
 
-                                // Also judge paired start note if not yet judged
-                                // (pure LN start is tracked but not judged)
-                                if note.pair_index != usize::MAX
-                                    && self.note_states[note.pair_index] == 0
-                                {
+                                if is_cn_hcn_end {
+                                    // BSS autoplay end: release starting key, press alternate key
+                                    if let Some(sc_idx) = self.lane_property.scratch_index(lane_idx)
+                                    {
+                                        let keys = self.lane_property.scratch_keys(sc_idx);
+                                        self.auto_presstime[keys[0]] = NOT_SET;
+                                        self.auto_presstime[keys[1]] = time_us;
+                                    }
+
                                     self.update_judge(
-                                        lane_idx,
-                                        note.pair_index,
-                                        0,
-                                        0,
-                                        true,
-                                        false,
-                                        gauge,
-                                        events,
+                                        lane_idx, note_idx, 0, 0, true, false, gauge, events,
                                     );
+                                    if note.wav_id > 0 {
+                                        events.push(JudgeEvent::KeySound {
+                                            wav_id: note.wav_id,
+                                        });
+                                    }
+                                    self.lane_states[lane_idx].processing = NO_NOTE;
                                 }
-                                self.update_judge(
-                                    lane_idx, note_idx, 0, 0, true, false, gauge, events,
-                                );
-                                if note.wav_id > 0 {
-                                    events.push(JudgeEvent::KeySound {
-                                        wav_id: note.wav_id,
-                                    });
-                                }
-                                self.lane_states[lane_idx].processing = NO_NOTE;
+                                // Pure LN end: no action here; phase_release_margin
+                                // timeout will judge the start note when end time passes
                             }
                         }
                         _ => {}
@@ -1254,10 +1266,16 @@ impl JudgeManager {
                                 }
                             }
                         } else {
-                            // LN end miss (all types including pure LN)
-                            self.update_judge(
-                                lane_idx, note_idx, JUDGE_PR, mjud, true, false, gauge, events,
-                            );
+                            // LN end miss — pure LN end is not independently judged
+                            let is_pure_ln_end = note.note_type == NoteType::LongNote
+                                && self.ln_type == LnType::LongNote;
+                            if !is_pure_ln_end {
+                                // CN/HCN end miss
+                                self.update_judge(
+                                    lane_idx, note_idx, JUDGE_PR, mjud, true, false, gauge, events,
+                                );
+                            }
+                            // Clear processing state for all types
                             self.lane_states[lane_idx].processing = NO_NOTE;
                             self.lane_states[lane_idx].release_time = NOT_SET;
                             self.lane_states[lane_idx].ln_end_judge = NO_LN_END_JUDGE;
@@ -1492,20 +1510,6 @@ mod tests {
         let prop = gauge_property::sevenkeys();
         let gauge = GrooveGauge::new(&prop, GaugeType::Normal, 300.0, 100);
         (prop, gauge)
-    }
-
-    /// Create per-physical-key states with one key pressed at the given index.
-    fn key_pressed(idx: usize) -> Vec<bool> {
-        let mut v = vec![false; BEAT7K_KEY_COUNT];
-        v[idx] = true;
-        v
-    }
-
-    /// Create per-physical-key times with one key changed at the given index.
-    fn key_time_at(idx: usize, time: i64) -> Vec<i64> {
-        let mut v = vec![NOT_SET; BEAT7K_KEY_COUNT];
-        v[idx] = time;
-        v
     }
 
     // --- LaneState tests ---
@@ -2470,5 +2474,226 @@ mod tests {
             2,
             "now_combo should be 2 after second note"
         );
+    }
+
+    // --- BSS sckey tracking tests ---
+
+    /// Helper: create a BSS (scratch CN) start+end note pair on lane 7.
+    fn make_scratch_cn(start_us: i64, end_us: i64) -> Vec<Note> {
+        let mut start = Note::long_note(7, start_us, end_us, 1, 1, LnType::ChargeNote);
+        let mut end = Note::normal(7, end_us, 1);
+        end.note_type = NoteType::ChargeNote;
+        end.end_time_us = 0;
+        start.pair_index = 1;
+        end.pair_index = 0;
+        vec![start, end]
+    }
+
+    fn make_scratch_config<'a>(
+        notes: &'a [Note],
+        judge_property: &'a JudgeProperty,
+    ) -> JudgeConfig<'a> {
+        let mut config = make_config_with_notes(notes, judge_property);
+        config.ln_type = LnType::ChargeNote;
+        config
+    }
+
+    #[test]
+    fn bss_end_on_different_key() {
+        // Start BSS with physical key 7, end by pressing physical key 8.
+        let notes = make_scratch_cn(1_000_000, 2_000_000);
+        let jp = JudgeProperty::sevenkeys();
+        let config = make_scratch_config(&notes, &jp);
+        let mut jm = JudgeManager::new(&config);
+        let (_prop, mut gauge) = make_gauge();
+
+        // Prime
+        let empty_states = vec![false; BEAT7K_KEY_COUNT];
+        let empty_times = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        jm.update(-1, &notes, &empty_states, &empty_times, &mut gauge);
+
+        // Press key 7 (start BSS) at 1_000_000
+        let mut key_states = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_states[7] = true;
+        key_times[7] = 1_000_000;
+        jm.update(1_000_000, &notes, &key_states, &key_times, &mut gauge);
+        assert!(jm.processing_ln(7), "BSS should be active on lane 7");
+
+        // Press key 8 (different scratch key) at 2_000_000 → BSS end
+        let mut key_states2 = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times2 = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_states2[7] = true; // key 7 still held
+        key_states2[8] = true;
+        key_times2[8] = 2_000_000;
+        let events = jm.update(2_000_000, &notes, &key_states2, &key_times2, &mut gauge);
+        assert!(
+            !jm.processing_ln(7),
+            "BSS should be ended by different key press"
+        );
+        // Should have emitted a Judge event for the end note
+        let judge_events: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, JudgeEvent::Judge { .. }))
+            .collect();
+        assert!(
+            !judge_events.is_empty(),
+            "BSS end should produce a judge event"
+        );
+    }
+
+    #[test]
+    fn bss_same_key_repress() {
+        // Releasing same key within BD window (not POOR) is blocked by sckey guard.
+        // Re-pressing cancels the release timer, BSS stays active.
+        // longscratch BD window: [-290000, 230000] — release at dmtime=200000 → BD judge
+        let notes = make_scratch_cn(1_000_000, 2_000_000);
+        let jp = JudgeProperty::sevenkeys();
+        let config = make_scratch_config(&notes, &jp);
+        let mut jm = JudgeManager::new(&config);
+        let (_prop, mut gauge) = make_gauge();
+
+        let empty_states = vec![false; BEAT7K_KEY_COUNT];
+        let empty_times = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        jm.update(-1, &notes, &empty_states, &empty_times, &mut gauge);
+
+        // Press key 7 (start BSS)
+        let mut key_states = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_states[7] = true;
+        key_times[7] = 1_000_000;
+        jm.update(1_000_000, &notes, &key_states, &key_times, &mut gauge);
+        assert!(jm.processing_ln(7));
+
+        // Release key 7 at 1_800_000 (dmtime=200000, within BD window)
+        // judge=BD(3) != POOR(4), so sckey guard blocks the release.
+        let key_states2 = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times2 = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_times2[7] = 1_800_000;
+        jm.update(1_800_000, &notes, &key_states2, &key_times2, &mut gauge);
+        assert!(
+            jm.processing_ln(7),
+            "Same-key release within BD window should be blocked by sckey guard"
+        );
+
+        // Re-press key 7 — BSS should still be active
+        let mut key_states3 = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times3 = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_states3[7] = true;
+        key_times3[7] = 1_900_000;
+        jm.update(1_900_000, &notes, &key_states3, &key_times3, &mut gauge);
+        assert!(jm.processing_ln(7), "Same-key re-press should not end BSS");
+    }
+
+    #[test]
+    fn bss_release_only_same_key() {
+        // Releasing the OTHER scratch key should be ignored (BSS continues).
+        let notes = make_scratch_cn(1_000_000, 2_000_000);
+        let jp = JudgeProperty::sevenkeys();
+        let config = make_scratch_config(&notes, &jp);
+        let mut jm = JudgeManager::new(&config);
+        let (_prop, mut gauge) = make_gauge();
+
+        let empty_states = vec![false; BEAT7K_KEY_COUNT];
+        let empty_times = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        jm.update(-1, &notes, &empty_states, &empty_times, &mut gauge);
+
+        // Press key 7 (start BSS)
+        let mut key_states = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_states[7] = true;
+        key_times[7] = 1_000_000;
+        jm.update(1_000_000, &notes, &key_states, &key_times, &mut gauge);
+        assert!(jm.processing_ln(7));
+
+        // Release key 8 (different key) — BSS should NOT react
+        let mut key_states2 = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times2 = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_states2[7] = true; // key 7 still held
+        key_times2[8] = 1_500_000; // key 8 released
+        jm.update(1_500_000, &notes, &key_states2, &key_times2, &mut gauge);
+        assert!(
+            jm.processing_ln(7),
+            "Releasing different key should not affect BSS"
+        );
+    }
+
+    #[test]
+    fn bss_cn_release_guard() {
+        // BSS sckey guard: same-key release with good timing (PG) is BLOCKED.
+        // Only POOR-timing releases or pressing the other key can end BSS.
+        // longscratch PG window: [-130000, 130000] — release at dmtime=0 → PG judge
+        let notes = make_scratch_cn(1_000_000, 2_000_000);
+        let jp = JudgeProperty::sevenkeys();
+        let config = make_scratch_config(&notes, &jp);
+        let mut jm = JudgeManager::new(&config);
+        let (_prop, mut gauge) = make_gauge();
+
+        let empty_states = vec![false; BEAT7K_KEY_COUNT];
+        let empty_times = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        jm.update(-1, &notes, &empty_states, &empty_times, &mut gauge);
+
+        // Press key 7 (start BSS)
+        let mut key_states = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_states[7] = true;
+        key_times[7] = 1_000_000;
+        jm.update(1_000_000, &notes, &key_states, &key_times, &mut gauge);
+        assert!(jm.processing_ln(7));
+
+        // Release key 7 at exact end note time (dmtime=0, PG judge)
+        // PG(0) != POOR(4), so sckey guard blocks the release — BSS stays active.
+        let key_states2 = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times2 = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_times2[7] = 2_000_000;
+        jm.update(2_000_000, &notes, &key_states2, &key_times2, &mut gauge);
+        assert!(
+            jm.processing_ln(7),
+            "Same-key release with PG timing should be blocked on BSS"
+        );
+
+        // Press key 8 (other scratch key) to actually end BSS
+        let mut key_states3 = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times3 = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_states3[8] = true;
+        key_times3[8] = 2_100_000;
+        jm.update(2_100_000, &notes, &key_states3, &key_times3, &mut gauge);
+        assert!(
+            !jm.processing_ln(7),
+            "Pressing other scratch key should end BSS"
+        );
+    }
+
+    #[test]
+    fn bss_sckey_reset_on_miss() {
+        // When BSS times out (miss), sckey should be reset.
+        let notes = make_scratch_cn(1_000_000, 2_000_000);
+        let jp = JudgeProperty::sevenkeys();
+        let config = make_scratch_config(&notes, &jp);
+        let mut jm = JudgeManager::new(&config);
+        let (_prop, mut gauge) = make_gauge();
+
+        let empty_states = vec![false; BEAT7K_KEY_COUNT];
+        let empty_times = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        jm.update(-1, &notes, &empty_states, &empty_times, &mut gauge);
+
+        // Press key 7 (start BSS)
+        let mut key_states = vec![false; BEAT7K_KEY_COUNT];
+        let mut key_times = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        key_states[7] = true;
+        key_times[7] = 1_000_000;
+        jm.update(1_000_000, &notes, &key_states, &key_times, &mut gauge);
+        assert!(jm.processing_ln(7));
+
+        // Hold key 7 but never release/press other key → run past miss window
+        let held_states = vec![false, false, false, false, false, false, false, true, false];
+        let no_change = vec![NOT_SET; BEAT7K_KEY_COUNT];
+        // Advance past the end note miss window (far future)
+        for t in (2_100_000..4_000_000).step_by(100_000) {
+            jm.update(t, &notes, &held_states, &no_change, &mut gauge);
+        }
+
+        // BSS should have been missed — no longer processing
+        assert!(!jm.processing_ln(7), "BSS should end via miss timeout");
     }
 }

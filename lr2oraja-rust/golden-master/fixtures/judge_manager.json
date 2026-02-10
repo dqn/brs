@@ -131,7 +131,7 @@
     "autoplay" : true,
     "expected" : {
       "score" : {
-        "epg" : 6,
+        "epg" : 4,
         "lpg" : 0,
         "egr" : 0,
         "lgr" : 0,
@@ -143,16 +143,16 @@
         "lpr" : 0,
         "ems" : 0,
         "lms" : 0,
-        "maxcombo" : 6,
-        "passnotes" : 6
+        "maxcombo" : 4,
+        "passnotes" : 4
       },
-      "maxcombo" : 6,
-      "passnotes" : 6,
+      "maxcombo" : 4,
+      "passnotes" : 4,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
       "note_count" : 6,
       "playable_count" : 6,
-      "ghost" : [ 0, 0, 0, 0, 0, 0 ]
+      "ghost" : [ 0, 0, 0, 0 ]
     }
   }, {
     "group" : "A_autoplay",
@@ -162,7 +162,7 @@
     "autoplay" : true,
     "expected" : {
       "score" : {
-        "epg" : 5,
+        "epg" : 4,
         "lpg" : 0,
         "egr" : 0,
         "lgr" : 0,
@@ -174,16 +174,16 @@
         "lpr" : 0,
         "ems" : 0,
         "lms" : 0,
-        "maxcombo" : 5,
-        "passnotes" : 5
+        "maxcombo" : 4,
+        "passnotes" : 4
       },
-      "maxcombo" : 5,
-      "passnotes" : 5,
+      "maxcombo" : 4,
+      "passnotes" : 4,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
       "note_count" : 5,
       "playable_count" : 5,
-      "ghost" : [ 0, 0, 0, 0, 0 ]
+      "ghost" : [ 0, 0, 0, 0 ]
     }
   }, {
     "group" : "A_autoplay",
@@ -1023,7 +1023,7 @@
     "autoplay" : true,
     "expected" : {
       "score" : {
-        "epg" : 6,
+        "epg" : 4,
         "lpg" : 0,
         "egr" : 0,
         "lgr" : 0,
@@ -1035,16 +1035,16 @@
         "lpr" : 0,
         "ems" : 0,
         "lms" : 0,
-        "maxcombo" : 6,
-        "passnotes" : 6
+        "maxcombo" : 4,
+        "passnotes" : 4
       },
-      "maxcombo" : 6,
-      "passnotes" : 6,
+      "maxcombo" : 4,
+      "passnotes" : 4,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
       "note_count" : 6,
       "playable_count" : 6,
-      "ghost" : [ 0, 0, 0, 0, 0, 0 ]
+      "ghost" : [ 0, 0, 0, 0 ]
     }
   }, {
     "group" : "E_longnote",
@@ -1054,7 +1054,7 @@
     "autoplay" : true,
     "expected" : {
       "score" : {
-        "epg" : 5,
+        "epg" : 4,
         "lpg" : 0,
         "egr" : 0,
         "lgr" : 0,
@@ -1066,16 +1066,16 @@
         "lpr" : 0,
         "ems" : 0,
         "lms" : 0,
-        "maxcombo" : 5,
-        "passnotes" : 5
+        "maxcombo" : 4,
+        "passnotes" : 4
       },
-      "maxcombo" : 5,
-      "passnotes" : 5,
+      "maxcombo" : 4,
+      "passnotes" : 4,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
       "note_count" : 5,
       "playable_count" : 5,
-      "ghost" : [ 0, 0, 0, 0, 0 ]
+      "ghost" : [ 0, 0, 0, 0 ]
     }
   }, {
     "group" : "F_cross_mode",

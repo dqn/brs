@@ -426,7 +426,7 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] 31 テスト通過 (171 テスト全通過), clippy clean, fmt applied
   - [x] now_judge / now_combo: レーン→プレイヤーインデックス変換 + スキン表示用更新
   - [x] LN release margin: worst-of-three の結果を ln_end_judge に正しく保存
-  - [ ] BSS `sckey` 追跡: 延期 — 現在の per-lane API では物理キーインデックスが不明。InputProcessor 統合時に API 拡張 (物理キー情報追加) と合わせて実装予定
+  - [x] BSS `sckey` 追跡: LaneProperty による物理キー→レーン変換 + sckey 追跡 (6箇所), per-physical-key API 移行完了
 - [x] **11-AB テスト** — 30 テスト通過, clippy clean, fmt applied
 - [x] **11-9. E2E テスト**: パース → Judge → Gauge → ScoreData 一気通貫
   - [x] 5グループ 20テスト通過 (Autoplay 8 + Manual 5 + Gauge 4 + LN 2 + Cross-mode 1)

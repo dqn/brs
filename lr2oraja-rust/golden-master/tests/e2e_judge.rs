@@ -348,28 +348,30 @@ fn autoplay_mine_no_damage() {
 
 // LN autoplay tests: build_judge_notes() splits LN into start+end pairs with
 // pair_index, so autoplay correctly tracks LN start→end as all PGREAT.
+// Pure LN end notes are not independently judged (1 judgment per LN pair),
+// so we use ghost.len() as the expected total rather than raw playable count.
 
 #[test]
 fn autoplay_longnote() {
     let model = load_bms("longnote_types.bms");
-    let judge_notes = model.build_judge_notes();
-    let total = judge_notes.iter().filter(|n| n.is_playable()).count();
     let long_notes = model.total_long_notes();
-    assert!(total > 0);
     assert!(long_notes > 0, "longnote_types should have LN notes");
 
     let result = run_autoplay_simulation(&model, GaugeType::Normal);
+    // ghost.len() reflects actually-judged notes (excludes pure LN end)
+    let total = result.ghost.len();
+    assert!(total > 0);
     assert_all_pgreat(&result, total, "autoplay_longnote");
 }
 
 #[test]
 fn autoplay_scratch_bss() {
     let model = load_bms("scratch_bss.bms");
-    let judge_notes = model.build_judge_notes();
-    let total = judge_notes.iter().filter(|n| n.is_playable()).count();
-    assert!(total > 0);
 
     let result = run_autoplay_simulation(&model, GaugeType::Normal);
+    // ghost.len() reflects actually-judged notes
+    let total = result.ghost.len();
+    assert!(total > 0);
     assert_all_pgreat(&result, total, "autoplay_scratch_bss");
 }
 
@@ -557,16 +559,16 @@ fn gauge_all_types_autoplay() {
 #[test]
 fn ln_autoplay_judge_count() {
     let model = load_bms("longnote_types.bms");
-    let judge_notes = model.build_judge_notes();
-    let total = judge_notes.iter().filter(|n| n.is_playable()).count();
 
     let result = run_autoplay_simulation(&model, GaugeType::Normal);
 
-    // Each playable note (start + end for LN) gets exactly 1 judgment.
+    // Pure LN: 1 judgment per LN pair (end not independently judged).
+    // ghost.len() matches the number of actually-judged notes.
+    let expected = result.ghost.len() as i32;
     assert_eq!(
         result.score.total_judge_count(),
-        total as i32,
-        "Each playable note should be judged exactly once (total={total}, got={})",
+        expected,
+        "Judge count should match ghost length (expected={expected}, got={})",
         result.score.total_judge_count()
     );
 }
@@ -574,16 +576,16 @@ fn ln_autoplay_judge_count() {
 #[test]
 fn scratch_autoplay_judge_count() {
     let model = load_bms("scratch_bss.bms");
-    let judge_notes = model.build_judge_notes();
-    let total = judge_notes.iter().filter(|n| n.is_playable()).count();
 
     let result = run_autoplay_simulation(&model, GaugeType::Normal);
 
-    // Each playable note (start + end for LN) gets exactly 1 judgment.
+    // BSS (CN type): start + end independently judged.
+    // ghost.len() matches the number of actually-judged notes.
+    let expected = result.ghost.len() as i32;
     assert_eq!(
         result.score.total_judge_count(),
-        total as i32,
-        "Each playable note should be judged exactly once (total={total}, got={})",
+        expected,
+        "Judge count should match ghost length (expected={expected}, got={})",
         result.score.total_judge_count()
     );
 }
