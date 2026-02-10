@@ -5,7 +5,6 @@ bms/
 .worktrees/
 .claude/**
 .claude/
-screenshots/
 skins/**
 !skins/default
 logs/
