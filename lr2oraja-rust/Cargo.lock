@@ -1676,8 +1676,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bevy",
+ "bms-config",
  "bms-skin",
  "image",
+ "image-compare",
+ "tempfile",
 ]
 
 [[package]]
@@ -3444,6 +3447,18 @@ dependencies = [
  "tiff",
  "zune-core 0.5.1",
  "zune-jpeg 0.5.12",
+]
+
+[[package]]
+name = "image-compare"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bf712e96694f43e33b8394265e4d4bc06998c3648718148e4584d80dc3b3165"
+dependencies = [
+ "image",
+ "itertools 0.14.0",
+ "rayon",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

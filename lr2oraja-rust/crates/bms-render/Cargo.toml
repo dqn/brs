@@ -8,3 +8,8 @@ bms-skin.workspace = true
 anyhow.workspace = true
 bevy.workspace = true
 image.workspace = true
+
+[dev-dependencies]
+bms-config = { workspace = true }
+image-compare = { workspace = true }
+tempfile = { workspace = true }

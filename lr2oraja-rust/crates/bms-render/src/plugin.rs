@@ -1,20 +1,27 @@
 // BmsRenderPlugin — Bevy plugin for skin rendering.
 //
-// Sets up the 2D orthographic camera and registers the skin render system.
+// Sets up the 2D orthographic camera, registers the skin render system,
+// and configures the distance field font material pipeline.
 
+use bevy::asset::embedded_asset;
 use bevy::prelude::*;
+use bevy::sprite::Material2dPlugin;
 
+use crate::distance_field_material::DistanceFieldMaterial;
 use crate::skin_renderer::skin_render_system;
 
 /// Bevy plugin that sets up skin rendering.
 ///
-/// Configures a 2D orthographic camera and registers the per-frame
-/// skin render system.
+/// Configures a 2D orthographic camera, registers the per-frame
+/// skin render system, and adds the distance field material pipeline.
 pub struct BmsRenderPlugin;
 
 impl Plugin for BmsRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_camera)
+        embedded_asset!(app, "distance_field.wgsl");
+
+        app.add_plugins(Material2dPlugin::<DistanceFieldMaterial>::default())
+            .add_systems(Startup, setup_camera)
             .add_systems(Update, skin_render_system);
     }
 }

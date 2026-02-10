@@ -60,4 +60,12 @@ golden-master-skin-snapshot:
 # Generate all GM fixtures (parse + rule + pattern + replay + database + config + autoplay + audio + judge)
 golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen golden-master-replay-gen golden-master-database-gen golden-master-config-gen golden-master-autoplay-gen golden-master-audio-gen golden-master-judge-gen
 
+# Screenshot tests (GPU required, local execution)
+screenshot-test:
+    cargo test -p bms-render --test screenshot_tests -- --ignored --nocapture
+
+# Regenerate screenshot fixtures
+screenshot-update:
+    UPDATE_SCREENSHOTS=1 cargo test -p bms-render --test screenshot_tests -- --ignored --nocapture
+
 all: check test clippy fmt-check

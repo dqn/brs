@@ -75,3 +75,4 @@ quick-xml = { version = "0.37", features = ["serialize"] }
 # Dev/test dependencies
 tempfile = "3"
 wiremock = "0.6"
+image-compare = "0.4"

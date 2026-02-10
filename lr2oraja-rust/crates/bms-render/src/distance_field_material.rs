@@ -3,10 +3,6 @@
 // Wraps the distance_field.wgsl shader for rendering SDF bitmap fonts.
 // Used for bitmap_type=1 (standard distance field) and
 // bitmap_type=2 (colored distance field).
-//
-// TODO: Integrate into skin_renderer.rs for BitmapTextMarker entities
-// with bitmap_type != 0. Currently only the type definitions and
-// shader asset are provided; actual rendering uses standard sprites.
 
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderRef};
@@ -46,7 +42,7 @@ pub struct DistanceFieldMaterial {
 
 impl Material2d for DistanceFieldMaterial {
     fn fragment_shader() -> ShaderRef {
-        "distance_field.wgsl".into()
+        "embedded://bms_render/distance_field.wgsl".into()
     }
 }
 
@@ -61,6 +57,22 @@ impl Default for DistanceFieldMaterial {
             texture: Handle::default(),
         }
     }
+}
+
+/// Compute outline distance from outline width.
+/// outline_width=0 → 0.5 (no outline), larger width → smaller distance (thicker outline).
+pub fn compute_outline_distance(outline_width: f32) -> f32 {
+    (0.5 - outline_width / 2.0).max(0.1)
+}
+
+/// Compute shadow offset in UV space from pixel offsets and page dimensions.
+pub fn compute_shadow_offset(offset_x: f32, offset_y: f32, page_w: f32, page_h: f32) -> Vec4 {
+    Vec4::new(offset_x / page_w, offset_y / page_h, 0.0, 0.0)
+}
+
+/// Compute shadow smoothing from a smoothness value.
+pub fn compute_shadow_smoothing(smoothness: f32) -> f32 {
+    smoothness / 2.0
 }
 
 #[cfg(test)]
@@ -85,5 +97,37 @@ mod tests {
         assert_eq!(BITMAP_TYPE_STANDARD, 0);
         assert_eq!(BITMAP_TYPE_DISTANCE_FIELD, 1);
         assert_eq!(BITMAP_TYPE_COLORED_DISTANCE_FIELD, 2);
+    }
+
+    #[test]
+    fn compute_outline_distance_no_outline() {
+        assert!((compute_outline_distance(0.0) - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn compute_outline_distance_thick() {
+        // width=0.6 → 0.5 - 0.3 = 0.2
+        assert!((compute_outline_distance(0.6) - 0.2).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn compute_outline_distance_clamped() {
+        // width=1.0 → 0.5 - 0.5 = 0.0, clamped to 0.1
+        assert!((compute_outline_distance(1.0) - 0.1).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn compute_shadow_offset_basic() {
+        let offset = compute_shadow_offset(2.0, 3.0, 256.0, 256.0);
+        assert!((offset.x - 2.0 / 256.0).abs() < f32::EPSILON);
+        assert!((offset.y - 3.0 / 256.0).abs() < f32::EPSILON);
+        assert!(offset.z.abs() < f32::EPSILON);
+        assert!(offset.w.abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn compute_shadow_smoothing_basic() {
+        assert!((compute_shadow_smoothing(0.5) - 0.25).abs() < f32::EPSILON);
+        assert!(compute_shadow_smoothing(0.0).abs() < f32::EPSILON);
     }
 }
