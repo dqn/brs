@@ -6,4 +6,12 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 reqwest.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["sync", "fs", "time"] }
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+flate2.workspace = true
+tar.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

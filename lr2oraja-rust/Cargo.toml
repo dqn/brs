@@ -59,7 +59,7 @@ mlua = { version = "0.10", features = ["lua54", "vendored"] }
 bevy = "0.15"
 gilrs = "0.11"
 midir = "0.10"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "multipart", "stream"] }
 md5 = "0.7"
 sha2 = "0.10"
 rand = "0.9"
@@ -71,6 +71,11 @@ minimp3 = "0.5"
 ebur128 = "0.1"
 
 quick-xml = { version = "0.37", features = ["serialize"] }
+uuid = { version = "1", features = ["v4"] }
+tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+chrono = "0.4"
+sevenz-rust = "0.6"
+tar = "0.4"
 
 # Dev/test dependencies
 tempfile = "3"

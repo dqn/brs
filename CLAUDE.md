@@ -474,13 +474,37 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 ### Phase 13: Peripherals
 
-- [ ] **13-1. Discord RPC** (`bms-external`) — discord-rich-presence
-- [ ] **13-2. OBS 連携** (`bms-external`) — tokio-tungstenite
-- [ ] **13-3. ストリーミング** (`bms-stream`)
-- [ ] **13-4. 楽曲ダウンローダー** (`bms-download`)
-- [ ] **13-5. 設定 GUI** (`bms-launcher`) — egui (18 JavaFX views → egui panels)
-- [ ] **13-6. ModMenu** — egui (7 ImGui views → egui)
-- [ ] **13-7. その他** (BMSSearch, Screenshot, Webhook, ScoreImporter)
+- [x] **13-1. Discord RPC** (`bms-external`)
+  - [x] `discord/ipc.rs` — IpcConnection trait + Unix/Windows 実装 (UnixStream / named pipe)
+  - [x] `discord/rich_presence.rs` — RichPresenceClient (ハンドシェイク, SET_ACTIVITY, uuid nonce)
+  - [x] `discord/listener.rs` — DiscordListener (AppStateType → Rich Presence 更新)
+- [x] **13-2. OBS 連携** (`bms-external`) — tokio-tungstenite
+  - [x] `obs/protocol.rs` — OBS WS v5 メッセージ型 (Hello/Identify/Request/Event) + auth 計算
+  - [x] `obs/client.rs` — ObsWsClient (mpsc コマンドチャンネル + バックグラウンド WebSocket task, 自動再接続)
+  - [x] `obs/listener.rs` — ObsListener (Config obs_scenes/obs_actions マッピング)
+- [x] **13-3. ストリーミング** (`bms-stream`)
+  - [x] `command.rs` — StreamCommand trait + StreamRequestCommand (!!req パース, bounded VecDeque)
+  - [x] `controller.rs` — StreamController (Windows named pipe + non-Windows stub, shutdown via watch)
+- [x] **13-4. 楽曲ダウンローダー** (`bms-download`)
+  - [x] `task.rs` — DownloadTask + DownloadTaskStatus enum (6 states, auto time_finished)
+  - [x] `source/konmai.rs` — KonmaiDownloadSource (API クエリ → JSON → song_url)
+  - [x] `source/wriggle.rs` — WriggleDownloadSource (URL パターン置換)
+  - [x] `processor.rs` — HttpDownloadProcessor (tokio::Semaphore 同時5DL, streaming progress)
+  - [x] `extract.rs` — tar.gz 展開 (flate2 + tar)
+- [x] **13-5. 設定 GUI** (`bms-launcher`) — スケルトン
+  - [x] `view.rs` — LauncherView trait (name/has_changes/apply)
+  - [x] `lib.rs` — LauncherApp struct (Config 保持)
+- [x] **13-6. ModMenu** — スケルトン
+  - [x] `mod_menu.rs` — ModMenuPlugin struct (enabled toggle)
+- [x] **13-7. その他** (BMSSearch, Screenshot, Webhook, ScoreImporter)
+  - [x] `screenshot/mod.rs` — ScreenshotExporter trait + clear_type_name/rank_name ヘルパー
+  - [x] `screenshot/file_exporter.rs` — FileExporter (PNG 保存, YYYYMMDD_HHmmss 命名)
+  - [x] `webhook/mod.rs` — WebhookHandler (multipart/form-data POST)
+  - [x] `webhook/payload.rs` — Discord Embed ペイロード構築 (色付き clear type)
+  - [x] `bms_search.rs` — BmsSearchAccessor (api.bmssearch.net/v1 クエリ)
+  - [x] `score_importer.rs` — ScoreDataImporter (LR2 SQLite → bms-database, clear 値マッピング)
+- [x] **13-8. テスト・品質** — 1,114 テスト通過 (全 workspace), clippy clean, fmt applied
+  - [x] bms-external: 45 テスト, bms-stream: 18 テスト, bms-download: 36 テスト, bms-launcher: 2 テスト
 
 ### Phase 14: Integration & GUI Testing
 

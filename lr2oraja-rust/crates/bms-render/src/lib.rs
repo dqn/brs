@@ -9,6 +9,7 @@ pub mod distance_field_material;
 pub mod draw;
 pub mod font_map;
 pub mod image_loader_bevy;
+pub mod mod_menu;
 pub mod plugin;
 pub mod skin_renderer;
 pub mod state_provider;
