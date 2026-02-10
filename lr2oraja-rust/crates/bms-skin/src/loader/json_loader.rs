@@ -10,7 +10,7 @@
 // 4. Convert to SkinHeader (for skin selection UI)
 // 5. Convert to Skin (full skin with all objects)
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -20,6 +20,7 @@ use bms_config::resolution::Resolution;
 use bms_config::skin_type::SkinType;
 
 use crate::custom_event::{CustomEventDef, CustomTimerDef};
+use crate::image_handle::ImageHandle;
 use crate::loader::json_skin::{FlexId, JsonAnimation, JsonDestination, JsonSkinData};
 use crate::property_id::{
     BooleanId, EventId, OFFSET_ALL, OFFSET_JUDGE_1P, OFFSET_JUDGEDETAIL_1P, OFFSET_NOTES_1P,
@@ -371,6 +372,28 @@ pub fn load_skin(
     dest_resolution: Resolution,
     path: Option<&Path>,
 ) -> Result<Skin> {
+    load_skin_with_images(
+        json_str,
+        enabled_options,
+        dest_resolution,
+        path,
+        &HashMap::new(),
+    )
+}
+
+/// Loads a full Skin from a JSON skin string with pre-loaded source images.
+///
+/// `source_images` maps source ID strings (from the `source` array) to
+/// `ImageHandle` values. When an image/slider/graph references a source ID,
+/// the corresponding handle is used to populate `SkinImage.sources`,
+/// `SkinSlider.source_images`, or `SkinGraph.source_images`.
+pub fn load_skin_with_images(
+    json_str: &str,
+    enabled_options: &HashSet<i32>,
+    dest_resolution: Resolution,
+    path: Option<&Path>,
+    source_images: &HashMap<String, ImageHandle>,
+) -> Result<Skin> {
     // Parse and resolve conditionals
     let raw: Value = serde_json::from_str(json_str).context("Failed to parse JSON")?;
     let resolved = resolve_conditionals(raw, enabled_options);
@@ -399,7 +422,7 @@ pub fn load_skin(
 
     // Process destinations → create skin objects
     for dst in &data.destination {
-        if let Some(obj) = build_skin_object(&data, dst, path) {
+        if let Some(obj) = build_skin_object(&data, dst, path, source_images) {
             skin.add(obj);
         }
     }
@@ -448,6 +471,7 @@ fn build_skin_object(
     data: &JsonSkinData,
     dst: &JsonDestination,
     skin_path: Option<&Path>,
+    source_images: &HashMap<String, ImageHandle>,
 ) -> Option<SkinObjectType> {
     let dst_id = &dst.id;
 
@@ -461,7 +485,7 @@ fn build_skin_object(
     }
 
     // Try matching against each object type
-    if let Some(obj) = try_build_image(data, dst, dst_id) {
+    if let Some(obj) = try_build_image(data, dst, dst_id, source_images) {
         return Some(obj);
     }
     if let Some(obj) = try_build_image_set(data, dst, dst_id) {
@@ -473,10 +497,10 @@ fn build_skin_object(
     if let Some(obj) = try_build_text(data, dst, dst_id, skin_path) {
         return Some(obj);
     }
-    if let Some(obj) = try_build_slider(data, dst, dst_id) {
+    if let Some(obj) = try_build_slider(data, dst, dst_id, source_images) {
         return Some(obj);
     }
-    if let Some(obj) = try_build_graph(data, dst, dst_id) {
+    if let Some(obj) = try_build_graph(data, dst, dst_id, source_images) {
         return Some(obj);
     }
     if let Some(obj) = try_build_bpm_graph(data, dst, dst_id) {
@@ -499,14 +523,22 @@ fn try_build_image(
     data: &JsonSkinData,
     dst: &JsonDestination,
     dst_id: &FlexId,
+    source_images: &HashMap<String, ImageHandle>,
 ) -> Option<SkinObjectType> {
     let img_def = data.image.iter().find(|i| i.id == *dst_id)?;
 
-    // Create a SkinImage from the image definition.
-    // Actual texture loading is deferred to Phase 10.
-    // We record the source reference and grid info for later resolution.
     let mut skin_img = crate::skin_image::SkinImage::default();
     apply_destination(&mut skin_img.base, dst);
+
+    // Resolve source image handle
+    if let Some(&handle) = source_images.get(img_def.src.as_str()) {
+        let timer = img_def.timer.as_ref().and_then(|t| t.as_id());
+        skin_img.sources = vec![crate::skin_image::SkinImageSource::Frames {
+            images: vec![handle],
+            timer,
+            cycle: img_def.cycle,
+        }];
+    }
 
     // Record click event
     if let Some(act) = &img_def.act
@@ -684,6 +716,7 @@ fn try_build_slider(
     data: &JsonSkinData,
     dst: &JsonDestination,
     dst_id: &FlexId,
+    source_images: &HashMap<String, ImageHandle>,
 ) -> Option<SkinObjectType> {
     let sl_def = data.slider.iter().find(|s| s.id == *dst_id)?;
 
@@ -703,6 +736,11 @@ fn try_build_slider(
     };
     apply_destination(&mut slider.base, dst);
 
+    // Resolve source image handle
+    if let Some(&handle) = source_images.get(sl_def.src.as_str()) {
+        slider.source_images = vec![handle];
+    }
+
     Some(slider.into())
 }
 
@@ -710,6 +748,7 @@ fn try_build_graph(
     data: &JsonSkinData,
     dst: &JsonDestination,
     dst_id: &FlexId,
+    source_images: &HashMap<String, ImageHandle>,
 ) -> Option<SkinObjectType> {
     let gr_def = data.graph.iter().find(|g| g.id == *dst_id)?;
 
@@ -733,6 +772,11 @@ fn try_build_graph(
         ..Default::default()
     };
     apply_destination(&mut graph.base, dst);
+
+    // Resolve source image handle
+    if let Some(&handle) = source_images.get(gr_def.src.as_str()) {
+        graph.source_images = vec![handle];
+    }
 
     Some(graph.into())
 }

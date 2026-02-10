@@ -1680,6 +1680,7 @@ dependencies = [
  "bms-skin",
  "image",
  "image-compare",
+ "serde_json",
  "tempfile",
 ]
 

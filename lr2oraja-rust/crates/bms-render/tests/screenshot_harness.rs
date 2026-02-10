@@ -18,6 +18,7 @@ use bms_render::texture_map::TextureMap;
 use bms_skin::image_handle::ImageHandle;
 use bms_skin::skin::Skin;
 
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 /// Handle to the off-screen render target image.
@@ -163,6 +164,64 @@ impl RenderTestHarness {
         let mut commands = self.app.world_mut().commands();
         setup_skin(&mut commands, skin, texture_map, font_map, state_provider);
         self.app.world_mut().flush();
+    }
+
+    /// Load a JSON skin file, resolve source images, and set up for rendering.
+    pub fn load_json_skin(
+        &mut self,
+        skin_json_path: &Path,
+        state_provider: Box<dyn SkinStateProvider>,
+    ) {
+        let json_str = std::fs::read_to_string(skin_json_path).unwrap_or_else(|e| {
+            panic!(
+                "Failed to read skin JSON {}: {}",
+                skin_json_path.display(),
+                e
+            )
+        });
+
+        let raw: serde_json::Value = serde_json::from_str(&json_str)
+            .unwrap_or_else(|e| panic!("Failed to parse skin JSON: {}", e));
+
+        let skin_dir = skin_json_path.parent().unwrap();
+
+        // Extract source definitions and load images
+        let mut source_images: HashMap<String, ImageHandle> = HashMap::new();
+        if let Some(sources) = raw.get("source").and_then(|v| v.as_array()) {
+            for src in sources {
+                let id = match src.get("id") {
+                    Some(serde_json::Value::Number(n)) => n.to_string(),
+                    Some(serde_json::Value::String(s)) => s.clone(),
+                    _ => continue,
+                };
+                let path_str = match src.get("path").and_then(|v| v.as_str()) {
+                    Some(p) => p,
+                    None => continue,
+                };
+                let img_path = skin_dir.join(path_str);
+                let img = image::open(&img_path)
+                    .unwrap_or_else(|e| {
+                        panic!("Failed to open image {}: {}", img_path.display(), e)
+                    })
+                    .to_rgba8();
+                self.upload_image(&img);
+                let handle = ImageHandle(self.next_handle_id - 1);
+                source_images.insert(id, handle);
+            }
+        }
+
+        // Load skin with resolved images
+        let dest_resolution = bms_config::resolution::Resolution::Sd;
+        let skin = bms_skin::loader::json_loader::load_skin_with_images(
+            &json_str,
+            &HashSet::new(),
+            dest_resolution,
+            Some(skin_json_path),
+            &source_images,
+        )
+        .unwrap_or_else(|e| panic!("Failed to load skin: {}", e));
+
+        self.setup_skin(skin, state_provider);
     }
 
     /// Run pre-roll frames, capture a screenshot, and save to disk.

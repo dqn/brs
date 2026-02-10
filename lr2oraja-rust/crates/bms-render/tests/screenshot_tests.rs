@@ -149,6 +149,63 @@ fn test_render_graph() {
 }
 
 // ---------------------------------------------------------------------------
+// JSON skin file tests
+// ---------------------------------------------------------------------------
+
+/// Path to test-skin directory.
+fn test_skin_dir() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("test-bms")
+        .join("test-skin")
+}
+
+/// Helper: load a JSON skin file, set up state, capture frame.
+fn run_json_skin_test(
+    skin_json_name: &str,
+    provider: bms_render::state_provider::StaticStateProvider,
+    fixture_name: &str,
+) {
+    let skin_path = test_skin_dir().join(skin_json_name);
+    let mut harness = RenderTestHarness::new(TEST_W, TEST_H);
+
+    harness.load_json_skin(&skin_path, Box::new(provider));
+
+    let tmp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let output_path = tmp_dir.path().join("screenshot.png");
+
+    harness.capture_frame(&output_path);
+
+    let actual = image::open(&output_path)
+        .expect("Failed to read captured screenshot")
+        .to_rgba8();
+
+    screenshot_compare::compare_or_update(&actual, &fixture_path(fixture_name), SSIM_THRESHOLD);
+}
+
+fn test_render_json_skin() {
+    let mut provider = bms_render::state_provider::StaticStateProvider::default();
+    // slider FloatId(17) = 0.5, graph FloatId(100) = 0.6
+    provider.floats.insert(17, 0.5);
+    provider.floats.insert(100, 0.6);
+    run_json_skin_test("skin.json", provider, "json_skin");
+}
+
+fn test_render_json_skin_with_condition() {
+    let mut provider = bms_render::state_provider::StaticStateProvider::default();
+    // BooleanId(900) = false → accent image should be hidden
+    provider.booleans.insert(900, false);
+    run_json_skin_test(
+        "skin_with_condition.json",
+        provider,
+        "json_skin_with_condition",
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Custom test runner
 // ---------------------------------------------------------------------------
 
@@ -170,6 +227,11 @@ fn get_tests() -> Vec<(&'static str, fn())> {
         ("test_render_four_corners", test_render_four_corners),
         ("test_render_slider", test_render_slider),
         ("test_render_graph", test_render_graph),
+        ("test_render_json_skin", test_render_json_skin),
+        (
+            "test_render_json_skin_with_condition",
+            test_render_json_skin_with_condition,
+        ),
     ]
 }
 

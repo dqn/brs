@@ -1,0 +1,31 @@
+{
+  "type": 6,
+  "name": "Test Skin",
+  "w": 256,
+  "h": 192,
+  "source": [
+    {"id": 0, "path": "bg.png"},
+    {"id": 1, "path": "panel.png"},
+    {"id": 2, "path": "accent.png"},
+    {"id": 3, "path": "thumb.png"},
+    {"id": 4, "path": "bar.png"}
+  ],
+  "image": [
+    {"id": "bg", "src": 0},
+    {"id": "panel", "src": 1},
+    {"id": "accent", "src": 2}
+  ],
+  "slider": [
+    {"id": "slider", "src": 3, "angle": 1, "range": 80, "type": 17}
+  ],
+  "graph": [
+    {"id": "gauge", "src": 4, "angle": 1, "type": 100}
+  ],
+  "destination": [
+    {"id": "bg", "dst": [{"x": 0, "y": 0, "w": 256, "h": 192}]},
+    {"id": "panel", "dst": [{"x": 88, "y": 71, "w": 80, "h": 50, "a": 230}]},
+    {"id": "accent", "dst": [{"x": 0, "y": 0, "w": 30, "h": 30}]},
+    {"id": "slider", "dst": [{"x": 50, "y": 160, "w": 10, "h": 10}]},
+    {"id": "gauge", "dst": [{"x": 68, "y": 170, "w": 120, "h": 12}]}
+  ]
+}
