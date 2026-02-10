@@ -311,8 +311,9 @@ impl RenderTestHarness {
 
     /// Run pre-roll frames, capture a screenshot, and save to disk.
     pub fn capture_frame(&mut self, output_path: &Path) {
-        // Run pre-roll frames to let rendering pipeline stabilize
-        for _ in 0..6 {
+        // Run pre-roll frames to let rendering pipeline stabilize.
+        // Complex skins with many entities need more frames for GPU upload.
+        for _ in 0..60 {
             self.app.update();
         }
 
@@ -326,7 +327,7 @@ impl RenderTestHarness {
         self.app.world_mut().flush();
 
         // Run frames to complete capture and disk write
-        for _ in 0..6 {
+        for _ in 0..60 {
             self.app.update();
         }
     }

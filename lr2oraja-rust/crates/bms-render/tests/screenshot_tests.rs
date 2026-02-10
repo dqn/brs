@@ -403,8 +403,8 @@ fn test_render_ecfn_play7_active() {
         "play/play7main.lua",
         state_play_active(),
         "ecfn_play7_active",
-        1280,
-        720,
+        1920,
+        1080,
     );
 }
 
@@ -413,8 +413,8 @@ fn test_render_ecfn_play7_fullcombo() {
         "play/play7main.lua",
         state_play_fullcombo(),
         "ecfn_play7_fullcombo",
-        1280,
-        720,
+        1920,
+        1080,
     );
 }
 
@@ -423,8 +423,8 @@ fn test_render_ecfn_play7_danger() {
         "play/play7main.lua",
         state_play_danger(),
         "ecfn_play7_danger",
-        1280,
-        720,
+        1920,
+        1080,
     );
 }
 
