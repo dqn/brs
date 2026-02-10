@@ -183,7 +183,7 @@ pub fn resolve_conditionals(value: Value, enabled: &HashSet<i32>) -> Value {
 /// Handles:
 /// - Missing commas between objects/arrays: `}  {` → `}, {`
 /// - Trailing commas before `}` or `]`: `, }` → `}`
-fn preprocess_json(input: &str) -> String {
+pub fn preprocess_json(input: &str) -> String {
     let mut result = String::with_capacity(input.len());
     let mut in_string = false;
     let mut escape_next = false;

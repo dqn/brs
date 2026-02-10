@@ -194,7 +194,8 @@ impl RenderTestHarness {
             )
         });
 
-        let raw: serde_json::Value = serde_json::from_str(&json_str)
+        let preprocessed = bms_skin::loader::json_loader::preprocess_json(&json_str);
+        let raw: serde_json::Value = serde_json::from_str(&preprocessed)
             .unwrap_or_else(|e| panic!("Failed to parse skin JSON: {}", e));
 
         let skin_dir = skin_json_path.parent().unwrap();
