@@ -1,0 +1,39 @@
+{
+	"type": 5,
+	"name": "Test Options Skin",
+	"w": 1920,
+	"h": 1080,
+	"scene": 2000,
+	"input": 300,
+	"fadeout": 400,
+	"property": [
+		{
+			"name": "BG Style",
+			"item": [
+				{"name": "Dark", "op": 900},
+				{"name": "Light", "op": 901}
+			],
+			"def": "Dark"
+		}
+	],
+	"filepath": [
+		{"name": "Background", "path": "bg/*.png", "def": "default.png"}
+	],
+	"offset": [
+		{"name": "Judge Position", "id": 50, "x": true, "y": true, "w": false, "h": false, "r": false, "a": false}
+	],
+	"source": [
+		{"id": 0, "path": "test.png"}
+	],
+	"image": [
+		{"id": "bg", "src": 0, "x": 0, "y": 0, "w": 1920, "h": 1080}
+	],
+	"destination": [
+		{"id": "bg", "dst": [
+			{"time": 0, "x": 0, "y": 0, "w": 1920, "h": 1080, "a": 255}
+		]},
+		{"if": 900, "value": {"id": "bg", "dst": [
+			{"time": 0, "x": 0, "y": 0, "w": 960, "h": 540, "a": 128}
+		]}}
+	]
+}

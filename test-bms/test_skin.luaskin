@@ -1,0 +1,6 @@
+local t = require("test_skin_lua_main")
+if skin_config then
+    return t.main()
+else
+    return t.header
+end

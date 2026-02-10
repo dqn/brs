@@ -3,12 +3,6 @@
 // Tests JSON, Lua, and LR2 CSV skin loaders by loading real skin files
 // and verifying structural properties. Snapshot tests compare full
 // SkinSnapshot JSON for regression detection.
-//
-// NOTE: Some ECFN skin files have issues:
-// - select.json has malformed JSON (missing comma between elements)
-// - select.luaskin and result.luaskin require("main_state") from play/
-//   directory (cross-directory require unsupported by current Lua loader)
-// These tests are marked #[ignore] until the loaders are enhanced.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -52,6 +46,29 @@ fn fixtures_dir() -> PathBuf {
 fn read_file(path: &Path) -> String {
     std::fs::read_to_string(path)
         .unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e))
+}
+
+fn assert_snapshot(fixture_name: &str, skin: &bms_skin::skin::Skin) {
+    let snap = snapshot_from_skin(skin);
+    let fixture_path = fixtures_dir().join(fixture_name);
+
+    if should_update_snapshots() {
+        save_snapshot(&snap, &fixture_path).expect("Failed to save snapshot");
+        eprintln!("Updated snapshot: {}", fixture_path.display());
+        return;
+    }
+
+    if !fixture_path.exists() {
+        save_snapshot(&snap, &fixture_path).expect("Failed to save initial snapshot");
+        eprintln!(
+            "Created initial snapshot: {}. Re-run to verify.",
+            fixture_path.display()
+        );
+        return;
+    }
+
+    let expected = load_snapshot(&fixture_path).expect("Failed to load fixture snapshot");
+    assert_eq!(snap, expected, "Full snapshot mismatch");
 }
 
 // ===========================================================================
@@ -148,42 +165,123 @@ fn json_test_snapshot() {
     let skin = json_loader::load_skin(&content, &enabled, Resolution::Hd, Some(&path))
         .expect("Failed to load JSON skin");
 
-    let snap = snapshot_from_skin(&skin);
-    let fixture_path = fixtures_dir().join("skin_json_test_snapshot.json");
-
-    if should_update_snapshots() {
-        save_snapshot(&snap, &fixture_path).expect("Failed to save snapshot");
-        eprintln!("Updated snapshot: {}", fixture_path.display());
-        return;
-    }
-
-    if !fixture_path.exists() {
-        save_snapshot(&snap, &fixture_path).expect("Failed to save initial snapshot");
-        eprintln!(
-            "Created initial snapshot: {}. Re-run to verify.",
-            fixture_path.display()
-        );
-        return;
-    }
-
-    let expected = load_snapshot(&fixture_path).expect("Failed to load fixture snapshot");
-    assert_eq!(snap, expected, "Full snapshot mismatch");
-}
-
-// ECFN JSON tests (malformed JSON — missing comma between elements)
-#[ignore = "select.json has malformed JSON (missing comma at line 211-212)"]
-#[test]
-fn json_ecfn_select_header() {
-    let path = skins_dir().join("select/select.json");
-    let content = read_file(&path);
-    let header = json_loader::load_header(&content).expect("Failed to load JSON header");
-
-    assert_eq!(header.skin_type, Some(SkinType::MusicSelect));
-    assert_eq!(header.name, "beatoraja_default");
+    assert_snapshot("skin_json_test_snapshot.json", &skin);
 }
 
 // ===========================================================================
-// Lua Loader tests
+// JSON Options tests (using test_skin_options.json)
+// ===========================================================================
+
+#[test]
+fn json_options_header() {
+    let path = test_bms_dir().join("test_skin_options.json");
+    let content = read_file(&path);
+    let header = json_loader::load_header(&content).expect("Failed to load JSON header");
+
+    assert_eq!(header.format, SkinFormat::Beatoraja);
+    assert_eq!(header.skin_type, Some(SkinType::MusicSelect));
+    assert_eq!(header.name, "Test Options Skin");
+    assert_eq!(header.resolution.width(), 1920);
+    assert_eq!(header.resolution.height(), 1080);
+
+    // property
+    assert_eq!(header.options.len(), 1, "property count");
+    assert_eq!(header.options[0].name, "BG Style");
+    assert_eq!(header.options[0].option_ids, vec![900, 901]);
+    assert_eq!(header.options[0].contents, vec!["Dark", "Light"]);
+    assert_eq!(
+        header.options[0].default_label.as_deref(),
+        Some("Dark"),
+        "default label"
+    );
+
+    // filepath
+    assert_eq!(header.files.len(), 1, "filepath count");
+    assert_eq!(header.files[0].name, "Background");
+    assert_eq!(header.files[0].path, "bg/*.png");
+    assert_eq!(
+        header.files[0].default_filename.as_deref(),
+        Some("default.png")
+    );
+
+    // offset
+    assert_eq!(header.offsets.len(), 1, "offset count");
+    assert_eq!(header.offsets[0].name, "Judge Position");
+    assert_eq!(header.offsets[0].id, 50);
+    assert!(header.offsets[0].editable_x);
+    assert!(header.offsets[0].editable_y);
+    assert!(!header.offsets[0].editable_w);
+    assert!(!header.offsets[0].editable_h);
+    assert!(!header.offsets[0].editable_r);
+    assert!(!header.offsets[0].editable_a);
+}
+
+#[test]
+fn json_options_load() {
+    let path = test_bms_dir().join("test_skin_options.json");
+    let content = read_file(&path);
+
+    // Without option 900: conditional destination excluded -> 1 object
+    let skin_off = json_loader::load_skin(&content, &HashSet::new(), Resolution::Hd, Some(&path))
+        .expect("Failed to load skin without options");
+
+    // Resolution: source 1920x1080, dest HD 1280x720
+    assert_eq!(skin_off.width, 1280.0);
+    assert_eq!(skin_off.height, 720.0);
+    let expected_scale = 1280.0 / 1920.0;
+    assert!(
+        (skin_off.scale_x - expected_scale).abs() < 0.001,
+        "scale_x: expected {expected_scale}, got {}",
+        skin_off.scale_x
+    );
+    assert!(
+        (skin_off.scale_y - expected_scale).abs() < 0.001,
+        "scale_y: expected {expected_scale}, got {}",
+        skin_off.scale_y
+    );
+
+    assert_eq!(skin_off.input, 300);
+    assert_eq!(skin_off.scene, 2000);
+    assert_eq!(skin_off.fadeout, 400);
+    assert_eq!(skin_off.object_count(), 1, "no-option: 1 unconditional dst");
+
+    // With option 900: conditional destination included -> 2 objects
+    let enabled = HashSet::from([900]);
+    let skin_on = json_loader::load_skin(&content, &enabled, Resolution::Hd, Some(&path))
+        .expect("Failed to load skin with option 900");
+
+    assert_eq!(
+        skin_on.object_count(),
+        2,
+        "option-900: 1 unconditional + 1 conditional dst"
+    );
+
+    // Verify the conditional object has the source coordinates (scaling applied at render time)
+    let snap = snapshot_from_skin(&skin_on);
+    let second = &snap.objects[1];
+    assert_eq!(second.kind, "Image");
+    let dst = second.first_dst.as_ref().expect("should have dst");
+    assert!(
+        (dst.w - 960.0).abs() < 1.0,
+        "conditional w: expected 960, got {}",
+        dst.w
+    );
+    assert!(
+        (dst.h - 540.0).abs() < 1.0,
+        "conditional h: expected 540, got {}",
+        dst.h
+    );
+    // Alpha is normalized: 128/255 ≈ 0.502
+    let expected_a = 128.0 / 255.0;
+    assert!(
+        (dst.a - expected_a).abs() < 0.01,
+        "conditional a: expected ~{expected_a}, got {}",
+        dst.a
+    );
+}
+
+// ===========================================================================
+// Lua Loader tests (ECFN skins)
 // ===========================================================================
 
 #[test]
@@ -251,50 +349,92 @@ fn lua_decide_snapshot() {
     let skin = lua_loader::load_lua_skin(&content, &enabled, Resolution::Fullhd, Some(&path), &[])
         .expect("Failed to load Lua skin");
 
-    let snap = snapshot_from_skin(&skin);
-    let fixture_path = fixtures_dir().join("skin_lua_decide_snapshot.json");
-
-    if should_update_snapshots() {
-        save_snapshot(&snap, &fixture_path).expect("Failed to save snapshot");
-        eprintln!("Updated snapshot: {}", fixture_path.display());
-        return;
-    }
-
-    if !fixture_path.exists() {
-        save_snapshot(&snap, &fixture_path).expect("Failed to save initial snapshot");
-        eprintln!(
-            "Created initial snapshot: {}. Re-run to verify.",
-            fixture_path.display()
-        );
-        return;
-    }
-
-    let expected = load_snapshot(&fixture_path).expect("Failed to load fixture snapshot");
-    assert_eq!(snap, expected, "Full snapshot mismatch");
+    assert_snapshot("skin_lua_decide_snapshot.json", &skin);
 }
 
-// Cross-directory require tests (Lua skins needing main_state from play/)
-#[ignore = "select.lua requires main_state.lua from play/ (cross-directory)"]
+// ===========================================================================
+// Lua Loader tests (self-contained test skin)
+// ===========================================================================
+
 #[test]
-fn lua_select_header() {
-    let path = skins_dir().join("select/select.luaskin");
+fn lua_test_header() {
+    let path = test_bms_dir().join("test_skin.luaskin");
     let content = read_file(&path);
     let header =
         lua_loader::load_lua_header(&content, Some(&path)).expect("Failed to load Lua header");
 
-    assert_eq!(header.skin_type, Some(SkinType::MusicSelect));
-    assert_eq!(header.name, "EC:FN / MusicSelect");
+    assert_eq!(header.format, SkinFormat::Beatoraja);
+    assert_eq!(header.skin_type, Some(SkinType::Result));
+    assert_eq!(header.name, "Test Lua Skin");
+    assert_eq!(header.resolution.width(), 1920);
+    assert_eq!(header.resolution.height(), 1080);
+
+    // property
+    assert_eq!(header.options.len(), 1, "property count");
+    assert_eq!(header.options[0].name, "Effect");
+    assert_eq!(header.options[0].option_ids, vec![800, 801]);
+    assert_eq!(header.options[0].contents, vec!["ON", "OFF"]);
+
+    // filepath
+    assert_eq!(header.files.len(), 1, "filepath count");
+    assert_eq!(header.files[0].name, "Wallpaper");
+    assert_eq!(header.files[0].path, "wall/*.png");
+
+    // offset
+    assert_eq!(header.offsets.len(), 2, "offset count");
+    assert_eq!(header.offsets[0].name, "Score Pos");
+    assert_eq!(header.offsets[0].id, 10);
+    assert!(header.offsets[0].editable_x);
+    assert!(header.offsets[0].editable_y);
+    assert!(!header.offsets[0].editable_w);
+    assert_eq!(header.offsets[1].name, "Judge Pos");
+    assert_eq!(header.offsets[1].id, 11);
 }
 
-#[ignore = "result.lua requires main_state.lua from play/ (cross-directory)"]
 #[test]
-fn lua_result_header() {
-    let path = skins_dir().join("RESULT/result.luaskin");
+fn lua_test_load() {
+    let path = test_bms_dir().join("test_skin.luaskin");
     let content = read_file(&path);
-    let header =
-        lua_loader::load_lua_header(&content, Some(&path)).expect("Failed to load result header");
 
-    assert_eq!(header.skin_type, Some(SkinType::Result));
+    // Without option 800: 2 objects (bg + title)
+    let skin_off = lua_loader::load_lua_skin(
+        &content,
+        &HashSet::new(),
+        Resolution::Fullhd,
+        Some(&path),
+        &[],
+    )
+    .expect("Failed to load Lua skin without options");
+
+    assert_eq!(skin_off.width, 1920.0);
+    assert_eq!(skin_off.height, 1080.0);
+    assert_eq!(skin_off.scene, 5000);
+    assert_eq!(skin_off.input, 500);
+    assert_eq!(skin_off.fadeout, 600);
+    assert_eq!(skin_off.object_count(), 2, "no-option: bg + title");
+
+    // With option 800 (Effect ON): 3 objects (bg + title + effect)
+    let enabled = HashSet::from([800]);
+    let skin_on =
+        lua_loader::load_lua_skin(&content, &enabled, Resolution::Fullhd, Some(&path), &[])
+            .expect("Failed to load Lua skin with option 800");
+
+    assert_eq!(skin_on.object_count(), 3, "option-800: bg + title + effect");
+
+    let snap = snapshot_from_skin(&skin_on);
+    assert_eq!(snap.objects_by_type.get("Image").copied().unwrap_or(0), 2);
+    assert_eq!(snap.objects_by_type.get("Text").copied().unwrap_or(0), 1);
+}
+
+#[test]
+fn lua_test_snapshot() {
+    let path = test_bms_dir().join("test_skin.luaskin");
+    let content = read_file(&path);
+    let enabled: HashSet<i32> = HashSet::new();
+    let skin = lua_loader::load_lua_skin(&content, &enabled, Resolution::Fullhd, Some(&path), &[])
+        .expect("Failed to load Lua skin");
+
+    assert_snapshot("skin_lua_test_snapshot.json", &skin);
 }
 
 // ===========================================================================

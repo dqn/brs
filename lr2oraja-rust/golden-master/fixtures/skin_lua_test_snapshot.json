@@ -1,0 +1,55 @@
+{
+  "name": "Test Lua Skin",
+  "skin_type_id": 7,
+  "resolution_w": 1920,
+  "resolution_h": 1080,
+  "option_count": 1,
+  "file_count": 1,
+  "offset_count": 2,
+  "width": 1920.0,
+  "height": 1080.0,
+  "scale_x": 1.0,
+  "scale_y": 1.0,
+  "input": 500,
+  "scene": 5000,
+  "fadeout": 600,
+  "object_count": 2,
+  "objects_by_type": {
+    "Image": 1,
+    "Text": 1
+  },
+  "custom_event_count": 0,
+  "custom_timer_count": 0,
+  "objects": [
+    {
+      "kind": "Image",
+      "destination_count": 1,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 0.0,
+        "y": 0.0,
+        "w": 1920.0,
+        "h": 1080.0,
+        "a": 1.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Text",
+      "destination_count": 1,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 10.0,
+        "y": 10.0,
+        "w": 800.0,
+        "h": 30.0,
+        "a": 1.0,
+        "angle": 0
+      }
+    }
+  ]
+}
