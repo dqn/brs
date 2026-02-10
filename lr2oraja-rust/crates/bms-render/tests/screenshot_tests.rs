@@ -210,6 +210,51 @@ fn test_render_json_skin_with_condition() {
 }
 
 // ---------------------------------------------------------------------------
+// ECFN skin tests (real-world skins, skipped if not present)
+// ---------------------------------------------------------------------------
+
+/// Path to ECFN skin directory.
+fn ecfn_skin_dir() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("skins")
+        .join("ECFN")
+}
+
+fn test_render_ecfn_select() {
+    let skin_path = ecfn_skin_dir().join("select/select.json");
+    if !skin_path.exists() {
+        eprintln!("ECFN select skin not found, skipping");
+        return;
+    }
+
+    let provider = bms_render::state_provider::StaticStateProvider::default();
+    let mut harness = RenderTestHarness::new(1280, 720);
+
+    harness.load_json_skin_with_resolution(
+        &skin_path,
+        Box::new(provider),
+        bms_config::resolution::Resolution::Hd,
+    );
+
+    let tmp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let output_path = tmp_dir.path().join("screenshot.png");
+
+    harness.capture_frame(&output_path);
+
+    let actual = image::open(&output_path)
+        .expect("Failed to read captured screenshot")
+        .to_rgba8();
+
+    screenshot_compare::compare_or_update(&actual, &fixture_path("ecfn_select"), SSIM_THRESHOLD);
+}
+
+// ---------------------------------------------------------------------------
 // Custom test runner
 // ---------------------------------------------------------------------------
 
@@ -236,6 +281,7 @@ fn get_tests() -> Vec<(&'static str, fn())> {
             "test_render_json_skin_with_condition",
             test_render_json_skin_with_condition,
         ),
+        ("test_render_ecfn_select", test_render_ecfn_select),
     ]
 }
 

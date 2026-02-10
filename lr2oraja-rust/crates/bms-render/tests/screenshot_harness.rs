@@ -172,6 +172,20 @@ impl RenderTestHarness {
         skin_json_path: &Path,
         state_provider: Box<dyn SkinStateProvider>,
     ) {
+        self.load_json_skin_with_resolution(
+            skin_json_path,
+            state_provider,
+            bms_config::resolution::Resolution::Sd,
+        );
+    }
+
+    /// Load a JSON skin file with a specific destination resolution.
+    pub fn load_json_skin_with_resolution(
+        &mut self,
+        skin_json_path: &Path,
+        state_provider: Box<dyn SkinStateProvider>,
+        dest_resolution: bms_config::resolution::Resolution,
+    ) {
         let json_str = std::fs::read_to_string(skin_json_path).unwrap_or_else(|e| {
             panic!(
                 "Failed to read skin JSON {}: {}",
@@ -199,22 +213,39 @@ impl RenderTestHarness {
                     None => continue,
                 };
                 let img_path = skin_dir.join(path_str);
-                match image::open(&img_path) {
-                    Ok(img) => {
-                        let rgba = img.to_rgba8();
-                        self.upload_image(&rgba);
-                        let handle = ImageHandle(self.next_handle_id - 1);
-                        source_images.insert(id, handle);
+
+                // Try glob expansion for wildcard paths (e.g., "background/*.png")
+                let paths_to_try = if path_str.contains('*') {
+                    if let Some(pattern) = img_path.to_str() {
+                        glob::glob(pattern)
+                            .ok()
+                            .map(|entries| entries.filter_map(|e| e.ok()).collect::<Vec<_>>())
+                            .unwrap_or_default()
+                    } else {
+                        vec![]
                     }
-                    Err(_) => {
-                        // Skip missing/unreadable source images gracefully
+                } else {
+                    vec![img_path]
+                };
+
+                for actual_path in paths_to_try {
+                    match image::open(&actual_path) {
+                        Ok(img) => {
+                            let rgba = img.to_rgba8();
+                            self.upload_image(&rgba);
+                            let handle = ImageHandle(self.next_handle_id - 1);
+                            source_images.insert(id.clone(), handle);
+                            break; // Use first matching image
+                        }
+                        Err(_) => {
+                            // Skip missing/unreadable source images gracefully
+                        }
                     }
                 }
             }
         }
 
         // Load skin with resolved images
-        let dest_resolution = bms_config::resolution::Resolution::Sd;
         let skin = bms_skin::loader::json_loader::load_skin_with_images(
             &json_str,
             &HashSet::new(),

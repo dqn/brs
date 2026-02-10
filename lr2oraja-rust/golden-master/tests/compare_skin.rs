@@ -169,6 +169,85 @@ fn json_test_snapshot() {
 }
 
 // ===========================================================================
+// JSON ECFN select skin (1280x720, real-world skin)
+// ===========================================================================
+
+#[test]
+fn json_ecfn_select_header() {
+    let path = skins_dir().join("select/select.json");
+    if !path.exists() {
+        eprintln!("ECFN select skin not found, skipping");
+        return;
+    }
+    let content = read_file(&path);
+    let header = json_loader::load_header(&content).expect("Failed to load ECFN header");
+
+    assert_eq!(header.format, SkinFormat::Beatoraja);
+    assert_eq!(header.skin_type, Some(SkinType::MusicSelect));
+    assert_eq!(header.name, "beatoraja_default");
+    assert_eq!(header.resolution.width(), 1280);
+    assert_eq!(header.resolution.height(), 720);
+    assert_eq!(header.files.len(), 1, "filepath count");
+    assert_eq!(header.files[0].name, "Background");
+}
+
+#[test]
+fn json_ecfn_select_load() {
+    let path = skins_dir().join("select/select.json");
+    if !path.exists() {
+        eprintln!("ECFN select skin not found, skipping");
+        return;
+    }
+    let content = read_file(&path);
+    let enabled: HashSet<i32> = HashSet::new();
+    let skin = json_loader::load_skin(&content, &enabled, Resolution::Hd, Some(&path))
+        .expect("Failed to load ECFN select skin");
+
+    // Resolution: source 1280x720, dest HD 1280x720 -> scale 1.0
+    assert_eq!(skin.width, 1280.0);
+    assert_eq!(skin.height, 720.0);
+    assert!((skin.scale_x - 1.0).abs() < 0.001);
+    assert!((skin.scale_y - 1.0).abs() < 0.001);
+
+    // Timing
+    assert_eq!(skin.input, 500);
+    assert_eq!(skin.scene, 3000);
+    assert_eq!(skin.fadeout, 500);
+
+    // ECFN select has many objects (images, numbers, texts, sliders, graphs)
+    assert!(
+        skin.object_count() > 50,
+        "ECFN select should have many objects, got {}",
+        skin.object_count()
+    );
+
+    let snap = snapshot_from_skin(&skin);
+    assert!(
+        snap.objects_by_type.contains_key("Image"),
+        "should have Image objects"
+    );
+    assert!(
+        snap.objects_by_type.contains_key("Text"),
+        "should have Text objects"
+    );
+}
+
+#[test]
+fn json_ecfn_select_snapshot() {
+    let path = skins_dir().join("select/select.json");
+    if !path.exists() {
+        eprintln!("ECFN select skin not found, skipping");
+        return;
+    }
+    let content = read_file(&path);
+    let enabled: HashSet<i32> = HashSet::new();
+    let skin = json_loader::load_skin(&content, &enabled, Resolution::Hd, Some(&path))
+        .expect("Failed to load ECFN select skin");
+
+    assert_snapshot("skin_ecfn_select_snapshot.json", &skin);
+}
+
+// ===========================================================================
 // JSON Options tests (using test_skin_options.json)
 // ===========================================================================
 

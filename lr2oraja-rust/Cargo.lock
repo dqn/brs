@@ -1678,6 +1678,7 @@ dependencies = [
  "bevy",
  "bms-config",
  "bms-skin",
+ "glob",
  "image",
  "image-compare",
  "serde_json",

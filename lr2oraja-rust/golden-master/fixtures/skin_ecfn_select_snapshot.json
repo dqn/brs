@@ -1,0 +1,1679 @@
+{
+  "name" : "beatoraja_default",
+  "skin_type_id" : 5,
+  "resolution_w" : 1280,
+  "resolution_h" : 720,
+  "option_count" : 0,
+  "file_count" : 1,
+  "offset_count" : 0,
+  "width" : 1280.0,
+  "height" : 720.0,
+  "scale_x" : 1.0,
+  "scale_y" : 1.0,
+  "input" : 500,
+  "scene" : 3000,
+  "fadeout" : 500,
+  "object_count" : 118,
+  "objects_by_type" : {
+    "BpmGraph" : 2,
+    "Graph" : 2,
+    "Image" : 82,
+    "Number" : 23,
+    "Text" : 9
+  },
+  "custom_event_count" : 0,
+  "custom_timer_count" : 0,
+  "objects" : [ {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 0.0,
+      "y" : 0.0,
+      "w" : 1280.0,
+      "h" : 720.0,
+      "a" : 0.5019608,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 95.0,
+      "y" : 482.0,
+      "w" : 165.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 260.0,
+      "y" : 482.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 400.0,
+      "y" : 400.0,
+      "w" : 300.0,
+      "h" : 90.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 512.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 512.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 512.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 512.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 512.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 512.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 512.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 300.0,
+      "y" : 512.0,
+      "w" : 60.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 370.0,
+      "y" : 512.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 442.0,
+      "y" : 512.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 482.0,
+      "w" : 90.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 200.0,
+      "y" : 482.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 372.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 372.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 200.0,
+      "y" : 372.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 330.0,
+      "y" : 372.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 330.0,
+      "y" : 372.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 450.0,
+      "y" : 372.0,
+      "w" : 54.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 450.0,
+      "y" : 372.0,
+      "w" : 54.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 450.0,
+      "y" : 372.0,
+      "w" : 54.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 450.0,
+      "y" : 372.0,
+      "w" : 54.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 450.0,
+      "y" : 372.0,
+      "w" : 54.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 450.0,
+      "y" : 372.0,
+      "w" : 54.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 450.0,
+      "y" : 372.0,
+      "w" : 54.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 450.0,
+      "y" : 372.0,
+      "w" : 54.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 528.0,
+      "y" : 372.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 582.0,
+      "y" : 372.0,
+      "w" : 12.0,
+      "h" : 12.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 342.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 342.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 200.0,
+      "y" : 342.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 330.0,
+      "y" : 342.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 330.0,
+      "y" : 342.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 450.0,
+      "y" : 342.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 312.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 312.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 320.0,
+      "y" : 312.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 200.0,
+      "y" : 312.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 200.0,
+      "y" : 312.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 400.0,
+      "y" : 312.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 130.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 130.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 180.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 3,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 230.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 230.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 3,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 280.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 280.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 3,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 330.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 330.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 3,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 380.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 380.0,
+      "y" : 450.0,
+      "w" : 30.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 36.0,
+      "y" : 362.0,
+      "w" : 48.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 36.0,
+      "y" : 322.0,
+      "w" : 48.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Graph",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 90.0,
+      "y" : 362.0,
+      "w" : 300.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Graph",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 90.0,
+      "y" : 322.0,
+      "w" : 300.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 60.0,
+      "y" : 102.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 160.0,
+      "y" : 102.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 330.0,
+      "y" : 102.0,
+      "w" : 100.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 430.0,
+      "y" : 102.0,
+      "w" : 18.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Text",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 40.0,
+      "y" : 646.0,
+      "w" : 18.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Text",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 610.0,
+      "w" : 18.0,
+      "h" : 20.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Text",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 576.0,
+      "w" : 18.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Text",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 550.0,
+      "w" : 18.0,
+      "h" : 20.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Text",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 572.0,
+      "w" : 18.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Text",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 544.0,
+      "w" : 18.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Text",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 516.0,
+      "w" : 18.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Text",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 488.0,
+      "w" : 18.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 180.0,
+      "y" : 602.0,
+      "w" : 150.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 180.0,
+      "y" : 602.0,
+      "w" : 150.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 330.0,
+      "y" : 602.0,
+      "w" : 150.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 480.0,
+      "y" : 602.0,
+      "w" : 150.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 480.0,
+      "y" : 602.0,
+      "w" : 150.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 100.0,
+      "y" : 405.0,
+      "w" : 200.0,
+      "h" : 20.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "BpmGraph",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 200.0,
+      "w" : 600.0,
+      "h" : 100.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "BpmGraph",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 80.0,
+      "y" : 200.0,
+      "w" : 600.0,
+      "h" : 100.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 17.0,
+      "y" : 254.0,
+      "w" : 62.0,
+      "h" : 13.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 17.0,
+      "y" : 254.0,
+      "w" : 62.0,
+      "h" : 13.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 17.0,
+      "y" : 233.0,
+      "w" : 9.0,
+      "h" : 13.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 17.0,
+      "y" : 233.0,
+      "w" : 9.0,
+      "h" : 13.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 10.0,
+      "y" : 10.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 120.0,
+      "y" : 10.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 280.0,
+      "y" : 10.0,
+      "w" : 72.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 390.0,
+      "y" : 10.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 540.0,
+      "y" : 10.0,
+      "w" : 108.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 700.0,
+      "y" : 10.0,
+      "w" : 54.0,
+      "h" : 18.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 2,
+    "timer_id" : 21,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 0.0,
+      "y" : 0.0,
+      "w" : 1280.0,
+      "h" : 720.0,
+      "a" : 0.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 2,
+    "timer_id" : 21,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 50.0,
+      "y" : 100.0,
+      "w" : 580.0,
+      "h" : 618.0,
+      "a" : 0.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 56.0,
+      "y" : 100.0,
+      "w" : 134.0,
+      "h" : 300.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 200.0,
+      "y" : 220.0,
+      "w" : 134.0,
+      "h" : 180.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 342.0,
+      "y" : 250.0,
+      "w" : 134.0,
+      "h" : 150.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 486.0,
+      "y" : 100.0,
+      "w" : 134.0,
+      "h" : 300.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 270.0,
+      "y" : 594.0,
+      "w" : 134.0,
+      "h" : 120.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 2,
+    "timer_id" : 22,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 0.0,
+      "y" : 0.0,
+      "w" : 1280.0,
+      "h" : 720.0,
+      "a" : 0.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 2,
+    "timer_id" : 22,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 50.0,
+      "y" : 370.0,
+      "w" : 600.0,
+      "h" : 318.0,
+      "a" : 0.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 52.0,
+      "y" : 368.0,
+      "w" : 134.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 124.0,
+      "y" : 596.0,
+      "w" : 134.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 192.0,
+      "y" : 368.0,
+      "w" : 134.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 264.0,
+      "y" : 596.0,
+      "w" : 134.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 332.0,
+      "y" : 368.0,
+      "w" : 134.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 404.0,
+      "y" : 596.0,
+      "w" : 134.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 472.0,
+      "y" : 368.0,
+      "w" : 134.0,
+      "h" : 30.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 2,
+    "timer_id" : 23,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 0.0,
+      "y" : 0.0,
+      "w" : 1280.0,
+      "h" : 720.0,
+      "a" : 0.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 2,
+    "timer_id" : 23,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 50.0,
+      "y" : 314.0,
+      "w" : 600.0,
+      "h" : 374.0,
+      "a" : 0.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Image",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 52.0,
+      "y" : 282.0,
+      "w" : 134.0,
+      "h" : 120.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 440.0,
+      "y" : 598.0,
+      "w" : 12.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 512.0,
+      "y" : 376.0,
+      "w" : 12.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Text",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 10.0,
+      "y" : 60.0,
+      "w" : 400.0,
+      "h" : 24.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 1028.0,
+      "y" : 2.0,
+      "w" : 12.0,
+      "h" : 12.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 1088.0,
+      "y" : 2.0,
+      "w" : 12.0,
+      "h" : 12.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 1130.0,
+      "y" : 2.0,
+      "w" : 12.0,
+      "h" : 12.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 1178.0,
+      "y" : 2.0,
+      "w" : 12.0,
+      "h" : 12.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 1214.0,
+      "y" : 2.0,
+      "w" : 12.0,
+      "h" : 12.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  }, {
+    "kind" : "Number",
+    "destination_count" : 1,
+    "timer_id" : null,
+    "blend" : 0,
+    "first_dst" : {
+      "time" : 0,
+      "x" : 1250.0,
+      "y" : 2.0,
+      "w" : 12.0,
+      "h" : 12.0,
+      "a" : 1.0,
+      "angle" : 0
+    }
+  } ]
+}

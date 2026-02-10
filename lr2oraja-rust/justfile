@@ -57,6 +57,11 @@ golden-master-judge-gen:
 golden-master-skin-snapshot:
     UPDATE_SNAPSHOTS=1 cargo test -p golden-master compare_skin -- --nocapture
 
+# Generate Java skin snapshot fixture (ECFN select)
+golden-master-skin-gen:
+    cd ../lr2oraja-java && ./gradlew golden-master-skin:run \
+        --args="$(pwd)/../skins/ECFN/select/select.json $(pwd)/../lr2oraja-rust/golden-master/fixtures/skin_ecfn_select_snapshot.json"
+
 # Generate all GM fixtures (parse + rule + pattern + replay + database + config + autoplay + audio + judge)
 golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen golden-master-replay-gen golden-master-database-gen golden-master-config-gen golden-master-autoplay-gen golden-master-audio-gen golden-master-judge-gen
 
