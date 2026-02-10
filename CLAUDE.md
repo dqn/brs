@@ -104,7 +104,7 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 - [x] **0-3. Golden Master テストインフラ**
   - [x] Java: `GoldenMasterExporter` クラス作成 (CLI で JSON 出力) — `lr2oraja-java/golden-master/`
   - [x] parse モジュールの export 対応 (全13テスト BMS の fixture JSON 生成済み)
-  - [ ] judge / gauge モジュールの export 対応 (Phase 2 で追加)
+  - [x] judge / gauge モジュールの export 対応 (JudgeManagerExporter.java — 26 テストケース)
   - [x] Rust: `golden-master/src/lib.rs` に比較ハーネス作成
   - [x] Rust: `golden-master/tests/compare_fixtures.rs` に各テスト BMS の比較テスト作成
   - [x] 4/11 テスト通過 (minimal_7k, 5key, 14key_dp, empty_measures), 7 テスト失敗 (bms-model パーサーバグ検出)
@@ -202,7 +202,7 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] HCN: 200000μs 毎ゲージ増減 + 離し再押下復帰
   - [x] BSS: 反転入力で終端判定
   - [x] MultiBadCollector: BAD 窓内の複数ノート同時 BAD
-  - [ ] GM テスト: 入力シーケンス (key, time_us, pressed) + BMS → ScoreData 比較 (Sub-phase F で実装)
+  - [x] GM テスト: 入力シーケンス (key, time_us, pressed) + BMS → ScoreData 比較 (26 ケース × 6 グループ通過)
 - [x] **2-6. ScoreData / ClearType**
   - [x] スコアデータ (epg/lpg, egr/lgr 等の早遅分離)
   - [x] クリアタイプ判定

@@ -69,6 +69,7 @@ fn run_autoplay_simulation(model: &BmsModel, gauge_type: GaugeType) -> Simulatio
         algorithm: JudgeAlgorithm::Combo,
         autoplay: true,
         judge_property: &rule.judge,
+        lane_property: None,
     };
 
     let mut jm = JudgeManager::new(&config);
@@ -131,6 +132,7 @@ fn run_manual_simulation(
         algorithm: JudgeAlgorithm::Combo,
         autoplay: false,
         judge_property: &rule.judge,
+        lane_property: None,
     };
 
     let mut jm = JudgeManager::new(&config);

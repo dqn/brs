@@ -84,7 +84,9 @@ impl Gauge {
 
     /// Check if the gauge meets the clear condition.
     ///
-    /// Returns true if gauge > 0 and gauge >= border.
+    /// Returns true if gauge >= border (matches Java GrooveGauge.isQualified).
+    /// For Hard/ExHard gauges with border=0, value must be > 0 to qualify.
+    /// Matches Java: `value > 0f && value >= element.border`.
     pub fn is_qualified(&self) -> bool {
         self.value > 0.0 && self.value >= self.element.border
     }

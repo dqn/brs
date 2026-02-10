@@ -26,6 +26,8 @@
       "passnotes" : 12,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -55,6 +57,8 @@
       "passnotes" : 11,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 11,
+      "playable_count" : 11,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -84,6 +88,8 @@
       "passnotes" : 18,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 18,
+      "playable_count" : 18,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -113,6 +119,8 @@
       "passnotes" : 11,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 11,
+      "playable_count" : 11,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -123,7 +131,7 @@
     "autoplay" : true,
     "expected" : {
       "score" : {
-        "epg" : 3,
+        "epg" : 6,
         "lpg" : 0,
         "egr" : 0,
         "lgr" : 0,
@@ -135,14 +143,16 @@
         "lpr" : 0,
         "ems" : 0,
         "lms" : 0,
-        "maxcombo" : 3,
-        "passnotes" : 3
+        "maxcombo" : 6,
+        "passnotes" : 6
       },
-      "maxcombo" : 3,
-      "passnotes" : 3,
+      "maxcombo" : 6,
+      "passnotes" : 6,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
-      "ghost" : [ 0, 0, 0, 4, 4 ]
+      "note_count" : 6,
+      "playable_count" : 6,
+      "ghost" : [ 0, 0, 0, 0, 0, 0 ]
     }
   }, {
     "group" : "A_autoplay",
@@ -152,7 +162,7 @@
     "autoplay" : true,
     "expected" : {
       "score" : {
-        "epg" : 3,
+        "epg" : 5,
         "lpg" : 0,
         "egr" : 0,
         "lgr" : 0,
@@ -164,14 +174,16 @@
         "lpr" : 0,
         "ems" : 0,
         "lms" : 0,
-        "maxcombo" : 3,
-        "passnotes" : 3
+        "maxcombo" : 5,
+        "passnotes" : 5
       },
-      "maxcombo" : 3,
-      "passnotes" : 3,
+      "maxcombo" : 5,
+      "passnotes" : 5,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
-      "ghost" : [ 0, 0, 0, 4 ]
+      "note_count" : 5,
+      "playable_count" : 5,
+      "ghost" : [ 0, 0, 0, 0, 0 ]
     }
   }, {
     "group" : "A_autoplay",
@@ -200,6 +212,8 @@
       "passnotes" : 4,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 4,
+      "playable_count" : 4,
       "ghost" : [ 0, 0, 0, 0 ]
     }
   }, {
@@ -229,6 +243,8 @@
       "passnotes" : 4,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 7,
+      "playable_count" : 4,
       "ghost" : [ 0, 0, 0, 0 ]
     }
   }, {
@@ -356,6 +372,8 @@
       "passnotes" : 12,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -483,6 +501,8 @@
       "passnotes" : 12,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ]
     }
   }, {
@@ -610,6 +630,8 @@
       "passnotes" : 12,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 ]
     }
   }, {
@@ -737,6 +759,8 @@
       "passnotes" : 12,
       "gauge_value" : 2.0,
       "gauge_qualified" : false,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 ]
     }
   }, {
@@ -767,6 +791,8 @@
       "passnotes" : 12,
       "gauge_value" : 2.0,
       "gauge_qualified" : false,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 ]
     }
   }, {
@@ -796,6 +822,8 @@
       "passnotes" : 12,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -825,6 +853,8 @@
       "passnotes" : 12,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -854,6 +884,8 @@
       "passnotes" : 12,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -883,6 +915,8 @@
       "passnotes" : 12,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -913,6 +947,8 @@
       "passnotes" : 12,
       "gauge_value" : 2.0,
       "gauge_qualified" : false,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 ]
     }
   }, {
@@ -942,7 +978,9 @@
       "maxcombo" : 0,
       "passnotes" : 12,
       "gauge_value" : 0.0,
-      "gauge_qualified" : true,
+      "gauge_qualified" : false,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 ]
     }
   }, {
@@ -972,7 +1010,9 @@
       "maxcombo" : 0,
       "passnotes" : 12,
       "gauge_value" : 0.0,
-      "gauge_qualified" : true,
+      "gauge_qualified" : false,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 ]
     }
   }, {
@@ -983,7 +1023,7 @@
     "autoplay" : true,
     "expected" : {
       "score" : {
-        "epg" : 3,
+        "epg" : 6,
         "lpg" : 0,
         "egr" : 0,
         "lgr" : 0,
@@ -995,14 +1035,16 @@
         "lpr" : 0,
         "ems" : 0,
         "lms" : 0,
-        "maxcombo" : 3,
-        "passnotes" : 3
+        "maxcombo" : 6,
+        "passnotes" : 6
       },
-      "maxcombo" : 3,
-      "passnotes" : 3,
+      "maxcombo" : 6,
+      "passnotes" : 6,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
-      "ghost" : [ 0, 0, 0, 4, 4 ]
+      "note_count" : 6,
+      "playable_count" : 6,
+      "ghost" : [ 0, 0, 0, 0, 0, 0 ]
     }
   }, {
     "group" : "E_longnote",
@@ -1012,7 +1054,7 @@
     "autoplay" : true,
     "expected" : {
       "score" : {
-        "epg" : 3,
+        "epg" : 5,
         "lpg" : 0,
         "egr" : 0,
         "lgr" : 0,
@@ -1024,14 +1066,16 @@
         "lpr" : 0,
         "ems" : 0,
         "lms" : 0,
-        "maxcombo" : 3,
-        "passnotes" : 3
+        "maxcombo" : 5,
+        "passnotes" : 5
       },
-      "maxcombo" : 3,
-      "passnotes" : 3,
+      "maxcombo" : 5,
+      "passnotes" : 5,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
-      "ghost" : [ 0, 0, 0, 4 ]
+      "note_count" : 5,
+      "playable_count" : 5,
+      "ghost" : [ 0, 0, 0, 0, 0 ]
     }
   }, {
     "group" : "F_cross_mode",
@@ -1060,6 +1104,8 @@
       "passnotes" : 11,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 11,
+      "playable_count" : 11,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -1089,6 +1135,8 @@
       "passnotes" : 12,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -1118,6 +1166,8 @@
       "passnotes" : 18,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 18,
+      "playable_count" : 18,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   }, {
@@ -1147,6 +1197,8 @@
       "passnotes" : 11,
       "gauge_value" : 100.0,
       "gauge_qualified" : true,
+      "note_count" : 11,
+      "playable_count" : 11,
       "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
     }
   } ]
