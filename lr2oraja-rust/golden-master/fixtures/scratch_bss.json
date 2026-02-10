@@ -23,14 +23,14 @@
     "preview" : ""
   },
   "hashes" : {
-    "md5" : "bcd655d8214277b4905ded4e5a16ae31",
-    "sha256" : "30dd3debd01cdd28e1aed0e40935fab59863153a63191dc0d6dded1ab1820c0d"
+    "md5" : "c86da3d04a3e1af70d78d6743e0abb4f",
+    "sha256" : "2747e4b8a2a771765b3ff24ac40fe2736076c4fce83ef16bd77f47589ef1a66e"
   },
   "statistics" : {
-    "total_notes" : 3,
+    "total_notes" : 4,
     "total_notes_key" : 1,
     "total_notes_long_key" : 0,
-    "total_notes_scratch" : 1,
+    "total_notes_scratch" : 2,
     "total_notes_long_scratch" : 1,
     "total_notes_mine" : 0,
     "min_bpm" : 130.0,
@@ -42,7 +42,12 @@
     "section" : 0.0,
     "bpm" : 130.0,
     "stop_us" : 0,
-    "notes" : [ ]
+    "notes" : [ {
+      "lane" : 5,
+      "time_us" : 0,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
   }, {
     "time_us" : 1846153,
     "section" : 1.0,
@@ -85,6 +90,11 @@
     } ]
   } ],
   "notes" : [ {
+    "lane" : 5,
+    "time_us" : 0,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
     "lane" : 0,
     "time_us" : 1846153,
     "wav_id" : 1,

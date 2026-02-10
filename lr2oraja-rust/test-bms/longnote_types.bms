@@ -18,6 +18,6 @@
 #00151:01000001
 #00152:02000002
 
-*--- Normal notes for comparison
-#00111:01
+*--- Normal notes for comparison (on different lanes to avoid collision with LN)
+#00213:01
 #00212:02

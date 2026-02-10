@@ -23,13 +23,13 @@
     "preview" : ""
   },
   "hashes" : {
-    "md5" : "773a19d9e3c1ec20dbe5400e887af531",
-    "sha256" : "56a7b47743c3ad01d587ba13b6612d0479a1a5667783f0586e81b16a3018afab"
+    "md5" : "d7cf65a69cd7924858fcbd88c1735382",
+    "sha256" : "94e500fbcaba7c076fa216bdbb8fcc704a463f4da2a170f72d025e5cbac839af"
   },
   "statistics" : {
-    "total_notes" : 3,
+    "total_notes" : 4,
     "total_notes_key" : 2,
-    "total_notes_long_key" : 1,
+    "total_notes_long_key" : 2,
     "total_notes_scratch" : 0,
     "total_notes_long_scratch" : 0,
     "total_notes_mine" : 0,
@@ -52,7 +52,9 @@
       "lane" : 0,
       "time_us" : 1600000,
       "wav_id" : 0,
-      "type" : "Normal"
+      "type" : "LongNoteUndefined",
+      "end_time_us" : 2800000,
+      "end_wav_id" : -2
     }, {
       "lane" : 1,
       "time_us" : 1600000,
@@ -87,13 +89,20 @@
       "time_us" : 3200000,
       "wav_id" : 1,
       "type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_us" : 3200000,
+      "wav_id" : 0,
+      "type" : "Normal"
     } ]
   } ],
   "notes" : [ {
     "lane" : 0,
     "time_us" : 1600000,
     "wav_id" : 0,
-    "type" : "Normal"
+    "type" : "LongNoteUndefined",
+    "end_time_us" : 2800000,
+    "end_wav_id" : -2
   }, {
     "lane" : 1,
     "time_us" : 1600000,
@@ -105,6 +114,11 @@
     "lane" : 1,
     "time_us" : 3200000,
     "wav_id" : 1,
+    "type" : "Normal"
+  }, {
+    "lane" : 2,
+    "time_us" : 3200000,
+    "wav_id" : 0,
     "type" : "Normal"
   } ],
   "bpm_changes" : [ ],

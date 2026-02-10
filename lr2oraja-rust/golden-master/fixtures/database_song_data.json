@@ -46,8 +46,8 @@
     "content" : 0,
     "filename" : "minimal_7k.bms"
   }, {
-    "md5" : "bcd655d8214277b4905ded4e5a16ae31",
-    "sha256" : "30dd3debd01cdd28e1aed0e40935fab59863153a63191dc0d6dded1ab1820c0d",
+    "md5" : "c86da3d04a3e1af70d78d6743e0abb4f",
+    "sha256" : "2747e4b8a2a771765b3ff24ac40fe2736076c4fce83ef16bd77f47589ef1a66e",
     "title" : "Scratch and BSS Test",
     "subtitle" : "",
     "genre" : "Test",
@@ -64,7 +64,7 @@
     "minbpm" : 130,
     "maxbpm" : 130,
     "length" : 5076,
-    "notes" : 3,
+    "notes" : 4,
     "feature" : 1,
     "content" : 0,
     "filename" : "scratch_bss.bms"
@@ -230,8 +230,8 @@
     "content" : 0,
     "filename" : "mine_notes.bms"
   }, {
-    "md5" : "773a19d9e3c1ec20dbe5400e887af531",
-    "sha256" : "56a7b47743c3ad01d587ba13b6612d0479a1a5667783f0586e81b16a3018afab",
+    "md5" : "d7cf65a69cd7924858fcbd88c1735382",
+    "sha256" : "94e500fbcaba7c076fa216bdbb8fcc704a463f4da2a170f72d025e5cbac839af",
     "title" : "LongNote Types Test",
     "subtitle" : "",
     "genre" : "Test",
@@ -248,7 +248,7 @@
     "minbpm" : 150,
     "maxbpm" : 150,
     "length" : 3200,
-    "notes" : 3,
+    "notes" : 4,
     "feature" : 1,
     "content" : 0,
     "filename" : "longnote_types.bms"

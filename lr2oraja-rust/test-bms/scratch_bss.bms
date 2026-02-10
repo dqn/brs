@@ -15,7 +15,7 @@
 *---------------------- MAIN DATA FIELD
 
 *--- Measure 0: Normal scratch on channel 16 (7key scratch lane)
-#00116:01
+#00016:01
 
 *--- Measure 1: Normal notes + scratch
 #00111:02

@@ -2203,7 +2203,7 @@
     }, {
       "presstime" : 3200000,
       "keycode" : 2,
-      "pressed" : false
+      "pressed" : true
     }, {
       "presstime" : 3200000,
       "keycode" : 3,
@@ -2595,11 +2595,7 @@
     }, {
       "presstime" : 0,
       "keycode" : 5,
-      "pressed" : false
-    }, {
-      "presstime" : 0,
-      "keycode" : 6,
-      "pressed" : false
+      "pressed" : true
     }, {
       "presstime" : 1846153,
       "keycode" : 0,
