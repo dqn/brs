@@ -434,10 +434,27 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 参照: `IRConnection.java`, `LR2IRConnection.java`, `IRConnectionManager.java`, `IRScoreData.java`
 
-- [ ] **12-1. IR プロトコル** (reqwest)
-- [ ] **12-2. LR2IR 互換接続**
-- [ ] **12-3. ランキングデータ / キャッシュ**
-- [ ] **12-4. テスト**: HTTP モック + serialize/deserialize
+- [x] **12-1. IR データ型定義**
+  - [x] `response.rs` — IRResponse\<T\> (success/failure コンストラクタ)
+  - [x] `score_data.rs` — IRScoreData + ScoreData 相互変換 (Java passnotes バグ忠実再現)
+  - [x] `chart_data.rs` — IRChartData + SongData → 変換 (feature flags → boolean)
+  - [x] `player_data.rs` — IRPlayerData (id, name, rank)
+  - [x] `account.rs` — IRAccount (id, password, name)
+  - [x] `course_data.rs` — CourseDataConstraint enum (14 variants) + IRCourseData + IRTrophyData
+  - [x] `table_data.rs` — IRTableData + IRTableFolder
+  - [x] `leaderboard.rs` — LeaderboardEntry + IRType enum
+- [x] **12-2. LR2IR 互換接続**
+  - [x] `connection.rs` — IRConnection async trait (11 メソッド, デフォルト実装)
+  - [x] `lr2ir.rs` — LR2IRConnection (POST getrankingxml.cgi, GET getghost.cgi, Shift_JIS デコード, XML パース, LR2 clear 変換, キャッシュ)
+  - [x] `connection_manager.rs` — IRConnectionManager + IRConnectionType enum dispatch (async trait dyn 互換)
+- [x] **12-3. ランキングデータ / キャッシュ**
+  - [x] `ranking_data.rs` — RankingData (updateScore: exscore 降順ソート, 同率順位, irrank/localrank/prevrank, lamps 集計)
+  - [x] `ranking_cache.rs` — RankingDataCache (4 スロット LN mode 分離, course hash SHA-256)
+- [x] **12-4. テスト** — 55 テスト通過, clippy clean, fmt applied
+  - [x] データ型テスト: serde ラウンドトリップ, ScoreData ↔ IRScoreData 変換, exscore 計算, CourseDataConstraint 変換
+  - [x] XML デシリアライズテスト: 空/単一/複数スコア, LR2 clear 変換 (7 ケース)
+  - [x] RankingData テスト: update_score の順位計算, 同率順位, irrank/localrank, lamps 集計, prevrank (10 ケース)
+  - [x] RankingDataCache テスト: put/get (LN mode 分離), course hash 計算, cache miss (7 ケース)
 
 ### Phase 13: Peripherals
 

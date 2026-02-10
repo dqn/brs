@@ -70,5 +70,8 @@ claxon = "0.4"
 minimp3 = "0.5"
 ebur128 = "0.1"
 
+quick-xml = { version = "0.37", features = ["serialize"] }
+
 # Dev/test dependencies
 tempfile = "3"
+wiremock = "0.6"
