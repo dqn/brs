@@ -199,14 +199,17 @@ impl RenderTestHarness {
                     None => continue,
                 };
                 let img_path = skin_dir.join(path_str);
-                let img = image::open(&img_path)
-                    .unwrap_or_else(|e| {
-                        panic!("Failed to open image {}: {}", img_path.display(), e)
-                    })
-                    .to_rgba8();
-                self.upload_image(&img);
-                let handle = ImageHandle(self.next_handle_id - 1);
-                source_images.insert(id, handle);
+                match image::open(&img_path) {
+                    Ok(img) => {
+                        let rgba = img.to_rgba8();
+                        self.upload_image(&rgba);
+                        let handle = ImageHandle(self.next_handle_id - 1);
+                        source_images.insert(id, handle);
+                    }
+                    Err(_) => {
+                        // Skip missing/unreadable source images gracefully
+                    }
+                }
             }
         }
 

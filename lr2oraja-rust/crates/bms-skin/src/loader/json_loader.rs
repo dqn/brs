@@ -1547,4 +1547,98 @@ mod tests {
             _ => panic!("Expected Text object"),
         }
     }
+
+    // -- Real skin loading (ECFN) --
+
+    #[test]
+    fn test_load_ecfn_select_skin_no_crash() {
+        let skin_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("skins")
+            .join("ECFN")
+            .join("select")
+            .join("select.json");
+
+        if !skin_path.exists() {
+            eprintln!("ECFN skin not found, skipping: {}", skin_path.display());
+            return;
+        }
+
+        let json_str = std::fs::read_to_string(&skin_path).unwrap();
+
+        // load_skin (no images) must not crash even with missing source images
+        let skin = load_skin(&json_str, &HashSet::new(), Resolution::Hd, Some(&skin_path)).unwrap();
+
+        assert_eq!(skin.header.name, "beatoraja_default");
+        assert!(skin.object_count() > 0);
+
+        // load_skin_with_images with empty map also must not crash
+        let skin2 = load_skin_with_images(
+            &json_str,
+            &HashSet::new(),
+            Resolution::Hd,
+            Some(&skin_path),
+            &HashMap::new(),
+        )
+        .unwrap();
+
+        assert_eq!(skin.object_count(), skin2.object_count());
+    }
+
+    #[test]
+    fn test_load_skin_with_images_missing_sources_graceful() {
+        let json = r#"{
+            "type": 6,
+            "name": "Test Missing Sources",
+            "source": [
+                {"id": 0, "path": "nonexistent.png"},
+                {"id": 1, "path": "also_missing.png"}
+            ],
+            "image": [
+                {"id": "img_a", "src": 0},
+                {"id": "img_b", "src": 1}
+            ],
+            "slider": [
+                {"id": "sl", "src": 0, "angle": 1, "range": 50, "type": 17}
+            ],
+            "graph": [
+                {"id": "gr", "src": 1, "angle": 1, "type": 100}
+            ],
+            "destination": [
+                {"id": "img_a", "dst": [{"x": 0, "y": 0, "w": 100, "h": 100}]},
+                {"id": "img_b", "dst": [{"x": 0, "y": 0, "w": 100, "h": 100}]},
+                {"id": "sl", "dst": [{"x": 0, "y": 0, "w": 10, "h": 10}]},
+                {"id": "gr", "dst": [{"x": 0, "y": 0, "w": 100, "h": 10}]}
+            ]
+        }"#;
+
+        // Empty source_images map — all sources are "missing"
+        let skin =
+            load_skin_with_images(json, &HashSet::new(), Resolution::Hd, None, &HashMap::new())
+                .unwrap();
+
+        // All 4 objects should still be created (just with empty source images)
+        assert_eq!(skin.object_count(), 4);
+
+        // Image objects should have empty sources
+        match &skin.objects[0] {
+            SkinObjectType::Image(img) => assert!(img.sources.is_empty()),
+            _ => panic!("Expected Image"),
+        }
+
+        // Slider should have empty source_images
+        match &skin.objects[2] {
+            SkinObjectType::Slider(sl) => assert!(sl.source_images.is_empty()),
+            _ => panic!("Expected Slider"),
+        }
+
+        // Graph should have empty source_images
+        match &skin.objects[3] {
+            SkinObjectType::Graph(gr) => assert!(gr.source_images.is_empty()),
+            _ => panic!("Expected Graph"),
+        }
+    }
 }
