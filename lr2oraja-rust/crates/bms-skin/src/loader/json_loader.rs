@@ -178,12 +178,74 @@ pub fn resolve_conditionals(value: Value, enabled: &HashSet<i32>) -> Value {
 // Header loading
 // ---------------------------------------------------------------------------
 
+/// Pre-processes lenient JSON (as used by beatoraja skins) into strict JSON.
+///
+/// Handles:
+/// - Missing commas between objects/arrays: `}  {` → `}, {`
+/// - Trailing commas before `}` or `]`: `, }` → `}`
+fn preprocess_json(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut in_string = false;
+    let mut escape_next = false;
+    let chars: Vec<char> = input.chars().collect();
+
+    for i in 0..chars.len() {
+        let c = chars[i];
+        if escape_next {
+            escape_next = false;
+            result.push(c);
+            continue;
+        }
+        if c == '\\' && in_string {
+            escape_next = true;
+            result.push(c);
+            continue;
+        }
+        if c == '"' {
+            in_string = !in_string;
+            result.push(c);
+            continue;
+        }
+        if in_string {
+            result.push(c);
+            continue;
+        }
+
+        // Remove trailing commas: skip comma if next non-whitespace is } or ]
+        if c == ',' {
+            let next_nonws = chars[i + 1..].iter().find(|ch| !ch.is_ascii_whitespace());
+            if matches!(next_nonws, Some('}') | Some(']')) {
+                continue; // skip trailing comma
+            }
+        }
+
+        // Insert missing commas: after } or ] if next non-whitespace is { or [ or " or digit/minus
+        if c == '}' || c == ']' {
+            result.push(c);
+            let next_nonws = chars[i + 1..].iter().find(|ch| !ch.is_ascii_whitespace());
+            if matches!(
+                next_nonws,
+                Some('{') | Some('[') | Some('"') | Some('0'..='9') | Some('-')
+            ) {
+                result.push(',');
+            }
+            continue;
+        }
+
+        result.push(c);
+    }
+
+    result
+}
+
 /// Loads only the skin header from a JSON skin file.
 ///
 /// This is used for the skin selection UI — it reads metadata and
 /// custom options without loading the full skin.
 pub fn load_header(json_str: &str) -> Result<SkinHeader> {
-    let data: JsonSkinData = serde_json::from_str(json_str).context("Failed to parse JSON skin")?;
+    let preprocessed = preprocess_json(json_str);
+    let data: JsonSkinData =
+        serde_json::from_str(&preprocessed).context("Failed to parse JSON skin")?;
     build_header(&data, None)
 }
 
@@ -394,8 +456,9 @@ pub fn load_skin_with_images(
     path: Option<&Path>,
     source_images: &HashMap<String, ImageHandle>,
 ) -> Result<Skin> {
-    // Parse and resolve conditionals
-    let raw: Value = serde_json::from_str(json_str).context("Failed to parse JSON")?;
+    // Pre-process lenient JSON and resolve conditionals
+    let preprocessed = preprocess_json(json_str);
+    let raw: Value = serde_json::from_str(&preprocessed).context("Failed to parse JSON")?;
     let resolved = resolve_conditionals(raw, enabled_options);
     let data: JsonSkinData =
         serde_json::from_value(resolved).context("Failed to deserialize resolved JSON")?;
@@ -1640,5 +1703,47 @@ mod tests {
             SkinObjectType::Graph(gr) => assert!(gr.source_images.is_empty()),
             _ => panic!("Expected Graph"),
         }
+    }
+
+    // -- JSON pre-processing --
+
+    #[test]
+    fn test_preprocess_trailing_comma() {
+        let input = r#"{"a": [1, 2, 3, ], "b": {"x": 1, }}"#;
+        let output = preprocess_json(input);
+        assert!(serde_json::from_str::<Value>(&output).is_ok());
+    }
+
+    #[test]
+    fn test_preprocess_missing_comma() {
+        let input = r#"[{"id": "a"} {"id": "b"}]"#;
+        let output = preprocess_json(input);
+        let parsed: Vec<Value> = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed.len(), 2);
+    }
+
+    #[test]
+    fn test_preprocess_both_issues() {
+        let input = r#"{"items": [{"x": 1,} {"y": 2}]}"#;
+        let output = preprocess_json(input);
+        assert!(serde_json::from_str::<Value>(&output).is_ok());
+    }
+
+    #[test]
+    fn test_preprocess_preserves_strings() {
+        let input = r#"{"text": "hello} {world", "x": 1}"#;
+        let output = preprocess_json(input);
+        let parsed: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["text"], "hello} {world");
+    }
+
+    #[test]
+    fn test_preprocess_valid_json_unchanged() {
+        let input = r#"{"a": [1, 2], "b": {"c": 3}}"#;
+        let output = preprocess_json(input);
+        assert_eq!(
+            serde_json::from_str::<Value>(&output).unwrap(),
+            serde_json::from_str::<Value>(input).unwrap()
+        );
     }
 }
