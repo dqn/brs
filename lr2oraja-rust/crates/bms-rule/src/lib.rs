@@ -4,6 +4,7 @@ mod clear_type;
 pub mod gauge_property;
 mod groove_gauge;
 mod judge_algorithm;
+pub mod judge_manager;
 mod judge_property;
 mod player_rule;
 mod score_data;
