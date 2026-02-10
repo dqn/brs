@@ -89,13 +89,13 @@ golden-master-screenshot-gen:
         cd "$JAVA_DIR" && ./gradlew -q golden-master-screenshot:run \
             --args="$skin $state $output $w $h $type"
     }
-    run_export "$SKIN_DIR/select/select.json"     "$STATE_DIR/state_default.json"        "$OUT_DIR/ecfn_select.png"          1280 720  5
-    run_export "$SKIN_DIR/decide/decidemain.lua"   "$STATE_DIR/state_default.json"        "$OUT_DIR/ecfn_decide.png"          1920 1080 6
-    run_export "$SKIN_DIR/play/play7main.lua"      "$STATE_DIR/state_play_active.json"    "$OUT_DIR/ecfn_play7_active.png"    1920 1080 0
-    run_export "$SKIN_DIR/play/play7main.lua"      "$STATE_DIR/state_play_fullcombo.json"  "$OUT_DIR/ecfn_play7_fullcombo.png" 1920 1080 0
-    run_export "$SKIN_DIR/play/play7main.lua"      "$STATE_DIR/state_play_danger.json"    "$OUT_DIR/ecfn_play7_danger.png"    1920 1080 0
-    run_export "$SKIN_DIR/RESULT/result.lua"       "$STATE_DIR/state_result_clear.json"   "$OUT_DIR/ecfn_result_clear.png"    1920 1080 7
-    run_export "$SKIN_DIR/RESULT/result.lua"       "$STATE_DIR/state_result_fail.json"    "$OUT_DIR/ecfn_result_fail.png"     1920 1080 7
+    run_export "$SKIN_DIR/select/select.luaskin"   "$STATE_DIR/state_default.json"        "$OUT_DIR/ecfn_select.png"          1920 1080 5
+    run_export "$SKIN_DIR/decide/decide.luaskin"   "$STATE_DIR/state_default.json"        "$OUT_DIR/ecfn_decide.png"          1920 1080 6
+    run_export "$SKIN_DIR/play/play7.luaskin"      "$STATE_DIR/state_play_active.json"    "$OUT_DIR/ecfn_play7_active.png"    1920 1080 0
+    run_export "$SKIN_DIR/play/play7.luaskin"      "$STATE_DIR/state_play_fullcombo.json"  "$OUT_DIR/ecfn_play7_fullcombo.png" 1920 1080 0
+    run_export "$SKIN_DIR/play/play7.luaskin"      "$STATE_DIR/state_play_danger.json"    "$OUT_DIR/ecfn_play7_danger.png"    1920 1080 0
+    run_export "$SKIN_DIR/RESULT/result.luaskin"   "$STATE_DIR/state_result_clear.json"   "$OUT_DIR/ecfn_result_clear.png"    1920 1080 7
+    run_export "$SKIN_DIR/RESULT/result.luaskin"   "$STATE_DIR/state_result_fail.json"    "$OUT_DIR/ecfn_result_fail.png"     1920 1080 7
 
 # Compare Java and Rust screenshots via SSIM
 golden-master-screenshot-compare:
