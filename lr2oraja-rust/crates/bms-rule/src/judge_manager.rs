@@ -552,24 +552,35 @@ impl JudgeManager {
                                     self.lane_states[lane_idx].processing = note.pair_index;
                                 }
                             }
-                            // LN end in autoplay
-                            if note.end_time_us <= note.time_us || note.pair_index == usize::MAX {
-                                // This might be an end note
-                                let is_cn_end = note.note_type == NoteType::ChargeNote
-                                    || note.note_type == NoteType::HellChargeNote
-                                    || (note.note_type == NoteType::LongNote
-                                        && self.ln_type != LnType::LongNote);
-                                if is_cn_end && self.note_states[note_idx] == 0 {
+                            // LN end in autoplay (all LN types including pure LN)
+                            if (note.end_time_us <= note.time_us || note.pair_index == usize::MAX)
+                                && self.note_states[note_idx] == 0
+                            {
+                                // Also judge paired start note if not yet judged
+                                // (pure LN start is tracked but not judged)
+                                if note.pair_index != usize::MAX
+                                    && self.note_states[note.pair_index] == 0
+                                {
                                     self.update_judge(
-                                        lane_idx, note_idx, 0, 0, true, false, gauge, events,
+                                        lane_idx,
+                                        note.pair_index,
+                                        0,
+                                        0,
+                                        true,
+                                        false,
+                                        gauge,
+                                        events,
                                     );
-                                    if note.wav_id > 0 {
-                                        events.push(JudgeEvent::KeySound {
-                                            wav_id: note.wav_id,
-                                        });
-                                    }
-                                    self.lane_states[lane_idx].processing = NO_NOTE;
                                 }
+                                self.update_judge(
+                                    lane_idx, note_idx, 0, 0, true, false, gauge, events,
+                                );
+                                if note.wav_id > 0 {
+                                    events.push(JudgeEvent::KeySound {
+                                        wav_id: note.wav_id,
+                                    });
+                                }
+                                self.lane_states[lane_idx].processing = NO_NOTE;
                             }
                         }
                         _ => {}
@@ -1170,20 +1181,13 @@ impl JudgeManager {
                                 }
                             }
                         } else {
-                            // CN/HCN end miss
-                            let is_cn_hcn_end = note.note_type == NoteType::ChargeNote
-                                || note.note_type == NoteType::HellChargeNote
-                                || (note.note_type == NoteType::LongNote
-                                    && self.ln_type != LnType::LongNote);
-
-                            if is_cn_hcn_end {
-                                self.update_judge(
-                                    lane_idx, note_idx, JUDGE_PR, mjud, true, false, gauge, events,
-                                );
-                                self.lane_states[lane_idx].processing = NO_NOTE;
-                                self.lane_states[lane_idx].release_time = NOT_SET;
-                                self.lane_states[lane_idx].ln_end_judge = NO_LN_END_JUDGE;
-                            }
+                            // LN end miss (all types including pure LN)
+                            self.update_judge(
+                                lane_idx, note_idx, JUDGE_PR, mjud, true, false, gauge, events,
+                            );
+                            self.lane_states[lane_idx].processing = NO_NOTE;
+                            self.lane_states[lane_idx].release_time = NOT_SET;
+                            self.lane_states[lane_idx].ln_end_judge = NO_LN_END_JUDGE;
                         }
                     }
                     _ => {}
@@ -1211,6 +1215,7 @@ impl JudgeManager {
             }
             self.note_states[note_idx] = judge as i32 + 1;
             self.pass_notes += 1;
+            self.score.passnotes = self.pass_notes;
         }
 
         // MissCondition::One: skip if already judged as POOR

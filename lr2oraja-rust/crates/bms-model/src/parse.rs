@@ -170,19 +170,14 @@ impl BmsDecoder {
                     extended_bpms.insert(id, bpm);
                 } else if let Some(rest) = upper.strip_prefix("RANK ") {
                     let raw: i32 = rest.trim().parse().unwrap_or(2);
+                    model.judge_rank = raw;
                     model.judge_rank_raw = raw;
-                    // Convert rank 0-4 to judgerank value
-                    model.judge_rank = match raw {
-                        0 => 100, // VERY HARD
-                        1 => 75,  // HARD
-                        2 => 50,  // NORMAL
-                        3 => 25,  // EASY
-                        _ => raw,
-                    };
+                    model.judge_rank_type = crate::model::JudgeRankType::BmsRank;
                 } else if let Some(rest) = upper.strip_prefix("DEFEXRANK ") {
                     let raw: i32 = rest.trim().parse().unwrap_or(100);
                     model.judge_rank = raw;
                     model.judge_rank_raw = raw;
+                    model.judge_rank_type = crate::model::JudgeRankType::BmsDefExRank;
                 } else if let Some(rest) = upper.strip_prefix("TOTAL ") {
                     model.total = rest.trim().parse().unwrap_or(300.0);
                 } else if let Some(rest) = upper.strip_prefix("PLAYLEVEL ") {

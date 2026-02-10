@@ -3,6 +3,7 @@
 pub mod audio_fixtures;
 pub mod autoplay_fixtures;
 pub mod database_fixtures;
+pub mod judge_fixtures;
 pub mod pattern_fixtures;
 pub mod rule_fixtures;
 

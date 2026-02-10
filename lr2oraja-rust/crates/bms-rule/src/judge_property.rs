@@ -229,6 +229,36 @@ fn create_lr2(
 }
 
 impl JudgeWindowRule {
+    /// Convert raw judge rank value to effective judgerank for window scaling.
+    ///
+    /// Matches Java's `BMSPlayerRule.validate()` conversion logic:
+    /// - `BmsRank`: index into the rule's judgerank table `[VERYHARD, HARD, NORMAL, EASY, VERYEASY]`
+    /// - `BmsDefExRank`: `raw * judgerank[2] / 100` (percentage of rule's default)
+    /// - `BmsonJudgeRank`: direct value (100 = standard), or 100 if <= 0
+    pub fn resolve_judge_rank(self, raw: i32, rank_type: bms_model::JudgeRankType) -> i32 {
+        match rank_type {
+            bms_model::JudgeRankType::BmsRank => {
+                let factors = self.judgerank_factors();
+                if raw >= 0 && (raw as usize) < factors.len() {
+                    factors[raw as usize]
+                } else {
+                    factors[2] // default: NORMAL
+                }
+            }
+            bms_model::JudgeRankType::BmsDefExRank => {
+                let base = self.judgerank_factors()[2];
+                if raw > 0 { raw * base / 100 } else { base }
+            }
+            bms_model::JudgeRankType::BmsonJudgeRank => {
+                if raw > 0 {
+                    raw
+                } else {
+                    100
+                }
+            }
+        }
+    }
+
     /// Judgerank scaling factors [VERYHARD, HARD, NORMAL, EASY, VERYEASY]
     pub fn judgerank_factors(self) -> &'static [i32; 5] {
         match self {

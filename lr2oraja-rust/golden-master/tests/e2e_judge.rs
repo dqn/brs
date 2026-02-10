@@ -3,16 +3,14 @@
 // Validates that the full pipeline works correctly with real BMS files.
 // Uses invariant-based assertions rather than golden-master comparison.
 //
-// Known limitations:
-// - LN pair_index is not set by the parser (always usize::MAX), so autoplay
-//   cannot properly track LN start→end. Pure LN notes are judged as PR (miss)
-//   by the miss phase. This will be fixed when the parser sets pair_index.
+// Notes:
 // - JudgeManager.prev_time starts at 0, so notes at time_us=0 are skipped on
 //   the first frame. We prime the JudgeManager with update(-1) to work around this.
+// - LN notes are split into start+end pairs via build_judge_notes() for JudgeManager.
 
 use std::path::Path;
 
-use bms_model::{BmsDecoder, BmsModel, NoteType};
+use bms_model::{BmsDecoder, BmsModel};
 use bms_replay::key_input_log::KeyInputLog;
 use bms_rule::gauge_property::GaugeType;
 use bms_rule::judge_manager::{JudgeConfig, JudgeManager};
@@ -60,19 +58,24 @@ fn count_normal_notes(model: &BmsModel) -> usize {
 
 /// Run autoplay simulation: JudgeManager with autoplay=true, empty key inputs.
 fn run_autoplay_simulation(model: &BmsModel, gauge_type: GaugeType) -> SimulationResult {
+    let judge_notes = model.build_judge_notes();
     let rule = PlayerRule::lr2();
-    let total_notes = model.total_notes();
+    let total_notes = judge_notes.iter().filter(|n| n.is_playable()).count();
     let total = if model.total > 0.0 {
         model.total
     } else {
         PlayerRule::default_total(total_notes)
     };
 
+    let judge_rank = rule
+        .judge
+        .window_rule
+        .resolve_judge_rank(model.judge_rank, model.judge_rank_type);
     let config = JudgeConfig {
-        notes: &model.notes,
+        notes: &judge_notes,
         play_mode: model.mode,
         ln_type: model.ln_type,
-        judge_rank: model.judge_rank,
+        judge_rank,
         judge_window_rate: [100, 100, 100],
         scratch_judge_window_rate: [100, 100, 100],
         algorithm: JudgeAlgorithm::Combo,
@@ -90,10 +93,9 @@ fn run_autoplay_simulation(model: &BmsModel, gauge_type: GaugeType) -> Simulatio
     // Prime JudgeManager: set prev_time to -1 so notes at time_us=0 are not skipped.
     // JudgeManager.prev_time starts at 0, causing `note.time_us <= self.prev_time`
     // to be true for notes at time 0. This priming update sets prev_time = -1.
-    jm.update(-1, &model.notes, &key_states, &key_times, &mut gauge);
+    jm.update(-1, &judge_notes, &key_states, &key_times, &mut gauge);
 
-    let last_note_time = model
-        .notes
+    let last_note_time = judge_notes
         .iter()
         .map(|n| n.time_us.max(n.end_time_us))
         .max()
@@ -102,7 +104,7 @@ fn run_autoplay_simulation(model: &BmsModel, gauge_type: GaugeType) -> Simulatio
 
     let mut time = 0i64;
     while time <= end_time {
-        jm.update(time, &model.notes, &key_states, &key_times, &mut gauge);
+        jm.update(time, &judge_notes, &key_states, &key_times, &mut gauge);
         time += FRAME_STEP;
     }
 
@@ -115,33 +117,31 @@ fn run_autoplay_simulation(model: &BmsModel, gauge_type: GaugeType) -> Simulatio
     }
 }
 
-/// Create simple press+release input events for each playable normal note.
-/// This avoids the complexity of the full autoplay log (which includes release
-/// events for empty lanes at every timeline).
-fn create_note_press_log(model: &BmsModel, offset_us: i64) -> Vec<KeyInputLog> {
+/// Create simple press+release input events for each playable note.
+/// For normal notes: press at note time, release 80ms later.
+/// LN notes are not generated here (handled by autoplay in JudgeManager).
+fn create_note_press_log(notes: &[bms_model::Note], offset_us: i64) -> Vec<KeyInputLog> {
     let mut log = Vec::new();
-    for note in &model.notes {
+    for note in notes {
         if !note.is_playable() {
             continue;
         }
-        match note.note_type {
-            NoteType::Normal => {
-                log.push(KeyInputLog::new(
-                    note.time_us + offset_us,
-                    note.lane as i32,
-                    true,
-                ));
-                // Release 80ms after press
-                log.push(KeyInputLog::new(
-                    note.time_us + offset_us + 80_000,
-                    note.lane as i32,
-                    false,
-                ));
-            }
-            _ => {
-                // Skip LN/CN/HCN for manual tests (pair_index limitation)
-            }
+        if note.is_long_note() {
+            // Skip LN start/end notes for manual tests — manual LN tests
+            // would need coordinated press/release timing
+            continue;
         }
+        log.push(KeyInputLog::new(
+            note.time_us + offset_us,
+            note.lane as i32,
+            true,
+        ));
+        // Release 80ms after press
+        log.push(KeyInputLog::new(
+            note.time_us + offset_us + 80_000,
+            note.lane as i32,
+            false,
+        ));
     }
     log
 }
@@ -152,19 +152,24 @@ fn run_manual_simulation(
     input_log: &[KeyInputLog],
     gauge_type: GaugeType,
 ) -> SimulationResult {
+    let judge_notes = model.build_judge_notes();
     let rule = PlayerRule::lr2();
-    let total_notes = model.total_notes();
+    let total_notes = judge_notes.iter().filter(|n| n.is_playable()).count();
     let total = if model.total > 0.0 {
         model.total
     } else {
         PlayerRule::default_total(total_notes)
     };
 
+    let judge_rank = rule
+        .judge
+        .window_rule
+        .resolve_judge_rank(model.judge_rank, model.judge_rank_type);
     let config = JudgeConfig {
-        notes: &model.notes,
+        notes: &judge_notes,
         play_mode: model.mode,
         ln_type: model.ln_type,
-        judge_rank: model.judge_rank,
+        judge_rank,
         judge_window_rate: [100, 100, 100],
         scratch_judge_window_rate: [100, 100, 100],
         algorithm: JudgeAlgorithm::Combo,
@@ -180,8 +185,7 @@ fn run_manual_simulation(
     let mut sorted_log: Vec<&KeyInputLog> = input_log.iter().collect();
     sorted_log.sort_by_key(|e| e.get_time());
 
-    let last_note_time = model
-        .notes
+    let last_note_time = judge_notes
         .iter()
         .map(|n| n.time_us.max(n.end_time_us))
         .max()
@@ -193,7 +197,7 @@ fn run_manual_simulation(
 
     // Prime JudgeManager for notes at time 0
     let empty_key_times = vec![NOT_SET; key_count];
-    jm.update(-1, &model.notes, &key_states, &empty_key_times, &mut gauge);
+    jm.update(-1, &judge_notes, &key_states, &empty_key_times, &mut gauge);
 
     let mut time = 0i64;
     while time <= end_time {
@@ -211,7 +215,7 @@ fn run_manual_simulation(
 
         jm.update(
             time,
-            &model.notes,
+            &judge_notes,
             &key_states,
             &key_changed_times,
             &mut gauge,
@@ -336,65 +340,31 @@ fn autoplay_mine_no_damage() {
     );
 }
 
-// LN autoplay tests: pair_index is not set by the parser, so pure LN autoplay
-// doesn't work correctly. These tests verify normal notes are PG and LN notes
-// are judged (as PR/miss). Full LN autoplay requires pair_index to be set.
+// LN autoplay tests: build_judge_notes() splits LN into start+end pairs with
+// pair_index, so autoplay correctly tracks LN start→end as all PGREAT.
 
 #[test]
 fn autoplay_longnote() {
     let model = load_bms("longnote_types.bms");
-    let total = model.total_notes();
-    let normal = count_normal_notes(&model);
+    let judge_notes = model.build_judge_notes();
+    let total = judge_notes.iter().filter(|n| n.is_playable()).count();
     let long_notes = model.total_long_notes();
     assert!(total > 0);
     assert!(long_notes > 0, "longnote_types should have LN notes");
 
     let result = run_autoplay_simulation(&model, GaugeType::Normal);
-    let score = &result.score;
-
-    // Normal notes should all be PG
-    assert_eq!(
-        score.judge_count(JUDGE_PG),
-        normal as i32,
-        "Normal notes should be PG: expected {normal}, got {}",
-        score.judge_count(JUDGE_PG)
-    );
-
-    // LN notes are judged as PR due to pair_index limitation
-    // TODO: Once parser sets pair_index, change this to assert_all_pgreat
-    assert_eq!(
-        score.total_judge_count(),
-        total as i32,
-        "Each playable note should be judged exactly once"
-    );
+    assert_all_pgreat(&result, total, "autoplay_longnote");
 }
 
 #[test]
 fn autoplay_scratch_bss() {
     let model = load_bms("scratch_bss.bms");
-    let total = model.total_notes();
-    let normal = count_normal_notes(&model);
-    let long_notes = model.total_long_notes();
+    let judge_notes = model.build_judge_notes();
+    let total = judge_notes.iter().filter(|n| n.is_playable()).count();
     assert!(total > 0);
 
     let result = run_autoplay_simulation(&model, GaugeType::Normal);
-    let score = &result.score;
-
-    // Normal notes should all be PG
-    assert_eq!(
-        score.judge_count(JUDGE_PG),
-        normal as i32,
-        "Normal notes should be PG: expected {normal}, got {} \
-         (total={total}, long={long_notes})",
-        score.judge_count(JUDGE_PG)
-    );
-
-    // TODO: Once parser sets pair_index, change this to assert_all_pgreat
-    assert_eq!(
-        score.total_judge_count(),
-        total as i32,
-        "Each playable note should be judged exactly once"
-    );
+    assert_all_pgreat(&result, total, "autoplay_scratch_bss");
 }
 
 // ============================================================================
@@ -406,7 +376,7 @@ fn manual_perfect() {
     let model = load_bms("minimal_7k.bms");
     let normal = count_normal_notes(&model);
     // Create press events at exact note times (0 offset)
-    let log = create_note_press_log(&model, 0);
+    let log = create_note_press_log(&model.notes, 0);
     let result = run_manual_simulation(&model, &log, GaugeType::Normal);
 
     let score = &result.score;
@@ -420,10 +390,10 @@ fn manual_perfect() {
 #[test]
 fn manual_great() {
     let model = load_bms("minimal_7k.bms");
-    // minimal_7k.bms has #RANK 2 → judge_rank=50. LR2 scaled windows:
-    //   PG ±15ms, GR ±30ms, GD ±60ms, BD ±200ms
-    // Offset by 25ms — within GR window (±30ms) but outside PG window (±15ms)
-    let log = create_note_press_log(&model, 25_000);
+    // minimal_7k.bms has #RANK 2 → resolved judgerank=75 (LR2). Scaled windows:
+    //   PG ±18ms, GR ±40ms, GD ±100ms, BD ±200ms
+    // Offset by 25ms — within GR window (±40ms) but outside PG window (±18ms)
+    let log = create_note_press_log(&model.notes, 25_000);
     let result = run_manual_simulation(&model, &log, GaugeType::Normal);
 
     let score = &result.score;
@@ -449,10 +419,10 @@ fn manual_great() {
 #[test]
 fn manual_good() {
     let model = load_bms("minimal_7k.bms");
-    // minimal_7k.bms has #RANK 2 → judge_rank=50. LR2 scaled windows:
-    //   PG ±15ms, GR ±30ms, GD ±60ms, BD ±200ms
-    // Offset by 50ms — within GD window (±60ms) but outside GR window (±30ms)
-    let log = create_note_press_log(&model, 50_000);
+    // minimal_7k.bms has #RANK 2 → resolved judgerank=75 (LR2). Scaled windows:
+    //   PG ±18ms, GR ±40ms, GD ±100ms, BD ±200ms
+    // Offset by 50ms — within GD window (±100ms) but outside GR window (±40ms)
+    let log = create_note_press_log(&model.notes, 50_000);
     let result = run_manual_simulation(&model, &log, GaugeType::Normal);
 
     let score = &result.score;
@@ -476,16 +446,16 @@ fn manual_good() {
 #[test]
 fn manual_bad() {
     let model = load_bms("minimal_7k.bms");
-    // minimal_7k.bms has #RANK 2 → judge_rank=50. LR2 scaled windows:
-    //   PG ±15ms, GR ±30ms, GD ±60ms, BD ±200ms
-    // Offset by 100ms — within BD window (±200ms) but outside GD window (±60ms)
-    let log = create_note_press_log(&model, 100_000);
+    // minimal_7k.bms has #RANK 2 → resolved judgerank=75 (LR2). Scaled windows:
+    //   PG ±18ms, GR ±40ms, GD ±100ms, BD ±200ms
+    // Offset by 150ms — within BD window (±200ms) but outside GD window (±100ms)
+    let log = create_note_press_log(&model.notes, 150_000);
     let result = run_manual_simulation(&model, &log, GaugeType::Normal);
 
     let score = &result.score;
     assert!(
         score.judge_count(JUDGE_BD) > 0 || score.judge_count(JUDGE_PR) > 0,
-        "Expected some BD/PR at 100ms offset (PG={}, GR={}, GD={}, BD={}, PR={}, MS={})",
+        "Expected some BD/PR at 150ms offset (PG={}, GR={}, GD={}, BD={}, PR={}, MS={})",
         score.judge_count(JUDGE_PG),
         score.judge_count(JUDGE_GR),
         score.judge_count(JUDGE_GD),
@@ -581,13 +551,12 @@ fn gauge_all_types_autoplay() {
 #[test]
 fn ln_autoplay_judge_count() {
     let model = load_bms("longnote_types.bms");
-    let total = model.total_notes();
+    let judge_notes = model.build_judge_notes();
+    let total = judge_notes.iter().filter(|n| n.is_playable()).count();
 
     let result = run_autoplay_simulation(&model, GaugeType::Normal);
 
-    // Each playable note (including LN starts) gets exactly 1 judgment.
-    // Note: LN end judgments are not generated because pair_index is not set.
-    // TODO: When pair_index is set, LN should produce start+end judgments.
+    // Each playable note (start + end for LN) gets exactly 1 judgment.
     assert_eq!(
         result.score.total_judge_count(),
         total as i32,
@@ -599,11 +568,12 @@ fn ln_autoplay_judge_count() {
 #[test]
 fn scratch_autoplay_judge_count() {
     let model = load_bms("scratch_bss.bms");
-    let total = model.total_notes();
+    let judge_notes = model.build_judge_notes();
+    let total = judge_notes.iter().filter(|n| n.is_playable()).count();
 
     let result = run_autoplay_simulation(&model, GaugeType::Normal);
 
-    // Same as ln_autoplay_judge_count
+    // Each playable note (start + end for LN) gets exactly 1 judgment.
     assert_eq!(
         result.score.total_judge_count(),
         total as i32,
