@@ -154,7 +154,11 @@ fn test_render_graph() {
 
 /// Path to test-skin directory.
 fn test_skin_dir() -> std::path::PathBuf {
+    // CARGO_MANIFEST_DIR = lr2oraja-rust/crates/bms-render
+    // test-bms is at the project root (3 levels up)
     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
         .parent()
         .unwrap()
         .parent()
