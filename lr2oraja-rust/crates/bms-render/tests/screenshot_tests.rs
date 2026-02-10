@@ -1,7 +1,10 @@
 // Screenshot regression tests for bms-render.
 //
-// All tests are #[ignore] because they require GPU access.
-// Run with: cargo test -p bms-render --test screenshot_tests -- --ignored --nocapture
+// Uses harness = false (custom main) because Bevy headless rendering
+// may need special initialization. Tests are skipped by default; pass
+// --ignored to run them (matches cargo test convention for GPU tests).
+//
+// Run: cargo test -p bms-render --test screenshot_tests -- --ignored --nocapture
 // Update fixtures: UPDATE_SCREENSHOTS=1 cargo test -p bms-render --test screenshot_tests -- --ignored --nocapture
 
 mod screenshot_compare;
@@ -64,15 +67,11 @@ fn run_test(builder: TestSkinBuilder, fixture_name: &str) {
 // Test cases
 // ---------------------------------------------------------------------------
 
-#[test]
-#[ignore] // GPU required
 fn test_render_blank_skin() {
     let builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
     run_test(builder, "blank");
 }
 
-#[test]
-#[ignore] // GPU required
 fn test_render_single_image() {
     let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
     // Red 60x40 rectangle at (100, 50)
@@ -80,8 +79,6 @@ fn test_render_single_image() {
     run_test(builder, "single_image");
 }
 
-#[test]
-#[ignore] // GPU required
 fn test_render_image_alpha() {
     let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
     // Semi-transparent blue rectangle
@@ -89,8 +86,6 @@ fn test_render_image_alpha() {
     run_test(builder, "image_alpha");
 }
 
-#[test]
-#[ignore] // GPU required
 fn test_render_z_order() {
     let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
     // Three overlapping rectangles: red (bottom), green (middle), blue (top)
@@ -101,8 +96,6 @@ fn test_render_z_order() {
     run_test(builder, "z_order");
 }
 
-#[test]
-#[ignore] // GPU required
 fn test_render_animation_midpoint() {
     let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
     // Green square moving from (0,76) to (200,76) over 1000ms
@@ -112,8 +105,6 @@ fn test_render_animation_midpoint() {
     run_test(builder, "animation_midpoint");
 }
 
-#[test]
-#[ignore] // GPU required
 fn test_render_draw_condition_false() {
     let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
     // This image has a draw condition set to false => should not be visible
@@ -121,8 +112,6 @@ fn test_render_draw_condition_false() {
     run_test(builder, "draw_condition_false");
 }
 
-#[test]
-#[ignore] // GPU required
 fn test_render_timer_inactive() {
     let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
     // Image with timer that is inactive (no timer value set) => hidden
@@ -130,8 +119,6 @@ fn test_render_timer_inactive() {
     run_test(builder, "timer_inactive");
 }
 
-#[test]
-#[ignore] // GPU required
 fn test_render_four_corners() {
     let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
     let s = 30.0; // square size
@@ -146,8 +133,6 @@ fn test_render_four_corners() {
     run_test(builder, "four_corners");
 }
 
-#[test]
-#[ignore] // GPU required
 fn test_render_slider() {
     let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
     // Horizontal slider: direction=Right(1), range=100, value=0.5
@@ -156,11 +141,104 @@ fn test_render_slider() {
     run_test(builder, "slider");
 }
 
-#[test]
-#[ignore] // GPU required
 fn test_render_graph() {
     let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
     // Graph: direction=Right(0), value=0.5 => half-width bar
     builder.add_graph(20.0, 80.0, 200.0, 30.0, 0, 200, 100, 0, 60, 0.5);
     run_test(builder, "graph");
+}
+
+// ---------------------------------------------------------------------------
+// Custom test runner
+// ---------------------------------------------------------------------------
+
+fn get_tests() -> Vec<(&'static str, fn())> {
+    vec![
+        ("test_render_blank_skin", test_render_blank_skin as fn()),
+        ("test_render_single_image", test_render_single_image),
+        ("test_render_image_alpha", test_render_image_alpha),
+        ("test_render_z_order", test_render_z_order),
+        (
+            "test_render_animation_midpoint",
+            test_render_animation_midpoint,
+        ),
+        (
+            "test_render_draw_condition_false",
+            test_render_draw_condition_false,
+        ),
+        ("test_render_timer_inactive", test_render_timer_inactive),
+        ("test_render_four_corners", test_render_four_corners),
+        ("test_render_slider", test_render_slider),
+        ("test_render_graph", test_render_graph),
+    ]
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+
+    // Support --list for test discovery
+    if args.iter().any(|a| a == "--list") {
+        for (name, _) in get_tests() {
+            println!("{}: test", name);
+        }
+        return;
+    }
+
+    // Match cargo test convention: skip unless --ignored is passed
+    if !args.iter().any(|a| a == "--ignored") {
+        eprintln!("Screenshot tests skipped (GPU required). Run with --ignored to execute.");
+        return;
+    }
+
+    // Optional name filter: first non-flag arg after binary name
+    let filter: Option<&str> = args
+        .iter()
+        .skip(1)
+        .find(|a| !a.starts_with('-'))
+        .map(|s| s.as_str());
+
+    let tests = get_tests();
+    let mut passed = 0;
+    let mut failed = 0;
+    let mut skipped = 0;
+
+    for (name, test_fn) in &tests {
+        if let Some(f) = filter {
+            if !name.contains(f) {
+                skipped += 1;
+                continue;
+            }
+        }
+
+        eprint!("test {} ... ", name);
+        match std::panic::catch_unwind(test_fn) {
+            Ok(_) => {
+                eprintln!("ok");
+                passed += 1;
+            }
+            Err(e) => {
+                let msg = if let Some(s) = e.downcast_ref::<&str>() {
+                    (*s).to_string()
+                } else if let Some(s) = e.downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "unknown panic".to_string()
+                };
+                eprintln!("FAILED\n  {}", msg);
+                failed += 1;
+            }
+        }
+    }
+
+    eprintln!(
+        "\ntest result: {}. {} passed; {} failed; {} filtered out",
+        if failed == 0 { "ok" } else { "FAILED" },
+        passed,
+        failed,
+        skipped
+    );
+
+    if failed > 0 {
+        std::process::exit(1);
+    }
 }

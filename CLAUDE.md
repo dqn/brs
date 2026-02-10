@@ -399,8 +399,13 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] Distance field レンダラー統合 (`Mesh2d` + `MeshMaterial2d<DistanceFieldMaterial>`)
   - [x] `Material2dPlugin<DistanceFieldMaterial>` 登録 + `embedded_asset!` シェーダ埋め込み
   - [x] DF ユニフォーム計算ヘルパー (`compute_outline_distance`, `compute_shadow_offset`, `compute_shadow_smoothing`)
-- [ ] **10-5. テスト**: Screenshot + SSIM 比較 (image-compare crate)
-  - [ ] Bevy headless rendering でフレームバッファキャプチャ — GPU 環境依存のため後回し
+- [x] **10-5. テスト**: Screenshot + SSIM 比較 (image-compare crate)
+  - [x] Bevy headless rendering ハーネス (WinitPlugin 無効化, RenderTarget::Image オフスクリーン)
+  - [x] TestSkinBuilder (プログラム的テストスキン構築, 外部ファイル不要)
+  - [x] SSIM 比較ユーティリティ (UPDATE_SCREENSHOTS=1 fixture 生成/更新, diff 画像保存)
+  - [x] 10 テストケース通過 (blank, single_image, image_alpha, z_order, animation_midpoint, draw_condition_false, timer_inactive, four_corners, slider, graph)
+  - [x] harness=false カスタムテストランナー (--ignored フラグで GPU テスト実行)
+  - [x] justfile ターゲット (screenshot-test, screenshot-update)
 - [x] **10-6. テスト** — 108 テスト通過, clippy clean, fmt applied
 
 ### Phase 11: State Machine (`brs`)

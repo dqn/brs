@@ -13,3 +13,7 @@ image.workspace = true
 bms-config = { workspace = true }
 image-compare = { workspace = true }
 tempfile = { workspace = true }
+
+[[test]]
+name = "screenshot_tests"
+harness = false
