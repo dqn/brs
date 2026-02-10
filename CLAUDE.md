@@ -430,7 +430,7 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 - [x] **11-AB テスト** — 30 テスト通過, clippy clean, fmt applied
 - [x] **11-9. E2E テスト**: パース → Judge → Gauge → ScoreData 一気通貫
   - [x] 5グループ 20テスト通過 (Autoplay 8 + Manual 5 + Gauge 4 + LN 2 + Cross-mode 1)
-  - [x] Known limitation: pair_index 未設定のため LN autoplay は start のみ PG、end は PR
+  - [x] LN pair_index 対応: build_judge_notes() で start/end 分割、autoplay/miss 全 LN タイプ対応
 
 ### Phase 12: Internet Ranking (`bms-ir`)
 
