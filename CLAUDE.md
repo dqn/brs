@@ -393,10 +393,15 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] `FontMap` リソース (`font_map.rs`)
   - [x] BMFont テキストレイアウト (`draw/bmfont_text.rs`)
   - [x] TTF + BMFont テキストエンティティ生成・描画 (`skin_renderer.rs`)
-  - [x] distance_field WGSL シェーダ + Material2d 定義 (構造のみ、レンダラー統合は TODO)
+  - [x] distance_field WGSL シェーダ + Material2d 定義
+  - [x] BMFont 子グリフスプライト管理 (`CachedBmFontText` キャッシュ + `despawn_descendants`)
+  - [x] TTF / BMFont シャドウ描画 (RGB/2 パターン, `TtfShadowMarker` エンティティ)
+  - [x] Distance field レンダラー統合 (`Mesh2d` + `MeshMaterial2d<DistanceFieldMaterial>`)
+  - [x] `Material2dPlugin<DistanceFieldMaterial>` 登録 + `embedded_asset!` シェーダ埋め込み
+  - [x] DF ユニフォーム計算ヘルパー (`compute_outline_distance`, `compute_shadow_offset`, `compute_shadow_smoothing`)
 - [ ] **10-5. テスト**: Screenshot + SSIM 比較 (image-compare crate)
   - [ ] Bevy headless rendering でフレームバッファキャプチャ — GPU 環境依存のため後回し
-- [x] **10-6. テスト** — 82 テスト通過, clippy clean, fmt applied
+- [x] **10-6. テスト** — 108 テスト通過, clippy clean, fmt applied
 
 ### Phase 11: State Machine (`brs`)
 
