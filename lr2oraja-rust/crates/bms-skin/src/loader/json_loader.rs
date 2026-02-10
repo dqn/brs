@@ -32,7 +32,7 @@ use crate::skin_header::{
 };
 use crate::skin_object::{Color, Destination, Rect, SkinObjectBase};
 use crate::skin_object_type::SkinObjectType;
-use crate::skin_text::TextShadow;
+use crate::skin_text::{FontType, TextShadow};
 use crate::skin_visualizer::parse_color;
 use crate::stretch_type::StretchType;
 
@@ -399,7 +399,7 @@ pub fn load_skin(
 
     // Process destinations → create skin objects
     for dst in &data.destination {
-        if let Some(obj) = build_skin_object(&data, dst) {
+        if let Some(obj) = build_skin_object(&data, dst, path) {
             skin.add(obj);
         }
     }
@@ -444,7 +444,11 @@ pub fn load_skin(
 ///
 /// Matches destination IDs against image/value/text/slider/graph definitions.
 /// Returns None if no matching object definition is found.
-fn build_skin_object(data: &JsonSkinData, dst: &JsonDestination) -> Option<SkinObjectType> {
+fn build_skin_object(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    skin_path: Option<&Path>,
+) -> Option<SkinObjectType> {
     let dst_id = &dst.id;
 
     // Check for negative numeric ID → reference image
@@ -466,7 +470,7 @@ fn build_skin_object(data: &JsonSkinData, dst: &JsonDestination) -> Option<SkinO
     if let Some(obj) = try_build_number(data, dst, dst_id) {
         return Some(obj);
     }
-    if let Some(obj) = try_build_text(data, dst, dst_id) {
+    if let Some(obj) = try_build_text(data, dst, dst_id, skin_path) {
         return Some(obj);
     }
     if let Some(obj) = try_build_slider(data, dst, dst_id) {
@@ -590,6 +594,7 @@ fn try_build_text(
     data: &JsonSkinData,
     dst: &JsonDestination,
     dst_id: &FlexId,
+    skin_path: Option<&Path>,
 ) -> Option<SkinObjectType> {
     let text_def = data.text.iter().find(|t| t.id == *dst_id)?;
 
@@ -616,6 +621,9 @@ fn try_build_text(
         None
     };
 
+    // Resolve font type from font ID
+    let font_type = resolve_font_type(data, &text_def.font, skin_path);
+
     let mut text = crate::skin_text::SkinText {
         base: SkinObjectBase::default(),
         ref_id: Some(crate::property_id::StringId(ref_id)),
@@ -627,11 +635,49 @@ fn try_build_text(
         outline_color,
         outline_width: text_def.outline_width,
         shadow,
+        font_type,
         ..Default::default()
     };
     apply_destination(&mut text.base, dst);
 
     Some(text.into())
+}
+
+/// Resolves a font ID reference to a FontType.
+///
+/// Looks up the font definition in the skin data, then determines the type
+/// based on the file extension and font_type field.
+fn resolve_font_type(data: &JsonSkinData, font_id: &FlexId, skin_path: Option<&Path>) -> FontType {
+    let font_def = match data.font.iter().find(|f| f.id == *font_id) {
+        Some(f) => f,
+        None => return FontType::Default,
+    };
+
+    let raw_path = match &font_def.path {
+        Some(p) if !p.is_empty() => p.clone(),
+        _ => return FontType::Default,
+    };
+
+    // Resolve relative path against skin directory
+    let full_path = if let Some(sp) = skin_path
+        && let Some(parent) = sp.parent()
+    {
+        let candidate = parent.join(&raw_path);
+        candidate.to_string_lossy().to_string()
+    } else {
+        raw_path.clone()
+    };
+
+    // Determine font type by extension
+    let lower = raw_path.to_lowercase();
+    if lower.ends_with(".fnt") {
+        FontType::Bitmap {
+            path: full_path,
+            bitmap_type: font_def.font_type,
+        }
+    } else {
+        FontType::Ttf(full_path)
+    }
 }
 
 fn try_build_slider(
@@ -1387,5 +1433,74 @@ mod tests {
         apply_destination(&mut base, &dst);
 
         assert_eq!(base.offset_ids, vec![20, 30, 10]);
+    }
+
+    // -- Font resolution --
+
+    #[test]
+    fn test_font_resolution_ttf() {
+        let json = r#"{
+            "type": 6,
+            "name": "Test",
+            "font": [{"id": "0", "path": "fonts/myfont.ttf", "type": 0}],
+            "text": [{"id": "title", "font": 0, "size": 24, "ref": 12}],
+            "destination": [
+                {"id": "title", "dst": [{"x": 0, "y": 0, "w": 200, "h": 30}]}
+            ]
+        }"#;
+        let skin = load_skin(json, &HashSet::new(), Resolution::Hd, None).unwrap();
+        match &skin.objects[0] {
+            SkinObjectType::Text(t) => {
+                assert!(matches!(t.font_type, FontType::Ttf(_)));
+                if let FontType::Ttf(path) = &t.font_type {
+                    assert_eq!(path, "fonts/myfont.ttf");
+                }
+            }
+            _ => panic!("Expected Text object"),
+        }
+    }
+
+    #[test]
+    fn test_font_resolution_bitmap() {
+        let json = r#"{
+            "type": 6,
+            "name": "Test",
+            "font": [{"id": "0", "path": "fonts/bitmap.fnt", "type": 1}],
+            "text": [{"id": "title", "font": 0, "size": 24, "ref": 12}],
+            "destination": [
+                {"id": "title", "dst": [{"x": 0, "y": 0, "w": 200, "h": 30}]}
+            ]
+        }"#;
+        let skin = load_skin(json, &HashSet::new(), Resolution::Hd, None).unwrap();
+        match &skin.objects[0] {
+            SkinObjectType::Text(t) => {
+                if let FontType::Bitmap { path, bitmap_type } = &t.font_type {
+                    assert_eq!(path, "fonts/bitmap.fnt");
+                    assert_eq!(*bitmap_type, 1);
+                } else {
+                    panic!("Expected Bitmap font type");
+                }
+            }
+            _ => panic!("Expected Text object"),
+        }
+    }
+
+    #[test]
+    fn test_font_resolution_default_when_missing() {
+        let json = r#"{
+            "type": 6,
+            "name": "Test",
+            "text": [{"id": "title", "font": 99, "size": 24, "ref": 12}],
+            "destination": [
+                {"id": "title", "dst": [{"x": 0, "y": 0, "w": 200, "h": 30}]}
+            ]
+        }"#;
+        let skin = load_skin(json, &HashSet::new(), Resolution::Hd, None).unwrap();
+        match &skin.objects[0] {
+            SkinObjectType::Text(t) => {
+                assert!(matches!(t.font_type, FontType::Default));
+            }
+            _ => panic!("Expected Text object"),
+        }
     }
 }

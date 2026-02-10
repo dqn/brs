@@ -362,7 +362,7 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] Lua 環境セットアップ (package.path, skin_config, skin_property)
   - [x] Lua table → serde_json::Value 再帰変換 (array/object 自動判定)
 - [x] **9-9. テスト** — 193 テスト通過, clippy clean, fmt applied
-  - [ ] GM テスト: 各ローダーでスキン読込 → SkinObject 構造 JSON 比較 (Phase 11 依存で後回し)
+  - [x] GM テスト: 各ローダーでスキン読込 → SkinSnapshot 構造比較 (JSON 4 + Lua 4 + LR2 CSV 3 = 11 テスト通過, 3 ignored)
 
 ### Phase 10: Rendering (`bms-render`)
 
@@ -387,9 +387,13 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
     - [x] visualizer: スタブ (Phase 11 依存)
 - [x] **10-3. ブレンドモード** (Alpha, Additive, Invert)
   - [x] `blend.rs` — BlendState ヘルパー (alpha/additive/invert, 5 テスト)
-- [ ] **10-4. フォントレンダリング** (TTF + ビットマップ)
-  - [ ] ビットマップフォント (.fnt) ローダー — Phase 11 以降で追加
-  - [ ] distance_field シェーダ — Phase 11 以降で追加
+- [x] **10-4. フォントレンダリング** (TTF + ビットマップ)
+  - [x] `FontType` enum + BMFont .fnt パーサー (`bmfont.rs`)
+  - [x] JSON ローダーフォント解決 (`json_loader.rs`)
+  - [x] `FontMap` リソース (`font_map.rs`)
+  - [x] BMFont テキストレイアウト (`draw/bmfont_text.rs`)
+  - [x] TTF + BMFont テキストエンティティ生成・描画 (`skin_renderer.rs`)
+  - [x] distance_field WGSL シェーダ + Material2d 定義 (構造のみ、レンダラー統合は TODO)
 - [ ] **10-5. テスト**: Screenshot + SSIM 比較 (image-compare crate)
   - [ ] Bevy headless rendering でフレームバッファキャプチャ — GPU 環境依存のため後回し
 - [x] **10-6. テスト** — 82 テスト通過, clippy clean, fmt applied

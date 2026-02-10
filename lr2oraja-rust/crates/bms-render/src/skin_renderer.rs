@@ -8,14 +8,16 @@ use bevy::prelude::*;
 use bms_skin::skin::Skin;
 use bms_skin::skin_object::SkinOffset;
 use bms_skin::skin_object_type::SkinObjectType;
+use bms_skin::skin_text::FontType;
 
 use crate::coord::skin_to_bevy_transform;
 use crate::draw;
+use crate::font_map::FontMap;
 use crate::state_provider::SkinStateProvider;
 use crate::texture_map::TextureMap;
 
 // ---------------------------------------------------------------------------
-// Marker component for skin object entities
+// Marker components for skin object entities
 // ---------------------------------------------------------------------------
 
 /// Marker component for entities managed by the skin renderer.
@@ -24,6 +26,55 @@ pub struct SkinObjectEntity {
     /// Index into Skin.objects Vec.
     pub object_index: usize,
 }
+
+/// Marker component for TTF text entities (rendered via Bevy Text2d).
+#[derive(Component)]
+pub struct TtfTextMarker;
+
+/// Marker component for BMFont text entities (rendered via glyph sprites).
+#[derive(Component)]
+pub struct BitmapTextMarker;
+
+// ---------------------------------------------------------------------------
+// Type aliases for complex query types
+// ---------------------------------------------------------------------------
+
+type SpriteQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static SkinObjectEntity,
+        &'static mut Transform,
+        &'static mut Visibility,
+        &'static mut Sprite,
+    ),
+    (Without<TtfTextMarker>, Without<BitmapTextMarker>),
+>;
+
+type TtfTextQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static SkinObjectEntity,
+        &'static mut Transform,
+        &'static mut Visibility,
+        &'static mut Text2d,
+        &'static mut TextFont,
+        &'static mut TextColor,
+    ),
+    (With<TtfTextMarker>, Without<BitmapTextMarker>),
+>;
+
+type BitmapTextQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static SkinObjectEntity,
+        &'static mut Transform,
+        &'static mut Visibility,
+    ),
+    (With<BitmapTextMarker>, Without<TtfTextMarker>),
+>;
 
 // ---------------------------------------------------------------------------
 // Bevy Resource holding the skin render state
@@ -34,6 +85,7 @@ pub struct SkinObjectEntity {
 pub struct SkinRenderState {
     pub skin: Skin,
     pub texture_map: TextureMap,
+    pub font_map: FontMap,
     pub state_provider: Box<dyn SkinStateProvider>,
 }
 
@@ -46,23 +98,55 @@ pub fn setup_skin(
     commands: &mut Commands,
     skin: Skin,
     texture_map: TextureMap,
+    font_map: FontMap,
     state_provider: Box<dyn SkinStateProvider>,
 ) {
     let count = skin.objects.len();
 
     // Spawn one entity per skin object (initially invisible)
     for i in 0..count {
-        commands.spawn((
-            Sprite::default(),
-            Transform::default(),
-            Visibility::Hidden,
-            SkinObjectEntity { object_index: i },
-        ));
+        let marker = SkinObjectEntity { object_index: i };
+
+        match &skin.objects[i] {
+            SkinObjectType::Text(text) => match &text.font_type {
+                FontType::Bitmap { .. } => {
+                    commands.spawn((
+                        Transform::default(),
+                        Visibility::Hidden,
+                        marker,
+                        BitmapTextMarker,
+                    ));
+                }
+                FontType::Ttf(_) | FontType::Default => {
+                    // TTF text: use Bevy Text2d for native font rendering.
+                    // Text2d is spawned with a placeholder; updated each frame.
+                    commands.spawn((
+                        Text2d::new(""),
+                        TextFont::default(),
+                        TextColor(Color::WHITE),
+                        TextLayout::default(),
+                        Transform::default(),
+                        Visibility::Hidden,
+                        marker,
+                        TtfTextMarker,
+                    ));
+                }
+            },
+            _ => {
+                commands.spawn((
+                    Sprite::default(),
+                    Transform::default(),
+                    Visibility::Hidden,
+                    marker,
+                ));
+            }
+        }
     }
 
     commands.insert_resource(SkinRenderState {
         skin,
         texture_map,
+        font_map,
         state_provider,
     });
 }
@@ -72,14 +156,16 @@ pub fn setup_skin(
 // ---------------------------------------------------------------------------
 
 /// Per-frame system that updates all skin object entities.
+///
+/// Uses three query sets:
+/// - Sprite entities (images, sliders, graphs, etc.)
+/// - TTF text entities (Text2d-based)
+/// - BMFont text entities (glyph sprite children)
 pub fn skin_render_system(
     render_state: Option<Res<SkinRenderState>>,
-    mut query: Query<(
-        &SkinObjectEntity,
-        &mut Transform,
-        &mut Visibility,
-        &mut Sprite,
-    )>,
+    mut sprite_query: SpriteQuery,
+    mut ttf_query: TtfTextQuery,
+    mut bitmap_query: BitmapTextQuery,
 ) {
     let Some(state) = render_state else {
         return;
@@ -89,7 +175,8 @@ pub fn skin_render_system(
     let provider = &*state.state_provider;
     let tex_map = &state.texture_map;
 
-    for (marker, mut transform, mut visibility, mut sprite) in &mut query {
+    // --- Sprite entities ---
+    for (marker, mut transform, mut visibility, mut sprite) in &mut sprite_query {
         let idx = marker.object_index;
         if idx >= skin.objects.len() {
             *visibility = Visibility::Hidden;
@@ -99,40 +186,16 @@ pub fn skin_render_system(
         let object = &skin.objects[idx];
         let base = object.base();
 
-        // 1. Check draw conditions
-        if !check_draw_conditions(base, provider) {
-            *visibility = Visibility::Hidden;
-            continue;
-        }
-
-        // 2. Resolve timer → animation time
-        let time = resolve_timer_time(base, provider);
-        let Some(time) = time else {
+        let Some((rect, color, final_angle, final_alpha)) = resolve_common(base, provider) else {
             *visibility = Visibility::Hidden;
             continue;
         };
 
-        // 3. Interpolate
-        let Some((mut rect, color, angle)) = base.interpolate(time) else {
-            *visibility = Visibility::Hidden;
-            continue;
-        };
-
-        // 4. Apply offsets
-        let mut angle_offset = 0.0_f32;
-        let mut alpha_offset = 0.0_f32;
-        for &oid in &base.offset_ids {
-            let off = provider.offset_value(oid);
-            apply_offset(&mut rect, &off, &mut angle_offset, &mut alpha_offset);
-        }
-
-        let final_angle = angle + angle_offset as i32;
-        let final_alpha = (color.a + alpha_offset / 255.0).clamp(0.0, 1.0);
-
-        // 5. Object-type-specific dispatch
+        // Object-type-specific dispatch
+        let time = resolve_timer_time(base, provider).unwrap_or(0);
         let (tex_handle, src_rect_uv) = resolve_object_texture(object, provider, tex_map, time);
 
-        // 6. Update entity
+        // Update entity
         *transform = skin_to_bevy_transform(
             crate::coord::SkinRect {
                 x: rect.x,
@@ -152,7 +215,6 @@ pub fn skin_render_system(
             },
         );
 
-        // Set sprite size and color
         sprite.custom_size = Some(Vec2::new(rect.w, rect.h));
         sprite.color = Color::srgba(color.r, color.g, color.b, final_alpha);
 
@@ -168,11 +230,149 @@ pub fn skin_render_system(
 
         *visibility = Visibility::Visible;
     }
+
+    // --- TTF text entities ---
+    for (marker, mut transform, mut visibility, mut text2d, mut text_font, mut text_color) in
+        &mut ttf_query
+    {
+        let idx = marker.object_index;
+        if idx >= skin.objects.len() {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+
+        let object = &skin.objects[idx];
+        let base = object.base();
+
+        let Some((rect, color, final_angle, final_alpha)) = resolve_common(base, provider) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+
+        if let SkinObjectType::Text(skin_text) = object {
+            // Resolve text content
+            let content = resolve_text_content(skin_text, provider);
+
+            // Update Text2d content
+            **text2d = content;
+
+            // Update font size
+            text_font.font_size = skin_text.font_size;
+
+            // If a TTF font is loaded, set the font handle
+            if let FontType::Ttf(path) = &skin_text.font_type
+                && let Some(entry) = state.font_map.get_ttf(path)
+            {
+                text_font.font = entry.handle.clone();
+            }
+
+            // Update color
+            *text_color = TextColor(Color::srgba(color.r, color.g, color.b, final_alpha));
+
+            // Update transform
+            *transform = skin_to_bevy_transform(
+                crate::coord::SkinRect {
+                    x: rect.x,
+                    y: rect.y,
+                    w: rect.w,
+                    h: rect.h,
+                },
+                crate::coord::ScreenSize {
+                    w: skin.width,
+                    h: skin.height,
+                },
+                idx as f32 * 0.001,
+                crate::coord::RotationParams {
+                    angle_deg: final_angle,
+                    center_x: base.center_x,
+                    center_y: base.center_y,
+                },
+            );
+
+            *visibility = Visibility::Visible;
+        } else {
+            *visibility = Visibility::Hidden;
+        }
+    }
+
+    // --- BMFont text entities ---
+    // BMFont rendering requires child entity management (glyph sprites).
+    // For now, we update the parent transform and visibility.
+    // Full child glyph management will be added when the rendering pipeline
+    // supports dynamic child entity spawning in a system context.
+    for (marker, mut transform, mut visibility) in &mut bitmap_query {
+        let idx = marker.object_index;
+        if idx >= skin.objects.len() {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+
+        let object = &skin.objects[idx];
+        let base = object.base();
+
+        let Some((rect, _color, final_angle, _final_alpha)) = resolve_common(base, provider) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+
+        *transform = skin_to_bevy_transform(
+            crate::coord::SkinRect {
+                x: rect.x,
+                y: rect.y,
+                w: rect.w,
+                h: rect.h,
+            },
+            crate::coord::ScreenSize {
+                w: skin.width,
+                h: skin.height,
+            },
+            idx as f32 * 0.001,
+            crate::coord::RotationParams {
+                angle_deg: final_angle,
+                center_x: base.center_x,
+                center_y: base.center_y,
+            },
+        );
+
+        *visibility = Visibility::Visible;
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
+
+/// Common resolution: checks draw conditions, resolves timer, interpolates,
+/// applies offsets. Returns (rect, color, final_angle, final_alpha) or None
+/// if the object should be hidden.
+fn resolve_common(
+    base: &bms_skin::skin_object::SkinObjectBase,
+    provider: &dyn SkinStateProvider,
+) -> Option<(
+    bms_skin::skin_object::Rect,
+    bms_skin::skin_object::Color,
+    i32,
+    f32,
+)> {
+    if !check_draw_conditions(base, provider) {
+        return None;
+    }
+
+    let time = resolve_timer_time(base, provider)?;
+    let (mut rect, color, angle) = base.interpolate(time)?;
+
+    let mut angle_offset = 0.0_f32;
+    let mut alpha_offset = 0.0_f32;
+    for &oid in &base.offset_ids {
+        let off = provider.offset_value(oid);
+        apply_offset(&mut rect, &off, &mut angle_offset, &mut alpha_offset);
+    }
+
+    let final_angle = angle + angle_offset as i32;
+    let final_alpha = (color.a + alpha_offset / 255.0).clamp(0.0, 1.0);
+
+    Some((rect, color, final_angle, final_alpha))
+}
 
 /// Checks whether all draw conditions are met.
 fn check_draw_conditions(
@@ -212,6 +412,19 @@ fn apply_offset(
     rect.h += offset.h;
     *angle_offset += offset.r;
     *alpha_offset += offset.a;
+}
+
+/// Resolves text content from a SkinText's ref_id or constant_text.
+fn resolve_text_content(
+    text: &bms_skin::skin_text::SkinText,
+    provider: &dyn SkinStateProvider,
+) -> String {
+    if let Some(ref_id) = text.ref_id
+        && let Some(s) = provider.string_value(ref_id)
+    {
+        return s;
+    }
+    text.constant_text.clone().unwrap_or_default()
 }
 
 /// Resolves the texture handle and optional UV rect for a skin object.
@@ -294,9 +507,8 @@ fn resolve_object_texture(
             }
             (None, None)
         }
-        // Number, Text, Gauge, and Visualizers need more complex multi-entity rendering.
-        // Basic single-entity rendering is stubbed for Phase 10 and will be
-        // fully implemented in Phase 11 when entity pools are expanded.
+        // Number, Gauge, and Visualizers need more complex multi-entity rendering.
+        // Text is handled separately via TTF/BMFont queries.
         _ => (None, None),
     }
 }
@@ -305,7 +517,7 @@ fn resolve_object_texture(
 mod tests {
     use super::*;
     use crate::state_provider::StaticStateProvider;
-    use bms_skin::property_id::{BooleanId, TimerId};
+    use bms_skin::property_id::{BooleanId, StringId, TimerId};
     use bms_skin::skin_object::{Destination, Rect as SkinRect, SkinObjectBase};
 
     fn make_base_with_dst(time: i64, x: f32, y: f32, w: f32, h: f32) -> SkinObjectBase {
@@ -471,5 +683,55 @@ mod tests {
         apply_offset(&mut rect, &offset, &mut ao, &mut aao);
         // After offset: x = 60
         assert!((rect.x - 60.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn resolve_text_content_from_provider() {
+        let text = bms_skin::skin_text::SkinText {
+            ref_id: Some(StringId(42)),
+            constant_text: Some("fallback".to_string()),
+            ..Default::default()
+        };
+        let mut p = StaticStateProvider::default();
+        p.strings.insert(42, "dynamic text".to_string());
+        assert_eq!(resolve_text_content(&text, &p), "dynamic text");
+    }
+
+    #[test]
+    fn resolve_text_content_fallback_constant() {
+        let text = bms_skin::skin_text::SkinText {
+            ref_id: Some(StringId(42)),
+            constant_text: Some("fallback".to_string()),
+            ..Default::default()
+        };
+        let p = StaticStateProvider::default(); // no string 42
+        assert_eq!(resolve_text_content(&text, &p), "fallback");
+    }
+
+    #[test]
+    fn resolve_text_content_no_ref_no_constant() {
+        let text = bms_skin::skin_text::SkinText::default();
+        let p = StaticStateProvider::default();
+        assert_eq!(resolve_text_content(&text, &p), "");
+    }
+
+    #[test]
+    fn resolve_common_returns_none_when_hidden() {
+        let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
+        base.draw_conditions = vec![BooleanId(1)];
+        let p = StaticStateProvider::default(); // bool 1 = false
+        assert!(resolve_common(&base, &p).is_none());
+    }
+
+    #[test]
+    fn resolve_common_returns_values() {
+        let base = make_base_with_dst(0, 10.0, 20.0, 100.0, 50.0);
+        let p = StaticStateProvider::default();
+        let (rect, color, angle, alpha) = resolve_common(&base, &p).unwrap();
+        assert!((rect.x - 10.0).abs() < 0.001);
+        assert!((rect.y - 20.0).abs() < 0.001);
+        assert!((color.a - 1.0).abs() < 0.001);
+        assert_eq!(angle, 0);
+        assert!((alpha - 1.0).abs() < 0.001);
     }
 }

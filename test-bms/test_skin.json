@@ -1,0 +1,57 @@
+{
+	"type": 6,
+	"name": "Test Skin",
+	"author": "Test",
+	"w": 1280,
+	"h": 720,
+	"fadeout": 500,
+	"scene": 3000,
+	"input": 400,
+	"source": [
+		{"id": 0, "path": "test.png"}
+	],
+	"font": [
+		{"id": 0, "path": "test.ttf"}
+	],
+	"image": [
+		{"id": "bg", "src": 0, "x": 0, "y": 0, "w": 1280, "h": 720},
+		{"id": "icon", "src": 0, "x": 0, "y": 0, "w": 64, "h": 64},
+		{"id": "panel", "src": 0, "x": 100, "y": 0, "w": 400, "h": 200}
+	],
+	"value": [
+		{"id": "score", "src": 0, "x": 0, "y": 800, "w": 120, "h": 24, "divx": 10, "digit": 6, "ref": 71, "padding": 0}
+	],
+	"text": [
+		{"id": "title", "font": 0, "size": 24, "ref": 12}
+	],
+	"slider": [
+		{"id": "vol", "src": 0, "x": 200, "y": 0, "w": 20, "h": 100, "range": 200, "angle": 0, "type": 1, "disable": 0, "ref": 17}
+	],
+	"graph": [
+		{"id": "gauge", "src": 0, "x": 300, "y": 0, "w": 200, "h": 20, "type": 0, "ref": 100}
+	],
+	"destination": [
+		{"id": "bg", "blend": 0, "dst": [
+			{"time": 0, "x": 0, "y": 0, "w": 1280, "h": 720, "a": 255}
+		]},
+		{"id": "icon", "blend": 0, "timer": 40, "dst": [
+			{"time": 0, "x": 100, "y": 50, "w": 64, "h": 64, "a": 255}
+		]},
+		{"id": "panel", "blend": 2, "dst": [
+			{"time": 0, "x": 200, "y": 100, "w": 400, "h": 200, "a": 200},
+			{"time": 500, "x": 200, "y": 100, "w": 400, "h": 200, "a": 255}
+		]},
+		{"id": "score", "dst": [
+			{"time": 0, "x": 500, "y": 300, "w": 12, "h": 24, "a": 255}
+		]},
+		{"id": "title", "dst": [
+			{"time": 0, "x": 10, "y": 10, "w": 600, "h": 30, "a": 255}
+		]},
+		{"id": "vol", "dst": [
+			{"time": 0, "x": 700, "y": 100, "w": 20, "h": 200, "a": 255}
+		]},
+		{"id": "gauge", "dst": [
+			{"time": 0, "x": 800, "y": 400, "w": 200, "h": 20, "a": 255}
+		]}
+	]
+}

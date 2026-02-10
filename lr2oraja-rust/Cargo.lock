@@ -3022,6 +3022,7 @@ dependencies = [
  "bms-pattern",
  "bms-replay",
  "bms-rule",
+ "bms-skin",
  "serde",
  "serde_json",
  "tempfile",

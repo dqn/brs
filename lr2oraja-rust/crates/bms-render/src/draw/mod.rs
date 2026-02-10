@@ -1,3 +1,4 @@
+pub mod bmfont_text;
 pub mod gauge;
 pub mod graph;
 pub mod image;

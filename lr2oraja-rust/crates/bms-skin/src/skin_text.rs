@@ -7,6 +7,23 @@ use crate::property_id::StringId;
 use crate::skin_object::{Color, SkinObjectBase};
 
 // ---------------------------------------------------------------------------
+// FontType
+// ---------------------------------------------------------------------------
+
+/// Font type for text rendering.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum FontType {
+    /// Use the system default font.
+    #[default]
+    Default,
+    /// TrueType font at the given path.
+    Ttf(String),
+    /// BMFont bitmap font at the given path.
+    /// `bitmap_type`: 0=standard, 1=distance_field, 2=colored_distance_field.
+    Bitmap { path: String, bitmap_type: i32 },
+}
+
+// ---------------------------------------------------------------------------
 // SkinText
 // ---------------------------------------------------------------------------
 
@@ -85,8 +102,8 @@ pub struct SkinText {
     pub outline_width: f32,
     /// Shadow effect (None = no shadow).
     pub shadow: Option<TextShadow>,
-    /// Font path or identifier (resolved at load time).
-    pub font: Option<String>,
+    /// Font type (resolved at load time).
+    pub font_type: FontType,
     /// Font size.
     pub font_size: f32,
 }
@@ -104,7 +121,7 @@ impl Default for SkinText {
             outline_color: None,
             outline_width: 0.0,
             shadow: None,
-            font: None,
+            font_type: FontType::Default,
             font_size: 24.0,
         }
     }
@@ -152,6 +169,31 @@ mod tests {
         let text = SkinText::with_constant("Hello".to_string());
         assert_eq!(text.constant_text, Some("Hello".to_string()));
         assert!(text.ref_id.is_none());
+    }
+
+    #[test]
+    fn test_font_type_default() {
+        let text = SkinText::default();
+        assert_eq!(text.font_type, FontType::Default);
+    }
+
+    #[test]
+    fn test_font_type_ttf() {
+        let ft = FontType::Ttf("/path/to/font.ttf".to_string());
+        assert!(matches!(ft, FontType::Ttf(_)));
+    }
+
+    #[test]
+    fn test_font_type_bitmap() {
+        let ft = FontType::Bitmap {
+            path: "/path/to/font.fnt".to_string(),
+            bitmap_type: 1,
+        };
+        if let FontType::Bitmap { bitmap_type, .. } = ft {
+            assert_eq!(bitmap_type, 1);
+        } else {
+            panic!("Expected Bitmap variant");
+        }
     }
 
     #[test]

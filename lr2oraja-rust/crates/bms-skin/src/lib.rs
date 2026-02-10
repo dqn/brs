@@ -1,3 +1,4 @@
+pub mod bmfont;
 pub mod custom_event;
 pub mod image_handle;
 pub mod loader;
