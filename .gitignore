@@ -11,6 +11,7 @@ logs/
 score.db
 song.db
 proptest-regressions/
+screenshots_diff/
 CLAUDE.local.md
 AGENTS.local.md
 beatoraja-java/**
