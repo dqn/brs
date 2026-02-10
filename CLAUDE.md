@@ -423,7 +423,9 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] 5-phase update: pass → HCN gauge → key input → release margin → miss
   - [x] JudgeConfig / JudgeEvent: 初期化パラメータ / 出力イベント型
   - [x] 通常ノート / LN / CN / HCN / BSS / Mine / Autoplay 全対応
-  - [x] 25 テスト通過 (165 テスト全通過), clippy clean, fmt applied
+  - [x] 31 テスト通過 (171 テスト全通過), clippy clean, fmt applied
+  - [x] now_judge / now_combo: レーン→プレイヤーインデックス変換 + スキン表示用更新
+  - [x] LN release margin: worst-of-three の結果を ln_end_judge に正しく保存
 - [x] **11-AB テスト** — 30 テスト通過, clippy clean, fmt applied
 - [ ] **11-9. E2E テスト**: パース → Judge → Gauge → ScoreData 一気通貫
 
