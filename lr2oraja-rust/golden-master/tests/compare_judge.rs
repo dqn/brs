@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use bms_model::{BmsDecoder, BmsModel};
+use bms_model::{BmsDecoder, BmsModel, LaneProperty};
 use bms_replay::key_input_log::KeyInputLog;
 use bms_rule::gauge_property::GaugeType;
 use bms_rule::judge_manager::{JudgeConfig, JudgeManager};
@@ -75,9 +75,10 @@ fn run_autoplay_simulation(model: &BmsModel, gauge_type: GaugeType) -> Simulatio
     let mut jm = JudgeManager::new(&config);
     let mut gauge = GrooveGauge::new(&rule.gauge, gauge_type, total, total_notes);
 
-    let key_count = model.mode.key_count();
-    let key_states = vec![false; key_count];
-    let key_times = vec![NOT_SET; key_count];
+    let lp = LaneProperty::new(model.mode);
+    let physical_key_count = lp.physical_key_count();
+    let key_states = vec![false; physical_key_count];
+    let key_times = vec![NOT_SET; physical_key_count];
 
     // Prime JudgeManager for notes at time 0
     jm.update(-1, &judge_notes, &key_states, &key_times, &mut gauge);
@@ -138,7 +139,8 @@ fn run_manual_simulation(
     let mut jm = JudgeManager::new(&config);
     let mut gauge = GrooveGauge::new(&rule.gauge, gauge_type, total, total_notes);
 
-    let key_count = model.mode.key_count();
+    let lp = LaneProperty::new(model.mode);
+    let physical_key_count = lp.physical_key_count();
 
     let mut sorted_log: Vec<&KeyInputLog> = input_log.iter().collect();
     sorted_log.sort_by_key(|e| e.get_time());
@@ -150,23 +152,23 @@ fn run_manual_simulation(
         .unwrap_or(0);
     let end_time = last_note_time + TAIL_TIME;
 
-    let mut key_states = vec![false; key_count];
+    let mut key_states = vec![false; physical_key_count];
     let mut log_cursor = 0;
 
     // Prime JudgeManager for notes at time 0
-    let empty_key_times = vec![NOT_SET; key_count];
+    let empty_key_times = vec![NOT_SET; physical_key_count];
     jm.update(-1, &judge_notes, &key_states, &empty_key_times, &mut gauge);
 
     let mut time = 0i64;
     while time <= end_time {
-        let mut key_changed_times = vec![NOT_SET; key_count];
+        let mut key_changed_times = vec![NOT_SET; physical_key_count];
 
         while log_cursor < sorted_log.len() && sorted_log[log_cursor].get_time() <= time {
             let event = sorted_log[log_cursor];
-            let lane = event.keycode as usize;
-            if lane < key_count {
-                key_states[lane] = event.pressed;
-                key_changed_times[lane] = event.get_time();
+            let key = event.keycode as usize;
+            if key < physical_key_count {
+                key_states[key] = event.pressed;
+                key_changed_times[key] = event.get_time();
             }
             log_cursor += 1;
         }
