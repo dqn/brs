@@ -195,14 +195,14 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] `value > 0` のときのみ更新 (復帰不可)
   - [x] guts テーブルによるダメージ軽減
   - [x] GM テスト: 判定シーケンス → 各ステップのゲージ値比較 (80ケース通過)
-- [ ] **2-5. JudgeManager (判定処理)** ※ Phase 11 で実装 (AudioDriver, InputProcessor 等の依存が必要)
-  - [ ] 通常ノート: 判定窓内で JudgeAlgorithm による最適選択
-  - [ ] LN: 押下開始 + releasemargin 後の離し判定
-  - [ ] CN: 離し → releasemargin 以内の再押下で復帰
-  - [ ] HCN: 200000μs 毎ゲージ増減 + 離し再押下復帰
-  - [ ] BSS: 反転入力で終端判定
-  - [ ] MultiBadCollector: BAD 窓内の複数ノート同時 BAD
-  - [ ] GM テスト: 入力シーケンス (key, time_us, pressed) + BMS → ScoreData 比較
+- [x] **2-5. JudgeManager (判定処理)** ※ Phase 11C で実装
+  - [x] 通常ノート: 判定窓内で JudgeAlgorithm による最適選択
+  - [x] LN: 押下開始 + releasemargin 後の離し判定
+  - [x] CN: 離し → releasemargin 以内の再押下で復帰
+  - [x] HCN: 200000μs 毎ゲージ増減 + 離し再押下復帰
+  - [x] BSS: 反転入力で終端判定
+  - [x] MultiBadCollector: BAD 窓内の複数ノート同時 BAD
+  - [ ] GM テスト: 入力シーケンス (key, time_us, pressed) + BMS → ScoreData 比較 (Sub-phase F で実装)
 - [x] **2-6. ScoreData / ClearType**
   - [x] スコアデータ (epg/lpg, egr/lgr 等の早遅分離)
   - [x] クリアタイプ判定
@@ -417,6 +417,13 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 - [x] **11-B. SharedGameState + GameStateProvider** — SkinStateProvider 実装 (5 テスト)
   - [x] `sync_timer_state()` — TimerManager → SharedGameState 同期
 - [x] **11-C. Bevy App 統合** — CLI `--bms`, システムチェーン, リソースラッパー
+- [x] **11-D. JudgeManager** — 判定処理エンジン (Java JudgeManager.java 1,063行の忠実移植)
+  - [x] LaneState: per-lane ステートマシン (cursor, processing, passing, release tracking)
+  - [x] MultiBadCollector: PMS 用複数ノート同時 BAD 判定
+  - [x] 5-phase update: pass → HCN gauge → key input → release margin → miss
+  - [x] JudgeConfig / JudgeEvent: 初期化パラメータ / 出力イベント型
+  - [x] 通常ノート / LN / CN / HCN / BSS / Mine / Autoplay 全対応
+  - [x] 25 テスト通過 (165 テスト全通過), clippy clean, fmt applied
 - [x] **11-AB テスト** — 30 テスト通過, clippy clean, fmt applied
 - [ ] **11-9. E2E テスト**: パース → Judge → Gauge → ScoreData 一気通貫
 
