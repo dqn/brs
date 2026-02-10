@@ -35,11 +35,13 @@ use super::json_loader;
 /// Loads a SkinHeader from a Lua skin script.
 ///
 /// `lua_source` is the Lua script content (UTF-8).
-/// The script should return a table matching the beatoraja JSON skin format.
+/// The script should return a table matching the beatoraja JSON skin format,
+/// or a `{header, main}` table where `header` contains the skin metadata.
 pub fn load_lua_header(lua_source: &str, path: Option<&Path>) -> Result<SkinHeader> {
     let lua = create_lua_env(path)?;
     let value = exec_lua(&lua, lua_source, path)?;
-    let json = lua_value_to_json(&value);
+    let resolved = resolve_for_header(&value);
+    let json = lua_value_to_json(&resolved);
     let json_str =
         serde_json::to_string(&json).context("Failed to serialize Lua result to JSON")?;
     json_loader::load_header(&json_str)
@@ -48,6 +50,7 @@ pub fn load_lua_header(lua_source: &str, path: Option<&Path>) -> Result<SkinHead
 /// Converts a Lua skin script to a JSON string.
 ///
 /// Executes the Lua script and converts the resulting table to a JSON string.
+/// Handles the `{header, main}` pattern by calling `main()` to get the skin data.
 /// This is useful for tools that need the intermediate JSON representation
 /// (e.g., screenshot harness that reuses JSON image loading paths).
 pub fn lua_to_json_string(
@@ -59,7 +62,12 @@ pub fn lua_to_json_string(
     let lua = create_lua_env(path)?;
     export_skin_config(&lua, enabled_options, offsets)?;
     let value = exec_lua(&lua, lua_source, path)?;
-    let json = lua_value_to_json(&value);
+    let resolved = resolve_for_skin(&lua, &value)?;
+    let json = lua_value_to_json(&resolved);
+    // Lua division always produces floats (e.g. 595/3 = 198.333).
+    // The JSON skin schema uses i32 for coordinates, so truncate floats
+    // to integers to match Java's LuaSkinLoader truncation behavior.
+    let json = truncate_floats_to_ints(json);
     serde_json::to_string(&json).context("Failed to serialize Lua result to JSON")
 }
 
@@ -82,7 +90,9 @@ pub fn load_lua_skin(
     export_skin_config(&lua, enabled_options, offsets)?;
 
     let value = exec_lua(&lua, lua_source, path)?;
-    let json = lua_value_to_json(&value);
+    let resolved = resolve_for_skin(&lua, &value)?;
+    let json = lua_value_to_json(&resolved);
+    let json = truncate_floats_to_ints(json);
     let json_str =
         serde_json::to_string(&json).context("Failed to serialize Lua result to JSON")?;
     json_loader::load_skin(&json_str, enabled_options, dest_resolution, path)
@@ -93,6 +103,11 @@ pub fn load_lua_skin(
 // ---------------------------------------------------------------------------
 
 /// Creates a new Lua VM with standard libraries and the skin module path.
+///
+/// Sets up `package.path` for the script's directory and registers a stub
+/// `main_state` module. In beatoraja, `main_state` is provided by
+/// `SkinLuaAccessor` at runtime with callbacks into the game state.
+/// The stub returns default values so skins can be loaded without a running game.
 fn create_lua_env(path: Option<&Path>) -> Result<Lua> {
     let lua = Lua::new();
 
@@ -105,6 +120,27 @@ fn create_lua_env(path: Option<&Path>) -> Result<Lua> {
             .exec()
             .map_err(|e| anyhow::anyhow!("Failed to set Lua package path: {}", e))?;
     }
+
+    // Register main_state stub module via package.preload.
+    // This is checked before file searchers, matching how beatoraja Java
+    // provides main_state programmatically via SkinLuaAccessor.
+    lua.load(
+        r#"
+package.preload["main_state"] = function()
+    local M = {}
+    M.timer_off_value = -9223372036854775808
+    function M.number(_) return 0 end
+    function M.option(_) return false end
+    function M.text(_) return "" end
+    function M.timer(_) return M.timer_off_value end
+    function M.float_number(_) return 0.0 end
+    function M.slider(_) return 0.0 end
+    return M
+end
+"#,
+    )
+    .exec()
+    .map_err(|e| anyhow::anyhow!("Failed to register main_state stub: {}", e))?;
 
     Ok(lua)
 }
@@ -136,6 +172,16 @@ fn export_skin_config(
     config
         .set("enabled_options", opt_table)
         .map_err(|e| anyhow::anyhow!("Failed to set enabled_options: {}", e))?;
+
+    // Option table: maps property names to selected option IDs.
+    // In beatoraja Java, SkinLuaAccessor populates this from the user's
+    // skin configuration. Empty table allows skins to access it without errors.
+    let option_table = lua
+        .create_table()
+        .map_err(|e| anyhow::anyhow!("Failed to create table: {}", e))?;
+    config
+        .set("option", option_table)
+        .map_err(|e| anyhow::anyhow!("Failed to set option: {}", e))?;
 
     // Offsets
     let offset_table = lua
@@ -182,6 +228,93 @@ fn exec_lua(lua: &Lua, source: &str, path: Option<&Path>) -> Result<mlua::Value>
     chunk
         .eval()
         .map_err(|e| anyhow::anyhow!("Lua execution failed: {}", e))
+}
+
+/// Resolves the `{header, main}` return pattern for skin loading.
+///
+/// If the Lua result is a table with a `main` function:
+/// 1. Extracts default option values from `header.property`
+/// 2. Populates `skin_config.option` with defaults (matching beatoraja behavior)
+/// 3. Calls `main()` and returns the skin data table
+///
+/// Otherwise returns the original value.
+fn resolve_for_skin(lua: &Lua, value: &mlua::Value) -> Result<mlua::Value> {
+    if let mlua::Value::Table(t) = value
+        && let Ok(main_fn) = t.get::<mlua::Function>("main")
+    {
+        // Before calling main(), populate skin_config.option with defaults
+        // from header.property. This matches beatoraja where the launcher
+        // pre-selects the first option of each property by default.
+        populate_default_options(lua, t)?;
+
+        return main_fn
+            .call::<mlua::Value>(())
+            .map_err(|e| anyhow::anyhow!("Failed to call skin main(): {}", e));
+    }
+    Ok(value.clone())
+}
+
+/// Extracts default options from `header.property` and sets them in `skin_config.option`.
+///
+/// Each property has a `name` and `item` array. The first item's `op` value
+/// is used as the default, matching beatoraja's behavior when no user selection exists.
+fn populate_default_options(lua: &Lua, result_table: &mlua::Table) -> Result<()> {
+    let header = match result_table.get::<mlua::Value>("header") {
+        Ok(mlua::Value::Table(h)) => h,
+        _ => return Ok(()),
+    };
+    let property = match header.get::<mlua::Value>("property") {
+        Ok(mlua::Value::Table(p)) => p,
+        _ => return Ok(()),
+    };
+
+    let globals = lua.globals();
+    let skin_config = match globals.get::<mlua::Value>("skin_config") {
+        Ok(mlua::Value::Table(c)) => c,
+        _ => return Ok(()),
+    };
+    let option_table = match skin_config.get::<mlua::Value>("option") {
+        Ok(mlua::Value::Table(o)) => o,
+        _ => return Ok(()),
+    };
+
+    // Iterate properties and set default (first item's op value)
+    for pair in property.pairs::<mlua::Value, mlua::Value>() {
+        let (_, prop) = pair.map_err(|e| anyhow::anyhow!("Failed to read property: {}", e))?;
+        if let mlua::Value::Table(prop_table) = prop {
+            let name = match prop_table.get::<mlua::Value>("name") {
+                Ok(mlua::Value::String(s)) => s,
+                _ => continue,
+            };
+            let items = match prop_table.get::<mlua::Value>("item") {
+                Ok(mlua::Value::Table(i)) => i,
+                _ => continue,
+            };
+            // First item's op value is the default
+            if let Ok(mlua::Value::Table(first_item)) = items.get::<mlua::Value>(1)
+                && let Ok(op) = first_item.get::<mlua::Value>("op")
+            {
+                option_table
+                    .set(name, op)
+                    .map_err(|e| anyhow::anyhow!("Failed to set option default: {}", e))?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Resolves the `{header, main}` return pattern for header loading.
+///
+/// If the Lua result is a table with a `header` sub-table, returns that
+/// sub-table. Otherwise returns the original value as-is.
+fn resolve_for_header(value: &mlua::Value) -> mlua::Value {
+    if let mlua::Value::Table(t) = value
+        && let Ok(header @ mlua::Value::Table(_)) = t.get::<mlua::Value>("header")
+    {
+        return header;
+    }
+    value.clone()
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +395,34 @@ fn lua_table_to_json(table: &mlua::Table) -> Value {
         map.insert(key_str, lua_value_to_json(&val));
     }
     Value::Object(map)
+}
+
+/// Recursively truncates float values to integers in a JSON value.
+///
+/// In Lua, division always produces floats (e.g., `595/3 = 198.333`).
+/// The beatoraja JSON skin schema uses `i32` for coordinates and sizes.
+/// Java's LuaSkinLoader truncates these via `Coercions.toint()`.
+/// This function replicates that behavior.
+fn truncate_floats_to_ints(value: Value) -> Value {
+    match value {
+        Value::Number(n) => {
+            if let Some(f) = n.as_f64() {
+                // If the float is representable as i64, truncate it
+                let truncated = f as i64;
+                if (truncated as f64 - f).abs() < 1.0 {
+                    return Value::Number(serde_json::Number::from(truncated));
+                }
+            }
+            Value::Number(n)
+        }
+        Value::Array(arr) => Value::Array(arr.into_iter().map(truncate_floats_to_ints).collect()),
+        Value::Object(map) => Value::Object(
+            map.into_iter()
+                .map(|(k, v)| (k, truncate_floats_to_ints(v)))
+                .collect(),
+        ),
+        other => other,
+    }
 }
 
 /// Checks if a Lua table is a sequence (consecutive integer keys 1..n).
