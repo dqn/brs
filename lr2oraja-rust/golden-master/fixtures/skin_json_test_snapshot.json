@@ -1,0 +1,133 @@
+{
+  "name": "Test Skin",
+  "skin_type_id": 6,
+  "resolution_w": 1280,
+  "resolution_h": 720,
+  "option_count": 0,
+  "file_count": 0,
+  "offset_count": 0,
+  "width": 1280.0,
+  "height": 720.0,
+  "scale_x": 1.0,
+  "scale_y": 1.0,
+  "input": 400,
+  "scene": 3000,
+  "fadeout": 500,
+  "object_count": 7,
+  "objects_by_type": {
+    "Graph": 1,
+    "Image": 3,
+    "Number": 1,
+    "Slider": 1,
+    "Text": 1
+  },
+  "custom_event_count": 0,
+  "custom_timer_count": 0,
+  "objects": [
+    {
+      "kind": "Image",
+      "destination_count": 1,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 0.0,
+        "y": 0.0,
+        "w": 1280.0,
+        "h": 720.0,
+        "a": 1.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Image",
+      "destination_count": 1,
+      "timer_id": 40,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 100.0,
+        "y": 50.0,
+        "w": 64.0,
+        "h": 64.0,
+        "a": 1.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Image",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 2,
+      "first_dst": {
+        "time": 0,
+        "x": 200.0,
+        "y": 100.0,
+        "w": 400.0,
+        "h": 200.0,
+        "a": 0.78431374,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Number",
+      "destination_count": 1,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 500.0,
+        "y": 300.0,
+        "w": 12.0,
+        "h": 24.0,
+        "a": 1.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Text",
+      "destination_count": 1,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 10.0,
+        "y": 10.0,
+        "w": 600.0,
+        "h": 30.0,
+        "a": 1.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Slider",
+      "destination_count": 1,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 700.0,
+        "y": 100.0,
+        "w": 20.0,
+        "h": 200.0,
+        "a": 1.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Graph",
+      "destination_count": 1,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 800.0,
+        "y": 400.0,
+        "w": 200.0,
+        "h": 20.0,
+        "a": 1.0,
+        "angle": 0
+      }
+    }
+  ]
+}

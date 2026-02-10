@@ -53,6 +53,10 @@ golden-master-audio-gen:
 golden-master-judge-gen:
     cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.JudgeManagerExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
 
+# Update skin snapshot fixtures
+golden-master-skin-snapshot:
+    UPDATE_SNAPSHOTS=1 cargo test -p golden-master compare_skin -- --nocapture
+
 # Generate all GM fixtures (parse + rule + pattern + replay + database + config + autoplay + audio + judge)
 golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen golden-master-replay-gen golden-master-database-gen golden-master-config-gen golden-master-autoplay-gen golden-master-audio-gen golden-master-judge-gen
 

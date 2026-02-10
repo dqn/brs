@@ -1,0 +1,235 @@
+{
+  "name": "EC:FN",
+  "skin_type_id": 6,
+  "resolution_w": 1920,
+  "resolution_h": 1080,
+  "option_count": 0,
+  "file_count": 1,
+  "offset_count": 0,
+  "width": 1920.0,
+  "height": 1080.0,
+  "scale_x": 1.0,
+  "scale_y": 1.0,
+  "input": 500,
+  "scene": 2500,
+  "fadeout": 500,
+  "object_count": 14,
+  "objects_by_type": {
+    "Image": 9,
+    "Text": 5
+  },
+  "custom_event_count": 0,
+  "custom_timer_count": 0,
+  "objects": [
+    {
+      "kind": "Image",
+      "destination_count": 1,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 0.0,
+        "y": 0.0,
+        "w": 1920.0,
+        "h": 1080.0,
+        "a": 0.15686275,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Image",
+      "destination_count": 1,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 0.0,
+        "y": 0.0,
+        "w": 1920.0,
+        "h": 1080.0,
+        "a": 1.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Text",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 1843.0,
+        "y": 632.0,
+        "w": 1200.0,
+        "h": 18.0,
+        "a": 0.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Text",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 1843.0,
+        "y": 570.0,
+        "w": 1200.0,
+        "h": 18.0,
+        "a": 0.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Text",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 1843.0,
+        "y": 530.0,
+        "w": 1200.0,
+        "h": 18.0,
+        "a": 0.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Text",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 1843.0,
+        "y": 482.0,
+        "w": 1200.0,
+        "h": 18.0,
+        "a": 0.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Text",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 1843.0,
+        "y": 443.0,
+        "w": 1200.0,
+        "h": 18.0,
+        "a": 0.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Image",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 1440.0,
+        "y": 688.0,
+        "w": 432.0,
+        "h": 73.0,
+        "a": 0.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Image",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 66.0,
+        "y": 509.0,
+        "w": 1791.0,
+        "h": 25.0,
+        "a": 0.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Image",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 1282.0,
+        "y": 370.0,
+        "w": 567.0,
+        "h": 51.0,
+        "a": 0.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Image",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 2,
+      "first_dst": {
+        "time": 0,
+        "x": 0.0,
+        "y": 488.0,
+        "w": 2220.0,
+        "h": 246.0,
+        "a": 0.9019608,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Image",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 0.0,
+        "y": 0.0,
+        "w": 1920.0,
+        "h": 1080.0,
+        "a": 1.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Image",
+      "destination_count": 2,
+      "timer_id": null,
+      "blend": 0,
+      "first_dst": {
+        "time": 1500,
+        "x": 0.0,
+        "y": 0.0,
+        "w": 1920.0,
+        "h": 1080.0,
+        "a": 0.0,
+        "angle": 0
+      }
+    },
+    {
+      "kind": "Image",
+      "destination_count": 2,
+      "timer_id": 2,
+      "blend": 0,
+      "first_dst": {
+        "time": 0,
+        "x": 0.0,
+        "y": 0.0,
+        "w": 1920.0,
+        "h": 1080.0,
+        "a": 0.0,
+        "angle": 0
+      }
+    }
+  ]
+}
