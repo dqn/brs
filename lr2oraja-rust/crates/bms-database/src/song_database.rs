@@ -147,6 +147,16 @@ impl SongDatabase {
         Ok(results)
     }
 
+    /// Toggle a favorite flag for a song identified by sha256.
+    /// `flag` should be one of FAVORITE_SONG, FAVORITE_CHART, INVISIBLE_SONG, INVISIBLE_CHART.
+    pub fn update_favorite(&self, sha256: &str, flag: i32) -> Result<()> {
+        // SQLite doesn't support ^ (XOR) operator, so we use bitwise formula:
+        // XOR(a, b) = (a | b) & ~(a & b)
+        let sql = "UPDATE song SET favorite = (favorite | ?1) & ~(favorite & ?1) WHERE sha256 = ?2";
+        self.conn.execute(sql, rusqlite::params![flag, sha256])?;
+        Ok(())
+    }
+
     /// Insert or replace song data (batch, in a transaction).
     pub fn set_song_datas(&self, songs: &[SongData]) -> Result<()> {
         let tx = self.conn.unchecked_transaction()?;
@@ -339,6 +349,68 @@ mod tests {
         let found = db.get_folder_datas("parent", "abc123").unwrap();
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].title, "My Folder");
+    }
+
+    #[test]
+    fn update_favorite_toggles_song() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let song = sample_song();
+        db.set_song_datas(&[song]).unwrap();
+
+        let sha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+        // Initial favorite is 0
+        let found = db.get_song_datas("sha256", sha).unwrap();
+        assert_eq!(found[0].favorite, 0);
+
+        // Toggle FAVORITE_SONG on (0 ^ 1 = 1)
+        db.update_favorite(sha, 1).unwrap();
+        let found = db.get_song_datas("sha256", sha).unwrap();
+        assert_eq!(found[0].favorite, 1);
+
+        // Toggle FAVORITE_SONG off (1 ^ 1 = 0)
+        db.update_favorite(sha, 1).unwrap();
+        let found = db.get_song_datas("sha256", sha).unwrap();
+        assert_eq!(found[0].favorite, 0);
+    }
+
+    #[test]
+    fn update_favorite_toggles_chart() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let song = sample_song();
+        db.set_song_datas(&[song]).unwrap();
+
+        let sha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+        // Toggle FAVORITE_CHART on (0 ^ 2 = 2)
+        db.update_favorite(sha, 2).unwrap();
+        let found = db.get_song_datas("sha256", sha).unwrap();
+        assert_eq!(found[0].favorite, 2);
+
+        // Toggle FAVORITE_CHART off (2 ^ 2 = 0)
+        db.update_favorite(sha, 2).unwrap();
+        let found = db.get_song_datas("sha256", sha).unwrap();
+        assert_eq!(found[0].favorite, 0);
+    }
+
+    #[test]
+    fn update_favorite_combined_flags() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let song = sample_song();
+        db.set_song_datas(&[song]).unwrap();
+
+        let sha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+        // Toggle both FAVORITE_SONG and FAVORITE_CHART
+        db.update_favorite(sha, 1).unwrap(); // 0 ^ 1 = 1
+        db.update_favorite(sha, 2).unwrap(); // 1 ^ 2 = 3
+        let found = db.get_song_datas("sha256", sha).unwrap();
+        assert_eq!(found[0].favorite, 3);
+
+        // Toggle FAVORITE_SONG off (3 ^ 1 = 2, only CHART remains)
+        db.update_favorite(sha, 1).unwrap();
+        let found = db.get_song_datas("sha256", sha).unwrap();
+        assert_eq!(found[0].favorite, 2);
     }
 
     #[test]

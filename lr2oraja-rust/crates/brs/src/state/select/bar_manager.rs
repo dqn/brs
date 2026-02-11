@@ -179,7 +179,6 @@ impl BarManager {
     }
 
     /// Search for songs matching the query text, pushing the current bar list onto the folder stack.
-    #[allow(dead_code)] // Will be called when search UI is integrated
     pub fn search(&mut self, song_db: &SongDatabase, query: &str) {
         let songs = song_db.get_song_datas_by_text(query).unwrap_or_default();
         // Save current state to folder stack
