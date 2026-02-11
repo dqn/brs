@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 use bms_config::resolution::Resolution;
 use bms_render::state_provider::StaticStateProvider;
 use bms_skin::loader::{json_loader, lua_loader};
+use bms_skin::skin_header::CustomOption;
 use golden_master::render_snapshot::{RenderSnapshot, capture_render_snapshot, compare_snapshots};
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,13 @@ fn fixture_dir() -> PathBuf {
 
 fn state_dir() -> PathBuf {
     fixture_dir().join("screenshot_states")
+}
+
+fn default_enabled_option_ids(options: &[CustomOption]) -> HashSet<i32> {
+    options
+        .iter()
+        .filter_map(CustomOption::default_option)
+        .collect()
 }
 
 /// Load a Java-generated RenderSnapshot fixture.
@@ -81,7 +89,9 @@ fn load_lua_skin(relative_path: &str) -> bms_skin::skin::Skin {
     assert!(path.exists(), "Skin not found: {}", path.display());
     let content = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e));
-    let enabled: HashSet<i32> = HashSet::new();
+    let header = lua_loader::load_lua_header(&content, Some(&path))
+        .unwrap_or_else(|e| panic!("Failed to load Lua header {}: {}", path.display(), e));
+    let enabled = default_enabled_option_ids(&header.options);
     lua_loader::load_lua_skin(&content, &enabled, Resolution::Fullhd, Some(&path), &[])
         .unwrap_or_else(|e| panic!("Failed to load Lua skin {}: {}", path.display(), e))
 }
@@ -92,7 +102,9 @@ fn load_json_skin(relative_path: &str) -> bms_skin::skin::Skin {
     assert!(path.exists(), "Skin not found: {}", path.display());
     let content = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e));
-    let enabled: HashSet<i32> = HashSet::new();
+    let header = json_loader::load_header(&content)
+        .unwrap_or_else(|e| panic!("Failed to load JSON header {}: {}", path.display(), e));
+    let enabled = default_enabled_option_ids(&header.options);
     json_loader::load_skin(&content, &enabled, Resolution::Fullhd, Some(&path))
         .unwrap_or_else(|e| panic!("Failed to load JSON skin {}: {}", path.display(), e))
 }
@@ -103,6 +115,9 @@ struct RenderSnapshotTestCase {
     state_json: &'static str,
     /// Whether the skin is Lua (.luaskin) or JSON (.json)
     is_lua: bool,
+    /// Current known diff budget between Java and Rust snapshots.
+    /// Used by non-ignored regression guard test to catch worsened parity.
+    known_diff_budget: usize,
 }
 
 const TEST_CASES: &[RenderSnapshotTestCase] = &[
@@ -111,46 +126,53 @@ const TEST_CASES: &[RenderSnapshotTestCase] = &[
         skin_path: "select/select.luaskin",
         state_json: "state_default.json",
         is_lua: true,
+        known_diff_budget: 1,
     },
     RenderSnapshotTestCase {
         name: "ecfn_decide",
         skin_path: "decide/decide.luaskin",
         state_json: "state_default.json",
         is_lua: true,
+        known_diff_budget: 28,
     },
     RenderSnapshotTestCase {
         name: "ecfn_play7_active",
         skin_path: "play/play7.luaskin",
         state_json: "state_play_active.json",
         is_lua: true,
+        known_diff_budget: 1,
     },
     RenderSnapshotTestCase {
         name: "ecfn_play7_fullcombo",
         skin_path: "play/play7.luaskin",
         state_json: "state_play_fullcombo.json",
         is_lua: true,
+        known_diff_budget: 1,
     },
     RenderSnapshotTestCase {
         name: "ecfn_play7_danger",
         skin_path: "play/play7.luaskin",
         state_json: "state_play_danger.json",
         is_lua: true,
+        known_diff_budget: 1,
     },
     RenderSnapshotTestCase {
         name: "ecfn_result_clear",
         skin_path: "RESULT/result.luaskin",
         state_json: "state_result_clear.json",
         is_lua: true,
+        known_diff_budget: 1,
     },
     RenderSnapshotTestCase {
         name: "ecfn_result_fail",
         skin_path: "RESULT/result.luaskin",
         state_json: "state_result_fail.json",
         is_lua: true,
+        known_diff_budget: 1,
     },
 ];
 
-fn compare_java_rust_render_snapshot(tc: &RenderSnapshotTestCase) {
+fn snapshot_diffs(tc: &RenderSnapshotTestCase) -> (RenderSnapshot, RenderSnapshot, Vec<String>) {
     let java_snapshot = load_java_snapshot(tc.name);
 
     let skin = if tc.is_lua {
@@ -163,6 +185,11 @@ fn compare_java_rust_render_snapshot(tc: &RenderSnapshotTestCase) {
     let rust_snapshot = capture_render_snapshot(&skin, &provider);
 
     let diffs = compare_snapshots(&java_snapshot, &rust_snapshot);
+    (java_snapshot, rust_snapshot, diffs)
+}
+
+fn compare_java_rust_render_snapshot(tc: &RenderSnapshotTestCase) {
+    let (java_snapshot, rust_snapshot, diffs) = snapshot_diffs(tc);
 
     let visible_java = java_snapshot.commands.iter().filter(|c| c.visible).count();
     let visible_rust = rust_snapshot.commands.iter().filter(|c| c.visible).count();
@@ -207,6 +234,26 @@ fn compare_java_rust_render_snapshot(tc: &RenderSnapshotTestCase) {
 fn render_snapshot_java_fixtures_exist() {
     for tc in TEST_CASES {
         let _ = load_java_snapshot(tc.name);
+    }
+}
+
+#[test]
+fn render_snapshot_parity_regression_guard() {
+    for tc in TEST_CASES {
+        let (_java_snapshot, _rust_snapshot, diffs) = snapshot_diffs(tc);
+        assert!(
+            diffs.len() <= tc.known_diff_budget,
+            "RenderSnapshot diff budget exceeded for {}: {} > {}.\nFirst differences:\n{}",
+            tc.name,
+            diffs.len(),
+            tc.known_diff_budget,
+            diffs
+                .iter()
+                .take(10)
+                .map(|d| format!("  - {}", d))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
     }
 }
 

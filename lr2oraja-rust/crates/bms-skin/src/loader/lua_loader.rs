@@ -60,7 +60,10 @@ pub fn lua_to_json_string(
     offsets: &[(i32, Offset)],
 ) -> Result<String> {
     let lua = create_lua_env(path)?;
+    let header_probe = exec_lua(&lua, lua_source, path)?;
+    let option_selection = extract_option_selection(&header_probe, enabled_options)?;
     export_skin_config(&lua, enabled_options, offsets)?;
+    apply_option_selection(&lua, &option_selection)?;
     let value = exec_lua(&lua, lua_source, path)?;
     let resolved = resolve_for_skin(&lua, &value)?;
     let json = lua_value_to_json(&resolved);
@@ -85,9 +88,12 @@ pub fn load_lua_skin(
     offsets: &[(i32, Offset)],
 ) -> Result<Skin> {
     let lua = create_lua_env(path)?;
+    let header_probe = exec_lua(&lua, lua_source, path)?;
+    let option_selection = extract_option_selection(&header_probe, enabled_options)?;
 
     // Export skin_config with options and offsets
     export_skin_config(&lua, enabled_options, offsets)?;
+    apply_option_selection(&lua, &option_selection)?;
 
     let value = exec_lua(&lua, lua_source, path)?;
     let resolved = resolve_for_skin(&lua, &value)?;
@@ -294,13 +300,110 @@ fn populate_default_options(lua: &Lua, result_table: &mlua::Table) -> Result<()>
             if let Ok(mlua::Value::Table(first_item)) = items.get::<mlua::Value>(1)
                 && let Ok(op) = first_item.get::<mlua::Value>("op")
             {
-                option_table
-                    .set(name, op)
-                    .map_err(|e| anyhow::anyhow!("Failed to set option default: {}", e))?;
+                if matches!(
+                    option_table.get::<mlua::Value>(name.clone()),
+                    Ok(mlua::Value::Nil)
+                ) {
+                    option_table
+                        .set(name, op)
+                        .map_err(|e| anyhow::anyhow!("Failed to set option default: {}", e))?;
+                }
             }
         }
     }
 
+    Ok(())
+}
+
+/// Extracts option selections from header property metadata.
+///
+/// For each option group, this selects:
+/// 1. A matching ID from `enabled_options` if present.
+/// 2. Otherwise the first item's `op` value as default.
+fn extract_option_selection(
+    value: &mlua::Value,
+    enabled_options: &HashSet<i32>,
+) -> Result<Vec<(String, i32)>> {
+    let header = resolve_for_header(value);
+    let header_table = match header {
+        mlua::Value::Table(t) => t,
+        _ => return Ok(Vec::new()),
+    };
+    let property = match header_table.get::<mlua::Value>("property") {
+        Ok(mlua::Value::Table(p)) => p,
+        _ => return Ok(Vec::new()),
+    };
+
+    let mut selections = Vec::new();
+
+    for pair in property.pairs::<mlua::Value, mlua::Value>() {
+        let (_, prop) = pair.map_err(|e| anyhow::anyhow!("Failed to read property: {}", e))?;
+        let prop_table = match prop {
+            mlua::Value::Table(t) => t,
+            _ => continue,
+        };
+        let name = match prop_table.get::<mlua::Value>("name") {
+            Ok(mlua::Value::String(s)) => s.to_str().ok().map(|v| v.to_string()),
+            _ => None,
+        };
+        let Some(name) = name else {
+            continue;
+        };
+        let items = match prop_table.get::<mlua::Value>("item") {
+            Ok(mlua::Value::Table(t)) => t,
+            _ => continue,
+        };
+
+        let mut first_op: Option<i32> = None;
+        let mut selected_op: Option<i32> = None;
+
+        for item in items.sequence_values::<mlua::Table>() {
+            let item = item.map_err(|e| anyhow::anyhow!("Failed to read item: {}", e))?;
+            let op = match item.get::<mlua::Value>("op") {
+                Ok(mlua::Value::Integer(i)) => i32::try_from(i).ok(),
+                Ok(mlua::Value::Number(n)) => Some(n as i32),
+                _ => None,
+            };
+            let Some(op) = op else {
+                continue;
+            };
+            if first_op.is_none() {
+                first_op = Some(op);
+            }
+            if enabled_options.contains(&op) {
+                selected_op = Some(op);
+                break;
+            }
+        }
+
+        if let Some(op) = selected_op.or(first_op) {
+            selections.push((name, op));
+        }
+    }
+
+    Ok(selections)
+}
+
+fn apply_option_selection(lua: &Lua, option_selection: &[(String, i32)]) -> Result<()> {
+    if option_selection.is_empty() {
+        return Ok(());
+    }
+
+    let globals = lua.globals();
+    let skin_config = match globals.get::<mlua::Value>("skin_config") {
+        Ok(mlua::Value::Table(c)) => c,
+        _ => return Ok(()),
+    };
+    let option_table = match skin_config.get::<mlua::Value>("option") {
+        Ok(mlua::Value::Table(o)) => o,
+        _ => return Ok(()),
+    };
+
+    for (name, op) in option_selection {
+        option_table
+            .set(name.as_str(), *op)
+            .map_err(|e| anyhow::anyhow!("Failed to set option selection: {}", e))?;
+    }
     Ok(())
 }
 
