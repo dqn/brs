@@ -1,7 +1,6 @@
 // MusicDecide state — ported from Java MusicDecide.java.
 //
 // Simplest full state: loads skin, runs timer-based sequence, transitions.
-// Skin loading and sound playback are deferred to Phase 15-E.
 
 use tracing::info;
 
@@ -9,7 +8,9 @@ use bms_input::control_keys::ControlKeys;
 use bms_skin::property_id::{TIMER_FADEOUT, TIMER_STARTINPUT};
 
 use crate::app_state::AppStateType;
+use crate::skin_manager::SkinType;
 use crate::state::{GameStateHandler, StateContext};
+use crate::system_sound::SystemSound;
 
 /// Default input delay in milliseconds (skin.getInput() placeholder).
 const DEFAULT_INPUT_DELAY_MS: i64 = 500;
@@ -39,13 +40,17 @@ impl GameStateHandler for MusicDecideState {
     fn create(&mut self, ctx: &mut StateContext) {
         self.cancel = false;
         info!("MusicDecide: create");
-        // TODO: loadSkin(SkinType::DECIDE) — deferred to Phase 15-E
+        if let Some(skin_mgr) = ctx.skin_manager.as_deref_mut() {
+            skin_mgr.request_load(SkinType::Decide);
+        }
         ctx.resource.org_gauge_option = ctx.player_config.gauge;
     }
 
-    fn prepare(&mut self, _ctx: &mut StateContext) {
+    fn prepare(&mut self, ctx: &mut StateContext) {
         info!("MusicDecide: prepare");
-        // TODO: play(DECIDE) — system sound deferred to Phase 15-E
+        if let Some(sound_mgr) = ctx.sound_manager.as_deref_mut() {
+            sound_mgr.play(SystemSound::Decide);
+        }
     }
 
     fn render(&mut self, ctx: &mut StateContext) {
@@ -145,7 +150,7 @@ mod tests {
         timer: &'a mut TimerManager,
         resource: &'a mut PlayerResource,
         config: &'a Config,
-        player_config: &'a PlayerConfig,
+        player_config: &'a mut PlayerConfig,
         transition: &'a mut Option<AppStateType>,
     ) -> StateContext<'a> {
         StateContext {
@@ -157,6 +162,8 @@ mod tests {
             keyboard_backend: None,
             database: None,
             input_state: None,
+            skin_manager: None,
+            sound_manager: None,
         }
     }
 
@@ -168,14 +175,14 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         let mut ctx = make_ctx(
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.create(&mut ctx);
@@ -188,7 +195,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Before delay
@@ -197,7 +204,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -209,7 +216,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -222,7 +229,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(3_001_000); // 3001ms
@@ -230,7 +237,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -243,7 +250,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Set up: FADEOUT timer on at time 1000
@@ -256,7 +263,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -269,7 +276,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Enable input and trigger cancel
@@ -280,7 +287,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.cancel(&mut ctx);
@@ -294,7 +301,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -307,7 +314,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Enable input
@@ -318,7 +325,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.confirm(&mut ctx);
@@ -332,7 +339,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Input not yet enabled
@@ -340,7 +347,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.confirm(&mut ctx);
@@ -353,7 +360,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Enable input and start fadeout
@@ -367,7 +374,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.confirm(&mut ctx);
@@ -380,7 +387,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Enable input
@@ -397,11 +404,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: None,
             input_state: Some(&input_state),
+            skin_manager: None,
+            sound_manager: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -414,7 +423,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Enable input
@@ -430,14 +439,109 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: None,
             input_state: Some(&input_state),
+            skin_manager: None,
+            sound_manager: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
         assert!(state.is_cancel());
+    }
+
+    #[test]
+    fn create_requests_skin_load() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+        let mut skin_mgr = crate::skin_manager::SkinManager::new();
+
+        let mut ctx = StateContext {
+            timer: &mut timer,
+            resource: &mut resource,
+            config: &config,
+            player_config: &mut player_config,
+            transition: &mut transition,
+            keyboard_backend: None,
+            database: None,
+            input_state: None,
+            skin_manager: Some(&mut skin_mgr),
+            sound_manager: None,
+        };
+        state.create(&mut ctx);
+        assert_eq!(skin_mgr.take_request(), Some(SkinType::Decide));
+    }
+
+    #[test]
+    fn prepare_queues_decide_sound() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+        let mut sound_mgr = crate::system_sound::SystemSoundManager::new();
+
+        let mut ctx = StateContext {
+            timer: &mut timer,
+            resource: &mut resource,
+            config: &config,
+            player_config: &mut player_config,
+            transition: &mut transition,
+            keyboard_backend: None,
+            database: None,
+            input_state: None,
+            skin_manager: None,
+            sound_manager: Some(&mut sound_mgr),
+        };
+        state.prepare(&mut ctx);
+        let drained = sound_mgr.drain();
+        assert!(drained.contains(&SystemSound::Decide));
+    }
+
+    #[test]
+    fn create_without_skin_manager_does_not_panic() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+        );
+        // skin_manager is None by default in make_ctx
+        state.create(&mut ctx);
+    }
+
+    #[test]
+    fn prepare_without_sound_manager_does_not_panic() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+        );
+        // sound_manager is None by default in make_ctx
+        state.prepare(&mut ctx);
     }
 }
