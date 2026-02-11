@@ -1,0 +1,28 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE 9Key PMS Test
+#ARTIST brs-test
+#BPM 140
+#PLAYLEVEL 2
+#RANK 2
+#TOTAL 300
+
+#WAV01 note1.wav
+#WAV02 note2.wav
+#WAV03 note3.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- PMS 9key uses channels 11-19
+#00111:01
+#00112:02
+#00113:03
+#00114:01
+#00115:02
+#00116:03
+#00117:01
+#00118:02
+#00119:03
+
+#00211:010203

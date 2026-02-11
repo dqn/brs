@@ -1,0 +1,581 @@
+{
+  "test_cases" : [ {
+    "group" : "replay_e2e",
+    "name" : "autoplay_minimal_7k_normal",
+    "filename" : "minimal_7k.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 12,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 12,
+        "passnotes" : 12
+      },
+      "maxcombo" : 12,
+      "passnotes" : 12,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
+      "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_longnote_types_normal",
+    "filename" : "longnote_types.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 4,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 4,
+        "passnotes" : 4
+      },
+      "maxcombo" : 4,
+      "passnotes" : 4,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 6,
+      "playable_count" : 6,
+      "ghost" : [ 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_scratch_bss_normal",
+    "filename" : "scratch_bss.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 4,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 4,
+        "passnotes" : 4
+      },
+      "maxcombo" : 4,
+      "passnotes" : 4,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 5,
+      "playable_count" : 5,
+      "ghost" : [ 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_5key_normal",
+    "filename" : "5key.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 11,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 11,
+        "passnotes" : 11
+      },
+      "maxcombo" : 11,
+      "passnotes" : 11,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 11,
+      "playable_count" : 11,
+      "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_14key_dp_normal",
+    "filename" : "14key_dp.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 18,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 18,
+        "passnotes" : 18
+      },
+      "maxcombo" : 18,
+      "passnotes" : 18,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 18,
+      "playable_count" : 18,
+      "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_bpm_change_normal",
+    "filename" : "bpm_change.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 4,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 4,
+        "passnotes" : 4
+      },
+      "maxcombo" : 4,
+      "passnotes" : 4,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 4,
+      "playable_count" : 4,
+      "ghost" : [ 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_mine_notes_normal",
+    "filename" : "mine_notes.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 4,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 4,
+        "passnotes" : 4
+      },
+      "maxcombo" : 4,
+      "passnotes" : 4,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 7,
+      "playable_count" : 4,
+      "ghost" : [ 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_stop_sequence_normal",
+    "filename" : "stop_sequence.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 4,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 4,
+        "passnotes" : 4
+      },
+      "maxcombo" : 4,
+      "passnotes" : 4,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 4,
+      "playable_count" : 4,
+      "ghost" : [ 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_minimal_7k_hard",
+    "filename" : "minimal_7k.bms",
+    "gauge_type" : "HARD",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 12,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 12,
+        "passnotes" : 12
+      },
+      "maxcombo" : 12,
+      "passnotes" : 12,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
+      "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_minimal_7k_exhard",
+    "filename" : "minimal_7k.bms",
+    "gauge_type" : "EXHARD",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 12,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 12,
+        "passnotes" : 12
+      },
+      "maxcombo" : 12,
+      "passnotes" : 12,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
+      "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "manual_perfect",
+    "filename" : "minimal_7k.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : false,
+    "offset_us" : 0,
+    "input_log" : [ {
+      "presstime" : 2000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2080000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 2080000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 2080000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 3,
+      "pressed" : true
+    }, {
+      "presstime" : 2080000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 2080000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 5,
+      "pressed" : true
+    }, {
+      "presstime" : 2080000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2000000,
+      "keycode" : 7,
+      "pressed" : true
+    }, {
+      "presstime" : 2080000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4080000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 4080000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4000000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 4080000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 5080000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 5000000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 5080000,
+      "keycode" : 4,
+      "pressed" : false
+    } ],
+    "expected" : {
+      "score" : {
+        "epg" : 12,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 12,
+        "passnotes" : 12
+      },
+      "maxcombo" : 12,
+      "passnotes" : 12,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
+      "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "manual_great",
+    "filename" : "minimal_7k.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : false,
+    "offset_us" : 25000,
+    "input_log" : [ {
+      "presstime" : 2025000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2105000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 2025000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 2105000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2025000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 2105000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2025000,
+      "keycode" : 3,
+      "pressed" : true
+    }, {
+      "presstime" : 2105000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2025000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 2105000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2025000,
+      "keycode" : 5,
+      "pressed" : true
+    }, {
+      "presstime" : 2105000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2025000,
+      "keycode" : 7,
+      "pressed" : true
+    }, {
+      "presstime" : 2105000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4025000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4105000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 4025000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 4105000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4025000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 4105000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 5025000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 5105000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 5025000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 5105000,
+      "keycode" : 4,
+      "pressed" : false
+    } ],
+    "expected" : {
+      "score" : {
+        "epg" : 0,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 12,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 12,
+        "passnotes" : 12
+      },
+      "maxcombo" : 12,
+      "passnotes" : 12,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
+      "ghost" : [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ]
+    }
+  } ]
+}

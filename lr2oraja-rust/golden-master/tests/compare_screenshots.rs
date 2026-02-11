@@ -10,16 +10,54 @@
 
 use std::path::PathBuf;
 
-/// SSIM threshold for Java-Rust comparison.
-/// Lower than Rust-internal regression threshold (0.99) because
-/// LibGDX and Bevy use different rendering engines.
-const JAVA_RUST_SSIM_THRESHOLD: f64 = 0.85;
+struct ScreenshotTestCase {
+    name: &'static str,
+    threshold: f64,
+}
+
+const TEST_CASES: &[ScreenshotTestCase] = &[
+    ScreenshotTestCase {
+        name: "ecfn_select",
+        threshold: 0.85,
+    },
+    ScreenshotTestCase {
+        name: "ecfn_decide",
+        threshold: 0.85,
+    },
+    ScreenshotTestCase {
+        name: "ecfn_play7_active",
+        threshold: 0.85,
+    },
+    ScreenshotTestCase {
+        name: "ecfn_play7_fullcombo",
+        threshold: 0.85,
+    },
+    ScreenshotTestCase {
+        name: "ecfn_play7_danger",
+        threshold: 0.85,
+    },
+    ScreenshotTestCase {
+        name: "ecfn_result_clear",
+        threshold: 0.85,
+    },
+    ScreenshotTestCase {
+        name: "ecfn_result_fail",
+        threshold: 0.85,
+    },
+];
 
 fn fixture_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures")
 }
 
-fn compare_java_rust_screenshot(test_name: &str) {
+fn get_test_case(name: &str) -> &'static ScreenshotTestCase {
+    TEST_CASES
+        .iter()
+        .find(|tc| tc.name == name)
+        .unwrap_or_else(|| panic!("Unknown test case: {name}"))
+}
+
+fn compare_java_rust_screenshot(test_name: &str, threshold: f64) {
     let java_path = fixture_dir()
         .join("screenshots_java")
         .join(format!("{test_name}.png"));
@@ -28,25 +66,31 @@ fn compare_java_rust_screenshot(test_name: &str) {
         .join(format!("{test_name}.png"));
 
     if !java_path.exists() {
-        eprintln!(
-            "Java fixture not found: {}, skipping",
-            java_path.display()
-        );
+        eprintln!("Java fixture not found: {}, skipping", java_path.display());
         return;
     }
     if !rust_path.exists() {
-        eprintln!(
-            "Rust fixture not found: {}, skipping",
-            rust_path.display()
-        );
+        eprintln!("Rust fixture not found: {}, skipping", rust_path.display());
         return;
     }
 
     let java_img = image::open(&java_path)
-        .unwrap_or_else(|e| panic!("Failed to load Java screenshot {}: {}", java_path.display(), e))
+        .unwrap_or_else(|e| {
+            panic!(
+                "Failed to load Java screenshot {}: {}",
+                java_path.display(),
+                e
+            )
+        })
         .to_rgba8();
     let rust_img = image::open(&rust_path)
-        .unwrap_or_else(|e| panic!("Failed to load Rust screenshot {}: {}", rust_path.display(), e))
+        .unwrap_or_else(|e| {
+            panic!(
+                "Failed to load Rust screenshot {}: {}",
+                rust_path.display(),
+                e
+            )
+        })
         .to_rgba8();
 
     // Dimensions may differ; resize if needed (Java and Rust should use same resolution)
@@ -72,9 +116,9 @@ fn compare_java_rust_screenshot(test_name: &str) {
     .expect("SSIM comparison failed");
 
     let ssim = result.score;
-    eprintln!("{test_name}: SSIM = {ssim:.4}");
+    eprintln!("{test_name}: SSIM = {ssim:.4} (threshold = {threshold:.2})");
 
-    if ssim < JAVA_RUST_SSIM_THRESHOLD {
+    if ssim < threshold {
         // Save diff image for debugging
         let diff_dir = fixture_dir().join("screenshots_diff");
         std::fs::create_dir_all(&diff_dir).ok();
@@ -84,7 +128,7 @@ fn compare_java_rust_screenshot(test_name: &str) {
         diff_img.save(&diff_path).ok();
 
         panic!(
-            "SSIM {ssim:.4} below threshold {JAVA_RUST_SSIM_THRESHOLD} for {test_name}\n  \
+            "SSIM {ssim:.4} below threshold {threshold} for {test_name}\n  \
              java: {}\n  rust: {}\n  diff: {}",
             java_path.display(),
             rust_path.display(),
@@ -118,11 +162,7 @@ fn generate_diff(a: &image::RgbaImage, b: &image::RgbaImage) -> image::RgbaImage
                 );
             } else {
                 // Matching pixels: dimmed original
-                diff.put_pixel(
-                    x,
-                    y,
-                    image::Rgba([pa[0] / 4, pa[1] / 4, pa[2] / 4, 255]),
-                );
+                diff.put_pixel(x, y, image::Rgba([pa[0] / 4, pa[1] / 4, pa[2] / 4, 255]));
             }
         }
     }
@@ -134,35 +174,42 @@ fn generate_diff(a: &image::RgbaImage, b: &image::RgbaImage) -> image::RgbaImage
 
 #[test]
 fn compare_screenshots_ecfn_select() {
-    compare_java_rust_screenshot("ecfn_select");
+    let tc = get_test_case("ecfn_select");
+    compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
 fn compare_screenshots_ecfn_decide() {
-    compare_java_rust_screenshot("ecfn_decide");
+    let tc = get_test_case("ecfn_decide");
+    compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
 fn compare_screenshots_ecfn_play7_active() {
-    compare_java_rust_screenshot("ecfn_play7_active");
+    let tc = get_test_case("ecfn_play7_active");
+    compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
 fn compare_screenshots_ecfn_play7_fullcombo() {
-    compare_java_rust_screenshot("ecfn_play7_fullcombo");
+    let tc = get_test_case("ecfn_play7_fullcombo");
+    compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
 fn compare_screenshots_ecfn_play7_danger() {
-    compare_java_rust_screenshot("ecfn_play7_danger");
+    let tc = get_test_case("ecfn_play7_danger");
+    compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
 fn compare_screenshots_ecfn_result_clear() {
-    compare_java_rust_screenshot("ecfn_result_clear");
+    let tc = get_test_case("ecfn_result_clear");
+    compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
 fn compare_screenshots_ecfn_result_fail() {
-    compare_java_rust_screenshot("ecfn_result_fail");
+    let tc = get_test_case("ecfn_result_fail");
+    compare_java_rust_screenshot(tc.name, tc.threshold);
 }
