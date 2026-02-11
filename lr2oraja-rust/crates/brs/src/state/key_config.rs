@@ -64,13 +64,13 @@ impl KeyConfigState {
     }
 
     /// Scan the keyboard backend for a newly pressed key (not in baseline).
-    fn scan_new_key_press(&self, backend: &dyn bms_input::keyboard::KeyboardBackend) -> Option<i32> {
-        for keycode in 0..256i32 {
-            if backend.is_key_pressed(keycode) && !self.baseline_pressed[keycode as usize] {
-                return Some(keycode);
-            }
-        }
-        None
+    fn scan_new_key_press(
+        &self,
+        backend: &dyn bms_input::keyboard::KeyboardBackend,
+    ) -> Option<i32> {
+        (0..256i32).find(|&keycode| {
+            backend.is_key_pressed(keycode) && !self.baseline_pressed[keycode as usize]
+        })
     }
 
     /// Capture baseline of currently pressed keys from backend.
@@ -101,43 +101,47 @@ impl GameStateHandler for KeyConfigState {
     fn input(&mut self, ctx: &mut StateContext) {
         if self.key_input_mode {
             // In key input mode: scan keyboard backend for any newly pressed key
-            if let Some(backend) = ctx.keyboard_backend {
-                if let Some(key_code) = self.scan_new_key_press(backend) {
-                    let mode_id = self.current_mode_id();
-                    let config = ctx.player_config.play_config_mut(mode_id);
+            if let Some(backend) = ctx.keyboard_backend
+                && let Some(key_code) = self.scan_new_key_press(backend)
+            {
+                let mode_id = self.current_mode_id();
+                let config = ctx.player_config.play_config_mut(mode_id);
 
-                    match self.input_device {
-                        InputDevice::Keyboard => {
-                            // Remove duplicate assignment
-                            for k in &mut config.keyboard.keys {
+                match self.input_device {
+                    InputDevice::Keyboard => {
+                        // Remove duplicate assignment
+                        for k in &mut config.keyboard.keys {
+                            if *k == key_code {
+                                *k = -1;
+                            }
+                        }
+                        if self.cursor < config.keyboard.keys.len() {
+                            config.keyboard.keys[self.cursor] = key_code;
+                        }
+                    }
+                    InputDevice::Controller => {
+                        if let Some(ctrl) = config.controller.first_mut() {
+                            for k in &mut ctrl.keys {
                                 if *k == key_code {
                                     *k = -1;
                                 }
                             }
-                            if self.cursor < config.keyboard.keys.len() {
-                                config.keyboard.keys[self.cursor] = key_code;
+                            if self.cursor < ctrl.keys.len() {
+                                ctrl.keys[self.cursor] = key_code;
                             }
-                        }
-                        InputDevice::Controller => {
-                            if let Some(ctrl) = config.controller.first_mut() {
-                                for k in &mut ctrl.keys {
-                                    if *k == key_code {
-                                        *k = -1;
-                                    }
-                                }
-                                if self.cursor < ctrl.keys.len() {
-                                    ctrl.keys[self.cursor] = key_code;
-                                }
-                            }
-                        }
-                        InputDevice::Midi => {
-                            // MIDI key assignment requires MIDI backend; skip for now
                         }
                     }
-
-                    self.key_input_mode = false;
-                    info!(cursor = self.cursor, key = key_code, "KeyConfig: key assigned");
+                    InputDevice::Midi => {
+                        // MIDI key assignment requires MIDI backend; skip for now
+                    }
                 }
+
+                self.key_input_mode = false;
+                info!(
+                    cursor = self.cursor,
+                    key = key_code,
+                    "KeyConfig: key assigned"
+                );
             }
             return;
         }
@@ -204,10 +208,10 @@ impl GameStateHandler for KeyConfigState {
                                 }
                             }
                             InputDevice::Controller => {
-                                if let Some(ctrl) = config.controller.first_mut() {
-                                    if self.cursor < ctrl.keys.len() {
-                                        ctrl.keys[self.cursor] = -1;
-                                    }
+                                if let Some(ctrl) = config.controller.first_mut()
+                                    && self.cursor < ctrl.keys.len()
+                                {
+                                    ctrl.keys[self.cursor] = -1;
                                 }
                             }
                             InputDevice::Midi => {

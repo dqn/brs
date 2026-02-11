@@ -57,7 +57,10 @@ impl Default for SkinConfigState {
 impl GameStateHandler for SkinConfigState {
     fn create(&mut self, _ctx: &mut StateContext) {
         self.cursor = 0;
-        info!(skin_type = self.current_skin_type().name(), "SkinConfig: create");
+        info!(
+            skin_type = self.current_skin_type().name(),
+            "SkinConfig: create"
+        );
     }
 
     fn render(&mut self, _ctx: &mut StateContext) {
@@ -76,7 +79,10 @@ impl GameStateHandler for SkinConfigState {
                             self.skin_type_index -= 1;
                         }
                         self.cursor = 0;
-                        info!(skin_type = self.current_skin_type().name(), "SkinConfig: type changed");
+                        info!(
+                            skin_type = self.current_skin_type().name(),
+                            "SkinConfig: type changed"
+                        );
                         return;
                     }
                     ControlKeys::Right => {
@@ -84,7 +90,10 @@ impl GameStateHandler for SkinConfigState {
                         self.skin_type_index =
                             (self.skin_type_index + 1) % CONFIGURABLE_SKIN_TYPES.len();
                         self.cursor = 0;
-                        info!(skin_type = self.current_skin_type().name(), "SkinConfig: type changed");
+                        info!(
+                            skin_type = self.current_skin_type().name(),
+                            "SkinConfig: type changed"
+                        );
                         return;
                     }
                     ControlKeys::Up => {
@@ -150,13 +159,12 @@ impl SkinConfigState {
     /// Cycle the current option value by delta.
     fn cycle_option_value(&self, ctx: &mut StateContext, delta: i32) {
         let skin_id = self.current_skin_type().id() as usize;
-        if let Some(skin_config) = ctx.player_config.skin.get_mut(skin_id) {
-            if let Some(props) = skin_config.properties.as_mut() {
-                if let Some(opt) = props.option.get_mut(self.cursor) {
-                    opt.value += delta;
-                    info!(name = %opt.name, value = opt.value, "SkinConfig: option changed");
-                }
-            }
+        if let Some(skin_config) = ctx.player_config.skin.get_mut(skin_id)
+            && let Some(props) = skin_config.properties.as_mut()
+            && let Some(opt) = props.option.get_mut(self.cursor)
+        {
+            opt.value += delta;
+            info!(name = %opt.name, value = opt.value, "SkinConfig: option changed");
         }
     }
 }
