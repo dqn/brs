@@ -176,6 +176,8 @@ fn main() -> Result<()> {
         .insert_resource(BrsDatabase(Arc::new(Mutex::new(database))))
         .insert_resource(BrsInputMapper(InputMapper::new()))
         .insert_resource(BrsExternalManager(external))
+        .insert_resource(BrsSkinManager::default())
+        .insert_resource(BrsSystemSoundManager::default())
         .insert_resource(BrsConfigPaths {
             config: config_path,
             player_config: player_config_path,
@@ -219,9 +221,15 @@ struct BrsInputMapper(InputMapper);
 #[derive(Resource)]
 struct BrsExternalManager(ExternalManager);
 
+#[derive(Resource, Default)]
+struct BrsSkinManager(skin_manager::SkinManager);
+
+#[derive(Resource, Default)]
+struct BrsSystemSoundManager(system_sound::SystemSoundManager);
+
 #[derive(Resource)]
-#[allow(dead_code)] // Used for config saving on exit (future)
 struct BrsConfigPaths {
+    #[allow(dead_code)] // Reserved for future system config saving
     config: PathBuf,
     player_config: PathBuf,
 }
@@ -235,13 +243,16 @@ fn state_machine_system(
     mut timer: ResMut<BrsTimerManager>,
     mut resource: ResMut<BrsPlayerResource>,
     config: Res<BrsConfig>,
-    player_config: Res<BrsPlayerConfig>,
+    mut player_config: ResMut<BrsPlayerConfig>,
     mut registry: ResMut<BrsStateRegistry>,
     database: Res<BrsDatabase>,
     mut input_mapper: ResMut<BrsInputMapper>,
     external: Res<BrsExternalManager>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut backend: Local<bevy_keyboard::BevyKeyboardBackend>,
+    mut skin_mgr: ResMut<BrsSkinManager>,
+    mut sound_mgr: ResMut<BrsSystemSoundManager>,
+    config_paths: Res<BrsConfigPaths>,
 ) {
     backend.snapshot(&keyboard_input);
     let input_state = input_mapper.0.update(&*backend);
@@ -255,12 +266,24 @@ fn state_machine_system(
         timer: &mut timer.0,
         resource: &mut resource.0,
         config: &config.0,
-        player_config: &player_config.0,
+        player_config: &mut player_config.0,
         keyboard_backend: Some(&*backend),
         database: db_ref,
         input_state: Some(&input_state),
+        skin_manager: Some(&mut skin_mgr.0),
+        sound_manager: Some(&mut sound_mgr.0),
     };
     registry.0.tick(&mut params);
+
+    // Save config if requested by a state (KeyConfig/SkinConfig shutdown)
+    if resource.0.config_save_requested {
+        resource.0.config_save_requested = false;
+        if let Err(e) = player_config.0.write(&config_paths.player_config) {
+            tracing::warn!("Failed to save player config: {e}");
+        } else {
+            info!("Player config saved");
+        }
+    }
 
     // Notify external integrations on state transitions
     let current_state = registry.0.current();

@@ -863,7 +863,7 @@ mod tests {
         timer: &'a mut TimerManager,
         resource: &'a mut PlayerResource,
         config: &'a Config,
-        player_config: &'a PlayerConfig,
+        player_config: &'a mut PlayerConfig,
         transition: &'a mut Option<AppStateType>,
     ) -> StateContext<'a> {
         StateContext {
@@ -875,6 +875,8 @@ mod tests {
             keyboard_backend: None,
             database: None,
             input_state: None,
+            skin_manager: None,
+            sound_manager: None,
         }
     }
 
@@ -895,7 +897,7 @@ mod tests {
         timer: &mut TimerManager,
         resource: &mut PlayerResource,
         config: &Config,
-        player_config: &PlayerConfig,
+        player_config: &mut PlayerConfig,
     ) {
         let mut transition = None;
         let mut ctx = make_ctx(timer, resource, config, player_config, &mut transition);
@@ -909,7 +911,7 @@ mod tests {
         timer: &mut TimerManager,
         resource: &mut PlayerResource,
         config: &Config,
-        player_config: &PlayerConfig,
+        player_config: &mut PlayerConfig,
     ) {
         let mut transition = None;
         timer.set_now_micro_time(timer.now_micro_time() + (READY_DURATION_MS + 1) * 1000);
@@ -924,7 +926,7 @@ mod tests {
         timer: &mut TimerManager,
         resource: &mut PlayerResource,
         config: &Config,
-        player_config: &PlayerConfig,
+        player_config: &mut PlayerConfig,
         duration_us: i64,
         step_us: i64,
     ) -> Option<AppStateType> {
@@ -955,14 +957,14 @@ mod tests {
         let mut resource = PlayerResource::default();
         resource.bms_model = Some(load_test_model("minimal_7k.bms"));
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         let mut ctx = make_ctx(
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.create(&mut ctx);
@@ -979,14 +981,14 @@ mod tests {
         let mut resource = PlayerResource::default();
         resource.bms_model = Some(load_test_model("minimal_7k.bms"));
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
 
         init_play_state(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         assert_eq!(state.phase(), PlayPhase::Ready);
 
@@ -997,7 +999,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -1009,7 +1011,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         assert!(timer.is_timer_on(TIMER_PLAY));
         assert!(timer.is_timer_on(TIMER_RHYTHM));
@@ -1022,21 +1024,21 @@ mod tests {
         let mut resource = PlayerResource::default();
         resource.bms_model = Some(load_test_model("minimal_7k.bms"));
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
 
         init_play_state(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         advance_to_playing(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
 
         // Advance past playtime
@@ -1048,7 +1050,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -1063,21 +1065,21 @@ mod tests {
         let mut resource = PlayerResource::default();
         resource.bms_model = Some(load_test_model("minimal_7k.bms"));
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
 
         init_play_state(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         advance_to_playing(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
 
         // Force Finished phase
@@ -1093,7 +1095,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -1107,21 +1109,21 @@ mod tests {
         let mut resource = PlayerResource::default();
         resource.bms_model = Some(load_test_model("minimal_7k.bms"));
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
 
         init_play_state(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         advance_to_playing(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
 
         // Force Failed phase
@@ -1137,7 +1139,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -1151,14 +1153,14 @@ mod tests {
         let mut resource = PlayerResource::default();
         // No bms_model set
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         let mut ctx = make_ctx(
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.create(&mut ctx);
@@ -1176,21 +1178,21 @@ mod tests {
         let mut resource = PlayerResource::default();
         resource.bms_model = Some(load_test_model("minimal_7k.bms"));
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
 
         init_play_state(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         advance_to_playing(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
 
         // Run game loop past all notes
@@ -1200,7 +1202,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             end_time,
             1_000, // 1ms steps
         );
@@ -1237,21 +1239,21 @@ mod tests {
         let mut resource = PlayerResource::default();
         resource.bms_model = Some(load_test_model("minimal_7k.bms"));
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
 
         init_play_state(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         advance_to_playing(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
 
         // Run for 2 seconds
@@ -1260,7 +1262,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             2_000_000,
             10_000,
         );
@@ -1296,14 +1298,14 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         advance_to_playing(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
 
         // Run for full playtime — should not transition to Failed
@@ -1313,7 +1315,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             end_time,
             10_000,
         );
@@ -1338,21 +1340,21 @@ mod tests {
         let mut resource = PlayerResource::default();
         resource.bms_model = Some(load_test_model("minimal_7k.bms"));
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
 
         init_play_state(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         advance_to_playing(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
 
         // Run until done
@@ -1362,7 +1364,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             end_time,
             1_000,
         );
@@ -1373,7 +1375,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.shutdown(&mut ctx);
@@ -1414,21 +1416,21 @@ mod tests {
         let mut resource = PlayerResource::default();
         resource.bms_model = Some(model);
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
 
         init_play_state(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         advance_to_playing(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
 
         // Run full game loop
@@ -1438,7 +1440,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             end_time,
             1_000,
         );
@@ -1470,14 +1472,14 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
         advance_to_playing(
             &mut state,
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
         );
 
         // Run enough to kill the hard gauge (no input = all MISS)
@@ -1487,7 +1489,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             end_time,
             10_000,
         );

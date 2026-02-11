@@ -14,6 +14,8 @@ use crate::app_state::AppStateType;
 use crate::database_manager::DatabaseManager;
 use crate::input_mapper::InputState;
 use crate::player_resource::PlayerResource;
+use crate::skin_manager::SkinManager;
+use crate::system_sound::SystemSoundManager;
 use crate::timer_manager::TimerManager;
 use bms_config::{Config, PlayerConfig};
 use bms_input::keyboard::KeyboardBackend;
@@ -24,7 +26,7 @@ pub struct StateContext<'a> {
     pub resource: &'a mut PlayerResource,
     #[allow(dead_code)] // Reserved for future state handlers needing config
     pub config: &'a Config,
-    pub player_config: &'a PlayerConfig,
+    pub player_config: &'a mut PlayerConfig,
     /// Set this to request a state transition at the end of the frame.
     pub transition: &'a mut Option<AppStateType>,
     /// Keyboard backend for input polling (None in tests or non-Bevy contexts).
@@ -33,6 +35,12 @@ pub struct StateContext<'a> {
     pub database: Option<&'a DatabaseManager>,
     /// Input state for the current frame (control keys + commands).
     pub input_state: Option<&'a InputState>,
+    /// Skin loading manager (None in tests or when skin system not available).
+    #[allow(dead_code)] // Used by state handlers in Phase 16 steps 2-5
+    pub skin_manager: Option<&'a mut SkinManager>,
+    /// System sound playback manager (None in tests or when audio not available).
+    #[allow(dead_code)] // Used by state handlers in Phase 16 steps 2-5
+    pub sound_manager: Option<&'a mut SystemSoundManager>,
 }
 
 /// Trait for game state handlers. Each variant of `AppStateType` has

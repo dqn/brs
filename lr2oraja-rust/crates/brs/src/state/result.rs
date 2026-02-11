@@ -219,7 +219,7 @@ mod tests {
         timer: &'a mut TimerManager,
         resource: &'a mut PlayerResource,
         config: &'a Config,
-        player_config: &'a PlayerConfig,
+        player_config: &'a mut PlayerConfig,
         transition: &'a mut Option<AppStateType>,
     ) -> StateContext<'a> {
         StateContext {
@@ -231,6 +231,8 @@ mod tests {
             keyboard_backend: None,
             database: None,
             input_state: None,
+            skin_manager: None,
+            sound_manager: None,
         }
     }
 
@@ -251,7 +253,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         resource.update_score = true;
@@ -263,11 +265,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: Some(&db),
             input_state: None,
+            skin_manager: None,
+            sound_manager: None,
         };
         state.create(&mut ctx);
 
@@ -288,7 +292,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         resource.update_score = false;
@@ -300,11 +304,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: Some(&db),
             input_state: None,
+            skin_manager: None,
+            sound_manager: None,
         };
         state.create(&mut ctx);
 
@@ -320,7 +326,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Pre-populate DB with an old score
@@ -336,11 +342,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: Some(&db),
             input_state: None,
+            skin_manager: None,
+            sound_manager: None,
         };
         state.create(&mut ctx);
 
@@ -355,14 +363,14 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         let mut ctx = make_ctx(
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.create(&mut ctx);
@@ -378,14 +386,14 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         let mut ctx = make_ctx(
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.create(&mut ctx);
@@ -401,7 +409,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Before delay
@@ -410,7 +418,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -422,7 +430,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -435,7 +443,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(7_001_000);
@@ -443,7 +451,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -457,7 +465,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Set up FADEOUT timer
@@ -470,7 +478,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -485,7 +493,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(1_000_000);
@@ -496,7 +504,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -511,7 +519,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(1_000_000);
@@ -522,7 +530,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -538,7 +546,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(1_000_000);
@@ -549,7 +557,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -564,7 +572,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(600_000);
@@ -579,11 +587,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: None,
             input_state: Some(&input_state),
+            skin_manager: None,
+            sound_manager: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -597,7 +607,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(600_000);
@@ -612,11 +622,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: None,
             input_state: Some(&input_state),
+            skin_manager: None,
+            sound_manager: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -629,7 +641,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(600_000);
@@ -646,11 +658,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: None,
             input_state: Some(&input_state),
+            skin_manager: None,
+            sound_manager: None,
         };
         state.input(&mut ctx);
         assert_eq!(state.graph_type(), 1);
@@ -664,11 +678,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: None,
             input_state: Some(&input_state2),
+            skin_manager: None,
+            sound_manager: None,
         };
         state.input(&mut ctx2);
         assert_eq!(state.graph_type(), 0);
@@ -680,7 +696,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // TIMER_STARTINPUT not yet enabled
@@ -693,11 +709,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: None,
             input_state: Some(&input_state),
+            skin_manager: None,
+            sound_manager: None,
         };
         state.input(&mut ctx);
         assert!(!timer.is_timer_on(TIMER_FADEOUT));
@@ -709,7 +727,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(600_000);
@@ -725,11 +743,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: None,
             input_state: Some(&input_state),
+            skin_manager: None,
+            sound_manager: None,
         };
         state.input(&mut ctx);
         // graph_type should not change
@@ -742,7 +762,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(600_000);
@@ -752,7 +772,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.confirm(&mut ctx);
@@ -765,7 +785,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         resource.update_score = true;
@@ -774,7 +794,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         // Should not panic when database is None

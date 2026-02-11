@@ -52,6 +52,8 @@ pub struct PlayerResource {
     /// Current play's replay data.
     #[allow(dead_code)] // Reserved for replay saving system
     pub replay_data: Option<ReplayData>,
+    /// Flag set by KeyConfig/SkinConfig shutdown to request config file save.
+    pub config_save_requested: bool,
 }
 
 impl Default for PlayerResource {
@@ -72,6 +74,7 @@ impl Default for PlayerResource {
             course_replays: Vec::new(),
             course_gauges: Vec::new(),
             replay_data: None,
+            config_save_requested: false,
         }
     }
 }

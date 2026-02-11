@@ -9,7 +9,9 @@ use tracing::info;
 use crate::database_manager::DatabaseManager;
 use crate::input_mapper::InputState;
 use crate::player_resource::PlayerResource;
+use crate::skin_manager::SkinManager;
 use crate::state::{GameStateHandler, StateContext};
+use crate::system_sound::SystemSoundManager;
 use crate::timer_manager::TimerManager;
 use bms_config::{Config, PlayerConfig};
 
@@ -44,10 +46,12 @@ pub struct TickParams<'a> {
     pub timer: &'a mut TimerManager,
     pub resource: &'a mut PlayerResource,
     pub config: &'a Config,
-    pub player_config: &'a PlayerConfig,
+    pub player_config: &'a mut PlayerConfig,
     pub keyboard_backend: Option<&'a dyn bms_input::keyboard::KeyboardBackend>,
     pub database: Option<&'a DatabaseManager>,
     pub input_state: Option<&'a InputState>,
+    pub skin_manager: Option<&'a mut SkinManager>,
+    pub sound_manager: Option<&'a mut SystemSoundManager>,
 }
 
 /// Registry of all state handlers with transition logic.
@@ -99,6 +103,8 @@ impl StateRegistry {
                     keyboard_backend: params.keyboard_backend,
                     database: params.database,
                     input_state: params.input_state,
+                    skin_manager: params.skin_manager.as_deref_mut(),
+                    sound_manager: params.sound_manager.as_deref_mut(),
                 };
                 handler.create(&mut ctx);
                 handler.prepare(&mut ctx);
@@ -116,6 +122,8 @@ impl StateRegistry {
                 keyboard_backend: params.keyboard_backend,
                 database: params.database,
                 input_state: params.input_state,
+                skin_manager: params.skin_manager.as_deref_mut(),
+                sound_manager: params.sound_manager.as_deref_mut(),
             };
             handler.render(&mut ctx);
             handler.input(&mut ctx);
@@ -144,6 +152,8 @@ impl StateRegistry {
                 keyboard_backend: params.keyboard_backend,
                 database: params.database,
                 input_state: params.input_state,
+                skin_manager: params.skin_manager.as_deref_mut(),
+                sound_manager: params.sound_manager.as_deref_mut(),
             };
             handler.shutdown(&mut ctx);
         }
@@ -164,6 +174,8 @@ impl StateRegistry {
                 keyboard_backend: params.keyboard_backend,
                 database: params.database,
                 input_state: params.input_state,
+                skin_manager: params.skin_manager.as_deref_mut(),
+                sound_manager: params.sound_manager.as_deref_mut(),
             };
             handler.create(&mut ctx);
             handler.prepare(&mut ctx);
@@ -215,7 +227,7 @@ mod tests {
         timer: &'a mut TimerManager,
         resource: &'a mut PlayerResource,
         config: &'a Config,
-        player_config: &'a PlayerConfig,
+        player_config: &'a mut PlayerConfig,
     ) -> TickParams<'a> {
         TickParams {
             timer,
@@ -225,6 +237,8 @@ mod tests {
             keyboard_backend: None,
             database: None,
             input_state: None,
+            skin_manager: None,
+            sound_manager: None,
         }
     }
 
@@ -248,8 +262,8 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
-        let mut params = make_params(&mut timer, &mut resource, &config, &player_config);
+        let mut player_config = PlayerConfig::default();
+        let mut params = make_params(&mut timer, &mut resource, &config, &mut player_config);
         reg.tick(&mut params);
 
         let calls = log.lock().unwrap();
@@ -277,8 +291,8 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
-        let mut params = make_params(&mut timer, &mut resource, &config, &player_config);
+        let mut player_config = PlayerConfig::default();
+        let mut params = make_params(&mut timer, &mut resource, &config, &mut player_config);
 
         // Initialize
         reg.tick(&mut params);
@@ -309,8 +323,8 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
-        let mut params = make_params(&mut timer, &mut resource, &config, &player_config);
+        let mut player_config = PlayerConfig::default();
+        let mut params = make_params(&mut timer, &mut resource, &config, &mut player_config);
 
         // Set a timer in MusicSelect
         params.timer.set_now_micro_time(5000);
@@ -348,8 +362,8 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
-        let mut params = make_params(&mut timer, &mut resource, &config, &player_config);
+        let mut player_config = PlayerConfig::default();
+        let mut params = make_params(&mut timer, &mut resource, &config, &mut player_config);
 
         // First tick should initialize MusicSelect, which chains to Decide
         reg.tick(&mut params);

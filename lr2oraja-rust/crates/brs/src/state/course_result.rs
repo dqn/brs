@@ -161,7 +161,7 @@ mod tests {
         timer: &'a mut TimerManager,
         resource: &'a mut PlayerResource,
         config: &'a Config,
-        player_config: &'a PlayerConfig,
+        player_config: &'a mut PlayerConfig,
         transition: &'a mut Option<AppStateType>,
     ) -> StateContext<'a> {
         StateContext {
@@ -173,6 +173,8 @@ mod tests {
             keyboard_backend: None,
             database: None,
             input_state: None,
+            skin_manager: None,
+            sound_manager: None,
         }
     }
 
@@ -197,13 +199,13 @@ mod tests {
         ]);
 
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
         let mut ctx = make_ctx(
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
 
@@ -224,7 +226,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Before delay
@@ -233,7 +235,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -245,7 +247,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -258,7 +260,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Set up: FADEOUT timer on at time 1000ms
@@ -271,7 +273,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -284,7 +286,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Enable input
@@ -300,11 +302,13 @@ mod tests {
             timer: &mut timer,
             resource: &mut resource,
             config: &config,
-            player_config: &player_config,
+            player_config: &mut player_config,
             transition: &mut transition,
             keyboard_backend: None,
             database: None,
             input_state: Some(&input_state),
+            skin_manager: None,
+            sound_manager: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
