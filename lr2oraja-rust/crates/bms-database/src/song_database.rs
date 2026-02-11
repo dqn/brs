@@ -37,6 +37,21 @@ impl SongDatabase {
         Ok(Self { conn })
     }
 
+    /// Get all song data from the database.
+    pub fn get_all_song_datas(&self) -> Result<Vec<SongData>> {
+        let sql = "SELECT * FROM song";
+        let mut stmt = self.conn.prepare(sql)?;
+        let rows = stmt.query_map([], SongData::from_row)?;
+        let mut results = Vec::new();
+        for r in rows {
+            let sd = r?;
+            if sd.validate() {
+                results.push(sd);
+            }
+        }
+        Ok(results)
+    }
+
     /// Get song data by a single key-value pair.
     ///
     /// `key` must be one of the allowed column names (whitelist-validated).

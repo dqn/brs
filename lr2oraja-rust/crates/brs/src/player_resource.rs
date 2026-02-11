@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use bms_config::PlayerConfig;
 use bms_model::{BmsModel, PlayMode};
+use bms_replay::replay_data::ReplayData;
 use bms_rule::ScoreData;
 
 /// Data shared across game states during a play session.
@@ -36,6 +37,21 @@ pub struct PlayerResource {
     /// Assist option flags.
     #[allow(dead_code)]
     pub assist: i32,
+
+    // --- Result state fields ---
+    /// Previous best score from DB (loaded in ResultState::create).
+    pub oldscore: ScoreData,
+    /// Accumulated course scores per stage (None when not in course mode).
+    pub course_score_data: Option<Vec<ScoreData>>,
+    /// Accumulated course replays.
+    #[allow(dead_code)] // Reserved for course mode replay system
+    pub course_replays: Vec<ReplayData>,
+    /// Accumulated course gauge logs.
+    #[allow(dead_code)] // Reserved for course mode gauge display
+    pub course_gauges: Vec<Vec<f32>>,
+    /// Current play's replay data.
+    #[allow(dead_code)] // Reserved for replay saving system
+    pub replay_data: Option<ReplayData>,
 }
 
 impl Default for PlayerResource {
@@ -51,6 +67,11 @@ impl Default for PlayerResource {
             maxcombo: 0,
             update_score: false,
             assist: 0,
+            oldscore: ScoreData::default(),
+            course_score_data: None,
+            course_replays: Vec::new(),
+            course_gauges: Vec::new(),
+            replay_data: None,
         }
     }
 }
