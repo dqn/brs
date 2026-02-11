@@ -4,14 +4,16 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+bms-config.workspace = true
 bms-skin.workspace = true
 anyhow.workspace = true
 bevy.workspace = true
+bevy_egui.workspace = true
+egui.workspace = true
 image.workspace = true
 serde.workspace = true
 
 [dev-dependencies]
-bms-config = { workspace = true }
 glob = { workspace = true }
 image-compare = { workspace = true }
 serde_json = { workspace = true }

@@ -14,6 +14,7 @@ bms-input.workspace = true
 bms-audio.workspace = true
 bms-skin.workspace = true
 bms-render.workspace = true
+bevy_egui.workspace = true
 bms-ir.workspace = true
 bms-external.workspace = true
 bms-launcher.workspace = true

@@ -103,6 +103,7 @@ impl InputMapper {
 }
 
 /// Result of a single frame's input mapping.
+#[derive(Default)]
 pub struct InputState {
     /// KeyCommands that fired this frame.
     pub commands: Vec<KeyCommand>,

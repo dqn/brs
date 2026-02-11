@@ -965,6 +965,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_egui"
+version = "0.33.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45fa3f22e775175244a36b50615c0c71df9e0847e297283e5ec62ec5f99439a0"
+dependencies = [
+ "arboard",
+ "bevy_app",
+ "bevy_asset",
+ "bevy_derive",
+ "bevy_ecs",
+ "bevy_image",
+ "bevy_input",
+ "bevy_log",
+ "bevy_math",
+ "bevy_picking",
+ "bevy_reflect",
+ "bevy_render",
+ "bevy_time",
+ "bevy_utils",
+ "bevy_window",
+ "bevy_winit",
+ "bytemuck",
+ "crossbeam-channel",
+ "egui",
+ "encase",
+ "image",
+ "js-sys",
+ "thread_local",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "webbrowser",
+ "wgpu-types 23.0.0",
+ "winit",
+]
+
+[[package]]
 name = "bevy_encase_derive"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1950,8 +1987,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bevy",
+ "bevy_egui",
  "bms-config",
  "bms-skin",
+ "egui",
  "glob",
  "image",
  "image-compare",
@@ -2016,6 +2055,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bevy",
+ "bevy_egui",
  "bms-audio",
  "bms-config",
  "bms-database",

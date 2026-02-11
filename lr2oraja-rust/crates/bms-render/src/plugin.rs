@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use bevy::sprite::Material2dPlugin;
 
 use crate::distance_field_material::DistanceFieldMaterial;
+use crate::mod_menu::ModMenuPlugin;
 use crate::skin_renderer::skin_render_system;
 
 /// Bevy plugin that sets up skin rendering.
@@ -21,6 +22,7 @@ impl Plugin for BmsRenderPlugin {
         embedded_asset!(app, "distance_field.wgsl");
 
         app.add_plugins(Material2dPlugin::<DistanceFieldMaterial>::default())
+            .add_plugins(ModMenuPlugin)
             .add_systems(Startup, setup_camera)
             .add_systems(Update, skin_render_system);
     }

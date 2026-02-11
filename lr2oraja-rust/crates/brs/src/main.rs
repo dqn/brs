@@ -274,23 +274,38 @@ fn state_machine_system(
     mut skin_mgr: ResMut<BrsSkinManager>,
     mut sound_mgr: ResMut<BrsSystemSoundManager>,
     config_paths: Res<BrsConfigPaths>,
+    mod_menu: Res<bms_render::mod_menu::ModMenuState>,
 ) {
-    backend.snapshot(&keyboard_input);
-    let input_state = input_mapper.0.update(&*backend);
+    // When ModMenu has keyboard focus, skip game input processing.
+    // Delete key is handled separately by the ModMenu plugin.
+    let egui_has_focus = mod_menu.wants_keyboard || mod_menu.wants_pointer;
 
-    // Collect typed characters from keyboard events
-    let received_chars: Vec<char> = keyboard_events
-        .read()
-        .filter(|e| e.state.is_pressed())
-        .filter_map(|e| {
-            if let Key::Character(ref s) = e.logical_key {
-                Some(s.chars())
-            } else {
-                None
-            }
-        })
-        .flatten()
-        .collect();
+    backend.snapshot(&keyboard_input);
+    let input_state = if egui_has_focus {
+        Default::default()
+    } else {
+        input_mapper.0.update(&*backend)
+    };
+
+    // Collect typed characters from keyboard events (suppress when egui has focus)
+    let received_chars: Vec<char> = if egui_has_focus {
+        // Drain events to prevent stale input when focus returns
+        keyboard_events.read().for_each(drop);
+        Vec::new()
+    } else {
+        keyboard_events
+            .read()
+            .filter(|e| e.state.is_pressed())
+            .filter_map(|e| {
+                if let Key::Character(ref s) = e.logical_key {
+                    Some(s.chars())
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .collect()
+    };
 
     let prev_state = registry.0.current();
 
