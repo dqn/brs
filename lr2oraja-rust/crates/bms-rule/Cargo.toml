@@ -10,3 +10,9 @@ serde.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+criterion.workspace = true
+bms-model.workspace = true
+
+[[bench]]
+name = "judge_bench"
+harness = false
