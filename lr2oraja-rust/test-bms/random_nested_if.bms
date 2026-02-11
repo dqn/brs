@@ -1,0 +1,44 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE Nested RANDOM/IF Test
+#ARTIST brs-test
+#BPM 128
+#PLAYLEVEL 3
+#RANK 2
+#TOTAL 320
+
+#WAV01 base.wav
+#WAV02 outer_a.wav
+#WAV03 inner_a.wav
+#WAV04 inner_b.wav
+#WAV05 outer_b.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- Always present
+#00111:01
+
+*--- Outer random (seed[0])
+#RANDOM 2
+#IF 1
+#00211:02
+
+*--- Nested random inside outer branch (seed[1])
+#RANDOM 2
+#IF 1
+#00311:03
+#ENDIF
+#IF 2
+#00311:04
+#ENDIF
+#ENDRANDOM
+
+#ENDIF
+#IF 2
+#00211:05
+#ENDIF
+#ENDRANDOM
+
+*--- After random section (always present)
+#00411:01

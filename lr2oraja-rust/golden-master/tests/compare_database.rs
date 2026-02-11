@@ -1,4 +1,4 @@
-// Golden master tests: compare Rust SongData::from_model() against Java SongData.setBMSModel()
+// Golden master tests: compare Rust SongData::from_model() against Java SongData fixture export.
 
 use std::path::Path;
 
@@ -82,6 +82,18 @@ fn compare_song_data(rust: &SongData, java: &SongDataFixture) -> Vec<String> {
             rust.subartist, java.subartist
         ));
     }
+    if rust.tag != java.tag {
+        diffs.push(format!("tag: rust={:?} java={:?}", rust.tag, java.tag));
+    }
+    if rust.path != java.path {
+        diffs.push(format!("path: rust={:?} java={:?}", rust.path, java.path));
+    }
+    if rust.folder != java.folder {
+        diffs.push(format!(
+            "folder: rust={:?} java={:?}",
+            rust.folder, java.folder
+        ));
+    }
     if rust.banner != java.banner {
         diffs.push(format!(
             "banner: rust={:?} java={:?}",
@@ -104,6 +116,12 @@ fn compare_song_data(rust: &SongData, java: &SongDataFixture) -> Vec<String> {
         diffs.push(format!(
             "preview: rust={:?} java={:?}",
             rust.preview, java.preview
+        ));
+    }
+    if rust.parent != java.parent {
+        diffs.push(format!(
+            "parent: rust={:?} java={:?}",
+            rust.parent, java.parent
         ));
     }
     if rust.level != java.level {
@@ -149,6 +167,27 @@ fn compare_song_data(rust: &SongData, java: &SongDataFixture) -> Vec<String> {
         diffs.push(format!(
             "content: rust={:#010b} java={:#010b} (rust={} java={})",
             rust.content, java.content, rust.content, java.content
+        ));
+    }
+    if rust.date != java.date {
+        diffs.push(format!("date: rust={} java={}", rust.date, java.date));
+    }
+    if rust.favorite != java.favorite {
+        diffs.push(format!(
+            "favorite: rust={} java={}",
+            rust.favorite, java.favorite
+        ));
+    }
+    if rust.adddate != java.adddate {
+        diffs.push(format!(
+            "adddate: rust={} java={}",
+            rust.adddate, java.adddate
+        ));
+    }
+    if rust.charthash != java.charthash {
+        diffs.push(format!(
+            "charthash: rust={:?} java={:?}",
+            rust.charthash, java.charthash
         ));
     }
 
@@ -258,6 +297,11 @@ fn database_bpm_change() {
 }
 
 #[test]
+fn database_bpm_stop_combo() {
+    run_database_test("bpm_stop_combo.bms");
+}
+
+#[test]
 fn database_stop_sequence() {
     run_database_test("stop_sequence.bms");
 }
@@ -289,6 +333,13 @@ fn database_random_if() {
 }
 
 #[test]
+fn database_random_nested_if() {
+    let selected_randoms =
+        random_seeds::load_selected_randoms(test_bms_dir(), "random_nested_if.bms");
+    run_database_test_with_randoms("random_nested_if.bms", &selected_randoms);
+}
+
+#[test]
 fn database_encoding_sjis() {
     run_database_test("encoding_sjis.bms");
 }
@@ -301,6 +352,11 @@ fn database_encoding_utf8() {
 #[test]
 fn database_defexrank() {
     run_database_test("defexrank.bms");
+}
+
+#[test]
+fn database_timing_extreme() {
+    run_database_test("timing_extreme.bms");
 }
 
 // --- bmson tests ---

@@ -88,6 +88,11 @@ fn golden_master_bpm_change() {
 }
 
 #[test]
+fn golden_master_bpm_stop_combo() {
+    run_golden_master_test("bpm_stop_combo.bms");
+}
+
+#[test]
 fn golden_master_stop_sequence() {
     run_golden_master_test("stop_sequence.bms");
 }
@@ -138,12 +143,38 @@ fn golden_master_defexrank() {
 }
 
 #[test]
+fn golden_master_timing_extreme() {
+    run_golden_master_test("timing_extreme.bms");
+}
+
+#[test]
 fn golden_master_random_if() {
     // Use the same deterministic random selections as Java fixture generation.
     let selected_randoms = random_seeds::load_selected_randoms(test_bms_dir(), "random_if.bms");
 
     let fixture_path = resolve_fixture_path("random_if.bms");
     let bms_path = test_bms_dir().join("random_if.bms");
+    assert!(
+        bms_path.exists(),
+        "BMS file not found: {}",
+        bms_path.display()
+    );
+
+    let fixture = load_fixture(&fixture_path).expect("Failed to load fixture");
+    let model =
+        BmsDecoder::decode_with_randoms(&bms_path, &selected_randoms).expect("Failed to parse BMS");
+
+    assert_model_matches_fixture(&model, &fixture);
+}
+
+#[test]
+fn golden_master_random_nested_if() {
+    // Use the same deterministic random selections as Java fixture generation.
+    let selected_randoms =
+        random_seeds::load_selected_randoms(test_bms_dir(), "random_nested_if.bms");
+
+    let fixture_path = resolve_fixture_path("random_nested_if.bms");
+    let bms_path = test_bms_dir().join("random_nested_if.bms");
     assert!(
         bms_path.exists(),
         "BMS file not found: {}",

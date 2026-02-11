@@ -1,0 +1,267 @@
+{
+  "metadata" : {
+    "title" : "Timing Extreme Test",
+    "subtitle" : "",
+    "artist" : "brs-test",
+    "sub_artist" : "",
+    "genre" : "Test",
+    "initial_bpm" : 60.0,
+    "judge_rank" : 2,
+    "judge_rank_type" : "BMS_RANK",
+    "total" : 320.0,
+    "total_type" : "BMS",
+    "play_level" : "5",
+    "difficulty" : 0,
+    "player" : 1,
+    "mode" : "beat-5k",
+    "mode_key_count" : 6,
+    "ln_type" : 0,
+    "lnmode" : 0,
+    "banner" : "",
+    "stagefile" : "",
+    "backbmp" : "",
+    "preview" : ""
+  },
+  "hashes" : {
+    "md5" : "c0efed231cbc817be21246543bd7031e",
+    "sha256" : "81610903e1e8b1ee6ea5f91ca16fd4e149e08c70b9dc91f89ab6641dcba1350d"
+  },
+  "statistics" : {
+    "total_notes" : 13,
+    "total_notes_key" : 13,
+    "total_notes_long_key" : 0,
+    "total_notes_scratch" : 0,
+    "total_notes_long_scratch" : 0,
+    "total_notes_mine" : 0,
+    "min_bpm" : 30.0,
+    "max_bpm" : 480.0,
+    "timeline_count" : 13
+  },
+  "timelines" : [ {
+    "time_us" : 0,
+    "section" : 0.0,
+    "bpm" : 30.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 0,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 1000000,
+    "section" : 0.125,
+    "bpm" : 30.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 1000000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 2000000,
+    "section" : 0.25,
+    "bpm" : 30.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 2000000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 3000000,
+    "section" : 0.375,
+    "bpm" : 30.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 3000000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 4000000,
+    "section" : 0.5,
+    "bpm" : 30.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 4000000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 5000000,
+    "section" : 0.625,
+    "bpm" : 30.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 5000000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 6000000,
+    "section" : 0.75,
+    "bpm" : 30.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 6000000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 7000000,
+    "section" : 0.875,
+    "bpm" : 30.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 7000000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 8000000,
+    "section" : 1.0,
+    "bpm" : 480.0,
+    "stop_us" : 2604,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 8000000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 8127604,
+    "section" : 1.25,
+    "bpm" : 480.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 8127604,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 8252604,
+    "section" : 1.5,
+    "bpm" : 480.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 8252604,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 8377604,
+    "section" : 1.75,
+    "bpm" : 480.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 8377604,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 8502604,
+    "section" : 2.0,
+    "bpm" : 30.0,
+    "stop_us" : 32000000,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 8502604,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  } ],
+  "notes" : [ {
+    "lane" : 0,
+    "time_us" : 0,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 1000000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 2000000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 3000000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 4000000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 5000000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 6000000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 7000000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 8000000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 8127604,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 8252604,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 8377604,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 8502604,
+    "wav_id" : 0,
+    "type" : "Normal"
+  } ],
+  "bpm_changes" : [ {
+    "time_us" : 0,
+    "bpm" : 30.0
+  }, {
+    "time_us" : 8000000,
+    "bpm" : 480.0
+  }, {
+    "time_us" : 8502604,
+    "bpm" : 30.0
+  } ],
+  "stop_events" : [ {
+    "time_us" : 8000000,
+    "duration_us" : 2604
+  }, {
+    "time_us" : 8502604,
+    "duration_us" : 32000000
+  } ]
+}

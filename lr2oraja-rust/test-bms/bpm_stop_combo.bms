@@ -1,0 +1,37 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE BPM+STOP Combo Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 4
+#RANK 2
+#TOTAL 320
+
+#WAV01 note.wav
+#BPM01 240
+#BPM02 90
+#BPM03 320
+#STOP01 48
+#STOP02 192
+#STOP03 12
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: baseline
+#00011:01
+
+*--- Measure 1: BPM up + short stop
+#00103:F0
+#00109:01
+#00111:01
+
+*--- Measure 2: BPM down via extended BPM + medium stop in middle
+#00208:0002
+#00209:0002
+#00211:0100
+
+*--- Measure 3: BPM up via extended BPM + tiny stop
+#00308:03
+#00309:03
+#00311:01

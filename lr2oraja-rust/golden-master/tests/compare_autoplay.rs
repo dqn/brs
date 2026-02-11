@@ -248,6 +248,11 @@ fn autoplay_bpm_change() {
 }
 
 #[test]
+fn autoplay_bpm_stop_combo() {
+    run_autoplay_test("bpm_stop_combo.bms");
+}
+
+#[test]
 fn autoplay_stop_sequence() {
     run_autoplay_test("stop_sequence.bms");
 }
@@ -279,6 +284,13 @@ fn autoplay_random_if() {
 }
 
 #[test]
+fn autoplay_random_nested_if() {
+    let selected_randoms =
+        random_seeds::load_selected_randoms(test_bms_dir(), "random_nested_if.bms");
+    run_autoplay_test_with_randoms("random_nested_if.bms", &selected_randoms);
+}
+
+#[test]
 fn autoplay_encoding_sjis() {
     run_autoplay_test("encoding_sjis.bms");
 }
@@ -291,6 +303,11 @@ fn autoplay_encoding_utf8() {
 #[test]
 fn autoplay_defexrank() {
     run_autoplay_test("defexrank.bms");
+}
+
+#[test]
+fn autoplay_timing_extreme() {
+    run_autoplay_test("timing_extreme.bms");
 }
 
 // --- bmson tests ---

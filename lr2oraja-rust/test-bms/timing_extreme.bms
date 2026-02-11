@@ -1,0 +1,31 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE Timing Extreme Test
+#ARTIST brs-test
+#BPM 60
+#PLAYLEVEL 5
+#RANK 2
+#TOTAL 320
+
+#WAV01 note.wav
+#BPM01 30
+#BPM02 480
+#STOP01 1
+#STOP02 768
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: very low BPM with dense notes
+#00008:01
+#00011:0101010101010101
+
+*--- Measure 1: very high BPM with tiny stop
+#00108:02
+#00109:01
+#00111:0100010001000100
+
+*--- Measure 2: long stop at low BPM
+#00208:01
+#00209:02
+#00211:01

@@ -1,3 +1,4 @@
 {
-  "random_if.bms": [1]
+  "random_if.bms": [1],
+  "random_nested_if.bms": [1, 2]
 }
