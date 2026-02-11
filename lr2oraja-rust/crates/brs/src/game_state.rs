@@ -18,13 +18,10 @@ pub struct SharedGameState {
     /// Active timers: timer_id -> elapsed milliseconds.
     /// Absent entries mean the timer is OFF.
     pub timers: HashMap<i32, i64>,
-    #[allow(dead_code)]
     pub integers: HashMap<i32, i32>,
-    #[allow(dead_code)]
     pub floats: HashMap<i32, f32>,
     #[allow(dead_code)]
     pub strings: HashMap<i32, String>,
-    #[allow(dead_code)]
     pub booleans: HashMap<i32, bool>,
     #[allow(dead_code)]
     pub offsets: HashMap<i32, SkinOffset>,
