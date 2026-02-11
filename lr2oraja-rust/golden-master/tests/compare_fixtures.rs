@@ -7,6 +7,9 @@ use golden_master::{
     assert_bmson_model_matches_fixture, assert_model_matches_fixture, load_fixture,
 };
 
+#[path = "support/random_seeds.rs"]
+mod random_seeds;
+
 fn fixtures_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")
@@ -105,6 +108,11 @@ fn golden_master_9key_pms() {
 }
 
 #[test]
+fn golden_master_9key_pms_pms() {
+    run_golden_master_test("9key_pms.pms");
+}
+
+#[test]
 fn golden_master_14key_dp() {
     run_golden_master_test("14key_dp.bms");
 }
@@ -131,8 +139,9 @@ fn golden_master_defexrank() {
 
 #[test]
 fn golden_master_random_if() {
-    // Uses fixed selectedRandoms=[1] to select #IF 1 branch deterministically.
-    // Matching random_seeds.json on the Java side.
+    // Use the same deterministic random selections as Java fixture generation.
+    let selected_randoms = random_seeds::load_selected_randoms(test_bms_dir(), "random_if.bms");
+
     let fixture_path = resolve_fixture_path("random_if.bms");
     let bms_path = test_bms_dir().join("random_if.bms");
     assert!(
@@ -142,7 +151,8 @@ fn golden_master_random_if() {
     );
 
     let fixture = load_fixture(&fixture_path).expect("Failed to load fixture");
-    let model = BmsDecoder::decode_with_randoms(&bms_path, &[1]).expect("Failed to parse BMS");
+    let model =
+        BmsDecoder::decode_with_randoms(&bms_path, &selected_randoms).expect("Failed to parse BMS");
 
     assert_model_matches_fixture(&model, &fixture);
 }

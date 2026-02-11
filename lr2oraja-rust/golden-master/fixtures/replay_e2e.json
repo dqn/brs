@@ -257,6 +257,134 @@
     }
   }, {
     "group" : "replay_e2e",
+    "name" : "autoplay_9key_pms_normal",
+    "filename" : "9key_pms.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 11,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 11,
+        "passnotes" : 11
+      },
+      "maxcombo" : 11,
+      "passnotes" : 11,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 11,
+      "playable_count" : 11,
+      "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_9key_pms_pms_normal",
+    "filename" : "9key_pms.pms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 8,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 8,
+        "passnotes" : 8
+      },
+      "maxcombo" : 8,
+      "passnotes" : 8,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 8,
+      "playable_count" : 8,
+      "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_empty_measures_normal",
+    "filename" : "empty_measures.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 4,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 4,
+        "passnotes" : 4
+      },
+      "maxcombo" : 4,
+      "passnotes" : 4,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 4,
+      "playable_count" : 4,
+      "ghost" : [ 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_random_if_normal",
+    "filename" : "random_if.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 3,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 3,
+        "passnotes" : 3
+      },
+      "maxcombo" : 3,
+      "passnotes" : 3,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 3,
+      "playable_count" : 3,
+      "ghost" : [ 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
     "name" : "autoplay_minimal_7k_hard",
     "filename" : "minimal_7k.bms",
     "gauge_type" : "HARD",
@@ -292,6 +420,38 @@
     "name" : "autoplay_minimal_7k_exhard",
     "filename" : "minimal_7k.bms",
     "gauge_type" : "EXHARD",
+    "autoplay" : true,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 12,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 12,
+        "passnotes" : 12
+      },
+      "maxcombo" : 12,
+      "passnotes" : 12,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
+      "ghost" : [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "autoplay_minimal_7k_easy",
+    "filename" : "minimal_7k.bms",
+    "gauge_type" : "EASY",
     "autoplay" : true,
     "input_log" : [ ],
     "expected" : {
@@ -576,6 +736,296 @@
       "note_count" : 12,
       "playable_count" : 12,
       "ghost" : [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "manual_good",
+    "filename" : "minimal_7k.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : false,
+    "offset_us" : 50000,
+    "input_log" : [ {
+      "presstime" : 2050000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2130000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 2050000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 2130000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2050000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 2130000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2050000,
+      "keycode" : 3,
+      "pressed" : true
+    }, {
+      "presstime" : 2130000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2050000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 2130000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2050000,
+      "keycode" : 5,
+      "pressed" : true
+    }, {
+      "presstime" : 2130000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2050000,
+      "keycode" : 7,
+      "pressed" : true
+    }, {
+      "presstime" : 2130000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4050000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4130000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 4050000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 4130000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4050000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 4130000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 5050000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 5130000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 5050000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 5130000,
+      "keycode" : 4,
+      "pressed" : false
+    } ],
+    "expected" : {
+      "score" : {
+        "epg" : 0,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 12,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 12,
+        "passnotes" : 12
+      },
+      "maxcombo" : 12,
+      "passnotes" : 12,
+      "gauge_value" : 100.0,
+      "gauge_qualified" : true,
+      "note_count" : 12,
+      "playable_count" : 12,
+      "ghost" : [ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "manual_bad",
+    "filename" : "minimal_7k.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : false,
+    "offset_us" : 150000,
+    "input_log" : [ {
+      "presstime" : 2150000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 2230000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 2150000,
+      "keycode" : 1,
+      "pressed" : true
+    }, {
+      "presstime" : 2230000,
+      "keycode" : 1,
+      "pressed" : false
+    }, {
+      "presstime" : 2150000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 2230000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 2150000,
+      "keycode" : 3,
+      "pressed" : true
+    }, {
+      "presstime" : 2230000,
+      "keycode" : 3,
+      "pressed" : false
+    }, {
+      "presstime" : 2150000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 2230000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 2150000,
+      "keycode" : 5,
+      "pressed" : true
+    }, {
+      "presstime" : 2230000,
+      "keycode" : 5,
+      "pressed" : false
+    }, {
+      "presstime" : 2150000,
+      "keycode" : 7,
+      "pressed" : true
+    }, {
+      "presstime" : 2230000,
+      "keycode" : 7,
+      "pressed" : false
+    }, {
+      "presstime" : 4150000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 4230000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 4150000,
+      "keycode" : 2,
+      "pressed" : true
+    }, {
+      "presstime" : 4230000,
+      "keycode" : 2,
+      "pressed" : false
+    }, {
+      "presstime" : 4150000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 4230000,
+      "keycode" : 4,
+      "pressed" : false
+    }, {
+      "presstime" : 5150000,
+      "keycode" : 0,
+      "pressed" : true
+    }, {
+      "presstime" : 5230000,
+      "keycode" : 0,
+      "pressed" : false
+    }, {
+      "presstime" : 5150000,
+      "keycode" : 4,
+      "pressed" : true
+    }, {
+      "presstime" : 5230000,
+      "keycode" : 4,
+      "pressed" : false
+    } ],
+    "expected" : {
+      "score" : {
+        "epg" : 0,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 12,
+        "epr" : 0,
+        "lpr" : 0,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 0,
+        "passnotes" : 12
+      },
+      "maxcombo" : 0,
+      "passnotes" : 12,
+      "gauge_value" : 2.0,
+      "gauge_qualified" : false,
+      "note_count" : 12,
+      "playable_count" : 12,
+      "ghost" : [ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 ]
+    }
+  }, {
+    "group" : "replay_e2e",
+    "name" : "manual_all_miss",
+    "filename" : "minimal_7k.bms",
+    "gauge_type" : "NORMAL",
+    "autoplay" : false,
+    "input_log" : [ ],
+    "expected" : {
+      "score" : {
+        "epg" : 0,
+        "lpg" : 0,
+        "egr" : 0,
+        "lgr" : 0,
+        "egd" : 0,
+        "lgd" : 0,
+        "ebd" : 0,
+        "lbd" : 0,
+        "epr" : 0,
+        "lpr" : 12,
+        "ems" : 0,
+        "lms" : 0,
+        "maxcombo" : 0,
+        "passnotes" : 12
+      },
+      "maxcombo" : 0,
+      "passnotes" : 12,
+      "gauge_value" : 2.0,
+      "gauge_qualified" : false,
+      "note_count" : 12,
+      "playable_count" : 12,
+      "ghost" : [ 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 ]
     }
   } ]
 }

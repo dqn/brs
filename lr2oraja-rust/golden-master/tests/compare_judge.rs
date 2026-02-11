@@ -12,6 +12,9 @@ use bms_rule::judge_manager::{JudgeConfig, JudgeManager};
 use bms_rule::{GrooveGauge, JudgeAlgorithm, PlayerRule};
 use golden_master::judge_fixtures::{JudgeFixtures, JudgeTestCase};
 
+#[path = "support/random_seeds.rs"]
+mod random_seeds;
+
 const NOT_SET: i64 = i64::MIN;
 const FRAME_STEP: i64 = 1_000;
 const TAIL_TIME: i64 = 1_000_000;
@@ -24,7 +27,14 @@ fn test_bms_dir() -> &'static Path {
 
 fn load_bms(filename: &str) -> BmsModel {
     let path = test_bms_dir().join(filename);
-    BmsDecoder::decode(&path).unwrap_or_else(|e| panic!("Failed to parse {filename}: {e}"))
+    if let Some(selected_randoms) =
+        random_seeds::try_load_selected_randoms(test_bms_dir(), filename)
+    {
+        BmsDecoder::decode_with_randoms(&path, &selected_randoms)
+            .unwrap_or_else(|e| panic!("Failed to parse {filename} with random seeds: {e}"))
+    } else {
+        BmsDecoder::decode(&path).unwrap_or_else(|e| panic!("Failed to parse {filename}: {e}"))
+    }
 }
 
 fn parse_gauge_type(s: &str) -> GaugeType {

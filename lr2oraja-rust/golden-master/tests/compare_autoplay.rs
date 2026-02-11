@@ -6,6 +6,9 @@ use bms_input::autoplay::create_autoplay_log;
 use bms_model::{BmsDecoder, BmsonDecoder, TimeLine};
 use golden_master::autoplay_fixtures::{AutoplayFixture, AutoplayLogEntry, AutoplayTestCase};
 
+#[path = "support/random_seeds.rs"]
+mod random_seeds;
+
 fn fixtures_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")
@@ -235,6 +238,11 @@ fn autoplay_9key_pms() {
 }
 
 #[test]
+fn autoplay_9key_pms_pms() {
+    run_autoplay_test("9key_pms.pms");
+}
+
+#[test]
 fn autoplay_bpm_change() {
     run_autoplay_test("bpm_change.bms");
 }
@@ -266,7 +274,8 @@ fn autoplay_empty_measures() {
 
 #[test]
 fn autoplay_random_if() {
-    run_autoplay_test_with_randoms("random_if.bms", &[1]);
+    let selected_randoms = random_seeds::load_selected_randoms(test_bms_dir(), "random_if.bms");
+    run_autoplay_test_with_randoms("random_if.bms", &selected_randoms);
 }
 
 #[test]

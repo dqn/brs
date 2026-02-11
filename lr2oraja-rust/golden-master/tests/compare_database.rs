@@ -6,6 +6,9 @@ use bms_database::SongData;
 use bms_model::{BmsDecoder, BmsonDecoder};
 use golden_master::database_fixtures::{DatabaseFixture, SongDataFixture};
 
+#[path = "support/random_seeds.rs"]
+mod random_seeds;
+
 fn fixtures_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")
@@ -245,6 +248,11 @@ fn database_9key_pms() {
 }
 
 #[test]
+fn database_9key_pms_pms() {
+    run_database_test("9key_pms.pms");
+}
+
+#[test]
 fn database_bpm_change() {
     run_database_test("bpm_change.bms");
 }
@@ -276,7 +284,8 @@ fn database_empty_measures() {
 
 #[test]
 fn database_random_if() {
-    run_database_test_with_randoms("random_if.bms", &[1]);
+    let selected_randoms = random_seeds::load_selected_randoms(test_bms_dir(), "random_if.bms");
+    run_database_test_with_randoms("random_if.bms", &selected_randoms);
 }
 
 #[test]
