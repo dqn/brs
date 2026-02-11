@@ -41,6 +41,8 @@ pub struct StateContext<'a> {
     /// System sound playback manager (None in tests or when audio not available).
     #[allow(dead_code)] // Used by state handlers in Phase 16 steps 2-5
     pub sound_manager: Option<&'a mut SystemSoundManager>,
+    /// Characters typed this frame (from Bevy KeyboardInput events).
+    pub received_chars: &'a [char],
 }
 
 /// Trait for game state handlers. Each variant of `AppStateType` has

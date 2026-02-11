@@ -164,6 +164,7 @@ mod tests {
             input_state: None,
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         }
     }
 
@@ -411,6 +412,7 @@ mod tests {
             input_state: Some(&input_state),
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -446,6 +448,7 @@ mod tests {
             input_state: Some(&input_state),
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -473,6 +476,7 @@ mod tests {
             input_state: None,
             skin_manager: Some(&mut skin_mgr),
             sound_manager: None,
+            received_chars: &[],
         };
         state.create(&mut ctx);
         assert_eq!(skin_mgr.take_request(), Some(SkinType::Decide));
@@ -499,6 +503,7 @@ mod tests {
             input_state: None,
             skin_manager: None,
             sound_manager: Some(&mut sound_mgr),
+            received_chars: &[],
         };
         state.prepare(&mut ctx);
         let drained = sound_mgr.drain();

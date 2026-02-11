@@ -206,6 +206,7 @@ mod tests {
             input_state: None,
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         }
     }
 
@@ -228,6 +229,7 @@ mod tests {
             input_state: Some(input),
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         }
     }
 

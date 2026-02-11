@@ -52,6 +52,7 @@ pub struct TickParams<'a> {
     pub input_state: Option<&'a InputState>,
     pub skin_manager: Option<&'a mut SkinManager>,
     pub sound_manager: Option<&'a mut SystemSoundManager>,
+    pub received_chars: &'a [char],
 }
 
 /// Registry of all state handlers with transition logic.
@@ -105,6 +106,7 @@ impl StateRegistry {
                     input_state: params.input_state,
                     skin_manager: params.skin_manager.as_deref_mut(),
                     sound_manager: params.sound_manager.as_deref_mut(),
+                    received_chars: params.received_chars,
                 };
                 handler.create(&mut ctx);
                 handler.prepare(&mut ctx);
@@ -124,6 +126,7 @@ impl StateRegistry {
                 input_state: params.input_state,
                 skin_manager: params.skin_manager.as_deref_mut(),
                 sound_manager: params.sound_manager.as_deref_mut(),
+                received_chars: params.received_chars,
             };
             handler.render(&mut ctx);
             handler.input(&mut ctx);
@@ -154,6 +157,7 @@ impl StateRegistry {
                 input_state: params.input_state,
                 skin_manager: params.skin_manager.as_deref_mut(),
                 sound_manager: params.sound_manager.as_deref_mut(),
+                received_chars: params.received_chars,
             };
             handler.shutdown(&mut ctx);
         }
@@ -176,6 +180,7 @@ impl StateRegistry {
                 input_state: params.input_state,
                 skin_manager: params.skin_manager.as_deref_mut(),
                 sound_manager: params.sound_manager.as_deref_mut(),
+                received_chars: params.received_chars,
             };
             handler.create(&mut ctx);
             handler.prepare(&mut ctx);
@@ -239,6 +244,7 @@ mod tests {
             input_state: None,
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         }
     }
 

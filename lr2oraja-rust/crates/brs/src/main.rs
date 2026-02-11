@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use anyhow::Result;
 use bevy::input::ButtonInput;
-use bevy::input::keyboard::KeyCode;
+use bevy::input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy::prelude::*;
 use clap::Parser;
 use tracing::info;
@@ -249,6 +249,7 @@ fn state_machine_system(
     mut input_mapper: ResMut<BrsInputMapper>,
     external: Res<BrsExternalManager>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut keyboard_events: EventReader<KeyboardInput>,
     mut backend: Local<bevy_keyboard::BevyKeyboardBackend>,
     mut skin_mgr: ResMut<BrsSkinManager>,
     mut sound_mgr: ResMut<BrsSystemSoundManager>,
@@ -256,6 +257,20 @@ fn state_machine_system(
 ) {
     backend.snapshot(&keyboard_input);
     let input_state = input_mapper.0.update(&*backend);
+
+    // Collect typed characters from keyboard events
+    let received_chars: Vec<char> = keyboard_events
+        .read()
+        .filter(|e| e.state.is_pressed())
+        .filter_map(|e| {
+            if let Key::Character(ref s) = e.logical_key {
+                Some(s.chars())
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .collect();
 
     let prev_state = registry.0.current();
 
@@ -272,6 +287,7 @@ fn state_machine_system(
         input_state: Some(&input_state),
         skin_manager: Some(&mut skin_mgr.0),
         sound_manager: Some(&mut sound_mgr.0),
+        received_chars: &received_chars,
     };
     registry.0.tick(&mut params);
 

@@ -233,6 +233,7 @@ mod tests {
             input_state: None,
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         }
     }
 
@@ -272,6 +273,7 @@ mod tests {
             input_state: None,
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.create(&mut ctx);
 
@@ -311,6 +313,7 @@ mod tests {
             input_state: None,
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.create(&mut ctx);
 
@@ -349,6 +352,7 @@ mod tests {
             input_state: None,
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.create(&mut ctx);
 
@@ -594,6 +598,7 @@ mod tests {
             input_state: Some(&input_state),
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -629,6 +634,7 @@ mod tests {
             input_state: Some(&input_state),
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -665,6 +671,7 @@ mod tests {
             input_state: Some(&input_state),
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.input(&mut ctx);
         assert_eq!(state.graph_type(), 1);
@@ -685,6 +692,7 @@ mod tests {
             input_state: Some(&input_state2),
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.input(&mut ctx2);
         assert_eq!(state.graph_type(), 0);
@@ -716,6 +724,7 @@ mod tests {
             input_state: Some(&input_state),
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.input(&mut ctx);
         assert!(!timer.is_timer_on(TIMER_FADEOUT));
@@ -750,6 +759,7 @@ mod tests {
             input_state: Some(&input_state),
             skin_manager: None,
             sound_manager: None,
+            received_chars: &[],
         };
         state.input(&mut ctx);
         // graph_type should not change
