@@ -433,10 +433,10 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
   - [x] Play 固有スキン状態同期 (sync_play_state)
   - [x] ハイスピード / レーンカバー制御入力
   - [x] 57 テスト通過 (PlayState 13 + SkinSync 5 + ControlInput 8 + 既存 31), clippy clean, fmt applied
-  - [ ] Pattern Shuffle 統合 (bms-pattern LaneShuffleModifier/NoteShuffleModifier を create() で適用)
-  - [ ] AudioDriver 結線 (KeySoundProcessor BGM + キー音再生)
-  - [ ] InputProcessor 結線 (bms-input キーボード/コントローラー/MIDI リアル入力)
-  - [ ] Key beam timer 更新 (SkinPropertyMapper key_on/key_off_timer_id)
+  - [x] Pattern Shuffle 統合 (bms-pattern LaneShuffleModifier/NoteShuffleModifier を create() で適用)
+  - [x] AudioDriver 結線 (KeySoundProcessor BGM + キー音再生)
+  - [x] InputProcessor 結線 (bms-input キーボード/コントローラー/MIDI リアル入力)
+  - [x] Key beam timer 更新 (SkinPropertyMapper key_on/key_off_timer_id)
 - [x] **11-6. Result state** (スタブ: 即 MusicSelect 遷移)
 - [x] **11-7. CourseResult state** (スタブ: 即 MusicSelect 遷移)
 - [x] **11-8. KeyConfiguration / SkinConfiguration states** (スタブ: 即 MusicSelect 遷移)
