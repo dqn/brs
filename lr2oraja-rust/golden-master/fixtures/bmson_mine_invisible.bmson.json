@@ -1,0 +1,152 @@
+{
+  "metadata" : {
+    "title" : "Mine and Invisible Bmson Test",
+    "subtitle" : "",
+    "artist" : "brs-test",
+    "sub_artist" : "",
+    "genre" : "Test",
+    "initial_bpm" : 120.0,
+    "judge_rank" : 100,
+    "judge_rank_type" : "BMSON_JUDGERANK",
+    "total" : 300.0,
+    "total_type" : "BMSON",
+    "play_level" : "1",
+    "difficulty" : 0,
+    "player" : 0,
+    "mode" : "beat-7k",
+    "mode_key_count" : 8,
+    "ln_type" : 0,
+    "lnmode" : 0,
+    "banner" : "",
+    "stagefile" : "",
+    "backbmp" : "",
+    "preview" : ""
+  },
+  "hashes" : {
+    "md5" : "",
+    "sha256" : "22a3c4f22e6ab5f73e7981294086c3b507c888646c050ffe25e15fac9651160b"
+  },
+  "statistics" : {
+    "total_notes" : 2,
+    "total_notes_key" : 2,
+    "total_notes_long_key" : 0,
+    "total_notes_scratch" : 0,
+    "total_notes_long_scratch" : 0,
+    "total_notes_mine" : 2,
+    "min_bpm" : 120.0,
+    "max_bpm" : 120.0,
+    "timeline_count" : 7
+  },
+  "timelines" : [ {
+    "time_us" : 0,
+    "section" : 0.0,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 0,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 250000,
+    "section" : 0.125,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ ],
+    "hidden_notes" : [ {
+      "lane" : 4,
+      "time_us" : 250000,
+      "wav_id" : 1,
+      "type" : "Invisible"
+    } ]
+  }, {
+    "time_us" : 500000,
+    "section" : 0.25,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 2,
+      "time_us" : 500000,
+      "wav_id" : 2,
+      "type" : "Mine",
+      "damage" : 50.0
+    } ]
+  }, {
+    "time_us" : 1000000,
+    "section" : 0.5,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 1,
+      "time_us" : 1000000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 1250000,
+    "section" : 0.625,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ ],
+    "hidden_notes" : [ {
+      "lane" : 5,
+      "time_us" : 1250000,
+      "wav_id" : 1,
+      "type" : "Invisible"
+    } ]
+  }, {
+    "time_us" : 1500000,
+    "section" : 0.75,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 3,
+      "time_us" : 1500000,
+      "wav_id" : 2,
+      "type" : "Mine",
+      "damage" : 100.0
+    } ]
+  }, {
+    "time_us" : 2000000,
+    "section" : 1.0,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ ]
+  } ],
+  "notes" : [ {
+    "lane" : 0,
+    "time_us" : 0,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 4,
+    "time_us" : 250000,
+    "wav_id" : 1,
+    "type" : "Invisible"
+  }, {
+    "lane" : 2,
+    "time_us" : 500000,
+    "wav_id" : 2,
+    "type" : "Mine",
+    "damage" : 50.0
+  }, {
+    "lane" : 1,
+    "time_us" : 1000000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 5,
+    "time_us" : 1250000,
+    "wav_id" : 1,
+    "type" : "Invisible"
+  }, {
+    "lane" : 3,
+    "time_us" : 1500000,
+    "wav_id" : 2,
+    "type" : "Mine",
+    "damage" : 100.0
+  } ],
+  "bpm_changes" : [ ],
+  "stop_events" : [ ]
+}

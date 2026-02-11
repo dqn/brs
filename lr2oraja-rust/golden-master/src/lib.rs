@@ -11,6 +11,7 @@ pub mod replay_e2e_fixtures;
 pub mod rule_fixtures;
 pub mod skin_fixtures;
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -22,6 +23,8 @@ pub struct Fixture {
     pub metadata: FixtureMetadata,
     pub hashes: FixtureHashes,
     pub statistics: FixtureStatistics,
+    #[serde(default)]
+    pub timelines: Vec<FixtureTimeline>,
     pub notes: Vec<FixtureNote>,
     pub bpm_changes: Vec<FixtureBpmChange>,
     pub stop_events: Vec<FixtureStopEvent>,
@@ -60,6 +63,17 @@ pub struct FixtureStatistics {
     pub min_bpm: f64,
     pub max_bpm: f64,
     pub timeline_count: usize,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FixtureTimeline {
+    pub time_us: i64,
+    pub bpm: f64,
+    pub stop_us: i64,
+    #[serde(default)]
+    pub notes: Vec<FixtureNote>,
+    #[serde(default)]
+    pub hidden_notes: Vec<FixtureNote>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -282,6 +296,74 @@ pub fn compare_model(model: &bms_model::BmsModel, fixture: &Fixture) -> Vec<Stri
             fixture.statistics.max_bpm
         ));
     }
+    if fixture.statistics.timeline_count != fixture.timelines.len() {
+        diffs.push(format!(
+            "timeline_count(fixture_consistency): statistics={} timelines={}",
+            fixture.statistics.timeline_count,
+            fixture.timelines.len()
+        ));
+    }
+    if !fixture.timelines.is_empty() {
+        // Java timeline_count/getAllTimeLines include empty measure boundaries.
+        // Rust model.timelines intentionally tracks note-bearing times only.
+        let java_note_timelines: Vec<&FixtureTimeline> = fixture
+            .timelines
+            .iter()
+            .filter(|timeline| {
+                timeline
+                    .notes
+                    .iter()
+                    .any(|note| note.note_type != "LongNoteEnd")
+                    || !timeline.hidden_notes.is_empty()
+            })
+            .collect();
+
+        if model.timelines.len() != java_note_timelines.len() {
+            diffs.push(format!(
+                "timeline_count(note_timelines): rust={} java={}",
+                model.timelines.len(),
+                java_note_timelines.len()
+            ));
+        }
+
+        let mut rust_notes_by_time: HashMap<i64, usize> = HashMap::new();
+        for note in &model.notes {
+            *rust_notes_by_time.entry(note.time_us).or_insert(0) += 1;
+        }
+
+        let min_len = model.timelines.len().min(java_note_timelines.len());
+        for i in 0..min_len {
+            let rt = &model.timelines[i];
+            let ft = java_note_timelines[i];
+            if (rt.time_us - ft.time_us).abs() > 2 {
+                diffs.push(format!(
+                    "timeline[{}] time_us: rust={} java={}",
+                    i, rt.time_us, ft.time_us
+                ));
+            }
+            if (rt.bpm - ft.bpm).abs() > 0.001 {
+                diffs.push(format!(
+                    "timeline[{}] bpm: rust={} java={}",
+                    i, rt.bpm, ft.bpm
+                ));
+            }
+
+            let java_note_count = ft
+                .notes
+                .iter()
+                .filter(|note| note.note_type != "LongNoteEnd")
+                .count()
+                + ft.hidden_notes.len();
+            let rust_note_count = rust_notes_by_time.get(&rt.time_us).copied().unwrap_or(0);
+            if rust_note_count != java_note_count {
+                diffs.push(format!(
+                    "timeline[{}] note_count: rust={} java={}",
+                    i, rust_note_count, java_note_count
+                ));
+            }
+        }
+    }
+
     // Notes comparison (flat list, excluding LN ends which Java filters out)
     let rust_notes: Vec<&bms_model::Note> = model
         .notes

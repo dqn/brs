@@ -1,6 +1,6 @@
 // Golden master tests: compare Rust BMS/bmson parser output against Java fixtures
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use bms_model::{BmsDecoder, BmsonDecoder};
 use golden_master::{
@@ -19,17 +19,39 @@ fn test_bms_dir() -> &'static Path {
         .leak()
 }
 
+fn legacy_fixture_name(chart_name: &str) -> String {
+    let stem = Path::new(chart_name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or(chart_name);
+    format!("{stem}.json")
+}
+
+fn resolve_fixture_path(chart_name: &str) -> PathBuf {
+    // New naming keeps extension for uniqueness, e.g. 9key_pms.bms.json.
+    let modern = fixtures_dir().join(format!("{chart_name}.json"));
+    if modern.exists() {
+        return modern;
+    }
+
+    // Backward-compatible fallback during migration.
+    let legacy = fixtures_dir().join(legacy_fixture_name(chart_name));
+    if legacy.exists() {
+        return legacy;
+    }
+
+    panic!(
+        "Fixture not found for {chart_name}. Tried: {} and {}",
+        modern.display(),
+        legacy.display()
+    );
+}
+
 /// Test a single BMS file against its Java fixture
 fn run_golden_master_test(bms_name: &str) {
-    let fixture_name = bms_name.replace(".bms", ".json");
-    let fixture_path = fixtures_dir().join(&fixture_name);
+    let fixture_path = resolve_fixture_path(bms_name);
     let bms_path = test_bms_dir().join(bms_name);
 
-    assert!(
-        fixture_path.exists(),
-        "Fixture not found: {}",
-        fixture_path.display()
-    );
     assert!(
         bms_path.exists(),
         "BMS file not found: {}",
@@ -111,14 +133,8 @@ fn golden_master_defexrank() {
 fn golden_master_random_if() {
     // Uses fixed selectedRandoms=[1] to select #IF 1 branch deterministically.
     // Matching random_seeds.json on the Java side.
-    let fixture_path = fixtures_dir().join("random_if.json");
+    let fixture_path = resolve_fixture_path("random_if.bms");
     let bms_path = test_bms_dir().join("random_if.bms");
-
-    assert!(
-        fixture_path.exists(),
-        "Fixture not found: {}",
-        fixture_path.display()
-    );
     assert!(
         bms_path.exists(),
         "BMS file not found: {}",
@@ -135,15 +151,8 @@ fn golden_master_random_if() {
 
 /// Test a single bmson file against its Java fixture
 fn run_bmson_golden_master_test(bmson_name: &str) {
-    let fixture_name = bmson_name.replace(".bmson", ".json");
-    let fixture_path = fixtures_dir().join(&fixture_name);
+    let fixture_path = resolve_fixture_path(bmson_name);
     let bmson_path = test_bms_dir().join(bmson_name);
-
-    assert!(
-        fixture_path.exists(),
-        "Fixture not found: {}",
-        fixture_path.display()
-    );
     assert!(
         bmson_path.exists(),
         "bmson file not found: {}",

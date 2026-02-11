@@ -1,0 +1,178 @@
+{
+  "metadata" : {
+    "title" : "Minimal 7K Bmson Test",
+    "subtitle" : "",
+    "artist" : "brs-test",
+    "sub_artist" : "",
+    "genre" : "Test",
+    "initial_bpm" : 120.0,
+    "judge_rank" : 100,
+    "judge_rank_type" : "BMSON_JUDGERANK",
+    "total" : 300.0,
+    "total_type" : "BMSON",
+    "play_level" : "1",
+    "difficulty" : 0,
+    "player" : 0,
+    "mode" : "beat-7k",
+    "mode_key_count" : 8,
+    "ln_type" : 0,
+    "lnmode" : 0,
+    "banner" : "",
+    "stagefile" : "",
+    "backbmp" : "",
+    "preview" : ""
+  },
+  "hashes" : {
+    "md5" : "",
+    "sha256" : "44486e47b02efd892f8a4e6d1b38dcf5aecbf466e0f2f21442a7f40d39965cff"
+  },
+  "statistics" : {
+    "total_notes" : 8,
+    "total_notes_key" : 7,
+    "total_notes_long_key" : 0,
+    "total_notes_scratch" : 1,
+    "total_notes_long_scratch" : 0,
+    "total_notes_mine" : 0,
+    "min_bpm" : 120.0,
+    "max_bpm" : 120.0,
+    "timeline_count" : 9
+  },
+  "timelines" : [ {
+    "time_us" : 0,
+    "section" : 0.0,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 0,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 500000,
+    "section" : 0.25,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 1,
+      "time_us" : 500000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 1000000,
+    "section" : 0.5,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 2,
+      "time_us" : 1000000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 1500000,
+    "section" : 0.75,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 3,
+      "time_us" : 1500000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 2000000,
+    "section" : 1.0,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 4,
+      "time_us" : 2000000,
+      "wav_id" : 1,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 2500000,
+    "section" : 1.25,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 5,
+      "time_us" : 2500000,
+      "wav_id" : 1,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 3000000,
+    "section" : 1.5,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 6,
+      "time_us" : 3000000,
+      "wav_id" : 1,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 3500000,
+    "section" : 1.75,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 7,
+      "time_us" : 3500000,
+      "wav_id" : 1,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 4000000,
+    "section" : 2.0,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ ]
+  } ],
+  "notes" : [ {
+    "lane" : 0,
+    "time_us" : 0,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 1,
+    "time_us" : 500000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 2,
+    "time_us" : 1000000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 3,
+    "time_us" : 1500000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 4,
+    "time_us" : 2000000,
+    "wav_id" : 1,
+    "type" : "Normal"
+  }, {
+    "lane" : 5,
+    "time_us" : 2500000,
+    "wav_id" : 1,
+    "type" : "Normal"
+  }, {
+    "lane" : 6,
+    "time_us" : 3000000,
+    "wav_id" : 1,
+    "type" : "Normal"
+  }, {
+    "lane" : 7,
+    "time_us" : 3500000,
+    "wav_id" : 1,
+    "type" : "Normal"
+  } ],
+  "bpm_changes" : [ ],
+  "stop_events" : [ ]
+}

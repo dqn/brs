@@ -14,7 +14,7 @@
 //
 // Run: cargo test -p golden-master compare_render_snapshot -- --nocapture
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use bms_config::resolution::Resolution;
@@ -172,6 +172,73 @@ const TEST_CASES: &[RenderSnapshotTestCase] = &[
     },
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum DiffCategory {
+    CommandCount,
+    Visibility,
+    Geometry,
+    Detail,
+    Other,
+}
+
+impl DiffCategory {
+    fn label(self) -> &'static str {
+        match self {
+            Self::CommandCount => "command_count",
+            Self::Visibility => "visibility",
+            Self::Geometry => "geometry",
+            Self::Detail => "detail",
+            Self::Other => "other",
+        }
+    }
+}
+
+fn categorize_diff(diff: &str) -> DiffCategory {
+    if diff.starts_with("command_count:") {
+        DiffCategory::CommandCount
+    } else if diff.contains(" visible:") {
+        DiffCategory::Visibility
+    } else if diff.starts_with("skin_width:")
+        || diff.starts_with("skin_height:")
+        || diff.contains(" dst.")
+    {
+        DiffCategory::Geometry
+    } else if diff.contains(" detail")
+        || diff.contains(" color.")
+        || diff.contains(" angle:")
+        || diff.contains(" blend:")
+        || diff.contains(" object_type:")
+    {
+        DiffCategory::Detail
+    } else {
+        DiffCategory::Other
+    }
+}
+
+fn summarize_diff_categories(diffs: &[String]) -> String {
+    let mut counts: BTreeMap<DiffCategory, usize> = BTreeMap::new();
+    for diff in diffs {
+        *counts.entry(categorize_diff(diff)).or_insert(0) += 1;
+    }
+    if counts.is_empty() {
+        return "none".to_string();
+    }
+    counts
+        .iter()
+        .map(|(category, count)| format!("{}={}", category.label(), count))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn render_snapshot_debug_paths(case_name: &str) -> (PathBuf, PathBuf, PathBuf) {
+    let debug_dir = fixture_dir().join("render_snapshots_debug");
+    (
+        debug_dir.join(format!("{case_name}__java.json")),
+        debug_dir.join(format!("{case_name}__rust.json")),
+        debug_dir.join(format!("{case_name}__diffs.txt")),
+    )
+}
+
 fn snapshot_diffs(tc: &RenderSnapshotTestCase) -> (RenderSnapshot, RenderSnapshot, Vec<String>) {
     let java_snapshot = load_java_snapshot(tc.name);
 
@@ -190,40 +257,56 @@ fn snapshot_diffs(tc: &RenderSnapshotTestCase) -> (RenderSnapshot, RenderSnapsho
 
 fn compare_java_rust_render_snapshot(tc: &RenderSnapshotTestCase) {
     let (java_snapshot, rust_snapshot, diffs) = snapshot_diffs(tc);
+    let category_summary = summarize_diff_categories(&diffs);
 
     let visible_java = java_snapshot.commands.iter().filter(|c| c.visible).count();
     let visible_rust = rust_snapshot.commands.iter().filter(|c| c.visible).count();
     eprintln!(
-        "{}: java {} objects ({} visible), rust {} objects ({} visible), {} diffs",
+        "{}: java {} objects ({} visible), rust {} objects ({} visible), {} diffs ({})",
         tc.name,
         java_snapshot.commands.len(),
         visible_java,
         rust_snapshot.commands.len(),
         visible_rust,
-        diffs.len()
+        diffs.len(),
+        category_summary
     );
 
     if !diffs.is_empty() {
-        // Save both snapshots for debugging
+        // Save Java/Rust snapshots and raw diffs for deterministic debugging.
+        let (java_path, rust_path, diffs_path) = render_snapshot_debug_paths(tc.name);
         let debug_dir = fixture_dir().join("render_snapshots_debug");
         std::fs::create_dir_all(&debug_dir).ok();
 
-        let rust_path = debug_dir.join(format!("{}_rust.json", tc.name));
-        let json = serde_json::to_string_pretty(&rust_snapshot).unwrap();
-        std::fs::write(&rust_path, json).ok();
+        std::fs::write(
+            &java_path,
+            serde_json::to_string_pretty(&java_snapshot).unwrap(),
+        )
+        .ok();
+        std::fs::write(
+            &rust_path,
+            serde_json::to_string_pretty(&rust_snapshot).unwrap(),
+        )
+        .ok();
+        std::fs::write(&diffs_path, diffs.join("\n")).ok();
 
         let first_10: Vec<_> = diffs.iter().take(10).collect();
         panic!(
-            "RenderSnapshot mismatch for {} ({} differences, showing first 10):\n{}\n  \
-             rust debug: {}",
+            "RenderSnapshot mismatch for {} ({} differences, categories: {}, showing first 10):\n{}\n  \
+             java debug: {}\n  \
+             rust debug: {}\n  \
+             diff list: {}",
             tc.name,
             diffs.len(),
+            category_summary,
             first_10
                 .iter()
                 .map(|d| format!("  - {}", d))
                 .collect::<Vec<_>>()
                 .join("\n"),
+            java_path.display(),
             rust_path.display(),
+            diffs_path.display(),
         );
     }
 }
@@ -241,12 +324,14 @@ fn render_snapshot_java_fixtures_exist() {
 fn render_snapshot_parity_regression_guard() {
     for tc in TEST_CASES {
         let (_java_snapshot, _rust_snapshot, diffs) = snapshot_diffs(tc);
+        let category_summary = summarize_diff_categories(&diffs);
         assert!(
             diffs.len() <= tc.known_diff_budget,
-            "RenderSnapshot diff budget exceeded for {}: {} > {}.\nFirst differences:\n{}",
+            "RenderSnapshot diff budget exceeded for {}: {} > {}.\nCategories: {}\nFirst differences:\n{}",
             tc.name,
             diffs.len(),
             tc.known_diff_budget,
+            category_summary,
             diffs
                 .iter()
                 .take(10)
