@@ -57,6 +57,10 @@ struct Args {
     /// Path to player config JSON file.
     #[arg(long, default_value = "config_player.json")]
     player_config: PathBuf,
+
+    /// Skip the launcher GUI and start the game directly.
+    #[arg(long)]
+    no_launcher: bool,
 }
 
 fn main() -> Result<()> {
@@ -69,6 +73,22 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
     info!("brs starting");
+
+    // Launch settings GUI unless skipped
+    if !args.no_launcher && args.bms.is_none() {
+        match bms_launcher::run_launcher(&args.config, &args.player_config) {
+            Ok(Some((_, _))) => {
+                info!("Launcher: user clicked Start Game");
+            }
+            Ok(None) => {
+                info!("Launcher: user cancelled");
+                return Ok(());
+            }
+            Err(e) => {
+                tracing::warn!("Launcher failed: {e}, continuing with saved config");
+            }
+        }
+    }
 
     // Load BMS if specified
     let mut resource = PlayerResource::default();

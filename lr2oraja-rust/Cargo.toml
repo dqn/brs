@@ -74,6 +74,9 @@ quick-xml = { version = "0.37", features = ["serialize"] }
 uuid = { version = "1", features = ["v4"] }
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
 chrono = "0.4"
+eframe = "0.31"
+egui = "0.31"
+rfd = "0.15"
 sevenz-rust = "0.6"
 tar = "0.4"
 
