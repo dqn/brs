@@ -16,6 +16,14 @@ pub fn render(ctx: &egui::Context, state: &mut ModMenuState) {
             ui.checkbox(&mut state.show_song_manager, "Show Song Manager Window");
             ui.checkbox(&mut state.show_download_tasks, "Show Download Tasks Window");
             ui.checkbox(&mut state.show_misc_setting, "Show Misc Setting Window");
+            ui.checkbox(
+                &mut state.show_skin_widget_manager,
+                "Show Skin Widget Manager Window",
+            );
+            ui.checkbox(
+                &mut state.show_performance_monitor,
+                "Show Performance Monitor Window",
+            );
         });
 
     if state.show_freq_trainer {
@@ -43,5 +51,19 @@ pub fn render(ctx: &egui::Context, state: &mut ModMenuState) {
     }
     if state.show_misc_setting {
         menus::misc_setting::render(ctx, &mut state.show_misc_setting, &mut state.misc_setting);
+    }
+    if state.show_skin_widget_manager {
+        menus::skin_widget_manager::render(
+            ctx,
+            &mut state.show_skin_widget_manager,
+            &mut state.skin_widget_manager,
+        );
+    }
+    if state.show_performance_monitor {
+        menus::performance_monitor::render(
+            ctx,
+            &mut state.show_performance_monitor,
+            &mut state.performance_monitor,
+        );
     }
 }
