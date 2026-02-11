@@ -4,6 +4,28 @@
 
 use bms_database::{SongData, SongDatabase};
 
+/// Sort modes for the bar list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SortMode {
+    #[default]
+    Default,
+    Title,
+    Artist,
+    Level,
+}
+
+impl SortMode {
+    /// Cycle to the next sort mode.
+    pub fn next(self) -> Self {
+        match self {
+            Self::Default => Self::Title,
+            Self::Title => Self::Artist,
+            Self::Artist => Self::Level,
+            Self::Level => Self::Default,
+        }
+    }
+}
+
 /// A single bar entry in the song list.
 #[derive(Debug, Clone)]
 pub enum Bar {
@@ -95,6 +117,77 @@ impl BarManager {
     /// Returns true if currently inside a folder (not at root).
     pub fn is_in_folder(&self) -> bool {
         !self.folder_stack.is_empty()
+    }
+
+    /// Sort bars by the given mode.
+    pub fn sort(&mut self, mode: SortMode) {
+        match mode {
+            SortMode::Default => {} // Keep original order
+            SortMode::Title => {
+                self.bars.sort_by(|a, b| {
+                    let title_a = match a {
+                        Bar::Song(s) => &s.title,
+                        Bar::Folder { name, .. } => name,
+                    };
+                    let title_b = match b {
+                        Bar::Song(s) => &s.title,
+                        Bar::Folder { name, .. } => name,
+                    };
+                    title_a.to_lowercase().cmp(&title_b.to_lowercase())
+                });
+            }
+            SortMode::Artist => {
+                self.bars.sort_by(|a, b| {
+                    let artist_a = match a {
+                        Bar::Song(s) => s.artist.as_str(),
+                        Bar::Folder { .. } => "",
+                    };
+                    let artist_b = match b {
+                        Bar::Song(s) => s.artist.as_str(),
+                        Bar::Folder { .. } => "",
+                    };
+                    artist_a.to_lowercase().cmp(&artist_b.to_lowercase())
+                });
+            }
+            SortMode::Level => {
+                self.bars.sort_by(|a, b| {
+                    let level_a = match a {
+                        Bar::Song(s) => s.level,
+                        Bar::Folder { .. } => 0,
+                    };
+                    let level_b = match b {
+                        Bar::Song(s) => s.level,
+                        Bar::Folder { .. } => 0,
+                    };
+                    level_a.cmp(&level_b)
+                });
+            }
+        }
+        self.cursor = 0;
+    }
+
+    /// Filter bars to retain only songs matching the given mode ID.
+    /// Folder bars are always retained.
+    pub fn filter_by_mode(&mut self, mode: Option<i32>) {
+        if let Some(mode_id) = mode {
+            self.bars.retain(|bar| match bar {
+                Bar::Song(s) => s.mode == mode_id,
+                Bar::Folder { .. } => true,
+            });
+            self.cursor = 0;
+        }
+    }
+
+    /// Search for songs matching the query text, pushing the current bar list onto the folder stack.
+    #[allow(dead_code)] // Will be called when search UI is integrated
+    pub fn search(&mut self, song_db: &SongDatabase, query: &str) {
+        let songs = song_db.get_song_datas_by_text(query).unwrap_or_default();
+        // Save current state to folder stack
+        let old_bars = std::mem::take(&mut self.bars);
+        let old_cursor = self.cursor;
+        self.folder_stack.push((old_bars, old_cursor));
+        self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
+        self.cursor = 0;
     }
 }
 
@@ -270,5 +363,175 @@ mod tests {
         }))];
         bm.leave_folder();
         assert_eq!(bm.bar_count(), 1);
+    }
+
+    #[test]
+    fn sort_by_title_alphabetical() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                title: "Charlie".to_string(),
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                title: "Alpha".to_string(),
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                title: "Bravo".to_string(),
+                ..Default::default()
+            })),
+        ];
+        bm.cursor = 2;
+        bm.sort(SortMode::Title);
+        assert_eq!(bm.cursor_pos(), 0);
+        match &bm.bars[0] {
+            Bar::Song(s) => assert_eq!(s.title, "Alpha"),
+            _ => panic!("expected Song"),
+        }
+        match &bm.bars[1] {
+            Bar::Song(s) => assert_eq!(s.title, "Bravo"),
+            _ => panic!("expected Song"),
+        }
+        match &bm.bars[2] {
+            Bar::Song(s) => assert_eq!(s.title, "Charlie"),
+            _ => panic!("expected Song"),
+        }
+    }
+
+    #[test]
+    fn sort_by_level_ascending() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                title: "Hard".to_string(),
+                level: 12,
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                title: "Easy".to_string(),
+                level: 3,
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                title: "Medium".to_string(),
+                level: 7,
+                ..Default::default()
+            })),
+        ];
+        bm.sort(SortMode::Level);
+        assert_eq!(bm.cursor_pos(), 0);
+        match &bm.bars[0] {
+            Bar::Song(s) => assert_eq!(s.level, 3),
+            _ => panic!("expected Song"),
+        }
+        match &bm.bars[1] {
+            Bar::Song(s) => assert_eq!(s.level, 7),
+            _ => panic!("expected Song"),
+        }
+        match &bm.bars[2] {
+            Bar::Song(s) => assert_eq!(s.level, 12),
+            _ => panic!("expected Song"),
+        }
+    }
+
+    #[test]
+    fn filter_by_mode_retains_matching() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                title: "7K Song".to_string(),
+                mode: 7,
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                title: "14K Song".to_string(),
+                mode: 14,
+                ..Default::default()
+            })),
+            Bar::Folder {
+                name: "Folder".to_string(),
+                path: "f".to_string(),
+            },
+            Bar::Song(Box::new(SongData {
+                title: "Another 7K".to_string(),
+                mode: 7,
+                ..Default::default()
+            })),
+        ];
+        bm.cursor = 2;
+        bm.filter_by_mode(Some(7));
+        assert_eq!(bm.cursor_pos(), 0);
+        // Should retain: 7K Song, Folder, Another 7K (3 bars)
+        assert_eq!(bm.bar_count(), 3);
+        // 14K Song should be removed
+        for bar in &bm.bars {
+            if let Bar::Song(s) = bar {
+                assert_eq!(s.mode, 7);
+            }
+        }
+    }
+
+    #[test]
+    fn filter_by_mode_none_is_noop() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![Bar::Song(Box::new(SongData {
+            title: "Song".to_string(),
+            mode: 7,
+            ..Default::default()
+        }))];
+        bm.filter_by_mode(None);
+        assert_eq!(bm.bar_count(), 1);
+    }
+
+    #[test]
+    fn search_pushes_to_folder_stack() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let songs = vec![
+            SongData {
+                md5: "aaa".to_string(),
+                sha256: "aaa_sha".to_string(),
+                title: "Find Me".to_string(),
+                path: "a.bms".to_string(),
+                ..Default::default()
+            },
+            SongData {
+                md5: "bbb".to_string(),
+                sha256: "bbb_sha".to_string(),
+                title: "Other Song".to_string(),
+                path: "b.bms".to_string(),
+                ..Default::default()
+            },
+        ];
+        db.set_song_datas(&songs).unwrap();
+
+        let mut bm = BarManager::new();
+        bm.bars = vec![Bar::Song(Box::new(SongData {
+            title: "Root".to_string(),
+            ..Default::default()
+        }))];
+        bm.cursor = 0;
+
+        bm.search(&db, "Find");
+        assert!(bm.is_in_folder());
+        assert_eq!(bm.bar_count(), 1);
+        assert_eq!(bm.cursor_pos(), 0);
+        match bm.current() {
+            Some(Bar::Song(s)) => assert_eq!(s.title, "Find Me"),
+            _ => panic!("expected Song with title 'Find Me'"),
+        }
+
+        // Leave search results should restore original
+        bm.leave_folder();
+        assert_eq!(bm.bar_count(), 1);
+        assert!(!bm.is_in_folder());
+    }
+
+    #[test]
+    fn sort_mode_cycles() {
+        assert_eq!(SortMode::Default.next(), SortMode::Title);
+        assert_eq!(SortMode::Title.next(), SortMode::Artist);
+        assert_eq!(SortMode::Artist.next(), SortMode::Level);
+        assert_eq!(SortMode::Level.next(), SortMode::Default);
     }
 }

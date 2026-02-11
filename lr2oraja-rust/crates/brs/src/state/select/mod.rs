@@ -13,7 +13,7 @@ use bms_skin::property_id::{TIMER_FADEOUT, TIMER_STARTINPUT};
 use crate::app_state::AppStateType;
 use crate::state::{GameStateHandler, StateContext};
 
-use bar_manager::{Bar, BarManager};
+use bar_manager::{Bar, BarManager, SortMode};
 
 /// Default input delay in milliseconds.
 const DEFAULT_INPUT_DELAY_MS: i64 = 500;
@@ -24,6 +24,12 @@ const DEFAULT_FADEOUT_DURATION_MS: i64 = 500;
 pub struct MusicSelectState {
     bar_manager: BarManager,
     fadeout_started: bool,
+    sort_mode: SortMode,
+    mode_filter: Option<i32>,
+    #[allow(dead_code)] // Reserved for text search UI integration
+    search_mode: bool,
+    #[allow(dead_code)] // Reserved for text search UI integration
+    search_text: String,
 }
 
 impl MusicSelectState {
@@ -31,6 +37,10 @@ impl MusicSelectState {
         Self {
             bar_manager: BarManager::new(),
             fadeout_started: false,
+            sort_mode: SortMode::Default,
+            mode_filter: None,
+            search_mode: false,
+            search_text: String::new(),
         }
     }
 }
@@ -110,6 +120,70 @@ impl GameStateHandler for MusicSelectState {
                         *ctx.transition = Some(AppStateType::SkinConfig);
                         return;
                     }
+                    ControlKeys::Num2 => {
+                        // Cycle sort mode
+                        self.sort_mode = self.sort_mode.next();
+                        self.bar_manager.sort(self.sort_mode);
+                        info!(sort = ?self.sort_mode, "MusicSelect: sort changed");
+                        return;
+                    }
+                    ControlKeys::Num1 => {
+                        // Cycle mode filter
+                        self.mode_filter = match self.mode_filter {
+                            None => Some(7),      // Beat7K
+                            Some(7) => Some(14),  // Beat14K
+                            Some(14) => Some(9),  // PopN9K
+                            Some(9) => Some(5),   // Beat5K
+                            Some(5) => Some(10),  // Beat10K
+                            Some(10) => Some(25), // 24K
+                            _ => None,            // All
+                        };
+                        if let Some(db) = ctx.database {
+                            self.bar_manager.load_root(&db.song_db);
+                            if let Some(mode_id) = self.mode_filter {
+                                self.bar_manager.filter_by_mode(Some(mode_id));
+                            }
+                            self.bar_manager.sort(self.sort_mode);
+                        }
+                        info!(filter = ?self.mode_filter, "MusicSelect: mode filter changed");
+                        return;
+                    }
+                    ControlKeys::Num3 => {
+                        // Cycle gauge type
+                        ctx.player_config.gauge = (ctx.player_config.gauge + 1) % 6;
+                        info!(
+                            gauge = ctx.player_config.gauge,
+                            "MusicSelect: gauge changed"
+                        );
+                        return;
+                    }
+                    ControlKeys::Num4 => {
+                        // Cycle random type
+                        ctx.player_config.random = (ctx.player_config.random + 1) % 10;
+                        info!(
+                            random = ctx.player_config.random,
+                            "MusicSelect: random changed"
+                        );
+                        return;
+                    }
+                    ControlKeys::Num5 => {
+                        // Cycle DP option
+                        ctx.player_config.doubleoption = (ctx.player_config.doubleoption + 1) % 4;
+                        info!(
+                            dp = ctx.player_config.doubleoption,
+                            "MusicSelect: DP option changed"
+                        );
+                        return;
+                    }
+                    ControlKeys::Num6 => {
+                        // Cycle hi-speed (placeholder for future integration)
+                        return;
+                    }
+                    ControlKeys::Del => {
+                        // Transition to KeyConfig
+                        *ctx.transition = Some(AppStateType::KeyConfig);
+                        return;
+                    }
                     _ => {}
                 }
             }
@@ -160,11 +234,20 @@ impl MusicSelectState {
     pub(crate) fn is_fadeout_started(&self) -> bool {
         self.fadeout_started
     }
+
+    pub(crate) fn sort_mode(&self) -> SortMode {
+        self.sort_mode
+    }
+
+    pub(crate) fn mode_filter(&self) -> Option<i32> {
+        self.mode_filter
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::input_mapper::InputState;
     use crate::player_resource::PlayerResource;
     use crate::timer_manager::TimerManager;
     use bms_config::{Config, PlayerConfig};
@@ -174,7 +257,7 @@ mod tests {
         timer: &'a mut TimerManager,
         resource: &'a mut PlayerResource,
         config: &'a Config,
-        player_config: &'a PlayerConfig,
+        player_config: &'a mut PlayerConfig,
         transition: &'a mut Option<AppStateType>,
     ) -> StateContext<'a> {
         StateContext {
@@ -186,7 +269,37 @@ mod tests {
             keyboard_backend: None,
             database: None,
             input_state: None,
+            skin_manager: None,
+            sound_manager: None,
         }
+    }
+
+    /// Create a context with input enabled (TIMER_STARTINPUT on) and a key pressed.
+    fn make_input_ctx<'a>(
+        timer: &'a mut TimerManager,
+        resource: &'a mut PlayerResource,
+        config: &'a Config,
+        player_config: &'a mut PlayerConfig,
+        transition: &'a mut Option<AppStateType>,
+        input_state: &'a InputState,
+    ) -> StateContext<'a> {
+        StateContext {
+            timer,
+            resource,
+            config,
+            player_config,
+            transition,
+            keyboard_backend: None,
+            database: None,
+            input_state: Some(input_state),
+            skin_manager: None,
+            sound_manager: None,
+        }
+    }
+
+    fn setup_input_ready(timer: &mut TimerManager) {
+        timer.set_now_micro_time(1_000_000);
+        timer.switch_timer(TIMER_STARTINPUT, true);
     }
 
     #[test]
@@ -196,14 +309,14 @@ mod tests {
         let mut resource = PlayerResource::default();
         resource.bms_model = Some(BmsModel::default());
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         let mut ctx = make_ctx(
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.create(&mut ctx);
@@ -216,14 +329,14 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         let mut ctx = make_ctx(
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.create(&mut ctx);
@@ -236,7 +349,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         // Before delay
@@ -245,7 +358,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -257,7 +370,7 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
@@ -270,7 +383,7 @@ mod tests {
         let mut timer = TimerManager::new();
         let mut resource = PlayerResource::default();
         let config = Config::default();
-        let player_config = PlayerConfig::default();
+        let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
         timer.set_now_micro_time(1_000_000);
@@ -281,10 +394,276 @@ mod tests {
             &mut timer,
             &mut resource,
             &config,
-            &player_config,
+            &mut player_config,
             &mut transition,
         );
         state.render(&mut ctx);
         assert_eq!(transition, Some(AppStateType::Decide));
+    }
+
+    #[test]
+    fn sort_mode_cycles_on_num2() {
+        let mut state = MusicSelectState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_input_ready(&mut timer);
+        assert_eq!(state.sort_mode(), SortMode::Default);
+
+        let input = InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Num2],
+        };
+        let mut ctx = make_input_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+            &input,
+        );
+        state.input(&mut ctx);
+        assert_eq!(state.sort_mode(), SortMode::Title);
+
+        state.input(&mut ctx);
+        assert_eq!(state.sort_mode(), SortMode::Artist);
+
+        state.input(&mut ctx);
+        assert_eq!(state.sort_mode(), SortMode::Level);
+
+        state.input(&mut ctx);
+        assert_eq!(state.sort_mode(), SortMode::Default);
+    }
+
+    #[test]
+    fn mode_filter_cycles_on_num1() {
+        let mut state = MusicSelectState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_input_ready(&mut timer);
+        assert_eq!(state.mode_filter(), None);
+
+        let input = InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Num1],
+        };
+        // Without database, filter changes but no reload happens
+        let mut ctx = make_input_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+            &input,
+        );
+        state.input(&mut ctx);
+        assert_eq!(state.mode_filter(), Some(7));
+
+        state.input(&mut ctx);
+        assert_eq!(state.mode_filter(), Some(14));
+
+        state.input(&mut ctx);
+        assert_eq!(state.mode_filter(), Some(9));
+
+        state.input(&mut ctx);
+        assert_eq!(state.mode_filter(), Some(5));
+
+        state.input(&mut ctx);
+        assert_eq!(state.mode_filter(), Some(10));
+
+        state.input(&mut ctx);
+        assert_eq!(state.mode_filter(), Some(25));
+
+        state.input(&mut ctx);
+        assert_eq!(state.mode_filter(), None);
+    }
+
+    #[test]
+    fn gauge_cycles_on_num3() {
+        let mut state = MusicSelectState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_input_ready(&mut timer);
+        assert_eq!(player_config.gauge, 0);
+
+        let input = InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Num3],
+        };
+
+        // Press Num3: gauge 0 -> 1
+        {
+            let mut ctx = make_input_ctx(
+                &mut timer,
+                &mut resource,
+                &config,
+                &mut player_config,
+                &mut transition,
+                &input,
+            );
+            state.input(&mut ctx);
+        }
+        assert_eq!(player_config.gauge, 1);
+
+        // Press Num3: gauge 1 -> 2
+        {
+            let mut ctx = make_input_ctx(
+                &mut timer,
+                &mut resource,
+                &config,
+                &mut player_config,
+                &mut transition,
+                &input,
+            );
+            state.input(&mut ctx);
+        }
+        assert_eq!(player_config.gauge, 2);
+
+        // Test wrap-around: 5 -> 0
+        player_config.gauge = 5;
+        {
+            let mut ctx = make_input_ctx(
+                &mut timer,
+                &mut resource,
+                &config,
+                &mut player_config,
+                &mut transition,
+                &input,
+            );
+            state.input(&mut ctx);
+        }
+        assert_eq!(player_config.gauge, 0);
+    }
+
+    #[test]
+    fn random_cycles_on_num4() {
+        let mut state = MusicSelectState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_input_ready(&mut timer);
+        assert_eq!(player_config.random, 0);
+
+        let input = InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Num4],
+        };
+
+        // Press Num4: random 0 -> 1
+        {
+            let mut ctx = make_input_ctx(
+                &mut timer,
+                &mut resource,
+                &config,
+                &mut player_config,
+                &mut transition,
+                &input,
+            );
+            state.input(&mut ctx);
+        }
+        assert_eq!(player_config.random, 1);
+
+        // Test wrap-around: 9 -> 0
+        player_config.random = 9;
+        {
+            let mut ctx = make_input_ctx(
+                &mut timer,
+                &mut resource,
+                &config,
+                &mut player_config,
+                &mut transition,
+                &input,
+            );
+            state.input(&mut ctx);
+        }
+        assert_eq!(player_config.random, 0);
+    }
+
+    #[test]
+    fn dp_option_cycles_on_num5() {
+        let mut state = MusicSelectState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_input_ready(&mut timer);
+        assert_eq!(player_config.doubleoption, 0);
+
+        let input = InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Num5],
+        };
+
+        // Press Num5: doubleoption 0 -> 1
+        {
+            let mut ctx = make_input_ctx(
+                &mut timer,
+                &mut resource,
+                &config,
+                &mut player_config,
+                &mut transition,
+                &input,
+            );
+            state.input(&mut ctx);
+        }
+        assert_eq!(player_config.doubleoption, 1);
+
+        // Test wrap-around: 3 -> 0
+        player_config.doubleoption = 3;
+        {
+            let mut ctx = make_input_ctx(
+                &mut timer,
+                &mut resource,
+                &config,
+                &mut player_config,
+                &mut transition,
+                &input,
+            );
+            state.input(&mut ctx);
+        }
+        assert_eq!(player_config.doubleoption, 0);
+    }
+
+    #[test]
+    fn del_transitions_to_key_config() {
+        let mut state = MusicSelectState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_input_ready(&mut timer);
+
+        let input = InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Del],
+        };
+        let mut ctx = make_input_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+            &input,
+        );
+        state.input(&mut ctx);
+        assert_eq!(transition, Some(AppStateType::KeyConfig));
     }
 }
