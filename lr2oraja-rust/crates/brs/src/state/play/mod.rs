@@ -873,6 +873,8 @@ mod tests {
             player_config,
             transition,
             keyboard_backend: None,
+            database: None,
+            input_state: None,
         }
     }
 

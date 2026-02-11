@@ -11,6 +11,8 @@ pub mod select;
 pub mod skin_config;
 
 use crate::app_state::AppStateType;
+use crate::database_manager::DatabaseManager;
+use crate::input_mapper::InputState;
 use crate::player_resource::PlayerResource;
 use crate::timer_manager::TimerManager;
 use bms_config::{Config, PlayerConfig};
@@ -20,13 +22,17 @@ use bms_input::keyboard::KeyboardBackend;
 pub struct StateContext<'a> {
     pub timer: &'a mut TimerManager,
     pub resource: &'a mut PlayerResource,
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Reserved for future state handlers needing config
     pub config: &'a Config,
     pub player_config: &'a PlayerConfig,
     /// Set this to request a state transition at the end of the frame.
     pub transition: &'a mut Option<AppStateType>,
     /// Keyboard backend for input polling (None in tests or non-Bevy contexts).
     pub keyboard_backend: Option<&'a dyn KeyboardBackend>,
+    /// Database connections (None when DB is not available).
+    pub database: Option<&'a DatabaseManager>,
+    /// Input state for the current frame (control keys + commands).
+    pub input_state: Option<&'a InputState>,
 }
 
 /// Trait for game state handlers. Each variant of `AppStateType` has

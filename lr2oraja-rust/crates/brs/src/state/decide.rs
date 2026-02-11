@@ -1,10 +1,11 @@
 // MusicDecide state — ported from Java MusicDecide.java.
 //
 // Simplest full state: loads skin, runs timer-based sequence, transitions.
-// Skin loading and sound playback are deferred to later sub-phases.
+// Skin loading and sound playback are deferred to Phase 15-E.
 
 use tracing::info;
 
+use bms_input::control_keys::ControlKeys;
 use bms_skin::property_id::{TIMER_FADEOUT, TIMER_STARTINPUT};
 
 use crate::app_state::AppStateType;
@@ -38,13 +39,13 @@ impl GameStateHandler for MusicDecideState {
     fn create(&mut self, ctx: &mut StateContext) {
         self.cancel = false;
         info!("MusicDecide: create");
-        // TODO: loadSkin(SkinType::DECIDE) — deferred to later sub-phase
+        // TODO: loadSkin(SkinType::DECIDE) — deferred to Phase 15-E
         ctx.resource.org_gauge_option = ctx.player_config.gauge;
     }
 
     fn prepare(&mut self, _ctx: &mut StateContext) {
         info!("MusicDecide: prepare");
-        // TODO: play(DECIDE) — system sound deferred to later sub-phase
+        // TODO: play(DECIDE) — system sound deferred to Phase 15-E
     }
 
     fn render(&mut self, ctx: &mut StateContext) {
@@ -77,9 +78,22 @@ impl GameStateHandler for MusicDecideState {
             return;
         }
 
-        // TODO: Real input checking via BMSPlayerInputProcessor.
-        // For now, input is only handled through test helpers.
-        let _ = ctx;
+        // Check real input from InputMapper
+        if let Some(input_state) = ctx.input_state {
+            for key in &input_state.pressed_keys {
+                match key {
+                    ControlKeys::Enter => {
+                        self.do_confirm(ctx);
+                        return;
+                    }
+                    ControlKeys::Escape => {
+                        self.do_cancel(ctx);
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 
     fn shutdown(&mut self, _ctx: &mut StateContext) {
@@ -87,20 +101,30 @@ impl GameStateHandler for MusicDecideState {
     }
 }
 
-/// Test helper: simulates confirm input (key press to proceed to Play).
-#[cfg(test)]
 impl MusicDecideState {
-    pub(crate) fn confirm(&mut self, ctx: &mut StateContext) {
+    fn do_confirm(&mut self, ctx: &mut StateContext) {
         if !ctx.timer.is_timer_on(TIMER_FADEOUT) && ctx.timer.is_timer_on(TIMER_STARTINPUT) {
             ctx.timer.set_timer_on(TIMER_FADEOUT);
         }
     }
 
-    pub(crate) fn cancel(&mut self, ctx: &mut StateContext) {
+    fn do_cancel(&mut self, ctx: &mut StateContext) {
         if !ctx.timer.is_timer_on(TIMER_FADEOUT) && ctx.timer.is_timer_on(TIMER_STARTINPUT) {
             self.cancel = true;
             ctx.timer.set_timer_on(TIMER_FADEOUT);
         }
+    }
+}
+
+/// Test helper: simulates confirm input (key press to proceed to Play).
+#[cfg(test)]
+impl MusicDecideState {
+    pub(crate) fn confirm(&mut self, ctx: &mut StateContext) {
+        self.do_confirm(ctx);
+    }
+
+    pub(crate) fn cancel(&mut self, ctx: &mut StateContext) {
+        self.do_cancel(ctx);
     }
 
     pub(crate) fn is_cancel(&self) -> bool {
@@ -114,6 +138,8 @@ mod tests {
     use crate::player_resource::PlayerResource;
     use crate::timer_manager::TimerManager;
     use bms_config::{Config, PlayerConfig};
+    use bms_input::control_keys::ControlKeys;
+    use bms_input::keyboard::VirtualKeyboardBackend;
 
     fn make_ctx<'a>(
         timer: &'a mut TimerManager,
@@ -129,6 +155,8 @@ mod tests {
             player_config,
             transition,
             keyboard_backend: None,
+            database: None,
+            input_state: None,
         }
     }
 
@@ -344,5 +372,72 @@ mod tests {
         );
         state.confirm(&mut ctx);
         assert_eq!(timer.micro_timer(TIMER_FADEOUT), fadeout_time);
+    }
+
+    #[test]
+    fn input_enter_triggers_confirm() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        // Enable input
+        timer.set_now_micro_time(600_000);
+        timer.switch_timer(TIMER_STARTINPUT, true);
+
+        let _backend = VirtualKeyboardBackend::new();
+        let input_state = crate::input_mapper::InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Enter],
+        };
+
+        let mut ctx = StateContext {
+            timer: &mut timer,
+            resource: &mut resource,
+            config: &config,
+            player_config: &player_config,
+            transition: &mut transition,
+            keyboard_backend: None,
+            database: None,
+            input_state: Some(&input_state),
+        };
+        state.input(&mut ctx);
+        assert!(timer.is_timer_on(TIMER_FADEOUT));
+        assert!(!state.is_cancel());
+    }
+
+    #[test]
+    fn input_escape_triggers_cancel() {
+        let mut state = MusicDecideState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        // Enable input
+        timer.set_now_micro_time(600_000);
+        timer.switch_timer(TIMER_STARTINPUT, true);
+
+        let input_state = crate::input_mapper::InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Escape],
+        };
+
+        let mut ctx = StateContext {
+            timer: &mut timer,
+            resource: &mut resource,
+            config: &config,
+            player_config: &player_config,
+            transition: &mut transition,
+            keyboard_backend: None,
+            database: None,
+            input_state: Some(&input_state),
+        };
+        state.input(&mut ctx);
+        assert!(timer.is_timer_on(TIMER_FADEOUT));
+        assert!(state.is_cancel());
     }
 }

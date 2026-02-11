@@ -6,6 +6,8 @@ use std::collections::HashMap;
 
 use tracing::info;
 
+use crate::database_manager::DatabaseManager;
+use crate::input_mapper::InputState;
 use crate::player_resource::PlayerResource;
 use crate::state::{GameStateHandler, StateContext};
 use crate::timer_manager::TimerManager;
@@ -35,6 +37,17 @@ impl std::fmt::Display for AppStateType {
             Self::SkinConfig => write!(f, "SkinConfig"),
         }
     }
+}
+
+/// Parameters passed to `StateRegistry::tick` each frame.
+pub struct TickParams<'a> {
+    pub timer: &'a mut TimerManager,
+    pub resource: &'a mut PlayerResource,
+    pub config: &'a Config,
+    pub player_config: &'a PlayerConfig,
+    pub keyboard_backend: Option<&'a dyn bms_input::keyboard::KeyboardBackend>,
+    pub database: Option<&'a DatabaseManager>,
+    pub input_state: Option<&'a InputState>,
 }
 
 /// Registry of all state handlers with transition logic.
@@ -68,29 +81,24 @@ impl StateRegistry {
 
     /// Runs one frame: initializes if needed, processes render + input,
     /// then handles any pending transition.
-    pub fn tick(
-        &mut self,
-        timer: &mut TimerManager,
-        resource: &mut PlayerResource,
-        config: &Config,
-        player_config: &PlayerConfig,
-        keyboard_backend: Option<&dyn bms_input::keyboard::KeyboardBackend>,
-    ) {
+    pub fn tick(&mut self, params: &mut TickParams) {
         let mut transition: Option<AppStateType> = None;
 
         // First-time initialization
         if !self.initialized {
             self.initialized = true;
             info!(state = %self.current, "Initializing state");
-            timer.reset();
+            params.timer.reset();
             if let Some(handler) = self.handlers.get_mut(&self.current) {
                 let mut ctx = StateContext {
-                    timer,
-                    resource,
-                    config,
-                    player_config,
+                    timer: params.timer,
+                    resource: params.resource,
+                    config: params.config,
+                    player_config: params.player_config,
                     transition: &mut transition,
-                    keyboard_backend,
+                    keyboard_backend: params.keyboard_backend,
+                    database: params.database,
+                    input_state: params.input_state,
                 };
                 handler.create(&mut ctx);
                 handler.prepare(&mut ctx);
@@ -100,12 +108,14 @@ impl StateRegistry {
         // Run current state's render and input
         if let Some(handler) = self.handlers.get_mut(&self.current) {
             let mut ctx = StateContext {
-                timer,
-                resource,
-                config,
-                player_config,
+                timer: params.timer,
+                resource: params.resource,
+                config: params.config,
+                player_config: params.player_config,
                 transition: &mut transition,
-                keyboard_backend,
+                keyboard_backend: params.keyboard_backend,
+                database: params.database,
+                input_state: params.input_state,
             };
             handler.render(&mut ctx);
             handler.input(&mut ctx);
@@ -113,27 +123,12 @@ impl StateRegistry {
 
         // Handle pending transition
         if let Some(next) = transition {
-            self.change_state(
-                next,
-                timer,
-                resource,
-                config,
-                player_config,
-                keyboard_backend,
-            );
+            self.change_state(next, params);
         }
     }
 
     /// Performs a state transition: shutdown current -> reset timer -> create+prepare next.
-    fn change_state(
-        &mut self,
-        next: AppStateType,
-        timer: &mut TimerManager,
-        resource: &mut PlayerResource,
-        config: &Config,
-        player_config: &PlayerConfig,
-        keyboard_backend: Option<&dyn bms_input::keyboard::KeyboardBackend>,
-    ) {
+    fn change_state(&mut self, next: AppStateType, params: &mut TickParams) {
         info!(from = %self.current, to = %next, "State transition");
 
         let mut dummy_transition: Option<AppStateType> = None;
@@ -141,30 +136,34 @@ impl StateRegistry {
         // Shutdown current state
         if let Some(handler) = self.handlers.get_mut(&self.current) {
             let mut ctx = StateContext {
-                timer,
-                resource,
-                config,
-                player_config,
+                timer: params.timer,
+                resource: params.resource,
+                config: params.config,
+                player_config: params.player_config,
                 transition: &mut dummy_transition,
-                keyboard_backend,
+                keyboard_backend: params.keyboard_backend,
+                database: params.database,
+                input_state: params.input_state,
             };
             handler.shutdown(&mut ctx);
         }
 
         // Reset timer for new state
-        timer.reset();
+        params.timer.reset();
 
         self.current = next;
 
         // Create and prepare new state
         if let Some(handler) = self.handlers.get_mut(&self.current) {
             let mut ctx = StateContext {
-                timer,
-                resource,
-                config,
-                player_config,
+                timer: params.timer,
+                resource: params.resource,
+                config: params.config,
+                player_config: params.player_config,
                 transition: &mut dummy_transition,
-                keyboard_backend,
+                keyboard_backend: params.keyboard_backend,
+                database: params.database,
+                input_state: params.input_state,
             };
             handler.create(&mut ctx);
             handler.prepare(&mut ctx);
@@ -173,14 +172,7 @@ impl StateRegistry {
         // If the new state's create requested another transition, handle it
         // (e.g., MusicSelect immediately transitions to Decide)
         if let Some(chained) = dummy_transition {
-            self.change_state(
-                chained,
-                timer,
-                resource,
-                config,
-                player_config,
-                keyboard_backend,
-            );
+            self.change_state(chained, params);
         }
     }
 }
@@ -219,13 +211,21 @@ mod tests {
         }
     }
 
-    fn make_deps() -> (TimerManager, PlayerResource, Config, PlayerConfig) {
-        (
-            TimerManager::new(),
-            PlayerResource::default(),
-            Config::default(),
-            PlayerConfig::default(),
-        )
+    fn make_params<'a>(
+        timer: &'a mut TimerManager,
+        resource: &'a mut PlayerResource,
+        config: &'a Config,
+        player_config: &'a PlayerConfig,
+    ) -> TickParams<'a> {
+        TickParams {
+            timer,
+            resource,
+            config,
+            player_config,
+            keyboard_backend: None,
+            database: None,
+            input_state: None,
+        }
     }
 
     #[test]
@@ -245,8 +245,12 @@ mod tests {
         let mut reg = StateRegistry::new(AppStateType::MusicSelect);
         reg.register(AppStateType::MusicSelect, Box::new(handler));
 
-        let (mut timer, mut resource, config, player_config) = make_deps();
-        reg.tick(&mut timer, &mut resource, &config, &player_config, None);
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut params = make_params(&mut timer, &mut resource, &config, &player_config);
+        reg.tick(&mut params);
 
         let calls = log.lock().unwrap();
         assert_eq!(*calls, vec!["create", "prepare", "render", "input"]);
@@ -270,24 +274,21 @@ mod tests {
         reg.register(AppStateType::MusicSelect, Box::new(select_handler));
         reg.register(AppStateType::Decide, Box::new(decide_handler));
 
-        let (mut timer, mut resource, config, player_config) = make_deps();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut params = make_params(&mut timer, &mut resource, &config, &player_config);
 
         // Initialize
-        reg.tick(&mut timer, &mut resource, &config, &player_config, None);
+        reg.tick(&mut params);
 
         // Clear logs
         select_log.lock().unwrap().clear();
         decide_log.lock().unwrap().clear();
 
         // Manually trigger transition
-        reg.change_state(
-            AppStateType::Decide,
-            &mut timer,
-            &mut resource,
-            &config,
-            &player_config,
-            None,
-        );
+        reg.change_state(AppStateType::Decide, &mut params);
 
         assert!(select_log.lock().unwrap().contains(&"shutdown".to_string()));
         let decide_calls = decide_log.lock().unwrap();
@@ -305,23 +306,30 @@ mod tests {
         reg.register(AppStateType::MusicSelect, handler1);
         reg.register(AppStateType::Decide, handler2);
 
-        let (mut timer, mut resource, config, player_config) = make_deps();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut params = make_params(&mut timer, &mut resource, &config, &player_config);
 
         // Set a timer in MusicSelect
-        timer.set_now_micro_time(5000);
-        timer.set_timer_on(bms_skin::property_id::TIMER_STARTINPUT);
-        assert!(timer.is_timer_on(bms_skin::property_id::TIMER_STARTINPUT));
+        params.timer.set_now_micro_time(5000);
+        params
+            .timer
+            .set_timer_on(bms_skin::property_id::TIMER_STARTINPUT);
+        assert!(
+            params
+                .timer
+                .is_timer_on(bms_skin::property_id::TIMER_STARTINPUT)
+        );
 
         // Transition should reset all timers
-        reg.change_state(
-            AppStateType::Decide,
-            &mut timer,
-            &mut resource,
-            &config,
-            &player_config,
-            None,
+        reg.change_state(AppStateType::Decide, &mut params);
+        assert!(
+            !params
+                .timer
+                .is_timer_on(bms_skin::property_id::TIMER_STARTINPUT)
         );
-        assert!(!timer.is_timer_on(bms_skin::property_id::TIMER_STARTINPUT));
     }
 
     #[test]
@@ -337,10 +345,14 @@ mod tests {
         reg.register(AppStateType::MusicSelect, Box::new(select_handler));
         reg.register(AppStateType::Decide, Box::new(decide_handler));
 
-        let (mut timer, mut resource, config, player_config) = make_deps();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut params = make_params(&mut timer, &mut resource, &config, &player_config);
 
         // First tick should initialize MusicSelect, which chains to Decide
-        reg.tick(&mut timer, &mut resource, &config, &player_config, None);
+        reg.tick(&mut params);
         assert_eq!(reg.current(), AppStateType::Decide);
     }
 }
