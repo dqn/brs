@@ -1,3 +1,6 @@
+use std::path::Path;
+
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::ir_config::IRConfig;
@@ -271,6 +274,21 @@ impl Default for PlayerConfig {
 }
 
 impl PlayerConfig {
+    /// Read player config from a JSON file.
+    pub fn read(path: &Path) -> Result<Self> {
+        let data = std::fs::read_to_string(path)?;
+        let mut config: PlayerConfig = serde_json::from_str(&data)?;
+        config.validate();
+        Ok(config)
+    }
+
+    /// Write player config to a JSON file.
+    pub fn write(&self, path: &Path) -> Result<()> {
+        let json = serde_json::to_string_pretty(self)?;
+        std::fs::write(path, json)?;
+        Ok(())
+    }
+
     /// Returns the play mode config for the given mode ID.
     pub fn play_config(&self, mode_id: i32) -> &PlayModeConfig {
         match mode_id {
@@ -525,5 +543,28 @@ mod tests {
         let pc: PlayerConfig = serde_json::from_str("{}").unwrap();
         assert_eq!(pc.name, "NO NAME");
         assert_eq!(pc.gauge, 0);
+    }
+
+    #[test]
+    fn test_read_write_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config_player.json");
+
+        let mut pc = PlayerConfig::default();
+        pc.name = "TestPlayer".to_string();
+        pc.gauge = 3;
+        pc.judgetiming = 42;
+        pc.write(&path).unwrap();
+
+        let loaded = PlayerConfig::read(&path).unwrap();
+        assert_eq!(loaded.name, "TestPlayer");
+        assert_eq!(loaded.gauge, 3);
+        assert_eq!(loaded.judgetiming, 42);
+    }
+
+    #[test]
+    fn test_read_nonexistent_returns_error() {
+        let result = PlayerConfig::read(std::path::Path::new("/nonexistent/config_player.json"));
+        assert!(result.is_err());
     }
 }

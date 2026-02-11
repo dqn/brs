@@ -26,6 +26,7 @@ use tracing::info;
 
 use app_state::{AppStateType, StateRegistry, TickParams};
 use database_manager::DatabaseManager;
+use external_manager::ExternalManager;
 use game_state::{SharedGameState, sync_timer_state};
 use input_mapper::InputMapper;
 use player_resource::PlayerResource;
@@ -48,6 +49,14 @@ struct Args {
     /// Path to database directory.
     #[arg(long, default_value = "db")]
     db_path: PathBuf,
+
+    /// Path to system config JSON file.
+    #[arg(long, default_value = "config_sys.json")]
+    config: PathBuf,
+
+    /// Path to player config JSON file.
+    #[arg(long, default_value = "config_player.json")]
+    player_config: PathBuf,
 }
 
 fn main() -> Result<()> {
@@ -71,9 +80,33 @@ fn main() -> Result<()> {
         resource.bms_model = Some(model);
     }
 
-    // Load config (use defaults for now — Phase 15-H adds file I/O)
-    let config = bms_config::Config::default();
-    let player_config = bms_config::PlayerConfig::default();
+    // Load config from file, falling back to defaults if not found
+    let config = match bms_config::Config::read(&args.config) {
+        Ok(c) => {
+            info!(path = %args.config.display(), "Loaded system config");
+            c
+        }
+        Err(_) => {
+            info!(
+                path = %args.config.display(),
+                "Config not found, using defaults"
+            );
+            bms_config::Config::default()
+        }
+    };
+    let player_config = match bms_config::PlayerConfig::read(&args.player_config) {
+        Ok(c) => {
+            info!(path = %args.player_config.display(), "Loaded player config");
+            c
+        }
+        Err(_) => {
+            info!(
+                path = %args.player_config.display(),
+                "PlayerConfig not found, using defaults"
+            );
+            bms_config::PlayerConfig::default()
+        }
+    };
 
     // Open databases
     let database = match DatabaseManager::open(&args.db_path) {
@@ -104,14 +137,31 @@ fn main() -> Result<()> {
     registry.register(AppStateType::KeyConfig, Box::new(KeyConfigState::new()));
     registry.register(AppStateType::SkinConfig, Box::new(SkinConfigState::new()));
 
+    // Initialize external integrations from config
+    let external = ExternalManager::new(&config);
+    info!(
+        discord = external.is_discord_enabled(),
+        obs = external.is_obs_enabled(),
+        stream = external.is_stream_enabled(),
+        "External integrations initialized"
+    );
+
+    // Window size from config
+    let window_width = config.window_width as f32;
+    let window_height = config.window_height as f32;
+
     // Shared game state for skin renderer
     let shared_state = Arc::new(RwLock::new(SharedGameState::default()));
+
+    // Store config paths for saving on exit
+    let config_path = args.config.clone();
+    let player_config_path = args.player_config.clone();
 
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "brs".to_string(),
-                resolution: bevy::window::WindowResolution::new(1280.0, 720.0),
+                resolution: bevy::window::WindowResolution::new(window_width, window_height),
                 ..default()
             }),
             ..default()
@@ -125,6 +175,11 @@ fn main() -> Result<()> {
         .insert_resource(BrsSharedState(shared_state))
         .insert_resource(BrsDatabase(Arc::new(Mutex::new(database))))
         .insert_resource(BrsInputMapper(InputMapper::new()))
+        .insert_resource(BrsExternalManager(external))
+        .insert_resource(BrsConfigPaths {
+            config: config_path,
+            player_config: player_config_path,
+        })
         .add_systems(Update, timer_update_system)
         .add_systems(Update, state_machine_system.after(timer_update_system))
         .add_systems(Update, state_sync_system.after(state_machine_system))
@@ -161,6 +216,16 @@ struct BrsDatabase(Arc<Mutex<Option<DatabaseManager>>>);
 #[derive(Resource, Default)]
 struct BrsInputMapper(InputMapper);
 
+#[derive(Resource)]
+struct BrsExternalManager(ExternalManager);
+
+#[derive(Resource)]
+#[allow(dead_code)] // Used for config saving on exit (future)
+struct BrsConfigPaths {
+    config: PathBuf,
+    player_config: PathBuf,
+}
+
 fn timer_update_system(mut timer: ResMut<BrsTimerManager>) {
     timer.0.update();
 }
@@ -174,11 +239,15 @@ fn state_machine_system(
     mut registry: ResMut<BrsStateRegistry>,
     database: Res<BrsDatabase>,
     mut input_mapper: ResMut<BrsInputMapper>,
+    external: Res<BrsExternalManager>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut backend: Local<bevy_keyboard::BevyKeyboardBackend>,
 ) {
     backend.snapshot(&keyboard_input);
     let input_state = input_mapper.0.update(&*backend);
+
+    let prev_state = registry.0.current();
+
     // Lock database for this frame (states do synchronous DB access)
     let db_guard = database.0.lock().unwrap();
     let db_ref = db_guard.as_ref();
@@ -192,6 +261,15 @@ fn state_machine_system(
         input_state: Some(&input_state),
     };
     registry.0.tick(&mut params);
+
+    // Notify external integrations on state transitions
+    let current_state = registry.0.current();
+    if current_state != prev_state {
+        let song_title = resource.0.bms_model.as_ref().map(|m| m.title.as_str());
+        external
+            .0
+            .on_state_change(&current_state.to_string(), song_title);
+    }
 }
 
 fn state_sync_system(timer: Res<BrsTimerManager>, shared: Res<BrsSharedState>) {

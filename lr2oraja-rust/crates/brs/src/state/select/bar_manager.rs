@@ -34,10 +34,7 @@ impl BarManager {
     /// Load all songs from the database as a flat list.
     pub fn load_root(&mut self, song_db: &SongDatabase) {
         let songs = song_db.get_all_song_datas().unwrap_or_default();
-        self.bars = songs
-            .into_iter()
-            .map(|s| Bar::Song(Box::new(s)))
-            .collect();
+        self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
         self.cursor = 0;
         self.folder_stack.clear();
     }
