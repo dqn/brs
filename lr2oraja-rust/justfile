@@ -101,9 +101,38 @@ golden-master-screenshot-gen:
     run_export "$SKIN_DIR/RESULT/result.luaskin"   "$STATE_DIR/state_result_clear.json"   "$OUT_DIR/ecfn_result_clear.png"    1920 1080 7
     run_export "$SKIN_DIR/RESULT/result.luaskin"   "$STATE_DIR/state_result_fail.json"    "$OUT_DIR/ecfn_result_fail.png"     1920 1080 7
 
-# Compare Java and Rust screenshots via SSIM
+# Compare Java and Rust screenshots via SSIM (superseded by render-snapshot-compare)
 golden-master-screenshot-compare:
-    cargo test -p golden-master compare_screenshots -- --nocapture
+    cargo test -p golden-master compare_screenshots -- --nocapture --ignored
+
+# Generate Java RenderSnapshot JSON fixtures
+golden-master-render-snapshot-gen:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    JAVA_DIR="$(cd ../lr2oraja-java && pwd)"
+    RUST_DIR="$(pwd)"
+    SKIN_DIR="$(cd ../skins/ECFN && pwd)"
+    STATE_DIR="$RUST_DIR/golden-master/fixtures/screenshot_states"
+    OUT_DIR="$RUST_DIR/golden-master/fixtures/render_snapshots_java"
+    mkdir -p "$OUT_DIR"
+    run_export() {
+        local skin="$1" state="$2" output="$3" w="$4" h="$5" type="$6"
+        echo "Generating: $output"
+        cd "$JAVA_DIR" && ./gradlew -q golden-master-screenshot:run \
+            -PmainClass=bms.model.golden.RenderSnapshotExporter \
+            --args="$skin $state $output $w $h $type"
+    }
+    run_export "$SKIN_DIR/select/select.luaskin"   "$STATE_DIR/state_default.json"        "$OUT_DIR/ecfn_select.json"          1920 1080 5
+    run_export "$SKIN_DIR/decide/decide.luaskin"   "$STATE_DIR/state_default.json"        "$OUT_DIR/ecfn_decide.json"          1920 1080 6
+    run_export "$SKIN_DIR/play/play7.luaskin"      "$STATE_DIR/state_play_active.json"    "$OUT_DIR/ecfn_play7_active.json"    1920 1080 0
+    run_export "$SKIN_DIR/play/play7.luaskin"      "$STATE_DIR/state_play_fullcombo.json"  "$OUT_DIR/ecfn_play7_fullcombo.json" 1920 1080 0
+    run_export "$SKIN_DIR/play/play7.luaskin"      "$STATE_DIR/state_play_danger.json"    "$OUT_DIR/ecfn_play7_danger.json"    1920 1080 0
+    run_export "$SKIN_DIR/RESULT/result.luaskin"   "$STATE_DIR/state_result_clear.json"   "$OUT_DIR/ecfn_result_clear.json"    1920 1080 7
+    run_export "$SKIN_DIR/RESULT/result.luaskin"   "$STATE_DIR/state_result_fail.json"    "$OUT_DIR/ecfn_result_fail.json"     1920 1080 7
+
+# Compare Java-Rust RenderSnapshot (structural draw command comparison)
+golden-master-render-snapshot-compare:
+    cargo test -p golden-master compare_render_snapshot -- --nocapture
 
 # Run criterion benchmarks
 bench:

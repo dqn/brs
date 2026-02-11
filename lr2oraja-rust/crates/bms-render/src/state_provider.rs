@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use bms_skin::property_id::{BooleanId, FloatId, IntegerId, StringId, TimerId};
 use bms_skin::skin_object::SkinOffset;
+use serde::{Deserialize, Serialize};
 
 /// Interface for providing runtime state to the skin renderer.
 ///
@@ -40,7 +41,8 @@ pub trait SkinStateProvider: Send + Sync {
 
 /// A static state provider for testing and demo purposes.
 /// All values are set via `HashMap`s.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct StaticStateProvider {
     pub timers: HashMap<i32, i64>,
     pub integers: HashMap<i32, i32>,

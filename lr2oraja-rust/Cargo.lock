@@ -1708,6 +1708,7 @@ dependencies = [
  "glob",
  "image",
  "image-compare",
+ "serde",
  "serde_json",
  "tempfile",
 ]
@@ -3148,6 +3149,7 @@ dependencies = [
  "bms-input",
  "bms-model",
  "bms-pattern",
+ "bms-render",
  "bms-replay",
  "bms-rule",
  "bms-skin",

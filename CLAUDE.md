@@ -508,13 +508,16 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 ### Phase 14: Integration & GUI Testing
 
-- [x] **14-1. Screenshot Testing パイプライン**
-  - [x] Java reference screenshots 生成 (`just golden-master-screenshot-gen`)
-  - [x] Rust test screenshots 生成 (`just screenshot-update`)
-  - [x] SSIM 比較 (`just golden-master-screenshot-compare`)
-    - [x] `ScreenshotTestCase` struct でテスト別閾値設定可能
-    - [x] **SSIM 閾値方針**: Java-Rust 間は 0.85 (LibGDX/Bevy のレンダリングエンジン差異のため 0.95 は非現実的), Rust 内部回帰テストは 0.99
-    - [x] 7 テストケース (ecfn_select, decide, play7_active/fullcombo/danger, result_clear/fail)
+- [x] **14-1. RenderSnapshot Testing パイプライン (旧 Screenshot Testing)**
+  - [x] **RenderSnapshot (描画コマンド構造比較)** — Java-Rust 間はピクセル SSIM ではなく描画コマンドの JSON 構造比較
+    - [x] `bms-render/src/eval.rs` — 純粋評価関数の抽出 (resolve_common, check_draw_conditions 等)
+    - [x] `golden-master/src/render_snapshot.rs` — RenderSnapshot/DrawCommand データモデル + capture + compare
+    - [x] Java `RenderSnapshotExporter.java` — SkinObject.prepare() 後の描画コマンド JSON エクスポート
+    - [x] `compare_render_snapshot.rs` — 7 テストケース (ecfn_select, decide, play7_active/fullcombo/danger, result_clear/fail)
+    - [x] **比較許容差**: 位置 ±1px, 色 ±0.005, アルファ ±0.01, 角度/blend/visibility 完全一致
+    - [x] `just golden-master-render-snapshot-gen` / `just golden-master-render-snapshot-compare`
+  - [x] Rust 内部ピクセル回帰テスト (`just screenshot-test`) — SSIM 0.99 (変更なし)
+  - [x] 旧 SSIM テスト (`compare_screenshots.rs`) — `#[ignore]` 化 (参考用に残存)
 - [x] **14-2. E2E テスト**
   - [x] ReplayData E2E: Java `ReplayE2EExporter` → Rust `compare_replay_e2e.rs` (12 テストケース通過)
   - [x] 網羅 E2E テスト: `exhaustive_e2e.rs` — 4 モード × 6 ゲージ × 3 入力 = 72 テスト通過

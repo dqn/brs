@@ -171,44 +171,53 @@ fn generate_diff(a: &image::RgbaImage, b: &image::RgbaImage) -> image::RgbaImage
 }
 
 // --- Test cases: one per ECFN skin screenshot ---
+// NOTE: These pixel SSIM tests are superseded by compare_render_snapshot.rs
+// which compares draw commands structurally. Kept as #[ignore] for reference.
 
 #[test]
+#[ignore = "Superseded by RenderSnapshot structural comparison (compare_render_snapshot.rs)"]
 fn compare_screenshots_ecfn_select() {
     let tc = get_test_case("ecfn_select");
     compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
+#[ignore = "Superseded by RenderSnapshot structural comparison (compare_render_snapshot.rs)"]
 fn compare_screenshots_ecfn_decide() {
     let tc = get_test_case("ecfn_decide");
     compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
+#[ignore = "Superseded by RenderSnapshot structural comparison (compare_render_snapshot.rs)"]
 fn compare_screenshots_ecfn_play7_active() {
     let tc = get_test_case("ecfn_play7_active");
     compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
+#[ignore = "Superseded by RenderSnapshot structural comparison (compare_render_snapshot.rs)"]
 fn compare_screenshots_ecfn_play7_fullcombo() {
     let tc = get_test_case("ecfn_play7_fullcombo");
     compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
+#[ignore = "Superseded by RenderSnapshot structural comparison (compare_render_snapshot.rs)"]
 fn compare_screenshots_ecfn_play7_danger() {
     let tc = get_test_case("ecfn_play7_danger");
     compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
+#[ignore = "Superseded by RenderSnapshot structural comparison (compare_render_snapshot.rs)"]
 fn compare_screenshots_ecfn_result_clear() {
     let tc = get_test_case("ecfn_result_clear");
     compare_java_rust_screenshot(tc.name, tc.threshold);
 }
 
 #[test]
+#[ignore = "Superseded by RenderSnapshot structural comparison (compare_render_snapshot.rs)"]
 fn compare_screenshots_ecfn_result_fail() {
     let tc = get_test_case("ecfn_result_fail");
     compare_java_rust_screenshot(tc.name, tc.threshold);

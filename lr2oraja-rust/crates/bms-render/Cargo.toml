@@ -8,6 +8,7 @@ bms-skin.workspace = true
 anyhow.workspace = true
 bevy.workspace = true
 image.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 bms-config = { workspace = true }

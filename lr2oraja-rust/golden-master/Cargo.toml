@@ -13,6 +13,7 @@ bms-config.workspace = true
 bms-input.workspace = true
 bms-audio.workspace = true
 bms-skin.workspace = true
+bms-render.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
