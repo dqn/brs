@@ -423,7 +423,20 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 - [x] **11-4. MusicDecide state**
   - [x] タイマーベース scene/fadeout/input フロー (8 テスト)
   - [x] confirm/cancel 入力ハンドリング
-- [x] **11-5. Play state** (スタブ: 即 Result 遷移)
+- [x] **11-5. Play state** — リアルタイムゲームプレイループ (Java BMSPlayer.java 移植)
+  - [x] PlayPhase ステートマシン (Preload → Ready → Playing → Finished/Failed)
+  - [x] JudgeManager + GrooveGauge 統合 (Autoplay モード)
+  - [x] Replay モード (KeyInputLog 注入)
+  - [x] Gauge death / GaugeAutoShift 全5モード (None/Continue/SurvivalToGroove/BestClear/SelectToUnder)
+  - [x] ScoreData 生成 + ClearType 判定 + PlayerResource 受け渡し
+  - [x] Gauge log 500ms 間隔記録
+  - [x] Play 固有スキン状態同期 (sync_play_state)
+  - [x] ハイスピード / レーンカバー制御入力
+  - [x] 57 テスト通過 (PlayState 13 + SkinSync 5 + ControlInput 8 + 既存 31), clippy clean, fmt applied
+  - [ ] Pattern Shuffle 統合 (bms-pattern LaneShuffleModifier/NoteShuffleModifier を create() で適用)
+  - [ ] AudioDriver 結線 (KeySoundProcessor BGM + キー音再生)
+  - [ ] InputProcessor 結線 (bms-input キーボード/コントローラー/MIDI リアル入力)
+  - [ ] Key beam timer 更新 (SkinPropertyMapper key_on/key_off_timer_id)
 - [x] **11-6. Result state** (スタブ: 即 MusicSelect 遷移)
 - [x] **11-7. CourseResult state** (スタブ: 即 MusicSelect 遷移)
 - [x] **11-8. KeyConfiguration / SkinConfiguration states** (スタブ: 即 MusicSelect 遷移)
