@@ -4,15 +4,19 @@
 // Ported from Java BMSPlayer key handling logic.
 
 /// Hi-speed change step (percentage points per press).
+#[allow(dead_code)]
 const HISPEED_STEP: i32 = 25;
 
 /// Minimum hi-speed value.
+#[allow(dead_code)]
 const HISPEED_MIN: i32 = 25;
 
 /// Maximum hi-speed value.
+#[allow(dead_code)]
 const HISPEED_MAX: i32 = 2000;
 
 /// Actions resulting from control input processing.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ControlAction {
     /// Request to abort play (Start+Select simultaneous press).
@@ -26,6 +30,7 @@ pub enum ControlAction {
 /// Adjust hi-speed value by one step in the given direction.
 ///
 /// Returns the new hi-speed value, clamped to [HISPEED_MIN, HISPEED_MAX].
+#[allow(dead_code)]
 pub fn adjust_hispeed(current: i32, increase: bool) -> i32 {
     let delta = if increase {
         HISPEED_STEP
@@ -36,6 +41,7 @@ pub fn adjust_hispeed(current: i32, increase: bool) -> i32 {
 }
 
 /// Detect abort condition: both start and select pressed simultaneously.
+#[allow(dead_code)]
 pub fn detect_abort(start_pressed: bool, select_pressed: bool) -> bool {
     start_pressed && select_pressed
 }

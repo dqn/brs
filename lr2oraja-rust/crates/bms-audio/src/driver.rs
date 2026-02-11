@@ -28,7 +28,7 @@ pub struct SliceWav {
 }
 
 /// Audio driver interface for BMS key sound playback.
-pub trait AudioDriver {
+pub trait AudioDriver: Send + Sync {
     /// Load all WAV files referenced by the model.
     fn set_model(&mut self, model: &BmsModel, base_path: &Path) -> Result<()>;
 

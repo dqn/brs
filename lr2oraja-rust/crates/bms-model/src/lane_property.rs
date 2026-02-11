@@ -20,6 +20,10 @@ pub struct LaneProperty {
     lane_to_scratch: Vec<i32>,
     /// Per-scratch: [key_a, key_b] physical key pair
     scratch_to_keys: Vec<[usize; 2]>,
+    /// Lane index → skin key offset (0=scratch, 1..N=keys)
+    lane_to_skin_offset: Vec<i32>,
+    /// Lane index → player index (0 or 1)
+    lane_to_player: Vec<i32>,
 }
 
 impl LaneProperty {
@@ -31,6 +35,8 @@ impl LaneProperty {
                 lane_to_keys: vec![vec![0], vec![1], vec![2], vec![3], vec![4], vec![5, 6]],
                 lane_to_scratch: vec![-1, -1, -1, -1, -1, 0],
                 scratch_to_keys: vec![[5, 6]],
+                lane_to_skin_offset: vec![1, 2, 3, 4, 5, 0],
+                lane_to_player: vec![0; 6],
             },
             PlayMode::Beat7K => Self {
                 key_to_lane: vec![0, 1, 2, 3, 4, 5, 6, 7, 7],
@@ -46,6 +52,8 @@ impl LaneProperty {
                 ],
                 lane_to_scratch: vec![-1, -1, -1, -1, -1, -1, -1, 0],
                 scratch_to_keys: vec![[7, 8]],
+                lane_to_skin_offset: vec![1, 2, 3, 4, 5, 6, 7, 0],
+                lane_to_player: vec![0; 8],
             },
             PlayMode::Beat10K => Self {
                 key_to_lane: vec![0, 1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10, 11, 11],
@@ -65,6 +73,8 @@ impl LaneProperty {
                 ],
                 lane_to_scratch: vec![-1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 1],
                 scratch_to_keys: vec![[5, 6], [12, 13]],
+                lane_to_skin_offset: vec![1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5, 0],
+                lane_to_player: vec![0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
             },
             PlayMode::Beat14K => Self {
                 key_to_lane: vec![0, 1, 2, 3, 4, 5, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14, 15, 15],
@@ -88,27 +98,40 @@ impl LaneProperty {
                 ],
                 lane_to_scratch: vec![-1, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, -1, 1],
                 scratch_to_keys: vec![[7, 8], [16, 17]],
+                lane_to_skin_offset: vec![1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0],
+                lane_to_player: vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
             },
-            PlayMode::PopN5K | PlayMode::PopN9K => {
-                let key_count = mode.key_count();
-                Self {
-                    key_to_lane: (0..key_count).collect(),
-                    lane_to_keys: (0..key_count).map(|i| vec![i]).collect(),
-                    lane_to_scratch: vec![-1; key_count],
-                    scratch_to_keys: vec![],
-                }
-            }
+            PlayMode::PopN5K => Self {
+                key_to_lane: (0..5).collect(),
+                lane_to_keys: (0..5).map(|i| vec![i]).collect(),
+                lane_to_scratch: vec![-1; 5],
+                scratch_to_keys: vec![],
+                lane_to_skin_offset: vec![1, 2, 3, 4, 5],
+                lane_to_player: vec![0; 5],
+            },
+            PlayMode::PopN9K => Self {
+                key_to_lane: (0..9).collect(),
+                lane_to_keys: (0..9).map(|i| vec![i]).collect(),
+                lane_to_scratch: vec![-1; 9],
+                scratch_to_keys: vec![],
+                lane_to_skin_offset: vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+                lane_to_player: vec![0; 9],
+            },
             PlayMode::Keyboard24K => Self {
                 key_to_lane: (0..26).collect(),
                 lane_to_keys: (0..26).map(|i| vec![i]).collect(),
                 lane_to_scratch: vec![-1; 26],
                 scratch_to_keys: vec![],
+                lane_to_skin_offset: (1..=26).collect(),
+                lane_to_player: vec![0; 26],
             },
             PlayMode::Keyboard24KDouble => Self {
                 key_to_lane: (0..52).collect(),
                 lane_to_keys: (0..52).map(|i| vec![i]).collect(),
                 lane_to_scratch: vec![-1; 52],
                 scratch_to_keys: vec![],
+                lane_to_skin_offset: (1..=26).chain(1..=26).collect(),
+                lane_to_player: (0..52).map(|i| if i < 26 { 0 } else { 1 }).collect(),
             },
         }
     }
@@ -147,6 +170,16 @@ impl LaneProperty {
     /// Get the two physical key indices for a scratch controller.
     pub fn scratch_keys(&self, scratch_idx: usize) -> [usize; 2] {
         self.scratch_to_keys[scratch_idx]
+    }
+
+    /// Get the skin key offset for a lane (0=scratch, 1..N=keys).
+    pub fn lane_skin_offset(&self, lane_idx: usize) -> i32 {
+        self.lane_to_skin_offset[lane_idx]
+    }
+
+    /// Get the player index for a lane (0 or 1).
+    pub fn lane_player(&self, lane_idx: usize) -> i32 {
+        self.lane_to_player[lane_idx]
     }
 
     /// Convert per-lane boolean states to per-physical-key states.
@@ -284,6 +317,77 @@ mod tests {
         assert_eq!(lp.physical_key_count(), 26);
         assert_eq!(lp.lane_count(), 26);
         assert_eq!(lp.scratch_count(), 0);
+    }
+
+    #[test]
+    fn beat7k_skin_offset() {
+        let lp = LaneProperty::new(PlayMode::Beat7K);
+        // Keys 0-6 have offset 1-7
+        for i in 0..7 {
+            assert_eq!(lp.lane_skin_offset(i), (i + 1) as i32);
+        }
+        // Scratch (lane 7) has offset 0
+        assert_eq!(lp.lane_skin_offset(7), 0);
+        // All player 0
+        for i in 0..8 {
+            assert_eq!(lp.lane_player(i), 0);
+        }
+    }
+
+    #[test]
+    fn beat5k_skin_offset() {
+        let lp = LaneProperty::new(PlayMode::Beat5K);
+        assert_eq!(lp.lane_skin_offset(0), 1);
+        assert_eq!(lp.lane_skin_offset(4), 5);
+        assert_eq!(lp.lane_skin_offset(5), 0); // scratch
+        for i in 0..6 {
+            assert_eq!(lp.lane_player(i), 0);
+        }
+    }
+
+    #[test]
+    fn beat14k_skin_offset() {
+        let lp = LaneProperty::new(PlayMode::Beat14K);
+        // 1P keys 0-6 -> offset 1-7
+        for i in 0..7 {
+            assert_eq!(lp.lane_skin_offset(i), (i + 1) as i32);
+            assert_eq!(lp.lane_player(i), 0);
+        }
+        // 1P scratch (lane 7) -> offset 0, player 0
+        assert_eq!(lp.lane_skin_offset(7), 0);
+        assert_eq!(lp.lane_player(7), 0);
+        // 2P keys 8-14 -> offset 1-7
+        for i in 8..15 {
+            assert_eq!(lp.lane_skin_offset(i), (i - 7) as i32);
+            assert_eq!(lp.lane_player(i), 1);
+        }
+        // 2P scratch (lane 15) -> offset 0, player 1
+        assert_eq!(lp.lane_skin_offset(15), 0);
+        assert_eq!(lp.lane_player(15), 1);
+    }
+
+    #[test]
+    fn popn9k_skin_offset() {
+        let lp = LaneProperty::new(PlayMode::PopN9K);
+        for i in 0..9 {
+            assert_eq!(lp.lane_skin_offset(i), (i + 1) as i32);
+            assert_eq!(lp.lane_player(i), 0);
+        }
+    }
+
+    #[test]
+    fn keyboard24k_double_skin_offset() {
+        let lp = LaneProperty::new(PlayMode::Keyboard24KDouble);
+        // 1P lanes 0..26 -> offset 1..26, player 0
+        for i in 0..26 {
+            assert_eq!(lp.lane_skin_offset(i), (i + 1) as i32);
+            assert_eq!(lp.lane_player(i), 0);
+        }
+        // 2P lanes 26..52 -> offset 1..26, player 1
+        for i in 26..52 {
+            assert_eq!(lp.lane_skin_offset(i), (i - 25) as i32);
+            assert_eq!(lp.lane_player(i), 1);
+        }
     }
 
     #[test]

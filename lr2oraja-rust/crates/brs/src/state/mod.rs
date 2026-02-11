@@ -14,6 +14,7 @@ use crate::app_state::AppStateType;
 use crate::player_resource::PlayerResource;
 use crate::timer_manager::TimerManager;
 use bms_config::{Config, PlayerConfig};
+use bms_input::keyboard::KeyboardBackend;
 
 /// Context passed to state handlers on each callback.
 pub struct StateContext<'a> {
@@ -24,6 +25,8 @@ pub struct StateContext<'a> {
     pub player_config: &'a PlayerConfig,
     /// Set this to request a state transition at the end of the frame.
     pub transition: &'a mut Option<AppStateType>,
+    /// Keyboard backend for input polling (None in tests or non-Bevy contexts).
+    pub keyboard_backend: Option<&'a dyn KeyboardBackend>,
 }
 
 /// Trait for game state handlers. Each variant of `AppStateType` has

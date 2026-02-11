@@ -74,6 +74,7 @@ impl StateRegistry {
         resource: &mut PlayerResource,
         config: &Config,
         player_config: &PlayerConfig,
+        keyboard_backend: Option<&dyn bms_input::keyboard::KeyboardBackend>,
     ) {
         let mut transition: Option<AppStateType> = None;
 
@@ -89,6 +90,7 @@ impl StateRegistry {
                     config,
                     player_config,
                     transition: &mut transition,
+                    keyboard_backend,
                 };
                 handler.create(&mut ctx);
                 handler.prepare(&mut ctx);
@@ -103,6 +105,7 @@ impl StateRegistry {
                 config,
                 player_config,
                 transition: &mut transition,
+                keyboard_backend,
             };
             handler.render(&mut ctx);
             handler.input(&mut ctx);
@@ -110,7 +113,14 @@ impl StateRegistry {
 
         // Handle pending transition
         if let Some(next) = transition {
-            self.change_state(next, timer, resource, config, player_config);
+            self.change_state(
+                next,
+                timer,
+                resource,
+                config,
+                player_config,
+                keyboard_backend,
+            );
         }
     }
 
@@ -122,6 +132,7 @@ impl StateRegistry {
         resource: &mut PlayerResource,
         config: &Config,
         player_config: &PlayerConfig,
+        keyboard_backend: Option<&dyn bms_input::keyboard::KeyboardBackend>,
     ) {
         info!(from = %self.current, to = %next, "State transition");
 
@@ -135,6 +146,7 @@ impl StateRegistry {
                 config,
                 player_config,
                 transition: &mut dummy_transition,
+                keyboard_backend,
             };
             handler.shutdown(&mut ctx);
         }
@@ -152,6 +164,7 @@ impl StateRegistry {
                 config,
                 player_config,
                 transition: &mut dummy_transition,
+                keyboard_backend,
             };
             handler.create(&mut ctx);
             handler.prepare(&mut ctx);
@@ -160,7 +173,14 @@ impl StateRegistry {
         // If the new state's create requested another transition, handle it
         // (e.g., MusicSelect immediately transitions to Decide)
         if let Some(chained) = dummy_transition {
-            self.change_state(chained, timer, resource, config, player_config);
+            self.change_state(
+                chained,
+                timer,
+                resource,
+                config,
+                player_config,
+                keyboard_backend,
+            );
         }
     }
 }
@@ -226,7 +246,7 @@ mod tests {
         reg.register(AppStateType::MusicSelect, Box::new(handler));
 
         let (mut timer, mut resource, config, player_config) = make_deps();
-        reg.tick(&mut timer, &mut resource, &config, &player_config);
+        reg.tick(&mut timer, &mut resource, &config, &player_config, None);
 
         let calls = log.lock().unwrap();
         assert_eq!(*calls, vec!["create", "prepare", "render", "input"]);
@@ -253,7 +273,7 @@ mod tests {
         let (mut timer, mut resource, config, player_config) = make_deps();
 
         // Initialize
-        reg.tick(&mut timer, &mut resource, &config, &player_config);
+        reg.tick(&mut timer, &mut resource, &config, &player_config, None);
 
         // Clear logs
         select_log.lock().unwrap().clear();
@@ -266,6 +286,7 @@ mod tests {
             &mut resource,
             &config,
             &player_config,
+            None,
         );
 
         assert!(select_log.lock().unwrap().contains(&"shutdown".to_string()));
@@ -298,6 +319,7 @@ mod tests {
             &mut resource,
             &config,
             &player_config,
+            None,
         );
         assert!(!timer.is_timer_on(bms_skin::property_id::TIMER_STARTINPUT));
     }
@@ -318,7 +340,7 @@ mod tests {
         let (mut timer, mut resource, config, player_config) = make_deps();
 
         // First tick should initialize MusicSelect, which chains to Decide
-        reg.tick(&mut timer, &mut resource, &config, &player_config);
+        reg.tick(&mut timer, &mut resource, &config, &player_config, None);
         assert_eq!(reg.current(), AppStateType::Decide);
     }
 }

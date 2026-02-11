@@ -6,9 +6,20 @@
 mod control_input;
 mod play_skin_state;
 
-use tracing::info;
+use tracing::{info, warn};
 
-use bms_model::{LaneProperty, Note, PlayMode};
+use std::path::Path;
+
+use bms_audio::driver::AudioDriver;
+use bms_audio::key_sound::KeySoundProcessor;
+use bms_audio::kira_driver::KiraAudioDriver;
+use bms_input::input_processor::InputProcessor;
+use bms_model::{BmsModel, LaneProperty, Note, PlayMode};
+use bms_pattern::{
+    AssistLevel, LaneCrossShuffle, LaneMirrorShuffle, LanePlayableRandomShuffle, LaneRandomShuffle,
+    LaneRotateShuffle, NoteShuffleModifier, PatternModifier, PlayerBattleShuffle,
+    PlayerFlipShuffle, RandomType, RandomUnit, get_random,
+};
 use bms_replay::key_input_log::KeyInputLog;
 use bms_rule::gauge_property::GaugeType;
 use bms_rule::judge_manager::{JudgeConfig, JudgeEvent, JudgeManager};
@@ -17,6 +28,7 @@ use bms_skin::property_id::{
     TIMER_ENDOFNOTE_1P, TIMER_FAILED, TIMER_FULLCOMBO_1P, TIMER_GAUGE_MAX_1P, TIMER_MUSIC_END,
     TIMER_PLAY, TIMER_READY, TIMER_RHYTHM,
 };
+use bms_skin::property_mapper;
 
 use crate::app_state::AppStateType;
 use crate::state::{GameStateHandler, StateContext};
@@ -108,14 +120,24 @@ pub struct PlayState {
     is_autoplay: bool,
     is_replay: bool,
 
+    // Input
+    input_processor: Option<InputProcessor>,
+
     // Key state for manual/replay play
     key_states: Vec<bool>,
     key_changed_times: Vec<i64>,
 
+    // Audio
+    audio_driver: Option<Box<dyn AudioDriver + Send>>,
+    key_sound_processor: Option<KeySoundProcessor>,
+
     // Control state
+    #[allow(dead_code)]
     play_speed: i32,
     key_beam_stop: bool,
     assist: i32,
+    #[allow(dead_code)]
+    is_judge_started: bool,
 
     // Abort detection
     start_pressed: bool,
@@ -142,30 +164,38 @@ impl PlayState {
             is_replay: false,
             key_states: Vec::new(),
             key_changed_times: Vec::new(),
+            audio_driver: None,
+            key_sound_processor: None,
+            input_processor: None,
             play_speed: 100,
             key_beam_stop: false,
             assist: 0,
+            is_judge_started: false,
             start_pressed: false,
             select_pressed: false,
         }
     }
 
     /// Get the current play phase.
+    #[allow(dead_code)]
     pub fn phase(&self) -> PlayPhase {
         self.phase
     }
 
     /// Get the gauge log (recorded every 500ms, each entry = per-gauge-type values).
+    #[allow(dead_code)]
     pub fn gauge_log(&self) -> &[Vec<f32>] {
         &self.gauge_log
     }
 
     /// Set autoplay mode.
+    #[allow(dead_code)]
     pub fn set_autoplay(&mut self, autoplay: bool) {
         self.is_autoplay = autoplay;
     }
 
     /// Set replay log (enables replay mode).
+    #[allow(dead_code)]
     pub fn set_replay_log(&mut self, log: Vec<KeyInputLog>) {
         self.replay_log = log;
         self.is_replay = true;
@@ -183,9 +213,36 @@ impl PlayState {
             }
         };
 
+        // Clone model for pattern modification
+        let mut model = model.clone();
+        self.lane_property = LaneProperty::new(model.mode);
+
+        // Apply 1P pattern shuffle
+        let random_type = get_random(ctx.player_config.random as usize, model.mode);
+        let seed: i64 = rand::random();
+        self.assist += apply_pattern_modifier(
+            &mut model,
+            random_type,
+            0,
+            seed,
+            ctx.player_config.hran_threshold_bpm,
+        );
+
+        // DP: Apply 2P pattern + doubleoption
+        if model.mode.player_count() > 1 {
+            let random_type_2p = get_random(ctx.player_config.random2 as usize, model.mode);
+            self.assist += apply_pattern_modifier(
+                &mut model,
+                random_type_2p,
+                1,
+                seed,
+                ctx.player_config.hran_threshold_bpm,
+            );
+            apply_double_option(&mut model, ctx.player_config.doubleoption);
+        }
+
         let rule = PlayerRule::lr2();
         self.judge_notes = model.build_judge_notes();
-        self.lane_property = LaneProperty::new(model.mode);
 
         let total_notes = self.judge_notes.iter().filter(|n| n.is_playable()).count();
         let total = if model.total > 0.0 {
@@ -271,6 +328,11 @@ impl PlayState {
     /// Handle the Playing phase render logic (timer-driven state checks).
     fn render_playing(&mut self, ctx: &mut StateContext) {
         let ptime_us = ctx.timer.now_time_of(TIMER_PLAY) * 1000;
+
+        // BGM autoplay via KeySoundProcessor
+        if let (Some(ksp), Some(driver)) = (&mut self.key_sound_processor, &mut self.audio_driver) {
+            ksp.update(ptime_us, driver.as_mut());
+        }
 
         // Record gauge log every 500ms
         self.record_gauge_log(ptime_us);
@@ -425,23 +487,6 @@ impl PlayState {
         }
     }
 
-    /// Process a frame of judge events (mine damage, key sounds).
-    fn process_events(&mut self, events: &[JudgeEvent], gauge: &mut GrooveGauge) {
-        for event in events {
-            match event {
-                JudgeEvent::MineDamage { damage, .. } => {
-                    gauge.add_value(-(*damage as f32));
-                }
-                JudgeEvent::KeySound { .. } => {
-                    // TODO: audio_driver.play_note() when audio backend is integrated
-                }
-                JudgeEvent::Judge { .. } | JudgeEvent::HcnGauge { .. } => {
-                    // Already handled internally by JudgeManager
-                }
-            }
-        }
-    }
-
     /// Build score data and save to resource for Result state.
     fn build_score_data(&self, ctx: &mut StateContext) {
         if let Some(jm) = &self.judge_manager {
@@ -491,16 +536,44 @@ impl GameStateHandler for PlayState {
         self.last_gauge_log_time_us = 0;
         self.replay_cursor = 0;
         self.key_beam_stop = false;
+        self.is_judge_started = false;
         self.start_pressed = false;
         self.select_pressed = false;
 
         self.init_judge_and_gauge(ctx);
+
+        // Initialize InputProcessor for manual play (not autoplay/replay)
+        if !self.is_autoplay && !self.is_replay {
+            let mut ip = InputProcessor::new();
+            let mode_id = ctx.resource.play_mode.mode_id();
+            let mode_config = ctx.player_config.play_config(mode_id);
+            ip.set_play_config(mode_config);
+            self.input_processor = Some(ip);
+        } else {
+            self.input_processor = None;
+        }
     }
 
     fn prepare(&mut self, ctx: &mut StateContext) {
         info!("Play: prepare");
-        // Preload phase: immediately transition to Ready
-        // (actual audio/skin loading will be added later)
+
+        // Initialize audio driver and key sound processor
+        if let Some(model) = &ctx.resource.bms_model {
+            let base_path = ctx.resource.bms_dir.as_deref().unwrap_or(Path::new("."));
+            match KiraAudioDriver::new() {
+                Ok(mut driver) => {
+                    if let Err(e) = driver.set_model(model, base_path) {
+                        warn!("Play: failed to load audio: {e}");
+                    }
+                    self.key_sound_processor = Some(KeySoundProcessor::new(model, 1.0));
+                    self.audio_driver = Some(Box::new(driver));
+                }
+                Err(e) => {
+                    warn!("Play: failed to create audio driver: {e}");
+                }
+            }
+        }
+
         self.phase = PlayPhase::Ready;
         ctx.timer.set_timer_on(TIMER_READY);
     }
@@ -545,6 +618,17 @@ impl GameStateHandler for PlayState {
 
         let ptime_us = ctx.timer.now_time_of(TIMER_PLAY) * 1000;
 
+        // Poll keyboard via InputProcessor (manual play mode)
+        if let (Some(ip), Some(backend)) = (&mut self.input_processor, ctx.keyboard_backend) {
+            ip.poll_keyboard(ptime_us, backend);
+            // Copy key states from InputProcessor
+            let phys_count = self.key_states.len();
+            for i in 0..phys_count {
+                self.key_states[i] = ip.get_key_state(i);
+                self.key_changed_times[i] = ip.get_key_changed_time(i);
+            }
+        }
+
         // Inject replay events
         if self.is_replay {
             self.inject_replay_events(ptime_us);
@@ -566,8 +650,11 @@ impl GameStateHandler for PlayState {
                     JudgeEvent::MineDamage { damage, .. } => {
                         gauge.add_value(-(*damage as f32));
                     }
-                    JudgeEvent::KeySound { .. } => {
-                        // TODO: audio_driver.play_note() when audio backend is integrated
+                    JudgeEvent::KeySound { wav_id } => {
+                        if let Some(driver) = &mut self.audio_driver {
+                            let note = Note::keysound(*wav_id);
+                            driver.play_note(&note, 1.0, 0);
+                        }
                     }
                     JudgeEvent::Judge { .. } | JudgeEvent::HcnGauge { .. } => {
                         // Already handled internally by JudgeManager
@@ -575,8 +662,29 @@ impl GameStateHandler for PlayState {
                 }
             }
 
+            // Track whether any notes have been judged (for key beam behavior)
+            if !self.is_judge_started && jm.past_notes() > 0 {
+                self.is_judge_started = true;
+            }
+
+            // Update key beam timers
+            update_key_beam_timers(
+                &self.lane_property,
+                &self.key_states,
+                jm.auto_presstime(),
+                self.key_beam_stop,
+                self.is_autoplay,
+                self.is_judge_started,
+                ctx.timer,
+            );
+
             // Reset key changed times for next frame
             self.key_changed_times.fill(NOT_SET);
+
+            // Reset InputProcessor's key changed times
+            if let Some(ip) = &mut self.input_processor {
+                ip.reset_all_key_changed_time();
+            }
 
             // Update score in resource
             ctx.resource.score_data = jm.score().clone();
@@ -586,7 +694,108 @@ impl GameStateHandler for PlayState {
 
     fn shutdown(&mut self, ctx: &mut StateContext) {
         info!("Play: shutdown");
+        if let Some(driver) = &mut self.audio_driver {
+            driver.stop_all();
+        }
         self.build_score_data(ctx);
+    }
+}
+
+/// Update key beam timers based on key states and autoplay press times.
+///
+/// Ported from Java `KeyInputProccessor.input()` — toggles TIMER_KEYON/TIMER_KEYOFF
+/// per lane for skin key beam animation.
+fn update_key_beam_timers(
+    lane_property: &LaneProperty,
+    key_states: &[bool],
+    auto_presstime: &[i64],
+    key_beam_stop: bool,
+    _is_autoplay: bool,
+    _is_judge_started: bool,
+    timer: &mut crate::timer_manager::TimerManager,
+) {
+    for lane in 0..lane_property.lane_count() {
+        let offset = lane_property.lane_skin_offset(lane);
+        let player = lane_property.lane_player(lane);
+        let is_scratch = lane_property.scratch_index(lane).is_some();
+
+        let mut pressed = false;
+        if !key_beam_stop {
+            for &key in lane_property.lane_to_keys(lane) {
+                if key_states.get(key).copied().unwrap_or(false)
+                    || auto_presstime.get(key).copied().unwrap_or(NOT_SET) != NOT_SET
+                {
+                    pressed = true;
+                    break;
+                }
+            }
+        }
+
+        let timer_on = property_mapper::key_on_timer_id(player, offset);
+        let timer_off = property_mapper::key_off_timer_id(player, offset);
+        if timer_on < 0 || timer_off < 0 {
+            continue;
+        }
+
+        if pressed {
+            // Activate key-on timer. For scratch lanes, always re-trigger
+            // (scratch can toggle direction rapidly).
+            if !timer.is_timer_on(timer_on) || is_scratch {
+                timer.set_timer_on(timer_on);
+                timer.set_timer_off(timer_off);
+            }
+        } else if timer.is_timer_on(timer_on) {
+            timer.set_timer_on(timer_off);
+            timer.set_timer_off(timer_on);
+        }
+    }
+}
+
+/// Apply a pattern modifier to the model and return the assist level as i32.
+fn apply_pattern_modifier(
+    model: &mut BmsModel,
+    rt: RandomType,
+    player: usize,
+    seed: i64,
+    hran_bpm: i32,
+) -> i32 {
+    let cs = rt.is_scratch_lane_modify();
+    let mut modifier: Box<dyn PatternModifier> = match rt.unit() {
+        RandomUnit::None => return 0,
+        RandomUnit::Lane => match rt {
+            RandomType::Mirror | RandomType::MirrorEx => {
+                Box::new(LaneMirrorShuffle::new(player, cs))
+            }
+            RandomType::Random | RandomType::RandomEx => {
+                Box::new(LaneRandomShuffle::new(player, cs, seed))
+            }
+            RandomType::Rotate | RandomType::RotateEx => {
+                Box::new(LaneRotateShuffle::new(player, cs, seed))
+            }
+            RandomType::Cross => Box::new(LaneCrossShuffle::new(player, cs)),
+            RandomType::RandomPlayable => {
+                Box::new(LanePlayableRandomShuffle::new(player, cs, seed))
+            }
+            _ => return 0,
+        },
+        RandomUnit::Note => Box::new(NoteShuffleModifier::new(rt, player, seed, hran_bpm)),
+        RandomUnit::Player => return 0, // Handled by apply_double_option
+    };
+    let assist = match modifier.assist_level() {
+        AssistLevel::None => 0,
+        AssistLevel::LightAssist => 1,
+        AssistLevel::Assist => 2,
+    };
+    modifier.modify(model);
+    assist
+}
+
+/// Apply DP double option (flip/battle).
+fn apply_double_option(model: &mut BmsModel, doubleoption: i32) {
+    match doubleoption {
+        1 => PlayerFlipShuffle::new().modify(model),
+        2 => PlayerBattleShuffle::new().modify(model),
+        _ => {}
     }
 }
 
@@ -663,6 +872,7 @@ mod tests {
             config,
             player_config,
             transition,
+            keyboard_backend: None,
         }
     }
 
@@ -1310,5 +1520,80 @@ mod tests {
         assert_eq!(GaugeAutoShift::from_i32(3), GaugeAutoShift::BestClear);
         assert_eq!(GaugeAutoShift::from_i32(4), GaugeAutoShift::SelectToUnder);
         assert_eq!(GaugeAutoShift::from_i32(99), GaugeAutoShift::None);
+    }
+
+    // --- Key beam timer tests ---
+
+    #[test]
+    fn key_beam_press_activates_keyon_timer() {
+        let lp = LaneProperty::new(PlayMode::Beat7K);
+        let mut timer = TimerManager::new();
+        timer.set_now_micro_time(1_000_000);
+
+        // Press key for lane 0 (offset=1, player=0)
+        let mut key_states = vec![false; lp.physical_key_count()];
+        key_states[0] = true;
+        let auto_pt = vec![NOT_SET; lp.physical_key_count()];
+
+        update_key_beam_timers(&lp, &key_states, &auto_pt, false, false, false, &mut timer);
+
+        // TIMER_KEYON_1P_KEY1 (offset=1) should be on
+        assert!(timer.is_timer_on(bms_skin::property_id::TIMER_KEYON_1P_KEY1));
+        assert!(!timer.is_timer_on(bms_skin::property_id::TIMER_KEYOFF_1P_KEY1));
+    }
+
+    #[test]
+    fn key_beam_release_activates_keyoff_timer() {
+        let lp = LaneProperty::new(PlayMode::Beat7K);
+        let mut timer = TimerManager::new();
+        timer.set_now_micro_time(1_000_000);
+
+        // First press
+        let mut key_states = vec![false; lp.physical_key_count()];
+        key_states[0] = true;
+        let auto_pt = vec![NOT_SET; lp.physical_key_count()];
+        update_key_beam_timers(&lp, &key_states, &auto_pt, false, false, false, &mut timer);
+
+        // Then release
+        timer.set_now_micro_time(2_000_000);
+        key_states[0] = false;
+        update_key_beam_timers(&lp, &key_states, &auto_pt, false, false, false, &mut timer);
+
+        // TIMER_KEYOFF_1P_KEY1 should be on, KEYON should be off
+        assert!(timer.is_timer_on(bms_skin::property_id::TIMER_KEYOFF_1P_KEY1));
+        assert!(!timer.is_timer_on(bms_skin::property_id::TIMER_KEYON_1P_KEY1));
+    }
+
+    #[test]
+    fn key_beam_stop_prevents_timer_changes() {
+        let lp = LaneProperty::new(PlayMode::Beat7K);
+        let mut timer = TimerManager::new();
+        timer.set_now_micro_time(1_000_000);
+
+        let mut key_states = vec![false; lp.physical_key_count()];
+        key_states[0] = true;
+        let auto_pt = vec![NOT_SET; lp.physical_key_count()];
+
+        // key_beam_stop = true → no timer activation
+        update_key_beam_timers(&lp, &key_states, &auto_pt, true, false, false, &mut timer);
+
+        assert!(!timer.is_timer_on(bms_skin::property_id::TIMER_KEYON_1P_KEY1));
+    }
+
+    #[test]
+    fn key_beam_scratch_activates_offset_0() {
+        let lp = LaneProperty::new(PlayMode::Beat7K);
+        let mut timer = TimerManager::new();
+        timer.set_now_micro_time(1_000_000);
+
+        // Press scratch (key 7 maps to lane 7, offset=0)
+        let mut key_states = vec![false; lp.physical_key_count()];
+        key_states[7] = true;
+        let auto_pt = vec![NOT_SET; lp.physical_key_count()];
+
+        update_key_beam_timers(&lp, &key_states, &auto_pt, false, false, false, &mut timer);
+
+        // TIMER_KEYON_1P_SCRATCH (offset=0) should be on
+        assert!(timer.is_timer_on(bms_skin::property_id::TIMER_KEYON_1P_SCRATCH));
     }
 }

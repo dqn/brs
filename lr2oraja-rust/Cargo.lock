@@ -1785,6 +1785,7 @@ dependencies = [
  "bms-skin",
  "bms-stream",
  "clap",
+ "rand 0.9.2",
  "tokio",
  "tracing",
  "tracing-subscriber",

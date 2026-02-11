@@ -46,6 +46,22 @@ pub struct Note {
 }
 
 impl Note {
+    /// Create a minimal note for key sound playback only.
+    pub fn keysound(wav_id: u16) -> Self {
+        Self {
+            lane: 0,
+            note_type: NoteType::Normal,
+            time_us: 0,
+            end_time_us: 0,
+            wav_id,
+            end_wav_id: 0,
+            damage: 0,
+            pair_index: usize::MAX,
+            micro_starttime: 0,
+            micro_duration: 0,
+        }
+    }
+
     pub fn normal(lane: usize, time_us: i64, wav_id: u16) -> Self {
         Self {
             lane,

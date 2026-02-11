@@ -1468,6 +1468,11 @@ impl JudgeManager {
             .is_some_and(|s| s.passing != NO_NOTE && s.inclease)
     }
 
+    /// Get the autoplay press times per physical key.
+    pub fn auto_presstime(&self) -> &[i64] {
+        &self.auto_presstime
+    }
+
     /// Get the judge window table for a lane.
     pub fn judge_table(&self, is_scratch: bool) -> &JudgeWindowTable {
         if is_scratch {

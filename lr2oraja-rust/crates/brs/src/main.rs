@@ -3,6 +3,7 @@
 // Integrates all crates via Bevy app with state machine.
 
 mod app_state;
+mod bevy_keyboard;
 mod game_state;
 mod player_resource;
 mod state;
@@ -12,6 +13,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
+use bevy::input::ButtonInput;
+use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use clap::Parser;
 use tracing::info;
@@ -53,6 +56,7 @@ fn main() -> Result<()> {
         info!(path = %bms_path.display(), "Loading BMS file");
         let model = bms_model::BmsDecoder::decode(bms_path)?;
         resource.play_mode = model.mode;
+        resource.bms_dir = bms_path.parent().map(|p| p.to_path_buf());
         resource.bms_model = Some(model);
     }
 
@@ -131,10 +135,17 @@ fn state_machine_system(
     config: Res<BrsConfig>,
     player_config: Res<BrsPlayerConfig>,
     mut registry: ResMut<BrsStateRegistry>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut backend: Local<bevy_keyboard::BevyKeyboardBackend>,
 ) {
-    registry
-        .0
-        .tick(&mut timer.0, &mut resource.0, &config.0, &player_config.0);
+    backend.snapshot(&keyboard_input);
+    registry.0.tick(
+        &mut timer.0,
+        &mut resource.0,
+        &config.0,
+        &player_config.0,
+        Some(&*backend),
+    );
 }
 
 fn state_sync_system(timer: Res<BrsTimerManager>, shared: Res<BrsSharedState>) {

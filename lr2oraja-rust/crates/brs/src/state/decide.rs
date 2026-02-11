@@ -128,6 +128,7 @@ mod tests {
             config,
             player_config,
             transition,
+            keyboard_backend: None,
         }
     }
 

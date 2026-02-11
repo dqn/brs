@@ -18,6 +18,7 @@ use crate::game_state::SharedGameState;
 /// Synchronize play-specific state into SharedGameState for skin rendering.
 ///
 /// Called once per frame during the Playing phase.
+#[allow(dead_code)]
 pub fn sync_play_state(
     state: &mut SharedGameState,
     jm: &JudgeManager,
