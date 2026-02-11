@@ -289,6 +289,11 @@ fn database_encoding_utf8() {
     run_database_test("encoding_utf8.bms");
 }
 
+#[test]
+fn database_defexrank() {
+    run_database_test("defexrank.bms");
+}
+
 // --- bmson tests ---
 
 #[test]

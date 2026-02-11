@@ -1,0 +1,209 @@
+{
+  "skin_width" : 1920.0,
+  "skin_height" : 1080.0,
+  "time_ms" : 0,
+  "commands" : [ {
+    "object_index" : 0,
+    "object_type" : "Image",
+    "visible" : true,
+    "dst" : {
+      "x" : 0.0,
+      "y" : 0.0,
+      "w" : 1280.0,
+      "h" : 720.0
+    },
+    "color" : {
+      "r" : 1.0,
+      "g" : 1.0,
+      "b" : 1.0,
+      "a" : 0.15686275
+    },
+    "angle" : 0,
+    "blend" : 0,
+    "detail" : {
+      "type" : "Image",
+      "source_index" : 0,
+      "frame_index" : 0
+    }
+  }, {
+    "object_index" : 1,
+    "object_type" : "Image",
+    "visible" : true,
+    "dst" : {
+      "x" : 0.0,
+      "y" : 0.0,
+      "w" : 1280.0,
+      "h" : 720.0
+    },
+    "color" : {
+      "r" : 1.0,
+      "g" : 1.0,
+      "b" : 1.0,
+      "a" : 1.0
+    },
+    "angle" : 0,
+    "blend" : 0,
+    "detail" : {
+      "type" : "Image",
+      "source_index" : 0,
+      "frame_index" : 0
+    }
+  }, {
+    "object_index" : 2,
+    "object_type" : "Text",
+    "visible" : false,
+    "angle" : 0,
+    "blend" : 0
+  }, {
+    "object_index" : 3,
+    "object_type" : "Text",
+    "visible" : false,
+    "angle" : 0,
+    "blend" : 0
+  }, {
+    "object_index" : 4,
+    "object_type" : "Text",
+    "visible" : false,
+    "angle" : 0,
+    "blend" : 0
+  }, {
+    "object_index" : 5,
+    "object_type" : "Text",
+    "visible" : false,
+    "angle" : 0,
+    "blend" : 0
+  }, {
+    "object_index" : 6,
+    "object_type" : "Text",
+    "visible" : true,
+    "dst" : {
+      "x" : 1228.6667,
+      "y" : 295.33334,
+      "w" : 800.0,
+      "h" : 12.0
+    },
+    "color" : {
+      "r" : 1.0,
+      "g" : 1.0,
+      "b" : 1.0,
+      "a" : 0.0
+    },
+    "angle" : 0,
+    "blend" : 0,
+    "detail" : {
+      "type" : "Text",
+      "content" : "",
+      "align" : 2
+    }
+  }, {
+    "object_index" : 7,
+    "object_type" : "Image",
+    "visible" : true,
+    "dst" : {
+      "x" : 960.0,
+      "y" : 458.6667,
+      "w" : 288.0,
+      "h" : 48.666668
+    },
+    "color" : {
+      "r" : 1.0,
+      "g" : 1.0,
+      "b" : 1.0,
+      "a" : 0.0
+    },
+    "angle" : 0,
+    "blend" : 0,
+    "detail" : {
+      "type" : "Image",
+      "source_index" : 0,
+      "frame_index" : 0
+    }
+  }, {
+    "object_index" : 8,
+    "object_type" : "Image",
+    "visible" : true,
+    "dst" : {
+      "x" : 44.0,
+      "y" : 339.33334,
+      "w" : 1194.0,
+      "h" : 16.666668
+    },
+    "color" : {
+      "r" : 1.0,
+      "g" : 1.0,
+      "b" : 1.0,
+      "a" : 0.0
+    },
+    "angle" : 0,
+    "blend" : 0,
+    "detail" : {
+      "type" : "Image",
+      "source_index" : 0,
+      "frame_index" : 0
+    }
+  }, {
+    "object_index" : 9,
+    "object_type" : "Image",
+    "visible" : true,
+    "dst" : {
+      "x" : 854.6667,
+      "y" : 246.66667,
+      "w" : 378.0,
+      "h" : 34.0
+    },
+    "color" : {
+      "r" : 1.0,
+      "g" : 1.0,
+      "b" : 1.0,
+      "a" : 0.0
+    },
+    "angle" : 0,
+    "blend" : 0,
+    "detail" : {
+      "type" : "Image",
+      "source_index" : 0,
+      "frame_index" : 0
+    }
+  }, {
+    "object_index" : 10,
+    "object_type" : "Image",
+    "visible" : true,
+    "dst" : {
+      "x" : 0.0,
+      "y" : 325.33334,
+      "w" : 1480.0,
+      "h" : 164.0
+    },
+    "color" : {
+      "r" : 1.0,
+      "g" : 1.0,
+      "b" : 1.0,
+      "a" : 0.9019608
+    },
+    "angle" : 0,
+    "blend" : 2,
+    "detail" : {
+      "type" : "Image",
+      "source_index" : 0,
+      "frame_index" : 0
+    }
+  }, {
+    "object_index" : 11,
+    "object_type" : "Image",
+    "visible" : false,
+    "angle" : 0,
+    "blend" : 0
+  }, {
+    "object_index" : 12,
+    "object_type" : "Image",
+    "visible" : false,
+    "angle" : 0,
+    "blend" : 0
+  }, {
+    "object_index" : 13,
+    "object_type" : "Image",
+    "visible" : false,
+    "angle" : 0,
+    "blend" : 0
+  } ]
+}

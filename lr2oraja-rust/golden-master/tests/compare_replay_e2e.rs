@@ -184,14 +184,9 @@ fn compare_score(actual: &bms_rule::ScoreData, expected: &ExpectedScore) -> Vec<
 
 #[test]
 fn compare_replay_e2e() {
-    let fixtures = match ReplayE2EFixtures::load() {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("WARNING: Skipping replay E2E test: {e}");
-            eprintln!("Run `just golden-master-replay-e2e-gen` to generate fixtures.");
-            return;
-        }
-    };
+    let fixtures = ReplayE2EFixtures::load().expect(
+        "Failed to load replay E2E fixture. Run `just golden-master-replay-e2e-gen` first.",
+    );
 
     let mut failures: Vec<String> = Vec::new();
     let mut pass_count = 0;

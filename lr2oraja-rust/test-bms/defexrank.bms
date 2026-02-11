@@ -1,0 +1,23 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE DEFEXRANK Test
+#ARTIST brs-test
+#BPM 128
+#PLAYLEVEL 1
+#DEFEXRANK 120
+#TOTAL 280
+#LNTYPE 1
+
+#WAV01 kick.wav
+#WAV02 snare.wav
+
+*---------------------- MAIN DATA FIELD
+
+#00111:01
+#00112:02
+#00113:01
+#00114:02
+
+#00211:0102
+#00213:0100

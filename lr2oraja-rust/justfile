@@ -66,8 +66,8 @@ golden-master-skin-gen:
 golden-master-replay-e2e-gen:
     cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.ReplayE2EExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
 
-# Generate all GM fixtures (parse + rule + pattern + replay + database + config + autoplay + audio + judge + replay-e2e)
-golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen golden-master-replay-gen golden-master-database-gen golden-master-config-gen golden-master-autoplay-gen golden-master-audio-gen golden-master-judge-gen golden-master-replay-e2e-gen
+# Generate all GM fixtures (parse + rule + pattern + replay + database + config + autoplay + audio + judge + replay-e2e + render-snapshot)
+golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen golden-master-replay-gen golden-master-database-gen golden-master-config-gen golden-master-autoplay-gen golden-master-audio-gen golden-master-judge-gen golden-master-replay-e2e-gen golden-master-render-snapshot-gen
 
 # Screenshot tests (GPU required, local execution)
 screenshot-test:
@@ -132,7 +132,7 @@ golden-master-render-snapshot-gen:
 
 # Compare Java-Rust RenderSnapshot (structural draw command comparison)
 golden-master-render-snapshot-compare:
-    cargo test -p golden-master compare_render_snapshot -- --nocapture
+    cargo test -p golden-master --test compare_render_snapshot -- --nocapture --ignored
 
 # Run criterion benchmarks
 bench:

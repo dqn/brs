@@ -12,6 +12,7 @@ score.db
 song.db
 proptest-regressions/
 screenshots_diff/
+lr2oraja-rust/golden-master/fixtures/render_snapshots_debug/
 CLAUDE.local.md
 AGENTS.local.md
 beatoraja-java/**

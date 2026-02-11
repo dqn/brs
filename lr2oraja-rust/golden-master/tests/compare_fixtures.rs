@@ -103,6 +103,11 @@ fn golden_master_encoding_utf8() {
 }
 
 #[test]
+fn golden_master_defexrank() {
+    run_golden_master_test("defexrank.bms");
+}
+
+#[test]
 fn golden_master_random_if() {
     // Uses fixed selectedRandoms=[1] to select #IF 1 branch deterministically.
     // Matching random_seeds.json on the Java side.

@@ -167,6 +167,37 @@ pub fn compare_model(model: &bms_model::BmsModel, fixture: &Fixture) -> Vec<Stri
             model.initial_bpm, fixture.metadata.initial_bpm
         ));
     }
+    if model.judge_rank_raw != fixture.metadata.judge_rank {
+        diffs.push(format!(
+            "judge_rank: rust={} java={}",
+            model.judge_rank_raw, fixture.metadata.judge_rank
+        ));
+    }
+    if (model.total - fixture.metadata.total).abs() > 0.001 {
+        diffs.push(format!(
+            "total: rust={} java={}",
+            model.total, fixture.metadata.total
+        ));
+    }
+    if fixture.metadata.player > 0 && model.player != fixture.metadata.player {
+        diffs.push(format!(
+            "player: rust={} java={}",
+            model.player, fixture.metadata.player
+        ));
+    }
+    if model.mode.key_count() != fixture.metadata.mode_key_count {
+        diffs.push(format!(
+            "mode_key_count: rust={} java={}",
+            model.mode.key_count(),
+            fixture.metadata.mode_key_count
+        ));
+    }
+    if fixture.metadata.ln_type > 0 && model.ln_type as i32 != fixture.metadata.ln_type {
+        diffs.push(format!(
+            "ln_type: rust={} java={}",
+            model.ln_type as i32, fixture.metadata.ln_type
+        ));
+    }
     if model.banner != fixture.metadata.banner {
         diffs.push(format!(
             "banner: rust={:?} java={:?}",
@@ -251,7 +282,6 @@ pub fn compare_model(model: &bms_model::BmsModel, fixture: &Fixture) -> Vec<Stri
             fixture.statistics.max_bpm
         ));
     }
-
     // Notes comparison (flat list, excluding LN ends which Java filters out)
     let rust_notes: Vec<&bms_model::Note> = model
         .notes
@@ -304,6 +334,15 @@ pub fn compare_model(model: &bms_model::BmsModel, fixture: &Fixture) -> Vec<Stri
             diffs.push(format!(
                 "note[{}] type: rust={:?} java={} (expected {:?})",
                 i, rn.note_type, fn_.note_type, expected_type
+            ));
+        }
+        if let Some(damage) = fn_.damage
+            && rn.note_type == bms_model::NoteType::Mine
+            && (rn.damage as f64 - damage).abs() > f64::EPSILON
+        {
+            diffs.push(format!(
+                "note[{}] damage: rust={} java={}",
+                i, rn.damage, damage
             ));
         }
 

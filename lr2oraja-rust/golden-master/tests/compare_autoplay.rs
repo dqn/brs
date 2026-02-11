@@ -279,6 +279,11 @@ fn autoplay_encoding_utf8() {
     run_autoplay_test("encoding_utf8.bms");
 }
 
+#[test]
+fn autoplay_defexrank() {
+    run_autoplay_test("defexrank.bms");
+}
+
 // --- bmson tests ---
 
 #[test]

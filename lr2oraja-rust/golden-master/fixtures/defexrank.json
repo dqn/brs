@@ -1,0 +1,138 @@
+{
+  "metadata" : {
+    "title" : "DEFEXRANK Test",
+    "subtitle" : "",
+    "artist" : "brs-test",
+    "sub_artist" : "",
+    "genre" : "Test",
+    "initial_bpm" : 128.0,
+    "judge_rank" : 120,
+    "judge_rank_type" : "BMS_DEFEXRANK",
+    "total" : 280.0,
+    "total_type" : "BMS",
+    "play_level" : "1",
+    "difficulty" : 0,
+    "player" : 1,
+    "mode" : "beat-5k",
+    "mode_key_count" : 6,
+    "ln_type" : 0,
+    "lnmode" : 0,
+    "banner" : "",
+    "stagefile" : "",
+    "backbmp" : "",
+    "preview" : ""
+  },
+  "hashes" : {
+    "md5" : "be64f3d2bab72e06b77d179566ca14d3",
+    "sha256" : "6f1cfe078e474d65d3f1b1908b322a86cc6190ae33adc589546455098ec21da2"
+  },
+  "statistics" : {
+    "total_notes" : 7,
+    "total_notes_key" : 7,
+    "total_notes_long_key" : 0,
+    "total_notes_scratch" : 0,
+    "total_notes_long_scratch" : 0,
+    "total_notes_mine" : 0,
+    "min_bpm" : 128.0,
+    "max_bpm" : 128.0,
+    "timeline_count" : 4
+  },
+  "timelines" : [ {
+    "time_us" : 0,
+    "section" : 0.0,
+    "bpm" : 128.0,
+    "stop_us" : 0,
+    "notes" : [ ]
+  }, {
+    "time_us" : 1875000,
+    "section" : 1.0,
+    "bpm" : 128.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 1875000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    }, {
+      "lane" : 1,
+      "time_us" : 1875000,
+      "wav_id" : 1,
+      "type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_us" : 1875000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    }, {
+      "lane" : 3,
+      "time_us" : 1875000,
+      "wav_id" : 1,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 3750000,
+    "section" : 2.0,
+    "bpm" : 128.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 3750000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_us" : 3750000,
+      "wav_id" : 0,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 4687500,
+    "section" : 2.5,
+    "bpm" : 128.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 4687500,
+      "wav_id" : 1,
+      "type" : "Normal"
+    } ]
+  } ],
+  "notes" : [ {
+    "lane" : 0,
+    "time_us" : 1875000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 1,
+    "time_us" : 1875000,
+    "wav_id" : 1,
+    "type" : "Normal"
+  }, {
+    "lane" : 2,
+    "time_us" : 1875000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 3,
+    "time_us" : 1875000,
+    "wav_id" : 1,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 3750000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 2,
+    "time_us" : 3750000,
+    "wav_id" : 0,
+    "type" : "Normal"
+  }, {
+    "lane" : 0,
+    "time_us" : 4687500,
+    "wav_id" : 1,
+    "type" : "Normal"
+  } ],
+  "bpm_changes" : [ ],
+  "stop_events" : [ ]
+}
