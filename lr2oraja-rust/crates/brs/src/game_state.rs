@@ -52,9 +52,19 @@ impl SkinStateProvider for GameStateProvider {
         state.integers.get(&id.0).copied().unwrap_or(0)
     }
 
+    fn has_integer_value(&self, id: IntegerId) -> bool {
+        let state = self.state.read().unwrap();
+        state.integers.contains_key(&id.0)
+    }
+
     fn float_value(&self, id: FloatId) -> f32 {
         let state = self.state.read().unwrap();
         state.floats.get(&id.0).copied().unwrap_or(0.0)
+    }
+
+    fn has_float_value(&self, id: FloatId) -> bool {
+        let state = self.state.read().unwrap();
+        state.floats.contains_key(&id.0)
     }
 
     fn string_value(&self, id: StringId) -> Option<String> {
@@ -66,6 +76,11 @@ impl SkinStateProvider for GameStateProvider {
         let state = self.state.read().unwrap();
         let raw = state.booleans.get(&id.abs_id()).copied().unwrap_or(false);
         if id.is_negated() { !raw } else { raw }
+    }
+
+    fn has_boolean_value(&self, id: BooleanId) -> bool {
+        let state = self.state.read().unwrap();
+        state.booleans.contains_key(&id.abs_id())
     }
 
     fn now_time_ms(&self) -> i64 {

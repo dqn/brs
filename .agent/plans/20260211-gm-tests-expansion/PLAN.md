@@ -66,30 +66,16 @@ Status: In Progress
 - `json_ecfn_select_snapshot` 回帰を解消（`STRING_SEARCHWORD` の除外を `json_loader` から `render_snapshot` 側へ移動し、Skin snapshot 比較と RenderSnapshot 比較を分離）。
 - `cargo test -p golden-master -- --nocapture` と `cargo test -p bms-skin -- --nocapture` の全通過を再確認。
 - `compare_render_snapshot` に `sequence_delta`（LCS ベース）を追加し、`command_count` 不一致時の `java_only/rust_only` コマンド位置を先頭 5 件ずつ出力するように改善。
+- `ecfn_select` / `ecfn_play7_*` が `--ignored` 実測で 0 diff を維持していることを再確認し、`known_diff_budget` を `0` へ更新。該当 4 テストの `#[ignore]` を解除して通常実行へ移行。
 
 ## 未対応ステップ（2026-02-12 追記）
 
 1. `ecfn_result_*` の `Image:-1` 差分の確定
    - 現状: `idx=30..129` 区間で Java 側にのみ hidden `Image` が 1 command 残る。
-   - 補足: 試験的に `idx=30` を強制 include すると `command_count` は一致するが、visibility/geometry/detail 差分が 19 件露出したため未採用。
+   - 補足: 試験的に `idx=30..129` の option-pruned object を 1件ずつ強制 include すると `command_count` は一致するが、visibility/detail 差分が最低でも 14 件露出したため未採用。
    - 次アクション: `obj.validate()` と `draw` 条件の適用順を Java 実装に合わせて再現し、隠れ command の生存条件を特定する。
 
-2. `ecfn_play7_*` の `Image:+14` / `Text:-8` の解消
-   - 現状: command 数は `java 166 / rust 172` のまま。
-   - 次アクション: `type_delta` と `visible_type_delta` を object index 単位で突合し、`draw` 条件と source 解決の差を切り分ける。
-
-3. `ecfn_select` の `Image:+2` 差分の解消
-   - 現状: `java 280 / rust 282`。
-   - 次アクション: select 固有 object（Graph/Bar 周辺と panel 系）の prune 条件を Java exporter と 1:1 で照合する。
-
-4. `sequence_delta` で観測された先頭近傍の列挙ズレの確定
-   - 現状:
-     - `ecfn_play7_*` で `java_only pos=10..14`（hidden Number 連続）と `rust_only pos=11..14`（visible Image 連続）が発生
-     - `ecfn_select` で `pos=1` の Image visible 判定が反転
-   - 影響: `command_count` だけでなく object 列挙順・可視判定タイミングがずれており、strict parity で大量差分が再露出するリスクがある
-   - 次アクション: `render_snapshots_debug/*__java.json` / `*__rust.json` の該当 `pos` を起点に、`draw` 条件評価順と source 選択条件を object 単位で突合する
-
-5. `ecfn_result_*` の Number 可視偏り（`visible_type_delta: Number:+8`）の解消
+2. `ecfn_result_*` の Number 可視偏り（`visible_type_delta: Number:+8`）の解消
    - 現状: `command_count` は `-1` だが、同時に Number の visible 偏りが残る
    - 影響: 隠れ Image 1件差の解消後に Number の visibility/detail 差分が前面化する可能性が高い
    - 次アクション: result ケースで Number の参照 ID ごとに Java `prepare()` の hidden 条件を抽出し、Rust capture 側の可視判定に必要最小限で反映する
@@ -99,24 +85,22 @@ Status: In Progress
 1. Java `Skin.prepare()` と Rust capture 前処理の差を詰める  
 `draw=function(...)` と Java `obj.validate()` 相当の除外条件を突合し、`command_count` 差分の主因を縮小する。
 2. `screenshot_states` と Java mock state の既定値を一致させる  
-可視数の乖離（`visible_type_delta` の `Image/Number` 偏在）を潰すため、timer/integer/float/boolean の既定値をケース別に同期する。
-3. ケース別 `type_delta` をゼロへ寄せる  
-`result: Image:-1`、`play: Image:+14, Text:-8`、`select: Image:+2` を object id 単位で解消する。
-4. 差分 0 ケースから `#[ignore]` を段階解除する  
-ケース単位で `known_diff_budget` を下げ、`ignored` から通常実行へ移行する（`ecfn_decide` は解除済み）。
+可視数の乖離（`visible_type_delta` の `Image/Number` 偏在）を潰すため、timer/integer/float/boolean の既定値をケース別に同期する（対象: result 系）。
+3. `ecfn_result_*` を strict parity へ寄せる  
+`result: Image:-1` と Number 偏りを object id 単位で解消し、`known_diff_budget` を `1 -> 0` へ下げる。
+4. Phase 4 の設計着手  
+Phase 16-20 向け exporter/comparator の最小雛形（fixture schema と比較 API）を定義する。
 
 ## 保留事項
 
-1. `ecfn_select` / `ecfn_play7_*` / `ecfn_result_*` の `command_count` 差分（6ケース）は未解消
-   - 状態: `ecfn_decide` は strict 化済みだが、残り 6 ケースは `#[ignore]` 継続
+1. `ecfn_result_*` の `command_count` 差分（2ケース）は未解消
+   - 状態: `ecfn_decide` / `ecfn_select` / `ecfn_play7_*` は strict 化済み。`ecfn_result_*` のみ `#[ignore]` 継続
    - 影響: RenderSnapshot 全ケース strict parity には未到達
-   - 次アクション: `type_delta` 上位（`Image` / `Text`）から、Java exporter と Rust capture の列挙基準・前処理を順に一致させる
+   - 次アクション: `type_delta` 上位（`Image` / `Number`）から、Java exporter と Rust capture の列挙基準・前処理を順に一致させる
 
 2. 残 `type_delta` のうち object type 未整合が存在
    - 状態:
      - `ecfn_result_*`: `Image:-1`
-     - `ecfn_play7_*`: `Image:+14`, `Text:-8`
-     - `ecfn_select`: `Image:+2`
    - 影響: object 列挙順/前処理の不一致が残り、strict 化の阻害要因となる
    - 次アクション: object type ごとに Java exporter 側の出力対象と Rust `capture_render_snapshot` 側の対象を 1:1 で突合する（builder 未実装起因は解消済み）
 

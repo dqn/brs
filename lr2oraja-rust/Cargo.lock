@@ -2038,6 +2038,7 @@ dependencies = [
  "bms-config",
  "bms-model",
  "encoding_rs",
+ "glob",
  "image",
  "mlua",
  "serde",
