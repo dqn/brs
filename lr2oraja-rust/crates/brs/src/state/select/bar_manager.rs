@@ -2,7 +2,7 @@
 //
 // Provides a hierarchical browser with folder push/pop navigation.
 
-use bms_database::{SongData, SongDatabase};
+use bms_database::{CourseData, SongData, SongDatabase};
 
 /// Sort modes for the bar list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -30,11 +30,13 @@ impl SortMode {
 #[derive(Debug, Clone)]
 pub enum Bar {
     Song(Box<SongData>),
-    #[allow(dead_code)] // Reserved for folder navigation system
+    #[allow(dead_code)] // Used in tests and folder navigation
     Folder {
         name: String,
         path: String,
     },
+    #[allow(dead_code)] // Used in tests and course selection
+    Course(Box<CourseData>),
 }
 
 /// Manages the bar list, cursor position, and folder navigation stack.
@@ -119,7 +121,17 @@ impl BarManager {
         !self.folder_stack.is_empty()
     }
 
+    /// Load course data and add them as bars.
+    #[allow(dead_code)] // Used in tests and course mode
+    pub fn add_courses(&mut self, courses: &[CourseData]) {
+        for course in courses {
+            self.bars.push(Bar::Course(Box::new(course.clone())));
+        }
+    }
+
     /// Sort bars by the given mode.
+    ///
+    /// Sort order for non-Song bars: Folders first, then Courses (by name).
     pub fn sort(&mut self, mode: SortMode) {
         match mode {
             SortMode::Default => {} // Keep original order
@@ -128,10 +140,12 @@ impl BarManager {
                     let title_a = match a {
                         Bar::Song(s) => &s.title,
                         Bar::Folder { name, .. } => name,
+                        Bar::Course(c) => &c.name,
                     };
                     let title_b = match b {
                         Bar::Song(s) => &s.title,
                         Bar::Folder { name, .. } => name,
+                        Bar::Course(c) => &c.name,
                     };
                     title_a.to_lowercase().cmp(&title_b.to_lowercase())
                 });
@@ -140,11 +154,11 @@ impl BarManager {
                 self.bars.sort_by(|a, b| {
                     let artist_a = match a {
                         Bar::Song(s) => s.artist.as_str(),
-                        Bar::Folder { .. } => "",
+                        Bar::Folder { .. } | Bar::Course(_) => "",
                     };
                     let artist_b = match b {
                         Bar::Song(s) => s.artist.as_str(),
-                        Bar::Folder { .. } => "",
+                        Bar::Folder { .. } | Bar::Course(_) => "",
                     };
                     artist_a.to_lowercase().cmp(&artist_b.to_lowercase())
                 });
@@ -153,11 +167,11 @@ impl BarManager {
                 self.bars.sort_by(|a, b| {
                     let level_a = match a {
                         Bar::Song(s) => s.level,
-                        Bar::Folder { .. } => 0,
+                        Bar::Folder { .. } | Bar::Course(_) => 0,
                     };
                     let level_b = match b {
                         Bar::Song(s) => s.level,
-                        Bar::Folder { .. } => 0,
+                        Bar::Folder { .. } | Bar::Course(_) => 0,
                     };
                     level_a.cmp(&level_b)
                 });
@@ -167,12 +181,12 @@ impl BarManager {
     }
 
     /// Filter bars to retain only songs matching the given mode ID.
-    /// Folder bars are always retained.
+    /// Folder and Course bars are always retained.
     pub fn filter_by_mode(&mut self, mode: Option<i32>) {
         if let Some(mode_id) = mode {
             self.bars.retain(|bar| match bar {
                 Bar::Song(s) => s.mode == mode_id,
-                Bar::Folder { .. } => true,
+                Bar::Folder { .. } | Bar::Course(_) => true,
             });
             self.cursor = 0;
         }
@@ -532,5 +546,139 @@ mod tests {
         assert_eq!(SortMode::Title.next(), SortMode::Artist);
         assert_eq!(SortMode::Artist.next(), SortMode::Level);
         assert_eq!(SortMode::Level.next(), SortMode::Default);
+    }
+
+    fn sample_course(name: &str) -> CourseData {
+        use bms_database::CourseSongData;
+        CourseData {
+            name: name.to_string(),
+            hash: vec![CourseSongData {
+                sha256: "abc".to_string(),
+                md5: String::new(),
+                title: "Stage 1".to_string(),
+            }],
+            constraint: Vec::new(),
+            trophy: Vec::new(),
+            release: true,
+        }
+    }
+
+    #[test]
+    fn add_courses_appends_bars() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![Bar::Song(Box::new(SongData {
+            title: "Song".to_string(),
+            ..Default::default()
+        }))];
+
+        let courses = vec![sample_course("Course A"), sample_course("Course B")];
+        bm.add_courses(&courses);
+        assert_eq!(bm.bar_count(), 3);
+        match &bm.bars[1] {
+            Bar::Course(c) => assert_eq!(c.name, "Course A"),
+            _ => panic!("expected Course bar"),
+        }
+        match &bm.bars[2] {
+            Bar::Course(c) => assert_eq!(c.name, "Course B"),
+            _ => panic!("expected Course bar"),
+        }
+    }
+
+    #[test]
+    fn sort_by_title_includes_courses() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                title: "Zebra".to_string(),
+                ..Default::default()
+            })),
+            Bar::Course(Box::new(sample_course("Alpha Course"))),
+            Bar::Folder {
+                name: "Middle Folder".to_string(),
+                path: "f".to_string(),
+            },
+        ];
+        bm.sort(SortMode::Title);
+
+        // Expected order: "Alpha Course", "Middle Folder", "Zebra"
+        match &bm.bars[0] {
+            Bar::Course(c) => assert_eq!(c.name, "Alpha Course"),
+            _ => panic!("expected Course bar at index 0"),
+        }
+        match &bm.bars[1] {
+            Bar::Folder { name, .. } => assert_eq!(name, "Middle Folder"),
+            _ => panic!("expected Folder bar at index 1"),
+        }
+        match &bm.bars[2] {
+            Bar::Song(s) => assert_eq!(s.title, "Zebra"),
+            _ => panic!("expected Song bar at index 2"),
+        }
+    }
+
+    #[test]
+    fn filter_by_mode_retains_courses() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                title: "7K Song".to_string(),
+                mode: 7,
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                title: "14K Song".to_string(),
+                mode: 14,
+                ..Default::default()
+            })),
+            Bar::Course(Box::new(sample_course("My Course"))),
+        ];
+        bm.filter_by_mode(Some(7));
+        // Should retain: 7K Song + Course (2 bars), 14K removed
+        assert_eq!(bm.bar_count(), 2);
+        match &bm.bars[0] {
+            Bar::Song(s) => assert_eq!(s.mode, 7),
+            _ => panic!("expected 7K Song"),
+        }
+        match &bm.bars[1] {
+            Bar::Course(c) => assert_eq!(c.name, "My Course"),
+            _ => panic!("expected Course bar"),
+        }
+    }
+
+    #[test]
+    fn sort_by_artist_courses_sort_as_empty() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                title: "Song".to_string(),
+                artist: "Beta Artist".to_string(),
+                ..Default::default()
+            })),
+            Bar::Course(Box::new(sample_course("Course"))),
+        ];
+        bm.sort(SortMode::Artist);
+        // Course has empty artist, so it sorts before "Beta Artist"
+        match &bm.bars[0] {
+            Bar::Course(c) => assert_eq!(c.name, "Course"),
+            _ => panic!("expected Course bar first"),
+        }
+    }
+
+    #[test]
+    fn sort_by_level_courses_sort_as_zero() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                title: "Hard".to_string(),
+                level: 12,
+                ..Default::default()
+            })),
+            Bar::Course(Box::new(sample_course("Course"))),
+        ];
+        bm.sort(SortMode::Level);
+        // Course has level 0, so it sorts before level 12
+        match &bm.bars[0] {
+            Bar::Course(c) => assert_eq!(c.name, "Course"),
+            _ => panic!("expected Course bar first"),
+        }
     }
 }

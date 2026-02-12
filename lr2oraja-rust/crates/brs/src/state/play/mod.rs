@@ -16,9 +16,11 @@ use bms_audio::kira_driver::KiraAudioDriver;
 use bms_input::input_processor::InputProcessor;
 use bms_model::{BmsModel, LaneProperty, Note, PlayMode};
 use bms_pattern::{
-    AssistLevel, LaneCrossShuffle, LaneMirrorShuffle, LanePlayableRandomShuffle, LaneRandomShuffle,
-    LaneRotateShuffle, NoteShuffleModifier, PatternModifier, PlayerBattleShuffle,
-    PlayerFlipShuffle, RandomType, RandomUnit, get_random,
+    AssistLevel, AutoplayModifier, ExtraNoteModifier, LaneCrossShuffle, LaneMirrorShuffle,
+    LanePlayableRandomShuffle, LaneRandomShuffle, LaneRotateShuffle, LongNoteMode,
+    LongNoteModifier, MineNoteMode, MineNoteModifier, ModeModifier, NoteShuffleModifier,
+    PatternModifier, PlayerBattleShuffle, PlayerFlipShuffle, RandomType, RandomUnit,
+    ScrollSpeedMode, ScrollSpeedModifier, SevenToNinePattern, SevenToNineType, get_random,
 };
 use bms_replay::key_input_log::KeyInputLog;
 use bms_rule::gauge_property::GaugeType;
@@ -217,6 +219,11 @@ impl PlayState {
         let mut model = model.clone();
         self.lane_property = LaneProperty::new(model.mode);
 
+        // Apply pre-shuffle modifiers (scroll, longnote, mine, extranote)
+        // Java: applied before lane shuffle, config value > 0 means active
+        // Java offsets config values by -1 (e.g., ScrollMode 1 -> enum index 0)
+        self.assist += apply_pre_shuffle_modifiers(&mut model, ctx.player_config);
+
         // Apply 1P pattern shuffle
         let random_type = get_random(ctx.player_config.random as usize, model.mode);
         let seed: i64 = rand::random();
@@ -228,7 +235,7 @@ impl PlayState {
             ctx.player_config.hran_threshold_bpm,
         );
 
-        // DP: Apply 2P pattern + doubleoption
+        // DP: Apply 2P pattern + doubleoption (flip)
         if model.mode.player_count() > 1 {
             let random_type_2p = get_random(ctx.player_config.random2 as usize, model.mode);
             self.assist += apply_pattern_modifier(
@@ -239,6 +246,32 @@ impl PlayState {
                 ctx.player_config.hran_threshold_bpm,
             );
             apply_double_option(&mut model, ctx.player_config.doubleoption);
+        }
+
+        // SP Battle mode: doubleoption >= 2 converts SP to DP with battle shuffle
+        // and optionally autoplay scratch (doubleoption == 3).
+        // Java: BMSPlayer lines 331-351
+        if model.mode.player_count() == 1 && ctx.player_config.doubleoption >= 2 {
+            self.assist +=
+                apply_double_option_with_autoplay(&mut model, ctx.player_config.doubleoption);
+            self.lane_property = LaneProperty::new(model.mode);
+        }
+
+        // Apply 7-to-9 mode modifier (after lane shuffle, matching Java order)
+        if ctx.player_config.seven_to_nine_pattern >= 1 && model.mode == PlayMode::Beat7K {
+            let pattern = SevenToNinePattern::from_id(ctx.player_config.seven_to_nine_pattern);
+            let seven_type = SevenToNineType::from_id(ctx.player_config.seven_to_nine_type);
+            let mut mode_mod = ModeModifier::new(PlayMode::Beat7K, PlayMode::PopN9K)
+                .with_pattern(pattern)
+                .with_type(seven_type)
+                .with_hran_threshold_bpm(ctx.player_config.hran_threshold_bpm as f64);
+            mode_mod.modify(&mut model);
+            self.assist += assist_to_i32(mode_mod.assist_level());
+            self.lane_property = LaneProperty::new(model.mode);
+            info!(
+                pattern = ctx.player_config.seven_to_nine_pattern,
+                "Play: applied 7-to-9 mode modifier"
+            );
         }
 
         let rule = PlayerRule::lr2();
@@ -796,6 +829,127 @@ fn apply_double_option(model: &mut BmsModel, doubleoption: i32) {
         1 => PlayerFlipShuffle::new().modify(model),
         2 => PlayerBattleShuffle::new().modify(model),
         _ => {}
+    }
+}
+
+/// Apply DP double option with battle autoplay scratch.
+///
+/// When `doubleoption == 3`, applies Battle mode and then AutoplayModifier
+/// for scratch lanes, matching Java `BMSPlayer` lines 331-351.
+fn apply_double_option_with_autoplay(model: &mut BmsModel, doubleoption: i32) -> i32 {
+    if doubleoption < 2 {
+        return 0;
+    }
+
+    // Only applies to SP modes that can be converted to DP
+    let can_battle = matches!(
+        model.mode,
+        PlayMode::Beat5K | PlayMode::Beat7K | PlayMode::Keyboard24K
+    );
+    if !can_battle {
+        return 0;
+    }
+
+    // Convert SP -> DP mode
+    match model.mode {
+        PlayMode::Beat5K => model.mode = PlayMode::Beat10K,
+        PlayMode::Beat7K => model.mode = PlayMode::Beat14K,
+        PlayMode::Keyboard24K => model.mode = PlayMode::Keyboard24KDouble,
+        _ => {}
+    }
+
+    // Apply battle shuffle
+    PlayerBattleShuffle::new().modify(model);
+
+    // doubleoption == 3: also autoplay scratch lanes
+    if doubleoption == 3 {
+        let scratch_keys = model.mode.scratch_keys().to_vec();
+        let mut autoplay = AutoplayModifier::new(scratch_keys);
+        autoplay.modify(model);
+    }
+
+    // Battle always counts as light assist
+    1
+}
+
+/// Apply pre-shuffle modifiers (scroll, longnote, mine, extranote).
+///
+/// These are applied before the lane shuffle, matching Java `BMSPlayer` lines 303-329.
+/// Config values > 0 mean active; Java subtracts 1 from the config value to get the
+/// enum index.
+fn apply_pre_shuffle_modifiers(model: &mut BmsModel, config: &bms_config::PlayerConfig) -> i32 {
+    let mut assist = 0i32;
+
+    // Scroll speed modifier (config.scroll_mode: 0=off, 1=remove, 2=add)
+    if config.scroll_mode > 0 {
+        let mode = match config.scroll_mode - 1 {
+            0 => ScrollSpeedMode::Remove,
+            _ => ScrollSpeedMode::Add,
+        };
+        let mut modifier = ScrollSpeedModifier::new(mode)
+            .with_section(config.scroll_section as u32)
+            .with_rate(config.scroll_rate);
+        modifier.modify(model);
+        assist += assist_to_i32(modifier.assist_level());
+        info!(
+            mode = config.scroll_mode,
+            "Play: applied scroll speed modifier"
+        );
+    }
+
+    // LongNote modifier (config.longnote_mode: 0=off, 1=remove, 2=add_ln, 3=add_cn, 4=add_hcn, 5=add_all)
+    if config.longnote_mode > 0 {
+        let mode = match config.longnote_mode - 1 {
+            0 => LongNoteMode::Remove,
+            1 => LongNoteMode::AddLn,
+            2 => LongNoteMode::AddCn,
+            3 => LongNoteMode::AddHcn,
+            _ => LongNoteMode::AddAll,
+        };
+        let mut modifier = LongNoteModifier::new(mode, config.longnote_rate);
+        modifier.modify(model);
+        assist += assist_to_i32(modifier.assist_level());
+        info!(
+            mode = config.longnote_mode,
+            "Play: applied longnote modifier"
+        );
+    }
+
+    // Mine note modifier (config.mine_mode: 0=off, 1=remove, 2=add_random, 3=add_near, 4=add_blank)
+    if config.mine_mode > 0 {
+        let mode = match config.mine_mode - 1 {
+            0 => MineNoteMode::Remove,
+            1 => MineNoteMode::AddRandom,
+            2 => MineNoteMode::AddNear,
+            _ => MineNoteMode::AddBlank,
+        };
+        let mut modifier = MineNoteModifier::new(mode);
+        modifier.modify(model);
+        assist += assist_to_i32(modifier.assist_level());
+        info!(mode = config.mine_mode, "Play: applied mine note modifier");
+    }
+
+    // Extra note modifier (config.extranote_depth > 0 activates it)
+    if config.extranote_depth > 0 {
+        let mut modifier =
+            ExtraNoteModifier::new(config.extranote_depth as usize, config.extranote_scratch);
+        modifier.modify(model);
+        assist += assist_to_i32(modifier.assist_level());
+        info!(
+            depth = config.extranote_depth,
+            "Play: applied extra note modifier"
+        );
+    }
+
+    assist
+}
+
+/// Convert AssistLevel to i32 for assist accumulation.
+fn assist_to_i32(level: AssistLevel) -> i32 {
+    match level {
+        AssistLevel::None => 0,
+        AssistLevel::LightAssist => 1,
+        AssistLevel::Assist => 2,
     }
 }
 

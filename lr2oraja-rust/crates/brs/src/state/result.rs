@@ -90,6 +90,32 @@ impl GameStateHandler for ResultState {
             }
         }
 
+        // Course mode: accumulate scores, replays, and gauge logs
+        if ctx.resource.is_course() {
+            self.is_course = true;
+            self.course_index = ctx.resource.course_index;
+            self.course_total = ctx.resource.course_total();
+
+            // Push current score to course accumulator
+            if let Some(scores) = &mut ctx.resource.course_score_data {
+                scores.push(ctx.resource.score_data.clone());
+            }
+            // Save replay data for course replay accumulation
+            if let Some(replay) = ctx.resource.replay_data.take() {
+                ctx.resource.course_replays.push(replay);
+            }
+            // Save gauge log for course gauge graph
+            if let Some(last_gauge) = ctx.resource.gauge_log.last() {
+                ctx.resource.course_gauges.push(last_gauge.clone());
+            }
+
+            info!(
+                course_index = self.course_index,
+                course_total = self.course_total,
+                "Result: course mode active"
+            );
+        }
+
         // Start result graph animation timer
         ctx.timer.set_timer_on(TIMER_RESULTGRAPH_BEGIN);
     }
@@ -152,8 +178,17 @@ impl GameStateHandler for ResultState {
         }
     }
 
-    fn shutdown(&mut self, _ctx: &mut StateContext) {
+    fn shutdown(&mut self, ctx: &mut StateContext) {
         info!("Result: shutdown");
+        // Advance course index when moving to next stage
+        if self.is_course && !self.cancel && self.course_index + 1 < self.course_total {
+            ctx.resource.course_index += 1;
+            ctx.resource.load_course_stage();
+        }
+        // Clear course state when cancelling mid-course
+        if self.cancel && self.is_course {
+            ctx.resource.clear_course();
+        }
     }
 }
 
@@ -810,5 +845,216 @@ mod tests {
         // Should not panic when database is None
         state.create(&mut ctx);
         assert!(!timer.is_timer_on(TIMER_RESULT_UPDATESCORE));
+    }
+
+    // --- Course accumulation tests ---
+
+    fn setup_course_resource(resource: &mut PlayerResource, num_stages: usize) {
+        use bms_model::BmsModel;
+        let models: Vec<BmsModel> = (0..num_stages).map(|_| BmsModel::default()).collect();
+        let dirs: Vec<std::path::PathBuf> = (0..num_stages)
+            .map(|i| format!("/tmp/stage{i}").into())
+            .collect();
+        let course = bms_database::CourseData::default();
+        resource.start_course(course, models, dirs);
+    }
+
+    #[test]
+    fn create_course_accumulates_score() {
+        let mut state = ResultState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_course_resource(&mut resource, 4);
+        resource.score_data = make_score("sha1", 0, ClearType::Hard, 150);
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+        );
+        state.create(&mut ctx);
+
+        // Verify score was pushed to course accumulator
+        let scores = resource.course_score_data.as_ref().unwrap();
+        assert_eq!(scores.len(), 1);
+        assert_eq!(scores[0].epg, 150);
+        assert_eq!(scores[0].clear, ClearType::Hard);
+
+        // Verify course state was set on ResultState
+        assert!(state.is_course);
+        assert_eq!(state.course_index, 0);
+        assert_eq!(state.course_total, 4);
+    }
+
+    #[test]
+    fn create_course_accumulates_gauge_log() {
+        let mut state = ResultState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_course_resource(&mut resource, 4);
+        resource.gauge_log = vec![vec![0.5, 0.6], vec![0.7, 0.8]];
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+        );
+        state.create(&mut ctx);
+
+        // Last gauge log entry should be pushed to course_gauges
+        assert_eq!(resource.course_gauges.len(), 1);
+        assert_eq!(resource.course_gauges[0], vec![0.7, 0.8]);
+    }
+
+    #[test]
+    fn create_course_accumulates_replay() {
+        use bms_replay::replay_data::ReplayData;
+
+        let mut state = ResultState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_course_resource(&mut resource, 4);
+        resource.replay_data = Some(ReplayData::default());
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+        );
+        state.create(&mut ctx);
+
+        // Replay should be moved to course_replays
+        assert_eq!(resource.course_replays.len(), 1);
+        assert!(resource.replay_data.is_none());
+    }
+
+    #[test]
+    fn shutdown_advances_course_index() {
+        let mut state = ResultState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_course_resource(&mut resource, 4);
+        // Simulate being on stage 1 (0-indexed)
+        resource.course_index = 1;
+        state.is_course = true;
+        state.course_index = 1;
+        state.course_total = 4;
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+        );
+        state.shutdown(&mut ctx);
+
+        // course_index should be advanced
+        assert_eq!(resource.course_index, 2);
+    }
+
+    #[test]
+    fn shutdown_does_not_advance_on_last_song() {
+        let mut state = ResultState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_course_resource(&mut resource, 4);
+        state.is_course = true;
+        state.course_index = 3;
+        state.course_total = 4;
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+        );
+        state.shutdown(&mut ctx);
+
+        // Should not advance past total
+        assert_eq!(resource.course_index, 0); // unchanged from start_course default
+    }
+
+    #[test]
+    fn shutdown_clears_course_on_cancel() {
+        let mut state = ResultState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_course_resource(&mut resource, 4);
+        state.is_course = true;
+        state.cancel = true;
+        state.course_index = 1;
+        state.course_total = 4;
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+        );
+        state.shutdown(&mut ctx);
+
+        // Course state should be cleared
+        assert!(!resource.is_course());
+        assert!(resource.course_data.is_none());
+        assert!(resource.course_score_data.is_none());
+    }
+
+    #[test]
+    fn create_non_course_does_not_set_course_fields() {
+        let mut state = ResultState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        // Not in course mode
+        resource.score_data = make_score("sha1", 0, ClearType::Normal, 100);
+
+        let mut ctx = make_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+        );
+        state.create(&mut ctx);
+
+        assert!(!state.is_course);
+        assert_eq!(state.course_index, 0);
+        assert_eq!(state.course_total, 0);
     }
 }

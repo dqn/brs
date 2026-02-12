@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use bms_config::PlayerConfig;
+use bms_database::CourseData;
 use bms_model::{BmsModel, PlayMode};
 use bms_replay::replay_data::ReplayData;
 use bms_rule::ScoreData;
@@ -35,7 +36,7 @@ pub struct PlayerResource {
     /// Whether this score should be saved (false for autoplay/replay).
     pub update_score: bool,
     /// Assist option flags.
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Reserved for assist mode system
     pub assist: i32,
 
     // --- Result state fields ---
@@ -44,16 +45,76 @@ pub struct PlayerResource {
     /// Accumulated course scores per stage (None when not in course mode).
     pub course_score_data: Option<Vec<ScoreData>>,
     /// Accumulated course replays.
-    #[allow(dead_code)] // Reserved for course mode replay system
     pub course_replays: Vec<ReplayData>,
     /// Accumulated course gauge logs.
-    #[allow(dead_code)] // Reserved for course mode gauge display
     pub course_gauges: Vec<Vec<f32>>,
     /// Current play's replay data.
-    #[allow(dead_code)] // Reserved for replay saving system
     pub replay_data: Option<ReplayData>,
     /// Flag set by KeyConfig/SkinConfig shutdown to request config file save.
     pub config_save_requested: bool,
+
+    // --- Course mode fields ---
+    /// BMS models for each stage of a course (None when not in course mode).
+    pub course_bms_models: Option<Vec<BmsModel>>,
+    /// BMS file directories for each course stage.
+    pub course_bms_dirs: Vec<PathBuf>,
+    /// Current stage index within the course (0-based).
+    pub course_index: usize,
+    /// Course data for the current course play (None when not in course mode).
+    pub course_data: Option<CourseData>,
+    /// Last gauge value from previous course stage (for carry-over).
+    pub course_gauge_carry: Option<f32>,
+}
+
+impl PlayerResource {
+    /// Whether we are currently in course mode.
+    pub fn is_course(&self) -> bool {
+        self.course_bms_models.is_some()
+    }
+
+    /// Total number of stages in the current course.
+    pub fn course_total(&self) -> usize {
+        self.course_bms_models.as_ref().map_or(0, |v| v.len())
+    }
+
+    /// Reset course-specific state for a new course play session.
+    pub fn start_course(&mut self, course: CourseData, models: Vec<BmsModel>, dirs: Vec<PathBuf>) {
+        self.course_data = Some(course);
+        self.course_bms_models = Some(models);
+        self.course_bms_dirs = dirs;
+        self.course_index = 0;
+        self.course_score_data = Some(Vec::new());
+        self.course_replays.clear();
+        self.course_gauges.clear();
+        self.course_gauge_carry = None;
+    }
+
+    /// Clear course mode state (when leaving course mode).
+    pub fn clear_course(&mut self) {
+        self.course_data = None;
+        self.course_bms_models = None;
+        self.course_bms_dirs.clear();
+        self.course_index = 0;
+        self.course_score_data = None;
+        self.course_replays.clear();
+        self.course_gauges.clear();
+        self.course_gauge_carry = None;
+    }
+
+    /// Load the next course stage BMS model into bms_model.
+    /// Returns true if successful, false if no more stages.
+    pub fn load_course_stage(&mut self) -> bool {
+        if let Some(models) = &self.course_bms_models
+            && self.course_index < models.len()
+        {
+            let model = models[self.course_index].clone();
+            self.play_mode = model.mode;
+            self.bms_dir = self.course_bms_dirs.get(self.course_index).cloned();
+            self.bms_model = Some(model);
+            return true;
+        }
+        false
+    }
 }
 
 impl Default for PlayerResource {
@@ -75,6 +136,11 @@ impl Default for PlayerResource {
             course_gauges: Vec::new(),
             replay_data: None,
             config_save_requested: false,
+            course_bms_models: None,
+            course_bms_dirs: Vec::new(),
+            course_index: 0,
+            course_data: None,
+            course_gauge_carry: None,
         }
     }
 }

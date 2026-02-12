@@ -274,6 +274,13 @@ impl MusicSelectState {
     }
 
     fn select_current(&mut self, ctx: &mut StateContext) {
+        // Clone course data if needed to avoid borrow checker issues
+        let course_data_opt = if let Some(Bar::Course(course_data)) = self.bar_manager.current() {
+            Some((**course_data).clone())
+        } else {
+            None
+        };
+
         match self.bar_manager.current() {
             Some(Bar::Song(song_data)) => {
                 // Load BMS file
@@ -297,7 +304,72 @@ impl MusicSelectState {
                     self.bar_manager.enter_folder(&db.song_db);
                 }
             }
+            Some(Bar::Course(_)) => {
+                if let Some(course_data) = course_data_opt {
+                    self.select_course(ctx, &course_data);
+                }
+            }
             None => {}
+        }
+    }
+
+    fn select_course(&mut self, ctx: &mut StateContext, course_data: &bms_database::CourseData) {
+        let db = match ctx.database {
+            Some(db) => db,
+            None => {
+                tracing::warn!("MusicSelect: no database available for course lookup");
+                return;
+            }
+        };
+
+        let mut models = Vec::new();
+        let mut dirs = Vec::new();
+
+        for (i, song_ref) in course_data.hash.iter().enumerate() {
+            // Look up song by hash (prefer sha256, fall back to md5)
+            let found = if !song_ref.sha256.is_empty() {
+                db.song_db.get_song_datas("sha256", &song_ref.sha256)
+            } else if !song_ref.md5.is_empty() {
+                db.song_db.get_song_datas("md5", &song_ref.md5)
+            } else {
+                tracing::warn!(stage = i, "MusicSelect: course stage has no hash");
+                return;
+            };
+
+            let song_data = match found {
+                Ok(songs) if !songs.is_empty() => songs.into_iter().next().unwrap(),
+                Ok(_) => {
+                    tracing::warn!(stage = i, "MusicSelect: course stage song not found in DB");
+                    return;
+                }
+                Err(e) => {
+                    tracing::warn!(stage = i, "MusicSelect: course stage DB lookup failed: {e}");
+                    return;
+                }
+            };
+
+            let path = std::path::PathBuf::from(&song_data.path);
+            match bms_model::BmsDecoder::decode(&path) {
+                Ok(model) => {
+                    dirs.push(path.parent().map(|p| p.to_path_buf()).unwrap_or_default());
+                    models.push(model);
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        stage = i,
+                        path = %path.display(),
+                        "MusicSelect: failed to load course BMS: {e}"
+                    );
+                    return;
+                }
+            }
+        }
+
+        if !models.is_empty() {
+            ctx.resource.start_course(course_data.clone(), models, dirs);
+            ctx.resource.load_course_stage();
+            self.fadeout_started = true;
+            ctx.timer.set_timer_on(TIMER_FADEOUT);
         }
     }
 }
@@ -1093,5 +1165,140 @@ mod tests {
         // In search mode, cursor movement should be ignored
         state.input(&mut ctx);
         assert!(state.search_mode()); // Still in search mode
+    }
+
+    // --- Course bar tests ---
+
+    fn sample_course(name: &str, sha256: &str) -> bms_database::CourseData {
+        use bms_database::CourseSongData;
+        bms_database::CourseData {
+            name: name.to_string(),
+            hash: vec![CourseSongData {
+                sha256: sha256.to_string(),
+                md5: String::new(),
+                title: "Stage 1".to_string(),
+            }],
+            constraint: Vec::new(),
+            trophy: Vec::new(),
+            release: true,
+        }
+    }
+
+    #[test]
+    fn course_select_no_db_is_noop() {
+        // Selecting a course without a database should not panic and should not start fadeout.
+        let mut state = MusicSelectState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        setup_input_ready(&mut timer);
+
+        state.bar_manager = bar_manager::BarManager::new();
+        let course = sample_course("Test Course", "nonexistent_sha");
+        state.bar_manager.add_courses(&[course]);
+
+        let input = InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Enter],
+        };
+        let mut ctx = make_input_ctx(
+            &mut timer,
+            &mut resource,
+            &config,
+            &mut player_config,
+            &mut transition,
+            &input,
+        );
+        state.input(&mut ctx);
+        // No database => should not start fadeout
+        assert!(!state.is_fadeout_started());
+        assert!(!resource.is_course());
+    }
+
+    #[test]
+    fn course_select_song_not_in_db_is_noop() {
+        // Selecting a course whose songs aren't in the DB should not start fadeout.
+        let mut state = MusicSelectState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        let db = DatabaseManager::open_in_memory().unwrap();
+        setup_input_ready(&mut timer);
+
+        let course = sample_course("Test Course", "nonexistent_sha");
+        state.bar_manager = bar_manager::BarManager::new();
+        state.bar_manager.add_courses(&[course]);
+
+        let input = InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Enter],
+        };
+        {
+            let mut ctx = StateContext {
+                timer: &mut timer,
+                resource: &mut resource,
+                config: &config,
+                player_config: &mut player_config,
+                transition: &mut transition,
+                keyboard_backend: None,
+                database: Some(&db),
+                input_state: Some(&input),
+                skin_manager: None,
+                sound_manager: None,
+                received_chars: &[],
+            };
+            state.input(&mut ctx);
+        }
+        // Song not found => should not start fadeout
+        assert!(!state.is_fadeout_started());
+        assert!(!resource.is_course());
+    }
+
+    #[test]
+    fn course_bar_enter_does_not_enter_folder() {
+        // Pressing Enter on a Course bar should not call enter_folder.
+        // Instead it attempts course selection (which may fail without BMS files).
+        let mut state = MusicSelectState::new();
+        let mut timer = TimerManager::new();
+        let mut resource = PlayerResource::default();
+        let config = Config::default();
+        let mut player_config = PlayerConfig::default();
+        let mut transition = None;
+
+        let db = DatabaseManager::open_in_memory().unwrap();
+        setup_input_ready(&mut timer);
+
+        let course = sample_course("Test Course", "some_sha");
+        state.bar_manager = bar_manager::BarManager::new();
+        state.bar_manager.add_courses(&[course]);
+
+        let input = InputState {
+            commands: vec![],
+            pressed_keys: vec![ControlKeys::Enter],
+        };
+        {
+            let mut ctx = StateContext {
+                timer: &mut timer,
+                resource: &mut resource,
+                config: &config,
+                player_config: &mut player_config,
+                transition: &mut transition,
+                keyboard_backend: None,
+                database: Some(&db),
+                input_state: Some(&input),
+                skin_manager: None,
+                sound_manager: None,
+                received_chars: &[],
+            };
+            state.input(&mut ctx);
+        }
+        // Should NOT have pushed into folder stack
+        assert!(!state.bar_manager().is_in_folder());
     }
 }
