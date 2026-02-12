@@ -17,7 +17,11 @@ use std::collections::HashMap;
 use anyhow::Result;
 
 use bms_config::resolution::Resolution;
+use bms_config::skin_type::SkinType;
 
+use crate::loader::lr2_play_loader::{self, Lr2PlayState};
+use crate::loader::lr2_result_loader::{self, Lr2ResultState};
+use crate::loader::lr2_select_loader::{self, Lr2SelectState};
 use crate::property_id::{BooleanId, FloatId, IntegerId, StringId, TimerId};
 use crate::skin::Skin;
 use crate::skin_graph::{GraphDirection, SkinGraph};
@@ -177,25 +181,108 @@ enum ObjectSlot {
     Button,
 }
 
-/// Internal loader state.
-struct Lr2CsvState {
+/// Loader state shared between the main loader and state-specific sub-loaders.
+pub struct Lr2CsvState {
     /// Current object indices in skin.objects
     current: HashMap<ObjectSlot, usize>,
     /// Source resolution height (for Y-flip)
-    srch: f32,
+    pub(crate) srch: f32,
     /// Source resolution width
-    srcw: f32,
+    pub(crate) srcw: f32,
     /// Destination resolution width
-    dstw: f32,
+    pub(crate) dstw: f32,
     /// Destination resolution height
-    dsth: f32,
+    pub(crate) dsth: f32,
     /// Current stretch mode (-1 = unset)
-    stretch: i32,
+    pub(crate) stretch: i32,
     /// Condition state
     skip: bool,
     found_true: bool,
     /// Option map (id -> 0/1)
     options: HashMap<i32, i32>,
+}
+
+impl Lr2CsvState {
+    /// Creates a new Lr2CsvState for the given resolutions.
+    pub fn new(src: Resolution, dst: Resolution, options: &HashMap<i32, i32>) -> Self {
+        Self {
+            current: HashMap::new(),
+            srch: src.height() as f32,
+            srcw: src.width() as f32,
+            dstw: dst.width() as f32,
+            dsth: dst.height() as f32,
+            stretch: -1,
+            skip: false,
+            found_true: false,
+            options: options.clone(),
+        }
+    }
+
+    /// Applies a DST command to a specific object index.
+    ///
+    /// Used by state-specific loaders to position their objects.
+    pub fn apply_dst_to(&self, idx: usize, fields: &[&str], skin: &mut Skin) {
+        let values = parse_int(fields);
+        let (mut x, mut y, mut w, mut h) = (values[3], values[4], values[5], values[6]);
+
+        if w < 0 {
+            x += w;
+            w = -w;
+        }
+        if h < 0 {
+            y += h;
+            h = -h;
+        }
+
+        let y_flipped = self.srch - (y + h) as f32;
+
+        let base: &mut SkinObjectBase = skin.objects[idx].base_mut();
+        let time = values[2] as i64;
+        let color = Color::from_rgba_u8(
+            values[9] as u8,
+            values[10] as u8,
+            values[11] as u8,
+            values[8] as u8,
+        );
+
+        base.add_destination(Destination {
+            time,
+            region: Rect::new(x as f32, y_flipped, w as f32, h as f32),
+            color,
+            angle: values[14],
+            acc: values[7],
+        });
+
+        if base.destinations.len() == 1 {
+            base.blend = values[12];
+            base.filter = values[13];
+            base.set_center(values[15]);
+            base.loop_time = values[16];
+
+            let timer_id = values[17];
+            if timer_id != 0 {
+                base.timer = Some(TimerId(timer_id));
+            }
+
+            for &op_val in &[values[18], values[19], values[20]] {
+                if op_val != 0 {
+                    base.draw_conditions.push(BooleanId(op_val));
+                }
+            }
+
+            let offset_ids = read_offset(fields, 21);
+            base.set_offset_ids(&offset_ids);
+
+            if self.stretch >= 0 {
+                base.stretch = StretchType::from_id(self.stretch).unwrap_or_default();
+            }
+        }
+    }
+}
+
+/// Public wrapper around parse_int for use by sub-loaders.
+pub fn parse_int_pub(fields: &[&str]) -> [i32; 22] {
+    parse_int(fields)
 }
 
 // ---------------------------------------------------------------------------
@@ -208,19 +295,17 @@ struct Lr2CsvState {
 /// `header` should be loaded via `lr2_header_loader::load_lr2_header()`.
 /// `enabled_options` maps option IDs to their enabled state (0/1).
 /// `dest_resolution` is the target display resolution.
+/// `skin_type` is the skin type (Play, Select, Result, etc.) for state-specific dispatch.
 pub fn load_lr2_skin(
     content: &str,
     mut header: SkinHeader,
     enabled_options: &HashMap<i32, i32>,
     dest_resolution: Resolution,
+    skin_type: Option<SkinType>,
 ) -> Result<Skin> {
     header.destination_resolution = Some(dest_resolution);
 
     let src = header.source_resolution.unwrap_or(header.resolution);
-    let srcw = src.width() as f32;
-    let srch = src.height() as f32;
-    let dstw = dest_resolution.width() as f32;
-    let dsth = dest_resolution.height() as f32;
 
     let mut skin = Skin::new(header);
 
@@ -229,17 +314,12 @@ pub fn load_lr2_skin(
         skin.options.insert(id, val);
     }
 
-    let mut state = Lr2CsvState {
-        current: HashMap::new(),
-        srch,
-        srcw,
-        dstw,
-        dsth,
-        stretch: -1,
-        skip: false,
-        found_true: false,
-        options: enabled_options.clone(),
-    };
+    let mut state = Lr2CsvState::new(src, dest_resolution, enabled_options);
+
+    // State-specific sub-states
+    let mut play_state = Lr2PlayState::default();
+    let mut select_state = Lr2SelectState::default();
+    let mut result_state = Lr2ResultState::default();
 
     for line in content.lines() {
         if !line.starts_with('#') {
@@ -276,11 +356,50 @@ pub fn load_lr2_skin(
             continue;
         }
 
-        process_command(&cmd, &fields, &mut skin, &mut state);
+        process_command(
+            &cmd,
+            &fields,
+            &mut skin,
+            &mut state,
+            skin_type,
+            &mut StateContext {
+                play: &mut play_state,
+                select: &mut select_state,
+                result: &mut result_state,
+            },
+        );
     }
 
     // Remove objects with no destinations (matching Java behavior)
     skin.objects.retain(|obj| obj.base().is_valid());
+
+    // Collect state-specific configs
+    match skin_type {
+        Some(SkinType::Play7Keys)
+        | Some(SkinType::Play5Keys)
+        | Some(SkinType::Play9Keys)
+        | Some(SkinType::Play10Keys)
+        | Some(SkinType::Play14Keys)
+        | Some(SkinType::Play24Keys)
+        | Some(SkinType::Play24KeysDouble)
+        | Some(SkinType::Play7KeysBattle)
+        | Some(SkinType::Play5KeysBattle)
+        | Some(SkinType::Play9KeysBattle)
+        | Some(SkinType::Play24KeysBattle) => {
+            skin.play_config = lr2_play_loader::collect_play_config(&skin, &play_state);
+        }
+        Some(SkinType::MusicSelect) => {
+            skin.select_config = lr2_select_loader::collect_select_config(&select_state);
+        }
+        Some(SkinType::Result) => {
+            skin.result_config = lr2_result_loader::collect_result_config(&skin, &result_state);
+        }
+        Some(SkinType::CourseResult) => {
+            skin.course_result_config =
+                lr2_result_loader::collect_course_result_config(&skin, &result_state);
+        }
+        _ => {}
+    }
 
     Ok(skin)
 }
@@ -289,7 +408,21 @@ pub fn load_lr2_skin(
 // Command dispatch
 // ---------------------------------------------------------------------------
 
-fn process_command(cmd: &str, fields: &[&str], skin: &mut Skin, state: &mut Lr2CsvState) {
+/// Groups state-specific loaders to reduce parameter count.
+struct StateContext<'a> {
+    play: &'a mut Lr2PlayState,
+    select: &'a mut Lr2SelectState,
+    result: &'a mut Lr2ResultState,
+}
+
+fn process_command(
+    cmd: &str,
+    fields: &[&str],
+    skin: &mut Skin,
+    state: &mut Lr2CsvState,
+    skin_type: Option<SkinType>,
+    ctx: &mut StateContext,
+) {
     match cmd {
         // Global properties
         "STARTINPUT" => skin.input = parse_field(fields, 1),
@@ -313,7 +446,35 @@ fn process_command(cmd: &str, fields: &[&str], skin: &mut Skin, state: &mut Lr2C
         "DST_BARGRAPH" => apply_dst_bargraph(fields, skin, state),
         "DST_BUTTON" => apply_dst(ObjectSlot::Button, fields, skin, state),
 
-        _ => {} // Unhandled commands (state-specific, deferred to later phases)
+        // State-specific dispatch
+        _ => {
+            let handled = match skin_type {
+                Some(SkinType::Result) => {
+                    lr2_result_loader::process_result_command(cmd, fields, skin, state, ctx.result)
+                }
+                Some(SkinType::CourseResult) => lr2_result_loader::process_course_result_command(
+                    cmd, fields, skin, state, ctx.result,
+                ),
+                Some(SkinType::MusicSelect) => {
+                    lr2_select_loader::process_select_command(cmd, fields, skin, state, ctx.select)
+                }
+                Some(
+                    SkinType::Play7Keys
+                    | SkinType::Play5Keys
+                    | SkinType::Play9Keys
+                    | SkinType::Play10Keys
+                    | SkinType::Play14Keys
+                    | SkinType::Play24Keys
+                    | SkinType::Play24KeysDouble
+                    | SkinType::Play7KeysBattle
+                    | SkinType::Play5KeysBattle
+                    | SkinType::Play9KeysBattle
+                    | SkinType::Play24KeysBattle,
+                ) => lr2_play_loader::process_play_command(cmd, fields, skin, state, ctx.play),
+                _ => false,
+            };
+            let _ = handled; // Suppress unused warning
+        }
     }
 }
 
@@ -725,7 +886,7 @@ mod tests {
     #[test]
     fn test_load_empty_skin() {
         let header = make_header();
-        let skin = load_lr2_skin("", header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin("", header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(skin.object_count(), 0);
     }
 
@@ -736,7 +897,7 @@ mod tests {
 #SCENETIME,30000\n\
 #FADEOUT,1000\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(skin.input, 500);
         assert_eq!(skin.scene, 30000);
         assert_eq!(skin.fadeout, 1000);
@@ -748,7 +909,7 @@ mod tests {
 #SRC_IMAGE,0,0,0,0,640,480,1,1,0,0,0,0\n\
 #DST_IMAGE,0,0,0,0,640,480,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(skin.object_count(), 1);
         assert!(matches!(skin.objects[0], SkinObjectType::Image(_)));
     }
@@ -759,7 +920,7 @@ mod tests {
 #SRC_IMAGE,0,100,0,0,0,0,0,0,0,0,0,0\n\
 #DST_IMAGE,0,0,0,0,640,480,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(skin.object_count(), 1);
     }
 
@@ -770,7 +931,7 @@ mod tests {
 #SRC_NUMBER,0,0,0,0,240,24,10,1,0,0,100,0,5,0,0\n\
 #DST_NUMBER,0,0,100,200,24,24,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(skin.object_count(), 1);
         match &skin.objects[0] {
             SkinObjectType::Number(n) => {
@@ -787,7 +948,7 @@ mod tests {
 #SRC_TEXT,0,0,12,1,0,0\n\
 #DST_TEXT,0,0,50,100,200,24,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(skin.object_count(), 1);
         match &skin.objects[0] {
             SkinObjectType::Text(t) => {
@@ -804,7 +965,7 @@ mod tests {
 #SRC_SLIDER,0,0,0,0,32,32,1,1,0,0,0,100,4,0\n\
 #DST_SLIDER,0,0,300,100,32,32,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(skin.object_count(), 1);
         match &skin.objects[0] {
             SkinObjectType::Slider(s) => {
@@ -822,7 +983,7 @@ mod tests {
 #SRC_BARGRAPH,0,0,0,0,32,300,1,1,0,0,10,0\n\
 #DST_BARGRAPH,0,0,400,50,32,300,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(skin.object_count(), 1);
         assert!(matches!(skin.objects[0], SkinObjectType::Graph(_)));
     }
@@ -835,7 +996,7 @@ mod tests {
 #SRC_IMAGE,0,0,0,0,100,100,1,1,0,0,0,0\n\
 #DST_IMAGE,0,0,50,0,100,100,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         let base = skin.objects[0].base();
         assert!((base.destinations[0].region.y - 380.0).abs() < 0.001);
     }
@@ -846,7 +1007,7 @@ mod tests {
 #SRC_IMAGE,0,0,0,0,100,100,1,1,0,0,0,0\n\
 #DST_IMAGE,0,0,200,100,!100,!50,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         let r = &skin.objects[0].base().destinations[0].region;
         // x = 200 + (-100) = 100, w = 100
         assert!((r.x - 100.0).abs() < 0.001);
@@ -862,7 +1023,7 @@ mod tests {
 #SRC_IMAGE,0,0,0,0,100,100,1,1,0,0,0,0\n\
 #DST_IMAGE,0,0,0,0,100,100,0,200,128,64,32,2,1,45,5,500,42,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         let base = skin.objects[0].base();
         assert_eq!(base.blend, 2);
         assert_eq!(base.filter, 1);
@@ -878,7 +1039,7 @@ mod tests {
 #SRC_IMAGE,0,0,0,0,100,100,1,1,0,0,0,0\n\
 #DST_IMAGE,0,0,0,0,100,100,0,255,255,255,255,0,0,0,0,0,0,900,!901,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         let base = skin.objects[0].base();
         assert_eq!(base.draw_conditions.len(), 2);
         assert_eq!(base.draw_conditions[0], BooleanId(900));
@@ -896,7 +1057,7 @@ mod tests {
 #SRC_IMAGE,0,0,0,0,50,50,1,1,0,0,0,0\n\
 #DST_IMAGE,0,0,0,0,50,50,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &op, Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &op, Resolution::Hd, None).unwrap();
         // Only the second image (outside IF) should be present
         assert_eq!(skin.object_count(), 1);
     }
@@ -908,7 +1069,7 @@ mod tests {
 #SRC_IMAGE,0,0,0,0,100,100,1,1,0,0,0,0\n\
 #DST_IMAGE,0,0,0,0,100,100,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(
             skin.objects[0].base().stretch,
             StretchType::KeepAspectRatioFitInner
@@ -923,7 +1084,7 @@ mod tests {
 #SRC_IMAGE,0,0,0,0,50,50,1,1,0,0,0,0\n\
 #DST_IMAGE,0,0,0,0,50,50,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         // Only the second image has a DST
         assert_eq!(skin.object_count(), 1);
     }
@@ -934,7 +1095,7 @@ mod tests {
 #SRC_BUTTON,0,0,0,0,100,50,2,1,0,0,0,100,1,0,1,0\n\
 #DST_BUTTON,0,0,0,0,100,50,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(skin.object_count(), 1);
         let base = skin.objects[0].base();
         assert!(base.click_event.is_some());
@@ -947,7 +1108,7 @@ mod tests {
 #DST_IMAGE,0,0,0,0,100,100,0,255,255,255,255,0,0,0,0,0,0,0,0,0\n\
 #DST_IMAGE,0,1000,100,0,100,100,0,128,255,255,255,0,0,0,0,0,0,0,0,0\n";
         let header = make_header();
-        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd).unwrap();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
         assert_eq!(skin.object_count(), 1);
         let base = skin.objects[0].base();
         assert_eq!(base.destinations.len(), 2);

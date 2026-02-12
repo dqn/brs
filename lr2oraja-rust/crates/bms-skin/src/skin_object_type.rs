@@ -9,6 +9,7 @@ use crate::skin_bpm_graph::SkinBpmGraph;
 use crate::skin_distribution_graph::SkinDistributionGraph;
 use crate::skin_float::SkinFloat;
 use crate::skin_gauge::SkinGauge;
+use crate::skin_gauge_graph::SkinGaugeGraph;
 use crate::skin_graph::SkinGraph;
 use crate::skin_hidden::{SkinHidden, SkinLiftCover};
 use crate::skin_image::SkinImage;
@@ -45,6 +46,7 @@ pub enum SkinObjectType {
     Bar(SkinBar),
     DistributionGraph(SkinDistributionGraph),
     Float(SkinFloat),
+    GaugeGraph(SkinGaugeGraph),
 }
 
 impl SkinObjectType {
@@ -70,6 +72,7 @@ impl SkinObjectType {
             Self::Bar(o) => &o.base,
             Self::DistributionGraph(o) => &o.base,
             Self::Float(o) => &o.base,
+            Self::GaugeGraph(o) => &o.base,
         }
     }
 
@@ -95,6 +98,7 @@ impl SkinObjectType {
             Self::Bar(o) => &mut o.base,
             Self::DistributionGraph(o) => &mut o.base,
             Self::Float(o) => &mut o.base,
+            Self::GaugeGraph(o) => &mut o.base,
         }
     }
 }
@@ -211,6 +215,12 @@ impl From<SkinDistributionGraph> for SkinObjectType {
 impl From<SkinFloat> for SkinObjectType {
     fn from(v: SkinFloat) -> Self {
         Self::Float(v)
+    }
+}
+
+impl From<SkinGaugeGraph> for SkinObjectType {
+    fn from(v: SkinGaugeGraph) -> Self {
+        Self::GaugeGraph(v)
     }
 }
 

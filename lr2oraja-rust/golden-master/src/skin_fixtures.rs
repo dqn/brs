@@ -89,6 +89,7 @@ fn object_type_name(obj: &SkinObjectType) -> &'static str {
         SkinObjectType::LiftCover(_) => "LiftCover",
         SkinObjectType::Bar(_) => "Bar",
         SkinObjectType::DistributionGraph(_) => "DistributionGraph",
+        SkinObjectType::GaugeGraph(_) => "GaugeGraph",
         SkinObjectType::Float(_) => "Float",
     }
 }

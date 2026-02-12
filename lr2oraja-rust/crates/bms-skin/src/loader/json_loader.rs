@@ -519,7 +519,140 @@ pub fn load_skin_with_images(
         }
     }
 
+    // Collect state-specific configs
+    let skin_type = skin.header.skin_type;
+    if is_play_type(skin_type) {
+        skin.play_config = collect_play_config(&skin.objects);
+    }
+    if skin_type == Some(SkinType::MusicSelect) {
+        skin.select_config = collect_select_config(&skin.objects);
+    }
+    if skin_type == Some(SkinType::Result) {
+        skin.result_config = collect_result_config(&skin.objects);
+    }
+    if skin_type == Some(SkinType::CourseResult) {
+        skin.course_result_config = collect_course_result_config(&skin.objects);
+    }
+
     Ok(skin)
+}
+
+// ---------------------------------------------------------------------------
+// State-specific config collection
+// ---------------------------------------------------------------------------
+
+/// Scans skin objects and extracts play-specific objects into PlaySkinConfig.
+fn collect_play_config(objects: &[SkinObjectType]) -> Option<crate::play_skin::PlaySkinConfig> {
+    let mut config = crate::play_skin::PlaySkinConfig::default();
+    let mut found = false;
+
+    for obj in objects {
+        match obj {
+            SkinObjectType::Note(n) => {
+                config.note = Some(n.clone());
+                found = true;
+            }
+            SkinObjectType::Judge(j) => {
+                config.judges.push(*j.clone());
+                found = true;
+            }
+            SkinObjectType::Bga(b) => {
+                config.bga = Some(b.clone());
+                found = true;
+            }
+            SkinObjectType::Hidden(h) => {
+                config.hidden_cover = Some(h.clone());
+                found = true;
+            }
+            SkinObjectType::LiftCover(l) => {
+                config.lift_cover = Some(l.clone());
+                found = true;
+            }
+            _ => {}
+        }
+    }
+
+    if found { Some(config) } else { None }
+}
+
+/// Scans skin objects and extracts select-specific objects into MusicSelectSkinConfig.
+fn collect_select_config(
+    objects: &[SkinObjectType],
+) -> Option<crate::music_select_skin::MusicSelectSkinConfig> {
+    let mut config = crate::music_select_skin::MusicSelectSkinConfig::default();
+    let mut found = false;
+
+    for obj in objects {
+        match obj {
+            SkinObjectType::Bar(bar) => {
+                config.bar = Some(bar.clone());
+                found = true;
+            }
+            SkinObjectType::DistributionGraph(g) => {
+                config.distribution_graph = Some(g.clone());
+                found = true;
+            }
+            _ => {}
+        }
+    }
+
+    if found { Some(config) } else { None }
+}
+
+/// Scans skin objects and extracts result-specific objects into ResultSkinConfig.
+fn collect_result_config(
+    objects: &[SkinObjectType],
+) -> Option<crate::result_skin::ResultSkinConfig> {
+    let mut config = crate::result_skin::ResultSkinConfig::default();
+    let mut found = false;
+
+    for obj in objects {
+        match obj {
+            SkinObjectType::GaugeGraph(g) => {
+                config.gauge_graph = Some(g.clone());
+                found = true;
+            }
+            SkinObjectType::NoteDistributionGraph(g) => {
+                config.note_graph = Some(g.clone());
+                found = true;
+            }
+            SkinObjectType::BpmGraph(g) => {
+                config.bpm_graph = Some(g.clone());
+                found = true;
+            }
+            SkinObjectType::TimingDistributionGraph(g) => {
+                config.timing_graph = Some(g.clone());
+                found = true;
+            }
+            _ => {}
+        }
+    }
+
+    if found { Some(config) } else { None }
+}
+
+/// Scans skin objects and extracts course-result-specific objects.
+fn collect_course_result_config(
+    objects: &[SkinObjectType],
+) -> Option<crate::result_skin::CourseResultSkinConfig> {
+    let mut config = crate::result_skin::CourseResultSkinConfig::default();
+    let mut found = false;
+
+    for obj in objects {
+        match obj {
+            SkinObjectType::GaugeGraph(g) => {
+                config.gauge_graph = Some(g.clone());
+                found = true;
+            }
+            SkinObjectType::NoteDistributionGraph(g) => {
+                config.note_graph = Some(g.clone());
+                found = true;
+            }
+            _ => {}
+        }
+    }
+
+    if found { Some(config) } else { None }
 }
 
 // ---------------------------------------------------------------------------
@@ -1947,5 +2080,90 @@ mod tests {
             serde_json::from_str::<Value>(&output).unwrap(),
             serde_json::from_str::<Value>(input).unwrap()
         );
+    }
+
+    // -- State-specific config collection --
+
+    #[test]
+    fn test_collect_play_config_with_note() {
+        let json = r#"{
+            "type": 0,
+            "name": "Play7K",
+            "note": {"id": "note1", "dst": [{"x": 0, "y": 0, "w": 100, "h": 400}]},
+            "destination": [
+                {"id": "note1", "dst": [{"x": 0, "y": 0, "w": 100, "h": 400}]}
+            ]
+        }"#;
+        let skin = load_skin(json, &HashSet::new(), Resolution::Hd, None).unwrap();
+        assert!(skin.play_config.is_some());
+        let config = skin.play_config.unwrap();
+        assert!(config.note.is_some());
+    }
+
+    #[test]
+    fn test_collect_play_config_with_judge() {
+        let json = r#"{
+            "type": 0,
+            "name": "Play7K",
+            "judge": [{"id": "judge1", "index": 0, "shift": true}],
+            "destination": [
+                {"id": "judge1", "dst": [{"x": 0, "y": 0, "w": 200, "h": 50}]}
+            ]
+        }"#;
+        let skin = load_skin(json, &HashSet::new(), Resolution::Hd, None).unwrap();
+        assert!(skin.play_config.is_some());
+        let config = skin.play_config.unwrap();
+        assert_eq!(config.judges.len(), 1);
+        assert_eq!(config.judges[0].player, 0);
+        assert!(config.judges[0].shift);
+    }
+
+    #[test]
+    fn test_collect_play_config_with_bga() {
+        let json = r#"{
+            "type": 0,
+            "name": "Play7K",
+            "bga": {"id": "bga1"},
+            "destination": [
+                {"id": "bga1", "dst": [{"x": 0, "y": 0, "w": 256, "h": 256}]}
+            ]
+        }"#;
+        let skin = load_skin(json, &HashSet::new(), Resolution::Hd, None).unwrap();
+        assert!(skin.play_config.is_some());
+        assert!(skin.play_config.unwrap().bga.is_some());
+    }
+
+    #[test]
+    fn test_collect_select_config_with_bar() {
+        let json = r#"{
+            "type": 5,
+            "name": "Select",
+            "songlist": {"id": "bar1", "center": 5},
+            "destination": [
+                {"id": "bar1", "dst": [{"x": 0, "y": 0, "w": 800, "h": 40}]}
+            ]
+        }"#;
+        let skin = load_skin(json, &HashSet::new(), Resolution::Hd, None).unwrap();
+        assert!(skin.select_config.is_some());
+        let config = skin.select_config.unwrap();
+        assert!(config.bar.is_some());
+        assert_eq!(config.bar.unwrap().position, 5);
+    }
+
+    #[test]
+    fn test_no_config_for_decide() {
+        let json = r#"{
+            "type": 6,
+            "name": "Decide",
+            "image": [{"id": "bg", "src": 0}],
+            "destination": [
+                {"id": "bg", "dst": [{"x": 0, "y": 0, "w": 1280, "h": 720}]}
+            ]
+        }"#;
+        let skin = load_skin(json, &HashSet::new(), Resolution::Hd, None).unwrap();
+        assert!(skin.play_config.is_none());
+        assert!(skin.select_config.is_none());
+        assert!(skin.result_config.is_none());
+        assert!(skin.course_result_config.is_none());
     }
 }

@@ -549,8 +549,8 @@ fn lr2_csv_load() {
     let content = read_file(&lr2_skin_path());
     let header = load_lr2_header(&content, None).expect("Failed to load LR2 header");
     let enabled = std::collections::HashMap::new();
-    let skin =
-        load_lr2_skin(&content, header, &enabled, Resolution::Hd).expect("Failed to load LR2 skin");
+    let skin = load_lr2_skin(&content, header, &enabled, Resolution::Hd, None)
+        .expect("Failed to load LR2 skin");
 
     assert_eq!(skin.input, 500);
     assert_eq!(skin.scene, 3000);
@@ -577,14 +577,15 @@ fn lr2_csv_conditional() {
     let header_on = load_lr2_header(&content, None).expect("header");
     let mut enabled_on = std::collections::HashMap::new();
     enabled_on.insert(900, 1);
-    let skin_on = load_lr2_skin(&content, header_on, &enabled_on, Resolution::Hd).expect("skin on");
+    let skin_on =
+        load_lr2_skin(&content, header_on, &enabled_on, Resolution::Hd, None).expect("skin on");
     let snap_on = snapshot_from_skin(&skin_on);
 
     // Load with no options enabled (ELSE branch)
     let header_off = load_lr2_header(&content, None).expect("header");
     let enabled_off = std::collections::HashMap::new();
     let skin_off =
-        load_lr2_skin(&content, header_off, &enabled_off, Resolution::Hd).expect("skin off");
+        load_lr2_skin(&content, header_off, &enabled_off, Resolution::Hd, None).expect("skin off");
     let snap_off = snapshot_from_skin(&skin_off);
 
     // Both branches add exactly one image, so total should be equal

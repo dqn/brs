@@ -9,6 +9,9 @@ use bms_config::resolution::Resolution;
 use bms_config::skin_config::Offset;
 
 use crate::custom_event::{CustomEventDef, CustomTimerDef};
+use crate::music_select_skin::MusicSelectSkinConfig;
+use crate::play_skin::PlaySkinConfig;
+use crate::result_skin::{CourseResultSkinConfig, ResultSkinConfig};
 use crate::skin_header::SkinHeader;
 use crate::skin_object::Rect;
 use crate::skin_object_type::SkinObjectType;
@@ -49,6 +52,14 @@ pub struct Skin {
     pub custom_events: Vec<CustomEventDef>,
     /// Custom timer definitions.
     pub custom_timers: Vec<CustomTimerDef>,
+    /// Play state-specific configuration.
+    pub play_config: Option<PlaySkinConfig>,
+    /// Music select state-specific configuration.
+    pub select_config: Option<MusicSelectSkinConfig>,
+    /// Result state-specific configuration.
+    pub result_config: Option<ResultSkinConfig>,
+    /// Course result state-specific configuration.
+    pub course_result_config: Option<CourseResultSkinConfig>,
 }
 
 impl Skin {
@@ -76,6 +87,10 @@ impl Skin {
             offsets: HashMap::new(),
             custom_events: Vec::new(),
             custom_timers: Vec::new(),
+            play_config: None,
+            select_config: None,
+            result_config: None,
+            course_result_config: None,
         }
     }
 

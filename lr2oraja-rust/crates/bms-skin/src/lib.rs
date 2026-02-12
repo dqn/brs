@@ -15,6 +15,7 @@ pub mod skin_bpm_graph;
 pub mod skin_distribution_graph;
 pub mod skin_float;
 pub mod skin_gauge;
+pub mod skin_gauge_graph;
 pub mod skin_graph;
 pub mod skin_header;
 pub mod skin_hidden;

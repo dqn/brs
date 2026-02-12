@@ -332,9 +332,13 @@ pub fn compare_model(model: &bms_model::BmsModel, fixture: &Fixture) -> Vec<Stri
         }
 
         let min_len = model.timelines.len().min(java_note_timelines.len());
-        for i in 0..min_len {
-            let rt = &model.timelines[i];
-            let ft = java_note_timelines[i];
+        for (i, (rt, &ft)) in model
+            .timelines
+            .iter()
+            .zip(java_note_timelines.iter())
+            .enumerate()
+            .take(min_len)
+        {
             if (rt.time_us - ft.time_us).abs() > 2 {
                 diffs.push(format!(
                     "timeline[{}] time_us: rust={} java={}",
