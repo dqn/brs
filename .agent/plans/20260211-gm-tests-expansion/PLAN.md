@@ -73,6 +73,19 @@ Status: In Progress
    - 影響: RenderSnapshot 全ケース strict parity には未到達
    - 次アクション: `type_delta` 上位（`Image` / `SkinGaugeGraphObject` / `Gauge` / `SkinBGA` / `SkinNote` / `Text`）から、Java exporter と Rust capture の列挙基準を順に一致させる
 
+2. 残 `type_delta` のうち object type 未対応/未整合が存在
+   - 状態:
+     - `ecfn_result_*`: `Image:-1`, `SkinGaugeGraphObject:-1`
+     - `ecfn_play7_*`: `Gauge:-2`, `Image:+14`, `SkinBGA:-1`, `SkinJudge:-1`, `SkinNote:-1`, `Text:-8`
+     - `ecfn_select`: `Image:+2`, `SkinBar:-1`, `SkinNoteDistributionGraph:-1`, `Text:+1`
+   - 影響: `command_count` だけでなく object 列挙順/型対応の不一致が隠れたままになり、strict 化の阻害要因が残る
+   - 次アクション: object type ごとに Java exporter 側の出力対象と Rust `capture_render_snapshot` 側の対象を 1:1 で突合する
+
+3. `option_conditions` の static 判定は暫定ルール（skin type aware ヒューリスティック）
+   - 状態: Java `BooleanPropertyFactory` 全量移植ではなく、RenderSnapshot で効く static 条件のみを優先実装
+   - 影響: 条件 ID の網羅漏れがあると、ケース追加時に `command_count` が再増加するリスクがある
+   - 次アクション: `screenshot_states` で使う Boolean ID を固定リスト化し、Java 側 `isStatic` 分類との対応表を docs 化して回帰テスト化する
+
 ## Research Summary
 
 - 実行コマンド:
