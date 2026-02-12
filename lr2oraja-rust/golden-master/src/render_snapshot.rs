@@ -102,13 +102,32 @@ pub enum DrawDetail {
 /// Pure function — no GPU or Bevy dependency.
 pub fn capture_render_snapshot(skin: &Skin, provider: &dyn SkinStateProvider) -> RenderSnapshot {
     let mut commands = Vec::with_capacity(skin.objects.len());
+    let debug_option_prune = std::env::var_os("GM_DEBUG_OPTION_PRUNE").is_some();
 
     for (idx, object) in skin.objects.iter().enumerate() {
         let base = object.base();
         if !matches_option_conditions(base, skin, provider) {
             // Java Skin.prepare() drops statically non-drawable objects (e.g. option mismatch).
             // Skip them here so command_count parity tracks the prepared object set.
+            if debug_option_prune {
+                eprintln!(
+                    "option-pruned idx={} type={} name={:?} op={:?}",
+                    idx,
+                    object_type_name(object),
+                    base.name,
+                    base.option_conditions
+                );
+            }
             continue;
+        }
+        if debug_option_prune && !base.option_conditions.is_empty() {
+            eprintln!(
+                "option-kept idx={} type={} name={:?} op={:?}",
+                idx,
+                object_type_name(object),
+                base.name,
+                base.option_conditions
+            );
         }
         let object_type = object_type_name(object);
         let blend = base.blend;
@@ -171,14 +190,56 @@ fn matches_option_conditions(
             let abs = op.abs();
             if let Some(selected) = skin.options.get(&abs).copied() {
                 if op > 0 { selected == 1 } else { selected == 0 }
-            } else if is_static_condition_for_skin(abs, skin.header.skin_type) {
-                // Java Skin.prepare() prunes only statically evaluable draw conditions.
-                provider.boolean_value(bms_skin::property_id::BooleanId(op))
+            } else if is_known_draw_condition_id(abs) {
+                if is_static_condition_for_skin(abs, skin.header.skin_type) {
+                    // Java Skin.prepare() prunes only statically evaluable draw conditions.
+                    provider.boolean_value(bms_skin::property_id::BooleanId(op))
+                } else {
+                    // Non-static draw conditions remain and are evaluated in object.prepare().
+                    true
+                }
             } else {
-                true
+                // Unknown option IDs are treated as SkinObject options in Java.
+                // Missing values are rejected for both positive and negative cases.
+                false
             }
         }
     })
+}
+
+fn is_known_draw_condition_id(id: i32) -> bool {
+    matches!(
+        id,
+        1..=84
+            | 90..=105
+            | 118..=207
+            | 210..=227
+            | 230..=246
+            | 261..=263
+            | 270..=273
+            | 280..=293
+            | 300..=318
+            | 320..=336
+            | 340..=354
+            | 400
+            | 601..=608
+            | 624..=625
+            | 1002..=1017
+            | 1030..=1031
+            | 1046..=1047
+            | 1080
+            | 1100..=1104
+            | 1128..=1131
+            | 1160..=1161
+            | 1177
+            | 1196..=1208
+            | 1240
+            | 1242..=1243
+            | 1262..=1263
+            | 1330..=1336
+            | 1362..=1363
+            | 2241..=2246
+    )
 }
 
 fn is_static_condition_for_skin(id: i32, skin_type: Option<SkinType>) -> bool {
@@ -298,6 +359,7 @@ fn object_type_name(object: &SkinObjectType) -> &'static str {
         SkinObjectType::LiftCover(_) => "LiftCover",
         SkinObjectType::Bar(_) => "SkinBar",
         SkinObjectType::DistributionGraph(_) => "SkinGaugeGraphObject",
+        SkinObjectType::GaugeGraph(_) => "SkinGaugeGraphObject",
         SkinObjectType::Float(_) => "Float",
     }
 }
@@ -374,6 +436,7 @@ fn resolve_detail(object: &SkinObjectType, provider: &dyn SkinStateProvider) -> 
         SkinObjectType::LiftCover(_) => None,
         SkinObjectType::Bar(_) => None,
         SkinObjectType::DistributionGraph(_) => None,
+        SkinObjectType::GaugeGraph(_) => None,
         SkinObjectType::Float(_) => None,
     }
 }

@@ -56,35 +56,49 @@ Status: In Progress
 - `ecfn_decide` が 0 diff となり、`known_diff_budget` を `0` に更新。`render_snapshot_ecfn_decide` の `#[ignore]` を解除。
 - `render_snapshot` の option 条件評価を skin type aware に拡張し、Java `Skin.prepare()` の static prune に近い判定を導入。
 - `command_count` の絶対差を大幅に縮小（`ecfn_result_*: 208->109 vs java 111`、`ecfn_play7_*: 207->167 vs java 166`、`ecfn_select: 282->281 vs java 280`）。
+- Rust `json_loader` に未実装だった JSON skin object builder（`songlist` / `note` / `judge` / `gauge` / `bga` / `hidden/lift` / `gaugegraph` / `judgegraph` / `float`）を追加し、`image` より前に解決するよう列挙順を調整。
+- `render_snapshot` の object type 名を Java exporter のクラス名へ整合（`SkinBar` / `SkinNote` / `SkinJudge` / `SkinNoteDistributionGraph` / `SkinGaugeGraphObject`）。
+- 上記反映後の `--ignored` 実測を更新:
+  - `ecfn_result_*`: `java 111 / rust 110`（`type_delta: Image:-1`）
+  - `ecfn_play7_*`: `java 166 / rust 172`（`type_delta: Image:+14, Text:-8`）
+  - `ecfn_select`: `java 280 / rust 283`（`type_delta: Image:+2, Text:+1`）
+- `render_snapshot_parity_regression_guard`（非 ignored）の通過は維持。
 
 ## 次ステップ（直近）
 
-1. `command_count` 差分の発生源を object 種別ごとに縮小する  
-`ecfn_select` / `ecfn_play7_*` / `ecfn_result_*` について、残差分（`result: Image/SkinGaugeGraphObject`、`play: Gauge/SkinBGA/SkinJudge/SkinNote/Text/Image`、`select: Image/Text`）を順次潰す。
-2. 差分 0 ケースから `#[ignore]` を段階解除する  
+1. Java `Skin.prepare()` と Rust capture 前処理の差を詰める  
+`draw=function(...)` と Java `obj.validate()` 相当の除外条件を突合し、`command_count` 差分の主因を縮小する。
+2. `screenshot_states` と Java mock state の既定値を一致させる  
+可視数の乖離（`visible_type_delta` の `Image/Number` 偏在）を潰すため、timer/integer/float/boolean の既定値をケース別に同期する。
+3. ケース別 `type_delta` をゼロへ寄せる  
+`result: Image:-1`、`play: Image:+14, Text:-8`、`select: Image:+2, Text:+1` を object id 単位で解消する。
+4. 差分 0 ケースから `#[ignore]` を段階解除する  
 ケース単位で `known_diff_budget` を下げ、`ignored` から通常実行へ移行する（`ecfn_decide` は解除済み）。
-3. strict parity へ向けた残課題を固定化する  
-解消不能な仕様差がある場合は comparator 側の明示除外ルールとして文書化し、diff budget を暫定値として管理する。
 
 ## 保留事項
 
 1. `ecfn_select` / `ecfn_play7_*` / `ecfn_result_*` の `command_count` 差分（6ケース）は未解消
    - 状態: `ecfn_decide` は strict 化済みだが、残り 6 ケースは `#[ignore]` 継続
    - 影響: RenderSnapshot 全ケース strict parity には未到達
-   - 次アクション: `type_delta` 上位（`Image` / `SkinGaugeGraphObject` / `Gauge` / `SkinBGA` / `SkinNote` / `Text`）から、Java exporter と Rust capture の列挙基準を順に一致させる
+   - 次アクション: `type_delta` 上位（`Image` / `Text`）から、Java exporter と Rust capture の列挙基準・前処理を順に一致させる
 
-2. 残 `type_delta` のうち object type 未対応/未整合が存在
+2. 残 `type_delta` のうち object type 未整合が存在
    - 状態:
-     - `ecfn_result_*`: `Image:-1`, `SkinGaugeGraphObject:-1`
-     - `ecfn_play7_*`: `Gauge:-2`, `Image:+14`, `SkinBGA:-1`, `SkinJudge:-1`, `SkinNote:-1`, `Text:-8`
-     - `ecfn_select`: `Image:+2`, `SkinBar:-1`, `SkinNoteDistributionGraph:-1`, `Text:+1`
-   - 影響: `command_count` だけでなく object 列挙順/型対応の不一致が隠れたままになり、strict 化の阻害要因が残る
-   - 次アクション: object type ごとに Java exporter 側の出力対象と Rust `capture_render_snapshot` 側の対象を 1:1 で突合する
+     - `ecfn_result_*`: `Image:-1`
+     - `ecfn_play7_*`: `Image:+14`, `Text:-8`
+     - `ecfn_select`: `Image:+2`, `Text:+1`
+   - 影響: object 列挙順/前処理の不一致が残り、strict 化の阻害要因となる
+   - 次アクション: object type ごとに Java exporter 側の出力対象と Rust `capture_render_snapshot` 側の対象を 1:1 で突合する（builder 未実装起因は解消済み）
 
 3. `option_conditions` の static 判定は暫定ルール（skin type aware ヒューリスティック）
    - 状態: Java `BooleanPropertyFactory` 全量移植ではなく、RenderSnapshot で効く static 条件のみを優先実装
    - 影響: 条件 ID の網羅漏れがあると、ケース追加時に `command_count` が再増加するリスクがある
    - 次アクション: `screenshot_states` で使う Boolean ID を固定リスト化し、Java 側 `isStatic` 分類との対応表を docs 化して回帰テスト化する
+
+4. Java `draw/validate` 相当の前処理差
+   - 状態: Rust 側は `command_count` 比較まで寄せているが、Java `Skin.prepare()` の `draw=function(...)` / `validate()` 由来の除外を十分再現できていない
+   - 影響: `visible_type_delta` の `Image/Number` 偏在が残り、`command_count` ゼロ化後に geometry/detail の大量差分化リスクがある
+   - 次アクション: `draw` 条件の静的評価可能分を capture 前に適用し、Java と同じ除外タイミングへ合わせる
 
 ## Research Summary
 
