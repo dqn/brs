@@ -65,6 +65,7 @@ Status: In Progress
 - `render_snapshot_parity_regression_guard`（非 ignored）の通過は維持。
 - `json_ecfn_select_snapshot` 回帰を解消（`STRING_SEARCHWORD` の除外を `json_loader` から `render_snapshot` 側へ移動し、Skin snapshot 比較と RenderSnapshot 比較を分離）。
 - `cargo test -p golden-master -- --nocapture` と `cargo test -p bms-skin -- --nocapture` の全通過を再確認。
+- `compare_render_snapshot` に `sequence_delta`（LCS ベース）を追加し、`command_count` 不一致時の `java_only/rust_only` コマンド位置を先頭 5 件ずつ出力するように改善。
 
 ## 未対応ステップ（2026-02-12 追記）
 

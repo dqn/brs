@@ -21,7 +21,9 @@ use bms_config::resolution::Resolution;
 use bms_render::state_provider::StaticStateProvider;
 use bms_skin::loader::{json_loader, lua_loader};
 use bms_skin::skin_header::CustomOption;
-use golden_master::render_snapshot::{RenderSnapshot, capture_render_snapshot, compare_snapshots};
+use golden_master::render_snapshot::{
+    DrawCommand, DrawDetail, RenderSnapshot, capture_render_snapshot, compare_snapshots,
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -267,11 +269,115 @@ fn summarize_command_count_gap(java: &RenderSnapshot, rust: &RenderSnapshot) -> 
         .map(|(ty, delta)| format!("{ty}:{delta:+}"))
         .collect::<Vec<_>>()
         .join(", ");
+    let sequence_delta = summarize_command_sequence_gap(java, rust);
 
     Some(format!(
-        "type_delta(rust-java): [{}]; visible_type_delta(rust-java): [{}]",
-        type_delta, visible_delta
+        "type_delta(rust-java): [{}]; visible_type_delta(rust-java): [{}]; sequence_delta: {}",
+        type_delta, visible_delta, sequence_delta
     ))
+}
+
+fn command_detail_kind(command: &DrawCommand) -> &'static str {
+    match command.detail.as_ref() {
+        Some(DrawDetail::Image { .. }) => "Image",
+        Some(DrawDetail::Number { .. }) => "Number",
+        Some(DrawDetail::Text { .. }) => "Text",
+        Some(DrawDetail::Slider { .. }) => "Slider",
+        Some(DrawDetail::Graph { .. }) => "Graph",
+        Some(DrawDetail::Gauge { .. }) => "Gauge",
+        Some(DrawDetail::BpmGraph) => "BpmGraph",
+        Some(DrawDetail::HitErrorVisualizer) => "HitErrorVisualizer",
+        Some(DrawDetail::NoteDistributionGraph) => "NoteDistributionGraph",
+        Some(DrawDetail::TimingDistributionGraph) => "TimingDistributionGraph",
+        Some(DrawDetail::TimingVisualizer) => "TimingVisualizer",
+        None => "-",
+    }
+}
+
+fn command_signature(command: &DrawCommand) -> String {
+    format!(
+        "{}|{}|{}",
+        command.object_type,
+        command.visible,
+        command_detail_kind(command)
+    )
+}
+
+fn format_command_at(commands: &[DrawCommand], pos: usize) -> String {
+    let command = &commands[pos];
+    format!(
+        "pos={pos} idx={} type={} visible={} detail={}",
+        command.object_index,
+        command.object_type,
+        command.visible,
+        command_detail_kind(command)
+    )
+}
+
+fn summarize_command_sequence_gap(java: &RenderSnapshot, rust: &RenderSnapshot) -> String {
+    let java_sig: Vec<String> = java.commands.iter().map(command_signature).collect();
+    let rust_sig: Vec<String> = rust.commands.iter().map(command_signature).collect();
+
+    let jn = java_sig.len();
+    let rn = rust_sig.len();
+    let mut lcs = vec![vec![0usize; rn + 1]; jn + 1];
+
+    for i in (0..jn).rev() {
+        for j in (0..rn).rev() {
+            lcs[i][j] = if java_sig[i] == rust_sig[j] {
+                lcs[i + 1][j + 1] + 1
+            } else {
+                lcs[i + 1][j].max(lcs[i][j + 1])
+            };
+        }
+    }
+
+    let mut java_only_pos = Vec::new();
+    let mut rust_only_pos = Vec::new();
+    let mut i = 0;
+    let mut j = 0;
+
+    while i < jn && j < rn {
+        if java_sig[i] == rust_sig[j] {
+            i += 1;
+            j += 1;
+        } else if lcs[i + 1][j] >= lcs[i][j + 1] {
+            java_only_pos.push(i);
+            i += 1;
+        } else {
+            rust_only_pos.push(j);
+            j += 1;
+        }
+    }
+    while i < jn {
+        java_only_pos.push(i);
+        i += 1;
+    }
+    while j < rn {
+        rust_only_pos.push(j);
+        j += 1;
+    }
+
+    let java_only = java_only_pos
+        .iter()
+        .take(5)
+        .map(|&pos| format_command_at(&java.commands, pos))
+        .collect::<Vec<_>>()
+        .join(" | ");
+    let rust_only = rust_only_pos
+        .iter()
+        .take(5)
+        .map(|&pos| format_command_at(&rust.commands, pos))
+        .collect::<Vec<_>>()
+        .join(" | ");
+
+    format!(
+        "java_only(first5/{}): [{}]; rust_only(first5/{}): [{}]",
+        java_only_pos.len(),
+        java_only,
+        rust_only_pos.len(),
+        rust_only
+    )
 }
 
 fn render_snapshot_debug_paths(case_name: &str) -> (PathBuf, PathBuf, PathBuf) {
