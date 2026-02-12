@@ -187,8 +187,9 @@ impl ScoreDataProperty {
         for i in 0..RANK_COUNT {
             self.rank[i] = totalnotes != 0 && self.rate >= i as f32 / RANK_COUNT as f32;
             if i % 3 == 0 && !self.rank[i] && self.nextrank == i32::MIN {
-                self.nextrank = (((i as f64) * (notes * 2) as f64 / RANK_COUNT as f64).ceil()
-                    - self.rate as f64 * (notes * 2) as f64) as i32;
+                self.nextrank = ((i as f64) * (notes * 2) as f64 / RANK_COUNT as f64
+                    - self.rate as f64 * (notes * 2) as f64)
+                    .ceil() as i32;
             }
         }
         if self.nextrank == i32::MIN {

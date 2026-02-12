@@ -85,7 +85,7 @@ impl SongInformation {
 
         // Border tracking for end density calculation
         let total_notes = model.total_notes() as i32;
-        let border_init = (total_notes as f64 * (1.0 - 100.0 / model.total)).round() as i32;
+        let border_init = (total_notes as f64 * (1.0 - 100.0 / model.total)) as i32;
         let mut border = border_init;
         let mut borderpos = 0usize;
 
@@ -98,7 +98,7 @@ impl SongInformation {
         // which LN ends count as playable notes.
         // Java: !(lnmode==1||(lnmode==0 && lntype==LNTYPE_LONGNOTE)) && isEnd => skip
         // With lnmode=0 and lntype=LongNote => skip LN ends
-        let skip_ln_ends = matches!(ln_type, bms_model::LnType::LongNote);
+        let _skip_ln_ends = matches!(ln_type, bms_model::LnType::LongNote);
 
         for note in &sorted_notes {
             if note.lane >= key_count {
@@ -219,63 +219,90 @@ impl SongInformation {
         }
 
         // Speed changes and main BPM
+        //
+        // Java iterates getAllTimeLines() which includes ALL timelines (BPM changes,
+        // stops, notes). Each timeline has BPM, stop, scroll values. We build a unified
+        // event list from model.timelines + model.stop_events to match Java's behavior.
         let mut speed_list: Vec<[f64; 2]> = Vec::new();
         let mut bpm_note_count: std::collections::HashMap<u64, i32> =
             std::collections::HashMap::new();
 
-        let mut now_speed = model.initial_bpm;
-        speed_list.push([now_speed, 0.0]);
+        // Build unified timeline: collect all unique time points with BPM and stop info
+        let mut unified: std::collections::BTreeMap<i64, (f64, bool)> =
+            std::collections::BTreeMap::new();
 
-        // Build timeline-like data from timelines
-        // Java iterates model.getAllTimeLines() counting notes per BPM
-        // and tracking speed changes.
-        // We need to approximate this using our timelines + notes data.
-        // For BPM note counting, we walk through all timelines and count
-        // notes at each BPM.
+        // Add all timelines (BPM info)
+        for tl in &model.timelines {
+            unified.entry(tl.time_us).or_insert((tl.bpm, false)).0 = tl.bpm;
+        }
 
-        // Group notes by timeline time for note counting
-        let mut notes_at_time: std::collections::HashMap<i64, i32> =
-            std::collections::HashMap::new();
-        for note in &model.notes {
-            if note.is_playable() || matches!(note.note_type, NoteType::Mine) {
-                // Skip LN ends for note counting
-                if note.is_long_note() && skip_ln_ends {
-                    // For LongNote type, we only count starts (already handled)
-                }
-                *notes_at_time.entry(note.time_us).or_insert(0) += 1;
+        // Add stop events (mark has_stop; use 0.0 as sentinel for unknown BPM)
+        for stop in &model.stop_events {
+            if stop.duration_us > 0 {
+                let entry = unified.entry(stop.time_us).or_insert((0.0, false));
+                entry.1 = true;
             }
         }
 
-        // Process timelines for BPM tracking and speed changes
+        // Forward-fill BPM for entries without explicit BPM (sentinel 0.0)
+        let mut current_bpm = model.initial_bpm;
+        for (_, (bpm, _)) in unified.iter_mut() {
+            if *bpm > f64::EPSILON {
+                current_bpm = *bpm;
+            } else {
+                *bpm = current_bpm;
+            }
+        }
+
+        // Map each note to its governing timeline's BPM for mainbpm counting.
+        // Java: tl.getTotalNotes() counts all notes at that timeline's time.
+        // We assign each note to the latest timeline time <= note.time_us.
+        let timeline_times: Vec<i64> = unified.keys().copied().collect();
+        for note in &model.notes {
+            if note.lane >= key_count {
+                continue;
+            }
+            if !note.is_playable() && !matches!(note.note_type, NoteType::Mine) {
+                continue;
+            }
+            // Find the governing timeline for this note
+            let tl_idx = match timeline_times.binary_search(&note.time_us) {
+                Ok(i) => i,
+                Err(0) => 0,
+                Err(i) => i - 1,
+            };
+            if let Some(&tl_time) = timeline_times.get(tl_idx)
+                && let Some(&(bpm, _)) = unified.get(&tl_time)
+            {
+                let bpm_key = bpm.to_bits();
+                *bpm_note_count.entry(bpm_key).or_insert(0) += 1;
+            }
+        }
+
+        // Process unified timeline for speed changes
+        let mut now_speed = model.initial_bpm;
+        speed_list.push([now_speed, 0.0]);
+
         let mut last_tl_time = 0i64;
-        for tl in &model.timelines {
-            // Count notes at this timeline's BPM
-            let bpm_key = tl.bpm.to_bits();
-            let note_count_at_time = notes_at_time.get(&tl.time_us).copied().unwrap_or(0);
-            *bpm_note_count.entry(bpm_key).or_insert(0) += note_count_at_time;
-
-            // Check for stop events at this time
-            let has_stop = model
-                .stop_events
-                .iter()
-                .any(|s| s.time_us == tl.time_us && s.duration_us > 0);
-
+        for (&time_us, &(bpm, has_stop)) in &unified {
             if has_stop {
                 if now_speed != 0.0 {
                     now_speed = 0.0;
-                    speed_list.push([now_speed, tl.time_us as f64 / 1000.0]);
+                    // Java: tl.getTime() = (int)(time / 1000) → milliseconds
+                    let time_ms = (time_us / 1000) as f64;
+                    speed_list.push([now_speed, time_ms]);
                 }
             } else {
-                // Java: tl.getBPM() * tl.getScroll()
-                // We don't have scroll per-timeline, so use BPM directly
-                let effective_speed = tl.bpm;
+                // Java: tl.getBPM() * tl.getScroll() — scroll defaults to 1.0
+                let effective_speed = bpm;
                 if (now_speed - effective_speed).abs() > f64::EPSILON {
                     now_speed = effective_speed;
-                    speed_list.push([now_speed, tl.time_us as f64 / 1000.0]);
+                    let time_ms = (time_us / 1000) as f64;
+                    speed_list.push([now_speed, time_ms]);
                 }
             }
 
-            last_tl_time = tl.time_us;
+            last_tl_time = time_us;
         }
 
         // Find main BPM (BPM with most notes)
@@ -289,10 +316,11 @@ impl SongInformation {
         }
 
         // Add final speed entry if last timeline time differs
+        // Java: if(speedList.get(size-1)[1] != tls[tls.length-1].getTime())
         if let Some(last) = speed_list.last() {
-            let last_time_f = last_tl_time as f64 / 1000.0;
-            if (last[1] - last_time_f).abs() > f64::EPSILON {
-                speed_list.push([now_speed, last_time_f]);
+            let last_time_ms = (last_tl_time / 1000) as f64;
+            if (last[1] - last_time_ms).abs() > f64::EPSILON {
+                speed_list.push([now_speed, last_time_ms]);
             }
         }
 
