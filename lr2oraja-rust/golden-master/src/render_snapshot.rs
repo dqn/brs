@@ -6,6 +6,7 @@
 
 use bms_render::eval;
 use bms_render::state_provider::SkinStateProvider;
+use bms_skin::property_id::STRING_TABLE_FULL;
 use bms_skin::skin::Skin;
 use bms_skin::skin_object::SkinObjectBase;
 use bms_skin::skin_object_type::SkinObjectType;
@@ -169,19 +170,15 @@ fn matches_option_conditions(base: &SkinObjectBase, skin: &Skin) -> bool {
                 // as an option-prunable condition here.
                 return true;
             };
-            if op > 0 {
-                selected == 1
-            } else {
-                selected == 0
-            }
+            if op > 0 { selected == 1 } else { selected == 0 }
         }
     })
 }
 
 fn is_object_renderable(
     base: &SkinObjectBase,
-    _object: &SkinObjectType,
-    _provider: &dyn SkinStateProvider,
+    object: &SkinObjectType,
+    provider: &dyn SkinStateProvider,
 ) -> bool {
     // Negative destination IDs (-110/-111 etc.) are special system overlays.
     // Rust runtime resolution is incomplete; treat them as non-renderable here
@@ -191,7 +188,32 @@ fn is_object_renderable(
     {
         return id >= 0;
     }
+    if let SkinObjectType::Text(text) = object
+        && resolve_text_render_content(text, provider).is_empty()
+    {
+        // Java SkinText.prepare() sets draw=false when StringProperty resolves to
+        // null/empty. Snapshot parity needs to mirror this gate.
+        return false;
+    }
     true
+}
+
+fn resolve_text_render_content(
+    text: &bms_skin::skin_text::SkinText,
+    provider: &dyn SkinStateProvider,
+) -> String {
+    if let Some(ref_id) = text.ref_id {
+        if let Some(content) = provider.string_value(ref_id) {
+            return content;
+        }
+        if ref_id.0 == STRING_TABLE_FULL {
+            // Java GM mocks allocate PlayerResource via Unsafe without running field
+            // initializers, and tablefull is computed from null + "". This yields
+            // "null" and keeps tablefull text visible in decide skin snapshots.
+            return "null".to_string();
+        }
+    }
+    text.constant_text.clone().unwrap_or_default()
 }
 
 /// Returns the type name string for a SkinObjectType.

@@ -133,7 +133,7 @@ const TEST_CASES: &[RenderSnapshotTestCase] = &[
         skin_path: "decide/decide.luaskin",
         state_json: "state_default.json",
         is_lua: true,
-        known_diff_budget: 5,
+        known_diff_budget: 0,
     },
     RenderSnapshotTestCase {
         name: "ecfn_play7_active",
@@ -399,7 +399,6 @@ fn render_snapshot_ecfn_select() {
 }
 
 #[test]
-#[ignore = "Known Java/Rust render parity gaps; use for focused debugging"]
 fn render_snapshot_ecfn_decide() {
     let tc = &TEST_CASES[1];
     compare_java_rust_render_snapshot(tc);
