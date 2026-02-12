@@ -7,7 +7,7 @@
 use bms_config::skin_type::SkinType;
 use bms_render::eval;
 use bms_render::state_provider::SkinStateProvider;
-use bms_skin::property_id::STRING_TABLE_FULL;
+use bms_skin::property_id::{STRING_SEARCHWORD, STRING_TABLE_FULL};
 use bms_skin::skin::Skin;
 use bms_skin::skin_object::SkinObjectBase;
 use bms_skin::skin_object_type::SkinObjectType;
@@ -106,8 +106,12 @@ pub fn capture_render_snapshot(skin: &Skin, provider: &dyn SkinStateProvider) ->
 
     for (idx, object) in skin.objects.iter().enumerate() {
         let base = object.base();
+        if should_skip_for_parity(skin, object) {
+            continue;
+        }
         if !matches_option_conditions(base, skin, provider) {
-            // Java Skin.prepare() drops statically non-drawable objects (e.g. option mismatch).
+            // Java Skin.prepare() drops statically non-drawable objects
+            // (option mismatch + static draw conditions).
             // Skip them here so command_count parity tracks the prepared object set.
             if debug_option_prune {
                 eprintln!(
@@ -136,7 +140,9 @@ pub fn capture_render_snapshot(skin: &Skin, provider: &dyn SkinStateProvider) ->
 
         let (visible, dst, color, angle, detail) = match resolved {
             Some((rect, col, final_angle, final_alpha)) => {
-                if !is_object_renderable(base, object, provider) {
+                if !matches_dynamic_draw_conditions(base, skin, provider)
+                    || !is_object_renderable(base, object, provider)
+                {
                     (false, None, None, 0, None)
                 } else {
                     let dst = DrawRect {
@@ -178,32 +184,98 @@ pub fn capture_render_snapshot(skin: &Skin, provider: &dyn SkinStateProvider) ->
     }
 }
 
+fn should_skip_for_parity(skin: &Skin, object: &SkinObjectType) -> bool {
+    // Java JsonSkinObjectLoader does not instantiate a text object for
+    // STRING_SEARCHWORD on MusicSelect skins; it only configures search text
+    // region metadata. Keep the loader snapshot-compatible while excluding it
+    // from RenderSnapshot parity.
+    matches!(skin.header.skin_type, Some(SkinType::MusicSelect))
+        && matches!(
+            object,
+            SkinObjectType::Text(text) if text.ref_id.map(|id| id.0) == Some(STRING_SEARCHWORD)
+        )
+}
+
 fn matches_option_conditions(
     base: &SkinObjectBase,
     skin: &Skin,
     provider: &dyn SkinStateProvider,
 ) -> bool {
-    base.option_conditions.iter().all(|&op| {
+    let static_option_ok = base.option_conditions.iter().all(|&op| {
         if op == 0 {
+            return true;
+        }
+
+        let abs = op.abs();
+        if let Some(selected) = skin.options.get(&abs).copied() {
+            return if op > 0 { selected == 1 } else { selected == 0 };
+        }
+
+        if is_known_draw_condition_id(abs) {
+            if is_static_condition_for_skin(abs, skin.header.skin_type) {
+                // Java Skin.prepare() prunes statically evaluable draw conditions.
+                return provider.boolean_value(bms_skin::property_id::BooleanId(op));
+            }
+            // Dynamic draw conditions are handled in object.prepare() and do not
+            // affect command_count.
+            return true;
+        }
+
+        // Unknown option IDs are treated as SkinObject options in Java.
+        // Missing values are rejected for both positive and negative cases.
+        false
+    });
+
+    if !static_option_ok {
+        return false;
+    }
+
+    base.draw_conditions.iter().all(|&cond| {
+        let abs = cond.abs_id();
+        if is_static_condition_for_skin(abs, skin.header.skin_type) {
+            provider.boolean_value(cond)
+        } else {
+            true
+        }
+    })
+}
+
+fn matches_dynamic_draw_conditions(
+    base: &SkinObjectBase,
+    skin: &Skin,
+    provider: &dyn SkinStateProvider,
+) -> bool {
+    // Dynamic draw conditions from explicit draw IDs.
+    if !base.draw_conditions.iter().all(|&cond| {
+        let abs = cond.abs_id();
+        if is_static_condition_for_skin(abs, skin.header.skin_type) {
             true
         } else {
-            let abs = op.abs();
-            if let Some(selected) = skin.options.get(&abs).copied() {
-                if op > 0 { selected == 1 } else { selected == 0 }
-            } else if is_known_draw_condition_id(abs) {
-                if is_static_condition_for_skin(abs, skin.header.skin_type) {
-                    // Java Skin.prepare() prunes only statically evaluable draw conditions.
-                    provider.boolean_value(bms_skin::property_id::BooleanId(op))
-                } else {
-                    // Non-static draw conditions remain and are evaluated in object.prepare().
-                    true
-                }
-            } else {
-                // Unknown option IDs are treated as SkinObject options in Java.
-                // Missing values are rejected for both positive and negative cases.
-                false
-            }
+            provider.boolean_value(cond)
         }
+    }) {
+        return false;
+    }
+
+    // Dynamic draw conditions encoded in legacy option IDs.
+    base.option_conditions.iter().all(|&op| {
+        if op == 0 {
+            return true;
+        }
+
+        let abs = op.abs();
+        if skin.options.contains_key(&abs) {
+            return true;
+        }
+
+        if is_known_draw_condition_id(abs) {
+            if is_static_condition_for_skin(abs, skin.header.skin_type) {
+                return true;
+            }
+            return provider.boolean_value(bms_skin::property_id::BooleanId(op));
+        }
+
+        true
     })
 }
 

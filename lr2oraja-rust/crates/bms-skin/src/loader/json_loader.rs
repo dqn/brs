@@ -121,8 +121,37 @@ fn test_option_number(op: i32, enabled: &HashSet<i32>) -> bool {
 /// For objects with `{"include": "path"}`, loads the referenced file.
 /// (File includes are NOT implemented in this phase — they return null.)
 pub fn resolve_conditionals(value: Value, enabled: &HashSet<i32>) -> Value {
+    resolve_conditionals_with_context(value, enabled, false)
+}
+
+fn resolve_conditionals_with_context(
+    value: Value,
+    enabled: &HashSet<i32>,
+    in_object_field: bool,
+) -> Value {
     match value {
         Value::Array(arr) => {
+            // ObjectSerializer behavior in Java:
+            // when an object field is encoded as a conditional branch array
+            // (`[{if, value}, ...]`), only the first matched branch is used.
+            if in_object_field && is_object_conditional_branch_array(&arr) {
+                for item in &arr {
+                    if let Value::Object(obj) = item {
+                        let condition = obj.get("if").unwrap_or(&Value::Null);
+                        if test_option(condition, enabled)
+                            && let Some(val) = obj.get("value")
+                        {
+                            return resolve_conditionals_with_context(
+                                val.clone(),
+                                enabled,
+                                false,
+                            );
+                        }
+                    }
+                }
+                return Value::Null;
+            }
+
             let mut result = Vec::new();
             for item in arr {
                 if let Value::Object(ref obj) = item {
@@ -133,11 +162,19 @@ pub fn resolve_conditionals(value: Value, enabled: &HashSet<i32>) -> Value {
                         let condition = obj.get("if").unwrap_or(&Value::Null);
                         if test_option(condition, enabled) {
                             if let Some(val) = obj.get("value") {
-                                result.push(resolve_conditionals(val.clone(), enabled));
+                                result.push(resolve_conditionals_with_context(
+                                    val.clone(),
+                                    enabled,
+                                    false,
+                                ));
                             }
                             if let Some(Value::Array(vals)) = obj.get("values") {
                                 for v in vals {
-                                    result.push(resolve_conditionals(v.clone(), enabled));
+                                    result.push(resolve_conditionals_with_context(
+                                        v.clone(),
+                                        enabled,
+                                        false,
+                                    ));
                                 }
                             }
                         }
@@ -148,7 +185,7 @@ pub fn resolve_conditionals(value: Value, enabled: &HashSet<i32>) -> Value {
                         continue;
                     }
                 }
-                result.push(resolve_conditionals(item, enabled));
+                result.push(resolve_conditionals_with_context(item, enabled, false));
             }
             Value::Array(result)
         }
@@ -159,19 +196,29 @@ pub fn resolve_conditionals(value: Value, enabled: &HashSet<i32>) -> Value {
                 if test_option(condition, enabled)
                     && let Some(val) = map.remove("value")
                 {
-                    return resolve_conditionals(val, enabled);
+                    return resolve_conditionals_with_context(val, enabled, false);
                 }
                 return Value::Null;
             }
             // Recurse into object fields
             let resolved: serde_json::Map<String, Value> = map
                 .into_iter()
-                .map(|(k, v)| (k, resolve_conditionals(v, enabled)))
+                .map(|(k, v)| (k, resolve_conditionals_with_context(v, enabled, true)))
                 .collect();
             Value::Object(resolved)
         }
         other => other,
     }
+}
+
+fn is_object_conditional_branch_array(arr: &[Value]) -> bool {
+    !arr.is_empty()
+        && arr.iter().all(|item| {
+            let Value::Object(obj) = item else {
+                return false;
+            };
+            obj.contains_key("if") && obj.contains_key("value") && !obj.contains_key("values")
+        })
 }
 
 // ---------------------------------------------------------------------------
@@ -434,12 +481,14 @@ pub fn load_skin(
     dest_resolution: Resolution,
     path: Option<&Path>,
 ) -> Result<Skin> {
+    let data = parse_skin_data(json_str, enabled_options)?;
+    let source_images = infer_existing_source_images(&data, path);
     load_skin_with_images(
         json_str,
         enabled_options,
         dest_resolution,
         path,
-        &HashMap::new(),
+        &source_images,
     )
 }
 
@@ -456,12 +505,7 @@ pub fn load_skin_with_images(
     path: Option<&Path>,
     source_images: &HashMap<String, ImageHandle>,
 ) -> Result<Skin> {
-    // Pre-process lenient JSON and resolve conditionals
-    let preprocessed = preprocess_json(json_str);
-    let raw: Value = serde_json::from_str(&preprocessed).context("Failed to parse JSON")?;
-    let resolved = resolve_conditionals(raw, enabled_options);
-    let data: JsonSkinData =
-        serde_json::from_value(resolved).context("Failed to deserialize resolved JSON")?;
+    let data = parse_skin_data(json_str, enabled_options)?;
 
     // Build header
     let mut header = build_header(&data, path)?;
@@ -535,6 +579,60 @@ pub fn load_skin_with_images(
     }
 
     Ok(skin)
+}
+
+fn parse_skin_data(json_str: &str, enabled_options: &HashSet<i32>) -> Result<JsonSkinData> {
+    // Pre-process lenient JSON and resolve conditionals.
+    let preprocessed = preprocess_json(json_str);
+    let raw: Value = serde_json::from_str(&preprocessed).context("Failed to parse JSON")?;
+    let resolved = resolve_conditionals(raw, enabled_options);
+    serde_json::from_value(resolved).context("Failed to deserialize resolved JSON")
+}
+
+fn infer_existing_source_images(
+    data: &JsonSkinData,
+    skin_path: Option<&Path>,
+) -> HashMap<String, ImageHandle> {
+    let mut source_images = HashMap::new();
+    let mut next_handle = 1u32;
+
+    for source in &data.source {
+        let id = source.id.as_str();
+        if id.is_empty() || source_images.contains_key(id) {
+            continue;
+        }
+        let Some(source_path) = source.path.as_deref() else {
+            continue;
+        };
+        if source_path_exists(source_path, skin_path) {
+            source_images.insert(id.to_string(), ImageHandle(next_handle));
+            next_handle += 1;
+        }
+    }
+
+    source_images
+}
+
+fn source_path_exists(source_path: &str, skin_path: Option<&Path>) -> bool {
+    // Wildcards are used heavily by Lua skins; treat them as existing to avoid
+    // false negatives in command-count parity checks.
+    if source_path.contains('*') || source_path.contains('?') || source_path.contains('[') {
+        return true;
+    }
+
+    let source = Path::new(source_path);
+    if source.is_absolute() {
+        return source.exists();
+    }
+
+    if let Some(base_dir) = skin_path.and_then(Path::parent) {
+        let joined = base_dir.join(source);
+        if joined.exists() {
+            return true;
+        }
+    }
+
+    source.exists()
 }
 
 // ---------------------------------------------------------------------------
@@ -716,7 +814,7 @@ fn build_skin_object(
     if let Some(obj) = try_build_image(data, dst, dst_id, source_images) {
         return Some(obj);
     }
-    if let Some(obj) = try_build_image_set(data, dst, dst_id) {
+    if let Some(obj) = try_build_image_set(data, dst, dst_id, source_images) {
         return Some(obj);
     }
     if let Some(obj) = try_build_number(data, dst, dst_id) {
@@ -953,6 +1051,7 @@ fn try_build_image_set(
     data: &JsonSkinData,
     dst: &JsonDestination,
     dst_id: &FlexId,
+    source_images: &HashMap<String, ImageHandle>,
 ) -> Option<SkinObjectType> {
     let set_def = data.imageset.iter().find(|i| i.id == *dst_id)?;
 
@@ -967,6 +1066,24 @@ fn try_build_image_set(
     };
     if ref_id != 0 {
         skin_img.ref_id = Some(crate::property_id::IntegerId(ref_id));
+    }
+
+    // Resolve sources from referenced image IDs.
+    for image_ref in &set_def.images {
+        let Some(image_def) = data.image.iter().find(|img| img.id == *image_ref) else {
+            continue;
+        };
+        let Some(&handle) = source_images.get(image_def.src.as_str()) else {
+            continue;
+        };
+        let timer = image_def.timer.as_ref().and_then(|t| t.as_id());
+        skin_img
+            .sources
+            .push(crate::skin_image::SkinImageSource::Frames {
+                images: vec![handle],
+                timer,
+                cycle: image_def.cycle,
+            });
     }
 
     if let Some(act) = &set_def.act
@@ -1592,6 +1709,33 @@ mod tests {
         let resolved = resolve_conditionals(json, &enabled);
         let arr = resolved.as_array().unwrap();
         assert!(arr.is_empty());
+    }
+
+    #[test]
+    fn test_resolve_object_conditional_branch_first_match() {
+        let enabled = HashSet::from([901, 902]);
+        let json = serde_json::json!({
+            "obj": [
+                {"if": 901, "value": {"id": "a"}},
+                {"if": 902, "value": {"id": "b"}}
+            ]
+        });
+        let resolved = resolve_conditionals(json, &enabled);
+        assert!(resolved["obj"].is_object());
+        assert_eq!(resolved["obj"]["id"], "a");
+    }
+
+    #[test]
+    fn test_resolve_object_conditional_branch_no_match() {
+        let enabled = HashSet::new();
+        let json = serde_json::json!({
+            "obj": [
+                {"if": 901, "value": {"id": "a"}},
+                {"if": 902, "value": {"id": "b"}}
+            ]
+        });
+        let resolved = resolve_conditionals(json, &enabled);
+        assert!(resolved["obj"].is_null());
     }
 
     // -- Header loading --
