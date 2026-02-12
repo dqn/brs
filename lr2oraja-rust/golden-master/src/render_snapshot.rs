@@ -177,7 +177,7 @@ pub fn capture_render_snapshot(skin: &Skin, provider: &dyn SkinStateProvider) ->
                     if should_force_note_alpha_zero(skin.header.skin_type, base.name.as_deref()) {
                         color.a = 0.0;
                     }
-                    let detail = resolve_detail(object, provider);
+                    let detail = resolve_detail(object, provider, skin.header.skin_type);
                     (true, Some(dst), Some(color), final_angle, detail)
                 }
             }
@@ -478,14 +478,14 @@ fn is_object_renderable(
     }
     if let SkinObjectType::Image(img) = object
         && let Some(ref_id) = img.ref_id
-        && resolve_integer_value(ref_id, provider).is_none()
+        && resolve_integer_value(ref_id, provider, skin_type).is_none()
         && !allow_missing_image_ref(base.name.as_deref())
     {
         return false;
     }
     if let SkinObjectType::Number(num) = object
         && let Some(ref_id) = num.ref_id
-        && resolve_integer_value(ref_id, provider).is_none()
+        && resolve_integer_value(ref_id, provider, skin_type).is_none()
         && !allow_missing_number_ref(base.name.as_deref(), skin_type)
     {
         return false;
@@ -531,6 +531,13 @@ fn should_force_hidden(
         (Some(SkinType::Play7Keys) | Some(SkinType::Play5Keys), Some("gaugevalue")) => {
             object_index == 190
         }
+        // Lua draw functions gating IR status / new record display.
+        // Java evaluates draw=function() at runtime and hides these;
+        // test harness cannot evaluate Lua, so force hidden.
+        (
+            Some(SkinType::Result) | Some(SkinType::CourseResult),
+            Some("ir_wait1" | "NEWRECORD_1"),
+        ) => true,
         _ => false,
     }) || matches!(name, Some("nowbpm")) && object_index == 102
         || matches!(name, Some("ex_score")) && object_index == 106
@@ -549,15 +556,15 @@ fn allow_missing_number_ref(name: Option<&str>, skin_type: Option<SkinType>) -> 
             name,
             Some(
                 "RANK_Diff_Exscore"
+                    | "Best_Exscore"
+                    | "Best_Exscore_Acc"
                     | "Best_Exscore_Acc2"
                     | "Current_Exscore"
-                    | "Current_Exscore_Acc"
-                    | "Current_Exscore_Acc2"
                     | "Diff_Exscore"
                     | "TARGETRATE1"
                     | "TARGETRATE2"
-                    | "TARGET_MYRATE1"
-                    | "TARGET_MYRATE2"
+                    | "TARGETSCORE"
+                    | "Diff_TARGETSCORE"
                     | "JUDGE_MS"
                     | "JUDGE_PG_F"
                     | "JUDGE_GR_F"
@@ -580,15 +587,28 @@ fn allow_missing_number_ref(name: Option<&str>, skin_type: Option<SkinType>) -> 
     }
 }
 
-fn resolve_integer_value(id: IntegerId, provider: &dyn SkinStateProvider) -> Option<i32> {
+fn resolve_integer_value(
+    id: IntegerId,
+    provider: &dyn SkinStateProvider,
+    skin_type: Option<SkinType>,
+) -> Option<i32> {
     if provider.has_integer_value(id) {
         return Some(provider.integer_value(id));
     }
-    java_mock_integer_default(id.0)
+    java_mock_integer_default(id.0, skin_type)
 }
 
-fn java_mock_integer_default(_id: i32) -> Option<i32> {
-    None
+fn java_mock_integer_default(id: i32, skin_type: Option<SkinType>) -> Option<i32> {
+    let is_result = matches!(
+        skin_type,
+        Some(SkinType::Result) | Some(SkinType::CourseResult)
+    );
+    match id {
+        // Java mock getJudgeCount() returns 0 for MAXCOMBO and JUDGE counts
+        // on Result/CourseResult skins. Other skins return Integer.MIN_VALUE.
+        75 | 110..=114 if is_result => Some(0),
+        _ => None,
+    }
 }
 
 fn resolve_float_value(id: FloatId, provider: &dyn SkinStateProvider) -> f32 {
@@ -651,13 +671,17 @@ fn object_type_name(object: &SkinObjectType) -> &'static str {
 }
 
 /// Resolves type-specific draw detail for a skin object.
-fn resolve_detail(object: &SkinObjectType, provider: &dyn SkinStateProvider) -> Option<DrawDetail> {
+fn resolve_detail(
+    object: &SkinObjectType,
+    provider: &dyn SkinStateProvider,
+    skin_type: Option<SkinType>,
+) -> Option<DrawDetail> {
     match object {
         SkinObjectType::Bga(_) => None,
         SkinObjectType::Image(img) => {
             let source_index = img
                 .ref_id
-                .and_then(|id| resolve_integer_value(id, provider))
+                .and_then(|id| resolve_integer_value(id, provider, skin_type))
                 .unwrap_or(0)
                 .max(0) as usize;
 
@@ -683,7 +707,7 @@ fn resolve_detail(object: &SkinObjectType, provider: &dyn SkinStateProvider) -> 
         SkinObjectType::Number(num) => {
             let value = num
                 .ref_id
-                .and_then(|id| resolve_integer_value(id, provider))
+                .and_then(|id| resolve_integer_value(id, provider, skin_type))
                 .unwrap_or(0);
             Some(DrawDetail::Number { value })
         }

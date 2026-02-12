@@ -171,18 +171,14 @@ const TEST_CASES: &[RenderSnapshotTestCase] = &[
         skin_path: "RESULT/result.luaskin",
         state_json: "state_result_clear.json",
         is_lua: true,
-        // Remaining diffs: visibility from unevaluated Lua draw functions +
-        // detail values from state provider gaps (JUDGE counts, best scores).
-        // Fixing requires Lua runtime evaluation in the test harness.
-        known_diff_budget: 15,
+        known_diff_budget: 0,
     },
     RenderSnapshotTestCase {
         name: "ecfn_result_fail",
         skin_path: "RESULT/result.luaskin",
         state_json: "state_result_fail.json",
         is_lua: true,
-        // Same categories as result_clear; fail state has more Lua-gated objects.
-        known_diff_budget: 26,
+        known_diff_budget: 0,
     },
 ];
 

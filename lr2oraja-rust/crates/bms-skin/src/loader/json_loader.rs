@@ -1858,6 +1858,9 @@ fn apply_destination(base: &mut SkinObjectBase, dst: &JsonDestination) {
     if let Some(ref draw) = dst.draw {
         if let Some(id) = draw.as_id() {
             base.draw_conditions.push(BooleanId(id));
+        } else {
+            // Lua draw function — mark so test harness can treat as hidden.
+            base.has_script_draw = true;
         }
     } else if !dst.op.is_empty() {
         base.option_conditions = dst.op.clone();

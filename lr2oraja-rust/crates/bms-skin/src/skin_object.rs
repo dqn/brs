@@ -144,6 +144,8 @@ pub struct SkinObjectBase {
     pub mouse_rect: Option<Rect>,
     /// Whether offsets are applied in relative mode.
     pub relative: bool,
+    /// Whether a Lua draw function is present (unresolvable in test harness).
+    pub has_script_draw: bool,
     /// Optional debug name.
     pub name: Option<String>,
 }
@@ -168,6 +170,7 @@ impl Default for SkinObjectBase {
             click_event_type: 0,
             mouse_rect: None,
             relative: false,
+            has_script_draw: false,
             name: None,
         }
     }
