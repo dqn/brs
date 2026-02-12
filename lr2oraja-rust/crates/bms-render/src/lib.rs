@@ -3,6 +3,7 @@
 // Uses Bevy 0.15 for window, camera, and 2D sprite rendering.
 // Skin objects are iterated in Vec order each frame (procedural render loop).
 
+pub mod bga;
 pub mod blend;
 pub mod coord;
 pub mod distance_field_material;
@@ -10,6 +11,7 @@ pub mod draw;
 pub mod eval;
 pub mod font_map;
 pub mod image_loader_bevy;
+pub mod message_renderer;
 pub mod mod_menu;
 pub mod plugin;
 pub mod skin_renderer;

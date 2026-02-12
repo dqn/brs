@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 bms-config.workspace = true
+bms-model.workspace = true
 bms-skin.workspace = true
 anyhow.workspace = true
 bevy.workspace = true

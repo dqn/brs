@@ -83,6 +83,13 @@ fn object_type_name(obj: &SkinObjectType) -> &'static str {
         SkinObjectType::NoteDistributionGraph(_) => "NoteDistributionGraph",
         SkinObjectType::TimingDistributionGraph(_) => "TimingDistributionGraph",
         SkinObjectType::TimingVisualizer(_) => "TimingVisualizer",
+        SkinObjectType::Note(_) => "Note",
+        SkinObjectType::Judge(_) => "Judge",
+        SkinObjectType::Hidden(_) => "Hidden",
+        SkinObjectType::LiftCover(_) => "LiftCover",
+        SkinObjectType::Bar(_) => "Bar",
+        SkinObjectType::DistributionGraph(_) => "DistributionGraph",
+        SkinObjectType::Float(_) => "Float",
     }
 }
 

@@ -299,15 +299,14 @@ fn populate_default_options(lua: &Lua, result_table: &mlua::Table) -> Result<()>
             // First item's op value is the default
             if let Ok(mlua::Value::Table(first_item)) = items.get::<mlua::Value>(1)
                 && let Ok(op) = first_item.get::<mlua::Value>("op")
-            {
-                if matches!(
+                && matches!(
                     option_table.get::<mlua::Value>(name.clone()),
                     Ok(mlua::Value::Nil)
-                ) {
-                    option_table
-                        .set(name, op)
-                        .map_err(|e| anyhow::anyhow!("Failed to set option default: {}", e))?;
-                }
+                )
+            {
+                option_table
+                    .set(name, op)
+                    .map_err(|e| anyhow::anyhow!("Failed to set option default: {}", e))?;
             }
         }
     }

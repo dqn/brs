@@ -20,7 +20,7 @@ pub struct ScoreDatabase {
 /// Read a ScoreData from a rusqlite row.
 ///
 /// Note: DB column `combo` maps to ScoreData field `maxcombo`.
-fn score_data_from_row(row: &rusqlite::Row) -> rusqlite::Result<ScoreData> {
+pub(crate) fn score_data_from_row(row: &rusqlite::Row) -> rusqlite::Result<ScoreData> {
     let clear_id: i32 = row.get::<_, Option<i32>>("clear")?.unwrap_or(0);
     Ok(ScoreData {
         sha256: row.get("sha256")?,

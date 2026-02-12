@@ -20,6 +20,28 @@ pub struct StopEvent {
     pub duration_us: i64,
 }
 
+/// BGA event layer type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum BgaLayer {
+    /// Base BGA layer (channel 04)
+    Bga,
+    /// Overlay layer (channel 06)
+    Layer,
+    /// Poor/miss layer (channel 07)
+    Poor,
+}
+
+/// A single BGA event parsed from channels 04/06/07
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BgaEvent {
+    /// Time in microseconds
+    pub time_us: i64,
+    /// Which BGA layer this event targets
+    pub layer: BgaLayer,
+    /// BMP definition ID (index into bmp_defs / bga list)
+    pub id: i32,
+}
+
 /// A point in time within the chart that may contain notes
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TimeLine {

@@ -16,4 +16,4 @@ pub use mode::PlayMode;
 pub use model::{BmsModel, JudgeRankType};
 pub use note::{BgNote, LnType, Note, NoteType};
 pub use parse::BmsDecoder;
-pub use timeline::{BpmChange, StopEvent, TimeLine};
+pub use timeline::{BgaEvent, BgaLayer, BpmChange, StopEvent, TimeLine};

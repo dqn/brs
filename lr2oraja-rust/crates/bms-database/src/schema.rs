@@ -739,6 +739,103 @@ pub static SCORE_TABLE: TableDef = TableDef {
     ],
 };
 
+pub static INFORMATION_TABLE: TableDef = TableDef {
+    name: "information",
+    columns: &[
+        ColumnDef {
+            name: "sha256",
+            sql_type: "TEXT",
+            not_null: true,
+            primary_key: true,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "n",
+            sql_type: "INTEGER",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "ln",
+            sql_type: "INTEGER",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "s",
+            sql_type: "INTEGER",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "ls",
+            sql_type: "INTEGER",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "total",
+            sql_type: "REAL",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "density",
+            sql_type: "REAL",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "peakdensity",
+            sql_type: "REAL",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "enddensity",
+            sql_type: "REAL",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "mainbpm",
+            sql_type: "REAL",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "distribution",
+            sql_type: "TEXT",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "speedchange",
+            sql_type: "TEXT",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+        ColumnDef {
+            name: "lanenotes",
+            sql_type: "TEXT",
+            not_null: false,
+            primary_key: false,
+            default_val: None,
+        },
+    ],
+};
+
 pub static SCOREDATALOG_TABLE: TableDef = TableDef {
     name: "scoredatalog",
     columns: &[
@@ -961,6 +1058,7 @@ mod tests {
         ensure_table(&conn, &PLAYER_TABLE).unwrap();
         ensure_table(&conn, &SCORE_TABLE).unwrap();
         ensure_table(&conn, &SCOREDATALOG_TABLE).unwrap();
+        ensure_table(&conn, &INFORMATION_TABLE).unwrap();
 
         // Verify tables exist
         let count: i32 = conn
@@ -970,7 +1068,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(count, 6);
+        assert_eq!(count, 7);
     }
 
     #[test]

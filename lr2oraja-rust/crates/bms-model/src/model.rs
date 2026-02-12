@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::mode::PlayMode;
 use crate::note::{BgNote, LnType, Note};
-use crate::timeline::{BpmChange, StopEvent, TimeLine};
+use crate::timeline::{BgaEvent, BpmChange, StopEvent, TimeLine};
 
 /// Type of judge rank value stored in the BMS model.
 ///
@@ -69,6 +69,9 @@ pub struct BmsModel {
     // Background notes (BGM channel 0x01 / bmson BGM)
     pub bg_notes: Vec<BgNote>,
 
+    // BGA events (channels 04/06/07)
+    pub bga_events: Vec<BgaEvent>,
+
     // WAV/BMP definitions
     #[serde(skip)]
     pub wav_defs: HashMap<u16, PathBuf>,
@@ -116,6 +119,7 @@ impl Default for BmsModel {
             timelines: Vec::new(),
             notes: Vec::new(),
             bg_notes: Vec::new(),
+            bga_events: Vec::new(),
             wav_defs: HashMap::new(),
             bmp_defs: HashMap::new(),
             md5: String::new(),

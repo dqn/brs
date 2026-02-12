@@ -6,7 +6,7 @@ use anyhow::Result;
 use crate::mode::PlayMode;
 use crate::model::BmsModel;
 use crate::note::{BgNote, LnType, Note};
-use crate::timeline::{BpmChange, StopEvent, TimeLine};
+use crate::timeline::{BgaEvent, BgaLayer, BpmChange, StopEvent, TimeLine};
 
 /// BMS file decoder
 pub struct BmsDecoder;
@@ -412,8 +412,46 @@ impl BmsDecoder {
         for event in &events {
             let ch = event.channel;
 
-            // Skip timing channels (already processed), but not 0x01 (BGM)
-            if matches!(ch, 0x02 | 0x03 | 0x04 | 0x06 | 0x07 | 0x08 | 0x09) {
+            // Skip timing channels (already processed), but not 0x01 (BGM) or BGA channels
+            if matches!(ch, 0x02 | 0x03 | 0x08 | 0x09) {
+                continue;
+            }
+
+            // BGA channels: 04 (BGA base), 06 (BGA layer), 07 (BGA poor)
+            if matches!(ch, 0x04 | 0x06 | 0x07) {
+                let bga_layer = match ch {
+                    0x04 => BgaLayer::Bga,
+                    0x06 => BgaLayer::Layer,
+                    _ => BgaLayer::Poor,
+                };
+
+                let measure = event.measure;
+                let measure_time = measure_times.get(measure as usize).copied().unwrap_or(0);
+                let measure_len = measure_lengths.get(&measure).copied().unwrap_or(1.0);
+
+                for &(pos, bmp_id) in &event.data {
+                    if bmp_id == 0 {
+                        continue;
+                    }
+                    let time_us = measure_time
+                        + position_to_us(
+                            pos,
+                            measure,
+                            measure_len,
+                            &measure_times,
+                            &model,
+                            current_bpm,
+                            &bpm_events_by_measure,
+                            &stop_events_by_measure,
+                            &stop_defs,
+                            &extended_bpms,
+                        );
+                    model.bga_events.push(BgaEvent {
+                        time_us,
+                        layer: bga_layer,
+                        id: bmp_id as i32,
+                    });
+                }
                 continue;
             }
 
@@ -576,6 +614,9 @@ impl BmsDecoder {
 
         // Sort background notes by time
         model.bg_notes.sort_by_key(|n| n.time_us);
+
+        // Sort BGA events by time
+        model.bga_events.sort_by_key(|e| e.time_us);
 
         // Deduplicate: when same (lane, time_us), keep highest priority note
         // Priority: Normal/Invisible > LN > Mine

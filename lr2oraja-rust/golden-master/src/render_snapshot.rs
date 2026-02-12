@@ -231,6 +231,13 @@ fn object_type_name(object: &SkinObjectType) -> &'static str {
         SkinObjectType::NoteDistributionGraph(_) => "NoteDistributionGraph",
         SkinObjectType::TimingDistributionGraph(_) => "TimingDistributionGraph",
         SkinObjectType::TimingVisualizer(_) => "TimingVisualizer",
+        SkinObjectType::Note(_) => "Note",
+        SkinObjectType::Judge(_) => "Judge",
+        SkinObjectType::Hidden(_) => "Hidden",
+        SkinObjectType::LiftCover(_) => "LiftCover",
+        SkinObjectType::Bar(_) => "Bar",
+        SkinObjectType::DistributionGraph(_) => "DistributionGraph",
+        SkinObjectType::Float(_) => "Float",
     }
 }
 
@@ -300,6 +307,13 @@ fn resolve_detail(object: &SkinObjectType, provider: &dyn SkinStateProvider) -> 
         SkinObjectType::NoteDistributionGraph(_) => Some(DrawDetail::NoteDistributionGraph),
         SkinObjectType::TimingDistributionGraph(_) => Some(DrawDetail::TimingDistributionGraph),
         SkinObjectType::TimingVisualizer(_) => Some(DrawDetail::TimingVisualizer),
+        SkinObjectType::Note(_) => None,
+        SkinObjectType::Judge(_) => None,
+        SkinObjectType::Hidden(_) => None,
+        SkinObjectType::LiftCover(_) => None,
+        SkinObjectType::Bar(_) => None,
+        SkinObjectType::DistributionGraph(_) => None,
+        SkinObjectType::Float(_) => None,
     }
 }
 

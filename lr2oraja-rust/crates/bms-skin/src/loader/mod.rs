@@ -9,4 +9,6 @@ pub mod json_loader;
 pub mod json_skin;
 pub mod lr2_csv_loader;
 pub mod lr2_header_loader;
+pub mod lua_event_utility;
 pub mod lua_loader;
+pub mod lua_timer_utility;
