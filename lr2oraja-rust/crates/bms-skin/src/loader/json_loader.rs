@@ -141,11 +141,7 @@ fn resolve_conditionals_with_context(
                         if test_option(condition, enabled)
                             && let Some(val) = obj.get("value")
                         {
-                            return resolve_conditionals_with_context(
-                                val.clone(),
-                                enabled,
-                                false,
-                            );
+                            return resolve_conditionals_with_context(val.clone(), enabled, false);
                         }
                     }
                 }
@@ -566,7 +562,13 @@ pub fn load_skin_with_images(
     // Collect state-specific configs
     let skin_type = skin.header.skin_type;
     if is_play_type(skin_type) {
-        skin.play_config = collect_play_config(&skin.objects);
+        let mut config = collect_play_config(&skin.objects).unwrap_or_default();
+        config.playstart = data.playstart;
+        config.loadstart = data.close;
+        config.loadend = data.loadend;
+        config.finish_margin = data.finishmargin;
+        config.judge_timer = data.judgetimer;
+        skin.play_config = Some(config);
     }
     if skin_type == Some(SkinType::MusicSelect) {
         skin.select_config = collect_select_config(&skin.objects);
@@ -754,6 +756,180 @@ fn collect_course_result_config(
 }
 
 // ---------------------------------------------------------------------------
+// Helper functions for sub-object resolution
+// ---------------------------------------------------------------------------
+
+/// Resolves an image FlexId to an ImageHandle integer.
+///
+/// Searches `data.image` for a matching ID, then looks up its `src` in
+/// `source_images` to get the handle value.
+fn resolve_image_ref(
+    data: &JsonSkinData,
+    flex_id: &FlexId,
+    source_images: &HashMap<String, ImageHandle>,
+) -> Option<i32> {
+    let img_def = data.image.iter().find(|i| i.id == *flex_id)?;
+    let handle = source_images.get(img_def.src.as_str())?;
+    Some(handle.0 as i32)
+}
+
+/// Resolves a sub-destination reference to a SkinImage.
+///
+/// Finds the image definition matching the sub-destination ID, builds a
+/// SkinImage with its source handle, and applies the sub-destination.
+fn resolve_sub_image(
+    data: &JsonSkinData,
+    sub_dst: &JsonDestination,
+    source_images: &HashMap<String, ImageHandle>,
+) -> Option<crate::skin_image::SkinImage> {
+    let img_def = data.image.iter().find(|i| i.id == sub_dst.id)?;
+    let handle = source_images.get(img_def.src.as_str())?;
+    let timer = img_def.timer.as_ref().and_then(|t| t.as_id());
+    let mut img = crate::skin_image::SkinImage::from_frames(vec![*handle], timer, img_def.cycle);
+    apply_destination(&mut img.base, sub_dst);
+    Some(img)
+}
+
+/// Resolves a sub-destination reference to a SkinNumber.
+///
+/// Finds the value definition matching the sub-destination ID, builds a
+/// SkinNumber with the same logic as try_build_number(), and applies the
+/// sub-destination.
+fn resolve_sub_number(
+    data: &JsonSkinData,
+    sub_dst: &JsonDestination,
+) -> Option<crate::skin_number::SkinNumber> {
+    let val_def = data.value.iter().find(|v| v.id == sub_dst.id)?;
+    let ref_id = if let Some(ref val) = val_def.value {
+        val.as_id().unwrap_or(val_def.ref_id)
+    } else {
+        val_def.ref_id
+    };
+    let mut num = crate::skin_number::SkinNumber {
+        base: SkinObjectBase::default(),
+        ref_id: Some(crate::property_id::IntegerId(ref_id)),
+        keta: val_def.digit,
+        zero_padding: crate::skin_number::ZeroPadding::from_i32(val_def.zeropadding),
+        align: crate::skin_number::NumberAlign::from_i32(val_def.align),
+        space: val_def.space,
+        ..Default::default()
+    };
+    apply_destination(&mut num.base, sub_dst);
+    if let Some(offsets) = &val_def.offset {
+        num.digit_offsets = offsets
+            .iter()
+            .map(|o| crate::skin_object::SkinOffset {
+                x: o.x as f32,
+                y: o.y as f32,
+                w: o.w as f32,
+                h: o.h as f32,
+                ..Default::default()
+            })
+            .collect();
+    }
+    Some(num)
+}
+
+/// Resolves a sub-destination reference to a SkinText.
+///
+/// Finds the text definition matching the sub-destination ID, builds a
+/// SkinText with the same logic as try_build_text(), and applies the
+/// sub-destination.
+fn resolve_sub_text(
+    data: &JsonSkinData,
+    sub_dst: &JsonDestination,
+    skin_path: Option<&Path>,
+) -> Option<crate::skin_text::SkinText> {
+    let text_def = data.text.iter().find(|t| t.id == sub_dst.id)?;
+    let ref_id = if let Some(ref val) = text_def.value {
+        val.as_id().unwrap_or(text_def.ref_id)
+    } else {
+        text_def.ref_id
+    };
+    let outline_color = if text_def.outline_width > 0.0 {
+        Some(parse_color(&text_def.outline_color))
+    } else {
+        None
+    };
+    let shadow = if text_def.shadow_offset_x != 0.0 || text_def.shadow_offset_y != 0.0 {
+        Some(crate::skin_text::TextShadow {
+            color: parse_color(&text_def.shadow_color),
+            offset_x: text_def.shadow_offset_x,
+            offset_y: text_def.shadow_offset_y,
+            smoothness: text_def.shadow_smoothness,
+        })
+    } else {
+        None
+    };
+    let font_type = resolve_font_type(data, &text_def.font, skin_path);
+    let mut text = crate::skin_text::SkinText {
+        base: SkinObjectBase::default(),
+        ref_id: Some(crate::property_id::StringId(ref_id)),
+        constant_text: text_def.constant_text.clone(),
+        font_size: text_def.size as f32,
+        align: crate::skin_text::TextAlign::from_i32(text_def.align),
+        wrapping: text_def.wrapping,
+        overflow: crate::skin_text::TextOverflow::from_i32(text_def.overflow),
+        outline_color,
+        outline_width: text_def.outline_width,
+        shadow,
+        font_type,
+        ..Default::default()
+    };
+    apply_destination(&mut text.base, sub_dst);
+    Some(text)
+}
+
+/// Resolves a bar image from imageset or image.
+///
+/// First searches `data.imageset` for the sub-destination ID. If found,
+/// resolves all images in the set. Falls back to `resolve_sub_image()`.
+fn resolve_bar_image(
+    data: &JsonSkinData,
+    sub_dst: &JsonDestination,
+    source_images: &HashMap<String, ImageHandle>,
+) -> Option<crate::skin_image::SkinImage> {
+    // Try imageset first
+    if let Some(set_def) = data.imageset.iter().find(|s| s.id == sub_dst.id) {
+        let ref_id = if let Some(ref val) = set_def.value {
+            val.as_id().unwrap_or(set_def.ref_id)
+        } else {
+            set_def.ref_id
+        };
+        let mut sources = Vec::new();
+        for image_ref in &set_def.images {
+            let Some(image_def) = data.image.iter().find(|img| img.id == *image_ref) else {
+                continue;
+            };
+            let Some(&handle) = source_images.get(image_def.src.as_str()) else {
+                continue;
+            };
+            let timer = image_def.timer.as_ref().and_then(|t| t.as_id());
+            sources.push(crate::skin_image::SkinImageSource::Frames {
+                images: vec![handle],
+                timer,
+                cycle: image_def.cycle,
+            });
+        }
+        if sources.is_empty() {
+            return None;
+        }
+        let mut img = if ref_id != 0 {
+            crate::skin_image::SkinImage::with_ref(sources, crate::property_id::IntegerId(ref_id))
+        } else {
+            crate::skin_image::SkinImage {
+                sources,
+                ..Default::default()
+            }
+        };
+        apply_destination(&mut img.base, sub_dst);
+        return Some(img);
+    }
+    // Fall back to single image
+    resolve_sub_image(data, sub_dst, source_images)
+}
+
+// ---------------------------------------------------------------------------
 // Object building
 // ---------------------------------------------------------------------------
 
@@ -779,13 +955,13 @@ fn build_skin_object(
     }
 
     // Skin-type specific objects must be resolved before plain images.
-    if let Some(obj) = try_build_song_list(data, dst, dst_id) {
+    if let Some(obj) = try_build_song_list(data, dst, dst_id, source_images, skin_path) {
         return Some(obj);
     }
-    if let Some(obj) = try_build_note(data, dst, dst_id) {
+    if let Some(obj) = try_build_note(data, dst, dst_id, source_images) {
         return Some(obj);
     }
-    if let Some(obj) = try_build_judge(data, dst, dst_id) {
+    if let Some(obj) = try_build_judge(data, dst, dst_id, source_images) {
         return Some(obj);
     }
     if let Some(obj) = try_build_gauge(data, dst, dst_id) {
@@ -849,17 +1025,88 @@ fn try_build_song_list(
     data: &JsonSkinData,
     dst: &JsonDestination,
     dst_id: &FlexId,
+    source_images: &HashMap<String, ImageHandle>,
+    skin_path: Option<&Path>,
 ) -> Option<SkinObjectType> {
+    use crate::skin_bar::*;
+
     let song_list = data.songlist.as_ref()?;
     if song_list.id != *dst_id {
         return None;
     }
 
-    let mut bar = crate::skin_bar::SkinBar {
+    let mut bar = SkinBar {
         position: song_list.center,
         ..Default::default()
     };
     apply_destination(&mut bar.base, dst);
+
+    // Bar images (on/off) via imageset or image
+    for (i, on_dst) in song_list.liston.iter().enumerate() {
+        if i >= BAR_COUNT {
+            break;
+        }
+        bar.bar_image_on[i] = resolve_bar_image(data, on_dst, source_images);
+    }
+    for (i, off_dst) in song_list.listoff.iter().enumerate() {
+        if i >= BAR_COUNT {
+            break;
+        }
+        bar.bar_image_off[i] = resolve_bar_image(data, off_dst, source_images);
+    }
+
+    // Lamps
+    for (i, lamp_dst) in song_list.lamp.iter().enumerate() {
+        if i >= BAR_LAMP_COUNT {
+            break;
+        }
+        bar.lamp[i] = resolve_sub_image(data, lamp_dst, source_images);
+    }
+    for (i, lamp_dst) in song_list.playerlamp.iter().enumerate() {
+        if i >= BAR_LAMP_COUNT {
+            break;
+        }
+        bar.my_lamp[i] = resolve_sub_image(data, lamp_dst, source_images);
+    }
+    for (i, lamp_dst) in song_list.rivallamp.iter().enumerate() {
+        if i >= BAR_LAMP_COUNT {
+            break;
+        }
+        bar.rival_lamp[i] = resolve_sub_image(data, lamp_dst, source_images);
+    }
+
+    // Trophies
+    for (i, trophy_dst) in song_list.trophy.iter().enumerate() {
+        if i >= BAR_TROPHY_COUNT {
+            break;
+        }
+        bar.trophy[i] = resolve_sub_image(data, trophy_dst, source_images);
+    }
+
+    // Labels
+    for (i, label_dst) in song_list.label.iter().enumerate() {
+        if i >= BAR_LABEL_COUNT {
+            break;
+        }
+        bar.label[i] = resolve_sub_image(data, label_dst, source_images);
+    }
+
+    // Texts
+    for (i, text_dst) in song_list.text.iter().enumerate() {
+        if i >= BAR_TEXT_COUNT {
+            break;
+        }
+        bar.text[i] = resolve_sub_text(data, text_dst, skin_path);
+    }
+
+    // Levels (number displays)
+    for (i, level_dst) in song_list.level.iter().enumerate() {
+        if i >= BAR_LEVEL_COUNT {
+            break;
+        }
+        bar.bar_level[i] = resolve_sub_number(data, level_dst);
+    }
+
     Some(bar.into())
 }
 
@@ -867,14 +1114,128 @@ fn try_build_note(
     data: &JsonSkinData,
     dst: &JsonDestination,
     dst_id: &FlexId,
+    source_images: &HashMap<String, ImageHandle>,
 ) -> Option<SkinObjectType> {
+    use crate::skin_note::*;
+
     let note = data.note.as_ref()?;
     if note.id != *dst_id {
         return None;
     }
 
-    let mut skin_note = crate::skin_note::SkinNote::default();
+    let lane_count = note.dst.len();
+    let mut skin_note = SkinNote::default();
     apply_destination(&mut skin_note.base, dst);
+
+    // Build per-lane configurations
+    for i in 0..lane_count {
+        let mut lane = SkinLane::default();
+
+        // Normal note
+        if let Some(id) = note.note.get(i) {
+            lane.note = resolve_image_ref(data, id, source_images);
+        }
+
+        // LN textures
+        if let Some(id) = note.lnend.get(i) {
+            lane.longnote[LN_END] = resolve_image_ref(data, id, source_images);
+        }
+        if let Some(id) = note.lnstart.get(i) {
+            lane.longnote[LN_START] = resolve_image_ref(data, id, source_images);
+        }
+        // LN body: if lnbody_active is present, it's the active body
+        if !note.lnbody_active.is_empty() {
+            if let Some(id) = note.lnbody_active.get(i) {
+                lane.longnote[LN_BODY_ACTIVE] = resolve_image_ref(data, id, source_images);
+            }
+            if let Some(id) = note.lnbody.get(i) {
+                lane.longnote[LN_BODY_INACTIVE] = resolve_image_ref(data, id, source_images);
+            }
+        } else {
+            if let Some(id) = note.lnbody.get(i) {
+                lane.longnote[LN_BODY_ACTIVE] = resolve_image_ref(data, id, source_images);
+            }
+            if let Some(id) = note.lnactive.get(i) {
+                lane.longnote[LN_BODY_INACTIVE] = resolve_image_ref(data, id, source_images);
+            }
+        }
+
+        // HCN textures
+        if let Some(id) = note.hcnend.get(i) {
+            lane.longnote[HCN_END] = resolve_image_ref(data, id, source_images);
+        }
+        if let Some(id) = note.hcnstart.get(i) {
+            lane.longnote[HCN_START] = resolve_image_ref(data, id, source_images);
+        }
+        if !note.hcnbody_active.is_empty() {
+            if let Some(id) = note.hcnbody_active.get(i) {
+                lane.longnote[HCN_BODY_ACTIVE] = resolve_image_ref(data, id, source_images);
+            }
+            if let Some(id) = note.hcnbody.get(i) {
+                lane.longnote[HCN_BODY_INACTIVE] = resolve_image_ref(data, id, source_images);
+            }
+        } else {
+            if let Some(id) = note.hcnbody.get(i) {
+                lane.longnote[HCN_BODY_ACTIVE] = resolve_image_ref(data, id, source_images);
+            }
+            if let Some(id) = note.hcnactive.get(i) {
+                lane.longnote[HCN_BODY_INACTIVE] = resolve_image_ref(data, id, source_images);
+            }
+        }
+        // HCN reactive / damage
+        if !note.hcnbody_reactive.is_empty() {
+            if let Some(id) = note.hcnbody_reactive.get(i) {
+                lane.longnote[HCN_BODY_REACTIVE] = resolve_image_ref(data, id, source_images);
+            }
+        } else if let Some(id) = note.hcnreactive.get(i) {
+            lane.longnote[HCN_BODY_REACTIVE] = resolve_image_ref(data, id, source_images);
+        }
+        if !note.hcnbody_miss.is_empty() {
+            if let Some(id) = note.hcnbody_miss.get(i) {
+                lane.longnote[HCN_BODY_DAMAGE] = resolve_image_ref(data, id, source_images);
+            }
+        } else if let Some(id) = note.hcndamage.get(i) {
+            lane.longnote[HCN_BODY_DAMAGE] = resolve_image_ref(data, id, source_images);
+        }
+
+        // Mine, hidden, processed
+        if let Some(id) = note.mine.get(i) {
+            lane.mine_note = resolve_image_ref(data, id, source_images);
+        }
+        if let Some(id) = note.hidden.get(i) {
+            lane.hidden_note = resolve_image_ref(data, id, source_images);
+        }
+        if let Some(id) = note.processed.get(i) {
+            lane.processed_note = resolve_image_ref(data, id, source_images);
+        }
+
+        // Scale
+        if let Some(&s) = note.size.get(i) {
+            lane.scale = s;
+        }
+
+        // Secondary destination offset
+        if let Some(d2) = note.dst2 {
+            lane.dst_note2 = d2;
+        }
+
+        skin_note.lanes.push(lane);
+    }
+
+    // Line images from group/bpm/stop/time
+    if let Some(group) = note.group.first() {
+        skin_note.line_image = resolve_image_ref(data, &group.id, source_images);
+    }
+    if let Some(bpm) = note.bpm.first() {
+        skin_note.bpm_line_image = resolve_image_ref(data, &bpm.id, source_images);
+    }
+    if let Some(stop) = note.stop.first() {
+        skin_note.stop_line_image = resolve_image_ref(data, &stop.id, source_images);
+    }
+    if let Some(time) = note.time.first() {
+        skin_note.time_line_image = resolve_image_ref(data, &time.id, source_images);
+    }
+
     Some(skin_note.into())
 }
 
@@ -882,7 +1243,10 @@ fn try_build_judge(
     data: &JsonSkinData,
     dst: &JsonDestination,
     dst_id: &FlexId,
+    source_images: &HashMap<String, ImageHandle>,
 ) -> Option<SkinObjectType> {
+    use crate::skin_judge::JUDGE_COUNT;
+
     let judge_def = data.judge.iter().find(|j| j.id == *dst_id)?;
 
     let mut judge = crate::skin_judge::SkinJudge {
@@ -891,6 +1255,26 @@ fn try_build_judge(
         ..Default::default()
     };
     apply_destination(&mut judge.base, dst);
+
+    // Populate judge images (up to JUDGE_COUNT=7)
+    for (i, img_dst) in judge_def.images.iter().enumerate() {
+        if i >= JUDGE_COUNT {
+            break;
+        }
+        judge.judge_images[i] = resolve_sub_image(data, img_dst, source_images);
+    }
+
+    // Populate judge combo numbers (up to JUDGE_COUNT=7)
+    for (i, num_dst) in judge_def.numbers.iter().enumerate() {
+        if i >= JUDGE_COUNT {
+            break;
+        }
+        if let Some(mut num) = resolve_sub_number(data, num_dst) {
+            num.relative = true;
+            judge.judge_counts[i] = Some(num);
+        }
+    }
+
     Some(judge.into())
 }
 
@@ -2309,5 +2693,305 @@ mod tests {
         assert!(skin.select_config.is_none());
         assert!(skin.result_config.is_none());
         assert!(skin.course_result_config.is_none());
+    }
+
+    // -- Note lane population (19-A6) --
+
+    #[test]
+    fn test_note_lanes_populated() {
+        let mut images = HashMap::new();
+        images.insert("0".to_string(), ImageHandle(1));
+
+        let json = r#"{
+            "type": 0,
+            "name": "Play7K",
+            "source": [{"id": 0, "path": "notes.png"}],
+            "image": [
+                {"id": "n1", "src": 0},
+                {"id": "n2", "src": 0},
+                {"id": "ls1", "src": 0},
+                {"id": "le1", "src": 0},
+                {"id": "m1", "src": 0},
+                {"id": "grp", "src": 0}
+            ],
+            "note": {
+                "id": "note1",
+                "note": ["n1", "n2"],
+                "lnstart": ["ls1"],
+                "lnend": ["le1"],
+                "mine": ["m1"],
+                "size": [1.5, 2.0],
+                "dst2": 10,
+                "dst": [
+                    {"x": 0, "y": 0, "w": 50, "h": 400},
+                    {"x": 50, "y": 0, "w": 50, "h": 400}
+                ],
+                "group": [{"id": "grp", "dst": [{"x": 0, "y": 0, "w": 100, "h": 2}]}]
+            },
+            "destination": [
+                {"id": "note1", "dst": [{"x": 0, "y": 0, "w": 100, "h": 400}]}
+            ]
+        }"#;
+
+        let skin =
+            load_skin_with_images(json, &HashSet::new(), Resolution::Hd, None, &images).unwrap();
+        assert!(skin.play_config.is_some());
+        let config = skin.play_config.unwrap();
+        let note = config.note.unwrap();
+
+        assert_eq!(note.lanes.len(), 2);
+        // Lane 0: note, lnstart, lnend, mine populated
+        assert_eq!(note.lanes[0].note, Some(1));
+        assert_eq!(note.lanes[0].longnote[crate::skin_note::LN_START], Some(1));
+        assert_eq!(note.lanes[0].longnote[crate::skin_note::LN_END], Some(1));
+        assert_eq!(note.lanes[0].mine_note, Some(1));
+        assert!((note.lanes[0].scale - 1.5).abs() < f32::EPSILON);
+        assert_eq!(note.lanes[0].dst_note2, 10);
+
+        // Lane 1: only note populated
+        assert_eq!(note.lanes[1].note, Some(1));
+        assert!(note.lanes[1].longnote[crate::skin_note::LN_START].is_none());
+        assert!((note.lanes[1].scale - 2.0).abs() < f32::EPSILON);
+
+        // Line image
+        assert_eq!(note.line_image, Some(1));
+    }
+
+    #[test]
+    fn test_note_ln_body_active_branch() {
+        let mut images = HashMap::new();
+        images.insert("0".to_string(), ImageHandle(10));
+
+        // With lnbody_active: active→LN_BODY_ACTIVE, body→LN_BODY_INACTIVE
+        let json = r#"{
+            "type": 0,
+            "name": "Play7K",
+            "source": [{"id": 0, "path": "notes.png"}],
+            "image": [
+                {"id": "body", "src": 0},
+                {"id": "active", "src": 0}
+            ],
+            "note": {
+                "id": "note1",
+                "lnbody": ["body"],
+                "lnbodyActive": ["active"],
+                "dst": [{"x": 0, "y": 0, "w": 50, "h": 400}]
+            },
+            "destination": [
+                {"id": "note1", "dst": [{"x": 0, "y": 0, "w": 50, "h": 400}]}
+            ]
+        }"#;
+
+        let skin =
+            load_skin_with_images(json, &HashSet::new(), Resolution::Hd, None, &images).unwrap();
+        let note = skin.play_config.unwrap().note.unwrap();
+        assert_eq!(note.lanes.len(), 1);
+        assert_eq!(
+            note.lanes[0].longnote[crate::skin_note::LN_BODY_ACTIVE],
+            Some(10)
+        );
+        assert_eq!(
+            note.lanes[0].longnote[crate::skin_note::LN_BODY_INACTIVE],
+            Some(10)
+        );
+
+        // Without lnbody_active: body→LN_BODY_ACTIVE, lnactive→LN_BODY_INACTIVE
+        let json2 = r#"{
+            "type": 0,
+            "name": "Play7K",
+            "source": [{"id": 0, "path": "notes.png"}],
+            "image": [
+                {"id": "body", "src": 0},
+                {"id": "lnact", "src": 0}
+            ],
+            "note": {
+                "id": "note1",
+                "lnbody": ["body"],
+                "lnactive": ["lnact"],
+                "dst": [{"x": 0, "y": 0, "w": 50, "h": 400}]
+            },
+            "destination": [
+                {"id": "note1", "dst": [{"x": 0, "y": 0, "w": 50, "h": 400}]}
+            ]
+        }"#;
+
+        let skin2 =
+            load_skin_with_images(json2, &HashSet::new(), Resolution::Hd, None, &images).unwrap();
+        let note2 = skin2.play_config.unwrap().note.unwrap();
+        assert_eq!(
+            note2.lanes[0].longnote[crate::skin_note::LN_BODY_ACTIVE],
+            Some(10)
+        );
+        assert_eq!(
+            note2.lanes[0].longnote[crate::skin_note::LN_BODY_INACTIVE],
+            Some(10)
+        );
+    }
+
+    // -- Judge population (19-A6) --
+
+    #[test]
+    fn test_judge_images_and_numbers() {
+        let mut images = HashMap::new();
+        images.insert("0".to_string(), ImageHandle(5));
+
+        let json = r#"{
+            "type": 0,
+            "name": "Play7K",
+            "source": [{"id": 0, "path": "judge.png"}],
+            "image": [
+                {"id": "j_pg", "src": 0},
+                {"id": "j_gr", "src": 0}
+            ],
+            "value": [
+                {"id": "cnt_pg", "src": 0, "digit": 4, "ref": 150},
+                {"id": "cnt_gr", "src": 0, "digit": 4, "ref": 151}
+            ],
+            "judge": [{
+                "id": "judge1",
+                "index": 0,
+                "shift": true,
+                "images": [
+                    {"id": "j_pg", "dst": [{"x": 0, "y": 0, "w": 200, "h": 50}]},
+                    {"id": "j_gr", "dst": [{"x": 0, "y": 50, "w": 200, "h": 50}]}
+                ],
+                "numbers": [
+                    {"id": "cnt_pg", "dst": [{"x": 200, "y": 0, "w": 20, "h": 30}]},
+                    {"id": "cnt_gr", "dst": [{"x": 200, "y": 50, "w": 20, "h": 30}]}
+                ]
+            }],
+            "destination": [
+                {"id": "judge1", "dst": [{"x": 0, "y": 0, "w": 400, "h": 100}]}
+            ]
+        }"#;
+
+        let skin =
+            load_skin_with_images(json, &HashSet::new(), Resolution::Hd, None, &images).unwrap();
+        let config = skin.play_config.unwrap();
+        assert_eq!(config.judges.len(), 1);
+
+        let judge = &config.judges[0];
+        assert!(judge.judge_images[0].is_some()); // PG image
+        assert!(judge.judge_images[1].is_some()); // GR image
+        assert!(judge.judge_images[2].is_none()); // GD not set
+
+        assert!(judge.judge_counts[0].is_some()); // PG count
+        assert!(judge.judge_counts[1].is_some()); // GR count
+        assert!(judge.judge_counts[2].is_none()); // GD not set
+
+        // Numbers should have relative=true
+        let pg_num = judge.judge_counts[0].as_ref().unwrap();
+        assert!(pg_num.relative);
+        assert_eq!(pg_num.keta, 4);
+        assert_eq!(pg_num.ref_id, Some(crate::property_id::IntegerId(150)));
+    }
+
+    // -- Song list sub-objects (19-B4) --
+
+    #[test]
+    fn test_song_list_sub_objects() {
+        let mut images = HashMap::new();
+        images.insert("0".to_string(), ImageHandle(3));
+
+        let json = r#"{
+            "type": 5,
+            "name": "Select",
+            "source": [{"id": 0, "path": "select.png"}],
+            "image": [
+                {"id": "lamp_img", "src": 0},
+                {"id": "label_img", "src": 0},
+                {"id": "trophy_img", "src": 0}
+            ],
+            "value": [
+                {"id": "lv_num", "src": 0, "digit": 3, "ref": 300}
+            ],
+            "text": [
+                {"id": "title_text", "font": 0, "size": 20, "ref": 10}
+            ],
+            "songlist": {
+                "id": "bar1",
+                "center": 5,
+                "lamp": [
+                    {"id": "lamp_img", "dst": [{"x": 0, "y": 0, "w": 10, "h": 10}]}
+                ],
+                "label": [
+                    {"id": "label_img", "dst": [{"x": 20, "y": 0, "w": 10, "h": 10}]}
+                ],
+                "trophy": [
+                    {"id": "trophy_img", "dst": [{"x": 40, "y": 0, "w": 10, "h": 10}]}
+                ],
+                "text": [
+                    {"id": "title_text", "dst": [{"x": 60, "y": 0, "w": 200, "h": 20}]}
+                ],
+                "level": [
+                    {"id": "lv_num", "dst": [{"x": 260, "y": 0, "w": 50, "h": 20}]}
+                ]
+            },
+            "destination": [
+                {"id": "bar1", "dst": [{"x": 0, "y": 0, "w": 800, "h": 40}]}
+            ]
+        }"#;
+
+        let skin =
+            load_skin_with_images(json, &HashSet::new(), Resolution::Hd, None, &images).unwrap();
+        assert!(skin.select_config.is_some());
+        let config = skin.select_config.unwrap();
+        let bar = config.bar.unwrap();
+
+        assert_eq!(bar.position, 5);
+        assert!(bar.lamp[0].is_some());
+        assert!(bar.lamp[1].is_none());
+        assert!(bar.label[0].is_some());
+        assert!(bar.trophy[0].is_some());
+        assert!(bar.text[0].is_some());
+        let text = bar.text[0].as_ref().unwrap();
+        assert_eq!(text.ref_id, Some(crate::property_id::StringId(10)));
+        assert!(bar.bar_level[0].is_some());
+        let level = bar.bar_level[0].as_ref().unwrap();
+        assert_eq!(level.keta, 3);
+        assert_eq!(level.ref_id, Some(crate::property_id::IntegerId(300)));
+    }
+
+    // -- Play config timing (19-E2) --
+
+    #[test]
+    fn test_play_config_timing() {
+        let json = r#"{
+            "type": 0,
+            "name": "Play7K",
+            "close": 1500,
+            "loadend": 2000,
+            "playstart": 1000,
+            "judgetimer": 2,
+            "finishmargin": 500,
+            "destination": []
+        }"#;
+
+        let skin = load_skin(json, &HashSet::new(), Resolution::Hd, None).unwrap();
+        assert!(skin.play_config.is_some());
+        let config = skin.play_config.unwrap();
+        assert_eq!(config.playstart, 1000);
+        assert_eq!(config.loadstart, 1500);
+        assert_eq!(config.loadend, 2000);
+        assert_eq!(config.judge_timer, 2);
+        assert_eq!(config.finish_margin, 500);
+    }
+
+    #[test]
+    fn test_play_config_timing_defaults() {
+        let json = r#"{
+            "type": 0,
+            "name": "Play7K",
+            "destination": []
+        }"#;
+
+        let skin = load_skin(json, &HashSet::new(), Resolution::Hd, None).unwrap();
+        assert!(skin.play_config.is_some());
+        let config = skin.play_config.unwrap();
+        assert_eq!(config.playstart, 0);
+        assert_eq!(config.loadstart, 0);
+        assert_eq!(config.loadend, 0);
+        assert_eq!(config.judge_timer, 1); // default judgetimer is 1
+        assert_eq!(config.finish_margin, 0);
     }
 }
