@@ -3,7 +3,7 @@
 // Defines RandomType, RandomUnit, AssistLevel, PatternModifyLog,
 // the PatternModifier trait, and helper functions.
 
-use bms_model::{BmsModel, PlayMode};
+use bms_model::{BgNote, BmsModel, NoteType, PlayMode};
 use serde::{Deserialize, Serialize};
 
 /// Unit of randomization for each shuffle type.
@@ -202,6 +202,85 @@ pub fn get_keys(mode: PlayMode, player: usize, contains_scratch: bool) -> Vec<us
     (start_key..start_key + keys_per_player)
         .filter(|&i| contains_scratch || !mode.is_scratch_key(i))
         .collect()
+}
+
+/// Move a note on the given lane at the given time to background.
+///
+/// For normal/invisible notes: moves from `model.notes` to `model.bg_notes`.
+/// For LN notes: moves both start and end notes.
+/// For mine notes: removes without adding to background.
+///
+/// Matches Java `PatternModifier.moveToBackground(TimeLine[], TimeLine, int)`.
+pub fn move_to_background(model: &mut BmsModel, lane: usize, time_us: i64) {
+    let mut indices_to_remove: Vec<usize> = Vec::new();
+
+    // Find the note at the given lane and time
+    for (i, note) in model.notes.iter().enumerate() {
+        if note.lane == lane && note.time_us == time_us {
+            indices_to_remove.push(i);
+
+            // If LN, also remove the paired note
+            if note.is_long_note() && note.pair_index != usize::MAX {
+                let pair = note.pair_index;
+                if !indices_to_remove.contains(&pair) {
+                    indices_to_remove.push(pair);
+                }
+            }
+            break;
+        }
+    }
+
+    indices_to_remove.sort_unstable();
+    indices_to_remove.dedup();
+
+    // Move non-mine notes to bg
+    for &i in &indices_to_remove {
+        let note = &model.notes[i];
+        if note.note_type != NoteType::Mine {
+            model.bg_notes.push(BgNote {
+                wav_id: note.wav_id,
+                time_us: note.time_us,
+                micro_starttime: note.micro_starttime,
+                micro_duration: note.micro_duration,
+            });
+        }
+    }
+
+    // Remove in reverse order
+    for &i in indices_to_remove.iter().rev() {
+        model.notes.remove(i);
+    }
+}
+
+/// Rebuild LN pair indices after notes have been added/removed.
+pub fn rebuild_pair_indices(notes: &mut [bms_model::Note]) {
+    for note in notes.iter_mut() {
+        note.pair_index = usize::MAX;
+    }
+
+    let starts: Vec<usize> = notes
+        .iter()
+        .enumerate()
+        .filter(|(_, n)| n.is_long_note() && n.end_time_us > 0)
+        .map(|(i, _)| i)
+        .collect();
+
+    for &si in &starts {
+        let lane = notes[si].lane;
+        let note_type = notes[si].note_type;
+        let end_time = notes[si].end_time_us;
+
+        if let Some(ei) = notes.iter().enumerate().position(|(i, n)| {
+            i != si
+                && n.lane == lane
+                && n.note_type == note_type
+                && n.time_us == end_time
+                && n.end_time_us == 0
+        }) {
+            notes[si].pair_index = ei;
+            notes[ei].pair_index = si;
+        }
+    }
 }
 
 #[cfg(test)]
