@@ -54,11 +54,13 @@ Status: In Progress
 - RenderSnapshot capture に option 条件と special ID の整合処理を追加し、Java との object 列挙差分の切り分け精度を改善。
 - Rust `render_snapshot` に Java `SkinText.prepare()` 相当の可視判定（空文字 hidden）を導入し、`tablefull(1003)` の GM mock 既定値 `"null"` を反映。
 - `ecfn_decide` が 0 diff となり、`known_diff_budget` を `0` に更新。`render_snapshot_ecfn_decide` の `#[ignore]` を解除。
+- `render_snapshot` の option 条件評価を skin type aware に拡張し、Java `Skin.prepare()` の static prune に近い判定を導入。
+- `command_count` の絶対差を大幅に縮小（`ecfn_result_*: 208->109 vs java 111`、`ecfn_play7_*: 207->167 vs java 166`、`ecfn_select: 282->281 vs java 280`）。
 
 ## 次ステップ（直近）
 
 1. `command_count` 差分の発生源を object 種別ごとに縮小する  
-`ecfn_select` / `ecfn_play7_*` / `ecfn_result_*` について、`type_delta` を指標に `SkinBGA` / `Gauge` / `Number` / `Text` / `Image` の列挙基準を順次一致させる。
+`ecfn_select` / `ecfn_play7_*` / `ecfn_result_*` について、残差分（`result: Image/SkinGaugeGraphObject`、`play: Gauge/SkinBGA/SkinJudge/SkinNote/Text/Image`、`select: Image/Text`）を順次潰す。
 2. 差分 0 ケースから `#[ignore]` を段階解除する  
 ケース単位で `known_diff_budget` を下げ、`ignored` から通常実行へ移行する（`ecfn_decide` は解除済み）。
 3. strict parity へ向けた残課題を固定化する  
@@ -69,7 +71,7 @@ Status: In Progress
 1. `ecfn_select` / `ecfn_play7_*` / `ecfn_result_*` の `command_count` 差分（6ケース）は未解消
    - 状態: `ecfn_decide` は strict 化済みだが、残り 6 ケースは `#[ignore]` 継続
    - 影響: RenderSnapshot 全ケース strict parity には未到達
-   - 次アクション: `type_delta` 上位（`Image` / `Number` / `Gauge` / `SkinBGA` / `SkinNote`）から、Java exporter と Rust capture の列挙基準を順に一致させる
+   - 次アクション: `type_delta` 上位（`Image` / `SkinGaugeGraphObject` / `Gauge` / `SkinBGA` / `SkinNote` / `Text`）から、Java exporter と Rust capture の列挙基準を順に一致させる
 
 ## Research Summary
 

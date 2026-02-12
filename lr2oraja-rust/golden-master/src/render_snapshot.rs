@@ -4,6 +4,7 @@
 // engines), this captures "what to draw" as a serializable data structure.
 // Both Java and Rust generate the same JSON format for field-by-field comparison.
 
+use bms_config::skin_type::SkinType;
 use bms_render::eval;
 use bms_render::state_provider::SkinStateProvider;
 use bms_skin::property_id::STRING_TABLE_FULL;
@@ -104,7 +105,7 @@ pub fn capture_render_snapshot(skin: &Skin, provider: &dyn SkinStateProvider) ->
 
     for (idx, object) in skin.objects.iter().enumerate() {
         let base = object.base();
-        if !matches_option_conditions(base, skin) {
+        if !matches_option_conditions(base, skin, provider) {
             // Java Skin.prepare() drops statically non-drawable objects (e.g. option mismatch).
             // Skip them here so command_count parity tracks the prepared object set.
             continue;
@@ -158,21 +159,81 @@ pub fn capture_render_snapshot(skin: &Skin, provider: &dyn SkinStateProvider) ->
     }
 }
 
-fn matches_option_conditions(base: &SkinObjectBase, skin: &Skin) -> bool {
+fn matches_option_conditions(
+    base: &SkinObjectBase,
+    skin: &Skin,
+    provider: &dyn SkinStateProvider,
+) -> bool {
     base.option_conditions.iter().all(|&op| {
         if op == 0 {
             true
         } else {
             let abs = op.abs();
-            let Some(selected) = skin.options.get(&abs).copied() else {
-                // Java splits op into BooleanProperty and option lists.
-                // If this ID is not a custom option entry, do not treat it
-                // as an option-prunable condition here.
-                return true;
-            };
-            if op > 0 { selected == 1 } else { selected == 0 }
+            if let Some(selected) = skin.options.get(&abs).copied() {
+                if op > 0 { selected == 1 } else { selected == 0 }
+            } else if is_static_condition_for_skin(abs, skin.header.skin_type) {
+                // Java Skin.prepare() prunes only statically evaluable draw conditions.
+                provider.boolean_value(bms_skin::property_id::BooleanId(op))
+            } else {
+                true
+            }
         }
     })
+}
+
+fn is_static_condition_for_skin(id: i32, skin_type: Option<SkinType>) -> bool {
+    let is_music_select = matches!(skin_type, Some(SkinType::MusicSelect));
+    let is_result = matches!(
+        skin_type,
+        Some(SkinType::Result) | Some(SkinType::CourseResult)
+    );
+
+    if matches!(id, 50 | 51) {
+        // OPTION_OFFLINE / OPTION_ONLINE are TYPE_STATIC_ALL in Java.
+        return true;
+    }
+
+    if is_static_on_result_condition(id) {
+        return is_result;
+    }
+
+    if is_static_without_musicselect_condition(id) {
+        return !is_music_select;
+    }
+
+    false
+}
+
+fn is_static_on_result_condition(id: i32) -> bool {
+    matches!(
+        id,
+        200..=207 // OPTION_1P_AAA..OPTION_1P_F
+            | 220..=227 // OPTION_AAA..OPTION_F
+            | 230..=240 // OPTION_1P_0_9..OPTION_1P_100
+            | 300..=318 // RESULT rank groups
+            | 320..=327 // BEST rank groups
+            | 340..=347 // NOW rank groups
+            | 2241..=2246 // judge_count existence
+    )
+}
+
+fn is_static_without_musicselect_condition(id: i32) -> bool {
+    matches!(
+        id,
+        40 | 41 // OPTION_BGAOFF / OPTION_BGAON
+            | 118..=131 // trophy-related clear options
+            | 150..=155 // chart difficulty groups
+            | 160..=164 // chart key mode groups
+            | 170..=184 // chart/song attributes + judge windows
+            | 190..=195 // stage/banner/backbmp availability
+            | 280..=283 // course stage options
+            | 289 // final course stage
+            | 290 // OPTION_MODE_COURSE
+            | 1008 // OPTION_TABLE_SONG
+            | 1128..=1131 // extended trophy option IDs
+            | 1160..=1161 // keyboard mode groups
+            | 1177 // OPTION_BPMSTOP
+    )
 }
 
 fn is_object_renderable(
