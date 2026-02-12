@@ -547,6 +547,38 @@ fn build_skin_object(
         return Some(img.into());
     }
 
+    // Skin-type specific objects must be resolved before plain images.
+    if let Some(obj) = try_build_song_list(data, dst, dst_id) {
+        return Some(obj);
+    }
+    if let Some(obj) = try_build_note(data, dst, dst_id) {
+        return Some(obj);
+    }
+    if let Some(obj) = try_build_judge(data, dst, dst_id) {
+        return Some(obj);
+    }
+    if let Some(obj) = try_build_gauge(data, dst, dst_id) {
+        return Some(obj);
+    }
+    if let Some(obj) = try_build_bga(data, dst, dst_id) {
+        return Some(obj);
+    }
+    if let Some(obj) = try_build_hidden_cover(data, dst, dst_id) {
+        return Some(obj);
+    }
+    if let Some(obj) = try_build_lift_cover(data, dst, dst_id) {
+        return Some(obj);
+    }
+    if let Some(obj) = try_build_gauge_graph(data, dst, dst_id) {
+        return Some(obj);
+    }
+    if let Some(obj) = try_build_judge_graph(data, dst, dst_id) {
+        return Some(obj);
+    }
+    if let Some(obj) = try_build_float(data, dst, dst_id) {
+        return Some(obj);
+    }
+
     // Try matching against each object type
     if let Some(obj) = try_build_image(data, dst, dst_id, source_images) {
         return Some(obj);
@@ -580,6 +612,176 @@ fn build_skin_object(
     }
 
     None
+}
+
+fn try_build_song_list(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    dst_id: &FlexId,
+) -> Option<SkinObjectType> {
+    let song_list = data.songlist.as_ref()?;
+    if song_list.id != *dst_id {
+        return None;
+    }
+
+    let mut bar = crate::skin_bar::SkinBar {
+        position: song_list.center,
+        ..Default::default()
+    };
+    apply_destination(&mut bar.base, dst);
+    Some(bar.into())
+}
+
+fn try_build_note(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    dst_id: &FlexId,
+) -> Option<SkinObjectType> {
+    let note = data.note.as_ref()?;
+    if note.id != *dst_id {
+        return None;
+    }
+
+    let mut skin_note = crate::skin_note::SkinNote::default();
+    apply_destination(&mut skin_note.base, dst);
+    Some(skin_note.into())
+}
+
+fn try_build_judge(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    dst_id: &FlexId,
+) -> Option<SkinObjectType> {
+    let judge_def = data.judge.iter().find(|j| j.id == *dst_id)?;
+
+    let mut judge = crate::skin_judge::SkinJudge {
+        player: judge_def.index,
+        shift: judge_def.shift,
+        ..Default::default()
+    };
+    apply_destination(&mut judge.base, dst);
+    Some(judge.into())
+}
+
+fn try_build_gauge(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    dst_id: &FlexId,
+) -> Option<SkinObjectType> {
+    let gauge = data.gauge.as_ref()?;
+    if gauge.id != *dst_id {
+        return None;
+    }
+
+    let mut skin_gauge = crate::skin_gauge::SkinGauge::new(gauge.parts);
+    apply_destination(&mut skin_gauge.base, dst);
+    Some(skin_gauge.into())
+}
+
+fn try_build_bga(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    dst_id: &FlexId,
+) -> Option<SkinObjectType> {
+    let bga = data.bga.as_ref()?;
+    if bga.id != *dst_id {
+        return None;
+    }
+
+    let mut skin_bga = crate::skin_bga::SkinBga::default();
+    apply_destination(&mut skin_bga.base, dst);
+    Some(skin_bga.into())
+}
+
+fn try_build_hidden_cover(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    dst_id: &FlexId,
+) -> Option<SkinObjectType> {
+    let hidden = data.hidden_cover.iter().find(|h| h.id == *dst_id)?;
+
+    let mut skin_hidden = crate::skin_hidden::SkinHidden {
+        disapear_line: hidden.disapear_line as f32,
+        link_lift: hidden.is_disapear_line_link_lift,
+        timer: hidden.timer.as_ref().and_then(|t| t.as_id()),
+        cycle: hidden.cycle,
+        ..Default::default()
+    };
+    apply_destination(&mut skin_hidden.base, dst);
+    Some(skin_hidden.into())
+}
+
+fn try_build_lift_cover(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    dst_id: &FlexId,
+) -> Option<SkinObjectType> {
+    let lift = data.lift_cover.iter().find(|l| l.id == *dst_id)?;
+
+    let mut skin_lift = crate::skin_hidden::SkinLiftCover {
+        disapear_line: lift.disapear_line as f32,
+        link_lift: lift.is_disapear_line_link_lift,
+        timer: lift.timer.as_ref().and_then(|t| t.as_id()),
+        cycle: lift.cycle,
+        ..Default::default()
+    };
+    apply_destination(&mut skin_lift.base, dst);
+    Some(skin_lift.into())
+}
+
+fn try_build_gauge_graph(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    dst_id: &FlexId,
+) -> Option<SkinObjectType> {
+    let _gauge_graph = data.gaugegraph.iter().find(|g| g.id == *dst_id)?;
+    let mut graph = crate::skin_distribution_graph::SkinDistributionGraph::default();
+    apply_destination(&mut graph.base, dst);
+    Some(graph.into())
+}
+
+fn try_build_judge_graph(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    dst_id: &FlexId,
+) -> Option<SkinObjectType> {
+    let graph_def = data.judgegraph.iter().find(|g| g.id == *dst_id)?;
+    let mut graph = crate::skin_visualizer::SkinNoteDistributionGraph::new(
+        graph_def.graph_type,
+        graph_def.delay,
+    );
+    graph.back_tex_off = graph_def.back_tex_off != 0;
+    graph.order_reverse = graph_def.order_reverse != 0;
+    graph.no_gap = graph_def.no_gap != 0;
+    graph.no_gap_x = graph_def.no_gap_x != 0;
+    apply_destination(&mut graph.base, dst);
+    Some(graph.into())
+}
+
+fn try_build_float(
+    data: &JsonSkinData,
+    dst: &JsonDestination,
+    dst_id: &FlexId,
+) -> Option<SkinObjectType> {
+    let float_def = data.floatvalue.iter().find(|f| f.id == *dst_id)?;
+    let ref_id = if let Some(value) = &float_def.value {
+        value.as_id().unwrap_or(float_def.ref_id)
+    } else {
+        float_def.ref_id
+    };
+
+    let mut float_obj = crate::skin_float::SkinFloat {
+        ref_id: Some(crate::property_id::FloatId(ref_id)),
+        iketa: float_def.iketa,
+        fketa: float_def.fketa,
+        sign_visible: float_def.is_sign_visible,
+        gain: float_def.gain,
+        zero_padding: float_def.zeropadding,
+        align: float_def.align,
+        ..Default::default()
+    };
+    apply_destination(&mut float_obj.base, dst);
+    Some(float_obj.into())
 }
 
 fn try_build_image(
