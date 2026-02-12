@@ -165,6 +165,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         }
     }
 
@@ -413,6 +414,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -449,6 +451,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -477,6 +480,7 @@ mod tests {
             skin_manager: Some(&mut skin_mgr),
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         };
         state.create(&mut ctx);
         assert_eq!(skin_mgr.take_request(), Some(SkinType::Decide));
@@ -504,6 +508,7 @@ mod tests {
             skin_manager: None,
             sound_manager: Some(&mut sound_mgr),
             received_chars: &[],
+            bevy_images: None,
         };
         state.prepare(&mut ctx);
         let drained = sound_mgr.drain();

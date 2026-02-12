@@ -22,6 +22,7 @@ use bms_pattern::{
     PatternModifier, PlayerBattleShuffle, PlayerFlipShuffle, RandomType, RandomUnit,
     ScrollSpeedMode, ScrollSpeedModifier, SevenToNinePattern, SevenToNineType, get_random,
 };
+use bms_render::bga::bga_processor::BgaProcessor;
 use bms_replay::key_input_log::KeyInputLog;
 use bms_rule::gauge_property::GaugeType;
 use bms_rule::judge_manager::{JudgeConfig, JudgeEvent, JudgeManager};
@@ -133,6 +134,9 @@ pub struct PlayState {
     audio_driver: Option<Box<dyn AudioDriver + Send>>,
     key_sound_processor: Option<KeySoundProcessor>,
 
+    // BGA
+    bga_processor: Option<BgaProcessor>,
+
     // Control state
     #[allow(dead_code)]
     play_speed: i32,
@@ -168,6 +172,7 @@ impl PlayState {
             key_changed_times: Vec::new(),
             audio_driver: None,
             key_sound_processor: None,
+            bga_processor: None,
             input_processor: None,
             play_speed: 100,
             key_beam_stop: false,
@@ -196,6 +201,12 @@ impl PlayState {
         self.is_autoplay = autoplay;
     }
 
+    /// Get a reference to the BGA processor (for rendering).
+    #[allow(dead_code)]
+    pub fn bga_processor(&self) -> Option<&BgaProcessor> {
+        self.bga_processor.as_ref()
+    }
+
     /// Set replay log (enables replay mode).
     #[allow(dead_code)]
     pub fn set_replay_log(&mut self, log: Vec<KeyInputLog>) {
@@ -218,6 +229,9 @@ impl PlayState {
         // Clone model for pattern modification
         let mut model = model.clone();
         self.lane_property = LaneProperty::new(model.mode);
+
+        // Initialize BGA processor from model (before pattern modifiers alter it)
+        self.bga_processor = Some(BgaProcessor::new(&model));
 
         // Apply pre-shuffle modifiers (scroll, longnote, mine, extranote)
         // Java: applied before lane shuffle, config value > 0 means active
@@ -361,6 +375,11 @@ impl PlayState {
     /// Handle the Playing phase render logic (timer-driven state checks).
     fn render_playing(&mut self, ctx: &mut StateContext) {
         let ptime_us = ctx.timer.now_time_of(TIMER_PLAY) * 1000;
+
+        // Update BGA timeline
+        if let Some(bga) = &mut self.bga_processor {
+            bga.update(ptime_us);
+        }
 
         // BGM autoplay via KeySoundProcessor
         if let (Some(ksp), Some(driver)) = (&mut self.key_sound_processor, &mut self.audio_driver) {
@@ -607,6 +626,14 @@ impl GameStateHandler for PlayState {
             }
         }
 
+        // Preload BGA images if Bevy assets are available
+        if let (Some(bga), Some(model)) = (&mut self.bga_processor, &ctx.resource.bms_model)
+            && let Some(images) = &mut ctx.bevy_images
+        {
+            let base_path = ctx.resource.bms_dir.as_deref().unwrap_or(Path::new("."));
+            bga.prepare(model, base_path, images);
+        }
+
         self.phase = PlayPhase::Ready;
         ctx.timer.set_timer_on(TIMER_READY);
     }
@@ -689,7 +716,15 @@ impl GameStateHandler for PlayState {
                             driver.play_note(&note, 1.0, 0);
                         }
                     }
-                    JudgeEvent::Judge { .. } | JudgeEvent::HcnGauge { .. } => {
+                    JudgeEvent::Judge { judge, .. } => {
+                        // Trigger miss layer on BD/PR/MS judgments
+                        if *judge >= JUDGE_BD
+                            && let Some(bga) = &mut self.bga_processor
+                        {
+                            bga.set_miss_triggered(ptime_us);
+                        }
+                    }
+                    JudgeEvent::HcnGauge { .. } => {
                         // Already handled internally by JudgeManager
                     }
                 }
@@ -729,6 +764,9 @@ impl GameStateHandler for PlayState {
         info!("Play: shutdown");
         if let Some(driver) = &mut self.audio_driver {
             driver.stop_all();
+        }
+        if let Some(bga) = &mut self.bga_processor {
+            bga.dispose();
         }
         self.build_score_data(ctx);
     }
@@ -1032,6 +1070,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         }
     }
 

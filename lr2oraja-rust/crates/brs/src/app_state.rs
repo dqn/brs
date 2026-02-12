@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 
+use bevy::prelude::*;
 use tracing::info;
 
 use crate::database_manager::DatabaseManager;
@@ -53,6 +54,8 @@ pub struct TickParams<'a> {
     pub skin_manager: Option<&'a mut SkinManager>,
     pub sound_manager: Option<&'a mut SystemSoundManager>,
     pub received_chars: &'a [char],
+    /// Bevy image assets for BGA loading (None in tests or when not available).
+    pub bevy_images: Option<&'a mut Assets<Image>>,
 }
 
 /// Registry of all state handlers with transition logic.
@@ -107,6 +110,7 @@ impl StateRegistry {
                     skin_manager: params.skin_manager.as_deref_mut(),
                     sound_manager: params.sound_manager.as_deref_mut(),
                     received_chars: params.received_chars,
+                    bevy_images: params.bevy_images.as_deref_mut(),
                 };
                 handler.create(&mut ctx);
                 handler.prepare(&mut ctx);
@@ -127,6 +131,7 @@ impl StateRegistry {
                 skin_manager: params.skin_manager.as_deref_mut(),
                 sound_manager: params.sound_manager.as_deref_mut(),
                 received_chars: params.received_chars,
+                bevy_images: params.bevy_images.as_deref_mut(),
             };
             handler.render(&mut ctx);
             handler.input(&mut ctx);
@@ -158,6 +163,7 @@ impl StateRegistry {
                 skin_manager: params.skin_manager.as_deref_mut(),
                 sound_manager: params.sound_manager.as_deref_mut(),
                 received_chars: params.received_chars,
+                bevy_images: params.bevy_images.as_deref_mut(),
             };
             handler.shutdown(&mut ctx);
         }
@@ -181,6 +187,7 @@ impl StateRegistry {
                 skin_manager: params.skin_manager.as_deref_mut(),
                 sound_manager: params.sound_manager.as_deref_mut(),
                 received_chars: params.received_chars,
+                bevy_images: params.bevy_images.as_deref_mut(),
             };
             handler.create(&mut ctx);
             handler.prepare(&mut ctx);
@@ -245,6 +252,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         }
     }
 
