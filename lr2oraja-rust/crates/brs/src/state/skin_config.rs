@@ -207,6 +207,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         }
     }
 
@@ -230,6 +231,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         }
     }
 

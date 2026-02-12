@@ -275,6 +275,7 @@ fn state_machine_system(
     mut sound_mgr: ResMut<BrsSystemSoundManager>,
     config_paths: Res<BrsConfigPaths>,
     mod_menu: Res<bms_render::mod_menu::ModMenuState>,
+    mut bevy_images: ResMut<Assets<Image>>,
 ) {
     // When ModMenu has keyboard focus, skip game input processing.
     // Delete key is handled separately by the ModMenu plugin.
@@ -323,6 +324,7 @@ fn state_machine_system(
         skin_manager: Some(&mut skin_mgr.0),
         sound_manager: Some(&mut sound_mgr.0),
         received_chars: &received_chars,
+        bevy_images: Some(&mut bevy_images),
     };
     registry.0.tick(&mut params);
 

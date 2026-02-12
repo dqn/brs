@@ -431,6 +431,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         }
     }
 
@@ -455,6 +456,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         }
     }
 
@@ -877,6 +879,7 @@ mod tests {
                 skin_manager: None,
                 sound_manager: None,
                 received_chars: &[],
+                bevy_images: None,
             };
             state.input(&mut ctx);
         }
@@ -899,6 +902,7 @@ mod tests {
                 skin_manager: None,
                 sound_manager: None,
                 received_chars: &[],
+                bevy_images: None,
             };
             state.input(&mut ctx);
         }
@@ -936,6 +940,7 @@ mod tests {
                 skin_manager: None,
                 sound_manager: None,
                 received_chars: &[],
+                bevy_images: None,
             };
             state.input(&mut ctx);
         }
@@ -1065,6 +1070,7 @@ mod tests {
                 skin_manager: None,
                 sound_manager: None,
                 received_chars: &[],
+                bevy_images: None,
             };
             state.input(&mut ctx);
         }
@@ -1104,6 +1110,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &chars,
+            bevy_images: None,
         };
         state.input(&mut ctx);
         assert_eq!(state.search_text(), "hi");
@@ -1252,6 +1259,7 @@ mod tests {
                 skin_manager: None,
                 sound_manager: None,
                 received_chars: &[],
+                bevy_images: None,
             };
             state.input(&mut ctx);
         }
@@ -1295,6 +1303,7 @@ mod tests {
                 skin_manager: None,
                 sound_manager: None,
                 received_chars: &[],
+                bevy_images: None,
             };
             state.input(&mut ctx);
         }

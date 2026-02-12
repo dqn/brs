@@ -43,6 +43,8 @@ pub struct StateContext<'a> {
     pub sound_manager: Option<&'a mut SystemSoundManager>,
     /// Characters typed this frame (from Bevy KeyboardInput events).
     pub received_chars: &'a [char],
+    /// Bevy image assets for BGA loading (None in tests or when not available).
+    pub bevy_images: Option<&'a mut bevy::prelude::Assets<bevy::prelude::Image>>,
 }
 
 /// Trait for game state handlers. Each variant of `AppStateType` has

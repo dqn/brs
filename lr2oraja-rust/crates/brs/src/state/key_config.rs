@@ -333,6 +333,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         }
     }
 
@@ -356,6 +357,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         }
     }
 
@@ -723,6 +725,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         };
         state.input(&mut ctx);
 
@@ -764,6 +767,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         };
         state.input(&mut ctx);
 
@@ -807,6 +811,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         };
         state.input(&mut ctx);
         assert!(state.is_key_input_mode());
@@ -824,6 +829,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         };
         state.input(&mut ctx2);
         // Still in key_input_mode because baseline key was ignored
@@ -843,6 +849,7 @@ mod tests {
             skin_manager: None,
             sound_manager: None,
             received_chars: &[],
+            bevy_images: None,
         };
         state.input(&mut ctx3);
         assert!(!state.is_key_input_mode());
