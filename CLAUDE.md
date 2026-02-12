@@ -147,20 +147,20 @@ Phase 0-14 完了済み（16 crate, 1,114 テスト, ~60,000行）。以下は�
 - [x] **19-A4. PlaySkin** — Play 状態固有スキンコンテナ
 - [x] **19-A5. PomyuCharaLoader** — ポミュキャラスキン (スタブ)
 - [ ] **19-A6. JSON Play Loader 拡張** — note/bga/judge ハンドリング (struct 完成済み、ローダー組込み未実装)
-- [ ] **19-A7. LR2 Play Loader 拡張** — SRC_NOTE/DST_NOTE 等 Play 固有コマンド (struct 完成済み、ローダー組込み未実装)
+- [x] **19-A7. LR2 Play Loader 拡張** — タイミングコマンド, Hidden/Lift/Judge フィールドパース実装済み (テクスチャ参照は Bevy 側で解決)
 
 **19-B: Select スキンオブジェクト**
 - [x] **19-B1. SkinBar** — 選曲バーオブジェクト
 - [x] **19-B2. SkinDistributionGraph** — 分布グラフ
 - [x] **19-B3. MusicSelectSkin** — Select 状態固有スキンコンテナ
 - [ ] **19-B4. JSON Select Loader 拡張** — songlist ハンドリング (struct 完成済み、ローダー組込み未実装)
-- [ ] **19-B5. LR2 Select Loader 拡張** — SRC_BAR_BODY/DST_BAR_BODY 等 (struct 完成済み、ローダー組込み未実装)
+- [x] **19-B5. LR2 Select Loader 拡張** — collect_select_config() distribution_graph 抽出実装済み
 
 **19-C: Result / Decide / CourseResult / Config スキン**
 - [x] **19-C1. Result/Decide/CourseResult スキン** — 各状態スキンコンテナ
-- [ ] **19-C2. LR2 Result Loader** — SRC/DST_RESULT 系コマンド (struct 完成済み、ローダー組込み未実装)
-- [ ] **19-C3. LR2 CourseResult Loader** — SRC/DST_COURSERESULT 系コマンド (struct 完成済み、ローダー組込み未実装)
-- [ ] **19-C4. KeyConfig / SkinConfig Loader** — 設定画面固有オブジェクト (struct 完成済み、ローダー組込み未実装)
+- [x] **19-C2. LR2 Result Loader** — SRC ハンドラーフィールドパース実装済み (gauge/note/bpm/timing chart)
+- [x] **19-C3. LR2 CourseResult Loader** — Result Loader と共通ハンドラー、STARTINPUT rank_time 実装済み
+- [x] **19-C4. KeyConfig / SkinConfig Loader** — Java 側空実装のため対応不要を確認済み
 
 **19-D: 追加スキンオブジェクト**
 - [x] **19-D1. SkinFloat** — 浮動小数点数表示オブジェクト
