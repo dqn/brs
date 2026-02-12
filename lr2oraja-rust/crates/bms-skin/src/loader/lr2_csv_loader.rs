@@ -389,7 +389,7 @@ pub fn load_lr2_skin(
             skin.play_config = lr2_play_loader::collect_play_config(&skin, &play_state);
         }
         Some(SkinType::MusicSelect) => {
-            skin.select_config = lr2_select_loader::collect_select_config(&select_state);
+            skin.select_config = lr2_select_loader::collect_select_config(&skin, &select_state);
         }
         Some(SkinType::Result) => {
             skin.result_config = lr2_result_loader::collect_result_config(&skin, &result_state);
@@ -425,7 +425,10 @@ fn process_command(
 ) {
     match cmd {
         // Global properties
-        "STARTINPUT" => skin.input = parse_field(fields, 1),
+        "STARTINPUT" => {
+            skin.input = parse_field(fields, 1);
+            skin.rank_time = parse_field(fields, 2);
+        }
         "SCENETIME" => skin.scene = parse_field(fields, 1),
         "FADEOUT" => skin.fadeout = parse_field(fields, 1),
         "STRETCH" => state.stretch = parse_field(fields, 1),
@@ -901,6 +904,16 @@ mod tests {
         assert_eq!(skin.input, 500);
         assert_eq!(skin.scene, 30000);
         assert_eq!(skin.fadeout, 1000);
+        assert_eq!(skin.rank_time, 0);
+    }
+
+    #[test]
+    fn test_startinput_with_rank_time() {
+        let csv = "#STARTINPUT,500,3000\n";
+        let header = make_header();
+        let skin = load_lr2_skin(csv, header, &HashMap::new(), Resolution::Hd, None).unwrap();
+        assert_eq!(skin.input, 500);
+        assert_eq!(skin.rank_time, 3000);
     }
 
     #[test]

@@ -14,7 +14,7 @@
 //
 // Ported from LR2PlaySkinLoader.java.
 
-use crate::loader::lr2_csv_loader::{Lr2CsvState, parse_field};
+use crate::loader::lr2_csv_loader::{Lr2CsvState, parse_field, parse_int_pub};
 use crate::play_skin::PlaySkinConfig;
 use crate::skin::Skin;
 use crate::skin_bga::SkinBga;
@@ -55,6 +55,16 @@ pub struct Lr2PlayState {
     bpmchart_idx: Option<usize>,
     /// Timing chart object index.
     timingchart_idx: Option<usize>,
+    /// PLAYSTART command value (ms).
+    pub playstart: i32,
+    /// LOADSTART command value (ms).
+    pub loadstart: i32,
+    /// LOADEND command value (ms).
+    pub loadend: i32,
+    /// FINISHMARGIN command value (ms).
+    pub finish_margin: i32,
+    /// JUDGETIMER command value (ms).
+    pub judge_timer: i32,
 }
 
 // ---------------------------------------------------------------------------
@@ -78,12 +88,25 @@ pub fn process_play_command(
             true
         }
         "PLAYSTART" => {
-            // playstart timing — stored in skin data for reference
+            play_state.playstart = parse_field(fields, 1);
             true
         }
-        "LOADSTART" | "LOADEND" => true,
-        "FINISHMARGIN" => true,
-        "JUDGETIMER" => true,
+        "LOADSTART" => {
+            play_state.loadstart = parse_field(fields, 1);
+            true
+        }
+        "LOADEND" => {
+            play_state.loadend = parse_field(fields, 1);
+            true
+        }
+        "FINISHMARGIN" => {
+            play_state.finish_margin = parse_field(fields, 1);
+            true
+        }
+        "JUDGETIMER" => {
+            play_state.judge_timer = parse_field(fields, 1);
+            true
+        }
 
         // Note textures
         "SRC_NOTE" => {
@@ -206,10 +229,7 @@ pub fn process_play_command(
 
         // Hidden / Lift covers
         "SRC_HIDDEN" => {
-            let hidden = SkinHidden::default();
-            let idx = skin.objects.len();
-            skin.add(hidden.into());
-            play_state.hidden_idx = Some(idx);
+            src_hidden(fields, skin, play_state);
             true
         }
         "DST_HIDDEN" => {
@@ -219,10 +239,7 @@ pub fn process_play_command(
             true
         }
         "SRC_LIFT" => {
-            let lift = SkinLiftCover::default();
-            let idx = skin.objects.len();
-            skin.add(lift.into());
-            play_state.lift_idx = Some(idx);
+            src_lift(fields, skin, play_state);
             true
         }
         "DST_LIFT" => {
@@ -342,12 +359,18 @@ pub fn collect_play_config(skin: &Skin, play_state: &Lr2PlayState) -> Option<Pla
         })
         .collect();
 
-    if note.is_none()
-        && bga.is_none()
-        && hidden_cover.is_none()
-        && lift_cover.is_none()
-        && judges.is_empty()
-    {
+    let has_visual = note.is_some()
+        || bga.is_some()
+        || hidden_cover.is_some()
+        || lift_cover.is_some()
+        || !judges.is_empty();
+    let has_timing = play_state.playstart != 0
+        || play_state.loadstart != 0
+        || play_state.loadend != 0
+        || play_state.finish_margin != 0
+        || play_state.judge_timer != 0;
+
+    if !has_visual && !has_timing {
         return None;
     }
 
@@ -357,6 +380,11 @@ pub fn collect_play_config(skin: &Skin, play_state: &Lr2PlayState) -> Option<Pla
         hidden_cover,
         lift_cover,
         judges,
+        playstart: play_state.playstart,
+        loadstart: play_state.loadstart,
+        loadend: play_state.loadend,
+        finish_margin: play_state.finish_margin,
+        judge_timer: play_state.judge_timer,
     })
 }
 
@@ -364,9 +392,14 @@ pub fn collect_play_config(skin: &Skin, play_state: &Lr2PlayState) -> Option<Pla
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-fn src_judge(player: usize, _fields: &[&str], skin: &mut Skin, play_state: &mut Lr2PlayState) {
+fn src_judge(player: usize, fields: &[&str], skin: &mut Skin, play_state: &mut Lr2PlayState) {
+    let values = parse_int_pub(fields);
+    // Java: new SkinJudge(player, (values[11] != 1))
+    // values[11] == 1 means special mode (shift=false), otherwise shift=true
+    let shift = values[11] != 1;
     let judge = SkinJudge {
         player: player as i32,
+        shift,
         ..Default::default()
     };
     let idx = skin.objects.len();
@@ -384,6 +417,40 @@ fn dst_judge(
     if let Some(idx) = play_state.judge_idx[player] {
         state.apply_dst_to(idx, fields, skin);
     }
+}
+
+fn src_hidden(fields: &[&str], skin: &mut Skin, play_state: &mut Lr2PlayState) {
+    let values = parse_int_pub(fields);
+    let mut hidden = SkinHidden::default();
+    let v11 = values[11];
+    if v11 > 0 {
+        hidden.disapear_line = v11 as f32;
+    }
+    // Java: str[12] empty or values[12] != 0 → link_lift = true
+    hidden.link_lift = fields
+        .get(12)
+        .map(|s| s.is_empty() || values[12] != 0)
+        .unwrap_or(false);
+    let idx = skin.objects.len();
+    skin.add(hidden.into());
+    play_state.hidden_idx = Some(idx);
+}
+
+fn src_lift(fields: &[&str], skin: &mut Skin, play_state: &mut Lr2PlayState) {
+    let values = parse_int_pub(fields);
+    let mut lift = SkinLiftCover::default();
+    let v11 = values[11];
+    if v11 > 0 {
+        lift.disapear_line = v11 as f32;
+    }
+    // Same pattern as SRC_HIDDEN
+    lift.link_lift = fields
+        .get(12)
+        .map(|s| s.is_empty() || values[12] != 0)
+        .unwrap_or(false);
+    let idx = skin.objects.len();
+    skin.add(lift.into());
+    play_state.lift_idx = Some(idx);
 }
 
 // ---------------------------------------------------------------------------
@@ -517,42 +584,181 @@ mod tests {
     }
 
     #[test]
-    fn test_timing_commands_handled() {
+    fn test_timing_commands_parsed() {
         let (mut skin, mut state) = make_skin();
         let mut ps = Lr2PlayState::default();
-        let fields: Vec<&str> = vec!["#CMD", "0"];
+
+        let fields_ps: Vec<&str> = "#PLAYSTART,1000".split(',').collect();
+        let fields_ls: Vec<&str> = "#LOADSTART,500".split(',').collect();
+        let fields_le: Vec<&str> = "#LOADEND,800".split(',').collect();
+        let fields_fm: Vec<&str> = "#FINISHMARGIN,2000".split(',').collect();
+        let fields_jt: Vec<&str> = "#JUDGETIMER,120".split(',').collect();
 
         assert!(process_play_command(
             "PLAYSTART",
-            &fields,
+            &fields_ps,
             &mut skin,
             &mut state,
             &mut ps
         ));
         assert!(process_play_command(
             "LOADSTART",
-            &fields,
+            &fields_ls,
             &mut skin,
             &mut state,
             &mut ps
         ));
         assert!(process_play_command(
-            "LOADEND", &fields, &mut skin, &mut state, &mut ps
+            "LOADEND", &fields_le, &mut skin, &mut state, &mut ps
         ));
         assert!(process_play_command(
             "FINISHMARGIN",
-            &fields,
+            &fields_fm,
             &mut skin,
             &mut state,
             &mut ps
         ));
         assert!(process_play_command(
             "JUDGETIMER",
-            &fields,
+            &fields_jt,
             &mut skin,
             &mut state,
             &mut ps
         ));
+
+        assert_eq!(ps.playstart, 1000);
+        assert_eq!(ps.loadstart, 500);
+        assert_eq!(ps.loadend, 800);
+        assert_eq!(ps.finish_margin, 2000);
+        assert_eq!(ps.judge_timer, 120);
+    }
+
+    #[test]
+    fn test_timing_in_play_config() {
+        let (skin, _state) = make_skin();
+        let mut ps = Lr2PlayState::default();
+
+        // Set timing values
+        ps.playstart = 1000;
+        ps.loadstart = 500;
+        ps.loadend = 800;
+        ps.finish_margin = 2000;
+        ps.judge_timer = 120;
+
+        // Need at least one visual object or timing values for non-None config
+        let config = collect_play_config(&skin, &ps).unwrap();
+        assert_eq!(config.playstart, 1000);
+        assert_eq!(config.loadstart, 500);
+        assert_eq!(config.loadend, 800);
+        assert_eq!(config.finish_margin, 2000);
+        assert_eq!(config.judge_timer, 120);
+    }
+
+    #[test]
+    fn test_hidden_disapear_line_parsed() {
+        let (mut skin, mut state) = make_skin();
+        let mut ps = Lr2PlayState::default();
+
+        // values[11]=50 (disapear_line), values[12]=1 (link_lift)
+        let fields: Vec<&str> = "#SRC_HIDDEN,0,0,0,0,100,100,1,1,0,0,50,1"
+            .split(',')
+            .collect();
+        process_play_command("SRC_HIDDEN", &fields, &mut skin, &mut state, &mut ps);
+
+        let dst: Vec<&str> = "#DST,0,0,0,0,100,100,0,255,255,255,255,0,0,0,0,0,0,0,0,0"
+            .split(',')
+            .collect();
+        process_play_command("DST_HIDDEN", &dst, &mut skin, &mut state, &mut ps);
+
+        let config = collect_play_config(&skin, &ps).unwrap();
+        let hidden = config.hidden_cover.unwrap();
+        assert!((hidden.disapear_line - 50.0).abs() < f32::EPSILON);
+        assert!(hidden.link_lift);
+    }
+
+    #[test]
+    fn test_hidden_no_disapear_line() {
+        let (mut skin, mut state) = make_skin();
+        let mut ps = Lr2PlayState::default();
+
+        // values[11]=0 (no disapear_line), no field 12
+        let fields: Vec<&str> = "#SRC_HIDDEN,0,0,0,0,100,100,1,1,0,0,0".split(',').collect();
+        process_play_command("SRC_HIDDEN", &fields, &mut skin, &mut state, &mut ps);
+
+        let dst: Vec<&str> = "#DST,0,0,0,0,100,100,0,255,255,255,255,0,0,0,0,0,0,0,0,0"
+            .split(',')
+            .collect();
+        process_play_command("DST_HIDDEN", &dst, &mut skin, &mut state, &mut ps);
+
+        let config = collect_play_config(&skin, &ps).unwrap();
+        let hidden = config.hidden_cover.unwrap();
+        assert!((hidden.disapear_line - 0.0).abs() < f32::EPSILON);
+        assert!(!hidden.link_lift);
+    }
+
+    #[test]
+    fn test_lift_disapear_line_parsed() {
+        let (mut skin, mut state) = make_skin();
+        let mut ps = Lr2PlayState::default();
+
+        let fields: Vec<&str> = "#SRC_LIFT,0,0,0,0,100,100,1,1,0,0,30,1"
+            .split(',')
+            .collect();
+        process_play_command("SRC_LIFT", &fields, &mut skin, &mut state, &mut ps);
+
+        let dst: Vec<&str> = "#DST,0,0,0,0,100,100,0,255,255,255,255,0,0,0,0,0,0,0,0,0"
+            .split(',')
+            .collect();
+        process_play_command("DST_LIFT", &dst, &mut skin, &mut state, &mut ps);
+
+        let config = collect_play_config(&skin, &ps).unwrap();
+        let lift = config.lift_cover.unwrap();
+        assert!((lift.disapear_line - 30.0).abs() < f32::EPSILON);
+        assert!(lift.link_lift);
+    }
+
+    #[test]
+    fn test_judge_shift_flag() {
+        let (mut skin, mut state) = make_skin();
+        let mut ps = Lr2PlayState::default();
+
+        // values[11]=1 means shift=false (special mode)
+        let fields_no_shift: Vec<&str> = "#SRC,0,0,0,0,100,50,1,1,0,0,1".split(',').collect();
+        process_play_command(
+            "SRC_NOWJUDGE_1P",
+            &fields_no_shift,
+            &mut skin,
+            &mut state,
+            &mut ps,
+        );
+
+        let dst: Vec<&str> = "#DST,0,0,200,300,100,50,0,255,255,255,255,0,0,0,0,0,0,0,0,0"
+            .split(',')
+            .collect();
+        process_play_command("DST_NOWJUDGE_1P", &dst, &mut skin, &mut state, &mut ps);
+
+        let config = collect_play_config(&skin, &ps).unwrap();
+        // values[11]=1 → shift=false
+        assert!(!config.judges[0].shift);
+
+        // Now test values[11]=0 → shift=true
+        let mut ps2 = Lr2PlayState::default();
+        let (mut skin2, mut state2) = make_skin();
+        let fields_shift: Vec<&str> = "#SRC,0,0,0,0,100,50,1,1,0,0,0".split(',').collect();
+        process_play_command(
+            "SRC_NOWJUDGE_1P",
+            &fields_shift,
+            &mut skin2,
+            &mut state2,
+            &mut ps2,
+        );
+        let dst2: Vec<&str> = "#DST,0,0,200,300,100,50,0,255,255,255,255,0,0,0,0,0,0,0,0,0"
+            .split(',')
+            .collect();
+        process_play_command("DST_NOWJUDGE_1P", &dst2, &mut skin2, &mut state2, &mut ps2);
+
+        let config2 = collect_play_config(&skin2, &ps2).unwrap();
+        assert!(config2.judges[0].shift);
     }
 
     #[test]
@@ -606,5 +812,26 @@ mod tests {
         assert!(!process_play_command(
             "UNKNOWN", &fields, &mut skin, &mut state, &mut ps
         ));
+    }
+
+    #[test]
+    fn test_hidden_link_lift_empty_field() {
+        let (mut skin, mut state) = make_skin();
+        let mut ps = Lr2PlayState::default();
+
+        // values[11]=50, field[12] is empty string → link_lift = true
+        let fields: Vec<&str> = "#SRC_HIDDEN,0,0,0,0,100,100,1,1,0,0,50,"
+            .split(',')
+            .collect();
+        process_play_command("SRC_HIDDEN", &fields, &mut skin, &mut state, &mut ps);
+
+        let dst: Vec<&str> = "#DST,0,0,0,0,100,100,0,255,255,255,255,0,0,0,0,0,0,0,0,0"
+            .split(',')
+            .collect();
+        process_play_command("DST_HIDDEN", &dst, &mut skin, &mut state, &mut ps);
+
+        let config = collect_play_config(&skin, &ps).unwrap();
+        let hidden = config.hidden_cover.unwrap();
+        assert!(hidden.link_lift);
     }
 }

@@ -44,6 +44,8 @@ pub struct Skin {
     pub scene: i32,
     /// Fade-out duration in milliseconds.
     pub fadeout: i32,
+    /// Rank display time in milliseconds (Result/CourseResult only).
+    pub rank_time: i32,
     /// Active option values: option_id -> value (0 or 1).
     pub options: HashMap<i32, i32>,
     /// Active offset values: offset_id -> Offset.
@@ -83,6 +85,7 @@ impl Skin {
             input: 0,
             scene: 3_600_000 * 24, // Java default: 24 hours
             fadeout: 0,
+            rank_time: 0,
             options: HashMap::new(),
             offsets: HashMap::new(),
             custom_events: Vec::new(),

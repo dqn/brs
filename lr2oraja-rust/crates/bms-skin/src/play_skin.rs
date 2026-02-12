@@ -15,6 +15,16 @@ pub struct PlaySkinConfig {
     pub lift_cover: Option<SkinLiftCover>,
     pub judges: Vec<SkinJudge>,
     pub bga: Option<SkinBga>,
+    /// PLAYSTART command value (ms).
+    pub playstart: i32,
+    /// LOADSTART command value (ms).
+    pub loadstart: i32,
+    /// LOADEND command value (ms).
+    pub loadend: i32,
+    /// FINISHMARGIN command value (ms).
+    pub finish_margin: i32,
+    /// JUDGETIMER command value (ms).
+    pub judge_timer: i32,
 }
 
 #[cfg(test)]

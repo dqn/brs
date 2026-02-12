@@ -171,10 +171,22 @@ pub fn process_select_command(
 }
 
 /// Collects select state into MusicSelectSkinConfig after loading completes.
-pub fn collect_select_config(select_state: &Lr2SelectState) -> Option<MusicSelectSkinConfig> {
+pub fn collect_select_config(
+    skin: &Skin,
+    select_state: &Lr2SelectState,
+) -> Option<MusicSelectSkinConfig> {
+    let distribution_graph = select_state.note_chart_idx.and_then(|idx| {
+        skin.objects.get(idx).and_then(|obj| {
+            if let crate::skin_object_type::SkinObjectType::DistributionGraph(g) = obj {
+                Some(g.clone())
+            } else {
+                None
+            }
+        })
+    });
     Some(MusicSelectSkinConfig {
         bar: Some(select_state.skinbar.clone()),
-        distribution_graph: None,
+        distribution_graph,
     })
 }
 
@@ -331,10 +343,32 @@ mod tests {
 
     #[test]
     fn test_collect_select_config() {
+        let (skin, _) = make_skin();
         let mut ss = Lr2SelectState::default();
         ss.skinbar.position = 7;
 
-        let config = collect_select_config(&ss).unwrap();
+        let config = collect_select_config(&skin, &ss).unwrap();
         assert_eq!(config.bar.as_ref().unwrap().position, 7);
+        assert!(config.distribution_graph.is_none());
+    }
+
+    #[test]
+    fn test_collect_select_config_with_distribution_graph() {
+        let (mut skin, mut state) = make_skin();
+        let mut ss = Lr2SelectState::default();
+
+        let src: Vec<&str> = "#SRC_NOTECHART,0,0,0,0,200,100,1,1,0,0"
+            .split(',')
+            .collect();
+        process_select_command("SRC_NOTECHART", &src, &mut skin, &mut state, &mut ss);
+
+        let dst: Vec<&str> =
+            "#DST_NOTECHART,0,0,100,50,200,100,0,255,255,255,255,0,0,0,0,0,0,0,0,0"
+                .split(',')
+                .collect();
+        process_select_command("DST_NOTECHART", &dst, &mut skin, &mut state, &mut ss);
+
+        let config = collect_select_config(&skin, &ss).unwrap();
+        assert!(config.distribution_graph.is_some());
     }
 }
