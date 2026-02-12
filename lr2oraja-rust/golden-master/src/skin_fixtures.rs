@@ -71,6 +71,7 @@ pub struct DstSnapshot {
 
 fn object_type_name(obj: &SkinObjectType) -> &'static str {
     match obj {
+        SkinObjectType::Bga(_) => "Bga",
         SkinObjectType::Image(_) => "Image",
         SkinObjectType::Number(_) => "Number",
         SkinObjectType::Text(_) => "Text",

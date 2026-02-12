@@ -133,7 +133,7 @@ const TEST_CASES: &[RenderSnapshotTestCase] = &[
         skin_path: "decide/decide.luaskin",
         state_json: "state_default.json",
         is_lua: true,
-        known_diff_budget: 28,
+        known_diff_budget: 5,
     },
     RenderSnapshotTestCase {
         name: "ecfn_play7_active",
@@ -230,6 +230,50 @@ fn summarize_diff_categories(diffs: &[String]) -> String {
         .join(", ")
 }
 
+fn summarize_command_count_gap(java: &RenderSnapshot, rust: &RenderSnapshot) -> Option<String> {
+    if java.commands.len() == rust.commands.len() {
+        return None;
+    }
+
+    let mut type_counts: BTreeMap<String, isize> = BTreeMap::new();
+    let mut visible_type_counts: BTreeMap<String, isize> = BTreeMap::new();
+
+    for cmd in &rust.commands {
+        *type_counts.entry(cmd.object_type.clone()).or_insert(0) += 1;
+        if cmd.visible {
+            *visible_type_counts
+                .entry(cmd.object_type.clone())
+                .or_insert(0) += 1;
+        }
+    }
+    for cmd in &java.commands {
+        *type_counts.entry(cmd.object_type.clone()).or_insert(0) -= 1;
+        if cmd.visible {
+            *visible_type_counts
+                .entry(cmd.object_type.clone())
+                .or_insert(0) -= 1;
+        }
+    }
+
+    let type_delta = type_counts
+        .into_iter()
+        .filter(|(_, delta)| *delta != 0)
+        .map(|(ty, delta)| format!("{ty}:{delta:+}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let visible_delta = visible_type_counts
+        .into_iter()
+        .filter(|(_, delta)| *delta != 0)
+        .map(|(ty, delta)| format!("{ty}:{delta:+}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    Some(format!(
+        "type_delta(rust-java): [{}]; visible_type_delta(rust-java): [{}]",
+        type_delta, visible_delta
+    ))
+}
+
 fn render_snapshot_debug_paths(case_name: &str) -> (PathBuf, PathBuf, PathBuf) {
     let debug_dir = fixture_dir().join("render_snapshots_debug");
     (
@@ -258,6 +302,7 @@ fn snapshot_diffs(tc: &RenderSnapshotTestCase) -> (RenderSnapshot, RenderSnapsho
 fn compare_java_rust_render_snapshot(tc: &RenderSnapshotTestCase) {
     let (java_snapshot, rust_snapshot, diffs) = snapshot_diffs(tc);
     let category_summary = summarize_diff_categories(&diffs);
+    let command_gap_summary = summarize_command_count_gap(&java_snapshot, &rust_snapshot);
 
     let visible_java = java_snapshot.commands.iter().filter(|c| c.visible).count();
     let visible_rust = rust_snapshot.commands.iter().filter(|c| c.visible).count();
@@ -295,7 +340,8 @@ fn compare_java_rust_render_snapshot(tc: &RenderSnapshotTestCase) {
             "RenderSnapshot mismatch for {} ({} differences, categories: {}, showing first 10):\n{}\n  \
              java debug: {}\n  \
              rust debug: {}\n  \
-             diff list: {}",
+             diff list: {}\n  \
+             command_count breakdown: {}",
             tc.name,
             diffs.len(),
             category_summary,
@@ -307,6 +353,7 @@ fn compare_java_rust_render_snapshot(tc: &RenderSnapshotTestCase) {
             java_path.display(),
             rust_path.display(),
             diffs_path.display(),
+            command_gap_summary.as_deref().unwrap_or("n/a"),
         );
     }
 }
@@ -323,15 +370,17 @@ fn render_snapshot_java_fixtures_exist() {
 #[test]
 fn render_snapshot_parity_regression_guard() {
     for tc in TEST_CASES {
-        let (_java_snapshot, _rust_snapshot, diffs) = snapshot_diffs(tc);
+        let (java_snapshot, rust_snapshot, diffs) = snapshot_diffs(tc);
         let category_summary = summarize_diff_categories(&diffs);
+        let command_gap_summary = summarize_command_count_gap(&java_snapshot, &rust_snapshot);
         assert!(
             diffs.len() <= tc.known_diff_budget,
-            "RenderSnapshot diff budget exceeded for {}: {} > {}.\nCategories: {}\nFirst differences:\n{}",
+            "RenderSnapshot diff budget exceeded for {}: {} > {}.\nCategories: {}\nCommand-count breakdown: {}\nFirst differences:\n{}",
             tc.name,
             diffs.len(),
             tc.known_diff_budget,
             category_summary,
+            command_gap_summary.as_deref().unwrap_or("n/a"),
             diffs
                 .iter()
                 .take(10)

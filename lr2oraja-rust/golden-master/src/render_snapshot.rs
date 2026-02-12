@@ -7,6 +7,7 @@
 use bms_render::eval;
 use bms_render::state_provider::SkinStateProvider;
 use bms_skin::skin::Skin;
+use bms_skin::skin_object::SkinObjectBase;
 use bms_skin::skin_object_type::SkinObjectType;
 use serde::{Deserialize, Serialize};
 
@@ -102,6 +103,11 @@ pub fn capture_render_snapshot(skin: &Skin, provider: &dyn SkinStateProvider) ->
 
     for (idx, object) in skin.objects.iter().enumerate() {
         let base = object.base();
+        if !matches_option_conditions(base, skin) {
+            // Java Skin.prepare() drops statically non-drawable objects (e.g. option mismatch).
+            // Skip them here so command_count parity tracks the prepared object set.
+            continue;
+        }
         let object_type = object_type_name(object);
         let blend = base.blend;
 
@@ -109,20 +115,24 @@ pub fn capture_render_snapshot(skin: &Skin, provider: &dyn SkinStateProvider) ->
 
         let (visible, dst, color, angle, detail) = match resolved {
             Some((rect, col, final_angle, final_alpha)) => {
-                let dst = DrawRect {
-                    x: rect.x,
-                    y: rect.y,
-                    w: rect.w,
-                    h: rect.h,
-                };
-                let color = DrawColor {
-                    r: col.r,
-                    g: col.g,
-                    b: col.b,
-                    a: final_alpha,
-                };
-                let detail = resolve_detail(object, provider);
-                (true, Some(dst), Some(color), final_angle, detail)
+                if !is_object_renderable(base, object, provider) {
+                    (false, None, None, 0, None)
+                } else {
+                    let dst = DrawRect {
+                        x: rect.x,
+                        y: rect.y,
+                        w: rect.w,
+                        h: rect.h,
+                    };
+                    let color = DrawColor {
+                        r: col.r,
+                        g: col.g,
+                        b: col.b,
+                        a: final_alpha,
+                    };
+                    let detail = resolve_detail(object, provider);
+                    (true, Some(dst), Some(color), final_angle, detail)
+                }
             }
             None => (false, None, None, 0, None),
         };
@@ -147,9 +157,47 @@ pub fn capture_render_snapshot(skin: &Skin, provider: &dyn SkinStateProvider) ->
     }
 }
 
+fn matches_option_conditions(base: &SkinObjectBase, skin: &Skin) -> bool {
+    base.option_conditions.iter().all(|&op| {
+        if op == 0 {
+            true
+        } else {
+            let abs = op.abs();
+            let Some(selected) = skin.options.get(&abs).copied() else {
+                // Java splits op into BooleanProperty and option lists.
+                // If this ID is not a custom option entry, do not treat it
+                // as an option-prunable condition here.
+                return true;
+            };
+            if op > 0 {
+                selected == 1
+            } else {
+                selected == 0
+            }
+        }
+    })
+}
+
+fn is_object_renderable(
+    base: &SkinObjectBase,
+    _object: &SkinObjectType,
+    _provider: &dyn SkinStateProvider,
+) -> bool {
+    // Negative destination IDs (-110/-111 etc.) are special system overlays.
+    // Rust runtime resolution is incomplete; treat them as non-renderable here
+    // to match Java RenderSnapshot output.
+    if let Some(name) = &base.name
+        && let Ok(id) = name.parse::<i32>()
+    {
+        return id >= 0;
+    }
+    true
+}
+
 /// Returns the type name string for a SkinObjectType.
 fn object_type_name(object: &SkinObjectType) -> &'static str {
     match object {
+        SkinObjectType::Bga(_) => "SkinBGA",
         SkinObjectType::Image(_) => "Image",
         SkinObjectType::Number(_) => "Number",
         SkinObjectType::Text(_) => "Text",
@@ -167,6 +215,7 @@ fn object_type_name(object: &SkinObjectType) -> &'static str {
 /// Resolves type-specific draw detail for a skin object.
 fn resolve_detail(object: &SkinObjectType, provider: &dyn SkinStateProvider) -> Option<DrawDetail> {
     match object {
+        SkinObjectType::Bga(_) => None,
         SkinObjectType::Image(img) => {
             let source_index = img
                 .ref_id
