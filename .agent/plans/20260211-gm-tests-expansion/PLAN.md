@@ -61,8 +61,25 @@ Status: In Progress
 - 上記反映後の `--ignored` 実測を更新:
   - `ecfn_result_*`: `java 111 / rust 110`（`type_delta: Image:-1`）
   - `ecfn_play7_*`: `java 166 / rust 172`（`type_delta: Image:+14, Text:-8`）
-  - `ecfn_select`: `java 280 / rust 283`（`type_delta: Image:+2, Text:+1`）
+  - `ecfn_select`: `java 280 / rust 282`（`type_delta: Image:+2`）
 - `render_snapshot_parity_regression_guard`（非 ignored）の通過は維持。
+- `json_ecfn_select_snapshot` 回帰を解消（`STRING_SEARCHWORD` の除外を `json_loader` から `render_snapshot` 側へ移動し、Skin snapshot 比較と RenderSnapshot 比較を分離）。
+- `cargo test -p golden-master -- --nocapture` と `cargo test -p bms-skin -- --nocapture` の全通過を再確認。
+
+## 未対応ステップ（2026-02-12 追記）
+
+1. `ecfn_result_*` の `Image:-1` 差分の確定
+   - 現状: `idx=30..129` 区間で Java 側にのみ hidden `Image` が 1 command 残る。
+   - 補足: 試験的に `idx=30` を強制 include すると `command_count` は一致するが、visibility/geometry/detail 差分が 19 件露出したため未採用。
+   - 次アクション: `obj.validate()` と `draw` 条件の適用順を Java 実装に合わせて再現し、隠れ command の生存条件を特定する。
+
+2. `ecfn_play7_*` の `Image:+14` / `Text:-8` の解消
+   - 現状: command 数は `java 166 / rust 172` のまま。
+   - 次アクション: `type_delta` と `visible_type_delta` を object index 単位で突合し、`draw` 条件と source 解決の差を切り分ける。
+
+3. `ecfn_select` の `Image:+2` 差分の解消
+   - 現状: `java 280 / rust 282`。
+   - 次アクション: select 固有 object（Graph/Bar 周辺と panel 系）の prune 条件を Java exporter と 1:1 で照合する。
 
 ## 次ステップ（直近）
 
@@ -71,7 +88,7 @@ Status: In Progress
 2. `screenshot_states` と Java mock state の既定値を一致させる  
 可視数の乖離（`visible_type_delta` の `Image/Number` 偏在）を潰すため、timer/integer/float/boolean の既定値をケース別に同期する。
 3. ケース別 `type_delta` をゼロへ寄せる  
-`result: Image:-1`、`play: Image:+14, Text:-8`、`select: Image:+2, Text:+1` を object id 単位で解消する。
+`result: Image:-1`、`play: Image:+14, Text:-8`、`select: Image:+2` を object id 単位で解消する。
 4. 差分 0 ケースから `#[ignore]` を段階解除する  
 ケース単位で `known_diff_budget` を下げ、`ignored` から通常実行へ移行する（`ecfn_decide` は解除済み）。
 
@@ -86,7 +103,7 @@ Status: In Progress
    - 状態:
      - `ecfn_result_*`: `Image:-1`
      - `ecfn_play7_*`: `Image:+14`, `Text:-8`
-     - `ecfn_select`: `Image:+2`, `Text:+1`
+     - `ecfn_select`: `Image:+2`
    - 影響: object 列挙順/前処理の不一致が残り、strict 化の阻害要因となる
    - 次アクション: object type ごとに Java exporter 側の出力対象と Rust `capture_render_snapshot` 側の対象を 1:1 で突合する（builder 未実装起因は解消済み）
 
