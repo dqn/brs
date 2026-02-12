@@ -1,0 +1,20 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE Extra Note BG Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 1
+#RANK 2
+#TOTAL 300
+#LNTYPE 1
+
+#WAV01 a.wav
+#WAV02 b.wav
+
+*---------------------- MAIN DATA FIELD
+#00111:01
+#00113:02
+#00115:01
+#00117:02
+#00101:0102

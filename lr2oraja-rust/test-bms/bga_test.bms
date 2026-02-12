@@ -1,0 +1,37 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE BGA Timeline Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 1
+#RANK 2
+#TOTAL 300
+#LNTYPE 1
+
+#WAV01 a.wav
+
+#BMP01 bg1.bmp
+#BMP02 bg2.bmp
+#BMP03 bg3.bmp
+#BMP04 layer1.bmp
+#BMP05 layer2.bmp
+
+*---------------------- MAIN DATA FIELD
+*--- Measure 001: BGA=01 at start, note on lane 1
+#00111:01
+#00104:01
+
+*--- Measure 002: BGA=02 at start, Layer=04 at mid
+#00211:01
+#00204:02
+#00207:0004
+
+*--- Measure 003: BGA=03 at start, Layer=05 at start
+#00311:01
+#00304:03
+#00307:05
+
+*--- Measure 004: Layer cleared (BGA=01 continues)
+#00411:01
+#00404:01

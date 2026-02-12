@@ -1,0 +1,368 @@
+{
+  "test_cases" : [ {
+    "modifier_type" : "autoplay",
+    "bms_file" : "minimal_7k.bms",
+    "config" : {
+      "lanes" : [ 7 ],
+      "margin" : 0
+    },
+    "notes_before" : [ {
+      "lane" : 0,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 1,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 3,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 4,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 5,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 7,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 4000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_ms" : 4000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 4,
+      "time_ms" : 4000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 5000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 4,
+      "time_ms" : 5000,
+      "note_type" : "Normal"
+    } ],
+    "notes_after" : [ {
+      "lane" : 0,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 1,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 3,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 4,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 5,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 4000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_ms" : 4000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 4,
+      "time_ms" : 4000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 5000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 4,
+      "time_ms" : 5000,
+      "note_type" : "Normal"
+    } ],
+    "assist_level" : "ASSIST"
+  }, {
+    "modifier_type" : "autoplay",
+    "bms_file" : "longnote_types.bms",
+    "config" : {
+      "lanes" : [ 7 ],
+      "margin" : 0
+    },
+    "notes_before" : [ {
+      "lane" : 0,
+      "time_ms" : 1600,
+      "note_type" : "LongNote",
+      "end_time_ms" : 2800
+    }, {
+      "lane" : 1,
+      "time_ms" : 1600,
+      "note_type" : "LongNote",
+      "end_time_ms" : 2800
+    }, {
+      "lane" : 1,
+      "time_ms" : 3200,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_ms" : 3200,
+      "note_type" : "Normal"
+    } ],
+    "notes_after" : [ {
+      "lane" : 0,
+      "time_ms" : 1600,
+      "note_type" : "LongNote",
+      "end_time_ms" : 2800
+    }, {
+      "lane" : 1,
+      "time_ms" : 1600,
+      "note_type" : "LongNote",
+      "end_time_ms" : 2800
+    }, {
+      "lane" : 1,
+      "time_ms" : 3200,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_ms" : 3200,
+      "note_type" : "Normal"
+    } ],
+    "assist_level" : "NONE"
+  }, {
+    "modifier_type" : "practice",
+    "bms_file" : "minimal_7k.bms",
+    "config" : {
+      "start_ms" : 1000,
+      "end_ms" : 3000
+    },
+    "notes_before" : [ {
+      "lane" : 0,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 1,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 3,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 4,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 5,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 7,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 4000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_ms" : 4000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 4,
+      "time_ms" : 4000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 5000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 4,
+      "time_ms" : 5000,
+      "note_type" : "Normal"
+    } ],
+    "notes_after" : [ {
+      "lane" : 0,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 1,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 2,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 3,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 4,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 5,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 7,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    } ],
+    "assist_level" : "ASSIST"
+  }, {
+    "modifier_type" : "scroll_speed_remove",
+    "bms_file" : "bpm_change.bms",
+    "config" : {
+      "ref_bpm" : 120.0,
+      "ref_scroll" : 1.0
+    },
+    "notes_before" : [ {
+      "lane" : 0,
+      "time_ms" : 0,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 3333,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 6000,
+      "note_type" : "Normal"
+    } ],
+    "notes_after" : [ {
+      "lane" : 0,
+      "time_ms" : 0,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 3333,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 6000,
+      "note_type" : "Normal"
+    } ],
+    "bpm_after" : [ {
+      "time_ms" : 0,
+      "bpm" : 120.0,
+      "stop_ms" : 0,
+      "scroll" : 1.0
+    }, {
+      "time_ms" : 2000,
+      "bpm" : 120.0,
+      "stop_ms" : 0,
+      "scroll" : 1.0
+    }, {
+      "time_ms" : 3333,
+      "bpm" : 120.0,
+      "stop_ms" : 0,
+      "scroll" : 1.0
+    }, {
+      "time_ms" : 6000,
+      "bpm" : 120.0,
+      "stop_ms" : 0,
+      "scroll" : 1.0
+    } ],
+    "assist_level" : "LIGHT_ASSIST"
+  }, {
+    "modifier_type" : "scroll_speed_remove",
+    "bms_file" : "stop_sequence.bms",
+    "config" : {
+      "ref_bpm" : 120.0,
+      "ref_scroll" : 1.0
+    },
+    "notes_before" : [ {
+      "lane" : 0,
+      "time_ms" : 0,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 4500,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 7500,
+      "note_type" : "Normal"
+    } ],
+    "notes_after" : [ {
+      "lane" : 0,
+      "time_ms" : 0,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 2000,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 4500,
+      "note_type" : "Normal"
+    }, {
+      "lane" : 0,
+      "time_ms" : 7500,
+      "note_type" : "Normal"
+    } ],
+    "bpm_after" : [ {
+      "time_ms" : 0,
+      "bpm" : 120.0,
+      "stop_ms" : 0,
+      "scroll" : 1.0
+    }, {
+      "time_ms" : 2000,
+      "bpm" : 120.0,
+      "stop_ms" : 0,
+      "scroll" : 1.0
+    }, {
+      "time_ms" : 4500,
+      "bpm" : 120.0,
+      "stop_ms" : 0,
+      "scroll" : 1.0
+    }, {
+      "time_ms" : 5500,
+      "bpm" : 120.0,
+      "stop_ms" : 0,
+      "scroll" : 1.0
+    }, {
+      "time_ms" : 7500,
+      "bpm" : 120.0,
+      "stop_ms" : 0,
+      "scroll" : 1.0
+    } ],
+    "assist_level" : "LIGHT_ASSIST"
+  } ]
+}

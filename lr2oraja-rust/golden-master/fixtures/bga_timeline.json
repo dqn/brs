@@ -1,0 +1,67 @@
+{
+  "test_cases" : [ {
+    "events" : [ {
+      "time_ms" : 2000,
+      "bga_id" : 0,
+      "layer_id" : -1
+    }, {
+      "time_ms" : 4000,
+      "bga_id" : 1,
+      "layer_id" : -1
+    }, {
+      "time_ms" : 5000,
+      "bga_id" : -1,
+      "layer_id" : 3
+    }, {
+      "time_ms" : 6000,
+      "bga_id" : 2,
+      "layer_id" : 4
+    }, {
+      "time_ms" : 8000,
+      "bga_id" : 0,
+      "layer_id" : -1
+    } ],
+    "snapshots" : [ {
+      "time_ms" : 0,
+      "current_bga" : -1,
+      "current_layer" : -1
+    }, {
+      "time_ms" : 1000,
+      "current_bga" : -1,
+      "current_layer" : -1
+    }, {
+      "time_ms" : 2000,
+      "current_bga" : 0,
+      "current_layer" : -1
+    }, {
+      "time_ms" : 3000,
+      "current_bga" : 0,
+      "current_layer" : -1
+    }, {
+      "time_ms" : 4000,
+      "current_bga" : 1,
+      "current_layer" : -1
+    }, {
+      "time_ms" : 5000,
+      "current_bga" : 1,
+      "current_layer" : 3
+    }, {
+      "time_ms" : 6000,
+      "current_bga" : 2,
+      "current_layer" : 4
+    }, {
+      "time_ms" : 7000,
+      "current_bga" : 2,
+      "current_layer" : 4
+    }, {
+      "time_ms" : 8000,
+      "current_bga" : 0,
+      "current_layer" : 4
+    }, {
+      "time_ms" : 9000,
+      "current_bga" : 0,
+      "current_layer" : 4
+    } ],
+    "filename" : "bga_test.bms"
+  } ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "Complex Course",
+  "hash": [
+    {"sha256": "abc123", "md5": "def456", "title": "Song A"},
+    {"sha256": "ghi789", "md5": "jkl012", "title": "Song B"}
+  ],
+  "constraint": ["grade", "grade_mirror", "no_speed", "no_good", "no_great", "gauge_lr2", "gauge_7k", "ln", "cn"],
+  "trophy": [
+    {"name": "Platinum", "missrate": 1.0, "scorerate": 95.0},
+    {"name": "", "missrate": 5.0, "scorerate": 90.0},
+    {"name": "Invalid High Score", "missrate": 5.0, "scorerate": 100.0},
+    {"name": "Invalid Zero Miss", "missrate": 0.0, "scorerate": 50.0},
+    {"name": "Valid Normal", "missrate": 8.0, "scorerate": 60.0}
+  ],
+  "release": false
+}

@@ -1,0 +1,103 @@
+{
+  "test_cases" : [ {
+    "valid" : true,
+    "name" : "Basic Test Course",
+    "hash" : [ {
+      "sha256" : "aaaa",
+      "md5" : "bbbb",
+      "title" : "Song 1"
+    }, {
+      "sha256" : "cccc",
+      "md5" : "dddd",
+      "title" : "Song 2"
+    }, {
+      "sha256" : "eeee",
+      "md5" : "ffff",
+      "title" : "Song 3"
+    }, {
+      "sha256" : "gggg",
+      "md5" : "hhhh",
+      "title" : "Song 4"
+    } ],
+    "constraint" : [ ],
+    "trophy" : [ ],
+    "release" : true,
+    "is_class_course" : false,
+    "source_file" : "basic_course.json"
+  }, {
+    "valid" : true,
+    "name" : "Dan Course",
+    "hash" : [ {
+      "sha256" : "a1b2c3",
+      "md5" : "",
+      "title" : "Stage 1"
+    }, {
+      "sha256" : "d4e5f6",
+      "md5" : "",
+      "title" : "Stage 2"
+    }, {
+      "sha256" : "g7h8i9",
+      "md5" : "",
+      "title" : "Stage 3"
+    }, {
+      "sha256" : "j0k1l2",
+      "md5" : "",
+      "title" : "Stage 4"
+    } ],
+    "constraint" : [ "grade", "no_speed", "gauge_7k" ],
+    "trophy" : [ {
+      "name" : "Gold",
+      "missrate" : 3.0,
+      "scorerate" : 90.0
+    }, {
+      "name" : "Silver",
+      "missrate" : 5.0,
+      "scorerate" : 80.0
+    }, {
+      "name" : "Bronze",
+      "missrate" : 10.0,
+      "scorerate" : 70.0
+    } ],
+    "release" : true,
+    "is_class_course" : true,
+    "source_file" : "class_course.json"
+  }, {
+    "valid" : true,
+    "name" : "Complex Course",
+    "hash" : [ {
+      "sha256" : "abc123",
+      "md5" : "def456",
+      "title" : "Song A"
+    }, {
+      "sha256" : "ghi789",
+      "md5" : "jkl012",
+      "title" : "Song B"
+    } ],
+    "constraint" : [ "grade", "no_speed", "no_good", "gauge_lr2", "ln" ],
+    "trophy" : [ {
+      "name" : "Platinum",
+      "missrate" : 1.0,
+      "scorerate" : 95.0
+    }, {
+      "name" : "Valid Normal",
+      "missrate" : 8.0,
+      "scorerate" : 60.0
+    } ],
+    "release" : false,
+    "is_class_course" : true,
+    "source_file" : "complex_course.json"
+  }, {
+    "valid" : true,
+    "name" : "No Course Title",
+    "hash" : [ {
+      "sha256" : "min1",
+      "md5" : "",
+      "title" : "course 1"
+    } ],
+    "constraint" : [ ],
+    "trophy" : [ ],
+    "release" : true,
+    "is_class_course" : false,
+    "source_file" : "edge_case_course.json"
+  } ]
+}

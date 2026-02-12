@@ -1,0 +1,16 @@
+{
+  "name": "Dan Course",
+  "hash": [
+    {"sha256": "a1b2c3", "md5": "", "title": "Stage 1"},
+    {"sha256": "d4e5f6", "md5": "", "title": "Stage 2"},
+    {"sha256": "g7h8i9", "md5": "", "title": "Stage 3"},
+    {"sha256": "j0k1l2", "md5": "", "title": "Stage 4"}
+  ],
+  "constraint": ["grade", "no_speed", "gauge_7k"],
+  "trophy": [
+    {"name": "Gold", "missrate": 3.0, "scorerate": 90.0},
+    {"name": "Silver", "missrate": 5.0, "scorerate": 80.0},
+    {"name": "Bronze", "missrate": 10.0, "scorerate": 70.0}
+  ],
+  "release": true
+}

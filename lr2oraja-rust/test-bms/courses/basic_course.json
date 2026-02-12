@@ -1,0 +1,12 @@
+{
+  "name": "Basic Test Course",
+  "hash": [
+    {"sha256": "aaaa", "md5": "bbbb", "title": "Song 1"},
+    {"sha256": "cccc", "md5": "dddd", "title": "Song 2"},
+    {"sha256": "eeee", "md5": "ffff", "title": "Song 3"},
+    {"sha256": "gggg", "md5": "hhhh", "title": "Song 4"}
+  ],
+  "constraint": [],
+  "trophy": [],
+  "release": true
+}
