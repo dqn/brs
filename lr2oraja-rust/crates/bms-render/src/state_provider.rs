@@ -22,8 +22,18 @@ pub trait SkinStateProvider: Send + Sync {
     /// Returns the integer property value. Returns 0 for unknown IDs.
     fn integer_value(&self, id: IntegerId) -> i32;
 
+    /// Returns true if the integer property ID has an explicit value.
+    fn has_integer_value(&self, _id: IntegerId) -> bool {
+        true
+    }
+
     /// Returns the float property value. Returns 0.0 for unknown IDs.
     fn float_value(&self, id: FloatId) -> f32;
+
+    /// Returns true if the float property ID has an explicit value.
+    fn has_float_value(&self, _id: FloatId) -> bool {
+        true
+    }
 
     /// Returns the string property value. Returns `None` for unknown IDs.
     fn string_value(&self, id: StringId) -> Option<String>;
@@ -31,6 +41,11 @@ pub trait SkinStateProvider: Send + Sync {
     /// Returns the boolean property value. Returns `false` for unknown IDs.
     /// Handles [`BooleanId`] negation: if `id.is_negated()`, returns `!lookup(abs_id)`.
     fn boolean_value(&self, id: BooleanId) -> bool;
+
+    /// Returns true if the boolean property ID has an explicit value.
+    fn has_boolean_value(&self, _id: BooleanId) -> bool {
+        true
+    }
 
     /// Returns the current time in milliseconds.
     fn now_time_ms(&self) -> i64;
@@ -62,8 +77,16 @@ impl SkinStateProvider for StaticStateProvider {
         self.integers.get(&id.0).copied().unwrap_or(0)
     }
 
+    fn has_integer_value(&self, id: IntegerId) -> bool {
+        self.integers.contains_key(&id.0)
+    }
+
     fn float_value(&self, id: FloatId) -> f32 {
         self.floats.get(&id.0).copied().unwrap_or(0.0)
+    }
+
+    fn has_float_value(&self, id: FloatId) -> bool {
+        self.floats.contains_key(&id.0)
     }
 
     fn string_value(&self, id: StringId) -> Option<String> {
@@ -73,6 +96,10 @@ impl SkinStateProvider for StaticStateProvider {
     fn boolean_value(&self, id: BooleanId) -> bool {
         let raw = self.booleans.get(&id.abs_id()).copied().unwrap_or(false);
         if id.is_negated() { !raw } else { raw }
+    }
+
+    fn has_boolean_value(&self, id: BooleanId) -> bool {
+        self.booleans.contains_key(&id.abs_id())
     }
 
     fn now_time_ms(&self) -> i64 {

@@ -614,13 +614,37 @@ fn infer_existing_source_images(
 }
 
 fn source_path_exists(source_path: &str, skin_path: Option<&Path>) -> bool {
-    // Wildcards are used heavily by Lua skins; treat them as existing to avoid
-    // false negatives in command-count parity checks.
-    if source_path.contains('*') || source_path.contains('?') || source_path.contains('[') {
-        return true;
+    let source = Path::new(source_path);
+    let has_wildcard =
+        source_path.contains('*') || source_path.contains('?') || source_path.contains('[');
+
+    if has_wildcard {
+        // Keep parity with Java JSON/Lua loaders:
+        // directory-segment wildcards like ".../*/main.png" are not resolved
+        // during source loading and therefore remain missing.
+        let segments: Vec<&str> = source_path.split('/').collect();
+        if segments.len() > 1
+            && segments[..segments.len() - 1]
+                .iter()
+                .any(|seg| seg.contains('*') || seg.contains('?') || seg.contains('['))
+        {
+            return false;
+        }
+
+        let pattern = if source.is_absolute() {
+            source.to_path_buf()
+        } else if let Some(base_dir) = skin_path.and_then(Path::parent) {
+            base_dir.join(source)
+        } else {
+            source.to_path_buf()
+        };
+
+        let Ok(paths) = glob::glob(pattern.to_string_lossy().as_ref()) else {
+            return false;
+        };
+        return paths.filter_map(Result::ok).any(|p| p.exists());
     }
 
-    let source = Path::new(source_path);
     if source.is_absolute() {
         return source.exists();
     }
@@ -875,6 +899,15 @@ fn try_build_note(
 
     let mut skin_note = crate::skin_note::SkinNote::default();
     apply_destination(&mut skin_note.base, dst);
+    if skin_note.base.destinations.is_empty() {
+        skin_note.base.add_destination(Destination {
+            time: 0,
+            region: Rect::new(0.0, 0.0, 0.0, 0.0),
+            color: Color::white(),
+            angle: 0,
+            acc: 0,
+        });
+    }
     Some(skin_note.into())
 }
 
@@ -1273,12 +1306,7 @@ fn try_build_graph(
         gr_def.graph_type
     };
 
-    // JSON angle 0 = up, non-zero = right
-    let direction = if gr_def.angle == 0 {
-        crate::skin_graph::GraphDirection::Up
-    } else {
-        crate::skin_graph::GraphDirection::Right
-    };
+    let direction = crate::skin_graph::GraphDirection::from_i32(gr_def.angle);
 
     let mut graph = crate::skin_graph::SkinGraph {
         base: SkinObjectBase::default(),
@@ -1465,9 +1493,9 @@ fn apply_destination(base: &mut SkinObjectBase, dst: &JsonDestination) {
     }
 
     // Animation keyframes
-    let mut prev: Option<&JsonAnimation> = None;
+    let mut prev: Option<ResolvedAnimation> = None;
     for anim in &dst.dst {
-        let resolved = resolve_animation(anim, prev);
+        let resolved = resolve_animation(anim, prev.as_ref());
         base.add_destination(Destination {
             time: resolved.time as i64,
             region: Rect::new(
@@ -1485,7 +1513,7 @@ fn apply_destination(base: &mut SkinObjectBase, dst: &JsonDestination) {
             angle: resolved.angle,
             acc: resolved.acc,
         });
-        prev = Some(anim);
+        prev = Some(resolved);
     }
 
     // Offsets
@@ -1498,7 +1526,7 @@ fn apply_destination(base: &mut SkinObjectBase, dst: &JsonDestination) {
 /// or using defaults for the first frame.
 ///
 /// Matches Java's `setDestination()` fill logic exactly.
-fn resolve_animation(anim: &JsonAnimation, prev: Option<&JsonAnimation>) -> ResolvedAnimation {
+fn resolve_animation(anim: &JsonAnimation, prev: Option<&ResolvedAnimation>) -> ResolvedAnimation {
     match prev {
         None => ResolvedAnimation {
             time: if anim.time == i32::MIN { 0 } else { anim.time },
@@ -1517,11 +1545,7 @@ fn resolve_animation(anim: &JsonAnimation, prev: Option<&JsonAnimation>) -> Reso
                 anim.angle
             },
         },
-        Some(p) => {
-            // Resolve previous frame values first (for inheritance chain)
-            // Note: in the Java code, `prev` is already resolved in-place,
-            // so we use the raw prev values here (they were already resolved).
-            let prev_resolved = resolve_prev(p);
+        Some(prev_resolved) => {
             ResolvedAnimation {
                 time: if anim.time == i32::MIN {
                     prev_resolved.time
@@ -1582,32 +1606,7 @@ fn resolve_animation(anim: &JsonAnimation, prev: Option<&JsonAnimation>) -> Reso
         }
     }
 }
-
-/// Resolves a previous animation frame's values (for inheritance chain).
-///
-/// In Java, the animation values are modified in-place during iteration,
-/// so the "previous" values are already resolved. We replicate this by
-/// treating MIN_VALUE fields as their default values.
-fn resolve_prev(anim: &JsonAnimation) -> ResolvedAnimation {
-    ResolvedAnimation {
-        time: if anim.time == i32::MIN { 0 } else { anim.time },
-        x: if anim.x == i32::MIN { 0 } else { anim.x },
-        y: if anim.y == i32::MIN { 0 } else { anim.y },
-        w: if anim.w == i32::MIN { 0 } else { anim.w },
-        h: if anim.h == i32::MIN { 0 } else { anim.h },
-        acc: if anim.acc == i32::MIN { 0 } else { anim.acc },
-        a: if anim.a == i32::MIN { 255 } else { anim.a },
-        r: if anim.r == i32::MIN { 255 } else { anim.r },
-        g: if anim.g == i32::MIN { 255 } else { anim.g },
-        b: if anim.b == i32::MIN { 255 } else { anim.b },
-        angle: if anim.angle == i32::MIN {
-            0
-        } else {
-            anim.angle
-        },
-    }
-}
-
+#[derive(Clone, Copy)]
 struct ResolvedAnimation {
     time: i32,
     x: i32,
@@ -1928,6 +1927,7 @@ mod tests {
             b: 255,
             angle: 45,
         };
+        let prev_resolved = resolve_animation(&prev, None);
         let anim = JsonAnimation {
             time: 1000,
             x: i32::MIN, // inherit 100
@@ -1941,7 +1941,7 @@ mod tests {
             b: i32::MIN,
             angle: i32::MIN, // inherit 45
         };
-        let resolved = resolve_animation(&anim, Some(&prev));
+        let resolved = resolve_animation(&anim, Some(&prev_resolved));
         assert_eq!(resolved.time, 1000);
         assert_eq!(resolved.x, 100);
         assert_eq!(resolved.y, 500);

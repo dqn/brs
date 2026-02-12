@@ -81,8 +81,16 @@ fn load_state(name: &str) -> StaticStateProvider {
     }
     let content = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e));
-    serde_json::from_str(&content)
-        .unwrap_or_else(|e| panic!("Failed to parse {}: {}", path.display(), e))
+    let mut state: StaticStateProvider =
+        serde_json::from_str(&content).unwrap_or_else(|e| panic!("Failed to parse {}: {}", path.display(), e));
+
+    if std::env::var_os("GM_STATE_TIMERS_ONLY").is_some() {
+        state.integers.clear();
+        state.floats.clear();
+        state.booleans.clear();
+    }
+
+    state
 }
 
 /// Load a Lua skin from the ECFN directory.
@@ -128,7 +136,7 @@ const TEST_CASES: &[RenderSnapshotTestCase] = &[
         skin_path: "select/select.luaskin",
         state_json: "state_default.json",
         is_lua: true,
-        known_diff_budget: 1,
+        known_diff_budget: 0,
     },
     RenderSnapshotTestCase {
         name: "ecfn_decide",
@@ -142,21 +150,21 @@ const TEST_CASES: &[RenderSnapshotTestCase] = &[
         skin_path: "play/play7.luaskin",
         state_json: "state_play_active.json",
         is_lua: true,
-        known_diff_budget: 1,
+        known_diff_budget: 0,
     },
     RenderSnapshotTestCase {
         name: "ecfn_play7_fullcombo",
         skin_path: "play/play7.luaskin",
         state_json: "state_play_fullcombo.json",
         is_lua: true,
-        known_diff_budget: 1,
+        known_diff_budget: 0,
     },
     RenderSnapshotTestCase {
         name: "ecfn_play7_danger",
         skin_path: "play/play7.luaskin",
         state_json: "state_play_danger.json",
         is_lua: true,
-        known_diff_budget: 1,
+        known_diff_budget: 0,
     },
     RenderSnapshotTestCase {
         name: "ecfn_result_clear",
@@ -305,16 +313,28 @@ fn command_signature(command: &DrawCommand) -> String {
 
 fn format_command_at(commands: &[DrawCommand], pos: usize) -> String {
     let command = &commands[pos];
+    let name = command
+        .name
+        .as_deref()
+        .map(|n| format!(" name={n}"))
+        .unwrap_or_default();
     format!(
-        "pos={pos} idx={} type={} visible={} detail={}",
+        "pos={pos} idx={} type={} visible={} detail={}{}",
         command.object_index,
         command.object_type,
         command.visible,
-        command_detail_kind(command)
+        command_detail_kind(command),
+        name
     )
 }
 
 fn summarize_command_sequence_gap(java: &RenderSnapshot, rust: &RenderSnapshot) -> String {
+    let cap = if std::env::var_os("GM_DEBUG_SEQUENCE_ALL").is_some() {
+        usize::MAX
+    } else {
+        5
+    };
+
     let java_sig: Vec<String> = java.commands.iter().map(command_signature).collect();
     let rust_sig: Vec<String> = rust.commands.iter().map(command_signature).collect();
 
@@ -360,19 +380,19 @@ fn summarize_command_sequence_gap(java: &RenderSnapshot, rust: &RenderSnapshot) 
 
     let java_only = java_only_pos
         .iter()
-        .take(5)
+        .take(cap)
         .map(|&pos| format_command_at(&java.commands, pos))
         .collect::<Vec<_>>()
         .join(" | ");
     let rust_only = rust_only_pos
         .iter()
-        .take(5)
+        .take(cap)
         .map(|&pos| format_command_at(&rust.commands, pos))
         .collect::<Vec<_>>()
         .join(" | ");
 
     format!(
-        "java_only(first5/{}): [{}]; rust_only(first5/{}): [{}]",
+        "java_only(first{cap}/{}): [{}]; rust_only(first{cap}/{}): [{}]",
         java_only_pos.len(),
         java_only,
         rust_only_pos.len(),
@@ -498,7 +518,6 @@ fn render_snapshot_parity_regression_guard() {
 }
 
 #[test]
-#[ignore = "Known Java/Rust render parity gaps; use for focused debugging"]
 fn render_snapshot_ecfn_select() {
     let tc = &TEST_CASES[0];
     compare_java_rust_render_snapshot(tc);
@@ -511,21 +530,18 @@ fn render_snapshot_ecfn_decide() {
 }
 
 #[test]
-#[ignore = "Known Java/Rust render parity gaps; use for focused debugging"]
 fn render_snapshot_ecfn_play7_active() {
     let tc = &TEST_CASES[2];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
-#[ignore = "Known Java/Rust render parity gaps; use for focused debugging"]
 fn render_snapshot_ecfn_play7_fullcombo() {
     let tc = &TEST_CASES[3];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
-#[ignore = "Known Java/Rust render parity gaps; use for focused debugging"]
 fn render_snapshot_ecfn_play7_danger() {
     let tc = &TEST_CASES[4];
     compare_java_rust_render_snapshot(tc);
