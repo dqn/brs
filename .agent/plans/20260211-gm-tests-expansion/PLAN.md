@@ -82,6 +82,18 @@ Status: In Progress
    - 現状: `java 280 / rust 282`。
    - 次アクション: select 固有 object（Graph/Bar 周辺と panel 系）の prune 条件を Java exporter と 1:1 で照合する。
 
+4. `sequence_delta` で観測された先頭近傍の列挙ズレの確定
+   - 現状:
+     - `ecfn_play7_*` で `java_only pos=10..14`（hidden Number 連続）と `rust_only pos=11..14`（visible Image 連続）が発生
+     - `ecfn_select` で `pos=1` の Image visible 判定が反転
+   - 影響: `command_count` だけでなく object 列挙順・可視判定タイミングがずれており、strict parity で大量差分が再露出するリスクがある
+   - 次アクション: `render_snapshots_debug/*__java.json` / `*__rust.json` の該当 `pos` を起点に、`draw` 条件評価順と source 選択条件を object 単位で突合する
+
+5. `ecfn_result_*` の Number 可視偏り（`visible_type_delta: Number:+8`）の解消
+   - 現状: `command_count` は `-1` だが、同時に Number の visible 偏りが残る
+   - 影響: 隠れ Image 1件差の解消後に Number の visibility/detail 差分が前面化する可能性が高い
+   - 次アクション: result ケースで Number の参照 ID ごとに Java `prepare()` の hidden 条件を抽出し、Rust capture 側の可視判定に必要最小限で反映する
+
 ## 次ステップ（直近）
 
 1. Java `Skin.prepare()` と Rust capture 前処理の差を詰める  
