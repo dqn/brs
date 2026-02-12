@@ -80,6 +80,8 @@ pub struct SkinNumber {
     pub has_minus_images: bool,
     /// Per-digit offsets (optional, length should match keta).
     pub digit_offsets: Vec<SkinOffset>,
+    /// When true, digit positions are relative to the parent judge image.
+    pub relative: bool,
 }
 
 impl Default for SkinNumber {
@@ -95,6 +97,7 @@ impl Default for SkinNumber {
             image_cycle: 0,
             has_minus_images: false,
             digit_offsets: Vec::new(),
+            relative: false,
         }
     }
 }
