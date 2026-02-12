@@ -5,6 +5,7 @@
   "commands" : [ {
     "object_index" : 0,
     "object_type" : "Image",
+    "name" : "shutter",
     "visible" : true,
     "dst" : {
       "x" : 0.0,
@@ -28,24 +29,28 @@
   }, {
     "object_index" : 1,
     "object_type" : "Image",
+    "name" : "BG_FAILED",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 2,
     "object_type" : "Image",
+    "name" : "BG_FAILED",
     "visible" : false,
     "angle" : 0,
     "blend" : 2
   }, {
     "object_index" : 3,
     "object_type" : "Image",
+    "name" : "BG_FAILED_parts",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 4,
     "object_type" : "Image",
+    "name" : "BG_CLEAR",
     "visible" : true,
     "dst" : {
       "x" : 0.0,
@@ -69,12 +74,14 @@
   }, {
     "object_index" : 5,
     "object_type" : "Image",
+    "name" : "BG_CLEAR",
     "visible" : false,
     "angle" : 0,
     "blend" : 2
   }, {
     "object_index" : 6,
     "object_type" : "Image",
+    "name" : "BG_CLEAR_parts",
     "visible" : true,
     "dst" : {
       "x" : 882.0,
@@ -98,6 +105,7 @@
   }, {
     "object_index" : 7,
     "object_type" : "Image",
+    "name" : "stageresult_under_base",
     "visible" : true,
     "dst" : {
       "x" : 525.0,
@@ -121,6 +129,7 @@
   }, {
     "object_index" : 8,
     "object_type" : "Image",
+    "name" : "stageresult_upper",
     "visible" : true,
     "dst" : {
       "x" : 55.0,
@@ -144,12 +153,14 @@
   }, {
     "object_index" : 9,
     "object_type" : "Image",
+    "name" : "stageresult_upper_f",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 10,
     "object_type" : "Image",
+    "name" : "stageresult",
     "visible" : true,
     "dst" : {
       "x" : 729.0,
@@ -173,6 +184,7 @@
   }, {
     "object_index" : 11,
     "object_type" : "Image",
+    "name" : "stageresult",
     "visible" : true,
     "dst" : {
       "x" : 729.0,
@@ -196,24 +208,28 @@
   }, {
     "object_index" : 12,
     "object_type" : "Image",
+    "name" : "stageresult_f",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 13,
     "object_type" : "Image",
+    "name" : "stageresult_f",
     "visible" : false,
     "angle" : 0,
     "blend" : 2
   }, {
     "object_index" : 14,
     "object_type" : "Image",
+    "name" : "ir_wait1",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 15,
     "object_type" : "Image",
+    "name" : "SCORE_FRAME",
     "visible" : true,
     "dst" : {
       "x" : 23.0,
@@ -237,6 +253,7 @@
   }, {
     "object_index" : 16,
     "object_type" : "Image",
+    "name" : "SCORE_PER1",
     "visible" : true,
     "dst" : {
       "x" : 262.0,
@@ -260,6 +277,7 @@
   }, {
     "object_index" : 17,
     "object_type" : "Image",
+    "name" : "SCORE_PER2",
     "visible" : true,
     "dst" : {
       "x" : 413.0,
@@ -283,6 +301,7 @@
   }, {
     "object_index" : 18,
     "object_type" : "Image",
+    "name" : "TERGET_PER1",
     "visible" : true,
     "dst" : {
       "x" : 454.0,
@@ -306,6 +325,7 @@
   }, {
     "object_index" : 19,
     "object_type" : "Image",
+    "name" : "TERGET_PER2",
     "visible" : true,
     "dst" : {
       "x" : 446.0,
@@ -329,6 +349,7 @@
   }, {
     "object_index" : 20,
     "object_type" : "Image",
+    "name" : "TERGET_PER_dot1",
     "visible" : true,
     "dst" : {
       "x" : 411.0,
@@ -352,6 +373,7 @@
   }, {
     "object_index" : 21,
     "object_type" : "Image",
+    "name" : "TERGET_PER_dot2",
     "visible" : true,
     "dst" : {
       "x" : 404.0,
@@ -375,6 +397,7 @@
   }, {
     "object_index" : 22,
     "object_type" : "Image",
+    "name" : "judge_detail",
     "visible" : true,
     "dst" : {
       "x" : 3.0,
@@ -398,6 +421,7 @@
   }, {
     "object_index" : 23,
     "object_type" : "Image",
+    "name" : "p_great",
     "visible" : true,
     "dst" : {
       "x" : 55.0,
@@ -421,6 +445,7 @@
   }, {
     "object_index" : 24,
     "object_type" : "Image",
+    "name" : "button_info",
     "visible" : true,
     "dst" : {
       "x" : 11.0,
@@ -444,6 +469,7 @@
   }, {
     "object_index" : 25,
     "object_type" : "Image",
+    "name" : "Groove_main",
     "visible" : true,
     "dst" : {
       "x" : 13.0,
@@ -467,6 +493,7 @@
   }, {
     "object_index" : 26,
     "object_type" : "Image",
+    "name" : "Gauge_frame",
     "visible" : true,
     "dst" : {
       "x" : 37.0,
@@ -490,6 +517,7 @@
   }, {
     "object_index" : 27,
     "object_type" : "SkinGaugeGraphObject",
+    "name" : "gauge",
     "visible" : true,
     "dst" : {
       "x" : 41.0,
@@ -508,6 +536,7 @@
   }, {
     "object_index" : 28,
     "object_type" : "Image",
+    "name" : "RANDOM_OP",
     "visible" : true,
     "dst" : {
       "x" : 38.0,
@@ -531,30 +560,35 @@
   }, {
     "object_index" : 29,
     "object_type" : "Image",
+    "name" : "NEWRECORD_1",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 30,
     "object_type" : "Image",
+    "name" : "NEWRECORD_1",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 31,
     "object_type" : "Image",
+    "name" : "NEWRECORD_2",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 32,
     "object_type" : "Image",
+    "name" : "NEWRECORD_1",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 33,
     "object_type" : "Number",
+    "name" : "RANK_Diff_Exscore",
     "visible" : true,
     "dst" : {
       "x" : 368.0,
@@ -577,6 +611,7 @@
   }, {
     "object_index" : 34,
     "object_type" : "Image",
+    "name" : "best-clear",
     "visible" : true,
     "dst" : {
       "x" : 210.0,
@@ -600,6 +635,7 @@
   }, {
     "object_index" : 35,
     "object_type" : "Image",
+    "name" : "current-clear",
     "visible" : true,
     "dst" : {
       "x" : 362.0,
@@ -623,6 +659,7 @@
   }, {
     "object_index" : 36,
     "object_type" : "Number",
+    "name" : "Best_Exscore",
     "visible" : true,
     "dst" : {
       "x" : 225.0,
@@ -645,6 +682,7 @@
   }, {
     "object_index" : 37,
     "object_type" : "Number",
+    "name" : "Best_Exscore_Acc",
     "visible" : true,
     "dst" : {
       "x" : 225.0,
@@ -667,6 +705,7 @@
   }, {
     "object_index" : 38,
     "object_type" : "Number",
+    "name" : "Best_Exscore_Acc2",
     "visible" : true,
     "dst" : {
       "x" : 267.0,
@@ -689,6 +728,7 @@
   }, {
     "object_index" : 39,
     "object_type" : "Number",
+    "name" : "Current_Exscore",
     "visible" : true,
     "dst" : {
       "x" : 376.0,
@@ -711,18 +751,21 @@
   }, {
     "object_index" : 40,
     "object_type" : "Number",
+    "name" : "Current_Exscore_Acc",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 41,
     "object_type" : "Number",
+    "name" : "Current_Exscore_Acc2",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 42,
     "object_type" : "Number",
+    "name" : "Diff_Exscore",
     "visible" : true,
     "dst" : {
       "x" : 368.0,
@@ -745,6 +788,7 @@
   }, {
     "object_index" : 43,
     "object_type" : "Image",
+    "name" : "MISSCOUNT_F",
     "visible" : true,
     "dst" : {
       "x" : 225.0,
@@ -768,6 +812,7 @@
   }, {
     "object_index" : 44,
     "object_type" : "Image",
+    "name" : "MISSCOUNT_SF",
     "visible" : true,
     "dst" : {
       "x" : 370.0,
@@ -791,24 +836,28 @@
   }, {
     "object_index" : 45,
     "object_type" : "Number",
+    "name" : "Best_Misscount",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 46,
     "object_type" : "Number",
+    "name" : "Current_Misscount",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 47,
     "object_type" : "Number",
+    "name" : "Diff_Misscount",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 48,
     "object_type" : "Number",
+    "name" : "TARGETSCORE",
     "visible" : true,
     "dst" : {
       "x" : 233.0,
@@ -831,6 +880,7 @@
   }, {
     "object_index" : 49,
     "object_type" : "Number",
+    "name" : "Diff_TARGETSCORE",
     "visible" : true,
     "dst" : {
       "x" : 214.0,
@@ -853,6 +903,7 @@
   }, {
     "object_index" : 50,
     "object_type" : "Number",
+    "name" : "TARGETRATE1",
     "visible" : true,
     "dst" : {
       "x" : 359.0,
@@ -875,6 +926,7 @@
   }, {
     "object_index" : 51,
     "object_type" : "Number",
+    "name" : "TARGETRATE2",
     "visible" : true,
     "dst" : {
       "x" : 418.0,
@@ -897,18 +949,21 @@
   }, {
     "object_index" : 52,
     "object_type" : "Number",
+    "name" : "TARGET_MYRATE1",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 53,
     "object_type" : "Number",
+    "name" : "TARGET_MYRATE2",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 54,
     "object_type" : "Number",
+    "name" : "JUDGE_PG",
     "visible" : true,
     "dst" : {
       "x" : 170.0,
@@ -931,6 +986,7 @@
   }, {
     "object_index" : 55,
     "object_type" : "Number",
+    "name" : "JUDGE_GR",
     "visible" : true,
     "dst" : {
       "x" : 170.0,
@@ -953,6 +1009,7 @@
   }, {
     "object_index" : 56,
     "object_type" : "Number",
+    "name" : "JUDGE_GD",
     "visible" : true,
     "dst" : {
       "x" : 170.0,
@@ -975,6 +1032,7 @@
   }, {
     "object_index" : 57,
     "object_type" : "Number",
+    "name" : "JUDGE_BD",
     "visible" : true,
     "dst" : {
       "x" : 170.0,
@@ -997,6 +1055,7 @@
   }, {
     "object_index" : 58,
     "object_type" : "Number",
+    "name" : "JUDGE_PR",
     "visible" : true,
     "dst" : {
       "x" : 170.0,
@@ -1019,6 +1078,7 @@
   }, {
     "object_index" : 59,
     "object_type" : "Number",
+    "name" : "JUDGE_MS",
     "visible" : true,
     "dst" : {
       "x" : 170.0,
@@ -1041,6 +1101,7 @@
   }, {
     "object_index" : 60,
     "object_type" : "Image",
+    "name" : "detail_fast",
     "visible" : true,
     "dst" : {
       "x" : 403.0,
@@ -1064,6 +1125,7 @@
   }, {
     "object_index" : 61,
     "object_type" : "Number",
+    "name" : "JUDGE_PG_F",
     "visible" : true,
     "dst" : {
       "x" : 390.0,
@@ -1086,6 +1148,7 @@
   }, {
     "object_index" : 62,
     "object_type" : "Number",
+    "name" : "JUDGE_GR_F",
     "visible" : true,
     "dst" : {
       "x" : 390.0,
@@ -1108,6 +1171,7 @@
   }, {
     "object_index" : 63,
     "object_type" : "Number",
+    "name" : "JUDGE_GD_F",
     "visible" : true,
     "dst" : {
       "x" : 390.0,
@@ -1130,6 +1194,7 @@
   }, {
     "object_index" : 64,
     "object_type" : "Number",
+    "name" : "JUDGE_BD_F",
     "visible" : true,
     "dst" : {
       "x" : 390.0,
@@ -1152,6 +1217,7 @@
   }, {
     "object_index" : 65,
     "object_type" : "Number",
+    "name" : "JUDGE_PR_F",
     "visible" : true,
     "dst" : {
       "x" : 390.0,
@@ -1174,6 +1240,7 @@
   }, {
     "object_index" : 66,
     "object_type" : "Number",
+    "name" : "JUDGE_MS_F",
     "visible" : true,
     "dst" : {
       "x" : 390.0,
@@ -1196,6 +1263,7 @@
   }, {
     "object_index" : 67,
     "object_type" : "Image",
+    "name" : "detail_slow",
     "visible" : true,
     "dst" : {
       "x" : 317.0,
@@ -1219,6 +1287,7 @@
   }, {
     "object_index" : 68,
     "object_type" : "Number",
+    "name" : "JUDGE_PG_S",
     "visible" : true,
     "dst" : {
       "x" : 308.0,
@@ -1241,6 +1310,7 @@
   }, {
     "object_index" : 69,
     "object_type" : "Number",
+    "name" : "JUDGE_GR_S",
     "visible" : true,
     "dst" : {
       "x" : 308.0,
@@ -1263,6 +1333,7 @@
   }, {
     "object_index" : 70,
     "object_type" : "Number",
+    "name" : "JUDGE_GD_S",
     "visible" : true,
     "dst" : {
       "x" : 308.0,
@@ -1285,6 +1356,7 @@
   }, {
     "object_index" : 71,
     "object_type" : "Number",
+    "name" : "JUDGE_BD_S",
     "visible" : true,
     "dst" : {
       "x" : 308.0,
@@ -1307,6 +1379,7 @@
   }, {
     "object_index" : 72,
     "object_type" : "Number",
+    "name" : "JUDGE_PR_S",
     "visible" : true,
     "dst" : {
       "x" : 308.0,
@@ -1329,6 +1402,7 @@
   }, {
     "object_index" : 73,
     "object_type" : "Number",
+    "name" : "JUDGE_MS_S",
     "visible" : true,
     "dst" : {
       "x" : 308.0,
@@ -1351,6 +1425,7 @@
   }, {
     "object_index" : 74,
     "object_type" : "Number",
+    "name" : "MAXCOMBO",
     "visible" : true,
     "dst" : {
       "x" : 199.0,
@@ -1373,6 +1448,7 @@
   }, {
     "object_index" : 75,
     "object_type" : "Number",
+    "name" : "COMBOBREAK",
     "visible" : true,
     "dst" : {
       "x" : 199.0,
@@ -1395,6 +1471,7 @@
   }, {
     "object_index" : 76,
     "object_type" : "Number",
+    "name" : "JUDGE_TOTAL_F",
     "visible" : true,
     "dst" : {
       "x" : 390.0,
@@ -1417,6 +1494,7 @@
   }, {
     "object_index" : 77,
     "object_type" : "Number",
+    "name" : "JUDGE_TOTAL_S",
     "visible" : true,
     "dst" : {
       "x" : 390.0,
@@ -1439,6 +1517,7 @@
   }, {
     "object_index" : 78,
     "object_type" : "Image",
+    "name" : "NAME_LINE",
     "visible" : true,
     "dst" : {
       "x" : 534.0,
@@ -1462,6 +1541,7 @@
   }, {
     "object_index" : 79,
     "object_type" : "Image",
+    "name" : "DIFF_KEYS_INFO",
     "visible" : true,
     "dst" : {
       "x" : 724.0,
@@ -1485,6 +1565,7 @@
   }, {
     "object_index" : 80,
     "object_type" : "Image",
+    "name" : "NOTES_INFO",
     "visible" : true,
     "dst" : {
       "x" : 1015.0,
@@ -1508,180 +1589,210 @@
   }, {
     "object_index" : 81,
     "object_type" : "Number",
+    "name" : "NOTES_NUM",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 82,
     "object_type" : "Text",
+    "name" : "songname",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 83,
     "object_type" : "Text",
+    "name" : "artist",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 84,
     "object_type" : "Image",
+    "name" : "FAILED_main",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 85,
     "object_type" : "Image",
+    "name" : "FAILED_glow",
     "visible" : false,
     "angle" : 0,
     "blend" : 2
   }, {
     "object_index" : 86,
     "object_type" : "Image",
+    "name" : "FAILED_flash",
     "visible" : false,
     "angle" : 0,
     "blend" : 2
   }, {
     "object_index" : 87,
     "object_type" : "Image",
+    "name" : "FAILED_blur",
     "visible" : false,
     "angle" : 0,
     "blend" : 2
   }, {
     "object_index" : 88,
     "object_type" : "Image",
+    "name" : "CLEAR_main",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 89,
     "object_type" : "Image",
+    "name" : "CLEAR_glow",
     "visible" : false,
     "angle" : 0,
     "blend" : 2
   }, {
     "object_index" : 90,
     "object_type" : "Image",
+    "name" : "CLEAR_flash",
     "visible" : false,
     "angle" : 0,
     "blend" : 2
   }, {
     "object_index" : 91,
     "object_type" : "Image",
+    "name" : "CLEAR_blur",
     "visible" : false,
     "angle" : 0,
     "blend" : 2
   }, {
     "object_index" : 92,
     "object_type" : "Image",
+    "name" : "black",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 93,
     "object_type" : "Image",
+    "name" : "shutter1",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 94,
     "object_type" : "Image",
+    "name" : "shutter2",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 95,
     "object_type" : "Image",
+    "name" : "shutter3",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 96,
     "object_type" : "Image",
+    "name" : "shutter4",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 97,
     "object_type" : "Image",
+    "name" : "shutter5",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 98,
     "object_type" : "Image",
+    "name" : "shutter6",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 99,
     "object_type" : "Image",
+    "name" : "shutter7",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 100,
     "object_type" : "Image",
+    "name" : "shutter8",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 101,
     "object_type" : "Image",
+    "name" : "shutter9",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 102,
     "object_type" : "Image",
+    "name" : "shutter10",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 103,
     "object_type" : "Image",
+    "name" : "shutter11",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 104,
     "object_type" : "Image",
+    "name" : "shutter12",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 105,
     "object_type" : "Image",
+    "name" : "shutter13",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 106,
     "object_type" : "Image",
+    "name" : "shutter14",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 107,
     "object_type" : "Image",
+    "name" : "shutter15",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 108,
     "object_type" : "Image",
+    "name" : "shutter16",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 109,
     "object_type" : "Image",
+    "name" : "shutter17",
     "visible" : false,
     "angle" : 0,
     "blend" : 0
   }, {
     "object_index" : 110,
     "object_type" : "Image",
+    "name" : "shutter18",
     "visible" : false,
     "angle" : 0,
     "blend" : 0

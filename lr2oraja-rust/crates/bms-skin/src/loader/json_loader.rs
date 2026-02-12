@@ -1852,11 +1852,13 @@ fn apply_destination(base: &mut SkinObjectBase, dst: &JsonDestination) {
     // Loop
     base.loop_time = dst.loop_time;
 
-    // Draw conditions
-    if let Some(ref draw) = dst.draw
-        && let Some(id) = draw.as_id()
-    {
-        base.draw_conditions.push(BooleanId(id));
+    // Draw conditions — when draw is present (even as a Lua function/script),
+    // op is completely ignored.  This matches Java behavior where
+    // `if (dst.draw != null)` prevents op from being used as option_conditions.
+    if let Some(ref draw) = dst.draw {
+        if let Some(id) = draw.as_id() {
+            base.draw_conditions.push(BooleanId(id));
+        }
     } else if !dst.op.is_empty() {
         base.option_conditions = dst.op.clone();
     }
@@ -1929,65 +1931,63 @@ fn resolve_animation(anim: &JsonAnimation, prev: Option<&ResolvedAnimation>) -> 
                 anim.angle
             },
         },
-        Some(prev_resolved) => {
-            ResolvedAnimation {
-                time: if anim.time == i32::MIN {
-                    prev_resolved.time
-                } else {
-                    anim.time
-                },
-                x: if anim.x == i32::MIN {
-                    prev_resolved.x
-                } else {
-                    anim.x
-                },
-                y: if anim.y == i32::MIN {
-                    prev_resolved.y
-                } else {
-                    anim.y
-                },
-                w: if anim.w == i32::MIN {
-                    prev_resolved.w
-                } else {
-                    anim.w
-                },
-                h: if anim.h == i32::MIN {
-                    prev_resolved.h
-                } else {
-                    anim.h
-                },
-                acc: if anim.acc == i32::MIN {
-                    prev_resolved.acc
-                } else {
-                    anim.acc
-                },
-                a: if anim.a == i32::MIN {
-                    prev_resolved.a
-                } else {
-                    anim.a
-                },
-                r: if anim.r == i32::MIN {
-                    prev_resolved.r
-                } else {
-                    anim.r
-                },
-                g: if anim.g == i32::MIN {
-                    prev_resolved.g
-                } else {
-                    anim.g
-                },
-                b: if anim.b == i32::MIN {
-                    prev_resolved.b
-                } else {
-                    anim.b
-                },
-                angle: if anim.angle == i32::MIN {
-                    prev_resolved.angle
-                } else {
-                    anim.angle
-                },
-            }
-        }
+        Some(prev_resolved) => ResolvedAnimation {
+            time: if anim.time == i32::MIN {
+                prev_resolved.time
+            } else {
+                anim.time
+            },
+            x: if anim.x == i32::MIN {
+                prev_resolved.x
+            } else {
+                anim.x
+            },
+            y: if anim.y == i32::MIN {
+                prev_resolved.y
+            } else {
+                anim.y
+            },
+            w: if anim.w == i32::MIN {
+                prev_resolved.w
+            } else {
+                anim.w
+            },
+            h: if anim.h == i32::MIN {
+                prev_resolved.h
+            } else {
+                anim.h
+            },
+            acc: if anim.acc == i32::MIN {
+                prev_resolved.acc
+            } else {
+                anim.acc
+            },
+            a: if anim.a == i32::MIN {
+                prev_resolved.a
+            } else {
+                anim.a
+            },
+            r: if anim.r == i32::MIN {
+                prev_resolved.r
+            } else {
+                anim.r
+            },
+            g: if anim.g == i32::MIN {
+                prev_resolved.g
+            } else {
+                anim.g
+            },
+            b: if anim.b == i32::MIN {
+                prev_resolved.b
+            } else {
+                anim.b
+            },
+            angle: if anim.angle == i32::MIN {
+                prev_resolved.angle
+            } else {
+                anim.angle
+            },
+        },
     }
 }
 #[derive(Clone, Copy)]

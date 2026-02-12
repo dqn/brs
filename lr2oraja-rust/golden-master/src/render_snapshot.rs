@@ -211,12 +211,10 @@ fn should_skip_for_parity(skin: &Skin, object: &SkinObjectType) -> bool {
     // region metadata. Keep the loader snapshot-compatible while excluding it
     // from RenderSnapshot parity.
     matches!(skin.header.skin_type, Some(SkinType::MusicSelect))
-        && matches!(
+        && (matches!(
             object,
             SkinObjectType::Text(text) if text.ref_id.map(|id| id.0) == Some(STRING_SEARCHWORD)
-        )
-        || matches!(skin.header.skin_type, Some(SkinType::MusicSelect))
-            && object.base().name.as_deref() == Some("irname")
+        ) || object.base().name.as_deref() == Some("irname"))
 }
 
 fn is_object_valid_for_prepare(object: &SkinObjectType) -> bool {
@@ -257,12 +255,12 @@ fn matches_option_conditions(
         }
 
         if let Some(selected) = skin.options.get(&abs).copied() {
-            return if op > 0 { selected == 1 } else { selected == 0 };
+            if op > 0 { selected == 1 } else { selected == 0 }
+        } else {
+            // Unknown option IDs are treated as SkinObject options in Java.
+            // Missing values are rejected for both positive and negative cases.
+            false
         }
-
-        // Unknown option IDs are treated as SkinObject options in Java.
-        // Missing values are rejected for both positive and negative cases.
-        false
     });
 
     if !static_option_ok {
@@ -415,10 +413,7 @@ fn is_static_without_musicselect_condition(id: i32) -> bool {
     )
 }
 
-fn evaluate_static_draw_condition(
-    cond: BooleanId,
-    provider: &dyn SkinStateProvider,
-) -> bool {
+fn evaluate_static_draw_condition(cond: BooleanId, provider: &dyn SkinStateProvider) -> bool {
     evaluate_draw_condition(cond, provider)
 }
 
@@ -435,22 +430,22 @@ fn evaluate_draw_condition(cond: BooleanId, provider: &dyn SkinStateProvider) ->
 fn java_mock_boolean_default(id: i32) -> Option<bool> {
     // Mirrors default object graph in Java golden-master screenshot mocks.
     match id {
-        2 => Some(true),    // OPTION_SONGBAR
-        40 => Some(true),   // OPTION_BGAOFF (BGA disabled by default)
-        41 => Some(false),  // OPTION_BGAON
-        50 => Some(false),  // OPTION_OFFLINE
-        51 => Some(true),   // OPTION_ONLINE
-        190 => Some(true),  // OPTION_NO_STAGEFILE
-        191 => Some(false), // OPTION_STAGEFILE
-        192 => Some(true),  // OPTION_NO_BANNER
-        193 => Some(false), // OPTION_BANNER
-        194 => Some(true),  // OPTION_NO_BACKBMP
-        195 => Some(false), // OPTION_BACKBMP
-        330 => Some(false), // OPTION_UPDATE_SCORE
-        332 => Some(false), // OPTION_UPDATE_MISSCOUNT
-        335 => Some(false), // OPTION_UPDATE_SCORERANK
+        2 => Some(true),     // OPTION_SONGBAR
+        40 => Some(true),    // OPTION_BGAOFF (BGA disabled by default)
+        41 => Some(false),   // OPTION_BGAON
+        50 => Some(true),    // OPTION_OFFLINE (Java mock has empty IRStatus[])
+        51 => Some(false),   // OPTION_ONLINE (no IR connections in mock)
+        190 => Some(true),   // OPTION_NO_STAGEFILE
+        191 => Some(false),  // OPTION_STAGEFILE
+        192 => Some(true),   // OPTION_NO_BANNER
+        193 => Some(false),  // OPTION_BANNER
+        194 => Some(true),   // OPTION_NO_BACKBMP
+        195 => Some(false),  // OPTION_BACKBMP
+        330 => Some(false),  // OPTION_UPDATE_SCORE
+        332 => Some(false),  // OPTION_UPDATE_MISSCOUNT
+        335 => Some(false),  // OPTION_UPDATE_SCORERANK
         1008 => Some(false), // OPTION_TABLE_SONG
-        290 => Some(false), // OPTION_MODE_COURSE
+        290 => Some(false),  // OPTION_MODE_COURSE
         _ => None,
     }
 }
@@ -501,7 +496,11 @@ fn is_object_renderable(
     true
 }
 
-fn should_force_visible(name: Option<&str>, skin_type: Option<SkinType>, object_index: usize) -> bool {
+fn should_force_visible(
+    name: Option<&str>,
+    skin_type: Option<SkinType>,
+    object_index: usize,
+) -> bool {
     matches!(
         (skin_type, name, object_index),
         (Some(SkinType::MusicSelect), Some("button_replay"), 180)
@@ -513,7 +512,11 @@ fn should_force_note_alpha_zero(skin_type: Option<SkinType>, name: Option<&str>)
     matches!(name, Some("notes"))
 }
 
-fn should_force_hidden(name: Option<&str>, skin_type: Option<SkinType>, object_index: usize) -> bool {
+fn should_force_hidden(
+    name: Option<&str>,
+    skin_type: Option<SkinType>,
+    object_index: usize,
+) -> bool {
     (match (skin_type, name) {
         (Some(SkinType::MusicSelect), Some("mv" | "state_clear")) => true,
         (Some(SkinType::Play7Keys) | Some(SkinType::Play5Keys), Some("nowbpm")) => {
@@ -529,11 +532,10 @@ fn should_force_hidden(name: Option<&str>, skin_type: Option<SkinType>, object_i
             object_index == 190
         }
         _ => false,
-    })
-    || matches!(name, Some("nowbpm")) && object_index == 102
-    || matches!(name, Some("ex_score")) && object_index == 106
-    || matches!(name, Some("gauge")) && object_index == 189
-    || matches!(name, Some("gaugevalue")) && object_index == 190
+    }) || matches!(name, Some("nowbpm")) && object_index == 102
+        || matches!(name, Some("ex_score")) && object_index == 106
+        || matches!(name, Some("gauge")) && object_index == 189
+        || matches!(name, Some("gaugevalue")) && object_index == 190
 }
 
 fn allow_missing_image_ref(name: Option<&str>) -> bool {

@@ -20,5 +20,3 @@ serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-image.workspace = true
-image-compare.workspace = true

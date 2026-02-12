@@ -3768,8 +3768,6 @@ dependencies = [
  "bms-replay",
  "bms-rule",
  "bms-skin",
- "image",
- "image-compare",
  "serde",
  "serde_json",
  "tempfile",

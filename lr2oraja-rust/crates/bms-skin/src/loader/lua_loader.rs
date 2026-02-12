@@ -444,7 +444,13 @@ fn lua_value_to_json(value: &mlua::Value) -> Value {
             }
         }
         mlua::Value::Table(t) => lua_table_to_json(t),
-        _ => Value::Null, // Functions, userdata, etc. → null
+        // Lua functions → sentinel string so PropertyRef deserializes as Script.
+        // This preserves the "draw field is present" semantics: in Java, a Lua
+        // function in dst.draw becomes a BooleanProperty, preventing op from
+        // being used as option_conditions. Without this sentinel, the function
+        // would become null/None and op would incorrectly take over.
+        mlua::Value::Function(_) => Value::String("__lua_function__".to_string()),
+        _ => Value::Null, // userdata, thread, etc. → null
     }
 }
 
@@ -619,10 +625,13 @@ mod tests {
     }
 
     #[test]
-    fn test_function_to_null() {
+    fn test_function_to_sentinel() {
         let lua = Lua::new();
         let val: mlua::Value = lua.load("function() return 1 end").eval().unwrap();
-        assert_eq!(lua_value_to_json(&val), Value::Null);
+        assert_eq!(
+            lua_value_to_json(&val),
+            Value::String("__lua_function__".to_string())
+        );
     }
 
     // -- Lua skin loading --

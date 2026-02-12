@@ -2,14 +2,19 @@
 
 pub mod audio_fixtures;
 pub mod autoplay_fixtures;
+pub mod bga_timeline_fixtures;
+pub mod course_data_fixtures;
 pub mod database_fixtures;
 pub mod e2e_helpers;
 pub mod judge_fixtures;
 pub mod pattern_fixtures;
+pub mod pattern_modifier_detail_fixtures;
 pub mod render_snapshot;
 pub mod replay_e2e_fixtures;
 pub mod rule_fixtures;
+pub mod score_data_property_fixtures;
 pub mod skin_fixtures;
+pub mod song_information_fixtures;
 
 use std::collections::HashMap;
 use std::path::Path;
