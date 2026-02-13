@@ -545,6 +545,7 @@ pub fn sync_play_extended_options(
     phase: PlayPhase,
     is_replay: bool,
     play_config: &PlayConfig,
+    lanecover_changing: bool,
 ) {
     use bms_skin::property_id::*;
 
@@ -564,9 +565,9 @@ pub fn sync_play_extended_options(
     state.booleans.insert(OPTION_STATE_PRACTICE, false);
 
     // Lanecover state flags
-    // OPTION_LANECOVER1_CHANGING is set externally when user is adjusting
-    // (stub: always false for now since we don't track lanecover adjustment state)
-    state.booleans.insert(OPTION_LANECOVER1_CHANGING, false);
+    state
+        .booleans
+        .insert(OPTION_LANECOVER1_CHANGING, lanecover_changing);
     state
         .booleans
         .insert(OPTION_LANECOVER1_ON, play_config.enablelanecover);
@@ -1085,7 +1086,7 @@ mod tests {
         let mut state = SharedGameState::default();
         let pc = PlayConfig::default();
 
-        sync_play_extended_options(&mut state, PlayPhase::Preload, false, &pc);
+        sync_play_extended_options(&mut state, PlayPhase::Preload, false, &pc, false);
 
         assert!(
             *state
@@ -1111,7 +1112,7 @@ mod tests {
             ..Default::default()
         };
 
-        sync_play_extended_options(&mut state, PlayPhase::Playing, false, &pc);
+        sync_play_extended_options(&mut state, PlayPhase::Playing, false, &pc, false);
 
         assert!(
             !*state

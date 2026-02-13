@@ -1,3 +1,10 @@
+use std::io::{Read, Write};
+
+use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE;
+use flate2::Compression;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
 use serde::{Deserialize, Serialize};
 
 use crate::clear_type::ClearType;
@@ -188,6 +195,45 @@ impl ScoreData {
         *field += count;
     }
 
+    /// Decode the ghost field (base64url + gzip compressed per-note judgments).
+    ///
+    /// Returns `None` if the ghost field is empty or the decoded length does not
+    /// match `self.notes`. Each byte is clamped to 0-4 (values outside range
+    /// become 4 = POOR).
+    pub fn decode_ghost(&self) -> Option<Vec<i32>> {
+        if self.ghost.is_empty() {
+            return None;
+        }
+        let compressed = URL_SAFE.decode(&self.ghost).ok()?;
+        let mut decoder = GzDecoder::new(&compressed[..]);
+        let mut buf = Vec::new();
+        decoder.read_to_end(&mut buf).ok()?;
+
+        if buf.len() as i32 != self.notes {
+            return None;
+        }
+
+        let values: Vec<i32> = buf
+            .iter()
+            .map(|&b| {
+                let v = b as i32;
+                if (0..=4).contains(&v) { v } else { 4 }
+            })
+            .collect();
+        Some(values)
+    }
+
+    /// Encode judge values into the ghost field (gzip + base64url).
+    ///
+    /// Each value should be 0-4. The result is stored in `self.ghost`.
+    pub fn encode_ghost(&mut self, values: &[i32]) {
+        let bytes: Vec<u8> = values.iter().map(|&v| v as u8).collect();
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&bytes).expect("gzip write failed");
+        let compressed = encoder.finish().expect("gzip finish failed");
+        self.ghost = URL_SAFE.encode(&compressed);
+    }
+
     /// Get the total count across all judgments.
     pub fn total_judge_count(&self) -> i32 {
         self.epg
@@ -208,6 +254,8 @@ impl ScoreData {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use flate2::Compression;
+    use flate2::write::GzEncoder;
 
     #[test]
     fn default_values() {
@@ -368,6 +416,52 @@ mod tests {
     fn total_judge_count_zero_when_empty() {
         let sd = ScoreData::default();
         assert_eq!(sd.total_judge_count(), 0);
+    }
+
+    #[test]
+    fn decode_ghost_empty_returns_none() {
+        let sd = ScoreData::default();
+        assert!(sd.decode_ghost().is_none());
+    }
+
+    #[test]
+    fn encode_decode_ghost_round_trip() {
+        let mut sd = ScoreData::default();
+        let values = vec![0, 0, 1, 2, 3, 4, 0, 1];
+        sd.notes = values.len() as i32;
+        sd.encode_ghost(&values);
+        assert!(!sd.ghost.is_empty());
+
+        let decoded = sd.decode_ghost().unwrap();
+        assert_eq!(decoded, values);
+    }
+
+    #[test]
+    fn decode_ghost_wrong_length_returns_none() {
+        let mut sd = ScoreData::default();
+        let values = vec![0, 1, 2];
+        sd.notes = 3;
+        sd.encode_ghost(&values);
+        // Change notes count so it mismatches
+        sd.notes = 5;
+        assert!(sd.decode_ghost().is_none());
+    }
+
+    #[test]
+    fn decode_ghost_clamps_out_of_range() {
+        let mut sd = ScoreData::default();
+        // Encode values with out-of-range byte (5 should become 4)
+        let raw = vec![0, 1, 5, 255];
+        sd.notes = raw.len() as i32;
+        // Manually encode bytes
+        let bytes: Vec<u8> = raw.iter().map(|&v| v as u8).collect();
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&bytes).unwrap();
+        let compressed = encoder.finish().unwrap();
+        sd.ghost = URL_SAFE.encode(&compressed);
+
+        let decoded = sd.decode_ghost().unwrap();
+        assert_eq!(decoded, vec![0, 1, 4, 4]);
     }
 
     #[test]

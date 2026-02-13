@@ -37,6 +37,7 @@ use bms_skin::property_mapper;
 
 use crate::app_state::AppStateType;
 use crate::state::{GameStateHandler, StateContext};
+use crate::target_property::TargetProperty;
 use play_skin_state::ScratchAngleState;
 
 /// Extra time after last note before play is considered finished (5 seconds).
@@ -404,11 +405,15 @@ impl PlayState {
         // Initialize ScoreDataProperty for real-time score comparison
         let mut sdp = ScoreDataProperty::new();
         let oldscore = &ctx.resource.oldscore;
+        let best_ghost = oldscore.decode_ghost();
+        let target = TargetProperty::resolve(&ctx.player_config.targetid);
+        let (target_exscore, _target_name) =
+            target.compute_target(total_notes as i32, oldscore.exscore());
         sdp.set_target_score(
             oldscore.exscore(),
-            None,
-            0, // rival score (not implemented yet)
-            None,
+            best_ghost,
+            target_exscore,
+            None, // target ghost (static targets don't have ghost)
             total_notes as i32,
         );
         self.score_data_property = sdp;
@@ -647,6 +652,22 @@ impl GameStateHandler for PlayState {
         self.start_pressed = false;
         self.select_pressed = false;
 
+        // Load best score from DB before play
+        if let Some(db) = ctx.database
+            && let Some(model) = &ctx.resource.bms_model
+        {
+            let sha256 = &model.sha256;
+            let mode = model.mode.mode_id();
+            match db.score_db.get_score_data(sha256, mode) {
+                Ok(Some(old)) => ctx.resource.oldscore = old,
+                Ok(None) => ctx.resource.oldscore = Default::default(),
+                Err(e) => {
+                    warn!("Play: failed to load old score: {e}");
+                    ctx.resource.oldscore = Default::default();
+                }
+            }
+        }
+
         self.init_judge_and_gauge(ctx);
 
         // Initialize InputProcessor for manual play (not autoplay/replay)
@@ -784,6 +805,7 @@ impl GameStateHandler for PlayState {
                 self.phase,
                 self.is_replay,
                 play_config,
+                self.start_pressed || self.select_pressed,
             );
 
             // 23-6: Offsets / Judge per key

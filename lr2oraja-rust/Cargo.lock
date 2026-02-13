@@ -2026,8 +2026,10 @@ name = "bms-rule"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "bms-model",
  "criterion",
+ "flate2",
  "serde",
  "serde_json",
 ]

@@ -13,6 +13,7 @@ mod preview_music;
 mod skin_manager;
 mod state;
 mod system_sound;
+mod target_property;
 mod timer_manager;
 
 use std::path::PathBuf;
