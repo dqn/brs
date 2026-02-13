@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use bms_config::Config;
 use bms_render::state_provider::SkinStateProvider;
 use bms_skin::property_id::{BooleanId, FloatId, IntegerId, StringId, TIMER_MAX, TimerId};
 use bms_skin::skin_object::SkinOffset;
@@ -20,10 +21,8 @@ pub struct SharedGameState {
     pub timers: HashMap<i32, i64>,
     pub integers: HashMap<i32, i32>,
     pub floats: HashMap<i32, f32>,
-    #[allow(dead_code)]
     pub strings: HashMap<i32, String>,
     pub booleans: HashMap<i32, bool>,
-    #[allow(dead_code)]
     pub offsets: HashMap<i32, SkinOffset>,
     pub now_time_ms: i64,
 }
@@ -114,6 +113,104 @@ pub fn sync_timer_state(timer: &TimerManager, state: &Arc<RwLock<SharedGameState
     }
 }
 
+/// Synchronize common system properties (time, volume).
+///
+/// Called once per frame from state_sync_system.
+pub fn sync_common_state(state: &mut SharedGameState, config: &Config) {
+    use bms_skin::property_id::{
+        NUMBER_BGM_VOLUME, NUMBER_CURRENT_FPS, NUMBER_KEY_VOLUME, NUMBER_MASTER_VOLUME,
+        NUMBER_TIME_DAY, NUMBER_TIME_HOUR, NUMBER_TIME_MINUTE, NUMBER_TIME_MONTH,
+        NUMBER_TIME_SECOND, NUMBER_TIME_YEAR,
+    };
+
+    // Current time (local)
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    // Simplified UTC calendar (adequate for skin display)
+    let (year, month, day, hour, minute, second) = unix_to_calendar(now);
+    state.integers.insert(NUMBER_TIME_YEAR, year);
+    state.integers.insert(NUMBER_TIME_MONTH, month);
+    state.integers.insert(NUMBER_TIME_DAY, day);
+    state.integers.insert(NUMBER_TIME_HOUR, hour);
+    state.integers.insert(NUMBER_TIME_MINUTE, minute);
+    state.integers.insert(NUMBER_TIME_SECOND, second);
+
+    // FPS (approximate; exact value requires frame timing)
+    state.integers.insert(NUMBER_CURRENT_FPS, 60);
+
+    // Volume settings from config (0-100 scale)
+    let master = (config.audio.systemvolume * 100.0) as i32;
+    let key = (config.audio.keyvolume * 100.0) as i32;
+    let bgm = (config.audio.bgvolume * 100.0) as i32;
+    state.integers.insert(NUMBER_MASTER_VOLUME, master);
+    state.integers.insert(NUMBER_KEY_VOLUME, key);
+    state.integers.insert(NUMBER_BGM_VOLUME, bgm);
+
+    // Volume as float rates (0.0-1.0)
+    state.floats.insert(
+        bms_skin::property_id::RATE_MASTERVOLUME,
+        config.audio.systemvolume,
+    );
+    state.floats.insert(
+        bms_skin::property_id::RATE_KEYVOLUME,
+        config.audio.keyvolume,
+    );
+    state
+        .floats
+        .insert(bms_skin::property_id::RATE_BGMVOLUME, config.audio.bgvolume);
+}
+
+/// Convert UNIX timestamp (seconds) to UTC calendar components.
+fn unix_to_calendar(secs: u64) -> (i32, i32, i32, i32, i32, i32) {
+    let days = (secs / 86400) as i64;
+    let time_of_day = secs % 86400;
+    let hour = (time_of_day / 3600) as i32;
+    let minute = ((time_of_day % 3600) / 60) as i32;
+    let second = (time_of_day % 60) as i32;
+
+    // Days since 1970-01-01
+    let mut y = 1970i64;
+    let mut remaining = days;
+    loop {
+        let days_in_year = if is_leap(y) { 366 } else { 365 };
+        if remaining < days_in_year {
+            break;
+        }
+        remaining -= days_in_year;
+        y += 1;
+    }
+    let leap = is_leap(y);
+    let month_days: [i64; 12] = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    let mut m = 0;
+    for md in &month_days {
+        if remaining < *md {
+            break;
+        }
+        remaining -= *md;
+        m += 1;
+    }
+    (y as i32, m + 1, remaining as i32 + 1, hour, minute, second)
+}
+
+fn is_leap(y: i64) -> bool {
+    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,5 +275,66 @@ mod tests {
         let offset = provider.offset_value(999);
         assert_eq!(offset.x, 0.0);
         assert_eq!(offset.y, 0.0);
+    }
+
+    #[test]
+    fn sync_common_state_populates_time() {
+        let state_arc = make_state();
+        let config = bms_config::Config::default();
+        let mut shared = state_arc.write().unwrap();
+
+        sync_common_state(&mut shared, &config);
+
+        // Time values should be populated (non-zero year)
+        assert!(
+            *shared
+                .integers
+                .get(&bms_skin::property_id::NUMBER_TIME_YEAR)
+                .unwrap()
+                >= 2024
+        );
+        assert!(
+            shared
+                .integers
+                .contains_key(&bms_skin::property_id::NUMBER_TIME_MONTH)
+        );
+        assert!(
+            shared
+                .integers
+                .contains_key(&bms_skin::property_id::NUMBER_TIME_SECOND)
+        );
+    }
+
+    #[test]
+    fn sync_common_state_populates_volume() {
+        let state_arc = make_state();
+        let config = bms_config::Config::default();
+        let mut shared = state_arc.write().unwrap();
+
+        sync_common_state(&mut shared, &config);
+
+        assert!(
+            shared
+                .integers
+                .contains_key(&bms_skin::property_id::NUMBER_MASTER_VOLUME)
+        );
+        assert!(
+            shared
+                .floats
+                .contains_key(&bms_skin::property_id::RATE_MASTERVOLUME)
+        );
+    }
+
+    #[test]
+    fn unix_to_calendar_epoch() {
+        let (y, m, d, h, min, s) = super::unix_to_calendar(0);
+        assert_eq!((y, m, d, h, min, s), (1970, 1, 1, 0, 0, 0));
+    }
+
+    #[test]
+    fn unix_to_calendar_known_date() {
+        // 2024-01-15 11:30:45 UTC = 1705318245
+        let (y, m, d, h, min, s) = super::unix_to_calendar(1705318245);
+        assert_eq!((y, m, d, h, min, s), (2024, 1, 15, 11, 30, 45));
     }
 }

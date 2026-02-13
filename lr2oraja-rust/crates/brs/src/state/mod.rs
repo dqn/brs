@@ -3,15 +3,19 @@
 // Corresponds to Java MainState abstract class.
 
 pub mod course_result;
+mod course_result_skin_state;
 pub mod decide;
+mod decide_skin_state;
 pub mod key_config;
 pub mod play;
 pub mod result;
+mod result_skin_state;
 pub mod select;
 pub mod skin_config;
 
 use crate::app_state::AppStateType;
 use crate::database_manager::DatabaseManager;
+use crate::game_state::SharedGameState;
 use crate::input_mapper::InputState;
 use crate::player_resource::PlayerResource;
 use crate::skin_manager::SkinManager;
@@ -45,6 +49,9 @@ pub struct StateContext<'a> {
     pub received_chars: &'a [char],
     /// Bevy image assets for BGA loading (None in tests or when not available).
     pub bevy_images: Option<&'a mut bevy::prelude::Assets<bevy::prelude::Image>>,
+    /// Shared game state for skin property synchronization (None in tests).
+    #[allow(dead_code)] // Used by state handlers in Phase 22 steps 2-6
+    pub shared_state: Option<&'a mut SharedGameState>,
 }
 
 /// Trait for game state handlers. Each variant of `AppStateType` has

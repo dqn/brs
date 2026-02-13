@@ -669,6 +669,25 @@ impl GameStateHandler for PlayState {
                 }
             }
         }
+
+        // Sync play state to shared game state for skin rendering
+        if let Some(shared) = &mut ctx.shared_state
+            && let (Some(jm), Some(gauge)) = (&self.judge_manager, &self.gauge)
+        {
+            let current_bpm = ctx
+                .resource
+                .bms_model
+                .as_ref()
+                .map(|m| m.initial_bpm as i32)
+                .unwrap_or(120);
+            play_skin_state::sync_play_state(shared, jm, gauge, current_bpm);
+            play_skin_state::sync_play_options(
+                shared,
+                self.is_autoplay,
+                gauge.active_type() as i32,
+                true, // BGA is always on when bga_processor exists
+            );
+        }
     }
 
     fn input(&mut self, ctx: &mut StateContext) {
@@ -1011,12 +1030,14 @@ fn gauge_type_from_i32(v: i32) -> GaugeType {
 #[cfg(test)]
 impl PlayState {
     /// Set manual key states for testing (bypasses InputProcessor).
+    #[allow(dead_code)]
     pub(crate) fn set_key_states(&mut self, states: Vec<bool>, times: Vec<i64>) {
         self.key_states = states;
         self.key_changed_times = times;
     }
 
     /// Get the current gauge value.
+    #[allow(dead_code)]
     pub(crate) fn gauge_value(&self) -> f32 {
         self.gauge.as_ref().map_or(0.0, |g| g.value())
     }
@@ -1037,6 +1058,7 @@ impl PlayState {
     }
 
     /// Get the max combo from the judge manager.
+    #[allow(dead_code)]
     pub(crate) fn max_combo(&self) -> i32 {
         self.judge_manager.as_ref().map_or(0, |jm| jm.max_combo())
     }
@@ -1071,6 +1093,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         }
     }
 

@@ -208,6 +208,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         }
     }
 
@@ -232,6 +233,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         }
     }
 

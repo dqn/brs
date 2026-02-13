@@ -191,7 +191,10 @@ fn main() -> Result<()> {
         .insert_resource(BrsPlayerResource(resource))
         .insert_resource(BrsConfig(config))
         .insert_resource(BrsPlayerConfig(player_config))
-        .insert_resource(BrsStateRegistry(registry))
+        .insert_resource(BrsStateRegistry {
+            registry,
+            shared_state: Arc::clone(&shared_state),
+        })
         .insert_resource(BrsSharedState(shared_state))
         .insert_resource(BrsDatabase(Arc::new(Mutex::new(database))))
         .insert_resource(BrsInputMapper(InputMapper::new()))
@@ -225,7 +228,12 @@ struct BrsConfig(bms_config::Config);
 struct BrsPlayerConfig(bms_config::PlayerConfig);
 
 #[derive(Resource)]
-struct BrsStateRegistry(StateRegistry);
+struct BrsStateRegistry {
+    registry: StateRegistry,
+    /// Arc clone for state_machine_system to access shared state without
+    /// an extra Bevy system parameter (Bevy has a 16-parameter limit).
+    shared_state: Arc<RwLock<SharedGameState>>,
+}
 
 #[derive(Resource)]
 struct BrsSharedState(Arc<RwLock<SharedGameState>>);
@@ -308,11 +316,13 @@ fn state_machine_system(
             .collect()
     };
 
-    let prev_state = registry.0.current();
+    let prev_state = registry.registry.current();
 
-    // Lock database for this frame (states do synchronous DB access)
+    // Lock database and shared state for this frame
     let db_guard = database.0.lock().unwrap();
     let db_ref = db_guard.as_ref();
+    let shared_arc = Arc::clone(&registry.shared_state);
+    let mut shared_guard = shared_arc.write().unwrap();
     let mut params = TickParams {
         timer: &mut timer.0,
         resource: &mut resource.0,
@@ -325,8 +335,10 @@ fn state_machine_system(
         sound_manager: Some(&mut sound_mgr.0),
         received_chars: &received_chars,
         bevy_images: Some(&mut bevy_images),
+        shared_state: Some(&mut shared_guard),
     };
-    registry.0.tick(&mut params);
+    registry.registry.tick(&mut params);
+    drop(shared_guard);
 
     // Save config if requested by a state (KeyConfig/SkinConfig shutdown)
     if resource.0.config_save_requested {
@@ -339,7 +351,7 @@ fn state_machine_system(
     }
 
     // Notify external integrations on state transitions
-    let current_state = registry.0.current();
+    let current_state = registry.registry.current();
     if current_state != prev_state {
         let song_title = resource.0.bms_model.as_ref().map(|m| m.title.as_str());
         external
@@ -348,6 +360,12 @@ fn state_machine_system(
     }
 }
 
-fn state_sync_system(timer: Res<BrsTimerManager>, shared: Res<BrsSharedState>) {
+fn state_sync_system(
+    timer: Res<BrsTimerManager>,
+    shared: Res<BrsSharedState>,
+    config: Res<BrsConfig>,
+) {
     sync_timer_state(&timer.0, &shared.0);
+    let mut shared_guard = shared.0.write().unwrap();
+    game_state::sync_common_state(&mut shared_guard, &config.0);
 }

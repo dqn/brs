@@ -334,6 +334,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         }
     }
 
@@ -358,6 +359,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         }
     }
 
@@ -726,6 +728,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
 
@@ -768,6 +771,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
 
@@ -812,6 +816,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
         assert!(state.is_key_input_mode());
@@ -830,6 +835,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx2);
         // Still in key_input_mode because baseline key was ignored
@@ -850,6 +856,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx3);
         assert!(!state.is_key_input_mode());

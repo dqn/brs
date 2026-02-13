@@ -139,6 +139,11 @@ impl GameStateHandler for CourseResultState {
             self.fadeout_started = true;
             ctx.timer.set_timer_on(TIMER_FADEOUT);
         }
+
+        // Sync course result state to shared game state for skin rendering
+        if let Some(shared) = &mut ctx.shared_state {
+            super::course_result_skin_state::sync_course_result_state(shared, ctx.resource);
+        }
     }
 
     fn input(&mut self, ctx: &mut StateContext) {
@@ -235,6 +240,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         }
     }
 
@@ -371,6 +377,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -549,6 +556,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
 
         state.create(&mut ctx);
@@ -592,6 +600,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
 
         state.create(&mut ctx);

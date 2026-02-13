@@ -18,7 +18,6 @@ use crate::game_state::SharedGameState;
 /// Synchronize play-specific state into SharedGameState for skin rendering.
 ///
 /// Called once per frame during the Playing phase.
-#[allow(dead_code)]
 pub fn sync_play_state(
     state: &mut SharedGameState,
     jm: &JudgeManager,
@@ -120,6 +119,33 @@ pub fn sync_play_state(
         .insert(bms_skin::property_id::FLOAT_GROOVEGAUGE_1P, gauge_val);
 }
 
+/// Synchronize play option booleans into SharedGameState.
+pub fn sync_play_options(
+    state: &mut SharedGameState,
+    is_autoplay: bool,
+    gauge_type: i32,
+    bga_on: bool,
+) {
+    use bms_skin::property_id::{
+        OPTION_AUTOPLAYOFF, OPTION_AUTOPLAYON, OPTION_BGAOFF, OPTION_BGAON, OPTION_GAUGE_EX,
+        OPTION_GAUGE_GROOVE, OPTION_GAUGE_HARD,
+    };
+
+    // Autoplay flags
+    state.booleans.insert(OPTION_AUTOPLAYON, is_autoplay);
+    state.booleans.insert(OPTION_AUTOPLAYOFF, !is_autoplay);
+
+    // Gauge type flags (mutually exclusive)
+    // gauge_type: 0=AssistEasy, 1=Easy, 2=Normal, 3=Hard, 4=ExHard, etc.
+    state.booleans.insert(OPTION_GAUGE_GROOVE, gauge_type <= 2);
+    state.booleans.insert(OPTION_GAUGE_HARD, gauge_type == 3);
+    state.booleans.insert(OPTION_GAUGE_EX, gauge_type >= 4);
+
+    // BGA flags
+    state.booleans.insert(OPTION_BGAON, bga_on);
+    state.booleans.insert(OPTION_BGAOFF, !bga_on);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,5 +245,65 @@ mod tests {
             .get(&bms_skin::property_id::FLOAT_GROOVEGAUGE_1P)
             .unwrap();
         assert!((val - 20.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn sync_play_options_autoplay_on() {
+        let mut state = SharedGameState::default();
+        sync_play_options(&mut state, true, 2, true);
+        assert!(
+            *state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_AUTOPLAYON)
+                .unwrap()
+        );
+        assert!(
+            !*state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_AUTOPLAYOFF)
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn sync_play_options_gauge_hard() {
+        let mut state = SharedGameState::default();
+        sync_play_options(&mut state, false, 3, true);
+        assert!(
+            !*state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_GAUGE_GROOVE)
+                .unwrap()
+        );
+        assert!(
+            *state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_GAUGE_HARD)
+                .unwrap()
+        );
+        assert!(
+            !*state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_GAUGE_EX)
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn sync_play_options_bga_off() {
+        let mut state = SharedGameState::default();
+        sync_play_options(&mut state, false, 2, false);
+        assert!(
+            !*state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_BGAON)
+                .unwrap()
+        );
+        assert!(
+            *state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_BGAOFF)
+                .unwrap()
+        );
     }
 }
