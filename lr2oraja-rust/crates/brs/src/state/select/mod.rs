@@ -8,6 +8,7 @@ mod select_skin_state;
 
 use tracing::info;
 
+use bms_database::SongInformation;
 use bms_database::song_data::{FAVORITE_CHART, FAVORITE_SONG};
 use bms_input::control_keys::ControlKeys;
 use bms_input::key_command::KeyCommand;
@@ -40,6 +41,8 @@ pub struct MusicSelectState {
     scroll_start_us: Option<i64>,
     /// Scroll direction (-1 = up, 0 = idle, 1 = down).
     scroll_angle: i32,
+    /// Cached song information keyed by sha256 to avoid repeated DB lookups.
+    cached_song_info: Option<(String, SongInformation)>,
 }
 
 impl MusicSelectState {
@@ -54,6 +57,7 @@ impl MusicSelectState {
             center_bar: 0,
             scroll_start_us: None,
             scroll_angle: 0,
+            cached_song_info: None,
         }
     }
 }
@@ -134,6 +138,29 @@ impl GameStateHandler for MusicSelectState {
                 angle_lerp,
                 angle,
             );
+
+            // Sync song information for the currently selected song
+            match self.bar_manager.current() {
+                Some(Bar::Song(song_data)) => {
+                    let sha = &song_data.sha256;
+                    let cached_matches = self
+                        .cached_song_info
+                        .as_ref()
+                        .is_some_and(|(cached_sha, _)| cached_sha == sha);
+                    if !cached_matches {
+                        let info = ctx
+                            .database
+                            .and_then(|db| db.info_db.get_information(sha).ok().flatten());
+                        self.cached_song_info = info.map(|i| (sha.clone(), i));
+                    }
+                    let info_ref = self.cached_song_info.as_ref().map(|(_, i)| i);
+                    select_skin_state::sync_song_information(shared, info_ref);
+                }
+                _ => {
+                    self.cached_song_info = None;
+                    select_skin_state::sync_song_information(shared, None);
+                }
+            }
         }
     }
 

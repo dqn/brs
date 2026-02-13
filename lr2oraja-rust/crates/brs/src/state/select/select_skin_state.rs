@@ -3,9 +3,15 @@
 // Updates SharedGameState with song metadata, bar type, and mode flags
 // from the current selection in MusicSelect state.
 
+use bms_database::SongInformation;
 use bms_render::draw::bar::{BarScrollState, BarSlotData, BarType};
 use bms_skin::property_id::{
-    NUMBER_MAXBPM, NUMBER_MINBPM, NUMBER_TOTALNOTES2, OPTION_5KEYSONG, OPTION_7KEYSONG,
+    FLOAT_CHART_AVERAGEDENSITY, FLOAT_CHART_ENDDENSITY, FLOAT_CHART_PEAKDENSITY,
+    FLOAT_CHART_TOTALGAUGE, NUMBER_DENSITY_AVERAGE, NUMBER_DENSITY_AVERAGE_AFTERDOT,
+    NUMBER_DENSITY_END, NUMBER_DENSITY_END_AFTERDOT, NUMBER_DENSITY_PEAK,
+    NUMBER_DENSITY_PEAK_AFTERDOT, NUMBER_MAINBPM, NUMBER_MAXBPM, NUMBER_MINBPM,
+    NUMBER_SONGGAUGE_TOTAL, NUMBER_TOTALNOTE_BSS, NUMBER_TOTALNOTE_LN, NUMBER_TOTALNOTE_NORMAL,
+    NUMBER_TOTALNOTE_SCRATCH, NUMBER_TOTALNOTES2, OPTION_5KEYSONG, OPTION_7KEYSONG,
     OPTION_9KEYSONG, OPTION_10KEYSONG, OPTION_14KEYSONG, OPTION_BGA, OPTION_FOLDERBAR, OPTION_LN,
     OPTION_NO_BGA, OPTION_NO_LN, OPTION_PLAYABLEBAR, OPTION_SONGBAR, RATE_MUSICSELECT_POSITION,
     STRING_ARTIST, STRING_FULLTITLE, STRING_GENRE, STRING_SUBARTIST, STRING_SUBTITLE, STRING_TITLE,
@@ -201,6 +207,88 @@ fn sync_mode_flags(state: &mut SharedGameState, mode_id: i32) {
     }
 }
 
+/// Synchronize song information properties into SharedGameState.
+///
+/// When `info` is Some, populates note counts, density metrics, main BPM, and TOTAL.
+/// When `info` is None, removes all song information properties.
+pub fn sync_song_information(state: &mut SharedGameState, info: Option<&SongInformation>) {
+    const INTEGER_IDS: &[i32] = &[
+        NUMBER_TOTALNOTE_NORMAL,
+        NUMBER_TOTALNOTE_LN,
+        NUMBER_TOTALNOTE_SCRATCH,
+        NUMBER_TOTALNOTE_BSS,
+        NUMBER_DENSITY_PEAK,
+        NUMBER_DENSITY_PEAK_AFTERDOT,
+        NUMBER_DENSITY_END,
+        NUMBER_DENSITY_END_AFTERDOT,
+        NUMBER_DENSITY_AVERAGE,
+        NUMBER_DENSITY_AVERAGE_AFTERDOT,
+        NUMBER_SONGGAUGE_TOTAL,
+        NUMBER_MAINBPM,
+    ];
+    const FLOAT_IDS: &[i32] = &[
+        FLOAT_CHART_AVERAGEDENSITY,
+        FLOAT_CHART_ENDDENSITY,
+        FLOAT_CHART_PEAKDENSITY,
+        FLOAT_CHART_TOTALGAUGE,
+    ];
+
+    match info {
+        Some(info) => {
+            state.integers.insert(NUMBER_TOTALNOTE_NORMAL, info.n);
+            state.integers.insert(NUMBER_TOTALNOTE_LN, info.ln);
+            state.integers.insert(NUMBER_TOTALNOTE_SCRATCH, info.s);
+            state.integers.insert(NUMBER_TOTALNOTE_BSS, info.ls);
+            state
+                .integers
+                .insert(NUMBER_DENSITY_PEAK, info.peakdensity as i32);
+            state.integers.insert(
+                NUMBER_DENSITY_PEAK_AFTERDOT,
+                ((info.peakdensity * 100.0) as i32) % 100,
+            );
+            state
+                .integers
+                .insert(NUMBER_DENSITY_END, info.enddensity as i32);
+            state.integers.insert(
+                NUMBER_DENSITY_END_AFTERDOT,
+                ((info.enddensity * 100.0) as i32) % 100,
+            );
+            state
+                .integers
+                .insert(NUMBER_DENSITY_AVERAGE, info.density as i32);
+            state.integers.insert(
+                NUMBER_DENSITY_AVERAGE_AFTERDOT,
+                ((info.density * 100.0) as i32) % 100,
+            );
+            state
+                .integers
+                .insert(NUMBER_SONGGAUGE_TOTAL, info.total as i32);
+            state.integers.insert(NUMBER_MAINBPM, info.mainbpm as i32);
+
+            state
+                .floats
+                .insert(FLOAT_CHART_AVERAGEDENSITY, info.density as f32);
+            state
+                .floats
+                .insert(FLOAT_CHART_ENDDENSITY, info.enddensity as f32);
+            state
+                .floats
+                .insert(FLOAT_CHART_PEAKDENSITY, info.peakdensity as f32);
+            state
+                .floats
+                .insert(FLOAT_CHART_TOTALGAUGE, info.total as f32);
+        }
+        None => {
+            for &id in INTEGER_IDS {
+                state.integers.remove(&id);
+            }
+            for &id in FLOAT_IDS {
+                state.floats.remove(&id);
+            }
+        }
+    }
+}
+
 fn clear_song_metadata(state: &mut SharedGameState) {
     state.strings.insert(STRING_TITLE, String::new());
     state.strings.insert(STRING_SUBTITLE, String::new());
@@ -211,6 +299,7 @@ fn clear_song_metadata(state: &mut SharedGameState) {
     state.integers.insert(NUMBER_MINBPM, 0);
     state.integers.insert(NUMBER_MAXBPM, 0);
     state.integers.insert(NUMBER_TOTALNOTES2, 0);
+    sync_song_information(state, None);
 }
 
 #[cfg(test)]
@@ -259,5 +348,128 @@ mod tests {
         assert!(!*state.booleans.get(&OPTION_NO_LN).unwrap());
         assert!(!*state.booleans.get(&OPTION_BGA).unwrap());
         assert!(*state.booleans.get(&OPTION_NO_BGA).unwrap());
+    }
+
+    fn make_test_info() -> SongInformation {
+        SongInformation {
+            sha256: "test_sha".to_string(),
+            n: 100,
+            ln: 20,
+            s: 15,
+            ls: 5,
+            total: 300.0,
+            density: 12.75,
+            peakdensity: 25.50,
+            enddensity: 8.33,
+            mainbpm: 150.0,
+            distribution: String::new(),
+            speedchange: String::new(),
+            lanenotes: String::new(),
+        }
+    }
+
+    #[test]
+    fn sync_song_information_sets_integers() {
+        let mut state = SharedGameState::default();
+        let info = make_test_info();
+        sync_song_information(&mut state, Some(&info));
+
+        assert_eq!(*state.integers.get(&NUMBER_TOTALNOTE_NORMAL).unwrap(), 100);
+        assert_eq!(*state.integers.get(&NUMBER_TOTALNOTE_LN).unwrap(), 20);
+        assert_eq!(*state.integers.get(&NUMBER_TOTALNOTE_SCRATCH).unwrap(), 15);
+        assert_eq!(*state.integers.get(&NUMBER_TOTALNOTE_BSS).unwrap(), 5);
+        assert_eq!(*state.integers.get(&NUMBER_MAINBPM).unwrap(), 150);
+        assert_eq!(*state.integers.get(&NUMBER_SONGGAUGE_TOTAL).unwrap(), 300);
+    }
+
+    #[test]
+    fn sync_song_information_sets_density_afterdot() {
+        let mut state = SharedGameState::default();
+        let info = make_test_info();
+        sync_song_information(&mut state, Some(&info));
+
+        // density=12.75 → INTEGER=12, AFTERDOT=75
+        assert_eq!(*state.integers.get(&NUMBER_DENSITY_AVERAGE).unwrap(), 12);
+        assert_eq!(
+            *state
+                .integers
+                .get(&NUMBER_DENSITY_AVERAGE_AFTERDOT)
+                .unwrap(),
+            75
+        );
+
+        // peakdensity=25.50 → INTEGER=25, AFTERDOT=50
+        assert_eq!(*state.integers.get(&NUMBER_DENSITY_PEAK).unwrap(), 25);
+        assert_eq!(
+            *state.integers.get(&NUMBER_DENSITY_PEAK_AFTERDOT).unwrap(),
+            50
+        );
+
+        // enddensity=8.33 → INTEGER=8, AFTERDOT=33
+        assert_eq!(*state.integers.get(&NUMBER_DENSITY_END).unwrap(), 8);
+        assert_eq!(
+            *state.integers.get(&NUMBER_DENSITY_END_AFTERDOT).unwrap(),
+            33
+        );
+    }
+
+    #[test]
+    fn sync_song_information_sets_floats() {
+        let mut state = SharedGameState::default();
+        let info = make_test_info();
+        sync_song_information(&mut state, Some(&info));
+
+        let eps = 0.001;
+        assert!((*state.floats.get(&FLOAT_CHART_AVERAGEDENSITY).unwrap() - 12.75).abs() < eps);
+        assert!((*state.floats.get(&FLOAT_CHART_ENDDENSITY).unwrap() - 8.33).abs() < eps);
+        assert!((*state.floats.get(&FLOAT_CHART_PEAKDENSITY).unwrap() - 25.50).abs() < eps);
+        assert!((*state.floats.get(&FLOAT_CHART_TOTALGAUGE).unwrap() - 300.0).abs() < eps);
+    }
+
+    #[test]
+    fn sync_song_information_none_removes_all() {
+        let mut state = SharedGameState::default();
+        let info = make_test_info();
+        sync_song_information(&mut state, Some(&info));
+
+        // Verify some properties are set
+        assert!(state.integers.contains_key(&NUMBER_TOTALNOTE_NORMAL));
+        assert!(state.floats.contains_key(&FLOAT_CHART_PEAKDENSITY));
+
+        // Clear
+        sync_song_information(&mut state, None);
+
+        assert!(!state.integers.contains_key(&NUMBER_TOTALNOTE_NORMAL));
+        assert!(!state.integers.contains_key(&NUMBER_TOTALNOTE_LN));
+        assert!(!state.integers.contains_key(&NUMBER_TOTALNOTE_SCRATCH));
+        assert!(!state.integers.contains_key(&NUMBER_TOTALNOTE_BSS));
+        assert!(!state.integers.contains_key(&NUMBER_DENSITY_PEAK));
+        assert!(!state.integers.contains_key(&NUMBER_DENSITY_PEAK_AFTERDOT));
+        assert!(!state.integers.contains_key(&NUMBER_DENSITY_END));
+        assert!(!state.integers.contains_key(&NUMBER_DENSITY_END_AFTERDOT));
+        assert!(!state.integers.contains_key(&NUMBER_DENSITY_AVERAGE));
+        assert!(
+            !state
+                .integers
+                .contains_key(&NUMBER_DENSITY_AVERAGE_AFTERDOT)
+        );
+        assert!(!state.integers.contains_key(&NUMBER_SONGGAUGE_TOTAL));
+        assert!(!state.integers.contains_key(&NUMBER_MAINBPM));
+        assert!(!state.floats.contains_key(&FLOAT_CHART_AVERAGEDENSITY));
+        assert!(!state.floats.contains_key(&FLOAT_CHART_ENDDENSITY));
+        assert!(!state.floats.contains_key(&FLOAT_CHART_PEAKDENSITY));
+        assert!(!state.floats.contains_key(&FLOAT_CHART_TOTALGAUGE));
+    }
+
+    #[test]
+    fn clear_song_metadata_also_clears_song_information() {
+        let mut state = SharedGameState::default();
+        let info = make_test_info();
+        sync_song_information(&mut state, Some(&info));
+        assert!(state.integers.contains_key(&NUMBER_TOTALNOTE_NORMAL));
+
+        clear_song_metadata(&mut state);
+        assert!(!state.integers.contains_key(&NUMBER_TOTALNOTE_NORMAL));
+        assert!(!state.floats.contains_key(&FLOAT_CHART_PEAKDENSITY));
     }
 }

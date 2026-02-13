@@ -5,13 +5,14 @@
 use std::path::Path;
 
 use anyhow::Result;
-use bms_database::{ScoreDataLogDatabase, ScoreDatabase, SongDatabase};
+use bms_database::{ScoreDataLogDatabase, ScoreDatabase, SongDatabase, SongInformationAccessor};
 
 /// Unified database manager holding all database connections.
 pub struct DatabaseManager {
     pub song_db: SongDatabase,
     pub score_db: ScoreDatabase,
     pub score_log_db: ScoreDataLogDatabase,
+    pub info_db: SongInformationAccessor,
 }
 
 impl DatabaseManager {
@@ -24,10 +25,12 @@ impl DatabaseManager {
         let song_db = SongDatabase::open(db_dir.join("song.db"))?;
         let score_db = ScoreDatabase::open(db_dir.join("score.db"))?;
         let score_log_db = ScoreDataLogDatabase::open(db_dir.join("scorelog.db"))?;
+        let info_db = SongInformationAccessor::open(db_dir.join("information.db"))?;
         Ok(Self {
             song_db,
             score_db,
             score_log_db,
+            info_db,
         })
     }
 
@@ -36,10 +39,12 @@ impl DatabaseManager {
         let song_db = SongDatabase::open_in_memory()?;
         let score_db = ScoreDatabase::open_in_memory()?;
         let score_log_db = ScoreDataLogDatabase::open_in_memory()?;
+        let info_db = SongInformationAccessor::open_in_memory()?;
         Ok(Self {
             song_db,
             score_db,
             score_log_db,
+            info_db,
         })
     }
 }
