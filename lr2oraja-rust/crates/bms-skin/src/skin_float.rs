@@ -5,6 +5,7 @@
 
 use crate::property_id::FloatId;
 use crate::skin_object::SkinObjectBase;
+use crate::skin_source::SkinSourceSet;
 
 // ---------------------------------------------------------------------------
 // SkinFloat
@@ -14,7 +15,9 @@ use crate::skin_object::SkinObjectBase;
 #[derive(Debug, Clone)]
 pub struct SkinFloat {
     pub base: SkinObjectBase,
-    /// Positive digit image sources.
+    /// Digit image source set (same format as SkinNumber).
+    pub digit_sources: SkinSourceSet,
+    /// Positive digit image sources (raw IDs, kept for loader compatibility).
     pub image_sources: Vec<i32>,
     /// Negative digit image sources (optional).
     pub minus_image_sources: Vec<i32>,
@@ -38,6 +41,7 @@ impl Default for SkinFloat {
     fn default() -> Self {
         Self {
             base: SkinObjectBase::default(),
+            digit_sources: SkinSourceSet::new(vec![], None, 0),
             image_sources: Vec::new(),
             minus_image_sources: Vec::new(),
             ref_id: None,

@@ -390,6 +390,84 @@ pub fn compute_timing_visualizer_pixels(
     buf
 }
 
+/// Compute gauge graph pixel data.
+///
+/// Draws gauge value history over time. Line and background colors are
+/// determined by the gauge type. Returns RGBA pixel data.
+pub fn compute_gauge_graph_pixels(
+    history: &[f32],
+    gauge_type: usize,
+    colors: &bms_skin::skin_gauge_graph::GaugeGraphColors,
+    line_width: i32,
+    width: u32,
+    height: u32,
+) -> Vec<u8> {
+    let mut buf = vec![0u8; (width * height * 4) as usize];
+    if width == 0 || height == 0 || history.is_empty() {
+        return buf;
+    }
+
+    let color_idx = if gauge_type < bms_skin::skin_gauge_graph::GAUGE_TYPE_TABLE.len() {
+        bms_skin::skin_gauge_graph::GAUGE_TYPE_TABLE[gauge_type]
+    } else {
+        0
+    };
+
+    let type_colors =
+        &colors.types[color_idx.min(bms_skin::skin_gauge_graph::GAUGE_TYPE_COUNT - 1)];
+
+    // Border threshold (typically 80% for normal gauge)
+    let border = 0.8_f32;
+
+    let to_color = |skin_color: &bms_skin::skin_object::Color| -> Color {
+        Color::new(
+            (skin_color.r * 255.0) as u8,
+            (skin_color.g * 255.0) as u8,
+            (skin_color.b * 255.0) as u8,
+            (skin_color.a * 255.0) as u8,
+        )
+    };
+
+    // Draw background fill
+    for (i, &value) in history.iter().enumerate() {
+        let x = (i as f64 / history.len() as f64 * (width - 1) as f64) as u32;
+        let y_val = ((1.0 - value.clamp(0.0, 1.0)) * (height - 1) as f32) as u32;
+
+        let bg_color = if value >= border {
+            to_color(&type_colors.border_bg)
+        } else {
+            to_color(&type_colors.graph_bg)
+        };
+
+        // Fill from value line to bottom
+        for y in y_val..height {
+            set_pixel(&mut buf, x, y, Dimensions::new(width, height), bg_color);
+        }
+    }
+
+    // Draw line
+    let line_color_below = to_color(&type_colors.graph_line);
+    let line_color_above = to_color(&type_colors.border_line);
+    let lw = (line_width.max(1) as u32) / 2;
+
+    for (i, &value) in history.iter().enumerate() {
+        let x = (i as f64 / history.len() as f64 * (width - 1) as f64) as u32;
+        let y_val = ((1.0 - value.clamp(0.0, 1.0)) * (height - 1) as f32) as u32;
+
+        let color = if value >= border {
+            line_color_above
+        } else {
+            line_color_below
+        };
+
+        for dy in y_val.saturating_sub(lw)..=(y_val + lw).min(height - 1) {
+            set_pixel(&mut buf, x, dy, Dimensions::new(width, height), color);
+        }
+    }
+
+    buf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

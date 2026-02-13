@@ -5,6 +5,7 @@
 
 use crate::property_id::IntegerId;
 use crate::skin_object::{SkinObjectBase, SkinOffset};
+use crate::skin_source::SkinSourceSet;
 
 // ---------------------------------------------------------------------------
 // SkinNumber
@@ -72,7 +73,9 @@ pub struct SkinNumber {
     pub space: i32,
     /// Alignment mode.
     pub align: NumberAlign,
-    /// Source image set for positive/unsigned values.
+    /// Digit image source set: images[animation_state][digit_index].
+    /// digit 0-9, 10=period/space, 11=minus.
+    pub digit_sources: SkinSourceSet,
     /// Timer and cycle for animation of the digit images.
     pub image_timer: Option<i32>,
     pub image_cycle: i32,
@@ -93,6 +96,7 @@ impl Default for SkinNumber {
             zero_padding: ZeroPadding::None,
             space: 0,
             align: NumberAlign::Right,
+            digit_sources: SkinSourceSet::new(vec![], None, 0),
             image_timer: None,
             image_cycle: 0,
             has_minus_images: false,

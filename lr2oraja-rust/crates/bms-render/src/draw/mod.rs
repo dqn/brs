@@ -1,7 +1,10 @@
 pub mod bmfont_text;
+pub mod distribution;
+pub mod float;
 pub mod gauge;
 pub mod graph;
 pub mod image;
+pub mod judge;
 pub mod number;
 pub mod slider;
 pub mod text;

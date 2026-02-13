@@ -52,6 +52,43 @@ pub trait SkinStateProvider: Send + Sync {
 
     /// Returns the offset for the given ID. Returns default (all zeros) for unknown IDs.
     fn offset_value(&self, id: i32) -> SkinOffset;
+
+    // -- Visualizer data methods (default: empty) --
+
+    /// Returns BPM change events as (time_us, bpm) pairs.
+    fn bpm_events(&self) -> &[(i64, f64)] {
+        &[]
+    }
+
+    /// Returns recent judge timing errors in microseconds.
+    fn recent_judge_timings(&self) -> &[i64] {
+        &[]
+    }
+
+    /// Returns note distribution counts per lane.
+    fn note_distribution(&self) -> &[u32] {
+        &[]
+    }
+
+    /// Returns timing distribution counts per judge [PG, GR, GD, BD, PR].
+    fn timing_distribution(&self) -> &[u32; 5] {
+        &[0; 5]
+    }
+
+    /// Returns timing visualizer data as (time_us, error_us) pairs.
+    fn timing_visualizer_data(&self) -> &[(i64, i64)] {
+        &[]
+    }
+
+    /// Returns gauge history as values (0.0-1.0).
+    fn gauge_history(&self) -> &[f32] {
+        &[]
+    }
+
+    /// Returns the current gauge type index (0-9).
+    fn gauge_type(&self) -> usize {
+        0
+    }
 }
 
 /// A static state provider for testing and demo purposes.

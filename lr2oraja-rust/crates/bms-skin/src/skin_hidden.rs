@@ -2,6 +2,7 @@
 //
 // Hidden cover and lift cover layers that obscure notes in the play field.
 
+use crate::image_handle::ImageHandle;
 use crate::skin_object::SkinObjectBase;
 
 // ---------------------------------------------------------------------------
@@ -12,8 +13,8 @@ use crate::skin_object::SkinObjectBase;
 #[derive(Debug, Clone)]
 pub struct SkinHidden {
     pub base: SkinObjectBase,
-    /// Image source references.
-    pub images: Vec<i32>,
+    /// Image handles for animation frames.
+    pub images: Vec<ImageHandle>,
     /// Target Y coordinate below which notes disappear.
     pub disapear_line: f32,
     /// Whether to adjust line with lift offset.
@@ -45,8 +46,8 @@ impl Default for SkinHidden {
 #[derive(Debug, Clone)]
 pub struct SkinLiftCover {
     pub base: SkinObjectBase,
-    /// Image source references.
-    pub images: Vec<i32>,
+    /// Image handles for animation frames.
+    pub images: Vec<ImageHandle>,
     /// Target Y coordinate below which notes disappear.
     pub disapear_line: f32,
     /// Whether to adjust line with lift offset.
@@ -97,7 +98,7 @@ mod tests {
     #[test]
     fn test_skin_hidden_with_images() {
         let hidden = SkinHidden {
-            images: vec![1, 2, 3],
+            images: vec![ImageHandle(1), ImageHandle(2), ImageHandle(3)],
             disapear_line: 100.0,
             link_lift: true,
             timer: Some(41),

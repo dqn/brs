@@ -3,8 +3,11 @@
 // Each frame, iterates over Skin.objects in order, resolves draw conditions,
 // interpolates animations, applies offsets, and updates Bevy entities.
 
+use std::hash::{Hash, Hasher};
+
 use bevy::prelude::*;
 use bevy::render::mesh::Mesh2d;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::sprite::MeshMaterial2d;
 
 use bms_skin::skin::Skin;
@@ -51,6 +54,31 @@ pub struct CachedBmFontText(pub String);
 #[derive(Component)]
 pub struct TtfShadowMarker;
 
+/// Marker component for multi-entity skin objects (Number, Gauge, Judge, Float, DistributionGraph).
+/// These objects spawn child sprite entities for rendering.
+#[derive(Component)]
+pub struct MultiEntityMarker;
+
+/// Marker component for child sprites under a multi-entity skin object.
+#[derive(Component)]
+pub struct MultiEntityChild;
+
+/// Caches a hash of the last rendered state to avoid unnecessary child re-spawning.
+#[derive(Component, Default)]
+pub struct CachedMultiEntityHash(pub u64);
+
+/// Marker component for procedural texture skin objects (BpmGraph, HitErrorVisualizer, etc.).
+/// These render CPU-generated pixel buffers as Bevy Image textures.
+#[derive(Component)]
+pub struct ProceduralTextureMarker;
+
+/// Tracks the Bevy Image handle and content hash for a procedural texture.
+#[derive(Component, Default)]
+pub struct ProceduralTextureState {
+    pub handle: Option<Handle<Image>>,
+    pub hash: u64,
+}
+
 // ---------------------------------------------------------------------------
 // Type aliases for complex query types
 // ---------------------------------------------------------------------------
@@ -68,6 +96,8 @@ type SpriteQuery<'w, 's> = Query<
         Without<TtfTextMarker>,
         Without<BitmapTextMarker>,
         Without<TtfShadowMarker>,
+        Without<MultiEntityMarker>,
+        Without<ProceduralTextureMarker>,
     ),
 >;
 
@@ -118,6 +148,32 @@ type TtfShadowQuery<'w, 's> = Query<
         Without<TtfTextMarker>,
         Without<BitmapTextMarker>,
     ),
+>;
+
+type MultiEntityQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static SkinObjectEntity,
+        &'static mut Transform,
+        &'static mut Visibility,
+        &'static mut CachedMultiEntityHash,
+    ),
+    With<MultiEntityMarker>,
+>;
+
+type ProceduralTextureQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static SkinObjectEntity,
+        &'static mut Transform,
+        &'static mut Visibility,
+        &'static mut Sprite,
+        &'static mut ProceduralTextureState,
+    ),
+    With<ProceduralTextureMarker>,
 >;
 
 // ---------------------------------------------------------------------------
@@ -191,6 +247,37 @@ pub fn setup_skin(
                     ));
                 }
             },
+            // Multi-entity types: Number, Gauge, Judge, Float, DistributionGraph
+            // These spawn child sprites dynamically each frame.
+            SkinObjectType::Number(_)
+            | SkinObjectType::Float(_)
+            | SkinObjectType::Gauge(_)
+            | SkinObjectType::Judge(_)
+            | SkinObjectType::DistributionGraph(_) => {
+                commands.spawn((
+                    Transform::default(),
+                    Visibility::Hidden,
+                    marker,
+                    MultiEntityMarker,
+                    CachedMultiEntityHash::default(),
+                ));
+            }
+            // Procedural texture types: rendered from CPU pixel buffers.
+            SkinObjectType::BpmGraph(_)
+            | SkinObjectType::HitErrorVisualizer(_)
+            | SkinObjectType::NoteDistributionGraph(_)
+            | SkinObjectType::TimingDistributionGraph(_)
+            | SkinObjectType::TimingVisualizer(_)
+            | SkinObjectType::GaugeGraph(_) => {
+                commands.spawn((
+                    Sprite::default(),
+                    Transform::default(),
+                    Visibility::Hidden,
+                    marker,
+                    ProceduralTextureMarker,
+                    ProceduralTextureState::default(),
+                ));
+            }
             _ => {
                 commands.spawn((
                     Sprite::default(),
@@ -228,8 +315,11 @@ pub fn skin_render_system(
     mut ttf_query: TtfTextQuery,
     mut bitmap_query: BitmapTextQuery,
     mut shadow_query: TtfShadowQuery,
+    mut multi_entity_query: MultiEntityQuery,
+    mut procedural_query: ProceduralTextureQuery,
     mut meshes: ResMut<Assets<Mesh>>,
     mut df_materials: ResMut<Assets<DistanceFieldMaterial>>,
+    mut images: ResMut<Assets<Image>>,
 ) {
     let Some(state) = render_state else {
         return;
@@ -519,11 +609,550 @@ pub fn skin_render_system(
 
         *visibility = Visibility::Visible;
     }
+
+    // --- Multi-entity objects (Number, Gauge, Judge, Float, DistributionGraph) ---
+    for (entity, marker, mut transform, mut visibility, mut cached_hash) in &mut multi_entity_query
+    {
+        let idx = marker.object_index;
+        if idx >= skin.objects.len() {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+
+        let object = &skin.objects[idx];
+        let base = object.base();
+
+        let Some((rect, color, final_angle, final_alpha)) = eval::resolve_common(base, provider)
+        else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+
+        let time = eval::resolve_timer_time(base, provider).unwrap_or(0);
+
+        *transform = skin_to_bevy_transform(
+            crate::coord::SkinRect {
+                x: rect.x,
+                y: rect.y,
+                w: rect.w,
+                h: rect.h,
+            },
+            crate::coord::ScreenSize {
+                w: skin.width,
+                h: skin.height,
+            },
+            idx as f32 * 0.001,
+            crate::coord::RotationParams {
+                angle_deg: final_angle,
+                center_x: base.center_x,
+                center_y: base.center_y,
+            },
+        );
+
+        let obj_color = bevy::prelude::Color::srgba(color.r, color.g, color.b, final_alpha);
+
+        // Compute a hash of the current state for change detection
+        let new_hash = compute_multi_entity_hash(object, provider, time, &rect);
+
+        if new_hash != cached_hash.0 {
+            commands.entity(entity).despawn_descendants();
+
+            match object {
+                SkinObjectType::Number(num) => {
+                    spawn_number_children(
+                        &mut commands,
+                        entity,
+                        num,
+                        provider,
+                        tex_map,
+                        time,
+                        &rect,
+                        obj_color,
+                    );
+                }
+                SkinObjectType::Float(float_obj) => {
+                    spawn_float_children(
+                        &mut commands,
+                        entity,
+                        float_obj,
+                        provider,
+                        tex_map,
+                        time,
+                        &rect,
+                        obj_color,
+                    );
+                }
+                SkinObjectType::Gauge(gauge) => {
+                    spawn_gauge_children(
+                        &mut commands,
+                        entity,
+                        gauge,
+                        provider,
+                        tex_map,
+                        time,
+                        &rect,
+                        obj_color,
+                    );
+                }
+                SkinObjectType::Judge(judge) => {
+                    spawn_judge_children(
+                        &mut commands,
+                        entity,
+                        judge,
+                        provider,
+                        tex_map,
+                        time,
+                        &rect,
+                        obj_color,
+                    );
+                }
+                SkinObjectType::DistributionGraph(dg) => {
+                    spawn_distribution_children(
+                        &mut commands,
+                        entity,
+                        dg,
+                        provider,
+                        tex_map,
+                        &rect,
+                        obj_color,
+                    );
+                }
+                _ => {}
+            }
+
+            cached_hash.0 = new_hash;
+        }
+
+        *visibility = Visibility::Visible;
+    }
+
+    // --- Procedural texture objects (BpmGraph, HitErrorVisualizer, etc.) ---
+    for (marker, mut transform, mut visibility, mut sprite, mut proc_state) in &mut procedural_query
+    {
+        let idx = marker.object_index;
+        if idx >= skin.objects.len() {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+
+        let object = &skin.objects[idx];
+        let base = object.base();
+
+        let Some((rect, color, final_angle, final_alpha)) = eval::resolve_common(base, provider)
+        else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+
+        *transform = skin_to_bevy_transform(
+            crate::coord::SkinRect {
+                x: rect.x,
+                y: rect.y,
+                w: rect.w,
+                h: rect.h,
+            },
+            crate::coord::ScreenSize {
+                w: skin.width,
+                h: skin.height,
+            },
+            idx as f32 * 0.001,
+            crate::coord::RotationParams {
+                angle_deg: final_angle,
+                center_x: base.center_x,
+                center_y: base.center_y,
+            },
+        );
+
+        sprite.custom_size = Some(Vec2::new(rect.w, rect.h));
+        sprite.color = bevy::prelude::Color::srgba(color.r, color.g, color.b, final_alpha);
+
+        let width = rect.w.max(1.0) as u32;
+        let height = rect.h.max(1.0) as u32;
+
+        let pixels = generate_procedural_pixels(object, provider, width, height);
+
+        if let Some(pixels) = pixels {
+            let mut hasher = std::hash::DefaultHasher::new();
+            pixels.hash(&mut hasher);
+            let new_hash = hasher.finish();
+
+            if new_hash != proc_state.hash {
+                let bevy_image = Image::new(
+                    Extent3d {
+                        width,
+                        height,
+                        depth_or_array_layers: 1,
+                    },
+                    TextureDimension::D2,
+                    pixels,
+                    TextureFormat::Rgba8UnormSrgb,
+                    bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
+                );
+                let handle = images.add(bevy_image);
+                sprite.image = handle.clone();
+                proc_state.handle = Some(handle);
+                proc_state.hash = new_hash;
+            } else if let Some(ref handle) = proc_state.handle {
+                sprite.image = handle.clone();
+            }
+        }
+
+        *visibility = Visibility::Visible;
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
+
+/// Computes a hash of the current multi-entity state for change detection.
+fn compute_multi_entity_hash(
+    object: &SkinObjectType,
+    provider: &dyn SkinStateProvider,
+    time: i64,
+    rect: &bms_skin::skin_object::Rect,
+) -> u64 {
+    let mut hasher = std::hash::DefaultHasher::new();
+    time.hash(&mut hasher);
+    rect.x.to_bits().hash(&mut hasher);
+    rect.y.to_bits().hash(&mut hasher);
+    rect.w.to_bits().hash(&mut hasher);
+    rect.h.to_bits().hash(&mut hasher);
+
+    match object {
+        SkinObjectType::Number(num) => {
+            0u8.hash(&mut hasher);
+            let value = num.ref_id.map(|id| provider.integer_value(id)).unwrap_or(0);
+            value.hash(&mut hasher);
+        }
+        SkinObjectType::Float(f) => {
+            1u8.hash(&mut hasher);
+            let value = f.ref_id.map(|id| provider.float_value(id)).unwrap_or(0.0);
+            value.to_bits().hash(&mut hasher);
+        }
+        SkinObjectType::Gauge(g) => {
+            2u8.hash(&mut hasher);
+            // Gauge value from float provider (groove gauge ref)
+            let value = provider.float_value(bms_skin::property_id::FloatId(107));
+            value.to_bits().hash(&mut hasher);
+            g.nodes.hash(&mut hasher);
+        }
+        SkinObjectType::Judge(j) => {
+            3u8.hash(&mut hasher);
+            j.player.hash(&mut hasher);
+            // Current judge type
+            let judge_type =
+                provider.integer_value(bms_skin::property_id::IntegerId(if j.player == 0 {
+                    75
+                } else {
+                    175
+                }));
+            judge_type.hash(&mut hasher);
+            // Combo count
+            let combo =
+                provider.integer_value(bms_skin::property_id::IntegerId(if j.player == 0 {
+                    71
+                } else {
+                    171
+                }));
+            combo.hash(&mut hasher);
+        }
+        SkinObjectType::DistributionGraph(dg) => {
+            4u8.hash(&mut hasher);
+            dg.graph_type.hash(&mut hasher);
+        }
+        _ => {}
+    }
+
+    hasher.finish()
+}
+
+/// Spawns child sprites for a SkinNumber.
+#[allow(clippy::too_many_arguments)]
+fn spawn_number_children(
+    commands: &mut Commands,
+    parent: Entity,
+    num: &bms_skin::skin_number::SkinNumber,
+    provider: &dyn SkinStateProvider,
+    tex_map: &TextureMap,
+    time: i64,
+    rect: &bms_skin::skin_object::Rect,
+    obj_color: bevy::prelude::Color,
+) {
+    let value = num.ref_id.map(|id| provider.integer_value(id)).unwrap_or(0);
+
+    let digit_images = num.digit_sources.get_images(time);
+    let Some(digit_images) = digit_images else {
+        return;
+    };
+
+    let digit_w = if num.keta > 0 {
+        rect.w / num.keta as f32
+    } else {
+        rect.w
+    };
+
+    let config = draw::number::NumberConfig {
+        keta: num.keta,
+        zero_padding: num.zero_padding,
+        align: num.align,
+        space: num.space,
+        digit_w,
+        negative: num.has_minus_images,
+    };
+
+    let dst = bms_skin::skin_object::Rect::new(0.0, 0.0, rect.w, rect.h);
+    let cmds = draw::number::compute_number_draw(value, &dst, config);
+
+    for cmd in &cmds {
+        let src_idx = cmd.source_index as usize;
+        if src_idx >= digit_images.len() {
+            continue;
+        }
+        let handle = digit_images[src_idx];
+        let Some(entry) = tex_map.get(handle) else {
+            continue;
+        };
+
+        let local_x = cmd.dst_rect.x + cmd.dst_rect.w / 2.0 - rect.w / 2.0;
+        let local_y = -(cmd.dst_rect.y + cmd.dst_rect.h / 2.0 - rect.h / 2.0);
+
+        commands.entity(parent).with_child((
+            Sprite {
+                image: entry.handle.clone(),
+                custom_size: Some(Vec2::new(cmd.dst_rect.w, cmd.dst_rect.h)),
+                color: obj_color,
+                ..default()
+            },
+            Transform::from_xyz(local_x, local_y, 0.0001),
+            MultiEntityChild,
+        ));
+    }
+}
+
+/// Spawns child sprites for a SkinFloat.
+#[allow(clippy::too_many_arguments)]
+fn spawn_float_children(
+    commands: &mut Commands,
+    parent: Entity,
+    float_obj: &bms_skin::skin_float::SkinFloat,
+    provider: &dyn SkinStateProvider,
+    tex_map: &TextureMap,
+    time: i64,
+    rect: &bms_skin::skin_object::Rect,
+    obj_color: bevy::prelude::Color,
+) {
+    let value = float_obj
+        .ref_id
+        .map(|id| provider.float_value(id))
+        .unwrap_or(0.0)
+        * float_obj.gain;
+
+    let digit_images = float_obj.digit_sources.get_images(time);
+    let Some(digit_images) = digit_images else {
+        return;
+    };
+
+    let total_keta = float_obj.iketa + float_obj.fketa + 1; // +1 for decimal point
+    let digit_w = if total_keta > 0 {
+        rect.w / total_keta as f32
+    } else {
+        rect.w
+    };
+
+    let cmds = draw::float::compute_float_draw(value, rect, float_obj, digit_w);
+
+    for cmd in &cmds {
+        let src_idx = cmd.source_index as usize;
+        if src_idx >= digit_images.len() {
+            continue;
+        }
+        let handle = digit_images[src_idx];
+        let Some(entry) = tex_map.get(handle) else {
+            continue;
+        };
+
+        let local_x = cmd.dst_rect.x + cmd.dst_rect.w / 2.0 - rect.w / 2.0;
+        let local_y = -(cmd.dst_rect.y + cmd.dst_rect.h / 2.0 - rect.h / 2.0);
+
+        commands.entity(parent).with_child((
+            Sprite {
+                image: entry.handle.clone(),
+                custom_size: Some(Vec2::new(cmd.dst_rect.w, cmd.dst_rect.h)),
+                color: obj_color,
+                ..default()
+            },
+            Transform::from_xyz(local_x, local_y, 0.0001),
+            MultiEntityChild,
+        ));
+    }
+}
+
+/// Spawns child sprites for a SkinGauge.
+#[allow(clippy::too_many_arguments)]
+fn spawn_gauge_children(
+    commands: &mut Commands,
+    parent: Entity,
+    gauge: &bms_skin::skin_gauge::SkinGauge,
+    provider: &dyn SkinStateProvider,
+    tex_map: &TextureMap,
+    time: i64,
+    rect: &bms_skin::skin_object::Rect,
+    obj_color: bevy::prelude::Color,
+) {
+    let gauge_value = provider.float_value(bms_skin::property_id::FloatId(107));
+
+    let parts: Vec<_> = gauge
+        .parts
+        .iter()
+        .map(|p| (p.part_type, p.images.clone(), p.timer, p.cycle))
+        .collect();
+
+    let dst = bms_skin::skin_object::Rect::new(0.0, 0.0, rect.w, rect.h);
+    let cmds = draw::gauge::compute_gauge_draw(gauge.nodes, gauge_value, &parts, time, &dst);
+
+    for cmd in &cmds {
+        let Some(entry) = tex_map.get(cmd.image_handle) else {
+            continue;
+        };
+
+        let local_x = cmd.dst_rect.x + cmd.dst_rect.w / 2.0 - rect.w / 2.0;
+        let local_y = -(cmd.dst_rect.y + cmd.dst_rect.h / 2.0 - rect.h / 2.0);
+
+        commands.entity(parent).with_child((
+            Sprite {
+                image: entry.handle.clone(),
+                custom_size: Some(Vec2::new(cmd.dst_rect.w, cmd.dst_rect.h)),
+                color: obj_color,
+                ..default()
+            },
+            Transform::from_xyz(local_x, local_y, 0.0001),
+            MultiEntityChild,
+        ));
+    }
+}
+
+/// Spawns child sprites for a SkinJudge.
+#[allow(clippy::too_many_arguments)]
+fn spawn_judge_children(
+    commands: &mut Commands,
+    parent: Entity,
+    judge: &bms_skin::skin_judge::SkinJudge,
+    provider: &dyn SkinStateProvider,
+    tex_map: &TextureMap,
+    time: i64,
+    rect: &bms_skin::skin_object::Rect,
+    obj_color: bevy::prelude::Color,
+) {
+    let cmds = draw::judge::compute_judge_draw(judge, provider, tex_map, time, rect);
+
+    for cmd in &cmds {
+        let Some(entry) = tex_map.get(cmd.image_handle) else {
+            continue;
+        };
+
+        let local_x = cmd.dst_rect.x + cmd.dst_rect.w / 2.0 - rect.w / 2.0;
+        let local_y = -(cmd.dst_rect.y + cmd.dst_rect.h / 2.0 - rect.h / 2.0);
+
+        commands.entity(parent).with_child((
+            Sprite {
+                image: entry.handle.clone(),
+                custom_size: Some(Vec2::new(cmd.dst_rect.w, cmd.dst_rect.h)),
+                color: obj_color,
+                ..default()
+            },
+            Transform::from_xyz(local_x, local_y, 0.0001),
+            MultiEntityChild,
+        ));
+    }
+}
+
+/// Spawns child sprites for a SkinDistributionGraph.
+fn spawn_distribution_children(
+    commands: &mut Commands,
+    parent: Entity,
+    dg: &bms_skin::skin_distribution_graph::SkinDistributionGraph,
+    provider: &dyn SkinStateProvider,
+    tex_map: &TextureMap,
+    rect: &bms_skin::skin_object::Rect,
+    obj_color: bevy::prelude::Color,
+) {
+    let cmds = draw::distribution::compute_distribution_draw(dg, provider, tex_map, rect);
+
+    for cmd in &cmds {
+        let Some(entry) = tex_map.get(cmd.image_handle) else {
+            continue;
+        };
+
+        let local_x = cmd.dst_rect.x + cmd.dst_rect.w / 2.0 - rect.w / 2.0;
+        let local_y = -(cmd.dst_rect.y + cmd.dst_rect.h / 2.0 - rect.h / 2.0);
+
+        commands.entity(parent).with_child((
+            Sprite {
+                image: entry.handle.clone(),
+                custom_size: Some(Vec2::new(cmd.dst_rect.w, cmd.dst_rect.h)),
+                color: obj_color,
+                ..default()
+            },
+            Transform::from_xyz(local_x, local_y, 0.0001),
+            MultiEntityChild,
+        ));
+    }
+}
+
+/// Generates pixel data for procedural texture skin objects.
+fn generate_procedural_pixels(
+    object: &SkinObjectType,
+    provider: &dyn SkinStateProvider,
+    width: u32,
+    height: u32,
+) -> Option<Vec<u8>> {
+    match object {
+        SkinObjectType::BpmGraph(_) => {
+            let events = provider.bpm_events();
+            Some(draw::visualizer::compute_bpm_graph_pixels(
+                events, width, height,
+            ))
+        }
+        SkinObjectType::HitErrorVisualizer(_) => {
+            let timings = provider.recent_judge_timings();
+            Some(draw::visualizer::compute_hit_error_pixels(
+                timings, width, height,
+            ))
+        }
+        SkinObjectType::NoteDistributionGraph(_) => {
+            let counts = provider.note_distribution();
+            Some(draw::visualizer::compute_note_distribution_pixels(
+                counts, width, height,
+            ))
+        }
+        SkinObjectType::TimingDistributionGraph(_) => {
+            let counts = provider.timing_distribution();
+            Some(draw::visualizer::compute_timing_distribution_pixels(
+                counts, width, height,
+            ))
+        }
+        SkinObjectType::TimingVisualizer(_) => {
+            let data = provider.timing_visualizer_data();
+            Some(draw::visualizer::compute_timing_visualizer_pixels(
+                data, width, height,
+            ))
+        }
+        SkinObjectType::GaugeGraph(gg) => {
+            let history = provider.gauge_history();
+            let gauge_type = provider.gauge_type();
+            Some(draw::visualizer::compute_gauge_graph_pixels(
+                history,
+                gauge_type,
+                &gg.colors,
+                gg.line_width,
+                width,
+                height,
+            ))
+        }
+        _ => None,
+    }
+}
 
 /// Spawns standard (bitmap_type=0) glyph sprite children with optional shadow.
 #[allow(clippy::too_many_arguments)]
@@ -776,7 +1405,25 @@ fn resolve_object_texture(
             }
             (None, None)
         }
-        // Number, Gauge, and Visualizers need more complex multi-entity rendering.
+        SkinObjectType::Hidden(h) => {
+            let idx = bms_skin::skin_source::image_index(h.images.len(), time, h.cycle);
+            if let Some(handle) = h.images.get(idx)
+                && let Some(entry) = tex_map.get(*handle)
+            {
+                return (Some(entry.handle.clone()), None);
+            }
+            (None, None)
+        }
+        SkinObjectType::LiftCover(lc) => {
+            let idx = bms_skin::skin_source::image_index(lc.images.len(), time, lc.cycle);
+            if let Some(handle) = lc.images.get(idx)
+                && let Some(entry) = tex_map.get(*handle)
+            {
+                return (Some(entry.handle.clone()), None);
+            }
+            (None, None)
+        }
+        // Multi-entity and procedural types are handled by dedicated queries.
         // Text is handled separately via TTF/BMFont queries.
         _ => (None, None),
     }
