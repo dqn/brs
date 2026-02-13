@@ -150,6 +150,16 @@ impl GameStateHandler for ResultState {
             ctx.timer.set_timer_on(TIMER_FADEOUT);
             ctx.timer.set_timer_on(TIMER_RESULTGRAPH_END);
         }
+
+        // Sync result state to shared game state for skin rendering
+        if let Some(shared) = &mut ctx.shared_state {
+            super::result_skin_state::sync_result_state(
+                shared,
+                &ctx.resource.score_data,
+                &ctx.resource.oldscore,
+                ctx.resource.maxcombo,
+            );
+        }
     }
 
     fn input(&mut self, ctx: &mut StateContext) {
@@ -234,6 +244,7 @@ impl ResultState {
         self.do_confirm(ctx);
     }
 
+    #[allow(dead_code)]
     pub(crate) fn cancel(&mut self, ctx: &mut StateContext) {
         self.do_cancel(ctx);
     }
@@ -270,6 +281,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         }
     }
 
@@ -311,6 +323,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.create(&mut ctx);
 
@@ -352,6 +365,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.create(&mut ctx);
 
@@ -392,6 +406,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.create(&mut ctx);
 
@@ -639,6 +654,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -676,6 +692,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -714,6 +731,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
         assert_eq!(state.graph_type(), 1);
@@ -736,6 +754,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx2);
         assert_eq!(state.graph_type(), 0);
@@ -769,6 +788,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
         assert!(!timer.is_timer_on(TIMER_FADEOUT));
@@ -805,6 +825,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
         // graph_type should not change

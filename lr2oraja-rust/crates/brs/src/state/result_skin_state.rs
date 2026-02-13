@@ -1,0 +1,225 @@
+// Result-specific skin state synchronization.
+//
+// Updates SharedGameState with score, judge counts, rank, and update flags
+// for the Result screen.
+
+use bms_rule::ScoreData;
+use bms_skin::property_id::{
+    NUMBER_BAD, NUMBER_DIFF_EXSCORE, NUMBER_DIFF_HIGHSCORE, NUMBER_DIFF_MAXCOMBO, NUMBER_GOOD,
+    NUMBER_GREAT, NUMBER_HIGHSCORE2, NUMBER_MAXCOMBO2, NUMBER_MISS, NUMBER_PERFECT, NUMBER_POOR,
+    NUMBER_SCORE2, NUMBER_TOTALNOTES2, OPTION_RESULT_A_1P, OPTION_RESULT_AA_1P,
+    OPTION_RESULT_AAA_1P, OPTION_RESULT_B_1P, OPTION_RESULT_C_1P, OPTION_RESULT_CLEAR,
+    OPTION_RESULT_D_1P, OPTION_RESULT_E_1P, OPTION_RESULT_F_1P, OPTION_RESULT_FAIL,
+    OPTION_UPDATE_MAXCOMBO, OPTION_UPDATE_MISSCOUNT, OPTION_UPDATE_SCORE, OPTION_UPDATE_SCORERANK,
+};
+
+use crate::game_state::SharedGameState;
+
+/// Synchronize result-specific state into SharedGameState for skin rendering.
+pub fn sync_result_state(
+    state: &mut SharedGameState,
+    score: &ScoreData,
+    oldscore: &ScoreData,
+    maxcombo: i32,
+) {
+    // Score values
+    state.integers.insert(NUMBER_SCORE2, score.exscore());
+    state.integers.insert(NUMBER_MAXCOMBO2, maxcombo);
+    state.integers.insert(NUMBER_TOTALNOTES2, score.notes);
+    state.integers.insert(NUMBER_HIGHSCORE2, oldscore.exscore());
+
+    // Score diffs
+    state
+        .integers
+        .insert(NUMBER_DIFF_EXSCORE, score.exscore() - oldscore.exscore());
+    state
+        .integers
+        .insert(NUMBER_DIFF_HIGHSCORE, score.exscore() - oldscore.exscore());
+    state
+        .integers
+        .insert(NUMBER_DIFF_MAXCOMBO, maxcombo - oldscore.maxcombo);
+
+    // Judge counts
+    state
+        .integers
+        .insert(NUMBER_PERFECT, score.judge_count(bms_rule::JUDGE_PG));
+    state
+        .integers
+        .insert(NUMBER_GREAT, score.judge_count(bms_rule::JUDGE_GR));
+    state
+        .integers
+        .insert(NUMBER_GOOD, score.judge_count(bms_rule::JUDGE_GD));
+    state
+        .integers
+        .insert(NUMBER_BAD, score.judge_count(bms_rule::JUDGE_BD));
+    state
+        .integers
+        .insert(NUMBER_POOR, score.judge_count(bms_rule::JUDGE_PR));
+    state
+        .integers
+        .insert(NUMBER_MISS, score.judge_count(bms_rule::JUDGE_MS));
+
+    // Clear/Fail flags
+    let cleared =
+        score.clear != bms_rule::ClearType::Failed && score.clear != bms_rule::ClearType::NoPlay;
+    state.booleans.insert(OPTION_RESULT_CLEAR, cleared);
+    state.booleans.insert(OPTION_RESULT_FAIL, !cleared);
+
+    // Rank flags (based on score rate)
+    let max_score = score.notes * 2;
+    let rate = if max_score > 0 {
+        score.exscore() as f64 / max_score as f64
+    } else {
+        0.0
+    };
+    sync_rank_flags(state, rate);
+
+    // Score rate as float
+    state
+        .floats
+        .insert(bms_skin::property_id::FLOAT_SCORE_RATE, rate as f32 * 100.0);
+
+    // Update flags (comparing with old score)
+    let score_updated = score.exscore() > oldscore.exscore();
+    let combo_updated = maxcombo > oldscore.maxcombo;
+    let miss_updated = oldscore.notes > 0 && score.minbp < oldscore.minbp;
+    state.booleans.insert(OPTION_UPDATE_SCORE, score_updated);
+    state.booleans.insert(OPTION_UPDATE_MAXCOMBO, combo_updated);
+    state.booleans.insert(OPTION_UPDATE_MISSCOUNT, miss_updated);
+
+    // Rank update check
+    let old_rate = if oldscore.notes > 0 {
+        oldscore.exscore() as f64 / (oldscore.notes * 2) as f64
+    } else {
+        0.0
+    };
+    state.booleans.insert(
+        OPTION_UPDATE_SCORERANK,
+        rank_index(rate) > rank_index(old_rate),
+    );
+}
+
+fn sync_rank_flags(state: &mut SharedGameState, rate: f64) {
+    // Clear all rank flags
+    let ranks = [
+        OPTION_RESULT_AAA_1P,
+        OPTION_RESULT_AA_1P,
+        OPTION_RESULT_A_1P,
+        OPTION_RESULT_B_1P,
+        OPTION_RESULT_C_1P,
+        OPTION_RESULT_D_1P,
+        OPTION_RESULT_E_1P,
+        OPTION_RESULT_F_1P,
+    ];
+    for &r in &ranks {
+        state.booleans.insert(r, false);
+    }
+
+    // Set the appropriate rank (beatoraja thresholds)
+    let rank_id = match rate {
+        r if r >= 8.0 / 9.0 => OPTION_RESULT_AAA_1P,
+        r if r >= 7.0 / 9.0 => OPTION_RESULT_AA_1P,
+        r if r >= 6.0 / 9.0 => OPTION_RESULT_A_1P,
+        r if r >= 5.0 / 9.0 => OPTION_RESULT_B_1P,
+        r if r >= 4.0 / 9.0 => OPTION_RESULT_C_1P,
+        r if r >= 3.0 / 9.0 => OPTION_RESULT_D_1P,
+        r if r >= 2.0 / 9.0 => OPTION_RESULT_E_1P,
+        _ => OPTION_RESULT_F_1P,
+    };
+    state.booleans.insert(rank_id, true);
+}
+
+fn rank_index(rate: f64) -> i32 {
+    match rate {
+        r if r >= 8.0 / 9.0 => 7,
+        r if r >= 7.0 / 9.0 => 6,
+        r if r >= 6.0 / 9.0 => 5,
+        r if r >= 5.0 / 9.0 => 4,
+        r if r >= 4.0 / 9.0 => 3,
+        r if r >= 3.0 / 9.0 => 2,
+        r if r >= 2.0 / 9.0 => 1,
+        _ => 0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_score(exscore_half: i32, notes: i32) -> ScoreData {
+        let mut s = ScoreData::default();
+        s.epg = exscore_half; // epg contributes 2 to exscore
+        s.notes = notes;
+        s
+    }
+
+    #[test]
+    fn test_sync_result_score_values() {
+        let mut state = SharedGameState::default();
+        let score = make_score(10, 20);
+        let oldscore = make_score(5, 20);
+        sync_result_state(&mut state, &score, &oldscore, 15);
+
+        assert_eq!(*state.integers.get(&NUMBER_SCORE2).unwrap(), 20); // 10 * 2
+        assert_eq!(*state.integers.get(&NUMBER_MAXCOMBO2).unwrap(), 15);
+        assert_eq!(*state.integers.get(&NUMBER_HIGHSCORE2).unwrap(), 10); // 5 * 2
+    }
+
+    #[test]
+    fn test_sync_result_clear_flag() {
+        let mut state = SharedGameState::default();
+        let mut score = ScoreData::default();
+        score.clear = bms_rule::ClearType::Normal;
+        score.notes = 10;
+        sync_result_state(&mut state, &score, &ScoreData::default(), 0);
+        assert!(*state.booleans.get(&OPTION_RESULT_CLEAR).unwrap());
+        assert!(!*state.booleans.get(&OPTION_RESULT_FAIL).unwrap());
+    }
+
+    #[test]
+    fn test_sync_result_fail_flag() {
+        let mut state = SharedGameState::default();
+        let mut score = ScoreData::default();
+        score.clear = bms_rule::ClearType::Failed;
+        score.notes = 10;
+        sync_result_state(&mut state, &score, &ScoreData::default(), 0);
+        assert!(!*state.booleans.get(&OPTION_RESULT_CLEAR).unwrap());
+        assert!(*state.booleans.get(&OPTION_RESULT_FAIL).unwrap());
+    }
+
+    #[test]
+    fn test_rank_aaa() {
+        let mut state = SharedGameState::default();
+        sync_rank_flags(&mut state, 0.95);
+        assert!(*state.booleans.get(&OPTION_RESULT_AAA_1P).unwrap());
+        assert!(!*state.booleans.get(&OPTION_RESULT_AA_1P).unwrap());
+    }
+
+    #[test]
+    fn test_rank_f() {
+        let mut state = SharedGameState::default();
+        sync_rank_flags(&mut state, 0.1);
+        assert!(*state.booleans.get(&OPTION_RESULT_F_1P).unwrap());
+        assert!(!*state.booleans.get(&OPTION_RESULT_AAA_1P).unwrap());
+    }
+
+    #[test]
+    fn test_update_flags() {
+        let mut state = SharedGameState::default();
+        let mut score = make_score(15, 20);
+        score.minbp = 3;
+        let mut oldscore = make_score(10, 20);
+        oldscore.minbp = 5;
+        sync_result_state(&mut state, &score, &oldscore, 18);
+        assert!(*state.booleans.get(&OPTION_UPDATE_SCORE).unwrap());
+        assert!(*state.booleans.get(&OPTION_UPDATE_MISSCOUNT).unwrap());
+    }
+
+    #[test]
+    fn test_defaults() {
+        let mut state = SharedGameState::default();
+        sync_result_state(&mut state, &ScoreData::default(), &ScoreData::default(), 0);
+        assert!(state.integers.contains_key(&NUMBER_SCORE2));
+        assert!(state.booleans.contains_key(&OPTION_RESULT_CLEAR));
+    }
+}

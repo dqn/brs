@@ -4,6 +4,7 @@
 // and transitions to Decide when a song is selected.
 
 pub mod bar_manager;
+mod select_skin_state;
 
 use tracing::info;
 
@@ -87,6 +88,16 @@ impl GameStateHandler for MusicSelectState {
         {
             info!("MusicSelect: transition to Decide");
             *ctx.transition = Some(AppStateType::Decide);
+        }
+
+        // Sync select state to shared game state for skin rendering
+        if let Some(shared) = &mut ctx.shared_state {
+            // Determine if current song has LN (from song data metadata)
+            let has_ln = matches!(
+                self.bar_manager.current(),
+                Some(Bar::Song(s)) if s.has_any_long_note()
+            );
+            select_skin_state::sync_select_state(shared, &self.bar_manager, has_ln, true);
         }
     }
 
@@ -432,6 +443,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         }
     }
 
@@ -457,6 +469,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         }
     }
 
@@ -880,6 +893,7 @@ mod tests {
                 sound_manager: None,
                 received_chars: &[],
                 bevy_images: None,
+                shared_state: None,
             };
             state.input(&mut ctx);
         }
@@ -903,6 +917,7 @@ mod tests {
                 sound_manager: None,
                 received_chars: &[],
                 bevy_images: None,
+                shared_state: None,
             };
             state.input(&mut ctx);
         }
@@ -941,6 +956,7 @@ mod tests {
                 sound_manager: None,
                 received_chars: &[],
                 bevy_images: None,
+                shared_state: None,
             };
             state.input(&mut ctx);
         }
@@ -1071,6 +1087,7 @@ mod tests {
                 sound_manager: None,
                 received_chars: &[],
                 bevy_images: None,
+                shared_state: None,
             };
             state.input(&mut ctx);
         }
@@ -1111,6 +1128,7 @@ mod tests {
             sound_manager: None,
             received_chars: &chars,
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
         assert_eq!(state.search_text(), "hi");
@@ -1260,6 +1278,7 @@ mod tests {
                 sound_manager: None,
                 received_chars: &[],
                 bevy_images: None,
+                shared_state: None,
             };
             state.input(&mut ctx);
         }
@@ -1304,6 +1323,7 @@ mod tests {
                 sound_manager: None,
                 received_chars: &[],
                 bevy_images: None,
+                shared_state: None,
             };
             state.input(&mut ctx);
         }

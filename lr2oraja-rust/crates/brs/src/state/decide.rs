@@ -76,6 +76,13 @@ impl GameStateHandler for MusicDecideState {
             info!("MusicDecide: scene timer expired, starting fadeout");
             ctx.timer.set_timer_on(TIMER_FADEOUT);
         }
+
+        // Sync decide state to shared game state for skin rendering
+        if let Some(shared) = &mut ctx.shared_state
+            && let Some(model) = &ctx.resource.bms_model
+        {
+            super::decide_skin_state::sync_decide_state(shared, model);
+        }
     }
 
     fn input(&mut self, ctx: &mut StateContext) {
@@ -166,6 +173,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         }
     }
 
@@ -415,6 +423,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -452,6 +461,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -481,6 +491,7 @@ mod tests {
             sound_manager: None,
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.create(&mut ctx);
         assert_eq!(skin_mgr.take_request(), Some(SkinType::Decide));
@@ -509,6 +520,7 @@ mod tests {
             sound_manager: Some(&mut sound_mgr),
             received_chars: &[],
             bevy_images: None,
+            shared_state: None,
         };
         state.prepare(&mut ctx);
         let drained = sound_mgr.drain();
