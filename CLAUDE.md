@@ -100,4 +100,4 @@ Phase 0-23 全完了（16 crate, ~61,000行）。全 RenderSnapshot GM テスト
 - **Course IR Submission** — コーススコアの IR 送信実装済み。`CourseData` → `IRCourseData` 変換含む。(`brs/src/state/ir_submission.rs`, `brs/src/state/course_result.rs`)
 - **OFFSET_SCRATCHANGLE_1P/2P** — Java `KeyInputProccessor` アルゴリズム忠実移植済み。CW/CCW キー入力によるスムーズ回転。(`brs/src/state/play/play_skin_state.rs`)
 - **Per-lane Judge Tracking** — `JudgeManager` に `lane_judge: Vec<i32>` 追加。per-key 判定値が lane 固有値を反映。(`bms-rule/src/judge_manager.rs`, `brs/src/state/play/play_skin_state.rs`)
-- **2P Side Properties** — `OPTION_2P_*`, `VALUE_JUDGE_2P_KEY*` 等の 2P 側プロパティ未実装。DP モード対応時に実装。(`brs/src/state/play/play_skin_state.rs`)
+- **2P Side Properties** — per-key 判定値（`VALUE_JUDGE_2P_*`）、判定タイミング（`VALUE_JUDGE_2P_DURATION`）、判定インジケータ（`OPTION_2P_PERFECT/EARLY/LATE`）、per-player 判定/コンボタイマー（`TIMER_JUDGE_2P`, `TIMER_COMBO_2P`）実装済み。Java `NowJudgeDrawCondition` 準拠。残: `OPTION_2P_0_9`〜`OPTION_2P_100`（ゲージ範囲）、`OPTION_NOW_*_2P`（リアルタイムランク）は Java にも未定義のため対象外。(`bms-rule/src/judge_manager.rs`, `brs/src/state/play/play_skin_state.rs`, `brs/src/state/play/mod.rs`)

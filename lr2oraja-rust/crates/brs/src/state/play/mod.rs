@@ -29,8 +29,9 @@ use bms_rule::gauge_property::GaugeType;
 use bms_rule::judge_manager::{JudgeConfig, JudgeEvent, JudgeManager};
 use bms_rule::{ClearType, GrooveGauge, JUDGE_BD, JUDGE_MS, JUDGE_PR, JudgeAlgorithm, PlayerRule};
 use bms_skin::property_id::{
-    TIMER_ENDOFNOTE_1P, TIMER_FAILED, TIMER_FULLCOMBO_1P, TIMER_GAUGE_MAX_1P, TIMER_MUSIC_END,
-    TIMER_PLAY, TIMER_READY, TIMER_RHYTHM,
+    TIMER_COMBO_1P, TIMER_COMBO_2P, TIMER_ENDOFNOTE_1P, TIMER_FAILED, TIMER_FULLCOMBO_1P,
+    TIMER_GAUGE_MAX_1P, TIMER_JUDGE_1P, TIMER_JUDGE_2P, TIMER_MUSIC_END, TIMER_PLAY, TIMER_READY,
+    TIMER_RHYTHM,
 };
 use bms_skin::property_mapper;
 
@@ -788,6 +789,7 @@ impl GameStateHandler for PlayState {
             // 23-6: Offsets / Judge per key
             play_skin_state::sync_play_offsets(shared, play_config, &self.scratch_angle);
             play_skin_state::sync_play_judge_per_key(shared, jm, &self.lane_property);
+            play_skin_state::sync_play_judge_indicators(shared, jm);
         }
     }
 
@@ -836,13 +838,27 @@ impl GameStateHandler for PlayState {
                             driver.play_note(&note, 1.0, 0);
                         }
                     }
-                    JudgeEvent::Judge { judge, .. } => {
+                    JudgeEvent::Judge { lane, judge, .. } => {
                         // Trigger miss layer on BD/PR/MS judgments
                         if *judge >= JUDGE_BD
                             && let Some(bga) = &mut self.bga_processor
                         {
                             bga.set_miss_triggered(ptime_us);
                         }
+                        // Per-player judge/combo timers
+                        let player = self.lane_property.lane_player(*lane);
+                        let judge_timer = if player == 0 {
+                            TIMER_JUDGE_1P
+                        } else {
+                            TIMER_JUDGE_2P
+                        };
+                        let combo_timer = if player == 0 {
+                            TIMER_COMBO_1P
+                        } else {
+                            TIMER_COMBO_2P
+                        };
+                        ctx.timer.set_timer_on(judge_timer);
+                        ctx.timer.set_timer_on(combo_timer);
                     }
                     JudgeEvent::HcnGauge { .. } => {
                         // Already handled internally by JudgeManager

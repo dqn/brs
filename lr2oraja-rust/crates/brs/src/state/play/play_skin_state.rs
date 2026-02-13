@@ -652,28 +652,51 @@ pub fn sync_play_judge_per_key(
         .insert(VALUE_JUDGE_2P, jm.now_judge(1) as i32);
 
     // Per-key judge: use per-lane judge values from JudgeManager
-    // Map lane -> skin offset, then set VALUE_JUDGE_1P_SCRATCH + offset
+    // Map lane -> (player, skin offset), then set VALUE_JUDGE_{player}_SCRATCH + offset
     for lane in 0..lane_property.lane_count() {
         let offset = lane_property.lane_skin_offset(lane);
+        let player = lane_property.lane_player(lane);
         if (0..10).contains(&offset) {
-            state
-                .integers
-                .insert(VALUE_JUDGE_1P_SCRATCH + offset, jm.lane_judge(lane));
+            let value_id = bms_skin::property_mapper::key_judge_value_id(player, offset);
+            if value_id >= 0 {
+                state.integers.insert(value_id, jm.lane_judge(lane));
+            }
         }
     }
 
-    // VALUE_JUDGE_1P_DURATION: timing difference of latest judge (from recent_judges)
-    let recent = jm.recent_judges();
-    let idx = jm.recent_judges_index();
-    let duration = if !recent.is_empty() {
-        recent[idx.wrapping_sub(1) % recent.len()]
-    } else {
-        0
-    };
-    // Convert microseconds to milliseconds for skin
-    state
-        .integers
-        .insert(VALUE_JUDGE_1P_DURATION, (duration / 1000) as i32);
+    // Per-player judge duration (microseconds -> milliseconds for skin)
+    state.integers.insert(
+        VALUE_JUDGE_1P_DURATION,
+        (jm.recent_judge_timing(0) / 1000) as i32,
+    );
+    state.integers.insert(
+        VALUE_JUDGE_2P_DURATION,
+        (jm.recent_judge_timing(1) / 1000) as i32,
+    );
+}
+
+/// Synchronize PERFECT/EARLY/LATE draw condition booleans per player.
+///
+/// Ported from Java `NowJudgeDrawCondition`:
+/// - type=0 (PERFECT): `getNowJudge(player) == 1`
+/// - type=1 (EARLY): `getNowJudge(player) > 1 && getRecentJudgeTiming(player) > 0`
+/// - type=2 (LATE): `getNowJudge(player) > 1 && getRecentJudgeTiming(player) < 0`
+pub fn sync_play_judge_indicators(state: &mut SharedGameState, jm: &JudgeManager) {
+    use bms_skin::property_id::*;
+
+    // 1P
+    let j1 = jm.now_judge(0);
+    let t1 = jm.recent_judge_timing(0);
+    state.booleans.insert(OPTION_1P_PERFECT, j1 == 1);
+    state.booleans.insert(OPTION_1P_EARLY, j1 > 1 && t1 > 0);
+    state.booleans.insert(OPTION_1P_LATE, j1 > 1 && t1 < 0);
+
+    // 2P
+    let j2 = jm.now_judge(1);
+    let t2 = jm.recent_judge_timing(1);
+    state.booleans.insert(OPTION_2P_PERFECT, j2 == 1);
+    state.booleans.insert(OPTION_2P_EARLY, j2 > 1 && t2 > 0);
+    state.booleans.insert(OPTION_2P_LATE, j2 > 1 && t2 < 0);
 }
 
 #[cfg(test)]
@@ -1242,6 +1265,114 @@ mod tests {
             state
                 .integers
                 .contains_key(&bms_skin::property_id::VALUE_JUDGE_1P_SCRATCH)
+        );
+    }
+
+    #[test]
+    fn sync_judge_per_key_2p_uses_correct_ids() {
+        // Use Beat14K (DP) to test 2P lane mapping
+        let notes = vec![
+            bms_model::Note {
+                lane: 1,
+                note_type: bms_model::NoteType::Normal,
+                time_us: 1_000_000,
+                end_time_us: 0,
+                end_wav_id: 0,
+                wav_id: 1,
+                damage: 0,
+                pair_index: usize::MAX,
+                micro_starttime: 0,
+                micro_duration: 0,
+            },
+            bms_model::Note {
+                lane: 9,
+                note_type: bms_model::NoteType::Normal,
+                time_us: 1_000_000,
+                end_time_us: 0,
+                end_wav_id: 0,
+                wav_id: 2,
+                damage: 0,
+                pair_index: usize::MAX,
+                micro_starttime: 0,
+                micro_duration: 0,
+            },
+        ];
+        let rule = PlayerRule::lr2();
+        let lp = LaneProperty::new(PlayMode::Beat14K);
+        let config = JudgeConfig {
+            notes: &notes,
+            play_mode: PlayMode::Beat14K,
+            ln_type: bms_model::LnType::LongNote,
+            judge_rank: 100,
+            judge_window_rate: [100, 100, 100],
+            scratch_judge_window_rate: [100, 100, 100],
+            algorithm: JudgeAlgorithm::Combo,
+            autoplay: true,
+            judge_property: &rule.judge,
+            lane_property: Some(&lp),
+        };
+        let jm = JudgeManager::new(&config);
+        let mut state = SharedGameState::default();
+
+        sync_play_judge_per_key(&mut state, &jm, &lp);
+
+        // 2P scratch (lane 15, offset 0) should map to VALUE_JUDGE_2P_SCRATCH
+        assert!(
+            state
+                .integers
+                .contains_key(&bms_skin::property_id::VALUE_JUDGE_2P_SCRATCH)
+        );
+        // 2P duration should be set
+        assert!(
+            state
+                .integers
+                .contains_key(&bms_skin::property_id::VALUE_JUDGE_2P_DURATION)
+        );
+    }
+
+    #[test]
+    fn sync_judge_indicators_initial() {
+        let (jm, _notes, _gauge) = make_judge_manager(true);
+        let mut state = SharedGameState::default();
+
+        sync_play_judge_indicators(&mut state, &jm);
+
+        // No judgments yet: now_judge == 0, all false
+        assert!(
+            !*state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_1P_PERFECT)
+                .unwrap()
+        );
+        assert!(
+            !*state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_1P_EARLY)
+                .unwrap()
+        );
+        assert!(
+            !*state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_1P_LATE)
+                .unwrap()
+        );
+        assert!(
+            !*state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_2P_PERFECT)
+                .unwrap()
+        );
+        assert!(
+            !*state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_2P_EARLY)
+                .unwrap()
+        );
+        assert!(
+            !*state
+                .booleans
+                .get(&bms_skin::property_id::OPTION_2P_LATE)
+                .unwrap()
         );
     }
 }

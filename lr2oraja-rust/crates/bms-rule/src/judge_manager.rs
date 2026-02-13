@@ -193,6 +193,7 @@ pub enum JudgeEvent {
     /// A note was judged.
     Judge {
         note_index: usize,
+        lane: usize,
         judge: usize,
         duration: i64,
     },
@@ -278,6 +279,9 @@ pub struct JudgeManager {
     // 0=none, 1=PG, 2=GR_EARLY, 3=GR_LATE, 4=GD_EARLY, 5=GD_LATE,
     // 6=BD_EARLY, 7=BD_LATE, 8=LN_HOLD
     lane_judge: Vec<i32>,
+
+    // Per-player recent judge timing (microseconds, + = early, - = late)
+    judge_timing: Vec<i64>,
 
     // Timing
     prev_time: i64,
@@ -424,6 +428,7 @@ impl JudgeManager {
             autoplay: config.autoplay,
             auto_presstime,
             lane_judge: vec![0i32; key_count],
+            judge_timing: vec![0i64; player_count],
             multi_bad: MultiBadCollector::new(is_pms),
             prev_time: 0,
         }
@@ -1362,13 +1367,16 @@ impl JudgeManager {
         // Gauge update
         gauge.update(judge);
 
-        // Update now_judge / now_combo for skin display
+        // Update now_judge / now_combo / judge_timing for skin display
         // Java: judgeindex = state.lane / (lanelength / judgenow.length)
         if !self.now_judge.is_empty() && self.lane_count > 0 {
             let judge_index = lane / (self.lane_count / self.now_judge.len());
             if judge_index < self.now_judge.len() {
                 self.now_judge[judge_index] = judge + 1; // +1: 0=no judgment, 1=PG, 2=GR, ...
                 self.now_combo[judge_index] = self.course_combo;
+            }
+            if judge_index < self.judge_timing.len() {
+                self.judge_timing[judge_index] = duration;
             }
         }
 
@@ -1384,6 +1392,7 @@ impl JudgeManager {
         // Emit judge event
         events.push(JudgeEvent::Judge {
             note_index: note_idx,
+            lane,
             judge,
             duration,
         });
@@ -1455,6 +1464,11 @@ impl JudgeManager {
     /// Get the current combo display for a player.
     pub fn now_combo(&self, player: usize) -> i32 {
         self.now_combo.get(player).copied().unwrap_or(0)
+    }
+
+    /// Get the recent judge timing for a player (microseconds, + = early, - = late).
+    pub fn recent_judge_timing(&self, player: usize) -> i64 {
+        self.judge_timing.get(player).copied().unwrap_or(0)
     }
 
     /// Get the per-lane judge value for a specific lane.
@@ -2510,6 +2524,58 @@ mod tests {
             2,
             "now_combo should be 2 after second note"
         );
+    }
+
+    #[test]
+    fn recent_judge_timing_tracks_per_player() {
+        let notes = vec![Note::normal(0, 1_000_000, 1)];
+        let jp = JudgeProperty::sevenkeys();
+        let config = make_config_with_notes(&notes, &jp);
+        let mut jm = JudgeManager::new(&config);
+        let (_prop, mut gauge) = make_gauge();
+
+        // Initially zero
+        assert_eq!(jm.recent_judge_timing(0), 0);
+        assert_eq!(jm.recent_judge_timing(1), 0);
+
+        // Judge first note (PG at exact time -> duration ~0)
+        let key_states = vec![true, false, false, false, false, false, false, false, false];
+        let key_times = vec![
+            1_000_000, NOT_SET, NOT_SET, NOT_SET, NOT_SET, NOT_SET, NOT_SET, NOT_SET,
+        ];
+        jm.update(1_000_000, &notes, &key_states, &key_times, &mut gauge);
+
+        // Player 0 should have timing set (at exact time, duration = 0)
+        assert_eq!(jm.recent_judge_timing(0), 0);
+        // Player 1 unchanged
+        assert_eq!(jm.recent_judge_timing(1), 0);
+    }
+
+    #[test]
+    fn judge_event_contains_lane() {
+        let notes = vec![Note::normal(0, 1_000_000, 1)];
+        let jp = JudgeProperty::sevenkeys();
+        let config = make_config_with_notes(&notes, &jp);
+        let mut jm = JudgeManager::new(&config);
+        let (_prop, mut gauge) = make_gauge();
+
+        let key_states = vec![true, false, false, false, false, false, false, false, false];
+        let key_times = vec![
+            1_000_000, NOT_SET, NOT_SET, NOT_SET, NOT_SET, NOT_SET, NOT_SET, NOT_SET,
+        ];
+        let events = jm.update(1_000_000, &notes, &key_states, &key_times, &mut gauge);
+
+        let judge_events: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, JudgeEvent::Judge { .. }))
+            .collect();
+        assert!(
+            !judge_events.is_empty(),
+            "should have at least one judge event"
+        );
+        if let JudgeEvent::Judge { lane, .. } = judge_events[0] {
+            assert_eq!(*lane, 0, "lane should match the note's lane");
+        }
     }
 
     // --- BSS sckey tracking tests ---
