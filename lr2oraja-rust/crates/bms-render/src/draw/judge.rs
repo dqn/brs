@@ -1,4 +1,4 @@
-use bms_skin::image_handle::ImageHandle;
+use bms_skin::image_handle::{ImageHandle, ImageRegion};
 use bms_skin::property_id::IntegerId;
 use bms_skin::skin_image::SkinImageSource;
 use bms_skin::skin_judge::SkinJudge;
@@ -13,7 +13,7 @@ use super::number::{self, NumberConfig};
 /// A draw command for judge rendering (either judge image or combo digit).
 #[derive(Debug, Clone)]
 pub struct JudgeDrawCommand {
-    pub image_handle: ImageHandle,
+    pub image_region: ImageRegion,
     pub dst_rect: Rect,
 }
 
@@ -43,7 +43,13 @@ pub fn compute_judge_draw(
             && tex_map.get(handle).is_some()
         {
             commands.push(JudgeDrawCommand {
-                image_handle: handle,
+                image_region: ImageRegion {
+                    handle,
+                    x: 0.0,
+                    y: 0.0,
+                    w: 0.0,
+                    h: 0.0,
+                },
                 dst_rect: Rect::new(0.0, 0.0, rect.w, rect.h),
             });
         }
@@ -77,9 +83,11 @@ pub fn compute_judge_draw(
 
             for cmd in &digit_cmds {
                 let src_idx = cmd.source_index as usize;
-                if src_idx < digit_images.len() && tex_map.get(digit_images[src_idx]).is_some() {
+                if src_idx < digit_images.len()
+                    && tex_map.get(digit_images[src_idx].handle).is_some()
+                {
                     commands.push(JudgeDrawCommand {
-                        image_handle: digit_images[src_idx],
+                        image_region: digit_images[src_idx],
                         dst_rect: cmd.dst_rect,
                     });
                 }

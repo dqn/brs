@@ -29,6 +29,18 @@ pub struct ImageRegion {
     pub h: f32,
 }
 
+impl Default for ImageRegion {
+    fn default() -> Self {
+        Self {
+            handle: ImageHandle::NONE,
+            x: 0.0,
+            y: 0.0,
+            w: 0.0,
+            h: 0.0,
+        }
+    }
+}
+
 impl ImageRegion {
     pub fn full(handle: ImageHandle, width: f32, height: f32) -> Self {
         Self {

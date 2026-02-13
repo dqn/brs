@@ -96,11 +96,13 @@ Phase 0-23 全完了（16 crate, ~61,000行）。全 RenderSnapshot GM テスト
 
 - **MovieProcessor** — `ffmpeg-next` による動画デコード実装済み。`movie` cargo feature でゲーティング（default 有効）。(`bms-render/src/bga/ffmpeg_movie_processor.rs`)
 - **PomyuCharaLoader** — ポミュキャラスキンはスタブ。`is_pomyu_chara()` が常に `false`。(`bms-skin/src/pomyu_chara_loader.rs`)
-- **Skin Object Rendering (Loader Wiring)** — レンダリングインフラ（マルチエンティティ基盤、プロシージャルテクスチャパイプライン、draw モジュール）は実装済みだが、ローダーが新フィールドにデータを入れないため描画されない。以下の順序で実装すること:
-  1. **SkinNumber ローダー** — LR2 CSV: `src_number()` で画像グリッドを分割し `digit_sources: SkinSourceSet` にポピュレート。JSON: `try_build_number()` に `source_images` 接続。(`bms-skin/src/loader/lr2_csv_loader.rs`, `bms-skin/src/loader/json_loader.rs`)
-  2. **SkinFloat ローダー** — SkinNumber と同じパターンで `digit_sources` をポピュレート。Number ローダー完了後に実装。(`bms-skin/src/loader/lr2_csv_loader.rs`, `bms-skin/src/loader/json_loader.rs`)
-  3. **SkinGauge ローダー** — `GaugePart.images` に `ImageHandle` をポピュレート。JSON: `try_build_gauge()` に `source_images` 接続。LR2 CSV: `SRC_GROOVEGAUGE`/`DST_GROOVEGAUGE` ハンドラ追加。(`bms-skin/src/loader/json_loader.rs`, `bms-skin/src/loader/lr2_csv_loader.rs`)
-  4. **SkinJudge ローダー** — `judge_images`/`judge_counts` 内の SkinImage/SkinNumber に画像データをポピュレート。JSON: `try_build_judge()` で `source_images` を子オブジェクトに接続。(`bms-skin/src/loader/json_loader.rs`)
+- **Skin Object Rendering (Loader Wiring)** — レンダリングインフラ（マルチエンティティ基盤、プロシージャルテクスチャパイプライン、draw モジュール）は実装済みだが、一部ローダーが新フィールドにデータを入れないため描画されない。以下の順序で実装すること:
+  1. ~~**SkinNumber ローダー (JSON)**~~ — ✅ 完了。`try_build_number()` で `source_images` → `split_grid()` → `build_number_source_set()` → `digit_sources` ポピュレート。`SkinSourceSet` は `ImageRegion` ベースに変更済み。
+  2. ~~**SkinFloat ローダー (JSON)**~~ — ✅ 完了。`try_build_float()` で `build_float_source_set()` により 26/24/22/12/11-frame パターン対応。
+  3. **SkinNumber/SkinFloat ローダー (LR2 CSV)** — 未対応。`lr2_csv_loader.rs` の画像読み込みパイプライン構造変更が必要。(`bms-skin/src/loader/lr2_csv_loader.rs`)
+  4. **SkinNumber/SkinFloat negative 画像セット** — 24-frame Number / 26/24/22-frame Float の negative 画像は positive のみポピュレート。negative 用の `SkinSourceSet` 追加が必要。
+  5. **SkinGauge ローダー** — `GaugePart.images` に `ImageHandle` をポピュレート。JSON: `try_build_gauge()` に `source_images` 接続。LR2 CSV: `SRC_GROOVEGAUGE`/`DST_GROOVEGAUGE` ハンドラ追加。(`bms-skin/src/loader/json_loader.rs`, `bms-skin/src/loader/lr2_csv_loader.rs`)
+  6. **SkinJudge ローダー** — `judge_images`/`judge_counts` 内の SkinImage/SkinNumber に画像データをポピュレート。JSON: `try_build_judge()` で `source_images` を子オブジェクトに接続済み（`resolve_sub_number` に `source_images` 渡し）。(`bms-skin/src/loader/json_loader.rs`)
   - 詳細計画: `.claude/plans/lively-popping-liskov.md` の Phase 2b/2c/3a/4 を参照
 - **SkinBar Rendering / SongInformation Display** — データ構造は移植済みだがレンダリング未接続。`skin_renderer.rs` の catch-all に落ちる。SongInformation も bms-render 側で未使用。
 - **IR Submission (ResultState)** — DB 保存後に `tokio::spawn` で fire-and-forget 非同期 IR 送信実装済み。(`brs/src/state/ir_submission.rs`, `brs/src/state/result.rs`)

@@ -822,6 +822,7 @@ fn resolve_sub_image(
 fn resolve_sub_number(
     data: &JsonSkinData,
     sub_dst: &JsonDestination,
+    source_images: &HashMap<String, ImageHandle>,
 ) -> Option<crate::skin_number::SkinNumber> {
     let val_def = data.value.iter().find(|v| v.id == sub_dst.id)?;
     let ref_id = if let Some(ref val) = val_def.value {
@@ -829,13 +830,39 @@ fn resolve_sub_number(
     } else {
         val_def.ref_id
     };
+
+    let timer = val_def.timer.as_ref().and_then(|t| t.as_id());
+
+    // Resolve source image and split into grid
+    let grid = source_images
+        .get(val_def.src.as_str())
+        .map(|&handle| {
+            split_grid(
+                handle,
+                val_def.x,
+                val_def.y,
+                val_def.w,
+                val_def.h,
+                val_def.divx,
+                val_def.divy,
+            )
+        })
+        .unwrap_or_default();
+
+    let (digit_sources, has_minus, zeropadding_override) =
+        build_number_source_set(&grid, timer, val_def.cycle);
+
+    let zeropadding = zeropadding_override.unwrap_or(val_def.zeropadding);
+
     let mut num = crate::skin_number::SkinNumber {
         base: SkinObjectBase::default(),
         ref_id: Some(crate::property_id::IntegerId(ref_id)),
         keta: val_def.digit,
-        zero_padding: crate::skin_number::ZeroPadding::from_i32(val_def.zeropadding),
+        zero_padding: crate::skin_number::ZeroPadding::from_i32(zeropadding),
         align: crate::skin_number::NumberAlign::from_i32(val_def.align),
         space: val_def.space,
+        digit_sources,
+        has_minus_images: has_minus,
         ..Default::default()
     };
     apply_destination(&mut num.base, sub_dst);
@@ -954,6 +981,163 @@ fn resolve_bar_image(
 }
 
 // ---------------------------------------------------------------------------
+// Number / Float source set building
+// ---------------------------------------------------------------------------
+
+use crate::image_handle::ImageRegion;
+use crate::skin_source::{SkinSourceSet, split_grid};
+
+/// Builds a `SkinSourceSet` for a SkinNumber from grid images.
+///
+/// Matches Java `JsonSkinObjectLoader.java:100-170`:
+/// - 24-frame divisible: 12 positive + 12 negative per state → has_minus = true
+/// - Otherwise: d = (len % 10 == 0) ? 10 : 11, states × d frames
+///
+/// Returns `(source_set, has_minus, zeropadding_override)`.
+fn build_number_source_set(
+    images: &[ImageRegion],
+    timer: Option<i32>,
+    cycle: i32,
+) -> (SkinSourceSet, bool, Option<i32>) {
+    let len = images.len();
+    if len == 0 {
+        return (SkinSourceSet::new(vec![], timer, cycle), false, None);
+    }
+
+    if len.is_multiple_of(24) {
+        // 24-frame: 12 positive + 12 negative per state
+        let states = len / 24;
+        let mut positive = Vec::with_capacity(states);
+        for j in 0..states {
+            let row: Vec<ImageRegion> = (0..12).map(|i| images[j * 24 + i]).collect();
+            positive.push(row);
+        }
+        // negative images stored but only positive set is populated into SkinSourceSet
+        // (matching Java: pn/mn are separate arrays, SkinNumber(pn, mn, ...) stores both)
+        // For now we populate positive only; negative is deferred.
+        (SkinSourceSet::new(positive, timer, cycle), true, None)
+    } else {
+        let d = if len.is_multiple_of(10) { 10 } else { 11 };
+        let states = len / d;
+        let mut rows = Vec::with_capacity(states);
+        for j in 0..states {
+            let row: Vec<ImageRegion> = (0..d).map(|i| images[j * d + i]).collect();
+            rows.push(row);
+        }
+        let zeropadding_override = if d > 10 { Some(2) } else { None };
+        (
+            SkinSourceSet::new(rows, timer, cycle),
+            false,
+            zeropadding_override,
+        )
+    }
+}
+
+/// Builds a `SkinSourceSet` for a SkinFloat from grid images.
+///
+/// Matches Java `JsonSkinObjectLoader.java:175-382`:
+/// - %26: 13 positive + 13 negative (signed, separate images)
+/// - %24: 12 positive + 12 negative (unsigned, separate images)
+/// - %22: 10 digits + back-zero sharing + decimal point (unsigned, separate +/-)
+/// - %12: 12 per state (shared positive/negative)
+/// - %11: 10 digits + back-zero sharing + decimal point (shared)
+/// - fallback: treat as 12 per state
+///
+/// Returns `(source_set, has_minus)`.
+fn build_float_source_set(
+    images: &[ImageRegion],
+    timer: Option<i32>,
+    cycle: i32,
+    divx: i32,
+    divy: i32,
+) -> (SkinSourceSet, bool) {
+    let len = images.len();
+    if len == 0 {
+        return (SkinSourceSet::new(vec![], timer, cycle), false);
+    }
+
+    if len.is_multiple_of(26) {
+        // 13 positive + 13 negative per state
+        let states = len / 26;
+        let mut positive = Vec::with_capacity(states);
+        for j in 0..states {
+            let row: Vec<ImageRegion> = (0..13).map(|i| images[j * 26 + i]).collect();
+            positive.push(row);
+        }
+        (SkinSourceSet::new(positive, timer, cycle), true)
+    } else if len.is_multiple_of(24) {
+        // 12 positive + 12 negative per state
+        let states = len / 24;
+        let mut positive = Vec::with_capacity(states);
+        for j in 0..states {
+            let row: Vec<ImageRegion> = (0..12).map(|i| images[j * 24 + i]).collect();
+            positive.push(row);
+        }
+        (SkinSourceSet::new(positive, timer, cycle), true)
+    } else if len.is_multiple_of(22) {
+        // 10 digits + back-zero sharing + decimal point, separate +/- images
+        let states = len / 22;
+        let mut positive = Vec::with_capacity(states);
+        for j in 0..states {
+            let mut row = Vec::with_capacity(12);
+            for i in 0..10 {
+                row.push(images[j * 22 + i]);
+            }
+            row.push(images[j * 22]); // index 10: back-zero shared with digit 0
+            row.push(images[j * 22 + 10]); // index 11: decimal point
+            positive.push(row);
+        }
+        (SkinSourceSet::new(positive, timer, cycle), true)
+    } else if len.is_multiple_of(12) {
+        // 12 per state, shared positive/negative
+        let states = len / 12;
+        let mut rows = Vec::with_capacity(states);
+        for j in 0..states {
+            let row: Vec<ImageRegion> = (0..12).map(|i| images[j * 12 + i]).collect();
+            rows.push(row);
+        }
+        (SkinSourceSet::new(rows, timer, cycle), false)
+    } else if len.is_multiple_of(11) {
+        // 10 digits + back-zero sharing + decimal point, shared
+        let states = len / 11;
+        let mut rows = Vec::with_capacity(states);
+        for j in 0..states {
+            let mut row = Vec::with_capacity(12);
+            for i in 0..10 {
+                row.push(images[j * 11 + i]);
+            }
+            row.push(images[j * 11]); // index 10: back-zero shared with digit 0
+            row.push(images[j * 11 + 10]); // index 11: decimal point
+            rows.push(row);
+        }
+        (SkinSourceSet::new(rows, timer, cycle), false)
+    } else {
+        // Fallback: treat as 12 per state
+        let d = 12;
+        let total = (divx * divy) as usize;
+        let states = total / d;
+        if states == 0 {
+            return (SkinSourceSet::new(vec![], timer, cycle), false);
+        }
+        let mut rows = Vec::with_capacity(states);
+        for j in 0..states {
+            let row: Vec<ImageRegion> = (0..d)
+                .map(|i| {
+                    let idx = j * d + i;
+                    if idx < images.len() {
+                        images[idx]
+                    } else {
+                        ImageRegion::default()
+                    }
+                })
+                .collect();
+            rows.push(row);
+        }
+        (SkinSourceSet::new(rows, timer, cycle), false)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Object building
 // ---------------------------------------------------------------------------
 
@@ -1006,7 +1190,7 @@ fn build_skin_object(
     if let Some(obj) = try_build_judge_graph(data, dst, dst_id) {
         return Some(obj);
     }
-    if let Some(obj) = try_build_float(data, dst, dst_id) {
+    if let Some(obj) = try_build_float(data, dst, dst_id, source_images) {
         return Some(obj);
     }
 
@@ -1017,7 +1201,7 @@ fn build_skin_object(
     if let Some(obj) = try_build_image_set(data, dst, dst_id, source_images) {
         return Some(obj);
     }
-    if let Some(obj) = try_build_number(data, dst, dst_id) {
+    if let Some(obj) = try_build_number(data, dst, dst_id, source_images) {
         return Some(obj);
     }
     if let Some(obj) = try_build_text(data, dst, dst_id, skin_path) {
@@ -1128,7 +1312,7 @@ fn try_build_song_list(
         if i >= BAR_LEVEL_COUNT {
             break;
         }
-        bar.bar_level[i] = resolve_sub_number(data, level_dst);
+        bar.bar_level[i] = resolve_sub_number(data, level_dst, source_images);
     }
 
     Some(bar.into())
@@ -1302,7 +1486,7 @@ fn try_build_judge(
         if i >= JUDGE_COUNT {
             break;
         }
-        if let Some(mut num) = resolve_sub_number(data, num_dst) {
+        if let Some(mut num) = resolve_sub_number(data, num_dst, source_images) {
             num.relative = true;
             judge.judge_counts[i] = Some(num);
         }
@@ -1410,6 +1594,7 @@ fn try_build_float(
     data: &JsonSkinData,
     dst: &JsonDestination,
     dst_id: &FlexId,
+    source_images: &HashMap<String, ImageHandle>,
 ) -> Option<SkinObjectType> {
     let float_def = data.floatvalue.iter().find(|f| f.id == *dst_id)?;
     let ref_id = if let Some(value) = &float_def.value {
@@ -1417,6 +1602,32 @@ fn try_build_float(
     } else {
         float_def.ref_id
     };
+
+    let timer = float_def.timer.as_ref().and_then(|t| t.as_id());
+
+    // Resolve source image and split into grid
+    let grid = source_images
+        .get(float_def.src.as_str())
+        .map(|&handle| {
+            split_grid(
+                handle,
+                float_def.x,
+                float_def.y,
+                float_def.w,
+                float_def.h,
+                float_def.divx,
+                float_def.divy,
+            )
+        })
+        .unwrap_or_default();
+
+    let (digit_sources, _has_minus) = build_float_source_set(
+        &grid,
+        timer,
+        float_def.cycle,
+        float_def.divx,
+        float_def.divy,
+    );
 
     let mut float_obj = crate::skin_float::SkinFloat {
         ref_id: Some(crate::property_id::FloatId(ref_id)),
@@ -1426,6 +1637,7 @@ fn try_build_float(
         gain: float_def.gain,
         zero_padding: float_def.zeropadding,
         align: float_def.align,
+        digit_sources,
         ..Default::default()
     };
     apply_destination(&mut float_obj.base, dst);
@@ -1517,6 +1729,7 @@ fn try_build_number(
     data: &JsonSkinData,
     dst: &JsonDestination,
     dst_id: &FlexId,
+    source_images: &HashMap<String, ImageHandle>,
 ) -> Option<SkinObjectType> {
     let val_def = data.value.iter().find(|v| v.id == *dst_id)?;
 
@@ -1526,13 +1739,38 @@ fn try_build_number(
         val_def.ref_id
     };
 
+    let timer = val_def.timer.as_ref().and_then(|t| t.as_id());
+
+    // Resolve source image and split into grid
+    let grid = source_images
+        .get(val_def.src.as_str())
+        .map(|&handle| {
+            split_grid(
+                handle,
+                val_def.x,
+                val_def.y,
+                val_def.w,
+                val_def.h,
+                val_def.divx,
+                val_def.divy,
+            )
+        })
+        .unwrap_or_default();
+
+    let (digit_sources, has_minus, zeropadding_override) =
+        build_number_source_set(&grid, timer, val_def.cycle);
+
+    let zeropadding = zeropadding_override.unwrap_or(val_def.zeropadding);
+
     let mut num = crate::skin_number::SkinNumber {
         base: SkinObjectBase::default(),
         ref_id: Some(crate::property_id::IntegerId(ref_id)),
         keta: val_def.digit,
-        zero_padding: crate::skin_number::ZeroPadding::from_i32(val_def.zeropadding),
+        zero_padding: crate::skin_number::ZeroPadding::from_i32(zeropadding),
         align: crate::skin_number::NumberAlign::from_i32(val_def.align),
         space: val_def.space,
+        digit_sources,
+        has_minus_images: has_minus,
         ..Default::default()
     };
     apply_destination(&mut num.base, dst);

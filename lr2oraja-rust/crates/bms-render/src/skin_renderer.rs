@@ -909,19 +909,31 @@ fn spawn_number_children(
         if src_idx >= digit_images.len() {
             continue;
         }
-        let handle = digit_images[src_idx];
-        let Some(entry) = tex_map.get(handle) else {
+        let region = &digit_images[src_idx];
+        let Some(entry) = tex_map.get(region.handle) else {
             continue;
         };
 
         let local_x = cmd.dst_rect.x + cmd.dst_rect.w / 2.0 - rect.w / 2.0;
         let local_y = -(cmd.dst_rect.y + cmd.dst_rect.h / 2.0 - rect.h / 2.0);
 
+        let texture_rect = if region.w > 0.0 && region.h > 0.0 {
+            Some(bevy::math::Rect::new(
+                region.x,
+                region.y,
+                region.x + region.w,
+                region.y + region.h,
+            ))
+        } else {
+            None
+        };
+
         commands.entity(parent).with_child((
             Sprite {
                 image: entry.handle.clone(),
                 custom_size: Some(Vec2::new(cmd.dst_rect.w, cmd.dst_rect.h)),
                 color: obj_color,
+                rect: texture_rect,
                 ..default()
             },
             Transform::from_xyz(local_x, local_y, 0.0001),
@@ -967,19 +979,31 @@ fn spawn_float_children(
         if src_idx >= digit_images.len() {
             continue;
         }
-        let handle = digit_images[src_idx];
-        let Some(entry) = tex_map.get(handle) else {
+        let region = &digit_images[src_idx];
+        let Some(entry) = tex_map.get(region.handle) else {
             continue;
         };
 
         let local_x = cmd.dst_rect.x + cmd.dst_rect.w / 2.0 - rect.w / 2.0;
         let local_y = -(cmd.dst_rect.y + cmd.dst_rect.h / 2.0 - rect.h / 2.0);
 
+        let texture_rect = if region.w > 0.0 && region.h > 0.0 {
+            Some(bevy::math::Rect::new(
+                region.x,
+                region.y,
+                region.x + region.w,
+                region.y + region.h,
+            ))
+        } else {
+            None
+        };
+
         commands.entity(parent).with_child((
             Sprite {
                 image: entry.handle.clone(),
                 custom_size: Some(Vec2::new(cmd.dst_rect.w, cmd.dst_rect.h)),
                 color: obj_color,
+                rect: texture_rect,
                 ..default()
             },
             Transform::from_xyz(local_x, local_y, 0.0001),
@@ -1047,18 +1071,31 @@ fn spawn_judge_children(
     let cmds = draw::judge::compute_judge_draw(judge, provider, tex_map, time, rect);
 
     for cmd in &cmds {
-        let Some(entry) = tex_map.get(cmd.image_handle) else {
+        let region = &cmd.image_region;
+        let Some(entry) = tex_map.get(region.handle) else {
             continue;
         };
 
         let local_x = cmd.dst_rect.x + cmd.dst_rect.w / 2.0 - rect.w / 2.0;
         let local_y = -(cmd.dst_rect.y + cmd.dst_rect.h / 2.0 - rect.h / 2.0);
 
+        let texture_rect = if region.w > 0.0 && region.h > 0.0 {
+            Some(bevy::math::Rect::new(
+                region.x,
+                region.y,
+                region.x + region.w,
+                region.y + region.h,
+            ))
+        } else {
+            None
+        };
+
         commands.entity(parent).with_child((
             Sprite {
                 image: entry.handle.clone(),
                 custom_size: Some(Vec2::new(cmd.dst_rect.w, cmd.dst_rect.h)),
                 color: obj_color,
+                rect: texture_rect,
                 ..default()
             },
             Transform::from_xyz(local_x, local_y, 0.0001),
