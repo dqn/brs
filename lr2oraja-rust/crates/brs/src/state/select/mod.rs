@@ -23,6 +23,9 @@ const DEFAULT_INPUT_DELAY_MS: i64 = 500;
 /// Default fadeout duration in milliseconds.
 const DEFAULT_FADEOUT_DURATION_MS: i64 = 500;
 
+/// Default scroll animation duration in milliseconds.
+const DEFAULT_SCROLL_DURATION_MS: i64 = 150;
+
 /// Music select state — song browser and selection.
 pub struct MusicSelectState {
     bar_manager: BarManager,
@@ -31,6 +34,12 @@ pub struct MusicSelectState {
     mode_filter: Option<i32>,
     search_mode: bool,
     search_text: String,
+    /// Center bar index from skin config (BAR_CENTER).
+    center_bar: usize,
+    /// Scroll animation start time (microseconds, from timer).
+    scroll_start_us: Option<i64>,
+    /// Scroll direction (-1 = up, 0 = idle, 1 = down).
+    scroll_angle: i32,
 }
 
 impl MusicSelectState {
@@ -42,6 +51,9 @@ impl MusicSelectState {
             mode_filter: None,
             search_mode: false,
             search_text: String::new(),
+            center_bar: 0,
+            scroll_start_us: None,
+            scroll_angle: 0,
         }
     }
 }
@@ -90,6 +102,23 @@ impl GameStateHandler for MusicSelectState {
             *ctx.transition = Some(AppStateType::Decide);
         }
 
+        // Compute scroll interpolation
+        let scroll_duration_us = DEFAULT_SCROLL_DURATION_MS * 1000;
+        let (angle_lerp, angle) = if let Some(start_us) = self.scroll_start_us {
+            let elapsed_us = ctx.timer.now_micro_time() - start_us;
+            if elapsed_us >= scroll_duration_us {
+                // Scroll animation complete
+                self.scroll_start_us = None;
+                self.scroll_angle = 0;
+                (0.0, 0)
+            } else {
+                let t = elapsed_us as f32 / scroll_duration_us as f32;
+                (t * self.scroll_angle as f32, self.scroll_angle)
+            }
+        } else {
+            (0.0, 0)
+        };
+
         // Sync select state to shared game state for skin rendering
         if let Some(shared) = &mut ctx.shared_state {
             // Determine if current song has LN (from song data metadata)
@@ -98,6 +127,13 @@ impl GameStateHandler for MusicSelectState {
                 Some(Bar::Song(s)) if s.has_any_long_note()
             );
             select_skin_state::sync_select_state(shared, &self.bar_manager, has_ln, true);
+            select_skin_state::sync_bar_scroll_state(
+                shared,
+                &self.bar_manager,
+                self.center_bar,
+                angle_lerp,
+                angle,
+            );
         }
     }
 
@@ -130,10 +166,14 @@ impl GameStateHandler for MusicSelectState {
                 match key {
                     ControlKeys::Up => {
                         self.bar_manager.move_cursor(-1);
+                        self.scroll_angle = -1;
+                        self.scroll_start_us = Some(ctx.timer.now_micro_time());
                         return;
                     }
                     ControlKeys::Down => {
                         self.bar_manager.move_cursor(1);
+                        self.scroll_angle = 1;
+                        self.scroll_start_us = Some(ctx.timer.now_micro_time());
                         return;
                     }
                     ControlKeys::Enter => {

@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use bms_config::Config;
+use bms_render::draw::bar::BarScrollState;
 use bms_render::state_provider::SkinStateProvider;
 use bms_skin::property_id::{BooleanId, FloatId, IntegerId, StringId, TIMER_MAX, TimerId};
 use bms_skin::skin_object::SkinOffset;
@@ -25,6 +26,8 @@ pub struct SharedGameState {
     pub booleans: HashMap<i32, bool>,
     pub offsets: HashMap<i32, SkinOffset>,
     pub now_time_ms: i64,
+    /// Bar scroll state for music select screen rendering.
+    pub bar_scroll_state: Option<BarScrollState>,
 }
 
 /// SkinStateProvider implementation backed by SharedGameState.

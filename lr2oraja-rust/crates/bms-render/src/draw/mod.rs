@@ -1,3 +1,4 @@
+pub mod bar;
 pub mod bmfont_text;
 pub mod distribution;
 pub mod float;

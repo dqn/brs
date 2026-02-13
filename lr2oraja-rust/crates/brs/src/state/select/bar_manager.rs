@@ -111,9 +111,13 @@ impl BarManager {
     }
 
     /// Returns the current cursor position.
-    #[allow(dead_code)] // Used in tests
     pub fn cursor_pos(&self) -> usize {
         self.cursor
+    }
+
+    /// Returns a slice of all bars in the current list.
+    pub fn bars(&self) -> &[Bar] {
+        &self.bars
     }
 
     /// Returns true if currently inside a folder (not at root).

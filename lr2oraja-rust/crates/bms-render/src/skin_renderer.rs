@@ -17,6 +17,7 @@ use bms_skin::skin_text::FontType;
 use crate::coord::skin_to_bevy_transform;
 use crate::distance_field_material::DistanceFieldMaterial;
 use crate::draw;
+use crate::draw::bar::BarScrollState;
 use crate::draw::bmfont_text::layout_bmfont_text;
 use crate::eval;
 use crate::font_map::FontMap;
@@ -187,6 +188,8 @@ pub struct SkinRenderState {
     pub texture_map: TextureMap,
     pub font_map: FontMap,
     pub state_provider: Box<dyn SkinStateProvider>,
+    /// Bar scroll state for music select screen bar rendering.
+    pub bar_scroll_state: Option<BarScrollState>,
 }
 
 // ---------------------------------------------------------------------------
@@ -253,7 +256,8 @@ pub fn setup_skin(
             | SkinObjectType::Float(_)
             | SkinObjectType::Gauge(_)
             | SkinObjectType::Judge(_)
-            | SkinObjectType::DistributionGraph(_) => {
+            | SkinObjectType::DistributionGraph(_)
+            | SkinObjectType::Bar(_) => {
                 commands.spawn((
                     Transform::default(),
                     Visibility::Hidden,
@@ -294,6 +298,7 @@ pub fn setup_skin(
         texture_map,
         font_map,
         state_provider,
+        bar_scroll_state: None,
     });
 }
 
@@ -652,7 +657,13 @@ pub fn skin_render_system(
         let obj_color = bevy::prelude::Color::srgba(color.r, color.g, color.b, final_alpha);
 
         // Compute a hash of the current state for change detection
-        let new_hash = compute_multi_entity_hash(object, provider, time, &rect);
+        let new_hash = compute_multi_entity_hash(
+            object,
+            provider,
+            time,
+            &rect,
+            state.bar_scroll_state.as_ref(),
+        );
 
         if new_hash != cached_hash.0 {
             commands.entity(entity).despawn_descendants();
@@ -716,6 +727,23 @@ pub fn skin_render_system(
                         &rect,
                         obj_color,
                     );
+                }
+                SkinObjectType::Bar(bar) => {
+                    if let Some(bar_state) = &state.bar_scroll_state {
+                        spawn_bar_children(
+                            &mut commands,
+                            entity,
+                            bar,
+                            bar_state,
+                            provider,
+                            tex_map,
+                            time,
+                            &rect,
+                            obj_color,
+                            skin.width,
+                            skin.height,
+                        );
+                    }
                 }
                 _ => {}
             }
@@ -811,6 +839,7 @@ fn compute_multi_entity_hash(
     provider: &dyn SkinStateProvider,
     time: i64,
     rect: &bms_skin::skin_object::Rect,
+    bar_state: Option<&BarScrollState>,
 ) -> u64 {
     let mut hasher = std::hash::DefaultHasher::new();
     time.hash(&mut hasher);
@@ -860,6 +889,23 @@ fn compute_multi_entity_hash(
         SkinObjectType::DistributionGraph(dg) => {
             4u8.hash(&mut hasher);
             dg.graph_type.hash(&mut hasher);
+        }
+        SkinObjectType::Bar(_) => {
+            5u8.hash(&mut hasher);
+            if let Some(bs) = bar_state {
+                bs.selected_index.hash(&mut hasher);
+                bs.angle_lerp.to_bits().hash(&mut hasher);
+                bs.angle.hash(&mut hasher);
+                bs.total_bars.hash(&mut hasher);
+                for slot in &bs.slots {
+                    slot.lamp_id.hash(&mut hasher);
+                    slot.level.hash(&mut hasher);
+                    slot.difficulty.hash(&mut hasher);
+                    slot.text_type.hash(&mut hasher);
+                    slot.title.hash(&mut hasher);
+                    slot.features.hash(&mut hasher);
+                }
+            }
         }
         _ => {}
     }
@@ -1164,6 +1210,410 @@ fn spawn_distribution_children(
             Transform::from_xyz(local_x, local_y, 0.0001),
             MultiEntityChild,
         ));
+    }
+}
+
+/// Spawns child sprites for a SkinBar.
+///
+/// Renders the bar list for the music select screen: body images, lamps,
+/// trophies, levels, labels for each of the 60 bar slots.
+/// Position calculation follows Java BarRenderer.prepare()/render().
+#[allow(clippy::too_many_arguments)]
+fn spawn_bar_children(
+    commands: &mut Commands,
+    parent: Entity,
+    bar: &bms_skin::skin_bar::SkinBar,
+    bar_state: &BarScrollState,
+    _provider: &dyn SkinStateProvider,
+    tex_map: &TextureMap,
+    time: i64,
+    _rect: &bms_skin::skin_object::Rect,
+    obj_color: bevy::prelude::Color,
+    screen_w: f32,
+    screen_h: f32,
+) {
+    use crate::draw::bar::BarType;
+    use bms_skin::skin_bar::BAR_COUNT;
+    use bms_skin::skin_image::SkinImageSource;
+
+    let total = bar_state.total_bars;
+    if total == 0 || bar_state.slots.is_empty() {
+        return;
+    }
+
+    let center = bar_state.center_bar;
+    let selected = bar_state.selected_index;
+    let angle_lerp = bar_state.angle_lerp.clamp(-1.0, 1.0);
+    let angle = bar_state.angle;
+    let slot_count = bar_state.slots.len().min(BAR_COUNT);
+
+    let screen = crate::coord::ScreenSize {
+        w: screen_w,
+        h: screen_h,
+    };
+
+    // Helper: resolve image handle from SkinImage sources at given time.
+    let resolve_image = |img: &bms_skin::skin_image::SkinImage,
+                         source_idx: usize|
+     -> Option<(
+        bms_skin::image_handle::ImageHandle,
+        Option<bms_skin::skin_object::Rect>,
+    )> {
+        let src = img.sources.get(source_idx).or(img.sources.first())?;
+        match src {
+            SkinImageSource::Frames { images, cycle, .. } => {
+                let idx = bms_skin::skin_source::image_index(images.len(), time, *cycle);
+                images.get(idx).map(|h| (*h, img.source_rect))
+            }
+            SkinImageSource::Reference(_) => None,
+        }
+    };
+
+    // Helper: get the DST rect for a bar slot from its base destinations.
+    let get_slot_dst =
+        |img: &bms_skin::skin_image::SkinImage| -> Option<bms_skin::skin_object::Rect> {
+            let dst = img.base.destinations.first()?;
+            Some(bms_skin::skin_object::Rect::new(
+                dst.region.x,
+                dst.region.y,
+                dst.region.w,
+                dst.region.h,
+            ))
+        };
+
+    // Render each bar slot
+    for i in 0..slot_count {
+        // Determine which data slot maps to this visual slot
+        let data_idx = ((selected as i64 + total as i64 * 100 + i as i64 - center as i64)
+            % total as i64) as usize;
+        let slot_data = match bar_state.slots.get(data_idx) {
+            Some(s) => s,
+            None => continue,
+        };
+
+        let is_selected = i == center;
+
+        // Select body image (on = selected, off = unselected)
+        let body_img = if is_selected {
+            bar.bar_image_on.get(i).and_then(|o| o.as_ref())
+        } else {
+            bar.bar_image_off.get(i).and_then(|o| o.as_ref())
+        }
+        .or_else(|| bar.bar_image_off.get(i).and_then(|o| o.as_ref()));
+
+        let Some(body_img) = body_img else {
+            continue;
+        };
+
+        let Some(body_dst) = get_slot_dst(body_img) else {
+            continue;
+        };
+
+        // Calculate scroll interpolation
+        let mut slot_x = body_dst.x;
+        let mut slot_y = body_dst.y;
+        let slot_w = body_dst.w;
+        let slot_h = body_dst.h;
+
+        if angle != 0 {
+            // Interpolate with adjacent slot
+            let adj_i = if angle > 0 {
+                if i + 1 < BAR_COUNT { i + 1 } else { i }
+            } else if i > 0 {
+                i - 1
+            } else {
+                i
+            };
+
+            let adj_img = if is_selected {
+                bar.bar_image_on.get(adj_i).and_then(|o| o.as_ref())
+            } else {
+                bar.bar_image_off.get(adj_i).and_then(|o| o.as_ref())
+            }
+            .or_else(|| bar.bar_image_off.get(adj_i).and_then(|o| o.as_ref()));
+
+            if let Some(adj_img) = adj_img
+                && let Some(adj_dst) = get_slot_dst(adj_img)
+            {
+                let lerp = angle_lerp.abs();
+                slot_x += (adj_dst.x - body_dst.x) * lerp;
+                slot_y += (adj_dst.y - body_dst.y) * lerp;
+            }
+        }
+
+        // Spawn bar body sprite
+        let bar_type_idx = match &slot_data.bar_type {
+            BarType::Song { exists: true } => 0,
+            BarType::Song { exists: false } => 0,
+            BarType::Folder => 1,
+            BarType::Grade { .. } => 2,
+            BarType::Table => 3,
+            BarType::Command => 4,
+            BarType::Search => 5,
+            BarType::Function {
+                display_bar_type, ..
+            } => *display_bar_type as usize,
+        };
+
+        if let Some((handle, src_rect)) = resolve_image(body_img, bar_type_idx)
+            && let Some(entry) = tex_map.get(handle)
+        {
+            let transform = skin_to_bevy_transform(
+                crate::coord::SkinRect {
+                    x: slot_x,
+                    y: slot_y,
+                    w: slot_w,
+                    h: slot_h,
+                },
+                screen,
+                (i as f32) * 0.0001,
+                crate::coord::RotationParams {
+                    angle_deg: 0,
+                    center_x: 0.0,
+                    center_y: 0.0,
+                },
+            );
+
+            let texture_rect =
+                src_rect.map(|r| bevy::math::Rect::new(r.x, r.y, r.x + r.w, r.y + r.h));
+
+            commands.entity(parent).with_child((
+                Sprite {
+                    image: entry.handle.clone(),
+                    custom_size: Some(Vec2::new(slot_w, slot_h)),
+                    color: obj_color,
+                    rect: texture_rect,
+                    ..default()
+                },
+                transform,
+                MultiEntityChild,
+            ));
+        }
+
+        // Spawn lamp sprite
+        let lamp_id = slot_data.lamp_id as usize;
+        if let Some(Some(lamp_img)) = bar.lamp.get(lamp_id)
+            && let Some(lamp_dst) = get_slot_dst(lamp_img)
+        {
+            let lx = slot_x + lamp_dst.x;
+            let ly = slot_y + lamp_dst.y;
+            if let Some((handle, src_rect)) = resolve_image(lamp_img, 0)
+                && let Some(entry) = tex_map.get(handle)
+            {
+                let transform = skin_to_bevy_transform(
+                    crate::coord::SkinRect {
+                        x: lx,
+                        y: ly,
+                        w: lamp_dst.w,
+                        h: lamp_dst.h,
+                    },
+                    screen,
+                    (i as f32) * 0.0001 + 0.00001,
+                    crate::coord::RotationParams {
+                        angle_deg: 0,
+                        center_x: 0.0,
+                        center_y: 0.0,
+                    },
+                );
+                let texture_rect =
+                    src_rect.map(|r| bevy::math::Rect::new(r.x, r.y, r.x + r.w, r.y + r.h));
+                commands.entity(parent).with_child((
+                    Sprite {
+                        image: entry.handle.clone(),
+                        custom_size: Some(Vec2::new(lamp_dst.w, lamp_dst.h)),
+                        color: obj_color,
+                        rect: texture_rect,
+                        ..default()
+                    },
+                    transform,
+                    MultiEntityChild,
+                ));
+            }
+        }
+
+        // Spawn trophy sprite (Grade bars only)
+        if let BarType::Grade { .. } = &slot_data.bar_type
+            && let Some(trophy_id) = slot_data.trophy_id
+            && let Some(Some(trophy_img)) = bar.trophy.get(trophy_id)
+            && let Some(trophy_dst) = get_slot_dst(trophy_img)
+        {
+            let tx = slot_x + trophy_dst.x;
+            let ty = slot_y + trophy_dst.y;
+            if let Some((handle, src_rect)) = resolve_image(trophy_img, 0)
+                && let Some(entry) = tex_map.get(handle)
+            {
+                let transform = skin_to_bevy_transform(
+                    crate::coord::SkinRect {
+                        x: tx,
+                        y: ty,
+                        w: trophy_dst.w,
+                        h: trophy_dst.h,
+                    },
+                    screen,
+                    (i as f32) * 0.0001 + 0.00002,
+                    crate::coord::RotationParams {
+                        angle_deg: 0,
+                        center_x: 0.0,
+                        center_y: 0.0,
+                    },
+                );
+                let texture_rect =
+                    src_rect.map(|r| bevy::math::Rect::new(r.x, r.y, r.x + r.w, r.y + r.h));
+                commands.entity(parent).with_child((
+                    Sprite {
+                        image: entry.handle.clone(),
+                        custom_size: Some(Vec2::new(trophy_dst.w, trophy_dst.h)),
+                        color: obj_color,
+                        rect: texture_rect,
+                        ..default()
+                    },
+                    transform,
+                    MultiEntityChild,
+                ));
+            }
+        }
+
+        // Spawn level number (Song bars only)
+        if matches!(slot_data.bar_type, BarType::Song { .. }) {
+            let diff_idx = slot_data.difficulty.clamp(0, 6) as usize;
+            if let Some(Some(level_num)) = bar.bar_level.get(diff_idx)
+                && let Some(level_dst) = level_num.base.destinations.first()
+            {
+                let lx = slot_x + level_dst.region.x;
+                let ly = slot_y + level_dst.region.y;
+                let lw = level_dst.region.w;
+                let lh = level_dst.region.h;
+
+                // Render level value using the same digit rendering as SkinNumber
+                let digit_images = level_num.digit_sources.get_images(time);
+                if let Some(digit_images) = digit_images {
+                    let digit_w = if level_num.keta > 0 {
+                        lw / level_num.keta as f32
+                    } else {
+                        lw
+                    };
+
+                    let config = draw::number::NumberConfig {
+                        keta: level_num.keta,
+                        zero_padding: level_num.zero_padding,
+                        align: level_num.align,
+                        space: level_num.space,
+                        digit_w,
+                        negative: false,
+                    };
+
+                    let num_dst = bms_skin::skin_object::Rect::new(0.0, 0.0, lw, lh);
+                    let cmds = draw::number::compute_number_draw(slot_data.level, &num_dst, config);
+
+                    for cmd in &cmds {
+                        let src_idx = cmd.source_index as usize;
+                        if src_idx >= digit_images.len() {
+                            continue;
+                        }
+                        let region = &digit_images[src_idx];
+                        let Some(entry) = tex_map.get(region.handle) else {
+                            continue;
+                        };
+
+                        // Position digit relative to level origin
+                        let dx = lx + cmd.dst_rect.x;
+                        let dy = ly + cmd.dst_rect.y;
+                        let transform = skin_to_bevy_transform(
+                            crate::coord::SkinRect {
+                                x: dx,
+                                y: dy,
+                                w: cmd.dst_rect.w,
+                                h: cmd.dst_rect.h,
+                            },
+                            screen,
+                            (i as f32) * 0.0001 + 0.00003,
+                            crate::coord::RotationParams {
+                                angle_deg: 0,
+                                center_x: 0.0,
+                                center_y: 0.0,
+                            },
+                        );
+
+                        let texture_rect = if region.w > 0.0 && region.h > 0.0 {
+                            Some(bevy::math::Rect::new(
+                                region.x,
+                                region.y,
+                                region.x + region.w,
+                                region.y + region.h,
+                            ))
+                        } else {
+                            None
+                        };
+
+                        commands.entity(parent).with_child((
+                            Sprite {
+                                image: entry.handle.clone(),
+                                custom_size: Some(Vec2::new(cmd.dst_rect.w, cmd.dst_rect.h)),
+                                color: obj_color,
+                                rect: texture_rect,
+                                ..default()
+                            },
+                            transform,
+                            MultiEntityChild,
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Spawn label sprites (feature flags: LN, Mine, Random, ChargeNote, HellChargeNote)
+        let label_flags = [
+            (crate::draw::bar::FEATURE_LN, 0usize),
+            (crate::draw::bar::FEATURE_MINE, 1),
+            (crate::draw::bar::FEATURE_RANDOM, 2),
+            (crate::draw::bar::FEATURE_CHARGENOTE, 3),
+            (crate::draw::bar::FEATURE_HELL_CHARGENOTE, 4),
+        ];
+        for &(flag, label_idx) in &label_flags {
+            if slot_data.features & flag != 0
+                && let Some(Some(label_img)) = bar.label.get(label_idx)
+                && let Some(label_dst) = get_slot_dst(label_img)
+            {
+                let lx = slot_x + label_dst.x;
+                let ly = slot_y + label_dst.y;
+                if let Some((handle, src_rect)) = resolve_image(label_img, 0)
+                    && let Some(entry) = tex_map.get(handle)
+                {
+                    let transform = skin_to_bevy_transform(
+                        crate::coord::SkinRect {
+                            x: lx,
+                            y: ly,
+                            w: label_dst.w,
+                            h: label_dst.h,
+                        },
+                        screen,
+                        (i as f32) * 0.0001 + 0.00004,
+                        crate::coord::RotationParams {
+                            angle_deg: 0,
+                            center_x: 0.0,
+                            center_y: 0.0,
+                        },
+                    );
+                    let texture_rect =
+                        src_rect.map(|r| bevy::math::Rect::new(r.x, r.y, r.x + r.w, r.y + r.h));
+                    commands.entity(parent).with_child((
+                        Sprite {
+                            image: entry.handle.clone(),
+                            custom_size: Some(Vec2::new(label_dst.w, label_dst.h)),
+                            color: obj_color,
+                            rect: texture_rect,
+                            ..default()
+                        },
+                        transform,
+                        MultiEntityChild,
+                    ));
+                }
+            }
+        }
+
+        // Note: Text rendering for bar titles is complex (requires TTF/BMFont pipeline).
+        // Text spawning is deferred to a future phase when SkinText rendering is
+        // integrated into the bar system.
     }
 }
 
@@ -1517,6 +1967,7 @@ mod tests {
             texture_map: tex_map,
             font_map,
             state_provider: provider,
+            bar_scroll_state: None,
         };
 
         assert_eq!(state.skin.objects.len(), 0);

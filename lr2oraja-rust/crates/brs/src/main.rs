@@ -364,8 +364,14 @@ fn state_sync_system(
     timer: Res<BrsTimerManager>,
     shared: Res<BrsSharedState>,
     config: Res<BrsConfig>,
+    render_state: Option<ResMut<bms_render::skin_renderer::SkinRenderState>>,
 ) {
     sync_timer_state(&timer.0, &shared.0);
     let mut shared_guard = shared.0.write().unwrap();
     game_state::sync_common_state(&mut shared_guard, &config.0);
+
+    // Sync bar scroll state to the skin renderer
+    if let Some(mut rs) = render_state {
+        rs.bar_scroll_state = shared_guard.bar_scroll_state.take();
+    }
 }

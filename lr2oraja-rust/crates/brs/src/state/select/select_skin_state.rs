@@ -3,6 +3,7 @@
 // Updates SharedGameState with song metadata, bar type, and mode flags
 // from the current selection in MusicSelect state.
 
+use bms_render::draw::bar::{BarScrollState, BarSlotData, BarType};
 use bms_skin::property_id::{
     NUMBER_MAXBPM, NUMBER_MINBPM, NUMBER_TOTALNOTES2, OPTION_5KEYSONG, OPTION_7KEYSONG,
     OPTION_9KEYSONG, OPTION_10KEYSONG, OPTION_14KEYSONG, OPTION_BGA, OPTION_FOLDERBAR, OPTION_LN,
@@ -87,6 +88,88 @@ pub fn sync_select_state(
     state.booleans.insert(OPTION_NO_LN, !has_ln);
     state.booleans.insert(OPTION_BGA, bga_on);
     state.booleans.insert(OPTION_NO_BGA, !bga_on);
+}
+
+/// Synchronize bar scroll state for skin bar rendering.
+///
+/// Builds a BarScrollState from the BarManager and stores it in SharedGameState
+/// for the skin renderer to pick up.
+pub fn sync_bar_scroll_state(
+    state: &mut SharedGameState,
+    bar_manager: &BarManager,
+    center_bar: usize,
+    angle_lerp: f32,
+    angle: i32,
+) {
+    let total = bar_manager.bar_count();
+    if total == 0 {
+        state.bar_scroll_state = None;
+        return;
+    }
+
+    let mut slots = Vec::with_capacity(total);
+    for bar in bar_manager.bars() {
+        let slot = match bar {
+            Bar::Song(song_data) => {
+                use bms_database::song_data::{
+                    FEATURE_CHARGENOTE, FEATURE_HELLCHARGENOTE, FEATURE_MINENOTE, FEATURE_RANDOM,
+                };
+
+                // Map song feature flags to bar feature flags
+                let mut features = 0u32;
+                if song_data.has_any_long_note() {
+                    features |= bms_render::draw::bar::FEATURE_LN;
+                }
+                if song_data.feature & FEATURE_MINENOTE != 0 {
+                    features |= bms_render::draw::bar::FEATURE_MINE;
+                }
+                if song_data.feature & FEATURE_RANDOM != 0 {
+                    features |= bms_render::draw::bar::FEATURE_RANDOM;
+                }
+                if song_data.feature & FEATURE_CHARGENOTE != 0 {
+                    features |= bms_render::draw::bar::FEATURE_CHARGENOTE;
+                }
+                if song_data.feature & FEATURE_HELLCHARGENOTE != 0 {
+                    features |= bms_render::draw::bar::FEATURE_HELL_CHARGENOTE;
+                }
+
+                BarSlotData {
+                    bar_type: BarType::Song {
+                        exists: !song_data.path.is_empty(),
+                    },
+                    lamp_id: 0, // TODO: read from score DB
+                    trophy_id: None,
+                    level: song_data.level,
+                    difficulty: song_data.difficulty,
+                    title: song_data.title.clone(),
+                    text_type: 0, // Song type
+                    features,
+                }
+            }
+            Bar::Folder { name, .. } => BarSlotData {
+                bar_type: BarType::Folder,
+                title: name.clone(),
+                text_type: 1, // Folder type
+                ..Default::default()
+            },
+            Bar::Course(course_data) => BarSlotData {
+                bar_type: BarType::Grade { all_songs: true },
+                title: course_data.name.clone(),
+                text_type: 2, // Grade type
+                ..Default::default()
+            },
+        };
+        slots.push(slot);
+    }
+
+    state.bar_scroll_state = Some(BarScrollState {
+        center_bar,
+        selected_index: bar_manager.cursor_pos(),
+        total_bars: total,
+        angle_lerp,
+        angle,
+        slots,
+    });
 }
 
 /// Set mode-specific booleans from song mode ID.

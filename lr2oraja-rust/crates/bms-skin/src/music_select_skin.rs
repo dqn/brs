@@ -10,6 +10,10 @@ use crate::skin_distribution_graph::SkinDistributionGraph;
 pub struct MusicSelectSkinConfig {
     pub bar: Option<SkinBar>,
     pub distribution_graph: Option<SkinDistributionGraph>,
+    /// Which bar index is the center (scroll focus). Set by BAR_CENTER.
+    pub center_bar: usize,
+    /// Which bar indices are clickable. Set by BAR_AVAILABLE.
+    pub clickable_bar: Vec<usize>,
 }
 
 #[cfg(test)]

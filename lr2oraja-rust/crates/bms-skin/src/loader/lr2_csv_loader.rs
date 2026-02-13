@@ -414,7 +414,7 @@ pub fn load_lr2_skin(
             skin.play_config = lr2_play_loader::collect_play_config(&skin, &play_state);
         }
         Some(SkinType::MusicSelect) => {
-            skin.select_config = lr2_select_loader::collect_select_config(&skin, &select_state);
+            skin.select_config = lr2_select_loader::collect_select_config(&skin, &mut select_state);
         }
         Some(SkinType::Result) => {
             skin.result_config = lr2_result_loader::collect_result_config(&skin, &result_state);
