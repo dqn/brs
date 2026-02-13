@@ -89,7 +89,7 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 ## Implementation Status
 
-Phase 0-21 全完了（16 crate, ~60,000行）。全 RenderSnapshot GM テストが strict parity 達成済み。
+Phase 0-23 全完了（16 crate, ~61,000行）。全 RenderSnapshot GM テストが strict parity 達成済み。
 
 ### Deferred / Stub Items
 
@@ -98,3 +98,6 @@ Phase 0-21 全完了（16 crate, ~60,000行）。全 RenderSnapshot GM テスト
 - **SkinBar Rendering / SongInformation Display** — データ構造は移植済みだがレンダリング未接続。`skin_renderer.rs` の catch-all に落ちる。SongInformation も bms-render 側で未使用。
 - **IR Submission (ResultState)** — ローカル DB 保存のみ。bms-ir クレートは存在するがランタイム接続未実装。(`brs/src/state/result.rs`)
 - **Course IR Submission** — コーススコアの IR 送信未実装。ローカル DB 保存のみ。(`brs/src/state/course_result.rs`)
+- **OFFSET_SCRATCHANGLE_1P/2P** — スクラッチ回転角度のフレーム間デルタ計算未実装。`SkinOffset::default()` スタブ。(`brs/src/state/play/play_skin_state.rs`)
+- **Per-lane Judge Tracking** — JudgeManager が per-lane 判定を公開していないため、per-key 判定値 (`VALUE_JUDGE_1P_SCRATCH`〜`KEY9`) は全体値で代替。JudgeManager 拡張が必要。(`brs/src/state/play/play_skin_state.rs`)
+- **2P Side Properties** — `OPTION_2P_*`, `VALUE_JUDGE_2P_KEY*` 等の 2P 側プロパティ未実装。DP モード対応時に実装。(`brs/src/state/play/play_skin_state.rs`)
