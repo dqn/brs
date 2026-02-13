@@ -38,6 +38,7 @@ brs/
 
 - **Strict Accuracy:** Judge calculations, BMS parsing, and timing management must be bit-identical to Java.
 - **Autonomous Porting:** Claude analyzes `./lr2oraja-java` code and ports module by module to `./lr2oraja-rust`, starting from core modules with fewest dependencies.
+- **Deferred Task Tracking:** 作業完了時に未完了のタスクがある場合、実装順序を考慮して `Deferred / Stub Items` セクションに追記すること。次回着手時に漏れなく把握できるようにする。
 
 ## Testing Rules
 
