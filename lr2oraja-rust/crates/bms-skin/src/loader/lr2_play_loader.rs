@@ -20,7 +20,11 @@ use crate::loader::lr2_csv_loader::{
 };
 use crate::play_skin::PlaySkinConfig;
 use crate::property_id::{
-    BooleanId, IntegerId, OFFSET_JUDGE_1P, OFFSET_JUDGE_2P, OFFSET_JUDGE_3P, OFFSET_LIFT, TimerId,
+    BooleanId, IntegerId, OFFSET_JUDGE_1P, OFFSET_JUDGE_2P, OFFSET_JUDGE_3P, OFFSET_JUDGEDETAIL_1P,
+    OFFSET_JUDGEDETAIL_2P, OFFSET_JUDGEDETAIL_3P, OFFSET_LIFT, OPTION_1P_EARLY, OPTION_1P_LATE,
+    OPTION_1P_PERFECT, OPTION_2P_EARLY, OPTION_2P_LATE, OPTION_2P_PERFECT, OPTION_3P_EARLY,
+    OPTION_3P_LATE, OPTION_3P_PERFECT, TIMER_JUDGE_1P, TIMER_JUDGE_2P, TIMER_JUDGE_3P, TimerId,
+    VALUE_JUDGE_1P_DURATION, VALUE_JUDGE_2P_DURATION, VALUE_JUDGE_3P_DURATION,
 };
 use crate::skin::Skin;
 use crate::skin_bga::SkinBga;
@@ -31,7 +35,7 @@ use crate::skin_note::SkinNote;
 use crate::skin_number::{NumberAlign, SkinNumber, ZeroPadding};
 use crate::skin_object::{Color, Destination, Rect, SkinObjectBase};
 use crate::skin_object_type::SkinObjectType;
-use crate::skin_source::{build_number_source_set, split_grid};
+use crate::skin_source::{SkinSourceSet, build_number_source_set, split_grid};
 use crate::stretch_type::StretchType;
 
 // ---------------------------------------------------------------------------
@@ -75,6 +79,8 @@ pub struct Lr2PlayState {
     pub finish_margin: i32,
     /// JUDGETIMER command value (ms).
     pub judge_timer: i32,
+    /// Whether judge detail has been added for each player (0=1P, 1=2P, 2=3P).
+    detail_added: [bool; 3],
 }
 
 // ---------------------------------------------------------------------------
@@ -513,6 +519,141 @@ fn dst_judge(
     {
         state.apply_dst_to_base(&mut img.base, fields, &[offset_id, OFFSET_LIFT]);
     }
+
+    // Add judge detail objects once per player (Java: addJudgeDetail)
+    if !play_state.detail_added[player] {
+        play_state.detail_added[player] = true;
+        add_judge_detail(player, &values, skin, state);
+    }
+}
+
+/// Creates judge detail objects (Early/Late indicators + duration numbers).
+///
+/// Ported from Java LR2PlaySkinLoader.addJudgeDetail() (L814-864).
+/// Adds 4 independent skin objects per player:
+/// 1. SkinImage for "EARLY" label
+/// 2. SkinImage for "LATE" label
+/// 3. SkinNumber for duration (PERFECT timing, blue)
+/// 4. SkinNumber for duration (non-PERFECT timing, red)
+fn add_judge_detail(player: usize, values: &[i32], skin: &mut Skin, state: &Lr2CsvState) {
+    let srcw = state.srcw;
+    let srch = state.srch;
+
+    // Per-player constants (Java arrays indexed by side)
+    let judge_timer = [TIMER_JUDGE_1P, TIMER_JUDGE_2P, TIMER_JUDGE_3P][player];
+    let option_early = [OPTION_1P_EARLY, OPTION_2P_EARLY, OPTION_3P_EARLY][player];
+    let option_late = [OPTION_1P_LATE, OPTION_2P_LATE, OPTION_3P_LATE][player];
+    let option_perfect = [OPTION_1P_PERFECT, OPTION_2P_PERFECT, OPTION_3P_PERFECT][player];
+    let value_duration = [
+        VALUE_JUDGE_1P_DURATION,
+        VALUE_JUDGE_2P_DURATION,
+        VALUE_JUDGE_3P_DURATION,
+    ][player];
+    let offset_detail = [
+        OFFSET_JUDGEDETAIL_1P,
+        OFFSET_JUDGEDETAIL_2P,
+        OFFSET_JUDGEDETAIL_3P,
+    ][player];
+
+    // Position in source resolution (matching apply_dst_to_base convention).
+    // Java: x = (values[3] + values[5]/2) * dstw/srcw  → in dest coords
+    // Rust: store in source coords (no scaling)
+    let x = (values[3] + values[5] / 2) as f32;
+    let y_lr2 = (values[4] - 5) as f32; // shifted up 5px in source coords
+
+    // Image dimensions proportional to source resolution
+    // Java: 40 * dstw/1280, 16 * dsth/720 → in dest coords
+    // Rust: 40 * srcw/1280, 16 * srch/720 → in source coords
+    let w_img = 40.0 * srcw / 1280.0;
+    let h_img = 16.0 * srch / 720.0;
+    let w_digit = 8.0 * srcw / 1280.0;
+
+    // Y-flip (same convention as apply_dst_to_base)
+    let y_flipped = srch - (y_lr2 + h_img);
+
+    let handle = ImageHandle::EMBEDDED_JUDGEDETAIL;
+
+    // Helper: build a SkinObjectBase with dual destinations and common params
+    let make_base = |loop_time: i32, option: i32, w: f32| -> SkinObjectBase {
+        let mut base = SkinObjectBase::default();
+        let dst = Destination {
+            time: 0,
+            region: Rect::new(x, y_flipped, w, h_img),
+            color: Color::from_rgba_u8(255, 255, 255, 255),
+            angle: 0,
+            acc: 0,
+        };
+        base.add_destination(dst.clone());
+        base.add_destination(Destination { time: 500, ..dst });
+        base.timer = Some(TimerId(judge_timer));
+        base.loop_time = loop_time;
+        if option != 0 {
+            base.draw_conditions.push(BooleanId(option));
+        }
+        base.set_offset_ids(&[offset_detail, OFFSET_LIFT]);
+        if state.stretch >= 0 {
+            base.stretch = StretchType::from_id(state.stretch).unwrap_or_default();
+        }
+        base
+    };
+
+    // 1. Early image: TextureRegion(0, 0, 50, 20) of judgedetail.png
+    let mut early = SkinImage::from_frames(vec![handle], None, 0);
+    early.source_rect = Some(Rect::new(0.0, 0.0, 50.0, 20.0));
+    early.base = make_base(1998, option_early, w_img);
+    skin.add(early.into());
+
+    // 2. Late image: TextureRegion(50, 0, 50, 20) of judgedetail.png
+    let mut late = SkinImage::from_frames(vec![handle], None, 0);
+    late.source_rect = Some(Rect::new(50.0, 0.0, 50.0, 20.0));
+    late.base = make_base(1998, option_late, w_img);
+    skin.add(late.into());
+
+    // 3-4. Duration numbers using grid rows from judgedetail.png (120×100, 12 cols × 5 rows)
+    // Row 1 (y=20): blue positive digits, Row 2 (y=40): blue negative digits
+    // Row 3 (y=60): red positive digits,  Row 4 (y=80): red negative digits
+    let grid = split_grid(handle, 0, 0, 120, 100, 12, 5);
+
+    // Align remap: Java values[12] == 1 ? 2 : values[12]
+    let align_raw = if values[12] == 1 { 2 } else { values[12] };
+
+    // 3. PERFECT duration (blue): positive=row1, negative=row2
+    let row1: Vec<_> = grid[12..24].to_vec();
+    let row2: Vec<_> = grid[24..36].to_vec();
+    let num_perfect = SkinNumber {
+        base: make_base(1999, option_perfect, w_digit),
+        ref_id: Some(IntegerId(value_duration)),
+        keta: 4,
+        zero_padding: ZeroPadding::None,
+        align: NumberAlign::from_i32(align_raw),
+        space: values[15],
+        digit_sources: SkinSourceSet::new(vec![row1], None, 0),
+        minus_digit_sources: Some(SkinSourceSet::new(vec![row2], None, 0)),
+        image_timer: None,
+        image_cycle: 0,
+        digit_offsets: Vec::new(),
+        relative: false,
+    };
+    skin.add(num_perfect.into());
+
+    // 4. Non-PERFECT duration (red): positive=row3, negative=row4
+    let row3: Vec<_> = grid[36..48].to_vec();
+    let row4: Vec<_> = grid[48..60].to_vec();
+    let num_other = SkinNumber {
+        base: make_base(1999, -option_perfect, w_digit),
+        ref_id: Some(IntegerId(value_duration)),
+        keta: 4,
+        zero_padding: ZeroPadding::None,
+        align: NumberAlign::from_i32(align_raw),
+        space: values[15],
+        digit_sources: SkinSourceSet::new(vec![row3], None, 0),
+        minus_digit_sources: Some(SkinSourceSet::new(vec![row4], None, 0)),
+        image_timer: None,
+        image_cycle: 0,
+        digit_offsets: Vec::new(),
+        relative: false,
+    };
+    skin.add(num_other.into());
 }
 
 fn src_nowcombo(player: usize, fields: &[&str], skin: &mut Skin, play_state: &mut Lr2PlayState) {
@@ -1250,6 +1391,140 @@ mod tests {
             assert!(num.base.destinations[0].region.y < 0.0);
         } else {
             panic!("Expected Judge");
+        }
+    }
+
+    /// Helper: create judge + trigger DST to invoke add_judge_detail.
+    fn setup_judge_with_detail() -> (Skin, Lr2PlayState) {
+        let (mut skin, mut state) = make_skin();
+        let mut ps = Lr2PlayState::default();
+
+        let src: Vec<&str> = "#SRC,0,0,0,0,100,50,1,1,0,0,0".split(',').collect();
+        process_play_command("SRC_NOWJUDGE_1P", &src, &mut skin, &mut state, &mut ps);
+
+        // DST_NOWJUDGE triggers add_judge_detail on first call
+        let dst: Vec<&str> = "#DST,0,0,200,300,100,50,0,255,255,255,255,2,0,0,0,0,0,0,0,0"
+            .split(',')
+            .collect();
+        process_play_command("DST_NOWJUDGE_1P", &dst, &mut skin, &mut state, &mut ps);
+
+        (skin, ps)
+    }
+
+    #[test]
+    fn test_add_judge_detail_creates_objects() {
+        let (skin, _ps) = setup_judge_with_detail();
+
+        // 1 Judge + 4 detail objects (early, late, num_perfect, num_other)
+        assert_eq!(skin.object_count(), 5);
+
+        // Objects 1-2 should be SkinImage (early/late)
+        assert!(
+            matches!(skin.objects[1], SkinObjectType::Image(_)),
+            "object[1] should be Image (early)"
+        );
+        assert!(
+            matches!(skin.objects[2], SkinObjectType::Image(_)),
+            "object[2] should be Image (late)"
+        );
+
+        // Objects 3-4 should be SkinNumber (duration numbers)
+        assert!(
+            matches!(skin.objects[3], SkinObjectType::Number(_)),
+            "object[3] should be Number (perfect duration)"
+        );
+        assert!(
+            matches!(skin.objects[4], SkinObjectType::Number(_)),
+            "object[4] should be Number (non-perfect duration)"
+        );
+    }
+
+    #[test]
+    fn test_add_judge_detail_called_once_per_player() {
+        let (mut skin, mut state) = make_skin();
+        let mut ps = Lr2PlayState::default();
+
+        let src: Vec<&str> = "#SRC,0,0,0,0,100,50,1,1,0,0,0".split(',').collect();
+        process_play_command("SRC_NOWJUDGE_1P", &src, &mut skin, &mut state, &mut ps);
+
+        let dst: Vec<&str> = "#DST,0,0,200,300,100,50,0,255,255,255,255,2,0,0,0,0,0,0,0,0"
+            .split(',')
+            .collect();
+
+        // First DST triggers add_judge_detail
+        process_play_command("DST_NOWJUDGE_1P", &dst, &mut skin, &mut state, &mut ps);
+        let count_after_first = skin.object_count();
+
+        // Second DST should NOT add more objects
+        process_play_command("DST_NOWJUDGE_1P", &dst, &mut skin, &mut state, &mut ps);
+        assert_eq!(skin.object_count(), count_after_first);
+    }
+
+    #[test]
+    fn test_add_judge_detail_positions() {
+        let (skin, _ps) = setup_judge_with_detail();
+
+        // Early image (object[1])
+        if let SkinObjectType::Image(ref img) = skin.objects[1] {
+            assert!(
+                img.base.destinations.len() >= 2,
+                "should have 2 destinations"
+            );
+            assert_eq!(img.base.loop_time, 1998);
+            // source_rect for early: (0, 0, 50, 20)
+            let sr = img.source_rect.unwrap();
+            assert_eq!(sr.x, 0.0);
+            assert_eq!(sr.y, 0.0);
+            assert_eq!(sr.w, 50.0);
+            assert_eq!(sr.h, 20.0);
+        } else {
+            panic!("Expected Image for early");
+        }
+
+        // Late image (object[2])
+        if let SkinObjectType::Image(ref img) = skin.objects[2] {
+            assert!(
+                img.base.destinations.len() >= 2,
+                "should have 2 destinations"
+            );
+            assert_eq!(img.base.loop_time, 1998);
+            // source_rect for late: (50, 0, 50, 20)
+            let sr = img.source_rect.unwrap();
+            assert_eq!(sr.x, 50.0);
+            assert_eq!(sr.y, 0.0);
+            assert_eq!(sr.w, 50.0);
+            assert_eq!(sr.h, 20.0);
+        } else {
+            panic!("Expected Image for late");
+        }
+    }
+
+    #[test]
+    fn test_add_judge_detail_number_sources() {
+        let (skin, _ps) = setup_judge_with_detail();
+
+        // Perfect duration number (object[3])
+        if let SkinObjectType::Number(ref num) = skin.objects[3] {
+            assert_eq!(num.keta, 4);
+            assert_eq!(num.base.loop_time, 1999);
+            assert!(num.minus_digit_sources.is_some());
+            assert_eq!(num.ref_id, Some(IntegerId(VALUE_JUDGE_1P_DURATION)));
+            // digit_sources should have images from row 1 (blue positive)
+            assert!(!num.digit_sources.images.is_empty());
+        } else {
+            panic!("Expected Number for perfect duration");
+        }
+
+        // Non-perfect duration number (object[4])
+        if let SkinObjectType::Number(ref num) = skin.objects[4] {
+            assert_eq!(num.keta, 4);
+            assert_eq!(num.base.loop_time, 1999);
+            assert!(num.minus_digit_sources.is_some());
+            assert_eq!(num.ref_id, Some(IntegerId(VALUE_JUDGE_1P_DURATION)));
+            // digit_sources should have images from row 3 (red positive)
+            assert!(!num.digit_sources.images.is_empty());
+        } else {
+            panic!("Expected Number for non-perfect duration");
         }
     }
 }

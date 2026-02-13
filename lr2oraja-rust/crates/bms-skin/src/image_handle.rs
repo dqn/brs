@@ -13,6 +13,10 @@ impl ImageHandle {
     /// A sentinel value representing "no image".
     pub const NONE: Self = Self(u32::MAX);
 
+    /// Embedded texture handle for judgedetail.png.
+    /// 0xFFF0 (65520) is far above normal LR2 skin image indices (0-255).
+    pub const EMBEDDED_JUDGEDETAIL: Self = Self(0xFFF0);
+
     /// Returns true if this is a valid handle (not NONE).
     pub fn is_valid(self) -> bool {
         self != Self::NONE

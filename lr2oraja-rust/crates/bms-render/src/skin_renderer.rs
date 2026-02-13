@@ -1415,7 +1415,10 @@ fn resolve_object_texture(
                         if let Some(handle) = images.get(idx)
                             && let Some(entry) = tex_map.get(*handle)
                         {
-                            return (Some(entry.handle.clone()), None);
+                            let uv = img
+                                .source_rect
+                                .map(|r| bevy::math::Rect::new(r.x, r.y, r.x + r.w, r.y + r.h));
+                            return (Some(entry.handle.clone()), uv);
                         }
                     }
                     bms_skin::skin_image::SkinImageSource::Reference(_id) => {

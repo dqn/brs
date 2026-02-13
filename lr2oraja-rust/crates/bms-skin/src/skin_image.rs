@@ -6,7 +6,7 @@
 
 use crate::image_handle::ImageHandle;
 use crate::property_id::IntegerId;
-use crate::skin_object::SkinObjectBase;
+use crate::skin_object::{Rect, SkinObjectBase};
 
 // ---------------------------------------------------------------------------
 // SkinImage
@@ -27,6 +27,9 @@ pub struct SkinImage {
     pub ref_id: Option<IntegerId>,
     /// Whether this is a movie source (affects rendering pipeline).
     pub is_movie: bool,
+    /// Optional source rectangle for sub-region rendering (pixel coordinates).
+    /// When set, only this rectangle of the texture is displayed.
+    pub source_rect: Option<Rect>,
 }
 
 /// A single image source entry for SkinImage.
