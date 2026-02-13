@@ -376,9 +376,12 @@ impl PlayState {
     fn render_playing(&mut self, ctx: &mut StateContext) {
         let ptime_us = ctx.timer.now_time_of(TIMER_PLAY) * 1000;
 
-        // Update BGA timeline
+        // Update BGA timeline and movie frames
         if let Some(bga) = &mut self.bga_processor {
             bga.update(ptime_us);
+            if let Some(images) = &mut ctx.bevy_images {
+                bga.update_movie_frames(images);
+            }
         }
 
         // BGM autoplay via KeySoundProcessor
@@ -626,10 +629,11 @@ impl GameStateHandler for PlayState {
             }
         }
 
-        // Preload BGA images if Bevy assets are available
+        // Preload BGA images and movie processors if Bevy assets are available
         if let (Some(bga), Some(model)) = (&mut self.bga_processor, &ctx.resource.bms_model)
             && let Some(images) = &mut ctx.bevy_images
         {
+            bga.set_frameskip(ctx.config.frameskip);
             let base_path = ctx.resource.bms_dir.as_deref().unwrap_or(Path::new("."));
             bga.prepare(model, base_path, images);
         }
