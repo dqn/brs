@@ -75,7 +75,7 @@ pub fn compute_judge_draw(
                 align: num.align,
                 space: num.space,
                 digit_w,
-                negative: num.has_minus_images,
+                negative: num.minus_digit_sources.is_some(),
             };
 
             let num_dst = Rect::new(0.0, rect.h * 0.5, rect.w, rect.h * 0.5);

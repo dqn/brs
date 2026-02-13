@@ -183,32 +183,36 @@ pub fn split_grid(
 /// Builds a `SkinSourceSet` for a SkinNumber from grid images.
 ///
 /// Matches Java `JsonSkinObjectLoader.java:100-170`:
-/// - 24-frame divisible: 12 positive + 12 negative per state → has_minus = true
+/// - 24-frame divisible: 12 positive + 12 negative per state → negative set built
 /// - Otherwise: d = (len % 10 == 0) ? 10 : 11, states × d frames
 ///
-/// Returns `(source_set, has_minus, zeropadding_override)`.
+/// Returns `(positive_set, negative_set, zeropadding_override)`.
 pub fn build_number_source_set(
     images: &[ImageRegion],
     timer: Option<i32>,
     cycle: i32,
-) -> (SkinSourceSet, bool, Option<i32>) {
+) -> (SkinSourceSet, Option<SkinSourceSet>, Option<i32>) {
     let len = images.len();
     if len == 0 {
-        return (SkinSourceSet::new(vec![], timer, cycle), false, None);
+        return (SkinSourceSet::new(vec![], timer, cycle), None, None);
     }
 
     if len.is_multiple_of(24) {
         // 24-frame: 12 positive + 12 negative per state
         let states = len / 24;
         let mut positive = Vec::with_capacity(states);
+        let mut negative = Vec::with_capacity(states);
         for j in 0..states {
-            let row: Vec<ImageRegion> = (0..12).map(|i| images[j * 24 + i]).collect();
-            positive.push(row);
+            let pos_row: Vec<ImageRegion> = (0..12).map(|i| images[j * 24 + i]).collect();
+            let neg_row: Vec<ImageRegion> = (12..24).map(|i| images[j * 24 + i]).collect();
+            positive.push(pos_row);
+            negative.push(neg_row);
         }
-        // negative images stored but only positive set is populated into SkinSourceSet
-        // (matching Java: pn/mn are separate arrays, SkinNumber(pn, mn, ...) stores both)
-        // For now we populate positive only; negative is deferred.
-        (SkinSourceSet::new(positive, timer, cycle), true, None)
+        (
+            SkinSourceSet::new(positive, timer, cycle),
+            Some(SkinSourceSet::new(negative, timer, cycle)),
+            None,
+        )
     } else {
         let d = if len.is_multiple_of(10) { 10 } else { 11 };
         let states = len / d;
@@ -220,7 +224,7 @@ pub fn build_number_source_set(
         let zeropadding_override = if d > 10 { Some(2) } else { None };
         (
             SkinSourceSet::new(rows, timer, cycle),
-            false,
+            None,
             zeropadding_override,
         )
     }
@@ -402,19 +406,19 @@ mod tests {
 
     #[test]
     fn test_build_number_source_set_empty() {
-        let (set, has_minus, zp) = build_number_source_set(&[], None, 0);
+        let (set, neg, zp) = build_number_source_set(&[], None, 0);
         assert_eq!(set.state_count(), 0);
-        assert!(!has_minus);
+        assert!(neg.is_none());
         assert!(zp.is_none());
     }
 
     #[test]
     fn test_build_number_source_set_10_frames() {
         let images = make_regions(10);
-        let (set, has_minus, zp) = build_number_source_set(&images, Some(1), 100);
+        let (set, neg, zp) = build_number_source_set(&images, Some(1), 100);
         assert_eq!(set.state_count(), 1);
         assert_eq!(set.images[0].len(), 10);
-        assert!(!has_minus);
+        assert!(neg.is_none());
         assert!(zp.is_none());
         assert_eq!(set.timer, Some(1));
         assert_eq!(set.cycle, 100);
@@ -423,37 +427,54 @@ mod tests {
     #[test]
     fn test_build_number_source_set_11_frames() {
         let images = make_regions(11);
-        let (set, has_minus, zp) = build_number_source_set(&images, None, 0);
+        let (set, neg, zp) = build_number_source_set(&images, None, 0);
         assert_eq!(set.state_count(), 1);
         assert_eq!(set.images[0].len(), 11);
-        assert!(!has_minus);
+        assert!(neg.is_none());
         assert_eq!(zp, Some(2)); // ZeroPadding::Space
     }
 
     #[test]
     fn test_build_number_source_set_24_frames() {
         let images = make_regions(24);
-        let (set, has_minus, zp) = build_number_source_set(&images, Some(5), 200);
+        let (set, neg, zp) = build_number_source_set(&images, Some(5), 200);
         assert_eq!(set.state_count(), 1);
         assert_eq!(set.images[0].len(), 12);
-        assert!(has_minus);
+        assert!(neg.is_some());
         assert!(zp.is_none());
         assert_eq!(set.timer, Some(5));
         assert_eq!(set.cycle, 200);
+
+        // Verify negative set content: images[12..24]
+        let neg = neg.unwrap();
+        assert_eq!(neg.state_count(), 1);
+        assert_eq!(neg.images[0].len(), 12);
+        assert_eq!(neg.images[0][0].handle, ImageHandle(12));
+        assert_eq!(neg.images[0][11].handle, ImageHandle(23));
+        assert_eq!(neg.timer, Some(5));
+        assert_eq!(neg.cycle, 200);
     }
 
     #[test]
     fn test_build_number_source_set_48_frames() {
         let images = make_regions(48);
-        let (set, has_minus, _) = build_number_source_set(&images, None, 0);
+        let (set, neg, _) = build_number_source_set(&images, None, 0);
         assert_eq!(set.state_count(), 2);
         assert_eq!(set.images[0].len(), 12);
         assert_eq!(set.images[1].len(), 12);
-        assert!(has_minus);
+        assert!(neg.is_some());
         // Verify correct image mapping: state 0 = images[0..12], state 1 = images[24..36]
         assert_eq!(set.images[0][0].handle, ImageHandle(0));
         assert_eq!(set.images[0][11].handle, ImageHandle(11));
         assert_eq!(set.images[1][0].handle, ImageHandle(24));
         assert_eq!(set.images[1][11].handle, ImageHandle(35));
+
+        // Verify negative: state 0 = images[12..24], state 1 = images[36..48]
+        let neg = neg.unwrap();
+        assert_eq!(neg.state_count(), 2);
+        assert_eq!(neg.images[0][0].handle, ImageHandle(12));
+        assert_eq!(neg.images[0][11].handle, ImageHandle(23));
+        assert_eq!(neg.images[1][0].handle, ImageHandle(36));
+        assert_eq!(neg.images[1][11].handle, ImageHandle(47));
     }
 }

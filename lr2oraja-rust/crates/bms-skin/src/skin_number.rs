@@ -79,8 +79,9 @@ pub struct SkinNumber {
     /// Timer and cycle for animation of the digit images.
     pub image_timer: Option<i32>,
     pub image_cycle: i32,
-    /// Source image set for negative values (optional).
-    pub has_minus_images: bool,
+    /// Digit image source set for negative values (optional).
+    /// When Some, the renderer uses this set for negative values.
+    pub minus_digit_sources: Option<SkinSourceSet>,
     /// Per-digit offsets (optional, length should match keta).
     pub digit_offsets: Vec<SkinOffset>,
     /// When true, digit positions are relative to the parent judge image.
@@ -99,7 +100,7 @@ impl Default for SkinNumber {
             digit_sources: SkinSourceSet::new(vec![], None, 0),
             image_timer: None,
             image_cycle: 0,
-            has_minus_images: false,
+            minus_digit_sources: None,
             digit_offsets: Vec::new(),
             relative: false,
         }

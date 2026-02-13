@@ -521,7 +521,7 @@ fn src_number(fields: &[&str], skin: &mut Skin, state: &mut Lr2CsvState) {
 
     let timer = nonzero_timer(values[10]);
     let cycle = values[9];
-    let (digit_sources, has_minus, zeropadding_override) =
+    let (digit_sources, minus_digit_sources, zeropadding_override) =
         build_number_source_set(&grid, timer, cycle);
 
     // Detect 24-frame (12 positive + 12 negative digits) vs 10/11-digit layout
@@ -551,7 +551,7 @@ fn src_number(fields: &[&str], skin: &mut Skin, state: &mut Lr2CsvState) {
         align: NumberAlign::from_i32(values[12]),
         space: values[15],
         digit_sources,
-        has_minus_images: has_minus,
+        minus_digit_sources,
         image_timer: timer,
         image_cycle: cycle,
         ..Default::default()
@@ -965,7 +965,7 @@ mod tests {
                 assert_eq!(n.keta, 5);
                 assert_eq!(n.digit_sources.state_count(), 1);
                 assert_eq!(n.digit_sources.images[0].len(), 10);
-                assert!(!n.has_minus_images);
+                assert!(n.minus_digit_sources.is_none());
                 assert_eq!(n.zero_padding, ZeroPadding::None);
             }
             _ => panic!("Expected Number"),
@@ -985,7 +985,7 @@ mod tests {
             SkinObjectType::Number(n) => {
                 assert_eq!(n.digit_sources.state_count(), 1);
                 assert_eq!(n.digit_sources.images[0].len(), 11);
-                assert!(!n.has_minus_images);
+                assert!(n.minus_digit_sources.is_none());
                 assert_eq!(n.zero_padding, ZeroPadding::Space);
             }
             _ => panic!("Expected Number"),
@@ -1006,7 +1006,7 @@ mod tests {
             SkinObjectType::Number(n) => {
                 assert_eq!(n.digit_sources.state_count(), 1);
                 assert_eq!(n.digit_sources.images[0].len(), 12);
-                assert!(n.has_minus_images);
+                assert!(n.minus_digit_sources.is_some());
                 assert_eq!(n.image_timer, Some(42));
                 assert_eq!(n.image_cycle, 100);
             }

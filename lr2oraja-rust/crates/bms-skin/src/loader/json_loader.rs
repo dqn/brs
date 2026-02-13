@@ -849,7 +849,7 @@ fn resolve_sub_number(
         })
         .unwrap_or_default();
 
-    let (digit_sources, has_minus, zeropadding_override) =
+    let (digit_sources, minus_digit_sources, zeropadding_override) =
         build_number_source_set(&grid, timer, val_def.cycle);
 
     let zeropadding = zeropadding_override.unwrap_or(val_def.zeropadding);
@@ -862,7 +862,7 @@ fn resolve_sub_number(
         align: crate::skin_number::NumberAlign::from_i32(val_def.align),
         space: val_def.space,
         digit_sources,
-        has_minus_images: has_minus,
+        minus_digit_sources,
         ..Default::default()
     };
     apply_destination(&mut num.base, sub_dst);
@@ -997,51 +997,78 @@ use crate::skin_source::{SkinSourceSet, build_number_source_set, split_grid};
 /// - %11: 10 digits + back-zero sharing + decimal point (shared)
 /// - fallback: treat as 12 per state
 ///
-/// Returns `(source_set, has_minus)`.
+/// Returns `(positive_set, negative_set)`.
 fn build_float_source_set(
     images: &[ImageRegion],
     timer: Option<i32>,
     cycle: i32,
     divx: i32,
     divy: i32,
-) -> (SkinSourceSet, bool) {
+) -> (SkinSourceSet, Option<SkinSourceSet>) {
     let len = images.len();
     if len == 0 {
-        return (SkinSourceSet::new(vec![], timer, cycle), false);
+        return (SkinSourceSet::new(vec![], timer, cycle), None);
     }
 
     if len.is_multiple_of(26) {
         // 13 positive + 13 negative per state
         let states = len / 26;
         let mut positive = Vec::with_capacity(states);
+        let mut negative = Vec::with_capacity(states);
         for j in 0..states {
-            let row: Vec<ImageRegion> = (0..13).map(|i| images[j * 26 + i]).collect();
-            positive.push(row);
+            let pos_row: Vec<ImageRegion> = (0..13).map(|i| images[j * 26 + i]).collect();
+            let neg_row: Vec<ImageRegion> = (13..26).map(|i| images[j * 26 + i]).collect();
+            positive.push(pos_row);
+            negative.push(neg_row);
         }
-        (SkinSourceSet::new(positive, timer, cycle), true)
+        (
+            SkinSourceSet::new(positive, timer, cycle),
+            Some(SkinSourceSet::new(negative, timer, cycle)),
+        )
     } else if len.is_multiple_of(24) {
         // 12 positive + 12 negative per state
         let states = len / 24;
         let mut positive = Vec::with_capacity(states);
+        let mut negative = Vec::with_capacity(states);
         for j in 0..states {
-            let row: Vec<ImageRegion> = (0..12).map(|i| images[j * 24 + i]).collect();
-            positive.push(row);
+            let pos_row: Vec<ImageRegion> = (0..12).map(|i| images[j * 24 + i]).collect();
+            let neg_row: Vec<ImageRegion> = (12..24).map(|i| images[j * 24 + i]).collect();
+            positive.push(pos_row);
+            negative.push(neg_row);
         }
-        (SkinSourceSet::new(positive, timer, cycle), true)
+        (
+            SkinSourceSet::new(positive, timer, cycle),
+            Some(SkinSourceSet::new(negative, timer, cycle)),
+        )
     } else if len.is_multiple_of(22) {
         // 10 digits + back-zero sharing + decimal point, separate +/- images
         let states = len / 22;
         let mut positive = Vec::with_capacity(states);
+        let mut negative = Vec::with_capacity(states);
         for j in 0..states {
-            let mut row = Vec::with_capacity(12);
+            // Positive: digits 0-9, back-zero (=digit 0), decimal point
+            let mut pos_row = Vec::with_capacity(12);
             for i in 0..10 {
-                row.push(images[j * 22 + i]);
+                pos_row.push(images[j * 22 + i]);
             }
-            row.push(images[j * 22]); // index 10: back-zero shared with digit 0
-            row.push(images[j * 22 + 10]); // index 11: decimal point
-            positive.push(row);
+            pos_row.push(images[j * 22]); // index 10: back-zero shared with digit 0
+            pos_row.push(images[j * 22 + 10]); // index 11: decimal point
+
+            // Negative: digits 0-9 from offset 11, back-zero (=neg digit 0), decimal point
+            let mut neg_row = Vec::with_capacity(12);
+            for i in 0..10 {
+                neg_row.push(images[j * 22 + 11 + i]);
+            }
+            neg_row.push(images[j * 22 + 11]); // index 10: back-zero shared with neg digit 0
+            neg_row.push(images[j * 22 + 21]); // index 11: decimal point
+
+            positive.push(pos_row);
+            negative.push(neg_row);
         }
-        (SkinSourceSet::new(positive, timer, cycle), true)
+        (
+            SkinSourceSet::new(positive, timer, cycle),
+            Some(SkinSourceSet::new(negative, timer, cycle)),
+        )
     } else if len.is_multiple_of(12) {
         // 12 per state, shared positive/negative
         let states = len / 12;
@@ -1050,7 +1077,7 @@ fn build_float_source_set(
             let row: Vec<ImageRegion> = (0..12).map(|i| images[j * 12 + i]).collect();
             rows.push(row);
         }
-        (SkinSourceSet::new(rows, timer, cycle), false)
+        (SkinSourceSet::new(rows, timer, cycle), None)
     } else if len.is_multiple_of(11) {
         // 10 digits + back-zero sharing + decimal point, shared
         let states = len / 11;
@@ -1064,14 +1091,14 @@ fn build_float_source_set(
             row.push(images[j * 11 + 10]); // index 11: decimal point
             rows.push(row);
         }
-        (SkinSourceSet::new(rows, timer, cycle), false)
+        (SkinSourceSet::new(rows, timer, cycle), None)
     } else {
         // Fallback: treat as 12 per state
         let d = 12;
         let total = (divx * divy) as usize;
         let states = total / d;
         if states == 0 {
-            return (SkinSourceSet::new(vec![], timer, cycle), false);
+            return (SkinSourceSet::new(vec![], timer, cycle), None);
         }
         let mut rows = Vec::with_capacity(states);
         for j in 0..states {
@@ -1087,7 +1114,7 @@ fn build_float_source_set(
                 .collect();
             rows.push(row);
         }
-        (SkinSourceSet::new(rows, timer, cycle), false)
+        (SkinSourceSet::new(rows, timer, cycle), None)
     }
 }
 
@@ -1575,7 +1602,7 @@ fn try_build_float(
         })
         .unwrap_or_default();
 
-    let (digit_sources, _has_minus) = build_float_source_set(
+    let (digit_sources, minus_digit_sources) = build_float_source_set(
         &grid,
         timer,
         float_def.cycle,
@@ -1592,6 +1619,7 @@ fn try_build_float(
         zero_padding: float_def.zeropadding,
         align: float_def.align,
         digit_sources,
+        minus_digit_sources,
         ..Default::default()
     };
     apply_destination(&mut float_obj.base, dst);
@@ -1711,7 +1739,7 @@ fn try_build_number(
         })
         .unwrap_or_default();
 
-    let (digit_sources, has_minus, zeropadding_override) =
+    let (digit_sources, minus_digit_sources, zeropadding_override) =
         build_number_source_set(&grid, timer, val_def.cycle);
 
     let zeropadding = zeropadding_override.unwrap_or(val_def.zeropadding);
@@ -1724,7 +1752,7 @@ fn try_build_number(
         align: crate::skin_number::NumberAlign::from_i32(val_def.align),
         space: val_def.space,
         digit_sources,
-        has_minus_images: has_minus,
+        minus_digit_sources,
         ..Default::default()
     };
     apply_destination(&mut num.base, dst);

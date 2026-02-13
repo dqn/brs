@@ -19,8 +19,9 @@ pub struct SkinFloat {
     pub digit_sources: SkinSourceSet,
     /// Positive digit image sources (raw IDs, kept for loader compatibility).
     pub image_sources: Vec<i32>,
-    /// Negative digit image sources (optional).
-    pub minus_image_sources: Vec<i32>,
+    /// Digit image source set for negative values (optional).
+    /// When Some, the renderer uses this set for negative values.
+    pub minus_digit_sources: Option<SkinSourceSet>,
     /// Float property reference.
     pub ref_id: Option<FloatId>,
     /// Integer digit count.
@@ -43,7 +44,7 @@ impl Default for SkinFloat {
             base: SkinObjectBase::default(),
             digit_sources: SkinSourceSet::new(vec![], None, 0),
             image_sources: Vec::new(),
-            minus_image_sources: Vec::new(),
+            minus_digit_sources: None,
             ref_id: None,
             iketa: 1,
             fketa: 0,
@@ -63,7 +64,7 @@ mod tests {
     fn test_default() {
         let f = SkinFloat::default();
         assert!(f.image_sources.is_empty());
-        assert!(f.minus_image_sources.is_empty());
+        assert!(f.minus_digit_sources.is_none());
         assert!(f.ref_id.is_none());
         assert_eq!(f.iketa, 1);
         assert_eq!(f.fketa, 0);

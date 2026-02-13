@@ -881,7 +881,15 @@ fn spawn_number_children(
 ) {
     let value = num.ref_id.map(|id| provider.integer_value(id)).unwrap_or(0);
 
-    let digit_images = num.digit_sources.get_images(time);
+    // Java: (value >= 0 || mimage == null) ? this.image : mimage
+    let digit_images = if value < 0 {
+        num.minus_digit_sources
+            .as_ref()
+            .and_then(|s| s.get_images(time))
+            .or_else(|| num.digit_sources.get_images(time))
+    } else {
+        num.digit_sources.get_images(time)
+    };
     let Some(digit_images) = digit_images else {
         return;
     };
@@ -898,7 +906,7 @@ fn spawn_number_children(
         align: num.align,
         space: num.space,
         digit_w,
-        negative: num.has_minus_images,
+        negative: num.minus_digit_sources.is_some(),
     };
 
     let dst = bms_skin::skin_object::Rect::new(0.0, 0.0, rect.w, rect.h);
@@ -960,7 +968,16 @@ fn spawn_float_children(
         .unwrap_or(0.0)
         * float_obj.gain;
 
-    let digit_images = float_obj.digit_sources.get_images(time);
+    // Java: (mimage == null || v >= 0.0f) ? this.image : mimage
+    let digit_images = if value < 0.0 {
+        float_obj
+            .minus_digit_sources
+            .as_ref()
+            .and_then(|s| s.get_images(time))
+            .or_else(|| float_obj.digit_sources.get_images(time))
+    } else {
+        float_obj.digit_sources.get_images(time)
+    };
     let Some(digit_images) = digit_images else {
         return;
     };
