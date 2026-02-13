@@ -19,6 +19,7 @@ use crate::database_manager::DatabaseManager;
 use crate::game_state::SharedGameState;
 use crate::input_mapper::InputState;
 use crate::player_resource::PlayerResource;
+use crate::preview_music::PreviewMusicProcessor;
 use crate::skin_manager::SkinManager;
 use crate::system_sound::SystemSoundManager;
 use crate::timer_manager::TimerManager;
@@ -53,6 +54,8 @@ pub struct StateContext<'a> {
     /// Shared game state for skin property synchronization (None in tests).
     #[allow(dead_code)] // Used by state handlers in Phase 22 steps 2-6
     pub shared_state: Option<&'a mut SharedGameState>,
+    /// Preview music processor for select screen (None in tests or non-select states).
+    pub preview_music: Option<&'a mut PreviewMusicProcessor>,
 }
 
 /// Trait for game state handlers. Each variant of `AppStateType` has

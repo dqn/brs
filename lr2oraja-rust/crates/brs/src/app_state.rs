@@ -11,6 +11,7 @@ use crate::database_manager::DatabaseManager;
 use crate::game_state::SharedGameState;
 use crate::input_mapper::InputState;
 use crate::player_resource::PlayerResource;
+use crate::preview_music::PreviewMusicProcessor;
 use crate::skin_manager::SkinManager;
 use crate::state::{GameStateHandler, StateContext};
 use crate::system_sound::SystemSoundManager;
@@ -59,6 +60,8 @@ pub struct TickParams<'a> {
     pub bevy_images: Option<&'a mut Assets<Image>>,
     /// Shared game state for skin property synchronization (None in tests).
     pub shared_state: Option<&'a mut SharedGameState>,
+    /// Preview music processor for select screen (None in tests).
+    pub preview_music: Option<&'a mut PreviewMusicProcessor>,
 }
 
 /// Registry of all state handlers with transition logic.
@@ -115,6 +118,7 @@ impl StateRegistry {
                     received_chars: params.received_chars,
                     bevy_images: params.bevy_images.as_deref_mut(),
                     shared_state: params.shared_state.as_deref_mut(),
+                    preview_music: params.preview_music.as_deref_mut(),
                 };
                 handler.create(&mut ctx);
                 handler.prepare(&mut ctx);
@@ -137,6 +141,7 @@ impl StateRegistry {
                 received_chars: params.received_chars,
                 bevy_images: params.bevy_images.as_deref_mut(),
                 shared_state: params.shared_state.as_deref_mut(),
+                preview_music: params.preview_music.as_deref_mut(),
             };
             handler.render(&mut ctx);
             handler.input(&mut ctx);
@@ -170,6 +175,7 @@ impl StateRegistry {
                 received_chars: params.received_chars,
                 bevy_images: params.bevy_images.as_deref_mut(),
                 shared_state: params.shared_state.as_deref_mut(),
+                preview_music: params.preview_music.as_deref_mut(),
             };
             handler.shutdown(&mut ctx);
         }
@@ -195,6 +201,7 @@ impl StateRegistry {
                 received_chars: params.received_chars,
                 bevy_images: params.bevy_images.as_deref_mut(),
                 shared_state: params.shared_state.as_deref_mut(),
+                preview_music: params.preview_music.as_deref_mut(),
             };
             handler.create(&mut ctx);
             handler.prepare(&mut ctx);
@@ -261,6 +268,7 @@ mod tests {
             received_chars: &[],
             bevy_images: None,
             shared_state: None,
+            preview_music: None,
         }
     }
 

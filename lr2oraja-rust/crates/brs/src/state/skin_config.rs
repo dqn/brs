@@ -209,6 +209,7 @@ mod tests {
             received_chars: &[],
             bevy_images: None,
             shared_state: None,
+            preview_music: None,
         }
     }
 
@@ -234,6 +235,7 @@ mod tests {
             received_chars: &[],
             bevy_images: None,
             shared_state: None,
+            preview_music: None,
         }
     }
 

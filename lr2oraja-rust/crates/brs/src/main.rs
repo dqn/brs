@@ -9,6 +9,7 @@ pub mod external_manager;
 mod game_state;
 pub mod input_mapper;
 mod player_resource;
+mod preview_music;
 mod skin_manager;
 mod state;
 mod system_sound;
@@ -173,6 +174,18 @@ fn main() -> Result<()> {
     // Shared game state for skin renderer
     let shared_state = Arc::new(RwLock::new(SharedGameState::default()));
 
+    // Preview music processor for select screen BGM/preview playback
+    let preview_music = match preview_music::PreviewMusicProcessor::new() {
+        Ok(pm) => {
+            info!("Preview music processor initialized");
+            Some(pm)
+        }
+        Err(e) => {
+            tracing::warn!("Failed to initialize preview music: {e}");
+            None
+        }
+    };
+
     // Store config paths for saving on exit
     let config_path = args.config.clone();
     let player_config_path = args.player_config.clone();
@@ -201,13 +214,16 @@ fn main() -> Result<()> {
         .insert_resource(BrsExternalManager(external))
         .insert_resource(BrsSkinManager::default())
         .insert_resource(BrsSystemSoundManager::default())
-        .insert_resource(BrsConfigPaths {
-            config: config_path,
-            player_config: player_config_path,
+        .insert_resource(StateUiResources {
+            config_paths: BrsConfigPaths {
+                config: config_path,
+                player_config: player_config_path,
+            },
+            preview_music: BrsPreviewMusic(Mutex::new(preview_music)),
         })
         .add_systems(Update, timer_update_system)
-        .add_systems(Update, state_machine_system.after(timer_update_system))
-        .add_systems(Update, state_sync_system.after(state_machine_system))
+        .add_systems(Update, state_machine_system)
+        .add_systems(Update, state_sync_system)
         .run();
 
     Ok(())
@@ -255,6 +271,10 @@ struct BrsSkinManager(skin_manager::SkinManager);
 #[derive(Resource, Default)]
 struct BrsSystemSoundManager(system_sound::SystemSoundManager);
 
+/// Preview music processor wrapped in Mutex (Kira AudioManager is not Sync).
+#[derive(Resource)]
+struct BrsPreviewMusic(Mutex<Option<preview_music::PreviewMusicProcessor>>);
+
 #[derive(Resource)]
 struct BrsConfigPaths {
     #[allow(dead_code)] // Reserved for future system config saving
@@ -264,6 +284,12 @@ struct BrsConfigPaths {
 
 fn timer_update_system(mut timer: ResMut<BrsTimerManager>) {
     timer.0.update();
+}
+
+#[derive(Resource)]
+struct StateUiResources {
+    config_paths: BrsConfigPaths,
+    preview_music: BrsPreviewMusic,
 }
 
 #[allow(clippy::too_many_arguments)] // Bevy system using dependency injection
@@ -281,9 +307,9 @@ fn state_machine_system(
     mut backend: Local<bevy_keyboard::BevyKeyboardBackend>,
     mut skin_mgr: ResMut<BrsSkinManager>,
     mut sound_mgr: ResMut<BrsSystemSoundManager>,
-    config_paths: Res<BrsConfigPaths>,
     mod_menu: Res<bms_render::mod_menu::ModMenuState>,
     mut bevy_images: ResMut<Assets<Image>>,
+    ui_res: Res<StateUiResources>,
 ) {
     // When ModMenu has keyboard focus, skip game input processing.
     // Delete key is handled separately by the ModMenu plugin.
@@ -323,6 +349,7 @@ fn state_machine_system(
     let db_ref = db_guard.as_ref();
     let shared_arc = Arc::clone(&registry.shared_state);
     let mut shared_guard = shared_arc.write().unwrap();
+    let mut pm_guard = ui_res.preview_music.0.lock().unwrap();
     let mut params = TickParams {
         timer: &mut timer.0,
         resource: &mut resource.0,
@@ -336,14 +363,16 @@ fn state_machine_system(
         received_chars: &received_chars,
         bevy_images: Some(&mut bevy_images),
         shared_state: Some(&mut shared_guard),
+        preview_music: pm_guard.as_mut(),
     };
     registry.registry.tick(&mut params);
     drop(shared_guard);
+    drop(pm_guard);
 
     // Save config if requested by a state (KeyConfig/SkinConfig shutdown)
     if resource.0.config_save_requested {
         resource.0.config_save_requested = false;
-        if let Err(e) = player_config.0.write(&config_paths.player_config) {
+        if let Err(e) = player_config.0.write(&ui_res.config_paths.player_config) {
             tracing::warn!("Failed to save player config: {e}");
         } else {
             info!("Player config saved");

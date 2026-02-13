@@ -7,9 +7,11 @@ pub mod bar_manager;
 mod select_skin_state;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use tracing::info;
 
+use bms_config::SongPreview;
 use bms_database::SongInformation;
 use bms_database::song_data::{FAVORITE_CHART, FAVORITE_SONG};
 use bms_input::control_keys::ControlKeys;
@@ -17,6 +19,7 @@ use bms_input::key_command::KeyCommand;
 use bms_skin::property_id::{TIMER_FADEOUT, TIMER_STARTINPUT};
 
 use crate::app_state::AppStateType;
+use crate::preview_music::PREVIEW_DELAY_MS;
 use crate::state::{GameStateHandler, StateContext};
 
 use bar_manager::{Bar, BarManager, SortMode};
@@ -49,6 +52,10 @@ pub struct MusicSelectState {
     score_lamp_cache: HashMap<String, i32>,
     /// Whether the score cache needs refresh.
     score_cache_dirty: bool,
+    /// Microsecond timestamp of the last cursor change (for preview delay).
+    songbar_change_time: Option<i64>,
+    /// Whether the preview for the current selection has already been triggered.
+    preview_triggered: bool,
 }
 
 impl MusicSelectState {
@@ -66,6 +73,8 @@ impl MusicSelectState {
             cached_song_info: None,
             score_lamp_cache: HashMap::new(),
             score_cache_dirty: true,
+            songbar_change_time: None,
+            preview_triggered: false,
         }
     }
 }
@@ -79,6 +88,8 @@ impl Default for MusicSelectState {
 impl GameStateHandler for MusicSelectState {
     fn create(&mut self, ctx: &mut StateContext) {
         self.fadeout_started = false;
+        self.songbar_change_time = None;
+        self.preview_triggered = false;
         info!("MusicSelect: create");
 
         // If a BMS model is already loaded (via CLI --bms), skip to Decide immediately
@@ -86,6 +97,17 @@ impl GameStateHandler for MusicSelectState {
             info!("MusicSelect: BMS already loaded, transitioning to Decide");
             *ctx.transition = Some(AppStateType::Decide);
             return;
+        }
+
+        // Initialize preview music volume and default BGM
+        if let Some(pm) = &mut ctx.preview_music {
+            pm.set_volume(ctx.config.audio.systemvolume as f64);
+            // Try to load select screen BGM from the bgmpath config
+            let bgm_dir = PathBuf::from(&ctx.config.bgmpath);
+            if let Some(bgm_path) = bms_audio::decode::resolve_audio_path(&bgm_dir, "select") {
+                pm.set_default(&bgm_path);
+                info!(path = %bgm_path.display(), "MusicSelect: loaded select BGM");
+            }
         }
 
         // Load song list from database
@@ -113,6 +135,20 @@ impl GameStateHandler for MusicSelectState {
         {
             info!("MusicSelect: transition to Decide");
             *ctx.transition = Some(AppStateType::Decide);
+        }
+
+        // Preview music: trigger after PREVIEW_DELAY_MS since last cursor change
+        if ctx.config.song_preview != SongPreview::None {
+            if let Some(change_time) = self.songbar_change_time {
+                let elapsed_ms = (ctx.timer.now_micro_time() - change_time) / 1000;
+                if elapsed_ms >= PREVIEW_DELAY_MS && !self.preview_triggered {
+                    self.preview_triggered = true;
+                    self.trigger_preview(ctx);
+                }
+            }
+            if let Some(pm) = &mut ctx.preview_music {
+                pm.update();
+            }
         }
 
         // Compute scroll interpolation
@@ -234,12 +270,14 @@ impl GameStateHandler for MusicSelectState {
                         self.bar_manager.move_cursor(-1);
                         self.scroll_angle = -1;
                         self.scroll_start_us = Some(ctx.timer.now_micro_time());
+                        self.on_cursor_change(ctx.timer.now_micro_time());
                         return;
                     }
                     ControlKeys::Down => {
                         self.bar_manager.move_cursor(1);
                         self.scroll_angle = 1;
                         self.scroll_start_us = Some(ctx.timer.now_micro_time());
+                        self.on_cursor_change(ctx.timer.now_micro_time());
                         return;
                     }
                     ControlKeys::Enter => {
@@ -250,6 +288,7 @@ impl GameStateHandler for MusicSelectState {
                         if self.bar_manager.is_in_folder() {
                             self.bar_manager.leave_folder();
                             self.score_cache_dirty = true;
+                            self.on_cursor_change(ctx.timer.now_micro_time());
                         }
                         return;
                     }
@@ -336,12 +375,49 @@ impl GameStateHandler for MusicSelectState {
         }
     }
 
-    fn shutdown(&mut self, _ctx: &mut StateContext) {
+    fn shutdown(&mut self, ctx: &mut StateContext) {
+        if let Some(pm) = &mut ctx.preview_music {
+            pm.stop();
+        }
         info!("MusicSelect: shutdown");
     }
 }
 
 impl MusicSelectState {
+    /// Record that the cursor changed, resetting the preview delay timer.
+    fn on_cursor_change(&mut self, now_us: i64) {
+        self.songbar_change_time = Some(now_us);
+        self.preview_triggered = false;
+    }
+
+    /// Trigger preview playback for the currently selected bar.
+    fn trigger_preview(&mut self, ctx: &mut StateContext) {
+        let pm = match &mut ctx.preview_music {
+            Some(pm) => pm,
+            None => return,
+        };
+
+        let loop_play = ctx.config.song_preview == SongPreview::Loop;
+
+        match self.bar_manager.current() {
+            Some(Bar::Song(song_data)) if !song_data.preview.is_empty() => {
+                // Resolve preview path relative to the BMS file's directory
+                let song_path = std::path::Path::new(&song_data.path);
+                if let Some(parent) = song_path.parent() {
+                    let resolved =
+                        bms_audio::decode::resolve_audio_path(parent, &song_data.preview);
+                    pm.start_preview(resolved.as_deref(), loop_play);
+                } else {
+                    pm.start_preview(None, loop_play);
+                }
+            }
+            _ => {
+                // Not a song bar or no preview — fall back to default BGM
+                pm.start_preview(None, loop_play);
+            }
+        }
+    }
+
     fn toggle_favorite(&self, ctx: &mut StateContext, flag: i32) {
         if let Some(Bar::Song(song_data)) = self.bar_manager.current()
             && let Some(db) = ctx.database
@@ -555,6 +631,7 @@ mod tests {
             received_chars: &[],
             bevy_images: None,
             shared_state: None,
+            preview_music: None,
         }
     }
 
@@ -581,6 +658,7 @@ mod tests {
             received_chars: &[],
             bevy_images: None,
             shared_state: None,
+            preview_music: None,
         }
     }
 
@@ -1005,6 +1083,7 @@ mod tests {
                 received_chars: &[],
                 bevy_images: None,
                 shared_state: None,
+                preview_music: None,
             };
             state.input(&mut ctx);
         }
@@ -1029,6 +1108,7 @@ mod tests {
                 received_chars: &[],
                 bevy_images: None,
                 shared_state: None,
+                preview_music: None,
             };
             state.input(&mut ctx);
         }
@@ -1068,6 +1148,7 @@ mod tests {
                 received_chars: &[],
                 bevy_images: None,
                 shared_state: None,
+                preview_music: None,
             };
             state.input(&mut ctx);
         }
@@ -1199,6 +1280,7 @@ mod tests {
                 received_chars: &[],
                 bevy_images: None,
                 shared_state: None,
+                preview_music: None,
             };
             state.input(&mut ctx);
         }
@@ -1240,6 +1322,7 @@ mod tests {
             received_chars: &chars,
             bevy_images: None,
             shared_state: None,
+            preview_music: None,
         };
         state.input(&mut ctx);
         assert_eq!(state.search_text(), "hi");
@@ -1390,6 +1473,7 @@ mod tests {
                 received_chars: &[],
                 bevy_images: None,
                 shared_state: None,
+                preview_music: None,
             };
             state.input(&mut ctx);
         }
@@ -1435,6 +1519,7 @@ mod tests {
                 received_chars: &[],
                 bevy_images: None,
                 shared_state: None,
+                preview_music: None,
             };
             state.input(&mut ctx);
         }
