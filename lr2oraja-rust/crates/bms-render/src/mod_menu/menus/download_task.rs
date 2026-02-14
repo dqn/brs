@@ -39,6 +39,8 @@ pub struct DownloadTask {
 pub struct DownloadTaskState {
     pub running: Vec<DownloadTask>,
     pub expired: Vec<DownloadTask>,
+    /// Task IDs requested for retry by the UI.
+    pub retry_requests: Vec<u32>,
 }
 
 pub fn render(ctx: &egui::Context, open: &mut bool, state: &mut DownloadTaskState) {
@@ -54,18 +56,33 @@ pub fn render(ctx: &egui::Context, open: &mut bool, state: &mut DownloadTaskStat
             // Tab-like header with running/expired sections
             if !state.running.is_empty() {
                 ui.label("Running");
-                render_task_table(ui, "running_tasks", &state.running);
+                render_task_table(
+                    ui,
+                    "running_tasks",
+                    &state.running,
+                    &mut state.retry_requests,
+                );
             }
 
             if !state.expired.is_empty() {
                 ui.separator();
                 ui.label("Expired");
-                render_task_table(ui, "expired_tasks", &state.expired);
+                render_task_table(
+                    ui,
+                    "expired_tasks",
+                    &state.expired,
+                    &mut state.retry_requests,
+                );
             }
         });
 }
 
-fn render_task_table(ui: &mut egui::Ui, id: &str, tasks: &[DownloadTask]) {
+fn render_task_table(
+    ui: &mut egui::Ui,
+    id: &str,
+    tasks: &[DownloadTask],
+    retry_requests: &mut Vec<u32>,
+) {
     egui::Grid::new(id)
         .num_columns(3)
         .striped(true)
@@ -93,8 +110,9 @@ fn render_task_table(ui: &mut egui::Ui, id: &str, tasks: &[DownloadTask]) {
 
                 // Retry button for errored tasks
                 if matches!(task.status, DownloadTaskStatus::Error) {
-                    // TODO: wire up retry callback when download system is integrated
-                    let _ = ui.button("Retry");
+                    if ui.button("Retry").clicked() {
+                        retry_requests.push(task.id);
+                    }
                 } else {
                     ui.label("");
                 }

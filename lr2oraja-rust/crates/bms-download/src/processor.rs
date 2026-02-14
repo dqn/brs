@@ -129,6 +129,31 @@ impl HttpDownloadProcessor {
         });
     }
 
+    /// Retry a failed task by ID.
+    /// Resets the task to Prepare state and restarts the download.
+    pub async fn retry_task(&self, task_id: usize) -> anyhow::Result<()> {
+        {
+            let mut tasks = self.tasks.lock().await;
+            let task = tasks
+                .iter_mut()
+                .find(|t| t.id == task_id)
+                .ok_or_else(|| anyhow!("task {} not found", task_id))?;
+            if task.status != DownloadTaskStatus::Error {
+                anyhow::bail!(
+                    "task {} is not in Error state (current: {:?})",
+                    task_id,
+                    task.status
+                );
+            }
+            task.status = DownloadTaskStatus::Prepare;
+            task.error_message = None;
+            task.download_size = 0;
+            task.time_finished = None;
+        }
+        self.start_download(task_id);
+        Ok(())
+    }
+
     /// Cancel a task by ID.
     pub async fn cancel_task(&self, task_id: usize) {
         let mut tasks = self.tasks.lock().await;
@@ -346,5 +371,62 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let processor = HttpDownloadProcessor::with_max_concurrent(tmp.path(), 10);
         assert_eq!(processor.max_concurrent, 10);
+    }
+
+    #[tokio::test]
+    async fn test_retry_task_from_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        let processor = HttpDownloadProcessor::new(tmp.path());
+
+        let id = processor
+            .add_task("http://example.com".into(), "test".into(), "hash".into())
+            .await;
+
+        // Put the task into Error state
+        {
+            let mut tasks = processor.tasks.lock().await;
+            let task = tasks.iter_mut().find(|t| t.id == id).unwrap();
+            task.set_error("connection timeout".into());
+            task.download_size = 500;
+        }
+
+        // Retry should succeed and reset the task
+        processor.retry_task(id).await.unwrap();
+
+        let task = processor.get_task(id).await.unwrap();
+        assert_eq!(task.status, DownloadTaskStatus::Prepare);
+        assert!(task.error_message.is_none());
+        assert_eq!(task.download_size, 0);
+        assert!(task.time_finished.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_retry_task_non_error_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        let processor = HttpDownloadProcessor::new(tmp.path());
+
+        let id = processor
+            .add_task("http://example.com".into(), "test".into(), "hash".into())
+            .await;
+
+        // Task is in Prepare state, retry should fail
+        let result = processor.retry_task(id).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("not in Error state")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_retry_task_nonexistent() {
+        let tmp = tempfile::tempdir().unwrap();
+        let processor = HttpDownloadProcessor::new(tmp.path());
+
+        let result = processor.retry_task(999).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 }
