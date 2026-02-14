@@ -7,6 +7,7 @@ use bevy::asset::embedded_asset;
 use bevy::prelude::*;
 use bevy::sprite::Material2dPlugin;
 
+use crate::bga_layer_material::BgaLayerMaterial;
 use crate::distance_field_material::DistanceFieldMaterial;
 use crate::mod_menu::ModMenuPlugin;
 use crate::skin_renderer::skin_render_system;
@@ -20,8 +21,10 @@ pub struct BmsRenderPlugin;
 impl Plugin for BmsRenderPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "distance_field.wgsl");
+        embedded_asset!(app, "bga_layer.wgsl");
 
         app.add_plugins(Material2dPlugin::<DistanceFieldMaterial>::default())
+            .add_plugins(Material2dPlugin::<BgaLayerMaterial>::default())
             .add_plugins(ModMenuPlugin)
             .add_systems(Startup, setup_camera)
             .add_systems(Update, skin_render_system);

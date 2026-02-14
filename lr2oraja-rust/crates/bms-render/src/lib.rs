@@ -4,6 +4,7 @@
 // Skin objects are iterated in Vec order each frame (procedural render loop).
 
 pub mod bga;
+pub mod bga_layer_material;
 pub mod blend;
 pub mod coord;
 pub mod distance_field_material;

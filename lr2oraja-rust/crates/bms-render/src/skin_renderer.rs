@@ -14,6 +14,7 @@ use bms_skin::skin::Skin;
 use bms_skin::skin_object_type::SkinObjectType;
 use bms_skin::skin_text::FontType;
 
+use crate::bga_layer_material::BgaLayerMaterial;
 use crate::coord::skin_to_bevy_transform;
 use crate::distance_field_material::DistanceFieldMaterial;
 use crate::draw;
@@ -270,13 +271,14 @@ pub fn setup_skin(
                     CachedMultiEntityHash::default(),
                 ));
             }
-            // BGA: sprite entity for dynamic BGA image rendering.
+            // BGA: multi-entity for base + layer overlay rendering.
             SkinObjectType::Bga(_) => {
                 commands.spawn((
-                    Sprite::default(),
                     Transform::default(),
                     Visibility::Hidden,
                     marker,
+                    MultiEntityMarker,
+                    CachedMultiEntityHash::default(),
                 ));
             }
             // Procedural texture types: rendered from CPU pixel buffers.
@@ -339,6 +341,7 @@ pub fn skin_render_system(
     mut procedural_query: ProceduralTextureQuery,
     mut meshes: ResMut<Assets<Mesh>>,
     mut df_materials: ResMut<Assets<DistanceFieldMaterial>>,
+    mut bga_layer_materials: ResMut<Assets<BgaLayerMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
     let Some(state) = render_state else {
@@ -760,6 +763,17 @@ pub fn skin_render_system(
                         );
                     }
                 }
+                SkinObjectType::Bga(_) => {
+                    spawn_bga_children(
+                        &mut commands,
+                        entity,
+                        provider,
+                        &rect,
+                        obj_color,
+                        &mut meshes,
+                        &mut bga_layer_materials,
+                    );
+                }
                 _ => {}
             }
 
@@ -927,6 +941,20 @@ fn compute_multi_entity_hash(
                     slot.title.hash(&mut hasher);
                     slot.features.hash(&mut hasher);
                 }
+            }
+        }
+        SkinObjectType::Bga(_) => {
+            6u8.hash(&mut hasher);
+            provider.is_poor_active().hash(&mut hasher);
+            // Hash AssetId of each BGA image handle for change detection
+            if let Some(h) = provider.bga_image() {
+                h.id().hash(&mut hasher);
+            }
+            if let Some(h) = provider.layer_image() {
+                h.id().hash(&mut hasher);
+            }
+            if let Some(h) = provider.poor_image() {
+                h.id().hash(&mut hasher);
             }
         }
         _ => {}
@@ -1639,6 +1667,72 @@ fn spawn_bar_children(
     }
 }
 
+/// Spawns child entities for a BGA skin object.
+///
+/// - Poor active: single Sprite child with poor_image (fallback: bga_image)
+/// - Normal: Sprite child for bga_image (z=0.0001) + Mesh2d+BgaLayerMaterial
+///   child for layer_image (z=0.0002) with black-key transparency
+#[allow(clippy::too_many_arguments)]
+fn spawn_bga_children(
+    commands: &mut Commands,
+    parent: Entity,
+    provider: &dyn SkinStateProvider,
+    rect: &bms_skin::skin_object::Rect,
+    obj_color: bevy::prelude::Color,
+    meshes: &mut Assets<Mesh>,
+    bga_layer_materials: &mut Assets<BgaLayerMaterial>,
+) {
+    let size = Vec2::new(rect.w, rect.h);
+
+    if provider.is_poor_active() {
+        // Poor state: show poor_image, falling back to bga_image
+        let image = provider.poor_image().or_else(|| provider.bga_image());
+        if let Some(handle) = image {
+            commands.entity(parent).with_child((
+                Sprite {
+                    image: handle,
+                    custom_size: Some(size),
+                    color: obj_color,
+                    ..default()
+                },
+                Transform::from_xyz(0.0, 0.0, 0.0001),
+                MultiEntityChild,
+            ));
+        }
+        return;
+    }
+
+    // Normal state: base image + optional layer overlay
+    if let Some(base_handle) = provider.bga_image() {
+        commands.entity(parent).with_child((
+            Sprite {
+                image: base_handle,
+                custom_size: Some(size),
+                color: obj_color,
+                ..default()
+            },
+            Transform::from_xyz(0.0, 0.0, 0.0001),
+            MultiEntityChild,
+        ));
+    }
+
+    if let Some(layer_handle) = provider.layer_image() {
+        let obj_linear: LinearRgba = obj_color.into();
+        let mesh = Rectangle::new(rect.w, rect.h);
+        let mesh_handle = meshes.add(mesh);
+        let material = bga_layer_materials.add(BgaLayerMaterial {
+            color: obj_linear,
+            texture: layer_handle,
+        });
+        commands.entity(parent).with_child((
+            Mesh2d(mesh_handle),
+            MeshMaterial2d(material),
+            Transform::from_xyz(0.0, 0.0, 0.0002),
+            MultiEntityChild,
+        ));
+    }
+}
+
 /// Generates pixel data for procedural texture skin objects.
 ///
 /// `bpm_events_override` and `note_distribution_override` allow the select screen
@@ -1978,16 +2072,7 @@ fn resolve_object_texture(
             }
             (None, None)
         }
-        SkinObjectType::Bga(_) => {
-            // Poor state: show poor_image, falling back to bga_image.
-            // Normal state: show bga_image.
-            let image = if provider.is_poor_active() {
-                provider.poor_image().or_else(|| provider.bga_image())
-            } else {
-                provider.bga_image()
-            };
-            (image, None)
-        }
+        // BGA is handled by multi-entity query (spawn_bga_children).
         // Multi-entity and procedural types are handled by dedicated queries.
         // Text is handled separately via TTF/BMFont queries.
         _ => (None, None),
@@ -2021,7 +2106,8 @@ mod tests {
     }
 
     #[test]
-    fn resolve_bga_texture_returns_none_when_no_bga_image() {
+    fn resolve_object_texture_bga_returns_none() {
+        // BGA is handled by multi-entity (spawn_bga_children), not resolve_object_texture
         let provider = StaticStateProvider::default();
         let tex_map = TextureMap::new();
         let bga = bms_skin::skin_bga::SkinBga::default();
