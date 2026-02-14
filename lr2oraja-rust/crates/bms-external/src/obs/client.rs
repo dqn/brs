@@ -1,10 +1,20 @@
 use std::time::Duration;
 
 use anyhow::{Result, anyhow};
+use futures_util::{SinkExt, StreamExt};
 use tokio::sync::mpsc;
+use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info, warn};
 
 use super::protocol;
+
+type WsSink = futures_util::stream::SplitSink<
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+    Message,
+>;
+type WsStream = futures_util::stream::SplitStream<
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+>;
 
 /// Commands that can be sent to the OBS WebSocket client.
 #[derive(Debug)]
@@ -111,61 +121,167 @@ impl ObsWsClient {
 /// Background task that manages the WebSocket connection.
 async fn connection_task(mut rx: mpsc::UnboundedReceiver<ObsCommand>) {
     let mut request_counter: u64 = 0;
+    let mut sink: Option<WsSink> = None;
+    let mut stream: Option<WsStream> = None;
 
-    while let Some(cmd) = rx.recv().await {
-        match cmd {
-            ObsCommand::Connect {
-                host,
-                port,
-                password,
-            } => {
-                info!("OBS WebSocket: connecting to {}:{}", host, port);
-                if let Err(e) = try_connect(&host, port, &password).await {
-                    error!("OBS WebSocket connection failed: {}", e);
+    loop {
+        // Build a future that reads from the stream only when connected.
+        let stream_next = async {
+            match stream.as_mut() {
+                Some(s) => s.next().await,
+                None => std::future::pending().await,
+            }
+        };
+
+        tokio::select! {
+            cmd = rx.recv() => {
+                let Some(cmd) = cmd else { break };
+                match cmd {
+                    ObsCommand::Connect { host, port, password } => {
+                        info!("OBS WebSocket: connecting to {}:{}", host, port);
+                        // Drop existing connection before reconnecting.
+                        sink = None;
+                        stream = None;
+                        match try_connect(&host, port, &password).await {
+                            Ok((new_sink, new_stream)) => {
+                                info!("OBS WebSocket: connected successfully");
+                                sink = Some(new_sink);
+                                stream = Some(new_stream);
+                            }
+                            Err(e) => {
+                                error!("OBS WebSocket connection failed: {}", e);
+                            }
+                        }
+                    }
+                    ObsCommand::Disconnect => {
+                        if let Some(ref mut s) = sink {
+                            info!("OBS WebSocket: disconnecting");
+                            let _ = s.close().await;
+                        } else {
+                            info!("OBS WebSocket: already disconnected");
+                        }
+                        sink = None;
+                        stream = None;
+                    }
+                    cmd => {
+                        if let Some(ref mut s) = sink {
+                            if !send_command(cmd, s, &mut request_counter).await {
+                                sink = None;
+                                stream = None;
+                            }
+                        } else {
+                            warn!("OBS WebSocket: not connected, ignoring command");
+                        }
+                    }
                 }
             }
-            ObsCommand::Disconnect => {
-                info!("OBS WebSocket: disconnecting");
+            msg = stream_next => {
+                match msg {
+                    Some(Ok(Message::Text(text))) => {
+                        handle_server_message(&text);
+                    }
+                    Some(Ok(Message::Close(_))) => {
+                        info!("OBS WebSocket: server closed connection");
+                        sink = None;
+                        stream = None;
+                    }
+                    Some(Err(e)) => {
+                        warn!("OBS WebSocket read error: {}", e);
+                        sink = None;
+                        stream = None;
+                    }
+                    None => {
+                        info!("OBS WebSocket: stream ended");
+                        sink = None;
+                        stream = None;
+                    }
+                    _ => {}
+                }
             }
-            ObsCommand::SetScene(scene) => {
-                request_counter += 1;
-                let _req = protocol::create_request(
-                    "SetCurrentProgramScene",
-                    &format!("req-{}", request_counter),
-                    Some(serde_json::json!({"sceneName": scene})),
-                );
-                info!("OBS: set scene to {}", scene);
+        }
+    }
+}
+
+/// Send a request command via the WebSocket sink. Returns `true` if successful.
+async fn send_command(cmd: ObsCommand, sink: &mut WsSink, request_counter: &mut u64) -> bool {
+    let (request_type, request_data, label) = match cmd {
+        ObsCommand::SetScene(scene) => (
+            "SetCurrentProgramScene".to_string(),
+            Some(serde_json::json!({"sceneName": scene})),
+            format!("set scene to {}", scene),
+        ),
+        ObsCommand::StartRecord => (
+            "StartRecord".to_string(),
+            None,
+            "start recording".to_string(),
+        ),
+        ObsCommand::StopRecord => ("StopRecord".to_string(), None, "stop recording".to_string()),
+        ObsCommand::SendRequest {
+            request_type,
+            request_data,
+        } => {
+            let label = format!("send request {}", request_type);
+            (request_type, request_data, label)
+        }
+        // Connect/Disconnect are handled by the caller.
+        _ => return true,
+    };
+
+    *request_counter += 1;
+    let req = protocol::create_request(
+        &request_type,
+        &format!("req-{}", request_counter),
+        request_data,
+    );
+    if let Err(e) = sink.send(Message::Text(req)).await {
+        warn!("OBS WebSocket: failed to {}: {}", label, e);
+        return false;
+    }
+    info!("OBS: {}", label);
+    true
+}
+
+/// Handle a message received from the OBS WebSocket server.
+fn handle_server_message(text: &str) {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(text) else {
+        warn!("OBS WebSocket: failed to parse server message");
+        return;
+    };
+
+    let Some(op) = value.get("op").and_then(|v| v.as_u64()) else {
+        warn!("OBS WebSocket: server message missing 'op' field");
+        return;
+    };
+
+    match protocol::OpCode::from_u8(op as u8) {
+        Some(protocol::OpCode::Event) => {
+            if let Ok(event) = serde_json::from_value::<protocol::Event>(value) {
+                info!("OBS event: {}", event.d.event_type);
             }
-            ObsCommand::StartRecord => {
-                request_counter += 1;
-                let _req = protocol::create_request(
-                    "StartRecord",
-                    &format!("req-{}", request_counter),
-                    None,
-                );
-                info!("OBS: start recording");
+        }
+        Some(protocol::OpCode::RequestResponse) => {
+            if let Ok(resp) = serde_json::from_value::<protocol::RequestResponse>(value) {
+                if resp.d.request_status.result {
+                    info!(
+                        "OBS request {} succeeded ({})",
+                        resp.d.request_type, resp.d.request_id
+                    );
+                } else {
+                    warn!(
+                        "OBS request {} failed: code={}, comment={:?} ({})",
+                        resp.d.request_type,
+                        resp.d.request_status.code,
+                        resp.d.request_status.comment,
+                        resp.d.request_id
+                    );
+                }
             }
-            ObsCommand::StopRecord => {
-                request_counter += 1;
-                let _req = protocol::create_request(
-                    "StopRecord",
-                    &format!("req-{}", request_counter),
-                    None,
-                );
-                info!("OBS: stop recording");
-            }
-            ObsCommand::SendRequest {
-                request_type,
-                request_data,
-            } => {
-                request_counter += 1;
-                let _req = protocol::create_request(
-                    &request_type,
-                    &format!("req-{}", request_counter),
-                    request_data,
-                );
-                info!("OBS: send request {}", request_type);
-            }
+        }
+        Some(other) => {
+            warn!("OBS WebSocket: unexpected opcode {:?}", other);
+        }
+        None => {
+            warn!("OBS WebSocket: unknown opcode {}", op);
         }
     }
 }
@@ -176,13 +292,13 @@ const MAX_BACKOFF: Duration = Duration::from_secs(15);
 const INITIAL_BACKOFF: Duration = Duration::from_secs(2);
 
 /// Attempt to connect to OBS WebSocket with exponential backoff.
-async fn try_connect(host: &str, port: u16, password: &str) -> Result<()> {
+async fn try_connect(host: &str, port: u16, password: &str) -> Result<(WsSink, WsStream)> {
     let url = format!("ws://{}:{}", host, port);
     let mut backoff = INITIAL_BACKOFF;
 
     for attempt in 1..=5 {
         match try_connect_once(&url, password).await {
-            Ok(()) => return Ok(()),
+            Ok(conn) => return Ok(conn),
             Err(e) => {
                 warn!(
                     "OBS connection attempt {} failed: {}. Retrying in {:?}",
@@ -197,11 +313,61 @@ async fn try_connect(host: &str, port: u16, password: &str) -> Result<()> {
     Err(anyhow!("failed to connect to OBS after 5 attempts"))
 }
 
-/// Single connection attempt.
-async fn try_connect_once(_url: &str, _password: &str) -> Result<()> {
-    // Actual WebSocket connection would be here.
-    // For now this is a stub - real implementation would use tokio-tungstenite.
-    Err(anyhow!("OBS WebSocket connection not yet implemented"))
+/// Single connection attempt with Hello/Identify handshake.
+async fn try_connect_once(url: &str, password: &str) -> Result<(WsSink, WsStream)> {
+    let (ws, _) = tokio_tungstenite::connect_async(url).await?;
+    let (mut sink, mut stream) = ws.split();
+
+    // Read Hello message from server.
+    let hello_msg = stream
+        .next()
+        .await
+        .ok_or_else(|| anyhow!("connection closed before Hello"))?
+        .map_err(|e| anyhow!("failed to read Hello: {}", e))?;
+
+    let hello_text = hello_msg
+        .into_text()
+        .map_err(|e| anyhow!("Hello is not text: {}", e))?;
+
+    let hello: protocol::Hello =
+        serde_json::from_str(&hello_text).map_err(|e| anyhow!("failed to parse Hello: {}", e))?;
+
+    info!(
+        "OBS WebSocket: server version {}, rpc version {}",
+        hello.d.obs_web_socket_version, hello.d.rpc_version
+    );
+
+    // Compute authentication if required.
+    let auth = hello.d.authentication.map(|auth_challenge| {
+        protocol::compute_auth(password, &auth_challenge.salt, &auth_challenge.challenge)
+    });
+
+    // Send Identify message.
+    let identify = protocol::create_identify(hello.d.rpc_version, auth);
+    sink.send(Message::Text(identify))
+        .await
+        .map_err(|e| anyhow!("failed to send Identify: {}", e))?;
+
+    // Read Identified response.
+    let identified_msg = stream
+        .next()
+        .await
+        .ok_or_else(|| anyhow!("connection closed before Identified"))?
+        .map_err(|e| anyhow!("failed to read Identified: {}", e))?;
+
+    let identified_text = identified_msg
+        .into_text()
+        .map_err(|e| anyhow!("Identified is not text: {}", e))?;
+
+    let identified: protocol::Identified = serde_json::from_str(&identified_text)
+        .map_err(|e| anyhow!("failed to parse Identified: {}", e))?;
+
+    info!(
+        "OBS WebSocket: identified with rpc version {}",
+        identified.d.negotiated_rpc_version
+    );
+
+    Ok((sink, stream))
 }
 
 #[cfg(test)]
@@ -223,5 +389,59 @@ mod tests {
     #[test]
     fn recording_mode_default() {
         assert_eq!(ObsRecordingMode::default(), ObsRecordingMode::KeepAll);
+    }
+
+    #[test]
+    fn handle_server_message_event() {
+        let json = r#"{"op":5,"d":{"eventType":"SceneChanged","eventData":{"sceneName":"Game"}}}"#;
+        // Should not panic.
+        handle_server_message(json);
+    }
+
+    #[test]
+    fn handle_server_message_request_response_success() {
+        let json = r#"{"op":7,"d":{"requestType":"GetSceneList","requestId":"req-1","requestStatus":{"result":true,"code":100}}}"#;
+        handle_server_message(json);
+    }
+
+    #[test]
+    fn handle_server_message_request_response_failure() {
+        let json = r#"{"op":7,"d":{"requestType":"StartRecord","requestId":"req-2","requestStatus":{"result":false,"code":500,"comment":"Already recording"}}}"#;
+        handle_server_message(json);
+    }
+
+    #[test]
+    fn handle_server_message_unknown_opcode() {
+        let json = r#"{"op":99,"d":{}}"#;
+        handle_server_message(json);
+    }
+
+    #[test]
+    fn handle_server_message_invalid_json() {
+        handle_server_message("not json");
+    }
+
+    #[test]
+    fn handle_server_message_missing_op() {
+        let json = r#"{"d":{}}"#;
+        handle_server_message(json);
+    }
+
+    #[test]
+    fn handle_server_message_hello() {
+        // Hello is unexpected in handle_server_message (only during handshake),
+        // so it should log a warning about unexpected opcode.
+        let json = r#"{"op":0,"d":{"obsWebSocketVersion":"5.0.0","rpcVersion":1}}"#;
+        handle_server_message(json);
+    }
+
+    #[test]
+    #[ignore] // Requires a running OBS WebSocket server
+    fn try_connect_once_integration() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let result = try_connect_once("ws://localhost:4455", "").await;
+            assert!(result.is_ok());
+        });
     }
 }
