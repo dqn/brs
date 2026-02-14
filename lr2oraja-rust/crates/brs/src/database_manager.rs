@@ -5,7 +5,10 @@
 use std::path::Path;
 
 use anyhow::Result;
-use bms_database::{ScoreDataLogDatabase, ScoreDatabase, SongDatabase, SongInformationAccessor};
+use bms_database::{
+    RivalDataAccessor, ScoreDataLogDatabase, ScoreDatabase, SongDatabase, SongInformationAccessor,
+};
+use tracing::warn;
 
 /// Unified database manager holding all database connections.
 pub struct DatabaseManager {
@@ -13,6 +16,7 @@ pub struct DatabaseManager {
     pub score_db: ScoreDatabase,
     pub score_log_db: ScoreDataLogDatabase,
     pub info_db: SongInformationAccessor,
+    pub rival: RivalDataAccessor,
 }
 
 impl DatabaseManager {
@@ -26,25 +30,35 @@ impl DatabaseManager {
         let score_db = ScoreDatabase::open(db_dir.join("score.db"))?;
         let score_log_db = ScoreDataLogDatabase::open(db_dir.join("scorelog.db"))?;
         let info_db = SongInformationAccessor::open(db_dir.join("information.db"))?;
+        let mut rival = RivalDataAccessor::new(db_dir.join("rival"))?;
+        if let Err(e) = rival.load_local_rivals() {
+            warn!("Failed to load rival data: {e}");
+        }
         Ok(Self {
             song_db,
             score_db,
             score_log_db,
             info_db,
+            rival,
         })
     }
 
     /// Open all databases in memory (for testing).
+    ///
+    /// Uses a temporary directory for `RivalDataAccessor` (which requires filesystem).
     pub fn open_in_memory() -> Result<Self> {
         let song_db = SongDatabase::open_in_memory()?;
         let score_db = ScoreDatabase::open_in_memory()?;
         let score_log_db = ScoreDataLogDatabase::open_in_memory()?;
         let info_db = SongInformationAccessor::open_in_memory()?;
+        let tmp = tempfile::tempdir()?;
+        let rival = RivalDataAccessor::new(tmp.path().join("rival"))?;
         Ok(Self {
             song_db,
             score_db,
             score_log_db,
             info_db,
+            rival,
         })
     }
 }

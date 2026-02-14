@@ -35,9 +35,11 @@ use bms_skin::property_id::{
 };
 use bms_skin::property_mapper;
 
+use bms_database::RivalDataAccessor;
+
 use crate::app_state::AppStateType;
 use crate::state::{GameStateHandler, StateContext};
-use crate::target_property::{TargetContext, TargetProperty};
+use crate::target_property::{RivalScore, TargetContext, TargetProperty};
 use play_skin_state::ScratchAngleState;
 
 /// Extra time after last note before play is considered finished (5 seconds).
@@ -237,6 +239,53 @@ impl PlayState {
         self.is_autoplay = false;
     }
 
+    /// Build the rival score array for target comparison.
+    ///
+    /// Iterates all loaded rivals, queries each rival's score for the given
+    /// song (sha256 + mode), and collects them alongside the player's own
+    /// score. The result is sorted by exscore descending, matching Java's
+    /// `RivalTargetProperty.createScoreArray()`.
+    fn build_rival_scores(ctx: &StateContext) -> Vec<RivalScore> {
+        let db = match ctx.database {
+            Some(db) => db,
+            None => return Vec::new(),
+        };
+        let model = match &ctx.resource.bms_model {
+            Some(m) => m,
+            None => return Vec::new(),
+        };
+
+        let sha256 = &model.sha256;
+        let mode = model.mode.mode_id();
+        let mut scores = Vec::new();
+
+        for rival in db.rival.rivals() {
+            match RivalDataAccessor::get_rival_score(&rival.db_path, sha256, mode) {
+                Ok(Some(sd)) => {
+                    scores.push(RivalScore {
+                        name: rival.info.name.clone(),
+                        exscore: sd.exscore(),
+                    });
+                }
+                Ok(None) => {} // Rival has no score for this song
+                Err(e) => {
+                    warn!(rival = rival.info.name, "Failed to load rival score: {e}");
+                }
+            }
+        }
+
+        // Add player's own score (name = "" to match Java convention)
+        let oldscore = &ctx.resource.oldscore;
+        scores.push(RivalScore {
+            name: String::new(),
+            exscore: oldscore.exscore(),
+        });
+
+        // Sort by exscore descending
+        scores.sort_by(|a, b| b.exscore.cmp(&a.exscore));
+        scores
+    }
+
     /// Initialize judge and gauge from the loaded model.
     fn init_judge_and_gauge(&mut self, ctx: &mut StateContext) {
         let model = match &ctx.resource.bms_model {
@@ -407,10 +456,16 @@ impl PlayState {
         let oldscore = &ctx.resource.oldscore;
         let best_ghost = oldscore.decode_ghost();
         let target = TargetProperty::resolve(&ctx.player_config.targetid);
+        let rival_scores = Self::build_rival_scores(ctx);
+        let rival_scores_ref = if rival_scores.is_empty() && ctx.database.is_none() {
+            None
+        } else {
+            Some(rival_scores.as_slice())
+        };
         let target_ctx = TargetContext {
             total_notes: total_notes as i32,
             current_exscore: oldscore.exscore(),
-            rival_scores: None, // TODO: populate from RivalDataAccessor when available
+            rival_scores: rival_scores_ref,
             ranking_data: ctx.resource.ranking_data.as_ref(),
         };
         let (target_exscore, _target_name) = target.compute_target(&target_ctx);
