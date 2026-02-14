@@ -499,6 +499,14 @@ impl PlayState {
             if let Some(images) = &mut ctx.bevy_images {
                 bga.update_movie_frames(images);
             }
+
+            // Sync BGA image handles to shared game state for skin rendering
+            if let Some(shared) = &mut ctx.shared_state {
+                shared.bga_image = bga.get_bga_image().cloned();
+                shared.layer_image = bga.get_layer_image().cloned();
+                shared.poor_image = bga.get_poor_image().cloned();
+                shared.poor_active = bga.is_poor_active();
+            }
         }
 
         // BGM autoplay via KeySoundProcessor

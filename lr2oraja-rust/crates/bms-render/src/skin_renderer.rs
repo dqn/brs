@@ -270,6 +270,15 @@ pub fn setup_skin(
                     CachedMultiEntityHash::default(),
                 ));
             }
+            // BGA: sprite entity for dynamic BGA image rendering.
+            SkinObjectType::Bga(_) => {
+                commands.spawn((
+                    Sprite::default(),
+                    Transform::default(),
+                    Visibility::Hidden,
+                    marker,
+                ));
+            }
             // Procedural texture types: rendered from CPU pixel buffers.
             SkinObjectType::BpmGraph(_)
             | SkinObjectType::HitErrorVisualizer(_)
@@ -1969,6 +1978,16 @@ fn resolve_object_texture(
             }
             (None, None)
         }
+        SkinObjectType::Bga(_) => {
+            // Poor state: show poor_image, falling back to bga_image.
+            // Normal state: show bga_image.
+            let image = if provider.is_poor_active() {
+                provider.poor_image().or_else(|| provider.bga_image())
+            } else {
+                provider.bga_image()
+            };
+            (image, None)
+        }
         // Multi-entity and procedural types are handled by dedicated queries.
         // Text is handled separately via TTF/BMFont queries.
         _ => (None, None),
@@ -1999,5 +2018,17 @@ mod tests {
         };
 
         assert_eq!(state.skin.objects.len(), 0);
+    }
+
+    #[test]
+    fn resolve_bga_texture_returns_none_when_no_bga_image() {
+        let provider = StaticStateProvider::default();
+        let tex_map = TextureMap::new();
+        let bga = bms_skin::skin_bga::SkinBga::default();
+        let obj = SkinObjectType::Bga(bga);
+
+        let (handle, uv) = resolve_object_texture(&obj, &provider, &tex_map, 0);
+        assert!(handle.is_none());
+        assert!(uv.is_none());
     }
 }

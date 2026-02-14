@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use bevy::prelude::{Handle, Image};
 use bms_config::Config;
 use bms_render::draw::bar::BarScrollState;
 use bms_render::state_provider::SkinStateProvider;
@@ -32,6 +33,14 @@ pub struct SharedGameState {
     pub bpm_events: Vec<(i64, f64)>,
     /// Note distribution counts per time bucket for note distribution graph rendering.
     pub note_distribution: Vec<u32>,
+    /// Current BGA base layer image handle.
+    pub bga_image: Option<Handle<Image>>,
+    /// Current BGA overlay layer image handle.
+    pub layer_image: Option<Handle<Image>>,
+    /// Current poor/miss layer image handle.
+    pub poor_image: Option<Handle<Image>>,
+    /// Whether the poor layer is currently active.
+    pub poor_active: bool,
 }
 
 /// SkinStateProvider implementation backed by SharedGameState.
@@ -97,6 +106,26 @@ impl SkinStateProvider for GameStateProvider {
     fn offset_value(&self, id: i32) -> SkinOffset {
         let state = self.state.read().unwrap();
         state.offsets.get(&id).copied().unwrap_or_default()
+    }
+
+    fn bga_image(&self) -> Option<Handle<Image>> {
+        let state = self.state.read().unwrap();
+        state.bga_image.clone()
+    }
+
+    fn layer_image(&self) -> Option<Handle<Image>> {
+        let state = self.state.read().unwrap();
+        state.layer_image.clone()
+    }
+
+    fn poor_image(&self) -> Option<Handle<Image>> {
+        let state = self.state.read().unwrap();
+        state.poor_image.clone()
+    }
+
+    fn is_poor_active(&self) -> bool {
+        let state = self.state.read().unwrap();
+        state.poor_active
     }
 }
 
@@ -330,6 +359,31 @@ mod tests {
                 .floats
                 .contains_key(&bms_skin::property_id::RATE_MASTERVOLUME)
         );
+    }
+
+    #[test]
+    fn bga_fields_default_to_none_and_false() {
+        let shared = SharedGameState::default();
+        assert!(shared.bga_image.is_none());
+        assert!(shared.layer_image.is_none());
+        assert!(shared.poor_image.is_none());
+        assert!(!shared.poor_active);
+    }
+
+    #[test]
+    fn bga_image_from_shared_state() {
+        let state = make_state();
+        let provider = GameStateProvider::new(state.clone());
+
+        // Default: None
+        assert!(provider.bga_image().is_none());
+        assert!(provider.layer_image().is_none());
+        assert!(provider.poor_image().is_none());
+        assert!(!provider.is_poor_active());
+
+        // Set poor_active
+        state.write().unwrap().poor_active = true;
+        assert!(provider.is_poor_active());
     }
 
     #[test]

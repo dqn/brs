@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 
+use bevy::prelude::{Handle, Image};
 use bms_skin::property_id::{BooleanId, FloatId, IntegerId, StringId, TimerId};
 use bms_skin::skin_object::SkinOffset;
 use serde::{Deserialize, Serialize};
@@ -88,6 +89,28 @@ pub trait SkinStateProvider: Send + Sync {
     /// Returns the current gauge type index (0-9).
     fn gauge_type(&self) -> usize {
         0
+    }
+
+    // -- BGA image methods (default: None/false) --
+
+    /// Returns the current BGA base layer image handle.
+    fn bga_image(&self) -> Option<Handle<Image>> {
+        None
+    }
+
+    /// Returns the current BGA overlay layer image handle.
+    fn layer_image(&self) -> Option<Handle<Image>> {
+        None
+    }
+
+    /// Returns the current poor/miss layer image handle.
+    fn poor_image(&self) -> Option<Handle<Image>> {
+        None
+    }
+
+    /// Returns whether the poor layer is currently active.
+    fn is_poor_active(&self) -> bool {
+        false
     }
 }
 
@@ -312,5 +335,29 @@ mod tests {
     fn default_provider_has_zero_time() {
         let p = make_provider();
         assert_eq!(p.now_time_ms(), 0);
+    }
+
+    #[test]
+    fn bga_image_default_is_none() {
+        let p = make_provider();
+        assert!(p.bga_image().is_none());
+    }
+
+    #[test]
+    fn layer_image_default_is_none() {
+        let p = make_provider();
+        assert!(p.layer_image().is_none());
+    }
+
+    #[test]
+    fn poor_image_default_is_none() {
+        let p = make_provider();
+        assert!(p.poor_image().is_none());
+    }
+
+    #[test]
+    fn is_poor_active_default_is_false() {
+        let p = make_provider();
+        assert!(!p.is_poor_active());
     }
 }
