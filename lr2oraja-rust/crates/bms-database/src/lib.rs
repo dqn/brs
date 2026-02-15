@@ -2,6 +2,7 @@
 
 pub mod course_data;
 pub mod course_data_accessor;
+pub mod difficulty_table_parser;
 pub mod folder_data;
 pub mod player_data;
 pub mod player_info;
@@ -21,6 +22,10 @@ pub mod table_data_accessor;
 
 pub use course_data::{CourseData, CourseDataConstraint, CourseSongData, TrophyData};
 pub use course_data_accessor::CourseDataAccessor;
+pub use difficulty_table_parser::{
+    DifficultyTableHeader, ParsedChart, ParsedCourse, extract_bmstable_url, parse_json_data,
+    parse_json_header, resolve_url, to_table_data,
+};
 pub use folder_data::FolderData;
 pub use player_data::PlayerData;
 pub use player_info::PlayerInformation;
