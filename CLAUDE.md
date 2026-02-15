@@ -107,3 +107,12 @@ Phase 0-23 全完了（16 crate, ~61,000行）。全 RenderSnapshot GM テスト
 - **ExternalManager 統合** — ~~`info!()` ログのみのスタブ~~ **完了** — Discord IPC プラットフォーム実装 + チャンネルベース `DiscordRpcClient` + 実 `ObsListener`/`StreamController` 接続、Rich Presence 更新、OBS シーン切替（Java 互換状態名）、専用 tokio Runtime (`bms-external/src/discord/platform_ipc.rs`, `bms-external/src/discord/client.rs`, `brs/src/external_manager.rs`)
 - **Table/Course システム** — ~70% 完了。データ構造・DB・コースゲームプレイ連携 (PlayerResource, CourseResult) は実装済み。**未実装:** jbmstable-parser の Rust 移植 (現在は .bmt/JSON のみ)、テーブル HTTP ダウンロード/更新、MusicSelect へのコース選択 UI 統合 (`bms-database/src/table_data.rs`, `bms-database/src/course_data.rs`)
 - **Launcher GUI** — ~52% 完了 (11/21パネル)。egui フレームワーク・タブナビ・設定永続化は完成。**未実装パネル:** 高度なオーディオ設定、グラフィックス詳細、スキンプレビュー、ゲージ可視化、ノートスキン選択、タイマー表示、イベントトレース、プロファイラ、高度なプレイオプション、カスタムキーバインド設定 (`bms-launcher/src/panels/`)
+- **Launcher: フォルダ/テーブル/コースエディタ** — 未実装。Java の `FolderEditorView`, `TableEditorView`, `CourseEditorView` に相当するランチャーパネルなし
+- **Window 管理** — 起動時の解像度設定のみ。ランタイムでのフルスクリーン切替・VSync 制御は未実装
+- **IR プラグインシステム** — Java は `IRConnectionManager` でカスタム IR を動的ロードするが、Rust は LR2IR のみ静的実装
+- **ライバルスコア表示 UI** — データ構造は存在するが MusicSelect 画面での表示統合が不明確
+- **スクリーンショット Twitter 投稿** — ファイルエクスポートのみ。Java の `ScreenShotTwitterExporter` 相当なし
+- **スキンロードエラー時のフォールバック UI** — スキン読み込み失敗時の代替表示なし
+- **オーディオ障害リカバリ** — ゲームプレイ中の Kira オーディオ障害に対するフォールバック処理なし
+- **ホットリロード (スキン/コンフィグ)** — `SkinManager` に `request_load()` は存在するが実際のリロードは未配線
+- **Stream Controller (Windows Named Pipes)** — Unix ソケットは完了。Windows の Named Pipe (`\\.\pipe\beatoraja`) は未検証
