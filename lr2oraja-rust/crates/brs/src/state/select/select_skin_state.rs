@@ -77,6 +77,10 @@ pub fn sync_select_state(
             // Course bars are not folders or songs
             clear_song_metadata(state);
         }
+        Some(Bar::TableRoot { .. }) | Some(Bar::HashFolder { .. }) => {
+            state.booleans.insert(OPTION_FOLDERBAR, true);
+            clear_song_metadata(state);
+        }
         None => {
             clear_song_metadata(state);
         }
@@ -168,6 +172,18 @@ pub fn sync_bar_scroll_state(
                 bar_type: BarType::Grade { all_songs: true },
                 title: course_data.name.clone(),
                 text_type: 2, // Grade type
+                ..Default::default()
+            },
+            Bar::TableRoot { name, .. } => BarSlotData {
+                bar_type: BarType::Table,
+                title: name.clone(),
+                text_type: 1, // Folder type
+                ..Default::default()
+            },
+            Bar::HashFolder { name, .. } => BarSlotData {
+                bar_type: BarType::Folder,
+                title: name.clone(),
+                text_type: 1, // Folder type
                 ..Default::default()
             },
         };

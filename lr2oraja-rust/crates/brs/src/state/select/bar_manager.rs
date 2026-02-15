@@ -2,7 +2,7 @@
 //
 // Provides a hierarchical browser with folder push/pop navigation.
 
-use bms_database::{CourseData, SongData, SongDatabase};
+use bms_database::{CourseData, SongData, SongDatabase, TableData, TableFolder};
 
 /// Sort modes for the bar list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -37,6 +37,17 @@ pub enum Bar {
     },
     #[allow(dead_code)] // Used in tests and course selection
     Course(Box<CourseData>),
+    #[allow(dead_code)] // Used in table folder display
+    TableRoot {
+        name: String,
+        folders: Vec<TableFolder>,
+        courses: Vec<CourseData>,
+    },
+    #[allow(dead_code)] // Used in table folder display
+    HashFolder {
+        name: String,
+        hashes: Vec<String>, // sha256 preferred, md5 fallback
+    },
 }
 
 /// Manages the bar list, cursor position, and folder navigation stack.
@@ -76,20 +87,69 @@ impl BarManager {
     /// Enter the currently selected folder.
     /// Pushes current bars and cursor onto the stack, loads folder contents.
     pub fn enter_folder(&mut self, song_db: &SongDatabase) {
-        let folder_path = match self.bars.get(self.cursor) {
-            Some(Bar::Folder { path, .. }) => path.clone(),
-            _ => return,
-        };
+        match self.bars.get(self.cursor) {
+            Some(Bar::Folder { path, .. }) => {
+                let folder_path = path.clone();
+                let old_bars = std::mem::take(&mut self.bars);
+                let old_cursor = self.cursor;
+                self.folder_stack.push((old_bars, old_cursor));
 
-        let old_bars = std::mem::take(&mut self.bars);
-        let old_cursor = self.cursor;
-        self.folder_stack.push((old_bars, old_cursor));
+                let songs = song_db
+                    .get_song_datas("folder", &folder_path)
+                    .unwrap_or_default();
+                self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
+                self.cursor = 0;
+            }
+            Some(Bar::TableRoot {
+                folders, courses, ..
+            }) => {
+                let folders = folders.clone();
+                let courses = courses.clone();
+                let old_bars = std::mem::take(&mut self.bars);
+                let old_cursor = self.cursor;
+                self.folder_stack.push((old_bars, old_cursor));
 
-        let songs = song_db
-            .get_song_datas("folder", &folder_path)
-            .unwrap_or_default();
-        self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
-        self.cursor = 0;
+                let mut new_bars: Vec<Bar> = Vec::new();
+                // Add level folders as HashFolder bars
+                for folder in &folders {
+                    let hashes: Vec<String> = folder
+                        .songs
+                        .iter()
+                        .map(|s| {
+                            if !s.sha256.is_empty() {
+                                s.sha256.clone()
+                            } else {
+                                s.md5.clone()
+                            }
+                        })
+                        .collect();
+                    new_bars.push(Bar::HashFolder {
+                        name: folder.name.clone(),
+                        hashes,
+                    });
+                }
+                // Add courses
+                for course in &courses {
+                    new_bars.push(Bar::Course(Box::new(course.clone())));
+                }
+                self.bars = new_bars;
+                self.cursor = 0;
+            }
+            Some(Bar::HashFolder { hashes, .. }) => {
+                let hashes = hashes.clone();
+                let old_bars = std::mem::take(&mut self.bars);
+                let old_cursor = self.cursor;
+                self.folder_stack.push((old_bars, old_cursor));
+
+                let hash_refs: Vec<&str> = hashes.iter().map(String::as_str).collect();
+                let songs = song_db
+                    .get_song_datas_by_hashes(&hash_refs)
+                    .unwrap_or_default();
+                self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
+                self.cursor = 0;
+            }
+            _ => (),
+        }
     }
 
     /// Leave the current folder, restoring the parent bar list and cursor.
@@ -125,6 +185,17 @@ impl BarManager {
         !self.folder_stack.is_empty()
     }
 
+    /// Load table data from cache and add TableRoot bars to the root bar list.
+    pub fn load_tables(&mut self, tables: &[TableData]) {
+        for table in tables {
+            self.bars.push(Bar::TableRoot {
+                name: table.name.clone(),
+                folders: table.folder.clone(),
+                courses: table.course.clone(),
+            });
+        }
+    }
+
     /// Load course data and add them as bars.
     #[allow(dead_code)] // Used in tests and course mode
     pub fn add_courses(&mut self, courses: &[CourseData]) {
@@ -145,11 +216,13 @@ impl BarManager {
                         Bar::Song(s) => &s.title,
                         Bar::Folder { name, .. } => name,
                         Bar::Course(c) => &c.name,
+                        Bar::TableRoot { name, .. } | Bar::HashFolder { name, .. } => name,
                     };
                     let title_b = match b {
                         Bar::Song(s) => &s.title,
                         Bar::Folder { name, .. } => name,
                         Bar::Course(c) => &c.name,
+                        Bar::TableRoot { name, .. } | Bar::HashFolder { name, .. } => name,
                     };
                     title_a.to_lowercase().cmp(&title_b.to_lowercase())
                 });
@@ -158,11 +231,17 @@ impl BarManager {
                 self.bars.sort_by(|a, b| {
                     let artist_a = match a {
                         Bar::Song(s) => s.artist.as_str(),
-                        Bar::Folder { .. } | Bar::Course(_) => "",
+                        Bar::Folder { .. }
+                        | Bar::Course(_)
+                        | Bar::TableRoot { .. }
+                        | Bar::HashFolder { .. } => "",
                     };
                     let artist_b = match b {
                         Bar::Song(s) => s.artist.as_str(),
-                        Bar::Folder { .. } | Bar::Course(_) => "",
+                        Bar::Folder { .. }
+                        | Bar::Course(_)
+                        | Bar::TableRoot { .. }
+                        | Bar::HashFolder { .. } => "",
                     };
                     artist_a.to_lowercase().cmp(&artist_b.to_lowercase())
                 });
@@ -171,11 +250,17 @@ impl BarManager {
                 self.bars.sort_by(|a, b| {
                     let level_a = match a {
                         Bar::Song(s) => s.level,
-                        Bar::Folder { .. } | Bar::Course(_) => 0,
+                        Bar::Folder { .. }
+                        | Bar::Course(_)
+                        | Bar::TableRoot { .. }
+                        | Bar::HashFolder { .. } => 0,
                     };
                     let level_b = match b {
                         Bar::Song(s) => s.level,
-                        Bar::Folder { .. } | Bar::Course(_) => 0,
+                        Bar::Folder { .. }
+                        | Bar::Course(_)
+                        | Bar::TableRoot { .. }
+                        | Bar::HashFolder { .. } => 0,
                     };
                     level_a.cmp(&level_b)
                 });
@@ -190,7 +275,10 @@ impl BarManager {
         if let Some(mode_id) = mode {
             self.bars.retain(|bar| match bar {
                 Bar::Song(s) => s.mode == mode_id,
-                Bar::Folder { .. } | Bar::Course(_) => true,
+                Bar::Folder { .. }
+                | Bar::Course(_)
+                | Bar::TableRoot { .. }
+                | Bar::HashFolder { .. } => true,
             });
             self.cursor = 0;
         }
@@ -684,5 +772,229 @@ mod tests {
             Bar::Course(c) => assert_eq!(c.name, "Course"),
             _ => panic!("expected Course bar first"),
         }
+    }
+
+    // --- Table / HashFolder tests ---
+
+    fn sample_table_folder(name: &str, hashes: &[&str]) -> TableFolder {
+        use bms_database::CourseSongData;
+        TableFolder {
+            name: name.to_string(),
+            songs: hashes
+                .iter()
+                .map(|h| CourseSongData {
+                    sha256: h.to_string(),
+                    md5: String::new(),
+                    title: format!("Song {h}"),
+                })
+                .collect(),
+        }
+    }
+
+    fn sample_table_data(name: &str) -> TableData {
+        TableData {
+            url: "https://example.com/table".to_string(),
+            name: name.to_string(),
+            tag: "T".to_string(),
+            folder: vec![
+                sample_table_folder("Level 1", &["sha_a", "sha_b"]),
+                sample_table_folder("Level 2", &["sha_c"]),
+            ],
+            course: vec![CourseData {
+                name: "Dan Course".to_string(),
+                hash: vec![bms_database::CourseSongData {
+                    sha256: "sha_d".to_string(),
+                    md5: String::new(),
+                    title: "Stage 1".to_string(),
+                }],
+                constraint: Vec::new(),
+                trophy: Vec::new(),
+                release: true,
+            }],
+        }
+    }
+
+    #[test]
+    fn load_tables_adds_table_root_bars() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![Bar::Song(Box::new(SongData {
+            title: "Existing".to_string(),
+            ..Default::default()
+        }))];
+
+        let tables = vec![
+            sample_table_data("Insane Table"),
+            sample_table_data("Normal Table"),
+        ];
+        bm.load_tables(&tables);
+
+        // Original bar + 2 TableRoot bars = 3
+        assert_eq!(bm.bar_count(), 3);
+        match &bm.bars[1] {
+            Bar::TableRoot {
+                name,
+                folders,
+                courses,
+            } => {
+                assert_eq!(name, "Insane Table");
+                assert_eq!(folders.len(), 2);
+                assert_eq!(courses.len(), 1);
+            }
+            _ => panic!("expected TableRoot bar at index 1"),
+        }
+        match &bm.bars[2] {
+            Bar::TableRoot { name, .. } => assert_eq!(name, "Normal Table"),
+            _ => panic!("expected TableRoot bar at index 2"),
+        }
+    }
+
+    #[test]
+    fn enter_table_root_expands_to_hash_folders_and_courses() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let mut bm = BarManager::new();
+
+        let table = sample_table_data("Test Table");
+        bm.bars = vec![Bar::TableRoot {
+            name: table.name.clone(),
+            folders: table.folder.clone(),
+            courses: table.course.clone(),
+        }];
+        bm.cursor = 0;
+
+        bm.enter_folder(&db);
+
+        // Should have 2 HashFolder bars + 1 Course bar = 3
+        assert_eq!(bm.bar_count(), 3);
+        assert!(bm.is_in_folder());
+
+        match &bm.bars[0] {
+            Bar::HashFolder { name, hashes } => {
+                assert_eq!(name, "Level 1");
+                assert_eq!(hashes, &["sha_a", "sha_b"]);
+            }
+            _ => panic!("expected HashFolder bar at index 0"),
+        }
+        match &bm.bars[1] {
+            Bar::HashFolder { name, hashes } => {
+                assert_eq!(name, "Level 2");
+                assert_eq!(hashes, &["sha_c"]);
+            }
+            _ => panic!("expected HashFolder bar at index 1"),
+        }
+        match &bm.bars[2] {
+            Bar::Course(c) => assert_eq!(c.name, "Dan Course"),
+            _ => panic!("expected Course bar at index 2"),
+        }
+    }
+
+    #[test]
+    fn enter_hash_folder_resolves_songs() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let songs = vec![
+            SongData {
+                md5: "md5_a".to_string(),
+                sha256: "sha_aaa_long_enough_for_sha256_detection_aaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_string(),
+                title: "Song A".to_string(),
+                path: "a.bms".to_string(),
+                ..Default::default()
+            },
+            SongData {
+                md5: "md5_b".to_string(),
+                sha256: "sha_bbb_long_enough_for_sha256_detection_bbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    .to_string(),
+                title: "Song B".to_string(),
+                path: "b.bms".to_string(),
+                ..Default::default()
+            },
+        ];
+        db.set_song_datas(&songs).unwrap();
+
+        let mut bm = BarManager::new();
+        bm.bars = vec![Bar::HashFolder {
+            name: "Level 1".to_string(),
+            hashes: vec![
+                "sha_aaa_long_enough_for_sha256_detection_aaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                "sha_bbb_long_enough_for_sha256_detection_bbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string(),
+                "sha_nonexistent".to_string(), // This one won't match
+            ],
+        }];
+        bm.cursor = 0;
+
+        bm.enter_folder(&db);
+
+        assert!(bm.is_in_folder());
+        assert_eq!(bm.bar_count(), 2);
+        // Verify all bars are Song bars
+        for bar in &bm.bars {
+            assert!(matches!(bar, Bar::Song(_)));
+        }
+    }
+
+    #[test]
+    fn sort_handles_table_root_and_hash_folder() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                title: "Zebra Song".to_string(),
+                ..Default::default()
+            })),
+            Bar::TableRoot {
+                name: "Alpha Table".to_string(),
+                folders: Vec::new(),
+                courses: Vec::new(),
+            },
+            Bar::HashFolder {
+                name: "Middle Folder".to_string(),
+                hashes: Vec::new(),
+            },
+        ];
+        bm.sort(SortMode::Title);
+
+        // Expected order: "Alpha Table", "Middle Folder", "Zebra Song"
+        match &bm.bars[0] {
+            Bar::TableRoot { name, .. } => assert_eq!(name, "Alpha Table"),
+            _ => panic!("expected TableRoot bar at index 0"),
+        }
+        match &bm.bars[1] {
+            Bar::HashFolder { name, .. } => assert_eq!(name, "Middle Folder"),
+            _ => panic!("expected HashFolder bar at index 1"),
+        }
+        match &bm.bars[2] {
+            Bar::Song(s) => assert_eq!(s.title, "Zebra Song"),
+            _ => panic!("expected Song bar at index 2"),
+        }
+    }
+
+    #[test]
+    fn filter_retains_table_root_and_hash_folder() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                title: "7K Song".to_string(),
+                mode: 7,
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                title: "14K Song".to_string(),
+                mode: 14,
+                ..Default::default()
+            })),
+            Bar::TableRoot {
+                name: "Table".to_string(),
+                folders: Vec::new(),
+                courses: Vec::new(),
+            },
+            Bar::HashFolder {
+                name: "Hash".to_string(),
+                hashes: Vec::new(),
+            },
+        ];
+        bm.filter_by_mode(Some(7));
+        // Should retain: 7K Song + TableRoot + HashFolder = 3 (14K removed)
+        assert_eq!(bm.bar_count(), 3);
+        assert!(matches!(&bm.bars[0], Bar::Song(s) if s.mode == 7));
+        assert!(matches!(&bm.bars[1], Bar::TableRoot { .. }));
+        assert!(matches!(&bm.bars[2], Bar::HashFolder { .. }));
     }
 }

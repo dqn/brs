@@ -113,6 +113,16 @@ impl GameStateHandler for MusicSelectState {
         // Load song list from database
         if let Some(db) = ctx.database {
             self.bar_manager.load_root(&db.song_db);
+
+            // Load table data from cache
+            let table_accessor = bms_database::TableDataAccessor::new(&ctx.config.tablepath);
+            if let Ok(accessor) = table_accessor
+                && let Ok(tables) = accessor.read_all()
+            {
+                self.bar_manager.load_tables(&tables);
+                info!(tables = tables.len(), "MusicSelect: loaded table data");
+            }
+
             self.score_cache_dirty = true;
             info!(
                 songs = self.bar_manager.bar_count(),
@@ -530,6 +540,12 @@ impl MusicSelectState {
             Some(Bar::Course(_)) => {
                 if let Some(course_data) = course_data_opt {
                     self.select_course(ctx, &course_data);
+                }
+            }
+            Some(Bar::TableRoot { .. }) | Some(Bar::HashFolder { .. }) => {
+                if let Some(db) = ctx.database {
+                    self.bar_manager.enter_folder(&db.song_db);
+                    self.score_cache_dirty = true;
                 }
             }
             None => {}
