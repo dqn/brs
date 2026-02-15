@@ -8,4 +8,5 @@ pub mod play_option;
 pub mod resource;
 pub mod skin;
 pub mod stream;
+pub mod table_editor;
 pub mod video;

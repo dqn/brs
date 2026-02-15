@@ -13,6 +13,7 @@ use crate::panels::play_option::PlayOptionPanel;
 use crate::panels::resource::ResourcePanel;
 use crate::panels::skin::SkinPanel;
 use crate::panels::stream::StreamPanel;
+use crate::panels::table_editor::TableEditorPanel;
 use crate::panels::video::VideoPanel;
 use crate::tab::Tab;
 
@@ -33,6 +34,13 @@ impl LauncherApp {
         config_path: PathBuf,
         player_config_path: PathBuf,
     ) -> Self {
+        let song_db_path = &config.songpath;
+        let db_path = if song_db_path.is_empty() {
+            None
+        } else {
+            Some(song_db_path.as_str())
+        };
+
         let mut panels: Vec<Box<dyn LauncherPanel>> = vec![
             Box::new(VideoPanel::default()),
             Box::new(AudioPanel::default()),
@@ -41,6 +49,7 @@ impl LauncherApp {
             Box::new(MusicSelectPanel::default()),
             Box::new(PlayOptionPanel::default()),
             Box::new(SkinPanel::default()),
+            Box::new(TableEditorPanel::default()),
             Box::new(IrPanel::default()),
             Box::new(DiscordPanel::default()),
             Box::new(ObsPanel::default()),
@@ -48,7 +57,7 @@ impl LauncherApp {
         ];
 
         for panel in &mut panels {
-            panel.load(&config, &player_config);
+            panel.load_with_db(&config, &player_config, db_path);
         }
 
         Self {

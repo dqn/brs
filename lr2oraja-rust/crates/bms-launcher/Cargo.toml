@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 bms-config.workspace = true
+bms-database.workspace = true
 anyhow.workspace = true
 eframe.workspace = true
 egui.workspace = true

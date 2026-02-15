@@ -1952,6 +1952,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bms-config",
+ "bms-database",
  "eframe",
  "egui",
  "rfd",
