@@ -11,6 +11,7 @@ use bms_config::skin_config::Offset;
 
 use crate::custom_event::{CustomEventDef, CustomTimerDef};
 use crate::image_handle::ImageHandle;
+use crate::lr2_font::Lr2FontData;
 use crate::music_select_skin::MusicSelectSkinConfig;
 use crate::play_skin::PlaySkinConfig;
 use crate::result_skin::{CourseResultSkinConfig, ResultSkinConfig};
@@ -68,6 +69,8 @@ pub struct Skin {
     pub extra_image_paths: HashMap<ImageHandle, (PathBuf, bool)>,
     /// PomyuChara motion cycle times: [1P_NEUTRAL, 1P_FEVER, 1P_GREAT, 1P_GOOD, 1P_BAD, 2P_NEUTRAL, 2P_GREAT, 2P_BAD]
     pub pomyu_chara_times: [i32; 8],
+    /// LR2 bitmap font data (parsed from .lr2font files).
+    pub lr2_fonts: Vec<Lr2FontData>,
 }
 
 impl Skin {
@@ -102,6 +105,7 @@ impl Skin {
             course_result_config: None,
             extra_image_paths: HashMap::new(),
             pomyu_chara_times: [1; 8],
+            lr2_fonts: Vec::new(),
         }
     }
 

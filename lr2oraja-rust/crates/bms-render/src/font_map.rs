@@ -6,7 +6,9 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bms_skin::bmfont::BmFont;
+use bms_skin::skin::Skin;
 
 /// Entry for a loaded TrueType font.
 #[derive(Debug, Clone)]
@@ -72,6 +74,70 @@ impl FontMap {
     /// Get a BMFont entry by path.
     pub fn get_bitmap(&self, path: &str) -> Option<&BmFontEntry> {
         self.bitmap_fonts.get(path)
+    }
+
+    /// Loads LR2 bitmap fonts from a skin into this FontMap.
+    ///
+    /// Reads texture images from disk and uploads them as Bevy Image assets.
+    /// Updates the BmFont's scale_w/scale_h to match actual texture dimensions.
+    pub fn load_lr2_fonts(&mut self, skin: &Skin, images: &mut Assets<Image>) {
+        for font_data in &skin.lr2_fonts {
+            let mut bmfont = font_data.bmfont.clone();
+            let mut page_textures = Vec::new();
+            let mut page_dimensions = Vec::new();
+
+            // Collect texture paths indexed by page ID.
+            let page_count = bmfont.pages.len();
+            page_textures.resize(page_count, Handle::default());
+            page_dimensions.resize(page_count, (1.0_f32, 1.0_f32));
+
+            for &(tex_id, ref path) in &font_data.texture_paths {
+                let idx = tex_id as usize;
+                if idx >= page_count {
+                    continue;
+                }
+
+                let Ok(dyn_image) = image::open(path) else {
+                    continue;
+                };
+                let rgba = dyn_image.to_rgba8();
+                let (w, h) = (rgba.width(), rgba.height());
+
+                let bevy_image = Image::new(
+                    Extent3d {
+                        width: w,
+                        height: h,
+                        depth_or_array_layers: 1,
+                    },
+                    TextureDimension::D2,
+                    rgba.into_raw(),
+                    TextureFormat::Rgba8UnormSrgb,
+                    default(),
+                );
+                let handle = images.add(bevy_image);
+                page_textures[idx] = handle;
+                page_dimensions[idx] = (w as f32, h as f32);
+            }
+
+            // Update BmFont scale_w/scale_h from the first texture page dimensions
+            // (used for UV coordinate calculation in layout_bmfont_text).
+            if let Some(&(w, h)) = page_dimensions.first() {
+                if w > 1.0 {
+                    bmfont.scale_w = w;
+                }
+                if h > 1.0 {
+                    bmfont.scale_h = h;
+                }
+            }
+
+            self.insert_bitmap(
+                font_data.key.clone(),
+                bmfont,
+                page_textures,
+                page_dimensions,
+                0,
+            );
+        }
     }
 }
 

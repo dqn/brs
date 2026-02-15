@@ -2,6 +2,7 @@ pub mod bmfont;
 pub mod custom_event;
 pub mod image_handle;
 pub mod loader;
+pub mod lr2_font;
 pub mod music_select_skin;
 pub mod play_skin;
 pub mod pomyu_chara_loader;

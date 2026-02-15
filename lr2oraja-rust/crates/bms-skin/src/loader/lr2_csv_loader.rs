@@ -13,6 +13,7 @@
 // Ported from LR2SkinCSVLoader.java and LR2SkinLoader.java.
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use anyhow::Result;
 
@@ -23,6 +24,7 @@ use crate::image_handle::ImageHandle;
 use crate::loader::lr2_play_loader::{self, Lr2PlayState};
 use crate::loader::lr2_result_loader::{self, Lr2ResultState};
 use crate::loader::lr2_select_loader::{self, Lr2SelectState};
+use crate::lr2_font;
 use crate::property_id::{BooleanId, FloatId, IntegerId, StringId, TimerId};
 use crate::skin::Skin;
 use crate::skin_gauge::{GaugePart, GaugePartType, SkinGauge};
@@ -33,7 +35,7 @@ use crate::skin_number::{NumberAlign, SkinNumber, ZeroPadding};
 use crate::skin_object::{Color, Destination, Rect, SkinObjectBase};
 use crate::skin_slider::{SkinSlider, SliderDirection};
 use crate::skin_source::{build_number_source_set, split_grid};
-use crate::skin_text::{SkinText, TextAlign};
+use crate::skin_text::{FontType, SkinText, TextAlign};
 use crate::stretch_type::StretchType;
 
 // ---------------------------------------------------------------------------
@@ -208,6 +210,8 @@ pub struct Lr2CsvState {
     groovex: i32,
     /// SRC_GROOVEGAUGE add_y (node spacing Y).
     groovey: i32,
+    /// LR2 bitmap font keys (one per #LR2FONT command, None if load failed).
+    pub(crate) fontlist: Vec<Option<String>>,
 }
 
 impl Lr2CsvState {
@@ -225,6 +229,7 @@ impl Lr2CsvState {
             options: options.clone(),
             groovex: 0,
             groovey: 0,
+            fontlist: Vec::new(),
         }
     }
 
@@ -458,6 +463,9 @@ fn process_command(
         "FADEOUT" => skin.fadeout = parse_field(fields, 1),
         "STRETCH" => state.stretch = parse_field(fields, 1),
 
+        // Font loading
+        "LR2FONT" => lr2font_command(fields, skin, state),
+
         // SRC commands
         "SRC_IMAGE" => src_image(fields, skin, state),
         "SRC_NUMBER" => src_number(fields, skin, state),
@@ -591,11 +599,23 @@ fn src_number(fields: &[&str], skin: &mut Skin, state: &mut Lr2CsvState) {
 fn src_text(fields: &[&str], skin: &mut Skin, state: &mut Lr2CsvState) {
     let values = parse_int(fields);
 
+    let font_index = values[2] as usize;
+    let font_type = state
+        .fontlist
+        .get(font_index)
+        .and_then(|opt| opt.as_ref())
+        .map(|key| FontType::Bitmap {
+            path: key.clone(),
+            bitmap_type: 0,
+        })
+        .unwrap_or(FontType::Default);
+
     let text = SkinText {
         base: SkinObjectBase::default(),
         ref_id: Some(StringId(values[3])),
         align: TextAlign::from_i32(values[4]),
         editable: values[5] != 0,
+        font_type,
         ..Default::default()
     };
 
@@ -1156,6 +1176,56 @@ fn dst_groovegauge(fields: &[&str], skin: &mut Skin, state: &mut Lr2CsvState) {
 
         if state.stretch >= 0 {
             base.stretch = StretchType::from_id(state.stretch).unwrap_or_default();
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// LR2FONT handler
+// ---------------------------------------------------------------------------
+
+/// Handles the `#LR2FONT` command: loads a .lr2font file and registers it.
+fn lr2font_command(fields: &[&str], skin: &mut Skin, state: &mut Lr2CsvState) {
+    if fields.len() < 2 {
+        state.fontlist.push(None);
+        return;
+    }
+
+    let raw_path = fields[1].trim();
+    if raw_path.is_empty() {
+        state.fontlist.push(None);
+        return;
+    }
+
+    // Resolve path relative to the skin directory.
+    let skin_dir = skin
+        .header
+        .path
+        .as_ref()
+        .and_then(|p| p.parent())
+        .unwrap_or_else(|| Path::new("."));
+    let font_path = skin_dir.join(raw_path.replace('\\', "/"));
+
+    // Read and decode the .lr2font file (MS932/Shift-JIS).
+    let file_bytes = match std::fs::read(&font_path) {
+        Ok(b) => b,
+        Err(_) => {
+            state.fontlist.push(None);
+            return;
+        }
+    };
+    let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&file_bytes);
+    let font_dir = font_path.parent().unwrap_or_else(|| Path::new("."));
+
+    match lr2_font::parse_lr2font(&decoded, font_dir) {
+        Ok(mut data) => {
+            let key = font_path.to_string_lossy().to_string();
+            data.key = key.clone();
+            skin.lr2_fonts.push(data);
+            state.fontlist.push(Some(key));
+        }
+        Err(_) => {
+            state.fontlist.push(None);
         }
     }
 }

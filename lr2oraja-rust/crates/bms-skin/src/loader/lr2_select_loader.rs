@@ -29,7 +29,7 @@ use crate::skin_distribution_graph::SkinDistributionGraph;
 use crate::skin_image::SkinImage;
 use crate::skin_number::{SkinNumber, ZeroPadding};
 use crate::skin_source::{build_number_source_set, split_grid};
-use crate::skin_text::{SkinText, TextAlign};
+use crate::skin_text::{FontType, SkinText, TextAlign};
 
 // ---------------------------------------------------------------------------
 // Lamp group mapping (Java lampg table)
@@ -234,7 +234,7 @@ pub fn process_select_command(
 
         // -- Title text --
         "SRC_BAR_TITLE" => {
-            src_bar_title(fields, select_state);
+            src_bar_title(fields, state, select_state);
             true
         }
         "DST_BAR_TITLE" => {
@@ -746,17 +746,27 @@ fn dst_bar_label(fields: &[&str], state: &Lr2CsvState, select_state: &mut Lr2Sel
 // SRC_BAR_TITLE / DST_BAR_TITLE
 // ---------------------------------------------------------------------------
 
-fn src_bar_title(fields: &[&str], select_state: &mut Lr2SelectState) {
+fn src_bar_title(fields: &[&str], state: &Lr2CsvState, select_state: &mut Lr2SelectState) {
     let values = parse_int_pub(fields);
     let text_id = values[1] as usize;
     if text_id >= BAR_TEXT_COUNT {
         return;
     }
 
-    // Create SkinText with TTF fallback (LR2 bitmap font support not yet implemented).
-    // Java: fontlist.get(values[2]) ?? fallback TTF
+    let font_index = values[2] as usize;
+    let font_type = state
+        .fontlist
+        .get(font_index)
+        .and_then(|opt| opt.as_ref())
+        .map(|key| FontType::Bitmap {
+            path: key.clone(),
+            bitmap_type: 0,
+        })
+        .unwrap_or(FontType::Default);
+
     let text = SkinText {
         align: TextAlign::from_i32(values[4]),
+        font_type,
         font_size: 24.0,
         ..Default::default()
     };

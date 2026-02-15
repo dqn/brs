@@ -160,11 +160,13 @@ impl RenderTestHarness {
             }
         }
 
-        // Load embedded textures (judgedetail.png etc.)
-        let mut images = self.app.world_mut().resource_mut::<Assets<Image>>();
-        bms_render::embedded_textures::load_embedded_textures(&mut images, &mut texture_map);
-
-        let font_map = FontMap::new();
+        // Load embedded textures and LR2 bitmap fonts.
+        let mut font_map = FontMap::new();
+        {
+            let mut images = self.app.world_mut().resource_mut::<Assets<Image>>();
+            bms_render::embedded_textures::load_embedded_textures(&mut images, &mut texture_map);
+            font_map.load_lr2_fonts(&skin, &mut images);
+        }
         let mut commands = self.app.world_mut().commands();
         setup_skin(&mut commands, skin, texture_map, font_map, state_provider);
         self.app.world_mut().flush();
