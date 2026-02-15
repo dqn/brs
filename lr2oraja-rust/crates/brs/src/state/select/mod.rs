@@ -123,6 +123,20 @@ impl GameStateHandler for MusicSelectState {
                 info!(tables = tables.len(), "MusicSelect: loaded table data");
             }
 
+            // Spawn background HTTP table update (results cached for next startup)
+            if !ctx.config.table_url.is_empty() {
+                let urls = ctx.config.table_url.clone();
+                let table_dir = ctx.config.tablepath.clone();
+                std::thread::spawn(move || {
+                    let rt = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .unwrap();
+                    rt.block_on(crate::table_updater::update_all(&urls, &table_dir));
+                });
+                info!("MusicSelect: background table update started");
+            }
+
             self.score_cache_dirty = true;
             info!(
                 songs = self.bar_manager.bar_count(),

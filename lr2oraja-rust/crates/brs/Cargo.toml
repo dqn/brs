@@ -24,6 +24,7 @@ bms-external.workspace = true
 bms-launcher.workspace = true
 bms-stream.workspace = true
 bms-download.workspace = true
+reqwest.workspace = true
 anyhow.workspace = true
 rand.workspace = true
 bevy.workspace = true
