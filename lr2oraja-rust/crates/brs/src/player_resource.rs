@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use bms_config::PlayerConfig;
 use bms_database::CourseData;
 use bms_ir::RankingData;
-use bms_model::{BmsModel, PlayMode};
+use bms_model::{BmsDecoder, BmsModel, PlayMode};
 use bms_replay::replay_data::ReplayData;
 use bms_rule::ScoreData;
 
@@ -28,6 +28,10 @@ pub struct PlayerResource {
     pub org_gauge_option: i32,
     /// BMS file's parent directory (for resolving WAV paths).
     pub bms_dir: Option<PathBuf>,
+    /// Path to the BMS file (for practice mode reload).
+    pub bms_path: Option<PathBuf>,
+    /// Whether the next play session is practice mode.
+    pub is_practice: bool,
 
     // --- Play result fields (populated by PlayState shutdown) ---
     /// Gauge log: per-gauge-type values recorded every 500ms during play.
@@ -70,6 +74,17 @@ pub struct PlayerResource {
 }
 
 impl PlayerResource {
+    /// Re-decode the BMS file from `bms_path` and replace `bms_model`.
+    /// Used by practice mode to get a fresh model for each loop iteration.
+    pub fn reload_bms(&mut self) -> anyhow::Result<()> {
+        if let Some(path) = &self.bms_path {
+            let model = BmsDecoder::decode(path)?;
+            self.play_mode = model.mode;
+            self.bms_model = Some(model);
+        }
+        Ok(())
+    }
+
     /// Whether we are currently in course mode.
     pub fn is_course(&self) -> bool {
         self.course_bms_models.is_some()
@@ -129,6 +144,8 @@ impl Default for PlayerResource {
             player_config: PlayerConfig::default(),
             org_gauge_option: 0,
             bms_dir: None,
+            bms_path: None,
+            is_practice: false,
             gauge_log: Vec::new(),
             maxcombo: 0,
             update_score: false,

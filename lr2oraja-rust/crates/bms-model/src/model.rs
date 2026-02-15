@@ -231,6 +231,76 @@ impl BmsModel {
         bpm
     }
 
+    /// Change playback frequency (speed) of the model.
+    ///
+    /// Scales all BPM values by `freq` and all timing values by `1/freq`.
+    /// `freq` is a ratio where 1.0 = normal speed, 2.0 = double speed, 0.5 = half speed.
+    ///
+    /// In the Rust model, notes carry their own `time_us` (unlike Java where times
+    /// are derived from TimeLine). So we must scale note times explicitly.
+    ///
+    /// Ported from Java `BMSModelUtils.changeFrequency()`.
+    pub fn change_frequency(&mut self, freq: f64) {
+        if freq <= 0.0 || (freq - 1.0).abs() < f64::EPSILON {
+            return;
+        }
+
+        // Scale BPM values (Java: model.setBpm(model.getBpm() * freq))
+        self.initial_bpm *= freq;
+
+        // Scale timeline BPM and times
+        // Java: tl.setBPM(tl.getBPM() * freq); tl.setMicroTime(tl.getMicroTime() / freq)
+        for tl in &mut self.timelines {
+            tl.bpm *= freq;
+            tl.time_us = (tl.time_us as f64 / freq) as i64;
+        }
+
+        // Scale BPM change events (bpm *= freq, time /= freq)
+        for change in &mut self.bpm_changes {
+            change.bpm *= freq;
+            change.time_us = (change.time_us as f64 / freq) as i64;
+        }
+
+        // Scale stop event times/durations (Java: tl.setStop(tl.getMicroStop() / freq))
+        for stop in &mut self.stop_events {
+            stop.time_us = (stop.time_us as f64 / freq) as i64;
+            stop.duration_us = (stop.duration_us as f64 / freq) as i64;
+        }
+
+        // Scale note times (Rust-specific: notes have direct time_us)
+        for note in &mut self.notes {
+            note.time_us = (note.time_us as f64 / freq) as i64;
+            if note.end_time_us > 0 {
+                note.end_time_us = (note.end_time_us as f64 / freq) as i64;
+            }
+            if note.micro_starttime > 0 {
+                note.micro_starttime = (note.micro_starttime as f64 / freq) as i64;
+            }
+            if note.micro_duration > 0 {
+                note.micro_duration = (note.micro_duration as f64 / freq) as i64;
+            }
+        }
+
+        // Scale background note times
+        for bg in &mut self.bg_notes {
+            bg.time_us = (bg.time_us as f64 / freq) as i64;
+            if bg.micro_starttime > 0 {
+                bg.micro_starttime = (bg.micro_starttime as f64 / freq) as i64;
+            }
+            if bg.micro_duration > 0 {
+                bg.micro_duration = (bg.micro_duration as f64 / freq) as i64;
+            }
+        }
+
+        // Scale BGA event times
+        for bga in &mut self.bga_events {
+            bga.time_us = (bga.time_us as f64 / freq) as i64;
+        }
+
+        // Scale total time
+        self.total_time_us = (self.total_time_us as f64 / freq) as i64;
+    }
+
     /// Time of the last note/event in milliseconds.
     /// Equivalent to Java `BMSModel.getLastTime()` — returns the time of the last
     /// timeline that contains any note (playable, invisible, or mine), including
@@ -593,6 +663,127 @@ mod tests {
             ..Default::default()
         };
         assert!((model.bpm_at(5_000_000) - 200.0).abs() < f64::EPSILON);
+    }
+
+    // --- change_frequency tests ---
+
+    #[test]
+    fn change_frequency_double_speed() {
+        let mut model = BmsModel {
+            initial_bpm: 120.0,
+            total_time_us: 10_000_000,
+            timelines: vec![TimeLine {
+                time_us: 2_000_000,
+                measure: 1,
+                position: 0.0,
+                bpm: 120.0,
+                scroll: 1.0,
+            }],
+            bpm_changes: vec![BpmChange {
+                time_us: 4_000_000,
+                bpm: 180.0,
+            }],
+            notes: vec![Note::normal(0, 3_000_000, 1)],
+            bg_notes: vec![BgNote {
+                wav_id: 1,
+                time_us: 6_000_000,
+                micro_starttime: 0,
+                micro_duration: 0,
+            }],
+            ..Default::default()
+        };
+
+        model.change_frequency(2.0);
+
+        // BPM doubled
+        assert!((model.initial_bpm - 240.0).abs() < f64::EPSILON);
+        assert!((model.timelines[0].bpm - 240.0).abs() < f64::EPSILON);
+        assert!((model.bpm_changes[0].bpm - 360.0).abs() < f64::EPSILON);
+
+        // Times halved
+        assert_eq!(model.timelines[0].time_us, 1_000_000);
+        assert_eq!(model.bpm_changes[0].time_us, 2_000_000);
+        assert_eq!(model.notes[0].time_us, 1_500_000);
+        assert_eq!(model.bg_notes[0].time_us, 3_000_000);
+        assert_eq!(model.total_time_us, 5_000_000);
+    }
+
+    #[test]
+    fn change_frequency_half_speed() {
+        let mut model = BmsModel {
+            initial_bpm: 120.0,
+            total_time_us: 10_000_000,
+            notes: vec![Note::normal(0, 2_000_000, 1)],
+            ..Default::default()
+        };
+
+        model.change_frequency(0.5);
+
+        // BPM halved
+        assert!((model.initial_bpm - 60.0).abs() < f64::EPSILON);
+        // Time doubled
+        assert_eq!(model.notes[0].time_us, 4_000_000);
+        assert_eq!(model.total_time_us, 20_000_000);
+    }
+
+    #[test]
+    fn change_frequency_noop_at_1() {
+        let mut model = BmsModel {
+            initial_bpm: 120.0,
+            notes: vec![Note::normal(0, 2_000_000, 1)],
+            ..Default::default()
+        };
+
+        model.change_frequency(1.0);
+        assert!((model.initial_bpm - 120.0).abs() < f64::EPSILON);
+        assert_eq!(model.notes[0].time_us, 2_000_000);
+    }
+
+    #[test]
+    fn change_frequency_noop_at_zero() {
+        let mut model = BmsModel {
+            initial_bpm: 120.0,
+            ..Default::default()
+        };
+        model.change_frequency(0.0);
+        assert!((model.initial_bpm - 120.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn change_frequency_scales_ln_end_time() {
+        let mut model = BmsModel {
+            initial_bpm: 120.0,
+            notes: vec![Note::long_note(
+                0,
+                1_000_000,
+                2_000_000,
+                1,
+                2,
+                LnType::LongNote,
+            )],
+            ..Default::default()
+        };
+
+        model.change_frequency(2.0);
+        assert_eq!(model.notes[0].time_us, 500_000);
+        assert_eq!(model.notes[0].end_time_us, 1_000_000);
+    }
+
+    #[test]
+    fn change_frequency_scales_stop_events() {
+        let mut model = BmsModel {
+            initial_bpm: 120.0,
+            stop_events: vec![StopEvent {
+                time_us: 4_000_000,
+                duration_ticks: 192,
+                duration_us: 2_000_000,
+            }],
+            ..Default::default()
+        };
+
+        model.change_frequency(2.0);
+        assert_eq!(model.stop_events[0].time_us, 2_000_000);
+        assert_eq!(model.stop_events[0].duration_us, 1_000_000);
     }
 
     #[test]

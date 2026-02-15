@@ -360,6 +360,30 @@ impl GameStateHandler for MusicSelectState {
                         );
                         return;
                     }
+                    ControlKeys::F2 => {
+                        // Practice mode: load song and start play with practice flag
+                        if let Some(Bar::Song(song_data)) = self.bar_manager.current() {
+                            let path = std::path::PathBuf::from(&song_data.path);
+                            match bms_model::BmsDecoder::decode(&path) {
+                                Ok(model) => {
+                                    ctx.resource.play_mode = model.mode;
+                                    ctx.resource.bms_dir = path.parent().map(|p| p.to_path_buf());
+                                    ctx.resource.bms_path = Some(path);
+                                    ctx.resource.bms_model = Some(model);
+                                    ctx.resource.is_practice = true;
+                                    self.fadeout_started = true;
+                                    ctx.timer.set_timer_on(TIMER_FADEOUT);
+                                    info!("MusicSelect: practice mode start");
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "MusicSelect: failed to load BMS for practice: {e}"
+                                    );
+                                }
+                            }
+                        }
+                        return;
+                    }
                     ControlKeys::Num6 => {
                         // Cycle hi-speed (placeholder for future integration)
                         return;
@@ -486,6 +510,7 @@ impl MusicSelectState {
                     Ok(model) => {
                         ctx.resource.play_mode = model.mode;
                         ctx.resource.bms_dir = path.parent().map(|p| p.to_path_buf());
+                        ctx.resource.bms_path = Some(path.clone());
                         ctx.resource.bms_model = Some(model);
                         // Start fadeout -> Decide
                         self.fadeout_started = true;

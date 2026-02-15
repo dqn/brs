@@ -5,23 +5,25 @@
 
 mod control_input;
 mod play_skin_state;
+pub mod practice;
 
 use tracing::{info, warn};
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use bms_audio::driver::AudioDriver;
 use bms_audio::key_sound::KeySoundProcessor;
 use bms_audio::kira_driver::KiraAudioDriver;
 use bms_database::score_data_property::ScoreDataProperty;
 use bms_input::input_processor::InputProcessor;
-use bms_model::{BmsModel, LaneProperty, Note, PlayMode};
+use bms_model::{BmsModel, JudgeRankType, LaneProperty, Note, PlayMode};
 use bms_pattern::{
     AssistLevel, AutoplayModifier, ExtraNoteModifier, LaneCrossShuffle, LaneMirrorShuffle,
     LanePlayableRandomShuffle, LaneRandomShuffle, LaneRotateShuffle, LongNoteMode,
     LongNoteModifier, MineNoteMode, MineNoteModifier, ModeModifier, NoteShuffleModifier,
-    PatternModifier, PlayerBattleShuffle, PlayerFlipShuffle, RandomType, RandomUnit,
-    ScrollSpeedMode, ScrollSpeedModifier, SevenToNinePattern, SevenToNineType, get_random,
+    PatternModifier, PlayerBattleShuffle, PlayerFlipShuffle, PracticeModifier, RandomType,
+    RandomUnit, ScrollSpeedMode, ScrollSpeedModifier, SevenToNinePattern, SevenToNineType,
+    get_random,
 };
 use bms_render::bga::bga_processor::BgaProcessor;
 use bms_replay::key_input_log::KeyInputLog;
@@ -29,9 +31,9 @@ use bms_rule::gauge_property::GaugeType;
 use bms_rule::judge_manager::{JudgeConfig, JudgeEvent, JudgeManager};
 use bms_rule::{ClearType, GrooveGauge, JUDGE_BD, JUDGE_MS, JUDGE_PR, JudgeAlgorithm, PlayerRule};
 use bms_skin::property_id::{
-    TIMER_COMBO_1P, TIMER_COMBO_2P, TIMER_ENDOFNOTE_1P, TIMER_FAILED, TIMER_FULLCOMBO_1P,
-    TIMER_GAUGE_MAX_1P, TIMER_JUDGE_1P, TIMER_JUDGE_2P, TIMER_MUSIC_END, TIMER_PLAY, TIMER_READY,
-    TIMER_RHYTHM,
+    TIMER_COMBO_1P, TIMER_COMBO_2P, TIMER_ENDOFNOTE_1P, TIMER_FADEOUT, TIMER_FAILED,
+    TIMER_FULLCOMBO_1P, TIMER_GAUGE_MAX_1P, TIMER_JUDGE_1P, TIMER_JUDGE_2P, TIMER_MUSIC_END,
+    TIMER_PLAY, TIMER_READY, TIMER_RHYTHM,
 };
 use bms_skin::property_mapper;
 
@@ -89,6 +91,10 @@ impl GaugeAutoShift {
 pub enum PlayPhase {
     /// Loading resources (audio, skin). Transitions to Ready when done.
     Preload,
+    /// Practice mode: showing practice settings UI. User adjusts settings.
+    Practice,
+    /// Practice mode: fadeout after Escape, transitioning to MusicSelect.
+    PracticeFinished,
     /// Countdown before play starts. TIMER_READY is active.
     Ready,
     /// Active gameplay. TIMER_PLAY is active.
@@ -166,6 +172,10 @@ pub struct PlayState {
     // Abort detection
     start_pressed: bool,
     select_pressed: bool,
+
+    // Practice mode
+    is_practice: bool,
+    practice_config: Option<practice::PracticeConfiguration>,
 }
 
 impl PlayState {
@@ -204,6 +214,8 @@ impl PlayState {
             scratch_angle: ScratchAngleState::new(0),
             start_pressed: false,
             select_pressed: false,
+            is_practice: false,
+            practice_config: None,
         }
     }
 
@@ -700,6 +712,203 @@ impl PlayState {
         ctx.resource.maxcombo = self.judge_manager.as_ref().map_or(0, |jm| jm.max_combo());
         ctx.resource.update_score = !self.is_autoplay && !self.is_replay;
     }
+
+    /// Apply practice settings to the BMS model and reinitialize judge/gauge.
+    ///
+    /// Ported from Java BMSPlayer.java lines 684-722.
+    /// Called when the user presses the play key in the practice menu.
+    /// Unlike `init_judge_and_gauge`, this applies practice-specific modifiers
+    /// (freq, time range, practice random) instead of the normal config modifiers.
+    fn apply_practice_settings(&mut self, ctx: &mut StateContext) {
+        let property = match &self.practice_config {
+            Some(pc) => pc.property.clone(),
+            None => return,
+        };
+
+        // Reload BMS model to get a fresh copy
+        if let Err(e) = ctx.resource.reload_bms() {
+            warn!("Play: practice apply_settings reload_bms failed: {e}");
+            return;
+        }
+
+        // Clone the fresh model for modification
+        let mut model = match &ctx.resource.bms_model {
+            Some(m) => m.clone(),
+            None => return,
+        };
+
+        // Apply frequency change
+        if property.freq != 100 {
+            let freq_ratio = property.freq as f64 / 100.0;
+            model.change_frequency(freq_ratio);
+        }
+
+        // Override total and judge_rank from practice settings
+        model.total = property.total;
+        model.judge_rank = property.judgerank;
+        model.judge_rank_type = JudgeRankType::BmsonJudgeRank;
+
+        // Apply PracticeModifier: move notes outside the selected time range
+        // Times are scaled by freq (Java: starttime * 100 / freq)
+        let start_ms = (property.starttime as i64) * 100 / (property.freq as i64);
+        let end_ms = (property.endtime as i64) * 100 / (property.freq as i64);
+        let mut practice_mod = PracticeModifier::new(start_ms, end_ms);
+        practice_mod.modify(&mut model);
+
+        self.lane_property = LaneProperty::new(model.mode);
+
+        // Apply pattern modifiers from practice settings (not player config)
+        let seed: i64 = rand::random();
+        self.assist = 0;
+        let random_type = get_random(property.random as usize, model.mode);
+        self.assist += apply_pattern_modifier(
+            &mut model,
+            random_type,
+            0,
+            seed,
+            ctx.player_config.hran_threshold_bpm,
+        );
+
+        if model.mode.player_count() > 1 {
+            let random_type_2p = get_random(property.random2 as usize, model.mode);
+            self.assist += apply_pattern_modifier(
+                &mut model,
+                random_type_2p,
+                1,
+                seed,
+                ctx.player_config.hran_threshold_bpm,
+            );
+            apply_double_option(&mut model, property.doubleop);
+        }
+
+        // Build judge notes and initialize gauge from modified model
+        let rule = PlayerRule::lr2();
+        self.judge_notes = model.build_judge_notes();
+
+        let total_notes = self.judge_notes.iter().filter(|n| n.is_playable()).count();
+        let total = if model.total > 0.0 {
+            model.total
+        } else {
+            PlayerRule::default_total(total_notes)
+        };
+
+        let judge_rank = rule
+            .judge
+            .window_rule
+            .resolve_judge_rank(model.judge_rank, model.judge_rank_type);
+
+        let (jwr, sjwr) = if ctx.player_config.custom_judge {
+            (
+                [
+                    ctx.player_config.key_judge_window_rate_perfect_great,
+                    ctx.player_config.key_judge_window_rate_great,
+                    ctx.player_config.key_judge_window_rate_good,
+                ],
+                [
+                    ctx.player_config.scratch_judge_window_rate_perfect_great,
+                    ctx.player_config.scratch_judge_window_rate_great,
+                    ctx.player_config.scratch_judge_window_rate_good,
+                ],
+            )
+        } else {
+            ([100, 100, 100], [100, 100, 100])
+        };
+
+        let config = JudgeConfig {
+            notes: &self.judge_notes,
+            play_mode: model.mode,
+            ln_type: model.ln_type,
+            judge_rank,
+            judge_window_rate: jwr,
+            scratch_judge_window_rate: sjwr,
+            algorithm: JudgeAlgorithm::Combo,
+            autoplay: self.is_autoplay,
+            judge_property: &rule.judge,
+            lane_property: Some(&self.lane_property),
+        };
+
+        let mut jm = JudgeManager::new(&config);
+
+        // Practice gauge: use practice settings instead of player config
+        let gauge_type = gauge_type_from_i32(property.gaugetype);
+        let mut gauge = GrooveGauge::new(&rule.gauge, gauge_type, total, total_notes);
+        gauge.set_value(property.startgauge as f32);
+        // Practice: no auto-shift
+        self.gauge_auto_shift = GaugeAutoShift::Continue;
+
+        // Allocate key state arrays
+        let phys_count = self.lane_property.physical_key_count();
+        self.key_states = vec![false; phys_count];
+        self.key_changed_times = vec![NOT_SET; phys_count];
+
+        // Prime JudgeManager
+        jm.update(
+            -1,
+            &self.judge_notes,
+            &self.key_states,
+            &self.key_changed_times,
+            &mut gauge,
+        );
+
+        // Calculate playtime
+        self.last_note_time_us = self
+            .judge_notes
+            .iter()
+            .map(|n| n.time_us.max(n.end_time_us))
+            .max()
+            .unwrap_or(0);
+        self.playtime_us = self.last_note_time_us + FINISH_MARGIN_US;
+
+        self.judge_manager = Some(jm);
+        self.gauge = Some(gauge);
+
+        // Initialize scratch angle state
+        self.scratch_angle = ScratchAngleState::new(self.lane_property.scratch_count());
+
+        ctx.resource.score_data.notes = total_notes as i32;
+
+        // BPM tracking
+        self.min_bpm = model.min_bpm();
+        self.max_bpm = model.max_bpm();
+        self.main_bpm = model.main_bpm();
+        self.now_bpm = model.initial_bpm;
+
+        // Practice mode: no target score comparison
+        self.score_data_property = ScoreDataProperty::new();
+        ctx.resource.update_score = false;
+
+        // Reset gauge log for new practice loop
+        self.gauge_log.clear();
+        self.last_gauge_log_time_us = 0;
+        self.key_beam_stop = false;
+        self.is_judge_started = false;
+
+        // Reinitialize audio for the modified model
+        if let Some(driver) = &mut self.audio_driver {
+            driver.stop_all();
+        }
+        let base_path = ctx.resource.bms_dir.as_deref().unwrap_or(Path::new("."));
+        match KiraAudioDriver::new() {
+            Ok(mut driver) => {
+                if let Err(e) = driver.set_model(&model, base_path) {
+                    warn!("Play: practice audio reload failed: {e}");
+                }
+                self.key_sound_processor = Some(KeySoundProcessor::new(&model, 1.0));
+                self.audio_driver = Some(Box::new(driver));
+            }
+            Err(e) => {
+                warn!("Play: practice audio driver creation failed: {e}");
+            }
+        }
+
+        // Initialize BGA processor
+        self.bga_processor = Some(BgaProcessor::new(&model));
+
+        info!(
+            freq = property.freq,
+            start_ms, end_ms, "Play: practice settings applied"
+        );
+    }
 }
 
 impl Default for PlayState {
@@ -719,6 +928,17 @@ impl GameStateHandler for PlayState {
         self.is_judge_started = false;
         self.start_pressed = false;
         self.select_pressed = false;
+        self.is_practice = ctx.resource.is_practice;
+
+        // Practice mode: initialize PracticeConfiguration
+        if self.is_practice
+            && let Some(model) = &ctx.resource.bms_model
+        {
+            let config_dir = PathBuf::from(&ctx.config.playerpath);
+            let pc = practice::PracticeConfiguration::new(model, config_dir);
+            self.practice_config = Some(pc);
+            info!("Play: practice mode enabled");
+        }
 
         // Load best score from DB before play
         if let Some(db) = ctx.database
@@ -736,7 +956,9 @@ impl GameStateHandler for PlayState {
             }
         }
 
-        self.init_judge_and_gauge(ctx);
+        if !self.is_practice {
+            self.init_judge_and_gauge(ctx);
+        }
 
         // Initialize InputProcessor for manual play (not autoplay/replay)
         if !self.is_autoplay && !self.is_replay {
@@ -779,14 +1001,43 @@ impl GameStateHandler for PlayState {
             bga.prepare(model, base_path, images);
         }
 
-        self.phase = PlayPhase::Ready;
-        ctx.timer.set_timer_on(TIMER_READY);
+        if self.is_practice {
+            self.phase = PlayPhase::Practice;
+            info!("Play: prepare -> Practice settings");
+        } else {
+            self.phase = PlayPhase::Ready;
+            ctx.timer.set_timer_on(TIMER_READY);
+        }
     }
 
     fn render(&mut self, ctx: &mut StateContext) {
         match self.phase {
             PlayPhase::Preload => {
                 // Should not reach here (prepare transitions to Ready)
+            }
+            PlayPhase::Practice => {
+                // If TIMER_PLAY was on (returning from a play loop), reload the BMS model
+                if ctx.timer.is_timer_on(TIMER_PLAY) {
+                    if let Err(e) = ctx.resource.reload_bms() {
+                        warn!("Play: practice reload_bms failed: {e}");
+                    }
+                    ctx.timer.set_timer_off(TIMER_PLAY);
+                    ctx.timer.set_timer_off(TIMER_RHYTHM);
+                    ctx.timer.set_timer_off(TIMER_MUSIC_END);
+                    ctx.timer.set_timer_off(TIMER_FAILED);
+                    // Stop audio from previous loop
+                    if let Some(driver) = &mut self.audio_driver {
+                        driver.stop_all();
+                    }
+                }
+            }
+            PlayPhase::PracticeFinished => {
+                // Wait for fadeout to complete, then transition to MusicSelect
+                if ctx.timer.now_time_of(TIMER_FADEOUT) > CLOSE_DURATION_MS {
+                    ctx.resource.is_practice = false;
+                    *ctx.transition = Some(AppStateType::MusicSelect);
+                    info!("Play: PracticeFinished -> MusicSelect");
+                }
             }
             PlayPhase::Ready => {
                 if ctx.timer.now_time_of(TIMER_READY) > READY_DURATION_MS {
@@ -800,14 +1051,22 @@ impl GameStateHandler for PlayState {
                 self.render_playing(ctx);
             }
             PlayPhase::Finished => {
-                if ctx.timer.now_time_of(TIMER_MUSIC_END) > CLOSE_DURATION_MS {
+                if self.is_practice {
+                    // Practice loop: return to practice settings
+                    self.phase = PlayPhase::Practice;
+                    info!("Play: Finished -> Practice (loop)");
+                } else if ctx.timer.now_time_of(TIMER_MUSIC_END) > CLOSE_DURATION_MS {
                     self.build_score_data(ctx);
                     *ctx.transition = Some(AppStateType::Result);
                     info!("Play: Finished -> Result");
                 }
             }
             PlayPhase::Failed => {
-                if ctx.timer.now_time_of(TIMER_FAILED) > CLOSE_DURATION_MS {
+                if self.is_practice {
+                    // Practice loop: return to practice settings
+                    self.phase = PlayPhase::Practice;
+                    info!("Play: Failed -> Practice (loop)");
+                } else if ctx.timer.now_time_of(TIMER_FAILED) > CLOSE_DURATION_MS {
                     self.build_score_data(ctx);
                     *ctx.transition = Some(AppStateType::Result);
                     info!("Play: Failed -> Result");
@@ -872,6 +1131,7 @@ impl GameStateHandler for PlayState {
                 shared,
                 self.phase,
                 self.is_replay,
+                self.is_practice,
                 play_config,
                 self.start_pressed || self.select_pressed,
             );
@@ -884,6 +1144,32 @@ impl GameStateHandler for PlayState {
     }
 
     fn input(&mut self, ctx: &mut StateContext) {
+        // Practice phase input: process menu navigation and play trigger
+        if self.phase == PlayPhase::Practice {
+            if let (Some(pc), Some(input_state)) = (&mut self.practice_config, ctx.input_state) {
+                // Check for Escape to abort practice
+                if input_state
+                    .pressed_keys
+                    .contains(&bms_input::control_keys::ControlKeys::Escape)
+                {
+                    pc.save_property();
+                    ctx.timer.set_timer_on(TIMER_FADEOUT);
+                    self.phase = PlayPhase::PracticeFinished;
+                    info!("Play: Practice -> PracticeFinished (escape)");
+                    return;
+                }
+
+                if pc.process_input(input_state) {
+                    // User pressed play key: apply settings and start playing
+                    self.apply_practice_settings(ctx);
+                    self.phase = PlayPhase::Ready;
+                    ctx.timer.set_timer_on(TIMER_READY);
+                    info!("Play: Practice -> Ready (play key pressed)");
+                }
+            }
+            return;
+        }
+
         if self.phase != PlayPhase::Playing || self.key_beam_stop {
             return;
         }
@@ -994,7 +1280,16 @@ impl GameStateHandler for PlayState {
         if let Some(bga) = &mut self.bga_processor {
             bga.dispose();
         }
-        self.build_score_data(ctx);
+        if self.is_practice {
+            // Practice mode: save practice property, don't save score
+            if let Some(pc) = &self.practice_config {
+                pc.save_property();
+            }
+            ctx.resource.update_score = false;
+            ctx.resource.is_practice = false;
+        } else {
+            self.build_score_data(ctx);
+        }
     }
 }
 

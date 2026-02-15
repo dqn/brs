@@ -6,6 +6,7 @@ pub mod ir_config;
 pub mod play_config;
 pub mod play_mode_config;
 pub mod player_config;
+pub mod practice_config;
 pub mod resolution;
 pub mod skin_config;
 pub mod skin_type;
@@ -19,6 +20,7 @@ pub use play_mode_config::{
     PlayModeConfig,
 };
 pub use player_config::PlayerConfig;
+pub use practice_config::PracticeProperty;
 pub use resolution::Resolution;
 pub use skin_config::{FilePath, Offset, Property, SkinConfig, SkinOption};
 pub use skin_type::SkinType;

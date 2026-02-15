@@ -544,6 +544,7 @@ pub fn sync_play_extended_options(
     state: &mut SharedGameState,
     phase: PlayPhase,
     is_replay: bool,
+    is_practice: bool,
     play_config: &PlayConfig,
     lanecover_changing: bool,
 ) {
@@ -561,8 +562,8 @@ pub fn sync_play_extended_options(
     state.booleans.insert(OPTION_REPLAY_OFF, !is_replay);
     state.booleans.insert(OPTION_REPLAY_PLAYING, is_replay);
 
-    // Practice mode (not implemented yet)
-    state.booleans.insert(OPTION_STATE_PRACTICE, false);
+    // Practice mode
+    state.booleans.insert(OPTION_STATE_PRACTICE, is_practice);
 
     // Lanecover state flags
     state
@@ -1086,7 +1087,7 @@ mod tests {
         let mut state = SharedGameState::default();
         let pc = PlayConfig::default();
 
-        sync_play_extended_options(&mut state, PlayPhase::Preload, false, &pc, false);
+        sync_play_extended_options(&mut state, PlayPhase::Preload, false, false, &pc, false);
 
         assert!(
             *state
@@ -1112,7 +1113,7 @@ mod tests {
             ..Default::default()
         };
 
-        sync_play_extended_options(&mut state, PlayPhase::Playing, false, &pc, false);
+        sync_play_extended_options(&mut state, PlayPhase::Playing, false, false, &pc, false);
 
         assert!(
             !*state
