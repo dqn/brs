@@ -90,6 +90,7 @@ impl BmsDecoder {
         let mut measure_lengths: HashMap<u32, f64> = HashMap::new();
         let mut extended_bpms: HashMap<u16, f64> = HashMap::new();
         let mut stop_defs: HashMap<u16, i64> = HashMap::new();
+        let mut scroll_defs: HashMap<u16, f64> = HashMap::new();
         let mut random_stack: Vec<RandomState> = Vec::new();
         let mut random_resolver = RandomResolver::new(selected_randoms);
         let mut max_measure: u32 = 0;
@@ -218,6 +219,10 @@ impl BmsDecoder {
                     let id = parse_base36(&upper[4..6]);
                     let ticks: i64 = rest[6..].trim().parse().unwrap_or(0);
                     stop_defs.insert(id, ticks);
+                } else if upper.starts_with("SCROLL") && upper.len() >= 8 {
+                    let id = parse_base36(&upper[6..8]);
+                    let scroll: f64 = rest[8..].trim().parse().unwrap_or(1.0);
+                    scroll_defs.insert(id, scroll);
                 } else if let Some(event) = parse_channel_line(&upper) {
                     // Channel data: #MMMCC:data
                     let measure = event.measure;
@@ -306,10 +311,14 @@ impl BmsDecoder {
         let mut measure_times: Vec<i64> = Vec::new();
         let mut current_time_us: i64 = 0;
         let mut current_bpm = model.initial_bpm;
+        let mut current_scroll: f64 = 1.0;
+        // Track scroll values at each measure start for note placement
+        let mut scroll_at_measure: Vec<f64> = Vec::new();
 
         // Collect all BPM changes and stops per measure with position
         let mut bpm_events_by_measure: HashMap<u32, Vec<(f64, f64)>> = HashMap::new(); // pos -> new_bpm
         let mut stop_events_by_measure: HashMap<u32, Vec<(f64, u16)>> = HashMap::new(); // pos -> stop_id
+        let mut scroll_events_by_measure: HashMap<u32, Vec<(f64, u16)>> = HashMap::new(); // pos -> scroll_id
 
         for event in &events {
             if event.channel == 0x03 {
@@ -345,12 +354,23 @@ impl BmsDecoder {
                             .push((pos, id));
                     }
                 }
+            } else if event.channel == CHANNEL_SCROLL {
+                // SCROLL event
+                for &(pos, id) in &event.data {
+                    if id > 0 {
+                        scroll_events_by_measure
+                            .entry(event.measure)
+                            .or_default()
+                            .push((pos, id));
+                    }
+                }
             }
         }
 
         // Phase 2: walk through measures, computing time for each position
         for measure in 0..=max_measure {
             measure_times.push(current_time_us);
+            scroll_at_measure.push(current_scroll);
             let measure_len = measure_lengths.get(&measure).copied().unwrap_or(1.0);
 
             // Collect events in this measure, sorted by position
@@ -365,6 +385,13 @@ impl BmsDecoder {
                 for &(pos, id) in stop_evts {
                     if let Some(&ticks) = stop_defs.get(&id) {
                         timing_events.push((pos, TimingEvent::Stop(ticks)));
+                    }
+                }
+            }
+            if let Some(scroll_evts) = scroll_events_by_measure.get(&measure) {
+                for &(pos, id) in scroll_evts {
+                    if let Some(&scroll) = scroll_defs.get(&id) {
+                        timing_events.push((pos, TimingEvent::Scroll(scroll)));
                     }
                 }
             }
@@ -395,6 +422,9 @@ impl BmsDecoder {
                         });
                         current_time_us += stop_us;
                     }
+                    TimingEvent::Scroll(scroll) => {
+                        current_scroll = *scroll;
+                    }
                 }
                 prev_pos = *pos;
             }
@@ -413,7 +443,7 @@ impl BmsDecoder {
             let ch = event.channel;
 
             // Skip timing channels (already processed), but not 0x01 (BGM) or BGA channels
-            if matches!(ch, 0x02 | 0x03 | 0x08 | 0x09) {
+            if matches!(ch, 0x02 | 0x03 | 0x08 | 0x09) || ch == CHANNEL_SCROLL {
                 continue;
             }
 
@@ -639,11 +669,22 @@ impl BmsDecoder {
         for &t in &seen_times {
             // Find BPM at this time
             let bpm = bpm_at_time(t, model.initial_bpm, &model.bpm_changes);
+            let measure = find_measure_for_time(t, &measure_times);
+            let scroll = scroll_at_time(
+                t,
+                measure,
+                &measure_times,
+                &measure_lengths,
+                &scroll_at_measure,
+                &scroll_events_by_measure,
+                &scroll_defs,
+            );
             model.timelines.push(TimeLine {
                 time_us: t,
-                measure: 0, // Could be computed but not critical
+                measure,
                 position: 0.0,
                 bpm,
+                scroll,
             });
         }
 
@@ -658,6 +699,7 @@ impl BmsDecoder {
 enum TimingEvent {
     Bpm(f64),
     Stop(i64),
+    Scroll(f64),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -747,6 +789,7 @@ fn position_to_us(
         match event {
             TimingEvent::Bpm(new_bpm) => bpm = *new_bpm,
             TimingEvent::Stop(ticks) => time_offset += ticks_to_us(*ticks, bpm),
+            TimingEvent::Scroll(_) => {} // Scroll doesn't affect timing
         }
         prev_pos = *p;
     }
@@ -784,6 +827,9 @@ fn base36_digit(b: u8) -> u16 {
     }
 }
 
+/// Scroll channel number (base36: S=28, C=12 → 28*36+12=1020)
+const CHANNEL_SCROLL: u16 = 1020;
+
 /// Parse a channel line: #MMMCC:data
 fn parse_channel_line(upper: &str) -> Option<ChannelEvent> {
     if upper.len() < 7 {
@@ -791,7 +837,12 @@ fn parse_channel_line(upper: &str) -> Option<ChannelEvent> {
     }
 
     let measure: u32 = upper[..3].parse().ok()?;
-    let channel = parse_hex_channel(&upper[3..5])?;
+    // SC channel uses base36, not hex
+    let channel = if &upper[3..5] == "SC" {
+        CHANNEL_SCROLL
+    } else {
+        parse_hex_channel(&upper[3..5])?
+    };
 
     if upper.as_bytes()[5] != b':' {
         return None;
@@ -873,6 +924,67 @@ fn bpm_at_time(time_us: i64, initial_bpm: f64, bpm_changes: &[BpmChange]) -> f64
         }
     }
     bpm
+}
+
+/// Compute the scroll value at a given time_us.
+///
+/// Uses the scroll value at measure start (from timing walk) and applies
+/// any scroll events within the measure up to the note's position.
+fn scroll_at_time(
+    time_us: i64,
+    measure: u32,
+    measure_times: &[i64],
+    _measure_lengths: &HashMap<u32, f64>,
+    scroll_at_measure: &[f64],
+    scroll_events_by_measure: &HashMap<u32, Vec<(f64, u16)>>,
+    scroll_defs: &HashMap<u16, f64>,
+) -> f64 {
+    let mut scroll = scroll_at_measure
+        .get(measure as usize)
+        .copied()
+        .unwrap_or(1.0);
+
+    if let Some(evts) = scroll_events_by_measure.get(&measure) {
+        let measure_start = measure_times.get(measure as usize).copied().unwrap_or(0);
+        let measure_end = measure_times
+            .get(measure as usize + 1)
+            .copied()
+            .unwrap_or(measure_start);
+        let measure_duration = measure_end - measure_start;
+
+        let pos_in_measure = if measure_duration > 0 {
+            (time_us - measure_start) as f64 / measure_duration as f64
+        } else {
+            0.0
+        };
+
+        let mut sorted_evts: Vec<(f64, u16)> = evts.clone();
+        sorted_evts.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+        for &(evt_pos, id) in &sorted_evts {
+            if evt_pos <= pos_in_measure
+                && let Some(&s) = scroll_defs.get(&id)
+            {
+                scroll = s;
+            }
+        }
+    }
+
+    scroll
+}
+
+/// Find the measure number for a given time_us using binary search on measure_times
+fn find_measure_for_time(time_us: i64, measure_times: &[i64]) -> u32 {
+    match measure_times.binary_search(&time_us) {
+        Ok(idx) => idx as u32,
+        Err(idx) => {
+            if idx > 0 {
+                (idx - 1) as u32
+            } else {
+                0
+            }
+        }
+    }
 }
 
 /// Detect encoding and decode bytes to string

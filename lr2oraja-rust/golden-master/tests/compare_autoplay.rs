@@ -117,6 +117,7 @@ fn override_timelines(model: &mut bms_model::BmsModel, timeline_times: &[i64]) {
             measure: 0,
             position: 0.0,
             bpm: 120.0,
+            scroll: 1.0,
         })
         .collect();
 }

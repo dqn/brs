@@ -15,11 +15,12 @@ use crate::timeline::{BpmChange, StopEvent, TimeLine};
 /// bmson file decoder
 pub struct BmsonDecoder;
 
-/// Cached timeline entry for y → (time_f64, bpm, stop_us)
+/// Cached timeline entry for y → (time_f64, bpm, stop_us, scroll)
 struct TimeLineEntry {
     time: f64,
     bpm: f64,
     stop_us: i64,
+    scroll: f64,
 }
 
 /// Tracks LN ranges for inside-LN detection
@@ -138,6 +139,7 @@ impl BmsonDecoder {
                 time: 0.0,
                 bpm: model.initial_bpm,
                 stop_us: 0,
+                scroll: 1.0,
             },
         );
 
@@ -171,9 +173,9 @@ impl BmsonDecoder {
             let scrolly = scroll_events.get(scrollpos).map_or(i32::MAX, |e| e.0);
 
             if scrolly <= stopy && scrolly <= bpmy {
-                // Scroll event (structure only, applied in Phase 10)
-                let _tl =
+                let tl =
                     get_or_create_timeline(&mut tlcache, scroll_events[scrollpos].0, resolution);
+                tl.scroll = scroll_events[scrollpos].1;
                 scrollpos += 1;
             } else if bpmy <= stopy {
                 if bpm_events[bpmpos].1 > 0.0 {
@@ -431,11 +433,15 @@ impl BmsonDecoder {
         seen_times.dedup();
         for &t in &seen_times {
             let bpm = bpm_at_time(t, model.initial_bpm, &model.bpm_changes);
+            let section = find_section_for_time(&tlcache, t, resolution);
+            let measure = section as u32;
+            let scroll = scroll_at_time_bmson(&tlcache, t, resolution);
             model.timelines.push(TimeLine {
                 time_us: t,
-                measure: 0,
+                measure,
                 position: 0.0,
                 bpm,
+                scroll,
             });
         }
 
@@ -472,6 +478,7 @@ fn get_or_create_timeline(
     // Find the lower entry
     let (&prev_y, prev) = tlcache.range(..y).next_back().unwrap();
     let bpm = prev.bpm;
+    let scroll = prev.scroll;
     let time = prev.time
         + prev.stop_us as f64
         + (240_000.0 * 1000.0 * ((y - prev_y) as f64 / resolution)) / bpm;
@@ -482,6 +489,7 @@ fn get_or_create_timeline(
             time,
             bpm,
             stop_us: 0,
+            scroll,
         },
     );
     tlcache.get_mut(&y).unwrap()
@@ -527,6 +535,26 @@ fn find_section_for_time(
     let remaining_time = time - best_entry_time;
     let remaining_y = (remaining_time * best_bpm * resolution) / (240_000.0 * 1000.0);
     (best_y as f64 + remaining_y) / resolution
+}
+
+/// Get the scroll value at a given time from the timeline cache
+fn scroll_at_time_bmson(
+    tlcache: &BTreeMap<i32, TimeLineEntry>,
+    time_us: i64,
+    _resolution: f64,
+) -> f64 {
+    let time = time_us as f64;
+    let mut scroll = 1.0;
+
+    for (_, entry) in tlcache.iter() {
+        if entry.time <= time {
+            scroll = entry.scroll;
+        } else {
+            break;
+        }
+    }
+
+    scroll
 }
 
 /// Note priority for deduplication: Normal/Invisible > LN > Mine

@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+fn default_scroll() -> f64 {
+    1.0
+}
+
 /// BPM change event
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BpmChange {
@@ -53,4 +57,7 @@ pub struct TimeLine {
     pub position: f64,
     /// BPM at this point
     pub bpm: f64,
+    /// Scroll speed multiplier (default 1.0)
+    #[serde(default = "default_scroll")]
+    pub scroll: f64,
 }
