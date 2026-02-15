@@ -19,4 +19,5 @@ pub mod lr2_result_loader;
 pub mod lr2_select_loader;
 pub mod lua_event_utility;
 pub mod lua_loader;
+pub mod lua_state_provider;
 pub mod lua_timer_utility;

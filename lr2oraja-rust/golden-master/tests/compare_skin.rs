@@ -402,8 +402,15 @@ fn lua_decide_load() {
     let path = skins_dir().join("decide/decide.luaskin");
     let content = read_file(&path);
     let enabled: HashSet<i32> = HashSet::new();
-    let skin = lua_loader::load_lua_skin(&content, &enabled, Resolution::Fullhd, Some(&path), &[])
-        .expect("Failed to load Lua decide skin");
+    let skin = lua_loader::load_lua_skin(
+        &content,
+        &enabled,
+        Resolution::Fullhd,
+        Some(&path),
+        &[],
+        None,
+    )
+    .expect("Failed to load Lua decide skin");
 
     assert_eq!(skin.width, 1920.0);
     assert_eq!(skin.height, 1080.0);
@@ -425,8 +432,15 @@ fn lua_decide_snapshot() {
     let path = skins_dir().join("decide/decide.luaskin");
     let content = read_file(&path);
     let enabled: HashSet<i32> = HashSet::new();
-    let skin = lua_loader::load_lua_skin(&content, &enabled, Resolution::Fullhd, Some(&path), &[])
-        .expect("Failed to load Lua skin");
+    let skin = lua_loader::load_lua_skin(
+        &content,
+        &enabled,
+        Resolution::Fullhd,
+        Some(&path),
+        &[],
+        None,
+    )
+    .expect("Failed to load Lua skin");
 
     assert_snapshot("skin_lua_decide_snapshot.json", &skin);
 }
@@ -482,6 +496,7 @@ fn lua_test_load() {
         Resolution::Fullhd,
         Some(&path),
         &[],
+        None,
     )
     .expect("Failed to load Lua skin without options");
 
@@ -494,9 +509,15 @@ fn lua_test_load() {
 
     // With option 800 (Effect ON): 3 objects (bg + title + effect)
     let enabled = HashSet::from([800]);
-    let skin_on =
-        lua_loader::load_lua_skin(&content, &enabled, Resolution::Fullhd, Some(&path), &[])
-            .expect("Failed to load Lua skin with option 800");
+    let skin_on = lua_loader::load_lua_skin(
+        &content,
+        &enabled,
+        Resolution::Fullhd,
+        Some(&path),
+        &[],
+        None,
+    )
+    .expect("Failed to load Lua skin with option 800");
 
     assert_eq!(skin_on.object_count(), 3, "option-800: bg + title + effect");
 
@@ -510,8 +531,15 @@ fn lua_test_snapshot() {
     let path = test_bms_dir().join("test_skin.luaskin");
     let content = read_file(&path);
     let enabled: HashSet<i32> = HashSet::new();
-    let skin = lua_loader::load_lua_skin(&content, &enabled, Resolution::Fullhd, Some(&path), &[])
-        .expect("Failed to load Lua skin");
+    let skin = lua_loader::load_lua_skin(
+        &content,
+        &enabled,
+        Resolution::Fullhd,
+        Some(&path),
+        &[],
+        None,
+    )
+    .expect("Failed to load Lua skin");
 
     assert_snapshot("skin_lua_test_snapshot.json", &skin);
 }

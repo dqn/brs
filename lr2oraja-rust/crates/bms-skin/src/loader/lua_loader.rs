@@ -13,8 +13,10 @@
 //
 // Ported from LuaSkinLoader.java and SkinLuaAccessor.java.
 
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::Path;
+use std::rc::Rc;
 
 use anyhow::{Context, Result};
 use mlua::prelude::*;
@@ -23,10 +25,14 @@ use serde_json::Value;
 use bms_config::resolution::Resolution;
 use bms_config::skin_config::Offset;
 
+use crate::property_mapper;
 use crate::skin::Skin;
 use crate::skin_header::SkinHeader;
 
 use super::json_loader;
+use super::lua_event_utility;
+use super::lua_state_provider::{LuaStateProvider, TIMER_OFF};
+use super::lua_timer_utility;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -38,7 +44,7 @@ use super::json_loader;
 /// The script should return a table matching the beatoraja JSON skin format,
 /// or a `{header, main}` table where `header` contains the skin metadata.
 pub fn load_lua_header(lua_source: &str, path: Option<&Path>) -> Result<SkinHeader> {
-    let lua = create_lua_env(path)?;
+    let lua = create_lua_env(path, None)?;
     let value = exec_lua(&lua, lua_source, path)?;
     let resolved = resolve_for_header(&value);
     let json = lua_value_to_json(&resolved);
@@ -53,13 +59,18 @@ pub fn load_lua_header(lua_source: &str, path: Option<&Path>) -> Result<SkinHead
 /// Handles the `{header, main}` pattern by calling `main()` to get the skin data.
 /// This is useful for tools that need the intermediate JSON representation
 /// (e.g., screenshot harness that reuses JSON image loading paths).
+///
+/// If `state_provider` is `Some`, `main_state` is backed by the Rust provider
+/// (with `timer_util` and `event_util` also registered). If `None`, the
+/// existing Lua stub is used for backward compatibility.
 pub fn lua_to_json_string(
     lua_source: &str,
     path: Option<&Path>,
     enabled_options: &HashSet<i32>,
     offsets: &[(i32, Offset)],
+    state_provider: Option<Rc<RefCell<dyn LuaStateProvider>>>,
 ) -> Result<String> {
-    let lua = create_lua_env(path)?;
+    let lua = create_lua_env(path, state_provider)?;
     let header_probe = exec_lua(&lua, lua_source, path)?;
     let option_selection = extract_option_selection(&header_probe, enabled_options)?;
     export_skin_config(&lua, enabled_options, offsets)?;
@@ -80,14 +91,19 @@ pub fn lua_to_json_string(
 /// `enabled_options`: set of enabled option IDs (from user's skin config).
 /// `dest_resolution`: the display resolution to scale to.
 /// `offsets`: custom offset values from user's skin config.
+///
+/// If `state_provider` is `Some`, `main_state` is backed by the Rust provider
+/// (with `timer_util` and `event_util` also registered). If `None`, the
+/// existing Lua stub is used for backward compatibility.
 pub fn load_lua_skin(
     lua_source: &str,
     enabled_options: &HashSet<i32>,
     dest_resolution: Resolution,
     path: Option<&Path>,
     offsets: &[(i32, Offset)],
+    state_provider: Option<Rc<RefCell<dyn LuaStateProvider>>>,
 ) -> Result<Skin> {
-    let lua = create_lua_env(path)?;
+    let lua = create_lua_env(path, state_provider)?;
     let header_probe = exec_lua(&lua, lua_source, path)?;
     let option_selection = extract_option_selection(&header_probe, enabled_options)?;
 
@@ -110,11 +126,15 @@ pub fn load_lua_skin(
 
 /// Creates a new Lua VM with standard libraries and the skin module path.
 ///
-/// Sets up `package.path` for the script's directory and registers a stub
-/// `main_state` module. In beatoraja, `main_state` is provided by
-/// `SkinLuaAccessor` at runtime with callbacks into the game state.
-/// The stub returns default values so skins can be loaded without a running game.
-fn create_lua_env(path: Option<&Path>) -> Result<Lua> {
+/// Sets up `package.path` for the script's directory and registers
+/// `main_state` module. If `state_provider` is `Some`, the module is
+/// backed by the Rust provider with full game state access, and
+/// `timer_util` / `event_util` are also registered. If `None`, a pure-Lua
+/// stub returning default values is used (backward compatible).
+fn create_lua_env(
+    path: Option<&Path>,
+    state_provider: Option<Rc<RefCell<dyn LuaStateProvider>>>,
+) -> Result<Lua> {
     let lua = Lua::new();
 
     // Add the script's directory to the Lua package path
@@ -127,11 +147,15 @@ fn create_lua_env(path: Option<&Path>) -> Result<Lua> {
             .map_err(|e| anyhow::anyhow!("Failed to set Lua package path: {}", e))?;
     }
 
-    // Register main_state stub module via package.preload.
-    // This is checked before file searchers, matching how beatoraja Java
-    // provides main_state programmatically via SkinLuaAccessor.
-    lua.load(
-        r#"
+    if let Some(provider) = state_provider {
+        // Register Rust-backed main_state with real provider
+        register_main_state(&lua, provider)?;
+    } else {
+        // Register main_state stub module via package.preload.
+        // This is checked before file searchers, matching how beatoraja Java
+        // provides main_state programmatically via SkinLuaAccessor.
+        lua.load(
+            r#"
 package.preload["main_state"] = function()
     local M = {}
     M.timer_off_value = -9223372036854775808
@@ -144,11 +168,369 @@ package.preload["main_state"] = function()
     return M
 end
 "#,
-    )
-    .exec()
-    .map_err(|e| anyhow::anyhow!("Failed to register main_state stub: {}", e))?;
+        )
+        .exec()
+        .map_err(|e| anyhow::anyhow!("Failed to register main_state stub: {}", e))?;
+    }
 
     Ok(lua)
+}
+
+/// Registers a Rust-backed `main_state` module in the Lua environment.
+///
+/// Captures an `Rc<RefCell<dyn LuaStateProvider>>` and exposes all methods
+/// as Lua functions. Also registers `timer_util` and `event_util` modules
+/// with `main_state.time()` as the clock source.
+fn register_main_state(lua: &Lua, provider: Rc<RefCell<dyn LuaStateProvider>>) -> Result<()> {
+    let ms = lua
+        .create_table()
+        .map_err(|e| anyhow::anyhow!("Failed to create main_state table: {}", e))?;
+
+    // timer_off_value constant
+    ms.set("timer_off_value", TIMER_OFF)
+        .map_err(|e| anyhow::anyhow!("Failed to set timer_off_value: {}", e))?;
+
+    // Read-only state queries
+    {
+        let p = provider.clone();
+        ms.set(
+            "option",
+            lua.create_function(move |_, id: i32| Ok(p.borrow().option(id)))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "number",
+            lua.create_function(move |_, id: i32| Ok(p.borrow().number(id)))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "float_number",
+            lua.create_function(move |_, id: i32| Ok(p.borrow().float_number(id)))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "text",
+            lua.create_function(move |_, id: i32| Ok(p.borrow().text(id)))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "timer",
+            lua.create_function(move |_, id: i32| Ok(p.borrow().timer(id)))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "time",
+            lua.create_function(move |_, ()| Ok(p.borrow().time()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "slider",
+            lua.create_function(move |_, id: i32| Ok(p.borrow().slider(id)))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "offset",
+            lua.create_function(move |lua, id: i32| {
+                let off = p.borrow().offset(id);
+                let t = lua.create_table()?;
+                t.set("x", off.x)?;
+                t.set("y", off.y)?;
+                t.set("w", off.w)?;
+                t.set("h", off.h)?;
+                t.set("r", off.r)?;
+                t.set("a", off.a)?;
+                Ok(t)
+            })
+            .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+
+    // Concrete accessors
+    {
+        let p = provider.clone();
+        ms.set(
+            "rate",
+            lua.create_function(move |_, ()| Ok(p.borrow().rate()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "exscore",
+            lua.create_function(move |_, ()| Ok(p.borrow().exscore()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "rate_best",
+            lua.create_function(move |_, ()| Ok(p.borrow().rate_best()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "exscore_best",
+            lua.create_function(move |_, ()| Ok(p.borrow().exscore_best()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "rate_rival",
+            lua.create_function(move |_, ()| Ok(p.borrow().rate_rival()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "exscore_rival",
+            lua.create_function(move |_, ()| Ok(p.borrow().exscore_rival()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+
+    // Volume accessors
+    {
+        let p = provider.clone();
+        ms.set(
+            "volume_sys",
+            lua.create_function(move |_, ()| Ok(p.borrow().volume_sys()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "volume_key",
+            lua.create_function(move |_, ()| Ok(p.borrow().volume_key()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "volume_bg",
+            lua.create_function(move |_, ()| Ok(p.borrow().volume_bg()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+
+    // Judge / gauge
+    {
+        let p = provider.clone();
+        ms.set(
+            "judge",
+            lua.create_function(move |_, id: i32| Ok(p.borrow().judge(id)))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "gauge",
+            lua.create_function(move |_, ()| Ok(p.borrow().gauge()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "gauge_type",
+            lua.create_function(move |_, ()| Ok(p.borrow().gauge_type()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "event_index",
+            lua.create_function(move |_, id: i32| Ok(p.borrow().event_index(id)))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+
+    // Writable: set_timer (only custom timers)
+    {
+        let p = provider.clone();
+        ms.set(
+            "set_timer",
+            lua.create_function(move |_, (id, value): (i32, i64)| {
+                if property_mapper::is_timer_writable_by_skin(id) {
+                    p.borrow_mut().set_timer(id, value);
+                }
+                Ok(())
+            })
+            .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+
+    // Writable: volume setters
+    {
+        let p = provider.clone();
+        ms.set(
+            "set_volume_sys",
+            lua.create_function(move |_, value: f32| {
+                p.borrow_mut().set_volume_sys(value);
+                Ok(())
+            })
+            .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "set_volume_key",
+            lua.create_function(move |_, value: f32| {
+                p.borrow_mut().set_volume_key(value);
+                Ok(())
+            })
+            .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+    {
+        let p = provider.clone();
+        ms.set(
+            "set_volume_bg",
+            lua.create_function(move |_, value: f32| {
+                p.borrow_mut().set_volume_bg(value);
+                Ok(())
+            })
+            .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+
+    // Writable: event_exec (variadic args, 0-2 integers)
+    {
+        let p = provider.clone();
+        ms.set(
+            "event_exec",
+            lua.create_function(move |_, (id, args): (i32, mlua::Variadic<i32>)| {
+                if property_mapper::is_event_runnable_by_skin(id) {
+                    let args_vec: Vec<i32> = args.into_iter().collect();
+                    p.borrow_mut().event_exec(id, &args_vec);
+                }
+                Ok(())
+            })
+            .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+
+    // Deferred audio stubs (no-op until bms-audio integration)
+    ms.set(
+        "audio_play",
+        lua.create_function(|_, _id: i32| Ok(()))
+            .map_err(|e| anyhow::anyhow!("{e}"))?,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
+    ms.set(
+        "audio_loop",
+        lua.create_function(|_, _id: i32| Ok(()))
+            .map_err(|e| anyhow::anyhow!("{e}"))?,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
+    ms.set(
+        "audio_stop",
+        lua.create_function(|_, _id: i32| Ok(()))
+            .map_err(|e| anyhow::anyhow!("{e}"))?,
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    // Register main_state via package.preload
+    let ms_clone = ms.clone();
+    lua.load("package.preload['main_state'] = ...")
+        .into_function()
+        .ok(); // discard — we set it manually below
+    let preload = lua
+        .globals()
+        .get::<mlua::Table>("package")
+        .and_then(|pkg| pkg.get::<mlua::Table>("preload"))
+        .map_err(|e| anyhow::anyhow!("Failed to access package.preload: {}", e))?;
+    preload
+        .set(
+            "main_state",
+            lua.create_function(move |_, ()| Ok(ms_clone.clone()))
+                .map_err(|e| anyhow::anyhow!("{e}"))?,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to register main_state: {}", e))?;
+
+    // Register timer_util using main_state.time() as clock source
+    let timer_util_table = lua
+        .create_table()
+        .map_err(|e| anyhow::anyhow!("Failed to create timer_util table: {}", e))?;
+    {
+        let p = provider.clone();
+        let get_now = lua
+            .create_function(move |_, ()| Ok(p.borrow().time()))
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+        lua_timer_utility::register_timer_utilities(lua, &timer_util_table, get_now)?;
+    }
+    lua.globals()
+        .set("timer_util", timer_util_table)
+        .map_err(|e| anyhow::anyhow!("Failed to set timer_util global: {}", e))?;
+
+    // Register event_util
+    let event_util_table = lua
+        .create_table()
+        .map_err(|e| anyhow::anyhow!("Failed to create event_util table: {}", e))?;
+    lua_event_utility::register_event_utilities(lua, &event_util_table)?;
+    lua.globals()
+        .set("event_util", event_util_table)
+        .map_err(|e| anyhow::anyhow!("Failed to set event_util global: {}", e))?;
+
+    Ok(())
 }
 
 /// Exports the `skin_config` global table to the Lua environment.
@@ -674,7 +1056,8 @@ return {
     }
 }
 "#;
-        let skin = load_lua_skin(lua_src, &HashSet::new(), Resolution::Hd, None, &[]).unwrap();
+        let skin =
+            load_lua_skin(lua_src, &HashSet::new(), Resolution::Hd, None, &[], None).unwrap();
         assert_eq!(skin.fadeout, 500);
         assert_eq!(skin.scene, 5000);
         assert_eq!(skin.object_count(), 1);
@@ -695,7 +1078,8 @@ return {
     destination = {}
 }
 "#;
-        let skin = load_lua_skin(lua_src, &HashSet::new(), Resolution::Hd, None, &[]).unwrap();
+        let skin =
+            load_lua_skin(lua_src, &HashSet::new(), Resolution::Hd, None, &[], None).unwrap();
         assert_eq!(skin.fadeout, 640);
     }
 
@@ -724,12 +1108,20 @@ return {
 }
 "#;
         // Without option 901
-        let skin = load_lua_skin(lua_src, &HashSet::new(), Resolution::Hd, None, &[]).unwrap();
+        let skin =
+            load_lua_skin(lua_src, &HashSet::new(), Resolution::Hd, None, &[], None).unwrap();
         assert_eq!(skin.object_count(), 0);
 
         // With option 901
-        let skin =
-            load_lua_skin(lua_src, &HashSet::from([901]), Resolution::Hd, None, &[]).unwrap();
+        let skin = load_lua_skin(
+            lua_src,
+            &HashSet::from([901]),
+            Resolution::Hd,
+            None,
+            &[],
+            None,
+        )
+        .unwrap();
         assert_eq!(skin.object_count(), 1);
     }
 
@@ -767,7 +1159,15 @@ return {
                 a: 0,
             },
         )];
-        let skin = load_lua_skin(lua_src, &HashSet::new(), Resolution::Hd, None, &offsets).unwrap();
+        let skin = load_lua_skin(
+            lua_src,
+            &HashSet::new(),
+            Resolution::Hd,
+            None,
+            &offsets,
+            None,
+        )
+        .unwrap();
         assert_eq!(skin.fadeout, 42);
     }
 
@@ -792,5 +1192,432 @@ return {
         // Mixed table → treated as object
         assert!(json.is_object());
         assert_eq!(json["name"], "test");
+    }
+
+    // -- LuaStateProvider integration tests --
+
+    use crate::loader::lua_state_provider::{LuaStateProvider, StubLuaStateProvider, TIMER_OFF};
+    use crate::skin_object::SkinOffset;
+
+    /// Shared mutation tracker for the mock provider.
+    #[derive(Default)]
+    struct MockMutations {
+        last_set_timer: Option<(i32, i64)>,
+        last_event_exec: Option<(i32, Vec<i32>)>,
+    }
+
+    /// Mock provider that returns specific values for testing.
+    struct MockLuaStateProvider {
+        number_val: i32,
+        option_val: bool,
+        timer_val: i64,
+        time_val: i64,
+        text_val: String,
+        float_number_val: f64,
+        slider_val: f64,
+        offset_val: SkinOffset,
+        rate_val: f64,
+        exscore_val: i32,
+        volume_sys_val: f32,
+        judge_val: i32,
+        gauge_val: f64,
+        gauge_type_val: i32,
+        mutations: Rc<RefCell<MockMutations>>,
+    }
+
+    impl MockLuaStateProvider {
+        fn new_with_mutations() -> (Self, Rc<RefCell<MockMutations>>) {
+            let mutations = Rc::new(RefCell::new(MockMutations::default()));
+            let provider = Self {
+                mutations: mutations.clone(),
+                ..Default::default()
+            };
+            (provider, mutations)
+        }
+    }
+
+    impl Default for MockLuaStateProvider {
+        fn default() -> Self {
+            Self {
+                number_val: 0,
+                option_val: false,
+                timer_val: TIMER_OFF,
+                time_val: 0,
+                text_val: String::new(),
+                float_number_val: 0.0,
+                slider_val: 0.0,
+                offset_val: SkinOffset::default(),
+                rate_val: 0.0,
+                exscore_val: 0,
+                volume_sys_val: 0.0,
+                judge_val: 0,
+                gauge_val: 0.0,
+                gauge_type_val: 0,
+                mutations: Rc::new(RefCell::new(MockMutations::default())),
+            }
+        }
+    }
+
+    impl LuaStateProvider for MockLuaStateProvider {
+        fn option(&self, _id: i32) -> bool {
+            self.option_val
+        }
+        fn number(&self, _id: i32) -> i32 {
+            self.number_val
+        }
+        fn float_number(&self, _id: i32) -> f64 {
+            self.float_number_val
+        }
+        fn text(&self, _id: i32) -> String {
+            self.text_val.clone()
+        }
+        fn timer(&self, _id: i32) -> i64 {
+            self.timer_val
+        }
+        fn time(&self) -> i64 {
+            self.time_val
+        }
+        fn slider(&self, _id: i32) -> f64 {
+            self.slider_val
+        }
+        fn offset(&self, _id: i32) -> SkinOffset {
+            self.offset_val
+        }
+        fn rate(&self) -> f64 {
+            self.rate_val
+        }
+        fn exscore(&self) -> i32 {
+            self.exscore_val
+        }
+        fn rate_best(&self) -> f64 {
+            0.0
+        }
+        fn exscore_best(&self) -> i32 {
+            0
+        }
+        fn rate_rival(&self) -> f64 {
+            0.0
+        }
+        fn exscore_rival(&self) -> i32 {
+            0
+        }
+        fn volume_sys(&self) -> f32 {
+            self.volume_sys_val
+        }
+        fn volume_key(&self) -> f32 {
+            0.0
+        }
+        fn volume_bg(&self) -> f32 {
+            0.0
+        }
+        fn judge(&self, _id: i32) -> i32 {
+            self.judge_val
+        }
+        fn gauge(&self) -> f64 {
+            self.gauge_val
+        }
+        fn gauge_type(&self) -> i32 {
+            self.gauge_type_val
+        }
+        fn event_index(&self, _id: i32) -> i32 {
+            0
+        }
+        fn set_timer(&mut self, id: i32, value: i64) {
+            self.mutations.borrow_mut().last_set_timer = Some((id, value));
+        }
+        fn set_volume_sys(&mut self, _value: f32) {}
+        fn set_volume_key(&mut self, _value: f32) {}
+        fn set_volume_bg(&mut self, _value: f32) {}
+        fn event_exec(&mut self, id: i32, args: &[i32]) {
+            self.mutations.borrow_mut().last_event_exec = Some((id, args.to_vec()));
+        }
+    }
+
+    #[test]
+    fn test_stub_provider_number_returns_zero() {
+        let provider: Rc<RefCell<dyn LuaStateProvider>> =
+            Rc::new(RefCell::new(StubLuaStateProvider));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+        let result: i32 = lua
+            .load("local ms = require('main_state'); return ms.number(42)")
+            .eval()
+            .unwrap();
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_stub_provider_option_returns_false() {
+        let provider: Rc<RefCell<dyn LuaStateProvider>> =
+            Rc::new(RefCell::new(StubLuaStateProvider));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+        let result: bool = lua
+            .load("local ms = require('main_state'); return ms.option(100)")
+            .eval()
+            .unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_stub_provider_timer_returns_off() {
+        let provider: Rc<RefCell<dyn LuaStateProvider>> =
+            Rc::new(RefCell::new(StubLuaStateProvider));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+        let result: i64 = lua
+            .load("local ms = require('main_state'); return ms.timer(10)")
+            .eval()
+            .unwrap();
+        assert_eq!(result, TIMER_OFF);
+    }
+
+    #[test]
+    fn test_custom_provider_returns_values() {
+        let mock = MockLuaStateProvider {
+            number_val: 42,
+            option_val: true,
+            text_val: "hello".to_string(),
+            float_number_val: 3.14,
+            slider_val: 0.75,
+            rate_val: 95.5,
+            exscore_val: 1234,
+            ..Default::default()
+        };
+        let provider: Rc<RefCell<dyn LuaStateProvider>> = Rc::new(RefCell::new(mock));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+
+        let n: i32 = lua
+            .load("local ms = require('main_state'); return ms.number(0)")
+            .eval()
+            .unwrap();
+        assert_eq!(n, 42);
+
+        let o: bool = lua
+            .load("local ms = require('main_state'); return ms.option(0)")
+            .eval()
+            .unwrap();
+        assert!(o);
+
+        let t: String = lua
+            .load("local ms = require('main_state'); return ms.text(0)")
+            .eval()
+            .unwrap();
+        assert_eq!(t, "hello");
+
+        let f: f64 = lua
+            .load("local ms = require('main_state'); return ms.float_number(0)")
+            .eval()
+            .unwrap();
+        assert!((f - 3.14).abs() < 0.001);
+
+        let s: f64 = lua
+            .load("local ms = require('main_state'); return ms.slider(0)")
+            .eval()
+            .unwrap();
+        assert!((s - 0.75).abs() < 0.001);
+
+        let r: f64 = lua
+            .load("local ms = require('main_state'); return ms.rate()")
+            .eval()
+            .unwrap();
+        assert!((r - 95.5).abs() < 0.001);
+
+        let e: i32 = lua
+            .load("local ms = require('main_state'); return ms.exscore()")
+            .eval()
+            .unwrap();
+        assert_eq!(e, 1234);
+    }
+
+    #[test]
+    fn test_timer_value_from_provider() {
+        let mock = MockLuaStateProvider {
+            timer_val: 5_000_000,
+            ..Default::default()
+        };
+        let provider: Rc<RefCell<dyn LuaStateProvider>> = Rc::new(RefCell::new(mock));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+
+        let v: i64 = lua
+            .load("local ms = require('main_state'); return ms.timer(41)")
+            .eval()
+            .unwrap();
+        assert_eq!(v, 5_000_000);
+    }
+
+    #[test]
+    fn test_offset_returns_table() {
+        let mock = MockLuaStateProvider {
+            offset_val: SkinOffset {
+                x: 10.0,
+                y: 20.0,
+                w: 30.0,
+                h: 40.0,
+                r: 50.0,
+                a: 60.0,
+            },
+            ..Default::default()
+        };
+        let provider: Rc<RefCell<dyn LuaStateProvider>> = Rc::new(RefCell::new(mock));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+
+        lua.load(
+            r#"
+            local ms = require('main_state')
+            local off = ms.offset(0)
+            assert(off.x == 10.0, "x=" .. off.x)
+            assert(off.y == 20.0, "y=" .. off.y)
+            assert(off.w == 30.0, "w=" .. off.w)
+            assert(off.h == 40.0, "h=" .. off.h)
+            assert(off.r == 50.0, "r=" .. off.r)
+            assert(off.a == 60.0, "a=" .. off.a)
+            "#,
+        )
+        .exec()
+        .unwrap();
+    }
+
+    #[test]
+    fn test_set_timer_custom_allowed() {
+        let (mock, mutations) = MockLuaStateProvider::new_with_mutations();
+        let provider: Rc<RefCell<dyn LuaStateProvider>> = Rc::new(RefCell::new(mock));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+
+        // Custom timer ID 10000 should be writable
+        lua.load("local ms = require('main_state'); ms.set_timer(10000, 999)")
+            .exec()
+            .unwrap();
+
+        assert_eq!(mutations.borrow().last_set_timer, Some((10000, 999)));
+    }
+
+    #[test]
+    fn test_set_timer_builtin_rejected() {
+        let (mock, mutations) = MockLuaStateProvider::new_with_mutations();
+        let provider: Rc<RefCell<dyn LuaStateProvider>> = Rc::new(RefCell::new(mock));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+
+        // Built-in timer ID (e.g. TIMER_PLAY = 41) should NOT be writable
+        lua.load("local ms = require('main_state'); ms.set_timer(41, 999)")
+            .exec()
+            .unwrap();
+
+        assert_eq!(
+            mutations.borrow().last_set_timer,
+            None,
+            "Built-in timer should not be set"
+        );
+    }
+
+    #[test]
+    fn test_timer_off_value_constant() {
+        let provider: Rc<RefCell<dyn LuaStateProvider>> =
+            Rc::new(RefCell::new(StubLuaStateProvider));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+
+        let v: i64 = lua
+            .load("local ms = require('main_state'); return ms.timer_off_value")
+            .eval()
+            .unwrap();
+        assert_eq!(v, i64::MIN);
+    }
+
+    #[test]
+    fn test_timer_util_registered_with_provider() {
+        let mock = MockLuaStateProvider {
+            time_val: 10_000_000,
+            ..Default::default()
+        };
+        let provider: Rc<RefCell<dyn LuaStateProvider>> = Rc::new(RefCell::new(mock));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+
+        // timer_util should be available and now_timer should work
+        let elapsed: i64 = lua
+            .load("return timer_util.now_timer(5000000)")
+            .eval()
+            .unwrap();
+        assert_eq!(elapsed, 5_000_000); // 10M - 5M
+
+        let off_elapsed: i64 = lua
+            .load(
+                "local ms = require('main_state'); return timer_util.now_timer(ms.timer_off_value)",
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(off_elapsed, 0);
+    }
+
+    #[test]
+    fn test_event_util_registered_with_provider() {
+        let provider: Rc<RefCell<dyn LuaStateProvider>> =
+            Rc::new(RefCell::new(StubLuaStateProvider));
+        let lua = create_lua_env(None, Some(provider)).unwrap();
+
+        // event_util should be available
+        lua.load(
+            r#"
+            local counter = 0
+            local state = false
+            local observe = event_util.observe_turn_true(
+                function() return state end,
+                function() counter = counter + 1 end
+            )
+            observe()
+            assert(counter == 0, "initial: expected 0, got " .. counter)
+            state = true
+            observe()
+            assert(counter == 1, "after true: expected 1, got " .. counter)
+            "#,
+        )
+        .exec()
+        .unwrap();
+    }
+
+    #[test]
+    fn test_skin_conditional_with_provider_option() {
+        // Skin checks main_state.option() to decide structure
+        let lua_src = r#"
+local ms = require('main_state')
+local dsts = {}
+if ms.option(100) then
+    table.insert(dsts, {id = "bg", dst = {{x = 0, y = 0, w = 1280, h = 720}}})
+end
+return {
+    type = 6,
+    name = "Provider Skin",
+    w = 1280,
+    h = 720,
+    image = {{id = "bg", src = "0"}},
+    destination = dsts
+}
+"#;
+        // With StubLuaStateProvider: option returns false -> 0 objects
+        let stub_provider: Rc<RefCell<dyn LuaStateProvider>> =
+            Rc::new(RefCell::new(StubLuaStateProvider));
+        let skin = load_lua_skin(
+            lua_src,
+            &HashSet::new(),
+            Resolution::Hd,
+            None,
+            &[],
+            Some(stub_provider),
+        )
+        .unwrap();
+        assert_eq!(skin.object_count(), 0);
+
+        // With MockLuaStateProvider(option=true): 1 object
+        let mock = MockLuaStateProvider {
+            option_val: true,
+            ..Default::default()
+        };
+        let mock_provider: Rc<RefCell<dyn LuaStateProvider>> = Rc::new(RefCell::new(mock));
+        let skin = load_lua_skin(
+            lua_src,
+            &HashSet::new(),
+            Resolution::Hd,
+            None,
+            &[],
+            Some(mock_provider),
+        )
+        .unwrap();
+        assert_eq!(skin.object_count(), 1);
     }
 }

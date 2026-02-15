@@ -102,8 +102,15 @@ fn load_lua_skin(relative_path: &str) -> bms_skin::skin::Skin {
     let header = lua_loader::load_lua_header(&content, Some(&path))
         .unwrap_or_else(|e| panic!("Failed to load Lua header {}: {}", path.display(), e));
     let enabled = default_enabled_option_ids(&header.options);
-    lua_loader::load_lua_skin(&content, &enabled, Resolution::Fullhd, Some(&path), &[])
-        .unwrap_or_else(|e| panic!("Failed to load Lua skin {}: {}", path.display(), e))
+    lua_loader::load_lua_skin(
+        &content,
+        &enabled,
+        Resolution::Fullhd,
+        Some(&path),
+        &[],
+        None,
+    )
+    .unwrap_or_else(|e| panic!("Failed to load Lua skin {}: {}", path.display(), e))
 }
 
 /// Load a JSON skin from the ECFN directory.

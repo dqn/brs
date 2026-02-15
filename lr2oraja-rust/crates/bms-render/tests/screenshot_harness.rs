@@ -226,6 +226,7 @@ impl RenderTestHarness {
             Some(lua_path),
             &HashSet::new(),
             &[],
+            None,
         )
         .unwrap_or_else(|e| panic!("Failed to convert Lua skin to JSON: {}", e));
 

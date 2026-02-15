@@ -101,6 +101,6 @@ Phase 0-23 全完了（16 crate, ~61,000行）。全 RenderSnapshot GM テスト
 - **ScrollSpeedModifier Add mode** — ~~per-timeline scroll field 未実装のためスタブ~~ **完了** — `TimeLine.scroll` フィールド追加、BMS `#SCROLLxx`/チャンネル SC パース、bmson scroll_events 反映、Add mode ランダムスクロール実装、Remove mode scroll リセット (`bms-model/src/timeline.rs`, `bms-model/src/parse.rs`, `bms-model/src/bmson_decode.rs`, `bms-pattern/src/scroll_speed_modifier.rs`)
 - **Stream Controller (非Windows)** — ~~macOS/Linux ではスタブ~~ **完了** — Unix ドメインソケット (`/tmp/beatoraja.sock`) でリッスン、複数クライアント対応 (`bms-stream/src/controller.rs`)
 - **Download Task Retry** — ~~Retry ボタン未接続~~ **完了** — `HttpDownloadProcessor::retry_task()` + UI ボタン配線 (`bms-download/src/processor.rs`, `bms-render/src/mod_menu/menus/download_task.rs`)
-- **Lua main_state stub** — ランタイムなしのスキン読み込み用 (`bms-skin/src/loader/lua_loader.rs`)
+- **Lua main_state stub** — ~~ランタイムなしのスキン読み込み用~~ **完了** — `LuaStateProvider` trait + `StubLuaStateProvider` で Rust バックエンド化、`register_main_state()` で全メソッド登録、`timer_util`/`event_util` 統合、audio は no-op スタブ (`bms-skin/src/loader/lua_state_provider.rs`, `bms-skin/src/loader/lua_loader.rs`)
 - **LR2 Play Loader Pomyu stubs** — `DST_PM_CHARA_*` プロパティがスタブ (`bms-skin/src/loader/lr2_play_loader.rs`)
 - **Music Preview** — ~~Select 画面のプレビュー再生未実装~~ **完了** — `brs/src/preview_music.rs` で実装済み
