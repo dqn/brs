@@ -15,6 +15,7 @@ mod state;
 mod system_sound;
 mod target_property;
 mod timer_manager;
+mod window_manager;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
@@ -196,6 +197,8 @@ fn main() -> Result<()> {
             primary_window: Some(Window {
                 title: "brs".to_string(),
                 resolution: bevy::window::WindowResolution::new(window_width, window_height),
+                mode: window_manager::display_mode_to_window_mode(config.displaymode),
+                present_mode: window_manager::vsync_to_present_mode(config.vsync),
                 ..default()
             }),
             ..default()
@@ -225,6 +228,7 @@ fn main() -> Result<()> {
         .add_systems(Update, timer_update_system)
         .add_systems(Update, state_machine_system)
         .add_systems(Update, state_sync_system)
+        .add_systems(Update, window_manager::window_shortcut_system)
         .run();
 
     Ok(())
@@ -278,7 +282,6 @@ struct BrsPreviewMusic(Mutex<Option<preview_music::PreviewMusicProcessor>>);
 
 #[derive(Resource)]
 struct BrsConfigPaths {
-    #[allow(dead_code)] // Reserved for future system config saving
     config: PathBuf,
     player_config: PathBuf,
 }

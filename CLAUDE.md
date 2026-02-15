@@ -109,7 +109,7 @@ Phase 0-23 全完了（16 crate, ~61,000行）。全 RenderSnapshot GM テスト
 - **Table/Course システム** — ~70% 完了。データ構造・DB・コースゲームプレイ連携 (PlayerResource, CourseResult) は実装済み。**未実装:** jbmstable-parser の Rust 移植 (現在は .bmt/JSON のみ)、テーブル HTTP ダウンロード/更新、MusicSelect へのコース選択 UI 統合 (`bms-database/src/table_data.rs`, `bms-database/src/course_data.rs`)
 - **Launcher GUI** — ~52% 完了 (11/21パネル)。egui フレームワーク・タブナビ・設定永続化は完成。**未実装パネル:** 高度なオーディオ設定、グラフィックス詳細、スキンプレビュー、ゲージ可視化、ノートスキン選択、タイマー表示、イベントトレース、プロファイラ、高度なプレイオプション、カスタムキーバインド設定 (`bms-launcher/src/panels/`)
 - **Launcher: フォルダ/テーブル/コースエディタ** — 未実装。Java の `FolderEditorView`, `TableEditorView`, `CourseEditorView` に相当するランチャーパネルなし
-- **Window 管理** — 起動時の解像度設定のみ。ランタイムでのフルスクリーン切替・VSync 制御は未実装
+- **Window 管理** — ~~起動時の解像度設定のみ~~ **部分完了** — 起動時 WindowMode/PresentMode 適用 + F6キーでフルスクリーン⇔ウィンドウトグル + config永続化を実装済み (`brs/src/window_manager.rs`)。**未実装:** VSync ランタイムトグル、ランタイム解像度変更UI、モニター選択
 - **IR プラグインシステム** — Java は `IRConnectionManager` でカスタム IR を動的ロードするが、Rust は LR2IR のみ静的実装
 - **ライバルスコア表示 UI** — データ構造は存在するが MusicSelect 画面での表示統合が不明確
 - **スクリーンショット Twitter 投稿** — ファイルエクスポートのみ。Java の `ScreenShotTwitterExporter` 相当なし
