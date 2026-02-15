@@ -8,7 +8,8 @@ use anyhow::Result;
 use tracing::{info, warn};
 
 use bms_database::difficulty_table_parser::{
-    extract_bmstable_url, parse_json_data, parse_json_header, resolve_url, to_table_data,
+    apply_data_rule, extract_bmstable_url, parse_json_data, parse_json_header, resolve_url,
+    to_table_data,
 };
 use bms_database::{TableData, TableDataAccessor};
 
@@ -35,14 +36,20 @@ async fn fetch_and_parse(client: &reqwest::Client, url: &str) -> Result<TableDat
 
     let header = parse_json_header(&header_json)?;
 
-    // Fetch all data URLs and merge charts
+    // Fetch all data URLs and merge charts (applying data_rule remapping if present)
     let mut all_charts = Vec::new();
-    for data_url in &header.data_url {
+    for (i, data_url) in header.data_url.iter().enumerate() {
         let resolved = resolve_url(&header_url, data_url);
         match client.get(&resolved).send().await {
             Ok(resp) => match resp.text().await {
                 Ok(text) => match parse_json_data(&text) {
-                    Ok(charts) => all_charts.extend(charts),
+                    Ok(charts) => {
+                        if let Some(rule) = header.data_rule.get(i) {
+                            all_charts.extend(apply_data_rule(&charts, rule));
+                        } else {
+                            all_charts.extend(charts);
+                        }
+                    }
                     Err(e) => warn!(url = %resolved, "Failed to parse table data: {e}"),
                 },
                 Err(e) => warn!(url = %resolved, "Failed to read table data response: {e}"),

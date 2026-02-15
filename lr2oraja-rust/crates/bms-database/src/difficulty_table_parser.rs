@@ -4,6 +4,8 @@
 //! Parses JSON-based BMS difficulty table headers and chart data.
 //! HTTP fetching is handled separately in the `brs` crate.
 
+use std::collections::HashMap;
+
 use anyhow::{Result, anyhow};
 use serde_json::Value;
 
@@ -19,6 +21,7 @@ pub struct DifficultyTableHeader {
     pub tag: String,
     pub level_order: Vec<String>,
     pub data_url: Vec<String>,
+    pub data_rule: Vec<HashMap<String, String>>,
     pub courses: Vec<Vec<ParsedCourse>>,
     pub trophies: Vec<TrophyData>,
 }
@@ -98,6 +101,22 @@ pub fn parse_json_header(json_str: &str) -> Result<DifficultyTableHeader> {
         _ => Vec::new(),
     };
 
+    // data_rule: Vec<Map<String, String>>, one per data_url
+    let data_rule = match obj.get("data_rule") {
+        Some(Value::Array(arr)) => arr
+            .iter()
+            .take(data_url.len())
+            .filter_map(|v| {
+                v.as_object().map(|obj| {
+                    obj.iter()
+                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                        .collect::<HashMap<String, String>>()
+                })
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+
     // Parse courses from "course" or legacy "grade"
     let courses = if let Some(course_val) = obj.get("course") {
         parse_courses(course_val)?
@@ -120,6 +139,7 @@ pub fn parse_json_header(json_str: &str) -> Result<DifficultyTableHeader> {
         tag,
         level_order,
         data_url,
+        data_rule,
         courses,
         trophies,
     })
@@ -288,6 +308,26 @@ pub fn to_table_data(
         folder: folders,
         course: all_courses,
     }
+}
+
+/// Apply a data_rule mapping to a list of charts.
+///
+/// For each chart:
+/// - If the chart's level is not in the rule -> keep as-is
+/// - If the rule maps to a non-empty string -> remap the level
+/// - If the rule maps to an empty string -> exclude the chart
+pub fn apply_data_rule(charts: &[ParsedChart], rule: &HashMap<String, String>) -> Vec<ParsedChart> {
+    charts
+        .iter()
+        .filter_map(|chart| match rule.get(&chart.level) {
+            Some(mapped) if mapped.is_empty() => None,
+            Some(mapped) => Some(ParsedChart {
+                level: mapped.clone(),
+                ..chart.clone()
+            }),
+            None => Some(chart.clone()),
+        })
+        .collect()
 }
 
 // --- Internal helpers ---
@@ -960,6 +1000,7 @@ mod tests {
             tag: "★".to_string(),
             level_order: vec!["1".to_string(), "2".to_string()],
             data_url: vec!["data.json".to_string()],
+            data_rule: Vec::new(),
             courses: Vec::new(),
             trophies: Vec::new(),
         };
@@ -1013,6 +1054,7 @@ mod tests {
             tag: "S".to_string(),
             level_order: Vec::new(),
             data_url: Vec::new(),
+            data_rule: Vec::new(),
             courses: vec![vec![ParsedCourse {
                 name: "Dan 1".to_string(),
                 songs: vec![CourseSongData {
@@ -1051,6 +1093,7 @@ mod tests {
             tag: "E".to_string(),
             level_order: vec!["1".to_string()],
             data_url: Vec::new(),
+            data_rule: Vec::new(),
             courses: Vec::new(),
             trophies: Vec::new(),
         };
@@ -1069,6 +1112,7 @@ mod tests {
             tag: "S".to_string(),
             level_order: vec!["1".to_string()],
             data_url: Vec::new(),
+            data_rule: Vec::new(),
             courses: Vec::new(),
             trophies: Vec::new(),
         };
@@ -1085,5 +1129,105 @@ mod tests {
         let td = to_table_data(&header, &charts, "http://example.com");
         assert_eq!(td.folder.len(), 1);
         assert_eq!(td.folder[0].songs.len(), 0);
+    }
+
+    // ---- data_rule parsing tests ----
+
+    #[test]
+    fn header_data_rule_parsed() {
+        let json = r#"{
+            "name": "T",
+            "symbol": "S",
+            "data_url": ["src1.json", "src2.json"],
+            "data_rule": [
+                {"Beginner": "1", "Normal": "2"},
+                {"Easy": "1", "Hard": ""}
+            ]
+        }"#;
+        let header = parse_json_header(json).unwrap();
+        assert_eq!(header.data_rule.len(), 2);
+        assert_eq!(header.data_rule[0].get("Beginner").unwrap(), "1");
+        assert_eq!(header.data_rule[0].get("Normal").unwrap(), "2");
+        assert_eq!(header.data_rule[1].get("Easy").unwrap(), "1");
+        assert_eq!(header.data_rule[1].get("Hard").unwrap(), "");
+    }
+
+    #[test]
+    fn header_data_rule_absent_defaults_empty() {
+        let json = r#"{
+            "name": "T",
+            "symbol": "S",
+            "data_url": ["data.json"]
+        }"#;
+        let header = parse_json_header(json).unwrap();
+        assert!(header.data_rule.is_empty());
+    }
+
+    #[test]
+    fn header_data_rule_shorter_than_data_url() {
+        let json = r#"{
+            "name": "T",
+            "symbol": "S",
+            "data_url": ["src1.json", "src2.json", "src3.json"],
+            "data_rule": [{"A": "1"}]
+        }"#;
+        let header = parse_json_header(json).unwrap();
+        assert_eq!(header.data_rule.len(), 1);
+    }
+
+    // ---- apply_data_rule tests ----
+
+    fn make_chart(level: &str, md5: &str) -> ParsedChart {
+        ParsedChart {
+            level: level.to_string(),
+            md5: md5.to_string(),
+            sha256: String::new(),
+            title: String::new(),
+            artist: String::new(),
+            url: String::new(),
+        }
+    }
+
+    #[test]
+    fn apply_data_rule_remaps_levels() {
+        let charts = vec![make_chart("Beginner", "a"), make_chart("Normal", "b")];
+        let rule = HashMap::from([
+            ("Beginner".to_string(), "1".to_string()),
+            ("Normal".to_string(), "2".to_string()),
+        ]);
+        let result = apply_data_rule(&charts, &rule);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].level, "1");
+        assert_eq!(result[1].level, "2");
+    }
+
+    #[test]
+    fn apply_data_rule_excludes_empty_mapping() {
+        let charts = vec![
+            make_chart("Easy", "a"),
+            make_chart("Hard", "b"),
+            make_chart("Normal", "c"),
+        ];
+        let rule = HashMap::from([
+            ("Easy".to_string(), "1".to_string()),
+            ("Hard".to_string(), String::new()),
+        ]);
+        let result = apply_data_rule(&charts, &rule);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].level, "1");
+        assert_eq!(result[0].md5, "a");
+        // "Normal" not in rule -> kept as-is
+        assert_eq!(result[1].level, "Normal");
+        assert_eq!(result[1].md5, "c");
+    }
+
+    #[test]
+    fn apply_data_rule_empty_rule_no_changes() {
+        let charts = vec![make_chart("5", "x"), make_chart("10", "y")];
+        let rule = HashMap::new();
+        let result = apply_data_rule(&charts, &rule);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].level, "5");
+        assert_eq!(result[1].level, "10");
     }
 }
