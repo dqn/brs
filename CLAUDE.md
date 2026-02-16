@@ -92,7 +92,6 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 ## Implementation Status
 
 Phase 0-24 全完了（16 crate, ~92,000行）。全 RenderSnapshot GM テストが strict parity 達成済み。
-全 Deferred Items 実装完了。
 
 ### Completed Items (Phase 24)
 
@@ -121,11 +120,3 @@ Phase 0-24 全完了（16 crate, ~92,000行）。全 RenderSnapshot GM テスト
 
 - **bms-model パーサーバグ: 拡張チャンネルがモード判定に影響** — invisible notes (ch 31-37) と mine notes (ch D1-D7) が playable lane として解釈され、Beat5K → Beat7K にモードが誤変更される。`golden_master_channel_extended` テストが `#[ignore]` のまま。修正対象: `bms-model` クレートのチャンネル解釈ロジック
 
-### Completed Deferred Items
-
-以下の項目は全て実装済み:
-
-- **IR プラグインシステム** — `IRConnectionManager` を静的 enum dispatch → 動的 `Box<dyn IRConnection>` レジストリに変更。`async-trait` + `LazyLock<RwLock<HashMap>>` で `register()` / `create()` / `available_names()` API を提供
-- **スクリーンショット SSIM テスト** — `plugin.rs` に `register_render_materials()` ヘルパー追加で `BgaLayerMaterial` + embedded shaders をテストハーネスから登録可能に。全26スクリーンショットテスト通過
-- **result2.luaskin** — `lua_loader.rs` の `lua_value_to_json()` で NaN/Infinity → JSON null 変換を追加。`RUST_ONLY_CASES` に result2 テスト追加
-- **新規スキン Java Fixture** — play14, play7wide, course_result の justfile エントリ追加。`compare_render_snapshot.rs` で play14 (budget=27), play7wide (budget=29) parity テストに昇格、course_result は Rust-only テスト追加
