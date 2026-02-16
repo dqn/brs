@@ -20,3 +20,18 @@ pub fn clamped_f32(
         ui.add(egui::DragValue::new(value).range(min..=max).speed(speed));
     });
 }
+
+/// Drag value widget with min/max clamping for f64.
+pub fn clamped_f64(
+    ui: &mut egui::Ui,
+    label: &str,
+    value: &mut f64,
+    min: f64,
+    max: f64,
+    speed: f64,
+) {
+    ui.horizontal(|ui| {
+        ui.label(label);
+        ui.add(egui::DragValue::new(value).range(min..=max).speed(speed));
+    });
+}
