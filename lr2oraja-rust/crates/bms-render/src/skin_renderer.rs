@@ -118,6 +118,8 @@ type TtfTextQuery<'w, 's> = Query<
         With<TtfTextMarker>,
         Without<BitmapTextMarker>,
         Without<TtfShadowMarker>,
+        Without<MultiEntityMarker>,
+        Without<ProceduralTextureMarker>,
     ),
 >;
 
@@ -131,7 +133,13 @@ type BitmapTextQuery<'w, 's> = Query<
         &'static mut Visibility,
         &'static mut CachedBmFontText,
     ),
-    (With<BitmapTextMarker>, Without<TtfTextMarker>),
+    (
+        With<BitmapTextMarker>,
+        Without<TtfTextMarker>,
+        Without<TtfShadowMarker>,
+        Without<MultiEntityMarker>,
+        Without<ProceduralTextureMarker>,
+    ),
 >;
 
 type TtfShadowQuery<'w, 's> = Query<
@@ -149,6 +157,8 @@ type TtfShadowQuery<'w, 's> = Query<
         With<TtfShadowMarker>,
         Without<TtfTextMarker>,
         Without<BitmapTextMarker>,
+        Without<MultiEntityMarker>,
+        Without<ProceduralTextureMarker>,
     ),
 >;
 
@@ -162,7 +172,13 @@ type MultiEntityQuery<'w, 's> = Query<
         &'static mut Visibility,
         &'static mut CachedMultiEntityHash,
     ),
-    With<MultiEntityMarker>,
+    (
+        With<MultiEntityMarker>,
+        Without<TtfTextMarker>,
+        Without<BitmapTextMarker>,
+        Without<TtfShadowMarker>,
+        Without<ProceduralTextureMarker>,
+    ),
 >;
 
 type ProceduralTextureQuery<'w, 's> = Query<
@@ -175,7 +191,13 @@ type ProceduralTextureQuery<'w, 's> = Query<
         &'static mut Sprite,
         &'static mut ProceduralTextureState,
     ),
-    With<ProceduralTextureMarker>,
+    (
+        With<ProceduralTextureMarker>,
+        Without<TtfTextMarker>,
+        Without<BitmapTextMarker>,
+        Without<TtfShadowMarker>,
+        Without<MultiEntityMarker>,
+    ),
 >;
 
 // ---------------------------------------------------------------------------

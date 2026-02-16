@@ -120,6 +120,6 @@ Phase 0-24 全完了（16 crate, ~92,000行）。全 RenderSnapshot GM テスト
 ### Deferred / Stub Items
 
 - **IR プラグインシステム** — Java は `IRConnectionManager` でカスタム IR を動的ロードするが、Rust は LR2IR のみ静的実装
-- **スクリーンショット SSIM テスト** — テストコード追加済みだが `skin_render_system` の Bevy ECS クエリ競合 (`Query` の `Transform`/`Visibility` が `MultiEntityMarker` 有無で衝突) により全テスト実行不可。`Without<T>` または `ParamSet` での修正が必要
+- **スクリーンショット SSIM テスト** — ECS クエリ競合は `Without<T>` フィルタ追加で修正済み。GPU 環境でのスクリーンショットキャプチャ + SSIM 比較の実行検証が残存
 - **result2.luaskin** — Lua スキンのデシリアライズエラーにより RenderSnapshot テストから除外中。JSON シリアライズパス要調査
 - **新規スキン Java fixture** — play14, play7wide, course_result の Java RenderSnapshot fixture 未生成。`RenderSnapshotExporter` に skinTypeId=2 (PLAY_14KEYS) 等の MockState 対応追加 + `justfile` の `golden-master-render-snapshot-gen` 拡張が必要
