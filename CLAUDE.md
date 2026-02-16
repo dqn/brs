@@ -87,6 +87,7 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 - Detailed porting plan: `.claude/plans/iridescent-tumbling-swan.md`
 - Critical algorithms: `.claude/plans/critical-algorithms.md`
 - Java module analysis: `.claude/plans/java-module-analysis.md`
+- Java vs Rust 機能差分分析: `.claude/plans/cryptic-frolicking-bengio.md`
 
 ## Implementation Status
 
@@ -103,3 +104,12 @@ Phase 0-23 全完了（16 crate, ~61,000行）。全 RenderSnapshot GM テスト
 - **オーディオ障害リカバリ** — ゲームプレイ中の Kira オーディオ障害に対するフォールバック処理なし
 - **ホットリロード (スキン/コンフィグ)** — `SkinManager` に `request_load()` は存在するが実際のリロードは未配線
 - **Stream Controller (Windows Named Pipes)** — Unix ソケットは完了。Windows の Named Pipe (`\\.\pipe\beatoraja`) は未検証
+- **選曲画面バータイプ** — Java 17種に対し Rust 5種 (Song, Folder, Course, TableRoot, HashFolder)。未実装: ContextMenuBar, RandomCourseBar, SameFolderBar, LeaderBoardBar, SearchWordBar, ExecutableBar, ContainerBar 等
+- **選曲ソート** — Java 8種+LASTUPDATE に対し Rust 4種 (Default, Title, Artist, Level)。未実装: BPM, LENGTH, CLEAR, SCORE, MISSCOUNT
+- **MusicSelectCommand** — Java 13種のコマンド (ハッシュコピー、IPFS/HTTP ダウンロード、コンテキストメニュー、同フォルダ表示等) が未移植
+- **アーカイブ展開 (zip/lzh)** — `bms-download/extract.rs` は tar.gz のみ。BMS 主要配布形式の .zip と LR2 時代の .lzh が未対応
+- **CLI 引数** — Java の `-a` (autoplay), `-p` (practice), `-r` (replay) 引数が未移植。Rust は `--bms` のみ
+- **RhythmTimerProcessor** — PMS リズムノート拡大用タイマー (小節線/4分音符タイミング) 未実装
+- **GhostBattlePlay** — ゴーストバトル用パターン共有 (Random + lane sequence の static 管理) 未実装
+- **GithubVersionChecker** — バージョンチェック/自動更新なし
+- **Config 細部** — songPreview (OFF/LOOP/SINGLE), skipDecideScreen, frameskip, analogScroll, cacheSkinImage, scrollduration, maxSearchBarCount, setClipboardScreenshot, updatesong 等が未移植
