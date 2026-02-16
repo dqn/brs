@@ -113,3 +113,6 @@ Phase 0-23 全完了（16 crate, ~61,000行）。全 RenderSnapshot GM テスト
 - **GhostBattlePlay** — ゴーストバトル用パターン共有 (Random + lane sequence の static 管理) 未実装
 - **GithubVersionChecker** — バージョンチェック/自動更新なし
 - **Config 細部** — songPreview (OFF/LOOP/SINGLE), skipDecideScreen, frameskip, analogScroll, cacheSkinImage, scrollduration, maxSearchBarCount, setClipboardScreenshot, updatesong 等が未移植
+- **スクリーンショット SSIM テスト** — テストコード追加済みだが `skin_render_system` の Bevy ECS クエリ競合 (`Query` の `Transform`/`Visibility` が `MultiEntityMarker` 有無で衝突) により全テスト実行不可。`Without<T>` または `ParamSet` での修正が必要
+- **result2.luaskin** — Lua スキンのデシリアライズエラーにより RenderSnapshot テストから除外中。JSON シリアライズパス要調査
+- **新規スキン Java fixture** — play14, play7wide, course_result の Java RenderSnapshot fixture 未生成。`RenderSnapshotExporter` に skinTypeId=2 (PLAY_14KEYS) 等の MockState 対応追加 + `justfile` の `golden-master-render-snapshot-gen` 拡張が必要
