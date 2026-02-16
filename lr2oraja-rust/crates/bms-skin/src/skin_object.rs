@@ -451,4 +451,142 @@ mod tests {
         assert_eq!(base.destinations[1].time, 50);
         assert_eq!(base.destinations[2].time, 100);
     }
+
+    #[test]
+    fn test_ease_out() {
+        let mut base = SkinObjectBase::default();
+        let mut d1 = make_dst(0, 0.0, 0.0, 100.0, 100.0, 255);
+        d1.acc = 2; // ease-out
+        base.add_destination(d1);
+        base.add_destination(make_dst(100, 100.0, 0.0, 100.0, 100.0, 255));
+
+        let (r, _, _) = base.interpolate(50).unwrap();
+        // Ease-out: rate = 1 - (0.5 - 1)^2 = 1 - 0.25 = 0.75, so x = 75
+        assert!((r.x - 75.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_multi_keyframe() {
+        let mut base = SkinObjectBase::default();
+        base.add_destination(make_dst(0, 0.0, 0.0, 100.0, 100.0, 255));
+        base.add_destination(make_dst(100, 100.0, 0.0, 100.0, 100.0, 255));
+        base.add_destination(make_dst(200, 200.0, 0.0, 100.0, 100.0, 255));
+        base.add_destination(make_dst(300, 300.0, 0.0, 100.0, 100.0, 255));
+
+        // t=50: between keyframe 0 and 1, halfway → x=50
+        let (r, _, _) = base.interpolate(50).unwrap();
+        assert!((r.x - 50.0).abs() < 0.001);
+
+        // t=150: between keyframe 1 and 2, halfway → x=150
+        let (r, _, _) = base.interpolate(150).unwrap();
+        assert!((r.x - 150.0).abs() < 0.001);
+
+        // t=250: between keyframe 2 and 3, halfway → x=250
+        let (r, _, _) = base.interpolate(250).unwrap();
+        assert!((r.x - 250.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_loop_boundary() {
+        let mut base = SkinObjectBase::default();
+        base.loop_time = 50;
+        base.add_destination(make_dst(0, 0.0, 0.0, 100.0, 100.0, 255));
+        base.add_destination(make_dst(50, 50.0, 0.0, 100.0, 100.0, 255));
+        base.add_destination(make_dst(100, 100.0, 0.0, 100.0, 100.0, 255));
+
+        // t=150 with loop_time=50, end=100: (150-50) % (100-50) + 50 = 100%50+50 = 50
+        let (r, _, _) = base.interpolate(150).unwrap();
+        assert!((r.x - 50.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_loop_equal_end() {
+        let mut base = SkinObjectBase::default();
+        base.loop_time = 100;
+        base.add_destination(make_dst(0, 0.0, 0.0, 100.0, 100.0, 255));
+        base.add_destination(make_dst(100, 100.0, 0.0, 100.0, 100.0, 255));
+
+        // When loop_time == end, should stay at loop_time value
+        let (r, _, _) = base.interpolate(200).unwrap();
+        assert!((r.x - 100.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_play_once_exact_end() {
+        let mut base = SkinObjectBase::default();
+        base.loop_time = -1;
+        base.add_destination(make_dst(0, 0.0, 0.0, 100.0, 100.0, 255));
+        base.add_destination(make_dst(100, 100.0, 0.0, 100.0, 100.0, 255));
+
+        // At exact end time → Some (returns last keyframe)
+        let result = base.interpolate(100);
+        assert!(result.is_some());
+        let (r, _, _) = result.unwrap();
+        assert!((r.x - 100.0).abs() < 0.001);
+
+        // Past end → None
+        assert!(base.interpolate(101).is_none());
+    }
+
+    #[test]
+    fn test_color_interpolation() {
+        let mut base = SkinObjectBase::default();
+        base.add_destination(Destination {
+            time: 0,
+            region: Rect::new(0.0, 0.0, 100.0, 100.0),
+            color: Color { r: 0.0, g: 1.0, b: 0.0, a: 0.0 },
+            angle: 0,
+            acc: 0,
+        });
+        base.add_destination(Destination {
+            time: 100,
+            region: Rect::new(0.0, 0.0, 100.0, 100.0),
+            color: Color { r: 1.0, g: 0.0, b: 1.0, a: 1.0 },
+            angle: 0,
+            acc: 0,
+        });
+
+        let (_, c, _) = base.interpolate(50).unwrap();
+        assert!((c.r - 0.5).abs() < 0.001);
+        assert!((c.g - 0.5).abs() < 0.001);
+        assert!((c.b - 0.5).abs() < 0.001);
+        assert!((c.a - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_angle_interpolation() {
+        let mut base = SkinObjectBase::default();
+        base.add_destination(Destination {
+            time: 0,
+            region: Rect::new(0.0, 0.0, 100.0, 100.0),
+            color: Color::white(),
+            angle: 0,
+            acc: 0,
+        });
+        base.add_destination(Destination {
+            time: 100,
+            region: Rect::new(0.0, 0.0, 100.0, 100.0),
+            color: Color::white(),
+            angle: 360,
+            acc: 0,
+        });
+
+        let (_, _, angle) = base.interpolate(50).unwrap();
+        assert_eq!(angle, 180);
+    }
+
+    #[test]
+    fn test_zero_duration_keyframe() {
+        let mut base = SkinObjectBase::default();
+        base.loop_time = -1; // play-once to avoid modulo wrap
+        base.add_destination(make_dst(0, 10.0, 20.0, 100.0, 100.0, 255));
+        base.add_destination(make_dst(0, 50.0, 60.0, 100.0, 100.0, 255));
+
+        // Both keyframes at t=0 → should not panic (zero division)
+        // Returns last keyframe since time >= last.time
+        let result = base.interpolate(0);
+        assert!(result.is_some());
+        let (r, _, _) = result.unwrap();
+        assert!((r.x - 50.0).abs() < 0.001);
+    }
 }

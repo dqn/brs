@@ -325,4 +325,183 @@ mod tests {
         assert!(b.abs() < 0.001);
         assert!((a - 1.0).abs() < 0.001);
     }
+
+    #[test]
+    fn triple_offset_accumulation() {
+        let mut base = SkinObjectBase::default();
+        base.add_destination(Destination {
+            time: 0,
+            region: Rect::new(0.0, 0.0, 100.0, 100.0),
+            color: Color::white(),
+            angle: 0,
+            acc: 0,
+        });
+        base.set_offset_ids(&[1, 2, 3]);
+
+        let mut p = StaticStateProvider::default();
+        p.offsets.insert(
+            1,
+            bms_skin::skin_object::SkinOffset {
+                x: 10.0,
+                y: 5.0,
+                w: 0.0,
+                h: 0.0,
+                r: 10.0,
+                a: 20.0,
+            },
+        );
+        p.offsets.insert(
+            2,
+            bms_skin::skin_object::SkinOffset {
+                x: 20.0,
+                y: 10.0,
+                w: 0.0,
+                h: 0.0,
+                r: 15.0,
+                a: 30.0,
+            },
+        );
+        p.offsets.insert(
+            3,
+            bms_skin::skin_object::SkinOffset {
+                x: -5.0,
+                y: -3.0,
+                w: 0.0,
+                h: 0.0,
+                r: 5.0,
+                a: 10.0,
+            },
+        );
+
+        let (rect, _color, angle, alpha) = resolve_common(&base, &p).unwrap();
+        // x: 0 + 10 + 20 - 5 = 25
+        assert!((rect.x - 25.0).abs() < 0.001);
+        // y: 0 + 5 + 10 - 3 = 12
+        assert!((rect.y - 12.0).abs() < 0.001);
+        // angle: 0 + (10 + 15 + 5) = 30
+        assert_eq!(angle, 30);
+        // alpha: 1.0 + (20 + 30 + 10) / 255.0 = 1.0 + 0.2353 = 1.2353 → clamped to 1.0
+        assert!((alpha - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn alpha_clamp_upper() {
+        let mut base = SkinObjectBase::default();
+        base.add_destination(Destination {
+            time: 0,
+            region: Rect::new(0.0, 0.0, 100.0, 100.0),
+            color: Color::white(),
+            angle: 0,
+            acc: 0,
+        });
+        base.set_offset_ids(&[1]);
+
+        let mut p = StaticStateProvider::default();
+        p.offsets.insert(
+            1,
+            bms_skin::skin_object::SkinOffset {
+                x: 0.0,
+                y: 0.0,
+                w: 0.0,
+                h: 0.0,
+                r: 0.0,
+                a: 300.0,
+            },
+        );
+
+        let (_rect, _color, _angle, alpha) = resolve_common(&base, &p).unwrap();
+        // 1.0 + 300/255 = 2.176 → clamped to 1.0
+        assert!((alpha - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn alpha_clamp_lower() {
+        let mut base = SkinObjectBase::default();
+        base.add_destination(Destination {
+            time: 0,
+            region: Rect::new(0.0, 0.0, 100.0, 100.0),
+            color: Color::white(),
+            angle: 0,
+            acc: 0,
+        });
+        base.set_offset_ids(&[1]);
+
+        let mut p = StaticStateProvider::default();
+        p.offsets.insert(
+            1,
+            bms_skin::skin_object::SkinOffset {
+                x: 0.0,
+                y: 0.0,
+                w: 0.0,
+                h: 0.0,
+                r: 0.0,
+                a: -300.0,
+            },
+        );
+
+        let (_rect, _color, _angle, alpha) = resolve_common(&base, &p).unwrap();
+        // 1.0 + (-300)/255 = -0.176 → clamped to 0.0
+        assert!(alpha.abs() < 0.001);
+    }
+
+    #[test]
+    fn resolve_common_with_timer() {
+        let mut base = SkinObjectBase::default();
+        base.timer = Some(TimerId(10));
+        base.add_destination(Destination {
+            time: 0,
+            region: Rect::new(0.0, 0.0, 100.0, 100.0),
+            color: Color::white(),
+            angle: 0,
+            acc: 0,
+        });
+        base.add_destination(Destination {
+            time: 100,
+            region: Rect::new(100.0, 0.0, 100.0, 100.0),
+            color: Color::white(),
+            angle: 0,
+            acc: 0,
+        });
+
+        let mut p = StaticStateProvider::default();
+        p.timers.insert(10, 50); // timer at 50ms
+
+        let (rect, _, _, _) = resolve_common(&base, &p).unwrap();
+        // Timer value 50 → midpoint → x=50
+        assert!((rect.x - 50.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn resolve_common_timer_inactive_returns_none() {
+        let mut base = SkinObjectBase::default();
+        base.timer = Some(TimerId(10));
+        base.add_destination(Destination {
+            time: 0,
+            region: Rect::new(0.0, 0.0, 100.0, 100.0),
+            color: Color::white(),
+            angle: 0,
+            acc: 0,
+        });
+
+        let p = StaticStateProvider::default(); // timer 10 not set
+        assert!(resolve_common(&base, &p).is_none());
+    }
+
+    #[test]
+    fn draw_conditions_mixed_negation() {
+        let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
+        // Positive BooleanId(1) and negative BooleanId(-2) → NOT id=2
+        base.draw_conditions = vec![BooleanId(1), BooleanId(-2)];
+
+        let mut p = StaticStateProvider::default();
+        p.booleans.insert(1, true);
+        p.booleans.insert(2, false); // NOT false = true
+
+        // Both conditions should be true
+        assert!(check_draw_conditions(&base, &p));
+
+        // Now set id=2 to true → NOT true = false → overall false
+        p.booleans.insert(2, true);
+        assert!(!check_draw_conditions(&base, &p));
+    }
 }
