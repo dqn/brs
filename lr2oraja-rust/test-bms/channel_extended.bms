@@ -1,0 +1,40 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE Extended Channel Test
+#ARTIST brs-test
+#BPM 130
+#PLAYLEVEL 5
+#RANK 2
+#TOTAL 300
+#LNTYPE 2
+
+#WAV01 note.wav
+#WAV02 mine.wav
+#WAV03 invisible.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: LNTYPE 2 (MGQ-style) - charge notes on channel 51-57
+*    MGQ LN: start with WAV id, end with same WAV id
+#00051:01000001
+#00052:01000001
+
+*--- Measure 1: Invisible notes on channel 31-37
+#00131:03
+#00133:03
+#00135:03
+
+*--- Measure 2: Mine notes on channel D1-D7
+#001D1:02
+#001D3:02
+#001D5:02
+
+*--- Measure 3: Mixed - normal + invisible + mine on different lanes
+#00211:01
+#00232:03
+#002D3:02
+#00214:01
+#00235:03
+#002D6:02
+#00217:01

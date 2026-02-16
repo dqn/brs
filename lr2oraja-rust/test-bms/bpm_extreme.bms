@@ -1,0 +1,33 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE Extreme BPM Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 5
+#RANK 2
+#TOTAL 300
+
+#WAV01 note.wav
+#BPM01 1
+#BPM02 999
+#BPM03 120
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: Normal BPM 120
+#00111:01
+#00112:01
+
+*--- Measure 1: BPM change to 1 (extremely slow)
+#00108:01
+#00111:01
+
+*--- Measure 2: BPM change to 999 (extremely fast)
+#00208:02
+#00211:01
+
+*--- Measure 3: BPM back to 120
+#00308:03
+#00311:01
+#00312:01

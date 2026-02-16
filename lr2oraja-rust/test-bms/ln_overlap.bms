@@ -1,0 +1,35 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE LN Overlap Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 4
+#RANK 2
+#TOTAL 300
+#LNTYPE 1
+
+#WAV01 note1.wav
+#WAV02 note2.wav
+#WAV03 note3.wav
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: Multiple simultaneous LNs on different lanes
+#00051:01000001
+#00052:02000002
+#00053:03000003
+
+*--- Measure 1: Normal notes after LN (different lane from LN)
+#00111:01
+#00112:02
+#00113:03
+
+*--- Measure 2: LN on lane 1, normal note on lane 2 at same tick as LN end
+#00251:01000001
+#00212:0000000200
+
+*--- Measure 3: Normal notes for reference
+#00311:01
+#00312:02
+#00313:03

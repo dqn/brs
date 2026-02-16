@@ -1,0 +1,36 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE Multi STOP Rapid Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 4
+#RANK 2
+#TOTAL 300
+
+#WAV01 note.wav
+#STOP01 24
+#STOP02 48
+#STOP03 12
+#STOP04 96
+#STOP05 6
+#BPM01 180
+#BPM02 90
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: Normal baseline
+#00111:01
+#00112:01
+
+*--- Measure 1: 5 STOPs + 2 BPM changes interleaved
+*    Position: 0/16, 2/16, 4/16, 6/16, 8/16, 10/16, 12/16
+#00109:01000200030004000500
+#00108:00000100000000020000
+#00111:01000000010000000100
+
+*--- Measure 2: Notes after rapid stops (verify timing recovery)
+#00211:01
+#00212:01
+#00213:01
+#00214:01

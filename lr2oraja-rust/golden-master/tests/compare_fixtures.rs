@@ -230,3 +230,42 @@ fn golden_master_bmson_stop_sequence() {
 fn golden_master_bmson_mine_invisible() {
     run_bmson_golden_master_test("bmson_mine_invisible.bmson");
 }
+
+// --- Edge case BMS golden master tests ---
+// These require Java fixture generation (see Deferred Items in CLAUDE.md).
+
+#[test]
+#[ignore = "Java fixture not yet generated"]
+fn golden_master_ln_bpm_cross() {
+    run_golden_master_test("ln_bpm_cross.bms");
+}
+
+#[test]
+#[ignore = "Java fixture not yet generated"]
+fn golden_master_bpm_extreme() {
+    run_golden_master_test("bpm_extreme.bms");
+}
+
+#[test]
+#[ignore = "Java fixture not yet generated"]
+fn golden_master_multi_stop_rapid() {
+    run_golden_master_test("multi_stop_rapid.bms");
+}
+
+#[test]
+#[ignore = "Java fixture not yet generated"]
+fn golden_master_ln_overlap() {
+    run_golden_master_test("ln_overlap.bms");
+}
+
+#[test]
+#[ignore = "Java fixture not yet generated"]
+fn golden_master_channel_extended() {
+    run_golden_master_test("channel_extended.bms");
+}
+
+#[test]
+#[ignore = "Java fixture not yet generated"]
+fn golden_master_bmson_bpm_ln_cross() {
+    run_bmson_golden_master_test("bmson_bpm_ln_cross.bmson");
+}

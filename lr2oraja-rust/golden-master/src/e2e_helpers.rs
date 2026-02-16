@@ -236,6 +236,234 @@ pub fn run_manual_simulation(
     }
 }
 
+/// Result of a multi-song course simulation with gauge carryover.
+pub struct CourseSimulationResult {
+    /// Per-song results for each completed song.
+    pub stages: Vec<SimulationResult>,
+    /// True if the course was completed (all songs played without gauge death).
+    pub completed: bool,
+}
+
+/// Run a multi-song course simulation with gauge carryover.
+///
+/// Simulates each song in sequence with autoplay. After each song, the gauge
+/// value is carried over to the next song. If the gauge dies (reaches 0) at the
+/// end of a song, subsequent songs are skipped.
+///
+/// This models the real course (dan) behavior where a single GrooveGauge persists
+/// across all songs in the course.
+pub fn run_course_simulation(
+    models: &[&BmsModel],
+    gauge_type: GaugeType,
+) -> CourseSimulationResult {
+    let mut stages = Vec::new();
+    let mut carry_gauge: Option<f32> = None;
+
+    for model in models {
+        // Check if gauge died in previous song
+        if let Some(prev_value) = carry_gauge
+            && prev_value < 1e-6
+        {
+            return CourseSimulationResult {
+                stages,
+                completed: false,
+            };
+        }
+
+        let judge_notes = model.build_judge_notes();
+        let rule = PlayerRule::lr2();
+        let total_notes = judge_notes.iter().filter(|n| n.is_playable()).count();
+        let total = if model.total > 0.0 {
+            model.total
+        } else {
+            PlayerRule::default_total(total_notes)
+        };
+
+        let judge_rank = rule
+            .judge
+            .window_rule
+            .resolve_judge_rank(model.judge_rank, model.judge_rank_type);
+        let config = JudgeConfig {
+            notes: &judge_notes,
+            play_mode: model.mode,
+            ln_type: model.ln_type,
+            judge_rank,
+            judge_window_rate: [100, 100, 100],
+            scratch_judge_window_rate: [100, 100, 100],
+            algorithm: JudgeAlgorithm::Combo,
+            autoplay: true,
+            judge_property: &rule.judge,
+            lane_property: None,
+        };
+
+        let mut jm = JudgeManager::new(&config);
+        let mut gauge = GrooveGauge::new(&rule.gauge, gauge_type, total, total_notes);
+
+        // Apply carried gauge value from previous song
+        if let Some(prev_value) = carry_gauge {
+            gauge.set_value(prev_value);
+        }
+
+        let lp = LaneProperty::new(model.mode);
+        let physical_key_count = lp.physical_key_count();
+        let key_states = vec![false; physical_key_count];
+        let key_times = vec![NOT_SET; physical_key_count];
+
+        jm.update(-1, &judge_notes, &key_states, &key_times, &mut gauge);
+
+        let last_note_time = judge_notes
+            .iter()
+            .map(|n| n.time_us.max(n.end_time_us))
+            .max()
+            .unwrap_or(0);
+        let end_time = last_note_time + TAIL_TIME;
+
+        let mut time = 0i64;
+        while time <= end_time {
+            jm.update(time, &judge_notes, &key_states, &key_times, &mut gauge);
+            time += FRAME_STEP;
+        }
+
+        let result = SimulationResult {
+            score: jm.score().clone(),
+            max_combo: jm.max_combo(),
+            ghost: jm.ghost().to_vec(),
+            gauge_value: gauge.value(),
+            gauge_qualified: gauge.is_qualified(),
+        };
+
+        carry_gauge = Some(result.gauge_value);
+        stages.push(result);
+    }
+
+    CourseSimulationResult {
+        stages,
+        completed: true,
+    }
+}
+
+/// Run a multi-song course simulation with manual input (no autoplay).
+///
+/// Each song uses the provided input logs. Gauge carries over between songs.
+/// If gauge dies, subsequent songs are skipped.
+pub fn run_course_simulation_manual(
+    models: &[&BmsModel],
+    input_logs: &[&[KeyInputLog]],
+    gauge_type: GaugeType,
+) -> CourseSimulationResult {
+    assert_eq!(
+        models.len(),
+        input_logs.len(),
+        "Must provide input logs for each song"
+    );
+
+    let mut stages = Vec::new();
+    let mut carry_gauge: Option<f32> = None;
+
+    for (model, input_log) in models.iter().zip(input_logs.iter()) {
+        if let Some(prev_value) = carry_gauge
+            && prev_value < 1e-6
+        {
+            return CourseSimulationResult {
+                stages,
+                completed: false,
+            };
+        }
+
+        let judge_notes = model.build_judge_notes();
+        let rule = PlayerRule::lr2();
+        let total_notes = judge_notes.iter().filter(|n| n.is_playable()).count();
+        let total = if model.total > 0.0 {
+            model.total
+        } else {
+            PlayerRule::default_total(total_notes)
+        };
+
+        let judge_rank = rule
+            .judge
+            .window_rule
+            .resolve_judge_rank(model.judge_rank, model.judge_rank_type);
+        let config = JudgeConfig {
+            notes: &judge_notes,
+            play_mode: model.mode,
+            ln_type: model.ln_type,
+            judge_rank,
+            judge_window_rate: [100, 100, 100],
+            scratch_judge_window_rate: [100, 100, 100],
+            algorithm: JudgeAlgorithm::Combo,
+            autoplay: false,
+            judge_property: &rule.judge,
+            lane_property: None,
+        };
+
+        let mut jm = JudgeManager::new(&config);
+        let mut gauge = GrooveGauge::new(&rule.gauge, gauge_type, total, total_notes);
+
+        if let Some(prev_value) = carry_gauge {
+            gauge.set_value(prev_value);
+        }
+
+        let lp = LaneProperty::new(model.mode);
+        let physical_key_count = lp.physical_key_count();
+
+        let mut sorted_log: Vec<&KeyInputLog> = input_log.iter().collect();
+        sorted_log.sort_by_key(|e| e.get_time());
+
+        let last_note_time = judge_notes
+            .iter()
+            .map(|n| n.time_us.max(n.end_time_us))
+            .max()
+            .unwrap_or(0);
+        let end_time = last_note_time + TAIL_TIME;
+
+        let mut key_states = vec![false; physical_key_count];
+        let mut log_cursor = 0;
+
+        let empty_key_times = vec![NOT_SET; physical_key_count];
+        jm.update(-1, &judge_notes, &key_states, &empty_key_times, &mut gauge);
+
+        let mut time = 0i64;
+        while time <= end_time {
+            let mut key_changed_times = vec![NOT_SET; physical_key_count];
+
+            while log_cursor < sorted_log.len() && sorted_log[log_cursor].get_time() <= time {
+                let event = sorted_log[log_cursor];
+                let key = event.keycode as usize;
+                if key < physical_key_count {
+                    key_states[key] = event.pressed;
+                    key_changed_times[key] = event.get_time();
+                }
+                log_cursor += 1;
+            }
+
+            jm.update(
+                time,
+                &judge_notes,
+                &key_states,
+                &key_changed_times,
+                &mut gauge,
+            );
+            time += FRAME_STEP;
+        }
+
+        let result = SimulationResult {
+            score: jm.score().clone(),
+            max_combo: jm.max_combo(),
+            ghost: jm.ghost().to_vec(),
+            gauge_value: gauge.value(),
+            gauge_qualified: gauge.is_qualified(),
+        };
+
+        carry_gauge = Some(result.gauge_value);
+        stages.push(result);
+    }
+
+    CourseSimulationResult {
+        stages,
+        completed: true,
+    }
+}
+
 /// Assert the autoplay invariant: all notes are PGREAT.
 pub fn assert_all_pgreat(result: &SimulationResult, total_notes: usize, label: &str) {
     let score = &result.score;

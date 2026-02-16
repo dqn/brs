@@ -1,0 +1,36 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE Test
+#TITLE LN BPM Cross Test
+#ARTIST brs-test
+#BPM 120
+#PLAYLEVEL 3
+#RANK 2
+#TOTAL 300
+#LNTYPE 1
+
+#WAV01 note.wav
+#WAV02 note2.wav
+#BPM01 180
+#BPM02 60
+
+*---------------------- MAIN DATA FIELD
+
+*--- Measure 0: LN spans entire measure, BPM changes to 180 at midpoint
+#00051:01000001
+#00008:000001
+
+*--- Measure 1: Normal note at BPM 180
+#00111:02
+
+*--- Measure 2: LN spans entire measure, BPM changes to 60 at midpoint
+#00252:02000002
+#00208:000002
+
+*--- Measure 3: Normal note at BPM 60
+#00311:01
+
+*--- Measure 4: BPM back to 120 for reference notes
+#00403:78
+#00411:01
+#00412:02
