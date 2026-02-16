@@ -717,6 +717,7 @@ mod tests {
             total_measures: 4,
             total_time_us: 0,
             has_random: false,
+            bar_line_times: Vec::new(),
         }
     }
 

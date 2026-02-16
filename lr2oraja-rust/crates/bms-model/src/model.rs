@@ -90,6 +90,10 @@ pub struct BmsModel {
 
     // Whether the chart contains #RANDOM commands
     pub has_random: bool,
+
+    // Bar line times (bmson only, for SongInformation parity with Java getAllTimeLines)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bar_line_times: Vec<i64>,
 }
 
 impl Default for BmsModel {
@@ -127,6 +131,7 @@ impl Default for BmsModel {
             total_measures: 0,
             total_time_us: 0,
             has_random: false,
+            bar_line_times: Vec::new(),
         }
     }
 }
@@ -303,10 +308,11 @@ impl BmsModel {
 
     /// Time of the last note/event in milliseconds.
     /// Equivalent to Java `BMSModel.getLastTime()` — returns the time of the last
-    /// timeline that contains any note (playable, invisible, or mine), including
-    /// LN end positions.
+    /// timeline that contains any note (playable, invisible, or mine), bg_note,
+    /// or BGA event, including LN end positions.
     pub fn last_event_time_ms(&self) -> i32 {
-        self.notes
+        let note_max = self
+            .notes
             .iter()
             .map(|n| {
                 if n.is_long_note() && n.end_time_us > n.time_us {
@@ -316,8 +322,11 @@ impl BmsModel {
                 }
             })
             .max()
-            .map(|us| (us / 1000) as i32)
-            .unwrap_or(0)
+            .unwrap_or(0);
+        let bg_max = self.bg_notes.iter().map(|n| n.time_us).max().unwrap_or(0);
+        let bga_max = self.bga_events.iter().map(|e| e.time_us).max().unwrap_or(0);
+        let max_us = note_max.max(bg_max).max(bga_max);
+        (max_us / 1000) as i32
     }
 
     /// Build note list for JudgeManager by splitting LN into start+end pairs.

@@ -260,19 +260,16 @@ fn song_info_14key_dp() {
 }
 
 #[test]
-#[ignore] // Distribution bucket boundary: subtle note-ordering difference vs Java timeline iteration
 fn song_info_9key_pms() {
     run_song_information_test("9key_pms.bms");
 }
 
 #[test]
-#[ignore] // Distribution bucket boundary: subtle note-ordering difference vs Java timeline iteration
 fn song_info_9key_pms_pms() {
     run_song_information_test("9key_pms.pms");
 }
 
 #[test]
-#[ignore] // Distribution bucket count + density: last_event_time differs (bg_notes not counted)
 fn song_info_bpm_change() {
     run_song_information_test("bpm_change.bms");
 }
@@ -298,7 +295,6 @@ fn song_info_mine_notes() {
 }
 
 #[test]
-#[ignore] // Speedchange time: parser timing calculation differs for BPM changes
 fn song_info_scratch_bss() {
     run_song_information_test("scratch_bss.bms");
 }
@@ -346,31 +342,26 @@ fn song_info_timing_extreme() {
 // timeline time calculation differences in the bmson decoder.
 
 #[test]
-#[ignore] // bmson speedchange: last entry time differs (Rust timeline vs Java timeline)
 fn song_info_bmson_minimal_7k() {
     run_song_information_test_bmson("bmson_minimal_7k.bmson");
 }
 
 #[test]
-#[ignore] // bmson speedchange: BPM change time + mainbpm note counting differs
 fn song_info_bmson_bpm_change() {
     run_song_information_test_bmson("bmson_bpm_change.bmson");
 }
 
 #[test]
-#[ignore] // bmson speedchange: last entry time differs
 fn song_info_bmson_longnote() {
     run_song_information_test_bmson("bmson_longnote.bmson");
 }
 
 #[test]
-#[ignore] // bmson speedchange: entry count differs (final entry missing)
 fn song_info_bmson_stop_sequence() {
     run_song_information_test_bmson("bmson_stop_sequence.bmson");
 }
 
 #[test]
-#[ignore] // bmson speedchange: last entry time differs
 fn song_info_bmson_mine_invisible() {
     run_song_information_test_bmson("bmson_mine_invisible.bmson");
 }

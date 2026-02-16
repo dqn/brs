@@ -428,6 +428,22 @@ impl BmsonDecoder {
         }
 
         // Build timelines
+        // Create timeline cache entries for bar lines (needed for time computation)
+        for line in &bmson.lines {
+            get_or_create_timeline(&mut tlcache, line.y, resolution);
+        }
+
+        // Collect bar line times separately for SongInformation parity with Java
+        let mut bar_line_times: Vec<i64> = Vec::new();
+        for line in &bmson.lines {
+            let t = get_timeline_time(&tlcache, line.y, resolution);
+            bar_line_times.push(t);
+        }
+        bar_line_times.sort();
+        bar_line_times.dedup();
+        model.bar_line_times = bar_line_times;
+
+        // Collect unique note times for timelines (note-bearing only)
         let mut seen_times: Vec<i64> = model.notes.iter().map(|n| n.time_us).collect();
         seen_times.sort();
         seen_times.dedup();

@@ -380,5 +380,6 @@ fn build_model_from_chord_patterns(
         has_random: false,
         bg_notes: Vec::new(),
         bga_events: Vec::new(),
+        bar_line_times: Vec::new(),
     }
 }

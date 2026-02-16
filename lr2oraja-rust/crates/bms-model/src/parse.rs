@@ -308,8 +308,10 @@ impl BmsDecoder {
 
         // Build timeline: convert measure/position → microseconds
         // Phase 1: compute time for each measure start
-        let mut measure_times: Vec<i64> = Vec::new();
-        let mut current_time_us: i64 = 0;
+        // Use f64 accumulation to match Java's double-precision timeline caching.
+        // Java accumulates as double and only casts to long at TimeLine creation.
+        let mut measure_times: Vec<f64> = Vec::new();
+        let mut current_time_f64: f64 = 0.0;
         let mut current_bpm = model.initial_bpm;
         let mut current_scroll: f64 = 1.0;
         // Track scroll values at each measure start for note placement
@@ -369,7 +371,7 @@ impl BmsDecoder {
 
         // Phase 2: walk through measures, computing time for each position
         for measure in 0..=max_measure {
-            measure_times.push(current_time_us);
+            measure_times.push(current_time_f64);
             scroll_at_measure.push(current_scroll);
             let measure_len = measure_lengths.get(&measure).copied().unwrap_or(1.0);
 
@@ -402,13 +404,12 @@ impl BmsDecoder {
             for (pos, event) in &timing_events {
                 // Advance time from prev_pos to this position
                 let delta_beats = (*pos - prev_pos) * 4.0 * measure_len;
-                let delta_us = beats_to_us(delta_beats, current_bpm);
-                current_time_us += delta_us;
+                current_time_f64 += beats_to_us(delta_beats, current_bpm);
 
                 match event {
                     TimingEvent::Bpm(new_bpm) => {
                         model.bpm_changes.push(BpmChange {
-                            time_us: current_time_us,
+                            time_us: current_time_f64 as i64,
                             bpm: *new_bpm,
                         });
                         current_bpm = *new_bpm;
@@ -416,11 +417,11 @@ impl BmsDecoder {
                     TimingEvent::Stop(ticks) => {
                         let stop_us = ticks_to_us(*ticks, current_bpm);
                         model.stop_events.push(StopEvent {
-                            time_us: current_time_us,
+                            time_us: current_time_f64 as i64,
                             duration_ticks: *ticks,
-                            duration_us: stop_us,
+                            duration_us: stop_us as i64,
                         });
-                        current_time_us += stop_us;
+                        current_time_f64 += stop_us;
                     }
                     TimingEvent::Scroll(scroll) => {
                         current_scroll = *scroll;
@@ -431,10 +432,10 @@ impl BmsDecoder {
 
             // Advance to end of measure
             let remaining_beats = (1.0 - prev_pos) * 4.0 * measure_len;
-            current_time_us += beats_to_us(remaining_beats, current_bpm);
+            current_time_f64 += beats_to_us(remaining_beats, current_bpm);
         }
 
-        model.total_time_us = current_time_us;
+        model.total_time_us = current_time_f64 as i64;
 
         // Phase 3: Place notes
         let mut ln_states: HashMap<(u32, usize), LnState> = HashMap::new(); // (channel_group, lane) -> state
@@ -456,14 +457,14 @@ impl BmsDecoder {
                 };
 
                 let measure = event.measure;
-                let measure_time = measure_times.get(measure as usize).copied().unwrap_or(0);
+                let measure_time_f64 = measure_times.get(measure as usize).copied().unwrap_or(0.0);
                 let measure_len = measure_lengths.get(&measure).copied().unwrap_or(1.0);
 
                 for &(pos, bmp_id) in &event.data {
                     if bmp_id == 0 {
                         continue;
                     }
-                    let time_us = measure_time
+                    let time_us = (measure_time_f64
                         + position_to_us(
                             pos,
                             measure,
@@ -475,7 +476,7 @@ impl BmsDecoder {
                             &stop_events_by_measure,
                             &stop_defs,
                             &extended_bpms,
-                        );
+                        )) as i64;
                     model.bga_events.push(BgaEvent {
                         time_us,
                         layer: bga_layer,
@@ -486,7 +487,7 @@ impl BmsDecoder {
             }
 
             let measure = event.measure;
-            let measure_time = measure_times.get(measure as usize).copied().unwrap_or(0);
+            let measure_time_f64 = measure_times.get(measure as usize).copied().unwrap_or(0.0);
             let measure_len = measure_lengths.get(&measure).copied().unwrap_or(1.0);
 
             for &(pos, wav_id) in &event.data {
@@ -494,7 +495,7 @@ impl BmsDecoder {
                     continue;
                 }
 
-                let time_us = measure_time
+                let time_us = (measure_time_f64
                     + position_to_us(
                         pos,
                         measure,
@@ -506,7 +507,7 @@ impl BmsDecoder {
                         &stop_events_by_measure,
                         &stop_defs,
                         &extended_bpms,
-                    );
+                    )) as i64;
 
                 // BGM channel (01): add as background note
                 if ch == 0x01 {
@@ -662,6 +663,8 @@ impl BmsDecoder {
         });
 
         // Build timelines
+        // Convert f64 measure times to i64 for helper functions
+        let measure_times_i64: Vec<i64> = measure_times.iter().map(|&t| t as i64).collect();
         let mut seen_times: Vec<i64> = model.notes.iter().map(|n| n.time_us).collect();
         seen_times.sort();
         seen_times.dedup();
@@ -669,11 +672,11 @@ impl BmsDecoder {
         for &t in &seen_times {
             // Find BPM at this time
             let bpm = bpm_at_time(t, model.initial_bpm, &model.bpm_changes);
-            let measure = find_measure_for_time(t, &measure_times);
+            let measure = find_measure_for_time(t, &measure_times_i64);
             let scroll = scroll_at_time(
                 t,
                 measure,
-                &measure_times,
+                &measure_times_i64,
                 &measure_lengths,
                 &scroll_at_measure,
                 &scroll_events_by_measure,
@@ -717,21 +720,21 @@ struct RandomState {
     active: bool,
 }
 
-/// Convert beats to microseconds at given BPM
-fn beats_to_us(beats: f64, bpm: f64) -> i64 {
+/// Convert beats to microseconds at given BPM (returns f64 for accumulation precision)
+fn beats_to_us(beats: f64, bpm: f64) -> f64 {
     if bpm <= 0.0 {
-        return 0;
+        return 0.0;
     }
-    ((beats * 60_000_000.0) / bpm) as i64
+    (beats * 60_000_000.0) / bpm
 }
 
-/// Convert STOP ticks to microseconds (192 ticks = 1 measure = 4 beats)
-fn ticks_to_us(ticks: i64, bpm: f64) -> i64 {
+/// Convert STOP ticks to microseconds (192 ticks = 1 measure = 4 beats, returns f64)
+fn ticks_to_us(ticks: i64, bpm: f64) -> f64 {
     if bpm <= 0.0 {
-        return 0;
+        return 0.0;
     }
     let beats = ticks as f64 / 48.0; // 192 ticks / 4 beats = 48 ticks per beat
-    ((beats * 60_000_000.0) / bpm) as i64
+    (beats * 60_000_000.0) / bpm
 }
 
 /// Compute time offset for a position within a measure
@@ -741,14 +744,14 @@ fn position_to_us(
     pos: f64,
     measure: u32,
     measure_len: f64,
-    _measure_times: &[i64],
+    _measure_times: &[f64],
     _model: &BmsModel,
     _current_bpm: f64,
     bpm_events: &HashMap<u32, Vec<(f64, f64)>>,
     stop_events: &HashMap<u32, Vec<(f64, u16)>>,
     stop_defs: &HashMap<u16, i64>,
     _extended_bpms: &HashMap<u16, f64>,
-) -> i64 {
+) -> f64 {
     let mut bpm = _model.initial_bpm;
 
     // Find the BPM at the start of this measure by looking at all previous BPM changes
@@ -761,7 +764,7 @@ fn position_to_us(
     }
 
     // Process events within this measure up to pos
-    let mut time_offset: i64 = 0;
+    let mut time_offset: f64 = 0.0;
     let mut prev_pos = 0.0;
 
     let mut timing: Vec<(f64, TimingEvent)> = Vec::new();
@@ -1070,17 +1073,17 @@ mod tests {
     #[test]
     fn test_beats_to_us() {
         // 1 beat at 120 BPM = 500000 us (0.5s)
-        assert_eq!(beats_to_us(1.0, 120.0), 500000);
+        assert_eq!(beats_to_us(1.0, 120.0), 500000.0);
         // 4 beats at 120 BPM = 2000000 us (2s)
-        assert_eq!(beats_to_us(4.0, 120.0), 2000000);
+        assert_eq!(beats_to_us(4.0, 120.0), 2000000.0);
     }
 
     #[test]
     fn test_ticks_to_us() {
         // 192 ticks = 4 beats at 120 BPM = 2000000 us
-        assert_eq!(ticks_to_us(192, 120.0), 2000000);
+        assert_eq!(ticks_to_us(192, 120.0), 2000000.0);
         // 48 ticks = 1 beat at 120 BPM = 500000 us
-        assert_eq!(ticks_to_us(48, 120.0), 500000);
+        assert_eq!(ticks_to_us(48, 120.0), 500000.0);
     }
 
     #[test]

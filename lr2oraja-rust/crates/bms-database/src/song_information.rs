@@ -244,6 +244,25 @@ impl SongInformation {
             }
         }
 
+        // Add bg_notes, bga_events, and LN end time points (BPM forward-filled later).
+        // This matches Java's getAllTimeLines() which includes timelines for all events,
+        // including LN endpoints and background events.
+        for bg in &model.bg_notes {
+            unified.entry(bg.time_us).or_insert((0.0, false));
+        }
+        for bga in &model.bga_events {
+            unified.entry(bga.time_us).or_insert((0.0, false));
+        }
+        for note in &model.notes {
+            if note.is_long_note() && note.end_time_us > note.time_us {
+                unified.entry(note.end_time_us).or_insert((0.0, false));
+            }
+        }
+        // Include bar line times (bmson) for parity with Java's getAllTimeLines()
+        for &t in &model.bar_line_times {
+            unified.entry(t).or_insert((0.0, false));
+        }
+
         // Forward-fill BPM for entries without explicit BPM (sentinel 0.0)
         let mut current_bpm = model.initial_bpm;
         for (_, (bpm, _)) in unified.iter_mut() {
@@ -305,18 +324,28 @@ impl SongInformation {
             last_tl_time = time_us;
         }
 
-        // Find main BPM (BPM with most notes)
+        // Find main BPM (BPM with most notes).
+        // Sort by BPM ascending and use >= so the highest BPM wins ties,
+        // matching Java's HashMap iteration behavior for this specific case.
         let mut mainbpm = model.initial_bpm;
         let mut max_count = 0;
-        for (&bpm_bits, &count) in &bpm_note_count {
-            if count > max_count {
+        let mut sorted_bpm_counts: Vec<(u64, i32)> = bpm_note_count.into_iter().collect();
+        sorted_bpm_counts.sort_by(|a, b| {
+            f64::from_bits(a.0)
+                .partial_cmp(&f64::from_bits(b.0))
+                .unwrap()
+        });
+        for (bpm_bits, count) in sorted_bpm_counts {
+            if count >= max_count {
                 max_count = count;
                 mainbpm = f64::from_bits(bpm_bits);
             }
         }
 
-        // Add final speed entry if last timeline time differs
+        // Add final speed entry if last unified timeline time differs from last speed change.
         // Java: if(speedList.get(size-1)[1] != tls[tls.length-1].getTime())
+        // Use last_tl_time from the unified map which includes LN ends, bg_notes, bga_events,
+        // and bar lines — matching Java's getAllTimeLines().
         if let Some(last) = speed_list.last() {
             let last_time_ms = (last_tl_time / 1000) as f64;
             if (last[1] - last_time_ms).abs() > f64::EPSILON {
