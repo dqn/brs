@@ -1,6 +1,6 @@
 mod app;
-mod panel;
-mod panels;
+pub mod panel;
+pub mod panels;
 mod tab;
 mod widgets;
 

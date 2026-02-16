@@ -301,6 +301,118 @@ impl TestSkinBuilder {
         self
     }
 
+    /// Add a solid-color image object with a specific blend mode.
+    /// blend: 0=normal, 2=additive, 9=invert.
+    pub fn add_image_with_blend(
+        &mut self,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        r: u8,
+        g: u8,
+        b: u8,
+        blend: i32,
+    ) -> &mut Self {
+        let handle = ImageHandle(self.next_handle);
+        self.next_handle += 1;
+
+        let rgba = solid_color_image(w as u32, h as u32, r, g, b, 255);
+        self.images.push(PendingImage { rgba });
+
+        let color = Color::white();
+        let mut base = make_base(x, y, w, h, color);
+        base.blend = blend;
+        let mut img = SkinImage::from_frames(vec![handle], None, 0);
+        img.base = base;
+        self.skin.add(img.into());
+        self
+    }
+
+    /// Add a solid-color image object with a rotation angle in degrees.
+    pub fn add_image_with_rotation(
+        &mut self,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        r: u8,
+        g: u8,
+        b: u8,
+        angle: i32,
+    ) -> &mut Self {
+        let handle = ImageHandle(self.next_handle);
+        self.next_handle += 1;
+
+        let rgba = solid_color_image(w as u32, h as u32, r, g, b, 255);
+        self.images.push(PendingImage { rgba });
+
+        let color = Color::white();
+        let mut base = SkinObjectBase::default();
+        base.add_destination(Destination {
+            time: 0,
+            region: Rect::new(x, y, w, h),
+            color,
+            angle,
+            acc: 0,
+        });
+        let mut img = SkinImage::from_frames(vec![handle], None, 0);
+        img.base = base;
+        self.skin.add(img.into());
+        self
+    }
+
+    /// Add a fade image that animates alpha from start_alpha to end_alpha over duration_ms.
+    pub fn add_fade_image(
+        &mut self,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        r: u8,
+        g: u8,
+        b: u8,
+        start_alpha: f32,
+        end_alpha: f32,
+        duration_ms: i64,
+    ) -> &mut Self {
+        let handle = ImageHandle(self.next_handle);
+        self.next_handle += 1;
+
+        let rgba = solid_color_image(w as u32, h as u32, r, g, b, 255);
+        self.images.push(PendingImage { rgba });
+
+        let mut base = SkinObjectBase::default();
+        base.add_destination(Destination {
+            time: 0,
+            region: Rect::new(x, y, w, h),
+            color: Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: start_alpha,
+            },
+            angle: 0,
+            acc: 0,
+        });
+        base.add_destination(Destination {
+            time: duration_ms,
+            region: Rect::new(x, y, w, h),
+            color: Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: end_alpha,
+            },
+            angle: 0,
+            acc: 0,
+        });
+        let mut img = SkinImage::from_frames(vec![handle], None, 0);
+        img.base = base;
+        self.skin.add(img.into());
+        self
+    }
+
     /// Set the provider time_ms.
     pub fn set_time_ms(&mut self, time_ms: i64) -> &mut Self {
         self.provider.time_ms = time_ms;

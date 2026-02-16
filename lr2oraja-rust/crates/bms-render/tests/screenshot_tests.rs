@@ -148,6 +148,32 @@ fn test_render_graph() {
     run_test(builder, "graph");
 }
 
+fn test_render_blend_additive() {
+    let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
+    // Two overlapping colored rectangles with additive blend (blend=2).
+    // Red rect at (60, 60) overlaps with blue rect at (90, 60).
+    builder.add_image(60.0, 60.0, 80.0, 60.0, 255, 0, 0);
+    builder.add_image_with_blend(90.0, 60.0, 80.0, 60.0, 0, 0, 255, 2);
+    run_test(builder, "blend_additive");
+}
+
+fn test_render_rotation() {
+    let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
+    // Two rotated rectangles: 45 degrees and 90 degrees
+    builder.add_image_with_rotation(50.0, 50.0, 60.0, 30.0, 0, 200, 0, 45);
+    builder.add_image_with_rotation(150.0, 50.0, 60.0, 30.0, 200, 0, 0, 90);
+    run_test(builder, "rotation");
+}
+
+fn test_render_fade_midpoint() {
+    let mut builder = TestSkinBuilder::new(TEST_W as f32, TEST_H as f32);
+    // Image fading from alpha=0 to alpha=1 over 1000ms.
+    // At t=500ms, alpha should be ~0.5.
+    builder.add_fade_image(60.0, 50.0, 100.0, 80.0, 255, 128, 0, 0.0, 1.0, 1000);
+    builder.set_time_ms(500);
+    run_test(builder, "fade_midpoint");
+}
+
 // ---------------------------------------------------------------------------
 // JSON skin file tests
 // ---------------------------------------------------------------------------
@@ -430,6 +456,36 @@ fn test_render_ecfn_result_fail() {
     );
 }
 
+fn test_render_ecfn_play14_active() {
+    run_ecfn_lua_test(
+        "play/play14main.lua",
+        state_play_active(),
+        "ecfn_play14_active",
+        1920,
+        1080,
+    );
+}
+
+fn test_render_ecfn_play7wide_active() {
+    run_ecfn_lua_test(
+        "play/play7wide.lua",
+        state_play_active(),
+        "ecfn_play7wide_active",
+        1920,
+        1080,
+    );
+}
+
+fn test_render_ecfn_course_result() {
+    run_ecfn_lua_test(
+        "RESULT/course_result.lua",
+        state_result_clear(),
+        "ecfn_course_result",
+        1920,
+        1080,
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Custom test runner
 // ---------------------------------------------------------------------------
@@ -476,6 +532,24 @@ fn get_tests() -> Vec<(&'static str, fn())> {
             test_render_ecfn_result_clear,
         ),
         ("test_render_ecfn_result_fail", test_render_ecfn_result_fail),
+        (
+            "test_render_blend_additive",
+            test_render_blend_additive,
+        ),
+        ("test_render_rotation", test_render_rotation),
+        ("test_render_fade_midpoint", test_render_fade_midpoint),
+        (
+            "test_render_ecfn_play14_active",
+            test_render_ecfn_play14_active,
+        ),
+        (
+            "test_render_ecfn_play7wide_active",
+            test_render_ecfn_play7wide_active,
+        ),
+        (
+            "test_render_ecfn_course_result",
+            test_render_ecfn_course_result,
+        ),
     ]
 }
 
