@@ -8,6 +8,7 @@ pub mod performance_monitor;
 pub mod random_trainer;
 pub mod skin_widget_manager;
 pub mod song_manager;
+pub mod window_settings;
 
 pub use download_task::DownloadTaskState;
 pub use freq_trainer::FreqTrainerState;
@@ -17,3 +18,4 @@ pub use performance_monitor::PerformanceMonitorState;
 pub use random_trainer::RandomTrainerState;
 pub use skin_widget_manager::SkinWidgetManagerState;
 pub use song_manager::SongManagerState;
+pub use window_settings::WindowSettingsState;

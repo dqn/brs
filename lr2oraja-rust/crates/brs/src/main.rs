@@ -198,7 +198,10 @@ fn main() -> Result<()> {
             primary_window: Some(Window {
                 title: "brs".to_string(),
                 resolution: bevy::window::WindowResolution::new(window_width, window_height),
-                mode: window_manager::display_mode_to_window_mode(config.displaymode),
+                mode: window_manager::display_mode_to_window_mode(
+                    config.displaymode,
+                    bevy::window::MonitorSelection::Current,
+                ),
                 present_mode: window_manager::vsync_to_present_mode(config.vsync),
                 ..default()
             }),
@@ -230,6 +233,8 @@ fn main() -> Result<()> {
         .add_systems(Update, state_machine_system)
         .add_systems(Update, state_sync_system)
         .add_systems(Update, window_manager::window_shortcut_system)
+        .add_systems(Update, window_manager::apply_window_settings_system)
+        .add_systems(PostStartup, window_manager::apply_monitor_selection_system)
         .run();
 
     Ok(())

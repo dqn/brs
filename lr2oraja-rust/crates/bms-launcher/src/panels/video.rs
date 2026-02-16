@@ -206,6 +206,7 @@ impl LauncherPanel for VideoPanel {
             ui.label("Monitor Name:");
             ui.text_edit_singleline(&mut self.monitor_name);
         });
+        ui.small("Format: \"MonitorName [x, y]\" (leave empty for default)");
         if self.monitor_name != prev {
             self.dirty = true;
         }

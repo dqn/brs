@@ -96,7 +96,7 @@ Phase 0-23 全完了（16 crate, ~61,000行）。全 RenderSnapshot GM テスト
 ### Deferred / Stub Items
 
 - **Launcher GUI** — Java 対応パネル全完了 (12パネル: audio, discord, input, ir, music_select, obs, play_option, resource, skin, stream, table_editor, video)。**Rust 独自拡張候補 (低優先):** スキンプレビュー (Java でも未実装)、ゲージ可視化、タイマー表示、イベントトレース、プロファイラ、スキンパネル強化 (カスタムオプション/ファイル編集)
-- **Window 管理** — 部分完了 — 起動時 WindowMode/PresentMode 適用 + F6キーでフルスクリーン⇔ウィンドウトグル + config永続化を実装済み (`brs/src/window_manager.rs`)。**未実装:** VSync ランタイムトグル、ランタイム解像度変更UI、モニター選択
+- **Window 管理** — 完了 — 起動時モニター選択 + F6 フルスクリーントグル (モニター保持) + ModMenu Window Settings パネル (解像度/表示モード/VSync ランタイム変更) を実装済み。**未実装 (低優先):** ランチャーでのモニター自動列挙 (現在フリーテキスト入力)
 - **IR プラグインシステム** — Java は `IRConnectionManager` でカスタム IR を動的ロードするが、Rust は LR2IR のみ静的実装
 - **ライバルスコア表示 UI** — データ構造は存在するが MusicSelect 画面での表示統合が不明確
 - **スクリーンショット Twitter 投稿** — ファイルエクスポートのみ。Java の `ScreenShotTwitterExporter` 相当なし

@@ -24,6 +24,10 @@ pub fn render(ctx: &egui::Context, state: &mut ModMenuState) {
                 &mut state.show_performance_monitor,
                 "Show Performance Monitor Window",
             );
+            ui.checkbox(
+                &mut state.show_window_settings,
+                "Show Window Settings Window",
+            );
         });
 
     if state.show_freq_trainer {
@@ -64,6 +68,13 @@ pub fn render(ctx: &egui::Context, state: &mut ModMenuState) {
             ctx,
             &mut state.show_performance_monitor,
             &mut state.performance_monitor,
+        );
+    }
+    if state.show_window_settings {
+        menus::window_settings::render(
+            ctx,
+            &mut state.show_window_settings,
+            &mut state.window_settings,
         );
     }
 }
