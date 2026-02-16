@@ -1,0 +1,185 @@
+{
+  "metadata" : {
+    "title" : "BPM LN Cross Bmson Test",
+    "subtitle" : "",
+    "artist" : "brs-test",
+    "sub_artist" : "",
+    "genre" : "Test",
+    "initial_bpm" : 120.0,
+    "judge_rank" : 100,
+    "judge_rank_type" : "BMSON_JUDGERANK",
+    "total" : 300.0,
+    "total_type" : "BMSON",
+    "play_level" : "3",
+    "difficulty" : 0,
+    "player" : 0,
+    "mode" : "beat-7k",
+    "mode_key_count" : 8,
+    "ln_type" : 0,
+    "lnmode" : 0,
+    "banner" : "",
+    "stagefile" : "",
+    "backbmp" : "",
+    "preview" : ""
+  },
+  "hashes" : {
+    "md5" : "",
+    "sha256" : "28f349b12d0e214f6ffdd2cefe856c8305ed5581389746d53688414570359a94"
+  },
+  "statistics" : {
+    "total_notes" : 6,
+    "total_notes_key" : 4,
+    "total_notes_long_key" : 2,
+    "total_notes_scratch" : 0,
+    "total_notes_long_scratch" : 0,
+    "total_notes_mine" : 0,
+    "min_bpm" : 60.0,
+    "max_bpm" : 180.0,
+    "timeline_count" : 9
+  },
+  "timelines" : [ {
+    "time_us" : 0,
+    "section" : 0.0,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 0,
+      "wav_id" : 0,
+      "type" : "LongNoteUndefined",
+      "end_time_us" : 1666666,
+      "end_wav_id" : -2
+    } ]
+  }, {
+    "time_us" : 1000000,
+    "section" : 0.5,
+    "bpm" : 180.0,
+    "stop_us" : 0,
+    "notes" : [ ]
+  }, {
+    "time_us" : 1666666,
+    "section" : 1.0,
+    "bpm" : 180.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 0,
+      "time_us" : 1666666,
+      "wav_id" : -2,
+      "type" : "LongNoteEnd"
+    }, {
+      "lane" : 2,
+      "time_us" : 1666666,
+      "wav_id" : 1,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 2333333,
+    "section" : 1.5,
+    "bpm" : 180.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 1,
+      "time_us" : 2333333,
+      "wav_id" : 0,
+      "type" : "LongNoteUndefined",
+      "end_time_us" : 5000000,
+      "end_wav_id" : -2
+    } ]
+  }, {
+    "time_us" : 3000000,
+    "section" : 2.0,
+    "bpm" : 60.0,
+    "stop_us" : 0,
+    "notes" : [ ]
+  }, {
+    "time_us" : 5000000,
+    "section" : 2.5,
+    "bpm" : 60.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 1,
+      "time_us" : 5000000,
+      "wav_id" : -2,
+      "type" : "LongNoteEnd"
+    }, {
+      "lane" : 3,
+      "time_us" : 5000000,
+      "wav_id" : 1,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 7000000,
+    "section" : 3.0,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 4,
+      "time_us" : 7000000,
+      "wav_id" : 1,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 8000000,
+    "section" : 3.5,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ {
+      "lane" : 5,
+      "time_us" : 8000000,
+      "wav_id" : 1,
+      "type" : "Normal"
+    } ]
+  }, {
+    "time_us" : 9000000,
+    "section" : 4.0,
+    "bpm" : 120.0,
+    "stop_us" : 0,
+    "notes" : [ ]
+  } ],
+  "notes" : [ {
+    "lane" : 0,
+    "time_us" : 0,
+    "wav_id" : 0,
+    "type" : "LongNoteUndefined",
+    "end_time_us" : 1666666,
+    "end_wav_id" : -2
+  }, {
+    "lane" : 2,
+    "time_us" : 1666666,
+    "wav_id" : 1,
+    "type" : "Normal"
+  }, {
+    "lane" : 1,
+    "time_us" : 2333333,
+    "wav_id" : 0,
+    "type" : "LongNoteUndefined",
+    "end_time_us" : 5000000,
+    "end_wav_id" : -2
+  }, {
+    "lane" : 3,
+    "time_us" : 5000000,
+    "wav_id" : 1,
+    "type" : "Normal"
+  }, {
+    "lane" : 4,
+    "time_us" : 7000000,
+    "wav_id" : 1,
+    "type" : "Normal"
+  }, {
+    "lane" : 5,
+    "time_us" : 8000000,
+    "wav_id" : 1,
+    "type" : "Normal"
+  } ],
+  "bpm_changes" : [ {
+    "time_us" : 1000000,
+    "bpm" : 180.0
+  }, {
+    "time_us" : 3000000,
+    "bpm" : 60.0
+  }, {
+    "time_us" : 7000000,
+    "bpm" : 120.0
+  } ],
+  "stop_events" : [ ]
+}

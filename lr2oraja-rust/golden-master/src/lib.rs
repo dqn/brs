@@ -419,13 +419,25 @@ pub fn compare_model(model: &bms_model::BmsModel, fixture: &Fixture) -> Vec<Stri
         // wav_id comparison skipped: Java uses wavlist index (0-based),
         // Rust uses base36 value directly. Semantics differ by design.
 
-        if let Some(expected_type) = fixture_note_type_to_rust(&fn_.note_type)
-            && rn.note_type != expected_type
-        {
-            diffs.push(format!(
-                "note[{}] type: rust={:?} java={} (expected {:?})",
-                i, rn.note_type, fn_.note_type, expected_type
-            ));
+        if let Some(expected_type) = fixture_note_type_to_rust(&fn_.note_type) {
+            let is_match = if fn_.note_type == "LongNoteUndefined" {
+                // Java TYPE_UNDEFINED — jbms-parser doesn't interpret #LNTYPE,
+                // so allow any LN variant (LongNote, ChargeNote, HellChargeNote)
+                matches!(
+                    rn.note_type,
+                    bms_model::NoteType::LongNote
+                        | bms_model::NoteType::ChargeNote
+                        | bms_model::NoteType::HellChargeNote
+                )
+            } else {
+                rn.note_type == expected_type
+            };
+            if !is_match {
+                diffs.push(format!(
+                    "note[{}] type: rust={:?} java={} (expected {:?})",
+                    i, rn.note_type, fn_.note_type, expected_type
+                ));
+            }
         }
         if let Some(damage) = fn_.damage
             && rn.note_type == bms_model::NoteType::Mine
