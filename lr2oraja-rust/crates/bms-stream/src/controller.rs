@@ -314,6 +314,61 @@ mod tests {
         assert_eq!(cmd.pending_count(), 1);
     }
 
+    #[test]
+    fn test_concurrent_dispatch() {
+        let cmd = Arc::new(StreamRequestCommand::new(100));
+        let commands: Vec<Arc<dyn StreamCommand + Send + Sync>> = vec![cmd.clone()];
+
+        let mut handles = Vec::new();
+        for i in 0..20u64 {
+            let cmds = commands.clone();
+            handles.push(std::thread::spawn(move || {
+                let hash = format!("{:0>64x}", i);
+                let line = format!("!!req {}", hash);
+                dispatch_line(&cmds, &line);
+            }));
+        }
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        assert_eq!(cmd.pending_count(), 20);
+        let requests = cmd.poll_requests();
+        assert_eq!(requests.len(), 20);
+    }
+
+    #[test]
+    fn test_controller_start_stop_cycle() {
+        let cmd = Arc::new(StreamRequestCommand::default());
+        let mut controller = StreamController::new(vec![cmd]);
+
+        // stop without start - should not panic
+        controller.stop();
+
+        // Multiple stop calls should not panic
+        controller.stop();
+        controller.stop();
+    }
+
+    #[test]
+    fn test_dispatch_empty_line() {
+        let cmd = Arc::new(StreamRequestCommand::default());
+        let commands: Vec<Arc<dyn StreamCommand + Send + Sync>> = vec![cmd.clone()];
+
+        // Empty string
+        dispatch_line(&commands, "");
+        assert_eq!(cmd.pending_count(), 0);
+
+        // Newline-only
+        dispatch_line(&commands, "\n");
+        assert_eq!(cmd.pending_count(), 0);
+
+        // Whitespace only
+        dispatch_line(&commands, "   ");
+        assert_eq!(cmd.pending_count(), 0);
+    }
+
     #[cfg(not(target_os = "windows"))]
     #[tokio::test]
     async fn test_unix_socket_connection() {

@@ -333,4 +333,53 @@ mod tests {
         assert_eq!(replay.keylog[0].presstime, 500000);
         assert_eq!(replay.keylog[0].time, 0);
     }
+
+    #[test]
+    fn test_shrink_validate_large_keylog() {
+        let mut logs = Vec::with_capacity(10_000);
+        for i in 0..10_000u64 {
+            let keycode = (i % 8) as i32;
+            let pressed = i % 2 == 0;
+            logs.push(KeyInputLog::new(i as i64 * 1000, keycode, pressed));
+        }
+        let original_len = logs.len();
+        let original: Vec<(i64, i32, bool)> = logs
+            .iter()
+            .map(|l| (l.presstime, l.keycode, l.pressed))
+            .collect();
+
+        let mut replay = ReplayData {
+            keylog: logs,
+            ..Default::default()
+        };
+
+        replay.shrink();
+        assert!(replay.keylog.is_empty());
+        assert!(replay.keyinput.is_some());
+
+        replay.validate();
+        assert_eq!(replay.keylog.len(), original_len);
+
+        for (log, (time, key, pressed)) in replay.keylog.iter().zip(original.iter()) {
+            assert_eq!(log.presstime, *time);
+            assert_eq!(log.keycode, *key);
+            assert_eq!(log.pressed, *pressed);
+        }
+    }
+
+    #[test]
+    fn test_brd_corruption_handling() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("corrupt.brd");
+
+        // Write invalid GZIP data
+        std::fs::write(&path, b"this is not gzip data at all").unwrap();
+        let result = read_brd(&path);
+        assert!(result.is_err());
+
+        // Write truncated GZIP header
+        std::fs::write(&path, &[0x1f, 0x8b, 0x08]).unwrap();
+        let result = read_brd(&path);
+        assert!(result.is_err());
+    }
 }

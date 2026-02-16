@@ -1294,4 +1294,60 @@ mod tests {
         assert_eq!(lns.len(), 1, "should have 1 LN");
         assert_eq!(lns[0].note_type, crate::note::NoteType::HellChargeNote);
     }
+
+    #[test]
+    fn test_parse_empty_bms() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty.bms");
+        std::fs::write(&path, "").unwrap();
+        let result = BmsDecoder::decode(&path);
+        assert!(result.is_ok());
+        let model = result.unwrap();
+        assert_eq!(model.total_notes(), 0);
+    }
+
+    #[test]
+    fn test_parse_bms_no_notes() {
+        let bms = "\
+#PLAYER 1
+#BPM 130
+";
+        let model = decode_inline(bms);
+        assert_eq!(model.player, 1);
+        assert!((model.initial_bpm - 130.0).abs() < f64::EPSILON);
+        assert_eq!(model.total_notes(), 0);
+        assert!(model.notes.is_empty());
+    }
+
+    #[test]
+    fn test_parse_extreme_bpm() {
+        let bms = "\
+#PLAYER 1
+#BPM 0.01
+#BPM01 999999
+#00108:01
+";
+        let model = decode_inline(bms);
+        assert!((model.initial_bpm - 0.01).abs() < 0.001);
+        assert!(
+            model
+                .bpm_changes
+                .iter()
+                .any(|c| (c.bpm - 999999.0).abs() < f64::EPSILON)
+        );
+    }
+
+    #[test]
+    fn test_parse_duplicate_definitions() {
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#WAV01 a.wav
+#WAV02 b.wav
+#00111:01
+#00111:02
+";
+        let model = decode_inline(bms);
+        assert!(!model.notes.is_empty(), "should have at least one note");
+    }
 }

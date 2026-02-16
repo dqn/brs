@@ -436,4 +436,97 @@ mod tests {
         let err_msg = result.unwrap_err().to_string();
         assert!(!err_msg.contains("unsupported archive format"));
     }
+
+    #[test]
+    fn test_zip_empty_archive() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive_path = tmp.path().join("empty.zip");
+        let extract_dir = tmp.path().join("out");
+        fs::create_dir_all(&extract_dir).unwrap();
+
+        {
+            let file = File::create(&archive_path).unwrap();
+            let writer = zip::ZipWriter::new(file);
+            writer.finish().unwrap();
+        }
+
+        extract_zip(&archive_path, &extract_dir).unwrap();
+
+        // No files should be extracted
+        let entries: Vec<_> = fs::read_dir(&extract_dir).unwrap().collect();
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_zip_japanese_filenames() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive_path = tmp.path().join("japanese.zip");
+        let extract_dir = tmp.path().join("out");
+        fs::create_dir_all(&extract_dir).unwrap();
+
+        {
+            let file = File::create(&archive_path).unwrap();
+            let mut writer = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default();
+
+            writer.start_file("音楽データ/譜面.bms", options).unwrap();
+            writer.write_all(b"#PLAYER 1\n#BPM 120\n").unwrap();
+
+            writer.start_file("テスト.wav", options).unwrap();
+            writer.write_all(b"RIFF").unwrap();
+
+            writer.finish().unwrap();
+        }
+
+        extract_zip(&archive_path, &extract_dir).unwrap();
+
+        let bms_path = extract_dir.join("音楽データ/譜面.bms");
+        assert!(
+            bms_path.exists(),
+            "Japanese subdirectory and filename should extract correctly"
+        );
+        assert_eq!(
+            fs::read_to_string(&bms_path).unwrap(),
+            "#PLAYER 1\n#BPM 120\n"
+        );
+
+        let wav_path = extract_dir.join("テスト.wav");
+        assert!(
+            wav_path.exists(),
+            "Japanese filename should extract correctly"
+        );
+        assert_eq!(fs::read(&wav_path).unwrap(), b"RIFF");
+    }
+
+    #[test]
+    fn test_extract_to_readonly_dir() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let archive_path = tmp.path().join("test.zip");
+        let extract_dir = tmp.path().join("readonly");
+        fs::create_dir_all(&extract_dir).unwrap();
+
+        // Create a zip with a file
+        {
+            let file = File::create(&archive_path).unwrap();
+            let mut writer = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default();
+            writer.start_file("file.txt", options).unwrap();
+            writer.write_all(b"content").unwrap();
+            writer.finish().unwrap();
+        }
+
+        // Make extract directory read-only
+        fs::set_permissions(&extract_dir, fs::Permissions::from_mode(0o444)).unwrap();
+
+        let result = extract_zip(&archive_path, &extract_dir);
+        assert!(
+            result.is_err(),
+            "extracting to read-only directory should fail"
+        );
+
+        // Restore permissions for cleanup
+        fs::set_permissions(&extract_dir, fs::Permissions::from_mode(0o755)).unwrap();
+    }
 }

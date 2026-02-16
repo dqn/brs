@@ -268,32 +268,25 @@ mod tests {
 
     #[test]
     fn test_decode_simple() {
-        // Simple: all pgreats
         let result = decode_play_ghost("E3");
         assert_eq!(result, vec![0, 0, 0]);
     }
 
     #[test]
     fn test_decode_mixed() {
-        // EDDDCEE
         let result = decode_play_ghost("ED3CE2");
         assert_eq!(result, vec![0, 1, 1, 1, 2, 0, 0]);
     }
 
     #[test]
     fn test_decode_single_chars() {
-        // Each character once
         let result = decode_play_ghost("EDCBA");
         assert_eq!(result, vec![0, 1, 2, 3, 4]);
     }
 
     #[test]
     fn test_decode_with_substitution() {
-        // 'F' → 'E1' → one E followed by (1 is a digit, so run_length for next char)
-        // Actually: F → E1, so it becomes "E" then "1"
-        // The '1' digit is a run length for the next character
         let result = decode_play_ghost("FD");
-        // F → E1 → "E" "1" "D" → E once, then D×1
         assert_eq!(result, vec![0, 1]);
     }
 
@@ -350,5 +343,32 @@ mod tests {
         assert_eq!(ghost.good, 1);
         assert_eq!(ghost.bad, 1);
         assert_eq!(ghost.poor, 1);
+    }
+
+    #[test]
+    fn test_ghost_data_empty_judgements() {
+        let csv = "name,options,seed,ghost\nplayer,0000,42,";
+        let ghost = LR2GhostData::parse(csv).unwrap();
+        assert!(ghost.judgements.is_empty());
+        assert_eq!(ghost.pgreat, 0);
+        assert_eq!(ghost.great, 0);
+        assert_eq!(ghost.good, 0);
+        assert_eq!(ghost.bad, 0);
+        assert_eq!(ghost.poor, 0);
+    }
+
+    #[test]
+    fn test_ghost_data_large_run_length() {
+        let csv = "name,options,seed,ghost\nplayer,0000,42,E1000";
+        let ghost = LR2GhostData::parse(csv).unwrap();
+        assert_eq!(ghost.judgements.len(), 1000);
+        assert_eq!(ghost.pgreat, 1000);
+        assert!(ghost.judgements.iter().all(|j| *j == GhostJudgment::PGreat));
+
+        let csv2 = "name,options,seed,ghost\nplayer,0000,42,D500E500";
+        let ghost2 = LR2GhostData::parse(csv2).unwrap();
+        assert_eq!(ghost2.judgements.len(), 1000);
+        assert_eq!(ghost2.great, 500);
+        assert_eq!(ghost2.pgreat, 500);
     }
 }
