@@ -255,7 +255,6 @@ fn golden_master_ln_overlap() {
 }
 
 #[test]
-#[ignore = "Parser bug: extended channels (31-37, D1-D7) incorrectly change mode from 5K to 7K"]
 fn golden_master_channel_extended() {
     run_golden_master_test("channel_extended.bms");
 }
