@@ -96,7 +96,7 @@ impl BmsDecoder {
         let mut max_measure: u32 = 0;
 
         // Track which key channels are used for mode detection
-        let mut max_1p_channel: usize = 0;
+        let mut has_extended_key = false;
         let mut has_2p = false;
 
         let base_dir = path.parent().unwrap_or(Path::new("."));
@@ -232,19 +232,33 @@ impl BmsDecoder {
 
                     let ch = event.channel;
                     // Track channel usage for mode detection
-                    if (0x11..=0x19).contains(&ch) {
-                        let lane = (ch - 0x11) as usize;
-                        if lane + 1 > max_1p_channel {
-                            max_1p_channel = lane + 1;
+                    if !event.data.is_empty() {
+                        // 1P channels: check for extended key (offset >= 7)
+                        let offset_1p = match ch {
+                            0x11..=0x19 => Some(ch - 0x11),
+                            0x31..=0x39 => Some(ch - 0x31),
+                            0x51..=0x59 => Some(ch - 0x51),
+                            0xD1..=0xD9 => Some(ch - 0xD1),
+                            _ => None,
+                        };
+                        if let Some(offset) = offset_1p
+                            && offset >= 7
+                        {
+                            has_extended_key = true;
                         }
-                    }
-                    if (0x21..=0x29).contains(&ch) {
-                        has_2p = true;
-                    }
-                    if (0x51..=0x59).contains(&ch) {
-                        let lane = (ch - 0x51) as usize;
-                        if lane + 1 > max_1p_channel {
-                            max_1p_channel = lane + 1;
+                        // 2P channels: set has_2p, also check for extended key
+                        let offset_2p = match ch {
+                            0x21..=0x29 => Some(ch - 0x21),
+                            0x41..=0x49 => Some(ch - 0x41),
+                            0x61..=0x69 => Some(ch - 0x61),
+                            0xE1..=0xE9 => Some(ch - 0xE1),
+                            _ => None,
+                        };
+                        if let Some(offset) = offset_2p {
+                            has_2p = true;
+                            if offset >= 7 {
+                                has_extended_key = true;
+                            }
                         }
                     }
 
@@ -293,14 +307,14 @@ impl BmsDecoder {
             .extension()
             .is_some_and(|ext| ext.eq_ignore_ascii_case("pms"));
         if has_2p || model.player == 3 {
-            if max_1p_channel > 6 {
+            if has_extended_key {
                 model.mode = PlayMode::Beat14K;
             } else {
                 model.mode = PlayMode::Beat10K;
             }
         } else if is_pms {
             model.mode = PlayMode::PopN9K;
-        } else if max_1p_channel > 6 {
+        } else if has_extended_key {
             model.mode = PlayMode::Beat7K;
         } else {
             model.mode = PlayMode::Beat5K;
@@ -638,10 +652,15 @@ impl BmsDecoder {
             }
         }
 
-        // Sort notes by time, then by lane
-        model
-            .notes
-            .sort_by(|a, b| a.time_us.cmp(&b.time_us).then_with(|| a.lane.cmp(&b.lane)));
+        // Sort notes by time, then by visibility category, then by lane
+        // Java stores non-invisible and invisible in separate lists, so
+        // non-invisible notes come first within each time group
+        model.notes.sort_by(|a, b| {
+            a.time_us
+                .cmp(&b.time_us)
+                .then_with(|| is_invisible(a).cmp(&is_invisible(b)))
+                .then_with(|| a.lane.cmp(&b.lane))
+        });
 
         // Sort background notes by time
         model.bg_notes.sort_by_key(|n| n.time_us);
@@ -649,10 +668,10 @@ impl BmsDecoder {
         // Sort BGA events by time
         model.bga_events.sort_by_key(|e| e.time_us);
 
-        // Deduplicate: when same (lane, time_us), keep highest priority note
-        // Priority: Normal/Invisible > LN > Mine
+        // Deduplicate: when same (lane, time_us, visibility), keep highest priority note
+        // Invisible and non-invisible notes can coexist on the same lane+time (Java stores them separately)
         model.notes.dedup_by(|b, a| {
-            if a.lane == b.lane && a.time_us == b.time_us {
+            if a.lane == b.lane && a.time_us == b.time_us && is_invisible(a) == is_invisible(b) {
                 if note_priority(b) > note_priority(a) {
                     std::mem::swap(a, b);
                 }
@@ -903,6 +922,11 @@ fn parse_channel_data(data: &str) -> Vec<(f64, u16)> {
     }
 
     result
+}
+
+/// Whether a note is invisible (Java stores these in a separate list)
+fn is_invisible(n: &Note) -> bool {
+    n.note_type == crate::note::NoteType::Invisible
 }
 
 /// Note priority for deduplication: Normal/Invisible > LN > Mine
