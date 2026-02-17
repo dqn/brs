@@ -100,4 +100,4 @@ None.
 ## Known Issues
 
 - **Config/State の clone():** 484箇所（監査済み: 大半は Bevy Resource/Component の要件や設定値の受け渡しで妥当。大規模移行不要）
-- **#[allow(dead_code)] 116箇所:** 全箇所監査・分類済み（Parsed for completeness / Used in tests / TODO: integrate with <system>）。真に不要なコードはなし
+- **#[allow(dead_code)]:** システム統合により TODO 付き dead_code を大幅削減済み。残存は Parsed for completeness / Used in tests のみ
