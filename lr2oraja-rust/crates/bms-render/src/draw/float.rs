@@ -140,7 +140,7 @@ mod tests {
     fn with_decimal() {
         let rect = Rect::new(0.0, 0.0, 100.0, 20.0);
         let f = make_float(2, 2, 1.0);
-        let cmds = compute_float_draw(3.14, &rect, &f, 20.0);
+        let cmds = compute_float_draw(314_f32 / 100.0, &rect, &f, 20.0);
         // No padding: 3 + decimal point + 1 + 4 = 4 commands
         assert_eq!(cmds.len(), 4);
         assert_eq!(cmds[0].source_index, 3); // integer 3

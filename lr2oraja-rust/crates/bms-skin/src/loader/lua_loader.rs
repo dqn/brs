@@ -1384,7 +1384,7 @@ return {
             number_val: 42,
             option_val: true,
             text_val: "hello".to_string(),
-            float_number_val: 3.14,
+            float_number_val: 314_f64 / 100.0,
             slider_val: 0.75,
             rate_val: 95.5,
             exscore_val: 1234,
@@ -1415,7 +1415,7 @@ return {
             .load("local ms = require('main_state'); return ms.float_number(0)")
             .eval()
             .unwrap();
-        assert!((f - 3.14).abs() < 0.001);
+        assert!((f - (314_f64 / 100.0)).abs() < 0.001);
 
         let s: f64 = lua
             .load("local ms = require('main_state'); return ms.slider(0)")

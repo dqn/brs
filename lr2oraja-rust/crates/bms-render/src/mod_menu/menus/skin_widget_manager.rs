@@ -634,7 +634,7 @@ mod tests {
         assert_eq!(format_float(0.0), "0");
         assert_eq!(format_float(150.5), "150.5");
         assert_eq!(format_float(-10.0), "-10");
-        assert_eq!(format_float(3.14), "3.14");
+        assert_eq!(format_float(314_f32 / 100.0), "3.14");
     }
 
     #[test]

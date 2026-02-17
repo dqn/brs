@@ -1123,7 +1123,10 @@ mod tests {
         let model = make_model(PlayMode::Beat7K, notes);
         let keys = get_keys(PlayMode::Beat7K, 0, false);
         let shuffle = LanePlayableRandomShuffle::new(0, false, 42);
-        assert_eq!(shuffle.make_random(&keys, &model), vec![0, 1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(
+            shuffle.make_random(&keys, &model),
+            vec![0, 1, 2, 3, 4, 5, 6, 7]
+        );
     }
 
     // -----------------------------------------------------------------------
