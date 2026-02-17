@@ -419,4 +419,86 @@ mod tests {
         let result = db.get_song_datas("DROP TABLE song; --", "x");
         assert!(result.is_err());
     }
+
+    // --- Error case tests ---
+
+    #[test]
+    fn empty_table_returns_empty_vec() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let all = db.get_all_song_datas().unwrap();
+        assert!(all.is_empty());
+    }
+
+    #[test]
+    fn query_nonexistent_key_returns_empty() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let found = db.get_song_datas("md5", "nonexistent_hash").unwrap();
+        assert!(found.is_empty());
+    }
+
+    #[test]
+    fn empty_hashes_returns_empty() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let found = db.get_song_datas_by_hashes(&[]).unwrap();
+        assert!(found.is_empty());
+    }
+
+    #[test]
+    fn text_search_on_empty_table() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let found = db.get_song_datas_by_text("anything").unwrap();
+        assert!(found.is_empty());
+    }
+
+    #[test]
+    fn duplicate_insert_replaces_existing() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let mut song = sample_song();
+        song.title = "First".to_string();
+        db.set_song_datas(&[song.clone()]).unwrap();
+
+        song.title = "Second".to_string();
+        db.set_song_datas(&[song]).unwrap();
+
+        let all = db.get_all_song_datas().unwrap();
+        // INSERT OR REPLACE: should have exactly 1 record
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].title, "Second");
+    }
+
+    #[test]
+    fn extremely_long_strings_in_song_data() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let long_string = "x".repeat(10000);
+        let song = SongData {
+            md5: "d41d8cd98f00b204e9800998ecf8427e".to_string(),
+            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
+            title: long_string.clone(),
+            artist: long_string.clone(),
+            genre: long_string.clone(),
+            path: "songs/long.bms".to_string(),
+            mode: 7,
+            notes: 1,
+            ..Default::default()
+        };
+        db.set_song_datas(&[song]).unwrap();
+
+        let found = db.get_song_datas("path", "songs/long.bms").unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].title.len(), 10000);
+    }
+
+    #[test]
+    fn folder_query_empty_table() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let found = db.get_folder_datas("path", "nonexistent").unwrap();
+        assert!(found.is_empty());
+    }
+
+    #[test]
+    fn folder_disallowed_key_rejected() {
+        let db = SongDatabase::open_in_memory().unwrap();
+        let result = db.get_folder_datas("malicious_key", "x");
+        assert!(result.is_err());
+    }
 }

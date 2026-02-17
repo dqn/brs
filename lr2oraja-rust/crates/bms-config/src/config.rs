@@ -397,4 +397,72 @@ mod tests {
         assert!(json.contains("\"tableURL\""));
         assert!(json.contains("\"availableURL\""));
     }
+
+    // --- Error case tests ---
+
+    #[test]
+    fn test_invalid_json_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("invalid.json");
+        std::fs::write(&path, "this is not json at all {{{").unwrap();
+        let result = Config::read(&path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_malformed_json_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("malformed.json");
+        std::fs::write(&path, r#"{"displaymode": 42}"#).unwrap();
+        // displaymode expects a string enum, not a number -> serde error
+        let result = Config::read(&path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_json_object_applies_all_defaults() {
+        let c: Config = serde_json::from_str("{}").unwrap();
+        let d = Config::default();
+        assert_eq!(c.displaymode, d.displaymode);
+        assert_eq!(c.resolution, d.resolution);
+        assert_eq!(c.window_width, d.window_width);
+        assert_eq!(c.window_height, d.window_height);
+        assert_eq!(c.max_frame_per_second, d.max_frame_per_second);
+        assert_eq!(c.song_preview, d.song_preview);
+        assert_eq!(c.obs_ws_port, d.obs_ws_port);
+        assert_eq!(c.vsync, d.vsync);
+    }
+
+    #[test]
+    fn test_partial_json_fills_defaults() {
+        let c: Config = serde_json::from_str(r#"{"vsync": true}"#).unwrap();
+        assert!(c.vsync);
+        // Everything else should be default
+        assert_eq!(c.displaymode, DisplayMode::Window);
+        assert_eq!(c.window_width, 1280);
+    }
+
+    #[test]
+    fn test_missing_file_returns_error() {
+        let result = Config::read(std::path::Path::new("/nonexistent/path/config.json"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_file_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty.json");
+        std::fs::write(&path, "").unwrap();
+        let result = Config::read(&path);
+        // Empty string is not valid JSON
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unknown_fields_are_ignored() {
+        // serde default behavior ignores unknown fields
+        let c: Config =
+            serde_json::from_str(r#"{"unknown_field": "value", "another_unknown": 42}"#).unwrap();
+        assert_eq!(c.displaymode, DisplayMode::Window);
+    }
 }

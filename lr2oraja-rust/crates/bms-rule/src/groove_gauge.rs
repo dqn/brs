@@ -645,4 +645,217 @@ mod tests {
         gg.set_value_of(GaugeType::AssistEasy, 150.0);
         assert!((gg.value_of(GaugeType::AssistEasy) - 120.0).abs() < 1e-6);
     }
+
+    // --- Boundary / edge-case tests ---
+
+    #[test]
+    fn test_gauge_zero_total_notes() {
+        // Zero total notes should not panic (Total modifier divides by total_notes)
+        let prop = gauge_property::sevenkeys();
+        let gauge = Gauge::new(
+            prop.elements[GaugeType::Normal as usize].clone(),
+            300.0,
+            0, // zero notes
+        );
+        // With 0 notes, Total modifier computes 300/0 = inf, which is a valid f32
+        // The gauge should still be created with initial value
+        assert!((gauge.value() - 20.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_gauge_zero_total_notes_update_does_not_panic() {
+        let prop = gauge_property::sevenkeys();
+        let mut gauge = Gauge::new(prop.elements[GaugeType::Normal as usize].clone(), 300.0, 0);
+        // Update with PG should not panic even with inf modifier
+        gauge.update(JUDGE_PG, 1.0);
+        // Value may be max (clamped to 100) since inf*1.0 = inf -> clamped
+        assert!(gauge.value() <= 100.0);
+    }
+
+    #[test]
+    fn test_groove_gauge_zero_notes() {
+        let prop = gauge_property::sevenkeys();
+        let mut gg = GrooveGauge::new(&prop, GaugeType::Normal, 300.0, 0);
+        // Should not panic
+        gg.update(JUDGE_PG);
+        gg.update(JUDGE_MS);
+    }
+
+    #[test]
+    fn test_gauge_value_at_exact_zero_boundary() {
+        // Normal gauge with min=2, setting to exactly 0 should clamp to min=2
+        let prop = gauge_property::sevenkeys();
+        let mut gauge = Gauge::new(
+            prop.elements[GaugeType::Normal as usize].clone(),
+            300.0,
+            1000,
+        );
+        gauge.set_value(0.0);
+        assert!((gauge.value() - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_gauge_value_at_exact_100_boundary() {
+        let prop = gauge_property::sevenkeys();
+        let mut gauge = Gauge::new(
+            prop.elements[GaugeType::Normal as usize].clone(),
+            300.0,
+            1000,
+        );
+        gauge.set_value(100.0);
+        assert!((gauge.value() - 100.0).abs() < 1e-6);
+        assert!(gauge.is_max());
+        assert!(gauge.is_qualified());
+    }
+
+    #[test]
+    fn test_score_all_pgreat() {
+        // Simulate 1000 PGREATs on Normal gauge
+        let prop = gauge_property::sevenkeys();
+        let mut gg = GrooveGauge::new(&prop, GaugeType::Normal, 300.0, 1000);
+        for _ in 0..1000 {
+            gg.update(JUDGE_PG);
+        }
+        // Should be at max (100)
+        assert!((gg.value() - 100.0).abs() < 1e-6);
+        assert!(gg.is_qualified());
+    }
+
+    #[test]
+    fn test_score_all_miss_normal() {
+        // Simulate all MISSes on Normal gauge
+        let prop = gauge_property::sevenkeys();
+        let mut gg = GrooveGauge::new(&prop, GaugeType::Normal, 300.0, 1000);
+        for _ in 0..1000 {
+            gg.update(JUDGE_MS);
+        }
+        // Normal gauge has min=2, death=0, so it should bottom out at 2
+        assert!((gg.value() - 2.0).abs() < 1e-6);
+        assert!(!gg.is_qualified());
+    }
+
+    #[test]
+    fn test_score_all_miss_hard() {
+        // Simulate all MISSes on Hard gauge
+        let prop = gauge_property::sevenkeys();
+        let mut gg = GrooveGauge::new(&prop, GaugeType::Hard, 300.0, 1000);
+        // Hard gauge should die quickly with MS = -5.0 * guts
+        for _ in 0..100 {
+            gg.update(JUDGE_MS);
+        }
+        // Should be dead
+        assert!(
+            gg.value_of(GaugeType::Hard) < 1e-6,
+            "Hard gauge should be dead after many misses"
+        );
+    }
+
+    #[test]
+    fn test_gauge_very_large_total() {
+        // Extremely large TOTAL value
+        let prop = gauge_property::sevenkeys();
+        let mut gauge = Gauge::new(
+            prop.elements[GaugeType::Normal as usize].clone(),
+            999999.0,
+            1,
+        );
+        // PG recovery = 1.0 * 999999/1 = 999999 -> clamped to max 100
+        gauge.update(JUDGE_PG, 1.0);
+        assert!((gauge.value() - 100.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_gauge_very_small_total() {
+        // Very small TOTAL value
+        let prop = gauge_property::sevenkeys();
+        let mut gauge = Gauge::new(
+            prop.elements[GaugeType::Normal as usize].clone(),
+            0.001,
+            1000,
+        );
+        let initial = gauge.value();
+        gauge.update(JUDGE_PG, 1.0);
+        // Recovery should be negligible: 1.0 * 0.001/1000 = 0.000001
+        assert!((gauge.value() - initial).abs() < 0.01);
+    }
+}
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use crate::gauge_property;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn gauge_value_always_in_bounds(
+            total in 0.01_f64..10000.0,
+            total_notes in 1_usize..10000,
+            judge_seq in proptest::collection::vec(0_usize..6, 1..200),
+        ) {
+            let prop = gauge_property::sevenkeys();
+            let mut gauge = Gauge::new(
+                prop.elements[GaugeType::Normal as usize].clone(),
+                total,
+                total_notes,
+            );
+
+            for &j in &judge_seq {
+                gauge.update(j, 1.0);
+                let v = gauge.value();
+                // Normal gauge: min=2, max=100, unless dead (0)
+                prop_assert!(
+                    v == 0.0 || (v >= 2.0 - 1e-6 && v <= 100.0 + 1e-6),
+                    "Gauge value out of bounds: {v}"
+                );
+            }
+        }
+
+        #[test]
+        fn hard_gauge_value_always_in_bounds(
+            total in 0.01_f64..10000.0,
+            total_notes in 1_usize..10000,
+            judge_seq in proptest::collection::vec(0_usize..6, 1..200),
+        ) {
+            let prop = gauge_property::sevenkeys();
+            let mut gauge = Gauge::new(
+                prop.elements[GaugeType::Hard as usize].clone(),
+                total,
+                total_notes,
+            );
+
+            for &j in &judge_seq {
+                gauge.update(j, 1.0);
+                let v = gauge.value();
+                // Hard gauge: min=0, max=100
+                prop_assert!(
+                    v >= 0.0 - 1e-6 && v <= 100.0 + 1e-6,
+                    "Hard gauge value out of bounds: {v}"
+                );
+            }
+        }
+
+        #[test]
+        fn groove_gauge_all_types_in_bounds(
+            total in 0.01_f64..10000.0,
+            total_notes in 1_usize..10000,
+            judge_seq in proptest::collection::vec(0_usize..6, 1..100),
+        ) {
+            let prop = gauge_property::sevenkeys();
+            let mut gg = GrooveGauge::new(&prop, GaugeType::Normal, total, total_notes);
+
+            for &j in &judge_seq {
+                gg.update(j);
+            }
+
+            // All gauge values should be within [0, 100]
+            for gt in GaugeType::ALL {
+                let v = gg.value_of(gt);
+                prop_assert!(
+                    v >= 0.0 - 1e-6 && v <= 100.0 + 1e-6,
+                    "Gauge {gt:?} value out of bounds: {v}"
+                );
+            }
+        }
+    }
 }

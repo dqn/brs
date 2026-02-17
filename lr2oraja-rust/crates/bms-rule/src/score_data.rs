@@ -480,4 +480,39 @@ mod tests {
         assert_eq!(deserialized.lgr, 50);
         assert_eq!(deserialized.clear, ClearType::Hard);
     }
+
+    // --- Boundary tests ---
+
+    #[test]
+    fn exscore_all_pgreat() {
+        let mut sd = ScoreData::default();
+        sd.epg = 500;
+        sd.lpg = 500;
+        // All PGREAT: (500+500)*2 = 2000
+        assert_eq!(sd.exscore(), 2000);
+    }
+
+    #[test]
+    fn exscore_all_miss() {
+        let mut sd = ScoreData::default();
+        sd.ems = 500;
+        sd.lms = 500;
+        // All MISS: exscore = 0
+        assert_eq!(sd.exscore(), 0);
+    }
+
+    #[test]
+    fn total_judge_count_single_type() {
+        let mut sd = ScoreData::default();
+        sd.epg = 1000;
+        assert_eq!(sd.total_judge_count(), 1000);
+    }
+
+    #[test]
+    fn decode_ghost_invalid_base64_returns_none() {
+        let mut sd = ScoreData::default();
+        sd.ghost = "not valid base64!!!".to_string();
+        sd.notes = 10;
+        assert!(sd.decode_ghost().is_none());
+    }
 }

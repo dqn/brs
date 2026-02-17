@@ -1171,3 +1171,99 @@ mod tests {
         assert_eq!(make_identity_mapping(9), vec![0, 1, 2, 3, 4, 5, 6, 7, 8]);
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use bms_model::{Note, PlayMode};
+    use proptest::prelude::*;
+
+    fn make_model_for_proptest(mode: PlayMode, notes: Vec<Note>) -> BmsModel {
+        BmsModel {
+            mode,
+            notes,
+            ..Default::default()
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn mirror_preserves_note_count(
+            note_count in 1_usize..50,
+            seed in any::<u64>(),
+        ) {
+            use rand::prelude::*;
+            let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+            let notes: Vec<Note> = (0..note_count)
+                .map(|i| Note::normal(rng.random_range(0..7), (i as i64 + 1) * 1_000_000, 1))
+                .collect();
+            let original_count = notes.len();
+            let mut model = make_model_for_proptest(PlayMode::Beat7K, notes);
+            let mut shuffle = LaneMirrorShuffle::new(0, false);
+            shuffle.modify(&mut model);
+            prop_assert_eq!(model.notes.len(), original_count);
+        }
+
+        #[test]
+        fn random_shuffle_preserves_note_count(
+            note_count in 1_usize..50,
+            shuffle_seed in any::<i64>(),
+            gen_seed in any::<u64>(),
+        ) {
+            use rand::prelude::*;
+            let mut rng = rand::rngs::StdRng::seed_from_u64(gen_seed);
+            let notes: Vec<Note> = (0..note_count)
+                .map(|i| Note::normal(rng.random_range(0..7), (i as i64 + 1) * 1_000_000, 1))
+                .collect();
+            let original_count = notes.len();
+            let mut model = make_model_for_proptest(PlayMode::Beat7K, notes);
+            let mut shuffle = LaneRandomShuffle::new(0, false, shuffle_seed);
+            shuffle.modify(&mut model);
+            prop_assert_eq!(model.notes.len(), original_count);
+        }
+
+        #[test]
+        fn rotate_shuffle_preserves_note_count(
+            note_count in 1_usize..50,
+            shuffle_seed in any::<i64>(),
+            gen_seed in any::<u64>(),
+        ) {
+            use rand::prelude::*;
+            let mut rng = rand::rngs::StdRng::seed_from_u64(gen_seed);
+            let notes: Vec<Note> = (0..note_count)
+                .map(|i| Note::normal(rng.random_range(0..7), (i as i64 + 1) * 1_000_000, 1))
+                .collect();
+            let original_count = notes.len();
+            let mut model = make_model_for_proptest(PlayMode::Beat7K, notes);
+            let mut shuffle = LaneRotateShuffle::new(0, false, shuffle_seed);
+            shuffle.modify(&mut model);
+            prop_assert_eq!(model.notes.len(), original_count);
+        }
+
+        #[test]
+        fn mirror_is_bijective(seed in any::<i64>()) {
+            let _ = seed;
+            let keys = get_keys(PlayMode::Beat7K, 0, false);
+            let shuffle = LaneMirrorShuffle::new(0, false);
+            let mapping = shuffle.make_random(&keys, 8);
+            // All key lane destinations should be unique
+            let mut dests: Vec<usize> = keys.iter().map(|&k| mapping[k]).collect();
+            dests.sort();
+            dests.dedup();
+            prop_assert_eq!(dests.len(), keys.len());
+        }
+
+        #[test]
+        fn random_mapping_is_bijective(seed in any::<i64>()) {
+            let keys = get_keys(PlayMode::Beat7K, 0, false);
+            let shuffle = LaneRandomShuffle::new(0, false, seed);
+            let mapping = shuffle.make_random(&keys, 8);
+            let mut dests: Vec<usize> = keys.iter().map(|&k| mapping[k]).collect();
+            dests.sort();
+            // Destinations should be exactly the key set
+            let mut expected = keys.clone();
+            expected.sort();
+            prop_assert_eq!(dests, expected);
+        }
+    }
+}

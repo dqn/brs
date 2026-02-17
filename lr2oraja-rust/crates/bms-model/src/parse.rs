@@ -163,14 +163,16 @@ impl BmsDecoder {
                     // #BPM (initial BPM, not #BPMxx)
                     model.initial_bpm = rest[4..].trim().parse().unwrap_or(130.0);
                 } else if upper.starts_with("BPM")
-                    && upper.len() >= 5
-                    && upper.as_bytes()[5] == b' '
+                    && upper.len() >= 6
+                    && upper.as_bytes().get(5).copied() == Some(b' ')
                 {
                     // #BPMxx value (extended BPM definition)
                     // Use rest (original case) for ID to preserve base62 case sensitivity
-                    let id = parse_id(&rest[3..5], model.base);
-                    let bpm: f64 = rest[6..].trim().parse().unwrap_or(0.0);
-                    extended_bpms.insert(id, bpm);
+                    if let (Some(id_str), Some(bpm_str)) = (rest.get(3..5), rest.get(6..)) {
+                        let id = parse_id(id_str, model.base);
+                        let bpm: f64 = bpm_str.trim().parse().unwrap_or(0.0);
+                        extended_bpms.insert(id, bpm);
+                    }
                 } else if let Some(rest) = upper.strip_prefix("RANK ") {
                     let raw: i32 = rest.trim().parse().unwrap_or(2);
                     model.judge_rank = raw;
@@ -196,8 +198,8 @@ impl BmsDecoder {
                     // Only 62 is accepted; anything else keeps default 36
                 } else if let Some(rest) = upper.strip_prefix("LNOBJ ") {
                     let trimmed = rest.trim();
-                    if trimmed.len() >= 2 {
-                        let id = parse_id(&trimmed[..2].to_ascii_uppercase(), model.base);
+                    if let Some(id_str) = trimmed.get(..2) {
+                        let id = parse_id(&id_str.to_ascii_uppercase(), model.base);
                         if id > 0 {
                             model.lnobj = Some(id);
                         }
@@ -221,28 +223,36 @@ impl BmsDecoder {
                     model.preview = rest[8..].trim().to_string();
                 } else if upper.starts_with("WAV") && upper.len() >= 5 {
                     // Use rest (original case) for ID to preserve base62 case sensitivity
-                    let id = parse_id(&rest[3..5], model.base);
-                    let filename = rest[5..].trim();
-                    if !filename.is_empty() {
-                        model.wav_defs.insert(id, base_dir.join(filename));
+                    if let (Some(id_str), Some(filename_str)) = (rest.get(3..5), rest.get(5..)) {
+                        let id = parse_id(id_str, model.base);
+                        let filename = filename_str.trim();
+                        if !filename.is_empty() {
+                            model.wav_defs.insert(id, base_dir.join(filename));
+                        }
                     }
                 } else if upper.starts_with("BMP")
                     && upper.len() >= 5
-                    && upper.as_bytes()[3] != b' '
+                    && upper.as_bytes().get(3).copied() != Some(b' ')
                 {
-                    let id = parse_id(&rest[3..5], model.base);
-                    let filename = rest[5..].trim();
-                    if !filename.is_empty() {
-                        model.bmp_defs.insert(id, base_dir.join(filename));
+                    if let (Some(id_str), Some(filename_str)) = (rest.get(3..5), rest.get(5..)) {
+                        let id = parse_id(id_str, model.base);
+                        let filename = filename_str.trim();
+                        if !filename.is_empty() {
+                            model.bmp_defs.insert(id, base_dir.join(filename));
+                        }
                     }
                 } else if upper.starts_with("STOP") && upper.len() >= 6 {
-                    let id = parse_id(&rest[4..6], model.base);
-                    let ticks: i64 = rest[6..].trim().parse().unwrap_or(0);
-                    stop_defs.insert(id, ticks);
+                    if let (Some(id_str), Some(val_str)) = (rest.get(4..6), rest.get(6..)) {
+                        let id = parse_id(id_str, model.base);
+                        let ticks: i64 = val_str.trim().parse().unwrap_or(0);
+                        stop_defs.insert(id, ticks);
+                    }
                 } else if upper.starts_with("SCROLL") && upper.len() >= 8 {
-                    let id = parse_id(&rest[6..8], model.base);
-                    let scroll: f64 = rest[8..].trim().parse().unwrap_or(1.0);
-                    scroll_defs.insert(id, scroll);
+                    if let (Some(id_str), Some(val_str)) = (rest.get(6..8), rest.get(8..)) {
+                        let id = parse_id(id_str, model.base);
+                        let scroll: f64 = val_str.trim().parse().unwrap_or(1.0);
+                        scroll_defs.insert(id, scroll);
+                    }
                 } else if let Some(event) = parse_channel_line(&upper, rest, model.base) {
                     // Channel data: #MMMCC:data
                     let measure = event.measure;
@@ -312,9 +322,16 @@ impl BmsDecoder {
             let line = line.trim();
             if let Some(rest) = line.strip_prefix('#') {
                 let upper = rest.to_ascii_uppercase();
-                if upper.len() >= 6 && &upper[3..5] == "02" && upper.as_bytes()[5] == b':' {
-                    let measure: u32 = upper[..3].parse().unwrap_or(0);
-                    let val: f64 = rest[6..].trim().parse().unwrap_or(1.0);
+                if upper.len() >= 6
+                    && upper.get(3..5) == Some("02")
+                    && upper.as_bytes().get(5).copied() == Some(b':')
+                    && let Some(measure_str) = upper.get(..3)
+                {
+                    let measure: u32 = measure_str.parse().unwrap_or(0);
+                    let val: f64 = rest
+                        .get(6..)
+                        .map(|s| s.trim().parse().unwrap_or(1.0))
+                        .unwrap_or(1.0);
                     measure_lengths.insert(measure, val);
                 }
             }
@@ -801,7 +818,7 @@ enum NoteKind {
 }
 
 struct RandomState {
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Parsed for completeness (BMS #RANDOM bound)
     bound: i32,
     value: i32,
     active: bool,
@@ -958,20 +975,24 @@ fn parse_channel_line(upper: &str, original: &str, base: u8) -> Option<ChannelEv
         return None;
     }
 
-    let measure: u32 = upper[..3].parse().ok()?;
+    // Safe slicing: ensure byte indices are on char boundaries (guards against
+    // multi-byte UTF-8 characters produced by Shift_JIS decoding).
+    let measure_str = upper.get(..3)?;
+    let channel_str = upper.get(3..5)?;
+    let measure: u32 = measure_str.parse().ok()?;
     // SC channel uses base36, not hex
-    let channel = if &upper[3..5] == "SC" {
+    let channel = if channel_str == "SC" {
         CHANNEL_SCROLL
     } else {
-        parse_hex_channel(&upper[3..5])?
+        parse_hex_channel(channel_str)?
     };
 
-    if upper.as_bytes()[5] != b':' {
+    if upper.as_bytes().get(5).copied() != Some(b':') {
         return None;
     }
 
     // Use original case for data to preserve base62 case sensitivity
-    let data_str = &original[6..];
+    let data_str = original.get(6..)?;
     let data = parse_channel_data(data_str, base);
 
     Some(ChannelEvent {
@@ -1612,5 +1633,209 @@ mod tests {
 ";
         let model = decode_inline(bms);
         assert_eq!(model.base, 36);
+    }
+
+    // --- Error case tests ---
+
+    #[test]
+    fn test_decode_empty_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty.bms");
+        std::fs::write(&path, b"").unwrap();
+        let result = BmsDecoder::decode(&path);
+        assert!(result.is_ok());
+        let model = result.unwrap();
+        assert_eq!(model.total_notes(), 0);
+        assert!(model.notes.is_empty());
+        assert!(model.bg_notes.is_empty());
+    }
+
+    #[test]
+    fn test_decode_headers_only_no_notes() {
+        let bms = "\
+#PLAYER 1
+#GENRE Test
+#TITLE Headers Only
+#ARTIST nobody
+#BPM 150
+#PLAYLEVEL 10
+#RANK 2
+#TOTAL 400
+";
+        let model = decode_inline(bms);
+        assert_eq!(model.total_notes(), 0);
+        assert_eq!(model.title, "Headers Only");
+        assert_eq!(model.artist, "nobody");
+        assert_eq!(model.genre, "Test");
+        assert!((model.initial_bpm - 150.0).abs() < f64::EPSILON);
+        assert_eq!(model.play_level, 10);
+        assert_eq!(model.judge_rank, 2);
+        assert!((model.total - 400.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_decode_zero_bpm() {
+        // BPM 0 should not cause division by zero
+        let bms = "\
+#PLAYER 1
+#BPM 0
+#WAV01 test.wav
+#00111:01
+";
+        let model = decode_inline(bms);
+        assert!((model.initial_bpm - 0.0).abs() < f64::EPSILON);
+        // Should not panic, notes should still be parsed
+        assert!(!model.notes.is_empty());
+    }
+
+    #[test]
+    fn test_decode_negative_bpm_string() {
+        // Negative BPM parses as-is (unwrap_or defaults to 130.0 on failure,
+        // but -50 is a valid parse)
+        let bms = "\
+#PLAYER 1
+#BPM -50
+#WAV01 test.wav
+#00111:01
+";
+        let model = decode_inline(bms);
+        // -50 parses as f64 successfully
+        assert!((model.initial_bpm - (-50.0)).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_decode_extremely_large_bpm() {
+        let bms = "\
+#PLAYER 1
+#BPM 99999999
+#WAV01 test.wav
+#00111:01
+";
+        let model = decode_inline(bms);
+        assert!((model.initial_bpm - 99999999.0).abs() < 1.0);
+        assert!(!model.notes.is_empty());
+    }
+
+    #[test]
+    fn test_decode_malformed_bpm_value() {
+        // Non-numeric BPM should fall back to default (unwrap_or(130.0))
+        let bms = "\
+#PLAYER 1
+#BPM abc
+#WAV01 test.wav
+#00111:01
+";
+        let model = decode_inline(bms);
+        assert!((model.initial_bpm - 130.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_decode_extreme_measure_number() {
+        // High measure number (999) should not crash
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#WAV01 test.wav
+#99911:01
+";
+        let model = decode_inline(bms);
+        assert!(!model.notes.is_empty());
+        assert!(model.total_measures >= 999);
+    }
+
+    #[test]
+    fn test_decode_invalid_base36_characters() {
+        // Invalid characters in channel data should be handled gracefully
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#WAV01 test.wav
+#00111:!!
+";
+        let model = decode_inline(bms);
+        // '!!' maps to 0 via base36_digit fallback, so no notes are placed
+        assert_eq!(model.total_notes(), 0);
+    }
+
+    #[test]
+    fn test_decode_single_char_channel_data() {
+        // Channel data with length < 2 should not crash
+        let bms = "\
+#PLAYER 1
+#BPM 120
+#00111:0
+";
+        let model = decode_inline(bms);
+        // Too short to parse any notes
+        assert_eq!(model.total_notes(), 0);
+    }
+
+    #[test]
+    fn test_decode_only_comments_and_blank_lines() {
+        let bms = "\
+* This is a comment
+* Another comment
+
+
+";
+        let model = decode_inline(bms);
+        assert_eq!(model.total_notes(), 0);
+    }
+
+    #[test]
+    fn test_decode_random_binary_does_not_panic() {
+        // Write some random-ish bytes that aren't valid BMS
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("garbage.bms");
+        let garbage: Vec<u8> = (0..256).map(|i| (i % 256) as u8).collect();
+        std::fs::write(&path, &garbage).unwrap();
+        // Should not panic; may return Ok or Err
+        let _ = BmsDecoder::decode(&path);
+    }
+}
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn decode_arbitrary_bytes_never_panics(data: Vec<u8>) {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("fuzz.bms");
+            std::fs::write(&path, &data).unwrap();
+            // Should never panic regardless of input
+            let _ = BmsDecoder::decode(&path);
+        }
+
+        #[test]
+        fn decode_str_arbitrary_content_never_panics(content in ".*") {
+            let _ = BmsDecoder::decode_str(&content, Path::new("test.bms"));
+        }
+
+        #[test]
+        fn parse_base36_any_pair_never_panics(
+            a in proptest::char::range('0', 'z'),
+            b in proptest::char::range('0', 'z'),
+        ) {
+            let s = format!("{a}{b}");
+            // Should never panic
+            let _ = parse_base36(&s);
+        }
+
+        #[test]
+        fn parse_base62_any_pair_never_panics(
+            a in proptest::char::range('0', 'z'),
+            b in proptest::char::range('0', 'z'),
+        ) {
+            let s = format!("{a}{b}");
+            let _ = parse_base62(&s);
+        }
+
+        #[test]
+        fn beats_to_us_no_panic(beats in -1e12_f64..1e12, bpm in -1e6_f64..1e6) {
+            let _ = beats_to_us(beats, bpm);
+        }
     }
 }
