@@ -16,3 +16,8 @@ glob.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "skin_bench"
+harness = false

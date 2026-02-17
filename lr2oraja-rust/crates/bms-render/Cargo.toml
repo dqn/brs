@@ -25,7 +25,12 @@ glob = { workspace = true }
 image-compare = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
+criterion.workspace = true
 
 [[test]]
 name = "screenshot_tests"
+harness = false
+
+[[bench]]
+name = "render_bench"
 harness = false
