@@ -167,7 +167,6 @@ impl PreviewMusicProcessor {
     }
 
     /// Whether a song preview (not default BGM) is currently playing.
-    #[allow(dead_code)] // TODO: integrate with select screen skin state
     pub fn is_playing_preview(&self) -> bool {
         !self.is_default_playing && self.current_handle.is_some()
     }

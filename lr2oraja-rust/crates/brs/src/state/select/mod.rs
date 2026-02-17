@@ -266,7 +266,17 @@ impl GameStateHandler for MusicSelectState {
                 self.bar_manager.current(),
                 Some(Bar::Song(s)) if s.has_any_long_note()
             );
-            select_skin_state::sync_select_state(shared, &self.bar_manager, has_ln, true);
+            let is_preview_playing = ctx
+                .preview_music
+                .as_ref()
+                .is_some_and(|p| p.is_playing_preview());
+            select_skin_state::sync_select_state(
+                shared,
+                &self.bar_manager,
+                has_ln,
+                true,
+                is_preview_playing,
+            );
             select_skin_state::sync_bar_scroll_state(
                 shared,
                 &self.bar_manager,

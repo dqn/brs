@@ -30,6 +30,7 @@ pub fn sync_select_state(
     bar_manager: &BarManager,
     has_ln: bool,
     bga_on: bool,
+    _is_preview_playing: bool,
 ) {
     // Bar type booleans (clear previous)
     state.booleans.insert(OPTION_SONGBAR, false);
@@ -448,7 +449,7 @@ mod tests {
     fn sync_select_no_bar_clears_metadata() {
         let mut state = SharedGameState::default();
         let bm = BarManager::new();
-        sync_select_state(&mut state, &bm, false, true);
+        sync_select_state(&mut state, &bm, false, true, false);
         assert!(!*state.booleans.get(&OPTION_SONGBAR).unwrap());
         assert!(!*state.booleans.get(&OPTION_FOLDERBAR).unwrap());
     }
@@ -457,7 +458,7 @@ mod tests {
     fn sync_select_feature_flags() {
         let mut state = SharedGameState::default();
         let bm = BarManager::new();
-        sync_select_state(&mut state, &bm, true, false);
+        sync_select_state(&mut state, &bm, true, false, false);
         assert!(*state.booleans.get(&OPTION_LN).unwrap());
         assert!(!*state.booleans.get(&OPTION_NO_LN).unwrap());
         assert!(!*state.booleans.get(&OPTION_BGA).unwrap());
