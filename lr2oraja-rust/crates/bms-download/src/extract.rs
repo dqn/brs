@@ -3,11 +3,62 @@
 // Provides extraction for tar.gz, zip, lzh/lha, and 7z archives.
 
 use std::fs::{self, File};
-use std::io::{self, BufReader};
+use std::io::{self, BufReader, Read};
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, bail};
 use flate2::read::GzDecoder;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ArchiveFormat {
+    TarGz,
+    Zip,
+    Lzh,
+    SevenZip,
+}
+
+fn detect_archive_format_from_name(name: &str) -> Option<ArchiveFormat> {
+    if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+        Some(ArchiveFormat::TarGz)
+    } else if name.ends_with(".zip") {
+        Some(ArchiveFormat::Zip)
+    } else if name.ends_with(".lzh") || name.ends_with(".lha") {
+        Some(ArchiveFormat::Lzh)
+    } else if name.ends_with(".7z") {
+        Some(ArchiveFormat::SevenZip)
+    } else {
+        None
+    }
+}
+
+fn detect_archive_format_from_magic(archive_path: &Path) -> anyhow::Result<Option<ArchiveFormat>> {
+    let mut file =
+        File::open(archive_path).with_context(|| format!("failed to open {:?}", archive_path))?;
+    let mut head = [0_u8; 8];
+    let read_len = file
+        .read(&mut head)
+        .with_context(|| format!("failed to read header from {:?}", archive_path))?;
+    let head = &head[..read_len];
+
+    // ZIP local file header: PK\x03\x04
+    if head.starts_with(&[0x50, 0x4B, 0x03, 0x04]) {
+        return Ok(Some(ArchiveFormat::Zip));
+    }
+    // GZIP header: 1F 8B
+    if head.starts_with(&[0x1F, 0x8B]) {
+        return Ok(Some(ArchiveFormat::TarGz));
+    }
+    // 7z signature: 37 7A BC AF 27 1C
+    if head.starts_with(&[0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C]) {
+        return Ok(Some(ArchiveFormat::SevenZip));
+    }
+    // LZH/LHA level-0/1 headers generally include "-lh" at bytes [2..5).
+    if head.len() >= 5 && head[2] == b'-' && head[3] == b'l' && head[4] == b'h' {
+        return Ok(Some(ArchiveFormat::Lzh));
+    }
+
+    Ok(None)
+}
 
 /// Extract a .tar.gz archive to the destination directory.
 pub fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> anyhow::Result<()> {
@@ -61,6 +112,7 @@ pub fn extract_lzh(archive_path: &Path, dest_dir: &Path) -> anyhow::Result<()> {
     let mut decoder = delharc::parse_file(archive_path)
         .with_context(|| format!("failed to open lzh archive {:?}", archive_path))?;
 
+    fs::create_dir_all(dest_dir).with_context(|| format!("failed to create {:?}", dest_dir))?;
     let dest_canonical = dest_dir
         .canonicalize()
         .with_context(|| format!("failed to canonicalize {:?}", dest_dir))?;
@@ -185,6 +237,7 @@ fn ensure_7z_path_within_dest(
 }
 
 pub fn extract_7z(archive_path: &Path, dest_dir: &Path) -> anyhow::Result<()> {
+    fs::create_dir_all(dest_dir).with_context(|| format!("failed to create {:?}", dest_dir))?;
     let dest_canonical = dest_dir
         .canonicalize()
         .with_context(|| format!("failed to canonicalize {:?}", dest_dir))?;
@@ -232,25 +285,28 @@ pub fn extract_7z(archive_path: &Path, dest_dir: &Path) -> anyhow::Result<()> {
 ///
 /// Returns an error for unsupported formats.
 pub fn detect_and_extract(archive_path: &Path, dest_dir: &Path) -> anyhow::Result<()> {
+    fs::create_dir_all(dest_dir).with_context(|| format!("failed to create {:?}", dest_dir))?;
+
     let name = archive_path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
 
-    if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
-        extract_tar_gz(archive_path, dest_dir)
-    } else if name.ends_with(".zip") {
-        extract_zip(archive_path, dest_dir)
-    } else if name.ends_with(".lzh") || name.ends_with(".lha") {
-        extract_lzh(archive_path, dest_dir)
-    } else if name.ends_with(".7z") {
-        extract_7z(archive_path, dest_dir)
-    } else {
-        bail!(
-            "unsupported archive format: {:?} (supported: .tar.gz, .tgz, .zip, .lzh, .lha, .7z)",
-            archive_path
-        )
+    let format = detect_archive_format_from_name(&name)
+        .or(detect_archive_format_from_magic(archive_path)?)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "unsupported archive format: {:?} (supported: .tar.gz, .tgz, .zip, .lzh, .lha, .7z)",
+                archive_path
+            )
+        })?;
+
+    match format {
+        ArchiveFormat::TarGz => extract_tar_gz(archive_path, dest_dir),
+        ArchiveFormat::Zip => extract_zip(archive_path, dest_dir),
+        ArchiveFormat::Lzh => extract_lzh(archive_path, dest_dir),
+        ArchiveFormat::SevenZip => extract_7z(archive_path, dest_dir),
     }
 }
 
@@ -412,6 +468,34 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[test]
+    fn test_detect_archive_format_from_magic_zip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive_path = tmp.path().join("magic-zip.bin");
+
+        {
+            let file = File::create(&archive_path).unwrap();
+            let mut writer = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default();
+            writer.start_file("hello.txt", options).unwrap();
+            writer.write_all(b"hello").unwrap();
+            writer.finish().unwrap();
+        }
+
+        let format = detect_archive_format_from_magic(&archive_path).unwrap();
+        assert_eq!(format, Some(ArchiveFormat::Zip));
+    }
+
+    #[test]
+    fn test_detect_archive_format_from_magic_7z() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive_path = tmp.path().join("magic-7z.bin");
+        create_test_7z(&archive_path, &[("hello.txt", b"hello from 7z")]);
+
+        let format = detect_archive_format_from_magic(&archive_path).unwrap();
+        assert_eq!(format, Some(ArchiveFormat::SevenZip));
+    }
+
     // --- zip tests ---
 
     #[test]
@@ -516,6 +600,28 @@ mod tests {
         assert!(extract_dir.join("detected.txt").exists());
     }
 
+    #[test]
+    fn test_detect_and_extract_without_extension_uses_magic() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive_path = tmp.path().join("download");
+        let extract_dir = tmp.path().join("out");
+
+        {
+            let file = File::create(&archive_path).unwrap();
+            let mut writer = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default();
+            writer.start_file("detected.txt", options).unwrap();
+            writer.write_all(b"detected by magic").unwrap();
+            writer.finish().unwrap();
+        }
+
+        detect_and_extract(&archive_path, &extract_dir).unwrap();
+        assert_eq!(
+            fs::read_to_string(extract_dir.join("detected.txt")).unwrap(),
+            "detected by magic"
+        );
+    }
+
     // --- lzh tests ---
 
     // lzh archives are hard to create programmatically, so we test with
@@ -528,7 +634,6 @@ mod tests {
         File::create(&path).unwrap().write_all(b"fake").unwrap();
 
         let extract_dir = tmp.path().join("out");
-        fs::create_dir_all(&extract_dir).unwrap();
 
         // Should attempt lzh extraction (and fail on invalid data)
         let result = detect_and_extract(&path, &extract_dir);
@@ -569,7 +674,6 @@ mod tests {
         File::create(&path).unwrap().write_all(b"fake").unwrap();
 
         let extract_dir = tmp.path().join("out");
-        fs::create_dir_all(&extract_dir).unwrap();
 
         let result = detect_and_extract(&path, &extract_dir);
         assert!(result.is_err());
@@ -718,7 +822,6 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let archive_path = tmp.path().join("test.7z");
         let extract_dir = tmp.path().join("out");
-        fs::create_dir_all(&extract_dir).unwrap();
 
         create_test_7z(&archive_path, &[("hello.txt", b"Hello from 7z!")]);
 
@@ -734,7 +837,6 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let archive_path = tmp.path().join("nested.7z");
         let extract_dir = tmp.path().join("out");
-        fs::create_dir_all(&extract_dir).unwrap();
 
         create_test_7z(&archive_path, &[("subdir/data.bms", b"bms data from 7z")]);
 
@@ -750,7 +852,6 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let archive_path = tmp.path().join("double-dot.7z");
         let extract_dir = tmp.path().join("out");
-        fs::create_dir_all(&extract_dir).unwrap();
 
         create_test_7z(&archive_path, &[("song..preview.wav", b"preview data")]);
 
@@ -802,7 +903,6 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let archive_path = tmp.path().join("test.7z");
         let extract_dir = tmp.path().join("out");
-        fs::create_dir_all(&extract_dir).unwrap();
 
         create_test_7z(&archive_path, &[("detected.txt", b"detected via 7z")]);
 

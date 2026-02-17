@@ -6,6 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::anyhow;
 use tokio::sync::{Mutex, Semaphore};
@@ -199,7 +200,12 @@ async fn download_file(
         .and_then(|v| v.to_str().ok())
         .and_then(extract_filename_from_header)
         .and_then(|name| sanitize_download_filename(&name))
-        .or_else(|| url.rsplit('/').next().and_then(sanitize_download_filename))
+        .or_else(|| {
+            url.split('?')
+                .next()
+                .and_then(|v| v.rsplit('/').next())
+                .and_then(sanitize_download_filename)
+        })
         .unwrap_or_else(|| "download".to_string());
 
     // Update content length
@@ -210,8 +216,8 @@ async fn download_file(
         }
     }
 
-    // Determine download directory from the task
-    let download_dir = {
+    // Determine task hash for unique temporary file naming.
+    let task_hash = {
         let tasks = tasks.lock().await;
         tasks
             .iter()
@@ -219,10 +225,12 @@ async fn download_file(
             .map(|t| t.hash.clone())
             .ok_or_else(|| anyhow!("task {} not found", task_id))?
     };
-    let _ = download_dir; // hash is available if needed
 
-    // Stream to file using chunk-based reading (avoids futures_util dependency)
-    let file_path = std::env::temp_dir().join(&filename);
+    // Stream to a unique temporary file path to avoid collisions between concurrent tasks.
+    let file_path = build_temp_archive_path(task_id, &task_hash, &filename);
+    if let Some(parent) = file_path.parent() {
+        tokio::fs::create_dir_all(parent).await?;
+    }
     let mut file = tokio::fs::File::create(&file_path).await?;
     let mut downloaded: u64 = 0;
     let mut resp = resp;
@@ -247,6 +255,27 @@ async fn download_file(
     file.flush().await?;
 
     Ok(file_path)
+}
+
+fn build_temp_archive_path(task_id: usize, hash: &str, filename: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let hash_part: String = hash
+        .chars()
+        .filter(|c| c.is_ascii_hexdigit())
+        .take(16)
+        .collect();
+    let hash_part = if hash_part.is_empty() {
+        "unknown".to_string()
+    } else {
+        hash_part
+    };
+    let filename = sanitize_download_filename(filename).unwrap_or_else(|| "download".to_string());
+    std::env::temp_dir()
+        .join("brs_download")
+        .join(format!("{hash_part}_{task_id}_{nanos}_{filename}"))
 }
 
 /// Extract filename from Content-Disposition header value.
@@ -342,6 +371,21 @@ mod tests {
         let safe =
             extract_filename_from_header(header).and_then(|n| sanitize_download_filename(&n));
         assert_eq!(safe, Some("safe.7z".into()));
+    }
+
+    #[test]
+    fn test_build_temp_archive_path_is_unique_per_invocation() {
+        let p1 = build_temp_archive_path(1, "abc123", "pkg.7z");
+        let p2 = build_temp_archive_path(1, "abc123", "pkg.7z");
+        assert_ne!(p1, p2);
+    }
+
+    #[test]
+    fn test_build_temp_archive_path_includes_task_and_hash_prefix() {
+        let path = build_temp_archive_path(42, "abcdef1234567890", "pkg.7z");
+        let file = path.file_name().and_then(|v| v.to_str()).unwrap_or("");
+        assert!(file.starts_with("abcdef1234567890_42_"), "actual: {file}");
+        assert!(file.ends_with("_pkg.7z"), "actual: {file}");
     }
 
     #[tokio::test]
