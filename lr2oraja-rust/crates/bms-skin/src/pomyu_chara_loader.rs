@@ -1312,4 +1312,100 @@ mod tests {
         assert!(data.frame.iter().all(|&f| f == i32::MIN));
         assert!(data.loop_points.iter().all(|&l| l == -1));
     }
+
+    #[test]
+    fn test_pm_parse_int_negative() {
+        assert_eq!(pm_parse_int("-42"), -42);
+    }
+
+    #[test]
+    fn test_pm_parse_int_mixed() {
+        // Non-digit/non-hyphen characters are stripped
+        assert_eq!(pm_parse_int("abc"), 0);
+        assert_eq!(pm_parse_int("12x34"), 1234);
+    }
+
+    #[test]
+    fn test_pm_parse_base36_0a() {
+        assert_eq!(pm_parse_base36("0A"), 10);
+    }
+
+    #[test]
+    fn test_pm_parse_base36_single_char() {
+        // Less than 2 chars returns -1
+        assert_eq!(pm_parse_base36("A"), -1);
+    }
+
+    #[test]
+    fn test_pm_parse_base36_invalid() {
+        // Non-base36 characters return -1
+        assert_eq!(pm_parse_base36("!@"), -1);
+    }
+
+    #[test]
+    fn test_pm_parse_hex_mixed() {
+        // Non-hex characters are stripped; empty result parses as 0
+        assert_eq!(pm_parse_hex("GG"), 0);
+    }
+
+    #[test]
+    fn test_base36_digit_ranges() {
+        assert_eq!(base36_digit('0'), 0);
+        assert_eq!(base36_digit('9'), 9);
+        assert_eq!(base36_digit('a'), 10);
+        assert_eq!(base36_digit('z'), 35);
+        assert_eq!(base36_digit('A'), 10);
+        assert_eq!(base36_digit('Z'), 35);
+        assert_eq!(base36_digit('!'), -1);
+    }
+
+    #[test]
+    fn test_determine_color_2p_with_images() {
+        use std::path::PathBuf;
+        // When 2P CharBMP image exists and no texture data, color 2 is returned
+        let mut data = ChpData::default();
+        data.image_paths[CHAR_BMP_INDEX + 1] = Some(PathBuf::from("2p.bmp"));
+        assert_eq!(determine_color(2, &data), 2);
+    }
+
+    #[test]
+    fn test_determine_color_2p_without_2p_bmp() {
+        // Default ChpData has no 2P images, so color falls back to 1
+        let data = ChpData::default();
+        assert_eq!(determine_color(2, &data), 1);
+    }
+
+    #[test]
+    fn test_motion_to_ops_1p_win() {
+        assert_eq!(
+            motion_to_ops(15, 1),
+            [OPTION_1P_BORDER_OR_MORE, -OPTION_1P_100, 0]
+        );
+    }
+
+    #[test]
+    fn test_motion_to_ops_1p_lose() {
+        assert_eq!(motion_to_ops(16, 1), [-OPTION_1P_BORDER_OR_MORE, 0, 0]);
+    }
+
+    #[test]
+    fn test_motion_to_ops_1p_feverwin() {
+        assert_eq!(motion_to_ops(17, 1), [OPTION_1P_100, 0, 0]);
+    }
+
+    #[test]
+    fn test_motion_to_ops_2p_win() {
+        assert_eq!(motion_to_ops(15, 2), [-OPTION_1P_BORDER_OR_MORE, 0, 0]);
+    }
+
+    #[test]
+    fn test_motion_to_ops_2p_lose() {
+        assert_eq!(motion_to_ops(16, 2), [OPTION_1P_BORDER_OR_MORE, 0, 0]);
+    }
+
+    #[test]
+    fn test_motion_to_ops_neutral() {
+        // Non-WIN/LOSE/FEVERWIN motions return all zeros
+        assert_eq!(motion_to_ops(1, 1), [0, 0, 0]);
+    }
 }

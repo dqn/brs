@@ -259,4 +259,136 @@ mod tests {
     fn test_default() {
         assert_eq!(StretchType::default(), StretchType::Stretch);
     }
+
+    #[test]
+    fn test_fit_outer_trimmed() {
+        // 200x100 image into 100x100 dst.
+        // scale_x=0.5, scale_y=1.0. scale_y > scale_x, so fit_width_trimmed is called.
+        // Scaled width = 1.0 * 200 = 200 > dst.w=100, so source is trimmed horizontally.
+        let (dst, src) = StretchType::KeepAspectRatioFitOuterTrimmed.compute(
+            (0.0, 0.0, 100.0, 100.0),
+            200.0,
+            100.0,
+        );
+        let src = src.expect("source region should be trimmed");
+        assert!((dst.0 - 0.0).abs() < 0.001);
+        assert!((dst.1 - 0.0).abs() < 0.001);
+        assert!((dst.2 - 100.0).abs() < 0.001);
+        assert!((dst.3 - 100.0).abs() < 0.001);
+        // Source trimmed: cx=100, w=100/1.0=100, so src.x=50, src.w=100
+        assert!((src.0 - 50.0).abs() < 0.001);
+        assert!((src.1 - 0.0).abs() < 0.001);
+        assert!((src.2 - 100.0).abs() < 0.001);
+        assert!((src.3 - 100.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_fit_width_trimmed() {
+        // 200x400 image into 100x100 dst. scale=0.5.
+        // Scaled height = 0.5 * 400 = 200 > dst.h=100, so source is trimmed vertically.
+        let (dst, src) = StretchType::KeepAspectRatioFitWidthTrimmed.compute(
+            (0.0, 0.0, 100.0, 100.0),
+            200.0,
+            400.0,
+        );
+        let src = src.expect("source region should be trimmed");
+        assert!((dst.2 - 100.0).abs() < 0.001);
+        assert!((dst.3 - 100.0).abs() < 0.001);
+        // Source trimmed vertically: cy=200, h=100/0.5=200, src.y=100, src.h=200
+        assert!((src.0 - 0.0).abs() < 0.001);
+        assert!((src.1 - 100.0).abs() < 0.001);
+        assert!((src.2 - 200.0).abs() < 0.001);
+        assert!((src.3 - 200.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_fit_height_trimmed() {
+        // 400x200 image into 100x100 dst. scale=100/200=0.5.
+        // Scaled width = 0.5 * 400 = 200 > dst.w=100, so source is trimmed horizontally.
+        let (dst, src) = StretchType::KeepAspectRatioFitHeightTrimmed.compute(
+            (0.0, 0.0, 100.0, 100.0),
+            400.0,
+            200.0,
+        );
+        let src = src.expect("source region should be trimmed");
+        assert!((dst.2 - 100.0).abs() < 0.001);
+        assert!((dst.3 - 100.0).abs() < 0.001);
+        // Source trimmed horizontally: cx=200, w=100/0.5=200, src.x=100, src.w=200
+        assert!((src.0 - 100.0).abs() < 0.001);
+        assert!((src.1 - 0.0).abs() < 0.001);
+        assert!((src.2 - 200.0).abs() < 0.001);
+        assert!((src.3 - 200.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_no_expanding_small_image() {
+        // 50x25 image into 200x200 dst.
+        // scale = min(1.0, min(4.0, 8.0)) = 1.0. Image stays 50x25, centered.
+        let (dst, src) =
+            StretchType::KeepAspectRatioNoExpanding.compute((0.0, 0.0, 200.0, 200.0), 50.0, 25.0);
+        assert!(src.is_none());
+        assert!((dst.2 - 50.0).abs() < 0.001);
+        assert!((dst.3 - 25.0).abs() < 0.001);
+        // Centered: x = (200 - 50) / 2 = 75, y = (200 - 25) / 2 = 87.5
+        assert!((dst.0 - 75.0).abs() < 0.001);
+        assert!((dst.1 - 87.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_no_expanding_large_image() {
+        // 400x200 image into 100x100 dst.
+        // scale = min(1.0, min(0.25, 0.5)) = 0.25. Image shrinks to 100x50, centered.
+        let (dst, src) =
+            StretchType::KeepAspectRatioNoExpanding.compute((0.0, 0.0, 100.0, 100.0), 400.0, 200.0);
+        assert!(src.is_none());
+        assert!((dst.2 - 100.0).abs() < 0.001);
+        assert!((dst.3 - 50.0).abs() < 0.001);
+        // Centered vertically: y = (100 - 50) / 2 = 25
+        assert!((dst.0 - 0.0).abs() < 0.001);
+        assert!((dst.1 - 25.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_no_resize_trimmed() {
+        // 200x300 image into 100x100 dst. Image > dst on both axes, so both trimmed.
+        let (dst, src) =
+            StretchType::NoResizeTrimmed.compute((0.0, 0.0, 100.0, 100.0), 200.0, 300.0);
+        let src = src.expect("source region should be trimmed");
+        assert!((dst.2 - 100.0).abs() < 0.001);
+        assert!((dst.3 - 100.0).abs() < 0.001);
+        // Width trimmed: cx=100, w=100, src.x=50, src.w=100
+        // Height trimmed: cy=150, h=100, src.y=100, src.h=100
+        assert!((src.0 - 50.0).abs() < 0.001);
+        assert!((src.1 - 100.0).abs() < 0.001);
+        assert!((src.2 - 100.0).abs() < 0.001);
+        assert!((src.3 - 100.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_fit_width() {
+        // 200x100 image into 400x400 dst. Width fits to 400, height = 100 * 400/200 = 200.
+        // Centered vertically in 400.
+        let (dst, src) =
+            StretchType::KeepAspectRatioFitWidth.compute((0.0, 0.0, 400.0, 400.0), 200.0, 100.0);
+        assert!(src.is_none());
+        assert!((dst.2 - 400.0).abs() < 0.001);
+        assert!((dst.3 - 200.0).abs() < 0.001);
+        // Centered: y = (400 - 200) / 2 = 100
+        assert!((dst.0 - 0.0).abs() < 0.001);
+        assert!((dst.1 - 100.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_fit_height() {
+        // 200x100 image into 400x400 dst. Height fits to 400, width = 200 * 400/100 = 800.
+        // Centered horizontally.
+        let (dst, src) =
+            StretchType::KeepAspectRatioFitHeight.compute((0.0, 0.0, 400.0, 400.0), 200.0, 100.0);
+        assert!(src.is_none());
+        assert!((dst.2 - 800.0).abs() < 0.001);
+        assert!((dst.3 - 400.0).abs() < 0.001);
+        // Centered: x = (400 - 800) / 2 = -200
+        assert!((dst.0 - (-200.0)).abs() < 0.001);
+        assert!((dst.1 - 0.0).abs() < 0.001);
+    }
 }

@@ -242,3 +242,400 @@ impl SongData {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    use bms_model::StopEvent;
+    use bms_model::{BmsModel, LnType, Note, PlayMode};
+
+    use super::*;
+
+    // -- from_model: feature flags --
+
+    #[test]
+    fn from_model_long_note_sets_feature_undefinedln() {
+        let mut model = BmsModel::default();
+        model.md5 = "abc".into();
+        model.title = "t".into();
+        model
+            .notes
+            .push(Note::long_note(0, 0, 1_000_000, 1, 1, LnType::LongNote));
+
+        let sd = SongData::from_model(&model, false);
+        assert_ne!(sd.feature & FEATURE_UNDEFINEDLN, 0);
+    }
+
+    #[test]
+    fn from_model_charge_note_sets_feature_chargenote() {
+        let mut model = BmsModel::default();
+        model.md5 = "abc".into();
+        model.title = "t".into();
+        model
+            .notes
+            .push(Note::long_note(0, 0, 1_000_000, 1, 1, LnType::ChargeNote));
+
+        let sd = SongData::from_model(&model, false);
+        assert_ne!(sd.feature & FEATURE_CHARGENOTE, 0);
+    }
+
+    #[test]
+    fn from_model_hell_charge_note_sets_feature_hellchargenote() {
+        let mut model = BmsModel::default();
+        model.md5 = "abc".into();
+        model.title = "t".into();
+        model.notes.push(Note::long_note(
+            0,
+            0,
+            1_000_000,
+            1,
+            1,
+            LnType::HellChargeNote,
+        ));
+
+        let sd = SongData::from_model(&model, false);
+        assert_ne!(sd.feature & FEATURE_HELLCHARGENOTE, 0);
+    }
+
+    #[test]
+    fn from_model_mine_note_sets_feature_minenote() {
+        let mut model = BmsModel::default();
+        model.md5 = "abc".into();
+        model.title = "t".into();
+        model.notes.push(Note::mine(0, 0, 1, 100));
+
+        let sd = SongData::from_model(&model, false);
+        assert_ne!(sd.feature & FEATURE_MINENOTE, 0);
+    }
+
+    #[test]
+    fn from_model_stop_events_sets_feature_stopsequence() {
+        let mut model = BmsModel::default();
+        model.md5 = "abc".into();
+        model.title = "t".into();
+        model.stop_events.push(StopEvent {
+            time_us: 1_000_000,
+            duration_ticks: 48,
+            duration_us: 500_000,
+        });
+
+        let sd = SongData::from_model(&model, false);
+        assert_ne!(sd.feature & FEATURE_STOPSEQUENCE, 0);
+    }
+
+    #[test]
+    fn from_model_has_random_sets_feature_random() {
+        let mut model = BmsModel::default();
+        model.md5 = "abc".into();
+        model.title = "t".into();
+        model.has_random = true;
+
+        let sd = SongData::from_model(&model, false);
+        assert_ne!(sd.feature & FEATURE_RANDOM, 0);
+    }
+
+    #[test]
+    fn from_model_empty_model_has_no_feature_flags() {
+        let model = BmsModel::default();
+        let sd = SongData::from_model(&model, false);
+        assert_eq!(sd.feature, 0);
+    }
+
+    // -- from_model: content flags --
+
+    #[test]
+    fn from_model_bmp_defs_sets_content_bga() {
+        let mut model = BmsModel::default();
+        model.md5 = "abc".into();
+        model.title = "t".into();
+        model.bmp_defs.insert(1, PathBuf::from("bg.bmp"));
+
+        let sd = SongData::from_model(&model, false);
+        assert_ne!(sd.content & CONTENT_BGA, 0);
+    }
+
+    #[test]
+    fn from_model_contains_txt_sets_content_text() {
+        let model = BmsModel::default();
+        let sd = SongData::from_model(&model, true);
+        assert_ne!(sd.content & CONTENT_TEXT, 0);
+    }
+
+    #[test]
+    fn from_model_contains_txt_false_no_content_text() {
+        let model = BmsModel::default();
+        let sd = SongData::from_model(&model, false);
+        assert_eq!(sd.content & CONTENT_TEXT, 0);
+    }
+
+    #[test]
+    fn from_model_nokeysound_at_threshold() {
+        // length_ms >= 30000 and wav_defs.len() <= (length_ms / 50000) + 3
+        // With time_us = 30_000_000 (30000ms) and 3 wav_defs:
+        //   30000 >= 30000 = true
+        //   3 <= (30000 / 50000) + 3 = 0 + 3 = 3 => true
+        let mut model = BmsModel::default();
+        model.md5 = "abc".into();
+        model.title = "t".into();
+        model.notes.push(Note::normal(0, 30_000_000, 1));
+        model.wav_defs = HashMap::from([
+            (1, PathBuf::from("a.wav")),
+            (2, PathBuf::from("b.wav")),
+            (3, PathBuf::from("c.wav")),
+        ]);
+
+        let sd = SongData::from_model(&model, false);
+        assert_ne!(
+            sd.content & CONTENT_NOKEYSOUND,
+            0,
+            "should trigger NOKEYSOUND at 30000ms with 3 wav_defs"
+        );
+    }
+
+    #[test]
+    fn from_model_nokeysound_below_threshold() {
+        // time_us = 29_999_000 => 29999ms < 30000 => should NOT trigger
+        let mut model = BmsModel::default();
+        model.md5 = "abc".into();
+        model.title = "t".into();
+        model.notes.push(Note::normal(0, 29_999_000, 1));
+        model.wav_defs = HashMap::from([
+            (1, PathBuf::from("a.wav")),
+            (2, PathBuf::from("b.wav")),
+            (3, PathBuf::from("c.wav")),
+        ]);
+
+        let sd = SongData::from_model(&model, false);
+        assert_eq!(
+            sd.content & CONTENT_NOKEYSOUND,
+            0,
+            "should NOT trigger NOKEYSOUND below 30000ms"
+        );
+    }
+
+    // -- validate --
+
+    #[test]
+    fn validate_empty_title_returns_false() {
+        let sd = SongData {
+            title: String::new(),
+            md5: "abc".into(),
+            sha256: "def".into(),
+            ..Default::default()
+        };
+        assert!(!sd.validate());
+    }
+
+    #[test]
+    fn validate_both_hashes_empty_returns_false() {
+        let sd = SongData {
+            title: "test".into(),
+            md5: String::new(),
+            sha256: String::new(),
+            ..Default::default()
+        };
+        assert!(!sd.validate());
+    }
+
+    #[test]
+    fn validate_valid_song_data_returns_true() {
+        let sd = SongData {
+            title: "test".into(),
+            md5: "abc".into(),
+            ..Default::default()
+        };
+        assert!(sd.validate());
+    }
+
+    #[test]
+    fn validate_sha256_only_returns_true() {
+        let sd = SongData {
+            title: "test".into(),
+            sha256: "def".into(),
+            ..Default::default()
+        };
+        assert!(sd.validate());
+    }
+
+    // -- full_title --
+
+    #[test]
+    fn full_title_with_subtitle() {
+        let sd = SongData {
+            title: "title".into(),
+            subtitle: "subtitle".into(),
+            ..Default::default()
+        };
+        assert_eq!(sd.full_title(), "title subtitle");
+    }
+
+    #[test]
+    fn full_title_without_subtitle() {
+        let sd = SongData {
+            title: "title".into(),
+            ..Default::default()
+        };
+        assert_eq!(sd.full_title(), "title");
+    }
+
+    // -- has_* methods via direct flag setting --
+
+    #[test]
+    fn has_random_sequence() {
+        let sd = SongData {
+            feature: FEATURE_RANDOM,
+            ..Default::default()
+        };
+        assert!(sd.has_random_sequence());
+    }
+
+    #[test]
+    fn has_mine_note() {
+        let sd = SongData {
+            feature: FEATURE_MINENOTE,
+            ..Default::default()
+        };
+        assert!(sd.has_mine_note());
+    }
+
+    #[test]
+    fn has_undefined_long_note() {
+        let sd = SongData {
+            feature: FEATURE_UNDEFINEDLN,
+            ..Default::default()
+        };
+        assert!(sd.has_undefined_long_note());
+    }
+
+    #[test]
+    fn has_long_note() {
+        let sd = SongData {
+            feature: FEATURE_LONGNOTE,
+            ..Default::default()
+        };
+        assert!(sd.has_long_note());
+    }
+
+    #[test]
+    fn has_charge_note() {
+        let sd = SongData {
+            feature: FEATURE_CHARGENOTE,
+            ..Default::default()
+        };
+        assert!(sd.has_charge_note());
+    }
+
+    #[test]
+    fn has_hell_charge_note() {
+        let sd = SongData {
+            feature: FEATURE_HELLCHARGENOTE,
+            ..Default::default()
+        };
+        assert!(sd.has_hell_charge_note());
+    }
+
+    #[test]
+    fn has_any_long_note_with_multiple_flags() {
+        let sd = SongData {
+            feature: FEATURE_CHARGENOTE | FEATURE_HELLCHARGENOTE,
+            ..Default::default()
+        };
+        assert!(sd.has_any_long_note());
+    }
+
+    #[test]
+    fn has_any_long_note_false_without_ln_flags() {
+        let sd = SongData {
+            feature: FEATURE_MINENOTE,
+            ..Default::default()
+        };
+        assert!(!sd.has_any_long_note());
+    }
+
+    #[test]
+    fn has_stop_sequence() {
+        let sd = SongData {
+            feature: FEATURE_STOPSEQUENCE,
+            ..Default::default()
+        };
+        assert!(sd.has_stop_sequence());
+    }
+
+    #[test]
+    fn has_document() {
+        let sd = SongData {
+            content: CONTENT_TEXT,
+            ..Default::default()
+        };
+        assert!(sd.has_document());
+    }
+
+    #[test]
+    fn has_bga() {
+        let sd = SongData {
+            content: CONTENT_BGA,
+            ..Default::default()
+        };
+        assert!(sd.has_bga());
+    }
+
+    // -- play_mode --
+
+    #[test]
+    fn play_mode_beat_7k() {
+        let sd = SongData {
+            mode: 7,
+            ..Default::default()
+        };
+        assert_eq!(sd.play_mode(), Some(PlayMode::Beat7K));
+    }
+
+    #[test]
+    fn play_mode_beat_5k() {
+        let sd = SongData {
+            mode: 5,
+            ..Default::default()
+        };
+        assert_eq!(sd.play_mode(), Some(PlayMode::Beat5K));
+    }
+
+    #[test]
+    fn play_mode_invalid_returns_none() {
+        let sd = SongData {
+            mode: 999,
+            ..Default::default()
+        };
+        assert_eq!(sd.play_mode(), None);
+    }
+
+    // -- from_model: metadata propagation --
+
+    #[test]
+    fn from_model_propagates_metadata() {
+        let mut model = BmsModel::default();
+        model.title = "Song Title".into();
+        model.subtitle = "Sub".into();
+        model.artist = "Artist".into();
+        model.sub_artist = "SubArtist".into();
+        model.genre = "Genre".into();
+        model.md5 = "md5hash".into();
+        model.sha256 = "sha256hash".into();
+        model.play_level = 12;
+        model.difficulty = 3;
+
+        let sd = SongData::from_model(&model, false);
+        assert_eq!(sd.title, "Song Title");
+        assert_eq!(sd.subtitle, "Sub");
+        assert_eq!(sd.artist, "Artist");
+        assert_eq!(sd.subartist, "SubArtist");
+        assert_eq!(sd.genre, "Genre");
+        assert_eq!(sd.md5, "md5hash");
+        assert_eq!(sd.sha256, "sha256hash");
+        assert_eq!(sd.level, 12);
+        assert_eq!(sd.difficulty, 3);
+        // Default mode is Beat7K = 7
+        assert_eq!(sd.mode, 7);
+    }
+}
