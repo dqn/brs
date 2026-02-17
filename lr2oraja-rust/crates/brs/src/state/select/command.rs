@@ -14,7 +14,7 @@ const MAX_REPLAY: i32 = 4;
 ///
 /// Matches the Java `MusicSelectCommand` enum variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Used in tests
+#[allow(dead_code)] // TODO: integrate with keyboard shortcut system
 pub enum MusicSelectCommand {
     /// Reset replay selection to the first available replay.
     ResetReplay,
@@ -44,9 +44,8 @@ pub enum MusicSelectCommand {
 ///
 /// Owns clipboard access and replay selection state.
 pub struct CommandExecutor {
-    #[allow(dead_code)] // Used in tests (via execute)
     clipboard: Option<arboard::Clipboard>,
-    #[allow(dead_code)] // Used in tests (via execute/selected_replay)
+    #[allow(dead_code)] // TODO: integrate with keyboard shortcut system
     selected_replay: i32,
 }
 
@@ -59,13 +58,13 @@ impl CommandExecutor {
     }
 
     /// Returns the currently selected replay index.
-    #[allow(dead_code)] // Used in tests
+    #[allow(dead_code)] // TODO: integrate with keyboard shortcut system
     pub fn selected_replay(&self) -> i32 {
         self.selected_replay
     }
 
     /// Execute a command against the current bar manager state.
-    #[allow(dead_code)] // Used in tests
+    #[allow(dead_code)] // TODO: integrate with keyboard shortcut system
     pub fn execute(&mut self, cmd: MusicSelectCommand, bar_manager: &BarManager) {
         match cmd {
             MusicSelectCommand::ResetReplay => {
@@ -112,8 +111,7 @@ impl CommandExecutor {
         }
     }
 
-    #[allow(dead_code)] // Used in tests (via execute)
-    fn set_clipboard(&mut self, text: &str) {
+    pub fn set_clipboard(&mut self, text: &str) {
         if let Some(cb) = &mut self.clipboard {
             if let Err(e) = cb.set_text(text.to_string()) {
                 tracing::warn!("Failed to set clipboard: {e}");

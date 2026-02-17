@@ -23,7 +23,9 @@ use bms_skin::property_id::{TIMER_FADEOUT, TIMER_STARTINPUT};
 
 use crate::app_state::AppStateType;
 use crate::preview_music::PREVIEW_DELAY_MS;
+use crate::skin_manager::SkinType;
 use crate::state::{GameStateHandler, StateContext};
+use crate::system_sound::SystemSound;
 
 use bar_manager::{Bar, BarManager, SortMode};
 
@@ -65,7 +67,6 @@ pub struct MusicSelectState {
     /// Wrapped in `Mutex` to satisfy the `Sync` bound on `GameStateHandler`.
     ir_fetch_receiver: Option<parking_lot::Mutex<std::sync::mpsc::Receiver<Vec<Bar>>>>,
     /// Command executor for music select commands (clipboard, replay, etc.).
-    #[allow(dead_code)] // TODO: integrate with input system
     command_executor: command::CommandExecutor,
 }
 
@@ -105,6 +106,10 @@ impl GameStateHandler for MusicSelectState {
         self.songbar_change_time = None;
         self.preview_triggered = false;
         info!("MusicSelect: create");
+
+        if let Some(skin_mgr) = ctx.skin_manager.as_deref_mut() {
+            skin_mgr.request_load(SkinType::MusicSelect);
+        }
 
         // If a BMS model is already loaded (via CLI --bms), skip to Decide immediately
         if ctx.resource.bms_model.is_some() {
@@ -328,6 +333,9 @@ impl GameStateHandler for MusicSelectState {
                         self.scroll_angle = -1;
                         self.scroll_start_us = Some(ctx.timer.now_micro_time());
                         self.on_cursor_change(ctx.timer.now_micro_time());
+                        if let Some(sm) = ctx.sound_manager.as_deref_mut() {
+                            sm.play(SystemSound::Select);
+                        }
                         return;
                     }
                     ControlKeys::Down => {
@@ -335,6 +343,9 @@ impl GameStateHandler for MusicSelectState {
                         self.scroll_angle = 1;
                         self.scroll_start_us = Some(ctx.timer.now_micro_time());
                         self.on_cursor_change(ctx.timer.now_micro_time());
+                        if let Some(sm) = ctx.sound_manager.as_deref_mut() {
+                            sm.play(SystemSound::Select);
+                        }
                         return;
                     }
                     ControlKeys::Enter => {
@@ -346,6 +357,9 @@ impl GameStateHandler for MusicSelectState {
                             self.bar_manager.leave_folder();
                             self.score_cache_dirty = true;
                             self.on_cursor_change(ctx.timer.now_micro_time());
+                            if let Some(sm) = ctx.sound_manager.as_deref_mut() {
+                                sm.play(SystemSound::Folder);
+                            }
                         }
                         return;
                     }
@@ -554,24 +568,65 @@ impl MusicSelectState {
     }
 
     fn select_current(&mut self, ctx: &mut StateContext) {
-        // Clone course data if needed to avoid borrow checker issues
-        let course_data_opt = if let Some(Bar::Course(course_data)) = self.bar_manager.current() {
-            Some((**course_data).clone())
-        } else {
-            None
+        // Pre-extract data from bar variants that need ownership to avoid borrow checker issues
+        // with self.bar_manager (immutable borrow) vs self (mutable borrow).
+        enum BarAction {
+            Song {
+                path: String,
+            },
+            Directory,
+            Course(bms_database::CourseData),
+            LeaderBoard {
+                song_data: Box<bms_database::SongData>,
+                from_lr2ir: bool,
+            },
+            Executable {
+                songs: Vec<bms_database::SongData>,
+            },
+            Function(bar_manager::FunctionAction),
+            Grade(bar_manager::GradeBarData),
+            RandomCourse(bms_database::RandomCourseData),
+            None,
+        }
+
+        let action = match self.bar_manager.current() {
+            Some(Bar::Song(song_data)) => BarAction::Song {
+                path: song_data.path.clone(),
+            },
+            Some(Bar::Folder { .. })
+            | Some(Bar::TableRoot { .. })
+            | Some(Bar::HashFolder { .. })
+            | Some(Bar::Container { .. })
+            | Some(Bar::SameFolder { .. })
+            | Some(Bar::SearchWord { .. })
+            | Some(Bar::Command { .. })
+            | Some(Bar::ContextMenu(_)) => BarAction::Directory,
+            Some(Bar::Course(course_data)) => BarAction::Course((**course_data).clone()),
+            Some(Bar::LeaderBoard {
+                song_data,
+                from_lr2ir,
+            }) => BarAction::LeaderBoard {
+                song_data: Box::new((**song_data).clone()),
+                from_lr2ir: *from_lr2ir,
+            },
+            Some(Bar::Executable { songs, .. }) => BarAction::Executable {
+                songs: songs.clone(),
+            },
+            Some(Bar::Function { action, .. }) => BarAction::Function(action.clone()),
+            Some(Bar::Grade(grade_data)) => BarAction::Grade((**grade_data).clone()),
+            Some(Bar::RandomCourse(rc_data)) => BarAction::RandomCourse((**rc_data).clone()),
+            std::option::Option::None => BarAction::None,
         };
 
-        match self.bar_manager.current() {
-            Some(Bar::Song(song_data)) => {
-                // Load BMS file
-                let path = std::path::PathBuf::from(&song_data.path);
+        match action {
+            BarAction::Song { path } => {
+                let path = std::path::PathBuf::from(&path);
                 match bms_model::BmsDecoder::decode(&path) {
                     Ok(model) => {
                         ctx.resource.play_mode = model.mode;
                         ctx.resource.bms_dir = path.parent().map(|p| p.to_path_buf());
                         ctx.resource.bms_path = Some(path.clone());
                         ctx.resource.bms_model = Some(model);
-                        // Start fadeout -> Decide
                         self.fadeout_started = true;
                         ctx.timer.set_timer_on(TIMER_FADEOUT);
                     }
@@ -580,40 +635,55 @@ impl MusicSelectState {
                     }
                 }
             }
-            Some(Bar::Folder { .. })
-            | Some(Bar::TableRoot { .. })
-            | Some(Bar::HashFolder { .. })
-            | Some(Bar::Container { .. })
-            | Some(Bar::SameFolder { .. })
-            | Some(Bar::SearchWord { .. })
-            | Some(Bar::Command { .. })
-            | Some(Bar::ContextMenu(_)) => {
+            BarAction::Directory => {
                 if let Some(db) = ctx.database {
                     self.bar_manager.enter_folder(&db.song_db);
                     self.score_cache_dirty = true;
+                    if let Some(sm) = ctx.sound_manager.as_deref_mut() {
+                        sm.play(SystemSound::Folder);
+                    }
                 }
             }
-            Some(Bar::Course(_)) => {
-                if let Some(course_data) = course_data_opt {
-                    self.select_course(ctx, &course_data);
-                }
+            BarAction::Course(course_data) => {
+                self.select_course(ctx, &course_data);
             }
-            Some(Bar::LeaderBoard {
+            BarAction::LeaderBoard {
                 song_data,
                 from_lr2ir,
-            }) => {
-                let song_data = (**song_data).clone();
-                let from_lr2ir = *from_lr2ir;
-                self.enter_leaderboard(song_data, from_lr2ir);
+            } => {
+                self.enter_leaderboard(*song_data, from_lr2ir);
             }
-            // Selectable non-directory bars that don't navigate
-            Some(Bar::Executable { .. })
-            | Some(Bar::Function { .. })
-            | Some(Bar::Grade(_))
-            | Some(Bar::RandomCourse(_)) => {
-                // TODO: implement specific actions for these bar types
+            BarAction::Executable { songs } => {
+                // Executable bar: start autoplay with the first song
+                if let Some(song_data) = songs.first() {
+                    let path = std::path::PathBuf::from(&song_data.path);
+                    match bms_model::BmsDecoder::decode(&path) {
+                        Ok(model) => {
+                            ctx.resource.play_mode = model.mode;
+                            ctx.resource.bms_dir = path.parent().map(|p| p.to_path_buf());
+                            ctx.resource.bms_path = Some(path);
+                            ctx.resource.bms_model = Some(model);
+                            ctx.resource.player_mode = crate::player_resource::PlayerMode::Autoplay;
+                            self.fadeout_started = true;
+                            ctx.timer.set_timer_on(TIMER_FADEOUT);
+                            info!("MusicSelect: executable bar - autoplay start");
+                        }
+                        Err(e) => {
+                            tracing::warn!("MusicSelect: failed to load BMS for executable: {e}");
+                        }
+                    }
+                }
             }
-            None => {}
+            BarAction::Function(func_action) => {
+                self.execute_function_action(ctx, func_action);
+            }
+            BarAction::Grade(grade_data) => {
+                self.select_course(ctx, &grade_data.course);
+            }
+            BarAction::RandomCourse(rc_data) => {
+                self.select_random_course(ctx, &rc_data);
+            }
+            BarAction::None => {}
         }
     }
 
@@ -712,6 +782,260 @@ impl MusicSelectState {
             ctx.resource.load_course_stage();
             self.fadeout_started = true;
             ctx.timer.set_timer_on(TIMER_FADEOUT);
+        }
+    }
+
+    /// Execute a FunctionAction from a Function bar selection.
+    fn execute_function_action(
+        &mut self,
+        ctx: &mut StateContext,
+        action: bar_manager::FunctionAction,
+    ) {
+        use bar_manager::FunctionAction;
+        match action {
+            FunctionAction::Autoplay(song_data) => {
+                let path = std::path::PathBuf::from(&song_data.path);
+                match bms_model::BmsDecoder::decode(&path) {
+                    Ok(model) => {
+                        ctx.resource.play_mode = model.mode;
+                        ctx.resource.bms_dir = path.parent().map(|p| p.to_path_buf());
+                        ctx.resource.bms_path = Some(path);
+                        ctx.resource.bms_model = Some(model);
+                        ctx.resource.player_mode = crate::player_resource::PlayerMode::Autoplay;
+                        self.fadeout_started = true;
+                        ctx.timer.set_timer_on(TIMER_FADEOUT);
+                    }
+                    Err(e) => {
+                        tracing::warn!("MusicSelect: failed to load BMS for autoplay: {e}");
+                    }
+                }
+            }
+            FunctionAction::Practice(song_data) => {
+                let path = std::path::PathBuf::from(&song_data.path);
+                match bms_model::BmsDecoder::decode(&path) {
+                    Ok(model) => {
+                        ctx.resource.play_mode = model.mode;
+                        ctx.resource.bms_dir = path.parent().map(|p| p.to_path_buf());
+                        ctx.resource.bms_path = Some(path);
+                        ctx.resource.bms_model = Some(model);
+                        ctx.resource.is_practice = true;
+                        self.fadeout_started = true;
+                        ctx.timer.set_timer_on(TIMER_FADEOUT);
+                    }
+                    Err(e) => {
+                        tracing::warn!("MusicSelect: failed to load BMS for practice: {e}");
+                    }
+                }
+            }
+            FunctionAction::ShowSameFolder { folder_crc, .. } => {
+                if let Some(db) = ctx.database {
+                    match db.song_db.get_song_datas("folder", &folder_crc) {
+                        Ok(songs) => {
+                            let bars: Vec<Bar> =
+                                songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
+                            if !bars.is_empty() {
+                                self.bar_manager.push_and_set_bars(bars);
+                                self.score_cache_dirty = true;
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("MusicSelect: same folder lookup failed: {e}");
+                        }
+                    }
+                }
+            }
+            FunctionAction::CopyToClipboard(text) => {
+                self.command_executor.set_clipboard(&text);
+            }
+            FunctionAction::OpenUrl(url) => {
+                #[cfg(target_os = "macos")]
+                let result = std::process::Command::new("open").arg(&url).spawn();
+                #[cfg(target_os = "linux")]
+                let result = std::process::Command::new("xdg-open").arg(&url).spawn();
+                #[cfg(target_os = "windows")]
+                let result = std::process::Command::new("cmd")
+                    .args(["/C", "start", &url])
+                    .spawn();
+                #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+                let result: Result<std::process::Child, std::io::Error> = Err(std::io::Error::new(
+                    std::io::ErrorKind::Unsupported,
+                    "unsupported OS",
+                ));
+
+                if let Err(e) = result {
+                    tracing::warn!("MusicSelect: failed to open URL '{url}': {e}");
+                }
+            }
+            FunctionAction::ToggleFavorite { sha256, flag } => {
+                if let Some(db) = ctx.database {
+                    if let Err(e) = db.song_db.update_favorite(&sha256, flag) {
+                        tracing::warn!("MusicSelect: failed to toggle favorite: {e}");
+                    } else {
+                        info!(sha256 = %sha256, flag, "MusicSelect: favorite toggled via function");
+                    }
+                }
+            }
+            FunctionAction::PlayReplay {
+                song_data,
+                replay_index,
+            } => {
+                let path = std::path::PathBuf::from(&song_data.path);
+                match bms_model::BmsDecoder::decode(&path) {
+                    Ok(model) => {
+                        ctx.resource.play_mode = model.mode;
+                        ctx.resource.bms_dir = path.parent().map(|p| p.to_path_buf());
+                        ctx.resource.bms_path = Some(path);
+                        ctx.resource.bms_model = Some(model);
+                        ctx.resource.player_mode =
+                            crate::player_resource::PlayerMode::Replay(replay_index as u8);
+                        self.fadeout_started = true;
+                        ctx.timer.set_timer_on(TIMER_FADEOUT);
+                    }
+                    Err(e) => {
+                        tracing::warn!("MusicSelect: failed to load BMS for replay: {e}");
+                    }
+                }
+            }
+            FunctionAction::GhostBattle { song_data, lr2_id } => {
+                let path = std::path::PathBuf::from(&song_data.path);
+                match bms_model::BmsDecoder::decode(&path) {
+                    Ok(model) => {
+                        ctx.resource.play_mode = model.mode;
+                        ctx.resource.bms_dir = path.parent().map(|p| p.to_path_buf());
+                        ctx.resource.bms_path = Some(path);
+                        ctx.resource.bms_model = Some(model);
+                        ctx.resource.ghost_battle =
+                            Some(crate::player_resource::GhostBattleSettings {
+                                random_seed: lr2_id,
+                                lane_sequence: 0,
+                            });
+                        self.fadeout_started = true;
+                        ctx.timer.set_timer_on(TIMER_FADEOUT);
+                    }
+                    Err(e) => {
+                        tracing::warn!("MusicSelect: failed to load BMS for ghost battle: {e}");
+                    }
+                }
+            }
+            FunctionAction::None => {}
+        }
+    }
+
+    /// Execute a random course selection using the RandomCourseData lottery system.
+    fn select_random_course(
+        &mut self,
+        ctx: &mut StateContext,
+        rc_data: &bms_database::RandomCourseData,
+    ) {
+        let db = match ctx.database {
+            Some(db) => db,
+            None => {
+                tracing::warn!("MusicSelect: no database available for random course");
+                return;
+            }
+        };
+
+        // Query candidates for each stage
+        let mut candidates_per_stage = Vec::new();
+        for (i, stage) in rc_data.stage.iter().enumerate() {
+            if stage.sql.is_empty() {
+                tracing::warn!(stage = i, "RandomCourse: stage has empty SQL");
+                return;
+            }
+            match db.song_db.get_song_datas_by_sql(&stage.sql) {
+                Ok(songs) => {
+                    let course_songs: Vec<bms_database::CourseSongData> = songs
+                        .iter()
+                        .map(|s| bms_database::CourseSongData {
+                            sha256: s.sha256.clone(),
+                            md5: s.md5.clone(),
+                            title: s.title.clone(),
+                        })
+                        .collect();
+                    if course_songs.is_empty() {
+                        tracing::warn!(stage = i, sql = %stage.sql, "RandomCourse: no songs matched query");
+                        return;
+                    }
+                    candidates_per_stage.push(course_songs);
+                }
+                Err(e) => {
+                    tracing::warn!(stage = i, sql = %stage.sql, "RandomCourse: query failed: {e}");
+                    return;
+                }
+            }
+        }
+
+        if candidates_per_stage.is_empty() {
+            tracing::warn!("RandomCourse: no stages defined");
+            return;
+        }
+
+        // Run the lottery to pick one song per stage
+        let mut rng = rand::rng();
+        let picked = rc_data.lottery(&candidates_per_stage, &mut rng);
+
+        // Build course data from lottery results
+        let selected_songs: Vec<bms_database::CourseSongData> =
+            picked.into_iter().flatten().collect();
+        if selected_songs.len() != rc_data.stage.len() {
+            tracing::warn!(
+                expected = rc_data.stage.len(),
+                got = selected_songs.len(),
+                "RandomCourse: lottery did not fill all stages"
+            );
+            return;
+        }
+
+        let course_data = rc_data.create_course_data(&selected_songs);
+
+        // Load BMS models for all selected songs
+        let mut models = Vec::new();
+        let mut dirs = Vec::new();
+        for (i, song_ref) in selected_songs.iter().enumerate() {
+            let found = if !song_ref.sha256.is_empty() {
+                db.song_db.get_song_datas("sha256", &song_ref.sha256)
+            } else if !song_ref.md5.is_empty() {
+                db.song_db.get_song_datas("md5", &song_ref.md5)
+            } else {
+                tracing::warn!(stage = i, "RandomCourse: selected song has no hash");
+                return;
+            };
+
+            let song_data = match found {
+                Ok(songs) if !songs.is_empty() => songs.into_iter().next().unwrap(),
+                Ok(_) => {
+                    tracing::warn!(stage = i, "RandomCourse: selected song not found in DB");
+                    return;
+                }
+                Err(e) => {
+                    tracing::warn!(stage = i, "RandomCourse: DB lookup failed: {e}");
+                    return;
+                }
+            };
+
+            let path = std::path::PathBuf::from(&song_data.path);
+            match bms_model::BmsDecoder::decode(&path) {
+                Ok(model) => {
+                    dirs.push(path.parent().map(|p| p.to_path_buf()).unwrap_or_default());
+                    models.push(model);
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        stage = i,
+                        path = %path.display(),
+                        "RandomCourse: failed to load BMS: {e}"
+                    );
+                    return;
+                }
+            }
+        }
+
+        if !models.is_empty() {
+            ctx.resource.start_course(course_data, models, dirs);
+            ctx.resource.load_course_stage();
+            self.fadeout_started = true;
+            ctx.timer.set_timer_on(TIMER_FADEOUT);
+            info!(name = %rc_data.name, "MusicSelect: random course started");
         }
     }
 }

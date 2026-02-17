@@ -147,6 +147,23 @@ impl SongDatabase {
         Ok(results)
     }
 
+    /// Execute a raw SQL query and return matching song data.
+    ///
+    /// Used by RandomCourse stages that carry user-defined SQL queries.
+    /// The query is expected to be a SELECT that returns rows from the song table.
+    pub fn get_song_datas_by_sql(&self, sql: &str) -> Result<Vec<SongData>> {
+        let mut stmt = self.conn.prepare(sql)?;
+        let rows = stmt.query_map([], SongData::from_row)?;
+        let mut results = Vec::new();
+        for r in rows {
+            let sd = r?;
+            if sd.validate() {
+                results.push(sd);
+            }
+        }
+        Ok(results)
+    }
+
     /// Toggle a favorite flag for a song identified by sha256.
     /// `flag` should be one of FAVORITE_SONG, FAVORITE_CHART, INVISIBLE_SONG, INVISIBLE_CHART.
     pub fn update_favorite(&self, sha256: &str, flag: i32) -> Result<()> {

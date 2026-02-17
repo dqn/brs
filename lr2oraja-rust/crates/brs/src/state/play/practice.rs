@@ -109,10 +109,8 @@ const DOUBLE_NAMES: [&str; 2] = ["NORMAL", "FLIP"];
 const GRAPH_NAMES: [&str; 3] = ["NOTETYPE", "JUDGE", "EARLYLATE"];
 
 /// Key repeat threshold in milliseconds (initial delay).
-#[allow(dead_code)] // TODO: integrate with key repeat system
 const KEY_REPEAT_DELAY_MS: i64 = 500;
 /// Key repeat interval in milliseconds.
-#[allow(dead_code)] // TODO: integrate with key repeat system
 const KEY_REPEAT_INTERVAL_MS: i64 = 50;
 
 /// Practice configuration state — manages cursor, property, and key repeat.
@@ -286,6 +284,18 @@ impl PracticeConfiguration {
                 p.doubleop = (p.doubleop + delta).rem_euclid(DOUBLE_NAMES.len() as i32);
             }
         }
+    }
+
+    /// Check if key repeat should trigger based on hold duration.
+    ///
+    /// Returns true when `hold_ms` exceeds the initial delay and falls on
+    /// a repeat interval boundary (within one frame tolerance at 60 fps).
+    pub fn should_repeat(hold_ms: i64) -> bool {
+        if hold_ms < KEY_REPEAT_DELAY_MS {
+            return false;
+        }
+        let since_delay = hold_ms - KEY_REPEAT_DELAY_MS;
+        since_delay % KEY_REPEAT_INTERVAL_MS < 16
     }
 
     /// Save current practice property to disk.
@@ -524,6 +534,35 @@ mod tests {
         assert_eq!(format_time_ms(1500), "00:01.5");
         assert_eq!(format_time_ms(65300), "01:05.3");
         assert_eq!(format_time_ms(125000), "02:05.0");
+    }
+
+    #[test]
+    fn should_repeat_before_delay() {
+        // Hold duration below initial delay — should not repeat
+        assert!(!PracticeConfiguration::should_repeat(0));
+        assert!(!PracticeConfiguration::should_repeat(100));
+        assert!(!PracticeConfiguration::should_repeat(499));
+    }
+
+    #[test]
+    fn should_repeat_at_delay_boundary() {
+        // Exactly at delay threshold — should trigger
+        assert!(PracticeConfiguration::should_repeat(500));
+    }
+
+    #[test]
+    fn should_repeat_at_interval_boundaries() {
+        // At each repeat interval after the delay
+        assert!(PracticeConfiguration::should_repeat(550));
+        assert!(PracticeConfiguration::should_repeat(600));
+        assert!(PracticeConfiguration::should_repeat(650));
+    }
+
+    #[test]
+    fn should_repeat_between_intervals() {
+        // Between intervals (outside frame tolerance) — should not trigger
+        assert!(!PracticeConfiguration::should_repeat(530));
+        assert!(!PracticeConfiguration::should_repeat(580));
     }
 
     #[test]
