@@ -11,8 +11,12 @@ use bms_skin::property_id::{
     TIMER_STARTINPUT,
 };
 
+use bms_rule::ClearType;
+
 use crate::app_state::AppStateType;
+use crate::skin_manager::SkinType;
 use crate::state::{GameStateHandler, StateContext};
+use crate::system_sound::SystemSound;
 
 /// Default input delay in milliseconds (skin.getInput() placeholder).
 const DEFAULT_INPUT_DELAY_MS: i64 = 500;
@@ -58,6 +62,20 @@ impl GameStateHandler for ResultState {
         self.cancel = false;
         self.graph_type = 0;
         info!("Result: create");
+
+        if let Some(skin_mgr) = ctx.skin_manager.as_deref_mut() {
+            skin_mgr.request_load(SkinType::Result);
+        }
+
+        // Play result sound based on clear type
+        if let Some(sm) = ctx.sound_manager.as_deref_mut() {
+            let clear = ctx.resource.score_data.clear;
+            if clear != ClearType::NoPlay && clear != ClearType::Failed {
+                sm.play(SystemSound::ResultClear);
+            } else {
+                sm.play(SystemSound::ResultFail);
+            }
+        }
 
         // Save score to DB if update_score is set
         if ctx.resource.update_score

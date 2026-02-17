@@ -22,7 +22,6 @@ pub enum SkinType {
 
 /// Status of the most recent skin load attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[allow(dead_code)] // TODO: integrate with skin load fallback chain
 pub enum SkinLoadStatus {
     /// No skin load has been attempted.
     #[default]
@@ -37,14 +36,13 @@ pub enum SkinLoadStatus {
 
 /// Result of a skin load attempt with fallback chain.
 #[derive(Debug)]
-#[allow(dead_code)] // TODO: integrate with skin load fallback chain
+#[allow(dead_code)] // Used in tests
 pub struct SkinLoadResult {
     pub status: SkinLoadStatus,
     pub error_message: Option<String>,
 }
 
 /// Returns the default skin path for the given skin type.
-#[allow(dead_code)] // TODO: integrate with skin load fallback chain
 fn default_skin_path(skin_type: SkinType) -> Option<PathBuf> {
     let relative = match skin_type {
         SkinType::Play7 => "skin/default/play/play7.luaskin",
@@ -73,10 +71,8 @@ pub struct SkinManager {
     /// Currently active skin type.
     current: Option<SkinType>,
     /// Status of the most recent skin load.
-    #[allow(dead_code)] // TODO: integrate with skin load fallback chain
     pub load_status: SkinLoadStatus,
     /// Error message from the most recent failed load attempt.
-    #[allow(dead_code)] // TODO: integrate with skin load fallback chain
     pub last_error: Option<String>,
 }
 

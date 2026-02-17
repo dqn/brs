@@ -55,12 +55,16 @@ impl Default for SkinConfigState {
 }
 
 impl GameStateHandler for SkinConfigState {
-    fn create(&mut self, _ctx: &mut StateContext) {
+    fn create(&mut self, ctx: &mut StateContext) {
         self.cursor = 0;
         info!(
             skin_type = self.current_skin_type().name(),
             "SkinConfig: create"
         );
+
+        if let Some(skin_mgr) = ctx.skin_manager.as_deref_mut() {
+            skin_mgr.request_load(crate::skin_manager::SkinType::SkinConfig);
+        }
     }
 
     fn render(&mut self, _ctx: &mut StateContext) {

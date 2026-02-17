@@ -8,6 +8,7 @@ use tracing::info;
 use bms_input::control_keys::ControlKeys;
 
 use crate::app_state::AppStateType;
+use crate::skin_manager::SkinType;
 use crate::state::{GameStateHandler, StateContext};
 
 /// Play mode configurations available for key binding.
@@ -88,10 +89,14 @@ impl Default for KeyConfigState {
 }
 
 impl GameStateHandler for KeyConfigState {
-    fn create(&mut self, _ctx: &mut StateContext) {
+    fn create(&mut self, ctx: &mut StateContext) {
         self.cursor = 0;
         self.key_input_mode = false;
         info!(mode = self.current_mode_name(), "KeyConfig: create");
+
+        if let Some(skin_mgr) = ctx.skin_manager.as_deref_mut() {
+            skin_mgr.request_load(SkinType::KeyConfig);
+        }
     }
 
     fn render(&mut self, _ctx: &mut StateContext) {

@@ -10,6 +10,7 @@ use bms_input::control_keys::ControlKeys;
 use bms_skin::property_id::{TIMER_FADEOUT, TIMER_STARTINPUT};
 
 use crate::app_state::AppStateType;
+use crate::skin_manager::SkinType;
 use crate::state::{GameStateHandler, StateContext};
 
 /// Default input delay in milliseconds.
@@ -49,6 +50,10 @@ impl GameStateHandler for CourseResultState {
     fn create(&mut self, ctx: &mut StateContext) {
         self.fadeout_started = false;
         info!("CourseResult: create");
+
+        if let Some(skin_mgr) = ctx.skin_manager.as_deref_mut() {
+            skin_mgr.request_load(SkinType::CourseResult);
+        }
 
         // Aggregate course scores if available
         if let Some(course_scores) = &ctx.resource.course_score_data

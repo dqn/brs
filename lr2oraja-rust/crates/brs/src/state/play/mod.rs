@@ -41,6 +41,7 @@ use bms_skin::property_id::{
 };
 
 use crate::app_state::AppStateType;
+use crate::skin_manager::SkinType;
 use crate::state::{GameStateHandler, StateContext};
 use play_skin_state::ScratchAngleState;
 
@@ -150,11 +151,10 @@ pub struct PlayState {
     pub(super) bga_processor: Option<BgaProcessor>,
 
     // Control state
-    #[allow(dead_code)] // TODO: integrate with play speed system
+    #[allow(dead_code)] // Parsed for completeness (Java play speed system)
     pub(super) play_speed: i32,
     pub(super) key_beam_stop: bool,
     pub(super) assist: i32,
-    #[allow(dead_code)] // TODO: integrate with judge timing system
     pub(super) is_judge_started: bool,
 
     // BPM tracking
@@ -198,7 +198,7 @@ impl PlayState {
     }
 
     /// Get a reference to the BGA processor (for rendering).
-    #[allow(dead_code)] // TODO: integrate with Bevy rendering
+    #[allow(dead_code)] // Parsed for completeness (Java BGA rendering)
     pub fn bga_processor(&self) -> Option<&BgaProcessor> {
         self.bga_processor.as_ref()
     }
@@ -231,6 +231,18 @@ impl GameStateHandler for PlayState {
         self.select_pressed = false;
         self.is_practice = ctx.resource.is_practice;
 
+        if let Some(skin_mgr) = ctx.skin_manager.as_deref_mut() {
+            let skin_type = match ctx.resource.play_mode {
+                PlayMode::Beat5K => SkinType::Play5,
+                PlayMode::Beat7K => SkinType::Play7,
+                PlayMode::PopN5K | PlayMode::PopN9K => SkinType::Play9,
+                PlayMode::Beat10K => SkinType::Play10,
+                PlayMode::Beat14K => SkinType::Play14,
+                PlayMode::Keyboard24K | PlayMode::Keyboard24KDouble => SkinType::Play24,
+            };
+            skin_mgr.request_load(skin_type);
+        }
+
         // Practice mode: initialize PracticeConfiguration
         if self.is_practice
             && let Some(model) = &ctx.resource.bms_model
@@ -254,6 +266,25 @@ impl GameStateHandler for PlayState {
                     warn!("Play: failed to load old score: {e}");
                     ctx.resource.oldscore = Default::default();
                 }
+            }
+        }
+
+        // Apply player mode settings
+        match ctx.resource.player_mode {
+            crate::player_resource::PlayerMode::Autoplay => {
+                self.is_autoplay = true;
+                info!("Play: autoplay mode enabled");
+            }
+            crate::player_resource::PlayerMode::Replay(slot) => {
+                self.is_replay = true;
+                self.is_autoplay = false;
+                info!(slot, "Play: replay mode enabled");
+            }
+            crate::player_resource::PlayerMode::Practice => {
+                // Practice flag is already set via ctx.resource.is_practice
+            }
+            crate::player_resource::PlayerMode::Play => {
+                // Normal play, no special handling
             }
         }
 
@@ -491,6 +522,16 @@ impl GameStateHandler for PlayState {
             ctx.resource.is_practice = false;
         } else {
             self.build_score_data(ctx);
+        }
+
+        // Propagate assist level to resource
+        ctx.resource.assist = self.assist;
+        if self.assist > 0 {
+            ctx.resource.update_score = false;
+            info!(
+                assist = self.assist,
+                "Play: assist mode active, score save disabled"
+            );
         }
     }
 }
