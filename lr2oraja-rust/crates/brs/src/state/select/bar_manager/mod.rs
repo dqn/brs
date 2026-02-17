@@ -533,7 +533,7 @@ mod tests {
             Bar::Course(Box::new(sample_course("Course"))),
         ];
         bm.sort(SortMode::Artist, &HashMap::new());
-        // Course has empty artist, so it sorts before "Beta Artist"
+        // Non-Song falls back to TITLE sort: "Course" < "Song" alphabetically
         match &bm.bars[0] {
             Bar::Course(c) => assert_eq!(c.name, "Course"),
             _ => panic!("expected Course bar first"),
@@ -552,7 +552,7 @@ mod tests {
             Bar::Course(Box::new(sample_course("Course"))),
         ];
         bm.sort(SortMode::Level, &HashMap::new());
-        // Course has level 0, so it sorts before level 12
+        // Non-Song falls back to TITLE sort: "Course" < "Hard" alphabetically
         match &bm.bars[0] {
             Bar::Course(c) => assert_eq!(c.name, "Course"),
             _ => panic!("expected Course bar first"),
@@ -851,7 +851,7 @@ mod tests {
             })),
             Bar::Song(Box::new(SongData {
                 sha256: "sha_b".to_string(),
-                title: "No Play".to_string(),
+                title: "No Score".to_string(),
                 ..Default::default()
             })),
             Bar::Song(Box::new(SongData {
@@ -865,44 +865,70 @@ mod tests {
             make_score("sha_c", bms_rule::ClearType::Easy, 0, 0, 0, 0),
         ]);
         bm.sort(SortMode::Clear, &cache);
-        // No Play (0) < Easy (4) < Hard (6)
+        // Java parity: Easy(4) < Hard(6) < No Score(end)
         match &bm.bars[0] {
-            Bar::Song(s) => assert_eq!(s.title, "No Play"),
-            _ => panic!("expected Song"),
-        }
-        match &bm.bars[1] {
             Bar::Song(s) => assert_eq!(s.title, "Easy Clear"),
             _ => panic!("expected Song"),
         }
-        match &bm.bars[2] {
+        match &bm.bars[1] {
             Bar::Song(s) => assert_eq!(s.title, "Hard Clear"),
+            _ => panic!("expected Song"),
+        }
+        match &bm.bars[2] {
+            Bar::Song(s) => assert_eq!(s.title, "No Score"),
             _ => panic!("expected Song"),
         }
     }
 
     #[test]
-    fn sort_by_score_descending() {
+    fn sort_by_score_ratio_ascending() {
         let mut bm = BarManager::new();
         bm.bars = vec![
             Bar::Song(Box::new(SongData {
-                sha256: "sha_low".to_string(),
-                title: "Low Score".to_string(),
+                sha256: "sha_high_ratio".to_string(),
+                title: "High Ratio".to_string(),
                 ..Default::default()
             })),
             Bar::Song(Box::new(SongData {
-                sha256: "sha_high".to_string(),
-                title: "High Score".to_string(),
+                sha256: "sha_low_ratio".to_string(),
+                title: "Low Ratio".to_string(),
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                sha256: "sha_no_notes".to_string(),
+                title: "No Notes".to_string(),
                 ..Default::default()
             })),
         ];
-        let cache = make_score_cache(&[
-            make_score("sha_low", bms_rule::ClearType::default(), 50, 0, 0, 0),
-            make_score("sha_high", bms_rule::ClearType::default(), 200, 0, 0, 0),
-        ]);
+        // High Ratio: exscore=200 (epg=100), notes=200 → ratio=1.0
+        // Low Ratio: exscore=100 (epg=50), notes=500 → ratio=0.2
+        // No Notes: notes=0 → end
+        let mut s1 = make_score(
+            "sha_high_ratio",
+            bms_rule::ClearType::default(),
+            100,
+            0,
+            0,
+            0,
+        );
+        s1.notes = 200;
+        let mut s2 = make_score("sha_low_ratio", bms_rule::ClearType::default(), 50, 0, 0, 0);
+        s2.notes = 500;
+        let mut s3 = make_score("sha_no_notes", bms_rule::ClearType::default(), 50, 0, 0, 0);
+        s3.notes = 0;
+        let cache = make_score_cache(&[s1, s2, s3]);
         bm.sort(SortMode::Score, &cache);
-        // Descending: high first
+        // Java parity ascending: Low Ratio(0.2) < High Ratio(1.0) < No Notes(end)
         match &bm.bars[0] {
-            Bar::Song(s) => assert_eq!(s.title, "High Score"),
+            Bar::Song(s) => assert_eq!(s.title, "Low Ratio"),
+            _ => panic!("expected Song"),
+        }
+        match &bm.bars[1] {
+            Bar::Song(s) => assert_eq!(s.title, "High Ratio"),
+            _ => panic!("expected Song"),
+        }
+        match &bm.bars[2] {
+            Bar::Song(s) => assert_eq!(s.title, "No Notes"),
             _ => panic!("expected Song"),
         }
     }
@@ -943,34 +969,51 @@ mod tests {
     }
 
     #[test]
-    fn sort_by_duration_descending() {
+    fn sort_by_duration_avgjudge_ascending() {
         let mut bm = BarManager::new();
         bm.bars = vec![
             Bar::Song(Box::new(SongData {
-                sha256: "sha_a".to_string(),
-                title: "Rarely Played".to_string(),
+                sha256: "sha_long".to_string(),
+                title: "Long Duration".to_string(),
                 ..Default::default()
             })),
             Bar::Song(Box::new(SongData {
-                sha256: "sha_b".to_string(),
-                title: "Often Played".to_string(),
+                sha256: "sha_short".to_string(),
+                title: "Short Duration".to_string(),
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                sha256: "sha_none".to_string(),
+                title: "No Duration".to_string(),
                 ..Default::default()
             })),
         ];
-        let cache = make_score_cache(&[
-            make_score("sha_a", bms_rule::ClearType::default(), 0, 0, 3, 0),
-            make_score("sha_b", bms_rule::ClearType::default(), 0, 0, 100, 0),
-        ]);
+        // avgjudge: lower = shorter duration
+        let mut s1 = make_score("sha_long", bms_rule::ClearType::default(), 0, 0, 0, 0);
+        s1.avgjudge = 90000;
+        let mut s2 = make_score("sha_short", bms_rule::ClearType::default(), 0, 0, 0, 0);
+        s2.avgjudge = 30000;
+        // sha_none: default avgjudge = i64::MAX → treated as no data
+        let s3 = make_score("sha_none", bms_rule::ClearType::default(), 0, 0, 0, 0);
+        let cache = make_score_cache(&[s1, s2, s3]);
         bm.sort(SortMode::Duration, &cache);
-        // Descending: most played first
+        // Java parity ascending: Short(30000) < Long(90000) < No Duration(MAX → end)
         match &bm.bars[0] {
-            Bar::Song(s) => assert_eq!(s.title, "Often Played"),
+            Bar::Song(s) => assert_eq!(s.title, "Short Duration"),
+            _ => panic!("expected Song"),
+        }
+        match &bm.bars[1] {
+            Bar::Song(s) => assert_eq!(s.title, "Long Duration"),
+            _ => panic!("expected Song"),
+        }
+        match &bm.bars[2] {
+            Bar::Song(s) => assert_eq!(s.title, "No Duration"),
             _ => panic!("expected Song"),
         }
     }
 
     #[test]
-    fn sort_by_last_update_descending() {
+    fn sort_by_last_update_ascending() {
         let mut bm = BarManager::new();
         bm.bars = vec![
             Bar::Song(Box::new(SongData {
@@ -989,13 +1032,13 @@ mod tests {
             make_score("sha_new", bms_rule::ClearType::default(), 0, 0, 0, 9999),
         ]);
         bm.sort(SortMode::LastUpdate, &cache);
-        // Descending: most recent first
+        // Java parity ascending: Old(1000) < New(9999)
         match &bm.bars[0] {
-            Bar::Song(s) => assert_eq!(s.title, "New"),
+            Bar::Song(s) => assert_eq!(s.title, "Old"),
             _ => panic!("expected Song"),
         }
         match &bm.bars[1] {
-            Bar::Song(s) => assert_eq!(s.title, "Old"),
+            Bar::Song(s) => assert_eq!(s.title, "New"),
             _ => panic!("expected Song"),
         }
     }
@@ -1015,7 +1058,7 @@ mod tests {
             },
         ];
         bm.sort(SortMode::Bpm, &HashMap::new());
-        // Folder has bpm 0, so it sorts before bpm 180
+        // Non-Song falls back to TITLE sort: "Folder" < "Song" alphabetically
         match &bm.bars[0] {
             Bar::Folder { name, .. } => assert_eq!(name, "Folder"),
             _ => panic!("expected Folder first"),

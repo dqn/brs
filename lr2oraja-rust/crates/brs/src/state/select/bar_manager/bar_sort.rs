@@ -34,25 +34,14 @@ fn title_cmp(a: &Bar, b: &Bar) -> Ordering {
 
 /// Fallback comparator for non-TITLE sort modes.
 ///
-/// If either bar is not a Song, sorts non-Songs to the beginning (they have
-/// empty/default values for Song-specific fields), then by title.
-/// Returns `None` when both bars are Song (caller handles Song-specific logic).
+/// Java parity: when either bar is not a Song, falls back to TITLE sort
+/// (case-insensitive display name comparison). Returns `None` when both
+/// bars are Song so the caller can apply sort-mode-specific logic.
 fn title_fallback_cmp(a: &Bar, b: &Bar) -> Option<Ordering> {
-    let a_is_song = matches!(a, Bar::Song(_));
-    let b_is_song = matches!(b, Bar::Song(_));
-
-    if a_is_song && b_is_song {
-        // Both are songs - caller will handle
+    if matches!(a, Bar::Song(_)) && matches!(b, Bar::Song(_)) {
         None
-    } else if !a_is_song && !b_is_song {
-        // Neither is a song - sort by title
-        Some(title_cmp(a, b))
-    } else if a_is_song {
-        // a is song, b is not - non-song comes first
-        Some(Ordering::Greater)
     } else {
-        // b is song, a is not - non-song comes first
-        Some(Ordering::Less)
+        Some(title_cmp(a, b))
     }
 }
 
@@ -123,10 +112,8 @@ impl BarManager {
                     let score_b = score_cache.get(&sb.sha256);
                     match (score_a, score_b) {
                         (None, None) => Ordering::Equal,
-                        // Songs without scores come first (treated as NoPlay/0)
-                        (None, Some(_)) => Ordering::Less,
-                        (Some(_), None) => Ordering::Greater,
-                        // Ascending order: lower clear types (NoPlay) first
+                        (None, Some(_)) => Ordering::Greater,
+                        (Some(_), None) => Ordering::Less,
                         (Some(a), Some(b)) => (a.clear.id() as i32).cmp(&(b.clear.id() as i32)),
                     }
                 });
@@ -138,15 +125,20 @@ impl BarManager {
                     }
                     let sa = a.as_song().unwrap();
                     let sb = b.as_song().unwrap();
-                    let score_a = score_cache
-                        .get(&sa.sha256)
-                        .map(|sd| sd.exscore())
-                        .unwrap_or(0);
-                    let score_b = score_cache
-                        .get(&sb.sha256)
-                        .map(|sd| sd.exscore())
-                        .unwrap_or(0);
-                    score_b.cmp(&score_a) // Descending (high scores first)
+                    let n1 = score_cache.get(&sa.sha256).map(|sd| sd.notes).unwrap_or(0);
+                    let n2 = score_cache.get(&sb.sha256).map(|sd| sd.notes).unwrap_or(0);
+                    if n1 == 0 && n2 == 0 {
+                        return Ordering::Equal;
+                    }
+                    if n1 == 0 {
+                        return Ordering::Greater;
+                    }
+                    if n2 == 0 {
+                        return Ordering::Less;
+                    }
+                    let r1 = score_cache.get(&sa.sha256).unwrap().exscore() as f32 / n1 as f32;
+                    let r2 = score_cache.get(&sb.sha256).unwrap().exscore() as f32 / n2 as f32;
+                    r1.partial_cmp(&r2).unwrap_or(Ordering::Equal)
                 });
             }
             SortMode::MissCount => {
@@ -173,15 +165,24 @@ impl BarManager {
                     }
                     let sa = a.as_song().unwrap();
                     let sb = b.as_song().unwrap();
-                    let pc_a = score_cache
+                    let exists_a = score_cache
                         .get(&sa.sha256)
-                        .map(|sd| sd.playcount)
-                        .unwrap_or(0);
-                    let pc_b = score_cache
+                        .is_some_and(|sd| sd.avgjudge != i64::MAX);
+                    let exists_b = score_cache
                         .get(&sb.sha256)
-                        .map(|sd| sd.playcount)
-                        .unwrap_or(0);
-                    pc_b.cmp(&pc_a) // Descending (most played first)
+                        .is_some_and(|sd| sd.avgjudge != i64::MAX);
+                    if !exists_a && !exists_b {
+                        return Ordering::Equal;
+                    }
+                    if !exists_a {
+                        return Ordering::Greater;
+                    }
+                    if !exists_b {
+                        return Ordering::Less;
+                    }
+                    let aj_a = score_cache.get(&sa.sha256).unwrap().avgjudge;
+                    let aj_b = score_cache.get(&sb.sha256).unwrap().avgjudge;
+                    aj_a.cmp(&aj_b)
                 });
             }
             SortMode::LastUpdate => {
@@ -197,8 +198,7 @@ impl BarManager {
                         (None, None) => Ordering::Equal,
                         (None, Some(_)) => Ordering::Greater,
                         (Some(_), None) => Ordering::Less,
-                        // Descending order: most recent first
-                        (Some(a), Some(b)) => b.date.cmp(&a.date),
+                        (Some(a), Some(b)) => a.date.cmp(&b.date),
                     }
                 });
             }
