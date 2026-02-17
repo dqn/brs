@@ -91,13 +91,16 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 ## Implementation Status
 
-Phase 0-24 全完了（16 crate, ~92,000行）。全 RenderSnapshot GM テストが strict parity 達成済み。
+Phase 0-25 全完了（16 crate, ~92,000行）。全 RenderSnapshot GM テストが strict parity 達成済み。
+Phase 25: 7z アーカイブ対応、ソート Java パリティ修正、PreviewMusic skin state 接続。
 
 ## Deferred / Stub Items
 
-None.
+- **SortMode::RivalCompareClear / RivalCompareScore:** スタブ実装（`tracing::info!` のみ）。Rival データ取得の IR 連携時に実装予定
+- **dead_code 統合 (C2-C5):** MusicSelectCommand キーボードショートカット接続（KeyCommand variant 未実装）、GradeBarData course/constraints skin state 同期、SystemSoundManager audio loading 接続、TimerManager set_frozen pause 接続 — 各統合先の機能が未実装のため保留
+- **FunctionAction / Bar variant dead_code 整理 (Task D):** 多くの variant が `execute_function_action()` / `select_current()` で使用されているが、コンパイラが検出できない動的パスのため `#[allow(dead_code)]` が残存
 
 ## Known Issues
 
 - **Config/State の clone():** 484箇所（監査済み: 大半は Bevy Resource/Component の要件や設定値の受け渡しで妥当。大規模移行不要）
-- **#[allow(dead_code)]:** システム統合により TODO 付き dead_code を大幅削減済み。残存は Parsed for completeness / Used in tests のみ
+- **#[allow(dead_code)]:** システム統合により TODO 付き dead_code を大幅削減済み。残存は Parsed for completeness / Used in tests / TODO: integrate with 各サブシステム
