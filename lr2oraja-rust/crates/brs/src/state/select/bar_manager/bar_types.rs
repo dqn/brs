@@ -17,10 +17,16 @@ pub enum SortMode {
     MissCount,
     Duration,
     LastUpdate,
+    #[allow(dead_code)] // Parsed for completeness (Java BarSorter enum)
+    RivalCompareClear,
+    #[allow(dead_code)] // Parsed for completeness (Java BarSorter enum)
+    RivalCompareScore,
 }
 
 impl SortMode {
     /// Cycle to the next sort mode.
+    ///
+    /// Skips RivalCompareClear and RivalCompareScore as they're not yet implemented.
     pub fn next(self) -> Self {
         match self {
             Self::Default => Self::Title,
@@ -33,7 +39,9 @@ impl SortMode {
             Self::Score => Self::MissCount,
             Self::MissCount => Self::Duration,
             Self::Duration => Self::LastUpdate,
-            Self::LastUpdate => Self::Default,
+            Self::LastUpdate => Self::Default, // Skip rival compare modes (not implemented)
+            Self::RivalCompareClear => Self::RivalCompareScore,
+            Self::RivalCompareScore => Self::Default,
         }
     }
 }
@@ -187,6 +195,14 @@ impl Bar {
             Bar::SearchWord { query } => query,
             Bar::LeaderBoard { song_data, .. } => &song_data.title,
             Bar::ContextMenu(cm) => cm.source_bar.bar_name(),
+        }
+    }
+
+    /// Returns a reference to the inner SongData if this is a Song bar.
+    pub fn as_song(&self) -> Option<&bms_database::SongData> {
+        match self {
+            Bar::Song(s) => Some(s),
+            _ => None,
         }
     }
 
