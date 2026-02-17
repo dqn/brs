@@ -4,7 +4,7 @@
 
 use std::fs::{self, File};
 use std::io::{self, BufReader};
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, bail};
 use flate2::read::GzDecoder;
@@ -111,40 +111,67 @@ pub fn extract_lzh(archive_path: &Path, dest_dir: &Path) -> anyhow::Result<()> {
 /// Extract a .7z archive to the destination directory.
 ///
 /// Validates that extracted paths do not escape the destination directory.
+fn sanitize_7z_entry_path(entry_name: &str) -> Result<Option<PathBuf>, sevenz_rust::Error> {
+    let mut relative = PathBuf::new();
+
+    for component in Path::new(entry_name).components() {
+        match component {
+            Component::Normal(part) => relative.push(part),
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(sevenz_rust::Error::other(format!(
+                    "path traversal detected in 7z archive: {entry_name:?}"
+                )));
+            }
+        }
+    }
+
+    if relative.as_os_str().is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(relative))
+}
+
+fn ensure_7z_path_within_dest(
+    out_path: &Path,
+    dest_canonical: &Path,
+    entry_name: &str,
+) -> Result<(), sevenz_rust::Error> {
+    let mut existing = out_path;
+    while !existing.exists() {
+        existing = existing.parent().ok_or_else(|| {
+            sevenz_rust::Error::other(format!(
+                "invalid 7z entry path: {entry_name:?} -> {out_path:?}"
+            ))
+        })?;
+    }
+
+    let existing_canonical = existing
+        .canonicalize()
+        .map_err(|e| sevenz_rust::Error::other(format!("{e}")))?;
+
+    if !existing_canonical.starts_with(dest_canonical) {
+        return Err(sevenz_rust::Error::other(format!(
+            "path traversal detected in 7z archive: {entry_name:?}"
+        )));
+    }
+
+    Ok(())
+}
+
 pub fn extract_7z(archive_path: &Path, dest_dir: &Path) -> anyhow::Result<()> {
     let dest_canonical = dest_dir
         .canonicalize()
         .with_context(|| format!("failed to canonicalize {:?}", dest_dir))?;
 
-    sevenz_rust::decompress_file_with_extract_fn(archive_path, dest_dir, |entry, reader, dest| {
+    sevenz_rust::decompress_file_with_extract_fn(archive_path, dest_dir, |entry, reader, _dest| {
         let entry_name = entry.name();
-
-        // Prevent path traversal: reject entries with ".." components
-        if entry_name.contains("..") {
-            return Err(sevenz_rust::Error::other(format!(
-                "path traversal detected in 7z archive: {entry_name:?}"
-            )));
-        }
-
-        // `dest` is already the full path including the entry name
-        let out_path = dest.to_path_buf();
-
-        // Additional check: ensure the resolved path stays within dest_dir.
-        if let Some(parent) = out_path.parent() {
-            fs::create_dir_all(parent).map_err(|e| sevenz_rust::Error::other(format!("{e}")))?;
-        }
-        let parent_canonical = out_path
-            .parent()
-            .unwrap_or(dest)
-            .canonicalize()
-            .unwrap_or_default();
-        let resolved = parent_canonical.join(out_path.file_name().unwrap_or_default());
-
-        if !resolved.starts_with(&dest_canonical) {
-            return Err(sevenz_rust::Error::other(format!(
-                "path traversal detected in 7z archive: {entry_name:?}"
-            )));
-        }
+        let Some(relative_path) = sanitize_7z_entry_path(entry_name)? else {
+            return Ok(true);
+        };
+        let out_path = dest_canonical.join(relative_path);
+        ensure_7z_path_within_dest(&out_path, &dest_canonical, entry_name)?;
 
         if entry.is_directory() {
             fs::create_dir_all(&out_path).map_err(|e| sevenz_rust::Error::other(format!("{e}")))?;
@@ -597,6 +624,30 @@ mod tests {
 
     // --- 7z tests ---
 
+    #[test]
+    fn test_sanitize_7z_entry_path_allows_double_dot_in_filename() {
+        let sanitized = sanitize_7z_entry_path("song..preview.wav").unwrap();
+        assert_eq!(sanitized.as_deref(), Some(Path::new("song..preview.wav")));
+    }
+
+    #[test]
+    fn test_sanitize_7z_entry_path_rejects_parent_dir_component() {
+        let result = sanitize_7z_entry_path("safe/../evil.txt");
+        assert!(result.is_err(), "parent-dir components should be rejected");
+    }
+
+    #[test]
+    fn test_sanitize_7z_entry_path_rejects_absolute_path() {
+        let result = sanitize_7z_entry_path("/tmp/evil.txt");
+        assert!(result.is_err(), "absolute paths should be rejected");
+    }
+
+    #[test]
+    fn test_sanitize_7z_entry_path_skips_empty_path() {
+        assert_eq!(sanitize_7z_entry_path("").unwrap(), None);
+        assert_eq!(sanitize_7z_entry_path(".").unwrap(), None);
+    }
+
     /// Create a test directory with files and compress it to a .7z archive.
     fn create_test_7z(archive_path: &Path, files: &[(&str, &[u8])]) {
         let staging = archive_path.parent().unwrap().join("_7z_staging");
@@ -644,6 +695,25 @@ mod tests {
         let extracted = extract_dir.join("subdir/data.bms");
         assert!(extracted.exists(), "nested file should exist");
         assert_eq!(fs::read_to_string(&extracted).unwrap(), "bms data from 7z");
+    }
+
+    #[test]
+    fn test_extract_7z_allows_double_dot_in_filename() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive_path = tmp.path().join("double-dot.7z");
+        let extract_dir = tmp.path().join("out");
+        fs::create_dir_all(&extract_dir).unwrap();
+
+        create_test_7z(&archive_path, &[("song..preview.wav", b"preview data")]);
+
+        extract_7z(&archive_path, &extract_dir).unwrap();
+
+        let extracted = extract_dir.join("song..preview.wav");
+        assert!(
+            extracted.exists(),
+            "double-dot filename should be extracted"
+        );
+        assert_eq!(fs::read_to_string(&extracted).unwrap(), "preview data");
     }
 
     #[test]
