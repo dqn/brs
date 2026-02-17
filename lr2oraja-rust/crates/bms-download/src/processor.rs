@@ -3,7 +3,7 @@
 // Manages download tasks with concurrent execution.
 // Corresponds to Java HttpDownloadProcessor.java.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -198,7 +198,9 @@ async fn download_file(
         .get(reqwest::header::CONTENT_DISPOSITION)
         .and_then(|v| v.to_str().ok())
         .and_then(extract_filename_from_header)
-        .unwrap_or_else(|| url.rsplit('/').next().unwrap_or("download").to_string());
+        .and_then(|name| sanitize_download_filename(&name))
+        .or_else(|| url.rsplit('/').next().and_then(sanitize_download_filename))
+        .unwrap_or_else(|| "download".to_string());
 
     // Update content length
     {
@@ -267,6 +269,21 @@ fn extract_filename_from_header(header: &str) -> Option<String> {
     }
 }
 
+fn sanitize_download_filename(filename: &str) -> Option<String> {
+    // Normalize path separators so Windows-style paths are treated as paths too.
+    let normalized = filename.trim().replace('\\', "/");
+    let normalized = normalized.trim_matches('/');
+    if normalized.is_empty() {
+        return None;
+    }
+
+    let base_name = Path::new(normalized).file_name()?.to_str()?;
+    if matches!(base_name, "" | "." | "..") {
+        return None;
+    }
+    Some(base_name.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -293,6 +310,38 @@ mod tests {
     fn test_extract_filename_none() {
         let header = "inline";
         assert!(extract_filename_from_header(header).is_none());
+    }
+
+    #[test]
+    fn test_sanitize_download_filename_removes_directories() {
+        assert_eq!(
+            sanitize_download_filename("../evil.7z"),
+            Some("evil.7z".into())
+        );
+        assert_eq!(
+            sanitize_download_filename("/tmp/evil.7z"),
+            Some("evil.7z".into())
+        );
+        assert_eq!(
+            sanitize_download_filename("C:\\temp\\evil.7z"),
+            Some("evil.7z".into())
+        );
+    }
+
+    #[test]
+    fn test_sanitize_download_filename_rejects_invalid_names() {
+        assert_eq!(sanitize_download_filename(""), None);
+        assert_eq!(sanitize_download_filename("/"), None);
+        assert_eq!(sanitize_download_filename("."), None);
+        assert_eq!(sanitize_download_filename(".."), None);
+    }
+
+    #[test]
+    fn test_extract_filename_then_sanitize() {
+        let header = r#"attachment; filename="../safe.7z""#;
+        let safe =
+            extract_filename_from_header(header).and_then(|n| sanitize_download_filename(&n));
+        assert_eq!(safe, Some("safe.7z".into()));
     }
 
     #[tokio::test]

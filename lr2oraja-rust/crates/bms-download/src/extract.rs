@@ -69,22 +69,27 @@ pub fn extract_lzh(archive_path: &Path, dest_dir: &Path) -> anyhow::Result<()> {
         let header = decoder.header();
         let entry_path = header.parse_pathname();
 
-        let out_path = dest_dir.join(&entry_path);
+        let Some(relative_path) = sanitize_lzh_entry_path(&entry_path)? else {
+            if !decoder
+                .next_file()
+                .map_err(|e| anyhow::anyhow!("failed to read next lzh entry: {:?}", e))?
+            {
+                break;
+            }
+            continue;
+        };
+        let out_path = dest_canonical.join(relative_path);
 
-        // Prevent path traversal: ensure the resolved path stays within dest_dir.
-        // We need to create parent dirs first so canonicalize works on the parent.
         if let Some(parent) = out_path.parent() {
             fs::create_dir_all(parent)?;
-        }
-        let parent_canonical = out_path
-            .parent()
-            .unwrap_or(dest_dir)
-            .canonicalize()
-            .unwrap_or_default();
-        let resolved = parent_canonical.join(out_path.file_name().unwrap_or_default());
-
-        if !resolved.starts_with(&dest_canonical) {
-            bail!("path traversal detected in lzh archive: {:?}", entry_path);
+            let parent_canonical = parent
+                .canonicalize()
+                .with_context(|| format!("failed to canonicalize {:?}", parent))?;
+            if !parent_canonical.starts_with(&dest_canonical) {
+                bail!("path traversal detected in lzh archive: {:?}", entry_path);
+            }
+        } else {
+            bail!("invalid lzh entry path: {:?}", entry_path);
         }
 
         if header.is_directory() {
@@ -106,6 +111,25 @@ pub fn extract_lzh(archive_path: &Path, dest_dir: &Path) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn sanitize_lzh_entry_path(entry_path: &Path) -> anyhow::Result<Option<PathBuf>> {
+    let mut relative = PathBuf::new();
+    for component in entry_path.components() {
+        match component {
+            Component::Normal(part) => relative.push(part),
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                bail!("path traversal detected in lzh archive: {:?}", entry_path);
+            }
+        }
+    }
+
+    if relative.as_os_str().is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(relative))
 }
 
 /// Extract a .7z archive to the destination directory.
@@ -512,6 +536,30 @@ mod tests {
         // The error should be from lzh parsing, not "unsupported format"
         let err_msg = result.unwrap_err().to_string();
         assert!(!err_msg.contains("unsupported archive format"));
+    }
+
+    #[test]
+    fn test_sanitize_lzh_entry_path_allows_normal_paths() {
+        let path = sanitize_lzh_entry_path(Path::new("subdir/song.bms")).unwrap();
+        assert_eq!(path.as_deref(), Some(Path::new("subdir/song.bms")));
+    }
+
+    #[test]
+    fn test_sanitize_lzh_entry_path_rejects_parent_dir_component() {
+        let result = sanitize_lzh_entry_path(Path::new("safe/../evil.txt"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sanitize_lzh_entry_path_rejects_absolute_path() {
+        let result = sanitize_lzh_entry_path(Path::new("/tmp/evil.txt"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sanitize_lzh_entry_path_skips_empty_path() {
+        assert_eq!(sanitize_lzh_entry_path(Path::new("")).unwrap(), None);
+        assert_eq!(sanitize_lzh_entry_path(Path::new(".")).unwrap(), None);
     }
 
     #[test]

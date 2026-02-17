@@ -492,12 +492,15 @@ fn get_or_create_timeline(
         return tlcache.get_mut(&y).unwrap();
     }
 
-    // Find the lower entry
-    let (&prev_y, prev) = tlcache.range(..y).next_back().unwrap();
-    let bpm = prev.bpm;
-    let scroll = prev.scroll;
-    let time = prev.time
-        + prev.stop_us as f64
+    // Fall back to the first timeline entry when `y` is before all known points.
+    let (prev_y, prev_time, prev_stop_us, bpm, scroll) = tlcache
+        .range(..y)
+        .next_back()
+        .or_else(|| tlcache.first_key_value())
+        .map(|(&prev_y, prev)| (prev_y, prev.time, prev.stop_us, prev.bpm, prev.scroll))
+        .unwrap_or((0, 0.0, 0, 130.0, 1.0));
+    let time = prev_time
+        + prev_stop_us as f64
         + (240_000.0 * 1000.0 * ((y - prev_y) as f64 / resolution)) / bpm;
 
     tlcache.insert(
@@ -518,7 +521,13 @@ fn get_timeline_time(tlcache: &BTreeMap<i32, TimeLineEntry>, y: i32, resolution:
         return entry.time as i64;
     }
 
-    let (&prev_y, prev) = tlcache.range(..=y).next_back().unwrap();
+    let Some((&prev_y, prev)) = tlcache
+        .range(..=y)
+        .next_back()
+        .or_else(|| tlcache.first_key_value())
+    else {
+        return 0;
+    };
     let time = prev.time
         + prev.stop_us as f64
         + (240_000.0 * 1000.0 * ((y - prev_y) as f64 / resolution)) / prev.bpm;
@@ -730,5 +739,37 @@ mod tests {
         assert_eq!(PlayMode::from_mode_hint("beat-5k"), Some(PlayMode::Beat5K));
         assert_eq!(PlayMode::from_mode_hint("popn-9k"), Some(PlayMode::PopN9K));
         assert_eq!(PlayMode::from_mode_hint("unknown"), None);
+    }
+
+    #[test]
+    fn test_decode_bmson_negative_y_does_not_panic() {
+        let json = r#"{
+            "info": {
+                "title": "Negative Y",
+                "init_bpm": 120.0,
+                "mode_hint": "beat-7k",
+                "resolution": 240
+            },
+            "bpm_events": [
+                {"y": -240, "bpm": 150.0}
+            ],
+            "sound_channels": [
+                {
+                    "name": "sound.wav",
+                    "notes": [
+                        {"x": 1, "y": -120, "l": 0, "c": false, "t": 0, "up": false},
+                        {"x": 2, "y": 0, "l": 0, "c": false, "t": 0, "up": false}
+                    ]
+                }
+            ]
+        }"#;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("negative_y.bmson");
+        std::fs::write(&path, json).unwrap();
+
+        let model = BmsonDecoder::decode(&path).unwrap();
+        assert_eq!(model.total_notes(), 2);
+        assert!(model.notes.iter().any(|n| n.time_us <= 0));
     }
 }

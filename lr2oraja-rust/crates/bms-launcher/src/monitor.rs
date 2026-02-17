@@ -84,12 +84,7 @@ mod platform {
 
         if GetMonitorInfoW(hmonitor, &mut info as *mut MONITORINFOEXW as *mut _).as_bool() {
             let rc = info.monitorInfo.rcMonitor;
-            let device_name: String = info
-                .szDevice
-                .iter()
-                .take_while(|&&c| c != 0)
-                .map(|&c| char::from(c as u8))
-                .collect();
+            let device_name = utf16z_to_string(&info.szDevice);
 
             // Try to get a friendly name via EnumDisplayDevices
             let friendly = {
@@ -99,12 +94,7 @@ mod platform {
                     .as_bool()
                     && (dd.StateFlags & DISPLAY_DEVICE_ACTIVE.0) != 0
                 {
-                    let s: String = dd
-                        .DeviceString
-                        .iter()
-                        .take_while(|&&c| c != 0)
-                        .map(|&c| char::from(c as u8))
-                        .collect();
+                    let s = utf16z_to_string(&dd.DeviceString);
                     if s.is_empty() { device_name.clone() } else { s }
                 } else {
                     device_name
@@ -119,6 +109,11 @@ mod platform {
         }
 
         TRUE
+    }
+
+    fn utf16z_to_string(raw: &[u16]) -> String {
+        let end = raw.iter().position(|&c| c == 0).unwrap_or(raw.len());
+        String::from_utf16_lossy(&raw[..end])
     }
 
     pub fn enumerate_monitors_impl() -> Vec<MonitorInfo> {
