@@ -495,6 +495,12 @@ impl LanePlayableRandomShuffle {
     /// Generate the playable-random mapping array.
     pub fn make_random(&self, keys: &[usize], model: &BmsModel) -> Vec<usize> {
         let key_count = model.mode.key_count();
+        if key_count != 9 || keys.len() != 9 {
+            // Playable-Random is defined for PopN9K only.
+            // Return identity mapping for unsupported layouts to avoid
+            // out-of-bounds access and invalid lane indices.
+            return make_identity_mapping(key_count);
+        }
 
         // Collect 3+ note chord bitmasks from the chart
         let (is_impossible, original_patterns) = self.collect_chord_patterns(model, keys);
@@ -1105,6 +1111,19 @@ mod tests {
         let s1 = LanePlayableRandomShuffle::new(0, false, 42);
         let s2 = LanePlayableRandomShuffle::new(0, false, 42);
         assert_eq!(s1.make_random(&keys, &model), s2.make_random(&keys, &model));
+    }
+
+    #[test]
+    fn test_playable_random_non_popn_returns_identity() {
+        let notes = vec![
+            Note::normal(0, 1000, 1),
+            Note::normal(3, 1000, 2),
+            Note::normal(6, 1000, 3),
+        ];
+        let model = make_model(PlayMode::Beat7K, notes);
+        let keys = get_keys(PlayMode::Beat7K, 0, false);
+        let shuffle = LanePlayableRandomShuffle::new(0, false, 42);
+        assert_eq!(shuffle.make_random(&keys, &model), vec![0, 1, 2, 3, 4, 5, 6, 7]);
     }
 
     // -----------------------------------------------------------------------

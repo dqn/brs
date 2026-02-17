@@ -53,7 +53,7 @@ fn bench_note_srandom(c: &mut Criterion) {
 }
 
 fn bench_playable_random(c: &mut Criterion) {
-    let path = test_bms_path("minimal_7k.bms");
+    let path = test_bms_path("9key_pms.bms");
     let model = BmsDecoder::decode(&path).unwrap();
 
     c.bench_function("playable_random", |b| {
