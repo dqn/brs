@@ -93,41 +93,11 @@ Lessons learned from Phase 0-3 implementation. Refer to these when implementing 
 
 Phase 0-24 全完了（16 crate, ~92,000行）。全 RenderSnapshot GM テストが strict parity 達成済み。
 
-### Completed Items (Phase 24)
-
-以下の項目は全て実装済み:
-
-- **アーカイブ展開 (zip/lzh)** — `bms-download/extract.rs` に .zip / .lzh / .tar.gz 全対応 + パストラバーサル防止
-- **CLI 引数** — `-a` (autoplay), `-p` (practice), `-r` (replay), `-s` (play) + positional BMS_PATH
-- **GithubVersionChecker** — `bms-external/version_check.rs` に GitHub API + semver 比較
-- **GhostBattlePlay** — `player_resource.rs` に `GhostBattleSettings` + take() パターン
-- **オーディオ障害リカバリ** — `kira_driver.rs` に consecutive_errors 追跡 + try_recover() (AudioManager 再作成)
-- **スキンロードエラーフォールバック** — `skin_manager.rs` に 3段階フォールバック (設定スキン → デフォルト → MinimalUI)
-- **ホットリロード** — `hot_reload.rs` に F5 キーで config + skin 再読み込み (ModMenu フォーカス考慮)
-- **RhythmTimerProcessor** — `rhythm_timer.rs` に Java 忠実移植 (小節線 + 四分音符タイミング)
-- **選曲ソート** — 全11モード (Default, Title, Artist, Level, Bpm, Length, Clear, Score, MissCount, Duration, LastUpdate)
-- **選曲画面バータイプ** — 全15種 (Song, Folder, Course, TableRoot, HashFolder, Executable, Function, Grade, RandomCourse, Command, Container, SameFolder, SearchWord, LeaderBoard, ContextMenu)
-- **MusicSelectCommand** — 全11コマンド (Replay cycling, Clipboard copy, Download stubs, SameFolder, ContextMenu)
-- **ライバルスコア表示 UI** — `leaderboard.rs` に entries_to_bars() + 非同期 IR fetch + MusicSelectState 統合
-- **スクリーンショット ソーシャルエクスポート** — `social_exporter.rs` に ScoreTextComposer + WebhookScreenshotExporter
-- **モニター自動列挙** — `monitor.rs` に macOS (CGDisplay) / Windows (EnumDisplayMonitors) + ドロップダウン UI
-- **Launcher GUI Rust 拡張** — ModMenu に5パネル追加 (gauge_visualizer, timer_display, event_trace, profiler, skin_options)
-- **Config 細部** — songPreview, skipDecideScreen, frameskip, analogScroll 等全て `bms-config/src/config.rs` に実装済み
-- **Stream Controller (Windows Named Pipes)** — `bms-stream/controller.rs` に両プラットフォーム実装済み
-- **Window 管理** — モニター選択 + F6 フルスクリーントグル + ModMenu Window Settings + ランチャーモニター自動列挙
-
 ## Deferred / Stub Items
 
-- **bms-skin テスト検証未完了:** `stretch_type.rs` と `pomyu_chara_loader.rs` にテスト追加済みだが、`json_loader.rs` のコンパイルエラーにより crate 全体のテスト実行不可。エラー解消後に `cargo test -p bms-skin` で検証が必要
+None.
 
 ## Known Issues
 
-- **bms-skin/json_loader.rs コンパイルエラー:** `json_loader/sub_object.rs` が `super::json_loader` を参照しているが module 構造が不整合。`loader/mod.rs` への module 宣言追加と import パス修正が必要
-- **Mutex/RwLock unwrap():** std::sync の lock().unwrap() が 42箇所。parking_lot への移行でパニックリスク解消を推奨
-- **Config/State の過剰 clone():** 476箇所。Arc<Config> 等への移行余地あり
-- **bms-input の依存指定不一致:** 他 crate は workspace deps だが bms-input のみ inline path deps
-- **CI/CD 未整備:** GitHub Actions による自動テスト・Lint パイプラインなし
-- **エラーケーステスト不足:** 異常系テスト・プロパティベーステストの追加余地あり
-- **#[allow(dead_code)] 116箇所:** Phase 24 完了後に不要なものを整理可能
-- **ツール設定未整備:** .rustfmt.toml / clippy.toml が未作成
-- **ベンチマーク不足:** レンダリング・スキンロードのパフォーマンス測定なし
+- **Config/State の clone():** 484箇所（監査済み: 大半は Bevy Resource/Component の要件や設定値の受け渡しで妥当。大規模移行不要）
+- **#[allow(dead_code)] 116箇所:** 全箇所監査・分類済み（Parsed for completeness / Used in tests / TODO: integrate with <system>）。真に不要なコードはなし
