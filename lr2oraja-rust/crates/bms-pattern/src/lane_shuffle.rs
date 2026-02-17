@@ -699,6 +699,7 @@ mod tests {
             judge_rank_raw: 100,
             judge_rank_type: bms_model::JudgeRankType::BmsonJudgeRank,
             total: 300.0,
+            total_type: bms_model::TotalType::Bms,
             difficulty: 0,
             mode,
             ln_type: LnType::LongNote,
@@ -717,6 +718,10 @@ mod tests {
             total_measures: 4,
             total_time_us: 0,
             has_random: false,
+            lnobj: None,
+            volwav: 100,
+            base: 36,
+            decode_logs: Vec::new(),
             bar_line_times: Vec::new(),
         }
     }
