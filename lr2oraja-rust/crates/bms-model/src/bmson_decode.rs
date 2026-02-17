@@ -89,6 +89,7 @@ impl BmsonDecoder {
         if info.total > 0.0 {
             model.total = info.total;
         }
+        model.total_type = crate::model::TotalType::Bmson;
 
         // BPM, level (Java line 94-95)
         model.initial_bpm = info.init_bpm;

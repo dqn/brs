@@ -3,9 +3,53 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::decode_log::DecodeLog;
 use crate::mode::PlayMode;
 use crate::note::{BgNote, LnType, Note};
 use crate::timeline::{BgaEvent, BpmChange, StopEvent, TimeLine};
+
+fn default_volwav() -> i32 {
+    100
+}
+
+fn default_base() -> u8 {
+    36
+}
+
+/// Note type filter for `total_notes_filtered`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoteFilter {
+    /// All playable notes (normal + LN)
+    All,
+    /// Normal key notes (not scratch)
+    Key,
+    /// Long key notes (not scratch)
+    LongKey,
+    /// Normal scratch notes
+    Scratch,
+    /// Long scratch notes
+    LongScratch,
+    /// Mine notes
+    Mine,
+}
+
+/// Player side filter for `total_notes_filtered`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    Both,
+    Player1,
+    Player2,
+}
+
+/// Type of #TOTAL value, determines how gauge calculation interprets it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum TotalType {
+    /// From BMS #TOTAL header
+    #[default]
+    Bms,
+    /// From bmson total field
+    Bmson,
+}
 
 /// Type of judge rank value stored in the BMS model.
 ///
@@ -50,6 +94,7 @@ pub struct BmsModel {
     /// Type of judge rank value, determines how to convert to effective judgerank.
     pub judge_rank_type: JudgeRankType,
     pub total: f64,
+    pub total_type: TotalType,
     pub difficulty: i32,
 
     // Mode
@@ -91,6 +136,22 @@ pub struct BmsModel {
     // Whether the chart contains #RANDOM commands
     pub has_random: bool,
 
+    // LNOBJ: WAV ID that acts as LN end marker (None = not set)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lnobj: Option<u16>,
+
+    // VOLWAV: volume percentage for key sounds (default 100)
+    #[serde(default = "default_volwav")]
+    pub volwav: i32,
+
+    // Base encoding for IDs: 36 (default) or 62
+    #[serde(default = "default_base")]
+    pub base: u8,
+
+    // Decode log messages (warnings, errors encountered during parsing)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub decode_logs: Vec<DecodeLog>,
+
     // Bar line times (bmson only, for SongInformation parity with Java getAllTimeLines)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub bar_line_times: Vec<i64>,
@@ -113,6 +174,7 @@ impl Default for BmsModel {
             judge_rank_raw: 2,
             judge_rank_type: JudgeRankType::BmsRank,
             total: 300.0,
+            total_type: TotalType::Bms,
             difficulty: 0,
             mode: PlayMode::Beat7K,
             ln_type: LnType::LongNote,
@@ -131,6 +193,10 @@ impl Default for BmsModel {
             total_measures: 0,
             total_time_us: 0,
             has_random: false,
+            lnobj: None,
+            volwav: 100,
+            base: 36,
+            decode_logs: Vec::new(),
             bar_line_times: Vec::new(),
         }
     }
@@ -327,6 +393,141 @@ impl BmsModel {
         let bga_max = self.bga_events.iter().map(|e| e.time_us).max().unwrap_or(0);
         let max_us = note_max.max(bg_max).max(bga_max);
         (max_us / 1000) as i32
+    }
+
+    /// Count notes in a time range, filtered by type and player side.
+    ///
+    /// Ported from Java `BMSModelUtils.getTotalNotes(model, start, end, type, side)`.
+    /// Times are in milliseconds.
+    pub fn total_notes_filtered(
+        &self,
+        start_ms: i64,
+        end_ms: i64,
+        filter: NoteFilter,
+        side: Side,
+    ) -> usize {
+        use crate::note::NoteType;
+
+        let start_us = start_ms * 1000;
+        let end_us = end_ms * 1000;
+        let scratch_keys = self.mode.scratch_keys();
+        let key_count = self.mode.key_count();
+        let player_count = self.mode.player_count();
+
+        // Determine which lanes belong to the requested side
+        let lane_matches_side = |lane: usize| -> bool {
+            match side {
+                Side::Both => true,
+                Side::Player1 => {
+                    if player_count == 1 {
+                        true
+                    } else {
+                        lane < key_count / 2
+                    }
+                }
+                Side::Player2 => {
+                    if player_count == 1 {
+                        false
+                    } else {
+                        lane >= key_count / 2
+                    }
+                }
+            }
+        };
+
+        let is_scratch = |lane: usize| -> bool { scratch_keys.contains(&lane) };
+
+        self.notes
+            .iter()
+            .filter(|n| n.time_us >= start_us && n.time_us < end_us && lane_matches_side(n.lane))
+            .filter(|n| match filter {
+                NoteFilter::All => n.is_playable(),
+                NoteFilter::Key => n.note_type == NoteType::Normal && !is_scratch(n.lane),
+                NoteFilter::LongKey => n.is_long_note() && !is_scratch(n.lane),
+                NoteFilter::Scratch => n.note_type == NoteType::Normal && is_scratch(n.lane),
+                NoteFilter::LongScratch => n.is_long_note() && is_scratch(n.lane),
+                NoteFilter::Mine => n.note_type == NoteType::Mine,
+            })
+            .count()
+    }
+
+    /// Find peak note density within a sliding window.
+    ///
+    /// Ported from Java `BMSModelUtils.getMaxNotesPerTime(model, range)`.
+    /// `range_ms` is the window size in milliseconds.
+    pub fn max_notes_per_time(&self, range_ms: i32) -> usize {
+        let range_us = range_ms as i64 * 1000;
+        let playable: Vec<i64> = self
+            .notes
+            .iter()
+            .filter(|n| n.is_playable())
+            .map(|n| n.time_us)
+            .collect();
+
+        if playable.is_empty() {
+            return 0;
+        }
+
+        let mut max_notes = 0;
+        for (i, &start) in playable.iter().enumerate() {
+            let end = start + range_us;
+            let count = playable[i..].iter().take_while(|&&t| t < end).count();
+            if count > max_notes {
+                max_notes = count;
+            }
+        }
+        max_notes
+    }
+
+    /// Adjust timeline so the first note starts at `starttime_ms`.
+    ///
+    /// Returns the margin time in milliseconds that was added.
+    /// Ported from Java `BMSModelUtils.setStartNoteTime()`.
+    pub fn set_start_note_time(&mut self, starttime_ms: i64) -> i64 {
+        let starttime_us = starttime_ms * 1000;
+
+        // Find the first note that is before starttime
+        let mut margin_us: i64 = 0;
+        let playable_notes: Vec<i64> = self
+            .notes
+            .iter()
+            .filter(|n| n.is_playable())
+            .map(|n| n.time_us)
+            .collect();
+
+        if let Some(&time_us) = playable_notes.first()
+            && time_us < starttime_us
+        {
+            margin_us = starttime_us - time_us;
+        }
+
+        if margin_us > 0 {
+            // Shift all note times forward
+            for note in &mut self.notes {
+                note.time_us += margin_us;
+                if note.end_time_us > 0 {
+                    note.end_time_us += margin_us;
+                }
+            }
+            for bg in &mut self.bg_notes {
+                bg.time_us += margin_us;
+            }
+            for bga in &mut self.bga_events {
+                bga.time_us += margin_us;
+            }
+            for tl in &mut self.timelines {
+                tl.time_us += margin_us;
+            }
+            for change in &mut self.bpm_changes {
+                change.time_us += margin_us;
+            }
+            for stop in &mut self.stop_events {
+                stop.time_us += margin_us;
+            }
+            self.total_time_us += margin_us;
+        }
+
+        margin_us / 1000
     }
 
     /// Build note list for JudgeManager by splitting LN into start+end pairs.
