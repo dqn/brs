@@ -137,4 +137,13 @@ golden-master-render-snapshot-debug-clean:
 bench:
     cargo bench --workspace
 
+# Run tests with coverage (text summary)
+coverage:
+    cargo llvm-cov --workspace
+
+# Run tests with coverage (HTML report)
+coverage-html:
+    cargo llvm-cov --workspace --html
+    @echo "Report: target/llvm-cov/html/index.html"
+
 all: check test clippy fmt-check
