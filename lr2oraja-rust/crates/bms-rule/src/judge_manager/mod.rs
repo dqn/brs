@@ -3,13 +3,21 @@
 //! Ported from Java: `JudgeManager.java` (1,063 lines).
 //! Orchestrates key input → judge window matching → score update → gauge update.
 
-use bms_model::{LaneProperty, LnType, Note, NoteType, PlayMode};
+mod judge_config;
+mod judge_init;
+mod lane_state;
+
+pub use judge_config::{JudgeConfig, JudgeEvent};
+
+use bms_model::{LaneProperty, LnType, Note, NoteType};
 
 use crate::groove_gauge::GrooveGauge;
 use crate::judge_algorithm::JudgeAlgorithm;
-use crate::judge_property::{JudgeNoteType, JudgeProperty, JudgeWindowTable, MissCondition};
+use crate::judge_property::{JudgeWindowTable, MissCondition};
 use crate::score_data::ScoreData;
 use crate::{JUDGE_BD, JUDGE_MS, JUDGE_PR};
+
+use lane_state::{LaneState, MultiBadCollector, NO_LN_END_JUDGE, NO_NOTE, NOT_SET};
 
 /// HCN gauge increment/decrement interval in microseconds (200ms).
 const HCN_DURATION: i64 = 200_000;
@@ -17,423 +25,89 @@ const HCN_DURATION: i64 = 200_000;
 /// Autoplay minimum key press duration in microseconds (80ms).
 const AUTO_MIN_DURATION: i64 = 80_000;
 
-/// Sentinel for "not set" / "not released" timestamps.
-const NOT_SET: i64 = i64::MIN;
-
-/// Sentinel for "no LN end judgment".
-const NO_LN_END_JUDGE: usize = usize::MAX;
-
-/// Sentinel for "no note index".
-const NO_NOTE: usize = usize::MAX;
-
-/// Per-lane judgment state machine.
-///
-/// Tracks cursor position, active LN processing, HCN passing, and release timing.
-#[derive(Debug, Clone)]
-struct LaneState {
-    /// Lane index (reserved for future use)
-    #[allow(dead_code)]
-    lane: usize,
-    /// Whether this lane is a scratch lane
-    is_scratch: bool,
-    /// Index into lane_notes: next note to consider
-    cursor: usize,
-    /// Currently processing LN end note index (NO_NOTE = none)
-    processing: usize,
-    /// Currently passing HCN start note index (NO_NOTE = none)
-    passing: usize,
-    /// HCN: true = key held (gauge increase), false = key released (gauge decrease)
-    inclease: bool,
-    /// HCN: μs accumulator for 200ms gauge update interval
-    passing_count: i64,
-    /// Judgment at LN start (used for worst-of-three calculation)
-    ln_start_judge: usize,
-    /// Timing offset at LN start (μs)
-    ln_start_duration: i64,
-    /// Key release time (NOT_SET = not released yet)
-    release_time: i64,
-    /// LN end judgment (set on key release, applied after release margin)
-    ln_end_judge: usize,
-}
-
-impl LaneState {
-    fn new(lane: usize, is_scratch: bool) -> Self {
-        Self {
-            lane,
-            is_scratch,
-            cursor: 0,
-            processing: NO_NOTE,
-            passing: NO_NOTE,
-            inclease: false,
-            passing_count: 0,
-            ln_start_judge: 0,
-            ln_start_duration: 0,
-            release_time: NOT_SET,
-            ln_end_judge: NO_LN_END_JUDGE,
-        }
-    }
-}
-
-/// PMS-specific multi-BAD collector.
-///
-/// Collects unjudged notes within the BAD window (excluding GOOD window) and
-/// applies simultaneous POOR judgments to them.
-#[derive(Debug, Clone)]
-struct MultiBadCollector {
-    /// (note_index_in_all_notes, dmtime) pairs
-    entries: Vec<(usize, i64)>,
-    /// true only for PMS mode
-    enabled: bool,
-}
-
-impl MultiBadCollector {
-    fn new(enabled: bool) -> Self {
-        Self {
-            entries: Vec::new(),
-            enabled,
-        }
-    }
-
-    fn clear(&mut self) {
-        self.entries.clear();
-    }
-
-    fn add(&mut self, note_index: usize, dmtime: i64) {
-        if !self.enabled {
-            return;
-        }
-        self.entries.push((note_index, dmtime));
-    }
-
-    /// Filter entries after note selection. Returns the slice of multi-BAD candidates.
-    ///
-    /// Removes:
-    /// 1. Notes outside BAD window (but inside GOOD window)
-    /// 2. The selected note itself
-    /// 3. If tnote is LN or not a true BAD, remove notes after tnote
-    /// 4. Remove preceding LN notes
-    fn filter(
-        &mut self,
-        tnote_index: usize,
-        tnote_is_ln: bool,
-        judge_table: &JudgeWindowTable,
-    ) -> &[(usize, i64)] {
-        if !self.enabled || judge_table.len() < 4 {
-            self.entries.clear();
-            return &self.entries;
-        }
-
-        let good_start = judge_table[2][0];
-        let good_end = judge_table[2][1];
-        let bad_start = judge_table[3][0];
-        let bad_end = judge_table[3][1];
-
-        // Find tnote's dmtime
-        let tdmtime = self
-            .entries
-            .iter()
-            .find(|(idx, _)| *idx == tnote_index)
-            .map(|(_, t)| *t)
-            .unwrap_or(-1);
-
-        // Filter: keep only BAD-range (excluding GOOD-range), remove tnote
-        self.entries.retain(|(idx, t)| {
-            *idx != tnote_index
-                && *t >= bad_start
-                && *t <= bad_end
-                && !(*t >= good_start && *t <= good_end)
-        });
-
-        // Sort by dmtime
-        self.entries.sort_by_key(|(_, t)| *t);
-
-        // If tnote is LN or not a true BAD, remove all notes at/after tnote's time
-        let tnote_is_bad = (bad_start <= tdmtime && tdmtime < good_start)
-            || (good_end < tdmtime && tdmtime <= bad_end);
-        if (!tnote_is_bad || tnote_is_ln)
-            && let Some(pos) = self.entries.iter().position(|(_, t)| *t >= tdmtime)
-        {
-            self.entries.truncate(pos);
-        }
-
-        // Remove preceding LN notes (tracked by the caller using note_type)
-        // For simplicity, this is handled at the call site by checking note types.
-
-        &self.entries
-    }
-}
-
-/// Configuration for initializing the JudgeManager.
-pub struct JudgeConfig<'a> {
-    /// All notes in the chart (sorted by time)
-    pub notes: &'a [Note],
-    /// Play mode
-    pub play_mode: PlayMode,
-    /// LN type from BMS header
-    pub ln_type: LnType,
-    /// Judge rank (#RANK value)
-    pub judge_rank: i32,
-    /// Judge window rate for [PG, GR, GD] (100 = normal)
-    pub judge_window_rate: [i32; 3],
-    /// Scratch judge window rate (100 = normal)
-    pub scratch_judge_window_rate: [i32; 3],
-    /// Note selection algorithm
-    pub algorithm: JudgeAlgorithm,
-    /// Whether autoplay is active
-    pub autoplay: bool,
-    /// Judge property set
-    pub judge_property: &'a JudgeProperty,
-    /// Lane property for key→lane mapping (optional, auto-created from play_mode if None)
-    pub lane_property: Option<&'a LaneProperty>,
-}
-
-/// Events generated by JudgeManager during update.
-#[derive(Debug, Clone, PartialEq)]
-pub enum JudgeEvent {
-    /// A note was judged.
-    Judge {
-        note_index: usize,
-        lane: usize,
-        judge: usize,
-        duration: i64,
-    },
-    /// A key sound should play.
-    KeySound { wav_id: u16 },
-    /// Mine note damage.
-    MineDamage { lane: usize, damage: i32 },
-    /// HCN gauge update.
-    HcnGauge { increase: bool },
-}
-
 /// Judge manager: orchestrates key input → judgment → score/gauge updates.
 ///
 /// Ported from Java JudgeManager.java.
 pub struct JudgeManager {
     // Configuration
-    algorithm: JudgeAlgorithm,
-    miss_condition: MissCondition,
-    ln_type: LnType,
+    pub(super) algorithm: JudgeAlgorithm,
+    pub(super) miss_condition: MissCondition,
+    pub(super) ln_type: LnType,
 
     // Combo continuation flags per judge [PG, GR, GD, BD, PR, MS]
-    combo_cond: [bool; 6],
+    pub(super) combo_cond: [bool; 6],
     // Judge vanish flags per judge [PG, GR, GD, BD, PR, MS]
-    judge_vanish: [bool; 6],
+    pub(super) judge_vanish: [bool; 6],
 
     // Scaled judge windows
-    nmjudge: JudgeWindowTable,
-    smjudge: JudgeWindowTable,
-    cnendmjudge: JudgeWindowTable,
-    scnendmjudge: JudgeWindowTable,
-    nreleasemargin: i64,
-    sreleasemargin: i64,
+    pub(super) nmjudge: JudgeWindowTable,
+    pub(super) smjudge: JudgeWindowTable,
+    pub(super) cnendmjudge: JudgeWindowTable,
+    pub(super) scnendmjudge: JudgeWindowTable,
+    pub(super) nreleasemargin: i64,
+    pub(super) sreleasemargin: i64,
 
     // Combined window bounds (for early-exit optimization)
-    mjudge_start: i64,
-    mjudge_end: i64,
+    pub(super) mjudge_start: i64,
+    pub(super) mjudge_end: i64,
 
     // Per-lane state
-    lane_states: Vec<LaneState>,
+    pub(super) lane_states: Vec<LaneState>,
     // lane_index -> sorted note indices into the original notes slice
-    lane_notes: Vec<Vec<usize>>,
+    pub(super) lane_notes: Vec<Vec<usize>>,
     // Local copy of notes with state tracking
-    note_states: Vec<i32>,
+    pub(super) note_states: Vec<i32>,
 
     // Score tracking
-    score: ScoreData,
-    combo: i32,
-    max_combo: i32,
-    course_combo: i32,
-    course_max_combo: i32,
+    pub(super) score: ScoreData,
+    pub(super) combo: i32,
+    pub(super) max_combo: i32,
+    pub(super) course_combo: i32,
+    pub(super) course_max_combo: i32,
 
     // Ghost data (per-note judgment: 0-5, initialized to JUDGE_PR=4)
-    ghost: Vec<usize>,
-    pass_notes: i32,
+    pub(super) ghost: Vec<usize>,
+    pub(super) pass_notes: i32,
 
     // Recent judges (circular buffer)
-    recent_judges: Vec<i64>,
-    recent_index: usize,
+    pub(super) recent_judges: Vec<i64>,
+    pub(super) recent_index: usize,
 
     // Per-player judge result (for skin display)
-    now_judge: Vec<usize>,
-    now_combo: Vec<i32>,
+    pub(super) now_judge: Vec<usize>,
+    pub(super) now_combo: Vec<i32>,
 
     // Total lane count (for lane → player index mapping)
-    lane_count: usize,
+    pub(super) lane_count: usize,
 
     // Lane property: maps physical keys to logical lanes (for BSS sckey tracking)
-    lane_property: LaneProperty,
+    pub(super) lane_property: LaneProperty,
 
     // BSS tracking: which physical key index is holding each scratch controller
     // sckey[scratch_index] = physical key index that started BSS (0 = not set)
-    sckey: Vec<i32>,
+    pub(super) sckey: Vec<i32>,
 
     // Autoplay
-    autoplay: bool,
+    pub(super) autoplay: bool,
     // Per-physical-key autoplay press time (length = physical_key_count)
-    auto_presstime: Vec<i64>,
+    pub(super) auto_presstime: Vec<i64>,
 
     // MultiBad
-    multi_bad: MultiBadCollector,
+    pub(super) multi_bad: MultiBadCollector,
 
     // Per-lane judge value: lane_judge[lane] = encoded judge
     // 0=none, 1=PG, 2=GR_EARLY, 3=GR_LATE, 4=GD_EARLY, 5=GD_LATE,
     // 6=BD_EARLY, 7=BD_LATE, 8=LN_HOLD
-    lane_judge: Vec<i32>,
+    pub(super) lane_judge: Vec<i32>,
 
     // Per-player recent judge timing (microseconds, + = early, - = late)
-    judge_timing: Vec<i64>,
+    pub(super) judge_timing: Vec<i64>,
 
     // Timing
-    prev_time: i64,
+    pub(super) prev_time: i64,
 }
 
 impl JudgeManager {
-    /// Initialize the judge manager with chart data and configuration.
-    pub fn new(config: &JudgeConfig<'_>) -> Self {
-        let play_mode = config.play_mode;
-        let key_count = play_mode.key_count();
-
-        // Build per-lane note indices
-        let mut lane_notes: Vec<Vec<usize>> = vec![Vec::new(); key_count];
-        for (i, note) in config.notes.iter().enumerate() {
-            if note.lane < key_count {
-                lane_notes[note.lane].push(i);
-            }
-        }
-        // Sort each lane's notes by time
-        for lane in &mut lane_notes {
-            lane.sort_by_key(|&i| config.notes[i].time_us);
-        }
-
-        // Build lane states
-        let lane_states: Vec<LaneState> = (0..key_count)
-            .map(|lane| LaneState::new(lane, play_mode.is_scratch_key(lane)))
-            .collect();
-
-        // Compute scaled judge windows
-        let nmjudge = config.judge_property.judge_windows(
-            JudgeNoteType::Note,
-            config.judge_rank,
-            &config.judge_window_rate,
-        );
-        let smjudge = if config.judge_property.scratch.is_empty() {
-            nmjudge.clone()
-        } else {
-            config.judge_property.judge_windows(
-                JudgeNoteType::Scratch,
-                config.judge_rank,
-                &config.scratch_judge_window_rate,
-            )
-        };
-        let cnendmjudge = config.judge_property.judge_windows(
-            JudgeNoteType::LongNoteEnd,
-            config.judge_rank,
-            &config.judge_window_rate,
-        );
-        let scnendmjudge = if config.judge_property.longscratch.is_empty() {
-            cnendmjudge.clone()
-        } else {
-            config.judge_property.judge_windows(
-                JudgeNoteType::LongScratchEnd,
-                config.judge_rank,
-                &config.scratch_judge_window_rate,
-            )
-        };
-        let nreleasemargin = config.judge_property.longnote_margin;
-        let sreleasemargin = config.judge_property.longscratch_margin;
-
-        // Compute combined window bounds
-        let mut mjudge_start: i64 = 0;
-        let mut mjudge_end: i64 = 0;
-        for w in nmjudge.iter().chain(smjudge.iter()) {
-            mjudge_start = mjudge_start.min(w[0]);
-            mjudge_end = mjudge_end.max(w[1]);
-        }
-
-        // Total playable notes for ghost array
-        // Exclude pure LN end notes (not independently judged in pure LN mode)
-        let total_notes = config
-            .notes
-            .iter()
-            .filter(|n| {
-                if !n.is_playable() {
-                    return false;
-                }
-                // Pure LN end: LongNote type, end_time_us == 0 (end marker), has pair link
-                if n.note_type == NoteType::LongNote
-                    && n.end_time_us == 0
-                    && n.pair_index != usize::MAX
-                    && config.ln_type == LnType::LongNote
-                {
-                    return false;
-                }
-                true
-            })
-            .count();
-
-        // Initialize ghost array (default to JUDGE_PR = 4)
-        let ghost = vec![JUDGE_PR; total_notes];
-
-        // Note states (0 = unjudged)
-        let note_states = vec![0i32; config.notes.len()];
-
-        // Lane property (for physical key → lane mapping and BSS sckey tracking)
-        let lane_property = match config.lane_property {
-            Some(lp) => lp.clone(),
-            None => LaneProperty::new(play_mode),
-        };
-
-        // BSS tracking
-        let sckey = vec![0i32; lane_property.scratch_count()];
-
-        // Autoplay press times (per physical key)
-        let auto_presstime = vec![NOT_SET; lane_property.physical_key_count()];
-
-        // PMS multi-bad enabled
-        let is_pms = matches!(play_mode, PlayMode::PopN5K | PlayMode::PopN9K);
-
-        let player_count = play_mode.player_count();
-
-        Self {
-            algorithm: config.algorithm,
-            miss_condition: config.judge_property.miss,
-            ln_type: config.ln_type,
-            combo_cond: config.judge_property.combo,
-            judge_vanish: config.judge_property.judge_vanish,
-            nmjudge,
-            smjudge,
-            cnendmjudge,
-            scnendmjudge,
-            nreleasemargin,
-            sreleasemargin,
-            mjudge_start,
-            mjudge_end,
-            lane_count: key_count,
-            lane_property,
-            lane_states,
-            lane_notes,
-            note_states,
-            score: ScoreData::default(),
-            combo: 0,
-            max_combo: 0,
-            course_combo: 0,
-            course_max_combo: 0,
-            ghost,
-            pass_notes: 0,
-            recent_judges: vec![NOT_SET; 100],
-            recent_index: 0,
-            now_judge: vec![0; player_count],
-            now_combo: vec![0; player_count],
-            sckey,
-            autoplay: config.autoplay,
-            auto_presstime,
-            lane_judge: vec![0i32; key_count],
-            judge_timing: vec![0i64; player_count],
-            multi_bad: MultiBadCollector::new(is_pms),
-            prev_time: 0,
-        }
-    }
-
     /// Main per-frame update.
     ///
     /// Processes note passing, HCN gauge, key input, release margins, and misses.
@@ -1534,6 +1208,7 @@ mod tests {
     use crate::gauge_property;
     use crate::judge_property::JudgeProperty;
     use crate::{GaugeProperty, GaugeType};
+    use bms_model::PlayMode;
 
     /// Beat7K: 8 lanes, 9 physical keys (keys 7,8 → lane 7 scratch)
     const BEAT7K_KEY_COUNT: usize = 9;

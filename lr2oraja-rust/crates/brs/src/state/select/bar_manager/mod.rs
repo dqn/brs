@@ -1,231 +1,18 @@
-// BarManager — manages the song/folder bar list and cursor navigation.
+// BarManager -- manages the song/folder bar list and cursor navigation.
 //
 // Provides a hierarchical browser with folder push/pop navigation.
 
-use std::collections::HashMap;
+mod bar_navigation;
+mod bar_sort;
+mod bar_types;
 
-use bms_database::{
-    CourseData, CourseDataConstraint, RandomCourseData, SongData, SongDatabase, TableData,
-    TableFolder,
-};
-use bms_rule::ScoreData;
-
-/// Sort modes for the bar list.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum SortMode {
-    #[default]
-    Default,
-    Title,
-    Artist,
-    Level,
-    Bpm,
-    Length,
-    Clear,
-    Score,
-    MissCount,
-    Duration,
-    LastUpdate,
-}
-
-impl SortMode {
-    /// Cycle to the next sort mode.
-    pub fn next(self) -> Self {
-        match self {
-            Self::Default => Self::Title,
-            Self::Title => Self::Artist,
-            Self::Artist => Self::Level,
-            Self::Level => Self::Bpm,
-            Self::Bpm => Self::Length,
-            Self::Length => Self::Clear,
-            Self::Clear => Self::Score,
-            Self::Score => Self::MissCount,
-            Self::MissCount => Self::Duration,
-            Self::Duration => Self::LastUpdate,
-            Self::LastUpdate => Self::Default,
-        }
-    }
-}
-
-/// Action associated with a function bar.
-#[derive(Debug, Clone)]
-#[allow(dead_code)] // Most actions reserved for future implementation
-pub enum FunctionAction {
-    None,
-    Autoplay(Box<SongData>),
-    Practice(Box<SongData>),
-    ShowSameFolder {
-        title: String,
-        folder_crc: String,
-    },
-    CopyToClipboard(String),
-    OpenUrl(String),
-    ToggleFavorite {
-        sha256: String,
-        flag: i32,
-    },
-    PlayReplay {
-        song_data: Box<SongData>,
-        replay_index: usize,
-    },
-    GhostBattle {
-        song_data: Box<SongData>,
-        lr2_id: i64,
-    },
-}
-
-/// Grade bar data containing a course with grade constraints.
-#[derive(Debug, Clone)]
-pub struct GradeBarData {
-    pub name: String,
-    #[allow(dead_code)] // Reserved for course system integration
-    pub course: CourseData,
-    #[allow(dead_code)] // Reserved for course system integration
-    pub constraints: Vec<CourseDataConstraint>,
-}
-
-/// Context menu data for a bar (right-click menu).
-#[derive(Debug, Clone)]
-pub struct ContextMenuData {
-    pub source_bar: Box<Bar>,
-    pub items: Vec<ContextMenuItem>,
-}
-
-/// A single item in a context menu.
-#[derive(Debug, Clone)]
-pub struct ContextMenuItem {
-    pub label: String,
-    pub action: FunctionAction,
-}
-
-/// A single bar entry in the song list.
-#[derive(Debug, Clone)]
-pub enum Bar {
-    // --- Selectable bars ---
-    Song(Box<SongData>),
-    #[allow(dead_code)] // Used in tests and folder navigation
-    Folder {
-        name: String,
-        path: String,
-    },
-    #[allow(dead_code)] // Used in tests and course selection
-    Course(Box<CourseData>),
-    #[allow(dead_code)] // Used in table folder display
-    TableRoot {
-        name: String,
-        folders: Vec<TableFolder>,
-        courses: Vec<CourseData>,
-    },
-    #[allow(dead_code)] // Used in table folder display
-    HashFolder {
-        name: String,
-        hashes: Vec<String>, // sha256 preferred, md5 fallback
-    },
-    /// Executable bar — runs a set of songs (e.g., autoplay playlist).
-    #[allow(dead_code)]
-    Executable {
-        name: String,
-        songs: Vec<SongData>,
-    },
-    /// Function bar — a generic action item (autoplay, practice, clipboard, etc.).
-    #[allow(dead_code)]
-    Function {
-        title: String,
-        subtitle: Option<String>,
-        display_bar_type: i32,
-        action: FunctionAction,
-        lamp: i32,
-    },
-    /// Grade/dan-i bar — wraps a course with grade constraints.
-    #[allow(dead_code)]
-    Grade(Box<GradeBarData>),
-    /// Random course bar — selects random songs from SQL queries.
-    #[allow(dead_code)]
-    RandomCourse(Box<RandomCourseData>),
-    // --- Directory bars (expand into child bars on enter) ---
-    /// Command bar — executes a SQL query against the song DB.
-    #[allow(dead_code)]
-    Command {
-        name: String,
-        sql: String,
-    },
-    /// Container bar — holds an explicit list of child bars.
-    #[allow(dead_code)]
-    Container {
-        name: String,
-        children: Vec<Bar>,
-    },
-    /// Same-folder bar — finds songs sharing the same folder CRC.
-    #[allow(dead_code)]
-    SameFolder {
-        name: String,
-        folder_crc: String,
-    },
-    /// Search word bar — pre-configured text search.
-    #[allow(dead_code)]
-    SearchWord {
-        query: String,
-    },
-    /// Leaderboard bar — shows rankings for a song.
-    #[allow(dead_code)]
-    LeaderBoard {
-        song_data: Box<SongData>,
-        from_lr2ir: bool,
-    },
-    /// Context menu bar — right-click actions for a bar.
-    #[allow(dead_code)]
-    ContextMenu(Box<ContextMenuData>),
-}
-
-impl Bar {
-    /// Returns the display name for this bar.
-    pub fn bar_name(&self) -> &str {
-        match self {
-            Bar::Song(s) => &s.title,
-            Bar::Folder { name, .. } => name,
-            Bar::Course(c) => &c.name,
-            Bar::TableRoot { name, .. } => name,
-            Bar::HashFolder { name, .. } => name,
-            Bar::Executable { name, .. } => name,
-            Bar::Function { title, .. } => title,
-            Bar::Grade(g) => &g.name,
-            Bar::RandomCourse(rc) => &rc.name,
-            Bar::Command { name, .. } => name,
-            Bar::Container { name, .. } => name,
-            Bar::SameFolder { name, .. } => name,
-            Bar::SearchWord { query } => query,
-            Bar::LeaderBoard { song_data, .. } => &song_data.title,
-            Bar::ContextMenu(cm) => cm.source_bar.bar_name(),
-        }
-    }
-
-    /// Returns the display type index for bar rendering.
-    ///
-    /// 0 = Song, 1 = Folder/Directory, 2 = Grade/Course,
-    /// 3 = Command, 4 = Search, 5 = Function/Other.
-    #[allow(dead_code)] // Reserved for skin DST field integration
-    pub fn bar_display_type(&self) -> i32 {
-        match self {
-            Bar::Song(_) | Bar::Executable { .. } | Bar::LeaderBoard { .. } => 0,
-            Bar::Folder { .. }
-            | Bar::TableRoot { .. }
-            | Bar::HashFolder { .. }
-            | Bar::Container { .. }
-            | Bar::SameFolder { .. } => 1,
-            Bar::Course(_) | Bar::Grade(_) | Bar::RandomCourse(_) => 2,
-            Bar::Command { .. } | Bar::ContextMenu(_) => 3,
-            Bar::SearchWord { .. } => 4,
-            Bar::Function {
-                display_bar_type, ..
-            } => *display_bar_type,
-        }
-    }
-}
+pub use bar_types::*;
 
 /// Manages the bar list, cursor position, and folder navigation stack.
 pub struct BarManager {
-    bars: Vec<Bar>,
-    cursor: usize,
-    folder_stack: Vec<(Vec<Bar>, usize)>,
+    pub(super) bars: Vec<Bar>,
+    pub(super) cursor: usize,
+    pub(super) folder_stack: Vec<(Vec<Bar>, usize)>,
 }
 
 impl BarManager {
@@ -237,14 +24,6 @@ impl BarManager {
         }
     }
 
-    /// Load all songs from the database as a flat list.
-    pub fn load_root(&mut self, song_db: &SongDatabase) {
-        let songs = song_db.get_all_song_datas().unwrap_or_default();
-        self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
-        self.cursor = 0;
-        self.folder_stack.clear();
-    }
-
     /// Move cursor by delta with wrap-around.
     pub fn move_cursor(&mut self, delta: i32) {
         if self.bars.is_empty() {
@@ -253,141 +32,6 @@ impl BarManager {
         let len = self.bars.len() as i32;
         let new_pos = ((self.cursor as i32 + delta) % len + len) % len;
         self.cursor = new_pos as usize;
-    }
-
-    /// Enter the currently selected folder.
-    /// Pushes current bars and cursor onto the stack, loads folder contents.
-    pub fn enter_folder(&mut self, song_db: &SongDatabase) {
-        match self.bars.get(self.cursor) {
-            Some(Bar::Folder { path, .. }) => {
-                let folder_path = path.clone();
-                let old_bars = std::mem::take(&mut self.bars);
-                let old_cursor = self.cursor;
-                self.folder_stack.push((old_bars, old_cursor));
-
-                let songs = song_db
-                    .get_song_datas("folder", &folder_path)
-                    .unwrap_or_default();
-                self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
-                self.cursor = 0;
-            }
-            Some(Bar::TableRoot {
-                folders, courses, ..
-            }) => {
-                let folders = folders.clone();
-                let courses = courses.clone();
-                let old_bars = std::mem::take(&mut self.bars);
-                let old_cursor = self.cursor;
-                self.folder_stack.push((old_bars, old_cursor));
-
-                let mut new_bars: Vec<Bar> = Vec::new();
-                // Add level folders as HashFolder bars
-                for folder in &folders {
-                    let hashes: Vec<String> = folder
-                        .songs
-                        .iter()
-                        .map(|s| {
-                            if !s.sha256.is_empty() {
-                                s.sha256.clone()
-                            } else {
-                                s.md5.clone()
-                            }
-                        })
-                        .collect();
-                    new_bars.push(Bar::HashFolder {
-                        name: folder.name.clone(),
-                        hashes,
-                    });
-                }
-                // Add courses
-                for course in &courses {
-                    new_bars.push(Bar::Course(Box::new(course.clone())));
-                }
-                self.bars = new_bars;
-                self.cursor = 0;
-            }
-            Some(Bar::HashFolder { hashes, .. }) => {
-                let hashes = hashes.clone();
-                let old_bars = std::mem::take(&mut self.bars);
-                let old_cursor = self.cursor;
-                self.folder_stack.push((old_bars, old_cursor));
-
-                let hash_refs: Vec<&str> = hashes.iter().map(String::as_str).collect();
-                let songs = song_db
-                    .get_song_datas_by_hashes(&hash_refs)
-                    .unwrap_or_default();
-                self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
-                self.cursor = 0;
-            }
-            Some(Bar::Container { children, .. }) => {
-                let children = children.clone();
-                let old_bars = std::mem::take(&mut self.bars);
-                let old_cursor = self.cursor;
-                self.folder_stack.push((old_bars, old_cursor));
-                self.bars = children;
-                self.cursor = 0;
-            }
-            Some(Bar::SameFolder { folder_crc, .. }) => {
-                let crc = folder_crc.clone();
-                let old_bars = std::mem::take(&mut self.bars);
-                let old_cursor = self.cursor;
-                self.folder_stack.push((old_bars, old_cursor));
-
-                // Search for songs by folder CRC (stub: returns empty if method unavailable)
-                let songs = song_db.get_song_datas("folder", &crc).unwrap_or_default();
-                self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
-                self.cursor = 0;
-            }
-            Some(Bar::SearchWord { query }) => {
-                let query = query.clone();
-                let old_bars = std::mem::take(&mut self.bars);
-                let old_cursor = self.cursor;
-                self.folder_stack.push((old_bars, old_cursor));
-
-                let songs = song_db.get_song_datas_by_text(&query).unwrap_or_default();
-                self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
-                self.cursor = 0;
-            }
-            Some(Bar::Command { sql, .. }) => {
-                let sql = sql.clone();
-                let old_bars = std::mem::take(&mut self.bars);
-                let old_cursor = self.cursor;
-                self.folder_stack.push((old_bars, old_cursor));
-
-                // Execute custom SQL query (stub: uses text search as safe fallback)
-                let songs = song_db.get_song_datas_by_text(&sql).unwrap_or_default();
-                self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
-                self.cursor = 0;
-            }
-            Some(Bar::ContextMenu(cm)) => {
-                let items = cm.items.clone();
-                let old_bars = std::mem::take(&mut self.bars);
-                let old_cursor = self.cursor;
-                self.folder_stack.push((old_bars, old_cursor));
-
-                // Expand context menu items as Function bars
-                self.bars = items
-                    .into_iter()
-                    .map(|item| Bar::Function {
-                        title: item.label,
-                        subtitle: None,
-                        display_bar_type: 3,
-                        action: item.action,
-                        lamp: 0,
-                    })
-                    .collect();
-                self.cursor = 0;
-            }
-            _ => (),
-        }
-    }
-
-    /// Leave the current folder, restoring the parent bar list and cursor.
-    pub fn leave_folder(&mut self) {
-        if let Some((bars, cursor)) = self.folder_stack.pop() {
-            self.bars = bars;
-            self.cursor = cursor;
-        }
     }
 
     /// Returns the bar at the current cursor position.
@@ -414,198 +58,6 @@ impl BarManager {
     pub fn is_in_folder(&self) -> bool {
         !self.folder_stack.is_empty()
     }
-
-    /// Load table data from cache and add TableRoot bars to the root bar list.
-    pub fn load_tables(&mut self, tables: &[TableData]) {
-        for table in tables {
-            self.bars.push(Bar::TableRoot {
-                name: table.name.clone(),
-                folders: table.folder.clone(),
-                courses: table.course.clone(),
-            });
-        }
-    }
-
-    /// Load course data and add them as bars.
-    #[allow(dead_code)] // Used in tests and course mode
-    pub fn add_courses(&mut self, courses: &[CourseData]) {
-        for course in courses {
-            self.bars.push(Bar::Course(Box::new(course.clone())));
-        }
-    }
-
-    /// Sort bars by the given mode.
-    ///
-    /// Sort order for non-Song bars: Folders first, then Courses (by name).
-    /// Score-dependent modes (Clear, Score, MissCount, Duration, LastUpdate) use
-    /// the `score_cache` keyed by SHA-256.
-    pub fn sort(&mut self, mode: SortMode, score_cache: &HashMap<String, ScoreData>) {
-        match mode {
-            SortMode::Default => {} // Keep original order
-            SortMode::Title => {
-                self.bars.sort_by(|a, b| {
-                    a.bar_name()
-                        .to_lowercase()
-                        .cmp(&b.bar_name().to_lowercase())
-                });
-            }
-            SortMode::Artist => {
-                self.bars.sort_by(|a, b| {
-                    let artist_a = match a {
-                        Bar::Song(s) => s.artist.as_str(),
-                        _ => "",
-                    };
-                    let artist_b = match b {
-                        Bar::Song(s) => s.artist.as_str(),
-                        _ => "",
-                    };
-                    artist_a.to_lowercase().cmp(&artist_b.to_lowercase())
-                });
-            }
-            SortMode::Level => {
-                self.bars.sort_by(|a, b| {
-                    let level_a = match a {
-                        Bar::Song(s) => s.level,
-                        _ => 0,
-                    };
-                    let level_b = match b {
-                        Bar::Song(s) => s.level,
-                        _ => 0,
-                    };
-                    level_a.cmp(&level_b)
-                });
-            }
-            SortMode::Bpm => {
-                self.bars.sort_by(|a, b| {
-                    let bpm_a = match a {
-                        Bar::Song(s) => s.maxbpm,
-                        _ => 0,
-                    };
-                    let bpm_b = match b {
-                        Bar::Song(s) => s.maxbpm,
-                        _ => 0,
-                    };
-                    bpm_a.cmp(&bpm_b)
-                });
-            }
-            SortMode::Length => {
-                self.bars.sort_by(|a, b| {
-                    let len_a = match a {
-                        Bar::Song(s) => s.length,
-                        _ => 0,
-                    };
-                    let len_b = match b {
-                        Bar::Song(s) => s.length,
-                        _ => 0,
-                    };
-                    len_a.cmp(&len_b)
-                });
-            }
-            SortMode::Clear => {
-                self.bars.sort_by(|a, b| {
-                    let clear_a = bar_score_field(a, score_cache, |sd| sd.clear.id() as i32, 0);
-                    let clear_b = bar_score_field(b, score_cache, |sd| sd.clear.id() as i32, 0);
-                    clear_a.cmp(&clear_b)
-                });
-            }
-            SortMode::Score => {
-                self.bars.sort_by(|a, b| {
-                    let score_a = bar_score_field(a, score_cache, |sd| sd.exscore(), 0);
-                    let score_b = bar_score_field(b, score_cache, |sd| sd.exscore(), 0);
-                    score_b.cmp(&score_a) // Descending
-                });
-            }
-            SortMode::MissCount => {
-                self.bars.sort_by(|a, b| {
-                    let bp_a = bar_score_field(a, score_cache, |sd| sd.minbp, i32::MAX);
-                    let bp_b = bar_score_field(b, score_cache, |sd| sd.minbp, i32::MAX);
-                    bp_a.cmp(&bp_b) // Ascending (fewer misses first)
-                });
-            }
-            SortMode::Duration => {
-                self.bars.sort_by(|a, b| {
-                    let pc_a = bar_score_field(a, score_cache, |sd| sd.playcount, 0);
-                    let pc_b = bar_score_field(b, score_cache, |sd| sd.playcount, 0);
-                    pc_b.cmp(&pc_a) // Descending (most played first)
-                });
-            }
-            SortMode::LastUpdate => {
-                self.bars.sort_by(|a, b| {
-                    let date_a = bar_score_field_i64(a, score_cache, |sd| sd.date, 0);
-                    let date_b = bar_score_field_i64(b, score_cache, |sd| sd.date, 0);
-                    date_b.cmp(&date_a) // Descending (most recent first)
-                });
-            }
-        }
-        self.cursor = 0;
-    }
-
-    /// Filter bars to retain only songs matching the given mode ID.
-    /// Non-Song bars are always retained.
-    pub fn filter_by_mode(&mut self, mode: Option<i32>) {
-        if let Some(mode_id) = mode {
-            self.bars.retain(|bar| match bar {
-                Bar::Song(s) => s.mode == mode_id,
-                _ => true,
-            });
-            self.cursor = 0;
-        }
-    }
-
-    /// Replace the current folder's bars with new bars (e.g., from IR fetch).
-    pub fn replace_current_bars(&mut self, bars: Vec<Bar>) {
-        self.bars = bars;
-        self.cursor = 0;
-    }
-
-    /// Push the current bars onto the folder stack and set new bars.
-    ///
-    /// Used by leaderboard entry where we don't have a `SongDatabase` reference
-    /// but still need the push/pop folder navigation pattern.
-    pub fn push_and_set_bars(&mut self, bars: Vec<Bar>) {
-        let old_bars = std::mem::take(&mut self.bars);
-        let old_cursor = self.cursor;
-        self.folder_stack.push((old_bars, old_cursor));
-        self.bars = bars;
-        self.cursor = 0;
-    }
-
-    /// Search for songs matching the query text, pushing the current bar list onto the folder stack.
-    pub fn search(&mut self, song_db: &SongDatabase, query: &str) {
-        let songs = song_db.get_song_datas_by_text(query).unwrap_or_default();
-        // Save current state to folder stack
-        let old_bars = std::mem::take(&mut self.bars);
-        let old_cursor = self.cursor;
-        self.folder_stack.push((old_bars, old_cursor));
-        self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
-        self.cursor = 0;
-    }
-}
-
-/// Extract an i32 field from a score associated with a Bar::Song.
-fn bar_score_field(
-    bar: &Bar,
-    cache: &HashMap<String, ScoreData>,
-    extract: impl Fn(&ScoreData) -> i32,
-    default: i32,
-) -> i32 {
-    match bar {
-        Bar::Song(s) => cache.get(&s.sha256).map(&extract).unwrap_or(default),
-        _ => default,
-    }
-}
-
-/// Extract an i64 field from a score associated with a Bar::Song.
-fn bar_score_field_i64(
-    bar: &Bar,
-    cache: &HashMap<String, ScoreData>,
-    extract: impl Fn(&ScoreData) -> i64,
-    default: i64,
-) -> i64 {
-    match bar {
-        Bar::Song(s) => cache.get(&s.sha256).map(&extract).unwrap_or(default),
-        _ => default,
-    }
 }
 
 impl Default for BarManager {
@@ -626,6 +78,11 @@ impl BarManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use std::collections::HashMap;
+
+    use bms_database::{CourseData, SongData, SongDatabase, TableData};
+    use bms_rule::ScoreData;
 
     #[test]
     fn new_is_empty() {
@@ -1104,9 +561,9 @@ mod tests {
 
     // --- Table / HashFolder tests ---
 
-    fn sample_table_folder(name: &str, hashes: &[&str]) -> TableFolder {
+    fn sample_table_folder(name: &str, hashes: &[&str]) -> bms_database::TableFolder {
         use bms_database::CourseSongData;
-        TableFolder {
+        bms_database::TableFolder {
             name: name.to_string(),
             songs: hashes
                 .iter()
