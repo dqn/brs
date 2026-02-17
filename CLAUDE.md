@@ -116,8 +116,13 @@ Phase 0-24 全完了（16 crate, ~92,000行）。全 RenderSnapshot GM テスト
 - **Stream Controller (Windows Named Pipes)** — `bms-stream/controller.rs` に両プラットフォーム実装済み
 - **Window 管理** — モニター選択 + F6 フルスクリーントグル + ModMenu Window Settings + ランチャーモニター自動列挙
 
+## Deferred / Stub Items
+
+- **bms-skin テスト検証未完了:** `stretch_type.rs` と `pomyu_chara_loader.rs` にテスト追加済みだが、`json_loader.rs` のコンパイルエラーにより crate 全体のテスト実行不可。エラー解消後に `cargo test -p bms-skin` で検証が必要
+
 ## Known Issues
 
+- **bms-skin/json_loader.rs コンパイルエラー:** `json_loader/sub_object.rs` が `super::json_loader` を参照しているが module 構造が不整合。`loader/mod.rs` への module 宣言追加と import パス修正が必要
 - **Mutex/RwLock unwrap():** std::sync の lock().unwrap() が 42箇所。parking_lot への移行でパニックリスク解消を推奨
 - **Config/State の過剰 clone():** 476箇所。Arc<Config> 等への移行余地あり
 - **bms-input の依存指定不一致:** 他 crate は workspace deps だが bms-input のみ inline path deps
