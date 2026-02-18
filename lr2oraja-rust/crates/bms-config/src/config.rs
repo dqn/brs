@@ -35,8 +35,8 @@ pub const DEFAULT_TABLEURL: &[&str] = &[
     "https://stellabms.xyz/st/table.html",
     "https://darksabun.club/table/archive/normal1/",
     "https://darksabun.club/table/archive/insane1/",
-    "http://rattoto10.jounin.jp/table.html",
-    "http://rattoto10.jounin.jp/table_insane.html",
+    "https://rattoto10.jounin.jp/table.html",
+    "https://rattoto10.jounin.jp/table_insane.html",
     "https://rattoto10.jounin.jp/table_overjoy.html",
 ];
 
@@ -261,7 +261,9 @@ impl Config {
 
     /// Write config to a JSON file.
     pub fn write(&self, path: &Path) -> Result<()> {
-        let json = serde_json::to_string_pretty(self)?;
+        let mut sanitized = self.clone();
+        sanitized.obs_ws_pass.clear();
+        let json = serde_json::to_string_pretty(&sanitized)?;
         std::fs::write(path, json)?;
         Ok(())
     }
@@ -286,6 +288,16 @@ mod tests {
         assert_eq!(c.bga_expand, 1);
         assert!(!c.table_url.is_empty());
         assert_eq!(c.obs_ws_port, 4455);
+    }
+
+    #[test]
+    fn test_default_table_urls_use_https_only() {
+        assert!(
+            DEFAULT_TABLEURL
+                .iter()
+                .all(|url| url.starts_with("https://")),
+            "DEFAULT_TABLEURL must not include plain HTTP URLs"
+        );
     }
 
     #[test]
@@ -387,6 +399,22 @@ mod tests {
         assert_eq!(loaded.displaymode, config.displaymode);
         assert_eq!(loaded.resolution, config.resolution);
         assert_eq!(loaded.max_frame_per_second, config.max_frame_per_second);
+    }
+
+    #[test]
+    fn test_write_does_not_persist_obs_password_plaintext() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config_sys.json");
+
+        let mut config = Config::default();
+        config.obs_ws_pass = "super-secret-pass".to_string();
+        config.write(&path).unwrap();
+
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(!raw.contains("super-secret-pass"));
+
+        let loaded = Config::read(&path).unwrap();
+        assert!(loaded.obs_ws_pass.is_empty());
     }
 
     #[test]

@@ -274,17 +274,36 @@ impl Default for PlayerConfig {
 }
 
 impl PlayerConfig {
+    fn hydrate_ir_credentials_for_use(&mut self) {
+        if let Some(configs) = self.irconfig.as_mut() {
+            for config in configs {
+                config.hydrate_credentials_for_use();
+            }
+        }
+    }
+
+    fn sanitize_ir_credentials_for_write(&mut self) {
+        if let Some(configs) = self.irconfig.as_mut() {
+            for config in configs {
+                config.sanitize_credentials_for_write();
+            }
+        }
+    }
+
     /// Read player config from a JSON file.
     pub fn read(path: &Path) -> Result<Self> {
         let data = std::fs::read_to_string(path)?;
         let mut config: PlayerConfig = serde_json::from_str(&data)?;
         config.validate();
+        config.hydrate_ir_credentials_for_use();
         Ok(config)
     }
 
     /// Write player config to a JSON file.
     pub fn write(&self, path: &Path) -> Result<()> {
-        let json = serde_json::to_string_pretty(self)?;
+        let mut sanitized = self.clone();
+        sanitized.sanitize_ir_credentials_for_write();
+        let json = serde_json::to_string_pretty(&sanitized)?;
         std::fs::write(path, json)?;
         Ok(())
     }
@@ -560,6 +579,33 @@ mod tests {
         assert_eq!(loaded.name, "TestPlayer");
         assert_eq!(loaded.gauge, 3);
         assert_eq!(loaded.judgetiming, 42);
+    }
+
+    #[test]
+    fn test_write_does_not_persist_ir_plaintext_credentials() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config_player.json");
+
+        let mut pc = PlayerConfig::default();
+        pc.irconfig = Some(vec![IRConfig {
+            irname: "LR2IR".to_string(),
+            userid: "test-user".to_string(),
+            password: "test-pass".to_string(),
+            ..Default::default()
+        }]);
+
+        pc.write(&path).unwrap();
+
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(!raw.contains("test-user"));
+        assert!(!raw.contains("test-pass"));
+
+        let loaded = PlayerConfig::read(&path).unwrap();
+        let ir = &loaded.irconfig.as_ref().unwrap()[0];
+        assert_eq!(ir.userid, "test-user");
+        assert_eq!(ir.password, "test-pass");
+        assert!(!ir.cuserid.is_empty());
+        assert!(!ir.cpassword.is_empty());
     }
 
     #[test]

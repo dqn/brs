@@ -1,3 +1,7 @@
+use aes::Aes128;
+use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyInit, block_padding::Pkcs7};
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use serde::{Deserialize, Serialize};
 
 pub const IR_SEND_ALWAYS: i32 = 0;
@@ -6,8 +10,7 @@ pub const IR_SEND_UPDATE_SCORE: i32 = 2;
 
 /// Internet Ranking configuration.
 ///
-/// Encryption of userid/password is deferred to Phase 12.
-/// The `cuserid` and `cpassword` fields hold encrypted values as-is.
+/// The `cuserid` and `cpassword` fields hold AES-encrypted values.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
@@ -21,6 +24,11 @@ pub struct IRConfig {
     pub importscore: bool,
     pub importrival: bool,
 }
+
+type Aes128EcbEncryptor = ecb::Encryptor<Aes128>;
+type Aes128EcbDecryptor = ecb::Decryptor<Aes128>;
+
+const IR_CONFIG_AES_KEY: &[u8; 16] = b"0123456789abcdef";
 
 impl Default for IRConfig {
     fn default() -> Self {
@@ -39,11 +47,62 @@ impl Default for IRConfig {
 
 impl IRConfig {
     /// Validates this IR config. Returns false if irname is empty.
-    ///
-    /// Note: Encryption of userid/password is deferred to Phase 12.
     pub fn validate(&self) -> bool {
         !self.irname.is_empty()
     }
+
+    /// Encrypt plaintext credentials into `cuserid` / `cpassword` and
+    /// clear plaintext fields before writing to disk.
+    pub fn sanitize_credentials_for_write(&mut self) {
+        if !self.userid.is_empty()
+            && let Some(encrypted) = encrypt_credential(&self.userid)
+        {
+            self.cuserid = encrypted;
+            self.userid.clear();
+        }
+
+        if !self.password.is_empty()
+            && let Some(encrypted) = encrypt_credential(&self.password)
+        {
+            self.cpassword = encrypted;
+            self.password.clear();
+        }
+    }
+
+    /// Decrypt `cuserid` / `cpassword` into plaintext fields for in-memory use.
+    ///
+    /// Keeps encrypted fields unchanged for backwards compatibility.
+    pub fn hydrate_credentials_for_use(&mut self) {
+        if self.userid.is_empty()
+            && !self.cuserid.is_empty()
+            && let Some(decrypted) = decrypt_credential(&self.cuserid)
+        {
+            self.userid = decrypted;
+        }
+
+        if self.password.is_empty()
+            && !self.cpassword.is_empty()
+            && let Some(decrypted) = decrypt_credential(&self.cpassword)
+        {
+            self.password = decrypted;
+        }
+    }
+}
+
+fn encrypt_credential(plaintext: &str) -> Option<String> {
+    let cipher = Aes128EcbEncryptor::new_from_slice(IR_CONFIG_AES_KEY).ok()?;
+    let msg_len = plaintext.len();
+    let mut buf = vec![0_u8; msg_len + 16];
+    buf[..msg_len].copy_from_slice(plaintext.as_bytes());
+    let encrypted = cipher.encrypt_padded_mut::<Pkcs7>(&mut buf, msg_len).ok()?;
+    Some(BASE64_STANDARD.encode(encrypted))
+}
+
+fn decrypt_credential(ciphertext_b64: &str) -> Option<String> {
+    let mut ciphertext = BASE64_STANDARD.decode(ciphertext_b64).ok()?;
+    let cipher = Aes128EcbDecryptor::new_from_slice(IR_CONFIG_AES_KEY).ok()?;
+    let decrypted = cipher.decrypt_padded_mut::<Pkcs7>(&mut ciphertext).ok()?;
+    String::from_utf8(decrypted.to_vec()).ok()
 }
 
 #[cfg(test)]
@@ -76,6 +135,49 @@ mod tests {
             ..Default::default()
         };
         assert!(ir.validate());
+    }
+
+    #[test]
+    fn test_sanitize_credentials_for_write_encrypts_plaintext() {
+        let mut ir = IRConfig {
+            irname: "LR2IR".to_string(),
+            userid: "alice".to_string(),
+            password: "secret".to_string(),
+            ..Default::default()
+        };
+
+        ir.sanitize_credentials_for_write();
+
+        assert!(ir.userid.is_empty());
+        assert!(ir.password.is_empty());
+        assert!(!ir.cuserid.is_empty());
+        assert!(!ir.cpassword.is_empty());
+        assert_ne!(ir.cuserid, "alice");
+        assert_ne!(ir.cpassword, "secret");
+    }
+
+    #[test]
+    fn test_hydrate_credentials_for_use_decrypts_ciphertext() {
+        let mut ir = IRConfig {
+            irname: "LR2IR".to_string(),
+            userid: "alice".to_string(),
+            password: "secret".to_string(),
+            ..Default::default()
+        };
+        ir.sanitize_credentials_for_write();
+
+        let mut hydrated = IRConfig {
+            irname: ir.irname.clone(),
+            cuserid: ir.cuserid.clone(),
+            cpassword: ir.cpassword.clone(),
+            ..Default::default()
+        };
+        hydrated.hydrate_credentials_for_use();
+
+        assert_eq!(hydrated.userid, "alice");
+        assert_eq!(hydrated.password, "secret");
+        assert_eq!(hydrated.cuserid, ir.cuserid);
+        assert_eq!(hydrated.cpassword, ir.cpassword);
     }
 
     #[test]
