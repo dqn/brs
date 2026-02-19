@@ -3,6 +3,7 @@
 // Manages state transitions, calling shutdown/create/prepare on handlers.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use bevy::prelude::*;
 use tracing::info;
@@ -13,7 +14,7 @@ use crate::input_mapper::InputState;
 use crate::player_resource::PlayerResource;
 use crate::preview_music::PreviewMusicProcessor;
 use crate::skin_manager::SkinManager;
-use crate::state::{GameStateHandler, StateContext};
+use crate::state::{DownloadHandle, GameStateHandler, StateContext};
 use crate::system_sound::SystemSoundManager;
 use crate::timer_manager::TimerManager;
 use bms_config::{Config, PlayerConfig};
@@ -62,6 +63,8 @@ pub struct TickParams<'a> {
     pub shared_state: Option<&'a mut SharedGameState>,
     /// Preview music processor for select screen (None in tests).
     pub preview_music: Option<&'a mut PreviewMusicProcessor>,
+    /// Download handle for background song downloads (None when disabled).
+    pub download_handle: Option<Arc<DownloadHandle>>,
 }
 
 /// Registry of all state handlers with transition logic.
@@ -119,6 +122,7 @@ impl StateRegistry {
                     bevy_images: params.bevy_images.as_deref_mut(),
                     shared_state: params.shared_state.as_deref_mut(),
                     preview_music: params.preview_music.as_deref_mut(),
+                    download_handle: params.download_handle.as_ref(),
                 };
                 handler.create(&mut ctx);
                 handler.prepare(&mut ctx);
@@ -142,6 +146,7 @@ impl StateRegistry {
                 bevy_images: params.bevy_images.as_deref_mut(),
                 shared_state: params.shared_state.as_deref_mut(),
                 preview_music: params.preview_music.as_deref_mut(),
+                download_handle: params.download_handle.as_ref(),
             };
             handler.render(&mut ctx);
             handler.input(&mut ctx);
@@ -176,6 +181,7 @@ impl StateRegistry {
                 bevy_images: params.bevy_images.as_deref_mut(),
                 shared_state: params.shared_state.as_deref_mut(),
                 preview_music: params.preview_music.as_deref_mut(),
+                download_handle: params.download_handle.as_ref(),
             };
             handler.shutdown(&mut ctx);
         }
@@ -202,6 +208,7 @@ impl StateRegistry {
                 bevy_images: params.bevy_images.as_deref_mut(),
                 shared_state: params.shared_state.as_deref_mut(),
                 preview_music: params.preview_music.as_deref_mut(),
+                download_handle: params.download_handle.as_ref(),
             };
             handler.create(&mut ctx);
             handler.prepare(&mut ctx);
@@ -271,6 +278,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         }
     }
 

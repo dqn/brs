@@ -14,6 +14,8 @@ mod result_skin_state;
 pub mod select;
 pub mod skin_config;
 
+use std::sync::Arc;
+
 use crate::app_state::AppStateType;
 use crate::database_manager::DatabaseManager;
 use crate::game_state::SharedGameState;
@@ -25,6 +27,31 @@ use crate::system_sound::SystemSoundManager;
 use crate::timer_manager::TimerManager;
 use bms_config::{Config, PlayerConfig};
 use bms_input::keyboard::KeyboardBackend;
+
+/// Download source types (enum dispatch — DownloadSource trait is not object-safe).
+pub enum DownloadSourceKind {
+    Konmai(bms_download::source::konmai::KonmaiDownloadSource),
+    Wriggle(bms_download::source::wriggle::WriggleDownloadSource),
+}
+
+impl DownloadSourceKind {
+    pub async fn get_download_url(&self, hash: &str) -> anyhow::Result<String> {
+        use bms_download::source::DownloadSource;
+        match self {
+            Self::Konmai(s) => s.get_download_url(hash).await,
+            Self::Wriggle(s) => s.get_download_url(hash).await,
+        }
+    }
+}
+
+/// Download configuration and processor handle for background song downloads.
+pub struct DownloadHandle {
+    pub processor: Arc<bms_download::processor::HttpDownloadProcessor>,
+    pub source: DownloadSourceKind,
+    pub ipfs_gateway: String,
+    pub enable_http: bool,
+    pub enable_ipfs: bool,
+}
 
 /// Context passed to state handlers on each callback.
 pub struct StateContext<'a> {
@@ -52,6 +79,8 @@ pub struct StateContext<'a> {
     pub shared_state: Option<&'a mut SharedGameState>,
     /// Preview music processor for select screen (None in tests or non-select states).
     pub preview_music: Option<&'a mut PreviewMusicProcessor>,
+    /// Download handle for background song downloads (None in tests or when disabled).
+    pub download_handle: Option<&'a Arc<DownloadHandle>>,
 }
 
 /// Trait for game state handlers. Each variant of `AppStateType` has

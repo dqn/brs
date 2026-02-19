@@ -49,6 +49,7 @@ use state::play::PlayState;
 use state::result::ResultState;
 use state::select::MusicSelectState;
 use state::skin_config::SkinConfigState;
+use state::{DownloadHandle, DownloadSourceKind};
 use timer_manager::TimerManager;
 
 #[derive(Parser, Debug)]
@@ -245,6 +246,49 @@ fn main() -> Result<()> {
         }
     };
 
+    // Initialize download processor from config
+    let download_handle = if config.enable_http || config.enable_ipfs {
+        let download_dir = PathBuf::from(&config.download_directory);
+        if let Err(e) = std::fs::create_dir_all(&download_dir) {
+            tracing::warn!(
+                path = %download_dir.display(),
+                "Failed to create download directory: {e}"
+            );
+        }
+        let processor = Arc::new(bms_download::processor::HttpDownloadProcessor::new(
+            &download_dir,
+        ));
+        let override_url = if config.override_download_url.is_empty() {
+            None
+        } else {
+            Some(config.override_download_url.as_str())
+        };
+        let source = match config.download_source.as_str() {
+            "wriggle" => DownloadSourceKind::Wriggle(
+                bms_download::source::wriggle::WriggleDownloadSource::new(override_url),
+            ),
+            _ => DownloadSourceKind::Konmai(
+                bms_download::source::konmai::KonmaiDownloadSource::new(override_url),
+            ),
+        };
+        info!(
+            enable_http = config.enable_http,
+            enable_ipfs = config.enable_ipfs,
+            source = config.download_source.as_str(),
+            dir = %download_dir.display(),
+            "Download processor initialized"
+        );
+        Some(Arc::new(DownloadHandle {
+            processor,
+            source,
+            ipfs_gateway: config.ipfsurl.clone(),
+            enable_http: config.enable_http,
+            enable_ipfs: config.enable_ipfs,
+        }))
+    } else {
+        None
+    };
+
     // Build state registry
     let mut registry = StateRegistry::new(AppStateType::MusicSelect);
     registry.register(AppStateType::MusicSelect, Box::new(MusicSelectState::new()));
@@ -330,6 +374,7 @@ fn main() -> Result<()> {
                 player_config: player_config_path,
             },
             preview_music: BrsPreviewMusic(Mutex::new(preview_music)),
+            download_handle: BrsDownloadHandle(download_handle),
         })
         .insert_resource(BrsVersionCheck {
             rx: Mutex::new(Some(version_rx)),
@@ -412,6 +457,10 @@ struct BrsSystemSoundManager(system_sound::SystemSoundManager);
 #[derive(Resource)]
 struct BrsPreviewMusic(Mutex<Option<preview_music::PreviewMusicProcessor>>);
 
+/// Download processor and configuration for background song downloads.
+#[derive(Resource)]
+struct BrsDownloadHandle(Option<Arc<DownloadHandle>>);
+
 /// Background version check result receiver.
 ///
 /// The version check runs in a background thread; the receiver is polled once
@@ -436,6 +485,7 @@ fn timer_update_system(mut timer: ResMut<BrsTimerManager>) {
 struct StateUiResources {
     config_paths: BrsConfigPaths,
     preview_music: BrsPreviewMusic,
+    download_handle: BrsDownloadHandle,
 }
 
 #[allow(clippy::too_many_arguments)] // Bevy system using dependency injection
@@ -510,6 +560,7 @@ fn state_machine_system(
         bevy_images: Some(&mut bevy_images),
         shared_state: Some(&mut shared_guard),
         preview_music: pm_guard.as_mut(),
+        download_handle: ui_res.download_handle.0.clone(),
     };
     registry.registry.tick(&mut params);
     drop(shared_guard);

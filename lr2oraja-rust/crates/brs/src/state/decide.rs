@@ -175,6 +175,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         }
     }
 
@@ -426,6 +427,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -465,6 +467,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -496,6 +499,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.create(&mut ctx);
         assert_eq!(skin_mgr.take_request(), Some(SkinType::Decide));
@@ -526,6 +530,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.prepare(&mut ctx);
         let drained = sound_mgr.drain();

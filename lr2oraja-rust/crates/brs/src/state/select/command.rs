@@ -76,6 +76,12 @@ pub enum CommandResult {
     ShowContextMenu,
     /// Cycle to the next rival.
     NextRival,
+    /// Download a song via HTTP.
+    DownloadHttp { md5: String, title: String },
+    /// Download a song via IPFS.
+    DownloadIpfs { md5: String, title: String },
+    /// Download all songs in a course via HTTP.
+    DownloadCourseHttp { songs: Vec<(String, String)> },
 }
 
 /// Commands available on the music select screen.
@@ -96,13 +102,13 @@ pub enum MusicSelectCommand {
     /// Copy the highlighted bar's display text to the clipboard.
     CopyHighlightedMenuText,
     /// Download the selected song via IPFS.
-    #[allow(dead_code)] // TODO: integrate with download feature
+    #[allow(dead_code)] // Constructed by keyboard shortcut / context menu wiring
     DownloadIpfs,
     /// Download the selected song via HTTP (by MD5).
-    #[allow(dead_code)] // TODO: integrate with download feature
+    #[allow(dead_code)] // Constructed by keyboard shortcut / context menu wiring
     DownloadHttp,
     /// Download all songs in the selected course via HTTP.
-    #[allow(dead_code)] // TODO: integrate with download feature
+    #[allow(dead_code)] // Constructed by keyboard shortcut / context menu wiring
     DownloadCourseHttp,
     /// Show all songs in the same folder as the selected song.
     ShowSongsOnSameFolder,
@@ -180,10 +186,37 @@ impl CommandExecutor {
             }
             MusicSelectCommand::ShowContextMenu => CommandResult::ShowContextMenu,
             MusicSelectCommand::NextRival => CommandResult::NextRival,
-            MusicSelectCommand::DownloadIpfs
-            | MusicSelectCommand::DownloadHttp
-            | MusicSelectCommand::DownloadCourseHttp => {
-                tracing::info!(?cmd, "Download command requested (stub)");
+            MusicSelectCommand::DownloadHttp => {
+                if let Some(Bar::Song(s)) = bar_manager.current() {
+                    return CommandResult::DownloadHttp {
+                        md5: s.md5.clone(),
+                        title: s.title.clone(),
+                    };
+                }
+                CommandResult::None
+            }
+            MusicSelectCommand::DownloadIpfs => {
+                if let Some(Bar::Song(s)) = bar_manager.current() {
+                    return CommandResult::DownloadIpfs {
+                        md5: s.md5.clone(),
+                        title: s.title.clone(),
+                    };
+                }
+                CommandResult::None
+            }
+            MusicSelectCommand::DownloadCourseHttp => {
+                if let Some(Bar::Grade(g)) = bar_manager.current() {
+                    let songs: Vec<(String, String)> = g
+                        .course
+                        .hash
+                        .iter()
+                        .filter(|h| !h.md5.is_empty())
+                        .map(|h| (h.md5.clone(), h.title.clone()))
+                        .collect();
+                    if !songs.is_empty() {
+                        return CommandResult::DownloadCourseHttp { songs };
+                    }
+                }
                 CommandResult::None
             }
         }
@@ -473,27 +506,98 @@ mod tests {
         }
     }
 
-    // --- Download stub tests ---
+    // --- Download command tests ---
 
     #[test]
-    fn download_ipfs_on_song_does_not_panic() {
+    fn download_http_returns_song_data() {
         let mut exec = CommandExecutor::new();
-        let bm = make_bar_manager_with_song("md5", "sha256", "Song");
-        exec.execute(MusicSelectCommand::DownloadIpfs, &bm);
+        let bm = make_bar_manager_with_song("test_md5", "sha256", "Test Song");
+        let result = exec.execute(MusicSelectCommand::DownloadHttp, &bm);
+        assert_eq!(
+            result,
+            CommandResult::DownloadHttp {
+                md5: "test_md5".to_string(),
+                title: "Test Song".to_string(),
+            }
+        );
     }
 
     #[test]
-    fn download_http_on_song_does_not_panic() {
+    fn download_http_on_non_song_returns_none() {
         let mut exec = CommandExecutor::new();
-        let bm = make_bar_manager_with_song("md5", "sha256", "Song");
-        exec.execute(MusicSelectCommand::DownloadHttp, &bm);
+        let bm = make_bar_manager_with_folder("Folder");
+        let result = exec.execute(MusicSelectCommand::DownloadHttp, &bm);
+        assert_eq!(result, CommandResult::None);
     }
 
     #[test]
-    fn download_course_http_does_not_panic() {
+    fn download_ipfs_returns_song_data() {
+        let mut exec = CommandExecutor::new();
+        let bm = make_bar_manager_with_song("test_md5", "sha256", "Test Song");
+        let result = exec.execute(MusicSelectCommand::DownloadIpfs, &bm);
+        assert_eq!(
+            result,
+            CommandResult::DownloadIpfs {
+                md5: "test_md5".to_string(),
+                title: "Test Song".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn download_ipfs_on_non_song_returns_none() {
+        let mut exec = CommandExecutor::new();
+        let bm = make_bar_manager_with_folder("Folder");
+        let result = exec.execute(MusicSelectCommand::DownloadIpfs, &bm);
+        assert_eq!(result, CommandResult::None);
+    }
+
+    #[test]
+    fn download_course_http_returns_course_songs() {
+        use crate::state::select::bar_manager::GradeBarData;
+        use bms_database::{CourseData, CourseSongData};
+
+        let mut bm = BarManager::new();
+        bm.set_bars_for_test(vec![Bar::Grade(Box::new(GradeBarData {
+            name: "Test Grade".to_string(),
+            course: CourseData {
+                name: "Test Course".to_string(),
+                hash: vec![
+                    CourseSongData {
+                        md5: "md5_1".to_string(),
+                        sha256: String::new(),
+                        title: "Song 1".to_string(),
+                    },
+                    CourseSongData {
+                        md5: "md5_2".to_string(),
+                        sha256: String::new(),
+                        title: "Song 2".to_string(),
+                    },
+                ],
+                ..Default::default()
+            },
+            constraints: vec![],
+        }))]);
+
+        let mut exec = CommandExecutor::new();
+        let result = exec.execute(MusicSelectCommand::DownloadCourseHttp, &bm);
+        assert_eq!(
+            result,
+            CommandResult::DownloadCourseHttp {
+                songs: vec![
+                    ("md5_1".to_string(), "Song 1".to_string()),
+                    ("md5_2".to_string(), "Song 2".to_string()),
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn download_course_http_on_empty_bar_returns_none() {
         let mut exec = CommandExecutor::new();
         let bm = BarManager::new();
-        exec.execute(MusicSelectCommand::DownloadCourseHttp, &bm);
+        let result = exec.execute(MusicSelectCommand::DownloadCourseHttp, &bm);
+        assert_eq!(result, CommandResult::None);
     }
 
     // --- ShowSongsOnSameFolder / ShowContextMenu ---

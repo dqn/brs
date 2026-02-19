@@ -796,6 +796,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         }
     }
 

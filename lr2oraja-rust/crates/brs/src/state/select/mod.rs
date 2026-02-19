@@ -10,6 +10,7 @@ mod select_skin_state;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use tracing::{info, warn};
@@ -25,7 +26,7 @@ use bms_skin::property_id::{TIMER_FADEOUT, TIMER_STARTINPUT};
 use crate::app_state::AppStateType;
 use crate::preview_music::PREVIEW_DELAY_MS;
 use crate::skin_manager::SkinType;
-use crate::state::{GameStateHandler, StateContext};
+use crate::state::{DownloadHandle, GameStateHandler, StateContext};
 use crate::system_sound::SystemSound;
 
 use bar_manager::{Bar, BarManager, SortMode};
@@ -100,6 +101,8 @@ pub struct MusicSelectState {
     command_executor: command::CommandExecutor,
     /// Currently selected rival index (cycles through available rivals).
     selected_rival: usize,
+    /// Download handle for background song downloads (None when disabled).
+    download_handle: Option<Arc<DownloadHandle>>,
 }
 
 impl MusicSelectState {
@@ -123,6 +126,7 @@ impl MusicSelectState {
             ir_fetch_receiver: None,
             command_executor: command::CommandExecutor::new(),
             selected_rival: 0,
+            download_handle: None,
         }
     }
 }
@@ -138,6 +142,7 @@ impl GameStateHandler for MusicSelectState {
         self.fadeout_started = false;
         self.songbar_change_time = None;
         self.preview_triggered = false;
+        self.download_handle = ctx.download_handle.cloned();
         info!("MusicSelect: create");
 
         if let Some(skin_mgr) = ctx.skin_manager.as_deref_mut() {
@@ -747,6 +752,17 @@ impl MusicSelectState {
                     "MusicSelect: rival changed"
                 );
             }
+            CommandResult::DownloadHttp { md5, title } => {
+                self.start_http_download(&md5, &title);
+            }
+            CommandResult::DownloadIpfs { md5, title } => {
+                self.start_ipfs_download(&md5, &title);
+            }
+            CommandResult::DownloadCourseHttp { songs } => {
+                for (md5, title) in &songs {
+                    self.start_http_download(md5, title);
+                }
+            }
         }
     }
 
@@ -951,6 +967,90 @@ impl MusicSelectState {
                 self.bar_manager.set_rival_scores(HashMap::new());
             }
         }
+    }
+
+    /// Start an HTTP download for a song by MD5 hash.
+    fn start_http_download(&self, md5: &str, title: &str) {
+        let Some(handle) = &self.download_handle else {
+            info!("MusicSelect: download not available (no download handle)");
+            return;
+        };
+        if !handle.enable_http {
+            info!("MusicSelect: HTTP download disabled in config");
+            return;
+        }
+        let handle = Arc::clone(handle);
+        let md5 = md5.to_string();
+        let title = title.to_string();
+        std::thread::spawn(move || {
+            let rt = match tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(rt) => rt,
+                Err(e) => {
+                    warn!("MusicSelect: failed to create runtime for download: {e}");
+                    return;
+                }
+            };
+            rt.block_on(async {
+                match handle.source.get_download_url(&md5).await {
+                    Ok(url) => {
+                        let task_id = handle
+                            .processor
+                            .add_task(url, title.clone(), md5.clone())
+                            .await;
+                        handle.processor.start_download(task_id);
+                        info!(task_id, title = %title, "MusicSelect: HTTP download started");
+                    }
+                    Err(e) => {
+                        warn!(md5 = %md5, "MusicSelect: failed to resolve download URL: {e}");
+                    }
+                }
+            });
+        });
+    }
+
+    /// Start an IPFS download for a song by MD5 hash.
+    ///
+    /// Constructs an IPFS gateway URL from the MD5 hash. Note: Java uses
+    /// `SongData.ipfs` (IPFS CID) which is not yet available in the Rust
+    /// SongData struct. For now, this attempts a hash-based gateway URL.
+    // TODO: Add SongData.ipfs field for proper IPFS CID-based downloads
+    fn start_ipfs_download(&self, md5: &str, title: &str) {
+        let Some(handle) = &self.download_handle else {
+            info!("MusicSelect: download not available (no download handle)");
+            return;
+        };
+        if !handle.enable_ipfs {
+            info!("MusicSelect: IPFS download disabled in config");
+            return;
+        }
+        let gateway = handle.ipfs_gateway.trim_end_matches('/').to_string();
+        let url = format!("{gateway}/ipfs/{md5}");
+        let handle = Arc::clone(handle);
+        let md5 = md5.to_string();
+        let title = title.to_string();
+        std::thread::spawn(move || {
+            let rt = match tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(rt) => rt,
+                Err(e) => {
+                    warn!("MusicSelect: failed to create runtime for IPFS download: {e}");
+                    return;
+                }
+            };
+            rt.block_on(async {
+                let task_id = handle
+                    .processor
+                    .add_task(url, title.clone(), md5.clone())
+                    .await;
+                handle.processor.start_download(task_id);
+                info!(task_id, title = %title, "MusicSelect: IPFS download started");
+            });
+        });
     }
 
     /// Enter the leaderboard for a song.
@@ -1399,6 +1499,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         }
     }
 
@@ -1426,6 +1527,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         }
     }
 
@@ -1900,6 +2002,7 @@ mod tests {
                 bevy_images: None,
                 shared_state: None,
                 preview_music: None,
+                download_handle: None,
             };
             state.input(&mut ctx);
         }
@@ -1925,6 +2028,7 @@ mod tests {
                 bevy_images: None,
                 shared_state: None,
                 preview_music: None,
+                download_handle: None,
             };
             state.input(&mut ctx);
         }
@@ -1966,6 +2070,7 @@ mod tests {
                 bevy_images: None,
                 shared_state: None,
                 preview_music: None,
+                download_handle: None,
             };
             state.input(&mut ctx);
         }
@@ -2098,6 +2203,7 @@ mod tests {
                 bevy_images: None,
                 shared_state: None,
                 preview_music: None,
+                download_handle: None,
             };
             state.input(&mut ctx);
         }
@@ -2140,6 +2246,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.input(&mut ctx);
         assert_eq!(state.search_text(), "hi");
@@ -2291,6 +2398,7 @@ mod tests {
                 bevy_images: None,
                 shared_state: None,
                 preview_music: None,
+                download_handle: None,
             };
             state.input(&mut ctx);
         }
@@ -2337,6 +2445,7 @@ mod tests {
                 bevy_images: None,
                 shared_state: None,
                 preview_music: None,
+                download_handle: None,
             };
             state.input(&mut ctx);
         }
@@ -2382,6 +2491,7 @@ mod tests {
                 bevy_images: None,
                 shared_state: None,
                 preview_music: None,
+                download_handle: None,
             };
             state.input(&mut ctx);
         }

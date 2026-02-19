@@ -304,6 +304,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         }
     }
 
@@ -347,6 +348,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.create(&mut ctx);
 
@@ -390,6 +392,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.create(&mut ctx);
 
@@ -432,6 +435,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.create(&mut ctx);
 
@@ -681,6 +685,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -720,6 +725,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.input(&mut ctx);
         assert!(timer.is_timer_on(TIMER_FADEOUT));
@@ -760,6 +766,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.input(&mut ctx);
         assert_eq!(state.graph_type(), 1);
@@ -784,6 +791,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.input(&mut ctx2);
         assert_eq!(state.graph_type(), 0);
@@ -819,6 +827,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.input(&mut ctx);
         assert!(!timer.is_timer_on(TIMER_FADEOUT));
@@ -857,6 +866,7 @@ mod tests {
             bevy_images: None,
             shared_state: None,
             preview_music: None,
+            download_handle: None,
         };
         state.input(&mut ctx);
         // graph_type should not change
