@@ -107,6 +107,21 @@ impl RivalDataAccessor {
             Err(e) => Err(e.into()),
         }
     }
+
+    /// Get all rival scores for a given mode.
+    ///
+    /// Returns all scores from the rival's DB for the specified play mode.
+    /// Used for RivalCompareClear / RivalCompareScore sort modes.
+    pub fn get_all_rival_scores(db_path: &Path, mode: i32) -> Result<Vec<ScoreData>> {
+        let conn = Connection::open(db_path)?;
+        let mut stmt = conn.prepare("SELECT * FROM score WHERE mode = ?1")?;
+        let rows = stmt.query_map(rusqlite::params![mode], score_data_from_row)?;
+        let mut results = Vec::new();
+        for r in rows {
+            results.push(r?);
+        }
+        Ok(results)
+    }
 }
 
 #[cfg(test)]
@@ -198,5 +213,38 @@ mod tests {
 
         accessor.load_local_rivals().unwrap();
         assert_eq!(accessor.rival_count(), 3);
+    }
+
+    #[test]
+    fn get_all_rival_scores_returns_matching_mode() {
+        let tmp = TempDir::new().unwrap();
+        let accessor = RivalDataAccessor::new(tmp.path().join("rivals")).unwrap();
+        let info = sample_info();
+        let db_path = accessor.create_rival_db(&info).unwrap();
+
+        let conn = Connection::open(&db_path).unwrap();
+        // Insert scores for mode 7 and mode 14
+        conn.execute(
+            "INSERT INTO score (sha256, mode, clear, epg, lpg, egr, lgr, egd, lgd, ebd, lbd, epr, lpr, ems, lms, notes, combo, minbp, avgjudge, playcount, clearcount, date) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+            rusqlite::params!["sha_a", 7, ClearType::Hard.id(), 100, 50, 30, 20, 5, 3, 1, 1, 0, 0, 0, 0, 210, 200, 5, i64::MAX, 10, 5, 1700000000i64],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO score (sha256, mode, clear, epg, lpg, egr, lgr, egd, lgd, ebd, lbd, epr, lpr, ems, lms, notes, combo, minbp, avgjudge, playcount, clearcount, date) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+            rusqlite::params!["sha_b", 7, ClearType::Easy.id(), 50, 20, 10, 10, 2, 1, 0, 0, 0, 0, 0, 0, 100, 80, 15, i64::MAX, 3, 1, 1700000000i64],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO score (sha256, mode, clear, epg, lpg, egr, lgr, egd, lgd, ebd, lbd, epr, lpr, ems, lms, notes, combo, minbp, avgjudge, playcount, clearcount, date) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+            rusqlite::params!["sha_c", 14, ClearType::Normal.id(), 70, 30, 20, 10, 3, 2, 0, 0, 0, 0, 0, 0, 150, 120, 10, i64::MAX, 5, 2, 1700000000i64],
+        ).unwrap();
+
+        let scores_7 = RivalDataAccessor::get_all_rival_scores(&db_path, 7).unwrap();
+        assert_eq!(scores_7.len(), 2);
+
+        let scores_14 = RivalDataAccessor::get_all_rival_scores(&db_path, 14).unwrap();
+        assert_eq!(scores_14.len(), 1);
+        assert_eq!(scores_14[0].sha256, "sha_c");
+
+        let scores_5 = RivalDataAccessor::get_all_rival_scores(&db_path, 5).unwrap();
+        assert!(scores_5.is_empty());
     }
 }

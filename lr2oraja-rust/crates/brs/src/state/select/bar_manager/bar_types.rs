@@ -17,9 +17,7 @@ pub enum SortMode {
     MissCount,
     Duration,
     LastUpdate,
-    #[allow(dead_code)] // Parsed for completeness (Java BarSorter enum)
     RivalCompareClear,
-    #[allow(dead_code)] // Parsed for completeness (Java BarSorter enum)
     RivalCompareScore,
 }
 
@@ -69,8 +67,9 @@ impl SortMode {
 
     /// Cycle to the next sort mode.
     ///
-    /// Skips RivalCompareClear and RivalCompareScore as they're not yet implemented.
-    pub fn next(self) -> Self {
+    /// When `has_rival` is true, includes RivalCompareClear and RivalCompareScore
+    /// in the cycle. When false, skips them.
+    pub fn next(self, has_rival: bool) -> Self {
         match self {
             Self::Default => Self::Title,
             Self::Title => Self::Artist,
@@ -82,7 +81,13 @@ impl SortMode {
             Self::Score => Self::MissCount,
             Self::MissCount => Self::Duration,
             Self::Duration => Self::LastUpdate,
-            Self::LastUpdate => Self::Default, // Skip rival compare modes (not implemented)
+            Self::LastUpdate => {
+                if has_rival {
+                    Self::RivalCompareClear
+                } else {
+                    Self::Default
+                }
+            }
             Self::RivalCompareClear => Self::RivalCompareScore,
             Self::RivalCompareScore => Self::Default,
         }

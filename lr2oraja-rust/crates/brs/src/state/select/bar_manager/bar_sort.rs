@@ -47,6 +47,40 @@ fn title_fallback_cmp(a: &Bar, b: &Bar) -> Option<Ordering> {
     }
 }
 
+/// Compute (player_clear - rival_clear) for a song.
+///
+/// Java parity: `BarSorter.RivalCompareClear` sorts by the difference
+/// between player and rival clear types (descending).
+fn player_rival_clear_diff(
+    song: &bms_database::SongData,
+    player: &HashMap<String, ScoreData>,
+    rival: &HashMap<String, ScoreData>,
+) -> i32 {
+    let p = player
+        .get(&song.sha256)
+        .map(|s| s.clear.id() as i32)
+        .unwrap_or(0);
+    let r = rival
+        .get(&song.sha256)
+        .map(|s| s.clear.id() as i32)
+        .unwrap_or(0);
+    p - r
+}
+
+/// Compute (player_exscore - rival_exscore) for a song.
+///
+/// Java parity: `BarSorter.RivalCompareScore` sorts by the difference
+/// between player and rival EX scores (descending).
+fn player_rival_exscore_diff(
+    song: &bms_database::SongData,
+    player: &HashMap<String, ScoreData>,
+    rival: &HashMap<String, ScoreData>,
+) -> i32 {
+    let p = player.get(&song.sha256).map(|s| s.exscore()).unwrap_or(0);
+    let r = rival.get(&song.sha256).map(|s| s.exscore()).unwrap_or(0);
+    p - r
+}
+
 /// Returns a stable identity key for a bar, used for cursor restoration.
 ///
 /// Song bars use sha256; other bars use display_type + bar_name.
@@ -229,10 +263,30 @@ impl BarManager {
                 });
             }
             SortMode::RivalCompareClear => {
-                tracing::info!("RivalCompareClear sort: stub (requires rival score data)");
+                let rival_scores = &self.rival_scores;
+                self.bars.sort_by(|a, b| {
+                    if let Some(ord) = title_fallback_cmp(a, b) {
+                        return ord;
+                    }
+                    let sa = a.as_song().unwrap();
+                    let sb = b.as_song().unwrap();
+                    let diff_a = player_rival_clear_diff(sa, score_cache, rival_scores);
+                    let diff_b = player_rival_clear_diff(sb, score_cache, rival_scores);
+                    diff_b.cmp(&diff_a) // descending: higher diff = player ahead
+                });
             }
             SortMode::RivalCompareScore => {
-                tracing::info!("RivalCompareScore sort: stub (requires rival score data)");
+                let rival_scores = &self.rival_scores;
+                self.bars.sort_by(|a, b| {
+                    if let Some(ord) = title_fallback_cmp(a, b) {
+                        return ord;
+                    }
+                    let sa = a.as_song().unwrap();
+                    let sb = b.as_song().unwrap();
+                    let diff_a = player_rival_exscore_diff(sa, score_cache, rival_scores);
+                    let diff_b = player_rival_exscore_diff(sb, score_cache, rival_scores);
+                    diff_b.cmp(&diff_a) // descending: higher diff = player ahead
+                });
             }
         }
         // Restore cursor to the previously selected bar

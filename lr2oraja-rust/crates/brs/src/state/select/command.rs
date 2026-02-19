@@ -24,6 +24,8 @@ pub enum CommandResult {
     ShowSameFolder { title: String, folder_crc: String },
     /// Show the context menu for the current bar.
     ShowContextMenu,
+    /// Cycle to the next rival.
+    NextRival,
 }
 
 /// Commands available on the music select screen.
@@ -56,6 +58,8 @@ pub enum MusicSelectCommand {
     ShowSongsOnSameFolder,
     /// Open the context menu for the current bar.
     ShowContextMenu,
+    /// Cycle to the next rival.
+    NextRival,
 }
 
 /// Executes music select commands.
@@ -125,6 +129,7 @@ impl CommandExecutor {
                 CommandResult::None
             }
             MusicSelectCommand::ShowContextMenu => CommandResult::ShowContextMenu,
+            MusicSelectCommand::NextRival => CommandResult::NextRival,
             MusicSelectCommand::DownloadIpfs
             | MusicSelectCommand::DownloadHttp
             | MusicSelectCommand::DownloadCourseHttp => {
@@ -458,9 +463,10 @@ mod tests {
             MusicSelectCommand::DownloadCourseHttp,
             MusicSelectCommand::ShowSongsOnSameFolder,
             MusicSelectCommand::ShowContextMenu,
+            MusicSelectCommand::NextRival,
         ];
-        // Verify all 11 variants are present
-        assert_eq!(commands.len(), 11);
+        // Verify all 12 variants are present
+        assert_eq!(commands.len(), 12);
         // Verify each is distinct
         for (i, a) in commands.iter().enumerate() {
             for (j, b) in commands.iter().enumerate() {
@@ -469,6 +475,14 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn next_rival_returns_result() {
+        let mut exec = CommandExecutor::new();
+        let bm = BarManager::new();
+        let result = exec.execute(MusicSelectCommand::NextRival, &bm);
+        assert_eq!(result, CommandResult::NextRival);
     }
 
     #[test]

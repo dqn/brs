@@ -6,6 +6,10 @@ mod bar_navigation;
 mod bar_sort;
 mod bar_types;
 
+use std::collections::HashMap;
+
+use bms_rule::ScoreData;
+
 pub use bar_types::*;
 
 /// Manages the bar list, cursor position, and folder navigation stack.
@@ -17,6 +21,8 @@ pub struct BarManager {
     search_history: Vec<String>,
     /// Maximum number of search history entries.
     max_search_bar_count: usize,
+    /// Rival score cache: sha256 → ScoreData (for rival compare sort modes).
+    pub(super) rival_scores: HashMap<String, ScoreData>,
 }
 
 impl BarManager {
@@ -27,6 +33,7 @@ impl BarManager {
             folder_stack: Vec::new(),
             search_history: Vec::new(),
             max_search_bar_count: 10,
+            rival_scores: HashMap::new(),
         }
     }
 
@@ -88,6 +95,16 @@ impl BarManager {
     /// Returns true if currently inside a folder (not at root).
     pub fn is_in_folder(&self) -> bool {
         !self.folder_stack.is_empty()
+    }
+
+    /// Set the rival score cache for rival compare sort modes.
+    pub fn set_rival_scores(&mut self, scores: HashMap<String, ScoreData>) {
+        self.rival_scores = scores;
+    }
+
+    /// Returns true if rival scores are loaded (for sort mode cycling).
+    pub fn has_rival(&self) -> bool {
+        !self.rival_scores.is_empty()
     }
 }
 
@@ -446,18 +463,28 @@ mod tests {
     }
 
     #[test]
-    fn sort_mode_cycles() {
-        assert_eq!(SortMode::Default.next(), SortMode::Title);
-        assert_eq!(SortMode::Title.next(), SortMode::Artist);
-        assert_eq!(SortMode::Artist.next(), SortMode::Level);
-        assert_eq!(SortMode::Level.next(), SortMode::Bpm);
-        assert_eq!(SortMode::Bpm.next(), SortMode::Length);
-        assert_eq!(SortMode::Length.next(), SortMode::Clear);
-        assert_eq!(SortMode::Clear.next(), SortMode::Score);
-        assert_eq!(SortMode::Score.next(), SortMode::MissCount);
-        assert_eq!(SortMode::MissCount.next(), SortMode::Duration);
-        assert_eq!(SortMode::Duration.next(), SortMode::LastUpdate);
-        assert_eq!(SortMode::LastUpdate.next(), SortMode::Default);
+    fn sort_mode_cycles_without_rival() {
+        assert_eq!(SortMode::Default.next(false), SortMode::Title);
+        assert_eq!(SortMode::Title.next(false), SortMode::Artist);
+        assert_eq!(SortMode::Artist.next(false), SortMode::Level);
+        assert_eq!(SortMode::Level.next(false), SortMode::Bpm);
+        assert_eq!(SortMode::Bpm.next(false), SortMode::Length);
+        assert_eq!(SortMode::Length.next(false), SortMode::Clear);
+        assert_eq!(SortMode::Clear.next(false), SortMode::Score);
+        assert_eq!(SortMode::Score.next(false), SortMode::MissCount);
+        assert_eq!(SortMode::MissCount.next(false), SortMode::Duration);
+        assert_eq!(SortMode::Duration.next(false), SortMode::LastUpdate);
+        assert_eq!(SortMode::LastUpdate.next(false), SortMode::Default);
+    }
+
+    #[test]
+    fn sort_mode_cycles_with_rival() {
+        assert_eq!(SortMode::LastUpdate.next(true), SortMode::RivalCompareClear);
+        assert_eq!(
+            SortMode::RivalCompareClear.next(true),
+            SortMode::RivalCompareScore
+        );
+        assert_eq!(SortMode::RivalCompareScore.next(true), SortMode::Default);
     }
 
     fn sample_course(name: &str) -> CourseData {
@@ -1777,5 +1804,107 @@ mod tests {
                 _ => panic!("expected Container bar"),
             }
         }
+    }
+
+    #[test]
+    fn sort_rival_compare_clear_descending_diff() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                sha256: "sha_a".to_string(),
+                title: "Song A".to_string(),
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                sha256: "sha_b".to_string(),
+                title: "Song B".to_string(),
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                sha256: "sha_c".to_string(),
+                title: "Song C".to_string(),
+                ..Default::default()
+            })),
+        ];
+        // Player scores: A=Hard(6), B=Easy(4), C=Normal(5)
+        let player_cache = make_score_cache(&[
+            make_score("sha_a", bms_rule::ClearType::Hard, 0, 0, 0, 0),
+            make_score("sha_b", bms_rule::ClearType::Easy, 0, 0, 0, 0),
+            make_score("sha_c", bms_rule::ClearType::Normal, 0, 0, 0, 0),
+        ]);
+        // Rival scores: A=Easy(4), B=Hard(6), C=Normal(5)
+        let rival_cache: HashMap<String, ScoreData> = [
+            make_score("sha_a", bms_rule::ClearType::Easy, 0, 0, 0, 0),
+            make_score("sha_b", bms_rule::ClearType::Hard, 0, 0, 0, 0),
+            make_score("sha_c", bms_rule::ClearType::Normal, 0, 0, 0, 0),
+        ]
+        .iter()
+        .map(|s| (s.sha256.clone(), s.clone()))
+        .collect();
+        bm.rival_scores = rival_cache;
+
+        bm.sort(SortMode::RivalCompareClear, &player_cache);
+        // Diffs: A = 6-4=2, B = 4-6=-2, C = 5-5=0
+        // Descending: A(2), C(0), B(-2)
+        assert_eq!(bm.bars[0].bar_name(), "Song A");
+        assert_eq!(bm.bars[1].bar_name(), "Song C");
+        assert_eq!(bm.bars[2].bar_name(), "Song B");
+    }
+
+    #[test]
+    fn sort_rival_compare_score_descending_diff() {
+        let mut bm = BarManager::new();
+        bm.bars = vec![
+            Bar::Song(Box::new(SongData {
+                sha256: "sha_x".to_string(),
+                title: "Song X".to_string(),
+                ..Default::default()
+            })),
+            Bar::Song(Box::new(SongData {
+                sha256: "sha_y".to_string(),
+                title: "Song Y".to_string(),
+                ..Default::default()
+            })),
+        ];
+        // Player: X exscore=200 (epg=100), Y exscore=100 (epg=50)
+        let player_cache = make_score_cache(&[
+            make_score("sha_x", bms_rule::ClearType::default(), 100, 0, 0, 0),
+            make_score("sha_y", bms_rule::ClearType::default(), 50, 0, 0, 0),
+        ]);
+        // Rival: X exscore=300 (epg=150), Y exscore=50 (epg=25)
+        let rival_cache: HashMap<String, ScoreData> = [
+            make_score("sha_x", bms_rule::ClearType::default(), 150, 0, 0, 0),
+            make_score("sha_y", bms_rule::ClearType::default(), 25, 0, 0, 0),
+        ]
+        .iter()
+        .map(|s| (s.sha256.clone(), s.clone()))
+        .collect();
+        bm.rival_scores = rival_cache;
+
+        bm.sort(SortMode::RivalCompareScore, &player_cache);
+        // Diffs: X = 200-300=-100, Y = 100-50=50
+        // Descending: Y(50), X(-100)
+        assert_eq!(bm.bars[0].bar_name(), "Song Y");
+        assert_eq!(bm.bars[1].bar_name(), "Song X");
+    }
+
+    #[test]
+    fn has_rival_reflects_scores() {
+        let mut bm = BarManager::new();
+        assert!(!bm.has_rival());
+
+        let mut scores = HashMap::new();
+        scores.insert(
+            "sha".to_string(),
+            ScoreData {
+                sha256: "sha".to_string(),
+                ..Default::default()
+            },
+        );
+        bm.set_rival_scores(scores);
+        assert!(bm.has_rival());
+
+        bm.set_rival_scores(HashMap::new());
+        assert!(!bm.has_rival());
     }
 }

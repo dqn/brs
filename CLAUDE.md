@@ -96,10 +96,10 @@ Phase 25: 7z アーカイブ対応、ソート Java パリティ修正、Preview
 Phase 26: MusicSelectCommand キーボードショートカット配線（F4/F5/C/NUM8）、CommandResult パターン導入、コンテキストメニュー構築、dead_code 削減。
 Phase 27: SystemSoundManager Kira オーディオ統合、OptionChange サウンド追加（Num1-5）、コンテキストメニュー Num7 キーバインド接続。
 Phase 28: MusicSelect dead_code 統合 — NextReplay/PrevReplay キーバインド（Num9/F3）、selected_replay skin state 公開、Function bar subtitle/lamp 接続、OpenUrl コンテキストメニュー、ShowSameFolder title 接続。
+Phase 29: LR2IR リーダーボード統合、RivalCompareClear/RivalCompareScore ソート実装、ライバル選択 Num6 キーバインド。
 
 ## Deferred / Stub Items
 
-- **SortMode::RivalCompareClear / RivalCompareScore:** スタブ実装（`tracing::info!` のみ）。Rival データ取得の IR 連携時に実装予定
 - **dead_code 統合 (C2-C5):** GradeBarData course/constraints skin state 同期、TimerManager set_frozen pause 接続 — 各統合先の機能が未実装のため保留
 - **MusicSelectCommand 残存 dead_code:** Download 系 3 variant（DownloadIpfs/DownloadHttp/DownloadCourseHttp）— ダウンロード機能未実装のため個別 variant に `#[allow(dead_code)]` 付与
 - **FunctionAction / Bar variant dead_code 整理 (Task D):** PlayReplay（リプレイ選択 UI 未実装）、Bar::SameFolder / Bar::Executable / Bar::LeaderBoard / Bar::ContextMenu / Bar::Grade（production code 未構築 or コンパイラ検出外）は `#[allow(dead_code)]` 維持

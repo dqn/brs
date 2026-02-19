@@ -98,6 +98,8 @@ pub struct MusicSelectState {
     ir_fetch_receiver: Option<parking_lot::Mutex<std::sync::mpsc::Receiver<Vec<Bar>>>>,
     /// Command executor for music select commands (clipboard, replay, etc.).
     command_executor: command::CommandExecutor,
+    /// Currently selected rival index (cycles through available rivals).
+    selected_rival: usize,
 }
 
 impl MusicSelectState {
@@ -120,6 +122,7 @@ impl MusicSelectState {
             preview_triggered: false,
             ir_fetch_receiver: None,
             command_executor: command::CommandExecutor::new(),
+            selected_rival: 0,
         }
     }
 }
@@ -476,7 +479,7 @@ impl GameStateHandler for MusicSelectState {
                     }
                     ControlKeys::Num2 => {
                         // Cycle sort mode
-                        self.sort_mode = self.sort_mode.next();
+                        self.sort_mode = self.sort_mode.next(self.bar_manager.has_rival());
                         self.bar_manager
                             .sort(self.sort_mode, &self.score_data_cache);
                         self.score_cache_dirty = true;
@@ -575,7 +578,11 @@ impl GameStateHandler for MusicSelectState {
                         return;
                     }
                     ControlKeys::Num6 => {
-                        // Cycle hi-speed (placeholder for future integration)
+                        // Cycle rival selection
+                        let result = self
+                            .command_executor
+                            .execute(MusicSelectCommand::NextRival, &self.bar_manager);
+                        self.handle_command_result(result, ctx);
                         return;
                     }
                     ControlKeys::Num7 => {
@@ -682,6 +689,32 @@ impl MusicSelectState {
                     self.bar_manager.push_and_set_bars(function_bars);
                     self.score_cache_dirty = true;
                 }
+            }
+            CommandResult::NextRival => {
+                let rival_count = ctx.database.map(|db| db.rival.rival_count()).unwrap_or(0);
+                if rival_count == 0 {
+                    info!("MusicSelect: no rivals available");
+                    return;
+                }
+                self.selected_rival = (self.selected_rival + 1) % rival_count;
+                self.load_rival_scores(ctx);
+                if self.bar_manager.has_rival() {
+                    self.bar_manager
+                        .sort(self.sort_mode, &self.score_data_cache);
+                }
+                if let Some(sm) = ctx.sound_manager.as_deref_mut() {
+                    sm.play(SystemSound::OptionChange);
+                }
+                let rival_name = ctx
+                    .database
+                    .and_then(|db| db.rival.get_rival(self.selected_rival))
+                    .map(|r| r.info.name.as_str())
+                    .unwrap_or("unknown");
+                info!(
+                    rival = %rival_name,
+                    index = self.selected_rival,
+                    "MusicSelect: rival changed"
+                );
             }
         }
     }
@@ -897,6 +930,39 @@ impl MusicSelectState {
         }
     }
 
+    /// Load rival scores from the selected rival's DB into BarManager.
+    fn load_rival_scores(&mut self, ctx: &StateContext) {
+        let db = match ctx.database {
+            Some(db) => db,
+            None => return,
+        };
+
+        let rival_count = db.rival.rival_count();
+        if rival_count == 0 || self.selected_rival >= rival_count {
+            self.bar_manager.set_rival_scores(HashMap::new());
+            return;
+        }
+
+        let rival = &db.rival.rivals()[self.selected_rival];
+        let mode = ctx.resource.play_mode.mode_id();
+        match bms_database::RivalDataAccessor::get_all_rival_scores(&rival.db_path, mode) {
+            Ok(scores) => {
+                let map: HashMap<String, ScoreData> =
+                    scores.into_iter().map(|s| (s.sha256.clone(), s)).collect();
+                info!(
+                    rival = %rival.info.name,
+                    scores = map.len(),
+                    "MusicSelect: loaded rival scores"
+                );
+                self.bar_manager.set_rival_scores(map);
+            }
+            Err(e) => {
+                warn!("MusicSelect: failed to load rival scores: {e}");
+                self.bar_manager.set_rival_scores(HashMap::new());
+            }
+        }
+    }
+
     /// Enter the leaderboard for a song.
     ///
     /// Pushes the current bar list onto the folder stack, shows a loading
@@ -917,11 +983,10 @@ impl MusicSelectState {
         let (tx, rx) = std::sync::mpsc::channel();
         self.ir_fetch_receiver = Some(parking_lot::Mutex::new(rx));
 
-        let _song = song_data.clone();
+        let song = song_data.clone();
         std::thread::spawn(move || {
             let bars = if from_lr2ir {
-                // TODO: integrate with LR2IRConnection when available
-                leaderboard::error_to_bars("IR connection not configured")
+                fetch_lr2ir_leaderboard(&song)
             } else {
                 leaderboard::error_to_bars("Leaderboard source not available")
             };
@@ -1248,6 +1313,26 @@ impl MusicSelectState {
             ctx.timer.set_timer_on(TIMER_FADEOUT);
             info!(name = %rc_data.name, "MusicSelect: random course started");
         }
+    }
+}
+
+/// Fetch leaderboard entries from LR2IR in a blocking context.
+///
+/// Creates a short-lived tokio runtime to execute the async API call.
+fn fetch_lr2ir_leaderboard(song_data: &bms_database::SongData) -> Vec<bar_manager::Bar> {
+    use bms_ir::{IRChartData, LR2IRConnection};
+
+    let lr2ir = LR2IRConnection::new();
+    let chart = IRChartData::from(song_data);
+
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt,
+        Err(e) => return leaderboard::error_to_bars(&format!("Runtime error: {e}")),
+    };
+
+    match rt.block_on(lr2ir.get_score_data(&chart)) {
+        Ok(entries) => leaderboard::entries_to_bars(&entries, song_data),
+        Err(e) => leaderboard::error_to_bars(&format!("{e}")),
     }
 }
 
