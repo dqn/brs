@@ -590,20 +590,18 @@ mod tests {
 
     #[test]
     fn sync_bar_scroll_state_uses_score_lamp_cache() {
-        use bms_database::{SongData, SongDatabase};
+        use bms_database::SongData;
 
-        let song_db = SongDatabase::open_in_memory().unwrap();
-        let song = SongData {
+        // Use set_bars_for_test to place a Song bar directly (load_root now produces
+        // Folder bars grouped by folder CRC, not Song bars).
+        let mut bm = BarManager::new();
+        bm.set_bars_for_test(vec![Bar::Song(Box::new(SongData {
             md5: "md5_a".to_string(),
             sha256: "sha_a".to_string(),
             title: "Song A".to_string(),
             path: "a.bms".to_string(),
             ..Default::default()
-        };
-        song_db.set_song_datas(&[song]).unwrap();
-
-        let mut bm = BarManager::new();
-        bm.load_root(&song_db);
+        }))]);
         assert_eq!(bm.bar_count(), 1);
 
         let mut cache = HashMap::new();

@@ -95,19 +95,22 @@ mod tests {
     #[test]
     fn load_root_populates_bars() {
         let db = SongDatabase::open_in_memory().unwrap();
+        // Songs must have distinct folder CRCs to produce separate Folder bars.
         let songs = vec![
             SongData {
                 md5: "aaa".to_string(),
                 sha256: "aaa_sha".to_string(),
                 title: "Song A".to_string(),
-                path: "a.bms".to_string(),
+                path: "folder_a/a.bms".to_string(),
+                folder: "crc_a".to_string(),
                 ..Default::default()
             },
             SongData {
                 md5: "bbb".to_string(),
                 sha256: "bbb_sha".to_string(),
                 title: "Song B".to_string(),
-                path: "b.bms".to_string(),
+                path: "folder_b/b.bms".to_string(),
+                folder: "crc_b".to_string(),
                 ..Default::default()
             },
         ];
@@ -115,6 +118,7 @@ mod tests {
 
         let mut bm = BarManager::new();
         bm.load_root(&db);
+        // Two distinct folder CRCs → two Folder bars
         assert_eq!(bm.bar_count(), 2);
         assert_eq!(bm.cursor_pos(), 0);
     }

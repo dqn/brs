@@ -29,7 +29,10 @@ use crate::state::{GameStateHandler, StateContext};
 use crate::system_sound::SystemSound;
 
 use bar_manager::{Bar, BarManager, SortMode};
-use command::{CommandResult, MusicSelectCommand, build_song_context_menu};
+use command::{
+    CommandResult, MusicSelectCommand, build_song_context_menu, build_table_context_menu,
+    build_table_folder_context_menu,
+};
 
 /// Default input delay in milliseconds.
 const DEFAULT_INPUT_DELAY_MS: i64 = 500;
@@ -193,6 +196,15 @@ impl GameStateHandler for MusicSelectState {
                     info!("MusicSelect: background table update already running");
                 }
             }
+
+            // Load course data from "course" directory
+            self.bar_manager.load_courses("course");
+
+            // Load favorite playlists from "favorite" directory
+            self.bar_manager.load_favorites("favorite");
+
+            // Load custom command folders from "folder/default.json"
+            self.bar_manager.load_command_folders("folder/default.json");
 
             self.score_cache_dirty = true;
             info!(
@@ -577,8 +589,14 @@ impl MusicSelectState {
                 }
             }
             CommandResult::ShowContextMenu => {
-                if let Some(Bar::Song(song_data)) = self.bar_manager.current() {
-                    let function_bars: Vec<Bar> = build_song_context_menu(song_data)
+                let items = match self.bar_manager.current() {
+                    Some(Bar::Song(song_data)) => build_song_context_menu(song_data),
+                    Some(Bar::TableRoot { name, .. }) => build_table_context_menu(name),
+                    Some(Bar::HashFolder { name, .. }) => build_table_folder_context_menu(name),
+                    _ => Vec::new(),
+                };
+                if !items.is_empty() {
+                    let function_bars: Vec<Bar> = items
                         .into_iter()
                         .map(|item| Bar::Function {
                             title: item.label,
@@ -1660,10 +1678,28 @@ mod tests {
             sha256: sha.clone(),
             title: "Test Song".to_string(),
             path: "test.bms".to_string(),
+            folder: "test_folder_crc".to_string(),
             ..Default::default()
         };
         db.song_db.set_song_datas(&[song]).unwrap();
         (db, sha)
+    }
+
+    /// Load a Song bar directly into bar_manager for tests that need a song at cursor.
+    ///
+    /// `load_root` now groups songs into Folder bars. Use this helper when the test
+    /// needs a Song bar at cursor position 0.
+    fn load_song_bar_for_test(state: &mut MusicSelectState, sha256: &str) {
+        state
+            .bar_manager
+            .set_bars_for_test(vec![Bar::Song(Box::new(SongData {
+                md5: "aaa_md5".to_string(),
+                sha256: sha256.to_string(),
+                title: "Test Song".to_string(),
+                path: "test.bms".to_string(),
+                folder: "test_folder_crc".to_string(),
+                ..Default::default()
+            }))]);
     }
 
     #[test]
@@ -1678,8 +1714,8 @@ mod tests {
         let (db, sha) = make_db_with_song();
         setup_input_ready(&mut timer);
 
-        // Load songs into bar_manager
-        state.bar_manager.load_root(&db.song_db);
+        // Place a Song bar directly (load_root produces Folder bars, not Song bars).
+        load_song_bar_for_test(&mut state, &sha);
         assert_eq!(state.bar_manager.bar_count(), 1);
 
         let input = InputState {
@@ -1745,7 +1781,8 @@ mod tests {
 
         let (db, sha) = make_db_with_song();
         setup_input_ready(&mut timer);
-        state.bar_manager.load_root(&db.song_db);
+        // Place a Song bar directly (load_root produces Folder bars, not Song bars).
+        load_song_bar_for_test(&mut state, &sha);
 
         let input = InputState {
             commands: vec![KeyCommand::AddFavoriteChart],
@@ -2156,9 +2193,10 @@ mod tests {
         let mut player_config = PlayerConfig::default();
         let mut transition = None;
 
-        let (db, _sha) = make_db_with_song();
+        let (db, sha) = make_db_with_song();
         setup_input_ready(&mut timer);
-        state.bar_manager.load_root(&db.song_db);
+        // Place a Song bar directly so ShowSongsOnSameFolder can extract the folder_crc.
+        load_song_bar_for_test(&mut state, &sha);
         assert_eq!(state.bar_manager.bar_count(), 1);
         assert!(!state.bar_manager.is_in_folder());
 

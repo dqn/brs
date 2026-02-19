@@ -1,15 +1,60 @@
 // Bar navigation — folder enter/leave, load, and search methods for BarManager.
 
-use bms_database::{SongDatabase, TableData};
+use std::collections::BTreeMap;
+use std::path::Path;
+
+use bms_database::{CourseData, CourseDataAccessor, SongDatabase, TableData};
 
 use super::BarManager;
 use super::bar_types::Bar;
 
+/// JSON structure for command folder definitions (folder/default.json).
+///
+/// Matches Java `BarManager.CommandFolder` with nested folder/SQL support.
+#[derive(Debug, Clone, serde::Deserialize)]
+struct CommandFolder {
+    name: String,
+    #[serde(default)]
+    sql: String,
+    #[serde(default)]
+    folder: Vec<CommandFolder>,
+    /// Whether to show all songs (Java parity field, not yet used in Rust).
+    #[serde(default)]
+    #[allow(dead_code)]
+    showall: bool,
+}
+
 impl BarManager {
-    /// Load all songs from the database as a flat list.
+    /// Load root bar list from the database.
+    ///
+    /// Groups songs by their `folder` field (CRC) into folder bars,
+    /// matching the Java `BarManager.updateBar()` root structure.
     pub fn load_root(&mut self, song_db: &SongDatabase) {
         let songs = song_db.get_all_song_datas().unwrap_or_default();
-        self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
+
+        // Group songs by folder CRC, preserving insertion order via BTreeMap (sorted by CRC)
+        let mut folder_groups: BTreeMap<String, String> = BTreeMap::new();
+        for song in &songs {
+            if !folder_groups.contains_key(&song.folder) {
+                // Derive folder name from the first song's parent directory
+                let name = Path::new(&song.path)
+                    .parent()
+                    .and_then(|p| p.file_name())
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| song.folder.clone());
+                folder_groups.insert(song.folder.clone(), name);
+            }
+        }
+
+        // Build folder bars (each folder expands to its songs via enter_folder)
+        self.bars = folder_groups
+            .into_iter()
+            .map(|(folder_crc, name)| Bar::Folder {
+                name,
+                path: folder_crc,
+            })
+            .collect();
+
         self.cursor = 0;
         self.folder_stack.clear();
     }
@@ -92,7 +137,6 @@ impl BarManager {
                 let old_cursor = self.cursor;
                 self.folder_stack.push((old_bars, old_cursor));
 
-                // Search for songs by folder CRC (stub: returns empty if method unavailable)
                 let songs = song_db.get_song_datas("folder", &crc).unwrap_or_default();
                 self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
                 self.cursor = 0;
@@ -113,8 +157,8 @@ impl BarManager {
                 let old_cursor = self.cursor;
                 self.folder_stack.push((old_bars, old_cursor));
 
-                // Execute custom SQL query (stub: uses text search as safe fallback)
-                let songs = song_db.get_song_datas_by_text(&sql).unwrap_or_default();
+                // Execute custom SQL query with read-only validation
+                let songs = song_db.get_song_datas_by_sql(&sql).unwrap_or_default();
                 self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
                 self.cursor = 0;
             }
@@ -160,9 +204,100 @@ impl BarManager {
         }
     }
 
+    /// Load course data from a directory and add as a "COURSE" TableRoot bar.
+    ///
+    /// Java parity: `CourseDataAccessor("course").readAll()` → `TableBar(courses)`.
+    pub fn load_courses(&mut self, course_dir: &str) {
+        match CourseDataAccessor::new(course_dir) {
+            Ok(accessor) => match accessor.read_all() {
+                Ok(courses) if !courses.is_empty() => {
+                    self.bars.push(Bar::TableRoot {
+                        name: "COURSE".to_string(),
+                        folders: Vec::new(),
+                        courses,
+                    });
+                    tracing::info!(count = self.bars.len(), "Loaded course data");
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::warn!("Failed to read course data: {e}");
+                }
+            },
+            Err(e) => {
+                tracing::warn!("Failed to open course directory: {e}");
+            }
+        }
+    }
+
+    /// Load favorite data from a directory and add as HashFolder bars.
+    ///
+    /// Java parity: `CourseDataAccessor("favorite").readAll()` → `HashBar[]`.
+    pub fn load_favorites(&mut self, favorite_dir: &str) {
+        match CourseDataAccessor::new(favorite_dir) {
+            Ok(accessor) => match accessor.read_all() {
+                Ok(courses) => {
+                    for course in &courses {
+                        let hashes: Vec<String> = course
+                            .hash
+                            .iter()
+                            .map(|s| {
+                                if !s.sha256.is_empty() {
+                                    s.sha256.clone()
+                                } else {
+                                    s.md5.clone()
+                                }
+                            })
+                            .collect();
+                        if !hashes.is_empty() {
+                            self.bars.push(Bar::HashFolder {
+                                name: course.name.clone(),
+                                hashes,
+                            });
+                        }
+                    }
+                    if !courses.is_empty() {
+                        tracing::info!(favorites = courses.len(), "Loaded favorite playlists");
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to read favorite data: {e}");
+                }
+            },
+            Err(e) => {
+                tracing::warn!("Failed to open favorite directory: {e}");
+            }
+        }
+    }
+
+    /// Load command folders from a JSON file and add as Command/Container bars.
+    ///
+    /// Java parity: `CommandFolder[]` from `folder/default.json`.
+    pub fn load_command_folders(&mut self, json_path: &str) {
+        let path = Path::new(json_path);
+        if !path.exists() {
+            return;
+        }
+        match std::fs::read_to_string(path) {
+            Ok(content) => match serde_json::from_str::<Vec<CommandFolder>>(&content) {
+                Ok(folders) => {
+                    for folder in folders {
+                        self.bars.push(create_command_bar(folder));
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to parse command folder JSON: {e}");
+                }
+            },
+            Err(e) => {
+                tracing::warn!("Failed to read command folder file: {e}");
+            }
+        }
+    }
+
     /// Load course data and add them as bars.
-    #[allow(dead_code)] // Used in tests
-    pub fn add_courses(&mut self, courses: &[bms_database::CourseData]) {
+    // TODO: integrate with course selection UI — used in tests
+    #[allow(dead_code)]
+    pub fn add_courses(&mut self, courses: &[CourseData]) {
         for course in courses {
             self.bars.push(Bar::Course(Box::new(course.clone())));
         }
@@ -195,5 +330,32 @@ impl BarManager {
         self.folder_stack.push((old_bars, old_cursor));
         self.bars = songs.into_iter().map(|s| Bar::Song(Box::new(s))).collect();
         self.cursor = 0;
+    }
+}
+
+/// Create a Bar from a CommandFolder definition.
+///
+/// If the folder has child folders, creates a Container; otherwise creates a Command bar.
+/// Matches Java `createCommandBar()`.
+fn create_command_bar(folder: CommandFolder) -> Bar {
+    if !folder.folder.is_empty() {
+        // Nested: create Container with child bars
+        let children: Vec<Bar> = folder.folder.into_iter().map(create_command_bar).collect();
+        Bar::Container {
+            name: folder.name,
+            children,
+        }
+    } else if !folder.sql.is_empty() {
+        // Leaf: create Command bar with SQL query
+        Bar::Command {
+            name: folder.name,
+            sql: format!("SELECT * FROM song WHERE {}", folder.sql),
+        }
+    } else {
+        // Empty folder: create Command with no-result query
+        Bar::Command {
+            name: folder.name,
+            sql: "SELECT * FROM song WHERE 0".to_string(),
+        }
     }
 }

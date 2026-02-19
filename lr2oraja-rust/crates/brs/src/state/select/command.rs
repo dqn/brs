@@ -29,6 +29,9 @@ pub enum CommandResult {
 /// Commands available on the music select screen.
 ///
 /// Matches the Java `MusicSelectCommand` enum variants.
+// TODO: NextReplay/PrevReplay need NUM key bindings; Download variants need download integration;
+// ShowContextMenu needs NUM key binding — tracked in Deferred / Stub Items.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MusicSelectCommand {
     /// Reset replay selection to the first available replay.
@@ -72,6 +75,8 @@ impl CommandExecutor {
     }
 
     /// Returns the currently selected replay index.
+    // TODO: expose to skin state for replay slot display — used in tests
+    #[allow(dead_code)]
     pub fn selected_replay(&self) -> i32 {
         self.selected_replay
     }
@@ -195,6 +200,26 @@ pub fn build_song_context_menu(song: &SongData) -> Vec<ContextMenuItem> {
             },
         },
     ]
+}
+
+/// Build context menu items for a TableRoot bar.
+///
+/// Matches the Java `ContextMenuBar.tableContext()` menu layout.
+pub fn build_table_context_menu(name: &str) -> Vec<ContextMenuItem> {
+    vec![ContextMenuItem {
+        label: "Copy Table Name".to_string(),
+        action: FunctionAction::CopyToClipboard(name.to_string()),
+    }]
+}
+
+/// Build context menu items for a HashFolder bar (table level folder).
+///
+/// Matches the Java `ContextMenuBar.tableFolderContext()` menu layout.
+pub fn build_table_folder_context_menu(name: &str) -> Vec<ContextMenuItem> {
+    vec![ContextMenuItem {
+        label: "Copy Folder Name".to_string(),
+        action: FunctionAction::CopyToClipboard(name.to_string()),
+    }]
 }
 
 #[cfg(test)]

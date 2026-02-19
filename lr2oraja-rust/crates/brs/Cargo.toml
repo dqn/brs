@@ -37,3 +37,5 @@ hound.workspace = true
 tempfile.workspace = true
 arboard.workspace = true
 parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
