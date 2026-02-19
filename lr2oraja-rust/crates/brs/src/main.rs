@@ -25,6 +25,7 @@ mod window_manager;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use bms_external::version_check::VersionStatus;
 use parking_lot::{Mutex, RwLock};
 
 use anyhow::Result;
@@ -186,6 +187,35 @@ fn main() -> Result<()> {
         }
     };
 
+    // Spawn background version check (non-blocking)
+    let version_rx = {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build();
+            match rt {
+                Ok(rt) => {
+                    let status = rt.block_on(bms_external::version_check::check_latest_version(
+                        env!("CARGO_PKG_VERSION"),
+                        None,
+                    ));
+                    let _ = tx.send(status);
+                }
+                Err(e) => {
+                    let _ = tx.send(VersionStatus::CheckFailed(format!(
+                        "Failed to create runtime: {e}"
+                    )));
+                }
+            }
+        });
+        rx
+    };
+
+    // Update last_booted_version in config
+    let mut config = config;
+    config.last_booted_version = env!("CARGO_PKG_VERSION").to_string();
+
     // Open databases
     let database = match DatabaseManager::open(&args.db_path) {
         Ok(db) => {
@@ -288,9 +318,14 @@ fn main() -> Result<()> {
             },
             preview_music: BrsPreviewMusic(Mutex::new(preview_music)),
         })
+        .insert_resource(BrsVersionCheck {
+            rx: Mutex::new(Some(version_rx)),
+            status: None,
+        })
         .add_systems(Update, timer_update_system)
         .add_systems(Update, state_machine_system)
         .add_systems(Update, state_sync_system)
+        .add_systems(Update, version_check_system)
         .add_systems(Update, hot_reload::hot_reload_system)
         .add_systems(Update, window_manager::window_shortcut_system)
         .add_systems(Update, window_manager::apply_window_settings_system)
@@ -345,6 +380,16 @@ struct BrsSystemSoundManager(system_sound::SystemSoundManager);
 /// Preview music processor wrapped in Mutex (Kira AudioManager is not Sync).
 #[derive(Resource)]
 struct BrsPreviewMusic(Mutex<Option<preview_music::PreviewMusicProcessor>>);
+
+/// Background version check result receiver.
+///
+/// The version check runs in a background thread; the receiver is polled once
+/// per frame until a result arrives, then logged and optionally displayed.
+#[derive(Resource)]
+struct BrsVersionCheck {
+    rx: Mutex<Option<std::sync::mpsc::Receiver<VersionStatus>>>,
+    status: Option<VersionStatus>,
+}
 
 #[derive(Resource)]
 struct BrsConfigPaths {
@@ -467,6 +512,67 @@ fn state_machine_system(
         external
             .0
             .on_state_change(&current_state.to_string(), song_title, artist, key_count);
+    }
+}
+
+/// Poll for background version check result (runs each frame until result arrives).
+fn version_check_system(mut vc: ResMut<BrsVersionCheck>) {
+    if vc.status.is_some() {
+        return; // Already received
+    }
+    let received = {
+        let mut rx_guard = vc.rx.lock();
+        if let Some(rx) = rx_guard.as_ref() {
+            match rx.try_recv() {
+                Ok(status) => {
+                    *rx_guard = None; // Drop receiver
+                    Some(Ok(status))
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => None, // Still waiting
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    *rx_guard = None;
+                    Some(Err(()))
+                }
+            }
+        } else {
+            None
+        }
+    };
+    match received {
+        Some(Ok(status)) => {
+            match &status {
+                VersionStatus::UpToDate => {
+                    info!("Version check: up to date");
+                }
+                VersionStatus::UpdateAvailable {
+                    current,
+                    latest,
+                    download_url,
+                } => {
+                    info!(
+                        current = %current,
+                        latest = %latest,
+                        url = %download_url,
+                        "Version check: update available"
+                    );
+                }
+                VersionStatus::Development { current, latest } => {
+                    info!(
+                        current = %current,
+                        latest = %latest,
+                        "Version check: development build"
+                    );
+                }
+                VersionStatus::CheckFailed(e) => {
+                    tracing::warn!("Version check failed: {e}");
+                }
+            }
+            vc.status = Some(status);
+        }
+        Some(Err(())) => {
+            tracing::warn!("Version check: channel disconnected");
+        }
+        None => {}
     }
 }
 
@@ -613,5 +719,55 @@ mod tests {
             args.resolve_bms_path(),
             Some(&PathBuf::from("/flag/song.bms"))
         );
+    }
+
+    #[test]
+    fn version_check_resource_receives_result() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        tx.send(VersionStatus::UpToDate).unwrap();
+        let mut vc = BrsVersionCheck {
+            rx: Mutex::new(Some(rx)),
+            status: None,
+        };
+
+        // Simulate the polling logic
+        {
+            let mut rx_guard = vc.rx.lock();
+            if let Some(rx) = rx_guard.as_ref() {
+                if let Ok(status) = rx.try_recv() {
+                    vc.status = Some(status);
+                    *rx_guard = None;
+                }
+            }
+        }
+        assert_eq!(vc.status, Some(VersionStatus::UpToDate));
+    }
+
+    #[test]
+    fn version_check_resource_handles_update_available() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        tx.send(VersionStatus::UpdateAvailable {
+            current: "0.1.0".to_string(),
+            latest: "0.2.0".to_string(),
+            download_url: "https://example.com".to_string(),
+        })
+        .unwrap();
+        let mut vc = BrsVersionCheck {
+            rx: Mutex::new(Some(rx)),
+            status: None,
+        };
+        {
+            let mut rx_guard = vc.rx.lock();
+            if let Some(rx) = rx_guard.as_ref() {
+                if let Ok(status) = rx.try_recv() {
+                    vc.status = Some(status);
+                    *rx_guard = None;
+                }
+            }
+        }
+        assert!(matches!(
+            vc.status,
+            Some(VersionStatus::UpdateAvailable { .. })
+        ));
     }
 }
