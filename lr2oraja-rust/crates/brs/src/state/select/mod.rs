@@ -355,6 +355,22 @@ impl GameStateHandler for MusicSelectState {
                 .preview_music
                 .as_ref()
                 .is_some_and(|p| p.is_playing_preview());
+            // Build rival data for skin state
+            let rival_name = ctx
+                .database
+                .and_then(|db| db.rival.get_rival(self.selected_rival))
+                .map(|r| r.info.name.clone());
+            let rival_score_ref = self
+                .bar_manager
+                .current()
+                .and_then(|bar| bar.as_song())
+                .and_then(|song| self.bar_manager.rival_score(&song.sha256));
+            let rival_data = rival_name
+                .as_ref()
+                .map(|name| select_skin_state::RivalSkinData {
+                    name,
+                    score: rival_score_ref,
+                });
             select_skin_state::sync_select_state(
                 shared,
                 &self.bar_manager,
@@ -362,6 +378,7 @@ impl GameStateHandler for MusicSelectState {
                 true,
                 is_preview_playing,
                 self.command_executor.selected_replay(),
+                rival_data.as_ref(),
             );
             select_skin_state::sync_bar_scroll_state(
                 shared,

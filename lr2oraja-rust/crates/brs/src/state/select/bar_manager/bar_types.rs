@@ -166,7 +166,8 @@ pub enum Bar {
         hashes: Vec<String>, // sha256 preferred, md5 fallback
     },
     /// Executable bar -- runs a set of songs (e.g., autoplay playlist).
-    #[allow(dead_code)] // TODO: integrate with production code
+    #[allow(dead_code)]
+    // Used in tests and bar navigation; compiler doesn't detect construction via test helpers
     Executable {
         name: String,
         songs: Vec<SongData>,
@@ -180,7 +181,7 @@ pub enum Bar {
         lamp: i32,
     },
     /// Grade/dan-i bar -- wraps a course with grade constraints.
-    #[allow(dead_code)] // TODO: integrate with course system
+    #[allow(dead_code)] // TODO: integrate with production bar list construction
     Grade(Box<GradeBarData>),
     /// Random course bar -- selects random songs from SQL queries.
     RandomCourse(Box<RandomCourseData>),
@@ -205,7 +206,7 @@ pub enum Bar {
         query: String,
     },
     /// Leaderboard bar -- shows rankings for a song.
-    #[allow(dead_code)] // TODO: integrate with production code
+    #[allow(dead_code)] // TODO: integrate with production bar list construction
     LeaderBoard {
         song_data: Box<SongData>,
         from_lr2ir: bool,

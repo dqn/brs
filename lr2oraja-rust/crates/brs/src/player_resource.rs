@@ -94,7 +94,6 @@ pub struct PlayerResource {
 
     // --- Ghost battle fields ---
     /// Ghost battle settings for pattern sharing (set by LeaderBoardBar, consumed by PlayState).
-    #[allow(dead_code)] // Used in tests
     pub ghost_battle: Option<GhostBattleSettings>,
 }
 
@@ -103,11 +102,11 @@ pub struct PlayerResource {
 /// When a ghost battle starts, the leader board provides the random seed and lane
 /// sequence so that both players share the same note pattern.
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Used in tests
 pub struct GhostBattleSettings {
     /// RNG seed for pattern generation (same seed as the opponent's play).
     pub random_seed: i64,
     /// Lane sequence identifier used by the pattern modifier.
+    #[allow(dead_code)] // TODO: integrate with pattern modifier (ghost battle lane sharing)
     pub lane_sequence: i32,
 }
 

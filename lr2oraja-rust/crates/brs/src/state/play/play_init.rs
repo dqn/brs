@@ -127,14 +127,25 @@ impl PlayState {
         // Initialize BGA processor from model (before pattern modifiers alter it)
         self.bga_processor = Some(bms_render::bga::bga_processor::BgaProcessor::new(&model));
 
+        // Consume ghost battle settings (if present, overrides pattern seed and
+        // skips pre-shuffle modifiers to match the opponent's exact pattern).
+        // Java parity: BMSPlayer lines ~190-350, GhostBattlePlay.consume()
+        let ghost_battle = ctx.resource.ghost_battle.take();
+
         // Apply pre-shuffle modifiers (scroll, longnote, mine, extranote)
         // Java: applied before lane shuffle, config value > 0 means active
         // Java offsets config values by -1 (e.g., ScrollMode 1 -> enum index 0)
-        self.assist += apply_pre_shuffle_modifiers(&mut model, ctx.player_config);
+        // Ghost battle: skip pre-shuffle modifiers (Java clears mods array)
+        if ghost_battle.is_none() {
+            self.assist += apply_pre_shuffle_modifiers(&mut model, ctx.player_config);
+        }
 
         // Apply 1P pattern shuffle
+        // Ghost battle: use the opponent's seed for deterministic pattern sharing
         let random_type = get_random(ctx.player_config.random as usize, model.mode);
-        let seed: i64 = rand::random();
+        let seed: i64 = ghost_battle
+            .as_ref()
+            .map_or_else(rand::random, |gb| gb.random_seed);
         self.assist += apply_pattern_modifier(
             &mut model,
             random_type,

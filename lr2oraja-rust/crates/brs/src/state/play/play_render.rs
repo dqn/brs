@@ -1,6 +1,6 @@
 // Play render — Playing phase rendering and score data building.
 
-use tracing::info;
+use tracing::{info, warn};
 
 use bms_rule::{ClearType, JUDGE_BD, JUDGE_MS, JUDGE_PR};
 use bms_skin::property_id::{
@@ -45,6 +45,14 @@ impl PlayState {
         // BGM autoplay via KeySoundProcessor
         if let (Some(ksp), Some(driver)) = (&mut self.key_sound_processor, &mut self.audio_driver) {
             ksp.update(ptime_us, driver.as_mut());
+        }
+
+        // Audio driver recovery: recreate AudioManager after consecutive failures
+        if let Some(driver) = &mut self.audio_driver
+            && driver.needs_recovery()
+            && let Err(e) = driver.try_recover()
+        {
+            warn!("Audio recovery failed: {e}");
         }
 
         // Record gauge log every 500ms

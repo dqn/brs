@@ -116,6 +116,11 @@ impl BarManager {
     pub fn has_rival(&self) -> bool {
         !self.rival_scores.is_empty()
     }
+
+    /// Look up a rival's score by song sha256 hash.
+    pub fn rival_score(&self, sha256: &str) -> Option<&ScoreData> {
+        self.rival_scores.get(sha256)
+    }
 }
 
 impl Default for BarManager {

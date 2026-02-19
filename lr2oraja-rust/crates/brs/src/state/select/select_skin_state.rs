@@ -7,18 +7,21 @@ use std::collections::HashMap;
 
 use bms_database::SongInformation;
 use bms_render::draw::bar::{BarScrollState, BarSlotData, BarType};
+use bms_rule::ScoreData;
 use bms_skin::property_id::{
     FLOAT_CHART_AVERAGEDENSITY, FLOAT_CHART_ENDDENSITY, FLOAT_CHART_PEAKDENSITY,
     FLOAT_CHART_TOTALGAUGE, NUMBER_DENSITY_AVERAGE, NUMBER_DENSITY_AVERAGE_AFTERDOT,
     NUMBER_DENSITY_END, NUMBER_DENSITY_END_AFTERDOT, NUMBER_DENSITY_PEAK,
     NUMBER_DENSITY_PEAK_AFTERDOT, NUMBER_MAINBPM, NUMBER_MAXBPM, NUMBER_MINBPM,
-    NUMBER_SONGGAUGE_TOTAL, NUMBER_TOTALNOTE_BSS, NUMBER_TOTALNOTE_LN, NUMBER_TOTALNOTE_NORMAL,
-    NUMBER_TOTALNOTE_SCRATCH, NUMBER_TOTALNOTES2, OPTION_5KEYSONG, OPTION_7KEYSONG,
-    OPTION_9KEYSONG, OPTION_10KEYSONG, OPTION_14KEYSONG, OPTION_BGA, OPTION_FOLDERBAR, OPTION_LN,
-    OPTION_NO_BGA, OPTION_NO_LN, OPTION_PLAYABLEBAR, OPTION_SELECT_REPLAYDATA,
+    NUMBER_RIVAL_CLEARCOUNT, NUMBER_RIVAL_FAILCOUNT, NUMBER_RIVAL_MAXCOMBO, NUMBER_RIVAL_MISSCOUNT,
+    NUMBER_RIVAL_PLAYCOUNT, NUMBER_RIVAL_SCORE, NUMBER_SONGGAUGE_TOTAL, NUMBER_TOTALNOTE_BSS,
+    NUMBER_TOTALNOTE_LN, NUMBER_TOTALNOTE_NORMAL, NUMBER_TOTALNOTE_SCRATCH, NUMBER_TOTALNOTES2,
+    OPTION_5KEYSONG, OPTION_7KEYSONG, OPTION_9KEYSONG, OPTION_10KEYSONG, OPTION_14KEYSONG,
+    OPTION_BGA, OPTION_COMPARE_RIVAL, OPTION_FOLDERBAR, OPTION_LN, OPTION_NO_BGA, OPTION_NO_LN,
+    OPTION_NOT_COMPARE_RIVAL, OPTION_PLAYABLEBAR, OPTION_SELECT_REPLAYDATA,
     OPTION_SELECT_REPLAYDATA2, OPTION_SELECT_REPLAYDATA3, OPTION_SELECT_REPLAYDATA4,
     OPTION_SONGBAR, RATE_MUSICSELECT_POSITION, STRING_ARTIST, STRING_FULLTITLE, STRING_GENRE,
-    STRING_SUBARTIST, STRING_SUBTITLE, STRING_TITLE,
+    STRING_RIVAL, STRING_SUBARTIST, STRING_SUBTITLE, STRING_TITLE,
 };
 
 use crate::game_state::SharedGameState;
@@ -27,6 +30,14 @@ use crate::state::select::bar_manager::{Bar, BarManager};
 /// Synchronize select-specific state into SharedGameState for skin rendering.
 ///
 /// Called once per frame during the MusicSelect state.
+/// Rival data for skin state synchronization.
+pub struct RivalSkinData<'a> {
+    /// Name of the currently selected rival (empty if no rival selected).
+    pub name: &'a str,
+    /// Rival's score for the currently selected song (None if no score).
+    pub score: Option<&'a ScoreData>,
+}
+
 pub fn sync_select_state(
     state: &mut SharedGameState,
     bar_manager: &BarManager,
@@ -34,6 +45,7 @@ pub fn sync_select_state(
     bga_on: bool,
     _is_preview_playing: bool,
     selected_replay: i32,
+    rival: Option<&RivalSkinData<'_>>,
 ) {
     // Bar type booleans (clear previous)
     state.booleans.insert(OPTION_SONGBAR, false);
@@ -125,6 +137,41 @@ pub fn sync_select_state(
     state
         .booleans
         .insert(OPTION_SELECT_REPLAYDATA4, selected_replay == 3);
+
+    // Rival score data (Java parity: MusicSelector.selectedRivalScoreData)
+    let has_rival = rival.is_some_and(|r| !r.name.is_empty());
+    state.booleans.insert(OPTION_COMPARE_RIVAL, has_rival);
+    state.booleans.insert(OPTION_NOT_COMPARE_RIVAL, !has_rival);
+
+    if let Some(rival) = rival {
+        state.strings.insert(STRING_RIVAL, rival.name.to_string());
+        if let Some(sd) = rival.score {
+            state.integers.insert(NUMBER_RIVAL_SCORE, sd.exscore());
+            state.integers.insert(NUMBER_RIVAL_MAXCOMBO, sd.maxcombo);
+            state.integers.insert(NUMBER_RIVAL_MISSCOUNT, sd.minbp);
+            state.integers.insert(NUMBER_RIVAL_PLAYCOUNT, sd.playcount);
+            state
+                .integers
+                .insert(NUMBER_RIVAL_CLEARCOUNT, sd.clearcount);
+            state
+                .integers
+                .insert(NUMBER_RIVAL_FAILCOUNT, sd.playcount - sd.clearcount);
+        } else {
+            clear_rival_scores(state);
+        }
+    } else {
+        state.strings.insert(STRING_RIVAL, String::new());
+        clear_rival_scores(state);
+    }
+}
+
+fn clear_rival_scores(state: &mut SharedGameState) {
+    state.integers.remove(&NUMBER_RIVAL_SCORE);
+    state.integers.remove(&NUMBER_RIVAL_MAXCOMBO);
+    state.integers.remove(&NUMBER_RIVAL_MISSCOUNT);
+    state.integers.remove(&NUMBER_RIVAL_PLAYCOUNT);
+    state.integers.remove(&NUMBER_RIVAL_CLEARCOUNT);
+    state.integers.remove(&NUMBER_RIVAL_FAILCOUNT);
 }
 
 /// Synchronize bar scroll state for skin bar rendering.
@@ -471,7 +518,7 @@ mod tests {
     fn sync_select_no_bar_clears_metadata() {
         let mut state = SharedGameState::default();
         let bm = BarManager::new();
-        sync_select_state(&mut state, &bm, false, true, false, 0);
+        sync_select_state(&mut state, &bm, false, true, false, 0, None);
         assert!(!*state.booleans.get(&OPTION_SONGBAR).unwrap());
         assert!(!*state.booleans.get(&OPTION_FOLDERBAR).unwrap());
     }
@@ -480,7 +527,7 @@ mod tests {
     fn sync_select_feature_flags() {
         let mut state = SharedGameState::default();
         let bm = BarManager::new();
-        sync_select_state(&mut state, &bm, true, false, false, 0);
+        sync_select_state(&mut state, &bm, true, false, false, 0, None);
         assert!(*state.booleans.get(&OPTION_LN).unwrap());
         assert!(!*state.booleans.get(&OPTION_NO_LN).unwrap());
         assert!(!*state.booleans.get(&OPTION_BGA).unwrap());
@@ -712,5 +759,75 @@ mod tests {
 
         assert!(state.bpm_events.is_empty());
         assert!(state.note_distribution.is_empty());
+    }
+
+    #[test]
+    fn sync_rival_data_populates_score() {
+        let mut state = SharedGameState::default();
+        let bm = BarManager::new();
+        let rival_score = ScoreData {
+            epg: 100,
+            lpg: 50,
+            egr: 30,
+            lgr: 20,
+            maxcombo: 200,
+            minbp: 5,
+            playcount: 10,
+            clearcount: 8,
+            ..Default::default()
+        };
+        let rival = RivalSkinData {
+            name: "TestRival",
+            score: Some(&rival_score),
+        };
+        sync_select_state(&mut state, &bm, false, true, false, 0, Some(&rival));
+        assert!(*state.booleans.get(&OPTION_COMPARE_RIVAL).unwrap());
+        assert!(!*state.booleans.get(&OPTION_NOT_COMPARE_RIVAL).unwrap());
+        assert_eq!(state.strings.get(&STRING_RIVAL).unwrap(), "TestRival");
+        assert_eq!(*state.integers.get(&NUMBER_RIVAL_SCORE).unwrap(), 350); // (100+50)*2 + 30+20
+        assert_eq!(*state.integers.get(&NUMBER_RIVAL_MAXCOMBO).unwrap(), 200);
+        assert_eq!(*state.integers.get(&NUMBER_RIVAL_MISSCOUNT).unwrap(), 5);
+        assert_eq!(*state.integers.get(&NUMBER_RIVAL_PLAYCOUNT).unwrap(), 10);
+        assert_eq!(*state.integers.get(&NUMBER_RIVAL_CLEARCOUNT).unwrap(), 8);
+        assert_eq!(*state.integers.get(&NUMBER_RIVAL_FAILCOUNT).unwrap(), 2);
+    }
+
+    #[test]
+    fn sync_rival_none_clears_rival_state() {
+        let mut state = SharedGameState::default();
+        let bm = BarManager::new();
+        // First set rival data
+        let rival_score = ScoreData {
+            epg: 50,
+            lpg: 50,
+            ..Default::default()
+        };
+        let rival = RivalSkinData {
+            name: "Rival",
+            score: Some(&rival_score),
+        };
+        sync_select_state(&mut state, &bm, false, true, false, 0, Some(&rival));
+        assert!(state.integers.contains_key(&NUMBER_RIVAL_SCORE));
+
+        // Clear rival
+        sync_select_state(&mut state, &bm, false, true, false, 0, None);
+        assert!(!*state.booleans.get(&OPTION_COMPARE_RIVAL).unwrap());
+        assert!(*state.booleans.get(&OPTION_NOT_COMPARE_RIVAL).unwrap());
+        assert_eq!(state.strings.get(&STRING_RIVAL).unwrap(), "");
+        assert!(!state.integers.contains_key(&NUMBER_RIVAL_SCORE));
+    }
+
+    #[test]
+    fn sync_rival_with_no_score() {
+        let mut state = SharedGameState::default();
+        let bm = BarManager::new();
+        let rival = RivalSkinData {
+            name: "RivalNoScore",
+            score: None,
+        };
+        sync_select_state(&mut state, &bm, false, true, false, 0, Some(&rival));
+        assert!(*state.booleans.get(&OPTION_COMPARE_RIVAL).unwrap());
+        assert_eq!(state.strings.get(&STRING_RIVAL).unwrap(), "RivalNoScore");
+        assert!(!state.integers.contains_key(&NUMBER_RIVAL_SCORE));
     }
 }
