@@ -92,6 +92,10 @@ struct Args {
     /// BMS file path (positional alternative to --bms).
     #[arg(value_name = "BMS_PATH")]
     bms_positional: Option<PathBuf>,
+
+    /// Internal: run launcher in subprocess and exit.
+    #[arg(long, hide = true)]
+    launcher_only: bool,
 }
 
 impl Args {
@@ -127,23 +131,31 @@ fn main() -> Result<()> {
     let args = Args::parse();
     info!("brs starting");
 
+    // Subprocess mode: run launcher and exit with status code
+    if args.launcher_only {
+        return run_launcher_subprocess(&args.config, &args.player_config);
+    }
+
     let player_mode = args.resolve_mode();
     let bms_path = args.resolve_bms_path().cloned();
 
-    // Launch settings GUI unless skipped
+    // Launch settings GUI in a subprocess to avoid macOS event loop conflict.
+    // macOS winit forbids creating a second event loop in the same process;
+    // running eframe (launcher) then Bevy would trigger RecreationAttempt panic.
     if !args.no_launcher && bms_path.is_none() {
-        match bms_launcher::run_launcher(&args.config, &args.player_config) {
-            Ok(Some((_, _))) => {
-                info!("Launcher: user clicked Start Game");
-            }
-            Ok(None) => {
-                info!("Launcher: user cancelled");
-                return Ok(());
-            }
-            Err(e) => {
-                tracing::warn!("Launcher failed: {e}, continuing with saved config");
-            }
+        let exe = std::env::current_exe()?;
+        let status = std::process::Command::new(&exe)
+            .arg("--launcher-only")
+            .arg("--config")
+            .arg(&args.config)
+            .arg("--player-config")
+            .arg(&args.player_config)
+            .status()?;
+        if !status.success() {
+            info!("Launcher: user cancelled");
+            return Ok(());
         }
+        info!("Launcher: user clicked Start Game");
     }
 
     // Load BMS if specified
@@ -333,6 +345,22 @@ fn main() -> Result<()> {
         .run();
 
     Ok(())
+}
+
+/// Run the launcher GUI and exit with a status code.
+/// Called in `--launcher-only` subprocess mode.
+///   exit 0 = Start Game
+///   exit 1 = Cancel
+///   exit 2 = Error
+fn run_launcher_subprocess(config_path: &Path, player_config_path: &Path) -> Result<()> {
+    match bms_launcher::run_launcher(config_path, player_config_path) {
+        Ok(Some(_)) => std::process::exit(0),
+        Ok(None) => std::process::exit(1),
+        Err(e) => {
+            tracing::warn!("Launcher failed: {e}");
+            std::process::exit(2);
+        }
+    }
 }
 
 // Bevy resource wrappers (newtype to satisfy Resource trait)
@@ -618,6 +646,7 @@ mod tests {
             replay,
             play,
             bms_positional: bms_positional.map(PathBuf::from),
+            launcher_only: false,
         }
     }
 
