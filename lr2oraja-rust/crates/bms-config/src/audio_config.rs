@@ -26,6 +26,7 @@ pub enum FrequencyType {
 pub struct AudioConfig {
     pub driver: DriverType,
     pub driver_name: Option<String>,
+    pub device_name: Option<String>,
     pub device_buffer_size: i32,
     pub device_simultaneous_sources: i32,
     pub sample_rate: i32,
@@ -44,6 +45,7 @@ impl Default for AudioConfig {
         Self {
             driver: DriverType::OpenAL,
             driver_name: None,
+            device_name: None,
             device_buffer_size: 384,
             device_simultaneous_sources: 128,
             sample_rate: 0,

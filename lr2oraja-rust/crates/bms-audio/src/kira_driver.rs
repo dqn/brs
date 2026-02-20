@@ -6,7 +6,9 @@ use std::io::Cursor;
 use std::path::Path;
 
 use anyhow::Result;
-use kira::manager::{AudioManager, AudioManagerSettings, backend::DefaultBackend};
+use cpal::traits::{DeviceTrait, HostTrait};
+use kira::manager::backend::cpal::{CpalBackend, CpalBackendSettings};
+use kira::manager::{AudioManager, AudioManagerSettings};
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::tween::Tween;
 use tracing::{info, warn};
@@ -36,7 +38,7 @@ fn pcm_to_wav_bytes(pcm: &Pcm) -> Vec<u8> {
 
 /// Kira-based audio driver for real-time BMS key sound playback.
 pub struct KiraAudioDriver {
-    manager: AudioManager,
+    manager: AudioManager<CpalBackend>,
     /// wav_id -> StaticSoundData (full, un-sliced)
     sounds: HashMap<u16, StaticSoundData>,
     /// Active sound handles keyed by channel_id
@@ -52,13 +54,49 @@ pub struct KiraAudioDriver {
     recovery_pending: bool,
     /// M7: Additional key sounds indexed by [judge_level][early=0/late=1].
     additional_key_sounds: [[Option<StaticSoundData>; 2]; 6],
+    /// Selected device name for recovery (None = system default).
+    device_name: Option<String>,
+}
+
+/// Find a cpal output device by name.
+fn find_device_by_name(name: &str) -> Option<cpal::Device> {
+    let host = cpal::default_host();
+    host.output_devices()
+        .ok()?
+        .find(|d| d.name().ok().as_deref() == Some(name))
+}
+
+/// Build CpalBackendSettings from an optional device name.
+fn backend_settings(device_name: Option<&str>) -> CpalBackendSettings {
+    let device = device_name.and_then(|name| {
+        let dev = find_device_by_name(name);
+        if dev.is_none() {
+            warn!(name, "Audio device not found, falling back to default");
+        }
+        dev
+    });
+    CpalBackendSettings {
+        device,
+        ..Default::default()
+    }
 }
 
 impl KiraAudioDriver {
-    /// Create a new KiraAudioDriver.
+    /// Create a new KiraAudioDriver with the system default output device.
     pub fn new() -> Result<Self> {
-        let manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())
-            .map_err(|e| anyhow::anyhow!("Failed to create audio manager: {e}"))?;
+        Self::with_device(None)
+    }
+
+    /// Create a new KiraAudioDriver with a specific output device.
+    ///
+    /// Pass `None` to use the system default output device.
+    pub fn with_device(device_name: Option<String>) -> Result<Self> {
+        let settings = backend_settings(device_name.as_deref());
+        let manager = AudioManager::<CpalBackend>::new(AudioManagerSettings {
+            backend_settings: settings,
+            ..Default::default()
+        })
+        .map_err(|e| anyhow::anyhow!("Failed to create audio manager: {e}"))?;
         Ok(Self {
             manager,
             sounds: HashMap::new(),
@@ -69,6 +107,7 @@ impl KiraAudioDriver {
             consecutive_errors: 0,
             recovery_pending: false,
             additional_key_sounds: Default::default(),
+            device_name,
         })
     }
 }
@@ -241,9 +280,13 @@ impl AudioDriver for KiraAudioDriver {
         // Drop active handles before recreating the manager
         self.active_handles.clear();
 
-        // Recreate the audio manager
-        self.manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())
-            .map_err(|e| anyhow::anyhow!("Audio recovery failed: {e}"))?;
+        // Recreate the audio manager with the same device
+        let settings = backend_settings(self.device_name.as_deref());
+        self.manager = AudioManager::<CpalBackend>::new(AudioManagerSettings {
+            backend_settings: settings,
+            ..Default::default()
+        })
+        .map_err(|e| anyhow::anyhow!("Audio recovery failed: {e}"))?;
 
         // Reset error tracking
         self.consecutive_errors = 0;

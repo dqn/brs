@@ -1902,6 +1902,7 @@ dependencies = [
  "anyhow",
  "bms-model",
  "claxon",
+ "cpal",
  "ebur128",
  "hound",
  "kira",
@@ -2028,6 +2029,7 @@ name = "bms-launcher"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bms-audio",
  "bms-config",
  "bms-database",
  "core-graphics 0.24.0",

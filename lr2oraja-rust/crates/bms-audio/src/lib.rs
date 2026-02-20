@@ -7,6 +7,7 @@
 //! wraps Kira's `AudioManager` with fault-recovery support.
 
 pub mod decode;
+pub mod device;
 pub mod driver;
 pub mod flac;
 pub mod key_sound;

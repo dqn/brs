@@ -55,6 +55,7 @@ base64 = "0.22"
 flate2 = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 kira = "0.9"
+cpal = "0.15"
 mlua = { version = "0.10", features = ["lua54", "vendored"] }
 bevy = "0.15"
 gilrs = "0.11"

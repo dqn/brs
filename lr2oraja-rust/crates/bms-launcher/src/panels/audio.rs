@@ -1,11 +1,17 @@
+use bms_audio::device::{AudioDeviceInfo, enumerate_output_devices};
 use bms_config::{AudioConfig, Config, DriverType, FrequencyType, PlayerConfig};
 
 use crate::panel::LauncherPanel;
 use crate::tab::Tab;
 use crate::widgets::clamped::{clamped_f32, clamped_i32};
 
+/// Label shown for the system default device in the dropdown.
+const DEFAULT_DEVICE_LABEL: &str = "(System Default)";
+
 pub struct AudioPanel {
     driver: DriverType,
+    device_name: Option<String>,
+    available_devices: Vec<AudioDeviceInfo>,
     device_buffer_size: i32,
     device_simultaneous_sources: i32,
     sample_rate: i32,
@@ -25,6 +31,8 @@ impl Default for AudioPanel {
         let ac = AudioConfig::default();
         Self {
             driver: ac.driver,
+            device_name: ac.device_name,
+            available_devices: enumerate_output_devices(),
             device_buffer_size: ac.device_buffer_size,
             device_simultaneous_sources: ac.device_simultaneous_sources,
             sample_rate: ac.sample_rate,
@@ -49,6 +57,8 @@ impl LauncherPanel for AudioPanel {
     fn load(&mut self, config: &Config, _player_config: &PlayerConfig) {
         let a = &config.audio;
         self.driver = a.driver;
+        self.device_name = a.device_name.clone();
+        self.available_devices = enumerate_output_devices();
         self.device_buffer_size = a.device_buffer_size;
         self.device_simultaneous_sources = a.device_simultaneous_sources;
         self.sample_rate = a.sample_rate;
@@ -76,6 +86,36 @@ impl LauncherPanel for AudioPanel {
                 ui.selectable_value(&mut self.driver, DriverType::PortAudio, "PortAudio");
             });
         if self.driver != prev {
+            self.dirty = true;
+        }
+
+        // Output Device
+        let prev_device = self.device_name.clone();
+        let selected_label = self.device_name.as_deref().unwrap_or(DEFAULT_DEVICE_LABEL);
+        egui::ComboBox::from_label("Output Device")
+            .selected_text(selected_label)
+            .show_ui(ui, |ui| {
+                if ui
+                    .selectable_label(self.device_name.is_none(), DEFAULT_DEVICE_LABEL)
+                    .clicked()
+                {
+                    self.device_name = None;
+                }
+                for dev in &self.available_devices {
+                    let label = if dev.is_default {
+                        format!("{} (default)", dev.name)
+                    } else {
+                        dev.name.clone()
+                    };
+                    if ui
+                        .selectable_label(self.device_name.as_deref() == Some(&dev.name), &label)
+                        .clicked()
+                    {
+                        self.device_name = Some(dev.name.clone());
+                    }
+                }
+            });
+        if self.device_name != prev_device {
             self.dirty = true;
         }
 
@@ -188,6 +228,7 @@ impl LauncherPanel for AudioPanel {
 
     fn apply(&self, config: &mut Config, _player_config: &mut PlayerConfig) {
         config.audio.driver = self.driver;
+        config.audio.device_name = self.device_name.clone();
         config.audio.device_buffer_size = self.device_buffer_size;
         config.audio.device_simultaneous_sources = self.device_simultaneous_sources;
         config.audio.sample_rate = self.sample_rate;
