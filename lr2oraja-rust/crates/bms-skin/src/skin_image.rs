@@ -30,6 +30,9 @@ pub struct SkinImage {
     /// Optional source rectangle for sub-region rendering (pixel coordinates).
     /// When set, only this rectangle of the texture is displayed.
     pub source_rect: Option<Rect>,
+    /// Per-source crop rects for imagesets where each source has a different region.
+    /// Indexed in parallel with `sources`. Renderer falls back to `source_rect` if empty.
+    pub source_rects: Vec<Option<Rect>>,
 }
 
 /// A single image source entry for SkinImage.

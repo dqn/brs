@@ -974,11 +974,49 @@ fn try_build_image(
     // Resolve source image handle
     if let Some(&handle) = source_images.get(img_def.src.as_str()) {
         let timer = img_def.timer.as_ref().and_then(|t| t.as_id());
-        skin_img.sources = vec![crate::skin_image::SkinImageSource::Frames {
-            images: vec![handle],
-            timer,
-            cycle: img_def.cycle,
-        }];
+        let divx = img_def.divx.max(1);
+        let divy = img_def.divy.max(1);
+
+        if divx == 1 && divy == 1 {
+            // Single image: store handle + source crop rect
+            skin_img.sources = vec![crate::skin_image::SkinImageSource::Frames {
+                images: vec![handle],
+                timer,
+                cycle: img_def.cycle,
+            }];
+        } else {
+            // Grid image: split into individual frames using split_grid
+            let regions = crate::skin_source::split_grid(
+                handle, img_def.x, img_def.y, img_def.w, img_def.h, divx, divy,
+            );
+            skin_img.sources = vec![crate::skin_image::SkinImageSource::Frames {
+                images: regions.iter().map(|r| r.handle).collect(),
+                timer,
+                cycle: img_def.cycle,
+            }];
+        }
+
+        // Set source crop rectangle from the image definition
+        if img_def.w > 0 && img_def.h > 0 {
+            if divx == 1 && divy == 1 {
+                skin_img.source_rect = Some(crate::skin_object::Rect::new(
+                    img_def.x as f32,
+                    img_def.y as f32,
+                    img_def.w as f32,
+                    img_def.h as f32,
+                ));
+            } else {
+                // For grid images, each frame shows one cell — set source_rect to cell size
+                let cell_w = img_def.w as f32 / divx as f32;
+                let cell_h = img_def.h as f32 / divy as f32;
+                skin_img.source_rect = Some(crate::skin_object::Rect::new(
+                    img_def.x as f32,
+                    img_def.y as f32,
+                    cell_w,
+                    cell_h,
+                ));
+            }
+        }
     }
 
     // Record click event
@@ -1022,13 +1060,62 @@ fn try_build_image_set(
             continue;
         };
         let timer = image_def.timer.as_ref().and_then(|t| t.as_id());
-        skin_img
-            .sources
-            .push(crate::skin_image::SkinImageSource::Frames {
-                images: vec![handle],
-                timer,
-                cycle: image_def.cycle,
-            });
+        let divx = image_def.divx.max(1);
+        let divy = image_def.divy.max(1);
+
+        if divx == 1 && divy == 1 {
+            skin_img
+                .sources
+                .push(crate::skin_image::SkinImageSource::Frames {
+                    images: vec![handle],
+                    timer,
+                    cycle: image_def.cycle,
+                });
+        } else {
+            let regions = crate::skin_source::split_grid(
+                handle,
+                image_def.x,
+                image_def.y,
+                image_def.w,
+                image_def.h,
+                divx,
+                divy,
+            );
+            skin_img
+                .sources
+                .push(crate::skin_image::SkinImageSource::Frames {
+                    images: regions.iter().map(|r| r.handle).collect(),
+                    timer,
+                    cycle: image_def.cycle,
+                });
+        }
+
+        // Per-source crop rect
+        if image_def.w > 0 && image_def.h > 0 {
+            if divx == 1 && divy == 1 {
+                skin_img
+                    .source_rects
+                    .push(Some(crate::skin_object::Rect::new(
+                        image_def.x as f32,
+                        image_def.y as f32,
+                        image_def.w as f32,
+                        image_def.h as f32,
+                    )));
+            } else {
+                let cell_w = image_def.w as f32 / divx as f32;
+                let cell_h = image_def.h as f32 / divy as f32;
+                skin_img
+                    .source_rects
+                    .push(Some(crate::skin_object::Rect::new(
+                        image_def.x as f32,
+                        image_def.y as f32,
+                        cell_w,
+                        cell_h,
+                    )));
+            }
+        } else {
+            skin_img.source_rects.push(None);
+        }
     }
 
     if let Some(act) = &set_def.act

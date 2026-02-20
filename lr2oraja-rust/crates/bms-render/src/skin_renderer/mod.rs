@@ -414,9 +414,14 @@ fn resolve_object_texture(
                         if let Some(handle) = images.get(idx)
                             && let Some(entry) = tex_map.get(*handle)
                         {
-                            let uv = img
-                                .source_rect
-                                .map(|r| bevy::math::Rect::new(r.x, r.y, r.x + r.w, r.y + r.h));
+                            // Use per-source rect if available, fall back to shared source_rect
+                            let rect = img
+                                .source_rects
+                                .get(source_idx)
+                                .and_then(|r| r.as_ref())
+                                .or(img.source_rect.as_ref());
+                            let uv =
+                                rect.map(|r| bevy::math::Rect::new(r.x, r.y, r.x + r.w, r.y + r.h));
                             return (Some(entry.handle.clone()), uv);
                         }
                     }
