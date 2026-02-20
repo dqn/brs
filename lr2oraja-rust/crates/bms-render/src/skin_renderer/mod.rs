@@ -77,6 +77,11 @@ pub fn skin_render_system(
         let object = &skin.objects[idx];
         let base = object.base();
 
+        if !eval::check_option_conditions(base, skin, provider) {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+
         let Some((rect, color, final_angle, final_alpha)) = eval::resolve_common(base, provider)
         else {
             *visibility = Visibility::Hidden;
@@ -151,6 +156,11 @@ pub fn skin_render_system(
 
         let object = &skin.objects[idx];
         let base = object.base();
+
+        if !eval::check_option_conditions(base, skin, provider) {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
 
         let Some((rect, color, final_angle, final_alpha)) = eval::resolve_common(base, provider)
         else {
@@ -301,6 +311,11 @@ pub fn skin_render_system(
 
         let object = &skin.objects[idx];
         let base = object.base();
+
+        if !eval::check_option_conditions(base, skin, provider) {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
 
         let Some((rect, color, final_angle, final_alpha)) = eval::resolve_common(base, provider)
         else {

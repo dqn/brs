@@ -6,6 +6,7 @@
 // golden-master test harness for RenderSnapshot capture.
 
 use bms_skin::property_id::BooleanId;
+use bms_skin::skin::Skin;
 use bms_skin::skin_object::{Color, Rect, SkinObjectBase, SkinOffset};
 use bms_skin::skin_text::SkinText;
 
@@ -18,16 +19,77 @@ pub fn check_draw_conditions(base: &SkinObjectBase, provider: &dyn SkinStateProv
             return false;
         }
     }
-    // Check option conditions (from JSON "op" field)
-    for &op in &base.option_conditions {
-        if op == 0 {
-            continue;
-        }
-        if !provider.boolean_value(BooleanId(op)) {
-            return false;
-        }
-    }
     true
+}
+
+/// Checks whether all option conditions (JSON "op" field) are met.
+///
+/// Option conditions contain two types of values:
+/// - **Draw condition IDs** (known ranges like 1..=84, 160..=207, etc.)
+///   → evaluated as `BooleanId` via `provider.boolean_value()`.
+/// - **Skin option IDs** (outside known ranges) → checked against
+///   `skin.options` map where `selected == 1` means enabled.
+pub fn check_option_conditions(
+    base: &SkinObjectBase,
+    skin: &Skin,
+    provider: &dyn SkinStateProvider,
+) -> bool {
+    base.option_conditions.iter().all(|&op| {
+        if op == 0 {
+            return true;
+        }
+        let abs = op.abs();
+        if is_known_draw_condition_id(abs) {
+            return provider.boolean_value(BooleanId(op));
+        }
+        // Skin option: check against skin.options
+        if let Some(selected) = skin.options.get(&abs).copied() {
+            if op > 0 { selected == 1 } else { selected == 0 }
+        } else {
+            // Unknown option IDs are rejected (matches Java behavior).
+            false
+        }
+    })
+}
+
+/// Returns true if the given ID is a known draw condition ID.
+///
+/// These ranges match the Java BooleanProperty constants that are
+/// registered in SkinPropertyMapper as draw conditions. IDs outside
+/// these ranges are treated as skin-level option selections.
+fn is_known_draw_condition_id(id: i32) -> bool {
+    matches!(
+        id,
+        1..=84
+            | 90..=105
+            | 118..=207
+            | 210..=227
+            | 230..=246
+            | 261..=263
+            | 270..=273
+            | 280..=293
+            | 300..=318
+            | 320..=336
+            | 340..=354
+            | 400
+            | 601..=608
+            | 624..=625
+            | 1002..=1017
+            | 1030..=1031
+            | 1046..=1047
+            | 1080
+            | 1100..=1104
+            | 1128..=1131
+            | 1160..=1161
+            | 1177
+            | 1196..=1208
+            | 1240
+            | 1242..=1243
+            | 1262..=1263
+            | 1330..=1336
+            | 1362..=1363
+            | 2241..=2246
+    )
 }
 
 /// Resolves the animation time from the base timer.
@@ -497,48 +559,82 @@ mod tests {
         assert!(resolve_common(&base, &p).is_none());
     }
 
+    fn make_skin() -> bms_skin::skin::Skin {
+        bms_skin::skin::Skin::new(bms_skin::skin_header::SkinHeader::default())
+    }
+
     #[test]
-    fn check_draw_conditions_option_conditions_all_true() {
+    fn option_conditions_draw_condition_all_true() {
         let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
+        // 160 and 161 are in the known draw condition ID range (118..=207)
         base.option_conditions = vec![160, 161];
         let mut p = StaticStateProvider::default();
         p.booleans.insert(160, true);
         p.booleans.insert(161, true);
-        assert!(check_draw_conditions(&base, &p));
+        let skin = make_skin();
+        assert!(check_option_conditions(&base, &skin, &p));
     }
 
     #[test]
-    fn check_draw_conditions_option_conditions_one_false() {
+    fn option_conditions_draw_condition_one_false() {
         let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
         base.option_conditions = vec![160, 162];
         let mut p = StaticStateProvider::default();
         p.booleans.insert(160, true);
         p.booleans.insert(162, false);
-        assert!(!check_draw_conditions(&base, &p));
+        let skin = make_skin();
+        assert!(!check_option_conditions(&base, &skin, &p));
     }
 
     #[test]
-    fn check_draw_conditions_option_conditions_skip_zero() {
+    fn option_conditions_skip_zero() {
         let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
         base.option_conditions = vec![0, 160];
         let mut p = StaticStateProvider::default();
         p.booleans.insert(160, true);
-        assert!(check_draw_conditions(&base, &p));
+        let skin = make_skin();
+        assert!(check_option_conditions(&base, &skin, &p));
     }
 
     #[test]
-    fn check_draw_conditions_both_draw_and_option() {
+    fn option_conditions_skin_option_selected() {
         let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
-        base.draw_conditions = vec![BooleanId(1)];
-        base.option_conditions = vec![160];
-        let mut p = StaticStateProvider::default();
-        p.booleans.insert(1, true);
-        p.booleans.insert(160, true);
-        assert!(check_draw_conditions(&base, &p));
+        // ID 5000 is outside known draw condition ranges → skin option
+        base.option_conditions = vec![5000];
+        let p = StaticStateProvider::default();
+        let mut skin = make_skin();
+        skin.options.insert(5000, 1); // selected = 1 → enabled
+        assert!(check_option_conditions(&base, &skin, &p));
+    }
 
-        // draw_condition fails → hidden
-        p.booleans.insert(1, false);
-        assert!(!check_draw_conditions(&base, &p));
+    #[test]
+    fn option_conditions_skin_option_not_selected() {
+        let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
+        base.option_conditions = vec![5000];
+        let p = StaticStateProvider::default();
+        let mut skin = make_skin();
+        skin.options.insert(5000, 0); // selected = 0 → disabled
+        assert!(!check_option_conditions(&base, &skin, &p));
+    }
+
+    #[test]
+    fn option_conditions_negated_skin_option() {
+        let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
+        // Negative op → negated: show when selected == 0
+        base.option_conditions = vec![-5000];
+        let p = StaticStateProvider::default();
+        let mut skin = make_skin();
+        skin.options.insert(5000, 0); // selected = 0, negated → show
+        assert!(check_option_conditions(&base, &skin, &p));
+    }
+
+    #[test]
+    fn option_conditions_unknown_skin_option_rejected() {
+        let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
+        base.option_conditions = vec![9999]; // not in known ranges, not in skin.options
+        let p = StaticStateProvider::default();
+        let skin = make_skin();
+        assert!(!check_option_conditions(&base, &skin, &p));
     }
 
     #[test]

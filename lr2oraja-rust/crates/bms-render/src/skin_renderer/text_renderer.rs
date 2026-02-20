@@ -37,6 +37,11 @@ pub fn render_ttf_text(
         let object = &skin.objects[idx];
         let base = object.base();
 
+        if !eval::check_option_conditions(base, skin, provider) {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+
         let Some((rect, color, final_angle, final_alpha)) = eval::resolve_common(base, provider)
         else {
             *visibility = Visibility::Hidden;
@@ -109,6 +114,11 @@ pub fn render_ttf_shadow(
         let object = &skin.objects[idx];
         let base = object.base();
 
+        if !eval::check_option_conditions(base, skin, provider) {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+
         let Some((rect, color, final_angle, final_alpha)) = eval::resolve_common(base, provider)
         else {
             *visibility = Visibility::Hidden;
@@ -180,6 +190,11 @@ pub fn render_bitmap_text(
 
         let object = &skin.objects[idx];
         let base = object.base();
+
+        if !eval::check_option_conditions(base, skin, provider) {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
 
         let Some((rect, color, final_angle, final_alpha)) = eval::resolve_common(base, provider)
         else {
