@@ -719,7 +719,6 @@ pub fn sync_play_judge_indicators(state: &mut SharedGameState, jm: &JudgeManager
 }
 
 /// Synchronize the constant modifier flag.
-#[allow(dead_code)] // H8: wired in skin property factory (not yet called from play render)
 pub fn sync_play_constant_flag(state: &mut SharedGameState, constant_enabled: bool) {
     state
         .booleans
@@ -779,8 +778,8 @@ pub fn sync_play_hcn_timers(
             continue;
         }
 
-        let active_id = hcn_active_timer_id(player, offset);
-        let damage_id = hcn_damage_timer_id(player, offset);
+        let active_id = hcn_active_timer_id(player as usize, offset as usize);
+        let damage_id = hcn_damage_timer_id(player as usize, offset as usize);
 
         let is_active = jm.hcn_active(lane);
         let is_passing = jm.processing_ln(lane);
@@ -803,9 +802,10 @@ pub fn sync_play_hcn_timers(
 /// Factor = 1.0 during expansion phase, fading to 0.0 during contraction.
 pub fn sync_play_note_expansion(state: &mut SharedGameState, now_quarter_note_time_ms: i64) {
     // Store the raw quarter-note time for skins that compute their own expansion
-    state
-        .integers
-        .insert(bms_skin::property_id::TIMER_RHYTHM, now_quarter_note_time_ms as i32);
+    state.integers.insert(
+        bms_skin::property_id::TIMER_RHYTHM,
+        now_quarter_note_time_ms as i32,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -819,7 +819,9 @@ pub fn sync_play_note_expansion(state: &mut SharedGameState, now_quarter_note_ti
 pub fn sync_play_pms_mode(state: &mut SharedGameState, is_pms: bool) {
     // Use OPTION property to indicate PMS mode is active
     // The skin can query this to decide whether to render past-note fall-through
-    state.booleans.insert(bms_skin::property_id::OPTION_GRADEBAR_HCN, is_pms);
+    state
+        .booleans
+        .insert(bms_skin::property_id::OPTION_GRADEBAR_HCN, is_pms);
 }
 
 #[cfg(test)]

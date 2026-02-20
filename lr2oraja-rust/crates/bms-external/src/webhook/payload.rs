@@ -62,13 +62,13 @@ fn clear_type_color(clear_type_id: u8) -> u32 {
 fn rank_emoji(rank: &str) -> &'static str {
     match rank {
         "AAA" => "\u{1F451}", // crown
-        "AA" => "\u{2B50}",  // star
-        "A" => "\u{1F7E2}",  // green circle
-        "B" => "\u{1F535}",  // blue circle
-        "C" => "\u{1F7E1}",  // yellow circle
-        "D" => "\u{1F7E0}",  // orange circle
-        "E" => "\u{1F534}",  // red circle
-        _ => "\u{26AB}",     // black circle (F)
+        "AA" => "\u{2B50}",   // star
+        "A" => "\u{1F7E2}",   // green circle
+        "B" => "\u{1F535}",   // blue circle
+        "C" => "\u{1F7E1}",   // yellow circle
+        "D" => "\u{1F7E0}",   // orange circle
+        "E" => "\u{1F534}",   // red circle
+        _ => "\u{26AB}",      // black circle (F)
     }
 }
 
@@ -111,14 +111,14 @@ pub fn create_embed(score_info: &ScreenshotScoreInfo, song_title: &str) -> Embed
         });
     }
 
-    if let Some(ref pattern) = score_info.pattern_name {
-        if !pattern.is_empty() {
-            fields.push(EmbedField {
-                name: "Option".to_string(),
-                value: pattern.clone(),
-                inline: Some(true),
-            });
-        }
+    if let Some(ref pattern) = score_info.pattern_name
+        && !pattern.is_empty()
+    {
+        fields.push(EmbedField {
+            name: "Option".to_string(),
+            value: pattern.clone(),
+            inline: Some(true),
+        });
     }
 
     // Rank delta vs previous best
