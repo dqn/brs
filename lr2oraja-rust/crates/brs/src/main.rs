@@ -243,6 +243,29 @@ fn main() -> Result<()> {
     let database = match DatabaseManager::open(&args.db_path) {
         Ok(db) => {
             info!(path = %args.db_path.display(), "Database opened");
+
+            // Scan BMS root directories and update song database
+            if !config.bmsroot.is_empty() {
+                let update_all = config.updatesong;
+                match db
+                    .song_db
+                    .update_song_datas(None, &config.bmsroot, update_all)
+                {
+                    Ok(stats) => {
+                        info!(
+                            scanned = stats.scanned,
+                            added = stats.added,
+                            updated = stats.updated,
+                            removed = stats.removed,
+                            "Song database updated"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to update song database: {e}");
+                    }
+                }
+            }
+
             Some(db)
         }
         Err(e) => {
