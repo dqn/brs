@@ -1,0 +1,6 @@
+local m = require("keyconfigmain")
+if skin_config then
+	return m.main()
+else
+	return m.header
+end
