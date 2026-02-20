@@ -1,8 +1,8 @@
 // Movie processor trait and stub implementation.
 //
 // Ported from Java MovieProcessor interface (~29 lines).
-// Video decoding (FFmpegProcessor) is deferred; only the trait and a
-// no-op stub are provided for now.
+// FfmpegMovieProcessor is available behind the `movie` feature flag;
+// StubMovieProcessor is used as a fallback when the feature is disabled.
 
 use std::path::Path;
 
@@ -44,7 +44,7 @@ pub trait MovieProcessor: Send + Sync {
 
 /// No-op movie processor stub. Returns no frames and ignores all operations.
 ///
-/// Used as a placeholder until a real video decoder (e.g., FFmpeg) is integrated.
+/// Used as a fallback when the `movie` feature flag is disabled.
 #[derive(Debug, Default)]
 pub struct StubMovieProcessor;
 

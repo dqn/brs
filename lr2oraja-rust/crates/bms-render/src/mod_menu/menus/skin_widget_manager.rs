@@ -3,10 +3,12 @@
 // Corresponds to Java `SkinWidgetManager.java`.
 // Provides a table of skin widgets with position/size editing,
 // undo history, and column visibility controls.
-// Skin integration (load_from_skin / apply_to_skin) is deferred
-// to a future phase; current implementation works with snapshot data.
+// `load_from_skin` builds the widget list from a Skin, and
+// `apply_to_skin` writes back changed destination positions.
 
 use std::collections::HashMap;
+
+use bms_skin::skin::Skin;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChangeField {
@@ -268,6 +270,77 @@ impl SkinWidgetManagerState {
             was_visible: widget.visible,
         });
         widget.visible = !widget.visible;
+    }
+
+    /// Builds the widget list from a Skin's objects.
+    ///
+    /// Each `SkinObjectType` is converted to a `SkinWidget` with its
+    /// destinations. Duplicate names are disambiguated with `(n)` suffixes.
+    pub fn load_from_skin(&mut self, skin: &Skin) {
+        self.widgets.clear();
+        self.history.clear();
+
+        let mut name_counts: HashMap<String, usize> = HashMap::new();
+
+        for obj in &skin.objects {
+            let base = obj.base();
+            let raw_name = base
+                .name
+                .clone()
+                .unwrap_or_else(|| format!("{:?}", std::mem::discriminant(obj)));
+
+            // Disambiguate duplicate names
+            let count = name_counts.entry(raw_name.clone()).or_insert(0);
+            let widget_name = if *count == 0 {
+                raw_name.clone()
+            } else {
+                format!("{}({})", raw_name, count)
+            };
+            *count += 1;
+
+            let destinations: Vec<WidgetDestination> = base
+                .destinations
+                .iter()
+                .enumerate()
+                .map(|(i, dst)| WidgetDestination {
+                    name: format!("dst{}", i),
+                    x: dst.region.x,
+                    y: dst.region.y,
+                    w: dst.region.w,
+                    h: dst.region.h,
+                })
+                .collect();
+
+            self.widgets.push(SkinWidget {
+                name: widget_name,
+                visible: true,
+                drawing: !base.destinations.is_empty(),
+                destinations,
+            });
+        }
+    }
+
+    /// Writes back changed destination x/y/w/h values to the Skin.
+    ///
+    /// Only fields that have been modified (recorded in history) are updated.
+    /// The widget list and skin.objects must have the same length and ordering.
+    pub fn apply_to_skin(&self, skin: &mut Skin) {
+        for (widget_idx, widget) in self.widgets.iter().enumerate() {
+            let Some(obj) = skin.objects.get_mut(widget_idx) else {
+                continue;
+            };
+            let base = obj.base_mut();
+
+            for (dst_idx, widget_dst) in widget.destinations.iter().enumerate() {
+                let Some(skin_dst) = base.destinations.get_mut(dst_idx) else {
+                    continue;
+                };
+                skin_dst.region.x = widget_dst.x;
+                skin_dst.region.y = widget_dst.y;
+                skin_dst.region.w = widget_dst.w;
+                skin_dst.region.h = widget_dst.h;
+            }
+        }
     }
 
     /// Export all widget changes as a formatted string.
@@ -744,5 +817,134 @@ mod tests {
 
         let w3_events = history.events_for_name("w3");
         assert!(w3_events.is_empty());
+    }
+
+    fn make_test_skin() -> Skin {
+        use bms_skin::skin_header::SkinHeader;
+        use bms_skin::skin_image::SkinImage;
+        use bms_skin::skin_object::{Color, Destination, Rect, SkinObjectBase};
+        use bms_skin::skin_object_type::SkinObjectType;
+
+        let header = SkinHeader::default();
+        let mut skin = Skin::new(header);
+
+        // Object 0: named image with 2 destinations
+        let mut base0 = SkinObjectBase::default();
+        base0.name = Some("bg_image".to_string());
+        base0.destinations = vec![
+            Destination {
+                time: 0,
+                region: Rect::new(0.0, 0.0, 1920.0, 1080.0),
+                color: Color::white(),
+                angle: 0,
+                acc: 0,
+            },
+            Destination {
+                time: 500,
+                region: Rect::new(10.0, 20.0, 1920.0, 1080.0),
+                color: Color::white(),
+                angle: 0,
+                acc: 0,
+            },
+        ];
+        let img0 = SkinImage {
+            base: base0,
+            ..Default::default()
+        };
+        skin.add(SkinObjectType::Image(img0));
+
+        // Object 1: unnamed image
+        let mut base1 = SkinObjectBase::default();
+        base1.destinations = vec![Destination {
+            time: 0,
+            region: Rect::new(100.0, 200.0, 300.0, 400.0),
+            color: Color::white(),
+            angle: 0,
+            acc: 0,
+        }];
+        let img1 = SkinImage {
+            base: base1,
+            ..Default::default()
+        };
+        skin.add(SkinObjectType::Image(img1));
+
+        // Object 2: duplicate name
+        let mut base2 = SkinObjectBase::default();
+        base2.name = Some("bg_image".to_string());
+        let img2 = SkinImage {
+            base: base2,
+            ..Default::default()
+        };
+        skin.add(SkinObjectType::Image(img2));
+
+        skin
+    }
+
+    #[test]
+    fn load_from_skin_builds_widgets() {
+        let skin = make_test_skin();
+        let mut state = SkinWidgetManagerState::default();
+        state.load_from_skin(&skin);
+
+        assert_eq!(state.widgets.len(), 3);
+
+        // First widget: named, with 2 destinations
+        assert_eq!(state.widgets[0].name, "bg_image");
+        assert!(state.widgets[0].drawing);
+        assert_eq!(state.widgets[0].destinations.len(), 2);
+        assert!((state.widgets[0].destinations[0].x - 0.0).abs() < f32::EPSILON);
+        assert!((state.widgets[0].destinations[1].x - 10.0).abs() < f32::EPSILON);
+
+        // Second widget: unnamed, auto-named
+        assert!(!state.widgets[1].name.is_empty());
+        assert_eq!(state.widgets[1].destinations.len(), 1);
+        assert!((state.widgets[1].destinations[0].x - 100.0).abs() < f32::EPSILON);
+
+        // Third widget: duplicate name disambiguated
+        assert_eq!(state.widgets[2].name, "bg_image(1)");
+        assert!(!state.widgets[2].drawing); // no destinations
+    }
+
+    #[test]
+    fn load_from_skin_clears_history() {
+        let skin = make_test_skin();
+        let mut state = SkinWidgetManagerState::default();
+
+        // Add some history first
+        state.history.push(WidgetEvent::ToggleVisible {
+            widget_name: "old".into(),
+            was_visible: true,
+        });
+        assert!(!state.history.is_empty());
+
+        state.load_from_skin(&skin);
+        assert!(state.history.is_empty());
+    }
+
+    #[test]
+    fn apply_to_skin_updates_destinations() {
+        let mut skin = make_test_skin();
+        let mut state = SkinWidgetManagerState::default();
+        state.load_from_skin(&skin);
+
+        // Modify first widget's first destination
+        state.widgets[0].destinations[0].x = 42.0;
+        state.widgets[0].destinations[0].y = 99.0;
+
+        state.apply_to_skin(&mut skin);
+
+        let base = skin.objects[0].base();
+        assert!((base.destinations[0].region.x - 42.0).abs() < f32::EPSILON);
+        assert!((base.destinations[0].region.y - 99.0).abs() < f32::EPSILON);
+        // w/h unchanged
+        assert!((base.destinations[0].region.w - 1920.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn apply_to_skin_no_crash_on_empty() {
+        let mut skin = make_test_skin();
+        let state = SkinWidgetManagerState::default();
+        // No widgets loaded — should be a no-op
+        state.apply_to_skin(&mut skin);
     }
 }

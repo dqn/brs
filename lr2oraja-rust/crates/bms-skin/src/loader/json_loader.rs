@@ -15,7 +15,7 @@ mod header;
 mod state_config;
 mod sub_object;
 
-pub use conditional::{resolve_conditionals, test_option};
+pub use conditional::{resolve_conditionals, resolve_conditionals_with_base, test_option};
 pub use header::{build_header, load_header, preprocess_json};
 
 use std::collections::{HashMap, HashSet};
@@ -60,7 +60,7 @@ pub fn load_skin(
     dest_resolution: Resolution,
     path: Option<&Path>,
 ) -> Result<Skin> {
-    let data = parse_skin_data(json_str, enabled_options)?;
+    let data = parse_skin_data(json_str, enabled_options, path)?;
     let source_images = infer_existing_source_images(&data, path);
     load_skin_with_images(
         json_str,
@@ -84,7 +84,7 @@ pub fn load_skin_with_images(
     path: Option<&Path>,
     source_images: &HashMap<String, ImageHandle>,
 ) -> Result<Skin> {
-    let data = parse_skin_data(json_str, enabled_options)?;
+    let data = parse_skin_data(json_str, enabled_options, path)?;
 
     // Build header
     let mut header = build_header(&data, path)?;
@@ -166,11 +166,19 @@ pub fn load_skin_with_images(
     Ok(skin)
 }
 
-fn parse_skin_data(json_str: &str, enabled_options: &HashSet<i32>) -> Result<JsonSkinData> {
+fn parse_skin_data(
+    json_str: &str,
+    enabled_options: &HashSet<i32>,
+    skin_path: Option<&Path>,
+) -> Result<JsonSkinData> {
     // Pre-process lenient JSON and resolve conditionals.
     let preprocessed = preprocess_json(json_str);
     let raw: Value = serde_json::from_str(&preprocessed).context("Failed to parse JSON")?;
-    let resolved = resolve_conditionals(raw, enabled_options);
+    let resolved = if let Some(path) = skin_path {
+        resolve_conditionals_with_base(raw, enabled_options, path)
+    } else {
+        resolve_conditionals(raw, enabled_options)
+    };
     serde_json::from_value(resolved).context("Failed to deserialize resolved JSON")
 }
 

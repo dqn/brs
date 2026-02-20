@@ -2,11 +2,12 @@
 //
 // Manages per-state timers using integer microseconds (i64).
 // Standard timers use array indices 0..TIMER_COUNT, custom timers
-// (id >= 3000) are deferred to skin layer in later sub-phases.
+// (id in TIMER_CUSTOM_BEGIN..=TIMER_CUSTOM_END) use a HashMap.
 
+use std::collections::HashMap;
 use std::time::Instant;
 
-use bms_skin::property_id::TIMER_MAX;
+use bms_skin::property_id::{TIMER_CUSTOM_BEGIN, TIMER_CUSTOM_END, TIMER_MAX};
 
 /// Number of standard timer slots (0..=TIMER_MAX).
 const TIMER_COUNT: usize = (TIMER_MAX + 1) as usize;
@@ -23,6 +24,8 @@ pub struct TimerManager {
     now_micro_time: i64,
     frozen: bool,
     timers: Box<[i64; TIMER_COUNT]>,
+    /// Custom timers for skin-defined IDs (TIMER_CUSTOM_BEGIN..=TIMER_CUSTOM_END).
+    custom_timers: HashMap<i32, i64>,
 }
 
 impl TimerManager {
@@ -34,6 +37,7 @@ impl TimerManager {
             now_micro_time: 0,
             frozen: false,
             timers,
+            custom_timers: HashMap::new(),
         }
     }
 
@@ -41,6 +45,7 @@ impl TimerManager {
     /// Corresponds to Java `setMainState()`.
     pub fn reset(&mut self) {
         self.timers.fill(TIMER_OFF);
+        self.custom_timers.clear();
         self.start_instant = Instant::now();
         self.now_micro_time = 0;
     }
@@ -89,8 +94,9 @@ impl TimerManager {
     pub fn micro_timer(&self, id: i32) -> i64 {
         if id >= 0 && (id as usize) < TIMER_COUNT {
             self.timers[id as usize]
+        } else if (TIMER_CUSTOM_BEGIN..=TIMER_CUSTOM_END).contains(&id) {
+            self.custom_timers.get(&id).copied().unwrap_or(TIMER_OFF)
         } else {
-            // Custom timers (id >= TIMER_COUNT) delegated to skin in later phases
             TIMER_OFF
         }
     }
@@ -115,8 +121,13 @@ impl TimerManager {
     pub fn set_micro_timer(&mut self, id: i32, micro_time: i64) {
         if id >= 0 && (id as usize) < TIMER_COUNT {
             self.timers[id as usize] = micro_time;
+        } else if (TIMER_CUSTOM_BEGIN..=TIMER_CUSTOM_END).contains(&id) {
+            if micro_time == TIMER_OFF {
+                self.custom_timers.remove(&id);
+            } else {
+                self.custom_timers.insert(id, micro_time);
+            }
         }
-        // Custom timer delegation deferred to later sub-phases
     }
 
     /// Activates a timer only if it is currently OFF (when `on` is true).
@@ -280,5 +291,105 @@ mod tests {
         tm.set_micro_timer(100, 42_000);
         assert!(tm.is_timer_on(100));
         assert_eq!(tm.micro_timer(100), 42_000);
+    }
+
+    #[test]
+    fn custom_timer_set_get() {
+        use bms_skin::property_id::TIMER_CUSTOM_BEGIN;
+
+        let mut tm = TimerManager::new();
+        let id = TIMER_CUSTOM_BEGIN + 42;
+
+        // Initially off
+        assert!(!tm.is_timer_on(id));
+        assert_eq!(tm.micro_timer(id), TIMER_OFF);
+
+        // Set and verify
+        tm.set_micro_timer(id, 12_345);
+        assert!(tm.is_timer_on(id));
+        assert_eq!(tm.micro_timer(id), 12_345);
+    }
+
+    #[test]
+    fn custom_timer_set_on_off() {
+        use bms_skin::property_id::TIMER_CUSTOM_BEGIN;
+
+        let mut tm = TimerManager::new();
+        let id = TIMER_CUSTOM_BEGIN;
+        tm.set_now_micro_time(5000);
+
+        tm.set_timer_on(id);
+        assert!(tm.is_timer_on(id));
+        assert_eq!(tm.micro_timer(id), 5000);
+
+        tm.set_timer_off(id);
+        assert!(!tm.is_timer_on(id));
+        assert_eq!(tm.micro_timer(id), TIMER_OFF);
+    }
+
+    #[test]
+    fn custom_timer_reset_clears() {
+        use bms_skin::property_id::TIMER_CUSTOM_BEGIN;
+
+        let mut tm = TimerManager::new();
+        let id = TIMER_CUSTOM_BEGIN + 100;
+        tm.set_micro_timer(id, 9999);
+        assert!(tm.is_timer_on(id));
+
+        tm.reset();
+        assert!(!tm.is_timer_on(id));
+        assert_eq!(tm.micro_timer(id), TIMER_OFF);
+    }
+
+    #[test]
+    fn custom_timer_switch() {
+        use bms_skin::property_id::TIMER_CUSTOM_BEGIN;
+
+        let mut tm = TimerManager::new();
+        let id = TIMER_CUSTOM_BEGIN + 500;
+        tm.set_now_micro_time(1000);
+
+        tm.switch_timer(id, true);
+        assert_eq!(tm.micro_timer(id), 1000);
+
+        // Switching on again should NOT update the value
+        tm.set_now_micro_time(2000);
+        tm.switch_timer(id, true);
+        assert_eq!(tm.micro_timer(id), 1000);
+
+        // Switching off deactivates
+        tm.switch_timer(id, false);
+        assert!(!tm.is_timer_on(id));
+    }
+
+    #[test]
+    fn custom_timer_out_of_range_is_no_op() {
+        use bms_skin::property_id::TIMER_CUSTOM_END;
+
+        let mut tm = TimerManager::new();
+        // ID beyond custom range (between standard max and custom begin)
+        let gap_id = TIMER_MAX + 1;
+        tm.set_micro_timer(gap_id, 1000);
+        assert_eq!(tm.micro_timer(gap_id), TIMER_OFF);
+
+        // ID beyond custom end
+        let beyond_id = TIMER_CUSTOM_END + 1;
+        tm.set_micro_timer(beyond_id, 1000);
+        assert_eq!(tm.micro_timer(beyond_id), TIMER_OFF);
+    }
+
+    #[test]
+    fn custom_timer_elapsed() {
+        use bms_skin::property_id::TIMER_CUSTOM_BEGIN;
+
+        let mut tm = TimerManager::new();
+        let id = TIMER_CUSTOM_BEGIN;
+
+        tm.set_now_micro_time(10_000);
+        tm.set_timer_on(id);
+
+        tm.set_now_micro_time(15_000);
+        assert_eq!(tm.now_micro_time_of(id), 5_000);
+        assert_eq!(tm.now_time_of(id), 5);
     }
 }

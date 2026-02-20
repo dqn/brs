@@ -96,6 +96,7 @@ Phase 44 (HIGH): Config保存、Loudness正規化、Gauge Auto-Shift、Multi-Bad
 Phase 45 (MEDIUM): Frequency/Random/Judge Trainer統合、Notes Display Timing Auto-Adjust、Guide SE、Play Speed pitch、Additional Key Sounds、IR後Ranking更新。
 Phase 46 (LOW): Judge Area/BPM Guide Lines/HCN/PMS skin state、Screenshot Clipboard、SongDataView/TrainerView パネル、Webhook高度フォーマット、BMS Search→TableData、SongDatabaseUpdateListener、PatternModifyLog、isPlaying()。
 Deferred Items 解消: H8 Skin Property Sync配線、L5 PMS RhythmTimer統合、L12 IPFS DB+ダウンロードプロセッサ、L14 cpal AudioDevice選択。
+Deferred Items 一括実装: JSON Skin Include、SRC/DST_BAR_GRAPH、Custom Timer、Frame Time Injection、SkinWidgetManager load/apply、MovieProcessor コメント修正。
 詳細な Phase 別履歴は git log を参照。
 
 ## Deferred / Stub Items

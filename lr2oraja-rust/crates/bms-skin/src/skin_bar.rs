@@ -2,6 +2,7 @@
 //
 // Song selection bar object displaying song info, trophies, lamps, etc.
 
+use crate::skin_graph::SkinGraph;
 use crate::skin_image::SkinImage;
 use crate::skin_number::SkinNumber;
 use crate::skin_object::SkinObjectBase;
@@ -46,6 +47,8 @@ pub struct SkinBar {
     pub my_lamp: Vec<Option<SkinImage>>,
     /// Rival lamp [BAR_LAMP_COUNT].
     pub rival_lamp: Vec<Option<SkinImage>>,
+    /// Bar graph (statistics distribution graph per bar item).
+    pub graph: Option<SkinGraph>,
 }
 
 impl Default for SkinBar {
@@ -62,6 +65,7 @@ impl Default for SkinBar {
             lamp: vec![None; BAR_LAMP_COUNT],
             my_lamp: vec![None; BAR_LAMP_COUNT],
             rival_lamp: vec![None; BAR_LAMP_COUNT],
+            graph: None,
         }
     }
 }

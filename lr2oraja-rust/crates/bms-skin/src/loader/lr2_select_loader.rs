@@ -26,6 +26,7 @@ use crate::skin_bar::{
 };
 use crate::skin_bpm_graph::SkinBpmGraph;
 use crate::skin_distribution_graph::SkinDistributionGraph;
+use crate::skin_graph::SkinGraph;
 use crate::skin_image::SkinImage;
 use crate::skin_number::{SkinNumber, ZeroPadding};
 use crate::skin_source::{build_number_source_set, split_grid};
@@ -239,6 +240,16 @@ pub fn process_select_command(
         }
         "DST_BAR_TITLE" => {
             dst_bar_title(fields, state, select_state);
+            true
+        }
+
+        // -- Bar Graph --
+        "SRC_BAR_GRAPH" => {
+            src_bar_graph(fields, state, select_state);
+            true
+        }
+        "DST_BAR_GRAPH" => {
+            dst_bar_graph(fields, state, select_state);
             true
         }
 
@@ -569,6 +580,49 @@ fn dst_bar_rival_lamp(fields: &[&str], state: &Lr2CsvState, select_state: &mut L
         {
             select_state.rival_lamp_images[lamp_id] = Some(first_img.clone());
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SRC_BAR_GRAPH / DST_BAR_GRAPH
+// ---------------------------------------------------------------------------
+
+fn src_bar_graph(fields: &[&str], _state: &Lr2CsvState, select_state: &mut Lr2SelectState) {
+    let values = parse_int_pub(fields);
+    let gr = values[2];
+    if gr >= 100 {
+        return;
+    }
+
+    let handle = ImageHandle(gr as u32);
+    let divx = values[7].max(1);
+    let divy = values[8].max(1);
+    let grid = split_grid(
+        handle, values[3], values[4], values[5], values[6], divx, divy,
+    );
+    let handles: Vec<ImageHandle> = grid.iter().map(|r| r.handle).collect();
+    if handles.is_empty() {
+        return;
+    }
+
+    let timer = nonzero_timer(values[10]);
+    let cycle = values[9];
+
+    // Java: values[1] == 0 → 11 columns, else 28 columns
+    // The graph type determines the number of columns in the bar statistics display.
+    let graph = SkinGraph {
+        source_images: handles,
+        source_timer: timer,
+        source_cycle: cycle,
+        ..Default::default()
+    };
+
+    select_state.skinbar.graph = Some(graph);
+}
+
+fn dst_bar_graph(fields: &[&str], state: &Lr2CsvState, select_state: &mut Lr2SelectState) {
+    if let Some(ref mut graph) = select_state.skinbar.graph {
+        state.apply_dst_to_base(&mut graph.base, fields, &[]);
     }
 }
 
@@ -1034,6 +1088,48 @@ mod tests {
             ss.skinbar.text[0].as_ref().unwrap().align,
             TextAlign::Center
         );
+    }
+
+    #[test]
+    fn test_src_bar_graph() {
+        let (mut skin, mut state) = make_skin();
+        let mut ss = make_select_state();
+
+        let src: Vec<&str> = "#SRC_BAR_GRAPH,0,0,0,0,200,20,11,1,0,0"
+            .split(',')
+            .collect();
+        assert!(process_select_command(
+            "SRC_BAR_GRAPH",
+            &src,
+            &mut skin,
+            &mut state,
+            &mut ss
+        ));
+        assert!(ss.skinbar.graph.is_some());
+    }
+
+    #[test]
+    fn test_dst_bar_graph() {
+        let (mut skin, mut state) = make_skin();
+        let mut ss = make_select_state();
+
+        // First set up the graph via SRC
+        let src: Vec<&str> = "#SRC_BAR_GRAPH,0,0,0,0,200,20,11,1,0,0"
+            .split(',')
+            .collect();
+        process_select_command("SRC_BAR_GRAPH", &src, &mut skin, &mut state, &mut ss);
+
+        let dst: Vec<&str> = "#DST_BAR_GRAPH,0,0,100,50,200,20,0,255,255,255,255"
+            .split(',')
+            .collect();
+        assert!(process_select_command(
+            "DST_BAR_GRAPH",
+            &dst,
+            &mut skin,
+            &mut state,
+            &mut ss
+        ));
+        assert!(ss.skinbar.graph.is_some());
     }
 
     #[test]

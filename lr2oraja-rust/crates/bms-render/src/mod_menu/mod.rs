@@ -91,7 +91,12 @@ fn mod_menu_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut contexts: EguiContexts,
     mut state: ResMut<ModMenuState>,
+    time: Res<Time>,
 ) {
+    // Record frame delta for the performance monitor
+    state
+        .performance_monitor
+        .record_frame_time(time.delta_secs() * 1000.0);
     // Delete key always toggles the menu
     if keyboard.just_pressed(KeyCode::Delete) {
         state.toggle();
