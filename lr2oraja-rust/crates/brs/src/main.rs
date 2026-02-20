@@ -420,7 +420,12 @@ fn main() -> Result<()> {
         .add_systems(Update, timer_update_system)
         .add_systems(Update, state_machine_system)
         .add_systems(Update, exit_check_system)
-        .add_systems(Update, skin_load_system)
+        .add_systems(
+            Update,
+            (skin_load_system, bevy::ecs::schedule::apply_deferred)
+                .chain()
+                .before(bms_render::skin_renderer::skin_render_system),
+        )
         .add_systems(Update, preview_music_update_system)
         .add_systems(Update, state_sync_system)
         .add_systems(Update, version_check_system)
