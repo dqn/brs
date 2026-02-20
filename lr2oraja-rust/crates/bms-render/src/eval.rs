@@ -5,6 +5,7 @@
 // used both by the Bevy renderer (skin_renderer.rs) and by the
 // golden-master test harness for RenderSnapshot capture.
 
+use bms_skin::property_id::BooleanId;
 use bms_skin::skin_object::{Color, Rect, SkinObjectBase, SkinOffset};
 use bms_skin::skin_text::SkinText;
 
@@ -14,6 +15,15 @@ use crate::state_provider::SkinStateProvider;
 pub fn check_draw_conditions(base: &SkinObjectBase, provider: &dyn SkinStateProvider) -> bool {
     for &cond in &base.draw_conditions {
         if !provider.boolean_value(cond) {
+            return false;
+        }
+    }
+    // Check option conditions (from JSON "op" field)
+    for &op in &base.option_conditions {
+        if op == 0 {
+            continue;
+        }
+        if !provider.boolean_value(BooleanId(op)) {
             return false;
         }
     }
@@ -485,6 +495,50 @@ mod tests {
 
         let p = StaticStateProvider::default(); // timer 10 not set
         assert!(resolve_common(&base, &p).is_none());
+    }
+
+    #[test]
+    fn check_draw_conditions_option_conditions_all_true() {
+        let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
+        base.option_conditions = vec![160, 161];
+        let mut p = StaticStateProvider::default();
+        p.booleans.insert(160, true);
+        p.booleans.insert(161, true);
+        assert!(check_draw_conditions(&base, &p));
+    }
+
+    #[test]
+    fn check_draw_conditions_option_conditions_one_false() {
+        let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
+        base.option_conditions = vec![160, 162];
+        let mut p = StaticStateProvider::default();
+        p.booleans.insert(160, true);
+        p.booleans.insert(162, false);
+        assert!(!check_draw_conditions(&base, &p));
+    }
+
+    #[test]
+    fn check_draw_conditions_option_conditions_skip_zero() {
+        let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
+        base.option_conditions = vec![0, 160];
+        let mut p = StaticStateProvider::default();
+        p.booleans.insert(160, true);
+        assert!(check_draw_conditions(&base, &p));
+    }
+
+    #[test]
+    fn check_draw_conditions_both_draw_and_option() {
+        let mut base = make_base_with_dst(0, 0.0, 0.0, 100.0, 100.0);
+        base.draw_conditions = vec![BooleanId(1)];
+        base.option_conditions = vec![160];
+        let mut p = StaticStateProvider::default();
+        p.booleans.insert(1, true);
+        p.booleans.insert(160, true);
+        assert!(check_draw_conditions(&base, &p));
+
+        // draw_condition fails → hidden
+        p.booleans.insert(1, false);
+        assert!(!check_draw_conditions(&base, &p));
     }
 
     #[test]

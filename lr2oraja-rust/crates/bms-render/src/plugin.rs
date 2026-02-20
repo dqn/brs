@@ -7,10 +7,12 @@ use bevy::asset::embedded_asset;
 use bevy::prelude::*;
 use bevy::sprite::Material2dPlugin;
 
+use bevy::render::camera::ScalingMode;
+
 use crate::bga_layer_material::BgaLayerMaterial;
 use crate::distance_field_material::DistanceFieldMaterial;
 use crate::mod_menu::ModMenuPlugin;
-use crate::skin_renderer::skin_render_system;
+use crate::skin_renderer::{SkinRenderState, skin_render_system};
 
 /// Register embedded shader assets and Material2d plugins required by
 /// skin_render_system, without camera setup or ModMenu.
@@ -36,12 +38,29 @@ impl Plugin for BmsRenderPlugin {
 
         app.add_plugins(ModMenuPlugin)
             .add_systems(Startup, setup_camera)
-            .add_systems(Update, skin_render_system);
+            .add_systems(
+                Update,
+                (update_camera_projection, skin_render_system).chain(),
+            );
     }
 }
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
+}
+
+fn update_camera_projection(
+    render_state: Option<Res<SkinRenderState>>,
+    mut camera_query: Query<&mut OrthographicProjection, With<Camera2d>>,
+) {
+    if let Some(state) = render_state {
+        for mut projection in &mut camera_query {
+            projection.scaling_mode = ScalingMode::Fixed {
+                width: state.skin.width,
+                height: state.skin.height,
+            };
+        }
+    }
 }
 
 #[cfg(test)]
