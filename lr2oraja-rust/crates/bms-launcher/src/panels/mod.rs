@@ -7,6 +7,8 @@ pub mod obs;
 pub mod play_option;
 pub mod resource;
 pub mod skin;
+pub mod song_data;
 pub mod stream;
 pub mod table_editor;
+pub mod trainer;
 pub mod video;

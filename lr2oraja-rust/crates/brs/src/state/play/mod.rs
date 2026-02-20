@@ -154,7 +154,6 @@ pub struct PlayState {
     pub(super) bga_processor: Option<BgaProcessor>,
 
     // Control state
-    #[allow(dead_code)] // Parsed for completeness (Java play speed system)
     pub(super) play_speed: i32,
     pub(super) key_beam_stop: bool,
     pub(super) assist: i32,
@@ -357,6 +356,24 @@ impl GameStateHandler for PlayState {
                     if let Err(e) = driver.set_model(model, base_path) {
                         warn!("Play: failed to load audio: {e}");
                     }
+                    // M1/M6: Set audio pitch from frequency trainer or play speed
+                    let freq = ctx.resource.freq_trainer_freq;
+                    if freq > 0
+                        && ctx.config.audio.freq_option
+                            == bms_config::audio_config::FrequencyType::Frequency
+                    {
+                        driver.set_global_pitch(freq as f32 / 100.0);
+                        info!(freq, "Play: audio pitch set for frequency trainer");
+                    } else if self.play_speed != 100
+                        && ctx.config.audio.freq_option
+                            == bms_config::audio_config::FrequencyType::Frequency
+                    {
+                        driver.set_global_pitch(self.play_speed as f32 / 100.0);
+                        info!(
+                            play_speed = self.play_speed,
+                            "Play: audio pitch set for play speed"
+                        );
+                    }
                     self.key_sound_processor = Some(KeySoundProcessor::new(model, key_volume));
                     self.audio_driver = Some(Box::new(driver));
                 }
@@ -473,6 +490,8 @@ impl GameStateHandler for PlayState {
                 self.is_autoplay,
                 gauge.active_type() as i32,
                 true, // BGA is always on when bga_processor exists
+                ctx.player_config.showjudgearea,
+                ctx.player_config.bpmguide,
             );
 
             // 23-2: Hispeed / Duration / Lanecover
@@ -516,6 +535,16 @@ impl GameStateHandler for PlayState {
             play_skin_state::sync_play_offsets(shared, play_config, &self.scratch_angle);
             play_skin_state::sync_play_judge_per_key(shared, jm, &self.lane_property);
             play_skin_state::sync_play_judge_indicators(shared, jm);
+
+            // L4: HCN active/damage timers per lane
+            play_skin_state::sync_play_hcn_timers(shared, jm, &self.lane_property);
+
+            // L2: PMS mode flag for past-note fall-through rendering
+            let is_pms = matches!(
+                ctx.resource.play_mode,
+                PlayMode::PopN5K | PlayMode::PopN9K
+            );
+            play_skin_state::sync_play_pms_mode(shared, is_pms);
         }
     }
 

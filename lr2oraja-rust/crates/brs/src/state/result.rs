@@ -6,10 +6,12 @@
 use tracing::info;
 
 use bms_input::control_keys::ControlKeys;
+use bms_ir::ranking_data::RankingData;
 use bms_skin::property_id::{
     TIMER_FADEOUT, TIMER_RESULT_UPDATESCORE, TIMER_RESULTGRAPH_BEGIN, TIMER_RESULTGRAPH_END,
     TIMER_STARTINPUT,
 };
+use tokio::sync::oneshot;
 
 use bms_rule::ClearType;
 
@@ -37,6 +39,8 @@ pub struct ResultState {
     course_total: usize,
     /// Whether the user cancelled (back to select).
     cancel: bool,
+    /// M8: Receiver for ranking data fetched after IR submission.
+    ranking_receiver: Option<oneshot::Receiver<RankingData>>,
 }
 
 impl ResultState {
@@ -47,6 +51,7 @@ impl ResultState {
             course_index: 0,
             course_total: 0,
             cancel: false,
+            ranking_receiver: None,
         }
     }
 }
@@ -93,24 +98,28 @@ impl GameStateHandler for ResultState {
             }
             ctx.timer.set_timer_on(TIMER_RESULT_UPDATESCORE);
 
-            // IR submission with send condition filtering (H7)
-            let is_failed = score.clear == ClearType::Failed;
-            let is_score_updated = score.exscore() > ctx.resource.oldscore.exscore();
-            let irsend = ctx
-                .player_config
-                .irconfig
-                .as_deref()
-                .and_then(|cfgs| cfgs.first())
-                .map(|cfg| cfg.irsend)
-                .unwrap_or(bms_config::ir_config::IR_SEND_ALWAYS);
-            super::ir_submission::maybe_submit_score_to_ir(
-                score,
-                &score.sha256,
-                score.mode,
-                irsend,
-                is_failed,
-                is_score_updated,
-            );
+            // M1/H7: Skip IR when freq trainer active or send condition not met
+            if ctx.resource.force_no_ir_send {
+                info!("Result: IR submission blocked (freq trainer active)");
+            } else {
+                let is_failed = score.clear == ClearType::Failed;
+                let is_score_updated = score.exscore() > ctx.resource.oldscore.exscore();
+                let irsend = ctx
+                    .player_config
+                    .irconfig
+                    .as_deref()
+                    .and_then(|cfgs| cfgs.first())
+                    .map(|cfg| cfg.irsend)
+                    .unwrap_or(bms_config::ir_config::IR_SEND_ALWAYS);
+                self.ranking_receiver = super::ir_submission::maybe_submit_score_to_ir(
+                    score,
+                    &score.sha256,
+                    score.mode,
+                    irsend,
+                    is_failed,
+                    is_score_updated,
+                );
+            }
         }
 
         // Load old score from DB
@@ -186,6 +195,28 @@ impl GameStateHandler for ResultState {
             info!("Result: scene timer expired, starting fadeout");
             ctx.timer.set_timer_on(TIMER_FADEOUT);
             ctx.timer.set_timer_on(TIMER_RESULTGRAPH_END);
+        }
+
+        // M8: Poll for ranking data from IR submission
+        if let Some(rx) = &mut self.ranking_receiver {
+            match rx.try_recv() {
+                Ok(ranking) => {
+                    info!(
+                        rank = ranking.rank(),
+                        total = ranking.total_player(),
+                        "Result: IR ranking data received"
+                    );
+                    ctx.resource.ranking_data = Some(ranking);
+                    self.ranking_receiver = None;
+                }
+                Err(oneshot::error::TryRecvError::Empty) => {
+                    // Still waiting
+                }
+                Err(oneshot::error::TryRecvError::Closed) => {
+                    // Sender dropped (submission failed)
+                    self.ranking_receiver = None;
+                }
+            }
         }
 
         // Sync result state to shared game state for skin rendering

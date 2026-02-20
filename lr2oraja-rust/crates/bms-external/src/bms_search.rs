@@ -81,6 +81,36 @@ impl Default for BmsSearchAccessor {
     }
 }
 
+/// Convert BMS search results into a TableData structure for display
+/// in the song select folder view.
+pub fn search_results_to_table_data(
+    results: &[BmsSearchEntry],
+    table_name: &str,
+) -> bms_database::TableData {
+    use bms_database::course_data::CourseSongData;
+    use bms_database::table_data::{TableData, TableFolder};
+
+    let songs: Vec<CourseSongData> = results
+        .iter()
+        .map(|entry| CourseSongData {
+            sha256: entry.id.clone(),
+            title: entry.title.clone(),
+            ..Default::default()
+        })
+        .collect();
+
+    let folder = TableFolder {
+        name: table_name.to_string(),
+        songs,
+    };
+
+    TableData {
+        name: format!("Search: {table_name}"),
+        folder: vec![folder],
+        ..Default::default()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

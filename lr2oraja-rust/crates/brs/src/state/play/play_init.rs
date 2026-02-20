@@ -150,6 +150,13 @@ impl PlayState {
             self.assist += apply_pre_shuffle_modifiers(&mut model, ctx.player_config);
         }
 
+        // M2: Random Trainer — override 1P pattern with fixed lane order.
+        // When active, skip normal random and apply a fixed lane mapping instead.
+        let random_trainer_active = ctx.resource.random_trainer_enabled
+            && !self.is_autoplay
+            && ghost_battle.is_none()
+            && !ctx.resource.is_course();
+
         // Apply 1P pattern shuffle
         // Ghost battle: use the opponent's seed for deterministic pattern sharing
         let random_type = get_random(ctx.player_config.random as usize, model.mode);
@@ -179,13 +186,22 @@ impl PlayState {
             );
         }
 
-        self.assist += apply_pattern_modifier(
-            &mut model,
-            random_type,
-            0,
-            seed,
-            ctx.player_config.hran_threshold_bpm,
-        );
+        if random_trainer_active {
+            // M2: Apply fixed lane order from random trainer
+            apply_fixed_lane_order(&mut model, &ctx.resource.random_trainer_lane_order, 0);
+            info!(
+                lane_order = ?ctx.resource.random_trainer_lane_order,
+                "Play: random trainer active, fixed lane order applied"
+            );
+        } else {
+            self.assist += apply_pattern_modifier(
+                &mut model,
+                random_type,
+                0,
+                seed,
+                ctx.player_config.hran_threshold_bpm,
+            );
+        }
 
         // DP: Apply 2P pattern + doubleoption (flip)
         if model.mode.player_count() > 1 {
@@ -224,6 +240,27 @@ impl PlayState {
                 pattern = ctx.player_config.seven_to_nine_pattern,
                 "Play: applied 7-to-9 mode modifier"
             );
+        }
+
+        // M1: Frequency Trainer — scale chart tempo and timing.
+        // Java: BMSPlayer.java lines 248-267
+        let freq = ctx.resource.freq_trainer_freq;
+        if freq > 0 && freq != 100 && !self.is_autoplay && !ctx.resource.is_course() {
+            let freq_ratio = freq as f64 / 100.0;
+            model.change_frequency(freq_ratio);
+            ctx.resource.force_no_ir_send = true;
+            info!(freq, "Play: frequency trainer active");
+        }
+
+        // M3: Judge Trainer — override chart's judge rank.
+        // Java: BMSPlayer.java lines 283-295
+        if ctx.resource.judge_trainer_active && !self.is_autoplay {
+            // Transform UI rank (EASY=0, NORMAL=1, HARD=2, VERY_HARD=3) to
+            // windowrule index (VERY_HARD=0, HARD=1, NORMAL=2, EASY=3)
+            let window_rule_index = 3_i32.saturating_sub(ctx.resource.judge_trainer_rank);
+            model.judge_rank = window_rule_index;
+            self.assist = self.assist.max(2); // Judge trainer counts as assist >= 2
+            info!(judge_rank = model.judge_rank, "Play: judge trainer active");
         }
 
         let rule = PlayerRule::lr2();
@@ -303,6 +340,9 @@ impl PlayState {
             .unwrap_or(0);
         self.playtime_us = self.last_note_time_us + FINISH_MARGIN_US;
 
+        // M4: Set initial judge timing offset from config
+        jm.set_timing_offset(ctx.player_config.judgetiming as i64 * 1000);
+
         self.judge_manager = Some(jm);
         self.gauge = Some(gauge);
 
@@ -344,6 +384,36 @@ impl PlayState {
             total_notes as i32,
         );
         self.score_data_property = sdp;
+    }
+}
+
+/// Apply a fixed lane order from the random trainer.
+///
+/// `lane_order` is 1-indexed (values 1-7 representing key lanes).
+/// Scratch lane (0) is not remapped.
+/// `player` selects which half of the key range to remap (0 = 1P, 1 = 2P).
+fn apply_fixed_lane_order(model: &mut bms_model::BmsModel, lane_order: &[u8; 7], player: usize) {
+    let mode = model.mode;
+    let key_count = mode.key_count();
+    let keys_per_player = key_count / mode.player_count().max(1);
+    let base = player * keys_per_player;
+
+    // Build mapping: mapping[old_lane] = new_lane
+    let mut mapping: Vec<usize> = (0..key_count).collect();
+    for (i, &src_lane) in lane_order.iter().enumerate() {
+        if i >= keys_per_player || (src_lane as usize) < 1 || (src_lane as usize) > keys_per_player
+        {
+            continue;
+        }
+        // lane_order[i] = src (1-indexed) -> position i+1 (1-indexed)
+        // In the model, lane 0 = scratch, lanes 1-7 = keys
+        mapping[base + src_lane as usize] = base + i + 1;
+    }
+
+    for note in &mut model.notes {
+        if note.lane < mapping.len() {
+            note.lane = mapping[note.lane];
+        }
     }
 }
 

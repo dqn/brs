@@ -76,11 +76,7 @@ impl ScreenshotExporter for WebhookScreenshotExporter {
         score_info: Option<&ScreenshotScoreInfo>,
     ) -> Result<()> {
         // Build score info for webhook embed; use defaults when no score_info provided
-        let info = score_info.cloned().unwrap_or(ScreenshotScoreInfo {
-            clear_type_id: 0,
-            exscore: 0,
-            max_notes: 0,
-        });
+        let info = score_info.cloned().unwrap_or_default();
 
         let song_title = state_name.to_string();
 
@@ -121,9 +117,9 @@ mod tests {
             clear_type_id: 5,
             exscore: 1500,
             max_notes: 1000,
+            ..Default::default()
         };
         let text = ScoreTextComposer::compose("Test Song", "Test Artist", Some(&info));
-        // 1500*9=13500 vs 2000*6=12000 -> A, vs 2000*7=14000 -> not AA
         assert_eq!(
             text,
             "Test Song / Test Artist\nClear: NORMAL | Rank: A | EX: 1500/2000\n#beatoraja"
@@ -160,6 +156,7 @@ mod tests {
             clear_type_id: 8,
             exscore: 1800,
             max_notes: 1000,
+            ..Default::default()
         };
         let text = ScoreTextComposer::compose("FC Song", "FC Artist", Some(&info));
         assert!(text.contains("Clear: FULL COMBO"));
@@ -172,6 +169,7 @@ mod tests {
             clear_type_id: 1,
             exscore: 100,
             max_notes: 1000,
+            ..Default::default()
         };
         let text = ScoreTextComposer::compose("Hard Song", "Hard Artist", Some(&info));
         assert!(text.contains("Clear: FAILED"));
@@ -184,6 +182,7 @@ mod tests {
             clear_type_id: 10,
             exscore: 2000,
             max_notes: 1000,
+            ..Default::default()
         };
         let text = ScoreTextComposer::compose("Max Song", "Max Artist", Some(&info));
         assert!(text.contains("Clear: MAX"));
@@ -198,6 +197,7 @@ mod tests {
                 clear_type_id: id,
                 exscore: 1000,
                 max_notes: 1000,
+                ..Default::default()
             };
             let text = ScoreTextComposer::compose("Song", "Artist", Some(&info));
             let expected_clear = clear_type_name(id);
@@ -212,12 +212,6 @@ mod tests {
 
     #[test]
     fn compose_all_ranks() {
-        // max_notes=1000 -> max_ex=2000
-        // Rank thresholds: exscore*9 vs max_ex*N
-        // AAA: >= 16000 (ex >= 1778), AA: >= 14000 (ex >= 1556)
-        // A: >= 12000 (ex >= 1334), B: >= 10000 (ex >= 1112)
-        // C: >= 8000 (ex >= 889), D: >= 6000 (ex >= 667)
-        // E: >= 4000 (ex >= 445), F: below
         let cases = [
             (1800, 1000, "AAA"),
             (1600, 1000, "AA"),
@@ -233,6 +227,7 @@ mod tests {
                 clear_type_id: 5,
                 exscore,
                 max_notes,
+                ..Default::default()
             };
             let text = ScoreTextComposer::compose("Song", "Artist", Some(&info));
             assert!(

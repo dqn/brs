@@ -97,6 +97,22 @@ pub struct PlayerResource {
     // --- Ghost battle fields ---
     /// Ghost battle settings for pattern sharing (set by LeaderBoardBar, consumed by PlayState).
     pub ghost_battle: Option<GhostBattleSettings>,
+
+    // --- Trainer fields (M1-M3) ---
+    /// Frequency trainer: playback speed percentage (100 = normal). 0 means disabled.
+    pub freq_trainer_freq: i32,
+    /// Random trainer: whether a fixed lane order should be applied.
+    pub random_trainer_enabled: bool,
+    /// Random trainer: fixed 1P lane order (1-indexed, 7 keys).
+    pub random_trainer_lane_order: [u8; 7],
+    /// Judge trainer: whether judge rank override is active.
+    pub judge_trainer_active: bool,
+    /// Judge trainer: judge rank to override (EASY=0, NORMAL=1, HARD=2, VERY_HARD=3).
+    pub judge_trainer_rank: i32,
+
+    // --- IR send suppression ---
+    /// When true, IR submission is suppressed (e.g. freq trainer active).
+    pub force_no_ir_send: bool,
 }
 
 /// Settings for ghost battle pattern sharing.
@@ -216,6 +232,12 @@ impl Default for PlayerResource {
             course_gauge_carry: None,
             course_constraints: Vec::new(),
             ghost_battle: None,
+            freq_trainer_freq: 0,
+            random_trainer_enabled: false,
+            random_trainer_lane_order: [1, 2, 3, 4, 5, 6, 7],
+            judge_trainer_active: false,
+            judge_trainer_rank: 0,
+            force_no_ir_send: false,
         }
     }
 }

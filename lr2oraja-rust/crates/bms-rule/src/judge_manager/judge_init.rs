@@ -153,6 +153,7 @@ impl JudgeManager {
             judge_timing: vec![0i64; player_count],
             multi_bad: MultiBadCollector::new(is_pms),
             prev_time: 0,
+            timing_offset_us: 0,
         }
     }
 }

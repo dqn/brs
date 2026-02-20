@@ -21,6 +21,7 @@ reqwest.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 rusqlite.workspace = true
+arboard.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -9,6 +9,7 @@ use bms_skin::property_id::{
 use bms_skin::property_mapper;
 
 use crate::state::StateContext;
+use crate::system_sound::SystemSound;
 
 use super::{NOT_SET, PlayPhase, PlayState};
 
@@ -76,12 +77,28 @@ impl PlayState {
                             driver.play_note(&note, 1.0, 0);
                         }
                     }
-                    JudgeEvent::Judge { lane, judge, .. } => {
+                    JudgeEvent::Judge {
+                        lane,
+                        judge,
+                        duration,
+                        ..
+                    } => {
                         // Trigger miss layer on BD/PR/MS judgments
                         if *judge >= JUDGE_BD
                             && let Some(bga) = &mut self.bga_processor
                         {
                             bga.set_miss_triggered(ptime_us);
+                        }
+                        // M5: Guide SE — play judge-level feedback sound
+                        if ctx.player_config.is_guide_se
+                            && let Some(guide_sound) = SystemSound::from_judge(*judge)
+                            && let Some(sm) = &mut ctx.sound_manager
+                        {
+                            sm.play(guide_sound);
+                        }
+                        // M7: Additional key sounds (per-judge overlay)
+                        if let Some(driver) = &mut self.audio_driver {
+                            driver.play_additional_key_sound(*judge, *duration > 0);
                         }
                         // Per-player judge/combo timers
                         let player = self.lane_property.lane_player(*lane);

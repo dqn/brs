@@ -21,6 +21,14 @@ impl PlayState {
             self.now_bpm = model.bpm_at(ptime_us);
         }
 
+        // M4: Auto-adjust judge timing offset based on recent judge bias
+        if ctx.player_config.notes_display_timing_auto_adjust
+            && let Some(jm) = &mut self.judge_manager
+            && let Some(auto_ms) = jm.auto_adjust_ms()
+        {
+            jm.set_timing_offset(auto_ms as i64 * 1000);
+        }
+
         // Update ScoreDataProperty
         if let Some(jm) = &self.judge_manager {
             self.score_data_property.update(jm.score(), jm.past_notes());

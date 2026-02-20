@@ -12,8 +12,10 @@ use crate::panels::obs::ObsPanel;
 use crate::panels::play_option::PlayOptionPanel;
 use crate::panels::resource::ResourcePanel;
 use crate::panels::skin::SkinPanel;
+use crate::panels::song_data::SongDataPanel;
 use crate::panels::stream::StreamPanel;
 use crate::panels::table_editor::TableEditorPanel;
+use crate::panels::trainer::TrainerPanel;
 use crate::panels::video::VideoPanel;
 use crate::tab::Tab;
 
@@ -50,6 +52,8 @@ impl LauncherApp {
             Box::new(PlayOptionPanel::default()),
             Box::new(SkinPanel::default()),
             Box::new(TableEditorPanel::default()),
+            Box::new(SongDataPanel::default()),
+            Box::new(TrainerPanel::default()),
             Box::new(IrPanel::default()),
             Box::new(DiscordPanel::default()),
             Box::new(ObsPanel::default()),

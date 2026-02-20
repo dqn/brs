@@ -50,6 +50,8 @@ pub struct KiraAudioDriver {
     consecutive_errors: u32,
     /// Flag indicating the driver needs recovery.
     recovery_pending: bool,
+    /// M7: Additional key sounds indexed by [judge_level][early=0/late=1].
+    additional_key_sounds: [[Option<StaticSoundData>; 2]; 6],
 }
 
 impl KiraAudioDriver {
@@ -66,6 +68,7 @@ impl KiraAudioDriver {
             total_count: 0,
             consecutive_errors: 0,
             recovery_pending: false,
+            additional_key_sounds: Default::default(),
         })
     }
 }
@@ -248,5 +251,35 @@ impl AudioDriver for KiraAudioDriver {
 
         warn!("Audio driver recovery successful, sounds remain loaded");
         Ok(())
+    }
+
+    fn is_playing(&self, wav_id: u16) -> bool {
+        let ch_id = channel_id(wav_id, 0);
+        self.active_handles.contains_key(&ch_id)
+    }
+
+    fn set_additional_key_sound(&mut self, judge: usize, early: bool, path: &Path) -> Result<()> {
+        if judge >= 6 {
+            return Ok(());
+        }
+        let pcm = crate::decode::load_audio(path)?;
+        let wav_bytes = pcm_to_wav_bytes(&pcm);
+        let sound_data = StaticSoundData::from_cursor(Cursor::new(wav_bytes))
+            .map_err(|e| anyhow::anyhow!("Failed to create additional key sound: {e}"))?;
+        let idx = if early { 0 } else { 1 };
+        self.additional_key_sounds[judge][idx] = Some(sound_data);
+        Ok(())
+    }
+
+    fn play_additional_key_sound(&mut self, judge: usize, early: bool) {
+        if judge >= 6 {
+            return;
+        }
+        let idx = if early { 0 } else { 1 };
+        if let Some(sound_data) = &self.additional_key_sounds[judge][idx]
+            && let Err(e) = self.manager.play(sound_data.clone())
+        {
+            warn!(judge, early, "Failed to play additional key sound: {e}");
+        }
     }
 }

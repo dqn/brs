@@ -1,12 +1,19 @@
+pub mod clipboard_exporter;
 pub mod file_exporter;
 pub mod social_exporter;
 
 /// Information about a score for screenshot metadata.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ScreenshotScoreInfo {
     pub clear_type_id: u8,
     pub exscore: i32,
     pub max_notes: i32,
+    /// Max combo achieved (optional, for webhook)
+    pub maxcombo: Option<i32>,
+    /// Pattern modifier name, e.g. "MIRROR" (optional, for webhook)
+    pub pattern_name: Option<String>,
+    /// Previous best EX score for rank delta display (optional)
+    pub prev_exscore: Option<i32>,
 }
 
 /// Convert clear type ID to display name.

@@ -105,6 +105,11 @@ pub struct JudgeManager {
 
     // Timing
     pub(super) prev_time: i64,
+
+    // M4: Judge timing offset (microseconds).
+    // Applied to all dmtime calculations: positive = shift notes earlier,
+    // negative = shift notes later. Combines judgetiming config + auto-adjust.
+    pub(super) timing_offset_us: i64,
 }
 
 impl JudgeManager {
@@ -417,7 +422,7 @@ impl JudgeManager {
                         if is_cn_hcn && key_idx as i32 != self.sckey[sc_idx] {
                             // BSS end: pressing different scratch key ends BSS
                             let mjudge = &self.scnendmjudge;
-                            let dmtime = proc_note.time_us - pmtime;
+                            let dmtime = proc_note.time_us - pmtime - self.timing_offset_us;
                             let judge = self.find_judge_window(dmtime, mjudge);
 
                             if proc_note.wav_id > 0 {
@@ -459,7 +464,7 @@ impl JudgeManager {
                     let lane_note_indices = self.lane_notes[lane_idx].clone();
                     for &note_idx in &lane_note_indices {
                         let note = &notes[note_idx];
-                        let dmtime = note.time_us - pmtime;
+                        let dmtime = note.time_us - pmtime - self.timing_offset_us;
 
                         if dmtime >= self.mjudge_end {
                             break;
@@ -570,7 +575,7 @@ impl JudgeManager {
                             );
                         }
 
-                        let dmtime = tnote.time_us - pmtime;
+                        let dmtime = tnote.time_us - pmtime - self.timing_offset_us;
 
                         if tnote.is_long_note() {
                             // Long note processing
@@ -665,7 +670,7 @@ impl JudgeManager {
                     } else {
                         &self.cnendmjudge
                     };
-                    let dmtime = proc_note.time_us - pmtime;
+                    let dmtime = proc_note.time_us - pmtime - self.timing_offset_us;
                     let judge = self.find_judge_window(dmtime, mjudge);
 
                     let is_cn_hcn = proc_note.note_type == NoteType::ChargeNote
@@ -793,7 +798,7 @@ impl JudgeManager {
                 let release_time = self.lane_states[lane_idx].release_time;
                 if release_time != NOT_SET && release_time + release_margin <= time_us {
                     let ln_end_judge = self.lane_states[lane_idx].ln_end_judge;
-                    let dmtime = proc_note.time_us - release_time;
+                    let dmtime = proc_note.time_us - release_time - self.timing_offset_us;
                     let pair_idx = if proc_note.pair_index != usize::MAX {
                         proc_note.pair_index
                     } else {
@@ -853,7 +858,7 @@ impl JudgeManager {
                     if ln_end_judge != NO_LN_END_JUDGE && ln_end_judge >= JUDGE_BD {
                         // Judge as BAD+
                     }
-                    let dmtime = proc_note.time_us - release_time;
+                    let dmtime = proc_note.time_us - release_time - self.timing_offset_us;
                     self.update_judge(
                         lane_idx,
                         proc_idx,
@@ -1199,6 +1204,42 @@ impl JudgeManager {
         } else {
             &self.nmjudge
         }
+    }
+
+    // --- M4: Timing offset / auto-adjust ---
+
+    /// Set the judge timing offset (microseconds).
+    ///
+    /// Positive = notes are judged earlier (player hits early bias),
+    /// negative = notes are judged later (player hits late bias).
+    pub fn set_timing_offset(&mut self, offset_us: i64) {
+        self.timing_offset_us = offset_us;
+    }
+
+    /// Get the current timing offset (microseconds).
+    pub fn timing_offset(&self) -> i64 {
+        self.timing_offset_us
+    }
+
+    /// Compute the auto-adjust value from recent judge timings (milliseconds).
+    ///
+    /// Returns the average timing bias of recent non-MISS/non-POOR judgments.
+    /// Positive = player tends to hit early, negative = late.
+    /// Java: JudgeManager.getAutoAdjust()
+    pub fn auto_adjust_ms(&self) -> Option<i32> {
+        let mut sum: i64 = 0;
+        let mut count: i64 = 0;
+        for &t in &self.recent_judges {
+            if t != NOT_SET {
+                sum += t;
+                count += 1;
+            }
+        }
+        if count == 0 {
+            return None;
+        }
+        // Convert from microseconds to milliseconds
+        Some((sum / count / 1000) as i32)
     }
 }
 

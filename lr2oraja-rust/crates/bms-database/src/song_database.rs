@@ -21,6 +21,21 @@ pub struct UpdateStats {
     pub removed: usize,
 }
 
+/// L16: Listener trait for song database update progress reporting.
+///
+/// Implement this trait to receive progress callbacks during `update_song_datas`.
+/// Ported from Java `SongDatabaseUpdateListener`.
+pub trait SongDatabaseUpdateListener: Send {
+    /// Called when BMS files are discovered during directory scanning.
+    fn on_files_found(&mut self, count: usize);
+
+    /// Called when a BMS file has been processed (parsed and inserted/updated).
+    fn on_file_processed(&mut self, current: usize, total: usize);
+
+    /// Called when the update is complete with final statistics.
+    fn on_update_complete(&mut self, stats: &UpdateStats);
+}
+
 /// Whitelist of allowed column names for `get_song_datas(key, value)`.
 const ALLOWED_KEYS: &[&str] = &[
     "md5", "sha256", "title", "artist", "genre", "path", "folder", "parent", "favorite",

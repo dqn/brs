@@ -6,8 +6,10 @@
 use bms_ir::chart_data::IRChartData;
 use bms_ir::connection_manager::IRConnectionManager;
 use bms_ir::course_data::IRCourseData;
+use bms_ir::ranking_data::RankingData;
 use bms_ir::score_data::IRScoreData;
 use bms_rule::ScoreData;
+use tokio::sync::oneshot;
 
 /// Check IR send condition and submit if allowed.
 ///
@@ -19,7 +21,7 @@ pub fn maybe_submit_score_to_ir(
     irsend: i32,
     is_failed: bool,
     is_score_updated: bool,
-) {
+) -> Option<oneshot::Receiver<RankingData>> {
     use bms_config::ir_config::{IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE};
 
     let should_send = match irsend {
@@ -29,7 +31,7 @@ pub fn maybe_submit_score_to_ir(
     };
 
     if should_send {
-        submit_score_to_ir(score, sha256, lntype);
+        submit_score_to_ir(score, sha256, lntype)
     } else {
         tracing::info!(
             irsend,
@@ -37,6 +39,7 @@ pub fn maybe_submit_score_to_ir(
             is_score_updated,
             "IR: submission skipped by send condition"
         );
+        None
     }
 }
 
@@ -45,18 +48,25 @@ pub fn maybe_submit_score_to_ir(
 /// Creates an LR2IR connection, converts the score to IR format,
 /// and spawns an async task to send it. Failures are logged as warnings.
 /// No-op if called outside a Tokio runtime context.
-pub fn submit_score_to_ir(score: &ScoreData, sha256: &str, lntype: i32) {
+pub fn submit_score_to_ir(
+    score: &ScoreData,
+    sha256: &str,
+    lntype: i32,
+) -> Option<oneshot::Receiver<RankingData>> {
     // Guard: only spawn task if tokio runtime is available
     let Ok(_handle) = tokio::runtime::Handle::try_current() else {
-        return;
+        return None;
     };
 
     let ir_score = IRScoreData::from(score);
+    let local_score = score.clone();
     let chart = IRChartData {
         sha256: sha256.to_string(),
         lntype,
         ..minimal_chart_data()
     };
+
+    let (tx, rx) = oneshot::channel();
 
     tokio::spawn(async move {
         let Some(conn) = IRConnectionManager::create("LR2IR") else {
@@ -66,6 +76,23 @@ pub fn submit_score_to_ir(score: &ScoreData, sha256: &str, lntype: i32) {
         match conn.send_play_data(&chart, &ir_score).await {
             Ok(resp) if resp.succeeded => {
                 tracing::info!("IR: score submitted successfully");
+                // M8: Fetch updated ranking after successful submission
+                match conn.get_play_data(None, &chart).await {
+                    Ok(ranking_resp) if ranking_resp.succeeded => {
+                        let mut ranking = RankingData::new();
+                        if let Some(scores) = ranking_resp.data.as_deref() {
+                            ranking.update_score(scores, Some(&local_score));
+                        }
+                        let _ = tx.send(ranking);
+                        tracing::info!("IR: ranking data fetched after submission");
+                    }
+                    Ok(resp) => {
+                        tracing::warn!("IR: ranking fetch rejected: {}", resp.message);
+                    }
+                    Err(e) => {
+                        tracing::warn!("IR: ranking fetch failed: {e}");
+                    }
+                }
             }
             Ok(resp) => {
                 tracing::warn!("IR: score submission rejected: {}", resp.message);
@@ -75,6 +102,8 @@ pub fn submit_score_to_ir(score: &ScoreData, sha256: &str, lntype: i32) {
             }
         }
     });
+
+    Some(rx)
 }
 
 /// Submit a course score to the IR server (fire-and-forget).

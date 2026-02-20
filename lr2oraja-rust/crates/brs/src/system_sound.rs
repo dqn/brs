@@ -38,6 +38,28 @@ pub enum SystemSound {
     Scratch,
     Folder,
     OptionChange,
+    // M5: Guide SE — per-judge feedback sounds
+    GuidePerfect,
+    GuideGreat,
+    GuideGood,
+    GuideBad,
+    GuidePoor,
+    GuideMiss,
+}
+
+impl SystemSound {
+    /// Map a judge index (JUDGE_PG=0 .. JUDGE_MS=5) to a guide SE sound.
+    pub fn from_judge(judge: usize) -> Option<Self> {
+        match judge {
+            0 => Some(Self::GuidePerfect),
+            1 => Some(Self::GuideGreat),
+            2 => Some(Self::GuideGood),
+            3 => Some(Self::GuideBad),
+            4 => Some(Self::GuidePoor),
+            5 => Some(Self::GuideMiss),
+            _ => None,
+        }
+    }
 }
 
 /// Manages system sound playback with Kira audio integration.
@@ -85,6 +107,13 @@ impl SystemSoundManager {
             (SystemSound::ResultFail, "fail.wav"),
             (SystemSound::Scratch, "scratch.wav"),
             (SystemSound::OptionChange, "option.wav"),
+            // M5: Guide SE sounds
+            (SystemSound::GuidePerfect, "guide_pg.wav"),
+            (SystemSound::GuideGreat, "guide_gr.wav"),
+            (SystemSound::GuideGood, "guide_gd.wav"),
+            (SystemSound::GuideBad, "guide_bd.wav"),
+            (SystemSound::GuidePoor, "guide_pr.wav"),
+            (SystemSound::GuideMiss, "guide_ms.wav"),
         ];
         for (sound, filename) in &sound_files {
             let path = base_dir.join(filename);

@@ -65,6 +65,27 @@ pub trait AudioDriver: Send + Sync {
     fn try_recover(&mut self) -> Result<()> {
         Ok(())
     }
+
+    /// L18: Check if a sound is currently playing on the given channel.
+    fn is_playing(&self, _wav_id: u16) -> bool {
+        false
+    }
+
+    /// M7: Load an additional key sound for a judge level and early/late direction.
+    ///
+    /// `judge`: 0=PG..5=MS, `early`: true=fast/false=slow.
+    /// Java: `setAdditionalKeySound(judge, fast, path)`
+    fn set_additional_key_sound(
+        &mut self,
+        _judge: usize,
+        _early: bool,
+        _path: &Path,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    /// M7: Play an additional key sound for a judge level and early/late direction.
+    fn play_additional_key_sound(&mut self, _judge: usize, _early: bool) {}
 }
 
 /// Compute the channel ID for a note + pitch combination.

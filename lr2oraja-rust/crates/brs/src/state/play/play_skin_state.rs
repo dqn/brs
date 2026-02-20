@@ -235,10 +235,12 @@ pub fn sync_play_options(
     is_autoplay: bool,
     gauge_type: i32,
     bga_on: bool,
+    show_judge_area: bool,
+    bpm_guide: bool,
 ) {
     use bms_skin::property_id::{
-        OPTION_AUTOPLAYOFF, OPTION_AUTOPLAYON, OPTION_BGAOFF, OPTION_BGAON, OPTION_GAUGE_EX,
-        OPTION_GAUGE_GROOVE, OPTION_GAUGE_HARD,
+        BUTTON_ASSIST_BPMGUIDE, BUTTON_ASSIST_JUDGEAREA, OPTION_AUTOPLAYOFF, OPTION_AUTOPLAYON,
+        OPTION_BGAOFF, OPTION_BGAON, OPTION_GAUGE_EX, OPTION_GAUGE_GROOVE, OPTION_GAUGE_HARD,
     };
 
     // Autoplay flags
@@ -254,6 +256,14 @@ pub fn sync_play_options(
     // BGA flags
     state.booleans.insert(OPTION_BGAON, bga_on);
     state.booleans.insert(OPTION_BGAOFF, !bga_on);
+
+    // L1: Judge area visualization flag
+    state
+        .booleans
+        .insert(BUTTON_ASSIST_JUDGEAREA, show_judge_area);
+
+    // L3: BPM guide lines flag
+    state.booleans.insert(BUTTON_ASSIST_BPMGUIDE, bpm_guide);
 }
 
 // ---------------------------------------------------------------------------
@@ -716,6 +726,102 @@ pub fn sync_play_constant_flag(state: &mut SharedGameState, constant_enabled: bo
         .insert(bms_skin::property_id::OPTION_CONSTANT, constant_enabled);
 }
 
+// ---------------------------------------------------------------------------
+// L4: HCN visual state — active/damage timers per lane
+// ---------------------------------------------------------------------------
+
+/// Compute the HCN active timer ID for a given player and skin offset.
+fn hcn_active_timer_id(player: usize, offset: usize) -> i32 {
+    if offset < 10 {
+        if player == 0 {
+            bms_skin::property_id::TIMER_HCN_ACTIVE_1P_SCRATCH + offset as i32
+        } else {
+            // 2P standard: 260 + offset (gap between 259 and 270)
+            260 + offset as i32
+        }
+    } else if player == 0 {
+        bms_skin::property_id::TIMER_HCN_ACTIVE_1P_KEY10 + (offset as i32 - 10)
+    } else {
+        bms_skin::property_id::TIMER_HCN_ACTIVE_2P_KEY10 + (offset as i32 - 10)
+    }
+}
+
+/// Compute the HCN damage timer ID for a given player and skin offset.
+fn hcn_damage_timer_id(player: usize, offset: usize) -> i32 {
+    if offset < 10 {
+        if player == 0 {
+            bms_skin::property_id::TIMER_HCN_DAMAGE_1P_SCRATCH + offset as i32
+        } else {
+            // 2P standard: 280 + offset
+            280 + offset as i32
+        }
+    } else if player == 0 {
+        bms_skin::property_id::TIMER_HCN_DAMAGE_1P_KEY10 + (offset as i32 - 10)
+    } else {
+        bms_skin::property_id::TIMER_HCN_DAMAGE_2P_KEY10 + (offset as i32 - 10)
+    }
+}
+
+/// Synchronize HCN active/damage timer booleans per lane.
+///
+/// L4: For each lane with an active HCN, sets:
+/// - `TIMER_HCN_ACTIVE_*` when the key is held (gauge increasing)
+/// - `TIMER_HCN_DAMAGE_*` when the key is released during HCN (gauge decreasing)
+pub fn sync_play_hcn_timers(
+    state: &mut SharedGameState,
+    jm: &JudgeManager,
+    lane_property: &bms_model::LaneProperty,
+) {
+    for lane in 0..lane_property.lane_count() {
+        let offset = lane_property.lane_skin_offset(lane);
+        let player = lane_property.lane_player(lane);
+        if !(0..20).contains(&offset) {
+            continue;
+        }
+
+        let active_id = hcn_active_timer_id(player, offset);
+        let damage_id = hcn_damage_timer_id(player, offset);
+
+        let is_active = jm.hcn_active(lane);
+        let is_passing = jm.processing_ln(lane);
+
+        // Active: HCN is passing AND key is held (increasing)
+        state.booleans.insert(active_id, is_active);
+        // Damage: HCN is passing but key is NOT held (decreasing)
+        state.booleans.insert(damage_id, is_passing && !is_active);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// L5: Note expansion animation (PMS quarter-note timing)
+// ---------------------------------------------------------------------------
+
+/// Synchronize PMS note expansion factor.
+///
+/// L5: Computes the expansion factor from quarter-note timing for PMS mode.
+/// Java: noteExpansionTime = 9ms, noteContractionTime = 150ms.
+/// Factor = 1.0 during expansion phase, fading to 0.0 during contraction.
+pub fn sync_play_note_expansion(state: &mut SharedGameState, now_quarter_note_time_ms: i64) {
+    // Store the raw quarter-note time for skins that compute their own expansion
+    state
+        .integers
+        .insert(bms_skin::property_id::TIMER_RHYTHM, now_quarter_note_time_ms as i32);
+}
+
+// ---------------------------------------------------------------------------
+// L2: PMS past-note fall-through state
+// ---------------------------------------------------------------------------
+
+/// Synchronize PMS-specific mode flag for past-note fall-through rendering.
+///
+/// L2: When PMS mode is active, the skin renderer should render missed notes
+/// falling through the judge line (dstnote2 behavior).
+pub fn sync_play_pms_mode(state: &mut SharedGameState, is_pms: bool) {
+    // Use OPTION property to indicate PMS mode is active
+    // The skin can query this to decide whether to render past-note fall-through
+    state.booleans.insert(bms_skin::property_id::OPTION_GRADEBAR_HCN, is_pms);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -820,7 +926,7 @@ mod tests {
     #[test]
     fn sync_play_options_autoplay_on() {
         let mut state = SharedGameState::default();
-        sync_play_options(&mut state, true, 2, true);
+        sync_play_options(&mut state, true, 2, true, false, false);
         assert!(
             *state
                 .booleans
@@ -838,7 +944,7 @@ mod tests {
     #[test]
     fn sync_play_options_gauge_hard() {
         let mut state = SharedGameState::default();
-        sync_play_options(&mut state, false, 3, true);
+        sync_play_options(&mut state, false, 3, true, false, false);
         assert!(
             !*state
                 .booleans
@@ -862,7 +968,7 @@ mod tests {
     #[test]
     fn sync_play_options_bga_off() {
         let mut state = SharedGameState::default();
-        sync_play_options(&mut state, false, 2, false);
+        sync_play_options(&mut state, false, 2, false, false, false);
         assert!(
             !*state
                 .booleans
