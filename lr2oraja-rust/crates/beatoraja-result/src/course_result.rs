@@ -14,6 +14,8 @@ use crate::abstract_result::{
 };
 use crate::course_result_skin::CourseResultSkin;
 use crate::result_key_property::{ResultKey, ResultKeyProperty};
+use std::sync::Arc;
+
 use crate::stubs::{
     BMSPlayerModeType, ControlKeys, EventType, FloatArray, IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG,
     IR_SEND_UPDATE_SCORE, IRConfig, IRConnection, IRCourseData, IRScoreData, IRStatus, KeyCommand,
@@ -22,7 +24,7 @@ use crate::stubs::{
 
 /// IR send status for course result
 struct CourseIRSendStatus {
-    pub ir: IRConnection,
+    pub ir: Arc<dyn IRConnection>,
     pub course: beatoraja_core::course_data::CourseData,
     pub lnmode: i32,
     pub score: ScoreData,
@@ -31,7 +33,7 @@ struct CourseIRSendStatus {
 
 impl CourseIRSendStatus {
     pub fn new(
-        ir: IRConnection,
+        ir: Arc<dyn IRConnection>,
         course: &beatoraja_core::course_data::CourseData,
         lnmode: i32,
         score: &ScoreData,

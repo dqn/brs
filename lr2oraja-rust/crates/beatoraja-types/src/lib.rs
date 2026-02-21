@@ -31,7 +31,9 @@ pub mod skin_config;
 
 // Data models
 pub mod course_data;
+pub mod folder_data;
 pub mod replay_data;
 pub mod score_data;
 pub mod song_data;
+pub mod song_database_accessor;
 pub mod song_information;

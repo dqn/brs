@@ -13,7 +13,7 @@ impl ScoreDataImporter {
         Self { scoredb }
     }
 
-    pub fn import_from_lr2_score_database(&self, path: &str, songdb: &SongDatabaseAccessor) {
+    pub fn import_from_lr2_score_database(&self, path: &str, songdb: &dyn SongDatabaseAccessor) {
         let clears: [i32; 7] = [0, 1, 4, 5, 6, 8, 9];
         self.scoredb.create_table();
 
@@ -26,7 +26,7 @@ impl ScoreDataImporter {
                         .and_then(|v| v.as_str())
                         .unwrap_or_default()
                         .to_string();
-                    let song = songdb.get_song_datas(&[&md5]);
+                    let song = songdb.get_song_datas_by_hashes(&[md5.clone()]);
                     #[allow(clippy::field_reassign_with_default)]
                     if !song.is_empty() {
                         let mut sd = ScoreData::default();

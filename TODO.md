@@ -210,11 +210,11 @@ Move enum definitions into `beatoraja-types` to break skin/play→core cycles.
 
 Define shared traits in `beatoraja-types`, implement in real crates.
 
-- [ ] `SongDatabaseAccessor`: define trait in `beatoraja-types`, implement in `beatoraja-song`, replace struct stubs in `beatoraja-select`/`beatoraja-external`
-- [ ] `IRConnection`: define trait in `beatoraja-types`, implement in `beatoraja-ir`, replace struct stubs in `beatoraja-select`/`beatoraja-result`
-- [ ] `BMSPlayerInputProcessor`: unify parameter types (`i32` → `usize`), update all callers
-- [ ] `TableDataAccessor` / `TableAccessor`: define trait in `beatoraja-types`, implement in `beatoraja-core`, replace stubs
-- [ ] Verify: all tests pass, zero clippy warnings
+- [x] `SongDatabaseAccessor`: define trait in `beatoraja-types` (with `: Send`), implement in `beatoraja-song`, replace struct stubs in `beatoraja-select`/`beatoraja-external`. Also moved `FolderData` to `beatoraja-types`.
+- [x] `IRConnection`: replace struct stubs with real trait from `beatoraja-ir` in `beatoraja-select` (`Box<dyn IRConnection>`) and `beatoraja-result` (`Arc<dyn IRConnection>`). Also replaced `LeaderboardEntry`, `LR2IRConnection`, `LR2GhostData`, `IRScoreData`, `IRChartData`, `IRPlayerData`, `IRResponse`, `IRTableData` stubs with real imports.
+- [x] `BMSPlayerInputProcessor`: unify analog method parameter types (`i32` → `usize`) in stubs, update callers in `music_select_key_property.rs`
+- [~] `TableDataAccessor` / `TableAccessor`: added getters to real `TableData`/`TableFolder` in `beatoraja-core` (preparation). **Cannot replace stubs**: real `TableData.course` uses `beatoraja-types::CourseData` but select uses its own `CourseData` stub with different fields (`song` vs `hash`, `String` vs `Option<String>`, `f64` vs `f32`). Replacing requires cascading `CourseData`/`TrophyData`/`CourseDataConstraint` changes across ~10 files. Deferred to future phase.
+- [x] Verify: all 66 tests pass, zero clippy warnings, clean `cargo fmt`
 
 ### 15d: MainController / PlayerResource / MainState Lifecycle
 

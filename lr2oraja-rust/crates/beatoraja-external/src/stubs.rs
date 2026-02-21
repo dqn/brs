@@ -119,17 +119,10 @@ pub use beatoraja_core::player_config::PlayerConfig;
 pub use beatoraja_song::song_data::SongData;
 
 // ============================================================
-// SongDatabaseAccessor stub
+// SongDatabaseAccessor — replaced with real trait from beatoraja-types
 // ============================================================
 
-/// Stub for bms.player.beatoraja.song.SongDatabaseAccessor
-pub struct SongDatabaseAccessor;
-
-impl SongDatabaseAccessor {
-    pub fn get_song_datas(&self, _hashes: &[&str]) -> Vec<SongData> {
-        todo!("SongDatabaseAccessor.getSongDatas")
-    }
-}
+pub use beatoraja_types::song_database_accessor::SongDatabaseAccessor;
 
 // ============================================================
 // ScoreData — replaced with real type from beatoraja-core

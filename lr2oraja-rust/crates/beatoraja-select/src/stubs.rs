@@ -38,66 +38,44 @@ pub use beatoraja_types::song_data::{
 };
 
 // ============================================================
-// beatoraja.song.FolderData
+// beatoraja.song.FolderData — replaced with real type from beatoraja-types
 // ============================================================
 
-/// Stub for beatoraja.song.FolderData
-#[derive(Clone, Debug, Default)]
-pub struct FolderData {
-    pub title: String,
-    pub path: String,
-    pub adddate: i64,
-}
-
-impl FolderData {
-    pub fn get_title(&self) -> &str {
-        &self.title
-    }
-    pub fn get_path(&self) -> &str {
-        &self.path
-    }
-    pub fn get_adddate(&self) -> i64 {
-        self.adddate
-    }
-}
+pub use beatoraja_types::folder_data::FolderData;
 
 // ============================================================
-// beatoraja.song.SongDatabaseAccessor
+// beatoraja.song.SongDatabaseAccessor — replaced with real trait from beatoraja-types
 // ============================================================
 
-/// Stub for beatoraja.song.SongDatabaseAccessor
-#[derive(Clone, Debug, Default)]
-pub struct SongDatabaseAccessor;
+pub use beatoraja_types::song_database_accessor::SongDatabaseAccessor;
 
-impl SongDatabaseAccessor {
-    pub fn get_song_datas_by_key(&self, _key: &str, _value: &str) -> Vec<SongData> {
+/// Null implementation of SongDatabaseAccessor for stub contexts
+pub struct NullSongDatabaseAccessor;
+
+impl SongDatabaseAccessor for NullSongDatabaseAccessor {
+    fn get_song_datas(&self, _key: &str, _value: &str) -> Vec<SongData> {
         todo!("SongDatabaseAccessor.getSongDatas")
     }
-
-    pub fn get_song_datas_by_sql(
+    fn get_song_datas_by_hashes(&self, _hashes: &[String]) -> Vec<SongData> {
+        todo!("SongDatabaseAccessor.getSongDatas(hashes)")
+    }
+    fn get_song_datas_by_sql(
         &self,
         _sql: &str,
-        _score_db: &str,
-        _scorelog_db: &str,
-        _info_db: Option<&str>,
+        _score: &str,
+        _scorelog: &str,
+        _info: Option<&str>,
     ) -> Vec<SongData> {
         todo!("SongDatabaseAccessor.getSongDatas(sql)")
     }
-
-    pub fn get_song_datas_by_hashes(&self, _hashes: &[String]) -> Vec<SongData> {
-        todo!("SongDatabaseAccessor.getSongDatas(hashes)")
+    fn set_song_datas(&self, _songs: &[SongData]) {
+        todo!("SongDatabaseAccessor.setSongDatas")
     }
-
-    pub fn get_song_datas_by_text(&self, _text: &str) -> Vec<SongData> {
+    fn get_song_datas_by_text(&self, _text: &str) -> Vec<SongData> {
         todo!("SongDatabaseAccessor.getSongDatasByText")
     }
-
-    pub fn get_folder_datas(&self, _key: &str, _value: &str) -> Vec<FolderData> {
+    fn get_folder_datas(&self, _key: &str, _value: &str) -> Vec<FolderData> {
         todo!("SongDatabaseAccessor.getFolderDatas")
-    }
-
-    pub fn set_song_datas(&self, _songs: &[SongData]) {
-        todo!("SongDatabaseAccessor.setSongDatas")
     }
 }
 
@@ -141,7 +119,7 @@ impl MainController {
     pub fn get_player_config(&self) -> &PlayerConfig {
         todo!()
     }
-    pub fn get_song_database(&self) -> &SongDatabaseAccessor {
+    pub fn get_song_database(&self) -> &dyn SongDatabaseAccessor {
         todo!()
     }
     pub fn get_info_database(&self) -> Option<&SongInformationAccessor> {
@@ -359,6 +337,9 @@ impl RandomCourseData {
 pub struct RandomStageData;
 
 /// Stub for beatoraja.TableData
+/// Cannot be replaced: real TableData.course uses real CourseData (beatoraja-types),
+/// but beatoraja-select uses its own CourseData stub with different field names and types.
+/// Replacing requires cascading CourseData, TrophyData, CourseDataConstraint changes.
 #[derive(Clone, Debug, Default)]
 pub struct TableData {
     pub name: String,
@@ -419,6 +400,7 @@ impl TableFolder {
 }
 
 /// Stub for beatoraja.TableDataAccessor
+/// Cannot be replaced: read_all/write use stub TableData, not real TableData.
 #[derive(Clone, Debug, Default)]
 pub struct TableDataAccessor {
     pub tablepath: String,
@@ -439,6 +421,7 @@ impl TableDataAccessor {
 }
 
 /// Stub for TableDataAccessor.TableAccessor trait
+/// Cannot be replaced: read/write use stub TableData, not real TableData.
 pub trait TableAccessor: Send + Sync {
     fn name(&self) -> &str;
     fn read(&self) -> TableData;
@@ -688,10 +671,10 @@ impl BMSPlayerInputProcessor {
     pub fn get_key_state(&self, _key: i32) -> bool {
         false
     }
-    pub fn is_analog_input(&self, _key: i32) -> bool {
+    pub fn is_analog_input(&self, _key: usize) -> bool {
         false
     }
-    pub fn get_analog_diff_and_reset(&self, _key: i32, _threshold: i32) -> i32 {
+    pub fn get_analog_diff_and_reset(&self, _key: usize, _threshold: i32) -> i32 {
         0
     }
     pub fn reset_key_changed_time(&self, _key: i32) -> bool {
@@ -771,195 +754,31 @@ impl KeyBoardInputProcessor {
 // beatoraja.ir types
 // ============================================================
 
-/// Stub for beatoraja.MainController.IRStatus
+// ============================================================
+// beatoraja.ir types — replaced with real types from beatoraja-ir
+// ============================================================
+
+pub use beatoraja_ir::ir_chart_data::IRChartData;
+pub use beatoraja_ir::ir_connection::IRConnection;
+pub use beatoraja_ir::ir_player_data::IRPlayerData;
+pub use beatoraja_ir::ir_response::IRResponse;
+pub use beatoraja_ir::ir_score_data::IRScoreData;
+pub use beatoraja_ir::ir_table_data::IRTableData;
+
+/// MainController.IRStatus — uses dyn IRConnection trait
 pub struct IRStatus {
-    pub connection: IRConnection,
+    pub connection: Box<dyn IRConnection>,
     pub player: IRPlayerData,
 }
 
-/// Stub for IR connection
-pub struct IRConnection;
+// LeaderboardEntry — replaced with real type from beatoraja-ir
+pub use beatoraja_ir::leaderboard_entry::LeaderboardEntry;
 
-impl IRConnection {
-    pub fn get_play_data(
-        &self,
-        _player: &IRPlayerData,
-        _chart: &IRChartData,
-    ) -> IRResponse<Vec<IRScoreData>> {
-        todo!()
-    }
-    pub fn get_table_datas(&self) -> IRResponse<Vec<IRTableData>> {
-        todo!()
-    }
-}
+// LR2IRConnection — replaced with real type from beatoraja-ir
+pub use beatoraja_ir::lr2_ir_connection::LR2IRConnection;
 
-/// Stub for IRResponse
-pub struct IRResponse<T> {
-    pub data: Option<T>,
-    pub message: String,
-    pub succeeded: bool,
-}
-
-impl<T> IRResponse<T> {
-    pub fn is_succeeded(&self) -> bool {
-        self.succeeded
-    }
-    pub fn get_data(&self) -> Option<&T> {
-        self.data.as_ref()
-    }
-    pub fn get_message(&self) -> &str {
-        &self.message
-    }
-}
-
-/// Stub for IRPlayerData
-pub struct IRPlayerData;
-
-/// Stub for IRChartData
-pub struct IRChartData;
-
-impl IRChartData {
-    pub fn new(_song: &SongData) -> Self {
-        Self
-    }
-}
-
-/// Stub for IRScoreData
-#[derive(Clone, Debug, Default)]
-pub struct IRScoreData {
-    pub player: String,
-    pub clear: ClearType,
-    pub exscore: i32,
-}
-
-impl IRScoreData {
-    pub fn get_exscore(&self) -> i32 {
-        self.exscore
-    }
-    pub fn convert_to_score_data(&self) -> ScoreData {
-        todo!()
-    }
-}
-
-/// Stub ClearType for IR types (NOT the real beatoraja-core ClearType enum)
-#[derive(Clone, Debug, Default)]
-pub struct ClearType {
-    pub id: i32,
-}
-
-/// Stub for IRTableData
-pub struct IRTableData {
-    pub name: String,
-    pub folders: Vec<IRTableFolder>,
-    pub courses: Vec<IRTableCourse>,
-}
-
-pub struct IRTableFolder {
-    pub name: String,
-    pub charts: Vec<IRTableChart>,
-}
-
-pub struct IRTableChart {
-    pub sha256: String,
-    pub md5: String,
-    pub title: String,
-    pub artist: String,
-    pub genre: String,
-    pub url: String,
-    pub appendurl: String,
-    pub mode: Option<bms_model::Mode>,
-}
-
-pub struct IRTableCourse {
-    pub name: String,
-    pub charts: Vec<IRTableChart>,
-    pub constraint: Vec<CourseDataConstraint>,
-    pub trophy: Vec<IRTableTrophy>,
-}
-
-pub struct IRTableTrophy {
-    pub name: String,
-    pub smissrate: f64,
-    pub scorerate: f64,
-}
-
-/// Stub for LeaderboardEntry
-#[derive(Clone, Debug, Default)]
-pub struct LeaderboardEntry {
-    pub ir_score: IRScoreData,
-    pub lr2_id: i32,
-    pub is_lr2ir: bool,
-}
-
-impl LeaderboardEntry {
-    pub fn new_entry_primary_ir(score: &IRScoreData) -> Self {
-        Self {
-            ir_score: score.clone(),
-            lr2_id: 0,
-            is_lr2ir: false,
-        }
-    }
-    pub fn get_ir_score(&self) -> &IRScoreData {
-        &self.ir_score
-    }
-    pub fn get_lr2_id(&self) -> i32 {
-        self.lr2_id
-    }
-    pub fn is_lr2ir(&self) -> bool {
-        self.is_lr2ir
-    }
-}
-
-/// Stub for LR2IRConnection
-pub struct LR2IRConnection;
-
-impl LR2IRConnection {
-    pub fn get_score_data(_chart: &IRChartData) -> (Option<IRScoreData>, Vec<LeaderboardEntry>) {
-        todo!()
-    }
-    pub fn get_ghost_data(_md5: &str, _lr2_id: i32) -> Option<LR2GhostData> {
-        todo!()
-    }
-}
-
-/// Stub for LR2GhostData
-pub struct LR2GhostData {
-    pub judgements: Vec<i32>,
-    pub pgreat: i32,
-    pub great: i32,
-    pub good: i32,
-    pub bad: i32,
-    pub poor: i32,
-    pub random: i32,
-    pub lane_order: Vec<i32>,
-}
-
-impl LR2GhostData {
-    pub fn get_judgements(&self) -> &[i32] {
-        &self.judgements
-    }
-    pub fn get_pgreat(&self) -> i32 {
-        self.pgreat
-    }
-    pub fn get_great(&self) -> i32 {
-        self.great
-    }
-    pub fn get_good(&self) -> i32 {
-        self.good
-    }
-    pub fn get_bad(&self) -> i32 {
-        self.bad
-    }
-    pub fn get_poor(&self) -> i32 {
-        self.poor
-    }
-    pub fn get_random(&self) -> i32 {
-        self.random
-    }
-    pub fn get_lane_order(&self) -> &[i32] {
-        &self.lane_order
-    }
-}
+// LR2GhostData — replaced with real type from beatoraja-ir
+pub use beatoraja_ir::lr2_ghost_data::LR2GhostData;
 
 // ============================================================
 // beatoraja.play types

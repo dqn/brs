@@ -85,11 +85,13 @@ brs/
 | 14 | `beatoraja-types` (15 modules, circular dep resolution) | 15 |
 | 15a | SongData/SongInformation/IpfsInformation → `beatoraja-types` | 3 |
 | 15b | SkinType/GrooveGauge/GaugeProperty → `beatoraja-types` | 7 |
+| 15c | Struct-vs-Trait Unification (SongDatabaseAccessor, IRConnection, BMSPlayerInputProcessor) | — |
 
 ## Deferred / Stub Items
 
 **Circular dep stubs (cannot replace):** TextureRegion/Texture in play.
-**Structural mismatches:** SongDatabaseAccessor/IRConnection (struct vs trait); BMSPlayerInputProcessor (i32 vs usize).
+**Structural mismatches (resolved):** ~~SongDatabaseAccessor/IRConnection (struct vs trait)~~ → replaced with real traits. ~~BMSPlayerInputProcessor (i32 vs usize)~~ → unified to usize.
+**Structural mismatches (remaining):** TableData/TableFolder/TableAccessor (CourseData cascade: stub `song` vs real `hash`, `String` vs `Option<String>`, `f64` vs `f32`).
 **Lifecycle stubs:** MainController, PlayerResource, MainState in all downstream crates.
 **External `todo!()`:** PortAudio, LibGDX, ebur128, 7z, MIDI, FLAC/MP3, BGA video, ImGui→egui, Twitter4j, AWT clipboard, LR2 score import, Windows named pipe.
 
@@ -122,7 +124,7 @@ brs/
 |---|---|
 | `String` vs `Option<String>` | `.unwrap_or_default()` |
 | `i32` vs `Mode` | Update callers or adapter methods |
-| Struct vs Trait | Keep stub |
+| Struct vs Trait | `Box<dyn Trait>` or `Arc<dyn Trait>` (when Clone needed) |
 | Struct vs Enum | Update to enum method calls |
 | `set_field(v)` → pub field | Direct assignment |
 
@@ -134,3 +136,4 @@ brs/
 - **P12:** winit: `create→resumed`, `render→RedrawRequested`, `resize→Resized`, `pause→suspended`, `dispose→CloseRequested`, `ControlFlow::Poll`. CLI: `clap::Parser`; `--replay N`. Deferred: egui launcher, fullscreen (GLFW).
 - **P15a:** Moving SongData to `beatoraja-types` required also moving `IpfsInformation` trait (orphan rule: foreign trait on foreign type). Pure interface traits can safely move to low-level crates. Add `full_title(&self) -> String` non-mut helper alongside cached `get_full_title(&mut self) -> &str`. Use `set_path_opt(Option<String>)` / `clear_path()` for `Option` → `String` path migration.
 - **P15b:** Moving SkinType: stub had UPPER_SNAKE_CASE + wrong ID mapping (13 variants); real has PascalCase (18 variants). Add `Copy`, `Default`, `Hash` derives. Callers need `as usize` for array indexing after `get_id() -> i32`. Moving GrooveGauge: `create()` depends on `BMSPlayerRule` → extract as free function `create_groove_gauge` in beatoraja-play. Move entire type chain (GaugeModifier, GaugeElementProperty, GaugeProperty, Gauge, GrooveGauge) together since they're tightly coupled. Re-export via `pub use` in original crate modules.
+- **P15c:** SongDatabaseAccessor trait needs `: Send` bound when used as `Box<dyn Trait>` inside `Arc<Mutex<...>>`. IRConnection struct→trait: use `Box<dyn IRConnection>` when no Clone needed, `Arc<dyn IRConnection>` when `.clone()` is required (e.g. `IRSendStatus`). `LeaderboardEntry::new_entry_primary_ir` takes owned `IRScoreData` in real (not `&IRScoreData`), callers need `.clone()`. `ClearType` is enum with `.id()` method (not struct with `.id` field). TableData/TableAccessor stubs cannot be replaced without first replacing CourseData (cascade: different field names `song`/`hash`, `String`/`Option<String>`, `f64`/`f32` across ~10 files).

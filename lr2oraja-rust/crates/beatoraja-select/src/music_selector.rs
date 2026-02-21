@@ -15,7 +15,7 @@ pub struct MusicSelector {
     pub selectedreplay: i32,
 
     /// Song database accessor
-    pub songdb: SongDatabaseAccessor,
+    pub songdb: Box<dyn SongDatabaseAccessor>,
 
     /// Player config
     pub config: PlayerConfig,
@@ -88,7 +88,7 @@ impl MusicSelector {
     pub fn new() -> Self {
         Self {
             selectedreplay: 0,
-            songdb: SongDatabaseAccessor,
+            songdb: Box::new(NullSongDatabaseAccessor),
             config: PlayerConfig::default(),
             preview: None,
             bar: None,
@@ -231,8 +231,8 @@ impl MusicSelector {
         self.panelstate = panelstate;
     }
 
-    pub fn get_song_database(&self) -> &SongDatabaseAccessor {
-        &self.songdb
+    pub fn get_song_database(&self) -> &dyn SongDatabaseAccessor {
+        &*self.songdb
     }
 
     pub fn exists_constraint(&self, constraint: &CourseDataConstraint) -> bool {

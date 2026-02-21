@@ -19,7 +19,7 @@ use crate::song_information_accessor::SongInformationAccessor;
 use crate::song_utils;
 
 /// Plugin interface for song database accessor
-pub trait SongDatabaseAccessorPlugin {
+pub trait SongDatabaseAccessorPlugin: Send {
     fn update(&self, model: &BMSModel, song: &mut SongData);
 }
 
@@ -464,8 +464,12 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
             log::error!("Error committing transaction: {}", e);
         }
     }
+}
 
-    fn update_song_datas(
+// Update methods kept as inherent methods (not part of the trait in beatoraja-types)
+// because they depend on SongDatabaseUpdateListener/SongInformationAccessor from beatoraja-song.
+impl SQLiteSongDatabaseAccessor {
+    pub fn update_song_datas(
         &self,
         update_path: Option<&str>,
         bmsroot: &[String],

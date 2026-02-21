@@ -62,7 +62,7 @@ impl LeaderBoardBar {
             id += 1;
             bars.push(self.create_function_bar(
                 id,
-                &LeaderboardEntry::new_entry_primary_ir(local_score),
+                &LeaderboardEntry::new_entry_primary_ir(local_score.clone()),
                 true,
             ));
             inserted = true;
@@ -81,7 +81,7 @@ impl LeaderBoardBar {
             {
                 bars.push(self.create_function_bar(
                     id + 1,
-                    &LeaderboardEntry::new_entry_primary_ir(local_score),
+                    &LeaderboardEntry::new_entry_primary_ir(local_score.clone()),
                     true,
                 ));
                 id += 1;
@@ -92,7 +92,7 @@ impl LeaderBoardBar {
         if !inserted {
             bars.push(self.create_function_bar(
                 id,
-                &LeaderboardEntry::new_entry_primary_ir(local_score),
+                &LeaderboardEntry::new_entry_primary_ir(local_score.clone()),
                 true,
             ));
         }
@@ -121,7 +121,7 @@ impl LeaderBoardBar {
 
         let mut bar = FunctionBar::new(title, display_type);
         bar.selectable.bar_data.score = Some(score_data.convert_to_score_data());
-        bar.set_lamp(score_data.clear.id);
+        bar.set_lamp(score_data.clear.id());
         // Function callback for ghost battle would go here
         // In Java: sets up LR2 ghost battle on click
         bar

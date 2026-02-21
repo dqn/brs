@@ -25,8 +25,40 @@ impl TableData {
         &self.name
     }
 
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
     pub fn get_url(&self) -> &str {
         &self.url
+    }
+
+    pub fn get_url_opt(&self) -> Option<&str> {
+        if self.url.is_empty() {
+            None
+        } else {
+            Some(&self.url)
+        }
+    }
+
+    pub fn set_url(&mut self, url: String) {
+        self.url = url;
+    }
+
+    pub fn get_folder(&self) -> &[TableFolder] {
+        &self.folder
+    }
+
+    pub fn set_folder(&mut self, folder: Vec<TableFolder>) {
+        self.folder = folder;
+    }
+
+    pub fn get_course(&self) -> &[CourseData] {
+        &self.course
+    }
+
+    pub fn set_course(&mut self, course: Vec<CourseData>) {
+        self.course = course;
     }
 
     pub fn shrink(&mut self) {
@@ -103,6 +135,23 @@ pub struct TableFolder {
 }
 
 impl TableFolder {
+    pub fn get_name(&self) -> &str {
+        self.name.as_deref().unwrap_or("")
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = Some(name);
+    }
+
+    /// Returns songs (named `get_song` to match Java API)
+    pub fn get_song(&self) -> &[SongData] {
+        &self.songs
+    }
+
+    pub fn set_song(&mut self, songs: Vec<SongData>) {
+        self.songs = songs;
+    }
+
     pub fn shrink(&mut self) {
         for song in &mut self.songs {
             song.shrink();

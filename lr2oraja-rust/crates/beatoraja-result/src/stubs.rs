@@ -1,6 +1,8 @@
 // External dependency stubs for beatoraja-result crate
 // These will be replaced with actual implementations when corresponding phases are translated.
 
+use std::sync::Arc;
+
 // ============================================================
 // Re-exports from real crates (Phase 11 stub replacements)
 // ============================================================
@@ -78,47 +80,12 @@ impl MainController {
 
 /// Stub for bms.player.beatoraja.MainController.IRStatus
 pub struct IRStatus {
-    pub connection: IRConnection,
+    pub connection: Arc<dyn IRConnection>,
     pub config: IRConfig,
 }
 
-/// Stub for bms.player.beatoraja.ir.IRConnection
-#[derive(Clone)]
-pub struct IRConnection;
-
-impl IRConnection {
-    pub fn get_course_play_data(
-        &self,
-        _player: Option<()>,
-        _course_data: &IRCourseData,
-    ) -> IRResponse<Vec<IRScoreData>> {
-        todo!("IR dependency: IRConnection.getCoursePlayData")
-    }
-
-    pub fn get_play_data(
-        &self,
-        _player: Option<()>,
-        _chart_data: &IRChartData,
-    ) -> IRResponse<Vec<IRScoreData>> {
-        todo!("IR dependency: IRConnection.getPlayData")
-    }
-
-    pub fn send_course_play_data(
-        &self,
-        _course_data: &IRCourseData,
-        _score_data: &IRScoreData,
-    ) -> IRResponse<()> {
-        todo!("IR dependency: IRConnection.sendCoursePlayData")
-    }
-
-    pub fn send_play_data(
-        &self,
-        _chart_data: &IRChartData,
-        _score_data: &IRScoreData,
-    ) -> IRResponse<()> {
-        todo!("IR dependency: IRConnection.sendPlayData")
-    }
-}
+// IRConnection: replaced by pub use from beatoraja_ir (trait)
+pub use beatoraja_ir::ir_connection::IRConnection;
 
 // IRConfig: replaced by pub use from beatoraja_core
 pub use beatoraja_core::ir_config::IRConfig;
@@ -148,7 +115,7 @@ pub use beatoraja_ir::ranking_data_cache::RankingDataCache;
 
 /// Stub for bms.player.beatoraja.MainController.IRSendStatus
 pub struct IRSendStatusMain {
-    pub connection: IRConnection,
+    pub connection: Arc<dyn IRConnection>,
     pub songdata: SongData,
     pub score: beatoraja_core::score_data::ScoreData,
     pub retry: i32,
@@ -156,7 +123,7 @@ pub struct IRSendStatusMain {
 
 impl IRSendStatusMain {
     pub fn new(
-        connection: IRConnection,
+        connection: Arc<dyn IRConnection>,
         songdata: &SongData,
         score: &beatoraja_core::score_data::ScoreData,
     ) -> Self {

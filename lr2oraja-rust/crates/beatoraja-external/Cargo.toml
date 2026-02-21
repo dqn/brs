@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 discord-rpc.workspace = true
 beatoraja-core.workspace = true
+beatoraja-types.workspace = true
 beatoraja-song.workspace = true
 beatoraja-skin.workspace = true
 bms-model.workspace = true
