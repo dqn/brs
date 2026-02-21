@@ -296,7 +296,7 @@ Remove all remaining `stubs.rs` files or reduce to zero non-rendering stubs.
 
 ## Phase 16: Test Coverage Expansion
 
-Expanded from 72 tests across 6 crates to 843 tests across 11 crates. Golden Master test infrastructure rebuilt and activated (28/29 passing).
+Expanded from 72 tests across 6 crates to 935 tests across 11 crates. Golden Master test infrastructure rebuilt and activated (29/29 passing + 8 reactivated from pending).
 
 ### 16a: Unit Tests for Core Logic Crates
 
@@ -312,17 +312,21 @@ Added unit tests for major crates that previously had zero tests.
 
 - [x] Rewrite golden-master Cargo.toml to use correct workspace crate names (bms-model, beatoraja-core, beatoraja-types, beatoraja-pattern, beatoraja-play, beatoraja-skin, beatoraja-render)
 - [x] Rewrite golden-master lib.rs to use actual bms-model API (BmsModel fields, Note/NoteType, PlayMode)
-- [x] Enable and run golden-master comparison tests: 28 pass, 1 fail (channel_extended — known bms-model parser note ordering difference)
+- [x] Enable and run golden-master comparison tests: 29 pass (channel_extended fixed — flatten_notes iteration order aligned with Java)
 - [x] Move 25 test files with stale imports to `tests/pending/` and `src/pending/` for future activation (depend on APIs not yet available: bms_rule, bms_config, bms_skin, bms_render, bms_database)
-- [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream) — deferred until pending test files are reactivated
-- [ ] Fix `channel_extended` bms-model parser note ordering at same `time_us` (currently `#[ignore]`) — requires bms-model decoder sort stabilization
-- [ ] Reactivate 25 pending golden-master test files (`tests/pending/`, `src/pending/`) — rewrite imports from old names (bms_rule, bms_config, bms_skin, bms_render, bms_database) to current crate names (beatoraja-play, beatoraja-core, beatoraja-skin, beatoraja-render, beatoraja-song)
+- [x] Reactivate 8 pending golden-master test files: compare_config (6), compare_database (23), compare_course_data (4), compare_song_information (23), compare_autoplay (23), compare_pattern_modifiers (4+1 ignored), compare_replay (3), compare_score_data_property (1)
+- [x] Fix `channel_extended` golden-master comparison: flatten_notes() per-timeline 2-pass (regular then hidden) to match Java iteration order
+- [x] Fix serde rename mismatches: audio_config (driverName), player_config (hranThresholdBpm, isGuideSe), config (defaultDownloadUrl, overrideDownloadUrl, useDiscordRpc), play_mode_config (jkocHack)
+- [x] Fix song_information: LN duration counting (get_pair() → forward scan), mainbpm tie-breaking (sort by BPM ascending + >=), distribution clamp for negative values
+- [x] Fix course_data: serde aliases for CourseDataConstraint enum, TrophyData validate empty name
+- [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream) — deferred until Java exporter updated
+- [ ] Reactivate remaining 17 pending test files — blocked: compare_pattern (make_random private), compare_bga_timeline (BGAProcessor stubbed), Tier 3 tests (e2e_helpers, render snapshots, judge/rule API mismatch)
 
 ### 16c: Integration Tests
 
 - [x] BMS parse → pattern apply pipeline (end-to-end: parse → mirror modifier → verify lane permutation, 4 tests)
 - [x] Config load → serialize → deserialize round-trip across Config/Resolution/DisplayMode/OBS maps (6 tests)
-- [ ] Score data: create → save → load → verify round-trip via ScoreDatabaseAccessor — deferred (requires SQLite test infra)
+- [x] Score data: create → save → load → verify round-trip via ScoreDatabaseAccessor (4 tests: roundtrip, different mode, nonexistent returns none, overwrite same key)
 - [x] Course data: parse → validate → constraint check pipeline (18 tests)
 
 ## Phase 17: Independent Stub Resolution
