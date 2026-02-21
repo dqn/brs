@@ -887,8 +887,9 @@ impl ResourceConfigurationView {
     }
 
     /// Helper: move selected items up in a list
-    fn move_selected_items_up(list: &mut Vec<TableInfo>, selected: &mut Vec<usize>) {
+    fn move_selected_items_up(list: &mut [TableInfo], selected: &mut [usize]) {
         selected.sort_unstable();
+        #[allow(clippy::needless_range_loop)]
         for i in 0..selected.len() {
             let idx = selected[i];
             if idx > 0 {
@@ -899,9 +900,10 @@ impl ResourceConfigurationView {
     }
 
     /// Helper: move selected items down in a list
-    fn move_selected_items_down(list: &mut Vec<TableInfo>, selected: &mut Vec<usize>) {
+    fn move_selected_items_down(list: &mut [TableInfo], selected: &mut [usize]) {
         selected.sort_unstable();
         selected.reverse();
+        #[allow(clippy::needless_range_loop)]
         for i in 0..selected.len() {
             let idx = selected[i];
             if idx < list.len().saturating_sub(1) {

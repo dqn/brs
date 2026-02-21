@@ -191,8 +191,10 @@ impl FolderEditorView {
 
     /// addTableFolder - adds a new empty folder
     pub fn add_table_folder(&mut self) {
-        let mut folder = TableFolder::default();
-        folder.name = Some("New Folder".to_string());
+        let folder = TableFolder {
+            name: Some("New Folder".to_string()),
+            ..Default::default()
+        };
         self.folders.push(folder);
     }
 
@@ -276,10 +278,9 @@ impl FolderEditorView {
     /// getFoldersContainingSong - finds which folders contain a given song
     pub fn get_folders_containing_song(folders: &[TableFolder], song: &SongData) -> String {
         let mut sb = String::new();
-        for i in 0..folders.len() {
-            let songs = &folders[i].songs;
-            for j in 0..songs.len() {
-                let ts = &songs[j];
+        for folder in folders {
+            let songs = &folder.songs;
+            for ts in songs {
                 let ts_md5 = ts.md5.as_deref().unwrap_or("");
                 let song_md5 = song.md5.as_deref().unwrap_or("");
                 let ts_sha256 = ts.sha256.as_deref().unwrap_or("");
@@ -293,7 +294,7 @@ impl FolderEditorView {
                     if !sb.is_empty() {
                         sb.push_str(", ");
                     }
-                    sb.push_str(folders[i].name.as_deref().unwrap_or(""));
+                    sb.push_str(folder.name.as_deref().unwrap_or(""));
                     // continue (to next folder)
                     break;
                 }

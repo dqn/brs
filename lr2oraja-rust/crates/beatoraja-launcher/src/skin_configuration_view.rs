@@ -148,19 +148,23 @@ impl SkinConfigurationView {
                 // int index = optionbox.get(option).getSelectionModel().getSelectedIndex();
                 let index = *selected_index;
                 // SkinConfig.Option o = new SkinConfig.Option();
-                let mut o = SkinOption::default();
                 // o.name = option.name;
-                o.name = Some(option.name.clone());
                 // if(index != optionbox.get(option).getItems().size() - 1) {
-                if index != items.len().saturating_sub(1) {
+                let o_value = if index != items.len().saturating_sub(1) {
                     // o.value = option.option[index];
                     if index < option.option.len() {
-                        o.value = option.option[index];
+                        option.option[index]
+                    } else {
+                        0
                     }
                 } else {
                     // o.value = OPTION_RANDOM_VALUE;
-                    o.value = OPTION_RANDOM_VALUE;
-                }
+                    OPTION_RANDOM_VALUE
+                };
+                let o = SkinOption {
+                    name: Some(option.name.clone()),
+                    value: o_value,
+                };
                 // options.add(o);
                 options.push(Some(o));
             }
@@ -178,11 +182,11 @@ impl SkinConfigurationView {
                     self.skinconfig_items.get(item_idx)
             {
                 // SkinConfig.FilePath o = new SkinConfig.FilePath();
-                let mut o = SkinFilePath::default();
-                // o.name = file.name;
-                o.name = Some(file.name.clone());
-                // o.path = filebox.get(file).getValue();
-                o.path = selected_value.clone();
+                // o.name = file.name; o.path = filebox.get(file).getValue();
+                let o = SkinFilePath {
+                    name: Some(file.name.clone()),
+                    path: selected_value.clone(),
+                };
                 // files.add(o);
                 files.push(Some(o));
             }
@@ -200,16 +204,16 @@ impl SkinConfigurationView {
                     self.skinconfig_items.get(item_idx)
             {
                 // SkinConfig.Offset o = new SkinConfig.Offset();
-                let mut o = SkinOffset::default();
-                // o.name = offset.name;
-                o.name = Some(offset.name.clone());
-                // o.x = spinner[0].getValue(); ...
-                o.x = values[0];
-                o.y = values[1];
-                o.w = values[2];
-                o.h = values[3];
-                o.r = values[4];
-                o.a = values[5];
+                // o.name = offset.name; o.x = spinner[0].getValue(); ...
+                let o = SkinOffset {
+                    name: Some(offset.name.clone()),
+                    x: values[0],
+                    y: values[1],
+                    w: values[2],
+                    h: values[3],
+                    r: values[4],
+                    a: values[5],
+                };
                 // offsets.add(o);
                 offsets.push(Some(o));
             }
@@ -496,13 +500,13 @@ impl SkinConfigurationView {
         }
 
         // SkinConfig sc = new SkinConfig();
-        let mut sc = SkinConfig::default();
-        // sc.setPath(selected.getPath().toString());
-        sc.path = selected
-            .get_path()
-            .map(|p: &PathBuf| p.to_string_lossy().to_string());
-        // sc.setProperties(property);
-        sc.properties = Some(property);
+        // sc.setPath(selected.getPath().toString()); sc.setProperties(property);
+        let sc = SkinConfig {
+            path: selected
+                .get_path()
+                .map(|p: &PathBuf| p.to_string_lossy().to_string()),
+            properties: Some(property),
+        };
 
         // if(index >= 0) { player.getSkinHistory()[index] = sc; }
         if let Some(idx) = index {
@@ -628,28 +632,26 @@ impl SkinConfigurationView {
                     let mut found_selection: Option<usize> = None;
 
                     // for(SkinConfig.Option o : property.getOption()) {
-                    for o in &property.option {
-                        if let Some(o) = o {
-                            // if (o.name.equals(option.name)) {
-                            if o.name.as_deref() == Some(&option.name) {
-                                // int i = o.value;
-                                let val = o.value;
-                                // if(i != OPTION_RANDOM_VALUE) {
-                                if val != OPTION_RANDOM_VALUE {
-                                    // for(int index = 0; index < option.option.length; index++) {
-                                    for (index, &opt_val) in option.option.iter().enumerate() {
-                                        // if(option.option[index] == i) { selection = index; break; }
-                                        if opt_val == val {
-                                            found_selection = Some(index);
-                                            break;
-                                        }
+                    for o in property.option.iter().flatten() {
+                        // if (o.name.equals(option.name)) {
+                        if o.name.as_deref() == Some(&option.name) {
+                            // int i = o.value;
+                            let val = o.value;
+                            // if(i != OPTION_RANDOM_VALUE) {
+                            if val != OPTION_RANDOM_VALUE {
+                                // for(int index = 0; index < option.option.length; index++) {
+                                for (index, &opt_val) in option.option.iter().enumerate() {
+                                    // if(option.option[index] == i) { selection = index; break; }
+                                    if opt_val == val {
+                                        found_selection = Some(index);
+                                        break;
                                     }
-                                } else {
-                                    // selection = combo.getItems().size() - 1;
-                                    found_selection = Some(combo_items.len() - 1);
                                 }
-                                break;
+                            } else {
+                                // selection = combo.getItems().size() - 1;
+                                found_selection = Some(combo_items.len() - 1);
                             }
+                            break;
                         }
                     }
 
@@ -753,13 +755,11 @@ impl SkinConfigurationView {
                     // String selection = null;
                     let mut selection: Option<String> = None;
                     // for(SkinConfig.FilePath f : property.getFile()) {
-                    for f in &property.file {
-                        if let Some(f) = f {
-                            // if(f.name.equals(file.name)) { selection = f.path; break; }
-                            if f.name.as_deref() == Some(&file.name) {
-                                selection = f.path.clone();
-                                break;
-                            }
+                    for f in property.file.iter().flatten() {
+                        // if(f.name.equals(file.name)) { selection = f.path; break; }
+                        if f.name.as_deref() == Some(&file.name) {
+                            selection = f.path.clone();
+                            break;
                         }
                     }
 

@@ -197,9 +197,9 @@ impl AudioConfigurationView {
                         // List<String> drivers = new ArrayList<String>(devices.length);
                         let mut drivers: Vec<String> = Vec::with_capacity(devices.len());
                         // for(int i = 0;i < devices.length;i++) {
-                        for i in 0..devices.len() {
+                        for device in &devices {
                             // drivers.add(devices[i].name);
-                            drivers.push(devices[i].name.clone());
+                            drivers.push(device.name.clone());
                         }
                         // if(drivers.size() == 0) {
                         if drivers.is_empty() {

@@ -367,18 +367,20 @@ impl CourseEditorView {
 
     /// addCourseData - adds a new course with default values
     pub fn add_course_data(&mut self) {
-        let mut course = CourseData::default();
-        course.name = Some("New Course".to_string());
-        course.release = false;
         // CourseData.TrophyData[] trophy = new CourseData.TrophyData[3];
         // trophy[0] = new CourseData.TrophyData("bronzemedal", 7.5f, 55.0f);
         // trophy[1] = new CourseData.TrophyData("silvermedal", 5.0f, 70.0f);
         // trophy[2] = new CourseData.TrophyData("goldmedal", 2.5f, 85.0f);
-        course.trophy = vec![
-            TrophyData::new("bronzemedal".to_string(), 7.5, 55.0),
-            TrophyData::new("silvermedal".to_string(), 5.0, 70.0),
-            TrophyData::new("goldmedal".to_string(), 2.5, 85.0),
-        ];
+        let course = CourseData {
+            name: Some("New Course".to_string()),
+            release: false,
+            trophy: vec![
+                TrophyData::new("bronzemedal".to_string(), 7.5, 55.0),
+                TrophyData::new("silvermedal".to_string(), 5.0, 70.0),
+                TrophyData::new("goldmedal".to_string(), 2.5, 85.0),
+            ],
+            ..Default::default()
+        };
         self.courses.push(course);
     }
 

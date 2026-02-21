@@ -276,10 +276,12 @@ impl ObsConfigurationView {
 
         self.close_existing_connection();
 
-        let mut temp_config = Config::default();
-        temp_config.obs_ws_host = self.obs_ws_host.clone();
-        temp_config.obs_ws_port = self.obs_ws_port;
-        temp_config.obs_ws_pass = self.obs_ws_pass.clone();
+        let temp_config = Config {
+            obs_ws_host: self.obs_ws_host.clone(),
+            obs_ws_port: self.obs_ws_port,
+            obs_ws_pass: self.obs_ws_pass.clone(),
+            ..Default::default()
+        };
 
         let client = match ObsWsClient::new(&temp_config) {
             Ok(c) => c,

@@ -62,11 +62,10 @@ impl TableEditorView {
     pub fn update(&mut self, p: &Path) {
         let td = match TableData::read_from_path(p) {
             Some(td) => td,
-            None => {
-                let mut td = TableData::default();
-                td.name = "New Table".to_string();
-                td
-            }
+            None => TableData {
+                name: "New Table".to_string(),
+                ..Default::default()
+            },
         };
 
         self.course_controller.set_course_data(td.course.clone());
@@ -77,10 +76,12 @@ impl TableEditorView {
 
     /// commit - saves table data to file
     pub fn commit(&mut self) {
-        let mut td = TableData::default();
-        td.name = self.table_name.clone();
-        td.course = self.course_controller.get_course_data();
-        td.folder = self.folder_controller.get_table_folder();
+        let td = TableData {
+            name: self.table_name.clone(),
+            course: self.course_controller.get_course_data(),
+            folder: self.folder_controller.get_table_folder(),
+            ..Default::default()
+        };
 
         if let Some(ref filepath) = self.filepath {
             TableData::write_to_path(filepath, &td);

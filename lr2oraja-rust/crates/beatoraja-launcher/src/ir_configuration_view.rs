@@ -70,11 +70,9 @@ impl IRConfigurationView {
         self.player = Some(player.clone());
 
         // for(IRConfig ir : player.getIrconfig()) {
-        for ir_opt in &player.irconfig {
-            if let Some(ir) = ir_opt {
-                // irmap.put(ir.getIrname(), ir);
-                self.irmap.insert(ir.irname.clone(), ir.clone());
-            }
+        for ir in player.irconfig.iter().flatten() {
+            // irmap.put(ir.getIrname(), ir);
+            self.irmap.insert(ir.irname.clone(), ir.clone());
         }
 
         // primary = player.getIrconfig().length > 0 ? player.getIrconfig()[0].getIrname() : null;
@@ -190,9 +188,11 @@ impl IRConfigurationView {
         // if(!irmap.containsKey(irname.getValue())) {
         if !self.irmap.contains_key(&current_name) {
             // IRConfig ir = new IRConfig();
-            let mut ir = IRConfig::default();
             // ir.setIrname(irname.getValue());
-            ir.irname = current_name.clone();
+            let ir = IRConfig {
+                irname: current_name.clone(),
+                ..Default::default()
+            };
             // irmap.put(irname.getValue(), ir);
             self.irmap.insert(current_name.clone(), ir);
         }
