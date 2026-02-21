@@ -563,10 +563,10 @@ impl PlayConfigurationView {
         let config = self.config.as_ref().unwrap();
 
         // Show the What's New popup upon version change
-        let current_version = Version::get_version();
+        let current_version = Version::get_version().to_string();
         let last_version = config.last_booted_version.clone();
         // If current version is greater than last version
-        if Version::compare_to_string(&last_version) > 0 {
+        if Version::compare_to_string(Some(&last_version)) > 0 {
             self.whats_new_popup();
             if let Some(ref mut c) = self.config {
                 c.last_booted_version = current_version;
@@ -965,7 +965,7 @@ impl PlayConfigurationView {
         if let (Some(config), Some(player)) = (&self.config, &self.player) {
             MainLoader::play(
                 None,
-                BMSPlayerMode::Play,
+                BMSPlayerMode::PLAY,
                 true,
                 config,
                 player,

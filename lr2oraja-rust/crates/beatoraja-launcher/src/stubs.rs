@@ -92,28 +92,11 @@ pub struct DisplayMode {
     pub height: i32,
 }
 
-#[derive(Clone, Debug, Default)]
-pub enum BMSPlayerMode {
-    #[default]
-    Play,
-    Autoplay,
-    Replay,
-    Practice,
-}
+pub use beatoraja_core::bms_player_mode::BMSPlayerMode;
 
-// === Version stub ===
+// === Version (re-exported from beatoraja-core) ===
 
-pub struct Version;
-
-impl Version {
-    pub fn get_version() -> String {
-        "0.1.0".to_string()
-    }
-
-    pub fn compare_to_string(_other: &str) -> i32 {
-        0
-    }
-}
+pub use beatoraja_core::version::Version;
 
 // === SongDatabaseUpdateListener stub ===
 
