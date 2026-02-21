@@ -51,7 +51,7 @@ Dependency graph order. Each module is ported only after its dependencies are co
 - [ ] BGA `MovieSeekThread` (background video decoding) — current impl is synchronous; Java uses a background thread for seek/decode
 - [x] Keysound loading pipeline — `PortAudioDriver`/`GdxSoundDriver` `set_model()` loads WAV via `StaticSoundData::from_file()`, `play_note()`/`play_path()` implemented with Kira playback (sound slicing deferred)
 - [x] Keysound sound slicing — Kira `StaticSoundData.slice` field for zero-copy sub-sample; `set_model()` collects notes by wav ID with dedup, `play_note_internal()`/`stop_note_internal()`/`set_volume_note_internal()` dispatch to slice handles
-- [ ] Keysound parallel loading — Java uses `parallelStream()` in `setModel()`; current Rust loads sequentially
+- [x] Keysound parallel loading — rayon `par_iter()` for file I/O in `set_model()`, matching Java `parallelStream()`
 - [ ] AudioCache keysound deduplication — Java caches by `(path, start, duration)` key to avoid redundant loads
 - [x] `play_judge()` / `set_additional_key_sound()` — judge sound playback implemented in both GdxSoundDriver and PortAudioDriver with Kira playback, sound caching, and per-judge/timing handle management
 - [ ] Windows named pipe IPC (`beatoraja-external`) — platform-specific, no Rust equivalent yet

@@ -6,6 +6,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use rayon::prelude::*;
+
 use kira::sound::PlaybackState;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::{AudioManager, AudioManagerSettings, DefaultBackend, PlaybackRate, Semitones, Tween};
@@ -15,6 +17,13 @@ use bms_model::note::Note;
 
 use crate::abstract_audio_driver::SliceWav;
 use crate::audio_driver::AudioDriver;
+
+/// Note timing entries: (start_time_us, end_time_us)
+pub type NoteEntries = Vec<(i64, i64)>;
+/// Load task: (wav_id, resolved_path, note_entries)
+pub type LoadTask = (i32, String, NoteEntries);
+/// Loaded sound: (wav_id, sound_data, note_entries)
+pub type LoadedSound = (i32, StaticSoundData, NoteEntries);
 
 /// Convert linear volume (0.0-1.0) to decibels for Kira.
 /// Kira uses Decibels type where 0 dB = no change, negative = quieter.
@@ -176,48 +185,52 @@ impl AudioDriver for GdxSoundDriver {
             }
         }
 
-        // Load audio for each wav ID
-        for (wav_id, note_entries) in &notemap {
-            let wav_id_usize = *wav_id as usize;
-            if wav_id_usize >= wav_list.len() {
-                continue;
-            }
-            let wav_path = &wav_list[wav_id_usize];
-            if wav_path.is_empty() {
-                continue;
-            }
-
-            let resolved = if let Some(ref dir) = bms_dir {
-                dir.join(wav_path)
-            } else {
-                std::path::PathBuf::from(wav_path)
-            };
-
-            let abs_path = resolved.to_string_lossy().to_string();
-            let candidates = crate::audio_driver::get_paths(&abs_path);
-
-            let mut sound_data: Option<StaticSoundData> = None;
-            for candidate in &candidates {
-                match StaticSoundData::from_file(candidate) {
-                    Ok(data) => {
-                        sound_data = Some(data);
-                        break;
-                    }
-                    Err(_) => continue,
+        // Prepare loading tasks: (wav_id, resolved_path, note_entries)
+        let load_tasks: Vec<LoadTask> = notemap
+            .iter()
+            .filter_map(|(wav_id, note_entries)| {
+                let wav_id_usize = *wav_id as usize;
+                if wav_id_usize >= wav_list.len() {
+                    return None;
                 }
-            }
-
-            let Some(base_sound) = sound_data else {
-                log::debug!("Failed to load keysound for wav {}: {}", wav_id, abs_path);
-                continue;
-            };
-
-            for &(starttime, duration) in note_entries {
-                if starttime == 0 && duration == 0 {
-                    // Non-sliced: store full sound
-                    self.wav_sounds.insert(*wav_id, base_sound.clone());
+                let wav_path = &wav_list[wav_id_usize];
+                if wav_path.is_empty() {
+                    return None;
+                }
+                let resolved = if let Some(ref dir) = bms_dir {
+                    dir.join(wav_path)
                 } else {
-                    // Sliced: use Kira's slice field for zero-copy sub-sample
+                    std::path::PathBuf::from(wav_path)
+                };
+                Some((
+                    *wav_id,
+                    resolved.to_string_lossy().to_string(),
+                    note_entries.clone(),
+                ))
+            })
+            .collect();
+
+        // Parallel file loading via rayon (matches Java parallelStream())
+        let loaded: Vec<LoadedSound> = load_tasks
+            .par_iter()
+            .filter_map(|(wav_id, abs_path, entries)| {
+                let candidates = crate::audio_driver::get_paths(abs_path);
+                for candidate in &candidates {
+                    if let Ok(data) = StaticSoundData::from_file(candidate) {
+                        return Some((*wav_id, data, entries.clone()));
+                    }
+                }
+                log::debug!("Failed to load keysound for wav {}: {}", wav_id, abs_path);
+                None
+            })
+            .collect();
+
+        // Process loaded sounds into wav_sounds and slicesound
+        for (wav_id, base_sound, note_entries) in loaded {
+            for &(starttime, duration) in &note_entries {
+                if starttime == 0 && duration == 0 {
+                    self.wav_sounds.insert(wav_id, base_sound.clone());
+                } else {
                     let sample_rate = base_sound.sample_rate as i64;
                     let start_frame = (starttime * sample_rate / 1_000_000) as usize;
                     let duration_frames = (duration * sample_rate / 1_000_000) as usize;
@@ -229,7 +242,7 @@ impl AudioDriver for GdxSoundDriver {
                         sliced.slice = Some((start_frame, end_frame));
 
                         self.slicesound
-                            .entry(*wav_id)
+                            .entry(wav_id)
                             .or_default()
                             .push(SliceWav::new(starttime, duration, sliced));
                     }
