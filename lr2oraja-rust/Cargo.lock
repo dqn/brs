@@ -30,6 +30,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "beatoraja-audio"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "beatoraja-common",
+ "bms-model",
+ "log",
+ "tempfile",
+]
+
+[[package]]
+name = "beatoraja-common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "tempfile",
+]
+
+[[package]]
+name = "beatoraja-input"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "beatoraja-common",
+ "bms-model",
+ "log",
+ "tempfile",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -152,6 +183,18 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "crypto-common",
+]
+
+[[package]]
+name = "discord-rpc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "uuid",
 ]
 
 [[package]]
@@ -669,6 +712,19 @@ checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
 dependencies = [
  "cfg-if",
  "digest",
+]
+
+[[package]]
+name = "md-processor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -1348,6 +1404,17 @@ name = "utf8_iter"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
+
+[[package]]
+name = "uuid"
+version = "1.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b672338555252d43fd2240c714dc444b8c6fb0a5c5335e65a07bba7742735ddb"
+dependencies = [
+ "getrandom 0.4.1",
+ "js-sys",
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "vcpkg"

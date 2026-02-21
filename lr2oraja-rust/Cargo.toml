@@ -2,6 +2,11 @@
 members = [
     "crates/bms-model",
     "crates/bms-table",
+    "crates/beatoraja-common",
+    "crates/discord-rpc",
+    "crates/beatoraja-input",
+    "crates/beatoraja-audio",
+    "crates/md-processor",
 ]
 resolver = "2"
 
@@ -13,6 +18,11 @@ edition = "2024"
 # Internal crates
 bms-model = { path = "crates/bms-model" }
 bms-table = { path = "crates/bms-table" }
+beatoraja-common = { path = "crates/beatoraja-common" }
+discord-rpc = { path = "crates/discord-rpc" }
+beatoraja-input = { path = "crates/beatoraja-input" }
+beatoraja-audio = { path = "crates/beatoraja-audio" }
+md-processor = { path = "crates/md-processor" }
 
 # Error handling
 anyhow = "1"
@@ -36,6 +46,12 @@ reqwest = { version = "0.12", features = ["blocking"] }
 
 # Regex
 regex = "1"
+
+# UUID
+uuid = { version = "1", features = ["v4"] }
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "fs"] }
 
 # Testing
 tempfile = "3"
