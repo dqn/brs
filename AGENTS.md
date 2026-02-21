@@ -114,10 +114,12 @@ brs/
 - **Phase 1 complete:** `bms-model` (15 modules), `bms-table` (11 modules)
 - **Phase 2 complete:** `bmson` (16 model types + BMSONDecoder), `osu` (9 model types + OSUDecoder)
 - **Phase 3 complete:** `beatoraja-common` (3 modules), `discord-rpc` (4 modules), `beatoraja-input` (9 modules), `beatoraja-audio` (13 modules), `md-processor` (10 modules)
+- **Phase 4 complete:** `beatoraja-core` (47 modules — config types, data models, DB accessors, core/resource types, config subpackage)
 
 ## Deferred / Stub Items
 
-- Phase 4 type dependencies (Config, PlayModeConfig, etc.) are stubbed in each crate's `stubs.rs`
+- Phase 5+ type dependencies (JudgeAlgorithm, BMSPlayerRule, SkinType, GrooveGauge, BarSorter, pattern modifiers, IRConnectionManager) are stubbed in `beatoraja-core/src/stubs.rs`
+- Phase 4 type dependencies (Config, PlayModeConfig, etc.) are stubbed in each Phase 3 crate's `stubs.rs` (will be replaced with imports from `beatoraja-core`)
 - PortAudio, LibGDX, ebur128, 7z extraction methods use `todo!()` pending external library integration
 - javax.sound.midi equivalents stubbed (no direct Rust equivalent)
 - MIDI device enumeration stubbed
@@ -221,3 +223,29 @@ Java's `ShortDirectPCM` uses `ByteBuffer.slice()` for zero-copy views. In Rust, 
 ### MS-ADPCM Decoder (Phase 3)
 
 Java's MS-ADPCM decoder uses mutable coefficient arrays and predictor state. Translate as a stateless function taking `&[u8]` input and returning `Vec<i16>`. The adaptation table and coefficient sets are static constants.
+
+### Java POJO Config Classes → Rust pub fields + serde (Phase 4)
+
+Java config classes (Config, PlayerConfig, PlayModeConfig, AudioConfig, etc.) with private fields + getter/setter pairs translate best as Rust structs with `pub` fields and `#[derive(Clone, Debug, Default, Serialize, Deserialize)]`. Use `#[serde(default)]` on the struct level so missing JSON fields get default values. This avoids verbose getter/setter boilerplate while preserving JSON serialization compatibility.
+
+### Java JDBC → rusqlite (Phase 4)
+
+Java `PreparedStatement` + `ResultSet` patterns translate to rusqlite's `prepare` + `query_map`/`query_row`. Use `params![]` macro for bind parameters. The SQL strings can be copied nearly verbatim — rusqlite uses `?` placeholders just like JDBC. For database accessor inheritance (e.g., `ScoreDatabaseAccessor extends SQLiteDatabaseAccessor`), use composition (embed the base struct) instead of trait inheritance.
+
+### Large Hub Crate with Phase 5+ Stubs (Phase 4)
+
+Phase 4 is the "hub" module — most later phases depend on it, and it references many Phase 5+ types. Create a comprehensive `stubs.rs` with minimal implementations of external types (JudgeAlgorithm, BMSPlayerRule, SkinType, GrooveGauge, BarSorter, pattern modifiers, etc.). Methods that depend heavily on unimplemented subsystems should use `todo!("Phase N dependency")`.
+
+### Parallel Agent Translation for Large Phases (Phase 4)
+
+For phases with 40+ files, use a team of 4 agents translating in parallel. Group files by dependency:
+- Group A: Foundational config types (no internal deps)
+- Group B: Data models (depend on config types)
+- Group C: Database accessors (depend on data models)
+- Group D: Core/resource types (depend on everything)
+
+Each agent writes to separate files, so no merge conflicts. Pre-create lib.rs with all module declarations and stubs.rs before launching agents.
+
+### LibGDX JSON → serde_json (Phase 4)
+
+Java's LibGDX `Json` class with `setIgnoreUnknownFields(true)` translates to `serde_json::from_str` with `#[serde(default)]` on structs. LibGDX's `Json.prettyPrint()` translates to `serde_json::to_string_pretty()`. The `setUsePrototypes(false)` flag (which disables skipping default values) has no direct equivalent — serde always serializes all fields.

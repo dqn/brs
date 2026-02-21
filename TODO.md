@@ -33,8 +33,8 @@ Isolated subsystems with minimal internal deps.
 
 Hub module — most others depend on this.
 
-- [ ] `beatoraja.config` (4 files, 2,582 lines) — Config definitions
-- [ ] `beatoraja` root (44 files, 23,708 lines) — Central state/data classes
+- [x] `beatoraja.config` (4 files, 2,582 lines) — Config definitions
+- [x] `beatoraja` root (44 files, 23,708 lines) — Central state/data classes
 
 ## Phase 5: Pattern & Gameplay (~17,692 lines)
 
