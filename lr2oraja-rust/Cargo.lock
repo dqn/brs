@@ -757,6 +757,7 @@ dependencies = [
  "beatoraja-types",
  "bms-model",
  "chrono",
+ "ffmpeg-next",
  "log",
  "rand 0.8.5",
  "serde",

@@ -48,7 +48,7 @@ Dependency graph order. Each module is ported only after its dependencies are co
 - [x] FFmpeg → `ffmpeg-next` (BGA video decoding) — `beatoraja-skin` with `ffmpeg` feature flag; falls back to `log::warn!()` when disabled
 - [x] javax.sound.midi → `midir` (MIDI device input) — `beatoraja-input` with mpsc channel bridge
 - [x] PortAudio → Kira audio playback driver — `beatoraja-audio` `PortAudioDriver` backed by Kira `AudioManager`
-- [ ] BGA `MovieSeekThread` (background video decoding) — current impl is synchronous; Java uses a background thread for seek/decode
+- [x] BGA `MovieSeekThread` (background video decoding) — `std::thread` + `mpsc` channels; background thread runs FFmpeg decode loop with frame-skip (`fpsd`), command queue (Play/Loop/Stop/Halt), generational restart, and `Arc<Mutex<SharedState>>` for decoded RGBA frame handoff; gated behind `ffmpeg` feature flag on `beatoraja-play`
 - [x] Keysound loading pipeline — `PortAudioDriver`/`GdxSoundDriver` `set_model()` loads WAV via `StaticSoundData::from_file()`, `play_note()`/`play_path()` implemented with Kira playback (sound slicing deferred)
 - [x] Keysound sound slicing — Kira `StaticSoundData.slice` field for zero-copy sub-sample; `set_model()` collects notes by wav ID with dedup, `play_note_internal()`/`stop_note_internal()`/`set_volume_note_internal()` dispatch to slice handles
 - [x] Keysound parallel loading — rayon `par_iter()` for file I/O in `set_model()`, matching Java `parallelStream()`
@@ -77,7 +77,7 @@ Dependency graph order. Each module is ported only after its dependencies are co
 - [x] Fix serde rename mismatches, LN duration counting, mainbpm tie-breaking, CourseDataConstraint aliases, TimeLine bounds checking
 - [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream) — deferred until Java exporter updated
 - [ ] Reactivate remaining 17 pending test files — blocked: compare_pattern (make_random private), compare_bga_timeline (BGAProcessor stubbed), Tier 3 tests (e2e_helpers, render snapshots, judge/rule API mismatch)
-- [ ] Investigate BMS decoder mode detection discrepancy: `longnote_types.bms` detected as BEAT_5K (6 lanes) in Rust, but Java fixture uses scratch lane 7 (BEAT_7K = 8 lanes). Compare `Section::new()` channel-based mode upgrade logic with Java `BMSDecoder.decode()`.
+- [x] Investigate BMS decoder mode detection discrepancy — investigated: no actual discrepancy found; both Java and Rust correctly detect `longnote_types.bms` as BEAT_5K; fixture expectation was outdated
 
 ## Phase 18: Post-Phase 13 Lifecycle Wiring
 
