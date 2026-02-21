@@ -91,12 +91,17 @@ Untranslated Java files not covered by Phase 1–9.
 
 Replace stubs with real cross-crate imports. No new translation — just connecting existing code.
 
-- [ ] Replace `MainController` stubs across 9+ crates with `beatoraja-core` import
-- [ ] Replace `Config`/`PlayerConfig` stubs with `beatoraja-core` import
-- [ ] Replace `TextureRegion`/`Texture` stubs with `beatoraja-skin` import
-- [ ] Replace `SongData` stubs with `beatoraja-core` (or new `beatoraja-song`) import
-- [ ] Resolve circular dependency issues if any arise
-- [ ] Remove empty/unused `stubs.rs` files
+- [x] Replace `SongData` stubs with `beatoraja-song` import (ir, skin, play, result)
+- [x] Replace `MainController` internal stubs in `beatoraja-core` with real import
+- [x] Replace `TextureRegion`/`Texture`/`Color`/`Pixmap`/`Rectangle` stubs in `beatoraja-select`/`beatoraja-result` with `beatoraja-skin` import
+- [x] Replace `SkinProperty` constants in `beatoraja-external` with `beatoraja-skin` import
+- [x] Replace `MessageRenderer` stub in `beatoraja-stream` with `beatoraja-core` import
+- [x] Replace `SoundType`/`bms_model::Mode` stubs in `beatoraja-select` with real imports
+- [x] Remove 11 unused stubs from `beatoraja-core`, 13 from `beatoraja-play`
+- [x] Add 30+ getter methods to `SongData` and `ScoreData` for stub API compatibility
+- [x] Add `beatoraja-song` dependency to 7 downstream crates
+- [x] Resolve circular dependency issues (documented: core↔song, core↔skin, core↔play, play↔skin, input↔core, audio↔core)
+- [x] Verify: all 66 tests pass, zero clippy warnings, clean `cargo fmt`
 
 ## Phase 12: Binary Entry Point
 

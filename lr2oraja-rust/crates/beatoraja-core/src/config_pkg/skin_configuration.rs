@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::player_config::PlayerConfig;
 use crate::main_controller::MainController;
+use crate::player_config::PlayerConfig;
 use crate::stubs::SkinType;
 
 /// Skin configuration screen.

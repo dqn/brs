@@ -121,15 +121,23 @@ brs/
 - **Phase 8 complete:** `beatoraja-ir` (14 modules — IR connection, LR2IR, ranking/leaderboard, ghost data), `beatoraja-external` (7 modules — BMS search, Discord listener, screenshot export, webhook, score import), `beatoraja-obs` (2 modules — OBS WebSocket client, OBS listener), `beatoraja-modmenu` (15 modules — ImGui/egui renderer, notify, trainers, skin/download/song menus, performance monitor), `beatoraja-stream` (3 modules — stream controller, stream commands)
 - **Phase 9 complete:** `beatoraja-launcher` (21 modules — settings GUI views, config editors, skin/resource/input/audio/video/OBS/IR/Discord/stream configuration, course/folder/table editors)
 - **Phase 10 complete:** `beatoraja-song` (8 modules — song data model, folder data, song information, DB accessors, CRC32 utils), `beatoraja-controller` (3 modules — LWJGL3/GLFW gamepad controller manager, stubbed for gilrs integration), `beatoraja-system` (1 module — RobustFile I/O with backup/restore semantics)
+- **Phase 11 complete:** Integration & wiring — replaced stubs with real cross-crate imports across 12 crates, added 60+ getter methods to SongData/ScoreData, added beatoraja-song dependency to 7 crates, removed 24+ unused stubs, documented circular dependency constraints
 
 ## Deferred / Stub Items
-- Phase 7+ type dependencies (screen implementations, select bar, etc.) are stubbed in `beatoraja-skin/src/stubs.rs`
-- Phase 4 type dependencies (Config, PlayModeConfig, etc.) are stubbed in each Phase 3 crate's `stubs.rs` (will be replaced with imports from `beatoraja-core`)
+- **Circular dependency stubs (cannot be replaced):**
+  - `beatoraja-input`, `beatoraja-audio`: Config stubs (beatoraja-core depends on these crates)
+  - `beatoraja-core`: SongData, SkinType, GrooveGauge stubs (beatoraja-song/skin/play depend on core)
+  - `beatoraja-play`: TextureRegion/Texture stubs (beatoraja-skin depends on play)
+  - `beatoraja-modmenu`, `beatoraja-launcher`: Custom adapter stubs (incompatible APIs)
+- **API-incompatible stubs (require refactoring to replace):**
+  - Config/PlayerConfig stubs in downstream crates differ in field types (e.g., `f32` vs `i32`, `String` vs `Option<String>`)
+  - Resolution stubs are structs with f32 fields vs real type is an enum with i32 methods
+  - SongDatabaseAccessor is a struct in stubs vs a trait in the real implementation
+  - BMSPlayerInputProcessor stubs use different parameter types (i32 vs usize)
 - PortAudio, LibGDX, ebur128, 7z extraction methods use `todo!()` pending external library integration
 - javax.sound.midi equivalents stubbed (no direct Rust equivalent)
 - MIDI device enumeration stubbed
 - FLAC/MP3 decoding deferred to library integration
-- Skin rendering (PlaySkin, SkinNote, SkinGauge, etc.) have stub implementations pending Phase 6 Skin system
 - BGA video processing (FFmpegProcessor, GdxVideoProcessor) uses `todo!()` pending video library integration
 - MainController-dependent methods in TargetProperty return stub data
 - Twitter4j (ScreenShotTwitterExporter) fully stubbed — no direct Rust equivalent
@@ -419,3 +427,31 @@ Java's `RobustFile` uses a double-write scheme (backup → temp → atomic renam
 ### Three-Crate Split for Phase 10 (Phase 10)
 
 Phase 10 has 12 Java files across 3 independent packages (song, controller, system). Each maps to its own Rust crate. All 3 agents run in parallel since there are no cross-dependencies. `beatoraja-song` is the largest (8 files, 2,206 lines) and depends on `bms-model`, `beatoraja-core`, and `md-processor`. `beatoraja-controller` and `beatoraja-system` are standalone.
+
+### Circular Dependency Constraints on Stub Replacement (Phase 11)
+
+The Rust workspace has inherent circular dependency constraints that prevent full stub replacement:
+- **beatoraja-core** cannot import from beatoraja-song/skin/play/select/result/ir/modmenu (all depend ON core)
+- **beatoraja-play** cannot import from beatoraja-skin (skin depends on play)
+- **beatoraja-input/audio** cannot import from beatoraja-core (core depends on these)
+
+Solution: Keep stubs for types that would create circular deps. Document why each stub remains. Focus replacement on types where the dependency flows correctly (downstream crate imports from upstream crate).
+
+### pub use Re-export Strategy for Stub Replacement (Phase 11)
+
+Instead of changing all `use crate::stubs::SongData` statements throughout a crate, replace the struct definition in `stubs.rs` with `pub use beatoraja_song::song_data::SongData;`. This keeps all existing import paths working while switching to the real type. Only modify consuming code when the real type's API differs from the stub.
+
+### Getter Methods for Java API Compatibility (Phase 11)
+
+Stubs define Java-style getter methods (`get_title()`, `get_artist()`, etc.) that consuming code calls. When replacing stubs with real types, add these getter methods to the real types rather than modifying all callers. This is a small change to one file (the real type) vs many changes across the crate. Even though Rust has `pub` fields, the getters provide compatibility with the mechanically translated Java calling patterns.
+
+### API Incompatibility Patterns (Phase 11)
+
+Common reasons stubs CANNOT be replaced with real types:
+1. **Field type mismatch:** `url: String` (stub) vs `url: Option<String>` (real); `adddate: i64` (stub) vs `adddate: i32` (real)
+2. **Method signature mismatch:** `get_play_config(i32)` (stub) vs `get_play_config(Mode)` (real); `set_player(String)` vs `set_player(Option<&str>)`
+3. **Struct vs Trait:** `SongDatabaseAccessor` is a struct in stubs but a trait in the real implementation
+4. **Struct vs Enum:** `Resolution { width: f32, height: f32 }` (stub) vs `Resolution::HD1080` enum (real)
+5. **No Rust equivalent:** Twitter4j, LibGDX rendering types, AWT clipboard — these remain as `todo!()` stubs
+
+Resolving these would require either refactoring the real types (risky, changes Java translation fidelity) or adapting all callers (high effort). Deferred to future phases.
