@@ -110,7 +110,9 @@ impl TrainerView {
             // Java: if (l[i] != has_all[i])
             if l[i] != has_all[i] {
                 // Java: logger.warn("RandomTrainer: Lanes in incorrect format, falling back to nonran or last ran used");
-                warn!("RandomTrainer: Lanes in incorrect format, falling back to nonran or last ran used");
+                warn!(
+                    "RandomTrainer: Lanes in incorrect format, falling back to nonran or last ran used"
+                );
                 return;
             }
         }

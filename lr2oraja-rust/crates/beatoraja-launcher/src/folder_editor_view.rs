@@ -182,10 +182,7 @@ impl FolderEditorView {
                 self.folder_pane_visible = true;
 
                 // folderName.setText(selectedFolder.getName());
-                self.folder_name = self.folders[idx]
-                    .name
-                    .clone()
-                    .unwrap_or_default();
+                self.folder_name = self.folders[idx].name.clone().unwrap_or_default();
                 // folderSongs.getItems().setAll(course.getSong());
                 self.folder_songs = self.folders[idx].songs.clone();
             }
@@ -201,30 +198,30 @@ impl FolderEditorView {
 
     /// removeTableFolder - removes the currently selected folder
     pub fn remove_table_folder(&mut self) {
-        if let Some(idx) = self.folders_selected_index {
-            if idx < self.folders.len() {
-                self.folders.remove(idx);
-            }
+        if let Some(idx) = self.folders_selected_index
+            && idx < self.folders.len()
+        {
+            self.folders.remove(idx);
         }
     }
 
     /// moveTableFolderUp - moves the selected folder up one position
     pub fn move_table_folder_up(&mut self) {
-        if let Some(index) = self.folders_selected_index {
-            if index > 0 {
-                self.folders.swap(index, index - 1);
-                self.folders_selected_index = Some(index - 1);
-            }
+        if let Some(index) = self.folders_selected_index
+            && index > 0
+        {
+            self.folders.swap(index, index - 1);
+            self.folders_selected_index = Some(index - 1);
         }
     }
 
     /// moveTableFolderDown - moves the selected folder down one position
     pub fn move_table_folder_down(&mut self) {
-        if let Some(index) = self.folders_selected_index {
-            if index < self.folders.len().saturating_sub(1) {
-                self.folders.swap(index, index + 1);
-                self.folders_selected_index = Some(index + 1);
-            }
+        if let Some(index) = self.folders_selected_index
+            && index < self.folders.len().saturating_sub(1)
+        {
+            self.folders.swap(index, index + 1);
+            self.folders_selected_index = Some(index + 1);
         }
     }
 
@@ -238,30 +235,30 @@ impl FolderEditorView {
 
     /// removeSongData - removes the selected song from the folder
     pub fn remove_song_data(&mut self) {
-        if let Some(idx) = self.folder_songs_selected_index {
-            if idx < self.folder_songs.len() {
-                self.folder_songs.remove(idx);
-            }
+        if let Some(idx) = self.folder_songs_selected_index
+            && idx < self.folder_songs.len()
+        {
+            self.folder_songs.remove(idx);
         }
     }
 
     /// moveSongDataUp - moves the selected song up one position
     pub fn move_song_data_up(&mut self) {
-        if let Some(index) = self.folder_songs_selected_index {
-            if index > 0 {
-                self.folder_songs.swap(index, index - 1);
-                self.folder_songs_selected_index = Some(index - 1);
-            }
+        if let Some(index) = self.folder_songs_selected_index
+            && index > 0
+        {
+            self.folder_songs.swap(index, index - 1);
+            self.folder_songs_selected_index = Some(index - 1);
         }
     }
 
     /// moveSongDataDown - moves the selected song down one position
     pub fn move_song_data_down(&mut self) {
-        if let Some(index) = self.folder_songs_selected_index {
-            if index < self.folder_songs.len().saturating_sub(1) {
-                self.folder_songs.swap(index, index + 1);
-                self.folder_songs_selected_index = Some(index + 1);
-            }
+        if let Some(index) = self.folder_songs_selected_index
+            && index < self.folder_songs.len().saturating_sub(1)
+        {
+            self.folder_songs.swap(index, index + 1);
+            self.folder_songs_selected_index = Some(index + 1);
         }
     }
 
@@ -288,9 +285,7 @@ impl FolderEditorView {
                 let ts_sha256 = ts.sha256.as_deref().unwrap_or("");
                 let song_sha256 = song.sha256.as_deref().unwrap_or("");
 
-                if (!ts_md5.is_empty()
-                    && !song_md5.is_empty()
-                    && ts_md5 == song_md5)
+                if (!ts_md5.is_empty() && !song_md5.is_empty() && ts_md5 == song_md5)
                     || (!ts_sha256.is_empty()
                         && !song_sha256.is_empty()
                         && ts_sha256 == song_sha256)

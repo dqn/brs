@@ -13,6 +13,7 @@ use crate::stubs::open_url_in_browser;
 /// IR connection configuration UI with user/password fields,
 /// send options, and primary IR selection.
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct IRConfigurationView {
     // @FXML private Button primarybutton;
     primarybutton_visible: bool,
@@ -42,28 +43,6 @@ pub struct IRConfigurationView {
 
     // private PlayerConfig player;
     player: Option<PlayerConfig>,
-}
-
-impl Default for IRConfigurationView {
-    fn default() -> Self {
-        IRConfigurationView {
-            primarybutton_visible: false,
-            irname: None,
-            irname_items: Vec::new(),
-            irhome: String::new(),
-            iruserid: String::new(),
-            irpassword: String::new(),
-            irsend: None,
-            irsend_items: Vec::new(),
-            importrival: false,
-            importscore: false,
-            irmap: HashMap::new(),
-            primary: None,
-            currentir: None,
-            player: None,
-        }
-    }
-
 }
 
 #[allow(dead_code)]

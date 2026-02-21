@@ -69,10 +69,8 @@ impl TableEditorView {
             }
         };
 
-        self.course_controller
-            .set_course_data(td.course.clone());
-        self.folder_controller
-            .set_table_folder(td.folder.clone());
+        self.course_controller.set_course_data(td.course.clone());
+        self.folder_controller.set_table_folder(td.folder.clone());
         self.table_name = td.name.clone();
         self.filepath = Some(p.to_path_buf());
     }

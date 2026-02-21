@@ -32,7 +32,6 @@ pub struct ObsConfigurationView {
     obs_ws_rec_stop_wait: i32,
     // VBox listContainer children are represented as state data
     // (actual rendering is egui)
-
     config: Option<Config>,
     status: String,
     obs_cfg_client: Option<ObsWsClient>,
@@ -223,10 +222,10 @@ impl ObsConfigurationView {
         if self.obs_cfg_client.is_none() {
             return;
         }
-        if let Some(ref client) = self.obs_cfg_client {
-            if !client.is_connected() {
-                return;
-            }
+        if let Some(ref client) = self.obs_cfg_client
+            && !client.is_connected()
+        {
+            return;
         }
 
         let actions = obs_actions();
@@ -239,10 +238,10 @@ impl ObsConfigurationView {
                     if let Some(config) = &mut self.config {
                         config.set_obs_scene(state.clone(), Some(String::new()));
                     }
-                } else if let Some(v) = value {
-                    if let Some(config) = &mut self.config {
-                        config.set_obs_scene(state.clone(), Some(v.to_string()));
-                    }
+                } else if let Some(v) = value
+                    && let Some(config) = &mut self.config
+                {
+                    config.set_obs_scene(state.clone(), Some(v.to_string()));
                 }
             }
 
@@ -254,10 +253,10 @@ impl ObsConfigurationView {
                     }
                 } else if let Some(v) = value {
                     let req = actions.get(v);
-                    if let Some(req) = req {
-                        if let Some(config) = &mut self.config {
-                            config.set_obs_action(state.clone(), Some(req.clone()));
-                        }
+                    if let Some(req) = req
+                        && let Some(config) = &mut self.config
+                    {
+                        config.set_obs_action(state.clone(), Some(req.clone()));
                     }
                 }
             }
@@ -317,10 +316,10 @@ impl ObsConfigurationView {
 
     /// closeExistingConnection - closes the existing OBS connection if active
     fn close_existing_connection(&mut self) {
-        if let Some(ref client) = self.obs_cfg_client {
-            if client.is_connected() {
-                client.close();
-            }
+        if let Some(ref client) = self.obs_cfg_client
+            && client.is_connected()
+        {
+            client.close();
         }
         self.obs_cfg_client = None;
     }

@@ -3,7 +3,7 @@
 use bms_model::mode::Mode;
 
 use beatoraja_core::play_mode_config::{
-    PlayModeConfig, ANALOG_SCRATCH_VER_1, ANALOG_SCRATCH_VER_2,
+    ANALOG_SCRATCH_VER_1, ANALOG_SCRATCH_VER_2, PlayModeConfig,
 };
 use beatoraja_core::player_config::PlayerConfig;
 
@@ -86,6 +86,7 @@ impl std::fmt::Display for PlayMode {
 /// Input configuration UI: play mode selection, controller table,
 /// keyboard input duration, JKOC hack, mouse scratch settings.
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct InputConfigurationView {
     // TODO 各デバイス毎の最小入力間隔設定
 
@@ -119,23 +120,6 @@ pub struct InputConfigurationView {
     player: Option<PlayerConfig>,
     // private PlayConfigurationView.PlayMode mode;
     mode: Option<PlayMode>,
-}
-
-impl Default for InputConfigurationView {
-    fn default() -> Self {
-        InputConfigurationView {
-            inputconfig: None,
-            inputduration: 0,
-            jkoc_hack: false,
-            controller_table_view: Vec::new(),
-            mouse_scratch: false,
-            mouse_scratch_time_threshold: 0,
-            mouse_scratch_distance: 0,
-            mouse_scratch_mode: 0,
-            player: None,
-            mode: None,
-        }
-    }
 }
 
 #[allow(dead_code)]
@@ -188,7 +172,10 @@ impl InputConfigurationView {
 
         // PlayModeConfig conf = player.getPlayConfig(Mode.valueOf(mode.name()));
         let bms_mode = mode.to_mode();
-        let player = self.player.as_mut().expect("player must be set before updateMode");
+        let player = self
+            .player
+            .as_mut()
+            .expect("player must be set before updateMode");
         let conf: PlayModeConfig = player.get_play_config(bms_mode).clone();
 
         // List<ControllerConfigViewModel> listControllerConfigViewModel = Arrays.asList(conf.getController()).stream()
@@ -204,8 +191,10 @@ impl InputConfigurationView {
         // mouseScratch.setSelected(conf.getKeyboardConfig().getMouseScratchConfig().isMouseScratchEnabled());
         self.mouse_scratch = conf.keyboard.mouse_scratch_config.mouse_scratch_enabled;
         // mouseScratchTimeThreshold.getValueFactory().setValue(conf.getKeyboardConfig().getMouseScratchConfig().getMouseScratchTimeThreshold());
-        self.mouse_scratch_time_threshold =
-            conf.keyboard.mouse_scratch_config.mouse_scratch_time_threshold;
+        self.mouse_scratch_time_threshold = conf
+            .keyboard
+            .mouse_scratch_config
+            .mouse_scratch_time_threshold;
         // mouseScratchDistance.getValueFactory().setValue(conf.getKeyboardConfig().getMouseScratchConfig().getMouseScratchDistance());
         self.mouse_scratch_distance = conf.keyboard.mouse_scratch_config.mouse_scratch_distance;
         // mouseScratchMode.getSelectionModel().select(conf.getKeyboardConfig().getMouseScratchConfig().getMouseScratchMode());

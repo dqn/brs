@@ -17,9 +17,7 @@ use crate::obs_configuration_view::ObsConfigurationView;
 use crate::resource_configuration_view::ResourceConfigurationView;
 use crate::skin_configuration_view::SkinConfigurationView;
 use crate::stream_editor_view::StreamEditorView;
-use crate::stubs::{
-    BMSPlayerMode, MainLoader, SongDatabaseUpdateListener, TwitterAuth, Version,
-};
+use crate::stubs::{BMSPlayerMode, MainLoader, SongDatabaseUpdateListener, TwitterAuth, Version};
 use crate::table_editor_view::TableEditorView;
 use crate::trainer_view::TrainerView;
 use crate::video_configuration_view::VideoConfigurationView;
@@ -100,10 +98,11 @@ impl OptionListCell {
     }
 
     pub fn get_text(&self, index: Option<i32>) -> String {
-        if let Some(idx) = index {
-            if idx >= 0 && (idx as usize) < self.strings.len() {
-                return self.strings[idx as usize].clone();
-            }
+        if let Some(idx) = index
+            && idx >= 0
+            && (idx as usize) < self.strings.len()
+        {
+            return self.strings[idx as usize].clone();
         }
         String::new()
     }
@@ -442,8 +441,16 @@ impl PlayConfigurationView {
         self.lr2configurationassist_vgap = 4.0;
 
         let score_options = vec![
-            "OFF", "MIRROR", "RANDOM", "R-RANDOM", "S-RANDOM", "SPIRAL", "H-RANDOM",
-            "ALL-SCR", "RANDOM-EX", "S-RANDOM-EX",
+            "OFF",
+            "MIRROR",
+            "RANDOM",
+            "R-RANDOM",
+            "S-RANDOM",
+            "SPIRAL",
+            "H-RANDOM",
+            "ALL-SCR",
+            "RANDOM-EX",
+            "S-RANDOM-EX",
         ];
         self.score_options_labels = Self::init_combo_box_labels(&score_options);
 
@@ -473,13 +480,8 @@ impl PlayConfigurationView {
             "HAZARD",
         ]);
 
-        self.fixhispeed_labels = Self::init_combo_box_labels(&[
-            "OFF",
-            "START BPM",
-            "MAX BPM",
-            "MAIN BPM",
-            "MIN BPM",
-        ]);
+        self.fixhispeed_labels =
+            Self::init_combo_box_labels(&["OFF", "START BPM", "MAX BPM", "MAIN BPM", "MIN BPM"]);
 
         self.lntype_labels =
             Self::init_combo_box_labels(&["LONG NOTE", "CHARGE NOTE", "HELL CHARGE NOTE"]);
@@ -501,17 +503,11 @@ impl PlayConfigurationView {
         self.scrollmode_labels = Self::init_combo_box_labels(&["OFF", "REMOVE", "ADD"]);
 
         self.longnotemode_labels = Self::init_combo_box_labels(&[
-            "OFF",
-            "REMOVE",
-            "ADD LN",
-            "ADD CN",
-            "ADD HCN",
-            "ADD ALL",
+            "OFF", "REMOVE", "ADD LN", "ADD CN", "ADD HCN", "ADD ALL",
         ]);
 
         // These would normally come from resource bundle
-        self.judgealgorithm_labels =
-            Self::init_combo_box_labels(&["LR2", "AC", "BOTTOM PRIORITY"]);
+        self.judgealgorithm_labels = Self::init_combo_box_labels(&["LR2", "AC", "BOTTOM PRIORITY"]);
 
         self.autosave_labels = Self::init_combo_box_labels(&[
             "NONE",
@@ -724,11 +720,7 @@ impl PlayConfigurationView {
 
         self.twitter_pin_enabled = false;
         if let Some(ref token) = player.twitter_access_token {
-            if !token.is_empty() {
-                self.txt_twitter_authenticated_visible = true;
-            } else {
-                self.txt_twitter_authenticated_visible = false;
-            }
+            self.txt_twitter_authenticated_visible = !token.is_empty();
         } else {
             self.txt_twitter_authenticated_visible = false;
         }
@@ -917,8 +909,7 @@ impl PlayConfigurationView {
             // judgealgorithm → judgetype
             // JudgeAlgorithm.values()[judgealgorithm.getValue()].name()
             if let Some(alg_idx) = self.judgealgorithm {
-                let judge_algs =
-                    beatoraja_core::stubs::JudgeAlgorithm::values();
+                let judge_algs = beatoraja_core::stubs::JudgeAlgorithm::values();
                 if (alg_idx as usize) < judge_algs.len() {
                     conf.judgetype = judge_algs[alg_idx as usize].name().to_string();
                 }
@@ -946,9 +937,8 @@ impl PlayConfigurationView {
             self.enable_hidden = conf.enablehidden;
             self.lift = (conf.lift * 1000.0) as i32;
             self.hidden = (conf.hidden * 1000.0) as i32;
-            self.judgealgorithm = Some(
-                beatoraja_core::stubs::JudgeAlgorithm::get_index(&conf.judgetype).max(0),
-            );
+            self.judgealgorithm =
+                Some(beatoraja_core::stubs::JudgeAlgorithm::get_index(&conf.judgetype).max(0));
             self.hispeedautoadjust = conf.hispeedautoadjust;
         }
     }
@@ -1035,9 +1025,7 @@ impl PlayConfigurationView {
         // The Java version uses JDBC + ScoreDatabaseAccessor + ScoreDataImporter.
         // These use different stub types across crates (beatoraja-core vs beatoraja-external).
         // Stubbed pending rusqlite integration and type unification.
-        if let (Some(_config), Some(_player_selected)) =
-            (&self.config, &self.players_selected)
-        {
+        if let (Some(_config), Some(_player_selected)) = (&self.config, &self.players_selected) {
             todo!("LR2 score import via rusqlite - pending type unification")
         }
     }
@@ -1051,10 +1039,8 @@ impl PlayConfigurationView {
         ) {
             Ok((token, secret)) => {
                 if let Some(ref mut player) = self.player {
-                    player.twitter_consumer_key =
-                        Some(self.txt_twitter_consumer_key.clone());
-                    player.twitter_consumer_secret =
-                        Some(self.txt_twitter_consumer_secret.clone());
+                    player.twitter_consumer_key = Some(self.txt_twitter_consumer_key.clone());
+                    player.twitter_consumer_secret = Some(self.txt_twitter_consumer_secret.clone());
                     player.twitter_access_token = Some(String::new());
                     player.twitter_access_token_secret = Some(String::new());
                 }

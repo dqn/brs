@@ -384,30 +384,30 @@ impl CourseEditorView {
 
     /// removeCourseData - removes the currently selected course
     pub fn remove_course_data(&mut self) {
-        if let Some(idx) = self.courses_selected_index {
-            if idx < self.courses.len() {
-                self.courses.remove(idx);
-            }
+        if let Some(idx) = self.courses_selected_index
+            && idx < self.courses.len()
+        {
+            self.courses.remove(idx);
         }
     }
 
     /// moveCourseDataUp - moves the selected course up one position
     pub fn move_course_data_up(&mut self) {
-        if let Some(index) = self.courses_selected_index {
-            if index > 0 {
-                self.courses.swap(index, index - 1);
-                self.courses_selected_index = Some(index - 1);
-            }
+        if let Some(index) = self.courses_selected_index
+            && index > 0
+        {
+            self.courses.swap(index, index - 1);
+            self.courses_selected_index = Some(index - 1);
         }
     }
 
     /// moveCourseDataDown - moves the selected course down one position
     pub fn move_course_data_down(&mut self) {
-        if let Some(index) = self.courses_selected_index {
-            if index < self.courses.len().saturating_sub(1) {
-                self.courses.swap(index, index + 1);
-                self.courses_selected_index = Some(index + 1);
-            }
+        if let Some(index) = self.courses_selected_index
+            && index < self.courses.len().saturating_sub(1)
+        {
+            self.courses.swap(index, index + 1);
+            self.courses_selected_index = Some(index + 1);
         }
     }
 
@@ -421,30 +421,30 @@ impl CourseEditorView {
 
     /// removeSongData - removes the selected song from the course
     pub fn remove_song_data(&mut self) {
-        if let Some(idx) = self.course_songs_selected_index {
-            if idx < self.course_songs.len() {
-                self.course_songs.remove(idx);
-            }
+        if let Some(idx) = self.course_songs_selected_index
+            && idx < self.course_songs.len()
+        {
+            self.course_songs.remove(idx);
         }
     }
 
     /// moveSongDataUp - moves the selected song up one position
     pub fn move_song_data_up(&mut self) {
-        if let Some(index) = self.course_songs_selected_index {
-            if index > 0 {
-                self.course_songs.swap(index, index - 1);
-                self.course_songs_selected_index = Some(index - 1);
-            }
+        if let Some(index) = self.course_songs_selected_index
+            && index > 0
+        {
+            self.course_songs.swap(index, index - 1);
+            self.course_songs_selected_index = Some(index - 1);
         }
     }
 
     /// moveSongDataDown - moves the selected song down one position
     pub fn move_song_data_down(&mut self) {
-        if let Some(index) = self.course_songs_selected_index {
-            if index < self.course_songs.len().saturating_sub(1) {
-                self.course_songs.swap(index, index + 1);
-                self.course_songs_selected_index = Some(index + 1);
-            }
+        if let Some(index) = self.course_songs_selected_index
+            && index < self.course_songs.len().saturating_sub(1)
+        {
+            self.course_songs.swap(index, index + 1);
+            self.course_songs_selected_index = Some(index + 1);
         }
     }
 }

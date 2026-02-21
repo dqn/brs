@@ -49,11 +49,7 @@ impl<T: Clone> EditableTableView<T> {
     /// Preserves the exact block-swap algorithm from Java.
     pub fn move_selected_items_up(&mut self) {
         // Java: int[] indices = getSelectionModel().getSelectedIndices().stream().mapToInt(i -> i).toArray();
-        let mut indices: Vec<i32> = self
-            .selected_indices
-            .iter()
-            .map(|&i| i as i32)
-            .collect();
+        let mut indices: Vec<i32> = self.selected_indices.iter().map(|&i| i as i32).collect();
         if indices.is_empty() {
             return;
         }
@@ -108,11 +104,7 @@ impl<T: Clone> EditableTableView<T> {
     /// Preserves the exact block-swap algorithm from Java.
     pub fn move_selected_items_down(&mut self) {
         // Java: int[] indices = getSelectionModel().getSelectedIndices().stream().mapToInt(i -> i).toArray();
-        let mut indices: Vec<i32> = self
-            .selected_indices
-            .iter()
-            .map(|&i| i as i32)
-            .collect();
+        let mut indices: Vec<i32> = self.selected_indices.iter().map(|&i| i as i32).collect();
         if indices.is_empty() {
             return;
         }

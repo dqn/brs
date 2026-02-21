@@ -53,6 +53,7 @@ impl WebhookInfo {
 ///
 /// Discord/webhook configuration UI with editable table for webhook URLs.
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct DiscordConfigurationView {
     // @FXML public CheckBox discordRichPresence;
     pub discord_rich_presence: bool,
@@ -69,21 +70,6 @@ pub struct DiscordConfigurationView {
     webhook_url_selected_indices: Vec<usize>,
 
     config: Option<Config>,
-}
-
-impl Default for DiscordConfigurationView {
-    fn default() -> Self {
-        DiscordConfigurationView {
-            discord_rich_presence: false,
-            webhook_option: 0,
-            webhook_name: String::new(),
-            webhook_avatar: String::new(),
-            url: String::new(),
-            webhook_url: Vec::new(),
-            webhook_url_selected_indices: Vec::new(),
-            config: None,
-        }
-    }
 }
 
 #[allow(dead_code)]
@@ -204,8 +190,7 @@ impl DiscordConfigurationView {
             if i == -1 || indices[iu] < indices[iu + 1] - 1 {
                 if indices[last_block_index] < num_items - 1 {
                     let item = self.webhook_url.remove(indices[last_block_index] + 1);
-                    self.webhook_url
-                        .insert(indices[(i + 1) as usize], item);
+                    self.webhook_url.insert(indices[(i + 1) as usize], item);
                 }
                 last_block_index = iu;
             }

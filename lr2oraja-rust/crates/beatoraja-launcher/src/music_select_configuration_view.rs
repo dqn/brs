@@ -9,6 +9,7 @@ use beatoraja_select::music_selector::ChartReplicationMode;
 /// Song select configuration UI: scroll durations, analog scroll,
 /// folder lamp, song info, preview, random select, chart replication.
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct MusicSelectConfigurationView {
     // @FXML private NumericSpinner<Integer> scrolldurationlow;
     scrolldurationlow: i32,
@@ -44,28 +45,6 @@ pub struct MusicSelectConfigurationView {
     config: Option<Config>,
     // private PlayerConfig player;
     player: Option<PlayerConfig>,
-}
-
-impl Default for MusicSelectConfigurationView {
-    fn default() -> Self {
-        MusicSelectConfigurationView {
-            scrolldurationlow: 0,
-            scrolldurationhigh: 0,
-            analog_scroll: false,
-            analog_ticks_per_scroll: 0,
-            folderlamp: false,
-            use_song_info: false,
-            shownoexistingbar: false,
-            song_preview: None,
-            randomselect: false,
-            maxsearchbar: 0,
-            chart_replication_mode: None,
-            chart_replication_mode_items: Vec::new(),
-            skip_decide_screen: false,
-            config: None,
-            player: None,
-        }
-    }
 }
 
 #[allow(dead_code)]

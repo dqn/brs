@@ -4,13 +4,14 @@ use beatoraja_core::config::{Config, DisplayMode};
 use beatoraja_core::player_config::PlayerConfig;
 use beatoraja_core::resolution::Resolution;
 
-use crate::stubs::{get_monitors, MainLoader};
+use crate::stubs::{MainLoader, get_monitors};
 
 /// Translates: VideoConfigurationView (JavaFX → egui)
 ///
 /// Video/display configuration UI with resolution, display mode,
 /// BGA options, VSync, max FPS, and monitor selection.
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct VideoConfigurationView {
     // @FXML private ComboBox<Resolution> resolution;
     resolution: Option<Resolution>,
@@ -50,23 +51,6 @@ const ALL_RESOLUTIONS: &[Resolution] = &[
     Resolution::WQHD,
     Resolution::ULTRAHD,
 ];
-
-impl Default for VideoConfigurationView {
-    fn default() -> Self {
-        VideoConfigurationView {
-            resolution: None,
-            resolution_items: Vec::new(),
-            display_mode: None,
-            bga_op: 0,
-            bga_expand: 0,
-            vsync: false,
-            max_fps: 0,
-            miss_layer_time: 0,
-            monitor: None,
-            monitor_items: Vec::new(),
-        }
-    }
-}
 
 #[allow(dead_code)]
 impl VideoConfigurationView {

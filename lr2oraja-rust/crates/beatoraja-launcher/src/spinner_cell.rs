@@ -55,12 +55,10 @@ impl SpinnerCell {
     pub fn update_item(&mut self, item: Option<i32>, empty: bool) {
         self.empty = empty;
         self.current_item = item;
-        if !empty {
-            if let Some(value) = item {
-                self.spinner.set_value(NumericValue::Integer(value));
-            }
-            // Java: setGraphic(spinner) — deferred to egui rendering
+        if !empty && let Some(value) = item {
+            self.spinner.set_value(NumericValue::Integer(value));
         }
+        // Java: setGraphic(spinner) — deferred to egui rendering
         // Java: if empty, setGraphic(null) — deferred to egui rendering
     }
 

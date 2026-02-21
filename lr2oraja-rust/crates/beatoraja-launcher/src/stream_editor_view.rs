@@ -6,6 +6,7 @@ use beatoraja_core::player_config::PlayerConfig;
 ///
 /// Stream request configuration UI: enable, notify, max count.
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct StreamEditorView {
     // @FXML private CheckBox enableRequest;
     enable_request: bool,
@@ -16,17 +17,6 @@ pub struct StreamEditorView {
 
     // private PlayerConfig player;
     player: Option<PlayerConfig>,
-}
-
-impl Default for StreamEditorView {
-    fn default() -> Self {
-        StreamEditorView {
-            enable_request: false,
-            notify_request: false,
-            max_request_count: 0,
-            player: None,
-        }
-    }
 }
 
 #[allow(dead_code)]
