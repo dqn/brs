@@ -90,6 +90,7 @@ impl RandomTrainer {
             white.shuffle(&mut rng);
 
             let mut new_lane_order: Vec<char> = lane_order.chars().collect();
+            #[allow(clippy::needless_range_loop)]
             for i in 0..lane_order.len() {
                 let current = new_lane_order[i];
                 let digit = current.to_digit(10).unwrap_or(0) as i32;
@@ -109,6 +110,7 @@ impl RandomTrainer {
         let mut shuffled_lanes: Vec<char> = lanes_to_random.clone();
         shuffled_lanes.shuffle(&mut rng);
         let mut new_lane_order: Vec<char> = lane_order.chars().collect();
+        #[allow(clippy::needless_range_loop)]
         for i in 0..lane_order.len() {
             let ch = new_lane_order[i];
             if lanes_to_random.contains(&ch)

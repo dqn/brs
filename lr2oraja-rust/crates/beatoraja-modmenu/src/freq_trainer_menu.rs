@@ -75,5 +75,5 @@ impl FreqTrainerMenu {
 }
 
 fn clamp(result: i32) -> i32 {
-    result.max(50).min(200)
+    result.clamp(50, 200)
 }

@@ -561,11 +561,7 @@ fn complete_property(header: &SkinHeader) -> SkinConfigProperty {
     }
 
     for file in header.get_custom_files() {
-        let file_selection = parse_custom_file(file).unwrap_or_else(|| {
-            let mut v = Vec::new();
-            v.push("Random".to_string());
-            v
-        });
+        let file_selection = parse_custom_file(file).unwrap_or_else(|| vec!["Random".to_string()]);
 
         {
             let mut available = AVAILABLE_FILES.lock().unwrap();
