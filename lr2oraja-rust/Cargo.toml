@@ -14,6 +14,11 @@ members = [
     "crates/beatoraja-select",
     "crates/beatoraja-result",
     "crates/beatoraja-decide",
+    "crates/beatoraja-ir",
+    "crates/beatoraja-external",
+    "crates/beatoraja-obs",
+    "crates/beatoraja-modmenu",
+    "crates/beatoraja-stream",
 ]
 resolver = "2"
 
@@ -37,6 +42,11 @@ beatoraja-skin = { path = "crates/beatoraja-skin" }
 beatoraja-select = { path = "crates/beatoraja-select" }
 beatoraja-result = { path = "crates/beatoraja-result" }
 beatoraja-decide = { path = "crates/beatoraja-decide" }
+beatoraja-ir = { path = "crates/beatoraja-ir" }
+beatoraja-external = { path = "crates/beatoraja-external" }
+beatoraja-obs = { path = "crates/beatoraja-obs" }
+beatoraja-modmenu = { path = "crates/beatoraja-modmenu" }
+beatoraja-stream = { path = "crates/beatoraja-stream" }
 
 # Error handling
 anyhow = "1"
@@ -51,6 +61,7 @@ sha2 = "0.10"
 
 # Encoding
 encoding_rs = "0.8"
+base64 = "0.22"
 
 # Logging
 log = "0.4"
@@ -66,6 +77,10 @@ uuid = { version = "1", features = ["v4"] }
 
 # Async runtime
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "fs"] }
+
+# WebSocket
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
 
 # Random
 rand = "0.8"
