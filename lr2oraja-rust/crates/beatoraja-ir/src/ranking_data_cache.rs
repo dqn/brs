@@ -49,7 +49,7 @@ impl RankingDataCache {
         } else {
             3
         };
-        let sha256 = song.sha256.clone().unwrap_or_default();
+        let sha256 = song.sha256.clone();
         self.scorecache[cacheindex].get(&sha256)
     }
 
@@ -75,7 +75,7 @@ impl RankingDataCache {
         } else {
             3
         };
-        let sha256 = song.sha256.clone().unwrap_or_default();
+        let sha256 = song.sha256.clone();
         self.scorecache[cacheindex].insert(sha256, iras);
     }
 
@@ -95,7 +95,7 @@ impl RankingDataCache {
     fn create_course_hash(&self, course: &CourseData) -> Option<String> {
         let mut sb = String::new();
         for song in course.get_song() {
-            let sha256 = song.sha256.clone().unwrap_or_default();
+            let sha256 = song.sha256.clone();
             if sha256.len() == 64 {
                 sb.push_str(&sha256);
             } else {
@@ -109,18 +109,5 @@ impl RankingDataCache {
         hasher.update(sb.as_bytes());
         let result = hasher.finalize();
         Some(convert_hex_string(&result))
-    }
-}
-
-/// Extension trait for SongData to check undefined long notes
-trait SongDataExt {
-    fn has_undefined_long_note(&self) -> bool;
-}
-
-impl SongDataExt for SongData {
-    fn has_undefined_long_note(&self) -> bool {
-        // beatoraja_core::stubs::SongData doesn't have this field
-        // This is a stub that returns false
-        false
     }
 }

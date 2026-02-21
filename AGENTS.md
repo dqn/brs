@@ -83,10 +83,11 @@ brs/
 | 11 | Integration & wiring (stub replacement across 12 crates) | — |
 | 12 | `beatoraja-bin` (CLI + winit event loop) | — |
 | 14 | `beatoraja-types` (15 modules, circular dep resolution) | 15 |
+| 15a | SongData/SongInformation/IpfsInformation → `beatoraja-types` | 3 |
 
 ## Deferred / Stub Items
 
-**Circular dep stubs (cannot replace):** SongData/SkinType/GrooveGauge in core; TextureRegion/Texture in play.
+**Circular dep stubs (cannot replace):** SkinType/GrooveGauge in core; TextureRegion/Texture in play.
 **Structural mismatches:** SongDatabaseAccessor/IRConnection (struct vs trait); BMSPlayerInputProcessor (i32 vs usize).
 **Lifecycle stubs:** MainController, PlayerResource, MainState in all downstream crates.
 **External `todo!()`:** PortAudio, LibGDX, ebur128, 7z, MIDI, FLAC/MP3, BGA video, ImGui→egui, Twitter4j, AWT clipboard, LR2 score import, Windows named pipe.
@@ -130,3 +131,4 @@ brs/
 - **P8:** OBS auth: SHA-256 + base64. IRResponse: generic `IRResponse<T>`. IRConnectionManager: `OnceLock` registry. FontAwesome: ~1016 `pub const`. Ghost RLE: 40+ char mappings verbatim.
 - **P9:** SkinHeader + items need `#[derive(Clone)]`. **P10:** Custom CRC32 poly `0xEDB88320`, appends `\\\0`. RobustFile: double-write + `sync_all()`.
 - **P12:** winit: `create→resumed`, `render→RedrawRequested`, `resize→Resized`, `pause→suspended`, `dispose→CloseRequested`, `ControlFlow::Poll`. CLI: `clap::Parser`; `--replay N`. Deferred: egui launcher, fullscreen (GLFW).
+- **P15a:** Moving SongData to `beatoraja-types` required also moving `IpfsInformation` trait (orphan rule: foreign trait on foreign type). Pure interface traits can safely move to low-level crates. Add `full_title(&self) -> String` non-mut helper alongside cached `get_full_title(&mut self) -> &str`. Use `set_path_opt(Option<String>)` / `clear_path()` for `Option` → `String` path migration.

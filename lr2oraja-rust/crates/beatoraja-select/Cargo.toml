@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 bms-model.workspace = true
 beatoraja-core.workspace = true
+beatoraja-types.workspace = true
 beatoraja-play.workspace = true
 beatoraja-audio.workspace = true
 beatoraja-input.workspace = true

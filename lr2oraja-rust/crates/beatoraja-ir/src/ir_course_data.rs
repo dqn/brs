@@ -54,9 +54,9 @@ impl IRCourseData {
 /// Create IRChartData from beatoraja_core::stubs::SongData
 fn create_ir_chart_data_from_core_song(song: &beatoraja_core::stubs::SongData) -> IRChartData {
     IRChartData {
-        md5: song.md5.clone().unwrap_or_default(),
-        sha256: song.sha256.clone().unwrap_or_default(),
-        title: song.title.clone().unwrap_or_default(),
+        md5: song.md5.clone(),
+        sha256: song.sha256.clone(),
+        title: song.title.clone(),
         subtitle: String::new(),
         genre: String::new(),
         artist: String::new(),

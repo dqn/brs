@@ -281,10 +281,10 @@ impl FolderEditorView {
         for folder in folders {
             let songs = &folder.songs;
             for ts in songs {
-                let ts_md5 = ts.md5.as_deref().unwrap_or("");
-                let song_md5 = song.md5.as_deref().unwrap_or("");
-                let ts_sha256 = ts.sha256.as_deref().unwrap_or("");
-                let song_sha256 = song.sha256.as_deref().unwrap_or("");
+                let ts_md5 = ts.md5.as_str();
+                let song_md5 = song.md5.as_str();
+                let ts_sha256 = ts.sha256.as_str();
+                let song_sha256 = song.sha256.as_str();
 
                 if (!ts_md5.is_empty() && !song_md5.is_empty() && ts_md5 == song_md5)
                     || (!ts_sha256.is_empty()

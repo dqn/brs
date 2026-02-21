@@ -51,7 +51,7 @@ impl SongBar {
     }
 
     pub fn get_title(&self) -> String {
-        self.song.get_full_title()
+        self.song.full_title()
     }
 
     pub fn get_lamp(&self, is_player: bool) -> i32 {
@@ -95,7 +95,7 @@ impl SongBar {
         let mut noexistscount = elements.len() as i32;
 
         for element in elements.iter_mut() {
-            element.set_path(None);
+            element.clear_path();
         }
 
         for i in 0..songs.len() {
@@ -120,7 +120,7 @@ impl SongBar {
                             && element.get_sha256() == songs[i].as_ref().unwrap().get_sha256()))
                 {
                     let song_path = songs[i].as_ref().unwrap().get_path().map(|s| s.to_string());
-                    elements[j].set_path(song_path);
+                    elements[j].set_path_opt(song_path);
                     if let Some(ref song) = songs[i] {
                         let elem_clone = elements[j].clone();
                         songs[i].as_mut().unwrap().merge(&elem_clone);

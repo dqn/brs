@@ -578,26 +578,10 @@ impl SongBar {
 }
 
 // =========================================================================
-// SongData stub
+// SongData — real type from beatoraja-types
 // =========================================================================
-// Cannot be replaced: beatoraja-core cannot import from beatoraja-song
-// (circular dependency), and the stub SongData is used by SongBar stub.
 
-#[derive(Clone, Debug, Default)]
-pub struct SongData {
-    pub title: String,
-    pub path: Option<String>,
-}
-
-impl SongData {
-    pub fn get_title(&self) -> &str {
-        &self.title
-    }
-
-    pub fn get_path(&self) -> Option<&str> {
-        self.path.as_deref()
-    }
-}
+pub use beatoraja_core::stubs::SongData;
 
 // ScoreData is re-exported from beatoraja_core at the top of this file.
 

@@ -6,6 +6,7 @@ pub mod stubs;
 
 // Foundational types
 pub mod clear_type;
+pub mod ipfs_information;
 pub mod resolution;
 pub mod validatable;
 
@@ -25,3 +26,5 @@ pub mod skin_config;
 pub mod course_data;
 pub mod replay_data;
 pub mod score_data;
+pub mod song_data;
+pub mod song_information;

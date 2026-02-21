@@ -17,6 +17,9 @@ serde_json = { workspace = true }
 # Logging
 log = { workspace = true }
 
+# Hashing
+sha2 = { workspace = true }
+
 # Compression (for ScoreData/ReplayData ghost encoding)
 base64 = { workspace = true }
 flate2 = "1"

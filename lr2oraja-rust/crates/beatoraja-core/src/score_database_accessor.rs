@@ -230,13 +230,13 @@ impl ScoreDatabaseAccessor {
                 let chunk_end = std::cmp::min(song_length, (i + 1) * LOAD_CHUNK_SIZE);
                 for j in chunk_start..chunk_end {
                     let song = &songs[j];
-                    let has_uln = song.sha256.is_some(); // Simplified; real check needs hasUndefinedLongNote
+                    let has_uln = !song.sha256.is_empty(); // Simplified; real check needs hasUndefinedLongNote
                     if (hasln && has_uln) || (!hasln && !has_uln) {
                         if !str_buf.is_empty() {
                             str_buf.push(',');
                         }
                         str_buf.push('\'');
-                        str_buf.push_str(song.sha256.as_deref().unwrap_or(""));
+                        str_buf.push_str(&song.sha256);
                         str_buf.push('\'');
                     }
                 }
@@ -258,9 +258,9 @@ impl ScoreDatabaseAccessor {
             }
 
             for song in songs {
-                let has_uln = song.sha256.is_some();
+                let has_uln = !song.sha256.is_empty();
                 if (hasln && has_uln) || (!hasln && !has_uln) {
-                    let sha = song.sha256.as_deref().unwrap_or("");
+                    let sha = song.sha256.as_str();
                     let mut found = false;
                     for score in &scores {
                         if sha == score.sha256 {

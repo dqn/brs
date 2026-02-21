@@ -121,31 +121,12 @@ impl TableEditorView {
         let mut grid_data: Vec<(String, String)> = Vec::new();
 
         // dialogAddCopiableRow(gridPane, 0, "Title", song.getFullTitle());
-        Self::dialog_add_copiable_row(
-            &mut grid_data,
-            0,
-            "Title",
-            song.title.as_deref().unwrap_or(""),
-        );
-        // dialogAddCopiableRow(gridPane, 1, "Artist", song.getFullArtist());
-        Self::dialog_add_copiable_row(&mut grid_data, 1, "Artist", ""); // SongData stub has no artist field
-        // dialogAddCopiableRow(gridPane, 2, "Genre", song.getGenre());
-        Self::dialog_add_copiable_row(&mut grid_data, 2, "Genre", ""); // SongData stub has no genre field
+        Self::dialog_add_copiable_row(&mut grid_data, 0, "Title", &song.title);
+        Self::dialog_add_copiable_row(&mut grid_data, 1, "Artist", &song.artist);
+        Self::dialog_add_copiable_row(&mut grid_data, 2, "Genre", &song.genre);
 
-        // dialogAddCopiableRow(gridPane, 3, "MD5 Hash", song.getMd5());
-        Self::dialog_add_copiable_row(
-            &mut grid_data,
-            3,
-            "MD5 Hash",
-            song.md5.as_deref().unwrap_or(""),
-        );
-        // dialogAddCopiableRow(gridPane, 4, "SHA256 Hash", song.getSha256());
-        Self::dialog_add_copiable_row(
-            &mut grid_data,
-            4,
-            "SHA256 Hash",
-            song.sha256.as_deref().unwrap_or(""),
-        );
+        Self::dialog_add_copiable_row(&mut grid_data, 3, "MD5 Hash", &song.md5);
+        Self::dialog_add_copiable_row(&mut grid_data, 4, "SHA256 Hash", &song.sha256);
 
         // if (song.getPath() == null && songdb != null) {
         //     // Try to find actual song in songdb

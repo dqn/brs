@@ -182,10 +182,14 @@ Resolve all non-rendering stubs that remain due to structural mismatches, circul
 
 Move `SongData` into `beatoraja-types` to break core→song circular dep.
 
-- [ ] Move `SongData` struct from `beatoraja-song` to `beatoraja-types` (keep DB accessor in `beatoraja-song`)
-- [ ] Replace `SongData` stub in `beatoraja-core/stubs.rs` with `pub use beatoraja_types::SongData`
-- [ ] Replace `SongData` stubs in `beatoraja-select`, `beatoraja-launcher` with `beatoraja-types` import
-- [ ] Verify: all tests pass, zero clippy warnings
+- [x] Move `SongData` struct from `beatoraja-song` to `beatoraja-types` (keep DB accessor in `beatoraja-song`)
+- [x] Move `SongInformation` struct from `beatoraja-song` to `beatoraja-types`
+- [x] Move `IpfsInformation` trait from `md-processor` to `beatoraja-types` (breaks cycle: types→md-processor→core→types)
+- [x] Replace `SongData` stub in `beatoraja-core/stubs.rs` with `pub use beatoraja_types::SongData`
+- [x] Replace `SongData` stubs in `beatoraja-select`, `beatoraja-modmenu`, `beatoraja-launcher` with `beatoraja-types` import
+- [x] Update callers for API changes: `Option<String>` → `String` fields, `get_full_title(&mut self)` → `full_title(&self)`, `set_path(Option)` → `set_path_opt`/`clear_path`
+- [x] Remove unused `SongDataExt` workaround trait from `beatoraja-ir`
+- [x] Verify: all 66 tests pass, zero clippy warnings, clean `cargo fmt`
 
 ### 15b: Circular Dependency — SkinType / GrooveGauge Extraction
 

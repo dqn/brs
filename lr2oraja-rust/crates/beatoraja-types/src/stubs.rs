@@ -260,25 +260,7 @@ impl PatternModifyLog {
 }
 
 // ---------------------------------------------------------------------------
-// beatoraja-song stubs
+// beatoraja-song stubs — SongData moved to beatoraja-types/src/song_data.rs
 // ---------------------------------------------------------------------------
 
-/// Stub for beatoraja.song.SongData
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
-pub struct SongData {
-    pub sha256: Option<String>,
-    pub title: Option<String>,
-    pub md5: Option<String>,
-    pub url: Option<String>,
-}
-
-impl SongData {
-    pub fn shrink(&mut self) {
-        // Placeholder for shrinking large fields
-    }
-
-    pub fn validate(&mut self) -> bool {
-        self.sha256.as_ref().is_some_and(|s| !s.is_empty())
-            || self.md5.as_ref().is_some_and(|s| !s.is_empty())
-    }
-}
+pub use crate::song_data::SongData;
