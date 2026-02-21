@@ -4,44 +4,13 @@
 use std::collections::HashMap;
 
 // ============================================================
-// LibGDX types
+// LibGDX types — re-exported from beatoraja-skin stubs
 // ============================================================
 
-/// Stub for com.badlogic.gdx.graphics.Pixmap
-#[derive(Clone, Debug, Default)]
-pub struct Pixmap;
-
-/// Stub for com.badlogic.gdx.math.Rectangle
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Rectangle {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-}
-
-impl Rectangle {
-    pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self {
-            x,
-            y,
-            width,
-            height,
-        }
-    }
-
-    pub fn contains(&self, x: f32, y: f32) -> bool {
-        x >= self.x && x <= self.x + self.width && y >= self.y && y <= self.y + self.height
-    }
-}
-
-/// Stub for com.badlogic.gdx.graphics.g2d.TextureRegion
-#[derive(Clone, Debug, Default)]
-pub struct TextureRegion;
-
-/// Stub for com.badlogic.gdx.graphics.Color
-#[derive(Clone, Debug, Default)]
-pub struct Color;
+pub use beatoraja_skin::stubs::Color;
+pub use beatoraja_skin::stubs::Pixmap;
+pub use beatoraja_skin::stubs::Rectangle;
+pub use beatoraja_skin::stubs::TextureRegion;
 
 // ============================================================
 // beatoraja.song types
@@ -1665,16 +1634,8 @@ pub trait StringProperty {
     fn get(&self, state: &dyn MainState) -> String;
 }
 
-/// Stub for beatoraja.skin.SkinProperty timer constants
-pub mod skin_property {
-    pub const TIMER_STARTINPUT: i32 = 0;
-    pub const TIMER_SONGBAR_CHANGE: i32 = 1;
-    pub const TIMER_IR_CONNECT_BEGIN: i32 = 2;
-    pub const TIMER_IR_CONNECT_SUCCESS: i32 = 3;
-    pub const TIMER_IR_CONNECT_FAIL: i32 = 4;
-    pub const TIMER_PANEL1_ON: i32 = 5;
-    pub const TIMER_PANEL1_OFF: i32 = 6;
-}
+// skin_property constants — re-exported from beatoraja-skin
+pub use beatoraja_skin::skin_property;
 
 // ============================================================
 // beatoraja.SystemSoundManager
@@ -1683,16 +1644,8 @@ pub mod skin_property {
 /// Stub for SystemSoundManager
 pub struct SystemSoundManager;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SoundType {
-    FolderOpen,
-    FolderClose,
-    OptionOpen,
-    OptionClose,
-    OptionChange,
-    Scratch,
-    Select,
-}
+// SoundType — re-exported from beatoraja-core
+pub use beatoraja_core::system_sound_manager::SoundType;
 
 // ============================================================
 // beatoraja.audio types
