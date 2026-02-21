@@ -136,18 +136,12 @@ name = "beatoraja-external"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "beatoraja-core",
- "beatoraja-ir",
- "beatoraja-select",
- "beatoraja-skin",
- "bms-model",
  "chrono",
  "discord-rpc",
  "log",
  "reqwest",
  "serde",
  "serde_json",
- "sha2",
 ]
 
 [[package]]
@@ -169,8 +163,11 @@ dependencies = [
  "beatoraja-core",
  "bms-model",
  "chrono",
+ "encoding_rs",
+ "lazy_static",
  "log",
  "md-5",
+ "quick-xml",
  "regex",
  "reqwest",
  "serde",
@@ -1074,6 +1071,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lazy_static"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+
+[[package]]
 name = "leb128fmt"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1305,6 +1308,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.37.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "331e97a1af0bf59823e6eadffe373d7b27f485be8748f71471c662c1f269b7fb"
+dependencies = [
+ "memchr",
+ "serde",
 ]
 
 [[package]]

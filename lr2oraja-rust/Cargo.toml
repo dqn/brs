@@ -88,5 +88,11 @@ rand = "0.8"
 # Date/Time
 chrono = "0.4"
 
+# Lazy initialization
+lazy_static = "1"
+
+# XML
+quick-xml = { version = "0.37", features = ["serialize"] }
+
 # Testing
 tempfile = "3"
