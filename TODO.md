@@ -83,9 +83,9 @@ Standalone GUI. Can be deferred.
 
 Untranslated Java files not covered by Phase 1–9.
 
-- [ ] `beatoraja.song` (8 files, 2,206 lines) — Song data model & DB accessor
-- [ ] `beatoraja.controller` (3 files, 381 lines) — Lwjgl3 gamepad (LibGDX-dependent)
-- [ ] `beatoraja.system` (1 file, 139 lines) — RobustFile I/O utility
+- [x] `beatoraja.song` (8 files, 2,206 lines) — Song data model & DB accessor
+- [x] `beatoraja.controller` (3 files, 381 lines) — Lwjgl3 gamepad (LibGDX-dependent)
+- [x] `beatoraja.system` (1 file, 139 lines) — RobustFile I/O utility
 
 ## Phase 11: Integration & Wiring
 

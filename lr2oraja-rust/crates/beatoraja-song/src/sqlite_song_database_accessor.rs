@@ -1,0 +1,1091 @@
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use beatoraja_core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
+use beatoraja_core::validatable::remove_invalid_elements_vec;
+use bms_model::bms_decoder::BMSDecoder;
+use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
+use bms_model::bmson_decoder::BMSONDecoder;
+use bms_model::osu_decoder::OSUDecoder;
+use rusqlite::Connection;
+
+use crate::folder_data::FolderData;
+use crate::song_data::SongData;
+use crate::song_database_accessor::SongDatabaseAccessor;
+use crate::song_database_update_listener::SongDatabaseUpdateListener;
+use crate::song_information_accessor::SongInformationAccessor;
+use crate::song_utils;
+
+/// Plugin interface for song database accessor
+pub trait SongDatabaseAccessorPlugin {
+    fn update(&self, model: &BMSModel, song: &mut SongData);
+}
+
+/// SQLite song database accessor
+pub struct SQLiteSongDatabaseAccessor {
+    base: SQLiteDatabaseAccessor,
+    conn: Connection,
+    root: PathBuf,
+    plugins: Vec<Box<dyn SongDatabaseAccessorPlugin>>,
+    checked_parent: HashSet<String>,
+}
+
+impl SQLiteSongDatabaseAccessor {
+    pub fn new(filepath: &str, _bmsroot: &[String]) -> anyhow::Result<Self> {
+        let base = SQLiteDatabaseAccessor::new(vec![
+            Table::new(
+                "folder",
+                vec![
+                    Column::new("title", "TEXT"),
+                    Column::new("subtitle", "TEXT"),
+                    Column::new("command", "TEXT"),
+                    Column::with_pk("path", "TEXT", 0, 1),
+                    Column::new("banner", "TEXT"),
+                    Column::new("parent", "TEXT"),
+                    Column::new("type", "INTEGER"),
+                    Column::new("date", "INTEGER"),
+                    Column::new("adddate", "INTEGER"),
+                    Column::new("max", "INTEGER"),
+                ],
+            ),
+            Table::new(
+                "song",
+                vec![
+                    Column::with_pk("md5", "TEXT", 1, 0),
+                    Column::with_pk("sha256", "TEXT", 1, 0),
+                    Column::new("title", "TEXT"),
+                    Column::new("subtitle", "TEXT"),
+                    Column::new("genre", "TEXT"),
+                    Column::new("artist", "TEXT"),
+                    Column::new("subartist", "TEXT"),
+                    Column::new("tag", "TEXT"),
+                    Column::with_pk("path", "TEXT", 0, 1),
+                    Column::new("folder", "TEXT"),
+                    Column::new("stagefile", "TEXT"),
+                    Column::new("banner", "TEXT"),
+                    Column::new("backbmp", "TEXT"),
+                    Column::new("preview", "TEXT"),
+                    Column::new("parent", "TEXT"),
+                    Column::new("level", "INTEGER"),
+                    Column::new("difficulty", "INTEGER"),
+                    Column::new("maxbpm", "INTEGER"),
+                    Column::new("minbpm", "INTEGER"),
+                    Column::new("length", "INTEGER"),
+                    Column::new("mode", "INTEGER"),
+                    Column::new("judge", "INTEGER"),
+                    Column::new("feature", "INTEGER"),
+                    Column::new("content", "INTEGER"),
+                    Column::new("date", "INTEGER"),
+                    Column::new("favorite", "INTEGER"),
+                    Column::new("adddate", "INTEGER"),
+                    Column::new("notes", "INTEGER"),
+                    Column::new("charthash", "TEXT"),
+                ],
+            ),
+        ]);
+
+        let conn = Connection::open(filepath)?;
+        conn.execute_batch("PRAGMA shared_cache = ON; PRAGMA synchronous = OFF;")?;
+        let root = PathBuf::from(".");
+
+        let accessor = Self {
+            base,
+            conn,
+            root,
+            plugins: Vec::new(),
+            checked_parent: HashSet::new(),
+        };
+        accessor.create_table()?;
+        Ok(accessor)
+    }
+
+    pub fn add_plugin(&mut self, plugin: Box<dyn SongDatabaseAccessorPlugin>) {
+        self.plugins.push(plugin);
+    }
+
+    fn create_table(&self) -> anyhow::Result<()> {
+        self.base.validate(&self.conn)?;
+
+        // Check if sha256 is primary key in song table (migration check)
+        let mut stmt = self.conn.prepare("PRAGMA TABLE_INFO(song)")?;
+        let has_sha256_pk = stmt
+            .query_map([], |row| {
+                let name: String = row.get(1)?;
+                let pk: i32 = row.get(5)?;
+                Ok((name, pk))
+            })?
+            .filter_map(|r| r.ok())
+            .any(|(name, pk)| name == "sha256" && pk == 1);
+
+        if has_sha256_pk {
+            self.conn
+                .execute("ALTER TABLE [song] RENAME TO [old_song]", [])?;
+            self.base.validate(&self.conn)?;
+            self.conn.execute(
+                "INSERT INTO song SELECT \
+                 md5, sha256, title, subtitle, genre, artist, subartist, tag, path,\
+                 folder, stagefile, banner, backbmp, preview, parent, level, difficulty,\
+                 maxbpm, minbpm, length, mode, judge, feature, content,\
+                 date, favorite, notes, adddate, charthash \
+                 FROM old_song GROUP BY path HAVING MAX(adddate)",
+                [],
+            )?;
+            self.conn.execute("DROP TABLE old_song", [])?;
+        }
+
+        Ok(())
+    }
+
+    fn query_songs(&self, sql: &str, params: &[&dyn rusqlite::types::ToSql]) -> Vec<SongData> {
+        match self.query_songs_internal(sql, params) {
+            Ok(songs) => songs,
+            Err(e) => {
+                log::error!("Error querying songs: {}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    fn query_songs_internal(
+        &self,
+        sql: &str,
+        params: &[&dyn rusqlite::types::ToSql],
+    ) -> anyhow::Result<Vec<SongData>> {
+        let mut stmt = self.conn.prepare(sql)?;
+        let rows = stmt.query_map(params, |row| {
+            let mut sd = SongData::new();
+            sd.md5 = row.get::<_, String>(0).unwrap_or_default();
+            sd.sha256 = row.get::<_, String>(1).unwrap_or_default();
+            sd.title = row.get::<_, String>(2).unwrap_or_default();
+            sd.subtitle = row.get::<_, String>(3).unwrap_or_default();
+            sd.genre = row.get::<_, String>(4).unwrap_or_default();
+            sd.artist = row.get::<_, String>(5).unwrap_or_default();
+            sd.subartist = row.get::<_, String>(6).unwrap_or_default();
+            sd.tag = row.get::<_, String>(7).unwrap_or_default();
+            let path: String = row.get::<_, String>(8).unwrap_or_default();
+            sd.set_path(path);
+            sd.folder = row.get::<_, String>(9).unwrap_or_default();
+            sd.stagefile = row.get::<_, String>(10).unwrap_or_default();
+            sd.banner = row.get::<_, String>(11).unwrap_or_default();
+            sd.backbmp = row.get::<_, String>(12).unwrap_or_default();
+            sd.preview = row.get::<_, String>(13).unwrap_or_default();
+            sd.parent = row.get::<_, String>(14).unwrap_or_default();
+            sd.level = row.get::<_, i32>(15).unwrap_or(0);
+            sd.difficulty = row.get::<_, i32>(16).unwrap_or(0);
+            sd.maxbpm = row.get::<_, i32>(17).unwrap_or(0);
+            sd.minbpm = row.get::<_, i32>(18).unwrap_or(0);
+            sd.length = row.get::<_, i32>(19).unwrap_or(0);
+            sd.mode = row.get::<_, i32>(20).unwrap_or(0);
+            sd.judge = row.get::<_, i32>(21).unwrap_or(0);
+            sd.feature = row.get::<_, i32>(22).unwrap_or(0);
+            sd.content = row.get::<_, i32>(23).unwrap_or(0);
+            sd.date = row.get::<_, i32>(24).unwrap_or(0);
+            sd.favorite = row.get::<_, i32>(25).unwrap_or(0);
+            sd.adddate = row.get::<_, i32>(26).unwrap_or(0);
+            sd.notes = row.get::<_, i32>(27).unwrap_or(0);
+            sd.charthash = row.get::<_, Option<String>>(28).unwrap_or(None);
+            Ok(sd)
+        })?;
+        let mut result = Vec::new();
+        for sd in rows.flatten() {
+            result.push(sd);
+        }
+        Ok(result)
+    }
+
+    fn query_folders(&self, sql: &str, params: &[&dyn rusqlite::types::ToSql]) -> Vec<FolderData> {
+        match self.query_folders_internal(sql, params) {
+            Ok(folders) => folders,
+            Err(e) => {
+                log::error!("Error querying folders: {}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    fn query_folders_internal(
+        &self,
+        sql: &str,
+        params: &[&dyn rusqlite::types::ToSql],
+    ) -> anyhow::Result<Vec<FolderData>> {
+        let mut stmt = self.conn.prepare(sql)?;
+        let rows = stmt.query_map(params, |row| {
+            Ok(FolderData {
+                title: row.get::<_, String>(0).unwrap_or_default(),
+                subtitle: row.get::<_, String>(1).unwrap_or_default(),
+                command: row.get::<_, String>(2).unwrap_or_default(),
+                path: row.get::<_, String>(3).unwrap_or_default(),
+                banner: row.get::<_, String>(4).unwrap_or_default(),
+                parent: row.get::<_, String>(5).unwrap_or_default(),
+                folder_type: row.get::<_, i32>(6).unwrap_or(0),
+                date: row.get::<_, i32>(7).unwrap_or(0),
+                adddate: row.get::<_, i32>(8).unwrap_or(0),
+                max: row.get::<_, i32>(9).unwrap_or(0),
+            })
+        })?;
+        let mut result = Vec::new();
+        for fd in rows.flatten() {
+            result.push(fd);
+        }
+        Ok(result)
+    }
+
+    fn insert_song(&self, sd: &SongData) -> anyhow::Result<()> {
+        self.base.insert_with_values(
+            &self.conn,
+            "song",
+            &|name: &str| -> rusqlite::types::Value {
+                match name {
+                    "md5" => rusqlite::types::Value::Text(sd.md5.clone()),
+                    "sha256" => rusqlite::types::Value::Text(sd.sha256.clone()),
+                    "title" => rusqlite::types::Value::Text(sd.title.clone()),
+                    "subtitle" => rusqlite::types::Value::Text(sd.subtitle.clone()),
+                    "genre" => rusqlite::types::Value::Text(sd.genre.clone()),
+                    "artist" => rusqlite::types::Value::Text(sd.artist.clone()),
+                    "subartist" => rusqlite::types::Value::Text(sd.subartist.clone()),
+                    "tag" => rusqlite::types::Value::Text(sd.tag.clone()),
+                    "path" => rusqlite::types::Value::Text(sd.get_path().unwrap_or("").to_string()),
+                    "folder" => rusqlite::types::Value::Text(sd.folder.clone()),
+                    "stagefile" => rusqlite::types::Value::Text(sd.stagefile.clone()),
+                    "banner" => rusqlite::types::Value::Text(sd.banner.clone()),
+                    "backbmp" => rusqlite::types::Value::Text(sd.backbmp.clone()),
+                    "preview" => rusqlite::types::Value::Text(sd.preview.clone()),
+                    "parent" => rusqlite::types::Value::Text(sd.parent.clone()),
+                    "level" => rusqlite::types::Value::Integer(sd.level as i64),
+                    "difficulty" => rusqlite::types::Value::Integer(sd.difficulty as i64),
+                    "maxbpm" => rusqlite::types::Value::Integer(sd.maxbpm as i64),
+                    "minbpm" => rusqlite::types::Value::Integer(sd.minbpm as i64),
+                    "length" => rusqlite::types::Value::Integer(sd.length as i64),
+                    "mode" => rusqlite::types::Value::Integer(sd.mode as i64),
+                    "judge" => rusqlite::types::Value::Integer(sd.judge as i64),
+                    "feature" => rusqlite::types::Value::Integer(sd.feature as i64),
+                    "content" => rusqlite::types::Value::Integer(sd.content as i64),
+                    "date" => rusqlite::types::Value::Integer(sd.date as i64),
+                    "favorite" => rusqlite::types::Value::Integer(sd.favorite as i64),
+                    "adddate" => rusqlite::types::Value::Integer(sd.adddate as i64),
+                    "notes" => rusqlite::types::Value::Integer(sd.notes as i64),
+                    "charthash" => match &sd.charthash {
+                        Some(h) => rusqlite::types::Value::Text(h.clone()),
+                        None => rusqlite::types::Value::Null,
+                    },
+                    _ => rusqlite::types::Value::Null,
+                }
+            },
+        )
+    }
+
+    fn insert_folder(&self, fd: &FolderData) -> anyhow::Result<()> {
+        self.base.insert_with_values(
+            &self.conn,
+            "folder",
+            &|name: &str| -> rusqlite::types::Value {
+                match name {
+                    "title" => rusqlite::types::Value::Text(fd.title.clone()),
+                    "subtitle" => rusqlite::types::Value::Text(fd.subtitle.clone()),
+                    "command" => rusqlite::types::Value::Text(fd.command.clone()),
+                    "path" => rusqlite::types::Value::Text(fd.path.clone()),
+                    "banner" => rusqlite::types::Value::Text(fd.banner.clone()),
+                    "parent" => rusqlite::types::Value::Text(fd.parent.clone()),
+                    "type" => rusqlite::types::Value::Integer(fd.folder_type as i64),
+                    "date" => rusqlite::types::Value::Integer(fd.date as i64),
+                    "adddate" => rusqlite::types::Value::Integer(fd.adddate as i64),
+                    "max" => rusqlite::types::Value::Integer(fd.max as i64),
+                    _ => rusqlite::types::Value::Null,
+                }
+            },
+        )
+    }
+}
+
+impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
+    fn get_song_datas(&self, key: &str, value: &str) -> Vec<SongData> {
+        let sql = format!("SELECT * FROM song WHERE {} = ?1", key);
+        let songs = self.query_songs(&sql, &[&value as &dyn rusqlite::types::ToSql]);
+        remove_invalid_elements_vec(songs)
+    }
+
+    fn get_song_datas_by_hashes(&self, hashes: &[String]) -> Vec<SongData> {
+        let mut md5str = String::new();
+        let mut sha256str = String::new();
+        for hash in hashes {
+            if hash.len() > 32 {
+                if !sha256str.is_empty() {
+                    sha256str.push(',');
+                }
+                sha256str.push('\'');
+                sha256str.push_str(hash);
+                sha256str.push('\'');
+            } else {
+                if !md5str.is_empty() {
+                    md5str.push(',');
+                }
+                md5str.push('\'');
+                md5str.push_str(hash);
+                md5str.push('\'');
+            }
+        }
+        let sql = format!(
+            "SELECT * FROM song WHERE md5 IN ({}) OR sha256 IN ({})",
+            md5str, sha256str
+        );
+
+        let m = self.query_songs(&sql, &[]);
+
+        // Preserve search order
+        let mut sorted = m;
+        sorted.sort_by(|a, b| {
+            let mut a_index_sha256 = -1i32;
+            let mut a_index_md5 = -1i32;
+            let mut b_index_sha256 = -1i32;
+            let mut b_index_md5 = -1i32;
+            for (i, hash) in hashes.iter().enumerate() {
+                if hash == &a.sha256 {
+                    a_index_sha256 = i as i32;
+                }
+                if hash == a.get_md5() {
+                    a_index_md5 = i as i32;
+                }
+                if hash == &b.sha256 {
+                    b_index_sha256 = i as i32;
+                }
+                if hash == b.get_md5() {
+                    b_index_md5 = i as i32;
+                }
+            }
+            let a_index = std::cmp::min(
+                if a_index_sha256 == -1 {
+                    i32::MAX
+                } else {
+                    a_index_sha256
+                },
+                if a_index_md5 == -1 {
+                    i32::MAX
+                } else {
+                    a_index_md5
+                },
+            );
+            let b_index = std::cmp::min(
+                if b_index_sha256 == -1 {
+                    i32::MAX
+                } else {
+                    b_index_sha256
+                },
+                if b_index_md5 == -1 {
+                    i32::MAX
+                } else {
+                    b_index_md5
+                },
+            );
+            // Java: return bIndex - aIndex (descending)
+            b_index.cmp(&a_index)
+        });
+
+        remove_invalid_elements_vec(sorted)
+    }
+
+    fn get_song_datas_by_sql(
+        &self,
+        sql: &str,
+        score: &str,
+        scorelog: &str,
+        info: Option<&str>,
+    ) -> Vec<SongData> {
+        let result: anyhow::Result<Vec<SongData>> = (|| {
+            self.conn
+                .execute(&format!("ATTACH DATABASE '{}' as scoredb", score), [])?;
+            self.conn
+                .execute(&format!("ATTACH DATABASE '{}' as scorelogdb", scorelog), [])?;
+
+            let songs = if let Some(info_path) = info {
+                self.conn
+                    .execute(&format!("ATTACH DATABASE '{}' as infodb", info_path), [])?;
+                let query = format!(
+                    "SELECT DISTINCT md5, song.sha256 AS sha256, title, subtitle, genre, artist, subartist,path,folder,stagefile,banner,backbmp,parent,level,difficulty,\
+                     maxbpm,minbpm,song.mode AS mode, judge, feature, content, song.date AS date, favorite, song.notes AS notes, adddate, preview, length, charthash\
+                     FROM song INNER JOIN (information LEFT OUTER JOIN (score LEFT OUTER JOIN scorelog ON score.sha256 = scorelog.sha256) ON information.sha256 = score.sha256) \
+                     ON song.sha256 = information.sha256 WHERE {}",
+                    sql
+                );
+                let songs = self.query_songs(&query, &[]);
+                let _ = self.conn.execute("DETACH DATABASE infodb", []);
+                songs
+            } else {
+                let query = format!(
+                    "SELECT DISTINCT md5, song.sha256 AS sha256, title, subtitle, genre, artist, subartist,path,folder,stagefile,banner,backbmp,parent,level,difficulty,\
+                     maxbpm,minbpm,song.mode AS mode, judge, feature, content, song.date AS date, favorite, song.notes AS notes, adddate, preview, length, charthash\
+                     FROM song LEFT OUTER JOIN (score LEFT OUTER JOIN scorelog ON score.sha256 = scorelog.sha256) ON song.sha256 = score.sha256 WHERE {}",
+                    sql
+                );
+                self.query_songs(&query, &[])
+            };
+
+            let _ = self.conn.execute("DETACH DATABASE scorelogdb", []);
+            let _ = self.conn.execute("DETACH DATABASE scoredb", []);
+
+            Ok(remove_invalid_elements_vec(songs))
+        })();
+
+        match result {
+            Ok(songs) => songs,
+            Err(e) => {
+                log::error!("Error in getSongDatas with SQL: {}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    fn get_song_datas_by_text(&self, text: &str) -> Vec<SongData> {
+        let sql = "SELECT * FROM song WHERE rtrim(title||' '||subtitle||' '||artist||' '||subartist||' '||genre) LIKE ?1 GROUP BY sha256";
+        let pattern = format!("%{}%", text);
+        let songs = self.query_songs(sql, &[&pattern as &dyn rusqlite::types::ToSql]);
+        remove_invalid_elements_vec(songs)
+    }
+
+    fn get_folder_datas(&self, key: &str, value: &str) -> Vec<FolderData> {
+        let sql = format!("SELECT * FROM folder WHERE {} = ?1", key);
+        self.query_folders(&sql, &[&value as &dyn rusqlite::types::ToSql])
+    }
+
+    fn set_song_datas(&self, songs: &[SongData]) {
+        if let Err(e) = self.conn.execute_batch("BEGIN TRANSACTION") {
+            log::error!("Error starting transaction: {}", e);
+            return;
+        }
+
+        for sd in songs {
+            if let Err(e) = self.insert_song(sd) {
+                log::error!("Error inserting song: {}", e);
+            }
+        }
+
+        if let Err(e) = self.conn.execute_batch("COMMIT") {
+            log::error!("Error committing transaction: {}", e);
+        }
+    }
+
+    fn update_song_datas(
+        &self,
+        update_path: Option<&str>,
+        bmsroot: &[String],
+        update_all: bool,
+        update_parent_when_missing: bool,
+        info: Option<&SongInformationAccessor>,
+    ) {
+        let listener = SongDatabaseUpdateListener::new();
+        self.update_song_datas_with_listener(
+            update_path,
+            bmsroot,
+            update_all,
+            update_parent_when_missing,
+            info,
+            &listener,
+        );
+    }
+
+    fn update_song_datas_with_listener(
+        &self,
+        update_path: Option<&str>,
+        bmsroot: &[String],
+        update_all: bool,
+        update_parent_when_missing: bool,
+        info: Option<&SongInformationAccessor>,
+        listener: &SongDatabaseUpdateListener,
+    ) {
+        if bmsroot.is_empty() {
+            log::warn!("No BMS root folders registered");
+            return;
+        }
+
+        let mut path = update_path.map(|s| s.to_string());
+
+        if update_parent_when_missing && let Some(ref p) = path {
+            let parent = Path::new(p)
+                .parent()
+                .map(|pp| pp.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if !self.checked_parent.contains(&parent) {
+                let query = format!("SELECT * FROM folder WHERE path = '{}'", parent);
+                let folders = self.query_folders(&query, &[]);
+                if folders.is_empty() {
+                    path = Some(parent);
+                }
+            }
+        }
+
+        let updater = SongDatabaseUpdater {
+            update_all,
+            bmsroot: bmsroot.to_vec(),
+            info,
+        };
+
+        let start_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+
+        let paths: Vec<PathBuf> = if let Some(p) = &path {
+            vec![PathBuf::from(p)]
+        } else {
+            bmsroot.iter().map(PathBuf::from).collect()
+        };
+
+        updater.update_song_datas(self, &paths, listener);
+
+        let end_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+
+        let count = listener.get_bms_files_count();
+        if count > 0 {
+            log::info!(
+                "Song update completed: Time - {}ms, per song - {}ms",
+                end_time - start_time,
+                (end_time - start_time) / (count as u128)
+            );
+        } else {
+            log::info!(
+                "Song update completed: Time - {}ms, per song - unknown",
+                end_time - start_time
+            );
+        }
+    }
+}
+
+struct SongDatabaseUpdater<'a> {
+    update_all: bool,
+    bmsroot: Vec<String>,
+    info: Option<&'a SongInformationAccessor>,
+}
+
+impl<'a> SongDatabaseUpdater<'a> {
+    fn update_song_datas(
+        &self,
+        accessor: &SQLiteSongDatabaseAccessor,
+        paths: &[PathBuf],
+        listener: &SongDatabaseUpdateListener,
+    ) {
+        let updatetime = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        let mut property = SongDatabaseUpdaterProperty {
+            tags: HashMap::new(),
+            favorites: HashMap::new(),
+            info: self.info,
+            updatetime,
+            listener,
+        };
+
+        if let Some(info) = self.info {
+            let _ = info.start_update();
+        }
+
+        if let Err(e) = accessor.conn.execute_batch("BEGIN TRANSACTION") {
+            log::error!("Error starting transaction: {}", e);
+            return;
+        }
+
+        // Preserve tags and favorites
+        let records = accessor.query_songs("SELECT sha256, tag, favorite FROM song", &[]);
+        for record in &records {
+            if !record.tag.is_empty() {
+                property
+                    .tags
+                    .insert(record.sha256.clone(), record.tag.clone());
+            }
+            if record.favorite > 0 {
+                property
+                    .favorites
+                    .insert(record.sha256.clone(), record.favorite);
+            }
+        }
+
+        if self.update_all {
+            let _ = accessor.conn.execute("DELETE FROM folder", []);
+            let _ = accessor.conn.execute("DELETE FROM song", []);
+        } else {
+            // Delete folders not contained in root directories
+            let mut dsql = String::new();
+            let mut params: Vec<String> = Vec::new();
+            for (i, root) in self.bmsroot.iter().enumerate() {
+                dsql.push_str("path NOT LIKE ?");
+                params.push(format!("{}%", root));
+                if i < self.bmsroot.len() - 1 {
+                    dsql.push_str(" AND ");
+                }
+            }
+
+            let delete_folder_sql = format!(
+                "DELETE FROM folder WHERE path NOT LIKE 'LR2files%' AND path NOT LIKE '%.lr2folder' AND {}",
+                dsql
+            );
+            let delete_song_sql = format!("DELETE FROM song WHERE {}", dsql);
+
+            // Execute with dynamic params
+            let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+                .iter()
+                .map(|p| p as &dyn rusqlite::types::ToSql)
+                .collect();
+            let _ = accessor
+                .conn
+                .execute(&delete_folder_sql, param_refs.as_slice());
+            let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+                .iter()
+                .map(|p| p as &dyn rusqlite::types::ToSql)
+                .collect();
+            let _ = accessor
+                .conn
+                .execute(&delete_song_sql, param_refs.as_slice());
+        }
+
+        for p in paths {
+            let folder = BMSFolder::new(p.clone(), &self.bmsroot);
+            if let Err(e) = folder.process_directory(accessor, &mut property) {
+                log::error!("Error during song database update: {}", e);
+            }
+        }
+
+        let _ = accessor.conn.execute_batch("COMMIT");
+
+        if let Some(info) = self.info {
+            info.end_update();
+        }
+    }
+}
+
+struct BMSFolder {
+    path: PathBuf,
+    update_folder: bool,
+    txt: bool,
+    bmsfiles: Vec<PathBuf>,
+    dirs: Vec<BMSFolder>,
+    previewpath: Option<String>,
+    bmsroot: Vec<String>,
+}
+
+impl BMSFolder {
+    fn new(path: PathBuf, bmsroot: &[String]) -> Self {
+        Self {
+            path,
+            update_folder: true,
+            txt: false,
+            bmsfiles: Vec::new(),
+            dirs: Vec::new(),
+            previewpath: None,
+            bmsroot: bmsroot.to_vec(),
+        }
+    }
+
+    fn process_directory(
+        mut self,
+        accessor: &SQLiteSongDatabaseAccessor,
+        property: &mut SongDatabaseUpdaterProperty,
+    ) -> anyhow::Result<()> {
+        let root_str = accessor.root.to_string_lossy().to_string();
+        let bmsroot_strs: Vec<String> = self.bmsroot.clone();
+
+        let crc = song_utils::crc32(&self.path.to_string_lossy(), &bmsroot_strs, &root_str);
+
+        let records_sql = format!("SELECT * FROM song WHERE folder = '{}'", crc);
+        let mut records: Vec<Option<SongData>> = accessor
+            .query_songs(&records_sql, &[])
+            .into_iter()
+            .map(Some)
+            .collect();
+
+        let folders_sql = format!("SELECT * FROM folder WHERE parent = '{}'", crc);
+        let mut folders: Vec<Option<FolderData>> = accessor
+            .query_folders(&folders_sql, &[])
+            .into_iter()
+            .map(Some)
+            .collect();
+
+        // Scan directory
+        let mut auto_preview_file: Option<String> = None;
+
+        if let Ok(entries) = fs::read_dir(&self.path) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                if entry_path.is_dir() {
+                    self.dirs.push(BMSFolder::new(entry_path, &self.bmsroot));
+                } else {
+                    let filename = entry_path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
+                    let s = filename.to_lowercase();
+
+                    if !self.txt && s.ends_with(".txt") {
+                        self.txt = true;
+                    }
+                    if self.previewpath.is_none()
+                        && s.starts_with("preview")
+                        && (s.ends_with(".wav")
+                            || s.ends_with(".ogg")
+                            || s.ends_with(".mp3")
+                            || s.ends_with(".flac"))
+                    {
+                        if s.starts_with("preview_auto_generator") {
+                            auto_preview_file = Some(filename.clone());
+                        } else {
+                            self.previewpath = Some(filename.clone());
+                        }
+                    }
+                    if s.ends_with(".bms")
+                        || s.ends_with(".bme")
+                        || s.ends_with(".bml")
+                        || s.ends_with(".pms")
+                        || s.ends_with(".bmson")
+                        || s.ends_with(".osu")
+                    {
+                        self.bmsfiles.push(entry_path);
+                    }
+                }
+            }
+        }
+
+        if self.previewpath.is_none() && auto_preview_file.is_some() {
+            self.previewpath = auto_preview_file;
+        }
+
+        let contains_bms = !self.bmsfiles.is_empty();
+        property
+            .listener
+            .add_bms_files_count(self.bmsfiles.len() as i32);
+
+        let (skip_count, new_count) = self.process_bms_folder(&mut records, accessor, property);
+        property
+            .listener
+            .add_processed_bms_files_count(skip_count + new_count);
+        property.listener.add_new_bms_files_count(new_count);
+
+        // Match existing folders with dir entries
+        let folders_len = folders.len();
+        for bf in &mut self.dirs {
+            let s = if bf.path.starts_with(&accessor.root) {
+                let rel = accessor.root.as_path();
+                let relative = bf.path.strip_prefix(rel).unwrap_or(&bf.path);
+                format!("{}{}", relative.display(), std::path::MAIN_SEPARATOR)
+            } else {
+                format!("{}{}", bf.path.display(), std::path::MAIN_SEPARATOR)
+            };
+
+            for folder_opt in folders.iter_mut().take(folders_len) {
+                let matched = if let Some(record) = folder_opt.as_ref() {
+                    if record.path == s {
+                        Some(record.date)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                if let Some(record_date) = matched {
+                    *folder_opt = None;
+                    if let Ok(metadata) = fs::metadata(&bf.path)
+                        && let Ok(modified) = metadata.modified()
+                    {
+                        let modified_secs = modified
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs() as i32;
+                        if record_date == modified_secs {
+                            bf.update_folder = false;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        if !contains_bms {
+            let dirs = std::mem::take(&mut self.dirs);
+            for bf in dirs {
+                if let Err(e) = bf.process_directory(accessor, property) {
+                    log::error!("Error during song database update: {}", e);
+                }
+            }
+        }
+
+        // Update folder table
+        if self.update_folder {
+            let s = if self.path.starts_with(&accessor.root) {
+                let relative = self.path.strip_prefix(&accessor.root).unwrap_or(&self.path);
+                format!("{}{}", relative.display(), std::path::MAIN_SEPARATOR)
+            } else {
+                format!("{}{}", self.path.display(), std::path::MAIN_SEPARATOR)
+            };
+
+            let parentpath = self
+                .path
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| {
+                    std::fs::canonicalize(&self.path)
+                        .unwrap_or_else(|_| self.path.clone())
+                        .parent()
+                        .unwrap_or_else(|| Path::new("."))
+                        .to_path_buf()
+                });
+
+            let folder_date = fs::metadata(&self.path)
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as i32)
+                .unwrap_or(0);
+
+            let folder = FolderData {
+                title: self
+                    .path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+                path: s,
+                parent: song_utils::crc32(&parentpath.to_string_lossy(), &bmsroot_strs, &root_str),
+                date: folder_date,
+                adddate: property.updatetime as i32,
+                ..Default::default()
+            };
+
+            if let Err(e) = accessor.insert_folder(&folder) {
+                log::error!("Error inserting folder: {}", e);
+            }
+        }
+
+        // Delete folder records that no longer exist in directory
+        for folder in folders.into_iter().flatten() {
+            let delete_path = format!("{}%", folder.path);
+            let _ = accessor.conn.execute(
+                "DELETE FROM folder WHERE path LIKE ?1",
+                rusqlite::params![delete_path],
+            );
+            let _ = accessor.conn.execute(
+                "DELETE FROM song WHERE path LIKE ?1",
+                rusqlite::params![delete_path],
+            );
+        }
+
+        Ok(())
+    }
+
+    fn process_bms_folder(
+        &self,
+        records: &mut [Option<SongData>],
+        accessor: &SQLiteSongDatabaseAccessor,
+        property: &mut SongDatabaseUpdaterProperty,
+    ) -> (i32, i32) {
+        let mut skip_count = 0i32;
+        let mut new_count = 0i32;
+        let mut bmsdecoder: Option<BMSDecoder> = None;
+        let mut bmsondecoder: Option<BMSONDecoder> = None;
+        let mut osudecoder: Option<OSUDecoder> = None;
+        let root_str = accessor.root.to_string_lossy().to_string();
+        let bmsroot_strs: Vec<String> = self.bmsroot.clone();
+
+        for bmsfile_path in &self.bmsfiles {
+            let last_modified_time: i64 = fs::metadata(bmsfile_path)
+                .and_then(|m| m.modified())
+                .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as i64)
+                .unwrap_or(-1);
+
+            let pathname = if bmsfile_path.starts_with(&accessor.root) {
+                accessor
+                    .root
+                    .as_path()
+                    .strip_prefix(&accessor.root)
+                    .ok()
+                    .and_then(|_| bmsfile_path.strip_prefix(&accessor.root).ok())
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| bmsfile_path.to_string_lossy().to_string())
+            } else {
+                bmsfile_path.to_string_lossy().to_string()
+            };
+
+            let mut update = true;
+            for record in records.iter_mut() {
+                let matched = if let Some(rec) = record.as_ref() {
+                    rec.get_path() == Some(&pathname)
+                } else {
+                    false
+                };
+                if matched {
+                    if let Some(rec) = record.as_ref()
+                        && rec.date == last_modified_time as i32
+                    {
+                        update = false;
+                    }
+                    *record = None;
+                    break;
+                }
+            }
+
+            if !update {
+                skip_count += 1;
+                continue;
+            }
+
+            let model: Option<BMSModel> = if pathname.to_lowercase().ends_with(".bmson") {
+                if bmsondecoder.is_none() {
+                    bmsondecoder = Some(BMSONDecoder::new(LNTYPE_LONGNOTE));
+                }
+                match bmsondecoder.as_mut().unwrap().decode_path(bmsfile_path) {
+                    Some(m) => Some(m),
+                    None => {
+                        log::error!("Error while decoding bmson at path: {}", pathname);
+                        None
+                    }
+                }
+            } else if pathname.to_lowercase().ends_with(".osu") {
+                if osudecoder.is_none() {
+                    osudecoder = Some(OSUDecoder::new(LNTYPE_LONGNOTE));
+                }
+                match osudecoder.as_mut().unwrap().decode_path(bmsfile_path) {
+                    Some(m) => Some(m),
+                    None => {
+                        log::error!("Error while decoding osu at path: {}", pathname);
+                        None
+                    }
+                }
+            } else {
+                if bmsdecoder.is_none() {
+                    bmsdecoder = Some(BMSDecoder::new_with_lntype(LNTYPE_LONGNOTE));
+                }
+                match bmsdecoder.as_mut().unwrap().decode_path(bmsfile_path) {
+                    Some(m) => Some(m),
+                    None => {
+                        log::error!("Error while decoding bms at path: {}", pathname);
+                        None
+                    }
+                }
+            };
+
+            let model = match model {
+                Some(m) => m,
+                None => continue,
+            };
+
+            let mut sd = SongData::new_from_model(model, self.txt);
+
+            if sd.notes != 0
+                || !sd
+                    .model
+                    .as_ref()
+                    .is_none_or(|m| m.get_wav_list().is_empty())
+            {
+                if sd.difficulty == 0 {
+                    let fulltitle = format!("{}{}", sd.title, sd.subtitle).to_lowercase();
+                    let diffname = sd.subtitle.to_lowercase();
+                    if diffname.contains("beginner") {
+                        sd.difficulty = 1;
+                    } else if diffname.contains("normal") {
+                        sd.difficulty = 2;
+                    } else if diffname.contains("hyper") {
+                        sd.difficulty = 3;
+                    } else if diffname.contains("another") {
+                        sd.difficulty = 4;
+                    } else if diffname.contains("insane") || diffname.contains("leggendaria") {
+                        sd.difficulty = 5;
+                    } else if fulltitle.contains("beginner") {
+                        sd.difficulty = 1;
+                    } else if fulltitle.contains("normal") {
+                        sd.difficulty = 2;
+                    } else if fulltitle.contains("hyper") {
+                        sd.difficulty = 3;
+                    } else if fulltitle.contains("another") {
+                        sd.difficulty = 4;
+                    } else if fulltitle.contains("insane") || fulltitle.contains("leggendaria") {
+                        sd.difficulty = 5;
+                    } else if sd.notes < 250 {
+                        sd.difficulty = 1;
+                    } else if sd.notes < 600 {
+                        sd.difficulty = 2;
+                    } else if sd.notes < 1000 {
+                        sd.difficulty = 3;
+                    } else if sd.notes < 2000 {
+                        sd.difficulty = 4;
+                    } else {
+                        sd.difficulty = 5;
+                    }
+                }
+
+                if sd.preview.is_empty()
+                    && let Some(ref preview) = self.previewpath
+                {
+                    sd.preview = preview.clone();
+                }
+
+                let tag = property.tags.get(&sd.sha256).cloned().unwrap_or_default();
+                let favorite = property.favorites.get(&sd.sha256).copied().unwrap_or(0);
+
+                // Plugin updates
+                for plugin in &accessor.plugins {
+                    if let Some(ref model) = sd.model {
+                        let mut sd_clone = sd.clone();
+                        plugin.update(model, &mut sd_clone);
+                        sd = sd_clone;
+                    }
+                }
+
+                sd.tag = tag;
+                sd.set_path(pathname.clone());
+
+                if let Some(parent_path) = bmsfile_path.parent() {
+                    sd.folder =
+                        song_utils::crc32(&parent_path.to_string_lossy(), &bmsroot_strs, &root_str);
+                    if let Some(grandparent) = parent_path.parent() {
+                        sd.parent = song_utils::crc32(
+                            &grandparent.to_string_lossy(),
+                            &bmsroot_strs,
+                            &root_str,
+                        );
+                    }
+                }
+                sd.date = last_modified_time as i32;
+                sd.favorite = favorite;
+                sd.adddate = property.updatetime as i32;
+
+                if let Err(e) = accessor.insert_song(&sd) {
+                    log::error!("Error inserting song: {}", e);
+                }
+
+                if let Some(info) = property.info
+                    && let Some(ref model) = sd.model
+                {
+                    info.update(model);
+                }
+
+                new_count += 1;
+            } else {
+                let _ = accessor.conn.execute(
+                    "DELETE FROM song WHERE path = ?1",
+                    rusqlite::params![pathname],
+                );
+            }
+        }
+
+        // Delete records that no longer exist in directory
+        for record in records.iter().flatten() {
+            if let Some(path) = record.get_path() {
+                let _ = accessor
+                    .conn
+                    .execute("DELETE FROM song WHERE path = ?1", rusqlite::params![path]);
+            }
+        }
+
+        (skip_count, new_count)
+    }
+}
+
+struct SongDatabaseUpdaterProperty<'a> {
+    tags: HashMap<String, String>,
+    favorites: HashMap<String, i32>,
+    info: Option<&'a SongInformationAccessor>,
+    updatetime: i64,
+    listener: &'a SongDatabaseUpdateListener,
+}

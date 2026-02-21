@@ -6,10 +6,10 @@ pub fn crc32(path: &str, rootdirs: &[String], bmspath: &str) -> String {
     let mut path = path.to_string();
 
     for s in rootdirs {
-        if let Some(parent) = Path::new(s).parent() {
-            if parent.to_string_lossy() == path {
-                return "e2977170".to_string();
-            }
+        if let Some(parent) = Path::new(s).parent()
+            && parent.to_string_lossy() == path
+        {
+            return "e2977170".to_string();
         }
     }
 

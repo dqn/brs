@@ -120,6 +120,7 @@ brs/
 - **Phase 7 complete:** `beatoraja-select` (30 modules — song select screen, bar types, bar manager/renderer/sorter), `beatoraja-result` (7 modules — music/course result screens, gauge graph), `beatoraja-decide` (2 modules — decide screen)
 - **Phase 8 complete:** `beatoraja-ir` (14 modules — IR connection, LR2IR, ranking/leaderboard, ghost data), `beatoraja-external` (7 modules — BMS search, Discord listener, screenshot export, webhook, score import), `beatoraja-obs` (2 modules — OBS WebSocket client, OBS listener), `beatoraja-modmenu` (15 modules — ImGui/egui renderer, notify, trainers, skin/download/song menus, performance monitor), `beatoraja-stream` (3 modules — stream controller, stream commands)
 - **Phase 9 complete:** `beatoraja-launcher` (21 modules — settings GUI views, config editors, skin/resource/input/audio/video/OBS/IR/Discord/stream configuration, course/folder/table editors)
+- **Phase 10 complete:** `beatoraja-song` (8 modules — song data model, folder data, song information, DB accessors, CRC32 utils), `beatoraja-controller` (3 modules — LWJGL3/GLFW gamepad controller manager, stubbed for gilrs integration), `beatoraja-system` (1 module — RobustFile I/O with backup/restore semantics)
 
 ## Deferred / Stub Items
 - Phase 7+ type dependencies (screen implementations, select bar, etc.) are stubbed in `beatoraja-skin/src/stubs.rs`
@@ -398,3 +399,23 @@ Java's `ResourceConfigurationView` contains a static `Map.ofEntries(...)` with 5
 ### SkinHeader Clone Derivation (Phase 9)
 
 The launcher's `SkinConfigurationView` needs to clone `SkinHeader` and its custom item types (`CustomOption`, `CustomFile`, `CustomOffset`, `CustomCategory`). Phase 6 did not derive `Clone` for these types. Added `#[derive(Clone)]` to `SkinHeader` and all custom item types in `beatoraja-skin/src/skin_header.rs` to support cloning in the launcher.
+
+### SongData Stub → Full Implementation (Phase 10)
+
+`beatoraja-core/src/stubs.rs` contained a minimal `SongData` stub used by many Phase 4–9 crates. Phase 10 creates the full `beatoraja-song` crate with the complete `SongData` struct (30+ fields, `set_bms_model()` computing features/content/charthash). The stub in `beatoraja-core` remains for backward compatibility — Phase 11 will replace all stub references with `beatoraja-song` imports.
+
+### Custom CRC32 for LR2 Folder Hashing (Phase 10)
+
+Java's `SongUtils.crc32()` uses a custom CRC32 with polynomial `0xEDB88320` and appends `\\\0` (backslash + null byte) to the path before hashing. This is LR2-specific behavior and must be preserved exactly — standard CRC32 libraries produce different results. The path is converted to bytes before hashing (no encoding conversion).
+
+### LWJGL3 Controller → gilrs Stub Strategy (Phase 10)
+
+Java's LWJGL3 controller system (`Lwjgl3Controller`, `Lwjgl3ControllerManager`) depends on GLFW joystick APIs. In Rust, the data structures (axis state, button state, listener dispatch) are translated mechanically, but all GLFW calls are stubbed with `todo!("GLFW/gilrs integration")`. The gamepad integration will use `gilrs` crate in Phase 13.
+
+### RobustFile Backup/Restore Pattern (Phase 10)
+
+Java's `RobustFile` uses a double-write scheme (backup → temp → atomic rename) for crash-safe file writes. In Rust, `std::fs::rename()` provides atomic rename on the same filesystem. `File::sync_all()` replaces Java's `FileChannel.force(true)` for fsync. The `Parser<T>` functional interface translates to a generic `Fn(&[u8]) -> Result<T, ParseError>` parameter.
+
+### Three-Crate Split for Phase 10 (Phase 10)
+
+Phase 10 has 12 Java files across 3 independent packages (song, controller, system). Each maps to its own Rust crate. All 3 agents run in parallel since there are no cross-dependencies. `beatoraja-song` is the largest (8 files, 2,206 lines) and depends on `bms-model`, `beatoraja-core`, and `md-processor`. `beatoraja-controller` and `beatoraja-system` are standalone.
