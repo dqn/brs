@@ -81,7 +81,7 @@ All phases complete. 936 tests pass. Zero runtime `todo!()`/`unimplemented!()`.
 
 ## Remaining Stubs
 
-- **Circular dep:** TextureRegion/Texture in play (isolated in `beatoraja-skin/rendering_stubs.rs`)
+- ~~**Circular dep:** TextureRegion/Texture in play~~ → resolved: `pub use beatoraja_render::Texture` in `beatoraja-play/stubs.rs`
 - **Lifecycle:** MainController/PlayerResource stubs in downstream crates (implement traits from `beatoraja-types`)
 - **Remaining stubs.rs:** lifecycle stubs, cross-crate re-exports, Phase 13-deferred items (egui utilities)
 - **Platform:** Windows named pipe (platform-specific, not yet implemented)

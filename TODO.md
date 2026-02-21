@@ -49,12 +49,12 @@ Dependency graph order. Each module is ported only after its dependencies are co
 - [x] javax.sound.midi → `midir` (MIDI device input) — `beatoraja-input` with mpsc channel bridge
 - [x] PortAudio → Kira audio playback driver — `beatoraja-audio` `PortAudioDriver` backed by Kira `AudioManager`
 - [ ] BGA `MovieSeekThread` (background video decoding) — current impl is synchronous; Java uses a background thread for seek/decode
-- [ ] Keysound loading pipeline — `PortAudioDriver`/`GdxSoundDriver` `set_model()` does not load WAV files; `play_path()`/`play_note()` are stubs with `log::warn!()`
+- [x] Keysound loading pipeline — `PortAudioDriver`/`GdxSoundDriver` `set_model()` loads WAV via `StaticSoundData::from_file()`, `play_note()`/`play_path()` implemented with Kira playback (sound slicing deferred)
 - [ ] Windows named pipe IPC (`beatoraja-external`) — platform-specific, no Rust equivalent yet
 
 ## Remaining Stubs (Cannot Replace Yet)
 
-- **Rendering:** TextureRegion/Texture in `beatoraja-play` (skin→play circular dep; deferred to Phase 13 rendering integration)
+- ~~**Rendering:** TextureRegion/Texture in `beatoraja-play`~~ → resolved: `pub use beatoraja_render::Texture` (Phase 14)
 - **Lifecycle (trait-ified):** MainController/PlayerResource stubs remain but implement `MainControllerAccess`/`PlayerResourceAccess` traits. MainState stubs use `beatoraja-core` `MainState` trait; downstream stubs have crate-specific APIs
 - **External libraries:** LibGDX rendering types (Phase 13), ImGui/egui types (Phase 13)
 
