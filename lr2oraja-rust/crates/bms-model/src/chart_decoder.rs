@@ -2,8 +2,10 @@ use std::path::Path;
 
 use crate::bms_decoder::BMSDecoder;
 use crate::bms_model::LNTYPE_LONGNOTE;
+use crate::bmson_decoder::BMSONDecoder;
 use crate::chart_information::ChartInformation;
 use crate::decode_log::DecodeLog;
+use crate::osu_decoder::OSUDecoder;
 use crate::time_line::TimeLine;
 
 pub struct TimeLineCache {
@@ -19,6 +21,8 @@ impl TimeLineCache {
 
 pub enum ChartDecoderImpl {
     Bms(BMSDecoder),
+    Bmson(BMSONDecoder),
+    Osu(OSUDecoder),
 }
 
 impl ChartDecoderImpl {
@@ -27,6 +31,8 @@ impl ChartDecoderImpl {
             Some(path.to_path_buf()),
             match self {
                 ChartDecoderImpl::Bms(d) => d.lntype,
+                ChartDecoderImpl::Bmson(d) => d.lntype,
+                ChartDecoderImpl::Osu(d) => d.lntype,
             },
             None,
         );
@@ -36,12 +42,16 @@ impl ChartDecoderImpl {
     pub fn decode(&mut self, info: ChartInformation) -> Option<crate::bms_model::BMSModel> {
         match self {
             ChartDecoderImpl::Bms(d) => d.decode(info),
+            ChartDecoderImpl::Bmson(d) => d.decode(info),
+            ChartDecoderImpl::Osu(d) => d.decode(info),
         }
     }
 
     pub fn get_decode_log(&self) -> &[DecodeLog] {
         match self {
             ChartDecoderImpl::Bms(d) => &d.log,
+            ChartDecoderImpl::Bmson(d) => &d.log,
+            ChartDecoderImpl::Osu(d) => &d.log,
         }
     }
 }
@@ -56,9 +66,9 @@ pub fn get_decoder(p: &Path) -> Option<ChartDecoderImpl> {
             LNTYPE_LONGNOTE,
         )));
     } else if s.ends_with(".bmson") {
-        todo!("BMSONDecoder not yet implemented");
+        return Some(ChartDecoderImpl::Bmson(BMSONDecoder::new(LNTYPE_LONGNOTE)));
     } else if s.ends_with(".osu") {
-        todo!("OSUDecoder not yet implemented");
+        return Some(ChartDecoderImpl::Osu(OSUDecoder::new(LNTYPE_LONGNOTE)));
     }
     None
 }
