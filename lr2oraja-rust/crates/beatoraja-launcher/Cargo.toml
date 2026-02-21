@@ -26,3 +26,5 @@ md-processor = { workspace = true }
 beatoraja-song = { workspace = true }
 arboard = { workspace = true }
 cpal = { workspace = true }
+rfd = { workspace = true }
+open = { workspace = true }

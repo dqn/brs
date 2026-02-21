@@ -362,12 +362,23 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
     };
 
     if download_ok {
-        // Extract tar.gz - use todo!() for actual extraction
-        let _gz = "ipfs/bms.tar.gz";
-        let _tar = "ipfs/bms.tar";
-
-        // Tar.gz extraction
-        todo!("tar.gz extraction not yet implemented - requires flate2 + tar crates");
+        // Extract tar.gz
+        let gz_path = std::path::Path::new("ipfs/bms.tar.gz");
+        if gz_path.exists() {
+            let gz_file = match fs::File::open(gz_path) {
+                Ok(f) => f,
+                Err(e) => {
+                    log::error!("Failed to open tar.gz: {}", e);
+                    return;
+                }
+            };
+            let decoder = flate2::read::GzDecoder::new(gz_file);
+            let mut archive = tar::Archive::new(decoder);
+            if let Err(e) = archive.unpack("ipfs") {
+                log::error!("Failed to extract tar.gz: {}", e);
+            }
+            let _ = fs::remove_file(gz_path);
+        }
     }
 
     // File move logic (post-extraction)

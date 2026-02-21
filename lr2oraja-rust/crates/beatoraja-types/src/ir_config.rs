@@ -119,12 +119,60 @@ impl Validatable for IRConfig {
     }
 }
 
-// CipherUtils - AES encryption/decryption
-// TODO: Implement actual AES-ECB encryption when crypto library is integrated
-fn cipher_encrypt(_source: &str, _key: &str) -> anyhow::Result<String> {
-    todo!("AES encryption not yet implemented")
+// CipherUtils - AES/ECB/PKCS5Padding encryption/decryption
+// Matches Java: Cipher.getInstance("AES/ECB/PKCS5Padding")
+fn cipher_encrypt(source: &str, key: &str) -> anyhow::Result<String> {
+    use aes::Aes128;
+    use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
+    use base64::Engine;
+
+    let cipher = Aes128::new(GenericArray::from_slice(key.as_bytes()));
+
+    // PKCS5/PKCS7 padding
+    let input = source.as_bytes();
+    let block_size = 16;
+    let padding_len = block_size - (input.len() % block_size);
+    let mut padded = input.to_vec();
+    padded.extend(std::iter::repeat_n(padding_len as u8, padding_len));
+
+    // ECB mode - encrypt each block independently
+    let mut output = Vec::new();
+    for chunk in padded.chunks(block_size) {
+        let mut block = GenericArray::clone_from_slice(chunk);
+        cipher.encrypt_block(&mut block);
+        output.extend_from_slice(&block);
+    }
+
+    Ok(base64::engine::general_purpose::STANDARD.encode(&output))
 }
 
-fn cipher_decrypt(_encrypt_source: &str, _key: &str) -> anyhow::Result<String> {
-    todo!("AES decryption not yet implemented")
+fn cipher_decrypt(encrypt_source: &str, key: &str) -> anyhow::Result<String> {
+    use aes::Aes128;
+    use aes::cipher::{BlockDecrypt, KeyInit, generic_array::GenericArray};
+    use base64::Engine;
+
+    let cipher = Aes128::new(GenericArray::from_slice(key.as_bytes()));
+
+    let encrypted = base64::engine::general_purpose::STANDARD.decode(encrypt_source)?;
+
+    let block_size = 16;
+    let mut output = Vec::new();
+    for chunk in encrypted.chunks(block_size) {
+        if chunk.len() != block_size {
+            anyhow::bail!("Invalid encrypted data length");
+        }
+        let mut block = GenericArray::clone_from_slice(chunk);
+        cipher.decrypt_block(&mut block);
+        output.extend_from_slice(&block);
+    }
+
+    // Remove PKCS5/PKCS7 padding
+    if let Some(&pad_len) = output.last() {
+        let pad_len = pad_len as usize;
+        if pad_len > 0 && pad_len <= block_size && output.len() >= pad_len {
+            output.truncate(output.len() - pad_len);
+        }
+    }
+
+    Ok(String::from_utf8(output)?)
 }

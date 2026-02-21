@@ -22,14 +22,14 @@ serde_json = { workspace = true }
 log = { workspace = true }
 
 # Database
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { workspace = true }
 
 # Encoding
-base64 = "0.22"
-flate2 = "1"
+base64 = { workspace = true }
+flate2 = { workspace = true }
 
 # Crypto (for IRConfig cipher)
-aes = "0.8"
+aes = { workspace = true }
 ecb = "0.1"
 
 # Random

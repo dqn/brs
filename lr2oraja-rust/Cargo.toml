@@ -25,6 +25,7 @@ members = [
     "crates/beatoraja-system",
     "crates/beatoraja-bin",
     "crates/beatoraja-types",
+    "crates/beatoraja-render",
 ]
 resolver = "2"
 
@@ -125,3 +126,49 @@ image = "0.25"
 
 # Testing
 tempfile = "3"
+
+# File dialog
+rfd = "0.15"
+
+# Open URLs/files in default app
+open = "5"
+
+# AES encryption
+aes = "0.8"
+cbc = "0.1"
+
+# Compression
+flate2 = "1"
+
+# Archive extraction
+tar = "0.4"
+sevenz-rust = "0.6"
+
+# SQLite
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# Audio decoding
+lewton = "0.10"
+symphonia = { version = "0.5", features = ["mp3", "flac", "wav"] }
+kira = { version = "0.12", default-features = false, features = ["cpal"] }
+ebur128 = "0.1"
+
+# GPU rendering
+wgpu = "24"
+ab_glyph = "0.2"
+bytemuck = { version = "1", features = ["derive"] }
+beatoraja-render = { path = "crates/beatoraja-render" }
+
+# Lua scripting
+mlua = { version = "0.10", features = ["lua54", "vendored"] }
+
+# GUI
+egui = "0.30"
+egui-winit = "0.30"
+egui-wgpu = "0.30"
+
+# Video decoding
+ffmpeg-next = "7"
+
+# MIDI
+midir = "0.10"

@@ -11,24 +11,34 @@ use beatoraja_core::player_config::PlayerConfig;
 #[derive(Clone, Debug, Default)]
 pub struct EguiContext;
 
-/// Stub for file chooser dialog
-pub fn show_directory_chooser(_title: &str) -> Option<String> {
-    todo!("egui file dialog integration")
+/// Show a directory chooser dialog using rfd.
+pub fn show_directory_chooser(title: &str) -> Option<String> {
+    rfd::FileDialog::new()
+        .set_title(title)
+        .pick_folder()
+        .map(|p| p.to_string_lossy().into_owned())
 }
 
-/// Stub for file chooser dialog
-pub fn show_file_chooser(_title: &str) -> Option<String> {
-    todo!("egui file dialog integration")
+/// Show a file chooser dialog using rfd.
+pub fn show_file_chooser(title: &str) -> Option<String> {
+    rfd::FileDialog::new()
+        .set_title(title)
+        .pick_file()
+        .map(|p| p.to_string_lossy().into_owned())
 }
 
-/// Stub for opening URL in browser
-pub fn open_url_in_browser(_url: &str) {
-    todo!("open URL in browser")
+/// Open a URL in the default browser using the open crate.
+pub fn open_url_in_browser(url: &str) {
+    if let Err(e) = open::that(url) {
+        log::error!("Failed to open URL: {}", e);
+    }
 }
 
-/// Stub for opening folder in file manager
-pub fn open_folder_in_file_manager(_path: &str) {
-    todo!("open folder in file manager")
+/// Open a folder in the system file manager using the open crate.
+pub fn open_folder_in_file_manager(path: &str) {
+    if let Err(e) = open::that(path) {
+        log::error!("Failed to open folder: {}", e);
+    }
 }
 
 /// Copy text to system clipboard using arboard crate.

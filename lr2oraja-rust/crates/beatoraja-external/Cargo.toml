@@ -18,5 +18,6 @@ chrono.workspace = true
 reqwest.workspace = true
 arboard.workspace = true
 image.workspace = true
+rusqlite = { workspace = true }
 
 [dev-dependencies]

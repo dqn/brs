@@ -90,9 +90,34 @@ impl ScoreDataImporter {
         log::info!("Score import complete - imported count: {}", result.len());
     }
 
-    fn read_lr2_scores(_path: &str) -> anyhow::Result<Vec<HashMap<String, serde_json::Value>>> {
-        // In Java this uses JDBC to connect to SQLite and reads the "score" table.
-        // In Rust, use rusqlite to connect to the LR2 score database.
-        todo!("LR2 score database reading via rusqlite")
+    fn read_lr2_scores(path: &str) -> anyhow::Result<Vec<HashMap<String, serde_json::Value>>> {
+        let conn = rusqlite::Connection::open(path)?;
+        let mut stmt = conn.prepare("SELECT * FROM score")?;
+        let column_count = stmt.column_count();
+        let column_names: Vec<String> = (0..column_count)
+            .map(|i| stmt.column_name(i).unwrap().to_string())
+            .collect();
+        let rows = stmt.query_map([], |row| {
+            let mut map = HashMap::new();
+            for (i, name) in column_names.iter().enumerate() {
+                let value: rusqlite::types::Value = row.get(i)?;
+                let json_value = match value {
+                    rusqlite::types::Value::Null => serde_json::Value::Null,
+                    rusqlite::types::Value::Integer(n) => serde_json::Value::Number(n.into()),
+                    rusqlite::types::Value::Real(f) => serde_json::json!(f),
+                    rusqlite::types::Value::Text(s) => serde_json::Value::String(s),
+                    rusqlite::types::Value::Blob(b) => {
+                        serde_json::Value::String(format!("{:?}", b))
+                    }
+                };
+                map.insert(name.clone(), json_value);
+            }
+            Ok(map)
+        })?;
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row?);
+        }
+        Ok(result)
     }
 }

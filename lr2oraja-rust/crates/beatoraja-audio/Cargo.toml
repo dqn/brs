@@ -10,5 +10,10 @@ bms-model.workspace = true
 beatoraja-common.workspace = true
 beatoraja-types.workspace = true
 
+lewton = { workspace = true }
+symphonia = { workspace = true }
+kira = { workspace = true }
+ebur128 = { workspace = true }
+
 [dev-dependencies]
 tempfile.workspace = true

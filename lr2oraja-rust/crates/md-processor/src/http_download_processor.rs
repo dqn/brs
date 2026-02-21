@@ -350,10 +350,31 @@ fn download_file_from_url(
 /// # Returns
 /// the path to the directory just extracted
 fn extract_compressed_file(
-    _file: &Path,
-    _target_path: Option<&Path>,
-    _download_directory: &str,
+    file: &Path,
+    target_path: Option<&Path>,
+    download_directory: &str,
 ) -> anyhow::Result<Option<String>> {
-    // 7z extraction - no standard Rust library, use todo!()
-    todo!("7z extraction not yet implemented - requires sevenz-rust or similar crate")
+    let dest = target_path
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from(download_directory));
+
+    if !dest.exists() {
+        fs::create_dir_all(&dest)?;
+    }
+
+    sevenz_rust::decompress_file(file, &dest)
+        .map_err(|e| anyhow::anyhow!("7z extraction failed: {}", e))?;
+
+    // Find the extracted directory (first subdirectory in dest)
+    let mut extracted_dir = None;
+    if let Ok(entries) = fs::read_dir(&dest) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                extracted_dir = Some(entry.path().to_string_lossy().to_string());
+                break;
+            }
+        }
+    }
+
+    Ok(extracted_dir)
 }

@@ -13,5 +13,9 @@ log.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 regex.workspace = true
 
+flate2 = { workspace = true }
+tar = { workspace = true }
+sevenz-rust = { workspace = true }
+
 [dev-dependencies]
 tempfile.workspace = true
