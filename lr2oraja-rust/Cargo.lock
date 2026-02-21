@@ -117,6 +117,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "beatoraja-decide"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "beatoraja-core",
+ "beatoraja-input",
+ "beatoraja-play",
+ "beatoraja-skin",
+ "bms-model",
+ "log",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "beatoraja-input"
 version = "0.1.0"
 dependencies = [
@@ -153,6 +168,43 @@ dependencies = [
  "chrono",
  "log",
  "rand",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "beatoraja-result"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "beatoraja-audio",
+ "beatoraja-core",
+ "beatoraja-input",
+ "beatoraja-play",
+ "beatoraja-skin",
+ "bms-model",
+ "chrono",
+ "log",
+ "rand",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "beatoraja-select"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "beatoraja-audio",
+ "beatoraja-core",
+ "beatoraja-input",
+ "beatoraja-play",
+ "beatoraja-skin",
+ "bms-model",
+ "chrono",
+ "log",
+ "rand",
+ "regex",
  "serde",
  "serde_json",
 ]

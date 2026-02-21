@@ -117,9 +117,11 @@ brs/
 - **Phase 4 complete:** `beatoraja-core` (47 modules — config types, data models, DB accessors, core/resource types, config subpackage)
 - **Phase 5 complete:** `beatoraja-pattern` (14 modules — lane/note shuffle, modifiers), `beatoraja-play` (28 modules — judge, gauge, BGA, game loop)
 - **Phase 6 complete:** `beatoraja-skin` (50+ modules — skin rendering engine, property binding, JSON/LR2/Lua skin loaders)
+- **Phase 7 complete:** `beatoraja-select` (30 modules — song select screen, bar types, bar manager/renderer/sorter), `beatoraja-result` (7 modules — music/course result screens, gauge graph), `beatoraja-decide` (2 modules — decide screen)
 
 ## Deferred / Stub Items
 
+- Phase 8+ type dependencies (IR, modmenu, OBS, stream) are stubbed in each Phase 7 crate's `stubs.rs`
 - Phase 7+ type dependencies (screen implementations, select bar, etc.) are stubbed in `beatoraja-skin/src/stubs.rs`
 - Phase 4 type dependencies (Config, PlayModeConfig, etc.) are stubbed in each Phase 3 crate's `stubs.rs` (will be replaced with imports from `beatoraja-core`)
 - PortAudio, LibGDX, ebur128, 7z extraction methods use `todo!()` pending external library integration
@@ -309,3 +311,23 @@ Java's `SkinObject` is a ~1200-line class with extensive rendering logic (draw_i
 ### Factory Function Naming Convention (Phase 6)
 
 Java factory classes use method names like `getIntegerProperty(id)`. In Rust, append `_by_id` suffix to distinguish from other overloads: `get_integer_property_by_id(id)`, `get_rate_property_by_id(id)`, `get_image_index_property_by_id(id)`. All callers must use the exact function name — agents sometimes use the shorter form, causing compilation errors across multiple files.
+
+### Java Abstract Class Hierarchy for Screens (Phase 7)
+
+Java's `MainState` abstract class is a base for all screen states (MusicSelector, MusicResult, CourseResult, MusicDecide). In Rust, translate as a `MainStateData` struct containing shared fields (timer, resource, skin) plus a `MainState` trait for polymorphic behavior. Concrete screens embed `MainStateData` via composition and implement the trait.
+
+### Bar Type Hierarchy as Enum (Phase 7)
+
+Java's `Bar` abstract class with 15+ subclasses (SongBar, FolderBar, GradeBar, etc.) translates well as a Rust enum `BarType` with shared data in `BarData`. Each variant holds variant-specific fields. The `Bar` base class fields (score, rscore) go into `BarData`. Methods like `getTitle()` use `match` dispatch on variants.
+
+### Three-Crate Split for Screen Implementations (Phase 7)
+
+`beatoraja.select`, `beatoraja.result`, and `beatoraja.decide` translate to three separate crates. `beatoraja-select` is the largest (~4900 lines) and includes the `bar` submodule. `beatoraja-result` (~3000 lines) and `beatoraja-decide` (~270 lines) are independent. All three depend on `beatoraja-skin` and `beatoraja-core`. Phase 8+ types (IR, modmenu, OBS, stream) are stubbed in each crate's `stubs.rs`.
+
+### MainController and Screen Lifecycle Stubs (Phase 7)
+
+Screen classes (MusicSelector, MusicResult, MusicDecide) have extensive lifecycle methods (`create()`, `render()`, `dispose()`) that depend on LibGDX rendering and `MainController` orchestration. The data structures and state management translate mechanically, but rendering calls use `todo!("rendering dependency")`. The `loadSkin()` pattern is stubbed since it requires the full skin loading pipeline.
+
+### ContextMenuBar Complex Builder Pattern (Phase 7)
+
+Java's `ContextMenuBar` uses a nested builder with command lambdas (`Runnable` fields) for each menu entry. In Rust, translate as `Box<dyn Fn()>` closures stored in `CommandBar` structs. The `addChild()` chain pattern is preserved as a mutable `Vec<BarType>` push sequence.

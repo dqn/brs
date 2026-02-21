@@ -58,10 +58,10 @@ Multi-format skin rendering. Depends on: config, model, play.
 
 UI screens. Depends on: skin, config, play.
 
-- [ ] `beatoraja.select` (13 files, 8,386 lines) — Song select screen
-  - [ ] `beatoraja.select.bar` (17 files, 3,514 lines) — Bar rendering
-- [ ] `beatoraja.result` (7 files, 3,122 lines) — Result screen
-- [ ] `beatoraja.decide` (2 files, 172 lines) — Decide screen
+- [x] `beatoraja.select` (13 files, 8,386 lines) — Song select screen
+  - [x] `beatoraja.select.bar` (17 files, 3,514 lines) — Bar rendering
+- [x] `beatoraja.result` (7 files, 3,122 lines) — Result screen
+- [x] `beatoraja.decide` (2 files, 172 lines) — Decide screen
 
 ## Phase 8: Advanced Features (~15,946 lines)
 

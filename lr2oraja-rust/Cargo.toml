@@ -11,6 +11,9 @@ members = [
     "crates/beatoraja-pattern",
     "crates/beatoraja-play",
     "crates/beatoraja-skin",
+    "crates/beatoraja-select",
+    "crates/beatoraja-result",
+    "crates/beatoraja-decide",
 ]
 resolver = "2"
 
@@ -31,6 +34,9 @@ beatoraja-core = { path = "crates/beatoraja-core" }
 beatoraja-pattern = { path = "crates/beatoraja-pattern" }
 beatoraja-play = { path = "crates/beatoraja-play" }
 beatoraja-skin = { path = "crates/beatoraja-skin" }
+beatoraja-select = { path = "crates/beatoraja-select" }
+beatoraja-result = { path = "crates/beatoraja-result" }
+beatoraja-decide = { path = "crates/beatoraja-decide" }
 
 # Error handling
 anyhow = "1"
