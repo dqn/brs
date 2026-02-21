@@ -147,8 +147,8 @@ Align stub APIs with real type APIs across all crates.
 
 - [x] Unify Config/PlayerConfig field types (`String` vs `Option<String>`, `f32` vs `i32`)
 - [x] Unify Resolution type (struct with `f32` fields vs enum with `i32` methods)
-- [ ] Unify SongDatabaseAccessor (struct in stubs vs trait in real implementation — deferred, requires structural refactoring)
-- [ ] Unify BMSPlayerInputProcessor parameter types (`i32` vs `usize` — deferred, embedded in MainController stub chain)
+- [ ] Unify SongDatabaseAccessor (struct in stubs vs trait in real implementation — deferred to Phase 15c)
+- [ ] Unify BMSPlayerInputProcessor parameter types (`i32` vs `usize` — deferred to Phase 15c)
 - [x] Unify ScoreData method signatures (`set_player(String)` vs `set_player(Option<&str>)`)
 - [x] Update all callers to match unified APIs
 - [x] Reduce `stubs.rs` files to rendering-only + circular dep stubs
@@ -173,6 +173,69 @@ Stubs that remain due to circular dependencies, struct-vs-trait mismatches, or e
 - **Complex lifecycle:** MainController, PlayerResource, MainState in all downstream crates
 - **External libraries:** LibGDX rendering types (Phase 13), ImGui/egui types (Phase 13), Twitter4j (no equivalent), AWT clipboard (no equivalent)
 
+## Phase 15: Structural Refactoring & Remaining Stubs
+
+Depends on: Phase 13 (rendering stubs), Phase 14 (type unification).
+Resolve all non-rendering stubs that remain due to structural mismatches, circular dependencies, or missing platform equivalents.
+
+### 15a: Circular Dependency — SongData Extraction
+
+Move `SongData` into `beatoraja-types` to break core→song circular dep.
+
+- [ ] Move `SongData` struct from `beatoraja-song` to `beatoraja-types` (keep DB accessor in `beatoraja-song`)
+- [ ] Replace `SongData` stub in `beatoraja-core/stubs.rs` with `pub use beatoraja_types::SongData`
+- [ ] Replace `SongData` stubs in `beatoraja-select`, `beatoraja-launcher` with `beatoraja-types` import
+- [ ] Verify: all tests pass, zero clippy warnings
+
+### 15b: Circular Dependency — SkinType / GrooveGauge Extraction
+
+Move enum definitions into `beatoraja-types` to break skin/play→core cycles.
+
+- [ ] Move `SkinType` enum from `beatoraja-skin` to `beatoraja-types`
+- [ ] Move `GrooveGauge` base type (or trait) from `beatoraja-play` to `beatoraja-types`
+- [ ] Replace stubs in `beatoraja-types/stubs.rs` and downstream crates
+- [ ] Verify: all tests pass, zero clippy warnings
+
+### 15c: Struct-vs-Trait Unification
+
+Define shared traits in `beatoraja-types`, implement in real crates.
+
+- [ ] `SongDatabaseAccessor`: define trait in `beatoraja-types`, implement in `beatoraja-song`, replace struct stubs in `beatoraja-select`/`beatoraja-external`
+- [ ] `IRConnection`: define trait in `beatoraja-types`, implement in `beatoraja-ir`, replace struct stubs in `beatoraja-select`/`beatoraja-result`
+- [ ] `BMSPlayerInputProcessor`: unify parameter types (`i32` → `usize`), update all callers
+- [ ] `TableDataAccessor` / `TableAccessor`: define trait in `beatoraja-types`, implement in `beatoraja-core`, replace stubs
+- [ ] Verify: all tests pass, zero clippy warnings
+
+### 15d: MainController / PlayerResource / MainState Lifecycle
+
+Define trait interfaces in `beatoraja-types` for the "god objects" so downstream crates use traits instead of concrete stubs.
+
+- [ ] Define `MainControllerAccess` trait in `beatoraja-types` (config access, screen transitions, audio control, input polling)
+- [ ] Define `PlayerResourceAccess` trait in `beatoraja-types` (skin, score data, song data, replay data)
+- [ ] Define `MainStateAccess` trait in `beatoraja-types` (timer, resource, skin, state queries)
+- [ ] Implement traits on real types in `beatoraja-core`
+- [ ] Replace `MainController` / `PlayerResource` / `MainState` stubs in all downstream crates (~10 crates) with `dyn Trait` references
+- [ ] Verify: all tests pass, zero clippy warnings
+
+### 15e: Platform-Specific Replacements
+
+Replace or remove stubs with no direct Java equivalent.
+
+- [ ] Twitter4j (`beatoraja-external`): remove `ScreenShotTwitterExporter` or replace with `reqwest` + Twitter API v2 (optional feature)
+- [ ] AWT clipboard (`beatoraja-external`): replace with `arboard` crate for cross-platform clipboard
+- [ ] PortAudio device enumeration (`beatoraja-launcher`): replace with `cpal` host/device listing
+- [ ] Monitor enumeration (`beatoraja-launcher`): replace with `winit` monitor detection
+- [ ] Verify: all tests pass, zero clippy warnings
+
+### 15f: Final Stub Cleanup
+
+Remove all remaining `stubs.rs` files or reduce to zero non-rendering stubs.
+
+- [ ] Audit each crate's `stubs.rs` — remove stubs that are now unused
+- [ ] Move Phase 13 rendering stubs (if any remain) into dedicated `rendering_stubs.rs` to separate from structural stubs
+- [ ] Verify: no non-rendering stubs remain outside `rendering_stubs.rs`
+- [ ] Verify: all tests pass, zero clippy warnings, clean `cargo fmt`
+
 ---
 
 ## Testing Checkpoints
@@ -191,3 +254,4 @@ Stubs that remain due to circular dependencies, struct-vs-trait mismatches, or e
 | 12 | Application launches (blank window) |
 | 13 | Full game playable |
 | 14 | All `stubs.rs` files eliminated or reduced to rendering-only |
+| 15 | All non-rendering stubs eliminated, trait-based DI for lifecycle types |
