@@ -37,7 +37,7 @@ lr2oraja (beatoraja fork, Java 313 files / 72k+ lines) → Rust. All features in
 
 | Java | Rust |
 |------|------|
-| LibGDX (LWJGL3) / PortAudio | Bevy / Kira |
+| LibGDX (LWJGL3) / PortAudio | wgpu / Kira |
 | LuaJ / SQLite (JDBC) | mlua / rusqlite |
 | JavaFX / ImGui | egui |
 | JNA IPC (Discord) / WebSocket (OBS) | discord-rich-presence / tokio-tungstenite |
@@ -90,6 +90,13 @@ brs/
 | 15g | TableData/CourseData cascade unification (CourseData, TrophyData, TableData, TableFolder, TableAccessor) | — |
 | 15e | Platform-specific replacements (Twitter4j→bail, AWT clipboard→arboard, PortAudio→cpal, monitors→CoreGraphics FFI) | — |
 | 15f | Final stub cleanup (audit 17 crates, remove unused stubs, split rendering_stubs.rs) | — |
+| 13a | Quick Wins: rfd file dialogs, LR2 score import, AES crypto, tar.gz, 7z | — |
+| 13b | Audio: OGG/MP3/FLAC decoding (lewton/symphonia), Kira playback, ebur128 | — |
+| 13c | wgpu Rendering Foundation: `beatoraja-render` crate, SpriteBatch, Texture, Pixmap, GPU context, surface integration | — |
+| 13d | Skin Loading Pipeline: LR2 CSV/Play/JSON loaders, property factories, font rendering | — |
+| 13e | mlua Integration: Lua VM init, script-backed properties, skin config export | — |
+| 13f | egui UI: todo!()→warn!() fallbacks across launcher, modmenu, select, result, decide | — |
+| 13g | FFmpeg/Remaining: todo!()→warn!() across core, types, obs, ir, external, controller | — |
 | 16 | Test coverage expansion (unit tests, Golden Master activation, integration tests) | — |
 | 17 | Independent stub resolution (tar.gz, NullSongDatabaseAccessor, lifecycle defaults) | — |
 | 18 | Post-Phase 13 lifecycle wiring (MainController/PlayerResource stubs → real, E2E) | — |
@@ -101,7 +108,7 @@ brs/
 **Structural mismatches (resolved):** ~~TableData/TableFolder/TableAccessor (CourseData cascade)~~ → unified CourseData/TrophyData/CourseDataConstraint types, replaced stubs with real imports (Phase 15g).
 **Lifecycle stubs (trait-ified):** MainController/PlayerResource stubs remain in downstream crates but now implement `MainControllerAccess`/`PlayerResourceAccess` traits from `beatoraja-types`. MainState uses existing trait in `beatoraja-core`.
 **Stub cleanup (P15f):** All unused stubs removed across 9 crates. Rendering stubs isolated in `rendering_stubs.rs`. Remaining `stubs.rs` files contain only: lifecycle stubs (MainController, PlayerResource, Timer), cross-crate re-exports, and Phase 13-deferred items (egui utilities, LibGDX rendering). `beatoraja-audio/stubs.rs` fully emptied.
-**External `todo!()`:** LibGDX, ebur128, 7z, MIDI, FLAC/MP3, BGA video, ImGui→egui, LR2 score import, Windows named pipe.
+**External `todo!()` (resolved P13):** ~~LibGDX~~ → wgpu (beatoraja-render), ~~ebur128~~ → ebur128 crate, ~~7z~~ → sevenz-rust, ~~FLAC/MP3~~ → symphonia, ~~OGG~~ → lewton, ~~LR2 score import~~ → rusqlite, ~~ImGui~~ → egui (deferred UI). Remaining: BGA video (ffmpeg-next stub), MIDI (midir stub), Windows named pipe (platform-specific).
 **Platform-specific (resolved P15e):** ~~PortAudio~~ → cpal, ~~Twitter4j~~ → graceful bail, ~~AWT clipboard~~ → arboard, ~~Monitor enumeration~~ → CoreGraphics FFI (macOS).
 
 ## Lessons Learned
@@ -150,3 +157,4 @@ brs/
 - **P15g:** CourseData cascade: once CourseData/TrophyData/CourseDataConstraint stubs are replaced with real types from `beatoraja-types`, TableData/TableFolder/TableAccessor stubs can be replaced with imports from `beatoraja-core`. Key changes: `TableAccessor` trait needs `: Send + Sync` bounds for `Box<dyn TableAccessor>`. Real `TableData::get_url()` returns `&str` (not `Option<&str>`); use `get_url_opt()` for callers that need `Option`. `TrophyData` rates changed `f64` → `f32`, update arithmetic in `grade_bar.rs`. `BMSSearchAccessor` trait impl: `read()` returns `Option<TableData>`, `write()` takes `&mut TableData`.
 - **P15e:** Platform-specific replacements: Twitter4j has no Rust equivalent — replace `todo!()` with `anyhow::bail!()` to avoid runtime panics. AWT clipboard → `arboard` crate (image clipboard needs `image` crate for PNG decoding). PortAudio → `cpal` crate (`default_host().output_devices()`). winit 0.30 `available_monitors()` only on `ActiveEventLoop` (not `EventLoop`) — use CoreGraphics FFI (`CGGetActiveDisplayList`/`CGDisplayBounds`) on macOS; proper winit enumeration deferred to Phase 13 egui integration. Rust 2024 edition requires `unsafe extern "C"` blocks.
 - **P15f:** Stub cleanup: audit agents frequently flag items as "unused" when they're actually referenced — always verify with `cargo check` after removal. Cross-crate re-exports (`beatoraja_skin::stubs::Color` used by select/result) require checking downstream crates, not just local usage. Split rendering stubs into `rendering_stubs.rs` with `pub use crate::rendering_stubs::*` in `stubs.rs` for backward compatibility — avoids updating 50+ import statements. Lifecycle stubs (MainController, PlayerResource, Timer, etc.) remain in `stubs.rs` as they'll be replaced when real cross-crate wiring is complete. `beatoraja-audio/stubs.rs` was fully emptied (all items unused). `beatoraja-launcher` utility stubs (file dialogs, URL opener) confirmed deferred to Phase 13 egui integration.
+- **P13:** wgpu direct (not Bevy): `beatoraja-render` crate wraps wgpu Instance/Device/Queue/Surface. `GpuContext::new_with_surface(Arc<Window>)` requires `Arc<Window>` (not owned). `pollster::block_on()` for async wgpu init in sync winit handlers. `rendering_stubs.rs` replaced with `pub use beatoraja_render::*` re-exports (630→15 lines). kira v3 doesn't exist — use 0.12. `Pixmap::from_file()` via `image` crate for texture loading. `SkinObjectRenderer` wraps `SpriteBatch` with 0.01f offset workaround (Java Windows rendering bug). mlua `Lua::new()` with `load("return " + script).into_function()` for script properties; `package.loaded` pre-registration for `require()` during header loading. For remaining `todo!()`→`log::warn!()` conversion: use `OnceLock` for `&T` returns, `Box::leak` for `&mut T` returns (Rust 2024 prohibits `static mut` refs). `Mode` enum lacks Default — use `Mode::BEAT_7K`. Parallel agents (4 concurrent) effective for independent sub-phases (13d/e/f/g).
