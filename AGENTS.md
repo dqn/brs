@@ -111,8 +111,68 @@ brs/
 
 ## Implementation Status
 
-Fresh start. No Rust code exists yet.
+- **Phase 1 complete:** `bms-model` (15 modules), `bms-table` (11 modules)
 
 ## Deferred / Stub Items
 
-(None — clean slate)
+- `BMSONDecoder` — depends on `bms.model.bmson` (Phase 2)
+- `OSUDecoder` — depends on `bms.model.osu` (Phase 2)
+- `ChartDecoder::get_decoder()` — `.bmson` / `.osu` branches use `todo!()`
+
+## Translation Lessons Learned
+
+> **This section is a living document.** Update it after every phase with new patterns, pitfalls, and decisions discovered during translation.
+
+### Java Class Hierarchy → Rust Enum
+
+Java abstract classes with `instanceof` checks translate best as Rust enums with a shared data struct:
+
+```
+Java:  abstract class Note { fields... }
+       class NormalNote extends Note
+       class LongNote extends Note { pair, end, type }
+       class MineNote extends Note { damage }
+
+Rust:  struct NoteData { /* shared fields */ }
+       enum Note { Normal(NoteData), Long { data: NoteData, ... }, Mine { data: NoteData, ... } }
+```
+
+This preserves the `instanceof` pattern as `match` / `if let` and avoids trait-object complexity.
+
+### f64 as BTreeMap Key
+
+`f64` does not implement `Ord` in Rust. When Java uses `TreeMap<Double, V>`, convert the key to `u64` via `f64::to_bits()` for the `BTreeMap`, or use a newtype wrapper with manual `Ord` impl. Phase 1 used `to_bits()`.
+
+### Borrow Checker vs. Java Constructor Patterns
+
+Java constructors that take `this` and a sibling object (e.g., `Section(model, prev, ...)`) cause borrow issues when both `&self` and `&mut model` are needed. Solution: pass extracted primitive values (`prev_sectionnum`, `prev_rate`) instead of `Option<&Section>`.
+
+### MS932 Encoding
+
+Java's `BMSDecoder` hardcodes `"MS932"` (Shift_JIS superset). Use `encoding_rs::SHIFT_JIS` in Rust:
+
+```rust
+let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(raw_bytes);
+```
+
+### Parallel Agent Strategy
+
+Independent crates (no cross-dependencies) should be translated by parallel agents writing to separate directories. This was done successfully with `bms-model` and `bms-table` in Phase 1.
+
+**Pitfall:** Each agent must commit ALL files it creates, including `Cargo.toml`. Verify with `git status` after agents complete. In Phase 1, `bms-model/Cargo.toml` was missed and required a follow-up commit.
+
+### Workspace Cargo.toml Must Exist Before Agents Start
+
+Create the workspace `Cargo.toml` and all crate `Cargo.toml` files **before** launching translation agents. Agents need `cargo check` to work, which requires the workspace to be configured.
+
+### Stub lib.rs for Sibling Crates
+
+When translating crate A, the workspace may fail to compile if crate B (referenced as workspace member) has no `lib.rs`. Create a stub `lib.rs` (empty or with just module declarations) for all workspace members before starting translation.
+
+### CommandWord Enum Translation
+
+Java enums with `BiFunction` fields (like `CommandWord` in `BMSDecoder.java`) translate to a `match` on enum variants calling closures, or a function-dispatch table. Phase 1 used a match-based approach.
+
+### Java TreeMap Iteration Order
+
+`TreeMap` in Java iterates in key order. `BTreeMap` in Rust provides the same guarantee. Always use `BTreeMap` (not `HashMap`) when Java uses `TreeMap`, especially for section/timeline processing where order matters.
