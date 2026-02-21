@@ -195,10 +195,16 @@ Move `SongData` into `beatoraja-types` to break core→song circular dep.
 
 Move enum definitions into `beatoraja-types` to break skin/play→core cycles.
 
-- [ ] Move `SkinType` enum from `beatoraja-skin` to `beatoraja-types`
-- [ ] Move `GrooveGauge` base type (or trait) from `beatoraja-play` to `beatoraja-types`
-- [ ] Replace stubs in `beatoraja-types/stubs.rs` and downstream crates
-- [ ] Verify: all tests pass, zero clippy warnings
+- [x] Move `SkinType` enum from `beatoraja-skin` to `beatoraja-types` (added Copy, Default, Hash derives; PascalCase variants)
+- [x] Move `GrooveGauge` struct + `Gauge` + `GaugeModifier` + `GaugeProperty` + `GaugeElementProperty` from `beatoraja-play` to `beatoraja-types`
+- [x] Move `GrooveGauge::create` to free function `create_groove_gauge` in `beatoraja-play` (depends on `BMSPlayerRule`)
+- [x] Replace SkinType stubs in `beatoraja-types/stubs.rs`, `beatoraja-select/stubs.rs`, `beatoraja-modmenu/stubs.rs` with `pub use` re-exports
+- [x] Replace GrooveGauge stub in `beatoraja-types/stubs.rs` with `pub use` re-export
+- [x] Update `skin_config.rs` SkinDefault table: UPPER_SNAKE_CASE → PascalCase, `get_default(usize)` → `get_default(i32)`
+- [x] Update `player_config.rs` for `get_max_skin_type_id() -> i32` return type
+- [x] Update `beatoraja-modmenu/skin_menu.rs` variant names and `get_id() -> i32` casts
+- [x] Add `beatoraja-types` dependency to `beatoraja-skin`, `beatoraja-play`, `beatoraja-modmenu`
+- [x] Verify: all 66 tests pass, zero clippy warnings, clean `cargo fmt`
 
 ### 15c: Struct-vs-Trait Unification
 

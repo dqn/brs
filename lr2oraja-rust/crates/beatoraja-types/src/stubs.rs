@@ -6,21 +6,8 @@
 // beatoraja-play stubs
 // ---------------------------------------------------------------------------
 
-/// Stub for beatoraja.play.GrooveGauge
-pub struct GrooveGauge;
-
-#[allow(dead_code)]
-impl GrooveGauge {
-    pub const ASSISTEASY: i32 = 0;
-    pub const EASY: i32 = 1;
-    pub const NORMAL: i32 = 2;
-    pub const HARD: i32 = 3;
-    pub const EXHARD: i32 = 4;
-    pub const HAZARD: i32 = 5;
-    pub const GRADE_NORMAL: i32 = 6;
-    pub const GRADE_HARD: i32 = 7;
-    pub const GRADE_EXHARD: i32 = 8;
-}
+// GrooveGauge moved to beatoraja-types/src/groove_gauge.rs (Phase 15b)
+pub use crate::groove_gauge::GrooveGauge;
 
 /// Stub for beatoraja.play.JudgeAlgorithm
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -69,52 +56,10 @@ pub enum BMSPlayerRule {
 }
 
 // ---------------------------------------------------------------------------
-// beatoraja-skin stubs
+// beatoraja-skin: SkinType moved to beatoraja-types/src/skin_type.rs
 // ---------------------------------------------------------------------------
 
-/// Stub for beatoraja.skin.SkinType
-#[allow(non_camel_case_types)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SkinType {
-    PLAY_7KEYS,
-    PLAY_5KEYS,
-    PLAY_14KEYS,
-    PLAY_10KEYS,
-    PLAY_9KEYS,
-    PLAY_24KEYS,
-    PLAY_24KEYS_DOUBLE,
-    MUSIC_SELECT,
-    DECIDE,
-    RESULT,
-    COURSE_RESULT,
-    KEY_CONFIG,
-    SKIN_SELECT,
-}
-
-impl SkinType {
-    pub fn get_max_skin_type_id() -> usize {
-        12
-    }
-
-    pub fn get_skin_type_by_id(id: usize) -> Option<SkinType> {
-        match id {
-            0 => Some(SkinType::PLAY_7KEYS),
-            1 => Some(SkinType::PLAY_5KEYS),
-            2 => Some(SkinType::PLAY_14KEYS),
-            3 => Some(SkinType::PLAY_10KEYS),
-            4 => Some(SkinType::PLAY_9KEYS),
-            5 => Some(SkinType::PLAY_24KEYS),
-            6 => Some(SkinType::PLAY_24KEYS_DOUBLE),
-            7 => Some(SkinType::MUSIC_SELECT),
-            8 => Some(SkinType::DECIDE),
-            9 => Some(SkinType::RESULT),
-            10 => Some(SkinType::COURSE_RESULT),
-            11 => Some(SkinType::KEY_CONFIG),
-            12 => Some(SkinType::SKIN_SELECT),
-            _ => None,
-        }
-    }
-}
+pub use crate::skin_type::SkinType;
 
 // ---------------------------------------------------------------------------
 // beatoraja-select stubs

@@ -84,10 +84,11 @@ brs/
 | 12 | `beatoraja-bin` (CLI + winit event loop) | — |
 | 14 | `beatoraja-types` (15 modules, circular dep resolution) | 15 |
 | 15a | SongData/SongInformation/IpfsInformation → `beatoraja-types` | 3 |
+| 15b | SkinType/GrooveGauge/GaugeProperty → `beatoraja-types` | 7 |
 
 ## Deferred / Stub Items
 
-**Circular dep stubs (cannot replace):** SkinType/GrooveGauge in core; TextureRegion/Texture in play.
+**Circular dep stubs (cannot replace):** TextureRegion/Texture in play.
 **Structural mismatches:** SongDatabaseAccessor/IRConnection (struct vs trait); BMSPlayerInputProcessor (i32 vs usize).
 **Lifecycle stubs:** MainController, PlayerResource, MainState in all downstream crates.
 **External `todo!()`:** PortAudio, LibGDX, ebur128, 7z, MIDI, FLAC/MP3, BGA video, ImGui→egui, Twitter4j, AWT clipboard, LR2 score import, Windows named pipe.
@@ -132,3 +133,4 @@ brs/
 - **P9:** SkinHeader + items need `#[derive(Clone)]`. **P10:** Custom CRC32 poly `0xEDB88320`, appends `\\\0`. RobustFile: double-write + `sync_all()`.
 - **P12:** winit: `create→resumed`, `render→RedrawRequested`, `resize→Resized`, `pause→suspended`, `dispose→CloseRequested`, `ControlFlow::Poll`. CLI: `clap::Parser`; `--replay N`. Deferred: egui launcher, fullscreen (GLFW).
 - **P15a:** Moving SongData to `beatoraja-types` required also moving `IpfsInformation` trait (orphan rule: foreign trait on foreign type). Pure interface traits can safely move to low-level crates. Add `full_title(&self) -> String` non-mut helper alongside cached `get_full_title(&mut self) -> &str`. Use `set_path_opt(Option<String>)` / `clear_path()` for `Option` → `String` path migration.
+- **P15b:** Moving SkinType: stub had UPPER_SNAKE_CASE + wrong ID mapping (13 variants); real has PascalCase (18 variants). Add `Copy`, `Default`, `Hash` derives. Callers need `as usize` for array indexing after `get_id() -> i32`. Moving GrooveGauge: `create()` depends on `BMSPlayerRule` → extract as free function `create_groove_gauge` in beatoraja-play. Move entire type chain (GaugeModifier, GaugeElementProperty, GaugeProperty, Gauge, GrooveGauge) together since they're tightly coupled. Re-export via `pub use` in original crate modules.

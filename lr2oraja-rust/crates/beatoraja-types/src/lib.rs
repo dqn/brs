@@ -13,6 +13,13 @@ pub mod validatable;
 // Input constants
 pub mod bm_keys;
 
+// Skin types
+pub mod skin_type;
+
+// Gauge types
+pub mod gauge_property;
+pub mod groove_gauge;
+
 // Config types
 pub mod audio_config;
 pub mod config;

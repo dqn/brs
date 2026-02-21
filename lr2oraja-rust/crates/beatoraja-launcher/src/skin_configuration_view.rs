@@ -239,7 +239,7 @@ impl SkinConfigurationView {
         // commitSkinType();
         self.commit_skin_type();
         // updateSkinType(skintypeSelector.getValue());
-        if let Some(skin_type) = self.skintype_selector.clone() {
+        if let Some(skin_type) = self.skintype_selector {
             self.update_skin_type(&skin_type);
         }
     }
@@ -247,7 +247,7 @@ impl SkinConfigurationView {
     /// Translates: updateSkinType(SkinType type)
     pub fn update_skin_type(&mut self, skin_type: &SkinType) {
         // mode = type;
-        self.mode = Some(skin_type.clone());
+        self.mode = Some(*skin_type);
 
         // skinheaderSelector.getItems().clear();
         self.current_headers.clear();
@@ -323,7 +323,7 @@ impl SkinConfigurationView {
                 }
                 player.skin[type_id] = Some(skin);
             }
-        } else if let Some(mode) = self.mode.clone() {
+        } else if let Some(mode) = self.mode {
             // } else if (mode != null) { player.getSkin()[mode.getId()] = null; }
             let type_id = mode.get_id() as usize;
             let player = self.player.as_mut().unwrap();

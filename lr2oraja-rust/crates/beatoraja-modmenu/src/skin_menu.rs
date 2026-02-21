@@ -337,24 +337,24 @@ fn load_all_skins(skin_type: &SkinType) -> Vec<SkinHeader> {
                     match loader.load_skin(path, None) {
                         Ok(mut h) => {
                             // 7/14key skin can also be used for 5/10key
-                            if *skin_type == SkinType::PLAY_5KEYS
-                                && *h.get_skin_type() == SkinType::PLAY_7KEYS
+                            if *skin_type == SkinType::Play5Keys
+                                && *h.get_skin_type() == SkinType::Play7Keys
                                 && h.get_type() == TYPE_LR2SKIN
                                 && let Ok(mut h2) = loader.load_skin(path, None)
                             {
-                                h2.set_skin_type(SkinType::PLAY_5KEYS);
+                                h2.set_skin_type(SkinType::Play5Keys);
                                 if !h2.get_name().to_lowercase().contains("7key") {
                                     let new_name = format!("{} (7KEYS) ", h2.get_name());
                                     h2.set_name(new_name);
                                 }
                                 h = h2;
                             }
-                            if *skin_type == SkinType::PLAY_10KEYS
-                                && *h.get_skin_type() == SkinType::PLAY_14KEYS
+                            if *skin_type == SkinType::Play10Keys
+                                && *h.get_skin_type() == SkinType::Play14Keys
                                 && h.get_type() == TYPE_LR2SKIN
                                 && let Ok(mut h2) = loader.load_skin(path, None)
                             {
-                                h2.set_skin_type(SkinType::PLAY_10KEYS);
+                                h2.set_skin_type(SkinType::Play10Keys);
                                 if !h2.get_name().to_lowercase().contains("14key") {
                                     let new_name = format!("{} (14KEYS) ", h2.get_name());
                                     h2.set_name(new_name);
@@ -474,7 +474,7 @@ fn load_saved_skin_settings(header: &SkinHeader) {
 
     let mut saved_properties: Option<&SkinConfigProperty> = None;
 
-    let skin_type_id = header.get_skin_type().get_id();
+    let skin_type_id = header.get_skin_type().get_id() as usize;
     if skin_type_id < pc.get_skin().len() {
         let live_config = &pc.get_skin()[skin_type_id];
         if skin_path == live_config.get_path() {
@@ -661,7 +661,7 @@ fn save_current_config(next_skin: &SkinHeader) {
     if let Some(ref st) = *current_type
         && next_skin.get_name() == cs.get_name()
     {
-        let id = st.get_id();
+        let id = st.get_id() as usize;
         if id < pc.get_skin().len() {
             pc.get_skin_mut()[id] = config;
         }

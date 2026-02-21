@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 bms-model.workspace = true
+beatoraja-types.workspace = true
 beatoraja-core.workspace = true
 beatoraja-play.workspace = true
 beatoraja-skin.workspace = true

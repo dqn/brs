@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::main_controller::MainController;
 use crate::player_config::PlayerConfig;
-use crate::stubs::SkinType;
+use beatoraja_types::skin_type::SkinType;
 
 /// Skin configuration screen.
 /// Translated from Java: SkinConfiguration extends MainState

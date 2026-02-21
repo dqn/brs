@@ -6,8 +6,9 @@ use crate::config::Config;
 use crate::ir_config::IRConfig;
 use crate::play_mode_config::PlayModeConfig;
 use crate::skin_config::SkinConfig;
+use crate::skin_type::SkinType;
 use crate::stubs::{
-    BarSorter, GrooveGauge, IRConnectionManager, SkinType, long_note_modifier, mine_note_modifier,
+    BarSorter, GrooveGauge, IRConnectionManager, long_note_modifier, mine_note_modifier,
     scroll_speed_modifier,
 };
 use crate::validatable::{Validatable, remove_invalid_elements};
@@ -135,7 +136,7 @@ pub struct PlayerConfig {
 impl Default for PlayerConfig {
     fn default() -> Self {
         let max_skin_id = SkinType::get_max_skin_type_id();
-        let mut skin = Vec::with_capacity(max_skin_id + 1);
+        let mut skin = Vec::with_capacity(max_skin_id as usize + 1);
         for i in 0..=max_skin_id {
             skin.push(Some(SkinConfig::get_default(i)));
         }
@@ -488,7 +489,7 @@ impl PlayerConfig {
     }
 
     pub fn get_skin(&mut self) -> &mut Vec<Option<SkinConfig>> {
-        let max_id = SkinType::get_max_skin_type_id();
+        let max_id = SkinType::get_max_skin_type_id() as usize;
         if self.skin.len() <= max_id {
             self.skin.resize_with(max_id + 1, || None);
             log::warn!("skin reconstructed");
@@ -498,14 +499,14 @@ impl PlayerConfig {
 
     #[allow(clippy::field_reassign_with_default)]
     pub fn validate(&mut self) {
-        let max_skin_id = SkinType::get_max_skin_type_id();
+        let max_skin_id = SkinType::get_max_skin_type_id() as usize;
 
         if self.skin.len() != max_skin_id + 1 {
             self.skin.resize_with(max_skin_id + 1, || None);
         }
         for i in 0..self.skin.len() {
             if self.skin[i].is_none() {
-                self.skin[i] = Some(SkinConfig::get_default(i));
+                self.skin[i] = Some(SkinConfig::get_default(i as i32));
             }
             if let Some(ref mut s) = self.skin[i] {
                 s.validate();

@@ -978,11 +978,8 @@ impl GhostBattlePlay {
 // beatoraja.skin types
 // ============================================================
 
-/// Stub for beatoraja.skin.SkinType
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SkinType {
-    MusicSelect,
-}
+// SkinType moved to beatoraja-types (Phase 15b)
+pub use beatoraja_types::skin_type::SkinType;
 
 /// Stub for beatoraja.skin.SkinObject
 #[derive(Clone, Debug, Default)]

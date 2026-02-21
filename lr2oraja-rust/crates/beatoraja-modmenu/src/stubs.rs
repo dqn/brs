@@ -225,39 +225,8 @@ pub trait MainState {
 // Skin types stubs
 // =========================================================================
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub enum SkinType {
-    #[default]
-    PLAY_7KEYS,
-    PLAY_5KEYS,
-    PLAY_14KEYS,
-    PLAY_10KEYS,
-    PLAY_9KEYS,
-    MUSIC_SELECT,
-    DECIDE,
-    RESULT,
-    COURSE_RESULT,
-    SKIN_SELECT,
-    KEY_CONFIG,
-}
-
-impl SkinType {
-    pub fn get_id(&self) -> usize {
-        match self {
-            SkinType::PLAY_7KEYS => 0,
-            SkinType::PLAY_5KEYS => 1,
-            SkinType::PLAY_14KEYS => 2,
-            SkinType::PLAY_10KEYS => 3,
-            SkinType::PLAY_9KEYS => 4,
-            SkinType::MUSIC_SELECT => 5,
-            SkinType::DECIDE => 6,
-            SkinType::RESULT => 7,
-            SkinType::COURSE_RESULT => 8,
-            SkinType::SKIN_SELECT => 9,
-            SkinType::KEY_CONFIG => 10,
-        }
-    }
-}
+// SkinType moved to beatoraja-types (Phase 15b)
+pub use beatoraja_types::skin_type::SkinType;
 
 // =========================================================================
 // SkinHeader stub

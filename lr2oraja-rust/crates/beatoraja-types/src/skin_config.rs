@@ -1,4 +1,4 @@
-use crate::stubs::SkinType;
+use crate::skin_type::SkinType;
 use crate::validatable::{Validatable, remove_invalid_elements};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -29,7 +29,7 @@ impl SkinConfig {
         self.properties.as_mut()
     }
 
-    pub fn get_default(id: usize) -> SkinConfig {
+    pub fn get_default(id: i32) -> SkinConfig {
         let mut skin = SkinConfig::default();
         if let Some(skin_type) = SkinType::get_skin_type_by_id(id)
             && let Some(dskin) = SkinDefault::get(skin_type)
@@ -161,55 +161,55 @@ pub struct SkinDefault {
 impl SkinDefault {
     const ALL: &'static [SkinDefault] = &[
         SkinDefault {
-            skin_type: SkinType::PLAY_7KEYS,
+            skin_type: SkinType::Play7Keys,
             path: "skin/default/play/play7.luaskin",
         },
         SkinDefault {
-            skin_type: SkinType::PLAY_5KEYS,
+            skin_type: SkinType::Play5Keys,
             path: "skin/default/play5.json",
         },
         SkinDefault {
-            skin_type: SkinType::PLAY_14KEYS,
+            skin_type: SkinType::Play14Keys,
             path: "skin/default/play14.json",
         },
         SkinDefault {
-            skin_type: SkinType::PLAY_10KEYS,
+            skin_type: SkinType::Play10Keys,
             path: "skin/default/play10.json",
         },
         SkinDefault {
-            skin_type: SkinType::PLAY_9KEYS,
+            skin_type: SkinType::Play9Keys,
             path: "skin/default/play9.json",
         },
         SkinDefault {
-            skin_type: SkinType::MUSIC_SELECT,
+            skin_type: SkinType::MusicSelect,
             path: "skin/default/select.json",
         },
         SkinDefault {
-            skin_type: SkinType::DECIDE,
+            skin_type: SkinType::Decide,
             path: "skin/default/decide/decide.luaskin",
         },
         SkinDefault {
-            skin_type: SkinType::RESULT,
+            skin_type: SkinType::Result,
             path: "skin/default/result/result.luaskin",
         },
         SkinDefault {
-            skin_type: SkinType::COURSE_RESULT,
+            skin_type: SkinType::CourseResult,
             path: "skin/default/graderesult.json",
         },
         SkinDefault {
-            skin_type: SkinType::PLAY_24KEYS,
+            skin_type: SkinType::Play24Keys,
             path: "skin/default/play24.json",
         },
         SkinDefault {
-            skin_type: SkinType::PLAY_24KEYS_DOUBLE,
+            skin_type: SkinType::Play24KeysDouble,
             path: "skin/default/play24double.json",
         },
         SkinDefault {
-            skin_type: SkinType::KEY_CONFIG,
+            skin_type: SkinType::KeyConfig,
             path: "skin/default/keyconfig/keyconfig.luaskin",
         },
         SkinDefault {
-            skin_type: SkinType::SKIN_SELECT,
+            skin_type: SkinType::SkinSelect,
             path: "skin/default/skinselect/skinselect.luaskin",
         },
     ];

@@ -1,6 +1,6 @@
 use crate::bms_player_rule::BMSPlayerRule;
 use crate::gauge_property::GaugeProperty;
-use crate::groove_gauge::GrooveGauge;
+use crate::groove_gauge::{GrooveGauge, create_groove_gauge};
 use bms_model::bms_model::BMSModel;
 use bms_model::mode::Mode;
 use serde::{Deserialize, Serialize};
@@ -154,7 +154,7 @@ impl PracticeConfiguration {
             .gaugecategory
             .unwrap_or(GaugeProperty::SevenKeys);
         let mut gauge =
-            GrooveGauge::create(model, self.property.gaugetype, 0, Some(gauge_category))?;
+            create_groove_gauge(model, self.property.gaugetype, 0, Some(gauge_category))?;
         gauge.set_value(self.property.startgauge as f32);
         Some(gauge)
     }
