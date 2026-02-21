@@ -130,7 +130,6 @@ impl MainLoader {
             // Launch configuration UI
             // Phase 5+: JavaFX/egui launcher
             log::warn!("not yet implemented: launcher UI");
-            return;
         }
     }
 

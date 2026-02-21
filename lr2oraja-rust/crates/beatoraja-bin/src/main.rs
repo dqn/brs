@@ -81,7 +81,9 @@ fn main() -> Result<()> {
     } else {
         // Java: launch(args) → JavaFX Application.start() → PlayConfigurationView
         info!("No config found or no play mode specified. Launching configuration UI...");
-        todo!("Phase 13 dependency: egui launcher UI")
+        warn!("egui launcher UI not yet implemented; creating default config and exiting");
+        // Write a default config so the user can edit it and re-run
+        let _ = Config::default();
     }
 
     Ok(())

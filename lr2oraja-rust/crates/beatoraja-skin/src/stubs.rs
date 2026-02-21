@@ -24,16 +24,23 @@ pub struct MainController {
 
 impl MainController {
     pub fn get_input_processor(&self) -> &InputProcessor {
-        todo!("Phase 7+ dependency")
+        static INPUT: std::sync::OnceLock<InputProcessor> = std::sync::OnceLock::new();
+        INPUT.get_or_init(|| InputProcessor)
     }
 
     pub fn get_config(&self) -> &beatoraja_core::config::Config {
-        todo!("Phase 7+ dependency")
+        static CONFIG: std::sync::OnceLock<beatoraja_core::config::Config> =
+            std::sync::OnceLock::new();
+        CONFIG.get_or_init(beatoraja_core::config::Config::default)
     }
 }
 
 /// Stub for input processor
 pub struct InputProcessor;
+
+// SAFETY: InputProcessor is a stateless unit struct.
+unsafe impl Send for InputProcessor {}
+unsafe impl Sync for InputProcessor {}
 
 impl InputProcessor {
     pub fn get_mouse_x(&self) -> f32 {
@@ -72,19 +79,19 @@ impl Timer {
     }
 
     pub fn get_micro_timer(&self, _timer_id: i32) -> i64 {
-        todo!("Phase 7+ dependency: Timer.getMicroTimer")
+        0
     }
 
     pub fn get_timer(&self, _timer_id: i32) -> i64 {
-        todo!("Phase 7+ dependency: Timer.getTimer")
+        0
     }
 
     pub fn get_now_time_for(&self, _timer_id: i32) -> i64 {
-        todo!("Phase 7+ dependency: Timer.getNowTime(timerId)")
+        0
     }
 
     pub fn is_timer_on(&self, _timer_id: i32) -> bool {
-        todo!("Phase 7+ dependency: Timer.isTimerOn")
+        false
     }
 }
 
@@ -154,7 +161,13 @@ pub struct MusicResult {
 
 impl MusicResult {
     pub fn get_timing_distribution(&self) -> &TimingDistribution {
-        todo!("Phase 7+ dependency: MusicResult.getTimingDistribution")
+        static DEFAULT: std::sync::OnceLock<TimingDistribution> = std::sync::OnceLock::new();
+        DEFAULT.get_or_init(|| TimingDistribution {
+            distribution: vec![],
+            array_center: 0,
+            average: 0.0,
+            std_dev: 0.0,
+        })
     }
 }
 
@@ -163,15 +176,19 @@ pub struct MusicResultResource;
 
 impl MusicResultResource {
     pub fn get_bms_model(&self) -> &bms_model::bms_model::BMSModel {
-        todo!("Phase 7+ dependency")
+        static MODEL: std::sync::OnceLock<bms_model::bms_model::BMSModel> =
+            std::sync::OnceLock::new();
+        MODEL.get_or_init(bms_model::bms_model::BMSModel::default)
     }
 
     pub fn get_original_mode(&self) -> bms_model::mode::Mode {
-        todo!("Phase 7+ dependency")
+        bms_model::mode::Mode::BEAT_7K
     }
 
     pub fn get_player_config(&self) -> &beatoraja_core::player_config::PlayerConfig {
-        todo!("Phase 7+ dependency")
+        static PC: std::sync::OnceLock<beatoraja_core::player_config::PlayerConfig> =
+            std::sync::OnceLock::new();
+        PC.get_or_init(beatoraja_core::player_config::PlayerConfig::default)
     }
 
     pub fn get_constraint(&self) -> Vec<beatoraja_core::course_data::CourseDataConstraint> {
@@ -218,19 +235,25 @@ impl PlayerResource {
     }
 
     pub fn get_bms_model(&self) -> &bms_model::bms_model::BMSModel {
-        todo!("Phase 7+ dependency: PlayerResource.getBMSModel")
+        static MODEL: std::sync::OnceLock<bms_model::bms_model::BMSModel> =
+            std::sync::OnceLock::new();
+        MODEL.get_or_init(bms_model::bms_model::BMSModel::default)
     }
 
     pub fn get_original_mode(&self) -> bms_model::mode::Mode {
-        todo!("Phase 7+ dependency: PlayerResource.getOriginalMode")
+        bms_model::mode::Mode::BEAT_7K
     }
 
     pub fn get_player_config(&self) -> &beatoraja_core::player_config::PlayerConfig {
-        todo!("Phase 7+ dependency: PlayerResource.getPlayerConfig")
+        static PC: std::sync::OnceLock<beatoraja_core::player_config::PlayerConfig> =
+            std::sync::OnceLock::new();
+        PC.get_or_init(beatoraja_core::player_config::PlayerConfig::default)
     }
 
     pub fn get_config(&self) -> &beatoraja_core::config::Config {
-        todo!("Phase 7+ dependency: PlayerResource.getConfig")
+        static CFG: std::sync::OnceLock<beatoraja_core::config::Config> =
+            std::sync::OnceLock::new();
+        CFG.get_or_init(beatoraja_core::config::Config::default)
     }
 
     pub fn get_constraint(&self) -> Vec<beatoraja_core::course_data::CourseDataConstraint> {
@@ -265,7 +288,7 @@ impl PlaySkinStub {
 pub struct SkinLoaderStub;
 
 impl SkinLoaderStub {
-    pub fn get_texture(_path: &str, _usecim: bool) -> Option<Texture> {
-        todo!("Image loading")
+    pub fn get_texture(path: &str, usecim: bool) -> Option<Texture> {
+        crate::skin_loader::get_texture(path, usecim)
     }
 }

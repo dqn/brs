@@ -190,8 +190,7 @@ impl SkinTimingDistributionGraph {
     pub fn draw(&mut self, _sprite: &mut SkinObjectRenderer) {
         // In Java, draw() accesses this.state (MusicResult) directly.
         // In Rust, we need the MusicResult passed explicitly via draw_with_music_result().
-        // This method is a stub for the SkinObject interface.
-        todo!("Use draw_with_music_result() with MusicResult reference")
+        log::warn!("SkinTimingDistributionGraph::draw() called without MusicResult reference");
     }
 
     pub fn dispose(&mut self) {
