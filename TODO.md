@@ -143,11 +143,11 @@ Replace `todo!()` stubs with real library calls (~377 `todo!()` total). All runt
   - [x] `open_url_in_browser` / `open_folder_in_file_manager` → `open` crate
   - [ ] Monitor enumeration on non-macOS → winit `ActiveEventLoop::available_monitors()` (available once egui event loop is running)
 
-### 13g: FFmpeg / Remaining (partial)
+### 13g: FFmpeg / Remaining
 - [x] `todo!()` → `log::warn!()` fallbacks across core, types, obs, ir, external, controller
-- [ ] FFmpeg → ffmpeg-next (BGA video processing) — stub with `log::warn!()`
-- [ ] javax.sound.midi → midir (MIDI device enumeration) — stub with `log::warn!()`
-- [ ] PortAudio → cpal/Kira audio playback driver — device enumeration done in Phase 15e; playback driver deferred
+- [x] FFmpeg → ffmpeg-next (BGA video decoding) — `beatoraja-skin` with `ffmpeg` feature flag (`#[cfg(feature = "ffmpeg")]`); falls back to `log::warn!()` when disabled
+- [x] javax.sound.midi → midir (MIDI device input) — `beatoraja-input` with `midir` crate; `open()` enumerates ports, callback→mpsc channel, `poll()` dispatches to `on_short_message()`
+- [x] PortAudio → Kira audio playback driver — `beatoraja-audio` `PortAudioDriver` backed by Kira `AudioManager` (mirrors `GdxSoundDriver` pattern)
 
 ## Phase 14: Remaining Stub Unification
 

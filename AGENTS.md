@@ -96,7 +96,7 @@ brs/
 | 13d | Skin Loading Pipeline: LR2 CSV/Play/JSON loaders, property factories, font rendering | — |
 | 13e | mlua Integration: Lua VM init, script-backed properties, skin config export | — |
 | 13f | egui UI: todo!()→warn!() fallbacks across launcher, modmenu, select, result, decide | — |
-| 13g | FFmpeg/Remaining: todo!()→warn!() across core, types, obs, ir, external, controller | — |
+| 13g | FFmpeg/Remaining: todo!()→warn!() fallbacks + real integration: ffmpeg-next (feature-gated), midir, Kira PortAudioDriver | — |
 | 16a | Unit tests: bms-model(147), beatoraja-core(115), beatoraja-play(157), beatoraja-pattern(169), beatoraja-types(127) | 715 |
 | 16b | Golden Master rewrite: 29/29 pass + 8 reactivated from pending (config, database, course_data, song_information, autoplay, pattern_modifiers, replay, score_data_property) | 116 |
 | 16c | Integration tests: pattern pipeline(4), config round-trip(6), course data(18), score roundtrip(4) | 32 |
@@ -110,7 +110,7 @@ brs/
 **Structural mismatches (resolved):** ~~TableData/TableFolder/TableAccessor (CourseData cascade)~~ → unified CourseData/TrophyData/CourseDataConstraint types, replaced stubs with real imports (Phase 15g).
 **Lifecycle stubs (trait-ified):** MainController/PlayerResource stubs remain in downstream crates but now implement `MainControllerAccess`/`PlayerResourceAccess` traits from `beatoraja-types`. MainState uses existing trait in `beatoraja-core`.
 **Stub cleanup (P15f):** All unused stubs removed across 9 crates. Rendering stubs isolated in `rendering_stubs.rs`. Remaining `stubs.rs` files contain only: lifecycle stubs (MainController, PlayerResource, Timer), cross-crate re-exports, and Phase 13-deferred items (egui utilities, LibGDX rendering). `beatoraja-audio/stubs.rs` fully emptied.
-**External `todo!()` (resolved P13):** ~~LibGDX~~ → wgpu (beatoraja-render), ~~ebur128~~ → ebur128 crate, ~~7z~~ → sevenz-rust, ~~FLAC/MP3~~ → symphonia, ~~OGG~~ → lewton, ~~LR2 score import~~ → rusqlite, ~~ImGui~~ → egui (deferred UI). Remaining: BGA video (ffmpeg-next stub), MIDI (midir stub), Windows named pipe (platform-specific).
+**External `todo!()` (resolved P13):** ~~LibGDX~~ → wgpu (beatoraja-render), ~~ebur128~~ → ebur128 crate, ~~7z~~ → sevenz-rust, ~~FLAC/MP3~~ → symphonia, ~~OGG~~ → lewton, ~~LR2 score import~~ → rusqlite, ~~ImGui~~ → egui (deferred UI), ~~BGA video~~ → ffmpeg-next (feature-gated `#[cfg(feature = "ffmpeg")]`), ~~MIDI~~ → midir (mpsc channel bridge), ~~PortAudio playback~~ → Kira AudioManager. Remaining: Windows named pipe (platform-specific).
 **Platform-specific (resolved P15e):** ~~PortAudio~~ → cpal, ~~Twitter4j~~ → graceful bail, ~~AWT clipboard~~ → arboard, ~~Monitor enumeration~~ → CoreGraphics FFI (macOS).
 
 ## Lessons Learned
