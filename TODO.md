@@ -293,6 +293,8 @@ Added unit tests for major crates that previously had zero tests.
 - [x] Enable and run golden-master comparison tests: 28 pass, 1 fail (channel_extended — known bms-model parser note ordering difference)
 - [x] Move 25 test files with stale imports to `tests/pending/` and `src/pending/` for future activation (depend on APIs not yet available: bms_rule, bms_config, bms_skin, bms_render, bms_database)
 - [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream) — deferred until pending test files are reactivated
+- [ ] Fix `channel_extended` bms-model parser note ordering at same `time_us` (currently `#[ignore]`) — requires bms-model decoder sort stabilization
+- [ ] Reactivate 25 pending golden-master test files (`tests/pending/`, `src/pending/`) — rewrite imports from old names (bms_rule, bms_config, bms_skin, bms_render, bms_database) to current crate names (beatoraja-play, beatoraja-core, beatoraja-skin, beatoraja-render, beatoraja-song)
 
 ### 16c: Integration Tests
 
