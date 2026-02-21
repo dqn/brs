@@ -166,3 +166,135 @@ impl BuildType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_version_constants() {
+        assert_eq!(VERSION_MAJOR, 0);
+        assert_eq!(VERSION_MINOR, 5);
+        assert_eq!(VERSION_PATCH, 0);
+    }
+
+    #[test]
+    fn test_build_type_prefix() {
+        assert_eq!(BuildType::Prerelease.prefix(), "pre");
+        assert_eq!(BuildType::Stable.prefix(), "");
+    }
+
+    #[test]
+    fn test_unqualified_version_format() {
+        let v = unqualified_version();
+        assert_eq!(v, "0.5.0");
+    }
+
+    #[test]
+    fn test_version_includes_build_type_prefix() {
+        let v = version();
+        // BUILD_TYPE is Prerelease, so version starts with "pre"
+        assert!(v.starts_with("pre"), "version should start with 'pre', got: {}", v);
+        assert_eq!(v, "pre0.5.0");
+    }
+
+    #[test]
+    fn test_version_long_format() {
+        let v = version_long();
+        assert!(
+            v.contains("LR2oraja Endless Dream"),
+            "long version should contain product name, got: {}",
+            v
+        );
+        assert!(
+            v.contains("pre-release"),
+            "long version should contain 'pre-release' for prerelease build, got: {}",
+            v
+        );
+        assert!(
+            v.contains("0.5.0"),
+            "long version should contain version number, got: {}",
+            v
+        );
+    }
+
+    #[test]
+    fn test_version_struct_delegates() {
+        assert_eq!(Version::get_version(), version());
+        assert_eq!(Version::get_long_version(), version_long());
+    }
+
+    #[test]
+    fn test_compare_to_string_none_returns_positive() {
+        assert_eq!(compare_to_string(None), 1);
+    }
+
+    #[test]
+    fn test_compare_to_string_empty_returns_positive() {
+        assert_eq!(compare_to_string(Some("")), 1);
+    }
+
+    #[test]
+    fn test_compare_to_string_short_returns_positive() {
+        assert_eq!(compare_to_string(Some("ab")), 1);
+    }
+
+    #[test]
+    fn test_compare_to_string_malformed_returns_positive() {
+        assert_eq!(compare_to_string(Some("abc")), 1);
+    }
+
+    #[test]
+    fn test_compare_to_string_same_version_same_prerelease() {
+        // Current is pre0.5.0 (Prerelease)
+        // Comparing with "pre0.5.0" should be equal
+        assert_eq!(compare_to_string(Some("pre0.5.0")), 0);
+    }
+
+    #[test]
+    fn test_compare_to_string_same_version_other_stable() {
+        // Current is Prerelease, other is stable same version
+        // Prerelease < Stable, so result is -1
+        assert_eq!(compare_to_string(Some("0.5.0")), -1);
+    }
+
+    #[test]
+    fn test_compare_to_string_older_version() {
+        assert_eq!(compare_to_string(Some("0.4.0")), 1);
+        assert_eq!(compare_to_string(Some("pre0.4.0")), 1);
+    }
+
+    #[test]
+    fn test_compare_to_string_newer_version() {
+        assert_eq!(compare_to_string(Some("0.6.0")), -1);
+        assert_eq!(compare_to_string(Some("1.0.0")), -1);
+    }
+
+    #[test]
+    fn test_compare_to_string_newer_patch() {
+        assert_eq!(compare_to_string(Some("pre0.5.1")), -1);
+    }
+
+    #[test]
+    fn test_compare_to_string_older_minor() {
+        assert_eq!(compare_to_string(Some("pre0.4.9")), 1);
+    }
+
+    #[test]
+    fn test_git_commit_hash_is_none_without_build_properties() {
+        // No build.properties file, so hash should be None
+        assert!(get_git_commit_hash().is_none());
+    }
+
+    #[test]
+    fn test_build_date_is_none_without_build_properties() {
+        assert!(get_build_date().is_none());
+    }
+
+    #[test]
+    fn test_build_type_equality() {
+        assert_eq!(BuildType::Prerelease, BuildType::Prerelease);
+        assert_eq!(BuildType::Stable, BuildType::Stable);
+        assert_ne!(BuildType::Prerelease, BuildType::Stable);
+    }
+}
