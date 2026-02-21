@@ -20,14 +20,14 @@ Depends on: bms.model
 
 Isolated subsystems with minimal internal deps.
 
-- [ ] `beatoraja.exceptions` (1 file, 7 lines) — Exception definitions
-- [ ] `beatoraja.system` (1 file, 139 lines) — File utilities
-- [ ] `tool.util` (1 file, 121 lines) — Generic utilities
-- [ ] `beatoraja.controller` (3 files, 762 lines) — Gamepad management
-- [ ] `beatoraja.external.DiscordRPC` (4 files, 634 lines) — Discord RPC
-- [ ] `beatoraja.input` (8 files, 4,188 lines) — Keyboard/MIDI input
-- [ ] `beatoraja.audio` (14 files, 7,086 lines) — Audio playback (Kira)
-- [ ] `tool.mdprocessor` (9 files, 2,264 lines) — Download/song processing
+- [x] `beatoraja.exceptions` (1 file, 7 lines) — Exception definitions
+- [x] `beatoraja.system` (1 file, 139 lines) — File utilities
+- [x] `tool.util` (1 file, 121 lines) — Generic utilities
+- [x] `beatoraja.controller` (3 files, 762 lines) — Gamepad management
+- [x] `beatoraja.external.DiscordRPC` (4 files, 634 lines) — Discord RPC
+- [x] `beatoraja.input` (8 files, 4,188 lines) — Keyboard/MIDI input
+- [x] `beatoraja.audio` (14 files, 7,086 lines) — Audio playback (Kira)
+- [x] `tool.mdprocessor` (9 files, 2,264 lines) — Download/song processing
 
 ## Phase 4: Configuration & Central State (~26,290 lines)
 

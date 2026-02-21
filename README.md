@@ -11,6 +11,11 @@ brs/
     crates/
       bms-model/           # BMS/BMSON/osu! format parser
       bms-table/           # LR2 course table parser
+      beatoraja-common/    # Exceptions, file utilities, generic pair
+      discord-rpc/         # Discord Rich Presence IPC client
+      beatoraja-input/     # Keyboard/controller/MIDI input processing
+      beatoraja-audio/     # Audio playback, PCM processing, WAV decoding
+      md-processor/        # Music download and processing
     golden-master/         # Test infrastructure
     test-bms/              # Test BMS files
 ```
@@ -21,11 +26,17 @@ brs/
 |-------|-------------|--------|
 | `bms-model` | BMS, BMSON, osu! format parser and decoder | Phase 1-2 complete |
 | `bms-table` | LR2 course table parser | Phase 1 complete |
+| `beatoraja-common` | Exceptions, RobustFile, generic Pair utility | Phase 3 complete |
+| `discord-rpc` | Discord Rich Presence IPC client (Unix/Windows) | Phase 3 complete |
+| `beatoraja-input` | Keyboard, controller, MIDI, mouse scratch input | Phase 3 complete |
+| `beatoraja-audio` | Audio driver, PCM formats, WAV/ADPCM decoding | Phase 3 complete |
+| `md-processor` | HTTP/IPFS music download and processing | Phase 3 complete |
 
 ## Implementation Progress
 
 - **Phase 1** (Core Foundation): `bms.model` (15 modules), `bms.table` (11 modules)
 - **Phase 2** (Format Variants): `bms.model.bmson` (BMSONDecoder + 16 model types), `bms.model.osu` (OSUDecoder + 9 model types)
+- **Phase 3** (Low-level Subsystems): `beatoraja-common` (3 modules), `discord-rpc` (4 modules), `beatoraja-input` (9 modules), `beatoraja-audio` (13 modules), `md-processor` (10 modules)
 
 See [TODO.md](TODO.md) for the full porting roadmap.
 

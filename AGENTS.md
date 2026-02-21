@@ -113,10 +113,15 @@ brs/
 
 - **Phase 1 complete:** `bms-model` (15 modules), `bms-table` (11 modules)
 - **Phase 2 complete:** `bmson` (16 model types + BMSONDecoder), `osu` (9 model types + OSUDecoder)
+- **Phase 3 complete:** `beatoraja-common` (3 modules), `discord-rpc` (4 modules), `beatoraja-input` (9 modules), `beatoraja-audio` (13 modules), `md-processor` (10 modules)
 
 ## Deferred / Stub Items
 
-None currently — all chart format decoders (BMS, BMSON, osu!) are implemented.
+- Phase 4 type dependencies (Config, PlayModeConfig, etc.) are stubbed in each crate's `stubs.rs`
+- PortAudio, LibGDX, ebur128, 7z extraction methods use `todo!()` pending external library integration
+- javax.sound.midi equivalents stubbed (no direct Rust equivalent)
+- MIDI device enumeration stubbed
+- FLAC/MP3 decoding deferred to Phase 4+ library integration
 
 ## Translation Lessons Learned
 
@@ -196,3 +201,23 @@ Java's BMSONDecoder uses direct object references for LN pairs (`ln.setPair(lnen
 ### Submodule Organization (Phase 2)
 
 When Java packages (like `bms.model.bmson` with 16 small classes) translate to Rust, consolidate all types into a single `mod.rs` file rather than one file per type. This reduces file count and simplifies imports.
+
+### Platform-Specific Code with cfg (Phase 3)
+
+Java platform detection (`System.getProperty("os.name")`) translates to `#[cfg(unix)]` / `#[cfg(windows)]` conditional compilation. Discord RPC's IPC uses Unix domain sockets on Linux/macOS and Named Pipes on Windows — keep both implementations with platform gates.
+
+### Stub Modules for Phase 4 Dependencies (Phase 3)
+
+Phase 3 crates reference Phase 4 types (Config, PlayModeConfig, Resolution, etc.) that don't exist yet. Create a `stubs.rs` module in each crate with minimal struct/trait definitions. These stubs will be replaced when Phase 4 is translated.
+
+### Java Back-References → Callback Traits (Phase 3)
+
+Java patterns where child objects hold `this` references to parent (e.g., `BMSPlayerInputProcessor` holding `BMSPlayer`) cause borrow conflicts in Rust. Solution: define a callback trait (e.g., `BMSPlayerInputDevice`) and pass `&mut dyn Trait` to methods instead of holding permanent references.
+
+### PCM Arc Sharing for Slice (Phase 3)
+
+Java's `ShortDirectPCM` uses `ByteBuffer.slice()` for zero-copy views. In Rust, use `Arc<Vec<T>>` with offset/length fields. The `slice()` method creates a new struct sharing the same `Arc` data with adjusted offset — avoids copying sample data.
+
+### MS-ADPCM Decoder (Phase 3)
+
+Java's MS-ADPCM decoder uses mutable coefficient arrays and predictor state. Translate as a stateless function taking `&[u8]` input and returning `Vec<i16>`. The adaptation table and coefficient sets are static constants.
