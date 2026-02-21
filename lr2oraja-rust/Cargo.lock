@@ -190,6 +190,7 @@ dependencies = [
  "chrono",
  "log",
  "md-processor",
+ "rand",
  "serde",
  "serde_json",
 ]
