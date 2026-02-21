@@ -528,6 +528,7 @@ dependencies = [
  "kira",
  "lewton",
  "log",
+ "rayon",
  "symphonia",
  "tempfile",
 ]

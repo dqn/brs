@@ -3,7 +3,7 @@
 //! Translated from: PortAudioDriver.java
 //! In Rust, Kira (via cpal backend) replaces PortAudio for audio output.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use rayon::prelude::*;
@@ -17,7 +17,7 @@ use bms_model::note::Note;
 
 use crate::abstract_audio_driver::SliceWav;
 use crate::audio_driver::AudioDriver;
-use crate::gdx_sound_driver::{LoadTask, LoadedSound, add_note_entry, linear_to_db};
+use crate::gdx_sound_driver::{FileCacheEntry, LoadTask, add_note_entry, linear_to_db};
 
 pub struct PortAudioDriver {
     manager: AudioManager,
@@ -29,13 +29,14 @@ pub struct PortAudioDriver {
     global_pitch: f32,
     // Model volume from volwav (0.0-1.0)
     volume: f32,
-    #[allow(dead_code)]
     song_resource_gen: i32,
     // Sliced sounds by wav ID (for notes with non-zero starttime/duration)
     slicesound: HashMap<i32, Vec<SliceWav<StaticSoundData>>>,
     slice_handles: HashMap<(i32, i64, i64), StaticSoundHandle>,
     // Cache for loaded sounds by path (matches Java soundmap)
     sound_cache: HashMap<String, StaticSoundData>,
+    // File-level keysound cache across songs (matches Java AudioCache/ResourcePool)
+    file_cache: HashMap<String, FileCacheEntry>,
     // Additional key sounds for judge playback: [6 judges][2: fast=0, late=1]
     additional_key_sounds: [[Option<StaticSoundData>; 2]; 6],
     additional_key_sound_handles: [[Option<StaticSoundHandle>; 2]; 6],
@@ -56,6 +57,7 @@ impl PortAudioDriver {
             slicesound: HashMap::new(),
             slice_handles: HashMap::new(),
             sound_cache: HashMap::new(),
+            file_cache: HashMap::new(),
             additional_key_sounds: Default::default(),
             additional_key_sound_handles: Default::default(),
         }
@@ -193,50 +195,83 @@ impl AudioDriver for PortAudioDriver {
             })
             .collect();
 
-        // Parallel file loading via rayon (matches Java parallelStream())
-        let loaded: Vec<LoadedSound> = load_tasks
-            .par_iter()
-            .filter_map(|(wav_id, abs_path, entries)| {
-                let candidates = crate::audio_driver::get_paths(abs_path);
-                for candidate in &candidates {
-                    if let Ok(data) = StaticSoundData::from_file(candidate) {
-                        return Some((*wav_id, data, entries.clone()));
+        // Check file_cache for each unique path, collect uncached paths
+        // Translated from: AudioCache.get() — cache hit resets gen to 0
+        let mut paths_to_load: HashSet<String> = HashSet::new();
+        for (_, path, _) in &load_tasks {
+            if let Some(entry) = self.file_cache.get_mut(path) {
+                entry.generation = 0; // Cache hit: reset generation
+            } else {
+                paths_to_load.insert(path.clone());
+            }
+        }
+
+        // Parallel load only uncached unique paths via rayon (matches Java parallelStream())
+        if !paths_to_load.is_empty() {
+            let paths_vec: Vec<String> = paths_to_load.into_iter().collect();
+            let newly_loaded: Vec<(String, StaticSoundData)> = paths_vec
+                .par_iter()
+                .filter_map(|abs_path| {
+                    let candidates = crate::audio_driver::get_paths(abs_path);
+                    for candidate in &candidates {
+                        if let Ok(data) = StaticSoundData::from_file(candidate) {
+                            return Some((abs_path.clone(), data));
+                        }
                     }
-                }
-                log::debug!("Failed to load keysound for wav {}: {}", wav_id, abs_path);
-                None
-            })
-            .collect();
+                    log::debug!("Failed to load keysound: {}", abs_path);
+                    None
+                })
+                .collect();
 
-        // Process loaded sounds into wav_sounds and slicesound
-        for (wav_id, base_sound, note_entries) in loaded {
-            for &(starttime, duration) in &note_entries {
-                if starttime == 0 && duration == 0 {
-                    self.wav_sounds.insert(wav_id, base_sound.clone());
-                } else {
-                    let sample_rate = base_sound.sample_rate as i64;
-                    let start_frame = (starttime * sample_rate / 1_000_000) as usize;
-                    let duration_frames = (duration * sample_rate / 1_000_000) as usize;
-                    let total_frames = base_sound.frames.len();
-                    let end_frame = (start_frame + duration_frames).min(total_frames);
+            // Insert newly loaded into file_cache
+            for (path, sound) in newly_loaded {
+                self.file_cache.insert(
+                    path,
+                    FileCacheEntry {
+                        sound,
+                        generation: 0,
+                    },
+                );
+            }
+        }
 
-                    if start_frame < total_frames {
-                        let mut sliced = base_sound.clone();
-                        sliced.slice = Some((start_frame, end_frame));
+        // Build wav_sounds/slicesound from file_cache
+        // Translated from: AbstractAudioDriver.setModel() cache.get() → wavmap/slicesound
+        for (wav_id, path, note_entries) in &load_tasks {
+            if let Some(entry) = self.file_cache.get(path) {
+                let base_sound = &entry.sound;
+                for &(starttime, duration) in note_entries {
+                    if starttime == 0 && duration == 0 {
+                        self.wav_sounds.insert(*wav_id, base_sound.clone());
+                    } else {
+                        let sample_rate = base_sound.sample_rate as i64;
+                        let start_frame = (starttime * sample_rate / 1_000_000) as usize;
+                        let duration_frames = (duration * sample_rate / 1_000_000) as usize;
+                        let total_frames = base_sound.frames.len();
+                        let end_frame = (start_frame + duration_frames).min(total_frames);
 
-                        self.slicesound
-                            .entry(wav_id)
-                            .or_default()
-                            .push(SliceWav::new(starttime, duration, sliced));
+                        if start_frame < total_frames {
+                            let mut sliced = base_sound.clone();
+                            sliced.slice = Some((start_frame, end_frame));
+
+                            self.slicesound
+                                .entry(*wav_id)
+                                .or_default()
+                                .push(SliceWav::new(starttime, duration, sliced));
+                        }
                     }
                 }
             }
         }
 
+        // Generational eviction (matches Java ResourcePool.disposeOld() at end of setModel)
+        self.evict_old_cache();
+
         log::info!(
-            "Keysound loading complete. Loaded: {} (sliced: {})",
+            "Keysound loading complete. Loaded: {} (sliced: {}) cache: {}",
             self.wav_sounds.len(),
-            self.slicesound.values().map(|v| v.len()).sum::<usize>()
+            self.slicesound.values().map(|v| v.len()).sum::<usize>(),
+            self.file_cache.len()
         );
     }
 
@@ -326,7 +361,9 @@ impl AudioDriver for PortAudioDriver {
         self.global_pitch
     }
 
-    fn dispose_old(&mut self) {}
+    fn dispose_old(&mut self) {
+        self.evict_old_cache();
+    }
 
     fn dispose(&mut self) {
         self.path_sounds.clear();
@@ -335,6 +372,7 @@ impl AudioDriver for PortAudioDriver {
         self.slicesound.clear();
         self.slice_handles.clear();
         self.sound_cache.clear();
+        self.file_cache.clear();
         self.additional_key_sounds = Default::default();
         self.additional_key_sound_handles = Default::default();
     }
@@ -367,6 +405,29 @@ impl PortAudioDriver {
             handle.set_playback_rate(Semitones(pitch_shift as f64), Tween::default());
         } else if (self.global_pitch - 1.0).abs() > f32::EPSILON {
             handle.set_playback_rate(PlaybackRate(self.global_pitch as f64), Tween::default());
+        }
+    }
+
+    /// Generational cache eviction.
+    /// Translated from: ResourcePool.disposeOld() / AudioCache.disposeOld()
+    fn evict_old_cache(&mut self) {
+        let prev_size = self.file_cache.len();
+        let maxgen = self.song_resource_gen.max(1);
+        self.file_cache.retain(|_, entry| {
+            if entry.generation >= maxgen {
+                false
+            } else {
+                entry.generation += 1;
+                true
+            }
+        });
+        let released = prev_size - self.file_cache.len();
+        if released > 0 {
+            log::info!(
+                "AudioCache capacity: {} released: {}",
+                self.file_cache.len(),
+                released
+            );
         }
     }
 
