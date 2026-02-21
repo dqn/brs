@@ -90,6 +90,9 @@ brs/
 | 15g | TableData/CourseData cascade unification (CourseData, TrophyData, TableData, TableFolder, TableAccessor) | — |
 | 15e | Platform-specific replacements (Twitter4j→bail, AWT clipboard→arboard, PortAudio→cpal, monitors→CoreGraphics FFI) | — |
 | 15f | Final stub cleanup (audit 17 crates, remove unused stubs, split rendering_stubs.rs) | — |
+| 16 | Test coverage expansion (unit tests, Golden Master activation, integration tests) | — |
+| 17 | Independent stub resolution (tar.gz, NullSongDatabaseAccessor, lifecycle defaults) | — |
+| 18 | Post-Phase 13 lifecycle wiring (MainController/PlayerResource stubs → real, E2E) | — |
 
 ## Deferred / Stub Items
 

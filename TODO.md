@@ -272,6 +272,56 @@ Remove all remaining `stubs.rs` files or reduce to zero non-rendering stubs.
 - [x] Verify: non-rendering stubs remain only in `stubs.rs` (lifecycle: MainController, PlayerResource, Timer, etc.) — rendering types isolated in `rendering_stubs.rs`
 - [x] Verify: all 66 tests pass, zero clippy warnings, clean `cargo fmt`
 
+## Phase 16: Test Coverage Expansion
+
+Currently 66 tests across 5 crates. 20 crates have zero unit tests. Golden Master test infrastructure exists (27 test files) but coverage gaps remain.
+
+### 16a: Unit Tests for Core Logic Crates
+
+Add unit tests for major crates that currently have zero tests.
+
+- [ ] `bms-model`: BMSDecoder parsing (header, channels, notes), TimeLine construction, Note/LongNote model, Mode enum
+- [ ] `beatoraja-core`: Config/PlayerConfig serialization round-trip, ScoreData field accessors, ReplayData encode/decode, ClearType/BMKeys
+- [ ] `beatoraja-play`: JudgeManager timing calculations, gauge value calculations (Normal/Hard/ExHard/Hazard), combo counting
+- [ ] `beatoraja-pattern`: Lane shuffle (Random/S-Random/R-Random/Mirror), PatternModifier application, AssistLevel logic
+- [ ] `beatoraja-types`: SongData/CourseData/TrophyData serde round-trip, GrooveGauge/GaugeProperty, SkinType enum mapping
+
+### 16b: Golden Master Test Activation
+
+- [ ] Verify golden-master fixtures are up-to-date (`just golden-master-gen`)
+- [ ] Enable and run all 27 golden-master comparison tests (judge, pattern, replay, config, audio, skin, etc.)
+- [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream)
+- [ ] Add tolerance thresholds documentation for timing-sensitive tests (±2μs)
+
+### 16c: Integration Tests
+
+- [ ] BMS parse → pattern apply → judge simulate pipeline (end-to-end logic without rendering)
+- [ ] Config load → serialize → deserialize round-trip across all config types
+- [ ] Score data: create → save → load → verify round-trip via ScoreDatabaseAccessor
+- [ ] Course data: parse → validate → constraint check pipeline
+
+## Phase 17: Independent Stub Resolution
+
+Resolve `todo!()` stubs that have no dependency on Phase 13 (rendering/egui).
+
+- [ ] tar.gz extraction (`md-processor/music_download_processor.rs:370`) → `flate2` + `tar` crates
+- [ ] `NullSongDatabaseAccessor` methods in `beatoraja-select/stubs.rs` → return empty `Vec`/defaults instead of `todo!()`
+- [ ] Replace remaining `todo!()` in lifecycle trait default impls (`beatoraja-types`: `MainControllerAccess`, `PlayerResourceAccess`) → return sensible defaults or `bail!()`
+- [ ] Verify: all tests pass, zero clippy warnings, clean `cargo fmt`
+
+## Phase 18: Post-Phase 13 Lifecycle Wiring
+
+Depends on: Phase 13 (rendering & egui integration complete).
+Replace lifecycle stubs across all downstream crates with real cross-crate wiring.
+
+- [ ] Replace `MainController` stubs in 8 crates (select, ir, obs, result, decide, external, modmenu, md-processor) with real `beatoraja-core::MainController`
+- [ ] Replace `PlayerResource` stubs in 6 crates (select, result, decide, external, modmenu, obs) with real `beatoraja-core::PlayerResource`
+- [ ] Replace `MainState` stubs with real trait impls (requires per-screen concrete types from Phase 13)
+- [ ] Remove all `stubs.rs` files (target: zero remaining stubs)
+- [ ] Remove `rendering_stubs.rs` (all types replaced by Bevy equivalents from Phase 13)
+- [ ] E2E gameplay flow test: select → decide → play → result screen transitions
+- [ ] Verify: all tests pass, zero clippy warnings, clean `cargo fmt`
+
 ---
 
 ## Testing Checkpoints
@@ -291,3 +341,6 @@ Remove all remaining `stubs.rs` files or reduce to zero non-rendering stubs.
 | 13 | Full game playable |
 | 14 | All `stubs.rs` files eliminated or reduced to rendering-only |
 | 15 | All non-rendering stubs eliminated, trait-based DI for lifecycle types |
+| 16 | Unit tests for core crates, Golden Master tests activated |
+| 17 | No `todo!()` panics in non-rendering code paths |
+| 18 | All `stubs.rs` eliminated, full E2E gameplay flow |
