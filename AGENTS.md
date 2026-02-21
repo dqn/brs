@@ -87,12 +87,13 @@ brs/
 | 15b | SkinType/GrooveGauge/GaugeProperty → `beatoraja-types` | 7 |
 | 15c | Struct-vs-Trait Unification (SongDatabaseAccessor, IRConnection, BMSPlayerInputProcessor) | — |
 | 15d | MainControllerAccess/PlayerResourceAccess traits + MainStateType extraction | — |
+| 15g | TableData/CourseData cascade unification (CourseData, TrophyData, TableData, TableFolder, TableAccessor) | — |
 
 ## Deferred / Stub Items
 
 **Circular dep stubs (cannot replace):** TextureRegion/Texture in play.
 **Structural mismatches (resolved):** ~~SongDatabaseAccessor/IRConnection (struct vs trait)~~ → replaced with real traits. ~~BMSPlayerInputProcessor (i32 vs usize)~~ → unified to usize.
-**Structural mismatches (remaining):** TableData/TableFolder/TableAccessor (CourseData cascade: stub `song` vs real `hash`, `String` vs `Option<String>`, `f64` vs `f32`).
+**Structural mismatches (resolved):** ~~TableData/TableFolder/TableAccessor (CourseData cascade)~~ → unified CourseData/TrophyData/CourseDataConstraint types, replaced stubs with real imports (Phase 15g).
 **Lifecycle stubs (trait-ified):** MainController/PlayerResource stubs remain in downstream crates but now implement `MainControllerAccess`/`PlayerResourceAccess` traits from `beatoraja-types`. MainState uses existing trait in `beatoraja-core`.
 **External `todo!()`:** PortAudio, LibGDX, ebur128, 7z, MIDI, FLAC/MP3, BGA video, ImGui→egui, Twitter4j, AWT clipboard, LR2 score import, Windows named pipe.
 
@@ -139,3 +140,4 @@ brs/
 - **P15b:** Moving SkinType: stub had UPPER_SNAKE_CASE + wrong ID mapping (13 variants); real has PascalCase (18 variants). Add `Copy`, `Default`, `Hash` derives. Callers need `as usize` for array indexing after `get_id() -> i32`. Moving GrooveGauge: `create()` depends on `BMSPlayerRule` → extract as free function `create_groove_gauge` in beatoraja-play. Move entire type chain (GaugeModifier, GaugeElementProperty, GaugeProperty, Gauge, GrooveGauge) together since they're tightly coupled. Re-export via `pub use` in original crate modules.
 - **P15c:** SongDatabaseAccessor trait needs `: Send` bound when used as `Box<dyn Trait>` inside `Arc<Mutex<...>>`. IRConnection struct→trait: use `Box<dyn IRConnection>` when no Clone needed, `Arc<dyn IRConnection>` when `.clone()` is required (e.g. `IRSendStatus`). `LeaderboardEntry::new_entry_primary_ir` takes owned `IRScoreData` in real (not `&IRScoreData`), callers need `.clone()`. `ClearType` is enum with `.id()` method (not struct with `.id` field). TableData/TableAccessor stubs cannot be replaced without first replacing CourseData (cascade: different field names `song`/`hash`, `String`/`Option<String>`, `f64`/`f32` across ~10 files).
 - **P15d:** Lifecycle trait extraction: only include methods whose param/return types exist in `beatoraja-types` (Config, PlayerConfig, ScoreData, SongData, etc.); methods needing types from other crates (BMSPlayerInputProcessor, SystemSoundManager, IRStatus) stay as inherent methods on local stubs. When trait method names conflict with existing inherent methods, rename inherent method (e.g. `get_player_config` → `get_player_config_local`). MainStateAccess trait deferred — existing `MainState` trait in core already covers the interface; downstream stubs have too-divergent APIs. `MainStateType` moves from core to types like other shared enums.
+- **P15g:** CourseData cascade: once CourseData/TrophyData/CourseDataConstraint stubs are replaced with real types from `beatoraja-types`, TableData/TableFolder/TableAccessor stubs can be replaced with imports from `beatoraja-core`. Key changes: `TableAccessor` trait needs `: Send + Sync` bounds for `Box<dyn TableAccessor>`. Real `TableData::get_url()` returns `&str` (not `Option<&str>`); use `get_url_opt()` for callers that need `Option`. `TrophyData` rates changed `f64` → `f32`, update arithmetic in `grade_bar.rs`. `BMSSearchAccessor` trait impl: `read()` returns `Option<TableData>`, `write()` takes `&mut TableData`.

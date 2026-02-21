@@ -168,12 +168,12 @@ Align stub APIs with real type APIs across all crates.
 
 Stubs that remain due to structural mismatches or external library dependencies:
 
-- **Structural mismatch:** TableData/TableFolder/TableAccessor — CourseData cascade (stub `song` vs real `hash`, `String` vs `Option<String>`, `f64` vs `f32`); requires Phase 15g
+- ~~**Structural mismatch:** TableData/TableFolder/TableAccessor — CourseData cascade~~ → resolved in Phase 15g
 - **Rendering:** TextureRegion/Texture in `beatoraja-play` (skin→play circular dep; deferred to Phase 13)
 - **Lifecycle stubs (trait-ified):** MainController/PlayerResource stubs remain but implement `MainControllerAccess`/`PlayerResourceAccess` traits (Phase 15d). MainState stubs remain as-is — `beatoraja-core` already defines `MainState` trait; downstream stubs have crate-specific APIs (timers, skin, input) that don't converge to a shared trait
 - **External libraries:** LibGDX rendering types (Phase 13), ImGui/egui types (Phase 13), Twitter4j/AWT clipboard (Phase 15e)
 
-Resolved in Phase 15a-d: ~~SongData circular dep~~ → moved to `beatoraja-types`. ~~SkinType/GrooveGauge~~ → moved to `beatoraja-types`. ~~SongDatabaseAccessor/IRConnection struct-vs-trait~~ → replaced with real traits.
+Resolved in Phase 15a-d: ~~SongData circular dep~~ → moved to `beatoraja-types`. ~~SkinType/GrooveGauge~~ → moved to `beatoraja-types`. ~~SongDatabaseAccessor/IRConnection struct-vs-trait~~ → replaced with real traits. Resolved in Phase 15g: ~~TableData/CourseData cascade~~ → unified CourseData/TrophyData/CourseDataConstraint types, replaced stubs with real imports.
 
 ## Phase 15: Structural Refactoring & Remaining Stubs
 
@@ -235,11 +235,16 @@ Define trait interfaces in `beatoraja-types` for the "god objects" so downstream
 
 Resolve the TableData/TableAccessor stubs blocked by CourseData field mismatches (deferred from Phase 15c).
 
-- [ ] Unify `CourseData` fields across stubs and real type: `song` → `hash`, `String` → `Option<String>`, `f64` → `f32`
-- [ ] Update `TrophyData` / `CourseDataConstraint` stubs to match real types
-- [ ] Replace `TableData` / `TableFolder` / `TableAccessor` stubs in `beatoraja-select` with real imports from `beatoraja-core`
-- [ ] Update ~10 files of callers for field name/type changes
-- [ ] Verify: all tests pass, zero clippy warnings
+- [x] Unify `CourseData` fields across stubs and real type: `song` → `hash`, `String` → `Option<String>`, `f64` → `f32`
+- [x] Update `TrophyData` / `CourseDataConstraint` stubs to match real types
+- [x] Replace `TableData` / `TableFolder` / `TableAccessor` stubs in `beatoraja-select` with real imports from `beatoraja-core`
+- [x] Replace `TableDataAccessor` / `DifficultyTableAccessor` / `CourseDataAccessor` stubs with real imports from `beatoraja-core`
+- [x] Add missing getter/setter methods to real `CourseData` and `TrophyData` in `beatoraja-types`
+- [x] Add `Send + Sync` bounds to real `TableAccessor` trait in `beatoraja-core`
+- [x] Update `BMSSearchAccessor` to implement real `TableAccessor` trait (`read` → `Option<TableData>`, `write` → `&mut TableData`)
+- [x] Update `table_bar.rs`: `get_url()` → `get_url_opt()` for `Option<&str>` return
+- [x] Update `grade_bar.rs`: `TrophyData` rates f64 → f32 in `qualified()` arithmetic
+- [x] Verify: all 66 tests pass, zero clippy warnings, clean `cargo fmt`
 
 ### 15e: Platform-Specific Replacements
 
