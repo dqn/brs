@@ -1,5 +1,6 @@
 // External dependency stubs for beatoraja-select
-// These will be replaced with actual implementations when corresponding phases are translated.
+// Types that can be replaced with real implementations are re-exported from beatoraja-core.
+// Remaining stubs are for types that cannot be replaced due to API incompatibilities.
 
 use std::collections::HashMap;
 
@@ -11,6 +12,20 @@ pub use beatoraja_skin::stubs::Color;
 pub use beatoraja_skin::stubs::Pixmap;
 pub use beatoraja_skin::stubs::Rectangle;
 pub use beatoraja_skin::stubs::TextureRegion;
+
+// ============================================================
+// beatoraja core types — re-exported from real implementations
+// ============================================================
+
+pub use beatoraja_core::audio_config::AudioConfig;
+pub use beatoraja_core::config::{Config, SongPreview};
+pub use beatoraja_core::play_config::PlayConfig;
+pub use beatoraja_core::play_mode_config::{
+    ControllerConfig, KeyboardConfig, MidiConfig, PlayModeConfig,
+};
+pub use beatoraja_core::player_config::PlayerConfig;
+pub use beatoraja_core::resolution::Resolution;
+pub use beatoraja_core::score_data::ScoreData;
 
 // ============================================================
 // beatoraja.song types
@@ -302,7 +317,7 @@ impl SongInformationAccessor {
 }
 
 // ============================================================
-// beatoraja core types (re-exported or stubbed)
+// beatoraja core types (stubbed — cannot be replaced)
 // ============================================================
 
 /// Stub for beatoraja.MainController
@@ -371,327 +386,9 @@ pub trait MainState {
 /// Stub for beatoraja.MainStateType
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MainStateType {
-    Config,
+    SelectConfig,
     SkinConfig,
     Decide,
-}
-
-/// Stub for beatoraja.Config
-#[derive(Clone, Debug, Default)]
-pub struct Config {
-    pub playerpath: String,
-    pub playername: String,
-    pub table_url: Vec<String>,
-    pub tablepath: String,
-    pub system_font_path: String,
-    pub scroll_duration_low: i32,
-    pub scroll_duration_high: i32,
-    pub analog_ticks_per_scroll: i32,
-    pub enable_http: bool,
-}
-
-impl Config {
-    pub fn get_playerpath(&self) -> &str {
-        &self.playerpath
-    }
-    pub fn get_playername(&self) -> &str {
-        &self.playername
-    }
-    pub fn get_table_url(&self) -> &[String] {
-        &self.table_url
-    }
-    pub fn get_tablepath(&self) -> &str {
-        &self.tablepath
-    }
-    pub fn get_scroll_duration_low(&self) -> i32 {
-        self.scroll_duration_low
-    }
-    pub fn get_scroll_duration_high(&self) -> i32 {
-        self.scroll_duration_high
-    }
-    pub fn get_analog_ticks_per_scroll(&self) -> i32 {
-        self.analog_ticks_per_scroll
-    }
-    pub fn is_enable_http(&self) -> bool {
-        self.enable_http
-    }
-    pub fn get_system_font_path(&self) -> &str {
-        &self.system_font_path
-    }
-    pub fn is_show_no_song_existing_bar(&self) -> bool {
-        false
-    }
-    pub fn is_folderlamp(&self) -> bool {
-        false
-    }
-    pub fn get_banner_pixmap_gen(&self) -> i32 {
-        0
-    }
-    pub fn get_stagefile_pixmap_gen(&self) -> i32 {
-        0
-    }
-    pub fn is_updatesong(&self) -> bool {
-        false
-    }
-    pub fn get_max_search_bar_count(&self) -> usize {
-        10
-    }
-    pub fn is_random_select(&self) -> bool {
-        false
-    }
-    pub fn get_song_preview(&self) -> SongPreview {
-        SongPreview::None
-    }
-}
-
-/// Stub for beatoraja.Config.SongPreview
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SongPreview {
-    None,
-    Loop,
-    Once,
-}
-
-/// Stub for beatoraja.PlayerConfig
-#[derive(Clone, Debug, Default)]
-pub struct PlayerConfig {
-    pub lnmode: i32,
-    pub sort: i32,
-    pub sortid: String,
-    pub random: i32,
-    pub random2: i32,
-    pub doubleoption: i32,
-    pub musicselectinput: i32,
-    pub mode: Option<bms_model::Mode>,
-    pub event_mode: bool,
-    pub random_select: bool,
-    pub custom_judge: bool,
-    pub scroll_mode: i32,
-    pub showjudgearea: bool,
-    pub longnote_mode: i32,
-    pub markprocessednote: bool,
-    pub bpmguide: bool,
-    pub mine_mode: i32,
-    pub chart_replication_mode: String,
-}
-
-impl PlayerConfig {
-    pub fn get_lnmode(&self) -> i32 {
-        self.lnmode
-    }
-    pub fn set_lnmode(&mut self, v: i32) {
-        self.lnmode = v;
-    }
-    pub fn get_sort(&self) -> i32 {
-        self.sort
-    }
-    pub fn set_sort(&mut self, v: i32) {
-        self.sort = v;
-    }
-    pub fn get_sortid(&self) -> &str {
-        &self.sortid
-    }
-    pub fn set_sortid(&mut self, v: String) {
-        self.sortid = v;
-    }
-    pub fn get_random(&self) -> i32 {
-        self.random
-    }
-    pub fn set_random(&mut self, v: i32) {
-        self.random = v;
-    }
-    pub fn get_random2(&self) -> i32 {
-        self.random2
-    }
-    pub fn set_random2(&mut self, v: i32) {
-        self.random2 = v;
-    }
-    pub fn get_doubleoption(&self) -> i32 {
-        self.doubleoption
-    }
-    pub fn set_doubleoption(&mut self, v: i32) {
-        self.doubleoption = v;
-    }
-    pub fn get_musicselectinput(&self) -> i32 {
-        self.musicselectinput
-    }
-    pub fn get_mode(&self) -> Option<&bms_model::Mode> {
-        self.mode.as_ref()
-    }
-    pub fn set_mode(&mut self, m: Option<bms_model::Mode>) {
-        self.mode = m;
-    }
-    pub fn is_event_mode(&self) -> bool {
-        self.event_mode
-    }
-    pub fn is_random_select(&self) -> bool {
-        self.random_select
-    }
-    pub fn is_custom_judge(&self) -> bool {
-        self.custom_judge
-    }
-    pub fn set_custom_judge(&mut self, v: bool) {
-        self.custom_judge = v;
-    }
-    pub fn get_scroll_mode(&self) -> i32 {
-        self.scroll_mode
-    }
-    pub fn set_scroll_mode(&mut self, v: i32) {
-        self.scroll_mode = v;
-    }
-    pub fn is_showjudgearea(&self) -> bool {
-        self.showjudgearea
-    }
-    pub fn set_showjudgearea(&mut self, v: bool) {
-        self.showjudgearea = v;
-    }
-    pub fn get_longnote_mode(&self) -> i32 {
-        self.longnote_mode
-    }
-    pub fn set_longnote_mode(&mut self, v: i32) {
-        self.longnote_mode = v;
-    }
-    pub fn is_markprocessednote(&self) -> bool {
-        self.markprocessednote
-    }
-    pub fn set_markprocessednote(&mut self, v: bool) {
-        self.markprocessednote = v;
-    }
-    pub fn is_bpmguide(&self) -> bool {
-        self.bpmguide
-    }
-    pub fn set_bpmguide(&mut self, v: bool) {
-        self.bpmguide = v;
-    }
-    pub fn get_mine_mode(&self) -> i32 {
-        self.mine_mode
-    }
-    pub fn set_mine_mode(&mut self, v: i32) {
-        self.mine_mode = v;
-    }
-    pub fn get_chart_replication_mode(&self) -> &str {
-        &self.chart_replication_mode
-    }
-    pub fn get_play_config(&self, _mode: i32) -> &PlayModeConfig {
-        todo!()
-    }
-    pub fn get_mode7(&self) -> &PlayModeConfig {
-        todo!()
-    }
-    pub fn get_mode9(&self) -> &PlayModeConfig {
-        todo!()
-    }
-    pub fn get_mode14(&self) -> &PlayModeConfig {
-        todo!()
-    }
-}
-
-/// Stub for beatoraja.PlayModeConfig
-#[derive(Clone, Debug, Default)]
-pub struct PlayModeConfig;
-
-impl PlayModeConfig {
-    pub fn get_keyboard_config(&self) -> &KeyboardConfig {
-        todo!()
-    }
-    pub fn get_controller(&self) -> &ControllerConfig {
-        todo!()
-    }
-    pub fn get_midi_config(&self) -> &MidiConfig {
-        todo!()
-    }
-    pub fn get_playconfig(&self) -> &PlayConfig {
-        todo!()
-    }
-}
-
-/// Stub for beatoraja.PlayConfig
-#[derive(Clone, Debug, Default)]
-pub struct PlayConfig;
-
-/// Stub for keyboard/controller/midi configs
-#[derive(Clone, Debug, Default)]
-pub struct KeyboardConfig;
-#[derive(Clone, Debug, Default)]
-pub struct ControllerConfig;
-#[derive(Clone, Debug, Default)]
-pub struct MidiConfig;
-
-/// Stub for beatoraja.ScoreData
-#[derive(Clone, Debug, Default)]
-pub struct ScoreData {
-    pub player: String,
-    pub clear: i32,
-    pub exscore: i32,
-    pub notes: i32,
-    pub minbp: i32,
-    pub option: i32,
-    pub seed: i64,
-    pub random: i32,
-    pub date: i64,
-    pub avgjudge: i64,
-    pub epg: i32,
-    pub egr: i32,
-    pub egd: i32,
-    pub ebd: i32,
-    pub epr: i32,
-}
-
-impl ScoreData {
-    pub fn get_clear(&self) -> i32 {
-        self.clear
-    }
-    pub fn get_exscore(&self) -> i32 {
-        self.exscore
-    }
-    pub fn get_notes(&self) -> i32 {
-        self.notes
-    }
-    pub fn get_minbp(&self) -> i32 {
-        self.minbp
-    }
-    pub fn get_option(&self) -> i32 {
-        self.option
-    }
-    pub fn get_seed(&self) -> i64 {
-        self.seed
-    }
-    pub fn get_random(&self) -> i32 {
-        self.random
-    }
-    pub fn get_date(&self) -> i64 {
-        self.date
-    }
-    pub fn get_avgjudge(&self) -> i64 {
-        self.avgjudge
-    }
-    pub fn get_player(&self) -> &str {
-        &self.player
-    }
-    pub fn set_player(&mut self, s: String) {
-        self.player = s;
-    }
-    pub fn set_epg(&mut self, v: i32) {
-        self.epg = v;
-    }
-    pub fn set_egr(&mut self, v: i32) {
-        self.egr = v;
-    }
-    pub fn set_egd(&mut self, v: i32) {
-        self.egd = v;
-    }
-    pub fn set_ebd(&mut self, v: i32) {
-        self.ebd = v;
-    }
-    pub fn set_epr(&mut self, v: i32) {
-        self.epr = v;
-    }
-    pub fn set_notes(&mut self, v: i32) {
-        self.notes = v;
-    }
-    pub fn encode_ghost(&mut self, _judgements: &[i32]) {
-        todo!()
-    }
 }
 
 /// Stub for beatoraja.ScoreDatabaseAccessor.ScoreDataCollector
@@ -736,6 +433,7 @@ impl BMSPlayerMode {
 }
 
 /// Stub for beatoraja.CourseData
+/// Cannot be replaced: field name differs (song vs hash), TrophyData types differ
 #[derive(Clone, Debug, Default)]
 pub struct CourseData {
     pub name: String,
@@ -1037,6 +735,7 @@ impl PlayDataAccessor {
 }
 
 /// Stub for beatoraja.ReplayData
+/// Cannot be replaced: real type references KeyInputLog/PatternModifyLog stubs
 #[derive(Clone, Debug, Default)]
 pub struct ReplayData {
     pub randomoption: i32,
@@ -1332,6 +1031,7 @@ impl IRScoreData {
     }
 }
 
+/// Stub ClearType for IR types (NOT the real beatoraja-core ClearType enum)
 #[derive(Clone, Debug, Default)]
 pub struct ClearType {
     pub id: i32,
@@ -1662,28 +1362,6 @@ impl AudioDriver {
         false
     }
     pub fn set_volume(&self, _path: &str, _volume: f32) {}
-}
-
-/// Stub for AudioConfig
-pub struct AudioConfig {
-    pub system_volume: f32,
-}
-
-impl AudioConfig {
-    pub fn get_system_volume(&self) -> f32 {
-        self.system_volume
-    }
-}
-
-// ============================================================
-// beatoraja.Resolution
-// ============================================================
-
-/// Stub for beatoraja.Resolution
-#[derive(Clone, Debug, Default)]
-pub struct Resolution {
-    pub width: f32,
-    pub height: f32,
 }
 
 // ============================================================

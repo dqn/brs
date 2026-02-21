@@ -266,6 +266,10 @@ impl ScoreData {
         self.lms
     }
 
+    pub fn get_avgjudge(&self) -> i64 {
+        self.avgjudge
+    }
+
     pub fn get_exscore(&self) -> i32 {
         (self.epg + self.lpg) * 2 + self.egr + self.lgr
     }

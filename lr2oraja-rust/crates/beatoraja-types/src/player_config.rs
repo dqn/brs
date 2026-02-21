@@ -340,12 +340,24 @@ impl PlayerConfig {
         self.random
     }
 
+    pub fn set_random(&mut self, v: i32) {
+        self.random = v;
+    }
+
     pub fn get_random2(&self) -> i32 {
         self.random2
     }
 
+    pub fn set_random2(&mut self, v: i32) {
+        self.random2 = v;
+    }
+
     pub fn get_doubleoption(&self) -> i32 {
         self.doubleoption
+    }
+
+    pub fn set_doubleoption(&mut self, v: i32) {
+        self.doubleoption = v;
     }
 
     pub fn get_judgetiming(&self) -> i32 {
@@ -354,6 +366,106 @@ impl PlayerConfig {
 
     pub fn get_lnmode(&self) -> i32 {
         self.lnmode
+    }
+
+    pub fn set_lnmode(&mut self, v: i32) {
+        self.lnmode = v;
+    }
+
+    pub fn get_sort(&self) -> i32 {
+        self.sort
+    }
+
+    pub fn set_sort(&mut self, v: i32) {
+        self.sort = v;
+    }
+
+    pub fn get_sortid(&self) -> Option<&str> {
+        self.sortid.as_deref()
+    }
+
+    pub fn set_sortid(&mut self, v: String) {
+        self.sortid = Some(v);
+    }
+
+    pub fn get_musicselectinput(&self) -> i32 {
+        self.musicselectinput
+    }
+
+    pub fn get_mode(&self) -> Option<&Mode> {
+        self.mode.as_ref()
+    }
+
+    pub fn set_mode(&mut self, m: Option<Mode>) {
+        self.mode = m;
+    }
+
+    pub fn is_event_mode(&self) -> bool {
+        self.event_mode
+    }
+
+    pub fn is_random_select(&self) -> bool {
+        self.is_random_select
+    }
+
+    pub fn is_custom_judge(&self) -> bool {
+        self.custom_judge
+    }
+
+    pub fn set_custom_judge(&mut self, v: bool) {
+        self.custom_judge = v;
+    }
+
+    pub fn get_scroll_mode(&self) -> i32 {
+        self.scroll_mode
+    }
+
+    pub fn set_scroll_mode(&mut self, v: i32) {
+        self.scroll_mode = v;
+    }
+
+    pub fn is_showjudgearea(&self) -> bool {
+        self.showjudgearea
+    }
+
+    pub fn set_showjudgearea(&mut self, v: bool) {
+        self.showjudgearea = v;
+    }
+
+    pub fn get_longnote_mode(&self) -> i32 {
+        self.longnote_mode
+    }
+
+    pub fn set_longnote_mode(&mut self, v: i32) {
+        self.longnote_mode = v;
+    }
+
+    pub fn is_markprocessednote(&self) -> bool {
+        self.markprocessednote
+    }
+
+    pub fn set_markprocessednote(&mut self, v: bool) {
+        self.markprocessednote = v;
+    }
+
+    pub fn is_bpmguide(&self) -> bool {
+        self.bpmguide
+    }
+
+    pub fn set_bpmguide(&mut self, v: bool) {
+        self.bpmguide = v;
+    }
+
+    pub fn get_mine_mode(&self) -> i32 {
+        self.mine_mode
+    }
+
+    pub fn set_mine_mode(&mut self, v: i32) {
+        self.mine_mode = v;
+    }
+
+    pub fn get_chart_replication_mode(&self) -> &str {
+        &self.chart_replication_mode
     }
 
     pub fn get_gauge_auto_shift(&self) -> i32 {
