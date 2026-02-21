@@ -94,6 +94,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "beatoraja-controller"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+]
+
+[[package]]
 name = "beatoraja-core"
 version = "0.1.0"
 dependencies = [
@@ -322,6 +330,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "beatoraja-song"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "beatoraja-core",
+ "bms-model",
+ "log",
+ "md-processor",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "beatoraja-stream"
 version = "0.1.0"
 dependencies = [
@@ -331,6 +354,15 @@ dependencies = [
  "bms-model",
  "log",
  "tokio",
+]
+
+[[package]]
+name = "beatoraja-system"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "tempfile",
 ]
 
 [[package]]

@@ -20,6 +20,9 @@ members = [
     "crates/beatoraja-modmenu",
     "crates/beatoraja-stream",
     "crates/beatoraja-launcher",
+    "crates/beatoraja-song",
+    "crates/beatoraja-controller",
+    "crates/beatoraja-system",
 ]
 resolver = "2"
 
@@ -49,6 +52,9 @@ beatoraja-obs = { path = "crates/beatoraja-obs" }
 beatoraja-modmenu = { path = "crates/beatoraja-modmenu" }
 beatoraja-stream = { path = "crates/beatoraja-stream" }
 beatoraja-launcher = { path = "crates/beatoraja-launcher" }
+beatoraja-song = { path = "crates/beatoraja-song" }
+beatoraja-controller = { path = "crates/beatoraja-controller" }
+beatoraja-system = { path = "crates/beatoraja-system" }
 
 # Error handling
 anyhow = "1"
