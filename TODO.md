@@ -306,11 +306,13 @@ Added unit tests for major crates that previously had zero tests.
 ## Phase 17: Independent Stub Resolution
 
 Resolve `todo!()` stubs that have no dependency on Phase 13 (rendering/egui).
+All items were already resolved in prior phases. Phase 17 is a verification-only phase confirming zero runtime `todo!()`/`unimplemented!()` in non-rendering code.
 
-- [ ] tar.gz extraction (`md-processor/music_download_processor.rs:370`) → `flate2` + `tar` crates
-- [ ] `NullSongDatabaseAccessor` methods in `beatoraja-select/stubs.rs` → return empty `Vec`/defaults instead of `todo!()`
-- [ ] Replace remaining `todo!()` in lifecycle trait default impls (`beatoraja-types`: `MainControllerAccess`, `PlayerResourceAccess`) → return sensible defaults or `bail!()`
-- [ ] Verify: all tests pass, zero clippy warnings, clean `cargo fmt`
+- [x] tar.gz extraction (`md-processor/music_download_processor.rs`) → `flate2` + `tar` crates (already implemented)
+- [x] `NullSongDatabaseAccessor` methods in `beatoraja-select/stubs.rs` → return empty `Vec`/defaults with `log::warn!()` (already implemented)
+- [x] Lifecycle trait default impls (`beatoraja-types`: `MainControllerAccess`, `PlayerResourceAccess`) → use `log::warn!()` + sensible defaults (already implemented)
+- [x] Audit: zero runtime `todo!()` or `unimplemented!()` macro calls in non-rendering code (12 occurrences in comments only)
+- [x] Verify: 843 tests pass, zero clippy warnings, clean `cargo fmt`
 
 ## Phase 18: Post-Phase 13 Lifecycle Wiring
 
