@@ -751,6 +751,7 @@ dependencies = [
  "beatoraja-core",
  "beatoraja-input",
  "beatoraja-pattern",
+ "beatoraja-render",
  "beatoraja-song",
  "beatoraja-types",
  "bms-model",
