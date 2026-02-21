@@ -3,9 +3,44 @@
 
 use beatoraja_core::main_state::MainStateType;
 
+// MainControllerAccess — re-exported from beatoraja-types (Phase 15d)
+pub use beatoraja_types::main_controller_access::MainControllerAccess;
+pub use beatoraja_types::main_state_type::MainStateType as TypesMainStateType;
+pub use beatoraja_types::player_resource_access::PlayerResourceAccess;
+
 /// Stub for MainController reference.
 /// In Java, MainController.getStateType(MainState) returns the MainStateType.
 pub struct MainControllerRef;
+
+impl MainControllerAccess for MainControllerRef {
+    fn get_config(&self) -> &beatoraja_types::config::Config {
+        todo!()
+    }
+    fn get_player_config(&self) -> &beatoraja_types::player_config::PlayerConfig {
+        todo!()
+    }
+    fn change_state(&mut self, _state: TypesMainStateType) {
+        todo!()
+    }
+    fn save_config(&self) {
+        todo!()
+    }
+    fn exit(&self) {
+        todo!()
+    }
+    fn save_last_recording(&self, _reason: &str) {
+        todo!()
+    }
+    fn update_song(&mut self, _path: Option<&str>) {
+        todo!()
+    }
+    fn get_player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+        None
+    }
+    fn get_player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+        None
+    }
+}
 
 impl MainControllerRef {
     pub fn get_state_type(

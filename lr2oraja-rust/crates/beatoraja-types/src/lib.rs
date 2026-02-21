@@ -29,6 +29,13 @@ pub mod play_mode_config;
 pub mod player_config;
 pub mod skin_config;
 
+// State types
+pub mod main_state_type;
+
+// Lifecycle trait interfaces
+pub mod main_controller_access;
+pub mod player_resource_access;
+
 // Data models
 pub mod course_data;
 pub mod folder_data;

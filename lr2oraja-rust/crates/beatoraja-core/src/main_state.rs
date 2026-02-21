@@ -2,17 +2,8 @@ use crate::score_data_property::ScoreDataProperty;
 use crate::system_sound_manager::SoundType;
 use crate::timer_manager::TimerManager;
 
-/// MainStateType - enum for each state in the application
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MainStateType {
-    MusicSelect,
-    Decide,
-    Play,
-    Result,
-    CourseResult,
-    Config,
-    SkinConfig,
-}
+// MainStateType moved to beatoraja-types (Phase 15d)
+pub use beatoraja_types::main_state_type::MainStateType;
 
 /// MainState - abstract class for each state in the player
 ///

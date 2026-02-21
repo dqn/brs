@@ -3,6 +3,10 @@
 
 use std::sync::Arc;
 
+pub use beatoraja_types::main_controller_access::MainControllerAccess;
+pub use beatoraja_types::main_state_type::MainStateType as TypesMainStateType;
+pub use beatoraja_types::player_resource_access::PlayerResourceAccess;
+
 // ============================================================
 // Re-exports from real crates (Phase 11 stub replacements)
 // ============================================================
@@ -71,6 +75,44 @@ impl MainController {
 
     pub fn ir_send_status_mut(&mut self) -> &mut Vec<IRSendStatusMain> {
         todo!("Phase 8+ dependency: MainController.irSendStatus")
+    }
+}
+
+impl MainControllerAccess for MainController {
+    fn get_config(&self) -> &beatoraja_types::config::Config {
+        todo!("MainControllerAccess::get_config for MainController stub")
+    }
+
+    fn get_player_config(&self) -> &beatoraja_types::player_config::PlayerConfig {
+        todo!("MainControllerAccess::get_player_config for MainController stub")
+    }
+
+    fn change_state(&mut self, _state: TypesMainStateType) {
+        todo!("MainControllerAccess::change_state for MainController stub")
+    }
+
+    fn save_config(&self) {
+        todo!("MainControllerAccess::save_config for MainController stub")
+    }
+
+    fn exit(&self) {
+        todo!("MainControllerAccess::exit for MainController stub")
+    }
+
+    fn save_last_recording(&self, _reason: &str) {
+        todo!("MainControllerAccess::save_last_recording for MainController stub")
+    }
+
+    fn update_song(&mut self, _path: Option<&str>) {
+        todo!("MainControllerAccess::update_song for MainController stub")
+    }
+
+    fn get_player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+        None
+    }
+
+    fn get_player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+        None
     }
 }
 
@@ -331,6 +373,125 @@ impl PlayerResource {
 
     pub fn is_freq_on(&self) -> bool {
         false
+    }
+}
+
+impl PlayerResourceAccess for PlayerResource {
+    fn get_config(&self) -> &beatoraja_types::config::Config {
+        todo!("PlayerResourceAccess::get_config for PlayerResource stub")
+    }
+
+    fn get_player_config(&self) -> &beatoraja_types::player_config::PlayerConfig {
+        todo!("PlayerResourceAccess::get_player_config for PlayerResource stub")
+    }
+
+    fn get_score_data(&self) -> Option<&beatoraja_types::score_data::ScoreData> {
+        None
+    }
+
+    fn get_rival_score_data(&self) -> Option<&beatoraja_types::score_data::ScoreData> {
+        None
+    }
+
+    fn get_target_score_data(&self) -> Option<&beatoraja_types::score_data::ScoreData> {
+        None
+    }
+
+    fn get_course_score_data(&self) -> Option<&beatoraja_types::score_data::ScoreData> {
+        None
+    }
+
+    fn set_course_score_data(&mut self, _score: beatoraja_types::score_data::ScoreData) {
+        // no-op stub
+    }
+
+    fn get_songdata(&self) -> Option<&beatoraja_types::song_data::SongData> {
+        todo!("PlayerResourceAccess::get_songdata for PlayerResource stub")
+    }
+
+    fn get_replay_data(&self) -> Option<&beatoraja_types::replay_data::ReplayData> {
+        todo!("PlayerResourceAccess::get_replay_data for PlayerResource stub")
+    }
+
+    fn get_course_replay(&self) -> &[beatoraja_types::replay_data::ReplayData] {
+        todo!("PlayerResourceAccess::get_course_replay for PlayerResource stub")
+    }
+
+    fn add_course_replay(&mut self, _rd: beatoraja_types::replay_data::ReplayData) {
+        todo!("PlayerResourceAccess::add_course_replay for PlayerResource stub")
+    }
+
+    fn get_course_data(&self) -> Option<&beatoraja_types::course_data::CourseData> {
+        None
+    }
+
+    fn get_course_index(&self) -> usize {
+        0
+    }
+
+    fn next_course(&mut self) -> bool {
+        false
+    }
+
+    fn get_constraint(&self) -> Vec<beatoraja_types::course_data::CourseDataConstraint> {
+        vec![]
+    }
+
+    fn get_gauge(&self) -> Option<&Vec<Vec<f32>>> {
+        None
+    }
+
+    fn get_groove_gauge(&self) -> Option<&beatoraja_types::groove_gauge::GrooveGauge> {
+        None
+    }
+
+    fn get_course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
+        static EMPTY: Vec<Vec<Vec<f32>>> = Vec::new();
+        &EMPTY
+    }
+
+    fn add_course_gauge(&mut self, _gauge: Vec<Vec<f32>>) {
+        // no-op stub
+    }
+
+    fn get_maxcombo(&self) -> i32 {
+        0
+    }
+
+    fn get_org_gauge_option(&self) -> i32 {
+        0
+    }
+
+    fn set_org_gauge_option(&mut self, _val: i32) {
+        // no-op stub
+    }
+
+    fn get_assist(&self) -> i32 {
+        0
+    }
+
+    fn is_update_score(&self) -> bool {
+        false
+    }
+
+    fn is_update_course_score(&self) -> bool {
+        false
+    }
+
+    fn is_force_no_ir_send(&self) -> bool {
+        false
+    }
+
+    fn is_freq_on(&self) -> bool {
+        false
+    }
+
+    fn get_reverse_lookup_data(&self) -> Vec<String> {
+        vec![]
+    }
+
+    fn get_reverse_lookup_levels(&self) -> Vec<String> {
+        vec![]
     }
 }
 

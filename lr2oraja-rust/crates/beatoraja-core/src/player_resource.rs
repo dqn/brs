@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use beatoraja_types::player_resource_access::PlayerResourceAccess;
+
 use crate::bms_player_mode::BMSPlayerMode;
 use crate::bms_resource::BMSResource;
 use crate::config::Config;
@@ -552,5 +554,128 @@ impl PlayerResource {
     pub fn get_reverse_lookup_levels(&self) -> Vec<String> {
         // Phase 5+ dependency: TableDataAccessor, SongData matching
         todo!("Phase 5+ dependency: getReverseLookupLevels")
+    }
+}
+
+impl PlayerResourceAccess for PlayerResource {
+    fn get_config(&self) -> &Config {
+        &self.config
+    }
+
+    fn get_player_config(&self) -> &PlayerConfig {
+        &self.pconfig
+    }
+
+    fn get_score_data(&self) -> Option<&ScoreData> {
+        self.score.as_ref()
+    }
+
+    fn get_rival_score_data(&self) -> Option<&ScoreData> {
+        self.rscore.as_ref()
+    }
+
+    fn get_target_score_data(&self) -> Option<&ScoreData> {
+        self.tscore.as_ref()
+    }
+
+    fn get_course_score_data(&self) -> Option<&ScoreData> {
+        self.cscore.as_ref()
+    }
+
+    fn set_course_score_data(&mut self, score: ScoreData) {
+        self.cscore = Some(score);
+    }
+
+    fn get_songdata(&self) -> Option<&beatoraja_types::song_data::SongData> {
+        self.songdata.as_ref().map(|s| {
+            // The core SongData stub is a different type from beatoraja_types::SongData.
+            // This will be resolved when core's SongData stub is replaced.
+            let _ = s;
+            todo!("Phase 15d: core SongData stub differs from types SongData")
+        })
+    }
+
+    fn get_replay_data(&self) -> Option<&ReplayData> {
+        self.replay.as_ref()
+    }
+
+    fn get_course_replay(&self) -> &[ReplayData] {
+        &self.course_replay
+    }
+
+    fn add_course_replay(&mut self, rd: ReplayData) {
+        self.course_replay.push(rd);
+    }
+
+    fn get_course_data(&self) -> Option<&CourseData> {
+        self.coursedata.as_ref()
+    }
+
+    fn get_course_index(&self) -> usize {
+        self.courseindex
+    }
+
+    fn next_course(&mut self) -> bool {
+        PlayerResource::next_course(self)
+    }
+
+    fn get_constraint(&self) -> Vec<CourseDataConstraint> {
+        PlayerResource::get_constraint(self)
+    }
+
+    fn get_gauge(&self) -> Option<&Vec<Vec<f32>>> {
+        self.gauge.as_ref()
+    }
+
+    fn get_groove_gauge(&self) -> Option<&beatoraja_types::groove_gauge::GrooveGauge> {
+        self.groove_gauge.as_ref()
+    }
+
+    fn get_course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
+        &self.coursegauge
+    }
+
+    fn add_course_gauge(&mut self, gauge: Vec<Vec<f32>>) {
+        self.coursegauge.push(gauge);
+    }
+
+    fn get_maxcombo(&self) -> i32 {
+        self.maxcombo
+    }
+
+    fn get_org_gauge_option(&self) -> i32 {
+        self.org_gauge_option
+    }
+
+    fn set_org_gauge_option(&mut self, val: i32) {
+        self.org_gauge_option = val;
+    }
+
+    fn get_assist(&self) -> i32 {
+        self.assist
+    }
+
+    fn is_update_score(&self) -> bool {
+        self.update_score
+    }
+
+    fn is_update_course_score(&self) -> bool {
+        self.update_course_score
+    }
+
+    fn is_force_no_ir_send(&self) -> bool {
+        self.force_no_ir_send
+    }
+
+    fn is_freq_on(&self) -> bool {
+        self.freq_on
+    }
+
+    fn get_reverse_lookup_data(&self) -> Vec<String> {
+        PlayerResource::get_reverse_lookup_data(self)
+    }
+
+    fn get_reverse_lookup_levels(&self) -> Vec<String> {
+        PlayerResource::get_reverse_lookup_levels(self)
     }
 }

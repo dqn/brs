@@ -220,12 +220,14 @@ Define shared traits in `beatoraja-types`, implement in real crates.
 
 Define trait interfaces in `beatoraja-types` for the "god objects" so downstream crates use traits instead of concrete stubs.
 
-- [ ] Define `MainControllerAccess` trait in `beatoraja-types` (config access, screen transitions, audio control, input polling)
-- [ ] Define `PlayerResourceAccess` trait in `beatoraja-types` (skin, score data, song data, replay data)
-- [ ] Define `MainStateAccess` trait in `beatoraja-types` (timer, resource, skin, state queries)
-- [ ] Implement traits on real types in `beatoraja-core`
-- [ ] Replace `MainController` / `PlayerResource` / `MainState` stubs in all downstream crates (~10 crates) with `dyn Trait` references
-- [ ] Verify: all tests pass, zero clippy warnings
+- [x] Define `MainControllerAccess` trait in `beatoraja-types` (config access, screen transitions, save, exit, update_song, player_resource access)
+- [x] Define `PlayerResourceAccess` trait in `beatoraja-types` (config, score data, song data, replay data, course data, gauge, state queries)
+- [x] Move `MainStateType` enum from `beatoraja-core` to `beatoraja-types` (re-export via `pub use` in core)
+- [x] Implement traits on real types in `beatoraja-core` (`MainController`, `PlayerResource`)
+- [x] Add trait impls to existing stubs in 8 downstream crates: select, ir, obs, result, decide, external, modmenu (stream has no MainController stub)
+- [x] Provide `NullMainController` and `NullPlayerResource` default impls in `beatoraja-types`
+- [~] `MainStateAccess` trait: deferred — existing `MainState` trait in `beatoraja-core` already serves this purpose; downstream stubs vary too much for a unified trait
+- [x] Verify: all 66 tests pass, zero clippy warnings, clean `cargo fmt`
 
 ### 15e: Platform-Specific Replacements
 

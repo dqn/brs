@@ -3,6 +3,9 @@ use std::time::Instant;
 
 use log::info;
 
+use beatoraja_types::main_controller_access::MainControllerAccess;
+use beatoraja_types::player_resource_access::PlayerResourceAccess;
+
 use crate::bms_player_mode::BMSPlayerMode;
 use crate::config::Config;
 use crate::ir_config::IRConfig;
@@ -494,5 +497,49 @@ impl MainController {
 
     pub fn set_imgui(&mut self, imgui: ImGuiRenderer) {
         self.imgui = Some(imgui);
+    }
+}
+
+impl MainControllerAccess for MainController {
+    fn get_config(&self) -> &Config {
+        &self.config
+    }
+
+    fn get_player_config(&self) -> &PlayerConfig {
+        &self.player
+    }
+
+    fn change_state(&mut self, _state: MainStateType) {
+        todo!("Phase 5+ dependency: state transition (MusicSelector, BMSPlayer, etc.)")
+    }
+
+    fn save_config(&self) {
+        MainController::save_config(self);
+    }
+
+    fn exit(&self) {
+        MainController::exit(self);
+    }
+
+    fn save_last_recording(&self, reason: &str) {
+        MainController::save_last_recording(self, reason);
+    }
+
+    fn update_song(&mut self, path: Option<&str>) {
+        if let Some(p) = path {
+            MainController::update_song(self, p);
+        }
+    }
+
+    fn get_player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+        self.resource
+            .as_ref()
+            .map(|r| r as &dyn PlayerResourceAccess)
+    }
+
+    fn get_player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+        self.resource
+            .as_mut()
+            .map(|r| r as &mut dyn PlayerResourceAccess)
     }
 }

@@ -108,17 +108,46 @@ impl SongInformationAccessor {
 // beatoraja core types (stubbed — cannot be replaced)
 // ============================================================
 
+// MainControllerAccess / PlayerResourceAccess — re-exported from beatoraja-types (Phase 15d)
+pub use beatoraja_types::main_controller_access::MainControllerAccess;
+pub use beatoraja_types::main_state_type::MainStateType as TypesMainStateType;
+pub use beatoraja_types::player_resource_access::PlayerResourceAccess;
+
 /// Stub for beatoraja.MainController
 #[derive(Debug, Default)]
 pub struct MainController;
 
+impl MainControllerAccess for MainController {
+    fn get_config(&self) -> &Config {
+        todo!()
+    }
+    fn get_player_config(&self) -> &PlayerConfig {
+        todo!()
+    }
+    fn change_state(&mut self, _state: TypesMainStateType) {
+        todo!()
+    }
+    fn save_config(&self) {
+        todo!()
+    }
+    fn exit(&self) {
+        todo!()
+    }
+    fn save_last_recording(&self, _reason: &str) {
+        todo!()
+    }
+    fn update_song(&mut self, _path: Option<&str>) {
+        todo!()
+    }
+    fn get_player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+        None
+    }
+    fn get_player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+        None
+    }
+}
+
 impl MainController {
-    pub fn get_config(&self) -> &Config {
-        todo!()
-    }
-    pub fn get_player_config(&self) -> &PlayerConfig {
-        todo!()
-    }
     pub fn get_song_database(&self) -> &dyn SongDatabaseAccessor {
         todo!()
     }
@@ -143,7 +172,7 @@ impl MainController {
     pub fn get_sound_manager(&self) -> &SystemSoundManager {
         todo!()
     }
-    pub fn get_player_resource(&self) -> &PlayerResource {
+    pub fn get_player_resource_local(&self) -> &PlayerResource {
         todo!()
     }
     pub fn get_current_state(&self) -> &dyn MainState {
@@ -155,15 +184,6 @@ impl MainController {
     pub fn get_http_download_processor(&self) -> Option<&HttpDownloadProcessor> {
         todo!()
     }
-    pub fn change_state(&self, _state: MainStateType) {
-        todo!()
-    }
-    pub fn update_song(&self, _path: Option<&str>) {
-        todo!()
-    }
-    pub fn exit(&self) {
-        todo!()
-    }
 }
 
 /// Stub for beatoraja.MainState
@@ -171,13 +191,8 @@ pub trait MainState {
     fn get_main(&self) -> &MainController;
 }
 
-/// Stub for beatoraja.MainStateType
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum MainStateType {
-    SelectConfig,
-    SkinConfig,
-    Decide,
-}
+/// MainStateType — re-exported from beatoraja-types (Phase 15d)
+pub use beatoraja_types::main_state_type::MainStateType;
 
 /// Stub for beatoraja.ScoreDatabaseAccessor.ScoreDataCollector
 pub trait ScoreDataCollector: Fn(&SongData, Option<&ScoreData>) {}
@@ -576,12 +591,86 @@ pub struct ScoreDataCacheStub;
 /// Stub for beatoraja.PlayerResource
 pub struct PlayerResource;
 
-impl PlayerResource {
-    pub fn get_config(&self) -> &Config {
+impl PlayerResourceAccess for PlayerResource {
+    fn get_config(&self) -> &Config {
         todo!()
     }
-    pub fn get_player_config(&self) -> &PlayerConfig {
+    fn get_player_config(&self) -> &PlayerConfig {
         todo!()
+    }
+    fn get_score_data(&self) -> Option<&ScoreData> {
+        None
+    }
+    fn get_rival_score_data(&self) -> Option<&ScoreData> {
+        None
+    }
+    fn get_target_score_data(&self) -> Option<&ScoreData> {
+        None
+    }
+    fn get_course_score_data(&self) -> Option<&ScoreData> {
+        None
+    }
+    fn set_course_score_data(&mut self, _score: ScoreData) {}
+    fn get_songdata(&self) -> Option<&SongData> {
+        None
+    }
+    fn get_replay_data(&self) -> Option<&beatoraja_types::replay_data::ReplayData> {
+        None
+    }
+    fn get_course_replay(&self) -> &[beatoraja_types::replay_data::ReplayData] {
+        &[]
+    }
+    fn add_course_replay(&mut self, _rd: beatoraja_types::replay_data::ReplayData) {}
+    fn get_course_data(&self) -> Option<&beatoraja_types::course_data::CourseData> {
+        None
+    }
+    fn get_course_index(&self) -> usize {
+        0
+    }
+    fn next_course(&mut self) -> bool {
+        false
+    }
+    fn get_constraint(&self) -> Vec<beatoraja_types::course_data::CourseDataConstraint> {
+        vec![]
+    }
+    fn get_gauge(&self) -> Option<&Vec<Vec<f32>>> {
+        None
+    }
+    fn get_groove_gauge(&self) -> Option<&beatoraja_types::groove_gauge::GrooveGauge> {
+        None
+    }
+    fn get_course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
+        static EMPTY: Vec<Vec<Vec<f32>>> = Vec::new();
+        &EMPTY
+    }
+    fn add_course_gauge(&mut self, _gauge: Vec<Vec<f32>>) {}
+    fn get_maxcombo(&self) -> i32 {
+        0
+    }
+    fn get_org_gauge_option(&self) -> i32 {
+        0
+    }
+    fn set_org_gauge_option(&mut self, _val: i32) {}
+    fn get_assist(&self) -> i32 {
+        0
+    }
+    fn is_update_score(&self) -> bool {
+        false
+    }
+    fn is_update_course_score(&self) -> bool {
+        false
+    }
+    fn is_force_no_ir_send(&self) -> bool {
+        false
+    }
+    fn is_freq_on(&self) -> bool {
+        false
+    }
+    fn get_reverse_lookup_data(&self) -> Vec<String> {
+        vec![]
+    }
+    fn get_reverse_lookup_levels(&self) -> Vec<String> {
+        vec![]
     }
 }
 
