@@ -140,7 +140,7 @@ Replace `todo!()` stubs with real library calls (~377 `todo!()` total). All runt
 ### 13f: egui UI (partial)
 - [x] `todo!()` → `log::warn!()` fallbacks across launcher, modmenu, select, result, decide
 - [ ] Full egui UI integration (launcher views, mod menu) — deferred
-  - [ ] `open_url_in_browser` / `open_folder_in_file_manager` → `open` crate
+  - [x] `open_url_in_browser` / `open_folder_in_file_manager` → `open` crate
   - [ ] Monitor enumeration on non-macOS → winit `ActiveEventLoop::available_monitors()` (available once egui event loop is running)
 
 ### 13g: FFmpeg / Remaining (partial)
