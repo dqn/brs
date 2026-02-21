@@ -2159,6 +2159,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "golden-master"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "beatoraja-audio",
+ "beatoraja-core",
+ "beatoraja-input",
+ "beatoraja-pattern",
+ "beatoraja-play",
+ "beatoraja-render",
+ "beatoraja-skin",
+ "beatoraja-song",
+ "beatoraja-types",
+ "bms-model",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "gpu-alloc"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

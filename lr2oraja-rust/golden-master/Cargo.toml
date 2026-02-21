@@ -4,19 +4,22 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+# Currently active
 bms-model.workspace = true
-bms-rule.workspace = true
-bms-pattern.workspace = true
-bms-replay.workspace = true
-bms-database.workspace = true
-bms-config.workspace = true
-bms-input.workspace = true
-bms-audio.workspace = true
-bms-skin.workspace = true
-bms-render.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+
+# Needed by pending modules (src/pending/ and tests/pending/)
+beatoraja-play.workspace = true
+beatoraja-pattern.workspace = true
+beatoraja-core.workspace = true
+beatoraja-song.workspace = true
+beatoraja-input.workspace = true
+beatoraja-audio.workspace = true
+beatoraja-skin.workspace = true
+beatoraja-render.workspace = true
+beatoraja-types.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

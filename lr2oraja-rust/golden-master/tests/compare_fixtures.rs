@@ -2,7 +2,10 @@
 
 use std::path::{Path, PathBuf};
 
-use bms_model::{BmsDecoder, BmsonDecoder};
+use bms_model::bms_decoder::BMSDecoder;
+use bms_model::bms_model::LNTYPE_LONGNOTE;
+use bms_model::bmson_decoder::BMSONDecoder;
+use bms_model::chart_information::ChartInformation;
 use golden_master::{
     assert_bmson_model_matches_fixture, assert_model_matches_fixture, load_fixture,
 };
@@ -62,7 +65,9 @@ fn run_golden_master_test(bms_name: &str) {
     );
 
     let fixture = load_fixture(&fixture_path).expect("Failed to load fixture");
-    let model = BmsDecoder::decode(&bms_path).expect("Failed to parse BMS");
+    let model = BMSDecoder::new()
+        .decode_path(&bms_path)
+        .expect("Failed to parse BMS");
 
     assert_model_matches_fixture(&model, &fixture);
 }
@@ -161,8 +166,8 @@ fn golden_master_random_if() {
     );
 
     let fixture = load_fixture(&fixture_path).expect("Failed to load fixture");
-    let model =
-        BmsDecoder::decode_with_randoms(&bms_path, &selected_randoms).expect("Failed to parse BMS");
+    let info = ChartInformation::new(Some(bms_path), LNTYPE_LONGNOTE, Some(selected_randoms));
+    let model = BMSDecoder::new().decode(info).expect("Failed to parse BMS");
 
     assert_model_matches_fixture(&model, &fixture);
 }
@@ -182,8 +187,8 @@ fn golden_master_random_nested_if() {
     );
 
     let fixture = load_fixture(&fixture_path).expect("Failed to load fixture");
-    let model =
-        BmsDecoder::decode_with_randoms(&bms_path, &selected_randoms).expect("Failed to parse BMS");
+    let info = ChartInformation::new(Some(bms_path), LNTYPE_LONGNOTE, Some(selected_randoms));
+    let model = BMSDecoder::new().decode(info).expect("Failed to parse BMS");
 
     assert_model_matches_fixture(&model, &fixture);
 }
@@ -201,7 +206,9 @@ fn run_bmson_golden_master_test(bmson_name: &str) {
     );
 
     let fixture = load_fixture(&fixture_path).expect("Failed to load fixture");
-    let model = BmsonDecoder::decode(&bmson_path).expect("Failed to parse bmson");
+    let model = BMSONDecoder::new(LNTYPE_LONGNOTE)
+        .decode_path(&bmson_path)
+        .expect("Failed to parse bmson");
 
     assert_bmson_model_matches_fixture(&model, &fixture);
 }

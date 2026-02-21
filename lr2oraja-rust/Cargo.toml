@@ -26,6 +26,7 @@ members = [
     "crates/beatoraja-bin",
     "crates/beatoraja-types",
     "crates/beatoraja-render",
+    "golden-master",
 ]
 resolver = "2"
 
