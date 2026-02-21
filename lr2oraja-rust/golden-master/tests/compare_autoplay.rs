@@ -2,8 +2,12 @@
 
 use std::path::Path;
 
-use bms_input::autoplay::create_autoplay_log;
-use bms_model::{BmsDecoder, BmsonDecoder, TimeLine};
+use beatoraja_input::key_input_log::KeyInputLog;
+use bms_model::bms_decoder::BMSDecoder;
+use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
+use bms_model::bmson_decoder::BMSONDecoder;
+use bms_model::chart_information::ChartInformation;
+use bms_model::time_line::TimeLine;
 use golden_master::autoplay_fixtures::{AutoplayFixture, AutoplayLogEntry, AutoplayTestCase};
 
 #[path = "support/random_seeds.rs"]
@@ -41,7 +45,7 @@ fn find_test_case<'a>(fixture: &'a AutoplayFixture, filename: &str) -> &'a Autop
 }
 
 fn compare_autoplay_logs(
-    rust_log: &[bms_replay::key_input_log::KeyInputLog],
+    rust_log: &[KeyInputLog],
     java_log: &[AutoplayLogEntry],
     filename: &str,
 ) -> Vec<String> {
@@ -60,26 +64,30 @@ fn compare_autoplay_logs(
         let r = &rust_log[i];
         let j = &java_log[i];
 
-        // Allow ±2μs tolerance for timing
-        let time_diff = (r.presstime - j.presstime).abs();
+        // Allow +/-2us tolerance for timing
+        let time_diff = (r.get_time() - j.presstime).abs();
         if time_diff > 2 {
             diffs.push(format!(
                 "{filename}[{i}] presstime: rust={} java={} (diff={})",
-                r.presstime, j.presstime, time_diff
+                r.get_time(),
+                j.presstime,
+                time_diff
             ));
         }
 
-        if r.keycode != j.keycode {
+        if r.get_keycode() != j.keycode {
             diffs.push(format!(
                 "{filename}[{i}] keycode: rust={} java={}",
-                r.keycode, j.keycode
+                r.get_keycode(),
+                j.keycode
             ));
         }
 
-        if r.pressed != j.pressed {
+        if r.is_pressed() != j.pressed {
             diffs.push(format!(
                 "{filename}[{i}] pressed: rust={} java={}",
-                r.pressed, j.pressed
+                r.is_pressed(),
+                j.pressed
             ));
         }
     }
@@ -90,7 +98,9 @@ fn compare_autoplay_logs(
             let r = &rust_log[i];
             diffs.push(format!(
                 "{filename}[{i}] extra rust: presstime={} keycode={} pressed={}",
-                r.presstime, r.keycode, r.pressed
+                r.get_time(),
+                r.get_keycode(),
+                r.is_pressed()
             ));
         }
     } else if java_log.len() > rust_log.len() {
@@ -106,20 +116,49 @@ fn compare_autoplay_logs(
     diffs
 }
 
-/// Override model timelines with Java's getAllTimeLines() times from fixture.
-/// This ensures we test autoplay algorithm equivalence independently of
-/// Rust's timeline construction (which may not include empty timelines).
-fn override_timelines(model: &mut bms_model::BmsModel, timeline_times: &[i64]) {
-    model.timelines = timeline_times
+/// Ensure the model has timelines at all the Java timeline times.
+/// If the Rust model is missing a timeline at a Java time, insert an empty one.
+/// This ensures the autoplay algorithm iterates the same set of time points as Java.
+fn ensure_timelines_match_fixture(model: &mut BMSModel, timeline_times: &[i64]) {
+    use std::collections::HashSet;
+
+    let existing_times: HashSet<i64> = model
+        .get_all_time_lines()
         .iter()
-        .map(|&t| TimeLine {
-            time_us: t,
-            measure: 0,
-            position: 0.0,
-            bpm: 120.0,
-            scroll: 1.0,
-        })
+        .map(|tl| tl.get_micro_time())
         .collect();
+
+    let keys = model.get_mode().map(|m| m.key()).unwrap_or(8);
+
+    // Check if any Java times are missing from Rust model
+    let missing: Vec<i64> = timeline_times
+        .iter()
+        .filter(|t| !existing_times.contains(t))
+        .copied()
+        .collect();
+
+    if missing.is_empty() {
+        return;
+    }
+
+    // Take all existing timelines, add empty timelines for missing times, re-sort
+    let mut timelines = model.take_all_time_lines();
+    for &t in &missing {
+        let mut tl = TimeLine::new(0.0, t, keys);
+        // Set BPM from nearest existing timeline
+        if let Some(nearest) = timelines
+            .iter()
+            .filter(|tl| tl.get_micro_time() <= t)
+            .last()
+        {
+            tl.set_bpm(nearest.get_bpm());
+        } else if let Some(first) = timelines.first() {
+            tl.set_bpm(first.get_bpm());
+        }
+        timelines.push(tl);
+    }
+    timelines.sort_by_key(|tl| tl.get_micro_time());
+    model.set_all_time_line(timelines);
 }
 
 /// Run a single BMS autoplay golden master test
@@ -134,9 +173,11 @@ fn run_autoplay_test(bms_name: &str) {
         bms_path.display()
     );
 
-    let mut model = BmsDecoder::decode(&bms_path).expect("Failed to parse BMS");
-    override_timelines(&mut model, &test_case.timeline_times);
-    let rust_log = create_autoplay_log(&model);
+    let mut model = BMSDecoder::new()
+        .decode_path(&bms_path)
+        .expect("Failed to parse BMS");
+    ensure_timelines_match_fixture(&mut model, &test_case.timeline_times);
+    let rust_log = KeyInputLog::create_autoplay_log(&model);
 
     let diffs = compare_autoplay_logs(&rust_log, &test_case.log, bms_name);
     if !diffs.is_empty() {
@@ -165,10 +206,10 @@ fn run_autoplay_test_with_randoms(bms_name: &str, randoms: &[i32]) {
         bms_path.display()
     );
 
-    let mut model =
-        BmsDecoder::decode_with_randoms(&bms_path, randoms).expect("Failed to parse BMS");
-    override_timelines(&mut model, &test_case.timeline_times);
-    let rust_log = create_autoplay_log(&model);
+    let info = ChartInformation::new(Some(bms_path), LNTYPE_LONGNOTE, Some(randoms.to_vec()));
+    let mut model = BMSDecoder::new().decode(info).expect("Failed to parse BMS");
+    ensure_timelines_match_fixture(&mut model, &test_case.timeline_times);
+    let rust_log = KeyInputLog::create_autoplay_log(&model);
 
     let diffs = compare_autoplay_logs(&rust_log, &test_case.log, bms_name);
     if !diffs.is_empty() {
@@ -197,9 +238,11 @@ fn run_autoplay_test_bmson(bmson_name: &str) {
         bmson_path.display()
     );
 
-    let mut model = BmsonDecoder::decode(&bmson_path).expect("Failed to parse bmson");
-    override_timelines(&mut model, &test_case.timeline_times);
-    let rust_log = create_autoplay_log(&model);
+    let mut model = BMSONDecoder::new(LNTYPE_LONGNOTE)
+        .decode_path(&bmson_path)
+        .expect("Failed to parse bmson");
+    ensure_timelines_match_fixture(&mut model, &test_case.timeline_times);
+    let rust_log = KeyInputLog::create_autoplay_log(&model);
 
     let diffs = compare_autoplay_logs(&rust_log, &test_case.log, bmson_name);
     if !diffs.is_empty() {

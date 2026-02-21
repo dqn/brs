@@ -147,7 +147,10 @@ fn flatten_notes(model: &BMSModel) -> Vec<FlatNote> {
     let timelines = model.get_all_time_lines();
     let mut flat = Vec::new();
 
+    // Per-timeline: regular notes for all lanes, then hidden notes for all lanes.
+    // This matches the Java iteration order within each timeline.
     for (tl_idx, tl) in timelines.iter().enumerate() {
+        // First: regular notes for all lanes
         for lane in 0..keys {
             if let Some(note) = tl.get_note(lane) {
                 // Skip LN end notes
@@ -182,7 +185,9 @@ fn flatten_notes(model: &BMSModel) -> Vec<FlatNote> {
                     damage: note.get_damage(),
                 });
             }
-            // Also include hidden (invisible) notes
+        }
+        // Then: hidden (invisible) notes for all lanes
+        for lane in 0..keys {
             if let Some(note) = tl.get_hidden_note(lane) {
                 flat.push(FlatNote {
                     lane: lane as usize,
@@ -197,7 +202,6 @@ fn flatten_notes(model: &BMSModel) -> Vec<FlatNote> {
         }
     }
 
-    flat.sort_by(|a, b| a.time_us.cmp(&b.time_us).then(a.lane.cmp(&b.lane)));
     flat
 }
 

@@ -2,14 +2,36 @@
 
 use std::path::Path;
 
-use bms_config::{
-    Config, DisplayMode, DriverType, FrequencyType, PlayerConfig, Resolution, SongPreview,
-};
+use beatoraja_types::audio_config::{DriverType, FrequencyType};
+use beatoraja_types::config::{Config, DisplayMode, SongPreview};
+use beatoraja_types::player_config::PlayerConfig;
+use beatoraja_types::resolution::Resolution;
+use beatoraja_types::validatable::Validatable;
+use bms_model::mode::Mode;
 
 fn fixtures_dir() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")
         .leak()
+}
+
+/// Pre-process JSON to fix Java mode hint format ("beat-7k") to Rust enum variant ("BEAT_7K").
+fn fix_mode_hint(json: &str) -> String {
+    let mut value: serde_json::Value = serde_json::from_str(json).expect("JSON parse failed");
+    if let Some(obj) = value.as_object_mut() {
+        if let Some(mode_val) = obj
+            .get("mode")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+        {
+            // Convert hint format to enum variant: "beat-7k" -> "BEAT_7K"
+            let converted = mode_val.replace('-', "_").to_uppercase();
+            if Mode::get_mode(&mode_val).is_some() {
+                obj.insert("mode".to_string(), serde_json::Value::String(converted));
+            }
+        }
+    }
+    serde_json::to_string(&value).unwrap()
 }
 
 // --- System Config tests ---
@@ -28,28 +50,32 @@ fn config_system_deserialize() {
     // Verify non-default values were deserialized correctly
     assert_eq!(config.playername.as_deref(), Some("TestPlayer"));
     assert_eq!(config.last_booted_version, "0.8.8");
-    assert_eq!(config.displaymode, DisplayMode::Fullscreen);
+    assert!(matches!(config.displaymode, DisplayMode::FULLSCREEN));
     assert!(config.vsync);
-    assert_eq!(config.resolution, Resolution::Fullhd);
+    assert_eq!(config.resolution, Resolution::FULLHD);
     assert!(!config.use_resolution);
     assert_eq!(config.window_width, 1920);
     assert_eq!(config.window_height, 1080);
     assert!(!config.folderlamp);
 
-    // Audio
-    assert_eq!(config.audio.driver, DriverType::PortAudio);
-    assert_eq!(config.audio.driver_name.as_deref(), Some("TestDriver"));
-    assert_eq!(config.audio.device_buffer_size, 512);
-    assert_eq!(config.audio.device_simultaneous_sources, 256);
-    assert_eq!(config.audio.sample_rate, 44100);
-    assert_eq!(config.audio.freq_option, FrequencyType::Unprocessed);
-    assert_eq!(config.audio.fast_forward, FrequencyType::Unprocessed);
-    assert!((config.audio.systemvolume - 0.8_f32).abs() < 0.001);
-    assert!((config.audio.keyvolume - 0.7_f32).abs() < 0.001);
-    assert!((config.audio.bgvolume - 0.6_f32).abs() < 0.001);
-    assert!(config.audio.normalize_volume);
-    assert!(config.audio.is_loop_result_sound);
-    assert!(config.audio.is_loop_course_result_sound);
+    // Audio (Option<AudioConfig>)
+    let audio = config
+        .audio
+        .as_ref()
+        .expect("audio should be Some after deserialization");
+    assert!(matches!(audio.driver, DriverType::PortAudio));
+    assert_eq!(audio.driver_name.as_deref(), Some("TestDriver"));
+    assert_eq!(audio.device_buffer_size, 512);
+    assert_eq!(audio.device_simultaneous_sources, 256);
+    assert_eq!(audio.sample_rate, 44100);
+    assert!(matches!(audio.freq_option, FrequencyType::UNPROCESSED));
+    assert!(matches!(audio.fast_forward, FrequencyType::UNPROCESSED));
+    assert!((audio.systemvolume - 0.8_f32).abs() < 0.001);
+    assert!((audio.keyvolume - 0.7_f32).abs() < 0.001);
+    assert!((audio.bgvolume - 0.6_f32).abs() < 0.001);
+    assert!(audio.normalize_volume);
+    assert!(audio.is_loop_result_sound);
+    assert!(audio.is_loop_course_result_sound);
 
     // Frame/scroll settings
     assert_eq!(config.max_frame_per_second, 120);
@@ -61,7 +87,7 @@ fn config_system_deserialize() {
     assert_eq!(config.scrolldurationhigh, 80);
     assert!(!config.analog_scroll);
     assert_eq!(config.analog_ticks_per_scroll, 5);
-    assert_eq!(config.song_preview, SongPreview::Once);
+    assert!(matches!(config.song_preview, SongPreview::ONCE));
     assert!(config.cache_skin_image);
     assert!(!config.use_song_info);
 
@@ -178,7 +204,12 @@ fn config_system_serde_round_trip() {
     let config2: Config = serde_json::from_str(&json).unwrap();
 
     assert_eq!(config.playername, config2.playername);
-    assert_eq!(config.displaymode, config2.displaymode);
+    assert!(matches!(
+        (&config.displaymode, &config2.displaymode),
+        (DisplayMode::FULLSCREEN, DisplayMode::FULLSCREEN)
+            | (DisplayMode::BORDERLESS, DisplayMode::BORDERLESS)
+            | (DisplayMode::WINDOW, DisplayMode::WINDOW)
+    ));
     assert_eq!(config.resolution, config2.resolution);
     assert_eq!(config.max_frame_per_second, config2.max_frame_per_second);
     assert_eq!(config.table_url, config2.table_url);
@@ -196,8 +227,10 @@ fn config_player_deserialize() {
         path.display()
     );
     let content = std::fs::read_to_string(&path).expect("Failed to read fixture");
+    // Pre-process JSON to fix mode hint format
+    let fixed_content = fix_mode_hint(&content);
     let pc: PlayerConfig =
-        serde_json::from_str(&content).expect("Failed to deserialize PlayerConfig");
+        serde_json::from_str(&fixed_content).expect("Failed to deserialize PlayerConfig");
 
     // Basic fields
     assert_eq!(pc.id.as_deref(), Some("player_001"));
@@ -211,7 +244,7 @@ fn config_player_deserialize() {
     assert_eq!(pc.targetlist, vec!["RATE_A", "RATE_AA", "MAX"]);
     assert_eq!(pc.judgetiming, -15);
     assert!(pc.notes_display_timing_auto_adjust);
-    assert_eq!(pc.mode.as_deref(), Some("beat-7k"));
+    assert_eq!(pc.mode, Some(Mode::BEAT_7K));
     assert_eq!(pc.misslayer_duration, 300);
     assert_eq!(pc.lnmode, 1);
     assert!(pc.forcedcnendings);
@@ -248,8 +281,8 @@ fn config_player_deserialize() {
     assert_eq!(pc.gauge_auto_shift, 2);
     assert_eq!(pc.bottom_shiftable_gauge, 1);
 
-    // Auto-save replay
-    assert_eq!(pc.autosavereplay, Some(vec![1, 0, 1, 0]));
+    // Auto-save replay (Vec<i32>, not Option<Vec<i32>>)
+    assert_eq!(pc.autosavereplay, vec![1, 0, 1, 0]);
 
     // 7to9
     assert_eq!(pc.seven_to_nine_pattern, 3);
@@ -307,8 +340,8 @@ fn config_player_deserialize() {
     assert_eq!(pc.sortid.as_deref(), Some("TITLE"));
     assert_eq!(pc.musicselectinput, 1);
 
-    // IR config
-    let irconfigs = pc.irconfig.as_ref().unwrap();
+    // IR config (Vec<Option<IRConfig>>, not Option<Vec<IRConfig>>)
+    let irconfigs: Vec<_> = pc.irconfig.iter().filter_map(|c| c.as_ref()).collect();
     assert_eq!(irconfigs.len(), 1);
     assert_eq!(irconfigs[0].irname, "LR2IR");
     assert_eq!(irconfigs[0].cuserid, "encrypted_user");
@@ -331,7 +364,8 @@ fn config_player_validate_after_deserialize() {
         return;
     }
     let content = std::fs::read_to_string(&path).unwrap();
-    let mut pc: PlayerConfig = serde_json::from_str(&content).unwrap();
+    let fixed_content = fix_mode_hint(&content);
+    let mut pc: PlayerConfig = serde_json::from_str(&fixed_content).unwrap();
     pc.validate();
 
     // Values within valid range should remain unchanged after validation
@@ -341,11 +375,12 @@ fn config_player_validate_after_deserialize() {
     assert_eq!(pc.sort, 3);
     assert_eq!(pc.lnmode, 1);
 
-    // Skin array should be normalized to 19
-    assert_eq!(pc.skin.len(), 19);
+    // Skin array should be normalized to expected size
+    let max_skin_id = beatoraja_types::skin_type::SkinType::get_max_skin_type_id() as usize;
+    assert_eq!(pc.skin.len(), max_skin_id + 1);
 
     // autosavereplay should remain length 4
-    assert_eq!(pc.autosavereplay.as_ref().unwrap().len(), 4);
+    assert_eq!(pc.autosavereplay.len(), 4);
 }
 
 #[test]
@@ -355,7 +390,8 @@ fn config_player_serde_round_trip() {
         return;
     }
     let content = std::fs::read_to_string(&path).unwrap();
-    let pc: PlayerConfig = serde_json::from_str(&content).unwrap();
+    let fixed_content = fix_mode_hint(&content);
+    let pc: PlayerConfig = serde_json::from_str(&fixed_content).unwrap();
 
     let json = serde_json::to_string_pretty(&pc).unwrap();
     let pc2: PlayerConfig = serde_json::from_str(&json).unwrap();

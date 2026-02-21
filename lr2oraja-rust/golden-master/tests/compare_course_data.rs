@@ -2,7 +2,8 @@
 
 use std::path::Path;
 
-use bms_database::CourseData;
+use beatoraja_types::course_data::{CourseData, CourseDataConstraint};
+use beatoraja_types::validatable::Validatable;
 use golden_master::course_data_fixtures::{CourseDataFixture, CourseDataTestCase};
 
 fn fixtures_dir() -> &'static Path {
@@ -52,8 +53,10 @@ fn compare_course_data(
         return diffs;
     }
 
-    if rust.name != java.name {
-        diffs.push(format!("name: rust={:?} java={:?}", rust.name, java.name));
+    // name is Option<String> in Rust, String in fixture
+    let rust_name = rust.get_name();
+    if rust_name != java.name {
+        diffs.push(format!("name: rust={:?} java={:?}", rust_name, java.name));
     }
 
     if rust.release != java.release {
@@ -134,10 +137,12 @@ fn compare_course_data(
         ));
     } else {
         for (i, (rt, jt)) in rust.trophy.iter().zip(java.trophy.iter()).enumerate() {
-            if rt.name != jt.name {
+            // TrophyData.name is Option<String>
+            let rt_name = rt.get_name();
+            if rt_name != jt.name {
                 diffs.push(format!(
                     "trophy[{}].name: rust={:?} java={:?}",
-                    i, rt.name, jt.name
+                    i, rt_name, jt.name
                 ));
             }
             if (rt.missrate - jt.missrate).abs() > 0.001 {
@@ -158,11 +163,9 @@ fn compare_course_data(
     diffs
 }
 
-fn constraint_to_string(c: &bms_database::CourseDataConstraint) -> String {
-    // Match the Java CourseDataConstraint.name field
-    let json = serde_json::to_string(c).unwrap();
-    // serde serializes as quoted string, e.g. "\"grade\""
-    json.trim_matches('"').to_string()
+fn constraint_to_string(c: &CourseDataConstraint) -> String {
+    // Match the Java CourseDataConstraint.name field using name_str()
+    c.name_str().to_string()
 }
 
 fn run_course_data_test(source_file: &str) {

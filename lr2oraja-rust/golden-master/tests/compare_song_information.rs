@@ -2,8 +2,11 @@
 
 use std::path::Path;
 
-use bms_database::SongInformation;
-use bms_model::{BmsDecoder, BmsonDecoder};
+use beatoraja_types::song_information::SongInformation;
+use bms_model::bms_decoder::BMSDecoder;
+use bms_model::bms_model::LNTYPE_LONGNOTE;
+use bms_model::bmson_decoder::BMSONDecoder;
+use bms_model::chart_information::ChartInformation;
 use golden_master::song_information_fixtures::{SongInformationFixture, SongInformationTestCase};
 
 #[path = "support/random_seeds.rs"]
@@ -162,7 +165,7 @@ fn compare_song_information(rust: &SongInformation, java: &SongInformationTestCa
         ));
     }
 
-    // speedchange: numeric comparison (Rust format!("{}", 120.0) → "120", Java → "120.0")
+    // speedchange: numeric comparison (Rust format!("{}", 120.0) -> "120", Java -> "120.0")
     compare_speedchange(&rust.speedchange, &java.speedchange, &mut diffs);
 
     diffs
@@ -200,7 +203,9 @@ fn run_song_information_test(bms_name: &str) {
         bms_path.display()
     );
 
-    let model = BmsDecoder::decode(&bms_path).expect("Failed to parse BMS");
+    let model = BMSDecoder::new()
+        .decode_path(&bms_path)
+        .expect("Failed to parse BMS");
     let info = SongInformation::from_model(&model);
 
     assert_song_information_matches(&info, test_case, bms_name);
@@ -218,10 +223,11 @@ fn run_song_information_test_with_randoms(bms_name: &str, randoms: &[i32]) {
         bms_path.display()
     );
 
-    let model = BmsDecoder::decode_with_randoms(&bms_path, randoms).expect("Failed to parse BMS");
-    let info = SongInformation::from_model(&model);
+    let info = ChartInformation::new(Some(bms_path), LNTYPE_LONGNOTE, Some(randoms.to_vec()));
+    let model = BMSDecoder::new().decode(info).expect("Failed to parse BMS");
+    let song_info = SongInformation::from_model(&model);
 
-    assert_song_information_matches(&info, test_case, bms_name);
+    assert_song_information_matches(&song_info, test_case, bms_name);
 }
 
 /// Run a bmson golden master song information test
@@ -236,7 +242,9 @@ fn run_song_information_test_bmson(bmson_name: &str) {
         bmson_path.display()
     );
 
-    let model = BmsonDecoder::decode(&bmson_path).expect("Failed to parse bmson");
+    let model = BMSONDecoder::new(LNTYPE_LONGNOTE)
+        .decode_path(&bmson_path)
+        .expect("Failed to parse bmson");
     let info = SongInformation::from_model(&model);
 
     assert_song_information_matches(&info, test_case, bmson_name);

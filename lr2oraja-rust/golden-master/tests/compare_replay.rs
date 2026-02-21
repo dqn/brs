@@ -1,10 +1,19 @@
-// Golden master tests for bms-replay (Phase 4).
+// Golden master tests for replay data.
 //
 // Compares Rust implementation output against Java-generated fixtures.
+//
+// NOTE: Ghost decode test (compare_lr2_ghost_decode) is NOT included here because
+// it requires beatoraja-ir which is not a dependency of the golden-master crate.
+// That test remains in tests/pending/compare_replay.rs.
 
 use std::path::Path;
 
 use serde::Deserialize;
+
+use beatoraja_pattern::lr2_random::LR2Random;
+use beatoraja_types::replay_data::ReplayData;
+use beatoraja_types::stubs::KeyInputLog;
+use beatoraja_types::validatable::Validatable;
 
 // =========================================================================
 // LR2Random tests
@@ -33,9 +42,9 @@ fn compare_lr2_random() {
     for case in &cases {
         let seed = case.seed as i32;
         // Test raw sequence (700 values, crosses N=624 buffer boundary)
-        let mut rng = bms_replay::LR2Random::new(seed);
+        let mut rng = LR2Random::with_seed(seed);
         for (i, &expected) in case.raw_sequence.iter().enumerate() {
-            let actual = rng.rand_mt() as u64;
+            let actual = rng.rand_mt() as u32 as u64;
             assert_eq!(
                 actual, expected,
                 "LR2Random raw_sequence mismatch at seed={}, index={}: got {} expected {}",
@@ -45,7 +54,7 @@ fn compare_lr2_random() {
         }
 
         // Test nextInt with various bounds
-        let mut rng2 = bms_replay::LR2Random::new(seed);
+        let mut rng2 = LR2Random::with_seed(seed);
         for entry in &case.next_int {
             for (i, &expected) in entry.values.iter().enumerate() {
                 let actual = rng2.next_int(entry.bound);
@@ -59,40 +68,10 @@ fn compare_lr2_random() {
         }
     }
     println!(
-        "LR2Random: {} seeds × raw+nextInt = {} assertions passed",
+        "LR2Random: {} seeds x raw+nextInt = {} assertions passed",
         cases.len(),
         total_tests
     );
-}
-
-// =========================================================================
-// Ghost decode tests
-// =========================================================================
-
-#[derive(Deserialize)]
-struct GhostDecodeCase {
-    input: String,
-    expected: Vec<i32>,
-}
-
-#[test]
-fn compare_lr2_ghost_decode() {
-    let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/lr2_ghost_decode.json");
-    let data =
-        std::fs::read_to_string(&fixture_path).expect("Failed to read lr2_ghost_decode.json");
-    let cases: Vec<GhostDecodeCase> = serde_json::from_str(&data).expect("Failed to parse fixture");
-
-    let mut passed = 0;
-    for case in &cases {
-        let actual = bms_replay::lr2_ghost_data::decode_play_ghost(&case.input);
-        assert_eq!(
-            actual, case.expected,
-            "Ghost decode mismatch for input '{}': got {:?} expected {:?}",
-            case.input, actual, case.expected
-        );
-        passed += 1;
-    }
-    println!("Ghost decode: {} cases passed", passed);
 }
 
 // =========================================================================
@@ -122,14 +101,18 @@ fn compare_replay_keylog_round_trip() {
 
     let mut passed = 0;
     for case in &cases {
-        // Test 1: Rust shrink → validate round-trip preserves keylog
-        let keylog: Vec<bms_replay::KeyInputLog> = case
+        // Test 1: Rust shrink -> validate round-trip preserves keylog
+        let keylog: Vec<KeyInputLog> = case
             .keylog
             .iter()
-            .map(|e| bms_replay::KeyInputLog::new(e.presstime, e.keycode, e.pressed))
+            .map(|e| KeyInputLog {
+                time: e.presstime,
+                keycode: e.keycode,
+                pressed: e.pressed,
+            })
             .collect();
 
-        let mut replay = bms_replay::ReplayData {
+        let mut replay = ReplayData {
             keylog: keylog.clone(),
             ..Default::default()
         };
@@ -148,8 +131,8 @@ fn compare_replay_keylog_round_trip() {
 
         for (i, (actual, original)) in replay.keylog.iter().zip(keylog.iter()).enumerate() {
             assert_eq!(
-                actual.presstime, original.presstime,
-                "presstime mismatch at index {} for '{}'",
+                actual.time, original.time,
+                "time mismatch at index {} for '{}'",
                 i, case.name
             );
             assert_eq!(
@@ -164,8 +147,8 @@ fn compare_replay_keylog_round_trip() {
             );
         }
 
-        // Test 2: Java keyinput → Rust validate should produce same keylog as Java validated
-        let mut replay2 = bms_replay::ReplayData {
+        // Test 2: Java keyinput -> Rust validate should produce same keylog as Java validated
+        let mut replay2 = ReplayData {
             keyinput: Some(case.keyinput.clone()),
             ..Default::default()
         };
@@ -181,8 +164,8 @@ fn compare_replay_keylog_round_trip() {
         for (i, (actual, expected)) in replay2.keylog.iter().zip(case.validated.iter()).enumerate()
         {
             assert_eq!(
-                actual.presstime, expected.presstime,
-                "Java validate presstime mismatch at index {} for '{}'",
+                actual.time, expected.presstime,
+                "Java validate time mismatch at index {} for '{}'",
                 i, case.name
             );
             assert_eq!(
@@ -221,7 +204,7 @@ fn compare_lr2_lane_order() {
     let mut passed = 0;
     for case in &cases {
         // Replicate the lane ordering computation from LR2GhostData
-        let mut rng = bms_replay::LR2Random::new(case.seed);
+        let mut rng = LR2Random::with_seed(case.seed);
         let mut targets = [0i32, 1, 2, 3, 4, 5, 6, 7];
         for lane in 1..7 {
             let swap = lane + rng.next_int(7 - lane as i32 + 1) as usize;

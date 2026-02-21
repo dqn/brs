@@ -2,8 +2,9 @@
 
 use std::path::Path;
 
-use bms_database::ScoreDataProperty;
-use bms_rule::ScoreData;
+use beatoraja_core::score_data::ScoreData;
+use beatoraja_core::score_data_property::ScoreDataProperty;
+use bms_model::mode::Mode;
 use golden_master::score_data_property_fixtures::{
     ScoreDataPropertyFixture, ScoreDataPropertyTestCase,
 };
@@ -25,61 +26,76 @@ fn load_fixture() -> ScoreDataPropertyFixture {
     serde_json::from_str(&content).expect("Failed to parse fixture")
 }
 
+/// Convert Java mode integer to Rust Mode enum.
+/// Java mode IDs: 5=BEAT_5K, 7=BEAT_7K, 10=BEAT_10K, 14=BEAT_14K, 9=POPN_9K, 25=KB_24K, 50=KB_24K_DOUBLE
+fn mode_from_id(id: i32) -> Mode {
+    match id {
+        5 => Mode::BEAT_5K,
+        7 => Mode::BEAT_7K,
+        10 => Mode::BEAT_10K,
+        14 => Mode::BEAT_14K,
+        9 => Mode::POPN_9K,
+        25 => Mode::KEYBOARD_24K,
+        50 => Mode::KEYBOARD_24K_DOUBLE,
+        _ => Mode::BEAT_7K, // fallback
+    }
+}
+
 fn compare_score_data_property(
     tc: &ScoreDataPropertyTestCase,
     prop: &ScoreDataProperty,
 ) -> Vec<String> {
     let mut diffs = Vec::new();
 
-    if prop.now_score() != tc.nowpoint {
+    if prop.get_now_score() != tc.nowpoint {
         diffs.push(format!(
             "nowpoint: rust={} java={}",
-            prop.now_score(),
+            prop.get_now_score(),
             tc.nowpoint
         ));
     }
 
     // Float comparisons with tolerance
-    if (prop.rate() - tc.rate).abs() > 0.001 {
-        diffs.push(format!("rate: rust={} java={}", prop.rate(), tc.rate));
+    if (prop.get_rate() - tc.rate).abs() > 0.001 {
+        diffs.push(format!("rate: rust={} java={}", prop.get_rate(), tc.rate));
     }
 
-    if prop.rate_int() != tc.rate_int {
+    if prop.get_rate_int() != tc.rate_int {
         diffs.push(format!(
             "rate_int: rust={} java={}",
-            prop.rate_int(),
+            prop.get_rate_int(),
             tc.rate_int
         ));
     }
 
-    if prop.rate_after_dot() != tc.rate_after_dot {
+    if prop.get_rate_after_dot() != tc.rate_after_dot {
         diffs.push(format!(
             "rate_after_dot: rust={} java={}",
-            prop.rate_after_dot(),
+            prop.get_rate_after_dot(),
             tc.rate_after_dot
         ));
     }
 
-    if (prop.now_rate() - tc.nowrate).abs() > 0.001 {
+    if (prop.get_now_rate() - tc.nowrate).abs() > 0.001 {
         diffs.push(format!(
             "nowrate: rust={} java={}",
-            prop.now_rate(),
+            prop.get_now_rate(),
             tc.nowrate
         ));
     }
 
-    if prop.now_rate_int() != tc.nowrate_int {
+    if prop.get_now_rate_int() != tc.nowrate_int {
         diffs.push(format!(
             "nowrate_int: rust={} java={}",
-            prop.now_rate_int(),
+            prop.get_now_rate_int(),
             tc.nowrate_int
         ));
     }
 
-    if prop.now_rate_after_dot() != tc.nowrate_after_dot {
+    if prop.get_now_rate_after_dot() != tc.nowrate_after_dot {
         diffs.push(format!(
             "nowrate_after_dot: rust={} java={}",
-            prop.now_rate_after_dot(),
+            prop.get_now_rate_after_dot(),
             tc.nowrate_after_dot
         ));
     }
@@ -96,18 +112,18 @@ fn compare_score_data_property(
         }
     }
 
-    if prop.next_rank() != tc.nextrank {
+    if prop.get_next_rank() != tc.nextrank {
         diffs.push(format!(
             "nextrank: rust={} java={}",
-            prop.next_rank(),
+            prop.get_next_rank(),
             tc.nextrank
         ));
     }
 
-    if (prop.best_score_rate() - tc.bestscorerate).abs() > 0.001 {
+    if (prop.get_best_score_rate() - tc.bestscorerate).abs() > 0.001 {
         diffs.push(format!(
             "bestscorerate: rust={} java={}",
-            prop.best_score_rate(),
+            prop.get_best_score_rate(),
             tc.bestscorerate
         ));
     }
@@ -126,8 +142,10 @@ fn score_data_property_all_cases() {
     let mut failures = Vec::new();
 
     for tc in &fixture.test_cases {
+        let playmode = mode_from_id(tc.mode);
         let score = ScoreData {
             mode: tc.mode,
+            playmode,
             epg: tc.epg,
             lpg: tc.lpg,
             egr: tc.egr,
@@ -140,13 +158,13 @@ fn score_data_property_all_cases() {
             lpr: tc.lpr,
             ems: tc.ems,
             lms: tc.lms,
-            maxcombo: tc.maxcombo,
+            combo: tc.maxcombo,
             notes: tc.totalnotes,
             ..Default::default()
         };
 
         let mut prop = ScoreDataProperty::new();
-        prop.update(&score, tc.notes);
+        prop.update_score_with_notes(Some(&score), tc.notes);
 
         let diffs = compare_score_data_property(tc, &prop);
         if diffs.is_empty() {
