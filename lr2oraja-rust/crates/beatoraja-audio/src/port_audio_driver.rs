@@ -4,14 +4,17 @@
 //! In Rust, Kira (via cpal backend) replaces PortAudio for audio output.
 
 use std::collections::HashMap;
+use std::path::Path;
 
+use kira::sound::PlaybackState;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
-use kira::{AudioManager, AudioManagerSettings, DefaultBackend};
+use kira::{AudioManager, AudioManagerSettings, DefaultBackend, PlaybackRate, Semitones, Tween};
 
 use bms_model::bms_model::BMSModel;
 use bms_model::note::Note;
 
 use crate::audio_driver::AudioDriver;
+use crate::gdx_sound_driver::linear_to_db;
 
 pub struct PortAudioDriver {
     manager: AudioManager,
@@ -21,6 +24,8 @@ pub struct PortAudioDriver {
     wav_sounds: HashMap<i32, StaticSoundData>,
     wav_handles: HashMap<i32, StaticSoundHandle>,
     global_pitch: f32,
+    // Model volume from volwav (0.0-1.0)
+    volume: f32,
     #[allow(dead_code)]
     song_resource_gen: i32,
 }
@@ -35,32 +40,63 @@ impl PortAudioDriver {
             wav_sounds: HashMap::new(),
             wav_handles: HashMap::new(),
             global_pitch: 1.0,
+            volume: 1.0,
             song_resource_gen,
         }
     }
 }
 
 impl AudioDriver for PortAudioDriver {
-    fn play_path(&mut self, path: &str, _volume: f32, _loop_play: bool) {
-        // Full implementation requires loading PCM data and constructing StaticSoundData.
-        // Deferred until keysound loading pipeline is complete.
-        log::warn!(
-            "PortAudioDriver: play_path not yet fully implemented for {}",
-            path
-        );
+    fn play_path(&mut self, path: &str, volume: f32, _loop_play: bool) {
+        if path.is_empty() {
+            return;
+        }
+
+        // Stop any previously playing sound at this path
+        if let Some(mut handle) = self.path_sounds.remove(path) {
+            handle.stop(Tween::default());
+        }
+
+        // Try to load and play
+        let candidates = crate::audio_driver::get_paths(path);
+        for candidate in &candidates {
+            match StaticSoundData::from_file(candidate) {
+                Ok(sound_data) => match self.manager.play(sound_data) {
+                    Ok(mut handle) => {
+                        handle.set_volume(linear_to_db(volume), Tween::default());
+                        self.path_sounds.insert(path.to_string(), handle);
+                        return;
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to play sound {}: {}", path, e);
+                    }
+                },
+                Err(_) => continue,
+            }
+        }
+
+        if candidates.is_empty() {
+            log::debug!("No audio file found for path: {}", path);
+        }
     }
 
-    fn set_volume_path(&mut self, _path: &str, _volume: f32) {
-        // Kira handles volume per-sound
+    fn set_volume_path(&mut self, path: &str, volume: f32) {
+        if let Some(handle) = self.path_sounds.get_mut(path) {
+            handle.set_volume(linear_to_db(volume), Tween::default());
+        }
     }
 
-    fn is_playing_path(&self, _path: &str) -> bool {
-        false // Simplified
+    fn is_playing_path(&self, path: &str) -> bool {
+        if let Some(handle) = self.path_sounds.get(path) {
+            handle.state() == PlaybackState::Playing
+        } else {
+            false
+        }
     }
 
     fn stop_path(&mut self, path: &str) {
         if let Some(mut handle) = self.path_sounds.remove(path) {
-            handle.stop(Default::default());
+            handle.stop(Tween::default());
         }
     }
 
@@ -68,10 +104,103 @@ impl AudioDriver for PortAudioDriver {
         self.stop_path(path);
     }
 
-    fn set_model(&mut self, _model: &BMSModel) {
-        // Load all WAV resources from the model
-        // Simplified: full implementation requires loading all keysounds
-        log::info!("PortAudioDriver: set_model called (simplified)");
+    fn set_model(&mut self, model: &BMSModel) {
+        log::info!("Loading keysound files.");
+
+        // Clear previous sounds
+        self.wav_sounds.clear();
+        self.wav_handles.clear();
+
+        // Set volume from model's volwav
+        let volwav = model.get_volwav();
+        if volwav > 0 && volwav < 100 {
+            self.volume = volwav as f32 / 100.0;
+        } else {
+            self.volume = 1.0;
+        }
+
+        let wav_list = model.get_wav_list();
+        if wav_list.is_empty() {
+            return;
+        }
+
+        // Get BMS directory from model path
+        let bms_dir = model
+            .get_path()
+            .and_then(|p| Path::new(&p).parent().map(|d| d.to_path_buf()));
+
+        // Collect wav IDs referenced by notes
+        let mut referenced_wavs = std::collections::HashSet::new();
+        let lanes = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        for tl in model.get_all_time_lines() {
+            for i in 0..lanes {
+                if let Some(n) = tl.get_note(i) {
+                    if n.get_wav() >= 0 {
+                        referenced_wavs.insert(n.get_wav());
+                    }
+                    for ln in n.get_layered_notes() {
+                        if ln.get_wav() >= 0 {
+                            referenced_wavs.insert(ln.get_wav());
+                        }
+                    }
+                }
+                if let Some(hn) = tl.get_hidden_note(i)
+                    && hn.get_wav() >= 0
+                {
+                    referenced_wavs.insert(hn.get_wav());
+                }
+            }
+            for n in tl.get_back_ground_notes() {
+                if n.get_wav() >= 0 {
+                    referenced_wavs.insert(n.get_wav());
+                }
+            }
+        }
+
+        // Load audio files for referenced wav IDs
+        for wav_id in &referenced_wavs {
+            let wav_id_usize = *wav_id as usize;
+            if wav_id_usize >= wav_list.len() {
+                continue;
+            }
+            let wav_path = &wav_list[wav_id_usize];
+            if wav_path.is_empty() {
+                continue;
+            }
+
+            // Resolve path relative to BMS directory
+            let resolved = if let Some(ref dir) = bms_dir {
+                dir.join(wav_path)
+            } else {
+                std::path::PathBuf::from(wav_path)
+            };
+
+            // Try the resolved path and alternate extensions
+            let abs_path = resolved.to_string_lossy().to_string();
+            let candidates = crate::audio_driver::get_paths(&abs_path);
+
+            let mut loaded = false;
+            for candidate in &candidates {
+                match StaticSoundData::from_file(candidate) {
+                    Ok(sound_data) => {
+                        self.wav_sounds.insert(*wav_id, sound_data);
+                        loaded = true;
+                        break;
+                    }
+                    Err(_) => continue,
+                }
+            }
+
+            if !loaded {
+                log::debug!("Failed to load keysound for wav {}: {}", wav_id, abs_path);
+            }
+        }
+
+        log::info!(
+            "Keysound loading complete. Loaded: {}/{}",
+            self.wav_sounds.len(),
+            referenced_wavs.len()
+        );
     }
 
     fn set_additional_key_sound(&mut self, _judge: i32, _fast: bool, _path: Option<&str>) {}
@@ -80,22 +209,38 @@ impl AudioDriver for PortAudioDriver {
         1.0
     }
 
-    fn play_note(&mut self, _n: &Note, _volume: f32, _pitch: i32) {
-        // Play keysound for the given note
+    fn play_note(&mut self, n: &Note, volume: f32, pitch: i32) {
+        self.play_note_internal(n, self.volume * volume, pitch);
+        for ln in n.get_layered_notes() {
+            self.play_note_internal(ln, self.volume * volume, pitch);
+        }
     }
 
     fn play_judge(&mut self, _judge: i32, _fast: bool) {}
 
     fn stop_note(&mut self, n: Option<&Note>) {
-        if n.is_none() {
-            // Stop all
-            for (_, mut handle) in self.wav_handles.drain() {
-                handle.stop(Default::default());
+        match n {
+            None => {
+                // Stop all keysound handles
+                for (_, mut handle) in self.wav_handles.drain() {
+                    handle.stop(Tween::default());
+                }
+            }
+            Some(note) => {
+                self.stop_note_internal(note);
+                for ln in note.get_layered_notes() {
+                    self.stop_note_internal(ln);
+                }
             }
         }
     }
 
-    fn set_volume_note(&mut self, _n: &Note, _volume: f32) {}
+    fn set_volume_note(&mut self, n: &Note, volume: f32) {
+        self.set_volume_note_internal(n, volume);
+        for ln in n.get_layered_notes() {
+            self.set_volume_note_internal(ln, volume);
+        }
+    }
 
     fn set_global_pitch(&mut self, pitch: f32) {
         self.global_pitch = pitch;
@@ -111,5 +256,68 @@ impl AudioDriver for PortAudioDriver {
         self.path_sounds.clear();
         self.wav_sounds.clear();
         self.wav_handles.clear();
+    }
+}
+
+impl PortAudioDriver {
+    /// Play a single note's keysound (without layered notes).
+    /// Translated from AbstractAudioDriver.play0()
+    fn play_note_internal(&mut self, n: &Note, volume: f32, pitch_shift: i32) {
+        let wav_id = n.get_wav();
+        if wav_id < 0 {
+            return;
+        }
+
+        if let Some(sound_data) = self.wav_sounds.get(&wav_id) {
+            // Stop any currently playing instance of this keysound
+            if let Some(mut old_handle) = self.wav_handles.remove(&wav_id) {
+                old_handle.stop(Tween::default());
+            }
+
+            // Clone sound data and play
+            let sound = sound_data.clone();
+            match self.manager.play(sound) {
+                Ok(mut handle) => {
+                    handle.set_volume(linear_to_db(volume), Tween::default());
+                    // Apply pitch: semitone shift if specified, otherwise global pitch
+                    if pitch_shift != 0 {
+                        handle.set_playback_rate(Semitones(pitch_shift as f64), Tween::default());
+                    } else if (self.global_pitch - 1.0).abs() > f32::EPSILON {
+                        handle.set_playback_rate(
+                            PlaybackRate(self.global_pitch as f64),
+                            Tween::default(),
+                        );
+                    }
+                    self.wav_handles.insert(wav_id, handle);
+                }
+                Err(e) => {
+                    log::warn!("Failed to play keysound wav {}: {}", wav_id, e);
+                }
+            }
+        }
+    }
+
+    /// Stop a single note's keysound (without layered notes).
+    /// Translated from AbstractAudioDriver.stop0()
+    fn stop_note_internal(&mut self, n: &Note) {
+        let wav_id = n.get_wav();
+        if wav_id < 0 {
+            return;
+        }
+        if let Some(mut handle) = self.wav_handles.remove(&wav_id) {
+            handle.stop(Tween::default());
+        }
+    }
+
+    /// Set volume on a single note's keysound (without layered notes).
+    /// Translated from AbstractAudioDriver.setVolume0()
+    fn set_volume_note_internal(&mut self, n: &Note, volume: f32) {
+        let wav_id = n.get_wav();
+        if wav_id < 0 {
+            return;
+        }
+        if let Some(handle) = self.wav_handles.get_mut(&wav_id) {
+            handle.set_volume(linear_to_db(volume), Tween::default());
+        }
     }
 }

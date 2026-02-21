@@ -151,7 +151,7 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 # Audio decoding
 lewton = "0.10"
 symphonia = { version = "0.5", features = ["mp3", "flac", "wav"] }
-kira = { version = "0.12", default-features = false, features = ["cpal"] }
+kira = { version = "0.12", default-features = false, features = ["cpal", "wav", "mp3", "ogg", "vorbis", "flac", "pcm"] }
 ebur128 = "0.1"
 
 # GPU rendering

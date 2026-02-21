@@ -2867,6 +2867,7 @@ dependencies = [
  "pastey 0.2.1",
  "rtrb",
  "send_wrapper",
+ "symphonia",
  "triple_buffer",
 ]
 
