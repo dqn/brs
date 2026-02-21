@@ -274,3 +274,236 @@ impl Note {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- NoteData tests ---
+
+    #[test]
+    fn note_data_new_defaults() {
+        let data = NoteData::new();
+        assert_eq!(data.section, 0.0);
+        assert_eq!(data.time, 0);
+        assert_eq!(data.wav, 0);
+        assert_eq!(data.start, 0);
+        assert_eq!(data.duration, 0);
+        assert_eq!(data.state, 0);
+        assert_eq!(data.playtime, 0);
+        assert!(data.layerednotes.is_empty());
+    }
+
+    #[test]
+    fn note_data_default_matches_new() {
+        let from_new = NoteData::new();
+        let from_default = NoteData::default();
+        assert_eq!(from_new.wav, from_default.wav);
+        assert_eq!(from_new.time, from_default.time);
+        assert_eq!(from_new.section, from_default.section);
+    }
+
+    // --- Normal note tests ---
+
+    #[test]
+    fn new_normal_sets_wav() {
+        let note = Note::new_normal(42);
+        assert!(note.is_normal());
+        assert!(!note.is_long());
+        assert!(!note.is_mine());
+        assert_eq!(note.get_wav(), 42);
+    }
+
+    #[test]
+    fn new_normal_with_start_duration() {
+        let note = Note::new_normal_with_start_duration(10, 5000, 3000);
+        assert!(note.is_normal());
+        assert_eq!(note.get_wav(), 10);
+        assert_eq!(note.get_micro_starttime(), 5000);
+        assert_eq!(note.get_milli_starttime(), 5);
+        assert_eq!(note.get_micro_duration(), 3000);
+        assert_eq!(note.get_milli_duration(), 3);
+    }
+
+    // --- LongNote tests ---
+
+    #[test]
+    fn new_long_sets_wav_and_defaults() {
+        let note = Note::new_long(99);
+        assert!(note.is_long());
+        assert!(!note.is_normal());
+        assert!(!note.is_mine());
+        assert_eq!(note.get_wav(), 99);
+        assert!(!note.is_end());
+        assert_eq!(note.get_pair(), None);
+        assert_eq!(note.get_long_note_type(), TYPE_UNDEFINED);
+    }
+
+    #[test]
+    fn new_long_with_start_duration() {
+        let note = Note::new_long_with_start_duration(7, 10000, 20000);
+        assert!(note.is_long());
+        assert_eq!(note.get_wav(), 7);
+        assert_eq!(note.get_micro_starttime(), 10000);
+        assert_eq!(note.get_micro_duration(), 20000);
+    }
+
+    #[test]
+    fn long_note_pairing() {
+        let mut start_note = Note::new_long(1);
+        let mut end_note = Note::new_long(1);
+
+        // Link the pair using indices
+        start_note.set_pair_index(Some(1));
+        end_note.set_pair_index(Some(0));
+        end_note.set_end(true);
+
+        assert_eq!(start_note.get_pair(), Some(1));
+        assert!(!start_note.is_end());
+
+        assert_eq!(end_note.get_pair(), Some(0));
+        assert!(end_note.is_end());
+    }
+
+    #[test]
+    fn long_note_type_set_and_get() {
+        let mut note = Note::new_long(1);
+        assert_eq!(note.get_long_note_type(), TYPE_UNDEFINED);
+
+        note.set_long_note_type(TYPE_LONGNOTE);
+        assert_eq!(note.get_long_note_type(), TYPE_LONGNOTE);
+
+        note.set_long_note_type(TYPE_CHARGENOTE);
+        assert_eq!(note.get_long_note_type(), TYPE_CHARGENOTE);
+
+        note.set_long_note_type(TYPE_HELLCHARGENOTE);
+        assert_eq!(note.get_long_note_type(), TYPE_HELLCHARGENOTE);
+    }
+
+    #[test]
+    fn long_note_type_on_normal_returns_undefined() {
+        let note = Note::new_normal(1);
+        assert_eq!(note.get_long_note_type(), TYPE_UNDEFINED);
+    }
+
+    #[test]
+    fn set_end_on_normal_is_no_op() {
+        let mut note = Note::new_normal(1);
+        note.set_end(true);
+        assert!(!note.is_end());
+    }
+
+    #[test]
+    fn set_pair_index_on_normal_is_no_op() {
+        let mut note = Note::new_normal(1);
+        note.set_pair_index(Some(5));
+        assert_eq!(note.get_pair(), None);
+    }
+
+    // --- Mine note tests ---
+
+    #[test]
+    fn new_mine_sets_wav_and_damage() {
+        let note = Note::new_mine(50, 0.5);
+        assert!(note.is_mine());
+        assert!(!note.is_normal());
+        assert!(!note.is_long());
+        assert_eq!(note.get_wav(), 50);
+        assert!((note.get_damage() - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn mine_damage_set_and_get() {
+        let mut note = Note::new_mine(1, 0.1);
+        assert!((note.get_damage() - 0.1).abs() < f64::EPSILON);
+
+        note.set_damage(0.9);
+        assert!((note.get_damage() - 0.9).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn get_damage_on_normal_returns_zero() {
+        let note = Note::new_normal(1);
+        assert!((note.get_damage()).abs() < f64::EPSILON);
+    }
+
+    // --- Shared accessor tests ---
+
+    #[test]
+    fn wav_set_and_get() {
+        let mut note = Note::new_normal(1);
+        note.set_wav(77);
+        assert_eq!(note.get_wav(), 77);
+    }
+
+    #[test]
+    fn state_set_and_get() {
+        let mut note = Note::new_normal(1);
+        assert_eq!(note.get_state(), 0);
+        note.set_state(3);
+        assert_eq!(note.get_state(), 3);
+    }
+
+    #[test]
+    fn time_set_and_get() {
+        let mut note = Note::new_normal(1);
+        note.set_micro_time(123456);
+        assert_eq!(note.get_micro_time(), 123456);
+        assert_eq!(note.get_milli_time(), 123);
+        assert_eq!(note.get_time(), 123);
+    }
+
+    #[test]
+    fn section_set_and_get() {
+        let mut note = Note::new_normal(1);
+        note.set_section(2.5);
+        assert!((note.get_section() - 2.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn play_time_set_and_get() {
+        let mut note = Note::new_normal(1);
+        note.set_play_time(500);
+        assert_eq!(note.get_play_time(), 500);
+        assert_eq!(note.get_milli_play_time(), 500);
+        assert_eq!(note.get_micro_play_time(), 500_000);
+    }
+
+    #[test]
+    fn micro_play_time_set_and_get() {
+        let mut note = Note::new_normal(1);
+        note.set_micro_play_time(999_999);
+        assert_eq!(note.get_micro_play_time(), 999_999);
+        assert_eq!(note.get_milli_play_time(), 999);
+    }
+
+    // --- Layered note tests ---
+
+    #[test]
+    fn add_and_get_layered_notes() {
+        let mut note = Note::new_normal(1);
+        note.set_section(1.0);
+        note.set_micro_time(1000);
+        assert!(note.get_layered_notes().is_empty());
+
+        let layered = Note::new_normal(2);
+        note.add_layered_note(layered);
+
+        assert_eq!(note.get_layered_notes().len(), 1);
+        let ln = &note.get_layered_notes()[0];
+        assert_eq!(ln.get_wav(), 2);
+        // Layered note inherits section and time from parent
+        assert!((ln.get_section() - 1.0).abs() < f64::EPSILON);
+        assert_eq!(ln.get_micro_time(), 1000);
+    }
+
+    // --- Type constant tests ---
+
+    #[test]
+    fn type_constants() {
+        assert_eq!(TYPE_UNDEFINED, 0);
+        assert_eq!(TYPE_LONGNOTE, 1);
+        assert_eq!(TYPE_CHARGENOTE, 2);
+        assert_eq!(TYPE_HELLCHARGENOTE, 3);
+    }
+}

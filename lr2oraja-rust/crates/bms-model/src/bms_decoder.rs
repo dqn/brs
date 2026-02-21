@@ -981,3 +981,411 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- convert_hex_string tests ---
+
+    #[test]
+    fn convert_hex_string_empty() {
+        assert_eq!(convert_hex_string(&[]), "");
+    }
+
+    #[test]
+    fn convert_hex_string_single_byte() {
+        assert_eq!(convert_hex_string(&[0x00]), "00");
+        assert_eq!(convert_hex_string(&[0xff]), "ff");
+        assert_eq!(convert_hex_string(&[0x0a]), "0a");
+        assert_eq!(convert_hex_string(&[0xa0]), "a0");
+        assert_eq!(convert_hex_string(&[0x42]), "42");
+    }
+
+    #[test]
+    fn convert_hex_string_multiple_bytes() {
+        assert_eq!(convert_hex_string(&[0xde, 0xad, 0xbe, 0xef]), "deadbeef");
+        assert_eq!(convert_hex_string(&[0x01, 0x23, 0x45, 0x67]), "01234567");
+    }
+
+    #[test]
+    fn convert_hex_string_all_digits() {
+        // Test that 0-9 and a-f are produced correctly
+        assert_eq!(
+            convert_hex_string(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]),
+            "0123456789abcdef"
+        );
+    }
+
+    // --- matches_reserve_word tests ---
+
+    #[test]
+    fn matches_reserve_word_exact_case() {
+        assert!(matches_reserve_word("#TITLE test", "TITLE"));
+        assert!(matches_reserve_word("#BPM 120", "BPM"));
+        assert!(matches_reserve_word("#ARTIST someone", "ARTIST"));
+    }
+
+    #[test]
+    fn matches_reserve_word_case_insensitive() {
+        // The function matches uppercase word against lowercase line content
+        assert!(matches_reserve_word("#title test", "TITLE"));
+        assert!(matches_reserve_word("#bpm 120", "BPM"));
+    }
+
+    #[test]
+    fn matches_reserve_word_no_match() {
+        assert!(!matches_reserve_word("#GENRE rock", "TITLE"));
+        assert!(!matches_reserve_word("#BPM 120", "TITLE"));
+    }
+
+    #[test]
+    fn matches_reserve_word_too_short() {
+        assert!(!matches_reserve_word("#BP", "BPM"));
+        assert!(!matches_reserve_word("#", "BPM"));
+    }
+
+    // --- BMSDecoder construction tests ---
+
+    #[test]
+    fn decoder_new_defaults() {
+        let decoder = BMSDecoder::new();
+        assert_eq!(decoder.lntype, LNTYPE_LONGNOTE);
+        assert!(decoder.log.is_empty());
+    }
+
+    #[test]
+    fn decoder_new_with_lntype() {
+        let decoder = BMSDecoder::new_with_lntype(2);
+        assert_eq!(decoder.lntype, 2);
+    }
+
+    // --- Header parsing via decode_bytes tests ---
+
+    fn make_bms_bytes(lines: &[&str]) -> Vec<u8> {
+        let mut content = String::new();
+        for line in lines {
+            content.push_str(line);
+            content.push('\n');
+        }
+        content.into_bytes()
+    }
+
+    #[test]
+    fn decode_title() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#TITLE My Song"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        assert_eq!(model.get_title(), "My Song");
+    }
+
+    #[test]
+    fn decode_artist() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#ARTIST DJ Test"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_artist(), "DJ Test");
+    }
+
+    #[test]
+    fn decode_bpm() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 150"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        assert!((model.get_bpm() - 150.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn decode_playlevel() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#PLAYLEVEL 12"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_playlevel(), "12");
+    }
+
+    #[test]
+    fn decode_genre() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#GENRE Hardcore"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_genre(), "Hardcore");
+    }
+
+    #[test]
+    fn decode_subtitle() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#SUBTITLE [SPA]"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_sub_title(), "[SPA]");
+    }
+
+    #[test]
+    fn decode_subartist() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#SUBARTIST feat. Vocalist"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_sub_artist(), "feat. Vocalist");
+    }
+
+    #[test]
+    fn decode_total() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#TOTAL 300"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        assert!((model.get_total() - 300.0).abs() < f64::EPSILON);
+        assert_eq!(model.get_total_type(), &TotalType::Bms);
+    }
+
+    #[test]
+    fn decode_difficulty() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#DIFFICULTY 4"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_difficulty(), 4);
+    }
+
+    #[test]
+    fn decode_rank() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#RANK 3"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        assert_eq!(model.get_judgerank(), 3);
+        assert_eq!(model.get_judgerank_type(), &JudgeRankType::BmsRank);
+    }
+
+    #[test]
+    fn decode_stagefile() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#STAGEFILE bg\\stage.bmp"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        // Backslash should be converted to forward slash
+        assert_eq!(model.unwrap().get_stagefile(), "bg/stage.bmp");
+    }
+
+    #[test]
+    fn decode_banner() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#BANNER banner.png"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_banner(), "banner.png");
+    }
+
+    #[test]
+    fn decode_preview() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#PREVIEW preview.ogg"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_preview(), "preview.ogg");
+    }
+
+    #[test]
+    fn decode_no_bpm_returns_none() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#TITLE No BPM"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        // Without BPM defined, the first timeline has BPM 0.0 and decode should fail
+        assert!(model.is_none());
+    }
+
+    #[test]
+    fn decode_pms_sets_popn_mode() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120"]);
+        let model = decoder.decode_bytes(&data, true, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_mode(), Some(&Mode::POPN_9K));
+    }
+
+    #[test]
+    fn decode_bms_sets_beat5k_mode() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_mode(), Some(&Mode::BEAT_5K));
+    }
+
+    #[test]
+    fn decode_generates_md5_and_sha256() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        // MD5 hash should be 32 hex characters
+        assert_eq!(model.get_md5().len(), 32);
+        // SHA256 hash should be 64 hex characters
+        assert_eq!(model.get_sha256().len(), 64);
+        // Should only contain hex digits
+        assert!(model
+            .get_md5()
+            .chars()
+            .all(|c| c.is_ascii_hexdigit()));
+        assert!(model
+            .get_sha256()
+            .chars()
+            .all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn decode_player() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#PLAYER 1"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_player(), 1);
+    }
+
+    #[test]
+    fn decode_volwav() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#VOLWAV 80"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_volwav(), 80);
+    }
+
+    #[test]
+    fn decode_defexrank() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#DEFEXRANK 100"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        assert_eq!(model.get_judgerank(), 100);
+        assert_eq!(model.get_judgerank_type(), &JudgeRankType::BmsDefexrank);
+    }
+
+    #[test]
+    fn decode_base_62() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#BASE 62"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_base(), 62);
+    }
+
+    #[test]
+    fn decode_backbmp() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#BACKBMP img\\back.bmp"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_backbmp(), "img/back.bmp");
+    }
+
+    #[test]
+    fn decode_percent_values() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "%URL http://example.com"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        assert_eq!(
+            model.get_values().get("URL"),
+            Some(&"http://example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn decode_wav_definition() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&["#BPM 120", "#WAV01 sound\\kick.wav"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        let wav_list = model.get_wav_list();
+        assert!(!wav_list.is_empty());
+        // Backslash should be converted to forward slash
+        assert!(wav_list.iter().any(|w| w == "sound/kick.wav"));
+    }
+
+    #[test]
+    fn decode_multiple_headers() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes(&[
+            "#TITLE Combined Test",
+            "#ARTIST Multi Artist",
+            "#BPM 180",
+            "#PLAYLEVEL 7",
+            "#GENRE Trance",
+            "#TOTAL 350",
+            "#RANK 2",
+        ]);
+        let model = decoder.decode_bytes(&data, false, None).unwrap();
+
+        assert_eq!(model.get_title(), "Combined Test");
+        assert_eq!(model.get_artist(), "Multi Artist");
+        assert!((model.get_bpm() - 180.0).abs() < f64::EPSILON);
+        assert_eq!(model.get_playlevel(), "7");
+        assert_eq!(model.get_genre(), "Trance");
+        assert!((model.get_total() - 350.0).abs() < f64::EPSILON);
+        assert_eq!(model.get_judgerank(), 2);
+    }
+
+    // --- process_command_word tests ---
+
+    #[test]
+    fn process_command_word_title() {
+        let mut model = BMSModel::new();
+        let mut log = Vec::new();
+        let handled = process_command_word("#TITLE Hello World", &mut model, &mut log);
+        assert!(handled);
+        assert_eq!(model.get_title(), "Hello World");
+        assert!(log.is_empty());
+    }
+
+    #[test]
+    fn process_command_word_artist() {
+        let mut model = BMSModel::new();
+        let mut log = Vec::new();
+        let handled = process_command_word("#ARTIST Test Artist", &mut model, &mut log);
+        assert!(handled);
+        assert_eq!(model.get_artist(), "Test Artist");
+    }
+
+    #[test]
+    fn process_command_word_unknown() {
+        let mut model = BMSModel::new();
+        let mut log = Vec::new();
+        let handled = process_command_word("#UNKNOWN something", &mut model, &mut log);
+        assert!(!handled);
+    }
+
+    #[test]
+    fn process_command_word_player_valid() {
+        let mut model = BMSModel::new();
+        let mut log = Vec::new();
+        let handled = process_command_word("#PLAYER 1", &mut model, &mut log);
+        assert!(handled);
+        assert_eq!(model.get_player(), 1);
+        assert!(log.is_empty());
+    }
+
+    #[test]
+    fn process_command_word_player_invalid() {
+        let mut model = BMSModel::new();
+        let mut log = Vec::new();
+        let handled = process_command_word("#PLAYER 5", &mut model, &mut log);
+        assert!(handled);
+        // Invalid player value should produce a warning
+        assert!(!log.is_empty());
+    }
+}

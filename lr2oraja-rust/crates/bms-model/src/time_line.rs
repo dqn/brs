@@ -274,3 +274,252 @@ impl TimeLine {
         self.notes[lane as usize].take()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_creates_timeline_with_correct_values() {
+        let tl = TimeLine::new(1.5, 2000, 8);
+        assert!((tl.get_section() - 1.5).abs() < f64::EPSILON);
+        assert_eq!(tl.get_micro_time(), 2000);
+        assert_eq!(tl.get_milli_time(), 2);
+        assert_eq!(tl.get_time(), 2);
+        assert_eq!(tl.get_lane_count(), 8);
+    }
+
+    #[test]
+    fn new_initializes_lanes_to_none() {
+        let tl = TimeLine::new(0.0, 0, 4);
+        for lane in 0..4 {
+            assert!(!tl.exist_note_at(lane));
+            assert!(tl.get_note(lane).is_none());
+        }
+        assert!(!tl.exist_note());
+    }
+
+    #[test]
+    fn set_and_get_note() {
+        let mut tl = TimeLine::new(1.0, 5000, 8);
+        let note = Note::new_normal(42);
+        tl.set_note(3, Some(note));
+
+        assert!(tl.exist_note_at(3));
+        assert!(tl.exist_note());
+        let n = tl.get_note(3).unwrap();
+        assert_eq!(n.get_wav(), 42);
+        // Note should inherit section and time from the timeline
+        assert!((n.get_section() - 1.0).abs() < f64::EPSILON);
+        assert_eq!(n.get_micro_time(), 5000);
+    }
+
+    #[test]
+    fn set_note_none_clears_lane() {
+        let mut tl = TimeLine::new(0.0, 0, 4);
+        tl.set_note(1, Some(Note::new_normal(1)));
+        assert!(tl.exist_note_at(1));
+
+        tl.set_note(1, None);
+        assert!(!tl.exist_note_at(1));
+    }
+
+    #[test]
+    fn set_and_get_hidden_note() {
+        let mut tl = TimeLine::new(2.0, 10000, 8);
+        assert!(!tl.exist_hidden_note());
+        assert!(tl.get_hidden_note(0).is_none());
+
+        let note = Note::new_normal(99);
+        tl.set_hidden_note(0, Some(note));
+
+        assert!(tl.exist_hidden_note());
+        let n = tl.get_hidden_note(0).unwrap();
+        assert_eq!(n.get_wav(), 99);
+        assert!((n.get_section() - 2.0).abs() < f64::EPSILON);
+        assert_eq!(n.get_micro_time(), 10000);
+    }
+
+    #[test]
+    fn bpm_set_and_get() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        assert!((tl.get_bpm()).abs() < f64::EPSILON);
+
+        tl.set_bpm(150.0);
+        assert!((tl.get_bpm() - 150.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn section_line_set_and_get() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        assert!(!tl.get_section_line());
+
+        tl.set_section_line(true);
+        assert!(tl.get_section_line());
+    }
+
+    #[test]
+    fn bga_and_layer_set_and_get() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        assert_eq!(tl.get_bga(), -1);
+        assert_eq!(tl.get_layer(), -1);
+
+        tl.set_bga(5);
+        tl.set_layer(3);
+        assert_eq!(tl.get_bga(), 5);
+        assert_eq!(tl.get_layer(), 3);
+    }
+
+    #[test]
+    fn stop_set_and_get() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        assert_eq!(tl.get_micro_stop(), 0);
+
+        tl.set_stop(5000);
+        assert_eq!(tl.get_micro_stop(), 5000);
+        assert_eq!(tl.get_milli_stop(), 5);
+        assert_eq!(tl.get_stop(), 5);
+    }
+
+    #[test]
+    fn scroll_default_and_set() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        assert!((tl.get_scroll() - 1.0).abs() < f64::EPSILON);
+
+        tl.set_scroll(2.0);
+        assert!((tl.get_scroll() - 2.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn add_and_get_background_notes() {
+        let mut tl = TimeLine::new(3.0, 6000, 8);
+        assert!(tl.get_back_ground_notes().is_empty());
+
+        let note = Note::new_normal(10);
+        tl.add_back_ground_note(note);
+
+        assert_eq!(tl.get_back_ground_notes().len(), 1);
+        let bg = &tl.get_back_ground_notes()[0];
+        assert_eq!(bg.get_wav(), 10);
+        assert!((bg.get_section() - 3.0).abs() < f64::EPSILON);
+        assert_eq!(bg.get_micro_time(), 6000);
+    }
+
+    #[test]
+    fn remove_background_note() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.add_back_ground_note(Note::new_normal(1));
+        tl.add_back_ground_note(Note::new_normal(2));
+        assert_eq!(tl.get_back_ground_notes().len(), 2);
+
+        tl.remove_back_ground_note(0);
+        assert_eq!(tl.get_back_ground_notes().len(), 1);
+        assert_eq!(tl.get_back_ground_notes()[0].get_wav(), 2);
+    }
+
+    #[test]
+    fn remove_background_note_out_of_bounds_is_no_op() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.add_back_ground_note(Note::new_normal(1));
+        tl.remove_back_ground_note(100);
+        assert_eq!(tl.get_back_ground_notes().len(), 1);
+    }
+
+    #[test]
+    fn set_micro_time_propagates_to_notes() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.set_note(0, Some(Note::new_normal(1)));
+        tl.set_hidden_note(1, Some(Note::new_normal(2)));
+        tl.add_back_ground_note(Note::new_normal(3));
+
+        tl.set_micro_time(99000);
+
+        assert_eq!(tl.get_micro_time(), 99000);
+        assert_eq!(tl.get_note(0).unwrap().get_micro_time(), 99000);
+        assert_eq!(tl.get_hidden_note(1).unwrap().get_micro_time(), 99000);
+        assert_eq!(tl.get_back_ground_notes()[0].get_micro_time(), 99000);
+    }
+
+    #[test]
+    fn set_section_propagates_to_notes() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.set_note(0, Some(Note::new_normal(1)));
+        tl.set_hidden_note(1, Some(Note::new_normal(2)));
+        tl.add_back_ground_note(Note::new_normal(3));
+
+        tl.set_section(5.5);
+
+        assert!((tl.get_section() - 5.5).abs() < f64::EPSILON);
+        assert!((tl.get_note(0).unwrap().get_section() - 5.5).abs() < f64::EPSILON);
+        assert!((tl.get_hidden_note(1).unwrap().get_section() - 5.5).abs() < f64::EPSILON);
+        assert!((tl.get_back_ground_notes()[0].get_section() - 5.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn set_lane_count_expands() {
+        let mut tl = TimeLine::new(0.0, 0, 4);
+        assert_eq!(tl.get_lane_count(), 4);
+
+        tl.set_lane_count(8);
+        assert_eq!(tl.get_lane_count(), 8);
+        // New lanes should be None
+        for lane in 0..8 {
+            assert!(!tl.exist_note_at(lane));
+        }
+    }
+
+    #[test]
+    fn set_lane_count_preserves_existing_notes() {
+        let mut tl = TimeLine::new(0.0, 0, 4);
+        tl.set_note(1, Some(Note::new_normal(42)));
+
+        tl.set_lane_count(8);
+        assert_eq!(tl.get_lane_count(), 8);
+        assert_eq!(tl.get_note(1).unwrap().get_wav(), 42);
+    }
+
+    #[test]
+    fn set_lane_count_shrinks() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.set_note(1, Some(Note::new_normal(42)));
+
+        tl.set_lane_count(4);
+        assert_eq!(tl.get_lane_count(), 4);
+        assert_eq!(tl.get_note(1).unwrap().get_wav(), 42);
+    }
+
+    #[test]
+    fn take_note_removes_and_returns() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.set_note(2, Some(Note::new_normal(77)));
+        assert!(tl.exist_note_at(2));
+
+        let taken = tl.take_note(2);
+        assert!(taken.is_some());
+        assert_eq!(taken.unwrap().get_wav(), 77);
+        assert!(!tl.exist_note_at(2));
+    }
+
+    #[test]
+    fn get_total_notes_counts_normal_and_long() {
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.set_note(0, Some(Note::new_normal(1)));
+        tl.set_note(1, Some(Note::new_normal(2)));
+        // Mine notes should not be counted
+        tl.set_note(2, Some(Note::new_mine(3, 0.5)));
+
+        assert_eq!(tl.get_total_notes(), 2);
+    }
+
+    #[test]
+    fn eventlayer_set_and_get() {
+        use crate::layer::{Event, EventType, Layer};
+
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        assert!(tl.get_eventlayer().is_empty());
+
+        let layers = vec![Layer::new(Event::new(EventType::Always, 0), vec![])];
+        tl.set_eventlayer(layers);
+        assert_eq!(tl.get_eventlayer().len(), 1);
+    }
+}

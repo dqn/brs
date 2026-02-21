@@ -107,3 +107,145 @@ impl Mode {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_variants_exist() {
+        let variants = [
+            Mode::BEAT_5K,
+            Mode::BEAT_7K,
+            Mode::BEAT_10K,
+            Mode::BEAT_14K,
+            Mode::POPN_5K,
+            Mode::POPN_9K,
+            Mode::KEYBOARD_24K,
+            Mode::KEYBOARD_24K_DOUBLE,
+        ];
+        assert_eq!(variants.len(), 8);
+    }
+
+    #[test]
+    fn key_values() {
+        assert_eq!(Mode::BEAT_5K.key(), 6);
+        assert_eq!(Mode::BEAT_7K.key(), 8);
+        assert_eq!(Mode::BEAT_10K.key(), 12);
+        assert_eq!(Mode::BEAT_14K.key(), 16);
+        assert_eq!(Mode::POPN_5K.key(), 5);
+        assert_eq!(Mode::POPN_9K.key(), 9);
+        assert_eq!(Mode::KEYBOARD_24K.key(), 26);
+        assert_eq!(Mode::KEYBOARD_24K_DOUBLE.key(), 52);
+    }
+
+    #[test]
+    fn player_values() {
+        // Single-player modes
+        assert_eq!(Mode::BEAT_5K.player(), 1);
+        assert_eq!(Mode::BEAT_7K.player(), 1);
+        assert_eq!(Mode::POPN_5K.player(), 1);
+        assert_eq!(Mode::POPN_9K.player(), 1);
+        assert_eq!(Mode::KEYBOARD_24K.player(), 1);
+
+        // Double-player modes
+        assert_eq!(Mode::BEAT_10K.player(), 2);
+        assert_eq!(Mode::BEAT_14K.player(), 2);
+        assert_eq!(Mode::KEYBOARD_24K_DOUBLE.player(), 2);
+    }
+
+    #[test]
+    fn id_values() {
+        assert_eq!(Mode::BEAT_5K.id(), 5);
+        assert_eq!(Mode::BEAT_7K.id(), 7);
+        assert_eq!(Mode::BEAT_10K.id(), 10);
+        assert_eq!(Mode::BEAT_14K.id(), 14);
+        assert_eq!(Mode::POPN_5K.id(), 9);
+        assert_eq!(Mode::POPN_9K.id(), 9);
+        assert_eq!(Mode::KEYBOARD_24K.id(), 25);
+        assert_eq!(Mode::KEYBOARD_24K_DOUBLE.id(), 50);
+    }
+
+    #[test]
+    fn scratch_key_values() {
+        assert_eq!(Mode::BEAT_5K.scratch_key(), &[5]);
+        assert_eq!(Mode::BEAT_7K.scratch_key(), &[7]);
+        assert_eq!(Mode::BEAT_10K.scratch_key(), &[5, 11]);
+        assert_eq!(Mode::BEAT_14K.scratch_key(), &[7, 15]);
+        assert_eq!(Mode::POPN_5K.scratch_key(), &[] as &[i32]);
+        assert_eq!(Mode::POPN_9K.scratch_key(), &[] as &[i32]);
+        assert_eq!(Mode::KEYBOARD_24K.scratch_key(), &[24, 25]);
+        assert_eq!(Mode::KEYBOARD_24K_DOUBLE.scratch_key(), &[24, 25, 50, 51]);
+    }
+
+    #[test]
+    fn is_scratch_key_true() {
+        assert!(Mode::BEAT_5K.is_scratch_key(5));
+        assert!(Mode::BEAT_7K.is_scratch_key(7));
+        assert!(Mode::BEAT_10K.is_scratch_key(5));
+        assert!(Mode::BEAT_10K.is_scratch_key(11));
+        assert!(Mode::BEAT_14K.is_scratch_key(7));
+        assert!(Mode::BEAT_14K.is_scratch_key(15));
+    }
+
+    #[test]
+    fn is_scratch_key_false() {
+        assert!(!Mode::BEAT_5K.is_scratch_key(0));
+        assert!(!Mode::BEAT_7K.is_scratch_key(0));
+        assert!(!Mode::POPN_5K.is_scratch_key(0));
+        assert!(!Mode::POPN_9K.is_scratch_key(0));
+    }
+
+    #[test]
+    fn get_mode_from_hint() {
+        assert_eq!(Mode::get_mode("beat-5k"), Some(Mode::BEAT_5K));
+        assert_eq!(Mode::get_mode("beat-7k"), Some(Mode::BEAT_7K));
+        assert_eq!(Mode::get_mode("beat-10k"), Some(Mode::BEAT_10K));
+        assert_eq!(Mode::get_mode("beat-14k"), Some(Mode::BEAT_14K));
+        assert_eq!(Mode::get_mode("popn-5k"), Some(Mode::POPN_5K));
+        assert_eq!(Mode::get_mode("popn-9k"), Some(Mode::POPN_9K));
+        assert_eq!(Mode::get_mode("keyboard-24k"), Some(Mode::KEYBOARD_24K));
+        assert_eq!(
+            Mode::get_mode("keyboard-24k-double"),
+            Some(Mode::KEYBOARD_24K_DOUBLE)
+        );
+    }
+
+    #[test]
+    fn get_mode_invalid_hint_returns_none() {
+        assert_eq!(Mode::get_mode("invalid"), None);
+        assert_eq!(Mode::get_mode(""), None);
+        assert_eq!(Mode::get_mode("beat-3k"), None);
+    }
+
+    #[test]
+    fn hint_values() {
+        assert_eq!(Mode::BEAT_5K.hint(), "beat-5k");
+        assert_eq!(Mode::BEAT_7K.hint(), "beat-7k");
+        assert_eq!(Mode::BEAT_10K.hint(), "beat-10k");
+        assert_eq!(Mode::BEAT_14K.hint(), "beat-14k");
+        assert_eq!(Mode::POPN_5K.hint(), "popn-5k");
+        assert_eq!(Mode::POPN_9K.hint(), "popn-9k");
+        assert_eq!(Mode::KEYBOARD_24K.hint(), "keyboard-24k");
+        assert_eq!(Mode::KEYBOARD_24K_DOUBLE.hint(), "keyboard-24k-double");
+    }
+
+    #[test]
+    fn hint_roundtrips_through_get_mode() {
+        let modes = [
+            Mode::BEAT_5K,
+            Mode::BEAT_7K,
+            Mode::BEAT_10K,
+            Mode::BEAT_14K,
+            Mode::POPN_5K,
+            Mode::POPN_9K,
+            Mode::KEYBOARD_24K,
+            Mode::KEYBOARD_24K_DOUBLE,
+        ];
+        for mode in &modes {
+            let hint = mode.hint();
+            let recovered = Mode::get_mode(hint).expect("should find mode by hint");
+            assert_eq!(&recovered, mode);
+        }
+    }
+}
