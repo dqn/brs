@@ -325,6 +325,7 @@ Added unit tests for major crates that previously had zero tests.
 - [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream) — deferred until Java exporter updated
 - [ ] Reactivate remaining 17 pending test files — blocked: compare_pattern (make_random private), compare_bga_timeline (BGAProcessor stubbed), Tier 3 tests (e2e_helpers, render snapshots, judge/rule API mismatch)
 - [x] Fix `pattern_modifier_autoplay_longnote_types` (was `#[ignore]`): added bounds checking to `TimeLine::exist_note_at`, `get_note`, `get_note_mut`, `get_hidden_note`, `take_note` to handle out-of-bounds lane access gracefully (return `false`/`None` instead of panic)
+- [ ] Investigate BMS decoder mode detection discrepancy between Java and Rust: `longnote_types.bms` (keys 1-3 only) is detected as BEAT_5K (6 lanes) in Rust, but Java fixture passes scratch lane 7 (BEAT_7K = 8 lanes) successfully — suggests Java decoder may detect a different mode. Compare `Section::new()` channel-based mode upgrade logic with Java `BMSDecoder.decode()`. May affect note placement and scratch lane behavior in gameplay.
 
 ### 16c: Integration Tests
 
