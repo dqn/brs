@@ -18,6 +18,7 @@ pub enum FrequencyType {
 #[serde(default)]
 pub struct AudioConfig {
     pub driver: DriverType,
+    #[serde(rename = "driverName")]
     pub driver_name: Option<String>,
     #[serde(rename = "deviceBufferSize")]
     pub device_buffer_size: i32,

@@ -538,6 +538,7 @@ pub struct ControllerConfig {
     pub start: i32,
     pub select: i32,
     pub duration: i32,
+    #[serde(rename = "jkocHack")]
     pub jkoc_hack: bool,
     #[serde(rename = "analogScratch")]
     pub analog_scratch: bool,

@@ -187,15 +187,15 @@ pub struct Config {
     pub enable_http: bool,
     #[serde(rename = "downloadSource")]
     pub download_source: String,
-    #[serde(rename = "defaultDownloadURL")]
+    #[serde(rename = "defaultDownloadUrl")]
     pub default_download_url: String,
-    #[serde(rename = "overrideDownloadURL")]
+    #[serde(rename = "overrideDownloadUrl")]
     pub override_download_url: String,
     #[serde(rename = "downloadDirectory")]
     pub download_directory: String,
     #[serde(rename = "irSendCount")]
     pub ir_send_count: i32,
-    #[serde(rename = "useDiscordRPC")]
+    #[serde(rename = "useDiscordRpc")]
     pub use_discord_rpc: bool,
     #[serde(rename = "setClipboardScreenshot")]
     pub set_clipboard_screenshot: bool,

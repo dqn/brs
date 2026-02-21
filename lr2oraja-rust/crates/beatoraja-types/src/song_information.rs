@@ -82,7 +82,8 @@ impl SongInformation {
         let lnmode = model.get_lnmode();
         let lntype = model.get_lntype();
 
-        for tl in model.get_all_time_lines() {
+        let all_tls = model.get_all_time_lines();
+        for (tl_idx, tl) in all_tls.iter().enumerate() {
             if tl.get_time() / 1000 != pos {
                 pos = tl.get_time() / 1000;
             }
@@ -93,16 +94,23 @@ impl SongInformation {
                 };
 
                 if note.is_long() && !note.is_end() {
-                    // Get the pair's time via pair index
-                    if let Some(pair_idx) = note.get_pair() {
-                        let pair_time = model.get_all_time_lines()[pair_idx].get_time();
-                        let start_idx = tl.get_time() / 1000;
-                        let end_idx = pair_time / 1000;
-                        let col = if mode.is_scratch_key(i) { 1 } else { 4 };
-                        for index in start_idx..=end_idx {
-                            if (index as usize) < data.len() {
-                                data[index as usize][col] += 1;
-                            }
+                    // Find the paired LN end note by scanning forward
+                    let mut end_time = tl.get_time();
+                    for future_tl in &all_tls[(tl_idx + 1)..] {
+                        if let Some(end_note) = future_tl.get_note(i)
+                            && end_note.is_long()
+                            && end_note.is_end()
+                        {
+                            end_time = future_tl.get_time();
+                            break;
+                        }
+                    }
+                    let start_idx = tl.get_time() / 1000;
+                    let end_idx = end_time / 1000;
+                    let col = if mode.is_scratch_key(i) { 1 } else { 4 };
+                    for index in start_idx..=end_idx {
+                        if (index as usize) < data.len() {
+                            data[index as usize][col] += 1;
                         }
                     }
                 }
@@ -214,8 +222,15 @@ impl SongInformation {
         }
 
         let mut maxcount = 0;
-        for (&bpm_bits, &count) in &bpm_note_count_map {
-            if count > maxcount {
+        // Sort by BPM ascending so that on tie, highest BPM wins (matches Java HashMap bucket order)
+        let mut bpm_entries: Vec<_> = bpm_note_count_map.iter().collect();
+        bpm_entries.sort_by(|a, b| {
+            f64::from_bits(*a.0)
+                .partial_cmp(&f64::from_bits(*b.0))
+                .unwrap()
+        });
+        for (&bpm_bits, &count) in bpm_entries {
+            if count >= maxcount {
                 maxcount = count;
                 info.mainbpm = f64::from_bits(bpm_bits);
             }
@@ -273,7 +288,7 @@ impl SongInformation {
         sb.push('#');
         for row in values {
             for &val in row.iter().take(7) {
-                let value = val.min(36 * 36 - 1);
+                let value = val.clamp(0, 36 * 36 - 1);
                 let val1 = value / 36;
                 sb.push(if val1 >= 10 {
                     (b'a' + (val1 as u8 - 10)) as char

@@ -120,19 +120,33 @@ impl Validatable for CourseData {
 /// Course data constraint
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CourseDataConstraint {
+    #[serde(alias = "grade")]
     Class,
+    #[serde(alias = "grade_mirror")]
     Mirror,
+    #[serde(alias = "grade_random")]
     Random,
+    #[serde(alias = "no_speed")]
     NoSpeed,
+    #[serde(alias = "no_good")]
     NoGood,
+    #[serde(alias = "no_great")]
     NoGreat,
+    #[serde(alias = "gauge_lr2")]
     GaugeLr2,
+    #[serde(alias = "gauge_5k")]
     Gauge5Keys,
+    #[serde(alias = "gauge_7k")]
     Gauge7Keys,
+    #[serde(alias = "gauge_9k")]
     Gauge9Keys,
+    #[serde(alias = "gauge_24k")]
     Gauge24Keys,
+    #[serde(alias = "ln")]
     Ln,
+    #[serde(alias = "cn")]
     Cn,
+    #[serde(alias = "hcn")]
     Hcn,
 }
 
@@ -245,7 +259,9 @@ impl TrophyData {
 
 impl Validatable for TrophyData {
     fn validate(&mut self) -> bool {
-        self.name.is_some() && self.missrate > 0.0 && self.scorerate < 100.0
+        self.name.as_ref().is_some_and(|n| !n.is_empty())
+            && self.missrate > 0.0
+            && self.scorerate < 100.0
     }
 }
 
