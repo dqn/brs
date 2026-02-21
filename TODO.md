@@ -67,11 +67,11 @@ UI screens. Depends on: skin, config, play.
 
 Optional/peripheral features.
 
-- [ ] `beatoraja.ir` (14 files, 3,572 lines) — Internet ranking
-- [ ] `beatoraja.external` (7 files, 2,076 lines) — OBS, webhooks
-- [ ] `beatoraja.obs` (2 files, 1,502 lines) — OBS WebSocket
-- [ ] `beatoraja.modmenu` (15 files, 8,468 lines) — In-game mod menu
-- [ ] `beatoraja.stream` (3 files, 402 lines) — Stream commands
+- [x] `beatoraja.ir` (14 files, 3,572 lines) — Internet ranking
+- [x] `beatoraja.external` (7 files, 2,076 lines) — OBS, webhooks
+- [x] `beatoraja.obs` (2 files, 1,502 lines) — OBS WebSocket
+- [x] `beatoraja.modmenu` (15 files, 8,468 lines) — In-game mod menu
+- [x] `beatoraja.stream` (3 files, 402 lines) — Stream commands
 
 ## Phase 9: Launcher (~9,210 lines)
 

@@ -118,10 +118,11 @@ brs/
 - **Phase 5 complete:** `beatoraja-pattern` (14 modules — lane/note shuffle, modifiers), `beatoraja-play` (28 modules — judge, gauge, BGA, game loop)
 - **Phase 6 complete:** `beatoraja-skin` (50+ modules — skin rendering engine, property binding, JSON/LR2/Lua skin loaders)
 - **Phase 7 complete:** `beatoraja-select` (30 modules — song select screen, bar types, bar manager/renderer/sorter), `beatoraja-result` (7 modules — music/course result screens, gauge graph), `beatoraja-decide` (2 modules — decide screen)
+- **Phase 8 complete:** `beatoraja-ir` (14 modules — IR connection, LR2IR, ranking/leaderboard, ghost data), `beatoraja-external` (7 modules — BMS search, Discord listener, screenshot export, webhook, score import), `beatoraja-obs` (2 modules — OBS WebSocket client, OBS listener), `beatoraja-modmenu` (15 modules — ImGui/egui renderer, notify, trainers, skin/download/song menus, performance monitor), `beatoraja-stream` (3 modules — stream controller, stream commands)
 
 ## Deferred / Stub Items
 
-- Phase 8+ type dependencies (IR, modmenu, OBS, stream) are stubbed in each Phase 7 crate's `stubs.rs`
+- Phase 9 type dependencies (Launcher) are stubbed in each Phase 8 crate's `stubs.rs`
 - Phase 7+ type dependencies (screen implementations, select bar, etc.) are stubbed in `beatoraja-skin/src/stubs.rs`
 - Phase 4 type dependencies (Config, PlayModeConfig, etc.) are stubbed in each Phase 3 crate's `stubs.rs` (will be replaced with imports from `beatoraja-core`)
 - PortAudio, LibGDX, ebur128, 7z extraction methods use `todo!()` pending external library integration
@@ -131,6 +132,11 @@ brs/
 - Skin rendering (PlaySkin, SkinNote, SkinGauge, etc.) have stub implementations pending Phase 6 Skin system
 - BGA video processing (FFmpegProcessor, GdxVideoProcessor) uses `todo!()` pending video library integration
 - MainController-dependent methods in TargetProperty return stub data
+- Twitter4j (ScreenShotTwitterExporter) fully stubbed — no direct Rust equivalent
+- AWT clipboard integration (copy_image_to_clipboard) stubbed
+- LR2 SQLite score reading in ScoreDataImporter deferred to rusqlite integration
+- ImGui rendering calls in modmenu stubbed as `todo!("egui integration")`
+- Windows named pipe in StreamController stubbed
 
 ## Translation Lessons Learned
 
@@ -331,3 +337,39 @@ Screen classes (MusicSelector, MusicResult, MusicDecide) have extensive lifecycl
 ### ContextMenuBar Complex Builder Pattern (Phase 7)
 
 Java's `ContextMenuBar` uses a nested builder with command lambdas (`Runnable` fields) for each menu entry. In Rust, translate as `Box<dyn Fn()>` closures stored in `CommandBar` structs. The `addChild()` chain pattern is preserved as a mutable `Vec<BarType>` push sequence.
+
+### Five-Crate Split for Phase 8 (Phase 8)
+
+Phase 8 has 41 Java files across 5 independent packages (ir, external, obs, modmenu, stream). Each package maps to its own Rust crate. All 5 agents run in parallel since there are no cross-dependencies between Phase 8 packages (except `beatoraja-external` referencing `beatoraja-ir` for IRConnection types).
+
+### Java WebSocket → tokio-tungstenite (Phase 8)
+
+Java's `java_websocket.WebSocketClient` with `onOpen/onMessage/onClose/onError` callbacks translates to async tokio-based architecture using `futures_util::SplitSink/SplitStream` with `tokio::select!` for message processing. Auto-reconnect uses `tokio::spawn` + `tokio::time::sleep` instead of Java's `ScheduledExecutorService`.
+
+### OBS WebSocket Authentication (Phase 8)
+
+OBS WebSocket uses SHA-256 challenge-response authentication. Java's `MessageDigest + Base64.getEncoder()` translates to `sha2::Sha256` + `base64::engine::general_purpose::STANDARD`. Added `base64 = "0.22"`, `tokio-tungstenite = "0.24"`, `futures-util = "0.3"` to workspace dependencies.
+
+### LR2IR XML Parsing (Phase 8)
+
+Java's Jackson XML parsing for LR2IR rankings translates to `quick-xml` with serde derive. Added `quick-xml = { version = "0.37", features = ["serialize"] }` to workspace dependencies. LR2IR uses Shift_JIS encoding for HTTP responses — use `encoding_rs::SHIFT_JIS` for decoding.
+
+### IRResponse as Generic Struct (Phase 8)
+
+Java's `IRResponse<T>` generic interface translates better as a concrete generic struct `IRResponse<T>` with `Option<T>` for data, rather than a trait, since it's used exclusively as a return value.
+
+### IRConnectionManager Without Reflection (Phase 8)
+
+Java's reflection-based classpath scanning for IR connection implementations has no Rust equivalent. Use `OnceLock`-based manual registry pattern where implementations register themselves explicitly.
+
+### ImGui → egui Stub Strategy (Phase 8)
+
+Java's ImGui rendering calls (imgui-java library) are stubbed as `todo!("egui integration")` since the mod menu UI will use egui in the Rust port. Data structures and logic are translated mechanically, but actual rendering is deferred. The `FontAwesomeIcons` class (~1016 lines of static icon codepoint constants) translates directly as `pub const` strings.
+
+### Ghost Data RLE Decoder (Phase 8)
+
+Java's `LR2GhostData` uses a CSV-based run-length encoded format with 40+ character substitution mappings. All substitutions must be copied verbatim — the RLE decoding logic uses character-level parsing that translates directly to Rust string/char operations.
+
+### Windows Named Pipe → Platform-Conditional (Phase 8)
+
+Java's `StreamController` reads from Windows named pipe `\\.\pipe\beatoraja`. In Rust, use `std::fs::File::open` with the pipe path (works on Windows). On non-Windows platforms, the pipe path won't exist, so the feature is effectively Windows-only. Use `#[cfg(windows)]` for platform-specific sections where needed.
