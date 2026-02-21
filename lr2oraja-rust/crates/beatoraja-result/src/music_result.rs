@@ -18,9 +18,9 @@ use crate::abstract_result::{
 use crate::music_result_skin::MusicResultSkin;
 use crate::result_key_property::{ResultKey, ResultKeyProperty};
 use crate::stubs::{
-    BMSPlayerModeType, ControlKeys, EventType, FloatArray, IRConfig, IRSendStatusMain, IRStatus,
-    KeyCommand, MainController, PlayerResource, RankingData, IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG,
-    IR_SEND_UPDATE_SCORE, is_freq_negative, is_freq_trainer_enabled,
+    BMSPlayerModeType, ControlKeys, EventType, FloatArray, IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG,
+    IR_SEND_UPDATE_SCORE, IRConfig, IRSendStatusMain, IRStatus, KeyCommand, MainController,
+    PlayerResource, RankingData, is_freq_negative, is_freq_trainer_enabled,
 };
 
 /// Music result screen

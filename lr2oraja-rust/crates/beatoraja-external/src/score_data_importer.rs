@@ -27,20 +27,15 @@ impl ScoreDataImporter {
                         .unwrap_or_default()
                         .to_string();
                     let song = songdb.get_song_datas(&[&md5]);
+                    #[allow(clippy::field_reassign_with_default)]
                     if !song.is_empty() {
                         let mut sd = ScoreData::default();
-                        sd.epg =
-                            score.get("perfect").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.egr =
-                            score.get("great").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.egd =
-                            score.get("good").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.ebd =
-                            score.get("bad").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.epr =
-                            score.get("poor").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.minbp =
-                            score.get("minbp").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.epg = score.get("perfect").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.egr = score.get("great").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.egd = score.get("good").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.ebd = score.get("bad").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.epr = score.get("poor").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.minbp = score.get("minbp").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
                         let clear_idx =
                             score.get("clear").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
                         if clear_idx < clears.len() {
@@ -48,11 +43,10 @@ impl ScoreDataImporter {
                         }
                         sd.playcount =
                             score.get("playcount").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.clearcount =
-                            score
-                                .get("clearcount")
-                                .and_then(|v| v.as_i64())
-                                .unwrap_or(0) as i32;
+                        sd.clearcount = score
+                            .get("clearcount")
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0) as i32;
                         sd.sha256 = song[0].get_sha256().to_string();
                         sd.notes = song[0].get_notes();
                         result.push(sd);
@@ -74,6 +68,7 @@ impl ScoreDataImporter {
             let mut oldsd = self
                 .scoredb
                 .get_score_data(score.get_sha256(), score.get_mode());
+            #[allow(clippy::field_reassign_with_default)]
             if oldsd.is_none() {
                 let mut new_sd = ScoreData::default();
                 new_sd.playcount = score.get_playcount();

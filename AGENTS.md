@@ -123,21 +123,29 @@ brs/
 - **Phase 10 complete:** `beatoraja-song` (8 modules — song data model, folder data, song information, DB accessors, CRC32 utils), `beatoraja-controller` (3 modules — LWJGL3/GLFW gamepad controller manager, stubbed for gilrs integration), `beatoraja-system` (1 module — RobustFile I/O with backup/restore semantics)
 - **Phase 11 complete:** Integration & wiring — replaced stubs with real cross-crate imports across 12 crates, added 60+ getter methods to SongData/ScoreData, added beatoraja-song dependency to 7 crates, removed 24+ unused stubs, documented circular dependency constraints
 - **Phase 12 complete:** `beatoraja-bin` (binary entry point — CLI argument parsing via clap, config/player loading, MainController lifecycle, winit event loop with window creation, display mode handling)
-- **Phase 14 in progress:** `beatoraja-types` crate created (15 modules — Config, PlayerConfig, PlayModeConfig, Resolution, AudioConfig, IRConfig, SkinConfig, PlayConfig, ScoreData, CourseData, ReplayData, ClearType, BMKeys, Validatable, stubs). Circular dependency resolution complete: beatoraja-core re-exports from beatoraja-types, beatoraja-input/audio stubs replaced with beatoraja-types imports. API incompatibility resolution partially complete (getter methods added, enum variant updates applied).
+- **Phase 14 complete:** `beatoraja-types` crate created (15 modules — Config, PlayerConfig, PlayModeConfig, Resolution, AudioConfig, IRConfig, SkinConfig, PlayConfig, ScoreData, CourseData, ReplayData, ClearType, BMKeys, Validatable, stubs). Circular dependency resolution complete: beatoraja-core re-exports from beatoraja-types, beatoraja-input/audio stubs replaced with beatoraja-types imports. API incompatibility resolution complete: Config/PlayerConfig/PlayConfig/ScoreData stubs replaced in 7 downstream crates (md-processor, beatoraja-ir, beatoraja-result, beatoraja-external, beatoraja-modmenu, beatoraja-select, beatoraja-launcher), 100+ compatibility getter/setter methods added to real types, remaining stubs reduced to rendering-only + circular dep types.
 
 ## Deferred / Stub Items
 - **Circular dependency stubs (resolved via beatoraja-types):**
   - `beatoraja-input`, `beatoraja-audio`: Config/PlayModeConfig/Resolution stubs **replaced** with `beatoraja-types` imports
   - `beatoraja-core`: 14 modules **replaced** with `pub use beatoraja_types::*` re-exports
+- **Stubs replaced in downstream crates (Phase 14):**
+  - `md-processor`: Config → `pub use beatoraja_core::config::Config`
+  - `beatoraja-ir`: `convert_hex_string` → `pub use bms_model::bms_decoder::convert_hex_string`
+  - `beatoraja-result`: IRConfig, IRResponse, IRScoreData, IRCourseData, IRChartData, RankingData, RankingDataCache → real imports from `beatoraja-core`/`beatoraja-ir`
+  - `beatoraja-external`: Config, PlayerConfig, ScoreData, SongData, ReplayData → real imports from `beatoraja-core`/`beatoraja-song`
+  - `beatoraja-modmenu`: Config, PlayConfig, PlayModeConfig, ScoreData, Version → real imports from `beatoraja-core`
+  - `beatoraja-select`: Config, SongPreview, PlayerConfig, PlayModeConfig, PlayConfig, KeyboardConfig, ControllerConfig, MidiConfig, ScoreData, AudioConfig, Resolution → real imports from `beatoraja-core`
+  - `beatoraja-launcher`: BMSPlayerMode, Version → real imports from `beatoraja-core`
 - **Remaining circular dependency stubs (cannot be replaced):**
   - `beatoraja-core`: SongData, SkinType, GrooveGauge stubs (beatoraja-song/skin/play depend on core)
   - `beatoraja-play`: TextureRegion/Texture stubs (beatoraja-skin depends on play)
-  - `beatoraja-modmenu`, `beatoraja-launcher`: Custom adapter stubs (incompatible APIs)
-- **API-incompatible stubs (require refactoring to replace):**
-  - Config/PlayerConfig stubs in downstream crates differ in field types (e.g., `f32` vs `i32`, `String` vs `Option<String>`)
-  - Resolution stubs are structs with f32 fields vs real type is an enum with i32 methods
-  - SongDatabaseAccessor is a struct in stubs vs a trait in the real implementation
-  - BMSPlayerInputProcessor stubs use different parameter types (i32 vs usize)
+- **Remaining struct-vs-trait stubs (require structural refactoring):**
+  - SongDatabaseAccessor: struct in stubs vs trait in real implementation
+  - IRConnection: struct in stubs vs trait in real implementation
+  - BMSPlayerInputProcessor: parameter types differ (i32 vs usize), embedded in MainController stub chain
+- **Complex lifecycle stubs (cannot be replaced without full runtime):**
+  - MainController, PlayerResource, MainState in all downstream crates
 - PortAudio, LibGDX, ebur128, 7z extraction methods use `todo!()` pending external library integration
 - javax.sound.midi equivalents stubbed (no direct Rust equivalent)
 - MIDI device enumeration stubbed
@@ -495,3 +503,21 @@ To break circular dependencies (core↔input, core↔audio), extract shared type
 4. **Associated constants for module-level constants:** Stubs defined constants as associated constants (e.g., `ControllerConfig::ANALOG_SCRATCH_VER_1`). Real types defined them at module level. Add associated constants that reference the module-level constants: `pub const ANALOG_SCRATCH_VER_1: i32 = ANALOG_SCRATCH_VER_1;`.
 
 5. **Enum variant name changes require caller updates:** MidiInputType stubs used CamelCase variants (`Note`, `PitchBend`), real types use SCREAMING_SNAKE (`NOTE`, `PITCH_BEND`). Resolution changed from struct with field access to enum with method calls. These require updating callers — no way to bridge with re-exports.
+
+### Downstream Stub Replacement Strategy (Phase 14)
+
+When replacing stubs in downstream crates with real type imports, follow this systematic approach:
+
+1. **Add compatibility methods first:** Before replacing any stubs, add all getter/setter methods that stub callers use to the real types. This minimizes caller changes. For example, add `get_playername()`, `is_set_clipboard_screenshot()`, `get_webhook_url()` etc. to Config even though Rust has pub fields — it preserves Java-style calling patterns from mechanical translation.
+
+2. **Replace stubs via pub use re-export:** Change the stub definition from a full struct to `pub use real_crate::module::Type;`. All existing `use crate::stubs::Type` imports continue working. Only modify callers when the real API differs from the stub API.
+
+3. **Fix caller mismatches incrementally:** Common patterns:
+   - `set_field(value)` → direct field assignment `obj.field = value` (real types use pub fields)
+   - `get_field()` returning `String` → returning `Option<&str>` (add `.unwrap_or_default()`)
+   - `update(score)` → `update(score, true)` (real method has additional parameter)
+   - `TypeName::CONSTANT` → module-level constant import (associated constants may not exist on real types)
+
+4. **Parallel agent batching:** Group crates by size and dependency. Small independent crates (md-processor, beatoraja-ir) in one batch, medium crates (beatoraja-result, beatoraja-external) in another, large crates (beatoraja-select, beatoraja-modmenu, beatoraja-launcher) in a third. Each agent works on one crate independently.
+
+5. **Remaining stubs inventory:** After replacement, each crate's `stubs.rs` should contain only: rendering types (LibGDX/Bevy), complex lifecycle types (MainController, PlayerResource), and types with structural mismatches (struct-vs-trait like SongDatabaseAccessor).

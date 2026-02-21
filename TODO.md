@@ -139,19 +139,39 @@ Extract shared types into a low-level crate to break cycles.
 - [x] Update beatoraja-input callers: Resolution field access → method calls, MidiInputType variant names
 - [x] Verify: all 66 tests pass, zero clippy warnings, clean `cargo fmt`
 - [ ] Replace `beatoraja-play` stubs for TextureRegion/Texture with `beatoraja-types` import (rendering stubs — deferred to Phase 13)
-- [ ] Replace remaining stubs in downstream crates (API-incompatible stubs require further refactoring)
+- [x] Replace remaining stubs in downstream crates (Config, PlayerConfig, ScoreData, etc.)
 
 ### API Incompatibility Resolution
 
 Align stub APIs with real type APIs across all crates.
 
-- [ ] Unify Config/PlayerConfig field types (`String` vs `Option<String>`, `f32` vs `i32`)
-- [ ] Unify Resolution type (struct with `f32` fields vs enum with `i32` methods)
-- [ ] Unify SongDatabaseAccessor (struct in stubs vs trait in real implementation)
-- [ ] Unify BMSPlayerInputProcessor parameter types (`i32` vs `usize`)
-- [ ] Unify ScoreData method signatures (`set_player(String)` vs `set_player(Option<&str>)`)
-- [ ] Update all callers to match unified APIs
-- [ ] Remove remaining `stubs.rs` files (or reduce to rendering-only stubs for Phase 13)
+- [x] Unify Config/PlayerConfig field types (`String` vs `Option<String>`, `f32` vs `i32`)
+- [x] Unify Resolution type (struct with `f32` fields vs enum with `i32` methods)
+- [ ] Unify SongDatabaseAccessor (struct in stubs vs trait in real implementation — deferred, requires structural refactoring)
+- [ ] Unify BMSPlayerInputProcessor parameter types (`i32` vs `usize` — deferred, embedded in MainController stub chain)
+- [x] Unify ScoreData method signatures (`set_player(String)` vs `set_player(Option<&str>)`)
+- [x] Update all callers to match unified APIs
+- [x] Reduce `stubs.rs` files to rendering-only + circular dep stubs
+
+### Stubs Replaced in Downstream Crates
+
+- [x] `md-processor`: Config stub → `pub use beatoraja_core::config::Config`
+- [x] `beatoraja-ir`: `convert_hex_string` stub → `pub use bms_model::bms_decoder::convert_hex_string`
+- [x] `beatoraja-result`: IRConfig, IRResponse, IRScoreData, IRCourseData, IRChartData, RankingData, RankingDataCache → real imports from `beatoraja-core`/`beatoraja-ir`
+- [x] `beatoraja-external`: Config, PlayerConfig, ScoreData, SongData, ReplayData → real imports from `beatoraja-core`/`beatoraja-song`
+- [x] `beatoraja-modmenu`: Config, PlayConfig, PlayModeConfig, ScoreData, Version → real imports from `beatoraja-core`
+- [x] `beatoraja-select`: Config, SongPreview, PlayerConfig, PlayModeConfig, PlayConfig, KeyboardConfig, ControllerConfig, MidiConfig, ScoreData, AudioConfig, Resolution → real imports from `beatoraja-core`
+- [x] `beatoraja-launcher`: BMSPlayerMode, Version → real imports from `beatoraja-core`
+- [x] Verify: all 66 tests pass, zero clippy warnings, clean `cargo fmt`
+
+### Remaining Stubs (Cannot Replace)
+
+Stubs that remain due to circular dependencies, struct-vs-trait mismatches, or external library dependencies:
+
+- **Circular deps:** SongData in `beatoraja-core` (song→core), SkinType/GrooveGauge in `beatoraja-types` (skin/play→core), TextureRegion in `beatoraja-play` (skin→play)
+- **Struct vs trait:** SongDatabaseAccessor (struct in stubs, trait in real), IRConnection (struct in stubs, trait in real)
+- **Complex lifecycle:** MainController, PlayerResource, MainState in all downstream crates
+- **External libraries:** LibGDX rendering types (Phase 13), ImGui/egui types (Phase 13), Twitter4j (no equivalent), AWT clipboard (no equivalent)
 
 ---
 

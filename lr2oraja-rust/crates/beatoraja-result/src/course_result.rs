@@ -15,9 +15,9 @@ use crate::abstract_result::{
 use crate::course_result_skin::CourseResultSkin;
 use crate::result_key_property::{ResultKey, ResultKeyProperty};
 use crate::stubs::{
-    BMSPlayerModeType, ControlKeys, EventType, FloatArray, IRConfig, IRConnection, IRCourseData,
-    IRScoreData, IRStatus, KeyCommand, MainController, PlayerResource, RankingData,
-    IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE,
+    BMSPlayerModeType, ControlKeys, EventType, FloatArray, IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG,
+    IR_SEND_UPDATE_SCORE, IRConfig, IRConnection, IRCourseData, IRScoreData, IRStatus, KeyCommand,
+    MainController, PlayerResource, RankingData,
 };
 
 /// IR send status for course result
