@@ -115,15 +115,19 @@ brs/
 - **Phase 2 complete:** `bmson` (16 model types + BMSONDecoder), `osu` (9 model types + OSUDecoder)
 - **Phase 3 complete:** `beatoraja-common` (3 modules), `discord-rpc` (4 modules), `beatoraja-input` (9 modules), `beatoraja-audio` (13 modules), `md-processor` (10 modules)
 - **Phase 4 complete:** `beatoraja-core` (47 modules — config types, data models, DB accessors, core/resource types, config subpackage)
+- **Phase 5 complete:** `beatoraja-pattern` (14 modules — lane/note shuffle, modifiers), `beatoraja-play` (28 modules — judge, gauge, BGA, game loop)
 
 ## Deferred / Stub Items
 
-- Phase 5+ type dependencies (JudgeAlgorithm, BMSPlayerRule, SkinType, GrooveGauge, BarSorter, pattern modifiers, IRConnectionManager) are stubbed in `beatoraja-core/src/stubs.rs`
+- Phase 6+ type dependencies (SkinType, Skin, SkinObject, etc.) are stubbed in `beatoraja-play/src/stubs.rs` and `beatoraja-core/src/stubs.rs`
 - Phase 4 type dependencies (Config, PlayModeConfig, etc.) are stubbed in each Phase 3 crate's `stubs.rs` (will be replaced with imports from `beatoraja-core`)
 - PortAudio, LibGDX, ebur128, 7z extraction methods use `todo!()` pending external library integration
 - javax.sound.midi equivalents stubbed (no direct Rust equivalent)
 - MIDI device enumeration stubbed
-- FLAC/MP3 decoding deferred to Phase 4+ library integration
+- FLAC/MP3 decoding deferred to library integration
+- Skin rendering (PlaySkin, SkinNote, SkinGauge, etc.) have stub implementations pending Phase 6 Skin system
+- BGA video processing (FFmpegProcessor, GdxVideoProcessor) uses `todo!()` pending video library integration
+- MainController-dependent methods in TargetProperty return stub data
 
 ## Translation Lessons Learned
 
@@ -249,3 +253,27 @@ Each agent writes to separate files, so no merge conflicts. Pre-create lib.rs wi
 ### LibGDX JSON → serde_json (Phase 4)
 
 Java's LibGDX `Json` class with `setIgnoreUnknownFields(true)` translates to `serde_json::from_str` with `#[serde(default)]` on structs. LibGDX's `Json.prettyPrint()` translates to `serde_json::to_string_pretty()`. The `setUsePrototypes(false)` flag (which disables skipping default values) has no direct equivalent — serde always serializes all fields.
+
+### Java Abstract Class with Factory → Rust Trait + Enum Dispatch (Phase 5)
+
+Java's `PatternModifier` abstract class with a `create()` factory method translates to a Rust trait plus a `PatternModifierBase` struct for shared state (assist, seed, player). Each concrete modifier (LaneMirrorShuffleModifier, etc.) implements the trait. The `create()` factory returns a boxed trait object `Box<dyn PatternModifier>`.
+
+### Java Interface Hierarchy with Abstract Methods → Rust Enum + Match (Phase 5)
+
+Java's `GrooveGauge.GaugeModifier` interface with static lambda fields (TOTAL, LIMIT_INCREMENT, MODIFY_DAMAGE) translates to a Rust enum with a `modify()` method using `match`. This avoids trait objects for simple function-like dispatch.
+
+### LR2 Mersenne Twister (Phase 5)
+
+Java's `LR2Random` class implements a custom Mersenne Twister (MT19937) with LR2-specific seeding. This must be translated exactly — bit operations, unsigned arithmetic, and the tempering step must all match. Use `u32` for internal state with wrapping arithmetic to match Java's int overflow behavior.
+
+### Two-Crate Split for Pattern & Play (Phase 5)
+
+`beatoraja.pattern` and `beatoraja.play` translate to two separate Rust crates: `beatoraja-pattern` depends only on `bms-model` and `beatoraja-core`, while `beatoraja-play` depends on both plus `beatoraja-pattern`, `beatoraja-audio`, and `beatoraja-input`. This split reflects the dependency graph — pattern modifiers are used by the play system but not vice versa.
+
+### Rendering Stubs for Skin Elements (Phase 5)
+
+Skin-related types in the play package (SkinNote, SkinGauge, SkinJudge, SkinHidden, SkinBGA, PlaySkin) depend heavily on LibGDX rendering primitives (Texture, SpriteBatch, TextureRegion). Stub these in `stubs.rs` and mark rendering methods with `todo!("Phase 6+ dependency")`. The data structures and logic can still be translated mechanically.
+
+### Java Random vs Rust rand (Phase 5)
+
+Java's `java.util.Random(seed)` uses a specific LCG algorithm. For pattern shuffle reproducibility, use `rand::rngs::StdRng::seed_from_u64(seed)` or `SmallRng` — but note that exact random sequences will differ. If exact Java Random reproduction is needed, implement the Java LCG manually (multiplier=0x5DEECE66D, addend=0xB, mask=(1L<<48)-1).

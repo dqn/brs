@@ -40,9 +40,9 @@ Hub module — most others depend on this.
 
 Core gameplay logic. Depends on: config, model, input, audio.
 
-- [ ] `beatoraja.pattern` (14 files, 4,108 lines) — Lane/note shuffle
-- [ ] `beatoraja.play` (23 files, 13,584 lines) — Judge, gauge, game loop
-  - [ ] `beatoraja.play.bga` (5 files, 1,802 lines) — BGA playback
+- [x] `beatoraja.pattern` (14 files, 4,108 lines) — Lane/note shuffle
+- [x] `beatoraja.play` (23 files, 13,584 lines) — Judge, gauge, game loop
+  - [x] `beatoraja.play.bga` (5 files, 1,802 lines) — BGA playback
 
 ## Phase 6: Skin System (~15,594 lines)
 

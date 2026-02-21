@@ -17,6 +17,8 @@ brs/
       beatoraja-audio/     # Audio playback, PCM processing, WAV decoding
       md-processor/        # Music download and processing
       beatoraja-core/      # Config, central state, data models, DB accessors
+      beatoraja-pattern/   # Pattern modifiers (lane/note shuffle)
+      beatoraja-play/      # Gameplay logic (judge, gauge, BGA)
     golden-master/         # Test infrastructure
     test-bms/              # Test BMS files
 ```
@@ -33,6 +35,8 @@ brs/
 | `beatoraja-audio` | Audio driver, PCM formats, WAV/ADPCM decoding | Phase 3 complete |
 | `md-processor` | HTTP/IPFS music download and processing | Phase 3 complete |
 | `beatoraja-core` | Config, central state, data models, DB accessors | Phase 4 complete |
+| `beatoraja-pattern` | Lane shuffle, note shuffle, pattern modifiers | Phase 5 complete |
+| `beatoraja-play` | Judge, gauge, game loop, BGA playback | Phase 5 complete |
 
 ## Implementation Progress
 
@@ -40,6 +44,7 @@ brs/
 - **Phase 2** (Format Variants): `bms.model.bmson` (BMSONDecoder + 16 model types), `bms.model.osu` (OSUDecoder + 9 model types)
 - **Phase 3** (Low-level Subsystems): `beatoraja-common` (3 modules), `discord-rpc` (4 modules), `beatoraja-input` (9 modules), `beatoraja-audio` (13 modules), `md-processor` (10 modules)
 - **Phase 4** (Configuration & Central State): `beatoraja-core` (47 modules — config, data models, DB accessors, core types)
+- **Phase 5** (Pattern & Gameplay): `beatoraja-pattern` (14 modules — lane/note shuffle, modifiers), `beatoraja-play` (28 modules — judge, gauge, BGA, game loop)
 
 See [TODO.md](TODO.md) for the full porting roadmap.
 
