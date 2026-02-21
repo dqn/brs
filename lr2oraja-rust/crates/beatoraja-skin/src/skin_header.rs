@@ -10,6 +10,7 @@ use crate::stubs::{Resolution, SkinConfigOffset};
 /// Skin header/metadata
 ///
 /// Translated from SkinHeader.java
+#[derive(Clone)]
 pub struct SkinHeader {
     /// Skin type constant
     skin_type_id: i32,
@@ -326,6 +327,7 @@ pub struct SkinConfigOffsetEntry {
 }
 
 /// Custom option (user-selectable option)
+#[derive(Clone)]
 pub struct CustomOption {
     /// Option name
     pub name: String,
@@ -390,6 +392,7 @@ impl CustomOption {
 }
 
 /// Custom file (user-selectable file)
+#[derive(Clone)]
 pub struct CustomFile {
     /// File name
     pub name: String,
@@ -417,6 +420,7 @@ impl CustomFile {
 }
 
 /// Custom offset (user-adjustable offset)
+#[derive(Clone)]
 pub struct CustomOffset {
     /// Offset name
     pub name: String,
@@ -463,6 +467,7 @@ impl CustomOffset {
 }
 
 /// Custom category
+#[derive(Clone)]
 pub struct CustomCategory {
     /// Category name
     pub name: String,
@@ -477,6 +482,7 @@ impl CustomCategory {
 }
 
 /// Enum to represent the abstract CustomItem hierarchy
+#[derive(Clone)]
 pub enum CustomItemEnum {
     Option(CustomOption),
     File(CustomFile),
