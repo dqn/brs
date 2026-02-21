@@ -1,0 +1,19 @@
+[package]
+name = "beatoraja-play"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bms-model.workspace = true
+beatoraja-core.workspace = true
+beatoraja-pattern.workspace = true
+beatoraja-audio.workspace = true
+beatoraja-input.workspace = true
+log.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]

@@ -8,6 +8,8 @@ members = [
     "crates/beatoraja-audio",
     "crates/md-processor",
     "crates/beatoraja-core",
+    "crates/beatoraja-pattern",
+    "crates/beatoraja-play",
 ]
 resolver = "2"
 
@@ -25,6 +27,8 @@ beatoraja-input = { path = "crates/beatoraja-input" }
 beatoraja-audio = { path = "crates/beatoraja-audio" }
 md-processor = { path = "crates/md-processor" }
 beatoraja-core = { path = "crates/beatoraja-core" }
+beatoraja-pattern = { path = "crates/beatoraja-pattern" }
+beatoraja-play = { path = "crates/beatoraja-play" }
 
 # Error handling
 anyhow = "1"

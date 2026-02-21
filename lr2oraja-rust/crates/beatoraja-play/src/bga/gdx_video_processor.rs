@@ -1,0 +1,35 @@
+use crate::bga::movie_processor::MovieProcessor;
+use crate::stubs::Texture;
+
+/// GDX video processor (stub implementation)
+pub struct GdxVideoProcessor;
+
+impl Default for GdxVideoProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GdxVideoProcessor {
+    pub fn new() -> Self {
+        GdxVideoProcessor
+    }
+}
+
+impl MovieProcessor for GdxVideoProcessor {
+    fn get_frame(&mut self, _time: i64) -> Option<Texture> {
+        None
+    }
+
+    fn play(&mut self, _time: i64, _loop_play: bool) {
+        // stub
+    }
+
+    fn stop(&mut self) {
+        // stub
+    }
+
+    fn dispose(&mut self) {
+        // stub
+    }
+}

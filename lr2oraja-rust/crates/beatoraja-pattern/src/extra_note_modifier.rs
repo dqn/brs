@@ -1,0 +1,114 @@
+use bms_model::bms_model::BMSModel;
+use bms_model::note::Note;
+
+use crate::pattern_modifier::{AssistLevel, PatternModifier, PatternModifierBase};
+
+pub struct ExtraNoteModifier {
+    pub base: PatternModifierBase,
+    note_type: i32,
+    depth: i32,
+    scratch: bool,
+}
+
+impl ExtraNoteModifier {
+    pub fn new(note_type: i32, depth: i32, scratch: bool) -> Self {
+        ExtraNoteModifier {
+            base: PatternModifierBase::new(),
+            note_type,
+            depth,
+            scratch,
+        }
+    }
+}
+
+impl PatternModifier for ExtraNoteModifier {
+    fn modify(&mut self, model: &mut BMSModel) {
+        let mut assist = AssistLevel::None;
+        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let scratch = self.scratch;
+
+        let mode = model.get_mode().cloned();
+        let timelines = model.get_all_time_lines_mut();
+        let tl_len = timelines.len();
+        let mut lns = vec![false; mode_key as usize];
+        let mut blank = vec![false; mode_key as usize];
+        let mut lastnote: Vec<Option<Note>> = vec![None; mode_key as usize];
+        let mut lastoffset = 0usize;
+
+        for i in 0..tl_len {
+            for key in 0..mode_key as usize {
+                let note = timelines[i].get_note(key as i32);
+                if let Some(n) = note
+                    && n.is_long()
+                {
+                    lns[key] = !n.is_end();
+                }
+                let is_scratch = mode
+                    .as_ref()
+                    .map(|m| m.is_scratch_key(key as i32))
+                    .unwrap_or(false);
+                blank[key] = !lns[key]
+                    && timelines[i].get_note(key as i32).is_none()
+                    && (scratch || !is_scratch);
+            }
+
+            for _d in 0..self.depth {
+                if !timelines[i].get_back_ground_notes().is_empty() {
+                    let note = timelines[i].get_back_ground_notes()[0].clone();
+
+                    let mut offset = lastoffset;
+                    for _j in 1..mode_key as usize {
+                        if let Some(ref ln) = lastnote[offset]
+                            && ln.get_wav() == note.get_wav()
+                        {
+                            break;
+                        }
+                        offset = (offset + 1) % mode_key as usize;
+                    }
+                    lastoffset = offset;
+
+                    let mut placed = false;
+                    let mut key = offset % mode_key as usize;
+                    for _j in 0..mode_key as usize {
+                        if blank[key] {
+                            lastnote[key] = Some(note.clone());
+                            timelines[i].set_note(key as i32, Some(note.clone()));
+                            timelines[i].remove_back_ground_note(0);
+                            assist = AssistLevel::Assist;
+                            placed = true;
+                            break;
+                        }
+                        key = (key + 1) % mode_key as usize;
+                    }
+                    if !placed {
+                        break;
+                    }
+                }
+            }
+        }
+
+        self.base.assist = assist;
+    }
+
+    fn get_assist_level(&self) -> AssistLevel {
+        self.base.assist
+    }
+
+    fn set_assist_level(&mut self, assist: AssistLevel) {
+        self.base.assist = assist;
+    }
+
+    fn get_seed(&self) -> i64 {
+        self.base.seed
+    }
+
+    fn set_seed(&mut self, seed: i64) {
+        if seed >= 0 {
+            self.base.seed = seed;
+        }
+    }
+
+    fn get_player(&self) -> i32 {
+        self.base.player
+    }
+}
