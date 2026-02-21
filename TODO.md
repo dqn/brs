@@ -107,9 +107,9 @@ Replace stubs with real cross-crate imports. No new translation — just connect
 
 Create an executable binary target.
 
-- [ ] Add `[[bin]]` target to workspace (e.g. `beatoraja-bin` crate)
-- [ ] Implement `main()` wiring `MainLoader` → `BeatorajaGame` → game loop
-- [ ] Replace LibGDX `Lwjgl3Application` with Bevy app runner or equivalent
+- [x] Add `[[bin]]` target to workspace (`beatoraja-bin` crate)
+- [x] Implement `main()` wiring CLI args → Config → MainController → game loop
+- [x] Replace LibGDX `Lwjgl3Application` with winit event loop (Bevy rendering in Phase 13)
 
 ## Phase 13: External Library Integration
 

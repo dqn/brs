@@ -122,6 +122,7 @@ brs/
 - **Phase 9 complete:** `beatoraja-launcher` (21 modules — settings GUI views, config editors, skin/resource/input/audio/video/OBS/IR/Discord/stream configuration, course/folder/table editors)
 - **Phase 10 complete:** `beatoraja-song` (8 modules — song data model, folder data, song information, DB accessors, CRC32 utils), `beatoraja-controller` (3 modules — LWJGL3/GLFW gamepad controller manager, stubbed for gilrs integration), `beatoraja-system` (1 module — RobustFile I/O with backup/restore semantics)
 - **Phase 11 complete:** Integration & wiring — replaced stubs with real cross-crate imports across 12 crates, added 60+ getter methods to SongData/ScoreData, added beatoraja-song dependency to 7 crates, removed 24+ unused stubs, documented circular dependency constraints
+- **Phase 12 complete:** `beatoraja-bin` (binary entry point — CLI argument parsing via clap, config/player loading, MainController lifecycle, winit event loop with window creation, display mode handling)
 
 ## Deferred / Stub Items
 - **Circular dependency stubs (cannot be replaced):**
@@ -455,3 +456,25 @@ Common reasons stubs CANNOT be replaced with real types:
 5. **No Rust equivalent:** Twitter4j, LibGDX rendering types, AWT clipboard — these remain as `todo!()` stubs
 
 Resolving these would require either refactoring the real types (risky, changes Java translation fidelity) or adapting all callers (high effort). Deferred to future phases.
+
+### Lwjgl3Application → winit Event Loop (Phase 12)
+
+Java's `Lwjgl3Application` with an anonymous `ApplicationListener` (create/render/resize/pause/resume/dispose callbacks) translates to winit's `ApplicationHandler` trait. The mapping is:
+- `ApplicationListener.create()` → `ApplicationHandler::resumed()` (first call, with `initialized` flag)
+- `ApplicationListener.render()` → `WindowEvent::RedrawRequested` handler
+- `ApplicationListener.resize()` → `WindowEvent::Resized` handler
+- `ApplicationListener.pause()` → `ApplicationHandler::suspended()`
+- `ApplicationListener.resume()` → `ApplicationHandler::resumed()` (subsequent calls)
+- `ApplicationListener.dispose()` → `WindowEvent::CloseRequested` handler
+
+Use `ControlFlow::Poll` for continuous rendering (matches Java's game loop behavior). Request redraw in both `RedrawRequested` and `about_to_wait` for consistent frame updates.
+
+### CLI Argument Translation (Phase 12)
+
+Java's manual argument parsing (`for (String s : args)` with `-a`, `-p`, `-r1`..`-r4`, `-s` flags) translates to `clap::Parser` with derive macros. The `--replay` flag takes a numeric value (1-4) instead of separate `-r1`..`-r4` flags, which is more idiomatic for CLI tools while preserving the same functionality.
+
+### Deferred Entry Points (Phase 12)
+
+Two entry paths from Java remain as `todo!()`:
+1. **Launcher UI path:** When no config exists or no play mode specified, Java launches JavaFX `Application.start()`. Deferred to Phase 13 egui integration.
+2. **Fullscreen mode:** Java's `Gdx.graphics.setFullscreenMode()` uses GLFW monitor APIs. Deferred to Phase 13 rendering integration. The window is created in windowed mode with correct dimensions as a fallback.
