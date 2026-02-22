@@ -21,4 +21,5 @@ wgpu = { workspace = true }
 egui = { workspace = true }
 egui-winit = { workspace = true }
 egui-wgpu = { workspace = true }
+bytemuck = { workspace = true }
 pollster = "0.4"

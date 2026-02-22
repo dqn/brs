@@ -560,6 +560,7 @@ dependencies = [
  "beatoraja-launcher",
  "beatoraja-modmenu",
  "beatoraja-render",
+ "bytemuck",
  "clap",
  "egui",
  "egui-wgpu",

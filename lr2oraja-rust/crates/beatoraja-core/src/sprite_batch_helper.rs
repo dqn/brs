@@ -1,14 +1,18 @@
-/// SpriteBatch stub (LibGDX equivalent)
-pub struct SpriteBatch;
+// Re-export the real SpriteBatch from beatoraja-render.
+// The stub unit struct is no longer needed since Phase 22a provided the GPU implementation.
+pub use beatoraja_render::sprite_batch::SpriteBatch;
 
 /// SpriteBatchHelper - creates SpriteBatch with macOS-compatible shader
 ///
 /// Hack for macOS - see https://github.com/libgdx/libgdx/issues/6897
 /// On macOS, LibGDX needs OpenGL 3.2 core profile shaders.
+/// In Rust/wgpu, WGSL shaders are used instead so this is no longer needed,
+/// but the factory method is preserved for API compatibility.
 pub struct SpriteBatchHelper;
 
 impl SpriteBatchHelper {
     /// Vertex shader source (GLSL 150 for macOS compatibility)
+    /// Preserved for reference; wgpu uses WGSL shaders in render_pipeline.rs.
     pub const VERTEX_SHADER: &'static str = concat!(
         "#version 150\n",
         "in vec4 a_position;\n",
@@ -28,6 +32,7 @@ impl SpriteBatchHelper {
     );
 
     /// Fragment shader source (GLSL 150 for macOS compatibility)
+    /// Preserved for reference; wgpu uses WGSL shaders in render_pipeline.rs.
     pub const FRAGMENT_SHADER: &'static str = concat!(
         "#version 150\n",
         "#ifdef GL_ES\n",
@@ -48,13 +53,12 @@ impl SpriteBatchHelper {
 
     pub fn create_sprite_batch_shader() {
         // ShaderProgramFactory.fromString(vertexShader, fragmentShader, true, true)
-        // Phase 5+ dependency: LibGDX shader compilation
-        log::warn!("not yet implemented: LibGDX ShaderProgramFactory");
+        // In wgpu, shaders are compiled as part of SpriteRenderPipeline::new()
+        log::warn!("not yet implemented: LibGDX ShaderProgramFactory (wgpu uses WGSL)");
     }
 
     pub fn create_sprite_batch() -> SpriteBatch {
         // new SpriteBatch(1000, ShaderCompatibilityHelper.mustUse32CShader() ? ... : null)
-        // Phase 5+ dependency: LibGDX SpriteBatch creation
-        SpriteBatch
+        SpriteBatch::new()
     }
 }

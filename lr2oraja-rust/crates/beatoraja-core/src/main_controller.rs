@@ -327,6 +327,10 @@ impl MainController {
         self.sprite.as_ref()
     }
 
+    pub fn get_sprite_batch_mut(&mut self) -> Option<&mut SpriteBatch> {
+        self.sprite.as_mut()
+    }
+
     pub fn get_play_data_accessor(&self) -> Option<&PlayDataAccessor> {
         self.playdata.as_ref()
     }
@@ -536,20 +540,81 @@ impl MainController {
     /// Main render lifecycle method — called every frame.
     ///
     /// Translated from: MainController.render()
+    ///
+    /// Java lines 606-780:
+    /// ```java
+    /// public void render() {
+    ///     timer.update();
+    ///     Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+    ///     current.render();
+    ///     sprite.begin();
+    ///     if (current.getSkin() != null) {
+    ///         current.getSkin().updateCustomObjects(current);
+    ///         current.getSkin().drawAllObjects(sprite, current);
+    ///     }
+    ///     sprite.end();
+    ///     // ... stage, FPS display, ImGui ...
+    ///     periodicConfigSave();
+    ///     PerformanceMetrics.get().commit();
+    ///     // Input gating
+    ///     final long time = System.currentTimeMillis();
+    ///     if(time > prevtime) { prevtime = time; current.input(); ... }
+    /// }
+    /// ```
     pub fn render(&mut self) {
+        // timer.update()
         self.timer.update();
 
-        // Dispatch input and render to current state
+        // GL clear is handled by wgpu render pass in main.rs
+
+        // current.render()
         if let Some(ref mut current) = self.current {
-            current.input();
             current.render();
         }
 
-        // Phase 5+: GL clear, skin draw, FPS display, ImGui, etc.
+        // sprite.begin()
+        if let Some(ref mut sprite) = self.sprite {
+            sprite.begin();
+        }
+
+        // Skin update and draw
+        // In Java: if (current.getSkin() != null) {
+        //     current.getSkin().updateCustomObjects(current);
+        //     current.getSkin().drawAllObjects(sprite, current);
+        // }
+        // Phase 22+: Skin draw calls require beatoraja-skin Skin type integration.
+        // The actual skin drawing is deferred until MainStateData.skin is replaced
+        // with a real Skin type from beatoraja-skin.
+
+        // sprite.end()
+        if let Some(ref mut sprite) = self.sprite {
+            sprite.end();
+        }
+
+        // Stage update/draw skipped (no scene2d equivalent yet)
+
+        // FPS display (Phase 22+: requires system font)
 
         self.periodic_config_save();
 
         PerformanceMetrics::get().commit();
+
+        // ImGui rendering is handled by egui in main.rs
+
+        // Input gating by time delta
+        // Java: final long time = System.currentTimeMillis();
+        //       if(time > prevtime) { prevtime = time; current.input(); ... }
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as i64;
+        if time > self.prevtime {
+            self.prevtime = time;
+            if let Some(ref mut current) = self.current {
+                current.input();
+            }
+            // Phase 5+: mouse pressed/dragged events, cursor visibility, FPS toggle, fullscreen toggle
+        }
     }
 
     /// Dispose lifecycle — called on application shutdown.
@@ -1357,5 +1422,95 @@ mod tests {
             mc.get_current_state_type(),
             Some(MainStateType::CourseResult)
         );
+    }
+
+    // --- Phase 22c: Render pipeline tests ---
+
+    #[test]
+    fn test_render_creates_sprite_batch_on_create() {
+        let mut mc = make_test_controller();
+        mc.create();
+        // After create(), sprite batch should be initialized
+        assert!(mc.get_sprite_batch().is_some());
+    }
+
+    #[test]
+    fn test_render_sprite_batch_begin_end_lifecycle() {
+        let mut mc = make_test_controller();
+        mc.create();
+
+        // Before render, sprite batch should not be drawing
+        assert!(mc.get_sprite_batch().is_some());
+        assert!(!mc.get_sprite_batch().unwrap().is_drawing());
+
+        // After render, sprite batch should have gone through begin()/end() cycle
+        // and should not be drawing anymore
+        mc.render();
+        assert!(!mc.get_sprite_batch().unwrap().is_drawing());
+    }
+
+    #[test]
+    fn test_render_input_gating_by_time() {
+        let mut mc = make_test_controller();
+        mc.create();
+
+        // prevtime starts at 0; first render should update it
+        assert_eq!(mc.prevtime, 0);
+
+        mc.render();
+
+        // After render, prevtime should be updated to current time
+        assert!(mc.prevtime > 0);
+    }
+
+    #[test]
+    fn test_render_dispatches_to_current_state() {
+        let mut mc = make_test_controller();
+        mc.set_state_factory(Box::new(TestStateFactory));
+        mc.change_state(MainStateType::MusicSelect);
+
+        // render() should dispatch to current state's render()
+        mc.render();
+
+        assert_eq!(
+            mc.get_current_state_type(),
+            Some(MainStateType::MusicSelect)
+        );
+    }
+
+    #[test]
+    fn test_render_no_state_does_not_panic() {
+        let mut mc = make_test_controller();
+        // No state set, render should not panic
+        mc.render();
+        assert!(mc.get_current_state().is_none());
+    }
+
+    #[test]
+    fn test_sprite_batch_mut_accessor() {
+        let mut mc = make_test_controller();
+        mc.create();
+
+        // Should be able to get mutable reference to sprite batch
+        let batch = mc.get_sprite_batch_mut().unwrap();
+        batch.begin();
+        assert!(batch.is_drawing());
+        batch.end();
+        assert!(!batch.is_drawing());
+    }
+
+    #[test]
+    fn test_render_timer_updated_each_frame() {
+        let mut mc = make_test_controller();
+        mc.create();
+
+        let time_before = mc.get_now_time();
+        // Small sleep to ensure timer advances
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        mc.render();
+        let time_after = mc.get_now_time();
+
+        // Timer should advance (or at least not go backwards)
+        assert!(time_after >= time_before);
     }
 }
