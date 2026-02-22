@@ -2,7 +2,8 @@ use bms_model::mode::Mode;
 
 use crate::imgui_notify::{ImGuiNotify, NOTIFICATION_POSITIONS};
 use crate::stubs::{
-    Config, ImBoolean, ImFloat, ImInt, MainController, MusicSelector, PlayConfig, PlayerConfig,
+    Config, ImBoolean, ImFloat, ImInt, MainController, MusicSelector, PlayConfig,
+    read_all_player_id,
 };
 
 use std::sync::Mutex;
@@ -50,7 +51,7 @@ pub struct MiscSettingMenu;
 impl MiscSettingMenu {
     pub fn set_main(main: MainController) {
         let config = main.get_config();
-        let players = PlayerConfig::read_all_player_id("player");
+        let players = read_all_player_id("player");
         let player_idx = players
             .iter()
             .position(|p| config.get_playername().is_some_and(|name| p == name))
@@ -173,7 +174,7 @@ fn get_play_config() -> PlayConfig {
         let mode = CURRENT_PLAY_MODE.lock().unwrap();
         if let Some(ref mode) = *mode {
             let mut player_config = m.get_player_config();
-            let play_mode_config = player_config.get_play_config(mode);
+            let play_mode_config = player_config.get_play_config(mode.clone());
             return play_mode_config.get_playconfig().clone();
         }
     }
@@ -261,7 +262,7 @@ fn profile_switcher_ui(ui: &mut egui::Ui) {
 }
 
 fn load_players() {
-    *PLAYERS.lock().unwrap() = PlayerConfig::read_all_player_id("player");
+    *PLAYERS.lock().unwrap() = read_all_player_id("player");
 }
 
 fn profile_switcher() {

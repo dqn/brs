@@ -9,15 +9,22 @@ use std::path::{Path, PathBuf};
 
 pub use beatoraja_core::config::Config;
 pub use beatoraja_core::play_config::PlayConfig;
-use beatoraja_core::play_mode_config::PlayModeConfig;
 pub use beatoraja_core::score_data::ScoreData;
 pub use beatoraja_core::version::{self, Version};
+pub use beatoraja_types::player_config::PlayerConfig;
+pub use beatoraja_types::player_config::read_all_player_id;
+pub use beatoraja_types::skin_config::{
+    SkinConfig, SkinFilePath, SkinOffset, SkinOption, SkinProperty,
+};
+pub use beatoraja_types::validatable::Validatable;
 
 // =========================================================================
 // MainController stub
 // =========================================================================
 
-/// Stub for MainController reference used by various menus
+/// Stub for MainController reference used by various menus.
+/// Remaining methods: get_config, get_player_config, save_config.
+/// Removed: get_current_state (dead code), load_new_profile (dead code).
 pub struct MainController;
 
 impl MainController {
@@ -31,168 +38,9 @@ impl MainController {
         PlayerConfig::default()
     }
 
-    pub fn get_current_state(&self) -> Box<dyn MainState> {
-        log::warn!("not yet implemented: MainController::get_current_state - Phase 8+ dependency");
-        Box::new(DefaultMainState {
-            skin: Skin::default(),
-        })
-    }
-
     pub fn save_config(&self) {
         log::warn!("not yet implemented: MainController::save_config - Phase 8+ dependency");
     }
-
-    pub fn load_new_profile(&self, _config: PlayerConfig) {
-        log::warn!("not yet implemented: MainController::load_new_profile - Phase 8+ dependency");
-    }
-}
-
-// =========================================================================
-// PlayerConfig stub
-// =========================================================================
-// Cannot be replaced: real type has `skin: Vec<Option<beatoraja_types::SkinConfig>>`
-// which is deeply incompatible with the stub SkinConfig used throughout skin_menu.rs.
-// The real SkinConfig has `path: Option<String>`, `properties: Option<SkinProperty>`
-// while the stub has `path: String`, `properties: SkinConfigProperty` with different
-// inner types (SkinOption vs SkinConfigOption, etc.).
-
-#[derive(Clone, Debug, Default)]
-pub struct PlayerConfig {
-    pub skin: Vec<SkinConfig>,
-    pub skin_history: Vec<SkinConfig>,
-}
-
-impl PlayerConfig {
-    pub fn read_all_player_id(dir: &str) -> Vec<String> {
-        beatoraja_core::player_config::read_all_player_id(dir)
-    }
-
-    pub fn read_player_config(_dir: &str, _player_id: &str) -> PlayerConfig {
-        log::warn!("not yet implemented: PlayerConfig::read_player_config - stub adapter");
-        PlayerConfig::default()
-    }
-
-    pub fn get_play_config(&mut self, _mode: &bms_model::mode::Mode) -> &mut PlayModeConfig {
-        log::warn!("not yet implemented: PlayerConfig::get_play_config - stub adapter");
-        static mut DEFAULT_PMC: Option<PlayModeConfig> = None;
-        // SAFETY: Only used in single-threaded stub context
-        #[allow(static_mut_refs)]
-        unsafe {
-            DEFAULT_PMC.get_or_insert_with(PlayModeConfig::default)
-        }
-    }
-
-    pub fn get_skin(&self) -> &Vec<SkinConfig> {
-        &self.skin
-    }
-
-    pub fn get_skin_mut(&mut self) -> &mut Vec<SkinConfig> {
-        &mut self.skin
-    }
-
-    pub fn get_skin_history(&self) -> &Vec<SkinConfig> {
-        &self.skin_history
-    }
-
-    pub fn set_skin_history(&mut self, history: Vec<SkinConfig>) {
-        self.skin_history = history;
-    }
-}
-
-// =========================================================================
-// SkinConfig stub
-// =========================================================================
-
-#[derive(Clone, Debug, Default)]
-pub struct SkinConfig {
-    pub path: String,
-    pub properties: SkinConfigProperty,
-}
-
-impl SkinConfig {
-    pub fn get_path(&self) -> &str {
-        &self.path
-    }
-
-    pub fn set_path(&mut self, path: String) {
-        self.path = path;
-    }
-
-    pub fn get_properties(&self) -> &SkinConfigProperty {
-        &self.properties
-    }
-
-    pub fn set_properties(&mut self, properties: SkinConfigProperty) {
-        self.properties = properties;
-    }
-
-    pub fn validate(&mut self) {
-        // stub
-    }
-}
-
-pub struct SkinConfigDefault;
-
-impl SkinConfigDefault {
-    pub fn get_path(_skin_type: &SkinType) -> String {
-        String::new()
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct SkinConfigProperty {
-    pub option: Vec<SkinConfigOption>,
-    pub file: Vec<SkinConfigFilePath>,
-    pub offset: Vec<SkinConfigOffset>,
-}
-
-impl SkinConfigProperty {
-    pub fn get_option(&self) -> &[SkinConfigOption] {
-        &self.option
-    }
-
-    pub fn set_option(&mut self, option: Vec<SkinConfigOption>) {
-        self.option = option;
-    }
-
-    pub fn get_file(&self) -> &[SkinConfigFilePath] {
-        &self.file
-    }
-
-    pub fn set_file(&mut self, file: Vec<SkinConfigFilePath>) {
-        self.file = file;
-    }
-
-    pub fn get_offset(&self) -> &[SkinConfigOffset] {
-        &self.offset
-    }
-
-    pub fn set_offset(&mut self, offset: Vec<SkinConfigOffset>) {
-        self.offset = offset;
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct SkinConfigOption {
-    pub name: String,
-    pub value: i32,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct SkinConfigFilePath {
-    pub name: String,
-    pub path: String,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct SkinConfigOffset {
-    pub name: String,
-    pub x: i32,
-    pub y: i32,
-    pub w: i32,
-    pub h: i32,
-    pub r: i32,
-    pub a: i32,
 }
 
 // =========================================================================
@@ -203,23 +51,6 @@ pub trait MainState {
     fn get_skin(&self) -> &Skin;
     fn set_skin(&mut self, skin: Skin);
     fn as_any(&self) -> &dyn std::any::Any;
-}
-
-/// Default MainState implementation for stubs
-struct DefaultMainState {
-    skin: Skin,
-}
-
-impl MainState for DefaultMainState {
-    fn get_skin(&self) -> &Skin {
-        &self.skin
-    }
-    fn set_skin(&mut self, skin: Skin) {
-        self.skin = skin;
-    }
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
 }
 
 // Version is re-exported from beatoraja_core at the top of this file.

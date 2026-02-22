@@ -6,10 +6,9 @@ use std::sync::Mutex;
 use crate::imgui_notify::ImGuiNotify;
 use crate::stubs::{
     Config, CustomCategoryItem, CustomFile, CustomOffset, CustomOption, ImBoolean, JSONSkinLoader,
-    LR2SkinHeaderLoader, LuaSkinLoader, MainController, MainState, MusicSelector,
-    OPTION_RANDOM_VALUE, PlayerConfig, Skin, SkinConfig, SkinConfigDefault, SkinConfigFilePath,
-    SkinConfigOffset, SkinConfigOption, SkinConfigProperty, SkinHeader, SkinLoader, SkinType,
-    TYPE_LR2SKIN,
+    LR2SkinHeaderLoader, LuaSkinLoader, MainController, MusicSelector, OPTION_RANDOM_VALUE,
+    PlayerConfig, Skin, SkinConfig, SkinFilePath, SkinHeader, SkinLoader, SkinOffset, SkinOption,
+    SkinProperty, SkinType, TYPE_LR2SKIN, Validatable,
 };
 
 static MAIN: Mutex<Option<MainController>> = Mutex::new(None);
@@ -503,20 +502,20 @@ fn load_saved_skin_settings(header: &SkinHeader) {
     }
     let pc = player_config.as_ref().unwrap();
 
-    let mut saved_properties: Option<&SkinConfigProperty> = None;
+    let mut saved_properties: Option<&SkinProperty> = None;
 
     let skin_type_id = header.get_skin_type().get_id() as usize;
-    if skin_type_id < pc.get_skin().len() {
-        let live_config = &pc.get_skin()[skin_type_id];
-        if skin_path == live_config.get_path() {
-            saved_properties = Some(live_config.get_properties());
-        }
+    if skin_type_id < pc.skin.len()
+        && let Some(ref live_config) = pc.skin[skin_type_id]
+        && live_config.get_path().is_some_and(|p| p == skin_path)
+    {
+        saved_properties = live_config.get_properties();
     }
 
     if saved_properties.is_none() {
         for saved_config in pc.get_skin_history() {
-            if saved_config.get_path() == skin_path {
-                saved_properties = Some(saved_config.get_properties());
+            if saved_config.get_path().is_some_and(|p| p == skin_path) {
+                saved_properties = saved_config.get_properties();
                 break;
             }
         }
@@ -525,23 +524,29 @@ fn load_saved_skin_settings(header: &SkinHeader) {
     if let Some(props) = saved_properties {
         let mut options = SET_OPTIONS.lock().unwrap();
         let opt_map = options.get_or_insert_with(HashMap::new);
-        for option in props.get_option() {
-            opt_map.insert(option.name.clone(), option.value);
+        for option in props.option.iter().flatten() {
+            if let Some(ref name) = option.name {
+                opt_map.insert(name.clone(), option.value);
+            }
         }
 
         let mut files = SET_FILES.lock().unwrap();
         let file_map = files.get_or_insert_with(HashMap::new);
-        for file in props.get_file() {
-            file_map.insert(file.name.clone(), file.path.clone());
+        for file in props.file.iter().flatten() {
+            if let (Some(name), Some(path)) = (&file.name, &file.path) {
+                file_map.insert(name.clone(), path.clone());
+            }
         }
 
         let mut offsets = SET_OFFSETS.lock().unwrap();
         let offset_map = offsets.get_or_insert_with(HashMap::new);
-        for offset in props.get_offset() {
-            offset_map.insert(
-                offset.name.clone(),
-                OffsetValue::new(offset.x, offset.y, offset.w, offset.h, offset.r, offset.a),
-            );
+        for offset in props.offset.iter().flatten() {
+            if let Some(ref name) = offset.name {
+                offset_map.insert(
+                    name.clone(),
+                    OffsetValue::new(offset.x, offset.y, offset.w, offset.h, offset.r, offset.a),
+                );
+            }
         }
     }
 }
@@ -574,21 +579,21 @@ fn get_offset_setting(offset: &CustomOffset) -> OffsetValue {
         .clone()
 }
 
-fn complete_property(header: &SkinHeader) -> SkinConfigProperty {
+fn complete_property(header: &SkinHeader) -> SkinProperty {
     // default out all unset properties and collect everything into the property object
-    let mut options: Vec<SkinConfigOption> = Vec::new();
-    let mut files: Vec<SkinConfigFilePath> = Vec::new();
-    let mut offsets: Vec<SkinConfigOffset> = Vec::new();
+    let mut options: Vec<Option<SkinOption>> = Vec::new();
+    let mut files: Vec<Option<SkinFilePath>> = Vec::new();
+    let mut offsets: Vec<Option<SkinOffset>> = Vec::new();
 
     for option in header.get_custom_options() {
         let value = get_option_setting(option);
         let mut opt_map = SET_OPTIONS.lock().unwrap();
         let map = opt_map.get_or_insert_with(HashMap::new);
         map.insert(option.name.clone(), value);
-        options.push(SkinConfigOption {
-            name: option.name.clone(),
+        options.push(Some(SkinOption {
+            name: Some(option.name.clone()),
             value,
-        });
+        }));
     }
 
     for file in header.get_custom_files() {
@@ -634,26 +639,26 @@ fn complete_property(header: &SkinHeader) -> SkinConfigProperty {
             map.insert(file.name.clone(), sel.clone());
         }
 
-        files.push(SkinConfigFilePath {
-            name: file.name.clone(),
-            path: sel,
-        });
+        files.push(Some(SkinFilePath {
+            name: Some(file.name.clone()),
+            path: Some(sel),
+        }));
     }
 
     for offset in header.get_custom_offsets() {
         let value = get_offset_setting(offset);
-        offsets.push(SkinConfigOffset {
-            name: offset.name.clone(),
+        offsets.push(Some(SkinOffset {
+            name: Some(offset.name.clone()),
             x: value.x,
             y: value.y,
             w: value.w,
             h: value.h,
             r: value.r,
             a: value.a,
-        });
+        }));
     }
 
-    SkinConfigProperty {
+    SkinProperty {
         option: options,
         file: files,
         offset: offsets,
@@ -678,8 +683,8 @@ fn save_current_config(next_skin: &SkinHeader) {
     let skin_path = cs.get_path().to_string_lossy().to_string();
     let property = complete_property(cs);
     let config = SkinConfig {
-        path: skin_path.clone(),
-        properties: property,
+        path: Some(skin_path.clone()),
+        properties: Some(property),
     };
 
     let mut player_config = PLAYER_CONFIG.lock().unwrap();
@@ -693,25 +698,24 @@ fn save_current_config(next_skin: &SkinHeader) {
         && next_skin.get_name() == cs.get_name()
     {
         let id = st.get_id() as usize;
-        if id < pc.get_skin().len() {
-            pc.get_skin_mut()[id] = config;
+        if id < pc.skin.len() {
+            pc.skin[id] = Some(config);
         }
         return;
     }
 
-    for i in 0..pc.get_skin_history().len() {
-        if pc.get_skin_history()[i].get_path() == skin_path {
-            let mut history = pc.get_skin_history().clone();
-            history[i] = config;
-            pc.set_skin_history(history);
+    for i in 0..pc.skin_history.len() {
+        if pc.skin_history[i]
+            .get_path()
+            .is_some_and(|p| p == skin_path)
+        {
+            pc.skin_history[i] = config;
             return;
         }
     }
 
     // this skin hasn't been in the config history before, add it
-    let mut history = pc.get_skin_history().clone();
-    history.push(config);
-    pc.set_skin_history(history);
+    pc.skin_history.push(config);
 }
 
 fn reset_current_skin_config() {
@@ -738,8 +742,8 @@ fn switch_current_scene_skin(header: SkinHeader) {
 
     let skin_path = header.get_path().to_string_lossy().to_string();
     let mut config = SkinConfig {
-        path: skin_path,
-        properties: _property,
+        path: Some(skin_path),
+        properties: Some(_property),
     };
     config.validate();
 
