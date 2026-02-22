@@ -36,9 +36,7 @@ use beatoraja_types::player_resource_access::{NullPlayerResource, PlayerResource
 //   struct. set_score_data signature differs (&ScoreData vs &[ScoreData]).
 //
 // TableData, TableFolder, TableDataAccessor, TableAccessor:
-//   Real TableFolder has name: Option<String> and songs field, stub has name:
-//   String and song field. write() takes &mut vs &. Setter methods don't exist
-//   on real types.
+//   Replaced with pub use from beatoraja-core (Phase 18e-11).
 //
 // Mode:
 //   Replaced with real bms_model::mode::Mode enum (Phase 18e-2).
@@ -238,80 +236,11 @@ pub use beatoraja_core::replay_data::ReplayData;
 pub use bms_model::mode::Mode;
 
 // ============================================================
-// TableData and related stubs
+// TableData and related types — replaced with real types from beatoraja-core (Phase 18e-11)
 // ============================================================
 
-/// Stub for bms.player.beatoraja.TableData
-#[derive(Clone, Debug, Default)]
-pub struct TableData {
-    pub name: String,
-    pub folder: Vec<TableFolder>,
-}
-
-impl TableData {
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-    pub fn set_name(&mut self, s: String) {
-        self.name = s;
-    }
-    pub fn get_folder(&self) -> &[TableFolder] {
-        &self.folder
-    }
-    pub fn set_folder(&mut self, f: Vec<TableFolder>) {
-        self.folder = f;
-    }
-}
-
-/// Stub for bms.player.beatoraja.TableData.TableFolder
-#[derive(Clone, Debug, Default)]
-pub struct TableFolder {
-    pub name: String,
-    pub song: Vec<SongData>,
-}
-
-impl TableFolder {
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-    pub fn set_name(&mut self, s: String) {
-        self.name = s;
-    }
-    pub fn get_song(&self) -> &[SongData] {
-        &self.song
-    }
-    pub fn set_song(&mut self, s: Vec<SongData>) {
-        self.song = s;
-    }
-}
-
-// ============================================================
-// TableDataAccessor stub
-// ============================================================
-
-/// Stub for bms.player.beatoraja.TableDataAccessor
-pub struct TableDataAccessor {
-    pub tabledir: String,
-}
-
-impl TableDataAccessor {
-    pub fn new(tabledir: &str) -> Self {
-        Self {
-            tabledir: tabledir.to_string(),
-        }
-    }
-
-    pub fn write(&self, _td: &TableData) {
-        log::warn!("not yet implemented: TableDataAccessor.write");
-    }
-}
-
-/// Stub trait for TableDataAccessor.TableAccessor
-pub trait TableAccessor {
-    fn name(&self) -> &str;
-    fn read(&self) -> Option<TableData>;
-    fn write(&self, td: &TableData);
-}
+pub use beatoraja_core::table_data::{TableData, TableFolder};
+pub use beatoraja_core::table_data_accessor::{TableAccessor, TableDataAccessor};
 
 // ============================================================
 // LibGDX stubs

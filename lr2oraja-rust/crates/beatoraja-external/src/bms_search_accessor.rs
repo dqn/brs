@@ -95,7 +95,7 @@ impl TableAccessor for BMSSearchAccessor {
         self.read_impl()
     }
 
-    fn write(&self, td: &TableData) {
+    fn write(&self, td: &mut TableData) {
         TableDataAccessor::new(&self.tabledir).write(td);
     }
 }
