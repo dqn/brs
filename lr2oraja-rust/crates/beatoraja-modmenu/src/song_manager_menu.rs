@@ -9,62 +9,6 @@ static LAST_PLAYED_SORT: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false 
 pub struct SongManagerMenu;
 
 impl SongManagerMenu {
-    pub fn show(_show_song_manager: &mut ImBoolean) {
-        let current_song_data = get_current_song_data();
-        let current_score_data = get_current_score_data();
-
-        // if (ImGui.begin("Song Manager", showSongManager, ImGuiWindowFlags.AlwaysAutoResize))
-        {
-            let song_name = current_song_data
-                .as_ref()
-                .map(|sd| sd.get_title().to_string())
-                .unwrap_or_default();
-
-            let last_play_record_time = current_score_data
-                .as_ref()
-                .map(|sd| {
-                    // Date date = new Date(scoreData.getDate() * 1000L);
-                    // return simpleDateFormat.format(date);
-                    let timestamp = sd.get_date();
-                    // Simple formatting stub
-                    format!("{}", timestamp)
-                })
-                .unwrap_or_else(|| "Not played".to_string());
-
-            // ImGui.text("current picking: " + songName);
-            // ImGui.text("Last played: " + lastPlayRecordTime);
-            let _ = last_play_record_time;
-
-            // if (ImGui.checkbox("Sort by last played", LAST_PLAYED_SORT))
-            {
-                // selector.getBarManager().updateBar();
-            }
-
-            if song_name.is_empty() {
-                // ImGui.text("Not a selectable song");
-            } else {
-                // if (ImGui.button("Show Reverse Lookup"))
-                {
-                    update_reverse_lookup_data(&current_song_data);
-                    // ImGui.openPopup("Reverse Lookup");
-                }
-                // if (ImGui.beginPopup("Reverse Lookup", ...))
-                {
-                    let list = CURRENT_REVERSE_LOOKUP_LIST.lock().unwrap();
-                    for (i, item) in list.iter().enumerate() {
-                        let _ = (i, item);
-                        // ImGui.pushID(i);
-                        // ImGui.bulletText(item);
-                        // ImGui.popID();
-                    }
-                    // ImGui.endPopup();
-                }
-            }
-        }
-        // ImGui.end();
-        log::warn!("not yet implemented: SongManagerMenu::show - egui integration");
-    }
-
     /// Render the song manager window using egui.
     pub fn show_ui(ctx: &egui::Context) {
         let current_song_data = get_current_song_data();

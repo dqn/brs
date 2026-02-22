@@ -1,7 +1,6 @@
 use bms_model::mode::Mode;
 
 use crate::imgui_notify::{ImGuiNotify, NOTIFICATION_POSITIONS};
-use crate::imgui_renderer;
 use crate::stubs::{
     Config, ImBoolean, ImFloat, ImInt, MainController, MusicSelector, PlayConfig, PlayerConfig,
 };
@@ -49,50 +48,6 @@ fn get_play_mode_options() -> Vec<String> {
 pub struct MiscSettingMenu;
 
 impl MiscSettingMenu {
-    pub fn show(_show_misc_setting: &mut ImBoolean) {
-        // TODO: We can setup preferred game mode here in future
-        {
-            let mode = CURRENT_PLAY_MODE.lock().unwrap();
-            if mode.is_none() {
-                drop(mode);
-                change_play_mode(&Mode::BEAT_7K);
-            }
-        }
-
-        let _relative_x = imgui_renderer::window_width() as f32 * 0.455f32;
-        let _relative_y = imgui_renderer::window_height() as f32 * 0.04f32;
-        // ImGui.setNextWindowPos(relativeX, relativeY, ImGuiCond.FirstUseEver);
-
-        // if (ImGui.begin("Misc Settings", showMiscSetting, ImGuiWindowFlags.AlwaysAutoResize))
-        {
-            // if (ImGui.combo("Notification Positions", NOTIFICATION_POSITION, ImGuiNotify.NOTIFICATION_POSITIONS))
-            {
-                let pos = NOTIFICATION_POSITION.lock().unwrap().get();
-                ImGuiNotify::set_notification_position(pos as usize);
-            }
-
-            // Below settings are depending on different play mode
-            let play_mode_options = get_play_mode_options();
-            // if (ImGui.combo("Play Mode", PLAY_MODE_VALUE, PLAY_MODE_OPTIONS))
-            {
-                let idx = PLAY_MODE_VALUE.lock().unwrap().get() as usize;
-                if idx < play_mode_options.len()
-                    && let Some(mode) = Mode::get_mode(&play_mode_options[idx])
-                {
-                    change_play_mode(&mode);
-                }
-            }
-
-            // Lift, Hidden, LaneCover, Constant settings (all ImGui-dependent)
-            // ... stubbed for egui integration ...
-        }
-
-        profile_switcher();
-
-        // ImGui.end();
-        log::warn!("not yet implemented: MiscSettingMenu::show - egui integration");
-    }
-
     pub fn set_main(main: MainController) {
         let config = main.get_config();
         let players = PlayerConfig::read_all_player_id("player");

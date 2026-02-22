@@ -5,8 +5,8 @@ use std::sync::Mutex;
 
 use crate::imgui_notify::ImGuiNotify;
 use crate::stubs::{
-    Config, CustomCategoryItem, CustomFile, CustomOffset, CustomOption, ImBoolean, ImInt,
-    JSONSkinLoader, LR2SkinHeaderLoader, LuaSkinLoader, MainController, MainState, MusicSelector,
+    Config, CustomCategoryItem, CustomFile, CustomOffset, CustomOption, ImBoolean, JSONSkinLoader,
+    LR2SkinHeaderLoader, LuaSkinLoader, MainController, MainState, MusicSelector,
     OPTION_RANDOM_VALUE, PlayerConfig, Skin, SkinConfig, SkinConfigDefault, SkinConfigFilePath,
     SkinConfigOffset, SkinConfigOption, SkinConfigProperty, SkinHeader, SkinLoader, SkinType,
     TYPE_LR2SKIN,
@@ -50,39 +50,6 @@ impl SkinMenu {
     pub fn init(main: MainController, player_config: PlayerConfig) {
         *MAIN.lock().unwrap() = Some(main);
         *PLAYER_CONFIG.lock().unwrap() = Some(player_config);
-    }
-
-    pub fn show(_show_skin_menu: &mut ImBoolean) {
-        let main = MAIN.lock().unwrap();
-        if main.is_none() {
-            return;
-        }
-        drop(main);
-
-        // if (observedState != main.getCurrentState()) { invalidate(); }
-        let ready = *READY.lock().unwrap();
-        if !ready {
-            refresh();
-        }
-
-        // int windowHeight = Gdx.graphics.getHeight();
-        // ImGui.setNextWindowSize(0.f, windowHeight * 0.3f, ImGuiCond.FirstUseEver);
-
-        // if (ImGui.begin("Skin", showSkinMenu))
-        {
-            menu_header();
-            // ImGui.separator();
-            let current_skin = CURRENT_SKIN.lock().unwrap();
-            if let Some(ref skin) = *current_skin {
-                // ImGui.pushID(skin.get_name());
-                let _ = skin;
-                drop(current_skin);
-                skin_config_menu();
-                // ImGui.popID();
-            }
-        }
-        // ImGui.end();
-        log::warn!("not yet implemented: SkinMenu::show - egui integration");
     }
 
     pub fn invalidate() {

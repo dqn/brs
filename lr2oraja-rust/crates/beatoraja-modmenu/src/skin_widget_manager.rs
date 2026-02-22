@@ -1,5 +1,4 @@
 use crate::imgui_notify::ImGuiNotify;
-use crate::imgui_renderer;
 use crate::stubs::{
     Clipboard, ImBoolean, ImFloat, Rectangle, Skin, SkinObject, SkinObjectDestination,
 };
@@ -75,48 +74,6 @@ impl SkinWidgetManager {
                 destinations,
             ));
         }
-    }
-
-    pub fn show(_show_skin_widget_manager_menu: &mut ImBoolean) {
-        let _lock = LOCK.lock().unwrap();
-        // if (ImGui.begin("Skin Widgets", showSkinWidgetManagerMenu, ImGuiWindowFlags.AlwaysAutoResize))
-        {
-            let widgets = WIDGETS.lock().unwrap();
-            if widgets.is_empty() {
-                // ImGui.text("No skin is loaded");
-            } else {
-                // if (ImGui.beginTabBar("SkinWidgetsTabBar"))
-                {
-                    // SkinWidgets tab
-                    {
-                        // if (ImGui.button("undo")) { eventHistory.undo(); }
-                        // ImGui.sameLine();
-                        // renderPreferColumnSetting();
-                        // ImGui.sameLine();
-                        // ImGui.checkbox("Show Position", SHOW_CURSOR_POSITION);
-                        // ImGui.sameLine();
-                        // if (ImGui.button("export")) { exportChanges(); }
-
-                        // renderSkinWidgetsTable();
-                    }
-                    // History tab
-                    {
-                        // renderHistoryTable();
-                    }
-                }
-
-                // Overlay cursor position
-                let show_cursor = SHOW_CURSOR_POSITION.lock().unwrap().get();
-                if show_cursor {
-                    let _h = imgui_renderer::window_height();
-                    // ImGui.beginTooltip();
-                    // ImGui.text(format!("({}, {})", Gdx.input.getX(), h - Gdx.input.getY()));
-                    // ImGui.endTooltip();
-                }
-            }
-        }
-        // ImGui.end();
-        log::warn!("not yet implemented: SkinWidgetManager::show - egui integration");
     }
 
     /// Render the skin widget manager window using egui.

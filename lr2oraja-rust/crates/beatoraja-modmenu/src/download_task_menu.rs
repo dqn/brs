@@ -4,46 +4,12 @@ use md_processor::download_task::{DownloadTask, DownloadTaskStatus};
 use md_processor::http_download_processor::HttpDownloadProcessor;
 
 use crate::download_task_state::DownloadTaskState;
-use crate::imgui_renderer;
-use crate::stubs::ImBoolean;
 
 pub const MAXIMUM_TASK_NAME_LENGTH: usize = 10;
 
 pub struct DownloadTaskMenu;
 
 impl DownloadTaskMenu {
-    pub fn show(_show_download_tasks_window: &mut ImBoolean) {
-        let _relative_x = imgui_renderer::window_width() as f32 * 0.455f32;
-        let _relative_y = imgui_renderer::window_height() as f32 * 0.04f32;
-        // ImGui.setNextWindowPos(relativeX, relativeY, ImGuiCond.FirstUseEver);
-
-        // if (ImGui.begin("Download Tasks", showDownloadTasksWindow, ImGuiWindowFlags.AlwaysAutoResize))
-        {
-            let running = DownloadTaskState::get_running_download_tasks();
-            let expired = DownloadTaskState::get_expired_tasks();
-            if running.is_empty() && expired.is_empty() {
-                // ImGui.text("No Download Task. Try selecting missing bms to submit new task!");
-            } else {
-                // Tab bar: Running / Expired
-                // if (ImGui.beginTabBar("DownloadTasksTabBar"))
-                {
-                    // Running tab
-                    {
-                        let tasks: Vec<&Arc<Mutex<DownloadTask>>> = running.values().collect();
-                        Self::render_task_table(&tasks);
-                    }
-                    // Expired tab
-                    {
-                        let tasks: Vec<&Arc<Mutex<DownloadTask>>> = expired.values().collect();
-                        Self::render_task_table(&tasks);
-                    }
-                }
-            }
-        }
-        // ImGui.end();
-        log::warn!("not yet implemented: DownloadTaskMenu::show - egui integration");
-    }
-
     fn render_task_table(tasks: &[&Arc<Mutex<DownloadTask>>]) {
         // if (ImGui.beginTable("DownloadTaskTable", 3, ...))
         for task_arc in tasks {

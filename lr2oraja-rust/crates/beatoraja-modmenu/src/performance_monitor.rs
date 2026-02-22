@@ -1,7 +1,5 @@
 use beatoraja_core::performance_metrics::{EventResult, PerformanceMetrics};
 
-use crate::stubs::ImBoolean;
-
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -22,39 +20,6 @@ pub static FILTER_SHORT_THRESHOLD: Mutex<f32> = Mutex::new(1.0);
 pub struct PerformanceMonitor;
 
 impl PerformanceMonitor {
-    pub fn show(_show_performance_monitor: &mut ImBoolean) {
-        let now = Instant::now();
-        {
-            let last_update = LAST_EVENT_UPDATE.lock().unwrap();
-            let should_reload = match &*last_update {
-                None => true,
-                Some(t) => now.duration_since(*t).as_nanos() > 500_000_000,
-            };
-            if should_reload {
-                drop(last_update);
-                *LAST_EVENT_UPDATE.lock().unwrap() = Some(now);
-                Self::reload_event_tree();
-            }
-        }
-
-        // TODO: render 'watch' times in the same table
-        // if (ImGui.begin("Performance Monitor", showPerformanceMonitor))
-        {
-            // if (ImGui.collapsingHeader("Watch"))
-            {
-                update_watch_data();
-                render_watch_data();
-            }
-
-            // if (ImGui.collapsingHeader("Events", ImGuiTreeNodeFlags.DefaultOpen))
-            {
-                render_event_table();
-            }
-        }
-        // ImGui.end();
-        log::warn!("not yet implemented: PerformanceMonitor::show - egui integration");
-    }
-
     /// Render performance monitor using egui.
     pub fn show_ui(ctx: &egui::Context) {
         let now = Instant::now();

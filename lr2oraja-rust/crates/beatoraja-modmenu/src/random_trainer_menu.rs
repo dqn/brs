@@ -1,4 +1,3 @@
-use crate::imgui_renderer;
 use crate::random_trainer::RandomTrainer;
 use crate::stubs::ImBoolean;
 
@@ -27,60 +26,6 @@ fn init_lane_order() {
 pub struct RandomTrainerMenu;
 
 impl RandomTrainerMenu {
-    pub fn show(_show_random_trainer: &mut ImBoolean) {
-        init_lane_order();
-        let _relative_x = imgui_renderer::window_width() as f32 * 0.455f32;
-        let _relative_y = imgui_renderer::window_height() as f32 * 0.04f32;
-        // ImGui.setNextWindowPos(relativeX, relativeY, ImGuiCond.FirstUseEver);
-
-        // if(ImGui.begin("Random Trainer", showRandomTrainer, ImGuiWindowFlags.AlwaysAutoResize))
-        {
-            // Update key display when tracking random
-            let track_ran = TRACK_RAN_WHEN_DISABLED.lock().unwrap().get();
-            if track_ran {
-                let history = RandomTrainer::get_random_history();
-                if !history.is_empty() {
-                    let last_ran = history.front().unwrap().get_random().to_string();
-                    change_lane_order(&last_ran);
-                }
-            }
-
-            let bw_permute = BLACK_WHITE_RANDOM_PERMUTATION.lock().unwrap().get();
-            RandomTrainer::set_black_white_permute(bw_permute);
-
-            // Key display
-            Self::drag_and_drop_key_display();
-
-            // Random History
-            Self::random_history();
-
-            // Controls
-            // ImGui.text("Controls");
-            // ImGui.indent();
-            // ImGui.checkbox("Trainer Enabled", RANDOM_TRAINER_ENABLED);
-            // ImGui.checkbox("Track Current Random", TRACK_RAN_WHEN_DISABLED);
-            // ImGui.checkbox("Black/White Random Select", BLACK_WHITE_RANDOM_PERMUTATION);
-            // ImGui.unindent();
-
-            // Mirror / Shift buttons
-            // if (ImGui.button("Mirror")) { mirrorLaneOrder(); }
-            // if (ImGui.button("Shift Left")) { shiftLeftLaneOrder(); }
-            // if (ImGui.button("Shift Right")) { shiftRightLaneOrder(); }
-
-            let trainer_enabled = RANDOM_TRAINER_ENABLED.lock().unwrap().get();
-            RandomTrainer::set_active(trainer_enabled);
-            if trainer_enabled {
-                let current_ui_lane_order = get_lane_order_string();
-                let trainer_lane_order = RandomTrainer::get_lane_order();
-                if current_ui_lane_order != trainer_lane_order {
-                    RandomTrainer::set_lane_order(&current_ui_lane_order);
-                }
-            }
-        }
-        // ImGui.end();
-        log::warn!("not yet implemented: RandomTrainerMenu::show - egui integration");
-    }
-
     fn random_history() {
         // if (ImGui.treeNode("Random History"))
         {
