@@ -135,6 +135,7 @@ impl ContextMenuBar {
 
     /// Add leaderboard entries to the context menu.
     /// Corresponds to Java ContextMenuBar.addLeaderboardEntries(ArrayList<Bar>)
+    #[allow(clippy::ptr_arg)]
     fn add_leaderboard_entries(&self, options: &mut Vec<Bar>) {
         // In Java: creates FunctionBars for leaderboard and LR2IR leaderboard
         // Requires MusicSelector.main.getIRStatus(), LeaderBoardBar, play(FOLDER_OPEN)
@@ -145,6 +146,7 @@ impl ContextMenuBar {
 
     /// Add metadata copy entries to the context menu.
     /// Corresponds to Java ContextMenuBar.addMetaEntries(ArrayList<Bar>)
+    #[allow(clippy::ptr_arg)]
     fn add_meta_entries(&self, options: &mut Vec<Bar>) {
         // In Java: creates FunctionBars for LR2IR page, Chart Viewer, Metadata (Copy Title/MD5/SHA256/Path/URL)
         log::warn!(
@@ -154,6 +156,7 @@ impl ContextMenuBar {
 
     /// Add table tag display entries to the context menu.
     /// Corresponds to Java ContextMenuBar.addTagDisplayEntries(ArrayList<Bar>)
+    #[allow(clippy::ptr_arg)]
     fn add_tag_display_entries(&self, options: &mut Vec<Bar>) {
         // In Java: reverse-looks up song in difficulty tables and creates navigable entries
         log::warn!(
@@ -163,6 +166,7 @@ impl ContextMenuBar {
 
     /// Add a single table entry for tag display.
     /// Corresponds to Java ContextMenuBar.addTableEntry(ArrayList<Bar>, TableBar, HashBar)
+    #[allow(clippy::ptr_arg)]
     fn add_table_entry(&self, options: &mut Vec<Bar>, _table: &TableBar, _level: &HashBar) {
         // In Java: creates FunctionBar that navigates to the table/level, with calculated lamps
         log::warn!(
