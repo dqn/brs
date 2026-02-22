@@ -100,6 +100,11 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 
 #### 18e-3: Modmenu skin stub replacement (complete)
 #### 18e-4: PlayDataAccessor stub replacement + IntArray removal (complete)
+#### 18e-5: BMSPlayerMode replacement + dead code removal (complete)
+
+- [x] Replace BMSPlayerMode/BMSPlayerModeType stubs in beatoraja-result with `pub use beatoraja_core::bms_player_mode::{BMSPlayerMode, Mode as BMSPlayerModeType}` — real type has `mode: Mode` + `id: i32`; alias avoids naming conflict with `bms_model::mode::Mode`. All callers use `== BMSPlayerModeType::Play` which maps to `== Mode::Play`. `PlayerResource::default()` updated to use `BMSPlayerMode::new()`
+- [x] Remove EventType enum stub from beatoraja-result — dead code only referenced in commented-out `execute_event()` calls. Removed from imports in abstract_result.rs, music_result.rs, course_result.rs
+- [x] Delete unused InputProcessor, Lwjgl3ControllerManager, Controller stubs from beatoraja-modmenu — imported in imgui_renderer.rs but never used. ~70 lines removed
 
 - [x] Replace PlayDataAccessor stub in beatoraja-result with `pub use beatoraja_core::play_data_accessor::PlayDataAccessor` — removed ~105 lines of no-op stub code
 - [x] Add model-based convenience methods to PlayDataAccessor — `read_score_data_model`, `write_score_data_model`, `exists_replay_data_model`, `write_replay_data_model`, `delete_score_data_model` that extract hash from BMSModel and delegate to hash-based methods
@@ -119,7 +124,7 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 - [x] Add conversion helpers: `skin_header_from_json_data()` (SkinHeaderData → SkinHeader) and `skin_header_from_lr2_data()` (LR2SkinHeaderData → SkinHeader) in skin_menu.rs — LR2 module defines separate CustomOption/CustomFile/CustomOffset types requiring explicit conversion
 - [x] Adapt all callers for Option-wrapped getters (get_name → Option<&str>, get_path → Option<&PathBuf>, get_skin_type → Option<&SkinType>)
 - [x] Remove Debug derive from Skin stub (real SkinHeader doesn't implement Debug)
-- Remaining modmenu stubs (out of scope): Skin/SkinObject/SkinObjectDestination/Rectangle (incompatible enum), MainState trait, MainController (3 methods), MusicSelector/Bar/SongBar, ImBoolean/ImInt/ImFloat, InputProcessor/Controller/Clipboard
+- Remaining modmenu stubs (out of scope): Skin/SkinObject/SkinObjectDestination/Rectangle (incompatible enum), MainState trait, MainController (3 methods), MusicSelector/Bar/SongBar, ImBoolean/ImInt/ImFloat, Clipboard
 
 ##### Other stubs — remaining
 
@@ -165,6 +170,6 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 ## Remaining Stubs
 
 - **Lifecycle (mostly resolved):** MainController stubs removed from obs/external/ir/select/modmenu (Phase 18e-2). md-processor reclassified as intentional adapter pattern. modmenu: dead code removed, skin config types replaced with real beatoraja-types, skin stubs replaced with real beatoraja-skin types (Phase 18e-3); 3-method MainController stub retained for lifecycle. Remaining MainController: result (6 methods actively used, 3 unused pruned, PlayDataAccessor resolved in 18e-4, remaining blockers: BMSPlayerInputProcessor/IRConnection). **PlayerResource wrapper migration complete for all 6 crates** — select/decide/external use `Box<dyn PlayerResourceAccess>`, result uses wrapper struct with crate-local fields for non-trait types. MainState stubs require per-screen concrete implementations
-- **beatoraja-modmenu remaining stubs:** Skin/SkinObject/SkinObjectDestination/Rectangle (real SkinObject is incompatible enum), MainState trait, MainController (3 methods), MusicSelector/Bar/SongBar (select screen types), ImBoolean/ImInt/ImFloat (egui adapters), InputProcessor/Controller/Clipboard (platform stubs)
+- **beatoraja-modmenu remaining stubs:** Skin/SkinObject/SkinObjectDestination/Rectangle (real SkinObject is incompatible enum), MainState trait, MainController (3 methods), MusicSelector/Bar/SongBar (select screen types), ImBoolean/ImInt/ImFloat (egui adapters), Clipboard (platform stub)
 - **Rendering re-exports:** `rendering_stubs.rs` in beatoraja-skin now re-exports real beatoraja-render types (resolved, not stubs)
-- **beatoraja-result remaining stubs:** MainController (6 methods, PlayDataAccessor resolved), BMSPlayerInputProcessor, IRStatus/IRSendStatusMain, BMSPlayerMode/BMSPlayerModeType, SkinObjectData, EventType, freq_trainer stubs. PlayerResource wrapper complete but non-trait field types (BMSModel, BMSPlayerMode, RankingData) are still stored locally
+- **beatoraja-result remaining stubs:** MainController (6 methods, PlayDataAccessor resolved), BMSPlayerInputProcessor, IRStatus/IRSendStatusMain, SkinObjectData, freq_trainer stubs. BMSPlayerMode/BMSPlayerModeType replaced with real types (Phase 18e-5), EventType removed (dead code). PlayerResource wrapper complete; non-trait field types (BMSModel, RankingData) stored locally, BMSPlayerMode now uses real type
