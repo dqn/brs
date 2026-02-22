@@ -1,8 +1,8 @@
 # Porting TODO — Remaining Work
 
-All phases (1–24e) complete. **1651 tests pass, 22 ignored.** See AGENTS.md for full status.
+All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.md for full status.
 
-## Phase 24: ランタイム統合（Runtime Integration）— 進行中
+## Phase 24: ランタイム統合（Runtime Integration）— complete
 
 目標: アプリケーション起動→楽曲選択→プレイまでの実行フローを繋ぐ。
 
@@ -39,47 +39,31 @@ All phases (1–24e) complete. **1651 tests pass, 22 ignored.** See AGENTS.md fo
 - [ ] バナー/ステージファイル実画像読み込み — PixmapResourcePool 実装待ち
 - [ ] リプレイ存在チェック — ReplayData API 統合待ち
 
-### Phase 24f: MainController 残スタブ解消
+### Phase 24f: MainController 残スタブ解消 — complete
 
-**優先度: 高** — Phase 24b/24c 完了によりブロック解除
++~200 行, +10 テスト。update_main_state_listener() 実ディスパッチ、update_state_references() StateReferencesCallback trait、periodic_config_save() Java 準拠 (120s/BMSPlayer スキップ)、create() 完全配線、add_state_listener()。
 
-依存: Phase 24b (入力) ✅, Phase 24c (オーディオ) ✅
-
-- [ ] `MainController.updateStateReferences()` — スキン/オーディオ/IR ステートの更新
-- [ ] `MainController` polling thread — 入力ポーリングスレッド起動
-- [ ] `MainController` audio driver 初期化 — AudioConfig に基づくドライバ選択・初期化
-- [ ] modmenu 関連スタブ (SongManagerMenu 完全版、MusicSelector modmenu 連携)
-- [ ] ScreenType / AbstractResult — result 画面の外部依存スタブ
-
-**見積り:** ~400 行実装 + ~10 テスト
+残タスク (Phase 24f スコープ外):
+- [ ] Polling thread のチャネルベース分離 — 現在 render() 内で同期 poll (十分機能)
+- [ ] Audio driver 生成 — ランチャー層で set_audio_driver() 経由で注入済み (Phase 24c)
 
 ## Phase 25: スタブ棚卸し + E2E 統合テスト + 品質保証
 
 依存: Phase 24 全完了
 
-### 25a: スタブ棚卸しと分類
+### 25a: スタブ棚卸しと分類 — complete
 
-現在 16 stubs.rs ファイル / 3,004 行 (テスト 244 行含む)。実態は3種類:
+6 re-export-only stubs.rs 削除 (beatoraja-audio, play, ir, obs, stream, md-processor)。3 大 stubs.rs 再編成: beatoraja-input (→gdx_compat.rs, keys.rs)、beatoraja-external (→pixmap_io.rs, clipboard_helper.rs)、beatoraja-launcher (→platform.rs)。残存 stubs.rs は 10 ファイル、真のスタブ ~1,520 行のみ。
 
-1. **re-export のみ (削除不要、整理のみ):** beatoraja-core (1行), beatoraja-audio (1行), beatoraja-play (9行), beatoraja-ir (10行), beatoraja-stream (4行), beatoraja-obs (9行), md-processor (12行) — 計 46 行
-2. **実装済みコード (stubs.rs にあるが実はスタブではない):** beatoraja-external の Pixmap/GdxGraphics/BufferUtils/PixmapIO (image crate ベースの実装 ~170行 + テスト ~244行), ClipboardHelper (arboard 実装 ~25行), beatoraja-launcher の CoreGraphics FFI/cpal/rfd 実装 (~200行), beatoraja-input の GdxInput/GdxGraphics/Keys (~150行 SharedKeyState ベース)
-3. **真のスタブ (実装が必要):**
-   - beatoraja-external: ScoreDatabaseAccessor, MainState struct, ScreenType, AbstractResult, Property traits/factories, Twitter4j — ~290行
-   - beatoraja-result: MainController (10メソッド), PlayerResource wrapper (35メソッド), RankingDataCache, AudioProcessorStub, SkinObjectData — ~290行
-   - beatoraja-select: MainState trait, EventType enum, SkinText/SkinNumber/SkinImage/SkinObject/SkinObjectRenderer rendering stubs, SongManagerMenu, DownloadTask — ~185行
-   - beatoraja-skin: MainState/MainController/Timer/Resolution/SkinOffset stubs, BMSPlayer/JudgeManager/MusicResult/PlayerResource stubs, PlaySkinStub — ~280行
-   - beatoraja-types: JudgeAlgorithm/BMSPlayerRule, BarSorter, modifier stubs, IRConnectionManager, KeyInputLog/PatternModifyLog/bms_player_input_device — ~205行
-   - beatoraja-modmenu: MainController (3メソッド), MainState trait, Skin/SkinObject stubs, MusicSelector/Bar/SongBar, Rectangle — ~110行
-   - beatoraja-decide: MainControllerRef (3メソッド), AudioProcessorStub, SkinStub, load_skin, play_sound — ~85行
-   - beatoraja-launcher: MainLoader (display stubs), VersionChecker, SongDatabaseUpdateListener, TwitterAuth — ~75行
-
-サブタスク:
-- [ ] 実装済みコードを stubs.rs から適切なモジュールに移動 (~590行)
-- [ ] re-export のみの stubs.rs を整理 (mod.rs の `pub use` に統合、7ファイル)
-- [ ] 真のスタブの一覧と解消ロードマップを文書化
-- [ ] Twitter4j スタブ → `bail!()` のまま永久保持 (130行, 対応不要)
-
-**見積り:** ~200 行変更 (移動中心) + ~5 テスト
+残存する真のスタブ (解消ロードマップ):
+- beatoraja-external (~290行): ScoreDatabaseAccessor, MainState, ScreenType, AbstractResult, Property traits, Twitter4j (永久)
+- beatoraja-result (~290行): MainController (10), PlayerResource wrapper (35), RankingDataCache
+- beatoraja-select (~185行): EventType, SkinObject rendering, SongManagerMenu, DownloadTask
+- beatoraja-skin (~280行): MainState/MainController/Timer stubs, BMSPlayer/JudgeManager stubs
+- beatoraja-types (~205行): JudgeAlgorithm, BarSorter, modifier stubs, IRConnectionManager
+- beatoraja-modmenu (~110行): MainController, Skin/SkinObject, MusicSelector/Bar stubs
+- beatoraja-decide (~85行): MainControllerRef, AudioProcessor, SkinStub
+- beatoraja-launcher (~75行): MainLoader display, VersionChecker, TwitterAuth (永久)
 
 ### 25b: E2E 統合テスト
 
@@ -227,8 +211,8 @@ All phases (1–24e) complete. **1651 tests pass, 22 ignored.** See AGENTS.md fo
 
 ### Known Issues (open)
 
-- [ ] Remaining stubs: 3,004 行 across 16 files — 実質的な真のスタブは ~1,520 行。残りは re-export (~140行), 実装済みコード (~1,100行), テスト (~244行)
-- [ ] MainController: 5 stub methods in main_controller.rs (application exit, SongUpdateThread, updateTable, downloadIpfs) — Phase 24f で対応
+- [ ] Remaining stubs: 10 stubs.rs files, ~1,520 行の真のスタブ (re-export/実装済みコードは Phase 25a で整理済み)
+- [x] MainController stubs — **DONE (Phase 24f)**: update_state_references, update_main_state_listener, periodic_config_save, create() 配線完了
 - [ ] 22 ignored tests (RenderSnapshot) — SkinData→Skin pipeline 完成待ち
 - **Intentional:** Twitter4j → `bail!()` (永久、~130行)
 
@@ -254,3 +238,5 @@ All phases (1–24e) complete. **1651 tests pass, 22 ignored.** See AGENTS.md fo
 | 24b | Input system integration (winit→Java keycode, SharedKeyState, MainController input) | +46 |
 | 24d | RenderSnapshot test activation (22 tests compiled, #[ignore]) | +22 |
 | 24e | BarManager + music selection (init/update_bar/close, BarContentsLoaderThread) | +40 |
+| 24f | MainController stubs resolved (state refs, listener dispatch, config save, create wiring) | +10 |
+| 25a | Stub audit: 6 stubs.rs deleted, 3 reorganized (→gdx_compat, keys, pixmap_io, clipboard_helper, platform) | — |

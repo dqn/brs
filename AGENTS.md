@@ -74,7 +74,7 @@ brs/
 
 ## Implementation Status
 
-Phases 1–24e complete. **1651 tests pass, 22 ignored (RenderSnapshot — SkinData→Skin pipeline pending). Zero runtime `todo!()`/`unimplemented!()`.** PlayerResource wrapper migration complete for all 6 crates. Phase 24f (MainController remaining stubs) next.
+All phases through 25a complete. **1661 tests pass, 22 ignored (RenderSnapshot — SkinData→Skin pipeline pending). Zero runtime `todo!()`/`unimplemented!()`.** PlayerResource wrapper migration complete for all 6 crates. 6 re-export-only stubs.rs deleted, 3 large stubs.rs reorganized. 10 stubs.rs remain (~1,520 true stub lines).
 
 - **Phases 1–17:** Core translation (17 crates, 300+ modules), real implementations (wgpu, Kira, mlua, ffmpeg-next, midir, cpal, egui UI), circular dep resolution, stub cleanup, platform replacements, 868 tests
 - **Phase 18a–g:** Core judge loop, rendering state providers, audio decode API, BGA/skin test APIs, stub replacement (12 sub-phases, 4 audit rounds), E2E test activation (138 tests), BRD replay codec
@@ -88,10 +88,12 @@ Phases 1–24e complete. **1651 tests pass, 22 ignored (RenderSnapshot — SkinD
 - **Phase 24b:** Input system integration — WinitKeyCode→Java keycode mapping, SharedKeyState, GdxInput/GdxGraphics real impl, MainController input wiring. +46 tests
 - **Phase 24d:** RenderSnapshot test activation — 22 tests compiled (#[ignore])
 - **Phase 24e:** BarManager + music selection — init/update_bar/close, BarContentsLoaderThread, UpdateBarContext/LoaderContext/CourseTableAccessor. +40 tests
+- **Phase 24f:** MainController stubs resolved — update_state_references (StateReferencesCallback trait), update_main_state_listener (real dispatch), periodic_config_save (Java-matching 120s/BMSPlayer skip), create() full wiring. +10 tests
+- **Phase 25a:** Stub audit — 6 re-export-only stubs.rs deleted, 3 large stubs.rs reorganized (→gdx_compat.rs, keys.rs, pixmap_io.rs, clipboard_helper.rs, platform.rs). 10 stubs.rs remain with ~1,520 true stub lines
 
-## Remaining Stubs (3,004 lines across 16 files)
+## Remaining Stubs (~1,520 true stub lines across 10 files)
 
-Breakdown: ~1,520 lines true stubs, ~1,100 lines already-implemented code living in stubs.rs, ~140 lines re-exports, ~244 lines tests.
+Phase 25a reorganized stubs: 6 re-export-only stubs.rs deleted, implemented code moved to proper modules (gdx_compat.rs, keys.rs, pixmap_io.rs, clipboard_helper.rs, platform.rs). Only true stubs remain in stubs.rs files.
 
 ### Large stubs.rs files (actual stubs needing resolution)
 
@@ -105,9 +107,9 @@ Breakdown: ~1,520 lines true stubs, ~1,100 lines already-implemented code living
 - **beatoraja-input (132 lines):** 4 re-exports from beatoraja-types. Real code: GdxInput/GdxGraphics using SharedKeyState (~60 lines), Keys constants (~55 lines), Controller/SkinWidgetManager stubs (~15 lines) — mostly real, Phase 24b will complete
 - **beatoraja-decide (108 lines):** 4 re-exports. MainControllerRef (3 methods, ~20 lines), AudioProcessorStub (~8 lines), SkinStub (~40 lines), load_skin/play_sound (~10 lines)
 
-### Clean crates (re-exports or comments only)
+### Clean crates (stubs.rs deleted — Phase 25a)
 
-beatoraja-core (1 line), beatoraja-audio (1 line comment), beatoraja-play (9 lines, 2 re-exports), beatoraja-ir (10 lines, 5 re-exports), beatoraja-obs (9 lines, 1 re-export + 2 constants), md-processor (12 lines, 2 re-exports + trait), beatoraja-stream (4 lines, 1 re-export)
+beatoraja-audio, beatoraja-play, beatoraja-ir, beatoraja-obs, md-processor, beatoraja-stream — re-exports moved to lib.rs, stubs.rs files deleted. beatoraja-core retains 1 line stubs.rs.
 
 ### Other stubs (outside stubs.rs)
 
