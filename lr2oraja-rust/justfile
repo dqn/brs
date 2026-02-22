@@ -154,4 +154,24 @@ e2e-test:
 e2e-test-subprocess:
     cargo test -p brs --test e2e_subprocess -- --ignored --nocapture
 
+# AST comparison: generate file mapping
+ast-map:
+    cargo run -p ast-compare -- map
+
+# AST comparison: show unmapped Java methods only
+ast-unmapped:
+    cargo run -p ast-compare -- map --unmapped-only
+
+# AST comparison: structural comparison (below threshold)
+ast-compare:
+    cargo run -p ast-compare -- compare
+
+# AST comparison: constant comparison (excluding trivial)
+ast-constants:
+    cargo run -p ast-compare -- constants --exclude-trivial
+
+# AST comparison: full report
+ast-full:
+    cargo run -p ast-compare -- full
+
 all: check test clippy fmt-check
