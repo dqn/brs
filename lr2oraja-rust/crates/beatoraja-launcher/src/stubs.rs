@@ -45,14 +45,42 @@ impl MainLoader {
         VersionChecker::default()
     }
 
+    /// Get available display modes.
+    ///
+    /// Intentional stub: Java uses AWT GraphicsDevice.getDisplayModes().
+    /// In Rust, winit provides video modes per-monitor but requires an
+    /// ActiveEventLoop. At static call time, we return a common default set.
     pub fn get_available_display_mode() -> Vec<DisplayMode> {
-        log::warn!("not yet implemented: MainLoader.get_available_display_mode");
-        Vec::new()
+        vec![
+            DisplayMode {
+                width: 1280,
+                height: 720,
+            },
+            DisplayMode {
+                width: 1920,
+                height: 1080,
+            },
+            DisplayMode {
+                width: 2560,
+                height: 1440,
+            },
+            DisplayMode {
+                width: 3840,
+                height: 2160,
+            },
+        ]
     }
 
+    /// Get the desktop display mode.
+    ///
+    /// Intentional stub: Java uses AWT GraphicsDevice.getDisplayMode().
+    /// In Rust, returns a 1920x1080 default since monitor queries require
+    /// an active winit event loop.
     pub fn get_desktop_display_mode() -> DisplayMode {
-        log::warn!("not yet implemented: MainLoader.get_desktop_display_mode");
-        DisplayMode::default()
+        DisplayMode {
+            width: 1920,
+            height: 1080,
+        }
     }
 
     /// Launch the game.
@@ -83,19 +111,67 @@ impl MainLoader {
     }
 }
 
+/// Version checker that queries GitHub API for the latest release.
+///
+/// Translated from: MainLoader.GithubVersionChecker
+///
+/// Lazily fetches version info from GitHub API on first access.
 #[derive(Clone, Debug, Default)]
 pub struct VersionChecker {
-    pub message: String,
-    pub download_url: Option<String>,
+    message: Option<String>,
+    download_url: Option<String>,
 }
 
 impl VersionChecker {
-    pub fn get_message(&self) -> &str {
-        &self.message
+    pub fn get_message(&mut self) -> &str {
+        if self.message.is_none() {
+            self.get_information();
+        }
+        self.message.as_deref().unwrap_or("")
     }
 
-    pub fn get_download_url(&self) -> Option<&str> {
+    pub fn get_download_url(&mut self) -> Option<&str> {
+        if self.message.is_none() {
+            self.get_information();
+        }
         self.download_url.as_deref()
+    }
+
+    fn get_information(&mut self) {
+        let result = self.fetch_latest_release();
+        match result {
+            Ok((name, html_url)) => {
+                let cmp = Version::compare_to_string(Some(&name));
+                if cmp == 0 {
+                    self.message = Some("Already on the latest version".to_string());
+                } else if cmp == -1 {
+                    self.message = Some(format!("Version [{}] is available to download", name));
+                    self.download_url = Some(html_url);
+                } else {
+                    self.message = Some(format!(
+                        "On Development Build for {}",
+                        Version::get_version()
+                    ));
+                }
+            }
+            Err(e) => {
+                log::warn!("Failed to fetch version info: {}", e);
+                self.message = Some("Could not retrieve version information".to_string());
+            }
+        }
+    }
+
+    fn fetch_latest_release(&self) -> anyhow::Result<(String, String)> {
+        let client = reqwest::blocking::Client::builder()
+            .user_agent("beatoraja-rust")
+            .build()?;
+        let resp: serde_json::Value = client
+            .get("https://api.github.com/repos/seraxis/lr2oraja-endlessdream/releases/latest")
+            .send()?
+            .json()?;
+        let name = resp["name"].as_str().unwrap_or("").to_string();
+        let html_url = resp["html_url"].as_str().unwrap_or("").to_string();
+        Ok((name, html_url))
     }
 }
 
@@ -111,26 +187,102 @@ pub use beatoraja_core::bms_player_mode::BMSPlayerMode;
 
 pub use beatoraja_core::version::Version;
 
-// === SongDatabaseUpdateListener stub ===
+// === SongDatabaseUpdateListener ===
 
-#[derive(Clone, Debug, Default)]
+use std::sync::atomic::{AtomicI32, Ordering};
+
+/// Listen to songdata.db update progress.
+///
+/// Translated from: bms.player.beatoraja.song.SongDatabaseUpdateListener
+///
+/// Java uses AtomicInteger for thread-safe counters. In Rust, we use AtomicI32.
 pub struct SongDatabaseUpdateListener {
-    bms_files_count: i32,
-    processed_bms_files_count: i32,
-    new_bms_files_count: i32,
+    bms_files: AtomicI32,
+    processed_bms_files: AtomicI32,
+    new_bms_files: AtomicI32,
+}
+
+impl Default for SongDatabaseUpdateListener {
+    fn default() -> Self {
+        SongDatabaseUpdateListener {
+            bms_files: AtomicI32::new(0),
+            processed_bms_files: AtomicI32::new(0),
+            new_bms_files: AtomicI32::new(0),
+        }
+    }
 }
 
 impl SongDatabaseUpdateListener {
+    pub fn add_bms_files_count(&self, count: i32) {
+        self.bms_files.fetch_add(count, Ordering::Relaxed);
+    }
+
+    pub fn add_processed_bms_files_count(&self, count: i32) {
+        self.processed_bms_files.fetch_add(count, Ordering::Relaxed);
+    }
+
+    pub fn add_new_bms_files_count(&self, count: i32) {
+        self.new_bms_files.fetch_add(count, Ordering::Relaxed);
+    }
+
     pub fn get_bms_files_count(&self) -> i32 {
-        self.bms_files_count
+        self.bms_files.load(Ordering::Relaxed)
     }
 
     pub fn get_processed_bms_files_count(&self) -> i32 {
-        self.processed_bms_files_count
+        self.processed_bms_files.load(Ordering::Relaxed)
     }
 
     pub fn get_new_bms_files_count(&self) -> i32 {
-        self.new_bms_files_count
+        self.new_bms_files.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn song_database_update_listener_default() {
+        let listener = SongDatabaseUpdateListener::default();
+        assert_eq!(listener.get_bms_files_count(), 0);
+        assert_eq!(listener.get_processed_bms_files_count(), 0);
+        assert_eq!(listener.get_new_bms_files_count(), 0);
+    }
+
+    #[test]
+    fn song_database_update_listener_add_counts() {
+        let listener = SongDatabaseUpdateListener::default();
+        listener.add_bms_files_count(10);
+        listener.add_bms_files_count(5);
+        assert_eq!(listener.get_bms_files_count(), 15);
+
+        listener.add_processed_bms_files_count(3);
+        assert_eq!(listener.get_processed_bms_files_count(), 3);
+
+        listener.add_new_bms_files_count(2);
+        assert_eq!(listener.get_new_bms_files_count(), 2);
+    }
+
+    #[test]
+    fn display_mode_default() {
+        let dm = DisplayMode::default();
+        assert_eq!(dm.width, 0);
+        assert_eq!(dm.height, 0);
+    }
+
+    #[test]
+    fn get_available_display_modes_not_empty() {
+        let modes = MainLoader::get_available_display_mode();
+        assert!(!modes.is_empty());
+        assert!(modes.iter().any(|m| m.width == 1920 && m.height == 1080));
+    }
+
+    #[test]
+    fn get_desktop_display_mode_returns_1080p() {
+        let dm = MainLoader::get_desktop_display_mode();
+        assert_eq!(dm.width, 1920);
+        assert_eq!(dm.height, 1080);
     }
 }
 

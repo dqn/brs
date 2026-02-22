@@ -543,7 +543,7 @@ impl PlayConfigurationView {
     /// Check for new version
     /// Translates: private void checkNewVersion()
     pub fn check_new_version(&mut self) {
-        let version_checker = MainLoader::get_version_checker();
+        let mut version_checker = MainLoader::get_version_checker();
         let message = version_checker.get_message().to_string();
         let download_url = version_checker.get_download_url().map(|s| s.to_string());
         self.newversion_text = message;

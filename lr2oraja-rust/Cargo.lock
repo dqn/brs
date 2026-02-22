@@ -716,6 +716,7 @@ dependencies = [
  "md-processor",
  "open",
  "regex",
+ "reqwest",
  "rfd",
  "serde",
  "serde_json",

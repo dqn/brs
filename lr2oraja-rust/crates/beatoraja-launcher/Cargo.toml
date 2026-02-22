@@ -34,3 +34,4 @@ open = { workspace = true }
 egui = { workspace = true }
 eframe = { workspace = true }
 winit = { workspace = true }
+reqwest = { workspace = true }
