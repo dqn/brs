@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::chart_information::ChartInformation;
+use crate::judge_note::JudgeNote;
 use crate::mode::Mode;
 use crate::note::Note;
 use crate::time_line::TimeLine;
@@ -399,6 +400,10 @@ impl BMSModel {
 
     pub fn get_total_notes(&self) -> i32 {
         crate::bms_model_utils::get_total_notes(self)
+    }
+
+    pub fn build_judge_notes(&self) -> Vec<JudgeNote> {
+        crate::judge_note::build_judge_notes(self)
     }
 
     pub fn is_from_osu(&self) -> bool {

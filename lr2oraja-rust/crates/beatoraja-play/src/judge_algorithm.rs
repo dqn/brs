@@ -41,6 +41,35 @@ impl JudgeAlgorithm {
         }
     }
 
+    /// Compare two notes using raw time/state values and `[i64; 2]` judge table.
+    /// Used by `JudgeManager::update()` where only `JudgeNote` (no mutable `Note`) is available.
+    /// Returns true if t2 is preferred over t1.
+    pub fn compare_times(
+        &self,
+        t1_time: i64,
+        t2_time: i64,
+        t2_state: i32,
+        ptime: i64,
+        judgetable: &[[i64; 2]],
+    ) -> bool {
+        match self {
+            JudgeAlgorithm::Combo => {
+                t2_state == 0
+                    && t1_time < ptime + judgetable[2][0]
+                    && t2_time <= ptime + judgetable[2][1]
+            }
+            JudgeAlgorithm::Duration => {
+                (t1_time - ptime).abs() > (t2_time - ptime).abs() && t2_state == 0
+            }
+            JudgeAlgorithm::Lowest => false,
+            JudgeAlgorithm::Score => {
+                t2_state == 0
+                    && t1_time < ptime + judgetable[1][0]
+                    && t2_time <= ptime + judgetable[1][1]
+            }
+        }
+    }
+
     pub fn values() -> &'static [JudgeAlgorithm] {
         &[
             JudgeAlgorithm::Combo,
