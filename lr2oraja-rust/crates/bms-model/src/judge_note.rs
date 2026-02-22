@@ -61,7 +61,8 @@ impl JudgeNote {
 
 /// Build a flat array of judge-ready notes from a BMSModel.
 ///
-/// Notes are grouped by lane (all lane 0 notes in time order, then lane 1, etc.).
+/// Notes are sorted by time (ascending). For notes at the same time, they are sorted
+/// by lane index to ensure deterministic ordering.
 /// LN start/end pairs are cross-linked via `pair_index` into the flat array.
 /// `end_time_us` for LN start notes is set to the paired end note's time.
 ///
@@ -158,7 +159,30 @@ pub fn build_judge_notes(model: &BMSModel) -> Vec<JudgeNote> {
         }
     }
 
-    all_notes
+    // Create index array to track old positions
+    let mut indices: Vec<usize> = (0..all_notes.len()).collect();
+    
+    // Sort indices by the note properties (time, lane)
+    indices.sort_by_key(|&i| (all_notes[i].time_us, all_notes[i].lane));
+    
+    // Create a mapping from old index to new index
+    let mut old_to_new = vec![0; all_notes.len()];
+    for new_idx in 0..indices.len() {
+        old_to_new[indices[new_idx]] = new_idx;
+    }
+    
+    // Reorder notes according to sorted indices
+    let sorted_notes: Vec<JudgeNote> = indices.iter().map(|&i| all_notes[i].clone()).collect();
+    
+    // Update pair_index values to reflect new indices
+    let mut result = sorted_notes;
+    for note in &mut result {
+        if let Some(old_pair_idx) = note.pair_index {
+            note.pair_index = Some(old_to_new[old_pair_idx]);
+        }
+    }
+
+    result
 }
 
 #[cfg(test)]
@@ -237,18 +261,19 @@ mod tests {
         let notes = build_judge_notes(&model);
         assert_eq!(notes.len(), 3);
 
-        // Lane 0: two normal notes
-        assert_eq!(notes[0].lane, 0);
+        // Notes should be time-ordered, then lane-ordered
+        // Expected order: lane0@1s, lane2@1s, lane0@2s
         assert_eq!(notes[0].time_us, 1_000_000);
+        assert_eq!(notes[0].lane, 0);
         assert!(notes[0].is_normal());
 
-        assert_eq!(notes[1].lane, 0);
-        assert_eq!(notes[1].time_us, 2_000_000);
+        assert_eq!(notes[1].time_us, 1_000_000);
+        assert_eq!(notes[1].lane, 2);
         assert!(notes[1].is_normal());
 
-        // Lane 2: one normal note
-        assert_eq!(notes[2].lane, 2);
-        assert_eq!(notes[2].time_us, 1_000_000);
+        assert_eq!(notes[2].time_us, 2_000_000);
+        assert_eq!(notes[2].lane, 0);
+        assert!(notes[2].is_normal());
     }
 
     #[test]
@@ -323,5 +348,32 @@ mod tests {
         let notes = build_judge_notes(&model);
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0].ln_type, note::TYPE_CHARGENOTE);
+    }
+
+    #[test]
+    fn build_judge_notes_time_ordered() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        // Create notes in different lanes at different times
+        let mut tl1 = TimeLine::new(0.0, 1_000_000, 8);
+        tl1.set_note(0, Some(Note::new_normal(1)));  // lane 0, t=1s
+        tl1.set_note(2, Some(Note::new_normal(2))); // lane 2, t=1s
+
+        let mut tl2 = TimeLine::new(1.0, 2_000_000, 8);
+        tl2.set_note(0, Some(Note::new_normal(3))); // lane 0, t=2s
+
+        model.set_all_time_line(vec![tl1, tl2]);
+
+        let notes = build_judge_notes(&model);
+        assert_eq!(notes.len(), 3);
+
+        // Verify ordering: notes should be time-ordered
+        for window in notes.windows(2) {
+            assert!(
+                window[1].time_us >= window[0].time_us,
+                "Notes should be time-ordered"
+            );
+        }
     }
 }
