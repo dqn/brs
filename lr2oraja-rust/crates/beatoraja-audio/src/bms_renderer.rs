@@ -8,6 +8,16 @@ use log::{info, trace, warn};
 use crate::audio_driver;
 use crate::pcm::PCM;
 
+/// Convert f32 samples (normalized [-1.0, 1.0]) to i16 samples.
+///
+/// Translated from: ShortPCM.loadPCM 32-bit case: `(short)(pcm.getFloat() * Short.MAX_VALUE)`
+pub fn f32_to_i16(samples: &[f32]) -> Vec<i16> {
+    samples
+        .iter()
+        .map(|&s| (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16)
+        .collect()
+}
+
 /// Renders BMS to PCM buffer.
 ///
 /// Translated from: BMSRenderer.java

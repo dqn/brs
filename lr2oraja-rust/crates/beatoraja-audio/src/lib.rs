@@ -11,6 +11,7 @@ pub mod audio_driver;
 pub mod bms_loudness_analyzer;
 pub mod bms_renderer;
 pub mod byte_pcm;
+pub mod decode;
 pub mod flac_processor;
 pub mod float_pcm;
 pub mod gdx_audio_device_driver;

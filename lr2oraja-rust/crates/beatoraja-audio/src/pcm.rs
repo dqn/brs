@@ -553,7 +553,25 @@ impl<'a> WavReader<'a> {
         self.bits_per_sample =
             (self.read_byte()? as i32 & 0xff) | ((self.read_byte()? as i32 & 0xff) << 8);
 
-        self.skip_fully((fmt_chunk_length - 16) as usize)?;
+        // Handle WAVE_FORMAT_EXTENSIBLE (0xFFFE): read sub-format as actual format type.
+        // Translated from: AudioExporter.java WAVE_FORMAT_EXTENSIBLE handling
+        if self.format_type == 0xFFFE && fmt_chunk_length >= 40 {
+            // Skip cbSize (2) + validBitsPerSample (2) + channelMask (4) = 8 bytes
+            self.skip_fully(8)?;
+            // Read SubFormat GUID first 2 bytes as actual format type
+            let sub_format_type =
+                (self.read_byte()? as i32 & 0xff) | ((self.read_byte()? as i32 & 0xff) << 8);
+            // Skip remaining 14 bytes of SubFormat GUID
+            self.skip_fully(14)?;
+            self.format_type = sub_format_type;
+            // Skip any remaining fmt data
+            let consumed = 40;
+            if fmt_chunk_length > consumed {
+                self.skip_fully((fmt_chunk_length - consumed) as usize)?;
+            }
+        } else {
+            self.skip_fully((fmt_chunk_length - 16) as usize)?;
+        }
 
         self.data_remaining = self.seek_to_chunk(b'd', b'a', b't', b'a')? as usize;
         self.data_start = self.pos;
