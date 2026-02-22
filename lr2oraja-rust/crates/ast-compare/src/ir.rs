@@ -54,6 +54,9 @@ pub struct FieldDecl {
     pub is_static: bool,
     pub is_final: bool,
     pub line: usize,
+    /// Value from `#[serde(rename = "...")]` attribute (Rust only)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub serde_rename: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

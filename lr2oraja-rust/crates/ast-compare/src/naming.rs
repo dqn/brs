@@ -88,8 +88,9 @@ pub fn accessor_field_candidates(java_method: &str) -> Vec<String> {
     let mut candidates = Vec::new();
     if let Some(field) = accessor_field_name(java_method) {
         candidates.push(field.clone());
-        // For `hasX`, also try `has_x` as field name
-        if java_method.starts_with("has") {
+        // For `hasX` and `isX`, also try `has_x`/`is_x` as field name
+        // (Rust may keep the prefix as part of the field name for booleans)
+        if java_method.starts_with("has") || java_method.starts_with("is") {
             let full_snake = method_to_snake(java_method);
             if full_snake != field {
                 candidates.push(full_snake);
@@ -97,6 +98,31 @@ pub fn accessor_field_candidates(java_method: &str) -> Vec<String> {
         }
     }
     candidates
+}
+
+/// Check if two strings have edit distance within the given threshold.
+/// Uses a simple Levenshtein distance with early termination.
+pub fn edit_distance_within(a: &str, b: &str, max_dist: usize) -> bool {
+    let a_len = a.len();
+    let b_len = b.len();
+
+    if a_len.abs_diff(b_len) > max_dist {
+        return false;
+    }
+
+    let mut prev: Vec<usize> = (0..=b_len).collect();
+    let mut curr = vec![0usize; b_len + 1];
+
+    for (i, ca) in a.chars().enumerate() {
+        curr[0] = i + 1;
+        for (j, cb) in b.chars().enumerate() {
+            let cost = if ca == cb { 0 } else { 1 };
+            curr[j + 1] = (prev[j] + cost).min(prev[j + 1] + 1).min(curr[j] + 1);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+
+    prev[b_len] <= max_dist
 }
 
 /// Known Rust-specific method names that have no Java counterpart.
@@ -242,7 +268,10 @@ mod tests {
             accessor_field_candidates("hasData"),
             vec!["data", "has_data"]
         );
-        assert_eq!(accessor_field_candidates("isVisible"), vec!["visible"]);
+        assert_eq!(
+            accessor_field_candidates("isVisible"),
+            vec!["visible", "is_visible"]
+        );
     }
 
     #[test]
@@ -261,6 +290,24 @@ mod tests {
         assert_eq!(java_standard_method_trait("hashCode"), Some("Hash"));
         assert_eq!(java_standard_method_trait("compareTo"), Some("Ord"));
         assert_eq!(java_standard_method_trait("validate"), None);
+    }
+
+    #[test]
+    fn test_edit_distance_within() {
+        assert!(edit_distance_within("foo", "foo", 0));
+        assert!(edit_distance_within("foo", "bar", 3));
+        assert!(!edit_distance_within("foo", "bar", 2));
+        assert!(edit_distance_within(
+            "keyboard_input_processor",
+            "key_board_input_processeor",
+            2
+        ));
+        assert!(edit_distance_within(
+            "read_score_data",
+            "read_score_datas",
+            1
+        ));
+        assert!(!edit_distance_within("abc", "abcdef", 2));
     }
 
     #[test]

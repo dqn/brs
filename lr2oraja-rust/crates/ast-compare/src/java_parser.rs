@@ -128,6 +128,7 @@ fn extract_type_decl(node: Node, source: &[u8]) -> Option<TypeDecl> {
                             is_static: true,
                             is_final: true,
                             line: child.start_position().row + 1,
+                            serde_rename: None,
                         });
                     }
                 }
@@ -172,6 +173,7 @@ fn extract_field_decl(node: Node, source: &[u8]) -> Vec<FieldDecl> {
                 is_static,
                 is_final,
                 line: child.start_position().row + 1,
+                serde_rename: None,
             });
         }
     }

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use walkdir::WalkDir;
 
-use crate::naming::class_to_module;
+use crate::naming::{self, class_to_module};
 
 #[derive(Debug, Clone)]
 pub struct FileMapping {
@@ -253,6 +253,21 @@ fn find_rust_counterpart(
             );
         }
 
+        // Fuzzy file name matching within the target crate
+        for ((cd, file_key), path) in rust_index {
+            if cd != crate_dir {
+                continue;
+            }
+            let stem = file_key.rsplit('/').next().unwrap_or(file_key);
+            if naming::edit_distance_within(stem, &rust_module_name, 2) {
+                return (
+                    Some(path.clone()),
+                    Some(crate_dir.to_string()),
+                    MappingConfidence::NameMismatch,
+                );
+            }
+        }
+
         return (
             None,
             Some(crate_dir.to_string()),
@@ -264,6 +279,18 @@ fn find_rust_counterpart(
     for ((crate_dir, file_key), path) in rust_index {
         let stem = file_key.rsplit('/').next().unwrap_or(file_key);
         if stem == rust_module_name {
+            return (
+                Some(path.clone()),
+                Some(crate_dir.clone()),
+                MappingConfidence::NameMismatch,
+            );
+        }
+    }
+
+    // Fuzzy brute-force search across all crates
+    for ((crate_dir, file_key), path) in rust_index {
+        let stem = file_key.rsplit('/').next().unwrap_or(file_key);
+        if naming::edit_distance_within(stem, &rust_module_name, 2) {
             return (
                 Some(path.clone()),
                 Some(crate_dir.clone()),

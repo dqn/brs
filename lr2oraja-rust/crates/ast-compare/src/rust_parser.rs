@@ -258,6 +258,7 @@ fn extract_struct_fields(node: Node, source: &[u8]) -> Vec<FieldDecl> {
                         .unwrap_or("")
                         .to_string();
                     let visibility = extract_rust_visibility(field_child, source);
+                    let serde_rename = extract_serde_rename(field_child, source);
 
                     fields.push(FieldDecl {
                         name,
@@ -266,6 +267,7 @@ fn extract_struct_fields(node: Node, source: &[u8]) -> Vec<FieldDecl> {
                         is_static: false,
                         is_final: false,
                         line: field_child.start_position().row + 1,
+                        serde_rename,
                     });
                 }
             }
@@ -295,6 +297,7 @@ fn extract_enum_variants(node: Node, source: &[u8]) -> Vec<FieldDecl> {
                         is_static: true,
                         is_final: true,
                         line: variant.start_position().row + 1,
+                        serde_rename: None,
                     });
                 }
             }
@@ -563,6 +566,27 @@ fn collect_rust_literals_recursive(node: Node, source: &[u8], literals: &mut Vec
     }
 }
 
+/// Extract `#[serde(rename = "...")]` value from a field's attributes.
+fn extract_serde_rename(node: Node, source: &[u8]) -> Option<String> {
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if child.kind() == "attribute_item" || child.kind() == "attribute" {
+            let text = child.utf8_text(source).unwrap_or("");
+            // Match patterns like #[serde(rename = "camelCase")]
+            if let Some(start) = text.find("rename") {
+                let rest = &text[start..];
+                if let Some(q1) = rest.find('"') {
+                    let after_q1 = &rest[q1 + 1..];
+                    if let Some(q2) = after_q1.find('"') {
+                        return Some(after_q1[..q2].to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 fn extract_rust_visibility(node: Node, source: &[u8]) -> Visibility {
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
@@ -589,7 +613,13 @@ fn merge_impl_blocks(types: &mut [TypeDecl], impl_blocks: &[ImplBlock]) {
         .collect();
 
     for block in impl_blocks {
-        if let Some(&idx) = type_index.get(&block.type_name) {
+        // Strip generic parameters: "BmsTable<T>" → "BmsTable"
+        let base_name = block
+            .type_name
+            .split('<')
+            .next()
+            .unwrap_or(&block.type_name);
+        if let Some(&idx) = type_index.get(base_name) {
             types[idx].methods.extend(block.methods.clone());
         }
     }
