@@ -69,45 +69,200 @@ All phases (1–23) complete. 1511 tests pass. See AGENTS.md for full status.
 ### Phase 16b: Golden Master Test Activation (partially complete)
 
 - [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream) — deferred until Rust-side APIs are implemented
-- [ ] Reactivate `compare_render_snapshot.rs` — blocked: rendering pipeline not yet connected to wgpu. SkinLoader now functional but SkinObject→GPU rendering gap remains
+- [ ] Reactivate `compare_render_snapshot.rs` — **partially unblocked (Phase 22 complete)**. テストファイルのクレート名修正が必要 (`bms_config`→`beatoraja_core`, `bms_render`→`golden_master`, `bms_skin`→`beatoraja_skin`)。`render_snapshot` モジュールと `StaticStateProvider` は golden-master に実装済み。→ Phase 24d で対応
 
 ### Phase 18e: Stub replacement (remaining items blocked)
 
 - [x] Replace `MainState` stubs with real trait impls — **DONE (Phase 21)**: all 6 screen states implement MainState trait
-- [ ] Remove all `stubs.rs` files — blocked: depends on rendering/database implementations
-- [ ] beatoraja-external LibGDX stubs (Pixmap/GdxGraphics/BufferUtils/PixmapIO) — blocked on wgpu rendering pipeline
+- [ ] Remove all `stubs.rs` files — blocked: depends on rendering/database implementations. 現在 16 ファイル / 2,624 行。大きいもの: beatoraja-external (574), beatoraja-result (388), beatoraja-select (359), beatoraja-launcher (321), beatoraja-skin (294)
+- [ ] beatoraja-external LibGDX stubs (Pixmap/GdxGraphics/BufferUtils/PixmapIO) — **partially unblocked (Phase 22 complete)**。wgpu ベースの代替実装が可能に
 
 ### Phase 18f: Integration verification (partially unblocked)
 
-- [ ] Activate `compare_render_snapshot.rs` — partially unblocked: skin loading pipeline done, but SkinObject→GPU rendering not connected
-- [x] E2E gameplay flow test: select → decide → play → result screen transitions — **PARTIALLY DONE (Phase 21)**: MainController.change_state() dispatches to concrete states via StateFactory. Full E2E test needs launcher-side factory impl
+- [ ] Activate `compare_render_snapshot.rs` — **partially unblocked (Phase 22 complete)**. GPU 非依存の RenderSnapshot キャプチャは実装済み。テストファイルのクレート名修正のみ必要。→ Phase 24d
+- [x] E2E gameplay flow test: select → decide → play → result screen transitions — **PARTIALLY DONE (Phase 21/23)**: MainController.change_state() dispatches to concrete states via LauncherStateFactory
 - [ ] Final verification: all tests pass, zero clippy warnings, clean `cargo fmt` — blocked: final gate
 
 ### Known Issues (open)
 
-- [x] SkinObject→GPU rendering gap — **RESOLVED (Phase 22d)**: Full pipeline connected — SkinDrawable trait in core, Skin impl in skin crate, MainController.render() calls draw_all_objects per frame via take/put-back pattern
-- [ ] Remaining stubs: ~2,200 lines across 16 stubs.rs files — blocked by rendering, database implementations
-- [ ] MainController still has ~12 stub methods (polling thread, updateStateReferences, audio driver) — partially unblocked by Phase 21/23, remaining blocked on Phase 22
-- [x] StateFactory concrete implementation — DONE (Phase 23): LauncherStateFactory in beatoraja-launcher wires all 7 screen states
+- [x] SkinObject→GPU rendering gap — **RESOLVED (Phase 22d)**: Full pipeline connected
+- [ ] Remaining stubs: ~2,624 lines across 16 stubs.rs files — 大半は re-export + 薄いラッパー。実質的なスタブは select (AudioDriver, EventType, SkinObject rendering), external (Pixmap/GdxGraphics), launcher (MainController partial)
+- [ ] MainController: ~12 stub methods (polling thread, updateStateReferences, audio driver) — polling thread は Phase 24b (入力) で、audio driver は Phase 24c で対応予定
+- [x] StateFactory concrete implementation — DONE (Phase 23): LauncherStateFactory in beatoraja-launcher
 
-## Next Phases (planned)
+## Completed Phases
 
 ### Phase 22: Rendering Pipeline (SkinObject→GPU) — complete
 
 Unblocks: Phase 16b render snapshot tests, Phase 18f E2E tests, visual output
 
-- [x] **22a: WGSL sprite shader + wgpu render pipeline + SpriteBatch GPU flush** — WGSL shaders for all 6 Java shader types (Normal, Linear, Bilinear, FFmpeg, Layer, DistanceField), SpriteRenderPipeline with 30 pipeline variants (6 shaders x 5 blend modes), SpriteBatch flush_to_gpu(), SkinObjectRenderer pre_draw/post_draw wired with shader switching + blend state + color save/restore. +43 new tests
-- [x] **22b: SkinObject draw methods + SkinTextBitmap** — Draw method integration tests for SkinImage/SkinNumber/SkinTextImage (27 tests). SkinTextBitmap.draw_with_offset() implemented with ab_glyph (glyph layout, alignment, overflow, shadow, distance field). +15 tests. +1,346 lines
-- [x] **22c: MainController render pipeline + FPS cap** — render() enhanced with sprite.begin()/end() lifecycle and input gating. SpriteBatch re-export (real impl replacing stub). SpriteBatch flush wired to wgpu render pass with bind groups. FPS capping from config. +7 tests. +325 lines
-- [x] **22d: Skin.draw_all_objects() integration** — SkinDrawable trait in beatoraja-core (Send-bounded, 10 methods), TimerOnlyMainState adapter in beatoraja-skin bridging core↔skin MainState, MainController.render() wired with take/put-back pattern for borrow safety, SkinStub removed. +11 tests. +~150 lines
+- [x] **22a: WGSL sprite shader + wgpu render pipeline + SpriteBatch GPU flush** — 6 shader types, 30 pipeline variants, SpriteBatch flush_to_gpu(). +43 tests
+- [x] **22b: SkinObject draw methods + SkinTextBitmap** — Draw chain integration tests + ab_glyph font rendering. +42 tests, +1,346 lines
+- [x] **22c: MainController render pipeline + FPS cap** — sprite lifecycle, SpriteBatch re-export, wgpu flush, FPS capping. +7 tests, +325 lines
+- [x] **22d: Skin.draw_all_objects() integration** — SkinDrawable trait, TimerOnlyMainState adapter, take/put-back borrow pattern. +11 tests, +~150 lines
 
 ### Phase 23: Database Integration — partially complete
 
 Unblocks: SongDatabaseAccessor stubs, PlayDataAccessor stubs
 
-- [x] **23a: LauncherStateFactory** — Concrete StateFactory impl in beatoraja-launcher. Creates all 7 state types (MusicSelect, Decide, Play, Result, CourseResult, Config, SkinConfig). Wired with MainController state dispatch. +10 tests
-- [x] **23b: MainController DB wiring** — `songdb: Option<Box<dyn SongDatabaseAccessor>>` field on MainController, `set_song_database()` / `get_song_database()` methods. `PlayDataAccessor::new(&config)` in constructor and initialize_states()
-- [x] **23c: MusicSelector DB injection** — `with_song_database()` constructor for injecting `Box<dyn SongDatabaseAccessor>`
-- [x] **23d: CourseResult MainState** — Added `MainState` trait impl to CourseResult with `main_data: MainStateData` field
-- [ ] Wire rusqlite SongDatabaseAccessor with real schema — blocked: requires MainLoader.play() launcher entry point
-- [ ] Connect to MusicSelector song list loading — blocked: BarManager needs songdb for initial bar creation
+- [x] **23a: LauncherStateFactory** — Concrete StateFactory impl. +10 tests
+- [x] **23b: MainController DB wiring** — songdb field + set/get methods, PlayDataAccessor init
+- [x] **23c: MusicSelector DB injection** — with_song_database() constructor
+- [x] **23d: CourseResult MainState** — MainState trait impl
+- [ ] Wire rusqlite SongDatabaseAccessor with real schema — → Phase 24a
+- [ ] Connect to MusicSelector song list loading — → Phase 24e
+
+## Phase 24: ランタイム統合（Runtime Integration）
+
+目標: アプリケーション起動→楽曲選択→プレイまでの実行フローを繋ぐ。
+Phase 22 (レンダリング) と Phase 23 (DB配線) が完了し、ランタイム統合の前提条件が揃った。
+
+### Phase 24a: SQLiteSongDatabaseAccessor + MainLoader.play() エントリポイント
+
+**優先度: 最高** — 楽曲データベースが全ての下流機能（選曲、スコア表示、リプレイ）の基盤
+
+依存: なし（即着手可能）
+
+- [ ] `SQLiteSongDatabaseAccessor` を beatoraja-song に実装
+  - rusqlite で `song` テーブル + `folder` テーブルのスキーマ作成 (Java の `SQLiteSongDatabaseAccessor` コンストラクタ参照)
+  - `SongDatabaseAccessor` trait の 6 メソッドを実装: `get_song_datas(key, value)`, `get_song_datas_by_hashes()`, `get_song_datas_by_sql()`, `set_song_datas()`, `get_song_datas_by_text()`, `get_folder_datas()`
+  - `song` テーブル: md5, sha256, title, subtitle, genre, artist, subartist, tag, path, folder, stagefile, banner, backbmp, preview, parent, level, difficulty, maxbpm, minbpm, length, mode, judge, feature, content, date, favorite, adddate, notes, charthash
+  - `folder` テーブル: title, subtitle, command, path, banner, parent, type, date, adddate, max
+- [ ] `updateSongDatas()` — BMS ルートディレクトリ走査 + BMSDecoder/BMSONDecoder でメタデータ抽出 + DB 挿入。タイムスタンプ比較で増分更新
+- [ ] `MainLoader.play()` を完成 — Config 読み込み → SQLiteSongDatabaseAccessor 生成 → MainController 生成 → winit ウィンドウ + wgpu 初期化 → イベントループ開始
+- [ ] `MainLoader.get_score_database_accessor()` を実装 (現在 `None` 返却)
+- [ ] `MainLoader.start()` — egui ランチャー UI の基本フレーム (設定画面表示)
+
+**見積り:** ~800 行実装 + ~20 テスト
+
+### Phase 24b: 入力システム統合（winit → BMSPlayerInputProcessor）
+
+**優先度: 高** — キーボード/コントローラ入力がないとプレイ不可
+
+依存: Phase 24a (MainLoader がウィンドウを作成)
+
+- [ ] winit `WindowEvent::KeyboardInput` → `KeyBoardInputProcesseor` への接続
+  - winit の `KeyCode` を Java keycode (`com.badlogic.gdx.Input.Keys`) にマッピング
+  - `BMSPlayerInputProcessor.poll()` を winit イベントベースに適応（現在は `System.nanoTime()` ベース）
+- [ ] MainController の input polling thread 実装
+  - Java: `new Thread(() -> { while(!quit) { input.poll(); Thread.sleep(1); } })` パターン
+  - Rust: `tokio::spawn` or `std::thread::spawn` + `crossbeam` チャネルで winit イベント転送
+- [ ] コントローラ入力 (gilrs クレート)
+  - `BMControllerInputProcessor` の `Controller` 列挙をgirs で実装
+  - アナログスティック → `computeAnalogDiff()` はすでに実装済み
+- [ ] マウス入力 — `CursorMoved`, `MouseInput` イベント → mousex/mousey/mousepressed
+- [ ] `KeyCommand` のウィンドウシステム統合 — F キー、スクリーンモード切替等
+
+**見積り:** ~500 行実装 + ~15 テスト
+
+### Phase 24c: オーディオドライバ統合（Kira/cpal → AudioDriver）
+
+**優先度: 高** — BGM/キー音なしではゲーム体験が成立しない
+
+依存: なし（即着手可能、Phase 24a と並列実行可能）
+
+- [ ] `KiraAudioDriver` を beatoraja-audio に実装 (`AudioDriver` trait)
+  - Kira 0.12 の `AudioManager` でサウンド管理
+  - `play_path()` — ファイルパスから `StaticSoundData` ロード → `play()`
+  - `play_note()` — BMS キー音再生 (wav_id → サウンドハンドル)
+  - `set_model()` — BMSModel のキー音を一括ロード (AbstractAudioDriver.setModel() 相当)
+  - `set_global_pitch()` / `get_global_pitch()` — Kira の PlaybackRate で実装
+  - `stop_note()` — Note 単位 or 全停止
+  - `dispose_old()` — AudioCache 相当のリソース解放
+- [ ] `CpalAudioDriver` (PortAudioDriver の代替) — cpal ベースの低レイテンシドライバ
+  - Java の `PortAudioDriver` は PortAudio JNA 経由だが、Rust では cpal が直接対応
+  - PCM デコード → cpal OutputStreamConfig → バッファ書き込み
+- [ ] `AudioConfig.DriverType` に基づくドライバ選択
+  - Java: `OpenAL` (GdxSoundDriver), `PortAudio` (PortAudioDriver)
+  - Rust: `Kira` (KiraAudioDriver), `Cpal` (CpalAudioDriver)
+- [ ] AbstractAudioDriver の音切り処理 (SliceWav) — PCM スライス + 再生位置管理
+- [ ] beatoraja-select の `AudioDriver` スタブ削除
+
+**見積り:** ~1,000 行実装 + ~20 テスト
+
+### Phase 24d: RenderSnapshot テスト有効化
+
+**優先度: 中** — Java/Rust パリティの回帰テスト保護
+
+依存: なし（即着手可能）
+
+- [ ] `compare_render_snapshot.rs` のクレート名修正
+  - `bms_config::resolution::Resolution` → `beatoraja_core::resolution::Resolution`
+  - `bms_render::state_provider::StaticStateProvider` → `golden_master::state_provider::StaticStateProvider`
+  - `bms_skin::loader::{json_loader, lua_loader}` → `beatoraja_skin::loader::{json_loader, lua_loader}`
+  - `bms_skin::skin_header::CustomOption` → `beatoraja_skin::skin_header::CustomOption`
+  - `bms_skin::skin::Skin` → `beatoraja_skin::skin::Skin`
+- [ ] `golden-master/Cargo.toml` に `beatoraja-core`, `beatoraja-skin` 依存を追加（おそらくすでに存在）
+- [ ] `tests/pending/` から `tests/` へ移動してテスト有効化
+- [ ] Java fixture 生成環境の整備 (`just golden-master-render-snapshot-gen` の確認)
+- [ ] `Gauge` DrawDetail variant を `render_snapshot.rs` に追加（現在欠落）
+
+**見積り:** ~100 行修正 + テスト有効化のみ
+
+### Phase 24e: BarManager + 楽曲選択画面統合
+
+**優先度: 中** — 楽曲選択 UI の動作に必要
+
+依存: Phase 24a (SQLiteSongDatabaseAccessor)
+
+- [ ] `BarManager.init()` 実装
+  - `TableDataAccessor` でテーブルデータ読み込み (すでに beatoraja-core に実装済み)
+  - `CourseDataAccessor` でコースデータ読み込み (すでに実装済み)
+  - お気に入り (favorite) 読み込み
+  - コマンドフォルダ (`folder/default.json`) パース
+  - ランダムフォルダ (`random/default.json`) パース
+  - IR テーブル取得 (IRConnection 経由)
+- [ ] `BarManager.update_bar()` 実装
+  - ルート: テーブル + コマンド + お気に入り + 検索を表示
+  - DirectoryBar: 子バー取得 → モードフィルタ → 不可視楽曲フィルタ → ソート
+  - `BarSorter` (すでに実装済み) でソート適用
+  - スコアデータキャッシュからスコア読み込み
+- [ ] `BarContentsLoaderThread.run()` 実装
+  - スコアデータ読み込み (SongBar/GradeBar)
+  - リプレイ存在チェック
+  - バナー/ステージファイル画像読み込み
+  - `SongInformationAccessor` による楽曲情報取得
+- [ ] `BarManager.close()` — ディレクトリ階層を上に戻る
+
+**見積り:** ~600 行実装 + ~15 テスト
+
+### Phase 24f: MainController 残スタブ解消
+
+**優先度: 低** — アプリ起動後の補助機能
+
+依存: Phase 24b (入力), Phase 24c (オーディオ)
+
+- [ ] `MainController.updateStateReferences()` — スキン/オーディオ/IR ステートの更新
+- [ ] `MainController` polling thread — 入力ポーリングスレッド起動
+- [ ] `MainController` audio driver 初期化 — AudioConfig に基づくドライバ選択・初期化
+- [ ] modmenu 関連スタブ (SongManagerMenu 完全版、MusicSelector modmenu 連携)
+- [ ] ScreenType / AbstractResult — result 画面の外部依存スタブ
+
+**見積り:** ~400 行実装 + ~10 テスト
+
+## Phase 25 以降（概要のみ）
+
+### Phase 25: E2E 統合テスト + 品質保証
+
+- [ ] select → decide → play → result のフル E2E テスト (LauncherStateFactory + 実 DB)
+- [ ] RenderSnapshot パリティ回帰テスト全有効化
+- [ ] 全 stubs.rs ファイルの棚卸し — 不要スタブ削除、残存スタブの理由文書化
+- [ ] cargo clippy 警告ゼロ + cargo fmt クリーン
+
+### Phase 26: 楽曲データベース更新 + 楽曲検索
+
+- [ ] `updateSongDatas()` の並列走査 (rayon)
+- [ ] `getSongDatasByText()` — SQLite FTS5 全文検索
+- [ ] `SongInformationAccessor` — 楽曲情報データベース連携
+
+### Phase 27: プラットフォーム固有機能
+
+- [ ] Windows named pipe (LR2 互換)
+- [ ] macOS CoreGraphics モニター列挙（基本実装済み、winit 連携が必要）
+- [ ] Discord Rich Presence (discord-rich-presence クレート)
+
+### Phase 28: パフォーマンス最適化 + リファクタリング
+
+- [ ] スタブ→実装への移行で導入された間接参照の削減
+- [ ] PlayerResource trait の最適化（32 メソッド → 必要最小限）
+- [ ] メモリプロファイリング + テクスチャキャッシュ戦略
