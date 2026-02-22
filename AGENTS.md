@@ -81,7 +81,7 @@ All phases complete. 993 tests pass. Zero runtime `todo!()`/`unimplemented!()`. 
 | 16a–c | Tests: 715 unit + 121 golden master + 32 integration (compare_rule + compare_pattern reactivated with Java LCG fix). 16b partial: 2 duplicate pending tests deleted; 14 remaining blocked by missing APIs; `compare_judge_manager.rs` activated |
 | 17 | Verified zero runtime todo!/unimplemented! |
 | 18a | Core judge loop: `JudgeManager::update()` full 450-line translation with testable API. `JudgeConfig`, `JudgeNote`, `build_judge_notes()`, `compare_times()`, judge constants. `e2e_helpers.rs` rewritten and activated (correct BMSDecoder/GrooveGauge/KeyInputLog APIs). `compare_judge_manager.rs` activated (golden master test). `pair_index` bounds checks added. LN pairing fix in `build_judge_notes()`. `total_notes` count fix for LNTYPE_LONGNOTE. 993 tests pass |
-| 18b–f | Post-Phase 13 lifecycle wiring (pending): 18b rendering state providers, 18c audio decode, 18d BGA/skin tests, 18e stub replacement, 18f integration verification |
+| 18b–f | Post-Phase 13 lifecycle wiring (pending): 18b rendering state providers, 18c audio decode, 18d BGA/skin tests, 18e stub replacement, 18f e2e test API rewrites (9 files use old names: `BmsDecoder`/`GaugeType` enum/`PlayerRule` etc.) + integration verification |
 
 ## Remaining Stubs
 

@@ -27,7 +27,7 @@ Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 1
 
 - [x] Delete duplicate pending tests — `compare_rule.rs` and `compare_pattern.rs` in `pending/` were duplicates of already-active versions with real imports; deleted
 - [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream) — deferred until Java exporter updated
-- [ ] Reactivate remaining 15 pending test files — blocked on multiple levels:
+- [ ] Reactivate remaining 14 pending test files — blocked on multiple levels:
   - ~~**JudgeManager::update() is a stub**~~ → resolved: full judge loop implemented in Phase 18a. New testable API: `update(&mut self, mtime, &[JudgeNote], &[bool], &[i64], &mut GrooveGauge)`
   - ~~**Missing judge API types**~~ → resolved: `JudgeConfig`, `JUDGE_PG`/`JUDGE_GR`/etc. constants, `build_judge_notes()` all implemented in Phase 18a
   - ~~**e2e_helpers.rs rewrite still needed**~~ → resolved: rewritten against actual API (Phase 18a complete). `e2e_helpers.rs` activated in lib.rs. `compare_judge_manager.rs` moved out of pending/
@@ -76,7 +76,8 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 
 ### 18f: Integration verification
 
-- [ ] Activate remaining 15 Phase 16b pending tests — depends on 18a–18d completing
+- [ ] Rewrite e2e test files against actual API — `e2e_judge.rs`, `course_e2e.rs`, `compare_judge.rs`, `exhaustive_e2e.rs`, `e2e_edge_cases.rs`, `timing_boundary_e2e.rs`, `replay_roundtrip_e2e.rs`, `full_pipeline_integration.rs`, `compare_replay_e2e.rs` all use old API names (`BmsDecoder`/`BmsModel`/`GaugeType` enum/`PlayerRule`/`model.total_notes()`) that don't match actual crate types (`BMSDecoder`/`BMSModel`/`i32` gauge constants/`BMSPlayerRule`). Same pattern as compare_judge_manager.rs rewrite
+- [ ] Activate remaining 14 Phase 16b pending tests — depends on 18a–18d completing + e2e test API rewrites
 - [ ] E2E gameplay flow test: select → decide → play → result screen transitions — blocked: requires all stubs removed and real screen implementations wired
 - [ ] Verify: all tests pass, zero clippy warnings, clean `cargo fmt` — blocked: final gate after all above tasks complete
 
