@@ -70,21 +70,22 @@ brs/
 
 ## Implementation Status
 
-All phases complete. **1241 tests pass. Zero runtime `todo!()`/`unimplemented!()`.** PlayerResource wrapper migration complete for all 6 crates.
+All phases complete. **1274 tests pass. Zero runtime `todo!()`/`unimplemented!()`.** PlayerResource wrapper migration complete for all 6 crates.
 
 - **Phases 1–17:** Core translation (17 crates, 300+ modules), real implementations (wgpu, Kira, mlua, ffmpeg-next, midir, cpal, egui UI), circular dep resolution, stub cleanup, platform replacements, 868 tests (715 unit + 121 golden master + 32 integration)
 - **Phase 18a–d:** Core judge loop, rendering state providers, audio decode API, BGA/skin test APIs
-- **Phase 18e (1–11):** Stub replacement — 11 sub-phases of cross-crate dedup, lifecycle cleanup, PlayerResource wrapper, skin/input/IR/table type replacements. 4 rounds of full audit — all actionable replacements exhausted. ~2,440 lines remain (blocked by rendering/IR/database/per-screen implementations)
+- **Phase 18e (1–12):** Stub replacement — 12 sub-phases of cross-crate dedup, lifecycle cleanup, PlayerResource wrapper, skin/input/IR/table type replacements, dependency cleanup. 4 rounds of full audit — all actionable replacements exhausted
 - **Phase 18f:** E2E test activation (138 tests across 9 files)
 - **Phase 18g:** BRD replay codec
-- **Phase 18e-12:** Dependency cleanup — removed unused serde/serde_json from beatoraja-decide, unused tokio from beatoraja-stream, deleted stale pending test duplicate
+- **Phase 19:** SkinData→Skin Loading Pipeline — JsonSkinObjectLoader base conversion (all skin object types), screen-specific loaders (Play/Select + 5 minimal), LuaSkinLoader (mlua-based Lua→JsonSkin), SkinLoader entry points. +1,469 lines, +20 tests
+- **Phase 20:** IRConnection Integration — IRSendStatus.send() with score submission, IRInitializer for connection setup/login, IRResendLoop with exponential backoff (tokio), IRStatus with real connection type. +263 lines + 2 new files, +13 tests
 
-## Remaining Stubs (~2,440 lines across 16 files, all blocked)
+## Remaining Stubs (~2,540 lines across 16 files, all blocked)
 
-- **MainController:** result (6 methods, blocker: IRConnection), md-processor (intentional adapter, deferred), modmenu (3 methods, until real MainController)
-- **Rendering:** SkinText/SkinNumber/SkinImage/SkinObject/SkinObjectRenderer (select), Skin/SkinObject/Rectangle (modmenu), SkinStub (decide), SkinObjectData (result), LibGDX stubs (external) — all blocked on rendering pipeline
-- **Per-screen:** MainState trait impls, EventType/AudioDriver (select), AbstractResult/ScreenType (external), MusicSelector/Bar/SongBar (modmenu)
-- **Other:** Twitter4j (intentional bail), Property stubs (MainState type mismatch), ScoreDatabaseAccessor (external), DownloadTask (select)
+- **MainController:** ~20 stub methods (state transitions, state management, database access — blocker: Phase 21), md-processor (intentional adapter, deferred), modmenu (3 methods, until real MainController)
+- **Rendering:** SkinText/SkinNumber/SkinImage/SkinObject/SkinObjectRenderer (select), Skin/SkinObject/Rectangle (modmenu), SkinStub (decide), SkinObjectData (result), LibGDX stubs (external) — all blocked on rendering pipeline (Phase 22)
+- **Per-screen:** MainState trait impls, EventType/AudioDriver (select), AbstractResult/ScreenType (external), MusicSelector/Bar/SongBar (modmenu) — blocked on Phase 21
+- **Other:** Twitter4j (intentional bail), Property stubs (MainState type mismatch), ScoreDatabaseAccessor (external — Phase 23), DownloadTask (select)
 - **Clean crates:** beatoraja-obs/stream/ir/md-processor/pattern (re-exports only, zero real stubs)
 - **Platform:** Windows named pipe (not yet implemented)
 
