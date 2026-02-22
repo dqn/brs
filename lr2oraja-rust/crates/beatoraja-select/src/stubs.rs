@@ -51,7 +51,7 @@ pub use beatoraja_types::song_database_accessor::SongDatabaseAccessor;
 
 /// Stub for beatoraja.MainState
 /// Empty marker trait — get_main() removed (MainController stub deleted, Phase 18e-2).
-/// Retained because SkinText/SkinNumber/SkinImage/RankingData stubs accept &dyn MainState.
+/// Retained because SkinText/SkinNumber/SkinImage stubs accept &dyn MainState.
 pub trait MainState {}
 
 /// MainStateType — re-exported from beatoraja-types (Phase 15d)
@@ -82,66 +82,11 @@ pub use beatoraja_core::table_data_accessor::{
 // beatoraja.CourseDataAccessor — replaced with real type from beatoraja-core (Phase 15g)
 pub use beatoraja_core::course_data_accessor::CourseDataAccessor;
 
-/// Stub for beatoraja.RankingData
-pub struct RankingData {
-    pub state: i32,
-    pub last_update_time: i64,
-    pub total_player: i32,
-}
+// RankingData: replaced by pub use from beatoraja-ir (Phase 18e-11)
+pub use beatoraja_ir::ranking_data::RankingData;
 
-impl Default for RankingData {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl RankingData {
-    pub const ACCESS: i32 = 0;
-    pub const FINISH: i32 = 1;
-    pub const FAIL: i32 = 2;
-
-    pub fn new() -> Self {
-        Self {
-            state: 0,
-            last_update_time: 0,
-            total_player: 0,
-        }
-    }
-
-    pub fn get_state(&self) -> i32 {
-        self.state
-    }
-    pub fn get_last_update_time(&self) -> i64 {
-        self.last_update_time
-    }
-    pub fn get_total_player(&self) -> i32 {
-        self.total_player
-    }
-    pub fn load_song(&self, _selector: &dyn MainState, _song: &SongData) {
-        log::warn!("not yet implemented: RankingData.load_song");
-    }
-    pub fn load_course(&self, _selector: &dyn MainState, _course: &CourseData) {
-        log::warn!("not yet implemented: RankingData.load_course");
-    }
-}
-
-/// Stub for beatoraja.RankingDataCache
-pub struct RankingDataCache;
-
-impl RankingDataCache {
-    pub fn get_song(&self, _song: &SongData, _lnmode: i32) -> Option<&RankingData> {
-        None
-    }
-    pub fn get_course(&self, _course: &CourseData, _lnmode: i32) -> Option<&RankingData> {
-        None
-    }
-    pub fn put_song(&self, _song: &SongData, _lnmode: i32, _data: RankingData) {
-        log::warn!("not yet implemented: RankingDataCache.put_song");
-    }
-    pub fn put_course(&self, _course: &CourseData, _lnmode: i32, _data: RankingData) {
-        log::warn!("not yet implemented: RankingDataCache.put_course");
-    }
-}
+// RankingDataCache: replaced by pub use from beatoraja-ir (Phase 18e-11)
+pub use beatoraja_ir::ranking_data_cache::RankingDataCache;
 
 // ============================================================
 // beatoraja.input types
