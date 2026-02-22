@@ -1,3 +1,7 @@
+use std::sync::{Arc, Mutex};
+
+use mlua::prelude::*;
+
 use crate::stubs::MainState;
 
 /// Timer utility for Lua
@@ -12,56 +16,134 @@ use crate::stubs::MainState;
 /// - new_passive_timer: Create passive timer with on/off controls
 pub const TIMER_OFF_VALUE: i64 = i64::MIN;
 
+/// Wrapper for raw MainState pointer to implement Send/Sync.
+#[derive(Clone, Copy)]
+struct StatePtr(*const dyn MainState);
+unsafe impl Send for StatePtr {}
+unsafe impl Sync for StatePtr {}
+
 pub struct TimerUtility {
-    // Would hold reference to MainState
+    state_ptr: StatePtr,
 }
 
 impl TimerUtility {
-    pub fn new(_state: &dyn MainState) -> Self {
-        Self {}
+    pub fn new(state: &dyn MainState) -> Self {
+        // SAFETY: We erase the lifetime of the trait object pointer.
+        // The caller guarantees that state outlives TimerUtility.
+        let ptr: *const dyn MainState = state;
+        let ptr: *const dyn MainState = unsafe { std::mem::transmute(ptr) };
+        Self {
+            state_ptr: StatePtr(ptr),
+        }
     }
 
     /// Export timer utility functions to a Lua table
-    pub fn export(&self, _table: &()) {
-        // table.set("now_timer", now_timer function)
-        //   - arg: timer value (NOT timer ID)
-        //   - returns: elapsed time (micro sec) if ON, 0 if OFF
-        //   - impl: time != MIN ? getNowMicroTime() - time : 0
+    pub fn export(&self, lua: &Lua, table: &LuaTable) {
+        let result: Result<(), LuaError> = (|| {
+            let sp = self.state_ptr;
 
-        // table.set("is_timer_on", is_timer_on function)
-        //   - arg: timer value
-        //   - returns: value != i64::MIN
+            // now_timer(timer_value) -> elapsed micro sec (0 if OFF)
+            let now_timer_func = lua.create_function(move |_, timer_value: i64| {
+                let state = unsafe { &*sp.0 };
+                Ok(now_timer(
+                    timer_value,
+                    state.get_timer().get_now_micro_time(),
+                ))
+            })?;
+            table.set("now_timer", now_timer_func)?;
 
-        // table.set("is_timer_off", is_timer_off function)
-        //   - arg: timer value
-        //   - returns: value == i64::MIN
+            // is_timer_on(timer_value) -> boolean
+            let is_timer_on_func =
+                lua.create_function(|_, timer_value: i64| Ok(is_timer_on(timer_value)))?;
+            table.set("is_timer_on", is_timer_on_func)?;
 
-        // table.set("timer_function", timer_function function)
-        //   - arg: timer ID (TIMER_* or custom)
-        //   - returns: function () -> number
-        //   - impl: creates closure that calls state.timer.getMicroTimer(id)
+            // is_timer_off(timer_value) -> boolean
+            let is_timer_off_func =
+                lua.create_function(|_, timer_value: i64| Ok(is_timer_off(timer_value)))?;
+            table.set("is_timer_off", is_timer_off_func)?;
 
-        // table.set("timer_observe_boolean", timer_observe_boolean function)
-        //   - arg: func (() -> boolean)
-        //   - returns: function () -> number (timer function)
-        //   - impl: tracks previous boolean state, sets timer ON when true, OFF when false
+            // timer_function(timer_id) -> function() -> number
+            let sp = self.state_ptr;
+            let timer_function_func = lua.create_function(move |lua, timer_id: i32| {
+                let timer_func = lua.create_function(move |_, ()| {
+                    let state = unsafe { &*sp.0 };
+                    Ok(state.get_timer().get_micro_timer(timer_id))
+                })?;
+                Ok(timer_func)
+            })?;
+            table.set("timer_function", timer_function_func)?;
 
-        // table.set("new_passive_timer", new_passive_timer function)
-        //   - returns: table { timer, turn_on, turn_on_reset, turn_off }
-        //   - timer: () -> number (returns timer value)
-        //   - turn_on: () -> true (sets timer ON if not already)
-        //   - turn_on_reset: () -> true (sets/resets timer ON)
-        //   - turn_off: () -> true (sets timer OFF)
+            // timer_observe_boolean(func) -> function() -> number (timer function)
+            let sp = self.state_ptr;
+            let timer_observe_boolean_func =
+                lua.create_function(move |lua, func: LuaFunction| {
+                    let observe_state = Arc::new(Mutex::new(TimerObserveBooleanState::new()));
+                    let timer_func = lua.create_function(move |_, ()| {
+                        let state = unsafe { &*sp.0 };
+                        let on: bool = func.call(()).unwrap_or(false);
+                        let mut obs = observe_state.lock().unwrap();
+                        Ok(obs.update(on, state.get_timer().get_now_micro_time()))
+                    })?;
+                    Ok(timer_func)
+                })?;
+            table.set("timer_observe_boolean", timer_observe_boolean_func)?;
 
-        log::warn!(
-            "TimerUtility::export: Lua timer utility export not yet wired (requires MainState lifetime bridging)"
-        );
+            // new_passive_timer() -> table { timer, turn_on, turn_on_reset, turn_off }
+            let sp = self.state_ptr;
+            let new_passive_timer_func = lua.create_function(move |lua, ()| {
+                let passive_state = Arc::new(Mutex::new(PassiveTimerState::new()));
+                let tbl = lua.create_table()?;
+
+                // timer() -> number
+                let ps = passive_state.clone();
+                let timer_func = lua.create_function(move |_, ()| {
+                    let ps = ps.lock().unwrap();
+                    Ok(ps.get_timer())
+                })?;
+                tbl.set("timer", timer_func)?;
+
+                // turn_on() -> true
+                let ps = passive_state.clone();
+                let turn_on_func = lua.create_function(move |_, ()| {
+                    let state = unsafe { &*sp.0 };
+                    let mut ps = ps.lock().unwrap();
+                    ps.turn_on(state.get_timer().get_now_micro_time());
+                    Ok(true)
+                })?;
+                tbl.set("turn_on", turn_on_func)?;
+
+                // turn_on_reset() -> true
+                let ps = passive_state.clone();
+                let turn_on_reset_func = lua.create_function(move |_, ()| {
+                    let state = unsafe { &*sp.0 };
+                    let mut ps = ps.lock().unwrap();
+                    ps.turn_on_reset(state.get_timer().get_now_micro_time());
+                    Ok(true)
+                })?;
+                tbl.set("turn_on_reset", turn_on_reset_func)?;
+
+                // turn_off() -> true
+                let ps = passive_state.clone();
+                let turn_off_func = lua.create_function(move |_, ()| {
+                    let mut ps = ps.lock().unwrap();
+                    ps.turn_off();
+                    Ok(true)
+                })?;
+                tbl.set("turn_off", turn_off_func)?;
+
+                Ok(tbl)
+            })?;
+            table.set("new_passive_timer", new_passive_timer_func)?;
+
+            Ok(())
+        })();
+        if let Err(e) = result {
+            log::warn!("TimerUtility::export failed: {}", e);
+        }
     }
 }
 
 /// now_timer: Get elapsed time from timer value
-/// arg: timer value (NOT timer ID)
-/// returns: elapsed time (micro sec) if ON, 0 if OFF
 pub fn now_timer(timer_value: i64, now_micro_time: i64) -> i64 {
     if timer_value != TIMER_OFF_VALUE {
         now_micro_time - timer_value

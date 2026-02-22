@@ -8,10 +8,21 @@ use crate::custom_timer::CustomTimer;
 use crate::property::boolean_property::BooleanProperty;
 use crate::property::timer_property::TimerProperty;
 use crate::property::timer_property_factory;
+use crate::skin_bpm_graph::SkinBPMGraph;
+use crate::skin_graph::SkinGraph;
 use crate::skin_header::SkinHeader;
+use crate::skin_hit_error_visualizer::SkinHitErrorVisualizer;
 use crate::skin_image::SkinImage;
+use crate::skin_note_distribution_graph::SkinNoteDistributionGraph;
+use crate::skin_number::SkinNumber;
 use crate::skin_object::{SkinObjectData, SkinObjectRenderer};
 use crate::skin_property;
+use crate::skin_slider::SkinSlider;
+use crate::skin_text_bitmap::SkinTextBitmap;
+use crate::skin_text_font::SkinTextFont;
+use crate::skin_text_image::SkinTextImage;
+use crate::skin_timing_distribution_graph::SkinTimingDistributionGraph;
+use crate::skin_timing_visualizer::SkinTimingVisualizer;
 use crate::skin_type::SkinType;
 use crate::stubs::{
     Color, MainState, Matrix4, Resolution, SkinConfigOffset, SkinOffset, SpriteBatch, TextureRegion,
@@ -19,28 +30,65 @@ use crate::stubs::{
 
 use log::info;
 
-/// Skin object trait for polymorphic dispatch
+/// Skin object enum for polymorphic dispatch
 pub enum SkinObject {
     Image(SkinImage),
-    // TODO: Add other SkinObject variants as they are translated
+    Number(SkinNumber),
+    Slider(SkinSlider),
+    Graph(SkinGraph),
+    TextFont(SkinTextFont),
+    TextBitmap(SkinTextBitmap),
+    TextImage(SkinTextImage),
+    BpmGraph(SkinBPMGraph),
+    HitErrorVisualizer(SkinHitErrorVisualizer),
+    NoteDistributionGraph(SkinNoteDistributionGraph),
+    TimingDistributionGraph(SkinTimingDistributionGraph),
+    TimingVisualizer(SkinTimingVisualizer),
 }
 
 impl SkinObject {
     pub fn data(&self) -> &SkinObjectData {
         match self {
-            SkinObject::Image(img) => &img.data,
+            SkinObject::Image(o) => &o.data,
+            SkinObject::Number(o) => &o.data,
+            SkinObject::Slider(o) => &o.data,
+            SkinObject::Graph(o) => &o.data,
+            SkinObject::TextFont(o) => &o.text_data.data,
+            SkinObject::TextBitmap(o) => &o.text_data.data,
+            SkinObject::TextImage(o) => &o.text_data.data,
+            SkinObject::BpmGraph(o) => &o.data,
+            SkinObject::HitErrorVisualizer(o) => &o.data,
+            SkinObject::NoteDistributionGraph(o) => &o.data,
+            SkinObject::TimingDistributionGraph(o) => &o.data,
+            SkinObject::TimingVisualizer(o) => &o.data,
         }
     }
 
     pub fn data_mut(&mut self) -> &mut SkinObjectData {
         match self {
-            SkinObject::Image(img) => &mut img.data,
+            SkinObject::Image(o) => &mut o.data,
+            SkinObject::Number(o) => &mut o.data,
+            SkinObject::Slider(o) => &mut o.data,
+            SkinObject::Graph(o) => &mut o.data,
+            SkinObject::TextFont(o) => &mut o.text_data.data,
+            SkinObject::TextBitmap(o) => &mut o.text_data.data,
+            SkinObject::TextImage(o) => &mut o.text_data.data,
+            SkinObject::BpmGraph(o) => &mut o.data,
+            SkinObject::HitErrorVisualizer(o) => &mut o.data,
+            SkinObject::NoteDistributionGraph(o) => &mut o.data,
+            SkinObject::TimingDistributionGraph(o) => &mut o.data,
+            SkinObject::TimingVisualizer(o) => &mut o.data,
         }
     }
 
     pub fn validate(&mut self) -> bool {
         match self {
-            SkinObject::Image(img) => img.validate(),
+            SkinObject::Image(o) => o.validate(),
+            SkinObject::Slider(o) => o.validate(),
+            SkinObject::Graph(o) => o.validate(),
+            SkinObject::TextFont(o) => o.validate(),
+            // Types without validate() default to true
+            _ => true,
         }
     }
 
@@ -66,13 +114,37 @@ impl SkinObject {
 
     pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
         match self {
-            SkinObject::Image(img) => img.prepare(time, state),
+            SkinObject::Image(o) => o.prepare(time, state),
+            SkinObject::Number(o) => o.prepare(time, state),
+            SkinObject::Slider(o) => o.prepare(time, state),
+            SkinObject::Graph(o) => o.prepare(time, state),
+            SkinObject::TextFont(o) => o.prepare(time, state),
+            SkinObject::TextBitmap(o) => o.prepare(time, state),
+            SkinObject::TextImage(o) => o.prepare(time, state),
+            SkinObject::BpmGraph(o) => o.prepare(time, state),
+            SkinObject::HitErrorVisualizer(o) => o.prepare(time, state),
+            SkinObject::NoteDistributionGraph(o) => o.prepare(time, state),
+            SkinObject::TimingDistributionGraph(o) => o.prepare(time, state),
+            SkinObject::TimingVisualizer(o) => o.prepare(time, state),
         }
     }
 
     pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
         match self {
-            SkinObject::Image(img) => img.draw(sprite),
+            SkinObject::Image(o) => o.draw(sprite),
+            SkinObject::Number(o) => o.draw(sprite),
+            SkinObject::Slider(o) => o.draw(sprite),
+            SkinObject::Graph(o) => o.draw(sprite),
+            SkinObject::TextFont(o) => o.draw(sprite),
+            SkinObject::TextBitmap(o) => o.draw(sprite),
+            SkinObject::TextImage(o) => o.draw(sprite),
+            // These types need state for draw, but the dispatch signature doesn't pass it.
+            // They will draw with cached state from prepare().
+            SkinObject::BpmGraph(_) => {}
+            SkinObject::HitErrorVisualizer(o) => o.draw(sprite),
+            SkinObject::NoteDistributionGraph(_) => {}
+            SkinObject::TimingDistributionGraph(o) => o.draw(sprite),
+            SkinObject::TimingVisualizer(o) => o.draw(sprite),
         }
     }
 
@@ -94,7 +166,18 @@ impl SkinObject {
 
     pub fn dispose(&mut self) {
         match self {
-            SkinObject::Image(img) => img.dispose(),
+            SkinObject::Image(o) => o.dispose(),
+            SkinObject::Number(o) => o.dispose(),
+            SkinObject::Slider(o) => o.dispose(),
+            SkinObject::Graph(o) => o.dispose(),
+            SkinObject::TextFont(o) => o.dispose(),
+            SkinObject::TextBitmap(o) => o.dispose(),
+            SkinObject::TextImage(o) => o.dispose(),
+            SkinObject::BpmGraph(o) => o.dispose(),
+            SkinObject::HitErrorVisualizer(o) => o.dispose(),
+            SkinObject::NoteDistributionGraph(o) => o.dispose(),
+            SkinObject::TimingDistributionGraph(o) => o.dispose(),
+            SkinObject::TimingVisualizer(o) => o.dispose(),
         }
     }
 
@@ -183,8 +266,24 @@ impl SkinObject {
 
     pub fn get_type_name(&self) -> &'static str {
         match self {
-            SkinObject::Image(_) => "SkinImage",
+            SkinObject::Image(_) => "Image",
+            SkinObject::Number(_) => "Number",
+            SkinObject::Slider(_) => "Slider",
+            SkinObject::Graph(_) => "Graph",
+            SkinObject::TextFont(_) => "Text",
+            SkinObject::TextBitmap(_) => "Text",
+            SkinObject::TextImage(_) => "Text",
+            SkinObject::BpmGraph(_) => "BpmGraph",
+            SkinObject::HitErrorVisualizer(_) => "HitErrorVisualizer",
+            SkinObject::NoteDistributionGraph(_) => "NoteDistributionGraph",
+            SkinObject::TimingDistributionGraph(_) => "TimingDistributionGraph",
+            SkinObject::TimingVisualizer(_) => "TimingVisualizer",
         }
+    }
+
+    /// Returns true if this object is a SkinSlider
+    pub fn is_slider(&self) -> bool {
+        matches!(self, SkinObject::Slider(_))
     }
 }
 
@@ -448,6 +547,18 @@ impl Skin {
         self.objects.len()
     }
 
+    pub fn get_objects(&self) -> &[SkinObject] {
+        &self.objects
+    }
+
+    pub fn get_custom_events_count(&self) -> usize {
+        self.custom_events.len()
+    }
+
+    pub fn get_custom_timers_count(&self) -> usize {
+        self.custom_timers.len()
+    }
+
     pub fn remove_skin_object(&mut self, index: usize) {
         if index < self.objects.len() {
             self.objects.remove(index);
@@ -587,10 +698,7 @@ impl Skin {
     pub fn mouse_dragged(&mut self, state: &mut dyn MainState, button: i32, x: i32, y: i32) {
         for i in (0..self.objectarray_indices.len()).rev() {
             let idx = self.objectarray_indices[i];
-            // In Java: obj instanceof SkinSlider && obj.draw && obj.mousePressed(...)
-            // Since we don't have SkinSlider variant yet, this is a stub
-            let is_slider = false; // TODO: check SkinSlider variant
-            if is_slider
+            if self.objects[idx].is_slider()
                 && self.objects[idx].is_draw()
                 && self.objects[idx].mouse_pressed(state, button, x, y)
             {
