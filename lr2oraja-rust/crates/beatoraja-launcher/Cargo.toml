@@ -32,4 +32,5 @@ cpal = { workspace = true }
 rfd = { workspace = true }
 open = { workspace = true }
 egui = { workspace = true }
+eframe = { workspace = true }
 winit = { workspace = true }

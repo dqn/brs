@@ -11,9 +11,8 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
 
 use beatoraja_core::bms_player_mode::BMSPlayerMode;
-use beatoraja_core::config::{Config, DisplayMode};
+use beatoraja_core::config::DisplayMode;
 use beatoraja_core::main_controller::MainController;
-use beatoraja_core::player_config::PlayerConfig;
 use beatoraja_core::version;
 use beatoraja_render::egui_integration::EguiIntegration;
 use beatoraja_render::gpu_context::GpuContext;
@@ -90,234 +89,52 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Java: MainLoader.launch() — opens the launcher/configuration UI.
+/// Java: MainLoader.start(Stage) → opens the launcher/configuration UI.
+///
+/// Delegates to MainLoader::start() for Config/PlayerConfig loading,
+/// then launches the eframe launcher window via run_launcher().
+/// If the user clicks "Start", delegates to play() to launch the game.
 fn launch() -> Result<()> {
-    let config = Config::read().unwrap_or_else(|_| Config::default());
-    let player = {
-        let playerpath = &config.playerpath;
-        let playername = config.playername.as_deref().unwrap_or("default");
-        PlayerConfig::read_player_config(playerpath, playername)
-            .unwrap_or_else(|_| PlayerConfig::default())
-    };
+    use beatoraja_core::main_loader::MainLoader;
 
-    let event_loop = EventLoop::new()?;
-    event_loop.set_control_flow(ControlFlow::Wait);
+    // Java: MainLoader.start(Stage) — reads config, creates PlayConfigurationView
+    let (config, player, title) = MainLoader::start();
 
-    let mut app = LauncherApp {
-        window: None,
-        gpu: None,
-        egui_integration: None,
-        egui_state: None,
-        launcher: beatoraja_launcher::LauncherUi::new(config, player),
-    };
+    // Java: primaryStage.setScene(scene); primaryStage.show();
+    // eframe::run_native() blocks until the window is closed.
+    let result = beatoraja_launcher::run_launcher(config, player, &title)?;
 
-    event_loop.run_app(&mut app)?;
+    // Java: PlayConfigurationView.start() calls MainLoader.play()
+    if result.play_requested {
+        info!("Launcher requested play, starting game...");
+        play(None, Some(BMSPlayerMode::PLAY))?;
+    }
+
     Ok(())
 }
 
-/// Launcher application handler — standalone egui window for configuration.
-///
-/// Java equivalent: JavaFX Application.start() → PlayConfigurationView
-struct LauncherApp {
-    window: Option<Arc<Window>>,
-    gpu: Option<GpuContext>,
-    egui_integration: Option<EguiIntegration>,
-    egui_state: Option<egui_winit::State>,
-    launcher: beatoraja_launcher::LauncherUi,
-}
-
-impl ApplicationHandler for LauncherApp {
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        // Populate monitor cache for VideoConfigurationView
-        beatoraja_launcher::stubs::update_monitors_from_winit(event_loop);
-
-        if self.window.is_some() {
-            return;
-        }
-
-        let window_attributes = Window::default_attributes()
-            .with_title("beatoraja Configuration")
-            .with_inner_size(winit::dpi::LogicalSize::new(1000u32, 700u32));
-
-        match event_loop.create_window(window_attributes) {
-            Ok(window) => {
-                let window = Arc::new(window);
-                match pollster::block_on(GpuContext::new_with_surface(
-                    Arc::clone(&window),
-                    1000,
-                    700,
-                )) {
-                    Ok(gpu) => {
-                        let egui_integration =
-                            EguiIntegration::new(&gpu.device, gpu.surface_format());
-                        let egui_state = egui_winit::State::new(
-                            egui_integration.ctx.clone(),
-                            egui::ViewportId::ROOT,
-                            event_loop,
-                            Some(window.scale_factor() as f32),
-                            None,
-                            Some(gpu.device.limits().max_texture_dimension_2d as usize),
-                        );
-                        self.egui_integration = Some(egui_integration);
-                        self.egui_state = Some(egui_state);
-                        self.gpu = Some(gpu);
-                    }
-                    Err(e) => {
-                        error!("Failed to create GPU context: {}", e);
-                        event_loop.exit();
-                        return;
-                    }
-                }
-                self.window = Some(window);
-            }
-            Err(e) => {
-                error!("Failed to create window: {}", e);
-                event_loop.exit();
-            }
-        }
-    }
-
-    fn window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        _window_id: WindowId,
-        event: WindowEvent,
-    ) {
-        // Forward events to egui
-        if let Some(state) = &mut self.egui_state
-            && let Some(window) = &self.window
-        {
-            let response = state.on_window_event(window, &event);
-            if response.consumed {
-                return;
-            }
-        }
-
-        match event {
-            WindowEvent::CloseRequested => {
-                event_loop.exit();
-            }
-            WindowEvent::Resized(size) => {
-                if let Some(gpu) = &mut self.gpu {
-                    gpu.resize(size.width, size.height);
-                }
-            }
-            WindowEvent::RedrawRequested => {
-                let Some(window) = &self.window else { return };
-                let Some(gpu) = &self.gpu else { return };
-                let Some(egui_state) = &mut self.egui_state else {
-                    return;
-                };
-                let Some(egui_integration) = &mut self.egui_integration else {
-                    return;
-                };
-
-                let raw_input = egui_state.take_egui_input(window);
-                let full_output = egui_integration.ctx.run(raw_input, |ctx| {
-                    self.launcher.render_ui(ctx);
-                });
-                egui_state.handle_platform_output(window, full_output.platform_output.clone());
-
-                match gpu.get_current_texture() {
-                    Ok(output) => {
-                        let view = output
-                            .texture
-                            .create_view(&wgpu::TextureViewDescriptor::default());
-                        let mut encoder =
-                            gpu.device
-                                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                                    label: Some("launcher frame encoder"),
-                                });
-                        // Clear screen
-                        {
-                            let _rp = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                                label: Some("launcher clear pass"),
-                                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                                    view: &view,
-                                    resolve_target: None,
-                                    ops: wgpu::Operations {
-                                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                                            r: 0.15,
-                                            g: 0.15,
-                                            b: 0.15,
-                                            a: 1.0,
-                                        }),
-                                        store: wgpu::StoreOp::Store,
-                                    },
-                                })],
-                                depth_stencil_attachment: None,
-                                timestamp_writes: None,
-                                occlusion_query_set: None,
-                            });
-                        }
-
-                        let screen_descriptor = egui_wgpu::ScreenDescriptor {
-                            size_in_pixels: [
-                                gpu.surface_config.as_ref().map_or(1000, |c| c.width),
-                                gpu.surface_config.as_ref().map_or(700, |c| c.height),
-                            ],
-                            pixels_per_point: window.scale_factor() as f32,
-                        };
-                        egui_integration.render(
-                            &mut encoder,
-                            &view,
-                            &gpu.device,
-                            &gpu.queue,
-                            &screen_descriptor,
-                            full_output,
-                        );
-
-                        gpu.queue.submit(std::iter::once(encoder.finish()));
-                        output.present();
-                    }
-                    Err(e) => {
-                        warn!("Failed to get surface texture: {}", e);
-                    }
-                }
-
-                window.request_redraw();
-            }
-            _ => {}
-        }
-    }
-
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        if let Some(window) = &self.window {
-            window.request_redraw();
-        }
-    }
-
-    fn suspended(&mut self, _event_loop: &ActiveEventLoop) {}
-}
-
 /// Java: MainLoader.play() — creates MainController and launches the application window.
+///
+/// Delegates to MainLoader::play() for Config reading, illegal songs check,
+/// PlayerConfig reading, and MainController creation. Then creates the winit
+/// EventLoop + wgpu context for the render loop.
 fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result<()> {
-    // Java: config = Config.read()
-    let config = Config::read().unwrap_or_else(|e| {
-        error!("Config read failed: {}", e);
-        Config::default()
-    });
+    use beatoraja_core::main_loader::MainLoader;
 
-    // Java: player = PlayerConfig.readPlayerConfig(config.getPlayerpath(), playername)
-    let player = {
-        let playerpath = &config.playerpath;
-        let playername = config.playername.as_deref().unwrap_or("default");
-        PlayerConfig::read_player_config(playerpath, playername).unwrap_or_else(|e| {
-            error!("Player config read failed: {}", e);
-            PlayerConfig::default()
-        })
-    };
+    // Java: MainLoader.play() handles config, illegal songs, player config, and controller creation.
+    // It sets config.windowWidth/Height from resolution before creating MainController.
+    let main_controller = MainLoader::play(bms_path, player_mode, true, None, None, false);
 
-    // Java: final int w = config.getResolution().width; final int h = config.getResolution().height;
-    let w = config.resolution.width();
-    let h = config.resolution.height();
+    // Extract window config from the controller's Config
+    // Java: these were set by MainLoader.play() → config.setWindowWidth/Height
+    let config = main_controller.get_config();
+    let w = config.window_width;
+    let h = config.window_height;
     let vsync = config.vsync;
     let display_mode = config.displaymode.clone();
     let max_fps = config.max_frame_per_second;
+    // Java: gdxConfig.setTitle(MainController.getVersion())
     let title = version::version_long().to_string();
-
-    // Java: MainController main = new MainController(bmsPath, config, player, playerMode, songUpdated)
-    let main_controller = MainController::new(bms_path, config, player, player_mode, false);
 
     info!("Starting {}", version::version_long());
     if let Some(hash) = version::get_git_commit_hash() {

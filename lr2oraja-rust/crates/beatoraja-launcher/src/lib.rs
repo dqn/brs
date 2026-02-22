@@ -3,6 +3,7 @@ pub mod state_factory;
 pub mod stubs;
 
 pub use launcher_ui::LauncherUi;
+pub use launcher_ui::{run_launcher, LauncherResult};
 pub use state_factory::LauncherStateFactory;
 
 // Utility types

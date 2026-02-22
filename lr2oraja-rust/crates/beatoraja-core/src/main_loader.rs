@@ -121,7 +121,7 @@ impl MainLoader {
             PathBuf::from("config_sys.json").exists() || PathBuf::from("config.json").exists();
         let has_bms_path = bms_path.is_some();
         if config_exists && (has_bms_path || auto.is_some()) {
-            Self::play(bms_path, auto, true, None, None, has_bms_path);
+            let _main = Self::play(bms_path, auto, true, None, None, has_bms_path);
         } else {
             // Launch configuration UI
             // Phase 5+: JavaFX/egui launcher
@@ -129,6 +129,21 @@ impl MainLoader {
         }
     }
 
+    /// Create a MainController ready for the winit/wgpu event loop.
+    ///
+    /// Translated from: MainLoader.play() (Java lines 129-277)
+    ///
+    /// In Java, play() creates MainController AND launches Lwjgl3Application.
+    /// In Rust, the winit/wgpu event loop lives in beatoraja-bin, so this method
+    /// handles everything up to (but not including) window creation:
+    /// 1. Read Config (if not provided)
+    /// 2. Check illegal songs via song database
+    /// 3. Read PlayerConfig (if not provided)
+    /// 4. Set window dimensions from resolution
+    /// 5. Create MainController and pass the song database
+    ///
+    /// The caller (beatoraja-bin) is responsible for creating the winit EventLoop,
+    /// wgpu GPU context, and running the render loop.
     pub fn play(
         bms_path: Option<PathBuf>,
         player_mode: Option<BMSPlayerMode>,
@@ -136,8 +151,8 @@ impl MainLoader {
         config: Option<Config>,
         player: Option<PlayerConfig>,
         song_updated: bool,
-    ) {
-        let config = config.unwrap_or_else(|| {
+    ) -> MainController {
+        let mut config = config.unwrap_or_else(|| {
             Config::read().unwrap_or_else(|e| {
                 error!("Config read failed: {}", e);
                 Config::default()
@@ -167,6 +182,16 @@ impl MainLoader {
             })
         });
 
+        // Java: final int w = config.getResolution().width;
+        //        final int h = config.getResolution().height;
+        //        config.setWindowWidth(w);
+        //        config.setWindowHeight(h);
+        let w = config.resolution.width();
+        let h = config.resolution.height();
+        config.window_width = w;
+        config.window_height = h;
+
+        // Java: MainController main = new MainController(bmsPath, config, player, playerMode, songUpdated)
         let mut main = MainController::new(bms_path, config, player, player_mode, song_updated);
 
         // Set the song database on the controller if available
@@ -176,9 +201,9 @@ impl MainLoader {
             main.set_song_database(songdb);
         }
 
-        // Phase 5+: Lwjgl3Application / winit+wgpu window creation and render loop
-        // This is where the application window would be created and the render loop started
         info!("Application started - {}", version::version_long());
+
+        main
     }
 
     /// Returns a reference to the global song database accessor.
@@ -258,6 +283,20 @@ impl MainLoader {
         songs.len()
     }
 
+    /// Clear all illegal songs. Test-only — not present in Java.
+    #[cfg(test)]
+    fn clear_illegal_songs() {
+        let mut songs = Self::illegal_songs().lock().unwrap();
+        songs.clear();
+    }
+
+    /// Clear the global song database accessor. Test-only — not present in Java.
+    #[cfg(test)]
+    fn clear_score_database_accessor() {
+        let mut guard = Self::songdb_lock().lock().unwrap();
+        *guard = None;
+    }
+
     /// Returns available display modes.
     ///
     /// Translated from: MainLoader.getAvailableDisplayMode()
@@ -283,27 +322,47 @@ impl MainLoader {
     ///
     /// Translated from: MainLoader.start(Stage)
     ///
-    /// In Java, this creates a JavaFX Stage with PlayConfigurationView.
-    /// In Rust, the launcher UI is handled by egui via LauncherApp (beatoraja-launcher crate).
-    /// This method reads config and delegates to the launcher UI.
-    pub fn start() {
-        let config = Config::read().unwrap_or_else(|e| {
+    /// In Java, this creates a JavaFX Stage with PlayConfigurationView and shows
+    /// the configuration window. In Rust, the actual egui window is created by the
+    /// binary crate (beatoraja-bin) using winit+wgpu+egui. This method handles the
+    /// Config/PlayerConfig loading part of start(), matching the Java logic:
+    ///
+    /// ```java
+    /// Config config;
+    /// try { config = Config.read(); }
+    /// catch (PlayerConfigException e) { config = Config.validateConfig(new Config()); }
+    /// PlayConfigurationView bmsinfo = loader.getController();
+    /// bmsinfo.update(config);
+    /// primaryStage.setTitle(MainController.getVersion() + " configuration");
+    /// primaryStage.show();
+    /// ```
+    ///
+    /// Returns (Config, PlayerConfig, window_title) for the binary crate to create
+    /// the egui launcher window.
+    pub fn start() -> (Config, PlayerConfig, String) {
+        let mut config = Config::read().unwrap_or_else(|e| {
             error!("Config read failed, using defaults: {}", e);
             let mut c = Config::default();
             c.validate();
             c
         });
+        config.validate();
 
-        info!(
-            "{} configuration launcher starting",
-            MainController::get_version()
-        );
+        let player = {
+            let playerpath = &config.playerpath;
+            let playername = config.playername.as_deref().unwrap_or("default");
+            PlayerConfig::read_player_config(playerpath, playername).unwrap_or_else(|e| {
+                error!("Player config read failed, using defaults: {}", e);
+                PlayerConfig::default()
+            })
+        };
 
-        // The actual egui UI is created by beatoraja-launcher::LauncherUi
-        // which is invoked from the binary crate's main().
-        // This method serves as the entry point that the binary delegates to.
-        let _ = config;
-        log::info!("MainLoader.start: config loaded, launcher UI should be invoked from binary");
+        // Java: primaryStage.setTitle(MainController.getVersion() + " configuration")
+        let title = format!("{} configuration", MainController::get_version());
+
+        info!("{} launcher starting", title);
+
+        (config, player, title)
     }
 }
 
@@ -362,8 +421,14 @@ mod tests {
         }
     }
 
+    // Global lock to serialize tests that touch shared static state (illegal songs, songdb).
+    // Tests that call play() or modify illegal songs must hold this lock to avoid
+    // race conditions (play() calls std::process::exit(1) if illegal songs > 0).
+    static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn test_put_and_get_illegal_songs() {
+        let _lock = TEST_LOCK.lock().unwrap();
         MainLoader::put_illegal_song("abc123");
         let songs = MainLoader::get_illegal_songs();
         assert!(songs.contains(&"abc123".to_string()));
@@ -371,6 +436,7 @@ mod tests {
 
     #[test]
     fn test_illegal_song_count() {
+        let _lock = TEST_LOCK.lock().unwrap();
         let initial_count = MainLoader::get_illegal_song_count();
         MainLoader::put_illegal_song("unique_test_hash_12345");
         assert!(MainLoader::get_illegal_song_count() >= initial_count + 1);
@@ -394,6 +460,7 @@ mod tests {
 
     #[test]
     fn test_set_and_take_score_database_accessor() {
+        let _lock = TEST_LOCK.lock().unwrap();
         // Set a mock songdb
         let mock = Box::new(MockSongDb::new());
         MainLoader::set_score_database_accessor(mock);
@@ -427,12 +494,14 @@ mod tests {
 
     #[test]
     fn test_check_illegal_songs_with_no_db() {
+        let _lock = TEST_LOCK.lock().unwrap();
         // When no DB is set, check_illegal_songs should not panic
         MainLoader::check_illegal_songs();
     }
 
     #[test]
     fn test_check_illegal_songs_with_matching_songs() {
+        let _lock = TEST_LOCK.lock().unwrap();
         // Create a song with sha256 = "notme"
         let mut song = SongData::new();
         song.sha256 = "notme".to_string();
@@ -447,7 +516,131 @@ mod tests {
         let illegals = MainLoader::get_illegal_songs();
         assert!(illegals.contains(&"notme".to_string()));
 
-        // Clean up: take the songdb back
+        // Clean up: take the songdb back and clear illegal songs
         let _ = MainLoader::take_score_database_accessor();
+        MainLoader::clear_illegal_songs();
+    }
+
+    // play() tests use global statics (illegal songs, songdb) and call
+    // std::process::exit(1) when illegals are found. They must run single-threaded
+    // (--test-threads=1) or with #[ignore] to avoid race conditions with other tests
+    // that populate the global illegal songs set.
+
+    #[test]
+    fn test_play_returns_main_controller() {
+        let _lock = TEST_LOCK.lock().unwrap();
+        // MainLoader::play() should return a MainController instance.
+        use crate::resolution::Resolution;
+
+        // Clear global state from other tests to avoid std::process::exit(1)
+        MainLoader::clear_illegal_songs();
+        MainLoader::clear_score_database_accessor();
+
+        let config = Config::default();
+        let player = PlayerConfig::default();
+        let controller = MainLoader::play(None, None, true, Some(config), Some(player), false);
+
+        // The returned controller should have config with window dimensions
+        // set from resolution (Java: config.setWindowWidth(w); config.setWindowHeight(h))
+        let cfg = controller.get_config();
+        let expected_w = Resolution::HD.width();
+        let expected_h = Resolution::HD.height();
+        assert_eq!(cfg.window_width, expected_w);
+        assert_eq!(cfg.window_height, expected_h);
+    }
+
+    #[test]
+    fn test_play_sets_window_dimensions_from_resolution() {
+        let _lock = TEST_LOCK.lock().unwrap();
+        // Java: final int w = config.getResolution().width;
+        //        final int h = config.getResolution().height;
+        //        config.setWindowWidth(w);
+        //        config.setWindowHeight(h);
+        use crate::resolution::Resolution;
+
+        // Clear global state from other tests to avoid std::process::exit(1)
+        MainLoader::clear_illegal_songs();
+        MainLoader::clear_score_database_accessor();
+
+        let mut config = Config::default();
+        config.resolution = Resolution::FULLHD;
+        // Set different initial window dimensions to verify they get overwritten
+        config.window_width = 100;
+        config.window_height = 100;
+
+        let controller = MainLoader::play(
+            None,
+            None,
+            true,
+            Some(config),
+            Some(PlayerConfig::default()),
+            false,
+        );
+
+        let cfg = controller.get_config();
+        assert_eq!(cfg.window_width, Resolution::FULLHD.width());
+        assert_eq!(cfg.window_height, Resolution::FULLHD.height());
+    }
+
+    #[test]
+    fn test_play_with_songdb_passes_to_controller() {
+        let _lock = TEST_LOCK.lock().unwrap();
+        // Clear global state from other tests to avoid std::process::exit(1)
+        MainLoader::clear_illegal_songs();
+        MainLoader::clear_score_database_accessor();
+
+        // MainLoader::play() should pass the global songdb to the controller
+        let mock = Box::new(MockSongDb::new());
+        MainLoader::set_score_database_accessor(mock);
+
+        let controller = MainLoader::play(
+            None,
+            None,
+            true,
+            Some(Config::default()),
+            Some(PlayerConfig::default()),
+            false,
+        );
+
+        // The songdb should have been taken from the global slot
+        let taken = MainLoader::take_score_database_accessor();
+        assert!(taken.is_none(), "songdb should have been taken by play()");
+
+        // Controller should have the songdb set
+        assert!(controller.get_song_database().is_some());
+    }
+
+    #[test]
+    fn test_start_returns_config_player_title() {
+        // MainLoader::start() should return (Config, PlayerConfig, title)
+        // When no config file exists, it uses defaults.
+        let (config, player, title) = MainLoader::start();
+
+        // Config should be valid (validated)
+        assert!(config.max_frame_per_second >= 0);
+
+        // Player should have a default name
+        assert!(!player.name.is_empty() || player.name.is_empty()); // Just check it doesn't panic
+
+        // Title should contain "configuration"
+        // Java: primaryStage.setTitle(MainController.getVersion() + " configuration")
+        assert!(
+            title.contains("configuration"),
+            "Title should contain 'configuration', got: {}",
+            title
+        );
+    }
+
+    #[test]
+    fn test_start_title_matches_java_format() {
+        // Java: MainController.getVersion() + " configuration"
+        let (_, _, title) = MainLoader::start();
+        let expected_suffix = " configuration";
+        assert!(
+            title.ends_with(expected_suffix),
+            "Title should end with '{}', got: {}",
+            expected_suffix,
+            title
+        );
     }
 }

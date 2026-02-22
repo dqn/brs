@@ -84,6 +84,15 @@ pub struct LauncherUi {
     ir_prev_index: Option<usize>,
     /// Skin configuration sub-view (skin type/header selection + custom options).
     skin_view: SkinConfigurationView,
+    /// Set to true when the user clicks "Start" — signals the caller to launch play.
+    /// Java: PlayConfigurationView.start() calls MainLoader.play()
+    play_requested: bool,
+    /// Set to true when the user clicks "Exit".
+    /// Java: PlayConfigurationView.exit() calls commit() + System.exit(0)
+    exit_requested: bool,
+    /// Shared flag for play_requested, survives after eframe drops the App.
+    /// Used by run_launcher() to detect whether play should be launched.
+    shared_play_requested: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl LauncherUi {
@@ -109,7 +118,38 @@ impl LauncherUi {
             ir_password_buf: String::new(),
             ir_prev_index: None,
             skin_view,
+            play_requested: false,
+            exit_requested: false,
+            shared_play_requested: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
+    }
+
+    /// Create a LauncherUi with a shared play_requested flag.
+    /// Used by run_launcher() to detect play requests after eframe drops the App.
+    fn new_with_shared_flag(
+        config: Config,
+        player: PlayerConfig,
+        shared_play_requested: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> Self {
+        let mut ui = Self::new(config, player);
+        ui.shared_play_requested = shared_play_requested;
+        ui
+    }
+
+    /// Returns true if the user has clicked "Start" and play should be launched.
+    /// Java: PlayConfigurationView.start() triggers MainLoader.play()
+    pub fn is_play_requested(&self) -> bool {
+        self.play_requested
+    }
+
+    /// Returns a clone of the current Config.
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
+    /// Returns a clone of the current PlayerConfig.
+    pub fn player(&self) -> &PlayerConfig {
+        &self.player
     }
 
     fn current_mode(&self) -> Mode {
@@ -187,6 +227,7 @@ impl LauncherUi {
             ui.horizontal(|ui| {
                 if ui.button("Start").clicked() {
                     self.commit_config();
+                    self.play_requested = true;
                     log::info!("Start requested");
                 }
                 if ui.button("Load All BMS").clicked() {
@@ -199,7 +240,8 @@ impl LauncherUi {
                     log::info!("Import Score requested");
                 }
                 if ui.button("Exit").clicked() {
-                    std::process::exit(0);
+                    self.commit_config();
+                    self.exit_requested = true;
                 }
             });
         });
@@ -772,6 +814,158 @@ impl LauncherUi {
         }
         if let Err(e) = PlayerConfig::write(&self.config.playerpath, &self.player) {
             log::error!("Failed to save player config: {}", e);
+        }
+    }
+}
+
+/// eframe::App implementation for LauncherUi.
+///
+/// Java equivalent: JavaFX Application.start(Stage) → PlayConfigurationView scene rendering.
+/// In Java, the JavaFX framework calls into the scene graph each frame.
+/// In Rust, eframe calls update() each frame, which delegates to render_ui().
+impl eframe::App for LauncherUi {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.render_ui(ctx);
+
+        // Java: PlayConfigurationView.exit() calls commit() + System.exit(0)
+        // In eframe, we close the viewport instead.
+        if self.exit_requested {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+
+        // Java: PlayConfigurationView.start() triggers MainLoader.play()
+        // The play_requested flag is checked by the caller after run_native() returns.
+        // When using eframe, we close the launcher window so play can begin.
+        if self.play_requested {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+    }
+
+    /// Java: PlayConfigurationView.exit() calls commit() before closing.
+    /// eframe calls on_exit() when the window is being closed.
+    fn on_exit(&mut self) {
+        self.commit_config();
+        // Persist play_requested to the shared atomic flag so run_launcher() can read it.
+        self.shared_play_requested
+            .store(self.play_requested, std::sync::atomic::Ordering::Release);
+    }
+}
+
+/// Result of running the launcher UI.
+///
+/// After the eframe window closes, this struct holds the final Config/PlayerConfig
+/// (re-read from disk after commit_config saved them) and whether "Start" was clicked.
+pub struct LauncherResult {
+    pub config: Config,
+    pub player: PlayerConfig,
+    pub play_requested: bool,
+}
+
+/// Launch the egui configuration window using eframe.
+///
+/// Java equivalent: MainLoader.start(Stage) → creates JavaFX Stage with PlayConfigurationView.
+/// In Rust, this creates an eframe window with LauncherUi.
+///
+/// Returns LauncherResult after the window is closed, so the caller
+/// can check play_requested and retrieve config/player for play().
+pub fn run_launcher(
+    config: Config,
+    player: PlayerConfig,
+    title: &str,
+) -> anyhow::Result<LauncherResult> {
+    // Shared atomic flag: survives after eframe drops the App.
+    let shared_play_requested = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let shared_clone = shared_play_requested.clone();
+
+    let launcher = LauncherUi::new_with_shared_flag(config, player, shared_clone);
+
+    // Java: primaryStage.setScene(scene); primaryStage.show();
+    // eframe::run_native() blocks until the window is closed.
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_title(title)
+            .with_inner_size([1000.0, 700.0]),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        title,
+        native_options,
+        Box::new(move |_cc| Ok(Box::new(launcher))),
+    )
+    .map_err(|e| anyhow::anyhow!("eframe::run_native failed: {}", e))?;
+
+    // After run_native returns, the App has been dropped (on_exit saved state).
+    let play_requested = shared_play_requested.load(std::sync::atomic::Ordering::Acquire);
+
+    // Re-read config/player from disk (commit_config saved them in on_exit).
+    let config = Config::read().unwrap_or_default();
+    let playerpath = &config.playerpath;
+    let playername = config.playername.as_deref().unwrap_or("default");
+    let player = PlayerConfig::read_player_config(playerpath, playername)
+        .unwrap_or_else(|_| PlayerConfig::default());
+
+    Ok(LauncherResult {
+        config,
+        player,
+        play_requested,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_launcher_ui_new_defaults() {
+        let config = Config::default();
+        let player = PlayerConfig::default();
+        let ui = LauncherUi::new(config, player);
+
+        assert!(!ui.is_play_requested());
+        assert!(!ui.exit_requested);
+        assert_eq!(ui.selected_tab, Tab::Option);
+        assert_eq!(ui.selected_play_mode, 1); // BEAT_7K
+    }
+
+    #[test]
+    fn test_launcher_ui_config_accessors() {
+        let mut config = Config::default();
+        config.vsync = true;
+        config.max_frame_per_second = 120;
+        let player = PlayerConfig::default();
+        let ui = LauncherUi::new(config, player);
+
+        assert!(ui.config().vsync);
+        assert_eq!(ui.config().max_frame_per_second, 120);
+    }
+
+    #[test]
+    fn test_launcher_ui_player_accessor() {
+        let config = Config::default();
+        let mut player = PlayerConfig::default();
+        player.name = "test_player".to_string();
+        let ui = LauncherUi::new(config, player);
+
+        assert_eq!(ui.player().name, "test_player");
+    }
+
+    #[test]
+    fn test_play_requested_initially_false() {
+        let ui = LauncherUi::new(Config::default(), PlayerConfig::default());
+        assert!(!ui.is_play_requested());
+    }
+
+    #[test]
+    fn test_tab_all_returns_11_tabs() {
+        // Java: PlayConfigurationView has 11 tabs
+        assert_eq!(Tab::all().len(), 11);
+    }
+
+    #[test]
+    fn test_tab_labels_non_empty() {
+        for tab in Tab::all() {
+            assert!(!tab.label().is_empty());
         }
     }
 }
