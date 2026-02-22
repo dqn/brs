@@ -215,8 +215,8 @@ fn compare_lr2_lane_order() {
             lanes[targets[i] as usize] = i as i32;
         }
         let mut encoded = 0i32;
-        for i in 1..8 {
-            encoded = encoded * 10 + lanes[i];
+        for &lane_val in &lanes[1..8] {
+            encoded = encoded * 10 + lane_val;
         }
 
         assert_eq!(

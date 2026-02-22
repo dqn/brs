@@ -284,6 +284,7 @@ pub fn resolve_text_content(text_data: &SkinTextData, provider: &dyn SkinStatePr
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::state_provider::StaticStateProvider;
@@ -384,9 +385,8 @@ mod tests {
 
     #[test]
     fn timer_off_returns_none() {
-        let mut data = make_data_with_single_dst();
         // Set timer via destination (timer=42)
-        data = SkinObjectData::new();
+        let mut data = SkinObjectData::new();
         data.set_destination_with_int_timer_ops(
             0,
             10.0,

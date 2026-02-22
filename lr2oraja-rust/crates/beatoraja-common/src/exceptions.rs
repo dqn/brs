@@ -54,9 +54,7 @@ mod tests {
     #[test]
     fn test_into_anyhow() {
         let ex = PlayerConfigException::new("anyhow test");
-        let result: anyhow::Result<()> = Err(ex.into());
-        assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err: anyhow::Error = ex.into();
         assert_eq!(err.to_string(), "anyhow test");
     }
 }

@@ -45,7 +45,7 @@ fn bms_to_replay_full_pipeline() {
         .collect();
     let replay = ReplayData {
         sha256: Some("test_pipeline".to_string()),
-        mode: model.get_mode().map(|m| m.key() as i32).unwrap_or(0),
+        mode: model.get_mode().map(|m| m.key()).unwrap_or(0),
         keylog: replay_keylog,
         gauge: NORMAL,
         ..Default::default()
@@ -110,7 +110,7 @@ fn full_pipeline_multiple_bms() {
             })
             .collect();
         let replay = ReplayData {
-            mode: model.get_mode().map(|m| m.key() as i32).unwrap_or(0),
+            mode: model.get_mode().map(|m| m.key()).unwrap_or(0),
             keylog: replay_keylog,
             ..Default::default()
         };

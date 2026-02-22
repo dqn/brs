@@ -1307,6 +1307,7 @@ impl MainControllerAccess for MainController {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::config_pkg::key_configuration::KeyConfiguration;
@@ -1487,8 +1488,10 @@ mod tests {
 
     #[test]
     fn test_decide_skip_creates_play_state() {
-        let mut config = Config::default();
-        config.skip_decide_screen = true;
+        let config = Config {
+            skip_decide_screen: true,
+            ..Config::default()
+        };
         let player = PlayerConfig::default();
         let mut mc = MainController::new(None, config, player, None, false);
         mc.set_state_factory(Box::new(TestStateFactory));
@@ -1501,8 +1504,10 @@ mod tests {
 
     #[test]
     fn test_decide_no_skip_creates_decide_state() {
-        let mut config = Config::default();
-        config.skip_decide_screen = false;
+        let config = Config {
+            skip_decide_screen: false,
+            ..Config::default()
+        };
         let player = PlayerConfig::default();
         let mut mc = MainController::new(None, config, player, None, false);
         mc.set_state_factory(Box::new(TestStateFactory));
@@ -2100,13 +2105,15 @@ mod tests {
 
     use std::sync::{Arc, Mutex};
 
+    type StateCallLog = Arc<Mutex<Vec<(Option<MainStateType>, i32)>>>;
+
     /// A mock listener that records calls.
     struct MockStateListener {
-        calls: Arc<Mutex<Vec<(Option<MainStateType>, i32)>>>,
+        calls: StateCallLog,
     }
 
     impl MockStateListener {
-        fn new(calls: Arc<Mutex<Vec<(Option<MainStateType>, i32)>>>) -> Self {
+        fn new(calls: StateCallLog) -> Self {
             Self { calls }
         }
     }

@@ -866,7 +866,7 @@ mod tests {
 
     #[test]
     fn test_method_matching_snake_case() {
-        let rust_methods = vec![make_rust_method("get_micro_time")];
+        let rust_methods = [make_rust_method("get_micro_time")];
         let rust_refs: Vec<&MethodDecl> = rust_methods.iter().collect();
         let (result, status) = find_rust_method("getMicroTime", &rust_refs, &[]);
         assert!(result.is_some());
@@ -875,7 +875,7 @@ mod tests {
 
     #[test]
     fn test_method_matching_getter_short() {
-        let rust_methods = vec![make_rust_method("title")];
+        let rust_methods = [make_rust_method("title")];
         let rust_refs: Vec<&MethodDecl> = rust_methods.iter().collect();
         let (result, status) = find_rust_method("getTitle", &rust_refs, &[]);
         assert!(result.is_some());
@@ -884,7 +884,7 @@ mod tests {
 
     #[test]
     fn test_method_matching_constructor() {
-        let rust_methods = vec![make_rust_method("new")];
+        let rust_methods = [make_rust_method("new")];
         let rust_refs: Vec<&MethodDecl> = rust_methods.iter().collect();
         let (result, status) = find_rust_method("<init>", &rust_refs, &[]);
         assert!(result.is_some());
@@ -893,7 +893,7 @@ mod tests {
 
     #[test]
     fn test_method_not_found() {
-        let rust_methods = vec![make_rust_method("something_else")];
+        let rust_methods = [make_rust_method("something_else")];
         let rust_refs: Vec<&MethodDecl> = rust_methods.iter().collect();
         let (result, _status) = find_rust_method("getMicroTime", &rust_refs, &[]);
         assert!(result.is_none());

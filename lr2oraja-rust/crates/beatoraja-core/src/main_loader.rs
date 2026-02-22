@@ -367,6 +367,7 @@ impl MainLoader {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use beatoraja_types::folder_data::FolderData;
@@ -439,7 +440,7 @@ mod tests {
         let _lock = TEST_LOCK.lock().unwrap();
         let initial_count = MainLoader::get_illegal_song_count();
         MainLoader::put_illegal_song("unique_test_hash_12345");
-        assert!(MainLoader::get_illegal_song_count() >= initial_count + 1);
+        assert!(MainLoader::get_illegal_song_count() > initial_count);
     }
 
     #[test]

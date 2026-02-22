@@ -94,8 +94,7 @@ fn compare_autoplay_logs(
 
     // Show first few extra entries on either side
     if rust_log.len() > java_log.len() {
-        for i in min_len..rust_log.len().min(min_len + 5) {
-            let r = &rust_log[i];
+        for (i, r) in rust_log.iter().enumerate().skip(min_len).take(5) {
             diffs.push(format!(
                 "{filename}[{i}] extra rust: presstime={} keycode={} pressed={}",
                 r.get_time(),
@@ -104,8 +103,7 @@ fn compare_autoplay_logs(
             ));
         }
     } else if java_log.len() > rust_log.len() {
-        for i in min_len..java_log.len().min(min_len + 5) {
-            let j = &java_log[i];
+        for (i, j) in java_log.iter().enumerate().skip(min_len).take(5) {
             diffs.push(format!(
                 "{filename}[{i}] extra java: presstime={} keycode={} pressed={}",
                 j.presstime, j.keycode, j.pressed
@@ -146,11 +144,7 @@ fn ensure_timelines_match_fixture(model: &mut BMSModel, timeline_times: &[i64]) 
     for &t in &missing {
         let mut tl = TimeLine::new(0.0, t, keys);
         // Set BPM from nearest existing timeline
-        if let Some(nearest) = timelines
-            .iter()
-            .filter(|tl| tl.get_micro_time() <= t)
-            .last()
-        {
+        if let Some(nearest) = timelines.iter().rfind(|tl| tl.get_micro_time() <= t) {
             tl.set_bpm(nearest.get_bpm());
         } else if let Some(first) = timelines.first() {
             tl.set_bpm(first.get_bpm());

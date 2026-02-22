@@ -178,11 +178,11 @@ mod tests {
         let tls = model.get_all_time_lines();
         let mut found = false;
         for lane in 0..8 {
-            if let Some(note) = tls[0].get_note(lane) {
-                if note.get_wav() == 5 {
-                    found = true;
-                    break;
-                }
+            if let Some(note) = tls[0].get_note(lane)
+                && note.get_wav() == 5
+            {
+                found = true;
+                break;
             }
         }
         assert!(found, "Background note should be placed on a lane");

@@ -224,7 +224,7 @@ mod tests {
 
         // load should parse successfully
         let result: String = RobustFile::load(&file, |d| {
-            Ok(String::from_utf8(d.to_vec()).map_err(|e| anyhow::anyhow!(e))?)
+            String::from_utf8(d.to_vec()).map_err(|e| anyhow::anyhow!(e))
         })
         .unwrap();
         assert_eq!(result, "hello world");
@@ -240,7 +240,7 @@ mod tests {
         fs::write(&bak, b"backup data").unwrap();
 
         let result: String = RobustFile::load(&file, |d| {
-            Ok(String::from_utf8(d.to_vec()).map_err(|e| anyhow::anyhow!(e))?)
+            String::from_utf8(d.to_vec()).map_err(|e| anyhow::anyhow!(e))
         })
         .unwrap();
         assert_eq!(result, "backup data");
@@ -252,7 +252,7 @@ mod tests {
         let file = dir.path().join("nonexistent.dat");
 
         let result: Result<String> = RobustFile::load_backup(&file, |d| {
-            Ok(String::from_utf8(d.to_vec()).map_err(|e| anyhow::anyhow!(e))?)
+            String::from_utf8(d.to_vec()).map_err(|e| anyhow::anyhow!(e))
         });
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();

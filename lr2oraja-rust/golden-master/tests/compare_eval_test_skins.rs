@@ -5,6 +5,8 @@
 //
 // Run: cargo test -p golden-master compare_eval_test_skins -- --nocapture
 
+#![allow(clippy::field_reassign_with_default)]
+
 use golden_master::render_snapshot::{DrawCommand, RenderSnapshot, capture_render_snapshot};
 use golden_master::state_provider::StaticStateProvider;
 

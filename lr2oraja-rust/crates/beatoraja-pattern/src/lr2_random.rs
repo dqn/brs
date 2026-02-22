@@ -136,7 +136,7 @@ mod tests {
         let mut rng = LR2Random::with_seed(42);
         for _ in 0..10000 {
             let val = rng.next_int(10);
-            assert!(val >= 0 && val < 10, "next_int(10) returned {}", val);
+            assert!((0..10).contains(&val), "next_int(10) returned {}", val);
         }
     }
 

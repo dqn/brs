@@ -208,26 +208,26 @@ mod tests {
 
     #[test]
     fn test_new_with_audio_driver_trait() {
-        let mut audio = MockAudioDriver::new();
+        let audio = MockAudioDriver::new();
         let config = Config::default();
-        let processor = PreviewMusicProcessor::new(&mut audio, &config);
+        let processor = PreviewMusicProcessor::new(&audio, &config);
         assert!(processor.get_song_data().is_none());
     }
 
     #[test]
     fn test_set_default() {
-        let mut audio = MockAudioDriver::new();
+        let audio = MockAudioDriver::new();
         let config = Config::default();
-        let mut processor = PreviewMusicProcessor::new(&mut audio, &config);
+        let mut processor = PreviewMusicProcessor::new(&audio, &config);
         processor.set_default("/path/to/bgm.ogg");
         assert_eq!(processor.default_music, "/path/to/bgm.ogg");
     }
 
     #[test]
     fn test_start_with_none_song() {
-        let mut audio = MockAudioDriver::new();
+        let audio = MockAudioDriver::new();
         let config = Config::default();
-        let mut processor = PreviewMusicProcessor::new(&mut audio, &config);
+        let mut processor = PreviewMusicProcessor::new(&audio, &config);
         processor.start(None);
         assert!(processor.get_song_data().is_none());
         // Command queue should have one entry (empty path)
@@ -236,9 +236,9 @@ mod tests {
 
     #[test]
     fn test_start_with_song() {
-        let mut audio = MockAudioDriver::new();
+        let audio = MockAudioDriver::new();
         let config = Config::default();
-        let mut processor = PreviewMusicProcessor::new(&mut audio, &config);
+        let mut processor = PreviewMusicProcessor::new(&audio, &config);
 
         let mut song = SongData::default();
         song.sha256 = "abc".to_string();
@@ -249,9 +249,9 @@ mod tests {
 
     #[test]
     fn test_stop() {
-        let mut audio = MockAudioDriver::new();
+        let audio = MockAudioDriver::new();
         let config = Config::default();
-        let mut processor = PreviewMusicProcessor::new(&mut audio, &config);
+        let mut processor = PreviewMusicProcessor::new(&audio, &config);
         processor.preview_running.store(true, Ordering::SeqCst);
         processor.stop();
         assert!(!processor.preview_running.load(Ordering::SeqCst));

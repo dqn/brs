@@ -22,10 +22,10 @@ fn parse_minimal_7k() -> BMSModel {
     );
 
     let mut decoder = BMSDecoder::new();
-    let model = decoder
+
+    decoder
         .decode_path(&bms_path)
-        .expect("Failed to decode minimal_7k.bms");
-    model
+        .expect("Failed to decode minimal_7k.bms")
 }
 
 /// Collect note positions (lane indices that have a note) from all timelines.

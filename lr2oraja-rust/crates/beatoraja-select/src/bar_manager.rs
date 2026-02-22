@@ -324,7 +324,7 @@ impl BarManager {
         let mut sourcebar_title: Option<String> = None;
         let mut sourcebar_sha256: Option<String> = None;
         let mut sourcebar_is_song = false;
-        let mut sourcebar_class_name = "";
+        let mut _sourcebar_class_name = "";
         let mut l: Vec<Bar> = Vec::new();
         let mut show_invisible_charts = false;
         let mut is_sortable = true;
@@ -410,7 +410,7 @@ impl BarManager {
                             .filter(|s| s.exists_song())
                             .map(|s| s.get_song_data().get_sha256().to_string());
                         sourcebar_is_song = sb.as_song_bar().is_some();
-                        sourcebar_class_name = bar_class_name(&sb);
+                        _sourcebar_class_name = bar_class_name(&sb);
                     }
                 }
                 self.dir.pop();
@@ -520,7 +520,7 @@ impl BarManager {
                                     && sd.get_mode() != 0
                                     && sd.get_mode()
                                         != mode_clone.as_ref().map(|m| m.id()).unwrap_or(0);
-                                !(!show_invisible_charts && invisible != 0) && !mode_mismatch
+                                (show_invisible_charts || invisible == 0) && !mode_mismatch
                             } else {
                                 true
                             }
@@ -1189,6 +1189,7 @@ impl BarContentsLoaderThread {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
 
@@ -1343,7 +1344,7 @@ mod tests {
         let mut visible = make_song_data("visible", Some("/v.bms"));
         visible.favorite = 0;
         let mut invisible = make_song_data("invisible", Some("/i.bms"));
-        invisible.favorite = INVISIBLE_SONG as i32;
+        invisible.favorite = INVISIBLE_SONG;
 
         manager.currentsongs = vec![
             Bar::Song(Box::new(SongBar::new(visible.clone()))),

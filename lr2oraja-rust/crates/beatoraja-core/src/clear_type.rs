@@ -116,7 +116,7 @@ mod tests {
     #[test]
     fn test_clear_type_clone_and_copy() {
         let ct = ClearType::Hard;
-        let cloned = ct.clone();
+        let cloned = ct;
         let copied = ct;
         assert_eq!(ct, cloned);
         assert_eq!(ct, copied);

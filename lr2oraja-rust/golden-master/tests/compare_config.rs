@@ -18,17 +18,16 @@ fn fixtures_dir() -> &'static Path {
 /// Pre-process JSON to fix Java mode hint format ("beat-7k") to Rust enum variant ("BEAT_7K").
 fn fix_mode_hint(json: &str) -> String {
     let mut value: serde_json::Value = serde_json::from_str(json).expect("JSON parse failed");
-    if let Some(obj) = value.as_object_mut() {
-        if let Some(mode_val) = obj
+    if let Some(obj) = value.as_object_mut()
+        && let Some(mode_val) = obj
             .get("mode")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
-        {
-            // Convert hint format to enum variant: "beat-7k" -> "BEAT_7K"
-            let converted = mode_val.replace('-', "_").to_uppercase();
-            if Mode::get_mode(&mode_val).is_some() {
-                obj.insert("mode".to_string(), serde_json::Value::String(converted));
-            }
+    {
+        // Convert hint format to enum variant: "beat-7k" -> "BEAT_7K"
+        let converted = mode_val.replace('-', "_").to_uppercase();
+        if Mode::get_mode(&mode_val).is_some() {
+            obj.insert("mode".to_string(), serde_json::Value::String(converted));
         }
     }
     serde_json::to_string(&value).unwrap()

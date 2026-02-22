@@ -85,11 +85,12 @@ fn capture_notes(model: &BMSModel) -> Vec<ModifierNote> {
                     // Find the paired end note by scanning forward
                     let mut end_time = None;
                     for future_tl in &timelines[(tl_idx + 1)..] {
-                        if let Some(end_note) = future_tl.get_note(lane) {
-                            if end_note.is_long() && end_note.is_end() {
-                                end_time = Some((future_tl.get_micro_time() / 1000) as i32);
-                                break;
-                            }
+                        if let Some(end_note) = future_tl.get_note(lane)
+                            && end_note.is_long()
+                            && end_note.is_end()
+                        {
+                            end_time = Some((future_tl.get_micro_time() / 1000) as i32);
+                            break;
                         }
                     }
                     end_time

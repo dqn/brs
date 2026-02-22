@@ -82,7 +82,7 @@ fn replay_json_round_trip() {
     let replay = ReplayData {
         player: Some("test".to_string()),
         sha256: Some("abc123".to_string()),
-        mode: model.get_mode().map(|m| m.key() as i32).unwrap_or(0),
+        mode: model.get_mode().map(|m| m.key()).unwrap_or(0),
         keylog: replay_keylog.clone(),
         gauge: NORMAL,
         ..Default::default()
@@ -116,10 +116,7 @@ fn replay_json_round_trip() {
     // Verify metadata
     assert_eq!(loaded.player.as_deref(), Some("test"));
     assert_eq!(loaded.sha256.as_deref(), Some("abc123"));
-    assert_eq!(
-        loaded.mode,
-        model.get_mode().map(|m| m.key() as i32).unwrap_or(0)
-    );
+    assert_eq!(loaded.mode, model.get_mode().map(|m| m.key()).unwrap_or(0));
 }
 
 /// JSON round-trip preserves playback: loaded keylog produces same simulation result.
@@ -142,7 +139,7 @@ fn replay_json_playback_matches() {
         .collect();
 
     let replay = ReplayData {
-        mode: model.get_mode().map(|m| m.key() as i32).unwrap_or(0),
+        mode: model.get_mode().map(|m| m.key()).unwrap_or(0),
         keylog: replay_keylog,
         ..Default::default()
     };

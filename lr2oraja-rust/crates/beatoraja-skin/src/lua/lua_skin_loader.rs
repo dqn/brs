@@ -198,8 +198,8 @@ mod tests {
             Some(serde_json::json!(42))
         );
         assert_eq!(
-            lua_to_json(&LuaValue::Number(3.14)),
-            Some(serde_json::json!(3.14))
+            lua_to_json(&LuaValue::Number(2.75)),
+            Some(serde_json::json!(2.75))
         );
     }
 

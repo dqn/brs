@@ -1061,6 +1061,7 @@ impl ConvergeRandomizer {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
 
@@ -1360,7 +1361,7 @@ mod tests {
     fn button_combination_table_values_in_range() {
         for entry in button_combination_table() {
             for &val in entry {
-                assert!(val >= 0 && val <= 8, "Value {} out of range", val);
+                assert!((0..=8).contains(&val), "Value {} out of range", val);
             }
         }
     }

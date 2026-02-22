@@ -884,6 +884,40 @@ pub fn search_for_no_murioshi_lane_combinations(
     no_murioshi_lane_combinations
 }
 
+impl PatternModifier for LanePlayableRandomShuffleModifier {
+    fn modify(&mut self, model: &mut BMSModel) {
+        self.random = lane_shuffle_modify(
+            &mut self.base,
+            model,
+            self.is_scratch_lane_modify,
+            true,
+            Self::make_random,
+        );
+    }
+
+    fn get_assist_level(&self) -> AssistLevel {
+        self.base.assist
+    }
+
+    fn set_assist_level(&mut self, assist: AssistLevel) {
+        self.base.assist = assist;
+    }
+
+    fn get_seed(&self) -> i64 {
+        self.base.seed
+    }
+
+    fn set_seed(&mut self, seed: i64) {
+        if seed >= 0 {
+            self.base.seed = seed;
+        }
+    }
+
+    fn get_player(&self) -> i32 {
+        self.base.player
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1191,39 +1225,5 @@ mod tests {
         assert_eq!(result.len(), keys.len() * 2);
         assert_eq!(&result[..keys.len()], &keys[..]);
         assert_eq!(&result[keys.len()..], &keys[..]);
-    }
-}
-
-impl PatternModifier for LanePlayableRandomShuffleModifier {
-    fn modify(&mut self, model: &mut BMSModel) {
-        self.random = lane_shuffle_modify(
-            &mut self.base,
-            model,
-            self.is_scratch_lane_modify,
-            true,
-            Self::make_random,
-        );
-    }
-
-    fn get_assist_level(&self) -> AssistLevel {
-        self.base.assist
-    }
-
-    fn set_assist_level(&mut self, assist: AssistLevel) {
-        self.base.assist = assist;
-    }
-
-    fn get_seed(&self) -> i64 {
-        self.base.seed
-    }
-
-    fn set_seed(&mut self, seed: i64) {
-        if seed >= 0 {
-            self.base.seed = seed;
-        }
-    }
-
-    fn get_player(&self) -> i32 {
-        self.base.player
     }
 }

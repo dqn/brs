@@ -105,11 +105,8 @@ fn compare_course_data(
     }
 
     // Compare constraints
-    let rust_constraint_names: Vec<String> = rust
-        .constraint
-        .iter()
-        .map(|c| constraint_to_string(c))
-        .collect();
+    let rust_constraint_names: Vec<String> =
+        rust.constraint.iter().map(constraint_to_string).collect();
     if rust_constraint_names.len() != java.constraint.len() {
         diffs.push(format!(
             "constraint.len: rust={} java={}",
