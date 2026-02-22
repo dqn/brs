@@ -78,11 +78,8 @@ impl MainController {
 // IR (Internet Ranking) stubs
 // ============================================================
 
-/// Stub for bms.player.beatoraja.MainController.IRStatus
-pub struct IRStatus {
-    pub connection: Arc<dyn IRConnection>,
-    pub config: IRConfig,
-}
+// IRStatus: moved to crate::ir_status (Phase 18e-7)
+pub use crate::ir_status::IRStatus;
 
 // IRConnection: replaced by pub use from beatoraja_ir (trait)
 pub use beatoraja_ir::ir_connection::IRConnection;
@@ -103,33 +100,8 @@ pub use beatoraja_ir::ranking_data::RankingData;
 // MainController.IRSendStatus (for MusicResult)
 // ============================================================
 
-/// Stub for bms.player.beatoraja.MainController.IRSendStatus
-pub struct IRSendStatusMain {
-    pub connection: Arc<dyn IRConnection>,
-    pub songdata: SongData,
-    pub score: beatoraja_core::score_data::ScoreData,
-    pub retry: i32,
-}
-
-impl IRSendStatusMain {
-    pub fn new(
-        connection: Arc<dyn IRConnection>,
-        songdata: &SongData,
-        score: &beatoraja_core::score_data::ScoreData,
-    ) -> Self {
-        Self {
-            connection,
-            songdata: songdata.clone(),
-            score: score.clone(),
-            retry: 0,
-        }
-    }
-
-    pub fn send(&mut self) -> bool {
-        log::warn!("not yet implemented: IRSendStatus.send");
-        false
-    }
-}
+// IRSendStatusMain: moved to crate::ir_send_status (Phase 18e-7)
+pub use crate::ir_send_status::IRSendStatusMain;
 
 // BMSPlayerInputProcessor: replaced by pub use from beatoraja_input (Phase 18e-9)
 

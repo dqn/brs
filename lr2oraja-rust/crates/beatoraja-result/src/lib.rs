@@ -13,6 +13,10 @@
 // Stubs for external dependencies
 pub mod stubs;
 
+// IR types (moved from stubs.rs)
+pub mod ir_send_status;
+pub mod ir_status;
+
 // Result screen modules
 pub mod abstract_result;
 pub mod course_result;
