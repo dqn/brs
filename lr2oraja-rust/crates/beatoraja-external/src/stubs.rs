@@ -1,6 +1,6 @@
 // External dependency stubs for beatoraja-external crate
 
-use beatoraja_types::player_resource_access::PlayerResourceAccess;
+use beatoraja_types::player_resource_access::{NullPlayerResource, PlayerResourceAccess};
 
 //
 // Stubs replaced with real types:
@@ -12,9 +12,12 @@ use beatoraja_types::player_resource_access::PlayerResourceAccess;
 //
 // Remaining stubs — Why they cannot be replaced:
 //
-// MainController, PlayerResource:
-//   Real types depend on beatoraja-core internals and screen lifecycle.
-//   External code accesses through chain like state.resource.get_config().
+// MainController:
+//   Replaced with NullMainController from beatoraja-types (Phase 18e-2).
+//
+// PlayerResource:
+//   Replaced with Box<dyn PlayerResourceAccess> wrapper (Phase 18e-2).
+//   get_original_mode() is crate-local (Mode from bms-model, not on trait).
 //
 // MainState:
 //   Real type is a trait (beatoraja_core::main_state::MainState), but external
@@ -38,9 +41,7 @@ use beatoraja_types::player_resource_access::PlayerResourceAccess;
 //   on real types.
 //
 // Mode:
-//   Real bms_model::mode::Mode is enum (no id field). Could theoretically replace
-//   but used via state.resource.get_original_mode() which returns Option<()> in
-//   real PlayerResource, not &Mode. Chain is broken.
+//   Replaced with real bms_model::mode::Mode enum (Phase 18e-2).
 //
 // IntegerProperty, BooleanProperty, StringProperty traits + factories:
 //   Real traits in beatoraja-skin reference beatoraja-skin's own MainState stub
@@ -62,33 +63,39 @@ use beatoraja_types::player_resource_access::PlayerResourceAccess;
 pub use beatoraja_types::main_controller_access::NullMainController;
 
 // ============================================================
-// PlayerResource stub
+// PlayerResource — replaced with Box<dyn PlayerResourceAccess> wrapper (Phase 18e-2)
 // ============================================================
 
-/// Stub for bms.player.beatoraja.PlayerResource
+/// Wrapper for bms.player.beatoraja.PlayerResource.
+/// Delegates to `Box<dyn PlayerResourceAccess>` for trait methods.
+/// `get_original_mode()` is crate-local (not on trait, since Mode lives in bms-model).
 pub struct PlayerResource {
-    pub config: Config,
-    pub songdata: SongData,
-    pub replay_data: ReplayData,
-    pub reverse_lookup_levels: Vec<String>,
-    pub original_mode: Mode,
+    inner: Box<dyn PlayerResourceAccess>,
+    original_mode: Mode,
 }
 
 impl PlayerResource {
+    pub fn new(inner: Box<dyn PlayerResourceAccess>, original_mode: Mode) -> Self {
+        Self {
+            inner,
+            original_mode,
+        }
+    }
+
     pub fn get_config(&self) -> &Config {
-        &self.config
+        self.inner.get_config()
     }
 
-    pub fn get_songdata(&self) -> &SongData {
-        &self.songdata
+    pub fn get_songdata(&self) -> Option<&SongData> {
+        self.inner.get_songdata()
     }
 
-    pub fn get_replay_data(&self) -> &ReplayData {
-        &self.replay_data
+    pub fn get_replay_data(&self) -> Option<&ReplayData> {
+        self.inner.get_replay_data()
     }
 
-    pub fn get_reverse_lookup_levels(&self) -> &[String] {
-        &self.reverse_lookup_levels
+    pub fn get_reverse_lookup_levels(&self) -> Vec<String> {
+        self.inner.get_reverse_lookup_levels()
     }
 
     pub fn get_original_mode(&self) -> &Mode {
@@ -96,96 +103,12 @@ impl PlayerResource {
     }
 }
 
-impl PlayerResourceAccess for PlayerResource {
-    fn get_config(&self) -> &Config {
-        &self.config
-    }
-    fn get_player_config(&self) -> &PlayerConfig {
-        log::warn!("PlayerResource::get_player_config called — returning default");
-        static PCONFIG: std::sync::OnceLock<PlayerConfig> = std::sync::OnceLock::new();
-        PCONFIG.get_or_init(PlayerConfig::default)
-    }
-    fn get_score_data(&self) -> Option<&beatoraja_types::score_data::ScoreData> {
-        None
-    }
-    fn get_rival_score_data(&self) -> Option<&beatoraja_types::score_data::ScoreData> {
-        None
-    }
-    fn get_target_score_data(&self) -> Option<&beatoraja_types::score_data::ScoreData> {
-        None
-    }
-    fn get_course_score_data(&self) -> Option<&beatoraja_types::score_data::ScoreData> {
-        None
-    }
-    fn set_course_score_data(&mut self, _score: beatoraja_types::score_data::ScoreData) {
-        // no-op
-    }
-    fn get_songdata(&self) -> Option<&beatoraja_types::song_data::SongData> {
-        Some(&self.songdata)
-    }
-    fn get_replay_data(&self) -> Option<&beatoraja_types::replay_data::ReplayData> {
-        Some(&self.replay_data)
-    }
-    fn get_course_replay(&self) -> &[beatoraja_types::replay_data::ReplayData] {
-        &[]
-    }
-    fn add_course_replay(&mut self, _rd: beatoraja_types::replay_data::ReplayData) {
-        // no-op
-    }
-    fn get_course_data(&self) -> Option<&beatoraja_types::course_data::CourseData> {
-        None
-    }
-    fn get_course_index(&self) -> usize {
-        0
-    }
-    fn next_course(&mut self) -> bool {
-        false
-    }
-    fn get_constraint(&self) -> Vec<beatoraja_types::course_data::CourseDataConstraint> {
-        vec![]
-    }
-    fn get_gauge(&self) -> Option<&Vec<Vec<f32>>> {
-        None
-    }
-    fn get_groove_gauge(&self) -> Option<&beatoraja_types::groove_gauge::GrooveGauge> {
-        None
-    }
-    fn get_course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
-        static EMPTY: Vec<Vec<Vec<f32>>> = Vec::new();
-        &EMPTY
-    }
-    fn add_course_gauge(&mut self, _gauge: Vec<Vec<f32>>) {
-        // no-op
-    }
-    fn get_maxcombo(&self) -> i32 {
-        0
-    }
-    fn get_org_gauge_option(&self) -> i32 {
-        0
-    }
-    fn set_org_gauge_option(&mut self, _val: i32) {
-        // no-op
-    }
-    fn get_assist(&self) -> i32 {
-        0
-    }
-    fn is_update_score(&self) -> bool {
-        false
-    }
-    fn is_update_course_score(&self) -> bool {
-        false
-    }
-    fn is_force_no_ir_send(&self) -> bool {
-        false
-    }
-    fn is_freq_on(&self) -> bool {
-        false
-    }
-    fn get_reverse_lookup_data(&self) -> Vec<String> {
-        vec![]
-    }
-    fn get_reverse_lookup_levels(&self) -> Vec<String> {
-        self.reverse_lookup_levels.clone()
+impl Default for PlayerResource {
+    fn default() -> Self {
+        Self {
+            inner: Box::new(NullPlayerResource),
+            original_mode: Mode::BEAT_7K,
+        }
     }
 }
 
@@ -309,24 +232,10 @@ impl AbstractResult {
 pub use beatoraja_core::replay_data::ReplayData;
 
 // ============================================================
-// Mode stub
+// Mode — replaced with real type from bms-model
 // ============================================================
 
-/// Stub for bms.model.Mode
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Mode {
-    pub id: i32,
-}
-
-impl Default for Mode {
-    fn default() -> Self {
-        Self { id: 7 }
-    }
-}
-
-impl Mode {
-    pub const BEAT_7K: Mode = Mode { id: 7 };
-}
+pub use bms_model::mode::Mode;
 
 // ============================================================
 // TableData and related stubs

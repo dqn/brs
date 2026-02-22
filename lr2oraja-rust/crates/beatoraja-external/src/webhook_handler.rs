@@ -207,8 +207,9 @@ impl WebhookHandler {
                             )
                         );
                     }
-                    if *current_state.resource.get_original_mode() == Mode::BEAT_7K {
-                        let rd = current_state.resource.get_replay_data();
+                    if *current_state.resource.get_original_mode() == Mode::BEAT_7K
+                        && let Some(rd) = current_state.resource.get_replay_data()
+                    {
                         description += &format!("**PATTERN: {}** \n", Self::format_random(rd));
                     }
                     description += &Self::format_links(current_state);
@@ -286,7 +287,9 @@ impl WebhookHandler {
     }
 
     fn format_links(current_state: &MainState) -> String {
-        let song = current_state.resource.get_songdata();
+        let Some(song) = current_state.resource.get_songdata() else {
+            return String::new();
+        };
         let mut ss = String::new();
         let md5 = song.get_md5();
         let lr2ir = "http://www.dream-pro.info/~lavalse/LR2IR/search.cgi?mode=ranking&bmsmd5=";

@@ -71,15 +71,16 @@ impl MainStateListener for DiscordListener {
                     data = data.set_state("Decide Screen".to_string());
                 }
                 ScreenType::BMSPlayer => {
-                    let resource = &state.resource;
-                    let songdata = resource.get_songdata();
-                    let full_title = if songdata.subtitle.is_empty() {
-                        songdata.title.clone()
-                    } else {
-                        format!("{} {}", songdata.title, songdata.subtitle)
-                    };
-                    data = data.set_details(format!("{} / {}", full_title, songdata.get_artist()));
-                    data = data.set_state(format!("Playing: {}Keys", songdata.get_mode()));
+                    if let Some(songdata) = state.resource.get_songdata() {
+                        let full_title = if songdata.subtitle.is_empty() {
+                            songdata.title.clone()
+                        } else {
+                            format!("{} {}", songdata.title, songdata.subtitle)
+                        };
+                        data =
+                            data.set_details(format!("{} / {}", full_title, songdata.get_artist()));
+                        data = data.set_state(format!("Playing: {}Keys", songdata.get_mode()));
+                    }
                 }
                 ScreenType::MusicResult => {
                     data = data.set_state("Result Screen".to_string());

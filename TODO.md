@@ -90,15 +90,15 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 - [ ] beatoraja-modmenu: `get_current_state()` and `load_new_profile()` are **unused** (dead code). Real blocker: stub `PlayerConfig` uses `Vec<SkinConfig>` but real type uses `Vec<Option<SkinConfig>>`; `SkinConfig.path` is `String` vs `Option<String>`; `SkinConfigProperty` vs `SkinProperty` with `Option<>` wrapping throughout. Requires ~15 call sites in skin_menu.rs to add Option handling. Moderate refactoring task
 - [ ] md-processor: `MainControllerRef` trait with `update_song(&self, path: &str, force: bool)` is **dead code** — `HttpDownloadProcessor` is never instantiated anywhere. Deferred to HttpDownloadProcessor activation
 
-##### PlayerResource stubs — completed (4 of 6 crates)
+##### PlayerResource stubs — completed (5 of 6 crates)
 
 - [x] beatoraja-select: Removed empty `pub struct PlayerResource;` — zero usage (deleted alongside MainController)
 - [x] beatoraja-decide: Replaced `PlayerResourceRef` + `PlayerConfigRef` + 29-method `PlayerResourceAccess` impl with `Box<dyn PlayerResourceAccess>` from beatoraja-types. `MusicDecide::resource` now trait-based. `NullPlayerResource` re-exported for default construction
 - [x] beatoraja-obs/beatoraja-modmenu have no PlayerResource stubs
+- [x] beatoraja-external: Replaced concrete `PlayerResource` struct (5 fields, 5 methods, 29-method `PlayerResourceAccess` impl) with `Box<dyn PlayerResourceAccess>` wrapper + `original_mode: Mode` (from `bms_model::mode::Mode`). Stub `Mode` struct replaced with real enum. Callers updated to handle `Option<>` returns (`get_songdata()`, `get_replay_data()`). `get_original_mode()` kept as crate-local method (not on trait). 1241 tests pass
 
-##### PlayerResource stubs — remaining (2 crates)
+##### PlayerResource stubs — remaining (1 crate)
 
-- [ ] beatoraja-external: 6 method calls via concrete struct. Trait methods return `Option<>` types but callers use non-optional direct getters (`get_songdata() -> &SongData` vs trait `Option<&SongData>`, `get_replay_data() -> &ReplayData` vs trait `Option<&ReplayData>`, `get_reverse_lookup_levels() -> &[String]` vs trait `Vec<String>`). Also `get_original_mode() -> &Mode` not on trait. Requires caller updates + extension trait, not just a type swap
 - [ ] beatoraja-result: Blocked — heavily uses mutable access (5 `_mut()` getters) and types not on trait (`BMSModel`, `RankingData`, `FloatArray` vs `Vec<f32>`, `GrooveGaugeStub` vs `GrooveGauge`). Requires trait expansion or per-crate extension trait
 
 ##### Other stubs — remaining
@@ -138,5 +138,5 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 
 ## Remaining Stubs
 
-- **Lifecycle (mostly resolved):** MainController stubs removed from obs/external/ir/select (Phase 18e-2). Remaining MainController: result (6 methods actively used, blocked), modmenu (type incompatibility, moderate refactoring), md-processor (dead code, deferred). PlayerResource stubs removed from select/decide. Remaining PlayerResource: external (caller type mismatches + missing trait method), result (blocked). MainState stubs require per-screen concrete implementations
+- **Lifecycle (mostly resolved):** MainController stubs removed from obs/external/ir/select (Phase 18e-2). Remaining MainController: result (6 methods actively used, blocked), modmenu (type incompatibility, moderate refactoring), md-processor (dead code, deferred). PlayerResource stubs removed from select/decide/external. Remaining PlayerResource: result (blocked). MainState stubs require per-screen concrete implementations
 - **Rendering re-exports:** `rendering_stubs.rs` in beatoraja-skin now re-exports real beatoraja-render types (resolved, not stubs)
