@@ -58,24 +58,26 @@ All phases (1–21) complete. 1396 tests pass. See AGENTS.md for full status.
 
 - [ ] SkinObject→GPU rendering gap: SkinLoader produces Skin with SkinObjects, but no wgpu draw calls yet
 - [ ] Remaining stubs: ~2,200 lines across 16 stubs.rs files — blocked by rendering, database implementations
-- [ ] MainController still has ~15 stub methods (database access, polling thread, updateStateReferences) — partially unblocked by Phase 21, remaining blocked on Phase 22-23
-- [ ] StateFactory concrete implementation needed in beatoraja-launcher to wire all screen states
+- [ ] MainController still has ~12 stub methods (polling thread, updateStateReferences, audio driver) — partially unblocked by Phase 21/23, remaining blocked on Phase 22
+- [x] StateFactory concrete implementation — DONE (Phase 23): LauncherStateFactory in beatoraja-launcher wires all 7 screen states
 
 ## Next Phases (planned)
 
-### Phase 22: Rendering Pipeline (SkinObject→GPU)
+### Phase 22: Rendering Pipeline (SkinObject→GPU) — in progress
 
 Unblocks: Phase 16b render snapshot tests, Phase 18f E2E tests, visual output
 
-- [ ] Wire SkinObject draw calls to wgpu render pass
-- [ ] Implement SkinText/SkinNumber/SkinImage GPU rendering
-- [ ] Connect SkinObjectRenderer dispatch
-- [ ] Frame timing and animation system
+- [x] **22a: WGSL sprite shader + wgpu render pipeline + SpriteBatch GPU flush** — WGSL shaders for all 6 Java shader types (Normal, Linear, Bilinear, FFmpeg, Layer, DistanceField), SpriteRenderPipeline with 30 pipeline variants (6 shaders x 5 blend modes), SpriteBatch flush_to_gpu(), SkinObjectRenderer pre_draw/post_draw wired with shader switching + blend state + color save/restore. +43 new tests
+- [ ] **22b:** Implement SkinObject draw methods (SkinImage/SkinNumber/SkinText)
+- [ ] **22c:** Frame timing and animation system
 
-### Phase 23: Database Integration
+### Phase 23: Database Integration — partially complete
 
 Unblocks: SongDatabaseAccessor stubs, PlayDataAccessor stubs
 
-- [ ] Wire rusqlite SongDatabaseAccessor with real schema
-- [ ] Implement PlayDataAccessor for score persistence
-- [ ] Connect to MusicSelector song list loading
+- [x] **23a: LauncherStateFactory** — Concrete StateFactory impl in beatoraja-launcher. Creates all 7 state types (MusicSelect, Decide, Play, Result, CourseResult, Config, SkinConfig). Wired with MainController state dispatch. +10 tests
+- [x] **23b: MainController DB wiring** — `songdb: Option<Box<dyn SongDatabaseAccessor>>` field on MainController, `set_song_database()` / `get_song_database()` methods. `PlayDataAccessor::new(&config)` in constructor and initialize_states()
+- [x] **23c: MusicSelector DB injection** — `with_song_database()` constructor for injecting `Box<dyn SongDatabaseAccessor>`
+- [x] **23d: CourseResult MainState** — Added `MainState` trait impl to CourseResult with `main_data: MainStateData` field
+- [ ] Wire rusqlite SongDatabaseAccessor with real schema — blocked: requires MainLoader.play() launcher entry point
+- [ ] Connect to MusicSelector song list loading — blocked: BarManager needs songdb for initial bar creation

@@ -84,16 +84,18 @@ All phases complete. **1396 tests pass. Zero runtime `todo!()`/`unimplemented!()
 - **Phase 19:** SkinData→Skin Loading Pipeline — JsonSkinObjectLoader base conversion (all skin object types), screen-specific loaders (Play/Select + 5 minimal), LuaSkinLoader (mlua-based Lua→JsonSkin), SkinLoader entry points. +1,469 lines, +20 tests
 - **Phase 20:** IRConnection Integration — IRSendStatus.send() with score submission, IRInitializer for connection setup/login, IRResendLoop with exponential backoff (tokio), IRStatus with real connection type. +263 lines + 2 new files, +13 tests
 - **Phase 21:** Per-Screen MainState + State Dispatch — All 6 screen states (MusicSelector, MusicDecide, BMSPlayer, MusicResult, KeyConfiguration, SkinConfiguration) implement MainState trait. MainController state dispatch via StateFactory trait (cross-crate), change_state() with Java-matching switch logic, transition lifecycle (create/prepare/shutdown), lifecycle dispatch (render/pause/resume/resize/dispose), decide-skip logic. +23 tests
+- **Phase 22a:** WGSL Sprite Shader + Render Pipeline + SpriteBatch GPU Flush — WGSL shaders for all 6 Java shader types (Normal, Linear, Bilinear, FFmpeg, Layer, DistanceField), SpriteRenderPipeline with 30 pipeline variants (6 shaders x 5 blend modes), SpriteBatch flush_to_gpu() with vertex buffer upload, SkinObjectRenderer pre_draw/post_draw wired (shader switching, blend state, color save/restore). +43 tests
+- **Phase 23a–d:** LauncherStateFactory + DB wiring — LauncherStateFactory concrete impl in beatoraja-launcher (all 7 state types), MainController `songdb` field + `set_song_database()`/`get_song_database()`, PlayDataAccessor init in constructor, MusicSelector `with_song_database()` injection, CourseResult MainState trait impl. +10 tests
 
-## Remaining Stubs (~2,200 lines across 16 files, all blocked)
+## Remaining Stubs (~2,100 lines across 16 files, all blocked)
 
-- **MainController:** ~15 stub methods (database access, polling thread, updateStateReferences — blocker: Phase 22-23), md-processor (intentional adapter, deferred), modmenu (3 methods, until real MainController). State dispatch now functional via StateFactory trait
+- **MainController:** ~12 stub methods (polling thread, updateStateReferences, audio driver — blocker: Phase 22), md-processor (intentional adapter, deferred), modmenu (3 methods, until real MainController). State dispatch functional via StateFactory trait. DB wiring done (songdb + playdata)
 - **Rendering:** SkinText/SkinNumber/SkinImage/SkinObject/SkinObjectRenderer (select), Skin/SkinObject/Rectangle (modmenu), SkinStub (decide), SkinObjectData (result), LibGDX stubs (external) — all blocked on rendering pipeline (Phase 22)
-- **Per-screen:** EventType/AudioDriver (select), AbstractResult/ScreenType (external), MusicSelector/Bar/SongBar (modmenu) — blocked on Phase 22. MainState trait impls **DONE** for all 6 screens
-- **Other:** Twitter4j (intentional bail), Property stubs (MainState type mismatch), ScoreDatabaseAccessor (external — Phase 23), DownloadTask (select)
+- **Per-screen:** EventType/AudioDriver (select), AbstractResult/ScreenType (external), MusicSelector/Bar/SongBar (modmenu) — blocked on Phase 22. MainState trait impls **DONE** for all 7 screens (including CourseResult)
+- **Other:** Twitter4j (intentional bail), Property stubs (MainState type mismatch), DownloadTask (select)
 - **Clean crates:** beatoraja-obs/stream/ir/md-processor/pattern (re-exports only, zero real stubs)
 - **Platform:** Windows named pipe (not yet implemented)
-- **StateFactory:** Concrete implementation needed in beatoraja-launcher to wire all screen state types
+- **StateFactory:** DONE — LauncherStateFactory in beatoraja-launcher wires all 7 screen state types
 
 ## Lessons Learned
 
