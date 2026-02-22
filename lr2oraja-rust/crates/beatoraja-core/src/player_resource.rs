@@ -641,6 +641,18 @@ impl PlayerResourceAccess for PlayerResource {
         self.coursegauge.push(gauge);
     }
 
+    fn get_course_gauge_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
+        &mut self.coursegauge
+    }
+
+    fn get_score_data_mut(&mut self) -> Option<&mut ScoreData> {
+        self.score.as_mut()
+    }
+
+    fn get_course_replay_mut(&mut self) -> &mut Vec<ReplayData> {
+        &mut self.course_replay
+    }
+
     fn get_maxcombo(&self) -> i32 {
         self.maxcombo
     }

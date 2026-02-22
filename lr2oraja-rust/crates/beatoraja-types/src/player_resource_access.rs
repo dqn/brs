@@ -84,6 +84,17 @@ pub trait PlayerResourceAccess {
     /// Add a course gauge entry
     fn add_course_gauge(&mut self, gauge: Vec<Vec<f32>>);
 
+    /// Get mutable course gauge history
+    fn get_course_gauge_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>>;
+
+    // ---- Mutable access ----
+
+    /// Get mutable score data
+    fn get_score_data_mut(&mut self) -> Option<&mut ScoreData>;
+
+    /// Get mutable course replay data
+    fn get_course_replay_mut(&mut self) -> &mut Vec<ReplayData>;
+
     // ---- Numeric state ----
 
     /// Get max combo count
@@ -123,9 +134,17 @@ pub trait PlayerResourceAccess {
 
 /// Null implementation of PlayerResourceAccess for stub contexts.
 /// All methods log a warning and return defaults.
-pub struct NullPlayerResource;
+#[derive(Default)]
+pub struct NullPlayerResource {
+    course_replay: Vec<ReplayData>,
+    course_gauge: Vec<Vec<Vec<f32>>>,
+}
 
 impl NullPlayerResource {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     fn null_config() -> &'static Config {
         use std::sync::OnceLock;
         static CONFIG: OnceLock<Config> = OnceLock::new();
@@ -195,6 +214,15 @@ impl PlayerResourceAccess for NullPlayerResource {
         &EMPTY
     }
     fn add_course_gauge(&mut self, _gauge: Vec<Vec<f32>>) {}
+    fn get_course_gauge_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
+        &mut self.course_gauge
+    }
+    fn get_score_data_mut(&mut self) -> Option<&mut ScoreData> {
+        None
+    }
+    fn get_course_replay_mut(&mut self) -> &mut Vec<ReplayData> {
+        &mut self.course_replay
+    }
     fn get_maxcombo(&self) -> i32 {
         0
     }

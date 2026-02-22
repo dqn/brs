@@ -106,7 +106,7 @@ impl PlayerResource {
 impl Default for PlayerResource {
     fn default() -> Self {
         Self {
-            inner: Box::new(NullPlayerResource),
+            inner: Box::new(NullPlayerResource::new()),
             original_mode: Mode::BEAT_7K,
         }
     }

@@ -120,27 +120,9 @@ impl MainController {
         Box::leak(Box::new(BMSPlayerInputProcessor))
     }
 
-    pub fn get_config(&self) -> &beatoraja_core::config::Config {
-        log::warn!("not yet implemented: MainController.getConfig");
-        static DEFAULT: std::sync::OnceLock<beatoraja_core::config::Config> =
-            std::sync::OnceLock::new();
-        DEFAULT.get_or_init(beatoraja_core::config::Config::default)
-    }
-
-    pub fn get_player_config(&self) -> &beatoraja_core::player_config::PlayerConfig {
-        log::warn!("not yet implemented: MainController.getPlayerConfig");
-        static DEFAULT: std::sync::OnceLock<beatoraja_core::player_config::PlayerConfig> =
-            std::sync::OnceLock::new();
-        DEFAULT.get_or_init(beatoraja_core::player_config::PlayerConfig::default)
-    }
-
     pub fn get_ir_status(&self) -> &[IRStatus] {
         log::warn!("not yet implemented: MainController.getIRStatus");
         &[]
-    }
-
-    pub fn change_state(&mut self, _state_type: beatoraja_core::main_state::MainStateType) {
-        log::warn!("not yet implemented: MainController.changeState");
     }
 
     pub fn save_last_recording(&self, _tag: &str) {
