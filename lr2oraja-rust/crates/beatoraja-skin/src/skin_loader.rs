@@ -4,7 +4,9 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::stubs::{MainState, Pixmap, PixmapFormat, Texture};
+use beatoraja_core::pixmap_resource_pool::PixmapResourcePool;
+
+use crate::stubs::{MainState, Texture};
 
 /// Skin image resource pool
 /// Translated from SkinLoader.java
@@ -14,51 +16,18 @@ use crate::stubs::{MainState, Pixmap, PixmapFormat, Texture};
 static RESOURCE: std::sync::LazyLock<std::sync::Mutex<Option<PixmapResourcePool>>> =
     std::sync::LazyLock::new(|| std::sync::Mutex::new(None));
 
-/// Stub for PixmapResourcePool
-pub struct PixmapResourcePool {
-    generation: i32,
-}
-
-impl PixmapResourcePool {
-    pub fn new(generation: i32) -> Self {
-        Self { generation }
-    }
-
-    pub fn dispose(&mut self) {
-        // stub
-    }
-
-    pub fn dispose_old(&mut self) {
-        // stub
-    }
-
-    pub fn exists(&self, _path: &str) -> bool {
-        false
-    }
-
-    pub fn get(&self, path: &str) -> Option<Pixmap> {
-        match Pixmap::from_file(path) {
-            Ok(pixmap) => Some(pixmap),
-            Err(e) => {
-                log::warn!("Failed to load image: {}", e);
-                None
-            }
-        }
-    }
-}
-
 pub fn init_pixmap_resource_pool(generation: i32) {
     let mut resource = RESOURCE.lock().unwrap();
-    if let Some(ref mut r) = *resource {
+    if let Some(r) = resource.as_ref() {
         r.dispose();
     }
-    *resource = Some(PixmapResourcePool::new(generation));
+    *resource = Some(PixmapResourcePool::with_maxgen(generation));
 }
 
 pub fn get_resource() -> std::sync::MutexGuard<'static, Option<PixmapResourcePool>> {
     let mut resource = RESOURCE.lock().unwrap();
     if resource.is_none() {
-        *resource = Some(PixmapResourcePool::new(1));
+        *resource = Some(PixmapResourcePool::new());
     }
     resource
 }
@@ -97,8 +66,8 @@ pub fn load_with_config(
         let mut loader = crate::json::json_skin_loader::JSONSkinLoader::with_config(config);
         let result = loader.load_skin(Path::new(skin_config_path), skin_type, &property);
         // Dispose old resources after loading
-        if let Ok(mut guard) = RESOURCE.lock()
-            && let Some(ref mut r) = *guard
+        if let Ok(guard) = RESOURCE.lock()
+            && let Some(ref r) = *guard
         {
             r.dispose_old();
         }
@@ -108,8 +77,8 @@ pub fn load_with_config(
         let config = _state.get_resource().get_config();
         let mut loader = crate::lua::lua_skin_loader::LuaSkinLoader::new_with_state(_state, config);
         let result = loader.load_skin(Path::new(skin_config_path), skin_type, &property);
-        if let Ok(mut guard) = RESOURCE.lock()
-            && let Some(ref mut r) = *guard
+        if let Ok(guard) = RESOURCE.lock()
+            && let Some(ref r) = *guard
         {
             r.dispose_old();
         }
@@ -192,10 +161,11 @@ pub fn get_texture_with_mipmaps(path: &str, usecim: bool, use_mip_maps: bool) ->
     let resource_guard = get_resource();
     let resource = resource_guard.as_ref()?;
 
-    if resource.exists(path)
-        && let Some(pixmap) = resource.get(path)
-    {
-        return Some(Texture::from_pixmap_with_mipmaps(&pixmap, use_mip_maps));
+    // Cache hit — already loaded
+    if resource.exists(path) {
+        return resource.get_and_use(path, |pixmap| {
+            Texture::from_pixmap_with_mipmaps(pixmap, use_mip_maps)
+        });
     }
 
     // try { ... } catch (Throwable e) { ... }
@@ -215,42 +185,45 @@ pub fn get_texture_with_mipmaps(path: &str, usecim: bool, use_mip_maps: bool) ->
     let last_dot = path.rfind('.').unwrap_or(path.len());
     let cim = format!("{}__{}.cim", &path[..last_dot], modified_time);
 
-    if resource.exists(&cim)
-        && let Some(pixmap) = resource.get(&cim)
-    {
-        return Some(Texture::from_pixmap_with_mipmaps(&pixmap, use_mip_maps));
+    // CIM cache hit
+    if resource.exists(&cim) {
+        return resource.get_and_use(&cim, |pixmap| {
+            Texture::from_pixmap_with_mipmaps(pixmap, use_mip_maps)
+        });
     }
 
     let cim_path = Path::new(&cim);
     if cim_path.exists() {
-        if let Some(pixmap) = resource.get(&cim) {
-            return Some(Texture::from_pixmap_with_mipmaps(&pixmap, use_mip_maps));
-        }
+        resource.get_and_use(&cim, |pixmap| {
+            Texture::from_pixmap_with_mipmaps(pixmap, use_mip_maps)
+        })
     } else if usecim {
-        if let Some(pixmap) = resource.get(path) {
-            // Delete old CIM files
-            let parent = Path::new(path).parent();
-            let prefix = format!("{}__", &path[..last_dot]);
-            if let Some(parent) = parent
-                && let Ok(entries) = std::fs::read_dir(parent)
-            {
-                for entry in entries.flatten() {
-                    let filename = entry.path().to_string_lossy().to_string();
-                    if filename.starts_with(&prefix) && filename.ends_with(".cim") {
-                        let _ = std::fs::remove_file(entry.path());
-                        break;
-                    }
+        let result = resource.get_and_use(path, |pixmap| {
+            Texture::from_pixmap_with_mipmaps(pixmap, use_mip_maps)
+        });
+
+        // Delete old CIM files
+        let parent = Path::new(path).parent();
+        let prefix = format!("{}__", &path[..last_dot]);
+        if let Some(parent) = parent
+            && let Ok(entries) = std::fs::read_dir(parent)
+        {
+            for entry in entries.flatten() {
+                let filename = entry.path().to_string_lossy().to_string();
+                if filename.starts_with(&prefix) && filename.ends_with(".cim") {
+                    let _ = std::fs::remove_file(entry.path());
+                    break;
                 }
             }
-
-            // PixmapIO.writeCIM(Gdx.files.local(cim), pixmap);
-            // CIM writing is a LibGDX-specific format, stubbed here
-
-            return Some(Texture::from_pixmap_with_mipmaps(&pixmap, use_mip_maps));
         }
-    } else if let Some(pixmap) = resource.get(path) {
-        return Some(Texture::from_pixmap_with_mipmaps(&pixmap, use_mip_maps));
-    }
 
-    None
+        // PixmapIO.writeCIM(Gdx.files.local(cim), pixmap);
+        // CIM writing is a LibGDX-specific format, stubbed here
+
+        result
+    } else {
+        resource.get_and_use(path, |pixmap| {
+            Texture::from_pixmap_with_mipmaps(pixmap, use_mip_maps)
+        })
+    }
 }
