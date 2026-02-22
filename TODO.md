@@ -4,7 +4,7 @@ Dependency graph order. Each module is ported only after its dependencies are co
 
 ## Completed Phases
 
-Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 16c, 17 — all complete. 1229 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 18a (core judge loop) complete. Phase 18b (rendering state providers) complete. Phase 18c (audio decode API) complete. Phase 18d (BGA/skin test APIs) complete. Phase 18e-1 (cross-crate stub deduplication) complete. Phase 18f (e2e test activation) complete. Phase 18g (BRD replay codec) complete. See AGENTS.md for details.
+Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 16c, 17 — all complete. 1229 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 18a (core judge loop) complete. Phase 18b (rendering state providers) complete. Phase 18c (audio decode API) complete. Phase 18d (BGA/skin test APIs) complete. Phase 18e-1 (cross-crate stub deduplication) complete. Phase 18e-2 (lifecycle stub replacement) partially complete — obs/external/decide/ir done, 4 crates remaining blocked. Phase 18f (e2e test activation) complete. Phase 18g (BRD replay codec) complete. See AGENTS.md for details.
 
 ## Phase 13f: egui UI (complete)
 
@@ -77,12 +77,31 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 - [x] Update beatoraja-external `ImGuiNotify::info(msg, duration)` callers — changed 2-arg `info()` to `info_with_dismiss()` matching real modmenu API. 3 call sites updated (screen_shot_twitter_exporter, screen_shot_file_exporter)
 - [x] Add `beatoraja-types` dependency to beatoraja-stream — was the only stub-holding crate without it
 
-#### 18e-2: Lifecycle stub replacement (remaining)
+#### 18e-2: Lifecycle stub replacement (partially complete)
 
-- [ ] Replace `MainController` stubs in 8 crates (select, ir, obs, result, decide, external, modmenu, md-processor) with real `beatoraja-core::MainController` — blocked: downstream crates call crate-specific stub APIs not present on real MainController; requires adapter methods or caller updates per crate
-- [ ] Replace `PlayerResource` stubs in 6 crates (select, result, decide, external, modmenu, obs) with real `beatoraja-core::PlayerResource` — blocked: same adapter pattern needed; `PlayerResource` holds rendering/audio handles whose types depend on Phase 13 integration
+##### MainController stubs — completed (3 of 8 crates)
+
+- [x] beatoraja-obs: Removed `MainControllerRef` entirely — added `state_type() -> Option<MainStateType>` to `MainState` trait (beatoraja-core), replaced `MainControllerRef::get_state_type(state)` with `state.state_type()` in `obs_listener.rs`. Zero remaining MainController stub code
+- [x] beatoraja-external: Replaced `MainController` struct + `MainControllerAccess` impl with `NullMainController` re-export from beatoraja-types. `MainState.main` field type changed to `NullMainController`. No code accesses `state.main` so change is safe
+- [x] beatoraja-decide: Removed unused `MainControllerAccess` trait impl from `MainControllerRef`. Struct retained with 3 methods (`change_state`, `get_input_processor`, `get_audio_processor`) that are actively called by `MusicDecide`
+- [x] beatoraja-ir: No MainController stub exists — nothing to do
+
+##### MainController stubs — remaining (4 crates, blocked)
+
+- [ ] beatoraja-select: 6 crate-specific methods (get_song_database, get_ir_status, get_ranking_data_cache, get_input_processor, get_player_resource_local, get_current_state) + local `MainState` trait returns `&MainController`. All methods unused but types are referenced. Blocked: needs real MainController or extension trait
+- [ ] beatoraja-result: 9 methods actively used in music_result.rs/course_result.rs (get_play_data_accessor, get_input_processor, ir_send_status, save_last_recording, etc.). Blocked: heaviest coupling, needs real implementations
+- [ ] beatoraja-modmenu: Returns owned Config/PlayerConfig (not references), has `get_current_state()` and `load_new_profile()`. Stub `PlayerConfig` incompatible with real type (SkinConfig field differences). Blocked: type incompatibility
+- [ ] md-processor: Defines `MainControllerRef` as trait with `update_song(&self, path: &str, force: bool)` — different signature from `MainControllerAccess::update_song(&mut self, path: Option<&str>)`. Blocked: signature mismatch
+
+##### PlayerResource stubs — remaining (blocked)
+
+- [ ] Replace `PlayerResource` stubs in 4 crates (select, result, decide, external) — blocked: beatoraja-result heavily uses mutable access and BMSModel/RankingData types not on trait. beatoraja-external has Mode/SongData fields. beatoraja-select is empty. beatoraja-decide has 2 methods + trait impl
+- [ ] beatoraja-obs/beatoraja-modmenu have no PlayerResource stubs
+
+##### Other stubs — remaining (blocked)
+
 - [ ] Replace `MainState` stubs with real trait impls — blocked: requires per-screen concrete types (PlayState, SelectState, etc.) to implement the `MainState` trait with real rendering callbacks
-- [ ] Remove all `stubs.rs` files (target: zero remaining stubs) — blocked: depends on above three stub replacements completing first
+- [ ] Remove all `stubs.rs` files (target: zero remaining stubs) — blocked: depends on above stub replacements completing first
 - [ ] Remove `rendering_stubs.rs` (all types replaced by wgpu equivalents from Phase 13) — blocked: skin crates still reference rendering stub types; requires full `beatoraja-render` type propagation
 
 ### 18f: Integration verification (complete — 9 of 9 e2e test files activated)
@@ -111,5 +130,5 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 
 ## Remaining Stubs
 
-- **Lifecycle (trait-ified):** MainController/PlayerResource stubs implement `MainControllerAccess`/`PlayerResourceAccess` traits. MainState stubs use `beatoraja-core` `MainState` trait; downstream stubs have crate-specific APIs
+- **Lifecycle (partially resolved):** MainController stubs removed from obs/external/ir (Phase 18e-2). Remaining in 4 crates: select (6 methods, unused), result (9 methods, actively used), modmenu (type incompatibility), md-processor (signature mismatch). PlayerResource stubs remain in 4 crates. MainState stubs use `beatoraja-core` `MainState` trait; downstream stubs have crate-specific APIs
 - **External libraries:** LibGDX rendering types (Phase 13 rendering stubs remain in skin crates)
