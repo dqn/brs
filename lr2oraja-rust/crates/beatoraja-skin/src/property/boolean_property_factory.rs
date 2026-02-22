@@ -60,7 +60,7 @@ fn get_boolean_property_by_id(id: i32) -> Option<Box<dyn BooleanProperty>> {
 fn get_boolean_property0(optionid: i32) -> Option<Box<dyn BooleanProperty>> {
     // All of these reference MusicSelector, CourseData, PlayerResource etc.
     // which are Phase 7+ dependencies. Return stub implementations.
-    Some(Box::new(StubBooleanProperty))
+    Some(Box::new(StubBooleanProperty(optionid)))
 }
 
 fn get_boolean_type_property(id: i32) -> Option<Box<dyn BooleanProperty>> {
@@ -79,7 +79,7 @@ fn get_boolean_type_property(id: i32) -> Option<Box<dyn BooleanProperty>> {
     ];
 
     if known_ids.contains(&id) {
-        return Some(Box::new(StubBooleanProperty));
+        return Some(Box::new(StubBooleanProperty(id)));
     }
 
     None
@@ -87,7 +87,7 @@ fn get_boolean_type_property(id: i32) -> Option<Box<dyn BooleanProperty>> {
 
 /// A BooleanProperty that always returns false / non-static.
 /// Used as a placeholder for Phase 7+ dependencies.
-struct StubBooleanProperty;
+struct StubBooleanProperty(i32);
 
 impl BooleanProperty for StubBooleanProperty {
     fn is_static(&self, _state: &dyn MainState) -> bool {
@@ -97,6 +97,10 @@ impl BooleanProperty for StubBooleanProperty {
     fn get(&self, _state: &dyn MainState) -> bool {
         log::warn!("not yet implemented: BooleanPropertyFactory requires MainState subtypes");
         false
+    }
+
+    fn get_id(&self) -> i32 {
+        self.0
     }
 }
 
@@ -112,5 +116,14 @@ impl BooleanProperty for NegatedBooleanProperty {
 
     fn get(&self, state: &dyn MainState) -> bool {
         !self.inner.get(state)
+    }
+
+    fn get_id(&self) -> i32 {
+        let inner_id = self.inner.get_id();
+        if inner_id == i32::MIN {
+            i32::MIN
+        } else {
+            -inner_id
+        }
     }
 }

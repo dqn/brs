@@ -6,7 +6,7 @@ use crate::stubs::MainState;
 pub fn get_rate_property_by_id(optionid: i32) -> Option<Box<dyn FloatProperty>> {
     for rt in RATE_TYPES.iter() {
         if rt.id == optionid {
-            return Some(Box::new(StubFloatProperty));
+            return Some(Box::new(StubFloatProperty { id: rt.id }));
         }
     }
     None
@@ -16,7 +16,7 @@ pub fn get_rate_property_by_id(optionid: i32) -> Option<Box<dyn FloatProperty>> 
 pub fn get_rate_property_by_name(name: &str) -> Option<Box<dyn FloatProperty>> {
     for rt in RATE_TYPES.iter() {
         if rt.name == name {
-            return Some(Box::new(StubFloatProperty));
+            return Some(Box::new(StubFloatProperty { id: rt.id }));
         }
     }
     None
@@ -46,12 +46,12 @@ pub fn get_rate_writer_by_name(name: &str) -> Option<Box<dyn FloatWriter>> {
 pub fn get_float_property_by_id(optionid: i32) -> Option<Box<dyn FloatProperty>> {
     for ft in FLOAT_TYPES.iter() {
         if ft.id == optionid {
-            return Some(Box::new(StubFloatProperty));
+            return Some(Box::new(StubFloatProperty { id: ft.id }));
         }
     }
     for rt in RATE_TYPES.iter() {
         if rt.id == optionid {
-            return Some(Box::new(StubFloatProperty));
+            return Some(Box::new(StubFloatProperty { id: rt.id }));
         }
     }
     None
@@ -61,12 +61,12 @@ pub fn get_float_property_by_id(optionid: i32) -> Option<Box<dyn FloatProperty>>
 pub fn get_float_property_by_name(name: &str) -> Option<Box<dyn FloatProperty>> {
     for ft in FLOAT_TYPES.iter() {
         if ft.name == name {
-            return Some(Box::new(StubFloatProperty));
+            return Some(Box::new(StubFloatProperty { id: ft.id }));
         }
     }
     for rt in RATE_TYPES.iter() {
         if rt.name == name {
-            return Some(Box::new(StubFloatProperty));
+            return Some(Box::new(StubFloatProperty { id: rt.id }));
         }
     }
     None
@@ -402,12 +402,18 @@ static FLOAT_TYPES: &[FloatTypeEntry] = &[
 ];
 
 /// Stub FloatProperty that will be replaced when Phase 7+ is available.
-struct StubFloatProperty;
+struct StubFloatProperty {
+    id: i32,
+}
 
 impl FloatProperty for StubFloatProperty {
     fn get(&self, _state: &dyn MainState) -> f32 {
         log::warn!("not yet implemented: FloatPropertyFactory requires MainState subtypes");
         0.0
+    }
+
+    fn get_id(&self) -> i32 {
+        self.id
     }
 }
 
