@@ -1,8 +1,6 @@
 // Stubs for external dependencies not yet available in the Rust port.
 // These will be replaced with real implementations in future phases.
 
-use std::path::{Path, PathBuf};
-
 // =========================================================================
 // Real type re-exports (replaced from stubs)
 // =========================================================================
@@ -56,137 +54,28 @@ pub trait MainState {
 // Version is re-exported from beatoraja_core at the top of this file.
 
 // =========================================================================
-// Skin types stubs
+// Skin types — real type re-exports from beatoraja-skin
 // =========================================================================
 
 // SkinType moved to beatoraja-types (Phase 15b)
 pub use beatoraja_types::skin_type::SkinType;
 
-// =========================================================================
-// SkinHeader stub
-// =========================================================================
+pub use beatoraja_skin::skin_header::{
+    CustomCategory, CustomFile, CustomItemEnum as CustomCategoryItem, CustomOffset, CustomOption,
+    SkinHeader, TYPE_LR2SKIN,
+};
+pub use beatoraja_skin::skin_property::OPTION_RANDOM_VALUE;
 
-pub const TYPE_LR2SKIN: i32 = 0;
-
-#[derive(Clone, Debug)]
-pub struct SkinHeader {
-    pub name: String,
-    pub path: PathBuf,
-    pub skin_type: SkinType,
-    pub header_type: i32,
-    pub custom_options: Vec<CustomOption>,
-    pub custom_files: Vec<CustomFile>,
-    pub custom_offsets: Vec<CustomOffset>,
-    pub custom_categories: Vec<CustomCategory>,
-}
-
-impl Default for SkinHeader {
-    fn default() -> Self {
-        SkinHeader {
-            name: String::new(),
-            path: PathBuf::new(),
-            skin_type: SkinType::default(),
-            header_type: 0,
-            custom_options: Vec::new(),
-            custom_files: Vec::new(),
-            custom_offsets: Vec::new(),
-            custom_categories: Vec::new(),
-        }
-    }
-}
-
-impl SkinHeader {
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
-    }
-
-    pub fn get_path(&self) -> &Path {
-        &self.path
-    }
-
-    pub fn get_skin_type(&self) -> &SkinType {
-        &self.skin_type
-    }
-
-    pub fn set_skin_type(&mut self, skin_type: SkinType) {
-        self.skin_type = skin_type;
-    }
-
-    pub fn get_type(&self) -> i32 {
-        self.header_type
-    }
-
-    pub fn get_custom_options(&self) -> &[CustomOption] {
-        &self.custom_options
-    }
-
-    pub fn get_custom_files(&self) -> &[CustomFile] {
-        &self.custom_files
-    }
-
-    pub fn get_custom_offsets(&self) -> &[CustomOffset] {
-        &self.custom_offsets
-    }
-
-    pub fn get_custom_categories(&self) -> &[CustomCategory] {
-        &self.custom_categories
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct CustomOption {
-    pub name: String,
-    pub contents: Vec<String>,
-    pub option: Vec<i32>,
-    pub default_option: i32,
-}
-
-impl CustomOption {
-    pub fn get_default_option(&self) -> i32 {
-        self.default_option
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct CustomFile {
-    pub name: String,
-    pub path: String,
-    pub def: Option<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct CustomOffset {
-    pub name: String,
-    pub x: bool,
-    pub y: bool,
-    pub w: bool,
-    pub h: bool,
-    pub r: bool,
-    pub a: bool,
-}
-
-#[derive(Clone, Debug)]
-pub struct CustomCategory {
-    pub name: String,
-    pub items: Vec<CustomCategoryItem>,
-}
-
-#[derive(Clone, Debug)]
-pub enum CustomCategoryItem {
-    Option(CustomOption),
-    File(CustomFile),
-    Offset(CustomOffset),
-}
+// Skin loaders — real type re-exports
+pub use beatoraja_skin::json::json_skin_loader::JSONSkinLoader;
+pub use beatoraja_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderLoader;
+pub use beatoraja_skin::lua::lua_skin_loader::LuaSkinLoader;
 
 // =========================================================================
 // Skin stub
 // =========================================================================
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct Skin {
     pub header: SkinHeader,
     objects: Vec<SkinObject>,
@@ -240,87 +129,6 @@ pub struct Rectangle {
     pub width: f32,
     pub height: f32,
 }
-
-// =========================================================================
-// SkinLoader stub
-// =========================================================================
-
-pub struct SkinLoader;
-
-impl SkinLoader {
-    pub fn load(
-        _state: &dyn MainState,
-        _skin_type: &SkinType,
-        _config: &SkinConfig,
-    ) -> Option<Skin> {
-        log::warn!("not yet implemented: SkinLoader::load - rendering dependency");
-        None
-    }
-}
-
-// =========================================================================
-// JSONSkinLoader / LR2SkinHeaderLoader / LuaSkinLoader stubs
-// =========================================================================
-
-pub struct JSONSkinLoader;
-
-impl Default for JSONSkinLoader {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl JSONSkinLoader {
-    pub fn new() -> Self {
-        JSONSkinLoader
-    }
-
-    pub fn load_header(&self, _path: &Path) -> Option<SkinHeader> {
-        log::warn!("not yet implemented: JSONSkinLoader::load_header - skin loader dependency");
-        None
-    }
-}
-
-pub struct LR2SkinHeaderLoader;
-
-impl LR2SkinHeaderLoader {
-    pub fn new(_config: &Config) -> Self {
-        LR2SkinHeaderLoader
-    }
-
-    pub fn load_skin(&self, _path: &Path, _opt: Option<()>) -> std::io::Result<SkinHeader> {
-        log::warn!("not yet implemented: LR2SkinHeaderLoader::load_skin - skin loader dependency");
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "LR2SkinHeaderLoader not yet implemented",
-        ))
-    }
-}
-
-pub struct LuaSkinLoader;
-
-impl Default for LuaSkinLoader {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl LuaSkinLoader {
-    pub fn new() -> Self {
-        LuaSkinLoader
-    }
-
-    pub fn load_header(&self, _path: &Path) -> Option<SkinHeader> {
-        log::warn!("not yet implemented: LuaSkinLoader::load_header - skin loader dependency");
-        None
-    }
-}
-
-// =========================================================================
-// SkinProperty constants stub
-// =========================================================================
-
-pub const OPTION_RANDOM_VALUE: i32 = -1;
 
 // =========================================================================
 // MusicSelector stub

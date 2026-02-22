@@ -5,11 +5,13 @@ use std::sync::Mutex;
 
 use crate::imgui_notify::ImGuiNotify;
 use crate::stubs::{
-    Config, CustomCategoryItem, CustomFile, CustomOffset, CustomOption, ImBoolean, JSONSkinLoader,
-    LR2SkinHeaderLoader, LuaSkinLoader, MainController, MusicSelector, OPTION_RANDOM_VALUE,
-    PlayerConfig, Skin, SkinConfig, SkinFilePath, SkinHeader, SkinLoader, SkinOffset, SkinOption,
-    SkinProperty, SkinType, TYPE_LR2SKIN, Validatable,
+    Config, CustomCategory, CustomCategoryItem, CustomFile, CustomOffset, CustomOption, ImBoolean,
+    JSONSkinLoader, LR2SkinHeaderLoader, LuaSkinLoader, MainController, MusicSelector,
+    OPTION_RANDOM_VALUE, PlayerConfig, Skin, SkinConfig, SkinFilePath, SkinHeader, SkinOffset,
+    SkinOption, SkinProperty, SkinType, TYPE_LR2SKIN, Validatable,
 };
+use beatoraja_skin::json::json_skin_loader::{CustomItemData, SkinHeaderData};
+use beatoraja_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderData;
 
 static MAIN: Mutex<Option<MainController>> = Mutex::new(None);
 static PLAYER_CONFIG: Mutex<Option<PlayerConfig>> = Mutex::new(None);
@@ -75,7 +77,7 @@ impl SkinMenu {
             let current = CURRENT_SKIN.lock().unwrap();
             let current_name = current
                 .as_ref()
-                .map(|s| s.get_name().to_string())
+                .and_then(|s| s.get_name().map(|n| n.to_string()))
                 .unwrap_or_else(|| "(none)".to_string());
             drop(current);
 
@@ -152,7 +154,12 @@ fn menu_header() {
         // Open skin location button
         // if (ImGui.button("Open##open-skin-location")) { Desktop.open(...) }
 
-        let _path_display = format!("> {}", skin.get_path().display());
+        let _path_display = format!(
+            "> {}",
+            skin.get_path()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default()
+        );
         // ImGui.textDisabled(path_display);
 
         let dirty = *DIRTY_CONFIG.lock().unwrap();
@@ -347,46 +354,53 @@ fn load_all_skins(skin_type: &SkinType) -> Vec<SkinHeader> {
         let mut header: Option<SkinHeader> = None;
 
         if let Some(ref cs) = *current_skin
-            && path == cs.get_path()
+            && cs.get_path().is_some_and(|p| path == p)
         {
             header = Some(cs.clone());
         }
 
         if header.is_none() {
             if path_string.ends_with(".json") {
-                let loader = JSONSkinLoader::new();
-                header = loader.load_header(path);
+                let mut loader = JSONSkinLoader::new();
+                header = loader.load_header(path).map(skin_header_from_json_data);
             } else if path_string.ends_with(".luaskin") {
-                let loader = LuaSkinLoader::new();
-                header = loader.load_header(path);
+                let mut loader = LuaSkinLoader::new();
+                let _ = loader.load_header(path);
+                // header stays None — lua skin loader not yet fully implemented
             } else if path_string.ends_with(".lr2skin") {
                 let main = MAIN.lock().unwrap();
-                if let Some(ref m) = *main {
-                    let config = m.get_config();
-                    let loader = LR2SkinHeaderLoader::new(&config);
-                    match loader.load_skin(path, None) {
+                if main.is_some() {
+                    drop(main);
+                    let mut loader = LR2SkinHeaderLoader::new("");
+                    match loader.load_skin(path, None).map(skin_header_from_lr2_data) {
                         Ok(mut h) => {
                             // 7/14key skin can also be used for 5/10key
                             if *skin_type == SkinType::Play5Keys
-                                && *h.get_skin_type() == SkinType::Play7Keys
+                                && h.get_skin_type()
+                                    .is_some_and(|st| *st == SkinType::Play7Keys)
                                 && h.get_type() == TYPE_LR2SKIN
-                                && let Ok(mut h2) = loader.load_skin(path, None)
+                                && let Ok(mut h2) =
+                                    loader.load_skin(path, None).map(skin_header_from_lr2_data)
                             {
                                 h2.set_skin_type(SkinType::Play5Keys);
-                                if !h2.get_name().to_lowercase().contains("7key") {
-                                    let new_name = format!("{} (7KEYS) ", h2.get_name());
+                                if !h2.get_name().unwrap_or("").to_lowercase().contains("7key") {
+                                    let new_name =
+                                        format!("{} (7KEYS) ", h2.get_name().unwrap_or(""));
                                     h2.set_name(new_name);
                                 }
                                 h = h2;
                             }
                             if *skin_type == SkinType::Play10Keys
-                                && *h.get_skin_type() == SkinType::Play14Keys
+                                && h.get_skin_type()
+                                    .is_some_and(|st| *st == SkinType::Play14Keys)
                                 && h.get_type() == TYPE_LR2SKIN
-                                && let Ok(mut h2) = loader.load_skin(path, None)
+                                && let Ok(mut h2) =
+                                    loader.load_skin(path, None).map(skin_header_from_lr2_data)
                             {
                                 h2.set_skin_type(SkinType::Play10Keys);
-                                if !h2.get_name().to_lowercase().contains("14key") {
-                                    let new_name = format!("{} (14KEYS) ", h2.get_name());
+                                if !h2.get_name().unwrap_or("").to_lowercase().contains("14key") {
+                                    let new_name =
+                                        format!("{} (14KEYS) ", h2.get_name().unwrap_or(""));
                                     h2.set_name(new_name);
                                 }
                                 h = h2;
@@ -402,7 +416,7 @@ fn load_all_skins(skin_type: &SkinType) -> Vec<SkinHeader> {
         }
 
         if let Some(h) = header
-            && h.get_skin_type() == skin_type
+            && h.get_skin_type().is_some_and(|st| st == skin_type)
         {
             skins.push(h);
         }
@@ -494,7 +508,10 @@ fn parse_custom_file(file: &CustomFile) -> Option<Vec<String>> {
 }
 
 fn load_saved_skin_settings(header: &SkinHeader) {
-    let skin_path = header.get_path().to_string_lossy().to_string();
+    let skin_path = header
+        .get_path()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
     let player_config = PLAYER_CONFIG.lock().unwrap();
 
     if player_config.is_none() {
@@ -504,7 +521,7 @@ fn load_saved_skin_settings(header: &SkinHeader) {
 
     let mut saved_properties: Option<&SkinProperty> = None;
 
-    let skin_type_id = header.get_skin_type().get_id() as usize;
+    let skin_type_id = header.get_skin_type().map(|st| st.get_id()).unwrap_or(0) as usize;
     if skin_type_id < pc.skin.len()
         && let Some(ref live_config) = pc.skin[skin_type_id]
         && live_config.get_path().is_some_and(|p| p == skin_path)
@@ -680,7 +697,10 @@ fn save_current_config(next_skin: &SkinHeader) {
     }
     let cs = current_skin.as_ref().unwrap();
 
-    let skin_path = cs.get_path().to_string_lossy().to_string();
+    let skin_path = cs
+        .get_path()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
     let property = complete_property(cs);
     let config = SkinConfig {
         path: Some(skin_path.clone()),
@@ -740,7 +760,10 @@ fn switch_current_scene_skin(header: SkinHeader) {
     *CURRENT_SKIN.lock().unwrap() = Some(header.clone());
     let _property = complete_property(&header);
 
-    let skin_path = header.get_path().to_string_lossy().to_string();
+    let skin_path = header
+        .get_path()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
     let mut config = SkinConfig {
         path: Some(skin_path),
         properties: Some(_property),
@@ -754,4 +777,97 @@ fn switch_current_scene_skin(header: SkinHeader) {
     // scene.setSkin(skin);
     // skin.prepare(scene);
     // if (scene instanceof MusicSelector) { ((MusicSelector)scene).getBarRender().updateBarText(); }
+}
+
+// =========================================================================
+// Conversion helpers: SkinHeaderData / LR2SkinHeaderData → SkinHeader
+// =========================================================================
+
+fn skin_header_from_json_data(data: SkinHeaderData) -> SkinHeader {
+    let mut header = SkinHeader::new();
+    header.set_type(data.header_type);
+    header.set_path(data.path);
+    header.set_name(data.name);
+    if let Some(st) = SkinType::get_skin_type_by_id(data.skin_type) {
+        header.set_skin_type(st);
+    }
+    let options: Vec<CustomOption> = data
+        .custom_options
+        .into_iter()
+        .map(|co| CustomOption::new(co.name, co.option, co.names))
+        .collect();
+    header.set_custom_options(options);
+    let files: Vec<CustomFile> = data
+        .custom_files
+        .into_iter()
+        .map(|cf| CustomFile::new(cf.name, cf.path, cf.def))
+        .collect();
+    header.set_custom_files(files);
+    let offsets: Vec<CustomOffset> = data
+        .custom_offsets
+        .into_iter()
+        .map(|co| CustomOffset::new(co.name, co.id, co.x, co.y, co.w, co.h, co.r, co.a))
+        .collect();
+    header.set_custom_offsets(offsets);
+    let categories: Vec<CustomCategory> = data
+        .custom_categories
+        .into_iter()
+        .map(|cc| {
+            let items: Vec<CustomCategoryItem> = cc
+                .items
+                .into_iter()
+                .map(|item| match item {
+                    CustomItemData::Option(co) => {
+                        CustomCategoryItem::Option(CustomOption::new(co.name, co.option, co.names))
+                    }
+                    CustomItemData::File(cf) => {
+                        CustomCategoryItem::File(CustomFile::new(cf.name, cf.path, cf.def))
+                    }
+                    CustomItemData::Offset(co) => CustomCategoryItem::Offset(CustomOffset::new(
+                        co.name, co.id, co.x, co.y, co.w, co.h, co.r, co.a,
+                    )),
+                })
+                .collect();
+            CustomCategory::new(cc.name, items)
+        })
+        .collect();
+    header.set_custom_categories(categories);
+    if let Some(res) = data.source_resolution {
+        header.set_source_resolution(res);
+    }
+    if let Some(res) = data.destination_resolution {
+        header.set_destination_resolution(res);
+    }
+    header
+}
+
+fn skin_header_from_lr2_data(data: LR2SkinHeaderData) -> SkinHeader {
+    let mut header = SkinHeader::new();
+    if let Some(path) = data.path {
+        header.set_path(path);
+    }
+    if let Some(st) = data.skin_type {
+        header.set_skin_type(st);
+    }
+    header.set_name(data.name);
+    // Convert LR2-specific types to skin_header types
+    let options: Vec<CustomOption> = data
+        .custom_options
+        .into_iter()
+        .map(|co| CustomOption::new(co.name, co.option, co.contents))
+        .collect();
+    header.set_custom_options(options);
+    let files: Vec<CustomFile> = data
+        .custom_files
+        .into_iter()
+        .map(|cf| CustomFile::new(cf.name, cf.path, cf.def))
+        .collect();
+    header.set_custom_files(files);
+    let offsets: Vec<CustomOffset> = data
+        .custom_offsets
+        .into_iter()
+        .map(|co| CustomOffset::new(co.name, co.id, co.x, co.y, co.w, co.h, co.r, co.a))
+        .collect();
+    header.set_custom_offsets(offsets);
+    header
 }
