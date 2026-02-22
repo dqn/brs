@@ -3,6 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use mlua::prelude::*;
 
+use crate::lua::event_utility::EventUtility;
+use crate::lua::main_state_accessor::MainStateAccessor;
+use crate::lua::timer_utility::TimerUtility;
 use crate::property::boolean_property::BooleanProperty;
 use crate::property::event::Event;
 use crate::property::float_property::FloatProperty;
@@ -70,9 +73,11 @@ impl SkinLuaAccessor {
     }
 
     /// Load a BooleanProperty from a Lua function
-    pub fn load_boolean_property_from_function(&self) -> Option<Box<dyn BooleanProperty>> {
-        log::warn!("load_boolean_property_from_function: Lua function reference not yet wired");
-        None
+    pub fn load_boolean_property_from_function(
+        &self,
+        func: LuaFunction,
+    ) -> Option<Box<dyn BooleanProperty>> {
+        self.load_boolean_property_from_lua_function(func)
     }
 
     fn load_boolean_property_from_lua_function(
@@ -103,9 +108,11 @@ impl SkinLuaAccessor {
     }
 
     /// Load an IntegerProperty from a Lua function
-    pub fn load_integer_property_from_function(&self) -> Option<Box<dyn IntegerProperty>> {
-        log::warn!("load_integer_property_from_function: Lua function reference not yet wired");
-        None
+    pub fn load_integer_property_from_function(
+        &self,
+        func: LuaFunction,
+    ) -> Option<Box<dyn IntegerProperty>> {
+        self.load_integer_property_from_lua_function(func)
     }
 
     fn load_integer_property_from_lua_function(
@@ -133,9 +140,11 @@ impl SkinLuaAccessor {
     }
 
     /// Load a FloatProperty from a Lua function
-    pub fn load_float_property_from_function(&self) -> Option<Box<dyn FloatProperty>> {
-        log::warn!("load_float_property_from_function: Lua function reference not yet wired");
-        None
+    pub fn load_float_property_from_function(
+        &self,
+        func: LuaFunction,
+    ) -> Option<Box<dyn FloatProperty>> {
+        self.load_float_property_from_lua_function(func)
     }
 
     fn load_float_property_from_lua_function(
@@ -166,9 +175,11 @@ impl SkinLuaAccessor {
     }
 
     /// Load a StringProperty from a Lua function
-    pub fn load_string_property_from_function(&self) -> Option<Box<dyn StringProperty>> {
-        log::warn!("load_string_property_from_function: Lua function reference not yet wired");
-        None
+    pub fn load_string_property_from_function(
+        &self,
+        func: LuaFunction,
+    ) -> Option<Box<dyn StringProperty>> {
+        self.load_string_property_from_lua_function(func)
     }
 
     fn load_string_property_from_lua_function(
@@ -214,9 +225,11 @@ impl SkinLuaAccessor {
     }
 
     /// Load a TimerProperty from a Lua function
-    pub fn load_timer_property_from_function(&self) -> Option<Box<dyn TimerProperty>> {
-        log::warn!("load_timer_property_from_function: Lua function reference not yet wired");
-        None
+    pub fn load_timer_property_from_function(
+        &self,
+        func: LuaFunction,
+    ) -> Option<Box<dyn TimerProperty>> {
+        self.load_timer_property_from_lua_function(func)
     }
 
     fn load_timer_property_from_lua_function(
@@ -243,9 +256,8 @@ impl SkinLuaAccessor {
     }
 
     /// Load an Event from a Lua function
-    pub fn load_event_from_function(&self) -> Option<Box<dyn Event>> {
-        log::warn!("load_event_from_function: Lua function reference not yet wired");
-        None
+    pub fn load_event_from_function(&self, func: LuaFunction) -> Option<Box<dyn Event>> {
+        self.load_event_from_lua_function(func)
     }
 
     fn load_event_from_lua_function(&self, func: LuaFunction) -> Option<Box<dyn Event>> {
@@ -269,9 +281,11 @@ impl SkinLuaAccessor {
     }
 
     /// Load a FloatWriter from a Lua function
-    pub fn load_float_writer_from_function(&self) -> Option<Box<dyn FloatWriter>> {
-        log::warn!("load_float_writer_from_function: Lua function reference not yet wired");
-        None
+    pub fn load_float_writer_from_function(
+        &self,
+        func: LuaFunction,
+    ) -> Option<Box<dyn FloatWriter>> {
+        self.load_float_writer_from_lua_function(func)
     }
 
     fn load_float_writer_from_lua_function(
@@ -337,13 +351,59 @@ impl SkinLuaAccessor {
     /// Export MainState accessor functions to Lua
     /// When is_global is true, exported as global variables.
     /// When is_global is false, exported as module "main_state".
-    pub fn export_main_state_accessor(&self, _state: &dyn MainState) {
-        log::warn!("Lua state export not yet wired: export_main_state_accessor");
+    pub fn export_main_state_accessor(&self, state: &dyn MainState) {
+        let accessor = MainStateAccessor::new(state);
+        if self.is_global {
+            let globals = self.lua.globals();
+            accessor.export(&self.lua, &globals);
+        } else {
+            let result: Result<(), LuaError> = (|| {
+                let table = self.lua.create_table()?;
+                accessor.export(&self.lua, &table);
+                let loaded: LuaTable = self
+                    .lua
+                    .globals()
+                    .get::<LuaTable>("package")?
+                    .get::<LuaTable>("loaded")?;
+                loaded.set(MAIN_STATE, table)?;
+                Ok(())
+            })();
+            if let Err(e) = result {
+                log::warn!("Failed to export main_state module: {}", e);
+            }
+        }
     }
 
     /// Export utility functions (timer_util, event_util) to Lua
-    pub fn export_utilities(&self, _state: &dyn MainState) {
-        log::warn!("Lua state export not yet wired: export_utilities");
+    pub fn export_utilities(&self, state: &dyn MainState) {
+        let timer_util = TimerUtility::new(state);
+        let event_util = EventUtility::new(state);
+        if self.is_global {
+            let globals = self.lua.globals();
+            timer_util.export(&self.lua, &globals);
+            event_util.export(&self.lua, &globals);
+        } else {
+            let result: Result<(), LuaError> = (|| {
+                let loaded: LuaTable = self
+                    .lua
+                    .globals()
+                    .get::<LuaTable>("package")?
+                    .get::<LuaTable>("loaded")?;
+
+                let timer_table = self.lua.create_table()?;
+                timer_util.export(&self.lua, &timer_table);
+                loaded.set(TIMER_UTIL, timer_table)?;
+
+                let event_table = self.lua.create_table()?;
+                event_util.export(&self.lua, &event_table);
+                loaded.set(EVENT_UTIL, event_table)?;
+
+                Ok(())
+            })();
+            if let Err(e) = result {
+                log::warn!("Failed to export utility modules: {}", e);
+            }
+        }
     }
 
     /// Export skin property/configuration to Lua global variable skin_config

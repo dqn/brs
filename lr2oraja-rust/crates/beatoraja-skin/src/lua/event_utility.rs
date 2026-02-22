@@ -1,3 +1,7 @@
+use std::sync::{Arc, Mutex};
+
+use mlua::prelude::*;
+
 use crate::stubs::MainState;
 
 /// Event utility for Lua
@@ -11,55 +15,117 @@ use crate::stubs::MainState;
 /// - event_min_interval: Throttle event execution to minimum interval
 pub const TIMER_OFF_VALUE: i64 = i64::MIN;
 
+/// Wrapper for raw MainState pointer to implement Send/Sync.
+#[derive(Clone, Copy)]
+struct StatePtr(*const dyn MainState);
+unsafe impl Send for StatePtr {}
+unsafe impl Sync for StatePtr {}
+
 pub struct EventUtility {
-    // Would hold reference to MainState
+    state_ptr: StatePtr,
 }
 
 impl EventUtility {
-    pub fn new(_state: &dyn MainState) -> Self {
-        Self {}
+    pub fn new(state: &dyn MainState) -> Self {
+        // SAFETY: We erase the lifetime of the trait object pointer.
+        // The caller guarantees that state outlives EventUtility.
+        let ptr: *const dyn MainState = state;
+        let ptr: *const dyn MainState = unsafe { std::mem::transmute(ptr) };
+        Self {
+            state_ptr: StatePtr(ptr),
+        }
     }
 
     /// Export event utility functions to a Lua table
-    pub fn export(&self, _table: &()) {
-        // table.set("event_observe_turn_true", event_observe_turn_true function)
-        //   - args: func (() -> boolean), action (() -> void)
-        //   - returns: event function (() -> void)
-        //   - impl: tracks previous boolean state, calls action when transitions to true
-        //   - equivalent to:
-        //     local isOn = false
-        //     return function()
-        //       local on = func()
-        //       if isOn ~= on then
-        //         isOn = on
-        //         if isOn then action() end
-        //       end
-        //     end
+    pub fn export(&self, lua: &Lua, table: &LuaTable) {
+        let result: Result<(), LuaError> = (|| {
+            // event_observe_turn_true(func, action) -> event function
+            let event_observe_turn_true_func =
+                lua.create_function(|lua, (func, action): (LuaFunction, LuaFunction)| {
+                    let observe_state = Arc::new(Mutex::new(EventObserveTurnTrueState::new()));
+                    let event_func = lua.create_function(move |_, ()| {
+                        let on: bool = func.call(()).unwrap_or(false);
+                        let mut obs = observe_state.lock().unwrap();
+                        if obs.update(on) {
+                            let _ = action.call::<LuaValue>(());
+                        }
+                        Ok(())
+                    })?;
+                    Ok(event_func)
+                })?;
+            table.set("event_observe_turn_true", event_observe_turn_true_func)?;
 
-        // table.set("event_observe_timer", event_observe_timer function)
-        //   - args: timerFunc (() -> number), action (() -> void)
-        //   - returns: event function
-        //   - impl: tracks previous timer value, calls action when value changes (and not OFF)
+            // event_observe_timer(timer_func, action) -> event function
+            let event_observe_timer_func =
+                lua.create_function(|lua, (timer_func, action): (LuaFunction, LuaFunction)| {
+                    let observe_state = Arc::new(Mutex::new(EventObserveTimerState::new()));
+                    let event_func = lua.create_function(move |_, ()| {
+                        let value: i64 = timer_func.call(()).unwrap_or(TIMER_OFF_VALUE);
+                        let mut obs = observe_state.lock().unwrap();
+                        if obs.update(value) {
+                            let _ = action.call::<LuaValue>(());
+                        }
+                        Ok(())
+                    })?;
+                    Ok(event_func)
+                })?;
+            table.set("event_observe_timer", event_observe_timer_func)?;
 
-        // table.set("event_observe_timer_on", event_observe_timer_on function)
-        //   - args: timerFunc (() -> number), action (() -> void)
-        //   - returns: event function
-        //   - impl: calls action when timer transitions from OFF to ON
+            // event_observe_timer_on(timer_func, action) -> event function
+            let event_observe_timer_on_func =
+                lua.create_function(|lua, (timer_func, action): (LuaFunction, LuaFunction)| {
+                    let observe_state = Arc::new(Mutex::new(EventObserveTimerOnState::new()));
+                    let event_func = lua.create_function(move |_, ()| {
+                        let value: i64 = timer_func.call(()).unwrap_or(TIMER_OFF_VALUE);
+                        let mut obs = observe_state.lock().unwrap();
+                        if obs.update(value) {
+                            let _ = action.call::<LuaValue>(());
+                        }
+                        Ok(())
+                    })?;
+                    Ok(event_func)
+                })?;
+            table.set("event_observe_timer_on", event_observe_timer_on_func)?;
 
-        // table.set("event_observe_timer_off", event_observe_timer_off function)
-        //   - args: timerFunc (() -> number), action (() -> void)
-        //   - returns: event function
-        //   - impl: calls action when timer transitions from ON to OFF
+            // event_observe_timer_off(timer_func, action) -> event function
+            let event_observe_timer_off_func =
+                lua.create_function(|lua, (timer_func, action): (LuaFunction, LuaFunction)| {
+                    let observe_state = Arc::new(Mutex::new(EventObserveTimerOffState::new()));
+                    let event_func = lua.create_function(move |_, ()| {
+                        let value: i64 = timer_func.call(()).unwrap_or(TIMER_OFF_VALUE);
+                        let mut obs = observe_state.lock().unwrap();
+                        if obs.update(value) {
+                            let _ = action.call::<LuaValue>(());
+                        }
+                        Ok(())
+                    })?;
+                    Ok(event_func)
+                })?;
+            table.set("event_observe_timer_off", event_observe_timer_off_func)?;
 
-        // table.set("event_min_interval", event_min_interval function)
-        //   - args: minInterval (milliseconds), action (() -> void)
-        //   - returns: event function
-        //   - impl: throttles action to execute at most every minInterval milliseconds
-        //   - NOTE: useful for throttling actions in event_observe_timer_on
+            // event_min_interval(min_interval_ms, action) -> event function
+            let sp = self.state_ptr;
+            let event_min_interval_func =
+                lua.create_function(move |lua, (min_interval, action): (i32, LuaFunction)| {
+                    let interval_state = Arc::new(Mutex::new(EventMinIntervalState::new()));
+                    let event_func = lua.create_function(move |_, ()| {
+                        let state = unsafe { &*sp.0 };
+                        let now = state.get_timer().get_now_micro_time();
+                        let mut is = interval_state.lock().unwrap();
+                        if is.update(min_interval, now) {
+                            let _ = action.call::<LuaValue>(());
+                        }
+                        Ok(())
+                    })?;
+                    Ok(event_func)
+                })?;
+            table.set("event_min_interval", event_min_interval_func)?;
 
-        log::warn!(
-            "EventUtility::export: Lua event utility export not yet wired (requires MainState lifetime bridging)"
-        );
+            Ok(())
+        })();
+        if let Err(e) = result {
+            log::warn!("EventUtility::export failed: {}", e);
+        }
     }
 }
 
