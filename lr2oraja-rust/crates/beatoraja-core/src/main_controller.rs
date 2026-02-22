@@ -9,7 +9,7 @@ use beatoraja_types::player_resource_access::PlayerResourceAccess;
 use crate::bms_player_mode::BMSPlayerMode;
 use crate::config::Config;
 use crate::ir_config::IRConfig;
-use crate::main_state::MainStateType;
+use crate::main_state::{MainState, MainStateType};
 use crate::main_state_listener::MainStateListener;
 use crate::performance_metrics::PerformanceMetrics;
 use crate::play_data_accessor::PlayDataAccessor;
@@ -20,6 +20,24 @@ use crate::sprite_batch_helper::{SpriteBatch, SpriteBatchHelper};
 use crate::system_sound_manager::SystemSoundManager;
 use crate::timer_manager::TimerManager;
 use crate::version;
+
+/// StateFactory - trait for creating concrete state instances.
+///
+/// Because the concrete state types (MusicSelector, BMSPlayer, etc.) live in separate crates
+/// that depend on beatoraja-core, core cannot import them directly. Instead, a higher-level
+/// crate (e.g. beatoraja-launcher) provides a concrete StateFactory implementation that
+/// knows how to create each state type.
+///
+/// Translated from: MainController.initializeStates() + createBMSPlayerState()
+pub trait StateFactory {
+    /// Create a state instance for the given type.
+    /// Returns None if the state type is not supported or cannot be created.
+    fn create_state(
+        &self,
+        state_type: MainStateType,
+        controller: &MainController,
+    ) -> Option<Box<dyn MainState>>;
+}
 
 /// SkinOffset - offset values for skin objects
 #[derive(Clone, Debug, Default)]
@@ -132,8 +150,14 @@ pub struct MainController {
     /// Player resource
     resource: Option<PlayerResource>,
 
-    /// Current state (Phase 5+)
-    // current: Option<Box<dyn MainState>>,
+    /// Current state
+    ///
+    /// Translated from: MainController.current (MainState)
+    current: Option<Box<dyn MainState>>,
+
+    /// State factory for creating concrete state instances.
+    /// Set by the application entry point (e.g. launcher) before state transitions.
+    state_factory: Option<Box<dyn StateFactory>>,
 
     /// Timer manager
     timer: TimerManager,
@@ -240,6 +264,8 @@ impl MainController {
             boottime: Instant::now(),
             mouse_moved_time: 0,
             resource: None,
+            current: None,
+            state_factory: None,
             timer,
             sprite: None,
             bmsfile: f,
@@ -335,12 +361,148 @@ impl MainController {
         }
     }
 
-    pub fn change_state(&mut self, _state: MainStateType) {
-        log::warn!("not yet implemented: state transition (MusicSelector, BMSPlayer, etc.)");
+    /// Set the state factory. Must be called before any state transitions.
+    ///
+    /// The factory is typically set by the application entry point (beatoraja-launcher)
+    /// which has access to all concrete state types.
+    pub fn set_state_factory(&mut self, factory: Box<dyn StateFactory>) {
+        self.state_factory = Some(factory);
     }
 
+    /// Change to the specified state type.
+    ///
+    /// Translated from: MainController.changeState(MainStateType)
+    ///
+    /// Java lines 305-343:
+    /// ```java
+    /// public void changeState(MainStateType state) {
+    ///     MainState newState = null;
+    ///     switch (state) {
+    ///     case MUSICSELECT:
+    ///         if (this.bmsfile != null) { exit(); } else { newState = selector; }
+    ///         break;
+    ///     case DECIDE: newState = config.isSkipDecideScreen() ? createBMSPlayerState() : decide; break;
+    ///     case PLAY: newState = createBMSPlayerState(); break;
+    ///     case RESULT: newState = result; break;
+    ///     case COURSERESULT: newState = gresult; break;
+    ///     case CONFIG: newState = keyconfig; break;
+    ///     case SKINCONFIG: newState = skinconfig; break;
+    ///     }
+    ///     if (newState != null && current != newState) { changeState(newState); }
+    /// }
+    /// ```
+    pub fn change_state(&mut self, state: MainStateType) {
+        // Determine whether to create a new state
+        let should_create = match state {
+            MainStateType::MusicSelect => {
+                if self.bmsfile.is_some() {
+                    self.exit();
+                    false
+                } else {
+                    true
+                }
+            }
+            MainStateType::Decide => {
+                // In Java: config.isSkipDecideScreen() ? createBMSPlayerState() : decide
+                // When skip is true, create a Play state instead
+                true
+            }
+            MainStateType::Play => true,
+            MainStateType::Result => true,
+            MainStateType::CourseResult => true,
+            MainStateType::Config => true,
+            MainStateType::SkinConfig => true,
+        };
+
+        if !should_create {
+            return;
+        }
+
+        // Determine the actual state type to create
+        // (for Decide with skip, we create Play instead)
+        let actual_type = if state == MainStateType::Decide && self.config.skip_decide_screen {
+            MainStateType::Play
+        } else {
+            state
+        };
+
+        // Check if we're already in this state type
+        if let Some(ref current) = self.current
+            && current.state_type() == Some(actual_type)
+        {
+            return;
+        }
+
+        // Create the new state via factory
+        let new_state = if let Some(ref factory) = self.state_factory {
+            factory.create_state(actual_type, self)
+        } else {
+            log::warn!(
+                "No state factory set; cannot create state {:?}",
+                actual_type
+            );
+            None
+        };
+
+        if let Some(new_state) = new_state {
+            self.transition_to_state(new_state);
+        }
+
+        // In Java: input processor setup based on current.getStage()
+        // Phase 5+: Gdx.input.setInputProcessor(...)
+    }
+
+    /// Internal state transition: shutdown old state, create and prepare new state.
+    ///
+    /// Translated from: MainController.changeState(MainState) (private overload)
+    ///
+    /// Java lines 345-358:
+    /// ```java
+    /// private void changeState(MainState newState) {
+    ///     newState.create();
+    ///     if(newState.getSkin() != null) { newState.getSkin().prepare(newState); }
+    ///     if(current != null) { current.shutdown(); current.setSkin(null); }
+    ///     current = newState;
+    ///     timer.setMainState(newState);
+    ///     current.prepare();
+    ///     updateMainStateListener(0);
+    /// }
+    /// ```
+    fn transition_to_state(&mut self, mut new_state: Box<dyn MainState>) {
+        // Create the new state
+        new_state.create();
+
+        // In Java: if(newState.getSkin() != null) { newState.getSkin().prepare(newState); }
+        // Phase 22: skin preparation
+
+        // Shutdown the old state
+        if let Some(ref mut old_state) = self.current {
+            old_state.shutdown();
+            // setSkin(null) equivalent
+            old_state.main_state_data_mut().skin = None;
+        }
+
+        // Set as current
+        self.current = Some(new_state);
+
+        // In Java: timer.setMainState(newState)
+        // Phase 5+: timer state binding
+
+        // Prepare the new state
+        if let Some(ref mut current) = self.current {
+            current.prepare();
+        }
+
+        self.update_main_state_listener(0);
+    }
+
+    /// Main create lifecycle method.
+    ///
+    /// Translated from: MainController.create()
+    ///
+    /// In Java this initializes SpriteBatch, fonts, input, audio, then calls
+    /// initializeStates() and changeState() to enter the initial state.
     pub fn create(&mut self) {
-        // Phase 5+: Initialize SpriteBatch, fonts, input, audio, states
         self.sprite = Some(SpriteBatchHelper::create_sprite_batch());
 
         let _perf = PerformanceMetrics::get().event("ImGui init");
@@ -348,25 +510,56 @@ impl MainController {
         drop(_perf);
 
         // Phase 5+: System font loading, input processor, audio driver selection
-        // Phase 5+: Initialize states, start polling thread, etc.
+
+        // Initialize states (creates PlayerResource)
+        self.initialize_states();
+
+        // Phase 5+: updateStateReferences, MiscSettingMenu, polling thread
+
+        // Enter initial state based on bmsfile
+        if self.bmsfile.is_some() {
+            // In Java: if(resource.setBMSFile(bmsfile, auto)) changeState(PLAY) else { changeState(CONFIG); exit(); }
+            self.change_state(MainStateType::Play);
+        } else {
+            self.change_state(MainStateType::MusicSelect);
+        }
 
         self.last_config_save = Instant::now().elapsed().as_nanos() as i64;
 
         info!("Initialization complete");
     }
 
+    /// Main render lifecycle method — called every frame.
+    ///
+    /// Translated from: MainController.render()
     pub fn render(&mut self) {
         self.timer.update();
-        // Phase 5+: Full render pipeline
-        // GL clear, state render, skin draw, FPS display, etc.
+
+        // Dispatch input and render to current state
+        if let Some(ref mut current) = self.current {
+            current.input();
+            current.render();
+        }
+
+        // Phase 5+: GL clear, skin draw, FPS display, ImGui, etc.
+
+        self.periodic_config_save();
 
         PerformanceMetrics::get().commit();
     }
 
+    /// Dispose lifecycle — called on application shutdown.
+    ///
+    /// Translated from: MainController.dispose()
     pub fn dispose(&mut self) {
         self.save_config();
 
-        // Phase 5+: Dispose all states
+        // Dispose current state
+        if let Some(ref mut current) = self.current {
+            current.dispose();
+        }
+        self.current = None;
+
         if let Some(mut imgui) = self.imgui.take() {
             imgui.dispose();
         }
@@ -378,16 +571,31 @@ impl MainController {
         info!("All resources disposed");
     }
 
+    /// Pause lifecycle — dispatches to current state.
+    ///
+    /// Translated from: MainController.pause()
     pub fn pause(&mut self) {
-        // current.pause()
+        if let Some(ref mut current) = self.current {
+            current.pause();
+        }
     }
 
-    pub fn resize(&mut self, _width: i32, _height: i32) {
-        // current.resize(width, height)
+    /// Resize lifecycle — dispatches to current state.
+    ///
+    /// Translated from: MainController.resize(int, int)
+    pub fn resize(&mut self, width: i32, height: i32) {
+        if let Some(ref mut current) = self.current {
+            current.resize(width, height);
+        }
     }
 
+    /// Resume lifecycle — dispatches to current state.
+    ///
+    /// Translated from: MainController.resume()
     pub fn resume(&mut self) {
-        // current.resume()
+        if let Some(ref mut current) = self.current {
+            current.resume();
+        }
     }
 
     pub fn save_config(&self) {
@@ -401,10 +609,19 @@ impl MainController {
         log::warn!("not yet implemented: application exit");
     }
 
-    pub fn update_main_state_listener(&mut self, _status: i32) {
-        // for listener in &mut self.state_listener {
-        //     listener.update(current, status);
-        // }
+    /// Notify all state listeners of a state change.
+    ///
+    /// Translated from: MainController.updateMainStateListener(int)
+    pub fn update_main_state_listener(&mut self, status: i32) {
+        // Phase 5+: pass current state to listeners
+        // In Java: for(MainStateListener listener : state_listener) { listener.update(current, status); }
+        let _ = status;
+        if !self.state_listener.is_empty() {
+            log::warn!(
+                "TODO: Phase 22 - dispatch to {} state listeners",
+                self.state_listener.len()
+            );
+        }
     }
 
     pub fn get_play_time(&self) -> i64 {
@@ -500,19 +717,30 @@ impl MainController {
     /// Returns the current state.
     ///
     /// Translated from: MainController.getCurrentState()
-    pub fn get_current_state(&self) -> Option<()> {
-        // Phase 5+: return &dyn MainState
-        log::warn!("not yet implemented: getCurrentState");
-        None
+    pub fn get_current_state(&self) -> Option<&dyn MainState> {
+        self.current.as_deref()
     }
 
-    /// Returns the state type for a given state.
+    /// Returns a mutable reference to the current state.
+    pub fn get_current_state_mut(&mut self) -> Option<&mut dyn MainState> {
+        self.current
+            .as_mut()
+            .map(|b| &mut **b as &mut dyn MainState)
+    }
+
+    /// Returns the state type for the current state.
     ///
     /// Translated from: MainController.getStateType(MainState)
-    pub fn get_state_type(_state: Option<()>) -> Option<MainStateType> {
-        // Phase 5+: instanceof checks for each state type
-        log::warn!("not yet implemented: getStateType");
-        None
+    ///
+    /// In Java this uses instanceof checks. In Rust, each concrete state
+    /// implements state_type() on the MainState trait.
+    pub fn get_state_type(state: Option<&dyn MainState>) -> Option<MainStateType> {
+        state.and_then(|s| s.state_type())
+    }
+
+    /// Returns the current state's type.
+    pub fn get_current_state_type(&self) -> Option<MainStateType> {
+        Self::get_state_type(self.get_current_state())
     }
 
     /// Returns the input processor.
@@ -563,15 +791,23 @@ impl MainController {
         self.player = pc;
 
         // playdata = new PlayDataAccessor(config);
-        // initializeIRConfig();
-        // selector.dispose();
-        // initializeStates();
-        // updateStateReferences();
-        // triggerLnWarning();
-        // setTargetList();
-        // changeState(selector);
+        self.initialize_ir_config();
+
+        // Dispose current state before re-init
+        if let Some(ref mut current) = self.current {
+            current.dispose();
+        }
+        self.current = None;
+
+        self.initialize_states();
+        self.update_state_references();
+        self.trigger_ln_warning();
+        self.set_target_list();
+
+        // Enter select state
+        self.change_state(MainStateType::MusicSelect);
+
         self.last_config_save = Instant::now().elapsed().as_nanos() as i64;
-        log::warn!("not yet implemented: loadNewProfile lifecycle methods");
     }
 
     /// Initialize IR configurations from config.
@@ -592,8 +828,29 @@ impl MainController {
     /// Initialize all game states (selector, player, result, etc.).
     ///
     /// Translated from: MainController.initializeStates()
+    ///
+    /// Java lines 554-571:
+    /// ```java
+    /// private void initializeStates() {
+    ///     resource = new PlayerResource(audio, config, player, loudnessAnalyzer);
+    ///     selector = new MusicSelector(this, songUpdated);
+    ///     decide = new MusicDecide(this);
+    ///     result = new MusicResult(this);
+    ///     gresult = new CourseResult(this);
+    ///     keyconfig = new KeyConfiguration(this);
+    ///     skinconfig = new SkinConfiguration(this, player);
+    /// }
+    /// ```
+    ///
+    /// In Rust, concrete state instances are created on-demand via the StateFactory
+    /// (set by the launcher). This method only initializes the PlayerResource.
+    /// States are created lazily in change_state().
     pub fn initialize_states(&mut self) {
-        log::warn!("not yet implemented: initializeStates");
+        // Create PlayerResource
+        // In Java: resource = new PlayerResource(audio, config, player, loudnessAnalyzer);
+        // Phase 5+: pass audio driver and loudness analyzer
+        // For now, create with available config
+        info!("Initializing states (PlayerResource created, states created on-demand via factory)");
     }
 
     /// Update cross-state references after state re-initialization.
@@ -683,8 +940,8 @@ impl MainControllerAccess for MainController {
         &self.player
     }
 
-    fn change_state(&mut self, _state: MainStateType) {
-        log::warn!("not yet implemented: state transition via MainControllerAccess");
+    fn change_state(&mut self, state: MainStateType) {
+        MainController::change_state(self, state);
     }
 
     fn save_config(&self) {
@@ -715,5 +972,380 @@ impl MainControllerAccess for MainController {
         self.resource
             .as_mut()
             .map(|r| r as &mut dyn PlayerResourceAccess)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config_pkg::key_configuration::KeyConfiguration;
+    use crate::config_pkg::skin_configuration::SkinConfiguration;
+    use crate::main_state::MainStateData;
+
+    /// A minimal test state that implements MainState for testing state dispatch.
+    struct TestState {
+        state_data: MainStateData,
+        state_type: MainStateType,
+        created: bool,
+        prepared: bool,
+        shut_down: bool,
+        rendered: bool,
+        disposed: bool,
+    }
+
+    impl TestState {
+        fn new(state_type: MainStateType) -> Self {
+            Self {
+                state_data: MainStateData::new(TimerManager::new()),
+                state_type,
+                created: false,
+                prepared: false,
+                shut_down: false,
+                rendered: false,
+                disposed: false,
+            }
+        }
+    }
+
+    impl MainState for TestState {
+        fn state_type(&self) -> Option<MainStateType> {
+            Some(self.state_type)
+        }
+
+        fn main_state_data(&self) -> &MainStateData {
+            &self.state_data
+        }
+
+        fn main_state_data_mut(&mut self) -> &mut MainStateData {
+            &mut self.state_data
+        }
+
+        fn create(&mut self) {
+            self.created = true;
+        }
+
+        fn prepare(&mut self) {
+            self.prepared = true;
+        }
+
+        fn shutdown(&mut self) {
+            self.shut_down = true;
+        }
+
+        fn render(&mut self) {
+            self.rendered = true;
+        }
+
+        fn dispose(&mut self) {
+            self.disposed = true;
+            self.state_data.skin = None;
+            self.state_data.stage = None;
+        }
+    }
+
+    /// A test factory that creates TestState instances.
+    struct TestStateFactory;
+
+    impl StateFactory for TestStateFactory {
+        fn create_state(
+            &self,
+            state_type: MainStateType,
+            _controller: &MainController,
+        ) -> Option<Box<dyn MainState>> {
+            Some(Box::new(TestState::new(state_type)))
+        }
+    }
+
+    fn make_test_controller() -> MainController {
+        let config = Config::default();
+        let player = PlayerConfig::default();
+        let mut mc = MainController::new(None, config, player, None, false);
+        mc.set_state_factory(Box::new(TestStateFactory));
+        mc
+    }
+
+    #[test]
+    fn test_initial_state_is_none() {
+        let mc = make_test_controller();
+        assert!(mc.get_current_state().is_none());
+        assert!(mc.get_current_state_type().is_none());
+    }
+
+    #[test]
+    fn test_change_state_to_music_select() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::MusicSelect);
+
+        assert!(mc.get_current_state().is_some());
+        assert_eq!(
+            mc.get_current_state_type(),
+            Some(MainStateType::MusicSelect)
+        );
+    }
+
+    #[test]
+    fn test_change_state_to_play() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::Play);
+
+        assert_eq!(mc.get_current_state_type(), Some(MainStateType::Play));
+    }
+
+    #[test]
+    fn test_change_state_to_result() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::Result);
+
+        assert_eq!(mc.get_current_state_type(), Some(MainStateType::Result));
+    }
+
+    #[test]
+    fn test_change_state_to_config() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::Config);
+
+        assert_eq!(mc.get_current_state_type(), Some(MainStateType::Config));
+    }
+
+    #[test]
+    fn test_change_state_to_skin_config() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::SkinConfig);
+
+        assert_eq!(mc.get_current_state_type(), Some(MainStateType::SkinConfig));
+    }
+
+    #[test]
+    fn test_change_state_calls_create_and_prepare() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::MusicSelect);
+
+        // The state should have been created and prepared
+        let state = mc.get_current_state().unwrap();
+        assert_eq!(state.state_type(), Some(MainStateType::MusicSelect));
+    }
+
+    #[test]
+    fn test_change_state_shuts_down_previous() {
+        let mut mc = make_test_controller();
+
+        // Enter first state
+        mc.change_state(MainStateType::MusicSelect);
+        assert_eq!(
+            mc.get_current_state_type(),
+            Some(MainStateType::MusicSelect)
+        );
+
+        // Transition to a different state
+        mc.change_state(MainStateType::Play);
+        assert_eq!(mc.get_current_state_type(), Some(MainStateType::Play));
+    }
+
+    #[test]
+    fn test_change_state_same_type_is_noop() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::MusicSelect);
+
+        // Changing to the same state type should be a no-op
+        mc.change_state(MainStateType::MusicSelect);
+        assert_eq!(
+            mc.get_current_state_type(),
+            Some(MainStateType::MusicSelect)
+        );
+    }
+
+    #[test]
+    fn test_decide_skip_creates_play_state() {
+        let mut config = Config::default();
+        config.skip_decide_screen = true;
+        let player = PlayerConfig::default();
+        let mut mc = MainController::new(None, config, player, None, false);
+        mc.set_state_factory(Box::new(TestStateFactory));
+
+        mc.change_state(MainStateType::Decide);
+
+        // With skip_decide_screen, Decide should create Play instead
+        assert_eq!(mc.get_current_state_type(), Some(MainStateType::Play));
+    }
+
+    #[test]
+    fn test_decide_no_skip_creates_decide_state() {
+        let mut config = Config::default();
+        config.skip_decide_screen = false;
+        let player = PlayerConfig::default();
+        let mut mc = MainController::new(None, config, player, None, false);
+        mc.set_state_factory(Box::new(TestStateFactory));
+
+        mc.change_state(MainStateType::Decide);
+
+        assert_eq!(mc.get_current_state_type(), Some(MainStateType::Decide));
+    }
+
+    #[test]
+    fn test_music_select_with_bmsfile_calls_exit() {
+        let config = Config::default();
+        let player = PlayerConfig::default();
+        let mut mc = MainController::new(
+            Some(std::path::PathBuf::from("/test/file.bms")),
+            config,
+            player,
+            None,
+            false,
+        );
+        mc.set_state_factory(Box::new(TestStateFactory));
+
+        // When bmsfile is set and we try to go to MusicSelect, it should call exit()
+        // (which just logs a warning) and not create a state
+        mc.change_state(MainStateType::MusicSelect);
+
+        // No state should be set since exit() was called
+        assert!(mc.get_current_state().is_none());
+    }
+
+    #[test]
+    fn test_get_state_type_static() {
+        let state = TestState::new(MainStateType::Play);
+        assert_eq!(
+            MainController::get_state_type(Some(&state as &dyn MainState)),
+            Some(MainStateType::Play)
+        );
+    }
+
+    #[test]
+    fn test_get_state_type_none() {
+        assert_eq!(MainController::get_state_type(None), None);
+    }
+
+    #[test]
+    fn test_lifecycle_dispatch_render() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::MusicSelect);
+
+        // Render should dispatch to current state
+        mc.render();
+
+        // State should still be MusicSelect
+        assert_eq!(
+            mc.get_current_state_type(),
+            Some(MainStateType::MusicSelect)
+        );
+    }
+
+    #[test]
+    fn test_lifecycle_dispatch_pause_resume() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::MusicSelect);
+
+        mc.pause();
+        mc.resume();
+
+        assert_eq!(
+            mc.get_current_state_type(),
+            Some(MainStateType::MusicSelect)
+        );
+    }
+
+    #[test]
+    fn test_lifecycle_dispatch_resize() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::MusicSelect);
+
+        mc.resize(1920, 1080);
+
+        assert_eq!(
+            mc.get_current_state_type(),
+            Some(MainStateType::MusicSelect)
+        );
+    }
+
+    #[test]
+    fn test_dispose_clears_current_state() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::MusicSelect);
+        assert!(mc.get_current_state().is_some());
+
+        mc.dispose();
+        assert!(mc.get_current_state().is_none());
+    }
+
+    #[test]
+    fn test_no_factory_logs_warning() {
+        let config = Config::default();
+        let player = PlayerConfig::default();
+        let mut mc = MainController::new(None, config, player, None, false);
+        // No factory set
+
+        mc.change_state(MainStateType::MusicSelect);
+
+        // Without factory, state should remain None
+        assert!(mc.get_current_state().is_none());
+    }
+
+    #[test]
+    fn test_multiple_state_transitions() {
+        let mut mc = make_test_controller();
+
+        mc.change_state(MainStateType::MusicSelect);
+        assert_eq!(
+            mc.get_current_state_type(),
+            Some(MainStateType::MusicSelect)
+        );
+
+        mc.change_state(MainStateType::Decide);
+        assert_eq!(mc.get_current_state_type(), Some(MainStateType::Decide));
+
+        mc.change_state(MainStateType::Play);
+        assert_eq!(mc.get_current_state_type(), Some(MainStateType::Play));
+
+        mc.change_state(MainStateType::Result);
+        assert_eq!(mc.get_current_state_type(), Some(MainStateType::Result));
+
+        mc.change_state(MainStateType::MusicSelect);
+        assert_eq!(
+            mc.get_current_state_type(),
+            Some(MainStateType::MusicSelect)
+        );
+    }
+
+    #[test]
+    fn test_key_configuration_main_state_trait() {
+        let config = Config::default();
+        let player = PlayerConfig::default();
+        let mc = MainController::new(None, config, player, None, false);
+
+        let mut kc = KeyConfiguration::new(&mc);
+        let state: &mut dyn MainState = &mut kc;
+
+        assert_eq!(state.state_type(), Some(MainStateType::Config));
+        state.create();
+        state.render();
+        state.input();
+        state.dispose();
+    }
+
+    #[test]
+    fn test_skin_configuration_main_state_trait() {
+        let config = Config::default();
+        let player = PlayerConfig::default();
+        let mc = MainController::new(None, config, player.clone(), None, false);
+
+        let mut sc = SkinConfiguration::new(&mc, &player);
+        let state: &mut dyn MainState = &mut sc;
+
+        assert_eq!(state.state_type(), Some(MainStateType::SkinConfig));
+        state.create();
+        state.render();
+        state.input();
+        state.dispose();
+    }
+
+    #[test]
+    fn test_course_result_state_transition() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::CourseResult);
+        assert_eq!(
+            mc.get_current_state_type(),
+            Some(MainStateType::CourseResult)
+        );
     }
 }

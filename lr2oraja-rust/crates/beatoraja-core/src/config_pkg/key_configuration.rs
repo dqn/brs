@@ -1,4 +1,6 @@
 use crate::main_controller::MainController;
+use crate::main_state::{MainState, MainStateData, MainStateType};
+use crate::timer_manager::TimerManager;
 
 // Key configuration screen.
 // Translated from Java: KeyConfiguration extends MainState
@@ -154,6 +156,7 @@ static SELECTKEY: &[&str] = &["7 KEYS", "9 KEYS", "14 KEYS"];
 
 #[allow(dead_code)]
 pub struct KeyConfiguration {
+    state_data: MainStateData,
     cursorpos: usize,
     scrollpos: usize,
     keyinput: bool,
@@ -166,6 +169,7 @@ pub struct KeyConfiguration {
 impl KeyConfiguration {
     pub fn new(_main: &MainController) -> Self {
         Self {
+            state_data: MainStateData::new(TimerManager::new()),
             cursorpos: 0,
             scrollpos: 0,
             keyinput: false,
@@ -215,7 +219,45 @@ impl KeyConfiguration {
         KEYSA[self.mode]
     }
 
-    pub fn dispose(&mut self) {
+    pub fn dispose_resources(&mut self) {
         // TODO: dispose font resources
+    }
+}
+
+impl MainState for KeyConfiguration {
+    fn state_type(&self) -> Option<MainStateType> {
+        Some(MainStateType::Config)
+    }
+
+    fn main_state_data(&self) -> &MainStateData {
+        &self.state_data
+    }
+
+    fn main_state_data_mut(&mut self) -> &mut MainStateData {
+        &mut self.state_data
+    }
+
+    fn create(&mut self) {
+        log::warn!(
+            "TODO: Phase 22 - KeyConfiguration::create (skin loading, font generation, input processor setup)"
+        );
+    }
+
+    fn render(&mut self) {
+        log::warn!(
+            "TODO: Phase 22 - KeyConfiguration::render (SpriteBatch, ShapeDrawer rendering)"
+        );
+    }
+
+    fn input(&mut self) {
+        log::warn!("TODO: Phase 22 - KeyConfiguration::input (key assignment input handling)");
+    }
+
+    fn dispose(&mut self) {
+        self.dispose_resources();
+        // Call default trait dispose for skin/stage cleanup
+        let data = self.main_state_data_mut();
+        data.skin = None;
+        data.stage = None;
     }
 }

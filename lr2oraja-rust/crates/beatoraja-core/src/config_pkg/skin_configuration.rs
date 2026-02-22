@@ -2,7 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::main_controller::MainController;
+use crate::main_state::{MainState, MainStateData, MainStateType};
 use crate::player_config::PlayerConfig;
+use crate::timer_manager::TimerManager;
 use beatoraja_types::skin_type::SkinType;
 
 /// Skin configuration screen.
@@ -13,6 +15,7 @@ use beatoraja_types::skin_type::SkinType;
 /// Phase 5+ skin system integration.
 #[allow(dead_code)]
 pub struct SkinConfiguration {
+    state_data: MainStateData,
     skin_type: Option<SkinType>,
     selected_skin_index: i32,
     custom_option_offset: i32,
@@ -23,6 +26,7 @@ pub struct SkinConfiguration {
 impl SkinConfiguration {
     pub fn new(_main: &MainController, _player: &PlayerConfig) -> Self {
         Self {
+            state_data: MainStateData::new(TimerManager::new()),
             skin_type: None,
             selected_skin_index: -1,
             custom_option_offset: 0,
@@ -30,19 +34,19 @@ impl SkinConfiguration {
         }
     }
 
-    pub fn create(&mut self) {
+    pub fn create_internal(&mut self) {
         // TODO: loadSkin(SkinType::SKIN_SELECT), loadAllSkins, changeSkinType
         // Requires Phase 5+ skin system
         log::warn!("not yet implemented: SkinConfiguration::create requires Phase 5+ skin system");
     }
 
-    pub fn render(&mut self) {
+    pub fn render_internal(&mut self) {
         // TODO: input handling and rendering
         // Requires Phase 5+ MainState, ControlKeys
         log::warn!("not yet implemented: SkinConfiguration::render requires Phase 5+ UI types");
     }
 
-    pub fn input(&mut self) {
+    pub fn input_internal(&mut self) {
         // TODO: scroll input handling
         // Requires Phase 5+ BMSPlayerInputProcessor
     }
@@ -80,7 +84,7 @@ impl SkinConfiguration {
         // Requires Phase 5+ SkinProperty, SkinPropertyMapper
     }
 
-    pub fn dispose(&mut self) {
+    pub fn dispose_resources(&mut self) {
         // TODO: dispose resources
     }
 
@@ -102,5 +106,41 @@ impl SkinConfiguration {
                 paths.push(path.to_path_buf());
             }
         }
+    }
+}
+
+impl MainState for SkinConfiguration {
+    fn state_type(&self) -> Option<MainStateType> {
+        Some(MainStateType::SkinConfig)
+    }
+
+    fn main_state_data(&self) -> &MainStateData {
+        &self.state_data
+    }
+
+    fn main_state_data_mut(&mut self) -> &mut MainStateData {
+        &mut self.state_data
+    }
+
+    fn create(&mut self) {
+        log::warn!(
+            "TODO: Phase 22 - SkinConfiguration::create (loadSkin, loadAllSkins, changeSkinType)"
+        );
+    }
+
+    fn render(&mut self) {
+        log::warn!("TODO: Phase 22 - SkinConfiguration::render (input handling and rendering)");
+    }
+
+    fn input(&mut self) {
+        log::warn!("TODO: Phase 22 - SkinConfiguration::input (scroll input handling)");
+    }
+
+    fn dispose(&mut self) {
+        self.dispose_resources();
+        // Call default trait dispose for skin/stage cleanup
+        let data = self.main_state_data_mut();
+        data.skin = None;
+        data.stage = None;
     }
 }
