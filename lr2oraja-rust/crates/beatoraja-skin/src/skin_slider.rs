@@ -334,4 +334,12 @@ impl SkinSlider {
     pub fn get_slider_angle(&self) -> i32 {
         self.direction
     }
+
+    pub fn get_ref_prop(&self) -> Option<&dyn FloatProperty> {
+        self.ref_prop.as_deref()
+    }
+
+    pub fn get_direction(&self) -> i32 {
+        self.direction
+    }
 }

@@ -345,6 +345,10 @@ impl SkinNumber {
         self.length
     }
 
+    pub fn get_ref_prop(&self) -> Option<&dyn IntegerProperty> {
+        self.ref_prop.as_deref()
+    }
+
     pub fn dispose(&mut self) {
         self.image.dispose();
         if let Some(ref mut m) = self.mimage {

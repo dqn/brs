@@ -8,7 +8,7 @@ use crate::stubs::MainState;
 pub fn get_string_property_by_id(id: i32) -> Option<Box<dyn StringProperty>> {
     let map = get_id_map();
     if map.contains_key(&id) {
-        return Some(Box::new(StubStringProperty));
+        return Some(Box::new(StubStringProperty { id }));
     }
     None
 }
@@ -17,7 +17,7 @@ pub fn get_string_property_by_id(id: i32) -> Option<Box<dyn StringProperty>> {
 pub fn get_string_property_by_name(name: &str) -> Option<Box<dyn StringProperty>> {
     for st in STRING_TYPES.iter() {
         if st.name == name {
-            return Some(Box::new(StubStringProperty));
+            return Some(Box::new(StubStringProperty { id: st.id }));
         }
     }
     None
@@ -591,11 +591,17 @@ static STRING_TYPES: &[StringTypeEntry] = &[
 ];
 
 /// Stub StringProperty that will be replaced when Phase 7+ is available.
-struct StubStringProperty;
+struct StubStringProperty {
+    id: i32,
+}
 
 impl StringProperty for StubStringProperty {
     fn get(&self, _state: &dyn MainState) -> String {
         log::warn!("not yet implemented: StringPropertyFactory requires MainState subtypes");
         String::new()
+    }
+
+    fn get_id(&self) -> i32 {
+        self.id
     }
 }

@@ -52,7 +52,7 @@ impl InputProcessor {
 }
 
 /// Stub for SkinOffset (shared between Skin and SkinObject)
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct SkinOffset {
     pub x: f32,
     pub y: f32,

@@ -349,6 +349,18 @@ impl SkinImage {
         }
     }
 
+    pub fn get_ref_prop(&self) -> Option<&dyn IntegerProperty> {
+        self.ref_prop.as_deref()
+    }
+
+    pub fn get_source_count(&self) -> usize {
+        self.image.len()
+    }
+
+    pub fn has_valid_source(&self) -> bool {
+        self.image.iter().any(|s| s.is_some())
+    }
+
     pub fn dispose(&mut self) {
         for source in self.removed_sources.drain(..) {
             // dispose removed sources
