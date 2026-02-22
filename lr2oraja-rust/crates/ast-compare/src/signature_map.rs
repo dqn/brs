@@ -1,0 +1,404 @@
+use crate::file_mapping::FileMapping;
+use crate::ir::*;
+use crate::naming;
+
+use serde::Serialize;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SignatureReport {
+    pub file_mappings: Vec<FileMappingResult>,
+    pub summary: SignatureSummary,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FileMappingResult {
+    pub java_file: String,
+    pub rust_file: Option<String>,
+    pub rust_crate: Option<String>,
+    pub type_mappings: Vec<TypeMappingResult>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TypeMappingResult {
+    pub java_type: String,
+    pub java_kind: String,
+    pub rust_type: Option<String>,
+    pub method_mappings: Vec<MethodMappingResult>,
+    pub field_count_java: usize,
+    pub field_count_rust: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MethodMappingResult {
+    pub java_method: String,
+    pub java_params: usize,
+    pub java_line: usize,
+    pub rust_method: Option<String>,
+    pub rust_line: Option<usize>,
+    pub status: MappingStatus,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum MappingStatus {
+    Matched,
+    NameConverted,
+    MissingInRust,
+    ExtraInRust,
+    RustSpecific,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SignatureSummary {
+    pub total_java_files: usize,
+    pub mapped_files: usize,
+    pub unmapped_files: usize,
+    pub total_java_types: usize,
+    pub matched_types: usize,
+    pub total_java_methods: usize,
+    pub matched_methods: usize,
+    pub missing_methods: usize,
+    pub extra_rust_methods: usize,
+    pub rust_specific_methods: usize,
+}
+
+/// Build a signature mapping report from parsed Java and Rust sources.
+pub fn build_signature_map(
+    file_mappings: &[FileMapping],
+    java_files: &[SourceFile],
+    rust_files: &[SourceFile],
+) -> SignatureReport {
+    let mut results = Vec::new();
+    let mut summary = SignatureSummary {
+        total_java_files: file_mappings.len(),
+        mapped_files: 0,
+        unmapped_files: 0,
+        total_java_types: 0,
+        matched_types: 0,
+        total_java_methods: 0,
+        matched_methods: 0,
+        missing_methods: 0,
+        extra_rust_methods: 0,
+        rust_specific_methods: 0,
+    };
+
+    for fm in file_mappings {
+        let java_source = java_files.iter().find(|f| f.path == fm.java_path);
+        let rust_source = fm
+            .rust_path
+            .as_ref()
+            .and_then(|rp| rust_files.iter().find(|f| f.path == *rp));
+
+        if fm.rust_path.is_some() {
+            summary.mapped_files += 1;
+        } else {
+            summary.unmapped_files += 1;
+        }
+
+        let type_mappings = match (java_source, rust_source) {
+            (Some(java), Some(rust)) => {
+                build_type_mappings(&java.types, &rust.types, &rust.free_functions, &mut summary)
+            }
+            (Some(java), None) => {
+                // All Java types are unmapped
+                let mut mappings = Vec::new();
+                for jt in &java.types {
+                    summary.total_java_types += 1;
+                    let method_count = jt.methods.len();
+                    summary.total_java_methods += method_count;
+                    summary.missing_methods += method_count;
+                    mappings.push(TypeMappingResult {
+                        java_type: jt.name.clone(),
+                        java_kind: format!("{:?}", jt.kind),
+                        rust_type: None,
+                        method_mappings: jt
+                            .methods
+                            .iter()
+                            .map(|m| MethodMappingResult {
+                                java_method: m.name.clone(),
+                                java_params: m.params.len(),
+                                java_line: m.line,
+                                rust_method: None,
+                                rust_line: None,
+                                status: MappingStatus::MissingInRust,
+                            })
+                            .collect(),
+                        field_count_java: jt.fields.len(),
+                        field_count_rust: 0,
+                    });
+                }
+                mappings
+            }
+            _ => Vec::new(),
+        };
+
+        results.push(FileMappingResult {
+            java_file: fm.java_path.display().to_string(),
+            rust_file: fm.rust_path.as_ref().map(|p| p.display().to_string()),
+            rust_crate: fm.rust_crate.clone(),
+            type_mappings,
+        });
+    }
+
+    SignatureReport {
+        file_mappings: results,
+        summary,
+    }
+}
+
+fn build_type_mappings(
+    java_types: &[TypeDecl],
+    rust_types: &[TypeDecl],
+    rust_free_fns: &[MethodDecl],
+    summary: &mut SignatureSummary,
+) -> Vec<TypeMappingResult> {
+    let mut results = Vec::new();
+
+    for jt in java_types {
+        summary.total_java_types += 1;
+
+        // Find matching Rust type by name
+        let rust_type = find_rust_type(&jt.name, rust_types);
+
+        if rust_type.is_some() {
+            summary.matched_types += 1;
+        }
+
+        let rust_methods: &[MethodDecl] = match &rust_type {
+            Some(rt) => &rt.methods,
+            None => &[],
+        };
+
+        // Also consider free functions for the first type in a file
+        let all_rust_methods: Vec<&MethodDecl> =
+            rust_methods.iter().chain(rust_free_fns.iter()).collect();
+
+        let method_mappings = build_method_mappings(&jt.methods, &all_rust_methods, summary);
+
+        results.push(TypeMappingResult {
+            java_type: jt.name.clone(),
+            java_kind: format!("{:?}", jt.kind),
+            rust_type: rust_type.map(|rt| rt.name.clone()),
+            method_mappings,
+            field_count_java: jt.fields.len(),
+            field_count_rust: rust_type.map(|rt| rt.fields.len()).unwrap_or(0),
+        });
+
+        // Recursively handle inner types
+        if !jt.inner_types.is_empty() {
+            let inner_results = build_type_mappings(&jt.inner_types, rust_types, &[], summary);
+            results.extend(inner_results);
+        }
+    }
+
+    // Find extra Rust types (not in Java)
+    for rt in rust_types {
+        let is_matched = java_types
+            .iter()
+            .any(|jt| find_rust_type_match(&jt.name, &rt.name));
+        if !is_matched {
+            // Count extra methods that aren't Rust-specific
+            for m in &rt.methods {
+                if naming::is_rust_specific_method(&m.name) {
+                    summary.rust_specific_methods += 1;
+                } else {
+                    summary.extra_rust_methods += 1;
+                }
+            }
+        }
+    }
+
+    results
+}
+
+fn find_rust_type<'a>(java_name: &str, rust_types: &'a [TypeDecl]) -> Option<&'a TypeDecl> {
+    rust_types
+        .iter()
+        .find(|rt| find_rust_type_match(java_name, &rt.name))
+}
+
+fn find_rust_type_match(java_name: &str, rust_name: &str) -> bool {
+    // Direct name match (both use PascalCase for types)
+    java_name == rust_name
+}
+
+fn build_method_mappings(
+    java_methods: &[MethodDecl],
+    rust_methods: &[&MethodDecl],
+    summary: &mut SignatureSummary,
+) -> Vec<MethodMappingResult> {
+    let mut results = Vec::new();
+    let mut matched_rust_indices = Vec::new();
+
+    for jm in java_methods {
+        summary.total_java_methods += 1;
+
+        let (rust_match, status) = find_rust_method(&jm.name, rust_methods, &matched_rust_indices);
+
+        if let Some((idx, rm)) = rust_match {
+            matched_rust_indices.push(idx);
+            summary.matched_methods += 1;
+            results.push(MethodMappingResult {
+                java_method: jm.name.clone(),
+                java_params: jm.params.len(),
+                java_line: jm.line,
+                rust_method: Some(rm.name.clone()),
+                rust_line: Some(rm.line),
+                status,
+            });
+        } else {
+            summary.missing_methods += 1;
+            results.push(MethodMappingResult {
+                java_method: jm.name.clone(),
+                java_params: jm.params.len(),
+                java_line: jm.line,
+                rust_method: None,
+                rust_line: None,
+                status: MappingStatus::MissingInRust,
+            });
+        }
+    }
+
+    // Find extra Rust methods
+    for (i, rm) in rust_methods.iter().enumerate() {
+        if !matched_rust_indices.contains(&i) {
+            if naming::is_rust_specific_method(&rm.name) {
+                summary.rust_specific_methods += 1;
+            } else {
+                summary.extra_rust_methods += 1;
+                results.push(MethodMappingResult {
+                    java_method: String::new(),
+                    java_params: 0,
+                    java_line: 0,
+                    rust_method: Some(rm.name.clone()),
+                    rust_line: Some(rm.line),
+                    status: MappingStatus::ExtraInRust,
+                });
+            }
+        }
+    }
+
+    results
+}
+
+fn find_rust_method<'a>(
+    java_name: &str,
+    rust_methods: &[&'a MethodDecl],
+    excluded_indices: &[usize],
+) -> (Option<(usize, &'a MethodDecl)>, MappingStatus) {
+    // Try direct snake_case conversion
+    let snake_name = naming::method_to_snake(java_name);
+
+    for (i, rm) in rust_methods.iter().enumerate() {
+        if excluded_indices.contains(&i) {
+            continue;
+        }
+        if rm.name == snake_name {
+            return (Some((i, rm)), MappingStatus::Matched);
+        }
+    }
+
+    // Try getter/setter candidates
+    if naming::is_getter(java_name) {
+        for candidate in naming::getter_candidates(java_name) {
+            for (i, rm) in rust_methods.iter().enumerate() {
+                if excluded_indices.contains(&i) {
+                    continue;
+                }
+                if rm.name == candidate {
+                    return (Some((i, rm)), MappingStatus::NameConverted);
+                }
+            }
+        }
+    }
+
+    // Try Java constructor → Rust new()
+    if java_name
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_uppercase())
+        || java_name == "<init>"
+    {
+        for (i, rm) in rust_methods.iter().enumerate() {
+            if excluded_indices.contains(&i) {
+                continue;
+            }
+            if rm.name == "new" || rm.name == "default" {
+                return (Some((i, rm)), MappingStatus::NameConverted);
+            }
+        }
+    }
+
+    (None, MappingStatus::MissingInRust)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[allow(dead_code)]
+    fn make_java_method(name: &str, params: usize) -> MethodDecl {
+        MethodDecl {
+            name: name.to_string(),
+            visibility: Visibility::Public,
+            is_static: false,
+            is_abstract: false,
+            params: (0..params)
+                .map(|i| ParamDecl {
+                    name: format!("arg{i}"),
+                    type_name: "int".to_string(),
+                })
+                .collect(),
+            return_type: None,
+            body: None,
+            line: 1,
+        }
+    }
+
+    fn make_rust_method(name: &str) -> MethodDecl {
+        MethodDecl {
+            name: name.to_string(),
+            visibility: Visibility::Public,
+            is_static: false,
+            is_abstract: false,
+            params: Vec::new(),
+            return_type: None,
+            body: None,
+            line: 1,
+        }
+    }
+
+    #[test]
+    fn test_method_matching_snake_case() {
+        let rust_methods = vec![make_rust_method("get_micro_time")];
+        let rust_refs: Vec<&MethodDecl> = rust_methods.iter().collect();
+        let (result, status) = find_rust_method("getMicroTime", &rust_refs, &[]);
+        assert!(result.is_some());
+        assert_eq!(status, MappingStatus::Matched);
+    }
+
+    #[test]
+    fn test_method_matching_getter_short() {
+        let rust_methods = vec![make_rust_method("title")];
+        let rust_refs: Vec<&MethodDecl> = rust_methods.iter().collect();
+        let (result, status) = find_rust_method("getTitle", &rust_refs, &[]);
+        assert!(result.is_some());
+        assert_eq!(status, MappingStatus::NameConverted);
+    }
+
+    #[test]
+    fn test_method_matching_constructor() {
+        let rust_methods = vec![make_rust_method("new")];
+        let rust_refs: Vec<&MethodDecl> = rust_methods.iter().collect();
+        let (result, status) = find_rust_method("<init>", &rust_refs, &[]);
+        assert!(result.is_some());
+        assert_eq!(status, MappingStatus::NameConverted);
+    }
+
+    #[test]
+    fn test_method_not_found() {
+        let rust_methods = vec![make_rust_method("something_else")];
+        let rust_refs: Vec<&MethodDecl> = rust_methods.iter().collect();
+        let (result, _status) = find_rust_method("getMicroTime", &rust_refs, &[]);
+        assert!(result.is_none());
+    }
+}
