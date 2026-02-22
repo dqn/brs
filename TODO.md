@@ -4,17 +4,17 @@ Dependency graph order. Each module is ported only after its dependencies are co
 
 ## Completed Phases
 
-Phases 1–12, 13a–f, 13g, 14, 15a–g, 16a, 16c, 17 — all complete. 936 tests pass. Zero runtime `todo!()`/`unimplemented!()`. See AGENTS.md for details.
+Phases 1–12, 13a–f, 13f follow-up, 13g, 14, 15a–g, 16a, 16c, 17 — all complete. 936 tests pass. Zero runtime `todo!()`/`unimplemented!()`. See AGENTS.md for details.
 
 ## Phase 13f: egui UI (complete)
 
 - [x] Full egui UI integration (launcher views, mod menu) — EguiIntegration in beatoraja-render wraps egui-wgpu 0.31 + wgpu 24 with `forget_lifetime()` for RenderPass. beatoraja-bin has two event loops: LauncherApp (standalone egui config UI) and BeatorajaApp (game + egui overlay). All 10 modmenu sub-menus ported to egui widgets. LauncherUi with 11 tabs.
 - [x] Monitor enumeration on non-macOS → winit `ActiveEventLoop::available_monitors()` — cached via `update_monitors_from_winit()` called from both event loops' `resumed()` handlers
 
-## Phase 13f follow-up: egui UI refinement
+## Phase 13f follow-up: egui UI refinement (complete)
 
-- [ ] Wire remaining LauncherUi tabs to PlayConfigurationView fields — 6/11 tabs are placeholder: Input, Skin, Other (IPFS/HTTP/screenshot), IR, Stream, OBS. `PlayConfigurationView` has all fields translated; need egui widgets in `launcher_ui.rs` to read/write them
-- [ ] Remove dead legacy `show()` methods in modmenu — 10 sub-menus still have the old `show(&mut ImBoolean)` with commented-out ImGui code and `log::warn!("not yet implemented: ...egui integration")`. Now replaced by `show_ui(ctx)` called from `ImGuiRenderer::render_ui()`. Safe to delete the old methods and their ImGui-specific imports
+- [x] Wire remaining LauncherUi tabs to PlayConfigurationView fields — All 11 tabs now functional: Input (keyboard duration, controller JKOC/analog scratch, mouse scratch), Skin (slot display, CIM toggle), Other (IPFS, HTTP download, clipboard screenshot), IR (multi-slot config with name/userid/password/send mode/import), Stream (enable/notify/max request), OBS (WebSocket enable/host/port/password/recording mode/stop wait). All read/write Config and PlayerConfig fields directly.
+- [x] Remove dead legacy `show()` methods in modmenu — Deleted old `show(&mut ImBoolean)` from 9 sub-menus (freq_trainer, judge_trainer, random_trainer, song_manager, download_task, skin_menu, skin_widget_manager, performance_monitor, misc_setting). Cleaned up unused `ImBoolean`/`imgui_renderer` imports where safe.
 
 ## Phase 16b: Golden Master Test Activation (incomplete)
 
