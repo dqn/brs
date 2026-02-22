@@ -69,7 +69,7 @@ brs/
 
 ## Implementation Status
 
-All phases complete. 1179 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 16b partially done (2 duplicate pending tests deleted; 9 e2e tests activated; 2 pending tests activated by 18d; 2 remaining blocked by fixture files). Phase 18a (core judge loop) complete. Phase 18b (rendering state providers) complete. Phase 18c (audio decode API) complete. Phase 18d (BGA/skin test APIs) complete. Phase 18f (e2e test activation) complete. Phase 18g (BRD replay codec) complete.
+All phases complete. 1229 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 16b partially done (2 duplicate pending tests deleted; 9 e2e tests activated; 2 pending tests activated by 18d; 2 remaining blocked by fixture files). Phase 18a (core judge loop) complete. Phase 18b (rendering state providers) complete. Phase 18c (audio decode API) complete. Phase 18d (BGA/skin test APIs) complete. Phase 18e-1 (cross-crate stub deduplication) complete. Phase 18f (e2e test activation) complete. Phase 18g (BRD replay codec) complete.
 
 | Phases | Summary |
 |--------|---------|
@@ -87,13 +87,15 @@ All phases complete. 1179 tests pass. Zero runtime `todo!()`/`unimplemented!()`.
 | 18g | BRD replay file codec: `ReplayData::read_brd()`/`write_brd()` + course variants in `beatoraja-types`. Gzip-compressed JSON matching Java `PlayDataAccessor`. `PlayDataAccessor` refactored to delegate. 5 new tests (14 total replay_data tests) |
 | 18b | Rendering state providers: `SkinStateProvider` trait + `StaticStateProvider` in golden-master. Pure-function keyframe `eval` module (resolve_common, compute_rate/region/color/angle, resolve_text_content). `render_snapshot` module (capture_render_snapshot, compare_snapshots, draw condition evaluation, 12 SkinObject variant detail resolution). Property trait `get_id()` added to BooleanProperty/IntegerProperty/FloatProperty/StringProperty. Skin object getters added (SkinImage/SkinNumber/SkinSlider/SkinGraph). `SkinOffset` made Serialize/Deserialize. 1200 tests pass |
 | 18d | BGA/skin test APIs: `BGAProcessor` timeline processing (`BgaTimeline`, `from_model()`, `prepare_bga()`, `update()`, `current_bga_id()`/`current_layer_id()`). 8 unit tests. `compare_skin.rs` rewritten against `JSONSkinLoader`/`LR2SkinHeaderLoader` actual API (6 tests). `compare_bga_timeline.rs` rewritten with programmatic verification (5 tests). 3 json_skin_loader bugs fixed (source_resolution, filepath absolutization, offset defaults). Test fixtures created: `test_skin.json`, `test_skin_options.json`, `test_skin.lr2skin`. 1179 tests pass |
-| 18e | Post-Phase 13 lifecycle wiring (pending): stub replacement |
+| 18e-1 | Cross-crate stub deduplication: `ImGuiNotify` centralized in beatoraja-types (log-backed facade), 6 duplicate stubs removed (ir, stream, obs, select, external, md-processor). `Random`/`LR2Random` stubs in beatoraja-ir replaced with real beatoraja-pattern types. External crate callers updated to `info_with_dismiss()`. beatoraja-stream got beatoraja-types dependency. 1229 tests pass |
+| 18e-2 | Post-Phase 13 lifecycle wiring (pending): MainController/PlayerResource/MainState stub replacement |
 
 ## Remaining Stubs
 
 - ~~**Circular dep:** TextureRegion/Texture in play~~ → resolved: `pub use beatoraja_render::Texture` in `beatoraja-play/stubs.rs`
+- ~~**Cross-crate duplicates:** ImGuiNotify (6 crates), Random/LR2Random (ir)~~ → resolved: centralized in beatoraja-types/beatoraja-pattern (Phase 18e-1)
 - **Lifecycle:** MainController/PlayerResource stubs in downstream crates (implement traits from `beatoraja-types`)
-- **Remaining stubs.rs:** lifecycle stubs, cross-crate re-exports
+- **Remaining stubs.rs:** lifecycle stubs, cross-crate re-exports, skin/rendering types (modmenu has large SkinHeader/Skin/SkinConfig stubs)
 - **Platform:** Windows named pipe (platform-specific, not yet implemented)
 
 ## Lessons Learned
@@ -144,3 +146,4 @@ All phases complete. 1179 tests pass. Zero runtime `todo!()`/`unimplemented!()`.
 - **BGAProcessor timeline extraction:** Java `BGAProcessor.setModel()` loads resources AND extracts timelines. Rust separates these: `set_model_timelines(&BMSModel)` extracts `BgaTimeline` structs (time_ms/bga/layer/eventlayer) from model timelines. `prepare_bga(time_ms)` uses cursor-based scan with `pos` optimization. `update(time_us)` divides by 1000 to match Java millisecond comparison. BGA id -1 = no change, -2 = stop.
 - **JSON skin loader bugs found via golden-master testing:** (1) `source_resolution` field never populated from JSON w/h — fix: `Resolution { width: sk.w as f32, height: sk.h as f32 }`. (2) Custom file paths incorrectly absolutized with parent directory — fix: use relative paths as-is. (3) Offset defaults applied to ALL skin types 0–6 including MusicSelect/Decide — fix: restrict to PLAY_* type IDs only (0,1,2,3,4,12,13,14,16,17,18).
 - **SkinData vs Skin gap:** `JSONSkinLoader` returns `SkinData` (intermediate struct), not `Skin`. `load_skin_object_for_type()` returns None for screen-specific types (screen loaders not connected). Golden-master tests must work at `SkinData`/`SkinHeaderData` level. Full `Skin` snapshot tests deferred until loading pipeline is wired.
+- **Cross-crate stub deduplication:** `ImGuiNotify` was duplicated in 6 crates as log-backed stubs. Moved to `beatoraja-types::imgui_notify` as a centralized log-backed facade (info/warning/error/success + `_with_dismiss` variants). beatoraja-modmenu keeps the real Toast rendering. This avoids circular deps (modmenu depends on select/pattern/play). Similarly, `Random`/`LR2Random` stubs in beatoraja-ir replaced with real beatoraja-pattern imports (note: stub used SCREAMING_CASE variants `IDENTITY`/`MIRROR`/`RANDOM`, real uses PascalCase `Identity`/`Mirror`/`Random`; stub `LR2Random::new(seed)` → real `LR2Random::with_seed(seed)`).

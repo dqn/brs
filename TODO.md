@@ -4,7 +4,7 @@ Dependency graph order. Each module is ported only after its dependencies are co
 
 ## Completed Phases
 
-Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 16c, 17 — all complete. 1179 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 18a (core judge loop) complete. Phase 18b (rendering state providers) complete. Phase 18c (audio decode API) complete. Phase 18d (BGA/skin test APIs) complete. Phase 18f (e2e test activation) complete. Phase 18g (BRD replay codec) complete. See AGENTS.md for details.
+Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 16c, 17 — all complete. 1229 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 18a (core judge loop) complete. Phase 18b (rendering state providers) complete. Phase 18c (audio decode API) complete. Phase 18d (BGA/skin test APIs) complete. Phase 18e-1 (cross-crate stub deduplication) complete. Phase 18f (e2e test activation) complete. Phase 18g (BRD replay codec) complete. See AGENTS.md for details.
 
 ## Phase 13f: egui UI (complete)
 
@@ -68,7 +68,16 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 - [x] Rewrite `compare_skin.rs` against actual API — rewrote from free functions to `JSONSkinLoader::new().load_header()`/`.load()` struct methods; tests verify `SkinHeaderData`/`SkinData` (intermediate types, not `Skin`). Fixed 3 bugs in json_skin_loader.rs: source_resolution not set, filepath absolutization, offset defaults for non-PLAY types. Created test fixtures: `test_skin.json`, `test_skin_options.json`, `test_skin.lr2skin`. 6 tests (3 JSON header/load/destinations + 2 JSON options + 1 LR2 header). Skipped: Lua (stubbed), ECFN (external files), full Skin snapshots (SkinData→Skin pipeline not connected)
 - [x] Rewrite `compare_bga_timeline.rs` against actual API — rewrote from fixture-based golden master to programmatic verification using `BGAProcessor::from_model()` + `update(time_us)` + `current_bga_id()`/`current_layer_id()`. Tests verify BGA/layer state transitions at measure boundaries against `bga_test.bms` (BPM=120). 5 tests. No Java BGA exporter needed
 
-### 18e: Stub replacement and cleanup
+### 18e: Stub replacement and cleanup (partially complete)
+
+#### 18e-1: Cross-crate stub deduplication (complete)
+
+- [x] Centralize `ImGuiNotify` in `beatoraja-types` — added `imgui_notify.rs` with log-backed facade (info/warning/error/success + `_with_dismiss` variants). Replaced 6 duplicate stubs in: beatoraja-ir, beatoraja-stream, beatoraja-obs, beatoraja-select, beatoraja-external, md-processor. All now re-export from `beatoraja_types::imgui_notify::ImGuiNotify`
+- [x] Replace `Random`/`LR2Random` stubs in beatoraja-ir — added `beatoraja-pattern` dependency. Replaced stub enum (SCREAMING_CASE) with real `Random` enum (PascalCase). Replaced stub `LR2Random::new(seed)` with real `LR2Random::with_seed(seed)`. Updated `lr2_ghost_data.rs` callers
+- [x] Update beatoraja-external `ImGuiNotify::info(msg, duration)` callers — changed 2-arg `info()` to `info_with_dismiss()` matching real modmenu API. 3 call sites updated (screen_shot_twitter_exporter, screen_shot_file_exporter)
+- [x] Add `beatoraja-types` dependency to beatoraja-stream — was the only stub-holding crate without it
+
+#### 18e-2: Lifecycle stub replacement (remaining)
 
 - [ ] Replace `MainController` stubs in 8 crates (select, ir, obs, result, decide, external, modmenu, md-processor) with real `beatoraja-core::MainController` — blocked: downstream crates call crate-specific stub APIs not present on real MainController; requires adapter methods or caller updates per crate
 - [ ] Replace `PlayerResource` stubs in 6 crates (select, result, decide, external, modmenu, obs) with real `beatoraja-core::PlayerResource` — blocked: same adapter pattern needed; `PlayerResource` holds rendering/audio handles whose types depend on Phase 13 integration
