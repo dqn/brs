@@ -86,6 +86,9 @@ pub enum DrawDetail {
         value: f64,
         direction: i32,
     },
+    Gauge {
+        value: f64,
+    },
     BpmGraph,
     HitErrorVisualizer,
     NoteDistributionGraph,
@@ -993,6 +996,11 @@ fn compare_detail(
                         "{} detail.direction: java={} rust={}",
                         prefix, jd, rd
                     ));
+                }
+            }
+            (DrawDetail::Gauge { value: jv }, DrawDetail::Gauge { value: rv }) => {
+                if (jv - rv).abs() > 0.001 {
+                    diffs.push(format!("{} detail.value: java={} rust={}", prefix, jv, rv));
                 }
             }
             (DrawDetail::BpmGraph, DrawDetail::BpmGraph)
