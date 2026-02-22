@@ -4,7 +4,7 @@ Dependency graph order. Each module is ported only after its dependencies are co
 
 ## Completed Phases
 
-Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 16c, 17 — all complete. 993 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 18a (core judge loop) complete. See AGENTS.md for details.
+Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 16c, 17 — all complete. 1042 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 18a (core judge loop) complete. Phase 18c (audio decode API) complete. See AGENTS.md for details.
 
 ## Phase 13f: egui UI (complete)
 
@@ -27,16 +27,16 @@ Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 1
 
 - [x] Delete duplicate pending tests — `compare_rule.rs` and `compare_pattern.rs` in `pending/` were duplicates of already-active versions with real imports; deleted
 - [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream) — Java exporters exist; deferred until Rust-side APIs are implemented
-- [ ] Reactivate remaining 14 pending test files — blocked on multiple levels:
+- [ ] Reactivate remaining 13 pending test files — blocked on multiple levels:
   - ~~**JudgeManager::update() is a stub**~~ → resolved: full judge loop implemented in Phase 18a. New testable API: `update(&mut self, mtime, &[JudgeNote], &[bool], &[i64], &mut GrooveGauge)`
   - ~~**Missing judge API types**~~ → resolved: `JudgeConfig`, `JUDGE_PG`/`JUDGE_GR`/etc. constants, `build_judge_notes()` all implemented in Phase 18a
   - ~~**e2e_helpers.rs rewrite still needed**~~ → resolved: rewritten against actual API (Phase 18a complete). `e2e_helpers.rs` activated in lib.rs. `compare_judge_manager.rs` moved out of pending/
   - **Missing rendering API:** `StaticStateProvider`, `SkinStateProvider`, `render_snapshot` module not implemented — blocks `compare_eval_test_skins.rs`, `compare_render_snapshot.rs` (10 tests)
-  - **Missing audio API:** `load_audio()`, `f32_to_i16()` not implemented in `beatoraja-audio` — blocks `compare_audio.rs` (11 tests)
+  - ~~**Missing audio API:** `load_audio()`, `f32_to_i16()` not implemented in `beatoraja-audio`~~ → resolved: Phase 18c complete. `decode::load_audio()` + `bms_renderer::f32_to_i16()` implemented. `compare_audio.rs` activated (11 tests pass)
   - **Skin loader API mismatch:** tests assume free functions (`json_loader::load_skin()`), actual API uses struct methods (`JsonSkinLoader.load_skin()`) — blocks `compare_skin.rs` (13 tests). Also: `skin.width`/`skin.objects` are private, `skin.scale_x`/`skin.scale_y`/`skin.options` not present
   - **Missing BGA API:** `BgaProcessor` struct not found — blocks `compare_bga_timeline.rs`
-  - **Fixture availability:** compare_audio, compare_bga_timeline fixtures and Java exporters already exist; blocker is Rust-side API (`load_audio()`, `BgaProcessor`)
-  - **Resolution:** Phase 18a (judge loop) complete. Remaining blockers: 18b (rendering state providers), 18c (audio decode API), 18d (BGA + skin test rewrite), then 18f (test activation)
+  - **Fixture availability:** compare_bga_timeline fixtures and Java exporters already exist; blocker is Rust-side API (`BgaProcessor`)
+  - **Resolution:** Phase 18a (judge loop) complete. Phase 18c (audio decode) complete. Remaining blockers: 18b (rendering state providers), 18d (BGA + skin test rewrite), then 18f (test activation)
 
 ## Phase 18: Post-Phase 13 Lifecycle Wiring
 
@@ -56,10 +56,12 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 - [ ] Implement `StaticStateProvider` and `SkinStateProvider` — provide timer/number/flag values to skin evaluation engine
 - [ ] Implement `render_snapshot` module in golden-master — snapshot infrastructure for comparing rendered skin state against Java fixtures
 
-### 18c: Audio decode API (unblocks 1 Phase 16b test)
+### 18c: Audio decode API (complete — unblocks 1 Phase 16b test)
 
-- [ ] Implement `load_audio()` in `beatoraja-audio` — decode audio files (WAV/OGG/MP3) and return sample data; Kira handles playback but tests need raw sample comparison
-- [ ] Implement `f32_to_i16()` in `beatoraja-audio` — sample format conversion for golden master comparison
+- [x] Implement `load_audio()` in `beatoraja-audio` — `decode::AudioData` struct with f32 samples, delegates to existing `FloatPCM` for resampling/channel conversion. `decode::load_audio(&Path)` uses `PCMLoader` + `FloatPCM::load_pcm()`. Supports WAV (PCM 8/16/24/32-bit, IEEE float, MS-ADPCM), OGG, MP3, FLAC
+- [x] Implement `f32_to_i16()` in `beatoraja-audio` — `bms_renderer::f32_to_i16(&[f32]) -> Vec<i16>`, clamp + scale by `i16::MAX`
+- [x] Add WAVE_FORMAT_EXTENSIBLE (0xFFFE) support to WAV reader — reads sub-format GUID to extract actual format type (needed for 24-bit WAV test files). Translated from AudioExporter.java
+- [x] Activate `compare_audio.rs` golden master test — moved from `pending/` to active, updated crate references (`bms_audio` → `beatoraja_audio`). 11 tests pass (6 decode + 3 resample + 2 channel conversion)
 
 ### 18d: BGA and skin test APIs (unblocks 2 Phase 16b tests)
 
@@ -77,7 +79,7 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 ### 18f: Integration verification
 
 - [x] Rewrite e2e test files against actual API — all 9 files rewritten and compile-verified: `e2e_judge.rs`, `course_e2e.rs`, `compare_judge.rs`, `exhaustive_e2e.rs`, `e2e_edge_cases.rs`, `timing_boundary_e2e.rs`, `replay_roundtrip_e2e.rs`, `full_pipeline_integration.rs`, `compare_replay_e2e.rs`. Old API names (`BmsDecoder`/`BmsModel`/`GaugeType` enum/`PlayerRule`/`model.total_notes()`/`score.judge_count()`) replaced with actual crate types (`BMSDecoder`/`BMSModel`/`i32` gauge constants/`BMSPlayerRule`/`model.get_total_notes()`/`score.get_judge_count_total()`). Replay tests (`replay_roundtrip_e2e.rs`, `full_pipeline_integration.rs`) adapted from BRD binary format to JSON serde round-trip because `read_brd`/`write_brd` are not yet implemented
-- [ ] Activate remaining 14 Phase 16b pending tests — depends on 18a–18d completing + e2e test API rewrites
+- [ ] Activate remaining 13 Phase 16b pending tests — depends on 18b + 18d completing + e2e test API rewrites (18a, 18c done)
 - [ ] E2E gameplay flow test: select → decide → play → result screen transitions — blocked: requires all stubs removed and real screen implementations wired
 - [ ] Verify: all tests pass, zero clippy warnings, clean `cargo fmt` — blocked: final gate after all above tasks complete
 

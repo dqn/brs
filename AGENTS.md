@@ -69,7 +69,7 @@ brs/
 
 ## Implementation Status
 
-All phases complete. 993 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 16b partially done (2 duplicate pending tests deleted; 14 remaining blocked; `compare_judge_manager.rs` activated). Phase 18a (core judge loop) complete. Phase 18f partially done (9 e2e test files rewritten against actual API).
+All phases complete. 1042 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 16b partially done (2 duplicate pending tests deleted; 13 remaining blocked; `compare_judge_manager.rs` + `compare_audio.rs` activated). Phase 18a (core judge loop) complete. Phase 18c (audio decode API) complete. Phase 18f partially done (9 e2e test files rewritten against actual API).
 
 | Phases | Summary |
 |--------|---------|
@@ -83,7 +83,8 @@ All phases complete. 993 tests pass. Zero runtime `todo!()`/`unimplemented!()`. 
 | 17 | Verified zero runtime todo!/unimplemented! |
 | 18a | Core judge loop: `JudgeManager::update()` full 450-line translation with testable API. `JudgeConfig`, `JudgeNote`, `build_judge_notes()`, `compare_times()`, judge constants. `e2e_helpers.rs` rewritten and activated (correct BMSDecoder/GrooveGauge/KeyInputLog APIs). `compare_judge_manager.rs` activated (golden master test). `pair_index` bounds checks added. LN pairing fix in `build_judge_notes()`. `total_notes` count fix for LNTYPE_LONGNOTE. 993 tests pass |
 | 18f (partial) | E2E test API rewrite: 9 pending test files (`e2e_judge.rs`, `course_e2e.rs`, `compare_judge.rs`, `exhaustive_e2e.rs`, `e2e_edge_cases.rs`, `timing_boundary_e2e.rs`, `replay_roundtrip_e2e.rs`, `full_pipeline_integration.rs`, `compare_replay_e2e.rs`) rewritten against actual crate APIs. Old names → real types (`BMSDecoder`/`BMSModel`/i32 gauge constants/`BMSPlayerRule`/`get_total_notes()`/`get_judge_count_total()`). Replay tests adapted to JSON serde (BRD codec not yet implemented). All 9 files compile-verified |
-| 18b–e | Post-Phase 13 lifecycle wiring (pending): 18b rendering state providers, 18c audio decode, 18d BGA/skin tests, 18e stub replacement |
+| 18c | Audio decode API: `decode::AudioData` + `load_audio()` (delegates to FloatPCM), `bms_renderer::f32_to_i16()`, WAVE_FORMAT_EXTENSIBLE support in WAV reader. `compare_audio.rs` activated (11 golden master tests). 1042 tests pass |
+| 18b, 18d–e | Post-Phase 13 lifecycle wiring (pending): 18b rendering state providers, 18d BGA/skin tests, 18e stub replacement |
 
 ## Remaining Stubs
 
@@ -130,4 +131,6 @@ All phases complete. 993 tests pass. Zero runtime `todo!()`/`unimplemented!()`. 
 - **Monitor enumeration:** Non-macOS uses winit `ActiveEventLoop::available_monitors()` cached in a global `Mutex<Vec<MonitorInfo>>` populated from `resumed()`. macOS keeps CoreGraphics FFI.
 - **Stub cleanup:** Always verify with `cargo check` after removal. Cross-crate re-exports require checking downstream crates. Split rendering stubs into `rendering_stubs.rs` with `pub use` in `stubs.rs` for backward compat.
 - **Java Random LCG:** `java.util.Random(seed)` uses LCG (multiplier=`0x5DEECE66D`, addend=`0xB`, mask=48-bit). Seed scramble: `(seed ^ multiplier) & mask`. `nextInt(bound)` has power-of-2 fast path. Must use `wrapping_mul`/`wrapping_add` for i64 overflow. Implemented as `java_random::JavaRandom` in `beatoraja-pattern`. **Never use `StdRng`/`rand` for Java-seeded RNG.**
+- **WAVE_FORMAT_EXTENSIBLE:** WAV format 0xFFFE has extended header: skip 8 bytes (cbSize + validBitsPerSample + channelMask), read 2-byte sub-format GUID as actual format type, skip remaining 14 bytes. Needed for 24-bit WAV files. Original PCM.java lacks this; added for golden master test infrastructure (AudioExporter.java).
+- **Audio decode public API:** `decode::AudioData` wraps `FloatPCM` with u16/u32 types; `load_audio()` uses `PCMLoader` + `FloatPCM::load_pcm()` without driver conversion. Reuses existing resampling/channel conversion via `to_float_pcm()`/`from_float_pcm()` round-trip.
 - **JudgeManager testable API:** Java `update()` accesses game state (BMSPlayer, AudioDriver, TimerManager) directly; Rust version takes all inputs as parameters (`&[JudgeNote]`, `&[bool]` key_states, `&[i64]` key_changed_times, `&mut GrooveGauge`). Internal `NoteJudgeState` tracks per-note state/play_time since notes are passed immutably. `LaneIterState` reimplements Java `Lane` mark/reset/getNote on flat note index arrays. `JudgeAlgorithm::compare_times()` added alongside original `compare(&Note)` to support JudgeNote-based judge loop.
