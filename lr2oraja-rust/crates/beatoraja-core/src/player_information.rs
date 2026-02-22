@@ -7,3 +7,9 @@ pub struct PlayerInformation {
     pub name: Option<String>,
     pub rank: Option<String>,
 }
+
+impl PlayerInformation {
+    pub fn get_name(&self) -> &str {
+        self.name.as_deref().unwrap_or("")
+    }
+}

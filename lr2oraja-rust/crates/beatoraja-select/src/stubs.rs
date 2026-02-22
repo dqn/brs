@@ -60,42 +60,10 @@ pub trait MainState {}
 /// MainStateType — re-exported from beatoraja-types (Phase 15d)
 pub use beatoraja_types::main_state_type::MainStateType;
 
-/// Stub for beatoraja.BMSPlayerMode
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BMSPlayerMode {
-    pub mode: BMSPlayerModeType,
-    pub id: i32,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BMSPlayerModeType {
-    Play,
-    AutoPlay,
-    Practice,
-    Replay,
-}
-
-impl BMSPlayerMode {
-    pub const PLAY: BMSPlayerMode = BMSPlayerMode {
-        mode: BMSPlayerModeType::Play,
-        id: 0,
-    };
-    pub const AUTOPLAY: BMSPlayerMode = BMSPlayerMode {
-        mode: BMSPlayerModeType::AutoPlay,
-        id: 1,
-    };
-    pub const PRACTICE: BMSPlayerMode = BMSPlayerMode {
-        mode: BMSPlayerModeType::Practice,
-        id: 2,
-    };
-
-    pub fn get_replay_mode(index: i32) -> BMSPlayerMode {
-        BMSPlayerMode {
-            mode: BMSPlayerModeType::Replay,
-            id: index + 3,
-        }
-    }
-}
+// BMSPlayerMode: replaced by pub use from beatoraja_core (Phase 18e-7)
+pub use beatoraja_core::bms_player_mode::BMSPlayerMode;
+// Alias Mode as BMSPlayerModeType to avoid naming conflict with bms_model::mode::Mode
+pub use beatoraja_core::bms_player_mode::Mode as BMSPlayerModeType;
 
 // beatoraja.CourseData / TrophyData / CourseDataConstraint — replaced with real types from beatoraja-types (Phase 15g)
 pub use beatoraja_types::course_data::{CourseData, CourseDataConstraint, TrophyData};
@@ -456,35 +424,6 @@ pub use beatoraja_types::imgui_notify::ImGuiNotify;
 pub use ::bms_model::mode as bms_model;
 
 // ============================================================
-// bms.tool.util.Pair
-// ============================================================
-
-/// Stub for bms.tool.util.Pair
-#[derive(Clone, Debug)]
-pub struct Pair<A, B> {
-    pub first: A,
-    pub second: B,
-}
-
-impl<A, B> Pair<A, B> {
-    pub fn of(first: A, second: B) -> Self {
-        Self { first, second }
-    }
-    pub fn get_first(&self) -> &A {
-        &self.first
-    }
-    pub fn get_second(&self) -> &B {
-        &self.second
-    }
-}
-
-impl<A: Clone, B: Clone> Pair<A, B> {
-    pub fn project_first(pairs: &[Self]) -> Vec<A> {
-        pairs.iter().map(|p| p.first.clone()).collect()
-    }
-}
-
-// ============================================================
 // Timer stub
 // ============================================================
 
@@ -505,20 +444,8 @@ impl TimerState {
     pub fn switch_timer(&self, _id: i32, _on: bool) {}
 }
 
-// ============================================================
-// PlayerInformation — stub for beatoraja.PlayerInformation
-// ============================================================
-
-#[derive(Clone, Debug, Default)]
-pub struct PlayerInformation {
-    pub name: String,
-}
-
-impl PlayerInformation {
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-}
+// PlayerInformation: replaced by pub use from beatoraja_core (Phase 18e-7)
+pub use beatoraja_core::player_information::PlayerInformation;
 
 // ============================================================
 // AudioDriver — stub for beatoraja.audio.AudioDriver
