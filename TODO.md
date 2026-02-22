@@ -127,6 +127,7 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 - [ ] JSONSkinLoader returns `SkinData` (intermediate), not `Skin` — full loading pipeline (SkinData→Skin) not connected. `load_skin_object_for_type()` returns None for all screen-specific types. Full Skin snapshot tests deferred until pipeline is wired
 - [ ] LuaSkinLoader is completely stubbed — `load_header()` and `load_skin()` return None. Lua skin tests skipped
 - [ ] json_skin_loader bug fixes applied during Phase 18d — (1) `source_resolution` was not set from JSON w/h fields, (2) custom file paths were incorrectly absolutized with parent dir, (3) offset defaults were applied to non-PLAY skin types (MusicSelect, Decide, etc.)
+- [ ] `PlayerResourceAccess` trait lacks mutable access and non-types-crate return types — beatoraja-result needs 5 mutable getters (`get_score_data_mut`, `get_replay_data_mut`, `get_course_score_data_mut`, `get_course_replay_mut`, `get_course_gauge_mut`) not on the trait. Also needs methods returning types from bms-model/beatoraja-core (`get_bms_model() -> &BMSModel`, `get_play_mode() -> &BMSPlayerMode`, `get_ranking_data() -> Option<&RankingData>`, `get_original_mode() -> &Mode`). beatoraja-result stub also uses incompatible types: `FloatArray` vs `Vec<f32>`, `GrooveGaugeStub` vs `GrooveGauge`. Trait extension or per-crate extension trait needed before PlayerResource stubs can be replaced
 
 ## Remaining Stubs
 
