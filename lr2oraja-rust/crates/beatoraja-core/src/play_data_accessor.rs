@@ -1,10 +1,6 @@
 use std::fs;
-use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
-use flate2::Compression;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
 use sha2::{Digest, Sha256};
 
 use crate::clear_type::ClearType;
@@ -16,8 +12,6 @@ use crate::score_data::{ScoreData, SongTrophy};
 use crate::score_data_log_database_accessor::ScoreDataLogDatabaseAccessor;
 use crate::score_database_accessor::{ScoreDataCollector, ScoreDatabaseAccessor, SongData};
 use crate::score_log_database_accessor::{ScoreLog, ScoreLogDatabaseAccessor};
-use crate::validatable::Validatable;
-
 static REPLAY: &[&str] = &["", "C", "H"];
 
 /// Play data accessor.
@@ -451,25 +445,10 @@ impl PlayDataAccessor {
             "{}.brd",
             self.get_replay_data_file_path(hash, ln, lnmode, index)
         );
-        match fs::File::open(&path) {
-            Ok(file) => {
-                let reader = BufReader::new(GzDecoder::new(file));
-                match serde_json::from_reader::<_, ReplayData>(reader) {
-                    Ok(mut rd) => {
-                        if rd.validate() {
-                            Some(rd)
-                        } else {
-                            None
-                        }
-                    }
-                    Err(e) => {
-                        log::error!("Failed to read replay data: {}", e);
-                        None
-                    }
-                }
-            }
+        match ReplayData::read_brd(Path::new(&path)) {
+            Ok(rd) => Some(rd),
             Err(e) => {
-                log::error!("Failed to open replay file: {}", e);
+                log::error!("Failed to read replay data: {}", e);
                 None
             }
         }
@@ -477,32 +456,18 @@ impl PlayDataAccessor {
 
     pub fn write_replay_data(
         &self,
-        rd: &ReplayData,
+        rd: &mut ReplayData,
         hash: &str,
         ln: bool,
         lnmode: i32,
         index: i32,
     ) {
-        let replay_dir = self.get_replay_data_folder();
-        if let Err(e) = fs::create_dir_all(&replay_dir) {
-            log::error!("Failed to create replay directory: {}", e);
-            return;
-        }
-
         let path = format!(
             "{}.brd",
             self.get_replay_data_file_path(hash, ln, lnmode, index)
         );
-        match fs::File::create(&path) {
-            Ok(file) => {
-                let encoder = GzEncoder::new(BufWriter::new(file), Compression::default());
-                if let Err(e) = serde_json::to_writer_pretty(encoder, rd) {
-                    log::error!("Failed to write replay data: {}", e);
-                }
-            }
-            Err(e) => {
-                log::error!("Failed to create replay file: {}", e);
-            }
+        if let Err(e) = rd.write_brd(Path::new(&path)) {
+            log::error!("Failed to write replay data: {}", e);
         }
     }
 

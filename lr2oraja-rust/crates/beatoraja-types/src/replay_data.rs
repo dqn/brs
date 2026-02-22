@@ -1,5 +1,8 @@
-use std::io::{Read, Write};
+use std::fs;
+use std::io::{BufReader, BufWriter, Read, Write};
+use std::path::Path;
 
+use anyhow::Result;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE;
 use flate2::Compression;
@@ -61,6 +64,60 @@ impl ReplayData {
             self.keyinput = Some(URL_SAFE.encode(&compressed));
             self.keylog = Vec::new();
         }
+    }
+
+    /// Read a single ReplayData from a .brd file (gzip-compressed JSON).
+    /// Calls validate() after deserialization, matching Java PlayDataAccessor.readReplayData().
+    pub fn read_brd(path: &Path) -> Result<ReplayData> {
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(GzDecoder::new(file));
+        let mut rd: ReplayData = serde_json::from_reader(reader)?;
+        if !rd.validate() {
+            anyhow::bail!("ReplayData validation failed for {:?}", path);
+        }
+        Ok(rd)
+    }
+
+    /// Write a single ReplayData to a .brd file (gzip-compressed JSON).
+    /// Calls shrink() before serialization, matching Java PlayDataAccessor.wrireReplayData().
+    pub fn write_brd(&mut self, path: &Path) -> Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        self.shrink();
+        let file = fs::File::create(path)?;
+        let encoder = GzEncoder::new(BufWriter::new(file), Compression::default());
+        serde_json::to_writer_pretty(encoder, &self)?;
+        Ok(())
+    }
+
+    /// Read a course ReplayData array from a .brd file (gzip-compressed JSON array).
+    /// Calls validate() on each element, matching Java PlayDataAccessor.readReplayData(String[], ...).
+    pub fn read_brd_course(path: &Path) -> Result<Vec<ReplayData>> {
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(GzDecoder::new(file));
+        let mut rds: Vec<ReplayData> = serde_json::from_reader(reader)?;
+        for rd in &mut rds {
+            if !rd.validate() {
+                anyhow::bail!("ReplayData validation failed in course file {:?}", path);
+            }
+        }
+        Ok(rds)
+    }
+
+    /// Write a course ReplayData array to a .brd file (gzip-compressed JSON array).
+    /// Calls shrink() on each element, matching Java PlayDataAccessor.wrireReplayData(ReplayData[], ...).
+    pub fn write_brd_course(rds: &mut [ReplayData], path: &Path) -> Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        for rd in rds.iter_mut() {
+            rd.shrink();
+        }
+        let file = fs::File::create(path)?;
+        let encoder = GzEncoder::new(BufWriter::new(file), Compression::default());
+        serde_json::to_writer_pretty(encoder, &rds)?;
+        Ok(())
     }
 }
 
@@ -267,5 +324,162 @@ mod tests {
         assert_eq!(lsp.len(), 2);
         assert_eq!(lsp[0], vec![0, 1, 2]);
         assert_eq!(lsp[1], vec![2, 1, 0]);
+    }
+
+    #[test]
+    fn test_write_brd_and_read_brd_round_trip() {
+        let dir = std::env::temp_dir().join("brs_test_brd_roundtrip");
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("test.brd");
+
+        let mut rd = ReplayData::new();
+        rd.player = Some("TestPlayer".to_string());
+        rd.sha256 = Some("abc123hash".to_string());
+        rd.mode = 7;
+        rd.gauge = 3;
+        rd.date = 1700000000;
+        rd.rand = vec![1, 2, 3];
+        rd.keylog = vec![
+            KeyInputLog {
+                time: 1000,
+                keycode: 0,
+                pressed: true,
+            },
+            KeyInputLog {
+                time: 2000,
+                keycode: 1,
+                pressed: false,
+            },
+            KeyInputLog {
+                time: 3000,
+                keycode: 2,
+                pressed: true,
+            },
+        ];
+
+        rd.write_brd(&path).unwrap();
+        assert!(path.exists());
+
+        let loaded = ReplayData::read_brd(&path).unwrap();
+        assert_eq!(loaded.player.as_deref(), Some("TestPlayer"));
+        assert_eq!(loaded.sha256.as_deref(), Some("abc123hash"));
+        assert_eq!(loaded.mode, 7);
+        assert_eq!(loaded.gauge, 3);
+        assert_eq!(loaded.date, 1700000000);
+        assert_eq!(loaded.rand, vec![1, 2, 3]);
+        // keylog is restored via validate() (shrink compresses, validate decompresses)
+        assert_eq!(loaded.keylog.len(), 3);
+        assert_eq!(loaded.keylog[0].time, 1000);
+        assert_eq!(loaded.keylog[0].keycode, 0);
+        assert!(loaded.keylog[0].pressed);
+        assert_eq!(loaded.keylog[1].time, 2000);
+        assert_eq!(loaded.keylog[1].keycode, 1);
+        assert!(!loaded.keylog[1].pressed);
+        assert_eq!(loaded.keylog[2].time, 3000);
+        assert_eq!(loaded.keylog[2].keycode, 2);
+        assert!(loaded.keylog[2].pressed);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_write_brd_creates_parent_dirs() {
+        let dir = std::env::temp_dir().join("brs_test_brd_parent/nested/dir");
+        let _ = std::fs::remove_dir_all(std::env::temp_dir().join("brs_test_brd_parent"));
+        let path = dir.join("test.brd");
+
+        let mut rd = ReplayData::new();
+        rd.keylog = vec![KeyInputLog {
+            time: 100,
+            keycode: 0,
+            pressed: true,
+        }];
+        rd.write_brd(&path).unwrap();
+        assert!(path.exists());
+
+        let _ = std::fs::remove_dir_all(std::env::temp_dir().join("brs_test_brd_parent"));
+    }
+
+    #[test]
+    fn test_read_brd_nonexistent_file() {
+        let path = std::env::temp_dir().join("brs_test_nonexistent.brd");
+        let result = ReplayData::read_brd(&path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_write_brd_course_and_read_brd_course_round_trip() {
+        let dir = std::env::temp_dir().join("brs_test_brd_course");
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("course.brd");
+
+        let mut rd1 = ReplayData::new();
+        rd1.sha256 = Some("hash1".to_string());
+        rd1.keylog = vec![
+            KeyInputLog {
+                time: 1000,
+                keycode: 0,
+                pressed: true,
+            },
+            KeyInputLog {
+                time: 2000,
+                keycode: 0,
+                pressed: false,
+            },
+        ];
+
+        let mut rd2 = ReplayData::new();
+        rd2.sha256 = Some("hash2".to_string());
+        rd2.keylog = vec![
+            KeyInputLog {
+                time: 5000,
+                keycode: 1,
+                pressed: true,
+            },
+            KeyInputLog {
+                time: 6000,
+                keycode: 1,
+                pressed: false,
+            },
+        ];
+
+        let mut rds = vec![rd1, rd2];
+        ReplayData::write_brd_course(&mut rds, &path).unwrap();
+        assert!(path.exists());
+
+        let loaded = ReplayData::read_brd_course(&path).unwrap();
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0].sha256.as_deref(), Some("hash1"));
+        assert_eq!(loaded[0].keylog.len(), 2);
+        assert_eq!(loaded[0].keylog[0].time, 1000);
+        assert_eq!(loaded[1].sha256.as_deref(), Some("hash2"));
+        assert_eq!(loaded[1].keylog.len(), 2);
+        assert_eq!(loaded[1].keylog[0].time, 5000);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_brd_shrinks_keylog_on_write() {
+        let dir = std::env::temp_dir().join("brs_test_brd_shrink");
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("test.brd");
+
+        let mut rd = ReplayData::new();
+        rd.keylog = vec![KeyInputLog {
+            time: 1000,
+            keycode: 0,
+            pressed: true,
+        }];
+
+        // After write_brd, the in-memory rd should have keylog shrunk
+        rd.write_brd(&path).unwrap();
+        assert!(
+            rd.keylog.is_empty(),
+            "keylog should be emptied after shrink"
+        );
+        assert!(rd.keyinput.is_some(), "keyinput should be set after shrink");
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
