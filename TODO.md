@@ -35,17 +35,46 @@ Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 1
   - **Skin loader API mismatch:** tests assume free functions (`json_loader::load_skin()`), actual API uses struct methods (`JsonSkinLoader.load_skin()`) — blocks `compare_skin.rs` (13 tests). Also: `skin.width`/`skin.objects` are private, `skin.scale_x`/`skin.scale_y`/`skin.options` not present
   - **Missing BGA API:** `BgaProcessor` struct not found — blocks `compare_bga_timeline.rs`
   - **Fixture generation:** compare_audio, compare_bga_timeline need Java exporter updates
-  - **Resolution:** requires JudgeManager::update() implementation (Phase 18), rendering state providers, audio decode API, then full test rewrite against actual API
+  - **Resolution:** requires Phase 18a (judge loop), 18b (rendering state providers), 18c (audio decode API), 18d (BGA + skin test rewrite), then 18f (test activation)
 
 ## Phase 18: Post-Phase 13 Lifecycle Wiring
 
 Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) is now complete.
+
+### 18a: Core judge loop implementation (unblocks 12 of 15 Phase 16b tests)
+
+- [ ] Implement `JudgeManager::update()` — translate the 400+ line Java judge loop (`BMSPlayer.update()` → `JudgeManager.update()`) from `lr2oraja-java`. Currently a stub with empty body and TODO "Phase 7+ dependency — requires BMSPlayer, BMSPlayerInputProcessor, AudioDriver"
+- [ ] Add `JudgeConfig` struct — encapsulates judge timing windows (PG/GR/GD/BD/PR/MS thresholds) used by `JudgeManager`
+- [ ] Add judge constants (`JUDGE_PG`, `JUDGE_GR`, `JUDGE_GD`, `JUDGE_BD`, `JUDGE_PR`, `JUDGE_MS`) — referenced by tests and judge logic
+- [ ] Add `BMSModel::build_judge_notes()` — builds the note sequence used by judge evaluation
+- [ ] Rewrite `e2e_helpers.rs` against actual API — update imports, adapt to `GrooveGauge::new()` signature (i32 gauge type, not enum), fix `KeyInputLog` path
+
+### 18b: Rendering state providers (unblocks 2 Phase 16b tests)
+
+- [ ] Implement `StaticStateProvider` and `SkinStateProvider` — provide timer/number/flag values to skin evaluation engine
+- [ ] Implement `render_snapshot` module in golden-master — snapshot infrastructure for comparing rendered skin state against Java fixtures
+
+### 18c: Audio decode API (unblocks 1 Phase 16b test)
+
+- [ ] Implement `load_audio()` in `beatoraja-audio` — decode audio files (WAV/OGG/MP3) and return sample data; Kira handles playback but tests need raw sample comparison
+- [ ] Implement `f32_to_i16()` in `beatoraja-audio` — sample format conversion for golden master comparison
+
+### 18d: BGA and skin test APIs (unblocks 2 Phase 16b tests)
+
+- [ ] Implement `BgaProcessor` — BGA (background animation) timeline processing; translate from Java
+- [ ] Rewrite `compare_skin.rs` against actual API — adapt from free functions (`json_loader::load_skin()`) to struct methods (`JsonSkinLoader.load_skin()`), fix private field access (`skin.width` etc.)
+
+### 18e: Stub replacement and cleanup
 
 - [ ] Replace `MainController` stubs in 8 crates (select, ir, obs, result, decide, external, modmenu, md-processor) with real `beatoraja-core::MainController` — blocked: downstream crates call crate-specific stub APIs not present on real MainController; requires adapter methods or caller updates per crate
 - [ ] Replace `PlayerResource` stubs in 6 crates (select, result, decide, external, modmenu, obs) with real `beatoraja-core::PlayerResource` — blocked: same adapter pattern needed; `PlayerResource` holds rendering/audio handles whose types depend on Phase 13 integration
 - [ ] Replace `MainState` stubs with real trait impls — blocked: requires per-screen concrete types (PlayState, SelectState, etc.) to implement the `MainState` trait with real rendering callbacks
 - [ ] Remove all `stubs.rs` files (target: zero remaining stubs) — blocked: depends on above three stub replacements completing first
 - [ ] Remove `rendering_stubs.rs` (all types replaced by wgpu equivalents from Phase 13) — blocked: skin crates still reference rendering stub types; requires full `beatoraja-render` type propagation
+
+### 18f: Integration verification
+
+- [ ] Activate remaining 15 Phase 16b pending tests — depends on 18a–18d completing
 - [ ] E2E gameplay flow test: select → decide → play → result screen transitions — blocked: requires all stubs removed and real screen implementations wired
 - [ ] Verify: all tests pass, zero clippy warnings, clean `cargo fmt` — blocked: final gate after all above tasks complete
 

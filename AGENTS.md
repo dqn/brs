@@ -80,7 +80,7 @@ All phases complete. 936 tests pass. Zero runtime `todo!()`/`unimplemented!()`. 
 | 13f follow-up 2 | `commit_config()` persists Config + PlayerConfig. IR tab AES-encrypted get/set with egui buffers. Skin tab: full `SkinConfigurationView` integration (type/header selectors, CustomOption/File/Offset widgets, history). Input tab confirmed complete vs Java |
 | 16a–c | Tests: 715 unit + 121 golden master + 32 integration (compare_rule + compare_pattern reactivated with Java LCG fix). 16b partial: 2 duplicate pending tests deleted; 15 remaining blocked by JudgeManager stub + missing APIs |
 | 17 | Verified zero runtime todo!/unimplemented! |
-| 18 | Post-Phase 13 lifecycle wiring (pending) |
+| 18 | Post-Phase 13 lifecycle wiring (pending): 18a judge loop, 18b rendering state providers, 18c audio decode, 18d BGA/skin tests, 18e stub replacement, 18f integration verification |
 
 ## Remaining Stubs
 
