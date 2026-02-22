@@ -17,6 +17,20 @@ pub struct RandomCourseData {
 }
 
 impl RandomCourseData {
+    pub const EMPTY: &'static [RandomCourseData] = &[];
+
+    pub fn get_name(&self) -> &str {
+        self.name.as_deref().unwrap_or("")
+    }
+
+    pub fn get_stage(&self) -> &[RandomStageData] {
+        &self.stage
+    }
+
+    pub fn get_song_datas(&self) -> Vec<SongData> {
+        self.song_datas.clone()
+    }
+
     pub fn is_release(&self) -> bool {
         false
     }

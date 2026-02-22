@@ -65,39 +65,11 @@ pub use beatoraja_core::bms_player_mode::Mode as BMSPlayerModeType;
 // beatoraja.CourseData / TrophyData / CourseDataConstraint — replaced with real types from beatoraja-types (Phase 15g)
 pub use beatoraja_types::course_data::{CourseData, CourseDataConstraint, TrophyData};
 
-/// Stub for beatoraja.RandomCourseData
-#[derive(Clone, Debug, Default, serde::Deserialize)]
-pub struct RandomCourseData {
-    pub name: String,
-    pub stage: Vec<RandomStageData>,
-    pub constraint: Vec<CourseDataConstraint>,
-}
+// RandomCourseData: replaced by pub use from beatoraja-core (Phase 18e-10)
+pub use beatoraja_core::random_course_data::RandomCourseData;
 
-impl RandomCourseData {
-    pub const EMPTY: &'static [RandomCourseData] = &[];
-
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-    pub fn get_stage(&self) -> &[RandomStageData] {
-        &self.stage
-    }
-    pub fn get_song_datas(&self) -> Vec<SongData> {
-        log::warn!("not yet implemented: RandomCourseData.get_song_datas");
-        Vec::new()
-    }
-    pub fn lottery_song_datas(&self) {
-        log::warn!("not yet implemented: RandomCourseData.lottery_song_datas");
-    }
-    pub fn create_course_data(&self) -> CourseData {
-        log::warn!("not yet implemented: RandomCourseData.create_course_data");
-        CourseData::default()
-    }
-}
-
-/// Stub for beatoraja.RandomStageData
-#[derive(Clone, Debug, Default, serde::Deserialize)]
-pub struct RandomStageData;
+// RandomStageData: replaced by pub use from beatoraja-core (Phase 18e-10)
+pub use beatoraja_core::random_stage_data::RandomStageData;
 
 // beatoraja.TableData / TableFolder — replaced with real types from beatoraja-core (Phase 15g)
 pub use beatoraja_core::table_data::{TableData, TableFolder};
