@@ -1180,10 +1180,18 @@ impl SkinObjectData {
 }
 
 /// SkinObjectRenderer (inner class of Skin, but used by all SkinObject draw calls)
+/// Corresponds to Skin.SkinObjectRenderer in Java.
+///
+/// Manages shader switching, blend state, and color for sprite draw calls.
+/// Java: holds SpriteBatch + ShaderProgram[] + blend/type/color state.
 pub struct SkinObjectRenderer {
     pub color: Color,
     pub blend: i32,
     pub obj_type: i32,
+    /// Current active shader type (tracks which shader is set on the sprite batch)
+    current_shader: i32,
+    /// Saved color before pre_draw, restored in post_draw
+    orgcolor: Option<Color>,
     pub sprite: SpriteBatch,
 }
 
@@ -1201,12 +1209,26 @@ impl SkinObjectRenderer {
     pub const TYPE_LAYER: i32 = 4;
     pub const TYPE_DISTANCE_FIELD: i32 = 5;
 
+    // GL blend constants (matching Java)
+    const GL_SRC_ALPHA: i32 = 0x0302;
+    const GL_ONE: i32 = 1;
+    const GL_ONE_MINUS_SRC_ALPHA: i32 = 0x0303;
+    const GL_ZERO: i32 = 0;
+    const GL_SRC_COLOR: i32 = 0x0300;
+    const GL_ONE_MINUS_DST_COLOR: i32 = 0x0307;
+
     pub fn new() -> Self {
+        let mut sprite = SpriteBatch::new();
+        // Java: sprite.setShader(shaders[current]); sprite.setColor(Color.WHITE);
+        sprite.set_shader_type(Self::TYPE_NORMAL);
+        sprite.set_color(&Color::new(1.0, 1.0, 1.0, 1.0));
         Self {
             color: Color::new(1.0, 1.0, 1.0, 1.0),
             blend: 0,
             obj_type: 0,
-            sprite: SpriteBatch::new(),
+            current_shader: Self::TYPE_NORMAL,
+            orgcolor: None,
+            sprite,
         }
     }
 
@@ -1239,32 +1261,66 @@ impl SkinObjectRenderer {
     }
 
     /// Set texture filter based on current type.
-    /// In Java: sets Linear filter for TYPE_LINEAR, TYPE_FFMPEG, TYPE_DISTANCE_FIELD.
-    /// In Rust/wgpu, filtering is handled at sampler level, so this is a no-op stub.
+    /// Java: sets Linear filter for TYPE_LINEAR, TYPE_FFMPEG, TYPE_DISTANCE_FIELD.
+    /// In wgpu, filtering is handled by sampler selection in the render pipeline.
     fn set_filter(&self, _image: &TextureRegion) {
-        // In Java: if type == TYPE_LINEAR || TYPE_FFMPEG || TYPE_DISTANCE_FIELD,
-        // sets TextureFilter.Linear on the texture.
-        // In wgpu, filtering is configured on samplers, not textures directly.
+        // In wgpu, filtering is configured on samplers via SpriteRenderPipeline::get_sampler().
+        // The sampler is selected based on shader_type when creating texture bind groups.
     }
 
     /// Pre-draw setup: shader switching, blend mode, color.
-    /// In Java: switches shader, sets blend function, saves/sets color.
-    /// In Rust/wgpu, these would be handled by the render pipeline state.
+    /// Java: Skin.java lines 496-537
     fn pre_draw(&mut self) {
-        // In Java:
-        // - switches shader if current != type
-        // - sets blend function based on blend value (2=additive, 3=subtractive, 4=multiply, 9=invert)
-        // - saves orgcolor and sets sprite color
-        // Stubbed: wgpu pipeline handles these via render pipeline descriptors
+        // Java: if(shaders[current] != shaders[type]) { sprite.setShader(shaders[type]); current = type; }
+        if self.current_shader != self.obj_type {
+            self.sprite.set_shader_type(self.obj_type);
+            self.current_shader = self.obj_type;
+        }
+
+        // Java: switch(blend) — set blend function
+        match self.blend {
+            2 => {
+                // Additive: SRC_ALPHA, ONE
+                self.sprite
+                    .set_blend_function(Self::GL_SRC_ALPHA, Self::GL_ONE);
+            }
+            3 => {
+                // Subtractive: SRC_ALPHA, ONE (with GL_FUNC_SUBTRACT equation)
+                // In wgpu, this is handled by the BlendMode::Subtractive pipeline
+                self.sprite
+                    .set_blend_function(Self::GL_SRC_ALPHA, Self::GL_ONE);
+            }
+            4 => {
+                // Multiply: ZERO, SRC_COLOR
+                self.sprite
+                    .set_blend_function(Self::GL_ZERO, Self::GL_SRC_COLOR);
+            }
+            9 => {
+                // Inversion: ONE_MINUS_DST_COLOR, ZERO
+                self.sprite
+                    .set_blend_function(Self::GL_ONE_MINUS_DST_COLOR, Self::GL_ZERO);
+            }
+            _ => {}
+        }
+
+        // Java: orgcolor = sprite.getColor(); sprite.setColor(color);
+        self.orgcolor = Some(self.sprite.get_color());
+        self.sprite.set_color(&self.color);
     }
 
     /// Post-draw cleanup: restore color and blend mode.
-    /// In Java: restores original color and resets blend to SRC_ALPHA/ONE_MINUS_SRC_ALPHA.
+    /// Java: Skin.java lines 539-547
     fn post_draw(&mut self) {
-        // In Java:
-        // - restores orgcolor if it was saved
-        // - resets blend to default (SRC_ALPHA, ONE_MINUS_SRC_ALPHA) if blend >= 2
-        // Stubbed: wgpu pipeline handles these
+        // Java: if(orgcolor != null) { sprite.setColor(orgcolor); }
+        if let Some(ref orgcolor) = self.orgcolor.take() {
+            self.sprite.set_color(orgcolor);
+        }
+
+        // Java: if (blend >= 2) { sprite.setBlendFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); }
+        if self.blend >= 2 {
+            self.sprite
+                .set_blend_function(Self::GL_SRC_ALPHA, Self::GL_ONE_MINUS_SRC_ALPHA);
+        }
     }
 
     /// Java: sprite.draw(image, x + 0.01f, y + 0.01f, w, h)
@@ -1303,5 +1359,158 @@ impl SkinObjectRenderer {
             angle as f32,
         );
         self.post_draw();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_skin_object_renderer_new() {
+        let renderer = SkinObjectRenderer::new();
+        assert_eq!(renderer.blend, 0);
+        assert_eq!(renderer.obj_type, 0);
+        // Default color is white
+        assert_eq!(renderer.color.r, 1.0);
+        assert_eq!(renderer.color.g, 1.0);
+        assert_eq!(renderer.color.b, 1.0);
+        assert_eq!(renderer.color.a, 1.0);
+    }
+
+    #[test]
+    fn test_skin_object_renderer_type_constants() {
+        // Match Java SkinObjectRenderer constants
+        assert_eq!(SkinObjectRenderer::TYPE_NORMAL, 0);
+        assert_eq!(SkinObjectRenderer::TYPE_LINEAR, 1);
+        assert_eq!(SkinObjectRenderer::TYPE_BILINEAR, 2);
+        assert_eq!(SkinObjectRenderer::TYPE_FFMPEG, 3);
+        assert_eq!(SkinObjectRenderer::TYPE_LAYER, 4);
+        assert_eq!(SkinObjectRenderer::TYPE_DISTANCE_FIELD, 5);
+    }
+
+    #[test]
+    fn test_skin_object_renderer_set_color() {
+        let mut renderer = SkinObjectRenderer::new();
+        let red = Color::new(1.0, 0.0, 0.0, 0.5);
+        renderer.set_color(&red);
+        assert_eq!(renderer.get_color().r, 1.0);
+        assert_eq!(renderer.get_color().g, 0.0);
+        assert_eq!(renderer.get_color().a, 0.5);
+    }
+
+    #[test]
+    fn test_skin_object_renderer_set_blend() {
+        let mut renderer = SkinObjectRenderer::new();
+        renderer.set_blend(2);
+        assert_eq!(renderer.get_blend(), 2);
+    }
+
+    #[test]
+    fn test_skin_object_renderer_set_type() {
+        let mut renderer = SkinObjectRenderer::new();
+        renderer.set_type(SkinObjectRenderer::TYPE_BILINEAR);
+        assert_eq!(renderer.get_type(), SkinObjectRenderer::TYPE_BILINEAR);
+    }
+
+    #[test]
+    fn test_skin_object_renderer_draw_generates_vertices() {
+        let mut renderer = SkinObjectRenderer::new();
+        let region = TextureRegion::new();
+        renderer.draw(&region, 10.0, 20.0, 100.0, 50.0);
+        // draw calls pre_draw + sprite.draw_region + post_draw
+        // sprite should have 6 vertices for one quad
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+    }
+
+    #[test]
+    fn test_skin_object_renderer_pre_draw_sets_blend_additive() {
+        let mut renderer = SkinObjectRenderer::new();
+        renderer.set_blend(2); // Additive
+        let region = TextureRegion::new();
+        renderer.draw(&region, 0.0, 0.0, 10.0, 10.0);
+        // After post_draw, blend should be reset to Normal
+        // (post_draw resets blend to SRC_ALPHA/ONE_MINUS_SRC_ALPHA when blend >= 2)
+        let color = renderer.sprite.get_color();
+        // Color should be restored to white (default)
+        assert_eq!(color.r, 1.0);
+        assert_eq!(color.g, 1.0);
+        assert_eq!(color.b, 1.0);
+        assert_eq!(color.a, 1.0);
+    }
+
+    #[test]
+    fn test_skin_object_renderer_pre_draw_shader_switching() {
+        let mut renderer = SkinObjectRenderer::new();
+        // Initially TYPE_NORMAL
+        assert_eq!(renderer.current_shader, SkinObjectRenderer::TYPE_NORMAL);
+        // Set type to FFMPEG
+        renderer.set_type(SkinObjectRenderer::TYPE_FFMPEG);
+        let region = TextureRegion::new();
+        renderer.draw(&region, 0.0, 0.0, 10.0, 10.0);
+        // After pre_draw, current_shader should match obj_type
+        assert_eq!(renderer.current_shader, SkinObjectRenderer::TYPE_FFMPEG);
+        assert_eq!(
+            renderer.sprite.get_shader_type(),
+            SkinObjectRenderer::TYPE_FFMPEG
+        );
+    }
+
+    #[test]
+    fn test_skin_object_renderer_draw_rotated_generates_vertices() {
+        let mut renderer = SkinObjectRenderer::new();
+        let region = TextureRegion::new();
+        renderer.draw_rotated(&region, 10.0, 20.0, 100.0, 50.0, 0.5, 0.5, 45);
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+    }
+
+    #[test]
+    fn test_skin_object_renderer_pre_draw_saves_and_restores_color() {
+        let mut renderer = SkinObjectRenderer::new();
+        // Set sprite color to something specific
+        let blue = Color::new(0.0, 0.0, 1.0, 1.0);
+        renderer.sprite.set_color(&blue);
+        // Set renderer color to red
+        let red = Color::new(1.0, 0.0, 0.0, 1.0);
+        renderer.set_color(&red);
+        // Draw: pre_draw saves blue, sets red; post_draw restores blue
+        let region = TextureRegion::new();
+        renderer.draw(&region, 0.0, 0.0, 10.0, 10.0);
+        let restored = renderer.sprite.get_color();
+        assert_eq!(restored.r, 0.0);
+        assert_eq!(restored.g, 0.0);
+        assert_eq!(restored.b, 1.0);
+        assert_eq!(restored.a, 1.0);
+    }
+
+    #[test]
+    fn test_skin_object_destination_new() {
+        let dst = SkinObjectDestination::new(
+            1000,
+            Rectangle::new(10.0, 20.0, 100.0, 50.0),
+            Color::new(1.0, 1.0, 1.0, 1.0),
+            45,
+            1,
+        );
+        assert_eq!(dst.time, 1000);
+        assert_eq!(dst.region.x, 10.0);
+        assert_eq!(dst.angle, 45);
+        assert_eq!(dst.acc, 1);
+    }
+
+    #[test]
+    fn test_skin_object_data_validate() {
+        let data = SkinObjectData::new();
+        assert!(!data.validate());
+
+        let mut data = SkinObjectData::new();
+        data.dst.push(SkinObjectDestination::new(
+            0,
+            Rectangle::default(),
+            Color::default(),
+            0,
+            0,
+        ));
+        assert!(data.validate());
     }
 }

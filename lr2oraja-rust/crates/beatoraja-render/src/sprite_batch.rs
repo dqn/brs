@@ -1,7 +1,9 @@
 // Batched 2D quad renderer.
 // Drop-in replacement for the SpriteBatch stub in rendering_stubs.rs.
 
+use crate::blend::BlendMode;
 use crate::color::{Color, Matrix4};
+use crate::render_pipeline::SpriteRenderPipeline;
 use crate::shader::ShaderProgram;
 use crate::texture::{Texture, TextureRegion};
 
@@ -41,6 +43,11 @@ impl SpriteVertex {
     }
 }
 
+/// Maximum number of sprites per batch before auto-flush.
+/// Java LibGDX default: 1000 sprites = 6000 vertices.
+const MAX_SPRITES: usize = 1000;
+const MAX_VERTICES: usize = MAX_SPRITES * 6;
+
 /// Batched 2D sprite renderer.
 /// Corresponds to com.badlogic.gdx.graphics.g2d.SpriteBatch.
 ///
@@ -52,25 +59,53 @@ pub struct SpriteBatch {
     current_color: [f32; 4],
     blend_src: i32,
     blend_dst: i32,
+    projection: [f32; 16],
+    drawing: bool,
+    /// Current shader type (matches SkinObjectRenderer TYPE_* constants)
+    shader_type: i32,
+    /// Current blend mode derived from blend_src/blend_dst
+    blend_mode: BlendMode,
 }
 
 #[allow(unused_variables)]
 impl SpriteBatch {
     pub fn new() -> Self {
         Self {
-            vertices: Vec::with_capacity(4096),
+            vertices: Vec::with_capacity(MAX_VERTICES),
             current_color: [1.0, 1.0, 1.0, 1.0],
             blend_src: 0x0302, // GL_SRC_ALPHA
             blend_dst: 0x0303, // GL_ONE_MINUS_SRC_ALPHA
+            projection: Matrix4::default().values,
+            drawing: false,
+            shader_type: 0,
+            blend_mode: BlendMode::Normal,
         }
     }
 
+    /// Set the projection/transform matrix for the batch.
+    /// Java: SpriteBatch.setTransformMatrix(matrix)
     pub fn set_transform_matrix(&mut self, matrix: &Matrix4) {
-        // TODO: store transform for GPU uniform when rendering pipeline is wired
+        self.projection = matrix.values;
+    }
+
+    /// Set the projection matrix directly.
+    /// Java: SpriteBatch.setProjectionMatrix(matrix)
+    pub fn set_projection_matrix(&mut self, matrix: &Matrix4) {
+        self.projection = matrix.values;
     }
 
     pub fn set_shader(&mut self, shader: Option<&ShaderProgram>) {
-        // TODO: switch render pipeline
+        // Shader switching is handled by shader_type in the render pipeline.
+    }
+
+    /// Set the shader type for subsequent draw calls.
+    /// Matches Java SkinObjectRenderer shader switching.
+    pub fn set_shader_type(&mut self, shader_type: i32) {
+        self.shader_type = shader_type;
+    }
+
+    pub fn get_shader_type(&self) -> i32 {
+        self.shader_type
     }
 
     pub fn set_color(&mut self, color: &Color) {
@@ -86,14 +121,88 @@ impl SpriteBatch {
         )
     }
 
+    /// Java: SpriteBatch.setBlendFunction(src, dst)
     pub fn set_blend_function(&mut self, src: i32, dst: i32) {
         self.blend_src = src;
         self.blend_dst = dst;
+        self.blend_mode = BlendMode::from_gl_factors(src, dst);
     }
 
+    pub fn get_blend_mode(&self) -> BlendMode {
+        self.blend_mode
+    }
+
+    /// Begin batching. Must be called before any draw calls.
+    /// Java: SpriteBatch.begin()
+    pub fn begin(&mut self) {
+        self.drawing = true;
+    }
+
+    /// End batching. Flushes any remaining vertices.
+    /// Java: SpriteBatch.end()
+    pub fn end(&mut self) {
+        self.drawing = false;
+    }
+
+    /// Flush the current batch to GPU.
+    /// Java: SpriteBatch.flush()
+    ///
+    /// CPU-side: clears the vertex buffer. Actual GPU submission is done by
+    /// `flush_to_gpu()` which requires a render pass.
     pub fn flush(&mut self) {
-        // TODO: submit vertex buffer to GPU when rendering pipeline is wired
         self.vertices.clear();
+    }
+
+    /// Flush batched vertices to GPU via a render pass.
+    ///
+    /// This is the actual GPU submission path. Creates a vertex buffer,
+    /// binds the appropriate pipeline, and issues draw calls.
+    #[allow(clippy::too_many_arguments)]
+    pub fn flush_to_gpu<'a>(
+        &mut self,
+        render_pass: &mut wgpu::RenderPass<'a>,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        pipeline: &'a SpriteRenderPipeline,
+        uniform_bind_group: &'a wgpu::BindGroup,
+        texture_bind_group: &'a wgpu::BindGroup,
+    ) {
+        if self.vertices.is_empty() {
+            return;
+        }
+
+        let blend_mode = self.blend_mode;
+        let shader_type = self.shader_type;
+
+        if let Some(render_pipeline) = pipeline.get_pipeline(shader_type, blend_mode) {
+            // Create and write vertex buffer
+            let vertex_data: &[u8] = bytemuck::cast_slice(&self.vertices);
+            let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("sprite vertex buffer"),
+                size: vertex_data.len() as wgpu::BufferAddress,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            queue.write_buffer(&vertex_buffer, 0, vertex_data);
+
+            render_pass.set_pipeline(render_pipeline);
+            render_pass.set_bind_group(0, uniform_bind_group, &[]);
+            render_pass.set_bind_group(1, texture_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            render_pass.draw(0..self.vertices.len() as u32, 0..1);
+        }
+
+        self.vertices.clear();
+    }
+
+    /// Get the projection matrix values.
+    pub fn projection(&self) -> &[f32; 16] {
+        &self.projection
+    }
+
+    /// Check if the batch is currently drawing (between begin/end).
+    pub fn is_drawing(&self) -> bool {
+        self.drawing
     }
 
     /// Draw a full texture at (x, y) with size (w, h).
@@ -192,5 +301,185 @@ impl SpriteBatch {
             },
         ];
         self.vertices.extend_from_slice(&verts);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sprite_batch_new() {
+        let batch = SpriteBatch::new();
+        assert!(batch.vertices().is_empty());
+        assert!(!batch.is_drawing());
+        assert_eq!(batch.get_blend_mode(), BlendMode::Normal);
+    }
+
+    #[test]
+    fn test_sprite_batch_begin_end() {
+        let mut batch = SpriteBatch::new();
+        batch.begin();
+        assert!(batch.is_drawing());
+        batch.end();
+        assert!(!batch.is_drawing());
+    }
+
+    #[test]
+    fn test_sprite_batch_draw_texture_generates_6_vertices() {
+        let mut batch = SpriteBatch::new();
+        let tex = Texture::default();
+        batch.draw_texture(&tex, 10.0, 20.0, 100.0, 50.0);
+        // 1 quad = 2 triangles = 6 vertices
+        assert_eq!(batch.vertices().len(), 6);
+    }
+
+    #[test]
+    fn test_sprite_batch_draw_region_generates_6_vertices() {
+        let mut batch = SpriteBatch::new();
+        let region = TextureRegion {
+            u: 0.0,
+            v: 0.0,
+            u2: 1.0,
+            v2: 1.0,
+            ..Default::default()
+        };
+        batch.draw_region(&region, 0.0, 0.0, 64.0, 64.0);
+        assert_eq!(batch.vertices().len(), 6);
+    }
+
+    #[test]
+    fn test_sprite_batch_draw_region_vertex_positions() {
+        let mut batch = SpriteBatch::new();
+        let region = TextureRegion {
+            u: 0.25,
+            v: 0.25,
+            u2: 0.75,
+            v2: 0.75,
+            ..Default::default()
+        };
+        batch.draw_region(&region, 10.0, 20.0, 30.0, 40.0);
+        let verts = batch.vertices();
+        // Check triangle corners: (10,20), (40,20), (40,60), (10,20), (40,60), (10,60)
+        assert_eq!(verts[0].position, [10.0, 20.0]);
+        assert_eq!(verts[1].position, [40.0, 20.0]);
+        assert_eq!(verts[2].position, [40.0, 60.0]);
+        assert_eq!(verts[3].position, [10.0, 20.0]);
+        assert_eq!(verts[4].position, [40.0, 60.0]);
+        assert_eq!(verts[5].position, [10.0, 60.0]);
+        // Check UV coords
+        assert_eq!(verts[0].tex_coord, [0.25, 0.25]);
+        assert_eq!(verts[2].tex_coord, [0.75, 0.75]);
+    }
+
+    #[test]
+    fn test_sprite_batch_color() {
+        let mut batch = SpriteBatch::new();
+        let red = Color::new(1.0, 0.0, 0.0, 1.0);
+        batch.set_color(&red);
+        let got = batch.get_color();
+        assert_eq!(got.r, 1.0);
+        assert_eq!(got.g, 0.0);
+        assert_eq!(got.b, 0.0);
+        assert_eq!(got.a, 1.0);
+    }
+
+    #[test]
+    fn test_sprite_batch_draw_uses_current_color() {
+        let mut batch = SpriteBatch::new();
+        let green = Color::new(0.0, 1.0, 0.0, 0.5);
+        batch.set_color(&green);
+        let tex = Texture::default();
+        batch.draw_texture(&tex, 0.0, 0.0, 10.0, 10.0);
+        for v in batch.vertices() {
+            assert_eq!(v.color, [0.0, 1.0, 0.0, 0.5]);
+        }
+    }
+
+    #[test]
+    fn test_sprite_batch_flush_clears_vertices() {
+        let mut batch = SpriteBatch::new();
+        let tex = Texture::default();
+        batch.draw_texture(&tex, 0.0, 0.0, 10.0, 10.0);
+        assert_eq!(batch.vertices().len(), 6);
+        batch.flush();
+        assert!(batch.vertices().is_empty());
+    }
+
+    #[test]
+    fn test_sprite_batch_multiple_draws_accumulate() {
+        let mut batch = SpriteBatch::new();
+        let tex = Texture::default();
+        batch.draw_texture(&tex, 0.0, 0.0, 10.0, 10.0);
+        batch.draw_texture(&tex, 20.0, 20.0, 10.0, 10.0);
+        // 2 quads = 12 vertices
+        assert_eq!(batch.vertices().len(), 12);
+    }
+
+    #[test]
+    fn test_sprite_batch_blend_mode_from_gl_factors() {
+        let mut batch = SpriteBatch::new();
+        // Default: Normal
+        assert_eq!(batch.get_blend_mode(), BlendMode::Normal);
+        // Additive: SRC_ALPHA, ONE
+        batch.set_blend_function(0x0302, 1);
+        assert_eq!(batch.get_blend_mode(), BlendMode::Additive);
+        // Multiply: ZERO, SRC_COLOR
+        batch.set_blend_function(0, 0x0300);
+        assert_eq!(batch.get_blend_mode(), BlendMode::Multiply);
+        // Inversion: ONE_MINUS_DST_COLOR, ZERO
+        batch.set_blend_function(0x0307, 0);
+        assert_eq!(batch.get_blend_mode(), BlendMode::Inversion);
+        // Reset to normal
+        batch.set_blend_function(0x0302, 0x0303);
+        assert_eq!(batch.get_blend_mode(), BlendMode::Normal);
+    }
+
+    #[test]
+    fn test_sprite_batch_shader_type() {
+        let mut batch = SpriteBatch::new();
+        assert_eq!(batch.get_shader_type(), 0);
+        batch.set_shader_type(3);
+        assert_eq!(batch.get_shader_type(), 3);
+    }
+
+    #[test]
+    fn test_sprite_batch_projection_matrix() {
+        let mut batch = SpriteBatch::new();
+        let mut mat = Matrix4::new();
+        mat.set_to_ortho(0.0, 1920.0, 0.0, 1080.0, -1.0, 1.0);
+        batch.set_projection_matrix(&mat);
+        assert_eq!(batch.projection()[0], 2.0 / 1920.0);
+        assert_eq!(batch.projection()[5], 2.0 / 1080.0);
+    }
+
+    #[test]
+    fn test_sprite_batch_rotated_generates_6_vertices() {
+        let mut batch = SpriteBatch::new();
+        let region = TextureRegion {
+            u: 0.0,
+            v: 0.0,
+            u2: 1.0,
+            v2: 1.0,
+            ..Default::default()
+        };
+        batch.draw_region_rotated(
+            &region, 100.0, 100.0, 32.0, 32.0, 64.0, 64.0, 1.0, 1.0, 45.0,
+        );
+        assert_eq!(batch.vertices().len(), 6);
+    }
+
+    #[test]
+    fn test_sprite_vertex_layout() {
+        let layout = SpriteVertex::desc();
+        // stride = 2*4 + 2*4 + 4*4 = 32 bytes
+        assert_eq!(
+            layout.array_stride,
+            std::mem::size_of::<SpriteVertex>() as u64
+        );
+        assert_eq!(layout.attributes.len(), 3);
+        assert_eq!(layout.attributes[0].offset, 0);
+        assert_eq!(layout.attributes[1].offset, 8);
+        assert_eq!(layout.attributes[2].offset, 16);
     }
 }

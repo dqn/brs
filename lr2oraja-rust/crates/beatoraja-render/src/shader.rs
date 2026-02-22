@@ -11,3 +11,136 @@ impl ShaderProgram {
         Self
     }
 }
+
+/// WGSL sprite shader source.
+/// Translates the Java/LibGDX SpriteBatch default shader + SpriteBatchHelper.
+///
+/// Java vertex shader:
+///   v_color = a_color; v_color.a *= 255.0/254.0;
+///   v_texCoords = a_texCoord0;
+///   gl_Position = u_projTrans * a_position;
+///
+/// Java fragment shader:
+///   fragColor = v_color * texture(u_texture, v_texCoords);
+pub const SPRITE_SHADER_WGSL: &str = r#"
+// Uniform: orthographic projection matrix
+struct Uniforms {
+    proj_trans: mat4x4<f32>,
+};
+@group(0) @binding(0)
+var<uniform> uniforms: Uniforms;
+
+// Texture + sampler
+@group(1) @binding(0)
+var t_diffuse: texture_2d<f32>;
+@group(1) @binding(1)
+var s_diffuse: sampler;
+
+struct VertexInput {
+    @location(0) position: vec2<f32>,
+    @location(1) tex_coord: vec2<f32>,
+    @location(2) color: vec4<f32>,
+};
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) tex_coord: vec2<f32>,
+    @location(1) color: vec4<f32>,
+};
+
+@vertex
+fn vs_main(in: VertexInput) -> VertexOutput {
+    var out: VertexOutput;
+    out.clip_position = uniforms.proj_trans * vec4<f32>(in.position, 0.0, 1.0);
+    out.tex_coord = in.tex_coord;
+    // Java: v_color.a = v_color.a * (255.0/254.0)
+    out.color = vec4<f32>(in.color.rgb, in.color.a * (255.0 / 254.0));
+    return out;
+}
+
+@fragment
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // Java: fragColor = v_color * texture(u_texture, v_texCoords)
+    let tex_color = textureSample(t_diffuse, s_diffuse, in.tex_coord);
+    return in.color * tex_color;
+}
+
+// FFmpeg shader: swizzle BGR -> RGB
+// Java: gl_FragColor = v_color * vec4(c4.b, c4.g, c4.r, c4.a)
+@fragment
+fn fs_ffmpeg(in: VertexOutput) -> @location(0) vec4<f32> {
+    let c4 = textureSample(t_diffuse, s_diffuse, in.tex_coord);
+    return in.color * vec4<f32>(c4.b, c4.g, c4.r, c4.a);
+}
+
+// Layer shader: black pixels become transparent
+// Java: if(r==0 && g==0 && b==0) { alpha=0 } else { normal }
+@fragment
+fn fs_layer(in: VertexOutput) -> @location(0) vec4<f32> {
+    let c4 = textureSample(t_diffuse, s_diffuse, in.tex_coord);
+    if (c4.r == 0.0 && c4.g == 0.0 && c4.b == 0.0) {
+        return in.color * vec4<f32>(c4.r, c4.g, c4.b, 0.0);
+    } else {
+        return in.color * c4;
+    }
+}
+"#;
+
+/// Bilinear filter WGSL shader.
+/// Java bilinear.frag: custom bilinear interpolation with alpha-premultiplied blending.
+pub const BILINEAR_SHADER_WGSL: &str = r#"
+struct Uniforms {
+    proj_trans: mat4x4<f32>,
+};
+@group(0) @binding(0)
+var<uniform> uniforms: Uniforms;
+
+@group(1) @binding(0)
+var t_diffuse: texture_2d<f32>;
+@group(1) @binding(1)
+var s_diffuse: sampler;
+
+struct VertexInput {
+    @location(0) position: vec2<f32>,
+    @location(1) tex_coord: vec2<f32>,
+    @location(2) color: vec4<f32>,
+};
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) tex_coord: vec2<f32>,
+    @location(1) color: vec4<f32>,
+};
+
+@vertex
+fn vs_main(in: VertexInput) -> VertexOutput {
+    var out: VertexOutput;
+    out.clip_position = uniforms.proj_trans * vec4<f32>(in.position, 0.0, 1.0);
+    out.tex_coord = in.tex_coord;
+    out.color = vec4<f32>(in.color.rgb, in.color.a * (255.0 / 254.0));
+    return out;
+}
+
+@fragment
+fn fs_bilinear(in: VertexOutput) -> @location(0) vec4<f32> {
+    let tex_size = vec2<f32>(textureDimensions(t_diffuse));
+    let center_a = textureSample(t_diffuse, s_diffuse, in.tex_coord).a;
+    if (center_a > 0.0) {
+        let texel_size_x = 0.5 / tex_size.x;
+        let texel_size_y = 0.5 / tex_size.y;
+        let p0q0 = textureSample(t_diffuse, s_diffuse, in.tex_coord + vec2<f32>(-texel_size_x, -texel_size_y));
+        let p1q0 = textureSample(t_diffuse, s_diffuse, in.tex_coord + vec2<f32>(texel_size_x, -texel_size_y));
+        let p0q1 = textureSample(t_diffuse, s_diffuse, in.tex_coord + vec2<f32>(-texel_size_x, texel_size_y));
+        let p1q1 = textureSample(t_diffuse, s_diffuse, in.tex_coord + vec2<f32>(texel_size_x, texel_size_y));
+        let a = fract(in.tex_coord.x * tex_size.x + 0.5);
+        let p_interp_q0 = mix(p0q0 * p0q0.a, p1q0 * p1q0.a, a);
+        let p_interp_q1 = mix(p0q1 * p0q1.a, p1q1 * p1q1.a, a);
+        let b = fract(in.tex_coord.y * tex_size.y + 0.5);
+        var result = mix(p_interp_q0, p_interp_q1, b) / center_a;
+        result.a = center_a;
+        return in.color * result;
+    } else {
+        return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    }
+}
+"#;

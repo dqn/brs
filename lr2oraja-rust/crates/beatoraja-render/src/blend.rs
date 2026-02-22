@@ -110,3 +110,69 @@ impl BlendMode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_blend_mode_default() {
+        assert_eq!(BlendMode::default(), BlendMode::Normal);
+    }
+
+    #[test]
+    fn test_blend_mode_from_gl_factors_normal() {
+        // Java: SRC_ALPHA (0x0302), ONE_MINUS_SRC_ALPHA (0x0303)
+        assert_eq!(
+            BlendMode::from_gl_factors(0x0302, 0x0303),
+            BlendMode::Normal
+        );
+    }
+
+    #[test]
+    fn test_blend_mode_from_gl_factors_additive() {
+        // Java: SRC_ALPHA (0x0302), ONE (1)
+        assert_eq!(BlendMode::from_gl_factors(0x0302, 1), BlendMode::Additive);
+    }
+
+    #[test]
+    fn test_blend_mode_from_gl_factors_multiply() {
+        // Java: ZERO (0), SRC_COLOR (0x0300)
+        assert_eq!(BlendMode::from_gl_factors(0, 0x0300), BlendMode::Multiply);
+    }
+
+    #[test]
+    fn test_blend_mode_from_gl_factors_inversion() {
+        // Java: ONE_MINUS_DST_COLOR (0x0307), ZERO (0)
+        assert_eq!(BlendMode::from_gl_factors(0x0307, 0), BlendMode::Inversion);
+    }
+
+    #[test]
+    fn test_blend_mode_from_gl_factors_unknown_defaults_normal() {
+        assert_eq!(
+            BlendMode::from_gl_factors(0x9999, 0x9999),
+            BlendMode::Normal
+        );
+    }
+
+    #[test]
+    fn test_blend_state_normal_has_src_alpha() {
+        let state = BlendMode::Normal.to_wgpu_blend_state();
+        assert_eq!(state.color.src_factor, wgpu::BlendFactor::SrcAlpha);
+        assert_eq!(state.color.dst_factor, wgpu::BlendFactor::OneMinusSrcAlpha);
+        assert_eq!(state.color.operation, wgpu::BlendOperation::Add);
+    }
+
+    #[test]
+    fn test_blend_state_additive_has_one_dst() {
+        let state = BlendMode::Additive.to_wgpu_blend_state();
+        assert_eq!(state.color.src_factor, wgpu::BlendFactor::SrcAlpha);
+        assert_eq!(state.color.dst_factor, wgpu::BlendFactor::One);
+    }
+
+    #[test]
+    fn test_blend_state_subtractive_has_reverse_subtract() {
+        let state = BlendMode::Subtractive.to_wgpu_blend_state();
+        assert_eq!(state.color.operation, wgpu::BlendOperation::ReverseSubtract);
+    }
+}

@@ -13,3 +13,6 @@ log = { workspace = true }
 winit = { workspace = true }
 egui = { workspace = true }
 egui-wgpu = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

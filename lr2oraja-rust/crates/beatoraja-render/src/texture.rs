@@ -251,6 +251,40 @@ impl TextureRegion {
         self.region_height = height;
     }
 
+    /// Set region relative to a parent TextureRegion, recalculating UV coords.
+    /// Java: TextureRegion.setRegion(TextureRegion region, int x, int y, int width, int height)
+    /// Sets texture to parent's texture, pixel coords relative to parent, and recalculates UVs.
+    pub fn set_region_from_parent(
+        &mut self,
+        parent: &TextureRegion,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) {
+        self.texture = parent.texture.clone();
+        self.region_x = x;
+        self.region_y = y;
+        self.region_width = width;
+        self.region_height = height;
+        // Recalculate UVs from parent's texture dimensions
+        if let Some(ref tex) = self.texture {
+            let tw = tex.width;
+            let th = tex.height;
+            if tw > 0 && th > 0 {
+                let inv_w = 1.0 / tw as f32;
+                let inv_h = 1.0 / th as f32;
+                // Parent's pixel origin in texture space
+                let parent_x = parent.region_x;
+                let parent_y = parent.region_y;
+                self.u = (parent_x + x) as f32 * inv_w;
+                self.v = (parent_y + y) as f32 * inv_h;
+                self.u2 = (parent_x + x + width) as f32 * inv_w;
+                self.v2 = (parent_y + y + height) as f32 * inv_h;
+            }
+        }
+    }
+
     pub fn flip(&mut self, x: bool, y: bool) {
         if x {
             std::mem::swap(&mut self.u, &mut self.u2);

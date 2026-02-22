@@ -188,7 +188,9 @@ impl SkinGraph {
     pub fn draw(&mut self, sprite: &mut SkinObjectRenderer) {
         if let Some(ref current_image) = self.current_image.clone() {
             if self.direction == 1 {
-                self.current.set_region_from(
+                // Java: current.setRegion(currentImage, 0, h - h*value, w, h*value)
+                self.current.set_region_from_parent(
+                    current_image,
                     0,
                     current_image.get_region_height()
                         - (current_image.get_region_height() as f32 * self.current_value) as i32,
@@ -205,7 +207,9 @@ impl SkinGraph {
                     region.height * self.current_value,
                 );
             } else {
-                self.current.set_region_from(
+                // Java: current.setRegion(currentImage, 0, 0, w*value, h)
+                self.current.set_region_from_parent(
+                    current_image,
                     0,
                     0,
                     (current_image.get_region_width() as f32 * self.current_value) as i32,
