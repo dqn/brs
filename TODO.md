@@ -1,6 +1,6 @@
 # Porting TODO — Remaining Work
 
-All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.md for full status.
+All phases (1–25c) complete. **1693 tests pass, 22 ignored.** See AGENTS.md for full status.
 
 ## Phase 24: ランタイム統合（Runtime Integration）— complete
 
@@ -14,10 +14,10 @@ All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.
 
 +~300 行, +46 テスト。WinitKeyCode→Java keycode マッピング、SharedKeyState (Arc<Mutex>)、GdxInput/GdxGraphics 実装、MainController input 統合 (render() 内 poll())、マウスイベント連携。
 
-残タスク (Phase 24b スコープ外):
-- [ ] gilrs controller 統合 (BMControllerInputProcessor) — Phase 27 で対応
-- [ ] チャネルベースの非同期 polling thread — Phase 24f で対応
-- [ ] KeyCommand のウィンドウシステム統合 (F キーコマンド) — Phase 24f で対応
+残タスク (deferred):
+- [ ] gilrs controller 統合 (BMControllerInputProcessor) → **Phase 28a**
+- [ ] KeyCommand のウィンドウシステム統合 (F キーコマンド) → **Phase 28b**
+- [ ] チャネルベースの非同期 polling thread → **Phase 29d**
 
 ### Phase 24c: オーディオドライバ統合 — complete
 
@@ -27,25 +27,25 @@ All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.
 
 22 テスト有効化 (#[ignore] — SkinData→Skin パイプライン待ち)。
 
-残タスク:
-- [ ] Java fixture 生成環境の整備 (`just golden-master-render-snapshot-gen`)
-- [ ] `SkinData→Skin` loading pipeline — テスト `#[ignore]` 解除の前提条件
+残タスク (deferred):
+- [ ] Java fixture 生成環境の整備 → **Phase 26c**
+- [ ] `SkinData→Skin` loading pipeline → **Phase 26b**
 
 ### Phase 24e: BarManager + 楽曲選択画面統合 — complete
 
 +~1600 行, +40 テスト (beatoraja-select 87 テスト全合格)。BarManager.init() (テーブル/コース/お気に入り/コマンド/ランダムフォルダ)、update_bar()/update_bar_with_context() (モードフィルタ、非表示フィルタ、BarSorter、カーソル復元)、BarContentsLoaderThread.run() (スコア読み込み、ライバルスコア)、BarManager.close()。UpdateBarContext/LoaderContext/CourseTableAccessor 追加。
 
-残タスク:
-- [ ] バナー/ステージファイル実画像読み込み — PixmapResourcePool 実装待ち
-- [ ] リプレイ存在チェック — ReplayData API 統合待ち
+残タスク (deferred):
+- [ ] バナー/ステージファイル実画像読み込み → **Phase 26d**
+- [ ] リプレイ存在チェック → **Phase 26d**
 
 ### Phase 24f: MainController 残スタブ解消 — complete
 
 +~200 行, +10 テスト。update_main_state_listener() 実ディスパッチ、update_state_references() StateReferencesCallback trait、periodic_config_save() Java 準拠 (120s/BMSPlayer スキップ)、create() 完全配線、add_state_listener()。
 
-残タスク (Phase 24f スコープ外):
-- [ ] Polling thread のチャネルベース分離 — 現在 render() 内で同期 poll (十分機能)
-- [ ] Audio driver 生成 — ランチャー層で set_audio_driver() 経由で注入済み (Phase 24c)
+残タスク (deferred):
+- [ ] Polling thread のチャネルベース分離 → **Phase 29d** (nice-to-have)
+- Audio driver 生成 — ランチャー層で set_audio_driver() 経由で注入済み ✅
 
 ## Phase 25: スタブ棚卸し + E2E 統合テスト + 品質保証
 
@@ -65,35 +65,146 @@ All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.
 - beatoraja-decide (~85行): MainControllerRef, AudioProcessor, SkinStub
 - beatoraja-launcher (~75行): MainLoader display, VersionChecker, TwitterAuth (永久)
 
-### 25b: E2E 統合テスト
+### 25b: E2E 統合テスト — complete
 
-- [ ] select → decide → play → result のフル E2E テスト
-  - LauncherStateFactory + 実 SQLiteSongDatabaseAccessor を使用
-  - テスト用 BMS ファイルは test-bms/ を使用
-  - 各画面遷移で MainState lifecycle (create/prepare/render/shutdown) が正しく呼ばれることを検証
-- [ ] RenderSnapshot パリティテスト有効化
-  - SkinData→Skin loading pipeline の完成が前提
-  - 22 テストの `#[ignore]` 解除
-- [ ] BarManager 統合テスト
-  - SQLiteSongDatabaseAccessor + テスト DB で楽曲読み込み→バー表示
-  - BarSorter でソート検証
++32 テスト。画面遷移 E2E 12テスト (Select→Decide→Play→Result チェイン、lifecycle 検証、skip_decide、ストレステスト)。BarManager 統合 20テスト (init/update_bar/close、ソート、ナビゲーション、検索)。RenderSnapshot は Phase 26c で対応。
 
-**見積り:** ~400 行テスト + ~100 行インフラ
+### 25c: 品質保証 — complete
 
-### 25c: 品質保証
+clippy 警告ゼロ (24ファイル修正)、cargo fmt クリーン、#[allow(clippy::field_reassign_with_default)] を 14 テストモジュールに追加 (Java 機械翻訳パターン保持)。22 ignored テスト文書化済み。
 
-- [ ] cargo clippy 警告ゼロ (--workspace -- -D warnings)
-- [ ] cargo fmt クリーン
-- [ ] 全テスト pass 確認 (ignored テストの理由を文書化)
-- [ ] 未使用 import / dead code 警告の解消
+### 25d: 残存スタブ解消
 
-**見積り:** ~50 行修正
+依存: Phase 25a ✅, Phase 25c
 
-## Phase 26: 楽曲データベース拡張 + 楽曲検索
+真のスタブ ~1,520 行を3カテゴリに分けて段階的に解消する。
 
-依存: Phase 24e (BarManager), Phase 25b (E2E テスト基盤)
+#### 25d-1: Cross-crate forwarding スタブの削除 (~620行)
 
-### 26a: updateSongDatas() の並列走査 (rayon)
+循環依存回避のために存在する forwarding スタブを、trait 抽出 + beatoraja-types への型集約で解消。
+
+- [ ] **beatoraja-result の MainController/PlayerResource forwarding** (~290行)
+  - MainController stub (10メソッド) → `MainControllerAccess` trait を beatoraja-types に定義、core が impl
+  - PlayerResource wrapper (35メソッド) → 既存の `PlayerResourceAccess` trait を beatoraja-types に移動
+  - RankingDataCache → beatoraja-ir の実型を直接参照
+- [ ] **beatoraja-modmenu の forwarding スタブ** (~110行)
+  - MainController (3メソッド) → 上記 `MainControllerAccess` trait を使用
+  - MusicSelector/Bar/SongBar → beatoraja-select の実型を直接参照 (modmenu→select 依存追加)
+  - Skin/SkinObject → beatoraja-skin の実型を直接参照
+- [ ] **beatoraja-decide の forwarding スタブ** (~85行)
+  - MainControllerRef (3メソッド) → `MainControllerAccess` trait を使用
+  - AudioProcessorStub → beatoraja-audio の `AudioDriver` trait を直接使用
+  - SkinStub/load_skin/play_sound → beatoraja-skin の実型を使用
+- [ ] **beatoraja-external の forwarding スタブ** (~135行, Twitter4j 除く)
+  - ScoreDatabaseAccessor → beatoraja-song の実 trait を直接参照
+  - MainState struct / ScreenType / AbstractResult → beatoraja-types に共通定義を移動
+  - Property traits/factories → beatoraja-types に移動
+
+**見積り:** ~400 行変更 (削除中心) + ~15 テスト
+
+#### 25d-2: レンダリング連携スタブの解消 (~465行)
+
+スキン描画パイプラインの cross-crate 連携を完成させてスタブを置換。
+
+- [ ] **beatoraja-skin の internal stubs** (~280行)
+  - MainState/MainController/InputProcessor → beatoraja-types の trait を参照
+  - Timer/Resolution/SkinOffset → beatoraja-types に移動
+  - BMSPlayer/JudgeManager stubs → beatoraja-types に最小 trait を定義
+  - MusicResult/PlayerResource stubs → beatoraja-types の trait 参照に置換
+  - PlaySkinStub/SkinLoaderStub → 実装に置換 or 削除
+- [ ] **beatoraja-select のレンダリングスタブ** (~185行)
+  - EventType enum → beatoraja-types に定義
+  - SkinText/SkinNumber/SkinImage/SkinObject → beatoraja-skin の実型を直接参照
+  - SkinObjectRenderer → beatoraja-skin の実型を使用
+  - SongManagerMenu → beatoraja-modmenu の実型を参照 (select→modmenu 依存追加)
+  - DownloadTask → beatoraja-external の実型 or md-processor の実型を参照
+
+**見積り:** ~350 行変更 + ~10 テスト
+
+#### 25d-3: 型定義スタブの beatoraja-types 集約 (~280行)
+
+散在する型定義スタブを beatoraja-types に集約して single source of truth を確立。
+
+- [ ] **beatoraja-types のスタブ解消** (~205行)
+  - JudgeAlgorithm / BMSPlayerRule enums → 完全定義 (Java の全バリアント)
+  - BarSorter → beatoraja-select の実型を re-export (types→select 循環に注意、必要なら trait 化)
+  - scroll_speed/long_note/mine_note modifier stubs → 完全実装 (beatoraja-pattern の modify() と連携)
+  - IRConnectionManager → beatoraja-ir の実型を re-export
+  - bms_player_input_device/KeyInputLog/PatternModifyLog → 完全定義
+- [ ] **beatoraja-launcher のスタブ** (~75行, TwitterAuth 除く)
+  - MainLoader display stubs → 実装 or 削除 (ランチャー UI 完成後に不要)
+  - VersionChecker → HTTP リクエスト実装 (reqwest)
+  - SongDatabaseUpdateListener → コールバック trait 化
+
+**見積り:** ~250 行変更 + ~10 テスト
+
+#### 永久保持 (対応不要)
+- Twitter4j → `bail!()` (~155行, beatoraja-external + beatoraja-launcher) — サービス終了のため永久保持
+
+**Phase 25d 合計見積り:** ~1,000 行変更 + ~35 テスト
+
+## Phase 26: リソースローディング + スキンパイプライン完成
+
+依存: Phase 22 (レンダリング) ✅, Phase 25d-2 (レンダリング連携スタブ解消)
+
+目標: SkinData→Skin 変換パイプラインを完成させ、22 ignored テストを解除する。
+
+### 26a: PixmapResourcePool (テクスチャリソース管理)
+
+- [ ] `PixmapResourcePool` 実装 — wgpu テクスチャのロード/キャッシュ/解放
+  - Java: `PixmapResourcePool.loadPixmap()` → Rust: image crate で読み込み → wgpu Texture 生成
+  - テクスチャキャッシュ (パス→Texture のマップ)
+  - 参照カウント or LRU で未使用テクスチャ解放
+- [ ] `SkinSourceImage` — スキン画像リソースの実ロード
+  - 現在: Phase 22 で SkinImage.draw() は実装済みだが、テクスチャロードがスタブ
+  - JSON/Lua スキンの image パスを解決してテクスチャを生成
+
+**見積り:** ~250 行実装 + ~10 テスト
+
+### 26b: SkinData→Skin 変換パイプライン
+
+- [ ] `SkinLoader.load_skin()` の完成
+  - Phase 19 で JSONSkinLoader/LuaSkinLoader が `SkinData` を返す部分は実装済み
+  - 未実装: `SkinData` → `Skin` (テクスチャロード + SkinObject インスタンス化)
+  - `JsonSkinObjectLoader` の各メソッドでテクスチャを `PixmapResourcePool` 経由でロード
+- [ ] スキンオブジェクトのテクスチャバインド
+  - SkinImage/SkinNumber/SkinTextImage → TextureRegion の実テクスチャ参照
+
+**見積り:** ~300 行実装 + ~12 テスト
+
+### 26c: RenderSnapshot テスト解除 + Java fixture 生成
+
+依存: Phase 26b
+
+- [ ] Java fixture 生成環境の整備 (`just golden-master-render-snapshot-gen`)
+  - Java 側でスキンを読み込み、レンダリングスナップショットを JSON に出力
+  - 既存テスト用 BMS + スキンファイルから fixture 生成
+- [ ] 22 テストの `#[ignore]` 解除
+  - `load_lua_skin`/`load_json_skin` ヘルパーを実装に置換 (現在 stub)
+  - golden master 比較テスト有効化
+- [ ] 未カバーモジュール fixture 追加 (← Phase 16b deferred)
+  - modmenu, select bar, stream の fixture
+
+**見積り:** ~200 行 + ~22 テスト解除
+
+### 26d: バナー/ステージファイル画像 + リプレイ API (← Phase 24e deferred)
+
+依存: Phase 26a (PixmapResourcePool)
+
+- [ ] バナー/ステージファイル実画像読み込み (BarContentsLoaderThread)
+  - `PixmapResourcePool` 経由で画像ロード
+  - サムネイル生成 (固定サイズへのリサイズ)
+- [ ] リプレイ存在チェック
+  - `ReplayData::exists()` API — ファイルパスベースの存在確認
+  - BarContentsLoaderThread からの呼び出し統合
+
+**見積り:** ~150 行実装 + ~8 テスト
+
+## Phase 27: 楽曲データベース拡張 + 楽曲検索
+
+依存: Phase 24e (BarManager) ✅
+
+### 27a: updateSongDatas() の並列走査 (rayon)
 
 - [ ] `rayon::par_iter()` で BMS ファイル走査を並列化
   - 現在: 逐次ファイル走査 → BMSDecoder → DB 書き込み
@@ -103,7 +214,7 @@ All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.
 
 **見積り:** ~150 行実装 + ~10 テスト
 
-### 26b: getSongDatasByText() — SQLite FTS5 全文検索
+### 27b: getSongDatasByText() — SQLite FTS5 全文検索
 
 - [ ] FTS5 仮想テーブル作成 (`song_fts` テーブル、title/subtitle/artist/genre カラム)
 - [ ] `updateSongDatas()` で FTS5 テーブルも更新
@@ -112,7 +223,7 @@ All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.
 
 **見積り:** ~120 行実装 + ~8 テスト
 
-### 26c: SongInformationAccessor — 楽曲情報データベース連携
+### 27c: SongInformationAccessor — 楽曲情報データベース連携
 
 - [ ] `SongInformationAccessor` trait の実装 (beatoraja-song に定義済み)
 - [ ] SQLite テーブル作成 + CRUD
@@ -120,11 +231,28 @@ All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.
 
 **見積り:** ~100 行実装 + ~6 テスト
 
-## Phase 27: プラットフォーム固有機能
+## Phase 28: プラットフォーム固有機能 + 入力拡張
 
-依存: Phase 24b (入力), Phase 24f (MainController)
+依存: Phase 24b (入力) ✅, Phase 24f (MainController) ✅
 
-### 27a: Windows named pipe (LR2 互換)
+### 28a: gilrs コントローラ統合 (← Phase 24b deferred)
+
+- [ ] `gilrs` クレート依存追加
+- [ ] `BMControllerInputProcessor` の `Controller` 列挙を gilrs で実装
+- [ ] アナログスティック → `computeAnalogDiff()` はすでに実装済み、gilrs 入力と接続
+- [ ] コントローラ hotplug 検出
+
+**見積り:** ~200 行実装 + ~8 テスト
+
+### 28b: KeyCommand ウィンドウシステム統合 (← Phase 24b deferred)
+
+- [ ] F キーコマンド (F1-F12) のマッピング
+- [ ] スクリーンモード切替 (Alt+Enter → winit fullscreen toggle)
+- [ ] その他ウィンドウ操作 (ESC → 終了確認、etc.)
+
+**見積り:** ~100 行実装 + ~5 テスト
+
+### 28c: Windows named pipe (LR2 互換)
 
 - [ ] `\\.\pipe\lr2oraja` named pipe サーバ実装
   - tokio の `named_pipe::ServerOptions` を使用
@@ -134,44 +262,39 @@ All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.
 
 **見積り:** ~200 行実装 + ~8 テスト (Windows CI でのみ検証)
 
-### 27b: macOS CoreGraphics モニター列挙 (winit 連携)
+### 28d: macOS CoreGraphics モニター列挙 (winit 連携)
 
 - [ ] beatoraja-launcher の `get_monitors_macos()` と winit イベントループの連携
   - 現在: CoreGraphics FFI で直接列挙 (実装済み)
-  - 目標: winit の `available_monitors()` からも補完 (name が "Display N" だけなので CG で情報補強)
+  - 目標: winit の `available_monitors()` からも補完
 - [ ] ランチャー UI でモニター選択 → Config に保存
 
 **見積り:** ~80 行実装 + ~4 テスト
 
-### 27c: Discord Rich Presence
+### 28e: Discord Rich Presence
 
 - [ ] `discord-rich-presence` クレート統合
   - discord_rpc crate はすでに存在 (Phase 17 で作成)
   - `DiscordRpcClient` の接続/切断ライフサイクル
 - [ ] 画面状態に応じたプレゼンス更新
-  - Select: "Selecting a song"
-  - Play: "Playing [title] [artist]"
-  - Result: "Viewing results"
 - [ ] MainController から RPC クライアントへの状態通知
 
 **見積り:** ~150 行実装 + ~6 テスト
 
-## Phase 28: パフォーマンス最適化 + リファクタリング
+## Phase 29: パフォーマンス最適化 + リファクタリング
 
-依存: Phase 25c (品質保証ベースライン)
+依存: Phase 25d (スタブ解消), Phase 25c (品質ベースライン)
 
-### 28a: 間接参照の削減
+### 29a: 間接参照の削減
 
-- [ ] PlayerResource: trait 呼び出し → 直接フィールドアクセス
-  - 各 crate の PlayerResource wrapper struct を統合
-  - `Box<dyn PlayerResourceAccess>` → 具象型 (全 crate で同一型を使用)
-- [ ] MainController スタブ → 実体参照への置換
-  - beatoraja-result/modmenu/decide の MainController stubs を削除
-  - `&MainController` (beatoraja-core) を直接渡す
+Phase 25d でスタブ→trait 化が完了した後、trait 間接参照をさらに削減:
 
-**見積り:** ~300 行変更 + ~10 テスト
+- [ ] PlayerResource: `Box<dyn PlayerResourceAccess>` → 具象型 (ジェネリクス or 直接型)
+- [ ] MainControllerAccess trait → 具象型の直接参照
 
-### 28b: PlayerResource trait の最適化
+**見積り:** ~200 行変更 + ~10 テスト
+
+### 29b: PlayerResource trait の最適化
 
 - [ ] 32 メソッド → 必要最小限に絞り込み
   - 使用頻度分析 (grep で各メソッドの呼び出し回数を集計)
@@ -180,41 +303,28 @@ All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.
 
 **見積り:** ~150 行変更 + ~5 テスト
 
-### 28c: メモリプロファイリング + テクスチャキャッシュ
+### 29c: メモリプロファイリング + テクスチャキャッシュ
 
 - [ ] `dhat` / `jemalloc_ctl` でメモリプロファイリング
-- [ ] テクスチャキャッシュ戦略の実装
-  - LRU キャッシュ (wgpu Texture の再利用)
-  - 未使用テクスチャの解放タイミング
+- [ ] テクスチャキャッシュ戦略の最適化 (Phase 26a の PixmapResourcePool をベースに)
 - [ ] SpriteBatch のバッチ効率測定 + 最適化
 
 **見積り:** ~200 行実装 + ~8 テスト
 
-## Blocked Tasks
+### 29d: 入力ポーリングの非同期化 (← Phase 24f deferred, nice-to-have)
 
-### Phase 16b: Golden Master Test Activation (partially complete)
+- [ ] チャネルベースの非同期 polling thread
+  - 現在: render() 内で同期 poll() (十分機能している)
+  - 目標: 専用スレッド + crossbeam チャネルで winit イベント転送
+  - 低レイテンシが必要な場合のみ実施
 
-- [ ] 未カバーモジュールの fixture 追加 (modmenu, select bar, stream) — Rust 側 API 完成待ち
-- [x] `compare_render_snapshot.rs` 再有効化 — **DONE (Phase 24d)**
+**見積り:** ~100 行実装 + ~5 テスト
 
-### Phase 18e: Stub replacement (部分的に残存)
+## Known Issues (open)
 
-- [x] `MainState` スタブ → real trait — **DONE (Phase 21)**
-- [ ] 全 stubs.rs 削除 → **Phase 25a** で対応
-- [ ] beatoraja-external LibGDX stubs — wgpu 代替可能だが **Phase 25a** で整理
-
-### Phase 18f: Integration verification
-
-- [x] `compare_render_snapshot.rs` 有効化 — **DONE (Phase 24d)**
-- [x] E2E gameplay flow — **PARTIALLY DONE (Phase 21/23)**
-- [ ] Final verification — **Phase 25c** で対応
-
-### Known Issues (open)
-
-- [ ] Remaining stubs: 10 stubs.rs files, ~1,520 行の真のスタブ (re-export/実装済みコードは Phase 25a で整理済み)
-- [x] MainController stubs — **DONE (Phase 24f)**: update_state_references, update_main_state_listener, periodic_config_save, create() 配線完了
-- [ ] 22 ignored tests (RenderSnapshot) — SkinData→Skin pipeline 完成待ち
-- **Intentional:** Twitter4j → `bail!()` (永久、~130行)
+- [ ] Remaining stubs: 10 stubs.rs files, ~1,520 行 → **Phase 25d** で解消
+- [ ] 22 ignored tests (RenderSnapshot) → **Phase 26c** で解除
+- **Intentional:** Twitter4j → `bail!()` (永久、~155行)
 
 ## Completed Phases (summary)
 
@@ -240,3 +350,5 @@ All phases (1–24f, 25a) complete. **1661 tests pass, 22 ignored.** See AGENTS.
 | 24e | BarManager + music selection (init/update_bar/close, BarContentsLoaderThread) | +40 |
 | 24f | MainController stubs resolved (state refs, listener dispatch, config save, create wiring) | +10 |
 | 25a | Stub audit: 6 stubs.rs deleted, 3 reorganized (→gdx_compat, keys, pixmap_io, clipboard_helper, platform) | — |
+| 25b | E2E integration tests (screen transitions + BarManager integration) | +32 |
+| 25c | Quality assurance (zero clippy warnings, fmt clean, 22 ignored documented) | — |

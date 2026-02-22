@@ -18,6 +18,16 @@ lr2oraja (beatoraja fork, Java 313 files / 72k+ lines) → Rust. All features in
 - When tasks become unblocked, update their blocker status in TODO.md.
 - When using worktree isolation for team agents, **always merge worktree branches before sending shutdown requests**.
 
+## Deferred Task Tracking
+
+Deferred tasks are the #1 source of planning gaps. Follow these rules strictly:
+
+- **NEVER** leave a deferred item without a target phase. Every `残タスク` entry MUST include `→ **Phase XX**` reference.
+- **At phase completion**, audit ALL deferred items in that phase's section and verify each has a target phase in TODO.md. If the target phase doesn't have a corresponding entry, add one.
+- **When creating a new phase plan**, grep TODO.md for `→ **Phase {number}**` to collect all deferred items assigned to it. Include them as explicit sub-tasks.
+- **When descoping a task**, move it to the `残タスク (deferred)` section of the current phase with a `→ **Phase XX**` reference, AND add a corresponding entry in the target phase's task list.
+- **Dependency audits**: At the start of each phase, verify that all prerequisite deferred items from earlier phases are accounted for. Missing items indicate a tracking gap — investigate and fix before proceeding.
+
 ## Type Mapping
 
 | Java | Rust |
@@ -74,7 +84,7 @@ brs/
 
 ## Implementation Status
 
-All phases through 25a complete. **1661 tests pass, 22 ignored (RenderSnapshot — SkinData→Skin pipeline pending). Zero runtime `todo!()`/`unimplemented!()`.** PlayerResource wrapper migration complete for all 6 crates. 6 re-export-only stubs.rs deleted, 3 large stubs.rs reorganized. 10 stubs.rs remain (~1,520 true stub lines).
+All phases through 25c complete. **1693 tests pass, 22 ignored (RenderSnapshot — SkinData→Skin pipeline pending). Zero runtime `todo!()`/`unimplemented!()`.** Zero clippy warnings. PlayerResource wrapper migration complete for all 6 crates. 6 re-export-only stubs.rs deleted, 3 large stubs.rs reorganized. 10 stubs.rs remain (~1,520 true stub lines). Phase 25d (stub resolution) next.
 
 - **Phases 1–17:** Core translation (17 crates, 300+ modules), real implementations (wgpu, Kira, mlua, ffmpeg-next, midir, cpal, egui UI), circular dep resolution, stub cleanup, platform replacements, 868 tests
 - **Phase 18a–g:** Core judge loop, rendering state providers, audio decode API, BGA/skin test APIs, stub replacement (12 sub-phases, 4 audit rounds), E2E test activation (138 tests), BRD replay codec
@@ -90,6 +100,8 @@ All phases through 25a complete. **1661 tests pass, 22 ignored (RenderSnapshot �
 - **Phase 24e:** BarManager + music selection — init/update_bar/close, BarContentsLoaderThread, UpdateBarContext/LoaderContext/CourseTableAccessor. +40 tests
 - **Phase 24f:** MainController stubs resolved — update_state_references (StateReferencesCallback trait), update_main_state_listener (real dispatch), periodic_config_save (Java-matching 120s/BMSPlayer skip), create() full wiring. +10 tests
 - **Phase 25a:** Stub audit — 6 re-export-only stubs.rs deleted, 3 large stubs.rs reorganized (→gdx_compat.rs, keys.rs, pixmap_io.rs, clipboard_helper.rs, platform.rs). 10 stubs.rs remain with ~1,520 true stub lines
+- **Phase 25b:** E2E integration tests — screen transition chain (12 tests), BarManager integration (20 tests). +32 tests
+- **Phase 25c:** Quality assurance — zero clippy warnings, cargo fmt clean, 22 ignored tests documented
 
 ## Remaining Stubs (~1,520 true stub lines across 10 files)
 
