@@ -1,6 +1,6 @@
-# lr2oraja Rust Porting — Mechanical Line-by-Line Translation
+# lr2oraja Rust Porting
 
-lr2oraja (beatoraja fork, Java 313 files / 72k+ lines) → Rust. Source: `./lr2oraja-java`.
+beatoraja fork (Java 313 files / 72k+ lines) → Rust. 27 crates, 122k lines. Source: `./lr2oraja-java`.
 
 ## Rules
 
@@ -11,7 +11,7 @@ lr2oraja (beatoraja fork, Java 313 files / 72k+ lines) → Rust. Source: `./lr2o
 - Explicit type conversions — every implicit Java cast → explicit Rust cast.
 - After completing a phase/task, update TODO.md and AGENTS.md.
 - Worktree isolation: **always merge worktree branches before sending shutdown requests**.
-- Deferred items: always tag with `→ **Phase XX**`. At phase completion, audit all deferred items. When creating a new phase, grep TODO.md for `→ **Phase {number}**`.
+- Deferred items: always tag with `→ **Phase XX**`. At phase completion, audit all deferred items.
 
 ## Type Mapping
 
@@ -38,7 +38,40 @@ lr2oraja (beatoraja fork, Java 313 files / 72k+ lines) → Rust. Source: `./lr2o
 
 ## Structure
 
-`lr2oraja-java/` (read-only) · `lr2oraja-rust/` (Cargo workspace: `crates/`, `golden-master/`, `test-bms/`)
+```
+lr2oraja-java/       # Java source (read-only)
+lr2oraja-rust/       # Cargo workspace
+  crates/
+    bms-model        # BMS/BME/BML parser + model
+    bms-table        # Difficulty table parser
+    beatoraja-types  # Shared types (circular dep breaker)
+    beatoraja-common # Config, DB schema, utilities
+    beatoraja-pattern    # Note pattern (JavaRandom LCG)
+    beatoraja-audio      # Audio (Kira 0.12)
+    beatoraja-input      # Keyboard/controller input
+    beatoraja-controller # gilrs controller manager
+    beatoraja-render     # Rendering (wgpu)
+    beatoraja-skin       # Skin loading/layout
+    beatoraja-song       # Song DB (rusqlite)
+    beatoraja-core       # State machine, main loop
+    beatoraja-play       # Play state (gameplay)
+    beatoraja-select     # Song select state
+    beatoraja-decide     # Song decide state
+    beatoraja-result     # Result state
+    beatoraja-modmenu    # Mod menu state
+    beatoraja-ir         # Internet ranking
+    beatoraja-external   # Twitter, clipboard
+    beatoraja-obs        # OBS WebSocket
+    beatoraja-stream     # Streaming
+    beatoraja-launcher   # Launcher UI (egui)
+    beatoraja-system     # Platform utilities
+    beatoraja-bin        # Entry point
+    discord-rpc          # Discord Rich Presence
+    md-processor         # Markdown processing
+    ast-compare          # Test: AST Java↔Rust comparison
+  golden-master/   # Golden Master test infra
+  test-bms/        # Test BMS files
+```
 
 ## Key Invariants
 
@@ -51,12 +84,24 @@ lr2oraja (beatoraja fork, Java 313 files / 72k+ lines) → Rust. Source: `./lr2o
 
 ## Status
 
-**1739 tests, 22 ignored (RenderSnapshot — Phase 26).** Phases 1–25d complete: 17 crates, 300+ modules. Zero `todo!()`/`unimplemented!()`. Zero clippy warnings.
+**1739 tests, 22 ignored.** Phases 1–25d complete. Zero clippy warnings. Phase 26 next.
 
-## Remaining Stubs (~900 lines / 10 files)
+## Remaining Stubs (10 `stubs.rs` files, ~2,600 lines)
 
-1. **API-incompatible** (→ Phase 29a): result/decide/select/modmenu rendering stubs, Property traits
-2. **Intentional** (permanent): Twitter4j → `bail!()` (~155 lines)
+| Crate | Lines | Category | Target |
+|-------|------:|----------|--------|
+| beatoraja-types | 549 | Shared type stubs | Phase 29a |
+| beatoraja-external | 446 | Twitter4j (`bail!()`) + clipboard | Permanent / 29a |
+| beatoraja-result | 388 | Rendering stubs | Phase 29a |
+| beatoraja-select | 317 | Rendering stubs | Phase 29a |
+| beatoraja-launcher | 314 | Egui integration | Phase 26+ |
+| beatoraja-skin | 287 | Skin pipeline | Phase 26b |
+| beatoraja-modmenu | 159 | Rendering stubs | Phase 29a |
+| beatoraja-decide | 108 | Rendering stubs | Phase 29a |
+| beatoraja-input | 44 | Input device | Phase 28a |
+| beatoraja-core | 1 | (empty) | — |
+
+**Categories:** Rendering (→29a) · Skin pipeline (→26b) · Platform/input (→28) · Twitter4j (permanent `bail!()`)
 
 ## Lessons Learned
 
