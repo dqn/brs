@@ -348,26 +348,7 @@ pub use beatoraja_types::imgui_notify::ImGuiNotify;
 
 pub use ::bms_model::mode as bms_model;
 
-// ============================================================
-// Timer stub
-// ============================================================
-
-/// Stub for timer used in MainState
-pub struct TimerState {
-    pub now_time: i64,
-}
-
-impl TimerState {
-    pub fn get_now_time(&self) -> i64 {
-        self.now_time
-    }
-    pub fn get_timer(&self, _id: i32) -> i64 {
-        0
-    }
-    pub fn set_timer_on(&self, _id: i32) {}
-    pub fn set_timer_off(&self, _id: i32) {}
-    pub fn switch_timer(&self, _id: i32, _on: bool) {}
-}
+// TimerState: removed (dead code — never used outside stubs.rs)
 
 // PlayerInformation: replaced by pub use from beatoraja_core (Phase 18e-7)
 pub use beatoraja_core::player_information::PlayerInformation;

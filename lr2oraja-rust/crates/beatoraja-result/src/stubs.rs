@@ -1,8 +1,6 @@
 // External dependency stubs for beatoraja-result crate
 // These will be replaced with actual implementations when corresponding phases are translated.
 
-use std::sync::Arc;
-
 use beatoraja_types::config::Config;
 use beatoraja_types::player_config::PlayerConfig;
 
@@ -24,7 +22,6 @@ pub use beatoraja_skin::stubs::Rectangle;
 pub use beatoraja_skin::stubs::Texture;
 pub use beatoraja_skin::stubs::TextureRegion;
 use beatoraja_types::player_resource_access::{NullPlayerResource, PlayerResourceAccess};
-use beatoraja_types::song_data::SongData;
 
 // PlayDataAccessor: replaced by pub use from beatoraja_core (Phase 18e-4)
 pub use beatoraja_core::play_data_accessor::PlayDataAccessor;
