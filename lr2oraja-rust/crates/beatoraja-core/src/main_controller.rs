@@ -3,6 +3,7 @@ use std::time::Instant;
 
 use log::info;
 
+use beatoraja_types::imgui_notify::ImGuiNotify;
 use beatoraja_types::main_controller_access::MainControllerAccess;
 use beatoraja_types::player_resource_access::PlayerResourceAccess;
 use beatoraja_types::song_database_accessor::SongDatabaseAccessor as SongDatabaseAccessorTrait;
@@ -948,22 +949,92 @@ impl MainController {
     /// Update cross-state references after state re-initialization.
     ///
     /// Translated from: MainController.updateStateReferences()
+    ///
+    /// Java lines 573-576:
+    /// ```java
+    /// private void updateStateReferences() {
+    ///     SkinMenu.init(this, player);
+    ///     SongManagerMenu.injectMusicSelector(selector);
+    /// }
+    /// ```
+    ///
+    /// Blocked: SkinMenu and SongManagerMenu live in beatoraja-modmenu, which
+    /// beatoraja-core cannot depend on (circular dependency). This will be
+    /// resolved when the modmenu integration is wired from the launcher layer.
     pub fn update_state_references(&mut self) {
-        log::warn!("not yet implemented: updateStateReferences");
+        // SkinMenu.init(this, player) — blocked: beatoraja-modmenu dependency
+        // SongManagerMenu.injectMusicSelector(selector) — blocked: beatoraja-modmenu dependency
+        log::info!("updateStateReferences: deferred to launcher (modmenu circular dep)");
     }
 
     /// Trigger LN warning if the player has LN-related settings.
     ///
     /// Translated from: MainController.triggerLnWarning()
-    pub fn trigger_ln_warning(&mut self) {
-        log::warn!("not yet implemented: triggerLnWarning");
+    ///
+    /// Java lines 578-592:
+    /// ```java
+    /// private void triggerLnWarning() {
+    ///     String lnModeName = switch (player.getLnmode()) {
+    ///         case 1 -> "CN";
+    ///         case 2 -> "HCN";
+    ///         default -> "LN";
+    ///     };
+    ///     if (!lnModeName.equals("LN")) {
+    ///         String lnWarning = "Long Note mode is " + lnModeName + ".\n"
+    ///             + "This is not recommended.\n"
+    ///             + "Your scores may be incompatible with IR.\n"
+    ///             + "You may change this in play options.";
+    ///         ImGuiNotify.warning(lnWarning, 8000);
+    ///     }
+    /// }
+    /// ```
+    pub fn trigger_ln_warning(&self) {
+        let ln_mode_name = match self.player.get_lnmode() {
+            1 => "CN",
+            2 => "HCN",
+            _ => "LN",
+        };
+        if ln_mode_name != "LN" {
+            let ln_warning = format!(
+                "Long Note mode is {}.\n\
+                 This is not recommended.\n\
+                 Your scores may be incompatible with IR.\n\
+                 You may change this in play options.",
+                ln_mode_name
+            );
+            ImGuiNotify::warning_with_dismiss(&ln_warning, 8000);
+        }
     }
 
     /// Set the target score list for grade/rival display.
     ///
     /// Translated from: MainController.setTargetList()
+    ///
+    /// Java lines 594-600:
+    /// ```java
+    /// private void setTargetList() {
+    ///     Array<String> targetlist = new Array<String>(player.getTargetlist());
+    ///     for(int i = 0;i < rivals.getRivalCount();i++) {
+    ///         targetlist.add("RIVAL_" + (i + 1));
+    ///     }
+    ///     TargetProperty.setTargets(targetlist.toArray(String.class), this);
+    /// }
+    /// ```
+    ///
+    /// Blocked: TargetProperty lives in beatoraja-play, which beatoraja-core
+    /// cannot depend on (circular dependency). TargetProperty::set_targets()
+    /// also does not exist yet. This will be wired from the launcher layer.
     pub fn set_target_list(&mut self) {
-        log::warn!("not yet implemented: setTargetList");
+        // Build target list: player's target list + rival targets
+        let mut targetlist: Vec<String> = self.player.targetlist.clone();
+        for i in 0..self.rivals.get_rival_count() {
+            targetlist.push(format!("RIVAL_{}", i + 1));
+        }
+        // TargetProperty.setTargets(targetlist, this) — blocked: beatoraja-play dependency
+        log::info!(
+            "setTargetList: built {} targets, deferred TargetProperty.setTargets (play circular dep)",
+            targetlist.len()
+        );
     }
 
     /// Periodically save config if enough time has elapsed.
@@ -1704,5 +1775,59 @@ mod tests {
             draw_count, 3,
             "draw_all_objects_timed should be called once per frame"
         );
+    }
+
+    // --- triggerLnWarning tests ---
+
+    #[test]
+    fn test_trigger_ln_warning_lnmode_0_is_ln_no_warning() {
+        // lnmode=0 → "LN" → no warning (default)
+        let mut mc = make_test_controller();
+        mc.player.set_lnmode(0);
+        // Should not panic; "LN" mode does not trigger warning
+        mc.trigger_ln_warning();
+    }
+
+    #[test]
+    fn test_trigger_ln_warning_lnmode_1_is_cn() {
+        // lnmode=1 → "CN" → warning triggered
+        let mut mc = make_test_controller();
+        mc.player.set_lnmode(1);
+        mc.trigger_ln_warning();
+        // No assertion on log output, but should not panic
+    }
+
+    #[test]
+    fn test_trigger_ln_warning_lnmode_2_is_hcn() {
+        // lnmode=2 → "HCN" → warning triggered
+        let mut mc = make_test_controller();
+        mc.player.set_lnmode(2);
+        mc.trigger_ln_warning();
+    }
+
+    #[test]
+    fn test_trigger_ln_warning_lnmode_3_is_ln_no_warning() {
+        // lnmode=3 → default "LN" → no warning
+        let mut mc = make_test_controller();
+        mc.player.set_lnmode(3);
+        mc.trigger_ln_warning();
+    }
+
+    // --- setTargetList tests ---
+
+    #[test]
+    fn test_set_target_list_no_rivals() {
+        let mut mc = make_test_controller();
+        // With default player config (targetlist contains "MAX") and no rivals
+        mc.set_target_list();
+        // Should not panic
+    }
+
+    // --- updateStateReferences tests ---
+
+    #[test]
+    fn test_update_state_references_does_not_panic() {
+        let mut mc = make_test_controller();
+        mc.update_state_references();
     }
 }
