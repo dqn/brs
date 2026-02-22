@@ -11,13 +11,22 @@ pub struct SearchWordBar {
 }
 
 impl SearchWordBar {
-    pub fn new(text: String) -> Self {
-        let title = format!("Search : '{}'", text);
+    pub fn new(title: String, text: String) -> Self {
         Self {
             directory: DirectoryBarData::default(),
             text,
             title,
         }
+    }
+
+    /// Create a SearchWordBar with auto-generated title.
+    pub fn from_text(text: String) -> Self {
+        let title = format!("Search : '{}'", text);
+        Self::new(title, text)
+    }
+
+    pub fn get_text(&self) -> &str {
+        &self.text
     }
 
     pub fn get_children(&self) -> Vec<Bar> {
