@@ -74,6 +74,12 @@ pub struct LauncherUi {
     selected_play_mode: usize,
     bms_paths: Vec<String>,
     selected_ir_index: usize,
+    /// Decrypted IR userid buffer for egui text editing.
+    ir_userid_buf: String,
+    /// Decrypted IR password buffer for egui text editing.
+    ir_password_buf: String,
+    /// Previous IR index to detect slot switches.
+    ir_prev_index: Option<usize>,
 }
 
 impl LauncherUi {
@@ -90,6 +96,9 @@ impl LauncherUi {
             selected_play_mode: 1, // BEAT_7K
             bms_paths: Vec::new(),
             selected_ir_index: 0,
+            ir_userid_buf: String::new(),
+            ir_password_buf: String::new(),
+            ir_prev_index: None,
         }
     }
 
@@ -448,6 +457,31 @@ impl LauncherUi {
         });
     }
 
+    /// Flush current IR userid/password buffers back to IRConfig via
+    /// set_userid/set_password (triggers AES encryption).
+    /// Java equivalent: IRConfigurationView.updateIRConnection() save-side.
+    fn flush_ir_buffers(&mut self) {
+        if let Some(prev) = self.ir_prev_index
+            && let Some(Some(ir)) = self.player.irconfig.get_mut(prev)
+        {
+            ir.set_userid(self.ir_userid_buf.clone());
+            ir.set_password(self.ir_password_buf.clone());
+        }
+    }
+
+    /// Load decrypted IR userid/password into buffers for the given index.
+    /// Java equivalent: IRConfigurationView.updateIRConnection() load-side.
+    fn load_ir_buffers(&mut self, idx: usize) {
+        if let Some(Some(ir)) = self.player.irconfig.get(idx) {
+            self.ir_userid_buf = ir.get_userid();
+            self.ir_password_buf = ir.get_password();
+        } else {
+            self.ir_userid_buf.clear();
+            self.ir_password_buf.clear();
+        }
+        self.ir_prev_index = Some(idx);
+    }
+
     /// Java equivalent: IRConfigurationView
     /// Internet Ranking server settings.
     fn render_ir_tab(&mut self, ui: &mut egui::Ui) {
@@ -486,6 +520,12 @@ impl LauncherUi {
 
         ui.separator();
 
+        // Detect IR slot switch: flush old buffers, load new decrypted values
+        if self.ir_prev_index != Some(idx) {
+            self.flush_ir_buffers();
+            self.load_ir_buffers(idx);
+        }
+
         let idx = self.selected_ir_index;
         if let Some(Some(ir)) = self.player.irconfig.get_mut(idx) {
             egui::Grid::new("ir_grid").show(ui, |ui| {
@@ -494,11 +534,11 @@ impl LauncherUi {
                 ui.end_row();
 
                 ui.label("User ID:");
-                ui.text_edit_singleline(&mut ir.userid);
+                ui.text_edit_singleline(&mut self.ir_userid_buf);
                 ui.end_row();
 
                 ui.label("Password:");
-                ui.text_edit_singleline(&mut ir.password);
+                ui.add(egui::TextEdit::singleline(&mut self.ir_password_buf).password(true));
                 ui.end_row();
 
                 let selected_label = IR_SEND_LABELS.get(ir.irsend as usize).unwrap_or(&"ALWAYS");
@@ -598,8 +638,13 @@ impl LauncherUi {
 
     fn commit_config(&mut self) {
         self.config.playername = Some(self.player_name.clone());
+        // Flush IR userid/password buffers (triggers AES encryption)
+        self.flush_ir_buffers();
         if let Err(e) = Config::write(&self.config) {
             log::error!("Failed to save config: {}", e);
+        }
+        if let Err(e) = PlayerConfig::write(&self.config.playerpath, &self.player) {
+            log::error!("Failed to save player config: {}", e);
         }
     }
 }

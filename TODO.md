@@ -18,8 +18,8 @@ Phases 1–12, 13a–f, 13f follow-up, 13g, 14, 15a–g, 16a, 16c, 17 — all co
 
 ## Phase 13f follow-up 2: LauncherUi fixes
 
-- [ ] Fix `commit_config()` to also persist PlayerConfig — currently only saves Config via `Config::write()`; Input/IR/Stream tab changes are lost. Java `PlayConfigurationView.commit()` calls both `Config::write()` and `PlayerConfig::write()`
-- [ ] Use `IRConfig::get_userid()`/`set_userid()` and `get_password()`/`set_password()` in IR tab — current code reads/writes raw `ir.userid`/`ir.password` fields, bypassing AES encryption logic in `IRConfig::validate()`
+- [x] Fix `commit_config()` to also persist PlayerConfig — now calls both `Config::write()` and `PlayerConfig::write(&config.playerpath, &player)` matching Java `PlayConfigurationView.commit()` + `commitPlayer()`
+- [x] Use `IRConfig::get_userid()`/`set_userid()` and `get_password()`/`set_password()` in IR tab — added decrypted buffers (`ir_userid_buf`/`ir_password_buf`) for egui text editing; flush via `set_userid`/`set_password` (triggers AES encryption) on IR slot switch and commit. Password field uses `egui::TextEdit::password(true)`
 - [ ] Add skin browsing UI to Skin tab — currently shows slot paths only; Java `SkinConfigurationView` has skin type selector, header list from filesystem scan, and dynamic customization options (CustomOption/CustomFile/CustomOffset)
 - [ ] Add key binding editing grid to Input tab — currently shows controller settings only; Java `InputConfigurationView` has a full key assignment table per mode with keyboard/controller/MIDI columns
 
