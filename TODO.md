@@ -64,7 +64,7 @@ Dependency graph order. Each module is ported only after its dependencies are co
 
 ## Phase 16: Test Coverage Expansion (partially complete)
 
-936 tests across 11 crates. Golden Master: 29/29 pass + 8 reactivated + 1 `#[ignore]` fixed.
+940 tests across 11 crates. Golden Master: 29/29 pass + 8 reactivated + 2 newly activated (compare_rule, compare_pattern) + 1 `#[ignore]` fixed.
 
 ### Completed
 - **16a:** Unit tests — bms-model(147), beatoraja-core(115), beatoraja-play(157), beatoraja-pattern(169), beatoraja-types(127) = 715 tests
@@ -76,7 +76,9 @@ Dependency graph order. Each module is ported only after its dependencies are co
 - [x] Reactivate 8 pending test files: compare_config(6), compare_database(23), compare_course_data(4), compare_song_information(23), compare_autoplay(23), compare_pattern_modifiers(5), compare_replay(3), compare_score_data_property(1)
 - [x] Fix serde rename mismatches, LN duration counting, mainbpm tie-breaking, CourseDataConstraint aliases, TimeLine bounds checking
 - [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream) — deferred until Java exporter updated
-- [ ] Reactivate remaining 17 pending test files — blocked: compare_pattern (make_random private), compare_bga_timeline (BGAProcessor stubbed), Tier 3 tests (e2e_helpers, render snapshots, judge/rule API mismatch)
+- [x] Reactivate compare_rule (3 tests: judge windows 480 cases, gauge properties 225 cases, gauge sequences 80 cases) — all passing
+- [x] Reactivate compare_pattern (lane shuffle mappings 102 cases: MIRROR/ROTATE/RANDOM/CROSS/FLIP) — required Java-compatible LCG (`java_random.rs`) to replace StdRng
+- [ ] Reactivate remaining 15 pending test files — blocked: all use fictional crate names (`bms_rule`, `bms_replay`, `bms_audio`, `bms_render`) not present in workspace; `e2e_helpers`/`render_snapshot`/`skin_fixtures` modules commented out in golden-master lib.rs; JudgeManager::update() is a stub (Phase 7+ dependency); BGAProcessor partially stubbed
 - [x] Investigate BMS decoder mode detection discrepancy — investigated: no actual discrepancy found; both Java and Rust correctly detect `longnote_types.bms` as BEAT_5K; fixture expectation was outdated
 
 ## Phase 18: Post-Phase 13 Lifecycle Wiring

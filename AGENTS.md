@@ -75,7 +75,7 @@ All phases complete. 936 tests pass. Zero runtime `todo!()`/`unimplemented!()`.
 | 1–12 | Core translation: 17 crates, 300+ modules, CLI + winit event loop |
 | 14, 15a–g | Circular dep resolution (`beatoraja-types`), struct→trait unification, stub cleanup, platform replacements |
 | 13a–g | Real implementations: wgpu rendering, Kira audio, mlua, egui UI, ffmpeg-next, midir, cpal |
-| 16a–c | Tests: 715 unit + 117 golden master + 32 integration |
+| 16a–c | Tests: 715 unit + 121 golden master + 32 integration (compare_rule + compare_pattern reactivated with Java LCG fix) |
 | 17 | Verified zero runtime todo!/unimplemented! |
 | 18 | Post-Phase 13 lifecycle wiring (pending) |
 
@@ -119,3 +119,4 @@ All phases complete. 936 tests pass. Zero runtime `todo!()`/`unimplemented!()`.
 - **CRC32:** Custom poly `0xEDB88320`, appends `\\\0`. **RobustFile:** double-write + `sync_all()`.
 - **Platform replacements:** Twitter4j → `anyhow::bail!()`, AWT clipboard → `arboard`, PortAudio → `cpal`, monitors → CoreGraphics FFI (macOS). Rust 2024: `unsafe extern "C"` blocks.
 - **Stub cleanup:** Always verify with `cargo check` after removal. Cross-crate re-exports require checking downstream crates. Split rendering stubs into `rendering_stubs.rs` with `pub use` in `stubs.rs` for backward compat.
+- **Java Random LCG:** `java.util.Random(seed)` uses LCG (multiplier=`0x5DEECE66D`, addend=`0xB`, mask=48-bit). Seed scramble: `(seed ^ multiplier) & mask`. `nextInt(bound)` has power-of-2 fast path. Must use `wrapping_mul`/`wrapping_add` for i64 overflow. Implemented as `java_random::JavaRandom` in `beatoraja-pattern`. **Never use `StdRng`/`rand` for Java-seeded RNG.**
