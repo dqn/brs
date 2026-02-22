@@ -95,8 +95,8 @@ All phases complete. 1229 tests pass. Zero runtime `todo!()`/`unimplemented!()`.
 - ~~**Circular dep:** TextureRegion/Texture in play~~ → resolved: `pub use beatoraja_render::Texture` in `beatoraja-play/stubs.rs`
 - ~~**Cross-crate duplicates:** ImGuiNotify (6 crates), Random/LR2Random (ir)~~ → resolved: centralized in beatoraja-types/beatoraja-pattern (Phase 18e-1)
 - ~~**MainController (obs/external/ir):**~~ → resolved: obs uses `state_type()`, external uses `NullMainController`, ir had no stub (Phase 18e-2)
-- **Lifecycle:** MainController stubs remain in 4 crates (select, result, modmenu, md-processor) — crate-specific APIs not on trait. PlayerResource stubs remain in 4 crates (select, result, decide, external)
-- **Remaining stubs.rs:** lifecycle stubs, cross-crate re-exports, skin/rendering types (modmenu has large SkinHeader/Skin/SkinConfig stubs)
+- **Lifecycle:** MainController stubs: select (dead code, removable), result (6 methods actively used, blocked), modmenu (type incompatibility, moderate refactoring), md-processor (dead code, deferred). PlayerResource stubs: select (empty, removable), decide (2 methods on trait, convertible), external (1 method off trait), result (blocked)
+- **Remaining stubs.rs:** lifecycle stubs, cross-crate re-exports, skin/rendering types (modmenu has large SkinHeader/Skin/SkinConfig stubs). `rendering_stubs.rs` in beatoraja-skin resolved (re-exports real beatoraja-render types)
 - **Platform:** Windows named pipe (platform-specific, not yet implemented)
 
 ## Lessons Learned

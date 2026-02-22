@@ -29,10 +29,9 @@ Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 1
 - [ ] Add missing fixtures for modules not yet covered (modmenu, select bar, stream) — Java exporters exist; deferred until Rust-side APIs are implemented
 - [x] Activate 9 e2e test files (Phase 18f) — moved from `pending/` to active: `e2e_judge.rs` (20), `course_e2e.rs` (9), `compare_judge.rs` (6), `compare_replay_e2e.rs` (1), `e2e_edge_cases.rs` (11), `exhaustive_e2e.rs` (72), `timing_boundary_e2e.rs` (10), `full_pipeline_integration.rs` (4), `replay_roundtrip_e2e.rs` (5). Total 138 new tests. Fixed `build_judge_notes()` time ordering bug (was lane-grouped, now sorted by `(time_us, lane)` with pair_index remapping).
 - [x] Activate `compare_skin.rs` and `compare_bga_timeline.rs` (Phase 18d) — moved from `pending/` to active. 11 new tests (6 skin + 5 BGA)
-- [ ] Reactivate remaining 2 pending test files — blocked on test fixture files:
-  - `compare_eval_test_skins.rs` requires `test-bms/test-skin/` directory with test skin files (not present in repository)
-  - `compare_render_snapshot.rs` requires `skin/ECFN/` directory with ECFN skin files (not present in repository)
-  - Both need Java-exported golden master fixtures to be generated
+- [ ] Reactivate remaining 2 pending test files — partially unblocked:
+  - `compare_eval_test_skins.rs` — blocked: requires `test-bms/test-skin/` directory with synthetic test skin files (not present)
+  - `compare_render_snapshot.rs` — **unblocked**: `skin/ECFN/` directory exists with full skin resources, Java fixtures exist in `golden-master/fixtures/render_snapshots_java/` (7 ECFN fixture files). Can be reactivated immediately
 
 ## Phase 18: Post-Phase 13 Lifecycle Wiring
 
@@ -86,30 +85,33 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 - [x] beatoraja-decide: Removed unused `MainControllerAccess` trait impl from `MainControllerRef`. Struct retained with 3 methods (`change_state`, `get_input_processor`, `get_audio_processor`) that are actively called by `MusicDecide`
 - [x] beatoraja-ir: No MainController stub exists — nothing to do
 
-##### MainController stubs — remaining (4 crates, blocked)
+##### MainController stubs — remaining (4 crates)
 
-- [ ] beatoraja-select: 6 crate-specific methods (get_song_database, get_ir_status, get_ranking_data_cache, get_input_processor, get_player_resource_local, get_current_state) + local `MainState` trait returns `&MainController`. All methods unused but types are referenced. Blocked: needs real MainController or extension trait
-- [ ] beatoraja-result: 9 methods actively used in music_result.rs/course_result.rs (get_play_data_accessor, get_input_processor, ir_send_status, save_last_recording, etc.). Blocked: heaviest coupling, needs real implementations
-- [ ] beatoraja-modmenu: Returns owned Config/PlayerConfig (not references), has `get_current_state()` and `load_new_profile()`. Stub `PlayerConfig` incompatible with real type (SkinConfig field differences). Blocked: type incompatibility
-- [ ] md-processor: Defines `MainControllerRef` as trait with `update_song(&self, path: &str, force: bool)` — different signature from `MainControllerAccess::update_song(&mut self, path: Option<&str>)`. Blocked: signature mismatch
+- [ ] beatoraja-select: 6 methods defined (get_song_database, get_ir_status, get_ranking_data_cache, get_input_processor, get_player_resource_local, get_current_state) but **all unused** — zero call sites in the crate. `MainState` trait with `get_main()` also never called. Dead code; can be removed immediately
+- [ ] beatoraja-result: 6 methods actively used in music_result.rs/course_result.rs (get_play_data_accessor, get_input_processor, get_ir_status, save_last_recording, ir_send_status_mut, ir_send_status). 3 unused methods (get_config, get_player_config, change_state) can be pruned. Blocked: type mismatches (PlayDataAccessor optional vs non-optional, BMSPlayerInputProcessor `&mut` vs `&`), `ir_send_status_mut()` doesn't exist on real MainController, IRConnection not implemented
+- [ ] beatoraja-modmenu: `get_current_state()` and `load_new_profile()` are **unused** (dead code). Real blocker: stub `PlayerConfig` uses `Vec<SkinConfig>` but real type uses `Vec<Option<SkinConfig>>`; `SkinConfig.path` is `String` vs `Option<String>`; `SkinConfigProperty` vs `SkinProperty` with `Option<>` wrapping throughout. Requires ~15 call sites in skin_menu.rs to add Option handling. Moderate refactoring task
+- [ ] md-processor: `MainControllerRef` trait with `update_song(&self, path: &str, force: bool)` is **dead code** — `HttpDownloadProcessor` is never instantiated anywhere. Deferred to HttpDownloadProcessor activation
 
-##### PlayerResource stubs — remaining (blocked)
+##### PlayerResource stubs — remaining (partially unblocked)
 
-- [ ] Replace `PlayerResource` stubs in 4 crates (select, result, decide, external) — blocked: beatoraja-result heavily uses mutable access and BMSModel/RankingData types not on trait. beatoraja-external has Mode/SongData fields. beatoraja-select is empty. beatoraja-decide has 2 methods + trait impl
-- [ ] beatoraja-obs/beatoraja-modmenu have no PlayerResource stubs
+- [ ] beatoraja-select: **Empty stub** (`pub struct PlayerResource;`) with zero usage — can be removed immediately
+- [ ] beatoraja-decide: 2 methods (`set_org_gauge_option`, `get_player_config`) — **both exist on `PlayerResourceAccess` trait**. Can convert to `&dyn PlayerResourceAccess` immediately
+- [ ] beatoraja-external: 6 method calls, 5 on `PlayerResourceAccess` trait. Only `get_original_mode() -> &Mode` is missing from trait. Can be unblocked with extension trait for 1 method
+- [ ] beatoraja-result: Blocked — heavily uses mutable access (5 `_mut()` getters) and types not on trait (`BMSModel`, `RankingData`, `FloatArray` vs `Vec<f32>`, `GrooveGaugeStub` vs `GrooveGauge`). Requires trait expansion or per-crate extension trait
+- [x] beatoraja-obs/beatoraja-modmenu have no PlayerResource stubs
 
-##### Other stubs — remaining (blocked)
+##### Other stubs — remaining
 
-- [ ] Replace `MainState` stubs with real trait impls — blocked: requires per-screen concrete types (PlayState, SelectState, etc.) to implement the `MainState` trait with real rendering callbacks
+- [ ] Replace `MainState` stubs with real trait impls — blocked: requires per-screen concrete types (PlayState, SelectState, etc.) to implement the `MainState` trait with real rendering callbacks. Real `MainState` trait exists in beatoraja-core with full lifecycle API
 - [ ] Remove all `stubs.rs` files (target: zero remaining stubs) — blocked: depends on above stub replacements completing first
-- [ ] Remove `rendering_stubs.rs` (all types replaced by wgpu equivalents from Phase 13) — blocked: skin crates still reference rendering stub types; requires full `beatoraja-render` type propagation
+- [x] ~~Remove `rendering_stubs.rs`~~ — resolved: `beatoraja-skin/src/rendering_stubs.rs` already re-exports real types from `beatoraja-render` (Texture, Color, Rectangle, Pixmap, SpriteBatch, etc.). No longer contains stubs. Downstream crates (select, result) use real types via this re-export chain
 
 ### 18f: Integration verification (complete — 9 of 9 e2e test files activated)
 
 - [x] Rewrite e2e test files against actual API — all 9 files rewritten and compile-verified: `e2e_judge.rs`, `course_e2e.rs`, `compare_judge.rs`, `exhaustive_e2e.rs`, `e2e_edge_cases.rs`, `timing_boundary_e2e.rs`, `replay_roundtrip_e2e.rs`, `full_pipeline_integration.rs`, `compare_replay_e2e.rs`. Old API names (`BmsDecoder`/`BmsModel`/`GaugeType` enum/`PlayerRule`/`model.total_notes()`/`score.judge_count()`) replaced with actual crate types (`BMSDecoder`/`BMSModel`/`i32` gauge constants/`BMSPlayerRule`/`model.get_total_notes()`/`score.get_judge_count_total()`). Replay tests use JSON serde round-trip
 - [x] Activate 9 e2e test files — moved from `tests/pending/` to `tests/`. All 138 new tests pass. Fixed `build_judge_notes()` time ordering bug discovered during activation (was lane-grouped, now sorted by `(time_us, lane)` with pair_index remapping). 1185 total tests pass
 - [x] Activate `compare_skin.rs` and `compare_bga_timeline.rs` (Phase 18d) — 11 new tests
-- [ ] Activate remaining 2 Phase 16b pending tests — depends on test fixture files (compare_eval_test_skins, compare_render_snapshot)
+- [ ] Activate remaining 2 Phase 16b pending tests — `compare_render_snapshot.rs` unblocked (ECFN fixtures exist); `compare_eval_test_skins.rs` still blocked on test-skin directory
 - [ ] E2E gameplay flow test: select → decide → play → result screen transitions — blocked: requires all stubs removed and real screen implementations wired
 - [ ] Verify: all tests pass, zero clippy warnings, clean `cargo fmt` — blocked: final gate after all above tasks complete
 
@@ -123,7 +125,7 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 ### New Issues Found
 
 - [x] `build_judge_notes()` returned notes in lane-grouped order instead of time order — caused `bpm_extreme_timing_structure` and `multi_stop_timing_gaps` tests to fail. Fixed by sorting by `(time_us, lane)` and remapping `pair_index` values
-- [ ] Missing test skin fixture directories — `test-bms/test-skin/` and `skin/ECFN/` directories do not exist in the repository. These are needed by pending golden master tests `compare_eval_test_skins.rs` and `compare_render_snapshot.rs`. Need to either add sample skin files or generate fixtures from Java exporter
+- [ ] Missing test skin fixture directory — `test-bms/test-skin/` directory does not exist. Needed by `compare_eval_test_skins.rs`. (`skin/ECFN/` directory already exists with full skin resources and Java fixtures)
 - [ ] JSONSkinLoader returns `SkinData` (intermediate), not `Skin` — full loading pipeline (SkinData→Skin) not connected. `load_skin_object_for_type()` returns None for all screen-specific types. Full Skin snapshot tests deferred until pipeline is wired
 - [ ] LuaSkinLoader is completely stubbed — `load_header()` and `load_skin()` return None. Lua skin tests skipped
 - [ ] json_skin_loader bug fixes applied during Phase 18d — (1) `source_resolution` was not set from JSON w/h fields, (2) custom file paths were incorrectly absolutized with parent dir, (3) offset defaults were applied to non-PLAY skin types (MusicSelect, Decide, etc.)
@@ -131,5 +133,5 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 
 ## Remaining Stubs
 
-- **Lifecycle (partially resolved):** MainController stubs removed from obs/external/ir (Phase 18e-2). Remaining in 4 crates: select (6 methods, unused), result (9 methods, actively used), modmenu (type incompatibility), md-processor (signature mismatch). PlayerResource stubs remain in 4 crates. MainState stubs use `beatoraja-core` `MainState` trait; downstream stubs have crate-specific APIs
-- **External libraries:** LibGDX rendering types (Phase 13 rendering stubs remain in skin crates)
+- **Lifecycle (partially resolved):** MainController stubs removed from obs/external/ir (Phase 18e-2). Remaining: select (dead code, removable), result (6 methods actively used, blocked), modmenu (type incompatibility, moderate refactoring), md-processor (dead code, deferred). PlayerResource: select (empty, removable), decide (2 methods on trait, convertible), external (1 method off trait), result (blocked). MainState stubs require per-screen concrete implementations
+- **Rendering re-exports:** `rendering_stubs.rs` in beatoraja-skin now re-exports real beatoraja-render types (resolved, not stubs)
