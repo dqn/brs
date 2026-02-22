@@ -68,6 +68,15 @@ impl SkinStub {
         }
     }
 
+    #[cfg(test)]
+    pub fn with_values(input: i32, scene: i32, fadeout: i32) -> Self {
+        Self {
+            input,
+            scene,
+            fadeout,
+        }
+    }
+
     pub fn get_input(&self) -> i32 {
         self.input
     }

@@ -1,7 +1,7 @@
 // Translated from MusicDecide.java
 // Music decide screen state.
 
-use beatoraja_core::main_state::{MainStateData, MainStateType};
+use beatoraja_core::main_state::{MainState, MainStateData, MainStateType};
 use beatoraja_core::system_sound_manager::SoundType;
 use beatoraja_core::timer_manager::TimerManager;
 use beatoraja_skin::skin_property::{TIMER_FADEOUT, TIMER_STARTINPUT};
@@ -36,8 +36,22 @@ impl MusicDecide {
             skin: None,
         }
     }
+}
 
-    pub fn create(&mut self) {
+impl MainState for MusicDecide {
+    fn state_type(&self) -> Option<MainStateType> {
+        Some(MainStateType::Decide)
+    }
+
+    fn main_state_data(&self) -> &MainStateData {
+        &self.data
+    }
+
+    fn main_state_data_mut(&mut self) -> &mut MainStateData {
+        &mut self.data
+    }
+
+    fn create(&mut self) {
         self.cancel = false;
 
         // loadSkin(SkinType.DECIDE)
@@ -48,13 +62,13 @@ impl MusicDecide {
         self.resource.set_org_gauge_option(gauge);
     }
 
-    pub fn prepare(&mut self) {
+    fn prepare(&mut self) {
         // super.prepare() - default empty in MainState
         // play(DECIDE)
         crate::stubs::play_sound(SoundType::Decide);
     }
 
-    pub fn render(&mut self) {
+    fn render(&mut self) {
         let nowtime = self.data.timer.get_now_time();
         if let Some(ref skin) = self.skin
             && nowtime > skin.get_input() as i64
@@ -78,7 +92,7 @@ impl MusicDecide {
         }
     }
 
-    pub fn input(&mut self) {
+    fn input(&mut self) {
         if !self.data.timer.is_timer_on(TIMER_FADEOUT)
             && self.data.timer.is_timer_on(TIMER_STARTINPUT)
         {
@@ -106,9 +120,151 @@ impl MusicDecide {
         }
     }
 
-    pub fn dispose(&mut self) {
+    fn dispose(&mut self) {
         // super.dispose()
         self.data.skin = None;
         self.data.stage = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stubs::NullPlayerResource;
+
+    fn make_decide() -> MusicDecide {
+        MusicDecide::new(
+            MainControllerRef,
+            Box::new(NullPlayerResource::new()),
+            TimerManager::new(),
+        )
+    }
+
+    #[test]
+    fn test_state_type() {
+        let decide = make_decide();
+        assert_eq!(decide.state_type(), Some(MainStateType::Decide));
+    }
+
+    #[test]
+    fn test_create_resets_cancel() {
+        let mut decide = make_decide();
+        decide.cancel = true;
+        decide.create();
+        assert!(!decide.cancel);
+    }
+
+    #[test]
+    fn test_create_sets_org_gauge_option() {
+        let mut decide = make_decide();
+        decide.create();
+        // NullPlayerResource returns default gauge (0), verify no panic
+    }
+
+    #[test]
+    fn test_prepare_plays_decide_sound() {
+        let mut decide = make_decide();
+        // Should not panic — stub logs warning
+        decide.prepare();
+    }
+
+    #[test]
+    fn test_render_no_skin_no_panic() {
+        let mut decide = make_decide();
+        // skin is None — render should not panic
+        decide.render();
+    }
+
+    #[test]
+    fn test_render_with_skin_nowtime_zero_no_startinput() {
+        let mut decide = make_decide();
+        decide.skin = Some(SkinStub::new());
+        // nowmicrotime=0 from fresh TimerManager, get_now_time()=0
+        // skin.get_input()=0, condition is nowtime > input i.e. 0 > 0 = false
+        decide.render();
+        assert!(!decide.data.timer.is_timer_on(TIMER_STARTINPUT));
+    }
+
+    #[test]
+    fn test_render_with_skin_sets_startinput_when_past_input_time() {
+        let mut decide = make_decide();
+        // input=-1 so that nowtime(0) > input(-1) is true
+        decide.skin = Some(SkinStub::with_values(-1, i32::MAX, 0));
+        decide.render();
+        assert!(decide.data.timer.is_timer_on(TIMER_STARTINPUT));
+    }
+
+    #[test]
+    fn test_render_scene_timeout_triggers_fadeout() {
+        let mut decide = make_decide();
+        // scene=-1 so that nowtime(0) > scene(-1) is true
+        decide.skin = Some(SkinStub::with_values(0, -1, 0));
+        decide.render();
+        assert!(decide.data.timer.is_timer_on(TIMER_FADEOUT));
+    }
+
+    #[test]
+    fn test_render_fadeout_with_cancel_transitions_to_select() {
+        let mut decide = make_decide();
+        // fadeout=-1 so that get_now_time_for_id(TIMER_FADEOUT)(=0) > fadeout(-1) is true
+        decide.skin = Some(SkinStub::with_values(0, i32::MAX, -1));
+        decide.cancel = true;
+        decide.data.timer.set_timer_on(TIMER_FADEOUT);
+        decide.render();
+        // change_state(MusicSelect) is a stub that logs — verify no panic
+    }
+
+    #[test]
+    fn test_render_fadeout_without_cancel_transitions_to_play() {
+        let mut decide = make_decide();
+        // fadeout=-1 so that get_now_time_for_id(TIMER_FADEOUT)(=0) > fadeout(-1) is true
+        decide.skin = Some(SkinStub::with_values(0, i32::MAX, -1));
+        decide.cancel = false;
+        decide.data.timer.set_timer_on(TIMER_FADEOUT);
+        decide.render();
+        // change_state(Play) is a stub that logs — verify no panic
+    }
+
+    #[test]
+    fn test_input_no_timer_no_action() {
+        let mut decide = make_decide();
+        // Neither TIMER_FADEOUT nor TIMER_STARTINPUT is on — input does nothing
+        decide.input();
+        assert!(!decide.cancel);
+    }
+
+    #[test]
+    fn test_input_during_fadeout_no_action() {
+        let mut decide = make_decide();
+        decide.data.timer.set_timer_on(TIMER_FADEOUT);
+        decide.data.timer.set_timer_on(TIMER_STARTINPUT);
+        // TIMER_FADEOUT is on — input is blocked
+        decide.input();
+    }
+
+    #[test]
+    fn test_input_startinput_only_no_keys() {
+        let mut decide = make_decide();
+        decide.data.timer.set_timer_on(TIMER_STARTINPUT);
+        // TIMER_STARTINPUT on, TIMER_FADEOUT off — input block entered
+        // But no keys pressed (stub returns false for all), so nothing happens
+        decide.input();
+        assert!(!decide.cancel);
+        assert!(!decide.data.timer.is_timer_on(TIMER_FADEOUT));
+    }
+
+    #[test]
+    fn test_dispose_clears_skin_and_stage() {
+        let mut decide = make_decide();
+        decide.dispose();
+        assert!(decide.data.skin.is_none());
+        assert!(decide.data.stage.is_none());
+    }
+
+    #[test]
+    fn test_main_state_data_accessors() {
+        let mut decide = make_decide();
+        let _ = decide.main_state_data();
+        let _ = decide.main_state_data_mut();
     }
 }

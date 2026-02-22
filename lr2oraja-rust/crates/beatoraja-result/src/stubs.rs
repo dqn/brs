@@ -69,6 +69,66 @@ impl MainController {
         // Leak a boxed null instance - stub only, will be replaced with real implementation
         Box::leak(Box::new(PlayDataAccessor::null()))
     }
+
+    pub fn change_state(&mut self, _state: beatoraja_core::main_state::MainStateType) {
+        log::warn!("not yet implemented: MainController.changeState");
+    }
+
+    pub fn get_audio_processor(&self) -> &AudioProcessorStub {
+        log::warn!("not yet implemented: MainController.getAudioProcessor");
+        static DEFAULT: AudioProcessorStub = AudioProcessorStub;
+        &DEFAULT
+    }
+
+    pub fn get_config(&self) -> &Config {
+        log::warn!("not yet implemented: MainController.getConfig");
+        // Leak a boxed value - stub only
+        Box::leak(Box::new(Config::default()))
+    }
+
+    pub fn get_player_config(&self) -> &PlayerConfig {
+        log::warn!("not yet implemented: MainController.getPlayerConfig");
+        // Leak a boxed value - stub only
+        Box::leak(Box::new(PlayerConfig::default()))
+    }
+
+    pub fn get_ranking_data_cache(&self) -> &RankingDataCache {
+        log::warn!("not yet implemented: MainController.getRankingDataCache");
+        static DEFAULT: RankingDataCache = RankingDataCache;
+        &DEFAULT
+    }
+}
+
+/// Stub for AudioProcessor
+pub struct AudioProcessorStub;
+
+impl AudioProcessorStub {
+    pub fn stop_note(&self) {
+        log::warn!("not yet implemented: AudioProcessor.stop(Note)");
+    }
+}
+
+/// Stub for RankingDataCache
+pub struct RankingDataCache;
+
+impl RankingDataCache {
+    pub fn get(
+        &self,
+        _songdata: &beatoraja_types::song_data::SongData,
+        _lnmode: i32,
+    ) -> Option<RankingData> {
+        log::warn!("not yet implemented: RankingDataCache.get");
+        None
+    }
+
+    pub fn put(
+        &self,
+        _songdata: &beatoraja_types::song_data::SongData,
+        _lnmode: i32,
+        _ranking: RankingData,
+    ) {
+        log::warn!("not yet implemented: RankingDataCache.put");
+    }
 }
 
 // ============================================================
@@ -267,6 +327,22 @@ impl PlayerResource {
 
     pub fn set_ranking_data(&mut self, data: Option<RankingData>) {
         self.ranking_data = data;
+    }
+
+    pub fn get_replay_data_mut(&mut self) -> Option<&mut beatoraja_core::replay_data::ReplayData> {
+        log::warn!("not yet implemented: PlayerResource.getReplayData() (mutable)");
+        None
+    }
+
+    pub fn reload_bms_file(&mut self) {
+        log::warn!("not yet implemented: PlayerResource.reloadBMSFile");
+    }
+
+    pub fn set_player_config_gauge(&mut self, gauge: i32) {
+        log::warn!(
+            "not yet implemented: PlayerResource.getPlayerConfig().setGauge({})",
+            gauge
+        );
     }
 }
 

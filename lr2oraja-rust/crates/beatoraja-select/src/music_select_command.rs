@@ -1,3 +1,8 @@
+use beatoraja_core::main_state::MainState;
+
+use crate::music_selector::{MusicSelector, REPLAY};
+use crate::stubs::*;
+
 /// Music select commands
 /// Translates: bms.player.beatoraja.select.MusicSelectCommand
 ///
@@ -17,4 +22,129 @@ pub enum MusicSelectCommand {
     ShowSongsOnSameFolder,
     ShowContextMenu,
     CopyHighlightedMenuText,
+}
+
+impl MusicSelectCommand {
+    /// Execute this command on the given MusicSelector.
+    /// Corresponds to Java MusicSelectCommand.function.accept(selector)
+    pub fn execute(self, selector: &mut MusicSelector) {
+        match self {
+            MusicSelectCommand::ResetReplay => {
+                // In Java: finds first existing replay for selected selectable bar
+                if let Some(selected) = selector.manager.get_selected()
+                    && let Some(selectable) = selected.as_selectable_bar()
+                {
+                    for i in 0..REPLAY {
+                        if selectable.exists_replay(i as i32) {
+                            selector.selectedreplay = i as i32;
+                            return;
+                        }
+                    }
+                }
+                selector.selectedreplay = -1;
+            }
+            MusicSelectCommand::NextReplay => {
+                if let Some(selected) = selector.manager.get_selected()
+                    && let Some(selectable) = selected.as_selectable_bar()
+                {
+                    let current = selector.selectedreplay;
+                    for i in 1..REPLAY as i32 {
+                        let index = (i + current) % REPLAY as i32;
+                        if selectable.exists_replay(index) {
+                            selector.selectedreplay = index;
+                            selector.play_sound(SoundType::OptionChange);
+                            break;
+                        }
+                    }
+                }
+            }
+            MusicSelectCommand::PrevReplay => {
+                if let Some(selected) = selector.manager.get_selected()
+                    && let Some(selectable) = selected.as_selectable_bar()
+                {
+                    let current = selector.selectedreplay;
+                    for i in 1..REPLAY as i32 {
+                        let index = (current + REPLAY as i32 - i) % REPLAY as i32;
+                        if selectable.exists_replay(index) {
+                            selector.selectedreplay = index;
+                            selector.play_sound(SoundType::OptionChange);
+                            break;
+                        }
+                    }
+                }
+            }
+            MusicSelectCommand::CopyMd5Hash => {
+                if let Some(selected) = selector.manager.get_selected()
+                    && let Some(song_bar) = selected.as_song_bar()
+                {
+                    let hash = song_bar.get_song_data().get_md5();
+                    if !hash.is_empty()
+                        && let Ok(mut clipboard) = arboard::Clipboard::new()
+                    {
+                        let _ = clipboard.set_text(hash.to_string());
+                        ImGuiNotify::info(&format!("MD5 hash copied: {}", hash));
+                    }
+                }
+            }
+            MusicSelectCommand::CopySha256Hash => {
+                if let Some(selected) = selector.manager.get_selected()
+                    && let Some(song_bar) = selected.as_song_bar()
+                {
+                    let hash = song_bar.get_song_data().get_sha256();
+                    if !hash.is_empty()
+                        && let Ok(mut clipboard) = arboard::Clipboard::new()
+                    {
+                        let _ = clipboard.set_text(hash.to_string());
+                        ImGuiNotify::info(&format!("SHA256 hash copied: {}", hash));
+                    }
+                }
+            }
+            MusicSelectCommand::DownloadIpfs => {
+                // In Java: checks directory for TableBar, starts IPFS download
+                // Blocked on MainController.getMusicDownloadProcessor()
+                log::warn!(
+                    "not yet implemented: DOWNLOAD_IPFS - requires MainController.getMusicDownloadProcessor()"
+                );
+            }
+            MusicSelectCommand::DownloadHttp => {
+                // In Java: submits HTTP download task for missing song
+                // Blocked on MainController.getHttpDownloadProcessor()
+                log::warn!(
+                    "not yet implemented: DOWNLOAD_HTTP - requires MainController.getHttpDownloadProcessor()"
+                );
+            }
+            MusicSelectCommand::DownloadCourseHttp => {
+                // In Java: submits HTTP download tasks for missing course songs
+                // Blocked on MainController.getHttpDownloadProcessor()
+                log::warn!(
+                    "not yet implemented: DOWNLOAD_COURSE_HTTP - requires MainController.getHttpDownloadProcessor()"
+                );
+            }
+            MusicSelectCommand::ShowSongsOnSameFolder => {
+                // In Java: opens SameFolderBar or ContainerBar for course songs
+                // Blocked on SameFolderBar(selector, ...) constructor needing MusicSelector
+                log::warn!(
+                    "not yet implemented: SHOW_SONGS_ON_SAME_FOLDER - requires SameFolderBar/ContainerBar integration"
+                );
+            }
+            MusicSelectCommand::ShowContextMenu => {
+                // In Java: opens ContextMenuBar for song/table/hash bars
+                // Blocked on ContextMenuBar(selector, ...) constructor
+                log::warn!(
+                    "not yet implemented: SHOW_CONTEXT_MENU - requires ContextMenuBar integration"
+                );
+            }
+            MusicSelectCommand::CopyHighlightedMenuText => {
+                if let Some(selected) = selector.manager.get_selected() {
+                    let content = selected.get_title();
+                    if !content.is_empty()
+                        && let Ok(mut clipboard) = arboard::Clipboard::new()
+                    {
+                        let _ = clipboard.set_text(content.clone());
+                        ImGuiNotify::info(&format!("Copied highlighted menu text: {}", content));
+                    }
+                }
+            }
+        }
+    }
 }

@@ -108,6 +108,20 @@ impl BarManager {
         false
     }
 
+    pub fn update_bar_with_selected(&mut self) -> bool {
+        // Workaround for borrow checker: can't pass get_selected() to update_bar()
+        // because both borrow self. Instead, we handle it inline.
+        if self.currentsongs.is_empty() {
+            return false;
+        }
+        // In Java: updateBar((DirectoryBar) getSelected())
+        // Stubbed — full implementation requires MusicSelector context
+        log::warn!(
+            "not yet implemented: BarManager.updateBar(selected) - requires full MusicSelector context"
+        );
+        false
+    }
+
     pub fn close(&mut self) {
         // In Java: goes up one directory level
         if self.dir.is_empty() {
