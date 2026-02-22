@@ -87,13 +87,14 @@ All phases complete. **1241 tests pass. Zero runtime `todo!()`/`unimplemented!()
 | 18e-3 | Modmenu skin stub replacement: SkinHeader/CustomOption/CustomFile/CustomOffset/CustomCategory + loaders (JSON/LR2/Lua) replaced with real beatoraja-skin re-exports, ~170 lines removed, conversion helpers added |
 | 18e-4 | PlayDataAccessor stub replacement: `pub use` from beatoraja-core, model-based convenience methods, course methods, `null()` constructor, `compute_constraint_values` implemented, IntArray→Vec<i32> |
 | 18e-5 | BMSPlayerMode/BMSPlayerModeType → real beatoraja-core types, EventType removed (dead code), unused modmenu stubs deleted (InputProcessor/Lwjgl3ControllerManager/Controller) |
+| 18e-6 | ImGui adapter stubs (ImBoolean/ImInt/ImFloat) → plain primitives in Mutex, Clipboard stubs → real arboard, freq_trainer stubs → re-export from beatoraja-modmenu |
 | 18f | E2E test activation: 9 test files, 138 tests. `build_judge_notes()` time ordering fix |
 | 18g | BRD replay codec: gzip-compressed JSON, `read_brd()`/`write_brd()` + course variants |
 
 ## Remaining Stubs
 
 - **MainController:** result (6 methods actively used, PlayDataAccessor resolved in 18e-4, BMSPlayerMode resolved in 18e-5, remaining blockers: BMSPlayerInputProcessor/IRConnection), md-processor (intentional adapter, deferred), modmenu (3-method stub: get_config, get_player_config, save_config — until real MainController exists)
-- **Remaining stubs.rs:** lifecycle stubs, cross-crate re-exports, skin/rendering types (modmenu: Skin/SkinObject stubs — real SkinObject is incompatible enum). beatoraja-result: MainController, BMSPlayerInputProcessor, IRStatus/IRSendStatusMain, SkinObjectData, freq_trainer. beatoraja-modmenu: Skin/SkinObject/Rectangle, MainState, MainController, MusicSelector/Bar/SongBar, ImBoolean/ImInt/ImFloat, Clipboard
+- **Remaining stubs.rs:** lifecycle stubs, cross-crate re-exports, skin/rendering types (modmenu: Skin/SkinObject stubs — real SkinObject is incompatible enum). beatoraja-result: MainController, BMSPlayerInputProcessor, IRStatus/IRSendStatusMain, SkinObjectData. beatoraja-modmenu: Skin/SkinObject/Rectangle, MainState, MainController, MusicSelector/Bar/SongBar. ImBoolean/ImInt/ImFloat → plain primitives (18e-6). Clipboard → arboard (18e-6). freq_trainer → beatoraja-modmenu re-export (18e-6)
 - **Platform:** Windows named pipe (not yet implemented)
 
 ## Lessons Learned
@@ -150,3 +151,4 @@ All phases complete. **1241 tests pass. Zero runtime `todo!()`/`unimplemented!()
 - **Modmenu skin config migration:** `String`→`Option<String>`, wrap in `Some()`, `is_some_and()` for comparison, `iter().flatten()` for iteration. `PlayerConfig.skin`: `Vec<Option<SkinConfig>>`. `get_play_config`: `&Mode`→`Mode` (add `.clone()`). `read_all_player_id`: free function, not associated method.
 - **PlayDataAccessor model-based methods:** Real impl uses hash-based signatures (`sha256: &str`), but callers use `BMSModel`. Solution: add model-based convenience methods that extract `sha256` and delegate. Course methods concatenate first-10-chars of each model hash. `null()` constructor with all `Option` fields = `None` for stub returns. `OnceLock` won't work (rusqlite::Connection isn't Sync) → `Box::leak`.
 - **Enum aliasing for stub replacement:** Real `bms_player_mode::Mode` conflicts with `bms_model::mode::Mode`. Solution: `pub use Mode as BMSPlayerModeType` preserves all caller code. Stub `ReplayDifferent` variant → real `Autoplay` variant (unused, no impact). Real struct adds `id: i32` → switch from struct literal to `BMSPlayerMode::new()`. Dead code detection: `EventType` only in comments → safe to delete.
+- **ImGui adapter pattern:** Java imgui `ImBoolean`/`ImInt`/`ImFloat` wrappers (`.get()`/`.set()`/`.value`) → plain `bool`/`i32`/`f32` in `Mutex<T>`. clippy auto-fixes `&mut *guard` → `&mut guard` (DerefMut coercion). Free function stubs → associated method re-exports: `is_freq_trainer_enabled()` → `FreqTrainerMenu::is_freq_trainer_enabled()`. Clipboard stubs → inline `arboard::Clipboard::new()` + `set_text()` (no shared helper needed for 2 call sites).
