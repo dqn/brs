@@ -1,8 +1,17 @@
 # Porting TODO — Remaining Work
 
-All phases (1–23) complete. 1500 tests pass. See AGENTS.md for full status.
+All phases (1–23) complete. 1511 tests pass. See AGENTS.md for full status.
 
 ## Completed Phases (recent)
+
+### Phase 22d: Skin.draw_all_objects() Integration (complete)
+
++~150 lines across 3 files + 11 new tests:
+
+- [x] **SkinDrawable trait** — Defined in beatoraja-core/main_state.rs. Send-bounded trait with 10 methods (draw_all_objects_timed, update_custom_objects_timed, mouse_pressed_at, mouse_dragged_at, dispose_skin, get_fadeout/input/scene/width/height). Replaces SkinStub in MainStateData
+- [x] **TimerOnlyMainState adapter** — Bridges beatoraja-core's SkinDrawable to beatoraja-skin's internal MainState stub trait. Wraps timer values, returns defaults for other state queries
+- [x] **SkinDrawable impl for Skin** — All 10 methods delegate to existing Skin methods via adapter. +8 tests
+- [x] **MainController.render() wiring** — Skin draw calls via take/put-back pattern (borrow safety). update_custom_objects_timed + draw_all_objects_timed called per frame. +3 tests
 
 ### Phase 22b: SkinObject Draw Methods + SkinTextBitmap Font Rendering (complete)
 
@@ -76,21 +85,21 @@ All phases (1–23) complete. 1500 tests pass. See AGENTS.md for full status.
 
 ### Known Issues (open)
 
-- [x] SkinObject→GPU rendering gap — **PARTIALLY RESOLVED (Phase 22b/c)**: SpriteBatch flush wired to wgpu render pass, SkinObject draw methods implemented and tested. Remaining: Skin.draw_all_objects() integration with real Skin type in MainStateData
+- [x] SkinObject→GPU rendering gap — **RESOLVED (Phase 22d)**: Full pipeline connected — SkinDrawable trait in core, Skin impl in skin crate, MainController.render() calls draw_all_objects per frame via take/put-back pattern
 - [ ] Remaining stubs: ~2,200 lines across 16 stubs.rs files — blocked by rendering, database implementations
 - [ ] MainController still has ~12 stub methods (polling thread, updateStateReferences, audio driver) — partially unblocked by Phase 21/23, remaining blocked on Phase 22
 - [x] StateFactory concrete implementation — DONE (Phase 23): LauncherStateFactory in beatoraja-launcher wires all 7 screen states
 
 ## Next Phases (planned)
 
-### Phase 22: Rendering Pipeline (SkinObject→GPU) — in progress
+### Phase 22: Rendering Pipeline (SkinObject→GPU) — complete
 
 Unblocks: Phase 16b render snapshot tests, Phase 18f E2E tests, visual output
 
 - [x] **22a: WGSL sprite shader + wgpu render pipeline + SpriteBatch GPU flush** — WGSL shaders for all 6 Java shader types (Normal, Linear, Bilinear, FFmpeg, Layer, DistanceField), SpriteRenderPipeline with 30 pipeline variants (6 shaders x 5 blend modes), SpriteBatch flush_to_gpu(), SkinObjectRenderer pre_draw/post_draw wired with shader switching + blend state + color save/restore. +43 new tests
 - [x] **22b: SkinObject draw methods + SkinTextBitmap** — Draw method integration tests for SkinImage/SkinNumber/SkinTextImage (27 tests). SkinTextBitmap.draw_with_offset() implemented with ab_glyph (glyph layout, alignment, overflow, shadow, distance field). +15 tests. +1,346 lines
 - [x] **22c: MainController render pipeline + FPS cap** — render() enhanced with sprite.begin()/end() lifecycle and input gating. SpriteBatch re-export (real impl replacing stub). SpriteBatch flush wired to wgpu render pass with bind groups. FPS capping from config. +7 tests. +325 lines
-- [ ] **22d:** Skin.draw_all_objects() integration — wire Skin type into MainStateData for per-frame object prepare/draw
+- [x] **22d: Skin.draw_all_objects() integration** — SkinDrawable trait in beatoraja-core (Send-bounded, 10 methods), TimerOnlyMainState adapter in beatoraja-skin bridging core↔skin MainState, MainController.render() wired with take/put-back pattern for borrow safety, SkinStub removed. +11 tests. +~150 lines
 
 ### Phase 23: Database Integration — partially complete
 
