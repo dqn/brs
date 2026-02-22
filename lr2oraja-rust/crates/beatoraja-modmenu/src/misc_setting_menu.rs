@@ -1,10 +1,7 @@
 use bms_model::mode::Mode;
 
 use crate::imgui_notify::{ImGuiNotify, NOTIFICATION_POSITIONS};
-use crate::stubs::{
-    Config, ImBoolean, ImFloat, ImInt, MainController, MusicSelector, PlayConfig,
-    read_all_player_id,
-};
+use crate::stubs::{Config, MainController, MusicSelector, PlayConfig, read_all_player_id};
 
 use std::sync::Mutex;
 
@@ -13,23 +10,23 @@ static CONFIG: Mutex<Option<Config>> = Mutex::new(None);
 
 // Some of the settings are based on play mode
 // WARN: PLAY_MODE_VALUE has an initial value, 1 -> BEAT_7K
-static PLAY_MODE_VALUE: Mutex<ImInt> = Mutex::new(ImInt { value: 1 });
+static PLAY_MODE_VALUE: Mutex<i32> = Mutex::new(1);
 static CURRENT_PLAY_MODE: Mutex<Option<Mode>> = Mutex::new(None);
 
-static NOTIFICATION_POSITION: Mutex<ImInt> = Mutex::new(ImInt { value: 0 });
-static ENABLE_LIFT: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static LIFT_VALUE: Mutex<ImInt> = Mutex::new(ImInt { value: 0 });
-static ENABLE_HIDDEN: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static HIDDEN_VALUE: Mutex<ImInt> = Mutex::new(ImInt { value: 0 });
-static ENABLE_LANECOVER: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static LANECOVER_VALUE: Mutex<ImInt> = Mutex::new(ImInt { value: 0 });
-static LANE_COVER_MARGIN_LOW: Mutex<ImFloat> = Mutex::new(ImFloat { value: 0.0 });
-static LANE_COVER_MARGIN_HIGH: Mutex<ImFloat> = Mutex::new(ImFloat { value: 0.0 });
-static LANE_COVER_SWITCH_DURATION: Mutex<ImInt> = Mutex::new(ImInt { value: 0 });
-static ENABLE_CONSTANT: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static CONSTANT_VALUE: Mutex<ImInt> = Mutex::new(ImInt { value: 0 });
-static PROFILE_SWITCHER: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static SELECTED_PLAYER: Mutex<ImInt> = Mutex::new(ImInt { value: 0 });
+static NOTIFICATION_POSITION: Mutex<i32> = Mutex::new(0);
+static ENABLE_LIFT: Mutex<bool> = Mutex::new(false);
+static LIFT_VALUE: Mutex<i32> = Mutex::new(0);
+static ENABLE_HIDDEN: Mutex<bool> = Mutex::new(false);
+static HIDDEN_VALUE: Mutex<i32> = Mutex::new(0);
+static ENABLE_LANECOVER: Mutex<bool> = Mutex::new(false);
+static LANECOVER_VALUE: Mutex<i32> = Mutex::new(0);
+static LANE_COVER_MARGIN_LOW: Mutex<f32> = Mutex::new(0.0);
+static LANE_COVER_MARGIN_HIGH: Mutex<f32> = Mutex::new(0.0);
+static LANE_COVER_SWITCH_DURATION: Mutex<i32> = Mutex::new(0);
+static ENABLE_CONSTANT: Mutex<bool> = Mutex::new(false);
+static CONSTANT_VALUE: Mutex<i32> = Mutex::new(0);
+static PROFILE_SWITCHER: Mutex<bool> = Mutex::new(false);
+static SELECTED_PLAYER: Mutex<i32> = Mutex::new(0);
 static PLAYERS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 fn get_play_mode_options() -> Vec<String> {
@@ -58,7 +55,7 @@ impl MiscSettingMenu {
             .unwrap_or(0);
 
         *PLAYERS.lock().unwrap() = players;
-        *SELECTED_PLAYER.lock().unwrap() = ImInt::new(player_idx as i32);
+        *SELECTED_PLAYER.lock().unwrap() = player_idx as i32;
         *CONFIG.lock().unwrap() = Some(config);
         *MAIN.lock().unwrap() = Some(main);
     }
@@ -79,7 +76,7 @@ impl MiscSettingMenu {
             .auto_sized()
             .show(ctx, |ui| {
                 // Notification position
-                let mut pos = NOTIFICATION_POSITION.lock().unwrap().get();
+                let mut pos = *NOTIFICATION_POSITION.lock().unwrap();
                 let pos_text = NOTIFICATION_POSITIONS
                     .get(pos as usize)
                     .copied()
@@ -89,7 +86,7 @@ impl MiscSettingMenu {
                     .show_ui(ui, |ui| {
                         for (i, name) in NOTIFICATION_POSITIONS.iter().enumerate() {
                             if ui.selectable_value(&mut pos, i as i32, *name).clicked() {
-                                NOTIFICATION_POSITION.lock().unwrap().set(pos);
+                                *NOTIFICATION_POSITION.lock().unwrap() = pos;
                                 ImGuiNotify::set_notification_position(pos as usize);
                             }
                         }
@@ -97,7 +94,7 @@ impl MiscSettingMenu {
 
                 // Play mode selector
                 let play_mode_options = get_play_mode_options();
-                let mut idx = PLAY_MODE_VALUE.lock().unwrap().get();
+                let mut idx = *PLAY_MODE_VALUE.lock().unwrap();
                 let mode_text = play_mode_options
                     .get(idx as usize)
                     .map(|s| s.as_str())
@@ -110,7 +107,7 @@ impl MiscSettingMenu {
                                 .selectable_value(&mut idx, i as i32, option.as_str())
                                 .clicked()
                             {
-                                PLAY_MODE_VALUE.lock().unwrap().set(idx);
+                                *PLAY_MODE_VALUE.lock().unwrap() = idx;
                                 if let Some(mode) = Mode::get_mode(&play_mode_options[i]) {
                                     change_play_mode(&mode);
                                 }
@@ -121,42 +118,42 @@ impl MiscSettingMenu {
                 ui.separator();
 
                 // Lane cover / Hidden / Lift / Constant settings
-                let mut lift_enabled = ENABLE_LIFT.lock().unwrap().get();
+                let mut lift_enabled = *ENABLE_LIFT.lock().unwrap();
                 ui.checkbox(&mut lift_enabled, "Enable Lift");
-                ENABLE_LIFT.lock().unwrap().set(lift_enabled);
+                *ENABLE_LIFT.lock().unwrap() = lift_enabled;
                 if lift_enabled {
-                    let mut lift_val = LIFT_VALUE.lock().unwrap().get();
+                    let mut lift_val = *LIFT_VALUE.lock().unwrap();
                     ui.add(egui::Slider::new(&mut lift_val, 0..=1000).text("Lift"));
-                    LIFT_VALUE.lock().unwrap().set(lift_val);
+                    *LIFT_VALUE.lock().unwrap() = lift_val;
                 }
 
-                let mut hidden_enabled = ENABLE_HIDDEN.lock().unwrap().get();
+                let mut hidden_enabled = *ENABLE_HIDDEN.lock().unwrap();
                 ui.checkbox(&mut hidden_enabled, "Enable Hidden");
-                ENABLE_HIDDEN.lock().unwrap().set(hidden_enabled);
+                *ENABLE_HIDDEN.lock().unwrap() = hidden_enabled;
                 if hidden_enabled {
-                    let mut hidden_val = HIDDEN_VALUE.lock().unwrap().get();
+                    let mut hidden_val = *HIDDEN_VALUE.lock().unwrap();
                     ui.add(egui::Slider::new(&mut hidden_val, 0..=1000).text("Hidden"));
-                    HIDDEN_VALUE.lock().unwrap().set(hidden_val);
+                    *HIDDEN_VALUE.lock().unwrap() = hidden_val;
                 }
 
-                let mut lc_enabled = ENABLE_LANECOVER.lock().unwrap().get();
+                let mut lc_enabled = *ENABLE_LANECOVER.lock().unwrap();
                 ui.checkbox(&mut lc_enabled, "Enable Lane Cover");
-                ENABLE_LANECOVER.lock().unwrap().set(lc_enabled);
+                *ENABLE_LANECOVER.lock().unwrap() = lc_enabled;
                 if lc_enabled {
-                    let mut lc_val = LANECOVER_VALUE.lock().unwrap().get();
+                    let mut lc_val = *LANECOVER_VALUE.lock().unwrap();
                     ui.add(egui::Slider::new(&mut lc_val, 0..=1000).text("Lane Cover"));
-                    LANECOVER_VALUE.lock().unwrap().set(lc_val);
+                    *LANECOVER_VALUE.lock().unwrap() = lc_val;
                 }
 
-                let mut constant = ENABLE_CONSTANT.lock().unwrap().get();
+                let mut constant = *ENABLE_CONSTANT.lock().unwrap();
                 ui.checkbox(&mut constant, "Enable Constant");
-                ENABLE_CONSTANT.lock().unwrap().set(constant);
+                *ENABLE_CONSTANT.lock().unwrap() = constant;
                 if constant {
-                    let mut constant_val = CONSTANT_VALUE.lock().unwrap().get();
+                    let mut constant_val = *CONSTANT_VALUE.lock().unwrap();
                     ui.add(
                         egui::Slider::new(&mut constant_val, 0..=5000).text("Fade-in Time (ms)"),
                     );
-                    CONSTANT_VALUE.lock().unwrap().set(constant_val);
+                    *CONSTANT_VALUE.lock().unwrap() = constant_val;
                 }
 
                 ui.separator();
@@ -186,52 +183,25 @@ fn change_play_mode(mode: &Mode) {
     *CURRENT_PLAY_MODE.lock().unwrap() = Some(mode.clone());
     let conf = get_play_config();
 
-    ENABLE_LIFT.lock().unwrap().set(conf.is_enablelift());
-    LIFT_VALUE
-        .lock()
-        .unwrap()
-        .set((conf.get_lift() * 1000.0) as i32);
+    *ENABLE_LIFT.lock().unwrap() = conf.is_enablelift();
+    *LIFT_VALUE.lock().unwrap() = (conf.get_lift() * 1000.0) as i32;
 
-    ENABLE_HIDDEN.lock().unwrap().set(conf.is_enablehidden());
-    HIDDEN_VALUE
-        .lock()
-        .unwrap()
-        .set((conf.get_hidden() * 1000.0) as i32);
+    *ENABLE_HIDDEN.lock().unwrap() = conf.is_enablehidden();
+    *HIDDEN_VALUE.lock().unwrap() = (conf.get_hidden() * 1000.0) as i32;
 
-    ENABLE_LANECOVER
-        .lock()
-        .unwrap()
-        .set(conf.is_enablelanecover());
-    LANECOVER_VALUE
-        .lock()
-        .unwrap()
-        .set((conf.get_lanecover() * 1000.0) as i32);
-    LANE_COVER_MARGIN_LOW
-        .lock()
-        .unwrap()
-        .set(conf.get_lanecovermarginlow());
-    LANE_COVER_MARGIN_HIGH
-        .lock()
-        .unwrap()
-        .set(conf.get_lanecovermarginhigh());
-    LANE_COVER_SWITCH_DURATION
-        .lock()
-        .unwrap()
-        .set(conf.get_lanecoverswitchduration());
+    *ENABLE_LANECOVER.lock().unwrap() = conf.is_enablelanecover();
+    *LANECOVER_VALUE.lock().unwrap() = (conf.get_lanecover() * 1000.0) as i32;
+    *LANE_COVER_MARGIN_LOW.lock().unwrap() = conf.get_lanecovermarginlow();
+    *LANE_COVER_MARGIN_HIGH.lock().unwrap() = conf.get_lanecovermarginhigh();
+    *LANE_COVER_SWITCH_DURATION.lock().unwrap() = conf.get_lanecoverswitchduration();
 
-    ENABLE_CONSTANT
-        .lock()
-        .unwrap()
-        .set(conf.is_enable_constant());
-    CONSTANT_VALUE
-        .lock()
-        .unwrap()
-        .set(conf.get_constant_fadein_time());
+    *ENABLE_CONSTANT.lock().unwrap() = conf.is_enable_constant();
+    *CONSTANT_VALUE.lock().unwrap() = conf.get_constant_fadein_time();
 }
 
 fn profile_switcher_ui(ui: &mut egui::Ui) {
     let players = PLAYERS.lock().unwrap();
-    let mut selected = SELECTED_PLAYER.lock().unwrap().get();
+    let mut selected = *SELECTED_PLAYER.lock().unwrap();
     let selected_text = players
         .get(selected as usize)
         .map(|s| s.as_str())
@@ -246,7 +216,7 @@ fn profile_switcher_ui(ui: &mut egui::Ui) {
                         .selectable_value(&mut selected, i as i32, player.as_str())
                         .clicked()
                     {
-                        SELECTED_PLAYER.lock().unwrap().set(selected);
+                        *SELECTED_PLAYER.lock().unwrap() = selected;
                     }
                 }
             });
@@ -267,7 +237,7 @@ fn load_players() {
 
 fn profile_switcher() {
     let players = PLAYERS.lock().unwrap();
-    let selected = SELECTED_PLAYER.lock().unwrap().get() as usize;
+    let selected = *SELECTED_PLAYER.lock().unwrap() as usize;
 
     // ImGui.combo("##Player Profile", SELECTED_PLAYER, players, 4);
     // ImGui.sameLine();

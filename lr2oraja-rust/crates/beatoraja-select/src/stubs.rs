@@ -580,17 +580,7 @@ impl SongDatabaseAccessor for NullSongDatabaseAccessor {
     }
 }
 
-// ============================================================
-// Clipboard — stub for clipboard operations
-// ============================================================
-
-pub struct Clipboard;
-
-impl Clipboard {
-    pub fn set_contents(_text: &str) {
-        // stub
-    }
-}
+// Clipboard: removed (replaced with direct arboard calls — Phase 18e-6)
 
 // ============================================================
 // SongManagerMenu — stub for beatoraja.select.SongManagerMenu

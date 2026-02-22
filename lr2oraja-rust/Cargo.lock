@@ -723,6 +723,7 @@ name = "beatoraja-modmenu"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "arboard",
  "beatoraja-audio",
  "beatoraja-core",
  "beatoraja-pattern",
@@ -815,6 +816,7 @@ dependencies = [
  "beatoraja-core",
  "beatoraja-input",
  "beatoraja-ir",
+ "beatoraja-modmenu",
  "beatoraja-play",
  "beatoraja-skin",
  "beatoraja-song",
@@ -832,6 +834,7 @@ name = "beatoraja-select"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "arboard",
  "beatoraja-audio",
  "beatoraja-core",
  "beatoraja-input",

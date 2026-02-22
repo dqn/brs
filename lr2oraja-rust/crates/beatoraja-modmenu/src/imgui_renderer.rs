@@ -7,23 +7,23 @@ use crate::performance_monitor::PerformanceMonitor;
 use crate::random_trainer_menu::RandomTrainerMenu;
 use crate::skin_menu::SkinMenu;
 use crate::skin_widget_manager::SkinWidgetManager;
-use crate::stubs::{ImBoolean, Version, version};
+use crate::stubs::{Version, version};
 
 use std::sync::Mutex;
 
 static WINDOW_WIDTH: Mutex<i32> = Mutex::new(0);
 static WINDOW_HEIGHT: Mutex<i32> = Mutex::new(0);
 
-static SHOW_MOD_MENU: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static SHOW_RANDOM_TRAINER: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static SHOW_FREQ_PLUS: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static SHOW_JUDGE_TRAINER: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static SHOW_SONG_MANAGER: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static SHOW_DOWNLOAD_MENU: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static SHOW_SKIN_WIDGET_MANAGER: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static SHOW_PERFORMANCE_MONITOR: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static SHOW_SKIN_MENU: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static SHOW_MISC_SETTING: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
+static SHOW_MOD_MENU: Mutex<bool> = Mutex::new(false);
+static SHOW_RANDOM_TRAINER: Mutex<bool> = Mutex::new(false);
+static SHOW_FREQ_PLUS: Mutex<bool> = Mutex::new(false);
+static SHOW_JUDGE_TRAINER: Mutex<bool> = Mutex::new(false);
+static SHOW_SONG_MANAGER: Mutex<bool> = Mutex::new(false);
+static SHOW_DOWNLOAD_MENU: Mutex<bool> = Mutex::new(false);
+static SHOW_SKIN_WIDGET_MANAGER: Mutex<bool> = Mutex::new(false);
+static SHOW_PERFORMANCE_MONITOR: Mutex<bool> = Mutex::new(false);
+static SHOW_SKIN_MENU: Mutex<bool> = Mutex::new(false);
+static SHOW_MISC_SETTING: Mutex<bool> = Mutex::new(false);
 
 pub fn window_width() -> i32 {
     *WINDOW_WIDTH.lock().unwrap()
@@ -51,7 +51,7 @@ impl ImGuiRenderer {
     /// Java equivalent: ImGuiRenderer.render() — called between ImGui.newFrame() and ImGui.render().
     /// Called from beatoraja-bin's event loop within egui::Context::run().
     pub fn render_ui(ctx: &egui::Context) {
-        let show_mod_menu = SHOW_MOD_MENU.lock().unwrap().get();
+        let show_mod_menu = *SHOW_MOD_MENU.lock().unwrap();
         if show_mod_menu {
             let mut show = true;
             egui::Window::new("Endless Dream")
@@ -60,49 +60,49 @@ impl ImGuiRenderer {
                 .show(ctx, |ui| {
                     // Sub-window toggle checkboxes
                     let mut freq = SHOW_FREQ_PLUS.lock().unwrap();
-                    ui.checkbox(&mut freq.value, "Show Rate Modifier Window");
+                    ui.checkbox(&mut freq, "Show Rate Modifier Window");
                     drop(freq);
 
                     let mut random = SHOW_RANDOM_TRAINER.lock().unwrap();
-                    ui.checkbox(&mut random.value, "Show Random Trainer Window");
+                    ui.checkbox(&mut random, "Show Random Trainer Window");
                     drop(random);
 
                     let mut judge = SHOW_JUDGE_TRAINER.lock().unwrap();
-                    ui.checkbox(&mut judge.value, "Show Judge Trainer Window");
+                    ui.checkbox(&mut judge, "Show Judge Trainer Window");
                     drop(judge);
 
                     {
                         let mut skin = SHOW_SKIN_MENU.lock().unwrap();
-                        let old = skin.value;
-                        ui.checkbox(&mut skin.value, "Show Skin Configuration Window");
-                        if skin.value && !old {
+                        let old = *skin;
+                        ui.checkbox(&mut skin, "Show Skin Configuration Window");
+                        if *skin && !old {
                             SkinMenu::invalidate();
                         }
                     }
 
                     let mut swm = SHOW_SKIN_WIDGET_MANAGER.lock().unwrap();
-                    ui.checkbox(&mut swm.value, "Show Skin Widget Manager Window");
+                    ui.checkbox(&mut swm, "Show Skin Widget Manager Window");
                     drop(swm);
 
                     let mut song = SHOW_SONG_MANAGER.lock().unwrap();
-                    ui.checkbox(&mut song.value, "Show Song Manager Window");
+                    ui.checkbox(&mut song, "Show Song Manager Window");
                     drop(song);
 
                     let mut dl = SHOW_DOWNLOAD_MENU.lock().unwrap();
-                    ui.checkbox(&mut dl.value, "Show Download Tasks Window");
+                    ui.checkbox(&mut dl, "Show Download Tasks Window");
                     drop(dl);
 
                     {
                         let mut perf = SHOW_PERFORMANCE_MONITOR.lock().unwrap();
-                        let old = perf.value;
-                        ui.checkbox(&mut perf.value, "Show Performance Monitor Window");
-                        if perf.value && !old {
+                        let old = *perf;
+                        ui.checkbox(&mut perf, "Show Performance Monitor Window");
+                        if *perf && !old {
                             PerformanceMonitor::reload_event_tree();
                         }
                     }
 
                     let mut misc = SHOW_MISC_SETTING.lock().unwrap();
-                    ui.checkbox(&mut misc.value, "Show Misc Setting Window");
+                    ui.checkbox(&mut misc, "Show Misc Setting Window");
                     drop(misc);
 
                     // Debug information
@@ -114,38 +114,38 @@ impl ImGuiRenderer {
                     });
                 });
             if !show {
-                SHOW_MOD_MENU.lock().unwrap().set(false);
+                *SHOW_MOD_MENU.lock().unwrap() = false;
             }
 
             // Render sub-windows
-            if SHOW_FREQ_PLUS.lock().unwrap().get() {
+            if *SHOW_FREQ_PLUS.lock().unwrap() {
                 FreqTrainerMenu::show_ui(ctx);
             }
-            if SHOW_RANDOM_TRAINER.lock().unwrap().get() {
+            if *SHOW_RANDOM_TRAINER.lock().unwrap() {
                 RandomTrainerMenu::show_ui(ctx);
             }
-            if SHOW_JUDGE_TRAINER.lock().unwrap().get() {
+            if *SHOW_JUDGE_TRAINER.lock().unwrap() {
                 JudgeTrainerMenu::show_ui(ctx);
             }
-            if SHOW_SONG_MANAGER.lock().unwrap().get() {
+            if *SHOW_SONG_MANAGER.lock().unwrap() {
                 crate::song_manager_menu::SongManagerMenu::show_ui(ctx);
             }
-            if SHOW_DOWNLOAD_MENU.lock().unwrap().get() {
+            if *SHOW_DOWNLOAD_MENU.lock().unwrap() {
                 DownloadTaskMenu::show_ui(ctx);
             }
-            if SHOW_SKIN_WIDGET_MANAGER.lock().unwrap().get() {
+            if *SHOW_SKIN_WIDGET_MANAGER.lock().unwrap() {
                 SkinWidgetManager::set_focus(true);
                 SkinWidgetManager::show_ui(ctx);
             } else {
                 SkinWidgetManager::set_focus(false);
             }
-            if SHOW_PERFORMANCE_MONITOR.lock().unwrap().get() {
+            if *SHOW_PERFORMANCE_MONITOR.lock().unwrap() {
                 PerformanceMonitor::show_ui(ctx);
             }
-            if SHOW_SKIN_MENU.lock().unwrap().get() {
+            if *SHOW_SKIN_MENU.lock().unwrap() {
                 SkinMenu::show_ui(ctx);
             }
-            if SHOW_MISC_SETTING.lock().unwrap().get() {
+            if *SHOW_MISC_SETTING.lock().unwrap() {
                 MiscSettingMenu::show_ui(ctx);
             }
         }
@@ -167,13 +167,12 @@ impl ImGuiRenderer {
     }
 
     pub fn get_show_mod_menu() -> bool {
-        SHOW_MOD_MENU.lock().unwrap().get()
+        *SHOW_MOD_MENU.lock().unwrap()
     }
 
     pub fn toggle_menu() {
         let mut menu = SHOW_MOD_MENU.lock().unwrap();
-        let current = menu.get();
-        menu.set(!current);
+        *menu = !*menu;
     }
 
     /// Show a "(?)" tooltip when hovering.

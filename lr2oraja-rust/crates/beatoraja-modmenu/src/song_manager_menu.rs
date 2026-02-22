@@ -1,10 +1,10 @@
-use crate::stubs::{Bar, ImBoolean, MusicSelector, ScoreData, SongBar, SongData};
+use crate::stubs::{Bar, MusicSelector, ScoreData, SongBar, SongData};
 
 use std::sync::Mutex;
 
 static SELECTOR: Mutex<Option<MusicSelector>> = Mutex::new(None);
 static CURRENT_REVERSE_LOOKUP_LIST: Mutex<Vec<String>> = Mutex::new(Vec::new());
-static LAST_PLAYED_SORT: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
+static LAST_PLAYED_SORT: Mutex<bool> = Mutex::new(false);
 
 pub struct SongManagerMenu;
 
@@ -36,7 +36,7 @@ impl SongManagerMenu {
                     ui.label(format!("Last played: {}", last_play_record_time));
 
                     let mut sort = LAST_PLAYED_SORT.lock().unwrap();
-                    ui.checkbox(&mut sort.value, "Sort by last played");
+                    ui.checkbox(&mut sort, "Sort by last played");
                 }
             });
     }
@@ -46,11 +46,11 @@ impl SongManagerMenu {
     }
 
     pub fn is_last_played_sort_enabled() -> bool {
-        LAST_PLAYED_SORT.lock().unwrap().get()
+        *LAST_PLAYED_SORT.lock().unwrap()
     }
 
     pub fn force_disable_last_played_sort() {
-        LAST_PLAYED_SORT.lock().unwrap().set(false);
+        *LAST_PLAYED_SORT.lock().unwrap() = false;
     }
 }
 

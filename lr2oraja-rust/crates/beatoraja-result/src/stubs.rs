@@ -367,14 +367,5 @@ pub struct SkinObjectData {
 
 // EventType: removed (dead code — only used in commented-out lines)
 
-// ============================================================
-// FreqTrainerMenu stub
-// ============================================================
-
-pub fn is_freq_trainer_enabled() -> bool {
-    false
-}
-
-pub fn is_freq_negative() -> bool {
-    false
-}
+// FreqTrainerMenu: replaced with re-exports from beatoraja-modmenu (Phase 18e-6)
+pub use beatoraja_modmenu::freq_trainer_menu::FreqTrainerMenu;

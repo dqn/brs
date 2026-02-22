@@ -1,7 +1,5 @@
 use crate::imgui_notify::ImGuiNotify;
-use crate::stubs::{
-    Clipboard, ImBoolean, ImFloat, Rectangle, Skin, SkinObject, SkinObjectDestination,
-};
+use crate::stubs::{Rectangle, Skin, SkinObject, SkinObjectDestination};
 
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -13,12 +11,12 @@ static EVENT_HISTORY: LazyLock<Mutex<EventHistory>> =
     LazyLock::new(|| Mutex::new(EventHistory::new()));
 static WIDGETS: Mutex<Vec<SkinWidget>> = Mutex::new(Vec::new());
 
-static EDITING_WIDGET_X: Mutex<ImFloat> = Mutex::new(ImFloat { value: 0.0 });
-static EDITING_WIDGET_Y: Mutex<ImFloat> = Mutex::new(ImFloat { value: 0.0 });
-static EDITING_WIDGET_W: Mutex<ImFloat> = Mutex::new(ImFloat { value: 0.0 });
-static EDITING_WIDGET_H: Mutex<ImFloat> = Mutex::new(ImFloat { value: 0.0 });
-static SHOW_CURSOR_POSITION: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: true });
-static MOVE_OVERLAY_ENABLED: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
+static EDITING_WIDGET_X: Mutex<f32> = Mutex::new(0.0);
+static EDITING_WIDGET_Y: Mutex<f32> = Mutex::new(0.0);
+static EDITING_WIDGET_W: Mutex<f32> = Mutex::new(0.0);
+static EDITING_WIDGET_H: Mutex<f32> = Mutex::new(0.0);
+static SHOW_CURSOR_POSITION: Mutex<bool> = Mutex::new(true);
+static MOVE_OVERLAY_ENABLED: Mutex<bool> = Mutex::new(false);
 static RESET_MOVE_OVERLAY: Mutex<bool> = Mutex::new(false);
 
 static FOCUS: Mutex<bool> = Mutex::new(false);
@@ -93,7 +91,7 @@ impl SkinWidgetManager {
                             EVENT_HISTORY.lock().unwrap().undo();
                         }
                         let mut show_cursor = SHOW_CURSOR_POSITION.lock().unwrap();
-                        ui.checkbox(&mut show_cursor.value, "Show Position");
+                        ui.checkbox(&mut show_cursor, "Show Position");
                         drop(show_cursor);
                         if ui.button("Export").clicked() {
                             export_changes();
@@ -197,8 +195,16 @@ fn export_changes() {
     }
 
     let change_logs = changes.join("\n");
-    let clipboard = Clipboard::new();
-    clipboard.set_contents(&change_logs);
+    match arboard::Clipboard::new() {
+        Ok(mut clipboard) => {
+            if let Err(e) = clipboard.set_text(&change_logs) {
+                log::error!("Failed to copy to clipboard: {}", e);
+            }
+        }
+        Err(e) => {
+            log::error!("Failed to access clipboard: {}", e);
+        }
+    }
     ImGuiNotify::info("Copied changes to clipboard");
 }
 

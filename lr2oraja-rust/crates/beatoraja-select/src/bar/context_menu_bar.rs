@@ -62,7 +62,16 @@ impl ContextMenuBar {
     }
 
     pub fn browser_open(url: &str) -> bool {
-        Clipboard::set_contents(url);
+        match arboard::Clipboard::new() {
+            Ok(mut clipboard) => {
+                if let Err(e) = clipboard.set_text(url) {
+                    log::error!("Failed to copy to clipboard: {}", e);
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to access clipboard: {}", e);
+            }
+        }
         // In Java: Desktop.getDesktop().browse(uri)
         // Stub: just log and return
         log::info!("Browser open: {}", url);

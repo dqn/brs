@@ -18,8 +18,8 @@ use crate::abstract_result::{
 use crate::music_result_skin::MusicResultSkin;
 use crate::result_key_property::{ResultKey, ResultKeyProperty};
 use crate::stubs::{
-    BMSPlayerModeType, ControlKeys, IRConfig, IRSendStatusMain, IRStatus, KeyCommand,
-    MainController, PlayerResource, RankingData, is_freq_negative, is_freq_trainer_enabled,
+    BMSPlayerModeType, ControlKeys, FreqTrainerMenu, IRConfig, IRSendStatusMain, IRStatus,
+    KeyCommand, MainController, PlayerResource, RankingData,
 };
 use beatoraja_core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE};
 
@@ -472,14 +472,14 @@ impl MusicResult {
             }
         }
 
-        if is_freq_trainer_enabled()
+        if FreqTrainerMenu::is_freq_trainer_enabled()
             && let Some(sd) = resource.get_score_data_mut()
         {
             sd.clear = ClearType::NoPlay.id();
         }
 
         if resource.get_play_mode().mode == BMSPlayerModeType::Play
-            && !(is_freq_trainer_enabled() && is_freq_negative())
+            && !(FreqTrainerMenu::is_freq_trainer_enabled() && FreqTrainerMenu::is_freq_negative())
         {
             if let Some(sd) = resource.get_score_data() {
                 main.get_play_data_accessor().write_score_data_model(

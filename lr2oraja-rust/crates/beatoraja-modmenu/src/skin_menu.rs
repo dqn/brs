@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use crate::imgui_notify::ImGuiNotify;
 use crate::stubs::{
-    Config, CustomCategory, CustomCategoryItem, CustomFile, CustomOffset, CustomOption, ImBoolean,
+    Config, CustomCategory, CustomCategoryItem, CustomFile, CustomOffset, CustomOption,
     JSONSkinLoader, LR2SkinHeaderLoader, LuaSkinLoader, MainController, MusicSelector,
     OPTION_RANDOM_VALUE, PlayerConfig, Skin, SkinConfig, SkinFilePath, SkinHeader, SkinOffset,
     SkinOption, SkinProperty, SkinType, TYPE_LR2SKIN, Validatable,
@@ -17,8 +17,8 @@ static MAIN: Mutex<Option<MainController>> = Mutex::new(None);
 static PLAYER_CONFIG: Mutex<Option<PlayerConfig>> = Mutex::new(None);
 
 static READY: Mutex<bool> = Mutex::new(false);
-static LIVE_EDITING: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: true });
-static FREEZE_TIMERS: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
+static LIVE_EDITING: Mutex<bool> = Mutex::new(true);
+static FREEZE_TIMERS: Mutex<bool> = Mutex::new(false);
 
 static CURRENT_SKIN_TYPE: Mutex<Option<SkinType>> = Mutex::new(None);
 static CURRENT_SKIN: Mutex<Option<SkinHeader>> = Mutex::new(None);
@@ -163,7 +163,7 @@ fn menu_header() {
         // ImGui.textDisabled(path_display);
 
         let dirty = *DIRTY_CONFIG.lock().unwrap();
-        let live_editing = LIVE_EDITING.lock().unwrap().get();
+        let live_editing = *LIVE_EDITING.lock().unwrap();
         let _save_available = dirty && !live_editing;
         // ImGui.beginDisabled(!saveAvailable);
         // boolean saveRequested = ImGui.button(" Save ##reload-current-skin");

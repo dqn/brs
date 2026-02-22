@@ -20,5 +20,6 @@ serde_json.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 regex.workspace = true
+arboard.workspace = true
 
 [dev-dependencies]

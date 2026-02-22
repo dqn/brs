@@ -20,5 +20,6 @@ anyhow.workspace = true
 chrono.workspace = true
 rand.workspace = true
 egui.workspace = true
+arboard.workspace = true
 
 [dev-dependencies]

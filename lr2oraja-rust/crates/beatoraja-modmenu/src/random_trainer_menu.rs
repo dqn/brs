@@ -1,12 +1,11 @@
 use crate::random_trainer::RandomTrainer;
-use crate::stubs::ImBoolean;
 
 use std::sync::Mutex;
 
-static RANDOM_TRAINER_ENABLED: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
-static BLACK_WHITE_RANDOM_PERMUTATION: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
+static RANDOM_TRAINER_ENABLED: Mutex<bool> = Mutex::new(false);
+static BLACK_WHITE_RANDOM_PERMUTATION: Mutex<bool> = Mutex::new(false);
 static LANE_ORDER: Mutex<Vec<String>> = Mutex::new(Vec::new());
-static TRACK_RAN_WHEN_DISABLED: Mutex<ImBoolean> = Mutex::new(ImBoolean { value: false });
+static TRACK_RAN_WHEN_DISABLED: Mutex<bool> = Mutex::new(false);
 
 fn init_lane_order() {
     let mut lo = LANE_ORDER.lock().unwrap();
@@ -42,7 +41,7 @@ impl RandomTrainerMenu {
 
     fn drag_and_drop_key_display() {
         let lane_order = LANE_ORDER.lock().unwrap();
-        let bw_permute = BLACK_WHITE_RANDOM_PERMUTATION.lock().unwrap().get();
+        let bw_permute = *BLACK_WHITE_RANDOM_PERMUTATION.lock().unwrap();
 
         for i in 0..lane_order.len() {
             let lane_char = lane_order[i].chars().next().unwrap_or('1');
@@ -140,15 +139,15 @@ impl RandomTrainerMenu {
                 ui.label("Controls");
                 ui.indent("random_controls", |ui| {
                     let mut enabled = RANDOM_TRAINER_ENABLED.lock().unwrap();
-                    ui.checkbox(&mut enabled.value, "Trainer Enabled");
+                    ui.checkbox(&mut enabled, "Trainer Enabled");
                     drop(enabled);
 
                     let mut track = TRACK_RAN_WHEN_DISABLED.lock().unwrap();
-                    ui.checkbox(&mut track.value, "Track Current Random");
+                    ui.checkbox(&mut track, "Track Current Random");
                     drop(track);
 
                     let mut bw = BLACK_WHITE_RANDOM_PERMUTATION.lock().unwrap();
-                    ui.checkbox(&mut bw.value, "Black/White Random Select");
+                    ui.checkbox(&mut bw, "Black/White Random Select");
                     drop(bw);
                 });
 
@@ -165,7 +164,7 @@ impl RandomTrainerMenu {
                 });
 
                 // Sync state
-                let trainer_enabled = RANDOM_TRAINER_ENABLED.lock().unwrap().get();
+                let trainer_enabled = *RANDOM_TRAINER_ENABLED.lock().unwrap();
                 crate::random_trainer::RandomTrainer::set_active(trainer_enabled);
                 if trainer_enabled {
                     let current = get_lane_order_string();
@@ -175,7 +174,7 @@ impl RandomTrainerMenu {
                     }
                 }
 
-                let bw = BLACK_WHITE_RANDOM_PERMUTATION.lock().unwrap().get();
+                let bw = *BLACK_WHITE_RANDOM_PERMUTATION.lock().unwrap();
                 crate::random_trainer::RandomTrainer::set_black_white_permute(bw);
             });
     }
