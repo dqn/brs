@@ -7,7 +7,7 @@ use beatoraja_core::timer_manager::TimerManager;
 use beatoraja_skin::skin_property::{TIMER_FADEOUT, TIMER_STARTINPUT};
 use beatoraja_skin::skin_type::SkinType;
 
-use crate::stubs::{ControlKeysStub, MainControllerRef, PlayerResourceAccess, SkinStub};
+use crate::stubs::{ControlKeys, MainControllerRef, PlayerResourceAccess, SkinStub};
 
 /// MusicDecide - music decide screen state
 ///
@@ -82,18 +82,23 @@ impl MusicDecide {
         if !self.data.timer.is_timer_on(TIMER_FADEOUT)
             && self.data.timer.is_timer_on(TIMER_STARTINPUT)
         {
-            let input = self.main.get_input_processor();
-            if input.get_key_state(0)
-                || input.get_key_state(2)
-                || input.get_key_state(4)
-                || input.get_key_state(6)
-                || input.is_control_key_pressed(ControlKeysStub::Enter)
-            {
+            // Collect input state first, then release &mut borrow on self.main
+            // before calling get_audio_processor (avoids overlapping &mut borrows).
+            let (decide, cancel) = {
+                let input = self.main.get_input_processor();
+                let decide = input.get_key_state(0)
+                    || input.get_key_state(2)
+                    || input.get_key_state(4)
+                    || input.get_key_state(6)
+                    || input.is_control_key_pressed(ControlKeys::Enter);
+                let cancel = input.is_control_key_pressed(ControlKeys::Escape)
+                    || (input.start_pressed() && input.is_select_pressed());
+                (decide, cancel)
+            };
+            if decide {
                 self.data.timer.set_timer_on(TIMER_FADEOUT);
             }
-            if input.is_control_key_pressed(ControlKeysStub::Escape)
-                || (input.start_pressed() && input.is_select_pressed())
-            {
+            if cancel {
                 self.cancel = true;
                 self.main.get_audio_processor().set_global_pitch(1f32);
                 self.data.timer.set_timer_on(TIMER_FADEOUT);

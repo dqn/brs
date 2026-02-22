@@ -1,7 +1,15 @@
 // Stubs for external dependencies not yet available as proper imports.
 
+use beatoraja_core::config::Config;
 use beatoraja_core::main_state::MainStateType;
+use beatoraja_core::player_config::PlayerConfig;
 use beatoraja_core::system_sound_manager::SoundType;
+
+// InputProcessorStub: replaced by pub use from beatoraja-input (Phase 18e-11)
+pub use beatoraja_input::bms_player_input_processor::BMSPlayerInputProcessor;
+
+// ControlKeysStub: replaced by pub use from beatoraja-input (Phase 18e-11)
+pub use beatoraja_input::keyboard_input_processor::ControlKeys;
 
 /// Stub for MainController reference.
 /// Retained: get_input_processor/get_audio_processor are crate-specific and not on MainControllerAccess trait.
@@ -13,10 +21,13 @@ impl MainControllerRef {
         log::warn!("not yet implemented: MainController.changeState");
     }
 
-    pub fn get_input_processor(&self) -> &InputProcessorStub {
+    pub fn get_input_processor(&mut self) -> &mut BMSPlayerInputProcessor {
         log::warn!("not yet implemented: MainController.getInputProcessor");
-        static DEFAULT: InputProcessorStub = InputProcessorStub;
-        &DEFAULT
+        // Leak a boxed value to get a &'static mut reference - stub only
+        Box::leak(Box::new(BMSPlayerInputProcessor::new(
+            &Config::default(),
+            &PlayerConfig::default(),
+        )))
     }
 
     pub fn get_audio_processor(&self) -> &AudioProcessorStub {
@@ -33,34 +44,6 @@ impl AudioProcessorStub {
     pub fn set_global_pitch(&self, _pitch: f32) {
         log::warn!("not yet implemented: AudioProcessor.setGlobalPitch");
     }
-}
-
-/// Stub for BMSPlayerInputProcessor reference
-pub struct InputProcessorStub;
-
-impl InputProcessorStub {
-    pub fn get_key_state(&self, _id: i32) -> bool {
-        false
-    }
-
-    pub fn is_control_key_pressed(&self, _key: ControlKeysStub) -> bool {
-        false
-    }
-
-    pub fn start_pressed(&self) -> bool {
-        false
-    }
-
-    pub fn is_select_pressed(&self) -> bool {
-        false
-    }
-}
-
-/// Stub for ControlKeys enum
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ControlKeysStub {
-    Enter,
-    Escape,
 }
 
 /// PlayerResourceAccess — re-exported from beatoraja-types (Phase 18e-2)
