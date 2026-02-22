@@ -376,6 +376,7 @@ mod tests {
                 ControlFlowNode::Return,
             ],
             literals: Vec::new(),
+            is_stub: false,
         };
 
         let comparison = compare_methods(&body, &body, "Foo.java", "foo.rs", "Foo", "bar");
@@ -392,6 +393,7 @@ mod tests {
                 children: vec![],
             }],
             literals: Vec::new(),
+            is_stub: false,
         };
         let rust_body = MethodBody {
             control_flow: vec![ControlFlowNode::Switch {
@@ -399,6 +401,7 @@ mod tests {
                 children: vec![],
             }],
             literals: Vec::new(),
+            is_stub: false,
         };
 
         let comparison =
@@ -412,6 +415,7 @@ mod tests {
         let body = MethodBody {
             control_flow: vec![],
             literals: Vec::new(),
+            is_stub: false,
         };
         let comparison = compare_methods(&body, &body, "Foo.java", "foo.rs", "Foo", "bar");
         assert_eq!(comparison.similarity, 1.0);

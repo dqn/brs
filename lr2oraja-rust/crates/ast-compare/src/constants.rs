@@ -163,6 +163,7 @@ mod tests {
                 Literal::Hex(0xFF),
                 Literal::String("hello".to_string()),
             ],
+            is_stub: false,
         };
         let rust_body = MethodBody {
             control_flow: vec![],
@@ -171,6 +172,7 @@ mod tests {
                 Literal::Integer(255), // same value as 0xFF
                 Literal::String("hello".to_string()),
             ],
+            is_stub: false,
         };
 
         let comparison = compare_constants(
@@ -185,10 +187,12 @@ mod tests {
         let java_body = MethodBody {
             control_flow: vec![],
             literals: vec![Literal::Integer(42), Literal::Integer(99)],
+            is_stub: false,
         };
         let rust_body = MethodBody {
             control_flow: vec![],
             literals: vec![Literal::Integer(42)],
+            is_stub: false,
         };
 
         let comparison = compare_constants(
@@ -208,10 +212,12 @@ mod tests {
                 Literal::Integer(42),
                 Literal::Boolean(true),
             ],
+            is_stub: false,
         };
         let rust_body = MethodBody {
             control_flow: vec![],
             literals: vec![Literal::Integer(42)],
+            is_stub: false,
         };
 
         let comparison = compare_constants(

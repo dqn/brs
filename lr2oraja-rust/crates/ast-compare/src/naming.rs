@@ -145,6 +145,7 @@ pub fn java_standard_method_trait(java_method: &str) -> Option<&'static str> {
         "iterator" => Some("IntoIterator"),
         "values" => Some("(enum)"),
         "valueOf" => Some("(enum)"),
+        "close" | "dispose" | "shutdown" | "destroy" | "finalize" => Some("Drop"),
         _ => None,
     }
 }
@@ -290,6 +291,15 @@ mod tests {
         assert_eq!(java_standard_method_trait("hashCode"), Some("Hash"));
         assert_eq!(java_standard_method_trait("compareTo"), Some("Ord"));
         assert_eq!(java_standard_method_trait("validate"), None);
+    }
+
+    #[test]
+    fn test_java_standard_method_trait_drop() {
+        assert_eq!(java_standard_method_trait("close"), Some("Drop"));
+        assert_eq!(java_standard_method_trait("dispose"), Some("Drop"));
+        assert_eq!(java_standard_method_trait("shutdown"), Some("Drop"));
+        assert_eq!(java_standard_method_trait("destroy"), Some("Drop"));
+        assert_eq!(java_standard_method_trait("finalize"), Some("Drop"));
     }
 
     #[test]

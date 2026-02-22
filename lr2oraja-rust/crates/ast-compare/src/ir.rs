@@ -81,6 +81,9 @@ pub struct ParamDecl {
 pub struct MethodBody {
     pub control_flow: Vec<ControlFlowNode>,
     pub literals: Vec<Literal>,
+    /// Whether the body is a stub (contains only todo!/unimplemented!/log::warn!)
+    #[serde(default)]
+    pub is_stub: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

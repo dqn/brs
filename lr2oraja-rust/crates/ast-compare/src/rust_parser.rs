@@ -356,10 +356,40 @@ fn extract_rust_return_type(node: Node, source: &[u8]) -> Option<String> {
 fn extract_rust_method_body(node: Node, source: &[u8]) -> MethodBody {
     let control_flow = extract_rust_control_flow(node, source);
     let literals = extract_rust_literals(node, source);
+    let is_stub = detect_stub_body(node, source);
     MethodBody {
         control_flow,
         literals,
+        is_stub,
     }
+}
+
+/// Detect if a method body is a stub (contains only todo!/unimplemented!/log::warn!).
+///
+/// Returns true when the block has at most 2 meaningful statements and at least one
+/// is a known stub marker (todo!(), unimplemented!(), or warn!("not yet implemented...")).
+fn detect_stub_body(node: Node, source: &[u8]) -> bool {
+    let mut cursor = node.walk();
+    let mut stmt_count = 0;
+    let mut has_stub_call = false;
+
+    for child in node.children(&mut cursor) {
+        match child.kind() {
+            "{" | "}" | "line_comment" | "block_comment" => continue,
+            _ => {
+                stmt_count += 1;
+                if let Ok(text) = child.utf8_text(source)
+                    && (text.contains("todo!(")
+                        || text.contains("unimplemented!(")
+                        || (text.contains("warn!(") && text.contains("not yet implemented")))
+                {
+                    has_stub_call = true;
+                }
+            }
+        }
+    }
+
+    stmt_count > 0 && stmt_count <= 2 && has_stub_call
 }
 
 fn extract_rust_control_flow(node: Node, source: &[u8]) -> Vec<ControlFlowNode> {
@@ -835,5 +865,73 @@ pub fn foo(x: i32) -> &str {
         } else {
             panic!("expected Switch node");
         }
+    }
+
+    #[test]
+    fn test_stub_detection_todo() {
+        let source = r#"
+pub struct Foo;
+impl Foo {
+    pub fn bar(&self) -> i32 { todo!() }
+}
+"#;
+        let file = parse_rust(source);
+        let body = file.types[0].methods[0].body.as_ref().unwrap();
+        assert!(body.is_stub);
+    }
+
+    #[test]
+    fn test_stub_detection_unimplemented() {
+        let source = r#"
+pub struct Foo;
+impl Foo {
+    pub fn bar(&self) -> i32 { unimplemented!() }
+}
+"#;
+        let file = parse_rust(source);
+        let body = file.types[0].methods[0].body.as_ref().unwrap();
+        assert!(body.is_stub);
+    }
+
+    #[test]
+    fn test_stub_detection_warn() {
+        let source = r#"
+pub struct Foo;
+impl Foo {
+    pub fn bar(&self) -> i32 {
+        log::warn!("not yet implemented: bar");
+        0
+    }
+}
+"#;
+        let file = parse_rust(source);
+        let body = file.types[0].methods[0].body.as_ref().unwrap();
+        assert!(body.is_stub);
+    }
+
+    #[test]
+    fn test_stub_detection_real_impl() {
+        let source = r#"
+pub struct Foo;
+impl Foo {
+    pub fn bar(&self) -> i32 {
+        let x = 42;
+        if x > 0 { x } else { -x }
+    }
+}
+"#;
+        let file = parse_rust(source);
+        let body = file.types[0].methods[0].body.as_ref().unwrap();
+        assert!(!body.is_stub);
+    }
+
+    #[test]
+    fn test_stub_detection_non_stub_normal() {
+        let source = r#"
+pub fn helper() -> i32 { 42 }
+"#;
+        let file = parse_rust(source);
+        let body = file.free_functions[0].body.as_ref().unwrap();
+        assert!(!body.is_stub);
     }
 }

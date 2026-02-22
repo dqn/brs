@@ -14,7 +14,9 @@ use ast_compare::report::{
     format_constants_report, format_signature_report, format_structural_report,
 };
 use ast_compare::rust_parser::parse_rust_file;
-use ast_compare::signature_map::build_signature_map;
+use ast_compare::signature_map::{
+    MapConfig, VisibilityFilter, build_signature_map, load_ignore_patterns,
+};
 use ast_compare::structural_compare::{build_structural_report, compare_methods};
 
 #[derive(Parser)]
@@ -64,6 +66,18 @@ enum Commands {
         /// Show only unmapped items
         #[arg(long)]
         unmapped_only: bool,
+
+        /// Visibility filter: all, public, public-protected
+        #[arg(long, default_value = "all")]
+        visibility: String,
+
+        /// Include stub methods as matched (default: report separately)
+        #[arg(long)]
+        include_stubs: bool,
+
+        /// Path to ignore patterns file (one suffix pattern per line, # comments)
+        #[arg(long)]
+        ignore_file: Option<PathBuf>,
     },
 
     /// Compare control flow structure of matched methods
@@ -110,7 +124,17 @@ fn main() -> Result<()> {
         Commands::Map {
             package,
             unmapped_only,
-        } => run_map(&cli, package.as_deref(), *unmapped_only),
+            visibility,
+            include_stubs,
+            ignore_file,
+        } => run_map(
+            &cli,
+            package.as_deref(),
+            *unmapped_only,
+            visibility,
+            *include_stubs,
+            ignore_file.as_deref(),
+        ),
         Commands::Compare { file, threshold } => run_compare(&cli, file.as_deref(), *threshold),
         Commands::Constants {
             file,
@@ -120,7 +144,14 @@ fn main() -> Result<()> {
     }
 }
 
-fn run_map(cli: &Cli, package: Option<&str>, unmapped_only: bool) -> Result<()> {
+fn run_map(
+    cli: &Cli,
+    package: Option<&str>,
+    unmapped_only: bool,
+    visibility: &str,
+    include_stubs: bool,
+    ignore_file: Option<&std::path::Path>,
+) -> Result<()> {
     let (file_mappings, java_sources, rust_sources) = load_all(cli)?;
 
     let mut filtered_mappings = file_mappings;
@@ -131,7 +162,31 @@ fn run_map(cli: &Cli, package: Option<&str>, unmapped_only: bool) -> Result<()> 
         filtered_mappings.retain(|fm| fm.confidence == MappingConfidence::NotFound);
     }
 
-    let report = build_signature_map(&filtered_mappings, &java_sources, &rust_sources);
+    let visibility_filter = match visibility {
+        "public" => VisibilityFilter::Public,
+        "public-protected" => VisibilityFilter::PublicProtected,
+        _ => VisibilityFilter::All,
+    };
+
+    let ignore_patterns = if let Some(path) = ignore_file {
+        load_ignore_patterns(path)
+    } else {
+        // Try default .ast-compare-ignore
+        let default_path = std::path::Path::new(".ast-compare-ignore");
+        if default_path.exists() {
+            load_ignore_patterns(default_path)
+        } else {
+            Vec::new()
+        }
+    };
+
+    let config = MapConfig {
+        visibility_filter,
+        include_stubs,
+        ignore_patterns,
+    };
+
+    let report = build_signature_map(&filtered_mappings, &java_sources, &rust_sources, &config);
 
     let text = format_signature_report(&report);
     output_result(cli, &text, &report)
@@ -239,7 +294,7 @@ fn run_full(cli: &Cli, threshold: f64) -> Result<()> {
     eprintln!();
 
     eprintln!("=== Phase 1: Signature Mapping ===");
-    run_map(cli, None, false)?;
+    run_map(cli, None, false, "all", false, None)?;
 
     eprintln!();
     eprintln!("=== Phase 2: Structural Comparison ===");

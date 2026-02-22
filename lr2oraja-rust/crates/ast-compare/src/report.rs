@@ -31,6 +31,34 @@ pub fn format_signature_report(report: &SignatureReport) -> String {
         out.push('\n');
     }
 
+    // Stub methods
+    let mut stub_count = 0;
+    for fm in &report.file_mappings {
+        for tm in &fm.type_mappings {
+            let stubs: Vec<_> = tm
+                .method_mappings
+                .iter()
+                .filter(|m| m.status == MappingStatus::MatchedStub)
+                .collect();
+            for m in &stubs {
+                stub_count += 1;
+                let file = fm.rust_file.as_deref().unwrap_or("(no Rust file)");
+                out.push_str(&format!(
+                    "  {} {}.{} → {} [in {}]\n",
+                    "[STUB]".yellow(),
+                    tm.java_type,
+                    m.java_method,
+                    m.rust_method.as_deref().unwrap_or("?"),
+                    file,
+                ));
+            }
+        }
+    }
+
+    if stub_count > 0 {
+        out.push('\n');
+    }
+
     // Missing methods
     let mut missing_count = 0;
     for fm in &report.file_mappings {
@@ -103,7 +131,10 @@ pub fn format_signature_report(report: &SignatureReport) -> String {
         + s.constructor_overloads
         + s.method_overloads
         + s.standard_trait_impls
-        + s.fuzzy_method_matches;
+        + s.fuzzy_method_matches
+        + s.parameter_lifted
+        + s.matched_stubs
+        + s.visibility_filtered;
     out.push_str(&format!(
         "  Methods: {} Java → {} resolved, {} missing\n",
         s.total_java_methods, resolved, s.missing_methods
@@ -117,6 +148,18 @@ pub fn format_signature_report(report: &SignatureReport) -> String {
         s.standard_trait_impls,
         s.fuzzy_method_matches
     ));
+    if s.parameter_lifted > 0 {
+        out.push_str(&format!("    param-lifted: {}\n", s.parameter_lifted));
+    }
+    if s.matched_stubs > 0 {
+        out.push_str(&format!("    stubs: {}\n", s.matched_stubs));
+    }
+    if s.visibility_filtered > 0 {
+        out.push_str(&format!(
+            "    visibility-filtered: {}\n",
+            s.visibility_filtered
+        ));
+    }
     out.push_str(&format!(
         "  Rust-only: {} extra, {} Rust-specific (ignored)\n",
         s.extra_rust_methods, s.rust_specific_methods

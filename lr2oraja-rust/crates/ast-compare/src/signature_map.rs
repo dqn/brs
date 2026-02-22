@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::file_mapping::FileMapping;
 use crate::ir::*;
 use crate::naming;
@@ -47,9 +49,44 @@ pub enum MappingStatus {
     MethodOverload,
     StandardTraitImpl,
     FuzzyMethodMatch,
+    ParameterLifted,
+    MatchedStub,
+    VisibilityFiltered,
     MissingInRust,
     ExtraInRust,
     RustSpecific,
+}
+
+/// Filter for Java method visibility levels.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum VisibilityFilter {
+    /// Include all methods regardless of visibility (default).
+    #[default]
+    All,
+    /// Include only public and protected methods.
+    PublicProtected,
+    /// Include only public methods.
+    Public,
+}
+
+impl VisibilityFilter {
+    pub fn includes(&self, vis: Visibility) -> bool {
+        match self {
+            VisibilityFilter::All => true,
+            VisibilityFilter::Public => vis == Visibility::Public,
+            VisibilityFilter::PublicProtected => {
+                matches!(vis, Visibility::Public | Visibility::Protected)
+            }
+        }
+    }
+}
+
+/// Configuration for the signature mapping pass.
+#[derive(Debug, Clone, Default)]
+pub struct MapConfig {
+    pub visibility_filter: VisibilityFilter,
+    pub include_stubs: bool,
+    pub ignore_patterns: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -68,6 +105,9 @@ pub struct SignatureSummary {
     pub method_overloads: usize,
     pub standard_trait_impls: usize,
     pub fuzzy_method_matches: usize,
+    pub parameter_lifted: usize,
+    pub matched_stubs: usize,
+    pub visibility_filtered: usize,
     pub missing_methods: usize,
     pub extra_rust_methods: usize,
     pub rust_specific_methods: usize,
@@ -118,9 +158,30 @@ fn ignored_java_patterns() -> Vec<&'static str> {
     ]
 }
 
-fn is_ignored_java_file(java_path: &str) -> bool {
-    let patterns = ignored_java_patterns();
-    patterns.iter().any(|pattern| java_path.ends_with(pattern))
+fn is_ignored_java_file(java_path: &str, custom_patterns: &[String]) -> bool {
+    if custom_patterns.is_empty() {
+        let patterns = ignored_java_patterns();
+        patterns.iter().any(|pattern| java_path.ends_with(pattern))
+    } else {
+        custom_patterns
+            .iter()
+            .any(|pattern| java_path.ends_with(pattern.as_str()))
+    }
+}
+
+/// Load ignore patterns from a file. Each line is a suffix pattern.
+/// Lines starting with `#` and empty lines are skipped.
+pub fn load_ignore_patterns(path: &Path) -> Vec<String> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    content
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(|l| l.to_string())
+        .collect()
 }
 
 /// Build a signature mapping report from parsed Java and Rust sources.
@@ -128,6 +189,7 @@ pub fn build_signature_map(
     file_mappings: &[FileMapping],
     java_files: &[SourceFile],
     rust_files: &[SourceFile],
+    config: &MapConfig,
 ) -> SignatureReport {
     let mut results = Vec::new();
     let mut summary = SignatureSummary {
@@ -145,6 +207,9 @@ pub fn build_signature_map(
         method_overloads: 0,
         standard_trait_impls: 0,
         fuzzy_method_matches: 0,
+        parameter_lifted: 0,
+        matched_stubs: 0,
+        visibility_filtered: 0,
         missing_methods: 0,
         extra_rust_methods: 0,
         rust_specific_methods: 0,
@@ -154,7 +219,7 @@ pub fn build_signature_map(
         let java_path_str = fm.java_path.display().to_string();
 
         // Skip ignored files
-        if is_ignored_java_file(&java_path_str) {
+        if is_ignored_java_file(&java_path_str, &config.ignore_patterns) {
             summary.ignored_files += 1;
             continue;
         }
@@ -178,36 +243,11 @@ pub fn build_signature_map(
                 &rust.free_functions,
                 rust_files,
                 &mut summary,
+                config,
             ),
             (Some(java), None) => {
-                // All Java types are unmapped
-                let mut mappings = Vec::new();
-                for jt in &java.types {
-                    summary.total_java_types += 1;
-                    let method_count = jt.methods.len();
-                    summary.total_java_methods += method_count;
-                    summary.missing_methods += method_count;
-                    mappings.push(TypeMappingResult {
-                        java_type: jt.name.clone(),
-                        java_kind: format!("{:?}", jt.kind),
-                        rust_type: None,
-                        method_mappings: jt
-                            .methods
-                            .iter()
-                            .map(|m| MethodMappingResult {
-                                java_method: m.name.clone(),
-                                java_params: m.params.len(),
-                                java_line: m.line,
-                                rust_method: None,
-                                rust_line: None,
-                                status: MappingStatus::MissingInRust,
-                            })
-                            .collect(),
-                        field_count_java: jt.fields.len(),
-                        field_count_rust: 0,
-                    });
-                }
-                mappings
+                // No direct file mapping — try global type search
+                build_type_mappings(&java.types, &[], &[], rust_files, &mut summary, config)
             }
             _ => Vec::new(),
         };
@@ -232,6 +272,7 @@ fn build_type_mappings(
     rust_free_fns: &[MethodDecl],
     all_rust_files: &[SourceFile],
     summary: &mut SignatureSummary,
+    config: &MapConfig,
 ) -> Vec<TypeMappingResult> {
     let mut results = Vec::new();
 
@@ -287,8 +328,13 @@ fn build_type_mappings(
             .chain(rust_free_fns.iter())
             .collect();
 
-        let method_mappings =
-            build_method_mappings(&jt.methods, &all_rust_methods, &rust_fields, summary);
+        let method_mappings = build_method_mappings(
+            &jt.methods,
+            &all_rust_methods,
+            &rust_fields,
+            summary,
+            config,
+        );
 
         results.push(TypeMappingResult {
             java_type: jt.name.clone(),
@@ -301,8 +347,14 @@ fn build_type_mappings(
 
         // Recursively handle inner types
         if !jt.inner_types.is_empty() {
-            let inner_results =
-                build_type_mappings(&jt.inner_types, rust_types, &[], all_rust_files, summary);
+            let inner_results = build_type_mappings(
+                &jt.inner_types,
+                rust_types,
+                &[],
+                all_rust_files,
+                summary,
+                config,
+            );
             results.extend(inner_results);
         }
     }
@@ -438,6 +490,7 @@ fn build_method_mappings(
     rust_methods: &[&MethodDecl],
     rust_fields: &[&FieldDecl],
     summary: &mut SignatureSummary,
+    config: &MapConfig,
 ) -> Vec<MethodMappingResult> {
     let mut results = Vec::new();
     let mut matched_rust_indices = Vec::new();
@@ -448,8 +501,29 @@ fn build_method_mappings(
     // Track ALL Java method names encountered (for unmatched-overload detection)
     let mut seen_java_names: Vec<String> = Vec::new();
 
+    // Collect matched Rust method parameter names for parameter-lifted detection
+    let matched_rust_param_names: Vec<String> = rust_methods
+        .iter()
+        .flat_map(|rm| rm.params.iter().map(|p| p.name.clone()))
+        .collect();
+
     for jm in java_methods {
         summary.total_java_methods += 1;
+
+        // Visibility filter — skip methods below the configured threshold
+        if !config.visibility_filter.includes(jm.visibility) {
+            summary.visibility_filtered += 1;
+            results.push(MethodMappingResult {
+                java_method: jm.name.clone(),
+                java_params: jm.params.len(),
+                java_line: jm.line,
+                rust_method: Some("(visibility filtered)".to_string()),
+                rust_line: None,
+                status: MappingStatus::VisibilityFiltered,
+            });
+            seen_java_names.push(jm.name.clone());
+            continue;
+        }
 
         let (rust_match, status) = find_rust_method(&jm.name, rust_methods, &matched_rust_indices);
 
@@ -460,15 +534,30 @@ fn build_method_mappings(
             }
             matched_java_names.push(jm.name.clone());
             seen_java_names.push(jm.name.clone());
-            summary.matched_methods += 1;
-            results.push(MethodMappingResult {
-                java_method: jm.name.clone(),
-                java_params: jm.params.len(),
-                java_line: jm.line,
-                rust_method: Some(rm.name.clone()),
-                rust_line: Some(rm.line),
-                status,
-            });
+
+            // Check if the matched Rust method is a stub
+            let is_stub = rm.body.as_ref().is_some_and(|b| b.is_stub);
+            if is_stub && !config.include_stubs {
+                summary.matched_stubs += 1;
+                results.push(MethodMappingResult {
+                    java_method: jm.name.clone(),
+                    java_params: jm.params.len(),
+                    java_line: jm.line,
+                    rust_method: Some(rm.name.clone()),
+                    rust_line: Some(rm.line),
+                    status: MappingStatus::MatchedStub,
+                });
+            } else {
+                summary.matched_methods += 1;
+                results.push(MethodMappingResult {
+                    java_method: jm.name.clone(),
+                    java_params: jm.params.len(),
+                    java_line: jm.line,
+                    rust_method: Some(rm.name.clone()),
+                    rust_line: Some(rm.line),
+                    status,
+                });
+            }
             continue;
         }
 
@@ -634,6 +723,26 @@ fn build_method_mappings(
             continue;
         }
 
+        // Parameter lifted detection — accessor field name appears as a Rust method parameter
+        if let Some(field_name) = naming::accessor_field_name(&jm.name) {
+            let param_match = matched_rust_param_names
+                .iter()
+                .any(|p| *p == field_name || naming::method_to_snake(p) == field_name);
+            if param_match {
+                summary.parameter_lifted += 1;
+                seen_java_names.push(jm.name.clone());
+                results.push(MethodMappingResult {
+                    java_method: jm.name.clone(),
+                    java_params: jm.params.len(),
+                    java_line: jm.line,
+                    rust_method: Some(format!("(param: {})", field_name)),
+                    rust_line: None,
+                    status: MappingStatus::ParameterLifted,
+                });
+                continue;
+            }
+        }
+
         summary.missing_methods += 1;
         seen_java_names.push(jm.name.clone());
         results.push(MethodMappingResult {
@@ -788,5 +897,200 @@ mod tests {
         let rust_refs: Vec<&MethodDecl> = rust_methods.iter().collect();
         let (result, _status) = find_rust_method("getMicroTime", &rust_refs, &[]);
         assert!(result.is_none());
+    }
+
+    fn make_java_method_with_visibility(name: &str, vis: Visibility) -> MethodDecl {
+        MethodDecl {
+            name: name.to_string(),
+            visibility: vis,
+            is_static: false,
+            is_abstract: false,
+            params: Vec::new(),
+            return_type: None,
+            body: None,
+            line: 1,
+        }
+    }
+
+    fn make_rust_method_with_params(name: &str, param_names: &[&str]) -> MethodDecl {
+        MethodDecl {
+            name: name.to_string(),
+            visibility: Visibility::Public,
+            is_static: false,
+            is_abstract: false,
+            params: param_names
+                .iter()
+                .map(|p| ParamDecl {
+                    name: p.to_string(),
+                    type_name: "i32".to_string(),
+                })
+                .collect(),
+            return_type: None,
+            body: None,
+            line: 1,
+        }
+    }
+
+    #[test]
+    fn test_visibility_filter_public() {
+        let java_methods = vec![
+            make_java_method_with_visibility("publicMethod", Visibility::Public),
+            make_java_method_with_visibility("privateMethod", Visibility::Private),
+            make_java_method_with_visibility("protectedMethod", Visibility::Protected),
+        ];
+        let rust_methods: Vec<&MethodDecl> = vec![];
+        let rust_fields: Vec<&FieldDecl> = vec![];
+        let mut summary = SignatureSummary {
+            total_java_files: 0,
+            mapped_files: 0,
+            unmapped_files: 0,
+            ignored_files: 0,
+            total_java_types: 0,
+            matched_types: 0,
+            ignored_types: 0,
+            total_java_methods: 0,
+            matched_methods: 0,
+            field_access_methods: 0,
+            constructor_overloads: 0,
+            method_overloads: 0,
+            standard_trait_impls: 0,
+            fuzzy_method_matches: 0,
+            parameter_lifted: 0,
+            matched_stubs: 0,
+            visibility_filtered: 0,
+            missing_methods: 0,
+            extra_rust_methods: 0,
+            rust_specific_methods: 0,
+        };
+        let config = MapConfig {
+            visibility_filter: VisibilityFilter::Public,
+            ..Default::default()
+        };
+        let results = build_method_mappings(
+            &java_methods,
+            &rust_methods,
+            &rust_fields,
+            &mut summary,
+            &config,
+        );
+        // Only publicMethod should be MissingInRust; others are VisibilityFiltered
+        assert_eq!(summary.visibility_filtered, 2);
+        assert_eq!(summary.missing_methods, 1);
+        assert_eq!(
+            results
+                .iter()
+                .filter(|r| r.status == MappingStatus::VisibilityFiltered)
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn test_visibility_filter_public_protected() {
+        let java_methods = vec![
+            make_java_method_with_visibility("publicMethod", Visibility::Public),
+            make_java_method_with_visibility("privateMethod", Visibility::Private),
+            make_java_method_with_visibility("protectedMethod", Visibility::Protected),
+        ];
+        let rust_methods: Vec<&MethodDecl> = vec![];
+        let rust_fields: Vec<&FieldDecl> = vec![];
+        let mut summary = SignatureSummary {
+            total_java_files: 0,
+            mapped_files: 0,
+            unmapped_files: 0,
+            ignored_files: 0,
+            total_java_types: 0,
+            matched_types: 0,
+            ignored_types: 0,
+            total_java_methods: 0,
+            matched_methods: 0,
+            field_access_methods: 0,
+            constructor_overloads: 0,
+            method_overloads: 0,
+            standard_trait_impls: 0,
+            fuzzy_method_matches: 0,
+            parameter_lifted: 0,
+            matched_stubs: 0,
+            visibility_filtered: 0,
+            missing_methods: 0,
+            extra_rust_methods: 0,
+            rust_specific_methods: 0,
+        };
+        let config = MapConfig {
+            visibility_filter: VisibilityFilter::PublicProtected,
+            ..Default::default()
+        };
+        let results = build_method_mappings(
+            &java_methods,
+            &rust_methods,
+            &rust_fields,
+            &mut summary,
+            &config,
+        );
+        // Only privateMethod is filtered
+        assert_eq!(summary.visibility_filtered, 1);
+        assert_eq!(summary.missing_methods, 2);
+        assert_eq!(
+            results
+                .iter()
+                .filter(|r| r.status == MappingStatus::VisibilityFiltered)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_parameter_lifted_detection() {
+        let java_methods = vec![make_java_method_with_visibility(
+            "getKeyVolume",
+            Visibility::Public,
+        )];
+        let rm = make_rust_method_with_params("update", &["key_volume", "bpm"]);
+        let rust_methods: Vec<&MethodDecl> = vec![&rm];
+        let rust_fields: Vec<&FieldDecl> = vec![];
+        let mut summary = SignatureSummary {
+            total_java_files: 0,
+            mapped_files: 0,
+            unmapped_files: 0,
+            ignored_files: 0,
+            total_java_types: 0,
+            matched_types: 0,
+            ignored_types: 0,
+            total_java_methods: 0,
+            matched_methods: 0,
+            field_access_methods: 0,
+            constructor_overloads: 0,
+            method_overloads: 0,
+            standard_trait_impls: 0,
+            fuzzy_method_matches: 0,
+            parameter_lifted: 0,
+            matched_stubs: 0,
+            visibility_filtered: 0,
+            missing_methods: 0,
+            extra_rust_methods: 0,
+            rust_specific_methods: 0,
+        };
+        let config = MapConfig::default();
+        let results = build_method_mappings(
+            &java_methods,
+            &rust_methods,
+            &rust_fields,
+            &mut summary,
+            &config,
+        );
+        assert_eq!(summary.parameter_lifted, 1);
+        assert_eq!(results[0].status, MappingStatus::ParameterLifted);
+    }
+
+    #[test]
+    fn test_ignore_patterns_from_file() {
+        // Test hardcoded fallback
+        assert!(is_ignored_java_file("foo/bmson/BGA.java", &[]));
+        assert!(!is_ignored_java_file("foo/Config.java", &[]));
+
+        // Test custom patterns
+        let custom = vec!["Config.java".to_string()];
+        assert!(is_ignored_java_file("foo/Config.java", &custom));
+        assert!(!is_ignored_java_file("foo/bmson/BGA.java", &custom));
     }
 }

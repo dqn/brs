@@ -255,6 +255,7 @@ fn extract_method_body(node: Node, source: &[u8]) -> MethodBody {
     MethodBody {
         control_flow,
         literals,
+        is_stub: false,
     }
 }
 
