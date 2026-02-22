@@ -42,6 +42,27 @@ pub trait StateFactory {
     ) -> Option<Box<dyn MainState>>;
 }
 
+/// StateReferencesCallback - callback for updating cross-state references.
+///
+/// Because SkinMenu and SongManagerMenu live in beatoraja-modmenu which beatoraja-core
+/// cannot depend on (circular dependency), the launcher provides a callback to wire
+/// these references after state initialization.
+///
+/// Translated from: MainController.updateStateReferences()
+///
+/// Java lines 573-576:
+/// ```java
+/// private void updateStateReferences() {
+///     SkinMenu.init(this, player);
+///     SongManagerMenu.injectMusicSelector(selector);
+/// }
+/// ```
+pub trait StateReferencesCallback: Send {
+    /// Called after state initialization to update cross-state references.
+    /// Receives the controller reference and player config for wiring modmenu stubs.
+    fn update_references(&self, config: &Config, player: &PlayerConfig);
+}
+
 /// SkinOffset - offset values for skin objects
 #[derive(Clone, Debug, Default)]
 pub struct SkinOffset {
@@ -229,8 +250,12 @@ pub struct MainController {
     /// Previous render time
     prevtime: i64,
 
-    /// Last config save time
-    last_config_save: i64,
+    /// Last config save time (nanos since boot, using Instant)
+    last_config_save: Instant,
+
+    /// Callback for updating cross-state references (modmenu wiring).
+    /// Set by the launcher to wire SkinMenu/SongManagerMenu.
+    state_references_callback: Option<Box<dyn StateReferencesCallback>>,
 
     /// Debug flag
     pub debug: bool,
@@ -301,7 +326,8 @@ impl MainController {
             http_download_processor: None,
             stream_controller: None,
             prevtime: 0,
-            last_config_save: 0,
+            last_config_save: Instant::now(),
+            state_references_callback: None,
             debug: false,
         }
     }
@@ -386,6 +412,13 @@ impl MainController {
     /// which has access to all concrete state types.
     pub fn set_state_factory(&mut self, factory: Box<dyn StateFactory>) {
         self.state_factory = Some(factory);
+    }
+
+    /// Add a state listener (e.g. DiscordListener, ObsListener).
+    ///
+    /// Translated from Java: stateListener.add(...)
+    pub fn add_state_listener(&mut self, listener: Box<dyn MainStateListener>) {
+        self.state_listener.push(listener);
     }
 
     /// Change to the specified state type.
@@ -521,27 +554,43 @@ impl MainController {
     ///
     /// In Java this initializes SpriteBatch, fonts, input, audio, then calls
     /// initializeStates() and changeState() to enter the initial state.
+    /// Java lines 416-552
     pub fn create(&mut self) {
+        let t = Instant::now();
         self.sprite = Some(SpriteBatchHelper::create_sprite_batch());
 
         let _perf = PerformanceMetrics::get().event("ImGui init");
         ImGuiRenderer::init();
         drop(_perf);
 
-        // Phase 5+: System font loading, audio driver selection
+        // Audio driver initialization
+        // Java lines 439-446:
+        // switch(config.getAudioConfig().getDriver()) {
+        //     case OpenAL: audio = new GdxSoundDriver(config); break;
+        // }
+        // In Rust, the audio driver is injected via set_audio_driver() from the launcher.
+        // If no driver was set in the constructor (for PortAudio), we log for OpenAL:
+        if self.audio.is_none() {
+            let driver_type = self
+                .config
+                .get_audio_config()
+                .map(|ac| format!("{:?}", ac.driver))
+                .unwrap_or_else(|| "None".to_string());
+            log::info!(
+                "Audio driver not set; driver type = {}. \
+                 Launcher should call set_audio_driver() before create().",
+                driver_type
+            );
+        }
 
         // Initialize states (creates PlayerResource)
         self.initialize_states();
+        self.update_state_references();
 
-        // Start input polling thread
-        // Java: Thread polling = new Thread(() -> { ... input.poll(); ... });
-        // polling.start();
-        // In Rust, input.poll() requires &mut self so we cannot share
-        // BMSPlayerInputProcessor across threads directly. Instead,
-        // we call input.poll() synchronously in render() (same as the
-        // original pre-thread approach). The polling thread pattern is
-        // deferred until we adopt a channel-based architecture where
-        // winit events are forwarded to a poll thread.
+        // Input polling: done synchronously in render().
+        // Java spawns a thread that calls input.poll() once per millisecond,
+        // but in Rust, poll() requires &mut self. The synchronous approach in
+        // render() provides equivalent functionality for single-threaded rendering.
 
         // Enter initial state based on bmsfile
         if self.bmsfile.is_some() {
@@ -551,9 +600,12 @@ impl MainController {
             self.change_state(MainStateType::MusicSelect);
         }
 
-        self.last_config_save = Instant::now().elapsed().as_nanos() as i64;
+        self.trigger_ln_warning();
+        self.set_target_list();
 
-        info!("Initialization complete");
+        self.last_config_save = Instant::now();
+
+        info!("Initialization time (ms): {}", t.elapsed().as_millis());
     }
 
     /// Main render lifecycle method — called every frame.
@@ -761,15 +813,23 @@ impl MainController {
     /// Notify all state listeners of a state change.
     ///
     /// Translated from: MainController.updateMainStateListener(int)
+    ///
+    /// Java lines 951-955:
+    /// ```java
+    /// public void updateMainStateListener(int status) {
+    ///     for(MainStateListener listener : stateListener) {
+    ///         listener.update(current, status);
+    ///     }
+    /// }
+    /// ```
     pub fn update_main_state_listener(&mut self, status: i32) {
-        // Phase 5+: pass current state to listeners
-        // In Java: for(MainStateListener listener : state_listener) { listener.update(current, status); }
-        let _ = status;
-        if !self.state_listener.is_empty() {
-            log::warn!(
-                "TODO: Phase 22 - dispatch to {} state listeners",
-                self.state_listener.len()
-            );
+        if let Some(ref current) = self.current {
+            // Temporarily take the listeners to avoid borrow conflict
+            let mut listeners = std::mem::take(&mut self.state_listener);
+            for listener in listeners.iter_mut() {
+                listener.update(current.as_ref(), status);
+            }
+            self.state_listener = listeners;
         }
     }
 
@@ -978,7 +1038,7 @@ impl MainController {
         // Enter select state
         self.change_state(MainStateType::MusicSelect);
 
-        self.last_config_save = Instant::now().elapsed().as_nanos() as i64;
+        self.last_config_save = Instant::now();
     }
 
     /// Initialize IR configurations from config.
@@ -1038,13 +1098,21 @@ impl MainController {
     /// }
     /// ```
     ///
-    /// Blocked: SkinMenu and SongManagerMenu live in beatoraja-modmenu, which
-    /// beatoraja-core cannot depend on (circular dependency). This will be
-    /// resolved when the modmenu integration is wired from the launcher layer.
-    pub fn update_state_references(&mut self) {
-        // SkinMenu.init(this, player) — blocked: beatoraja-modmenu dependency
-        // SongManagerMenu.injectMusicSelector(selector) — blocked: beatoraja-modmenu dependency
-        log::info!("updateStateReferences: deferred to launcher (modmenu circular dep)");
+    /// SkinMenu and SongManagerMenu live in beatoraja-modmenu, which beatoraja-core
+    /// cannot depend on (circular dependency). The launcher provides a callback via
+    /// `set_state_references_callback()` to wire these references.
+    pub fn update_state_references(&self) {
+        if let Some(ref callback) = self.state_references_callback {
+            callback.update_references(&self.config, &self.player);
+        }
+    }
+
+    /// Set the callback for updating cross-state references.
+    ///
+    /// The launcher provides an implementation that wires SkinMenu.init()
+    /// and SongManagerMenu.injectMusicSelector() from beatoraja-modmenu.
+    pub fn set_state_references_callback(&mut self, callback: Box<dyn StateReferencesCallback>) {
+        self.state_references_callback = Some(callback);
     }
 
     /// Trigger LN warning if the player has LN-related settings.
@@ -1120,13 +1188,33 @@ impl MainController {
     /// Periodically save config if enough time has elapsed.
     ///
     /// Translated from: MainController.periodicConfigSave()
+    ///
+    /// Java lines 892-917:
+    /// ```java
+    /// private void periodicConfigSave() {
+    ///     // let's not start anything heavy during play
+    ///     if (current instanceof BMSPlayer) { return; }
+    ///     // save once every 2 minutes
+    ///     long now = System.nanoTime();
+    ///     if ((now - lastConfigSave) < 2 * 60 * 1000000000L) { return; }
+    ///     lastConfigSave = now;
+    ///     // ... write config ...
+    /// }
+    /// ```
     pub fn periodic_config_save(&mut self) {
-        let now = Instant::now().elapsed().as_nanos() as i64;
-        if now - self.last_config_save > 60_000_000_000 {
-            // 60 seconds in nanoseconds
-            self.save_config();
-            self.last_config_save = now;
+        // Skip during play to avoid I/O during gameplay
+        if self.get_current_state_type() == Some(MainStateType::Play) {
+            return;
         }
+
+        // Save once every 2 minutes (Java: 2 * 60 * 1000000000L ns)
+        let elapsed = self.last_config_save.elapsed();
+        if elapsed.as_secs() < 120 {
+            return;
+        }
+
+        self.last_config_save = Instant::now();
+        self.save_config();
     }
 
     /// Update difficulty table data in a background thread.
@@ -1907,7 +1995,7 @@ mod tests {
 
     #[test]
     fn test_update_state_references_does_not_panic() {
-        let mut mc = make_test_controller();
+        let mc = make_test_controller();
         mc.update_state_references();
     }
 
@@ -2006,5 +2094,174 @@ mod tests {
         let audio = mc.get_audio_processor_mut().unwrap();
         audio.play_path("/test/sound.wav", 0.8, false);
         assert!(!audio.is_playing_path("/test/sound.wav"));
+    }
+
+    // --- Phase 24f: update_main_state_listener tests ---
+
+    use std::sync::{Arc, Mutex};
+
+    /// A mock listener that records calls.
+    struct MockStateListener {
+        calls: Arc<Mutex<Vec<(Option<MainStateType>, i32)>>>,
+    }
+
+    impl MockStateListener {
+        fn new(calls: Arc<Mutex<Vec<(Option<MainStateType>, i32)>>>) -> Self {
+            Self { calls }
+        }
+    }
+
+    impl MainStateListener for MockStateListener {
+        fn update(&mut self, state: &dyn MainState, status: i32) {
+            self.calls
+                .lock()
+                .unwrap()
+                .push((state.state_type(), status));
+        }
+    }
+
+    #[test]
+    fn test_update_main_state_listener_dispatches_to_listeners() {
+        let mut mc = make_test_controller();
+        let calls = Arc::new(Mutex::new(Vec::new()));
+
+        mc.add_state_listener(Box::new(MockStateListener::new(calls.clone())));
+        mc.change_state(MainStateType::MusicSelect);
+
+        // The transition_to_state calls update_main_state_listener(0) internally,
+        // so we should already have one call.
+        let recorded = calls.lock().unwrap();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0], (Some(MainStateType::MusicSelect), 0));
+    }
+
+    #[test]
+    fn test_update_main_state_listener_multiple_listeners() {
+        let mut mc = make_test_controller();
+        let calls1 = Arc::new(Mutex::new(Vec::new()));
+        let calls2 = Arc::new(Mutex::new(Vec::new()));
+
+        mc.add_state_listener(Box::new(MockStateListener::new(calls1.clone())));
+        mc.add_state_listener(Box::new(MockStateListener::new(calls2.clone())));
+
+        mc.change_state(MainStateType::Config);
+
+        assert_eq!(calls1.lock().unwrap().len(), 1);
+        assert_eq!(calls2.lock().unwrap().len(), 1);
+        assert_eq!(calls1.lock().unwrap()[0], (Some(MainStateType::Config), 0));
+        assert_eq!(calls2.lock().unwrap()[0], (Some(MainStateType::Config), 0));
+    }
+
+    #[test]
+    fn test_update_main_state_listener_no_state_no_dispatch() {
+        let mut mc = make_test_controller();
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        mc.add_state_listener(Box::new(MockStateListener::new(calls.clone())));
+
+        // No current state → no dispatch
+        mc.update_main_state_listener(0);
+        assert!(calls.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_update_main_state_listener_preserves_status() {
+        let mut mc = make_test_controller();
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        mc.add_state_listener(Box::new(MockStateListener::new(calls.clone())));
+
+        mc.change_state(MainStateType::Result);
+        // Clear the initial call from transition
+        calls.lock().unwrap().clear();
+
+        // Manual call with custom status
+        mc.update_main_state_listener(42);
+
+        let recorded = calls.lock().unwrap();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0], (Some(MainStateType::Result), 42));
+    }
+
+    // --- Phase 24f: StateReferencesCallback tests ---
+
+    struct MockReferencesCallback {
+        called: Arc<Mutex<bool>>,
+    }
+
+    impl StateReferencesCallback for MockReferencesCallback {
+        fn update_references(&self, _config: &Config, _player: &PlayerConfig) {
+            *self.called.lock().unwrap() = true;
+        }
+    }
+
+    #[test]
+    fn test_update_state_references_calls_callback() {
+        let mut mc = make_test_controller();
+        let called = Arc::new(Mutex::new(false));
+        mc.set_state_references_callback(Box::new(MockReferencesCallback {
+            called: called.clone(),
+        }));
+
+        mc.update_state_references();
+        assert!(*called.lock().unwrap());
+    }
+
+    #[test]
+    fn test_update_state_references_without_callback_does_not_panic() {
+        let mc = make_test_controller();
+        mc.update_state_references();
+        // Should not panic
+    }
+
+    // --- Phase 24f: periodic_config_save tests ---
+
+    #[test]
+    fn test_periodic_config_save_skips_during_play() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::Play);
+        // Set last_config_save to a long time ago to ensure it would trigger otherwise
+        mc.last_config_save = Instant::now() - std::time::Duration::from_secs(300);
+
+        // Should skip because current state is Play
+        mc.periodic_config_save();
+        // Verify it was NOT reset (still old)
+        assert!(mc.last_config_save.elapsed().as_secs() >= 299);
+    }
+
+    #[test]
+    fn test_periodic_config_save_does_not_trigger_within_interval() {
+        let mut mc = make_test_controller();
+        mc.change_state(MainStateType::MusicSelect);
+        mc.last_config_save = Instant::now();
+
+        // Should not trigger because less than 2 minutes elapsed
+        mc.periodic_config_save();
+        // last_config_save should not have changed significantly
+        assert!(mc.last_config_save.elapsed().as_millis() < 100);
+    }
+
+    // --- Phase 24f: add_state_listener tests ---
+
+    #[test]
+    fn test_add_state_listener() {
+        let mut mc = make_test_controller();
+        assert!(mc.state_listener.is_empty());
+
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        mc.add_state_listener(Box::new(MockStateListener::new(calls)));
+        assert_eq!(mc.state_listener.len(), 1);
+    }
+
+    // --- Phase 24f: create() calls update_state_references ---
+
+    #[test]
+    fn test_create_calls_update_state_references() {
+        let mut mc = make_test_controller();
+        let called = Arc::new(Mutex::new(false));
+        mc.set_state_references_callback(Box::new(MockReferencesCallback {
+            called: called.clone(),
+        }));
+
+        mc.create();
+        assert!(*called.lock().unwrap());
     }
 }
