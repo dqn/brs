@@ -85,12 +85,13 @@ All phases complete. **1241 tests pass. Zero runtime `todo!()`/`unimplemented!()
 | 18e-1 | Cross-crate stub dedup: `ImGuiNotify` centralized in beatoraja-types, `Random`/`LR2Random` → beatoraja-pattern |
 | 18e-2 | Lifecycle stub replacement: MainController removed from 7/8 crates, PlayerResource wrapper complete for all 6 crates, `PlayerResourceAccess` trait (32 methods), stub types resolved (FloatArray/GdxArray/GrooveGaugeStub → real) |
 | 18e-3 | Modmenu skin stub replacement: SkinHeader/CustomOption/CustomFile/CustomOffset/CustomCategory + loaders (JSON/LR2/Lua) replaced with real beatoraja-skin re-exports, ~170 lines removed, conversion helpers added |
+| 18e-4 | PlayDataAccessor stub replacement: `pub use` from beatoraja-core, model-based convenience methods, course methods, `null()` constructor, `compute_constraint_values` implemented, IntArray→Vec<i32> |
 | 18f | E2E test activation: 9 test files, 138 tests. `build_judge_notes()` time ordering fix |
 | 18g | BRD replay codec: gzip-compressed JSON, `read_brd()`/`write_brd()` + course variants |
 
 ## Remaining Stubs
 
-- **MainController:** result (6 methods actively used, blocked on type mismatches), md-processor (intentional adapter, deferred), modmenu (3-method stub: get_config, get_player_config, save_config — until real MainController exists)
+- **MainController:** result (6 methods actively used, PlayDataAccessor resolved in 18e-4, remaining blockers: BMSPlayerInputProcessor/IRConnection), md-processor (intentional adapter, deferred), modmenu (3-method stub: get_config, get_player_config, save_config — until real MainController exists)
 - **Remaining stubs.rs:** lifecycle stubs, cross-crate re-exports, skin/rendering types (modmenu: Skin/SkinObject stubs — real SkinObject is incompatible enum)
 - **Platform:** Windows named pipe (not yet implemented)
 
@@ -146,3 +147,4 @@ All phases complete. **1241 tests pass. Zero runtime `todo!()`/`unimplemented!()
 - **PlayerResource migration:** Trait-only methods → direct `Box<dyn PlayerResourceAccess>`. Non-optional→optional → update callers for `Option<>`. Crate-local methods → wrapper struct + extra fields. `&mut T` not on trait → get/clone/set. Uncalled methods → delete. Trait expanded to 32 methods (3 mutable getters). `NullPlayerResource` needs fields for `&mut` returns.
 - **Empty marker trait:** Dead `MainState` with unused `get_main()` → remove method, keep empty trait. Callers use `_` prefix.
 - **Modmenu skin config migration:** `String`→`Option<String>`, wrap in `Some()`, `is_some_and()` for comparison, `iter().flatten()` for iteration. `PlayerConfig.skin`: `Vec<Option<SkinConfig>>`. `get_play_config`: `&Mode`→`Mode` (add `.clone()`). `read_all_player_id`: free function, not associated method.
+- **PlayDataAccessor model-based methods:** Real impl uses hash-based signatures (`sha256: &str`), but callers use `BMSModel`. Solution: add model-based convenience methods that extract `sha256` and delegate. Course methods concatenate first-10-chars of each model hash. `null()` constructor with all `Option` fields = `None` for stub returns. `OnceLock` won't work (rusqlite::Connection isn't Sync) → `Box::leak`.
