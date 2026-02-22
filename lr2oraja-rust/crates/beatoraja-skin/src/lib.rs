@@ -62,3 +62,7 @@ pub mod skin_timing_visualizer;
 pub mod json;
 pub mod lr2;
 pub mod lua;
+
+// Test helpers
+#[cfg(test)]
+pub(crate) mod test_helpers;

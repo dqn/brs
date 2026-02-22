@@ -251,3 +251,291 @@ impl SkinTextImageSourceRegion {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::skin_object::SkinObjectRenderer;
+    use crate::stubs::{Color, Rectangle, Texture, TextureRegion};
+
+    /// Helper: create a SkinTextImageSource with pre-populated glyph images.
+    /// Inserts ASCII glyphs (char codes) mapping to TextureRegions with known widths.
+    fn make_source_with_glyphs(
+        glyph_widths: &[(char, i32)],
+        size: i32,
+        margin: i32,
+    ) -> SkinTextImageSource {
+        let mut source = SkinTextImageSource::new(false);
+        source.set_size(size);
+        source.set_margin(margin);
+
+        let tex = Texture {
+            width: 512,
+            height: 512,
+            disposed: false,
+        };
+
+        // For each glyph, pre-insert it into regions with an image already set
+        for &(ch, w) in glyph_widths {
+            let code = ch as i32;
+            let region = TextureRegion {
+                region_width: w,
+                region_height: size,
+                u: 0.0,
+                v: 0.0,
+                u2: w as f32 / 512.0,
+                v2: size as f32 / 512.0,
+                texture: Some(tex.clone()),
+                ..TextureRegion::default()
+            };
+            // Pre-insert with image already populated
+            source.regions.insert(
+                code,
+                SkinTextImageSourceRegion {
+                    id: 0,
+                    x: 0,
+                    y: 0,
+                    w,
+                    h: size,
+                    image: Some(region),
+                },
+            );
+        }
+
+        source
+    }
+
+    /// Helper: set up a single-destination SkinObjectData so prepare() sets draw=true.
+    fn setup_data(data: &mut crate::skin_object::SkinObjectData, x: f32, y: f32, w: f32, h: f32) {
+        data.set_destination_with_int_timer_ops(
+            0,
+            x,
+            y,
+            w,
+            h,
+            0,
+            255,
+            255,
+            255,
+            255,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            &[0],
+        );
+    }
+
+    #[test]
+    fn test_skin_text_image_draw_basic_glyph_layout() {
+        // "AB" with glyph widths A=20, B=30, size=40, margin=0
+        let source = make_source_with_glyphs(&[('A', 20), ('B', 30)], 40, 0);
+        let mut sti = SkinTextImage::new(source);
+        setup_data(&mut sti.text_data.data, 100.0, 200.0, 500.0, 40.0);
+
+        sti.set_text("AB".to_string());
+        assert_eq!(sti.textwidth, 50.0); // 20 + 30
+
+        // Manually set draw state
+        sti.text_data.data.draw = true;
+        sti.text_data.data.region = Rectangle::new(100.0, 200.0, 500.0, 40.0);
+        sti.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        sti.draw_with_offset(&mut renderer, 0.0, 0.0);
+
+        // 2 glyphs = 2 quads = 12 vertices
+        assert_eq!(renderer.sprite.vertices().len(), 12);
+
+        let verts = renderer.sprite.vertices();
+        // width = textwidth * region.height / source_size + margin * texts.size
+        // width = 50 * 40 / 40 + 0 * 2 = 50
+        // scale = min(1.0, 500/50) = 1.0
+        // x = region.x = 100 (align=0, left)
+        // Glyph A: tw = 20 * 1.0 * 40 / 40 = 20, at x=100
+        assert!((verts[0].position[0] - 100.01).abs() < 0.02);
+        // Glyph B: tw = 30 * 1.0 * 40 / 40 = 30, at x=100+20+0=120
+        assert!((verts[6].position[0] - 120.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_text_image_draw_alignment_right() {
+        let source = make_source_with_glyphs(&[('X', 10)], 20, 0);
+        let mut sti = SkinTextImage::new(source);
+        sti.text_data.set_align(2); // right
+        setup_data(&mut sti.text_data.data, 100.0, 0.0, 200.0, 20.0);
+
+        sti.set_text("X".to_string());
+        sti.text_data.data.draw = true;
+        sti.text_data.data.region = Rectangle::new(100.0, 0.0, 200.0, 20.0);
+        sti.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        sti.draw_with_offset(&mut renderer, 0.0, 0.0);
+
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+
+        // width = 10 * 20 / 20 + 0 * 1 = 10
+        // scale = 1.0 (200 > 10)
+        // align=2: x = region.x - width*scale = 100 - 10 = 90
+        let v0 = &renderer.sprite.vertices()[0];
+        assert!((v0.position[0] - 90.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_text_image_draw_alignment_center() {
+        let source = make_source_with_glyphs(&[('Y', 10)], 20, 0);
+        let mut sti = SkinTextImage::new(source);
+        sti.text_data.set_align(1); // center
+        setup_data(&mut sti.text_data.data, 100.0, 0.0, 200.0, 20.0);
+
+        sti.set_text("Y".to_string());
+        sti.text_data.data.draw = true;
+        sti.text_data.data.region = Rectangle::new(100.0, 0.0, 200.0, 20.0);
+        sti.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        sti.draw_with_offset(&mut renderer, 0.0, 0.0);
+
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+
+        // width = 10 * 20 / 20 + 0 * 1 = 10
+        // scale = 1.0
+        // align=1: x = region.x - width*scale/2 = 100 - 5 = 95
+        let v0 = &renderer.sprite.vertices()[0];
+        assert!((v0.position[0] - 95.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_text_image_draw_scaling_when_exceeds_width() {
+        // Create text wider than region to trigger scaling
+        // "ABCDE" with each glyph w=40, size=20, margin=0
+        let source = make_source_with_glyphs(
+            &[('A', 40), ('B', 40), ('C', 40), ('D', 40), ('E', 40)],
+            20,
+            0,
+        );
+        let mut sti = SkinTextImage::new(source);
+        setup_data(&mut sti.text_data.data, 0.0, 0.0, 100.0, 20.0);
+
+        sti.set_text("ABCDE".to_string());
+        // textwidth = 200 (5 glyphs * 40)
+        assert_eq!(sti.textwidth, 200.0);
+
+        sti.text_data.data.draw = true;
+        sti.text_data.data.region = Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        sti.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        sti.draw_with_offset(&mut renderer, 0.0, 0.0);
+
+        // 5 glyphs = 30 vertices
+        assert_eq!(renderer.sprite.vertices().len(), 30);
+
+        // width = 200 * 20 / 20 + 0 * 5 = 200
+        // scale = 100 / 200 = 0.5
+        // Each glyph tw = 40 * 0.5 * 20 / 20 = 20
+        // Total rendered width = 5 * 20 = 100 (fits in region)
+        let verts = renderer.sprite.vertices();
+        // Glyph A at x=0
+        assert!((verts[0].position[0] - 0.01).abs() < 0.02);
+        // Glyph B at x = 0 + 20 = 20
+        assert!((verts[6].position[0] - 20.01).abs() < 0.02);
+        // Glyph C at x = 0 + 40 = 40
+        assert!((verts[12].position[0] - 40.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_text_image_draw_with_margin() {
+        // "AB" with glyph widths A=20, B=30, size=40, margin=5
+        let source = make_source_with_glyphs(&[('A', 20), ('B', 30)], 40, 5);
+        let mut sti = SkinTextImage::new(source);
+        setup_data(&mut sti.text_data.data, 10.0, 20.0, 500.0, 40.0);
+
+        sti.set_text("AB".to_string());
+        sti.text_data.data.draw = true;
+        sti.text_data.data.region = Rectangle::new(10.0, 20.0, 500.0, 40.0);
+        sti.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        sti.draw_with_offset(&mut renderer, 0.0, 0.0);
+
+        assert_eq!(renderer.sprite.vertices().len(), 12);
+
+        // width = 50 * 40/40 + 5 * 2 = 50 + 10 = 60
+        // scale = 1.0 (500 > 60)
+        // Glyph A: tw = 20 * 1.0 * 40/40 = 20, at x=10
+        let verts = renderer.sprite.vertices();
+        assert!((verts[0].position[0] - 10.01).abs() < 0.02);
+        // Glyph B: at x = 10 + 20 + 5*1.0 = 35
+        assert!((verts[6].position[0] - 35.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_text_image_draw_with_offset() {
+        let source = make_source_with_glyphs(&[('Z', 16)], 32, 0);
+        let mut sti = SkinTextImage::new(source);
+        setup_data(&mut sti.text_data.data, 50.0, 60.0, 200.0, 32.0);
+
+        sti.set_text("Z".to_string());
+        sti.text_data.data.draw = true;
+        sti.text_data.data.region = Rectangle::new(50.0, 60.0, 200.0, 32.0);
+        sti.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        sti.draw_with_offset(&mut renderer, 7.0, 11.0);
+
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+        // x = region.x + dx + offset_x = 50 + 0 + 7 = 57
+        // y = region.y + offset_y = 60 + 11 = 71
+        let v0 = &renderer.sprite.vertices()[0];
+        assert!((v0.position[0] - 57.01).abs() < 0.02);
+        assert!((v0.position[1] - 71.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_text_image_draw_zero_source_size_returns_early() {
+        // source size=0 should return early without drawing
+        let source = make_source_with_glyphs(&[('A', 20)], 0, 0);
+        let mut sti = SkinTextImage::new(source);
+        sti.text_data.data.draw = true;
+        sti.text_data.data.region = Rectangle::new(0.0, 0.0, 100.0, 32.0);
+        sti.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        sti.draw_with_offset(&mut renderer, 0.0, 0.0);
+
+        // No vertices should be generated
+        assert!(renderer.sprite.vertices().is_empty());
+    }
+
+    #[test]
+    fn test_skin_text_image_draw_height_scaling() {
+        // region.height != source.size => glyphs scale proportionally
+        // glyph A w=20, size=40, region.height=80 => height doubles
+        let source = make_source_with_glyphs(&[('A', 20)], 40, 0);
+        let mut sti = SkinTextImage::new(source);
+        setup_data(&mut sti.text_data.data, 0.0, 0.0, 500.0, 80.0);
+
+        sti.set_text("A".to_string());
+        sti.text_data.data.draw = true;
+        sti.text_data.data.region = Rectangle::new(0.0, 0.0, 500.0, 80.0);
+        sti.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        sti.draw_with_offset(&mut renderer, 0.0, 0.0);
+
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+        let verts = renderer.sprite.vertices();
+        // tw = glyph_width * scale * region.height / source_size
+        // tw = 20 * 1.0 * 80 / 40 = 40
+        // Quad width: v1.x - v0.x = 40
+        let glyph_width = verts[1].position[0] - verts[0].position[0];
+        assert!((glyph_width - 40.0).abs() < 0.02);
+        // Quad height: v2.y - v0.y = 80 (region.height)
+        let glyph_height = verts[2].position[1] - verts[0].position[1];
+        assert!((glyph_height - 80.0).abs() < 0.02);
+    }
+}

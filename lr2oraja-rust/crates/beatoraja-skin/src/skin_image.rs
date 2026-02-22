@@ -372,3 +372,240 @@ impl SkinImage {
         self.data.set_disposed();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::skin_object::{SkinObjectDestination, SkinObjectRenderer};
+    use crate::stubs::{Color, Rectangle, TextureRegion};
+    use crate::test_helpers::MockMainState;
+
+    /// Helper: make a TextureRegion with known dimensions.
+    fn make_region(w: i32, h: i32) -> TextureRegion {
+        TextureRegion {
+            region_width: w,
+            region_height: h,
+            u: 0.0,
+            v: 0.0,
+            u2: 1.0,
+            v2: 1.0,
+            ..TextureRegion::default()
+        }
+    }
+
+    /// Helper: set up a single-destination SkinObjectData so prepare() sets draw=true.
+    /// Uses time=0, full white color, no timer/loop/blend.
+    fn setup_data(data: &mut crate::skin_object::SkinObjectData, x: f32, y: f32, w: f32, h: f32) {
+        data.set_destination_with_int_timer_ops(
+            0,
+            x,
+            y,
+            w,
+            h,
+            0, // acc
+            255,
+            255,
+            255,
+            255,  // argb
+            0,    // blend
+            0,    // filter
+            0,    // angle
+            0,    // center
+            0,    // loop
+            0,    // timer
+            &[0], // ops
+        );
+    }
+
+    #[test]
+    fn test_skin_image_draw_basic() {
+        let region = make_region(64, 48);
+        let mut img = SkinImage::new_with_single(region);
+        setup_data(&mut img.data, 10.0, 20.0, 100.0, 50.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+        assert!(img.data.draw);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw(&mut renderer);
+
+        // Should have generated 6 vertices (one quad)
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+        // Check position: draw adds 0.01 offset (Java Windows workaround)
+        let v0 = &renderer.sprite.vertices()[0];
+        assert!((v0.position[0] - 10.01).abs() < 0.02);
+        assert!((v0.position[1] - 20.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_image_draw_with_offset() {
+        let region = make_region(32, 32);
+        let mut img = SkinImage::new_with_single(region);
+        setup_data(&mut img.data, 10.0, 20.0, 100.0, 50.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw_with_offset(&mut renderer, 5.0, 3.0);
+
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+        // Position should be region (10, 20) + offset (5, 3) + 0.01 draw offset
+        let v0 = &renderer.sprite.vertices()[0];
+        assert!((v0.position[0] - 15.01).abs() < 0.02);
+        assert!((v0.position[1] - 23.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_image_draw_movie_type_override() {
+        // Test the movie draw path by manually constructing a SkinImage with is_movie=true
+        // and injecting a current_image.
+        let region = make_region(320, 240);
+        let mut img = SkinImage {
+            data: crate::skin_object::SkinObjectData::new(),
+            image: vec![Some(Box::new(SkinSourceImage::new_single(region.clone())))],
+            ref_prop: None,
+            current_image: Some(region),
+            removed_sources: Vec::new(),
+            is_movie: true,
+        };
+        img.data.set_image_type(SkinObjectRenderer::TYPE_FFMPEG);
+        setup_data(&mut img.data, 0.0, 0.0, 100.0, 100.0);
+        // Manually set draw=true and region since we bypass prepare
+        img.data.draw = true;
+        img.data.region = Rectangle::new(0.0, 0.0, 100.0, 100.0);
+        img.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw(&mut renderer);
+
+        // After draw, imageType should be reset to 0 (Java behavior: setImageType(3) then setImageType(0))
+        assert_eq!(img.data.image_type, 0);
+        // Renderer should have had TYPE_FFMPEG (3) set during draw
+        assert_eq!(
+            renderer.sprite.get_shader_type(),
+            SkinObjectRenderer::TYPE_FFMPEG
+        );
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+    }
+
+    #[test]
+    fn test_skin_image_draw_not_drawn_when_no_image() {
+        // Create with image that has no texture region available
+        let mut img = SkinImage::new_with_image_id(999);
+        setup_data(&mut img.data, 0.0, 0.0, 100.0, 100.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+
+        // Should not draw since source returns None
+        assert!(!img.data.draw);
+    }
+
+    #[test]
+    fn test_skin_image_draw_sets_color_on_sprite() {
+        let region = make_region(32, 32);
+        let mut img = SkinImage::new_with_single(region);
+        setup_data(&mut img.data, 0.0, 0.0, 50.0, 50.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+
+        // Color should be white after prepare (255,255,255,255)
+        assert_eq!(img.data.color.r, 1.0);
+        assert_eq!(img.data.color.a, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw(&mut renderer);
+
+        // All vertices should have white color
+        for v in renderer.sprite.vertices() {
+            assert_eq!(v.color, [1.0, 1.0, 1.0, 1.0]);
+        }
+    }
+
+    #[test]
+    fn test_skin_image_draw_zero_alpha_skips() {
+        let region = make_region(32, 32);
+        let mut img = SkinImage::new_with_single(region);
+        // Set alpha=0 so draw_image_at returns early
+        img.data.dst.push(SkinObjectDestination::new(
+            0,
+            Rectangle::new(0.0, 0.0, 100.0, 100.0),
+            Color::new(1.0, 1.0, 1.0, 0.0),
+            0,
+            0,
+        ));
+        img.data.starttime = 0;
+        img.data.endtime = 0;
+        img.data.fixr = Some(Rectangle::new(0.0, 0.0, 100.0, 100.0));
+        img.data.fixc = Some(Color::new(1.0, 1.0, 1.0, 0.0));
+        img.data.fixa = 0;
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+        assert!(img.data.draw);
+        assert_eq!(img.data.color.a, 0.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw(&mut renderer);
+
+        // No vertices should be generated since alpha is 0
+        assert!(renderer.sprite.vertices().is_empty());
+    }
+
+    #[test]
+    fn test_skin_image_draw_with_offset_movie() {
+        // Test movie draw_with_offset path
+        let region = make_region(320, 240);
+        let mut img = SkinImage {
+            data: crate::skin_object::SkinObjectData::new(),
+            image: vec![Some(Box::new(SkinSourceImage::new_single(region.clone())))],
+            ref_prop: None,
+            current_image: Some(region),
+            removed_sources: Vec::new(),
+            is_movie: true,
+        };
+        img.data.set_image_type(SkinObjectRenderer::TYPE_FFMPEG);
+        // Manually set draw state
+        img.data.draw = true;
+        img.data.region = Rectangle::new(100.0, 200.0, 320.0, 240.0);
+        img.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw_with_offset(&mut renderer, 10.0, 5.0);
+
+        // After draw_with_offset for movie: imageType should be reset to 0
+        assert_eq!(img.data.image_type, 0);
+        assert_eq!(renderer.sprite.vertices().len(), 6);
+        // Position: (100+10, 200+5) = (110, 205) + 0.01
+        let v0 = &renderer.sprite.vertices()[0];
+        assert!((v0.position[0] - 110.01).abs() < 0.02);
+        assert!((v0.position[1] - 205.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_image_draw_region_dimensions() {
+        let region = make_region(64, 48);
+        let mut img = SkinImage::new_with_single(region);
+        setup_data(&mut img.data, 50.0, 60.0, 200.0, 150.0);
+
+        let state = MockMainState::default();
+        img.prepare(0, &state);
+
+        let mut renderer = SkinObjectRenderer::new();
+        img.draw(&mut renderer);
+
+        // Verify the quad spans the correct region
+        let verts = renderer.sprite.vertices();
+        // v0 = top-left, v1 = top-right, v2 = bottom-right
+        let x0 = verts[0].position[0];
+        let y0 = verts[0].position[1];
+        let x1 = verts[1].position[0];
+        let y1 = verts[2].position[1];
+        // Width = x1 - x0, Height = y1 - y0
+        assert!((x1 - x0 - 200.0).abs() < 0.02);
+        assert!((y1 - y0 - 150.0).abs() < 0.02);
+    }
+}
