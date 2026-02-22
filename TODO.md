@@ -4,7 +4,7 @@ Dependency graph order. Each module is ported only after its dependencies are co
 
 ## Completed Phases
 
-Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 16c, 17 — all complete. 1042 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 18a (core judge loop) complete. Phase 18c (audio decode API) complete. See AGENTS.md for details.
+Phases 1–12, 13a–f, 13f follow-up, 13f follow-up 2, 13g, 14, 15a–g, 16a, 16c, 17 — all complete. 1042 tests pass. Zero runtime `todo!()`/`unimplemented!()`. Phase 18a (core judge loop) complete. Phase 18c (audio decode API) complete. Phase 18g (BRD replay codec) complete. See AGENTS.md for details.
 
 ## Phase 13f: egui UI (complete)
 
@@ -78,14 +78,19 @@ Depends on: Phase 13c (rendering pipeline fully connected). Phase 13f (egui UI) 
 
 ### 18f: Integration verification
 
-- [x] Rewrite e2e test files against actual API — all 9 files rewritten and compile-verified: `e2e_judge.rs`, `course_e2e.rs`, `compare_judge.rs`, `exhaustive_e2e.rs`, `e2e_edge_cases.rs`, `timing_boundary_e2e.rs`, `replay_roundtrip_e2e.rs`, `full_pipeline_integration.rs`, `compare_replay_e2e.rs`. Old API names (`BmsDecoder`/`BmsModel`/`GaugeType` enum/`PlayerRule`/`model.total_notes()`/`score.judge_count()`) replaced with actual crate types (`BMSDecoder`/`BMSModel`/`i32` gauge constants/`BMSPlayerRule`/`model.get_total_notes()`/`score.get_judge_count_total()`). Replay tests (`replay_roundtrip_e2e.rs`, `full_pipeline_integration.rs`) adapted from BRD binary format to JSON serde round-trip because `read_brd`/`write_brd` are not yet implemented
+- [x] Rewrite e2e test files against actual API — all 9 files rewritten and compile-verified: `e2e_judge.rs`, `course_e2e.rs`, `compare_judge.rs`, `exhaustive_e2e.rs`, `e2e_edge_cases.rs`, `timing_boundary_e2e.rs`, `replay_roundtrip_e2e.rs`, `full_pipeline_integration.rs`, `compare_replay_e2e.rs`. Old API names (`BmsDecoder`/`BmsModel`/`GaugeType` enum/`PlayerRule`/`model.total_notes()`/`score.judge_count()`) replaced with actual crate types (`BMSDecoder`/`BMSModel`/`i32` gauge constants/`BMSPlayerRule`/`model.get_total_notes()`/`score.get_judge_count_total()`). Replay tests use JSON serde round-trip (can now be updated to use `ReplayData::read_brd`/`write_brd` from Phase 18g)
 - [ ] Activate remaining 13 Phase 16b pending tests — depends on 18b + 18d completing + e2e test API rewrites (18a, 18c done)
 - [ ] E2E gameplay flow test: select → decide → play → result screen transitions — blocked: requires all stubs removed and real screen implementations wired
 - [ ] Verify: all tests pass, zero clippy warnings, clean `cargo fmt` — blocked: final gate after all above tasks complete
 
-### New Issues Found
+### 18g: BRD replay file codec (complete)
 
-- [ ] Implement `read_brd`/`write_brd` for BRD binary replay format — `beatoraja_types::replay_data::ReplayData` has Serialize/Deserialize but no BRD binary codec. Replay round-trip tests currently use JSON serde as workaround. Java source: `ReplayData.java` read/write methods with custom binary format
+- [x] Implement `ReplayData::read_brd()` / `write_brd()` — standalone gzip-compressed JSON read/write on `ReplayData` in `beatoraja-types`. `write_brd()` calls `shrink()` before serialization (matching Java `PlayDataAccessor.wrireReplayData()`). `read_brd()` calls `validate()` after deserialization (matching Java `readReplayData()`). Creates parent directories automatically
+- [x] Implement `ReplayData::read_brd_course()` / `write_brd_course()` — course variant for `Vec<ReplayData>` arrays. `write_brd_course()` calls `shrink()` on each element
+- [x] Refactor `PlayDataAccessor` to delegate to `ReplayData::read_brd`/`write_brd` — removed duplicate gzip/serde logic. `write_replay_data` now takes `&mut ReplayData` (was `&ReplayData`) to support `shrink()` call. Unused imports (`BufReader`, `BufWriter`, `flate2`, `Validatable`) cleaned up
+- [x] 5 new unit tests: BRD round-trip, parent dir creation, nonexistent file error, course round-trip, shrink-on-write verification. 14 total replay_data tests pass
+
+### New Issues Found
 
 ## Remaining Stubs
 
