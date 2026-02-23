@@ -85,16 +85,19 @@ impl LuaSkinLoader {
         }
         self.json_loader.filemap = filemap;
 
-        // 3. Re-execute Lua with skin property exported
-        // lua.exportSkinProperty(header, property, pathGetter)
-        // LuaValue value = lua.execFile(p)
+        // 3. Export skin property and re-execute Lua
+        self.lua
+            .export_skin_property_from_header_data(&header, &self.json_loader.filemap);
         let value = self.lua.exec_file(p)?;
-        // sk = fromLuaValue(JsonSkin.Skin.class, value)
         let sk = from_lua_value_to_skin(&value)?;
         self.json_loader.sk = Some(sk.clone());
 
-        // 4. Load JSON skin from the Lua-produced structure
-        self.json_loader.load_skin(p, skin_type, property)
+        // 4. Convert Lua-produced structure via JSON skin pipeline
+        // Call load_json_skin directly — load_skin would re-parse the .luaskin file as JSON.
+        self.json_loader.serializer =
+            Some(crate::json::json_skin_serializer::JsonSkinSerializer::new());
+        self.json_loader
+            .load_json_skin(&header, &sk, skin_type, property, p)
     }
 }
 
@@ -111,6 +114,10 @@ impl Default for LuaSkinLoader {
 /// In Rust, we convert the Lua table → serde_json::Value → serde deserialize.
 fn from_lua_value_to_skin(lua_value: &LuaValue) -> Option<json_skin::Skin> {
     let json_value = lua_to_json(lua_value)?;
+    // Coerce numbers→strings and empty objects→arrays to match json_skin types.
+    // Java's fromLuaValue uses reflection to call toString() on String fields;
+    // Lua skins commonly use integers for id/src fields that json_skin expects as String.
+    let json_value = coerce_json_for_skin(json_value);
     match serde_json::from_value::<json_skin::Skin>(json_value) {
         Ok(skin) => Some(skin),
         Err(e) => {
@@ -118,6 +125,117 @@ fn from_lua_value_to_skin(lua_value: &LuaValue) -> Option<json_skin::Skin> {
             None
         }
     }
+}
+
+/// Keys whose values should always be JSON strings (Option<String> or String in json_skin).
+/// "id" is included here; the 3 structs where id is i32 (Offset, CustomEvent, CustomTimer)
+/// use a custom deserializer that accepts both strings and integers.
+const STRING_FIELD_KEYS: &[&str] = &[
+    "id",
+    "src",
+    "path",
+    "name",
+    "author",
+    "font",
+    "category",
+    "def",
+    "constantText",
+];
+
+/// Keys whose values should be arrays (Vec<String> in json_skin).
+/// Lua skins sometimes produce empty tables `{}` instead of empty arrays `[]`.
+/// Note: most empty-object cases are handled by removing the key (see coerce_json_for_skin),
+/// but non-empty maps that should be arrays still need explicit handling.
+const VEC_STRING_FIELD_KEYS: &[&str] = &[
+    "hidden",
+    "processed",
+    "note",
+    "lnstart",
+    "lnend",
+    "lnbody",
+    "lnbodyActive",
+    "lnactive",
+    "hcnstart",
+    "hcnend",
+    "hcnbody",
+    "hcnactive",
+    "hcnbodyActive",
+    "hcndamage",
+    "hcnbodyMiss",
+    "hcnreactive",
+    "hcnbodyReactive",
+    "mine",
+    "images",
+    "nodes",
+    "item",
+];
+
+/// Keys whose values are f32 in json_skin and should NOT be truncated.
+/// All other float values in objects are truncated to integers (matching Java's toint() behavior).
+const F32_FIELD_KEYS: &[&str] = &[
+    "gain",
+    "alpha",
+    "outlineWidth",
+    "shadowOffsetX",
+    "shadowOffsetY",
+    "shadowSmoothness",
+];
+
+/// Recursively walk a serde_json::Value tree and coerce types to match json_skin expectations.
+/// - Numbers in STRING_FIELD_KEYS positions → strings (matches Java's toString() behavior)
+/// - Floats in i32 positions → truncated to integers (matches Java's toint() behavior)
+/// - Empty objects `{}` → removed (let #[serde(default)] handle both Vec and Option fields)
+fn coerce_json_for_skin(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => {
+            let mut new_map = serde_json::Map::new();
+            for (key, val) in map {
+                // Remove empty objects entirely — Lua empty tables `{}` can't deserialize
+                // as Vec<T>; removing them lets #[serde(default)] provide Vec::new() or None.
+                if let serde_json::Value::Object(ref inner) = val
+                    && inner.is_empty()
+                {
+                    continue;
+                }
+                let coerced = coerce_value_for_key(&key, val);
+                new_map.insert(key, coerced);
+            }
+            serde_json::Value::Object(new_map)
+        }
+        serde_json::Value::Array(arr) => {
+            serde_json::Value::Array(arr.into_iter().map(coerce_json_for_skin).collect())
+        }
+        other => other,
+    }
+}
+
+fn coerce_value_for_key(key: &str, value: serde_json::Value) -> serde_json::Value {
+    // Convert numbers to strings for known string-typed fields
+    if STRING_FIELD_KEYS.contains(&key)
+        && let serde_json::Value::Number(ref n) = value
+    {
+        return serde_json::Value::String(n.to_string());
+    }
+    // Convert empty objects to empty arrays for known Vec<String> fields
+    if VEC_STRING_FIELD_KEYS.contains(&key)
+        && let serde_json::Value::Object(ref map) = value
+        && map.is_empty()
+    {
+        return serde_json::Value::Array(vec![]);
+    }
+    // Convert float-stored numbers to integers for i32 fields.
+    // Lua arithmetic produces floats (e.g. 1920/2 = 960.0, 595/3 = 198.333...);
+    // Java's toint() truncates them. serde_json can't deserialize f64 as i32.
+    if let serde_json::Value::Number(ref n) = value
+        && n.as_i64().is_none()
+        && n.as_u64().is_none()
+        && !F32_FIELD_KEYS.contains(&key)
+        && let Some(f) = n.as_f64()
+    {
+        return serde_json::json!(f as i64);
+    }
+    // Recurse into nested structures
+    coerce_json_for_skin(value)
 }
 
 /// Recursively convert a Lua value to a serde_json::Value.
@@ -137,8 +255,8 @@ fn lua_to_json(value: &LuaValue) -> Option<serde_json::Value> {
             // or an object (string keys).
             let len = table.raw_len();
             if len > 0 {
-                // Check if it's a pure sequence
-                let mut is_array = true;
+                // Check if all integer keys form a pure sequence
+                let mut has_string_key = false;
                 let mut max_key = 0i64;
                 for (key, _) in table.clone().pairs::<LuaValue, LuaValue>().flatten() {
                     match key {
@@ -148,23 +266,31 @@ fn lua_to_json(value: &LuaValue) -> Option<serde_json::Value> {
                             }
                         }
                         _ => {
-                            is_array = false;
-                            break;
+                            has_string_key = true;
                         }
                     }
                 }
-                if is_array && max_key == len as i64 {
-                    // Pure array
+                if max_key == len as i64 {
+                    // Sequential integer keys exist — extract as array.
+                    // For mixed tables (e.g. {anim1, anim2, loop=300}), Java's
+                    // fromLuaValue extracts only the array portion; named keys
+                    // are ignored. This matches that behavior.
                     let mut arr = Vec::with_capacity(len);
                     for i in 1..=len {
                         let val: LuaValue = table.raw_get(i).unwrap_or(LuaValue::Nil);
                         arr.push(lua_to_json(&val).unwrap_or(serde_json::Value::Null));
                     }
+                    if has_string_key {
+                        log::debug!(
+                            "lua_to_json: mixed table with {} sequential + string keys; extracting array",
+                            len
+                        );
+                    }
                     return Some(serde_json::Value::Array(arr));
                 }
             }
 
-            // Object or mixed table: convert to JSON object
+            // Object: string keys only (or non-sequential integer keys)
             let mut map = serde_json::Map::new();
             for (key, val) in table.clone().pairs::<LuaValue, LuaValue>().flatten() {
                 let key_str = match &key {

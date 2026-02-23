@@ -476,6 +476,75 @@ impl SkinLuaAccessor {
         }
     }
 
+    /// Export skin_config to Lua from a SkinHeaderData (JSON/Lua skin pipeline).
+    /// Corresponds to Java: SkinLuaAccessor.exportSkinProperty(SkinHeader, Property, pathGetter)
+    pub fn export_skin_property_from_header_data(
+        &self,
+        header: &crate::json::json_skin_loader::SkinHeaderData,
+        filemap: &std::collections::HashMap<String, String>,
+    ) {
+        let result: Result<(), LuaError> = (|| {
+            let table = self.lua.create_table()?;
+
+            // file_path table
+            let file_path_table = self.lua.create_table()?;
+            for file in &header.custom_files {
+                if let Some(ref selected) = file.selected_filename {
+                    file_path_table.set(file.path.as_str(), selected.as_str())?;
+                }
+            }
+            table.set("file_path", file_path_table)?;
+
+            // get_path function
+            let filemap_clone = filemap.clone();
+            let get_path_fn = self.lua.create_function(move |_, path: String| {
+                let result = crate::skin_loader::get_path(&path, &filemap_clone);
+                Ok(result.to_string_lossy().to_string())
+            })?;
+            table.set("get_path", get_path_fn)?;
+
+            // options table and enabled_options array
+            // Java: when selectedOption is RANDOM_VALUE (-1) or unset (0), pick first valid op.
+            let options_table = self.lua.create_table()?;
+            let enabled_options_table = self.lua.create_table()?;
+            let mut idx = 1;
+            for option in &header.custom_options {
+                let opvalue = if option.option.contains(&option.selected_option) {
+                    option.selected_option
+                } else if !option.option.is_empty() {
+                    option.option[0]
+                } else {
+                    option.selected_option
+                };
+                options_table.set(option.name.as_str(), opvalue)?;
+                enabled_options_table.set(idx, opvalue)?;
+                idx += 1;
+            }
+            table.set("option", options_table)?;
+            table.set("enabled_options", enabled_options_table)?;
+
+            // offsets table (all defaults — actual values set by setSkinConfigProperty)
+            let offsets_table = self.lua.create_table()?;
+            for offset_def in &header.custom_offsets {
+                let offset_table = self.lua.create_table()?;
+                offset_table.set("x", 0.0)?;
+                offset_table.set("y", 0.0)?;
+                offset_table.set("w", 0.0)?;
+                offset_table.set("h", 0.0)?;
+                offset_table.set("r", 0.0)?;
+                offset_table.set("a", 0.0)?;
+                offsets_table.set(offset_def.name.as_str(), offset_table)?;
+            }
+            table.set("offset", offsets_table)?;
+
+            self.lua.globals().set("skin_config", table)?;
+            Ok(())
+        })();
+        if let Err(e) = result {
+            log::warn!("Failed to export skin property to Lua: {}", e);
+        }
+    }
+
     /// Get a reference to the underlying Lua VM
     pub fn lua(&self) -> &Lua {
         &self.lua

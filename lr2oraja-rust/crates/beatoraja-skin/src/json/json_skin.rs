@@ -1,7 +1,7 @@
 // Mechanical translation of JsonSkin.java
 // JSON skin model/data classes
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Corresponds to JsonSkin.Skin
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -101,6 +101,7 @@ pub struct Filepath {
 pub struct Offset {
     pub category: Option<String>,
     pub name: Option<String>,
+    #[serde(deserialize_with = "deserialize_i32_lenient", default)]
     pub id: i32,
     pub x: bool,
     pub y: bool,
@@ -933,6 +934,7 @@ pub struct SkinConfigurationProperty {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CustomEvent {
+    #[serde(deserialize_with = "deserialize_i32_lenient", default)]
     pub id: i32,
     pub action: Option<i32>,
     pub condition: Option<i32>,
@@ -944,6 +946,37 @@ pub struct CustomEvent {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CustomTimer {
+    #[serde(deserialize_with = "deserialize_i32_lenient", default)]
     pub id: i32,
     pub timer: Option<i32>,
+}
+
+/// Deserialize an i32 that may come as either a JSON number or a string.
+/// Lua skin coercion converts "id" numbers to strings; this allows Offset/CustomEvent/CustomTimer
+/// id fields (which are i32) to still deserialize correctly from string-coerced values.
+fn deserialize_i32_lenient<'de, D>(deserializer: D) -> Result<i32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de;
+    struct I32LenientVisitor;
+    impl<'de> de::Visitor<'de> for I32LenientVisitor {
+        type Value = i32;
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("an integer or string-encoded integer")
+        }
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<i32, E> {
+            Ok(v as i32)
+        }
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<i32, E> {
+            Ok(v as i32)
+        }
+        fn visit_f64<E: de::Error>(self, v: f64) -> Result<i32, E> {
+            Ok(v as i32)
+        }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<i32, E> {
+            v.parse::<i32>().map_err(de::Error::custom)
+        }
+    }
+    deserializer.deserialize_any(I32LenientVisitor)
 }

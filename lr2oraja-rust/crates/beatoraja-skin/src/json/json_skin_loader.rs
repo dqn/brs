@@ -416,7 +416,7 @@ impl JSONSkinLoader {
         enabled
     }
 
-    fn load_json_skin(
+    pub(crate) fn load_json_skin(
         &mut self,
         header: &SkinHeaderData,
         sk: &json_skin::Skin,
