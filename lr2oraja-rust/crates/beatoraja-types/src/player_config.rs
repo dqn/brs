@@ -260,6 +260,18 @@ impl Default for PlayerConfig {
 }
 
 impl PlayerConfig {
+    pub fn get_play_config_ref(&self, mode_id: Mode) -> &PlayModeConfig {
+        match mode_id {
+            Mode::BEAT_5K => &self.mode5,
+            Mode::BEAT_7K => &self.mode7,
+            Mode::BEAT_10K => &self.mode10,
+            Mode::BEAT_14K => &self.mode14,
+            Mode::POPN_5K | Mode::POPN_9K => &self.mode9,
+            Mode::KEYBOARD_24K => &self.mode24,
+            Mode::KEYBOARD_24K_DOUBLE => &self.mode24double,
+        }
+    }
+
     pub fn get_play_config(&mut self, mode_id: Mode) -> &mut PlayModeConfig {
         match mode_id {
             Mode::BEAT_5K => &mut self.mode5,

@@ -867,6 +867,71 @@ impl BMSPlayer {
         None
     }
 
+    /// Calculate non-modifier assist flags (BPM guide, custom judge, constant speed).
+    ///
+    /// Corresponds to Java BMSPlayer constructor lines 269-301.
+    /// This method checks assist conditions that are NOT from pattern modifiers:
+    /// 1. BPM guide with variable BPM → LightAssist (assist=1)
+    /// 2. Custom judge with any window rate > 100 → Assist (assist=2)
+    /// 3. Constant speed enabled → Assist (assist=2)
+    ///
+    /// Accumulates with any existing assist level (e.g., from `build_pattern_modifiers`).
+    /// Returns `true` if score submission is still valid (no assist triggered here).
+    pub fn calculate_non_modifier_assist(&mut self, config: &PlayerConfig) -> bool {
+        let mut score = true;
+
+        // BPM Guide check (Java lines 269-272)
+        // BPM変化がなければBPMガイドなし
+        if config.bpmguide && (self.model.get_min_bpm() < self.model.get_max_bpm()) {
+            self.assist = self.assist.max(1);
+            score = false;
+        }
+
+        // Custom Judge check (Java lines 275-280)
+        if config.custom_judge
+            && (config.key_judge_window_rate_perfect_great > 100
+                || config.key_judge_window_rate_great > 100
+                || config.key_judge_window_rate_good > 100
+                || config.scratch_judge_window_rate_perfect_great > 100
+                || config.scratch_judge_window_rate_great > 100
+                || config.scratch_judge_window_rate_good > 100)
+        {
+            self.assist = self.assist.max(2);
+            score = false;
+        }
+
+        // Constant speed check (Java lines 297-301)
+        // Constant considered as assist in Endless Dream
+        // This is a community discussion result, see https://github.com/seraxis/lr2oraja-endlessdream/issues/42
+        let mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+        if config
+            .get_play_config_ref(mode)
+            .get_playconfig()
+            .enable_constant
+        {
+            self.assist = self.assist.max(2);
+            score = false;
+        }
+
+        score
+    }
+
+    /// Get the ClearType override for the current assist level.
+    ///
+    /// Corresponds to Java BMSPlayer assist → ClearType mapping:
+    /// - assist == 0 → None (no override)
+    /// - assist == 1 → LightAssistEasy
+    /// - assist >= 2 → NoPlay
+    pub fn get_clear_type_for_assist(&self) -> Option<ClearType> {
+        if self.assist == 0 {
+            None
+        } else if self.assist == 1 {
+            Some(ClearType::LightAssistEasy)
+        } else {
+            Some(ClearType::NoPlay)
+        }
+    }
+
     /// Get mutable reference to playinfo for testing.
     #[cfg(test)]
     pub fn playinfo_mut(&mut self) -> &mut ReplayData {
@@ -2361,5 +2426,241 @@ mod tests {
         // Empty rand means no reload, store model's random
         assert!(result.is_none());
         assert_eq!(player.playinfo.rand, vec![1, 2]);
+    }
+
+    // --- calculate_non_modifier_assist tests (Phase 34d) ---
+
+    /// Helper: create a model with uniform BPM (min == max).
+    fn make_model_uniform_bpm() -> BMSModel {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_bpm(150.0);
+        model.set_judgerank(100);
+        // Single timeline at the same BPM → min == max
+        let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+        tl.set_bpm(150.0);
+        model.set_all_time_line(vec![tl]);
+        model
+    }
+
+    /// Helper: create a model with variable BPM (min < max).
+    fn make_model_variable_bpm() -> BMSModel {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_bpm(120.0);
+        model.set_judgerank(100);
+        // Two timelines with different BPMs → min != max
+        let mut tl1 = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+        tl1.set_bpm(120.0);
+        let mut tl2 = bms_model::time_line::TimeLine::new(1.0, 1_000_000, 8);
+        tl2.set_bpm(180.0);
+        model.set_all_time_line(vec![tl1, tl2]);
+        model
+    }
+
+    #[test]
+    fn non_modifier_assist_bpmguide_uniform_bpm_no_assist() {
+        let model = make_model_uniform_bpm();
+        let mut player = BMSPlayer::new(model);
+        let mut config = make_default_config();
+        config.bpmguide = true; // BPM guide enabled
+
+        let score = player.calculate_non_modifier_assist(&config);
+        // Uniform BPM: min == max → BPM guide has no effect
+        assert_eq!(player.assist, 0);
+        assert!(score, "Score should remain valid with uniform BPM");
+    }
+
+    #[test]
+    fn non_modifier_assist_bpmguide_variable_bpm_sets_light_assist() {
+        let model = make_model_variable_bpm();
+        let mut player = BMSPlayer::new(model);
+        let mut config = make_default_config();
+        config.bpmguide = true; // BPM guide enabled
+
+        let score = player.calculate_non_modifier_assist(&config);
+        // Variable BPM: min < max → assist = max(0, 1) = 1
+        assert_eq!(player.assist, 1);
+        assert!(
+            !score,
+            "Score should be invalid with BPM guide on variable BPM"
+        );
+    }
+
+    #[test]
+    fn non_modifier_assist_bpmguide_disabled_no_assist() {
+        let model = make_model_variable_bpm();
+        let mut player = BMSPlayer::new(model);
+        let config = make_default_config(); // bpmguide defaults to false
+
+        let score = player.calculate_non_modifier_assist(&config);
+        assert_eq!(player.assist, 0);
+        assert!(score);
+    }
+
+    #[test]
+    fn non_modifier_assist_custom_judge_all_rates_lte_100_no_assist() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let mut config = make_default_config();
+        config.custom_judge = true;
+        // Set all rates to <= 100
+        config.key_judge_window_rate_perfect_great = 100;
+        config.key_judge_window_rate_great = 100;
+        config.key_judge_window_rate_good = 100;
+        config.scratch_judge_window_rate_perfect_great = 100;
+        config.scratch_judge_window_rate_great = 100;
+        config.scratch_judge_window_rate_good = 100;
+
+        let score = player.calculate_non_modifier_assist(&config);
+        assert_eq!(player.assist, 0);
+        assert!(score);
+    }
+
+    #[test]
+    fn non_modifier_assist_custom_judge_one_rate_over_100_sets_assist() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let mut config = make_default_config();
+        config.custom_judge = true;
+        // Only one rate > 100
+        config.key_judge_window_rate_perfect_great = 101;
+        config.key_judge_window_rate_great = 50;
+        config.key_judge_window_rate_good = 50;
+        config.scratch_judge_window_rate_perfect_great = 50;
+        config.scratch_judge_window_rate_great = 50;
+        config.scratch_judge_window_rate_good = 50;
+
+        let score = player.calculate_non_modifier_assist(&config);
+        assert_eq!(player.assist, 2);
+        assert!(
+            !score,
+            "Score should be invalid with custom judge rate > 100"
+        );
+    }
+
+    #[test]
+    fn non_modifier_assist_custom_judge_scratch_rate_over_100_sets_assist() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let mut config = make_default_config();
+        config.custom_judge = true;
+        config.key_judge_window_rate_perfect_great = 50;
+        config.key_judge_window_rate_great = 50;
+        config.key_judge_window_rate_good = 50;
+        config.scratch_judge_window_rate_perfect_great = 50;
+        config.scratch_judge_window_rate_great = 50;
+        config.scratch_judge_window_rate_good = 200; // Only scratch good > 100
+
+        let score = player.calculate_non_modifier_assist(&config);
+        assert_eq!(player.assist, 2);
+        assert!(!score);
+    }
+
+    #[test]
+    fn non_modifier_assist_custom_judge_disabled_no_assist() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let mut config = make_default_config();
+        config.custom_judge = false; // Disabled
+        // Even with high rates, custom judge is off
+        config.key_judge_window_rate_perfect_great = 400;
+
+        let score = player.calculate_non_modifier_assist(&config);
+        assert_eq!(player.assist, 0);
+        assert!(score);
+    }
+
+    #[test]
+    fn non_modifier_assist_constant_speed_enabled_sets_assist() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let mut config = make_default_config();
+        config.mode7.playconfig.enable_constant = true; // Enable constant speed for BEAT_7K
+
+        let score = player.calculate_non_modifier_assist(&config);
+        assert_eq!(player.assist, 2);
+        assert!(!score, "Score should be invalid with constant speed");
+    }
+
+    #[test]
+    fn non_modifier_assist_constant_speed_disabled_no_assist() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let config = make_default_config(); // enable_constant defaults to false
+
+        let score = player.calculate_non_modifier_assist(&config);
+        assert_eq!(player.assist, 0);
+        assert!(score);
+    }
+
+    #[test]
+    fn non_modifier_assist_accumulates_bpmguide_and_constant() {
+        // BPM guide → assist=1, constant → assist=max(1,2)=2
+        let model = make_model_variable_bpm();
+        let mut player = BMSPlayer::new(model);
+        let mut config = make_default_config();
+        config.bpmguide = true;
+        config.mode7.playconfig.enable_constant = true;
+
+        let score = player.calculate_non_modifier_assist(&config);
+        assert_eq!(
+            player.assist, 2,
+            "Assist should accumulate to max (BPM guide=1, constant=2)"
+        );
+        assert!(!score);
+    }
+
+    #[test]
+    fn non_modifier_assist_preserves_existing_assist() {
+        // If assist was already set to 1 by pattern modifiers, non-modifier check
+        // should keep the max
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.assist = 1; // Pre-set by pattern modifiers
+
+        let mut config = make_default_config();
+        config.mode7.playconfig.enable_constant = true; // Would set assist=2
+
+        let score = player.calculate_non_modifier_assist(&config);
+        assert_eq!(player.assist, 2, "Assist should be max(1, 2) = 2");
+        assert!(!score);
+    }
+
+    // --- get_clear_type_for_assist tests (Phase 34d) ---
+
+    #[test]
+    fn clear_type_for_assist_0_returns_none() {
+        let model = make_model();
+        let player = BMSPlayer::new(model);
+        // assist defaults to 0
+        assert!(player.get_clear_type_for_assist().is_none());
+    }
+
+    #[test]
+    fn clear_type_for_assist_1_returns_light_assist_easy() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.assist = 1;
+        assert_eq!(
+            player.get_clear_type_for_assist(),
+            Some(ClearType::LightAssistEasy)
+        );
+    }
+
+    #[test]
+    fn clear_type_for_assist_2_returns_noplay() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.assist = 2;
+        assert_eq!(player.get_clear_type_for_assist(), Some(ClearType::NoPlay));
+    }
+
+    #[test]
+    fn clear_type_for_assist_3_returns_noplay() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.assist = 3; // Any value >= 2 should be NoPlay
+        assert_eq!(player.get_clear_type_for_assist(), Some(ClearType::NoPlay));
     }
 }
