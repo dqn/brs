@@ -60,9 +60,9 @@ Resolves: `render_snapshot_ecfn_result_clear`, `_result_fail`, `_play14_active`,
 
 `compare_render_snapshot.rs` の残り 4 テストのブロッカー解消。
 
-- **32a:** `SkinNote` — 演奏中の落下ノートオブジェクト型
-- **32b:** `SkinBar` — 選曲画面の難易度バーオブジェクト型
-- **32c:** `SkinJudge` — 判定フィードバックオブジェクト型
+- [x] **32a:** `SkinNote` — SkinObject::Note variant + skin_data_converter 変換
+- [x] **32b:** `SkinBar` — SkinObject::Bar variant + skin_data_converter 変換
+- [x] **32c:** `SkinJudge` — SkinObject::Judge variant + skin_data_converter 変換
 
 Resolves: `rust_only_snapshot_ecfn_play7_mid_song`, `_select_with_song`, `skin_state_objects_play_has_note_judge`, `skin_state_objects_select_has_bar`
 
