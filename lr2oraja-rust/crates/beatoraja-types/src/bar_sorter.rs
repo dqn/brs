@@ -26,6 +26,25 @@ impl BarSorter {
         BarSorterEntry { name: "DATE" },
         BarSorterEntry { name: "LEVEL" },
     ];
+
+    pub const ALL_SORTER: &'static [BarSorterEntry] = &[
+        BarSorterEntry { name: "TITLE" },
+        BarSorterEntry { name: "ARTIST" },
+        BarSorterEntry { name: "BPM" },
+        BarSorterEntry { name: "LENGTH" },
+        BarSorterEntry { name: "LEVEL" },
+        BarSorterEntry { name: "CLEAR" },
+        BarSorterEntry { name: "SCORE" },
+        BarSorterEntry { name: "MISSCOUNT" },
+        BarSorterEntry { name: "DURATION" },
+        BarSorterEntry { name: "LASTUPDATE" },
+        BarSorterEntry {
+            name: "RIVALCOMPARECLEAR",
+        },
+        BarSorterEntry {
+            name: "RIVALCOMPARESCORE",
+        },
+    ];
 }
 
 #[cfg(test)]

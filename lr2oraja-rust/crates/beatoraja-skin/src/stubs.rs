@@ -33,6 +33,90 @@ pub trait MainState {
     fn boolean_value(&self, _id: i32) -> bool {
         false
     }
+
+    // ============================================================
+    // Event-facing methods (Phase 41h)
+    // These provide mutable config access for EventFactory events.
+    // Default implementations log warnings; real implementations
+    // are provided by concrete MainState types (MusicSelector, etc.)
+    // ============================================================
+
+    /// Returns true if this state is a MusicSelector.
+    fn is_music_selector(&self) -> bool {
+        false
+    }
+
+    /// Returns mutable reference to the player config.
+    /// Returns None if config is not available (e.g., stub state).
+    fn get_player_config_mut(
+        &mut self,
+    ) -> Option<&mut beatoraja_types::player_config::PlayerConfig> {
+        None
+    }
+
+    /// Returns immutable reference to the player config.
+    /// Returns None if config is not available (e.g., stub state).
+    fn get_player_config_ref(&self) -> Option<&beatoraja_types::player_config::PlayerConfig> {
+        None
+    }
+
+    /// Returns mutable reference to the global config.
+    /// Returns None if config is not available.
+    fn get_config_mut(&mut self) -> Option<&mut beatoraja_types::config::Config> {
+        None
+    }
+
+    /// Returns immutable reference to the global config.
+    fn get_config_ref(&self) -> Option<&beatoraja_types::config::Config> {
+        None
+    }
+
+    /// Returns mutable reference to the currently selected bar's PlayConfig.
+    /// Only available for MusicSelector; returns None for other states.
+    fn get_selected_play_config_mut(
+        &mut self,
+    ) -> Option<&mut beatoraja_types::play_config::PlayConfig> {
+        None
+    }
+
+    /// Returns immutable reference to the currently selected bar's PlayConfig.
+    fn get_selected_play_config_ref(&self) -> Option<&beatoraja_types::play_config::PlayConfig> {
+        None
+    }
+
+    /// Play the OPTION_CHANGE system sound.
+    fn play_option_change_sound(&mut self) {
+        // default no-op
+    }
+
+    /// Update the bar manager after a config change (e.g., mode filter, sort).
+    /// Only meaningful for MusicSelector.
+    fn update_bar_after_change(&mut self) {
+        // default no-op
+    }
+
+    /// Execute a custom event by ID with arguments.
+    /// Delegates to state.executeEvent(id, arg1, arg2) in Java.
+    fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
+        log::warn!(
+            "not yet implemented: MainState.execute_event(id={}, arg1={}, arg2={})",
+            id,
+            arg1,
+            arg2
+        );
+    }
+
+    /// Change the application state (e.g., to CONFIG, SKINCONFIG).
+    /// Only meaningful when MainController is available.
+    fn change_state(&mut self, _state_type: beatoraja_types::main_state_type::MainStateType) {
+        log::warn!("not yet implemented: MainState.change_state");
+    }
+
+    /// Select a song with the given play mode.
+    /// Only meaningful for MusicSelector.
+    fn select_song(&mut self, _mode: beatoraja_core::bms_player_mode::BMSPlayerMode) {
+        // default no-op
+    }
 }
 
 /// Stub for beatoraja.MainController
