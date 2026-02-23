@@ -84,7 +84,7 @@ lr2oraja-rust/       # Cargo workspace
 
 ## Status
 
-**1793 tests, 9 ignored.** Phases 1–28e complete. Zero clippy warnings. Phase 29a next.
+**1759 tests, 22 ignored.** Phases 1–29c complete. Zero clippy warnings. Phase 29d next.
 
 ## Remaining Stubs (10 `stubs.rs` files, ~2,600 lines)
 
@@ -112,4 +112,5 @@ lr2oraja-rust/       # Cargo workspace
 - **API mismatch:** `String`↔`Option<String>` → `.unwrap_or_default()`; `&self`↔`&mut self` → scoped block / `Box::leak`.
 - **Libraries:** winit (`resumed`/`RedrawRequested`/`Poll`), wgpu (direct, `pollster::block_on()`), Kira 0.12, mlua (`load("return "+s)`), egui (`RenderPass::forget_lifetime()`).
 - **Patterns:** `OnceLock` for `&T`, `Box::leak` for `&mut T`. CRC32 poly `0xEDB88320` + `\\\0`. RobustFile: double-write + `sync_all()`. BRD replay: gzip JSON. PlayerResource: trait (32 methods) + `NullPlayerResource`.
+- **Profiling:** `dhat` for heap analysis (`--features dhat-heap`). `profile.release.debug = 1` for stack traces. Output: `dhat-heap.json` → [DHAT viewer](https://nnethercote.github.io/dh_view/dh_view.html).
 - **Lua→JSON coercion:** Lua dynamic types need 3-layer coercion for serde: numbers→strings (id/src), float→int truncation (Java toint()), empty `{}`→remove (let serde default). Mixed tables `{arr1, arr2, key=val}` → extract array portion. `deserialize_i32_lenient` for ambiguous i32/String fields.

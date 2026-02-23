@@ -1,6 +1,6 @@
 # Porting TODO — Remaining Work
 
-Phases 1–28e complete. **1793 tests, 9 ignored.** 27 crates, 122k lines. See AGENTS.md.
+Phases 1–29c complete. **1759 tests, 22 ignored.** 27 crates, 122k lines. See AGENTS.md.
 
 ## Phase 26: スキンパイプライン完成 → 22 ignored テスト解除
 
@@ -32,10 +32,10 @@ Resolves: `beatoraja-input/stubs.rs` (44 lines)
 Resolves: rendering stubs (result/decide/select/modmenu ~972 lines), `beatoraja-types/stubs.rs` (549 lines), `beatoraja-external/stubs.rs` (partial)
 
 - [x] **29a-1:** MainStateListener trait 統合 + Discord/OBS 接続配線 (StateAccessAdapter パターン)
-- **29a-2:** rendering stubs 削減 (result/decide/select/modmenu ~972 lines) — 段階的削減
-- **29a-3:** Property traits 統合 (beatoraja-skin vs beatoraja-external)
-- **29b:** PlayerResource trait 最小化
-- **29c:** メモリプロファイリング (`dhat`/`jemalloc_ctl`)
+- **29a-2:** rendering stubs 削減 (result/decide/select/modmenu ~972 lines) — レンダリングパイプライン完成待ち
+- **29a-3:** Property traits 統合 (beatoraja-skin vs beatoraja-external) — レンダリングパイプライン完成待ち
+- [x] **29b:** PlayerResource trait 分析完了 — 32メソッド中31が使用中、`get_rival_score_data()` のみ未参照だがレンダリング完成時に必要。最小化不要
+- [x] **29c:** dhat ヒーププロファイリング (`--features dhat-heap` で有効化、`dhat-heap.json` 出力)
 - **29d:** 入力ポーリング非同期化 (nice-to-have)
 
 ## Permanent Stubs
