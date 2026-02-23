@@ -431,6 +431,24 @@ impl BMSPlayer {
         // 4. Save lanecover, lift, hidden from lanerender
     }
 
+    /// Initialize playinfo from PlayerConfig.
+    ///
+    /// Corresponds to Java BMSPlayer constructor lines 110-112:
+    /// ```java
+    /// playinfo.randomoption = config.getRandom();
+    /// playinfo.randomoption2 = config.getRandom2();
+    /// playinfo.doubleoption = config.getDoubleoption();
+    /// ```
+    ///
+    /// This should be called before `restore_replay_data` (which may override
+    /// these values from replay) and before `build_pattern_modifiers` (which
+    /// uses the final values).
+    pub fn init_playinfo_from_config(&mut self, config: &PlayerConfig) {
+        self.playinfo.randomoption = config.random;
+        self.playinfo.randomoption2 = config.random2;
+        self.playinfo.doubleoption = config.doubleoption;
+    }
+
     /// Get option information (replay data with random options).
     /// Corresponds to Java getOptionInformation() returning playinfo.
     pub fn get_option_information(&self) -> &ReplayData {
@@ -2662,5 +2680,178 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         player.assist = 3; // Any value >= 2 should be NoPlay
         assert_eq!(player.get_clear_type_for_assist(), Some(ClearType::NoPlay));
+    }
+
+    // --- init_playinfo_from_config tests (Phase 34e) ---
+
+    #[test]
+    fn init_playinfo_from_config_copies_random_options() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let mut config = make_default_config();
+        config.random = 3;
+        config.random2 = 5;
+        config.doubleoption = 2;
+
+        player.init_playinfo_from_config(&config);
+
+        assert_eq!(player.playinfo.randomoption, 3);
+        assert_eq!(player.playinfo.randomoption2, 5);
+        assert_eq!(player.playinfo.doubleoption, 2);
+    }
+
+    #[test]
+    fn init_playinfo_from_config_default_config_zeros() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let config = make_default_config();
+
+        player.init_playinfo_from_config(&config);
+
+        assert_eq!(player.playinfo.randomoption, 0);
+        assert_eq!(player.playinfo.randomoption2, 0);
+        assert_eq!(player.playinfo.doubleoption, 0);
+    }
+
+    #[test]
+    fn init_playinfo_from_config_does_not_touch_seeds() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let mut config = make_default_config();
+        config.random = 2;
+
+        player.init_playinfo_from_config(&config);
+
+        // Seeds should remain at their default (-1 from ReplayData::new())
+        assert_eq!(player.playinfo.randomoptionseed, -1);
+        assert_eq!(player.playinfo.randomoption2seed, -1);
+    }
+
+    // --- End-to-end DP flow tests (Phase 34e) ---
+
+    #[test]
+    fn e2e_dp_flow_config_init_build_encode() {
+        // End-to-end test: config → init → build → encode
+        // DP mode (BEAT_14K) with FLIP (doubleoption=1), random=2, random2=3
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_14K);
+        model.set_judgerank(100);
+        let mut player = BMSPlayer::new(model);
+
+        let mut config = make_default_config();
+        config.random = 2;
+        config.random2 = 3;
+        config.doubleoption = 1;
+
+        // Step 1: init from config
+        player.init_playinfo_from_config(&config);
+        assert_eq!(player.playinfo.randomoption, 2);
+        assert_eq!(player.playinfo.randomoption2, 3);
+        assert_eq!(player.playinfo.doubleoption, 1);
+
+        // Step 2: build pattern modifiers
+        player.build_pattern_modifiers(&config);
+
+        // Step 3: encode option
+        // Expected: randomoption + randomoption2 * 10 + doubleoption * 100
+        // = 2 + 3 * 10 + 1 * 100 = 132
+        assert_eq!(player.encode_option_for_score(), 132);
+    }
+
+    #[test]
+    fn e2e_dp_flow_replay_overrides_config() {
+        // Config sets random=2, random2=3, doubleoption=1
+        // Replay pattern key overrides to random=5, random2=7, doubleoption=0
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_14K);
+        model.set_judgerank(100);
+        let mut player = BMSPlayer::new(model);
+
+        let mut config = make_default_config();
+        config.random = 2;
+        config.random2 = 3;
+        config.doubleoption = 1;
+
+        // Step 1: init from config
+        player.init_playinfo_from_config(&config);
+
+        // Step 2: replay overrides
+        let mut replay = ReplayData::new();
+        replay.randomoption = 5;
+        replay.randomoptionseed = 42;
+        replay.randomoption2 = 7;
+        replay.randomoption2seed = 84;
+        replay.doubleoption = 0;
+        replay.rand = vec![1, 2];
+
+        let key_state = ReplayKeyState {
+            pattern_key: true,
+            ..Default::default()
+        };
+        player.restore_replay_data(Some(replay), &key_state);
+
+        // After replay override, playinfo should reflect replay values
+        assert_eq!(player.playinfo.randomoption, 5);
+        assert_eq!(player.playinfo.randomoption2, 7);
+        assert_eq!(player.playinfo.doubleoption, 0);
+
+        // Step 3: build pattern modifiers (uses overridden values)
+        player.build_pattern_modifiers(&config);
+
+        // Step 4: encode option
+        // = 5 + 7 * 10 + 0 * 100 = 75
+        assert_eq!(player.encode_option_for_score(), 75);
+    }
+
+    #[test]
+    fn e2e_sp_mode_ignores_2p_options() {
+        // SP mode (BEAT_7K) end-to-end: 2P options should be ignored in encoding
+        let model = make_model(); // BEAT_7K
+        let mut player = BMSPlayer::new(model);
+
+        let mut config = make_default_config();
+        config.random = 3;
+        config.random2 = 5; // Should be irrelevant in SP
+        config.doubleoption = 1; // Should be irrelevant in SP
+
+        // Step 1: init from config
+        player.init_playinfo_from_config(&config);
+        // All values are copied to playinfo
+        assert_eq!(player.playinfo.randomoption, 3);
+        assert_eq!(player.playinfo.randomoption2, 5);
+        assert_eq!(player.playinfo.doubleoption, 1);
+
+        // Step 2: build pattern modifiers
+        player.build_pattern_modifiers(&config);
+
+        // Step 3: encode option — SP mode only uses randomoption
+        // player_count == 1, so result is just randomoption
+        assert_eq!(player.encode_option_for_score(), 3);
+    }
+
+    #[test]
+    fn e2e_dp_battle_mode_config_init_build_encode() {
+        // DP battle mode: SP BEAT_7K with doubleoption=2 → converts to BEAT_14K
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+        let mut player = BMSPlayer::new(model);
+
+        let mut config = make_default_config();
+        config.random = 1;
+        config.random2 = 4;
+        config.doubleoption = 2;
+
+        // Step 1: init from config
+        player.init_playinfo_from_config(&config);
+
+        // Step 2: build pattern modifiers (converts SP to DP)
+        let score = player.build_pattern_modifiers(&config);
+        assert!(!score, "Battle mode should invalidate score");
+        assert_eq!(player.get_mode(), Mode::BEAT_14K);
+
+        // Step 3: encode option — now in DP mode (player=2)
+        // = 1 + 4 * 10 + 2 * 100 = 241
+        assert_eq!(player.encode_option_for_score(), 241);
     }
 }
