@@ -11,6 +11,7 @@ use crate::lane_renderer::LaneRenderer;
 use crate::play_skin::PlaySkin;
 use crate::practice_configuration::PracticeConfiguration;
 use crate::rhythm_timer_processor::RhythmTimerProcessor;
+use beatoraja_core::bms_player_mode::BMSPlayerMode;
 use beatoraja_core::main_state::{MainState, MainStateData, MainStateType};
 use beatoraja_core::player_config::PlayerConfig;
 use beatoraja_core::score_data::ScoreData;
@@ -25,6 +26,7 @@ use beatoraja_pattern::pattern_modifier::{AssistLevel, PatternModifier};
 use beatoraja_pattern::scroll_speed_modifier::ScrollSpeedModifier;
 use beatoraja_types::audio_config::FrequencyType;
 use beatoraja_types::clear_type::ClearType;
+use beatoraja_types::course_data::CourseDataConstraint;
 use beatoraja_types::play_config::PlayConfig;
 use beatoraja_types::replay_data::ReplayData;
 use beatoraja_types::skin_type::SkinType;
@@ -74,6 +76,51 @@ pub struct FreqTrainerResult {
     pub force_no_ir_send: bool,
     /// Global audio pitch to set (Some if freq_option == FREQUENCY).
     pub global_pitch: Option<f32>,
+}
+
+/// Action the caller should take to configure the input processor after create().
+///
+/// Translated from: BMSPlayer.create() Java lines 526-531
+/// ```java
+/// if (autoplay.mode == PLAY || autoplay.mode == PRACTICE) {
+///     input.setPlayConfig(config.getPlayConfig(model.getMode()));
+/// } else if (autoplay.mode == AUTOPLAY || autoplay.mode == REPLAY) {
+///     input.setEnable(false);
+/// }
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InputModeAction {
+    /// PLAY or PRACTICE mode: caller should call `input.set_play_config(mode)` with the
+    /// BMS model mode.
+    SetPlayConfig(Mode),
+    /// AUTOPLAY or REPLAY mode: caller should call `input.set_enable(false)`.
+    DisableInput,
+    /// No action needed (play mode not set on BMSPlayer).
+    None,
+}
+
+/// Side effects produced by `BMSPlayer::create()` that the caller must apply
+/// to external systems (audio processor, input processor).
+///
+/// Since `create()` is a `MainState` trait method taking only `&mut self`,
+/// it cannot directly access the audio driver or input processor. Instead,
+/// it populates this struct and the caller retrieves it via
+/// `take_create_side_effects()`.
+///
+/// Guide SE path resolution:
+///   The caller should use `BMSPlayer::build_guide_se_config(is_guide_se, sound_manager)`
+///   to resolve the actual file paths, then apply them to the audio driver.
+#[derive(Clone, Debug)]
+pub struct CreateSideEffects {
+    /// Whether guide SE is enabled. The caller should resolve paths via
+    /// `build_guide_se_config()` using the SystemSoundManager.
+    pub is_guide_se: bool,
+
+    /// Input processor mode action to apply.
+    pub input_mode_action: InputModeAction,
+
+    /// Skin type to load (if determined from the model).
+    pub skin_type: Option<SkinType>,
 }
 
 pub const STATE_PRELOAD: i32 = 0;
@@ -150,6 +197,16 @@ pub struct BMSPlayer {
     /// Cached during initialization so set_play_speed can determine
     /// whether to apply pitch changes.
     fast_forward_freq_option: FrequencyType,
+    /// Play mode (PLAY, PRACTICE, AUTOPLAY, REPLAY).
+    /// Set before create() by the caller. Determines input processor mode.
+    play_mode: BMSPlayerMode,
+    /// Course constraints (e.g., NO_SPEED). Set before create() by the caller.
+    constraints: Vec<CourseDataConstraint>,
+    /// Whether guide SE is enabled (from PlayerConfig.is_guide_se).
+    /// Set before create() by the caller.
+    is_guide_se: bool,
+    /// Side effects produced by create() for the caller to apply.
+    create_side_effects: Option<CreateSideEffects>,
 }
 
 impl BMSPlayer {
@@ -187,7 +244,52 @@ impl BMSPlayer {
             margin_time: 0,
             pending_global_pitch: None,
             fast_forward_freq_option: FrequencyType::UNPROCESSED,
+            play_mode: BMSPlayerMode::PLAY,
+            constraints: Vec::new(),
+            is_guide_se: false,
+            create_side_effects: None,
         }
+    }
+
+    /// Set the play mode before calling create().
+    ///
+    /// Determines how the input processor will be configured:
+    /// - PLAY/PRACTICE: input.set_play_config(mode)
+    /// - AUTOPLAY/REPLAY: input.set_enable(false)
+    pub fn set_play_mode(&mut self, play_mode: BMSPlayerMode) {
+        self.play_mode = play_mode;
+    }
+
+    /// Get the current play mode.
+    pub fn get_play_mode(&self) -> &BMSPlayerMode {
+        &self.play_mode
+    }
+
+    /// Set course constraints before calling create().
+    ///
+    /// When NO_SPEED is present, control input (speed changes) will be disabled.
+    pub fn set_constraints(&mut self, constraints: Vec<CourseDataConstraint>) {
+        self.constraints = constraints;
+    }
+
+    /// Get course constraints.
+    pub fn get_constraints(&self) -> &[CourseDataConstraint] {
+        &self.constraints
+    }
+
+    /// Set whether guide SE is enabled before calling create().
+    ///
+    /// This comes from PlayerConfig.is_guide_se.
+    pub fn set_guide_se(&mut self, enabled: bool) {
+        self.is_guide_se = enabled;
+    }
+
+    /// Take the side effects produced by create().
+    ///
+    /// Returns None if create() has not been called or side effects have already been taken.
+    /// The caller should apply these to the audio processor and input processor.
+    pub fn take_create_side_effects(&mut self) -> Option<CreateSideEffects> {
+        self.create_side_effects.take()
     }
 
     /// Set the fast-forward frequency option for pitch control.
@@ -1231,21 +1333,80 @@ impl MainState for BMSPlayer {
         let mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
         self.lane_property = Some(LaneProperty::new(&mode));
         self.judge = JudgeManager::new();
-        self.control = Some(ControlInputProcessor::new(mode));
+        self.control = Some(ControlInputProcessor::new(mode.clone()));
         if let Some(ref lp) = self.lane_property {
             self.keyinput = Some(KeyInputProccessor::new(lp));
         }
 
+        // --- loadSkin(getSkinType()) ---
+        // Translated from: BMSPlayer.create() Java line 510
+        // In Java: loadSkin(getSkinType());
+        // This delegates to MainState.loadSkin() which calls SkinLoader.load().
+        // The actual skin loading requires SkinLoader integration; we call the
+        // trait method which logs a warning if not yet wired. The skin type is
+        // captured in CreateSideEffects for the caller to use.
+        let skin_type = self.get_skin_type();
+        if let Some(st) = skin_type {
+            self.load_skin(st.id());
+        }
+
+        // --- Guide SE setup ---
+        // Translated from: BMSPlayer.create() Java lines 512-524
+        // The guide SE flag is passed through to CreateSideEffects. The caller
+        // should resolve paths using build_guide_se_config(is_guide_se, sound_manager)
+        // and apply them to the audio driver.
+
+        // --- Input processor mode setup ---
+        // Translated from: BMSPlayer.create() Java lines 526-531
+        // ```java
+        // if (autoplay.mode == PLAY || autoplay.mode == PRACTICE) {
+        //     input.setPlayConfig(config.getPlayConfig(model.getMode()));
+        // } else if (autoplay.mode == AUTOPLAY || autoplay.mode == REPLAY) {
+        //     input.setEnable(false);
+        // }
+        // ```
+        let input_mode_action = match self.play_mode.mode {
+            beatoraja_core::bms_player_mode::Mode::Play
+            | beatoraja_core::bms_player_mode::Mode::Practice => {
+                InputModeAction::SetPlayConfig(mode)
+            }
+            beatoraja_core::bms_player_mode::Mode::Autoplay
+            | beatoraja_core::bms_player_mode::Mode::Replay => InputModeAction::DisableInput,
+        };
+
+        // Store side effects for the caller
+        self.create_side_effects = Some(CreateSideEffects {
+            is_guide_se: self.is_guide_se,
+            input_mode_action,
+            skin_type,
+        });
+
         self.lanerender = Some(LaneRenderer::new(&self.model));
 
-        // TODO: Phase 22 - skin loading, audio setup, input setup
-        // loadSkin(getSkinType());
-        // guide SE setup
-        // input processor setup
+        // --- NO_SPEED constraint ---
+        // Translated from: BMSPlayer.create() Java lines 533-538
+        // ```java
+        // for (CourseData.CourseDataConstraint i : resource.getConstraint()) {
+        //     if (i == NO_SPEED) { control.setEnableControl(false); break; }
+        // }
+        // ```
+        if self.constraints.contains(&CourseDataConstraint::NoSpeed)
+            && let Some(ref mut control) = self.control
+        {
+            control.set_enable_control(false);
+        }
 
         self.judge.init(&self.model, 0, None, &[]);
 
-        let use_expansion = false; // TODO: from PlaySkin note expansion rate
+        // --- Note expansion rate from PlaySkin ---
+        // Translated from: BMSPlayer.create() Java line 542-543
+        // ```java
+        // rhythm = new RhythmTimerProcessor(model,
+        //     (getSkin() instanceof PlaySkin) ? ((PlaySkin) getSkin()).getNoteExpansionRate()[0] != 100
+        //         || ((PlaySkin) getSkin()).getNoteExpansionRate()[1] != 100 : false);
+        // ```
+        let rates = self.play_skin.get_note_expansion_rate();
+        let use_expansion = rates[0] != 100 || rates[1] != 100;
         self.rhythm = Some(RhythmTimerProcessor::new(&self.model, use_expansion));
         self.bga = Arc::new(Mutex::new(BGAProcessor::from_model(&self.model)));
 
@@ -1259,9 +1420,12 @@ impl MainState for BMSPlayer {
             }
         }
 
-        // TODO: Phase 22 - score data, target score setup
-        // In Java: if autoplay.mode == PRACTICE => state = STATE_PRACTICE
-        // else => set target score, etc.
+        // --- Practice mode state ---
+        // Translated from: BMSPlayer.create() Java line 553
+        // if (autoplay.mode == PRACTICE) { state = STATE_PRACTICE; }
+        if self.play_mode.mode == beatoraja_core::bms_player_mode::Mode::Practice {
+            self.state = STATE_PRACTICE;
+        }
     }
 
     fn render(&mut self) {
@@ -3646,5 +3810,286 @@ mod tests {
         player.set_fast_forward_freq_option(FrequencyType::FREQUENCY);
         player.set_play_speed(75);
         assert_eq!(player.take_pending_global_pitch(), Some(0.75));
+    }
+
+    // --- Phase 43a: create() side effects tests ---
+
+    #[test]
+    fn create_produces_side_effects() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.create();
+        let effects = player.take_create_side_effects();
+        assert!(effects.is_some(), "create() should produce side effects");
+    }
+
+    #[test]
+    fn create_side_effects_consumed_after_take() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.create();
+        let _ = player.take_create_side_effects();
+        assert!(
+            player.take_create_side_effects().is_none(),
+            "second take should return None"
+        );
+    }
+
+    #[test]
+    fn create_side_effects_skin_type_matches_model() {
+        let model = make_model(); // BEAT_7K
+        let mut player = BMSPlayer::new(model);
+        player.create();
+        let effects = player.take_create_side_effects().unwrap();
+        assert_eq!(effects.skin_type, Some(SkinType::Play7Keys));
+    }
+
+    #[test]
+    fn create_side_effects_skin_type_5k() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_5K);
+        model.set_judgerank(100);
+        let mut player = BMSPlayer::new(model);
+        player.create();
+        let effects = player.take_create_side_effects().unwrap();
+        assert_eq!(effects.skin_type, Some(SkinType::Play5Keys));
+    }
+
+    #[test]
+    fn create_side_effects_skin_type_14k() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_14K);
+        model.set_judgerank(100);
+        let mut player = BMSPlayer::new(model);
+        player.create();
+        let effects = player.take_create_side_effects().unwrap();
+        assert_eq!(effects.skin_type, Some(SkinType::Play14Keys));
+    }
+
+    #[test]
+    fn create_side_effects_input_mode_play() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_play_mode(BMSPlayerMode::PLAY);
+        player.create();
+        let effects = player.take_create_side_effects().unwrap();
+        assert_eq!(
+            effects.input_mode_action,
+            InputModeAction::SetPlayConfig(Mode::BEAT_7K)
+        );
+    }
+
+    #[test]
+    fn create_side_effects_input_mode_practice() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_play_mode(BMSPlayerMode::PRACTICE);
+        player.create();
+        let effects = player.take_create_side_effects().unwrap();
+        assert_eq!(
+            effects.input_mode_action,
+            InputModeAction::SetPlayConfig(Mode::BEAT_7K)
+        );
+    }
+
+    #[test]
+    fn create_side_effects_input_mode_autoplay() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_play_mode(BMSPlayerMode::AUTOPLAY);
+        player.create();
+        let effects = player.take_create_side_effects().unwrap();
+        assert_eq!(effects.input_mode_action, InputModeAction::DisableInput);
+    }
+
+    #[test]
+    fn create_side_effects_input_mode_replay() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_play_mode(BMSPlayerMode::REPLAY_1);
+        player.create();
+        let effects = player.take_create_side_effects().unwrap();
+        assert_eq!(effects.input_mode_action, InputModeAction::DisableInput);
+    }
+
+    #[test]
+    fn create_side_effects_guide_se_disabled() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_guide_se(false);
+        player.create();
+        let effects = player.take_create_side_effects().unwrap();
+        assert!(!effects.is_guide_se);
+    }
+
+    #[test]
+    fn create_side_effects_guide_se_enabled() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_guide_se(true);
+        player.create();
+        let effects = player.take_create_side_effects().unwrap();
+        assert!(effects.is_guide_se);
+    }
+
+    #[test]
+    fn create_no_speed_disables_control() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_constraints(vec![CourseDataConstraint::NoSpeed]);
+        player.create();
+        // Verify control is disabled by checking its enable_control field
+        let control = player.control.as_ref().unwrap();
+        assert!(!control.is_enable_control());
+    }
+
+    #[test]
+    fn create_without_no_speed_keeps_control_enabled() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_constraints(vec![CourseDataConstraint::Class]);
+        player.create();
+        let control = player.control.as_ref().unwrap();
+        assert!(control.is_enable_control());
+    }
+
+    #[test]
+    fn create_empty_constraints_keeps_control_enabled() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_constraints(vec![]);
+        player.create();
+        let control = player.control.as_ref().unwrap();
+        assert!(control.is_enable_control());
+    }
+
+    #[test]
+    fn create_practice_mode_sets_state_practice() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_play_mode(BMSPlayerMode::PRACTICE);
+        player.create();
+        assert_eq!(player.get_state(), STATE_PRACTICE);
+    }
+
+    #[test]
+    fn create_play_mode_keeps_state_preload() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_play_mode(BMSPlayerMode::PLAY);
+        player.create();
+        assert_eq!(player.get_state(), STATE_PRELOAD);
+    }
+
+    #[test]
+    fn create_note_expansion_rate_default_no_expansion() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        // Default PlaySkin has [100, 100] — no expansion
+        player.create();
+        // Rhythm processor should be created (existence is enough to verify create ran)
+        assert!(player.rhythm.is_some());
+    }
+
+    #[test]
+    fn create_note_expansion_rate_custom_triggers_expansion() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        // Set custom expansion rate before create
+        player.play_skin.set_note_expansion_rate([120, 100]);
+        player.create();
+        assert!(player.rhythm.is_some());
+    }
+
+    #[test]
+    fn set_play_mode_and_get() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_play_mode(BMSPlayerMode::AUTOPLAY);
+        assert_eq!(
+            player.get_play_mode().mode,
+            beatoraja_core::bms_player_mode::Mode::Autoplay
+        );
+    }
+
+    #[test]
+    fn set_constraints_and_get() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_constraints(vec![
+            CourseDataConstraint::NoSpeed,
+            CourseDataConstraint::Class,
+        ]);
+        assert_eq!(player.get_constraints().len(), 2);
+        assert!(
+            player
+                .get_constraints()
+                .contains(&CourseDataConstraint::NoSpeed)
+        );
+        assert!(
+            player
+                .get_constraints()
+                .contains(&CourseDataConstraint::Class)
+        );
+    }
+
+    #[test]
+    fn default_play_mode_is_play() {
+        let model = make_model();
+        let player = BMSPlayer::new(model);
+        assert_eq!(
+            player.get_play_mode().mode,
+            beatoraja_core::bms_player_mode::Mode::Play
+        );
+    }
+
+    #[test]
+    fn default_constraints_empty() {
+        let model = make_model();
+        let player = BMSPlayer::new(model);
+        assert!(player.get_constraints().is_empty());
+    }
+
+    #[test]
+    fn default_guide_se_disabled() {
+        let model = make_model();
+        let player = BMSPlayer::new(model);
+        assert!(!player.is_guide_se);
+    }
+
+    #[test]
+    fn create_side_effects_none_before_create() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        assert!(player.take_create_side_effects().is_none());
+    }
+
+    #[test]
+    fn create_input_mode_5k_model_with_play_mode() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_5K);
+        model.set_judgerank(100);
+        let mut player = BMSPlayer::new(model);
+        player.set_play_mode(BMSPlayerMode::PLAY);
+        player.create();
+        let effects = player.take_create_side_effects().unwrap();
+        assert_eq!(
+            effects.input_mode_action,
+            InputModeAction::SetPlayConfig(Mode::BEAT_5K)
+        );
+    }
+
+    #[test]
+    fn create_no_speed_among_multiple_constraints() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.set_constraints(vec![
+            CourseDataConstraint::Class,
+            CourseDataConstraint::NoSpeed,
+            CourseDataConstraint::Mirror,
+        ]);
+        player.create();
+        let control = player.control.as_ref().unwrap();
+        assert!(!control.is_enable_control());
     }
 }

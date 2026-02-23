@@ -149,6 +149,11 @@ impl ControlInputProcessor {
         self.enable_control = b;
     }
 
+    /// Returns whether control input (speed changes etc.) is enabled.
+    pub fn is_enable_control(&self) -> bool {
+        self.enable_control
+    }
+
     pub fn set_enable_cursor(&mut self, b: bool) {
         self.enable_cursor = b;
     }
