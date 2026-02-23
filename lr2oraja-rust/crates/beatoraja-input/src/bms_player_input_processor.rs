@@ -378,6 +378,15 @@ impl BMSPlayerInputProcessor {
         self.kbinput.get_key_state(key.keycode())
     }
 
+    /// Returns true if either Alt key is currently held.
+    ///
+    /// Translated from: input.getKeyState(Input.Keys.ALT_LEFT) || input.getKeyState(Input.Keys.ALT_RIGHT)
+    pub fn is_alt_held(&self) -> bool {
+        use crate::gdx_compat::GdxInput;
+        use crate::keys::Keys;
+        GdxInput::is_key_pressed(Keys::ALT_LEFT) || GdxInput::is_key_pressed(Keys::ALT_RIGHT)
+    }
+
     pub fn is_control_key_pressed(&mut self, key: ControlKeys) -> bool {
         self.kbinput.is_key_pressed(key.keycode())
     }

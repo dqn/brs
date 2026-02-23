@@ -153,6 +153,7 @@ pub struct HttpDownloadProcessor;
 pub struct StreamController;
 
 pub use beatoraja_input::bms_player_input_processor::BMSPlayerInputProcessor;
+use beatoraja_input::key_command::KeyCommand;
 
 /// MainController - root class of the application
 #[allow(dead_code)]
@@ -736,7 +737,39 @@ impl MainController {
                 }
             }
 
-            // Phase 5+: cursor visibility, FPS toggle, fullscreen toggle
+            // KeyCommand handlers (Java: MainController.render() lines 727-819)
+            if let Some(ref mut input) = self.input {
+                // FPS display toggle
+                if input.is_activated(KeyCommand::ShowFps) {
+                    self.showfps = !self.showfps;
+                    log::info!("FPS display: {}", if self.showfps { "ON" } else { "OFF" });
+                }
+
+                // Fullscreen / windowed toggle (F4 without Alt held)
+                // Java: if (!ALT_LEFT && !ALT_RIGHT && SWITCH_SCREEN_MODE)
+                if !input.is_alt_held() && input.is_activated(KeyCommand::SwitchScreenMode) {
+                    // → **Phase 29a** (requires winit window handle for fullscreen toggle)
+                    log::info!("Fullscreen toggle requested");
+                }
+
+                // Screenshot
+                if input.is_activated(KeyCommand::SaveScreenshot) {
+                    // → **Phase 29a** (requires frame buffer capture)
+                    log::info!("Screenshot requested");
+                }
+
+                // Twitter post (permanent stub — API deprecated)
+                if input.is_activated(KeyCommand::PostTwitter) {
+                    log::info!("Twitter post requested (API deprecated, no-op)");
+                }
+
+                // Mod menu toggle
+                if input.is_activated(KeyCommand::ToggleModMenu)
+                    && let Some(ref mut imgui) = self.imgui
+                {
+                    imgui.toggle_menu();
+                }
+            }
         }
     }
 
