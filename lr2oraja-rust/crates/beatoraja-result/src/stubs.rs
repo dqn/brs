@@ -27,13 +27,47 @@ use beatoraja_types::player_resource_access::{NullPlayerResource, PlayerResource
 pub use beatoraja_core::play_data_accessor::PlayDataAccessor;
 
 // ============================================================
-// MainController stub
+// MainController wrapper (Phase 41b — delegates to MainControllerAccess trait)
 // ============================================================
 
-/// Stub for bms.player.beatoraja.MainController
-pub struct MainController;
+// MainControllerAccess: real trait from beatoraja-types (Phase 41b)
+pub use beatoraja_types::main_controller_access::{MainControllerAccess, NullMainController};
+
+/// Wrapper for bms.player.beatoraja.MainController.
+/// Delegates trait methods (get_config, get_player_config, change_state, save_last_recording)
+/// to `Box<dyn MainControllerAccess>`.
+/// Retains local stubs for methods whose return types are not on the trait
+/// (get_input_processor, get_ir_status, ir_send_status, get_play_data_accessor,
+///  get_audio_processor, get_ranking_data_cache).
+pub struct MainController {
+    inner: Box<dyn MainControllerAccess>,
+}
 
 impl MainController {
+    pub fn new(inner: Box<dyn MainControllerAccess>) -> Self {
+        Self { inner }
+    }
+
+    // ---- Trait-delegated methods ----
+
+    pub fn get_config(&self) -> &Config {
+        self.inner.get_config()
+    }
+
+    pub fn get_player_config(&self) -> &PlayerConfig {
+        self.inner.get_player_config()
+    }
+
+    pub fn change_state(&mut self, state: beatoraja_core::main_state::MainStateType) {
+        self.inner.change_state(state);
+    }
+
+    pub fn save_last_recording(&self, tag: &str) {
+        self.inner.save_last_recording(tag);
+    }
+
+    // ---- Local stubs (types not on MainControllerAccess trait) ----
+
     pub fn get_input_processor(&mut self) -> &mut BMSPlayerInputProcessor {
         log::warn!("not yet implemented: MainController.getInputProcessor");
         // Leak a boxed value to get a &'static mut reference - stub only
@@ -46,10 +80,6 @@ impl MainController {
     pub fn get_ir_status(&self) -> &[IRStatus] {
         log::warn!("not yet implemented: MainController.getIRStatus");
         &[]
-    }
-
-    pub fn save_last_recording(&self, _tag: &str) {
-        log::warn!("not yet implemented: MainController.saveLastRecording");
     }
 
     pub fn ir_send_status(&self) -> &Vec<IRSendStatusMain> {
@@ -70,26 +100,10 @@ impl MainController {
         Box::leak(Box::new(PlayDataAccessor::null()))
     }
 
-    pub fn change_state(&mut self, _state: beatoraja_core::main_state::MainStateType) {
-        log::warn!("not yet implemented: MainController.changeState");
-    }
-
     pub fn get_audio_processor(&self) -> &AudioProcessorStub {
         log::warn!("not yet implemented: MainController.getAudioProcessor");
         static DEFAULT: AudioProcessorStub = AudioProcessorStub;
         &DEFAULT
-    }
-
-    pub fn get_config(&self) -> &Config {
-        log::warn!("not yet implemented: MainController.getConfig");
-        // Leak a boxed value - stub only
-        Box::leak(Box::new(Config::default()))
-    }
-
-    pub fn get_player_config(&self) -> &PlayerConfig {
-        log::warn!("not yet implemented: MainController.getPlayerConfig");
-        // Leak a boxed value - stub only
-        Box::leak(Box::new(PlayerConfig::default()))
     }
 
     pub fn get_ranking_data_cache(&self) -> &RankingDataCache {

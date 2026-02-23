@@ -19,7 +19,7 @@ use crate::music_result_skin::MusicResultSkin;
 use crate::result_key_property::{ResultKey, ResultKeyProperty};
 use crate::stubs::{
     BMSPlayerModeType, ControlKeys, FreqTrainerMenu, IRConfig, IRSendStatusMain, IRStatus,
-    KeyCommand, MainController, PlayerResource, RankingData,
+    KeyCommand, MainController, NullMainController, PlayerResource, RankingData,
 };
 use beatoraja_core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE};
 
@@ -873,7 +873,7 @@ impl MainState for MusicResult {
 impl Default for MusicResult {
     fn default() -> Self {
         Self::new(
-            MainController,
+            MainController::new(Box::new(NullMainController)),
             PlayerResource::default(),
             TimerManager::new(),
         )

@@ -1,7 +1,6 @@
 // Stubs for external dependencies not yet available as proper imports.
 
 use beatoraja_core::config::Config;
-use beatoraja_core::main_state::MainStateType;
 use beatoraja_core::player_config::PlayerConfig;
 use beatoraja_core::system_sound_manager::SoundType;
 
@@ -11,14 +10,24 @@ pub use beatoraja_input::bms_player_input_processor::BMSPlayerInputProcessor;
 // ControlKeysStub: replaced by pub use from beatoraja-input (Phase 18e-11)
 pub use beatoraja_input::keyboard_input_processor::ControlKeys;
 
-/// Stub for MainController reference.
-/// Retained: get_input_processor/get_audio_processor are crate-specific and not on MainControllerAccess trait.
-/// MainControllerAccess trait impl removed (unused — MusicDecide calls methods on concrete type).
-pub struct MainControllerRef;
+// MainControllerAccess: real trait from beatoraja-types (Phase 41b)
+pub use beatoraja_types::main_controller_access::{MainControllerAccess, NullMainController};
+
+/// Wrapper for MainController reference.
+/// Delegates trait methods (change_state) to `Box<dyn MainControllerAccess>`.
+/// Retains local stubs for get_input_processor/get_audio_processor
+/// (types not available on MainControllerAccess trait).
+pub struct MainControllerRef {
+    inner: Box<dyn MainControllerAccess>,
+}
 
 impl MainControllerRef {
-    pub fn change_state(&mut self, _state: MainStateType) {
-        log::warn!("not yet implemented: MainController.changeState");
+    pub fn new(inner: Box<dyn MainControllerAccess>) -> Self {
+        Self { inner }
+    }
+
+    pub fn change_state(&mut self, state: beatoraja_types::main_state_type::MainStateType) {
+        self.inner.change_state(state);
     }
 
     pub fn get_input_processor(&mut self) -> &mut BMSPlayerInputProcessor {
