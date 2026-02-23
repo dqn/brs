@@ -9,6 +9,7 @@ beatoraja-core.workspace = true
 beatoraja-types.workspace = true
 beatoraja-play.workspace = true
 beatoraja-input.workspace = true
+beatoraja-audio.workspace = true
 beatoraja-skin.workspace = true
 log.workspace = true
 anyhow.workspace = true

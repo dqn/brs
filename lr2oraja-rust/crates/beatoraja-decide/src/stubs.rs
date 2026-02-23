@@ -1,5 +1,6 @@
 // Stubs for external dependencies not yet available as proper imports.
 
+use beatoraja_audio::audio_driver::AudioDriver;
 use beatoraja_core::config::Config;
 use beatoraja_core::player_config::PlayerConfig;
 use beatoraja_core::system_sound_manager::SoundType;
@@ -15,15 +16,24 @@ pub use beatoraja_types::main_controller_access::{MainControllerAccess, NullMain
 
 /// Wrapper for MainController reference.
 /// Delegates trait methods (change_state) to `Box<dyn MainControllerAccess>`.
-/// Retains local stubs for get_input_processor/get_audio_processor
+/// Retains local stubs for get_input_processor
 /// (types not available on MainControllerAccess trait).
+/// AudioDriver is stored directly (Phase 41c) — not on MainControllerAccess trait.
 pub struct MainControllerRef {
     inner: Box<dyn MainControllerAccess>,
+    audio: Option<Box<dyn AudioDriver>>,
 }
 
 impl MainControllerRef {
     pub fn new(inner: Box<dyn MainControllerAccess>) -> Self {
-        Self { inner }
+        Self { inner, audio: None }
+    }
+
+    pub fn with_audio(inner: Box<dyn MainControllerAccess>, audio: Box<dyn AudioDriver>) -> Self {
+        Self {
+            inner,
+            audio: Some(audio),
+        }
     }
 
     pub fn change_state(&mut self, state: beatoraja_types::main_state_type::MainStateType) {
@@ -39,19 +49,10 @@ impl MainControllerRef {
         )))
     }
 
-    pub fn get_audio_processor(&self) -> &AudioProcessorStub {
-        log::warn!("not yet implemented: MainController.getAudioProcessor");
-        static DEFAULT: AudioProcessorStub = AudioProcessorStub;
-        &DEFAULT
-    }
-}
-
-/// Stub for AudioProcessor reference
-pub struct AudioProcessorStub;
-
-impl AudioProcessorStub {
-    pub fn set_global_pitch(&self, _pitch: f32) {
-        log::warn!("not yet implemented: AudioProcessor.setGlobalPitch");
+    pub fn get_audio_processor_mut(&mut self) -> Option<&mut dyn AudioDriver> {
+        self.audio
+            .as_mut()
+            .map(|b| &mut **b as &mut dyn AudioDriver)
     }
 }
 
@@ -114,4 +115,90 @@ pub fn load_skin(_skin_type: beatoraja_skin::skin_type::SkinType) -> Option<Skin
 /// Stub for play sound (MainState.play delegates to MainController.getSoundManager())
 pub fn play_sound(_sound: SoundType) {
     log::warn!("not yet implemented: MainController.getSoundManager().play()");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bms_model::bms_model::BMSModel;
+    use bms_model::note::Note;
+
+    /// Mock AudioDriver for testing.
+    struct MockAudioDriver {
+        global_pitch: f32,
+    }
+
+    impl MockAudioDriver {
+        fn new() -> Self {
+            Self { global_pitch: 1.0 }
+        }
+    }
+
+    impl AudioDriver for MockAudioDriver {
+        fn play_path(&mut self, _path: &str, _volume: f32, _loop_play: bool) {}
+        fn set_volume_path(&mut self, _path: &str, _volume: f32) {}
+        fn is_playing_path(&self, _path: &str) -> bool {
+            false
+        }
+        fn stop_path(&mut self, _path: &str) {}
+        fn dispose_path(&mut self, _path: &str) {}
+        fn set_model(&mut self, _model: &BMSModel) {}
+        fn set_additional_key_sound(&mut self, _judge: i32, _fast: bool, _path: Option<&str>) {}
+        fn abort(&mut self) {}
+        fn get_progress(&self) -> f32 {
+            1.0
+        }
+        fn play_note(&mut self, _n: &Note, _volume: f32, _pitch: i32) {}
+        fn play_judge(&mut self, _judge: i32, _fast: bool) {}
+        fn stop_note(&mut self, _n: Option<&Note>) {}
+        fn set_volume_note(&mut self, _n: &Note, _volume: f32) {}
+        fn set_global_pitch(&mut self, pitch: f32) {
+            self.global_pitch = pitch;
+        }
+        fn get_global_pitch(&self) -> f32 {
+            self.global_pitch
+        }
+        fn dispose_old(&mut self) {}
+        fn dispose(&mut self) {}
+    }
+
+    #[test]
+    fn test_main_controller_ref_new_has_no_audio() {
+        let mut mc = MainControllerRef::new(Box::new(NullMainController));
+        assert!(mc.get_audio_processor_mut().is_none());
+    }
+
+    #[test]
+    fn test_main_controller_ref_with_audio_has_audio() {
+        let mut mc = MainControllerRef::with_audio(
+            Box::new(NullMainController),
+            Box::new(MockAudioDriver::new()),
+        );
+        assert!(mc.get_audio_processor_mut().is_some());
+    }
+
+    #[test]
+    fn test_main_controller_ref_audio_set_global_pitch() {
+        let mut mc = MainControllerRef::with_audio(
+            Box::new(NullMainController),
+            Box::new(MockAudioDriver::new()),
+        );
+        if let Some(audio) = mc.get_audio_processor_mut() {
+            audio.set_global_pitch(1.0);
+            assert_eq!(audio.get_global_pitch(), 1.0);
+        } else {
+            panic!("expected audio processor to be present");
+        }
+    }
+
+    #[test]
+    fn test_main_controller_ref_audio_stop_note() {
+        let mut mc = MainControllerRef::with_audio(
+            Box::new(NullMainController),
+            Box::new(MockAudioDriver::new()),
+        );
+        if let Some(audio) = mc.get_audio_processor_mut() {
+            audio.stop_note(None);
+        }
+    }
 }

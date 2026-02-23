@@ -290,7 +290,9 @@ impl MusicResult {
                 .map(|s| s.get_fadeout() as i64)
                 .unwrap_or(0);
             if fadeout_time > skin_fadeout {
-                self.main.get_audio_processor().stop_note();
+                if let Some(audio) = self.main.get_audio_processor_mut() {
+                    audio.stop_note(None);
+                }
                 {
                     let input = self.main.get_input_processor();
                     input.reset_all_key_changed_time();

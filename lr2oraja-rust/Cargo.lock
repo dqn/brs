@@ -648,6 +648,7 @@ name = "beatoraja-decide"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "beatoraja-audio",
  "beatoraja-core",
  "beatoraja-input",
  "beatoraja-play",
