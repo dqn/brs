@@ -6,7 +6,9 @@ use log::info;
 use beatoraja_audio::audio_driver::AudioDriver;
 use beatoraja_types::imgui_notify::ImGuiNotify;
 use beatoraja_types::main_controller_access::MainControllerAccess;
+use beatoraja_types::main_state_access::MainStateAccess;
 use beatoraja_types::player_resource_access::PlayerResourceAccess;
+use beatoraja_types::screen_type::ScreenType;
 use beatoraja_types::song_database_accessor::SongDatabaseAccessor as SongDatabaseAccessorTrait;
 use beatoraja_types::song_information_db::SongInformationDb;
 
@@ -154,6 +156,31 @@ pub struct StreamController;
 
 pub use beatoraja_input::bms_player_input_processor::BMSPlayerInputProcessor;
 use beatoraja_input::key_command::KeyCommand;
+
+/// Adapter that bridges `MainState` → `MainStateAccess` for external listeners.
+///
+/// External listeners (DiscordListener, ObsListener) receive `&dyn MainStateAccess`
+/// which provides screen type, player resource, and config without depending on
+/// beatoraja-core's internal `MainState` trait.
+struct StateAccessAdapter<'a> {
+    screen_type: ScreenType,
+    resource: Option<&'a dyn PlayerResourceAccess>,
+    config: &'a Config,
+}
+
+impl MainStateAccess for StateAccessAdapter<'_> {
+    fn get_screen_type(&self) -> ScreenType {
+        self.screen_type.clone()
+    }
+
+    fn get_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+        self.resource
+    }
+
+    fn get_config(&self) -> &Config {
+        self.config
+    }
+}
 
 /// MainController - root class of the application
 #[allow(dead_code)]
@@ -857,10 +884,25 @@ impl MainController {
     /// ```
     pub fn update_main_state_listener(&mut self, status: i32) {
         if let Some(ref current) = self.current {
+            // Create adapter that bridges MainState → MainStateAccess
+            let screen_type = current
+                .state_type()
+                .map(ScreenType::from_state_type)
+                .unwrap_or(ScreenType::Other);
+            let resource = self
+                .resource
+                .as_ref()
+                .map(|r| r as &dyn PlayerResourceAccess);
+            let adapter = StateAccessAdapter {
+                screen_type,
+                resource,
+                config: &self.config,
+            };
+
             // Temporarily take the listeners to avoid borrow conflict
             let mut listeners = std::mem::take(&mut self.state_listener);
             for listener in listeners.iter_mut() {
-                listener.update(current.as_ref(), status);
+                listener.update(&adapter, status);
             }
             self.state_listener = listeners;
         }
@@ -2138,7 +2180,7 @@ mod tests {
 
     use std::sync::{Arc, Mutex};
 
-    type StateCallLog = Arc<Mutex<Vec<(Option<MainStateType>, i32)>>>;
+    type StateCallLog = Arc<Mutex<Vec<(ScreenType, i32)>>>;
 
     /// A mock listener that records calls.
     struct MockStateListener {
@@ -2152,11 +2194,11 @@ mod tests {
     }
 
     impl MainStateListener for MockStateListener {
-        fn update(&mut self, state: &dyn MainState, status: i32) {
+        fn update(&mut self, state: &dyn MainStateAccess, status: i32) {
             self.calls
                 .lock()
                 .unwrap()
-                .push((state.state_type(), status));
+                .push((state.get_screen_type(), status));
         }
     }
 
@@ -2172,7 +2214,7 @@ mod tests {
         // so we should already have one call.
         let recorded = calls.lock().unwrap();
         assert_eq!(recorded.len(), 1);
-        assert_eq!(recorded[0], (Some(MainStateType::MusicSelect), 0));
+        assert_eq!(recorded[0], (ScreenType::MusicSelector, 0));
     }
 
     #[test]
@@ -2188,8 +2230,8 @@ mod tests {
 
         assert_eq!(calls1.lock().unwrap().len(), 1);
         assert_eq!(calls2.lock().unwrap().len(), 1);
-        assert_eq!(calls1.lock().unwrap()[0], (Some(MainStateType::Config), 0));
-        assert_eq!(calls2.lock().unwrap()[0], (Some(MainStateType::Config), 0));
+        assert_eq!(calls1.lock().unwrap()[0], (ScreenType::KeyConfiguration, 0));
+        assert_eq!(calls2.lock().unwrap()[0], (ScreenType::KeyConfiguration, 0));
     }
 
     #[test]
@@ -2218,7 +2260,7 @@ mod tests {
 
         let recorded = calls.lock().unwrap();
         assert_eq!(recorded.len(), 1);
-        assert_eq!(recorded[0], (Some(MainStateType::Result), 42));
+        assert_eq!(recorded[0], (ScreenType::MusicResult, 42));
     }
 
     // --- Phase 24f: StateReferencesCallback tests ---

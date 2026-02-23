@@ -123,7 +123,23 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
 
     // Java: MainLoader.play() handles config, illegal songs, player config, and controller creation.
     // It sets config.windowWidth/Height from resolution before creating MainController.
-    let main_controller = MainLoader::play(bms_path, player_mode, true, None, None, false);
+    let mut main_controller = MainLoader::play(bms_path, player_mode, true, None, None, false);
+
+    // Java: if(config.isUseDiscordRPC()) { stateListener.add(new DiscordListener()); }
+    {
+        let (use_discord_rpc, use_obs_ws, cfg_clone) = {
+            let cfg = main_controller.get_config();
+            (cfg.use_discord_rpc, cfg.use_obs_ws, cfg.clone())
+        };
+        if use_discord_rpc {
+            let listener = beatoraja_external::discord_listener::DiscordListener::new();
+            main_controller.add_state_listener(Box::new(listener));
+        }
+        if use_obs_ws {
+            let listener = beatoraja_obs::obs_listener::ObsListener::new(cfg_clone);
+            main_controller.add_state_listener(Box::new(listener));
+        }
+    }
 
     // Extract window config from the controller's Config
     // Java: these were set by MainLoader.play() → config.setWindowWidth/Height

@@ -4,8 +4,10 @@ use std::time::Duration;
 use log::warn;
 
 use beatoraja_core::config::Config;
-use beatoraja_core::main_state::{MainState, MainStateType};
+use beatoraja_core::main_state::MainStateType;
 use beatoraja_core::main_state_listener::MainStateListener;
+use beatoraja_types::main_state_access::MainStateAccess;
+use beatoraja_types::screen_type::ScreenType;
 
 use crate::obs_ws_client::ObsWsClient;
 use crate::{ACTION_NONE, SCENE_NONE};
@@ -169,15 +171,22 @@ impl ObsListener {
 }
 
 impl MainStateListener for ObsListener {
-    fn update(&mut self, current_state: &dyn MainState, _status: i32) {
+    fn update(&mut self, current_state: &dyn MainStateAccess, _status: i32) {
         if self.obs_client.is_none() {
             return;
         }
 
-        let current_state_type = current_state.state_type();
-        let current_state_type = match current_state_type {
-            Some(t) => t,
-            None => return,
+        let screen_type = current_state.get_screen_type();
+
+        // Convert ScreenType back to MainStateType for internal tracking
+        let current_state_type = match screen_type {
+            ScreenType::MusicSelector => MainStateType::MusicSelect,
+            ScreenType::MusicDecide => MainStateType::Decide,
+            ScreenType::BMSPlayer => MainStateType::Play,
+            ScreenType::MusicResult => MainStateType::Result,
+            ScreenType::CourseResult => MainStateType::CourseResult,
+            ScreenType::KeyConfiguration => MainStateType::Config,
+            ScreenType::Other => return,
         };
 
         if current_state_type == MainStateType::Play

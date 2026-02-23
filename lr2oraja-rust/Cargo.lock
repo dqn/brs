@@ -557,8 +557,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "beatoraja-core",
+ "beatoraja-external",
  "beatoraja-launcher",
  "beatoraja-modmenu",
+ "beatoraja-obs",
  "beatoraja-render",
  "bytemuck",
  "clap",
