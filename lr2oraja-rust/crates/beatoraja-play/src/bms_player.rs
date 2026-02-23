@@ -21,11 +21,13 @@ use beatoraja_pattern::mine_note_modifier::MineNoteModifier;
 use beatoraja_pattern::mode_modifier::ModeModifier;
 use beatoraja_pattern::pattern_modifier::{AssistLevel, PatternModifier};
 use beatoraja_pattern::scroll_speed_modifier::ScrollSpeedModifier;
+use beatoraja_types::audio_config::FrequencyType;
 use beatoraja_types::clear_type::ClearType;
 use beatoraja_types::play_config::PlayConfig;
 use beatoraja_types::replay_data::ReplayData;
 use beatoraja_types::skin_type::SkinType;
 use bms_model::bms_model::BMSModel;
+use bms_model::bms_model_utils;
 use bms_model::mode::Mode;
 
 pub static TIME_MARGIN: i32 = 5000;
@@ -56,6 +58,19 @@ pub struct ReplayRestoreResult {
     pub replay: Option<ReplayData>,
     /// HS replay config to apply (from Key4 held).
     pub hs_replay_config: Option<PlayConfig>,
+}
+
+/// Result of frequency trainer application.
+#[derive(Clone, Debug)]
+pub struct FreqTrainerResult {
+    /// Whether frequency training is active.
+    pub freq_on: bool,
+    /// Formatted frequency string (e.g., "[1.50x]").
+    pub freq_string: String,
+    /// Whether IR score submission should be blocked.
+    pub force_no_ir_send: bool,
+    /// Global audio pitch to set (Some if freq_option == FREQUENCY).
+    pub global_pitch: Option<f32>,
 }
 
 pub const STATE_PRELOAD: i32 = 0;
@@ -932,6 +947,52 @@ impl BMSPlayer {
         }
 
         score
+    }
+
+    /// Apply frequency trainer speed modification.
+    ///
+    /// Corresponds to Java BMSPlayer constructor lines 246-267.
+    ///
+    /// When freq trainer is enabled in PLAY mode (non-course):
+    /// 1. Adjusts playtime based on frequency ratio
+    /// 2. Scales chart timing via `BMSModelUtils::change_frequency`
+    /// 3. Returns result with freq state and optional global pitch
+    ///
+    /// Returns `None` if freq trainer should not be applied (freq == 100,
+    /// not play mode, or course mode).
+    pub fn apply_freq_trainer(
+        &mut self,
+        freq: i32,
+        is_play_mode: bool,
+        is_course: bool,
+        freq_option: &FrequencyType,
+    ) -> Option<FreqTrainerResult> {
+        if freq == 100 || freq == 0 || !is_play_mode || is_course {
+            return None;
+        }
+
+        // Adjust playtime: (lastNoteTime + 1000) * 100 / freq + TIME_MARGIN
+        self.playtime = (self.model.get_last_note_time() + 1000) * 100 / freq + TIME_MARGIN;
+
+        // Scale chart timing
+        bms_model_utils::change_frequency(&mut self.model, freq as f32 / 100.0);
+
+        // Determine global pitch
+        let global_pitch = match freq_option {
+            FrequencyType::FREQUENCY => Some(freq as f32 / 100.0),
+            _ => None,
+        };
+
+        // Format freq string (matches Java FreqTrainerMenu.getFreqString())
+        let rate = freq as f32 / 100.0;
+        let freq_string = format!("[{:.02}x]", rate);
+
+        Some(FreqTrainerResult {
+            freq_on: true,
+            freq_string,
+            force_no_ir_send: true,
+            global_pitch,
+        })
     }
 
     /// Get the ClearType override for the current assist level.
@@ -2853,5 +2914,160 @@ mod tests {
         // Step 3: encode option — now in DP mode (player=2)
         // = 1 + 4 * 10 + 2 * 100 = 241
         assert_eq!(player.encode_option_for_score(), 241);
+    }
+
+    // --- apply_freq_trainer tests (Phase 34f) ---
+
+    #[test]
+    fn freq_trainer_freq_100_returns_none() {
+        let model = make_model_with_time(10000);
+        let mut player = BMSPlayer::new(model);
+        let result = player.apply_freq_trainer(100, true, false, &FrequencyType::FREQUENCY);
+        assert!(result.is_none(), "freq=100 should return None (no change)");
+    }
+
+    #[test]
+    fn freq_trainer_freq_0_returns_none() {
+        let model = make_model_with_time(10000);
+        let mut player = BMSPlayer::new(model);
+        let result = player.apply_freq_trainer(0, true, false, &FrequencyType::FREQUENCY);
+        assert!(result.is_none(), "freq=0 should return None (no change)");
+    }
+
+    #[test]
+    fn freq_trainer_not_play_mode_returns_none() {
+        let model = make_model_with_time(10000);
+        let mut player = BMSPlayer::new(model);
+        let result = player.apply_freq_trainer(150, false, false, &FrequencyType::FREQUENCY);
+        assert!(
+            result.is_none(),
+            "Not play mode should return None (no change)"
+        );
+    }
+
+    #[test]
+    fn freq_trainer_course_mode_returns_none() {
+        let model = make_model_with_time(10000);
+        let mut player = BMSPlayer::new(model);
+        let result = player.apply_freq_trainer(150, true, true, &FrequencyType::FREQUENCY);
+        assert!(
+            result.is_none(),
+            "Course mode should return None (no change)"
+        );
+    }
+
+    #[test]
+    fn freq_trainer_freq_150_adjusts_playtime() {
+        let model = make_model_with_time(10000);
+        let mut player = BMSPlayer::new(model);
+        let last_note_time = player.model.get_last_note_time();
+
+        let result = player.apply_freq_trainer(150, true, false, &FrequencyType::FREQUENCY);
+        assert!(result.is_some());
+
+        // Expected: (lastNoteTime + 1000) * 100 / 150 + TIME_MARGIN
+        let expected_playtime = (last_note_time + 1000) * 100 / 150 + TIME_MARGIN;
+        assert_eq!(player.get_playtime(), expected_playtime);
+    }
+
+    #[test]
+    fn freq_trainer_freq_50_adjusts_playtime() {
+        let model = make_model_with_time(10000);
+        let mut player = BMSPlayer::new(model);
+        let last_note_time = player.model.get_last_note_time();
+
+        let result = player.apply_freq_trainer(50, true, false, &FrequencyType::FREQUENCY);
+        assert!(result.is_some());
+
+        // Expected: (lastNoteTime + 1000) * 100 / 50 + TIME_MARGIN
+        let expected_playtime = (last_note_time + 1000) * 100 / 50 + TIME_MARGIN;
+        assert_eq!(player.get_playtime(), expected_playtime);
+    }
+
+    #[test]
+    fn freq_trainer_freq_string_format() {
+        let model = make_model_with_time(10000);
+        let mut player = BMSPlayer::new(model);
+
+        let result = player.apply_freq_trainer(150, true, false, &FrequencyType::FREQUENCY);
+        let result = result.unwrap();
+        assert_eq!(result.freq_string, "[1.50x]");
+
+        // Test with freq=50
+        let model2 = make_model_with_time(10000);
+        let mut player2 = BMSPlayer::new(model2);
+        let result2 = player2.apply_freq_trainer(50, true, false, &FrequencyType::FREQUENCY);
+        let result2 = result2.unwrap();
+        assert_eq!(result2.freq_string, "[0.50x]");
+
+        // Test with freq=200
+        let model3 = make_model_with_time(10000);
+        let mut player3 = BMSPlayer::new(model3);
+        let result3 = player3.apply_freq_trainer(200, true, false, &FrequencyType::FREQUENCY);
+        let result3 = result3.unwrap();
+        assert_eq!(result3.freq_string, "[2.00x]");
+    }
+
+    #[test]
+    fn freq_trainer_global_pitch_set_when_frequency_type() {
+        let model = make_model_with_time(10000);
+        let mut player = BMSPlayer::new(model);
+
+        let result = player.apply_freq_trainer(150, true, false, &FrequencyType::FREQUENCY);
+        let result = result.unwrap();
+        assert_eq!(result.global_pitch, Some(1.5));
+    }
+
+    #[test]
+    fn freq_trainer_global_pitch_none_when_unprocessed() {
+        let model = make_model_with_time(10000);
+        let mut player = BMSPlayer::new(model);
+
+        let result = player.apply_freq_trainer(150, true, false, &FrequencyType::UNPROCESSED);
+        let result = result.unwrap();
+        assert!(
+            result.global_pitch.is_none(),
+            "UNPROCESSED should not set global pitch"
+        );
+    }
+
+    #[test]
+    fn freq_trainer_result_fields_correct() {
+        let model = make_model_with_time(10000);
+        let mut player = BMSPlayer::new(model);
+
+        let result = player.apply_freq_trainer(150, true, false, &FrequencyType::FREQUENCY);
+        let result = result.unwrap();
+        assert!(result.freq_on);
+        assert!(result.force_no_ir_send);
+    }
+
+    #[test]
+    fn freq_trainer_scales_chart_timing() {
+        // Verify that change_frequency is called on the model
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+        model.set_bpm(120.0);
+        let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
+        tl.set_bpm(120.0);
+        let mut tl2 = bms_model::time_line::TimeLine::new(1.0, 1_000_000, 8);
+        tl2.set_bpm(120.0);
+        tl2.set_note(0, Some(bms_model::note::Note::new_normal(1)));
+        model.set_all_time_line(vec![tl, tl2]);
+        let original_bpm = model.get_bpm();
+
+        let mut player = BMSPlayer::new(model);
+        player.apply_freq_trainer(150, true, false, &FrequencyType::FREQUENCY);
+
+        // BPM should be scaled by 1.5
+        let expected_bpm = original_bpm * 1.5;
+        let actual_bpm = player.model.get_bpm();
+        assert!(
+            (actual_bpm - expected_bpm).abs() < 0.001,
+            "BPM should be scaled: expected {}, got {}",
+            expected_bpm,
+            actual_bpm
+        );
     }
 }
