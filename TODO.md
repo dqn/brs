@@ -13,7 +13,7 @@ Resolves: `beatoraja-skin/stubs.rs` (287 lines), `beatoraja-launcher/stubs.rs` (
 
 ## Phase 27: 楽曲 DB 拡張 + 検索
 
-- **27a:** `rayon::par_iter()` による BMS 並列走査
+- [x] **27a:** `rayon::par_iter()` による BMS 並列走査
 - **27b:** SQLite FTS5 全文検索 (`get_song_datas_by_text()`)
 - **27c:** `SongInformationAccessor` trait + SQLite CRUD
 
