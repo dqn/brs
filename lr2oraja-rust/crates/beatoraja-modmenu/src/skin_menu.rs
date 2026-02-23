@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::imgui_notify::ImGuiNotify;
+use crate::imgui_renderer;
 use crate::stubs::{
     Config, CustomCategory, CustomCategoryItem, CustomFile, CustomOffset, CustomOption,
     JSONSkinLoader, LR2SkinHeaderLoader, LuaSkinLoader, MainController, OPTION_RANDOM_VALUE,
@@ -58,6 +59,8 @@ impl SkinMenu {
     }
 
     /// Render the skin configuration window using egui.
+    ///
+    /// Translated from: SkinMenu.show(ImBoolean)
     pub fn show_ui(ctx: &egui::Context) {
         let main = MAIN.lock().unwrap();
         if main.is_none() {
@@ -70,193 +73,328 @@ impl SkinMenu {
             refresh();
         }
 
+        // Window size hint: height = 30% of window (Java: ImGui.setNextWindowSize(0, windowHeight * 0.3f, FirstUseEver))
+        let default_height = imgui_renderer::window_height() as f32 * 0.3;
+
         let mut open = true;
-        egui::Window::new("Skin").open(&mut open).show(ctx, |ui| {
-            // Skin selector
-            let skins = SKINS.lock().unwrap();
-            let current = CURRENT_SKIN.lock().unwrap();
-            let current_name = current
-                .as_ref()
-                .and_then(|s| s.get_name().map(|n| n.to_string()))
-                .unwrap_or_else(|| "(none)".to_string());
-            drop(current);
-
-            ui.horizontal(|ui| {
-                ui.label("Current skin:");
-                ui.label(&current_name);
+        egui::Window::new("Skin")
+            .open(&mut open)
+            .default_height(default_height)
+            .show(ctx, |ui| {
+                menu_header(ui);
+                ui.separator();
+                skin_config_menu(ui);
             });
-
-            ui.label(format!("{} skins available", skins.len()));
-            drop(skins);
-
-            ui.separator();
-
-            // Skin config options
-            let current_skin = CURRENT_SKIN.lock().unwrap();
-            if let Some(ref skin) = *current_skin {
-                for option in skin.get_custom_options() {
-                    let mut val = SET_OPTIONS
-                        .lock()
-                        .unwrap()
-                        .as_ref()
-                        .and_then(|m| m.get(&option.name).copied())
-                        .unwrap_or(option.get_default_option());
-                    let selected = option
-                        .contents
-                        .get(val as usize)
-                        .map(|s| s.as_str())
-                        .unwrap_or("Default");
-                    egui::ComboBox::from_label(&option.name)
-                        .selected_text(selected)
-                        .show_ui(ui, |ui| {
-                            for (i, content) in option.contents.iter().enumerate() {
-                                ui.selectable_value(&mut val, i as i32, content.as_str());
-                            }
-                        });
-                    if let Some(ref mut opts) = *SET_OPTIONS.lock().unwrap() {
-                        opts.insert(option.name.clone(), val);
-                    }
-                }
-            }
-        });
     }
 }
 
-fn menu_header() {
+/// Render the skin menu header: skin selector, save/reset buttons, live editing, freeze timers.
+///
+/// Translated from: SkinMenu.menuHeader()
+fn menu_header(ui: &mut egui::Ui) {
     let skins = SKINS.lock().unwrap();
     let current_skin = CURRENT_SKIN.lock().unwrap();
 
     if let Some(ref skin) = *current_skin {
-        // Arrow left button
-        // if (ImGui.arrowButton("##skin-select-left", 0))
-        {
-            let index = skins.iter().position(|s| s.get_name() == skin.get_name());
-            if let Some(idx) = index {
-                let _new_idx = (idx + skins.len() - 1) % skins.len();
-                // switchCurrentSceneSkin(skins.get(new_idx));
+        let current_name = skin.get_name().map(|n| n.to_string()).unwrap_or_default();
+        let current_path = skin
+            .get_path()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default();
+        let skin_count = skins.len();
+
+        // Find current index in skins list
+        let current_index = skins.iter().position(|s| s.get_name() == skin.get_name());
+
+        // Collect skin names for the combo
+        let skin_names: Vec<String> = skins
+            .iter()
+            .filter_map(|s| s.get_name().map(|n| n.to_string()))
+            .collect();
+
+        drop(current_skin);
+        drop(skins);
+
+        // Arrow left + Combo + Arrow right for skin selection
+        ui.horizontal(|ui| {
+            // Left arrow button
+            if ui.button("\u{25C0}").clicked()
+                && let Some(idx) = current_index
+            {
+                let new_idx = (idx + skin_count - 1) % skin_count;
+                let skins = SKINS.lock().unwrap();
+                if new_idx < skins.len() {
+                    let header = skins[new_idx].clone();
+                    drop(skins);
+                    switch_current_scene_skin(header);
+                }
             }
-        }
 
-        // Combo selector
-        // if (ImGui.beginCombo("##skin-select-combo", currentSkin.getName(), ImGuiComboFlags.HeightLarge))
-        // { for header in skins { ... ImGui.selectable(header.getName()) ... } ImGui.endCombo(); }
-
-        // Arrow right button
-        // if (ImGui.arrowButton("##skin-select-right", 1))
-        {
-            let index = skins.iter().position(|s| s.get_name() == skin.get_name());
-            if let Some(idx) = index {
-                let _new_idx = (idx + 1) % skins.len();
-                // switchCurrentSceneSkin(skins.get(new_idx));
+            // Skin selector combo
+            let mut selected_name = current_name.clone();
+            egui::ComboBox::from_id_salt("skin-select-combo")
+                .selected_text(&selected_name)
+                .width(ui.available_width() * 0.5)
+                .show_ui(ui, |ui| {
+                    let skins = SKINS.lock().unwrap();
+                    for header in skins.iter() {
+                        let name = header.get_name().map(|n| n.to_string()).unwrap_or_default();
+                        if ui.selectable_label(name == selected_name, &name).clicked() {
+                            selected_name = name;
+                        }
+                    }
+                });
+            // If a different skin was selected via combo, switch to it
+            if selected_name != current_name {
+                let skins = SKINS.lock().unwrap();
+                if let Some(header) = skins.iter().find(|s| {
+                    s.get_name().map(|n| n.to_string()).unwrap_or_default() == selected_name
+                }) {
+                    let h = header.clone();
+                    drop(skins);
+                    switch_current_scene_skin(h);
+                }
             }
-        }
 
-        // Open skin location button
-        // if (ImGui.button("Open##open-skin-location")) { Desktop.open(...) }
+            // Right arrow button
+            if ui.button("\u{25B6}").clicked()
+                && let Some(idx) = current_index
+            {
+                let skins = SKINS.lock().unwrap();
+                let new_idx = (idx + 1) % skins.len();
+                if new_idx < skins.len() {
+                    let header = skins[new_idx].clone();
+                    drop(skins);
+                    switch_current_scene_skin(header);
+                }
+            }
 
-        let _path_display = format!(
-            "> {}",
-            skin.get_path()
-                .map(|p| p.display().to_string())
-                .unwrap_or_default()
-        );
-        // ImGui.textDisabled(path_display);
+            // Open skin location button
+            if ui.button("Open").clicked() {
+                // Desktop.open — platform-specific, best effort
+                log::info!("Open skin location: {}", current_path);
+            }
+        });
 
-        let dirty = *DIRTY_CONFIG.lock().unwrap();
-        let live_editing = *LIVE_EDITING.lock().unwrap();
-        let _save_available = dirty && !live_editing;
-        // ImGui.beginDisabled(!saveAvailable);
-        // boolean saveRequested = ImGui.button(" Save ##reload-current-skin");
-        // ImGui.endDisabled();
-        // if (saveRequested || (dirtyConfig && liveEditing.get())) { switchCurrentSceneSkin(currentSkin); }
-        // dirty(ImGui.checkbox("Live Editing###live-edit-mode", liveEditing));
+        // Skin path display
+        ui.label(egui::RichText::new(format!("> {}", current_path)).weak());
 
-        // Reset button
-        // if (ImGui.button(" Reset ##skin-setting-reset-request")) { ImGui.openPopup("skin-setting-reset-confirmation"); }
-        // ... confirmation popup ...
+        // Save / Live Editing / Reset / Freeze timers
+        ui.horizontal(|ui| {
+            let is_dirty = *DIRTY_CONFIG.lock().unwrap();
+            let live_editing = *LIVE_EDITING.lock().unwrap();
+            let save_available = is_dirty && !live_editing;
 
-        // Freeze timers checkbox
-        // if (ImGui.checkbox("Freeze timers###freeze-mode", freezeTimers))
-        // { main.getTimer().setFrozen(freezeTimers.get()); }
+            // Save button
+            ui.add_enabled_ui(save_available, |ui| {
+                let save_requested = ui.button(" Save ").clicked();
+                if save_requested || (is_dirty && live_editing) {
+                    let current_skin = CURRENT_SKIN.lock().unwrap();
+                    if let Some(ref cs) = *current_skin {
+                        let h = cs.clone();
+                        drop(current_skin);
+                        switch_current_scene_skin(h);
+                    }
+                }
+            });
+
+            // Live Editing checkbox
+            let mut le = *LIVE_EDITING.lock().unwrap();
+            if ui.checkbox(&mut le, "Live Editing").changed() {
+                dirty(true);
+            }
+            *LIVE_EDITING.lock().unwrap() = le;
+
+            // Reset button with confirmation popup
+            let reset_popup_id = ui.make_persistent_id("skin-setting-reset-confirmation");
+            let reset_response = ui.button(" Reset ");
+            if reset_response.clicked() {
+                ui.memory_mut(|mem| mem.toggle_popup(reset_popup_id));
+            }
+
+            egui::popup_below_widget(
+                ui,
+                reset_popup_id,
+                &reset_response,
+                egui::PopupCloseBehavior::CloseOnClickOutside,
+                |ui| {
+                    ui.label("Reset current skin's settings to default");
+                    ui.label("ARE YOU SURE?");
+                    ui.horizontal(|ui| {
+                        if ui.button(" Confirm ").clicked() {
+                            reset_current_skin_config();
+                            let current_skin = CURRENT_SKIN.lock().unwrap();
+                            if let Some(ref cs) = *current_skin {
+                                let h = cs.clone();
+                                drop(current_skin);
+                                switch_current_scene_skin(h);
+                            }
+                            ui.memory_mut(|mem| mem.toggle_popup(reset_popup_id));
+                        }
+                        ui.label(egui::RichText::new("(click outside popup to close)").weak());
+                    });
+                },
+            );
+
+            // Freeze timers checkbox
+            let mut ft = *FREEZE_TIMERS.lock().unwrap();
+            if ui.checkbox(&mut ft, "Freeze timers").changed() {
+                // main.getTimer().setFrozen(freezeTimers) — stub
+                log::info!("Freeze timers: {}", ft);
+            }
+            *FREEZE_TIMERS.lock().unwrap() = ft;
+        });
+    } else {
+        drop(current_skin);
+        drop(skins);
+        ui.label("No skin loaded");
     }
 }
 
-fn skin_config_menu() {
+/// Render the skin configuration options/files/offsets with category tab bar.
+///
+/// Translated from: SkinMenu.skinConfigMenu()
+fn skin_config_menu(ui: &mut egui::Ui) {
     let current_skin = CURRENT_SKIN.lock().unwrap();
     if current_skin.is_none() {
         return;
     }
-    let skin = current_skin.as_ref().unwrap();
+    let skin = current_skin.as_ref().unwrap().clone();
+    drop(current_skin);
+
     let mut shown = HashSet::new();
+    let categories = skin.get_custom_categories().to_vec();
+    let has_tabs = !categories.is_empty();
 
-    let categories = skin.get_custom_categories();
-    let tabbar = !categories.is_empty();
+    if has_tabs {
+        // Tab bar with categories
+        // egui doesn't have native tab bars, so we use a horizontal row of selectable labels
+        // combined with a persistent selected tab index.
+        let tab_id = ui.make_persistent_id("skin-config-tab");
+        let mut selected_tab: usize = ui.data(|data| data.get_temp::<usize>(tab_id)).unwrap_or(0);
 
-    // if (tabbar) { ImGui.beginTabBar("#tab-bar"); }
-    for category in categories {
-        // boolean tabOpen = ImGui.beginTabItem(category.name + "##category-tab");
-        // if (tabOpen) { ImGui.beginChild("skin-config", 0, 0, true); }
-        for item in &category.items {
-            match item {
-                CustomCategoryItem::Option(option) => {
-                    shown.insert(option.name.clone());
-                    skin_config_option(option);
-                }
-                CustomCategoryItem::File(file) => {
-                    shown.insert(file.name.clone());
-                    skin_config_file(file);
-                }
-                CustomCategoryItem::Offset(offset) => {
-                    shown.insert(offset.name.clone());
-                    skin_config_offset(offset);
+        ui.horizontal(|ui| {
+            for (idx, category) in categories.iter().enumerate() {
+                if ui
+                    .selectable_label(selected_tab == idx, &category.name)
+                    .clicked()
+                {
+                    selected_tab = idx;
                 }
             }
-        }
-        // if (tabOpen) { ImGui.endChild(); ImGui.endTabItem(); }
-    }
+            // "Other" tab for uncategorized items
+            if ui
+                .selectable_label(selected_tab == categories.len(), "Other")
+                .clicked()
+            {
+                selected_tab = categories.len();
+            }
+        });
 
-    // Other tab (uncategorized items)
-    // boolean otherTab = tabbar && ImGui.beginTabItem("Other##category-tab");
-    // if (!tabbar || otherTab) {
+        ui.data_mut(|data| data.insert_temp(tab_id, selected_tab));
+        ui.separator();
+
+        if selected_tab < categories.len() {
+            // Render the selected category tab
+            let category = &categories[selected_tab];
+            // Track shown items across ALL categories (for the "Other" tab)
+            for cat in &categories {
+                for item in &cat.items {
+                    match item {
+                        CustomCategoryItem::Option(option) => {
+                            shown.insert(option.name.clone());
+                        }
+                        CustomCategoryItem::File(file) => {
+                            shown.insert(file.name.clone());
+                        }
+                        CustomCategoryItem::Offset(offset) => {
+                            shown.insert(offset.name.clone());
+                        }
+                    }
+                }
+            }
+
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for item in &category.items {
+                    match item {
+                        CustomCategoryItem::Option(option) => {
+                            skin_config_option(ui, option);
+                        }
+                        CustomCategoryItem::File(file) => {
+                            skin_config_file(ui, file);
+                        }
+                        CustomCategoryItem::Offset(offset) => {
+                            skin_config_offset(ui, offset);
+                        }
+                    }
+                }
+            });
+        } else {
+            // "Other" tab — show uncategorized items
+            for cat in &categories {
+                for item in &cat.items {
+                    match item {
+                        CustomCategoryItem::Option(option) => {
+                            shown.insert(option.name.clone());
+                        }
+                        CustomCategoryItem::File(file) => {
+                            shown.insert(file.name.clone());
+                        }
+                        CustomCategoryItem::Offset(offset) => {
+                            shown.insert(offset.name.clone());
+                        }
+                    }
+                }
+            }
+            render_uncategorized(ui, &skin, &shown);
+        }
+    } else {
+        // No tabs — render all items directly
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            render_uncategorized(ui, &skin, &shown);
+        });
+    }
+}
+
+/// Render uncategorized options/files/offsets (items not in any category).
+fn render_uncategorized(ui: &mut egui::Ui, skin: &SkinHeader, shown: &HashSet<String>) {
     let options = skin.get_custom_options();
     for option in options {
         if shown.contains(&option.name) {
             continue;
         }
-        skin_config_option(option);
+        skin_config_option(ui, option);
     }
     let files = skin.get_custom_files();
     for file in files {
         if shown.contains(&file.name) {
             continue;
         }
-        skin_config_file(file);
+        skin_config_file(ui, file);
     }
     let offsets = skin.get_custom_offsets();
     for offset in offsets {
         if shown.contains(&offset.name) {
             continue;
         }
-        skin_config_offset(offset);
+        skin_config_offset(ui, offset);
     }
-    // }
-    // if (otherTab) { ImGui.endTabItem(); }
-    // if (tabbar) { ImGui.endTabBar(); }
 }
 
-fn skin_config_option(option: &CustomOption) {
-    // we pretend 'Random' is at the end of the list
-    let options_count = option.contents.len() + 1;
-    // for options with 2 choices (3 with random), show a radio instead
-    if 3 == options_count {
-        skin_config_option_radio(option);
+/// Render a skin option with arrow buttons and combo box.
+///
+/// Translated from: SkinMenu.skinConfigOption(CustomOption)
+fn skin_config_option(ui: &mut egui::Ui, option: &CustomOption) {
+    // Options with 2 choices (3 with random) use radio buttons instead
+    let options_count = option.contents.len() + 1; // +1 for "Random"
+    if options_count == 3 {
+        skin_config_option_radio(ui, option);
         return;
     }
 
-    // ImGui.pushID(option.name);
     let value = get_option_setting(option);
-    let selected = option_index(option, value);
-    let _chosen = if selected == OPTION_RANDOM_VALUE {
+    let mut selected = option_index(option, value);
+    let chosen = if selected == OPTION_RANDOM_VALUE {
         "Random".to_string()
     } else if (selected as usize) < option.contents.len() {
         option.contents[selected as usize].clone()
@@ -264,19 +402,93 @@ fn skin_config_option(option: &CustomOption) {
         "Random".to_string()
     };
 
-    // Arrow buttons + combo for selection
-    // ... ImGui calls stubbed ...
+    let mut arrow_changed = false;
 
-    // ImGui.popID();
+    ui.push_id(&option.name, |ui| {
+        ui.horizontal(|ui| {
+            // Left arrow button
+            if ui.button("\u{25C0}").clicked() {
+                selected = (selected + options_count as i32 - 1) % options_count as i32;
+                arrow_changed = true;
+            }
+
+            // Combo box for option selection
+            let mut new_chosen = chosen.clone();
+            let combo_width = (ui.available_width() / 3.5).max(80.0);
+            egui::ComboBox::from_id_salt("##combo")
+                .selected_text(&chosen)
+                .width(combo_width)
+                .show_ui(ui, |ui| {
+                    for (i, content) in option.contents.iter().enumerate() {
+                        if ui
+                            .selectable_label(content == &chosen, content.as_str())
+                            .clicked()
+                        {
+                            if let Some(ref mut opts) = *SET_OPTIONS.lock().unwrap() {
+                                opts.insert(option.name.clone(), option.option[i]);
+                            }
+                            dirty(true);
+                            new_chosen = content.clone();
+                        }
+                    }
+                    if ui.selectable_label("Random" == chosen, "Random").clicked() {
+                        if let Some(ref mut opts) = *SET_OPTIONS.lock().unwrap() {
+                            opts.insert(option.name.clone(), OPTION_RANDOM_VALUE);
+                        }
+                        dirty(true);
+                        new_chosen = "Random".to_string();
+                    }
+                });
+
+            // Right arrow button
+            if ui.button("\u{25B6}").clicked() {
+                selected = (selected + 1) % options_count as i32;
+                arrow_changed = true;
+            }
+
+            if arrow_changed {
+                if selected as usize == option.contents.len() {
+                    if let Some(ref mut opts) = *SET_OPTIONS.lock().unwrap() {
+                        opts.insert(option.name.clone(), OPTION_RANDOM_VALUE);
+                    }
+                } else if (selected as usize) < option.option.len()
+                    && let Some(ref mut opts) = *SET_OPTIONS.lock().unwrap()
+                {
+                    opts.insert(option.name.clone(), option.option[selected as usize]);
+                }
+                dirty(true);
+            }
+
+            ui.label(&option.name);
+        });
+    });
 }
 
-fn skin_config_option_radio(option: &CustomOption) {
-    // ImGui.pushID(option.name);
-    // ImGui.text(option.name);
-    let _value = get_option_setting(option);
-    // Radio buttons for each option + "Random"
-    // ... ImGui calls stubbed ...
-    // ImGui.popID();
+/// Render a skin option with radio buttons (for options with exactly 2 choices).
+///
+/// Translated from: SkinMenu.skinConfigOptionRadio(CustomOption)
+fn skin_config_option_radio(ui: &mut egui::Ui, option: &CustomOption) {
+    ui.push_id(&option.name, |ui| {
+        ui.label(&option.name);
+        let mut value = get_option_setting(option);
+        let original_value = value;
+
+        ui.indent("radio-indent", |ui| {
+            ui.horizontal(|ui| {
+                for i in 0..option.contents.len() {
+                    ui.radio_value(&mut value, option.option[i], option.contents[i].as_str());
+                }
+                ui.radio_value(&mut value, OPTION_RANDOM_VALUE, "Random");
+            });
+        });
+
+        if value != original_value {
+            if let Some(ref mut opts) = *SET_OPTIONS.lock().unwrap() {
+                opts.insert(option.name.clone(), value);
+            }
+            dirty(true);
+        }
+    });
 }
 
 fn option_index(option: &CustomOption, value: i32) -> i32 {
@@ -288,42 +500,135 @@ fn option_index(option: &CustomOption, value: i32) -> i32 {
     OPTION_RANDOM_VALUE
 }
 
-fn skin_config_file(file: &CustomFile) {
+/// Render a skin file selector with arrow buttons and combo box.
+///
+/// Translated from: SkinMenu.skinConfigFile(CustomFile)
+fn skin_config_file(ui: &mut egui::Ui, file: &CustomFile) {
     let selection = get_file_setting(file);
     let available = AVAILABLE_FILES.lock().unwrap();
     if selection.is_none() || available.as_ref().and_then(|m| m.get(&file.name)).is_none() {
         return;
     }
+    let choices = available
+        .as_ref()
+        .unwrap()
+        .get(&file.name)
+        .cloned()
+        .unwrap_or_default();
     drop(available);
 
-    // ImGui color push, arrow buttons, combo, text display
-    // ... ImGui calls stubbed ...
+    let selection = selection.unwrap_or_default();
+    let mut index = choices.iter().position(|c| c == &selection).unwrap_or(0);
+    let max = choices.len();
+
+    ui.push_id(&file.name, |ui| {
+        ui.horizontal(|ui| {
+            // Tinted frame background for file selectors (Java: pushStyleColor FrameBg)
+            // Left arrow
+            if ui.button("\u{25C0}").clicked() {
+                index = (index + max - 1) % max;
+                if let Some(ref mut files) = *SET_FILES.lock().unwrap() {
+                    files.insert(file.name.clone(), choices[index].clone());
+                }
+                dirty(true);
+            }
+
+            // File combo
+            let combo_width = (ui.available_width() / 3.0).max(100.0);
+            egui::ComboBox::from_id_salt("##file-combo")
+                .selected_text(&selection)
+                .width(combo_width)
+                .show_ui(ui, |ui| {
+                    for path in &choices {
+                        if ui
+                            .selectable_label(path == &selection, path.as_str())
+                            .clicked()
+                        {
+                            if let Some(ref mut files) = *SET_FILES.lock().unwrap() {
+                                files.insert(file.name.clone(), path.clone());
+                            }
+                            dirty(true);
+                        }
+                    }
+                });
+
+            // Right arrow
+            if ui.button("\u{25B6}").clicked() {
+                index = (index + 1) % max;
+                if let Some(ref mut files) = *SET_FILES.lock().unwrap() {
+                    files.insert(file.name.clone(), choices[index].clone());
+                }
+                dirty(true);
+            }
+
+            ui.label(&file.name);
+        });
+
+        // Show normalized path below
+        let normalized = file
+            .path
+            .replace('*', "_WILDCARDESCAPE_")
+            .replace('|', "_PIPEESCAPE_");
+        let normalized_path = PathBuf::from(&normalized);
+        let display = normalized_path
+            .to_string_lossy()
+            .replace("_WILDCARDESCAPE_", "*")
+            .replace("_PIPEESCAPE_", "|");
+        ui.label(egui::RichText::new(format!("  > {}", display)).weak());
+    });
 }
 
-fn spawn_drag_int(_name: &str, offset: bool, _value: &mut i32) {
-    if offset {
-        // ImGui.dragInt(...)
-        // dirty(ImGui.isItemDeactivatedAfterEdit());
+/// Render a drag-int widget for an offset component.
+///
+/// Translated from: SkinMenu.spawnDragInt(String, boolean, int[])
+fn spawn_drag_int(ui: &mut egui::Ui, name: &str, offset_enabled: bool, value: &mut i32) {
+    if offset_enabled {
+        let drag = egui::DragValue::new(value)
+            .speed(0.166)
+            .prefix(format!("{} = ", name));
+        if ui.add(drag).changed() {
+            dirty(true);
+        }
     } else {
-        // ImGui.dummy(100, 0);
+        // Empty placeholder for alignment (Java: ImGui.dummy(100, 0))
+        ui.add_space(100.0);
     }
 }
 
-fn skin_config_offset(offset: &CustomOffset) {
-    let _value = get_offset_setting(offset);
-    let _width = 100;
+/// Render a skin offset configuration with drag values for X/Y/W/H/R/A.
+///
+/// Translated from: SkinMenu.skinConfigOffset(CustomOffset)
+fn skin_config_offset(ui: &mut egui::Ui, offset: &CustomOffset) {
+    let mut value = get_offset_setting(offset);
 
-    // ImGui.text(offset.name);
-    // ImGui.pushID(offset.name);
-    // ImGui.pushItemWidth(width);
-    // ImGui.indent();
+    ui.push_id(&offset.name, |ui| {
+        ui.label(&offset.name);
 
-    // if (offset.x || offset.w || offset.a) { spawnDragInt("X"...) ... }
-    // if (offset.y || offset.h || offset.r) { spawnDragInt("Y"...) ... }
+        ui.indent("offset-indent", |ui| {
+            // Row 1: X, W, a
+            if offset.x || offset.w || offset.a {
+                ui.horizontal(|ui| {
+                    spawn_drag_int(ui, "X", offset.x, &mut value.x);
+                    spawn_drag_int(ui, "W", offset.w, &mut value.w);
+                    spawn_drag_int(ui, "a", offset.a, &mut value.a);
+                });
+            }
 
-    // ImGui.unindent();
-    // ImGui.popItemWidth();
-    // ImGui.popID();
+            // Row 2: Y, H, R
+            if offset.y || offset.h || offset.r {
+                ui.horizontal(|ui| {
+                    spawn_drag_int(ui, "Y", offset.y, &mut value.y);
+                    spawn_drag_int(ui, "H", offset.h, &mut value.h);
+                    spawn_drag_int(ui, "R", offset.r, &mut value.r);
+                });
+            }
+        });
+    });
+
+    // Write back the modified offset values
+    let mut offsets = SET_OFFSETS.lock().unwrap();
+    let map = offsets.get_or_insert_with(HashMap::new);
+    map.insert(offset.name.clone(), value);
 }
 
 fn refresh() {
@@ -366,7 +671,7 @@ fn load_all_skins(skin_type: &SkinType) -> Vec<SkinHeader> {
             } else if path_string.ends_with(".luaskin") {
                 let mut loader = LuaSkinLoader::new();
                 let _ = loader.load_header(path);
-                // header stays None — lua skin loader not yet fully implemented
+                // header stays None -- lua skin loader not yet fully implemented
             } else if path_string.ends_with(".lr2skin") {
                 let main = MAIN.lock().unwrap();
                 if main.is_some() {
@@ -780,7 +1085,7 @@ fn switch_current_scene_skin(header: SkinHeader) {
 }
 
 // =========================================================================
-// Conversion helpers: SkinHeaderData / LR2SkinHeaderData → SkinHeader
+// Conversion helpers: SkinHeaderData / LR2SkinHeaderData -> SkinHeader
 // =========================================================================
 
 fn skin_header_from_json_data(data: SkinHeaderData) -> SkinHeader {

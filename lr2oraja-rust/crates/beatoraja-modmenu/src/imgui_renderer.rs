@@ -53,9 +53,15 @@ impl ImGuiRenderer {
     pub fn render_ui(ctx: &egui::Context) {
         let show_mod_menu = *SHOW_MOD_MENU.lock().unwrap();
         if show_mod_menu {
+            // Window positioning: 44% from left, 2% from top
+            // Java: ImGui.setNextWindowPos(windowWidth * 0.44f, windowHeight * 0.02f, ImGuiCond.Once)
+            let rel_x = window_width() as f32 * 0.44;
+            let rel_y = window_height() as f32 * 0.02;
+
             let mut show = true;
             egui::Window::new("Endless Dream")
                 .open(&mut show)
+                .default_pos(egui::pos2(rel_x, rel_y))
                 .auto_sized()
                 .show(ctx, |ui| {
                     // Sub-window toggle checkboxes

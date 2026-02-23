@@ -14,8 +14,8 @@ pub const NOTIFY_USE_SEPARATOR: bool = false;
 pub const NOTIFY_USE_DISMISS_BUTTON: bool = false;
 pub const NOTIFY_RENDER_LIMIT: usize = 7;
 
-// ImGuiWindowFlags combination
-pub const NOTIFY_DEFAULT_TOAST_FLAGS: i32 = 0; // stub: AlwaysAutoResize | NoDecoration | NoNav | NoBringToFrontOnFocus | NoFocusOnAppearing
+/// Maximum text wrap width as a fraction of window width (Java: windowWidth / 3.0f)
+const NOTIFY_TEXT_WRAP_FRACTION: f32 = 3.0;
 
 pub const NOTIFICATION_POSITIONS: [&str; 7] = [
     "TopLeft",
@@ -256,7 +256,7 @@ impl Toast {
     }
 
     pub fn get_window_flags(&self) -> i32 {
-        NOTIFY_DEFAULT_TOAST_FLAGS
+        0 // stub: flags handled natively by egui Area/Frame
     }
 
     pub fn has_on_button_press(&self) -> bool {
@@ -287,57 +287,10 @@ impl ImGuiNotify {
         }
     }
 
+    /// Legacy render method — kept for backward compatibility.
+    /// Actual egui rendering uses render_notifications_ui(ctx).
     pub fn render_notifications() {
-        let mut notifications = NOTIFICATIONS.lock().unwrap();
-        let mut height: f32 = 0.0;
-
-        let mut i = 0;
-        while i < notifications.len() {
-            let current_toast = &notifications[i];
-
-            if current_toast.get_phase() == ToastPhase::Expired {
-                notifications.remove(i);
-                continue;
-            }
-
-            if NOTIFY_RENDER_LIMIT > 0 && i >= NOTIFY_RENDER_LIMIT {
-                i += 1;
-                continue;
-            }
-
-            let _icon = current_toast.get_icon();
-            let _title = current_toast.get_title().to_string();
-            let _content = current_toast.get_content().to_string();
-            let _default_title = current_toast.get_default_title().map(|s| s.to_string());
-            let _opacity = current_toast.get_fade_percent();
-
-            let mut text_color = current_toast.get_color();
-            text_color[3] = _opacity;
-
-            let _window_name = format!("##TOAST{}", i);
-
-            // ImGui.setNextWindowBgAlpha(opacity);
-
-            let (toast_x, toast_y) = get_toast_pos(&current_toast.pos, height);
-            let _ = (toast_x, toast_y);
-            // ImGui.setNextWindowPos(toastPos.x, toastPos.y, ...);
-
-            let mut _window_flags = current_toast.get_window_flags();
-            if !NOTIFY_USE_DISMISS_BUTTON && !current_toast.has_on_button_press() {
-                // window_flags |= ImGuiWindowFlags.NoInputs;
-            }
-
-            // ImGui.begin(windowName, windowFlags);
-
-            // Render title, icon, content, dismiss button, action button
-            // ... (all ImGui rendering calls stubbed)
-
-            height += 0.0 /* ImGui.getWindowHeight() */ + NOTIFY_PADDING_MESSAGE_Y;
-
-            // ImGui.end();
-
-            i += 1;
-        }
+        // No-op: rendering is now done in render_notifications_ui()
     }
 
     // Convenience notification methods
@@ -411,73 +364,146 @@ impl ImGuiNotify {
     }
 
     /// Render toast notifications using egui.
+    ///
+    /// Translated from: ImGuiNotify.renderNotifications()
+    /// Renders each active toast as a positioned egui Area with a styled frame,
+    /// including icon, title, content, separator, dismiss button, and action button.
     pub fn render_notifications_ui(ctx: &egui::Context) {
         let mut notifications = NOTIFICATIONS.lock().unwrap();
         let mut height: f32 = 0.0;
+        let text_wrap_width = imgui_renderer::window_width() as f32 / NOTIFY_TEXT_WRAP_FRACTION;
 
         let mut i = 0;
+        let mut dismiss_index: Option<usize> = None;
+
         while i < notifications.len() {
             let current_toast = &notifications[i];
 
+            // Remove expired toasts
             if current_toast.get_phase() == ToastPhase::Expired {
                 notifications.remove(i);
                 continue;
             }
 
+            // Enforce render limit
             if NOTIFY_RENDER_LIMIT > 0 && i >= NOTIFY_RENDER_LIMIT {
                 i += 1;
                 continue;
             }
 
+            // Snapshot all toast data before UI rendering (avoids borrow issues)
             let opacity = current_toast.get_fade_percent();
             let text_color = current_toast.get_color();
-            let title = current_toast
-                .get_default_title()
-                .unwrap_or("Notification")
-                .to_string();
+            let icon = current_toast.get_icon().map(|s| s.to_string());
+            let title = current_toast.get_title().to_string();
+            let default_title = current_toast.get_default_title().map(|s| s.to_string());
             let content = current_toast.get_content().to_string();
+            let has_button = current_toast.has_on_button_press();
+            let button_label = current_toast.get_button_label().to_string();
             let window_name = format!("##TOAST{}", i);
+            let toast_pos = current_toast.pos.clone();
 
-            let (toast_x, toast_y) = get_toast_pos(&current_toast.pos, height);
+            let (toast_x, toast_y) = get_toast_pos(&toast_pos, height);
+            // Apply pivot offset: shift by pivot * estimated window size
+            // egui positions by top-left; Java ImGui uses pivot to adjust
+            let pivot_x = toast_pos.pivot_x();
+            let pivot_y = toast_pos.pivot_y();
+            // We estimate the window size for pivot; egui doesn't expose size before rendering.
+            // Use a reasonable estimate (200px wide, 60px tall per toast)
+            let estimated_width = text_wrap_width.min(300.0);
+            let estimated_height = 60.0_f32;
+            let adjusted_x = toast_x - pivot_x * estimated_width;
+            let adjusted_y = toast_y - pivot_y * estimated_height;
 
-            egui::Area::new(egui::Id::new(&window_name))
-                .fixed_pos(egui::pos2(toast_x, toast_y))
+            let color = egui::Color32::from_rgba_unmultiplied(
+                (text_color[0] * 255.0) as u8,
+                (text_color[1] * 255.0) as u8,
+                (text_color[2] * 255.0) as u8,
+                (opacity * 255.0) as u8,
+            );
+            let content_color =
+                egui::Color32::from_rgba_unmultiplied(200, 200, 200, (opacity * 255.0) as u8);
+            let bg_alpha = (opacity * 255.0) as u8;
+
+            let interactable = NOTIFY_USE_DISMISS_BUTTON || has_button;
+
+            let response = egui::Area::new(egui::Id::new(&window_name))
+                .fixed_pos(egui::pos2(adjusted_x, adjusted_y))
+                .interactable(interactable)
                 .show(ctx, |ui| {
-                    let frame = egui::Frame::popup(ui.style()).fill(
-                        egui::Color32::from_rgba_unmultiplied(40, 40, 40, (opacity * 255.0) as u8),
-                    );
+                    ui.set_max_width(text_wrap_width);
+                    let frame = egui::Frame::popup(ui.style())
+                        .fill(egui::Color32::from_rgba_unmultiplied(40, 40, 40, bg_alpha));
                     frame.show(ui, |ui| {
-                        let color = egui::Color32::from_rgba_unmultiplied(
-                            (text_color[0] * 255.0) as u8,
-                            (text_color[1] * 255.0) as u8,
-                            (text_color[2] * 255.0) as u8,
-                            (opacity * 255.0) as u8,
-                        );
-                        if let Some(icon) = current_toast.get_icon() {
+                        let mut was_title_rendered = false;
+
+                        // Render icon + title on same line
+                        if icon.is_some() || !title.is_empty() || default_title.is_some() {
                             ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new(icon).color(color));
-                                ui.label(egui::RichText::new(&title).color(color).strong());
+                                // Icon
+                                if let Some(ref icon_str) = icon {
+                                    ui.label(egui::RichText::new(icon_str).color(color));
+                                    was_title_rendered = true;
+                                }
+
+                                // Title (explicit title takes precedence over default)
+                                if !title.is_empty() {
+                                    ui.label(egui::RichText::new(&title).color(color).strong());
+                                    was_title_rendered = true;
+                                } else if let Some(ref dt) = default_title {
+                                    ui.label(egui::RichText::new(dt).color(color).strong());
+                                    was_title_rendered = true;
+                                }
+
+                                // Dismiss button (inline with title)
+                                if NOTIFY_USE_DISMISS_BUTTON
+                                    && (was_title_rendered || !content.is_empty())
+                                    && ui.small_button("X").clicked()
+                                {
+                                    dismiss_index = Some(i);
+                                }
                             });
-                        } else {
-                            ui.label(egui::RichText::new(&title).color(color).strong());
                         }
+
+                        // Spacing between title and content
+                        if was_title_rendered && !content.is_empty() {
+                            ui.add_space(5.0);
+                        }
+
+                        // Separator between title and content
+                        if was_title_rendered && !content.is_empty() && NOTIFY_USE_SEPARATOR {
+                            ui.separator();
+                        }
+
+                        // Content text
                         if !content.is_empty() {
-                            ui.label(egui::RichText::new(&content).color(
-                                egui::Color32::from_rgba_unmultiplied(
-                                    200,
-                                    200,
-                                    200,
-                                    (opacity * 255.0) as u8,
-                                ),
-                            ));
+                            ui.label(egui::RichText::new(&content).color(content_color));
+                        }
+
+                        // Action button
+                        if has_button
+                            && !button_label.is_empty()
+                            && ui.button(&button_label).clicked()
+                        {
+                            // In Java this would call onButtonPress.run()
+                            // Callback not yet wired (stub: on_button_press is bool)
+                            log::info!("Toast action button pressed: {}", button_label);
                         }
                     });
-
-                    // Approximate toast height
-                    height += 50.0 + NOTIFY_PADDING_MESSAGE_Y;
                 });
 
+            // Accumulate height from the rendered area
+            let area_height = response.response.rect.height();
+            height += area_height + NOTIFY_PADDING_MESSAGE_Y;
+
             i += 1;
+        }
+
+        // Process dismiss outside the loop to avoid borrow issues
+        if let Some(idx) = dismiss_index
+            && idx < notifications.len()
+        {
+            notifications.remove(idx);
         }
     }
 }
