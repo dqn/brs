@@ -1099,7 +1099,7 @@ impl MainState for BMSPlayer {
         // guide SE setup
         // input processor setup
 
-        self.judge.init(&self.model, 0);
+        self.judge.init(&self.model, 0, None, &[]);
 
         let use_expansion = false; // TODO: from PlaySkin note expansion rate
         self.rhythm = Some(RhythmTimerProcessor::new(&self.model, use_expansion));

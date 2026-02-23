@@ -3,7 +3,9 @@ use crate::judge_algorithm::JudgeAlgorithm;
 use crate::judge_property::{JudgeProperty, MissCondition, NoteType};
 use crate::lane_property::LaneProperty;
 use beatoraja_core::score_data::ScoreData;
+use beatoraja_types::course_data::CourseDataConstraint;
 use beatoraja_types::groove_gauge::GrooveGauge;
+use beatoraja_types::player_config::PlayerConfig;
 use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
 use bms_model::judge_note::{JUDGE_PR, JudgeNote};
 use bms_model::mode::Mode;
@@ -1193,7 +1195,13 @@ impl JudgeManager {
 
     // --- Legacy API (backward compat) ---
 
-    pub fn init(&mut self, model: &BMSModel, judgeregion: i32) {
+    pub fn init(
+        &mut self,
+        model: &BMSModel,
+        judgeregion: i32,
+        player_config: Option<&PlayerConfig>,
+        constraints: &[CourseDataConstraint],
+    ) {
         self.prevmtime = 0;
         self.judgenow = vec![0; judgeregion as usize];
         self.judgecombo = vec![0; judgeregion as usize];
@@ -1209,8 +1217,49 @@ impl JudgeManager {
 
         let rule = BMSPlayerRule::get_bms_player_rule(&orgmode);
         let judgerank = model.get_judgerank();
-        let key_judge_window_rate = [100, 100, 100];
-        let scratch_judge_window_rate = [100, 100, 100];
+
+        let mut key_judge_window_rate = if let Some(config) = player_config {
+            if config.is_custom_judge() {
+                [
+                    config.key_judge_window_rate_perfect_great,
+                    config.key_judge_window_rate_great,
+                    config.key_judge_window_rate_good,
+                ]
+            } else {
+                [100, 100, 100]
+            }
+        } else {
+            [100, 100, 100]
+        };
+        let mut scratch_judge_window_rate = if let Some(config) = player_config {
+            if config.is_custom_judge() {
+                [
+                    config.scratch_judge_window_rate_perfect_great,
+                    config.scratch_judge_window_rate_great,
+                    config.scratch_judge_window_rate_good,
+                ]
+            } else {
+                [100, 100, 100]
+            }
+        } else {
+            [100, 100, 100]
+        };
+
+        for con in constraints {
+            match con {
+                CourseDataConstraint::NoGreat => {
+                    key_judge_window_rate[1] = 0;
+                    key_judge_window_rate[2] = 0;
+                    scratch_judge_window_rate[1] = 0;
+                    scratch_judge_window_rate[2] = 0;
+                }
+                CourseDataConstraint::NoGood => {
+                    key_judge_window_rate[2] = 0;
+                    scratch_judge_window_rate[2] = 0;
+                }
+                _ => {}
+            }
+        }
 
         self.combocond = rule.judge.combo.clone();
         self.miss = rule.judge.miss;
@@ -1400,6 +1449,8 @@ impl JudgeManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use beatoraja_types::course_data::CourseDataConstraint;
+    use beatoraja_types::player_config::PlayerConfig;
     use bms_model::judge_note::{JUDGE_PG, build_judge_notes};
     use bms_model::note::Note;
     use bms_model::time_line::TimeLine;
@@ -1495,7 +1546,7 @@ mod tests {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
         model.set_judgerank(100);
-        jm.init(&model, 1);
+        jm.init(&model, 1, None, &[]);
 
         assert_eq!(jm.get_now_judge(0), 0);
         let table = jm.get_judge_table(false);
@@ -1510,7 +1561,7 @@ mod tests {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
         model.set_judgerank(100);
-        jm.init(&model, 1);
+        jm.init(&model, 1, None, &[]);
 
         let ghost = jm.get_ghost();
         let total = model.get_total_notes() as usize;
@@ -1525,7 +1576,7 @@ mod tests {
         let mut jm = JudgeManager::new();
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        jm.init(&model, 1);
+        jm.init(&model, 1, None, &[]);
 
         assert_eq!(jm.get_recent_judges_index(), 0);
         for &j in jm.get_recent_judges() {
@@ -1577,7 +1628,7 @@ mod tests {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K);
         model.set_judgerank(100);
-        jm.init(&model, 2);
+        jm.init(&model, 2, None, &[]);
 
         assert_eq!(jm.get_now_judge(0), 0);
         assert_eq!(jm.get_now_judge(1), 0);
@@ -1589,7 +1640,7 @@ mod tests {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
         model.set_judgerank(100);
-        jm.init(&model, 1);
+        jm.init(&model, 1, None, &[]);
 
         let region = jm.get_judge_time_region(0);
         assert!(!region.is_empty());
@@ -1728,5 +1779,180 @@ mod tests {
         // Note should be miss-POOR (judge=4)
         assert_eq!(jm.past_notes(), 1);
         assert_eq!(jm.ghost()[0], JUDGE_PR as usize);
+    }
+
+    // --- Phase 36d: Custom judge rates and course constraints ---
+
+    #[test]
+    fn init_default_none_config_empty_constraints_unchanged() {
+        // Regression: calling init with None + empty constraints should produce
+        // the same judge tables as before (hardcoded [100,100,100]).
+        let mut jm = JudgeManager::new();
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+        jm.init(&model, 1, None, &[]);
+
+        let nm = jm.get_judge_table(false);
+        let sm = jm.get_judge_table(true);
+        assert!(!nm.is_empty());
+        assert!(!sm.is_empty());
+
+        // With default rates [100,100,100] the tables must be identical to
+        // a second JudgeManager initialized the same way.
+        let mut jm2 = JudgeManager::new();
+        jm2.init(&model, 1, None, &[]);
+        assert_eq!(jm.get_judge_table(false), jm2.get_judge_table(false));
+        assert_eq!(jm.get_judge_table(true), jm2.get_judge_table(true));
+    }
+
+    #[test]
+    fn init_custom_judge_rates_differ_from_default() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+
+        // Default init
+        let mut jm_default = JudgeManager::new();
+        jm_default.init(&model, 1, None, &[]);
+
+        // Custom judge with narrower windows
+        let mut config = PlayerConfig::default();
+        config.set_custom_judge(true);
+        config.key_judge_window_rate_perfect_great = 50;
+        config.key_judge_window_rate_great = 50;
+        config.key_judge_window_rate_good = 50;
+        config.scratch_judge_window_rate_perfect_great = 50;
+        config.scratch_judge_window_rate_great = 50;
+        config.scratch_judge_window_rate_good = 50;
+
+        let mut jm_custom = JudgeManager::new();
+        jm_custom.init(&model, 1, Some(&config), &[]);
+
+        // Custom rates should produce different (narrower) judge tables
+        assert_ne!(
+            jm_default.get_judge_table(false),
+            jm_custom.get_judge_table(false),
+            "Custom key judge rates should differ from default"
+        );
+        assert_ne!(
+            jm_default.get_judge_table(true),
+            jm_custom.get_judge_table(true),
+            "Custom scratch judge rates should differ from default"
+        );
+    }
+
+    #[test]
+    fn init_custom_judge_false_uses_default_rates() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+
+        let mut jm_default = JudgeManager::new();
+        jm_default.init(&model, 1, None, &[]);
+
+        // PlayerConfig with custom_judge = false should use [100,100,100]
+        let config = PlayerConfig::default(); // custom_judge defaults to false
+        let mut jm_with_config = JudgeManager::new();
+        jm_with_config.init(&model, 1, Some(&config), &[]);
+
+        assert_eq!(
+            jm_default.get_judge_table(false),
+            jm_with_config.get_judge_table(false),
+        );
+        assert_eq!(
+            jm_default.get_judge_table(true),
+            jm_with_config.get_judge_table(true),
+        );
+    }
+
+    #[test]
+    fn init_no_great_constraint_zeroes_great_and_good() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+
+        // Without constraint
+        let mut jm_normal = JudgeManager::new();
+        jm_normal.init(&model, 1, None, &[]);
+
+        // With NO_GREAT
+        let mut jm_constrained = JudgeManager::new();
+        jm_constrained.init(&model, 1, None, &[CourseDataConstraint::NoGreat]);
+
+        let nm_normal = jm_normal.get_judge_table(false);
+        let nm_constrained = jm_constrained.get_judge_table(false);
+
+        // The NoGreat constraint zeroes rates [1] and [2], which affects
+        // Great and Good windows. The PerfectGreat window (index 0) stays.
+        // So constrained tables should differ from normal tables.
+        assert_ne!(
+            nm_normal, nm_constrained,
+            "NoGreat should modify key judge tables"
+        );
+
+        let sm_normal = jm_normal.get_judge_table(true);
+        let sm_constrained = jm_constrained.get_judge_table(true);
+        assert_ne!(
+            sm_normal, sm_constrained,
+            "NoGreat should modify scratch judge tables"
+        );
+    }
+
+    #[test]
+    fn init_no_good_constraint_zeroes_good_only() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+
+        // Without constraint
+        let mut jm_normal = JudgeManager::new();
+        jm_normal.init(&model, 1, None, &[]);
+
+        // With NO_GOOD
+        let mut jm_constrained = JudgeManager::new();
+        jm_constrained.init(&model, 1, None, &[CourseDataConstraint::NoGood]);
+
+        let nm_normal = jm_normal.get_judge_table(false);
+        let nm_constrained = jm_constrained.get_judge_table(false);
+
+        // NoGood zeroes only rate[2] (Good window), so tables should differ.
+        assert_ne!(
+            nm_normal, nm_constrained,
+            "NoGood should modify key judge tables"
+        );
+
+        let sm_normal = jm_normal.get_judge_table(true);
+        let sm_constrained = jm_constrained.get_judge_table(true);
+        assert_ne!(
+            sm_normal, sm_constrained,
+            "NoGood should modify scratch judge tables"
+        );
+    }
+
+    #[test]
+    fn init_no_great_zeroes_more_than_no_good() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+
+        let mut jm_no_good = JudgeManager::new();
+        jm_no_good.init(&model, 1, None, &[CourseDataConstraint::NoGood]);
+
+        let mut jm_no_great = JudgeManager::new();
+        jm_no_great.init(&model, 1, None, &[CourseDataConstraint::NoGreat]);
+
+        // NoGreat zeroes both Great and Good, while NoGood only zeroes Good.
+        // So their tables should differ (NoGreat is strictly more restrictive).
+        assert_ne!(
+            jm_no_good.get_judge_table(false),
+            jm_no_great.get_judge_table(false),
+            "NoGreat should be more restrictive than NoGood for key"
+        );
+        assert_ne!(
+            jm_no_good.get_judge_table(true),
+            jm_no_great.get_judge_table(true),
+            "NoGreat should be more restrictive than NoGood for scratch"
+        );
     }
 }
