@@ -89,7 +89,9 @@ impl SQLiteSongDatabaseAccessor {
         ]);
 
         let conn = Connection::open(filepath)?;
-        conn.execute_batch("PRAGMA shared_cache = ON; PRAGMA synchronous = OFF;")?;
+        conn.execute_batch(
+            "PRAGMA shared_cache = ON; PRAGMA synchronous = OFF; PRAGMA recursive_triggers = ON;",
+        )?;
         let root = PathBuf::from(".");
 
         let accessor = Self {
@@ -135,6 +137,48 @@ impl SQLiteSongDatabaseAccessor {
                 [],
             )?;
             conn.execute("DROP TABLE old_song", [])?;
+        }
+
+        // FTS5 full-text search index for song text search
+        Self::create_fts_table(&conn)?;
+
+        Ok(())
+    }
+
+    /// Create the FTS5 virtual table and sync triggers for full-text search.
+    /// Uses content-sync: the FTS table references the song table's rowid.
+    /// Requires PRAGMA recursive_triggers = ON for INSERT OR REPLACE support.
+    fn create_fts_table(conn: &Connection) -> anyhow::Result<()> {
+        let fts_exists: bool = {
+            let mut stmt = conn
+                .prepare("SELECT 1 FROM sqlite_master WHERE name = 'song_fts' AND type='table'")?;
+            stmt.query_map([], |_| Ok(()))?.count() > 0
+        };
+
+        if !fts_exists {
+            conn.execute_batch(
+                "CREATE VIRTUAL TABLE song_fts USING fts5(\
+                     title, subtitle, artist, subartist, genre, \
+                     content='song', content_rowid='rowid'\
+                 );\
+                 CREATE TRIGGER song_fts_ai AFTER INSERT ON song BEGIN \
+                     INSERT INTO song_fts(rowid, title, subtitle, artist, subartist, genre) \
+                     VALUES (new.rowid, new.title, new.subtitle, new.artist, new.subartist, new.genre); \
+                 END;\
+                 CREATE TRIGGER song_fts_ad AFTER DELETE ON song BEGIN \
+                     INSERT INTO song_fts(song_fts, rowid, title, subtitle, artist, subartist, genre) \
+                     VALUES ('delete', old.rowid, old.title, old.subtitle, old.artist, old.subartist, old.genre); \
+                 END;\
+                 CREATE TRIGGER song_fts_au AFTER UPDATE ON song BEGIN \
+                     INSERT INTO song_fts(song_fts, rowid, title, subtitle, artist, subartist, genre) \
+                     VALUES ('delete', old.rowid, old.title, old.subtitle, old.artist, old.subartist, old.genre); \
+                     INSERT INTO song_fts(rowid, title, subtitle, artist, subartist, genre) \
+                     VALUES (new.rowid, new.title, new.subtitle, new.artist, new.subartist, new.genre); \
+                 END;",
+            )?;
+
+            // Populate FTS from existing data (handles migration and pre-existing databases)
+            conn.execute_batch("INSERT INTO song_fts(song_fts) VALUES('rebuild')")?;
         }
 
         Ok(())
@@ -435,6 +479,18 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
     }
 
     fn get_song_datas_by_text(&self, text: &str) -> Vec<SongData> {
+        // Try FTS5 first: convert search terms to prefix-match query
+        let fts_query = Self::build_fts5_query(text);
+        if !fts_query.is_empty() {
+            let sql = "SELECT song.* FROM song JOIN song_fts ON song.rowid = song_fts.rowid \
+                       WHERE song_fts MATCH ?1 GROUP BY sha256";
+            let songs = self.query_songs(sql, &[&fts_query as &dyn rusqlite::types::ToSql]);
+            if !songs.is_empty() {
+                return remove_invalid_elements_vec(songs);
+            }
+        }
+
+        // Fallback to LIKE for substring-within-word matches
         let sql = "SELECT * FROM song WHERE rtrim(title||' '||subtitle||' '||artist||' '||subartist||' '||genre) LIKE ?1 GROUP BY sha256";
         let pattern = format!("%{}%", text);
         let songs = self.query_songs(sql, &[&pattern as &dyn rusqlite::types::ToSql]);
@@ -465,6 +521,21 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
         if let Err(e) = conn.execute_batch("COMMIT") {
             log::error!("Error committing transaction: {}", e);
         }
+    }
+}
+
+impl SQLiteSongDatabaseAccessor {
+    /// Build an FTS5 MATCH query from user search text.
+    /// Each whitespace-separated token becomes a prefix query (token*).
+    /// FTS5 special characters are escaped by double-quoting each token.
+    fn build_fts5_query(text: &str) -> String {
+        text.split_whitespace()
+            .map(|token| {
+                let escaped = token.replace('"', "\"\"");
+                format!("\"{}\"*", escaped)
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 }
 
