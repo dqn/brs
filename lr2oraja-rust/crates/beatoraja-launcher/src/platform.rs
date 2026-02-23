@@ -77,21 +77,50 @@ pub fn get_port_audio_devices() -> anyhow::Result<Vec<DeviceInfo>> {
 
 // === Monitor enumeration ===
 
+/// Monitor information populated from winit's MonitorHandle.
+///
+/// Translated from: com.badlogic.gdx.Graphics.Monitor
+/// Java fields: name, virtualX, virtualY
+///
+/// Extended with `width` and `height` for the monitor's native resolution,
+/// which Java obtains via `Lwjgl3ApplicationConfiguration.getDisplayMode(monitor)`.
 #[derive(Clone, Debug)]
 pub struct MonitorInfo {
     pub name: String,
     pub virtual_x: i32,
     pub virtual_y: i32,
+    /// Native width of the monitor (largest available video mode width).
+    pub width: u32,
+    /// Native height of the monitor (largest available video mode height).
+    pub height: u32,
+}
+
+/// Full video mode information from winit, including refresh rate and bit depth.
+///
+/// Translated from: com.badlogic.gdx.Graphics.DisplayMode
+/// Java fields: width, height, refreshRate, bitsPerPixel
+///
+/// Used by `MainLoader::get_available_display_mode()` to provide complete
+/// display mode data for fullscreen mode selection.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VideoModeInfo {
+    pub width: u32,
+    pub height: u32,
+    pub refresh_rate_millihertz: u32,
+    pub bit_depth: u16,
 }
 
 static CACHED_MONITORS: std::sync::Mutex<Vec<MonitorInfo>> = std::sync::Mutex::new(Vec::new());
 static CACHED_DISPLAY_MODES: std::sync::Mutex<Vec<(u32, u32)>> = std::sync::Mutex::new(Vec::new());
+static CACHED_FULL_DISPLAY_MODES: std::sync::Mutex<Vec<VideoModeInfo>> =
+    std::sync::Mutex::new(Vec::new());
 static CACHED_DESKTOP_MODE: std::sync::Mutex<(u32, u32)> = std::sync::Mutex::new((0, 0));
 
 /// Update cached monitor list and display modes from winit's ActiveEventLoop.
 /// Call this from the event loop's `resumed()` handler.
 pub fn update_monitors_from_winit(event_loop: &winit::event_loop::ActiveEventLoop) {
     let mut display_modes: Vec<(u32, u32)> = Vec::new();
+    let mut full_display_modes: Vec<VideoModeInfo> = Vec::new();
     let mut desktop_mode: (u32, u32) = (0, 0);
 
     let monitors: Vec<MonitorInfo> = event_loop
@@ -112,6 +141,15 @@ pub fn update_monitors_from_winit(event_loop: &winit::event_loop::ActiveEventLoo
                     if !display_modes.contains(&pair) {
                         display_modes.push(pair);
                     }
+
+                    // Collect full video mode info (all modes, not just unique resolutions)
+                    // Java: Graphics.DisplayMode has refreshRate and bitsPerPixel
+                    full_display_modes.push(VideoModeInfo {
+                        width: size.width,
+                        height: size.height,
+                        refresh_rate_millihertz: mode.refresh_rate_millihertz(),
+                        bit_depth: mode.bit_depth(),
+                    });
                 }
                 // Desktop mode = largest resolution available on primary monitor
                 // Java: Lwjgl3ApplicationConfiguration.getDisplayMode() returns current desktop mode
@@ -124,18 +162,31 @@ pub fn update_monitors_from_winit(event_loop: &winit::event_loop::ActiveEventLoo
                 }
             }
 
+            // Native resolution = largest video mode on this monitor
+            // Java: Lwjgl3ApplicationConfiguration.getDisplayMode(monitor)
+            let (native_w, native_h) = handle
+                .video_modes()
+                .max_by_key(|m| (m.size().width as u64) * (m.size().height as u64))
+                .map(|m| (m.size().width, m.size().height))
+                .unwrap_or((0, 0));
+
             MonitorInfo {
                 name,
                 virtual_x: pos.x,
                 virtual_y: pos.y,
+                width: native_w,
+                height: native_h,
             }
         })
         .collect();
 
     display_modes.sort();
+    // Sort full modes by resolution, then refresh rate, then bit depth
+    full_display_modes.sort_by_key(|m| (m.width, m.height, m.refresh_rate_millihertz, m.bit_depth));
 
     *CACHED_MONITORS.lock().unwrap() = monitors;
     *CACHED_DISPLAY_MODES.lock().unwrap() = display_modes;
+    *CACHED_FULL_DISPLAY_MODES.lock().unwrap() = full_display_modes;
     *CACHED_DESKTOP_MODE.lock().unwrap() = desktop_mode;
 }
 
@@ -163,6 +214,16 @@ pub fn get_monitors() -> Vec<MonitorInfo> {
 /// Returns empty if cache not yet populated (call update_monitors_from_winit first).
 pub fn get_cached_display_modes() -> Vec<(u32, u32)> {
     CACHED_DISPLAY_MODES.lock().unwrap().clone()
+}
+
+/// Get cached full display modes (all video modes from primary monitor with refresh rate and bit depth).
+///
+/// Translated from: Lwjgl3ApplicationConfiguration.getDisplayModes()
+/// Java returns: Graphics.DisplayMode[] with width, height, refreshRate, bitsPerPixel
+///
+/// Returns empty if cache not yet populated (call update_monitors_from_winit first).
+pub fn get_cached_full_display_modes() -> Vec<VideoModeInfo> {
+    CACHED_FULL_DISPLAY_MODES.lock().unwrap().clone()
 }
 
 /// Get cached desktop display mode (primary monitor's native resolution).
@@ -238,7 +299,157 @@ fn get_monitors_macos() -> Vec<MonitorInfo> {
                 name,
                 virtual_x: bounds.origin.x as i32,
                 virtual_y: bounds.origin.y as i32,
+                width: bounds.size.width as u32,
+                height: bounds.size.height as u32,
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn monitor_info_fields() {
+        let info = MonitorInfo {
+            name: "Test Monitor".to_string(),
+            virtual_x: 1920,
+            virtual_y: 0,
+            width: 2560,
+            height: 1440,
+        };
+        assert_eq!(info.name, "Test Monitor");
+        assert_eq!(info.virtual_x, 1920);
+        assert_eq!(info.virtual_y, 0);
+        assert_eq!(info.width, 2560);
+        assert_eq!(info.height, 1440);
+    }
+
+    #[test]
+    fn monitor_info_clone() {
+        let info = MonitorInfo {
+            name: "Primary".to_string(),
+            virtual_x: 0,
+            virtual_y: 0,
+            width: 1920,
+            height: 1080,
+        };
+        let cloned = info.clone();
+        assert_eq!(info.name, cloned.name);
+        assert_eq!(info.virtual_x, cloned.virtual_x);
+        assert_eq!(info.virtual_y, cloned.virtual_y);
+        assert_eq!(info.width, cloned.width);
+        assert_eq!(info.height, cloned.height);
+    }
+
+    #[test]
+    fn video_mode_info_equality() {
+        let mode1 = VideoModeInfo {
+            width: 1920,
+            height: 1080,
+            refresh_rate_millihertz: 60000,
+            bit_depth: 32,
+        };
+        let mode2 = mode1.clone();
+        assert_eq!(mode1, mode2);
+
+        let mode3 = VideoModeInfo {
+            refresh_rate_millihertz: 144000,
+            ..mode1.clone()
+        };
+        assert_ne!(mode1, mode3);
+    }
+
+    #[test]
+    fn video_mode_info_sorting() {
+        let mut modes = vec![
+            VideoModeInfo {
+                width: 2560,
+                height: 1440,
+                refresh_rate_millihertz: 60000,
+                bit_depth: 32,
+            },
+            VideoModeInfo {
+                width: 1920,
+                height: 1080,
+                refresh_rate_millihertz: 144000,
+                bit_depth: 32,
+            },
+            VideoModeInfo {
+                width: 1920,
+                height: 1080,
+                refresh_rate_millihertz: 60000,
+                bit_depth: 32,
+            },
+        ];
+        modes.sort_by_key(|m| (m.width, m.height, m.refresh_rate_millihertz, m.bit_depth));
+
+        assert_eq!(modes[0].width, 1920);
+        assert_eq!(modes[0].refresh_rate_millihertz, 60000);
+        assert_eq!(modes[1].width, 1920);
+        assert_eq!(modes[1].refresh_rate_millihertz, 144000);
+        assert_eq!(modes[2].width, 2560);
+    }
+
+    #[test]
+    fn cached_display_modes_default_empty() {
+        // Before any winit initialization, caches are empty/zero
+        // (Note: in a test environment, other tests may populate these, so we just
+        // verify the getter doesn't panic)
+        let _ = get_cached_display_modes();
+        let _ = get_cached_full_display_modes();
+        let _ = get_cached_desktop_display_mode();
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn get_monitors_macos_does_not_panic() {
+        // In headless CI environments, CGGetActiveDisplayList may return 0 displays.
+        // This test just verifies the function doesn't panic.
+        let monitors = get_monitors_macos();
+        // If displays are available, verify basic invariants
+        if !monitors.is_empty() {
+            // Primary monitor should be at position (0, 0)
+            assert!(
+                monitors
+                    .iter()
+                    .any(|m| m.virtual_x == 0 && m.virtual_y == 0)
+            );
+            // All monitors should have non-zero dimensions
+            for m in &monitors {
+                assert!(m.width > 0, "Monitor {} has zero width", m.name);
+                assert!(m.height > 0, "Monitor {} has zero height", m.name);
+            }
+        }
+    }
+
+    #[test]
+    fn monitor_info_format_for_config() {
+        // Java stores monitor selection as "name [virtualX, virtualY]"
+        // This tests the format used to match config.monitorName
+        let info = MonitorInfo {
+            name: "DELL U2720Q".to_string(),
+            virtual_x: 0,
+            virtual_y: 0,
+            width: 3840,
+            height: 2160,
+        };
+        let formatted = format!("{} [{}, {}]", info.name, info.virtual_x, info.virtual_y);
+        assert_eq!(formatted, "DELL U2720Q [0, 0]");
+    }
+
+    #[test]
+    fn monitor_info_format_with_negative_offset() {
+        // Multi-monitor setups can have negative virtual positions
+        let info = MonitorInfo {
+            name: "Display 2".to_string(),
+            virtual_x: -1920,
+            virtual_y: 0,
+            width: 1920,
+            height: 1080,
+        };
+        let formatted = format!("{} [{}, {}]", info.name, info.virtual_x, info.virtual_y);
+        assert_eq!(formatted, "Display 2 [-1920, 0]");
+    }
 }

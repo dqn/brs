@@ -126,6 +126,31 @@ impl VideoConfigurationView {
         player.misslayer_duration = self.miss_layer_time;
     }
 
+    /// Get the current resolution items (available resolutions for the current display mode).
+    pub fn resolution_items(&self) -> &[Resolution] {
+        &self.resolution_items
+    }
+
+    /// Get the current selected resolution.
+    pub fn resolution(&self) -> Option<Resolution> {
+        self.resolution
+    }
+
+    /// Get the current monitor items (formatted monitor strings).
+    pub fn monitor_items(&self) -> &[String] {
+        &self.monitor_items
+    }
+
+    /// Get the current selected monitor.
+    pub fn monitor(&self) -> Option<&str> {
+        self.monitor.as_deref()
+    }
+
+    /// Get the current display mode.
+    pub fn display_mode(&self) -> Option<&DisplayMode> {
+        self.display_mode.as_ref()
+    }
+
     // @FXML public void updateResolutions()
     pub fn update_resolutions(&mut self) {
         // Resolution oldValue = resolution.getValue();
@@ -174,5 +199,197 @@ impl VideoConfigurationView {
         } else if let Some(last) = self.resolution_items.last() {
             self.resolution = Some(*last);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use beatoraja_core::config::BGA_ON;
+
+    // --- Default / initialization tests ---
+
+    #[test]
+    fn default_has_no_selection() {
+        let view = VideoConfigurationView::default();
+        assert!(view.resolution().is_none());
+        assert!(view.display_mode().is_none());
+        assert!(view.monitor().is_none());
+        assert!(view.resolution_items().is_empty());
+        assert!(view.monitor_items().is_empty());
+    }
+
+    #[test]
+    fn initialize_populates_resolutions() {
+        let mut view = VideoConfigurationView::default();
+        view.initialize();
+        // In WINDOW mode (default), resolutions up to desktop mode (1920x1080 fallback) are available
+        assert!(!view.resolution_items().is_empty());
+        // The last item should be selected when no previous resolution exists
+        assert!(view.resolution().is_some());
+    }
+
+    // --- update() tests ---
+
+    #[test]
+    fn update_copies_config_fields() {
+        let mut view = VideoConfigurationView::default();
+        let config = Config {
+            displaymode: DisplayMode::FULLSCREEN,
+            resolution: Resolution::FULLHD,
+            vsync: true,
+            monitor_name: "Test Monitor [0, 0]".to_string(),
+            bga: 2,
+            bga_expand: 1,
+            max_frame_per_second: 120,
+            ..Config::default()
+        };
+        view.update(&config);
+
+        assert!(matches!(view.display_mode(), Some(DisplayMode::FULLSCREEN)));
+        assert_eq!(view.resolution(), Some(Resolution::FULLHD));
+        assert_eq!(view.monitor(), Some("Test Monitor [0, 0]"));
+    }
+
+    // --- commit() roundtrip tests ---
+
+    #[test]
+    fn commit_roundtrip_preserves_values() {
+        let mut view = VideoConfigurationView::default();
+        let input = Config {
+            displaymode: DisplayMode::BORDERLESS,
+            resolution: Resolution::HD,
+            vsync: true,
+            monitor_name: "Display 1 [0, 0]".to_string(),
+            bga: 2,
+            bga_expand: 0,
+            max_frame_per_second: 144,
+            ..Config::default()
+        };
+        view.update(&input);
+
+        let mut output = Config::default();
+        view.commit(&mut output);
+
+        assert!(matches!(output.displaymode, DisplayMode::BORDERLESS));
+        assert_eq!(output.resolution, Resolution::HD);
+        assert!(output.vsync);
+        assert_eq!(output.monitor_name, "Display 1 [0, 0]");
+        assert_eq!(output.bga, 2);
+        assert_eq!(output.bga_expand, 0);
+        assert_eq!(output.max_frame_per_second, 144);
+    }
+
+    // --- update_player / commit_player tests ---
+
+    #[test]
+    fn update_and_commit_player_roundtrip() {
+        let mut view = VideoConfigurationView::default();
+        let mut player = PlayerConfig::default();
+        player.misslayer_duration = 500;
+
+        view.update_player(&mut player);
+
+        let mut out_player = PlayerConfig::default();
+        view.commit_player(&mut out_player);
+        assert_eq!(out_player.misslayer_duration, 500);
+    }
+
+    // --- update_resolutions() logic tests ---
+
+    #[test]
+    fn update_resolutions_window_mode_filters_by_desktop() {
+        // In WINDOW mode (non-fullscreen), resolutions up to desktop mode are included
+        let mut view = VideoConfigurationView::default();
+        view.display_mode = Some(DisplayMode::WINDOW);
+        view.update_resolutions();
+
+        // Desktop fallback is 1920x1080, so all resolutions <= 1920x1080 should be included
+        let items = view.resolution_items();
+        assert!(!items.is_empty());
+
+        // FULLHD (1920x1080) should be included
+        assert!(items.contains(&Resolution::FULLHD));
+        // ULTRAHD (3840x2160) should NOT be included (exceeds desktop mode)
+        assert!(!items.contains(&Resolution::ULTRAHD));
+        // SD (640x480) should be included
+        assert!(items.contains(&Resolution::SD));
+    }
+
+    #[test]
+    fn update_resolutions_fullscreen_mode_filters_by_available() {
+        // In FULLSCREEN mode, only resolutions matching available display modes are included
+        let mut view = VideoConfigurationView::default();
+        view.display_mode = Some(DisplayMode::FULLSCREEN);
+        view.update_resolutions();
+
+        let items = view.resolution_items();
+        assert!(!items.is_empty());
+        // The fallback display modes include 1920x1080
+        assert!(items.contains(&Resolution::FULLHD));
+    }
+
+    #[test]
+    fn update_resolutions_preserves_old_value_if_available() {
+        let mut view = VideoConfigurationView::default();
+        view.display_mode = Some(DisplayMode::WINDOW);
+        view.resolution = Some(Resolution::HD); // 1280x720
+        view.update_resolutions();
+
+        // HD (1280x720) should be preserved since it's within desktop mode
+        assert_eq!(view.resolution(), Some(Resolution::HD));
+    }
+
+    #[test]
+    fn update_resolutions_selects_last_if_old_not_available() {
+        let mut view = VideoConfigurationView::default();
+        view.display_mode = Some(DisplayMode::WINDOW);
+        view.resolution = Some(Resolution::ULTRAHD); // 3840x2160, larger than desktop
+        view.update_resolutions();
+
+        // ULTRAHD exceeds desktop mode so old value is not in the list
+        // Should select last available item (FULLHD at 1920x1080)
+        let selected = view.resolution().unwrap();
+        assert_ne!(selected, Resolution::ULTRAHD);
+        // Should be the last item in the list
+        assert_eq!(selected, *view.resolution_items().last().unwrap());
+    }
+
+    #[test]
+    fn update_resolutions_borderless_same_as_window() {
+        // BORDERLESS mode uses the same logic as WINDOW mode (non-fullscreen path)
+        let mut view_window = VideoConfigurationView::default();
+        view_window.display_mode = Some(DisplayMode::WINDOW);
+        view_window.update_resolutions();
+
+        let mut view_borderless = VideoConfigurationView::default();
+        view_borderless.display_mode = Some(DisplayMode::BORDERLESS);
+        view_borderless.update_resolutions();
+
+        assert_eq!(
+            view_window.resolution_items(),
+            view_borderless.resolution_items()
+        );
+    }
+
+    // --- Accessor tests ---
+
+    #[test]
+    fn all_resolutions_matches_resolution_values() {
+        // Verify ALL_RESOLUTIONS matches Resolution enum variants count
+        assert_eq!(ALL_RESOLUTIONS.len(), 15);
+        assert_eq!(ALL_RESOLUTIONS[0], Resolution::SD);
+        assert_eq!(ALL_RESOLUTIONS[14], Resolution::ULTRAHD);
+    }
+
+    #[test]
+    fn update_default_config_uses_bga_on() {
+        let mut view = VideoConfigurationView::default();
+        let config = Config::default();
+        view.update(&config);
+
+        let mut out = Config::default();
+        view.commit(&mut out);
+        assert_eq!(out.bga, BGA_ON);
     }
 }

@@ -8,9 +8,10 @@ use beatoraja_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor;
 
 // Re-export platform helpers so existing callers continue to work
 pub use crate::platform::{
-    DeviceInfo, EguiContext, MonitorInfo, copy_to_clipboard, get_cached_desktop_display_mode,
-    get_cached_display_modes, get_monitors, get_port_audio_devices, open_folder_in_file_manager,
-    open_url_in_browser, show_directory_chooser, show_file_chooser, update_monitors_from_winit,
+    DeviceInfo, EguiContext, MonitorInfo, VideoModeInfo, copy_to_clipboard,
+    get_cached_desktop_display_mode, get_cached_display_modes, get_cached_full_display_modes,
+    get_monitors, get_port_audio_devices, open_folder_in_file_manager, open_url_in_browser,
+    show_directory_chooser, show_file_chooser, update_monitors_from_winit,
 };
 
 // === MainLoader stubs ===
@@ -50,46 +51,69 @@ impl MainLoader {
     /// Translated from: MainLoader.getAvailableDisplayMode()
     /// Java: Lwjgl3ApplicationConfiguration.getDisplayModes()
     ///
-    /// Uses winit-cached display modes if available, falls back to common defaults.
+    /// Returns all available video modes from the primary monitor with full
+    /// refresh rate and bit depth information. Uses winit-cached display modes
+    /// if available, falls back to common defaults.
     pub fn get_available_display_mode() -> Vec<DisplayMode> {
-        let cached = get_cached_display_modes();
-        if cached.is_empty() {
-            // Fallback before event loop populates the cache
-            vec![
-                DisplayMode {
-                    width: 1280,
-                    height: 720,
-                },
-                DisplayMode {
-                    width: 1920,
-                    height: 1080,
-                },
-                DisplayMode {
-                    width: 2560,
-                    height: 1440,
-                },
-                DisplayMode {
-                    width: 3840,
-                    height: 2160,
-                },
-            ]
-        } else {
-            cached
+        let full_modes = get_cached_full_display_modes();
+        if !full_modes.is_empty() {
+            // Use full video mode info (includes refresh rate and bit depth)
+            full_modes
                 .into_iter()
-                .map(|(w, h)| DisplayMode {
-                    width: w as i32,
-                    height: h as i32,
+                .map(|m| DisplayMode {
+                    width: m.width as i32,
+                    height: m.height as i32,
+                    refresh_rate_millihertz: m.refresh_rate_millihertz,
+                    bit_depth: m.bit_depth,
                 })
                 .collect()
+        } else {
+            let cached = get_cached_display_modes();
+            if cached.is_empty() {
+                // Fallback before event loop populates the cache
+                vec![
+                    DisplayMode {
+                        width: 1280,
+                        height: 720,
+                        ..Default::default()
+                    },
+                    DisplayMode {
+                        width: 1920,
+                        height: 1080,
+                        ..Default::default()
+                    },
+                    DisplayMode {
+                        width: 2560,
+                        height: 1440,
+                        ..Default::default()
+                    },
+                    DisplayMode {
+                        width: 3840,
+                        height: 2160,
+                        ..Default::default()
+                    },
+                ]
+            } else {
+                cached
+                    .into_iter()
+                    .map(|(w, h)| DisplayMode {
+                        width: w as i32,
+                        height: h as i32,
+                        ..Default::default()
+                    })
+                    .collect()
+            }
         }
     }
 
-    /// Get the desktop display mode.
+    /// Get the desktop display mode (primary monitor's native mode).
     ///
     /// Translated from: MainLoader.getDesktopDisplayMode()
     /// Java: Lwjgl3ApplicationConfiguration.getDisplayMode()
     ///
-    /// Uses winit-cached desktop mode if available, falls back to 1920x1080.
+    /// Returns the native display mode of the primary monitor with full refresh
+    /// rate and bit depth information. Falls back to 1920x1080 if cache is not
+    /// yet populated.
     pub fn get_desktop_display_mode() -> DisplayMode {
         let (w, h) = get_cached_desktop_display_mode();
         if w == 0 && h == 0 {
@@ -97,11 +121,30 @@ impl MainLoader {
             DisplayMode {
                 width: 1920,
                 height: 1080,
+                ..Default::default()
             }
         } else {
-            DisplayMode {
-                width: w as i32,
-                height: h as i32,
+            // Find the best mode at the desktop resolution (highest refresh rate and bit depth)
+            // Java: selects mode with highest refreshRate and bitsPerPixel
+            let full_modes = get_cached_full_display_modes();
+            let best = full_modes
+                .iter()
+                .filter(|m| m.width == w && m.height == h)
+                .max_by_key(|m| (m.refresh_rate_millihertz, m.bit_depth));
+
+            if let Some(mode) = best {
+                DisplayMode {
+                    width: w as i32,
+                    height: h as i32,
+                    refresh_rate_millihertz: mode.refresh_rate_millihertz,
+                    bit_depth: mode.bit_depth,
+                }
+            } else {
+                DisplayMode {
+                    width: w as i32,
+                    height: h as i32,
+                    ..Default::default()
+                }
             }
         }
     }
@@ -198,10 +241,51 @@ impl VersionChecker {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+/// Graphics display mode information (resolution + refresh rate + color depth).
+///
+/// Translated from: com.badlogic.gdx.Graphics.DisplayMode
+/// Java fields: width, height, refreshRate, bitsPerPixel
+///
+/// Populated from winit's VideoMode via `update_monitors_from_winit()`.
+/// The `refresh_rate_millihertz` and `bit_depth` fields are used when
+/// selecting the best fullscreen mode (Java: highest refreshRate and bitsPerPixel).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DisplayMode {
     pub width: i32,
     pub height: i32,
+    /// Refresh rate in millihertz (e.g. 60000 = 60 Hz).
+    /// Java: Graphics.DisplayMode.refreshRate (in Hz) — we store millihertz for precision.
+    pub refresh_rate_millihertz: u32,
+    /// Color depth in bits per pixel (e.g. 32).
+    /// Java: Graphics.DisplayMode.bitsPerPixel
+    pub bit_depth: u16,
+}
+
+impl DisplayMode {
+    /// Get refresh rate in Hz (Java: Graphics.DisplayMode.refreshRate).
+    /// Converts from millihertz to Hz.
+    pub fn refresh_rate_hz(&self) -> u32 {
+        self.refresh_rate_millihertz / 1000
+    }
+}
+
+impl std::fmt::Display for DisplayMode {
+    /// Display format matching Java's logging:
+    /// "w - {width} h - {height} refresh - {refreshRate} color bit - {bitsPerPixel}"
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.refresh_rate_millihertz > 0 {
+            write!(
+                f,
+                "{}x{} @{}Hz {}bpp",
+                self.width,
+                self.height,
+                self.refresh_rate_hz(),
+                self.bit_depth
+            )
+        } else {
+            write!(f, "{}x{}", self.width, self.height)
+        }
+    }
 }
 
 pub use beatoraja_core::bms_player_mode::BMSPlayerMode;
@@ -319,6 +403,65 @@ mod tests {
         let dm = DisplayMode::default();
         assert_eq!(dm.width, 0);
         assert_eq!(dm.height, 0);
+        assert_eq!(dm.refresh_rate_millihertz, 0);
+        assert_eq!(dm.bit_depth, 0);
+    }
+
+    #[test]
+    fn display_mode_refresh_rate_hz() {
+        let dm = DisplayMode {
+            width: 1920,
+            height: 1080,
+            refresh_rate_millihertz: 60000,
+            bit_depth: 32,
+        };
+        assert_eq!(dm.refresh_rate_hz(), 60);
+
+        let dm_144 = DisplayMode {
+            refresh_rate_millihertz: 144000,
+            ..dm.clone()
+        };
+        assert_eq!(dm_144.refresh_rate_hz(), 144);
+    }
+
+    #[test]
+    fn display_mode_display_with_refresh() {
+        let dm = DisplayMode {
+            width: 1920,
+            height: 1080,
+            refresh_rate_millihertz: 60000,
+            bit_depth: 32,
+        };
+        assert_eq!(format!("{}", dm), "1920x1080 @60Hz 32bpp");
+    }
+
+    #[test]
+    fn display_mode_display_without_refresh() {
+        let dm = DisplayMode {
+            width: 1920,
+            height: 1080,
+            refresh_rate_millihertz: 0,
+            bit_depth: 0,
+        };
+        assert_eq!(format!("{}", dm), "1920x1080");
+    }
+
+    #[test]
+    fn display_mode_equality() {
+        let dm1 = DisplayMode {
+            width: 1920,
+            height: 1080,
+            refresh_rate_millihertz: 60000,
+            bit_depth: 32,
+        };
+        let dm2 = dm1.clone();
+        assert_eq!(dm1, dm2);
+
+        let dm3 = DisplayMode {
+            refresh_rate_millihertz: 144000,
+            ..dm1.clone()
+        };
+        assert_ne!(dm1, dm3);
     }
 
     #[test]
@@ -333,5 +476,52 @@ mod tests {
         let dm = MainLoader::get_desktop_display_mode();
         assert_eq!(dm.width, 1920);
         assert_eq!(dm.height, 1080);
+    }
+
+    #[test]
+    fn monitor_info_format_matches_java() {
+        // Java: String.format("%s [%s, %s]", monitor.name,
+        //     Integer.toString(monitor.virtualX), Integer.toString(monitor.virtualY))
+        let monitor = MonitorInfo {
+            name: "DELL U2720Q".to_string(),
+            virtual_x: 0,
+            virtual_y: 0,
+            width: 3840,
+            height: 2160,
+        };
+        let formatted = format!(
+            "{} [{}, {}]",
+            monitor.name, monitor.virtual_x, monitor.virtual_y
+        );
+        assert_eq!(formatted, "DELL U2720Q [0, 0]");
+    }
+
+    #[test]
+    fn monitor_info_with_offset() {
+        let monitor = MonitorInfo {
+            name: "Display 2".to_string(),
+            virtual_x: 1920,
+            virtual_y: 0,
+            width: 1920,
+            height: 1080,
+        };
+        assert_eq!(monitor.virtual_x, 1920);
+        assert_eq!(monitor.virtual_y, 0);
+        assert_eq!(monitor.width, 1920);
+        assert_eq!(monitor.height, 1080);
+    }
+
+    #[test]
+    fn video_mode_info_fields() {
+        let mode = VideoModeInfo {
+            width: 2560,
+            height: 1440,
+            refresh_rate_millihertz: 165000,
+            bit_depth: 32,
+        };
+        assert_eq!(mode.width, 2560);
+        assert_eq!(mode.height, 1440);
+        assert_eq!(mode.refresh_rate_millihertz, 165000);
+        assert_eq!(mode.bit_depth, 32);
     }
 }
