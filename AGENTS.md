@@ -84,33 +84,28 @@ lr2oraja-rust/       # Cargo workspace
 
 ## Status
 
-**1816 tests, 22 ignored (9 explicit + 13 fixture-absent).** Phases 1–33 complete. Zero clippy warnings. All planned phases done. Remaining rendering stubs (~974 lines across 4 crates) require SkinBar/SkinWidget rewrite to replace (API incompatible with real types).
+**1816 tests, 22 ignored (9 explicit + 13 fixture-absent).** Phases 1–33 complete. Zero clippy warnings.
 
-## Remaining Stubs (10 `stubs.rs` files, ~2,550 lines)
+## Remaining Stubs (~2,550 lines across 10 files)
 
-| Crate | Lines | Category | Status |
-|-------|------:|----------|--------|
-| beatoraja-types | 549 | Shared type stubs | Lifecycle — required |
-| beatoraja-external | 446 | Twitter4j (`bail!()`) + clipboard | Permanent (API deprecated) |
-| beatoraja-result | 385 | MainController/PlayerResource + re-exports | Lifecycle — SkinObjectData removed (Phase 33) |
-| beatoraja-select | 278 | Rendering stubs (SkinText/SkinNumber/SkinImage) | API incompatible — needs SkinBar rewrite |
-| beatoraja-launcher | 314 | Egui integration | Lifecycle — required |
-| beatoraja-skin | 287 | Skin pipeline (MainState/Timer/Controller) | Lifecycle — required |
-| beatoraja-modmenu | 203 | Skin/SkinObject stubs + MusicSelector | API incompatible — needs SkinWidget rewrite |
-| beatoraja-decide | 108 | MainControllerRef/SkinStub/AudioProcessor | Lifecycle — required |
-| beatoraja-input | 21 | SkinWidgetManager stub | Lifecycle — required |
-| beatoraja-core | 1 | (empty) | — |
-
-**Categories:** Lifecycle (required for cross-crate API boundaries) · API-incompatible (needs downstream rewrite) · Permanent (Twitter4j `bail!()`)
+| Crate | Lines | Status |
+|-------|------:|--------|
+| beatoraja-types | 549 | Lifecycle — required |
+| beatoraja-external | 446 | Permanent (Twitter4j `bail!()`, API deprecated) |
+| beatoraja-result | 385 | Lifecycle — MainController/PlayerResource |
+| beatoraja-launcher | 314 | Lifecycle — egui integration |
+| beatoraja-skin | 287 | Lifecycle — MainState/Timer/Controller |
+| beatoraja-select | 278 | API incompatible — needs SkinBar rewrite |
+| beatoraja-modmenu | 203 | API incompatible — needs SkinWidget rewrite |
+| beatoraja-decide | 108 | Lifecycle — required |
+| beatoraja-input | 21 | Lifecycle — required |
+| beatoraja-core | 1 | (empty) |
 
 ## Lessons Learned
 
 - **Encoding:** `encoding_rs::SHIFT_JIS` for MS932. **Serde:** `BPM`→`Bpm`, `URL`→`Url`, `#[serde(alias)]`.
 - **Borrow checker:** `&mut` conflicts → scoped block. Self-reference → `Option::take()` + put-back. Parent ref → callback trait.
 - **Stubs:** `stubs.rs` per crate → replace via `pub use`. Always `cargo check` after removal.
-- **Circular deps:** `beatoraja-types` for shared types. Core cannot import: song, skin, play, select, result, ir, modmenu. `StateFactory`/`SkinDrawable` traits in core, impl in downstream crates.
-- **API mismatch:** `String`↔`Option<String>` → `.unwrap_or_default()`; `&self`↔`&mut self` → scoped block / `Box::leak`.
-- **Libraries:** winit (`resumed`/`RedrawRequested`/`Poll`), wgpu (direct, `pollster::block_on()`), Kira 0.12, mlua (`load("return "+s)`), egui (`RenderPass::forget_lifetime()`).
-- **Patterns:** `OnceLock` for `&T`, `Box::leak` for `&mut T`. CRC32 poly `0xEDB88320` + `\\\0`. RobustFile: double-write + `sync_all()`. BRD replay: gzip JSON. PlayerResource: trait (32 methods) + `NullPlayerResource`.
-- **Profiling:** `dhat` for heap analysis (`--features dhat-heap`). `profile.release.debug = 1` for stack traces. Output: `dhat-heap.json` → [DHAT viewer](https://nnethercote.github.io/dh_view/dh_view.html).
-- **Lua→JSON coercion:** Lua dynamic types need 3-layer coercion for serde: numbers→strings (id/src), float→int truncation (Java toint()), empty `{}`→remove (let serde default). Mixed tables `{arr1, arr2, key=val}` → extract array portion. `deserialize_i32_lenient` for ambiguous i32/String fields.
+- **Circular deps:** `beatoraja-types` for shared types. Core cannot import: song, skin, play, select, result, ir, modmenu.
+- **Patterns:** `OnceLock` for `&T`, `Box::leak` for `&mut T`. CRC32 poly `0xEDB88320` + `\\\0`. PlayerResource: trait (32 methods) + `NullPlayerResource`.
+- **Lua→JSON coercion:** 3-layer: numbers→strings, float→int truncation, empty `{}`→remove. `deserialize_i32_lenient` for ambiguous fields.
