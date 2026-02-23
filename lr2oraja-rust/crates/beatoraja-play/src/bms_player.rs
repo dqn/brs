@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use crate::bga::bga_processor::BGAProcessor;
 use crate::control_input_processor::ControlInputProcessor;
 use crate::groove_gauge::GrooveGauge;
@@ -110,7 +112,7 @@ pub struct BMSPlayer {
     lanerender: Option<LaneRenderer>,
     lane_property: Option<LaneProperty>,
     judge: JudgeManager,
-    bga: BGAProcessor,
+    bga: Arc<Mutex<BGAProcessor>>,
     gauge: Option<GrooveGauge>,
     playtime: i32,
     keyinput: Option<KeyInputProccessor>,
@@ -159,7 +161,7 @@ impl BMSPlayer {
             lanerender: None,
             lane_property: None,
             judge: JudgeManager::new(),
-            bga: BGAProcessor::new(),
+            bga: Arc::new(Mutex::new(BGAProcessor::new())),
             gauge: None,
             playtime,
             keyinput: None,
@@ -251,6 +253,12 @@ impl BMSPlayer {
 
     pub fn get_gauge_mut(&mut self) -> Option<&mut GrooveGauge> {
         self.gauge.as_mut()
+    }
+
+    /// Get a shared reference to the BGA processor.
+    /// Used by the skin system to connect the SkinBgaObject for BGA rendering.
+    pub fn get_bga_processor(&self) -> &Arc<Mutex<BGAProcessor>> {
+        &self.bga
     }
 
     /// Set the active replay data for keylog playback.
@@ -512,7 +520,7 @@ impl BMSPlayer {
     /// Corresponds to Java BMSPlayer.update(int judge, long time)
     pub fn update_judge(&mut self, judge: i32, time: i64) {
         if self.judge.get_combo() == 0 {
-            self.bga.set_misslayer_tme(time);
+            self.bga.lock().unwrap().set_misslayer_tme(time);
         }
         if let Some(ref mut gauge) = self.gauge {
             gauge.update(judge);
@@ -1239,7 +1247,7 @@ impl MainState for BMSPlayer {
 
         let use_expansion = false; // TODO: from PlaySkin note expansion rate
         self.rhythm = Some(RhythmTimerProcessor::new(&self.model, use_expansion));
-        self.bga = BGAProcessor::new();
+        self.bga = Arc::new(Mutex::new(BGAProcessor::from_model(&self.model)));
 
         // Initialize gauge log
         if let Some(ref gauge) = self.gauge {
@@ -1294,7 +1302,7 @@ impl MainState for BMSPlayer {
                         // TODO: Phase 22 - analysisTask handling
                     }
 
-                    self.bga.prepare(&() as &dyn std::any::Any);
+                    self.bga.lock().unwrap().prepare(&() as &dyn std::any::Any);
                     self.state = STATE_READY;
                     self.main_state_data.timer.set_timer_on(TIMER_READY);
                     // play(PLAY_READY);

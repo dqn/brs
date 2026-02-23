@@ -9,6 +9,7 @@ use crate::property::boolean_property::BooleanProperty;
 use crate::property::timer_property::TimerProperty;
 use crate::property::timer_property_factory;
 use crate::skin_bar_object::SkinBarObject;
+use crate::skin_bga_object::SkinBgaObject;
 use crate::skin_bpm_graph::SkinBPMGraph;
 use crate::skin_graph::SkinGraph;
 use crate::skin_header::SkinHeader;
@@ -50,6 +51,7 @@ pub enum SkinObject {
     Note(SkinNoteObject),
     Bar(SkinBarObject),
     Judge(SkinJudgeObject),
+    Bga(SkinBgaObject),
 }
 
 impl SkinObject {
@@ -70,6 +72,7 @@ impl SkinObject {
             SkinObject::Note(o) => &o.data,
             SkinObject::Bar(o) => &o.data,
             SkinObject::Judge(o) => &o.data,
+            SkinObject::Bga(o) => &o.data,
         }
     }
 
@@ -90,6 +93,7 @@ impl SkinObject {
             SkinObject::Note(o) => &mut o.data,
             SkinObject::Bar(o) => &mut o.data,
             SkinObject::Judge(o) => &mut o.data,
+            SkinObject::Bga(o) => &mut o.data,
         }
     }
 
@@ -141,6 +145,7 @@ impl SkinObject {
             SkinObject::Note(o) => o.prepare(time, state),
             SkinObject::Bar(o) => o.prepare(time, state),
             SkinObject::Judge(o) => o.prepare(time, state),
+            SkinObject::Bga(o) => o.prepare(time, state),
         }
     }
 
@@ -163,6 +168,7 @@ impl SkinObject {
             SkinObject::Note(o) => o.draw(sprite),
             SkinObject::Bar(o) => o.draw(sprite),
             SkinObject::Judge(o) => o.draw(sprite),
+            SkinObject::Bga(o) => o.draw(sprite),
         }
     }
 
@@ -199,6 +205,7 @@ impl SkinObject {
             SkinObject::Note(o) => o.dispose(),
             SkinObject::Bar(o) => o.dispose(),
             SkinObject::Judge(o) => o.dispose(),
+            SkinObject::Bga(o) => o.dispose(),
         }
     }
 
@@ -302,6 +309,7 @@ impl SkinObject {
             SkinObject::Note(_) => "SkinNote",
             SkinObject::Bar(_) => "SkinBar",
             SkinObject::Judge(_) => "SkinJudge",
+            SkinObject::Bga(_) => "SkinBGA",
         }
     }
 

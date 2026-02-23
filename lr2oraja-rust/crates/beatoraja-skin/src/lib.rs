@@ -42,6 +42,7 @@ pub mod bitmap_font_cache;
 pub mod pomyu_chara_loader;
 pub mod skin;
 pub mod skin_bar_object;
+pub mod skin_bga_object;
 pub mod skin_bpm_graph;
 pub mod skin_graph;
 pub mod skin_header;

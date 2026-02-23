@@ -1,7 +1,7 @@
 use crate::Texture;
 
 /// Movie processor interface for video playback
-pub trait MovieProcessor {
+pub trait MovieProcessor: Send {
     /// Get the current video frame
     fn get_frame(&mut self, time: i64) -> Option<Texture>;
 

@@ -725,7 +725,9 @@ fn resolve_detail(
         SkinObject::NoteDistributionGraph(_) => None,
         SkinObject::TimingDistributionGraph(_) => Some(DrawDetail::TimingDistributionGraph),
         SkinObject::TimingVisualizer(_) => Some(DrawDetail::TimingVisualizer),
-        SkinObject::Note(_) | SkinObject::Bar(_) | SkinObject::Judge(_) => None,
+        SkinObject::Note(_) | SkinObject::Bar(_) | SkinObject::Judge(_) | SkinObject::Bga(_) => {
+            None
+        }
     }
 }
 

@@ -20,6 +20,7 @@ use crate::property::string_property_factory;
 use crate::property::timer_property_factory;
 use crate::skin::{Skin, SkinObject};
 use crate::skin_bar_object::SkinBarObject;
+use crate::skin_bga_object::SkinBgaObject;
 use crate::skin_bpm_graph::SkinBPMGraph;
 use crate::skin_graph::SkinGraph;
 use crate::skin_header::{
@@ -963,9 +964,9 @@ fn convert_skin_object(
             warn!("LiftCover conversion deferred to Phase 29a");
             None
         }
-        SkinObjectType::Bga { .. } => {
-            warn!("Bga conversion deferred to Phase 29a");
-            None
+        SkinObjectType::Bga { bga_expand } => {
+            let bga = SkinBgaObject::new(*bga_expand);
+            Some(SkinObject::Bga(bga))
         }
         SkinObjectType::Judge { index, shift } => {
             let judge = SkinJudgeObject::new(*index, *shift);
@@ -1495,7 +1496,7 @@ mod tests {
                 path,
                 false
             )
-            .is_none()
+            .is_some()
         );
         assert!(
             convert_skin_object(
