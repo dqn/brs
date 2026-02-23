@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::chart_information::ChartInformation;
+use crate::event_lane::EventLane;
 use crate::judge_note::JudgeNote;
+use crate::lane::Lane;
 use crate::mode::Mode;
 use crate::note::Note;
 use crate::time_line::TimeLine;
@@ -584,6 +586,15 @@ impl BMSModel {
             self.base = 36;
         }
     }
+
+    pub fn get_event_lane(&self) -> EventLane {
+        EventLane::new(self)
+    }
+
+    pub fn get_lanes(&self) -> Vec<Lane> {
+        let key = self.get_mode().map(|m| m.key()).unwrap_or(0);
+        (0..key).map(|i| Lane::new(self, i)).collect()
+    }
 }
 
 #[cfg(test)]
@@ -1083,5 +1094,36 @@ mod tests {
         assert_eq!(LNTYPE_LONGNOTE, 0);
         assert_eq!(LNTYPE_CHARGENOTE, 1);
         assert_eq!(LNTYPE_HELLCHARGENOTE, 2);
+    }
+
+    #[test]
+    fn get_event_lane_returns_event_lane() {
+        let mut model = BMSModel::new();
+        model.set_bpm(120.0);
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.set_bpm(150.0);
+        model.set_all_time_line(vec![tl]);
+
+        let event_lane = model.get_event_lane();
+        // The BPM changed from 120 to 150, so there should be 1 BPM change event
+        assert_eq!(event_lane.get_bpm_changes().len(), 1);
+    }
+
+    #[test]
+    fn get_lanes_returns_correct_count_for_beat_7k() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        let lanes = model.get_lanes();
+        // BEAT_7K has key() == 8
+        assert_eq!(lanes.len(), 8);
+    }
+
+    #[test]
+    fn get_lanes_returns_empty_when_no_mode() {
+        let model = BMSModel::new();
+
+        let lanes = model.get_lanes();
+        assert!(lanes.is_empty());
     }
 }
