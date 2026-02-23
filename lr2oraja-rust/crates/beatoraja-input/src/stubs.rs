@@ -20,25 +20,49 @@ impl SkinWidgetManager {
     }
 }
 
-/// Stub for Controller (com.badlogic.gdx.controllers.Controller)
+/// Controller state wrapper (com.badlogic.gdx.controllers.Controller)
+///
+/// Holds button/axis state that is updated by the controller manager each frame.
 pub struct Controller {
     name: String,
+    pub button_state: Vec<bool>,
+    pub axis_state: Vec<f32>,
 }
 
 impl Controller {
     pub fn new(name: String) -> Self {
-        Self { name }
+        Self {
+            name,
+            button_state: Vec::new(),
+            axis_state: Vec::new(),
+        }
+    }
+
+    pub fn with_state(name: String, num_buttons: usize, num_axes: usize) -> Self {
+        Self {
+            name,
+            button_state: vec![false; num_buttons],
+            axis_state: vec![0.0; num_axes],
+        }
     }
 
     pub fn get_name(&self) -> &str {
         &self.name
     }
 
-    pub fn get_button(&self, _button: i32) -> bool {
-        false
+    pub fn get_button(&self, button: i32) -> bool {
+        if button >= 0 && (button as usize) < self.button_state.len() {
+            self.button_state[button as usize]
+        } else {
+            false
+        }
     }
 
-    pub fn get_axis(&self, _axis: i32) -> f32 {
-        0.0
+    pub fn get_axis(&self, axis: i32) -> f32 {
+        if axis >= 0 && (axis as usize) < self.axis_state.len() {
+            self.axis_state[axis as usize]
+        } else {
+            0.0
+        }
     }
 }

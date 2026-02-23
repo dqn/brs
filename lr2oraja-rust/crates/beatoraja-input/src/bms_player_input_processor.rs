@@ -2,6 +2,8 @@
 //!
 //! Translated from: bms.player.beatoraja.input.BMSPlayerInputProcessor
 
+use beatoraja_controller::lwjgl3_controller_manager::Lwjgl3ControllerManager;
+
 use crate::bm_controller_input_processor::{
     BMControllerCallback, BMControllerInputProcessor, compute_analog_diff,
 };
@@ -13,7 +15,7 @@ use crate::keyboard_input_processor::{
 };
 use crate::midi_input_processor::MidiInputProcessor;
 use crate::stubs::{
-    Config, ControllerConfig, KeyboardConfig, MidiConfig, PlayModeConfig, PlayerConfig,
+    Config, Controller, ControllerConfig, KeyboardConfig, MidiConfig, PlayModeConfig, PlayerConfig,
 };
 
 pub const KEYSTATE_SIZE: usize = 256;
@@ -114,6 +116,8 @@ pub struct BMSPlayerInputProcessor {
     select_pressed: bool,
 
     device_type: DeviceType,
+
+    controller_manager: Lwjgl3ControllerManager,
 }
 
 impl BMSPlayerInputProcessor {
@@ -122,10 +126,25 @@ impl BMSPlayerInputProcessor {
         let default_kb_config = KeyboardConfig::default();
         let kbinput = KeyBoardInputProcesseor::new(&default_kb_config, resolution);
         // Gdx.input.setInputProcessor(kbinput);
-        // Controllers.preferredManager = "bms.player.beatoraja.controller.Lwjgl3ControllerManager";
 
-        let bminput: Vec<BMControllerInputProcessor> = Vec::new();
-        // In Java, controllers are enumerated here. Stubbed.
+        // Controllers.preferredManager = "bms.player.beatoraja.controller.Lwjgl3ControllerManager";
+        let controller_manager = Lwjgl3ControllerManager::new();
+
+        // In Java: for (Controller c : Controllers.getControllers()) { bminput.add(new BMControllerInputProcessor(c, ...)); }
+        let default_controller_config = ControllerConfig::default();
+        let bminput: Vec<BMControllerInputProcessor> = controller_manager
+            .controllers
+            .iter()
+            .map(|ctrl| {
+                let name = ctrl.name.clone();
+                let controller = Controller::with_state(
+                    name.clone(),
+                    ctrl.button_state.len(),
+                    ctrl.axis_state.len(),
+                );
+                BMControllerInputProcessor::new(name, controller, &default_controller_config)
+            })
+            .collect();
 
         let mut midiinput = MidiInputProcessor::new();
         midiinput.open();
@@ -161,6 +180,7 @@ impl BMSPlayerInputProcessor {
             start_pressed: false,
             select_pressed: false,
             device_type: DeviceType::Keyboard,
+            controller_manager,
         }
     }
 
@@ -624,6 +644,18 @@ impl BMSPlayerInputProcessor {
         }
         self.scroll_x += kb_events.scroll_x;
         self.scroll_y += kb_events.scroll_y;
+
+        // Update controller state from manager
+        self.controller_manager.poll_state();
+        for (idx, bm) in self.bminput.iter_mut().enumerate() {
+            if idx < self.controller_manager.controllers.len() {
+                let mgr_ctrl = &self.controller_manager.controllers[idx];
+                bm.controller.axis_state.clone_from(&mgr_ctrl.axis_state);
+                bm.controller
+                    .button_state
+                    .clone_from(&mgr_ctrl.button_state);
+            }
+        }
 
         // Poll controllers
         for idx in 0..self.bminput.len() {

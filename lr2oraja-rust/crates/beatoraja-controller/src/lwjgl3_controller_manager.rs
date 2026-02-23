@@ -1,129 +1,147 @@
 #![allow(dead_code)]
 
-use crate::lwjgl3_controller::Lwjgl3Controller;
+use crate::lwjgl3_controller::{Lwjgl3Controller, PollResult};
 use crate::{ControllerListener, ControllerManager};
-
-/// GLFW joystick constants
-/// Corresponds to GLFW.GLFW_JOYSTICK_1
-const GLFW_JOYSTICK_1: i32 = 0;
-/// Corresponds to GLFW.GLFW_JOYSTICK_LAST
-const GLFW_JOYSTICK_LAST: i32 = 15;
 
 /// Corresponds to bms.player.beatoraja.controller.Lwjgl3ControllerManager
 ///
-/// Controller manager that polls GLFW joysticks.
+/// Controller manager that polls gamepads via gilrs.
 /// Maintains a list of controllers, polls joystick state each frame,
 /// and manages controller connect/disconnect events.
 pub struct Lwjgl3ControllerManager {
     /// All currently connected controllers.
     pub controllers: Vec<Lwjgl3Controller>,
-    /// Joystick indices that failed to initialize and are blacklisted.
-    pub blacklisted_controllers: Vec<i32>,
     /// Global listeners for controller events.
     pub listeners: Vec<Box<dyn ControllerListener>>,
     /// Whether the window is focused.
     pub focused: bool,
+    /// gilrs gamepad context.
+    gilrs: Option<gilrs::Gilrs>,
+    /// Next index to assign to a new controller.
+    next_index: i32,
 }
 
 impl Lwjgl3ControllerManager {
     /// Corresponds to Lwjgl3ControllerManager()
     ///
-    /// Creates a new controller manager.
-    /// In Java, the constructor sets up a GLFW window focus callback and starts polling.
+    /// Creates a new controller manager backed by gilrs.
     pub fn new() -> Self {
-        // In Java:
-        //   GLFW.glfwSetWindowFocusCallback(windowHandle, this::setUnfocused);
-        //   pollState();
-        //   Gdx.app.postRunnable(...); // recurring poll
-        // GLFW window handle and callback setup is deferred to gilrs integration.
+        let gilrs = match gilrs::Gilrs::new() {
+            Ok(g) => {
+                log::info!("gilrs initialized successfully");
+                Some(g)
+            }
+            Err(e) => {
+                log::error!("Failed to initialize gilrs: {}", e);
+                None
+            }
+        };
 
         let mut manager = Lwjgl3ControllerManager {
             controllers: Vec::new(),
-            blacklisted_controllers: Vec::new(),
             listeners: Vec::new(),
             focused: true,
+            gilrs,
+            next_index: 0,
         };
 
-        // Initial poll
+        // Initial poll to discover already-connected gamepads
         manager.poll_state();
         manager
     }
 
     /// Corresponds to Lwjgl3ControllerManager.pollState()
     ///
-    /// Scans for new joysticks and polls all connected controllers.
+    /// Processes gilrs events and polls all connected controllers.
     pub fn poll_state(&mut self) {
-        // for(int i = GLFW.GLFW_JOYSTICK_1; i < GLFW.GLFW_JOYSTICK_LAST; i++) {
-        //     if (blacklistedControllers.contains(i, true)) { continue; }
-        //     if(GLFW.glfwJoystickPresent(i)) {
-        //         boolean alreadyUsed = false;
-        //         for(int j = 0; j < controllers.size; j++) {
-        //             if(((Lwjgl3Controller)controllers.get(j)).index == i) {
-        //                 alreadyUsed = true;
-        //                 break;
-        //             }
-        //         }
-        //         if(!alreadyUsed) {
-        //             try {
-        //                 Lwjgl3Controller controller = new Lwjgl3Controller(this, i);
-        //                 connected(controller);
-        //             } catch (Exception e) {
-        //                 blacklistedControllers.add(i);
-        //             }
-        //         }
-        //     }
-        // }
-        for i in GLFW_JOYSTICK_1..GLFW_JOYSTICK_LAST {
-            if self.blacklisted_controllers.contains(&i) {
-                continue;
+        // Take gilrs out of self to avoid borrow conflicts (Option::take + put-back pattern).
+        let Some(mut gilrs) = self.gilrs.take() else {
+            return;
+        };
+
+        // Phase 1: Process pending gilrs events (updates internal gamepad state)
+        while let Some(gilrs::Event { id, event, .. }) = gilrs.next_event() {
+            match event {
+                gilrs::EventType::Connected => {
+                    log::info!("Gamepad connected event: {:?}", id);
+                }
+                gilrs::EventType::Disconnected => {
+                    log::info!("Gamepad disconnected event: {:?}", id);
+                }
+                _ => {}
             }
+        }
 
-            // GLFW.glfwJoystickPresent(i) — stubbed
-            let joystick_present = false; // todo!("GLFW/gilrs integration: check joystick present")
+        // Phase 2: Discover newly connected gamepads
+        let new_gamepads: Vec<_> = gilrs
+            .gamepads()
+            .filter(|(_, gp)| gp.is_connected())
+            .filter(|(id, _)| !self.controllers.iter().any(|c| c.gamepad_id == Some(*id)))
+            .map(|(id, _)| id)
+            .collect();
 
-            if joystick_present {
-                let already_used = self.controllers.iter().any(|c| c.index == i);
+        let mut new_controllers = Vec::new();
+        for gid in new_gamepads {
+            let gamepad = gilrs.gamepad(gid);
+            let index = self.next_index;
+            self.next_index += 1;
+            new_controllers.push(Lwjgl3Controller::new_from_gilrs(index, &gamepad));
+        }
 
-                if !already_used {
-                    // In Java: new Lwjgl3Controller(this, i) can throw,
-                    // which causes the index to be blacklisted.
-                    // Lwjgl3Controller::new() currently uses todo!(),
-                    // so we mark this as pending integration.
-                    // todo!("GLFW/gilrs integration: create controller for index {}", i);
-                    log::debug!(
-                        "GLFW/gilrs integration pending: would create controller for index {}",
-                        i
-                    );
+        // Phase 3: Connect new controllers (self is freely available)
+        for controller in new_controllers {
+            self.connected(controller);
+        }
+
+        // Phase 4: Poll each connected controller, collecting changes
+        struct ControllerChanges {
+            idx: usize,
+            axis_changes: Vec<(i32, f32)>,
+            button_changes: Vec<(i32, bool)>,
+        }
+
+        let mut all_changes: Vec<ControllerChanges> = Vec::new();
+        let mut disconnected_indices: Vec<usize> = Vec::new();
+
+        for idx in 0..self.controllers.len() {
+            if let Some(gid) = self.controllers[idx].gamepad_id {
+                let gamepad = gilrs.gamepad(gid);
+                match self.controllers[idx].update_from_gamepad(&gamepad) {
+                    PollResult::Disconnected => {
+                        disconnected_indices.push(idx);
+                    }
+                    PollResult::Connected {
+                        axis_changes,
+                        button_changes,
+                    } => {
+                        if !axis_changes.is_empty() || !button_changes.is_empty() {
+                            all_changes.push(ControllerChanges {
+                                idx,
+                                axis_changes,
+                                button_changes,
+                            });
+                        }
+                    }
                 }
             }
         }
 
-        // polledControllers.addAll(controllers);
-        // for(Controller controller: polledControllers) {
-        //     ((Lwjgl3Controller)controller).pollState();
-        // }
-        // polledControllers.clear();
-        //
-        // We need to collect indices first to avoid borrow issues,
-        // then poll each controller and process manager-level events.
-        let controller_indices: Vec<usize> = (0..self.controllers.len()).collect();
-        for idx in controller_indices {
-            // In the real implementation, poll_state() would be called on each controller.
-            // The controller's poll_state returns axis/button changes and disconnect status.
-            // For now, this is a no-op since poll_state() uses todo!().
-            // When integrated:
-            //   match self.controllers[idx].poll_state() {
-            //       PollResult::Disconnected => { self.disconnected(idx); }
-            //       PollResult::Connected { axis_changes, button_changes } => {
-            //           for (axis_code, value) in axis_changes {
-            //               self.axis_changed(idx, axis_code, value);
-            //           }
-            //           for (button_code, pressed) in button_changes {
-            //               self.button_changed(idx, button_code, pressed);
-            //           }
-            //       }
-            //   }
-            let _ = idx;
+        // Put gilrs back before firing events (which borrow self mutably)
+        self.gilrs = Some(gilrs);
+
+        // Phase 5: Fire manager-level events for changes
+        for changes in all_changes {
+            for (axis_code, value) in changes.axis_changes {
+                self.axis_changed(changes.idx, axis_code, value);
+            }
+            for (button_code, pressed) in changes.button_changes {
+                self.button_changed(changes.idx, button_code, pressed);
+            }
+        }
+
+        // Handle disconnections (reverse order to preserve indices)
+        for idx in disconnected_indices.into_iter().rev() {
+            self.disconnected(idx);
         }
     }
 

@@ -9,6 +9,7 @@ log.workspace = true
 midir.workspace = true
 bms-model.workspace = true
 beatoraja-common.workspace = true
+beatoraja-controller.workspace = true
 beatoraja-types.workspace = true
 
 [dev-dependencies]

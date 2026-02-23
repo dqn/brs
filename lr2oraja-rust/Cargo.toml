@@ -176,5 +176,8 @@ eframe = { version = "0.31", default-features = false, features = ["wgpu"] }
 # Video decoding
 ffmpeg-next = "7"
 
+# Gamepad input
+gilrs = "0.11"
+
 # MIDI
 midir = "0.10"

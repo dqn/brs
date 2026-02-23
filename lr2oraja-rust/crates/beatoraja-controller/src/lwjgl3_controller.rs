@@ -2,6 +2,55 @@
 
 use crate::{Controller, ControllerListener};
 
+/// Button mapping: sequential index → gilrs::Button.
+/// Matches the GLFW button order used by beatoraja config files.
+pub const BUTTON_MAP: &[gilrs::Button] = &[
+    gilrs::Button::South,         // 0  - A / Cross
+    gilrs::Button::East,          // 1  - B / Circle
+    gilrs::Button::West,          // 2  - X / Square
+    gilrs::Button::North,         // 3  - Y / Triangle
+    gilrs::Button::LeftTrigger,   // 4  - LB
+    gilrs::Button::RightTrigger,  // 5  - RB
+    gilrs::Button::LeftTrigger2,  // 6  - LT
+    gilrs::Button::RightTrigger2, // 7  - RT
+    gilrs::Button::Select,        // 8  - Back / Share
+    gilrs::Button::Start,         // 9  - Start / Options
+    gilrs::Button::LeftThumb,     // 10 - L3
+    gilrs::Button::RightThumb,    // 11 - R3
+    gilrs::Button::DPadUp,        // 12
+    gilrs::Button::DPadDown,      // 13
+    gilrs::Button::DPadLeft,      // 14
+    gilrs::Button::DPadRight,     // 15
+    gilrs::Button::Mode,          // 16 - Guide
+    gilrs::Button::C,             // 17
+    gilrs::Button::Z,             // 18
+];
+
+/// Axis mapping: sequential index → gilrs::Axis.
+pub const AXIS_MAP: &[gilrs::Axis] = &[
+    gilrs::Axis::LeftStickX,  // 0
+    gilrs::Axis::LeftStickY,  // 1
+    gilrs::Axis::RightStickX, // 2
+    gilrs::Axis::RightStickY, // 3
+    gilrs::Axis::LeftZ,       // 4 (LT analog)
+    gilrs::Axis::RightZ,      // 5 (RT analog)
+    gilrs::Axis::DPadX,       // 6
+    gilrs::Axis::DPadY,       // 7
+];
+
+/// Reads current button states from a gilrs gamepad as sequential booleans.
+pub fn read_button_state(gamepad: &gilrs::Gamepad) -> Vec<bool> {
+    BUTTON_MAP
+        .iter()
+        .map(|&btn| gamepad.is_pressed(btn))
+        .collect()
+}
+
+/// Reads current axis values from a gilrs gamepad as sequential floats.
+pub fn read_axis_state(gamepad: &gilrs::Gamepad) -> Vec<f32> {
+    AXIS_MAP.iter().map(|&ax| gamepad.value(ax)).collect()
+}
+
 /// Corresponds to bms.player.beatoraja.controller.Lwjgl3Controller
 ///
 /// Individual controller with axis/button state.
@@ -18,6 +67,10 @@ pub struct Lwjgl3Controller {
     pub button_state: Vec<bool>,
     /// Controller name
     pub name: String,
+    /// gilrs gamepad identifier
+    pub gamepad_id: Option<gilrs::GamepadId>,
+    /// Whether the controller is currently connected
+    pub connected: bool,
 }
 
 impl Lwjgl3Controller {
@@ -30,12 +83,34 @@ impl Lwjgl3Controller {
         //   this.axisState = new float[GLFW.glfwGetJoystickAxes(index).limit()];
         //   this.buttonState = new boolean[GLFW.glfwGetJoystickButtons(index).limit()];
         //   this.name = GLFW.glfwGetJoystickName(index);
-        // All GLFW calls are stubbed — actual integration uses gilrs.
-        log::warn!(
-            "not yet implemented: GLFW/gilrs integration: query joystick axes/buttons/name for index {}",
-            index
-        );
+        // Fallback for non-gilrs construction.
         Self::new_with_state(index, 0, 0, format!("Controller {}", index))
+    }
+
+    /// Creates a controller backed by a gilrs gamepad.
+    pub fn new_from_gilrs(index: i32, gamepad: &gilrs::Gamepad) -> Self {
+        let name = gamepad.name().to_string();
+        let num_buttons = BUTTON_MAP.len();
+        let num_axes = AXIS_MAP.len();
+        let gamepad_id = Some(gamepad.id());
+
+        log::info!(
+            "Controller connected: index={}, name={}, buttons={}, axes={}",
+            index,
+            name,
+            num_buttons,
+            num_axes,
+        );
+
+        Lwjgl3Controller {
+            listeners: Vec::new(),
+            index,
+            axis_state: vec![0.0; num_axes],
+            button_state: vec![false; num_buttons],
+            name,
+            gamepad_id,
+            connected: true,
+        }
     }
 
     /// Creates a controller with pre-initialized state (for testing or manual construction).
@@ -46,6 +121,8 @@ impl Lwjgl3Controller {
             axis_state: vec![0.0; num_axes],
             button_state: vec![false; num_buttons],
             name,
+            gamepad_id: None,
+            connected: false,
         }
     }
 
@@ -57,28 +134,36 @@ impl Lwjgl3Controller {
     /// The returned axis_changes are (axis_code, new_value) tuples.
     /// The returned button_changes are (button_code, pressed) tuples.
     pub fn poll_state(&mut self) -> PollResult {
-        // In Java:
-        //   if(!GLFW.glfwJoystickPresent(index)) {
-        //       manager.disconnected(this);
-        //       return;
-        //   }
-        //   FloatBuffer axes = GLFW.glfwGetJoystickAxes(index);
-        //   if(axes == null) { manager.disconnected(this); return; }
-        //   ByteBuffer buttons = GLFW.glfwGetJoystickButtons(index);
-        //   if(buttons == null) { manager.disconnected(this); return; }
+        // State is now updated externally via update_from_gamepad().
+        // This method is kept for backward compatibility.
+        if self.connected {
+            PollResult::Connected {
+                axis_changes: Vec::new(),
+                button_changes: Vec::new(),
+            }
+        } else {
+            PollResult::Disconnected
+        }
+    }
 
-        // GLFW calls stubbed — actual integration uses gilrs.
-        // When integrated, the logic is:
-        //   1. Check if joystick is still present; if not, return disconnected.
-        //   2. Read new axis values; if null, return disconnected.
-        //   3. Read new button values; if null, return disconnected.
-        //   4. Compare with stored state, fire local listener events on changes.
-        //   5. Return changes for manager-level listener dispatch.
-        log::warn!(
-            "not yet implemented: GLFW/gilrs integration: poll joystick state for index {}",
-            self.index
-        );
-        PollResult::Disconnected
+    /// Updates this controller's state from a gilrs gamepad.
+    /// Returns axis and button changes for the manager to dispatch.
+    pub fn update_from_gamepad(&mut self, gamepad: &gilrs::Gamepad) -> PollResult {
+        if !gamepad.is_connected() {
+            self.connected = false;
+            return PollResult::Disconnected;
+        }
+
+        let new_axes = read_axis_state(gamepad);
+        let new_buttons = read_button_state(gamepad);
+
+        let axis_changes = self.process_axis_changes(&new_axes);
+        let button_changes = self.process_button_changes(&new_buttons);
+
+        PollResult::Connected {
+            axis_changes,
+            button_changes,
+        }
     }
 
     /// Processes axis state changes and fires local listener events.
@@ -218,17 +303,17 @@ impl Controller for Lwjgl3Controller {
 
     /// Corresponds to Lwjgl3Controller.getMaxButtonIndex()
     fn get_max_button_index(&self) -> i32 {
-        0
+        self.button_state.len() as i32
     }
 
     /// Corresponds to Lwjgl3Controller.getAxisCount()
     fn get_axis_count(&self) -> i32 {
-        0
+        self.axis_state.len() as i32
     }
 
     /// Corresponds to Lwjgl3Controller.isConnected()
     fn is_connected(&self) -> bool {
-        false
+        self.connected
     }
 
     /// Corresponds to Lwjgl3Controller.canVibrate()

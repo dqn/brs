@@ -300,7 +300,7 @@ impl AnalogScratchAlgorithm for AnalogScratchAlgorithmVersion2 {
 
 /// Dedicated controller input processing
 pub struct BMControllerInputProcessor {
-    controller: Controller,
+    pub(crate) controller: Controller,
     /// Device name
     name: String,
     /// Controller enabled
