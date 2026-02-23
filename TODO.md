@@ -1,6 +1,6 @@
 # Porting TODO — Remaining Work
 
-Phases 1–28d complete. **1793 tests, 9 ignored.** 27 crates, 122k lines. See AGENTS.md.
+Phases 1–28e complete. **1793 tests, 9 ignored.** 27 crates, 122k lines. See AGENTS.md.
 
 ## Phase 26: スキンパイプライン完成 → 22 ignored テスト解除
 
@@ -25,13 +25,13 @@ Resolves: `beatoraja-input/stubs.rs` (44 lines)
 - [x] **28b:** KeyCommand (F キー, Alt+Enter, ESC)
 - [x] **28c:** Windows named pipe (`#[cfg(windows)]`)
 - [x] **28d:** winit モニター列挙
-- **28e:** Discord Rich Presence
+- [x] **28e:** Discord Rich Presence (discord-rpc crate + DiscordListener 完全実装済み、MainController 接続配線 → **Phase 29a**)
 
 ## Phase 29: リファクタリング + スタブ解消
 
 Resolves: rendering stubs (result/decide/select/modmenu ~972 lines), `beatoraja-types/stubs.rs` (549 lines), `beatoraja-external/stubs.rs` (partial)
 
-- **29a:** API 非互換スタブ解消 (result/decide/select/modmenu rendering, Property traits)
+- **29a:** API 非互換スタブ解消 (result/decide/select/modmenu rendering, Property traits, MainStateListener trait 統合 + Discord/OBS 接続配線)
 - **29b:** PlayerResource trait 最小化
 - **29c:** メモリプロファイリング (`dhat`/`jemalloc_ctl`)
 - **29d:** 入力ポーリング非同期化 (nice-to-have)
