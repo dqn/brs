@@ -2,7 +2,10 @@ check:
     cargo check --workspace
 
 test:
-    cargo test --workspace
+    cargo nextest run --workspace -E 'not test(render_snapshot_parity)'
+
+test-all:
+    cargo nextest run --workspace
 
 clippy:
     cargo clippy --workspace -- -D warnings

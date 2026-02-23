@@ -79,8 +79,7 @@ lr2oraja-rust/       # Cargo workspace
 
 ## Testing
 
-- **Test runner:** Always use `cargo nextest run --workspace` instead of `cargo test`. Nextest runs test binaries in parallel and skips doc-tests.
-- **Slow tests:** `render_snapshot_parity_regression_guard` (~100s). Exclude with `-E 'not test(render_snapshot_parity)'` when changes are unrelated to render snapshots.
+- **Test runner:** `just test` (excludes slow render snapshot tests) or `just test-all` (full).
 - **Golden Master:** `just golden-master-gen`. Fixtures: `filename.ext.json`.
 - **TDD:** Red-Green-Refactor. **ast-compare:** `just ast-map` / `just ast-compare` / `just ast-constants` / `just ast-full`.
 
