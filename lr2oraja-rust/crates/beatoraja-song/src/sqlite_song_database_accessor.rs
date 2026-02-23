@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use beatoraja_core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
@@ -9,6 +10,7 @@ use bms_model::bms_decoder::BMSDecoder;
 use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
 use bms_model::bmson_decoder::BMSONDecoder;
 use bms_model::osu_decoder::OSUDecoder;
+use rayon::prelude::*;
 use rusqlite::Connection;
 
 use crate::folder_data::FolderData;
@@ -19,14 +21,14 @@ use crate::song_information_accessor::SongInformationAccessor;
 use crate::song_utils;
 
 /// Plugin interface for song database accessor
-pub trait SongDatabaseAccessorPlugin: Send {
+pub trait SongDatabaseAccessorPlugin: Send + Sync {
     fn update(&self, model: &BMSModel, song: &mut SongData);
 }
 
 /// SQLite song database accessor
 pub struct SQLiteSongDatabaseAccessor {
     base: SQLiteDatabaseAccessor,
-    conn: Connection,
+    conn: Mutex<Connection>,
     root: PathBuf,
     plugins: Vec<Box<dyn SongDatabaseAccessorPlugin>>,
     checked_parent: HashSet<String>,
@@ -92,7 +94,7 @@ impl SQLiteSongDatabaseAccessor {
 
         let accessor = Self {
             base,
-            conn,
+            conn: Mutex::new(conn),
             root,
             plugins: Vec::new(),
             checked_parent: HashSet::new(),
@@ -106,10 +108,11 @@ impl SQLiteSongDatabaseAccessor {
     }
 
     fn create_table(&self) -> anyhow::Result<()> {
-        self.base.validate(&self.conn)?;
+        let conn = self.conn.lock().unwrap();
+        self.base.validate(&conn)?;
 
         // Check if sha256 is primary key in song table (migration check)
-        let mut stmt = self.conn.prepare("PRAGMA TABLE_INFO(song)")?;
+        let mut stmt = conn.prepare("PRAGMA TABLE_INFO(song)")?;
         let has_sha256_pk = stmt
             .query_map([], |row| {
                 let name: String = row.get(1)?;
@@ -120,10 +123,9 @@ impl SQLiteSongDatabaseAccessor {
             .any(|(name, pk)| name == "sha256" && pk == 1);
 
         if has_sha256_pk {
-            self.conn
-                .execute("ALTER TABLE [song] RENAME TO [old_song]", [])?;
-            self.base.validate(&self.conn)?;
-            self.conn.execute(
+            conn.execute("ALTER TABLE [song] RENAME TO [old_song]", [])?;
+            self.base.validate(&conn)?;
+            conn.execute(
                 "INSERT INTO song SELECT \
                  md5, sha256, title, subtitle, genre, artist, subartist, tag, path,\
                  folder, stagefile, banner, backbmp, preview, parent, level, difficulty,\
@@ -132,14 +134,15 @@ impl SQLiteSongDatabaseAccessor {
                  FROM old_song GROUP BY path HAVING MAX(adddate)",
                 [],
             )?;
-            self.conn.execute("DROP TABLE old_song", [])?;
+            conn.execute("DROP TABLE old_song", [])?;
         }
 
         Ok(())
     }
 
     fn query_songs(&self, sql: &str, params: &[&dyn rusqlite::types::ToSql]) -> Vec<SongData> {
-        match self.query_songs_internal(sql, params) {
+        let conn = self.conn.lock().unwrap();
+        match Self::query_songs_with_conn(&conn, sql, params) {
             Ok(songs) => songs,
             Err(e) => {
                 log::error!("Error querying songs: {}", e);
@@ -148,12 +151,12 @@ impl SQLiteSongDatabaseAccessor {
         }
     }
 
-    fn query_songs_internal(
-        &self,
+    fn query_songs_with_conn(
+        conn: &Connection,
         sql: &str,
         params: &[&dyn rusqlite::types::ToSql],
     ) -> anyhow::Result<Vec<SongData>> {
-        let mut stmt = self.conn.prepare(sql)?;
+        let mut stmt = conn.prepare(sql)?;
         let rows = stmt.query_map(params, |row| {
             let mut sd = SongData::new();
             sd.md5 = row.get::<_, String>(0).unwrap_or_default();
@@ -196,7 +199,8 @@ impl SQLiteSongDatabaseAccessor {
     }
 
     fn query_folders(&self, sql: &str, params: &[&dyn rusqlite::types::ToSql]) -> Vec<FolderData> {
-        match self.query_folders_internal(sql, params) {
+        let conn = self.conn.lock().unwrap();
+        match Self::query_folders_with_conn(&conn, sql, params) {
             Ok(folders) => folders,
             Err(e) => {
                 log::error!("Error querying folders: {}", e);
@@ -205,12 +209,12 @@ impl SQLiteSongDatabaseAccessor {
         }
     }
 
-    fn query_folders_internal(
-        &self,
+    fn query_folders_with_conn(
+        conn: &Connection,
         sql: &str,
         params: &[&dyn rusqlite::types::ToSql],
     ) -> anyhow::Result<Vec<FolderData>> {
-        let mut stmt = self.conn.prepare(sql)?;
+        let mut stmt = conn.prepare(sql)?;
         let rows = stmt.query_map(params, |row| {
             Ok(FolderData {
                 title: row.get::<_, String>(0).unwrap_or_default(),
@@ -233,10 +237,9 @@ impl SQLiteSongDatabaseAccessor {
     }
 
     fn insert_song(&self, sd: &SongData) -> anyhow::Result<()> {
-        self.base.insert_with_values(
-            &self.conn,
-            "song",
-            &|name: &str| -> rusqlite::types::Value {
+        let conn = self.conn.lock().unwrap();
+        self.base
+            .insert_with_values(&conn, "song", &|name: &str| -> rusqlite::types::Value {
                 match name {
                     "md5" => rusqlite::types::Value::Text(sd.md5.clone()),
                     "sha256" => rusqlite::types::Value::Text(sd.sha256.clone()),
@@ -272,15 +275,13 @@ impl SQLiteSongDatabaseAccessor {
                     },
                     _ => rusqlite::types::Value::Null,
                 }
-            },
-        )
+            })
     }
 
     fn insert_folder(&self, fd: &FolderData) -> anyhow::Result<()> {
-        self.base.insert_with_values(
-            &self.conn,
-            "folder",
-            &|name: &str| -> rusqlite::types::Value {
+        let conn = self.conn.lock().unwrap();
+        self.base
+            .insert_with_values(&conn, "folder", &|name: &str| -> rusqlite::types::Value {
                 match name {
                     "title" => rusqlite::types::Value::Text(fd.title.clone()),
                     "subtitle" => rusqlite::types::Value::Text(fd.subtitle.clone()),
@@ -294,8 +295,7 @@ impl SQLiteSongDatabaseAccessor {
                     "max" => rusqlite::types::Value::Integer(fd.max as i64),
                     _ => rusqlite::types::Value::Null,
                 }
-            },
-        )
+            })
     }
 }
 
@@ -392,15 +392,13 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
         scorelog: &str,
         info: Option<&str>,
     ) -> Vec<SongData> {
+        let conn = self.conn.lock().unwrap();
         let result: anyhow::Result<Vec<SongData>> = (|| {
-            self.conn
-                .execute(&format!("ATTACH DATABASE '{}' as scoredb", score), [])?;
-            self.conn
-                .execute(&format!("ATTACH DATABASE '{}' as scorelogdb", scorelog), [])?;
+            conn.execute(&format!("ATTACH DATABASE '{}' as scoredb", score), [])?;
+            conn.execute(&format!("ATTACH DATABASE '{}' as scorelogdb", scorelog), [])?;
 
             let songs = if let Some(info_path) = info {
-                self.conn
-                    .execute(&format!("ATTACH DATABASE '{}' as infodb", info_path), [])?;
+                conn.execute(&format!("ATTACH DATABASE '{}' as infodb", info_path), [])?;
                 let query = format!(
                     "SELECT DISTINCT md5, song.sha256 AS sha256, title, subtitle, genre, artist, subartist,path,folder,stagefile,banner,backbmp,parent,level,difficulty,\
                      maxbpm,minbpm,song.mode AS mode, judge, feature, content, song.date AS date, favorite, song.notes AS notes, adddate, preview, length, charthash\
@@ -408,8 +406,8 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
                      ON song.sha256 = information.sha256 WHERE {}",
                     sql
                 );
-                let songs = self.query_songs(&query, &[]);
-                let _ = self.conn.execute("DETACH DATABASE infodb", []);
+                let songs = Self::query_songs_with_conn(&conn, &query, &[]).unwrap_or_default();
+                let _ = conn.execute("DETACH DATABASE infodb", []);
                 songs
             } else {
                 let query = format!(
@@ -418,11 +416,11 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
                      FROM song LEFT OUTER JOIN (score LEFT OUTER JOIN scorelog ON score.sha256 = scorelog.sha256) ON song.sha256 = score.sha256 WHERE {}",
                     sql
                 );
-                self.query_songs(&query, &[])
+                Self::query_songs_with_conn(&conn, &query, &[]).unwrap_or_default()
             };
 
-            let _ = self.conn.execute("DETACH DATABASE scorelogdb", []);
-            let _ = self.conn.execute("DETACH DATABASE scoredb", []);
+            let _ = conn.execute("DETACH DATABASE scorelogdb", []);
+            let _ = conn.execute("DETACH DATABASE scoredb", []);
 
             Ok(remove_invalid_elements_vec(songs))
         })();
@@ -449,9 +447,12 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
     }
 
     fn set_song_datas(&self, songs: &[SongData]) {
-        if let Err(e) = self.conn.execute_batch("BEGIN TRANSACTION") {
-            log::error!("Error starting transaction: {}", e);
-            return;
+        {
+            let conn = self.conn.lock().unwrap();
+            if let Err(e) = conn.execute_batch("BEGIN TRANSACTION") {
+                log::error!("Error starting transaction: {}", e);
+                return;
+            }
         }
 
         for sd in songs {
@@ -460,7 +461,8 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
             }
         }
 
-        if let Err(e) = self.conn.execute_batch("COMMIT") {
+        let conn = self.conn.lock().unwrap();
+        if let Err(e) = conn.execute_batch("COMMIT") {
             log::error!("Error committing transaction: {}", e);
         }
     }
@@ -588,92 +590,91 @@ impl<'a> SongDatabaseUpdater<'a> {
             let _ = info.start_update();
         }
 
-        if let Err(e) = accessor.conn.execute_batch("BEGIN TRANSACTION") {
-            log::error!("Error starting transaction: {}", e);
-            return;
-        }
-
-        // Preserve tags and favorites
+        // Acquire lock for transaction setup and tag/favorite preservation
         {
-            let mut stmt = match accessor
-                .conn
-                .prepare("SELECT sha256, tag, favorite FROM song")
+            let conn = accessor.conn.lock().unwrap();
+            if let Err(e) = conn.execute_batch("BEGIN TRANSACTION") {
+                log::error!("Error starting transaction: {}", e);
+                return;
+            }
+
+            // Preserve tags and favorites
             {
-                Ok(s) => s,
-                Err(e) => {
-                    log::error!("Error preparing tag/favorite query: {}", e);
-                    return;
-                }
-            };
-            let rows = match stmt.query_map([], |row| {
-                let sha256: String = row.get::<_, String>(0).unwrap_or_default();
-                let tag: String = row.get::<_, String>(1).unwrap_or_default();
-                let favorite: i32 = row.get::<_, i32>(2).unwrap_or(0);
-                Ok((sha256, tag, favorite))
-            }) {
-                Ok(r) => r,
-                Err(e) => {
-                    log::error!("Error querying tags/favorites: {}", e);
-                    return;
-                }
-            };
-            for row in rows.flatten() {
-                let (sha256, tag, favorite) = row;
-                if !tag.is_empty() {
-                    property.tags.insert(sha256.clone(), tag);
-                }
-                if favorite > 0 {
-                    property.favorites.insert(sha256, favorite);
-                }
-            }
-        }
-
-        if self.update_all {
-            let _ = accessor.conn.execute("DELETE FROM folder", []);
-            let _ = accessor.conn.execute("DELETE FROM song", []);
-        } else {
-            // Delete folders not contained in root directories
-            let mut dsql = String::new();
-            let mut params: Vec<String> = Vec::new();
-            for (i, root) in self.bmsroot.iter().enumerate() {
-                dsql.push_str("path NOT LIKE ?");
-                params.push(format!("{}%", root));
-                if i < self.bmsroot.len() - 1 {
-                    dsql.push_str(" AND ");
+                let mut stmt = match conn.prepare("SELECT sha256, tag, favorite FROM song") {
+                    Ok(s) => s,
+                    Err(e) => {
+                        log::error!("Error preparing tag/favorite query: {}", e);
+                        return;
+                    }
+                };
+                let rows = match stmt.query_map([], |row| {
+                    let sha256: String = row.get::<_, String>(0).unwrap_or_default();
+                    let tag: String = row.get::<_, String>(1).unwrap_or_default();
+                    let favorite: i32 = row.get::<_, i32>(2).unwrap_or(0);
+                    Ok((sha256, tag, favorite))
+                }) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        log::error!("Error querying tags/favorites: {}", e);
+                        return;
+                    }
+                };
+                for row in rows.flatten() {
+                    let (sha256, tag, favorite) = row;
+                    if !tag.is_empty() {
+                        property.tags.insert(sha256.clone(), tag);
+                    }
+                    if favorite > 0 {
+                        property.favorites.insert(sha256, favorite);
+                    }
                 }
             }
 
-            let delete_folder_sql = format!(
-                "DELETE FROM folder WHERE path NOT LIKE 'LR2files%' AND path NOT LIKE '%.lr2folder' AND {}",
-                dsql
-            );
-            let delete_song_sql = format!("DELETE FROM song WHERE {}", dsql);
+            if self.update_all {
+                let _ = conn.execute("DELETE FROM folder", []);
+                let _ = conn.execute("DELETE FROM song", []);
+            } else {
+                // Delete folders not contained in root directories
+                let mut dsql = String::new();
+                let mut params: Vec<String> = Vec::new();
+                for (i, root) in self.bmsroot.iter().enumerate() {
+                    dsql.push_str("path NOT LIKE ?");
+                    params.push(format!("{}%", root));
+                    if i < self.bmsroot.len() - 1 {
+                        dsql.push_str(" AND ");
+                    }
+                }
 
-            // Execute with dynamic params
-            let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
-                .iter()
-                .map(|p| p as &dyn rusqlite::types::ToSql)
-                .collect();
-            let _ = accessor
-                .conn
-                .execute(&delete_folder_sql, param_refs.as_slice());
-            let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
-                .iter()
-                .map(|p| p as &dyn rusqlite::types::ToSql)
-                .collect();
-            let _ = accessor
-                .conn
-                .execute(&delete_song_sql, param_refs.as_slice());
-        }
+                let delete_folder_sql = format!(
+                    "DELETE FROM folder WHERE path NOT LIKE 'LR2files%' AND path NOT LIKE '%.lr2folder' AND {}",
+                    dsql
+                );
+                let delete_song_sql = format!("DELETE FROM song WHERE {}", dsql);
 
-        for p in paths {
+                // Execute with dynamic params
+                let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+                    .iter()
+                    .map(|p| p as &dyn rusqlite::types::ToSql)
+                    .collect();
+                let _ = conn.execute(&delete_folder_sql, param_refs.as_slice());
+                let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+                    .iter()
+                    .map(|p| p as &dyn rusqlite::types::ToSql)
+                    .collect();
+                let _ = conn.execute(&delete_song_sql, param_refs.as_slice());
+            }
+        } // Release lock before parallel section
+
+        // Parallel processing of root paths (matches Java: paths.parallel().forEach(...))
+        paths.par_iter().for_each(|p| {
             let folder = BMSFolder::new(p.clone(), &self.bmsroot);
-            if let Err(e) = folder.process_directory(accessor, &mut property) {
+            if let Err(e) = folder.process_directory(accessor, &property) {
                 log::error!("Error during song database update: {}", e);
             }
-        }
+        });
 
-        let _ = accessor.conn.execute_batch("COMMIT");
+        let conn = accessor.conn.lock().unwrap();
+        let _ = conn.execute_batch("COMMIT");
 
         if let Some(info) = self.info {
             info.end_update();
@@ -707,7 +708,7 @@ impl BMSFolder {
     fn process_directory(
         mut self,
         accessor: &SQLiteSongDatabaseAccessor,
-        property: &mut SongDatabaseUpdaterProperty,
+        property: &SongDatabaseUpdaterProperty,
     ) -> anyhow::Result<()> {
         let root_str = accessor.root.to_string_lossy().to_string();
         let bmsroot_strs: Vec<String> = self.bmsroot.clone();
@@ -828,12 +829,13 @@ impl BMSFolder {
         }
 
         if !contains_bms {
+            // Parallel subdirectory recursion (matches Java: dirs.parallelStream().forEach(...))
             let dirs = std::mem::take(&mut self.dirs);
-            for bf in dirs {
+            dirs.into_par_iter().for_each(|bf| {
                 if let Err(e) = bf.process_directory(accessor, property) {
                     log::error!("Error during song database update: {}", e);
                 }
-            }
+            });
         }
 
         // Update folder table
@@ -883,17 +885,19 @@ impl BMSFolder {
         }
 
         // Delete folder records that no longer exist in directory
-        for folder in folders.into_iter().flatten() {
+        // (matches Java: folders.parallelStream().filter(Objects::nonNull).forEach(...))
+        folders.into_par_iter().flatten().for_each(|folder| {
             let delete_path = format!("{}%", folder.path);
-            let _ = accessor.conn.execute(
+            let conn = accessor.conn.lock().unwrap();
+            let _ = conn.execute(
                 "DELETE FROM folder WHERE path LIKE ?1",
                 rusqlite::params![delete_path],
             );
-            let _ = accessor.conn.execute(
+            let _ = conn.execute(
                 "DELETE FROM song WHERE path LIKE ?1",
                 rusqlite::params![delete_path],
             );
-        }
+        });
 
         Ok(())
     }
@@ -902,7 +906,7 @@ impl BMSFolder {
         &self,
         records: &mut [Option<SongData>],
         accessor: &SQLiteSongDatabaseAccessor,
-        property: &mut SongDatabaseUpdaterProperty,
+        property: &SongDatabaseUpdaterProperty,
     ) -> (i32, i32) {
         let mut skip_count = 0i32;
         let mut new_count = 0i32;
@@ -1086,7 +1090,8 @@ impl BMSFolder {
 
                 new_count += 1;
             } else {
-                let _ = accessor.conn.execute(
+                let conn = accessor.conn.lock().unwrap();
+                let _ = conn.execute(
                     "DELETE FROM song WHERE path = ?1",
                     rusqlite::params![pathname],
                 );
@@ -1094,13 +1099,13 @@ impl BMSFolder {
         }
 
         // Delete records that no longer exist in directory
-        for record in records.iter().flatten() {
+        // (matches Java: records.parallelStream().filter(Objects::nonNull).forEach(...))
+        records.par_iter().flatten().for_each(|record| {
             if let Some(path) = record.get_path() {
-                let _ = accessor
-                    .conn
-                    .execute("DELETE FROM song WHERE path = ?1", rusqlite::params![path]);
+                let conn = accessor.conn.lock().unwrap();
+                let _ = conn.execute("DELETE FROM song WHERE path = ?1", rusqlite::params![path]);
             }
-        }
+        });
 
         (skip_count, new_count)
     }
@@ -1372,7 +1377,8 @@ mod tests {
 
         // Check that folder records were created (at least root and pack1)
         let all_folders: Vec<FolderData> = {
-            let mut stmt = accessor.conn.prepare("SELECT * FROM folder").unwrap();
+            let conn = accessor.conn.lock().unwrap();
+            let mut stmt = conn.prepare("SELECT * FROM folder").unwrap();
             let rows = stmt
                 .query_map([], |row| {
                     Ok(FolderData {
@@ -1430,10 +1436,12 @@ mod tests {
         let songs = accessor.get_song_datas("title", "Favorite Test");
         assert_eq!(songs.len(), 1);
         let sha256 = songs[0].sha256.clone();
-        let _ = accessor.conn.execute(
+        let conn = accessor.conn.lock().unwrap();
+        let _ = conn.execute(
             "UPDATE song SET favorite = 3 WHERE sha256 = ?1",
             rusqlite::params![sha256],
         );
+        drop(conn);
 
         // Full re-update (updateAll=true)
         accessor.update_song_datas(None, &bmsroot, true, false, None);

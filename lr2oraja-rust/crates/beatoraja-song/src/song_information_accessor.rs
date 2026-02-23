@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 use beatoraja_core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
 use beatoraja_core::validatable::remove_invalid_elements_vec;
 use bms_model::bms_model::BMSModel;
@@ -11,7 +13,7 @@ const LOAD_CHUNK_SIZE: usize = 1000;
 /// Song information database accessor
 pub struct SongInformationAccessor {
     base: SQLiteDatabaseAccessor,
-    conn: Connection,
+    conn: Mutex<Connection>,
 }
 
 impl SongInformationAccessor {
@@ -39,7 +41,10 @@ impl SongInformationAccessor {
         conn.execute_batch("PRAGMA shared_cache = ON; PRAGMA synchronous = OFF;")?;
         base.validate(&conn)?;
 
-        Ok(Self { base, conn })
+        Ok(Self {
+            base,
+            conn: Mutex::new(conn),
+        })
     }
 
     pub fn get_informations(&self, sql: &str) -> Vec<SongInformation> {
@@ -105,7 +110,8 @@ impl SongInformationAccessor {
     }
 
     pub fn start_update(&self) -> anyhow::Result<()> {
-        self.conn.execute_batch("BEGIN TRANSACTION")?;
+        let conn = self.conn.lock().unwrap();
+        conn.execute_batch("BEGIN TRANSACTION")?;
         Ok(())
     }
 
@@ -117,7 +123,8 @@ impl SongInformationAccessor {
     }
 
     pub fn end_update(&self) {
-        if let Err(e) = self.conn.execute_batch("COMMIT") {
+        let conn = self.conn.lock().unwrap();
+        if let Err(e) = conn.execute_batch("COMMIT") {
             log::error!("Error committing update: {}", e);
         }
     }
@@ -127,7 +134,8 @@ impl SongInformationAccessor {
         sql: &str,
         params: &[&str],
     ) -> anyhow::Result<Vec<SongInformation>> {
-        let mut stmt = self.conn.prepare(sql)?;
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(sql)?;
         let param_values: Vec<&dyn rusqlite::types::ToSql> = params
             .iter()
             .map(|p| p as &dyn rusqlite::types::ToSql)
@@ -173,8 +181,9 @@ impl SongInformationAccessor {
     }
 
     fn insert_information(&self, info: &SongInformation) -> anyhow::Result<()> {
+        let conn = self.conn.lock().unwrap();
         self.base.insert_with_values(
-            &self.conn,
+            &conn,
             "information",
             &|name: &str| -> rusqlite::types::Value {
                 match name {
