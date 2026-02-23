@@ -51,8 +51,8 @@ Resolves: rendering stubs (result/decide/select/modmenu ~972 lines), `beatoraja-
 
 `compare_render_snapshot.rs` で `#[ignore]` されている 5 テストのブロッカー解消。
 
-- **31a:** `main_state.number(key)` Lua API — スコア/数値 (GREAT数, MISS数 等) をスキンLuaから参照
-- **31b:** `main_state.text(key)` Lua API — 楽曲名/アーティスト等のテキストをスキンLuaから参照
+- [x] **31a:** `main_state.number(key)` Lua API — DelegateIntegerProperty でスキンLuaから数値参照
+- [x] **31b:** `main_state.text(key)` Lua API — DelegateStringProperty でスキンLuaからテキスト参照
 
 Resolves: `render_snapshot_ecfn_result_clear`, `_result_fail`, `_play14_active`, `_course_result`, `timeline_result_has_stable_visible_set`
 
