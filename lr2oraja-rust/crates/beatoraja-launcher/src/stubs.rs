@@ -8,9 +8,9 @@ use beatoraja_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor;
 
 // Re-export platform helpers so existing callers continue to work
 pub use crate::platform::{
-    DeviceInfo, EguiContext, MonitorInfo, copy_to_clipboard, get_monitors, get_port_audio_devices,
-    open_folder_in_file_manager, open_url_in_browser, show_directory_chooser, show_file_chooser,
-    update_monitors_from_winit,
+    DeviceInfo, EguiContext, MonitorInfo, copy_to_clipboard, get_cached_desktop_display_mode,
+    get_cached_display_modes, get_monitors, get_port_audio_devices, open_folder_in_file_manager,
+    open_url_in_browser, show_directory_chooser, show_file_chooser, update_monitors_from_winit,
 };
 
 // === MainLoader stubs ===
@@ -47,39 +47,62 @@ impl MainLoader {
 
     /// Get available display modes.
     ///
-    /// Intentional stub: Java uses AWT GraphicsDevice.getDisplayModes().
-    /// In Rust, winit provides video modes per-monitor but requires an
-    /// ActiveEventLoop. At static call time, we return a common default set.
+    /// Translated from: MainLoader.getAvailableDisplayMode()
+    /// Java: Lwjgl3ApplicationConfiguration.getDisplayModes()
+    ///
+    /// Uses winit-cached display modes if available, falls back to common defaults.
     pub fn get_available_display_mode() -> Vec<DisplayMode> {
-        vec![
-            DisplayMode {
-                width: 1280,
-                height: 720,
-            },
-            DisplayMode {
-                width: 1920,
-                height: 1080,
-            },
-            DisplayMode {
-                width: 2560,
-                height: 1440,
-            },
-            DisplayMode {
-                width: 3840,
-                height: 2160,
-            },
-        ]
+        let cached = get_cached_display_modes();
+        if cached.is_empty() {
+            // Fallback before event loop populates the cache
+            vec![
+                DisplayMode {
+                    width: 1280,
+                    height: 720,
+                },
+                DisplayMode {
+                    width: 1920,
+                    height: 1080,
+                },
+                DisplayMode {
+                    width: 2560,
+                    height: 1440,
+                },
+                DisplayMode {
+                    width: 3840,
+                    height: 2160,
+                },
+            ]
+        } else {
+            cached
+                .into_iter()
+                .map(|(w, h)| DisplayMode {
+                    width: w as i32,
+                    height: h as i32,
+                })
+                .collect()
+        }
     }
 
     /// Get the desktop display mode.
     ///
-    /// Intentional stub: Java uses AWT GraphicsDevice.getDisplayMode().
-    /// In Rust, returns a 1920x1080 default since monitor queries require
-    /// an active winit event loop.
+    /// Translated from: MainLoader.getDesktopDisplayMode()
+    /// Java: Lwjgl3ApplicationConfiguration.getDisplayMode()
+    ///
+    /// Uses winit-cached desktop mode if available, falls back to 1920x1080.
     pub fn get_desktop_display_mode() -> DisplayMode {
-        DisplayMode {
-            width: 1920,
-            height: 1080,
+        let (w, h) = get_cached_desktop_display_mode();
+        if w == 0 && h == 0 {
+            // Fallback before event loop populates the cache
+            DisplayMode {
+                width: 1920,
+                height: 1080,
+            }
+        } else {
+            DisplayMode {
+                width: w as i32,
+                height: h as i32,
+            }
         }
     }
 

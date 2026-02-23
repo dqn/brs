@@ -74,6 +74,8 @@ static SONGDB: OnceLock<Mutex<Option<Box<dyn SongDatabaseAccessorTrait>>>> = Onc
 static ILLEGAL_SONGS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 static BMS_PATH: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
 static VERSION_CHECKER: OnceLock<Mutex<Option<Box<dyn VersionChecker>>>> = OnceLock::new();
+static DISPLAY_MODES: Mutex<Vec<(u32, u32)>> = Mutex::new(Vec::new());
+static DESKTOP_MODE: Mutex<(u32, u32)> = Mutex::new((0, 0));
 
 /// MainLoader - application entry point and launcher
 pub struct MainLoader;
@@ -303,9 +305,13 @@ impl MainLoader {
     /// In Java: Lwjgl3ApplicationConfiguration.getDisplayModes()
     /// In Rust: winit monitor enumeration via global cache.
     pub fn get_available_display_mode() -> Vec<(u32, u32)> {
-        // Phase 5+: use winit available_monitors() cache
-        log::warn!("not yet implemented: getAvailableDisplayMode");
-        vec![(1920, 1080), (1280, 720)]
+        let modes = DISPLAY_MODES.lock().unwrap();
+        if modes.is_empty() {
+            // Fallback before winit event loop populates the cache
+            vec![(1280, 720), (1920, 1080)]
+        } else {
+            modes.clone()
+        }
     }
 
     /// Returns the desktop display mode.
@@ -313,9 +319,27 @@ impl MainLoader {
     /// Translated from: MainLoader.getDesktopDisplayMode()
     /// In Java: Lwjgl3ApplicationConfiguration.getDisplayMode()
     pub fn get_desktop_display_mode() -> (u32, u32) {
-        // Phase 5+: use winit primary monitor
-        log::warn!("not yet implemented: getDesktopDisplayMode");
-        (1920, 1080)
+        let mode = *DESKTOP_MODE.lock().unwrap();
+        if mode == (0, 0) {
+            // Fallback before winit event loop populates the cache
+            (1920, 1080)
+        } else {
+            mode
+        }
+    }
+
+    /// Set the cached display modes from winit monitor enumeration.
+    ///
+    /// Called by the binary crate after winit event loop populates monitor info.
+    pub fn set_display_modes(modes: Vec<(u32, u32)>) {
+        *DISPLAY_MODES.lock().unwrap() = modes;
+    }
+
+    /// Set the cached desktop display mode from winit primary monitor.
+    ///
+    /// Called by the binary crate after winit event loop populates monitor info.
+    pub fn set_desktop_display_mode(mode: (u32, u32)) {
+        *DESKTOP_MODE.lock().unwrap() = mode;
     }
 
     /// JavaFX start method (launcher UI entry point).

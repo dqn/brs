@@ -85,10 +85,15 @@ pub struct MonitorInfo {
 }
 
 static CACHED_MONITORS: std::sync::Mutex<Vec<MonitorInfo>> = std::sync::Mutex::new(Vec::new());
+static CACHED_DISPLAY_MODES: std::sync::Mutex<Vec<(u32, u32)>> = std::sync::Mutex::new(Vec::new());
+static CACHED_DESKTOP_MODE: std::sync::Mutex<(u32, u32)> = std::sync::Mutex::new((0, 0));
 
-/// Update cached monitor list from winit's ActiveEventLoop.
+/// Update cached monitor list and display modes from winit's ActiveEventLoop.
 /// Call this from the event loop's `resumed()` handler.
 pub fn update_monitors_from_winit(event_loop: &winit::event_loop::ActiveEventLoop) {
+    let mut display_modes: Vec<(u32, u32)> = Vec::new();
+    let mut desktop_mode: (u32, u32) = (0, 0);
+
     let monitors: Vec<MonitorInfo> = event_loop
         .available_monitors()
         .enumerate()
@@ -97,6 +102,28 @@ pub fn update_monitors_from_winit(event_loop: &winit::event_loop::ActiveEventLoo
                 .name()
                 .unwrap_or_else(|| format!("Display {}", i + 1));
             let pos = handle.position();
+
+            // Collect video modes from the primary monitor (index 0)
+            // Java: Lwjgl3ApplicationConfiguration.getDisplayModes() returns primary monitor modes
+            if i == 0 {
+                for mode in handle.video_modes() {
+                    let size = mode.size();
+                    let pair = (size.width, size.height);
+                    if !display_modes.contains(&pair) {
+                        display_modes.push(pair);
+                    }
+                }
+                // Desktop mode = largest resolution available on primary monitor
+                // Java: Lwjgl3ApplicationConfiguration.getDisplayMode() returns current desktop mode
+                if let Some(mode) = handle
+                    .video_modes()
+                    .max_by_key(|m| (m.size().width as u64) * (m.size().height as u64))
+                {
+                    let s = mode.size();
+                    desktop_mode = (s.width, s.height);
+                }
+            }
+
             MonitorInfo {
                 name,
                 virtual_x: pos.x,
@@ -104,7 +131,12 @@ pub fn update_monitors_from_winit(event_loop: &winit::event_loop::ActiveEventLoo
             }
         })
         .collect();
+
+    display_modes.sort();
+
     *CACHED_MONITORS.lock().unwrap() = monitors;
+    *CACHED_DISPLAY_MODES.lock().unwrap() = display_modes;
+    *CACHED_DESKTOP_MODE.lock().unwrap() = desktop_mode;
 }
 
 /// Enumerate available monitors.
@@ -125,6 +157,18 @@ pub fn get_monitors() -> Vec<MonitorInfo> {
         }
         cached.clone()
     }
+}
+
+/// Get cached display modes (unique width/height pairs from primary monitor).
+/// Returns empty if cache not yet populated (call update_monitors_from_winit first).
+pub fn get_cached_display_modes() -> Vec<(u32, u32)> {
+    CACHED_DISPLAY_MODES.lock().unwrap().clone()
+}
+
+/// Get cached desktop display mode (primary monitor's native resolution).
+/// Returns (0, 0) if cache not yet populated.
+pub fn get_cached_desktop_display_mode() -> (u32, u32) {
+    *CACHED_DESKTOP_MODE.lock().unwrap()
 }
 
 #[cfg(target_os = "macos")]

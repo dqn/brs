@@ -201,23 +201,98 @@ impl ApplicationHandler for BeatorajaApp {
         // Populate monitor cache for VideoConfigurationView
         beatoraja_launcher::stubs::update_monitors_from_winit(event_loop);
 
+        // Sync display mode cache to core MainLoader
+        {
+            use beatoraja_core::main_loader::MainLoader;
+            let modes = beatoraja_launcher::stubs::get_cached_display_modes();
+            if !modes.is_empty() {
+                MainLoader::set_display_modes(modes);
+            }
+            let desktop = beatoraja_launcher::stubs::get_cached_desktop_display_mode();
+            if desktop != (0, 0) {
+                MainLoader::set_desktop_display_mode(desktop);
+            }
+        }
+
         if self.window.is_none() {
+            // Java: Find target monitor by config.monitorName
+            // Format: "MonitorName [virtualX, virtualY]"
+            let config = self.controller.get_config();
+            let monitor_name = config.monitor_name.clone();
+
+            let target_monitor = if !monitor_name.is_empty() {
+                event_loop.available_monitors().find(|handle| {
+                    let name = handle.name().unwrap_or_default();
+                    let pos = handle.position();
+                    let formatted = format!("{} [{}, {}]", name, pos.x, pos.y);
+                    formatted == monitor_name
+                })
+            } else {
+                None
+            };
+
             // Java: gdxConfig.setWindowedMode(w, h); gdxConfig.setTitle(MainController.getVersion())
             let decorated = !matches!(
                 self.display_mode,
                 DisplayMode::FULLSCREEN | DisplayMode::BORDERLESS
             );
-            let window_attributes = Window::default_attributes()
+            let mut window_attributes = Window::default_attributes()
                 .with_title(&self.title)
                 .with_inner_size(winit::dpi::LogicalSize::new(self.width, self.height))
                 .with_decorations(decorated);
 
+            if matches!(self.display_mode, DisplayMode::FULLSCREEN) {
+                // Java: MainLoader.play() lines 177-208 — fullscreen setup
+                // Find best matching video mode on target (or primary) monitor
+                let monitor = target_monitor
+                    .clone()
+                    .or_else(|| event_loop.primary_monitor());
+
+                if let Some(monitor) = monitor {
+                    // Java: find display mode matching w,h with highest refreshRate and bitsPerPixel
+                    let best_mode = monitor
+                        .video_modes()
+                        .filter(|m| m.size().width == self.width && m.size().height == self.height)
+                        .max_by_key(|m| (m.refresh_rate_millihertz(), m.bit_depth()));
+
+                    if let Some(mode) = best_mode {
+                        info!(
+                            "Fullscreen: {}x{} @{}mHz on monitor",
+                            mode.size().width,
+                            mode.size().height,
+                            mode.refresh_rate_millihertz()
+                        );
+                        window_attributes = window_attributes
+                            .with_fullscreen(Some(winit::window::Fullscreen::Exclusive(mode)));
+                    } else {
+                        warn!(
+                            "Resolution {}x{} not available for exclusive fullscreen, using borderless",
+                            self.width, self.height
+                        );
+                        window_attributes = window_attributes.with_fullscreen(Some(
+                            winit::window::Fullscreen::Borderless(Some(monitor)),
+                        ));
+                    }
+                }
+            } else if matches!(self.display_mode, DisplayMode::BORDERLESS) {
+                // Java: borderless mode with target monitor
+                let monitor = target_monitor
+                    .clone()
+                    .or_else(|| event_loop.primary_monitor());
+                if let Some(monitor) = monitor {
+                    window_attributes = window_attributes.with_fullscreen(Some(
+                        winit::window::Fullscreen::Borderless(Some(monitor)),
+                    ));
+                }
+            } else if let Some(ref monitor) = target_monitor {
+                // Java: windowed mode — position at target monitor origin
+                let pos = monitor.position();
+                window_attributes = window_attributes
+                    .with_position(winit::dpi::PhysicalPosition::new(pos.x, pos.y));
+            }
+
             match event_loop.create_window(window_attributes) {
                 Ok(window) => {
-                    if matches!(self.display_mode, DisplayMode::FULLSCREEN) {
-                        // Java: Gdx.graphics.setFullscreenMode(finalGdxDisplayMode)
-                        warn!("Fullscreen mode requested but not yet implemented");
-                    }
                     let window = Arc::new(window);
 
                     // Create wgpu GPU context bound to this window's surface
