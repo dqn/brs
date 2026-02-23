@@ -22,12 +22,41 @@ use beatoraja_pattern::mode_modifier::ModeModifier;
 use beatoraja_pattern::pattern_modifier::{AssistLevel, PatternModifier};
 use beatoraja_pattern::scroll_speed_modifier::ScrollSpeedModifier;
 use beatoraja_types::clear_type::ClearType;
+use beatoraja_types::play_config::PlayConfig;
 use beatoraja_types::replay_data::ReplayData;
 use beatoraja_types::skin_type::SkinType;
 use bms_model::bms_model::BMSModel;
 use bms_model::mode::Mode;
 
 pub static TIME_MARGIN: i32 = 5000;
+
+/// Key state flags for replay mode.
+/// Corresponds to Java `main.getInputProcessor().getKeyState(N)` checks.
+#[derive(Clone, Debug, Default)]
+pub struct ReplayKeyState {
+    /// Key1 held: replay pattern mode (copy options + seeds + rand)
+    pub pattern_key: bool,
+    /// Key2 held: replay option mode (copy options only, no seeds)
+    pub option_key: bool,
+    /// Key4 held: replay HS option mode (save replay config)
+    pub hs_key: bool,
+    /// Key3 held: gauge shift +2
+    pub gauge_shift_key3: bool,
+    /// Key5 held: gauge shift +1
+    pub gauge_shift_key5: bool,
+}
+
+/// Result of replay data restoration.
+#[derive(Clone, Debug)]
+pub struct ReplayRestoreResult {
+    /// Whether the player should remain in REPLAY mode.
+    /// If false, playmode should be switched to PLAY.
+    pub stay_replay: bool,
+    /// The replay data to use for keylog playback (None if switched to PLAY mode).
+    pub replay: Option<ReplayData>,
+    /// HS replay config to apply (from Key4 held).
+    pub hs_replay_config: Option<PlayConfig>,
+}
 
 pub const STATE_PRELOAD: i32 = 0;
 pub const STATE_PRACTICE: i32 = 1;
@@ -672,6 +701,176 @@ impl BMSPlayer {
 
     pub fn get_gaugelog(&self) -> &[Vec<f32>] {
         &self.gaugelog
+    }
+
+    /// Restore replay data into playinfo based on key state.
+    ///
+    /// Corresponds to Java BMSPlayer constructor lines 150-214.
+    ///
+    /// When in REPLAY mode for a single song:
+    /// - If `replay` is `None`: cannot load replay, switch to PLAY mode.
+    /// - Key1 held (pattern_key): Copy all pattern options + seeds + rand from replay to playinfo.
+    ///   Then switch to PLAY mode (replay pattern mode).
+    /// - Key2 held (option_key): Copy pattern options (no seeds, no rand) from replay to playinfo.
+    ///   Then switch to PLAY mode (replay option mode).
+    /// - Key4 held (hs_key): Save replay's PlayConfig for HS restoration.
+    ///   Then switch to PLAY mode.
+    /// - If any of the above keys were held, `replay` is discarded and mode becomes PLAY.
+    /// - If none of the above keys were held, the replay is kept for keylog playback.
+    ///
+    /// Returns `ReplayRestoreResult` with whether to stay in replay mode, the replay data,
+    /// and any HS config to apply.
+    pub fn restore_replay_data(
+        &mut self,
+        replay: Option<ReplayData>,
+        key_state: &ReplayKeyState,
+    ) -> ReplayRestoreResult {
+        match replay {
+            None => {
+                // No replay data available -> fall back to PLAY mode
+                log::info!("リプレイデータを読み込めなかったため、通常プレイモードに移行");
+                ReplayRestoreResult {
+                    stay_replay: false,
+                    replay: None,
+                    hs_replay_config: None,
+                }
+            }
+            Some(replay_data) => {
+                let mut is_replay_pattern_play = false;
+                let mut hs_config: Option<PlayConfig> = None;
+
+                if key_state.pattern_key {
+                    // Replay pattern mode: copy options + seeds + rand
+                    log::info!("リプレイ再現モード : 譜面");
+                    self.playinfo.randomoption = replay_data.randomoption;
+                    self.playinfo.randomoptionseed = replay_data.randomoptionseed;
+                    self.playinfo.randomoption2 = replay_data.randomoption2;
+                    self.playinfo.randomoption2seed = replay_data.randomoption2seed;
+                    self.playinfo.doubleoption = replay_data.doubleoption;
+                    self.playinfo.rand = replay_data.rand.clone();
+                    is_replay_pattern_play = true;
+                } else if key_state.option_key {
+                    // Replay option mode: copy options only (no seeds, no rand)
+                    log::info!("リプレイ再現モード : オプション");
+                    self.playinfo.randomoption = replay_data.randomoption;
+                    self.playinfo.randomoption2 = replay_data.randomoption2;
+                    self.playinfo.doubleoption = replay_data.doubleoption;
+                    is_replay_pattern_play = true;
+                }
+
+                if key_state.hs_key {
+                    // Replay HS option mode: save replay config
+                    log::info!("リプレイ再現モード : ハイスピード");
+                    hs_config = replay_data.config.clone();
+                    is_replay_pattern_play = true;
+                }
+
+                if is_replay_pattern_play {
+                    // Switch to PLAY mode, discard replay
+                    ReplayRestoreResult {
+                        stay_replay: false,
+                        replay: None,
+                        hs_replay_config: hs_config,
+                    }
+                } else {
+                    // Normal replay mode: keep replay for keylog playback
+                    ReplayRestoreResult {
+                        stay_replay: true,
+                        replay: Some(replay_data),
+                        hs_replay_config: None,
+                    }
+                }
+            }
+        }
+    }
+
+    /// Select the gauge type to use.
+    ///
+    /// Corresponds to Java BMSPlayer constructor lines 456-466.
+    ///
+    /// In REPLAY mode with a replay, uses the replay's gauge type.
+    /// Additionally, key3/key5 can shift the gauge type upward:
+    ///   shift = (key5 ? 1 : 0) + (key3 ? 2 : 0)
+    ///   If replay.gauge is not HAZARD or EXHARDCLASS, increment gauge by shift.
+    /// In PLAY mode, uses the config gauge type.
+    pub fn select_gauge_type(
+        replay: Option<&ReplayData>,
+        config_gauge: i32,
+        key_state: &ReplayKeyState,
+    ) -> i32 {
+        match replay {
+            Some(replay_data) => {
+                let mut gauge = replay_data.gauge;
+                let shift = (if key_state.gauge_shift_key5 { 1 } else { 0 })
+                    + (if key_state.gauge_shift_key3 { 2 } else { 0 });
+                for _ in 0..shift {
+                    if gauge != beatoraja_types::groove_gauge::HAZARD
+                        && gauge != beatoraja_types::groove_gauge::EXHARDCLASS
+                    {
+                        gauge += 1;
+                    }
+                }
+                gauge
+            }
+            None => config_gauge,
+        }
+    }
+
+    /// Handle RANDOM syntax (branch chart loading) for replay/play mode.
+    ///
+    /// Corresponds to Java BMSPlayer constructor lines 225-242.
+    ///
+    /// If the model has RANDOM branches:
+    /// - In REPLAY mode: use replay.rand
+    /// - If resource has a saved seed (randomoptionseed != -1): use resource's rand
+    /// - If rand is set and non-empty: reload BMS model with that rand
+    ///   (actual model reload deferred → Phase 41)
+    /// - Store final model.getRandom() into playinfo.rand
+    ///
+    /// Returns the rand values to use for model reload (if any), or None.
+    pub fn handle_random_syntax(
+        &mut self,
+        is_replay_mode: bool,
+        replay: Option<&ReplayData>,
+        resource_replay_seed: i64,
+        resource_rand: &[i32],
+    ) -> Option<Vec<i32>> {
+        let model_random = self.model.get_random().map(|r| r.to_vec());
+        if let Some(ref random) = model_random
+            && !random.is_empty()
+        {
+            if is_replay_mode {
+                if let Some(replay_data) = replay {
+                    self.playinfo.rand = replay_data.rand.clone();
+                }
+            } else if resource_replay_seed != -1 {
+                // This path is hit on MusicResult / QuickRetry
+                self.playinfo.rand = resource_rand.to_vec();
+            }
+
+            if !self.playinfo.rand.is_empty() {
+                // TODO: → Phase 41 — Actual model reload via resource.loadBMSModel(playinfo.rand)
+                // model = resource.loadBMSModel(playinfo.rand);
+                // BMSModelUtils.setStartNoteTime(model, 1000);
+                // BMSPlayerRule.validate(model);
+                log::info!("譜面分岐 : {:?}", self.playinfo.rand);
+                let reload_rand = self.playinfo.rand.clone();
+                // After reload, store model's random back into playinfo
+                // self.playinfo.rand = model.getRandom() (done after actual reload)
+                return Some(reload_rand);
+            }
+
+            // No rand override, store model's random into playinfo
+            self.playinfo.rand = random.clone();
+            log::info!("譜面分岐 : {:?}", self.playinfo.rand);
+        }
+        None
+    }
+
+    /// Get mutable reference to playinfo for testing.
+    #[cfg(test)]
+    pub fn playinfo_mut(&mut self) -> &mut ReplayData {
+        &mut self.playinfo
     }
 }
 
@@ -1828,5 +2027,339 @@ mod tests {
             2,
             "DP mode should have 2 player patterns"
         );
+    }
+
+    // --- restore_replay_data tests (Phase 34c) ---
+
+    fn make_replay_data() -> ReplayData {
+        let mut rd = ReplayData::new();
+        rd.randomoption = 3;
+        rd.randomoptionseed = 99999;
+        rd.randomoption2 = 2;
+        rd.randomoption2seed = 88888;
+        rd.doubleoption = 1;
+        rd.rand = vec![2, 5, 1];
+        rd.gauge = beatoraja_types::groove_gauge::HARD;
+        rd.config = Some(beatoraja_types::play_config::PlayConfig {
+            hispeed: 5.0,
+            duration: 300,
+            ..beatoraja_types::play_config::PlayConfig::default()
+        });
+        rd
+    }
+
+    #[test]
+    fn restore_replay_data_none_returns_no_stay() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let key_state = ReplayKeyState::default();
+
+        let result = player.restore_replay_data(None, &key_state);
+        assert!(!result.stay_replay);
+        assert!(result.replay.is_none());
+        assert!(result.hs_replay_config.is_none());
+        // playinfo should be unchanged
+        assert_eq!(player.playinfo.randomoption, 0);
+        assert_eq!(player.playinfo.randomoptionseed, -1);
+    }
+
+    #[test]
+    fn restore_replay_data_pattern_key_copies_all_fields() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let replay = make_replay_data();
+
+        let key_state = ReplayKeyState {
+            pattern_key: true,
+            ..Default::default()
+        };
+
+        let result = player.restore_replay_data(Some(replay), &key_state);
+        // Should switch to PLAY mode
+        assert!(!result.stay_replay);
+        assert!(result.replay.is_none());
+
+        // All fields should be copied
+        assert_eq!(player.playinfo.randomoption, 3);
+        assert_eq!(player.playinfo.randomoptionseed, 99999);
+        assert_eq!(player.playinfo.randomoption2, 2);
+        assert_eq!(player.playinfo.randomoption2seed, 88888);
+        assert_eq!(player.playinfo.doubleoption, 1);
+        assert_eq!(player.playinfo.rand, vec![2, 5, 1]);
+    }
+
+    #[test]
+    fn restore_replay_data_option_key_copies_options_not_seeds() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let replay = make_replay_data();
+
+        let key_state = ReplayKeyState {
+            option_key: true,
+            ..Default::default()
+        };
+
+        let result = player.restore_replay_data(Some(replay), &key_state);
+        // Should switch to PLAY mode
+        assert!(!result.stay_replay);
+        assert!(result.replay.is_none());
+
+        // Options should be copied
+        assert_eq!(player.playinfo.randomoption, 3);
+        assert_eq!(player.playinfo.randomoption2, 2);
+        assert_eq!(player.playinfo.doubleoption, 1);
+
+        // Seeds should NOT be copied (remain at default -1)
+        assert_eq!(player.playinfo.randomoptionseed, -1);
+        assert_eq!(player.playinfo.randomoption2seed, -1);
+
+        // Rand should NOT be copied
+        assert!(player.playinfo.rand.is_empty());
+    }
+
+    #[test]
+    fn restore_replay_data_hs_key_saves_config() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let replay = make_replay_data();
+
+        let key_state = ReplayKeyState {
+            hs_key: true,
+            ..Default::default()
+        };
+
+        let result = player.restore_replay_data(Some(replay), &key_state);
+        // Should switch to PLAY mode
+        assert!(!result.stay_replay);
+        assert!(result.replay.is_none());
+
+        // HS config should be returned
+        let hs_config = result.hs_replay_config.unwrap();
+        assert_eq!(hs_config.hispeed, 5.0);
+        assert_eq!(hs_config.duration, 300);
+    }
+
+    #[test]
+    fn restore_replay_data_pattern_and_hs_keys_together() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let replay = make_replay_data();
+
+        let key_state = ReplayKeyState {
+            pattern_key: true,
+            hs_key: true,
+            ..Default::default()
+        };
+
+        let result = player.restore_replay_data(Some(replay), &key_state);
+        assert!(!result.stay_replay);
+        assert!(result.replay.is_none());
+
+        // Pattern fields should be copied
+        assert_eq!(player.playinfo.randomoption, 3);
+        assert_eq!(player.playinfo.randomoptionseed, 99999);
+
+        // HS config should also be returned
+        assert!(result.hs_replay_config.is_some());
+    }
+
+    #[test]
+    fn restore_replay_data_no_keys_stays_replay() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        let replay = make_replay_data();
+
+        let key_state = ReplayKeyState::default();
+
+        let result = player.restore_replay_data(Some(replay.clone()), &key_state);
+        // Should stay in REPLAY mode
+        assert!(result.stay_replay);
+        assert!(result.replay.is_some());
+        assert!(result.hs_replay_config.is_none());
+
+        // playinfo should be unchanged
+        assert_eq!(player.playinfo.randomoption, 0);
+        assert_eq!(player.playinfo.randomoptionseed, -1);
+    }
+
+    // --- select_gauge_type tests (Phase 34c) ---
+
+    #[test]
+    fn select_gauge_type_no_replay_uses_config() {
+        let key_state = ReplayKeyState::default();
+        let result =
+            BMSPlayer::select_gauge_type(None, beatoraja_types::groove_gauge::NORMAL, &key_state);
+        assert_eq!(result, beatoraja_types::groove_gauge::NORMAL);
+    }
+
+    #[test]
+    fn select_gauge_type_replay_uses_replay_gauge() {
+        let mut replay = make_replay_data();
+        replay.gauge = beatoraja_types::groove_gauge::HARD;
+        let key_state = ReplayKeyState::default();
+        let result = BMSPlayer::select_gauge_type(
+            Some(&replay),
+            beatoraja_types::groove_gauge::NORMAL,
+            &key_state,
+        );
+        assert_eq!(result, beatoraja_types::groove_gauge::HARD);
+    }
+
+    #[test]
+    fn select_gauge_type_replay_with_key5_shifts_by_1() {
+        let mut replay = make_replay_data();
+        replay.gauge = beatoraja_types::groove_gauge::NORMAL; // 2
+        let key_state = ReplayKeyState {
+            gauge_shift_key5: true,
+            ..Default::default()
+        };
+        let result = BMSPlayer::select_gauge_type(
+            Some(&replay),
+            beatoraja_types::groove_gauge::NORMAL,
+            &key_state,
+        );
+        assert_eq!(result, beatoraja_types::groove_gauge::HARD); // 2 + 1 = 3
+    }
+
+    #[test]
+    fn select_gauge_type_replay_with_key3_shifts_by_2() {
+        let mut replay = make_replay_data();
+        replay.gauge = beatoraja_types::groove_gauge::NORMAL; // 2
+        let key_state = ReplayKeyState {
+            gauge_shift_key3: true,
+            ..Default::default()
+        };
+        let result = BMSPlayer::select_gauge_type(
+            Some(&replay),
+            beatoraja_types::groove_gauge::NORMAL,
+            &key_state,
+        );
+        assert_eq!(result, beatoraja_types::groove_gauge::EXHARD); // 2 + 2 = 4
+    }
+
+    #[test]
+    fn select_gauge_type_replay_with_both_keys_shifts_by_3() {
+        let mut replay = make_replay_data();
+        replay.gauge = beatoraja_types::groove_gauge::NORMAL; // 2
+        let key_state = ReplayKeyState {
+            gauge_shift_key3: true,
+            gauge_shift_key5: true,
+            ..Default::default()
+        };
+        let result = BMSPlayer::select_gauge_type(
+            Some(&replay),
+            beatoraja_types::groove_gauge::NORMAL,
+            &key_state,
+        );
+        assert_eq!(result, beatoraja_types::groove_gauge::HAZARD); // 2 + 3 = 5
+    }
+
+    #[test]
+    fn select_gauge_type_replay_hazard_no_shift() {
+        let mut replay = make_replay_data();
+        replay.gauge = beatoraja_types::groove_gauge::HAZARD; // 5
+        let key_state = ReplayKeyState {
+            gauge_shift_key5: true,
+            ..Default::default()
+        };
+        let result = BMSPlayer::select_gauge_type(
+            Some(&replay),
+            beatoraja_types::groove_gauge::NORMAL,
+            &key_state,
+        );
+        // HAZARD cannot be shifted further
+        assert_eq!(result, beatoraja_types::groove_gauge::HAZARD);
+    }
+
+    // --- handle_random_syntax tests (Phase 34c) ---
+
+    #[test]
+    fn handle_random_syntax_no_random_in_model() {
+        let model = make_model(); // No random branches set
+        let mut player = BMSPlayer::new(model);
+        let result = player.handle_random_syntax(false, None, -1, &[]);
+        assert!(result.is_none());
+        assert!(player.playinfo.rand.is_empty());
+    }
+
+    #[test]
+    fn handle_random_syntax_replay_mode_uses_replay_rand() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+        model.set_chart_information(bms_model::chart_information::ChartInformation::new(
+            None,
+            0,
+            Some(vec![1, 3, 2]),
+        )); // Model has random branches
+        let mut player = BMSPlayer::new(model);
+
+        let mut replay = make_replay_data();
+        replay.rand = vec![2, 1, 3];
+
+        let result = player.handle_random_syntax(true, Some(&replay), -1, &[]);
+        // Should return Some with the replay's rand for model reload
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), vec![2, 1, 3]);
+        assert_eq!(player.playinfo.rand, vec![2, 1, 3]);
+    }
+
+    #[test]
+    fn handle_random_syntax_resource_seed_set_uses_resource_rand() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+        model.set_chart_information(bms_model::chart_information::ChartInformation::new(
+            None,
+            0,
+            Some(vec![1, 3, 2]),
+        ));
+        let mut player = BMSPlayer::new(model);
+
+        let resource_rand = vec![3, 2, 1];
+
+        let result = player.handle_random_syntax(false, None, 42, &resource_rand);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), vec![3, 2, 1]);
+        assert_eq!(player.playinfo.rand, vec![3, 2, 1]);
+    }
+
+    #[test]
+    fn handle_random_syntax_normal_play_stores_model_random() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+        model.set_chart_information(bms_model::chart_information::ChartInformation::new(
+            None,
+            0,
+            Some(vec![4, 5, 6]),
+        ));
+        let mut player = BMSPlayer::new(model);
+
+        let result = player.handle_random_syntax(false, None, -1, &[]);
+        // No reload needed (no rand override), but model's random should be stored
+        assert!(result.is_none());
+        assert_eq!(player.playinfo.rand, vec![4, 5, 6]);
+    }
+
+    #[test]
+    fn handle_random_syntax_replay_empty_rand_stores_model_random() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.set_judgerank(100);
+        model.set_chart_information(bms_model::chart_information::ChartInformation::new(
+            None,
+            0,
+            Some(vec![1, 2]),
+        ));
+        let mut player = BMSPlayer::new(model);
+
+        let mut replay = make_replay_data();
+        replay.rand = vec![]; // Empty rand in replay
+
+        let result = player.handle_random_syntax(true, Some(&replay), -1, &[]);
+        // Empty rand means no reload, store model's random
+        assert!(result.is_none());
+        assert_eq!(player.playinfo.rand, vec![1, 2]);
     }
 }
