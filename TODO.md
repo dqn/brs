@@ -1,6 +1,6 @@
 # Porting TODO — Remaining Work
 
-Phases 1–42 complete, Phase 43b complete. **2320 tests, 0 ignored.** 27 crates, 127k lines. See AGENTS.md.
+Phases 1–43 complete. **2346 tests, 0 ignored.** 27 crates, 127k lines. See AGENTS.md.
 
 ---
 
@@ -39,7 +39,7 @@ JavaFX 設定 UI の egui 完全移行。設定ビューの動的動作実装。
 
 BMSPlayer のスキンロード/初期化完成。
 
-- [ ] **43a:** `BMSPlayer.create()` 完成 — loadSkin(), ガイドSEパス解決, 入力プロセッサモード設定
+- [x] **43a:** `BMSPlayer.create()` 完成 — loadSkin(), ガイドSEパス解決, 入力プロセッサモード設定
 
 ---
 
