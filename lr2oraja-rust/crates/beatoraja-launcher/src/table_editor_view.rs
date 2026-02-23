@@ -221,3 +221,306 @@ impl Default for TableEditorView {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    use beatoraja_core::course_data::{CourseData, CourseDataConstraint, TrophyData};
+    use beatoraja_core::table_data::{TableData, TableFolder};
+
+    fn make_song(title: &str, md5: &str, sha256: &str) -> SongData {
+        let mut sd = SongData::new();
+        sd.title = title.to_string();
+        sd.md5 = md5.to_string();
+        sd.sha256 = sha256.to_string();
+        sd
+    }
+
+    // ---- Construction ----
+
+    #[test]
+    fn test_new_defaults() {
+        let view = TableEditorView::new();
+        assert!(view.filepath.is_none());
+        assert!(view.table_name.is_empty());
+    }
+
+    #[test]
+    fn test_default_trait() {
+        let view = TableEditorView::default();
+        assert!(view.filepath.is_none());
+    }
+
+    // ---- isMd5OrSha256Hash ----
+
+    #[test]
+    fn test_is_md5_hash() {
+        // 32 hex chars
+        assert!(TableEditorView::is_md5_or_sha256_hash(
+            "abcdef1234567890abcdef1234567890"
+        ));
+    }
+
+    #[test]
+    fn test_is_sha256_hash() {
+        // 64 hex chars
+        assert!(TableEditorView::is_md5_or_sha256_hash(
+            "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+        ));
+    }
+
+    #[test]
+    fn test_is_not_hash_wrong_length() {
+        assert!(!TableEditorView::is_md5_or_sha256_hash("abcdef"));
+        assert!(!TableEditorView::is_md5_or_sha256_hash(
+            "abcdef1234567890abcdef123456789" // 31 chars
+        ));
+        assert!(!TableEditorView::is_md5_or_sha256_hash(
+            "abcdef1234567890abcdef12345678901" // 33 chars
+        ));
+    }
+
+    #[test]
+    fn test_is_not_hash_non_hex() {
+        assert!(!TableEditorView::is_md5_or_sha256_hash(
+            "ghijkl1234567890ghijkl1234567890" // non-hex chars
+        ));
+    }
+
+    #[test]
+    fn test_is_hash_upper_case() {
+        assert!(TableEditorView::is_md5_or_sha256_hash(
+            "ABCDEF1234567890ABCDEF1234567890"
+        ));
+    }
+
+    #[test]
+    fn test_is_hash_mixed_case() {
+        assert!(TableEditorView::is_md5_or_sha256_hash(
+            "AbCdEf1234567890aBcDeF1234567890"
+        ));
+    }
+
+    #[test]
+    fn test_is_hash_empty_string() {
+        assert!(!TableEditorView::is_md5_or_sha256_hash(""));
+    }
+
+    // ---- getDifficultyString ----
+
+    #[test]
+    fn test_get_difficulty_string() {
+        assert_eq!(TableEditorView::get_difficulty_string(0), "UNKNOWN");
+        assert_eq!(TableEditorView::get_difficulty_string(1), "BEGINNER");
+        assert_eq!(TableEditorView::get_difficulty_string(2), "NORMAL");
+        assert_eq!(TableEditorView::get_difficulty_string(3), "HYPER");
+        assert_eq!(TableEditorView::get_difficulty_string(4), "ANOTHER");
+        assert_eq!(TableEditorView::get_difficulty_string(5), "INSANE");
+        assert_eq!(TableEditorView::get_difficulty_string(6), "UNKNOWN");
+        assert_eq!(TableEditorView::get_difficulty_string(-1), "UNKNOWN");
+    }
+
+    // ---- getJudgeString ----
+
+    #[test]
+    fn test_get_judge_string() {
+        assert_eq!(TableEditorView::get_judge_string(0), "VERY HARD");
+        assert_eq!(TableEditorView::get_judge_string(25), "VERY HARD");
+        assert_eq!(TableEditorView::get_judge_string(26), "HARD");
+        assert_eq!(TableEditorView::get_judge_string(50), "HARD");
+        assert_eq!(TableEditorView::get_judge_string(51), "NORMAL");
+        assert_eq!(TableEditorView::get_judge_string(75), "NORMAL");
+        assert_eq!(TableEditorView::get_judge_string(76), "EASY");
+        assert_eq!(TableEditorView::get_judge_string(100), "EASY");
+        assert_eq!(TableEditorView::get_judge_string(101), "VERY EASY");
+        assert_eq!(TableEditorView::get_judge_string(200), "VERY EASY");
+    }
+
+    // ---- getBpmString ----
+
+    #[test]
+    fn test_get_bpm_string_same() {
+        assert_eq!(TableEditorView::get_bpm_string(150, 150), "150bpm");
+    }
+
+    #[test]
+    fn test_get_bpm_string_range() {
+        assert_eq!(TableEditorView::get_bpm_string(120, 180), "120-180bpm");
+    }
+
+    // ---- getTimeString ----
+
+    #[test]
+    fn test_get_time_string() {
+        assert_eq!(TableEditorView::get_time_string(0), "0:00");
+        assert_eq!(TableEditorView::get_time_string(60000), "1:00");
+        assert_eq!(TableEditorView::get_time_string(90000), "1:30");
+        assert_eq!(TableEditorView::get_time_string(125000), "2:05");
+        assert_eq!(TableEditorView::get_time_string(3600000), "60:00");
+    }
+
+    // ---- dialogAddCopiableRow ----
+
+    #[test]
+    fn test_dialog_add_copiable_row() {
+        let mut grid = Vec::new();
+        TableEditorView::dialog_add_copiable_row(&mut grid, 0, "Title", "My Song");
+        assert_eq!(grid.len(), 1);
+        assert_eq!(grid[0].0, "Title: ");
+        assert_eq!(grid[0].1, "My Song");
+    }
+
+    // ---- displayChartDetailsDialog ----
+
+    #[test]
+    fn test_display_chart_details_dialog_does_not_panic() {
+        let song = make_song("Test Song", "md5hash", "sha256hash");
+        // Should not panic even with no songdb
+        TableEditorView::display_chart_details_dialog(None, &song, &[]);
+    }
+
+    #[test]
+    fn test_display_chart_details_dialog_with_extra_data() {
+        let song = make_song("Test Song", "md5hash", "sha256hash");
+        TableEditorView::display_chart_details_dialog(
+            None,
+            &song,
+            &["Extra info 1", "Extra info 2"],
+        );
+        // Should not panic
+    }
+
+    // ---- init ----
+
+    #[test]
+    fn test_init_sets_songdb() {
+        let mut view = TableEditorView::new();
+        view.init(SongDatabaseAccessor);
+        // No panic; sub-controllers have their songdb set
+    }
+
+    // ---- update / commit with temp file ----
+
+    #[test]
+    fn test_update_from_json_file() {
+        let mut view = TableEditorView::new();
+
+        // Create a valid TableData JSON with minimal data
+        let song = make_song("Song A", "abcd1234abcd1234abcd1234abcd1234", "sha");
+        let td = TableData {
+            name: "My Table".to_string(),
+            folder: vec![TableFolder {
+                name: Some("Level 1".to_string()),
+                songs: vec![song],
+            }],
+            course: vec![CourseData {
+                name: Some("My Course".to_string()),
+                hash: vec![make_song(
+                    "Course Song",
+                    "1234abcd1234abcd1234abcd1234abcd",
+                    "sha2",
+                )],
+                constraint: vec![CourseDataConstraint::Class],
+                trophy: vec![TrophyData::new("bronzemedal".to_string(), 5.0, 60.0)],
+                release: false,
+            }],
+            ..Default::default()
+        };
+        let json = serde_json::to_string_pretty(&td).unwrap();
+
+        let mut tmpfile = NamedTempFile::with_suffix(".json").unwrap();
+        tmpfile.write_all(json.as_bytes()).unwrap();
+        tmpfile.flush().unwrap();
+
+        view.update(tmpfile.path());
+        assert_eq!(view.table_name, "My Table");
+        assert_eq!(view.filepath, Some(tmpfile.path().to_path_buf()));
+    }
+
+    #[test]
+    fn test_update_nonexistent_file() {
+        let mut view = TableEditorView::new();
+        let path = Path::new("/tmp/nonexistent_table_42b.json");
+
+        view.update(path);
+        assert_eq!(view.table_name, "New Table");
+        assert_eq!(view.filepath, Some(path.to_path_buf()));
+    }
+
+    #[test]
+    fn test_commit_writes_json_file() {
+        let mut view = TableEditorView::new();
+
+        // Set up view with data
+        view.table_name = "Saved Table".to_string();
+        view.course_controller.set_course_data(vec![CourseData {
+            name: Some("C1".to_string()),
+            hash: vec![make_song("S1", "abcd1234abcd1234abcd1234abcd1234", "sha")],
+            ..Default::default()
+        }]);
+        view.folder_controller.set_table_folder(vec![TableFolder {
+            name: Some("F1".to_string()),
+            songs: vec![make_song("S2", "1234abcd1234abcd1234abcd1234abcd", "sha2")],
+        }]);
+
+        let tmpfile = NamedTempFile::with_suffix(".json").unwrap();
+        view.filepath = Some(tmpfile.path().to_path_buf());
+
+        view.commit();
+
+        // Read back and verify
+        let contents = std::fs::read_to_string(tmpfile.path()).unwrap();
+        let td: TableData = serde_json::from_str(&contents).unwrap();
+        assert_eq!(td.name, "Saved Table");
+    }
+
+    #[test]
+    fn test_commit_no_filepath() {
+        let mut view = TableEditorView::new();
+        view.table_name = "No Path".to_string();
+        view.filepath = None;
+
+        // Should not panic
+        view.commit();
+    }
+
+    // ---- round trip: update → modify → commit → re-read ----
+
+    #[test]
+    fn test_round_trip_update_commit() {
+        // Create initial file
+        let song = make_song("Song A", "abcd1234abcd1234abcd1234abcd1234", "sha");
+        let td = TableData {
+            name: "Original".to_string(),
+            folder: vec![TableFolder {
+                name: Some("F1".to_string()),
+                songs: vec![song],
+            }],
+            ..Default::default()
+        };
+        let json = serde_json::to_string_pretty(&td).unwrap();
+
+        let mut tmpfile = NamedTempFile::with_suffix(".json").unwrap();
+        tmpfile.write_all(json.as_bytes()).unwrap();
+        tmpfile.flush().unwrap();
+
+        // Load
+        let mut view = TableEditorView::new();
+        view.update(tmpfile.path());
+        assert_eq!(view.table_name, "Original");
+
+        // Modify
+        view.table_name = "Modified".to_string();
+
+        // Save
+        view.commit();
+
+        // Re-read
+        let mut view2 = TableEditorView::new();
+        view2.update(tmpfile.path());
+        assert_eq!(view2.table_name, "Modified");
+    }
+}

@@ -35,3 +35,6 @@ egui = { workspace = true }
 eframe = { workspace = true }
 winit = { workspace = true }
 reqwest = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

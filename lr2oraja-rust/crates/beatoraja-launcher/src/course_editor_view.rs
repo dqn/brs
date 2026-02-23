@@ -456,3 +456,682 @@ impl Default for CourseEditorView {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
+mod tests {
+    use super::*;
+
+    fn make_song(title: &str, sha256: &str) -> SongData {
+        let mut sd = SongData::new();
+        sd.title = title.to_string();
+        sd.sha256 = sha256.to_string();
+        sd
+    }
+
+    fn make_course(name: &str) -> CourseData {
+        CourseData {
+            name: Some(name.to_string()),
+            release: false,
+            trophy: vec![
+                TrophyData::new("bronzemedal".to_string(), 7.5, 55.0),
+                TrophyData::new("silvermedal".to_string(), 5.0, 70.0),
+                TrophyData::new("goldmedal".to_string(), 2.5, 85.0),
+            ],
+            ..Default::default()
+        }
+    }
+
+    // ---- Construction ----
+
+    #[test]
+    fn test_new_defaults() {
+        let view = CourseEditorView::new();
+        assert!(view.search.is_empty());
+        assert!(view.search_songs.is_empty());
+        assert!(view.courses.is_empty());
+        assert!(view.courses_selected_index.is_none());
+        assert!(!view.course_pane_visible);
+        assert!(view.course_name.is_empty());
+        assert!(!view.release);
+        assert!(view.grade_type.is_none());
+        assert!(view.hispeed_type.is_none());
+        assert!(view.judge_type.is_none());
+        assert!(view.gauge_type.is_none());
+        assert!(view.ln_type.is_none());
+        assert_eq!(view.bronzemiss, 0.0);
+        assert_eq!(view.bronzescore, 0.0);
+        assert_eq!(view.silvermiss, 0.0);
+        assert_eq!(view.silverscore, 0.0);
+        assert_eq!(view.goldmiss, 0.0);
+        assert_eq!(view.goldscore, 0.0);
+        assert!(view.course_songs.is_empty());
+        assert!(view.selected_course.is_none());
+        assert!(view.songdb.is_none());
+    }
+
+    #[test]
+    fn test_default_trait() {
+        let view = CourseEditorView::default();
+        assert!(view.courses.is_empty());
+    }
+
+    // ---- Constraint combo box items ----
+
+    #[test]
+    fn test_grade_type_items() {
+        let view = CourseEditorView::new();
+        assert_eq!(view.grade_type_items.len(), 4);
+        assert_eq!(view.grade_type_items[0], None);
+        assert_eq!(view.grade_type_items[1], Some(CourseDataConstraint::Class));
+        assert_eq!(view.grade_type_items[2], Some(CourseDataConstraint::Mirror));
+        assert_eq!(view.grade_type_items[3], Some(CourseDataConstraint::Random));
+    }
+
+    #[test]
+    fn test_hispeed_type_items() {
+        let view = CourseEditorView::new();
+        assert_eq!(view.hispeed_type_items.len(), 2);
+        assert_eq!(view.hispeed_type_items[0], None);
+        assert_eq!(
+            view.hispeed_type_items[1],
+            Some(CourseDataConstraint::NoSpeed)
+        );
+    }
+
+    #[test]
+    fn test_judge_type_items() {
+        let view = CourseEditorView::new();
+        assert_eq!(view.judge_type_items.len(), 3);
+        assert_eq!(view.judge_type_items[0], None);
+        assert_eq!(view.judge_type_items[1], Some(CourseDataConstraint::NoGood));
+        assert_eq!(
+            view.judge_type_items[2],
+            Some(CourseDataConstraint::NoGreat)
+        );
+    }
+
+    #[test]
+    fn test_gauge_type_items() {
+        let view = CourseEditorView::new();
+        assert_eq!(view.gauge_type_items.len(), 6);
+        assert_eq!(view.gauge_type_items[0], None);
+        assert_eq!(
+            view.gauge_type_items[1],
+            Some(CourseDataConstraint::GaugeLr2)
+        );
+        assert_eq!(
+            view.gauge_type_items[5],
+            Some(CourseDataConstraint::Gauge24Keys)
+        );
+    }
+
+    #[test]
+    fn test_ln_type_items() {
+        let view = CourseEditorView::new();
+        assert_eq!(view.ln_type_items.len(), 4);
+        assert_eq!(view.ln_type_items[0], None);
+        assert_eq!(view.ln_type_items[1], Some(CourseDataConstraint::Ln));
+        assert_eq!(view.ln_type_items[2], Some(CourseDataConstraint::Cn));
+        assert_eq!(view.ln_type_items[3], Some(CourseDataConstraint::Hcn));
+    }
+
+    // ---- initialize() ----
+
+    #[test]
+    fn test_initialize_sets_visible_columns() {
+        let mut view = CourseEditorView::new();
+        view.initialize();
+        assert_eq!(
+            view.course_songs_controller.get_visible_columns(),
+            &["fullTitle", "sha256"]
+        );
+        assert_eq!(
+            view.search_songs_controller.get_visible_columns(),
+            &[
+                "fullTitle",
+                "fullArtist",
+                "mode",
+                "level",
+                "notes",
+                "sha256"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_initialize_hides_course_pane() {
+        let mut view = CourseEditorView::new();
+        view.initialize();
+        assert!(!view.course_pane_visible);
+        assert!(view.selected_course.is_none());
+    }
+
+    // ---- set/get course data ----
+
+    #[test]
+    fn test_set_and_get_course_data() {
+        let mut view = CourseEditorView::new();
+        let courses = vec![make_course("Course A"), make_course("Course B")];
+        view.set_course_data(courses);
+        let result = view.get_course_data();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].get_name(), "Course A");
+        assert_eq!(result[1].get_name(), "Course B");
+    }
+
+    // ---- addCourseData ----
+
+    #[test]
+    fn test_add_course_data() {
+        let mut view = CourseEditorView::new();
+        assert!(view.courses.is_empty());
+
+        view.add_course_data();
+        assert_eq!(view.courses.len(), 1);
+        assert_eq!(view.courses[0].get_name(), "New Course");
+        assert!(!view.courses[0].release);
+        assert_eq!(view.courses[0].trophy.len(), 3);
+        assert_eq!(view.courses[0].trophy[0].get_name(), "bronzemedal");
+        assert_eq!(view.courses[0].trophy[0].missrate, 7.5);
+        assert_eq!(view.courses[0].trophy[0].scorerate, 55.0);
+        assert_eq!(view.courses[0].trophy[1].get_name(), "silvermedal");
+        assert_eq!(view.courses[0].trophy[1].missrate, 5.0);
+        assert_eq!(view.courses[0].trophy[1].scorerate, 70.0);
+        assert_eq!(view.courses[0].trophy[2].get_name(), "goldmedal");
+        assert_eq!(view.courses[0].trophy[2].missrate, 2.5);
+        assert_eq!(view.courses[0].trophy[2].scorerate, 85.0);
+    }
+
+    // ---- removeCourseData ----
+
+    #[test]
+    fn test_remove_course_data() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("A"), make_course("B"), make_course("C")];
+        view.courses_selected_index = Some(1);
+
+        view.remove_course_data();
+        assert_eq!(view.courses.len(), 2);
+        assert_eq!(view.courses[0].get_name(), "A");
+        assert_eq!(view.courses[1].get_name(), "C");
+    }
+
+    #[test]
+    fn test_remove_course_data_no_selection() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("A")];
+        view.courses_selected_index = None;
+
+        view.remove_course_data();
+        assert_eq!(view.courses.len(), 1);
+    }
+
+    // ---- moveCourseDataUp/Down ----
+
+    #[test]
+    fn test_move_course_data_up() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("A"), make_course("B"), make_course("C")];
+        view.courses_selected_index = Some(1);
+
+        view.move_course_data_up();
+        assert_eq!(view.courses[0].get_name(), "B");
+        assert_eq!(view.courses[1].get_name(), "A");
+        assert_eq!(view.courses_selected_index, Some(0));
+    }
+
+    #[test]
+    fn test_move_course_data_up_at_top() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("A"), make_course("B")];
+        view.courses_selected_index = Some(0);
+
+        view.move_course_data_up();
+        assert_eq!(view.courses[0].get_name(), "A");
+        assert_eq!(view.courses_selected_index, Some(0));
+    }
+
+    #[test]
+    fn test_move_course_data_down() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("A"), make_course("B"), make_course("C")];
+        view.courses_selected_index = Some(1);
+
+        view.move_course_data_down();
+        assert_eq!(view.courses[1].get_name(), "C");
+        assert_eq!(view.courses[2].get_name(), "B");
+        assert_eq!(view.courses_selected_index, Some(2));
+    }
+
+    #[test]
+    fn test_move_course_data_down_at_bottom() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("A"), make_course("B")];
+        view.courses_selected_index = Some(1);
+
+        view.move_course_data_down();
+        assert_eq!(view.courses[1].get_name(), "B");
+        assert_eq!(view.courses_selected_index, Some(1));
+    }
+
+    // ---- addSongData / removeSongData ----
+
+    #[test]
+    fn test_add_song_data() {
+        let mut view = CourseEditorView::new();
+        view.search_songs_selected_items =
+            vec![make_song("Song 1", "aaa"), make_song("Song 2", "bbb")];
+
+        view.add_song_data();
+        assert_eq!(view.course_songs.len(), 2);
+        assert_eq!(view.course_songs[0].title, "Song 1");
+        assert_eq!(view.course_songs[1].title, "Song 2");
+    }
+
+    #[test]
+    fn test_remove_song_data() {
+        let mut view = CourseEditorView::new();
+        view.course_songs = vec![
+            make_song("S1", "a"),
+            make_song("S2", "b"),
+            make_song("S3", "c"),
+        ];
+        view.course_songs_selected_index = Some(1);
+
+        view.remove_song_data();
+        assert_eq!(view.course_songs.len(), 2);
+        assert_eq!(view.course_songs[0].title, "S1");
+        assert_eq!(view.course_songs[1].title, "S3");
+    }
+
+    #[test]
+    fn test_remove_song_data_no_selection() {
+        let mut view = CourseEditorView::new();
+        view.course_songs = vec![make_song("S1", "a")];
+        view.course_songs_selected_index = None;
+
+        view.remove_song_data();
+        assert_eq!(view.course_songs.len(), 1);
+    }
+
+    // ---- moveSongDataUp/Down ----
+
+    #[test]
+    fn test_move_song_data_up() {
+        let mut view = CourseEditorView::new();
+        view.course_songs = vec![
+            make_song("A", "1"),
+            make_song("B", "2"),
+            make_song("C", "3"),
+        ];
+        view.course_songs_selected_index = Some(2);
+
+        view.move_song_data_up();
+        assert_eq!(view.course_songs[1].title, "C");
+        assert_eq!(view.course_songs[2].title, "B");
+        assert_eq!(view.course_songs_selected_index, Some(1));
+    }
+
+    #[test]
+    fn test_move_song_data_up_at_top() {
+        let mut view = CourseEditorView::new();
+        view.course_songs = vec![make_song("A", "1"), make_song("B", "2")];
+        view.course_songs_selected_index = Some(0);
+
+        view.move_song_data_up();
+        assert_eq!(view.course_songs[0].title, "A");
+        assert_eq!(view.course_songs_selected_index, Some(0));
+    }
+
+    #[test]
+    fn test_move_song_data_down() {
+        let mut view = CourseEditorView::new();
+        view.course_songs = vec![
+            make_song("A", "1"),
+            make_song("B", "2"),
+            make_song("C", "3"),
+        ];
+        view.course_songs_selected_index = Some(0);
+
+        view.move_song_data_down();
+        assert_eq!(view.course_songs[0].title, "B");
+        assert_eq!(view.course_songs[1].title, "A");
+        assert_eq!(view.course_songs_selected_index, Some(1));
+    }
+
+    #[test]
+    fn test_move_song_data_down_at_bottom() {
+        let mut view = CourseEditorView::new();
+        view.course_songs = vec![make_song("A", "1"), make_song("B", "2")];
+        view.course_songs_selected_index = Some(1);
+
+        view.move_song_data_down();
+        assert_eq!(view.course_songs[1].title, "B");
+        assert_eq!(view.course_songs_selected_index, Some(1));
+    }
+
+    // ---- commitCourse ----
+
+    #[test]
+    fn test_commit_course_saves_name_and_release() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("Original")];
+        view.selected_course = Some(0);
+        view.course_name = "Renamed".to_string();
+        view.release = true;
+
+        view.commit_course();
+        assert_eq!(view.courses[0].get_name(), "Renamed");
+        assert!(view.courses[0].release);
+    }
+
+    #[test]
+    fn test_commit_course_saves_constraints() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("Test")];
+        view.selected_course = Some(0);
+        view.course_name = "Test".to_string();
+        view.grade_type = Some(CourseDataConstraint::Class);
+        view.hispeed_type = Some(CourseDataConstraint::NoSpeed);
+        view.judge_type = None;
+        view.gauge_type = Some(CourseDataConstraint::GaugeLr2);
+        view.ln_type = Some(CourseDataConstraint::Hcn);
+
+        view.commit_course();
+        assert_eq!(view.courses[0].constraint.len(), 4);
+        assert!(
+            view.courses[0]
+                .constraint
+                .contains(&CourseDataConstraint::Class)
+        );
+        assert!(
+            view.courses[0]
+                .constraint
+                .contains(&CourseDataConstraint::NoSpeed)
+        );
+        assert!(
+            view.courses[0]
+                .constraint
+                .contains(&CourseDataConstraint::GaugeLr2)
+        );
+        assert!(
+            view.courses[0]
+                .constraint
+                .contains(&CourseDataConstraint::Hcn)
+        );
+    }
+
+    #[test]
+    fn test_commit_course_saves_trophies() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("Test")];
+        view.selected_course = Some(0);
+        view.course_name = "Test".to_string();
+        view.bronzemiss = 10.0;
+        view.bronzescore = 50.0;
+        view.silvermiss = 6.0;
+        view.silverscore = 65.0;
+        view.goldmiss = 3.0;
+        view.goldscore = 80.0;
+
+        view.commit_course();
+        assert_eq!(view.courses[0].trophy.len(), 3);
+        assert_eq!(view.courses[0].trophy[0].missrate, 10.0);
+        assert_eq!(view.courses[0].trophy[0].scorerate, 50.0);
+        assert_eq!(view.courses[0].trophy[1].missrate, 6.0);
+        assert_eq!(view.courses[0].trophy[1].scorerate, 65.0);
+        assert_eq!(view.courses[0].trophy[2].missrate, 3.0);
+        assert_eq!(view.courses[0].trophy[2].scorerate, 80.0);
+    }
+
+    #[test]
+    fn test_commit_course_saves_songs() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("Test")];
+        view.selected_course = Some(0);
+        view.course_name = "Test".to_string();
+        view.course_songs = vec![make_song("Song A", "hash1"), make_song("Song B", "hash2")];
+
+        view.commit_course();
+        assert_eq!(view.courses[0].hash.len(), 2);
+        assert_eq!(view.courses[0].hash[0].title, "Song A");
+        assert_eq!(view.courses[0].hash[1].title, "Song B");
+    }
+
+    #[test]
+    fn test_commit_course_no_selection() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("Original")];
+        view.selected_course = None;
+        view.course_name = "Changed".to_string();
+
+        view.commit_course();
+        // Should not modify anything
+        assert_eq!(view.courses[0].get_name(), "Original");
+    }
+
+    #[test]
+    fn test_commit_course_out_of_bounds() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("Original")];
+        view.selected_course = Some(5); // out of bounds
+        view.course_name = "Changed".to_string();
+
+        view.commit_course();
+        assert_eq!(view.courses[0].get_name(), "Original");
+    }
+
+    // ---- updateCourse ----
+
+    #[test]
+    fn test_update_course_none_hides_pane() {
+        let mut view = CourseEditorView::new();
+        view.course_pane_visible = true;
+
+        view.update_course(None);
+        assert!(!view.course_pane_visible);
+        assert!(view.selected_course.is_none());
+    }
+
+    #[test]
+    fn test_update_course_shows_course_data() {
+        let mut view = CourseEditorView::new();
+        let mut course = make_course("Test Course");
+        course.release = true;
+        course.constraint = vec![
+            CourseDataConstraint::Mirror,
+            CourseDataConstraint::NoSpeed,
+            CourseDataConstraint::NoGood,
+            CourseDataConstraint::Gauge7Keys,
+            CourseDataConstraint::Cn,
+        ];
+        course.hash = vec![make_song("S1", "h1")];
+        view.courses = vec![course];
+
+        view.update_course(Some(0));
+        assert!(view.course_pane_visible);
+        assert_eq!(view.selected_course, Some(0));
+        assert_eq!(view.course_name, "Test Course");
+        assert!(view.release);
+        assert_eq!(view.grade_type, Some(CourseDataConstraint::Mirror));
+        assert_eq!(view.hispeed_type, Some(CourseDataConstraint::NoSpeed));
+        assert_eq!(view.judge_type, Some(CourseDataConstraint::NoGood));
+        assert_eq!(view.gauge_type, Some(CourseDataConstraint::Gauge7Keys));
+        assert_eq!(view.ln_type, Some(CourseDataConstraint::Cn));
+        assert_eq!(view.course_songs.len(), 1);
+        assert_eq!(view.course_songs[0].title, "S1");
+    }
+
+    #[test]
+    fn test_update_course_loads_trophies() {
+        let mut view = CourseEditorView::new();
+        let mut course = make_course("Trophy Test");
+        course.trophy = vec![
+            TrophyData::new("bronzemedal".to_string(), 8.0, 50.0),
+            TrophyData::new("silvermedal".to_string(), 4.0, 75.0),
+            TrophyData::new("goldmedal".to_string(), 1.0, 90.0),
+        ];
+        view.courses = vec![course];
+
+        view.update_course(Some(0));
+        assert_eq!(view.bronzemiss, 8.0);
+        assert_eq!(view.bronzescore, 50.0);
+        assert_eq!(view.silvermiss, 4.0);
+        assert_eq!(view.silverscore, 75.0);
+        assert_eq!(view.goldmiss, 1.0);
+        assert_eq!(view.goldscore, 90.0);
+    }
+
+    #[test]
+    fn test_update_course_out_of_bounds_hides_pane() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("A")];
+
+        view.update_course(Some(5));
+        assert!(!view.course_pane_visible);
+    }
+
+    #[test]
+    fn test_update_course_resets_constraints() {
+        let mut view = CourseEditorView::new();
+        // Set some constraints first
+        view.grade_type = Some(CourseDataConstraint::Class);
+        view.hispeed_type = Some(CourseDataConstraint::NoSpeed);
+
+        // Create course with no constraints
+        let course = CourseData {
+            name: Some("No Constraints".to_string()),
+            ..Default::default()
+        };
+        view.courses = vec![course];
+
+        view.update_course(Some(0));
+        // All constraints should be reset to None
+        assert!(view.grade_type.is_none());
+        assert!(view.hispeed_type.is_none());
+        assert!(view.judge_type.is_none());
+        assert!(view.gauge_type.is_none());
+        assert!(view.ln_type.is_none());
+    }
+
+    // ---- updateCourseData ----
+
+    #[test]
+    fn test_update_course_data_commits_and_updates() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("Before")];
+        view.selected_course = Some(0);
+        view.course_name = "After".to_string();
+        view.courses_selected_index = Some(0);
+
+        view.update_course_data();
+        // commit_course should have saved "After"
+        assert_eq!(view.courses[0].get_name(), "After");
+        // Then update_course should have loaded it back
+        assert_eq!(view.course_name, "After");
+    }
+
+    #[test]
+    fn test_update_course_data_no_selection() {
+        let mut view = CourseEditorView::new();
+        view.courses = vec![make_course("A")];
+        view.courses_selected_index = None;
+        view.selected_course = None;
+
+        view.update_course_data();
+        assert!(!view.course_pane_visible);
+    }
+
+    // ---- searchSongs ----
+
+    #[test]
+    fn test_search_songs_no_songdb() {
+        let mut view = CourseEditorView::new();
+        view.search = "test".to_string();
+        view.songdb = None;
+
+        view.search_songs();
+        // Should early return without panic
+        assert!(view.search_songs.is_empty());
+    }
+
+    #[test]
+    fn test_search_songs_with_hash() {
+        let mut view = CourseEditorView::new();
+        view.songdb = Some(SongDatabaseAccessor);
+        // Valid md5 hash (32 hex chars)
+        view.search = "abcdef1234567890abcdef1234567890".to_string();
+
+        view.search_songs();
+        // Stub returns empty, but should not panic
+        assert!(view.search_songs.is_empty());
+    }
+
+    #[test]
+    fn test_search_songs_with_text() {
+        let mut view = CourseEditorView::new();
+        view.songdb = Some(SongDatabaseAccessor);
+        view.search = "test query".to_string();
+
+        view.search_songs();
+        // Stub returns empty, but should not panic
+        assert!(view.search_songs.is_empty());
+    }
+
+    #[test]
+    fn test_search_songs_short_text_skipped() {
+        let mut view = CourseEditorView::new();
+        view.songdb = Some(SongDatabaseAccessor);
+        view.search = "a".to_string(); // length <= 1, not a hash
+
+        view.search_songs();
+        assert!(view.search_songs.is_empty());
+    }
+
+    // ---- getValue ----
+
+    #[test]
+    fn test_get_value_passthrough() {
+        assert_eq!(CourseEditorView::get_value(42.0), 42.0);
+        assert_eq!(CourseEditorView::get_value(0.0), 0.0);
+        assert_eq!(CourseEditorView::get_value(-1.5), -1.5);
+    }
+
+    // ---- round-trip: add → select → commit → get ----
+
+    #[test]
+    fn test_round_trip_add_edit_get() {
+        let mut view = CourseEditorView::new();
+        view.initialize();
+
+        // Add a course
+        view.add_course_data();
+        assert_eq!(view.courses.len(), 1);
+
+        // Select and edit
+        view.courses_selected_index = Some(0);
+        view.update_course(Some(0));
+        assert!(view.course_pane_visible);
+        assert_eq!(view.course_name, "New Course");
+
+        // Modify
+        view.course_name = "Edited Course".to_string();
+        view.release = true;
+        view.grade_type = Some(CourseDataConstraint::Class);
+
+        // Add a song
+        view.search_songs_selected_items = vec![make_song("Test Song", "hashvalue")];
+        view.add_song_data();
+        assert_eq!(view.course_songs.len(), 1);
+
+        // Get course data (triggers commit)
+        let courses = view.get_course_data();
+        assert_eq!(courses.len(), 1);
+        assert_eq!(courses[0].get_name(), "Edited Course");
+        assert!(courses[0].release);
+        assert!(courses[0].constraint.contains(&CourseDataConstraint::Class));
+        assert_eq!(courses[0].hash.len(), 1);
+        assert_eq!(courses[0].hash[0].title, "Test Song");
+    }
+}

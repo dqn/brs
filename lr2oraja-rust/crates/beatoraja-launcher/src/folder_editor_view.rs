@@ -22,6 +22,11 @@ impl SongDataView {
         self.visible_columns = columns.iter().map(|s| s.to_string()).collect();
         // todo!("egui integration")
     }
+
+    /// Returns the list of visible column names (for testing/inspection)
+    pub fn get_visible_columns(&self) -> &[String] {
+        &self.visible_columns
+    }
 }
 
 /// FolderEditorView - folder editor with search, song data tables, folder list
@@ -320,5 +325,538 @@ impl FolderEditorView {
 impl Default for FolderEditorView {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
+mod tests {
+    use super::*;
+    use beatoraja_core::table_data::TableFolder;
+
+    fn make_song(title: &str, md5: &str, sha256: &str) -> SongData {
+        let mut sd = SongData::new();
+        sd.title = title.to_string();
+        sd.md5 = md5.to_string();
+        sd.sha256 = sha256.to_string();
+        sd
+    }
+
+    fn make_folder(name: &str, songs: Vec<SongData>) -> TableFolder {
+        TableFolder {
+            name: Some(name.to_string()),
+            songs,
+        }
+    }
+
+    // ---- Construction ----
+
+    #[test]
+    fn test_new_defaults() {
+        let view = FolderEditorView::new();
+        assert!(view.search.is_empty());
+        assert!(view.search_songs.is_empty());
+        assert!(view.folders.is_empty());
+        assert!(view.folders_selected_index.is_none());
+        assert!(!view.folder_pane_visible);
+        assert!(view.folder_name.is_empty());
+        assert!(view.folder_songs.is_empty());
+        assert!(view.filepath.is_none());
+        assert!(view.selected_folder.is_none());
+        assert!(view.songdb.is_none());
+        assert!(view.courses.is_empty());
+    }
+
+    #[test]
+    fn test_default_trait() {
+        let view = FolderEditorView::default();
+        assert!(view.folders.is_empty());
+    }
+
+    // ---- initialize() ----
+
+    #[test]
+    fn test_initialize_sets_visible_columns() {
+        let mut view = FolderEditorView::new();
+        view.initialize();
+        assert_eq!(
+            view.folder_songs_controller.get_visible_columns(),
+            &["fullTitle", "sha256"]
+        );
+        assert_eq!(
+            view.search_songs_controller.get_visible_columns(),
+            &[
+                "fullTitle",
+                "fullArtist",
+                "mode",
+                "level",
+                "notes",
+                "sha256"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_initialize_hides_folder_pane() {
+        let mut view = FolderEditorView::new();
+        view.initialize();
+        assert!(!view.folder_pane_visible);
+        assert!(view.selected_folder.is_none());
+    }
+
+    // ---- set/get table folder ----
+
+    #[test]
+    fn test_set_and_get_table_folder() {
+        let mut view = FolderEditorView::new();
+        let folders = vec![
+            make_folder("Folder A", vec![]),
+            make_folder("Folder B", vec![]),
+        ];
+        view.set_table_folder(folders);
+        let result = view.get_table_folder();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].get_name(), "Folder A");
+        assert_eq!(result[1].get_name(), "Folder B");
+    }
+
+    // ---- addTableFolder ----
+
+    #[test]
+    fn test_add_table_folder() {
+        let mut view = FolderEditorView::new();
+        assert!(view.folders.is_empty());
+
+        view.add_table_folder();
+        assert_eq!(view.folders.len(), 1);
+        assert_eq!(view.folders[0].get_name(), "New Folder");
+        assert!(view.folders[0].songs.is_empty());
+    }
+
+    // ---- removeTableFolder ----
+
+    #[test]
+    fn test_remove_table_folder() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![
+            make_folder("A", vec![]),
+            make_folder("B", vec![]),
+            make_folder("C", vec![]),
+        ];
+        view.folders_selected_index = Some(1);
+
+        view.remove_table_folder();
+        assert_eq!(view.folders.len(), 2);
+        assert_eq!(view.folders[0].get_name(), "A");
+        assert_eq!(view.folders[1].get_name(), "C");
+    }
+
+    #[test]
+    fn test_remove_table_folder_no_selection() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![make_folder("A", vec![])];
+        view.folders_selected_index = None;
+
+        view.remove_table_folder();
+        assert_eq!(view.folders.len(), 1);
+    }
+
+    // ---- moveTableFolderUp/Down ----
+
+    #[test]
+    fn test_move_table_folder_up() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![
+            make_folder("A", vec![]),
+            make_folder("B", vec![]),
+            make_folder("C", vec![]),
+        ];
+        view.folders_selected_index = Some(1);
+
+        view.move_table_folder_up();
+        assert_eq!(view.folders[0].get_name(), "B");
+        assert_eq!(view.folders[1].get_name(), "A");
+        assert_eq!(view.folders_selected_index, Some(0));
+    }
+
+    #[test]
+    fn test_move_table_folder_up_at_top() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![make_folder("A", vec![]), make_folder("B", vec![])];
+        view.folders_selected_index = Some(0);
+
+        view.move_table_folder_up();
+        assert_eq!(view.folders[0].get_name(), "A");
+        assert_eq!(view.folders_selected_index, Some(0));
+    }
+
+    #[test]
+    fn test_move_table_folder_down() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![
+            make_folder("A", vec![]),
+            make_folder("B", vec![]),
+            make_folder("C", vec![]),
+        ];
+        view.folders_selected_index = Some(0);
+
+        view.move_table_folder_down();
+        assert_eq!(view.folders[0].get_name(), "B");
+        assert_eq!(view.folders[1].get_name(), "A");
+        assert_eq!(view.folders_selected_index, Some(1));
+    }
+
+    #[test]
+    fn test_move_table_folder_down_at_bottom() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![make_folder("A", vec![]), make_folder("B", vec![])];
+        view.folders_selected_index = Some(1);
+
+        view.move_table_folder_down();
+        assert_eq!(view.folders[1].get_name(), "B");
+        assert_eq!(view.folders_selected_index, Some(1));
+    }
+
+    // ---- addSongData / removeSongData ----
+
+    #[test]
+    fn test_add_song_data() {
+        let mut view = FolderEditorView::new();
+        view.search_songs_selected_items = vec![
+            make_song("Song 1", "md5a", "sha1"),
+            make_song("Song 2", "md5b", "sha2"),
+        ];
+
+        view.add_song_data();
+        assert_eq!(view.folder_songs.len(), 2);
+        assert_eq!(view.folder_songs[0].title, "Song 1");
+        assert_eq!(view.folder_songs[1].title, "Song 2");
+    }
+
+    #[test]
+    fn test_remove_song_data() {
+        let mut view = FolderEditorView::new();
+        view.folder_songs = vec![
+            make_song("S1", "a", "x"),
+            make_song("S2", "b", "y"),
+            make_song("S3", "c", "z"),
+        ];
+        view.folder_songs_selected_index = Some(1);
+
+        view.remove_song_data();
+        assert_eq!(view.folder_songs.len(), 2);
+        assert_eq!(view.folder_songs[0].title, "S1");
+        assert_eq!(view.folder_songs[1].title, "S3");
+    }
+
+    #[test]
+    fn test_remove_song_data_no_selection() {
+        let mut view = FolderEditorView::new();
+        view.folder_songs = vec![make_song("S1", "a", "x")];
+        view.folder_songs_selected_index = None;
+
+        view.remove_song_data();
+        assert_eq!(view.folder_songs.len(), 1);
+    }
+
+    // ---- moveSongDataUp/Down ----
+
+    #[test]
+    fn test_move_song_data_up() {
+        let mut view = FolderEditorView::new();
+        view.folder_songs = vec![
+            make_song("A", "1", "x1"),
+            make_song("B", "2", "x2"),
+            make_song("C", "3", "x3"),
+        ];
+        view.folder_songs_selected_index = Some(2);
+
+        view.move_song_data_up();
+        assert_eq!(view.folder_songs[1].title, "C");
+        assert_eq!(view.folder_songs[2].title, "B");
+        assert_eq!(view.folder_songs_selected_index, Some(1));
+    }
+
+    #[test]
+    fn test_move_song_data_up_at_top() {
+        let mut view = FolderEditorView::new();
+        view.folder_songs = vec![make_song("A", "1", "x1"), make_song("B", "2", "x2")];
+        view.folder_songs_selected_index = Some(0);
+
+        view.move_song_data_up();
+        assert_eq!(view.folder_songs[0].title, "A");
+        assert_eq!(view.folder_songs_selected_index, Some(0));
+    }
+
+    #[test]
+    fn test_move_song_data_down() {
+        let mut view = FolderEditorView::new();
+        view.folder_songs = vec![
+            make_song("A", "1", "x1"),
+            make_song("B", "2", "x2"),
+            make_song("C", "3", "x3"),
+        ];
+        view.folder_songs_selected_index = Some(0);
+
+        view.move_song_data_down();
+        assert_eq!(view.folder_songs[0].title, "B");
+        assert_eq!(view.folder_songs[1].title, "A");
+        assert_eq!(view.folder_songs_selected_index, Some(1));
+    }
+
+    #[test]
+    fn test_move_song_data_down_at_bottom() {
+        let mut view = FolderEditorView::new();
+        view.folder_songs = vec![make_song("A", "1", "x1"), make_song("B", "2", "x2")];
+        view.folder_songs_selected_index = Some(1);
+
+        view.move_song_data_down();
+        assert_eq!(view.folder_songs[1].title, "B");
+        assert_eq!(view.folder_songs_selected_index, Some(1));
+    }
+
+    // ---- commitFolder ----
+
+    #[test]
+    fn test_commit_folder_saves_name_and_songs() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![make_folder("Original", vec![])];
+        view.selected_folder = Some(0);
+        view.folder_name = "Renamed".to_string();
+        view.folder_songs = vec![make_song("New Song", "md5", "sha")];
+
+        view.commit_folder();
+        assert_eq!(view.folders[0].get_name(), "Renamed");
+        assert_eq!(view.folders[0].songs.len(), 1);
+        assert_eq!(view.folders[0].songs[0].title, "New Song");
+    }
+
+    #[test]
+    fn test_commit_folder_no_selection() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![make_folder("Original", vec![])];
+        view.selected_folder = None;
+        view.folder_name = "Changed".to_string();
+
+        view.commit_folder();
+        assert_eq!(view.folders[0].get_name(), "Original");
+    }
+
+    #[test]
+    fn test_commit_folder_out_of_bounds() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![make_folder("Original", vec![])];
+        view.selected_folder = Some(5);
+        view.folder_name = "Changed".to_string();
+
+        view.commit_folder();
+        assert_eq!(view.folders[0].get_name(), "Original");
+    }
+
+    // ---- updateFolder ----
+
+    #[test]
+    fn test_update_folder_none_hides_pane() {
+        let mut view = FolderEditorView::new();
+        view.folder_pane_visible = true;
+
+        view.update_folder(None);
+        assert!(!view.folder_pane_visible);
+        assert!(view.selected_folder.is_none());
+    }
+
+    #[test]
+    fn test_update_folder_shows_folder_data() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![make_folder(
+            "Test Folder",
+            vec![make_song("S1", "m1", "s1")],
+        )];
+
+        view.update_folder(Some(0));
+        assert!(view.folder_pane_visible);
+        assert_eq!(view.selected_folder, Some(0));
+        assert_eq!(view.folder_name, "Test Folder");
+        assert_eq!(view.folder_songs.len(), 1);
+        assert_eq!(view.folder_songs[0].title, "S1");
+    }
+
+    #[test]
+    fn test_update_folder_out_of_bounds_hides_pane() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![make_folder("A", vec![])];
+
+        view.update_folder(Some(5));
+        assert!(!view.folder_pane_visible);
+    }
+
+    // ---- updateTableFolder ----
+
+    #[test]
+    fn test_update_table_folder_commits_and_updates() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![make_folder("Before", vec![])];
+        view.selected_folder = Some(0);
+        view.folder_name = "After".to_string();
+        view.folders_selected_index = Some(0);
+
+        view.update_table_folder();
+        assert_eq!(view.folders[0].get_name(), "After");
+        assert_eq!(view.folder_name, "After");
+    }
+
+    #[test]
+    fn test_update_table_folder_no_selection() {
+        let mut view = FolderEditorView::new();
+        view.folders = vec![make_folder("A", vec![])];
+        view.folders_selected_index = None;
+        view.selected_folder = None;
+
+        view.update_table_folder();
+        assert!(!view.folder_pane_visible);
+    }
+
+    // ---- searchSongs ----
+
+    #[test]
+    fn test_search_songs_no_songdb() {
+        let mut view = FolderEditorView::new();
+        view.search = "test".to_string();
+        view.songdb = None;
+
+        view.search_songs();
+        assert!(view.search_songs.is_empty());
+    }
+
+    #[test]
+    fn test_search_songs_with_hash() {
+        let mut view = FolderEditorView::new();
+        view.songdb = Some(SongDatabaseAccessor);
+        view.search = "abcdef1234567890abcdef1234567890".to_string();
+
+        view.search_songs();
+        assert!(view.search_songs.is_empty());
+    }
+
+    #[test]
+    fn test_search_songs_with_text() {
+        let mut view = FolderEditorView::new();
+        view.songdb = Some(SongDatabaseAccessor);
+        view.search = "test query".to_string();
+
+        view.search_songs();
+        assert!(view.search_songs.is_empty());
+    }
+
+    #[test]
+    fn test_search_songs_short_text_skipped() {
+        let mut view = FolderEditorView::new();
+        view.songdb = Some(SongDatabaseAccessor);
+        view.search = "a".to_string();
+
+        view.search_songs();
+        assert!(view.search_songs.is_empty());
+    }
+
+    // ---- getFoldersContainingSong ----
+
+    #[test]
+    fn test_get_folders_containing_song_by_md5() {
+        let folders = vec![
+            make_folder("Folder A", vec![make_song("S1", "hash1", "sha1")]),
+            make_folder("Folder B", vec![make_song("S2", "hash2", "sha2")]),
+        ];
+        let song = make_song("Query", "hash1", "");
+
+        let result = FolderEditorView::get_folders_containing_song(&folders, &song);
+        assert_eq!(result, "Folder A");
+    }
+
+    #[test]
+    fn test_get_folders_containing_song_by_sha256() {
+        let folders = vec![
+            make_folder("Folder A", vec![make_song("S1", "m1", "sha_match")]),
+            make_folder("Folder B", vec![make_song("S2", "m2", "sha_other")]),
+        ];
+        let song = make_song("Query", "", "sha_match");
+
+        let result = FolderEditorView::get_folders_containing_song(&folders, &song);
+        assert_eq!(result, "Folder A");
+    }
+
+    #[test]
+    fn test_get_folders_containing_song_multiple_folders() {
+        let folders = vec![
+            make_folder("Folder A", vec![make_song("S1", "hash1", "sha1")]),
+            make_folder("Folder B", vec![make_song("S2", "hash1", "sha2")]),
+            make_folder("Folder C", vec![make_song("S3", "other", "other")]),
+        ];
+        let song = make_song("Query", "hash1", "");
+
+        let result = FolderEditorView::get_folders_containing_song(&folders, &song);
+        assert_eq!(result, "Folder A, Folder B");
+    }
+
+    #[test]
+    fn test_get_folders_containing_song_none() {
+        let folders = vec![make_folder(
+            "Folder A",
+            vec![make_song("S1", "hash1", "sha1")],
+        )];
+        let song = make_song("Query", "nomatch", "nomatch");
+
+        let result = FolderEditorView::get_folders_containing_song(&folders, &song);
+        assert_eq!(result, "None");
+    }
+
+    #[test]
+    fn test_get_folders_containing_song_empty_hashes_no_match() {
+        let folders = vec![make_folder("Folder A", vec![make_song("S1", "", "")])];
+        let song = make_song("Query", "", "");
+
+        let result = FolderEditorView::get_folders_containing_song(&folders, &song);
+        assert_eq!(result, "None");
+    }
+
+    #[test]
+    fn test_get_folders_containing_song_empty_folders() {
+        let folders: Vec<TableFolder> = vec![];
+        let song = make_song("Query", "hash", "sha");
+
+        let result = FolderEditorView::get_folders_containing_song(&folders, &song);
+        assert_eq!(result, "None");
+    }
+
+    // ---- round-trip: add → select → commit → get ----
+
+    #[test]
+    fn test_round_trip_add_edit_get() {
+        let mut view = FolderEditorView::new();
+        view.initialize();
+
+        // Add a folder
+        view.add_table_folder();
+        assert_eq!(view.folders.len(), 1);
+
+        // Select and edit
+        view.folders_selected_index = Some(0);
+        view.update_folder(Some(0));
+        assert!(view.folder_pane_visible);
+        assert_eq!(view.folder_name, "New Folder");
+
+        // Modify
+        view.folder_name = "Edited Folder".to_string();
+
+        // Add a song
+        view.search_songs_selected_items = vec![make_song("Test Song", "md5val", "shaval")];
+        view.add_song_data();
+        assert_eq!(view.folder_songs.len(), 1);
+
+        // Get folder data (triggers commit)
+        let folders = view.get_table_folder();
+        assert_eq!(folders.len(), 1);
+        assert_eq!(folders[0].get_name(), "Edited Folder");
+        assert_eq!(folders[0].songs.len(), 1);
+        assert_eq!(folders[0].songs[0].title, "Test Song");
     }
 }
