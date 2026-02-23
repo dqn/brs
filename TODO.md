@@ -10,7 +10,7 @@ Phases 1–33 complete. **1816 tests, 22 ignored.** 27 crates, 125k lines. See A
 
 - [x] **34a:** PatternModifier 生成・適用 — PlayerConfig から Random/Mirror/Scatter 等のオプション読み取り → PatternModifier チェーン構築 → BMSModel に適用
 - [x] **34b:** 乱数シード管理 — リプレイ再現用シード保存/復元、JavaRandom LCG シード初期化パス
-- [ ] **34c:** リプレイデータ復元 — ReplayData からパターン/ゲージ/設定を復元、リプレイモード時のオプション上書き
+- [x] **34c:** リプレイデータ復元 — ReplayData からパターン/ゲージ/設定を復元、リプレイモード時のオプション上書き
 - [ ] **34d:** アシストレベル計算 — BPMガイド、カスタムジャッジ、定速等のアシストフラグ判定
 - [ ] **34e:** DP→SP オプション変換 — ダブルプレイ時の 2P 側オプション処理
 - [ ] **34f:** 周波数トレーナー統合 — FreqTrainer との速度変更連携
