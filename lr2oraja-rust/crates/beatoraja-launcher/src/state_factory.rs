@@ -10,12 +10,16 @@ use beatoraja_core::main_controller::{MainController, StateFactory};
 use beatoraja_core::main_state::{MainState, MainStateType};
 use beatoraja_core::timer_manager::TimerManager;
 use beatoraja_decide::music_decide::MusicDecide;
-use beatoraja_decide::stubs::MainControllerRef as DecideMainControllerRef;
+use beatoraja_decide::stubs::{
+    MainControllerRef as DecideMainControllerRef, NullMainController as DecideNullMainController,
+};
 use beatoraja_play::bms_player::BMSPlayer;
 use beatoraja_result::course_result::CourseResult;
 use beatoraja_result::music_result::MusicResult;
-use beatoraja_result::stubs::MainController as ResultMainController;
 use beatoraja_result::stubs::PlayerResource as ResultPlayerResource;
+use beatoraja_result::stubs::{
+    MainController as ResultMainController, NullMainController as ResultNullMainController,
+};
 use beatoraja_select::music_selector::MusicSelector;
 use beatoraja_types::player_resource_access::NullPlayerResource;
 
@@ -66,7 +70,7 @@ impl StateFactory for LauncherStateFactory {
             MainStateType::Decide => {
                 // Java: decide = new MusicDecide(this);
                 let decide = MusicDecide::new(
-                    DecideMainControllerRef,
+                    DecideMainControllerRef::new(Box::new(DecideNullMainController)),
                     Box::new(NullPlayerResource::new()),
                     TimerManager::new(),
                 );
@@ -81,7 +85,7 @@ impl StateFactory for LauncherStateFactory {
             MainStateType::Result => {
                 // Java: result = new MusicResult(this);
                 let result = MusicResult::new(
-                    ResultMainController,
+                    ResultMainController::new(Box::new(ResultNullMainController)),
                     ResultPlayerResource::default(),
                     TimerManager::new(),
                 );
