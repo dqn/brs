@@ -11,6 +11,7 @@ use crate::music_select_command::MusicSelectCommand;
 use crate::music_select_input_processor::{
     BarType, InputContext, InputEvent, MusicSelectInputProcessor,
 };
+use crate::music_select_key_property::MusicSelectKeyProperty;
 use crate::preview_music_processor::PreviewMusicProcessor;
 use crate::score_data_cache::ScoreDataCache;
 use crate::search_text_field::SearchTextField;
@@ -448,8 +449,28 @@ impl MusicSelector {
         if bar_renderer_reset_input && let Some(ref mut bar) = self.bar {
             bar.reset_input();
         }
-        if bar_renderer_do_input && let Some(ref mut bar) = self.bar {
-            bar.input();
+        if bar_renderer_do_input {
+            // Take bar out of self to avoid overlapping borrows with self.manager and input
+            if let Some(mut bar) = self.bar.take() {
+                let property_idx = self.config.get_musicselectinput() as usize;
+                let property = &MusicSelectKeyProperty::VALUES
+                    [property_idx.min(MusicSelectKeyProperty::VALUES.len() - 1)];
+                let mut bar_input_ctx = crate::bar_renderer::BarInputContext {
+                    input,
+                    property,
+                    manager: &mut self.manager,
+                    play_scratch: &mut || {
+                        // In Java: select.play(SCRATCH)
+                        // Sound playback requires MainController — deferred
+                    },
+                    stop_scratch: &mut || {
+                        // In Java: select.stop(SCRATCH)
+                        // Sound playback requires MainController — deferred
+                    },
+                };
+                bar.input(&mut bar_input_ctx);
+                self.bar = Some(bar);
+            }
         }
 
         // Switch songbar change timer

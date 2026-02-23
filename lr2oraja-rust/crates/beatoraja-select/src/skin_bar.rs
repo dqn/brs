@@ -1,4 +1,3 @@
-use crate::bar_renderer::BarRenderer;
 use crate::skin_distribution_graph::SkinDistributionGraph;
 use crate::stubs::*;
 
@@ -163,28 +162,84 @@ impl SkinBar {
         }
     }
 
+    /// Validate all sub-objects, removing invalid ones.
+    /// Translates: Java SkinBar.validate()
     pub fn validate(&mut self) -> bool {
-        // In Java: validates all sub-objects, removing invalid ones
-        // Stub: always valid
+        fn validate_images(images: &mut [Option<SkinImage>]) {
+            for img in images.iter_mut() {
+                if img.as_ref().is_some_and(|i| !i.validate()) {
+                    *img = None;
+                }
+            }
+        }
+        fn validate_texts(texts: &mut [Option<SkinText>]) {
+            for txt in texts.iter_mut() {
+                if txt.as_ref().is_some_and(|t| !t.validate()) {
+                    *txt = None;
+                }
+            }
+        }
+
+        validate_images(&mut self.barimageon);
+        validate_images(&mut self.barimageoff);
+        validate_images(&mut self.trophy);
+        validate_images(&mut self.label);
+        validate_images(&mut self.lamp);
+        validate_images(&mut self.mylamp);
+        validate_images(&mut self.rivallamp);
+        validate_texts(&mut self.text);
         true
     }
 
-    pub fn prepare(&mut self, _time: i64, _state: &dyn MainState) {
-        // In Java: prepares all sub-objects and calls render.prepare(this, time)
-        log::warn!(
-            "not yet implemented: SkinBar.prepare - requires BarRenderer and rendering integration"
-        );
+    /// Prepare all sub-objects for rendering.
+    /// In Java: prepares all child SkinImage/SkinText/SkinNumber, then calls render.prepare(this, time).
+    /// In Rust: sub-object preparation is done here. BarRenderer.prepare() is called separately
+    /// by MusicSelector since it requires context (center_bar, currentsongs, selectedindex)
+    /// that can't be obtained from &dyn MainState without downcasting.
+    pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        // Prepare all child skin objects
+        for bar in self.barimageon.iter().flatten() {
+            bar.prepare(time, state);
+        }
+        for bar in self.barimageoff.iter().flatten() {
+            bar.prepare(time, state);
+        }
+        for trophy in self.trophy.iter().flatten() {
+            trophy.prepare(time, state);
+        }
+        for text in self.text.iter().flatten() {
+            text.prepare(time, state);
+        }
+        for barlevel in self.barlevel.iter().flatten() {
+            barlevel.prepare(time, state);
+        }
+        for label in self.label.iter().flatten() {
+            label.prepare(time, state);
+        }
+        for lamp in self.lamp.iter().flatten() {
+            lamp.prepare(time, state);
+        }
+        for mylamp in self.mylamp.iter().flatten() {
+            mylamp.prepare(time, state);
+        }
+        for rivallamp in self.rivallamp.iter().flatten() {
+            rivallamp.prepare(time, state);
+        }
+        if let Some(ref mut graph) = self.graph {
+            graph.prepare(time, state);
+        }
+        // NOTE: BarRenderer.prepare(baro, time, ctx) is called by MusicSelector
+        // after this method, since it requires PrepareContext with center_bar, etc.
     }
 
+    /// Draw all bar elements.
+    /// In Java: render.render(sprite, this).
+    /// In Rust: BarRenderer.render() is called separately by MusicSelector
+    /// since it requires RenderContext with center_bar, currentsongs, rival, etc.
     pub fn draw(&mut self, _sprite: &mut SkinObjectRenderer) {
-        // In Java: render.render(sprite, this)
-        // Two-phase pattern: prepare(&mut self) is called first to compute state,
-        // then draw(&mut self) reads that state and delegates to BarRenderer.render().
-        // draw needs &mut self because child SkinImage/SkinNumber draw methods
-        // require &mut self for scratch-space fields (tmp_rect, tmp_image).
-        log::warn!(
-            "not yet implemented: SkinBar.draw - requires BarRenderer and rendering integration"
-        );
+        // NOTE: BarRenderer.render(sprite, baro, ctx) is called by MusicSelector
+        // after prepare(), since it requires RenderContext.
+        // This stub remains for API compatibility with the skin pipeline.
     }
 
     pub fn dispose(&self) {
@@ -223,10 +278,12 @@ impl SkinBar {
         }
     }
 
-    pub fn mouse_pressed(&self, state: &dyn MainState, button: i32, x: i32, y: i32) -> bool {
-        // In Java: return ((MusicSelector) state).getBarRender().mousePressed(this, button, x, y)
-        // Stubbed since we don't have downcast to MusicSelector
-        log::warn!("not yet implemented: SkinBar.mousePressed - requires MusicSelector downcast");
+    /// Handle mouse press on bar.
+    /// In Java: return ((MusicSelector) state).getBarRender().mousePressed(this, button, x, y).
+    /// In Rust: BarRenderer.mouse_pressed() is called separately by MusicSelector
+    /// since it requires MousePressedContext. This stub returns false for API compatibility.
+    pub fn mouse_pressed(&self, _state: &dyn MainState, _button: i32, _x: i32, _y: i32) -> bool {
+        // NOTE: BarRenderer.mouse_pressed(baro, button, x, y, ctx) is called by MusicSelector.
         false
     }
 
