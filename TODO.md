@@ -42,10 +42,10 @@ Resolves: rendering stubs (result/decide/select/modmenu ~972 lines), `beatoraja-
 
 レンダリングパイプライン非依存のスタブを独自ファイルへ移動・実装。
 
-- **30a:** `beatoraja-types` enum 移動 — `JudgeAlgorithm`, `BMSPlayerRule`, `BarSorter` + modifier enums を stubs.rs から専用ファイルへ
-- **30b:** `beatoraja-types` DTO 実装 — `KeyInputLog`, `PatternModifyLog` を stubs.rs から移動
-- **30c:** `beatoraja-input` `SkinWidgetManager::get_focus()` 実装 (21 lines)
-- **30d:** `beatoraja-select` `DownloadTask` 系型 (純粋データ) を stubs.rs から独自ファイルへ
+- [x] **30a:** `beatoraja-types` enum 移動 — `JudgeAlgorithm`, `BMSPlayerRule`, `BarSorter` + modifier enums を stubs.rs から専用ファイルへ
+- [x] **30b:** `beatoraja-types` DTO 実装 — `KeyInputLog`, `PatternModifyLog` を stubs.rs から移動
+- [x] **30c:** `beatoraja-input` `SkinWidgetManager::get_focus()` 実装 — skin_widget_focus を beatoraja-types に抽出
+- [x] **30d:** `beatoraja-select` `DownloadTask` 系型 — stubs 削除、md-processor の実装を re-export
 
 ## Phase 31: Lua main_state API 拡張 → 5 ignored テスト解除
 
