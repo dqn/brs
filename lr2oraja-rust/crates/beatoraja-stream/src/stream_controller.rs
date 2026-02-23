@@ -7,11 +7,15 @@ use beatoraja_select::music_selector::MusicSelector;
 use crate::stream_command::StreamCommand;
 use crate::stream_request_command::StreamRequestCommand;
 
+/// Windows named pipe path for beatoraja stream commands.
+#[cfg(windows)]
+const PIPE_PATH: &str = r"\\.\pipe\beatoraja";
+
 /// Stream controller for processing strings received via beatoraja pipe
 /// Translates: bms.player.beatoraja.stream.StreamController
 ///
 /// Java reads from Windows named pipe `\\.\pipe\beatoraja`.
-/// On non-Windows platforms, this is stubbed.
+/// On non-Windows platforms, pipe support is unavailable.
 pub struct StreamController {
     pub commands: Vec<Box<dyn StreamCommand>>,
     pub pipe_buffer: Option<BufReader<std::fs::File>>,
@@ -25,22 +29,11 @@ impl StreamController {
         let mut commands: Vec<Box<dyn StreamCommand>> =
             vec![Box::new(StreamRequestCommand::new(Arc::clone(&selector)))];
 
-        let mut pipe_buffer = None;
-        let mut is_active = false;
+        let (pipe_buffer, is_active) = Self::open_pipe();
 
-        // In Java: pipeBuffer = new BufferedReader(new FileReader("\\\\.\\pipe\\beatoraja"));
-        // Named pipe is Windows-specific. On Unix, attempt to open it as a regular file path.
-        match std::fs::File::open(r"\\.\pipe\beatoraja") {
-            Ok(file) => {
-                pipe_buffer = Some(BufReader::new(file));
-                is_active = true;
-            }
-            Err(e) => {
-                log::error!("{}", e);
-                // dispose() equivalent: cleanup commands
-                for cmd in commands.iter_mut() {
-                    cmd.dispose();
-                }
+        if !is_active {
+            for cmd in commands.iter_mut() {
+                cmd.dispose();
             }
         }
 
@@ -51,6 +44,35 @@ impl StreamController {
             is_active,
             selector,
         }
+    }
+
+    /// Opens the Windows named pipe.
+    /// Returns (Some(reader), true) on success, (None, false) on failure or non-Windows.
+    #[cfg(windows)]
+    fn open_pipe() -> (Option<BufReader<std::fs::File>>, bool) {
+        // In Java: pipeBuffer = new BufferedReader(new FileReader("\\\\.\\pipe\\beatoraja"));
+        // On Windows, std::fs::OpenOptions maps to Kernel32 CreateFile for named pipes.
+        match std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(PIPE_PATH)
+        {
+            Ok(file) => {
+                log::info!("Named pipe connected: {}", PIPE_PATH);
+                (Some(BufReader::new(file)), true)
+            }
+            Err(e) => {
+                log::error!("Failed to open named pipe {}: {}", PIPE_PATH, e);
+                (None, false)
+            }
+        }
+    }
+
+    /// On non-Windows platforms, named pipe is not available.
+    #[cfg(not(windows))]
+    fn open_pipe() -> (Option<BufReader<std::fs::File>>, bool) {
+        log::info!("Named pipe not available on this platform");
+        (None, false)
     }
 
     pub fn run(&mut self) {
@@ -85,7 +107,6 @@ impl StreamController {
         });
 
         self.polling = Some(handle);
-        // Store commands back (they were moved into the thread)
         // Commands are now owned by the thread, so we keep an empty vec here
         self.commands = Vec::new();
     }
