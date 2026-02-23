@@ -1,6 +1,6 @@
 # Porting TODO — Remaining Work
 
-Phases 1–39 complete. **1897 tests, 0 ignored.** 27 crates, 127k lines. See AGENTS.md.
+Phases 1–39 complete. **1900 tests, 0 ignored.** 27 crates, 127k lines. See AGENTS.md.
 
 ---
 
@@ -102,9 +102,9 @@ BMSPlayer のスキンロード/初期化完成。
 
 | 項目 | 影響 | 備考 |
 |------|------|------|
-| `BMSModel.compareTo()` | 低 | 必要時に Ord 実装可 |
-| `BMSModel.getEventLane()` / `getLanes()` | 低 | オンデマンド生成 (呼び出し側で対応可) |
-| `BMSModelUtils.getAverageNotesPerTime()` | 低 | 使用頻度低 |
+| `BMSModel.compareTo()` | 低 | 必要時に Ord 実装可。Java でも未使用 |
+| ~~`BMSModel.getEventLane()` / `getLanes()`~~ | ~~低~~ | ✅ 実装済み |
+| `BMSModelUtils.getAverageNotesPerTime()` | 低 | Java でも未使用 (デッドコード) |
 | OBS reconnect lifecycle | 低 | server_uri/password の inner 保持が必要 |
 
 ## Permanent Stubs
