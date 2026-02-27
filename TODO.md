@@ -43,6 +43,30 @@ BMSPlayer のスキンロード/初期化完成。
 
 ---
 
+## Phase 44: 統合テスト包括追加 ✅
+
+`PlayerConfig::init()` 未呼び出しバグの教訓。wiring 統合テスト追加 + テスタビリティ改善。
+
+### Phase 44a: テスタビリティ改善（コード変更） ✅
+
+- [x] **44a-1:** `Config::read_from(dir)` / `Config::write_to(config, dir)` 追加
+- [x] **44a-2:** `PlayerConfig::init()` の `create_dir` → `create_dir_all`
+- [x] **44a-3:** `MainLoader::clear_illegal_songs()` / `clear_score_database_accessor()` を `pub fn` に
+- [x] **44a-4:** `MainLoader::play()` → `anyhow::Result<MainController>`、`process::exit(1)` → `bail!()`
+- [x] **44a-5:** `PlayConfigurationView::exit()` → `exit_requested` flag
+
+### Phase 44b–d: 統合テスト (45 tests, 7 files) ✅
+
+- [x] **44b-1:** `config_filesystem.rs` (8 tests)
+- [x] **44b-2:** `player_config_lifecycle.rs` (10 tests, 1 ignored)
+- [x] **44c-1:** `play_data_accessor_integration.rs` (6 tests)
+- [x] **44c-2:** `main_loader_integration.rs` (8 tests)
+- [x] **44d-1:** `song_db_init.rs` (5 tests)
+- [x] **44d-2:** `launcher_wiring.rs` (5 tests)
+- [x] **44d-3:** `cli_smoke.rs` (4 tests, 1 ignored)
+
+---
+
 ## 軽微な未移植項目
 
 | 項目 | 影響 | 備考 |
