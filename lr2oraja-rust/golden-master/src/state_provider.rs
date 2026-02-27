@@ -135,6 +135,7 @@ impl<'a> StaticMainStateAdapter<'a> {
             timer: Timer {
                 now_time: provider.time_ms,
                 now_micro_time: provider.time_ms * 1000,
+                timer_values: vec![],
             },
             main: MainController { debug: false },
             resource: PlayerResource,

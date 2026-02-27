@@ -160,10 +160,15 @@ pub use beatoraja_types::skin_offset::SkinOffset;
 ///
 /// This struct is kept for backward compatibility. New code should use
 /// `&dyn beatoraja_types::timer_access::TimerAccess` directly.
+///
+/// When `timer_values` is non-empty, timer queries delegate to the real
+/// snapshot data from `TimerManager::timer_values()`. When empty (Default),
+/// all timers report as OFF for backward compatibility.
 #[derive(Clone, Debug, Default)]
 pub struct Timer {
     pub now_time: i64,
     pub now_micro_time: i64,
+    pub timer_values: Vec<i64>,
 }
 
 impl Timer {
@@ -175,20 +180,28 @@ impl Timer {
         self.now_micro_time
     }
 
-    pub fn get_micro_timer(&self, _timer_id: i32) -> i64 {
-        0
+    pub fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        if timer_id >= 0 && (timer_id as usize) < self.timer_values.len() {
+            self.timer_values[timer_id as usize]
+        } else {
+            i64::MIN
+        }
     }
 
-    pub fn get_timer(&self, _timer_id: i32) -> i64 {
-        0
+    pub fn get_timer(&self, timer_id: i32) -> i64 {
+        self.get_micro_timer(timer_id) / 1000
     }
 
-    pub fn get_now_time_for(&self, _timer_id: i32) -> i64 {
-        0
+    pub fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        if self.is_timer_on(timer_id) {
+            (self.now_micro_time - self.get_micro_timer(timer_id)) / 1000
+        } else {
+            0
+        }
     }
 
-    pub fn is_timer_on(&self, _timer_id: i32) -> bool {
-        false
+    pub fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.get_micro_timer(timer_id) != i64::MIN
     }
 }
 
@@ -199,17 +212,17 @@ impl beatoraja_types::timer_access::TimerAccess for Timer {
     fn get_now_micro_time(&self) -> i64 {
         self.now_micro_time
     }
-    fn get_micro_timer(&self, _timer_id: i32) -> i64 {
-        0
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        Timer::get_micro_timer(self, timer_id)
     }
-    fn get_timer(&self, _timer_id: i32) -> i64 {
-        0
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        Timer::get_timer(self, timer_id)
     }
-    fn get_now_time_for(&self, _timer_id: i32) -> i64 {
-        0
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        Timer::get_now_time_for(self, timer_id)
     }
-    fn is_timer_on(&self, _timer_id: i32) -> bool {
-        false
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        Timer::is_timer_on(self, timer_id)
     }
 }
 

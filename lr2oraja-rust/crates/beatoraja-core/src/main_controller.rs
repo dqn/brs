@@ -697,11 +697,13 @@ impl MainController {
         // }
         if let Some(ref mut current) = self.current {
             let data = current.main_state_data_mut();
+            data.timer.update();
             let now_time = data.timer.get_now_time();
             let now_micro_time = data.timer.get_now_micro_time();
+            let timer_values = data.timer.timer_values().to_vec();
             if let Some(mut skin) = data.skin.take() {
-                skin.update_custom_objects_timed(now_time, now_micro_time);
-                skin.draw_all_objects_timed(now_time, now_micro_time);
+                skin.update_custom_objects_timed(now_time, now_micro_time, &timer_values);
+                skin.draw_all_objects_timed(now_time, now_micro_time, &timer_values);
                 // Put skin back
                 current.main_state_data_mut().skin = Some(skin);
             } else {
@@ -1905,11 +1907,21 @@ mod tests {
     }
 
     impl SkinDrawable for MockSkinDrawable {
-        fn draw_all_objects_timed(&mut self, _now_time: i64, _now_micro_time: i64) {
+        fn draw_all_objects_timed(
+            &mut self,
+            _now_time: i64,
+            _now_micro_time: i64,
+            _timer_values: &[i64],
+        ) {
             self.draw_count += 1;
         }
 
-        fn update_custom_objects_timed(&mut self, _now_time: i64, _now_micro_time: i64) {
+        fn update_custom_objects_timed(
+            &mut self,
+            _now_time: i64,
+            _now_micro_time: i64,
+            _timer_values: &[i64],
+        ) {
             self.update_count += 1;
         }
 
@@ -2009,11 +2021,21 @@ mod tests {
         }
 
         impl SkinDrawable for CountingSkinDrawable {
-            fn draw_all_objects_timed(&mut self, _now_time: i64, _now_micro_time: i64) {
+            fn draw_all_objects_timed(
+                &mut self,
+                _now_time: i64,
+                _now_micro_time: i64,
+                _timer_values: &[i64],
+            ) {
                 self.counts.lock().unwrap().1 += 1;
             }
 
-            fn update_custom_objects_timed(&mut self, _now_time: i64, _now_micro_time: i64) {
+            fn update_custom_objects_timed(
+                &mut self,
+                _now_time: i64,
+                _now_micro_time: i64,
+                _timer_values: &[i64],
+            ) {
                 self.counts.lock().unwrap().0 += 1;
             }
 

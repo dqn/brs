@@ -140,10 +140,16 @@ pub trait SkinDrawable: Send {
     /// Draw all skin objects for the current frame.
     ///
     /// `now_time` is milliseconds, `now_micro_time` is microseconds from TimerManager.
-    fn draw_all_objects_timed(&mut self, now_time: i64, now_micro_time: i64);
+    /// `timer_values` is a snapshot of the timer array from `TimerManager::timer_values()`.
+    fn draw_all_objects_timed(&mut self, now_time: i64, now_micro_time: i64, timer_values: &[i64]);
 
     /// Update custom timers and events.
-    fn update_custom_objects_timed(&mut self, now_time: i64, now_micro_time: i64);
+    fn update_custom_objects_timed(
+        &mut self,
+        now_time: i64,
+        now_micro_time: i64,
+        timer_values: &[i64],
+    );
 
     /// Handle mouse press events (reverse order iteration).
     fn mouse_pressed_at(&mut self, button: i32, x: i32, y: i32);

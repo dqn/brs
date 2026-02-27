@@ -17,6 +17,7 @@ impl Default for MockMainState {
             timer: Timer {
                 now_time: 0,
                 now_micro_time: 0,
+                timer_values: vec![],
             },
             main: MainController { debug: false },
             resource: PlayerResource,

@@ -1012,11 +1012,12 @@ struct TimerOnlyMainState {
 }
 
 impl TimerOnlyMainState {
-    fn new(now_time: i64, now_micro_time: i64) -> Self {
+    fn new(now_time: i64, now_micro_time: i64, timer_values: Vec<i64>) -> Self {
         Self {
             timer: crate::stubs::Timer {
                 now_time,
                 now_micro_time,
+                timer_values,
             },
             main_controller: crate::stubs::MainController { debug: false },
             resource: crate::stubs::PlayerResource,
@@ -1048,27 +1049,32 @@ impl crate::stubs::MainState for TimerOnlyMainState {
 
 impl beatoraja_core::main_state::SkinDrawable for Skin {
     fn prepare_skin(&mut self) {
-        let adapter = TimerOnlyMainState::new(0, 0);
+        let adapter = TimerOnlyMainState::new(0, 0, vec![]);
         self.prepare(&adapter);
     }
 
-    fn draw_all_objects_timed(&mut self, now_time: i64, now_micro_time: i64) {
-        let adapter = TimerOnlyMainState::new(now_time, now_micro_time);
+    fn draw_all_objects_timed(&mut self, now_time: i64, now_micro_time: i64, timer_values: &[i64]) {
+        let adapter = TimerOnlyMainState::new(now_time, now_micro_time, timer_values.to_vec());
         self.draw_all_objects(&adapter);
     }
 
-    fn update_custom_objects_timed(&mut self, now_time: i64, now_micro_time: i64) {
-        let adapter = TimerOnlyMainState::new(now_time, now_micro_time);
+    fn update_custom_objects_timed(
+        &mut self,
+        now_time: i64,
+        now_micro_time: i64,
+        timer_values: &[i64],
+    ) {
+        let adapter = TimerOnlyMainState::new(now_time, now_micro_time, timer_values.to_vec());
         self.update_custom_objects(&adapter);
     }
 
     fn mouse_pressed_at(&mut self, button: i32, x: i32, y: i32) {
-        let mut adapter = TimerOnlyMainState::new(0, 0);
+        let mut adapter = TimerOnlyMainState::new(0, 0, vec![]);
         self.mouse_pressed(&mut adapter, button, x, y);
     }
 
     fn mouse_dragged_at(&mut self, button: i32, x: i32, y: i32) {
-        let mut adapter = TimerOnlyMainState::new(0, 0);
+        let mut adapter = TimerOnlyMainState::new(0, 0, vec![]);
         self.mouse_dragged(&mut adapter, button, x, y);
     }
 
@@ -1109,7 +1115,7 @@ mod tests {
 
     #[test]
     fn test_timer_only_main_state_returns_expected_values() {
-        let adapter = TimerOnlyMainState::new(1000, 1_000_000);
+        let adapter = TimerOnlyMainState::new(1000, 1_000_000, vec![]);
         let state: &dyn MainState = &adapter;
         assert_eq!(state.get_timer().get_now_time(), 1000);
         assert_eq!(state.get_timer().get_now_micro_time(), 1_000_000);
@@ -1138,14 +1144,14 @@ mod tests {
     fn test_draw_all_objects_timed_empty_skin() {
         let mut skin = make_test_skin();
         // Should not panic with no objects
-        skin.draw_all_objects_timed(0, 0);
+        skin.draw_all_objects_timed(0, 0, &[]);
     }
 
     #[test]
     fn test_update_custom_objects_timed_empty_skin() {
         let mut skin = make_test_skin();
         // Should not panic with no custom objects
-        skin.update_custom_objects_timed(100, 100_000);
+        skin.update_custom_objects_timed(100, 100_000, &[]);
     }
 
     #[test]
