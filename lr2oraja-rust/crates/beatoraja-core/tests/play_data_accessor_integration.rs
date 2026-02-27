@@ -112,6 +112,41 @@ fn write_then_read_score() {
 }
 
 #[test]
+fn new_creates_player_directory_when_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let player_dir = dir.path().join("freshplayer");
+
+    // The player directory does not exist yet
+    assert!(!player_dir.exists());
+
+    let config = make_config(dir.path().to_str().unwrap(), "freshplayer");
+    let accessor = PlayDataAccessor::new(&config);
+
+    // The player directory should have been created
+    assert!(player_dir.is_dir(), "player directory should be created");
+
+    // All databases should be successfully opened
+    assert!(
+        accessor.get_scoredb().is_some(),
+        "scoredb should be Some when directory is auto-created"
+    );
+
+    // Database files should exist
+    assert!(
+        player_dir.join("score.db").exists(),
+        "score.db should be created"
+    );
+    assert!(
+        player_dir.join("scorelog.db").exists(),
+        "scorelog.db should be created"
+    );
+    assert!(
+        player_dir.join("scoredatalog.db").exists(),
+        "scoredatalog.db should be created"
+    );
+}
+
+#[test]
 fn nonexistent_dir_returns_none_dbs() {
     let config = make_config("/nonexistent/path/that/does/not/exist", "ghost_player");
     let accessor = PlayDataAccessor::new(&config);

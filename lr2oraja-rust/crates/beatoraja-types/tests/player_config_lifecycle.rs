@@ -168,6 +168,45 @@ fn read_nonexistent_returns_default() {
 }
 
 // ---------------------------------------------------------------------------
+// write creates parent directory (self-sufficiency)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn write_creates_parent_directory_when_missing() {
+    let tempdir = TempDir::new().unwrap();
+    let playerpath = tempdir
+        .path()
+        .join("nonexistent")
+        .to_string_lossy()
+        .to_string();
+
+    // The playerpath directory does not exist yet
+    assert!(!std::path::Path::new(&playerpath).exists());
+
+    let mut player = PlayerConfig::default();
+    player.id = Some("newplayer".to_string());
+    player.name = "Fresh Player".to_string();
+
+    // write() should create the directory and succeed
+    PlayerConfig::write(&playerpath, &player).unwrap();
+
+    // Verify the config file was written
+    let config_file = tempdir
+        .path()
+        .join("nonexistent")
+        .join("newplayer")
+        .join("config_player.json");
+    assert!(
+        config_file.is_file(),
+        "config_player.json should be created"
+    );
+
+    // Verify content is correct
+    let read_back = PlayerConfig::read_player_config(&playerpath, "newplayer").unwrap();
+    assert_eq!(read_back.name, "Fresh Player");
+}
+
+// ---------------------------------------------------------------------------
 // read_all_player_id()
 // ---------------------------------------------------------------------------
 
