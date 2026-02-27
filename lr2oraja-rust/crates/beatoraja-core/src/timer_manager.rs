@@ -114,6 +114,10 @@ impl TimerManager {
         }
     }
 
+    pub fn timer_values(&self) -> &[i64] {
+        &self.timer
+    }
+
     pub fn set_main_state(&mut self) {
         // Reset all timers
         for t in self.timer.iter_mut() {
