@@ -10,10 +10,11 @@ use beatoraja_core::score_data::ScoreData;
 
 /// Helper: create a Config pointing at a tempdir with the given player name.
 fn make_config(playerpath: &str, playername: &str) -> Config {
-    let mut config = Config::default();
-    config.playerpath = playerpath.to_string();
-    config.playername = Some(playername.to_string());
-    config
+    Config {
+        playerpath: playerpath.to_string(),
+        playername: Some(playername.to_string()),
+        ..Default::default()
+    }
 }
 
 #[test]

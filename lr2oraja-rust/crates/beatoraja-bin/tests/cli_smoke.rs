@@ -4,6 +4,12 @@ fn beatoraja_bin() -> Command {
     Command::new(env!("CARGO_BIN_EXE_beatoraja"))
 }
 
+/// Write a minimal `config_sys.json` to the given directory so that the binary
+/// recognises it as having a config and takes the play() path.
+fn write_minimal_config(dir: &std::path::Path) {
+    std::fs::write(dir.join("config_sys.json"), "{}").expect("failed to write config_sys.json");
+}
+
 #[test]
 fn help_flag() {
     let output = beatoraja_bin()
@@ -79,6 +85,117 @@ fn no_config_runs_without_crash() {
             code,
             101,
             "process exited with code 101 (Rust panic). stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+/// With `config_sys.json` present and `-s` flag, the binary takes the play()
+/// path (`config_exists && player_mode.is_some()`). It will fail because there
+/// is no GPU/display, but it must NOT panic (exit code 101) or be killed by a
+/// signal. A normal error exit is acceptable.
+#[test]
+#[ignore] // requires GPU/display
+fn play_flag_with_config_exits_gracefully() {
+    let tmp = tempfile::TempDir::new().expect("failed to create tempdir");
+    write_minimal_config(tmp.path());
+
+    let output = beatoraja_bin()
+        .arg("-s")
+        .current_dir(tmp.path())
+        .output()
+        .expect("failed to execute binary");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        assert!(
+            output.status.signal().is_none(),
+            "process was killed by signal: {:?}",
+            output.status.signal()
+        );
+    }
+
+    if let Some(code) = output.status.code() {
+        assert_ne!(
+            code,
+            101,
+            "process panicked (exit code 101). stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+/// With `-s` but NO `config_sys.json`, the binary falls through to launch()
+/// (the launcher/configuration UI path) instead of play(). It must not panic
+/// or be signal-killed; a normal exit (including errors from missing display)
+/// is fine.
+#[test]
+#[ignore] // requires display for launcher
+fn play_flag_without_config_launches_launcher() {
+    let tmp = tempfile::TempDir::new().expect("failed to create tempdir");
+    // Intentionally no config file in this tempdir
+
+    let output = beatoraja_bin()
+        .arg("-s")
+        .current_dir(tmp.path())
+        .output()
+        .expect("failed to execute binary");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        assert!(
+            output.status.signal().is_none(),
+            "process was killed by signal: {:?}",
+            output.status.signal()
+        );
+    }
+
+    if let Some(code) = output.status.code() {
+        assert_ne!(
+            code,
+            101,
+            "process panicked (exit code 101). stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+/// When re-exec'd as a child process (the path `launch()` takes via
+/// `Command::new(current_exe()).arg("-s")`), the child must read
+/// `config_sys.json` from the correct working directory. Verify the child
+/// does not panic or get signal-killed.
+#[test]
+#[ignore] // requires GPU/display
+fn reexec_child_inherits_working_directory() {
+    let tmp = tempfile::TempDir::new().expect("failed to create tempdir");
+    write_minimal_config(tmp.path());
+
+    // Simulate the re-exec path: binary launched with `-s` and cwd set to
+    // the directory containing config_sys.json.
+    let output = beatoraja_bin()
+        .arg("-s")
+        .current_dir(tmp.path())
+        .output()
+        .expect("failed to execute binary");
+
+    // The process may fail (no GPU), but it must not panic or be signalled.
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        assert!(
+            output.status.signal().is_none(),
+            "child process was killed by signal: {:?}",
+            output.status.signal()
+        );
+    }
+
+    if let Some(code) = output.status.code() {
+        assert_ne!(
+            code,
+            101,
+            "child process panicked (exit code 101). stderr: {}",
             String::from_utf8_lossy(&output.stderr)
         );
     }

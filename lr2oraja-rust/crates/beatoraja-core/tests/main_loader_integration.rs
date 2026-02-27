@@ -347,3 +347,111 @@ fn start_reads_player_config_with_correct_id() {
         player.name
     );
 }
+
+// ---------------------------------------------------------------------------
+// Test 9: start_then_play_sequential_lifecycle
+// ---------------------------------------------------------------------------
+
+/// Simulate the logical flow of launch() → play() without GUI.
+///
+/// MainLoader::start() (the launcher path) followed by MainLoader::play()
+/// (the game path) must work in sequence without corrupting global state.
+/// This catches issues where the first subsystem leaves stale state that
+/// breaks the second.
+#[test]
+fn start_then_play_sequential_lifecycle() {
+    let _lock = lock_and_clear_state();
+
+    // Phase 1: launcher startup (MainLoader::start)
+    let (config, player, title) = MainLoader::start();
+    assert!(
+        title.ends_with(" configuration"),
+        "start() title should end with ' configuration', got: {}",
+        title
+    );
+
+    // Phase 2: game startup (MainLoader::play) using the config from start()
+    let result = MainLoader::play(None, None, true, Some(config), Some(player), false);
+    assert!(
+        result.is_ok(),
+        "play() after start() should succeed, got err: {}",
+        result
+            .as_ref()
+            .err()
+            .map_or("".to_string(), |e| e.to_string())
+    );
+
+    let controller = result.unwrap();
+    let cfg = controller.get_config();
+
+    // Config should be valid — window dimensions set from resolution
+    assert!(cfg.window_width > 0, "window_width should be positive");
+    assert!(cfg.window_height > 0, "window_height should be positive");
+
+    // Global state should be clean
+    assert_eq!(
+        MainLoader::get_illegal_song_count(),
+        0,
+        "illegal songs should be empty after clean lifecycle"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test 10: play_twice_sequential_does_not_corrupt_state
+// ---------------------------------------------------------------------------
+
+/// Call MainLoader::play() twice in sequence to verify that the first call
+/// does not leave stale global state that breaks the second.
+#[test]
+fn play_twice_sequential_does_not_corrupt_state() {
+    let _lock = lock_and_clear_state();
+
+    // First play()
+    let config1 = Config::default();
+    let player1 = PlayerConfig::default();
+    let result1 = MainLoader::play(None, None, true, Some(config1), Some(player1), false);
+    assert!(
+        result1.is_ok(),
+        "first play() should succeed, got err: {}",
+        result1
+            .as_ref()
+            .err()
+            .map_or("".to_string(), |e| e.to_string())
+    );
+
+    let controller1 = result1.unwrap();
+    let w1 = controller1.get_config().window_width;
+    let h1 = controller1.get_config().window_height;
+
+    // Second play() — must also succeed with independent config
+    let mut config2 = Config::default();
+    config2.resolution = Resolution::FULLHD;
+    let player2 = PlayerConfig::default();
+    let result2 = MainLoader::play(None, None, true, Some(config2), Some(player2), false);
+    assert!(
+        result2.is_ok(),
+        "second play() should succeed, got err: {}",
+        result2
+            .as_ref()
+            .err()
+            .map_or("".to_string(), |e| e.to_string())
+    );
+
+    let controller2 = result2.unwrap();
+    let w2 = controller2.get_config().window_width;
+    let h2 = controller2.get_config().window_height;
+
+    // The two controllers should have independent configs — different resolutions
+    assert_ne!(
+        (w1, h1),
+        (w2, h2),
+        "second play() should have different resolution (FULLHD vs HD default)"
+    );
+
+    // Global state should still be clean
+    assert_eq!(
+        MainLoader::get_illegal_song_count(),
+        0,
+        "illegal songs should be empty after two clean play() calls"
+    );
+}
