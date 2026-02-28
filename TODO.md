@@ -44,9 +44,9 @@ Phases 1–44 complete. **2391 tests, 16 ignored.** 27 crates, 127k lines. See A
 
 ## Phase 49: Play State Integration
 
-- [ ] **49a:** bms_player.rs Phase 22 wiring — Resolve 19 TODO items for input/transition/config wiring in `beatoraja-play/src/bms_player.rs`
+- [x] **49a:** bms_player.rs Phase 22 wiring — Resolve 19 TODO items for input/transition/config wiring in `beatoraja-play/src/bms_player.rs`
   - depends: 46a, 46b
-- [ ] **49b:** LaneRenderer.draw_lane() — Port 713-line Java rendering method in `beatoraja-play/src/lane_renderer.rs`
+- [x] **49b:** LaneRenderer.draw_lane() — Port 713-line Java rendering method in `beatoraja-play/src/lane_renderer.rs`
   - depends: 47a, 47c
 
 ## Phase 50: Result & Course Integration
