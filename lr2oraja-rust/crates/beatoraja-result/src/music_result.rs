@@ -142,7 +142,7 @@ impl MusicResult {
                         if let Some(ref ns) = newscore_clone {
                             send &= ns.get_exscore() > self.data.oldscore.get_exscore()
                                 || ns.clear > self.data.oldscore.clear
-                                || ns.combo > self.data.oldscore.combo
+                                || ns.maxcombo > self.data.oldscore.maxcombo
                                 || ns.minbp < self.data.oldscore.minbp;
                         }
                     }

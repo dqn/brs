@@ -249,7 +249,7 @@ impl Ranking {
             tmp.player = s.name.clone().unwrap_or_default();
             tmp.clear = s.get_beatoraja_clear();
             tmp.notes = s.notes;
-            tmp.combo = s.combo;
+            tmp.maxcombo = s.combo;
             tmp.epg = s.pg;
             tmp.egr = s.gr;
             tmp.minbp = s.minbp;

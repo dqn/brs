@@ -101,7 +101,7 @@ fn score_data_to_value(score: &ScoreData, col_name: &str) -> rusqlite::types::Va
         "ems" => rusqlite::types::Value::Integer(score.ems as i64),
         "lms" => rusqlite::types::Value::Integer(score.lms as i64),
         "notes" => rusqlite::types::Value::Integer(score.notes as i64),
-        "combo" => rusqlite::types::Value::Integer(score.combo as i64),
+        "combo" => rusqlite::types::Value::Integer(score.maxcombo as i64),
         "minbp" => rusqlite::types::Value::Integer(score.minbp as i64),
         "avgjudge" => rusqlite::types::Value::Integer(score.avgjudge),
         "playcount" => rusqlite::types::Value::Integer(score.playcount as i64),

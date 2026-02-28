@@ -84,7 +84,7 @@ impl IRScoreData {
             ems: score.ems,
             lms: score.lms,
             avgjudge: score.avgjudge,
-            maxcombo: score.combo,
+            maxcombo: score.maxcombo,
             notes: score.notes,
             passnotes: score.passnotes,
             minbp: score.minbp,
@@ -123,7 +123,7 @@ impl IRScoreData {
         score.lpr = self.lpr;
         score.ems = self.ems;
         score.lms = self.lms;
-        score.combo = self.maxcombo;
+        score.maxcombo = self.maxcombo;
         score.notes = self.notes;
         // Java: score.setPassnotes(this.passnotes != 0 ? this.notes : this.passnotes);
         score.passnotes = if self.passnotes != 0 {

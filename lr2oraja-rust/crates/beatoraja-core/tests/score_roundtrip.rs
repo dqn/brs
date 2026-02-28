@@ -30,7 +30,7 @@ fn make_test_score() -> ScoreData {
         ems: 1,
         lms: 1,
         notes: 1290,
-        combo: 1250,
+        maxcombo: 1250,
         minbp: 15,
         avgjudge: 42000,
         playcount: 50,
@@ -87,7 +87,7 @@ fn score_data_roundtrip() {
 
     // Verify note/combo/bp/judge stats
     assert_eq!(restored.notes, score.notes);
-    assert_eq!(restored.combo, score.combo);
+    assert_eq!(restored.maxcombo, score.maxcombo);
     assert_eq!(restored.minbp, score.minbp);
     assert_eq!(restored.avgjudge, score.avgjudge);
 
@@ -123,12 +123,12 @@ fn score_data_roundtrip_with_different_mode() {
     let mut score_mode0 = make_test_score();
     score_mode0.mode = 0;
     score_mode0.clear = 5; // Normal
-    score_mode0.combo = 800;
+    score_mode0.maxcombo = 800;
 
     let mut score_mode1 = make_test_score();
     score_mode1.mode = 1;
     score_mode1.clear = 7; // ExHard
-    score_mode1.combo = 1250;
+    score_mode1.maxcombo = 1250;
 
     accessor.set_score_data(&score_mode0);
     accessor.set_score_data(&score_mode1);
@@ -142,11 +142,11 @@ fn score_data_roundtrip_with_different_mode() {
 
     assert_eq!(restored0.mode, 0);
     assert_eq!(restored0.clear, 5);
-    assert_eq!(restored0.combo, 800);
+    assert_eq!(restored0.maxcombo, 800);
 
     assert_eq!(restored1.mode, 1);
     assert_eq!(restored1.clear, 7);
-    assert_eq!(restored1.combo, 1250);
+    assert_eq!(restored1.maxcombo, 1250);
 }
 
 #[test]
@@ -173,12 +173,12 @@ fn score_data_overwrite_same_key() {
 
     let mut score = make_test_score();
     score.clear = 5;
-    score.combo = 600;
+    score.maxcombo = 600;
     accessor.set_score_data(&score);
 
     // Overwrite with higher clear and combo (INSERT OR REPLACE on same PK)
     score.clear = 9; // Perfect
-    score.combo = 1290;
+    score.maxcombo = 1290;
     accessor.set_score_data(&score);
 
     let restored = accessor
@@ -186,5 +186,5 @@ fn score_data_overwrite_same_key() {
         .expect("Overwritten score should exist");
 
     assert_eq!(restored.clear, 9);
-    assert_eq!(restored.combo, 1290);
+    assert_eq!(restored.maxcombo, 1290);
 }

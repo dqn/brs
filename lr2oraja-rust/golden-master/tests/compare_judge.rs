@@ -195,7 +195,7 @@ fn compare_score(
         ("lpr", actual.lpr, expected.lpr),
         ("ems", actual.ems, expected.ems),
         ("lms", actual.lms, expected.lms),
-        ("score.maxcombo", actual.combo, expected.maxcombo),
+        ("score.maxcombo", actual.maxcombo, expected.maxcombo),
         ("score.passnotes", actual.passnotes, expected.passnotes),
     ];
     for (name, actual_val, expected_val) in fields {

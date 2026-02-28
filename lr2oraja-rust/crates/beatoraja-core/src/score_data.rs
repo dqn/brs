@@ -24,7 +24,7 @@ mod tests {
         assert_eq!(sd.lpr, 0);
         assert_eq!(sd.ems, 0);
         assert_eq!(sd.lms, 0);
-        assert_eq!(sd.combo, 0);
+        assert_eq!(sd.maxcombo, 0);
         assert_eq!(sd.notes, 0);
         assert_eq!(sd.passnotes, 0);
         assert_eq!(sd.minbp, i32::MAX);
@@ -51,7 +51,7 @@ mod tests {
         sd.date = 1234567890;
         sd.playcount = 10;
         sd.clearcount = 3;
-        sd.combo = 200;
+        sd.maxcombo = 200;
         sd.notes = 500;
         sd.passnotes = 450;
         sd.minbp = 5;
@@ -345,14 +345,14 @@ mod tests {
     #[test]
     fn test_score_data_update_combo_improves() {
         let mut current = ScoreData::default();
-        current.combo = 100;
+        current.maxcombo = 100;
 
         let mut newscore = ScoreData::default();
-        newscore.combo = 200;
+        newscore.maxcombo = 200;
 
         let updated = current.update(&newscore, true);
         assert!(updated);
-        assert_eq!(current.combo, 200);
+        assert_eq!(current.maxcombo, 200);
     }
 
     #[test]
@@ -366,7 +366,7 @@ mod tests {
         sd.lgr = 60;
         sd.clear = 5;
         sd.notes = 500;
-        sd.combo = 300;
+        sd.maxcombo = 300;
 
         let json = serde_json::to_string(&sd).unwrap();
         let deserialized: ScoreData = serde_json::from_str(&json).unwrap();
@@ -379,7 +379,7 @@ mod tests {
         assert_eq!(deserialized.lgr, 60);
         assert_eq!(deserialized.clear, 5);
         assert_eq!(deserialized.notes, 500);
-        assert_eq!(deserialized.combo, 300);
+        assert_eq!(deserialized.maxcombo, 300);
     }
 
     #[test]

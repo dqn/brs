@@ -36,13 +36,15 @@ pub struct ScoreData {
     pub lpr: i32,
     pub ems: i32,
     pub lms: i32,
-    pub combo: i32,
+    pub maxcombo: i32,
     pub notes: i32,
     pub passnotes: i32,
     pub minbp: i32,
     pub avgjudge: i64,
+    #[serde(rename = "totalDuration")]
     pub total_duration: i64,
     pub avg: i64,
+    #[serde(rename = "totalAvg")]
     pub total_avg: i64,
     pub stddev: i64,
     pub trophy: String,
@@ -52,10 +54,12 @@ pub struct ScoreData {
     pub seed: i64,
     pub assist: i32,
     pub gauge: i32,
+    #[serde(rename = "deviceType")]
     pub device_type: Option<bms_player_input_device::Type>,
     pub state: i32,
     pub scorehash: String,
     pub playmode: Mode,
+    #[serde(rename = "judgeAlgorithm")]
     pub judge_algorithm: Option<JudgeAlgorithm>,
     pub rule: Option<BMSPlayerRule>,
     pub skin: Option<String>,
@@ -108,7 +112,7 @@ impl ScoreData {
             lpr: 0,
             ems: 0,
             lms: 0,
-            combo: 0,
+            maxcombo: 0,
             notes: 0,
             passnotes: 0,
             minbp: i32::MAX,
@@ -171,7 +175,7 @@ impl ScoreData {
     }
 
     pub fn get_combo(&self) -> i32 {
-        self.combo
+        self.maxcombo
     }
 
     pub fn get_minbp(&self) -> i32 {
@@ -484,8 +488,8 @@ impl ScoreData {
             self.seed = newscore.seed;
             update = true;
         }
-        if self.combo < newscore.combo && update_score {
-            self.combo = newscore.combo;
+        if self.maxcombo < newscore.maxcombo && update_score {
+            self.maxcombo = newscore.maxcombo;
             self.option = newscore.option;
             self.seed = newscore.seed;
             update = true;
@@ -513,7 +517,7 @@ impl Validatable for ScoreData {
             && self.lms >= 0
             && self.clearcount >= 0
             && self.playcount >= self.clearcount
-            && self.combo >= 0
+            && self.maxcombo >= 0
             && self.notes > 0
             && self.passnotes >= 0
             && self.passnotes <= self.notes
@@ -544,7 +548,7 @@ impl fmt::Display for ScoreData {
         write!(f, "\"Lpr\": {}, ", self.lpr)?;
         write!(f, "\"Ems\": {}, ", self.ems)?;
         write!(f, "\"Lms\": {}, ", self.lms)?;
-        write!(f, "\"Combo\": {}, ", self.combo)?;
+        write!(f, "\"Combo\": {}, ", self.maxcombo)?;
         write!(f, "\"Mode\": {}, ", self.mode)?;
         write!(f, "\"Notes\": {}, ", self.notes)?;
         write!(f, "\"Clearcount\": {}, ", self.clearcount)?;
@@ -702,7 +706,7 @@ mod tests {
         sd.lgr = 70;
         sd.egd = 10;
         sd.lgd = 5;
-        sd.combo = 250;
+        sd.maxcombo = 250;
         sd.notes = 500;
         sd.date = 1700000000;
 
@@ -876,7 +880,7 @@ mod tests {
         sd.clear = 5;
         sd.epg = 100;
         sd.lpg = 100;
-        sd.combo = 200;
+        sd.maxcombo = 200;
         sd.minbp = 0;
         sd.avgjudge = 0;
 
@@ -921,6 +925,75 @@ mod tests {
             let recovered = SongTrophy::get_trophy(c);
             assert_eq!(recovered, Some(*trophy));
         }
+    }
+
+    #[test]
+    fn test_score_data_serde_java_field_names() {
+        let mut sd = ScoreData::new(Mode::BEAT_7K);
+        sd.maxcombo = 250;
+        sd.total_duration = 120_000;
+        sd.total_avg = 500;
+        sd.device_type = None;
+        sd.judge_algorithm = None;
+
+        let json = serde_json::to_string(&sd).unwrap();
+
+        // Field must serialize as "maxcombo" (Java field name), not "combo"
+        assert!(
+            json.contains("\"maxcombo\""),
+            "Expected 'maxcombo' in JSON, got: {}",
+            json
+        );
+        assert!(
+            !json.contains("\"combo\"") || json.contains("\"maxcombo\""),
+            "Should not have bare 'combo' field without 'max' prefix"
+        );
+
+        // camelCase renames for Java compatibility
+        assert!(
+            json.contains("\"totalDuration\""),
+            "Expected 'totalDuration' in JSON, got: {}",
+            json
+        );
+        assert!(
+            json.contains("\"totalAvg\""),
+            "Expected 'totalAvg' in JSON, got: {}",
+            json
+        );
+        assert!(
+            json.contains("\"deviceType\""),
+            "Expected 'deviceType' in JSON, got: {}",
+            json
+        );
+        assert!(
+            json.contains("\"judgeAlgorithm\""),
+            "Expected 'judgeAlgorithm' in JSON, got: {}",
+            json
+        );
+
+        // Verify these snake_case forms do NOT appear
+        assert!(
+            !json.contains("\"total_duration\""),
+            "Should not have 'total_duration' in JSON"
+        );
+        assert!(
+            !json.contains("\"total_avg\""),
+            "Should not have 'total_avg' in JSON"
+        );
+        assert!(
+            !json.contains("\"device_type\""),
+            "Should not have 'device_type' in JSON"
+        );
+        assert!(
+            !json.contains("\"judge_algorithm\""),
+            "Should not have 'judge_algorithm' in JSON"
+        );
+
+        // Round-trip: deserialize from Java-style JSON
+        let deserialized: ScoreData = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.maxcombo, 250);
+        assert_eq!(deserialized.total_duration, 120_000);
+        assert_eq!(deserialized.total_avg, 500);
     }
 
     #[test]

@@ -346,7 +346,7 @@ impl CourseResult {
             }
         }
 
-        newscore.combo = resource.get_maxcombo();
+        newscore.maxcombo = resource.get_maxcombo();
         if newscore.notes != 0 {
             newscore.avgjudge = newscore.total_duration / newscore.notes as i64;
         }

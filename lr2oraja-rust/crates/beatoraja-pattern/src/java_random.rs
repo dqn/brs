@@ -24,6 +24,20 @@ impl JavaRandom {
         (self.seed >> (48 - bits)) as i32
     }
 
+    /// Re-seed the RNG (equivalent to `java.util.Random.setSeed(seed)`).
+    pub fn set_seed(&mut self, seed: i64) {
+        self.seed = (seed ^ MULTIPLIER) & MASK;
+    }
+
+    /// Port of `java.util.Random.nextDouble()`.
+    /// Returns a uniformly distributed double in [0.0, 1.0).
+    /// Formula: `(((long)(next(26)) << 27) + next(27)) / (double)(1L << 53)`
+    pub fn next_double(&mut self) -> f64 {
+        let high = self.next(26) as i64;
+        let low = self.next(27) as i64;
+        ((high << 27) + low) as f64 / (1i64 << 53) as f64
+    }
+
     pub fn next_int_bounded(&mut self, bound: i32) -> i32 {
         assert!(bound > 0, "bound must be positive");
         // Power of 2

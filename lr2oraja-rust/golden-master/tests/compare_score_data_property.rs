@@ -158,7 +158,7 @@ fn score_data_property_all_cases() {
             lpr: tc.lpr,
             ems: tc.ems,
             lms: tc.lms,
-            combo: tc.maxcombo,
+            maxcombo: tc.maxcombo,
             notes: tc.totalnotes,
             ..Default::default()
         };
