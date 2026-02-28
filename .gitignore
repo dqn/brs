@@ -26,3 +26,5 @@ lr2oraja-rust/skin/**
 !lr2oraja-rust/skin/default
 lr2oraja-rust/**/config_sys.json
 lr2oraja-rust/test_output.log
+lr2oraja-rust/**/songinfo.db
+.claude/tmp/
