@@ -113,7 +113,7 @@ impl SkinTextBitmap {
         {
             // Distance field rendering path
             sprite.set_type(SkinObjectRenderer::TYPE_DISTANCE_FIELD);
-            let color = self.text_data.data.color.clone();
+            let color = self.text_data.data.color;
             let text = self.text_data.get_text().to_string();
             let region_width = self.text_data.data.region.width;
             let region_height = self.text_data.data.region.height;
@@ -135,7 +135,7 @@ impl SkinTextBitmap {
 
             let shadow_offset = self.text_data.get_shadow_offset();
             let text = self.text_data.get_text().to_string();
-            let color = self.text_data.data.color.clone();
+            let color = self.text_data.data.color;
             let region_width = self.text_data.data.region.width;
             let region_height = self.text_data.data.region.height;
             let region_y = self.text_data.data.region.y;

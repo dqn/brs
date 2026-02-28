@@ -191,9 +191,9 @@ impl SkinTimingVisualizer {
                         + region.height * (recent_len - i) as f32 / recent_len as f32 / 2.0;
                     let h = region.height * i as f32 / recent_len as f32;
                     let color = if i < self.line_colors.len() {
-                        self.line_colors[i].clone()
+                        self.line_colors[i]
                     } else {
-                        self.line_color.clone()
+                        self.line_color
                     };
                     self.data.draw_image_at_with_color(
                         sprite,
@@ -212,9 +212,9 @@ impl SkinTimingVisualizer {
                     let y = region.y;
                     let h = region.height;
                     let color = if i < self.line_colors.len() {
-                        self.line_colors[i].clone()
+                        self.line_colors[i]
                     } else {
-                        self.line_color.clone()
+                        self.line_color
                     };
                     self.data.draw_image_at_with_color(
                         sprite,

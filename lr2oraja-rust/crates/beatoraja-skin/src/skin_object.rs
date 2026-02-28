@@ -521,7 +521,7 @@ impl SkinObjectData {
         );
         if self.dst.is_empty() {
             self.fixr = Some(obj.region.clone());
-            self.fixc = Some(obj.color.clone());
+            self.fixc = Some(obj.color);
             self.fixa = obj.angle;
         } else {
             if let Some(ref fixr) = self.fixr
@@ -729,7 +729,7 @@ impl SkinObjectData {
     }
 
     fn prepare_color(&mut self) {
-        if let Some(ref fixc) = self.fixc.clone() {
+        if let Some(ref fixc) = self.fixc {
             self.color.set(fixc);
             for off in self.off.iter().flatten() {
                 let mut a = self.color.a + (off.a / 255.0);
@@ -747,7 +747,7 @@ impl SkinObjectData {
         self.get_rate();
         if self.rate == 0.0 {
             let idx = self.index as usize;
-            let c = self.dst[idx].color.clone();
+            let c = self.dst[idx].color;
             self.color.set(&c);
         } else if self.acc == 3 {
             let idx = self.index as usize;
@@ -943,7 +943,7 @@ impl SkinObjectData {
         width: f32,
         height: f32,
     ) {
-        let color = self.color.clone();
+        let color = self.color;
         let angle = self.angle;
         self.draw_image_at_with_color(sprite, image, x, y, width, height, &color, angle);
     }

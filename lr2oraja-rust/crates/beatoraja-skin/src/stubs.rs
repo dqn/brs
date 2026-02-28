@@ -134,6 +134,62 @@ pub trait MainState {
     fn select_song(&mut self, _mode: beatoraja_core::bms_player_mode::BMSPlayerMode) {
         // default no-op
     }
+
+    // ============================================================
+    // Lua MainStateAccessor methods (Phase 45)
+    // These provide read access to score/judge/gauge data and
+    // write access to timers, volumes, audio, and events.
+    // ============================================================
+
+    /// Returns the ScoreDataProperty for the current state.
+    /// Used by Lua rate/exscore/rate_best/exscore_best/rate_rival/exscore_rival functions.
+    fn get_score_data_property(&self) -> &beatoraja_core::score_data_property::ScoreDataProperty {
+        static DEFAULT: std::sync::OnceLock<
+            beatoraja_core::score_data_property::ScoreDataProperty,
+        > = std::sync::OnceLock::new();
+        DEFAULT.get_or_init(beatoraja_core::score_data_property::ScoreDataProperty::default)
+    }
+
+    /// Returns the total judge count for the given judge index (fast + slow).
+    /// Used by Lua `judge(id)` function.
+    fn get_judge_count(&self, _judge: i32, _fast: bool) -> i32 {
+        0
+    }
+
+    /// Returns the gauge value (0.0-1.0). Only meaningful for BMSPlayer states.
+    /// Used by Lua `gauge()` function.
+    fn get_gauge_value(&self) -> f32 {
+        0.0
+    }
+
+    /// Returns the gauge type ID. Only meaningful for BMSPlayer states.
+    /// Used by Lua `gauge_type()` function.
+    fn get_gauge_type(&self) -> i32 {
+        0
+    }
+
+    /// Returns true if this state is a BMSPlayer (gameplay state).
+    fn is_bms_player(&self) -> bool {
+        false
+    }
+
+    /// Set a timer value by ID. Only writable timers (custom timers) are allowed.
+    /// Used by Lua `set_timer(id, value)` function.
+    fn set_timer_micro(&mut self, _timer_id: i32, _micro_time: i64) {
+        log::warn!("not yet implemented: MainState.set_timer_micro");
+    }
+
+    /// Play an audio file at the given path with volume and loop flag.
+    /// Used by Lua `audio_play` and `audio_loop` functions.
+    fn audio_play(&mut self, _path: &str, _volume: f32, _is_loop: bool) {
+        log::warn!("not yet implemented: MainState.audio_play");
+    }
+
+    /// Stop an audio file at the given path.
+    /// Used by Lua `audio_stop` function.
+    fn audio_stop(&mut self, _path: &str) {
+        log::warn!("not yet implemented: MainState.audio_stop");
+    }
 }
 
 /// Stub for beatoraja.MainController

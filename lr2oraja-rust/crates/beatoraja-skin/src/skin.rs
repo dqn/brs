@@ -12,8 +12,11 @@ use crate::skin_bar_object::SkinBarObject;
 use crate::skin_bga_object::SkinBgaObject;
 use crate::skin_bpm_graph::SkinBPMGraph;
 use crate::skin_float::SkinFloat;
+use crate::skin_gauge::SkinGauge;
+use crate::skin_gauge_graph_object::SkinGaugeGraphObject;
 use crate::skin_graph::SkinGraph;
 use crate::skin_header::SkinHeader;
+use crate::skin_hidden::SkinHidden;
 use crate::skin_hit_error_visualizer::SkinHitErrorVisualizer;
 use crate::skin_image::SkinImage;
 use crate::skin_judge_object::SkinJudgeObject;
@@ -54,6 +57,9 @@ pub enum SkinObject {
     Bar(SkinBarObject),
     Judge(SkinJudgeObject),
     Bga(SkinBgaObject),
+    Gauge(SkinGauge),
+    GaugeGraph(SkinGaugeGraphObject),
+    Hidden(SkinHidden),
 }
 
 impl SkinObject {
@@ -76,6 +82,9 @@ impl SkinObject {
             SkinObject::Bar(o) => &o.data,
             SkinObject::Judge(o) => &o.data,
             SkinObject::Bga(o) => &o.data,
+            SkinObject::Gauge(o) => &o.data,
+            SkinObject::GaugeGraph(o) => &o.data,
+            SkinObject::Hidden(o) => &o.data,
         }
     }
 
@@ -98,6 +107,9 @@ impl SkinObject {
             SkinObject::Bar(o) => &mut o.data,
             SkinObject::Judge(o) => &mut o.data,
             SkinObject::Bga(o) => &mut o.data,
+            SkinObject::Gauge(o) => &mut o.data,
+            SkinObject::GaugeGraph(o) => &mut o.data,
+            SkinObject::Hidden(o) => &mut o.data,
         }
     }
 
@@ -151,6 +163,9 @@ impl SkinObject {
             SkinObject::Bar(o) => o.prepare(time, state),
             SkinObject::Judge(o) => o.prepare(time, state),
             SkinObject::Bga(o) => o.prepare(time, state),
+            SkinObject::Gauge(o) => o.prepare(time, state),
+            SkinObject::GaugeGraph(o) => o.prepare(time, state),
+            SkinObject::Hidden(o) => o.prepare(time, state),
         }
     }
 
@@ -175,6 +190,9 @@ impl SkinObject {
             SkinObject::Bar(o) => o.draw(sprite),
             SkinObject::Judge(o) => o.draw(sprite),
             SkinObject::Bga(o) => o.draw(sprite),
+            SkinObject::Gauge(o) => o.draw(sprite),
+            SkinObject::GaugeGraph(o) => o.draw(sprite),
+            SkinObject::Hidden(o) => o.draw(sprite),
         }
     }
 
@@ -213,6 +231,9 @@ impl SkinObject {
             SkinObject::Bar(o) => o.dispose(),
             SkinObject::Judge(o) => o.dispose(),
             SkinObject::Bga(o) => o.dispose(),
+            SkinObject::Gauge(_) => {}
+            SkinObject::GaugeGraph(_) => {}
+            SkinObject::Hidden(_) => {}
         }
     }
 
@@ -318,6 +339,9 @@ impl SkinObject {
             SkinObject::Bar(_) => "SkinBar",
             SkinObject::Judge(_) => "SkinJudge",
             SkinObject::Bga(_) => "SkinBGA",
+            SkinObject::Gauge(_) => "SkinGauge",
+            SkinObject::GaugeGraph(_) => "SkinGaugeGraph",
+            SkinObject::Hidden(_) => "SkinHidden",
         }
     }
 

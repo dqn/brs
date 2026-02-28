@@ -3,7 +3,7 @@
 
 /// RGBA color with float components in [0.0, 1.0].
 /// Corresponds to com.badlogic.gdx.graphics.Color.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
@@ -63,6 +63,11 @@ impl Color {
             1.0
         };
         Color::new(r, g, b, a)
+    }
+
+    /// Alias for `value_of` — parses a hex color string.
+    pub fn from_hex(hex: &str) -> Self {
+        Self::value_of(hex)
     }
 
     /// Packs r, g, b, a into an integer (Color.rgba8888 equivalent)
