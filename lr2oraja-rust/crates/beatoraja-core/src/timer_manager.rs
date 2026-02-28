@@ -139,3 +139,29 @@ impl Default for TimerManager {
         Self::new()
     }
 }
+
+impl beatoraja_types::timer_access::TimerAccess for TimerManager {
+    fn get_now_time(&self) -> i64 {
+        self.get_now_time()
+    }
+
+    fn get_now_micro_time(&self) -> i64 {
+        self.get_now_micro_time()
+    }
+
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        self.get_micro_timer(timer_id)
+    }
+
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        self.get_timer(timer_id)
+    }
+
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        self.get_now_time_for_id(timer_id)
+    }
+
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.is_timer_on(timer_id)
+    }
+}

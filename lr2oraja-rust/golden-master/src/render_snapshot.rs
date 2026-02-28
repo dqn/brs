@@ -720,6 +720,7 @@ fn resolve_detail(
             let direction = graph.get_direction();
             Some(DrawDetail::Graph { value, direction })
         }
+        SkinObject::Float(_) => None,
         SkinObject::BpmGraph(_) => Some(DrawDetail::BpmGraph),
         SkinObject::HitErrorVisualizer(_) => Some(DrawDetail::HitErrorVisualizer),
         SkinObject::NoteDistributionGraph(_) => None,

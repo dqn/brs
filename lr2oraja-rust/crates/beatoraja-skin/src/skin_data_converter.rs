@@ -652,28 +652,22 @@ fn convert_skin_object(
                 vec![images.into_iter().map(Some).collect()]
             };
 
-            if let Some(val) = value {
-                let sf = crate::skin_float::SkinFloat::new_with_int_timer_int_id(
-                    image_opts,
-                    timer_val,
-                    *cycle,
-                    *iketa,
-                    *fketa,
-                    *is_signvisible,
-                    *align,
-                    *zeropadding,
-                    *space,
-                    *val,
-                    *gain,
-                );
-                // SkinFloat is not in the SkinObject enum; wrap as a Number placeholder
-                // Full SkinFloat support requires adding it to the SkinObject enum (Phase 29a)
-                warn!("SkinFloat not in SkinObject enum; skipping");
-                None
-            } else {
-                warn!("SkinFloat not in SkinObject enum; skipping");
-                None
-            }
+            // Use `value` if present (explicit ID), otherwise fall back to `ref_id`
+            let prop_id = value.unwrap_or(*ref_id);
+            let sf = crate::skin_float::SkinFloat::new_with_int_timer_int_id(
+                image_opts,
+                timer_val,
+                *cycle,
+                *iketa,
+                *fketa,
+                *is_signvisible,
+                *align,
+                *zeropadding,
+                *space,
+                prop_id,
+                *gain,
+            );
+            Some(SkinObject::Float(sf))
         }
 
         SkinObjectType::Text {

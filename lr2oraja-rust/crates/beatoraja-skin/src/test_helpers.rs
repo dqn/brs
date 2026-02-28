@@ -14,10 +14,7 @@ pub struct MockMainState {
 impl Default for MockMainState {
     fn default() -> Self {
         Self {
-            timer: Timer {
-                now_time: 0,
-                now_micro_time: 0,
-            },
+            timer: Timer::default(),
             main: MainController { debug: false },
             resource: PlayerResource,
             offsets: std::collections::HashMap::new(),
@@ -26,7 +23,7 @@ impl Default for MockMainState {
 }
 
 impl MainState for MockMainState {
-    fn get_timer(&self) -> &Timer {
+    fn get_timer(&self) -> &dyn beatoraja_types::timer_access::TimerAccess {
         &self.timer
     }
 

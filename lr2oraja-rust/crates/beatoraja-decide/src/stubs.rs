@@ -62,56 +62,6 @@ pub use beatoraja_types::player_resource_access::PlayerResourceAccess;
 /// NullPlayerResource — re-exported from beatoraja-types for default construction
 pub use beatoraja_types::player_resource_access::NullPlayerResource;
 
-/// Stub for Skin (base class for MusicDecideSkin)
-pub struct SkinStub {
-    input: i32,
-    scene: i32,
-    fadeout: i32,
-}
-
-impl SkinStub {
-    pub fn new() -> Self {
-        Self {
-            input: 0,
-            scene: 0,
-            fadeout: 0,
-        }
-    }
-
-    #[cfg(test)]
-    pub fn with_values(input: i32, scene: i32, fadeout: i32) -> Self {
-        Self {
-            input,
-            scene,
-            fadeout,
-        }
-    }
-
-    pub fn get_input(&self) -> i32 {
-        self.input
-    }
-
-    pub fn get_scene(&self) -> i32 {
-        self.scene
-    }
-
-    pub fn get_fadeout(&self) -> i32 {
-        self.fadeout
-    }
-}
-
-impl Default for SkinStub {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Stub for load_skin function
-pub fn load_skin(_skin_type: beatoraja_skin::skin_type::SkinType) -> Option<SkinStub> {
-    log::warn!("not yet implemented: SkinLoader.load");
-    None
-}
-
 /// Stub for play sound (MainState.play delegates to MainController.getSoundManager())
 pub fn play_sound(_sound: SoundType) {
     log::warn!("not yet implemented: MainController.getSoundManager().play()");

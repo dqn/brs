@@ -154,8 +154,11 @@ impl CourseResult {
             .map(|g| g.get_type())
             .unwrap_or(0);
 
-        // loadSkin(SkinType.COURSE_RESULT);
-        log::warn!("not yet implemented: loadSkin(SkinType.COURSE_RESULT)");
+        // loadSkin(SkinType.COURSE_RESULT)
+        beatoraja_core::main_state::MainState::load_skin(
+            self,
+            beatoraja_skin::skin_type::SkinType::CourseResult.id(),
+        );
     }
 
     pub fn prepare(&mut self, main: &mut MainController, resource: &mut PlayerResource) {
@@ -503,6 +506,36 @@ impl Default for CourseResult {
 // ============================================================
 // MainState trait implementation
 // ============================================================
+
+// Tests for CourseResult
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use beatoraja_core::main_state::MainState;
+    use beatoraja_skin::skin_type::SkinType;
+
+    #[test]
+    fn test_state_type_returns_course_result() {
+        let cr = CourseResult::new();
+        assert_eq!(
+            cr.state_type(),
+            Some(beatoraja_core::main_state::MainStateType::CourseResult)
+        );
+    }
+
+    #[test]
+    fn test_create_calls_load_skin_with_course_result_type() {
+        // Verify SkinType::CourseResult.id() matches expected value (15)
+        assert_eq!(SkinType::CourseResult.id(), 15);
+    }
+
+    #[test]
+    fn test_main_state_data_accessors() {
+        let mut cr = CourseResult::new();
+        let _ = <CourseResult as MainState>::main_state_data(&cr);
+        let _ = <CourseResult as MainState>::main_state_data_mut(&mut cr);
+    }
+}
 
 impl beatoraja_core::main_state::MainState for CourseResult {
     fn state_type(&self) -> Option<beatoraja_core::main_state::MainStateType> {

@@ -10,7 +10,7 @@ pub use crate::rendering_stubs::*;
 
 /// Stub for beatoraja.MainState
 pub trait MainState {
-    fn get_timer(&self) -> &Timer;
+    fn get_timer(&self) -> &dyn beatoraja_types::timer_access::TimerAccess;
     fn get_offset_value(&self, id: i32) -> Option<&SkinOffset>;
     fn get_main(&self) -> &MainController;
     fn get_image(&self, id: i32) -> Option<TextureRegion>;
@@ -43,6 +43,11 @@ pub trait MainState {
 
     /// Returns true if this state is a MusicSelector.
     fn is_music_selector(&self) -> bool {
+        false
+    }
+
+    /// Returns true if this state is a result screen (MusicResult or CourseResult).
+    fn is_result_state(&self) -> bool {
         false
     }
 
@@ -156,17 +161,42 @@ impl InputProcessor {
 // SkinOffset — re-exported from beatoraja-types (Phase 25d-2)
 pub use beatoraja_types::skin_offset::SkinOffset;
 
-/// Stub for beatoraja.Timer — implements TimerAccess from beatoraja-types.
+/// Timer data carrier for skin rendering — implements TimerAccess from beatoraja-types.
 ///
-/// This struct is kept for backward compatibility. New code should use
-/// `&dyn beatoraja_types::timer_access::TimerAccess` directly.
+/// Holds current time and per-timer-id activation times (snapshot from TimerManager).
+/// Previously returned 0 for all per-timer queries (frozen animations).
 #[derive(Clone, Debug, Default)]
 pub struct Timer {
     pub now_time: i64,
     pub now_micro_time: i64,
+    /// Per-timer-id activation times. Index = timer_id, value = micro-time when set
+    /// (i64::MIN = OFF). Populated from TimerManager's timer array.
+    timers: Vec<i64>,
 }
 
 impl Timer {
+    /// Create a Timer with time values and a timer array snapshot.
+    pub fn with_timers(now_time: i64, now_micro_time: i64, timers: Vec<i64>) -> Self {
+        Self {
+            now_time,
+            now_micro_time,
+            timers,
+        }
+    }
+
+    /// Set the activation time for a specific timer ID.
+    /// Grows the timers array as needed (new entries default to i64::MIN = OFF).
+    pub fn set_timer_value(&mut self, timer_id: i32, micro_time: i64) {
+        if timer_id < 0 {
+            return;
+        }
+        let idx = timer_id as usize;
+        if idx >= self.timers.len() {
+            self.timers.resize(idx + 1, i64::MIN);
+        }
+        self.timers[idx] = micro_time;
+    }
+
     pub fn get_now_time(&self) -> i64 {
         self.now_time
     }
@@ -175,20 +205,28 @@ impl Timer {
         self.now_micro_time
     }
 
-    pub fn get_micro_timer(&self, _timer_id: i32) -> i64 {
-        0
+    pub fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        if timer_id >= 0 && (timer_id as usize) < self.timers.len() {
+            self.timers[timer_id as usize]
+        } else {
+            i64::MIN
+        }
     }
 
-    pub fn get_timer(&self, _timer_id: i32) -> i64 {
-        0
+    pub fn get_timer(&self, timer_id: i32) -> i64 {
+        self.get_micro_timer(timer_id) / 1000
     }
 
-    pub fn get_now_time_for(&self, _timer_id: i32) -> i64 {
-        0
+    pub fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        if self.is_timer_on(timer_id) {
+            (self.now_micro_time - self.get_micro_timer(timer_id)) / 1000
+        } else {
+            0
+        }
     }
 
-    pub fn is_timer_on(&self, _timer_id: i32) -> bool {
-        false
+    pub fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.get_micro_timer(timer_id) != i64::MIN
     }
 }
 
@@ -199,17 +237,17 @@ impl beatoraja_types::timer_access::TimerAccess for Timer {
     fn get_now_micro_time(&self) -> i64 {
         self.now_micro_time
     }
-    fn get_micro_timer(&self, _timer_id: i32) -> i64 {
-        0
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        self.get_micro_timer(timer_id)
     }
-    fn get_timer(&self, _timer_id: i32) -> i64 {
-        0
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        self.get_timer(timer_id)
     }
-    fn get_now_time_for(&self, _timer_id: i32) -> i64 {
-        0
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        self.get_now_time_for(timer_id)
     }
-    fn is_timer_on(&self, _timer_id: i32) -> bool {
-        false
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.is_timer_on(timer_id)
     }
 }
 
