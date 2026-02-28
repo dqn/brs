@@ -85,9 +85,7 @@ impl RankingData {
         //     lastUpdateTime = System.currentTimeMillis();
         // });
         // irprocess.start();
-        log::warn!(
-            "not yet implemented: RankingData.load requires MainState and IRStatus dependencies"
-        );
+        log::warn!("stub: RankingData.load — blocked by MainState + IRStatus dependencies");
     }
 
     pub fn update_score(&mut self, scores: &[IRScoreData], localscore: Option<&ScoreData>) {

@@ -717,17 +717,17 @@ mod tests {
 
     impl crate::stubs::IRConnection for MockCourseIR {
         fn get_rivals(&self) -> IRResponse<Vec<IRPlayerData>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_table_datas(&self) -> IRResponse<Vec<IRTableData>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_play_data(
             &self,
             _player: Option<&IRPlayerData>,
             _chart: &IRChartData,
         ) -> IRResponse<Vec<IRScoreDataReal>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_course_play_data(
             &self,
@@ -738,7 +738,7 @@ mod tests {
             IRResponse::success("OK".to_string(), vec![])
         }
         fn send_play_data(&self, _model: &IRChartData, _score: &IRScoreDataReal) -> IRResponse<()> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn send_course_play_data(
             &self,

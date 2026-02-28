@@ -714,7 +714,7 @@ impl MainController {
                 use std::sync::Once;
                 static WARN_ONCE: Once = Once::new();
                 WARN_ONCE.call_once(|| {
-                    log::warn!("No skin loaded for current state — screen will be blank. load_skin() is not yet implemented.");
+                    log::warn!("No skin loaded for current state — screen will be blank");
                 });
             }
         }
@@ -1400,14 +1400,16 @@ impl MainController {
     ///
     /// Translated from: MainController.updateTable(TableBar)
     pub fn update_table(&mut self) {
-        log::warn!("not yet implemented: updateTable (TableUpdateThread)");
+        // BLOCKED: requires TableBar from beatoraja-select (circular dep) + threading infrastructure
+        log::warn!("stub: updateTable — blocked by TableUpdateThread + circular dep");
     }
 
     /// Start IPFS download message rendering thread.
     ///
     /// Translated from: MainController.downloadIpfsMessageRenderer(String)
     pub fn download_ipfs_message_renderer(&mut self, _message: &str) {
-        log::warn!("not yet implemented: downloadIpfsMessageRenderer (DownloadMessageThread)");
+        // BLOCKED: requires DownloadMessageThread infrastructure
+        log::warn!("stub: downloadIpfsMessageRenderer — blocked by DownloadMessageThread");
     }
 }
 

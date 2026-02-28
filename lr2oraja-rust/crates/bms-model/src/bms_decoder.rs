@@ -940,7 +940,7 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
         CmdDef {
             name: "COMMENT",
             handler: |_model, _arg| {
-                // TODO: not implemented
+                // #COMMENT: metadata-only, no behavioral effect
                 None
             },
         },

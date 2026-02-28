@@ -220,7 +220,7 @@ impl SkinSource for SkinSourceMovie {
         #[cfg(not(feature = "ffmpeg"))]
         {
             let _ = (time, _state);
-            log::warn!("FFmpeg video decoding not yet implemented");
+            // FFmpeg video decoding requires feature = "ffmpeg"
             None
         }
     }

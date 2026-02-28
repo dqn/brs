@@ -85,24 +85,24 @@ mod tests {
 
     impl IRConnection for MockIRConnectionSuccess {
         fn get_rivals(&self) -> IRResponse<Vec<IRPlayerData>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_table_datas(&self) -> IRResponse<Vec<IRTableData>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_play_data(
             &self,
             _player: Option<&IRPlayerData>,
             _chart: &IRChartData,
         ) -> IRResponse<Vec<IRScoreData>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_course_play_data(
             &self,
             _player: Option<&IRPlayerData>,
             _course: &IRCourseData,
         ) -> IRResponse<Vec<IRScoreData>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn send_play_data(&self, _model: &IRChartData, _score: &IRScoreData) -> IRResponse<()> {
             self.send_called.store(true, Ordering::SeqCst);
@@ -113,7 +113,7 @@ mod tests {
             _course: &IRCourseData,
             _score: &IRScoreData,
         ) -> IRResponse<()> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_song_url(&self, _chart: &IRChartData) -> Option<String> {
             None
@@ -134,24 +134,24 @@ mod tests {
 
     impl IRConnection for MockIRConnectionFailure {
         fn get_rivals(&self) -> IRResponse<Vec<IRPlayerData>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_table_datas(&self) -> IRResponse<Vec<IRTableData>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_play_data(
             &self,
             _player: Option<&IRPlayerData>,
             _chart: &IRChartData,
         ) -> IRResponse<Vec<IRScoreData>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_course_play_data(
             &self,
             _player: Option<&IRPlayerData>,
             _course: &IRCourseData,
         ) -> IRResponse<Vec<IRScoreData>> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn send_play_data(&self, _model: &IRChartData, _score: &IRScoreData) -> IRResponse<()> {
             IRResponse::failure("Server error".to_string())
@@ -161,7 +161,7 @@ mod tests {
             _course: &IRCourseData,
             _score: &IRScoreData,
         ) -> IRResponse<()> {
-            IRResponse::failure("not implemented".to_string())
+            IRResponse::failure("mock".to_string())
         }
         fn get_song_url(&self, _chart: &IRChartData) -> Option<String> {
             None

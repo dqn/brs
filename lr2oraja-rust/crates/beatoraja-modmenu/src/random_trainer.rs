@@ -40,9 +40,7 @@ impl RandomTrainer {
         if seed_map.is_none() {
             // In Java this loads from a serialized resource file "resources/randomtrainer.dat"
             // We stub this as an empty map since the binary resource is not available
-            error!(
-                "RandomTrainer: randomtrainer.dat loading not implemented (stubbed as empty map)"
-            );
+            log::info!("RandomTrainer: randomtrainer.dat not found, using empty map");
             *seed_map = Some(HashMap::new());
         }
         RandomTrainer

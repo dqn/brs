@@ -491,7 +491,7 @@ mod tests {
 /// In Java this was done via cast: ((AbstractResult) currentState)
 fn get_abstract_result(_state: &MainState) -> Option<&dyn AbstractResultAccess> {
     log::warn!(
-        "not yet implemented: Cast MainState to AbstractResult - requires proper screen type hierarchy"
+        "stub: get_abstract_result — blocked by screen type hierarchy (MainState → AbstractResult cast)"
     );
     None
 }

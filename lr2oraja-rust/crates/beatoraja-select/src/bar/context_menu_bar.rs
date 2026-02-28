@@ -94,7 +94,8 @@ impl ContextMenuBar {
         // In Java: return table (the TableBar reference)
         // We don't store TableBar directly here but could return a reference
         // Stubbed since we store table as Option<usize> index
-        log::warn!("not yet implemented: ContextMenuBar.getPrevious - requires TableBar reference");
+        // BLOCKED: requires TableBar reference (stored as index)
+        log::warn!("stub: ContextMenuBar.getPrevious — blocked by TableBar index-based storage");
         None
     }
 
@@ -113,33 +114,25 @@ impl ContextMenuBar {
 
     fn missing_song_context(&self) -> Vec<Bar> {
         // In Java: creates SongBar, adds leaderboard, meta, tag entries
-        log::warn!(
-            "not yet implemented: ContextMenuBar.missingSongContext - requires MusicSelector context"
-        );
+        log::warn!("stub: ContextMenuBar.missingSongContext — blocked by MusicSelector context");
         Vec::new()
     }
 
     fn song_context(&self) -> Vec<Bar> {
         // In Java: creates play/autoplay/practice bars, leaderboard, related, open folder, etc.
-        log::warn!(
-            "not yet implemented: ContextMenuBar.songContext - requires MusicSelector context"
-        );
+        log::warn!("stub: ContextMenuBar.songContext — blocked by MusicSelector context");
         Vec::new()
     }
 
     fn table_context(&self) -> Vec<Bar> {
         // In Java: creates table context menu entries
-        log::warn!(
-            "not yet implemented: ContextMenuBar.tableContext - requires MusicSelector context"
-        );
+        log::warn!("stub: ContextMenuBar.tableContext — blocked by MusicSelector context");
         Vec::new()
     }
 
     fn table_folder_context(&self) -> Vec<Bar> {
         // In Java: creates fill missing charts entry
-        log::warn!(
-            "not yet implemented: ContextMenuBar.tableFolderContext - requires MusicSelector context"
-        );
+        log::warn!("stub: ContextMenuBar.tableFolderContext — blocked by MusicSelector context");
         Vec::new()
     }
 
@@ -149,9 +142,7 @@ impl ContextMenuBar {
     fn add_leaderboard_entries(&self, options: &mut Vec<Bar>) {
         // In Java: creates FunctionBars for leaderboard and LR2IR leaderboard
         // Requires MusicSelector.main.getIRStatus(), LeaderBoardBar, play(FOLDER_OPEN)
-        log::warn!(
-            "not yet implemented: ContextMenuBar.addLeaderboardEntries - requires MusicSelector context"
-        );
+        log::warn!("stub: ContextMenuBar.addLeaderboardEntries — blocked by MusicSelector context");
     }
 
     /// Add metadata copy entries to the context menu.
@@ -159,9 +150,7 @@ impl ContextMenuBar {
     #[allow(clippy::ptr_arg)]
     fn add_meta_entries(&self, options: &mut Vec<Bar>) {
         // In Java: creates FunctionBars for LR2IR page, Chart Viewer, Metadata (Copy Title/MD5/SHA256/Path/URL)
-        log::warn!(
-            "not yet implemented: ContextMenuBar.addMetaEntries - requires MusicSelector context"
-        );
+        log::warn!("stub: ContextMenuBar.addMetaEntries — blocked by MusicSelector context");
     }
 
     /// Add table tag display entries to the context menu.
@@ -169,9 +158,7 @@ impl ContextMenuBar {
     #[allow(clippy::ptr_arg)]
     fn add_tag_display_entries(&self, options: &mut Vec<Bar>) {
         // In Java: reverse-looks up song in difficulty tables and creates navigable entries
-        log::warn!(
-            "not yet implemented: ContextMenuBar.addTagDisplayEntries - requires BarManager.getTables()"
-        );
+        log::warn!("stub: ContextMenuBar.addTagDisplayEntries — blocked by BarManager.getTables()");
     }
 
     /// Add a single table entry for tag display.
@@ -179,9 +166,7 @@ impl ContextMenuBar {
     #[allow(clippy::ptr_arg)]
     fn add_table_entry(&self, options: &mut Vec<Bar>, _table: &TableBar, _level: &HashBar) {
         // In Java: creates FunctionBar that navigates to the table/level, with calculated lamps
-        log::warn!(
-            "not yet implemented: ContextMenuBar.addTableEntry - requires BarManager navigation"
-        );
+        log::warn!("stub: ContextMenuBar.addTableEntry — blocked by BarManager navigation");
     }
 
     /// Calculate clear lamp distribution for a set of songs.
@@ -236,9 +221,7 @@ impl ContextMenuBar {
         // In Java: queries songdb for existing songs, filters out those already present,
         // submits HTTP download tasks for missing ones
         // Requires MainController.getSongDatabase(), HttpDownloadProcessor
-        log::warn!(
-            "not yet implemented: ContextMenuBar.fillMissingCharts - requires HttpDownloadProcessor"
-        );
+        log::warn!("stub: ContextMenuBar.fillMissingCharts — blocked by HttpDownloadProcessor");
         0
     }
 }

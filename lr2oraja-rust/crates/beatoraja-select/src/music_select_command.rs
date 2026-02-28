@@ -103,36 +103,34 @@ impl MusicSelectCommand {
                 // In Java: checks directory for TableBar, starts IPFS download
                 // Blocked on MainController.getMusicDownloadProcessor()
                 log::warn!(
-                    "not yet implemented: DOWNLOAD_IPFS - requires MainController.getMusicDownloadProcessor()"
+                    "stub: DOWNLOAD_IPFS — blocked by MainController.getMusicDownloadProcessor()"
                 );
             }
             MusicSelectCommand::DownloadHttp => {
                 // In Java: submits HTTP download task for missing song
                 // Blocked on MainController.getHttpDownloadProcessor()
                 log::warn!(
-                    "not yet implemented: DOWNLOAD_HTTP - requires MainController.getHttpDownloadProcessor()"
+                    "stub: DOWNLOAD_HTTP — blocked by MainController.getHttpDownloadProcessor()"
                 );
             }
             MusicSelectCommand::DownloadCourseHttp => {
                 // In Java: submits HTTP download tasks for missing course songs
                 // Blocked on MainController.getHttpDownloadProcessor()
                 log::warn!(
-                    "not yet implemented: DOWNLOAD_COURSE_HTTP - requires MainController.getHttpDownloadProcessor()"
+                    "stub: DOWNLOAD_COURSE_HTTP — blocked by MainController.getHttpDownloadProcessor()"
                 );
             }
             MusicSelectCommand::ShowSongsOnSameFolder => {
                 // In Java: opens SameFolderBar or ContainerBar for course songs
                 // Blocked on SameFolderBar(selector, ...) constructor needing MusicSelector
                 log::warn!(
-                    "not yet implemented: SHOW_SONGS_ON_SAME_FOLDER - requires SameFolderBar/ContainerBar integration"
+                    "stub: SHOW_SONGS_ON_SAME_FOLDER — blocked by SameFolderBar/ContainerBar integration"
                 );
             }
             MusicSelectCommand::ShowContextMenu => {
                 // In Java: opens ContextMenuBar for song/table/hash bars
                 // Blocked on ContextMenuBar(selector, ...) constructor
-                log::warn!(
-                    "not yet implemented: SHOW_CONTEXT_MENU - requires ContextMenuBar integration"
-                );
+                log::warn!("stub: SHOW_CONTEXT_MENU — blocked by ContextMenuBar integration");
             }
             MusicSelectCommand::CopyHighlightedMenuText => {
                 if let Some(selected) = selector.manager.get_selected() {

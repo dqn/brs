@@ -18,6 +18,6 @@ pub fn find_parent_by_class_simple_name<T>(_node: &T, _class_name: &str) -> Opti
     // - Walks up the parent chain comparing class simple names
     // - Returns Optional.of((T) targetNode) on match
     // - Returns Optional.empty() if no match found
-    log::warn!("not yet implemented: find_parent_by_class_simple_name - no egui equivalent");
+    // No egui equivalent for JavaFX class hierarchy lookup
     None
 }

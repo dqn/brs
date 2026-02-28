@@ -42,7 +42,8 @@ impl RivalDataAccessor {
         // TODO: IR integration requires Phase 5+ types
         // (IRResponse, IRPlayerData, IRScoreData, ScoreDataImporter, ScoreDataCache)
         // Stubbed for now.
-        log::warn!("not yet implemented: IR integration for rival data");
+        // BLOCKED: requires IRConnection + IRResponse types from beatoraja-ir (circular dep)
+        log::warn!("stub: RivalDataAccessor.update — blocked by IR integration (circular dep)");
     }
 }
 

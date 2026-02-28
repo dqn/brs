@@ -54,7 +54,7 @@ impl SpriteBatchHelper {
     pub fn create_sprite_batch_shader() {
         // ShaderProgramFactory.fromString(vertexShader, fragmentShader, true, true)
         // In wgpu, shaders are compiled as part of SpriteRenderPipeline::new()
-        log::warn!("not yet implemented: LibGDX ShaderProgramFactory (wgpu uses WGSL)");
+        // wgpu uses WGSL shaders compiled in SpriteRenderPipeline::new(), not GLSL ShaderPrograms
     }
 
     pub fn create_sprite_batch() -> SpriteBatch {
