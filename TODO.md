@@ -69,13 +69,13 @@ Phases 1–44 complete. **2391 tests, 16 ignored.** 27 crates, 127k lines. See A
 
 ## Phase 52: Launcher & External Wiring
 
-- [ ] **52a:** Skin header loading wiring — Connect skin header loader in beatoraja-launcher
+- [x] **52a:** Skin header loading wiring — Connect skin header loader in beatoraja-launcher
   - depends: 47c
-- [ ] **52b:** Async BMS DB loading — Implement async song database loading in launcher
+- [x] **52b:** Async BMS DB loading — Implement async song database loading in launcher
   - depends: none
-- [ ] **52c:** get_screen_type() implementation — Replace `→ Other` stubs in 3 external files
+- [x] **52c:** get_screen_type() implementation — Replace `→ Other` stubs in 3 external files
   - depends: none
-- [ ] **52d:** DifficultyTableParser bridge — Wire bms-table crate as dependency + toSongData()
+- [x] **52d:** DifficultyTableParser bridge — Wire bms-table crate as dependency + toSongData()
   - depends: none
 
 ## Phase 53: Quality & Test Coverage
