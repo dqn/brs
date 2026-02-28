@@ -16,53 +16,6 @@ use crate::replay_data::ReplayData;
 use crate::score_data::ScoreData;
 use crate::stubs::*;
 
-/// SongData stub (Phase 5+ dependency: beatoraja.song)
-pub struct SongData {
-    md5: String,
-    sha256: String,
-    path: String,
-    title: String,
-    subtitle: String,
-}
-
-impl Default for SongData {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SongData {
-    pub fn new() -> Self {
-        Self {
-            md5: String::new(),
-            sha256: String::new(),
-            path: String::new(),
-            title: String::new(),
-            subtitle: String::new(),
-        }
-    }
-
-    pub fn get_md5(&self) -> &str {
-        &self.md5
-    }
-
-    pub fn get_sha256(&self) -> &str {
-        &self.sha256
-    }
-
-    pub fn get_path(&self) -> &str {
-        &self.path
-    }
-
-    pub fn get_title(&self) -> &str {
-        &self.title
-    }
-
-    pub fn get_subtitle(&self) -> &str {
-        &self.subtitle
-    }
-}
-
 /// RankingData stub (Phase 5+ dependency: beatoraja.ir)
 pub struct RankingData;
 
@@ -72,8 +25,6 @@ pub type FloatArray = Vec<f32>;
 /// PlayerResource - holds game session state for data exchange between components
 #[allow(dead_code)]
 pub struct PlayerResource {
-    /// Current BMS model
-    model: Option<BMSModel>,
     /// Margin time
     margin_time: i64,
     /// Current song data
@@ -155,7 +106,6 @@ impl PlayerResource {
         let org_gauge_option = pconfig.gauge;
         let bmsresource = Some(BMSResource::new(&config, &pconfig));
         Self {
-            model: None,
             margin_time: 0,
             songdata: None,
             orgmode: None,
@@ -224,10 +174,12 @@ impl PlayerResource {
             self.margin_time = margin_time;
             // orgmode = model.getMode() — orgmode is still Option<()> stub,
             // will be wired when orgmode type is changed to Option<Mode>
-            self.model = Some(model);
+            // Java: songdata = new SongData(model, false)
+            let songdata = SongData::new_from_model(model, false);
+            self.songdata = Some(songdata);
             if let Some(ref mut bmsresource) = self.bmsresource {
                 bmsresource.set_bms_file(
-                    self.model.as_ref().unwrap(),
+                    self.songdata.as_ref().unwrap().get_bms_model().unwrap(),
                     f,
                     &self.config,
                     self.mode.as_ref().unwrap(),
@@ -258,7 +210,7 @@ impl PlayerResource {
     }
 
     pub fn get_bms_model(&self) -> Option<&BMSModel> {
-        self.model.as_ref()
+        self.songdata.as_ref().and_then(|sd| sd.get_bms_model())
     }
 
     pub fn get_margin_time(&self) -> i64 {
@@ -640,10 +592,7 @@ impl PlayerResourceAccess for PlayerResource {
     }
 
     fn get_songdata(&self) -> Option<&beatoraja_types::song_data::SongData> {
-        // The core SongData stub is a different type from beatoraja_types::SongData.
-        // This will be resolved when core's SongData stub is replaced.
-        log::warn!("not yet implemented: core SongData stub differs from types SongData");
-        None
+        self.songdata.as_ref()
     }
 
     fn get_replay_data(&self) -> Option<&ReplayData> {
@@ -817,6 +766,42 @@ mod tests {
         // margin_time is set by set_start_note_time (may be 0 if first note >= 1000ms)
         // Just verify it doesn't panic and the field is accessible
         let _margin = resource.get_margin_time();
+    }
+
+    #[test]
+    fn set_bms_file_populates_songdata() {
+        let config = Config::default();
+        let pconfig = PlayerConfig::default();
+        let mut resource = PlayerResource::new(config, pconfig);
+
+        let bms_path = test_bms_dir().join("minimal_7k.bms");
+        assert!(
+            bms_path.exists(),
+            "test BMS file must exist: {:?}",
+            bms_path
+        );
+
+        let result = resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY);
+        assert!(result, "set_bms_file should return true on success");
+
+        // get_songdata() should return Some after loading a BMS file
+        let songdata = resource
+            .get_songdata()
+            .expect("songdata should be Some after successful set_bms_file");
+
+        // md5 should be populated from the loaded model
+        assert!(
+            !songdata.get_md5().is_empty(),
+            "songdata.md5 should be non-empty"
+        );
+
+        // PlayerResourceAccess trait method should also return Some
+        let trait_songdata =
+            PlayerResourceAccess::get_songdata(&resource as &dyn PlayerResourceAccess);
+        assert!(
+            trait_songdata.is_some(),
+            "PlayerResourceAccess::get_songdata should return Some"
+        );
     }
 
     #[test]
