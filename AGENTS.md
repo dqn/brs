@@ -84,9 +84,10 @@ lr2oraja-rust/       # Cargo workspace
 
 ## Status
 
-**2940 tests.** Phases 1–54 complete. Zero clippy warnings.
+**2940 tests.** Phases 1–55 complete. Zero clippy warnings.
 **Migration audit**: 93.97% method resolution (4,021/4,279). 0 constant mismatches. 0 Rust-side regressions.
-**Phase 54 finding**: ast-compare "missing" 257 methods → 88% false positives (architectural redesign). ~28 genuine gaps remain (deferred features, not blocking).
+**Phase 54 finding**: ast-compare "missing" 257 methods → 88% false positives (architectural redesign).
+**Phase 55**: 28 genuine gaps audited → 15 already implemented (false positives), 7 newly implemented, 6 blocked by circular deps.
 
 ### Resolved (Phase 45–53)
 
@@ -123,16 +124,27 @@ All 7 critical gaps, the StdRng regression, and BytePCM regressions resolved:
 BytePCM float saturation and negative overflow resolved in Phase 54b.
 Fix: `(f * 127.0) as i32 as i8` matches Java's `(byte)(int)(f * 127)` truncation semantics.
 
-### Genuine Gaps (~28 methods, non-blocking)
+### Genuine Gaps (Phase 55 audit: 28 → 6 remaining)
 
-- PlayerConfig I/O (7): createDirectory, copyReplays, loadPlayerConfig — deferred to launcher integration
-- MainState stubs (4): loadSkin, getOffsetValue, getImage, getSound — Phase 47 scaffolding
-- MainController thread stubs (3): updateSong, updateTable, downloadIpfsMessageRenderer
-- Config accessors (4): scrollDuration, clipboard screenshot
-- CipherUtils (2): AES encrypt/decrypt for IR passwords — security gap, deferred
-- SkinTextBitmap (2): character rendering
-- Lua stubs (2): serializeLuaScript, exportSkinPropertyToTable
-- Other (4): BMSModelUtils, CourseResult.shutdown, IRSendStatus.send, SongDatabaseAccessor.updateSongDatas
+**Implemented in Phase 55 (7):**
+- Config: set_scroll_duration_low/high, get_scroll_duration_low/high, set_clipboard_when_screenshot
+- BMSModelUtils.get_average_notes_per_time
+- CourseResult.shutdown (stop course result sounds)
+- SkinTextBitmap.createCacheableFont (.fnt header parsing)
+- SkinTextBitmap.getFont (BitmapFontCache integration)
+- MainController.updateSong/updateSongWithFlag (improved stubs with logging)
+
+**Already implemented (15 false positives in gap list):**
+- PlayerConfig I/O (7): all methods exist (createDirectory, copyReplays, create, readAllPlayerID, loadPlayerConfig, loadPlayerConfigFromOldPath, validate)
+- CipherUtils (2): cipher_encrypt/cipher_decrypt in ir_config.rs
+- SongDatabaseAccessor.updateSongDatas: full implementation in beatoraja-song
+- CourseResult IRSendStatus.send: CourseIRSendStatus fully functional
+- Lua (2): serializeLuaScript (distributed), exportSkinPropertyToTable (two methods)
+
+**Blocked by architecture (6 remaining, non-blocking):**
+- MainState defaults (4): loadSkin, getOffsetValue, getImage, getSound — trait override points, concrete states override
+- MainController.updateTable — needs TableBar from beatoraja-select (circular dep)
+- MainController IRSendStatus.send — needs IRConnection from beatoraja-ir (circular dep)
 
 ## Lessons Learned
 

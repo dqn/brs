@@ -369,6 +369,26 @@ impl Config {
         self.set_clipboard_screenshot
     }
 
+    pub fn set_clipboard_when_screenshot(&mut self, value: bool) {
+        self.set_clipboard_screenshot = value;
+    }
+
+    pub fn get_scroll_duration_low(&self) -> i32 {
+        self.scrolldurationlow
+    }
+
+    pub fn set_scroll_duration_low(&mut self, value: i32) {
+        self.scrolldurationlow = value;
+    }
+
+    pub fn get_scroll_duration_high(&self) -> i32 {
+        self.scrolldurationhigh
+    }
+
+    pub fn set_scroll_duration_high(&mut self, value: i32) {
+        self.scrolldurationhigh = value;
+    }
+
     pub fn get_webhook_option(&self) -> i32 {
         self.webhook_option
     }

@@ -153,6 +153,15 @@ pub fn get_total_notes_full(
     count
 }
 
+/// Java: BMSModelUtils.getAverageNotesPerTime(BMSModel, int, int)
+/// Returns the average notes per 1000ms in the given time range.
+pub fn get_average_notes_per_time(model: &BMSModel, start: i32, end: i32) -> f64 {
+    if end <= start {
+        return 0.0;
+    }
+    get_total_notes_range(model, start, end) as f64 * 1000.0 / (end - start) as f64
+}
+
 pub fn change_frequency(model: &mut BMSModel, freq: f32) {
     model.set_bpm(model.get_bpm() * (freq as f64));
     for tl in model.get_all_time_lines_mut() {

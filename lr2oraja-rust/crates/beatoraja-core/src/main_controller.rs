@@ -1036,12 +1036,34 @@ impl MainController {
         self.http_download_processor = Some(processor);
     }
 
-    pub fn update_song(&mut self, _path: &str) {
-        log::warn!("not yet implemented: SongUpdateThread");
+    /// Start song database update.
+    ///
+    /// Translated from: MainController.updateSong(String)
+    /// In Java, spawns SongUpdateThread calling songdb.updateSongDatas().
+    /// Requires SongDatabaseAccessor trait to expose update_song_datas() — deferred.
+    pub fn update_song(&mut self, path: &str) {
+        self.update_song_with_flag(path, false);
     }
 
-    pub fn update_song_with_flag(&mut self, _path: &str, _update_parent_when_missing: bool) {
-        log::warn!("not yet implemented: SongUpdateThread with flag");
+    /// Start song database update with parent-when-missing flag.
+    ///
+    /// Translated from: MainController.updateSong(String, boolean)
+    pub fn update_song_with_flag(&mut self, path: &str, update_parent_when_missing: bool) {
+        log::info!(
+            "updating folder : {}, update parent when missing : {}",
+            if path.is_empty() { "ALL" } else { path },
+            if update_parent_when_missing {
+                "yes"
+            } else {
+                "no"
+            }
+        );
+        // Java: spawns SongUpdateThread → getSongDatabase().updateSongDatas(path, bmsroot, ...)
+        // Blocked: SongDatabaseAccessor trait doesn't expose update_song_datas().
+        // The concrete SQLiteSongDatabaseAccessor has it, but core can't downcast.
+        log::warn!(
+            "Song update not yet wired: SongDatabaseAccessor trait needs update_song_datas()"
+        );
     }
 
     pub fn get_version() -> &'static str {

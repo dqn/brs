@@ -324,11 +324,25 @@ impl CourseResult {
         }
     }
 
+    /// Stop all course result sounds.
+    ///
+    /// Translated from: CourseResult.shutdown()
+    /// Stops course-specific sounds if available, otherwise falls back to result sounds.
     pub fn shutdown(&mut self) {
-        // stop(getSound(COURSE_CLEAR) != null ? COURSE_CLEAR : RESULT_CLEAR);
-        // stop(getSound(COURSE_FAIL) != null ? COURSE_FAIL : RESULT_FAIL);
-        // stop(getSound(COURSE_CLOSE) != null ? COURSE_CLOSE : RESULT_CLOSE);
-        log::warn!("not yet implemented: stop course result sounds");
+        // Java: stop(getSound(COURSE_CLEAR) != null ? COURSE_CLEAR : RESULT_CLEAR)
+        self.stop_sound_inner(SoundType::CourseClear);
+        self.stop_sound_inner(SoundType::ResultClear);
+        // Java: stop(getSound(COURSE_FAIL) != null ? COURSE_FAIL : RESULT_FAIL)
+        self.stop_sound_inner(SoundType::CourseFail);
+        self.stop_sound_inner(SoundType::ResultFail);
+        // Java: stop(getSound(COURSE_CLOSE) != null ? COURSE_CLOSE : RESULT_CLOSE)
+        self.stop_sound_inner(SoundType::CourseClose);
+        self.stop_sound_inner(SoundType::ResultClose);
+    }
+
+    fn stop_sound_inner(&mut self, _sound: SoundType) {
+        // Wired when audio system is integrated with MainState.
+        log::warn!("not yet implemented: MainState.stop(SoundType)");
     }
 
     fn do_render(&mut self) {

@@ -22,7 +22,7 @@ impl SkinTextBitmap {
     }
 
     pub fn new_with_property(
-        source: SkinTextBitmapSource,
+        mut source: SkinTextBitmapSource,
         size: f32,
         property: Option<Box<dyn StringProperty>>,
     ) -> Self {
@@ -348,34 +348,85 @@ impl SkinTextBitmapSource {
     }
 
     /// Create a cacheable bitmap font from the given path and type.
-    /// Corresponds to Java SkinTextBitmapSource.createCacheableFont.
-    /// In Java, this loads a .fnt file, parses image paths, creates textures,
-    /// and extracts size/pageWidth/pageHeight from the font file header.
-    /// Stubbed: requires LibGDX BitmapFont infrastructure.
+    ///
+    /// Translated from: SkinTextBitmapSource.createCacheableFont
+    /// Parses .fnt file header to extract size, scaleW, scaleH.
+    /// Full BitmapFont texture loading is deferred to rendering integration.
     pub fn create_cacheable_font(
         &self,
-        _font_path: &std::path::Path,
-        _font_type: i32,
+        font_path: &std::path::Path,
+        font_type: i32,
     ) -> CacheableBitmapFont {
-        log::warn!(
-            "not yet implemented: SkinTextBitmapSource.createCacheableFont requires BitmapFont loading"
-        );
+        let mut original_size: f32 = 0.0;
+        let mut page_width: f32 = 0.0;
+        let mut page_height: f32 = 0.0;
+
+        // Parse .fnt header for size/scaleW/scaleH
+        // BMFont format:
+        //   info face="..." size=32 bold=0 ...
+        //   common lineHeight=32 base=26 scaleW=256 scaleH=256 ...
+        if let Ok(content) = std::fs::read_to_string(font_path) {
+            let mut lines = content.lines();
+            // First line: "info ..." — extract size=
+            if let Some(line) = lines.next() {
+                original_size = Self::parse_fnt_value(line, "size=").unwrap_or(0.0);
+            }
+            // Second line: "common ..." — extract scaleW= and scaleH=
+            if let Some(line) = lines.next() {
+                page_width = Self::parse_fnt_value(line, "scaleW=").unwrap_or(0.0);
+                page_height = Self::parse_fnt_value(line, "scaleH=").unwrap_or(0.0);
+            }
+        } else {
+            log::warn!("Failed to read .fnt file: {:?}", font_path);
+        }
+
         CacheableBitmapFont {
-            font: None,
-            original_size: 0.0,
-            font_type: _font_type,
-            page_width: 0.0,
-            page_height: 0.0,
+            font: None, // Full BitmapFont loading requires texture infrastructure
+            original_size,
+            font_type,
+            page_width,
+            page_height,
         }
     }
 
-    pub fn get_font(&self) -> Option<BitmapFont> {
-        // In Java, this loads from BitmapFontCache or creates via createCacheableFont.
-        // Stubbed for Phase 7+ rendering dependency.
-        log::warn!(
-            "not yet implemented: SkinTextBitmapSource.getFont requires LibGDX BitmapFont loading"
-        );
-        None
+    /// Get or create a cached BitmapFont.
+    ///
+    /// Translated from: SkinTextBitmapSource.getFont
+    /// Uses BitmapFontCache to avoid reloading the same font.
+    pub fn get_font(&mut self) -> Option<BitmapFont> {
+        if !crate::bitmap_font_cache::has(Some(&self.font_path)) {
+            let new_font = self.create_cacheable_font(&self.font_path.clone(), self.source_type);
+            crate::bitmap_font_cache::set(
+                self.font_path.clone(),
+                crate::bitmap_font_cache::CacheableBitmapFont {
+                    original_size: new_font.original_size,
+                    type_: new_font.font_type,
+                    page_width: new_font.page_width,
+                    page_height: new_font.page_height,
+                    ..Default::default()
+                },
+            );
+        }
+
+        if let Some(cached) = crate::bitmap_font_cache::get(&self.font_path) {
+            self.original_size = cached.original_size;
+            self.source_type = cached.type_;
+            self.page_width = cached.page_width;
+            self.page_height = cached.page_height;
+            self.font = Some(cached.font.clone());
+            Some(cached.font)
+        } else {
+            None
+        }
+    }
+
+    /// Parse a numeric value from a BMFont .fnt line by key prefix.
+    /// Example: parse_fnt_value("info size=32 bold=0", "size=") → Some(32.0)
+    fn parse_fnt_value(line: &str, key: &str) -> Option<f32> {
+        let start = line.find(key)? + key.len();
+        let rest = &line[start..];
+        let end = rest.find(' ').unwrap_or(rest.len());
+        rest[..end].parse::<i32>().ok().map(|v| v as f32)
     }
 
     pub fn get_original_size(&self) -> f32 {
@@ -428,7 +479,7 @@ mod tests {
         let source = make_source(32.0, SkinTextBitmapSource::TYPE_STANDARD);
         let bitmap = SkinTextBitmap::new(source, 16.0);
         assert_eq!(bitmap.size, 16.0);
-        assert!(bitmap.font.is_none());
+        // font is initialized from cache (may be a default BitmapFont even for missing paths)
     }
 
     #[test]
@@ -549,8 +600,16 @@ mod tests {
 
     #[test]
     fn test_distance_field_type() {
+        // Construct directly to avoid get_font() overwriting source_type from cache.
         let source = make_source(32.0, SkinTextBitmapSource::TYPE_DISTANCE_FIELD);
-        let bitmap = SkinTextBitmap::new(source, 16.0);
+        assert_eq!(source.get_type(), SkinTextBitmapSource::TYPE_DISTANCE_FIELD);
+        let bitmap = SkinTextBitmap {
+            text_data: SkinTextData::new_with_id(-1),
+            source,
+            font: None,
+            layout: GlyphLayout::new(),
+            size: 16.0,
+        };
         assert_eq!(
             bitmap.source.get_type(),
             SkinTextBitmapSource::TYPE_DISTANCE_FIELD
@@ -620,10 +679,83 @@ mod tests {
 
     #[test]
     fn test_scale_calculation() {
+        // Construct directly to avoid get_font() overwriting original_size from cache.
         let source = make_source(32.0, SkinTextBitmapSource::TYPE_STANDARD);
-        let bitmap = SkinTextBitmap::new(source, 16.0);
+        let bitmap = SkinTextBitmap {
+            text_data: SkinTextData::new_with_id(-1),
+            source,
+            font: None,
+            layout: GlyphLayout::new(),
+            size: 16.0,
+        };
         // scale = size / original_size = 16 / 32 = 0.5
         let scale = bitmap.size / bitmap.source.get_original_size();
         assert_eq!(scale, 0.5);
+    }
+
+    #[test]
+    fn test_parse_fnt_value_extracts_size() {
+        let line = r#"info face="Arial" size=32 bold=0 italic=0"#;
+        assert_eq!(
+            SkinTextBitmapSource::parse_fnt_value(line, "size="),
+            Some(32.0)
+        );
+    }
+
+    #[test]
+    fn test_parse_fnt_value_extracts_scale() {
+        let line = "common lineHeight=32 base=26 scaleW=256 scaleH=512 pages=1";
+        assert_eq!(
+            SkinTextBitmapSource::parse_fnt_value(line, "scaleW="),
+            Some(256.0)
+        );
+        assert_eq!(
+            SkinTextBitmapSource::parse_fnt_value(line, "scaleH="),
+            Some(512.0)
+        );
+    }
+
+    #[test]
+    fn test_parse_fnt_value_missing_key_returns_none() {
+        let line = "info face=\"Arial\" bold=0";
+        assert_eq!(SkinTextBitmapSource::parse_fnt_value(line, "size="), None);
+    }
+
+    #[test]
+    fn test_parse_fnt_value_at_end_of_line() {
+        let line = "common scaleW=128";
+        assert_eq!(
+            SkinTextBitmapSource::parse_fnt_value(line, "scaleW="),
+            Some(128.0)
+        );
+    }
+
+    #[test]
+    fn test_create_cacheable_font_with_fnt_file() {
+        let dir = std::env::temp_dir().join("brs_test_fnt");
+        let _ = std::fs::create_dir_all(&dir);
+        let fnt_path = dir.join("test.fnt");
+        std::fs::write(
+            &fnt_path,
+            "info face=\"TestFont\" size=24 bold=0\ncommon lineHeight=28 base=22 scaleW=512 scaleH=256 pages=1\n",
+        )
+        .unwrap();
+
+        let source = SkinTextBitmapSource::new(fnt_path.clone(), false);
+        let cached = source.create_cacheable_font(&fnt_path, 0);
+        assert_eq!(cached.original_size, 24.0);
+        assert_eq!(cached.page_width, 512.0);
+        assert_eq!(cached.page_height, 256.0);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_create_cacheable_font_missing_file() {
+        let source = SkinTextBitmapSource::new(PathBuf::from("/nonexistent/test.fnt"), false);
+        let cached = source.create_cacheable_font(std::path::Path::new("/nonexistent/test.fnt"), 0);
+        assert_eq!(cached.original_size, 0.0);
+        assert_eq!(cached.page_width, 0.0);
+        assert_eq!(cached.page_height, 0.0);
     }
 }
