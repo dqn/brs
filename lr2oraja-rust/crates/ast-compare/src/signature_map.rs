@@ -200,6 +200,15 @@ pub fn load_ignore_patterns(path: &Path) -> Vec<String> {
         .lines()
         .map(|l| l.trim())
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        // Strip inline comments (e.g., "Foo.bar  # comment" → "Foo.bar")
+        .map(|l| {
+            if let Some(idx) = l.find('#') {
+                l[..idx].trim()
+            } else {
+                l
+            }
+        })
+        .filter(|l| !l.is_empty())
         .map(|l| l.to_string())
         .collect()
 }
