@@ -345,9 +345,10 @@ impl BarManager {
             self.sourcebars.clear();
 
             // In Java: l.addAll(new FolderBar(select, null, "e2977170").getChildren())
-            // FolderBar.getChildren() requires songdb - skipped until wired
             let root_folder = FolderBar::new(None, "e2977170".to_string());
-            l.extend(root_folder.get_children());
+            if let Some(ref ctx) = ctx {
+                l.extend(root_folder.get_children(ctx.songdb));
+            }
 
             // Add courses
             if let Some(ref courses) = self.courses {
@@ -408,19 +409,34 @@ impl BarManager {
             }
 
             // Get children based on bar type
-            match bar {
-                Bar::Folder(b) => l.extend(b.get_children()),
-                Bar::Command(b) => l.extend(b.get_children()),
-                Bar::Container(b) => {
-                    l.extend(b.get_children().iter().cloned());
+            if let Some(ref ctx) = ctx {
+                let songdb = ctx.songdb;
+                match bar {
+                    Bar::Folder(b) => l.extend(b.get_children(songdb)),
+                    Bar::Command(b) => {
+                        let player_name = ctx.config.playername.as_deref().unwrap_or("default");
+                        let score_path =
+                            format!("{}/{}/score.db", ctx.config.playerpath, player_name);
+                        let scorelog_path =
+                            format!("{}/{}/scorelog.db", ctx.config.playerpath, player_name);
+                        let cmd_ctx = crate::bar::command_bar::CommandBarContext {
+                            score_db_path: &score_path,
+                            scorelog_db_path: &scorelog_path,
+                            info_db_path: None, // TODO: wire songinfo.db when available
+                        };
+                        l.extend(b.get_children(songdb, &cmd_ctx));
+                    }
+                    Bar::Container(b) => {
+                        l.extend(b.get_children().iter().cloned());
+                    }
+                    Bar::Hash(b) => l.extend(b.get_children(songdb)),
+                    Bar::Table(b) => {
+                        l.extend(b.get_children().iter().cloned());
+                    }
+                    Bar::SearchWord(b) => l.extend(b.get_children(songdb)),
+                    Bar::ContextMenu(b) => l.extend(b.get_children()),
+                    _ => {}
                 }
-                Bar::Hash(b) => l.extend(b.get_children()),
-                Bar::Table(b) => {
-                    l.extend(b.get_children().iter().cloned());
-                }
-                Bar::SearchWord(b) => l.extend(b.get_children()),
-                Bar::ContextMenu(b) => l.extend(b.get_children()),
-                _ => {}
             }
 
             // Add random course results for ContainerBar
