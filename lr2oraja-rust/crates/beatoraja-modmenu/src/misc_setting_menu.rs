@@ -277,3 +277,32 @@ fn profile_switcher() {
     // }
     // if (reloadClicked) { loadPlayers(); }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_play_mode_options_count() {
+        let options = get_play_mode_options();
+        assert_eq!(options.len(), 8);
+    }
+
+    #[test]
+    fn test_get_play_mode_options_contains_expected_modes() {
+        let options = get_play_mode_options();
+        // Mode::hint() returns lowercase hyphenated strings like "beat-5k", "beat-7k"
+        assert!(options.iter().any(|o| o.contains("5k")));
+        assert!(options.iter().any(|o| o.contains("7k")));
+        assert!(options.iter().any(|o| o.contains("10k")));
+        assert!(options.iter().any(|o| o.contains("14k")));
+    }
+
+    #[test]
+    fn test_get_play_mode_options_all_nonempty() {
+        let options = get_play_mode_options();
+        for option in &options {
+            assert!(!option.is_empty(), "Play mode option should not be empty");
+        }
+    }
+}

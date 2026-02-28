@@ -6,7 +6,7 @@ edition.workspace = true
 [dependencies]
 # Internal crates
 bms-model = { workspace = true }
-beatoraja-common = { workspace = true }
+bms-table = { workspace = true }
 beatoraja-input = { workspace = true }
 beatoraja-audio = { workspace = true }
 beatoraja-types = { workspace = true }

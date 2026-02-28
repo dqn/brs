@@ -90,4 +90,19 @@ mod tests {
         assert_eq!(cloned.get_data(), Some(&vec![1, 2, 3]));
         assert_eq!(cloned.get_message(), "ok");
     }
+
+    #[test]
+    fn test_ir_response_failure_constructor_message() {
+        let resp: IRResponse<i32> = IRResponse::failure("Error occurred".to_string());
+        assert!(!resp.is_succeeded());
+        assert_eq!(resp.get_message(), "Error occurred");
+        assert!(resp.get_data().is_none());
+    }
+
+    #[test]
+    fn test_ir_response_new_custom() {
+        let resp = IRResponse::new(true, "partial".to_string(), Some(vec![1, 2, 3]));
+        assert!(resp.is_succeeded());
+        assert_eq!(resp.get_data(), Some(&vec![1, 2, 3]));
+    }
 }

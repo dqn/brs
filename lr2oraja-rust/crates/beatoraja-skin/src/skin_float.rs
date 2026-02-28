@@ -2,6 +2,7 @@ use crate::float_formatter::FloatFormatter;
 use crate::property::float_property::FloatProperty;
 use crate::property::float_property_factory;
 use crate::property::timer_property::TimerProperty;
+use crate::skin_object::{SkinObjectData, SkinObjectRenderer};
 use crate::skin_source_image_set::SkinSourceImageSet;
 use crate::skin_source_set::SkinSourceSet;
 use crate::stubs::{MainState, Rectangle, SkinOffset, TextureRegion};
@@ -10,6 +11,7 @@ use crate::stubs::{MainState, Rectangle, SkinOffset, TextureRegion};
 ///
 /// Translated from SkinFloat.java
 pub struct SkinFloat {
+    pub data: SkinObjectData,
     ff: FloatFormatter,
     image: Option<Box<dyn SkinSourceSet>>,
     mimage: Option<Box<dyn SkinSourceSet>>,
@@ -49,6 +51,7 @@ impl SkinFloat {
         let actual_fketa = ff.get_fketa();
         let current_images = vec![None; keta as usize];
         Self {
+            data: SkinObjectData::new(),
             ff,
             image: None,
             mimage: None,
@@ -393,6 +396,11 @@ impl SkinFloat {
         self.offsets = Some(offsets);
     }
 
+    /// Prepare for rendering (enum dispatch entry point).
+    pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
+        self.prepare_with_offset(time, state, 0.0, 0.0);
+    }
+
     pub fn prepare_simple(&mut self, time: i64, state: &dyn MainState) {
         self.prepare_with_offset(time, state, 0.0, 0.0);
     }
@@ -482,7 +490,7 @@ impl SkinFloat {
 
     /// Draw the float number.
     /// Corresponds to Java SkinFloat.draw(SkinObjectRenderer sprite)
-    pub fn draw(&self, sprite: &mut crate::skin_object::SkinObjectRenderer) {
+    pub fn draw(&self, sprite: &mut SkinObjectRenderer) {
         for j in 0..self.current_images.len() {
             if let Some(ref img) = self.current_images[j] {
                 if let Some(ref offsets) = self.offsets {
@@ -527,7 +535,7 @@ impl SkinFloat {
     /// Corresponds to Java SkinFloat.draw(SkinObjectRenderer, long, float, MainState, float, float)
     pub fn draw_with_value(
         &mut self,
-        sprite: &mut crate::skin_object::SkinObjectRenderer,
+        sprite: &mut SkinObjectRenderer,
         time: i64,
         value: f32,
         state: &dyn MainState,

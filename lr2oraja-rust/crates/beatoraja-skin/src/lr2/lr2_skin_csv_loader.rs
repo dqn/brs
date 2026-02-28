@@ -37,8 +37,15 @@ pub struct LR2SkinCSVLoaderState {
 
     pub filemap: HashMap<String, String>,
 
-    // Current skin objects being built
+    // Accumulated skin property values (applied to Skin by caller)
     pub stretch: i32,
+    /// Input start time (ms) — set by STARTINPUT command
+    pub skin_input: Option<i32>,
+    /// Scene time (ms) — set by SCENETIME command
+    pub skin_scene: Option<i32>,
+    /// Fadeout time (ms) — set by FADEOUT command
+    pub skin_fadeout: Option<i32>,
+
     pub groovex: i32,
     pub groovey: i32,
     pub line: Option<String>,
@@ -94,6 +101,9 @@ impl LR2SkinCSVLoaderState {
             skinpath,
             filemap: HashMap::new(),
             stretch: -1,
+            skin_input: None,
+            skin_scene: None,
+            skin_fadeout: None,
             groovex: 0,
             groovey: 0,
             line: None,
@@ -175,16 +185,19 @@ impl LR2SkinCSVLoaderState {
     pub fn process_csv_command(&mut self, cmd: &str, str_parts: &[String]) {
         match cmd {
             "STARTINPUT" => {
-                // skin.setInput(parseInt(str[1]))
-                warn!("not yet implemented: STARTINPUT requires skin reference");
+                if str_parts.len() > 1 {
+                    self.skin_input = str_parts[1].trim().parse().ok();
+                }
             }
             "SCENETIME" => {
-                // skin.setScene(parseInt(str[1]))
-                warn!("not yet implemented: SCENETIME requires skin reference");
+                if str_parts.len() > 1 {
+                    self.skin_scene = str_parts[1].trim().parse().ok();
+                }
             }
             "FADEOUT" => {
-                // skin.setFadeout(parseInt(str[1]))
-                warn!("not yet implemented: FADEOUT requires skin reference");
+                if str_parts.len() > 1 {
+                    self.skin_fadeout = str_parts[1].trim().parse().ok();
+                }
             }
             "STRETCH" => {
                 if str_parts.len() > 1 {
@@ -248,6 +261,21 @@ impl LR2SkinCSVLoaderState {
         }
     }
 
+    /// Apply accumulated skin properties to the given Skin.
+    /// Call this after load_skin0 or process_csv_command to transfer
+    /// STARTINPUT, SCENETIME, FADEOUT values to the Skin object.
+    pub fn apply_to_skin(&self, skin: &mut crate::skin::Skin) {
+        if let Some(input) = self.skin_input {
+            skin.set_input(input);
+        }
+        if let Some(scene) = self.skin_scene {
+            skin.set_scene(scene);
+        }
+        if let Some(fadeout) = self.skin_fadeout {
+            skin.set_fadeout(fadeout);
+        }
+    }
+
     /// Load skin from file (corresponds to loadSkin0)
     pub fn load_skin0(
         &mut self,
@@ -266,6 +294,110 @@ impl LR2SkinCSVLoaderState {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_state() -> LR2SkinCSVLoaderState {
+        LR2SkinCSVLoaderState::new(
+            Resolution {
+                width: 640.0,
+                height: 480.0,
+            },
+            Resolution {
+                width: 1920.0,
+                height: 1080.0,
+            },
+            false,
+            "/tmp/test_skin".to_string(),
+        )
+    }
+
+    fn str_vec(parts: &[&str]) -> Vec<String> {
+        parts.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn test_startinput_parses_value() {
+        let mut state = make_state();
+        state.process_csv_command("STARTINPUT", &str_vec(&["STARTINPUT", "1000"]));
+        assert_eq!(state.skin_input, Some(1000));
+    }
+
+    #[test]
+    fn test_startinput_empty_parts_no_panic() {
+        let mut state = make_state();
+        state.process_csv_command("STARTINPUT", &str_vec(&["STARTINPUT"]));
+        assert_eq!(state.skin_input, None);
+    }
+
+    #[test]
+    fn test_scenetime_parses_value() {
+        let mut state = make_state();
+        state.process_csv_command("SCENETIME", &str_vec(&["SCENETIME", "5000"]));
+        assert_eq!(state.skin_scene, Some(5000));
+    }
+
+    #[test]
+    fn test_fadeout_parses_value() {
+        let mut state = make_state();
+        state.process_csv_command("FADEOUT", &str_vec(&["FADEOUT", "300"]));
+        assert_eq!(state.skin_fadeout, Some(300));
+    }
+
+    #[test]
+    fn test_fadeout_invalid_value_returns_none() {
+        let mut state = make_state();
+        state.process_csv_command("FADEOUT", &str_vec(&["FADEOUT", "abc"]));
+        assert_eq!(state.skin_fadeout, None);
+    }
+
+    #[test]
+    fn test_stretch_parses_value() {
+        let mut state = make_state();
+        assert_eq!(state.stretch, -1);
+        state.process_csv_command("STRETCH", &str_vec(&["STRETCH", "2"]));
+        assert_eq!(state.stretch, 2);
+    }
+
+    #[test]
+    fn test_apply_to_skin_transfers_values() {
+        let mut state = make_state();
+        state.skin_input = Some(500);
+        state.skin_scene = Some(60000);
+        state.skin_fadeout = Some(200);
+
+        let mut skin = crate::skin::Skin::new(crate::skin_header::SkinHeader::new());
+        state.apply_to_skin(&mut skin);
+        assert_eq!(skin.get_input(), 500);
+        assert_eq!(skin.get_scene(), 60000);
+        assert_eq!(skin.get_fadeout(), 200);
+    }
+
+    #[test]
+    fn test_apply_to_skin_none_values_not_overwritten() {
+        let state = make_state();
+        let mut skin = crate::skin::Skin::new(crate::skin_header::SkinHeader::new());
+        skin.set_input(42);
+        skin.set_scene(99);
+        skin.set_fadeout(77);
+
+        state.apply_to_skin(&mut skin);
+        // None values should not overwrite existing values
+        assert_eq!(skin.get_input(), 42);
+        assert_eq!(skin.get_scene(), 99);
+        assert_eq!(skin.get_fadeout(), 77);
+    }
+
+    #[test]
+    fn test_unknown_command_no_panic() {
+        let mut state = make_state();
+        state.process_csv_command("NONEXISTENT", &str_vec(&["NONEXISTENT", "1"]));
+        // Should not panic, no state changed
+        assert_eq!(state.skin_input, None);
     }
 }
 

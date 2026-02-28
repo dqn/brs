@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
+use crate::java_random::JavaRandom;
+use crate::pattern_modifier::AssistLevel;
+use crate::random::Random;
 use beatoraja_core::player_config::PlayerConfig;
 use bms_model::mode::Mode;
 use bms_model::note::Note;
 use bms_model::time_line::TimeLine;
-
-use crate::java_random::JavaRandom;
-use crate::pattern_modifier::AssistLevel;
-use crate::random::Random;
 
 pub struct RandomizerBase {
     pub mode: Option<Mode>,
@@ -333,9 +332,9 @@ impl Randomizer {
                 if r.increment == 0 && !lanes.is_empty() {
                     r.increment = 1;
                 } else {
-                    let max_val = lanes.len().max(1);
-                    r.increment = if max_val > 1 {
-                        r.base.random.next_int_bounded((max_val - 1) as i32) as usize + 1
+                    let upper = lanes.len().max(1);
+                    r.increment = if upper > 1 {
+                        r.base.random.next_int_bounded((upper - 1) as i32) as usize + 1
                     } else {
                         1
                     };
@@ -1130,26 +1129,23 @@ mod tests {
         base1.set_random_seed(42);
         base2.set_random_seed(42);
         // After setting same seed, both should produce the same sequence
-        let v1: i32 = base1.random.next_int_bounded(1000);
-        let v2: i32 = base2.random.next_int_bounded(1000);
+        let v1 = base1.random.next_int_bounded(1000);
+        let v2 = base2.random.next_int_bounded(1000);
         assert_eq!(v1, v2);
     }
 
     #[test]
     fn randomizer_base_set_random_seed_negative_ignored() {
         let mut base = RandomizerBase::new();
-        // JavaRandom doesn't support Clone, so we just verify negative seed is ignored
-        // by checking that two calls to set_random_seed(-1) don't change behavior
-        let mut base2 = RandomizerBase::new();
-        // Set both to same known seed first
+        // Seed with a known value first
         base.set_random_seed(99);
-        base2.set_random_seed(99);
-        // Now try negative on base — should be ignored
+        let val_before = base.random.next_int_bounded(1000);
+        // Re-seed to same known value
+        base.set_random_seed(99);
+        // Negative seed should be ignored
         base.set_random_seed(-1);
-        // Both should still produce the same first value
-        let val1 = base.random.next_int_bounded(1000);
-        let val2 = base2.random.next_int_bounded(1000);
-        assert_eq!(val1, val2);
+        let val_after = base.random.next_int_bounded(1000);
+        assert_eq!(val_before, val_after);
     }
 
     // -- TimeBasedRandomizerState --

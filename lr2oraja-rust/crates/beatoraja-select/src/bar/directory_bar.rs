@@ -124,16 +124,136 @@ impl DirectoryBarData {
         }
     }
 
-    /// Filter children by mode and same-folder flag
+    /// Filter children by mode and same-folder flag.
+    /// If mode is set, filters out SongBars whose mode doesn't match.
+    /// If contains_same_folder is false, deduplicates SongBars by folder path.
+    ///
+    /// Translates: Java DirectoryBar.getChildren(Mode, boolean)
     pub fn get_children_filtered(
         children: &[Bar],
         mode: Option<&bms_model::Mode>,
         contains_same_folder: bool,
     ) -> Vec<Bar> {
-        // NOTE: This method creates new Bar values which would require Clone.
-        // In practice this is called on the Java side via getChildren(Mode, boolean).
-        // For now we stub it since we cannot Clone enum-of-Box easily.
-        log::warn!("not yet implemented: DirectoryBar.getChildren(mode, containsSameFolder)");
-        Vec::new()
+        let mut result: Vec<Bar> = Vec::new();
+        for b in children {
+            // Mode filtering: skip SongBars whose mode doesn't match
+            if let Some(mode) = mode
+                && let Some(sb) = b.as_song_bar()
+            {
+                let song_mode = sb.get_song_data().get_mode();
+                if song_mode != 0 && song_mode != mode.id() {
+                    continue;
+                }
+            }
+
+            // Same-folder deduplication
+            let mut add_bar = true;
+            if !contains_same_folder && let Some(sb) = b.as_song_bar() {
+                let folder = sb.get_song_data().get_folder();
+                if !folder.is_empty() {
+                    for existing in &result {
+                        if let Some(existing_sb) = existing.as_song_bar() {
+                            let existing_folder = existing_sb.get_song_data().get_folder();
+                            if folder == existing_folder {
+                                add_bar = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if add_bar {
+                result.push(b.clone());
+            }
+        }
+        result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bar::song_bar::SongBar;
+
+    fn make_song_bar(title: &str, sha256: &str, mode: i32, folder: &str) -> Bar {
+        let mut song = SongData::default();
+        song.set_title(title.to_string());
+        song.set_sha256(sha256.to_string());
+        song.set_mode(mode);
+        song.folder = folder.to_string();
+        Bar::Song(Box::new(SongBar::new(song)))
+    }
+
+    #[test]
+    fn get_children_filtered_passes_all_when_no_mode_and_same_folder() {
+        let children = vec![
+            make_song_bar("A", "sha_a", 0, "/dir1"),
+            make_song_bar("B", "sha_b", 0, "/dir2"),
+        ];
+
+        let result = DirectoryBarData::get_children_filtered(&children, None, true);
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn get_children_filtered_filters_by_mode() {
+        let children = vec![
+            make_song_bar("7K Song", "sha_7k", 7, "/dir1"),
+            make_song_bar("5K Song", "sha_5k", 5, "/dir2"),
+            make_song_bar("Any Mode", "sha_any", 0, "/dir3"),
+        ];
+
+        let mode_7k = bms_model::Mode::BEAT_7K;
+        let result = DirectoryBarData::get_children_filtered(&children, Some(&mode_7k), true);
+
+        // 7K Song (mode 7 matches) and Any Mode (mode 0 passes) should remain
+        // 5K Song should be filtered out
+        assert_eq!(result.len(), 2);
+        assert!(result[0].get_title().contains("7K Song"));
+        assert!(result[1].get_title().contains("Any Mode"));
+    }
+
+    #[test]
+    fn get_children_filtered_deduplicates_by_folder() {
+        let children = vec![
+            make_song_bar("Song A", "sha_a", 0, "/same_dir"),
+            make_song_bar("Song B", "sha_b", 0, "/same_dir"),
+            make_song_bar("Song C", "sha_c", 0, "/other_dir"),
+        ];
+
+        let result = DirectoryBarData::get_children_filtered(&children, None, false);
+
+        // Song A and Song B have same folder, so B should be deduplicated
+        assert_eq!(result.len(), 2);
+        assert!(result[0].get_title().contains("Song A"));
+        assert!(result[1].get_title().contains("Song C"));
+    }
+
+    #[test]
+    fn get_children_filtered_keeps_duplicates_when_contains_same_folder() {
+        let children = vec![
+            make_song_bar("Song A", "sha_a", 0, "/same_dir"),
+            make_song_bar("Song B", "sha_b", 0, "/same_dir"),
+        ];
+
+        let result = DirectoryBarData::get_children_filtered(&children, None, true);
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn get_children_filtered_non_song_bars_pass_through() {
+        use crate::bar::folder_bar::FolderBar;
+
+        let children = vec![
+            Bar::Folder(Box::new(FolderBar::new(None, "crc1".to_string()))),
+            make_song_bar("Song", "sha_s", 5, "/dir"),
+        ];
+
+        let mode_7k = bms_model::Mode::BEAT_7K;
+        let result = DirectoryBarData::get_children_filtered(&children, Some(&mode_7k), true);
+
+        // Folder bar should pass (not a SongBar), Song with mode 5 should be filtered
+        assert_eq!(result.len(), 1);
     }
 }

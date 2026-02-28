@@ -353,3 +353,342 @@ impl Controller for Lwjgl3Controller {
 
     // get_mapping() and get_power_level() use default trait implementations (return None)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    /// Test listener that records all events for verification.
+    struct RecordingListener {
+        events: Rc<RefCell<Vec<ListenerEvent>>>,
+        /// If true, consume (return true) to stop propagation.
+        consume: bool,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    enum ListenerEvent {
+        AxisMoved {
+            controller: usize,
+            axis: i32,
+            value: f32,
+        },
+        ButtonDown {
+            controller: usize,
+            button: i32,
+        },
+        ButtonUp {
+            controller: usize,
+            button: i32,
+        },
+    }
+
+    impl RecordingListener {
+        fn new(events: Rc<RefCell<Vec<ListenerEvent>>>, consume: bool) -> Self {
+            Self { events, consume }
+        }
+    }
+
+    impl ControllerListener for RecordingListener {
+        fn connected(&mut self, _controller_index: usize) {}
+        fn disconnected(&mut self, _controller_index: usize) {}
+
+        fn axis_moved(&mut self, controller_index: usize, axis_code: i32, value: f32) -> bool {
+            self.events.borrow_mut().push(ListenerEvent::AxisMoved {
+                controller: controller_index,
+                axis: axis_code,
+                value,
+            });
+            self.consume
+        }
+
+        fn button_down(&mut self, controller_index: usize, button_code: i32) -> bool {
+            self.events.borrow_mut().push(ListenerEvent::ButtonDown {
+                controller: controller_index,
+                button: button_code,
+            });
+            self.consume
+        }
+
+        fn button_up(&mut self, controller_index: usize, button_code: i32) -> bool {
+            self.events.borrow_mut().push(ListenerEvent::ButtonUp {
+                controller: controller_index,
+                button: button_code,
+            });
+            self.consume
+        }
+    }
+
+    #[test]
+    fn new_with_state_initializes_zeroed_arrays() {
+        let ctrl = Lwjgl3Controller::new_with_state(0, 4, 8, "Test Pad".to_string());
+
+        assert_eq!(ctrl.index, 0);
+        assert_eq!(ctrl.name, "Test Pad");
+        assert_eq!(ctrl.axis_state, vec![0.0; 4]);
+        assert_eq!(ctrl.button_state, vec![false; 8]);
+        assert!(!ctrl.connected);
+        assert!(ctrl.gamepad_id.is_none());
+        assert!(ctrl.listeners.is_empty());
+    }
+
+    #[test]
+    fn controller_trait_button_bounds_check() {
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 2, 4, "Pad".to_string());
+        ctrl.button_state[1] = true;
+        ctrl.button_state[3] = true;
+
+        // Valid indices
+        assert!(!ctrl.get_button(0));
+        assert!(ctrl.get_button(1));
+        assert!(!ctrl.get_button(2));
+        assert!(ctrl.get_button(3));
+
+        // Out-of-bounds returns false (matches Java behavior)
+        assert!(!ctrl.get_button(-1));
+        assert!(!ctrl.get_button(4));
+        assert!(!ctrl.get_button(100));
+    }
+
+    #[test]
+    fn controller_trait_axis_bounds_check() {
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 3, 0, "Pad".to_string());
+        ctrl.axis_state[0] = -0.75;
+        ctrl.axis_state[1] = 0.0;
+        ctrl.axis_state[2] = 1.0;
+
+        // Valid indices
+        assert!((ctrl.get_axis(0) - (-0.75)).abs() < f32::EPSILON);
+        assert!((ctrl.get_axis(1) - 0.0).abs() < f32::EPSILON);
+        assert!((ctrl.get_axis(2) - 1.0).abs() < f32::EPSILON);
+
+        // Out-of-bounds returns 0.0 (matches Java behavior)
+        assert!((ctrl.get_axis(-1) - 0.0).abs() < f32::EPSILON);
+        assert!((ctrl.get_axis(3) - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn controller_trait_metadata_properties() {
+        let ctrl = Lwjgl3Controller::new_with_state(5, 8, 19, "Xbox Controller".to_string());
+
+        assert_eq!(ctrl.get_name(), "Xbox Controller");
+        assert_eq!(ctrl.get_unique_id(), None);
+        assert_eq!(ctrl.get_min_button_index(), 0);
+        assert_eq!(ctrl.get_max_button_index(), 19);
+        assert_eq!(ctrl.get_axis_count(), 8);
+        assert!(!ctrl.is_connected());
+        assert!(!ctrl.can_vibrate());
+        assert!(!ctrl.is_vibrating());
+        assert!(!ctrl.supports_player_index());
+        assert_eq!(ctrl.get_player_index(), 0);
+        assert_eq!(ctrl.get_mapping(), None);
+        assert_eq!(ctrl.get_power_level(), None);
+    }
+
+    #[test]
+    fn process_axis_changes_detects_diff_and_updates_state() {
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 4, 0, "Pad".to_string());
+
+        // First update: all zeros → some movement
+        let new_axes = vec![0.5, 0.0, -0.3, 0.0];
+        let changes = ctrl.process_axis_changes(&new_axes);
+
+        // Only axes 0 and 2 changed from 0.0
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0], (0, 0.5));
+        assert_eq!(changes[1], (2, -0.3));
+        // State is updated
+        assert_eq!(ctrl.axis_state, vec![0.5, 0.0, -0.3, 0.0]);
+
+        // Second update: same values → no changes
+        let changes = ctrl.process_axis_changes(&new_axes);
+        assert!(changes.is_empty());
+
+        // Third update: partial change
+        let new_axes = vec![0.5, 1.0, -0.3, 0.0];
+        let changes = ctrl.process_axis_changes(&new_axes);
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0], (1, 1.0));
+    }
+
+    #[test]
+    fn process_button_changes_detects_press_and_release() {
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 0, 4, "Pad".to_string());
+
+        // Press buttons 0 and 2
+        let new_buttons = vec![true, false, true, false];
+        let changes = ctrl.process_button_changes(&new_buttons);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0], (0, true));
+        assert_eq!(changes[1], (2, true));
+        assert_eq!(ctrl.button_state, vec![true, false, true, false]);
+
+        // Release button 0, press button 1
+        let new_buttons = vec![false, true, true, false];
+        let changes = ctrl.process_button_changes(&new_buttons);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0], (0, false)); // released
+        assert_eq!(changes[1], (1, true)); // pressed
+    }
+
+    #[test]
+    fn process_axis_changes_handles_length_mismatch() {
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 4, 0, "Pad".to_string());
+
+        // Fewer axes than controller state — only processes up to min length
+        let new_axes = vec![0.5, 0.3];
+        let changes = ctrl.process_axis_changes(&new_axes);
+        assert_eq!(changes.len(), 2);
+        // Indices 2 and 3 remain at 0.0
+        assert!((ctrl.axis_state[2] - 0.0).abs() < f32::EPSILON);
+        assert!((ctrl.axis_state[3] - 0.0).abs() < f32::EPSILON);
+
+        // More axes than controller state — only processes up to controller's length
+        let mut ctrl2 = Lwjgl3Controller::new_with_state(0, 2, 0, "Pad".to_string());
+        let new_axes = vec![0.1, 0.2, 0.3, 0.4];
+        let changes = ctrl2.process_axis_changes(&new_axes);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(ctrl2.axis_state.len(), 2);
+    }
+
+    #[test]
+    fn listener_fires_on_axis_change() {
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 2, 0, "Pad".to_string());
+        let events = Rc::new(RefCell::new(Vec::new()));
+        ctrl.add_listener(Box::new(RecordingListener::new(events.clone(), false)));
+
+        let new_axes = vec![0.7, 0.0];
+        ctrl.process_axis_changes(&new_axes);
+
+        let recorded = events.borrow();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(
+            recorded[0],
+            ListenerEvent::AxisMoved {
+                controller: 0,
+                axis: 0,
+                value: 0.7,
+            }
+        );
+    }
+
+    #[test]
+    fn listener_fires_on_button_press_and_release() {
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 0, 2, "Pad".to_string());
+        let events = Rc::new(RefCell::new(Vec::new()));
+        ctrl.add_listener(Box::new(RecordingListener::new(events.clone(), false)));
+
+        // Press button 1
+        ctrl.process_button_changes(&[false, true]);
+        // Release button 1
+        ctrl.process_button_changes(&[false, false]);
+
+        let recorded = events.borrow();
+        assert_eq!(recorded.len(), 2);
+        assert_eq!(
+            recorded[0],
+            ListenerEvent::ButtonDown {
+                controller: 0,
+                button: 1,
+            }
+        );
+        assert_eq!(
+            recorded[1],
+            ListenerEvent::ButtonUp {
+                controller: 0,
+                button: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn consuming_listener_stops_propagation() {
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 2, 2, "Pad".to_string());
+
+        let events_first = Rc::new(RefCell::new(Vec::new()));
+        let events_second = Rc::new(RefCell::new(Vec::new()));
+
+        // First listener consumes, second should NOT receive events
+        ctrl.add_listener(Box::new(RecordingListener::new(events_first.clone(), true)));
+        ctrl.add_listener(Box::new(RecordingListener::new(
+            events_second.clone(),
+            false,
+        )));
+
+        // Axis change
+        ctrl.process_axis_changes(&[1.0, 0.0]);
+        assert_eq!(events_first.borrow().len(), 1);
+        assert_eq!(events_second.borrow().len(), 0);
+
+        // Button press
+        ctrl.process_button_changes(&[true, false]);
+        assert_eq!(events_first.borrow().len(), 2); // +1 button_down
+        assert_eq!(events_second.borrow().len(), 0); // still 0
+
+        // Button release
+        ctrl.process_button_changes(&[false, false]);
+        assert_eq!(events_first.borrow().len(), 3); // +1 button_up
+        assert_eq!(events_second.borrow().len(), 0); // still 0
+    }
+
+    #[test]
+    fn poll_state_reflects_connected_flag() {
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 2, 2, "Pad".to_string());
+
+        // Not connected → Disconnected
+        ctrl.connected = false;
+        assert!(matches!(ctrl.poll_state(), PollResult::Disconnected));
+
+        // Connected → Connected with empty changes
+        ctrl.connected = true;
+        match ctrl.poll_state() {
+            PollResult::Connected {
+                axis_changes,
+                button_changes,
+            } => {
+                assert!(axis_changes.is_empty());
+                assert!(button_changes.is_empty());
+            }
+            PollResult::Disconnected => panic!("expected Connected"),
+        }
+    }
+
+    #[test]
+    fn remove_listener_by_index() {
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 0, 2, "Pad".to_string());
+
+        let events_a = Rc::new(RefCell::new(Vec::new()));
+        let events_b = Rc::new(RefCell::new(Vec::new()));
+        ctrl.add_listener(Box::new(RecordingListener::new(events_a.clone(), false)));
+        ctrl.add_listener(Box::new(RecordingListener::new(events_b.clone(), false)));
+        assert_eq!(ctrl.listeners.len(), 2);
+
+        // Remove first listener
+        ctrl.remove_listener(0);
+        assert_eq!(ctrl.listeners.len(), 1);
+
+        // Fire event — only second listener (now at index 0) receives it
+        ctrl.process_button_changes(&[true, false]);
+        assert!(events_a.borrow().is_empty());
+        assert_eq!(events_b.borrow().len(), 1);
+
+        // Remove out-of-bounds index — no panic
+        ctrl.remove_listener(99);
+        assert_eq!(ctrl.listeners.len(), 1);
+    }
+
+    #[test]
+    fn button_map_and_axis_map_sizes() {
+        // BUTTON_MAP must cover the standard 19 gamepad buttons
+        assert_eq!(BUTTON_MAP.len(), 19);
+        // AXIS_MAP must cover the standard 8 axes
+        assert_eq!(AXIS_MAP.len(), 8);
+
+        // Verify first and last entries are correct
+        assert_eq!(BUTTON_MAP[0], gilrs::Button::South);
+        assert_eq!(BUTTON_MAP[18], gilrs::Button::Z);
+        assert_eq!(AXIS_MAP[0], gilrs::Axis::LeftStickX);
+        assert_eq!(AXIS_MAP[7], gilrs::Axis::DPadY);
+    }
+}

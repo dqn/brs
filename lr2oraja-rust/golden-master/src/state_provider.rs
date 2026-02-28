@@ -132,11 +132,7 @@ impl<'a> StaticMainStateAdapter<'a> {
     pub fn new(provider: &'a StaticStateProvider) -> Self {
         Self {
             provider,
-            timer: Timer {
-                now_time: provider.time_ms,
-                now_micro_time: provider.time_ms * 1000,
-                timer_values: vec![],
-            },
+            timer: Timer::with_timers(provider.time_ms, provider.time_ms * 1000, Vec::new()),
             main: MainController { debug: false },
             resource: PlayerResource,
         }
@@ -144,7 +140,7 @@ impl<'a> StaticMainStateAdapter<'a> {
 }
 
 impl MainState for StaticMainStateAdapter<'_> {
-    fn get_timer(&self) -> &Timer {
+    fn get_timer(&self) -> &dyn beatoraja_types::timer_access::TimerAccess {
         &self.timer
     }
 

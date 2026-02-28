@@ -84,7 +84,7 @@ impl IRScoreData {
             ems: score.ems,
             lms: score.lms,
             avgjudge: score.avgjudge,
-            maxcombo: score.combo,
+            maxcombo: score.maxcombo,
             notes: score.notes,
             passnotes: score.passnotes,
             minbp: score.minbp,
@@ -123,7 +123,7 @@ impl IRScoreData {
         score.lpr = self.lpr;
         score.ems = self.ems;
         score.lms = self.lms;
-        score.combo = self.maxcombo;
+        score.maxcombo = self.maxcombo;
         score.notes = self.notes;
         // Java: score.setPassnotes(this.passnotes != 0 ? this.notes : this.passnotes);
         score.passnotes = if self.passnotes != 0 {
@@ -145,6 +145,7 @@ impl IRScoreData {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bms_model::mode::Mode;
 
     #[test]
     fn new_from_default_score_data() {
@@ -174,7 +175,7 @@ mod tests {
         sd.sha256 = "abc123".to_string();
         sd.epg = 100;
         sd.lpg = 50;
-        sd.combo = 42;
+        sd.maxcombo = 42;
         sd.minbp = 3;
         sd.clear = 7;
 
@@ -184,7 +185,7 @@ mod tests {
         assert_eq!(converted.sha256, "abc123");
         assert_eq!(converted.epg, 100);
         assert_eq!(converted.lpg, 50);
-        assert_eq!(converted.combo, 42);
+        assert_eq!(converted.maxcombo, 42);
         assert_eq!(converted.minbp, 3);
     }
 
@@ -197,5 +198,140 @@ mod tests {
         let cloned = ir.clone();
         assert_eq!(cloned.sha256, "test");
         assert_eq!(cloned.epg, 7);
+    }
+
+    fn make_score_data() -> ScoreData {
+        let mut s = ScoreData::new(Mode::BEAT_7K);
+        s.sha256 = "abc123def456".to_string();
+        s.mode = 1;
+        s.player = "TestPlayer".to_string();
+        s.clear = 5; // Normal
+        s.date = 1700000000;
+        s.epg = 100;
+        s.lpg = 90;
+        s.egr = 50;
+        s.lgr = 40;
+        s.egd = 10;
+        s.lgd = 8;
+        s.ebd = 3;
+        s.lbd = 2;
+        s.epr = 1;
+        s.lpr = 0;
+        s.ems = 0;
+        s.lms = 1;
+        s.avgjudge = 500;
+        s.maxcombo = 280;
+        s.notes = 305;
+        s.passnotes = 300;
+        s.minbp = 7;
+        s.option = 2;
+        s.seed = 42;
+        s.assist = 0;
+        s.gauge = 3;
+        s
+    }
+
+    #[test]
+    fn test_ir_score_data_new_copies_all_fields() {
+        let score = make_score_data();
+        let ir = IRScoreData::new(&score);
+
+        assert_eq!(ir.sha256, "abc123def456");
+        assert_eq!(ir.lntype, 1);
+        assert_eq!(ir.player, "TestPlayer");
+        assert_eq!(ir.clear, ClearType::Normal);
+        assert_eq!(ir.date, 1700000000);
+        assert_eq!(ir.epg, 100);
+        assert_eq!(ir.lpg, 90);
+        assert_eq!(ir.egr, 50);
+        assert_eq!(ir.lgr, 40);
+        assert_eq!(ir.egd, 10);
+        assert_eq!(ir.lgd, 8);
+        assert_eq!(ir.ebd, 3);
+        assert_eq!(ir.lbd, 2);
+        assert_eq!(ir.epr, 1);
+        assert_eq!(ir.lpr, 0);
+        assert_eq!(ir.ems, 0);
+        assert_eq!(ir.lms, 1);
+        assert_eq!(ir.avgjudge, 500);
+        assert_eq!(ir.maxcombo, 280);
+        assert_eq!(ir.notes, 305);
+        assert_eq!(ir.passnotes, 300);
+        assert_eq!(ir.minbp, 7);
+        assert_eq!(ir.option, 2);
+        assert_eq!(ir.seed, 42);
+        assert_eq!(ir.assist, 0);
+        assert_eq!(ir.gauge, 3);
+    }
+
+    #[test]
+    fn test_get_exscore_calculation() {
+        let score = make_score_data();
+        let ir = IRScoreData::new(&score);
+        // exscore = (epg + lpg) * 2 + egr + lgr
+        // = (100 + 90) * 2 + 50 + 40 = 380 + 90 = 470
+        assert_eq!(ir.get_exscore(), 470);
+    }
+
+    #[test]
+    fn test_get_exscore_zero_when_all_zero() {
+        let s = ScoreData::default();
+        let ir = IRScoreData::new(&s);
+        assert_eq!(ir.get_exscore(), 0);
+    }
+
+    #[test]
+    fn test_convert_to_score_data_roundtrip() {
+        let original = make_score_data();
+        let ir = IRScoreData::new(&original);
+        let converted = ir.convert_to_score_data();
+
+        assert_eq!(converted.sha256, original.sha256);
+        assert_eq!(converted.mode, original.mode);
+        assert_eq!(converted.player, original.player);
+        assert_eq!(converted.clear, original.clear);
+        assert_eq!(converted.date, original.date);
+        assert_eq!(converted.epg, original.epg);
+        assert_eq!(converted.lpg, original.lpg);
+        assert_eq!(converted.egr, original.egr);
+        assert_eq!(converted.lgr, original.lgr);
+        assert_eq!(converted.egd, original.egd);
+        assert_eq!(converted.lgd, original.lgd);
+        assert_eq!(converted.ebd, original.ebd);
+        assert_eq!(converted.lbd, original.lbd);
+        assert_eq!(converted.epr, original.epr);
+        assert_eq!(converted.lpr, original.lpr);
+        assert_eq!(converted.ems, original.ems);
+        assert_eq!(converted.lms, original.lms);
+        assert_eq!(converted.maxcombo, original.maxcombo);
+        assert_eq!(converted.notes, original.notes);
+        assert_eq!(converted.minbp, original.minbp);
+        assert_eq!(converted.avgjudge, original.avgjudge);
+        assert_eq!(converted.option, original.option);
+        assert_eq!(converted.seed, original.seed);
+        assert_eq!(converted.assist, original.assist);
+        assert_eq!(converted.gauge, original.gauge);
+    }
+
+    #[test]
+    fn test_convert_to_score_data_passnotes_nonzero_uses_notes() {
+        // When passnotes != 0, converted score.passnotes should be self.notes
+        let mut s = ScoreData::default();
+        s.notes = 500;
+        s.passnotes = 100; // nonzero
+        let ir = IRScoreData::new(&s);
+        let converted = ir.convert_to_score_data();
+        assert_eq!(converted.passnotes, 500); // uses notes, not passnotes
+    }
+
+    #[test]
+    fn test_convert_to_score_data_passnotes_zero_uses_passnotes() {
+        // When passnotes == 0, converted score.passnotes should be self.passnotes (0)
+        let mut s = ScoreData::default();
+        s.notes = 500;
+        s.passnotes = 0;
+        let ir = IRScoreData::new(&s);
+        let converted = ir.convert_to_score_data();
+        assert_eq!(converted.passnotes, 0);
     }
 }

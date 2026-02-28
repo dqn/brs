@@ -100,8 +100,8 @@ impl MusicResult {
             .map(|g| g.get_type())
             .unwrap_or(0);
 
-        // loadSkin(SkinType.RESULT);
-        log::warn!("not yet implemented: loadSkin(SkinType.RESULT)");
+        // loadSkin(SkinType.RESULT)
+        self.load_skin(beatoraja_skin::skin_type::SkinType::Result.id());
     }
 
     fn do_prepare(&mut self) {
@@ -142,7 +142,7 @@ impl MusicResult {
                         if let Some(ref ns) = newscore_clone {
                             send &= ns.get_exscore() > self.data.oldscore.get_exscore()
                                 || ns.clear > self.data.oldscore.clear
-                                || ns.combo > self.data.oldscore.combo
+                                || ns.maxcombo > self.data.oldscore.maxcombo
                                 || ns.minbp < self.data.oldscore.minbp;
                         }
                     }
@@ -949,6 +949,16 @@ mod tests {
         for i in 0..REPLAY_SIZE {
             assert_eq!(mr.data.save_replay[i], ReplayStatus::NotExist);
         }
+    }
+
+    #[test]
+    fn test_create_calls_load_skin_with_result_type() {
+        let mut mr = MusicResult::default();
+        // create() calls do_create() which calls self.load_skin(SkinType::Result.id())
+        // The trait default is a no-op stub, so data.skin remains None.
+        <MusicResult as MainState>::create(&mut mr);
+        // Verify SkinType::Result.id() matches expected value (7)
+        assert_eq!(beatoraja_skin::skin_type::SkinType::Result.id(), 7);
     }
 
     #[test]

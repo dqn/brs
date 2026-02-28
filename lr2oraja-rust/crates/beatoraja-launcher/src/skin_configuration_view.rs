@@ -373,34 +373,32 @@ impl SkinConfigurationView {
 
         // for (Path path : skinpaths) {
         for path in &skinpaths {
-            let path_string = path.to_string_lossy().to_lowercase();
-            if path_string.ends_with(".json") {
-                // JSONSkinLoader loader = new JSONSkinLoader();
-                // SkinHeader header = loader.loadHeader(path);
-                // if (header != null) { skinheader.add(header); }
-                // TODO: JSONSkinLoader integration
-                // Stub: would load JSON skin header
-            } else if path_string.ends_with(".luaskin") {
-                // LuaSkinLoader loader = new LuaSkinLoader();
-                // SkinHeader header = loader.loadHeader(path);
-                // if (header != null) { skinheader.add(header); }
-                // TODO: LuaSkinLoader integration
-                // Stub: would load Lua skin header
-            } else {
-                // LR2SkinHeaderLoader loader = new LR2SkinHeaderLoader(config);
-                // SkinHeader header = loader.loadSkin(path, null);
-                // skinheader.add(header);
-                // TODO: LR2SkinHeaderLoader integration
-                // Stub: would load LR2 skin header
-
-                // 7/14key skinは5/10keyにも加える
-                // if(header.getType() == SkinHeader.TYPE_LR2SKIN &&
-                //     (header.getSkinType() == SkinType.PLAY_7KEYS || header.getSkinType() == SkinType.PLAY_14KEYS)) {
-                //     header = loader.loadSkin(path, null);
-                //     ... rename and re-map skin type ...
-                //     skinheader.add(header);
-                // }
-                // (LR2 skin 7/14key → 5/10key duplication deferred to loader integration)
+            if let Some(header) = load_skin_header(path, config) {
+                // 7/14key skinは5/10keyにも加える (add 7/14key skins as 5/10key too)
+                if header.get_type() == beatoraja_skin::skin_header::TYPE_LR2SKIN
+                    && let Some(skin_type) = header.get_skin_type()
+                    && (*skin_type == SkinType::Play7Keys || *skin_type == SkinType::Play14Keys)
+                {
+                    // Re-load to get a fresh copy for the 5/10key variant
+                    if let Some(mut variant) = load_skin_header(path, config) {
+                        let variant_type = *variant.get_skin_type().unwrap();
+                        if variant_type == SkinType::Play7Keys {
+                            let name = variant.get_name().unwrap_or("").to_string();
+                            if !name.to_lowercase().contains("7key") {
+                                variant.set_name(format!("{} (7KEYS) ", name));
+                            }
+                            variant.set_skin_type(SkinType::Play5Keys);
+                        } else if variant_type == SkinType::Play14Keys {
+                            let name = variant.get_name().unwrap_or("").to_string();
+                            if !name.to_lowercase().contains("14key") {
+                                variant.set_name(format!("{} (14KEYS) ", name));
+                            }
+                            variant.set_skin_type(SkinType::Play10Keys);
+                        }
+                        self.skinheader.push(variant);
+                    }
+                }
+                self.skinheader.push(header);
             }
         }
     }
@@ -903,4 +901,423 @@ enum CreateItem {
     OptionIdx(usize),
     FileIdx(usize),
     OffsetIdx(usize),
+}
+
+/// Load a skin header from a file path.
+///
+/// Dispatches to the correct loader based on file extension:
+/// - `.json` -> JSONSkinLoader
+/// - `.luaskin` -> LuaSkinLoader
+/// - other (`.lr2skin`) -> LR2SkinHeaderLoader
+///
+/// Returns `None` if the file cannot be parsed as a valid skin header.
+pub fn load_skin_header(path: &Path, config: &Config) -> Option<SkinHeader> {
+    use beatoraja_skin::json::json_skin_loader::JSONSkinLoader;
+    use beatoraja_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderLoader;
+    use beatoraja_skin::lua::lua_skin_loader::LuaSkinLoader;
+    use beatoraja_skin::skin_data_converter::convert_header_data;
+    use beatoraja_skin::stubs::Resolution;
+
+    let path_string = path.to_string_lossy().to_lowercase();
+    let default_src = Resolution {
+        width: 1280.0,
+        height: 720.0,
+    };
+    let default_dst = Resolution {
+        width: 1920.0,
+        height: 1080.0,
+    };
+
+    if path_string.ends_with(".json") {
+        let mut loader = JSONSkinLoader::new();
+        let header_data = loader.load_header(path)?;
+        let src = header_data.source_resolution.clone().unwrap_or(default_src);
+        Some(convert_header_data(&header_data, &src, &default_dst))
+    } else if path_string.ends_with(".luaskin") {
+        let mut loader = LuaSkinLoader::new();
+        let header_data = loader.load_header(path)?;
+        let src = header_data.source_resolution.clone().unwrap_or(default_src);
+        Some(convert_header_data(&header_data, &src, &default_dst))
+    } else {
+        let mut loader = LR2SkinHeaderLoader::new(&config.skinpath);
+        match loader.load_skin(path, None) {
+            Ok(lr2_data) => Some(convert_lr2_header_data(&lr2_data)),
+            Err(e) => {
+                error!("Failed to load LR2 skin header {:?}: {}", path, e);
+                None
+            }
+        }
+    }
+}
+
+/// Convert LR2SkinHeaderData to SkinHeader.
+///
+/// Maps the LR2-specific header data types to the common SkinHeader type
+/// used by the launcher UI.
+fn convert_lr2_header_data(
+    data: &beatoraja_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderData,
+) -> SkinHeader {
+    use beatoraja_skin::skin_header::{CustomFile, CustomOffset, CustomOption, TYPE_LR2SKIN};
+
+    let mut header = SkinHeader::default();
+
+    header.set_type(TYPE_LR2SKIN);
+
+    if let Some(skin_type) = data.skin_type {
+        header.set_skin_type(skin_type);
+    }
+
+    header.set_name(data.name.clone());
+    header.set_author(data.author.clone());
+
+    if let Some(ref path) = data.path {
+        header.set_path(path.clone());
+    }
+
+    if let Some(ref res) = data.resolution {
+        header.set_resolution(res.clone());
+        header.set_source_resolution(res.clone());
+    }
+
+    // Convert custom options
+    let options: Vec<CustomOption> = data
+        .custom_options
+        .iter()
+        .map(convert_lr2_custom_option)
+        .collect();
+    header.set_custom_options(options);
+
+    // Convert custom files
+    let files: Vec<CustomFile> = data
+        .custom_files
+        .iter()
+        .map(convert_lr2_custom_file)
+        .collect();
+    header.set_custom_files(files);
+
+    // Convert custom offsets
+    let offsets: Vec<CustomOffset> = data
+        .custom_offsets
+        .iter()
+        .map(convert_lr2_custom_offset)
+        .collect();
+    header.set_custom_offsets(offsets);
+
+    header
+}
+
+fn convert_lr2_custom_option(
+    o: &beatoraja_skin::lr2::lr2_skin_header_loader::CustomOption,
+) -> beatoraja_skin::skin_header::CustomOption {
+    beatoraja_skin::skin_header::CustomOption::new(
+        o.name.clone(),
+        o.option.clone(),
+        o.contents.clone(),
+    )
+}
+
+fn convert_lr2_custom_file(
+    f: &beatoraja_skin::lr2::lr2_skin_header_loader::CustomFile,
+) -> beatoraja_skin::skin_header::CustomFile {
+    beatoraja_skin::skin_header::CustomFile::new(f.name.clone(), f.path.clone(), f.def.clone())
+}
+
+fn convert_lr2_custom_offset(
+    o: &beatoraja_skin::lr2::lr2_skin_header_loader::CustomOffset,
+) -> beatoraja_skin::skin_header::CustomOffset {
+    beatoraja_skin::skin_header::CustomOffset::new(
+        o.name.clone(),
+        o.id,
+        o.x,
+        o.y,
+        o.w,
+        o.h,
+        o.r,
+        o.a,
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use beatoraja_skin::skin_header::TYPE_LR2SKIN;
+
+    /// Helper to get the path to the test skin directory
+    fn test_skin_dir() -> PathBuf {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir.join("../../skin/default")
+    }
+
+    #[test]
+    fn load_skin_header_json_returns_header_with_name_and_type() {
+        // Create a minimal valid JSON skin file
+        let tmp = tempfile::NamedTempFile::with_suffix(".json").unwrap();
+        let json = r#"{"type":0,"name":"Test Skin","w":1280,"h":720}"#;
+        std::fs::write(tmp.path(), json).unwrap();
+
+        let config = Config::default();
+        let header = load_skin_header(tmp.path(), &config);
+
+        assert!(
+            header.is_some(),
+            "JSON skin header should be loaded from {:?}",
+            tmp.path()
+        );
+        let header = header.unwrap();
+        assert_eq!(header.get_name(), Some("Test Skin"));
+        assert_eq!(header.get_skin_type(), Some(&SkinType::Play7Keys));
+    }
+
+    #[test]
+    fn load_skin_header_json_real_play7_file() {
+        let skin_dir = test_skin_dir();
+        let json_path = skin_dir.join("play7.json");
+        if !json_path.exists() {
+            return;
+        }
+        let json_path = json_path.canonicalize().unwrap();
+
+        let config = Config::default();
+        let header = load_skin_header(&json_path, &config);
+
+        // Real play7.json may fail to parse due to complex fields;
+        // this test verifies the loader handles it gracefully
+        if let Some(header) = header {
+            assert!(header.get_name().is_some());
+            assert!(header.get_skin_type().is_some());
+        }
+    }
+
+    #[test]
+    fn load_skin_header_luaskin_returns_header_with_name_and_type() {
+        let skin_dir = test_skin_dir();
+        let lua_path = skin_dir.join("decide/decide.luaskin");
+        if !lua_path.exists() {
+            return;
+        }
+
+        let config = Config::default();
+        let header = load_skin_header(&lua_path, &config);
+
+        assert!(header.is_some(), "Lua skin header should be loaded");
+        let header = header.unwrap();
+        assert!(
+            header.get_name().is_some(),
+            "Loaded header should have a name"
+        );
+    }
+
+    #[test]
+    fn load_skin_header_invalid_json_returns_none() {
+        let tmp = tempfile::NamedTempFile::with_suffix(".json").unwrap();
+        std::fs::write(tmp.path(), "this is not valid json").unwrap();
+
+        let config = Config::default();
+        let header = load_skin_header(tmp.path(), &config);
+
+        assert!(header.is_none(), "Invalid JSON should return None");
+    }
+
+    #[test]
+    fn load_skin_header_nonexistent_path_returns_none() {
+        let config = Config::default();
+        let header = load_skin_header(Path::new("/nonexistent/path/skin.json"), &config);
+
+        assert!(header.is_none(), "Non-existent path should return None");
+    }
+
+    #[test]
+    fn update_config_loads_json_skin_headers_from_directory() {
+        let skin_dir = test_skin_dir();
+        if !skin_dir.exists() {
+            return;
+        }
+
+        let mut config = Config::default();
+        config.skinpath = skin_dir.to_string_lossy().to_string();
+
+        let mut view = SkinConfigurationView::new();
+        view.update_config(&config);
+
+        assert!(
+            !view.skinheader.is_empty(),
+            "update_config should load at least one skin header from the default skin directory"
+        );
+    }
+
+    #[test]
+    fn update_config_skin_headers_have_valid_skin_types() {
+        let skin_dir = test_skin_dir();
+        if !skin_dir.exists() {
+            return;
+        }
+
+        let mut config = Config::default();
+        config.skinpath = skin_dir.to_string_lossy().to_string();
+
+        let mut view = SkinConfigurationView::new();
+        view.update_config(&config);
+
+        // At least some headers should have valid skin types
+        let headers_with_types: Vec<_> = view
+            .skinheader
+            .iter()
+            .filter(|h| h.get_skin_type().is_some())
+            .collect();
+        assert!(
+            !headers_with_types.is_empty(),
+            "At least some headers should have valid skin types"
+        );
+    }
+
+    #[test]
+    fn update_config_empty_directory_loads_no_headers() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+
+        let mut config = Config::default();
+        config.skinpath = tmp_dir.path().to_string_lossy().to_string();
+
+        let mut view = SkinConfigurationView::new();
+        view.update_config(&config);
+
+        assert!(
+            view.skinheader.is_empty(),
+            "Empty directory should yield no skin headers"
+        );
+    }
+
+    #[test]
+    fn update_config_filters_headers_by_skin_type() {
+        let skin_dir = test_skin_dir();
+        if !skin_dir.exists() {
+            return;
+        }
+
+        let mut config = Config::default();
+        config.skinpath = skin_dir.to_string_lossy().to_string();
+
+        let mut view = SkinConfigurationView::new();
+        view.update_config(&config);
+
+        // The default skin directory has play7.json which should be SkinType::Play7Keys
+        let play7_headers = view.get_skin_header(&SkinType::Play7Keys);
+        // We don't assert specific count, but it should be filterable
+        // If there are any, they should all have the correct type
+        for header in &play7_headers {
+            assert_eq!(
+                header.get_skin_type(),
+                Some(&SkinType::Play7Keys),
+                "Filtered headers should have the correct skin type"
+            );
+        }
+    }
+
+    #[test]
+    fn convert_lr2_header_data_sets_type_lr2skin() {
+        use beatoraja_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderData;
+
+        let mut lr2_data = LR2SkinHeaderData::default();
+        lr2_data.name = "Test LR2 Skin".to_string();
+        lr2_data.skin_type = Some(SkinType::Play7Keys);
+        lr2_data.path = Some(PathBuf::from("/test/skin.lr2skin"));
+
+        let header = convert_lr2_header_data(&lr2_data);
+
+        assert_eq!(header.get_type(), TYPE_LR2SKIN);
+        assert_eq!(header.get_name(), Some("Test LR2 Skin"));
+        assert_eq!(header.get_skin_type(), Some(&SkinType::Play7Keys));
+        assert_eq!(
+            header.get_path(),
+            Some(&PathBuf::from("/test/skin.lr2skin"))
+        );
+    }
+
+    #[test]
+    fn convert_lr2_header_data_converts_custom_options() {
+        use beatoraja_skin::lr2::lr2_skin_header_loader::{
+            CustomOption as LR2CustomOption, LR2SkinHeaderData,
+        };
+
+        let mut lr2_data = LR2SkinHeaderData::default();
+        lr2_data.custom_options = vec![LR2CustomOption::new(
+            "BGA Size",
+            vec![30, 31],
+            vec!["Normal".to_string(), "Extend".to_string()],
+        )];
+
+        let header = convert_lr2_header_data(&lr2_data);
+
+        assert_eq!(header.get_custom_options().len(), 1);
+        assert_eq!(header.get_custom_options()[0].name, "BGA Size");
+        assert_eq!(header.get_custom_options()[0].option, vec![30, 31]);
+    }
+
+    #[test]
+    fn convert_lr2_header_data_converts_custom_files() {
+        use beatoraja_skin::lr2::lr2_skin_header_loader::{
+            CustomFile as LR2CustomFile, LR2SkinHeaderData,
+        };
+
+        let mut lr2_data = LR2SkinHeaderData::default();
+        lr2_data.custom_files = vec![LR2CustomFile::new(
+            "Lane",
+            "skin/lane/*.png",
+            Some("default"),
+        )];
+
+        let header = convert_lr2_header_data(&lr2_data);
+
+        assert_eq!(header.get_custom_files().len(), 1);
+        assert_eq!(header.get_custom_files()[0].name, "Lane");
+        assert_eq!(header.get_custom_files()[0].path, "skin/lane/*.png");
+        assert_eq!(
+            header.get_custom_files()[0].def,
+            Some("default".to_string())
+        );
+    }
+
+    #[test]
+    fn convert_lr2_header_data_converts_custom_offsets() {
+        use beatoraja_skin::lr2::lr2_skin_header_loader::{
+            CustomOffset as LR2CustomOffset, LR2SkinHeaderData,
+        };
+
+        let mut lr2_data = LR2SkinHeaderData::default();
+        lr2_data.custom_offsets = vec![LR2CustomOffset::new(
+            "All offset(%)",
+            0,
+            true,
+            true,
+            true,
+            true,
+            false,
+            false,
+        )];
+
+        let header = convert_lr2_header_data(&lr2_data);
+
+        assert_eq!(header.get_custom_offsets().len(), 1);
+        assert_eq!(header.get_custom_offsets()[0].name, "All offset(%)");
+        assert_eq!(header.get_custom_offsets()[0].id, 0);
+        assert!(header.get_custom_offsets()[0].x);
+        assert!(header.get_custom_offsets()[0].y);
+        assert!(!header.get_custom_offsets()[0].r);
+    }
+
+    #[test]
+    fn load_skin_header_lr2_with_temp_file() {
+        // Create a minimal LR2 skin file
+        let tmp = tempfile::NamedTempFile::with_suffix(".lr2skin").unwrap();
+        let content = "#INFORMATION,0,Test LR2,Author,\n";
+        let (encoded, _, _) = encoding_rs::SHIFT_JIS.encode(content);
+        std::fs::write(tmp.path(), encoded.as_ref()).unwrap();
+
+        let config = Config::default();
+        let header = load_skin_header(tmp.path(), &config);
+
+        assert!(header.is_some(), "LR2 skin header should be loaded");
+        let header = header.unwrap();
+        assert_eq!(header.get_type(), TYPE_LR2SKIN);
+        assert_eq!(header.get_name(), Some("Test LR2"));
+    }
 }

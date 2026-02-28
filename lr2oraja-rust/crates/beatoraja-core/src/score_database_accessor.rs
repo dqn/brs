@@ -451,7 +451,7 @@ fn row_to_score_data(row: &rusqlite::Row) -> ScoreData {
     sd.ems = row.get("ems").unwrap_or(0);
     sd.lms = row.get("lms").unwrap_or(0);
     sd.notes = row.get("notes").unwrap_or(0);
-    sd.combo = row.get("combo").unwrap_or(0);
+    sd.maxcombo = row.get("combo").unwrap_or(0);
     sd.minbp = row.get("minbp").unwrap_or(i32::MAX);
     sd.avgjudge = row.get("avgjudge").unwrap_or(i64::MAX);
     sd.playcount = row.get("playcount").unwrap_or(0);
@@ -507,7 +507,7 @@ fn score_data_to_value(score: &ScoreData, col_name: &str) -> rusqlite::types::Va
         "ems" => rusqlite::types::Value::Integer(score.ems as i64),
         "lms" => rusqlite::types::Value::Integer(score.lms as i64),
         "notes" => rusqlite::types::Value::Integer(score.notes as i64),
-        "combo" => rusqlite::types::Value::Integer(score.combo as i64),
+        "combo" => rusqlite::types::Value::Integer(score.maxcombo as i64),
         "minbp" => rusqlite::types::Value::Integer(score.minbp as i64),
         "avgjudge" => rusqlite::types::Value::Integer(score.avgjudge),
         "playcount" => rusqlite::types::Value::Integer(score.playcount as i64),

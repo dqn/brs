@@ -29,6 +29,7 @@ pub mod replay_data;
 pub mod score_data;
 pub mod score_data_property;
 pub mod table_data;
+pub mod table_data_bridge;
 
 // Core types
 pub mod bms_resource;

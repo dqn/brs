@@ -395,7 +395,7 @@ impl PlayDataAccessor {
             score.lms,
             score.clear,
             score.minbp,
-            score.combo,
+            score.maxcombo,
             score.mode,
             score.clearcount,
             score.playcount,
@@ -439,11 +439,11 @@ impl PlayDataAccessor {
             log.sha256 = Some(hash.to_string());
             log.minbp = newscore.minbp;
         }
-        log.oldcombo = score.combo;
-        log.combo = score.combo;
-        if score.combo < newscore.combo && update_score {
+        log.oldcombo = score.maxcombo;
+        log.combo = score.maxcombo;
+        if score.maxcombo < newscore.maxcombo && update_score {
             log.sha256 = Some(hash.to_string());
-            log.combo = newscore.combo;
+            log.combo = newscore.maxcombo;
         }
 
         score.update(newscore, update_score);

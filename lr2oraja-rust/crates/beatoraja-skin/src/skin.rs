@@ -11,8 +11,12 @@ use crate::property::timer_property_factory;
 use crate::skin_bar_object::SkinBarObject;
 use crate::skin_bga_object::SkinBgaObject;
 use crate::skin_bpm_graph::SkinBPMGraph;
+use crate::skin_float::SkinFloat;
+use crate::skin_gauge::SkinGauge;
+use crate::skin_gauge_graph_object::SkinGaugeGraphObject;
 use crate::skin_graph::SkinGraph;
 use crate::skin_header::SkinHeader;
+use crate::skin_hidden::SkinHidden;
 use crate::skin_hit_error_visualizer::SkinHitErrorVisualizer;
 use crate::skin_image::SkinImage;
 use crate::skin_judge_object::SkinJudgeObject;
@@ -38,6 +42,7 @@ use log::info;
 pub enum SkinObject {
     Image(SkinImage),
     Number(SkinNumber),
+    Float(SkinFloat),
     Slider(SkinSlider),
     Graph(SkinGraph),
     TextFont(SkinTextFont),
@@ -52,6 +57,9 @@ pub enum SkinObject {
     Bar(SkinBarObject),
     Judge(SkinJudgeObject),
     Bga(SkinBgaObject),
+    Gauge(SkinGauge),
+    GaugeGraph(SkinGaugeGraphObject),
+    Hidden(SkinHidden),
 }
 
 impl SkinObject {
@@ -59,6 +67,7 @@ impl SkinObject {
         match self {
             SkinObject::Image(o) => &o.data,
             SkinObject::Number(o) => &o.data,
+            SkinObject::Float(o) => &o.data,
             SkinObject::Slider(o) => &o.data,
             SkinObject::Graph(o) => &o.data,
             SkinObject::TextFont(o) => &o.text_data.data,
@@ -73,6 +82,9 @@ impl SkinObject {
             SkinObject::Bar(o) => &o.data,
             SkinObject::Judge(o) => &o.data,
             SkinObject::Bga(o) => &o.data,
+            SkinObject::Gauge(o) => &o.data,
+            SkinObject::GaugeGraph(o) => &o.data,
+            SkinObject::Hidden(o) => &o.data,
         }
     }
 
@@ -80,6 +92,7 @@ impl SkinObject {
         match self {
             SkinObject::Image(o) => &mut o.data,
             SkinObject::Number(o) => &mut o.data,
+            SkinObject::Float(o) => &mut o.data,
             SkinObject::Slider(o) => &mut o.data,
             SkinObject::Graph(o) => &mut o.data,
             SkinObject::TextFont(o) => &mut o.text_data.data,
@@ -94,6 +107,9 @@ impl SkinObject {
             SkinObject::Bar(o) => &mut o.data,
             SkinObject::Judge(o) => &mut o.data,
             SkinObject::Bga(o) => &mut o.data,
+            SkinObject::Gauge(o) => &mut o.data,
+            SkinObject::GaugeGraph(o) => &mut o.data,
+            SkinObject::Hidden(o) => &mut o.data,
         }
     }
 
@@ -132,6 +148,7 @@ impl SkinObject {
         match self {
             SkinObject::Image(o) => o.prepare(time, state),
             SkinObject::Number(o) => o.prepare(time, state),
+            SkinObject::Float(o) => o.prepare(time, state),
             SkinObject::Slider(o) => o.prepare(time, state),
             SkinObject::Graph(o) => o.prepare(time, state),
             SkinObject::TextFont(o) => o.prepare(time, state),
@@ -146,6 +163,9 @@ impl SkinObject {
             SkinObject::Bar(o) => o.prepare(time, state),
             SkinObject::Judge(o) => o.prepare(time, state),
             SkinObject::Bga(o) => o.prepare(time, state),
+            SkinObject::Gauge(o) => o.prepare(time, state),
+            SkinObject::GaugeGraph(o) => o.prepare(time, state),
+            SkinObject::Hidden(o) => o.prepare(time, state),
         }
     }
 
@@ -153,6 +173,7 @@ impl SkinObject {
         match self {
             SkinObject::Image(o) => o.draw(sprite),
             SkinObject::Number(o) => o.draw(sprite),
+            SkinObject::Float(o) => o.draw(sprite),
             SkinObject::Slider(o) => o.draw(sprite),
             SkinObject::Graph(o) => o.draw(sprite),
             SkinObject::TextFont(o) => o.draw(sprite),
@@ -169,6 +190,9 @@ impl SkinObject {
             SkinObject::Bar(o) => o.draw(sprite),
             SkinObject::Judge(o) => o.draw(sprite),
             SkinObject::Bga(o) => o.draw(sprite),
+            SkinObject::Gauge(o) => o.draw(sprite),
+            SkinObject::GaugeGraph(o) => o.draw(sprite),
+            SkinObject::Hidden(o) => o.draw(sprite),
         }
     }
 
@@ -192,6 +216,7 @@ impl SkinObject {
         match self {
             SkinObject::Image(o) => o.dispose(),
             SkinObject::Number(o) => o.dispose(),
+            SkinObject::Float(o) => o.dispose(),
             SkinObject::Slider(o) => o.dispose(),
             SkinObject::Graph(o) => o.dispose(),
             SkinObject::TextFont(o) => o.dispose(),
@@ -206,6 +231,9 @@ impl SkinObject {
             SkinObject::Bar(o) => o.dispose(),
             SkinObject::Judge(o) => o.dispose(),
             SkinObject::Bga(o) => o.dispose(),
+            SkinObject::Gauge(_) => {}
+            SkinObject::GaugeGraph(_) => {}
+            SkinObject::Hidden(_) => {}
         }
     }
 
@@ -296,6 +324,7 @@ impl SkinObject {
         match self {
             SkinObject::Image(_) => "Image",
             SkinObject::Number(_) => "Number",
+            SkinObject::Float(_) => "Float",
             SkinObject::Slider(_) => "Slider",
             SkinObject::Graph(_) => "Graph",
             SkinObject::TextFont(_) => "Text",
@@ -310,6 +339,9 @@ impl SkinObject {
             SkinObject::Bar(_) => "SkinBar",
             SkinObject::Judge(_) => "SkinJudge",
             SkinObject::Bga(_) => "SkinBGA",
+            SkinObject::Gauge(_) => "SkinGauge",
+            SkinObject::GaugeGraph(_) => "SkinGaugeGraph",
+            SkinObject::Hidden(_) => "SkinHidden",
         }
     }
 
@@ -1004,30 +1036,29 @@ impl Skin {
 }
 
 /// Adapter that provides timer data to skin objects via the stubs::MainState interface.
-/// Used by SkinDrawable to bridge beatoraja-core's MainState to beatoraja-skin's internal interface.
-struct TimerOnlyMainState {
-    timer: crate::stubs::Timer,
+/// Used by SkinDrawable to bridge beatoraja-core's TimerManager to beatoraja-skin's internal interface.
+///
+/// Holds a reference to the real `TimerAccess` (typically a `TimerManager`) so that
+/// per-timer-id queries return actual values instead of always 0.
+struct TimerOnlyMainState<'a> {
+    timer: &'a dyn beatoraja_types::timer_access::TimerAccess,
     main_controller: crate::stubs::MainController,
     resource: crate::stubs::PlayerResource,
 }
 
-impl TimerOnlyMainState {
-    fn new(now_time: i64, now_micro_time: i64, timer_values: Vec<i64>) -> Self {
+impl<'a> TimerOnlyMainState<'a> {
+    fn from_timer(timer: &'a dyn beatoraja_types::timer_access::TimerAccess) -> Self {
         Self {
-            timer: crate::stubs::Timer {
-                now_time,
-                now_micro_time,
-                timer_values,
-            },
+            timer,
             main_controller: crate::stubs::MainController { debug: false },
             resource: crate::stubs::PlayerResource,
         }
     }
 }
 
-impl crate::stubs::MainState for TimerOnlyMainState {
-    fn get_timer(&self) -> &crate::stubs::Timer {
-        &self.timer
+impl crate::stubs::MainState for TimerOnlyMainState<'_> {
+    fn get_timer(&self) -> &dyn beatoraja_types::timer_access::TimerAccess {
+        self.timer
     }
 
     fn get_offset_value(&self, _id: i32) -> Option<&crate::stubs::SkinOffset> {
@@ -1049,32 +1080,33 @@ impl crate::stubs::MainState for TimerOnlyMainState {
 
 impl beatoraja_core::main_state::SkinDrawable for Skin {
     fn prepare_skin(&mut self) {
-        let adapter = TimerOnlyMainState::new(0, 0, vec![]);
+        let null_timer = beatoraja_types::timer_access::NullTimer;
+        let adapter = TimerOnlyMainState::from_timer(&null_timer);
         self.prepare(&adapter);
     }
 
-    fn draw_all_objects_timed(&mut self, now_time: i64, now_micro_time: i64, timer_values: &[i64]) {
-        let adapter = TimerOnlyMainState::new(now_time, now_micro_time, timer_values.to_vec());
+    fn draw_all_objects_timed(&mut self, timer: &dyn beatoraja_types::timer_access::TimerAccess) {
+        let adapter = TimerOnlyMainState::from_timer(timer);
         self.draw_all_objects(&adapter);
     }
 
     fn update_custom_objects_timed(
         &mut self,
-        now_time: i64,
-        now_micro_time: i64,
-        timer_values: &[i64],
+        timer: &dyn beatoraja_types::timer_access::TimerAccess,
     ) {
-        let adapter = TimerOnlyMainState::new(now_time, now_micro_time, timer_values.to_vec());
+        let adapter = TimerOnlyMainState::from_timer(timer);
         self.update_custom_objects(&adapter);
     }
 
     fn mouse_pressed_at(&mut self, button: i32, x: i32, y: i32) {
-        let mut adapter = TimerOnlyMainState::new(0, 0, vec![]);
+        let null_timer = beatoraja_types::timer_access::NullTimer;
+        let mut adapter = TimerOnlyMainState::from_timer(&null_timer);
         self.mouse_pressed(&mut adapter, button, x, y);
     }
 
     fn mouse_dragged_at(&mut self, button: i32, x: i32, y: i32) {
-        let mut adapter = TimerOnlyMainState::new(0, 0, vec![]);
+        let null_timer = beatoraja_types::timer_access::NullTimer;
+        let mut adapter = TimerOnlyMainState::from_timer(&null_timer);
         self.mouse_dragged(&mut adapter, button, x, y);
     }
 
@@ -1115,13 +1147,57 @@ mod tests {
 
     #[test]
     fn test_timer_only_main_state_returns_expected_values() {
-        let adapter = TimerOnlyMainState::new(1000, 1_000_000, vec![]);
+        let timer = crate::stubs::Timer::with_timers(1000, 1_000_000, Vec::new());
+        let adapter = TimerOnlyMainState::from_timer(&timer);
         let state: &dyn MainState = &adapter;
         assert_eq!(state.get_timer().get_now_time(), 1000);
         assert_eq!(state.get_timer().get_now_micro_time(), 1_000_000);
         assert!(state.get_offset_value(0).is_none());
         assert!(state.get_image(0).is_none());
         assert!(!state.get_main().debug);
+    }
+
+    /// Verify that TimerManager timer values flow through SkinDrawable to the skin adapter.
+    /// Before the fix, all per-timer-id queries returned 0 (frozen animations).
+    #[test]
+    fn test_timer_manager_values_flow_through_to_skin_adapter() {
+        use beatoraja_core::timer_manager::TimerManager;
+        use beatoraja_types::timer_access::TimerAccess;
+
+        let mut tm = TimerManager::new();
+        tm.update(); // Advance nowmicrotime from Instant::now()
+        tm.set_timer_on(10); // Timer 10 = ON at current micro time
+
+        // Verify TimerManager implements TimerAccess correctly
+        assert!(tm.is_timer_on(10));
+        assert!(!tm.is_timer_on(20)); // Timer 20 was never set
+
+        // Create adapter from TimerManager (the path SkinDrawable takes)
+        let adapter = TimerOnlyMainState::from_timer(&tm);
+        let state: &dyn MainState = &adapter;
+
+        // Timer 10 should be ON through the adapter
+        assert!(
+            state.get_timer().is_timer_on(10),
+            "Timer 10 should be ON through adapter"
+        );
+        // Timer 20 should be OFF
+        assert!(
+            !state.get_timer().is_timer_on(20),
+            "Timer 20 should be OFF through adapter"
+        );
+        // get_micro_timer for ON timer should not be i64::MIN
+        assert_ne!(
+            state.get_timer().get_micro_timer(10),
+            i64::MIN,
+            "ON timer should return its activation time, not i64::MIN"
+        );
+        // get_micro_timer for OFF timer should be i64::MIN
+        assert_eq!(
+            state.get_timer().get_micro_timer(20),
+            i64::MIN,
+            "OFF timer should return i64::MIN"
+        );
     }
 
     #[test]
@@ -1143,15 +1219,17 @@ mod tests {
     #[test]
     fn test_draw_all_objects_timed_empty_skin() {
         let mut skin = make_test_skin();
+        let null_timer = beatoraja_types::timer_access::NullTimer;
         // Should not panic with no objects
-        skin.draw_all_objects_timed(0, 0, &[]);
+        skin.draw_all_objects_timed(&null_timer);
     }
 
     #[test]
     fn test_update_custom_objects_timed_empty_skin() {
         let mut skin = make_test_skin();
+        let timer = crate::stubs::Timer::with_timers(100, 100_000, Vec::new());
         // Should not panic with no custom objects
-        skin.update_custom_objects_timed(100, 100_000, &[]);
+        skin.update_custom_objects_timed(&timer);
     }
 
     #[test]
@@ -1385,5 +1463,105 @@ mod tests {
         // Phase 2: draw
         let mut renderer = SkinObjectRenderer::new();
         obj.draw(&mut renderer);
+    }
+
+    // ================================================================
+    // SkinFloat enum variant tests (Task 47d)
+    // ================================================================
+
+    #[test]
+    fn test_skin_float_in_enum_data_access() {
+        // Verify SkinFloat variant provides data() / data_mut() access
+        let sf = crate::skin_float::SkinFloat::new_with_int_timer_int_id(
+            vec![vec![None; 12]],
+            0,
+            0,
+            3,
+            2,
+            false,
+            0,
+            0,
+            0,
+            0,
+            1.0,
+        );
+        let mut obj = SkinObject::Float(sf);
+
+        // data() should return the SkinObjectData
+        let _data = obj.data();
+        assert!(!obj.is_draw());
+
+        // data_mut() should also work
+        obj.data_mut().visible = false;
+        assert!(!obj.is_visible());
+    }
+
+    #[test]
+    fn test_skin_float_type_name() {
+        let sf = crate::skin_float::SkinFloat::new_with_int_timer_int_id(
+            vec![vec![None; 12]],
+            0,
+            0,
+            3,
+            2,
+            false,
+            0,
+            0,
+            0,
+            0,
+            1.0,
+        );
+        let obj = SkinObject::Float(sf);
+        assert_eq!(obj.get_type_name(), "Float");
+    }
+
+    #[test]
+    fn test_skin_float_prepare_draw_dispose() {
+        // Verify SkinFloat follows the prepare/draw/dispose lifecycle
+        let sf = crate::skin_float::SkinFloat::new_with_int_timer_int_id(
+            vec![vec![None; 12]],
+            0,
+            0,
+            3,
+            2,
+            false,
+            0,
+            0,
+            0,
+            0,
+            1.0,
+        );
+        let mut obj = SkinObject::Float(sf);
+        let state = crate::test_helpers::MockMainState::default();
+
+        // prepare should not panic
+        obj.prepare(0, &state);
+
+        // draw should not panic
+        let mut renderer = SkinObjectRenderer::new();
+        obj.draw(&mut renderer);
+
+        // dispose should not panic
+        obj.dispose();
+    }
+
+    #[test]
+    fn test_skin_float_validate_returns_true() {
+        let sf = crate::skin_float::SkinFloat::new_with_int_timer_int_id(
+            vec![vec![None; 12]],
+            0,
+            0,
+            3,
+            2,
+            false,
+            0,
+            0,
+            0,
+            0,
+            1.0,
+        );
+        let mut obj = SkinObject::Float(sf);
+        // Float uses wildcard arm which defaults to true
+        assert!(obj.validate());
     }
 }

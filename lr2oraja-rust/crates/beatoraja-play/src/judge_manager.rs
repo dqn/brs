@@ -1167,7 +1167,7 @@ impl JudgeManager {
 
         if (judge as usize) < self.combocond.len() && self.combocond[judge as usize] && judge < 5 {
             self.combo += 1;
-            self.score.combo = self.score.combo.max(self.combo);
+            self.score.maxcombo = self.score.maxcombo.max(self.combo);
             self.coursecombo += 1;
             self.coursemaxcombo = self.coursemaxcombo.max(self.coursecombo);
         }
@@ -1310,7 +1310,7 @@ impl JudgeManager {
     }
 
     pub fn max_combo(&self) -> i32 {
-        self.score.combo
+        self.score.maxcombo
     }
 
     pub fn ghost(&self) -> Vec<usize> {
@@ -1623,7 +1623,7 @@ mod tests {
     fn get_score_data_returns_default() {
         let jm = JudgeManager::new();
         let score = jm.get_score_data();
-        assert_eq!(score.combo, 0);
+        assert_eq!(score.maxcombo, 0);
         assert_eq!(score.epg, 0);
         assert_eq!(score.egr, 0);
     }

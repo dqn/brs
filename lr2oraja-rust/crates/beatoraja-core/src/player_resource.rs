@@ -1,6 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use beatoraja_types::player_resource_access::PlayerResourceAccess;
+use bms_model::bms_model::BMSModel;
+use bms_model::bms_model_utils::set_start_note_time;
+use bms_model::chart_decoder;
+use bms_model::chart_information::ChartInformation;
 
 use crate::bms_player_mode::BMSPlayerMode;
 use crate::bms_resource::BMSResource;
@@ -12,53 +16,6 @@ use crate::replay_data::ReplayData;
 use crate::score_data::ScoreData;
 use crate::stubs::*;
 
-/// SongData stub (Phase 5+ dependency: beatoraja.song)
-pub struct SongData {
-    md5: String,
-    sha256: String,
-    path: String,
-    title: String,
-    subtitle: String,
-}
-
-impl Default for SongData {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SongData {
-    pub fn new() -> Self {
-        Self {
-            md5: String::new(),
-            sha256: String::new(),
-            path: String::new(),
-            title: String::new(),
-            subtitle: String::new(),
-        }
-    }
-
-    pub fn get_md5(&self) -> &str {
-        &self.md5
-    }
-
-    pub fn get_sha256(&self) -> &str {
-        &self.sha256
-    }
-
-    pub fn get_path(&self) -> &str {
-        &self.path
-    }
-
-    pub fn get_title(&self) -> &str {
-        &self.title
-    }
-
-    pub fn get_subtitle(&self) -> &str {
-        &self.subtitle
-    }
-}
-
 /// RankingData stub (Phase 5+ dependency: beatoraja.ir)
 pub struct RankingData;
 
@@ -68,8 +25,6 @@ pub type FloatArray = Vec<f32>;
 /// PlayerResource - holds game session state for data exchange between components
 #[allow(dead_code)]
 pub struct PlayerResource {
-    /// Current BMS model (Phase 5+ stub)
-    model: Option<()>,
     /// Margin time
     margin_time: i64,
     /// Current song data
@@ -112,8 +67,8 @@ pub struct PlayerResource {
     loop_play: bool,
     /// Course data
     coursedata: Option<CourseData>,
-    /// Course BMS models (Phase 5+ stub)
-    course: Option<Vec<()>>,
+    /// Course BMS models
+    course: Option<Vec<BMSModel>>,
     /// Course index
     courseindex: usize,
     /// Course gauge history
@@ -151,7 +106,6 @@ impl PlayerResource {
         let org_gauge_option = pconfig.gauge;
         let bmsresource = Some(BMSResource::new(&config, &pconfig));
         Self {
-            model: None,
             margin_time: 0,
             songdata: None,
             orgmode: None,
@@ -209,17 +163,54 @@ impl PlayerResource {
         self.set_tablelevel("");
     }
 
-    pub fn set_bms_file(&mut self, _f: &Path, mode: BMSPlayerMode) -> bool {
+    pub fn set_bms_file(&mut self, f: &Path, mode: BMSPlayerMode) -> bool {
         self.mode = Some(mode);
         self.replay = Some(ReplayData::new());
-        // model = loadBMSModel(f, pconfig.getLnmode())
-        // Phase 5+ dependency: ChartDecoder, BMSModel
-        log::warn!("not yet implemented: loadBMSModel");
-        false
+        let result = Self::load_bms_model(f, self.pconfig.get_lnmode());
+        if let Some((model, margin_time)) = result {
+            if model.get_all_time_lines().is_empty() {
+                return false;
+            }
+            self.margin_time = margin_time;
+            // orgmode = model.getMode() — orgmode is still Option<()> stub,
+            // will be wired when orgmode type is changed to Option<Mode>
+            // Java: songdata = new SongData(model, false)
+            let songdata = SongData::new_from_model(model, false);
+            self.songdata = Some(songdata);
+            if let Some(ref mut bmsresource) = self.bmsresource {
+                bmsresource.set_bms_file(
+                    self.songdata.as_ref().unwrap().get_bms_model().unwrap(),
+                    f,
+                    &self.config,
+                    self.mode.as_ref().unwrap(),
+                );
+            }
+            true
+        } else {
+            log::warn!(
+                "chart does not exist or an error occurred during parsing: {}",
+                f.display()
+            );
+            false
+        }
     }
 
-    pub fn get_bms_model(&self) -> Option<()> {
-        self.model
+    /// Load a BMS model from path, applying start note time and validation.
+    /// Returns (model, margin_time).
+    /// Java: PlayerResource.loadBMSModel(Path, int lnmode)
+    fn load_bms_model(path: &Path, lnmode: i32) -> Option<(BMSModel, i64)> {
+        let mut decoder = chart_decoder::get_decoder(path)?;
+        let info = ChartInformation::new(Some(path.to_path_buf()), lnmode, None);
+        let mut model = decoder.decode(info)?;
+        let margin_time = set_start_note_time(&mut model, 1000);
+        // TODO: BMSPlayerRule::validate(&mut model) — requires beatoraja-play dependency
+        // which core cannot import. Move validate to bms-model or beatoraja-types in a
+        // future phase.
+        Some((model, margin_time))
+    }
+
+    pub fn get_bms_model(&self) -> Option<&BMSModel> {
+        self.songdata.as_ref().and_then(|sd| sd.get_bms_model())
     }
 
     pub fn get_margin_time(&self) -> i64 {
@@ -282,14 +273,24 @@ impl PlayerResource {
         self.ranking = Some(ranking);
     }
 
-    pub fn set_course_bms_files(&mut self, _files: &[PathBuf]) -> bool {
-        // Phase 5+ dependency: loadBMSModel for each file
+    pub fn set_course_bms_files(&mut self, files: &[PathBuf]) -> bool {
+        let lnmode = self.pconfig.get_lnmode();
+        let mut models = Vec::with_capacity(files.len());
+        for f in files {
+            match Self::load_bms_model(f, lnmode) {
+                Some((model, _margin_time)) => models.push(model),
+                None => {
+                    log::warn!("failed to load BMS model for course file: {:?}", f);
+                    return false;
+                }
+            }
+        }
+        self.course = Some(models);
         self.update_course_score = true;
-        log::warn!("not yet implemented: loadBMSModel for course files");
-        false
+        true
     }
 
-    pub fn get_course_bms_models(&self) -> Option<&Vec<()>> {
+    pub fn get_course_bms_models(&self) -> Option<&Vec<BMSModel>> {
         self.course.as_ref()
     }
 
@@ -591,10 +592,7 @@ impl PlayerResourceAccess for PlayerResource {
     }
 
     fn get_songdata(&self) -> Option<&beatoraja_types::song_data::SongData> {
-        // The core SongData stub is a different type from beatoraja_types::SongData.
-        // This will be resolved when core's SongData stub is replaced.
-        log::warn!("not yet implemented: core SongData stub differs from types SongData");
-        None
+        self.songdata.as_ref()
     }
 
     fn get_replay_data(&self) -> Option<&ReplayData> {
@@ -691,5 +689,205 @@ impl PlayerResourceAccess for PlayerResource {
 
     fn get_reverse_lookup_levels(&self) -> Vec<String> {
         PlayerResource::get_reverse_lookup_levels(self)
+    }
+
+    fn clear(&mut self) {
+        PlayerResource::clear(self)
+    }
+
+    fn set_bms_file(&mut self, path: &Path, mode_type: i32, mode_id: i32) -> bool {
+        let mode = match mode_type {
+            0 => BMSPlayerMode::new(crate::bms_player_mode::Mode::Play),
+            1 => BMSPlayerMode::new(crate::bms_player_mode::Mode::Practice),
+            2 => BMSPlayerMode::new(crate::bms_player_mode::Mode::Autoplay),
+            3 => BMSPlayerMode::new_with_id(crate::bms_player_mode::Mode::Replay, mode_id),
+            _ => BMSPlayerMode::new(crate::bms_player_mode::Mode::Play),
+        };
+        PlayerResource::set_bms_file(self, path, mode)
+    }
+
+    fn set_course_bms_files(&mut self, files: &[PathBuf]) -> bool {
+        PlayerResource::set_course_bms_files(self, files)
+    }
+
+    fn set_tablename(&mut self, name: &str) {
+        PlayerResource::set_tablename(self, name)
+    }
+
+    fn set_tablelevel(&mut self, level: &str) {
+        PlayerResource::set_tablelevel(self, level)
+    }
+
+    fn set_rival_score_data_option(&mut self, score: Option<ScoreData>) {
+        self.rscore = score;
+    }
+
+    fn set_chart_option_data(&mut self, option: Option<ReplayData>) {
+        self.chart_option = option;
+    }
+
+    fn set_course_data(&mut self, data: CourseData) {
+        PlayerResource::set_course_data(self, data)
+    }
+
+    fn get_course_song_data(&self) -> Vec<beatoraja_types::song_data::SongData> {
+        match self.get_course_bms_models() {
+            Some(models) => models
+                .iter()
+                .map(|m| {
+                    // Build SongData from model metadata without consuming the model
+                    let mut sd = beatoraja_types::song_data::SongData::default();
+                    sd.set_title(m.get_title().to_string());
+                    sd.set_subtitle(m.get_sub_title().to_string());
+                    sd.genre = m.get_genre().to_string();
+                    sd.set_artist(m.get_artist().to_string());
+                    sd.set_subartist(m.get_sub_artist().to_string());
+                    if let Some(p) = m.get_path() {
+                        sd.set_path(p);
+                    }
+                    sd.md5 = m.get_md5().to_string();
+                    sd.sha256 = m.get_sha256().to_string();
+                    sd.notes = m.get_total_notes();
+                    sd.length = m.get_last_time();
+                    sd.mode = m.get_mode().map(|mode| mode.id()).unwrap_or(0);
+                    sd
+                })
+                .collect(),
+            None => vec![],
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn test_bms_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("test-bms")
+    }
+
+    #[test]
+    fn set_bms_file_loads_model_from_bms() {
+        let config = Config::default();
+        let pconfig = PlayerConfig::default();
+        let mut resource = PlayerResource::new(config, pconfig);
+
+        let bms_path = test_bms_dir().join("minimal_7k.bms");
+        assert!(
+            bms_path.exists(),
+            "test BMS file must exist: {:?}",
+            bms_path
+        );
+
+        let result = resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY);
+        assert!(result, "set_bms_file should return true on success");
+        assert!(
+            resource.get_bms_model().is_some(),
+            "model should be Some after successful load"
+        );
+    }
+
+    #[test]
+    fn set_bms_file_returns_false_for_nonexistent_file() {
+        let config = Config::default();
+        let pconfig = PlayerConfig::default();
+        let mut resource = PlayerResource::new(config, pconfig);
+
+        let result = resource.set_bms_file(Path::new("/nonexistent/file.bms"), BMSPlayerMode::PLAY);
+        assert!(
+            !result,
+            "set_bms_file should return false for nonexistent file"
+        );
+        assert!(
+            resource.get_bms_model().is_none(),
+            "model should be None after failed load"
+        );
+    }
+
+    #[test]
+    fn set_bms_file_returns_false_for_unsupported_extension() {
+        let config = Config::default();
+        let pconfig = PlayerConfig::default();
+        let mut resource = PlayerResource::new(config, pconfig);
+
+        let result = resource.set_bms_file(Path::new("/some/file.txt"), BMSPlayerMode::PLAY);
+        assert!(
+            !result,
+            "set_bms_file should return false for unsupported extension"
+        );
+    }
+
+    #[test]
+    fn set_bms_file_sets_margin_time() {
+        let config = Config::default();
+        let pconfig = PlayerConfig::default();
+        let mut resource = PlayerResource::new(config, pconfig);
+
+        let bms_path = test_bms_dir().join("minimal_7k.bms");
+        resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY);
+        // margin_time is set by set_start_note_time (may be 0 if first note >= 1000ms)
+        // Just verify it doesn't panic and the field is accessible
+        let _margin = resource.get_margin_time();
+    }
+
+    #[test]
+    fn set_bms_file_populates_songdata() {
+        let config = Config::default();
+        let pconfig = PlayerConfig::default();
+        let mut resource = PlayerResource::new(config, pconfig);
+
+        let bms_path = test_bms_dir().join("minimal_7k.bms");
+        assert!(
+            bms_path.exists(),
+            "test BMS file must exist: {:?}",
+            bms_path
+        );
+
+        let result = resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY);
+        assert!(result, "set_bms_file should return true on success");
+
+        // get_songdata() should return Some after loading a BMS file
+        let songdata = resource
+            .get_songdata()
+            .expect("songdata should be Some after successful set_bms_file");
+
+        // md5 should be populated from the loaded model
+        assert!(
+            !songdata.get_md5().is_empty(),
+            "songdata.md5 should be non-empty"
+        );
+
+        // PlayerResourceAccess trait method should also return Some
+        let trait_songdata =
+            PlayerResourceAccess::get_songdata(&resource as &dyn PlayerResourceAccess);
+        assert!(
+            trait_songdata.is_some(),
+            "PlayerResourceAccess::get_songdata should return Some"
+        );
+    }
+
+    #[test]
+    fn set_course_bms_files_loads_models() {
+        let config = Config::default();
+        let pconfig = PlayerConfig::default();
+        let mut resource = PlayerResource::new(config, pconfig);
+
+        let bms_path = test_bms_dir().join("minimal_7k.bms");
+        let files = vec![bms_path];
+        let result = resource.set_course_bms_files(&files);
+        assert!(result, "set_course_bms_files should return true on success");
+        assert!(
+            resource.get_course_bms_models().is_some(),
+            "course models should be Some after successful load"
+        );
+        assert_eq!(
+            resource.get_course_bms_models().unwrap().len(),
+            1,
+            "should have loaded exactly 1 course model"
+        );
     }
 }

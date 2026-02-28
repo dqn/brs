@@ -86,22 +86,22 @@ impl SkinGaugeGraphObject {
         for i in 0..6 {
             if colors.len() > i {
                 borderline[i] = if !colors[i].is_empty() {
-                    colors[i][0].clone()
+                    colors[i][0]
                 } else {
                     black()
                 };
                 bordercolor[i] = if colors[i].len() > 1 {
-                    colors[i][1].clone()
+                    colors[i][1]
                 } else {
                     black()
                 };
                 graphline[i] = if colors[i].len() > 2 {
-                    colors[i][2].clone()
+                    colors[i][2]
                 } else {
                     black()
                 };
                 graphcolor[i] = if colors[i].len() > 3 {
-                    colors[i][3].clone()
+                    colors[i][3]
                 } else {
                     black()
                 };

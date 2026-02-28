@@ -148,3 +148,56 @@ pub fn humanize_file_size(bytes: i64) -> String {
 
     format!("{:.1} {}", result, units[u as usize])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_humanize_file_size_bytes() {
+        assert_eq!(humanize_file_size(0), "0 B");
+        assert_eq!(humanize_file_size(1), "1 B");
+        assert_eq!(humanize_file_size(999), "999 B");
+    }
+
+    #[test]
+    fn test_humanize_file_size_kilobytes() {
+        assert_eq!(humanize_file_size(1000), "1.0 KB");
+        assert_eq!(humanize_file_size(1500), "1.5 KB");
+        // 999_999 rounds up to 1.0 MB due to the rounding threshold in the loop
+        assert_eq!(humanize_file_size(999_999), "1.0 MB");
+        assert_eq!(humanize_file_size(500_000), "500.0 KB");
+    }
+
+    #[test]
+    fn test_humanize_file_size_megabytes() {
+        assert_eq!(humanize_file_size(1_000_000), "1.0 MB");
+        assert_eq!(humanize_file_size(5_500_000), "5.5 MB");
+    }
+
+    #[test]
+    fn test_humanize_file_size_gigabytes() {
+        assert_eq!(humanize_file_size(1_000_000_000), "1.0 GB");
+        assert_eq!(humanize_file_size(2_500_000_000), "2.5 GB");
+    }
+
+    #[test]
+    fn test_humanize_file_size_terabytes() {
+        assert_eq!(humanize_file_size(1_000_000_000_000), "1.0 TB");
+    }
+
+    #[test]
+    fn test_humanize_file_size_negative_bytes() {
+        assert_eq!(humanize_file_size(-500), "-500 B");
+    }
+
+    #[test]
+    fn test_humanize_file_size_negative_kilobytes() {
+        assert_eq!(humanize_file_size(-1500), "-1.5 KB");
+    }
+
+    #[test]
+    fn test_maximum_task_name_length_constant() {
+        assert_eq!(MAXIMUM_TASK_NAME_LENGTH, 10);
+    }
+}

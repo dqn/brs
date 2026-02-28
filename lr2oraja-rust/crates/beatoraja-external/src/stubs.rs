@@ -161,11 +161,12 @@ pub use beatoraja_core::score_database_accessor::ScoreDatabaseAccessor;
 pub struct MainState {
     pub main: NullMainController,
     pub resource: PlayerResource,
+    pub screen_type: ScreenType,
 }
 
 impl beatoraja_types::main_state_access::MainStateAccess for MainState {
     fn get_screen_type(&self) -> ScreenType {
-        ScreenType::Other
+        self.screen_type.clone()
     }
 
     fn get_resource(
@@ -176,6 +177,16 @@ impl beatoraja_types::main_state_access::MainStateAccess for MainState {
 
     fn get_config(&self) -> &Config {
         self.resource.get_config()
+    }
+}
+
+impl Default for MainState {
+    fn default() -> Self {
+        Self {
+            main: NullMainController,
+            resource: PlayerResource::default(),
+            screen_type: ScreenType::Other,
+        }
     }
 }
 
@@ -444,3 +455,46 @@ impl std::fmt::Display for Status {
 // Note: the real trait uses `&dyn MainStateAccess` instead of `&MainState`.
 // External code still uses the legacy `MainState` struct which implements `MainStateAccess`.
 pub use beatoraja_types::main_state_access::MainStateListener;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use beatoraja_types::main_state_access::MainStateAccess;
+
+    #[test]
+    fn main_state_default_screen_type_is_other() {
+        let state = MainState::default();
+        assert_eq!(state.get_screen_type(), ScreenType::Other);
+    }
+
+    #[test]
+    fn main_state_with_screen_type_returns_correct_type() {
+        let state = MainState {
+            main: NullMainController,
+            resource: PlayerResource::default(),
+            screen_type: ScreenType::MusicSelector,
+        };
+        assert_eq!(state.get_screen_type(), ScreenType::MusicSelector);
+    }
+
+    #[test]
+    fn main_state_with_each_screen_type_variant() {
+        let variants = vec![
+            ScreenType::MusicSelector,
+            ScreenType::MusicDecide,
+            ScreenType::BMSPlayer,
+            ScreenType::MusicResult,
+            ScreenType::CourseResult,
+            ScreenType::KeyConfiguration,
+            ScreenType::Other,
+        ];
+        for variant in variants {
+            let state = MainState {
+                main: NullMainController,
+                resource: PlayerResource::default(),
+                screen_type: variant.clone(),
+            };
+            assert_eq!(state.get_screen_type(), variant);
+        }
+    }
+}

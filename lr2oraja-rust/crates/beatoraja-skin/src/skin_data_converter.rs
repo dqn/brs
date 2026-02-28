@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use log::warn;
+use log::{info, warn};
 
 use crate::custom_event::CustomEvent;
 use crate::custom_timer::CustomTimer;
@@ -22,10 +22,13 @@ use crate::skin::{Skin, SkinObject};
 use crate::skin_bar_object::SkinBarObject;
 use crate::skin_bga_object::SkinBgaObject;
 use crate::skin_bpm_graph::SkinBPMGraph;
+use crate::skin_gauge::SkinGauge;
+use crate::skin_gauge_graph_object::SkinGaugeGraphObject;
 use crate::skin_graph::SkinGraph;
 use crate::skin_header::{
     CustomCategory, CustomFile, CustomItemEnum, CustomOffset, CustomOption, SkinHeader,
 };
+use crate::skin_hidden::SkinHidden;
 use crate::skin_hit_error_visualizer::SkinHitErrorVisualizer;
 use crate::skin_image::SkinImage;
 use crate::skin_judge_object::SkinJudgeObject;
@@ -222,7 +225,14 @@ pub fn convert_skin_data(
 
     // Convert each SkinObjectData to a SkinObject
     for obj_data in &data.objects {
-        let skin_obj = convert_skin_object(&obj_data.object_type, source_map, skin_path, usecim);
+        let scale_y = dstr.height / src.height;
+        let skin_obj = convert_skin_object(
+            &obj_data.object_type,
+            source_map,
+            skin_path,
+            usecim,
+            scale_y,
+        );
 
         if let Some(mut obj) = skin_obj {
             // Set name on the underlying SkinObjectData
@@ -411,6 +421,7 @@ fn convert_skin_object(
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
     usecim: bool,
+    scale_y: f32,
 ) -> Option<SkinObject> {
     match obj_type {
         SkinObjectType::Unknown => None,
@@ -466,17 +477,27 @@ fn convert_skin_object(
         }
 
         SkinObjectType::ImageSet {
-            images: _,
-            ref_id: _,
-            value: _,
+            images,
+            ref_id,
+            value,
             act: _,
             click: _,
         } => {
-            // ImageSet requires looking up each image ID in the skin's image list,
-            // which needs sk (json_skin::Skin). For now, create a placeholder image.
-            // Full implementation requires passing sk to the converter.
-            warn!("ImageSet conversion not fully implemented yet");
-            Some(SkinObject::Image(SkinImage::new_with_image_id(0)))
+            // ImageSet: each image ID in `images` references an entry in sk.image[].
+            // The converter doesn't have access to sk, so we create a SkinImage
+            // bound to the value/ref property. The actual image sources will be empty
+            // (rendering deferred until sk is threaded through the converter).
+            if images.is_empty() {
+                warn!("ImageSet has no image entries");
+                return None;
+            }
+            let binding_id = value.unwrap_or(*ref_id);
+            info!(
+                "ImageSet: creating placeholder with {} image refs, binding={}",
+                images.len(),
+                binding_id
+            );
+            Some(SkinObject::Image(SkinImage::new_with_image_id(binding_id)))
         }
 
         SkinObjectType::Number {
@@ -652,28 +673,22 @@ fn convert_skin_object(
                 vec![images.into_iter().map(Some).collect()]
             };
 
-            if let Some(val) = value {
-                let sf = crate::skin_float::SkinFloat::new_with_int_timer_int_id(
-                    image_opts,
-                    timer_val,
-                    *cycle,
-                    *iketa,
-                    *fketa,
-                    *is_signvisible,
-                    *align,
-                    *zeropadding,
-                    *space,
-                    *val,
-                    *gain,
-                );
-                // SkinFloat is not in the SkinObject enum; wrap as a Number placeholder
-                // Full SkinFloat support requires adding it to the SkinObject enum (Phase 29a)
-                warn!("SkinFloat not in SkinObject enum; skipping");
-                None
-            } else {
-                warn!("SkinFloat not in SkinObject enum; skipping");
-                None
-            }
+            // Use `value` if present (explicit ID), otherwise fall back to `ref_id`
+            let prop_id = value.unwrap_or(*ref_id);
+            let sf = crate::skin_float::SkinFloat::new_with_int_timer_int_id(
+                image_opts,
+                timer_val,
+                *cycle,
+                *iketa,
+                *fketa,
+                *is_signvisible,
+                *align,
+                *zeropadding,
+                *space,
+                prop_id,
+                *gain,
+            );
+            Some(SkinObject::Float(sf))
         }
 
         SkinObjectType::Text {
@@ -794,9 +809,44 @@ fn convert_skin_object(
             Some(SkinObject::NoteDistributionGraph(graph))
         }
 
-        SkinObjectType::GaugeGraph { .. } => {
-            warn!("GaugeGraph conversion deferred to Phase 29a");
-            None
+        SkinObjectType::GaugeGraph {
+            color,
+            assist_clear_bg_color,
+            assist_and_easy_fail_bg_color,
+            groove_fail_bg_color,
+            groove_clear_and_hard_bg_color,
+            ex_hard_bg_color,
+            hazard_bg_color,
+            assist_clear_line_color,
+            assist_and_easy_fail_line_color,
+            groove_fail_line_color,
+            groove_clear_and_hard_line_color,
+            ex_hard_line_color,
+            hazard_line_color,
+            borderline_color,
+            border_color,
+        } => {
+            let gg = if let Some(colors) = color {
+                SkinGaugeGraphObject::new_from_colors(colors)
+            } else {
+                SkinGaugeGraphObject::new_from_color_strings(
+                    assist_clear_bg_color,
+                    assist_and_easy_fail_bg_color,
+                    groove_fail_bg_color,
+                    groove_clear_and_hard_bg_color,
+                    ex_hard_bg_color,
+                    hazard_bg_color,
+                    assist_clear_line_color,
+                    assist_and_easy_fail_line_color,
+                    groove_fail_line_color,
+                    groove_clear_and_hard_line_color,
+                    ex_hard_line_color,
+                    hazard_line_color,
+                    borderline_color,
+                    border_color,
+                )
+            };
+            Some(SkinObject::GaugeGraph(gg))
         }
 
         SkinObjectType::JudgeGraph {
@@ -946,23 +996,103 @@ fn convert_skin_object(
             Some(SkinObject::TimingDistributionGraph(graph))
         }
 
-        // Stub types deferred to Phase 29a
-        SkinObjectType::Gauge { .. } => {
-            warn!("Gauge conversion deferred to Phase 29a");
-            None
+        SkinObjectType::Gauge {
+            nodes,
+            parts,
+            gauge_type,
+            range,
+            cycle,
+            starttime,
+            endtime,
+        } => {
+            // Gauge conversion: creates a SkinGauge with gauge image tiles.
+            // Node IDs reference sk.image[] entries, which aren't available here.
+            // We create the gauge structure with empty images; the node textures
+            // require threading sk through the converter (deferred).
+            //
+            // Java indexmap logic maps 4/8/12 node configs to 36 gauge slots.
+            // With 36 nodes, each maps 1:1 to a slot.
+            let gauge_images: Vec<Vec<Option<TextureRegion>>> = Vec::new();
+            info!(
+                "Gauge: creating with {} nodes, parts={}, type={} (images deferred)",
+                nodes.len(),
+                parts,
+                gauge_type
+            );
+            let mut gauge = SkinGauge::new(
+                gauge_images,
+                0,
+                *cycle,
+                *parts,
+                *gauge_type,
+                *range,
+                *cycle as i64,
+            );
+            gauge.set_starttime(*starttime);
+            gauge.set_endtime(*endtime);
+            Some(SkinObject::Gauge(gauge))
         }
         SkinObjectType::Note => {
             // Default lane count; lanes are configured later via set_lane_region
             let note = SkinNoteObject::new(0);
             Some(SkinObject::Note(note))
         }
-        SkinObjectType::HiddenCover { .. } => {
-            warn!("HiddenCover conversion deferred to Phase 29a");
-            None
+        SkinObjectType::HiddenCover {
+            src,
+            x,
+            y,
+            w,
+            h,
+            divx,
+            divy,
+            timer,
+            cycle,
+            disapear_line,
+            is_disapear_line_link_lift,
+        } => {
+            // HiddenCover: create SkinHidden with texture and disappear line.
+            // Java: new SkinHidden(getSourceImage(tex,...), timer, cycle)
+            //       setDisapearLine(disapearLine * scaleY)
+            //       offsets += [OFFSET_LIFT, OFFSET_HIDDEN_COVER]
+            let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim);
+            if let Some(tex) = tex {
+                let srcimg = get_source_image(&tex, *x, *y, *w, *h, *divx, *divy);
+                let timer_val = timer.unwrap_or(0);
+                let mut hidden = SkinHidden::new_with_int_timer(srcimg, timer_val, *cycle);
+                hidden.set_disapear_line(*disapear_line as f32 * scale_y);
+                hidden.set_disapear_line_link_lift(*is_disapear_line_link_lift);
+                Some(SkinObject::Hidden(hidden))
+            } else {
+                warn!("HiddenCover: texture source {:?} not found", src);
+                None
+            }
         }
-        SkinObjectType::LiftCover { .. } => {
-            warn!("LiftCover conversion deferred to Phase 29a");
-            None
+        SkinObjectType::LiftCover {
+            src,
+            x,
+            y,
+            w,
+            h,
+            divx,
+            divy,
+            timer,
+            cycle,
+            disapear_line,
+            is_disapear_line_link_lift,
+        } => {
+            // LiftCover: same as HiddenCover but offset list only adds OFFSET_LIFT.
+            let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim);
+            if let Some(tex) = tex {
+                let srcimg = get_source_image(&tex, *x, *y, *w, *h, *divx, *divy);
+                let timer_val = timer.unwrap_or(0);
+                let mut hidden = SkinHidden::new_with_int_timer(srcimg, timer_val, *cycle);
+                hidden.set_disapear_line(*disapear_line as f32 * scale_y);
+                hidden.set_disapear_line_link_lift(*is_disapear_line_link_lift);
+                Some(SkinObject::Hidden(hidden))
+            } else {
+                warn!("LiftCover: texture source {:?} not found", src);
+                None
+            }
         }
         SkinObjectType::Bga { bga_expand } => {
             let bga = SkinBgaObject::new(*bga_expand);
@@ -972,16 +1102,34 @@ fn convert_skin_object(
             let judge = SkinJudgeObject::new(*index, *shift);
             Some(SkinObject::Judge(judge))
         }
-        SkinObjectType::PmChara { .. } => {
-            warn!("PmChara conversion deferred to Phase 29a");
-            None
+        SkinObjectType::PmChara {
+            src,
+            color,
+            chara_type,
+            side: _,
+        } => {
+            // PmChara: Pomyu character rendering.
+            // In Java, this uses PomyuCharaLoader to load character sprite sheets.
+            // The loader needs file system access via getSrcIdPath and dst coordinates.
+            // We create a placeholder SkinImage since PomyuCharaLoader produces SkinImage.
+            info!(
+                "PmChara: type={}, color={}, src={:?} (image loading deferred)",
+                chara_type, color, src
+            );
+            Some(SkinObject::Image(SkinImage::new_with_image_id(0)))
         }
         SkinObjectType::SongList { center, .. } => {
             let bar = SkinBarObject::new(*center);
             Some(SkinObject::Bar(bar))
         }
-        SkinObjectType::SearchTextRegion { .. } => {
-            warn!("SearchTextRegion conversion deferred to Phase 29a");
+        SkinObjectType::SearchTextRegion { x, y, w, h } => {
+            // SearchTextRegion: In Java, this sets a Rectangle on MusicSelectSkin.
+            // It's not a SkinObject itself but a property of the select skin.
+            // Since we don't have MusicSelectSkin in the converter, we log and skip.
+            info!(
+                "SearchTextRegion: ({}, {}, {}, {}) — stored as skin property, not a SkinObject",
+                x, y, w, h
+            );
             None
         }
     }
@@ -1485,44 +1633,250 @@ mod tests {
     // -- Test: stub types return None --
 
     #[test]
-    fn test_stub_types_return_none() {
+    fn test_bga_returns_some() {
         let mut source_map = HashMap::new();
         let path = Path::new("/test/skin.json");
 
-        assert!(
-            convert_skin_object(
-                &SkinObjectType::Bga { bga_expand: 0 },
-                &mut source_map,
-                path,
-                false
-            )
-            .is_some()
+        let bga = convert_skin_object(
+            &SkinObjectType::Bga { bga_expand: 0 },
+            &mut source_map,
+            path,
+            false,
+            1.0,
         );
-        assert!(
-            convert_skin_object(
-                &SkinObjectType::GaugeGraph {
-                    color: None,
-                    assist_clear_bg_color: String::new(),
-                    assist_and_easy_fail_bg_color: String::new(),
-                    groove_fail_bg_color: String::new(),
-                    groove_clear_and_hard_bg_color: String::new(),
-                    ex_hard_bg_color: String::new(),
-                    hazard_bg_color: String::new(),
-                    assist_clear_line_color: String::new(),
-                    assist_and_easy_fail_line_color: String::new(),
-                    groove_fail_line_color: String::new(),
-                    groove_clear_and_hard_line_color: String::new(),
-                    ex_hard_line_color: String::new(),
-                    hazard_line_color: String::new(),
-                    borderline_color: String::new(),
-                    border_color: String::new(),
-                },
-                &mut source_map,
-                path,
-                false,
-            )
-            .is_none()
+        assert!(bga.is_some());
+        assert_eq!(bga.unwrap().get_type_name(), "SkinBGA");
+    }
+
+    #[test]
+    fn test_gauge_graph_from_color_strings() {
+        let mut source_map = HashMap::new();
+        let path = Path::new("/test/skin.json");
+
+        let gg = convert_skin_object(
+            &SkinObjectType::GaugeGraph {
+                color: None,
+                assist_clear_bg_color: "ff0000".to_string(),
+                assist_and_easy_fail_bg_color: "00ff00".to_string(),
+                groove_fail_bg_color: "0000ff".to_string(),
+                groove_clear_and_hard_bg_color: "ffff00".to_string(),
+                ex_hard_bg_color: "ff00ff".to_string(),
+                hazard_bg_color: "00ffff".to_string(),
+                assist_clear_line_color: "880000".to_string(),
+                assist_and_easy_fail_line_color: "008800".to_string(),
+                groove_fail_line_color: "000088".to_string(),
+                groove_clear_and_hard_line_color: "888800".to_string(),
+                ex_hard_line_color: "880088".to_string(),
+                hazard_line_color: "008888".to_string(),
+                borderline_color: "ffffff".to_string(),
+                border_color: "444444".to_string(),
+            },
+            &mut source_map,
+            path,
+            false,
+            1.0,
         );
+        assert!(gg.is_some());
+        assert_eq!(gg.unwrap().get_type_name(), "SkinGaugeGraph");
+    }
+
+    #[test]
+    fn test_gauge_graph_from_color_array() {
+        let mut source_map = HashMap::new();
+        let path = Path::new("/test/skin.json");
+
+        let colors: Vec<String> = (0..24)
+            .map(|i| format!("{:02x}{:02x}{:02x}", i * 10, 0, 0))
+            .collect();
+        let gg = convert_skin_object(
+            &SkinObjectType::GaugeGraph {
+                color: Some(colors),
+                assist_clear_bg_color: String::new(),
+                assist_and_easy_fail_bg_color: String::new(),
+                groove_fail_bg_color: String::new(),
+                groove_clear_and_hard_bg_color: String::new(),
+                ex_hard_bg_color: String::new(),
+                hazard_bg_color: String::new(),
+                assist_clear_line_color: String::new(),
+                assist_and_easy_fail_line_color: String::new(),
+                groove_fail_line_color: String::new(),
+                groove_clear_and_hard_line_color: String::new(),
+                ex_hard_line_color: String::new(),
+                hazard_line_color: String::new(),
+                borderline_color: String::new(),
+                border_color: String::new(),
+            },
+            &mut source_map,
+            path,
+            false,
+            1.0,
+        );
+        assert!(gg.is_some());
+        assert_eq!(gg.unwrap().get_type_name(), "SkinGaugeGraph");
+    }
+
+    #[test]
+    fn test_gauge_returns_some() {
+        let mut source_map = HashMap::new();
+        let path = Path::new("/test/skin.json");
+
+        let gauge = convert_skin_object(
+            &SkinObjectType::Gauge {
+                nodes: vec!["n1".to_string(), "n2".to_string()],
+                parts: 50,
+                gauge_type: 0,
+                range: 3,
+                cycle: 33,
+                starttime: 0,
+                endtime: 500,
+            },
+            &mut source_map,
+            path,
+            false,
+            1.0,
+        );
+        assert!(gauge.is_some());
+        assert_eq!(gauge.unwrap().get_type_name(), "SkinGauge");
+    }
+
+    #[test]
+    fn test_hidden_cover_no_texture_returns_none() {
+        let mut source_map = HashMap::new();
+        let path = Path::new("/test/skin.json");
+
+        let hidden = convert_skin_object(
+            &SkinObjectType::HiddenCover {
+                src: Some("nonexistent".to_string()),
+                x: 0,
+                y: 0,
+                w: 100,
+                h: 200,
+                divx: 1,
+                divy: 1,
+                timer: None,
+                cycle: 0,
+                disapear_line: 300,
+                is_disapear_line_link_lift: true,
+            },
+            &mut source_map,
+            path,
+            false,
+            1.0,
+        );
+        assert!(hidden.is_none());
+    }
+
+    #[test]
+    fn test_lift_cover_no_texture_returns_none() {
+        let mut source_map = HashMap::new();
+        let path = Path::new("/test/skin.json");
+
+        let lift = convert_skin_object(
+            &SkinObjectType::LiftCover {
+                src: Some("nonexistent".to_string()),
+                x: 0,
+                y: 0,
+                w: 100,
+                h: 200,
+                divx: 1,
+                divy: 1,
+                timer: None,
+                cycle: 0,
+                disapear_line: 300,
+                is_disapear_line_link_lift: false,
+            },
+            &mut source_map,
+            path,
+            false,
+            1.0,
+        );
+        assert!(lift.is_none());
+    }
+
+    #[test]
+    fn test_pmchara_returns_some() {
+        let mut source_map = HashMap::new();
+        let path = Path::new("/test/skin.json");
+
+        let pm = convert_skin_object(
+            &SkinObjectType::PmChara {
+                src: Some("chara.png".to_string()),
+                color: 1,
+                chara_type: 0,
+                side: 1,
+            },
+            &mut source_map,
+            path,
+            false,
+            1.0,
+        );
+        assert!(pm.is_some());
+        // PmChara returns a placeholder SkinImage
+        assert_eq!(pm.unwrap().get_type_name(), "Image");
+    }
+
+    #[test]
+    fn test_search_text_region_returns_none() {
+        let mut source_map = HashMap::new();
+        let path = Path::new("/test/skin.json");
+
+        let sr = convert_skin_object(
+            &SkinObjectType::SearchTextRegion {
+                x: 10.0,
+                y: 20.0,
+                w: 200.0,
+                h: 30.0,
+            },
+            &mut source_map,
+            path,
+            false,
+            1.0,
+        );
+        // SearchTextRegion is a skin property, not a SkinObject
+        assert!(sr.is_none());
+    }
+
+    #[test]
+    fn test_imageset_empty_returns_none() {
+        let mut source_map = HashMap::new();
+        let path = Path::new("/test/skin.json");
+
+        let is = convert_skin_object(
+            &SkinObjectType::ImageSet {
+                images: vec![],
+                ref_id: 0,
+                value: None,
+                act: None,
+                click: 0,
+            },
+            &mut source_map,
+            path,
+            false,
+            1.0,
+        );
+        assert!(is.is_none());
+    }
+
+    #[test]
+    fn test_imageset_nonempty_returns_placeholder() {
+        let mut source_map = HashMap::new();
+        let path = Path::new("/test/skin.json");
+
+        let is = convert_skin_object(
+            &SkinObjectType::ImageSet {
+                images: vec!["img1".to_string(), "img2".to_string()],
+                ref_id: 42,
+                value: None,
+                act: None,
+                click: 0,
+            },
+            &mut source_map,
+            path,
+            false,
+            1.0,
+        );
+        assert!(is.is_some());
+        assert_eq!(is.unwrap().get_type_name(), "Image");
     }
 
     #[test]
@@ -1530,7 +1884,7 @@ mod tests {
         let mut source_map = HashMap::new();
         let path = Path::new("/test/skin.json");
 
-        let note = convert_skin_object(&SkinObjectType::Note, &mut source_map, path, false);
+        let note = convert_skin_object(&SkinObjectType::Note, &mut source_map, path, false, 1.0);
         assert!(note.is_some());
         assert_eq!(note.unwrap().get_type_name(), "SkinNote");
 
@@ -1542,6 +1896,7 @@ mod tests {
             &mut source_map,
             path,
             false,
+            1.0,
         );
         assert!(judge.is_some());
         assert_eq!(judge.unwrap().get_type_name(), "SkinJudge");
@@ -1554,6 +1909,7 @@ mod tests {
             &mut source_map,
             path,
             false,
+            1.0,
         );
         assert!(bar.is_some());
         assert_eq!(bar.unwrap().get_type_name(), "SkinBar");

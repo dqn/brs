@@ -192,3 +192,91 @@ fn get_lane_order_string() -> String {
     let lane_order = LANE_ORDER.lock().unwrap();
     lane_order.join("")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Set lane order to a known state for testing (must hold no locks when calling).
+    fn setup_lane_order(order: &str) {
+        let mut lo = LANE_ORDER.lock().unwrap();
+        *lo = order.chars().map(|c| c.to_string()).collect();
+    }
+
+    #[test]
+    fn test_mirror_lane_order() {
+        setup_lane_order("1234567");
+        RandomTrainerMenu::mirror_lane_order();
+        assert_eq!(get_lane_order_string(), "7654321");
+    }
+
+    #[test]
+    fn test_mirror_lane_order_already_reversed() {
+        setup_lane_order("7654321");
+        RandomTrainerMenu::mirror_lane_order();
+        assert_eq!(get_lane_order_string(), "1234567");
+    }
+
+    #[test]
+    fn test_shift_left_lane_order() {
+        setup_lane_order("1234567");
+        RandomTrainerMenu::shift_left_lane_order();
+        assert_eq!(get_lane_order_string(), "2345671");
+    }
+
+    #[test]
+    fn test_shift_left_lane_order_twice() {
+        setup_lane_order("1234567");
+        RandomTrainerMenu::shift_left_lane_order();
+        RandomTrainerMenu::shift_left_lane_order();
+        assert_eq!(get_lane_order_string(), "3456712");
+    }
+
+    #[test]
+    fn test_shift_right_lane_order() {
+        setup_lane_order("1234567");
+        RandomTrainerMenu::shift_right_lane_order();
+        assert_eq!(get_lane_order_string(), "7123456");
+    }
+
+    #[test]
+    fn test_shift_right_lane_order_twice() {
+        setup_lane_order("1234567");
+        RandomTrainerMenu::shift_right_lane_order();
+        RandomTrainerMenu::shift_right_lane_order();
+        assert_eq!(get_lane_order_string(), "6712345");
+    }
+
+    #[test]
+    fn test_shift_left_then_right_is_identity() {
+        setup_lane_order("1234567");
+        RandomTrainerMenu::shift_left_lane_order();
+        RandomTrainerMenu::shift_right_lane_order();
+        assert_eq!(get_lane_order_string(), "1234567");
+    }
+
+    #[test]
+    fn test_change_lane_order_partial() {
+        setup_lane_order("1234567");
+        change_lane_order("ABC");
+        // Only first 3 characters should change
+        assert_eq!(get_lane_order_string(), "ABC4567");
+    }
+
+    #[test]
+    fn test_get_lane_order_string() {
+        setup_lane_order("3571246");
+        assert_eq!(get_lane_order_string(), "3571246");
+    }
+
+    #[test]
+    fn test_init_lane_order_sets_default() {
+        // Clear lane order to force init
+        {
+            let mut lo = LANE_ORDER.lock().unwrap();
+            lo.clear();
+        }
+        init_lane_order();
+        assert_eq!(get_lane_order_string(), "1234567");
+    }
+}

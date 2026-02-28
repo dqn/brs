@@ -530,3 +530,216 @@ fn get_toast_pos(pos_type: &ToastPos, acc_y: f32) -> (f32, f32) {
     let init_pos = get_relative_init_pos(pos_type);
     (init_pos.0, init_pos.1 + adjusted_acc_y)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ---- ToastPos tests ----
+
+    #[test]
+    fn test_toast_pos_pivot_x_left_positions() {
+        assert!((ToastPos::TopLeft.pivot_x() - 0.0).abs() < f32::EPSILON);
+        assert!((ToastPos::BottomLeft.pivot_x() - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_toast_pos_pivot_x_center_positions() {
+        assert!((ToastPos::TopCenter.pivot_x() - 0.5).abs() < f32::EPSILON);
+        assert!((ToastPos::BottomCenter.pivot_x() - 0.5).abs() < f32::EPSILON);
+        assert!((ToastPos::Center.pivot_x() - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_toast_pos_pivot_x_right_positions() {
+        assert!((ToastPos::TopRight.pivot_x() - 1.0).abs() < f32::EPSILON);
+        assert!((ToastPos::BottomRight.pivot_x() - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_toast_pos_pivot_y_top_positions() {
+        assert!((ToastPos::TopLeft.pivot_y() - 0.0).abs() < f32::EPSILON);
+        assert!((ToastPos::TopCenter.pivot_y() - 0.0).abs() < f32::EPSILON);
+        assert!((ToastPos::TopRight.pivot_y() - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_toast_pos_pivot_y_bottom_positions() {
+        assert!((ToastPos::BottomLeft.pivot_y() - 1.0).abs() < f32::EPSILON);
+        assert!((ToastPos::BottomCenter.pivot_y() - 1.0).abs() < f32::EPSILON);
+        assert!((ToastPos::BottomRight.pivot_y() - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_toast_pos_pivot_y_center() {
+        assert!((ToastPos::Center.pivot_y() - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_toast_pos_from_name_all_known() {
+        assert_eq!(ToastPos::from_name("TopLeft"), ToastPos::TopLeft);
+        assert_eq!(ToastPos::from_name("TopCenter"), ToastPos::TopCenter);
+        assert_eq!(ToastPos::from_name("TopRight"), ToastPos::TopRight);
+        assert_eq!(ToastPos::from_name("BottomLeft"), ToastPos::BottomLeft);
+        assert_eq!(ToastPos::from_name("BottomCenter"), ToastPos::BottomCenter);
+        assert_eq!(ToastPos::from_name("BottomRight"), ToastPos::BottomRight);
+        assert_eq!(ToastPos::from_name("Center"), ToastPos::Center);
+    }
+
+    #[test]
+    fn test_toast_pos_from_name_unknown_defaults_to_top_left() {
+        assert_eq!(ToastPos::from_name("Invalid"), ToastPos::TopLeft);
+        assert_eq!(ToastPos::from_name(""), ToastPos::TopLeft);
+    }
+
+    // ---- Toast tests ----
+
+    #[test]
+    fn test_toast_default_title_uses_type_name_when_title_empty() {
+        let toast = Toast::new(ToastType::Success);
+        assert_eq!(toast.get_default_title(), Some("Success"));
+
+        let toast = Toast::new(ToastType::Warning);
+        assert_eq!(toast.get_default_title(), Some("Warning"));
+
+        let toast = Toast::new(ToastType::Error);
+        assert_eq!(toast.get_default_title(), Some("Error"));
+
+        let toast = Toast::new(ToastType::Info);
+        assert_eq!(toast.get_default_title(), Some("Info"));
+
+        let toast = Toast::new(ToastType::None);
+        assert_eq!(toast.get_default_title(), None);
+    }
+
+    #[test]
+    fn test_toast_default_title_uses_custom_title_when_set() {
+        let mut toast = Toast::new(ToastType::Success);
+        toast.set_title("Custom Title".to_string());
+        assert_eq!(toast.get_default_title(), Some("Custom Title"));
+    }
+
+    #[test]
+    fn test_toast_get_color_mapping() {
+        assert_eq!(
+            Toast::new(ToastType::None).get_color(),
+            [1.0, 1.0, 1.0, 1.0]
+        );
+        assert_eq!(
+            Toast::new(ToastType::Success).get_color(),
+            [0.0, 1.0, 0.0, 1.0]
+        );
+        assert_eq!(
+            Toast::new(ToastType::Warning).get_color(),
+            [1.0, 1.0, 0.0, 1.0]
+        );
+        assert_eq!(
+            Toast::new(ToastType::Error).get_color(),
+            [1.0, 0.0, 0.0, 1.0]
+        );
+        assert_eq!(
+            Toast::new(ToastType::Info).get_color(),
+            [0.0, 0.616, 1.0, 1.0]
+        );
+    }
+
+    #[test]
+    fn test_toast_get_icon_mapping() {
+        assert_eq!(Toast::new(ToastType::None).get_icon(), None);
+        assert_eq!(
+            Toast::new(ToastType::Success).get_icon(),
+            Some(font_awesome_icons::CHECK_CIRCLE)
+        );
+        assert_eq!(
+            Toast::new(ToastType::Warning).get_icon(),
+            Some(font_awesome_icons::EXCLAMATION)
+        );
+        assert_eq!(
+            Toast::new(ToastType::Error).get_icon(),
+            Some(font_awesome_icons::BOMB)
+        );
+        assert_eq!(
+            Toast::new(ToastType::Info).get_icon(),
+            Some(font_awesome_icons::INFO_CIRCLE)
+        );
+    }
+
+    #[test]
+    fn test_toast_with_content_constructor() {
+        let toast = Toast::with_content(ToastType::Info, "Hello".to_string());
+        assert_eq!(toast.get_content(), "Hello");
+        assert_eq!(*toast.get_type(), ToastType::Info);
+        assert_eq!(toast.dismiss_time, NOTIFY_DEFAULT_DISMISS);
+    }
+
+    #[test]
+    fn test_toast_with_dismiss_time_constructor() {
+        let toast = Toast::with_dismiss_time(ToastType::Warning, 5000);
+        assert_eq!(toast.dismiss_time, 5000);
+        assert_eq!(*toast.get_type(), ToastType::Warning);
+    }
+
+    #[test]
+    fn test_toast_with_dismiss_time_and_content_constructor() {
+        let toast =
+            Toast::with_dismiss_time_and_content(ToastType::Error, 1000, "Oops".to_string());
+        assert_eq!(toast.dismiss_time, 1000);
+        assert_eq!(toast.get_content(), "Oops");
+        assert_eq!(*toast.get_type(), ToastType::Error);
+    }
+
+    #[test]
+    fn test_toast_with_button_constructor() {
+        let toast = Toast::with_button(
+            ToastType::Success,
+            2000,
+            "Click me".to_string(),
+            "Action content".to_string(),
+        );
+        assert!(toast.has_on_button_press());
+        assert_eq!(toast.get_button_label(), "Click me");
+        assert_eq!(toast.get_content(), "Action content");
+        assert_eq!(toast.dismiss_time, 2000);
+    }
+
+    #[test]
+    fn test_toast_phase_starts_as_fade_in() {
+        let toast = Toast::new(ToastType::Info);
+        // Immediately after creation, phase should be FadeIn
+        assert_eq!(toast.get_phase(), ToastPhase::FadeIn);
+    }
+
+    #[test]
+    fn test_toast_fade_percent_during_wait_phase() {
+        // A toast with 0ms fade-in and some dismiss time should be at NOTIFY_OPACITY during wait
+        let mut toast = Toast::new(ToastType::Info);
+        toast.dismiss_time = 100_000; // very long dismiss
+        // Since we just created it and fade-in is 150ms, within ~0ms the fade percent
+        // should be close to 0 (beginning of fade-in)
+        let fade = toast.get_fade_percent();
+        // At time ~0, fade_in phase: (0 / 150) * 0.9 ~ 0.0
+        assert!(fade >= 0.0);
+        assert!(fade <= NOTIFY_OPACITY);
+    }
+
+    // ---- NOTIFICATION_POSITIONS tests ----
+
+    #[test]
+    fn test_notification_positions_count() {
+        assert_eq!(NOTIFICATION_POSITIONS.len(), 7);
+    }
+
+    #[test]
+    fn test_notification_positions_all_parseable_by_from_name() {
+        for &pos_name in &NOTIFICATION_POSITIONS {
+            let pos = ToastPos::from_name(pos_name);
+            // Each position name should produce a non-default result
+            // (except TopLeft which is the default)
+            assert!(
+                pos_name == "TopLeft" || pos != ToastPos::TopLeft,
+                "Position '{}' unexpectedly parsed as TopLeft",
+                pos_name
+            );
+        }
+    }
+}

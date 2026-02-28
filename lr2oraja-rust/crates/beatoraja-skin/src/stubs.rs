@@ -10,7 +10,7 @@ pub use crate::rendering_stubs::*;
 
 /// Stub for beatoraja.MainState
 pub trait MainState {
-    fn get_timer(&self) -> &Timer;
+    fn get_timer(&self) -> &dyn beatoraja_types::timer_access::TimerAccess;
     fn get_offset_value(&self, id: i32) -> Option<&SkinOffset>;
     fn get_main(&self) -> &MainController;
     fn get_image(&self, id: i32) -> Option<TextureRegion>;
@@ -34,6 +34,18 @@ pub trait MainState {
         false
     }
 
+    /// Returns the float property value for the given ID.
+    /// Used by FloatPropertyFactory delegate to look up pre-computed values.
+    fn float_value(&self, _id: i32) -> f32 {
+        0.0
+    }
+
+    /// Sets the float property value for the given ID.
+    /// Used by FloatWriter delegate to write values back to state.
+    fn set_float_value(&mut self, _id: i32, _value: f32) {
+        // default no-op
+    }
+
     // ============================================================
     // Event-facing methods (Phase 41h)
     // These provide mutable config access for EventFactory events.
@@ -43,6 +55,11 @@ pub trait MainState {
 
     /// Returns true if this state is a MusicSelector.
     fn is_music_selector(&self) -> bool {
+        false
+    }
+
+    /// Returns true if this state is a result screen (MusicResult or CourseResult).
+    fn is_result_state(&self) -> bool {
         false
     }
 
@@ -117,6 +134,62 @@ pub trait MainState {
     fn select_song(&mut self, _mode: beatoraja_core::bms_player_mode::BMSPlayerMode) {
         // default no-op
     }
+
+    // ============================================================
+    // Lua MainStateAccessor methods (Phase 45)
+    // These provide read access to score/judge/gauge data and
+    // write access to timers, volumes, audio, and events.
+    // ============================================================
+
+    /// Returns the ScoreDataProperty for the current state.
+    /// Used by Lua rate/exscore/rate_best/exscore_best/rate_rival/exscore_rival functions.
+    fn get_score_data_property(&self) -> &beatoraja_core::score_data_property::ScoreDataProperty {
+        static DEFAULT: std::sync::OnceLock<
+            beatoraja_core::score_data_property::ScoreDataProperty,
+        > = std::sync::OnceLock::new();
+        DEFAULT.get_or_init(beatoraja_core::score_data_property::ScoreDataProperty::default)
+    }
+
+    /// Returns the total judge count for the given judge index (fast + slow).
+    /// Used by Lua `judge(id)` function.
+    fn get_judge_count(&self, _judge: i32, _fast: bool) -> i32 {
+        0
+    }
+
+    /// Returns the gauge value (0.0-1.0). Only meaningful for BMSPlayer states.
+    /// Used by Lua `gauge()` function.
+    fn get_gauge_value(&self) -> f32 {
+        0.0
+    }
+
+    /// Returns the gauge type ID. Only meaningful for BMSPlayer states.
+    /// Used by Lua `gauge_type()` function.
+    fn get_gauge_type(&self) -> i32 {
+        0
+    }
+
+    /// Returns true if this state is a BMSPlayer (gameplay state).
+    fn is_bms_player(&self) -> bool {
+        false
+    }
+
+    /// Set a timer value by ID. Only writable timers (custom timers) are allowed.
+    /// Used by Lua `set_timer(id, value)` function.
+    fn set_timer_micro(&mut self, _timer_id: i32, _micro_time: i64) {
+        log::warn!("not yet implemented: MainState.set_timer_micro");
+    }
+
+    /// Play an audio file at the given path with volume and loop flag.
+    /// Used by Lua `audio_play` and `audio_loop` functions.
+    fn audio_play(&mut self, _path: &str, _volume: f32, _is_loop: bool) {
+        log::warn!("not yet implemented: MainState.audio_play");
+    }
+
+    /// Stop an audio file at the given path.
+    /// Used by Lua `audio_stop` function.
+    fn audio_stop(&mut self, _path: &str) {
+        log::warn!("not yet implemented: MainState.audio_stop");
+    }
 }
 
 /// Stub for beatoraja.MainController
@@ -156,22 +229,42 @@ impl InputProcessor {
 // SkinOffset — re-exported from beatoraja-types (Phase 25d-2)
 pub use beatoraja_types::skin_offset::SkinOffset;
 
-/// Stub for beatoraja.Timer — implements TimerAccess from beatoraja-types.
+/// Timer data carrier for skin rendering — implements TimerAccess from beatoraja-types.
 ///
-/// This struct is kept for backward compatibility. New code should use
-/// `&dyn beatoraja_types::timer_access::TimerAccess` directly.
-///
-/// When `timer_values` is non-empty, timer queries delegate to the real
-/// snapshot data from `TimerManager::timer_values()`. When empty (Default),
-/// all timers report as OFF for backward compatibility.
+/// Holds current time and per-timer-id activation times (snapshot from TimerManager).
+/// Previously returned 0 for all per-timer queries (frozen animations).
 #[derive(Clone, Debug, Default)]
 pub struct Timer {
     pub now_time: i64,
     pub now_micro_time: i64,
-    pub timer_values: Vec<i64>,
+    /// Per-timer-id activation times. Index = timer_id, value = micro-time when set
+    /// (i64::MIN = OFF). Populated from TimerManager's timer array.
+    timers: Vec<i64>,
 }
 
 impl Timer {
+    /// Create a Timer with time values and a timer array snapshot.
+    pub fn with_timers(now_time: i64, now_micro_time: i64, timers: Vec<i64>) -> Self {
+        Self {
+            now_time,
+            now_micro_time,
+            timers,
+        }
+    }
+
+    /// Set the activation time for a specific timer ID.
+    /// Grows the timers array as needed (new entries default to i64::MIN = OFF).
+    pub fn set_timer_value(&mut self, timer_id: i32, micro_time: i64) {
+        if timer_id < 0 {
+            return;
+        }
+        let idx = timer_id as usize;
+        if idx >= self.timers.len() {
+            self.timers.resize(idx + 1, i64::MIN);
+        }
+        self.timers[idx] = micro_time;
+    }
+
     pub fn get_now_time(&self) -> i64 {
         self.now_time
     }
@@ -181,8 +274,8 @@ impl Timer {
     }
 
     pub fn get_micro_timer(&self, timer_id: i32) -> i64 {
-        if timer_id >= 0 && (timer_id as usize) < self.timer_values.len() {
-            self.timer_values[timer_id as usize]
+        if timer_id >= 0 && (timer_id as usize) < self.timers.len() {
+            self.timers[timer_id as usize]
         } else {
             i64::MIN
         }

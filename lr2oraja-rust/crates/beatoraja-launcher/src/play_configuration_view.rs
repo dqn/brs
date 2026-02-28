@@ -1,10 +1,16 @@
 // PlayConfigurationView.java -> play_configuration_view.rs
 // Mechanical line-by-line translation.
 
+use std::sync::Arc;
+use std::thread::JoinHandle;
+
 use log::{info, warn};
 
 use beatoraja_core::config::Config;
 use beatoraja_core::player_config::PlayerConfig;
+use beatoraja_song::song_database_update_listener::SongDatabaseUpdateListener as SongListener;
+use beatoraja_song::song_information_accessor::SongInformationAccessor;
+use beatoraja_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor;
 use bms_model::mode::Mode;
 use md_processor::http_download_processor::DOWNLOAD_SOURCES;
 
@@ -17,10 +23,40 @@ use crate::obs_configuration_view::ObsConfigurationView;
 use crate::resource_configuration_view::ResourceConfigurationView;
 use crate::skin_configuration_view::SkinConfigurationView;
 use crate::stream_editor_view::StreamEditorView;
-use crate::stubs::{BMSPlayerMode, MainLoader, SongDatabaseUpdateListener, TwitterAuth, Version};
+use crate::stubs::{BMSPlayerMode, MainLoader, TwitterAuth, Version};
 use crate::table_editor_view::TableEditorView;
 use crate::trainer_view::TrainerView;
 use crate::video_configuration_view::VideoConfigurationView;
+
+/// State of async BMS database loading.
+///
+/// Translated from: PlayConfigurationView.loadBMS() thread lifecycle.
+/// Java uses two threads (progress UI + DB update). In Rust, egui polls
+/// this state each frame to display progress.
+#[derive(Debug)]
+pub enum BmsLoadingState {
+    /// No loading in progress.
+    Idle,
+    /// Background thread is running. Counters come from the shared listener.
+    Loading {
+        bms_files: i32,
+        processed_files: i32,
+        new_files: i32,
+    },
+    /// Loading finished successfully.
+    Completed,
+    /// Loading failed with an error message.
+    Failed(String),
+}
+
+/// Handle to a background BMS loading thread.
+///
+/// Holds the shared `SongDatabaseUpdateListener` (atomic counters) and the
+/// `JoinHandle` so the UI can poll progress and detect completion.
+struct BmsLoadingHandle {
+    listener: Arc<SongListener>,
+    join_handle: JoinHandle<anyhow::Result<()>>,
+}
 
 /// PlayMode enum
 /// Translated from PlayConfigurationView.PlayMode
@@ -271,9 +307,13 @@ pub struct PlayConfigurationView {
     config: Option<Config>,
     player: Option<PlayerConfig>,
     loader: Option<MainLoader>,
-    song_updated: bool,
+    pub(crate) song_updated: bool,
     request_token: Option<(String, String)>,
     pc: Option<PlayMode>,
+    /// Handle to the background BMS loading thread, if any.
+    bms_loading_handle: Option<BmsLoadingHandle>,
+    /// Cached terminal state after loading completes or fails.
+    bms_loading_result: Option<Result<(), String>>,
 
     // Exit flag (replaces process::exit(0))
     pub exit_requested: bool,
@@ -414,6 +454,8 @@ impl PlayConfigurationView {
             request_token: None,
             pc: None,
             exit_requested: false,
+            bms_loading_handle: None,
+            bms_loading_result: None,
             player_panel_disabled: false,
             video_tab_disabled: false,
             audio_tab_disabled: false,
@@ -1051,25 +1093,143 @@ impl PlayConfigurationView {
         self.load_bms(Some(updatepath.to_string()), false);
     }
 
-    /// Load BMS and update song database
+    /// Load BMS and update song database on a background thread.
+    ///
     /// Translates: public void loadBMS(String updatepath, boolean updateAll)
-    pub fn load_bms(&mut self, _updatepath: Option<String>, _update_all: bool) {
+    ///
+    /// Java spawns two threads: one for the progress UI (JavaFX AnimationTimer)
+    /// and one for the actual DB update. In Rust/egui, the UI polls
+    /// `bms_loading_state()` each frame to display progress, so we only need
+    /// a single worker thread.
+    pub fn load_bms(&mut self, updatepath: Option<String>, update_all: bool) {
         self.commit();
 
-        // The Java version shows a progress bar dialog and runs the DB update on a separate thread.
-        // In Rust, this will be an async operation with egui progress display.
-        // For now, stub the actual loading.
-        let _listener = SongDatabaseUpdateListener::default();
+        let config = match &self.config {
+            Some(c) => c.clone(),
+            None => {
+                log::warn!("load_bms called without config");
+                return;
+            }
+        };
 
-        // The actual song database update logic:
-        // let songdb = MainLoader::get_score_database_accessor();
-        // let infodb = if config.use_song_info { Some(SongInformationAccessor::new("songinfo.db")) } else { None };
-        // songdb.update_song_datas(updatepath, &config.bmsroot, update_all, false, infodb, &listener);
-        // self.song_updated = true;
+        // Don't start a new load while one is already running
+        if self.bms_loading_handle.is_some() {
+            log::warn!("BMS loading already in progress");
+            return;
+        }
 
-        log::warn!(
-            "not yet implemented: PlayConfigurationView.load_bms - egui progress bar and async BMS loading"
-        );
+        // Reset any previous result
+        self.bms_loading_result = None;
+
+        let listener = Arc::new(SongListener::new());
+        let listener_clone = Arc::clone(&listener);
+
+        let songpath = config.get_songpath().to_string();
+        let bmsroot = config.get_bmsroot().to_vec();
+        let use_song_info = config.use_song_info;
+        let songinfopath = config.get_songinfopath().to_string();
+
+        let join_handle = std::thread::spawn(move || -> anyhow::Result<()> {
+            log::info!("song.db update started");
+
+            let songdb = SQLiteSongDatabaseAccessor::new(&songpath, &bmsroot)?;
+
+            let infodb = if use_song_info {
+                match SongInformationAccessor::new(&songinfopath) {
+                    Ok(db) => Some(db),
+                    Err(e) => {
+                        log::warn!("Failed to open song info DB: {}", e);
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
+            songdb.update_song_datas_with_listener(
+                updatepath.as_deref(),
+                &bmsroot,
+                update_all,
+                false,
+                infodb
+                    .as_ref()
+                    .map(|db| db as &dyn beatoraja_types::song_information_db::SongInformationDb),
+                &listener_clone,
+            );
+
+            log::info!("song.db update completed");
+            Ok(())
+        });
+
+        self.bms_loading_handle = Some(BmsLoadingHandle {
+            listener,
+            join_handle,
+        });
+    }
+
+    /// Get the current BMS loading state.
+    ///
+    /// Call this from the egui update loop to display progress.
+    pub fn bms_loading_state(&self) -> BmsLoadingState {
+        if let Some(handle) = &self.bms_loading_handle {
+            BmsLoadingState::Loading {
+                bms_files: handle.listener.get_bms_files_count(),
+                processed_files: handle.listener.get_processed_bms_files_count(),
+                new_files: handle.listener.get_new_bms_files_count(),
+            }
+        } else if let Some(result) = &self.bms_loading_result {
+            match result {
+                Ok(()) => BmsLoadingState::Completed,
+                Err(msg) => BmsLoadingState::Failed(msg.clone()),
+            }
+        } else {
+            BmsLoadingState::Idle
+        }
+    }
+
+    /// Poll the background thread for completion.
+    ///
+    /// Call this each frame from the egui update loop. When the thread
+    /// finishes, this sets `song_updated = true` and transitions the
+    /// state to Completed or Failed.
+    pub fn poll_bms_loading(&mut self) {
+        let finished = self
+            .bms_loading_handle
+            .as_ref()
+            .is_some_and(|h| h.join_handle.is_finished());
+
+        if finished {
+            let handle = self.bms_loading_handle.take().unwrap();
+            match handle.join_handle.join() {
+                Ok(Ok(())) => {
+                    self.song_updated = true;
+                    self.bms_loading_result = Some(Ok(()));
+                    log::info!("BMS loading completed successfully");
+                }
+                Ok(Err(e)) => {
+                    let msg = format!("{}", e);
+                    log::error!("BMS loading failed: {}", msg);
+                    self.bms_loading_result = Some(Err(msg));
+                }
+                Err(_panic) => {
+                    let msg = "BMS loading thread panicked".to_string();
+                    log::error!("{}", msg);
+                    self.bms_loading_result = Some(Err(msg));
+                }
+            }
+        }
+    }
+
+    /// Reset the loading state back to Idle.
+    ///
+    /// Call after the UI has acknowledged the Completed/Failed state.
+    pub fn reset_bms_loading(&mut self) {
+        self.bms_loading_result = None;
+    }
+
+    /// Returns true if BMS loading is currently in progress.
+    pub fn is_bms_loading(&self) -> bool {
+        self.bms_loading_handle.is_some()
     }
 
     /// Import score data from LR2
@@ -1452,6 +1612,202 @@ mod tests {
         assert_eq!(cell.get_text(None), "");
         assert_eq!(cell.get_text(Some(-1)), "");
         assert_eq!(cell.get_text(Some(99)), "");
+    }
+
+    // ---- Async BMS loading tests ----
+
+    #[test]
+    fn test_bms_loading_state_initially_idle() {
+        let view = initialized_view();
+        assert!(
+            matches!(view.bms_loading_state(), BmsLoadingState::Idle),
+            "Loading state should be Idle after construction"
+        );
+    }
+
+    #[test]
+    fn test_load_bms_transitions_to_loading_when_config_present() {
+        let mut view = initialized_view();
+        // Set up config with a temp directory as bmsroot
+        let tmpdir = tempfile::tempdir().unwrap();
+        let bmsroot = tmpdir.path().to_string_lossy().to_string();
+        let songdb_path = tmpdir.path().join("song.db");
+        let config = Config {
+            songpath: songdb_path.to_string_lossy().to_string(),
+            bmsroot: vec![bmsroot],
+            ..Default::default()
+        };
+        view.update(config);
+
+        view.load_bms(None, false);
+
+        assert!(
+            matches!(view.bms_loading_state(), BmsLoadingState::Loading { .. }),
+            "Loading state should transition to Loading after load_bms"
+        );
+    }
+
+    #[test]
+    fn test_load_bms_no_config_stays_idle() {
+        let mut view = initialized_view();
+        // No config set, load_bms should not start loading
+        view.load_bms(None, false);
+
+        assert!(
+            matches!(view.bms_loading_state(), BmsLoadingState::Idle),
+            "Loading state should stay Idle when no config"
+        );
+    }
+
+    #[test]
+    fn test_bms_loading_completes_and_sets_song_updated() {
+        let mut view = initialized_view();
+        let tmpdir = tempfile::tempdir().unwrap();
+        let bmsroot = tmpdir.path().to_string_lossy().to_string();
+        let songdb_path = tmpdir.path().join("song.db");
+        let config = Config {
+            songpath: songdb_path.to_string_lossy().to_string(),
+            bmsroot: vec![bmsroot],
+            ..Default::default()
+        };
+        view.update(config);
+
+        view.load_bms(None, false);
+
+        // Wait for the background thread to finish (with timeout)
+        let start = std::time::Instant::now();
+        loop {
+            view.poll_bms_loading();
+            if !matches!(view.bms_loading_state(), BmsLoadingState::Loading { .. }) {
+                break;
+            }
+            if start.elapsed() > std::time::Duration::from_secs(10) {
+                panic!("BMS loading did not complete within 10 seconds");
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+
+        assert!(
+            matches!(view.bms_loading_state(), BmsLoadingState::Completed),
+            "Loading state should be Completed after thread finishes"
+        );
+        assert!(
+            view.song_updated,
+            "song_updated should be true after successful load"
+        );
+    }
+
+    #[test]
+    fn test_bms_loading_progress_counters_accessible() {
+        let mut view = initialized_view();
+        let tmpdir = tempfile::tempdir().unwrap();
+        let bmsroot = tmpdir.path().to_string_lossy().to_string();
+        let songdb_path = tmpdir.path().join("song.db");
+        let config = Config {
+            songpath: songdb_path.to_string_lossy().to_string(),
+            bmsroot: vec![bmsroot],
+            ..Default::default()
+        };
+        view.update(config);
+
+        view.load_bms(None, false);
+
+        // While loading, the progress should be accessible
+        if let BmsLoadingState::Loading {
+            bms_files,
+            processed_files,
+            new_files,
+        } = view.bms_loading_state()
+        {
+            // Counters start at 0
+            assert_eq!(bms_files, 0);
+            assert_eq!(processed_files, 0);
+            assert_eq!(new_files, 0);
+        }
+
+        // Wait for completion
+        let start = std::time::Instant::now();
+        loop {
+            view.poll_bms_loading();
+            if !matches!(view.bms_loading_state(), BmsLoadingState::Loading { .. }) {
+                break;
+            }
+            if start.elapsed() > std::time::Duration::from_secs(10) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+    }
+
+    #[test]
+    fn test_bms_loading_reset_returns_to_idle() {
+        let mut view = initialized_view();
+        let tmpdir = tempfile::tempdir().unwrap();
+        let bmsroot = tmpdir.path().to_string_lossy().to_string();
+        let songdb_path = tmpdir.path().join("song.db");
+        let config = Config {
+            songpath: songdb_path.to_string_lossy().to_string(),
+            bmsroot: vec![bmsroot],
+            ..Default::default()
+        };
+        view.update(config);
+
+        view.load_bms(None, false);
+        // Wait for completion
+        let start = std::time::Instant::now();
+        loop {
+            view.poll_bms_loading();
+            if !matches!(view.bms_loading_state(), BmsLoadingState::Loading { .. }) {
+                break;
+            }
+            if start.elapsed() > std::time::Duration::from_secs(10) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+
+        view.reset_bms_loading();
+        assert!(
+            matches!(view.bms_loading_state(), BmsLoadingState::Idle),
+            "After reset, loading state should be Idle"
+        );
+    }
+
+    #[test]
+    fn test_is_bms_loading_returns_true_during_load() {
+        let mut view = initialized_view();
+        assert!(!view.is_bms_loading(), "Should not be loading initially");
+
+        let tmpdir = tempfile::tempdir().unwrap();
+        let bmsroot = tmpdir.path().to_string_lossy().to_string();
+        let songdb_path = tmpdir.path().join("song.db");
+        let config = Config {
+            songpath: songdb_path.to_string_lossy().to_string(),
+            bmsroot: vec![bmsroot],
+            ..Default::default()
+        };
+        view.update(config);
+
+        view.load_bms(None, false);
+        assert!(view.is_bms_loading(), "Should be loading after load_bms");
+
+        // Wait for completion
+        let start = std::time::Instant::now();
+        loop {
+            view.poll_bms_loading();
+            if !view.is_bms_loading() {
+                break;
+            }
+            if start.elapsed() > std::time::Duration::from_secs(10) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+
+        assert!(
+            !view.is_bms_loading(),
+            "Should not be loading after completion"
+        );
     }
 
     // ---- Roundtrip: update -> commit preserves config values ----

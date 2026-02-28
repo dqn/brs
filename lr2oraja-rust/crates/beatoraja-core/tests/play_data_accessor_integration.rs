@@ -81,7 +81,7 @@ fn write_then_read_score() {
     newscore.ems = 0;
     newscore.lms = 0;
     newscore.clear = 5; // Normal clear
-    newscore.combo = 300;
+    newscore.maxcombo = 300;
     newscore.minbp = 15;
     newscore.notes = 305;
 
@@ -107,7 +107,7 @@ fn write_then_read_score() {
     assert_eq!(restored.ems, 0);
     assert_eq!(restored.lms, 0);
     assert_eq!(restored.clear, 5);
-    assert_eq!(restored.combo, 300);
+    assert_eq!(restored.maxcombo, 300);
     assert_eq!(restored.minbp, 15);
     assert_eq!(restored.notes, 305);
 }

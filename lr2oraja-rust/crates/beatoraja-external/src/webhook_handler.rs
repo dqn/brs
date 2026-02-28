@@ -450,9 +450,41 @@ static GRADE_RANKS: [GradeRank; 12] = [
 ];
 
 /// Determine the screen type from state.
-fn get_screen_type(_state: &MainState) -> ScreenType {
-    // TODO: implement proper screen type detection
-    ScreenType::Other
+/// In Java this was done via instanceof checks; in Rust the MainState carries
+/// its screen type and exposes it via MainStateAccess::get_screen_type().
+fn get_screen_type(state: &MainState) -> ScreenType {
+    use beatoraja_types::main_state_access::MainStateAccess;
+    state.get_screen_type()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stubs::NullMainController;
+
+    fn make_state(screen_type: ScreenType) -> MainState {
+        MainState {
+            main: NullMainController,
+            resource: Default::default(),
+            screen_type,
+        }
+    }
+
+    #[test]
+    fn get_screen_type_delegates_to_main_state_access() {
+        assert_eq!(
+            get_screen_type(&make_state(ScreenType::MusicResult)),
+            ScreenType::MusicResult
+        );
+        assert_eq!(
+            get_screen_type(&make_state(ScreenType::CourseResult)),
+            ScreenType::CourseResult
+        );
+        assert_eq!(
+            get_screen_type(&make_state(ScreenType::Other)),
+            ScreenType::Other
+        );
+    }
 }
 
 /// Get the AbstractResult from the current state.

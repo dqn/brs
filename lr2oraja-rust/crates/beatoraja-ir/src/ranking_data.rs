@@ -201,3 +201,152 @@ impl RankingData {
         self.last_update_time
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use beatoraja_core::clear_type::ClearType;
+
+    fn make_ir_score(
+        player: &str,
+        epg: i32,
+        lpg: i32,
+        egr: i32,
+        lgr: i32,
+        clear: ClearType,
+    ) -> IRScoreData {
+        let mut s = beatoraja_core::score_data::ScoreData::default();
+        s.player = player.to_string();
+        s.epg = epg;
+        s.lpg = lpg;
+        s.egr = egr;
+        s.lgr = lgr;
+        s.clear = clear.id();
+        let mut ir = IRScoreData::new(&s);
+        ir.player = player.to_string();
+        ir
+    }
+
+    #[test]
+    fn test_ranking_data_initial_state() {
+        let rd = RankingData::new();
+        assert_eq!(rd.get_rank(), 0);
+        assert_eq!(rd.get_previous_rank(), 0);
+        assert_eq!(rd.get_local_rank(), 0);
+        assert_eq!(rd.get_total_player(), 0);
+        assert_eq!(rd.get_state(), NONE);
+        assert!(rd.get_score(0).is_none());
+    }
+
+    #[test]
+    fn test_update_score_sorts_by_exscore_descending() {
+        let mut rd = RankingData::new();
+        let scores = vec![
+            make_ir_score("low", 10, 10, 5, 5, ClearType::Normal), // exscore = 50
+            make_ir_score("high", 50, 50, 20, 20, ClearType::Hard), // exscore = 240
+            make_ir_score("mid", 30, 30, 10, 10, ClearType::Easy), // exscore = 140
+        ];
+        rd.update_score(&scores, None);
+
+        assert_eq!(rd.get_total_player(), 3);
+        assert_eq!(rd.get_score(0).unwrap().get_exscore(), 240);
+        assert_eq!(rd.get_score(1).unwrap().get_exscore(), 140);
+        assert_eq!(rd.get_score(2).unwrap().get_exscore(), 50);
+    }
+
+    #[test]
+    fn test_update_score_rankings_with_ties() {
+        let mut rd = RankingData::new();
+        let scores = vec![
+            make_ir_score("a", 50, 50, 20, 20, ClearType::Normal), // exscore = 240
+            make_ir_score("b", 50, 50, 20, 20, ClearType::Normal), // exscore = 240 (tie)
+            make_ir_score("c", 10, 10, 5, 5, ClearType::Normal),   // exscore = 50
+        ];
+        rd.update_score(&scores, None);
+
+        // Both tied scores should share rank 1
+        assert_eq!(rd.get_score_ranking(0), 1);
+        assert_eq!(rd.get_score_ranking(1), 1);
+        // Third place is rank 3 (not 2)
+        assert_eq!(rd.get_score_ranking(2), 3);
+    }
+
+    #[test]
+    fn test_update_score_irrank_from_empty_player() {
+        let mut rd = RankingData::new();
+        // Empty player name indicates "own score" in IR
+        let scores = vec![
+            make_ir_score("other", 50, 50, 20, 20, ClearType::Hard), // rank 1
+            make_ir_score("", 30, 30, 10, 10, ClearType::Normal),    // rank 2, own score
+        ];
+        rd.update_score(&scores, None);
+
+        assert_eq!(rd.get_rank(), 2); // own IR rank
+    }
+
+    #[test]
+    fn test_update_score_clear_count() {
+        let mut rd = RankingData::new();
+        let scores = vec![
+            make_ir_score("a", 50, 50, 20, 20, ClearType::Normal), // clear id = 5
+            make_ir_score("b", 30, 30, 10, 10, ClearType::Normal), // clear id = 5
+            make_ir_score("c", 10, 10, 5, 5, ClearType::Hard),     // clear id = 6
+        ];
+        rd.update_score(&scores, None);
+
+        assert_eq!(rd.get_clear_count(5), 2); // Normal
+        assert_eq!(rd.get_clear_count(6), 1); // Hard
+        assert_eq!(rd.get_clear_count(0), 0); // NoPlay
+    }
+
+    #[test]
+    fn test_get_score_out_of_bounds() {
+        let rd = RankingData::new();
+        assert!(rd.get_score(-1).is_none());
+        assert!(rd.get_score(0).is_none());
+        assert!(rd.get_score(100).is_none());
+    }
+
+    #[test]
+    fn test_get_score_ranking_out_of_bounds() {
+        let rd = RankingData::new();
+        assert_eq!(rd.get_score_ranking(-1), i32::MIN);
+        assert_eq!(rd.get_score_ranking(0), i32::MIN);
+    }
+
+    #[test]
+    fn test_get_clear_count_out_of_bounds() {
+        let rd = RankingData::new();
+        assert_eq!(rd.get_clear_count(-1), 0);
+        assert_eq!(rd.get_clear_count(99), 0);
+    }
+
+    #[test]
+    fn test_update_score_sets_state_finish() {
+        let mut rd = RankingData::new();
+        rd.update_score(&[], None);
+        assert_eq!(rd.get_state(), FINISH);
+        assert!(rd.get_last_update_time() > 0);
+    }
+
+    #[test]
+    fn test_update_score_local_rank() {
+        let mut rd = RankingData::new();
+        let scores = vec![
+            make_ir_score("a", 50, 50, 20, 20, ClearType::Hard), // exscore = 240
+            make_ir_score("b", 30, 30, 10, 10, ClearType::Normal), // exscore = 140
+            make_ir_score("c", 10, 10, 5, 5, ClearType::Easy),   // exscore = 50
+        ];
+
+        // Local score with exscore 150 should be ranked 2 (between 240 and 140)
+        let mut local = beatoraja_core::score_data::ScoreData::default();
+        local.epg = 35;
+        local.lpg = 35;
+        local.egr = 10;
+        local.lgr = 10;
+        // local exscore = (35+35)*2 + 10 + 10 = 160
+
+        rd.update_score(&scores, Some(&local));
+        assert_eq!(rd.get_local_rank(), 2);
+    }
+}

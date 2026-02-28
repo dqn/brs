@@ -25,7 +25,7 @@ fn make_all_pg_score(mode: Mode, notes: i32) -> ScoreData {
     sd.epg = notes / 2;
     sd.lpg = notes - sd.epg;
     // combo = notes for a perfect play
-    sd.combo = notes;
+    sd.maxcombo = notes;
     sd
 }
 
@@ -83,7 +83,7 @@ fn score_rate_calculation_overflow() {
     // Intentionally inconsistent: 3000 PG judges but only 1 note
     sd.epg = 1500;
     sd.lpg = 1500;
-    sd.combo = 1;
+    sd.maxcombo = 1;
 
     let mut prop = ScoreDataProperty::new();
     prop.update_score(Some(&sd));

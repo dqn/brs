@@ -720,14 +720,19 @@ fn resolve_detail(
             let direction = graph.get_direction();
             Some(DrawDetail::Graph { value, direction })
         }
+        SkinObject::Float(_) => None,
         SkinObject::BpmGraph(_) => Some(DrawDetail::BpmGraph),
         SkinObject::HitErrorVisualizer(_) => Some(DrawDetail::HitErrorVisualizer),
         SkinObject::NoteDistributionGraph(_) => None,
         SkinObject::TimingDistributionGraph(_) => Some(DrawDetail::TimingDistributionGraph),
         SkinObject::TimingVisualizer(_) => Some(DrawDetail::TimingVisualizer),
-        SkinObject::Note(_) | SkinObject::Bar(_) | SkinObject::Judge(_) | SkinObject::Bga(_) => {
-            None
-        }
+        SkinObject::Note(_)
+        | SkinObject::Bar(_)
+        | SkinObject::Judge(_)
+        | SkinObject::Bga(_)
+        | SkinObject::Gauge(_)
+        | SkinObject::GaugeGraph(_)
+        | SkinObject::Hidden(_) => None,
     }
 }
 

@@ -48,13 +48,15 @@ impl ReplayAutoSaveConstraint {
             ReplayAutoSaveConstraint::MisscountUpdateOrEqual => {
                 newscore.minbp <= oldscore.minbp || oldscore.clear == ClearType::NoPlay.id()
             }
-            ReplayAutoSaveConstraint::MaxcomboUpdate => newscore.combo > oldscore.combo,
-            ReplayAutoSaveConstraint::MaxcomboUpdateOrEqual => newscore.combo >= oldscore.combo,
+            ReplayAutoSaveConstraint::MaxcomboUpdate => newscore.maxcombo > oldscore.maxcombo,
+            ReplayAutoSaveConstraint::MaxcomboUpdateOrEqual => {
+                newscore.maxcombo >= oldscore.maxcombo
+            }
             ReplayAutoSaveConstraint::ClearUpdate => newscore.clear > oldscore.clear,
             ReplayAutoSaveConstraint::ClearUpdateOrEqual => newscore.clear >= oldscore.clear,
             ReplayAutoSaveConstraint::AnyoneUpdate => {
                 newscore.clear > oldscore.clear
-                    || newscore.combo > oldscore.combo
+                    || newscore.maxcombo > oldscore.maxcombo
                     || newscore.minbp < oldscore.minbp
                     || newscore.get_exscore() > oldscore.get_exscore()
             }

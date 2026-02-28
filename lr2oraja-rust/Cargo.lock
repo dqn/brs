@@ -563,7 +563,6 @@ name = "beatoraja-audio"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "beatoraja-common",
  "beatoraja-types",
  "bms-model",
  "ebur128",
@@ -601,15 +600,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "beatoraja-common"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "log",
- "tempfile",
-]
-
-[[package]]
 name = "beatoraja-controller"
 version = "0.1.0"
 dependencies = [
@@ -626,11 +616,11 @@ dependencies = [
  "anyhow",
  "base64",
  "beatoraja-audio",
- "beatoraja-common",
  "beatoraja-input",
  "beatoraja-render",
  "beatoraja-types",
  "bms-model",
+ "bms-table",
  "chrono",
  "ecb",
  "flate2",
@@ -686,7 +676,6 @@ name = "beatoraja-input"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "beatoraja-common",
  "beatoraja-controller",
  "beatoraja-types",
  "bms-model",
@@ -743,6 +732,7 @@ dependencies = [
  "cpal 0.15.3",
  "eframe",
  "egui",
+ "encoding_rs",
  "log",
  "md-processor",
  "open",

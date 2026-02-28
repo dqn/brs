@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use sha2::{Digest, Sha256};
 
 use crate::table_data::TableData;
+use crate::table_data_bridge::difficulty_table_to_table_data;
+use crate::validatable::Validatable;
 
 /// Table data accessor.
 /// Translated from Java: TableDataAccessor
@@ -148,10 +150,29 @@ impl TableDataAccessor {
         result.iter().map(|b| format!("{:02x}", b)).collect()
     }
 
-    fn read_from_url(&self, _url: &str) -> Option<TableData> {
-        // TODO: implement DifficultyTableParser integration
-        log::warn!("not yet implemented: DifficultyTableParser");
-        None
+    fn read_from_url(&self, url: &str) -> Option<TableData> {
+        let mut dtp = bms_table::difficulty_table_parser::DifficultyTableParser::new();
+        let mut dt = bms_table::difficulty_table::DifficultyTable::new();
+        if url.ends_with(".json") {
+            dt.table.set_head_url(url);
+        } else {
+            dt.table.set_source_url(url);
+        }
+        match dtp.decode(true, &mut dt) {
+            Ok(()) => {
+                let mut td = difficulty_table_to_table_data(&dt, url);
+                if td.validate() {
+                    Some(td)
+                } else {
+                    log::warn!("Difficulty table validation failed: {}", url);
+                    None
+                }
+            }
+            Err(e) => {
+                log::warn!("Failed to read difficulty table {}: {}", url, e);
+                None
+            }
+        }
     }
 }
 
@@ -187,9 +208,28 @@ impl TableAccessor for DifficultyTableAccessor {
     }
 
     fn read(&self) -> Option<TableData> {
-        // TODO: implement DifficultyTableParser
-        log::warn!("not yet implemented: DifficultyTableParser");
-        None
+        let mut dtp = bms_table::difficulty_table_parser::DifficultyTableParser::new();
+        let mut dt = bms_table::difficulty_table::DifficultyTable::new();
+        if self.url.ends_with(".json") {
+            dt.table.set_head_url(&self.url);
+        } else {
+            dt.table.set_source_url(&self.url);
+        }
+        match dtp.decode(true, &mut dt) {
+            Ok(()) => {
+                let mut td = difficulty_table_to_table_data(&dt, &self.url);
+                if td.validate() {
+                    Some(td)
+                } else {
+                    log::warn!("Difficulty table validation failed: {}", self.url);
+                    None
+                }
+            }
+            Err(e) => {
+                log::warn!("Failed to read difficulty table {}: {}", self.url, e);
+                None
+            }
+        }
     }
 
     fn write(&self, td: &mut TableData) {

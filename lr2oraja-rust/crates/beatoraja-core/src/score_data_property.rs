@@ -126,7 +126,7 @@ impl ScoreDataProperty {
                         + 100000i64 * score.get_judge_count_total(1) as i64
                         + 20000i64 * score.get_judge_count_total(2) as i64)
                         / totalnotes as i64) as i32
-                        + (50000i64 * score.combo as i64 / totalnotes as i64) as i32;
+                        + (50000i64 * score.maxcombo as i64 / totalnotes as i64) as i32;
                 }
                 Mode::POPN_5K | Mode::POPN_9K => {
                     self.nowpoint = ((100000i64 * score.get_judge_count_total(0) as i64

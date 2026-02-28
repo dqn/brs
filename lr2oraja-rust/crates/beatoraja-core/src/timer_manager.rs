@@ -15,8 +15,8 @@ pub struct TimerManager {
     timer: Vec<i64>,
 }
 
-/// SkinProperty.TIMER_MAX + 1
-pub const TIMER_COUNT: usize = 256;
+/// SkinProperty.TIMER_MAX + 1 (Java TIMER_MAX = 2999)
+pub const TIMER_COUNT: usize = 3000;
 
 impl TimerManager {
     pub fn new() -> Self {
@@ -141,5 +141,31 @@ impl TimerManager {
 impl Default for TimerManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl beatoraja_types::timer_access::TimerAccess for TimerManager {
+    fn get_now_time(&self) -> i64 {
+        self.get_now_time()
+    }
+
+    fn get_now_micro_time(&self) -> i64 {
+        self.get_now_micro_time()
+    }
+
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        self.get_micro_timer(timer_id)
+    }
+
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        self.get_timer(timer_id)
+    }
+
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        self.get_now_time_for_id(timer_id)
+    }
+
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.is_timer_on(timer_id)
     }
 }
