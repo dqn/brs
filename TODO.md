@@ -1,45 +1,93 @@
 # Porting TODO — Remaining Work
 
-Phases 1–43 complete. **2346 tests, 0 ignored.** 27 crates, 127k lines. See AGENTS.md.
+Phases 1–44 complete. **2391 tests, 16 ignored.** 27 crates, 127k lines. See AGENTS.md.
 
 ---
 
-## Phase 40: SkinWidget リライト + レンダリングスタブ解消
+## Phase 45: Regression Fixes (no blockers)
 
-API 不整合スタブ (~481行) の解消。select/modmenu のレンダリングパイプライン完成。
+- [x] **45a:** RandomizerBase StdRng → JavaRandom — Replace `StdRng` with `JavaRandom` in `beatoraja-pattern/src/randomizer.rs` (field, new(), set_random_seed(), all closure signatures). Also fix `MineNoteModifier` and `LongNoteModifier` using `rand::random()` instead of seeded RNG
+  - depends: none
+- [x] **45b:** Serde field name mismatches in ScoreData — Add `#[serde(rename)]` for `total_duration`→`totalDuration`, `total_avg`→`totalAvg`, `device_type`→`deviceType`, `judge_algorithm`→`judgeAlgorithm`, and rename `combo`→`maxcombo` in `beatoraja-types/src/score_data.rs` + all callers
+  - depends: none
 
-- [x] **40a:** SkinWidget API 設計 — `&self` + simple fields → `&mut self` + SkinObjectData の borrow 問題を解決するアーキテクチャ設計
-- [x] **40b:** beatoraja-select レンダリングスタブ置換 (278行) — SkinText/SkinNumber/SkinImage/SkinObjectRenderer を実 API に接続
-- [x] **40c:** beatoraja-modmenu レンダリングスタブ置換 (203行) — Skin/SkinObject/SkinObjectDestination + MusicSelector 結合
-- [x] **40d:** ImGuiRenderer egui 統合 — modmenu の egui レンダリングパイプライン接続
-- [x] **40e:** MovieProcessor 動画再生パイプライン統合 — GdxVideoProcessor のスキン統合
+## Phase 46: Core Lifecycle Wiring (unblocks gameplay)
 
-## Phase 41: ライフサイクルスタブ統合
+- [ ] **46a:** PlayerResource.loadBMSModel() — Wire `ChartDecoderImpl::get_decoder()` into `player_resource.rs:set_bms_file()`. Change `model` field from `Option<()>` to real `BMSModel`. Call `BMSModelUtils::set_start_note_time()` and `BMSPlayerRule::validate()`
+  - depends: none
+- [ ] **46b:** PlayerResource.SongData type unification — Replace local `SongData` stub in `beatoraja-core/src/player_resource.rs` with `beatoraja_types::song_data::SongData`. Construct via `SongData::new_from_bms_model()` in `set_bms_file()`
+  - depends: 46a
+- [ ] **46c:** MainController.exit() and save_config() — Implement real exit logic and config serialization in `beatoraja-core/src/main_controller.rs`
+  - depends: none
 
-クロスクレート API 境界のライフサイクルスタブを実オブジェクトに置換。
+## Phase 47: Skin Rendering Pipeline (makes screens visible)
 
-- [x] **41c:** AudioProcessor 統合 — result/decide の AudioProcessorStub を実オーディオドライバに接続
-- [x] **41d:** デバイス種別トラッキング — create_score_data() で MainController.get_input_processor().get_device_type() を接続
-- [x] **41e:** startJudge() 完全実装 — JudgeThread をスレッド化し KeyInputLog[] リプレイ入力再生を接続
-- [x] **41f:** KeyInputProcessor.input() 実装 — auto_presstime + キービーム + スクラッチアニメーション
-- [x] **41g:** ControlInputProcessor.input() 実装 — START+SELECT クイックリトライ + レーンカバー操作
-- [x] **41h:** EventFactory 実イベント実装 — 108 StubEvent を MusicSelector/MainController 経由の実ロジックに置換
-- [x] **41i:** オーディオプロセッサ統合 — グローバルピッチ、ガイドSE、ラウドネス、状態遷移BGM
-- [x] **41j:** BGA 表示統合 — BMSPlayer の BGA レイヤーとスキンレンダリングの接続
+- [ ] **47a:** FloatPropertyFactory implementation — Replace stub `get() → 0.0` with real delegate calls to MainState. Decide architecture: trait method extension vs `dyn Any` downcast for ~50 property entries in `beatoraja-skin/src/property/float_property_factory.rs`
+  - depends: none
+- [ ] **47b:** Timer stub replacement — Replace zero-return timer with real timer manager access in `beatoraja-skin`
+  - depends: none
+- [ ] **47c:** MainState.load_skin() per-state overrides — Add `load_skin()` override to CourseResult, MusicResult, PlayState, DecideState following MusicSelector's pattern
+  - depends: none
+- [ ] **47d:** SkinFloat enum variant — Add SkinFloat to SkinObject enum + dispatch in beatoraja-skin
+  - depends: none
+- [ ] **47e:** BooleanPropertyFactory stubs — Implement remaining boolean property delegates
+  - depends: none
 
-## Phase 42: Launcher egui 完全移行
+## Phase 48: Select→Play Wiring
 
-JavaFX 設定 UI の egui 完全移行。設定ビューの動的動作実装。
+- [ ] **48a:** Bar Clone problem resolution — Resolve `Bar` enum Clone issue (TableAccessor `dyn` → concrete enum or `Arc` shared ownership) in `beatoraja-select/src/bar/bar.rs`
+  - depends: none
+- [ ] **48b:** Bar get_children() stubs (7 types) — Implement `get_children()` for FolderBar, HashBar, SearchWordBar, SameFolderBar, CommandBar, LeaderBoardBar, DirectoryBar by threading `SongDatabaseAccessor`
+  - depends: 48a
+- [ ] **48c:** read_chart/read_course/read_random_course — Wire select→play state transitions in `beatoraja-select/src/music_selector.rs` via PlayerResource
+  - depends: 46a, 46b, 48b
 
-- [x] **42a:** 設定ビュー initialize/update/commit — PlayConfigurationView 等 14 ビューの初期化・更新・保存ロジック
-- [x] **42b:** エディタビュー — CourseEditorView, FolderEditorView, TableEditorView の実動作
-- [x] **42c:** DisplayMode/MonitorInfo 統合 — winit からのモニター情報を Launcher UI に反映
+## Phase 49: Play State Integration
 
-## Phase 43: BMSPlayer.create() + Skin ロード統合
+- [ ] **49a:** bms_player.rs Phase 22 wiring — Resolve 19 TODO items for input/transition/config wiring in `beatoraja-play/src/bms_player.rs`
+  - depends: 46a, 46b
+- [ ] **49b:** LaneRenderer.draw_lane() — Port 713-line Java rendering method in `beatoraja-play/src/lane_renderer.rs`
+  - depends: 47a, 47c
 
-BMSPlayer のスキンロード/初期化完成。
+## Phase 50: Result & Course Integration
 
-- [x] **43a:** `BMSPlayer.create()` 完成 — loadSkin(), ガイドSEパス解決, 入力プロセッサモード設定
+- [ ] **50a:** CourseResult MainState wiring — Wire create/prepare/render/input to MainController and PlayerResource in `beatoraja-result/src/course_result.rs`
+  - depends: 46a, 47c
+- [ ] **50b:** CourseResult IR thread — Spawn IR send thread in CourseResult prepare()
+  - depends: 50a
+
+## Phase 51: Skin Loaders Completion
+
+- [ ] **51a:** Lua MainStateAccessor — Implement 19 missing functions in beatoraja-skin Lua bridge
+  - depends: 47a
+- [ ] **51b:** LR2 21 commands — Implement 21 stubbed LR2 skin commands
+  - depends: 47a
+- [ ] **51c:** JSON 7 skin factories — Implement 7 stubbed JSON skin factories
+  - depends: 47a
+- [ ] **51d:** SkinTextFont.draw_with_offset() — Integrate TrueType font rendering (fontdue/cosmic-text) into wgpu SkinObjectRenderer
+  - depends: none
+
+## Phase 52: Launcher & External Wiring
+
+- [ ] **52a:** Skin header loading wiring — Connect skin header loader in beatoraja-launcher
+  - depends: 47c
+- [ ] **52b:** Async BMS DB loading — Implement async song database loading in launcher
+  - depends: none
+- [ ] **52c:** get_screen_type() implementation — Replace `→ Other` stubs in 3 external files
+  - depends: none
+- [ ] **52d:** DifficultyTableParser bridge — Wire bms-table crate as dependency + toSongData()
+  - depends: none
+
+## Phase 53: Quality & Test Coverage
+
+- [ ] **53a:** beatoraja-modmenu tests — Add tests for 5,899 lines, 0 tests
+  - depends: none
+- [ ] **53b:** beatoraja-ir tests — Add tests for 1,861 lines, 0 tests
+  - depends: none
+- [ ] **53c:** beatoraja-controller tests — Add tests for 725 lines, 0 tests
+  - depends: none
+- [ ] **53d:** Remove dead code: beatoraja-common — Remove 785 lines with 0 callers
+  - depends: none
 
 ---
 
