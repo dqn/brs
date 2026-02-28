@@ -54,3 +54,40 @@ impl LeaderboardEntry {
         self.lr2_id
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use beatoraja_core::score_data::ScoreData;
+
+    fn make_ir_score() -> IRScoreData {
+        IRScoreData::new(&ScoreData::default())
+    }
+
+    #[test]
+    fn test_new_entry_primary_ir() {
+        let entry = LeaderboardEntry::new_entry_primary_ir(make_ir_score());
+        assert!(entry.is_primary_ir());
+        assert!(!entry.is_lr2_ir());
+        assert_eq!(entry.get_lr2_id(), 0);
+    }
+
+    #[test]
+    fn test_new_entry_lr2_ir() {
+        let entry = LeaderboardEntry::new_entry_lr2_ir(make_ir_score(), 12345);
+        assert!(entry.is_lr2_ir());
+        assert!(!entry.is_primary_ir());
+        assert_eq!(entry.get_lr2_id(), 12345);
+    }
+
+    #[test]
+    fn test_get_ir_score_returns_reference() {
+        let mut s = ScoreData::default();
+        s.epg = 100;
+        s.lpg = 50;
+        let ir = IRScoreData::new(&s);
+        let entry = LeaderboardEntry::new_entry_primary_ir(ir);
+        assert_eq!(entry.get_ir_score().epg, 100);
+        assert_eq!(entry.get_ir_score().lpg, 50);
+    }
+}

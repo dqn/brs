@@ -55,3 +55,31 @@ impl<T> IRResponse<T> {
         self.data.as_ref()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ir_response_success_constructor() {
+        let resp = IRResponse::success("OK".to_string(), 42);
+        assert!(resp.is_succeeded());
+        assert_eq!(resp.get_message(), "OK");
+        assert_eq!(resp.get_data(), Some(&42));
+    }
+
+    #[test]
+    fn test_ir_response_failure_constructor() {
+        let resp: IRResponse<i32> = IRResponse::failure("Error occurred".to_string());
+        assert!(!resp.is_succeeded());
+        assert_eq!(resp.get_message(), "Error occurred");
+        assert!(resp.get_data().is_none());
+    }
+
+    #[test]
+    fn test_ir_response_new_custom() {
+        let resp = IRResponse::new(true, "partial".to_string(), Some(vec![1, 2, 3]));
+        assert!(resp.is_succeeded());
+        assert_eq!(resp.get_data(), Some(&vec![1, 2, 3]));
+    }
+}

@@ -308,3 +308,239 @@ impl Score {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- Score.get_beatoraja_clear tests ---
+
+    #[test]
+    fn test_score_clear_failed() {
+        let s = Score {
+            clear: 1,
+            ..Default::default()
+        };
+        assert_eq!(s.get_beatoraja_clear(), 1);
+    }
+
+    #[test]
+    fn test_score_clear_easy() {
+        let s = Score {
+            clear: 2,
+            ..Default::default()
+        };
+        assert_eq!(s.get_beatoraja_clear(), 4);
+    }
+
+    #[test]
+    fn test_score_clear_groove() {
+        let s = Score {
+            clear: 3,
+            ..Default::default()
+        };
+        assert_eq!(s.get_beatoraja_clear(), 5);
+    }
+
+    #[test]
+    fn test_score_clear_hard() {
+        let s = Score {
+            clear: 4,
+            ..Default::default()
+        };
+        assert_eq!(s.get_beatoraja_clear(), 6);
+    }
+
+    #[test]
+    fn test_score_clear_fc_perfect() {
+        // FC with pg + gr == notes -> Perfect (9)
+        let s = Score {
+            clear: 5,
+            pg: 200,
+            gr: 100,
+            notes: 300,
+            ..Default::default()
+        };
+        assert_eq!(s.get_beatoraja_clear(), 9);
+    }
+
+    #[test]
+    fn test_score_clear_fc_not_perfect() {
+        // FC with pg + gr != notes -> FullCombo (8)
+        let s = Score {
+            clear: 5,
+            pg: 200,
+            gr: 50,
+            notes: 300,
+            ..Default::default()
+        };
+        assert_eq!(s.get_beatoraja_clear(), 8);
+    }
+
+    #[test]
+    fn test_score_clear_unknown_returns_zero() {
+        let s = Score {
+            clear: 0,
+            ..Default::default()
+        };
+        assert_eq!(s.get_beatoraja_clear(), 0);
+        let s = Score {
+            clear: 99,
+            ..Default::default()
+        };
+        assert_eq!(s.get_beatoraja_clear(), 0);
+    }
+
+    // --- LR2IRSongData tests ---
+
+    #[test]
+    fn test_lr2_ir_song_data_url_encoded_form() {
+        let data = LR2IRSongData::new("abc123".to_string(), "114328".to_string());
+        let form = data.to_url_encoded_form();
+        assert_eq!(form, "songmd5=abc123&id=114328&lastupdate=");
+    }
+
+    #[test]
+    fn test_lr2_ir_song_data_with_last_update() {
+        let mut data = LR2IRSongData::new("md5hash".to_string(), "999".to_string());
+        data.last_update = "2024-01-01".to_string();
+        let form = data.to_url_encoded_form();
+        assert_eq!(form, "songmd5=md5hash&id=999&lastupdate=2024-01-01");
+    }
+
+    // --- Ranking XML parsing tests ---
+
+    #[test]
+    fn test_convert_xml_to_ranking_valid() {
+        let xml = r#"<ranking><score><name>Player1</name><id>100</id><clear>3</clear><notes>500</notes><combo>450</combo><pg>200</pg><gr>100</gr><minbp>5</minbp></score></ranking>"#;
+        let ranking = LR2IRConnection::convert_xml_to_ranking(xml);
+        assert!(ranking.is_some());
+        let ranking = ranking.unwrap();
+        assert_eq!(ranking.score.len(), 1);
+        assert_eq!(ranking.score[0].name, Some("Player1".to_string()));
+        assert_eq!(ranking.score[0].id, 100);
+        assert_eq!(ranking.score[0].clear, 3);
+        assert_eq!(ranking.score[0].notes, 500);
+        assert_eq!(ranking.score[0].combo, 450);
+        assert_eq!(ranking.score[0].pg, 200);
+        assert_eq!(ranking.score[0].gr, 100);
+        assert_eq!(ranking.score[0].minbp, 5);
+    }
+
+    #[test]
+    fn test_convert_xml_to_ranking_multiple_scores() {
+        let xml = r#"<ranking><score><name>A</name><pg>100</pg><gr>50</gr></score><score><name>B</name><pg>80</pg><gr>60</gr></score></ranking>"#;
+        let ranking = LR2IRConnection::convert_xml_to_ranking(xml).unwrap();
+        assert_eq!(ranking.score.len(), 2);
+        assert_eq!(ranking.score[0].name, Some("A".to_string()));
+        assert_eq!(ranking.score[1].name, Some("B".to_string()));
+    }
+
+    #[test]
+    fn test_convert_xml_to_ranking_empty() {
+        let xml = r#"<ranking></ranking>"#;
+        let ranking = LR2IRConnection::convert_xml_to_ranking(xml).unwrap();
+        assert!(ranking.score.is_empty());
+    }
+
+    #[test]
+    fn test_convert_xml_to_ranking_invalid_xml() {
+        let xml = "not xml at all";
+        let ranking = LR2IRConnection::convert_xml_to_ranking(xml);
+        assert!(ranking.is_none());
+    }
+
+    // --- Ranking.to_beatoraja_score_data tests ---
+
+    #[test]
+    fn test_ranking_to_beatoraja_score_data_sorted_by_exscore() {
+        let ranking = Ranking {
+            score: vec![
+                Score {
+                    name: Some("Low".to_string()),
+                    pg: 50,
+                    gr: 30,
+                    notes: 300,
+                    ..Default::default()
+                },
+                Score {
+                    name: Some("High".to_string()),
+                    pg: 200,
+                    gr: 100,
+                    notes: 500,
+                    ..Default::default()
+                },
+            ],
+        };
+        let chart = IRChartData {
+            md5: "test_md5".to_string(),
+            sha256: "test_sha256".to_string(),
+            title: String::new(),
+            subtitle: String::new(),
+            genre: String::new(),
+            artist: String::new(),
+            subartist: String::new(),
+            url: String::new(),
+            appendurl: String::new(),
+            level: 0,
+            total: 0,
+            mode: Some(Mode::BEAT_7K),
+            lntype: 0,
+            judge: 0,
+            minbpm: 0,
+            maxbpm: 0,
+            notes: 0,
+            has_undefined_ln: false,
+            has_ln: false,
+            has_cn: false,
+            has_hcn: false,
+            has_mine: false,
+            has_random: false,
+            has_stop: false,
+            values: std::collections::HashMap::new(),
+        };
+
+        let entries = ranking.to_beatoraja_score_data(&chart);
+        assert_eq!(entries.len(), 2);
+        // Higher exscore should be first
+        assert!(entries[0].get_ir_score().get_exscore() >= entries[1].get_ir_score().get_exscore());
+        assert_eq!(entries[0].get_ir_score().player, "High");
+        assert_eq!(entries[1].get_ir_score().player, "Low");
+    }
+
+    // --- LR2IRConnection.get_score_data empty md5 test ---
+
+    #[test]
+    fn test_get_score_data_empty_md5_returns_empty() {
+        let chart = IRChartData {
+            md5: String::new(),
+            sha256: "sha".to_string(),
+            title: String::new(),
+            subtitle: String::new(),
+            genre: String::new(),
+            artist: String::new(),
+            subartist: String::new(),
+            url: String::new(),
+            appendurl: String::new(),
+            level: 0,
+            total: 0,
+            mode: None,
+            lntype: 0,
+            judge: 0,
+            minbpm: 0,
+            maxbpm: 0,
+            notes: 0,
+            has_undefined_ln: false,
+            has_ln: false,
+            has_cn: false,
+            has_hcn: false,
+            has_mine: false,
+            has_random: false,
+            has_stop: false,
+            values: std::collections::HashMap::new(),
+        };
+        let (local, entries) = LR2IRConnection::get_score_data(&chart);
+        assert!(local.is_none());
+        assert!(entries.is_empty());
+    }
+}

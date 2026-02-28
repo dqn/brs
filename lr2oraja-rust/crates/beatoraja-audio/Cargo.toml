@@ -7,7 +7,6 @@ edition.workspace = true
 anyhow.workspace = true
 log.workspace = true
 bms-model.workspace = true
-beatoraja-common.workspace = true
 beatoraja-types.workspace = true
 
 lewton = { workspace = true }

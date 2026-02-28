@@ -42,7 +42,6 @@ fn package_to_crate_table() -> HashMap<&'static str, (&'static str, &'static str
             ("beatoraja-controller", ""),
         ),
         ("bms.player.beatoraja.decide", ("beatoraja-decide", "")),
-        ("bms.player.beatoraja.exceptions", ("beatoraja-common", "")),
         ("bms.player.beatoraja.external", ("beatoraja-external", "")),
         (
             "bms.player.beatoraja.external.DiscordRPC",

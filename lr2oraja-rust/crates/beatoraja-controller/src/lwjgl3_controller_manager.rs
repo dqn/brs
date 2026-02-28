@@ -256,3 +256,258 @@ impl ControllerManager for Lwjgl3ControllerManager {
         self.listeners.clear();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    /// Events recorded by the test listener.
+    #[derive(Debug, Clone, PartialEq)]
+    enum ManagerEvent {
+        Connected(usize),
+        Disconnected(usize),
+        AxisMoved {
+            controller: usize,
+            axis: i32,
+            value: f32,
+        },
+        ButtonDown {
+            controller: usize,
+            button: i32,
+        },
+        ButtonUp {
+            controller: usize,
+            button: i32,
+        },
+    }
+
+    struct RecordingListener {
+        events: Rc<RefCell<Vec<ManagerEvent>>>,
+        consume: bool,
+    }
+
+    impl RecordingListener {
+        fn new(events: Rc<RefCell<Vec<ManagerEvent>>>, consume: bool) -> Self {
+            Self { events, consume }
+        }
+    }
+
+    impl ControllerListener for RecordingListener {
+        fn connected(&mut self, controller_index: usize) {
+            self.events
+                .borrow_mut()
+                .push(ManagerEvent::Connected(controller_index));
+        }
+
+        fn disconnected(&mut self, controller_index: usize) {
+            self.events
+                .borrow_mut()
+                .push(ManagerEvent::Disconnected(controller_index));
+        }
+
+        fn axis_moved(&mut self, controller_index: usize, axis_code: i32, value: f32) -> bool {
+            self.events.borrow_mut().push(ManagerEvent::AxisMoved {
+                controller: controller_index,
+                axis: axis_code,
+                value,
+            });
+            self.consume
+        }
+
+        fn button_down(&mut self, controller_index: usize, button_code: i32) -> bool {
+            self.events.borrow_mut().push(ManagerEvent::ButtonDown {
+                controller: controller_index,
+                button: button_code,
+            });
+            self.consume
+        }
+
+        fn button_up(&mut self, controller_index: usize, button_code: i32) -> bool {
+            self.events.borrow_mut().push(ManagerEvent::ButtonUp {
+                controller: controller_index,
+                button: button_code,
+            });
+            self.consume
+        }
+    }
+
+    /// Constructs a manager without gilrs (no hardware needed).
+    fn manager_without_gilrs() -> Lwjgl3ControllerManager {
+        Lwjgl3ControllerManager {
+            controllers: Vec::new(),
+            listeners: Vec::new(),
+            focused: true,
+            gilrs: None,
+            next_index: 0,
+        }
+    }
+
+    #[test]
+    fn connected_adds_controller_and_fires_listener() {
+        let mut mgr = manager_without_gilrs();
+        let events = Rc::new(RefCell::new(Vec::new()));
+        mgr.listeners
+            .push(Box::new(RecordingListener::new(events.clone(), false)));
+
+        let ctrl = Lwjgl3Controller::new_with_state(0, 2, 4, "Pad A".to_string());
+        mgr.connected(ctrl);
+
+        assert_eq!(mgr.controllers.len(), 1);
+        assert_eq!(mgr.controllers[0].name, "Pad A");
+        let recorded = events.borrow();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0], ManagerEvent::Connected(0));
+    }
+
+    #[test]
+    fn disconnected_removes_controller_and_fires_listener() {
+        let mut mgr = manager_without_gilrs();
+        let events = Rc::new(RefCell::new(Vec::new()));
+        mgr.listeners
+            .push(Box::new(RecordingListener::new(events.clone(), false)));
+
+        mgr.connected(Lwjgl3Controller::new_with_state(
+            0,
+            2,
+            4,
+            "Pad A".to_string(),
+        ));
+        mgr.connected(Lwjgl3Controller::new_with_state(
+            1,
+            2,
+            4,
+            "Pad B".to_string(),
+        ));
+        assert_eq!(mgr.controllers.len(), 2);
+
+        // Disconnect first controller
+        mgr.disconnected(0);
+        assert_eq!(mgr.controllers.len(), 1);
+        assert_eq!(mgr.controllers[0].name, "Pad B");
+
+        let recorded = events.borrow();
+        // 2 Connected + 1 Disconnected
+        assert_eq!(recorded.len(), 3);
+        assert_eq!(recorded[2], ManagerEvent::Disconnected(0));
+    }
+
+    #[test]
+    fn disconnected_out_of_bounds_is_noop() {
+        let mut mgr = manager_without_gilrs();
+        // Should not panic
+        mgr.disconnected(0);
+        mgr.disconnected(99);
+        assert!(mgr.controllers.is_empty());
+    }
+
+    #[test]
+    fn button_changed_dispatches_down_and_up_events() {
+        let mut mgr = manager_without_gilrs();
+        let events = Rc::new(RefCell::new(Vec::new()));
+        mgr.listeners
+            .push(Box::new(RecordingListener::new(events.clone(), false)));
+
+        // button press
+        mgr.button_changed(0, 5, true);
+        // button release
+        mgr.button_changed(0, 5, false);
+
+        let recorded = events.borrow();
+        assert_eq!(recorded.len(), 2);
+        assert_eq!(
+            recorded[0],
+            ManagerEvent::ButtonDown {
+                controller: 0,
+                button: 5,
+            }
+        );
+        assert_eq!(
+            recorded[1],
+            ManagerEvent::ButtonUp {
+                controller: 0,
+                button: 5,
+            }
+        );
+    }
+
+    #[test]
+    fn axis_changed_dispatches_event() {
+        let mut mgr = manager_without_gilrs();
+        let events = Rc::new(RefCell::new(Vec::new()));
+        mgr.listeners
+            .push(Box::new(RecordingListener::new(events.clone(), false)));
+
+        mgr.axis_changed(1, 3, 0.85);
+
+        let recorded = events.borrow();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(
+            recorded[0],
+            ManagerEvent::AxisMoved {
+                controller: 1,
+                axis: 3,
+                value: 0.85,
+            }
+        );
+    }
+
+    #[test]
+    fn consuming_listener_stops_manager_propagation() {
+        let mut mgr = manager_without_gilrs();
+        let events_first = Rc::new(RefCell::new(Vec::new()));
+        let events_second = Rc::new(RefCell::new(Vec::new()));
+
+        mgr.listeners
+            .push(Box::new(RecordingListener::new(events_first.clone(), true)));
+        mgr.listeners.push(Box::new(RecordingListener::new(
+            events_second.clone(),
+            false,
+        )));
+
+        mgr.button_changed(0, 0, true);
+        mgr.axis_changed(0, 0, 0.5);
+
+        assert_eq!(events_first.borrow().len(), 2);
+        assert_eq!(events_second.borrow().len(), 0);
+    }
+
+    #[test]
+    fn listener_management_add_remove_clear() {
+        let mut mgr = manager_without_gilrs();
+        let events = Rc::new(RefCell::new(Vec::new()));
+
+        mgr.add_listener(Box::new(RecordingListener::new(events.clone(), false)));
+        mgr.add_listener(Box::new(RecordingListener::new(events.clone(), false)));
+        assert_eq!(mgr.listeners.len(), 2);
+
+        mgr.remove_listener(0);
+        assert_eq!(mgr.listeners.len(), 1);
+
+        // Remove out-of-bounds — no panic
+        mgr.remove_listener(99);
+        assert_eq!(mgr.listeners.len(), 1);
+
+        mgr.clear_listeners();
+        assert!(mgr.listeners.is_empty());
+    }
+
+    #[test]
+    fn set_unfocused_toggles_focused_flag() {
+        let mut mgr = manager_without_gilrs();
+        assert!(mgr.focused);
+
+        mgr.set_unfocused(0, false);
+        assert!(!mgr.focused);
+
+        mgr.set_unfocused(0, true);
+        assert!(mgr.focused);
+    }
+
+    #[test]
+    fn get_current_controller_returns_none() {
+        let mgr = manager_without_gilrs();
+        assert_eq!(mgr.get_current_controller(), None);
+    }
+}

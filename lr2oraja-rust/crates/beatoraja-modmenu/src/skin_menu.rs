@@ -1176,3 +1176,81 @@ fn skin_header_from_lr2_data(data: LR2SkinHeaderData) -> SkinHeader {
     header.set_custom_offsets(offsets);
     header
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ---- OffsetValue tests ----
+
+    #[test]
+    fn test_offset_value_new() {
+        let ov = OffsetValue::new(1, 2, 3, 4, 5, 6);
+        assert_eq!(ov.x, 1);
+        assert_eq!(ov.y, 2);
+        assert_eq!(ov.w, 3);
+        assert_eq!(ov.h, 4);
+        assert_eq!(ov.r, 5);
+        assert_eq!(ov.a, 6);
+    }
+
+    #[test]
+    fn test_offset_value_clone() {
+        let ov = OffsetValue::new(10, 20, 30, 40, 50, 60);
+        let cloned = ov.clone();
+        assert_eq!(cloned.x, 10);
+        assert_eq!(cloned.y, 20);
+        assert_eq!(cloned.w, 30);
+        assert_eq!(cloned.h, 40);
+        assert_eq!(cloned.r, 50);
+        assert_eq!(cloned.a, 60);
+    }
+
+    #[test]
+    fn test_offset_value_zero() {
+        let ov = OffsetValue::new(0, 0, 0, 0, 0, 0);
+        assert_eq!(ov.x, 0);
+        assert_eq!(ov.y, 0);
+        assert_eq!(ov.w, 0);
+        assert_eq!(ov.h, 0);
+        assert_eq!(ov.r, 0);
+        assert_eq!(ov.a, 0);
+    }
+
+    #[test]
+    fn test_offset_value_negative() {
+        let ov = OffsetValue::new(-10, -20, -30, -40, -50, -60);
+        assert_eq!(ov.x, -10);
+        assert_eq!(ov.y, -20);
+    }
+
+    // ---- option_index tests ----
+
+    #[test]
+    fn test_option_index_found() {
+        let option = CustomOption::new(
+            "test".to_string(),
+            vec![100, 200, 300],
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+        );
+        assert_eq!(option_index(&option, 100), 0);
+        assert_eq!(option_index(&option, 200), 1);
+        assert_eq!(option_index(&option, 300), 2);
+    }
+
+    #[test]
+    fn test_option_index_not_found_returns_random_value() {
+        let option = CustomOption::new(
+            "test".to_string(),
+            vec![100, 200, 300],
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+        );
+        assert_eq!(option_index(&option, 999), OPTION_RANDOM_VALUE);
+    }
+
+    #[test]
+    fn test_option_index_empty_option() {
+        let option = CustomOption::new("test".to_string(), vec![], vec![]);
+        assert_eq!(option_index(&option, 0), OPTION_RANDOM_VALUE);
+    }
+}

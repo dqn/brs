@@ -312,3 +312,123 @@ impl LR2GhostData {
         ghost
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decode_play_ghost_all_pgreats() {
+        // 'E' = pgreat (0), "E3" = 3 pgreats
+        let result = LR2GhostData::decode_play_ghost("E3");
+        assert_eq!(result, vec![0, 0, 0]);
+    }
+
+    #[test]
+    fn test_decode_play_ghost_mixed_judgements() {
+        // E=pgreat(0), D=great(1), C=good(2), B=bad(3), A=poor(4)
+        // "EDCBA" = one of each
+        let result = LR2GhostData::decode_play_ghost("EDCBA");
+        assert_eq!(result, vec![0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_decode_play_ghost_run_length_encoding() {
+        // "E2D3" = 2 pgreats + 3 greats
+        let result = LR2GhostData::decode_play_ghost("E2D3");
+        assert_eq!(result, vec![0, 0, 1, 1, 1]);
+    }
+
+    #[test]
+    fn test_decode_play_ghost_shorthand_substitutions() {
+        // 'F' expands to "E1" = 1 pgreat
+        // 'S' expands to "D2" = 2 greats
+        let result = LR2GhostData::decode_play_ghost("FS");
+        // F -> E1 -> E then 1 -> 1 pgreat
+        // S -> D2 -> D then 2 -> 2 greats
+        assert_eq!(result, vec![0, 1, 1]);
+    }
+
+    #[test]
+    fn test_decode_play_ghost_empty_input() {
+        let result = LR2GhostData::decode_play_ghost("");
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_decode_play_ghost_at_sign_excluded() {
+        // '@' notes (mash poors) are skipped in the final ghost array
+        let result = LR2GhostData::decode_play_ghost("@E");
+        assert_eq!(result, vec![0]); // only the E (pgreat) should appear
+    }
+
+    #[test]
+    fn test_parse_valid_csv_identity_random() {
+        // CSV format: header line, then data line: "name,options,seed,ghost"
+        // options=0 means gauge=0, random1=0 (identity), random2=0, dpflip=0
+        let csv = "name,option,seed,ghost\nplayer1,0,12345,E3D2";
+        let ghost = LR2GhostData::parse(csv);
+        assert!(ghost.is_some());
+        let ghost = ghost.unwrap();
+        assert_eq!(ghost.get_random(), Random::Identity);
+        assert_eq!(ghost.get_seed(), 12345);
+        assert_eq!(ghost.get_pgreat(), 3);
+        assert_eq!(ghost.get_great(), 2);
+        assert_eq!(ghost.get_good(), 0);
+        assert_eq!(ghost.get_bad(), 0);
+        assert_eq!(ghost.get_poor(), 0);
+    }
+
+    #[test]
+    fn test_parse_mirror_random_option() {
+        // options digit encoding: gauge(1s) random1(10s) random2(100s) dpflip(1000s)
+        // random1 = 1 (mirror) means options = 10
+        let csv = "name,option,seed,ghost\nplayer1,10,99,E2";
+        let ghost = LR2GhostData::parse(csv);
+        assert!(ghost.is_some());
+        assert_eq!(ghost.unwrap().get_random(), Random::Mirror);
+    }
+
+    #[test]
+    fn test_parse_random_option() {
+        // random1 = 2 (random) means options = 20
+        let csv = "name,option,seed,ghost\nplayer1,20,99,E2";
+        let ghost = LR2GhostData::parse(csv);
+        assert!(ghost.is_some());
+        assert_eq!(ghost.unwrap().get_random(), Random::Random);
+    }
+
+    #[test]
+    fn test_parse_unsupported_random_returns_none() {
+        // random1 = 3 (sran) is unsupported
+        let csv = "name,option,seed,ghost\nplayer1,30,99,E2";
+        let ghost = LR2GhostData::parse(csv);
+        assert!(ghost.is_none());
+    }
+
+    #[test]
+    fn test_parse_empty_input_returns_none() {
+        let ghost = LR2GhostData::parse("");
+        assert!(ghost.is_none());
+    }
+
+    #[test]
+    fn test_parse_insufficient_fields_returns_none() {
+        let csv = "name,option,seed,ghost\nplayer1,10";
+        let ghost = LR2GhostData::parse(csv);
+        assert!(ghost.is_none());
+    }
+
+    #[test]
+    fn test_parse_judgement_counts() {
+        // "EDCBA" = one pgreat, one great, one good, one bad, one poor
+        let csv = "name,option,seed,ghost\nplayer1,0,1,EDCBA";
+        let ghost = LR2GhostData::parse(csv).unwrap();
+        assert_eq!(ghost.get_pgreat(), 1);
+        assert_eq!(ghost.get_great(), 1);
+        assert_eq!(ghost.get_good(), 1);
+        assert_eq!(ghost.get_bad(), 1);
+        assert_eq!(ghost.get_poor(), 1);
+        assert_eq!(ghost.get_judgements().len(), 5);
+    }
+}

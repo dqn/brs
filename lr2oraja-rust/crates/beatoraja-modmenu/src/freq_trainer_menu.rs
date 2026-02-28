@@ -83,3 +83,84 @@ impl FreqTrainerMenu {
 fn clamp(result: i32) -> i32 {
     result.clamp(50, 200)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_clamp_within_range() {
+        assert_eq!(clamp(100), 100);
+        assert_eq!(clamp(50), 50);
+        assert_eq!(clamp(200), 200);
+        assert_eq!(clamp(150), 150);
+    }
+
+    #[test]
+    fn test_clamp_below_minimum() {
+        assert_eq!(clamp(0), 50);
+        assert_eq!(clamp(49), 50);
+        assert_eq!(clamp(-100), 50);
+    }
+
+    #[test]
+    fn test_clamp_above_maximum() {
+        assert_eq!(clamp(201), 200);
+        assert_eq!(clamp(500), 200);
+    }
+
+    #[test]
+    fn test_get_freq_string_default() {
+        // Reset state to known value
+        *FREQ.lock().unwrap() = 100;
+        assert_eq!(FreqTrainerMenu::get_freq_string(), "[1.00x]");
+    }
+
+    #[test]
+    fn test_get_freq_string_half_speed() {
+        *FREQ.lock().unwrap() = 50;
+        assert_eq!(FreqTrainerMenu::get_freq_string(), "[0.50x]");
+    }
+
+    #[test]
+    fn test_get_freq_string_double_speed() {
+        *FREQ.lock().unwrap() = 200;
+        assert_eq!(FreqTrainerMenu::get_freq_string(), "[2.00x]");
+    }
+
+    #[test]
+    fn test_get_freq_string_fractional() {
+        *FREQ.lock().unwrap() = 75;
+        assert_eq!(FreqTrainerMenu::get_freq_string(), "[0.75x]");
+    }
+
+    #[test]
+    fn test_is_freq_negative_below_100() {
+        *FREQ.lock().unwrap() = 99;
+        assert!(FreqTrainerMenu::is_freq_negative());
+
+        *FREQ.lock().unwrap() = 50;
+        assert!(FreqTrainerMenu::is_freq_negative());
+    }
+
+    #[test]
+    fn test_is_freq_negative_at_or_above_100() {
+        *FREQ.lock().unwrap() = 100;
+        assert!(!FreqTrainerMenu::is_freq_negative());
+
+        *FREQ.lock().unwrap() = 150;
+        assert!(!FreqTrainerMenu::is_freq_negative());
+    }
+
+    #[test]
+    fn test_freq_trainer_enabled_toggle() {
+        FreqTrainerMenu::set_freq_trainer_enabled(false);
+        assert!(!FreqTrainerMenu::is_freq_trainer_enabled());
+
+        FreqTrainerMenu::set_freq_trainer_enabled(true);
+        assert!(FreqTrainerMenu::is_freq_trainer_enabled());
+
+        // Clean up
+        FreqTrainerMenu::set_freq_trainer_enabled(false);
+    }
+}
