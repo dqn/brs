@@ -561,7 +561,7 @@ impl SQLiteSongDatabaseAccessor {
         );
     }
 
-    fn update_song_datas_with_listener(
+    pub fn update_song_datas_with_listener(
         &self,
         update_path: Option<&str>,
         bmsroot: &[String],
