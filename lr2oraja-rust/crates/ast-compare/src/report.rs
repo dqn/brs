@@ -134,7 +134,8 @@ pub fn format_signature_report(report: &SignatureReport) -> String {
         + s.fuzzy_method_matches
         + s.parameter_lifted
         + s.matched_stubs
-        + s.visibility_filtered;
+        + s.visibility_filtered
+        + s.ignored_methods;
     out.push_str(&format!(
         "  Methods: {} Java → {} resolved, {} missing\n",
         s.total_java_methods, resolved, s.missing_methods
@@ -159,6 +160,9 @@ pub fn format_signature_report(report: &SignatureReport) -> String {
             "    visibility-filtered: {}\n",
             s.visibility_filtered
         ));
+    }
+    if s.ignored_methods > 0 {
+        out.push_str(&format!("    method-ignored: {}\n", s.ignored_methods));
     }
     out.push_str(&format!(
         "  Rust-only: {} extra, {} Rust-specific (ignored)\n",

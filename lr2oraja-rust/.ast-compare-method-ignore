@@ -1,0 +1,243 @@
+# ast-compare method-level ignore patterns
+# Format: ClassName.methodName (exact) or ClassName.* (all methods)
+# Reason categories:
+#   [arch]     Java inner class/anonymous class → Rust closure/enum/match
+#   [platform] Java platform API → Rust alternative
+#   [impl]     Already implemented with different name/signature
+#   [thread]   Java Thread subclass → Rust async/tokio::spawn
+
+# ============================================================
+# Lua anonymous callback classes → Rust closures [arch]
+# ============================================================
+# main_state_accessor.rs — Java anonymous classes implementing functional interfaces
+option.call
+number.call
+float_number.call
+text.call
+offset.call
+timer.call
+time.call
+set_timer.call
+event_exec.call
+event_exec.getId
+event_index.call
+
+# timer_utility.rs
+now_timer.call
+is_timer_on.call
+is_timer_off.call
+timer_function.call
+timer_observe_boolean.call
+new_passive_timer.call
+
+# event_utility.rs
+event_observe_turn_true.call
+event_observe_timer.call
+event_observe_timer_on.call
+event_observe_timer_off.call
+event_min_interval.call
+
+# ============================================================
+# BooleanPropertyFactory inner classes → enum dispatch [arch]
+# ============================================================
+DrawProperty.*
+BProperty.get
+DrawConditionProperty.*
+NowJudgeDrawCondition.*
+SongDataBooleanProperty.*
+SProperty.isTrue
+SelectedBarClearDrawCondition.*
+NowRankDrawCondition.*
+BestRankDrawCondition.*
+GaugeDrawCondition.*
+TrophyDrawCondition.*
+BooleanType.*
+
+# ============================================================
+# EventFactory inner classes → closures [arch]
+# ============================================================
+EventType.changeAutoSaveReplay
+EventType.changeKeyAssign
+EventType.getReplayEventConsumer
+TriConsumer.accept
+
+# ============================================================
+# LR2 Skin Loader Command inner classes → match arms [arch]
+# ============================================================
+PlayCommand.*
+ResultCommand.*
+CourseCommand.*
+CSVCommand.execute
+HeaderCommand.*
+CommandWord.*
+Command.name
+Command.execute
+FontCommand.*
+
+# ============================================================
+# JSON Skin Serializer inner classes → serde [arch]
+# ============================================================
+Serializer.*
+ObjectSerializer.*
+ArraySerializer.*
+LuaScriptSerializer.*
+
+# ============================================================
+# SkinConfig inner classes → pub fields [arch]
+# ============================================================
+Property.getOption
+Property.setOption
+Property.getFile
+Property.setFile
+Property.getOffset
+Property.setOffset
+Property.validate
+Option.validate
+FilePath.validate
+Offset.validate
+Default.Default
+Default.get
+
+# ============================================================
+# Java Thread subclasses → Rust async/tokio [thread]
+# ============================================================
+SongUpdateThread.run
+TableUpdateThread.run
+DownloadMessageThread.run
+JudgeThread.run
+PreviewThread.run
+PreviewThread.stopPreview
+UpdateBar.run
+DownloadDaemonThread.run
+DownloadIpfsThread.*
+
+# ============================================================
+# PCM stream inner class → Rust buffer/iterator [arch]
+# ============================================================
+PCMHandleStream.*
+
+# ============================================================
+# JavaFX / platform-specific → egui / Rust alternatives [platform]
+# ============================================================
+# Launcher JavaFX cells
+OptionListCell.updateItem
+SkinTypeCell.updateItem
+SkinListCell.updateItem
+SongDataView.initialize
+ResourceConfigurationView.onSongPathDragOver
+
+# JavaFX property accessors → Rust pub fields
+WebhookInfo.urlProperty
+TableInfo.urlProperty
+TableInfo.nameStatusProperty
+TableInfo.commentStatus
+TableInfo.commentProperty
+
+# JavaFX combo box
+IRConfigurationView.initComboBox
+
+# LibGDX controller → gilrs
+Lwjgl3Controller.getMapping
+Lwjgl3Controller.getPowerLevel
+
+# Java MIDI API → Rust MIDI alternative
+MidiReceiver.send
+KeyHandler.accept
+
+# ============================================================
+# SkinConfiguration inner classes → egui UI [arch]
+# ============================================================
+CustomOptionItem.*
+CustomFileItem.*
+CustomOffsetItem.*
+
+# ============================================================
+# Play state inner classes → Rust structs [arch]
+# ============================================================
+LaneState.LaneState
+PracticeElement.PracticeElement
+
+# ============================================================
+# Java classpath scanning → no Rust equivalent [platform]
+# ============================================================
+IRConnectionManager.fetchIRConnectionFromClassPath
+IRConnectionManager.fetchIRConnectionFromCustomDirectory
+IRConnectionManager.fetchIRConnectionFromJarFile
+IRConnectionManager.validateIRConnectionClass
+
+# ============================================================
+# Already implemented with different names [impl]
+# ============================================================
+# PlayerConfig I/O — all 7 exist with different Rust names
+PlayerConfig.createDirectory
+PlayerConfig.copyReplays
+PlayerConfig.create
+PlayerConfig.readAllPlayerID
+PlayerConfig.loadPlayerConfig
+PlayerConfig.loadPlayerConfigFromOldPath
+PlayerConfig.write
+
+# CipherUtils → cipher_encrypt/cipher_decrypt
+CipherUtils.encrypt
+CipherUtils.decrypt
+
+# LuaSkinLoader.serializeLuaScript → distributed implementation
+LuaSkinLoader.serializeLuaScript
+
+# SkinLuaAccessor.exportSkinPropertyToTable → two methods exist
+SkinLuaAccessor.exportSkinPropertyToTable
+
+# IRSendStatus.send in course_result → CourseIRSendStatus::send
+IRSendStatus.send
+
+# Config.setClipboardWhenScreenshot → set_clipboard_when_screenshot (Phase 55)
+Config.setClipboardWhenScreenshot
+
+# ============================================================
+# Abstract/interface methods → trait dispatch [arch]
+# ============================================================
+# AbstractAudioDriver abstract methods → AudioDriver trait
+AbstractAudioDriver.play0
+AbstractAudioDriver.stop0
+AbstractAudioDriver.setVolume0
+AbstractAudioDriver.channel
+
+# Stretcher interface → StretchType enum dispatch
+Stretcher.stretch
+
+# Parser functional interface → closure
+Parser.apply
+
+# ============================================================
+# PlayerConfig request fields → pub fields [impl]
+# ============================================================
+PlayerConfig.getRequestEnable
+PlayerConfig.getRequestNotify
+PlayerConfig.setRequestEnable
+PlayerConfig.setRequestNotify
+
+# ============================================================
+# Target property getName → enum variant Display [arch]
+# ============================================================
+RivalTargetProperty.getName
+NextRankTargetProperty.getName
+InternetRankingTargetProperty.getName
+
+# ============================================================
+# Randomizer abstract dispatch → enum match arms [arch]
+# ============================================================
+# These are concrete overrides of abstract randomize()/selectLane()/setModifyLanes()
+# In Rust, handled via PatternModifier enum dispatch
+TimeBasedRandomizer.setModifyLanes
+TimeBasedRandomizer.selectLane
+SRandomizer.randomize
+SRandomizer.selectLane
+SpiralRandomizer.setModifyLanes
+SpiralRandomizer.randomize
+AllScratchRandomizer.randomize
+AllScratchRandomizer.selectLane
+NoMurioshiRandomizer.randomize
+NoMurioshiRandomizer.selectLane
+ConvergeRandomizer.setModifyLanes
+ConvergeRandomizer.randomize
+ConvergeRandomizer.selectLane

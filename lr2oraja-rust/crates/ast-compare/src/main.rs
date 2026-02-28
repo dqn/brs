@@ -78,6 +78,10 @@ enum Commands {
         /// Path to ignore patterns file (one suffix pattern per line, # comments)
         #[arg(long)]
         ignore_file: Option<PathBuf>,
+
+        /// Path to method-level ignore patterns file (ClassName.methodName or ClassName.*)
+        #[arg(long)]
+        method_ignore_file: Option<PathBuf>,
     },
 
     /// Compare control flow structure of matched methods
@@ -127,6 +131,7 @@ fn main() -> Result<()> {
             visibility,
             include_stubs,
             ignore_file,
+            method_ignore_file,
         } => run_map(
             &cli,
             package.as_deref(),
@@ -134,6 +139,7 @@ fn main() -> Result<()> {
             visibility,
             *include_stubs,
             ignore_file.as_deref(),
+            method_ignore_file.as_deref(),
         ),
         Commands::Compare { file, threshold } => run_compare(&cli, file.as_deref(), *threshold),
         Commands::Constants {
@@ -151,6 +157,7 @@ fn run_map(
     visibility: &str,
     include_stubs: bool,
     ignore_file: Option<&std::path::Path>,
+    method_ignore_file: Option<&std::path::Path>,
 ) -> Result<()> {
     let (file_mappings, java_sources, rust_sources) = load_all(cli)?;
 
@@ -180,10 +187,29 @@ fn run_map(
         }
     };
 
+    let method_ignore_patterns = if let Some(path) = method_ignore_file {
+        load_ignore_patterns(path)
+    } else {
+        // Try default .ast-compare-method-ignore
+        let default_path = std::path::Path::new(".ast-compare-method-ignore");
+        if default_path.exists() {
+            load_ignore_patterns(default_path)
+        } else {
+            Vec::new()
+        }
+    };
+    if !method_ignore_patterns.is_empty() {
+        eprintln!(
+            "Loaded {} method ignore patterns",
+            method_ignore_patterns.len()
+        );
+    }
+
     let config = MapConfig {
         visibility_filter,
         include_stubs,
         ignore_patterns,
+        method_ignore_patterns,
     };
 
     let report = build_signature_map(&filtered_mappings, &java_sources, &rust_sources, &config);
@@ -294,7 +320,7 @@ fn run_full(cli: &Cli, threshold: f64) -> Result<()> {
     eprintln!();
 
     eprintln!("=== Phase 1: Signature Mapping ===");
-    run_map(cli, None, false, "all", false, None)?;
+    run_map(cli, None, false, "all", false, None, None)?;
 
     eprintln!();
     eprintln!("=== Phase 2: Structural Comparison ===");

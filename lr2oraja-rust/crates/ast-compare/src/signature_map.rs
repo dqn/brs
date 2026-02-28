@@ -52,6 +52,7 @@ pub enum MappingStatus {
     ParameterLifted,
     MatchedStub,
     VisibilityFiltered,
+    IgnoredMethod,
     MissingInRust,
     ExtraInRust,
     RustSpecific,
@@ -87,6 +88,7 @@ pub struct MapConfig {
     pub visibility_filter: VisibilityFilter,
     pub include_stubs: bool,
     pub ignore_patterns: Vec<String>,
+    pub method_ignore_patterns: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -108,6 +110,7 @@ pub struct SignatureSummary {
     pub parameter_lifted: usize,
     pub matched_stubs: usize,
     pub visibility_filtered: usize,
+    pub ignored_methods: usize,
     pub missing_methods: usize,
     pub extra_rust_methods: usize,
     pub rust_specific_methods: usize,
@@ -201,6 +204,14 @@ pub fn load_ignore_patterns(path: &Path) -> Vec<String> {
         .collect()
 }
 
+/// Check if a specific method should be ignored.
+/// Patterns are `ClassName.methodName` (exact) or `ClassName.*` (all methods of type).
+fn is_ignored_method(type_name: &str, method_name: &str, patterns: &[String]) -> bool {
+    let exact = format!("{type_name}.{method_name}");
+    let wildcard = format!("{type_name}.*");
+    patterns.iter().any(|p| p == &exact || p == &wildcard)
+}
+
 /// Build a signature mapping report from parsed Java and Rust sources.
 pub fn build_signature_map(
     file_mappings: &[FileMapping],
@@ -227,6 +238,7 @@ pub fn build_signature_map(
         parameter_lifted: 0,
         matched_stubs: 0,
         visibility_filtered: 0,
+        ignored_methods: 0,
         missing_methods: 0,
         extra_rust_methods: 0,
         rust_specific_methods: 0,
@@ -346,6 +358,7 @@ fn build_type_mappings(
             .collect();
 
         let method_mappings = build_method_mappings(
+            &jt.name,
             &jt.methods,
             &all_rust_methods,
             &rust_fields,
@@ -503,6 +516,7 @@ fn is_ignored_java_type(type_name: &str) -> bool {
 }
 
 fn build_method_mappings(
+    java_type_name: &str,
     java_methods: &[MethodDecl],
     rust_methods: &[&MethodDecl],
     rust_fields: &[&FieldDecl],
@@ -537,6 +551,21 @@ fn build_method_mappings(
                 rust_method: Some("(visibility filtered)".to_string()),
                 rust_line: None,
                 status: MappingStatus::VisibilityFiltered,
+            });
+            seen_java_names.push(jm.name.clone());
+            continue;
+        }
+
+        // Method-level ignore — skip methods explicitly marked as false positives
+        if is_ignored_method(java_type_name, &jm.name, &config.method_ignore_patterns) {
+            summary.ignored_methods += 1;
+            results.push(MethodMappingResult {
+                java_method: jm.name.clone(),
+                java_params: jm.params.len(),
+                java_line: jm.line,
+                rust_method: Some("(ignored)".to_string()),
+                rust_line: None,
+                status: MappingStatus::IgnoredMethod,
             });
             seen_java_names.push(jm.name.clone());
             continue;
@@ -975,6 +1004,7 @@ mod tests {
             parameter_lifted: 0,
             matched_stubs: 0,
             visibility_filtered: 0,
+            ignored_methods: 0,
             missing_methods: 0,
             extra_rust_methods: 0,
             rust_specific_methods: 0,
@@ -984,6 +1014,7 @@ mod tests {
             ..Default::default()
         };
         let results = build_method_mappings(
+            "TestType",
             &java_methods,
             &rust_methods,
             &rust_fields,
@@ -1029,6 +1060,7 @@ mod tests {
             parameter_lifted: 0,
             matched_stubs: 0,
             visibility_filtered: 0,
+            ignored_methods: 0,
             missing_methods: 0,
             extra_rust_methods: 0,
             rust_specific_methods: 0,
@@ -1038,6 +1070,7 @@ mod tests {
             ..Default::default()
         };
         let results = build_method_mappings(
+            "TestType",
             &java_methods,
             &rust_methods,
             &rust_fields,
@@ -1083,12 +1116,14 @@ mod tests {
             parameter_lifted: 0,
             matched_stubs: 0,
             visibility_filtered: 0,
+            ignored_methods: 0,
             missing_methods: 0,
             extra_rust_methods: 0,
             rust_specific_methods: 0,
         };
         let config = MapConfig::default();
         let results = build_method_mappings(
+            "TestType",
             &java_methods,
             &rust_methods,
             &rust_fields,
@@ -1109,5 +1144,71 @@ mod tests {
         let custom = vec!["Config.java".to_string()];
         assert!(is_ignored_java_file("foo/Config.java", &custom));
         assert!(!is_ignored_java_file("foo/bmson/BGA.java", &custom));
+    }
+
+    #[test]
+    fn test_method_ignore_exact() {
+        let patterns = vec!["Foo.bar".to_string(), "Baz.qux".to_string()];
+        assert!(is_ignored_method("Foo", "bar", &patterns));
+        assert!(is_ignored_method("Baz", "qux", &patterns));
+        assert!(!is_ignored_method("Foo", "other", &patterns));
+        assert!(!is_ignored_method("Other", "bar", &patterns));
+    }
+
+    #[test]
+    fn test_method_ignore_wildcard() {
+        let patterns = vec!["InnerClass.*".to_string()];
+        assert!(is_ignored_method("InnerClass", "call", &patterns));
+        assert!(is_ignored_method("InnerClass", "get", &patterns));
+        assert!(!is_ignored_method("Other", "call", &patterns));
+    }
+
+    #[test]
+    fn test_method_ignore_in_build() {
+        let java_methods = vec![
+            make_java_method_with_visibility("ignoredMethod", Visibility::Public),
+            make_java_method_with_visibility("normalMethod", Visibility::Public),
+        ];
+        let rust_methods: Vec<&MethodDecl> = vec![];
+        let rust_fields: Vec<&FieldDecl> = vec![];
+        let mut summary = SignatureSummary {
+            total_java_files: 0,
+            mapped_files: 0,
+            unmapped_files: 0,
+            ignored_files: 0,
+            total_java_types: 0,
+            matched_types: 0,
+            ignored_types: 0,
+            total_java_methods: 0,
+            matched_methods: 0,
+            field_access_methods: 0,
+            constructor_overloads: 0,
+            method_overloads: 0,
+            standard_trait_impls: 0,
+            fuzzy_method_matches: 0,
+            parameter_lifted: 0,
+            matched_stubs: 0,
+            visibility_filtered: 0,
+            ignored_methods: 0,
+            missing_methods: 0,
+            extra_rust_methods: 0,
+            rust_specific_methods: 0,
+        };
+        let config = MapConfig {
+            method_ignore_patterns: vec!["TestType.ignoredMethod".to_string()],
+            ..Default::default()
+        };
+        let results = build_method_mappings(
+            "TestType",
+            &java_methods,
+            &rust_methods,
+            &rust_fields,
+            &mut summary,
+            &config,
+        );
+        assert_eq!(summary.ignored_methods, 1);
+        assert_eq!(summary.missing_methods, 1);
+        assert_eq!(results[0].status, MappingStatus::IgnoredMethod);
+        assert_eq!(results[1].status, MappingStatus::MissingInRust);
     }
 }
