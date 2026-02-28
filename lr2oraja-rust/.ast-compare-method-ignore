@@ -315,3 +315,23 @@ JudgeManager.getKeyVolume
 
 # --- Config: already implemented as validate_path() [impl] ---
 Config.validatePath
+
+# ============================================================
+# Phase 57: Additional false positives (38 → 26)
+# ============================================================
+
+# --- Already implemented under different names/patterns [impl] ---
+PixmapResourcePool.loadPicture          # → load_picture()
+RandomCourseData.lotterySongData        # → lottery_song_data() (refactored stateless)
+RivalDataAccessor.convert               # → From/Into trait conversion
+TableDataAccessor.toSongData            # → difficulty_table_to_table_data() bridge
+MouseScratchAlgorithm.getTimeDiff       # → inlined in algorithm update()
+LR2IRConnection.convertXMLToObject      # → convert_xml_to_ranking() (specialized)
+RankingDataCache.put                    # → put_song() + put_course() (no overloading)
+ObsWsClient.createWebSocketClient       # → embedded in async connect flow
+ScoreDataCache.readScoreDatasFromSource  # → callback-based pattern (constructor closures)
+SongDatabaseAccessor.updateSongDatas    # → trait in beatoraja-types
+
+# --- Reflection / lifecycle patterns that don't apply in Rust [arch] ---
+IRConnectionManager.getIRConnectionClass # → get_ir_connection() returns instance
+MainController.create                    # → new() + init() lifecycle (no LibGDX create)
