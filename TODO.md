@@ -1,7 +1,8 @@
 # Porting TODO — Remaining Work
 
-Phases 1–62 complete. **2940 tests.** 27 crates, 158k lines. See AGENTS.md.
+Phases 1–62 + post-62 complete. **2940 tests.** 27 crates, 158k lines. See AGENTS.md.
 **"Not implemented" stubs: 0 remaining.** All 151 stubs resolved (Phase 58–62).
+**Debug stubs: 32 remaining** (all genuinely blocked by architecture). 9 additional stubs implemented post-62.
 
 ---
 
@@ -42,6 +43,7 @@ Phases 1–62 complete. **2940 tests.** 27 crates, 158k lines. See AGENTS.md.
 - **60:** PlayerResource wiring — reverse lookup, trait expansion (3 methods), MainController components stored directly (Box::leak eliminated), ChartReplicationMode::Replay*, decide sound
 - **61:** OBS triggerStateChange(PLAY) implemented, LR2 CSV INCLUDE directive, 35 blocked stubs downgraded to debug
 - **62:** 10 launcher egui stubs downgraded to debug with blocker descriptions
+- **Post-62:** 9 debug stubs implemented — RankingDataCache (real HashMap cache from beatoraja-ir), open_ir (IRConnection → browser), EventType::Target cycling, FavoriteSong/FavoriteChart bitwise toggle, OpenDocument/OpenWithExplorer/OpenDownloadSite
 
 </details>
 
@@ -62,12 +64,11 @@ Phases 1–62 complete. **2940 tests.** 27 crates, 158k lines. See AGENTS.md.
 - **JavaFX find_parent_by_class_simple_name** (`beatoraja-launcher`): No egui equivalent
 - **randomtrainer.dat** (`beatoraja-modmenu`): Binary resource from Java, uses empty HashMap fallback
 
-## Blocked Stubs (downgraded to `debug!`, tracked in beads)
+## Blocked Stubs (32 remaining, downgraded to `debug!`)
 
 All "blocked" stubs emit `log::debug!` with clear blocker descriptions. They do not affect functionality.
 
-- **Rendering pipeline** (~15): main_state defaults, SkinText/Number/Image draw, SkinDistributionGraph, CourseResult render
-- **egui UI** (~14): launcher views (audio, obs, discord, play_config, table_editor, spinner, folder_editor, course_editor), SkinConfiguration/KeyConfiguration create/render
-- **Circular dependencies** (~8): external property factories, modmenu MusicSelector access, ContextMenuBar group
-- **Infrastructure** (~5): OBS WebSocket reconnect (async cycle), message_renderer fonts, CIM images, main_loader launcher, LR2 CSV loader integration
-- **IR/network** (~3): RankingDataCache, open_ir events, download processors
+- **Rendering pipeline** (~11): MainState.loadSkin/getOffsetValue/getImage, SkinText/Number/Image draw, SkinDistributionGraph, CourseResult render, message_renderer
+- **egui UI** (~12): launcher views (audio, obs, discord, play_config, table_editor, spinner), SkinConfiguration/KeyConfiguration create/render, search popup
+- **Crate boundaries** (~5): OpenIr in MusicSelector, Rival (RivalDataAccessor), UpdateFolder (updateSong), LR2SkinCSVLoader wiring
+- **Infrastructure** (~4): OBS WebSocket reconnect (async cycle), CIM images, main_loader launcher, skin stubs (change_state, timer, audio)

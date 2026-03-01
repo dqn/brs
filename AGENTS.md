@@ -84,25 +84,27 @@ lr2oraja-rust/       # Cargo workspace
 
 ## Status
 
-**2940 tests.** Phases 1–62 complete. Zero clippy warnings. Zero regressions.
+**2940 tests.** Phases 1–62 complete + post-62 stub audit. Zero clippy warnings. Zero regressions.
 **Migration audit**: 100% method resolution (4,279/4,279). 0 missing. 0 constant mismatches. Gap: 0.
 **ast-compare**: 250 methods ignored (198 patterns). Method-level ignore via `.ast-compare-method-ignore`.
 **"Not implemented" stubs**: 0 remaining. All 151 stubs resolved (Phase 58–62).
+**Debug stubs**: 32 remaining (all genuinely blocked by architecture).
 
-### Resolved (Phase 58–62)
+### Resolved (Phase 58–62 + Post-62)
 
 - **Phase 58**: 46 test/null/out-of-scope stubs reclassified, 18 blocked stubs documented
 - **Phase 59**: Sound system wiring (SoundType, MusicSelector events, sound overrides)
 - **Phase 60**: PlayerResource reverse lookup, trait expansion, MainController Box::leak eliminated, ChartReplication
 - **Phase 61**: OBS triggerStateChange implemented, LR2 CSV INCLUDE, 35 blocked stubs downgraded
 - **Phase 62**: 10 launcher egui stubs downgraded with blocker descriptions
+- **Post-62**: 9 debug stubs implemented — RankingDataCache (real HashMap cache), open_ir (browser), Target cycling, FavoriteSong/Chart, OpenDocument/WithExplorer/DownloadSite
 
-### Blocked by Architecture (non-blocking, emit `debug!`)
+### Blocked by Architecture (32 remaining, non-blocking, emit `debug!`)
 
-- MainState defaults: loadSkin, getOffsetValue, getImage, getSound — trait override points (concrete states already override)
-- Rendering pipeline (~15): SkinText/Number/Image draw, SkinDistributionGraph, CourseResult render
-- egui UI (~14): launcher views, SkinConfiguration/KeyConfiguration create/render
-- Circular deps (~8): external property factories, modmenu MusicSelector, ContextMenuBar
+- MainState defaults (3): loadSkin, getOffsetValue, getImage — trait override points (concrete states already override)
+- Rendering pipeline (~11): SkinText/Number/Image draw, SkinDistributionGraph, CourseResult render, message_renderer
+- egui UI (~12): launcher views, SkinConfiguration/KeyConfiguration create/render, search popup
+- Crate boundaries (~5): OpenIr in MusicSelector (IRConnection), Rival (RivalDataAccessor), UpdateFolder (updateSong), LR2SkinCSVLoader wiring
 - OBS WebSocket reconnect — async cycle prevents `do_connect` call from `schedule_reconnect`
 
 ## Lessons Learned
