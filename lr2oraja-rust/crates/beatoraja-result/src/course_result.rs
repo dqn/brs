@@ -838,6 +838,9 @@ mod tests {
         fn get_replay_data(&self) -> Option<&beatoraja_core::replay_data::ReplayData> {
             None
         }
+        fn get_replay_data_mut(&mut self) -> Option<&mut beatoraja_core::replay_data::ReplayData> {
+            None
+        }
         fn get_course_replay(&self) -> &[beatoraja_core::replay_data::ReplayData] {
             &self.course_replay
         }

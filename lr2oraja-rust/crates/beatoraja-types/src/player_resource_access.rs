@@ -52,6 +52,9 @@ pub trait PlayerResourceAccess {
     /// Get replay data
     fn get_replay_data(&self) -> Option<&ReplayData>;
 
+    /// Get mutable replay data
+    fn get_replay_data_mut(&mut self) -> Option<&mut ReplayData>;
+
     /// Get course replays
     fn get_course_replay(&self) -> &[ReplayData];
 
@@ -166,6 +169,17 @@ pub trait PlayerResourceAccess {
 
     /// Get course BMS models as song data (for course data setSong)
     fn get_course_song_data(&self) -> Vec<SongData>;
+
+    /// Reload the current BMS file from disk.
+    /// Preserves tablename and tablelevel across clear().
+    fn reload_bms_file(&mut self) {
+        // default no-op — only the real PlayerResource has BMS loading capability
+    }
+
+    /// Set the player config gauge option.
+    fn set_player_config_gauge(&mut self, _gauge: i32) {
+        // default no-op
+    }
 }
 
 /// Null implementation of PlayerResourceAccess for stub contexts.
@@ -220,6 +234,9 @@ impl PlayerResourceAccess for NullPlayerResource {
         None
     }
     fn get_replay_data(&self) -> Option<&ReplayData> {
+        None
+    }
+    fn get_replay_data_mut(&mut self) -> Option<&mut ReplayData> {
         None
     }
     fn get_course_replay(&self) -> &[ReplayData] {

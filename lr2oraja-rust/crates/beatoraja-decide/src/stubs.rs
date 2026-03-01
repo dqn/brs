@@ -16,23 +16,34 @@ pub use beatoraja_types::main_controller_access::{MainControllerAccess, NullMain
 
 /// Wrapper for MainController reference.
 /// Delegates trait methods (change_state) to `Box<dyn MainControllerAccess>`.
-/// Retains local stubs for get_input_processor
-/// (types not available on MainControllerAccess trait).
+/// Stores BMSPlayerInputProcessor locally (type not available on MainControllerAccess trait).
 /// AudioDriver is stored directly (Phase 41c) — not on MainControllerAccess trait.
 pub struct MainControllerRef {
     inner: Box<dyn MainControllerAccess>,
     audio: Option<Box<dyn AudioDriver>>,
+    input_processor: BMSPlayerInputProcessor,
 }
 
 impl MainControllerRef {
     pub fn new(inner: Box<dyn MainControllerAccess>) -> Self {
-        Self { inner, audio: None }
+        let config = inner.get_config();
+        let player_config = inner.get_player_config();
+        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        Self {
+            inner,
+            audio: None,
+            input_processor,
+        }
     }
 
     pub fn with_audio(inner: Box<dyn MainControllerAccess>, audio: Box<dyn AudioDriver>) -> Self {
+        let config = inner.get_config();
+        let player_config = inner.get_player_config();
+        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
         Self {
             inner,
             audio: Some(audio),
+            input_processor,
         }
     }
 
@@ -41,18 +52,17 @@ impl MainControllerRef {
     }
 
     pub fn get_input_processor(&mut self) -> &mut BMSPlayerInputProcessor {
-        log::warn!("not yet implemented: MainController.getInputProcessor");
-        // Leak a boxed value to get a &'static mut reference - stub only
-        Box::leak(Box::new(BMSPlayerInputProcessor::new(
-            &Config::default(),
-            &PlayerConfig::default(),
-        )))
+        &mut self.input_processor
     }
 
     pub fn get_audio_processor_mut(&mut self) -> Option<&mut dyn AudioDriver> {
         self.audio
             .as_mut()
             .map(|b| &mut **b as &mut dyn AudioDriver)
+    }
+
+    pub fn play_sound(&mut self, sound: &SoundType, loop_sound: bool) {
+        self.inner.play_sound(sound, loop_sound);
     }
 }
 
@@ -61,11 +71,6 @@ pub use beatoraja_types::player_resource_access::PlayerResourceAccess;
 
 /// NullPlayerResource — re-exported from beatoraja-types for default construction
 pub use beatoraja_types::player_resource_access::NullPlayerResource;
-
-/// Stub for play sound (MainState.play delegates to MainController.getSoundManager())
-pub fn play_sound(_sound: SoundType) {
-    log::warn!("not yet implemented: MainController.getSoundManager().play()");
-}
 
 #[cfg(test)]
 mod tests {

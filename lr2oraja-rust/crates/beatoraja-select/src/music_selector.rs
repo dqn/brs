@@ -436,7 +436,18 @@ impl MusicSelector {
             }
 
             // Chart replication mode
-            let chart_option = Self::compute_chart_option(&self.config, current.get_rival_score());
+            let songdata = main
+                .get_player_resource()
+                .and_then(|r| r.get_songdata())
+                .cloned();
+            let replay_index = self.play.as_ref().map_or(0, |p| p.id);
+            let chart_option = Self::compute_chart_option(
+                &self.config,
+                current.get_rival_score(),
+                &**main,
+                songdata.as_ref(),
+                replay_index,
+            );
             if let Some(res) = main.get_player_resource_mut() {
                 res.set_chart_option_data(chart_option);
             }
@@ -469,8 +480,12 @@ impl MusicSelector {
     fn compute_chart_option(
         config: &PlayerConfig,
         rival_score: Option<&ScoreData>,
+        main: &dyn MainControllerAccess,
+        songdata: Option<&SongData>,
+        replay_index: i32,
     ) -> Option<beatoraja_types::replay_data::ReplayData> {
-        match ChartReplicationMode::get(config.get_chart_replication_mode()) {
+        let mode = ChartReplicationMode::get(config.get_chart_replication_mode());
+        match mode {
             ChartReplicationMode::None => None,
             ChartReplicationMode::RivalChart => rival_score.map(|rival| {
                 let mut opt = beatoraja_types::replay_data::ReplayData::new();
@@ -489,11 +504,20 @@ impl MusicSelector {
                 opt
             }),
             ChartReplicationMode::ReplayChart | ChartReplicationMode::ReplayOption => {
-                // TODO: requires main.getPlayDataAccessor().readReplayData() — deferred
-                log::warn!(
-                    "not yet implemented: ChartReplicationMode::Replay* — requires PlayDataAccessor"
-                );
-                None
+                let sd = songdata?;
+                let sha256 = sd.get_sha256();
+                let has_ln = sd.has_undefined_long_note();
+                let replay = main.read_replay_data(sha256, has_ln, config.lnmode, replay_index)?;
+                let mut opt = beatoraja_types::replay_data::ReplayData::new();
+                opt.randomoption = replay.randomoption;
+                opt.randomoption2 = replay.randomoption2;
+                opt.doubleoption = replay.doubleoption;
+                if mode == ChartReplicationMode::ReplayChart {
+                    opt.randomoptionseed = replay.randomoptionseed;
+                    opt.randomoption2seed = replay.randomoption2seed;
+                    opt.rand = replay.rand.clone();
+                }
+                Some(opt)
             }
         }
     }
@@ -1990,6 +2014,9 @@ mod tests {
             None
         }
         fn get_replay_data(&self) -> Option<&beatoraja_types::replay_data::ReplayData> {
+            None
+        }
+        fn get_replay_data_mut(&mut self) -> Option<&mut beatoraja_types::replay_data::ReplayData> {
             None
         }
         fn get_course_replay(&self) -> &[beatoraja_types::replay_data::ReplayData] {

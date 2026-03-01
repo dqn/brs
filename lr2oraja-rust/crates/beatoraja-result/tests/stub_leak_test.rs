@@ -1,43 +1,39 @@
-// Phase 50a: Document Box::leak memory leak in MainController stubs
+// Phase 60c: Verify MainController stores components directly (no more Box::leak).
 //
-// MainController::get_input_processor() uses Box::leak to return &'static mut references.
-// Each call allocates new heap memory that is never freed.
-// This test documents the leak by verifying that two calls return different addresses.
+// Previously these methods used Box::leak to return references.
+// Now they return references to owned fields, so repeated calls return the same address.
 
 use beatoraja_result::stubs::{MainController, NullMainController};
 
-/// Calling get_input_processor() twice returns different &mut references,
-/// proving each call leaks a new Box allocation.
+/// get_input_processor() returns the same stored instance on repeated calls.
 #[test]
-fn get_input_processor_leaks_new_allocation_each_call() {
+fn get_input_processor_returns_same_instance() {
     let mut mc = MainController::new(Box::new(NullMainController));
 
     let ptr1 = mc.get_input_processor() as *const _ as usize;
     let ptr2 = mc.get_input_processor() as *const _ as usize;
 
-    // Each call to get_input_processor() creates a new Box::leak allocation,
-    // so the pointers must differ. This documents the intentional leak behavior.
-    assert_ne!(ptr1, ptr2, "Box::leak should allocate new memory each call");
+    assert_eq!(ptr1, ptr2, "should return same stored instance");
 }
 
-/// ir_send_status() also uses Box::leak and leaks on every call.
+/// ir_send_status() returns the same stored Vec on repeated calls.
 #[test]
-fn ir_send_status_leaks_new_allocation_each_call() {
+fn ir_send_status_returns_same_instance() {
     let mc = MainController::new(Box::new(NullMainController));
 
     let ptr1 = mc.ir_send_status() as *const _ as usize;
     let ptr2 = mc.ir_send_status() as *const _ as usize;
 
-    assert_ne!(ptr1, ptr2, "Box::leak should allocate new memory each call");
+    assert_eq!(ptr1, ptr2, "should return same stored Vec");
 }
 
-/// get_play_data_accessor() also uses Box::leak and leaks on every call.
+/// get_play_data_accessor() returns the same stored instance on repeated calls.
 #[test]
-fn get_play_data_accessor_leaks_new_allocation_each_call() {
+fn get_play_data_accessor_returns_same_instance() {
     let mc = MainController::new(Box::new(NullMainController));
 
     let ptr1 = mc.get_play_data_accessor() as *const _ as usize;
     let ptr2 = mc.get_play_data_accessor() as *const _ as usize;
 
-    assert_ne!(ptr1, ptr2, "Box::leak should allocate new memory each call");
+    assert_eq!(ptr1, ptr2, "should return same stored instance");
 }

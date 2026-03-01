@@ -63,7 +63,7 @@ impl MainState for MusicDecide {
     fn prepare(&mut self) {
         // super.prepare() - default empty in MainState
         // play(DECIDE)
-        crate::stubs::play_sound(SoundType::Decide);
+        self.main.play_sound(&SoundType::Decide, false);
     }
 
     fn render(&mut self) {

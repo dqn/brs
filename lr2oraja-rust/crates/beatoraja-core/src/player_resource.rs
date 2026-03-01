@@ -572,15 +572,67 @@ impl PlayerResource {
     }
 
     pub fn get_reverse_lookup_data(&self) -> Vec<String> {
-        // Phase 5+ dependency: TableDataAccessor, SongData matching
-        log::warn!("not yet implemented: getReverseLookupData");
-        Vec::new()
+        let Some(songdata) = self.songdata.as_ref() else {
+            return Vec::new();
+        };
+        let url_set: std::collections::HashSet<&str> = self
+            .config
+            .get_table_url()
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        let tdaccessor =
+            crate::table_data_accessor::TableDataAccessor::new(self.config.get_tablepath());
+        let tds = tdaccessor.read_all();
+        let mut result = Vec::new();
+        for td in &tds {
+            if !url_set.contains(td.get_url()) {
+                continue;
+            }
+            for tf in td.get_folder() {
+                let found = tf.get_song().iter().any(|ts| {
+                    (!ts.get_md5().is_empty() && ts.get_md5() == songdata.get_md5())
+                        || (!ts.get_sha256().is_empty() && ts.get_sha256() == songdata.get_sha256())
+                });
+                if found {
+                    result.push(format!("{} {}", td.get_name(), tf.get_name()));
+                    break;
+                }
+            }
+        }
+        result
     }
 
     pub fn get_reverse_lookup_levels(&self) -> Vec<String> {
-        // Phase 5+ dependency: TableDataAccessor, SongData matching
-        log::warn!("not yet implemented: getReverseLookupLevels");
-        Vec::new()
+        let Some(songdata) = self.songdata.as_ref() else {
+            return Vec::new();
+        };
+        let url_set: std::collections::HashSet<&str> = self
+            .config
+            .get_table_url()
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        let tdaccessor =
+            crate::table_data_accessor::TableDataAccessor::new(self.config.get_tablepath());
+        let tds = tdaccessor.read_all();
+        let mut result = Vec::new();
+        for td in &tds {
+            if !url_set.contains(td.get_url()) {
+                continue;
+            }
+            for tf in td.get_folder() {
+                let found = tf.get_song().iter().any(|ts| {
+                    (!ts.get_md5().is_empty() && ts.get_md5() == songdata.get_md5())
+                        || (!ts.get_sha256().is_empty() && ts.get_sha256() == songdata.get_sha256())
+                });
+                if found {
+                    result.push(tf.get_name().to_string());
+                    break;
+                }
+            }
+        }
+        result
     }
 }
 
@@ -619,6 +671,10 @@ impl PlayerResourceAccess for PlayerResource {
 
     fn get_replay_data(&self) -> Option<&ReplayData> {
         self.replay.as_ref()
+    }
+
+    fn get_replay_data_mut(&mut self) -> Option<&mut ReplayData> {
+        self.replay.as_mut()
     }
 
     fn get_course_replay(&self) -> &[ReplayData] {
@@ -750,6 +806,14 @@ impl PlayerResourceAccess for PlayerResource {
 
     fn set_course_data(&mut self, data: CourseData) {
         PlayerResource::set_course_data(self, data)
+    }
+
+    fn reload_bms_file(&mut self) {
+        PlayerResource::reload_bms_file(self)
+    }
+
+    fn set_player_config_gauge(&mut self, gauge: i32) {
+        self.pconfig.gauge = gauge;
     }
 
     fn get_course_song_data(&self) -> Vec<beatoraja_types::song_data::SongData> {

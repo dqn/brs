@@ -1517,6 +1517,18 @@ impl MainControllerAccess for MainController {
             .as_ref()
             .and_then(|sm| sm.get_sound(sound).cloned())
     }
+
+    fn read_replay_data(
+        &self,
+        sha256: &str,
+        has_ln: bool,
+        lnmode: i32,
+        index: i32,
+    ) -> Option<beatoraja_types::replay_data::ReplayData> {
+        self.playdata
+            .as_ref()
+            .and_then(|pda| pda.read_replay_data(sha256, has_ln, lnmode, index))
+    }
 }
 
 #[cfg(test)]

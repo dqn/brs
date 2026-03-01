@@ -38,30 +38,46 @@ pub use beatoraja_types::main_controller_access::{MainControllerAccess, NullMain
 /// Wrapper for bms.player.beatoraja.MainController.
 /// Delegates trait methods (get_config, get_player_config, change_state, save_last_recording)
 /// to `Box<dyn MainControllerAccess>`.
-/// Retains local stubs for methods whose return types are not on the trait
-/// (get_input_processor, get_ir_status, ir_send_status, get_play_data_accessor,
-///  get_ranking_data_cache).
-/// AudioDriver is stored directly (Phase 41c) — not on MainControllerAccess trait.
+/// Stores crate-local components whose types cannot go on the cross-crate trait:
+/// AudioDriver, BMSPlayerInputProcessor, IRStatus/IRSendStatus, PlayDataAccessor,
+/// RankingDataCache.
 pub struct MainController {
     inner: Box<dyn MainControllerAccess>,
     audio: Option<Box<dyn AudioDriver>>,
     ir_statuses: Vec<IRStatus>,
+    ir_send_statuses: Vec<IRSendStatusMain>,
+    input_processor: BMSPlayerInputProcessor,
+    play_data_accessor: PlayDataAccessor,
 }
 
 impl MainController {
     pub fn new(inner: Box<dyn MainControllerAccess>) -> Self {
+        let config = inner.get_config();
+        let player_config = inner.get_player_config();
+        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        let play_data_accessor = PlayDataAccessor::new(config);
         Self {
             inner,
             audio: None,
             ir_statuses: Vec::new(),
+            ir_send_statuses: Vec::new(),
+            input_processor,
+            play_data_accessor,
         }
     }
 
     pub fn with_audio(inner: Box<dyn MainControllerAccess>, audio: Box<dyn AudioDriver>) -> Self {
+        let config = inner.get_config();
+        let player_config = inner.get_player_config();
+        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        let play_data_accessor = PlayDataAccessor::new(config);
         Self {
             inner,
             audio: Some(audio),
             ir_statuses: Vec::new(),
+            ir_send_statuses: Vec::new(),
+            input_processor,
+            play_data_accessor,
         }
     }
 
@@ -69,11 +85,28 @@ impl MainController {
         inner: Box<dyn MainControllerAccess>,
         ir_statuses: Vec<IRStatus>,
     ) -> Self {
+        let config = inner.get_config();
+        let player_config = inner.get_player_config();
+        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        let play_data_accessor = PlayDataAccessor::new(config);
         Self {
             inner,
             audio: None,
             ir_statuses,
+            ir_send_statuses: Vec::new(),
+            input_processor,
+            play_data_accessor,
         }
+    }
+
+    /// Set a pre-configured input processor (replaces the default).
+    pub fn set_input_processor(&mut self, processor: BMSPlayerInputProcessor) {
+        self.input_processor = processor;
+    }
+
+    /// Set a pre-configured play data accessor (replaces the default).
+    pub fn set_play_data_accessor(&mut self, accessor: PlayDataAccessor) {
+        self.play_data_accessor = accessor;
     }
 
     // ---- Trait-delegated methods ----
@@ -106,15 +139,10 @@ impl MainController {
         self.inner.get_sound_path(sound)
     }
 
-    // ---- Local stubs (types not on MainControllerAccess trait) ----
+    // ---- Locally-stored components (types not on MainControllerAccess trait) ----
 
     pub fn get_input_processor(&mut self) -> &mut BMSPlayerInputProcessor {
-        log::warn!("not yet implemented: MainController.getInputProcessor");
-        // Leak a boxed value to get a &'static mut reference - stub only
-        Box::leak(Box::new(BMSPlayerInputProcessor::new(
-            &Config::default(),
-            &PlayerConfig::default(),
-        )))
+        &mut self.input_processor
     }
 
     pub fn get_ir_status(&self) -> &[IRStatus] {
@@ -122,21 +150,15 @@ impl MainController {
     }
 
     pub fn ir_send_status(&self) -> &Vec<IRSendStatusMain> {
-        log::warn!("not yet implemented: MainController.irSendStatus");
-        // Leak a boxed value - stub only, will be replaced with real implementation
-        Box::leak(Box::new(Vec::new()))
+        &self.ir_send_statuses
     }
 
     pub fn ir_send_status_mut(&mut self) -> &mut Vec<IRSendStatusMain> {
-        log::warn!("not yet implemented: MainController.irSendStatus_mut");
-        // Leak a boxed value - stub only, will be replaced with real implementation
-        Box::leak(Box::new(Vec::new()))
+        &mut self.ir_send_statuses
     }
 
     pub fn get_play_data_accessor(&self) -> &PlayDataAccessor {
-        log::warn!("not yet implemented: MainController.getPlayDataAccessor");
-        // Leak a boxed null instance - stub only, will be replaced with real implementation
-        Box::leak(Box::new(PlayDataAccessor::null()))
+        &self.play_data_accessor
     }
 
     pub fn get_audio_processor_mut(&mut self) -> Option<&mut dyn AudioDriver> {
@@ -145,14 +167,18 @@ impl MainController {
             .map(|b| &mut **b as &mut dyn AudioDriver)
     }
 
+    /// Stub: RankingDataCache requires IR ranking infrastructure.
     pub fn get_ranking_data_cache(&self) -> &RankingDataCache {
-        log::warn!("not yet implemented: MainController.getRankingDataCache");
+        log::debug!(
+            "stub: MainController.getRankingDataCache — blocked by IR ranking infrastructure"
+        );
         static DEFAULT: RankingDataCache = RankingDataCache;
         &DEFAULT
     }
 }
 
-/// Stub for RankingDataCache
+/// Stub: RankingDataCache — blocked by IR ranking infrastructure.
+/// Requires RankingData caching with SongData+lnmode keys.
 pub struct RankingDataCache;
 
 impl RankingDataCache {
@@ -161,7 +187,7 @@ impl RankingDataCache {
         _songdata: &beatoraja_types::song_data::SongData,
         _lnmode: i32,
     ) -> Option<RankingData> {
-        log::warn!("not yet implemented: RankingDataCache.get");
+        log::debug!("stub: RankingDataCache.get — blocked by IR ranking infrastructure");
         None
     }
 
@@ -171,7 +197,7 @@ impl RankingDataCache {
         _lnmode: i32,
         _ranking: RankingData,
     ) {
-        log::warn!("not yet implemented: RankingDataCache.put");
+        log::debug!("stub: RankingDataCache.put — blocked by IR ranking infrastructure");
     }
 }
 
@@ -374,19 +400,15 @@ impl PlayerResource {
     }
 
     pub fn get_replay_data_mut(&mut self) -> Option<&mut beatoraja_core::replay_data::ReplayData> {
-        log::warn!("not yet implemented: PlayerResource.getReplayData() (mutable)");
-        None
+        self.inner.get_replay_data_mut()
     }
 
     pub fn reload_bms_file(&mut self) {
-        log::warn!("not yet implemented: PlayerResource.reloadBMSFile");
+        self.inner.reload_bms_file();
     }
 
     pub fn set_player_config_gauge(&mut self, gauge: i32) {
-        log::warn!(
-            "not yet implemented: PlayerResource.getPlayerConfig().setGauge({})",
-            gauge
-        );
+        self.inner.set_player_config_gauge(gauge);
     }
 }
 

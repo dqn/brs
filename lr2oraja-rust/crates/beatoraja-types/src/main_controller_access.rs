@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::main_state_type::MainStateType;
 use crate::player_config::PlayerConfig;
 use crate::player_resource_access::PlayerResourceAccess;
+use crate::replay_data::ReplayData;
 use crate::sound_type::SoundType;
 
 /// Trait interface for MainController access.
@@ -52,6 +53,18 @@ pub trait MainControllerAccess {
 
     /// Check if a sound exists for the given type.
     fn get_sound_path(&self, _sound: &SoundType) -> Option<String> {
+        None
+    }
+
+    /// Read replay data for the given song hash.
+    /// Delegates to PlayDataAccessor internally.
+    fn read_replay_data(
+        &self,
+        _sha256: &str,
+        _has_ln: bool,
+        _lnmode: i32,
+        _index: i32,
+    ) -> Option<ReplayData> {
         None
     }
 }
