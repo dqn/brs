@@ -805,13 +805,13 @@ impl MainController {
                 // Fullscreen / windowed toggle (F4 without Alt held)
                 // Java: if (!ALT_LEFT && !ALT_RIGHT && SWITCH_SCREEN_MODE)
                 if !input.is_alt_held() && input.is_activated(KeyCommand::SwitchScreenMode) {
-                    // → **Phase 29a** (requires winit window handle for fullscreen toggle)
+                    crate::window_command::request_fullscreen_toggle();
                     log::info!("Fullscreen toggle requested");
                 }
 
                 // Screenshot
                 if input.is_activated(KeyCommand::SaveScreenshot) {
-                    // → **Phase 29a** (requires frame buffer capture)
+                    crate::window_command::request_screenshot();
                     log::info!("Screenshot requested");
                 }
 

@@ -203,11 +203,12 @@ impl SkinWidgetManager {
                     // Overlay cursor position
                     let show_cursor = SHOW_CURSOR_POSITION.lock().unwrap();
                     if show_cursor.value {
-                        // → **Phase XX**: cursor position requires input integration
-                        // For now show a placeholder using window height
-                        let _window_height = imgui_renderer::window_height();
-                        // In Java: Gdx.input.getX() / (windowHeight - Gdx.input.getY())
-                        // We cannot get cursor position without input integration
+                        let window_height = imgui_renderer::window_height() as f32;
+                        if let Some(pos) = ui.ctx().input(|i| i.pointer.interact_pos()) {
+                            // Java: Gdx.input.getX() / (windowHeight - Gdx.input.getY())
+                            let skin_y = window_height - pos.y;
+                            ui.label(format!("({:.0}, {:.0})", pos.x, skin_y));
+                        }
                     }
                 }
             });

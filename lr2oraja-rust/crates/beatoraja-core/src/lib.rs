@@ -47,6 +47,7 @@ pub mod shader_manager;
 pub mod sprite_batch_helper;
 pub mod system_sound_manager;
 pub mod timer_manager;
+pub mod window_command;
 
 // Database accessors
 pub mod course_data_accessor;

@@ -43,6 +43,8 @@ pub struct RenderContext<'a> {
     pub rival: bool,
     pub state: &'a dyn MainState,
     pub lnmode: i32,
+    /// True if the loader thread has terminated and images should be reloaded.
+    pub loader_finished: bool,
 }
 
 /// Context for BarRenderer::input()
@@ -365,9 +367,13 @@ impl BarRenderer {
             }
         }
 
-        // check terminated loader thread and load song images
+        // Check terminated loader thread and load song images.
         // In Java: if(manager.loader != null && manager.loader.getState() == TERMINATED) { ... }
-        // TODO: loader thread check deferred — requires MusicSelector.loadSelectedSongImages()
+        // The caller sets loader_finished=true when the bar contents loader thread terminates,
+        // then calls MusicSelector.load_selected_song_images() after this render pass.
+        if ctx.loader_finished {
+            self.bartextupdate = true;
+        }
 
         // draw song bar
         let position = baro.get_position();
@@ -877,6 +883,7 @@ mod tests {
             rival: false,
             state: &state,
             lnmode: 0,
+            loader_finished: false,
         };
         renderer.render(&mut sprite, &mut bar, &render_ctx);
     }
@@ -1011,6 +1018,7 @@ mod tests {
             rival: false,
             state: &state,
             lnmode: 0,
+            loader_finished: false,
         };
 
         let mut sprite = SkinObjectRenderer::new();

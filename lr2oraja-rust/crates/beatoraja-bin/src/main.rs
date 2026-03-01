@@ -458,6 +458,19 @@ impl ApplicationHandler for BeatorajaApp {
                 let Some(window) = &self.window else { return };
                 let Some(gpu) = &self.gpu else { return };
 
+                // Process window commands from MainController
+                if beatoraja_core::window_command::take_fullscreen_toggle() {
+                    if window.fullscreen().is_some() {
+                        window.set_fullscreen(None);
+                    } else {
+                        let monitor = window.current_monitor();
+                        window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(monitor)));
+                    }
+                }
+                if beatoraja_core::window_command::take_screenshot_request() {
+                    self.capture_screenshot(gpu, window);
+                }
+
                 // Gather diagnostic info before egui frame (avoids borrow conflicts)
                 let diag_state_type = self.controller.get_current_state_type();
                 let diag_has_skin = self
@@ -669,5 +682,111 @@ impl ApplicationHandler for BeatorajaApp {
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
         // Java: main.pause()
         self.controller.pause();
+    }
+}
+
+impl BeatorajaApp {
+    /// Capture the current frame and save as a PNG screenshot.
+    fn capture_screenshot(&self, gpu: &GpuContext, _window: &Window) {
+        let Some(ref surface_config) = gpu.surface_config else {
+            warn!("Cannot capture screenshot: no surface config");
+            return;
+        };
+        let Some(ref surface) = gpu.surface else {
+            warn!("Cannot capture screenshot: no surface");
+            return;
+        };
+        let width = surface_config.width;
+        let height = surface_config.height;
+        if width == 0 || height == 0 {
+            warn!("Cannot capture screenshot: surface size is 0");
+            return;
+        }
+
+        // Create a buffer to read pixels from the surface
+        let bytes_per_row = (width * 4 + 255) & !255; // align to 256 bytes
+        let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("screenshot_buffer"),
+            size: (bytes_per_row * height) as u64,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        // Get the current surface texture
+        let surface_texture = match surface.get_current_texture() {
+            Ok(t) => t,
+            Err(e) => {
+                warn!("Cannot capture screenshot: {}", e);
+                return;
+            }
+        };
+
+        let mut encoder = gpu
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("screenshot_encoder"),
+            });
+
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture: &surface_texture.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(bytes_per_row),
+                    rows_per_image: Some(height),
+                },
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        gpu.queue.submit(std::iter::once(encoder.finish()));
+
+        // Map the buffer and save
+        let buffer_slice = buffer.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            let _ = tx.send(result);
+        });
+        gpu.device.poll(wgpu::Maintain::Wait);
+
+        match rx.recv() {
+            Ok(Ok(())) => {
+                let data = buffer_slice.get_mapped_range();
+                // Remove row padding
+                let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+                for row in 0..height {
+                    let start = (row * bytes_per_row) as usize;
+                    let end = start + (width * 4) as usize;
+                    rgba.extend_from_slice(&data[start..end]);
+                }
+                drop(data);
+                buffer.unmap();
+
+                // Save as PNG
+                let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+                let path = format!("screenshot_{}.png", timestamp);
+                if let Some(img) = image::RgbaImage::from_raw(width, height, rgba) {
+                    match img.save(&path) {
+                        Ok(()) => info!("Screenshot saved: {}", path),
+                        Err(e) => warn!("Failed to save screenshot: {}", e),
+                    }
+                } else {
+                    warn!("Failed to create image from screenshot data");
+                }
+            }
+            _ => {
+                warn!("Failed to map screenshot buffer");
+            }
+        }
     }
 }

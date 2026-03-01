@@ -24,7 +24,7 @@ use beatoraja_core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_U
 
 /// IR send status for course result
 struct CourseIRSendStatus {
-    pub ir: Arc<dyn IRConnection>,
+    pub ir: Arc<dyn IRConnection + Send + Sync>,
     pub course: beatoraja_core::course_data::CourseData,
     pub lnmode: i32,
     pub score: ScoreData,
@@ -33,7 +33,7 @@ struct CourseIRSendStatus {
 
 impl CourseIRSendStatus {
     pub fn new(
-        ir: Arc<dyn IRConnection>,
+        ir: Arc<dyn IRConnection + Send + Sync>,
         course: &beatoraja_core::course_data::CourseData,
         lnmode: i32,
         score: &ScoreData,
@@ -237,33 +237,72 @@ impl CourseResult {
                 }
             }
 
-            // IR processing (synchronous blocking stub — mirrors MusicResult pattern)
-            // In Java this spawns a Thread. TODO: move to std::thread::spawn for non-blocking.
+            // IR processing in background thread (Java spawns a Thread)
             let ir_send_count = self.main.get_config().ir_send_count;
-            let mut irsend = 0;
-            let mut succeed = true;
-            let mut remove_indices: Vec<usize> = Vec::new();
-            for idx in 0..self.ir_send_status.len() {
-                if irsend == 0 {
-                    self.data
-                        .timer
-                        .switch_timer(beatoraja_skin::skin_property::TIMER_IR_CONNECT_BEGIN, true);
-                }
-                irsend += 1;
-                let send_ok = self.ir_send_status[idx].send();
-                succeed &= send_ok;
-                if self.ir_send_status[idx].retry < 0
-                    || self.ir_send_status[idx].retry > ir_send_count
-                {
-                    remove_indices.push(idx);
-                }
-            }
-            // Remove in reverse order to preserve indices
-            for idx in remove_indices.into_iter().rev() {
-                self.ir_send_status.remove(idx);
+            if !self.ir_send_status.is_empty() {
+                self.data
+                    .timer
+                    .switch_timer(beatoraja_skin::skin_property::TIMER_IR_CONNECT_BEGIN, true);
             }
 
-            if irsend > 0 {
+            // Move statuses into the thread
+            let mut statuses = std::mem::take(&mut self.ir_send_status);
+            let ir_connection = self
+                .main
+                .get_ir_status()
+                .first()
+                .map(|s| s.connection.clone());
+            let course_data_for_ranking = self.resource.get_course_data().cloned();
+            let oldscore_exscore = self.data.oldscore.get_exscore();
+            let newscore_clone = newscore.clone();
+
+            let (tx, rx) = std::sync::mpsc::channel();
+
+            std::thread::spawn(move || {
+                let mut succeed = true;
+                let mut irsend = 0;
+                let mut remove_indices: Vec<usize> = Vec::new();
+                for idx in 0..statuses.len() {
+                    irsend += 1;
+                    let send_ok = statuses[idx].send();
+                    succeed &= send_ok;
+                    if statuses[idx].retry < 0 || statuses[idx].retry > ir_send_count {
+                        remove_indices.push(idx);
+                    }
+                }
+                for idx in remove_indices.into_iter().rev() {
+                    statuses.remove(idx);
+                }
+
+                // Fetch ranking from IR
+                let mut ranking_result = None;
+                if irsend > 0
+                    && let Some(ref conn) = ir_connection
+                    && let Some(ref cd) = course_data_for_ranking
+                {
+                    let ir_course_data = IRCourseData::new_with_lntype(cd, lnmode);
+                    let response = conn.get_course_play_data(None, &ir_course_data);
+                    if response.is_succeeded() {
+                        ranking_result = response.get_data().cloned();
+                        info!("IR score fetch succeeded: {}", response.get_message());
+                    } else {
+                        warn!("IR score fetch failed: {}", response.get_message());
+                    }
+                }
+
+                let _ = tx.send((
+                    succeed,
+                    irsend > 0,
+                    ranking_result,
+                    newscore_clone,
+                    oldscore_exscore,
+                ));
+            });
+
+            // Block briefly to receive results (matches Java's thread.join() behavior)
+            if let Ok((succeed, had_sends, ranking_scores, ns_clone, old_exscore)) = rx.recv()
+                && had_sends
+            {
                 if succeed {
                     self.data.timer.switch_timer(
                         beatoraja_skin::skin_property::TIMER_IR_CONNECT_SUCCESS,
@@ -274,37 +313,24 @@ impl CourseResult {
                         .timer
                         .switch_timer(beatoraja_skin::skin_property::TIMER_IR_CONNECT_FAIL, true);
                 }
-                // Fetch ranking from IR
-                let ir = self.main.get_ir_status();
-                if !ir.is_empty()
-                    && let Some(course_data) = self.resource.get_course_data()
-                {
-                    let ir_course_data = IRCourseData::new_with_lntype(course_data, lnmode);
-                    let response = ir[0].connection.get_course_play_data(None, &ir_course_data);
-                    if response.is_succeeded() {
-                        if let Some(ir_scores) = response.get_data() {
-                            let use_newscore = newscore
-                                .as_ref()
-                                .map(|ns| ns.get_exscore() > self.data.oldscore.get_exscore())
-                                .unwrap_or(false);
-                            let score_for_rank: Option<&beatoraja_core::score_data::ScoreData> =
-                                if use_newscore {
-                                    newscore.as_ref()
-                                } else {
-                                    Some(&self.data.oldscore)
-                                };
-                            if let Some(ref mut ranking) = self.data.ranking {
-                                ranking.update_score(ir_scores, score_for_rank);
-                                if ranking.get_rank() > 10 {
-                                    self.data.ranking_offset = ranking.get_rank() - 5;
-                                } else {
-                                    self.data.ranking_offset = 0;
-                                }
-                            }
+                if let Some(ir_scores) = ranking_scores {
+                    let use_newscore = ns_clone
+                        .as_ref()
+                        .map(|ns| ns.get_exscore() > old_exscore)
+                        .unwrap_or(false);
+                    let score_for_rank: Option<&beatoraja_core::score_data::ScoreData> =
+                        if use_newscore {
+                            ns_clone.as_ref()
+                        } else {
+                            Some(&self.data.oldscore)
+                        };
+                    if let Some(ref mut ranking) = self.data.ranking {
+                        ranking.update_score(&ir_scores, score_for_rank);
+                        if ranking.get_rank() > 10 {
+                            self.data.ranking_offset = ranking.get_rank() - 5;
+                        } else {
+                            self.data.ranking_offset = 0;
                         }
-                        info!("IR score fetch succeeded: {}", response.get_message());
-                    } else {
-                        warn!("IR score fetch failed: {}", response.get_message());
                     }
                 }
             }

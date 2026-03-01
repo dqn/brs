@@ -155,11 +155,20 @@ impl BGAProcessor {
         }
         self.reset_currently_playing_bga();
 
-        // TODO: Resource loading (images/movies) requires file I/O + MovieProcessor
-        // Timeline loading is done separately via set_model_timelines()
-        // Movie array allocation is done via set_movie_count() + set_movie()
+        // Resource loading (images/movies) is dispatched by the caller (PlayerResource).
+        // Timeline loading is done separately via set_model_timelines().
+        // Static images: caller calls cache.put(id, path) via put_image().
+        // Movies: caller calls set_movie_count() + set_movie().
 
         self.progress = 1.0;
+    }
+
+    /// Load a static BGA image into the cache at the given id.
+    /// Called by PlayerResource for each image BGA definition.
+    pub fn put_image(&mut self, id: usize, path: &std::path::Path) {
+        if let Some(ref mut cache) = self.cache {
+            cache.put(id, path);
+        }
     }
 
     /// Set the number of BGA slots (movie + image).
@@ -416,15 +425,9 @@ impl BGAProcessor {
         }
         // Fall back to static image cache
         if let Some(ref mut cache) = self.cache
-            && cache.get_texture(idx)
+            && let Some(tex) = cache.get_texture(idx)
         {
-            // Return a placeholder texture — actual pixel data is in cache
-            return Some(Texture {
-                width: 256,
-                height: 256,
-                disposed: false,
-                ..Default::default()
-            });
+            return Some(tex.clone());
         }
         None
     }
@@ -883,9 +886,17 @@ mod tests {
         proc.playinglayerid = 0;
         proc.rlayer = false;
 
-        // Put something in the cache so get_texture returns true
+        // Put a test texture in cache
         if let Some(ref mut cache) = proc.cache {
-            cache.put(0, std::path::Path::new("dummy.png"));
+            cache.put_texture(
+                0,
+                Texture {
+                    width: 256,
+                    height: 256,
+                    disposed: false,
+                    ..Default::default()
+                },
+            );
         }
 
         let mut renderer = MockBgaRenderer::default();
@@ -980,9 +991,17 @@ mod tests {
         proc.progress = 1.0;
         proc.set_movie_count(1);
 
-        // Put a static image in cache for the miss layer BGA id (42)
+        // Put a test texture in cache for the miss layer BGA id (42)
         if let Some(ref mut cache) = proc.cache {
-            cache.put(42, std::path::Path::new("miss.png"));
+            cache.put_texture(
+                42,
+                Texture {
+                    width: 256,
+                    height: 256,
+                    disposed: false,
+                    ..Default::default()
+                },
+            );
         }
 
         proc.misslayer = Some(Layer::new(
