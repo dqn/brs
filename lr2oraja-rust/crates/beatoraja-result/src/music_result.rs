@@ -347,17 +347,18 @@ impl MusicResult {
                         // Next course song
                         let lnmode = self.resource.get_player_config().lnmode;
                         if let Some(songdata) = self.resource.get_songdata() {
-                            let songrank = self
+                            let songrank: Option<RankingData> = self
                                 .main
                                 .get_ranking_data_cache()
-                                .get_song(songdata, lnmode)
+                                .get_song_any(songdata, lnmode)
+                                .and_then(|any| any.downcast_ref::<RankingData>())
                                 .cloned();
                             if !self.main.get_ir_status().is_empty() && songrank.is_none() {
                                 let new_ranking = RankingData::new();
-                                self.main.get_ranking_data_cache_mut().put_song(
+                                self.main.get_ranking_data_cache_mut().put_song_any(
                                     songdata,
                                     lnmode,
-                                    new_ranking.clone(),
+                                    Box::new(new_ranking.clone()),
                                 );
                                 self.resource.set_ranking_data(Some(new_ranking));
                             } else {

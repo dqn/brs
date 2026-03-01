@@ -96,3 +96,9 @@ pub mod ir_rival_provider;
 
 // Score data cache (shared between core and select)
 pub mod score_data_cache;
+
+// Ranking data cache trait (core↔ir bridge for IR ranking cache)
+pub mod ranking_data_cache_access;
+
+// Input processor access (keyboard control keys + commands)
+pub mod input_processor_access;

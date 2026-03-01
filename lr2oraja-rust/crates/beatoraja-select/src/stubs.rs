@@ -83,8 +83,10 @@ pub use beatoraja_core::course_data_accessor::CourseDataAccessor;
 // RankingData: replaced by pub use from beatoraja-ir (Phase 18e-11)
 pub use beatoraja_ir::ranking_data::RankingData;
 
-// RankingDataCache: replaced by pub use from beatoraja-ir (Phase 18e-11)
+// RankingDataCache: concrete type from beatoraja-ir (Phase 18e-11)
+// The trait RankingDataCacheAccess is in beatoraja-types for cross-crate bridging.
 pub use beatoraja_ir::ranking_data_cache::RankingDataCache;
+pub use beatoraja_types::ranking_data_cache_access::RankingDataCacheAccess;
 
 // ============================================================
 // beatoraja.input types

@@ -48,7 +48,7 @@ pub struct MainController {
     ir_send_statuses: Vec<IRSendStatusMain>,
     input_processor: BMSPlayerInputProcessor,
     play_data_accessor: PlayDataAccessor,
-    ranking_data_cache: beatoraja_ir::ranking_data_cache::RankingDataCache,
+    ranking_data_cache: Box<dyn beatoraja_types::ranking_data_cache_access::RankingDataCacheAccess>,
 }
 
 impl MainController {
@@ -64,7 +64,7 @@ impl MainController {
             ir_send_statuses: Vec::new(),
             input_processor,
             play_data_accessor,
-            ranking_data_cache: beatoraja_ir::ranking_data_cache::RankingDataCache::new(),
+            ranking_data_cache: Box::new(beatoraja_ir::ranking_data_cache::RankingDataCache::new()),
         }
     }
 
@@ -80,7 +80,7 @@ impl MainController {
             ir_send_statuses: Vec::new(),
             input_processor,
             play_data_accessor,
-            ranking_data_cache: beatoraja_ir::ranking_data_cache::RankingDataCache::new(),
+            ranking_data_cache: Box::new(beatoraja_ir::ranking_data_cache::RankingDataCache::new()),
         }
     }
 
@@ -99,7 +99,7 @@ impl MainController {
             ir_send_statuses: Vec::new(),
             input_processor,
             play_data_accessor,
-            ranking_data_cache: beatoraja_ir::ranking_data_cache::RankingDataCache::new(),
+            ranking_data_cache: Box::new(beatoraja_ir::ranking_data_cache::RankingDataCache::new()),
         }
     }
 
@@ -171,14 +171,16 @@ impl MainController {
             .map(|b| &mut **b as &mut dyn AudioDriver)
     }
 
-    pub fn get_ranking_data_cache(&self) -> &beatoraja_ir::ranking_data_cache::RankingDataCache {
-        &self.ranking_data_cache
+    pub fn get_ranking_data_cache(
+        &self,
+    ) -> &dyn beatoraja_types::ranking_data_cache_access::RankingDataCacheAccess {
+        &*self.ranking_data_cache
     }
 
     pub fn get_ranking_data_cache_mut(
         &mut self,
-    ) -> &mut beatoraja_ir::ranking_data_cache::RankingDataCache {
-        &mut self.ranking_data_cache
+    ) -> &mut dyn beatoraja_types::ranking_data_cache_access::RankingDataCacheAccess {
+        &mut *self.ranking_data_cache
     }
 }
 

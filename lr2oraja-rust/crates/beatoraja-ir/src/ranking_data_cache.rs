@@ -1,9 +1,12 @@
+use std::any::Any;
 use std::collections::HashMap;
 
+use log::warn;
 use sha2::{Digest, Sha256};
 
 use beatoraja_core::course_data::CourseData;
 use beatoraja_core::stubs::SongData;
+use beatoraja_types::ranking_data_cache_access::RankingDataCacheAccess;
 
 use crate::convert_hex_string;
 use crate::ranking_data::RankingData;
@@ -109,5 +112,31 @@ impl RankingDataCache {
         hasher.update(sb.as_bytes());
         let result = hasher.finalize();
         Some(convert_hex_string(&result))
+    }
+}
+
+impl RankingDataCacheAccess for RankingDataCache {
+    fn get_song_any(&self, song: &SongData, lnmode: i32) -> Option<&dyn Any> {
+        self.get_song(song, lnmode).map(|r| r as &dyn Any)
+    }
+
+    fn get_course_any(&self, course: &CourseData, lnmode: i32) -> Option<&dyn Any> {
+        self.get_course(course, lnmode).map(|r| r as &dyn Any)
+    }
+
+    fn put_song_any(&mut self, song: &SongData, lnmode: i32, data: Box<dyn Any>) {
+        if let Ok(ranking) = data.downcast::<RankingData>() {
+            self.put_song(song, lnmode, *ranking);
+        } else {
+            warn!("RankingDataCache::put_song_any: unexpected type (expected RankingData)");
+        }
+    }
+
+    fn put_course_any(&mut self, course: &CourseData, lnmode: i32, data: Box<dyn Any>) {
+        if let Ok(ranking) = data.downcast::<RankingData>() {
+            self.put_course(course, lnmode, *ranking);
+        } else {
+            warn!("RankingDataCache::put_course_any: unexpected type (expected RankingData)");
+        }
     }
 }
