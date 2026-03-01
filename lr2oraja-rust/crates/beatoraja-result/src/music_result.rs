@@ -347,10 +347,14 @@ impl MusicResult {
                         // Next course song
                         let lnmode = self.resource.get_player_config().lnmode;
                         if let Some(songdata) = self.resource.get_songdata() {
-                            let songrank = self.main.get_ranking_data_cache().get(songdata, lnmode);
+                            let songrank = self
+                                .main
+                                .get_ranking_data_cache()
+                                .get_song(songdata, lnmode)
+                                .cloned();
                             if !self.main.get_ir_status().is_empty() && songrank.is_none() {
                                 let new_ranking = RankingData::new();
-                                self.main.get_ranking_data_cache().put(
+                                self.main.get_ranking_data_cache_mut().put_song(
                                     songdata,
                                     lnmode,
                                     new_ranking.clone(),
@@ -515,9 +519,16 @@ impl MusicResult {
                     self.save_replay_data(idx);
                 }
 
-                if open_ir {
-                    // self.execute_event(EventType::open_ir);
-                    log::debug!("blocked by IR browser integration: execute open_ir event");
+                if open_ir
+                    && let Some(ir_status) = self.main.get_ir_status().first()
+                    && let Some(songdata) = self.resource.get_songdata()
+                {
+                    let chart = beatoraja_ir::ir_chart_data::IRChartData::new(songdata);
+                    if let Some(url) = ir_status.connection.get_song_url(&chart)
+                        && let Err(e) = open::that(&url)
+                    {
+                        log::error!("Failed to open IR URL: {}", e);
+                    }
                 }
             }
         }

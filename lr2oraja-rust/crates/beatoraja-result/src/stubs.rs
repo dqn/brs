@@ -48,6 +48,7 @@ pub struct MainController {
     ir_send_statuses: Vec<IRSendStatusMain>,
     input_processor: BMSPlayerInputProcessor,
     play_data_accessor: PlayDataAccessor,
+    ranking_data_cache: beatoraja_ir::ranking_data_cache::RankingDataCache,
 }
 
 impl MainController {
@@ -63,6 +64,7 @@ impl MainController {
             ir_send_statuses: Vec::new(),
             input_processor,
             play_data_accessor,
+            ranking_data_cache: beatoraja_ir::ranking_data_cache::RankingDataCache::new(),
         }
     }
 
@@ -78,6 +80,7 @@ impl MainController {
             ir_send_statuses: Vec::new(),
             input_processor,
             play_data_accessor,
+            ranking_data_cache: beatoraja_ir::ranking_data_cache::RankingDataCache::new(),
         }
     }
 
@@ -96,6 +99,7 @@ impl MainController {
             ir_send_statuses: Vec::new(),
             input_processor,
             play_data_accessor,
+            ranking_data_cache: beatoraja_ir::ranking_data_cache::RankingDataCache::new(),
         }
     }
 
@@ -167,37 +171,14 @@ impl MainController {
             .map(|b| &mut **b as &mut dyn AudioDriver)
     }
 
-    /// Stub: RankingDataCache requires IR ranking infrastructure.
-    pub fn get_ranking_data_cache(&self) -> &RankingDataCache {
-        log::debug!(
-            "stub: MainController.getRankingDataCache — blocked by IR ranking infrastructure"
-        );
-        static DEFAULT: RankingDataCache = RankingDataCache;
-        &DEFAULT
-    }
-}
-
-/// Stub: RankingDataCache — blocked by IR ranking infrastructure.
-/// Requires RankingData caching with SongData+lnmode keys.
-pub struct RankingDataCache;
-
-impl RankingDataCache {
-    pub fn get(
-        &self,
-        _songdata: &beatoraja_types::song_data::SongData,
-        _lnmode: i32,
-    ) -> Option<RankingData> {
-        log::debug!("stub: RankingDataCache.get — blocked by IR ranking infrastructure");
-        None
+    pub fn get_ranking_data_cache(&self) -> &beatoraja_ir::ranking_data_cache::RankingDataCache {
+        &self.ranking_data_cache
     }
 
-    pub fn put(
-        &self,
-        _songdata: &beatoraja_types::song_data::SongData,
-        _lnmode: i32,
-        _ranking: RankingData,
-    ) {
-        log::debug!("stub: RankingDataCache.put — blocked by IR ranking infrastructure");
+    pub fn get_ranking_data_cache_mut(
+        &mut self,
+    ) -> &mut beatoraja_ir::ranking_data_cache::RankingDataCache {
+        &mut self.ranking_data_cache
     }
 }
 

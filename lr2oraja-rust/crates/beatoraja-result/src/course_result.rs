@@ -424,11 +424,19 @@ impl CourseResult {
                 self.save_replay_data(idx);
             }
 
-            {
+            let open_ir = {
                 let input_processor = self.main.get_input_processor();
-                if input_processor.is_activated(KeyCommand::OpenIr) {
-                    // self.execute_event(EventType::open_ir);
-                    log::debug!("blocked by IR browser integration: execute open_ir event");
+                input_processor.is_activated(KeyCommand::OpenIr)
+            };
+            if open_ir
+                && let Some(ir_status) = self.main.get_ir_status().first()
+                && let Some(coursedata) = self.resource.get_course_data()
+            {
+                let course = beatoraja_ir::ir_course_data::IRCourseData::new(coursedata);
+                if let Some(url) = ir_status.connection.get_course_url(&course)
+                    && let Err(e) = open::that(&url)
+                {
+                    log::error!("Failed to open IR URL: {}", e);
                 }
             }
         }

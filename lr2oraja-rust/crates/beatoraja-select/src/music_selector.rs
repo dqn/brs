@@ -302,33 +302,130 @@ impl MusicSelector {
                 self.play_option_change();
             }
             EventType::Target => {
-                // Cycle target - requires TargetProperty list
-                log::debug!("stub: EventType::Target — requires TargetProperty list");
+                let targets = beatoraja_play::target_property::TargetProperty::get_targets();
+                if !targets.is_empty() {
+                    let mut index = targets.len();
+                    for (i, t) in targets.iter().enumerate() {
+                        if t == &self.config.targetid {
+                            index = i;
+                            break;
+                        }
+                    }
+                    let step = if arg1 >= 0 { 1 } else { targets.len() - 1 };
+                    let new_index = (index + step) % targets.len();
+                    self.config.targetid = targets[new_index].clone();
+                }
+                self.play_option_change();
             }
             EventType::Rival => {
-                // Cycle rival - requires RivalDataAccessor
-                log::debug!("stub: EventType::Rival — requires RivalDataAccessor");
-            }
-            EventType::FavoriteSong | EventType::FavoriteChart => {
-                // Toggle favorite - requires SongDatabase write access
+                // Blocked: RivalDataAccessor in beatoraja-core, not on MainControllerAccess
                 log::debug!(
-                    "stub: EventType::{:?} — requires SongDatabase write access",
-                    event
+                    "stub: EventType::Rival — blocked by crate boundary (RivalDataAccessor)"
                 );
+            }
+            EventType::FavoriteSong => {
+                let next = arg1 >= 0;
+                if let Some(songbar) = self.manager.get_selected().and_then(|b| b.as_song_bar()) {
+                    let mut sd = songbar.get_song_data().clone();
+                    let fav = sd.favorite;
+                    let current = if fav & beatoraja_types::song_data::FAVORITE_SONG != 0 {
+                        1
+                    } else if fav & beatoraja_types::song_data::INVISIBLE_SONG != 0 {
+                        2
+                    } else {
+                        0
+                    };
+                    let new_type = (current + if next { 1 } else { 2 }) % 3;
+                    sd.favorite = (fav
+                        & !(beatoraja_types::song_data::FAVORITE_SONG
+                            | beatoraja_types::song_data::INVISIBLE_SONG))
+                        | match new_type {
+                            1 => beatoraja_types::song_data::FAVORITE_SONG,
+                            2 => beatoraja_types::song_data::INVISIBLE_SONG,
+                            _ => 0,
+                        };
+                    self.songdb.set_song_datas(&[sd]);
+                }
+                self.play_option_change();
+            }
+            EventType::FavoriteChart => {
+                let next = arg1 >= 0;
+                if let Some(songbar) = self.manager.get_selected().and_then(|b| b.as_song_bar()) {
+                    let mut sd = songbar.get_song_data().clone();
+                    let fav = sd.favorite;
+                    let current = if fav & beatoraja_types::song_data::FAVORITE_CHART != 0 {
+                        1
+                    } else if fav & beatoraja_types::song_data::INVISIBLE_CHART != 0 {
+                        2
+                    } else {
+                        0
+                    };
+                    let new_type = (current + if next { 1 } else { 2 }) % 3;
+                    sd.favorite = (fav
+                        & !(beatoraja_types::song_data::FAVORITE_CHART
+                            | beatoraja_types::song_data::INVISIBLE_CHART))
+                        | match new_type {
+                            1 => beatoraja_types::song_data::FAVORITE_CHART,
+                            2 => beatoraja_types::song_data::INVISIBLE_CHART,
+                            _ => 0,
+                        };
+                    self.songdb.set_song_datas(&[sd]);
+                }
+                self.play_option_change();
             }
             EventType::UpdateFolder => {
-                // Update folder - requires song database update
-                log::debug!("stub: EventType::UpdateFolder — requires song database update");
-            }
-            EventType::OpenDocument
-            | EventType::OpenWithExplorer
-            | EventType::OpenIr
-            | EventType::OpenDownloadSite => {
-                // OS desktop operations - requires platform integration
+                // Blocked: MainController.updateSong not on MainControllerAccess
                 log::debug!(
-                    "stub: EventType::{:?} — requires platform integration",
-                    event
+                    "stub: EventType::UpdateFolder — blocked by crate boundary (MainController.updateSong)"
                 );
+            }
+            EventType::OpenDocument => {
+                if let Some(songbar) = self.manager.get_selected().and_then(|b| b.as_song_bar())
+                    && let Some(path) = songbar.get_song_data().get_path()
+                    && let Some(parent) = std::path::Path::new(path).parent()
+                    && let Ok(entries) = std::fs::read_dir(parent)
+                {
+                    for entry in entries.flatten() {
+                        let p = entry.path();
+                        if !p.is_dir()
+                            && let Some(ext) = p.extension()
+                            && ext.eq_ignore_ascii_case("txt")
+                            && let Err(e) = open::that(&p)
+                        {
+                            log::error!("Failed to open document: {}", e);
+                        }
+                    }
+                }
+            }
+            EventType::OpenWithExplorer => {
+                if let Some(songbar) = self.manager.get_selected().and_then(|b| b.as_song_bar())
+                    && let Some(path) = songbar.get_song_data().get_path()
+                    && let Some(parent) = std::path::Path::new(path).parent()
+                    && let Err(e) = open::that(parent)
+                {
+                    log::error!("Failed to open folder: {}", e);
+                }
+            }
+            EventType::OpenIr => {
+                // Blocked: IRConnection in beatoraja-result, not accessible here
+                log::debug!("stub: EventType::OpenIr — blocked by crate boundary (IRConnection)");
+            }
+            EventType::OpenDownloadSite => {
+                if let Some(songbar) = self.manager.get_selected().and_then(|b| b.as_song_bar()) {
+                    let sd = songbar.get_song_data();
+                    let url = sd.get_url();
+                    if !url.is_empty()
+                        && let Err(e) = open::that(url)
+                    {
+                        log::error!("Failed to open download site: {}", e);
+                    }
+                    let appendurl = sd.get_appendurl();
+                    if !appendurl.is_empty()
+                        && let Err(e) = open::that(appendurl)
+                    {
+                        log::error!("Failed to open append URL: {}", e);
+                    }
+                }
             }
         }
     }
