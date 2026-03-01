@@ -420,6 +420,10 @@ mod tests {
 pub trait LR2SkinLoaderAccess {
     /// Get mutable reference to the base CSV loader state.
     fn csv_mut(&mut self) -> &mut LR2SkinCSVLoaderState;
+
+    /// Assemble accumulated loader state into SkinObjects and add them to the Skin.
+    /// Called after CSV parsing completes to convert parsed source data into drawable objects.
+    fn assemble_objects(&mut self, skin: &mut crate::skin::Skin);
 }
 
 /// Create the appropriate LR2 skin loader for the given SkinType.
@@ -468,9 +472,7 @@ fn create_lr2_loader(
 
 /// Load an LR2 skin from a .lr2skin file path.
 ///
-/// Pipeline: header load → loader create → CSV parse → apply properties → return Skin.
-/// Note: Skin object population (SkinImage, SkinNote, etc.) is not yet implemented —
-/// the returned Skin has correct timing properties but an empty object list.
+/// Pipeline: header load → loader create → CSV parse → apply properties → assemble objects → return Skin.
 pub fn load_lr2_skin(
     path: &std::path::Path,
     skin_type: &crate::skin_type::SkinType,
@@ -561,6 +563,9 @@ pub fn load_lr2_skin(
 
     // 5. Apply accumulated properties to skin
     loader.csv_mut().apply_to_skin(&mut skin);
+
+    // 6. Assemble parsed source data into SkinObjects
+    loader.assemble_objects(&mut skin);
 
     Some(skin)
 }

@@ -859,6 +859,65 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
     fn csv_mut(&mut self) -> &mut LR2SkinCSVLoaderState {
         &mut self.csv
     }
+
+    fn assemble_objects(&mut self, skin: &mut crate::skin::Skin) {
+        use crate::skin::SkinObject;
+
+        // 1. Add SkinJudgeObject instances (already created during SRC_NOWJUDGE parsing)
+        for judge_opt in &mut self.judge_objects {
+            if let Some(judge) = judge_opt.take() {
+                skin.add(SkinObject::Judge(judge));
+            }
+        }
+
+        // 2. Add line SkinImage instances (already created during SRC_LINE/DST_LINE parsing)
+        for line_opt in &mut self.line_images {
+            if let Some(line_img) = line_opt.take() {
+                skin.add(SkinObject::Image(line_img));
+            }
+        }
+
+        // 3. Add judgeline SkinImage (already created during SRC_JUDGELINE parsing)
+        if let Some(judgeline) = self.judgeline.take() {
+            skin.add(SkinObject::Image(judgeline));
+        }
+
+        // 4. Create SkinNoteObject from accumulated note source data
+        if self.lanerender.is_some() {
+            let lane_count = self.note.len();
+            let mut note_obj = crate::skin_note_object::SkinNoteObject::new(lane_count);
+            for (i, lane_rect) in self.laner.iter().enumerate() {
+                if let Some(rect) = lane_rect {
+                    note_obj.inner.set_lane_region(
+                        i,
+                        rect.x,
+                        rect.y,
+                        rect.width,
+                        rect.height,
+                        *self.scale.get(i).unwrap_or(&1.0),
+                        *self.dstnote2.get(i).unwrap_or(&0),
+                    );
+                }
+            }
+            skin.add(SkinObject::Note(note_obj));
+        }
+
+        // 5. Create SkinBgaObject if BGA was requested
+        if self.bga.is_some() {
+            let bga_obj = crate::skin_bga_object::SkinBgaObject::new(0);
+            skin.add(SkinObject::Bga(bga_obj));
+        }
+
+        // 6. Apply play-specific timing to skin
+        if let Some(close) = self.play_close {
+            skin.set_scene(close);
+        }
+        if let Some(margin) = self.play_finish_margin {
+            skin.set_fadeout(margin);
+        }
+
+        log::debug!("LR2PlaySkinLoader: assembled objects into skin");
+    }
 }
 
 #[cfg(test)]

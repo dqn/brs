@@ -1,6 +1,6 @@
 use crate::validatable::Validatable;
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum DriverType {
     #[default]
     OpenAL,

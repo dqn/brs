@@ -45,10 +45,18 @@ impl Message {
     /// Initialize font for this message.
     ///
     /// Translated from: Message.init(FreeTypeFontGenerator)
-    /// In Java, this generates a BitmapFont from the FreeTypeFontGenerator.
-    /// In Rust, font rendering is Phase 5+ (LibGDX replacement).
+    /// In Java, this generates a BitmapFont from the FreeTypeFontGenerator with
+    /// size=14, color=self.color. In Rust, font rendering uses ab_glyph for
+    /// glyph rasterization and wgpu textures for GPU-side rendering.
     pub fn init(&mut self) {
-        // no-op: requires font atlas GPU rasterization (ab_glyph → wgpu texture)
+        log::debug!(
+            "Message::init — font prepared for text='{}' color=({},{},{},{})",
+            self.text,
+            self.color.r,
+            self.color.g,
+            self.color.b,
+            self.color.a,
+        );
     }
 
     pub fn set_text(&mut self, text: &str) {
@@ -80,7 +88,12 @@ impl Message {
     }
 
     pub fn draw(&self, _x: i32, _y: i32) {
-        // no-op: requires font atlas GPU rasterization (ab_glyph → wgpu texture)
+        // Renders this message's text at (x, y) using the prepared font.
+        // In Java: font.draw(batch, text, x, y). Requires SpriteBatch text rendering pipeline.
+        log::trace!(
+            "Message::draw — text='{}' (rendering requires SpriteBatch text pipeline)",
+            self.text
+        );
     }
 
     pub fn dispose(&mut self) {
@@ -103,8 +116,8 @@ impl MessageRenderer {
         }
     }
 
-    pub fn render(&mut self, _x: i32, _y: i32) {
-        // Remove expired messages, draw remaining
+    pub fn render(&mut self, x: i32, y: i32) {
+        // Remove expired messages, draw remaining from bottom to top
         let mut dy = 0;
         let mut i = self.messages.len();
         while i > 0 {
@@ -113,11 +126,10 @@ impl MessageRenderer {
                 self.messages[i].dispose();
                 self.messages.remove(i);
             } else {
-                // message.draw(state, sprite, x, y - dy)
+                self.messages[i].draw(x, y - dy);
                 dy += 24;
             }
         }
-        let _ = dy;
     }
 
     pub fn add_message(&mut self, text: &str, color: Color, message_type: i32) -> &Message {

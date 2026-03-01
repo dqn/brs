@@ -1,12 +1,15 @@
 // LauncherUi — egui-based launcher configuration window
 // Java equivalent: PlayConfigurationView (JavaFX Application)
 
+use beatoraja_core::audio_config::{DriverType, FrequencyType};
 use beatoraja_core::config::Config;
 use beatoraja_core::ir_config::IRConfig;
+use beatoraja_core::main_state::MainStateType;
 use beatoraja_core::player_config::PlayerConfig;
 use beatoraja_skin::skin_type::SkinType;
 use bms_model::mode::Mode;
 
+use crate::obs_configuration_view::{ACTION_NONE, SCENE_NONE};
 use crate::play_configuration_view::PlayMode;
 use crate::skin_configuration_view::{SkinConfigItem, SkinConfigurationView};
 
@@ -84,6 +87,24 @@ pub struct LauncherUi {
     ir_prev_index: Option<usize>,
     /// Skin configuration sub-view (skin type/header selection + custom options).
     skin_view: SkinConfigurationView,
+    /// Discord webhook URL list for editing.
+    webhook_urls: Vec<String>,
+    /// New webhook URL input buffer.
+    webhook_url_input: String,
+    /// OBS state names (ordered list for consistent rendering).
+    obs_states: Vec<String>,
+    /// OBS scene selection per state.
+    obs_scene_selections: std::collections::HashMap<String, String>,
+    /// OBS action selection per state.
+    obs_action_selections: std::collections::HashMap<String, String>,
+    /// Whether the "What's New" popup is open.
+    show_whats_new: bool,
+    /// What's New message text.
+    whats_new_text: String,
+    /// Chart details dialog state.
+    chart_details_open: bool,
+    /// Chart details dialog data (label, value) pairs.
+    chart_details_data: Vec<(String, String)>,
     /// Set to true when the user clicks "Start" — signals the caller to launch play.
     /// Java: PlayConfigurationView.start() calls MainLoader.play()
     play_requested: bool,
@@ -106,6 +127,61 @@ impl LauncherUi {
         skin_view.initialize();
         skin_view.update_config(&config);
         skin_view.update_player(&player);
+        let webhook_urls = config.webhook_url.clone();
+
+        // Initialize OBS state rows
+        let mut obs_states = Vec::new();
+        let obs_state_types = [
+            MainStateType::MusicSelect,
+            MainStateType::Decide,
+            MainStateType::Play,
+            MainStateType::Result,
+            MainStateType::CourseResult,
+            MainStateType::Config,
+            MainStateType::SkinConfig,
+        ];
+        let mut obs_scene_selections = std::collections::HashMap::new();
+        let mut obs_action_selections = std::collections::HashMap::new();
+        for state in &obs_state_types {
+            let name = format!("{:?}", state);
+            obs_states.push(name.clone());
+            let scene = config.get_obs_scene(&name).cloned().unwrap_or_default();
+            obs_scene_selections.insert(
+                name.clone(),
+                if scene.is_empty() {
+                    SCENE_NONE.to_string()
+                } else {
+                    scene
+                },
+            );
+            let action_label = config
+                .get_obs_action(&name)
+                .and_then(|a| beatoraja_obs::obs_ws_client::get_action_label(a))
+                .unwrap_or_else(|| ACTION_NONE.to_string());
+            obs_action_selections.insert(name.clone(), action_label);
+
+            if name == "Play" {
+                obs_states.push("PLAY_ENDED".to_string());
+                let scene_ended = config
+                    .get_obs_scene("PLAY_ENDED")
+                    .cloned()
+                    .unwrap_or_default();
+                obs_scene_selections.insert(
+                    "PLAY_ENDED".to_string(),
+                    if scene_ended.is_empty() {
+                        SCENE_NONE.to_string()
+                    } else {
+                        scene_ended
+                    },
+                );
+                let action_ended = config
+                    .get_obs_action("PLAY_ENDED")
+                    .and_then(|a| beatoraja_obs::obs_ws_client::get_action_label(a))
+                    .unwrap_or_else(|| ACTION_NONE.to_string());
+                obs_action_selections.insert("PLAY_ENDED".to_string(), action_ended);
+            }
+        }
+
         Self {
             config,
             player,
@@ -118,6 +194,15 @@ impl LauncherUi {
             ir_password_buf: String::new(),
             ir_prev_index: None,
             skin_view,
+            webhook_urls,
+            webhook_url_input: String::new(),
+            obs_states,
+            obs_scene_selections,
+            obs_action_selections,
+            show_whats_new: false,
+            whats_new_text: String::new(),
+            chart_details_open: false,
+            chart_details_data: Vec::new(),
             play_requested: false,
             exit_requested: false,
             shared_play_requested: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -223,6 +308,9 @@ impl LauncherUi {
 
             ui.separator();
 
+            // Popups
+            self.render_popups(ui.ctx());
+
             // Action buttons at the bottom
             ui.horizontal(|ui| {
                 if ui.button("Start").clicked() {
@@ -274,12 +362,112 @@ impl LauncherUi {
     fn render_audio_tab(&mut self, ui: &mut egui::Ui) {
         let audio = self.config.audio.get_or_insert_with(Default::default);
         egui::Grid::new("audio_grid").show(ui, |ui| {
+            // Driver type selector
+            let driver_label = match audio.driver {
+                DriverType::OpenAL => "OpenAL",
+                DriverType::PortAudio => "PortAudio",
+            };
+            ui.label("Driver:");
+            egui::ComboBox::from_id_salt("audio_driver")
+                .selected_text(driver_label)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut audio.driver, DriverType::OpenAL, "OpenAL");
+                    ui.selectable_value(&mut audio.driver, DriverType::PortAudio, "PortAudio");
+                });
+            ui.end_row();
+
+            // Driver name (PortAudio device selection)
+            if audio.driver == DriverType::PortAudio {
+                let driver_name_display = audio
+                    .driver_name
+                    .as_deref()
+                    .unwrap_or("(default)")
+                    .to_string();
+                ui.label("Device:");
+                egui::ComboBox::from_id_salt("audio_device_name")
+                    .selected_text(&driver_name_display)
+                    .show_ui(ui, |ui| {
+                        if let Ok(devices) = crate::stubs::get_port_audio_devices() {
+                            for device in &devices {
+                                let mut name = audio.driver_name.clone().unwrap_or_default();
+                                if ui
+                                    .selectable_value(&mut name, device.name.clone(), &device.name)
+                                    .changed()
+                                {
+                                    audio.driver_name = Some(name);
+                                }
+                            }
+                        }
+                    });
+                ui.end_row();
+            }
+
             ui.label("Audio Buffer:");
             ui.add(egui::DragValue::new(&mut audio.device_buffer_size).range(0..=9999));
             ui.end_row();
 
             ui.label("Max Simultaneous:");
             ui.add(egui::DragValue::new(&mut audio.device_simultaneous_sources).range(1..=256));
+            ui.end_row();
+
+            // Sample rate selector
+            let sample_rate_label = if audio.sample_rate > 0 {
+                audio.sample_rate.to_string()
+            } else {
+                "Auto".to_string()
+            };
+            ui.label("Sample Rate:");
+            egui::ComboBox::from_id_salt("audio_sample_rate")
+                .selected_text(&sample_rate_label)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut audio.sample_rate, 0, "Auto");
+                    ui.selectable_value(&mut audio.sample_rate, 44100, "44100");
+                    ui.selectable_value(&mut audio.sample_rate, 48000, "48000");
+                });
+            ui.end_row();
+
+            // Frequency option
+            let freq_label = match audio.freq_option {
+                FrequencyType::UNPROCESSED => "Unprocessed",
+                FrequencyType::FREQUENCY => "Frequency",
+            };
+            ui.label("Freq Option:");
+            egui::ComboBox::from_id_salt("audio_freq_option")
+                .selected_text(freq_label)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut audio.freq_option,
+                        FrequencyType::UNPROCESSED,
+                        "Unprocessed",
+                    );
+                    ui.selectable_value(
+                        &mut audio.freq_option,
+                        FrequencyType::FREQUENCY,
+                        "Frequency",
+                    );
+                });
+            ui.end_row();
+
+            // Fast forward
+            let ff_label = match audio.fast_forward {
+                FrequencyType::UNPROCESSED => "Unprocessed",
+                FrequencyType::FREQUENCY => "Frequency",
+            };
+            ui.label("Fast Forward:");
+            egui::ComboBox::from_id_salt("audio_fast_forward")
+                .selected_text(ff_label)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut audio.fast_forward,
+                        FrequencyType::UNPROCESSED,
+                        "Unprocessed",
+                    );
+                    ui.selectable_value(
+                        &mut audio.fast_forward,
+                        FrequencyType::FREQUENCY,
+                        "Frequency",
+                    );
+                });
             ui.end_row();
 
             ui.label("System Volume:");
@@ -292,6 +480,18 @@ impl LauncherUi {
 
             ui.label("BG Volume:");
             ui.add(egui::Slider::new(&mut audio.bgvolume, 0.0..=1.0));
+            ui.end_row();
+
+            ui.label("Normalize Volume:");
+            ui.checkbox(&mut audio.normalize_volume, "");
+            ui.end_row();
+
+            ui.label("Loop Result Sound:");
+            ui.checkbox(&mut audio.is_loop_result_sound, "");
+            ui.end_row();
+
+            ui.label("Loop Course Result Sound:");
+            ui.checkbox(&mut audio.is_loop_course_result_sound, "");
             ui.end_row();
         });
     }
@@ -747,11 +947,69 @@ impl LauncherUi {
     }
 
     fn render_discord_tab(&mut self, ui: &mut egui::Ui) {
-        ui.label("Discord Rich Presence");
+        ui.heading("Discord");
+
         ui.checkbox(
             &mut self.config.use_discord_rpc,
             "Enable Discord Rich Presence",
         );
+
+        ui.separator();
+
+        // Webhook configuration
+        ui.heading("Webhook");
+
+        egui::Grid::new("discord_webhook_grid").show(ui, |ui| {
+            let webhook_options = ["All Clear", "FC / AAA", "Clear"];
+            let selected_label = webhook_options
+                .get(self.config.webhook_option as usize)
+                .unwrap_or(&"All Clear");
+            ui.label("Send On:");
+            egui::ComboBox::from_id_salt("webhook_option")
+                .selected_text(*selected_label)
+                .show_ui(ui, |ui| {
+                    for (i, label) in webhook_options.iter().enumerate() {
+                        ui.selectable_value(&mut self.config.webhook_option, i as i32, *label);
+                    }
+                });
+            ui.end_row();
+
+            ui.label("Bot Name:");
+            ui.text_edit_singleline(&mut self.config.webhook_name);
+            ui.end_row();
+
+            ui.label("Avatar URL:");
+            ui.text_edit_singleline(&mut self.config.webhook_avatar);
+            ui.end_row();
+        });
+
+        ui.separator();
+
+        // Webhook URL table
+        ui.label("Webhook URLs:");
+        let mut remove_idx = None;
+        for (i, url) in self.webhook_urls.iter().enumerate() {
+            ui.horizontal(|ui| {
+                ui.label(url);
+                if ui.small_button("Remove").clicked() {
+                    remove_idx = Some(i);
+                }
+            });
+        }
+        if let Some(idx) = remove_idx {
+            self.webhook_urls.remove(idx);
+        }
+
+        ui.horizontal(|ui| {
+            ui.text_edit_singleline(&mut self.webhook_url_input);
+            if ui.button("Add").clicked() && !self.webhook_url_input.is_empty() {
+                let url = self.webhook_url_input.clone();
+                if !self.webhook_urls.contains(&url) {
+                    self.webhook_urls.push(url);
+                }
+                self.webhook_url_input.clear();
+            }
+        });
     }
 
     /// Java equivalent: ObsConfigurationView
@@ -797,10 +1055,138 @@ impl LauncherUi {
                 ui.end_row();
             }
         });
+
+        if self.config.use_obs_ws {
+            ui.separator();
+            ui.heading("State Actions");
+
+            // Action labels from OBS module
+            let actions = beatoraja_obs::obs_ws_client::obs_actions();
+            let action_labels: Vec<String> = std::iter::once(ACTION_NONE.to_string())
+                .chain(actions.keys().cloned())
+                .collect();
+
+            let obs_states = self.obs_states.clone();
+            egui::Grid::new("obs_state_grid")
+                .min_col_width(100.0)
+                .show(ui, |ui| {
+                    ui.label("State");
+                    ui.label("Scene");
+                    ui.label("Action");
+                    ui.end_row();
+
+                    for state in &obs_states {
+                        ui.label(state);
+
+                        // Scene selector (disabled until connected, show saved value)
+                        let scene_val = self
+                            .obs_scene_selections
+                            .entry(state.clone())
+                            .or_insert_with(|| SCENE_NONE.to_string());
+                        egui::ComboBox::from_id_salt(format!("obs_scene_{}", state))
+                            .selected_text(scene_val.as_str())
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(scene_val, SCENE_NONE.to_string(), SCENE_NONE);
+                            });
+
+                        // Action selector
+                        let action_val = self
+                            .obs_action_selections
+                            .entry(state.clone())
+                            .or_insert_with(|| ACTION_NONE.to_string());
+                        egui::ComboBox::from_id_salt(format!("obs_action_{}", state))
+                            .selected_text(action_val.as_str())
+                            .show_ui(ui, |ui| {
+                                for label in &action_labels {
+                                    ui.selectable_value(action_val, label.clone(), label.as_str());
+                                }
+                            });
+
+                        ui.end_row();
+                    }
+                });
+        }
+    }
+
+    /// Render popup windows (What's New, Chart Details).
+    fn render_popups(&mut self, ctx: &egui::Context) {
+        if self.show_whats_new {
+            let mut open = self.show_whats_new;
+            egui::Window::new("What's New")
+                .open(&mut open)
+                .resizable(true)
+                .default_width(400.0)
+                .show(ctx, |ui| {
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        ui.label(&self.whats_new_text);
+                    });
+                    if ui.button("OK").clicked() {
+                        self.show_whats_new = false;
+                    }
+                });
+            self.show_whats_new = open;
+        }
+
+        if self.chart_details_open {
+            let mut open = self.chart_details_open;
+            egui::Window::new("Chart Details")
+                .open(&mut open)
+                .resizable(true)
+                .default_width(500.0)
+                .show(ctx, |ui| {
+                    egui::Grid::new("chart_details_grid").show(ui, |ui| {
+                        for (label, value) in &self.chart_details_data {
+                            ui.label(label);
+                            let mut val = value.clone();
+                            ui.add(egui::TextEdit::singleline(&mut val));
+                            ui.end_row();
+                        }
+                    });
+                    if ui.button("OK").clicked() {
+                        self.chart_details_open = false;
+                    }
+                });
+            self.chart_details_open = open;
+        }
+    }
+
+    /// Show the What's New popup with the given text.
+    pub fn show_whats_new_popup(&mut self, text: String) {
+        self.whats_new_text = text;
+        self.show_whats_new = true;
+    }
+
+    /// Show the chart details dialog with the given data.
+    pub fn show_chart_details(&mut self, data: Vec<(String, String)>) {
+        self.chart_details_data = data;
+        self.chart_details_open = true;
     }
 
     fn commit_config(&mut self) {
         self.config.playername = Some(self.player_name.clone());
+        // Commit webhook URLs
+        self.config.webhook_url = self.webhook_urls.clone();
+        // Commit OBS scene/action selections
+        let actions = beatoraja_obs::obs_ws_client::obs_actions();
+        for state in &self.obs_states {
+            if let Some(scene) = self.obs_scene_selections.get(state) {
+                let scene_val = if scene == SCENE_NONE {
+                    String::new()
+                } else {
+                    scene.clone()
+                };
+                self.config.set_obs_scene(state.clone(), Some(scene_val));
+            }
+            if let Some(action_label) = self.obs_action_selections.get(state) {
+                if action_label == ACTION_NONE {
+                    self.config
+                        .set_obs_action(state.clone(), Some(String::new()));
+                } else if let Some(action_req) = actions.get(action_label) {
+                    self.config
+                        .set_obs_action(state.clone(), Some(action_req.clone()));
+                }
+            }
+        }
         // Flush IR userid/password buffers (triggers AES encryption)
         self.flush_ir_buffers();
         // Commit skin configuration (saves to player.skin + skin_history)

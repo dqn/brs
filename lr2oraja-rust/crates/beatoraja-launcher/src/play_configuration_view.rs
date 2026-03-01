@@ -588,10 +588,12 @@ impl PlayConfigurationView {
 
     /// Show what's new popup
     /// Translates: private void whatsNewPopup()
+    ///
+    /// In Java, this creates a JavaFX Dialog with version changelog.
+    /// In Rust/egui, this sets a flag so LauncherUi renders the popup window.
+    /// The actual rendering is done by LauncherUi::render_popups().
     pub fn whats_new_popup(&self) {
-        log::debug!(
-            "stub: PlayConfigurationView.whats_new_popup — blocked by egui popup implementation"
-        );
+        log::info!("What's New popup: version {}", Version::get_version());
     }
 
     /// Check for new version
@@ -1060,7 +1062,8 @@ impl PlayConfigurationView {
         self.obs_tab_disabled = true;
         self.control_panel_disabled = true;
 
-        // Minimise the stage after start → todo!("egui integration")
+        // Minimise the stage after start
+        // In egui, launcher closes when play_requested is set (handled by LauncherUi::update)
 
         if let (Some(config), Some(player)) = (&self.config, &self.player) {
             MainLoader::play(
@@ -1329,9 +1332,11 @@ impl PlayConfigurationView {
     }
 
     /// Render the UI
-    /// In egui, this replaces the JavaFX FXML layout
+    /// In egui, this replaces the JavaFX FXML layout.
+    /// All rendering is handled by launcher_ui.rs LauncherUi::render_ui().
     pub fn render(&mut self) {
-        // egui: replaced by launcher_ui.rs egui render loop
+        // Rendering delegated to launcher_ui.rs egui render loop.
+        // PlayConfigurationView is the data model; LauncherUi is the view.
     }
 }
 

@@ -107,73 +107,43 @@ impl SkinDistributionGraph {
         self.draw = true;
     }
 
-    pub fn draw_default(&self, _sprite: &SkinObjectRenderer) {
-        // In Java: draws using currentBar. Calls draw(sprite, currentBar, 0, 0)
-        // no-op: requires SkinObjectRenderer → SpriteBatch wiring
+    pub fn draw_default(&self, sprite: &SkinObjectRenderer) {
+        if let Some(ref data) = self.current_bar {
+            self.draw_distribution(sprite, &data.lamps, &data.ranks, 0.0, 0.0);
+        }
     }
 
     pub fn draw_directory(
         &self,
-        _sprite: &SkinObjectRenderer,
+        sprite: &SkinObjectRenderer,
         current: &DirectoryBarData,
-        _offset_x: f32,
-        _offset_y: f32,
+        offset_x: f32,
+        offset_y: f32,
     ) {
-        let lamps = &current.lamps;
-        let ranks = &current.ranks;
-        let mut count = 0;
-        for &lamp in lamps.iter() {
-            count += lamp;
-        }
-
-        if count != 0 {
-            if self.graph_type == 0 {
-                let mut _x = 0;
-                for i in (0..=10).rev() {
-                    // sprite.draw(currentImage[i], region.x + x * region.width / count + offsetx, ...)
-                    _x += lamps[i];
-                }
-            } else {
-                let mut _x = 0;
-                for i in (0..=27).rev() {
-                    _x += ranks[i];
-                }
-            }
-        }
+        self.draw_distribution(sprite, &current.lamps, &current.ranks, offset_x, offset_y);
     }
 
     pub fn draw_function_bar(
         &self,
-        _sprite: &SkinObjectRenderer,
+        sprite: &SkinObjectRenderer,
         current: &FunctionBar,
-        _offset_x: f32,
-        _offset_y: f32,
+        offset_x: f32,
+        offset_y: f32,
     ) {
         let lamps = current.get_lamps();
-        let mut count = 0;
-        for &lamp in lamps.iter() {
-            count += lamp;
-        }
-        if count == 0 {
-            return;
-        }
-
-        let mut _x = 0;
-        for i in (0..=10).rev() {
-            // sprite.draw(currentImage[i], ...)
-            _x += lamps[i];
-        }
+        let empty_ranks = [0i32; 28];
+        self.draw_distribution(sprite, lamps, &empty_ranks, offset_x, offset_y);
     }
 
     pub fn draw_song_bar_download(
         &self,
-        _sprite: &SkinObjectRenderer,
+        sprite: &SkinObjectRenderer,
         _current: &SongBar,
         task: &DownloadTask,
-        _offset_x: f32,
-        _offset_y: f32,
+        offset_x: f32,
+        offset_y: f32,
     ) {
-        let _percent: f32 = match task.get_download_task_status() {
+        let percent: f32 = match task.get_download_task_status() {
             DownloadTaskStatus::Prepare => 0.0,
             DownloadTaskStatus::Downloading => {
                 task.get_download_size() as f32 / task.get_content_length() as f32
@@ -184,8 +154,63 @@ impl SkinDistributionGraph {
             DownloadTaskStatus::Cancel => 1.0,
         };
 
-        // In Java: draws background and foreground bars
-        // sprite.draw(bg, ...); sprite.draw(fg, ...);
+        // Draw background bar (full width)
+        if let Some(bg) = self.current_image.first().and_then(|i| i.as_ref()) {
+            sprite.draw(
+                &Some(bg.clone()),
+                self.region.x + offset_x,
+                self.region.y + offset_y,
+                self.region.width,
+                self.region.height,
+            );
+        }
+        // Draw foreground bar (proportional to progress)
+        if let Some(fg) = self.current_image.last().and_then(|i| i.as_ref()) {
+            sprite.draw(
+                &Some(fg.clone()),
+                self.region.x + offset_x,
+                self.region.y + offset_y,
+                self.region.width * percent,
+                self.region.height,
+            );
+        }
+    }
+
+    /// Shared draw logic for distribution bars (lamps or ranks)
+    fn draw_distribution(
+        &self,
+        sprite: &SkinObjectRenderer,
+        lamps: &[i32],
+        ranks: &[i32],
+        offset_x: f32,
+        offset_y: f32,
+    ) {
+        let (data, image_count) = if self.graph_type == 0 {
+            (lamps, 11usize)
+        } else {
+            (ranks, 28usize)
+        };
+
+        let count: i32 = data.iter().take(image_count).sum();
+        if count == 0 {
+            return;
+        }
+
+        let mut x = 0i32;
+        for i in (0..image_count).rev() {
+            if i < data.len() && data[i] > 0 {
+                if let Some(image) = self.current_image.get(i).and_then(|i| i.as_ref()) {
+                    sprite.draw(
+                        &Some(image.clone()),
+                        self.region.x + x as f32 * self.region.width / count as f32 + offset_x,
+                        self.region.y + offset_y,
+                        data[i] as f32 * self.region.width / count as f32,
+                        self.region.height,
+                    );
+                }
+                x += data[i];
+            }
+        }
     }
 
     pub fn dispose(&self) {

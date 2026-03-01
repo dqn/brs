@@ -29,4 +29,9 @@ impl LR2SkinLoaderAccess for LR2DecideSkinLoaderState {
     fn csv_mut(&mut self) -> &mut LR2SkinCSVLoaderState {
         &mut self.csv
     }
+
+    fn assemble_objects(&mut self, _skin: &mut crate::skin::Skin) {
+        // Decide skin has no LR2-specific objects to assemble.
+        // All objects are generic SRC/DST images handled by the base CSV loader.
+    }
 }

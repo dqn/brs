@@ -86,7 +86,7 @@ impl ObsConfigurationView {
             "On Screenshot".to_string(),
             "On Replay".to_string(),
         ];
-        // egui: items populated above; combo box renders at frame time
+        // egui: items populated above; combo box renders at frame time — see launcher_ui.rs render_obs_tab()
     }
 
     /// init - called from PlayConfigurationView to set up state rows

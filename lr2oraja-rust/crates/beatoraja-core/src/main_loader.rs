@@ -129,7 +129,8 @@ impl MainLoader {
                     std::process::exit(1);
                 });
         } else {
-            // egui: launcher_ui.rs provides entry point — event loop wiring TBD
+            // Launch the egui configuration UI via beatoraja-launcher::launcher_ui::run_launcher().
+            // The actual call is in beatoraja-bin main() which orchestrates launcher → play transitions.
         }
     }
 

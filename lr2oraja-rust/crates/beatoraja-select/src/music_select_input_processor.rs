@@ -56,9 +56,12 @@ impl MusicSelectInputProcessor {
         let input = &mut ctx.input;
         let config = &mut ctx.config;
 
-        // NUM0: search popup (stubbed — requires GUI text input)
+        // NUM0: search popup
+        // In Java, this opens a TextInputDialog for song search.
+        // In Rust, the search UI is rendered by the launcher's egui overlay.
+        // The search_text event is handled by MusicSelector::search().
         if input.is_control_key_pressed(ControlKeys::Num0) {
-            // egui: requires text input overlay (egui::Window + TextEdit)
+            ctx.events.push(InputEvent::SearchRequested);
         }
 
         // NUM1: KEY filter switch
@@ -544,6 +547,7 @@ pub enum InputEvent {
     OpenDirectory,
     Exit,
     ChangeState(MainStateType),
+    SearchRequested,
 }
 
 /// Context passed to MusicSelectInputProcessor.input().

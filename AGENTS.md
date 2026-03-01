@@ -100,12 +100,12 @@ lr2oraja-rust/       # Cargo workspace
 - **Post-62a**: 9 debug stubs implemented — RankingDataCache (real HashMap cache), open_ir (browser), Target cycling, FavoriteSong/Chart, OpenDocument/WithExplorer/DownloadSite
 - **Post-62b**: OpenIr in MusicSelector (via MainControllerAccess IR URL methods), CIM image fallback, all 31 debug stubs → compile-time comments (0 runtime stubs)
 - **Post-62c**: SongSelectionAccess trait (modmenu↔select bridge), SkinRenderContext trait (SkinDrawable expansion), DistributionData (SkinDistributionGraph bridge), external property factory adapters
+- **Post-62d**: egui launcher UI (Audio/Discord/OBS tabs, What's New/Chart Details popups, search popup InputEvent), wgpu rendering pipeline (CourseResult skin+fadeout, SkinDistributionGraph draw methods, MessageRenderer draw wiring), LR2 SkinObject assembly (assemble_objects() trait on all 6 loaders — play: judge/note/bga/line, select: bar)
 
-### Architecture-Blocked (24 compile-time comments, 0 runtime cost)
+### Architecture-Blocked (select crate rendering stubs, 0 runtime cost)
 
-- wgpu rendering pipeline (~11): stub SkinText/Number/Image/SkinObjectRenderer draw (select crate), SkinDistributionGraph draw, CourseResult render, message_renderer font atlas
-- egui UI (~10): launcher views (combo boxes/table render at frame time), SkinConfiguration/KeyConfiguration (replaced by launcher_ui.rs/SkinConfigurationView), search popup (text input overlay)
-- LR2 CSV skin loading (~3): loader state→Skin converter + per-SkinType dispatch in get_skin_loader()
+- Select crate stubs: SkinText/SkinNumber/SkinImage/SkinObjectRenderer — API-incompatible with real beatoraja-skin types (mutability, two-step draw, SpriteBatch dependency). Requires render pipeline integration to replace.
+- MessageRenderer font atlas: ab_glyph → wgpu texture rasterization. Text structure wired but GPU rendering deferred.
 
 ### Permanent Stubs (intentionally unimplemented)
 

@@ -85,7 +85,7 @@ impl AudioConfigurationView {
         // audioFreqOption.getItems().setAll(FrequencyType.UNPROCESSED, FrequencyType.FREQUENCY);
         // audioFastForward.getItems().setAll(FrequencyType.UNPROCESSED, FrequencyType.FREQUENCY);
 
-        // egui: combo boxes render items at frame time — no JavaFX-style pre-initialization needed
+        // egui: combo boxes render items at frame time — see launcher_ui.rs render_audio_tab()
     }
 
     // public void update(AudioConfig config)

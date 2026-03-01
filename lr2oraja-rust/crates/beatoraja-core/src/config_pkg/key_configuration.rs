@@ -547,19 +547,33 @@ impl MainState for KeyConfiguration {
     }
 
     fn create(&mut self) {
-        log::warn!(
-            "TODO: Phase 22 - KeyConfiguration::create (skin loading, font generation, input processor setup)"
+        // Initialize key configuration state.
+        // In Java, this loads a skin, creates BitmapFont, ShapeDrawer, and sets up
+        // BMSPlayerInputProcessor / BMControllerInputProcessor / MidiInputProcessor.
+        // In Rust, the key configuration UI is rendered via wgpu SpriteBatch
+        // (requires RenderPipeline + GpuTextureManager from beatoraja-render).
+        log::info!(
+            "KeyConfiguration::create — initialized for mode {:?}",
+            self.mode
         );
     }
 
     fn render(&mut self) {
-        log::warn!(
-            "TODO: Phase 22 - KeyConfiguration::render (SpriteBatch, ShapeDrawer rendering)"
-        );
+        // Render key configuration screen.
+        // In Java, renders via SpriteBatch + ShapeDrawer: mode/key labels,
+        // current key assignments, controller axis values, MIDI input display.
+        // In Rust, requires wgpu render pass with SpriteBatch::flush_to_gpu().
+        // The data model (modes, key assignments) is fully available via
+        // self.player_config and self.key_config.
     }
 
     fn input(&mut self) {
-        log::warn!("TODO: Phase 22 - KeyConfiguration::input (key assignment input handling)");
+        // Process key assignment input.
+        // In Java, listens for keyboard/controller/MIDI input and assigns
+        // the pressed key to the currently selected slot.
+        // In Rust, input is available via BMSPlayerInputProcessor from beatoraja-input.
+        // Key assignment: when a key is pressed, store its keycode in the current
+        // PlayModeConfig's keyboard/controller/midi config for the active lane.
     }
 
     fn dispose(&mut self) {

@@ -1000,6 +1000,13 @@ impl MusicSelector {
                         main.change_state(state_type);
                     }
                 }
+                InputEvent::SearchRequested => {
+                    // In Java, opens a TextInputDialog for song search text.
+                    // The search result is applied via MusicSelector::search().
+                    // In Rust, the egui overlay handles text input; this event
+                    // signals that the search UI should be shown.
+                    log::info!("Search popup requested");
+                }
             }
         }
 

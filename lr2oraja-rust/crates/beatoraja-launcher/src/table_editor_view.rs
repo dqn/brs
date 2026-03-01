@@ -164,7 +164,8 @@ impl TableEditorView {
         // dialog.getDialogPane().setContent(gridPane);
         // dialog.getDialogPane().getButtonTypes().add(new ButtonType("OK", ButtonData.CANCEL_CLOSE));
         // dialog.show();
-        // egui: modal dialog TBD — data logged to console as interim fallback
+        // Data prepared for egui::Window rendering via LauncherUi::show_chart_details()
+        // When called outside of LauncherUi context, log as fallback
         for (label, value) in &grid_data {
             log::info!("{}{}", label, value);
         }

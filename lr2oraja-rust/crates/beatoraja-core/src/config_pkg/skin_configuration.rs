@@ -162,11 +162,14 @@ impl SkinConfiguration {
     }
 
     pub fn create_internal(&mut self) {
-        // egui: replaced by beatoraja-launcher SkinConfigurationView
+        // In-game skin configuration is replaced by the launcher's SkinConfigurationView.
+        // beatoraja-launcher/src/skin_configuration_view.rs provides the full egui UI
+        // for skin browsing, header selection, and custom option editing.
     }
 
     pub fn render_internal(&mut self) {
-        // egui: replaced by beatoraja-launcher SkinConfigurationView
+        // In-game skin configuration rendering is replaced by the launcher's egui UI.
+        // See beatoraja-launcher/src/launcher_ui.rs render_skin_tab() for the implementation.
     }
 
     pub fn input_internal(&mut self) {

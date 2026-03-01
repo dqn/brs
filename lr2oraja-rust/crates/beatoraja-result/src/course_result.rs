@@ -74,6 +74,7 @@ pub struct CourseResult {
     pub resource: PlayerResource,
     ir_send_status: Vec<CourseIRSendStatus>,
     property: ResultKeyProperty,
+    skin: Option<CourseResultSkin>,
 }
 
 impl CourseResult {
@@ -89,6 +90,7 @@ impl CourseResult {
             resource,
             ir_send_status: Vec::new(),
             property: ResultKeyProperty::beat_7k(),
+            skin: None,
         }
     }
 
@@ -361,10 +363,41 @@ impl CourseResult {
         let time = self.data.timer.get_now_time();
         self.data.timer.switch_timer(TIMER_RESULTGRAPH_BEGIN, true);
         self.data.timer.switch_timer(TIMER_RESULTGRAPH_END, true);
-        self.data.timer.switch_timer(TIMER_RESULT_UPDATESCORE, true);
 
-        // if(time > getSkin().getInput()) { timer.switchTimer(TIMER_STARTINPUT, true); }
-        // no-op: requires Skin instance from loader pipeline + skin.drawAllObjects()
+        if let Some(ref skin) = self.skin
+            && skin.get_rank_time() == 0
+        {
+            self.data.timer.switch_timer(TIMER_RESULT_UPDATESCORE, true);
+        }
+        let skin_input = self
+            .skin
+            .as_ref()
+            .map(|s| s.get_input() as i64)
+            .unwrap_or(0);
+        if time > skin_input {
+            self.data.timer.switch_timer(TIMER_STARTINPUT, true);
+        }
+
+        if self.data.timer.is_timer_on(TIMER_FADEOUT) {
+            let fadeout_time = self.data.timer.get_now_time_for_id(TIMER_FADEOUT);
+            let skin_fadeout = self
+                .skin
+                .as_ref()
+                .map(|s| s.get_fadeout() as i64)
+                .unwrap_or(0);
+            if fadeout_time > skin_fadeout {
+                if let Some(audio) = self.main.get_audio_processor_mut() {
+                    audio.stop_note(None);
+                }
+                {
+                    let input = self.main.get_input_processor();
+                    input.reset_all_key_changed_time();
+                }
+
+                self.main
+                    .change_state(beatoraja_core::main_state::MainStateType::MusicSelect);
+            }
+        }
     }
 
     fn do_input(&mut self) {

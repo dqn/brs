@@ -367,4 +367,26 @@ impl LR2SkinLoaderAccess for LR2SelectSkinLoaderState {
     fn csv_mut(&mut self) -> &mut LR2SkinCSVLoaderState {
         &mut self.csv
     }
+
+    fn assemble_objects(&mut self, skin: &mut crate::skin::Skin) {
+        use crate::skin::SkinObject;
+
+        // Create SkinBarObject to register with the skin pipeline.
+        // The bar body on/off images (barimageon/barimageoff) have been parsed
+        // as placeholders; full SkinImage construction requires texture sources
+        // from get_source_image() which are consumed during CSV parsing.
+        // The SkinBarObject itself is a minimal wrapper — actual bar rendering
+        // is handled by BarRenderer in beatoraja-select.
+        let has_bars = self
+            .barimageon
+            .iter()
+            .chain(self.barimageoff.iter())
+            .any(|b| b.is_some());
+        if has_bars {
+            let bar_obj = crate::skin_bar_object::SkinBarObject::new(0);
+            skin.add(SkinObject::Bar(bar_obj));
+        }
+
+        log::debug!("LR2SelectSkinLoader: assembled objects into skin");
+    }
 }
