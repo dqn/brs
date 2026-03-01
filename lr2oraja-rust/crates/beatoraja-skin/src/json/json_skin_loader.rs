@@ -494,7 +494,7 @@ impl JSONSkinLoader {
             }
         }
 
-        let mut skin = SkinData::new();
+        let mut skin = Self::get_skin_for_type(skin_type, header);
         skin.fadeout = sk.fadeout;
         skin.input = sk.input;
         skin.scene = sk.scene;
@@ -574,6 +574,32 @@ impl JSONSkinLoader {
         }
 
         Some(skin)
+    }
+
+    /// Dispatches `get_skin()` to the appropriate screen-specific object loader.
+    /// Corresponds to Java: `objectLoader.getSkin(header)`.
+    fn get_skin_for_type(
+        skin_type: &crate::skin_type::SkinType,
+        header: &SkinHeaderData,
+    ) -> SkinData {
+        use crate::json::json_skin_object_loader::JsonSkinObjectLoader;
+        use crate::skin_type::SkinType;
+
+        match skin_type {
+            SkinType::Play7Keys
+            | SkinType::Play5Keys
+            | SkinType::Play14Keys
+            | SkinType::Play10Keys
+            | SkinType::Play9Keys
+            | SkinType::Play24Keys
+            | SkinType::Play24KeysDouble => JsonPlaySkinObjectLoader.get_skin(header),
+            SkinType::MusicSelect => JsonSelectSkinObjectLoader.get_skin(header),
+            SkinType::Decide => JsonDecideSkinObjectLoader.get_skin(header),
+            SkinType::Result => JsonResultSkinObjectLoader.get_skin(header),
+            SkinType::CourseResult => JsonCourseResultSkinObjectLoader.get_skin(header),
+            SkinType::SkinSelect => JsonSkinConfigurationSkinObjectLoader.get_skin(header),
+            _ => JsonKeyConfigurationSkinObjectLoader.get_skin(header),
+        }
     }
 
     fn load_skin_object_for_type(
@@ -878,6 +904,11 @@ pub struct SkinConfigProperty;
 
 #[derive(Clone, Debug, Default)]
 pub struct SkinData {
+    /// Which skin type this data represents (Play, Result, Select, etc.).
+    /// Corresponds to Java's PlaySkin / MusicResultSkin / etc. subclass identity.
+    pub skin_type: Option<crate::skin_type::SkinType>,
+    /// Header information used to construct this skin.
+    pub header: Option<SkinHeaderData>,
     pub fadeout: i32,
     pub input: i32,
     pub scene: i32,
@@ -893,6 +924,19 @@ pub struct SkinData {
 impl SkinData {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Creates a SkinData initialized from a header, matching Java's `new XxxSkin(header)`.
+    ///
+    /// The Java `Skin(SkinHeader)` constructor stores the header and computes
+    /// resolution scaling (dw, dh). In Rust, resolution scaling is deferred to
+    /// `convert_skin_data`, but the header and skin type are stored here.
+    pub fn from_header(header: &SkinHeaderData, skin_type: crate::skin_type::SkinType) -> Self {
+        Self {
+            skin_type: Some(skin_type),
+            header: Some(header.clone()),
+            ..Self::default()
+        }
     }
 }
 
@@ -1403,5 +1447,94 @@ mod tests {
             path_val
         );
         assert_eq!(path_val.as_i64(), Some(42));
+    }
+
+    // ---- get_skin_for_type dispatch tests ----
+
+    #[test]
+    fn test_get_skin_for_type_play7keys() {
+        use crate::skin_type::SkinType;
+        let header = SkinHeaderData {
+            skin_type: SkinType::Play7Keys.id(),
+            ..Default::default()
+        };
+        let skin = JSONSkinLoader::get_skin_for_type(&SkinType::Play7Keys, &header);
+        assert_eq!(skin.skin_type, Some(SkinType::Play7Keys));
+        assert!(skin.header.is_some());
+    }
+
+    #[test]
+    fn test_get_skin_for_type_music_select() {
+        use crate::skin_type::SkinType;
+        let header = SkinHeaderData {
+            skin_type: SkinType::MusicSelect.id(),
+            ..Default::default()
+        };
+        let skin = JSONSkinLoader::get_skin_for_type(&SkinType::MusicSelect, &header);
+        assert_eq!(skin.skin_type, Some(SkinType::MusicSelect));
+    }
+
+    #[test]
+    fn test_get_skin_for_type_decide() {
+        use crate::skin_type::SkinType;
+        let header = SkinHeaderData::default();
+        let skin = JSONSkinLoader::get_skin_for_type(&SkinType::Decide, &header);
+        assert_eq!(skin.skin_type, Some(SkinType::Decide));
+    }
+
+    #[test]
+    fn test_get_skin_for_type_result() {
+        use crate::skin_type::SkinType;
+        let header = SkinHeaderData::default();
+        let skin = JSONSkinLoader::get_skin_for_type(&SkinType::Result, &header);
+        assert_eq!(skin.skin_type, Some(SkinType::Result));
+    }
+
+    #[test]
+    fn test_get_skin_for_type_course_result() {
+        use crate::skin_type::SkinType;
+        let header = SkinHeaderData::default();
+        let skin = JSONSkinLoader::get_skin_for_type(&SkinType::CourseResult, &header);
+        assert_eq!(skin.skin_type, Some(SkinType::CourseResult));
+    }
+
+    #[test]
+    fn test_get_skin_for_type_skin_select() {
+        use crate::skin_type::SkinType;
+        let header = SkinHeaderData::default();
+        let skin = JSONSkinLoader::get_skin_for_type(&SkinType::SkinSelect, &header);
+        assert_eq!(skin.skin_type, Some(SkinType::SkinSelect));
+    }
+
+    #[test]
+    fn test_get_skin_for_type_key_config_default() {
+        use crate::skin_type::SkinType;
+        let header = SkinHeaderData::default();
+        // SoundSet falls through to KeyConfig default branch
+        let skin = JSONSkinLoader::get_skin_for_type(&SkinType::SoundSet, &header);
+        assert_eq!(skin.skin_type, Some(SkinType::KeyConfig));
+    }
+
+    #[test]
+    fn test_skin_data_from_header_stores_header() {
+        use crate::skin_type::SkinType;
+        let header = SkinHeaderData {
+            skin_type: SkinType::Play7Keys.id(),
+            name: "My Skin".to_string(),
+            author: "Author".to_string(),
+            ..Default::default()
+        };
+        let skin = SkinData::from_header(&header, SkinType::Play7Keys);
+        assert_eq!(skin.skin_type, Some(SkinType::Play7Keys));
+        let stored = skin.header.unwrap();
+        assert_eq!(stored.name, "My Skin");
+        assert_eq!(stored.author, "Author");
+    }
+
+    #[test]
+    fn test_skin_data_new_has_none_skin_type() {
+        let skin = SkinData::new();
+        assert_eq!(skin.skin_type, None);
+        assert!(skin.header.is_none());
     }
 }

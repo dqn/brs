@@ -11,9 +11,11 @@ use crate::json::json_skin_object_loader::{self, JsonSkinObjectLoader};
 pub struct JsonPlaySkinObjectLoader;
 
 impl JsonSkinObjectLoader for JsonPlaySkinObjectLoader {
-    fn get_skin(&self, _header: &crate::json::json_skin_loader::SkinHeaderData) -> SkinData {
-        // PlaySkin creation - stubbed pending rendering pipeline
-        SkinData::new()
+    fn get_skin(&self, header: &crate::json::json_skin_loader::SkinHeaderData) -> SkinData {
+        // Corresponds to Java: new PlaySkin(header)
+        let skin_type = crate::skin_type::SkinType::get_skin_type_by_id(header.skin_type)
+            .unwrap_or(crate::skin_type::SkinType::Play7Keys);
+        SkinData::from_header(header, skin_type)
     }
 
     fn load_skin_object(
@@ -139,5 +141,74 @@ impl JsonSkinObjectLoader for JsonPlaySkinObjectLoader {
         }
 
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::json::json_skin_loader::SkinHeaderData;
+    use crate::json::json_skin_object_loader::JsonSkinObjectLoader;
+    use crate::skin_type::SkinType;
+
+    fn make_header(skin_type_id: i32) -> SkinHeaderData {
+        SkinHeaderData {
+            skin_type: skin_type_id,
+            name: "Test Play Skin".to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_get_skin_returns_play7keys_for_7key_header() {
+        let loader = JsonPlaySkinObjectLoader;
+        let header = make_header(SkinType::Play7Keys.id());
+        let skin = loader.get_skin(&header);
+        assert_eq!(skin.skin_type, Some(SkinType::Play7Keys));
+        assert!(skin.header.is_some());
+        assert_eq!(skin.header.unwrap().name, "Test Play Skin");
+    }
+
+    #[test]
+    fn test_get_skin_returns_play5keys_for_5key_header() {
+        let loader = JsonPlaySkinObjectLoader;
+        let header = make_header(SkinType::Play5Keys.id());
+        let skin = loader.get_skin(&header);
+        assert_eq!(skin.skin_type, Some(SkinType::Play5Keys));
+    }
+
+    #[test]
+    fn test_get_skin_returns_play14keys_for_14key_header() {
+        let loader = JsonPlaySkinObjectLoader;
+        let header = make_header(SkinType::Play14Keys.id());
+        let skin = loader.get_skin(&header);
+        assert_eq!(skin.skin_type, Some(SkinType::Play14Keys));
+    }
+
+    #[test]
+    fn test_get_skin_returns_play24keys_for_24key_header() {
+        let loader = JsonPlaySkinObjectLoader;
+        let header = make_header(SkinType::Play24Keys.id());
+        let skin = loader.get_skin(&header);
+        assert_eq!(skin.skin_type, Some(SkinType::Play24Keys));
+    }
+
+    #[test]
+    fn test_get_skin_fallback_to_play7keys_for_unknown_id() {
+        let loader = JsonPlaySkinObjectLoader;
+        let header = make_header(-999);
+        let skin = loader.get_skin(&header);
+        assert_eq!(skin.skin_type, Some(SkinType::Play7Keys));
+    }
+
+    #[test]
+    fn test_get_skin_default_fields_are_zero() {
+        let loader = JsonPlaySkinObjectLoader;
+        let header = make_header(SkinType::Play7Keys.id());
+        let skin = loader.get_skin(&header);
+        assert_eq!(skin.fadeout, 0);
+        assert_eq!(skin.input, 0);
+        assert_eq!(skin.scene, 0);
+        assert!(skin.objects.is_empty());
     }
 }
