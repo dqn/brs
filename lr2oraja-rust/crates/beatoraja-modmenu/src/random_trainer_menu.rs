@@ -197,6 +197,9 @@ fn get_lane_order_string() -> String {
 mod tests {
     use super::*;
 
+    /// Guard to serialize tests that share static LANE_ORDER.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
     /// Set lane order to a known state for testing (must hold no locks when calling).
     fn setup_lane_order(order: &str) {
         let mut lo = LANE_ORDER.lock().unwrap();
@@ -205,6 +208,7 @@ mod tests {
 
     #[test]
     fn test_mirror_lane_order() {
+        let _g = TEST_LOCK.lock().unwrap();
         setup_lane_order("1234567");
         RandomTrainerMenu::mirror_lane_order();
         assert_eq!(get_lane_order_string(), "7654321");
@@ -212,6 +216,7 @@ mod tests {
 
     #[test]
     fn test_mirror_lane_order_already_reversed() {
+        let _g = TEST_LOCK.lock().unwrap();
         setup_lane_order("7654321");
         RandomTrainerMenu::mirror_lane_order();
         assert_eq!(get_lane_order_string(), "1234567");
@@ -219,6 +224,7 @@ mod tests {
 
     #[test]
     fn test_shift_left_lane_order() {
+        let _g = TEST_LOCK.lock().unwrap();
         setup_lane_order("1234567");
         RandomTrainerMenu::shift_left_lane_order();
         assert_eq!(get_lane_order_string(), "2345671");
@@ -226,6 +232,7 @@ mod tests {
 
     #[test]
     fn test_shift_left_lane_order_twice() {
+        let _g = TEST_LOCK.lock().unwrap();
         setup_lane_order("1234567");
         RandomTrainerMenu::shift_left_lane_order();
         RandomTrainerMenu::shift_left_lane_order();
@@ -234,6 +241,7 @@ mod tests {
 
     #[test]
     fn test_shift_right_lane_order() {
+        let _g = TEST_LOCK.lock().unwrap();
         setup_lane_order("1234567");
         RandomTrainerMenu::shift_right_lane_order();
         assert_eq!(get_lane_order_string(), "7123456");
@@ -241,6 +249,7 @@ mod tests {
 
     #[test]
     fn test_shift_right_lane_order_twice() {
+        let _g = TEST_LOCK.lock().unwrap();
         setup_lane_order("1234567");
         RandomTrainerMenu::shift_right_lane_order();
         RandomTrainerMenu::shift_right_lane_order();
@@ -249,6 +258,7 @@ mod tests {
 
     #[test]
     fn test_shift_left_then_right_is_identity() {
+        let _g = TEST_LOCK.lock().unwrap();
         setup_lane_order("1234567");
         RandomTrainerMenu::shift_left_lane_order();
         RandomTrainerMenu::shift_right_lane_order();
@@ -257,6 +267,7 @@ mod tests {
 
     #[test]
     fn test_change_lane_order_partial() {
+        let _g = TEST_LOCK.lock().unwrap();
         setup_lane_order("1234567");
         change_lane_order("ABC");
         // Only first 3 characters should change
@@ -265,12 +276,14 @@ mod tests {
 
     #[test]
     fn test_get_lane_order_string() {
+        let _g = TEST_LOCK.lock().unwrap();
         setup_lane_order("3571246");
         assert_eq!(get_lane_order_string(), "3571246");
     }
 
     #[test]
     fn test_init_lane_order_sets_default() {
+        let _g = TEST_LOCK.lock().unwrap();
         // Clear lane order to force init
         {
             let mut lo = LANE_ORDER.lock().unwrap();
