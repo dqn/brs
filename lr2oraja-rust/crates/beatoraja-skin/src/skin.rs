@@ -39,6 +39,9 @@ use crate::stubs::{
 use log::info;
 
 /// Skin object enum for polymorphic dispatch
+// All variants mirror Java SkinObject hierarchy; NoteDistributionGraph/HitErrorVisualizer
+// are intentionally large — boxing all match sites would be a disproportionate structural change.
+#[allow(clippy::large_enum_variant)]
 pub enum SkinObject {
     Image(SkinImage),
     Number(SkinNumber),

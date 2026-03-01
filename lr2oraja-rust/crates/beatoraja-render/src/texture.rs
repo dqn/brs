@@ -115,7 +115,12 @@ impl Texture {
     }
 
     /// Create a wgpu::Sampler with the specified filter modes using a device.
-    pub fn set_filter_with_device(&mut self, device: &wgpu::Device, min: TextureFilter, mag: TextureFilter) {
+    pub fn set_filter_with_device(
+        &mut self,
+        device: &wgpu::Device,
+        min: TextureFilter,
+        mag: TextureFilter,
+    ) {
         let to_wgpu_filter = |f: &TextureFilter| -> wgpu::FilterMode {
             match f {
                 TextureFilter::Nearest | TextureFilter::MipMapNearestNearest => {

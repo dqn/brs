@@ -1,3 +1,4 @@
+use crate::abstract_result_access::AbstractResultAccess;
 use crate::config::Config;
 use crate::player_resource_access::PlayerResourceAccess;
 use crate::screen_type::ScreenType;
@@ -18,6 +19,12 @@ pub trait MainStateAccess {
 
     /// Get config reference
     fn get_config(&self) -> &Config;
+
+    /// Get abstract result access (for result screen states).
+    /// Java: instanceof AbstractResult cast
+    fn get_abstract_result(&self) -> Option<&dyn AbstractResultAccess> {
+        None
+    }
 }
 
 /// Trait for listeners that observe MainState changes.

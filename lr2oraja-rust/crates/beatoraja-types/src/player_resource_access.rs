@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use bms_model::bms_model::BMSModel;
+
 use crate::config::Config;
 use crate::course_data::{CourseData, CourseDataConstraint};
 use crate::groove_gauge::GrooveGauge;
@@ -179,6 +181,12 @@ pub trait PlayerResourceAccess {
     /// Set the player config gauge option.
     fn set_player_config_gauge(&mut self, _gauge: i32) {
         // default no-op
+    }
+
+    /// Get BMS model reference.
+    /// Java: PlayerResource.getBMSModel()
+    fn get_bms_model(&self) -> Option<&BMSModel> {
+        None
     }
 }
 

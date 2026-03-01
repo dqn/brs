@@ -48,7 +48,10 @@ impl GdxAudioDeviceDriver {
         let manager = match AudioManager::<DefaultBackend>::new(AudioManagerSettings::default()) {
             Ok(m) => Some(m),
             Err(e) => {
-                log::warn!("GdxAudioDeviceDriver: Failed to create audio manager: {}", e);
+                log::warn!(
+                    "GdxAudioDeviceDriver: Failed to create audio manager: {}",
+                    e
+                );
                 None
             }
         };

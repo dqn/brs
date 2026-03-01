@@ -172,9 +172,21 @@ impl SkinConfiguration {
         // See beatoraja-launcher/src/launcher_ui.rs render_skin_tab() for the implementation.
     }
 
-    pub fn input_internal(&mut self) {
-        // TODO: scroll input handling
-        // Requires Phase 5+ BMSPlayerInputProcessor
+    /// Handle scroll input for navigating skin custom option lists.
+    ///
+    /// Java: SkinConfiguration.input()
+    pub fn input_internal(
+        &mut self,
+        input: &mut dyn beatoraja_types::input_processor_access::InputProcessorAccess,
+    ) {
+        let mov = -input.get_scroll();
+        input.reset_scroll();
+        if mov != 0 && self.custom_options.is_some() {
+            self.custom_option_offset = 0.max(
+                self.custom_option_offset_max
+                    .min(self.custom_option_offset + mov),
+            );
+        }
     }
 
     pub fn get_skin_type(&self) -> Option<SkinType> {

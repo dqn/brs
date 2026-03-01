@@ -66,9 +66,19 @@ impl MouseScratchInput {
             if let Some(ref mut mta) = self.mouse_to_analog {
                 mta.update();
             }
-            for i in 0..self.mouse_scratch_algorithm.len() {
+            // Read current positions before mutably borrowing algorithms
+            let positions: [i32; 2] = if let Some(ref mta) = self.mouse_to_analog {
+                [mta.get_distance_moved(true), mta.get_distance_moved(false)]
+            } else {
+                [0, 0]
+            };
+            for (i, position) in positions
+                .iter()
+                .enumerate()
+                .take(self.mouse_scratch_algorithm.len())
+            {
                 if let Some(ref mut alg) = self.mouse_scratch_algorithm[i] {
-                    alg.update(presstime);
+                    alg.update(presstime, *position);
                 }
             }
 
@@ -264,7 +274,7 @@ impl MouseToAnalog {
 /// MouseScratchAlgorithm trait
 trait MouseScratchAlgorithm {
     fn is_scratch_active(&self, positive: bool) -> bool;
-    fn update(&mut self, presstime: i64);
+    fn update(&mut self, presstime: i64, curr_position: i32);
     fn reset(&mut self);
 }
 
@@ -334,14 +344,9 @@ impl MouseScratchAlgorithm for MouseScratchAlgorithmVersion1 {
         }
     }
 
-    fn update(&mut self, presstime: i64) {
+    fn update(&mut self, presstime: i64, curr_position: i32) {
         let dtime = get_time_diff(&mut self.lastpresstime, presstime);
 
-        // We need to get the current position from the MouseToAnalog.
-        // Since we can't hold a reference, we'll recompute from stored values.
-        // This is a stub - in the actual implementation, MouseToAnalog would be
-        // accessed through shared state.
-        let curr_position = self.prev_position; // stub: no actual mouse movement
         let d_ticks = self.compute_distance_diff_local(self.prev_position, curr_position);
         self.prev_position = curr_position;
 
@@ -431,10 +436,8 @@ impl MouseScratchAlgorithm for MouseScratchAlgorithmVersion2 {
         }
     }
 
-    fn update(&mut self, presstime: i64) {
+    fn update(&mut self, presstime: i64, curr_position: i32) {
         let dtime = get_time_diff(&mut self.lastpresstime, presstime);
-        // stub: no actual mouse movement
-        let curr_position = self.prev_position;
         let distance_diff = self.compute_distance_diff_local(self.prev_position, curr_position);
         self.prev_position = curr_position;
 

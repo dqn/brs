@@ -221,6 +221,13 @@ pub struct BMSPlayer {
     /// Input state: key states array (from BMSPlayerInputProcessor).
     /// Updated each frame by the caller before calling render().
     input_key_states: Vec<bool>,
+    /// Control key states for practice mode navigation (from InputProcessorAccess).
+    /// [up, down, left, right] = [Num8, Num2, Num4, Num6]
+    /// Updated each frame by the caller before calling render().
+    control_key_up: bool,
+    control_key_down: bool,
+    control_key_left: bool,
+    control_key_right: bool,
     /// Pending state change to request from MainController.
     /// Set during render() when a state transition is needed.
     /// The caller should consume this via `take_pending_state_change()`.
@@ -274,6 +281,10 @@ impl BMSPlayer {
             input_start_pressed: false,
             input_select_pressed: false,
             input_key_states: Vec::new(),
+            control_key_up: false,
+            control_key_down: false,
+            control_key_left: false,
+            control_key_right: false,
             pending_state_change: None,
             is_course_mode: false,
         }
@@ -339,6 +350,15 @@ impl BMSPlayer {
         self.input_select_pressed = select_pressed;
         self.input_key_states.clear();
         self.input_key_states.extend_from_slice(key_states);
+    }
+
+    /// Update control key states for practice mode navigation.
+    /// [up, down, left, right] maps to numpad [Num8, Num2, Num4, Num6].
+    pub fn set_control_key_state(&mut self, up: bool, down: bool, left: bool, right: bool) {
+        self.control_key_up = up;
+        self.control_key_down = down;
+        self.control_key_left = left;
+        self.control_key_right = right;
     }
 
     /// Take the pending state change (if any). Returns None if no transition is pending.
@@ -1670,13 +1690,12 @@ impl MainState for BMSPlayer {
                 // In the Java version, these come from BMSPlayerInputProcessor control keys.
                 // For now we pass the input_start/select state as a proxy for key0 check.
                 self.practice.process_input(
-                    false, // control_up_pressed — requires BMSPlayerInputProcessor.isControlKeyPressed
-                    false, // control_down_pressed — requires BMSPlayerInputProcessor.isControlKeyPressed
-                    false, // control_left_held — requires BMSPlayerInputProcessor.getControlKeyState
-                    false, // control_right_held — requires BMSPlayerInputProcessor.getControlKeyState
+                    self.control_key_up,
+                    self.control_key_down,
+                    self.control_key_left,
+                    self.control_key_right,
                     now_millis,
                 );
-                // TODO: → Phase 45 — Wire BMSPlayerInputProcessor control key states into practice.process_input
 
                 // Practice start logic: press key0 while media is loaded and timers elapsed
                 // Translated from: Java BMSPlayer.render() lines 682-723

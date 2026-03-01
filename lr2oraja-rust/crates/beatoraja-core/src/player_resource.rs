@@ -225,9 +225,7 @@ impl PlayerResource {
         let info = ChartInformation::new(Some(path.to_path_buf()), lnmode, None);
         let mut model = decoder.decode(info)?;
         let margin_time = set_start_note_time(&mut model, 1000);
-        // TODO: BMSPlayerRule::validate(&mut model) — requires beatoraja-play dependency
-        // which core cannot import. Move validate to bms-model or beatoraja-types in a
-        // future phase.
+        beatoraja_types::bms_player_rule::BMSPlayerRule::validate(&mut model);
         Some((model, margin_time))
     }
 
@@ -814,6 +812,10 @@ impl PlayerResourceAccess for PlayerResource {
 
     fn set_player_config_gauge(&mut self, gauge: i32) {
         self.pconfig.gauge = gauge;
+    }
+
+    fn get_bms_model(&self) -> Option<&bms_model::bms_model::BMSModel> {
+        PlayerResource::get_bms_model(self)
     }
 
     fn get_course_song_data(&self) -> Vec<beatoraja_types::song_data::SongData> {

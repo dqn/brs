@@ -195,12 +195,25 @@ impl KeyConfiguration {
         self.keyinput = true;
     }
 
-    pub fn get_key_assign(&self, index: usize) -> &str {
+    /// Get the display name of the key bound to the given game key index.
+    ///
+    /// `keyboard_keys`: key code array from KeyboardConfig.keys
+    ///
+    /// Java: KeyConfiguration.getKeyAssign(int index, BMSPlayerInputProcessor)
+    pub fn get_key_assign(&self, index: usize, keyboard_keys: &[i32]) -> String {
         if index >= KEYSA[self.mode].len() {
-            return "!!!";
+            return "!!!".to_string();
         }
-        // TODO: requires input processor state
-        "---"
+        let key_index = KEYSA[self.mode][index];
+        if key_index < 0 {
+            // START (-1) / SELECT (-2) — shown by KEYS label
+            return "---".to_string();
+        }
+        let keycode = keyboard_keys.get(key_index as usize).copied().unwrap_or(-1);
+        if keycode < 0 {
+            return "---".to_string();
+        }
+        gdx_key_name(keycode).to_string()
     }
 
     pub fn get_mode(&self) -> usize {
@@ -530,6 +543,99 @@ impl KeyConfiguration {
         if midi.keys.len() < needed {
             midi.keys.resize(needed, None);
         }
+    }
+}
+
+/// Map a libGDX key code to its display name.
+///
+/// Java: com.badlogic.gdx.Input.Keys.toString(int keycode)
+fn gdx_key_name(keycode: i32) -> &'static str {
+    match keycode {
+        // Letters A-Z (29..=54)
+        29 => "A",
+        30 => "B",
+        31 => "C",
+        32 => "D",
+        33 => "E",
+        34 => "F",
+        35 => "G",
+        36 => "H",
+        37 => "I",
+        38 => "J",
+        39 => "K",
+        40 => "L",
+        41 => "M",
+        42 => "N",
+        43 => "O",
+        44 => "P",
+        45 => "Q",
+        46 => "R",
+        47 => "S",
+        48 => "T",
+        49 => "U",
+        50 => "V",
+        51 => "W",
+        52 => "X",
+        53 => "Y",
+        54 => "Z",
+        // Numbers
+        7 => "0",
+        8 => "1",
+        9 => "2",
+        10 => "3",
+        11 => "4",
+        12 => "5",
+        13 => "6",
+        14 => "7",
+        15 => "8",
+        16 => "9",
+        // Arrow keys
+        19 => "Up",
+        20 => "Down",
+        21 => "Left",
+        22 => "Right",
+        // Punctuation / symbols
+        55 => ",",
+        56 => ".",
+        62 => "Space",
+        66 => "Enter",
+        67 => "Backspace",
+        68 => "`",
+        69 => "-",
+        70 => "=",
+        71 => "[",
+        72 => "]",
+        73 => "\\",
+        74 => ";",
+        75 => "'",
+        76 => "/",
+        // Modifier keys
+        57 => "L-Alt",
+        58 => "R-Alt",
+        59 => "L-Shift",
+        60 => "R-Shift",
+        61 => "Tab",
+        129 => "L-Ctrl",
+        130 => "R-Ctrl",
+        131 => "Caps Lock",
+        // Special keys
+        111 => "Escape",
+        112 => "Delete",
+        133 => "Insert",
+        // F keys
+        244 => "F1",
+        245 => "F2",
+        246 => "F3",
+        247 => "F4",
+        248 => "F5",
+        249 => "F6",
+        250 => "F7",
+        251 => "F8",
+        252 => "F9",
+        253 => "F10",
+        254 => "F11",
+        255 => "F12",
+        _ => "Unknown",
     }
 }
 
@@ -970,5 +1076,71 @@ mod tests {
         let original_len = midi.keys.len();
         kc.validate_midi_length(&mut midi);
         assert_eq!(midi.keys.len(), original_len);
+    }
+
+    // -- gdx_key_name tests --
+
+    #[test]
+    fn test_gdx_key_name_letters() {
+        assert_eq!(gdx_key_name(29), "A");
+        assert_eq!(gdx_key_name(54), "Z");
+        assert_eq!(gdx_key_name(47), "S");
+    }
+
+    #[test]
+    fn test_gdx_key_name_numbers() {
+        assert_eq!(gdx_key_name(7), "0");
+        assert_eq!(gdx_key_name(16), "9");
+    }
+
+    #[test]
+    fn test_gdx_key_name_special() {
+        assert_eq!(gdx_key_name(66), "Enter");
+        assert_eq!(gdx_key_name(111), "Escape");
+        assert_eq!(gdx_key_name(244), "F1");
+        assert_eq!(gdx_key_name(255), "F12");
+        assert_eq!(gdx_key_name(59), "L-Shift");
+    }
+
+    #[test]
+    fn test_gdx_key_name_unknown() {
+        assert_eq!(gdx_key_name(999), "Unknown");
+    }
+
+    // -- get_key_assign tests --
+
+    #[test]
+    fn test_get_key_assign_returns_key_name() {
+        let kc = make_kc(1); // 7K mode
+        // KEYSA[1][0] = 0, so it reads keyboard_keys[0]
+        // Key code 54 = Z
+        let keys = vec![54, 47, 52, 32, 31, 34, 50, 59, 129];
+        assert_eq!(kc.get_key_assign(0, &keys), "Z");
+        assert_eq!(kc.get_key_assign(1, &keys), "S");
+        assert_eq!(kc.get_key_assign(2, &keys), "X");
+    }
+
+    #[test]
+    fn test_get_key_assign_out_of_bounds() {
+        let kc = make_kc(1);
+        let keys = vec![54];
+        assert_eq!(kc.get_key_assign(999, &keys), "!!!");
+    }
+
+    #[test]
+    fn test_get_key_assign_start_select_shows_dashes() {
+        let kc = make_kc(1); // 7K: KEYSA[1] last two are -1, -2 (START, SELECT)
+        let keys = vec![54; 9];
+        // Index 9 maps to KEYSA[1][9] = -1 (START)
+        assert_eq!(kc.get_key_assign(9, &keys), "---");
+        // Index 10 maps to KEYSA[1][10] = -2 (SELECT)
+        assert_eq!(kc.get_key_assign(10, &keys), "---");
+    }
+
+    #[test]
+    fn test_get_key_assign_unassigned_key() {
+        let kc = make_kc(1);
+        let keys = vec![-1; 9]; // All unassigned
+        assert_eq!(kc.get_key_assign(0, &keys), "---");
     }
 }
