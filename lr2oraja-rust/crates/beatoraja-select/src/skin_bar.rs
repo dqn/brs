@@ -14,7 +14,7 @@ pub struct SkinBar {
     /// Index: 0=normal, 1=new, 2=SongBar(normal), 3=SongBar(new), 4=FolderBar(normal),
     /// 5=FolderBar(new), 6=TableBar/HashBar, 7=GradeBar(songs exist),
     /// 8=(SongBar/GradeBar)(songs missing), 9=CommandBar/ContainerBar, 10=SearchWordBar
-    pub text: Vec<Option<SkinText>>,
+    pub text: Vec<Option<Box<dyn SkinText>>>,
     /// Level SkinNumbers (relative to bar position)
     pub barlevel: Vec<Option<SkinNumber>>,
     /// Label SkinImages (relative to bar position)
@@ -54,18 +54,33 @@ impl SkinBar {
     pub const BARLAMP_COUNT: usize = 11;
 
     pub fn new(position: i32) -> Self {
+        // Real SkinImage/SkinNumber/Box<dyn SkinText> are not Clone,
+        // so use repeat_with instead of vec![None; N].
+        let none_images = |n| {
+            std::iter::repeat_with(|| None::<SkinImage>)
+                .take(n)
+                .collect()
+        };
+        let none_numbers = |n| {
+            std::iter::repeat_with(|| None::<SkinNumber>)
+                .take(n)
+                .collect()
+        };
+        let text: Vec<Option<Box<dyn SkinText>>> = std::iter::repeat_with(|| None)
+            .take(Self::BARTEXT_COUNT)
+            .collect();
         Self {
-            barimageon: vec![None; Self::BAR_COUNT],
-            barimageoff: vec![None; Self::BAR_COUNT],
-            trophy: vec![None; Self::BARTROPHY_COUNT],
-            text: vec![None; Self::BARTEXT_COUNT],
-            barlevel: vec![None; Self::BARLEVEL_COUNT],
-            label: vec![None; Self::BARLABEL_COUNT],
+            barimageon: none_images(Self::BAR_COUNT),
+            barimageoff: none_images(Self::BAR_COUNT),
+            trophy: none_images(Self::BARTROPHY_COUNT),
+            text,
+            barlevel: none_numbers(Self::BARLEVEL_COUNT),
+            label: none_images(Self::BARLABEL_COUNT),
             graph: None,
             position,
-            lamp: vec![None; Self::BARLAMP_COUNT],
-            mylamp: vec![None; Self::BARLAMP_COUNT],
-            rivallamp: vec![None; Self::BARLAMP_COUNT],
+            lamp: none_images(Self::BARLAMP_COUNT),
+            mylamp: none_images(Self::BARLAMP_COUNT),
+            rivallamp: none_images(Self::BARLAMP_COUNT),
             draw: false,
             region: SkinRegion::default(),
         }
@@ -124,9 +139,9 @@ impl SkinBar {
         }
     }
 
-    pub fn get_text(&self, id: usize) -> Option<&SkinText> {
+    pub fn get_text(&self, id: usize) -> Option<&dyn SkinText> {
         if id < self.text.len() {
-            self.text[id].as_ref()
+            self.text[id].as_deref()
         } else {
             None
         }
@@ -150,7 +165,7 @@ impl SkinBar {
         }
     }
 
-    pub fn set_text(&mut self, id: usize, text: SkinText) {
+    pub fn set_text(&mut self, id: usize, text: Box<dyn SkinText>) {
         if id < self.text.len() {
             self.text[id] = Some(text);
         }
@@ -167,15 +182,8 @@ impl SkinBar {
     pub fn validate(&mut self) -> bool {
         fn validate_images(images: &mut [Option<SkinImage>]) {
             for img in images.iter_mut() {
-                if img.as_ref().is_some_and(|i| !i.validate()) {
+                if img.as_mut().is_some_and(|i| !i.validate()) {
                     *img = None;
-                }
-            }
-        }
-        fn validate_texts(texts: &mut [Option<SkinText>]) {
-            for txt in texts.iter_mut() {
-                if txt.as_ref().is_some_and(|t| !t.validate()) {
-                    *txt = None;
                 }
             }
         }
@@ -187,7 +195,15 @@ impl SkinBar {
         validate_images(&mut self.lamp);
         validate_images(&mut self.mylamp);
         validate_images(&mut self.rivallamp);
-        validate_texts(&mut self.text);
+        // SkinText trait doesn't expose validate; validate underlying SkinObjectData
+        for txt in self.text.iter_mut() {
+            if txt
+                .as_ref()
+                .is_some_and(|t| !t.get_text_data().data.validate())
+            {
+                *txt = None;
+            }
+        }
         true
     }
 
@@ -197,32 +213,32 @@ impl SkinBar {
     /// by MusicSelector since it requires context (center_bar, currentsongs, selectedindex)
     /// that can't be obtained from &dyn MainState without downcasting.
     pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
-        // Prepare all child skin objects
-        for bar in self.barimageon.iter().flatten() {
+        // Prepare all child skin objects (real types need &mut self)
+        for bar in self.barimageon.iter_mut().flatten() {
             bar.prepare(time, state);
         }
-        for bar in self.barimageoff.iter().flatten() {
+        for bar in self.barimageoff.iter_mut().flatten() {
             bar.prepare(time, state);
         }
-        for trophy in self.trophy.iter().flatten() {
+        for trophy in self.trophy.iter_mut().flatten() {
             trophy.prepare(time, state);
         }
-        for text in self.text.iter().flatten() {
-            text.prepare(time, state);
+        for text in self.text.iter_mut().flatten() {
+            text.get_text_data_mut().prepare(time, state);
         }
-        for barlevel in self.barlevel.iter().flatten() {
+        for barlevel in self.barlevel.iter_mut().flatten() {
             barlevel.prepare(time, state);
         }
-        for label in self.label.iter().flatten() {
+        for label in self.label.iter_mut().flatten() {
             label.prepare(time, state);
         }
-        for lamp in self.lamp.iter().flatten() {
+        for lamp in self.lamp.iter_mut().flatten() {
             lamp.prepare(time, state);
         }
-        for mylamp in self.mylamp.iter().flatten() {
+        for mylamp in self.mylamp.iter_mut().flatten() {
             mylamp.prepare(time, state);
         }
-        for rivallamp in self.rivallamp.iter().flatten() {
+        for rivallamp in self.rivallamp.iter_mut().flatten() {
             rivallamp.prepare(time, state);
         }
         if let Some(ref mut graph) = self.graph {
@@ -239,11 +255,36 @@ impl SkinBar {
     pub fn draw(&mut self, _sprite: &mut SkinObjectRenderer) {
         // NOTE: BarRenderer.render(sprite, baro, ctx) is called by MusicSelector
         // after prepare(), since it requires RenderContext.
-        // This stub remains for API compatibility with the skin pipeline.
     }
 
-    pub fn dispose(&self) {
-        // In Java: disposes all sub-objects
+    pub fn dispose(&mut self) {
+        for img in self.barimageon.iter_mut().flatten() {
+            img.dispose();
+        }
+        for img in self.barimageoff.iter_mut().flatten() {
+            img.dispose();
+        }
+        for img in self.trophy.iter_mut().flatten() {
+            img.dispose();
+        }
+        for txt in self.text.iter_mut().flatten() {
+            txt.dispose();
+        }
+        for num in self.barlevel.iter_mut().flatten() {
+            num.dispose();
+        }
+        for img in self.label.iter_mut().flatten() {
+            img.dispose();
+        }
+        for img in self.lamp.iter_mut().flatten() {
+            img.dispose();
+        }
+        for img in self.mylamp.iter_mut().flatten() {
+            img.dispose();
+        }
+        for img in self.rivallamp.iter_mut().flatten() {
+            img.dispose();
+        }
     }
 
     pub fn get_barlevel(&self, id: i32) -> Option<&SkinNumber> {
@@ -316,20 +357,10 @@ mod tests {
 
     #[test]
     fn test_skin_bar_two_phase_prepare_draw_signatures() {
-        // Phase 40a: verify that SkinBar follows the two-phase pattern:
-        //   prepare(&mut self, time, state) — mutable phase
-        //   draw(&mut self, &mut sprite)    — mutable phase (for scratch-space)
-        // This test verifies the signatures compile and can be called sequentially.
         let mut bar = SkinBar::new(0);
-
-        // Phase 1: prepare (stub — logs warning but doesn't panic)
-        // We can't call prepare without a real MainState, but we can verify draw flag
         assert!(!bar.draw);
-
-        // Phase 2: draw (stub — logs warning but doesn't panic)
-        let mut renderer = SkinObjectRenderer;
+        let mut renderer = SkinObjectRenderer::new();
         bar.draw(&mut renderer);
-        // No panic = success
     }
 
     #[test]
@@ -341,10 +372,8 @@ mod tests {
     #[test]
     fn test_skin_bar_get_bar_images_bounds() {
         let bar = SkinBar::new(0);
-        // Valid index returns None (no images set)
         assert!(bar.get_bar_images(true, 0).is_none());
         assert!(bar.get_bar_images(false, 0).is_none());
-        // Out of bounds returns None
         assert!(bar.get_bar_images(true, SkinBar::BAR_COUNT).is_none());
     }
 

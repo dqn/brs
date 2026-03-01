@@ -3,6 +3,7 @@
 // FreeTypeFontGenerator, and FreeTypeFontParameter from rendering_stubs.rs.
 
 use crate::color::Color;
+use crate::glyph_atlas::GlyphAtlas;
 use crate::sprite_batch::SpriteBatch;
 use crate::texture::TextureRegion;
 
@@ -26,11 +27,39 @@ pub struct PositionedGlyph {
 /// Corresponds to com.badlogic.gdx.graphics.g2d.BitmapFont.
 use std::sync::Arc;
 
-#[derive(Clone, Debug, Default)]
 pub struct BitmapFont {
     font: Option<Arc<ab_glyph::FontVec>>,
     scale: f32,
     color: [f32; 4],
+    atlas: Option<GlyphAtlas>,
+}
+
+impl Clone for BitmapFont {
+    fn clone(&self) -> Self {
+        Self {
+            font: self.font.clone(),
+            scale: self.scale,
+            color: self.color,
+            atlas: None, // Atlas is lazily rebuilt on clone
+        }
+    }
+}
+
+impl std::fmt::Debug for BitmapFont {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BitmapFont")
+            .field("font", &self.font.is_some())
+            .field("scale", &self.scale)
+            .field("color", &self.color)
+            .field("has_atlas", &self.atlas.is_some())
+            .finish()
+    }
+}
+
+impl Default for BitmapFont {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[allow(unused_variables)]
@@ -40,6 +69,7 @@ impl BitmapFont {
             font: None,
             scale: 16.0,
             color: [1.0, 1.0, 1.0, 1.0],
+            atlas: None,
         }
     }
 
@@ -53,6 +83,7 @@ impl BitmapFont {
             font,
             scale: size,
             color: [1.0, 1.0, 1.0, 1.0],
+            atlas: None,
         }
     }
 
@@ -76,16 +107,59 @@ impl BitmapFont {
         self.color = color.to_array();
     }
 
-    pub fn draw(&self, batch: &mut SpriteBatch, text: &str, x: f32, y: f32) {
-        // TODO: rasterize glyphs into texture atlas and submit quads to batch
+    /// Draw text at (x, y) using the glyph atlas.
+    /// Rasterizes glyphs on demand and submits quads to the SpriteBatch.
+    pub fn draw(&mut self, batch: &mut SpriteBatch, text: &str, x: f32, y: f32) {
+        use ab_glyph::{Font, ScaleFont};
+
+        let Some(font) = self.font.clone() else {
+            return;
+        };
+        let atlas = self.atlas.get_or_insert_with(GlyphAtlas::new);
+        let scaled = font.as_scaled(ab_glyph::PxScale::from(self.scale));
+
+        // Save current batch color
+        let saved_color = batch.get_color();
+        batch.set_color(&Color::new(
+            self.color[0],
+            self.color[1],
+            self.color[2],
+            self.color[3],
+        ));
+
+        let mut cursor_x = x;
+        let ascent = scaled.ascent();
+        let mut prev_glyph: Option<ab_glyph::GlyphId> = None;
+
+        for ch in text.chars() {
+            let glyph_id = scaled.glyph_id(ch);
+            if let Some(prev) = prev_glyph {
+                cursor_x += scaled.kern(prev, glyph_id);
+            }
+
+            if let Some(cached) = atlas.get_or_rasterize(&font, glyph_id, self.scale) {
+                let region = atlas.texture_region(&cached);
+                // Position: cursor + bearing offsets, with y adjusted for baseline
+                let gx = cursor_x + cached.bearing_x;
+                let gy = y + ascent + cached.bearing_y;
+                batch.draw_region(&region, gx, gy, cached.width as f32, cached.height as f32);
+            }
+
+            cursor_x += scaled.h_advance(glyph_id);
+            prev_glyph = Some(glyph_id);
+        }
+
+        // Restore batch color
+        batch.set_color(&saved_color);
     }
 
     pub fn draw_layout(&self, batch: &mut SpriteBatch, layout: &GlyphLayout, x: f32, y: f32) {
-        // TODO: render pre-measured layout
+        // Layout-based drawing not yet implemented; text is drawn via draw()
     }
 
     pub fn dispose(&mut self) {
         self.font = None;
+        self.atlas = None;
     }
 
     /// Measure text and return a GlyphLayout with width/height.
@@ -125,7 +199,6 @@ impl BitmapFont {
         let mut cursor_x = 0.0f32;
         let mut prev_glyph: Option<ab_glyph::GlyphId> = None;
         let height = scaled.height();
-        let ascent = scaled.ascent();
 
         for ch in text.chars() {
             let glyph_id = scaled.glyph_id(ch);
@@ -133,7 +206,6 @@ impl BitmapFont {
                 cursor_x += scaled.kern(prev, glyph_id);
             }
             let h_advance = scaled.h_advance(glyph_id);
-            // Use h_advance as glyph width for positioning; height is line height
             glyphs.push(PositionedGlyph {
                 ch,
                 x: cursor_x,

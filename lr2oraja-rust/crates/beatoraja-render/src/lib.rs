@@ -2,6 +2,7 @@ pub mod blend;
 pub mod color;
 pub mod egui_integration;
 pub mod font;
+pub mod glyph_atlas;
 pub mod gpu_context;
 pub mod gpu_texture_manager;
 pub mod pixmap;

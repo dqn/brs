@@ -1,3 +1,6 @@
+use beatoraja_render::font::BitmapFont;
+use beatoraja_render::sprite_batch::SpriteBatch;
+
 /// Color - RGBA color (LibGDX equivalent)
 #[derive(Clone, Debug)]
 pub struct Color {
@@ -26,6 +29,7 @@ pub struct Message {
     text: String,
     color: Color,
     message_type: i32,
+    font: Option<BitmapFont>,
 }
 
 impl Message {
@@ -39,6 +43,7 @@ impl Message {
             text: text.to_string(),
             color,
             message_type,
+            font: None,
         }
     }
 
@@ -46,17 +51,16 @@ impl Message {
     ///
     /// Translated from: Message.init(FreeTypeFontGenerator)
     /// In Java, this generates a BitmapFont from the FreeTypeFontGenerator with
-    /// size=14, color=self.color. In Rust, font rendering uses ab_glyph for
-    /// glyph rasterization and wgpu textures for GPU-side rendering.
-    pub fn init(&mut self) {
-        log::debug!(
-            "Message::init — font prepared for text='{}' color=({},{},{},{})",
-            self.text,
+    /// size=24, color=self.color.
+    pub fn init(&mut self, fontpath: &str) {
+        let mut font = BitmapFont::from_file(fontpath, 24.0);
+        font.set_color(&beatoraja_render::color::Color::new(
             self.color.r,
             self.color.g,
             self.color.b,
             self.color.a,
-        );
+        ));
+        self.font = Some(font);
     }
 
     pub fn set_text(&mut self, text: &str) {
@@ -87,37 +91,57 @@ impl Message {
         self.time < now_millis
     }
 
-    pub fn draw(&self, _x: i32, _y: i32) {
-        // Renders this message's text at (x, y) using the prepared font.
-        // In Java: font.draw(batch, text, x, y). Requires SpriteBatch text rendering pipeline.
-        log::trace!(
-            "Message::draw — text='{}' (rendering requires SpriteBatch text pipeline)",
-            self.text
-        );
+    /// Draw this message's text at (x, y) with alpha pulsing animation.
+    ///
+    /// Translated from Java: Message.draw(MainState, SpriteBatch, int, int)
+    /// Alpha animation: sinDeg((millis % 1440) / 4.0) * 0.3 + 0.7
+    pub fn draw(&mut self, sprite: &mut SpriteBatch, x: i32, y: i32) {
+        let Some(font) = self.font.as_mut() else {
+            return;
+        };
+
+        // Alpha pulsing: Java MathUtils.sinDeg((System.currentTimeMillis() % 1440) / 4.0f) * 0.3f + 0.7f
+        let now_millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as f32;
+        let alpha = ((now_millis % 1440.0) / 4.0).to_radians().sin() * 0.3 + 0.7;
+
+        font.set_color(&beatoraja_render::color::Color::new(
+            self.color.r,
+            self.color.g,
+            self.color.b,
+            alpha,
+        ));
+        font.draw(sprite, &self.text, x as f32, y as f32);
     }
 
     pub fn dispose(&mut self) {
-        // Font disposal - Phase 5+ LibGDX
+        if let Some(ref mut font) = self.font {
+            font.dispose();
+        }
+        self.font = None;
     }
 }
 
 /// MessageRenderer - renders messages on screen
 pub struct MessageRenderer {
     messages: Vec<Message>,
-    _fontpath: String,
+    fontpath: String,
 }
 
 impl MessageRenderer {
     pub fn new(fontpath: &str) -> Self {
-        // In Java: FreeTypeFontGenerator(Gdx.files.internal(fontpath))
         Self {
             messages: Vec::new(),
-            _fontpath: fontpath.to_string(),
+            fontpath: fontpath.to_string(),
         }
     }
 
-    pub fn render(&mut self, x: i32, y: i32) {
-        // Remove expired messages, draw remaining from bottom to top
+    /// Render messages, removing expired ones.
+    ///
+    /// Translated from Java: MessageRenderer.render(MainState, SpriteBatch, int, int)
+    pub fn render(&mut self, sprite: &mut SpriteBatch, x: i32, y: i32) {
         let mut dy = 0;
         let mut i = self.messages.len();
         while i > 0 {
@@ -126,7 +150,7 @@ impl MessageRenderer {
                 self.messages[i].dispose();
                 self.messages.remove(i);
             } else {
-                self.messages[i].draw(x, y - dy);
+                self.messages[i].draw(sprite, x, y - dy);
                 dy += 24;
             }
         }
@@ -143,7 +167,8 @@ impl MessageRenderer {
         color: Color,
         message_type: i32,
     ) -> &Message {
-        let message = Message::new(text, time, color, message_type);
+        let mut message = Message::new(text, time, color, message_type);
+        message.init(&self.fontpath);
         self.messages.push(message);
         self.messages.last().unwrap()
     }
@@ -153,6 +178,5 @@ impl MessageRenderer {
             msg.dispose();
         }
         self.messages.clear();
-        // generator.dispose() - LibGDX
     }
 }

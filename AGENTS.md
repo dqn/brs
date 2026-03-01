@@ -84,7 +84,7 @@ lr2oraja-rust/       # Cargo workspace
 
 ## Status
 
-**3029 tests.** Phases 1–62 complete + post-62 stub audit. Zero clippy warnings. Zero regressions.
+**3033 tests.** Phases 1–62 complete + post-62 stub audit. Zero clippy warnings. Zero regressions.
 **Migration audit**: 100% method resolution (4,279/4,279). 0 missing. 0 constant mismatches. Gap: 0.
 **ast-compare**: 250 methods ignored (198 patterns). Method-level ignore via `.ast-compare-method-ignore`.
 **"Not implemented" stubs**: 0 remaining. All 151 stubs resolved (Phase 58–62).
@@ -101,11 +101,7 @@ lr2oraja-rust/       # Cargo workspace
 - **Post-62b**: OpenIr in MusicSelector (via MainControllerAccess IR URL methods), CIM image fallback, all 31 debug stubs → compile-time comments (0 runtime stubs)
 - **Post-62c**: SongSelectionAccess trait (modmenu↔select bridge), SkinRenderContext trait (SkinDrawable expansion), DistributionData (SkinDistributionGraph bridge), external property factory adapters
 - **Post-62d**: egui launcher UI (Audio/Discord/OBS tabs, What's New/Chart Details popups, search popup InputEvent), wgpu rendering pipeline (CourseResult skin+fadeout, SkinDistributionGraph draw methods, MessageRenderer draw wiring), LR2 SkinObject assembly (assemble_objects() trait on all 6 loaders — play: judge/note/bga/line, select: bar)
-
-### Architecture-Blocked (select crate rendering stubs, 0 runtime cost)
-
-- Select crate stubs: SkinText/SkinNumber/SkinImage/SkinObjectRenderer — API-incompatible with real beatoraja-skin types (mutability, two-step draw, SpriteBatch dependency). Requires render pipeline integration to replace.
-- MessageRenderer font atlas: ab_glyph → wgpu texture rasterization. Text structure wired but GPU rendering deferred.
+- **Post-62e**: Select crate stubs replaced with real beatoraja-skin types (SkinImage, SkinNumber, SkinText trait, SkinObjectRenderer, SkinRegion→Rectangle alias). GlyphAtlas + BitmapFont::draw() implemented with row-packing atlas and SpriteBatch glyph rendering. MessageRenderer wired with SpriteBatch + alpha pulsing animation.
 
 ### Permanent Stubs (intentionally unimplemented)
 

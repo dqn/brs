@@ -107,7 +107,7 @@ impl SkinDistributionGraph {
         self.draw = true;
     }
 
-    pub fn draw_default(&self, sprite: &SkinObjectRenderer) {
+    pub fn draw_default(&self, sprite: &mut SkinObjectRenderer) {
         if let Some(ref data) = self.current_bar {
             self.draw_distribution(sprite, &data.lamps, &data.ranks, 0.0, 0.0);
         }
@@ -115,7 +115,7 @@ impl SkinDistributionGraph {
 
     pub fn draw_directory(
         &self,
-        sprite: &SkinObjectRenderer,
+        sprite: &mut SkinObjectRenderer,
         current: &DirectoryBarData,
         offset_x: f32,
         offset_y: f32,
@@ -125,7 +125,7 @@ impl SkinDistributionGraph {
 
     pub fn draw_function_bar(
         &self,
-        sprite: &SkinObjectRenderer,
+        sprite: &mut SkinObjectRenderer,
         current: &FunctionBar,
         offset_x: f32,
         offset_y: f32,
@@ -137,7 +137,7 @@ impl SkinDistributionGraph {
 
     pub fn draw_song_bar_download(
         &self,
-        sprite: &SkinObjectRenderer,
+        sprite: &mut SkinObjectRenderer,
         _current: &SongBar,
         task: &DownloadTask,
         offset_x: f32,
@@ -157,7 +157,7 @@ impl SkinDistributionGraph {
         // Draw background bar (full width)
         if let Some(bg) = self.current_image.first().and_then(|i| i.as_ref()) {
             sprite.draw(
-                &Some(bg.clone()),
+                bg,
                 self.region.x + offset_x,
                 self.region.y + offset_y,
                 self.region.width,
@@ -167,7 +167,7 @@ impl SkinDistributionGraph {
         // Draw foreground bar (proportional to progress)
         if let Some(fg) = self.current_image.last().and_then(|i| i.as_ref()) {
             sprite.draw(
-                &Some(fg.clone()),
+                fg,
                 self.region.x + offset_x,
                 self.region.y + offset_y,
                 self.region.width * percent,
@@ -179,7 +179,7 @@ impl SkinDistributionGraph {
     /// Shared draw logic for distribution bars (lamps or ranks)
     fn draw_distribution(
         &self,
-        sprite: &SkinObjectRenderer,
+        sprite: &mut SkinObjectRenderer,
         lamps: &[i32],
         ranks: &[i32],
         offset_x: f32,
@@ -201,7 +201,7 @@ impl SkinDistributionGraph {
             if i < data.len() && data[i] > 0 {
                 if let Some(image) = self.current_image.get(i).and_then(|i| i.as_ref()) {
                     sprite.draw(
-                        &Some(image.clone()),
+                        image,
                         self.region.x + x as f32 * self.region.width / count as f32 + offset_x,
                         self.region.y + offset_y,
                         data[i] as f32 * self.region.width / count as f32,

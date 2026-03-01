@@ -151,16 +151,19 @@ impl BarRenderer {
                 - ctx.center_bar as usize)
                 % ctx.currentsongs.len();
 
-            if let Some(r) = si.get_destination(ctx.timer_now_time, ctx.state)
-                && r.x <= x as f32
-                && r.x + r.width >= x as f32
-                && r.y <= y as f32
-                && r.y + r.height >= y as f32
-            {
-                if button == 0 {
-                    return MousePressedAction::Select(index);
-                } else {
-                    return MousePressedAction::Close;
+            // After prepare(), data.region contains the interpolated destination rectangle
+            if si.data.draw {
+                let r = &si.data.region;
+                if r.x <= x as f32
+                    && r.x + r.width >= x as f32
+                    && r.y <= y as f32
+                    && r.y + r.height >= y as f32
+                {
+                    if button == 0 {
+                        return MousePressedAction::Select(index);
+                    } else {
+                        return MousePressedAction::Close;
+                    }
                 }
             }
         }
@@ -200,7 +203,7 @@ impl BarRenderer {
                 None => continue,
             };
 
-            if si1.draw {
+            if si1.data.draw {
                 let mut dx: f32 = 0.0;
                 let mut dy: f32 = 0.0;
 
@@ -214,18 +217,19 @@ impl BarRenderer {
                         let si2 =
                             baro.get_bar_images(next_index == ctx.center_bar, next_index as usize);
                         if let Some(si2) = si2
-                            && si2.draw
+                            && si2.data.draw
                         {
-                            dx = (si2.region.x - si1.region.x) * angle_lerp.clamp(-1.0, 1.0);
-                            dy = (si2.region.y - si1.region.y) * angle_lerp;
+                            dx = (si2.data.region.x - si1.data.region.x)
+                                * angle_lerp.clamp(-1.0, 1.0);
+                            dy = (si2.data.region.y - si1.data.region.y) * angle_lerp;
                         }
                     }
                 }
 
-                ba.x = (si1.region.x + dx) as i32 as f32;
-                ba.y = ((si1.region.y + dy)
+                ba.x = (si1.data.region.x + dx) as i32 as f32;
+                ba.y = ((si1.data.region.y + dy)
                     + if baro.get_position() == 1 {
-                        si1.region.height
+                        si1.data.region.height
                     } else {
                         0.0
                     }) as i32 as f32;
@@ -355,7 +359,7 @@ impl BarRenderer {
             let chars: String = self.bartextcharset.iter().collect();
 
             for index in 0..SkinBar::BARTEXT_COUNT {
-                if let Some(text) = baro.get_text(index) {
+                if let Some(text) = baro.text.get_mut(index).and_then(|o| o.as_mut()) {
                     text.prepare_font(&chars);
                 }
             }
@@ -366,36 +370,35 @@ impl BarRenderer {
         // TODO: loader thread check deferred — requires MusicSelector.loadSelectedSongImages()
 
         // draw song bar
+        let position = baro.get_position();
         for i in 0..self.barlength {
             let ba = &self.bararea[i];
             let on = i as i32 == ctx.center_bar;
-            let si = match baro.get_bar_images(on, i) {
+
+            let images = if on {
+                &mut baro.barimageon
+            } else {
+                &mut baro.barimageoff
+            };
+            let si = match images.get_mut(i).and_then(|o| o.as_mut()) {
                 Some(si) => si,
                 None => continue,
             };
 
-            if si.draw {
-                let orgx = si.region.x;
-                let orgy = si.region.y;
-                let position_offset = if baro.get_position() == 1 {
-                    si.region.height
+            if si.data.draw {
+                let position_offset = if position == 1 {
+                    si.data.region.height
                 } else {
                     0.0
                 };
-                si.draw(
+                si.draw_with_value(
                     sprite,
                     self.time,
                     ctx.state,
                     ba.value,
-                    ba.x - si.region.x,
-                    ba.y - si.region.y - position_offset,
+                    ba.x - si.data.region.x,
+                    ba.y - si.data.region.y - position_offset,
                 );
-                // In Java: restores si.region.x and si.region.y
-                // Our stubs don't modify them, but keep the pattern for correctness
-                let _ = (orgx, orgy);
-            } else {
-                // Mark as not drawable (can't mutate bararea since we borrow it,
-                // but value was already set in prepare)
             }
         }
 
@@ -433,9 +436,10 @@ impl BarRenderer {
             }
             if let Some(idx) = ba.sd {
                 let sd = &ctx.currentsongs[idx];
-                if let Some(text) = baro.get_text(ba.text) {
-                    text.set_text(&sd.get_title());
-                    text.draw(sprite, ba.x, ba.y);
+                if let Some(text) = baro.text.get_mut(ba.text).and_then(|o| o.as_mut()) {
+                    text.get_text_data_mut()
+                        .set_text(sd.get_title().to_string());
+                    text.draw_with_offset(sprite, ba.x, ba.y);
                 }
             }
         }
@@ -452,8 +456,9 @@ impl BarRenderer {
             {
                 for (j, trophy_name) in self.trophy.iter().enumerate() {
                     if *trophy_name == trophy.get_name() {
-                        if let Some(trophy_image) = baro.get_trophy(j as i32) {
-                            trophy_image.draw_offset(sprite, ba.x, ba.y);
+                        if let Some(trophy_image) = baro.trophy.get_mut(j).and_then(|o| o.as_mut())
+                        {
+                            trophy_image.draw_with_offset(sprite, ba.x, ba.y);
                         }
                         break;
                     }
@@ -470,14 +475,28 @@ impl BarRenderer {
             if let Some(idx) = ba.sd {
                 let sd = &ctx.currentsongs[idx];
                 if ctx.rival {
-                    if let Some(player_lamp) = baro.get_player_lamp(sd.get_lamp(true)) {
-                        player_lamp.draw_offset(sprite, ba.x, ba.y);
+                    let player_lamp_id = sd.get_lamp(true);
+                    if player_lamp_id >= 0
+                        && (player_lamp_id as usize) < baro.mylamp.len()
+                        && let Some(lamp) = baro.mylamp[player_lamp_id as usize].as_mut()
+                    {
+                        lamp.draw_with_offset(sprite, ba.x, ba.y);
                     }
-                    if let Some(rival_lamp) = baro.get_rival_lamp(sd.get_lamp(false)) {
-                        rival_lamp.draw_offset(sprite, ba.x, ba.y);
+                    let rival_lamp_id = sd.get_lamp(false);
+                    if rival_lamp_id >= 0
+                        && (rival_lamp_id as usize) < baro.rivallamp.len()
+                        && let Some(lamp) = baro.rivallamp[rival_lamp_id as usize].as_mut()
+                    {
+                        lamp.draw_with_offset(sprite, ba.x, ba.y);
                     }
-                } else if let Some(lamp) = baro.get_lamp(sd.get_lamp(true)) {
-                    lamp.draw_offset(sprite, ba.x, ba.y);
+                } else {
+                    let lamp_id = sd.get_lamp(true);
+                    if lamp_id >= 0
+                        && (lamp_id as usize) < baro.lamp.len()
+                        && let Some(lamp) = baro.lamp[lamp_id as usize].as_mut()
+                    {
+                        lamp.draw_with_offset(sprite, ba.x, ba.y);
+                    }
                 }
             }
         }
@@ -499,15 +518,25 @@ impl BarRenderer {
                         } else {
                             0
                         };
-                        if let Some(leveln) = baro.get_barlevel(level_idx) {
-                            leveln.draw(sprite, self.time, song.get_level(), ctx.state, ba.x, ba.y);
+                        if level_idx >= 0
+                            && (level_idx as usize) < baro.barlevel.len()
+                            && let Some(leveln) = baro.barlevel[level_idx as usize].as_mut()
+                        {
+                            leveln.draw_with_value(
+                                sprite,
+                                self.time,
+                                song.get_level(),
+                                ctx.state,
+                                ba.x,
+                                ba.y,
+                            );
                         }
                     }
                 } else if let Some(fb) = sd.as_function_bar()
                     && let Some(level) = fb.get_level()
-                    && let Some(leveln) = baro.get_barlevel(0)
+                    && let Some(leveln) = baro.barlevel.first_mut().and_then(|o| o.as_mut())
                 {
-                    leveln.draw(sprite, self.time, level, ctx.state, ba.x, ba.y);
+                    leveln.draw_with_value(sprite, self.time, level, ctx.state, ba.x, ba.y);
                 }
             }
         }
@@ -556,26 +585,37 @@ impl BarRenderer {
                     let lnindex = [0i32, 3, 4];
                     let ln_idx = ln as usize;
                     if ln_idx < lnindex.len() {
-                        if let Some(label) = baro.get_label(lnindex[ln_idx]) {
-                            label.draw_offset(sprite, ba.x, ba.y);
-                        } else if let Some(label) = baro.get_label(0) {
-                            label.draw_offset(sprite, ba.x, ba.y);
+                        let label_idx = lnindex[ln_idx] as usize;
+                        let drawn = if label_idx < baro.label.len() {
+                            if let Some(label) = baro.label[label_idx].as_mut() {
+                                label.draw_with_offset(sprite, ba.x, ba.y);
+                                true
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        };
+                        if !drawn
+                            && let Some(label) = baro.label.first_mut().and_then(|o| o.as_mut())
+                        {
+                            label.draw_with_offset(sprite, ba.x, ba.y);
                         }
                     }
                 }
 
                 // MINE
                 if (flag & FEATURE_MINENOTE) != 0
-                    && let Some(label) = baro.get_label(2)
+                    && let Some(label) = baro.label.get_mut(2).and_then(|o| o.as_mut())
                 {
-                    label.draw_offset(sprite, ba.x, ba.y);
+                    label.draw_with_offset(sprite, ba.x, ba.y);
                 }
 
                 // RANDOM
                 if (flag & FEATURE_RANDOM) != 0
-                    && let Some(label) = baro.get_label(1)
+                    && let Some(label) = baro.label.get_mut(1).and_then(|o| o.as_mut())
                 {
-                    label.draw_offset(sprite, ba.x, ba.y);
+                    label.draw_with_offset(sprite, ba.x, ba.y);
                 }
             }
         }
@@ -714,6 +754,15 @@ mod tests {
     use crate::bar::song_bar::SongBar;
     use beatoraja_skin::stubs::{MainController, PlayerResource, SkinOffset, Timer};
 
+    /// Create a test SkinImage with draw=true and specified region.
+    /// Uses a default TextureRegion (no real texture, but valid for layout tests).
+    fn make_test_image(x: f32, y: f32, w: f32, h: f32) -> SkinImage {
+        let mut img = SkinImage::new_with_single(TextureRegion::default());
+        img.data.draw = true;
+        img.data.region = Rectangle::new(x, y, w, h);
+        img
+    }
+
     /// Mock MainState for testing (implements beatoraja_skin::stubs::MainState)
     struct MockMainState {
         timer: Timer,
@@ -795,7 +844,7 @@ mod tests {
         assert_eq!(renderer.time, 1000);
 
         // Phase 2: render
-        let mut sprite = SkinObjectRenderer;
+        let mut sprite = SkinObjectRenderer::new();
         let state = MockMainState::default();
         let render_ctx = RenderContext {
             center_bar: 0,
@@ -805,7 +854,6 @@ mod tests {
             lnmode: 0,
         };
         renderer.render(&mut sprite, &mut bar, &render_ctx);
-        // No panic = success
     }
 
     #[test]
@@ -841,7 +889,6 @@ mod tests {
 
         renderer.prepare(&bar, 1000, &ctx);
         assert_eq!(renderer.time, 1000);
-        // All bar areas should have value = -1 (default) since no images set
     }
 
     #[test]
@@ -850,16 +897,8 @@ mod tests {
         let mut bar = SkinBar::new(0);
 
         // Set a bar image on index 0 with draw=true so prepare processes it
-        let mut img = SkinImage::default();
-        img.draw = true;
-        img.region = SkinRegion {
-            x: 10.0,
-            y: 20.0,
-            width: 100.0,
-            height: 30.0,
-        };
-        bar.barimageon[0] = Some(img.clone());
-        bar.barimageoff[0] = Some(img);
+        bar.barimageon[0] = Some(make_test_image(10.0, 20.0, 100.0, 30.0));
+        bar.barimageoff[0] = Some(make_test_image(10.0, 20.0, 100.0, 30.0));
 
         // Create a song bar (exists)
         let songs = vec![make_song_bar_bar("abc", Some("/path.bms"))];
@@ -881,15 +920,7 @@ mod tests {
         let mut renderer = BarRenderer::new(300, 100, 5);
         let mut bar = SkinBar::new(0);
 
-        let mut img = SkinImage::default();
-        img.draw = true;
-        img.region = SkinRegion {
-            x: 0.0,
-            y: 0.0,
-            width: 100.0,
-            height: 30.0,
-        };
-        bar.barimageoff[0] = Some(img);
+        bar.barimageoff[0] = Some(make_test_image(0.0, 0.0, 100.0, 30.0));
 
         let songs = vec![Bar::Folder(Box::new(FolderBar::new(
             None,
@@ -911,9 +942,7 @@ mod tests {
         let mut renderer = BarRenderer::new(300, 100, 5);
         let mut bar = SkinBar::new(0);
 
-        let mut img = SkinImage::default();
-        img.draw = true;
-        bar.barimageoff[0] = Some(img);
+        bar.barimageoff[0] = Some(make_test_image(0.0, 0.0, 0.0, 0.0));
 
         // SongBar with no path = missing
         let songs = vec![make_song_bar_bar("abc", None)];
@@ -959,7 +988,7 @@ mod tests {
             lnmode: 0,
         };
 
-        let mut sprite = SkinObjectRenderer;
+        let mut sprite = SkinObjectRenderer::new();
         renderer.render(&mut sprite, &mut bar, &render_ctx);
 
         // bartextupdate should be reset after render

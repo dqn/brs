@@ -8,7 +8,7 @@ pub struct MusicSelectSkin {
     pub center_bar: i32,
     /// Indices of clickable bars
     pub clickable_bar: Vec<i32>,
-    pub search_text: Option<SkinText>,
+    pub search_text: Option<Box<dyn SkinText>>,
     pub search: Option<Rectangle>,
 }
 

@@ -122,117 +122,15 @@ pub use beatoraja_types::skin_type::SkinType;
 // SkinHeader: replaced by pub use from beatoraja-skin (Phase 18e-10)
 pub use beatoraja_skin::skin_header::SkinHeader;
 
-/// Stub for beatoraja.skin.SkinText
-///
-/// Real type: beatoraja_skin::skin_text::SkinText (trait) + SkinTextData (struct).
-/// API incompatibility: real SkinText is a trait with &mut self draw methods, internal
-/// SkinObjectData, and property/timer systems. Direct pub use replacement requires
-/// SkinObjectRenderer → SpriteBatch wiring through select crate.
-#[derive(Clone, Debug, Default)]
-pub struct SkinText;
-impl SkinText {
-    pub fn set_text(&self, _text: &str) {}
-    pub fn draw(&self, _sprite: &SkinObjectRenderer, _x: f32, _y: f32) {
-        // Renders text at (x, y) using the skin font atlas. Requires SpriteBatch integration.
-    }
-    pub fn prepare(&self, _time: i64, _state: &dyn MainState) {}
-    pub fn prepare_font(&self, _chars: &str) {}
-    pub fn validate(&self) -> bool {
-        true
-    }
-}
+// Real types re-exported from beatoraja-skin (stubs replaced post-62)
+pub use beatoraja_skin::skin_image::SkinImage;
+pub use beatoraja_skin::skin_number::SkinNumber;
+pub use beatoraja_skin::skin_object::SkinObjectRenderer;
+pub use beatoraja_skin::skin_text::{SkinText, SkinTextData};
 
-/// Stub for beatoraja.skin.SkinNumber
-///
-/// Real type: beatoraja_skin::skin_number::SkinNumber.
-/// API incompatibility: real uses two-step prepare_with_value() + draw(&mut self, sprite),
-/// internal SkinObjectData, and TextureRegion arrays. Direct replacement requires
-/// select crate to create real SkinNumber instances from skin loader output.
-#[derive(Clone, Debug, Default)]
-pub struct SkinNumber;
-impl SkinNumber {
-    pub fn draw(
-        &self,
-        _sprite: &SkinObjectRenderer,
-        _time: i64,
-        _value: i32,
-        _state: &dyn MainState,
-        _x: f32,
-        _y: f32,
-    ) {
-        // Renders numeric value at (x, y) using digit images. Requires SpriteBatch integration.
-    }
-    pub fn prepare(&self, _time: i64, _state: &dyn MainState) {}
-    pub fn validate(&self) -> bool {
-        true
-    }
-}
-
-/// Stub for beatoraja.skin.SkinObject
-#[derive(Clone, Debug, Default)]
-pub struct SkinObject {
-    pub draw: bool,
-    pub region: SkinRegion,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct SkinRegion {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-}
-
-/// Stub for beatoraja.skin.SkinImage
-///
-/// Real type: beatoraja_skin::skin_image::SkinImage.
-/// API incompatibility: real uses &mut self for stateful draw, internal SkinObjectData
-/// with texture sources, and two-step prepare + draw pattern. Direct replacement requires
-/// SkinObjectRenderer → SpriteBatch wiring and skin loader integration.
-#[derive(Clone, Debug, Default)]
-pub struct SkinImage {
-    pub draw: bool,
-    pub region: SkinRegion,
-}
-
-impl SkinImage {
-    pub fn draw(
-        &self,
-        _sprite: &SkinObjectRenderer,
-        _time: i64,
-        _state: &dyn MainState,
-        _value: i32,
-        _dx: f32,
-        _dy: f32,
-    ) {
-        // Renders image at (dx, dy) using the skin texture source. Requires SpriteBatch integration.
-    }
-    pub fn draw_offset(&self, _sprite: &SkinObjectRenderer, _dx: f32, _dy: f32) {
-        // Renders image with offset from destination. Requires SpriteBatch integration.
-    }
-    pub fn prepare(&self, _time: i64, _state: &dyn MainState) {}
-    pub fn validate(&self) -> bool {
-        true
-    }
-    pub fn get_destination(&self, _time: i64, _state: &dyn MainState) -> Option<Rectangle> {
-        None
-    }
-}
-
-/// Stub for SkinObjectRenderer
-///
-/// Real type: beatoraja_skin::skin_object::SkinObjectRenderer.
-/// Contains SpriteBatch, color/blend state, and shader type management.
-/// API difference: real takes &TextureRegion (not &Option), uses &mut self,
-/// and manages draw state (color, blend, shader) internally.
-/// Integration requires passing SpriteBatch from render backend into select crate.
-pub struct SkinObjectRenderer;
-
-impl SkinObjectRenderer {
-    pub fn draw(&self, _image: &Option<TextureRegion>, _x: f32, _y: f32, _w: f32, _h: f32) {
-        // Draws textured quad at (x, y, w, h). Requires SpriteBatch from beatoraja-render.
-    }
-}
+/// SkinRegion — alias for Rectangle (same fields: x, y, width, height).
+/// Kept as type alias to minimize churn in select crate code.
+pub type SkinRegion = Rectangle;
 
 // ============================================================
 // beatoraja.skin.property types
