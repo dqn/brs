@@ -107,6 +107,15 @@ lr2oraja-rust/       # Cargo workspace
 - SkinDrawable context expansion (~5): skin MainState adapter lacks MainController context (change_state, audio, timer)
 - Circular dependencies (~4): modmenu↔select, external↔skin, LR2SkinCSVLoader → SkinData converter
 
+Remaining work tracked in beads (`bd list --status=open`).
+
+### Permanent Stubs (intentionally unimplemented)
+
+- **Twitter4j** (`beatoraja-external`): ~446 lines, `bail!()` — API deprecated
+- **ShortDirectPCM** (`beatoraja-audio`): Java-specific DirectBuffer — unnecessary in Rust
+- **JavaFX find_parent_by_class_simple_name** (`beatoraja-launcher`): No egui equivalent
+- **randomtrainer.dat** (`beatoraja-modmenu`): Binary resource from Java, uses empty HashMap fallback
+
 ## Lessons Learned
 
 - **Encoding:** `encoding_rs::SHIFT_JIS` for MS932. **Serde:** `BPM`→`Bpm`, `URL`→`Url`, `#[serde(alias)]`.
