@@ -1240,19 +1240,51 @@ impl PlayConfigurationView {
     /// Import score data from LR2
     /// Translates: public void importScoreDataFromLR2()
     pub fn import_score_data_from_lr2(&mut self) {
-        let _dir = match crate::stubs::show_file_chooser("Select LR2 score database") {
+        let lr2_path = match crate::stubs::show_file_chooser("Select LR2 score database") {
             Some(d) => d,
             None => return,
         };
 
-        // The Java version uses JDBC + ScoreDatabaseAccessor + ScoreDataImporter.
-        // These use different stub types across crates (beatoraja-core vs beatoraja-external).
-        // Stubbed pending rusqlite integration and type unification.
-        if let (Some(_config), Some(_player_selected)) = (&self.config, &self.players_selected) {
-            log::debug!(
-                "stub: PlayConfigurationView.import_score_data_from_lr2 — blocked by LR2 score DB import"
-            );
-        }
+        self.import_score_data_from_lr2_path(&lr2_path);
+    }
+
+    /// Import score data from LR2 given a path to the LR2 score.db.
+    ///
+    /// Separated from the file-chooser flow so the logic is testable.
+    fn import_score_data_from_lr2_path(&self, lr2_path: &str) {
+        let (config, player_selected) = match (&self.config, &self.players_selected) {
+            (Some(c), Some(p)) => (c, p),
+            _ => return,
+        };
+
+        let sep = std::path::MAIN_SEPARATOR;
+        let score_db_path = format!(
+            "{}{sep}{}{sep}score.db",
+            config.get_playerpath(),
+            player_selected
+        );
+
+        let scoredb = match beatoraja_core::score_database_accessor::ScoreDatabaseAccessor::new(
+            &score_db_path,
+        ) {
+            Ok(db) => db,
+            Err(e) => {
+                log::error!("Failed to open score database {}: {}", score_db_path, e);
+                return;
+            }
+        };
+
+        let songdb =
+            match SQLiteSongDatabaseAccessor::new(config.get_songpath(), config.get_bmsroot()) {
+                Ok(db) => db,
+                Err(e) => {
+                    log::error!("Failed to open song database: {}", e);
+                    return;
+                }
+            };
+
+        let importer = beatoraja_external::score_data_importer::ScoreDataImporter::new(scoredb);
+        importer.import_from_lr2_score_database(lr2_path, &songdb);
     }
 
     /// Start Twitter auth
@@ -1351,6 +1383,7 @@ impl Default for PlayConfigurationView {
 mod tests {
     use super::*;
     use beatoraja_core::audio_config::AudioConfig;
+    use beatoraja_types::song_database_accessor::SongDatabaseAccessor as _;
 
     /// Helper: create a PlayConfigurationView with initialize() called
     fn initialized_view() -> PlayConfigurationView {
@@ -1896,5 +1929,315 @@ mod tests {
         assert_eq!(committed.doubleoption, 1);
         assert_eq!(committed.gauge, 2);
         assert_eq!(committed.lnmode, 1);
+    }
+
+    // ---- LR2 score import tests ----
+
+    /// Helper: create a minimal LR2 score.db with the given rows.
+    fn create_lr2_score_db(
+        path: &str,
+        rows: &[(&str, i32, i32, i32, i32, i32, i32, i32, i32, i32)],
+    ) {
+        let conn = rusqlite::Connection::open(path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS score (
+                hash TEXT,
+                perfect INTEGER,
+                great INTEGER,
+                good INTEGER,
+                bad INTEGER,
+                poor INTEGER,
+                minbp INTEGER,
+                clear INTEGER,
+                playcount INTEGER,
+                clearcount INTEGER
+            )",
+        )
+        .unwrap();
+        for &(hash, perfect, great, good, bad, poor, minbp, clear, playcount, clearcount) in rows {
+            conn.execute(
+                "INSERT INTO score (hash, perfect, great, good, bad, poor, minbp, clear, playcount, clearcount)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                rusqlite::params![hash, perfect, great, good, bad, poor, minbp, clear, playcount, clearcount],
+            )
+            .unwrap();
+        }
+    }
+
+    /// Helper: populate a beatoraja song.db with songs that have the given md5/sha256/notes.
+    fn populate_song_db(songdb_path: &str, bmsroot: &str, songs: &[(&str, &str, i32)]) {
+        use beatoraja_types::song_data::SongData;
+        let songdb = SQLiteSongDatabaseAccessor::new(songdb_path, &[bmsroot.to_string()]).unwrap();
+        let song_datas: Vec<SongData> = songs
+            .iter()
+            .enumerate()
+            .map(|(i, &(md5, sha256, notes))| {
+                let mut sd = SongData::new();
+                sd.md5 = md5.to_string();
+                sd.sha256 = sha256.to_string();
+                sd.notes = notes;
+                // SongData::validate() requires title to be non-empty
+                sd.set_title("test".to_string());
+                // Each song needs a unique path (primary key in song table)
+                sd.set_path(format!("/test/song_{i}.bms"));
+                sd
+            })
+            .collect();
+        songdb.set_song_datas(&song_datas);
+    }
+
+    #[test]
+    fn test_import_score_data_from_lr2_returns_early_without_config() {
+        let view = initialized_view();
+        // No config, no players_selected — should return early without error
+        view.import_score_data_from_lr2_path("/nonexistent/lr2score.db");
+    }
+
+    #[test]
+    fn test_import_score_data_from_lr2_returns_early_without_player() {
+        let mut view = initialized_view();
+        view.config = Some(Config::default());
+        view.players_selected = None;
+        // No player selected — should return early without error
+        view.import_score_data_from_lr2_path("/nonexistent/lr2score.db");
+    }
+
+    #[test]
+    fn test_import_score_data_from_lr2_imports_matching_scores() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let bmsroot = tmpdir.path().to_string_lossy().to_string();
+
+        // Create LR2 score.db with one row
+        let lr2_path = tmpdir.path().join("lr2score.db");
+        // LR2 clear=2 maps to beatoraja clear=4 (clears = [0,1,4,5,6,8,9])
+        create_lr2_score_db(
+            &lr2_path.to_string_lossy(),
+            &[(
+                "d41d8cd98f00b204e9800998ecf8427e",
+                100,
+                50,
+                10,
+                5,
+                3,
+                8,
+                2,
+                15,
+                7,
+            )],
+        );
+
+        // Create beatoraja song.db with a matching song (by MD5)
+        let songdb_path = tmpdir.path().join("song.db");
+        populate_song_db(
+            &songdb_path.to_string_lossy(),
+            &bmsroot,
+            &[(
+                "d41d8cd98f00b204e9800998ecf8427e",
+                "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
+                200,
+            )],
+        );
+
+        // Create player directory for score.db
+        let playerpath = tmpdir.path().join("player");
+        let player_dir = playerpath.join("testplayer");
+        std::fs::create_dir_all(&player_dir).unwrap();
+
+        let mut view = initialized_view();
+        view.config = Some(Config {
+            songpath: songdb_path.to_string_lossy().to_string(),
+            playerpath: playerpath.to_string_lossy().to_string(),
+            bmsroot: vec![bmsroot],
+            ..Default::default()
+        });
+        view.players_selected = Some("testplayer".to_string());
+
+        view.import_score_data_from_lr2_path(&lr2_path.to_string_lossy());
+
+        // Verify scores were written to the player's score.db
+        let score_db_path = player_dir.join("score.db");
+        assert!(score_db_path.exists(), "score.db should have been created");
+
+        let scoredb = beatoraja_core::score_database_accessor::ScoreDatabaseAccessor::new(
+            &score_db_path.to_string_lossy(),
+        )
+        .unwrap();
+        let score = scoredb.get_score_data(
+            "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
+            0,
+        );
+        assert!(score.is_some(), "Score should have been imported");
+
+        let score = score.unwrap();
+        assert_eq!(score.epg, 100, "epg should be mapped from LR2 perfect");
+        assert_eq!(score.egr, 50, "egr should be mapped from LR2 great");
+        assert_eq!(score.egd, 10, "egd should be mapped from LR2 good");
+        assert_eq!(score.ebd, 5, "ebd should be mapped from LR2 bad");
+        assert_eq!(score.epr, 3, "epr should be mapped from LR2 poor");
+        assert_eq!(score.minbp, 8, "minbp should be mapped from LR2 minbp");
+        // LR2 clear=2 -> clears[2]=4
+        assert_eq!(score.clear, 4, "clear should be mapped via clears table");
+        assert_eq!(score.playcount, 15);
+        assert_eq!(score.clearcount, 7);
+        assert_eq!(score.notes, 200, "notes should come from song DB");
+        assert_eq!(score.scorehash, "LR2", "scorehash should be set to 'LR2'");
+    }
+
+    #[test]
+    fn test_import_score_data_from_lr2_skips_unknown_songs() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let bmsroot = tmpdir.path().to_string_lossy().to_string();
+
+        // Create LR2 score.db with a row whose MD5 does NOT exist in the song DB
+        let lr2_path = tmpdir.path().join("lr2score.db");
+        create_lr2_score_db(
+            &lr2_path.to_string_lossy(),
+            &[(
+                "ffffffffffffffffffffffffffffffff",
+                100,
+                50,
+                10,
+                5,
+                3,
+                8,
+                2,
+                15,
+                7,
+            )],
+        );
+
+        // Create empty beatoraja song.db (no matching songs)
+        let songdb_path = tmpdir.path().join("song.db");
+        populate_song_db(&songdb_path.to_string_lossy(), &bmsroot, &[]);
+
+        let playerpath = tmpdir.path().join("player");
+        let player_dir = playerpath.join("testplayer");
+        std::fs::create_dir_all(&player_dir).unwrap();
+
+        let mut view = initialized_view();
+        view.config = Some(Config {
+            songpath: songdb_path.to_string_lossy().to_string(),
+            playerpath: playerpath.to_string_lossy().to_string(),
+            bmsroot: vec![bmsroot],
+            ..Default::default()
+        });
+        view.players_selected = Some("testplayer".to_string());
+
+        view.import_score_data_from_lr2_path(&lr2_path.to_string_lossy());
+
+        // Score DB should exist but be empty (no matching songs)
+        let score_db_path = player_dir.join("score.db");
+        assert!(score_db_path.exists(), "score.db should have been created");
+
+        let scoredb = beatoraja_core::score_database_accessor::ScoreDatabaseAccessor::new(
+            &score_db_path.to_string_lossy(),
+        )
+        .unwrap();
+        let scores = scoredb.get_score_datas("1=1");
+        let count = scores.map(|v| v.len()).unwrap_or(0);
+        assert_eq!(count, 0, "No scores should be imported when no songs match");
+    }
+
+    #[test]
+    fn test_import_score_data_from_lr2_empty_lr2_db() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let bmsroot = tmpdir.path().to_string_lossy().to_string();
+
+        // Create empty LR2 score.db
+        let lr2_path = tmpdir.path().join("lr2score.db");
+        create_lr2_score_db(&lr2_path.to_string_lossy(), &[]);
+
+        let songdb_path = tmpdir.path().join("song.db");
+        populate_song_db(&songdb_path.to_string_lossy(), &bmsroot, &[]);
+
+        let playerpath = tmpdir.path().join("player");
+        let player_dir = playerpath.join("testplayer");
+        std::fs::create_dir_all(&player_dir).unwrap();
+
+        let mut view = initialized_view();
+        view.config = Some(Config {
+            songpath: songdb_path.to_string_lossy().to_string(),
+            playerpath: playerpath.to_string_lossy().to_string(),
+            bmsroot: vec![bmsroot],
+            ..Default::default()
+        });
+        view.players_selected = Some("testplayer".to_string());
+
+        // Should succeed without error, just import 0 scores
+        view.import_score_data_from_lr2_path(&lr2_path.to_string_lossy());
+    }
+
+    #[test]
+    fn test_import_score_data_from_lr2_clear_mapping() {
+        // Verify all 7 LR2 clear values map correctly
+        // LR2 clear indices: 0→0, 1→1, 2→4, 3→5, 4→6, 5→8, 6→9
+        let clears: [i32; 7] = [0, 1, 4, 5, 6, 8, 9];
+        let tmpdir = tempfile::tempdir().unwrap();
+        let bmsroot = tmpdir.path().to_string_lossy().to_string();
+
+        // Create 7 songs with unique MD5s
+        let md5s: Vec<String> = (0..7).map(|i| format!("{:032x}", i + 1)).collect();
+        let sha256s: Vec<String> = (0..7).map(|i| format!("{:064x}", i + 1)).collect();
+
+        // Create LR2 score.db with each clear value
+        let lr2_path = tmpdir.path().join("lr2score.db");
+        let rows: Vec<(&str, i32, i32, i32, i32, i32, i32, i32, i32, i32)> = (0..7)
+            .map(|i| {
+                (
+                    md5s[i].as_str(),
+                    10,
+                    5,
+                    2,
+                    1,
+                    0,
+                    3,
+                    i as i32, // clear index
+                    1,
+                    1,
+                )
+            })
+            .collect();
+        create_lr2_score_db(&lr2_path.to_string_lossy(), &rows);
+
+        // Create song.db with matching songs
+        let songdb_path = tmpdir.path().join("song.db");
+        let songs: Vec<(&str, &str, i32)> = (0..7)
+            .map(|i| (md5s[i].as_str(), sha256s[i].as_str(), 100))
+            .collect();
+        populate_song_db(&songdb_path.to_string_lossy(), &bmsroot, &songs);
+
+        let playerpath = tmpdir.path().join("player");
+        let player_dir = playerpath.join("testplayer");
+        std::fs::create_dir_all(&player_dir).unwrap();
+
+        let mut view = initialized_view();
+        view.config = Some(Config {
+            songpath: songdb_path.to_string_lossy().to_string(),
+            playerpath: playerpath.to_string_lossy().to_string(),
+            bmsroot: vec![bmsroot],
+            ..Default::default()
+        });
+        view.players_selected = Some("testplayer".to_string());
+
+        view.import_score_data_from_lr2_path(&lr2_path.to_string_lossy());
+
+        let score_db_path = player_dir.join("score.db");
+        assert!(score_db_path.exists(), "score.db should exist");
+
+        let scoredb = beatoraja_core::score_database_accessor::ScoreDatabaseAccessor::new(
+            &score_db_path.to_string_lossy(),
+        )
+        .unwrap();
+
+        for i in 0..7 {
+            let score = scoredb.get_score_data(&sha256s[i], 0);
+            assert!(score.is_some(), "Score for clear index {} should exist", i);
+            let score = score.unwrap();
+            assert_eq!(
+                score.clear, clears[i],
+                "LR2 clear index {} should map to beatoraja clear {}",
+                i, clears[i]
+            );
+        }
     }
 }

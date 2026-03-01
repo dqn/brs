@@ -163,17 +163,13 @@ impl CourseEditorView {
 
     /// searchSongs - searches for songs by hash or text
     pub fn search_songs(&mut self) {
-        if self.songdb.is_none() {
+        let Some(songdb) = self.songdb.as_ref() else {
             return;
-        }
+        };
         if TableEditorView::is_md5_or_sha256_hash(&self.search) {
-            // searchSongs.getItems().setAll(songdb.getSongDatas(new String[]{search.getText()}));
-            let _songdb = self.songdb.as_ref().unwrap();
-            self.search_songs = Vec::new(); // stub — requires SongDatabaseAccessor search methods
+            self.search_songs = songdb.get_song_datas_by_hashes(std::slice::from_ref(&self.search));
         } else if self.search.len() > 1 {
-            // searchSongs.getItems().setAll(songdb.getSongDatasByText(search.getText()));
-            let _songdb = self.songdb.as_ref().unwrap();
-            self.search_songs = Vec::new(); // stub — requires SongDatabaseAccessor search methods
+            self.search_songs = songdb.get_song_datas_by_text(&self.search);
         }
     }
 
