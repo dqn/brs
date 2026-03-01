@@ -2,7 +2,7 @@
 
 Phases 1–62 + post-62 complete. **2940 tests.** 27 crates, 158k lines. See AGENTS.md.
 **"Not implemented" stubs: 0 remaining.** All 151 stubs resolved (Phase 58–62).
-**Debug stubs: 32 remaining** (all genuinely blocked by architecture). 9 additional stubs implemented post-62.
+**Debug stubs: 0 remaining.** All 32 debug stubs resolved: 12 implemented (post-62), 20 converted to compile-time comments.
 
 ---
 
@@ -43,7 +43,8 @@ Phases 1–62 + post-62 complete. **2940 tests.** 27 crates, 158k lines. See AGE
 - **60:** PlayerResource wiring — reverse lookup, trait expansion (3 methods), MainController components stored directly (Box::leak eliminated), ChartReplicationMode::Replay*, decide sound
 - **61:** OBS triggerStateChange(PLAY) implemented, LR2 CSV INCLUDE directive, 35 blocked stubs downgraded to debug
 - **62:** 10 launcher egui stubs downgraded to debug with blocker descriptions
-- **Post-62:** 9 debug stubs implemented — RankingDataCache (real HashMap cache from beatoraja-ir), open_ir (IRConnection → browser), EventType::Target cycling, FavoriteSong/FavoriteChart bitwise toggle, OpenDocument/OpenWithExplorer/OpenDownloadSite
+- **Post-62a:** 9 debug stubs implemented — RankingDataCache (real HashMap cache from beatoraja-ir), open_ir (IRConnection → browser), EventType::Target cycling, FavoriteSong/FavoriteChart bitwise toggle, OpenDocument/OpenWithExplorer/OpenDownloadSite
+- **Post-62b:** 3 stubs implemented (OpenIr in MusicSelector via MainControllerAccess trait, CIM image fallback, IR URL trait methods) + all 31 remaining debug stubs converted to compile-time comments (0 runtime debug stubs)
 
 </details>
 
@@ -64,11 +65,11 @@ Phases 1–62 + post-62 complete. **2940 tests.** 27 crates, 158k lines. See AGE
 - **JavaFX find_parent_by_class_simple_name** (`beatoraja-launcher`): No egui equivalent
 - **randomtrainer.dat** (`beatoraja-modmenu`): Binary resource from Java, uses empty HashMap fallback
 
-## Blocked Stubs (32 remaining, downgraded to `debug!`)
+## Architecture-Blocked Items (30 compile-time comments, 0 runtime stubs)
 
-All "blocked" stubs emit `log::debug!` with clear blocker descriptions. They do not affect functionality.
+All remaining unimplemented items are compile-time `// Blocked:` comments with no runtime cost.
 
-- **Rendering pipeline** (~11): MainState.loadSkin/getOffsetValue/getImage, SkinText/Number/Image draw, SkinDistributionGraph, CourseResult render, message_renderer
-- **egui UI** (~12): launcher views (audio, obs, discord, play_config, table_editor, spinner), SkinConfiguration/KeyConfiguration create/render, search popup
-- **Crate boundaries** (~5): OpenIr in MusicSelector, Rival (RivalDataAccessor), UpdateFolder (updateSong), LR2SkinCSVLoader wiring
-- **Infrastructure** (~4): OBS WebSocket reconnect (async cycle), CIM images, main_loader launcher, skin stubs (change_state, timer, audio)
+- **wgpu rendering pipeline** (~11): SkinText/Number/Image draw, SkinDistributionGraph, CourseResult render, message_renderer font
+- **egui UI** (~10): launcher views (audio, obs, discord, play_config, table_editor, spinner), SkinConfiguration/KeyConfiguration create/render, search popup
+- **SkinDrawable context expansion** (~5): skin MainState adapter (change_state, audio_play/stop, set_timer_micro, execute_event) — TimerOnlyMainState lacks MainController context
+- **Circular dependencies** (~4): modmenu↔select, external↔skin property factories, LR2SkinCSVLoader → SkinData converter

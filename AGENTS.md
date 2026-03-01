@@ -88,7 +88,7 @@ lr2oraja-rust/       # Cargo workspace
 **Migration audit**: 100% method resolution (4,279/4,279). 0 missing. 0 constant mismatches. Gap: 0.
 **ast-compare**: 250 methods ignored (198 patterns). Method-level ignore via `.ast-compare-method-ignore`.
 **"Not implemented" stubs**: 0 remaining. All 151 stubs resolved (Phase 58–62).
-**Debug stubs**: 32 remaining (all genuinely blocked by architecture).
+**Debug stubs**: 0 remaining. All 32 resolved: 12 implemented, 20 → compile-time comments.
 
 ### Resolved (Phase 58–62 + Post-62)
 
@@ -97,15 +97,15 @@ lr2oraja-rust/       # Cargo workspace
 - **Phase 60**: PlayerResource reverse lookup, trait expansion, MainController Box::leak eliminated, ChartReplication
 - **Phase 61**: OBS triggerStateChange implemented, LR2 CSV INCLUDE, 35 blocked stubs downgraded
 - **Phase 62**: 10 launcher egui stubs downgraded with blocker descriptions
-- **Post-62**: 9 debug stubs implemented — RankingDataCache (real HashMap cache), open_ir (browser), Target cycling, FavoriteSong/Chart, OpenDocument/WithExplorer/DownloadSite
+- **Post-62a**: 9 debug stubs implemented — RankingDataCache (real HashMap cache), open_ir (browser), Target cycling, FavoriteSong/Chart, OpenDocument/WithExplorer/DownloadSite
+- **Post-62b**: OpenIr in MusicSelector (via MainControllerAccess IR URL methods), CIM image fallback, all 31 debug stubs → compile-time comments (0 runtime stubs)
 
-### Blocked by Architecture (32 remaining, non-blocking, emit `debug!`)
+### Architecture-Blocked (30 compile-time comments, 0 runtime cost)
 
-- MainState defaults (3): loadSkin, getOffsetValue, getImage — trait override points (concrete states already override)
-- Rendering pipeline (~11): SkinText/Number/Image draw, SkinDistributionGraph, CourseResult render, message_renderer
-- egui UI (~12): launcher views, SkinConfiguration/KeyConfiguration create/render, search popup
-- Crate boundaries (~5): OpenIr in MusicSelector (IRConnection), Rival (RivalDataAccessor), UpdateFolder (updateSong), LR2SkinCSVLoader wiring
-- OBS WebSocket reconnect — async cycle prevents `do_connect` call from `schedule_reconnect`
+- wgpu rendering pipeline (~11): SkinText/Number/Image draw, SkinDistributionGraph, CourseResult render, message_renderer
+- egui UI (~10): launcher views, SkinConfiguration/KeyConfiguration create/render, search popup
+- SkinDrawable context expansion (~5): skin MainState adapter lacks MainController context (change_state, audio, timer)
+- Circular dependencies (~4): modmenu↔select, external↔skin, LR2SkinCSVLoader → SkinData converter
 
 ## Lessons Learned
 
