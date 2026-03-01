@@ -3,6 +3,7 @@
 use beatoraja_core::course_data::{CourseData, CourseDataConstraint, TrophyData};
 use beatoraja_core::stubs::SongData;
 use beatoraja_types::song_database_accessor::SongDatabaseAccessor;
+use egui;
 
 use crate::folder_editor_view::SongDataView;
 use crate::table_editor_view::TableEditorView;
@@ -444,6 +445,224 @@ impl CourseEditorView {
             self.course_songs.swap(index, index + 1);
             self.course_songs_selected_index = Some(index + 1);
         }
+    }
+
+    /// Render the course editor UI.
+    ///
+    /// Layout: course list on the left, course detail pane on the right.
+    /// Song search panel at the bottom.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        // --- Course list panel ---
+        ui.horizontal(|ui| {
+            ui.label("Courses:");
+            if ui.button("Add").clicked() {
+                self.add_course_data();
+            }
+            if ui.button("Remove").clicked() {
+                self.remove_course_data();
+                self.update_course(None);
+            }
+            if ui.button("Up").clicked() {
+                self.move_course_data_up();
+            }
+            if ui.button("Down").clicked() {
+                self.move_course_data_down();
+            }
+        });
+
+        egui::ScrollArea::vertical()
+            .id_salt("course_list_scroll")
+            .max_height(120.0)
+            .show(ui, |ui| {
+                let mut new_selection = self.courses_selected_index;
+                for (i, course) in self.courses.iter().enumerate() {
+                    let name = course.name.as_deref().unwrap_or("(unnamed)");
+                    let selected = self.courses_selected_index == Some(i);
+                    if ui.selectable_label(selected, name).clicked() {
+                        new_selection = Some(i);
+                    }
+                }
+                if new_selection != self.courses_selected_index {
+                    self.commit_course();
+                    self.courses_selected_index = new_selection;
+                    self.update_course(new_selection);
+                }
+            });
+
+        ui.separator();
+
+        // --- Course detail pane ---
+        if self.course_pane_visible {
+            egui::Grid::new("course_detail_grid")
+                .num_columns(2)
+                .show(ui, |ui| {
+                    ui.label("Course Name:");
+                    ui.text_edit_singleline(&mut self.course_name);
+                    ui.end_row();
+
+                    ui.label("Release:");
+                    ui.checkbox(&mut self.release, "");
+                    ui.end_row();
+                });
+
+            // Constraint combo boxes
+            ui.collapsing("Constraints", |ui| {
+                Self::render_constraint_combo(
+                    ui,
+                    "Grade",
+                    "course_grade_type",
+                    &self.grade_type_items,
+                    &mut self.grade_type,
+                );
+                Self::render_constraint_combo(
+                    ui,
+                    "Hi-Speed",
+                    "course_hispeed_type",
+                    &self.hispeed_type_items,
+                    &mut self.hispeed_type,
+                );
+                Self::render_constraint_combo(
+                    ui,
+                    "Judge",
+                    "course_judge_type",
+                    &self.judge_type_items,
+                    &mut self.judge_type,
+                );
+                Self::render_constraint_combo(
+                    ui,
+                    "Gauge",
+                    "course_gauge_type",
+                    &self.gauge_type_items,
+                    &mut self.gauge_type,
+                );
+                Self::render_constraint_combo(
+                    ui,
+                    "LN Type",
+                    "course_ln_type",
+                    &self.ln_type_items,
+                    &mut self.ln_type,
+                );
+            });
+
+            // Trophy settings
+            ui.collapsing("Trophies", |ui| {
+                egui::Grid::new("trophy_grid")
+                    .num_columns(3)
+                    .show(ui, |ui| {
+                        ui.label("");
+                        ui.label("Miss Rate");
+                        ui.label("Score Rate");
+                        ui.end_row();
+
+                        ui.label("Bronze:");
+                        ui.add(egui::DragValue::new(&mut self.bronzemiss).speed(0.1));
+                        ui.add(egui::DragValue::new(&mut self.bronzescore).speed(0.1));
+                        ui.end_row();
+
+                        ui.label("Silver:");
+                        ui.add(egui::DragValue::new(&mut self.silvermiss).speed(0.1));
+                        ui.add(egui::DragValue::new(&mut self.silverscore).speed(0.1));
+                        ui.end_row();
+
+                        ui.label("Gold:");
+                        ui.add(egui::DragValue::new(&mut self.goldmiss).speed(0.1));
+                        ui.add(egui::DragValue::new(&mut self.goldscore).speed(0.1));
+                        ui.end_row();
+                    });
+            });
+
+            ui.separator();
+
+            // --- Course songs ---
+            ui.horizontal(|ui| {
+                ui.label("Course Songs:");
+                if ui.button("Remove Song").clicked() {
+                    self.remove_song_data();
+                }
+                if ui.button("Move Up").clicked() {
+                    self.move_song_data_up();
+                }
+                if ui.button("Move Down").clicked() {
+                    self.move_song_data_down();
+                }
+            });
+
+            egui::ScrollArea::vertical()
+                .id_salt("course_songs_scroll")
+                .max_height(100.0)
+                .show(ui, |ui| {
+                    for (i, song) in self.course_songs.iter().enumerate() {
+                        let selected = self.course_songs_selected_index == Some(i);
+                        let label = format!("{} [{}]", song.full_title(), &song.sha256);
+                        if ui.selectable_label(selected, &label).clicked() {
+                            self.course_songs_selected_index = Some(i);
+                        }
+                    }
+                });
+        }
+
+        ui.separator();
+
+        // --- Song search ---
+        ui.horizontal(|ui| {
+            ui.label("Search:");
+            let response = ui.text_edit_singleline(&mut self.search);
+            if (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                || ui.button("Search").clicked()
+            {
+                self.search_songs();
+            }
+        });
+
+        if ui.button("Add Selected to Course").clicked() {
+            self.add_song_data();
+        }
+
+        egui::ScrollArea::vertical()
+            .id_salt("search_songs_scroll")
+            .max_height(120.0)
+            .show(ui, |ui| {
+                // Multi-select: toggle with click
+                for (i, song) in self.search_songs.iter().enumerate() {
+                    let is_selected = self
+                        .search_songs_selected_items
+                        .iter()
+                        .any(|s| s.sha256 == song.sha256 && s.md5 == song.md5);
+                    let label =
+                        format!("{} - {} [{}]", song.full_title(), song.artist, &song.sha256,);
+                    if ui.selectable_label(is_selected, &label).clicked() {
+                        if is_selected {
+                            self.search_songs_selected_items
+                                .retain(|s| s.sha256 != song.sha256 || s.md5 != song.md5);
+                        } else {
+                            self.search_songs_selected_items
+                                .push(self.search_songs[i].clone());
+                        }
+                    }
+                }
+            });
+    }
+
+    /// Helper to render a constraint ComboBox.
+    fn render_constraint_combo(
+        ui: &mut egui::Ui,
+        label: &str,
+        id_salt: &str,
+        items: &[Option<CourseDataConstraint>],
+        current: &mut Option<CourseDataConstraint>,
+    ) {
+        ui.horizontal(|ui| {
+            ui.label(format!("{}:", label));
+            let selected_text = current.map_or("(None)".to_string(), |c| format!("{:?}", c));
+            egui::ComboBox::from_id_salt(id_salt)
+                .selected_text(&selected_text)
+                .show_ui(ui, |ui| {
+                    for item in items {
+                        let display = item.map_or("(None)".to_string(), |c| format!("{:?}", c));
+                        ui.selectable_value(current, *item, &display);
+                    }
+                });
+        });
     }
 }
 

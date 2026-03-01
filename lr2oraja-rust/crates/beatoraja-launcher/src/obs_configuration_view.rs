@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use beatoraja_core::config::Config;
 use beatoraja_core::main_state::MainStateType;
 use beatoraja_obs::obs_ws_client::{ObsVersionInfo, ObsWsClient, get_action_label, obs_actions};
+use egui;
 
 use crate::play_configuration_view::PlayConfigurationView;
 
@@ -431,6 +432,150 @@ impl ObsConfigurationView {
     /// resetConnectionStatus - clears the connection status label
     fn reset_connection_status(&mut self) {
         self.obs_ws_connect_label = String::new();
+    }
+
+    /// Render the OBS configuration UI.
+    ///
+    /// Shows WebSocket connection settings, connect button with status,
+    /// and per-state scene/action selectors.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        ui.heading("OBS WebSocket Configuration");
+
+        egui::Grid::new("obs_config_grid")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Enable:");
+                ui.checkbox(&mut self.obs_ws_enabled, "");
+                ui.end_row();
+
+                if self.obs_ws_enabled {
+                    ui.label("Host:");
+                    ui.text_edit_singleline(&mut self.obs_ws_host);
+                    ui.end_row();
+
+                    ui.label("Port:");
+                    ui.add(egui::DragValue::new(&mut self.obs_ws_port).range(1..=65535));
+                    ui.end_row();
+
+                    ui.label("Password:");
+                    ui.add(egui::TextEdit::singleline(&mut self.obs_ws_pass).password(true));
+                    ui.end_row();
+
+                    ui.label("Recording Mode:");
+                    let rec_mode_label = self
+                        .obs_ws_rec_mode_items
+                        .get(self.obs_ws_rec_mode as usize)
+                        .cloned()
+                        .unwrap_or_else(|| "Default".to_string());
+                    egui::ComboBox::from_id_salt("obs_config_rec_mode")
+                        .selected_text(&rec_mode_label)
+                        .show_ui(ui, |ui| {
+                            for (i, label) in self.obs_ws_rec_mode_items.iter().enumerate() {
+                                ui.selectable_value(&mut self.obs_ws_rec_mode, i as i32, label);
+                            }
+                        });
+                    ui.end_row();
+
+                    ui.label("Rec Stop Wait (ms):");
+                    ui.add(egui::DragValue::new(&mut self.obs_ws_rec_stop_wait).range(0..=60000));
+                    ui.end_row();
+                }
+            });
+
+        if self.obs_ws_enabled {
+            ui.separator();
+
+            // Connect button + status
+            ui.horizontal(|ui| {
+                if ui.button("Connect").clicked() {
+                    self.connect();
+                }
+                if !self.obs_ws_connect_label.is_empty() {
+                    ui.label(&self.obs_ws_connect_label);
+                }
+            });
+
+            ui.separator();
+
+            // State scene/action selectors
+            ui.heading("State Actions");
+
+            let states = self.states.clone();
+            let actions = obs_actions();
+            let action_labels: Vec<String> = std::iter::once(ACTION_NONE.to_string())
+                .chain(actions.keys().cloned())
+                .collect();
+
+            egui::Grid::new("obs_state_action_grid")
+                .min_col_width(100.0)
+                .num_columns(3)
+                .show(ui, |ui| {
+                    ui.label("State");
+                    ui.label("Scene");
+                    ui.label("Action");
+                    ui.end_row();
+
+                    for state in &states {
+                        ui.label(state);
+
+                        // Scene combo box
+                        if let Some(scene_box) = self.scene_boxes.get_mut(state) {
+                            let selected_text =
+                                scene_box.value.as_deref().unwrap_or(SCENE_NONE).to_string();
+                            let mut new_value = selected_text.clone();
+                            let combo =
+                                egui::ComboBox::from_id_salt(format!("obs_cfg_scene_{}", state))
+                                    .selected_text(&selected_text);
+                            if scene_box.disabled {
+                                ui.add_enabled(false, egui::Label::new(&selected_text));
+                            } else {
+                                combo.show_ui(ui, |ui| {
+                                    for item in &scene_box.items {
+                                        ui.selectable_value(
+                                            &mut new_value,
+                                            item.clone(),
+                                            item.as_str(),
+                                        );
+                                    }
+                                });
+                                if new_value != selected_text {
+                                    scene_box.value = Some(new_value);
+                                }
+                            }
+                        } else {
+                            ui.label("-");
+                        }
+
+                        // Action combo box
+                        if let Some(action_box) = self.action_boxes.get_mut(state) {
+                            let selected_text = action_box
+                                .value
+                                .as_deref()
+                                .unwrap_or(ACTION_NONE)
+                                .to_string();
+                            let mut new_value = selected_text.clone();
+                            egui::ComboBox::from_id_salt(format!("obs_cfg_action_{}", state))
+                                .selected_text(&selected_text)
+                                .show_ui(ui, |ui| {
+                                    for label in &action_labels {
+                                        ui.selectable_value(
+                                            &mut new_value,
+                                            label.clone(),
+                                            label.as_str(),
+                                        );
+                                    }
+                                });
+                            if new_value != selected_text {
+                                action_box.value = Some(new_value);
+                            }
+                        } else {
+                            ui.label("-");
+                        }
+
+                        ui.end_row();
+                    }
+                });
+        }
     }
 }
 

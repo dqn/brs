@@ -7,14 +7,22 @@ use regex::Regex;
 use beatoraja_core::stubs::SongData;
 use beatoraja_core::table_data::TableData;
 use beatoraja_types::song_database_accessor::SongDatabaseAccessor;
+use egui;
 
 use crate::course_editor_view::CourseEditorView;
 use crate::folder_editor_view::FolderEditorView;
 
+/// Which sub-editor tab is active in the table editor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EditorTab {
+    Course,
+    Folder,
+}
+
 /// TableEditorView - table editor with course/folder sub-controllers
 ///
 /// JavaFX UI widgets are translated to data structs.
-/// All rendering/UI operations use todo!("egui integration").
+/// Rendering via egui `render()` method.
 #[allow(dead_code)]
 pub struct TableEditorView {
     filepath: Option<PathBuf>,
@@ -24,6 +32,9 @@ pub struct TableEditorView {
 
     course_controller: CourseEditorView,
     folder_controller: FolderEditorView,
+
+    /// Active sub-editor tab (Course or Folder).
+    selected_tab: EditorTab,
 }
 
 #[allow(dead_code)]
@@ -41,6 +52,7 @@ impl TableEditorView {
             table_name: String::new(),
             course_controller: CourseEditorView::new(),
             folder_controller: FolderEditorView::new(),
+            selected_tab: EditorTab::Course,
         }
     }
 
@@ -219,6 +231,58 @@ impl TableEditorView {
     /// Extracted from displayChartDetailsDialog for future use
     pub fn get_time_string(length_ms: i32) -> String {
         format!("{}:{:02}", length_ms / 60000, (length_ms / 1000) % 60)
+    }
+
+    /// Render the table editor UI.
+    ///
+    /// Shows table name, save button, and tabbed sub-editors for courses and folders.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Table Editor");
+
+        // File path display
+        if let Some(ref path) = self.filepath {
+            ui.label(format!("File: {}", path.display()));
+        } else {
+            ui.label("File: (none)");
+        }
+
+        ui.separator();
+
+        // Table name
+        ui.horizontal(|ui| {
+            ui.label("Table Name:");
+            ui.text_edit_singleline(&mut self.table_name);
+        });
+
+        // Save button
+        if ui.button("Save").clicked() {
+            self.commit();
+        }
+
+        ui.separator();
+
+        // Sub-editor tabs
+        ui.horizontal(|ui| {
+            if ui
+                .selectable_label(self.selected_tab == EditorTab::Course, "Courses")
+                .clicked()
+            {
+                self.selected_tab = EditorTab::Course;
+            }
+            if ui
+                .selectable_label(self.selected_tab == EditorTab::Folder, "Folders")
+                .clicked()
+            {
+                self.selected_tab = EditorTab::Folder;
+            }
+        });
+
+        ui.separator();
+
+        match self.selected_tab {
+            EditorTab::Course => self.course_controller.render(ui),
+            EditorTab::Folder => self.folder_controller.render(ui),
+        }
     }
 }
 

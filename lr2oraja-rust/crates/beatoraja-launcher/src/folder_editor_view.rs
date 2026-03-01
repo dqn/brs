@@ -6,6 +6,7 @@ use beatoraja_core::course_data::CourseData;
 use beatoraja_core::stubs::SongData;
 use beatoraja_core::table_data::TableFolder;
 use beatoraja_types::song_database_accessor::SongDatabaseAccessor;
+use egui;
 
 use crate::table_editor_view::TableEditorView;
 
@@ -313,6 +314,129 @@ impl FolderEditorView {
             Self::get_folders_containing_song(&self.folders, song)
         );
         TableEditorView::display_chart_details_dialog(self.songdb.as_deref(), song, &[&extra]);
+    }
+
+    /// Render the folder editor UI.
+    ///
+    /// Layout: folder list on the left, folder detail pane on the right.
+    /// Song search panel at the bottom.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        // --- Folder list panel ---
+        ui.horizontal(|ui| {
+            ui.label("Folders:");
+            if ui.button("Add").clicked() {
+                self.add_table_folder();
+            }
+            if ui.button("Remove").clicked() {
+                self.remove_table_folder();
+                self.update_folder(None);
+            }
+            if ui.button("Up").clicked() {
+                self.move_table_folder_up();
+            }
+            if ui.button("Down").clicked() {
+                self.move_table_folder_down();
+            }
+        });
+
+        egui::ScrollArea::vertical()
+            .id_salt("folder_list_scroll")
+            .max_height(120.0)
+            .show(ui, |ui| {
+                let mut new_selection = self.folders_selected_index;
+                for (i, folder) in self.folders.iter().enumerate() {
+                    let name = folder.name.as_deref().unwrap_or("(unnamed)");
+                    let selected = self.folders_selected_index == Some(i);
+                    if ui.selectable_label(selected, name).clicked() {
+                        new_selection = Some(i);
+                    }
+                }
+                if new_selection != self.folders_selected_index {
+                    self.commit_folder();
+                    self.folders_selected_index = new_selection;
+                    self.update_folder(new_selection);
+                }
+            });
+
+        ui.separator();
+
+        // --- Folder detail pane ---
+        if self.folder_pane_visible {
+            ui.horizontal(|ui| {
+                ui.label("Folder Name:");
+                ui.text_edit_singleline(&mut self.folder_name);
+            });
+
+            ui.separator();
+
+            // --- Folder songs ---
+            ui.horizontal(|ui| {
+                ui.label("Folder Songs:");
+                if ui.button("Remove Song").clicked() {
+                    self.remove_song_data();
+                }
+                if ui.button("Move Up").clicked() {
+                    self.move_song_data_up();
+                }
+                if ui.button("Move Down").clicked() {
+                    self.move_song_data_down();
+                }
+            });
+
+            egui::ScrollArea::vertical()
+                .id_salt("folder_songs_scroll")
+                .max_height(100.0)
+                .show(ui, |ui| {
+                    for (i, song) in self.folder_songs.iter().enumerate() {
+                        let selected = self.folder_songs_selected_index == Some(i);
+                        let label = format!("{} [{}]", song.full_title(), &song.sha256);
+                        if ui.selectable_label(selected, &label).clicked() {
+                            self.folder_songs_selected_index = Some(i);
+                        }
+                    }
+                });
+        }
+
+        ui.separator();
+
+        // --- Song search ---
+        ui.horizontal(|ui| {
+            ui.label("Search:");
+            let response = ui.text_edit_singleline(&mut self.search);
+            if (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                || ui.button("Search").clicked()
+            {
+                self.search_songs();
+            }
+        });
+
+        if ui.button("Add Selected to Folder").clicked() {
+            self.add_song_data();
+        }
+
+        egui::ScrollArea::vertical()
+            .id_salt("search_songs_folder_scroll")
+            .max_height(120.0)
+            .show(ui, |ui| {
+                // Multi-select: toggle with click
+                for (i, song) in self.search_songs.iter().enumerate() {
+                    let is_selected = self
+                        .search_songs_selected_items
+                        .iter()
+                        .any(|s| s.sha256 == song.sha256 && s.md5 == song.md5);
+                    let label =
+                        format!("{} - {} [{}]", song.full_title(), song.artist, &song.sha256,);
+                    if ui.selectable_label(is_selected, &label).clicked() {
+                        if is_selected {
+                            self.search_songs_selected_items
+                                .retain(|s| s.sha256 != song.sha256 || s.md5 != song.md5);
+                        } else {
+                            self.search_songs_selected_items
+                                .push(self.search_songs[i].clone());
+                        }
+                    }
+                }
+            });
     }
 }
 
