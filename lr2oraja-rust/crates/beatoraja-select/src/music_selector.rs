@@ -374,10 +374,23 @@ impl MusicSelector {
                 self.play_option_change();
             }
             EventType::UpdateFolder => {
-                // Blocked: MainController.updateSong not on MainControllerAccess
-                log::debug!(
-                    "stub: EventType::UpdateFolder — blocked by crate boundary (MainController.updateSong)"
-                );
+                if let Some(ref mut main) = self.main
+                    && let Some(selected) = self.manager.get_selected()
+                {
+                    if let Some(folder) = selected.as_folder_bar()
+                        && let Some(fd) = folder.get_folder_data()
+                    {
+                        let path = fd.get_path().to_string();
+                        main.update_song(Some(&path));
+                    } else if let Some(songbar) = selected.as_song_bar()
+                        && let Some(path) = songbar.get_song_data().get_path()
+                        && let Some(parent) =
+                            std::path::Path::new(path).parent().and_then(|p| p.to_str())
+                    {
+                        main.update_song(Some(parent));
+                    }
+                    // TableBar case: updateTable is not on MainControllerAccess
+                }
             }
             EventType::OpenDocument => {
                 if let Some(songbar) = self.manager.get_selected().and_then(|b| b.as_song_bar())
