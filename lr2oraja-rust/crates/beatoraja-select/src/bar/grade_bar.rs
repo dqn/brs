@@ -89,9 +89,13 @@ impl GradeBar {
     }
 
     pub fn get_lamp(&self, _is_player: bool) -> i32 {
-        // TODO: rival score
         let mut result = 0;
         if let Some(score) = self.selectable.bar_data.get_score()
+            && score.get_clear() > result
+        {
+            result = score.get_clear();
+        }
+        if let Some(score) = self.selectable.bar_data.get_rival_score()
             && score.get_clear() > result
         {
             result = score.get_clear();

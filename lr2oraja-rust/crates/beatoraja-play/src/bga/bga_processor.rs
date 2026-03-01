@@ -94,7 +94,7 @@ impl BGAProcessor {
             playingbgaid: -1,
             playinglayerid: -1,
             misslayertime: 0,
-            get_misslayer_duration: 0,
+            get_misslayer_duration: 500,
             misslayer: None,
             time: 0,
             cache: Some(BGImageProcessor::new(256, 1)),
@@ -359,8 +359,7 @@ impl BGAProcessor {
 
     pub fn set_misslayer_tme(&mut self, time: i64) {
         self.misslayertime = time;
-        // TODO: getMisslayerDuration from PlayerConfig
-        self.get_misslayer_duration = 500;
+        // Duration is set via set_misslayer_duration() during init from PlayerConfig.
     }
 
     /// Set miss layer duration (from PlayerConfig).

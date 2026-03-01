@@ -888,7 +888,8 @@ impl SkinConfiguration {
     }
 
     pub fn dispose_resources(&mut self) {
-        // TODO: dispose resources
+        // Java SkinConfiguration.dispose() only calls super.dispose().
+        // Skin/stage cleanup is handled by the MainState::dispose() impl.
     }
 
     /// Update a CustomItem's value and persist the change to the skin config.
@@ -1089,17 +1090,17 @@ impl MainState for SkinConfiguration {
     }
 
     fn create(&mut self) {
-        log::warn!(
-            "TODO: Phase 22 - SkinConfiguration::create (loadSkin, loadAllSkins, changeSkinType)"
-        );
+        self.create_internal();
     }
 
     fn render(&mut self) {
-        log::warn!("TODO: Phase 22 - SkinConfiguration::render (input handling and rendering)");
+        self.render_internal();
     }
 
     fn input(&mut self) {
-        log::warn!("TODO: Phase 22 - SkinConfiguration::input (scroll input handling)");
+        // input_internal requires InputProcessorAccess which is not available
+        // through the MainState::input() trait method. Scroll input handling
+        // is deferred to the launcher's egui SkinConfigurationView.
     }
 
     fn dispose(&mut self) {

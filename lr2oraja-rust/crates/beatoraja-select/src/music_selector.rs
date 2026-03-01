@@ -1110,7 +1110,14 @@ impl MusicSelector {
         let gb = grade_bar.as_grade_bar().unwrap();
         if !gb.exists_all_songs() {
             log::info!("段位の楽曲が揃っていません (course songs are not all available)");
-            // TODO: if main.getHttpDownloadProcessor() != null, execute DOWNLOAD_COURSE_HTTP
+            if self
+                .main
+                .as_ref()
+                .and_then(|m| m.get_http_downloader())
+                .is_some()
+            {
+                self.execute(MusicSelectCommand::DownloadCourseHttp);
+            }
             return;
         }
 
@@ -1140,10 +1147,18 @@ impl MusicSelector {
             return;
         }
 
-        // TODO: randomCourseBar.getCourseData().lotterySongDatas(main)
-        // This requires DB query access through MainController — deferred.
-        // For now, create course data from the current song_datas.
-        let course_data = rcb.get_course_data().create_course_data();
+        // Run lottery: query DB for each stage's SQL, then pick random songs.
+        let mut rcd = rcb.get_course_data().clone();
+        {
+            let songdb = self.get_song_database();
+            let player_name = self.app_config.playername.as_deref().unwrap_or("default");
+            let score_path = format!("{}/{}/score.db", self.app_config.playerpath, player_name);
+            let scorelog_path =
+                format!("{}/{}/scorelog.db", self.app_config.playerpath, player_name);
+            let songinfo_path = self.app_config.get_songinfopath().to_string();
+            rcd.lottery_song_datas(songdb, &score_path, &scorelog_path, Some(&songinfo_path));
+        }
+        let course_data = rcd.create_course_data();
         let grade_bar = Bar::Grade(Box::new(GradeBar::new(course_data)));
 
         if let Some(gb) = grade_bar.as_grade_bar()

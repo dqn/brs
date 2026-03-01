@@ -48,6 +48,37 @@ impl RandomCourseData {
         }
     }
 
+    /// Run the full lottery: query DB for each stage's SQL, then pick random songs.
+    ///
+    /// Java: RandomCourseData.lotterySongDatas(MainController)
+    pub fn lottery_song_datas(
+        &mut self,
+        songdb: &dyn beatoraja_types::song_database_accessor::SongDatabaseAccessor,
+        score_db_path: &str,
+        scorelog_db_path: &str,
+        info_db_path: Option<&str>,
+    ) {
+        let is_distinct = self
+            .rconstraint
+            .contains(&RandomCourseDataConstraint::Distinct);
+        let stage_count = self.stage.len();
+        let mut results: Vec<Option<SongData>> = vec![None; stage_count];
+        let mut lots: Vec<SongData> = Vec::new();
+
+        for i in 0..stage_count {
+            let sql_opt = self.stage[i].sql.as_deref().filter(|s| !s.is_empty());
+            if sql_opt.is_none() && i > 0 {
+                Self::lottery_song_data(&mut results, i, &lots, is_distinct);
+                continue;
+            }
+            let sql = sql_opt.unwrap_or("1");
+            lots = songdb.get_song_datas_by_sql(sql, score_db_path, scorelog_db_path, info_db_path);
+            Self::lottery_song_data(&mut results, i, &lots, is_distinct);
+        }
+
+        self.song_datas = results.into_iter().flatten().collect();
+    }
+
     /// Lottery song datas from provided lots arrays.
     /// This is a simplified version - the actual DB query is handled externally.
     #[allow(clippy::needless_range_loop)]

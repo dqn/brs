@@ -233,7 +233,8 @@ impl KeyConfiguration {
     }
 
     pub fn dispose_resources(&mut self) {
-        // TODO: dispose font resources
+        // Java disposes BitmapFont (LibGDX GPU texture). In Rust, font resources
+        // (GlyphAtlas/SpriteBatch) are owned by the render pipeline and dropped automatically.
     }
 
     // -- Getters --

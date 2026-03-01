@@ -411,13 +411,86 @@ impl InternetRankingTargetProperty {
     }
 
     /// Translated from: Java InternetRankingTargetProperty.getTarget(MainController)
-    ///
-    /// Simplified: ranking data retrieval requires async IR access which is not
-    /// yet fully wired. Returns "NO DATA" until RankingData integration is complete.
-    fn get_target(&mut self, _main: &MainController) -> ScoreData {
-        self.target_score.player = "NO DATA".to_string();
-        self.target_score.option = 0;
+    fn get_target(&mut self, main: &MainController) -> ScoreData {
+        // Get ranking data from cache via dyn Any downcast
+        let ranking_data = (|| -> Option<&beatoraja_ir::ranking_data::RankingData> {
+            let resource = main.get_player_resource()?;
+            let songdata = resource.get_songdata()?;
+            let lnmode = resource.get_player_config().lnmode;
+            let cache = main.get_ranking_data_cache()?;
+            let any = cache.get_song_any(songdata, lnmode)?;
+            any.downcast_ref::<beatoraja_ir::ranking_data::RankingData>()
+        })();
+
+        match ranking_data {
+            Some(ranking) if ranking.get_state() == beatoraja_ir::ranking_data::FINISH => {
+                if ranking.get_total_player() > 0 {
+                    let index = self.get_target_rank(main, ranking);
+                    if let Some(ir_score) = ranking.get_score(index) {
+                        let exscore = ir_score.get_exscore();
+                        self.target_score.player = if ir_score.player.is_empty() {
+                            "YOU".to_string()
+                        } else {
+                            ir_score.player.clone()
+                        };
+                        self.target_score.epg = exscore / 2;
+                        self.target_score.egr = exscore % 2;
+                        self.target_score.option = ir_score.option;
+                    } else {
+                        self.target_score.player = "NO DATA".to_string();
+                        self.target_score.option = 0;
+                    }
+                } else {
+                    self.target_score.player = "NO DATA".to_string();
+                    self.target_score.option = 0;
+                }
+            }
+            _ => {
+                // Not yet loaded or no ranking data available
+                self.target_score.player = "NO DATA".to_string();
+                self.target_score.option = 0;
+            }
+        }
         self.target_score.clone()
+    }
+
+    /// Get the target rank index based on the IR target type.
+    fn get_target_rank(
+        &self,
+        main: &MainController,
+        ranking: &beatoraja_ir::ranking_data::RankingData,
+    ) -> i32 {
+        let total = ranking.get_total_player();
+        // Get the player's current exscore
+        let nowscore = main
+            .get_player_resource()
+            .and_then(|r| r.get_score_data())
+            .map(|s| s.get_exscore())
+            .unwrap_or(0);
+
+        match self.target {
+            IRTarget::Next => {
+                // Find the rank of the first score <= nowscore, then go 'value' ranks above
+                let mut target_index = 0;
+                for i in 0..total {
+                    if let Some(score) = ranking.get_score(i)
+                        && score.get_exscore() <= nowscore
+                    {
+                        target_index = (i - self.value).max(0);
+                        break;
+                    }
+                }
+                target_index
+            }
+            IRTarget::Rank => {
+                // value-th place (1-indexed, capped to totalPlayer)
+                (self.value.min(total) - 1).max(0)
+            }
+            IRTarget::RankRate => {
+                // top value% rank index
+                ((total * self.value / 100).max(1) - 1).max(0)
+            }
+        }
     }
 
     pub fn get_target_property(id: &str) -> Option<TargetProperty> {

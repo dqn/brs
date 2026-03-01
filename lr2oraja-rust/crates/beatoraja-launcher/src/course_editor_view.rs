@@ -11,7 +11,7 @@ use crate::table_editor_view::TableEditorView;
 /// CourseEditorView - course editor with constraints, trophies, song search
 ///
 /// JavaFX UI widgets are translated to data structs.
-/// All rendering/UI operations use todo!("egui integration").
+/// Rendering will be implemented via egui when the course editor tab is wired.
 #[allow(dead_code)]
 pub struct CourseEditorView {
     // JavaFX @FXML fields → egui widget state

@@ -88,7 +88,8 @@ impl std::fmt::Display for PlayMode {
 #[allow(dead_code)]
 #[derive(Default)]
 pub struct InputConfigurationView {
-    // TODO 各デバイス毎の最小入力間隔設定
+    // Per-device minimum input interval: not implemented in Java either.
+    // Java applies a single global duration to all ControllerConfig objects.
 
     // @FXML private ComboBox<PlayConfigurationView.PlayMode> inputconfig;
     inputconfig: Option<PlayMode>,

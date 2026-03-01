@@ -1,4 +1,5 @@
 pub mod download_task;
+pub mod download_task_state;
 
 // Re-exports (formerly in stubs.rs)
 pub use beatoraja_core::config::Config;

@@ -424,10 +424,11 @@ impl BarManager {
                             format!("{}/{}/score.db", ctx.config.playerpath, player_name);
                         let scorelog_path =
                             format!("{}/{}/scorelog.db", ctx.config.playerpath, player_name);
+                        let songinfo_path = ctx.config.get_songinfopath().to_string();
                         let cmd_ctx = crate::bar::command_bar::CommandBarContext {
                             score_db_path: &score_path,
                             scorelog_db_path: &scorelog_path,
-                            info_db_path: None, // TODO: wire songinfo.db when available
+                            info_db_path: Some(&songinfo_path),
                         };
                         l.extend(b.get_children(songdb, &cmd_ctx));
                     }

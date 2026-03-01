@@ -214,6 +214,12 @@ pub struct BMSPlayer {
     /// Player config reference (set before create() by the caller).
     /// Used for save_config, gauge_auto_shift, chart_preview, window_hold.
     player_config: PlayerConfig,
+    /// Chart option override from PlayerResource (set before create()).
+    chart_option: Option<ReplayData>,
+    /// Skin name from header (set during skin loading for score recording).
+    skin_name: Option<String>,
+    /// Analysis result from BMSLoudnessAnalyzer (set by caller via async task).
+    analysis_result: Option<beatoraja_audio::bms_loudness_analyzer::AnalysisResult>,
     /// Whether media loading has finished (set by the caller via resource.mediaLoadFinished()).
     media_load_finished: bool,
     /// Input state: START button pressed (from BMSPlayerInputProcessor).
@@ -282,6 +288,9 @@ impl BMSPlayer {
             is_guide_se: false,
             create_side_effects: None,
             player_config: PlayerConfig::default(),
+            chart_option: None,
+            skin_name: None,
+            analysis_result: None,
             media_load_finished: false,
             input_start_pressed: false,
             input_select_pressed: false,
@@ -293,6 +302,24 @@ impl BMSPlayer {
             pending_state_change: None,
             is_course_mode: false,
         }
+    }
+
+    /// Set the chart option override (from PlayerResource) before calling create().
+    pub fn set_chart_option(&mut self, chart_option: Option<ReplayData>) {
+        self.chart_option = chart_option;
+    }
+
+    /// Set the skin name (from skin header) for score recording.
+    pub fn set_skin_name(&mut self, name: Option<String>) {
+        self.skin_name = name;
+    }
+
+    /// Set the loudness analysis result (from async task on PlayerResource).
+    pub fn set_analysis_result(
+        &mut self,
+        result: Option<beatoraja_audio::bms_loudness_analyzer::AnalysisResult>,
+    ) {
+        self.analysis_result = result;
     }
 
     /// Set the play mode before calling create().
@@ -721,7 +748,7 @@ impl BMSPlayer {
                 beatoraja_types::stubs::bms_player_input_device::Type::MIDI
             }
         });
-        // TODO(Phase 41): score.skin = Some(get_skin().header.get_name().to_string());
+        score.skin = self.skin_name.clone();
 
         Some(score)
     }
@@ -920,17 +947,42 @@ impl BMSPlayer {
     pub fn build_pattern_modifiers(&mut self, config: &PlayerConfig) -> bool {
         let mut score = true;
 
-        // TODO: → Phase 37 — GhostBattle seed/option override
-        // When GhostBattle is active (via GhostBattlePlay::consume()):
-        //   - Set playinfo.randomoption from ghost's random ordinal
-        //   - If player config random == MIRROR, apply mirror inversion logic
-        // Java lines 119-138
-
-        // TODO: → Phase 37 — ChartOption seed/option override
-        // When resource.getChartOption() is set (and GhostBattle is not active):
-        //   - Load randomoption, randomoptionseed, randomoption2, randomoption2seed,
-        //     doubleoption, rand from chart_option
-        // Java lines 140-148
+        // GhostBattle seed/option override (Java lines 119-138)
+        let mut ghost_battle = crate::ghost_battle_play::consume();
+        if let Some(ref mut gb) = ghost_battle {
+            self.playinfo.randomoption = gb.random;
+            // Mirror inversion: if player config is MIRROR, flip ghost's option
+            const IDENTITY: i32 = 0; // Random::Identity ordinal
+            const MIRROR: i32 = 1; // Random::Mirror ordinal
+            const RANDOM: i32 = 2; // Random::Random ordinal
+            if config.random == MIRROR {
+                match gb.random {
+                    IDENTITY => self.playinfo.randomoption = MIRROR,
+                    MIRROR => self.playinfo.randomoption = IDENTITY,
+                    RANDOM => {
+                        // Reverse the decimal digit representation of the lane pattern
+                        let reversed: i32 = gb
+                            .lanes
+                            .to_string()
+                            .chars()
+                            .rev()
+                            .collect::<String>()
+                            .parse()
+                            .unwrap_or(gb.lanes);
+                        gb.lanes = reversed;
+                    }
+                    _ => {}
+                }
+            }
+        } else if let Some(chart_option) = self.chart_option.take() {
+            // ChartOption override (Java lines 140-148)
+            self.playinfo.randomoption = chart_option.randomoption;
+            self.playinfo.randomoptionseed = chart_option.randomoptionseed;
+            self.playinfo.randomoption2 = chart_option.randomoption2;
+            self.playinfo.randomoption2seed = chart_option.randomoption2seed;
+            self.playinfo.doubleoption = chart_option.doubleoption;
+            self.playinfo.rand = chart_option.rand;
+        }
 
         // -- Phase 1: Pre-option modifiers (scroll, LN, mine, extra) --
         let mut pre_mods: Vec<Box<dyn PatternModifier>> = Vec::new();
@@ -1052,14 +1104,9 @@ impl BMSPlayer {
         if self.playinfo.randomoptionseed != -1 {
             pm1.set_seed(self.playinfo.randomoptionseed);
         } else {
-            // TODO: → Phase 37 — GhostBattle seed override
-            // When GhostBattle is active, use ghost's lane pattern seed from RandomTrainer.getRandomSeedMap()
-            // Java: if (ghostBattle.isPresent()) { pm.setSeed(seedmap.get(pattern)); }
-
-            // TODO: → Phase 37 — RandomTrainer seed override
-            // When RandomTrainer is active and mode == BEAT_7K, use seed from RandomTrainer.getRandomSeedMap()
-            // Java: if (RandomTrainer.isActive() && model.getMode() == Mode.BEAT_7K) { pm.setSeed(seedmap.get(...)); }
-
+            // GhostBattle/RandomTrainer seed override requires RandomTrainer::getRandomSeedMap()
+            // which lives in beatoraja-modmenu (circular dep). The seed map would need to be
+            // passed in as an external dependency when GhostBattle or RandomTrainer is active.
             self.playinfo.randomoptionseed = pm1.get_seed();
         }
         random_mods.push(pm1);
@@ -1280,15 +1327,11 @@ impl BMSPlayer {
             }
 
             if !self.playinfo.rand.is_empty() {
-                // TODO: → Phase 41 — Actual model reload via resource.loadBMSModel(playinfo.rand)
-                // model = resource.loadBMSModel(playinfo.rand);
-                // BMSModelUtils.setStartNoteTime(model, 1000);
-                // BMSPlayerRule.validate(model);
+                // Return rand to the caller for model reload via PlayerResource.
+                // Caller should: resource.load_bms_model(rand), then update self.model
+                // and self.playinfo.rand = model.get_random().
                 log::info!("譜面分岐 : {:?}", self.playinfo.rand);
-                let reload_rand = self.playinfo.rand.clone();
-                // After reload, store model's random back into playinfo
-                // self.playinfo.rand = model.getRandom() (done after actual reload)
-                return Some(reload_rand);
+                return Some(self.playinfo.rand.clone());
             }
 
             // No rand override, store model's random into playinfo
@@ -1622,15 +1665,14 @@ impl MainState for BMSPlayer {
                         }
                     }
 
-                    // Loudness analysis check
-                    // Translated from: Java BMSPlayer.render() lines 615-641
-                    // The actual analysisTask (Future<AnalysisResult>) requires async infrastructure
-                    // that is not yet available. The check is wired, but the task itself remains a stub.
+                    // Loudness analysis check (Java BMSPlayer.render() lines 615-641)
                     if !self.analysis_checked {
                         self.adjusted_volume = -1.0;
                         self.analysis_checked = true;
-                        // TODO: → Phase 45 — Wire analysisTask (BMSLoudnessAnalyzer async result)
-                        // Requires resource.getAnalysisTask() returning a Future<AnalysisResult>
+                        if let Some(result) = self.analysis_result.take() {
+                            let config_key_volume = self.bg_volume;
+                            self.apply_loudness_analysis(&result, config_key_volume);
+                        }
                     }
 
                     self.bga.lock().unwrap().prepare(&() as &dyn std::any::Any);

@@ -17,7 +17,7 @@ pub const ACTION_NONE: &str = "(Do Nothing)";
 /// ObsConfigurationView - OBS WebSocket configuration view
 ///
 /// JavaFX UI widgets are translated to data structs.
-/// All rendering/UI operations use todo!("egui integration").
+/// Rendering will be implemented via egui when the OBS config tab is wired.
 #[allow(dead_code)]
 pub struct ObsConfigurationView {
     // JavaFX @FXML fields → egui widget state

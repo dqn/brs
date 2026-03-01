@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 use md_processor::download_task::{DownloadTask, DownloadTaskStatus};
 use md_processor::http_download_processor::HttpDownloadProcessor;
 
-use crate::download_task_state::DownloadTaskState;
 use crate::imgui_renderer;
+use md_processor::download_task_state::DownloadTaskState;
 
 pub const MAXIMUM_TASK_NAME_LENGTH: usize = 10;
 

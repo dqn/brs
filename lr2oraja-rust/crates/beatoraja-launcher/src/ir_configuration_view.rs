@@ -182,8 +182,9 @@ impl IRConfigurationView {
         //         logger.warn("最新版URLアクセス時例外:{}", e.getMessage());
         //     }
         // });
-        // (On-click action: call open_url_in_browser — deferred to egui integration)
-        let _ = homeurl; // homeurl captured for on-click handler
+        // URL stored in self.irhome; egui render() will show a clickable
+        // hyperlink that calls open_url_in_browser(&self.irhome).
+        let _ = homeurl;
 
         // if(!irmap.containsKey(irname.getValue())) {
         if !self.irmap.contains_key(&current_name) {

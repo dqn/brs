@@ -21,7 +21,7 @@ pub struct SongDataView {
 impl SongDataView {
     pub fn set_visible(&mut self, columns: &[&str]) {
         self.visible_columns = columns.iter().map(|s| s.to_string()).collect();
-        // todo!("egui integration")
+        // In egui, columns are defined inline during render() -- no pre-init needed.
     }
 
     /// Returns the list of visible column names (for testing/inspection)
@@ -33,7 +33,7 @@ impl SongDataView {
 /// FolderEditorView - folder editor with search, song data tables, folder list
 ///
 /// JavaFX UI widgets are translated to data structs.
-/// All rendering/UI operations use todo!("egui integration").
+/// Rendering will be implemented via egui when the folder editor tab is wired.
 #[allow(dead_code)]
 pub struct FolderEditorView {
     // JavaFX @FXML fields → egui widget state

@@ -20,6 +20,34 @@ pub struct SkinSourceData {
     pub cycle: i32,
 }
 
+/// Parsed PM character entry for deferred assembly.
+#[derive(Clone, Debug)]
+pub enum PmCharaEntry {
+    /// DST_PM_CHARA: side, imagefile, color, dstx, dsty, dstw, dsth
+    Chara {
+        side: i32,
+        imagefile: String,
+        color: i32,
+        dst: Rectangle,
+    },
+    /// DST_PM_CHARA_ANIMATION: load_type, imagefile, color, dst values, timer, ops
+    Animation {
+        load_type: i32,
+        imagefile: String,
+        color: i32,
+        dst: Rectangle,
+        timer: i32,
+    },
+    /// SRC_PM_CHARA_IMAGE: load_type, imagefile, color
+    SrcImage {
+        load_type: i32,
+        imagefile: String,
+        color: i32,
+    },
+    /// DST_PM_CHARA_IMAGE: destination rectangle
+    DstImage { dst: Rectangle },
+}
+
 /// Play skin loader state
 pub struct LR2PlaySkinLoaderState {
     pub csv: LR2SkinCSVLoaderState,
@@ -83,6 +111,9 @@ pub struct LR2PlaySkinLoaderState {
     pub judge_objects: [Option<crate::skin_judge_object::SkinJudgeObject>; 3],
     /// Whether DST_NOWJUDGE detail has been added per player
     pub judge_detail_added: [bool; 3],
+
+    /// Parsed PomyuChara entries for deferred assembly.
+    pub pmchara_entries: Vec<PmCharaEntry>,
 }
 
 impl LR2PlaySkinLoaderState {
@@ -141,6 +172,7 @@ impl LR2PlaySkinLoaderState {
             line_images: vec![None, None, None, None, None, None, None, None],
             judge_objects: [None, None, None],
             judge_detail_added: [false; 3],
+            pmchara_entries: Vec::new(),
         }
     }
 
@@ -641,14 +673,17 @@ impl LR2PlaySkinLoaderState {
                 let _dsty = self.dsth - (values[2] + values[4]) as f32 * self.dsth / self.srch;
                 let _dstw = values[3] as f32 * self.dstw / self.srcw;
                 let _dsth_val = values[4] as f32 * self.dsth / self.srch;
-                // TODO: PomyuCharaLoader.load() requires PlaySkinStub reference.
-                // Character loading deferred until skin assembly phase.
-                log::debug!(
-                    "PM_CHARA parsed: side={}, path={}, color={}",
-                    _side,
-                    _imagefile,
-                    _color
-                );
+                self.pmchara_entries.push(PmCharaEntry::Chara {
+                    side: _side,
+                    imagefile: _imagefile,
+                    color: _color,
+                    dst: Rectangle {
+                        x: _dstx,
+                        y: _dsty,
+                        width: _dstw,
+                        height: _dsth_val,
+                    },
+                });
             }
             "DST_PM_CHARA_ANIMATION" => {
                 // Non-play: not judge-linked
@@ -674,12 +709,22 @@ impl LR2PlaySkinLoaderState {
                     } else {
                         1
                     };
-                    // TODO: PomyuCharaLoader.load() requires PlaySkinStub reference.
-                    log::debug!(
-                        "PM_CHARA_ANIMATION parsed: type={}, path={}",
-                        _load_type,
-                        _imagefile
-                    );
+                    let _dstx = values[1] as f32 * self.dstw / self.srcw;
+                    let _dsty = self.dsth - (values[2] + values[4]) as f32 * self.dsth / self.srch;
+                    let _dstw = values[3] as f32 * self.dstw / self.srcw;
+                    let _dsth_val = values[4] as f32 * self.dsth / self.srch;
+                    self.pmchara_entries.push(PmCharaEntry::Animation {
+                        load_type: _load_type,
+                        imagefile: _imagefile,
+                        color: _color,
+                        dst: Rectangle {
+                            x: _dstx,
+                            y: _dsty,
+                            width: _dstw,
+                            height: _dsth_val,
+                        },
+                        timer: values[7],
+                    });
                 }
             }
             "SRC_PM_CHARA_IMAGE" => {
@@ -698,12 +743,11 @@ impl LR2PlaySkinLoaderState {
                     } else {
                         1
                     };
-                    // TODO: PomyuCharaLoader.load() requires PlaySkinStub reference.
-                    log::debug!(
-                        "SRC_PM_CHARA_IMAGE parsed: type={}, path={}",
-                        _load_type,
-                        _imagefile
-                    );
+                    self.pmchara_entries.push(PmCharaEntry::SrcImage {
+                        load_type: _load_type,
+                        imagefile: _imagefile,
+                        color: _color,
+                    });
                 }
             }
             "DST_PM_CHARA_IMAGE" => {
@@ -717,15 +761,18 @@ impl LR2PlaySkinLoaderState {
                     values[4] += values[6];
                     values[6] = -values[6];
                 }
-                // TODO: Apply destination to PM character SkinImage from SRC_PM_CHARA_IMAGE.
-                // Deferred until PomyuCharaLoader integration.
-                log::debug!(
-                    "DST_PM_CHARA_IMAGE parsed: x={}, y={}, w={}, h={}",
-                    values[3],
-                    values[4],
-                    values[5],
-                    values[6]
-                );
+                let dstx = values[3] as f32 * self.dstw / self.srcw;
+                let dsty = self.dsth - (values[4] + values[6]) as f32 * self.dsth / self.srch;
+                let dstw = values[5] as f32 * self.dstw / self.srcw;
+                let dsth_val = values[6] as f32 * self.dsth / self.srch;
+                self.pmchara_entries.push(PmCharaEntry::DstImage {
+                    dst: Rectangle {
+                        x: dstx,
+                        y: dsty,
+                        width: dstw,
+                        height: dsth_val,
+                    },
+                });
             }
             _ => {
                 // Delegate to CSV loader

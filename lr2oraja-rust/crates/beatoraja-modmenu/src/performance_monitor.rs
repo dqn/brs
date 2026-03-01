@@ -16,6 +16,7 @@ static WATCH_DATA: Mutex<Vec<(String, WatchStats)>> = Mutex::new(Vec::new());
 static LAST_STAT_UPDATE: Mutex<Option<Instant>> = Mutex::new(None);
 
 pub static FILTER_SHORT_THRESHOLD: Mutex<f32> = Mutex::new(1.0);
+static SORT_BY_DURATION: Mutex<bool> = Mutex::new(false);
 
 pub struct PerformanceMonitor;
 
@@ -70,9 +71,19 @@ impl PerformanceMonitor {
                             ui.add(egui::DragValue::new(&mut t).speed(0.1));
                             *FILTER_SHORT_THRESHOLD.lock().unwrap() = t;
                         });
+                        ui.horizontal(|ui| {
+                            let mut sort = *SORT_BY_DURATION.lock().unwrap();
+                            ui.checkbox(&mut sort, "Sort by duration");
+                            *SORT_BY_DURATION.lock().unwrap() = sort;
+                        });
                         // Render root events
                         if let Some(roots) = tree.get(&-1) {
-                            for event in roots {
+                            let sort_by_duration = *SORT_BY_DURATION.lock().unwrap();
+                            let mut events: Vec<_> = roots.iter().collect();
+                            if sort_by_duration {
+                                events.sort_unstable_by(|a, b| b.duration.cmp(&a.duration));
+                            }
+                            for event in &events {
                                 ui.label(format!(
                                     "{}: {:.2}ms",
                                     event.name,
@@ -189,9 +200,13 @@ fn render_event_tree(group_id: i32, threshold: f32) {
             return;
         }
 
-        // TODO: toggle for sorting results by duration instead of chronologically
         if let Some(group) = tree.get(&group_id) {
-            for event in group {
+            let sort_by_duration = *SORT_BY_DURATION.lock().unwrap();
+            let mut events: Vec<_> = group.iter().collect();
+            if sort_by_duration {
+                events.sort_unstable_by(|a, b| b.duration.cmp(&a.duration));
+            }
+            for event in &events {
                 let duration_ms = event.duration as f64 / 1_000_000.0;
                 if (duration_ms as f32) < threshold {
                     continue;

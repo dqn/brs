@@ -425,8 +425,33 @@ impl BarRenderer {
         }
 
         // download progress bars
-        // In Java: var downloadTasks = DownloadTaskState.runningDownloadTasks;
-        // TODO: download progress bar drawing deferred — requires DownloadTaskState integration
+        let download_tasks =
+            md_processor::download_task_state::DownloadTaskState::get_running_download_tasks();
+        if !download_tasks.is_empty() {
+            for i in 0..self.barlength {
+                let ba = &self.bararea[i];
+                if ba.value == -1 {
+                    continue;
+                }
+                if let Some(idx) = ba.sd {
+                    let sd = &ctx.currentsongs[idx];
+                    if let Some(song_bar) = sd.as_song_bar() {
+                        let song_md5 = song_bar.get_song_data().get_md5();
+                        for task_arc in download_tasks.values() {
+                            let task = task_arc.lock().unwrap();
+                            if task.get_hash() != song_md5 {
+                                continue;
+                            }
+                            if let Some(graph) = baro.get_graph()
+                                && graph.draw
+                            {
+                                graph.draw_song_bar_download(sprite, song_bar, &task, ba.x, ba.y);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // draw bar text
         for i in 0..self.barlength {

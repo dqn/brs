@@ -808,6 +808,7 @@ dependencies = [
  "beatoraja-audio",
  "beatoraja-core",
  "beatoraja-input",
+ "beatoraja-ir",
  "beatoraja-pattern",
  "beatoraja-render",
  "beatoraja-song",
