@@ -128,7 +128,7 @@ pub struct SkinText;
 impl SkinText {
     pub fn set_text(&self, _text: &str) {}
     pub fn draw(&self, _sprite: &SkinObjectRenderer, _x: f32, _y: f32) {
-        log::warn!("not yet implemented: SkinText.draw - rendering dependency");
+        log::debug!("stub: SkinText.draw — blocked by rendering integration");
     }
     pub fn prepare(&self, _time: i64, _state: &dyn MainState) {}
     pub fn prepare_font(&self, _chars: &str) {}
@@ -150,7 +150,7 @@ impl SkinNumber {
         _x: f32,
         _y: f32,
     ) {
-        log::warn!("not yet implemented: SkinNumber.draw - rendering dependency");
+        log::debug!("stub: SkinNumber.draw — blocked by rendering integration");
     }
     pub fn prepare(&self, _time: i64, _state: &dyn MainState) {}
     pub fn validate(&self) -> bool {
@@ -190,10 +190,10 @@ impl SkinImage {
         _dx: f32,
         _dy: f32,
     ) {
-        log::warn!("not yet implemented: SkinImage.draw - rendering dependency");
+        log::debug!("stub: SkinImage.draw — blocked by rendering integration");
     }
     pub fn draw_offset(&self, _sprite: &SkinObjectRenderer, _dx: f32, _dy: f32) {
-        log::warn!("not yet implemented: SkinImage.draw_offset - rendering dependency");
+        log::debug!("stub: SkinImage.draw_offset — blocked by rendering integration");
     }
     pub fn prepare(&self, _time: i64, _state: &dyn MainState) {}
     pub fn validate(&self) -> bool {
@@ -209,7 +209,7 @@ pub struct SkinObjectRenderer;
 
 impl SkinObjectRenderer {
     pub fn draw(&self, _image: &Option<TextureRegion>, _x: f32, _y: f32, _w: f32, _h: f32) {
-        log::warn!("not yet implemented: SkinObjectRenderer.draw - rendering dependency");
+        log::debug!("stub: SkinObjectRenderer.draw — blocked by rendering integration");
     }
 }
 

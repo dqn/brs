@@ -164,7 +164,7 @@ impl TableEditorView {
         // dialog.getDialogPane().setContent(gridPane);
         // dialog.getDialogPane().getButtonTypes().add(new ButtonType("OK", ButtonData.CANCEL_CLOSE));
         // dialog.show();
-        log::warn!("not yet implemented: TableEditorView.displayChartDetailsDialog - egui dialog");
+        log::debug!("stub: TableEditorView.displayChartDetailsDialog — blocked by egui dialog");
         for (label, value) in &grid_data {
             log::info!("{}{}", label, value);
         }

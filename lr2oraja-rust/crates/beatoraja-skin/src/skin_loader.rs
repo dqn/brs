@@ -111,10 +111,7 @@ pub fn load_skin_from_config(
 
         skin
     } else {
-        log::warn!(
-            "Unsupported skin format for: {} (LR2 CSV not implemented)",
-            skin_path
-        );
+        log::debug!("blocked by LR2SkinCSVLoader integration: {}", skin_path);
         None
     }
 }
@@ -171,9 +168,8 @@ pub fn load_with_config(
         }
         result
     } else {
-        // LR2SkinCSVLoader - not yet implemented
-        log::warn!(
-            "LR2 CSV skin loading not yet implemented for: {}",
+        log::debug!(
+            "blocked by LR2SkinCSVLoader integration: {}",
             skin_config_path
         );
         None

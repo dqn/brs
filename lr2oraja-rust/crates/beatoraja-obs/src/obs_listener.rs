@@ -60,20 +60,57 @@ impl ObsListener {
         }
         self.trigger_state_change_by_type(MainStateType::MusicSelect);
         let client_clone = Arc::clone(client);
+
+        // Capture config values for PLAY state before entering async block,
+        // since self (ObsListener) is not Send.
+        let play_scene = self.config.get_obs_scene("PLAY").cloned();
+        let play_action = self.config.get_obs_action("PLAY").cloned();
+        let stop_wait = self.config.obs_ws_rec_stop_wait;
+        let scheduled_stop_task = Arc::clone(&self.scheduled_stop_task);
+
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(1000)).await;
-            // Trigger PLAY state change after 1 second
-            // NOTE: We cannot call self.trigger_state_change_by_type here since self is not Send.
-            // In the Java code, this calls triggerStateChange(MainStateType.PLAY).
-            // For the Rust translation, we inline the essential logic.
+            // Trigger PLAY state change after 1 second.
+            // Inlined from trigger_state_change since self is not available in async context.
             if !client_clone.is_connected() {
                 return;
             }
-            // This is a simplified version — the full version would need config access
-            // to look up scene/action for PLAY state.
-            log::warn!(
-                "not yet implemented: delayed triggerStateChange(PLAY) needs config access in async context"
-            );
+
+            // Cancel any scheduled stop and execute immediately if pending
+            {
+                let mut guard = scheduled_stop_task.lock().unwrap();
+                if let Some(task) = guard.take() {
+                    task.abort();
+                    client_clone.request_stop_record();
+                }
+            }
+
+            // Set scene if configured
+            if let Some(ref scene) = play_scene
+                && scene != SCENE_NONE
+            {
+                client_clone.set_scene(scene);
+            }
+
+            // Execute action if configured
+            if let Some(ref action) = play_action
+                && action != ACTION_NONE
+            {
+                if action == "StopRecord" {
+                    let client_for_stop = Arc::clone(&client_clone);
+                    let scheduled_stop_task_clone = Arc::clone(&scheduled_stop_task);
+                    let handle = tokio::spawn(async move {
+                        tokio::time::sleep(Duration::from_millis(stop_wait as u64)).await;
+                        client_for_stop.request_stop_record();
+                        let mut guard = scheduled_stop_task_clone.lock().unwrap();
+                        *guard = None;
+                    });
+                    let mut guard = scheduled_stop_task.lock().unwrap();
+                    *guard = Some(handle);
+                } else {
+                    client_clone.send_request(action);
+                }
+            }
         });
     }
 

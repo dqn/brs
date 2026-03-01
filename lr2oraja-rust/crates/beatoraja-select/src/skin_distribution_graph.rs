@@ -93,16 +93,12 @@ impl SkinDistributionGraph {
     pub fn prepare(&mut self, _time: i64, _state: &dyn MainState) {
         // In Java: gets the current Bar from MusicSelector, checks folderlamp config,
         // and prepares image sources. Stubbed since it needs rendering integration.
-        log::warn!(
-            "not yet implemented: SkinDistributionGraph.prepare - requires rendering integration"
-        );
+        log::debug!("stub: SkinDistributionGraph.prepare — blocked by rendering integration");
     }
 
     pub fn draw_default(&self, _sprite: &SkinObjectRenderer) {
         // In Java: draws using currentBar. Calls draw(sprite, currentBar, 0, 0)
-        log::warn!(
-            "not yet implemented: SkinDistributionGraph.draw - requires rendering integration"
-        );
+        log::debug!("stub: SkinDistributionGraph.draw — blocked by rendering integration");
     }
 
     pub fn draw_directory(

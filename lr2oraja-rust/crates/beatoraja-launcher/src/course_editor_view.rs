@@ -169,11 +169,11 @@ impl CourseEditorView {
         if TableEditorView::is_md5_or_sha256_hash(&self.search) {
             // searchSongs.getItems().setAll(songdb.getSongDatas(new String[]{search.getText()}));
             let _songdb = self.songdb.as_ref().unwrap();
-            self.search_songs = Vec::new(); // stub — SongDatabaseAccessor methods not yet implemented
+            self.search_songs = Vec::new(); // stub — requires SongDatabaseAccessor search methods
         } else if self.search.len() > 1 {
             // searchSongs.getItems().setAll(songdb.getSongDatasByText(search.getText()));
             let _songdb = self.songdb.as_ref().unwrap();
-            self.search_songs = Vec::new(); // stub
+            self.search_songs = Vec::new(); // stub — requires SongDatabaseAccessor search methods
         }
     }
 

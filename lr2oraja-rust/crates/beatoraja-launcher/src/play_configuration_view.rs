@@ -589,7 +589,9 @@ impl PlayConfigurationView {
     /// Show what's new popup
     /// Translates: private void whatsNewPopup()
     pub fn whats_new_popup(&self) {
-        log::warn!("not yet implemented: PlayConfigurationView.whats_new_popup - egui popup");
+        log::debug!(
+            "stub: PlayConfigurationView.whats_new_popup — blocked by egui popup implementation"
+        );
     }
 
     /// Check for new version
@@ -1244,8 +1246,8 @@ impl PlayConfigurationView {
         // These use different stub types across crates (beatoraja-core vs beatoraja-external).
         // Stubbed pending rusqlite integration and type unification.
         if let (Some(_config), Some(_player_selected)) = (&self.config, &self.players_selected) {
-            log::warn!(
-                "not yet implemented: PlayConfigurationView.import_score_data_from_lr2 - LR2 score import via rusqlite"
+            log::debug!(
+                "stub: PlayConfigurationView.import_score_data_from_lr2 — blocked by LR2 score DB import"
             );
         }
     }
@@ -1329,7 +1331,7 @@ impl PlayConfigurationView {
     /// Render the UI
     /// In egui, this replaces the JavaFX FXML layout
     pub fn render(&mut self) {
-        log::warn!("not yet implemented: PlayConfigurationView.render - egui UI rendering");
+        log::debug!("stub: PlayConfigurationView.render — blocked by egui UI rendering");
     }
 }
 

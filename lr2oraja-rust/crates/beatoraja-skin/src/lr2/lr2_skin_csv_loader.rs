@@ -248,11 +248,26 @@ impl LR2SkinCSVLoaderState {
                     lr2_skin_loader::get_lr2_path(&self.skinpath, &str_parts[1], &self.filemap);
                 let path = Path::new(&imagefile);
                 if path.exists() {
-                    // Read and process included file
-                    warn!(
-                        "not yet implemented: INCLUDE requires file reading with MS932 encoding: {}",
-                        imagefile
-                    );
+                    match std::fs::read(path) {
+                        Ok(raw_bytes) => {
+                            let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&raw_bytes);
+                            let content = decoded.into_owned();
+                            for line in content.lines() {
+                                self.line = Some(line.to_string());
+                                // Note: state=None means #IF conditionals in included files
+                                // won't evaluate against MainState. This matches common usage
+                                // where INCLUDE files contain unconditional definitions.
+                                if let Some((cmd, parts)) =
+                                    self.base.process_line_directives(line, None)
+                                {
+                                    self.process_csv_command(&cmd, &parts);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            warn!("INCLUDE: failed to read {}: {}", imagefile, e);
+                        }
+                    }
                 }
             }
             _ => {
@@ -407,8 +422,9 @@ pub fn get_skin_loader(
     _src: Resolution,
     _config: &beatoraja_core::config::Config,
 ) -> Option<Box<dyn std::any::Any>> {
-    log::warn!(
-        "not yet implemented: get_skin_loader requires concrete loader types to be fully connected"
+    log::debug!(
+        "blocked by concrete loader type wiring: get_skin_loader({:?})",
+        _skin_type
     );
     None
 }

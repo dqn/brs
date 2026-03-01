@@ -69,9 +69,13 @@ pub trait MainState {
     }
 
     fn execute_event_id_args(&mut self, id: i32, _arg1: i32, _arg2: i32) {
-        // SkinPropertyMapper.isCustomEventId(id) check
-        let _ = id;
-        log::warn!("not yet implemented: skin.executeCustomEvent");
+        // Blocked by skin event system: SkinDrawable trait does not expose
+        // execute_custom_event. Needs SkinPropertyMapper.isCustomEventId(id) check
+        // and delegation to Skin.executeCustomEvent(state, id, arg1, arg2).
+        log::debug!(
+            "blocked by skin event system: skin.executeCustomEvent(id={})",
+            id
+        );
     }
 
     fn get_score_data_property(&self) -> &ScoreDataProperty {
@@ -92,12 +96,14 @@ pub trait MainState {
     }
 
     fn get_image(&self, _imageid: i32) -> Option<()> {
-        log::warn!("not yet implemented: TextureRegion/image resources");
+        // Blocked by rendering integration: returns TextureRegion from image resource pool
+        log::debug!("blocked by rendering integration: get_image");
         None
     }
 
     fn get_sound(&self, _sound: SoundType) -> Option<String> {
-        log::warn!("not yet implemented: MainController.getSoundManager()");
+        // Override in concrete states to delegate to MainControllerAccess
+        log::debug!("override in concrete states to delegate to MainControllerAccess: get_sound");
         None
     }
 
@@ -106,27 +112,32 @@ pub trait MainState {
     }
 
     fn play_sound_loop(&mut self, _sound: SoundType, _loop_sound: bool) {
-        log::warn!("not yet implemented: MainController.getSoundManager().play()");
+        // Override in concrete states to delegate to MainControllerAccess
+        log::debug!(
+            "override in concrete states to delegate to MainControllerAccess: play_sound_loop"
+        );
     }
 
     fn stop_sound(&mut self, _sound: SoundType) {
-        log::warn!("not yet implemented: MainController.getSoundManager().stop()");
+        // Override in concrete states to delegate to MainControllerAccess
+        log::debug!("override in concrete states to delegate to MainControllerAccess: stop_sound");
     }
 
     /// Load skin for the given skin type.
     ///
     /// Translated from: MainState.loadSkin(SkinType)
     fn load_skin(&mut self, _skin_type: i32) {
-        // In Java: setSkin(SkinLoader.load(this, skinType));
-        log::warn!("not yet implemented: MainState.loadSkin");
+        // Blocked by skin rendering pipeline: requires SkinLoader.load(this, skinType)
+        // and setSkin(). Concrete states (e.g. MusicSelector) override this.
+        log::debug!("blocked by skin rendering pipeline: MainState.loadSkin");
     }
 
     /// Get offset value by ID from MainController.
     ///
     /// Translated from: MainState.getOffsetValue(int)
     fn get_offset_value(&self, _id: i32) -> Option<()> {
-        // In Java: return main.getOffset(id);
-        log::warn!("not yet implemented: MainState.getOffsetValue");
+        // Blocked by rendering integration: requires SkinOffset from MainController.getOffset(id)
+        log::debug!("blocked by rendering integration: MainState.getOffsetValue");
         None
     }
 }

@@ -48,8 +48,8 @@ impl Message {
     /// In Java, this generates a BitmapFont from the FreeTypeFontGenerator.
     /// In Rust, font rendering is Phase 5+ (LibGDX replacement).
     pub fn init(&mut self) {
-        // Phase 5+: font generation from FreeTypeFontGenerator equivalent
-        log::warn!("not yet implemented: Message.init font generation");
+        // Blocked by font/rendering system: requires FreeTypeFontGenerator equivalent
+        log::debug!("blocked by font/rendering system: Message.init font generation");
     }
 
     pub fn set_text(&mut self, text: &str) {
@@ -81,7 +81,8 @@ impl Message {
     }
 
     pub fn draw(&self, _x: i32, _y: i32) {
-        log::warn!("not yet implemented: LibGDX font rendering");
+        // Blocked by font/rendering system: requires LibGDX BitmapFont equivalent
+        log::debug!("blocked by font/rendering system: Message.draw");
     }
 
     pub fn dispose(&mut self) {

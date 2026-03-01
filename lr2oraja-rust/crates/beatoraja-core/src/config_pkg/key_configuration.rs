@@ -183,15 +183,13 @@ impl KeyConfiguration {
     }
 
     pub fn create(&mut self) {
-        // TODO: loadSkin, font generation, input processor setup
-        // Requires Phase 5+ types (SkinType, SkinHeader, FreeTypeFontGenerator, BMSPlayerInputProcessor)
-        log::warn!("not yet implemented: KeyConfiguration::create requires Phase 5+ UI types");
+        // Blocked by egui key configuration UI: requires loadSkin, font generation, input processor setup
+        log::debug!("blocked by egui key configuration UI: KeyConfiguration::create");
     }
 
     pub fn render(&mut self) {
-        // TODO: Full rendering with SpriteBatch, ShapeDrawer
-        // Requires Phase 5+ graphics types
-        log::warn!("not yet implemented: KeyConfiguration::render requires Phase 5+ UI types");
+        // Blocked by egui key configuration UI: requires SpriteBatch, ShapeDrawer rendering
+        log::debug!("blocked by egui key configuration UI: KeyConfiguration::render");
     }
 
     pub fn set_key_assign_mode(&mut self, index: usize) {

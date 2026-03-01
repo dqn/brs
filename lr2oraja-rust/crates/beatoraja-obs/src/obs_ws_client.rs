@@ -110,6 +110,12 @@ struct ObsWsClientInner {
     output_path: String,
     last_output_path: String,
     current_reconnect_delay: i32,
+    /// Stored for reconnection — needed by schedule_reconnect which only has access to inner.
+    server_uri: String,
+    /// Stored for reconnection — needed by schedule_reconnect which only has access to inner.
+    password: String,
+    /// Stored for reconnection — shutdown_notify is needed to pass to do_connect.
+    shutdown_notify: Arc<Notify>,
 
     on_close_handler: Option<Box<dyn Fn() + Send + Sync>>,
     on_error_handler: Option<Box<dyn Fn(String) + Send + Sync>>,
@@ -139,6 +145,7 @@ impl ObsWsClient {
         let server_uri = format!("ws://{}:{}", config.obs_ws_host, config.obs_ws_port);
         let password = config.obs_ws_pass.clone();
         let recording_mode = ObsRecordingMode::from_value(config.obs_ws_rec_mode)?;
+        let shutdown_notify = Arc::new(Notify::new());
 
         let inner = Arc::new(Mutex::new(ObsWsClientInner {
             ws_sink: None,
@@ -154,6 +161,9 @@ impl ObsWsClient {
             output_path: String::new(),
             last_output_path: String::new(),
             current_reconnect_delay: INITIAL_RECONNECT_DELAY_MS,
+            server_uri: server_uri.clone(),
+            password: password.clone(),
+            shutdown_notify: Arc::clone(&shutdown_notify),
             on_close_handler: None,
             on_error_handler: None,
             on_version_received: None,
@@ -169,7 +179,7 @@ impl ObsWsClient {
             password,
             request_id_counter: AtomicI64::new(0),
             server_uri,
-            shutdown_notify: Arc::new(Notify::new()),
+            shutdown_notify,
             runtime,
         })
     }
@@ -668,9 +678,7 @@ impl ObsWsClient {
                 guard.ws_sink = None;
             }
 
-            // NOTE: Reconnection requires server_uri and password, which are not stored in inner.
-            // This is a simplified stub — full reconnection logic would need these values
-            // to call do_connect again. For now, we update the backoff delay.
+            // Update backoff delay for next attempt
             {
                 let mut guard = inner_clone.lock().unwrap();
                 let new_delay =
@@ -681,10 +689,12 @@ impl ObsWsClient {
                     guard.is_reconnecting = false;
                 }
             }
-            // In a full implementation, we would call do_connect here with the server_uri and password.
-            // This requires passing those values through, or storing them in the inner struct.
-            log::warn!(
-                "not yet implemented: OBS WebSocket full reconnection requires server_uri and password access"
+            // Blocked: calling do_connect here creates a recursive async type cycle
+            // (do_connect → on_close → schedule_reconnect → do_connect) that requires
+            // converting schedule_reconnect to return Pin<Box<dyn Future>>. server_uri
+            // and password are stored in inner for when this is refactored.
+            log::debug!(
+                "OBS WebSocket reconnection deferred: recursive async cycle requires Pin<Box<dyn Future>> refactor"
             );
         });
     }

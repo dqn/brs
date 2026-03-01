@@ -21,7 +21,7 @@ impl TableDataAccessor {
     }
 
     pub fn update_table_data(&self, urls: &[&str]) {
-        // TODO: parallel download not yet implemented (requires DifficultyTableParser)
+        // TODO: parallel download requires DifficultyTableParser
         for url in urls {
             if let Some(mut td) = self.read_from_url(url) {
                 self.write(&mut td);

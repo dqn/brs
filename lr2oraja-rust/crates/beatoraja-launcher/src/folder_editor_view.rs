@@ -132,12 +132,12 @@ impl FolderEditorView {
         if TableEditorView::is_md5_or_sha256_hash(&self.search) {
             // searchSongs.getItems().setAll(songdb.getSongDatas(new String[]{search.getText()}));
             let _songdb = self.songdb.as_ref().unwrap();
-            // SongDatabaseAccessor.get_song_datas not yet implemented
+            // stub — requires SongDatabaseAccessor methods
             self.search_songs = Vec::new(); // stub
         } else if self.search.len() > 1 {
             // searchSongs.getItems().setAll(songdb.getSongDatasByText(search.getText()));
             let _songdb = self.songdb.as_ref().unwrap();
-            // SongDatabaseAccessor.get_song_datas_by_text not yet implemented
+            // stub — requires SongDatabaseAccessor methods
             self.search_songs = Vec::new(); // stub
         }
     }

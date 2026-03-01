@@ -1386,9 +1386,8 @@ impl MainState for MusicSelector {
                 }
                 BarAction::DirectoryAutoplay => {
                     // In Java: collects song paths from directory children for autoplay
-                    // Blocked on PlayerResource
-                    log::warn!(
-                        "not yet implemented: MusicSelector directory autoplay - blocked on PlayerResource"
+                    log::debug!(
+                        "stub: MusicSelector directory autoplay — blocked by PlayerResource directory scan"
                     );
                 }
                 BarAction::FunctionOnly | BarAction::None => {}

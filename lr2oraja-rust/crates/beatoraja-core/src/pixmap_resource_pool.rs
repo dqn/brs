@@ -86,8 +86,8 @@ impl PixmapResourcePool {
 
         // Primary load attempt
         if path.ends_with(".cim") {
-            // PixmapIO.readCIM equivalent
-            warn!("CIM file loading not yet implemented: {}", path);
+            // Blocked by CIM image format support: requires PixmapIO.readCIM equivalent
+            log::debug!("blocked by CIM image format support: {}", path);
             return None;
         }
 

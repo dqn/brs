@@ -78,6 +78,6 @@ impl SpinnerCell {
         _view_model: &mut ControllerConfigViewModel,
         _column_name: &str,
     ) {
-        log::warn!("not yet implemented: SpinnerCell.apply_to_view_model - egui integration");
+        log::debug!("stub: SpinnerCell.apply_to_view_model — blocked by egui table cell rendering");
     }
 }

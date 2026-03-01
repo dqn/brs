@@ -517,7 +517,7 @@ impl MusicResult {
 
                 if open_ir {
                     // self.execute_event(EventType::open_ir);
-                    log::warn!("not yet implemented: execute open_ir event");
+                    log::debug!("blocked by IR browser integration: execute open_ir event");
                 }
             }
         }

@@ -162,15 +162,13 @@ impl SkinConfiguration {
     }
 
     pub fn create_internal(&mut self) {
-        // TODO: loadSkin(SkinType::SKIN_SELECT), loadAllSkins, changeSkinType
-        // Requires Phase 5+ skin system
-        log::warn!("not yet implemented: SkinConfiguration::create requires Phase 5+ skin system");
+        // Blocked by egui skin configuration UI: requires loadSkin, loadAllSkins, changeSkinType
+        log::debug!("blocked by egui skin configuration UI: SkinConfiguration::create");
     }
 
     pub fn render_internal(&mut self) {
-        // TODO: input handling and rendering
-        // Requires Phase 5+ MainState, ControlKeys
-        log::warn!("not yet implemented: SkinConfiguration::render requires Phase 5+ UI types");
+        // Blocked by egui skin configuration UI: requires input handling and rendering
+        log::debug!("blocked by egui skin configuration UI: SkinConfiguration::render");
     }
 
     pub fn input_internal(&mut self) {

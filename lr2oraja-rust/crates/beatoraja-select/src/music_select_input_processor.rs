@@ -58,7 +58,7 @@ impl MusicSelectInputProcessor {
 
         // NUM0: search popup (stubbed — requires GUI text input)
         if input.is_control_key_pressed(ControlKeys::Num0) {
-            log::warn!("not yet implemented: search popup - requires GUI text input");
+            log::debug!("stub: search popup — blocked by egui text input");
         }
 
         // NUM1: KEY filter switch

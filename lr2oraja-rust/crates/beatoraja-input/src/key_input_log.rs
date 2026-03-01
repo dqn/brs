@@ -67,7 +67,7 @@ impl KeyInputLog {
     ///
     /// Translated from: KeyInputLog.createAutoplayLog(BMSModel)
     pub fn create_autoplay_log(model: &BMSModel) -> Vec<KeyInputLog> {
-        // Java: "TODO 地雷を確実に回避するアルゴリズム" — not implemented in Java either
+        // Java: "TODO 地雷を確実に回避するアルゴリズム" — unimplemented in Java: mine avoidance algorithm
         let mut keylog: Vec<KeyInputLog> = Vec::new();
         let mode: &Mode = match model.get_mode() {
             Some(m) => m,

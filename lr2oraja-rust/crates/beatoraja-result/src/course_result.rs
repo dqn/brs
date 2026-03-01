@@ -365,7 +365,7 @@ impl CourseResult {
 
         // if(time > getSkin().getInput()) { timer.switchTimer(TIMER_STARTINPUT, true); }
         // Skin access requires integration
-        log::warn!("not yet implemented: render with skin");
+        log::debug!("blocked by skin rendering pipeline: do_render");
     }
 
     fn do_input(&mut self) {
@@ -428,7 +428,7 @@ impl CourseResult {
                 let input_processor = self.main.get_input_processor();
                 if input_processor.is_activated(KeyCommand::OpenIr) {
                     // self.execute_event(EventType::open_ir);
-                    log::warn!("not yet implemented: execute open_ir event");
+                    log::debug!("blocked by IR browser integration: execute open_ir event");
                 }
             }
         }

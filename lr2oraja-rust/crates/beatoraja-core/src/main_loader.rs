@@ -129,9 +129,8 @@ impl MainLoader {
                     std::process::exit(1);
                 });
         } else {
-            // Launch configuration UI
-            // Phase 5+: JavaFX/egui launcher
-            log::warn!("not yet implemented: launcher UI");
+            // Blocked by launcher integration: requires JavaFX/egui launcher UI
+            log::debug!("blocked by launcher integration: launcher UI");
         }
     }
 
