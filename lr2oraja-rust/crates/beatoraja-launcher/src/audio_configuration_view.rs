@@ -85,7 +85,7 @@ impl AudioConfigurationView {
         // audioFreqOption.getItems().setAll(FrequencyType.UNPROCESSED, FrequencyType.FREQUENCY);
         // audioFastForward.getItems().setAll(FrequencyType.UNPROCESSED, FrequencyType.FREQUENCY);
 
-        log::debug!("stub: AudioConfigurationView.initialize — blocked by egui combo box setup");
+        // Blocked: requires egui combo box setup for driver type and sample rate selection
     }
 
     // public void update(AudioConfig config)

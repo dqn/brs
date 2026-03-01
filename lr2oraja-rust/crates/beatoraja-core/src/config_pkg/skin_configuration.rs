@@ -162,13 +162,11 @@ impl SkinConfiguration {
     }
 
     pub fn create_internal(&mut self) {
-        // Blocked by egui skin configuration UI: requires loadSkin, loadAllSkins, changeSkinType
-        log::debug!("blocked by egui skin configuration UI: SkinConfiguration::create");
+        // Blocked: requires egui skin configuration UI (loadSkin, loadAllSkins, changeSkinType)
     }
 
     pub fn render_internal(&mut self) {
-        // Blocked by egui skin configuration UI: requires input handling and rendering
-        log::debug!("blocked by egui skin configuration UI: SkinConfiguration::render");
+        // Blocked: requires egui skin configuration UI (input handling and rendering)
     }
 
     pub fn input_internal(&mut self) {

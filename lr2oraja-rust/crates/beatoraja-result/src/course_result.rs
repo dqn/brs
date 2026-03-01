@@ -365,7 +365,7 @@ impl CourseResult {
 
         // if(time > getSkin().getInput()) { timer.switchTimer(TIMER_STARTINPUT, true); }
         // Skin access requires integration
-        log::debug!("blocked by skin rendering pipeline: do_render");
+        // Blocked: requires wgpu rendering pipeline + skin draw integration
     }
 
     fn do_input(&mut self) {

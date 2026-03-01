@@ -422,9 +422,7 @@ pub fn get_skin_loader(
     _src: Resolution,
     _config: &beatoraja_core::config::Config,
 ) -> Option<Box<dyn std::any::Any>> {
-    log::debug!(
-        "blocked by concrete loader type wiring: get_skin_loader({:?})",
-        _skin_type
-    );
+    // Blocked: concrete loaders exist (LR2SelectSkinLoader, LR2PlaySkinLoader, etc.)
+    // but need a unified SkinData output converter.
     None
 }

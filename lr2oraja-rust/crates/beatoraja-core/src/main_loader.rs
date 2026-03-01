@@ -130,7 +130,7 @@ impl MainLoader {
                 });
         } else {
             // Blocked by launcher integration: requires JavaFX/egui launcher UI
-            log::debug!("blocked by launcher integration: launcher UI");
+            // Blocked: requires egui launcher UI integration
         }
     }
 

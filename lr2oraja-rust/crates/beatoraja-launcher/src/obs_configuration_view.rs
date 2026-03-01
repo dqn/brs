@@ -86,7 +86,7 @@ impl ObsConfigurationView {
             "On Screenshot".to_string(),
             "On Replay".to_string(),
         ];
-        log::debug!("stub: ObsConfigurationView.initialize — blocked by egui combo box setup");
+        // Blocked: requires egui combo box setup for OBS WebSocket recording mode
     }
 
     /// init - called from PlayConfigurationView to set up state rows

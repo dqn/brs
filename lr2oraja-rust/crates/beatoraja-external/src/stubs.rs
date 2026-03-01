@@ -266,9 +266,7 @@ impl IntegerPropertyFactory {
     pub fn get_integer_property(_id: i32) -> Box<dyn IntegerProperty> {
         // beatoraja-skin has IntegerPropertyFactory but uses its own MainState trait;
         // this crate's MainState is a concrete struct — type mismatch (circular dep).
-        log::debug!(
-            "stub: IntegerPropertyFactory.getIntegerProperty — blocked by circular dependency: external uses concrete MainState, skin uses trait MainState"
-        );
+        // Blocked: circular dependency — external uses concrete MainState, skin uses trait MainState
         Box::new(DefaultIntegerProperty)
     }
 }
@@ -288,9 +286,7 @@ impl BooleanPropertyFactory {
     pub fn get_boolean_property(_id: i32) -> Box<dyn BooleanProperty> {
         // beatoraja-skin has BooleanPropertyFactory but uses its own MainState trait;
         // this crate's MainState is a concrete struct — type mismatch (circular dep).
-        log::debug!(
-            "stub: BooleanPropertyFactory.getBooleanProperty — blocked by circular dependency: external uses concrete MainState, skin uses trait MainState"
-        );
+        // Blocked: circular dependency — external uses concrete MainState, skin uses trait MainState
         Box::new(DefaultBooleanProperty)
     }
 }
@@ -310,9 +306,7 @@ impl StringPropertyFactory {
     pub fn get_string_property(_id: i32) -> Box<dyn StringProperty> {
         // beatoraja-skin has StringPropertyFactory but uses its own MainState trait;
         // this crate's MainState is a concrete struct — type mismatch (circular dep).
-        log::debug!(
-            "stub: StringPropertyFactory.getStringProperty — blocked by circular dependency: external uses concrete MainState, skin uses trait MainState"
-        );
+        // Blocked: circular dependency — external uses concrete MainState, skin uses trait MainState
         Box::new(DefaultStringProperty)
     }
 }

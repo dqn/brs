@@ -105,17 +105,13 @@ pub struct MusicSelector;
 
 impl MusicSelector {
     pub fn get_selected_bar(&self) -> &dyn Bar {
-        log::debug!(
-            "stub: MusicSelector::get_selected_bar — blocked by circular dependency: modmenu cannot import select"
-        );
+        // Blocked: circular dependency — modmenu cannot import select
         static DEFAULT_BAR: DefaultBar = DefaultBar;
         &DEFAULT_BAR
     }
 
     pub fn get_reverse_lookup_data(&self) -> Vec<String> {
-        log::debug!(
-            "stub: MusicSelector::get_reverse_lookup_data — blocked by circular dependency: modmenu cannot import select"
-        );
+        // Blocked: circular dependency — modmenu cannot import select
         Vec::new()
     }
 }

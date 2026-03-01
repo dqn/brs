@@ -1331,7 +1331,7 @@ impl PlayConfigurationView {
     /// Render the UI
     /// In egui, this replaces the JavaFX FXML layout
     pub fn render(&mut self) {
-        log::debug!("stub: PlayConfigurationView.render — blocked by egui UI rendering");
+        // Blocked: requires egui UI rendering for the full play configuration layout
     }
 }
 

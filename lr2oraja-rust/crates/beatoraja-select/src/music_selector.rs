@@ -407,8 +407,25 @@ impl MusicSelector {
                 }
             }
             EventType::OpenIr => {
-                // Blocked: IRConnection in beatoraja-result, not accessible here
-                log::debug!("stub: EventType::OpenIr — blocked by crate boundary (IRConnection)");
+                if let Some(songbar) = self.manager.get_selected().and_then(|b| b.as_song_bar()) {
+                    let sd = songbar.get_song_data();
+                    if let Some(ref main) = self.main
+                        && let Some(url) = main.get_ir_song_url(sd)
+                        && let Err(e) = open::that(&url)
+                    {
+                        log::error!("Failed to open IR URL: {}", e);
+                    }
+                } else if let Some(gradebar) =
+                    self.manager.get_selected().and_then(|b| b.as_grade_bar())
+                {
+                    let cd = gradebar.get_course_data();
+                    if let Some(ref main) = self.main
+                        && let Some(url) = main.get_ir_course_url(cd)
+                        && let Err(e) = open::that(&url)
+                    {
+                        log::error!("Failed to open IR URL: {}", e);
+                    }
+                }
             }
             EventType::OpenDownloadSite => {
                 if let Some(songbar) = self.manager.get_selected().and_then(|b| b.as_song_bar()) {

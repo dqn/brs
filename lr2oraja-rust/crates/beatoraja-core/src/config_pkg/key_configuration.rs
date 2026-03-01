@@ -183,13 +183,11 @@ impl KeyConfiguration {
     }
 
     pub fn create(&mut self) {
-        // Blocked by egui key configuration UI: requires loadSkin, font generation, input processor setup
-        log::debug!("blocked by egui key configuration UI: KeyConfiguration::create");
+        // Blocked: requires egui key configuration UI (loadSkin, font, input processor)
     }
 
     pub fn render(&mut self) {
-        // Blocked by egui key configuration UI: requires SpriteBatch, ShapeDrawer rendering
-        log::debug!("blocked by egui key configuration UI: KeyConfiguration::render");
+        // Blocked: requires egui key configuration UI (SpriteBatch, ShapeDrawer rendering)
     }
 
     pub fn set_key_assign_mode(&mut self, index: usize) {

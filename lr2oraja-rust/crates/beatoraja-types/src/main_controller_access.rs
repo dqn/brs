@@ -67,6 +67,18 @@ pub trait MainControllerAccess {
     ) -> Option<ReplayData> {
         None
     }
+
+    /// Get IR song page URL for the given song data.
+    /// Returns None if no IR connection is available.
+    fn get_ir_song_url(&self, _song_data: &crate::song_data::SongData) -> Option<String> {
+        None
+    }
+
+    /// Get IR course page URL for the given course data.
+    /// Returns None if no IR connection is available.
+    fn get_ir_course_url(&self, _course_data: &crate::course_data::CourseData) -> Option<String> {
+        None
+    }
 }
 
 /// Null implementation of MainControllerAccess for stub contexts.

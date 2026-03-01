@@ -111,7 +111,8 @@ pub fn load_skin_from_config(
 
         skin
     } else {
-        log::debug!("blocked by LR2SkinCSVLoader integration: {}", skin_path);
+        // Blocked: LR2 CSV skin loaders exist but produce different output than SkinData.
+        // Wiring requires a converter from LR2 loader output to the common Skin type.
         None
     }
 }
@@ -168,10 +169,8 @@ pub fn load_with_config(
         }
         result
     } else {
-        log::debug!(
-            "blocked by LR2SkinCSVLoader integration: {}",
-            skin_config_path
-        );
+        // Blocked: LR2 CSV skin loaders exist but produce different output than SkinData.
+        // Wiring requires a converter from LR2 loader output to the common Skin type.
         None
     }
 }

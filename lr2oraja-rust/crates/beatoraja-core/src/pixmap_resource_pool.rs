@@ -84,10 +84,17 @@ impl PixmapResourcePool {
             return None;
         }
 
-        // Primary load attempt
+        // CIM is a LibGDX-specific cache format (originalBase__timestamp.cim).
+        // Try to find the original image file instead.
         if path.ends_with(".cim") {
-            // Blocked by CIM image format support: requires PixmapIO.readCIM equivalent
-            log::debug!("blocked by CIM image format support: {}", path);
+            if let Some(base) = path.rsplit_once("__").map(|(base, _)| base) {
+                for ext in &[".png", ".jpg", ".jpeg", ".bmp"] {
+                    let original = format!("{}{}", base, ext);
+                    if Path::new(&original).is_file() {
+                        return Self::load_pixmap_from_file(&original).ok();
+                    }
+                }
+            }
             return None;
         }
 

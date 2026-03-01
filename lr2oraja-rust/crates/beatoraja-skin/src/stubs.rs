@@ -114,20 +114,15 @@ pub trait MainState {
 
     /// Execute a custom event by ID with arguments.
     /// Delegates to skin.executeCustomEvent(this, id, arg1, arg2) in Java.
-    /// Concrete states override to delegate via MainControllerAccess.
-    fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
-        log::debug!(
-            "stub: MainState.execute_event(id={}, arg1={}, arg2={}) — needs SkinDrawable context expansion",
-            id,
-            arg1,
-            arg2
-        );
+    /// Default no-op — requires SkinDrawable context expansion to carry MainControllerAccess.
+    fn execute_event(&mut self, _id: i32, _arg1: i32, _arg2: i32) {
+        // no-op: TimerOnlyMainState adapter does not carry MainController context
     }
 
     /// Change the application state (e.g., to CONFIG, SKINCONFIG).
-    /// Concrete states override to delegate via MainControllerAccess.
+    /// Default no-op — requires SkinDrawable context expansion to carry MainControllerAccess.
     fn change_state(&mut self, _state_type: beatoraja_types::main_state_type::MainStateType) {
-        log::debug!("stub: MainState.change_state — needs SkinDrawable context expansion");
+        // no-op: TimerOnlyMainState adapter does not carry MainController context
     }
 
     /// Select a song with the given play mode.
@@ -176,23 +171,23 @@ pub trait MainState {
 
     /// Set a timer value by ID. Only writable timers (custom timers) are allowed.
     /// Used by Lua `set_timer(id, value)` function.
-    /// Concrete states override to write via TimerManager.
+    /// Default no-op — requires mutable TimerAccess (TimerOnlyMainState has immutable ref).
     fn set_timer_micro(&mut self, _timer_id: i32, _micro_time: i64) {
-        log::debug!("stub: MainState.set_timer_micro — needs mutable TimerAccess");
+        // no-op: TimerOnlyMainState adapter has immutable timer reference
     }
 
     /// Play an audio file at the given path with volume and loop flag.
     /// Used by Lua `audio_play` and `audio_loop` functions.
-    /// Concrete states override to delegate via MainControllerAccess.
+    /// Default no-op — requires SkinDrawable context expansion to carry audio driver.
     fn audio_play(&mut self, _path: &str, _volume: f32, _is_loop: bool) {
-        log::debug!("stub: MainState.audio_play — needs SkinDrawable context expansion");
+        // no-op: TimerOnlyMainState adapter does not carry audio context
     }
 
     /// Stop an audio file at the given path.
     /// Used by Lua `audio_stop` function.
-    /// Concrete states override to delegate via MainControllerAccess.
+    /// Default no-op — requires SkinDrawable context expansion to carry audio driver.
     fn audio_stop(&mut self, _path: &str) {
-        log::debug!("stub: MainState.audio_stop — needs SkinDrawable context expansion");
+        // no-op: TimerOnlyMainState adapter does not carry audio context
     }
 }
 
