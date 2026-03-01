@@ -1,7 +1,12 @@
+use std::collections::HashSet;
+
 use beatoraja_core::main_state::MainState;
 
 use crate::bar::bar::Bar;
+use crate::bar::container_bar::ContainerBar;
 use crate::bar::context_menu_bar::ContextMenuBar;
+use crate::bar::same_folder_bar::SameFolderBar;
+use crate::bar::song_bar::SongBar;
 use crate::music_selector::{MusicSelector, REPLAY};
 use crate::stubs::*;
 
@@ -102,32 +107,82 @@ impl MusicSelectCommand {
                 }
             }
             MusicSelectCommand::DownloadIpfs => {
-                // In Java: checks directory for TableBar, starts IPFS download
-                // Blocked on MainController.getMusicDownloadProcessor()
-                log::warn!(
-                    "stub: DOWNLOAD_IPFS — blocked by MainController.getMusicDownloadProcessor()"
-                );
+                // In Java: checks directory for TableBar with URL, starts IPFS download
+                // BLOCKED: MainControllerAccess doesn't expose MusicDownloadProcessor (IPFS daemon).
+                // The real MusicDownloadProcessor is in md-processor crate but MainController
+                // in beatoraja-core uses a local stub. Needs trait bridge to wire through.
+                log::warn!("stub: DOWNLOAD_IPFS — blocked by MusicDownloadProcessor trait bridge");
             }
             MusicSelectCommand::DownloadHttp => {
-                // In Java: submits HTTP download task for missing song
-                // Blocked on MainController.getHttpDownloadProcessor()
-                log::warn!(
-                    "stub: DOWNLOAD_HTTP — blocked by MainController.getHttpDownloadProcessor()"
-                );
+                if let Some(selected) = selector.manager.get_selected()
+                    && let Some(song_bar) = selected.as_song_bar()
+                {
+                    let song = song_bar.get_song_data();
+                    let md5 = song.get_md5();
+                    if !md5.is_empty() {
+                        log::info!("Missing song md5: {}", md5);
+                        if let Some(downloader) =
+                            selector.main.as_ref().and_then(|m| m.get_http_downloader())
+                        {
+                            downloader.submit_md5_task(md5, song.get_title());
+                        }
+                    } else {
+                        log::info!("Not a valid song bar? Skipped...");
+                    }
+                }
             }
             MusicSelectCommand::DownloadCourseHttp => {
-                // In Java: submits HTTP download tasks for missing course songs
-                // Blocked on MainController.getHttpDownloadProcessor()
-                log::warn!(
-                    "stub: DOWNLOAD_COURSE_HTTP — blocked by MainController.getHttpDownloadProcessor()"
-                );
+                if let Some(selected) = selector.manager.get_selected()
+                    && let Some(grade_bar) = selected.as_grade_bar()
+                    && let Some(downloader) =
+                        selector.main.as_ref().and_then(|m| m.get_http_downloader())
+                {
+                    for song in grade_bar.get_song_datas() {
+                        let md5 = song.get_md5();
+                        if !md5.is_empty() {
+                            log::info!("Missing song md5: {}", md5);
+                            downloader.submit_md5_task(md5, song.get_title());
+                        }
+                    }
+                }
             }
             MusicSelectCommand::ShowSongsOnSameFolder => {
-                // In Java: opens SameFolderBar or ContainerBar for course songs
-                // Blocked on SameFolderBar(selector, ...) constructor needing MusicSelector
-                log::warn!(
-                    "stub: SHOW_SONGS_ON_SAME_FOLDER — blocked by SameFolderBar/ContainerBar integration"
-                );
+                let selected = selector.manager.get_selected().cloned();
+                if let Some(ref current) = selected {
+                    if let Some(song_bar) = current.as_song_bar() {
+                        if song_bar.exists_song() {
+                            // Check not already in a SameFolderBar directory
+                            let already_in_same_folder = selector
+                                .manager
+                                .dir
+                                .last()
+                                .is_some_and(|b| matches!(**b, Bar::SameFolder(_)));
+                            if !already_in_same_folder {
+                                let sd = song_bar.get_song_data();
+                                let same = SameFolderBar::new(
+                                    sd.full_title(),
+                                    sd.get_folder().to_string(),
+                                );
+                                let bar = Bar::SameFolder(Box::new(same));
+                                selector.manager.update_bar(Some(&bar));
+                                selector.play_sound(SoundType::FolderOpen);
+                            }
+                        }
+                    } else if let Some(grade_bar) = current.as_grade_bar() {
+                        // Show course songs in a ContainerBar (deduplicated)
+                        let mut seen = HashSet::new();
+                        let songbars: Vec<Bar> = grade_bar
+                            .get_song_datas()
+                            .iter()
+                            .filter(|sd| seen.insert(sd.get_sha256().to_string()))
+                            .map(|sd| Bar::Song(Box::new(SongBar::new(sd.clone()))))
+                            .collect();
+                        let container = ContainerBar::new(current.get_title(), songbars);
+                        let bar = Bar::Container(Box::new(container));
+                        selector.manager.update_bar(Some(&bar));
+                        selector.play_sound(SoundType::FolderOpen);
+                    }
+                }
             }
             MusicSelectCommand::ShowContextMenu => {
                 // In Java: opens ContextMenuBar for song/table/hash bars
@@ -148,28 +203,27 @@ impl MusicSelectCommand {
                         } else {
                             selector.select_song(BMSPlayerMode::PLAY);
                         }
-                    } else if current.as_table_bar().is_some() {
+                    } else if let Some(table_bar) = current.as_table_bar() {
                         if !already_in_context_menu {
-                            let title = current.get_title();
-                            let menu = ContextMenuBar::new_for_table(title);
+                            let menu = ContextMenuBar::new_for_table(table_bar.clone());
                             let bar = Bar::ContextMenu(Box::new(menu));
                             selector.manager.update_bar(Some(&bar));
                             selector.play_sound(SoundType::FolderOpen);
                         } else if selector.manager.update_bar(Some(current)) {
                             selector.play_sound(SoundType::FolderOpen);
                         }
-                    } else if current.as_hash_bar().is_some()
-                        && previous
-                            .as_ref()
-                            .is_some_and(|p| p.as_table_bar().is_some())
+                    } else if let Some(hash_bar) = current.as_hash_bar()
+                        && let Some(prev_table) = previous.as_ref().and_then(|p| p.as_table_bar())
                     {
                         let enable_http = selector
                             .main
                             .as_ref()
                             .is_some_and(|m| m.get_config().enable_http);
                         if !already_in_context_menu && enable_http {
-                            let title = current.get_title();
-                            let menu = ContextMenuBar::new_for_table_folder(title);
+                            let menu = ContextMenuBar::new_for_table_folder(
+                                prev_table.clone(),
+                                hash_bar.clone(),
+                            );
                             let bar = Bar::ContextMenu(Box::new(menu));
                             selector.manager.update_bar(Some(&bar));
                             selector.play_sound(SoundType::FolderOpen);

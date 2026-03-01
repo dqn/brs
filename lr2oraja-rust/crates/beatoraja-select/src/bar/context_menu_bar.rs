@@ -8,6 +8,8 @@ use super::function_bar::{
     STYLE_SPECIAL, STYLE_TABLE, STYLE_TEXT_MISSING, STYLE_TEXT_NEW, STYLE_TEXT_PLAIN,
 };
 use super::hash_bar::HashBar;
+use super::leader_board_bar::LeaderBoardBar;
+use super::same_folder_bar::SameFolderBar;
 use super::song_bar::SongBar;
 use super::table_bar::TableBar;
 use beatoraja_core::main_state::MainState;
@@ -22,8 +24,8 @@ use crate::stubs::*;
 pub struct ContextMenuBar {
     pub directory: DirectoryBarData,
     pub song: Option<SongData>,
-    pub table: Option<usize>,  // index reference to table
-    pub folder: Option<usize>, // index reference to folder
+    pub table: Option<TableBar>,
+    pub folder: Option<HashBar>,
     pub show_meta: bool,
     pub title: String,
 }
@@ -43,27 +45,29 @@ impl ContextMenuBar {
         bar
     }
 
-    pub fn new_for_table(table_title: String) -> Self {
+    pub fn new_for_table(table: TableBar) -> Self {
+        let title = table.get_title();
         let mut bar = Self {
             directory: DirectoryBarData::new(true),
             song: None,
-            table: Some(0),
+            table: Some(table),
             folder: None,
             show_meta: false,
-            title: table_title,
+            title,
         };
         bar.directory.set_sortable(false);
         bar
     }
 
-    pub fn new_for_table_folder(folder_title: String) -> Self {
+    pub fn new_for_table_folder(table: TableBar, folder: HashBar) -> Self {
+        let title = folder.get_title();
         let mut bar = Self {
             directory: DirectoryBarData::new(true),
             song: None,
-            table: Some(0),
-            folder: Some(0),
+            table: Some(table),
+            folder: Some(folder),
             show_meta: false,
-            title: folder_title,
+            title,
         };
         bar.directory.set_sortable(false);
         bar
@@ -96,16 +100,13 @@ impl ContextMenuBar {
     /// Returns the parent bar (table).
     /// Corresponds to Java ContextMenuBar.getPrevious()
     pub fn get_previous(&self) -> Option<&TableBar> {
-        // We store table as Option<usize> index, not a direct reference.
-        // BLOCKED: requires TableBar reference (stored as index)
-        log::warn!("stub: ContextMenuBar.getPrevious — blocked by TableBar index-based storage");
-        None
+        self.table.as_ref()
     }
 
-    pub fn get_children(&self, tables: &[TableBar]) -> Vec<Bar> {
+    pub fn get_children(&self, tables: &[TableBar], songdb: &dyn SongDatabaseAccessor) -> Vec<Bar> {
         if let Some(ref song) = self.song {
             if song.get_path().is_some() {
-                return self.song_context(tables);
+                return self.song_context(tables, songdb);
             } else {
                 return self.missing_song_context(tables);
             }
@@ -139,7 +140,7 @@ impl ContextMenuBar {
         options
     }
 
-    fn song_context(&self, tables: &[TableBar]) -> Vec<Bar> {
+    fn song_context(&self, tables: &[TableBar], songdb: &dyn SongDatabaseAccessor) -> Vec<Bar> {
         let mut options = Vec::new();
         let song = match &self.song {
             Some(s) => s,
@@ -166,10 +167,24 @@ impl ContextMenuBar {
         // Leaderboard
         self.add_leaderboard_entries(&mut options);
 
-        // Related
-        let related = FunctionBar::new("Related".to_string(), STYLE_TABLE);
-        // Callback needs SameFolderBar + BarManager — deferred
-        options.push(Bar::Function(Box::new(related)));
+        // Related — navigate to SameFolderBar showing same-folder songs
+        {
+            let song_title = song.full_title();
+            let song_folder = song.get_folder().to_string();
+            let mut related = FunctionBar::new("Related".to_string(), STYLE_TABLE);
+            let title_clone = song_title.clone();
+            let folder_clone = song_folder.clone();
+            related.set_function(Arc::new(move |selector| {
+                let same = SameFolderBar::new(title_clone.clone(), folder_clone.clone());
+                let bar = Bar::SameFolder(Box::new(same));
+                selector.manager.update_bar(Some(&bar));
+                selector.play_sound(SoundType::FolderOpen);
+            }));
+            let folder_songs = songdb.get_song_datas("folder", &song_folder);
+            let lamps = Self::calculate_lamps(&folder_songs, |_| None, None);
+            related.set_lamps(lamps);
+            options.push(Bar::Function(Box::new(related)));
+        }
 
         // Open Song Folder
         let mut open_folder = FunctionBar::new("Open Song Folder".to_string(), STYLE_FOLDER);
@@ -283,7 +298,17 @@ impl ContextMenuBar {
         let title_bar = FunctionBar::new(self.title.clone(), STYLE_TABLE);
         options.push(Bar::Function(Box::new(title_bar)));
 
-        // Open URL — deferred: needs TableData.url (we only have title)
+        // Open URL
+        if let Some(ref table) = self.table
+            && let Some(url) = table.get_url()
+        {
+            let url_owned = url.to_string();
+            let mut open_url = FunctionBar::new("Open URL".to_string(), STYLE_FOLDER);
+            open_url.set_function(Arc::new(move |_selector| {
+                ContextMenuBar::browser_open(&url_owned);
+            }));
+            options.push(Bar::Function(Box::new(open_url)));
+        }
 
         // Copy Table Name
         {
@@ -300,14 +325,48 @@ impl ContextMenuBar {
             options.push(Bar::Function(Box::new(copy_name)));
         }
 
-        // Fill Missing Charts — deferred: needs SongDatabaseAccessor + HttpDownloadProcessor at runtime
-        let fill_missing = FunctionBar::new_with_text_type(
-            "Fill Missing Charts".to_string(),
-            STYLE_SPECIAL,
-            STYLE_TEXT_NEW,
-        );
-        // Callback needs MainController access — deferred
-        options.push(Bar::Function(Box::new(fill_missing)));
+        // Copy URL
+        if let Some(ref table) = self.table
+            && let Some(url) = table.get_url()
+        {
+            let mut copy_url = FunctionBar::new_with_text_type(
+                "Copy URL".to_string(),
+                STYLE_SEARCH,
+                STYLE_TEXT_NEW,
+            );
+            copy_url.set_function(clipboard_copy_callback(
+                url,
+                "Copied table URL to clipboard.",
+            ));
+            options.push(Bar::Function(Box::new(copy_url)));
+        }
+
+        // Fill Missing Charts — flatten all table folders and submit missing songs
+        if let Some(ref table) = self.table {
+            let table_clone = table.clone();
+            let mut fill_missing = FunctionBar::new_with_text_type(
+                "Fill Missing Charts".to_string(),
+                STYLE_SPECIAL,
+                STYLE_TEXT_NEW,
+            );
+            fill_missing.set_function(Arc::new(move |selector| {
+                let folders = table_clone.get_table_data().get_folder();
+                let want: Vec<SongData> = folders
+                    .iter()
+                    .flat_map(|f| f.get_song().iter().cloned())
+                    .collect();
+                if let Some(downloader) =
+                    selector.main.as_ref().and_then(|m| m.get_http_downloader())
+                {
+                    let fill_count =
+                        ContextMenuBar::fill_missing_charts(&want, &*selector.songdb, downloader);
+                    if fill_count == 0 {
+                        log::info!("Nothing to fill");
+                    }
+                }
+            }));
+            options.push(Bar::Function(Box::new(fill_missing)));
+        }
 
         options
     }
@@ -319,14 +378,30 @@ impl ContextMenuBar {
         let folder_bar = FunctionBar::new(self.title.clone(), STYLE_TABLE);
         options.push(Bar::Function(Box::new(folder_bar)));
 
-        // Fill Missing Charts
-        let fill_missing = FunctionBar::new_with_text_type(
-            "Fill Missing Charts".to_string(),
-            STYLE_SPECIAL,
-            STYLE_TEXT_NEW,
-        );
-        // Callback needs MainController access — deferred
-        options.push(Bar::Function(Box::new(fill_missing)));
+        // Fill Missing Charts — submit download tasks for songs in this folder
+        if let Some(ref folder) = self.folder {
+            let elements: Vec<SongData> = folder.get_elements().to_vec();
+            let mut fill_missing = FunctionBar::new_with_text_type(
+                "Fill Missing Charts".to_string(),
+                STYLE_SPECIAL,
+                STYLE_TEXT_NEW,
+            );
+            fill_missing.set_function(Arc::new(move |selector| {
+                if let Some(downloader) =
+                    selector.main.as_ref().and_then(|m| m.get_http_downloader())
+                {
+                    let fill_count = ContextMenuBar::fill_missing_charts(
+                        &elements,
+                        &*selector.songdb,
+                        downloader,
+                    );
+                    if fill_count == 0 {
+                        log::info!("Nothing to fill");
+                    }
+                }
+            }));
+            options.push(Bar::Function(Box::new(fill_missing)));
+        }
 
         options
     }
@@ -334,16 +409,36 @@ impl ContextMenuBar {
     /// Add leaderboard entries to the context menu.
     /// Corresponds to Java ContextMenuBar.addLeaderboardEntries(ArrayList<Bar>)
     fn add_leaderboard_entries(&self, options: &mut Vec<Bar>) {
-        // Leaderboard — needs IRStatus and LeaderBoardBar construction at runtime
-        // Skip IR leaderboard entry if no IR connection (checked at runtime)
-        let leaderboard = FunctionBar::new("Leaderboard".to_string(), STYLE_SPECIAL);
-        // Callback needs MusicSelector for BarManager.updateBar(LeaderBoardBar) — deferred
-        options.push(Bar::Function(Box::new(leaderboard)));
+        let song = match &self.song {
+            Some(s) => s,
+            None => return,
+        };
+
+        // Leaderboard (IR) — in Java, only shown when IR connections exist
+        {
+            let song_clone = song.clone();
+            let mut leaderboard = FunctionBar::new("Leaderboard".to_string(), STYLE_SPECIAL);
+            leaderboard.set_function(Arc::new(move |selector| {
+                let lb = LeaderBoardBar::new(song_clone.clone(), false);
+                let bar = Bar::LeaderBoard(Box::new(lb));
+                selector.manager.update_bar(Some(&bar));
+                selector.play_sound(SoundType::FolderOpen);
+            }));
+            options.push(Bar::Function(Box::new(leaderboard)));
+        }
 
         // LR2IR Leaderboard (always shown)
-        let lr2ir = FunctionBar::new("LR2IR Leaderboard".to_string(), STYLE_SPECIAL);
-        // Callback needs MusicSelector for BarManager.updateBar(LeaderBoardBar) — deferred
-        options.push(Bar::Function(Box::new(lr2ir)));
+        {
+            let song_clone = song.clone();
+            let mut lr2ir = FunctionBar::new("LR2IR Leaderboard".to_string(), STYLE_SPECIAL);
+            lr2ir.set_function(Arc::new(move |selector| {
+                let lb = LeaderBoardBar::new(song_clone.clone(), true);
+                let bar = Bar::LeaderBoard(Box::new(lb));
+                selector.manager.update_bar(Some(&bar));
+                selector.play_sound(SoundType::FolderOpen);
+            }));
+            options.push(Bar::Function(Box::new(lr2ir)));
+        }
     }
 
     /// Add metadata copy entries to the context menu.
