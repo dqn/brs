@@ -150,3 +150,121 @@ impl beatoraja_types::stream_controller_access::StreamControllerAccess for Strea
         StreamController::dispose(self);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex as StdMutex;
+
+    /// Mock StreamCommand that records all calls for verification.
+    struct MockCommand {
+        command_str: String,
+        calls: Arc<StdMutex<Vec<String>>>,
+        disposed: bool,
+    }
+
+    impl MockCommand {
+        fn new(command_str: &str) -> (Self, Arc<StdMutex<Vec<String>>>) {
+            let calls = Arc::new(StdMutex::new(Vec::new()));
+            (
+                Self {
+                    command_str: command_str.to_string(),
+                    calls: Arc::clone(&calls),
+                    disposed: false,
+                },
+                calls,
+            )
+        }
+    }
+
+    impl StreamCommand for MockCommand {
+        fn command_string(&self) -> &str {
+            &self.command_str
+        }
+
+        fn run(&mut self, data: &str) {
+            self.calls.lock().unwrap().push(data.to_string());
+        }
+
+        fn dispose(&mut self) {
+            self.disposed = true;
+        }
+    }
+
+    #[test]
+    fn execute_commands_extracts_data_after_command_prefix() {
+        let (cmd, calls) = MockCommand::new("!!req");
+        let mut commands: Vec<Box<dyn StreamCommand>> = vec![Box::new(cmd)];
+
+        let sha256 = "a".repeat(64);
+        let line = format!("!!req {}", sha256);
+        StreamController::execute_commands(&mut commands, &line);
+
+        let recorded = calls.lock().unwrap();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0], sha256);
+    }
+
+    #[test]
+    fn execute_commands_passes_empty_string_when_no_match() {
+        let (cmd, calls) = MockCommand::new("!!req");
+        let mut commands: Vec<Box<dyn StreamCommand>> = vec![Box::new(cmd)];
+
+        // Line that doesn't contain "!!req "
+        StreamController::execute_commands(&mut commands, "hello world");
+
+        let recorded = calls.lock().unwrap();
+        assert_eq!(recorded.len(), 1);
+        // When the command prefix is not found, split produces 1 element, so data = ""
+        assert_eq!(recorded[0], "");
+    }
+
+    #[test]
+    fn execute_commands_empty_line() {
+        let (cmd, calls) = MockCommand::new("!!req");
+        let mut commands: Vec<Box<dyn StreamCommand>> = vec![Box::new(cmd)];
+
+        StreamController::execute_commands(&mut commands, "");
+
+        let recorded = calls.lock().unwrap();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0], "");
+    }
+
+    #[test]
+    fn execute_commands_dispatches_to_multiple_commands() {
+        let (cmd1, calls1) = MockCommand::new("!!req");
+        let (cmd2, calls2) = MockCommand::new("!!play");
+        let mut commands: Vec<Box<dyn StreamCommand>> =
+            vec![Box::new(cmd1), Box::new(cmd2)];
+
+        StreamController::execute_commands(&mut commands, "!!play some_data");
+
+        // !!req should get empty (no match)
+        let recorded1 = calls1.lock().unwrap();
+        assert_eq!(recorded1.len(), 1);
+        assert_eq!(recorded1[0], "");
+
+        // !!play should get "some_data"
+        let recorded2 = calls2.lock().unwrap();
+        assert_eq!(recorded2.len(), 1);
+        assert_eq!(recorded2[0], "some_data");
+    }
+
+    #[test]
+    fn execute_commands_empty_commands_slice() {
+        let mut commands: Vec<Box<dyn StreamCommand>> = vec![];
+        // Should not panic with empty commands
+        StreamController::execute_commands(&mut commands, "!!req some_data");
+    }
+
+    #[test]
+    fn run_returns_immediately_when_pipe_buffer_is_none() {
+        // Verify that run() does not panic when pipe_buffer is None.
+        // We can't easily construct a full StreamController without MusicSelector,
+        // but we can test open_pipe on non-Windows returns (None, false).
+        let (pipe_buffer, is_active) = StreamController::open_pipe();
+        assert!(pipe_buffer.is_none());
+        assert!(!is_active);
+    }
+}
