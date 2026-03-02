@@ -1238,6 +1238,16 @@ impl JudgeManager {
         let orgmode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
         self.score = ScoreData::default();
         self.score.notes = model.get_total_notes();
+        self.score.judge_algorithm = Some(match self.algorithm {
+            JudgeAlgorithm::Combo => beatoraja_types::judge_algorithm::JudgeAlgorithm::Combo,
+            JudgeAlgorithm::Duration => beatoraja_types::judge_algorithm::JudgeAlgorithm::Duration,
+            JudgeAlgorithm::Lowest => beatoraja_types::judge_algorithm::JudgeAlgorithm::Lowest,
+            JudgeAlgorithm::Score => beatoraja_types::judge_algorithm::JudgeAlgorithm::Timing,
+        });
+        // BMSPlayerRule::get_bms_player_rule always returns the LR2 ruleset in the current
+        // implementation (bms_player_rule_set_lr2). Map to the types-level enum accordingly.
+        let _ = BMSPlayerRule::get_bms_player_rule(&orgmode);
+        self.score.rule = Some(beatoraja_types::bms_player_rule::BMSPlayerRule::LR2);
 
         self.ghost = vec![4; model.get_total_notes() as usize];
         self.lntype = model.get_lntype();

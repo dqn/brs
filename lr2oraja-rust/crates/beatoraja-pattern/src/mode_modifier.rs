@@ -47,6 +47,8 @@ impl PatternModifier for ModeModifier {
         let seven_to_nine_type = self.config.seven_to_nine_type;
 
         let timelines = model.get_all_time_lines_mut();
+        // Pre-compute timeline index → time for LN end note pair lookup
+        let tl_times: Vec<i32> = timelines.iter().map(|tl| tl.get_time()).collect();
         for tl in timelines.iter_mut() {
             if tl.exist_note() || tl.exist_hidden_note() {
                 let mut notes: Vec<Option<Note>> = Vec::with_capacity(lanes);
@@ -87,7 +89,7 @@ impl PatternModifier for ModeModifier {
                     if let Some(ref note) = n {
                         let is_long = note.is_long();
                         let is_end = note.is_end();
-                        let note_time = note.get_time();
+                        let _note_time = note.get_time();
                         if is_long {
                             if is_end && tl.get_time() == end_ln_note_time[i] {
                                 tl.set_note(i as i32, n);
@@ -96,7 +98,10 @@ impl PatternModifier for ModeModifier {
                             } else {
                                 ln[i] = m as i32;
                                 if !is_end {
-                                    end_ln_note_time[i] = note_time;
+                                    // Java: endLnNoteTime[i] = ln2.getPair().getTime()
+                                    // Store the END note's timeline time (not the start note's)
+                                    end_ln_note_time[i] =
+                                        note.get_pair().map(|idx| tl_times[idx]).unwrap_or(-1);
                                 }
                                 last_note_time[i] = tl.get_time();
                                 tl.set_note(i as i32, n);

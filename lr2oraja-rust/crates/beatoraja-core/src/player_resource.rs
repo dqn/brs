@@ -181,11 +181,14 @@ impl PlayerResource {
                 return false;
             }
             self.margin_time = margin_time;
-            // orgmode = model.getMode() — orgmode is still Option<()> stub,
-            // will be wired when orgmode type is changed to Option<Mode>
-            // Java: songdata = new SongData(model, false)
-            let songdata = SongData::new_from_model(model, false);
-            self.songdata = Some(songdata);
+            // Java: if(songdata != null) { songdata.setBMSModel(model); }
+            //       else { songdata = new SongData(model, false); }
+            // Preserves existing preview/difficulty during course play.
+            if let Some(ref mut existing) = self.songdata {
+                existing.set_bms_model(model);
+            } else {
+                self.songdata = Some(SongData::new_from_model(model, false));
+            }
             if let Some(ref mut bmsresource) = self.bmsresource {
                 bmsresource.set_bms_file(
                     self.songdata.as_ref().unwrap().get_bms_model().unwrap(),
