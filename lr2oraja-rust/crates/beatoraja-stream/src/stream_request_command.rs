@@ -20,9 +20,7 @@ pub struct StreamRequestCommand {
 
 impl StreamRequestCommand {
     pub fn new(selector: Arc<Mutex<MusicSelector>>) -> Self {
-        // In Java: maxLength = this.selector.main.getPlayerConfig().getMaxRequestCount();
-        // PlayerConfig stub does not expose get_max_request_count(); using default 30.
-        let max_length = 30;
+        let max_length = selector.lock().unwrap().config.max_request_count;
         let updater = Arc::new(Mutex::new(UpdateBar::new(Arc::clone(&selector))));
         let updater_clone = Arc::clone(&updater);
         let updater_thread = Some(thread::spawn(move || {
@@ -74,8 +72,7 @@ pub struct UpdateBar {
 
 impl UpdateBar {
     pub fn new(selector: Arc<Mutex<MusicSelector>>) -> Self {
-        // In Java: maxLength = this.selector.main.getPlayerConfig().getMaxRequestCount();
-        let max_length = 30;
+        let max_length = selector.lock().unwrap().config.max_request_count;
         let bar = HashBar::new("Stream Request".to_string(), vec![]);
         // In Java: this.bar.setSortable(false)
         // HashBar uses DirectoryBarData which has set_sortable

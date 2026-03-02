@@ -147,7 +147,7 @@ impl Validatable for ReplayData {
                     pos += 8;
                     keylogarray.push(KeyInputLog {
                         time,
-                        keycode: (keycode as i32).unsigned_abs() as i32 - 1,
+                        keycode: (keycode as i32).abs() - 1,
                         pressed: keycode >= 0,
                     });
                 }

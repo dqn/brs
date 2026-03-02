@@ -336,6 +336,12 @@ impl BMSDecoder {
                                     let file_name = line[7..].trim().replace('\\', "/");
                                     if (idx as usize) < self.wm.len() {
                                         self.wm[idx as usize] = self.wavlist.len() as i32;
+                                    } else {
+                                        log::warn!(
+                                            "WAV index {} out of bounds (max {})",
+                                            idx,
+                                            self.wm.len() - 1
+                                        );
                                     }
                                     self.wavlist.push(file_name);
                                 }
@@ -364,6 +370,12 @@ impl BMSDecoder {
                                     let file_name = line[7..].trim().replace('\\', "/");
                                     if (idx as usize) < self.bm.len() {
                                         self.bm[idx as usize] = self.bgalist.len() as i32;
+                                    } else {
+                                        log::warn!(
+                                            "BMP index {} out of bounds (max {})",
+                                            idx,
+                                            self.bm.len() - 1
+                                        );
                                     }
                                     self.bgalist.push(file_name);
                                 }
