@@ -823,6 +823,14 @@ impl PlayerResourceAccess for PlayerResource {
         self.pconfig.gauge = gauge;
     }
 
+    fn set_auto_play_songs(&mut self, paths: Vec<PathBuf>, loop_play: bool) {
+        PlayerResource::set_auto_play_songs(self, paths, loop_play)
+    }
+
+    fn next_song(&mut self) -> bool {
+        PlayerResource::next_song(self)
+    }
+
     fn get_bms_model(&self) -> Option<&bms_model::bms_model::BMSModel> {
         PlayerResource::get_bms_model(self)
     }

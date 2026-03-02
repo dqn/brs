@@ -1186,6 +1186,26 @@ impl MusicSelector {
         }
     }
 
+    /// Start directory autoplay with the given song paths.
+    /// Corresponds to Java MusicSelector handling of DirectoryBar in autoplay mode.
+    fn read_directory_autoplay(&mut self, paths: Vec<PathBuf>) {
+        if paths.is_empty() {
+            return;
+        }
+        if let Some(main) = self.main.as_mut() {
+            let should_transition = if let Some(res) = main.get_player_resource_mut() {
+                res.clear();
+                res.set_auto_play_songs(paths, false);
+                res.next_song()
+            } else {
+                false
+            };
+            if should_transition {
+                main.change_state(MainStateType::Decide);
+            }
+        }
+    }
+
     /// Internal course reading implementation.
     /// Corresponds to Java MusicSelector._readCourse(BMSPlayerMode, GradeBar)
     fn _read_course(&mut self, mode: &BMSPlayerMode, grade_bar: &Bar) -> bool {
@@ -1594,7 +1614,7 @@ impl MainState for MusicSelector {
                 ExecutableChart { song: SongData, bar: Bar },
                 Grade,
                 RandomCourse,
-                DirectoryAutoplay,
+                DirectoryAutoplay { paths: Vec<PathBuf> },
                 FunctionOnly,
                 None,
             }
@@ -1627,7 +1647,45 @@ impl MainState for MusicSelector {
                 } else if current.is_directory_bar()
                     && play_mode.mode == BMSPlayerModeType::Autoplay
                 {
-                    (BarAction::DirectoryAutoplay, is_func)
+                    let songdb = &*self.songdb;
+                    let children: Vec<Bar> = match current {
+                        Bar::Folder(b) => b.get_children(songdb),
+                        Bar::Command(b) => {
+                            let player_name =
+                                self.app_config.playername.as_deref().unwrap_or("default");
+                            let score_path =
+                                format!("{}/{}/score.db", self.app_config.playerpath, player_name);
+                            let scorelog_path = format!(
+                                "{}/{}/scorelog.db",
+                                self.app_config.playerpath, player_name
+                            );
+                            let songinfo_path = self.app_config.get_songinfopath().to_string();
+                            let cmd_ctx = crate::bar::command_bar::CommandBarContext {
+                                score_db_path: &score_path,
+                                scorelog_db_path: &scorelog_path,
+                                info_db_path: Some(&songinfo_path),
+                            };
+                            b.get_children(songdb, &cmd_ctx)
+                        }
+                        Bar::Container(b) => b.get_children().to_vec(),
+                        Bar::Hash(b) => b.get_children(songdb),
+                        Bar::Table(b) => b.get_children().to_vec(),
+                        Bar::SearchWord(b) => b.get_children(songdb),
+                        Bar::SameFolder(b) => b.get_children(songdb),
+                        Bar::ContextMenu(b) => b.get_children(&self.manager.tables, songdb),
+                        Bar::LeaderBoard(b) => b.get_children(),
+                        _ => Vec::new(),
+                    };
+                    let paths: Vec<PathBuf> = children
+                        .iter()
+                        .filter_map(|bar| {
+                            bar.as_song_bar()
+                                .filter(|sb| sb.exists_song())
+                                .and_then(|sb| sb.get_song_data().get_path())
+                                .map(PathBuf::from)
+                        })
+                        .collect();
+                    (BarAction::DirectoryAutoplay { paths }, is_func)
                 } else {
                     (BarAction::FunctionOnly, is_func)
                 }
@@ -1663,11 +1721,8 @@ impl MainState for MusicSelector {
                     };
                     self.read_random_course(mode);
                 }
-                BarAction::DirectoryAutoplay => {
-                    // In Java: collects song paths from directory children for autoplay
-                    log::debug!(
-                        "stub: MusicSelector directory autoplay — blocked by PlayerResource directory scan"
-                    );
+                BarAction::DirectoryAutoplay { paths } => {
+                    self.read_directory_autoplay(paths);
                 }
                 BarAction::FunctionOnly | BarAction::None => {}
             }
@@ -2262,6 +2317,9 @@ mod tests {
         chart_option: Option<Option<beatoraja_types::replay_data::ReplayData>>,
         course_data: Option<CourseData>,
         course_song_data: Vec<SongData>,
+        auto_play_songs: Option<Vec<PathBuf>>,
+        auto_play_loop: Option<bool>,
+        next_song_result: bool,
     }
 
     /// Mock PlayerResource that records operations.
@@ -2401,6 +2459,14 @@ mod tests {
         }
         fn get_course_song_data(&self) -> Vec<SongData> {
             self.state.lock().unwrap().course_song_data.clone()
+        }
+        fn set_auto_play_songs(&mut self, paths: Vec<PathBuf>, loop_play: bool) {
+            let mut s = self.state.lock().unwrap();
+            s.auto_play_songs = Some(paths);
+            s.auto_play_loop = Some(loop_play);
+        }
+        fn next_song(&mut self) -> bool {
+            self.state.lock().unwrap().next_song_result
         }
     }
 
@@ -2768,5 +2834,105 @@ mod tests {
             s.state_changes.is_empty(),
             "should NOT transition when random course has no stages"
         );
+    }
+
+    // ============================================================
+    // directory autoplay tests
+    // ============================================================
+
+    #[test]
+    fn test_directory_autoplay_transitions_to_decide() {
+        let (mut selector, state) = make_selector_with_mock();
+        state.lock().unwrap().next_song_result = true;
+
+        let paths = vec![
+            PathBuf::from("/dir/song_a.bms"),
+            PathBuf::from("/dir/song_b.bms"),
+        ];
+
+        selector.read_directory_autoplay(paths);
+
+        let s = state.lock().unwrap();
+        assert!(s.cleared, "resource.clear() should have been called");
+        let paths = s
+            .auto_play_songs
+            .as_ref()
+            .expect("auto_play_songs should be set");
+        assert_eq!(paths.len(), 2, "should have 2 valid song paths");
+        assert_eq!(paths[0], PathBuf::from("/dir/song_a.bms"));
+        assert_eq!(paths[1], PathBuf::from("/dir/song_b.bms"));
+        assert_eq!(s.auto_play_loop, Some(false), "loop_play should be false");
+        assert_eq!(
+            s.state_changes,
+            vec![MainStateType::Decide],
+            "should transition to DECIDE"
+        );
+    }
+
+    #[test]
+    fn test_directory_autoplay_no_transition_when_next_song_fails() {
+        let (mut selector, state) = make_selector_with_mock();
+        state.lock().unwrap().next_song_result = false;
+
+        selector.read_directory_autoplay(vec![PathBuf::from("/dir/song_a.bms")]);
+
+        let s = state.lock().unwrap();
+        assert!(s.cleared, "resource.clear() should have been called");
+        assert!(s.auto_play_songs.is_some(), "auto_play_songs should be set");
+        assert!(
+            s.state_changes.is_empty(),
+            "should NOT transition when next_song returns false"
+        );
+    }
+
+    #[test]
+    fn test_directory_autoplay_empty_paths_does_nothing() {
+        let (mut selector, state) = make_selector_with_mock();
+
+        selector.read_directory_autoplay(vec![]);
+
+        let s = state.lock().unwrap();
+        assert!(!s.cleared, "should NOT clear when no valid paths");
+        assert!(
+            s.auto_play_songs.is_none(),
+            "auto_play_songs should not be set"
+        );
+        assert!(
+            s.state_changes.is_empty(),
+            "should NOT transition with empty paths"
+        );
+    }
+
+    #[test]
+    fn test_directory_autoplay_path_extraction_from_container_bar() {
+        // Verify path extraction logic from directory bar children
+        let children = vec![
+            make_song_bar("sha_a", Some("/dir/song_a.bms")),
+            make_song_bar("sha_b", Some("/dir/song_b.bms")),
+            make_song_bar("sha_c", None), // no path - should be filtered out
+        ];
+        let container = crate::bar::container_bar::ContainerBar::new(String::new(), children);
+        let bar = Bar::Container(Box::new(container));
+
+        assert!(bar.is_directory_bar());
+
+        // Extract paths the same way render() does
+        let paths: Vec<PathBuf> = if let Bar::Container(b) = &bar {
+            b.get_children()
+                .iter()
+                .filter_map(|bar| {
+                    bar.as_song_bar()
+                        .filter(|sb| sb.exists_song())
+                        .and_then(|sb| sb.get_song_data().get_path())
+                        .map(PathBuf::from)
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
+        assert_eq!(paths.len(), 2);
+        assert_eq!(paths[0], PathBuf::from("/dir/song_a.bms"));
+        assert_eq!(paths[1], PathBuf::from("/dir/song_b.bms"));
     }
 }

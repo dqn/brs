@@ -132,19 +132,28 @@ impl BMSPlayerInputProcessor {
 
         // In Java: for (Controller c : Controllers.getControllers()) { bminput.add(new BMControllerInputProcessor(c, ...)); }
         let default_controller_config = ControllerConfig::default();
-        let bminput: Vec<BMControllerInputProcessor> = controller_manager
-            .controllers
-            .iter()
-            .map(|ctrl| {
-                let name = ctrl.name.clone();
-                let controller = Controller::with_state(
-                    name.clone(),
-                    ctrl.button_state.len(),
-                    ctrl.axis_state.len(),
-                );
-                BMControllerInputProcessor::new(name, controller, &default_controller_config)
-            })
-            .collect();
+        let mut bminput: Vec<BMControllerInputProcessor> = Vec::new();
+        for ctrl in &controller_manager.controllers {
+            // Device name uniqueness (Java: デバイス名のユニーク化)
+            let mut index = 1;
+            let mut name = ctrl.name.clone();
+            for bm in &bminput {
+                if bm.get_name() == name {
+                    index += 1;
+                    name = format!("{}-{}", ctrl.name, index);
+                }
+            }
+            let controller = Controller::with_state(
+                name.clone(),
+                ctrl.button_state.len(),
+                ctrl.axis_state.len(),
+            );
+            bminput.push(BMControllerInputProcessor::new(
+                name,
+                controller,
+                &default_controller_config,
+            ));
+        }
 
         let mut midiinput = MidiInputProcessor::new();
         midiinput.open();
@@ -1016,5 +1025,43 @@ mod tests {
         let proc = make_input_processor();
         let log = proc.get_key_input_log();
         assert!(log.is_empty());
+    }
+
+    /// Verify the device name uniqueness algorithm matches Java behavior.
+    /// Java: index starts at 1, increments for each existing duplicate, appends "-{index}".
+    #[test]
+    fn test_device_name_uniqueness_algorithm() {
+        let raw_names = ["Pad A", "Pad A", "Pad B", "Pad A"];
+        let mut unique_names: Vec<String> = Vec::new();
+        for raw in &raw_names {
+            let mut index = 1;
+            let mut name = raw.to_string();
+            for existing in &unique_names {
+                if *existing == name {
+                    index += 1;
+                    name = format!("{}-{}", raw, index);
+                }
+            }
+            unique_names.push(name);
+        }
+        assert_eq!(unique_names, vec!["Pad A", "Pad A-2", "Pad B", "Pad A-3"]);
+    }
+
+    #[test]
+    fn test_device_name_uniqueness_no_duplicates() {
+        let raw_names = ["Pad A", "Pad B", "Pad C"];
+        let mut unique_names: Vec<String> = Vec::new();
+        for raw in &raw_names {
+            let mut index = 1;
+            let mut name = raw.to_string();
+            for existing in &unique_names {
+                if *existing == name {
+                    index += 1;
+                    name = format!("{}-{}", raw, index);
+                }
+            }
+            unique_names.push(name);
+        }
+        assert_eq!(unique_names, vec!["Pad A", "Pad B", "Pad C"]);
     }
 }

@@ -183,6 +183,19 @@ pub trait PlayerResourceAccess {
         // default no-op
     }
 
+    /// Set auto-play song paths for directory autoplay.
+    /// Corresponds to Java PlayerResource.setAutoPlaySongs(Path[], boolean)
+    fn set_auto_play_songs(&mut self, _paths: Vec<PathBuf>, _loop_play: bool) {
+        // default no-op
+    }
+
+    /// Advance to the next song in auto-play or course mode.
+    /// Returns true if a valid next song was loaded.
+    /// Corresponds to Java PlayerResource.nextSong()
+    fn next_song(&mut self) -> bool {
+        false
+    }
+
     /// Get BMS model reference.
     /// Java: PlayerResource.getBMSModel()
     fn get_bms_model(&self) -> Option<&BMSModel> {

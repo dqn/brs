@@ -398,6 +398,11 @@ pub struct InternetRankingTargetProperty {
     pub target: IRTarget,
     pub value: i32,
     pub target_score: ScoreData,
+    /// Receiver for async IR load results.
+    /// When a background thread finishes loading, it sends the result here.
+    ir_result_rx: Option<std::sync::mpsc::Receiver<ScoreData>>,
+    /// Whether async IR loading has been initiated for the current song.
+    loading_initiated: bool,
 }
 
 impl InternetRankingTargetProperty {
@@ -407,11 +412,106 @@ impl InternetRankingTargetProperty {
             target,
             value,
             target_score: ScoreData::default(),
+            ir_result_rx: None,
+            loading_initiated: false,
         }
+    }
+
+    /// Initiate async IR data loading on a background thread.
+    ///
+    /// The background thread calls `connection.get_play_data()`, processes the ranking
+    /// data, and sends the resulting target score via channel. `get_target()` polls
+    /// the channel on each call and updates `target_score` when the result arrives.
+    ///
+    /// This mirrors the Java pattern where `InternetRankingTargetProperty.getTarget()`
+    /// spawns a background thread to load IR data.
+    pub fn initiate_load(
+        &mut self,
+        connection: std::sync::Arc<dyn beatoraja_ir::ir_connection::IRConnection + Send + Sync>,
+        chart: beatoraja_ir::ir_chart_data::IRChartData,
+        local_score: Option<ScoreData>,
+        target: IRTarget,
+        value: i32,
+    ) {
+        if self.loading_initiated {
+            return;
+        }
+        self.loading_initiated = true;
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.ir_result_rx = Some(rx);
+
+        std::thread::spawn(move || {
+            let mut ranking = beatoraja_ir::ranking_data::RankingData::new();
+            ranking.load_song(&*connection, &chart, local_score.as_ref());
+
+            if ranking.get_state() == beatoraja_ir::ranking_data::FINISH {
+                let mut score = ScoreData::default();
+                if ranking.get_total_player() > 0 {
+                    let total = ranking.get_total_player();
+                    let target_index = match target {
+                        IRTarget::Next => {
+                            // In the async path, nowscore is 0 (game just started)
+                            (total - value).max(0)
+                        }
+                        IRTarget::Rank => (value.min(total) - 1).max(0),
+                        IRTarget::RankRate => total * value / 100,
+                    };
+                    if let Some(ir_score) = ranking.get_score(target_index) {
+                        let exscore = ir_score.get_exscore();
+                        score.player = if ir_score.player.is_empty() {
+                            "YOU".to_string()
+                        } else {
+                            ir_score.player.clone()
+                        };
+                        score.epg = exscore / 2;
+                        score.egr = exscore % 2;
+                        score.option = ir_score.option;
+                    } else {
+                        score.player = "NO DATA".to_string();
+                    }
+                } else {
+                    score.player = "NO DATA".to_string();
+                }
+                let _ = tx.send(score);
+            }
+        });
+    }
+
+    /// Reset loading state (e.g., when switching to a new song).
+    pub fn reset_loading(&mut self) {
+        self.ir_result_rx = None;
+        self.loading_initiated = false;
     }
 
     /// Translated from: Java InternetRankingTargetProperty.getTarget(MainController)
     fn get_target(&mut self, main: &MainController) -> ScoreData {
+        // Poll for async IR load result
+        if let Some(rx) = self.ir_result_rx.take() {
+            match rx.try_recv() {
+                Ok(result) => {
+                    self.target_score = result;
+                    // Don't put receiver back - loading complete
+                    return self.target_score.clone();
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    // Still loading, put receiver back
+                    self.ir_result_rx = Some(rx);
+                }
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    // Thread finished without sending (load failed)
+                }
+            }
+        }
+
+        // If async load already produced a result, return it
+        if self.loading_initiated
+            && self.ir_result_rx.is_none()
+            && self.target_score.player != "NO DATA"
+        {
+            return self.target_score.clone();
+        }
+
         // Get ranking data from cache via dyn Any downcast
         let ranking_data = (|| -> Option<&beatoraja_ir::ranking_data::RankingData> {
             let resource = main.get_player_resource()?;
@@ -798,5 +898,184 @@ mod tests {
             let score = target.get_target(&mut main);
             assert_eq!(score.player, "NO DATA");
         }
+    }
+
+    // ============================================================
+    // IR async loading tests
+    // ============================================================
+
+    /// Mock IR connection for async loading tests
+    struct MockIRConnection {
+        scores: Vec<beatoraja_ir::ir_score_data::IRScoreData>,
+    }
+
+    impl beatoraja_ir::ir_connection::IRConnection for MockIRConnection {
+        fn get_rivals(
+            &self,
+        ) -> beatoraja_ir::ir_response::IRResponse<Vec<beatoraja_ir::ir_player_data::IRPlayerData>>
+        {
+            beatoraja_ir::ir_response::IRResponse::success("OK".to_string(), vec![])
+        }
+        fn get_table_datas(
+            &self,
+        ) -> beatoraja_ir::ir_response::IRResponse<Vec<beatoraja_ir::ir_table_data::IRTableData>>
+        {
+            beatoraja_ir::ir_response::IRResponse::success("OK".to_string(), vec![])
+        }
+        fn get_play_data(
+            &self,
+            _player: Option<&beatoraja_ir::ir_player_data::IRPlayerData>,
+            _chart: &beatoraja_ir::ir_chart_data::IRChartData,
+        ) -> beatoraja_ir::ir_response::IRResponse<Vec<beatoraja_ir::ir_score_data::IRScoreData>>
+        {
+            beatoraja_ir::ir_response::IRResponse::success("OK".to_string(), self.scores.clone())
+        }
+        fn get_course_play_data(
+            &self,
+            _player: Option<&beatoraja_ir::ir_player_data::IRPlayerData>,
+            _course: &beatoraja_ir::ir_course_data::IRCourseData,
+        ) -> beatoraja_ir::ir_response::IRResponse<Vec<beatoraja_ir::ir_score_data::IRScoreData>>
+        {
+            beatoraja_ir::ir_response::IRResponse::success("OK".to_string(), vec![])
+        }
+        fn send_play_data(
+            &self,
+            _model: &beatoraja_ir::ir_chart_data::IRChartData,
+            _score: &beatoraja_ir::ir_score_data::IRScoreData,
+        ) -> beatoraja_ir::ir_response::IRResponse<()> {
+            beatoraja_ir::ir_response::IRResponse::success("OK".to_string(), ())
+        }
+        fn send_course_play_data(
+            &self,
+            _course: &beatoraja_ir::ir_course_data::IRCourseData,
+            _score: &beatoraja_ir::ir_score_data::IRScoreData,
+        ) -> beatoraja_ir::ir_response::IRResponse<()> {
+            beatoraja_ir::ir_response::IRResponse::success("OK".to_string(), ())
+        }
+        fn get_song_url(
+            &self,
+            _chart: &beatoraja_ir::ir_chart_data::IRChartData,
+        ) -> Option<String> {
+            None
+        }
+        fn get_course_url(
+            &self,
+            _course: &beatoraja_ir::ir_course_data::IRCourseData,
+        ) -> Option<String> {
+            None
+        }
+        fn get_player_url(
+            &self,
+            _player: &beatoraja_ir::ir_player_data::IRPlayerData,
+        ) -> Option<String> {
+            None
+        }
+        fn name(&self) -> &str {
+            "MockIR"
+        }
+    }
+
+    #[test]
+    fn test_ir_async_load_success() {
+        use std::sync::Arc;
+
+        let mut score_data = ScoreData::default();
+        score_data.player = "TestPlayer".to_string();
+        score_data.epg = 500;
+        score_data.egr = 200;
+        score_data.option = 42;
+        let ir_score = beatoraja_ir::ir_score_data::IRScoreData::new(&score_data);
+
+        let conn: Arc<dyn beatoraja_ir::ir_connection::IRConnection + Send + Sync> =
+            Arc::new(MockIRConnection {
+                scores: vec![ir_score],
+            });
+        let chart = beatoraja_ir::ir_chart_data::IRChartData::default();
+
+        let mut prop = InternetRankingTargetProperty::new(IRTarget::Rank, 1);
+        prop.initiate_load(conn, chart, None, IRTarget::Rank, 1);
+
+        // Wait for the background thread to finish
+        let mut received = false;
+        for _ in 0..100 {
+            if let Some(ref rx) = prop.ir_result_rx {
+                match rx.try_recv() {
+                    Ok(result) => {
+                        prop.target_score = result;
+                        prop.ir_result_rx = None;
+                        received = true;
+                        break;
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Empty) => {
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => break,
+                }
+            }
+        }
+
+        assert!(received, "should have received async IR load result");
+        assert_eq!(prop.target_score.player, "TestPlayer");
+        assert_eq!(prop.target_score.option, 42);
+    }
+
+    #[test]
+    fn test_ir_async_load_no_double_initiate() {
+        use std::sync::Arc;
+
+        let conn: Arc<dyn beatoraja_ir::ir_connection::IRConnection + Send + Sync> =
+            Arc::new(MockIRConnection { scores: vec![] });
+        let chart = beatoraja_ir::ir_chart_data::IRChartData::default();
+
+        let mut prop = InternetRankingTargetProperty::new(IRTarget::Rank, 1);
+        prop.initiate_load(conn.clone(), chart.clone(), None, IRTarget::Rank, 1);
+        assert!(prop.loading_initiated);
+
+        // Second call should be a no-op
+        let rx_addr_before = prop.ir_result_rx.as_ref().map(|rx| rx as *const _);
+        prop.initiate_load(conn, chart, None, IRTarget::Rank, 1);
+        let rx_addr_after = prop.ir_result_rx.as_ref().map(|rx| rx as *const _);
+        assert_eq!(
+            rx_addr_before, rx_addr_after,
+            "receiver should not change on double initiate"
+        );
+    }
+
+    #[test]
+    fn test_ir_async_load_reset() {
+        let mut prop = InternetRankingTargetProperty::new(IRTarget::Next, 1);
+        prop.loading_initiated = true;
+        prop.reset_loading();
+        assert!(!prop.loading_initiated, "loading_initiated should be reset");
+        assert!(prop.ir_result_rx.is_none(), "receiver should be cleared");
+    }
+
+    #[test]
+    fn test_ir_get_target_polls_channel() {
+        use std::sync::mpsc;
+
+        let mut prop = InternetRankingTargetProperty::new(IRTarget::Rank, 1);
+
+        // Simulate a completed async load by injecting a pre-loaded channel
+        let (tx, rx) = mpsc::channel();
+        let mut score = ScoreData::default();
+        score.player = "AsyncPlayer".to_string();
+        score.epg = 100;
+        score.egr = 1;
+        score.option = 7;
+        tx.send(score).unwrap();
+        prop.ir_result_rx = Some(rx);
+        prop.loading_initiated = true;
+
+        let main = make_main();
+        let result = prop.get_target(&main);
+        assert_eq!(result.player, "AsyncPlayer");
+        assert_eq!(result.epg, 100);
+        assert_eq!(result.egr, 1);
+        assert_eq!(result.option, 7);
+        assert!(
+            prop.ir_result_rx.is_none(),
+            "receiver should be consumed after receiving"
+        );
     }
 }
