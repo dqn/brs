@@ -1,3 +1,4 @@
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -15,22 +16,25 @@ pub struct StreamRequestCommand {
     pub selector: Arc<Mutex<MusicSelector>>,
     pub max_length: i32,
     pub updater_thread: Option<thread::JoinHandle<()>>,
-    pub updater: Arc<Mutex<UpdateBar>>,
+    /// Channel sender for delivering sha256 hashes to the UpdateBar loop.
+    /// Replaces `Arc<Mutex<UpdateBar>>` to eliminate lock ordering deadlock.
+    pub sender: Option<mpsc::Sender<String>>,
 }
 
 impl StreamRequestCommand {
     pub fn new(selector: Arc<Mutex<MusicSelector>>) -> Self {
         let max_length = selector.lock().unwrap().config.max_request_count;
-        let updater = Arc::new(Mutex::new(UpdateBar::new(Arc::clone(&selector))));
-        let updater_clone = Arc::clone(&updater);
+        let (tx, rx) = mpsc::channel();
+        let selector_clone = Arc::clone(&selector);
         let updater_thread = Some(thread::spawn(move || {
-            UpdateBar::run_loop(updater_clone);
+            let mut updater = UpdateBar::new(selector_clone);
+            updater.run_loop(rx);
         }));
         Self {
             selector,
             max_length,
             updater_thread,
-            updater,
+            sender: Some(tx),
         }
     }
 }
@@ -45,16 +49,18 @@ impl StreamCommand for StreamRequestCommand {
             return;
         }
 
-        // is sha256
-        let mut updater = self.updater.lock().unwrap();
-        updater.set(data);
+        // Send sha256 hash via channel (non-blocking, no lock contention)
+        if let Some(ref sender) = self.sender {
+            let _ = sender.send(data.to_string());
+        }
     }
 
     fn dispose(&mut self) {
+        // Drop the sender to disconnect the channel, causing the receiver
+        // loop to exit gracefully
+        self.sender.take();
         if let Some(handle) = self.updater_thread.take() {
-            // Signal the thread to stop by dropping it
-            // In Java: updaterThread.interrupt()
-            drop(handle);
+            let _ = handle.join();
         }
     }
 }
@@ -85,11 +91,6 @@ impl UpdateBar {
         };
         update_bar.bar.directory.set_sortable(false);
         update_bar
-    }
-
-    pub fn set(&mut self, sha256: &str) {
-        self.stack.push(sha256.to_string());
-        self.add_message(sha256);
     }
 
     fn add_message(&self, sha256: &str) {
@@ -166,7 +167,7 @@ impl UpdateBar {
         }
     }
 
-    fn escape(before: &str) -> String {
+    pub(crate) fn escape(before: &str) -> String {
         // Escape for SQL
         let mut after = String::new();
         for c in before.chars() {
@@ -178,36 +179,36 @@ impl UpdateBar {
         after
     }
 
-    /// Thread loop - translates the Runnable.run() method
-    /// In Java:
-    /// ```java
-    /// public void run() {
-    ///     while (true) {
-    ///         try {
-    ///             if (stack.size() != 0) {
-    ///                 update();
-    ///             }
-    ///         } catch (Exception e) {
-    ///             break;
-    ///         }
-    ///     }
-    /// }
-    /// ```
-    pub fn run_loop(updater: Arc<Mutex<UpdateBar>>) {
+    /// Thread loop that receives sha256 hashes via mpsc channel.
+    /// Replaces the old `Arc<Mutex<UpdateBar>>` polling loop to eliminate
+    /// lock ordering deadlock. The loop exits when the sender is dropped
+    /// (channel disconnected).
+    pub fn run_loop(&mut self, receiver: mpsc::Receiver<String>) {
         loop {
-            let has_items = {
-                let u = updater.lock().unwrap();
-                !u.stack.is_empty()
-            };
-            if has_items {
+            // Use try_recv to drain all pending messages without blocking
+            match receiver.try_recv() {
+                Ok(sha256) => {
+                    self.stack.push(sha256.clone());
+                    self.add_message(&sha256);
+                }
+                Err(mpsc::TryRecvError::Empty) => {
+                    // No pending messages
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    // Sender dropped (dispose called), exit the loop
+                    break;
+                }
+            }
+
+            if !self.stack.is_empty() {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    let mut u = updater.lock().unwrap();
-                    u.update();
+                    self.update();
                 }));
                 if result.is_err() {
                     break;
                 }
             }
+
             // Small sleep to avoid busy-waiting
             thread::sleep(std::time::Duration::from_millis(10));
         }
@@ -316,5 +317,36 @@ mod tests {
 
         let empty = "";
         assert_ne!(empty.len(), 64);
+    }
+
+    #[test]
+    fn mpsc_channel_delivers_messages_and_terminates_on_sender_drop() {
+        // Verify the channel-based communication pattern used between
+        // StreamRequestCommand::run() and UpdateBar::run_loop().
+        let (tx, rx) = mpsc::channel();
+        let sha1 = "a".repeat(64);
+        let sha2 = "b".repeat(64);
+
+        // Sending multiple hashes succeeds
+        tx.send(sha1.clone()).unwrap();
+        tx.send(sha2.clone()).unwrap();
+
+        // Receiver can read them in order
+        assert_eq!(rx.recv().unwrap(), sha1);
+        assert_eq!(rx.recv().unwrap(), sha2);
+
+        // Dropping sender causes try_recv to return Disconnected
+        drop(tx);
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::TryRecvError::Disconnected)
+        ));
+    }
+
+    #[test]
+    fn mpsc_try_recv_returns_empty_when_no_messages() {
+        // Verify try_recv returns Empty (not blocking) when no messages pending
+        let (_tx, rx) = mpsc::channel::<String>();
+        assert!(matches!(rx.try_recv(), Err(mpsc::TryRecvError::Empty)));
     }
 }
