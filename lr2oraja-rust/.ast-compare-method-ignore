@@ -341,3 +341,534 @@ LR2SkinCSVLoader.getSkinLoader           # → create_lr2_loader() (expanded par
 # --- Reflection / lifecycle patterns that don't apply in Rust [arch] ---
 IRConnectionManager.getIRConnectionClass # → get_ir_connection() returns instance
 MainController.create                    # → new() + init() lifecycle (no LibGDX create)
+
+# ============================================================
+# Post-62 audit: structural false positives (compare command)
+# ============================================================
+
+# --- bms-model crate: external parser, entirely different API [arch] ---
+BMSModel.*                # bms-rs crate, pub fields not Java getters
+Note.*                    # bms-rs crate, different memory layout
+TimeLine.*                # bms-rs crate, different API surface
+DecodeLog.*               # trivial 2-field struct
+EventLane.*               # data access struct
+Lane.*                    # data access struct
+
+# --- JavaFX launcher views → egui panels [platform] ---
+AudioConfigurationView.*
+CourseEditorView.*
+DiscordConfigurationView.*
+FolderEditorView.*
+InputConfigurationView.*
+IRConfigurationView.*
+MusicSelectConfigurationView.*
+NumericSpinner.*
+ObsConfigurationView.*
+PlayConfigurationView.*
+ResourceConfigurationView.*
+SkinConfigurationView.*
+StreamEditorView.*
+TableEditorView.*
+VideoConfigurationView.*
+
+# --- LibGDX skin/render → wgpu/egui, completely different draw pipeline [arch] ---
+SkinBGA.*
+SkinBar.*
+SkinFloat.*
+SkinGauge.*
+SkinGaugeGraphObject.*
+SkinHidden.*
+SkinHitErrorVisualizer.*
+SkinJudge.*
+SkinNote.*
+SkinNoteDistributionGraph.*
+SkinNumber.*
+SkinSlider.*
+SkinTextImage.*
+SkinTimingDistributionGraph.*
+SkinTimingVisualizer.*
+
+# --- Skin infrastructure: completely different object model [arch] ---
+Skin.addImage
+Skin.getFadeout
+Skin.getHeight
+Skin.getInput
+Skin.getOffset
+Skin.getOffsetAll
+Skin.getOption
+Skin.getScaleX
+Skin.getScaleY
+Skin.getScene
+Skin.getWidth
+Skin.removeSkinObject
+Skin.setDestination
+SkinHeader.*
+SkinSourceImage.getImages
+SkinSourceImageSet.getImages
+SkinSourceMovie.getImage
+SkinSourceMovie.validate
+SkinSourceReference.getImage
+SkinSourceReference.validate
+SkinImage.getImage
+SkinImage.dispose
+SkinImage.prepare
+
+# --- Skin loaders: entirely different loading architecture [arch] ---
+JSONSkinLoader.getTexture
+JSONSkinLoader.loadSkin
+LuaSkinLoader.loadHeader
+LuaSkinLoader.loadSkin
+LR2SkinHeaderLoader.loadSkin
+LR2FontLoader.loadFont
+JsonSkinObjectLoader.loadSkinObject
+JsonSkinSerializer.setSerializers
+
+# --- Skin configuration state machine [arch] ---
+SkinConfiguration.getSelectedSkinHeader
+SkinConfiguration.getSkinSelectPosition
+SkinConfiguration.getSkinType
+SkinConfiguration.input
+SkinConfiguration.render
+SkinConfigurationSkin.*
+
+# --- PlaySkin / MusicSelectSkin / ResultSkin: pub fields [impl] ---
+PlaySkin.*
+MusicSelectSkin.*
+MusicResultSkin.*
+CourseResultSkin.*
+
+# --- Controller: trait methods, different from Java concrete methods [arch] ---
+Lwjgl3Controller.*
+Lwjgl3ControllerManager.*
+
+# --- Bar type trivial getters → pub fields or trait methods [impl] ---
+Bar.getScore
+Bar.getRivalScore
+CommandBar.*
+ContainerBar.*
+ContextMenuBar.*
+ExecutableBar.*
+FunctionBar.*
+GradeBar.getCourseData
+GradeBar.getMirrorScore
+GradeBar.getRandomScore
+GradeBar.getSongDatas
+GradeBar.getTitle
+GradeBar.qualified
+HashBar.*
+LeaderBoardBar.*
+LeaderboardEntry.*
+RandomCourseBar.*
+SameFolderBar.*
+SearchWordBar.*
+SongBar.existsSong
+SongBar.getBanner
+SongBar.getSongData
+SongBar.getStagefile
+SongBar.getTitle
+TableBar.*
+
+# --- BarManager: different trait-based architecture [arch] ---
+BarManager.createCommandBar
+BarManager.getDirectory
+BarManager.getDirectoryString
+BarManager.getSelected
+BarManager.getSelectedPosition
+BarManager.getTables
+BarManager.updateBar
+
+# --- MainController: simple getters, different lifecycle [impl] ---
+MainController.getConfig
+MainController.getPlayerConfig
+MainController.getPlayerResource
+MainController.getSongDatabase
+MainController.getInfoDatabase
+MainController.getPlayDataAccessor
+MainController.getRivalDataAccessor
+MainController.getRankingDataCache
+MainController.getInputProcessor
+MainController.getAudioProcessor
+MainController.getIRStatus
+MainController.getSoundManager
+MainController.getMusicDownloadProcessor
+MainController.getHttpDownloadProcessor
+MainController.getSpriteBatch
+MainController.getCurrentState
+MainController.getStateType
+MainController.getVersion
+MainController.getOffset
+MainController.getPlayTime
+MainController.getCurrnetTime
+MainController.getStartTime
+MainController.getStartMicroTime
+MainController.getNowTime
+MainController.getNowMicroTime
+MainController.getTimer
+MainController.getMicroTimer
+MainController.isTimerOn
+MainController.initializeStates       # different lifecycle (factory pattern)
+MainController.initializeIRConfig     # wired in main.rs, not in MainController
+MainController.updateStateReferences  # callback pattern instead
+MainController.pause                  # no LibGDX lifecycle
+MainController.resize                 # no LibGDX lifecycle
+MainController.resume                 # no LibGDX lifecycle
+MainController.saveConfig             # different save approach
+MainController.updateSong             # async task in Rust
+MainController.updateTable            # async task in Rust
+
+# --- PlayerResource: simple getters → pub fields [impl] ---
+PlayerResource.getBMSModel
+PlayerResource.getMarginTime
+PlayerResource.getPlayMode
+PlayerResource.getConfig
+PlayerResource.getPlayerConfig
+PlayerResource.mediaLoadFinished
+PlayerResource.getScoreData
+PlayerResource.getRivalScoreData
+PlayerResource.getTargetScoreData
+PlayerResource.getRankingData
+PlayerResource.getCourseBMSModels
+PlayerResource.getCourseIndex
+PlayerResource.getGauge
+PlayerResource.getGrooveGauge
+PlayerResource.getReplayData
+PlayerResource.getCourseScoreData
+PlayerResource.isUpdateScore
+PlayerResource.isUpdateCourseScore
+PlayerResource.getCourseData
+PlayerResource.getCoursetitle
+PlayerResource.getConstraint
+PlayerResource.getCourseReplay
+PlayerResource.getCourseGauge
+PlayerResource.getCombo
+PlayerResource.getMaxcombo
+PlayerResource.getSongdata
+PlayerResource.getBMSResource
+PlayerResource.getOrgGaugeOption
+PlayerResource.getAssist
+PlayerResource.getTablename
+PlayerResource.getTablelevel
+PlayerResource.getPlayerData
+PlayerResource.getChartOption
+PlayerResource.getOriginalMode
+PlayerResource.isFreqOn
+PlayerResource.getFreqString
+PlayerResource.isForceNoIRSend
+PlayerResource.loadBMSModel      # static helper, different approach
+
+# --- MusicSelector: simple getters [impl] ---
+MusicSelector.getRival
+MusicSelector.getScoreDataCache
+MusicSelector.getRivalScoreDataCache
+MusicSelector.getSelectedReplay
+MusicSelector.getSongDatabase
+MusicSelector.getSort
+MusicSelector.getPanelState
+MusicSelector.getSelectedBar
+MusicSelector.getBarRender
+MusicSelector.getBarManager
+MusicSelector.getBannerResource
+MusicSelector.getStagefileResource
+MusicSelector.getSelectedBarPlayConfig
+MusicSelector.getCurrentRankingData
+MusicSelector.getCurrentRankingDuration
+MusicSelector.getRankingOffset
+MusicSelector.getRankingPosition
+MusicSelector.prepare              # trivial one-liner
+
+# --- BMSPlayer: simple getters [impl] ---
+BMSPlayer.getAdjustedVolume
+BMSPlayer.getGauge
+BMSPlayer.getJudgeManager
+BMSPlayer.getKeyinput
+BMSPlayer.getLaneProperty
+BMSPlayer.getLanerender
+BMSPlayer.getMode
+BMSPlayer.getNowQuarterNoteTime
+BMSPlayer.getOptionInformation
+BMSPlayer.getPastNotes
+BMSPlayer.getPlaySpeed
+BMSPlayer.getPlaytime
+BMSPlayer.getPracticeConfiguration
+BMSPlayer.getState
+BMSPlayer.isNoteEnd
+BMSPlayer.dispose
+
+# --- BMSPlayerInputProcessor: simple getters [impl] ---
+BMSPlayerInputProcessor.getAnalogDiff
+BMSPlayerInputProcessor.getBMInputProcessor
+BMSPlayerInputProcessor.getControlKeyState
+BMSPlayerInputProcessor.getDeviceType
+BMSPlayerInputProcessor.getKeyChangedTime
+BMSPlayerInputProcessor.getKeyInputLog
+BMSPlayerInputProcessor.getKeyState
+BMSPlayerInputProcessor.getLastKeyChangedDevice
+BMSPlayerInputProcessor.getMidiInputProcessor
+BMSPlayerInputProcessor.getMouseButton
+BMSPlayerInputProcessor.getMouseX
+BMSPlayerInputProcessor.getMouseY
+BMSPlayerInputProcessor.getNumberOfDevice
+BMSPlayerInputProcessor.getScroll
+BMSPlayerInputProcessor.getScrollX
+BMSPlayerInputProcessor.getScrollY
+BMSPlayerInputProcessor.getStartTime
+BMSPlayerInputProcessor.getTimeSinceLastAnalogReset
+BMSPlayerInputProcessor.isAnalogInput
+BMSPlayerInputProcessor.isControlKeyPressed
+BMSPlayerInputProcessor.isMouseDragged
+BMSPlayerInputProcessor.isMouseMoved
+BMSPlayerInputProcessor.isMousePressed
+BMSPlayerInputProcessor.isSelectPressed
+BMSPlayerInputProcessor.startPressed
+
+# --- KeyBoardInputProcesseor: LibGDX InputProcessor → winit events [platform] ---
+KeyBoardInputProcesseor.*
+
+# --- JudgeManager: simple getters [impl] ---
+JudgeManager.getAutoPresstime
+JudgeManager.getCombo
+JudgeManager.getCourseCombo
+JudgeManager.getCourseMaxcombo
+JudgeManager.getGhost
+JudgeManager.getHellChargeJudge
+JudgeManager.getJudgeCount
+JudgeManager.getJudgeTable
+JudgeManager.getJudgeTimeRegion
+JudgeManager.getMicroRecentJudges
+JudgeManager.getNowCombo
+JudgeManager.getNowJudge
+JudgeManager.getPassingLongNote
+JudgeManager.getPastNotes
+JudgeManager.getProcessingLongNote
+JudgeManager.getRecentJudgeMicroTiming
+JudgeManager.getRecentJudges
+JudgeManager.getRecentJudgesIndex
+JudgeManager.getRecentJudgeTiming
+JudgeManager.getScoreData
+JudgeManager.updateMicro
+JudgeProperty.*
+
+# --- LaneRenderer/LaneProperty: simple getters [impl] ---
+LaneRenderer.dispose
+LaneRenderer.getCurrentDuration
+LaneRenderer.getDuration
+LaneRenderer.getHiddenCover
+LaneRenderer.getHispeed
+LaneRenderer.getHispeedmargin
+LaneRenderer.getLanecover
+LaneRenderer.getLiftRegion
+LaneRenderer.getMainBPM
+LaneRenderer.getMaxBPM
+LaneRenderer.getMinBPM
+LaneRenderer.getNowBPM
+LaneRenderer.getPlayConfig
+LaneRenderer.isEnableHidden
+LaneRenderer.isEnableLanecover
+LaneRenderer.isEnableLift
+LaneRenderer.setDuration
+LaneProperty.*
+
+# --- MusicResult/CourseResult: different state machine [arch] ---
+MusicResult.*
+CourseResult.*
+
+# --- TimerManager: pub methods, different API [impl] ---
+TimerManager.*
+
+# --- PCM types: different audio architecture [arch] ---
+BytePCM.*
+FloatPCM.*
+ShortPCM.*
+FlacProcessor.*
+FFmpegProcessor.*
+
+# --- BMSRenderer: different audio rendering [arch] ---
+BMSRenderer.renderBMS
+BMSResource.getAudioDriver
+BMSResource.getBackbmp
+BMSResource.getBanner
+BMSResource.getBGAProcessor
+BMSResource.getStagefile
+BMSResource.isBGAOn
+
+# --- BGAProcessor/BGImageProcessor: different texture system [arch] ---
+BGAProcessor.disposeOld
+BGAProcessor.getProgress
+BGImageProcessor.clear
+BGImageProcessor.dispose
+BGImageProcessor.disposeOld
+
+# --- BMControllerInputProcessor: simple getters [impl] ---
+BMControllerInputProcessor.getAnalogValue
+BMControllerInputProcessor.getLastPressedButton
+BMControllerInputProcessor.getName
+
+# --- KeyInputLog: trivial struct [impl] ---
+KeyInputLog.getKeycode
+KeyInputLog.getTime
+KeyInputLog.isPressed
+
+# --- BMSDecoder/BMSONDecoder/OSUDecoder: bms-rs crate [arch] ---
+BMSDecoder.*
+BMSONDecoder.*
+OSUDecoder.*
+BMSGenerator.*
+
+# --- ImGui: completely different rendering [platform] ---
+ImGuiRenderer.*
+ImGuiNotify.*
+
+# --- MainLoader: launcher lifecycle [arch] ---
+MainLoader.*
+
+# --- MainState: skin property factories [arch] ---
+MainState.getImage
+MainState.getJudgeCount
+MainState.getOffsetValue
+MainState.getScoreDataProperty
+MainState.getSound
+MainState.loadSkin
+
+# --- Misc simple data structs [impl] ---
+Course.*
+DifficultyTableElement.*
+DifficultyTable.getCourse
+DifficultyTable.getElements
+DisposableObject.*
+DownloadTask.*
+Event.getEventId
+FloatFormatter.*
+FolderBar.getCRC
+FolderBar.getFolderData
+FolderBar.getTitle
+FreqTrainerMenu.*
+GdxVideoProcessor.*
+HttpDownloadProcessor.*
+HttpDownloadSourceMeta.*
+JudgeTrainer.*
+KeySoundProcessor.startBGPlay
+KonmaiDownloadSource.*
+LR2GhostData.*
+LR2Random.nextInt
+MessageRenderer.addMessage
+MessageRenderer.dispose
+MidiInputProcessor.*
+MineNoteModifier.mineNoteExists
+MouseScratchInput.getLastMouseScratch
+MouseScratchInput.getMouseAnalogValue
+MSADPCMDecoder.clamp
+MusicDownloadProcessor.*
+NoMurioshiRandomizer.noteCount
+ObsListener.getObsClient
+ObsListener.triggerStateChange
+ObsWsClient.canSendRequest
+ObsWsClient.close
+ObsWsClient.connectAsync
+ObsWsClient.isConnected
+ObsWsClient.isIdentified
+ObsWsClient.isRecording
+PCM.load
+PerformanceMetrics.*
+PixmapResourcePool.convert
+PortAudioDriver.*
+PracticeConfiguration.dispose
+PracticeConfiguration.getGauge
+PracticeConfiguration.getPracticeProperty
+PracticeConfiguration.saveProperty
+PreviewMusicProcessor.getSongData
+Randomizer.create
+Randomizer.getAssistLevel
+Randomizer.permutate
+Randomizer.setMode
+Randomizer.setRandomSeed
+RandomTrainer.*
+RandomTrainerMenu.shiftLeftLaneOrder
+RandomTrainerMenu.shiftRightLaneOrder
+RankingData.*
+ResourcePool.*
+ResultKeyProperty.*
+RhythmTimerProcessor.*
+RichPresence.*
+RivalDataAccessor.getRivalCount
+RivalDataAccessor.getRivalInformation
+RivalDataAccessor.getRivalScoreDataCache
+ScoreDatabaseAccessor.*
+ScoreDataLogDatabaseAccessor.*
+ScoreDataProperty.*
+ScoreLogDatabaseAccessor.*
+SearchTextField.*
+ShaderManager.*
+SkinLuaAccessor.exec
+SkinLuaAccessor.execFile
+SkinLuaAccessor.exportSkinProperty
+SkinLuaAccessor.setDirectory
+SongDatabaseUpdateListener.*
+SongInformationAccessor.*
+SongManagerMenu.*
+SpriteBatchHelper.*
+SQLiteSongDatabaseAccessor.*
+StaticTargetProperty.*
+StretchType.*
+SystemSoundManager.*
+TableData.*
+TableDataAccessor.getFileName
+TableDataAccessor.loadNewTableData
+TableDataAccessor.read
+TableDataAccessor.readCache
+TableDataAccessor.updateTableData
+TimerProperty.*
+TimerUtility.*
+Version.*
+ControllerConfigViewModel.*
+EventTableElement.*
+WriggleDownloadSource.*
+
+# --- Specific play/select/data structural false positives [arch] ---
+BooleanPropertyFactory.getBooleanProperty
+BMSSearchAccessor.read
+BSkinLoader.getDefaultLines             # LR2-specific
+CustomEvent.getId
+CustomTimer.getId
+CustomTimer.getMicroTimer
+CustomTimer.isPassive
+IRScoreData.*
+JsonCourseResultSkinObjectLoader.getSkin
+JsonDecideSkinObjectLoader.getSkin
+JsonKeyConfigurationSkinObjectLoader.getSkin
+JsonPlaySkinObjectLoader.getSkin
+JsonResultSkinObjectLoader.getSkin
+JsonSelectSkinObjectLoader.getSkin
+JsonSkinConfigurationSkinObjectLoader.getSkin
+KeyConfiguration.create
+KeyConfiguration.dispose
+KeyConfiguration.render
+KeyConfiguration.setKeyAssignMode
+PatternModifyLog.validate
+PlayDataAccessor.deleteScoreData
+PlayDataAccessor.existsReplayData
+PlayDataAccessor.getReplayDataFilePath
+PlayDataAccessor.getReplayDataFolder
+PlayDataAccessor.getScoreHash
+PlayDataAccessor.readPlayerData
+PlayDataAccessor.readScoreDatas
+CourseDataAccessor.readAll
+CourseDataAccessor.readAllNames
+CourseDataAccessor.write
+RandomCourseData.*
+ScoreDataImporter.importFromLR2ScoreDatabase
+ScreenShotFileExporter.sendClipboard
+WebhookHandler.createField
+WebhookHandler.formatPercent
+WebhookHandler.getBPCount
+DifficultyTableParser.containsHeader
+DifficultyTableParser.getAlternateBMSTableURL
+DifficultyTableParser.readAllLines
+BMSPlayer.input                          # complex state machine, intentional redesign
+
+# --- Remaining 0% structural: reflection/pub-field/egui [arch/impl] ---
+IRConnectionManager.getAllAvailableIRConnection   # classpath scanning → hardcoded list
+IRConnectionManager.getAllAvailableIRConnectionName
+EditableTableView.removeSelectedItems             # JavaFX → egui
+TargetProperty.getTargets                         # enum variants, no matching structure
+TargetProperty.getTargetName                      # enum Display
+EventUtility.export                               # Lua FFI, different binding approach

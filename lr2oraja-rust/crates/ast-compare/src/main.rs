@@ -15,7 +15,7 @@ use ast_compare::report::{
 };
 use ast_compare::rust_parser::parse_rust_file;
 use ast_compare::signature_map::{
-    MapConfig, VisibilityFilter, build_signature_map, load_ignore_patterns,
+    MapConfig, VisibilityFilter, build_signature_map, is_ignored_method, load_ignore_patterns,
 };
 use ast_compare::structural_compare::{build_structural_report, compare_methods};
 
@@ -93,6 +93,10 @@ enum Commands {
         /// Minimum similarity threshold to suppress output (0.0-1.0)
         #[arg(long, default_value = "0.8")]
         threshold: f64,
+
+        /// Path to method-level ignore patterns file (ClassName.methodName or ClassName.*)
+        #[arg(long)]
+        method_ignore_file: Option<PathBuf>,
     },
 
     /// Extract and compare constants/magic numbers
@@ -141,7 +145,16 @@ fn main() -> Result<()> {
             ignore_file.as_deref(),
             method_ignore_file.as_deref(),
         ),
-        Commands::Compare { file, threshold } => run_compare(&cli, file.as_deref(), *threshold),
+        Commands::Compare {
+            file,
+            threshold,
+            method_ignore_file,
+        } => run_compare(
+            &cli,
+            file.as_deref(),
+            *threshold,
+            method_ignore_file.as_deref(),
+        ),
         Commands::Constants {
             file,
             exclude_trivial,
@@ -218,10 +231,28 @@ fn run_map(
     output_result(cli, &text, &report)
 }
 
-fn run_compare(cli: &Cli, file_filter: Option<&str>, threshold: f64) -> Result<()> {
+fn run_compare(
+    cli: &Cli,
+    file_filter: Option<&str>,
+    threshold: f64,
+    method_ignore_file: Option<&std::path::Path>,
+) -> Result<()> {
     let (file_mappings, java_sources, rust_sources) = load_all(cli)?;
 
+    let method_ignore_patterns = if let Some(path) = method_ignore_file {
+        load_ignore_patterns(path)
+    } else {
+        let default_path = std::path::Path::new(".ast-compare-method-ignore");
+        if default_path.exists() {
+            load_ignore_patterns(default_path)
+        } else {
+            Vec::new()
+        }
+    };
+    let ignored_count = method_ignore_patterns.len();
+
     let mut comparisons = Vec::new();
+    let mut skipped_by_ignore = 0usize;
 
     for fm in &file_mappings {
         if let Some(filter) = file_filter
@@ -241,6 +272,10 @@ fn run_compare(cli: &Cli, file_filter: Option<&str>, threshold: f64) -> Result<(
                 let rust_type = rust.types.iter().find(|rt| rt.name == jt.name);
                 if let Some(rt) = rust_type {
                     for jm in &jt.methods {
+                        if is_ignored_method(&jt.name, &jm.name, &method_ignore_patterns) {
+                            skipped_by_ignore += 1;
+                            continue;
+                        }
                         let snake_name = naming::method_to_snake(&jm.name);
                         let rm = rt.methods.iter().find(|m| m.name == snake_name);
                         if let (Some(jbody), Some(rm)) = (&jm.body, rm)
@@ -259,6 +294,13 @@ fn run_compare(cli: &Cli, file_filter: Option<&str>, threshold: f64) -> Result<(
                 }
             }
         }
+    }
+
+    if ignored_count > 0 {
+        eprintln!(
+            "Loaded {} method ignore patterns, skipped {} methods",
+            ignored_count, skipped_by_ignore
+        );
     }
 
     let report = build_structural_report(comparisons, threshold);
@@ -324,7 +366,7 @@ fn run_full(cli: &Cli, threshold: f64) -> Result<()> {
 
     eprintln!();
     eprintln!("=== Phase 2: Structural Comparison ===");
-    run_compare(cli, None, threshold)?;
+    run_compare(cli, None, threshold, None)?;
 
     eprintln!();
     eprintln!("=== Phase 3: Constants Comparison ===");

@@ -215,7 +215,7 @@ pub fn load_ignore_patterns(path: &Path) -> Vec<String> {
 
 /// Check if a specific method should be ignored.
 /// Patterns are `ClassName.methodName` (exact) or `ClassName.*` (all methods of type).
-fn is_ignored_method(type_name: &str, method_name: &str, patterns: &[String]) -> bool {
+pub fn is_ignored_method(type_name: &str, method_name: &str, patterns: &[String]) -> bool {
     let exact = format!("{type_name}.{method_name}");
     let wildcard = format!("{type_name}.*");
     patterns.iter().any(|p| p == &exact || p == &wildcard)
