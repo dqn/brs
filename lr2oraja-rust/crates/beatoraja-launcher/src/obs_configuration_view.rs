@@ -18,7 +18,6 @@ pub const ACTION_NONE: &str = "(Do Nothing)";
 ///
 /// JavaFX UI widgets are translated to data structs.
 /// Rendering will be implemented via egui when the OBS config tab is wired.
-#[allow(dead_code)]
 pub struct ObsConfigurationView {
     // JavaFX @FXML fields → egui widget state
     obs_ws_enabled: bool,
@@ -41,7 +40,6 @@ pub struct ObsConfigurationView {
 }
 
 /// ComboBoxState - represents the state of a ComboBox widget
-#[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
 pub struct ComboBoxState {
     pub items: Vec<String>,
@@ -50,7 +48,6 @@ pub struct ComboBoxState {
     pub min_width: f32,
 }
 
-#[allow(dead_code)]
 impl ObsConfigurationView {
     /// Constructor (corresponds to JavaFX controller instantiation)
     pub fn new() -> Self {

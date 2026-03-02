@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use beatoraja_core::ir_config::IRConfig;
 use beatoraja_core::player_config::PlayerConfig;
 use beatoraja_ir::ir_connection_manager::IRConnectionManager;
+use egui;
 
 use crate::stubs::open_url_in_browser;
 
@@ -12,7 +13,6 @@ use crate::stubs::open_url_in_browser;
 ///
 /// IR connection configuration UI with user/password fields,
 /// send options, and primary IR selection.
-#[allow(dead_code)]
 #[derive(Default)]
 pub struct IRConfigurationView {
     // @FXML private Button primarybutton;
@@ -45,7 +45,6 @@ pub struct IRConfigurationView {
     player: Option<PlayerConfig>,
 }
 
-#[allow(dead_code)]
 impl IRConfigurationView {
     pub fn new() -> Self {
         Self::default()
@@ -223,6 +222,102 @@ impl IRConfigurationView {
     pub fn open_home_url(&self) {
         if !self.irhome.is_empty() {
             open_url_in_browser(&self.irhome);
+        }
+    }
+
+    /// Render the IR configuration UI.
+    ///
+    /// Shows IR name selector, user/password fields, send mode combo,
+    /// import toggles, home URL link, and primary IR button.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        const IR_SEND_LABELS: [&str; 3] = ["ALWAYS", "COMPLETE SONG", "UPDATE SCORE"];
+
+        ui.heading("Internet Ranking Configuration");
+
+        if self.irname_items.is_empty() {
+            ui.label("No IR connections available.");
+            return;
+        }
+
+        // IR name selector
+        let current_name = self.irname.clone().unwrap_or_default();
+        egui::Grid::new("ir_config_grid")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("IR Name:");
+                let mut changed = false;
+                egui::ComboBox::from_id_salt("ir_config_irname")
+                    .selected_text(&current_name)
+                    .show_ui(ui, |ui| {
+                        for name in &self.irname_items {
+                            if ui
+                                .selectable_label(self.irname.as_ref() == Some(name), name)
+                                .clicked()
+                            {
+                                self.irname = Some(name.clone());
+                                changed = true;
+                            }
+                        }
+                    });
+                ui.end_row();
+
+                if changed {
+                    self.update_ir_connection();
+                }
+
+                ui.label("Home URL:");
+                if self.irhome.is_empty() {
+                    ui.label("-");
+                } else if ui.link(&self.irhome).clicked() {
+                    self.open_home_url();
+                }
+                ui.end_row();
+
+                ui.label("User ID:");
+                ui.text_edit_singleline(&mut self.iruserid);
+                ui.end_row();
+
+                ui.label("Password:");
+                ui.add(egui::TextEdit::singleline(&mut self.irpassword).password(true));
+                ui.end_row();
+
+                ui.label("Send Mode:");
+                let selected_label = IR_SEND_LABELS
+                    .get(self.irsend.unwrap_or(0) as usize)
+                    .unwrap_or(&"ALWAYS");
+                egui::ComboBox::from_id_salt("ir_config_send_mode")
+                    .selected_text(*selected_label)
+                    .show_ui(ui, |ui| {
+                        for (i, label) in IR_SEND_LABELS.iter().enumerate() {
+                            let mut current = self.irsend.unwrap_or(0);
+                            if ui
+                                .selectable_value(&mut current, i as i32, *label)
+                                .changed()
+                            {
+                                self.irsend = Some(current);
+                            }
+                        }
+                    });
+                ui.end_row();
+
+                ui.label("Import Rival:");
+                ui.checkbox(&mut self.importrival, "");
+                ui.end_row();
+
+                ui.label("Import Score:");
+                ui.checkbox(&mut self.importscore, "");
+                ui.end_row();
+            });
+
+        ui.separator();
+
+        // Primary IR button
+        if self.primarybutton_visible {
+            if ui.button("Set as Primary").clicked() {
+                self.set_primary();
+            }
+        } else {
+            ui.label("(This is the primary IR)");
         }
     }
 }

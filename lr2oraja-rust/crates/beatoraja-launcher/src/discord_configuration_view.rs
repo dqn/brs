@@ -1,17 +1,16 @@
 // Translates: bms.player.beatoraja.launcher.DiscordConfigurationView
 
 use beatoraja_core::config::Config;
+use egui;
 
 /// Inner struct: WebhookInfo
 /// Translates: DiscordConfigurationView.WebhookInfo (private static class)
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct WebhookInfo {
     // public StringProperty url;
     pub url: String,
 }
 
-#[allow(dead_code)]
 impl WebhookInfo {
     // public WebhookInfo(String url)
     pub fn new(url: String) -> Self {
@@ -52,7 +51,6 @@ impl WebhookInfo {
 /// Translates: DiscordConfigurationView (JavaFX → egui)
 ///
 /// Discord/webhook configuration UI with editable table for webhook URLs.
-#[allow(dead_code)]
 #[derive(Default)]
 pub struct DiscordConfigurationView {
     // @FXML public CheckBox discordRichPresence;
@@ -72,7 +70,6 @@ pub struct DiscordConfigurationView {
     config: Option<Config>,
 }
 
-#[allow(dead_code)]
 impl DiscordConfigurationView {
     // public void initialize(URL location, ResourceBundle resources)
     pub fn initialize(&mut self) {
@@ -196,5 +193,95 @@ impl DiscordConfigurationView {
             }
             i -= 1;
         }
+    }
+
+    /// Render the Discord configuration UI.
+    ///
+    /// Shows Discord Rich Presence toggle, webhook settings (option, name, avatar),
+    /// and an editable webhook URL list with add/remove/reorder controls.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Discord Configuration");
+
+        ui.checkbox(&mut self.discord_rich_presence, "Enable Discord Rich Presence");
+
+        ui.separator();
+        ui.heading("Webhook");
+
+        let webhook_options = ["All Clear", "FC / AAA", "Clear"];
+
+        egui::Grid::new("discord_config_grid")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Send On:");
+                let selected_label = webhook_options
+                    .get(self.webhook_option as usize)
+                    .unwrap_or(&"All Clear");
+                egui::ComboBox::from_id_salt("discord_config_webhook_option")
+                    .selected_text(*selected_label)
+                    .show_ui(ui, |ui| {
+                        for (i, label) in webhook_options.iter().enumerate() {
+                            ui.selectable_value(&mut self.webhook_option, i as i32, *label);
+                        }
+                    });
+                ui.end_row();
+
+                ui.label("Bot Name:");
+                ui.text_edit_singleline(&mut self.webhook_name);
+                ui.end_row();
+
+                ui.label("Avatar URL:");
+                ui.text_edit_singleline(&mut self.webhook_avatar);
+                ui.end_row();
+            });
+
+        ui.separator();
+        ui.label("Webhook URLs:");
+
+        // Webhook URL list with selection
+        let mut remove_indices: Vec<usize> = Vec::new();
+        for (i, webhook) in self.webhook_url.iter().enumerate() {
+            let selected = self.webhook_url_selected_indices.contains(&i);
+            ui.horizontal(|ui| {
+                if ui.selectable_label(selected, &webhook.url).clicked() {
+                    if selected {
+                        self.webhook_url_selected_indices.retain(|&idx| idx != i);
+                    } else {
+                        self.webhook_url_selected_indices.push(i);
+                    }
+                }
+                if ui.small_button("x").clicked() {
+                    remove_indices.push(i);
+                }
+            });
+        }
+        // Remove in reverse order to preserve indices
+        remove_indices.sort_unstable();
+        for idx in remove_indices.into_iter().rev() {
+            if idx < self.webhook_url.len() {
+                self.webhook_url.remove(idx);
+            }
+            self.webhook_url_selected_indices.retain(|&i| i != idx);
+        }
+
+        // Add URL input
+        ui.horizontal(|ui| {
+            ui.text_edit_singleline(&mut self.url);
+            if ui.button("Add").clicked() {
+                self.add_webhook_url();
+            }
+        });
+
+        // Reorder / remove buttons
+        ui.horizontal(|ui| {
+            if ui.button("Up").clicked() {
+                self.move_webhook_url_up();
+            }
+            if ui.button("Down").clicked() {
+                self.move_webhook_url_down();
+            }
+            if ui.button("Remove Selected").clicked() {
+                self.remove_webhook_url();
+            }
+        });
     }
 }
