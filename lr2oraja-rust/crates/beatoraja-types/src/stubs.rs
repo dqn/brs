@@ -44,7 +44,6 @@ pub use crate::scroll_speed_modifier;
 /// Stub for beatoraja.ir.IRConnectionManager
 pub struct IRConnectionManager;
 
-#[allow(dead_code)]
 impl IRConnectionManager {
     pub fn get_all_available_ir_connection_name() -> Vec<String> {
         vec![]

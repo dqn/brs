@@ -26,7 +26,6 @@ pub struct RankingData;
 pub type FloatArray = Vec<f32>;
 
 /// PlayerResource - holds game session state for data exchange between components
-#[allow(dead_code)]
 pub struct PlayerResource {
     /// Margin time
     margin_time: i64,
@@ -100,8 +99,6 @@ pub struct PlayerResource {
     freq_string: Option<String>,
     /// Force no IR send
     force_no_ir_send: bool,
-    /// Reverse lookup data
-    reverse_lookup: Vec<String>,
     /// Type-erased BGA processor for reuse across plays.
     /// Concrete type: `Arc<Mutex<BGAProcessor>>` from beatoraja-play.
     /// Stored via Box<dyn Any> to avoid circular dependency (core cannot import play).
@@ -150,7 +147,6 @@ impl PlayerResource {
             freq_on: false,
             freq_string: None,
             force_no_ir_send: false,
-            reverse_lookup: Vec::new(),
             bga_any: None,
         }
     }

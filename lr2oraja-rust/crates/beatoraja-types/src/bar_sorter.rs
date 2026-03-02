@@ -16,7 +16,6 @@ impl BarSorterEntry {
     }
 }
 
-#[allow(dead_code)]
 impl BarSorter {
     pub const DEFAULT_SORTER: &'static [BarSorterEntry] = &[
         BarSorterEntry { name: "TITLE" },

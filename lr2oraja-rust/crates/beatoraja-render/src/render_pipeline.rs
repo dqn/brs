@@ -13,7 +13,6 @@ pub const SHADER_TYPE_LINEAR: i32 = 1;
 pub const SHADER_TYPE_BILINEAR: i32 = 2;
 pub const SHADER_TYPE_FFMPEG: i32 = 3;
 pub const SHADER_TYPE_LAYER: i32 = 4;
-#[allow(dead_code)]
 pub const SHADER_TYPE_DISTANCE_FIELD: i32 = 5;
 
 /// Manages wgpu render pipelines for sprite rendering.

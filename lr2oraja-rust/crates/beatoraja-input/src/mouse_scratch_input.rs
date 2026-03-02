@@ -5,14 +5,10 @@
 use crate::keyboard_input_processor::KeyboardCallback;
 use crate::stubs::{GdxGraphics, GdxInput, KeyboardConfig, MouseScratchConfig};
 
-#[allow(dead_code)]
-const MOUSESCRATCH_RIGHT: usize = 0;
-#[allow(dead_code)]
-const MOUSESCRATCH_LEFT: usize = 1;
-#[allow(dead_code)]
-const MOUSESCRATCH_UP: usize = 2;
-#[allow(dead_code)]
-const MOUSESCRATCH_DOWN: usize = 3;
+const _MOUSESCRATCH_RIGHT: usize = 0;
+const _MOUSESCRATCH_LEFT: usize = 1;
+const _MOUSESCRATCH_UP: usize = 2;
+const _MOUSESCRATCH_DOWN: usize = 3;
 
 /// Mouse-as-scratch input
 pub struct MouseScratchInput {
@@ -27,17 +23,14 @@ pub struct MouseScratchInput {
     mouse_scratch_algorithm: [Option<Box<dyn MouseScratchAlgorithm>>; 2],
     /// Last pressed mouse scratch
     last_mouse_scratch: i32,
-    /// Minimum key input interval
-    #[allow(dead_code)]
-    duration: i32,
+    /// Minimum key input interval (Java: stored for potential future use)
+    _duration: i32,
     /// Use mouse scratch
     mouse_scratch_enabled: bool,
-    /// Scratch stop threshold (ms)
-    #[allow(dead_code)]
-    mouse_scratch_time_threshold: i32,
-    /// Scratch distance
-    #[allow(dead_code)]
-    mouse_scratch_distance: i32,
+    /// Scratch stop threshold (ms) (Java: stored for potential future use)
+    _mouse_scratch_time_threshold: i32,
+    /// Scratch distance (Java: stored for potential future use)
+    _mouse_scratch_distance: i32,
 }
 
 impl MouseScratchInput {
@@ -50,10 +43,10 @@ impl MouseScratchInput {
             mouse_to_analog: None,
             mouse_scratch_algorithm: [None, None],
             last_mouse_scratch: -1,
-            duration: 0,
+            _duration: 0,
             mouse_scratch_enabled: false,
-            mouse_scratch_time_threshold: 150,
-            mouse_scratch_distance: 150,
+            _mouse_scratch_time_threshold: 150,
+            _mouse_scratch_distance: 150,
         };
         input.set_config(config);
         input
@@ -136,12 +129,12 @@ impl MouseScratchInput {
     pub fn set_config(&mut self, config: &KeyboardConfig) {
         let msconfig = config.get_mouse_scratch_config();
         self.keys = msconfig.get_key_assign().to_vec();
-        self.duration = config.get_duration();
+        self._duration = config.get_duration();
         self.control = vec![msconfig.get_start(), msconfig.get_select()];
 
         self.mouse_scratch_enabled = msconfig.is_mouse_scratch_enabled();
-        self.mouse_scratch_time_threshold = msconfig.get_mouse_scratch_time_threshold();
-        self.mouse_scratch_distance = msconfig.get_mouse_scratch_distance();
+        self._mouse_scratch_time_threshold = msconfig.get_mouse_scratch_time_threshold();
+        self._mouse_scratch_distance = msconfig.get_mouse_scratch_distance();
         if self.mouse_scratch_enabled {
             let mouse_to_analog = MouseToAnalog::new(msconfig.get_mouse_scratch_distance());
             for i in 0..self.mouse_scratch_algorithm.len() {
@@ -292,13 +285,11 @@ fn get_time_diff(lastpresstime: &mut i64, presstime: i64) -> i64 {
 /// MouseScratchAlgorithmVersion1
 struct MouseScratchAlgorithmVersion1 {
     scratch_duration: i32,
-    #[allow(dead_code)]
-    x_axis: bool,
+    _x_axis: bool,
 
     // We store a copy of scratch_distance/tick_length/domain from MouseToAnalog
     // for computing distance diff without borrowing MouseToAnalog
-    #[allow(dead_code)]
-    mta_tick_length: i32,
+    _mta_tick_length: i32,
     mta_domain: i32,
 
     prev_position: i32,
@@ -313,8 +304,8 @@ impl MouseScratchAlgorithmVersion1 {
         let prev_position = mouse_to_analog.get_distance_moved(x_axis);
         Self {
             scratch_duration,
-            x_axis,
-            mta_tick_length: mouse_to_analog.tick_length,
+            _x_axis: x_axis,
+            _mta_tick_length: mouse_to_analog.tick_length,
             mta_domain: mouse_to_analog.domain,
             prev_position,
             remaining_time: 0,
@@ -373,11 +364,9 @@ struct MouseScratchAlgorithmVersion2 {
     scratch_duration: i32,
     scratch_distance: i32,
     scratch_reverse_distance: i32,
-    #[allow(dead_code)]
-    x_axis: bool,
+    _x_axis: bool,
 
-    #[allow(dead_code)]
-    mta_tick_length: i32,
+    _mta_tick_length: i32,
     mta_domain: i32,
 
     current_scratch: i32,
@@ -402,8 +391,8 @@ impl MouseScratchAlgorithmVersion2 {
             scratch_duration,
             scratch_distance,
             scratch_reverse_distance,
-            x_axis,
-            mta_tick_length: mouse_to_analog.tick_length,
+            _x_axis: x_axis,
+            _mta_tick_length: mouse_to_analog.tick_length,
             mta_domain: mouse_to_analog.domain,
             current_scratch: 0,
             prev_position,

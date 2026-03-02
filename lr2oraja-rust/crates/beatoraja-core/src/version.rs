@@ -5,7 +5,6 @@ use std::sync::OnceLock;
 /// Version utility struct (mirrors Java's static Version class)
 pub struct Version;
 
-#[allow(dead_code)]
 impl Version {
     pub fn get_version() -> &'static str {
         version()

@@ -81,9 +81,6 @@ static DESKTOP_MODE: Mutex<(u32, u32)> = Mutex::new((0, 0));
 pub struct MainLoader;
 
 impl MainLoader {
-    #[allow(dead_code)]
-    const ALLOWS_32BIT_JAVA: bool = false;
-
     fn illegal_songs() -> &'static Mutex<HashSet<String>> {
         ILLEGAL_SONGS.get_or_init(|| Mutex::new(HashSet::new()))
     }

@@ -152,11 +152,7 @@ static KEYSA: &[&[i32]] = &[
     ],
 ];
 
-#[allow(dead_code)]
 static PLAYER_OFFSET: i32 = 100;
-
-#[allow(dead_code)]
-static SELECTKEY: &[&str] = &["7 KEYS", "9 KEYS", "14 KEYS"];
 
 #[allow(dead_code)]
 pub struct KeyConfiguration {

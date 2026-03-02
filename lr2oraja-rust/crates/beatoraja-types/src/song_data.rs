@@ -16,7 +16,6 @@ pub const FEATURE_SCROLL: i32 = 128;
 
 pub const CONTENT_TEXT: i32 = 1;
 pub const CONTENT_BGA: i32 = 2;
-#[allow(dead_code)]
 pub const CONTENT_PREVIEW: i32 = 4;
 pub const CONTENT_NOKEYSOUND: i32 = 128;
 
