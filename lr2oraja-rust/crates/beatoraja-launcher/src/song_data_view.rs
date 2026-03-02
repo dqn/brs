@@ -2,23 +2,22 @@
 
 use std::collections::HashMap;
 
+use egui;
+
 /// Column definition for a SongData table.
 /// Java: private TableColumn<SongData, T> with PropertyValueFactory
 /// In Rust, we track column names and visibility.
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct SongDataColumn {
     pub property_name: String,
     pub visible: bool,
 }
 
-/// SongDataView — table view for displaying song data.
+/// SongDataView -- table view for displaying song data.
 /// Java: SongDataView implements Initializable
 /// Has @FXML TableColumn fields for title, artist, genre, mode, notes, level, sha256.
 /// In Rust, this is a data struct tracking column definitions and visibility.
-/// egui rendering is deferred.
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct SongDataView {
     // Java: private Map<String, TableColumn> columnMap = new HashMap<>();
     pub column_map: HashMap<String, SongDataColumn>,
@@ -26,7 +25,6 @@ pub struct SongDataView {
     pub column_order: Vec<String>,
 }
 
-#[allow(dead_code)]
 impl SongDataView {
     /// Creates and initializes a new SongDataView.
     /// Java: public void initialize(URL arg0, ResourceBundle arg1)
@@ -97,6 +95,25 @@ impl SongDataView {
             .get(property_name)
             .map(|c| c.visible)
             .unwrap_or(false)
+    }
+
+    /// Render the SongData column visibility configuration UI.
+    ///
+    /// Shows a grid of checkboxes for toggling each column's visibility.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Song Data Columns");
+
+        egui::Grid::new("song_data_columns_grid")
+            .num_columns(2)
+            .show(ui, |ui| {
+                for name in &self.column_order.clone() {
+                    if let Some(column) = self.column_map.get_mut(name) {
+                        ui.label(name.as_str());
+                        ui.checkbox(&mut column.visible, "");
+                        ui.end_row();
+                    }
+                }
+            });
     }
 }
 

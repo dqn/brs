@@ -1,6 +1,7 @@
 // Translates: bms.player.beatoraja.launcher.InputConfigurationView
 
 use bms_model::mode::Mode;
+use egui;
 
 use beatoraja_core::play_mode_config::{
     ANALOG_SCRATCH_VER_1, ANALOG_SCRATCH_VER_2, PlayModeConfig,
@@ -13,7 +14,7 @@ use crate::controller_config_view_model::ControllerConfigViewModel;
 /// Translates: PlayConfigurationView.PlayMode (inner enum)
 /// Defined here to avoid circular dependency on play_configuration_view.
 #[derive(Clone, Debug, PartialEq)]
-#[allow(dead_code, non_camel_case_types)]
+#[allow(non_camel_case_types)]
 pub enum PlayMode {
     BEAT_5K,
     BEAT_7K,
@@ -24,7 +25,6 @@ pub enum PlayMode {
     KEYBOARD_24K_DOUBLE,
 }
 
-#[allow(dead_code)]
 impl PlayMode {
     pub fn values() -> &'static [PlayMode] {
         &[
@@ -85,7 +85,6 @@ impl std::fmt::Display for PlayMode {
 ///
 /// Input configuration UI: play mode selection, controller table,
 /// keyboard input duration, JKOC hack, mouse scratch settings.
-#[allow(dead_code)]
 #[derive(Default)]
 pub struct InputConfigurationView {
     // Per-device minimum input interval: not implemented in Java either.
@@ -123,7 +122,6 @@ pub struct InputConfigurationView {
     mode: Option<PlayMode>,
 }
 
-#[allow(dead_code)]
 impl InputConfigurationView {
     pub fn new() -> Self {
         Self::default()
@@ -314,5 +312,133 @@ impl InputConfigurationView {
     /// Translates: playsideCol.setCellValueFactory(col -> ... (index+1) + "P")
     pub fn play_side_string(index: usize) -> String {
         format!("{}P", index + 1)
+    }
+
+    /// Render the input configuration UI.
+    ///
+    /// Shows play mode selector, controller table, keyboard input duration,
+    /// JKOC hack toggle, and mouse scratch settings.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Input Configuration");
+
+        // Play mode selector
+        ui.horizontal(|ui| {
+            ui.label("Play Mode:");
+            let current_label = self
+                .inputconfig
+                .as_ref()
+                .map(|m| m.display_name())
+                .unwrap_or("Select...");
+            egui::ComboBox::from_id_salt("input_play_mode")
+                .selected_text(current_label)
+                .show_ui(ui, |ui| {
+                    for mode in PlayMode::values() {
+                        let selected = self.inputconfig.as_ref() == Some(mode);
+                        if ui
+                            .selectable_label(selected, mode.display_name())
+                            .clicked()
+                        {
+                            self.inputconfig = Some(mode.clone());
+                            self.change_mode();
+                        }
+                    }
+                });
+        });
+
+        ui.separator();
+
+        // Keyboard settings
+        egui::Grid::new("input_keyboard_grid")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Input Duration:");
+                ui.add(egui::DragValue::new(&mut self.inputduration).range(0..=1000));
+                ui.end_row();
+
+                ui.label("JKOC Hack:");
+                ui.checkbox(&mut self.jkoc_hack, "");
+                ui.end_row();
+            });
+
+        ui.separator();
+
+        // Controller table
+        ui.heading("Controllers");
+
+        let analog_mode_labels = [
+            (ANALOG_SCRATCH_VER_2, "Ver. 2 (Newest)"),
+            (ANALOG_SCRATCH_VER_1, "Ver. 1 (~0.6.9)"),
+        ];
+
+        egui::Grid::new("input_controller_table")
+            .num_columns(5)
+            .striped(true)
+            .show(ui, |ui| {
+                // Header
+                ui.label("Side");
+                ui.label("Name");
+                ui.label("Analog");
+                ui.label("Threshold");
+                ui.label("Mode");
+                ui.end_row();
+
+                for (i, vm) in self.controller_table_view.iter_mut().enumerate() {
+                    ui.label(Self::play_side_string(i));
+                    ui.label(vm.get_name());
+                    ui.checkbox(&mut vm.is_analog_scratch, "");
+                    ui.add(
+                        egui::DragValue::new(&mut vm.analog_scratch_threshold).range(1..=1000),
+                    );
+                    let mode_label = Self::analog_scratch_mode_to_string(vm.analog_scratch_mode);
+                    egui::ComboBox::from_id_salt(format!("input_ctrl_mode_{}", i))
+                        .selected_text(mode_label)
+                        .show_ui(ui, |ui| {
+                            for &(val, label) in &analog_mode_labels {
+                                ui.selectable_value(&mut vm.analog_scratch_mode, val, label);
+                            }
+                        });
+                    ui.end_row();
+                }
+            });
+
+        ui.separator();
+
+        // Mouse scratch settings
+        ui.heading("Mouse Scratch");
+
+        egui::Grid::new("input_mouse_scratch_grid")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Enable:");
+                ui.checkbox(&mut self.mouse_scratch, "");
+                ui.end_row();
+
+                if self.mouse_scratch {
+                    ui.label("Time Threshold:");
+                    ui.add(
+                        egui::DragValue::new(&mut self.mouse_scratch_time_threshold)
+                            .range(0..=10000),
+                    );
+                    ui.end_row();
+
+                    ui.label("Distance:");
+                    ui.add(
+                        egui::DragValue::new(&mut self.mouse_scratch_distance).range(0..=10000),
+                    );
+                    ui.end_row();
+
+                    ui.label("Mode:");
+                    let mode_label =
+                        Self::analog_scratch_mode_to_string(self.mouse_scratch_mode);
+                    egui::ComboBox::from_id_salt("input_mouse_scratch_mode")
+                        .selected_text(mode_label)
+                        .show_ui(ui, |ui| {
+                            for &(val, label) in &analog_mode_labels {
+                                ui.selectable_value(&mut self.mouse_scratch_mode, val, label);
+                            }
+                        });
+                    ui.end_row();
+                }
+            });
     }
 }

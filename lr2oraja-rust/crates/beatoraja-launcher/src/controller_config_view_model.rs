@@ -9,7 +9,6 @@ use beatoraja_core::play_mode_config::ControllerConfig;
 /// for use in table views. In JavaFX these were StringProperty,
 /// BooleanProperty, ObjectProperty<Integer>. In Rust these are
 /// plain fields that egui will read/write directly.
-#[allow(dead_code)]
 pub struct ControllerConfigViewModel {
     // private StringProperty nameProperty = new SimpleStringProperty();
     pub name: String,
@@ -24,7 +23,6 @@ pub struct ControllerConfigViewModel {
     pub config: ControllerConfig,
 }
 
-#[allow(dead_code)]
 impl ControllerConfigViewModel {
     // public ControllerConfigViewModel(ControllerConfig config)
     pub fn new(config: ControllerConfig) -> Self {
