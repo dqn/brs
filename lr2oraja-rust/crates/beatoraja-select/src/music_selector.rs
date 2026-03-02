@@ -1487,10 +1487,12 @@ impl MainState for MusicSelector {
     fn render(&mut self) {
         let timer = &mut self.main_state_data.timer;
 
-        // Start input timer
-        // In Java: if(timer.getNowTime() > getSkin().getInput())
-        //     timer.switchTimer(TIMER_STARTINPUT, true);
-        timer.switch_timer(skin_property::TIMER_STARTINPUT, true);
+        // Start input timer after skin input delay
+        if let Some(ref skin) = self.main_state_data.skin
+            && timer.get_now_time() > skin.get_input() as i64
+        {
+            timer.switch_timer(skin_property::TIMER_STARTINPUT, true);
+        }
 
         // Initialize songbar change timer
         if timer.get_now_time_for_id(skin_property::TIMER_SONGBAR_CHANGE) < 0 {
@@ -1811,6 +1813,8 @@ impl ChartReplicationMode {
         ChartReplicationMode::None,
         ChartReplicationMode::RivalChart,
         ChartReplicationMode::RivalOption,
+        ChartReplicationMode::ReplayChart,
+        ChartReplicationMode::ReplayOption,
     ];
 
     pub fn get(name: &str) -> ChartReplicationMode {
@@ -2128,10 +2132,11 @@ mod tests {
     #[test]
     fn test_render_timers() {
         let mut selector = MusicSelector::new();
-        // render should set TIMER_STARTINPUT
+        // Without a skin loaded, TIMER_STARTINPUT should NOT be set
+        // (matches Java: timer.switchTimer(TIMER_STARTINPUT) is guarded by getSkin().getInput())
         selector.render();
         assert!(
-            selector
+            !selector
                 .main_state_data
                 .timer
                 .is_timer_on(skin_property::TIMER_STARTINPUT)

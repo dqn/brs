@@ -188,7 +188,7 @@ pub struct Config {
     pub enable_http: bool,
     #[serde(rename = "downloadSource")]
     pub download_source: String,
-    #[serde(rename = "defaultDownloadUrl")]
+    #[serde(rename = "defaultDownloadUrl", alias = "defaultDownloadURL")]
     pub default_download_url: String,
     #[serde(rename = "overrideDownloadUrl")]
     pub override_download_url: String,
@@ -196,7 +196,7 @@ pub struct Config {
     pub download_directory: String,
     #[serde(rename = "irSendCount")]
     pub ir_send_count: i32,
-    #[serde(rename = "useDiscordRpc")]
+    #[serde(rename = "useDiscordRpc", alias = "useDiscordRPC")]
     pub use_discord_rpc: bool,
     #[serde(rename = "setClipboardScreenshot")]
     pub set_clipboard_screenshot: bool,
@@ -626,6 +626,8 @@ impl Validatable for Config {
         if !validate_path(&self.download_directory) {
             self.download_directory = DEFAULT_DOWNLOAD_DIRECTORY.to_string();
         }
+        // ObsRecordingMode has 3 variants: 0=KeepAll, 1=OnScreenshot, 2=OnReplay
+        self.obs_ws_rec_mode = self.obs_ws_rec_mode.clamp(0, 2);
         true
     }
 }

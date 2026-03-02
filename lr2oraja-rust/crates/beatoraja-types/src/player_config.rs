@@ -78,7 +78,7 @@ pub struct PlayerConfig {
     pub extranote_scratch: bool,
     pub showjudgearea: bool,
     pub markprocessednote: bool,
-    #[serde(rename = "hranThresholdBpm")]
+    #[serde(rename = "hranThresholdBpm", alias = "hranThresholdBPM")]
     pub hran_threshold_bpm: i32,
     #[serde(rename = "gaugeAutoShift")]
     pub gauge_auto_shift: i32,
@@ -91,7 +91,7 @@ pub struct PlayerConfig {
     pub seven_to_nine_type: i32,
     #[serde(rename = "exitPressDuration")]
     pub exit_press_duration: i32,
-    #[serde(rename = "isGuideSe")]
+    #[serde(rename = "isGuideSe", alias = "isGuideSE")]
     pub is_guide_se: bool,
     #[serde(rename = "isWindowHold")]
     pub is_window_hold: bool,

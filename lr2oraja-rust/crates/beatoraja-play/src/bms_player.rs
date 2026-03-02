@@ -651,7 +651,8 @@ impl BMSPlayer {
         let mut score = self.judge.get_score_data().clone();
 
         // If not in course mode and not aborted, check if any notes were hit
-        if self.state != STATE_ABORTED
+        if !self.is_course_mode
+            && self.state != STATE_ABORTED
             && (score.epg
                 + score.lpg
                 + score.egr
@@ -671,11 +672,13 @@ impl BMSPlayer {
             && gauge.is_qualified()
         {
             if self.assist > 0 {
-                clear = if self.assist == 1 {
-                    ClearType::LightAssistEasy
-                } else {
-                    ClearType::AssistEasy
-                };
+                if !self.is_course_mode {
+                    clear = if self.assist == 1 {
+                        ClearType::LightAssistEasy
+                    } else {
+                        ClearType::AssistEasy
+                    };
+                }
             } else if self.judge.get_past_notes() == self.judge.get_combo() {
                 if self.judge.get_judge_count(2) == 0 {
                     if self.judge.get_judge_count(1) == 0 {
@@ -686,7 +689,7 @@ impl BMSPlayer {
                 } else {
                     clear = ClearType::FullCombo;
                 }
-            } else {
+            } else if !self.is_course_mode {
                 clear = gauge.get_clear_type();
             }
         }
