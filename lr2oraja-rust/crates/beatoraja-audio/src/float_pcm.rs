@@ -105,6 +105,9 @@ impl FloatPCM {
     ///
     /// Translated from: FloatPCM.changeSampleRate
     pub fn change_sample_rate(&self, sample: i32) -> FloatPCM {
+        if self.sample_rate == 0 || self.channels == 0 || sample == 0 {
+            return FloatPCM::new(self.channels, sample, 0, 0, Vec::new());
+        }
         let samples = self.get_sample(sample);
         let start = ((((self.start as i64) * (sample as i64) / (self.sample_rate as i64)) as i32)
             .min(samples.len() as i32 - 1)
@@ -137,6 +140,9 @@ impl FloatPCM {
     ///
     /// Translated from: FloatPCM.getSample
     fn get_sample(&self, sample: i32) -> Vec<f32> {
+        if self.channels == 0 || self.sample_rate == 0 || sample == 0 {
+            return Vec::new();
+        }
         let new_len = (((self.sample.len() as i64 / self.channels as i64) * sample as i64
             / self.sample_rate as i64)
             * self.channels as i64) as usize;
@@ -233,5 +239,31 @@ impl FloatPCM {
 
     pub fn validate(&self) -> bool {
         !self.sample.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_float_pcm_change_sample_rate_zero_sample_rate() {
+        let pcm = FloatPCM::new(1, 0, 0, 4, vec![0.1, 0.2, 0.3, 0.4]);
+        let result = pcm.change_sample_rate(44100);
+        assert_eq!(result.sample.len(), 0);
+    }
+
+    #[test]
+    fn test_float_pcm_change_sample_rate_zero_channels() {
+        let pcm = FloatPCM::new(0, 44100, 0, 4, vec![0.1, 0.2, 0.3, 0.4]);
+        let result = pcm.change_sample_rate(48000);
+        assert_eq!(result.sample.len(), 0);
+    }
+
+    #[test]
+    fn test_float_pcm_change_sample_rate_zero_sample() {
+        let pcm = FloatPCM::new(1, 44100, 0, 4, vec![0.1, 0.2, 0.3, 0.4]);
+        let result = pcm.change_sample_rate(0);
+        assert_eq!(result.sample.len(), 0);
     }
 }
