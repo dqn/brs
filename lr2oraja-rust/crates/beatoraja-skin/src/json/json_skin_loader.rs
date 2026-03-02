@@ -32,15 +32,80 @@ fn parse_skin_json(content: &str) -> Result<json_skin::Skin, serde_json::Error> 
 }
 
 /// Apply Gson-compatible leniency fixes to a JSON string:
-/// 1. Strip trailing commas before `]` and `}`
-/// 2. Insert missing commas between `}` and `{` (array element separators)
+/// 1. Strip UTF-8 BOM prefix
+/// 2. Strip `//` line comments and `/* */` block comments (string-aware)
+/// 3. Strip trailing commas before `]` and `}`
+/// 4. Insert missing commas between `}` and `{` (array element separators)
 fn fix_lenient_json(json: &str) -> String {
+    // 1. Strip UTF-8 BOM
+    let json = json.strip_prefix('\u{FEFF}').unwrap_or(json);
+
+    // 2. Strip comments (string-aware state machine)
+    let stripped = strip_comments(json);
+
+    // 3-4. Fix trailing commas and missing commas
     static TRAILING_COMMA: std::sync::LazyLock<regex::Regex> =
         std::sync::LazyLock::new(|| regex::Regex::new(r",(\s*[}\]])").unwrap());
     static MISSING_COMMA: std::sync::LazyLock<regex::Regex> =
         std::sync::LazyLock::new(|| regex::Regex::new(r"\}(\s*)\{").unwrap());
-    let fixed = TRAILING_COMMA.replace_all(json, "$1");
+    let fixed = TRAILING_COMMA.replace_all(&stripped, "$1");
     MISSING_COMMA.replace_all(&fixed, "},$1{").into_owned()
+}
+
+/// Strip `//` line comments and `/* */` block comments from JSON text,
+/// preserving comment-like sequences inside string literals.
+fn strip_comments(json: &str) -> String {
+    let bytes = json.as_bytes();
+    let len = bytes.len();
+    let mut out = String::with_capacity(len);
+    let mut i = 0;
+    let mut in_string = false;
+
+    while i < len {
+        if in_string {
+            let ch = bytes[i];
+            out.push(ch as char);
+            if ch == b'\\' {
+                // Escaped character: copy next byte verbatim
+                i += 1;
+                if i < len {
+                    out.push(bytes[i] as char);
+                }
+            } else if ch == b'"' {
+                in_string = false;
+            }
+            i += 1;
+            continue;
+        }
+
+        // Outside string
+        if bytes[i] == b'"' {
+            in_string = true;
+            out.push('"');
+            i += 1;
+        } else if i + 1 < len && bytes[i] == b'/' && bytes[i + 1] == b'/' {
+            // Line comment: skip to end of line
+            i += 2;
+            while i < len && bytes[i] != b'\n' {
+                i += 1;
+            }
+            // Keep the newline to preserve line structure
+        } else if i + 1 < len && bytes[i] == b'/' && bytes[i + 1] == b'*' {
+            // Block comment: skip to closing */
+            i += 2;
+            while i + 1 < len && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                i += 1;
+            }
+            if i + 1 < len {
+                i += 2; // skip */
+            }
+        } else {
+            out.push(bytes[i] as char);
+            i += 1;
+        }
+    }
+
+    out
 }
 
 /// Recursively walk a JSON value tree and convert numeric values to strings
@@ -1380,28 +1445,53 @@ mod tests {
         assert_eq!(skin.h, 1080);
     }
 
-    // ---- Phase 48a: M2 — line comments rejected by serde_json ----
-    // Gson accepts `// comment` lines; serde_json does not.
+    // ---- Line comments are now stripped by fix_lenient_json ----
 
     #[test]
-    fn test_line_comment_rejected() {
-        let result = parse_skin_json(SKIN_WITH_COMMENT);
-        assert!(
-            result.is_err(),
-            "serde_json should reject line comments (Gson accepts them)"
-        );
+    fn test_line_comment_stripped() {
+        let skin = parse_skin_json(SKIN_WITH_COMMENT).unwrap();
+        assert_eq!(skin.skin_type, 5);
+        assert_eq!(skin.name, Some("test".to_string()));
     }
 
-    // ---- Phase 48b: M2 — block comments rejected by serde_json ----
+    // ---- Block comments are now stripped by fix_lenient_json ----
 
     #[test]
-    fn test_block_comment_rejected() {
+    fn test_block_comment_stripped() {
         let input = r#"{ /* block comment */ "type": 5, "name": "test" }"#;
-        let result = parse_skin_json(input);
-        assert!(
-            result.is_err(),
-            "serde_json should reject block comments (Gson accepts them)"
-        );
+        let skin = parse_skin_json(input).unwrap();
+        assert_eq!(skin.skin_type, 5);
+        assert_eq!(skin.name, Some("test".to_string()));
+    }
+
+    // ---- BOM handling ----
+
+    #[test]
+    fn test_bom_prefix_stripped() {
+        let input = format!("\u{FEFF}{}", MINIMAL_SKIN_JSON);
+        let skin = parse_skin_json(&input).unwrap();
+        assert_eq!(skin.skin_type, 5);
+        assert_eq!(skin.name, Some("test".to_string()));
+    }
+
+    // ---- Comment stripping: string-safety ----
+
+    #[test]
+    fn test_comments_inside_string_not_stripped() {
+        // `//` and `/* */` inside a JSON string value must be preserved
+        let input = r#"{"type":5,"name":"a // b /* c */ d","w":1920,"h":1080}"#;
+        let skin = parse_skin_json(input).unwrap();
+        assert_eq!(skin.name, Some("a // b /* c */ d".to_string()));
+    }
+
+    #[test]
+    fn test_nested_block_comment_edge_case() {
+        // Nested `/*` inside a block comment: the first `*/` ends the comment
+        // (same behavior as Java/Gson)
+        let input = r#"{ /* outer /* inner */ "type": 5, "name": "test" }"#;
+        let skin = parse_skin_json(input).unwrap();
+        assert_eq!(skin.skin_type, 5);
+        assert_eq!(skin.name, Some("test".to_string()));
     }
 
     // ---- Phase 48c: M1 — fix_lenient_json corrupts `}{` inside string literals ----
