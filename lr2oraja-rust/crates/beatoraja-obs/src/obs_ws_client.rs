@@ -978,6 +978,20 @@ impl ObsWsClient {
     }
 }
 
+impl beatoraja_types::obs_access::ObsAccess for ObsWsClient {
+    fn save_last_recording(&self, reason: &str) {
+        ObsWsClient::save_last_recording(self, reason);
+    }
+
+    fn is_connected(&self) -> bool {
+        ObsWsClient::is_connected(self)
+    }
+
+    fn is_recording(&self) -> bool {
+        ObsWsClient::is_recording(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

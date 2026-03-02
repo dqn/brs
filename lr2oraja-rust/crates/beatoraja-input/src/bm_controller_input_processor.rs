@@ -128,7 +128,7 @@ const AXIS_LENGTH: usize = 8;
 /// arcin board -> 0.00784
 const TICK_MAX_SIZE: f32 = 0.009;
 
-trait AnalogScratchAlgorithm {
+trait AnalogScratchAlgorithm: Send {
     fn analog_scratch_input(&mut self, current_scratch_x: f32, plus: bool) -> bool;
 }
 

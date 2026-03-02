@@ -80,6 +80,7 @@ pub mod timer_access;
 pub mod timing_distribution;
 
 // Player types
+pub mod player_data;
 pub mod player_information;
 
 // Song selection interface (modmenu↔select bridge)
@@ -117,3 +118,9 @@ pub mod stream_controller_access;
 
 // Music download access (core↔md-processor bridge for IPFS download)
 pub mod music_download_access;
+
+// OBS WebSocket access (core↔obs bridge)
+pub mod obs_access;
+
+// ImGui overlay access (core↔modmenu bridge)
+pub mod imgui_access;

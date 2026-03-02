@@ -13,8 +13,10 @@ dhat-heap = ["dhat"]
 [dependencies]
 beatoraja-core = { workspace = true }
 beatoraja-external = { workspace = true }
+beatoraja-ir = { workspace = true }
 beatoraja-obs = { workspace = true }
 beatoraja-render = { workspace = true }
+beatoraja-result = { workspace = true }
 beatoraja-modmenu = { workspace = true }
 beatoraja-launcher = { workspace = true }
 anyhow = { workspace = true }

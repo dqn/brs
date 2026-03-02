@@ -156,9 +156,38 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
             main_controller.add_state_listener(Box::new(listener));
         }
         if use_obs_ws {
-            let listener = beatoraja_obs::obs_listener::ObsListener::new(cfg_clone);
+            let listener = beatoraja_obs::obs_listener::ObsListener::new(cfg_clone.clone());
             main_controller.add_state_listener(Box::new(listener));
+            let obs_client = beatoraja_obs::obs_ws_client::ObsWsClient::new(&cfg_clone);
+            if let Ok(client) = obs_client {
+                main_controller.set_obs_client(Box::new(client));
+            }
         }
+    }
+
+    // Wire IR initialization at startup
+    {
+        let player_config = main_controller.get_player_config().clone();
+        let ir_statuses = beatoraja_result::ir_initializer::initialize_ir_config(&player_config);
+        for ir_status in ir_statuses {
+            let rival_provider = beatoraja_ir::ir_rival_provider_impl::IRRivalProviderImpl::new(
+                ir_status.connection.clone(),
+                ir_status.player.clone(),
+                ir_status.config.irname.clone(),
+                ir_status.config.importscore,
+                ir_status.config.importrival,
+            );
+            main_controller
+                .get_ir_status_mut()
+                .push(beatoraja_core::main_controller::IRStatus {
+                    config: ir_status.config,
+                    rival_provider: Some(Box::new(rival_provider)),
+                });
+        }
+        // Wire IR resend service
+        let ir_send_count = main_controller.get_config().ir_send_count;
+        let resend_service = beatoraja_result::ir_resend::IrResendServiceImpl::new(ir_send_count);
+        main_controller.set_ir_resend_service(Box::new(resend_service));
     }
 
     // Extract window config from the controller's Config

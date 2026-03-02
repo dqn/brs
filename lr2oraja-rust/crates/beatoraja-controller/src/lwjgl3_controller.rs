@@ -357,12 +357,11 @@ impl Controller for Lwjgl3Controller {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     /// Test listener that records all events for verification.
     struct RecordingListener {
-        events: Rc<RefCell<Vec<ListenerEvent>>>,
+        events: Arc<Mutex<Vec<ListenerEvent>>>,
         /// If true, consume (return true) to stop propagation.
         consume: bool,
     }
@@ -385,7 +384,7 @@ mod tests {
     }
 
     impl RecordingListener {
-        fn new(events: Rc<RefCell<Vec<ListenerEvent>>>, consume: bool) -> Self {
+        fn new(events: Arc<Mutex<Vec<ListenerEvent>>>, consume: bool) -> Self {
             Self { events, consume }
         }
     }
@@ -395,7 +394,7 @@ mod tests {
         fn disconnected(&mut self, _controller_index: usize) {}
 
         fn axis_moved(&mut self, controller_index: usize, axis_code: i32, value: f32) -> bool {
-            self.events.borrow_mut().push(ListenerEvent::AxisMoved {
+            self.events.lock().unwrap().push(ListenerEvent::AxisMoved {
                 controller: controller_index,
                 axis: axis_code,
                 value,
@@ -404,7 +403,7 @@ mod tests {
         }
 
         fn button_down(&mut self, controller_index: usize, button_code: i32) -> bool {
-            self.events.borrow_mut().push(ListenerEvent::ButtonDown {
+            self.events.lock().unwrap().push(ListenerEvent::ButtonDown {
                 controller: controller_index,
                 button: button_code,
             });
@@ -412,7 +411,7 @@ mod tests {
         }
 
         fn button_up(&mut self, controller_index: usize, button_code: i32) -> bool {
-            self.events.borrow_mut().push(ListenerEvent::ButtonUp {
+            self.events.lock().unwrap().push(ListenerEvent::ButtonUp {
                 controller: controller_index,
                 button: button_code,
             });
@@ -555,13 +554,13 @@ mod tests {
     #[test]
     fn listener_fires_on_axis_change() {
         let mut ctrl = Lwjgl3Controller::new_with_state(0, 2, 0, "Pad".to_string());
-        let events = Rc::new(RefCell::new(Vec::new()));
+        let events = Arc::new(Mutex::new(Vec::new()));
         ctrl.add_listener(Box::new(RecordingListener::new(events.clone(), false)));
 
         let new_axes = vec![0.7, 0.0];
         ctrl.process_axis_changes(&new_axes);
 
-        let recorded = events.borrow();
+        let recorded = events.lock().unwrap();
         assert_eq!(recorded.len(), 1);
         assert_eq!(
             recorded[0],
@@ -576,7 +575,7 @@ mod tests {
     #[test]
     fn listener_fires_on_button_press_and_release() {
         let mut ctrl = Lwjgl3Controller::new_with_state(0, 0, 2, "Pad".to_string());
-        let events = Rc::new(RefCell::new(Vec::new()));
+        let events = Arc::new(Mutex::new(Vec::new()));
         ctrl.add_listener(Box::new(RecordingListener::new(events.clone(), false)));
 
         // Press button 1
@@ -584,7 +583,7 @@ mod tests {
         // Release button 1
         ctrl.process_button_changes(&[false, false]);
 
-        let recorded = events.borrow();
+        let recorded = events.lock().unwrap();
         assert_eq!(recorded.len(), 2);
         assert_eq!(
             recorded[0],
@@ -606,8 +605,8 @@ mod tests {
     fn consuming_listener_stops_propagation() {
         let mut ctrl = Lwjgl3Controller::new_with_state(0, 2, 2, "Pad".to_string());
 
-        let events_first = Rc::new(RefCell::new(Vec::new()));
-        let events_second = Rc::new(RefCell::new(Vec::new()));
+        let events_first = Arc::new(Mutex::new(Vec::new()));
+        let events_second = Arc::new(Mutex::new(Vec::new()));
 
         // First listener consumes, second should NOT receive events
         ctrl.add_listener(Box::new(RecordingListener::new(events_first.clone(), true)));
@@ -618,18 +617,18 @@ mod tests {
 
         // Axis change
         ctrl.process_axis_changes(&[1.0, 0.0]);
-        assert_eq!(events_first.borrow().len(), 1);
-        assert_eq!(events_second.borrow().len(), 0);
+        assert_eq!(events_first.lock().unwrap().len(), 1);
+        assert_eq!(events_second.lock().unwrap().len(), 0);
 
         // Button press
         ctrl.process_button_changes(&[true, false]);
-        assert_eq!(events_first.borrow().len(), 2); // +1 button_down
-        assert_eq!(events_second.borrow().len(), 0); // still 0
+        assert_eq!(events_first.lock().unwrap().len(), 2); // +1 button_down
+        assert_eq!(events_second.lock().unwrap().len(), 0); // still 0
 
         // Button release
         ctrl.process_button_changes(&[false, false]);
-        assert_eq!(events_first.borrow().len(), 3); // +1 button_up
-        assert_eq!(events_second.borrow().len(), 0); // still 0
+        assert_eq!(events_first.lock().unwrap().len(), 3); // +1 button_up
+        assert_eq!(events_second.lock().unwrap().len(), 0); // still 0
     }
 
     #[test]
@@ -658,8 +657,8 @@ mod tests {
     fn remove_listener_by_index() {
         let mut ctrl = Lwjgl3Controller::new_with_state(0, 0, 2, "Pad".to_string());
 
-        let events_a = Rc::new(RefCell::new(Vec::new()));
-        let events_b = Rc::new(RefCell::new(Vec::new()));
+        let events_a = Arc::new(Mutex::new(Vec::new()));
+        let events_b = Arc::new(Mutex::new(Vec::new()));
         ctrl.add_listener(Box::new(RecordingListener::new(events_a.clone(), false)));
         ctrl.add_listener(Box::new(RecordingListener::new(events_b.clone(), false)));
         assert_eq!(ctrl.listeners.len(), 2);
@@ -670,8 +669,8 @@ mod tests {
 
         // Fire event — only second listener (now at index 0) receives it
         ctrl.process_button_changes(&[true, false]);
-        assert!(events_a.borrow().is_empty());
-        assert_eq!(events_b.borrow().len(), 1);
+        assert!(events_a.lock().unwrap().is_empty());
+        assert_eq!(events_b.lock().unwrap().len(), 1);
 
         // Remove out-of-bounds index — no panic
         ctrl.remove_listener(99);

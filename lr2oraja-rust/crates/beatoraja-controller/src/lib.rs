@@ -8,7 +8,7 @@ pub mod lwjgl3_controllers;
 ///
 /// Listener interface for controller events. Methods return `true` to consume the event
 /// (preventing further listeners from receiving it), or `false` to pass it along.
-pub trait ControllerListener {
+pub trait ControllerListener: Send {
     /// Called when a controller is connected.
     fn connected(&mut self, controller_index: usize);
 

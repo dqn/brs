@@ -260,8 +260,7 @@ impl ControllerManager for Lwjgl3ControllerManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     /// Events recorded by the test listener.
     #[derive(Debug, Clone, PartialEq)]
@@ -284,12 +283,12 @@ mod tests {
     }
 
     struct RecordingListener {
-        events: Rc<RefCell<Vec<ManagerEvent>>>,
+        events: Arc<Mutex<Vec<ManagerEvent>>>,
         consume: bool,
     }
 
     impl RecordingListener {
-        fn new(events: Rc<RefCell<Vec<ManagerEvent>>>, consume: bool) -> Self {
+        fn new(events: Arc<Mutex<Vec<ManagerEvent>>>, consume: bool) -> Self {
             Self { events, consume }
         }
     }
@@ -297,18 +296,20 @@ mod tests {
     impl ControllerListener for RecordingListener {
         fn connected(&mut self, controller_index: usize) {
             self.events
-                .borrow_mut()
+                .lock()
+                .unwrap()
                 .push(ManagerEvent::Connected(controller_index));
         }
 
         fn disconnected(&mut self, controller_index: usize) {
             self.events
-                .borrow_mut()
+                .lock()
+                .unwrap()
                 .push(ManagerEvent::Disconnected(controller_index));
         }
 
         fn axis_moved(&mut self, controller_index: usize, axis_code: i32, value: f32) -> bool {
-            self.events.borrow_mut().push(ManagerEvent::AxisMoved {
+            self.events.lock().unwrap().push(ManagerEvent::AxisMoved {
                 controller: controller_index,
                 axis: axis_code,
                 value,
@@ -317,7 +318,7 @@ mod tests {
         }
 
         fn button_down(&mut self, controller_index: usize, button_code: i32) -> bool {
-            self.events.borrow_mut().push(ManagerEvent::ButtonDown {
+            self.events.lock().unwrap().push(ManagerEvent::ButtonDown {
                 controller: controller_index,
                 button: button_code,
             });
@@ -325,7 +326,7 @@ mod tests {
         }
 
         fn button_up(&mut self, controller_index: usize, button_code: i32) -> bool {
-            self.events.borrow_mut().push(ManagerEvent::ButtonUp {
+            self.events.lock().unwrap().push(ManagerEvent::ButtonUp {
                 controller: controller_index,
                 button: button_code,
             });
@@ -347,7 +348,7 @@ mod tests {
     #[test]
     fn connected_adds_controller_and_fires_listener() {
         let mut mgr = manager_without_gilrs();
-        let events = Rc::new(RefCell::new(Vec::new()));
+        let events = Arc::new(Mutex::new(Vec::new()));
         mgr.listeners
             .push(Box::new(RecordingListener::new(events.clone(), false)));
 
@@ -356,7 +357,7 @@ mod tests {
 
         assert_eq!(mgr.controllers.len(), 1);
         assert_eq!(mgr.controllers[0].name, "Pad A");
-        let recorded = events.borrow();
+        let recorded = events.lock().unwrap();
         assert_eq!(recorded.len(), 1);
         assert_eq!(recorded[0], ManagerEvent::Connected(0));
     }
@@ -364,7 +365,7 @@ mod tests {
     #[test]
     fn disconnected_removes_controller_and_fires_listener() {
         let mut mgr = manager_without_gilrs();
-        let events = Rc::new(RefCell::new(Vec::new()));
+        let events = Arc::new(Mutex::new(Vec::new()));
         mgr.listeners
             .push(Box::new(RecordingListener::new(events.clone(), false)));
 
@@ -387,7 +388,7 @@ mod tests {
         assert_eq!(mgr.controllers.len(), 1);
         assert_eq!(mgr.controllers[0].name, "Pad B");
 
-        let recorded = events.borrow();
+        let recorded = events.lock().unwrap();
         // 2 Connected + 1 Disconnected
         assert_eq!(recorded.len(), 3);
         assert_eq!(recorded[2], ManagerEvent::Disconnected(0));
@@ -405,7 +406,7 @@ mod tests {
     #[test]
     fn button_changed_dispatches_down_and_up_events() {
         let mut mgr = manager_without_gilrs();
-        let events = Rc::new(RefCell::new(Vec::new()));
+        let events = Arc::new(Mutex::new(Vec::new()));
         mgr.listeners
             .push(Box::new(RecordingListener::new(events.clone(), false)));
 
@@ -414,7 +415,7 @@ mod tests {
         // button release
         mgr.button_changed(0, 5, false);
 
-        let recorded = events.borrow();
+        let recorded = events.lock().unwrap();
         assert_eq!(recorded.len(), 2);
         assert_eq!(
             recorded[0],
@@ -435,13 +436,13 @@ mod tests {
     #[test]
     fn axis_changed_dispatches_event() {
         let mut mgr = manager_without_gilrs();
-        let events = Rc::new(RefCell::new(Vec::new()));
+        let events = Arc::new(Mutex::new(Vec::new()));
         mgr.listeners
             .push(Box::new(RecordingListener::new(events.clone(), false)));
 
         mgr.axis_changed(1, 3, 0.85);
 
-        let recorded = events.borrow();
+        let recorded = events.lock().unwrap();
         assert_eq!(recorded.len(), 1);
         assert_eq!(
             recorded[0],
@@ -456,8 +457,8 @@ mod tests {
     #[test]
     fn consuming_listener_stops_manager_propagation() {
         let mut mgr = manager_without_gilrs();
-        let events_first = Rc::new(RefCell::new(Vec::new()));
-        let events_second = Rc::new(RefCell::new(Vec::new()));
+        let events_first = Arc::new(Mutex::new(Vec::new()));
+        let events_second = Arc::new(Mutex::new(Vec::new()));
 
         mgr.listeners
             .push(Box::new(RecordingListener::new(events_first.clone(), true)));
@@ -469,14 +470,14 @@ mod tests {
         mgr.button_changed(0, 0, true);
         mgr.axis_changed(0, 0, 0.5);
 
-        assert_eq!(events_first.borrow().len(), 2);
-        assert_eq!(events_second.borrow().len(), 0);
+        assert_eq!(events_first.lock().unwrap().len(), 2);
+        assert_eq!(events_second.lock().unwrap().len(), 0);
     }
 
     #[test]
     fn listener_management_add_remove_clear() {
         let mut mgr = manager_without_gilrs();
-        let events = Rc::new(RefCell::new(Vec::new()));
+        let events = Arc::new(Mutex::new(Vec::new()));
 
         mgr.add_listener(Box::new(RecordingListener::new(events.clone(), false)));
         mgr.add_listener(Box::new(RecordingListener::new(events.clone(), false)));

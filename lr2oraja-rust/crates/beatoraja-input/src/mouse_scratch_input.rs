@@ -272,7 +272,7 @@ impl MouseToAnalog {
 }
 
 /// MouseScratchAlgorithm trait
-trait MouseScratchAlgorithm {
+trait MouseScratchAlgorithm: Send {
     fn is_scratch_active(&self, positive: bool) -> bool;
     fn update(&mut self, presstime: i64, curr_position: i32);
     fn reset(&mut self);

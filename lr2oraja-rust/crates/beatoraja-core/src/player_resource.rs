@@ -835,6 +835,10 @@ impl PlayerResourceAccess for PlayerResource {
         PlayerResource::get_bms_model(self)
     }
 
+    fn set_player_data(&mut self, player_data: beatoraja_types::player_data::PlayerData) {
+        PlayerResource::set_player_data(self, player_data)
+    }
+
     fn get_course_song_data(&self) -> Vec<beatoraja_types::song_data::SongData> {
         match self.get_course_bms_models() {
             Some(models) => models

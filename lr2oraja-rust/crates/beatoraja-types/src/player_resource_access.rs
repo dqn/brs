@@ -6,6 +6,7 @@ use crate::config::Config;
 use crate::course_data::{CourseData, CourseDataConstraint};
 use crate::groove_gauge::GrooveGauge;
 use crate::player_config::PlayerConfig;
+use crate::player_data::PlayerData;
 use crate::replay_data::ReplayData;
 use crate::score_data::ScoreData;
 use crate::song_data::SongData;
@@ -200,6 +201,12 @@ pub trait PlayerResourceAccess {
     /// Java: PlayerResource.getBMSModel()
     fn get_bms_model(&self) -> Option<&BMSModel> {
         None
+    }
+
+    /// Set player data.
+    /// Java: PlayerResource.setPlayerData(PlayerData)
+    fn set_player_data(&mut self, _player_data: PlayerData) {
+        // default no-op
     }
 }
 

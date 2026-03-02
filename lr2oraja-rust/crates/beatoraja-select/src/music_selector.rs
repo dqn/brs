@@ -88,6 +88,9 @@ pub struct MusicSelector {
 
     /// MainController reference for state transitions and resource access
     pub main: Option<Box<dyn MainControllerAccess + Send>>,
+
+    /// Input processor for keyboard/controller input (created from config)
+    input_processor: Option<BMSPlayerInputProcessor>,
 }
 
 pub static MODE: [Option<bms_model::Mode>; 8] = [
@@ -145,6 +148,7 @@ impl MusicSelector {
             banners: PixmapResourcePool::with_maxgen(2),
             stagefiles: PixmapResourcePool::with_maxgen(2),
             main: None,
+            input_processor: None,
         }
     }
 
@@ -575,8 +579,8 @@ impl MusicSelector {
                 }
             }
 
-            // Load cached IR ranking data for this song
-            {
+            // Load cached IR ranking data for this song (only when IR is active)
+            if !main.get_ir_table_urls().is_empty() {
                 use beatoraja_ir::ranking_data::RankingData;
                 let lnmode = main.get_player_config().get_lnmode();
                 let cached = main
@@ -594,6 +598,8 @@ impl MusicSelector {
                         cache.put_song_any(song, lnmode, Box::new(rd));
                     }
                 }
+            } else {
+                self.currentir = None;
             }
 
             // Set rival score
@@ -1435,7 +1441,14 @@ impl MainState for MusicSelector {
         self.show_note_graph = false;
 
         // In Java: resource.setPlayerData(main.getPlayDataAccessor().readPlayerData())
-        // Blocked on MainController/PlayerResource
+        if let Some(ref mut main) = self.main {
+            let player_data = main.read_player_data();
+            if let Some(pd) = player_data
+                && let Some(res) = main.get_player_resource_mut()
+            {
+                res.set_player_data(pd);
+            }
+        }
 
         // Update score cache for previously played song
         if let Some(ref song) = self.playedsong {
@@ -1747,22 +1760,29 @@ impl MainState for MusicSelector {
     /// Input handling — check for config/skinconfig state change, then process music select input.
     /// Corresponds to Java MusicSelector.input()
     fn input(&mut self) {
-        // In Java: input = main.getInputProcessor()
-        // Blocked on MainController — uses a temporary no-op processor
-        // When MainController is available, this will be replaced with real input
-        // For now, the input processor is stubbed and events are collected but not dispatched
-        // to external systems.
+        // Initialize input processor on first call (lazy init from config)
+        if self.input_processor.is_none() {
+            self.input_processor =
+                Some(BMSPlayerInputProcessor::new(&self.app_config, &self.config));
+        }
 
-        // Note: The full implementation would:
-        // 1. Check input.getControlKeyState(NUM6) -> changeState(CONFIG)
-        // 2. Check input.isActivated(OPEN_SKIN_CONFIGURATION) -> changeState(SKINCONFIG)
-        // 3. Call musicinput.input(ctx) with BMSPlayerInputProcessor from MainController
-        // 4. Dispatch events from ctx to self and MainController
-        //
-        // Since BMSPlayerInputProcessor comes from MainController (blocked),
-        // the musicinput.input() call is deferred.
-        // The InputContext and event dispatch infrastructure is in place and ready
-        // for Phase 21 (MainController wiring).
+        // Take the input processor out to avoid overlapping &mut self borrow
+        let mut input_processor = match self.input_processor.take() {
+            Some(ip) => ip,
+            None => return,
+        };
+
+        // Poll keyboard/controller state
+        input_processor.poll();
+
+        // Delegate to process_input_with_context which handles:
+        // 1. NUM6 -> CONFIG state change
+        // 2. OpenSkinConfiguration -> SKINCONFIG state change
+        // 3. musicinput.input() for bar navigation
+        self.process_input_with_context(&mut input_processor);
+
+        // Put it back
+        self.input_processor = Some(input_processor);
     }
 
     /// Shutdown — stop preview, unfocus search.

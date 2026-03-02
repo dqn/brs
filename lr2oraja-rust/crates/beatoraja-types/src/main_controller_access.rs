@@ -2,9 +2,12 @@ use crate::config::Config;
 use crate::input_processor_access::InputProcessorAccess;
 use crate::main_state_type::MainStateType;
 use crate::player_config::PlayerConfig;
+use crate::player_data::PlayerData;
 use crate::player_resource_access::PlayerResourceAccess;
 use crate::ranking_data_cache_access::RankingDataCacheAccess;
 use crate::replay_data::ReplayData;
+use crate::score_data::ScoreData;
+use crate::song_information_db::SongInformationDb;
 use crate::sound_type::SoundType;
 
 /// Trait interface for MainController access.
@@ -139,6 +142,24 @@ pub trait MainControllerAccess {
     fn get_ir_table_urls(&self) -> Vec<(String, String)> {
         Vec::new()
     }
+
+    /// Read score data for a given song hash.
+    /// Java: PlayDataAccessor.readScoreData(hash, ln, lnmode)
+    fn read_score_data_by_hash(&self, _hash: &str, _ln: bool, _lnmode: i32) -> Option<ScoreData> {
+        None
+    }
+
+    /// Read player data (aggregate play statistics).
+    /// Java: PlayDataAccessor.readPlayerData()
+    fn read_player_data(&self) -> Option<PlayerData> {
+        None
+    }
+
+    /// Get song information database reference.
+    /// Java: MainController.getInfoDatabase()
+    fn get_info_database(&self) -> Option<&dyn SongInformationDb> {
+        None
+    }
 }
 
 /// Null implementation of MainControllerAccess for stub contexts.
@@ -183,6 +204,45 @@ impl MainControllerAccess for NullMainController {
     fn update_song(&mut self, _path: Option<&str>) {
         log::warn!("NullMainController::update_song called — no-op");
     }
+    fn get_player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+        None
+    }
+    fn get_player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+        None
+    }
+}
+
+/// Config-backed implementation of MainControllerAccess.
+/// Holds cloned Config/PlayerConfig from the real MainController.
+/// State changes and sounds are no-ops (handled via outbox pattern in MainState).
+pub struct ConfigMainControllerAccess {
+    config: Config,
+    player_config: PlayerConfig,
+}
+
+impl ConfigMainControllerAccess {
+    pub fn new(config: Config, player_config: PlayerConfig) -> Self {
+        Self {
+            config,
+            player_config,
+        }
+    }
+}
+
+impl MainControllerAccess for ConfigMainControllerAccess {
+    fn get_config(&self) -> &Config {
+        &self.config
+    }
+    fn get_player_config(&self) -> &PlayerConfig {
+        &self.player_config
+    }
+    fn change_state(&mut self, _state: MainStateType) {
+        // No-op: states use outbox pattern (pending_state_change)
+    }
+    fn save_config(&self) {}
+    fn exit(&self) {}
+    fn save_last_recording(&self, _reason: &str) {}
+    fn update_song(&mut self, _path: Option<&str>) {}
     fn get_player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
         None
     }

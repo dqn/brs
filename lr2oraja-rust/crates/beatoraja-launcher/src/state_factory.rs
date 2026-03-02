@@ -10,17 +10,14 @@ use beatoraja_core::main_controller::{MainController, StateFactory};
 use beatoraja_core::main_state::{MainState, MainStateType};
 use beatoraja_core::timer_manager::TimerManager;
 use beatoraja_decide::music_decide::MusicDecide;
-use beatoraja_decide::stubs::{
-    MainControllerRef as DecideMainControllerRef, NullMainController as DecideNullMainController,
-};
+use beatoraja_decide::stubs::MainControllerRef as DecideMainControllerRef;
 use beatoraja_play::bms_player::BMSPlayer;
 use beatoraja_result::course_result::CourseResult;
 use beatoraja_result::music_result::MusicResult;
+use beatoraja_result::stubs::MainController as ResultMainController;
 use beatoraja_result::stubs::PlayerResource as ResultPlayerResource;
-use beatoraja_result::stubs::{
-    MainController as ResultMainController, NullMainController as ResultNullMainController,
-};
 use beatoraja_select::music_selector::MusicSelector;
+use beatoraja_types::main_controller_access::ConfigMainControllerAccess;
 use beatoraja_types::player_resource_access::NullPlayerResource;
 
 /// LauncherStateFactory — creates concrete state instances for all screen types.
@@ -69,8 +66,12 @@ impl StateFactory for LauncherStateFactory {
             }
             MainStateType::Decide => {
                 // Java: decide = new MusicDecide(this);
+                let mc_access = ConfigMainControllerAccess::new(
+                    controller.get_config().clone(),
+                    controller.get_player_config().clone(),
+                );
                 let decide = MusicDecide::new(
-                    DecideMainControllerRef::new(Box::new(DecideNullMainController)),
+                    DecideMainControllerRef::new(Box::new(mc_access)),
                     Box::new(NullPlayerResource::new()),
                     TimerManager::new(),
                 );
@@ -84,8 +85,12 @@ impl StateFactory for LauncherStateFactory {
             }
             MainStateType::Result => {
                 // Java: result = new MusicResult(this);
+                let mc_access = ConfigMainControllerAccess::new(
+                    controller.get_config().clone(),
+                    controller.get_player_config().clone(),
+                );
                 let result = MusicResult::new(
-                    ResultMainController::new(Box::new(ResultNullMainController)),
+                    ResultMainController::new(Box::new(mc_access)),
                     ResultPlayerResource::default(),
                     TimerManager::new(),
                 );
@@ -93,8 +98,12 @@ impl StateFactory for LauncherStateFactory {
             }
             MainStateType::CourseResult => {
                 // Java: gresult = new CourseResult(this);
+                let mc_access = ConfigMainControllerAccess::new(
+                    controller.get_config().clone(),
+                    controller.get_player_config().clone(),
+                );
                 let course_result = CourseResult::new(
-                    ResultMainController::new(Box::new(ResultNullMainController)),
+                    ResultMainController::new(Box::new(mc_access)),
                     ResultPlayerResource::default(),
                     TimerManager::new(),
                 );

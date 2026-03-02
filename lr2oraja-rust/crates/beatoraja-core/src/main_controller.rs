@@ -102,27 +102,8 @@ pub struct IRStatus {
 
 // SongInformationAccessor: stub replaced by SongInformationDb trait (Phase 27c)
 
-/// ObsListener stub (Phase 5+)
-pub struct ObsListener;
-
-/// ObsWsClient stub (Phase 5+)
-pub struct ObsWsClient;
-
-impl ObsWsClient {
-    pub fn save_last_recording(&self, _reason: &str) {}
-}
-
-/// ImGuiRenderer stub (Phase 5+)
-pub struct ImGuiRenderer;
-
-impl ImGuiRenderer {
-    pub fn init() {}
-    pub fn start(&mut self) {}
-    pub fn render(&mut self) {}
-    pub fn end(&mut self) {}
-    pub fn toggle_menu(&mut self) {}
-    pub fn dispose(&mut self) {}
-}
+// ObsListener/ObsWsClient stubs replaced by Box<dyn ObsAccess> (Phase 4)
+// ImGuiRenderer stub replaced by Box<dyn ImGuiAccess> (Phase 4)
 
 // MusicDownloadProcessor stub removed — replaced by Box<dyn MusicDownloadAccess> (brs-4ls)
 
@@ -232,16 +213,14 @@ pub struct MainController {
     /// State listeners
     state_listener: Vec<Box<dyn MainStateListener>>,
 
-    /// ImGui renderer
-    pub imgui: Option<ImGuiRenderer>,
+    /// ImGui renderer (trait bridge for beatoraja-modmenu)
+    pub imgui: Option<Box<dyn beatoraja_types::imgui_access::ImGuiAccess>>,
 
     /// IR resend service (trait bridge for background IR score retry)
     ir_resend_service: Option<Box<dyn beatoraja_types::ir_resend_service::IrResendService>>,
 
-    /// OBS listener
-    obs_listener: Option<ObsListener>,
-    /// OBS client
-    obs_client: Option<ObsWsClient>,
+    /// OBS client (trait bridge for beatoraja-obs)
+    obs_client: Option<Box<dyn beatoraja_types::obs_access::ObsAccess>>,
 
     /// IPFS download processor (trait bridge for md-processor)
     download: Option<Box<dyn beatoraja_types::music_download_access::MusicDownloadAccess>>,
@@ -369,7 +348,6 @@ impl MainController {
             state_listener,
             imgui: None,
             ir_resend_service: None,
-            obs_listener: None,
             obs_client: None,
             download: None,
             http_download_processor: None,
@@ -471,8 +449,12 @@ impl MainController {
         &mut self.timer
     }
 
-    pub fn has_obs_listener(&self) -> bool {
-        self.obs_listener.is_some()
+    pub fn has_obs_client(&self) -> bool {
+        self.obs_client.is_some()
+    }
+
+    pub fn set_obs_client(&mut self, client: Box<dyn beatoraja_types::obs_access::ObsAccess>) {
+        self.obs_client = Some(client);
     }
 
     pub fn save_last_recording(&self, reason: &str) {
@@ -615,7 +597,10 @@ impl MainController {
         self.current = Some(new_state);
 
         // In Java: timer.setMainState(newState)
-        // Phase 5+: timer state binding
+        if let Some(ref mut current) = self.current {
+            let st = current.state_type();
+            current.main_state_data_mut().timer.set_state_type(st);
+        }
 
         // Prepare the new state
         if let Some(ref mut current) = self.current {
@@ -636,9 +621,7 @@ impl MainController {
         let t = Instant::now();
         self.sprite = Some(SpriteBatchHelper::create_sprite_batch());
 
-        let _perf = PerformanceMetrics::get().event("ImGui init");
-        ImGuiRenderer::init();
-        drop(_perf);
+        // ImGui init: managed by beatoraja-bin (egui context), not here
 
         // Audio driver initialization
         // Java lines 439-446:
@@ -1327,7 +1310,7 @@ impl MainController {
         self.ir_resend_service = Some(service);
     }
 
-    pub fn set_imgui(&mut self, imgui: ImGuiRenderer) {
+    pub fn set_imgui(&mut self, imgui: Box<dyn beatoraja_types::imgui_access::ImGuiAccess>) {
         self.imgui = Some(imgui);
     }
 
@@ -1395,7 +1378,10 @@ impl MainController {
     /// States are created lazily in change_state().
     pub fn initialize_states(&mut self) {
         // In Java: resource = new PlayerResource(audio, config, player, loudnessAnalyzer);
-        // Phase 5+: pass audio driver and loudness analyzer
+        self.resource = Some(PlayerResource::new(
+            self.config.clone(),
+            self.player.clone(),
+        ));
 
         // In Java: playdata = new PlayDataAccessor(config);
         self.playdata = Some(PlayDataAccessor::new(&self.config));
@@ -1737,6 +1723,29 @@ impl MainControllerAccess for MainController {
         index: usize,
     ) -> Option<beatoraja_types::player_information::PlayerInformation> {
         self.rivals.get_rival_information(index).cloned()
+    }
+
+    fn read_score_data_by_hash(
+        &self,
+        hash: &str,
+        ln: bool,
+        lnmode: i32,
+    ) -> Option<beatoraja_types::score_data::ScoreData> {
+        self.playdata
+            .as_ref()
+            .and_then(|pda| pda.read_score_data_by_hash(hash, ln, lnmode))
+    }
+
+    fn read_player_data(&self) -> Option<beatoraja_types::player_data::PlayerData> {
+        self.playdata
+            .as_ref()
+            .and_then(|pda| pda.read_player_data())
+    }
+
+    fn get_info_database(
+        &self,
+    ) -> Option<&dyn beatoraja_types::song_information_db::SongInformationDb> {
+        self.infodb.as_deref()
     }
 }
 
