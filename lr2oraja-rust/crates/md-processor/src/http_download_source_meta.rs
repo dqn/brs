@@ -66,22 +66,16 @@ mod tests {
 
     #[test]
     fn new_stores_name_and_url() {
-        let meta = HttpDownloadSourceMeta::new(
-            "test_source",
-            "https://example.com/dl/%s",
-            dummy_builder,
-        );
+        let meta =
+            HttpDownloadSourceMeta::new("test_source", "https://example.com/dl/%s", dummy_builder);
         assert_eq!(meta.get_name(), "test_source");
         assert_eq!(meta.get_default_url(), "https://example.com/dl/%s");
     }
 
     #[test]
     fn build_creates_source_via_builder() {
-        let meta = HttpDownloadSourceMeta::new(
-            "test_source",
-            "https://example.com/%s",
-            dummy_builder,
-        );
+        let meta =
+            HttpDownloadSourceMeta::new("test_source", "https://example.com/%s", dummy_builder);
         let config = Config::default();
         let source = meta.build(&config);
         assert_eq!(source.get_name(), "dummy");

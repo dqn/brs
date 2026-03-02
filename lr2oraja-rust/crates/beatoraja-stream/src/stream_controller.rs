@@ -235,8 +235,7 @@ mod tests {
     fn execute_commands_dispatches_to_multiple_commands() {
         let (cmd1, calls1) = MockCommand::new("!!req");
         let (cmd2, calls2) = MockCommand::new("!!play");
-        let mut commands: Vec<Box<dyn StreamCommand>> =
-            vec![Box::new(cmd1), Box::new(cmd2)];
+        let mut commands: Vec<Box<dyn StreamCommand>> = vec![Box::new(cmd1), Box::new(cmd2)];
 
         StreamController::execute_commands(&mut commands, "!!play some_data");
 

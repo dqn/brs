@@ -71,7 +71,9 @@ mod tests {
         let source = WriggleDownloadSource {
             download_url: "https://bms.wrigglebug.xyz/download/package/%s".to_string(),
         };
-        let url = source.get_download_url_based_on_md5("deadbeef1234").unwrap();
+        let url = source
+            .get_download_url_based_on_md5("deadbeef1234")
+            .unwrap();
         assert_eq!(
             url,
             "https://bms.wrigglebug.xyz/download/package/deadbeef1234"
@@ -92,9 +94,7 @@ mod tests {
         let source = WriggleDownloadSource {
             download_url: "https://example.com/dl/%s/file".to_string(),
         };
-        let url = source
-            .get_download_url_based_on_md5("abc+def/ghi")
-            .unwrap();
+        let url = source.get_download_url_based_on_md5("abc+def/ghi").unwrap();
         assert_eq!(url, "https://example.com/dl/abc+def/ghi/file");
     }
 
