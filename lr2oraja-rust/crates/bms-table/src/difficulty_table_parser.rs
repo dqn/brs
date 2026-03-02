@@ -763,3 +763,530 @@ fn value_to_string(v: &Value) -> String {
         other => other.to_string(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_decode_header_from_file_basic() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(
+            tmp,
+            r#"{{"name":"Test Table","symbol":"T","data_url":"data.json"}}"#
+        )
+        .unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        parser
+            .decode_json_table_header_from_file(&mut dt, tmp.path())
+            .unwrap();
+
+        assert_eq!(dt.table.get_name().unwrap(), "Test Table");
+        assert_eq!(dt.table.get_id().unwrap(), "T");
+        assert_eq!(dt.table.get_data_url(), &["data.json".to_string()]);
+    }
+
+    #[test]
+    fn test_decode_header_data_url_as_array() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(
+            tmp,
+            r#"{{"name":"Test","symbol":"T","data_url":["data1.json","data2.json"]}}"#
+        )
+        .unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        parser
+            .decode_json_table_header_from_file(&mut dt, tmp.path())
+            .unwrap();
+
+        assert_eq!(
+            dt.table.get_data_url(),
+            &["data1.json".to_string(), "data2.json".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_decode_data_from_file_with_hashes() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(
+            tmp,
+            r#"[
+                {{"md5":"abc123","title":"Song 1","level":"5"}},
+                {{"sha256":"def456","title":"Song 2","level":"10"}}
+            ]"#
+        )
+        .unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        parser
+            .decode_json_table_data_from_file(&mut dt, tmp.path())
+            .unwrap();
+
+        let elements = dt.get_elements();
+        assert_eq!(elements.len(), 2);
+        assert_eq!(elements[0].element.get_title().unwrap(), "Song 1");
+        assert_eq!(elements[0].element.get_md5().unwrap(), "abc123");
+        assert_eq!(elements[0].get_level(), "5");
+        assert_eq!(elements[1].element.get_title().unwrap(), "Song 2");
+        assert_eq!(elements[1].element.get_sha256().unwrap(), "def456");
+        assert_eq!(elements[1].get_level(), "10");
+    }
+
+    #[test]
+    fn test_decode_data_from_file_filters_no_hash() {
+        // decode_json_table_data_from_file calls internal with accept=true,
+        // so all entries are accepted regardless of hash presence.
+        // The URL-based path uses accept=false which filters entries.
+        // To test filtering, call decode_json_table_data_internal directly.
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+
+        let long_hash = "a".repeat(25);
+        let short_hash = "b".repeat(10);
+        let data: Vec<HashMap<String, Value>> = vec![
+            // valid: has level + long md5
+            HashMap::from([
+                ("level".to_string(), Value::String("1".to_string())),
+                ("md5".to_string(), Value::String(long_hash.clone())),
+                ("title".to_string(), Value::String("Good Song".to_string())),
+            ]),
+            // filtered: has level but md5 too short and no sha256
+            HashMap::from([
+                ("level".to_string(), Value::String("2".to_string())),
+                ("md5".to_string(), Value::String(short_hash)),
+                ("title".to_string(), Value::String("Short Hash".to_string())),
+            ]),
+            // filtered: no level
+            HashMap::from([
+                ("md5".to_string(), Value::String(long_hash.clone())),
+                ("title".to_string(), Value::String("No Level".to_string())),
+            ]),
+            // filtered: no hash at all
+            HashMap::from([
+                ("level".to_string(), Value::String("3".to_string())),
+                ("title".to_string(), Value::String("No Hash".to_string())),
+            ]),
+            // valid: has level + long sha256
+            HashMap::from([
+                ("level".to_string(), Value::String("4".to_string())),
+                ("sha256".to_string(), Value::String(long_hash)),
+                ("title".to_string(), Value::String("SHA Song".to_string())),
+            ]),
+        ];
+
+        // accept=false triggers filtering by level + hash length > 24
+        parser.decode_json_table_data_internal(&mut dt, &data, false);
+
+        let elements = dt.get_elements();
+        assert_eq!(elements.len(), 2);
+        assert_eq!(elements[0].element.get_title().unwrap(), "Good Song");
+        assert_eq!(elements[1].element.get_title().unwrap(), "SHA Song");
+    }
+
+    #[test]
+    fn test_encode_decode_header_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let header_path = dir.path().join("header.json");
+
+        // Build a DifficultyTable with known data
+        let mut dt = DifficultyTable::new();
+        dt.table.set_name("Roundtrip Table");
+        dt.table.set_id("RT");
+        dt.table.set_tag("roundtrip-tag");
+        dt.table.set_data_url(vec!["data.json".to_string()]);
+        dt.set_level_description(&["1".to_string(), "2".to_string(), "3".to_string()]);
+
+        let parser = DifficultyTableParser::new();
+        parser.encode_json_table_header(&dt, &header_path);
+
+        // Decode the written file into a fresh DifficultyTable
+        let mut dt2 = DifficultyTable::new();
+        parser
+            .decode_json_table_header_from_file(&mut dt2, &header_path)
+            .unwrap();
+
+        assert_eq!(dt2.table.get_name().unwrap(), "Roundtrip Table");
+        assert_eq!(dt2.table.get_id().unwrap(), "RT");
+        assert_eq!(dt2.table.get_data_url(), &["data.json".to_string()]);
+        assert_eq!(
+            dt2.get_level_description(),
+            vec!["1".to_string(), "2".to_string(), "3".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_decode_header_missing_name() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        // Has symbol but no name - should return error
+        write!(tmp, r#"{{"symbol":"T","data_url":"data.json"}}"#).unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        let result = parser.decode_json_table_header_from_file(&mut dt, tmp.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_decode_header_missing_symbol() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        // Has name but no symbol - should return error
+        write!(tmp, r#"{{"name":"Test","data_url":"data.json"}}"#).unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        let result = parser.decode_json_table_header_from_file(&mut dt, tmp.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_absolute_url_relative() {
+        let parser = DifficultyTableParser::new();
+
+        // Relative path gets prepended with the directory portion of source
+        let result = parser.get_absolute_url("https://example.com/tables/index.html", "data.json");
+        assert_eq!(result, "https://example.com/tables/data.json");
+
+        // Path starting with "./" has the prefix stripped
+        let result =
+            parser.get_absolute_url("https://example.com/tables/index.html", "./data.json");
+        assert_eq!(result, "https://example.com/tables/data.json");
+
+        // Absolute HTTP URL is returned as-is
+        let result = parser.get_absolute_url(
+            "https://example.com/tables/index.html",
+            "https://other.com/data.json",
+        );
+        assert_eq!(result, "https://other.com/data.json");
+
+        // Path already starting with the source directory is returned as-is
+        let result = parser.get_absolute_url(
+            "https://example.com/tables/index.html",
+            "https://example.com/tables/data.json",
+        );
+        assert_eq!(result, "https://example.com/tables/data.json");
+    }
+
+    #[test]
+    fn test_get_absolute_url_no_slash_in_source() {
+        let parser = DifficultyTableParser::new();
+
+        // When source has no slash, the entire source is used as "directory"
+        let result = parser.get_absolute_url("source", "data.json");
+        assert_eq!(result, "sourcedata.json");
+    }
+
+    #[test]
+    fn test_decode_header_with_course() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(
+            tmp,
+            r#"{{
+                "name": "Course Table",
+                "symbol": "CT",
+                "data_url": "data.json",
+                "course": [
+                    {{
+                        "name": "Course A",
+                        "charts": [
+                            {{"md5": "hash1", "title": "Chart 1"}},
+                            {{"md5": "hash2", "title": "Chart 2"}}
+                        ],
+                        "style": "7KEYS",
+                        "constraint": ["grade_mirror", "gauge_lr2"],
+                        "trophy": [
+                            {{"name": "Gold", "missrate": 5.0, "scorerate": 90.0}}
+                        ]
+                    }},
+                    {{
+                        "name": "Course B",
+                        "charts": [
+                            {{"sha256": "hash3", "title": "Chart 3"}}
+                        ],
+                        "style": "14KEYS"
+                    }}
+                ]
+            }}"#
+        )
+        .unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        parser
+            .decode_json_table_header_from_file(&mut dt, tmp.path())
+            .unwrap();
+
+        let courses = dt.get_course();
+        assert_eq!(courses.len(), 1); // single list wrapping both courses
+        assert_eq!(courses[0].len(), 2);
+
+        let course_a = &courses[0][0];
+        assert_eq!(course_a.get_name(), "Course A");
+        assert_eq!(course_a.get_style(), "7KEYS");
+        assert_eq!(course_a.get_charts().len(), 2);
+        assert_eq!(course_a.get_charts()[0].get_md5().unwrap(), "hash1");
+        assert_eq!(course_a.get_charts()[1].get_md5().unwrap(), "hash2");
+        assert_eq!(course_a.get_constraint(), &["grade_mirror", "gauge_lr2"]);
+        assert_eq!(course_a.get_trophy().len(), 1);
+        assert_eq!(course_a.get_trophy()[0].get_name(), "Gold");
+        assert_eq!(course_a.get_trophy()[0].get_missrate(), 5.0);
+        assert_eq!(course_a.get_trophy()[0].get_scorerate(), 90.0);
+
+        let course_b = &courses[0][1];
+        assert_eq!(course_b.get_name(), "Course B");
+        assert_eq!(course_b.get_style(), "14KEYS");
+        assert_eq!(course_b.get_charts().len(), 1);
+        assert_eq!(course_b.get_charts()[0].get_sha256().unwrap(), "hash3");
+    }
+
+    #[test]
+    fn test_decode_header_with_nested_course() {
+        // Test the List<List<Map>> course format (array of arrays)
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(
+            tmp,
+            r#"{{
+                "name": "Nested Course",
+                "symbol": "NC",
+                "data_url": "data.json",
+                "course": [
+                    [
+                        {{"name": "Grade 1", "charts": [{{"md5": "h1"}}]}},
+                        {{"name": "Grade 2", "charts": [{{"md5": "h2"}}]}}
+                    ],
+                    [
+                        {{"name": "Grade 3", "charts": [{{"md5": "h3"}}]}}
+                    ]
+                ]
+            }}"#
+        )
+        .unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        parser
+            .decode_json_table_header_from_file(&mut dt, tmp.path())
+            .unwrap();
+
+        let courses = dt.get_course();
+        assert_eq!(courses.len(), 2);
+        assert_eq!(courses[0].len(), 2);
+        assert_eq!(courses[0][0].get_name(), "Grade 1");
+        assert_eq!(courses[0][1].get_name(), "Grade 2");
+        assert_eq!(courses[1].len(), 1);
+        assert_eq!(courses[1][0].get_name(), "Grade 3");
+    }
+
+    #[test]
+    fn test_decode_header_with_grade_fallback() {
+        // Test the "grade" field fallback (older format)
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(
+            tmp,
+            r#"{{
+                "name": "Grade Table",
+                "symbol": "GT",
+                "data_url": "data.json",
+                "grade": [
+                    {{
+                        "name": "Dan 1",
+                        "md5": ["md5_a", "md5_b"],
+                        "style": "7KEYS"
+                    }}
+                ]
+            }}"#
+        )
+        .unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        parser
+            .decode_json_table_header_from_file(&mut dt, tmp.path())
+            .unwrap();
+
+        let courses = dt.get_course();
+        assert_eq!(courses.len(), 1);
+        assert_eq!(courses[0].len(), 1);
+        let dan = &courses[0][0];
+        assert_eq!(dan.get_name(), "Dan 1");
+        assert_eq!(dan.get_style(), "7KEYS");
+        assert_eq!(dan.get_charts().len(), 2);
+        assert_eq!(dan.get_charts()[0].get_md5().unwrap(), "md5_a");
+        assert_eq!(dan.get_charts()[1].get_md5().unwrap(), "md5_b");
+        // grade format always adds these constraints
+        assert_eq!(dan.get_constraint(), &["grade_mirror", "gauge_lr2"]);
+    }
+
+    #[test]
+    fn test_encode_decode_data_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let header_path = dir.path().join("header.json");
+        let data_path = dir.path().join("data.json");
+
+        let mut dt = DifficultyTable::new();
+        dt.table.set_name("Data Table");
+        dt.table.set_id("DT");
+
+        // Add elements
+        let mut dte1 = DifficultyTableElement::new();
+        dte1.element.set_md5("hash_aaa");
+        dte1.element.set_title("Song A");
+        dte1.set_level(Some("5"));
+        dt.table.add_element(dte1);
+
+        let mut dte2 = DifficultyTableElement::new();
+        dte2.element.set_sha256("hash_bbb");
+        dte2.element.set_title("Song B");
+        dte2.set_level(Some("10"));
+        dt.table.add_element(dte2);
+
+        let parser = DifficultyTableParser::new();
+        parser.encode_json_table_data(&mut dt, &header_path, &data_path);
+
+        // Decode data back
+        let mut dt2 = DifficultyTable::new();
+        parser
+            .decode_json_table_data_from_file(&mut dt2, &data_path)
+            .unwrap();
+
+        let elements = dt2.get_elements();
+        assert_eq!(elements.len(), 2);
+        assert_eq!(elements[0].element.get_title().unwrap(), "Song A");
+        assert_eq!(elements[0].element.get_md5().unwrap(), "hash_aaa");
+        assert_eq!(elements[0].get_level(), "5");
+        assert_eq!(elements[1].element.get_title().unwrap(), "Song B");
+        assert_eq!(elements[1].element.get_sha256().unwrap(), "hash_bbb");
+        assert_eq!(elements[1].get_level(), "10");
+    }
+
+    #[test]
+    fn test_decode_data_from_file_sets_level_description() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(
+            tmp,
+            r#"[
+                {{"level":"3","md5":"abc","title":"A"}},
+                {{"level":"5","md5":"def","title":"B"}},
+                {{"level":"3","md5":"ghi","title":"C"}}
+            ]"#
+        )
+        .unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        parser
+            .decode_json_table_data_from_file(&mut dt, tmp.path())
+            .unwrap();
+
+        // Level descriptions are populated from unique levels in order of appearance
+        let levels = dt.get_level_description();
+        assert_eq!(levels, vec!["3".to_string(), "5".to_string()]);
+    }
+
+    #[test]
+    fn test_decode_data_from_file_empty_array() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(tmp, "[]").unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        parser
+            .decode_json_table_data_from_file(&mut dt, tmp.path())
+            .unwrap();
+
+        assert!(dt.get_elements().is_empty());
+        assert!(dt.get_level_description().is_empty());
+    }
+
+    #[test]
+    fn test_encode_header_multiple_data_urls() {
+        let dir = tempfile::tempdir().unwrap();
+        let header_path = dir.path().join("header.json");
+
+        let mut dt = DifficultyTable::new();
+        dt.table.set_name("Multi URL");
+        dt.table.set_id("MU");
+        dt.table
+            .set_data_url(vec!["a.json".to_string(), "b.json".to_string()]);
+
+        let parser = DifficultyTableParser::new();
+        parser.encode_json_table_header(&dt, &header_path);
+
+        // Decode and verify data_url is an array
+        let mut dt2 = DifficultyTable::new();
+        parser
+            .decode_json_table_header_from_file(&mut dt2, &header_path)
+            .unwrap();
+        assert_eq!(
+            dt2.table.get_data_url(),
+            &["a.json".to_string(), "b.json".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_decode_header_with_data_rule() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(
+            tmp,
+            r#"{{
+                "name": "Rule Table",
+                "symbol": "RT",
+                "data_url": ["main.json", "extra.json"],
+                "data_rule": [
+                    {{"1": "A", "2": "B"}},
+                    {{"3": "C"}}
+                ]
+            }}"#
+        )
+        .unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        parser
+            .decode_json_table_header_from_file(&mut dt, tmp.path())
+            .unwrap();
+
+        let configs = dt.table.get_merge_configurations();
+        assert_eq!(configs.len(), 2);
+        assert_eq!(configs["main.json"]["1"], "A");
+        assert_eq!(configs["main.json"]["2"], "B");
+        assert_eq!(configs["extra.json"]["3"], "C");
+    }
+
+    #[test]
+    fn test_decode_header_invalid_json() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(tmp, "not valid json").unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        let result = parser.decode_json_table_header_from_file(&mut dt, tmp.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_decode_data_invalid_json() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(tmp, "not valid json").unwrap();
+
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        let result = parser.decode_json_table_data_from_file(&mut dt, tmp.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_decode_header_nonexistent_file() {
+        let parser = DifficultyTableParser::new();
+        let mut dt = DifficultyTable::new();
+        let result =
+            parser.decode_json_table_header_from_file(&mut dt, Path::new("/nonexistent/file.json"));
+        assert!(result.is_err());
+    }
+}
