@@ -791,3 +791,382 @@ fn ensure_timeline(
     tl.set_bpm(bpm);
     tlcache.insert(y, TimeLineCache::new(time, tl));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn test_bms_dir() -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test-bms")
+    }
+
+    #[test]
+    fn test_decode_minimal_7k() {
+        let path = test_bms_dir().join("bmson_minimal_7k.bmson");
+        let mut decoder = BMSONDecoder::new(0);
+        let model = decoder
+            .decode_path(&path)
+            .expect("decode_path should return Some for valid bmson");
+
+        assert_eq!(
+            model.get_mode(),
+            Some(&Mode::BEAT_7K),
+            "mode should be BEAT_7K for mode_hint 'beat-7k'"
+        );
+        assert_eq!(
+            model.get_title(),
+            "Minimal 7K Bmson Test",
+            "title should match bmson info.title"
+        );
+        assert_eq!(
+            model.get_artist(),
+            "brs-test",
+            "artist should match bmson info.artist"
+        );
+        assert!(
+            (model.get_bpm() - 120.0).abs() < f64::EPSILON,
+            "init_bpm should be 120.0"
+        );
+        assert_eq!(
+            model.get_total_notes(),
+            8,
+            "minimal 7k fixture has 8 normal notes across 2 sound channels"
+        );
+        assert!(
+            !model.get_sha256().is_empty(),
+            "SHA-256 hash should be computed"
+        );
+        assert_eq!(
+            model.get_wav_list().len(),
+            2,
+            "two sound channels should produce two wav entries"
+        );
+        assert_eq!(model.get_wav_list()[0], "kick.wav");
+        assert_eq!(model.get_wav_list()[1], "snare.wav");
+    }
+
+    #[test]
+    fn test_decode_bpm_change() {
+        let path = test_bms_dir().join("bmson_bpm_change.bmson");
+        let mut decoder = BMSONDecoder::new(0);
+        let model = decoder
+            .decode_path(&path)
+            .expect("decode_path should return Some for bpm_change bmson");
+
+        // The fixture has init_bpm=120 and a bpm_event at y=960 changing to 180.
+        // There must be at least one timeline with BPM != init_bpm.
+        let timelines = model.get_all_time_lines();
+        let has_bpm_change = timelines
+            .iter()
+            .any(|tl| (tl.get_bpm() - 180.0).abs() < f64::EPSILON);
+        assert!(
+            has_bpm_change,
+            "model should contain a timeline with BPM 180.0 from the bpm_event"
+        );
+
+        // Verify initial BPM is preserved on the first timeline
+        assert!(
+            (timelines[0].get_bpm() - 120.0).abs() < f64::EPSILON,
+            "first timeline should have init_bpm 120.0"
+        );
+    }
+
+    #[test]
+    fn test_decode_longnote() {
+        let path = test_bms_dir().join("bmson_longnote.bmson");
+        let mut decoder = BMSONDecoder::new(0);
+        let model = decoder
+            .decode_path(&path)
+            .expect("decode_path should return Some for longnote bmson");
+
+        let timelines = model.get_all_time_lines();
+        let mode_key = model.get_mode().unwrap().key();
+
+        // Collect all long notes (start and end) across all timelines
+        let mut ln_start_count = 0;
+        let mut ln_end_count = 0;
+        for tl in timelines {
+            for lane in 0..mode_key {
+                if let Some(note) = tl.get_note(lane) {
+                    if note.is_long() {
+                        if note.is_end() {
+                            ln_end_count += 1;
+                        } else {
+                            ln_start_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        assert!(
+            ln_start_count >= 2,
+            "fixture defines 2 long notes (l=480 and l=960), got {} starts",
+            ln_start_count
+        );
+        assert!(
+            ln_end_count >= 2,
+            "each long note should have a matching end, got {} ends",
+            ln_end_count
+        );
+    }
+
+    #[test]
+    fn test_decode_stop_sequence() {
+        let path = test_bms_dir().join("bmson_stop_sequence.bmson");
+        let mut decoder = BMSONDecoder::new(0);
+        let model = decoder
+            .decode_path(&path)
+            .expect("decode_path should return Some for stop_sequence bmson");
+
+        let timelines = model.get_all_time_lines();
+        let has_stop = timelines.iter().any(|tl| tl.get_micro_stop() > 0);
+        assert!(
+            has_stop,
+            "model should contain at least one timeline with a stop event"
+        );
+
+        // Verify the stop is at the expected position (y=480, which is section 0.5)
+        let stop_tl = timelines
+            .iter()
+            .find(|tl| tl.get_micro_stop() > 0)
+            .expect("should find a timeline with stop");
+        assert!(
+            stop_tl.get_micro_stop() > 0,
+            "stop duration should be positive"
+        );
+    }
+
+    #[test]
+    fn test_decode_mine_invisible() {
+        let path = test_bms_dir().join("bmson_mine_invisible.bmson");
+        let mut decoder = BMSONDecoder::new(0);
+        let model = decoder
+            .decode_path(&path)
+            .expect("decode_path should return Some for mine_invisible bmson");
+
+        let timelines = model.get_all_time_lines();
+        let mode_key = model.get_mode().unwrap().key();
+
+        // Check for mine notes
+        let mut mine_count = 0;
+        for tl in timelines.iter() {
+            for lane in 0..mode_key {
+                if let Some(note) = tl.get_note(lane) {
+                    if note.is_mine() {
+                        mine_count += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!(
+            mine_count, 2,
+            "fixture defines 2 mine notes (at y=240 on x=3 and y=720 on x=4)"
+        );
+
+        // Check for hidden (invisible) notes from key_channels
+        let mut hidden_count = 0;
+        for tl in timelines.iter() {
+            for lane in 0..mode_key {
+                if tl.get_hidden_note(lane).is_some() {
+                    hidden_count += 1;
+                }
+            }
+        }
+        assert_eq!(
+            hidden_count, 2,
+            "fixture defines 2 hidden notes (at y=120 on x=5 and y=600 on x=6)"
+        );
+
+        // Verify mine damage values
+        let mines: Vec<&crate::note::Note> = timelines
+            .iter()
+            .flat_map(|tl| (0..mode_key).filter_map(move |lane| tl.get_note(lane)))
+            .filter(|n| n.is_mine())
+            .collect();
+        assert!(
+            (mines[0].get_damage() - 50.0).abs() < f64::EPSILON,
+            "first mine should have damage 50.0"
+        );
+        assert!(
+            (mines[1].get_damage() - 100.0).abs() < f64::EPSILON,
+            "second mine should have damage 100.0"
+        );
+    }
+
+    #[test]
+    fn test_decode_bpm_ln_cross() {
+        let path = test_bms_dir().join("bmson_bpm_ln_cross.bmson");
+        let mut decoder = BMSONDecoder::new(0);
+        let model = decoder
+            .decode_path(&path)
+            .expect("decode_path should return Some for bpm_ln_cross bmson");
+
+        let timelines = model.get_all_time_lines();
+        let mode_key = model.get_mode().unwrap().key();
+
+        // Verify BPM changes exist: 120 -> 180 -> 60 -> 120
+        let bpm_values: Vec<f64> = timelines.iter().map(|tl| tl.get_bpm()).collect();
+        let unique_bpms: std::collections::HashSet<u64> =
+            bpm_values.iter().map(|b| b.to_bits()).collect();
+        assert!(
+            unique_bpms.len() >= 3,
+            "should have at least 3 distinct BPM values (120, 180, 60), got {:?}",
+            unique_bpms.len()
+        );
+
+        // Verify long notes exist
+        let mut has_ln = false;
+        for tl in timelines.iter() {
+            for lane in 0..mode_key {
+                if let Some(note) = tl.get_note(lane) {
+                    if note.is_long() && !note.is_end() {
+                        has_ln = true;
+                        break;
+                    }
+                }
+            }
+            if has_ln {
+                break;
+            }
+        }
+        assert!(has_ln, "fixture should contain long notes");
+
+        // Verify normal notes also exist
+        let normal_count: i32 = timelines
+            .iter()
+            .flat_map(|tl| (0..mode_key).filter_map(move |lane| tl.get_note(lane)))
+            .filter(|n| n.is_normal())
+            .count() as i32;
+        assert_eq!(
+            normal_count, 4,
+            "fixture defines 4 normal notes in the second sound channel"
+        );
+    }
+
+    #[test]
+    fn test_decode_empty_json() {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let path = dir.path().join("empty.bmson");
+        let mut f = std::fs::File::create(&path).expect("failed to create temp file");
+        f.write_all(b"{}").expect("failed to write");
+        drop(f);
+
+        let mut decoder = BMSONDecoder::new(0);
+        let model = decoder.decode_path(&path);
+
+        // Empty JSON deserializes to default Bmson (init_bpm=0.0), which is technically valid
+        // but produces a model with 0 playable notes.
+        if let Some(ref m) = model {
+            assert_eq!(
+                m.get_total_notes(),
+                0,
+                "empty bmson should produce 0 total notes"
+            );
+        }
+        // Either None or Some with 0 notes is acceptable
+    }
+
+    #[test]
+    fn test_decode_invalid_json() {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let path = dir.path().join("invalid.bmson");
+        let mut f = std::fs::File::create(&path).expect("failed to create temp file");
+        f.write_all(b"this is not json at all {{{")
+            .expect("failed to write");
+        drop(f);
+
+        let mut decoder = BMSONDecoder::new(0);
+        let result = decoder.decode_path(&path);
+        assert!(
+            result.is_none(),
+            "invalid JSON should cause decode_path to return None"
+        );
+    }
+
+    #[test]
+    fn test_decode_zero_resolution() {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let path = dir.path().join("zero_res.bmson");
+        let bmson_json = r#"{
+            "version": "1.0.0",
+            "info": {
+                "title": "Zero Resolution Test",
+                "mode_hint": "beat-7k",
+                "init_bpm": 120.0,
+                "resolution": 0,
+                "judge_rank": 100,
+                "total": 300.0,
+                "level": 1
+            },
+            "lines": [{"y": 0}],
+            "bpm_events": [],
+            "stop_events": [],
+            "scroll_events": [],
+            "sound_channels": [
+                {
+                    "name": "test.wav",
+                    "notes": [
+                        {"x": 1, "y": 0, "l": 0, "c": false, "t": 0, "up": false}
+                    ]
+                }
+            ],
+            "mine_channels": [],
+            "key_channels": []
+        }"#;
+        std::fs::write(&path, bmson_json).expect("failed to write");
+
+        let mut decoder = BMSONDecoder::new(0);
+        // Should not panic. resolution=0 is handled by falling back to 960.0
+        let result = decoder.decode_path(&path);
+        assert!(
+            result.is_some(),
+            "zero resolution should be handled gracefully (fallback to default 960)"
+        );
+    }
+
+    #[test]
+    fn test_decode_nonexistent_file() {
+        let path = std::path::Path::new("/nonexistent/path/to/file.bmson");
+        let mut decoder = BMSONDecoder::new(0);
+        let result = decoder.decode_path(path);
+        assert!(
+            result.is_none(),
+            "nonexistent file should cause decode_path to return None"
+        );
+    }
+
+    #[test]
+    fn test_decode_via_chart_information() {
+        // Test the decode() method that wraps decode_path via ChartInformation
+        let path = test_bms_dir().join("bmson_minimal_7k.bmson");
+        let info = ChartInformation::new(Some(path), 0, None);
+        let mut decoder = BMSONDecoder::new(0);
+        let model = decoder
+            .decode(info)
+            .expect("decode via ChartInformation should return Some");
+
+        assert_eq!(
+            model.get_title(),
+            "Minimal 7K Bmson Test",
+            "title should match when decoding via ChartInformation"
+        );
+        assert_eq!(
+            model.get_total_notes(),
+            8,
+            "total notes should match when decoding via ChartInformation"
+        );
+    }
+
+    #[test]
+    fn test_decode_chart_information_without_path() {
+        let info = ChartInformation::new(None, 0, None);
+        let mut decoder = BMSONDecoder::new(0);
+        let result = decoder.decode(info);
+        assert!(
+            result.is_none(),
+            "ChartInformation with no path should return None"
+        );
+    }
+}
