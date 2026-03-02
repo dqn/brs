@@ -83,6 +83,8 @@ impl SongBar {
         for song in filtered_songs {
             result.push(Bar::Song(Box::new(SongBar::new(song))));
         }
+        // Java fills backward (count-- index), reversing order
+        result.reverse();
         result
     }
 
@@ -135,19 +137,18 @@ impl SongBar {
         let total = count as i32 + noexistscount;
         let mut result: Vec<Bar> = Vec::with_capacity(total as usize);
 
-        // Add non-existing elements
+        // Java fills backward: songs[0]→result[count-1], songs[last]→result[0]
+        // Then elements[0]→result[count+noexists-1], elements[last]→result[count]
+        // Layout: [songs reversed | elements reversed]
+        for song in songs.iter().rev().flatten() {
+            result.push(Bar::Song(Box::new(SongBar::new(song.clone()))));
+        }
         for element in elements.iter().rev() {
             if element.get_path().is_none() {
                 result.push(Bar::Song(Box::new(SongBar::new(element.clone()))));
             }
         }
 
-        // Add existing songs
-        for song in songs.iter().rev().flatten() {
-            result.push(Bar::Song(Box::new(SongBar::new(song.clone()))));
-        }
-
-        result.reverse();
         result
     }
 }

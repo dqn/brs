@@ -95,11 +95,7 @@ impl GradeBar {
         {
             result = score.get_clear();
         }
-        if let Some(score) = self.selectable.bar_data.get_rival_score()
-            && score.get_clear() > result
-        {
-            result = score.get_clear();
-        }
+        // Java: // TODO ライバルスコア — rival score intentionally excluded
         if let Some(score) = self.get_mirror_score()
             && score.get_clear() > result
         {

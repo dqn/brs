@@ -667,10 +667,11 @@ impl BMSPlayer {
         if self.state == STATE_PRELOAD || self.state == STATE_READY {
             self.pending_global_pitch = Some(1.0);
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
-            // In Java: if resource.getPlayMode().mode == PLAY => STATE_ABORTED
-            // else => STATE_PRACTICE_FINISHED
-            // We default to ABORTED since we lack resource.getPlayMode()
-            self.state = STATE_ABORTED;
+            if self.play_mode.mode == beatoraja_core::bms_player_mode::Mode::Play {
+                self.state = STATE_ABORTED;
+            } else {
+                self.state = STATE_PRACTICE_FINISHED;
+            }
             return;
         }
         if self.main_state_data.timer.is_timer_on(TIMER_FAILED)
@@ -679,13 +680,14 @@ impl BMSPlayer {
             return;
         }
         if self.state != STATE_FINISHED
+            && !self.is_course_mode
             && self.judge.get_judge_count(0)
                 + self.judge.get_judge_count(1)
                 + self.judge.get_judge_count(2)
                 + self.judge.get_judge_count(3)
                 == 0
         {
-            // No notes judged - abort
+            // No notes judged and not in course mode - abort
             if let Some(ref mut keyinput) = self.keyinput {
                 keyinput.stop_judge();
             }
@@ -696,7 +698,8 @@ impl BMSPlayer {
             return;
         }
         if self.state != STATE_FINISHED
-            && (self.judge.get_past_notes() == self.total_notes/* || resource.getPlayMode().mode == AUTOPLAY */)
+            && (self.judge.get_past_notes() == self.total_notes
+                || self.play_mode.mode == beatoraja_core::bms_player_mode::Mode::Autoplay)
         {
             self.state = STATE_FINISHED;
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
