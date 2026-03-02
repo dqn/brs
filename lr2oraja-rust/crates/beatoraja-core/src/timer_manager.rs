@@ -15,6 +15,10 @@ pub struct TimerManager {
     timer: Vec<i64>,
     /// Current main state type, set by MainController before skin draw
     state_type: Option<beatoraja_types::main_state_type::MainStateType>,
+    /// Recent judge timing offsets (milliseconds), set by BMSPlayer::render()
+    recent_judges: Vec<i64>,
+    /// Current write index into recent_judges circular buffer
+    recent_judges_index: usize,
 }
 
 /// SkinProperty.TIMER_MAX + 1 (Java TIMER_MAX = 2999)
@@ -33,6 +37,8 @@ impl TimerManager {
             frozen: false,
             timer,
             state_type: None,
+            recent_judges: Vec::new(),
+            recent_judges_index: 0,
         }
     }
 
@@ -137,6 +143,12 @@ impl TimerManager {
         self.state_type = state_type;
     }
 
+    pub fn set_recent_judges(&mut self, index: usize, judges: &[i64]) {
+        self.recent_judges_index = index;
+        self.recent_judges.clear();
+        self.recent_judges.extend_from_slice(judges);
+    }
+
     pub fn set_frozen(&mut self, freeze: bool) {
         self.frozen = freeze;
     }
@@ -183,5 +195,13 @@ impl beatoraja_types::timer_access::TimerAccess for TimerManager {
 impl beatoraja_types::skin_render_context::SkinRenderContext for TimerManager {
     fn current_state_type(&self) -> Option<beatoraja_types::main_state_type::MainStateType> {
         self.state_type
+    }
+
+    fn get_recent_judges(&self) -> &[i64] {
+        &self.recent_judges
+    }
+
+    fn get_recent_judges_index(&self) -> usize {
+        self.recent_judges_index
     }
 }

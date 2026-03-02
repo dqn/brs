@@ -1043,6 +1043,7 @@ impl Skin {
 /// per-timer-id queries return actual values instead of always 0.
 struct TimerOnlyMainState<'a> {
     timer: &'a dyn beatoraja_types::timer_access::TimerAccess,
+    ctx: Option<&'a dyn beatoraja_types::skin_render_context::SkinRenderContext>,
     main_controller: crate::stubs::MainController,
     resource: crate::stubs::PlayerResource,
     state_type: Option<beatoraja_types::main_state_type::MainStateType>,
@@ -1052,6 +1053,7 @@ impl<'a> TimerOnlyMainState<'a> {
     fn from_timer(timer: &'a dyn beatoraja_types::timer_access::TimerAccess) -> Self {
         Self {
             timer,
+            ctx: None,
             main_controller: crate::stubs::MainController { debug: false },
             resource: crate::stubs::PlayerResource,
             state_type: None,
@@ -1063,6 +1065,7 @@ impl<'a> TimerOnlyMainState<'a> {
     ) -> Self {
         Self {
             timer: ctx,
+            ctx: Some(ctx),
             main_controller: crate::stubs::MainController { debug: false },
             resource: crate::stubs::PlayerResource,
             state_type: ctx.current_state_type(),
@@ -1093,6 +1096,14 @@ impl crate::stubs::MainState for TimerOnlyMainState<'_> {
 
     fn is_bms_player(&self) -> bool {
         self.state_type == Some(beatoraja_types::main_state_type::MainStateType::Play)
+    }
+
+    fn get_recent_judges(&self) -> &[i64] {
+        self.ctx.map_or(&[] as &[i64], |c| c.get_recent_judges())
+    }
+
+    fn get_recent_judges_index(&self) -> usize {
+        self.ctx.map_or(0, |c| c.get_recent_judges_index())
     }
 }
 

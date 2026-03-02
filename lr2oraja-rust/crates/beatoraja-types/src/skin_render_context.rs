@@ -40,4 +40,15 @@ pub trait SkinRenderContext: TimerAccess {
     fn current_state_type(&self) -> Option<MainStateType> {
         None
     }
+
+    /// Returns the recent judge timing offsets (milliseconds).
+    /// 100-element circular buffer. Used by SkinTimingVisualizer and SkinHitErrorVisualizer.
+    fn get_recent_judges(&self) -> &[i64] {
+        &[]
+    }
+
+    /// Returns the current write index into the recent judges circular buffer.
+    fn get_recent_judges_index(&self) -> usize {
+        0
+    }
 }

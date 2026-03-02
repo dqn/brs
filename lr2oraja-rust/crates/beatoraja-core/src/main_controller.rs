@@ -735,6 +735,69 @@ impl MainController {
 
         // FPS display (Phase 22+: requires system font)
 
+        // --- Outbox consumption: poll pending operations from current state ---
+        // Order: sounds → pitch → score handoff → reload → state change (last, destroys current)
+        let mut pending_sounds: Vec<(SoundType, bool)> = Vec::new();
+        let mut pending_pitch: Option<f32> = None;
+        let mut pending_handoff: Option<beatoraja_types::score_handoff::ScoreHandoff> = None;
+        let mut pending_reload = false;
+        let mut pending_change: Option<MainStateType> = None;
+
+        if let Some(ref mut current) = self.current {
+            pending_sounds = current.drain_pending_sounds();
+            pending_pitch = current.take_pending_global_pitch();
+            pending_handoff = current.take_score_handoff();
+            pending_reload = current.take_pending_reload_bms();
+            pending_change = current.take_pending_state_change();
+        }
+
+        // Apply sounds
+        for (sound, loop_sound) in pending_sounds {
+            let volume = self.config.audio.as_ref().map_or(1.0, |a| a.systemvolume);
+            let path = self
+                .sound
+                .as_ref()
+                .and_then(|sm| sm.get_sound(&sound).cloned());
+            if let Some(path) = path
+                && let Some(ref mut audio) = self.audio
+            {
+                audio.play_path(&path, volume, loop_sound);
+            }
+        }
+
+        // Apply global pitch
+        if let Some(pitch) = pending_pitch
+            && let Some(ref mut audio) = self.audio
+        {
+            audio.set_global_pitch(pitch);
+        }
+
+        // Apply score handoff to PlayerResource
+        if let Some(handoff) = pending_handoff
+            && let Some(ref mut resource) = self.resource
+        {
+            if let Some(score) = handoff.score_data {
+                resource.set_score_data(score);
+            }
+            resource.set_combo(handoff.combo);
+            resource.set_maxcombo(handoff.maxcombo);
+            resource.set_gauge(handoff.gauge);
+            if let Some(gg) = handoff.groove_gauge {
+                resource.set_groove_gauge(gg);
+            }
+            resource.set_assist(handoff.assist);
+        }
+
+        // Reload BMS file (before state change so new Play state gets fresh model)
+        if pending_reload && let Some(ref mut resource) = self.resource {
+            resource.reload_bms_file();
+        }
+
+        // State change (last - destroys current state)
+        if let Some(state_type) = pending_change {
+            self.change_state(state_type);
+        }
+
         self.periodic_config_save();
 
         PerformanceMetrics::get().commit();

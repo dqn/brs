@@ -128,6 +128,35 @@ pub trait MainState {
         // carry offset data from MainController.
         None
     }
+
+    // --- Outbox pattern methods ---
+    // BMSPlayer overrides these to expose pending operations.
+    // MainController polls them after each render() frame.
+
+    /// Take pending state change request (e.g., Play -> Result).
+    fn take_pending_state_change(&mut self) -> Option<MainStateType> {
+        None
+    }
+
+    /// Take pending global pitch change (e.g., reset to 1.0 on state transition).
+    fn take_pending_global_pitch(&mut self) -> Option<f32> {
+        None
+    }
+
+    /// Drain pending system sound requests (e.g., PLAY_READY, PLAY_STOP).
+    fn drain_pending_sounds(&mut self) -> Vec<(SoundType, bool)> {
+        vec![]
+    }
+
+    /// Take pending score handoff data for PlayerResource.
+    fn take_score_handoff(&mut self) -> Option<beatoraja_types::score_handoff::ScoreHandoff> {
+        None
+    }
+
+    /// Take pending BMS file reload request (for quick retry).
+    fn take_pending_reload_bms(&mut self) -> bool {
+        false
+    }
 }
 
 /// Trait for skin drawing integration.

@@ -118,14 +118,13 @@ impl SkinHitErrorVisualizer {
     }
 
     pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
-        // if(!(state instanceof BMSPlayer)) { draw = false; return; }
+        if !state.is_bms_player() {
+            return;
+        }
         self.data.prepare(time, state);
 
-        // resource = state.resource
-        // model check and judgeArea update would happen here at runtime
-
-        // index = ((BMSPlayer)state).getJudgeManager().getRecentJudgesIndex()
-        // recent = ((BMSPlayer)state).getJudgeManager().getRecentJudges()
+        self.index = state.get_recent_judges_index();
+        self.recent = state.get_recent_judges().to_vec();
     }
 
     fn update_ema(&mut self, value: i64) {

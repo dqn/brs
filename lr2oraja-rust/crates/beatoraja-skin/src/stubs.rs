@@ -180,6 +180,17 @@ pub trait MainState {
         false
     }
 
+    /// Returns the recent judge timing offsets (milliseconds).
+    /// 100-element circular buffer from JudgeManager.
+    fn get_recent_judges(&self) -> &[i64] {
+        &[]
+    }
+
+    /// Returns the current write index into the recent judges circular buffer.
+    fn get_recent_judges_index(&self) -> usize {
+        0
+    }
+
     /// Returns the current judge type for the given player (1-indexed, 0 = no judge).
     /// Used by SkinJudge to determine which judge image to display.
     fn get_now_judge(&self, _player: i32) -> i32 {

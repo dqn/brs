@@ -102,3 +102,6 @@ pub mod ranking_data_cache_access;
 
 // Input processor access (keyboard control keys + commands)
 pub mod input_processor_access;
+
+// Score handoff (Play→Result data transfer via outbox pattern)
+pub mod score_handoff;

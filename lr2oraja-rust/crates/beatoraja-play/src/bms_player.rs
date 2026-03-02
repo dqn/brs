@@ -245,6 +245,14 @@ pub struct BMSPlayer {
     /// Whether we are in course mode (resource.getCourseBMSModels() != null).
     /// Set by the caller. Quick retry is disabled during courses.
     is_course_mode: bool,
+    /// Pending system sound requests. Consumed by MainController via drain_pending_sounds().
+    pending_sounds: Vec<(beatoraja_types::sound_type::SoundType, bool)>,
+    /// Pending score handoff for Result state. Consumed by MainController.
+    pending_score_handoff: Option<beatoraja_types::score_handoff::ScoreHandoff>,
+    /// Pending BMS file reload request (for quick retry).
+    pending_reload_bms: bool,
+    /// Input device type (for create_score_data). Set by the caller.
+    device_type: beatoraja_input::bms_player_input_device::DeviceType,
 }
 
 impl BMSPlayer {
@@ -301,6 +309,10 @@ impl BMSPlayer {
             control_key_right: false,
             pending_state_change: None,
             is_course_mode: false,
+            pending_sounds: Vec::new(),
+            pending_score_handoff: None,
+            pending_reload_bms: false,
+            device_type: beatoraja_input::bms_player_input_device::DeviceType::Keyboard,
         }
     }
 
@@ -402,6 +414,19 @@ impl BMSPlayer {
     /// Set whether we are in course mode.
     pub fn set_course_mode(&mut self, is_course: bool) {
         self.is_course_mode = is_course;
+    }
+
+    /// Set the input device type (for create_score_data).
+    pub fn set_device_type(
+        &mut self,
+        device_type: beatoraja_input::bms_player_input_device::DeviceType,
+    ) {
+        self.device_type = device_type;
+    }
+
+    /// Queue a system sound to be played by MainController.
+    fn queue_sound(&mut self, sound: beatoraja_types::sound_type::SoundType) {
+        self.pending_sounds.push((sound, false));
     }
 
     /// Take the side effects produced by create().
@@ -611,7 +636,7 @@ impl BMSPlayer {
             self.state = STATE_FAILED;
             self.main_state_data.timer.set_timer_on(TIMER_FAILED);
             // if resource.mediaLoadFinished() { main.getAudioProcessor().stop(null); }
-            // play(PLAY_STOP);
+            self.queue_sound(beatoraja_types::sound_type::SoundType::PlayStop);
             log::info!("STATE_FAILED");
         }
     }
@@ -1512,6 +1537,26 @@ impl MainState for BMSPlayer {
         &mut self.main_state_data
     }
 
+    fn take_pending_state_change(&mut self) -> Option<MainStateType> {
+        self.pending_state_change.take()
+    }
+
+    fn take_pending_global_pitch(&mut self) -> Option<f32> {
+        self.pending_global_pitch.take()
+    }
+
+    fn drain_pending_sounds(&mut self) -> Vec<(beatoraja_types::sound_type::SoundType, bool)> {
+        std::mem::take(&mut self.pending_sounds)
+    }
+
+    fn take_score_handoff(&mut self) -> Option<beatoraja_types::score_handoff::ScoreHandoff> {
+        self.pending_score_handoff.take()
+    }
+
+    fn take_pending_reload_bms(&mut self) -> bool {
+        std::mem::take(&mut self.pending_reload_bms)
+    }
+
     fn create(&mut self) {
         let mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
         self.lane_property = Some(LaneProperty::new(&mode));
@@ -1678,7 +1723,7 @@ impl MainState for BMSPlayer {
                     self.bga.lock().unwrap().prepare(&() as &dyn std::any::Any);
                     self.state = STATE_READY;
                     self.main_state_data.timer.set_timer_on(TIMER_READY);
-                    // play(PLAY_READY);
+                    self.queue_sound(beatoraja_types::sound_type::SoundType::PlayReady);
                     log::info!("STATE_READY");
                 }
                 // PM character neutral timer
@@ -2052,7 +2097,7 @@ impl MainState for BMSPlayer {
                                 self.state = STATE_FAILED;
                                 self.main_state_data.timer.set_timer_on(TIMER_FAILED);
                                 // if resource.mediaLoadFinished() { main.getAudioProcessor().stop(null); }
-                                // play(PLAY_STOP);
+                                self.queue_sound(beatoraja_types::sound_type::SoundType::PlayStop);
                                 log::info!("STATE_FAILED");
                             }
                             GAUGEAUTOSHIFT_CONTINUE => {
@@ -2089,7 +2134,7 @@ impl MainState for BMSPlayer {
                 {
                     self.pending_global_pitch = Some(1.0);
                     self.save_config();
-                    // resource.reloadBMSFile();
+                    self.pending_reload_bms = true;
                     self.pending_state_change = Some(MainStateType::Play);
                 } else if self.main_state_data.timer.get_now_time_for_id(TIMER_FAILED)
                     > self.play_skin.get_close() as i64
@@ -2109,19 +2154,37 @@ impl MainState for BMSPlayer {
                             l += 500;
                         }
                     }
-                    // resource.setGauge(gaugelog);
-                    // resource.setGrooveGauge(gauge);
-                    // resource.setAssist(assist);
+                    let score = if self.play_mode.mode
+                        == beatoraja_core::bms_player_mode::Mode::Play
+                        || self.play_mode.mode == beatoraja_core::bms_player_mode::Mode::Replay
+                    {
+                        self.create_score_data(self.device_type)
+                    } else {
+                        None
+                    };
+                    self.pending_score_handoff =
+                        Some(beatoraja_types::score_handoff::ScoreHandoff {
+                            score_data: score,
+                            combo: self.judge.get_course_combo(),
+                            maxcombo: self.judge.get_course_maxcombo(),
+                            gauge: self.gaugelog.clone(),
+                            groove_gauge: self.gauge.clone(),
+                            assist: self.assist,
+                        });
                     // input.setEnable(true); input.setStartTime(0);
                     self.save_config();
 
                     // Transition: practice -> STATE_PRACTICE, else -> RESULT or MUSICSELECT
                     if self.play_mode.mode == beatoraja_core::bms_player_mode::Mode::Practice {
                         self.state = STATE_PRACTICE;
-                    } else {
-                        // Score data determines whether we go to RESULT or MUSICSELECT
-                        // In Java: if scoreData != null -> RESULT, else -> MUSICSELECT
+                    } else if self
+                        .pending_score_handoff
+                        .as_ref()
+                        .is_some_and(|h| h.score_data.is_some())
+                    {
                         self.pending_state_change = Some(MainStateType::Result);
+                    } else {
+                        self.pending_state_change = Some(MainStateType::MusicSelect);
                     }
                     log::info!("Failed close, transition to result/select");
                 }
@@ -2161,13 +2224,24 @@ impl MainState for BMSPlayer {
                 {
                     self.pending_global_pitch = Some(1.0);
                     // resource.getBGAManager().stop();
-                    // resource.setScoreData(createScoreData());
-                    // resource.setCombo(judge.getCourseCombo());
-                    // resource.setMaxcombo(judge.getCourseMaxcombo());
+                    let score = if self.play_mode.mode
+                        == beatoraja_core::bms_player_mode::Mode::Play
+                        || self.play_mode.mode == beatoraja_core::bms_player_mode::Mode::Replay
+                    {
+                        self.create_score_data(self.device_type)
+                    } else {
+                        None
+                    };
                     self.save_config();
-                    // resource.setGauge(gaugelog);
-                    // resource.setGrooveGauge(gauge);
-                    // resource.setAssist(assist);
+                    self.pending_score_handoff =
+                        Some(beatoraja_types::score_handoff::ScoreHandoff {
+                            score_data: score,
+                            combo: self.judge.get_course_combo(),
+                            maxcombo: self.judge.get_course_maxcombo(),
+                            gauge: self.gaugelog.clone(),
+                            groove_gauge: self.gauge.clone(),
+                            assist: self.assist,
+                        });
                     // input.setEnable(true); input.setStartTime(0);
 
                     // Transition: practice -> STATE_PRACTICE, else -> RESULT
@@ -2190,7 +2264,7 @@ impl MainState for BMSPlayer {
                 {
                     self.pending_global_pitch = Some(1.0);
                     self.save_config();
-                    // resource.reloadBMSFile();
+                    self.pending_reload_bms = true;
                     self.pending_state_change = Some(MainStateType::Play);
                 }
 
@@ -2216,6 +2290,12 @@ impl MainState for BMSPlayer {
         }
 
         self.prevtime = micronow;
+
+        // Copy recent judge data to timer for SkinTimingVisualizer/SkinHitErrorVisualizer
+        self.main_state_data.timer.set_recent_judges(
+            self.judge.get_recent_judges_index(),
+            self.judge.get_recent_judges(),
+        );
     }
 
     fn input(&mut self) {

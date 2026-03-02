@@ -89,16 +89,13 @@ impl SkinTimingVisualizer {
     }
 
     pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
-        // if(!(state instanceof BMSPlayer)) { draw = false; return; }
-        // In Rust, we use a trait-based approach. The caller must ensure the state is BMSPlayer.
-        // For now, always proceed. The actual instanceof check requires downcasting.
+        if !state.is_bms_player() {
+            return;
+        }
         self.data.prepare(time, state);
 
-        // resource = state.resource
-        // index = ((BMSPlayer)state).getJudgeManager().getRecentJudgesIndex()
-        // recent = ((BMSPlayer)state).getJudgeManager().getRecentJudges()
-        // These would be obtained from the BMSPlayer at runtime.
-        // Stubbed: self.index and self.recent should be set by the caller.
+        self.index = state.get_recent_judges_index();
+        self.recent = state.get_recent_judges().to_vec();
 
         // if(resource.getBMSModel() != model) { ... }
         if !self.model_set {

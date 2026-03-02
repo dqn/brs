@@ -151,6 +151,7 @@ impl Gauge {
 }
 
 /// Groove gauge
+#[derive(Clone)]
 pub struct GrooveGauge {
     typeorg: i32,
     gauge_type: i32,
