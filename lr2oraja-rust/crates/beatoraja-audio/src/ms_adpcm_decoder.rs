@@ -29,13 +29,16 @@ static INITIALIZATION_COEFF1: [i32; 7] = [64, 128, 0, 48, 60, 115, 98];
 static INITIALIZATION_COEFF2: [i32; 7] = [0, -64, 0, 16, 0, -52, -58];
 
 impl MSADPCMDecoder {
-    pub fn new(channels: i32, sample_rate: i32, block_align: i32) -> Self {
+    pub fn new(channels: i32, sample_rate: i32, block_align: i32) -> Result<Self> {
+        if channels == 0 {
+            bail!("MSADPCMDecoder: channels must be non-zero");
+        }
         let block_size = block_align;
         // sizeof(header) = 7
         // each header contains two samples
         // channels * 2 + (blockSize - channels * sizeof(header)) * 2 ==> (blockSize - channels * 6) * 2
         let samples_per_block = (block_size - channels * 6) * 2 / channels;
-        MSADPCMDecoder {
+        Ok(MSADPCMDecoder {
             adapt_coeff1: vec![0; channels as usize],
             adapt_coeff2: vec![0; channels as usize],
             initial_delta: vec![0; channels as usize],
@@ -46,7 +49,7 @@ impl MSADPCMDecoder {
             channels,
             block_size,
             sample_rate,
-        }
+        })
     }
 
     pub fn decode(&mut self, input: &[u8]) -> Result<Vec<u8>> {
@@ -256,6 +259,15 @@ mod tests {
         assert_eq!(MSADPCMDecoder::clamp(-32768), -32768);
         assert_eq!(MSADPCMDecoder::clamp(40000), 32767);
         assert_eq!(MSADPCMDecoder::clamp(-40000), -32768);
+    }
+
+    #[test]
+    fn test_ms_adpcm_decoder_zero_channels() {
+        let result = MSADPCMDecoder::new(0, 44100, 256);
+        assert!(
+            result.is_err(),
+            "MSADPCMDecoder::new with channels=0 should return Err"
+        );
     }
 
     #[test]

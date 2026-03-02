@@ -92,7 +92,7 @@ fn ms_adpcm_minimum_block_header_only() {
     block[5] = 0xF4;
     block[6] = 0x01;
 
-    let mut decoder = MSADPCMDecoder::new(channels, sample_rate, block_align);
+    let mut decoder = MSADPCMDecoder::new(channels, sample_rate, block_align).unwrap();
     let result = decoder.decode(&block);
 
     assert!(

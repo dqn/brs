@@ -415,7 +415,7 @@ impl PCMLoader {
 
                 let input_data = wav.read_data()?;
                 let mut decoder =
-                    MSADPCMDecoder::new(self.channels, self.sample_rate, self.block_align);
+                    MSADPCMDecoder::new(self.channels, self.sample_rate, self.block_align)?;
                 self.pcm_data = decoder.decode(&input_data)?;
 
                 log::info!("Filename: {:?}", p);
