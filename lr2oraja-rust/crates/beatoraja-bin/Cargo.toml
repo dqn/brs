@@ -23,6 +23,8 @@ beatoraja-modmenu = { workspace = true }
 beatoraja-launcher = { workspace = true }
 beatoraja-select = { workspace = true }
 beatoraja-stream = { workspace = true }
+beatoraja-types = { workspace = true }
+md-processor = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }
 clap = { workspace = true }

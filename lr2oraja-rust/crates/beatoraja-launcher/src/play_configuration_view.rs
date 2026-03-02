@@ -1377,11 +1377,7 @@ impl PlayConfigurationView {
                     .show_ui(ui, |ui| {
                         for p in &self.players {
                             let is_selected = self.players_selected.as_deref() == Some(p.as_str());
-                            if ui
-                                .selectable_label(is_selected, p)
-                                .clicked()
-                                && !is_selected
-                            {
+                            if ui.selectable_label(is_selected, p).clicked() && !is_selected {
                                 self.players_selected = Some(p.clone());
                                 // Trigger player change on next frame
                             }
@@ -1516,12 +1512,7 @@ impl PlayConfigurationView {
                 ui.end_row();
 
                 ui.label("LN Type:");
-                Self::render_combo_i32(
-                    ui,
-                    "pcv_lntype",
-                    &mut self.lntype,
-                    &self.lntype_labels,
-                );
+                Self::render_combo_i32(ui, "pcv_lntype", &mut self.lntype, &self.lntype_labels);
                 ui.end_row();
             });
 
@@ -1921,9 +1912,7 @@ impl PlayConfigurationView {
                             .selected_text(&selected_text)
                             .show_ui(ui, |ui| {
                                 for src in &self.http_download_source {
-                                    let is_selected = self
-                                        .http_download_source_selected
-                                        .as_deref()
+                                    let is_selected = self.http_download_source_selected.as_deref()
                                         == Some(src.as_str());
                                     if ui.selectable_label(is_selected, src).clicked() {
                                         self.http_download_source_selected = Some(src.clone());
@@ -2073,12 +2062,7 @@ impl PlayConfigurationView {
     /// Render a ComboBox for `Option<i32>` backed by a label list.
     ///
     /// Shared helper used by all the indexed combo box fields.
-    fn render_combo_i32(
-        ui: &mut egui::Ui,
-        id: &str,
-        value: &mut Option<i32>,
-        labels: &[String],
-    ) {
+    fn render_combo_i32(ui: &mut egui::Ui, id: &str, value: &mut Option<i32>, labels: &[String]) {
         let selected_text = value
             .and_then(|v| labels.get(v as usize))
             .cloned()

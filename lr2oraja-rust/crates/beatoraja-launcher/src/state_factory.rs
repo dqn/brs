@@ -8,8 +8,8 @@ use std::sync::{Arc, Mutex};
 
 use beatoraja_core::config_pkg::key_configuration::KeyConfiguration;
 use beatoraja_core::config_pkg::skin_configuration::SkinConfiguration;
-use beatoraja_core::main_controller::{MainController, StateFactory};
-use beatoraja_core::main_state::{MainState, MainStateType};
+use beatoraja_core::main_controller::{MainController, StateCreateResult, StateFactory};
+use beatoraja_core::main_state::{MainState, MainStateData, MainStateType};
 use beatoraja_core::timer_manager::TimerManager;
 use beatoraja_decide::music_decide::MusicDecide;
 use beatoraja_decide::stubs::MainControllerRef as DecideMainControllerRef;
@@ -23,6 +23,110 @@ use beatoraja_select::music_selector::MusicSelector;
 use beatoraja_types::main_controller_access::{ConfigMainControllerAccess, MainControllerAccess};
 use beatoraja_types::player_resource_access::{NullPlayerResource, PlayerResourceAccess};
 use beatoraja_types::score_data::ScoreData;
+use beatoraja_types::sound_type::SoundType;
+
+/// Wrapper that delegates MainState methods to a shared `Arc<Mutex<MusicSelector>>`.
+///
+/// Java: StreamController and MusicSelect screen share the same MusicSelector instance.
+/// In Rust, both hold an `Arc<Mutex<MusicSelector>>` so stream request bars appear in the
+/// select screen's bar list.
+///
+/// The wrapper owns a local `MainStateData` for the `main_state_data()` / `main_state_data_mut()`
+/// trait methods (which return references and cannot go through a Mutex). Lifecycle methods
+/// (create, render, etc.) delegate through the Arc<Mutex<>> to the shared selector.
+struct SharedMusicSelectorState {
+    selector: Arc<Mutex<MusicSelector>>,
+    /// Local state data for skin/score property access.
+    /// Synced from the shared selector on create() and after render().
+    state_data: MainStateData,
+}
+
+impl SharedMusicSelectorState {
+    fn new(selector: Arc<Mutex<MusicSelector>>) -> Self {
+        Self {
+            selector,
+            state_data: MainStateData::new(TimerManager::new()),
+        }
+    }
+
+    // Note: MainStateData (score, timer, skin) is NOT synced from the shared selector
+    // because ScoreDataProperty and TimerManager don't implement Clone. The local state_data
+    // provides stable references for MainController but stays at defaults. The actual game
+    // state (bars, songs, selections) lives inside the shared MusicSelector.
+}
+
+impl MainState for SharedMusicSelectorState {
+    fn state_type(&self) -> Option<MainStateType> {
+        Some(MainStateType::MusicSelect)
+    }
+
+    fn main_state_data(&self) -> &MainStateData {
+        &self.state_data
+    }
+
+    fn main_state_data_mut(&mut self) -> &mut MainStateData {
+        &mut self.state_data
+    }
+
+    fn create(&mut self) {
+        self.selector.lock().unwrap().create();
+    }
+
+    fn prepare(&mut self) {
+        self.selector.lock().unwrap().prepare();
+    }
+
+    fn shutdown(&mut self) {
+        self.selector.lock().unwrap().shutdown();
+    }
+
+    fn render(&mut self) {
+        self.selector.lock().unwrap().render();
+    }
+
+    fn input(&mut self) {
+        self.selector.lock().unwrap().input();
+    }
+
+    fn pause(&mut self) {
+        self.selector.lock().unwrap().pause();
+    }
+
+    fn resume(&mut self) {
+        self.selector.lock().unwrap().resume();
+    }
+
+    fn resize(&mut self, width: i32, height: i32) {
+        self.selector.lock().unwrap().resize(width, height);
+    }
+
+    fn dispose(&mut self) {
+        self.selector.lock().unwrap().dispose();
+    }
+
+    fn get_sound(&self, sound: SoundType) -> Option<String> {
+        self.selector.lock().unwrap().get_sound(sound)
+    }
+
+    fn play_sound_loop(&mut self, sound: SoundType, loop_sound: bool) {
+        self.selector
+            .lock()
+            .unwrap()
+            .play_sound_loop(sound, loop_sound);
+    }
+
+    fn stop_sound(&mut self, sound: SoundType) {
+        self.selector.lock().unwrap().stop_sound(sound);
+    }
+
+    fn load_skin(&mut self, skin_type: i32) {
+        self.selector.lock().unwrap().load_skin(skin_type);
+    }
+
+    fn take_pending_state_change(&mut self) -> Option<MainStateType> {
+        self.selector.lock().unwrap().take_pending_state_change()
+    }
+}
 
 /// LauncherStateFactory — creates concrete state instances for all screen types.
 ///
@@ -101,12 +205,27 @@ impl StateFactory for LauncherStateFactory {
         &self,
         state_type: MainStateType,
         controller: &MainController,
-    ) -> Option<Box<dyn MainState>> {
+    ) -> Option<StateCreateResult> {
         match state_type {
             MainStateType::MusicSelect => {
                 // Java: selector = new MusicSelector(this, songUpdated);
+                // If a shared selector exists (created for StreamController), use it
+                // so stream request bars appear in the select screen.
+                if let Some(shared) = controller.get_shared_music_selector()
+                    && let Some(arc) = shared.downcast_ref::<Arc<Mutex<MusicSelector>>>()
+                {
+                    let wrapper = SharedMusicSelectorState::new(Arc::clone(arc));
+                    return Some(StateCreateResult {
+                        state: Box::new(wrapper),
+                        target_score: None,
+                    });
+                }
+                // Fallback: create a standalone selector (no stream controller)
                 let selector = MusicSelector::with_config(controller.get_config().clone());
-                Some(Box::new(selector))
+                Some(StateCreateResult {
+                    state: Box::new(selector),
+                    target_score: None,
+                })
             }
             MainStateType::Decide => {
                 // Java: decide = new MusicDecide(this);
@@ -119,7 +238,10 @@ impl StateFactory for LauncherStateFactory {
                     Box::new(NullPlayerResource::new()),
                     TimerManager::new(),
                 );
-                Some(Box::new(decide))
+                Some(StateCreateResult {
+                    state: Box::new(decide),
+                    target_score: None,
+                })
             }
             MainStateType::Play => {
                 // Java: new BMSPlayer(this, resource)
@@ -158,26 +280,22 @@ impl StateFactory for LauncherStateFactory {
                 let rival_score = resource.and_then(|r| r.get_rival_score_data()).cloned();
                 player.set_rival_score(rival_score.clone());
 
+                // Compute target score for both BMSPlayer and PlayerResource (result screen).
                 // Java: TargetProperty.getTargetProperty(config.getTargetid()).getTarget(main)
-                // TargetProperty::get_target() requires &mut MainController which we don't have,
-                // so we compute a static target from read-only data when rival score is absent
-                // or in course mode.
-                if rival_score.is_none() || is_course_mode {
+                // Java: resource.setTargetScoreData(targetScore)
+                let target_score = if rival_score.is_none() || is_course_mode {
                     let targetid = &controller.get_player_config().targetid;
                     let total_notes = model.get_total_notes();
-                    let target_score = Self::compute_static_target_score(targetid, total_notes);
-                    player.set_target_score(target_score);
-                }
-                // When rival_score is present and not in course mode, create() will use
-                // rival_score as the target (matching Java behavior).
-                //
-                // TODO: Java also calls resource.setTargetScoreData(targetScore) so the
-                // result screen can read it. This requires &mut access to PlayerResource,
-                // which the factory doesn't have (only &MainController). The target score
-                // should be set on PlayerResource in MainController::change_state() after
-                // the factory returns, or the factory trait should take &mut MainController.
+                    Self::compute_static_target_score(targetid, total_notes)
+                } else {
+                    rival_score
+                };
+                player.set_target_score(target_score.clone());
 
-                Some(Box::new(player))
+                Some(StateCreateResult {
+                    state: Box::new(player),
+                    target_score,
+                })
             }
             MainStateType::Result => {
                 // Java: result = new MusicResult(this);
@@ -190,7 +308,10 @@ impl StateFactory for LauncherStateFactory {
                     ResultPlayerResource::default(),
                     TimerManager::new(),
                 );
-                Some(Box::new(result))
+                Some(StateCreateResult {
+                    state: Box::new(result),
+                    target_score: None,
+                })
             }
             MainStateType::CourseResult => {
                 // Java: gresult = new CourseResult(this);
@@ -203,17 +324,26 @@ impl StateFactory for LauncherStateFactory {
                     ResultPlayerResource::default(),
                     TimerManager::new(),
                 );
-                Some(Box::new(course_result))
+                Some(StateCreateResult {
+                    state: Box::new(course_result),
+                    target_score: None,
+                })
             }
             MainStateType::Config => {
                 // Java: keyconfig = new KeyConfiguration(this);
                 let keyconfig = KeyConfiguration::new(controller);
-                Some(Box::new(keyconfig))
+                Some(StateCreateResult {
+                    state: Box::new(keyconfig),
+                    target_score: None,
+                })
             }
             MainStateType::SkinConfig => {
                 // Java: skinconfig = new SkinConfiguration(this, player);
                 let skinconfig = SkinConfiguration::new(controller, controller.get_player_config());
-                Some(Box::new(skinconfig))
+                Some(StateCreateResult {
+                    state: Box::new(skinconfig),
+                    target_score: None,
+                })
             }
         }
     }
@@ -247,15 +377,15 @@ mod tests {
         ];
 
         for state_type in &types {
-            let state = factory.create_state(*state_type, &controller);
+            let result = factory.create_state(*state_type, &controller);
             assert!(
-                state.is_some(),
+                result.is_some(),
                 "Failed to create state for {:?}",
                 state_type
             );
-            let state = state.unwrap();
+            let result = result.unwrap();
             assert_eq!(
-                state.state_type(),
+                result.state.state_type(),
                 Some(*state_type),
                 "State type mismatch for {:?}",
                 state_type
@@ -268,10 +398,10 @@ mod tests {
         let factory = LauncherStateFactory::new();
         let controller = make_test_controller();
 
-        let state = factory
+        let result = factory
             .create_state(MainStateType::MusicSelect, &controller)
             .unwrap();
-        assert_eq!(state.state_type(), Some(MainStateType::MusicSelect));
+        assert_eq!(result.state.state_type(), Some(MainStateType::MusicSelect));
     }
 
     #[test]
@@ -279,10 +409,10 @@ mod tests {
         let factory = LauncherStateFactory::new();
         let controller = make_test_controller();
 
-        let state = factory
+        let result = factory
             .create_state(MainStateType::Decide, &controller)
             .unwrap();
-        assert_eq!(state.state_type(), Some(MainStateType::Decide));
+        assert_eq!(result.state.state_type(), Some(MainStateType::Decide));
     }
 
     #[test]
@@ -290,10 +420,10 @@ mod tests {
         let factory = LauncherStateFactory::new();
         let controller = make_test_controller();
 
-        let state = factory
+        let result = factory
             .create_state(MainStateType::Play, &controller)
             .unwrap();
-        assert_eq!(state.state_type(), Some(MainStateType::Play));
+        assert_eq!(result.state.state_type(), Some(MainStateType::Play));
     }
 
     #[test]
@@ -301,10 +431,10 @@ mod tests {
         let factory = LauncherStateFactory::new();
         let controller = make_test_controller();
 
-        let state = factory
+        let result = factory
             .create_state(MainStateType::Result, &controller)
             .unwrap();
-        assert_eq!(state.state_type(), Some(MainStateType::Result));
+        assert_eq!(result.state.state_type(), Some(MainStateType::Result));
     }
 
     #[test]
@@ -312,10 +442,10 @@ mod tests {
         let factory = LauncherStateFactory::new();
         let controller = make_test_controller();
 
-        let state = factory
+        let result = factory
             .create_state(MainStateType::CourseResult, &controller)
             .unwrap();
-        assert_eq!(state.state_type(), Some(MainStateType::CourseResult));
+        assert_eq!(result.state.state_type(), Some(MainStateType::CourseResult));
     }
 
     #[test]
@@ -323,10 +453,10 @@ mod tests {
         let factory = LauncherStateFactory::new();
         let controller = make_test_controller();
 
-        let state = factory
+        let result = factory
             .create_state(MainStateType::Config, &controller)
             .unwrap();
-        assert_eq!(state.state_type(), Some(MainStateType::Config));
+        assert_eq!(result.state.state_type(), Some(MainStateType::Config));
     }
 
     #[test]
@@ -334,10 +464,10 @@ mod tests {
         let factory = LauncherStateFactory::new();
         let controller = make_test_controller();
 
-        let state = factory
+        let result = factory
             .create_state(MainStateType::SkinConfig, &controller)
             .unwrap();
-        assert_eq!(state.state_type(), Some(MainStateType::SkinConfig));
+        assert_eq!(result.state.state_type(), Some(MainStateType::SkinConfig));
     }
 
     #[test]

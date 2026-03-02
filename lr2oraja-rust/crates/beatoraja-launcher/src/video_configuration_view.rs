@@ -191,11 +191,7 @@ impl VideoConfigurationView {
                     .selected_text(&res_label)
                     .show_ui(ui, |ui| {
                         for r in &self.resolution_items.clone() {
-                            ui.selectable_value(
-                                &mut self.resolution,
-                                Some(*r),
-                                format!("{}", r),
-                            );
+                            ui.selectable_value(&mut self.resolution, Some(*r), format!("{}", r));
                         }
                     });
                 ui.end_row();
@@ -238,11 +234,7 @@ impl VideoConfigurationView {
                 let bga_labels = ["ON", "AUTO", "OFF"];
                 ui.label("BGA:");
                 egui::ComboBox::from_id_salt("video_bga_op")
-                    .selected_text(
-                        *bga_labels
-                            .get(self.bga_op as usize)
-                            .unwrap_or(&"Unknown"),
-                    )
+                    .selected_text(*bga_labels.get(self.bga_op as usize).unwrap_or(&"Unknown"))
                     .show_ui(ui, |ui| {
                         for (i, label) in bga_labels.iter().enumerate() {
                             ui.selectable_value(&mut self.bga_op, i as i32, *label);

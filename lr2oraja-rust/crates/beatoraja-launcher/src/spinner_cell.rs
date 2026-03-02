@@ -6,9 +6,8 @@ use crate::numeric_spinner::{NumericSpinner, NumericValue};
 /// TableCell with NumericSpinner for ControllerConfigViewModel.
 /// Java: SpinnerCell extends TableCell<ControllerConfigViewModel, Integer>
 /// Contains a NumericSpinner that updates the cell's property on value change.
-/// In Rust, this is a data struct — egui rendering is deferred.
+/// Renders the spinner inline via egui.
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct SpinnerCell {
     pub spinner: NumericSpinner,
     /// The current item value (corresponds to Java's updateItem value)
@@ -17,7 +16,6 @@ pub struct SpinnerCell {
     pub empty: bool,
 }
 
-#[allow(dead_code)]
 impl SpinnerCell {
     /// Creates a new SpinnerCell.
     /// Java: SpinnerCell(int min, int max, int initial, int step)
@@ -85,5 +83,13 @@ impl SpinnerCell {
                 _ => {}
             }
         }
+    }
+
+    /// Renders the spinner cell via egui. Returns true if the value changed.
+    pub fn show(&mut self, ui: &mut egui::Ui) -> bool {
+        if self.empty {
+            return false;
+        }
+        self.spinner.show(ui)
     }
 }

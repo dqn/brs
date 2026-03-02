@@ -16,14 +16,12 @@ use crate::stubs::show_directory_chooser;
 /// TableInfo - inner data class for table URL entries
 /// Translates: ResourceConfigurationView.TableInfo (JavaFX property → plain struct)
 #[derive(Clone, Debug, Default)]
-#[allow(dead_code)]
 pub struct TableInfo {
     pub url: String,
     pub name_status: String,
     pub comment: String,
 }
 
-#[allow(dead_code)]
 impl TableInfo {
     /// Constructor: looks up name/comment from static table
     pub fn new(url: &str) -> Self {
@@ -76,7 +74,6 @@ impl TableInfo {
 /// Static table of known table URLs with name and comment.
 /// Translates: ResourceConfigurationView.tableNameComment (Map.ofEntries(...))
 /// Unicode escapes are preserved from Java source.
-#[allow(dead_code)]
 pub fn table_name_comment() -> HashMap<String, (String, String)> {
     let entries: Vec<(&str, &str, &str)> = vec![
         // sl,st,stardust,starlight
@@ -405,7 +402,6 @@ pub fn table_name_comment() -> HashMap<String, (String, String)> {
 /// Translates: ResourceConfigurationView (JavaFX -> egui)
 ///
 /// BMS root paths, table URL management, song update settings.
-#[allow(dead_code)]
 pub struct ResourceConfigurationView {
     // @FXML private ListView<String> bmsroot;
     bmsroot: Vec<String>,
@@ -442,7 +438,6 @@ impl Default for ResourceConfigurationView {
     }
 }
 
-#[allow(dead_code)]
 impl ResourceConfigurationView {
     pub fn new() -> Self {
         ResourceConfigurationView {
@@ -946,5 +941,180 @@ impl ResourceConfigurationView {
             .collect::<Vec<_>>()
             .join("\n");
         crate::stubs::copy_to_clipboard(&selection);
+    }
+
+    /// Render the resource configuration UI.
+    /// Translates JavaFX FXML layout to egui widgets.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Resource Configuration");
+
+        // --- BMS Root Paths ---
+        ui.separator();
+        ui.label("BMS Root Paths:");
+
+        ui.horizontal(|ui| {
+            if ui.button("Add").clicked() {
+                // Trigger add_song_path externally (requires PlayConfigurationView reference)
+            }
+            if ui.button("Remove").clicked() {
+                self.remove_song_path();
+            }
+            if ui.button("Set as Download Dir").clicked() {
+                self.mark_as_download_directory();
+            }
+        });
+
+        egui::ScrollArea::vertical()
+            .id_salt("bmsroot_list_scroll")
+            .max_height(120.0)
+            .show(ui, |ui| {
+                for (i, path) in self.bmsroot.iter().enumerate() {
+                    let selected = self.bmsroot_selected_item.as_deref() == Some(path.as_str());
+                    let label = if self.is_download_directory(path) {
+                        format!("{} [Download]", path)
+                    } else {
+                        path.clone()
+                    };
+                    if ui.selectable_label(selected, &label).clicked() {
+                        self.bmsroot_selected_item = Some(path.clone());
+                        if !self.bmsroot_selected_items.contains(path) {
+                            self.bmsroot_selected_items.clear();
+                            self.bmsroot_selected_items.push(path.clone());
+                        }
+                    }
+                    let _ = i;
+                }
+            });
+
+        // --- Update Song checkbox ---
+        ui.checkbox(&mut self.updatesong, "Update songs on startup");
+
+        // --- Table URL management ---
+        ui.separator();
+        ui.label("Table URL:");
+
+        ui.horizontal(|ui| {
+            ui.text_edit_singleline(&mut self.url);
+            if ui.button("Add URL").clicked() {
+                self.add_table_url();
+            }
+        });
+
+        // --- Selected Tables ---
+        ui.separator();
+        ui.label("Selected Tables:");
+
+        ui.horizontal(|ui| {
+            if ui.button("Remove").clicked() {
+                self.remove_table_url();
+            }
+            if ui.button("Up").clicked() {
+                self.move_table_url_up();
+            }
+            if ui.button("Down").clicked() {
+                self.move_table_url_down();
+            }
+            if ui.button("<<").clicked() {
+                self.move_table_url_out();
+            }
+            if ui.button("Load All").clicked() {
+                self.load_all_tables();
+            }
+            if ui.button("Load Selected").clicked() {
+                self.load_selected_tables();
+            }
+            if ui.button("Load New").clicked() {
+                self.load_new_tables();
+            }
+            if ui.button("Refresh Info").clicked() {
+                self.refresh_local_table_info();
+            }
+        });
+
+        egui::ScrollArea::vertical()
+            .id_salt("tableurl_scroll")
+            .max_height(150.0)
+            .show(ui, |ui| {
+                egui::Grid::new("tableurl_grid")
+                    .num_columns(3)
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("Name/Status");
+                        ui.label("Comment");
+                        ui.label("URL");
+                        ui.end_row();
+
+                        let mut clicked_index = None;
+                        for (i, info) in self.tableurl.iter().enumerate() {
+                            let selected = self.tableurl_selected_items.contains(&i);
+                            if ui.selectable_label(selected, &info.name_status).clicked() {
+                                clicked_index = Some(i);
+                            }
+                            ui.label(&info.comment);
+                            ui.label(&info.url);
+                            ui.end_row();
+                        }
+                        if let Some(i) = clicked_index {
+                            if ui.input(|inp| inp.modifiers.ctrl || inp.modifiers.command) {
+                                if self.tableurl_selected_items.contains(&i) {
+                                    self.tableurl_selected_items.retain(|&x| x != i);
+                                } else {
+                                    self.tableurl_selected_items.push(i);
+                                }
+                            } else {
+                                self.tableurl_selected_items.clear();
+                                self.tableurl_selected_items.push(i);
+                            }
+                        }
+                    });
+            });
+
+        // --- Available Tables ---
+        ui.separator();
+        ui.label("Available Tables:");
+
+        ui.horizontal(|ui| {
+            if ui.button(">>").clicked() {
+                self.move_table_url_in();
+            }
+        });
+
+        egui::ScrollArea::vertical()
+            .id_salt("available_tables_scroll")
+            .max_height(150.0)
+            .show(ui, |ui| {
+                egui::Grid::new("available_tables_grid")
+                    .num_columns(3)
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("Name/Status");
+                        ui.label("Comment");
+                        ui.label("URL");
+                        ui.end_row();
+
+                        let mut clicked_index = None;
+                        for (i, info) in self.available_tables.iter().enumerate() {
+                            let selected = self.available_tables_selected_items.contains(&i);
+                            if ui.selectable_label(selected, &info.name_status).clicked() {
+                                clicked_index = Some(i);
+                            }
+                            ui.label(&info.comment);
+                            ui.label(&info.url);
+                            ui.end_row();
+                        }
+                        if let Some(i) = clicked_index {
+                            if ui.input(|inp| inp.modifiers.ctrl || inp.modifiers.command) {
+                                if self.available_tables_selected_items.contains(&i) {
+                                    self.available_tables_selected_items.retain(|&x| x != i);
+                                } else {
+                                    self.available_tables_selected_items.push(i);
+                                }
+                            } else {
+                                self.available_tables_selected_items.clear();
+                                self.available_tables_selected_items.push(i);
+                            }
+                        }
+                    });
+            });
     }
 }

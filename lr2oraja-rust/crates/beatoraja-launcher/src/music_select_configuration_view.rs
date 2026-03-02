@@ -166,9 +166,7 @@ impl MusicSelectConfigurationView {
 
                 if self.analog_scroll {
                     ui.label("Analog Ticks Per Scroll:");
-                    ui.add(
-                        egui::DragValue::new(&mut self.analog_ticks_per_scroll).range(1..=100),
-                    );
+                    ui.add(egui::DragValue::new(&mut self.analog_ticks_per_scroll).range(1..=100));
                     ui.end_row();
                 }
             });

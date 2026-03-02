@@ -36,6 +36,9 @@ fn parse_skin_json(content: &str) -> Result<json_skin::Skin, serde_json::Error> 
 /// 2. Strip `//` line comments and `/* */` block comments (string-aware)
 /// 3. Strip trailing commas before `]` and `}`
 /// 4. Insert missing commas between `}` and `{` (array element separators)
+///
+/// All transformations are string-literal-aware: braces/commas inside `"..."`
+/// are never modified.
 fn fix_lenient_json(json: &str) -> String {
     // 1. Strip UTF-8 BOM
     let json = json.strip_prefix('\u{FEFF}').unwrap_or(json);
@@ -43,13 +46,76 @@ fn fix_lenient_json(json: &str) -> String {
     // 2. Strip comments (string-aware state machine)
     let stripped = strip_comments(json);
 
-    // 3-4. Fix trailing commas and missing commas
-    static TRAILING_COMMA: std::sync::LazyLock<regex::Regex> =
-        std::sync::LazyLock::new(|| regex::Regex::new(r",(\s*[}\]])").unwrap());
-    static MISSING_COMMA: std::sync::LazyLock<regex::Regex> =
-        std::sync::LazyLock::new(|| regex::Regex::new(r"\}(\s*)\{").unwrap());
-    let fixed = TRAILING_COMMA.replace_all(&stripped, "$1");
-    MISSING_COMMA.replace_all(&fixed, "},$1{").into_owned()
+    // 3-4. Fix trailing commas and missing commas (string-aware state machine)
+    fix_commas_string_aware(&stripped)
+}
+
+/// String-aware comma fixer: removes trailing commas and inserts missing commas
+/// between adjacent objects, without touching content inside string literals.
+fn fix_commas_string_aware(json: &str) -> String {
+    let bytes = json.as_bytes();
+    let len = bytes.len();
+    let mut out = Vec::with_capacity(len);
+    let mut i = 0;
+    let mut in_string = false;
+
+    while i < len {
+        if in_string {
+            out.push(bytes[i]);
+            if bytes[i] == b'\\' {
+                i += 1;
+                if i < len {
+                    out.push(bytes[i]);
+                }
+            } else if bytes[i] == b'"' {
+                in_string = false;
+            }
+            i += 1;
+            continue;
+        }
+
+        // Outside string
+        match bytes[i] {
+            b'"' => {
+                in_string = true;
+                out.push(b'"');
+                i += 1;
+            }
+            b',' => {
+                // Check if this is a trailing comma (comma followed by whitespace then ] or })
+                let mut j = i + 1;
+                while j < len && bytes[j].is_ascii_whitespace() {
+                    j += 1;
+                }
+                if j < len && (bytes[j] == b'}' || bytes[j] == b']') {
+                    // Trailing comma - skip it
+                    i += 1;
+                } else {
+                    out.push(b',');
+                    i += 1;
+                }
+            }
+            b'}' => {
+                out.push(b'}');
+                // Check if next non-whitespace is '{' - insert missing comma
+                let mut j = i + 1;
+                while j < len && bytes[j].is_ascii_whitespace() {
+                    j += 1;
+                }
+                if j < len && bytes[j] == b'{' {
+                    out.push(b',');
+                }
+                i += 1;
+            }
+            _ => {
+                out.push(bytes[i]);
+                i += 1;
+            }
+        }
+    }
+
+    // SAFETY: input is valid UTF-8 and we only inserted ASCII bytes
+    String::from_utf8(out).unwrap_or_else(|_| json.to_string())
 }
 
 /// Strip `//` line comments and `/* */` block comments from JSON text,
@@ -1494,25 +1560,16 @@ mod tests {
         assert_eq!(skin.name, Some("test".to_string()));
     }
 
-    // ---- Phase 48c: M1 — fix_lenient_json corrupts `}{` inside string literals ----
-    // The MISSING_COMMA regex is not string-literal-aware, so it inserts a comma
-    // between `}` and `{` even when they appear inside a JSON string value.
+    // ---- Phase 48c fix: fix_lenient_json preserves `}{` inside string literals ----
+    // The string-aware state machine skips braces inside quoted strings.
 
     #[test]
-    fn test_fix_lenient_json_corrupts_braces_in_strings() {
-        // The MISSING_COMMA regex `\}(\s*)\{` matches close-brace then open-brace.
-        // When `}{` appears inside a string value, the regex still inserts a comma.
+    fn test_fix_lenient_json_preserves_braces_in_strings() {
         let input = r#"{"path":"a}{b"}"#;
         let fixed = fix_lenient_json(input);
-        // The regex turns }{ into },{ even inside the string, corrupting it.
-        assert_ne!(
+        assert_eq!(
             fixed, input,
-            "fix_lenient_json should have modified the input (regex is not string-aware)"
-        );
-        assert!(
-            fixed.contains("},{"),
-            "Expected comma insertion between braces inside string: got {}",
-            fixed
+            "fix_lenient_json must not modify braces inside string literals"
         );
     }
 

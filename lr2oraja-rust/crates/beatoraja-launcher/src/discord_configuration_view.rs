@@ -202,7 +202,10 @@ impl DiscordConfigurationView {
     pub fn render(&mut self, ui: &mut egui::Ui) {
         ui.heading("Discord Configuration");
 
-        ui.checkbox(&mut self.discord_rich_presence, "Enable Discord Rich Presence");
+        ui.checkbox(
+            &mut self.discord_rich_presence,
+            "Enable Discord Rich Presence",
+        );
 
         ui.separator();
         ui.heading("Webhook");

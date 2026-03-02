@@ -334,10 +334,7 @@ impl InputConfigurationView {
                 .show_ui(ui, |ui| {
                     for mode in PlayMode::values() {
                         let selected = self.inputconfig.as_ref() == Some(mode);
-                        if ui
-                            .selectable_label(selected, mode.display_name())
-                            .clicked()
-                        {
+                        if ui.selectable_label(selected, mode.display_name()).clicked() {
                             self.inputconfig = Some(mode.clone());
                             self.change_mode();
                         }
@@ -386,9 +383,7 @@ impl InputConfigurationView {
                     ui.label(Self::play_side_string(i));
                     ui.label(vm.get_name());
                     ui.checkbox(&mut vm.is_analog_scratch, "");
-                    ui.add(
-                        egui::DragValue::new(&mut vm.analog_scratch_threshold).range(1..=1000),
-                    );
+                    ui.add(egui::DragValue::new(&mut vm.analog_scratch_threshold).range(1..=1000));
                     let mode_label = Self::analog_scratch_mode_to_string(vm.analog_scratch_mode);
                     egui::ComboBox::from_id_salt(format!("input_ctrl_mode_{}", i))
                         .selected_text(mode_label)
@@ -422,14 +417,11 @@ impl InputConfigurationView {
                     ui.end_row();
 
                     ui.label("Distance:");
-                    ui.add(
-                        egui::DragValue::new(&mut self.mouse_scratch_distance).range(0..=10000),
-                    );
+                    ui.add(egui::DragValue::new(&mut self.mouse_scratch_distance).range(0..=10000));
                     ui.end_row();
 
                     ui.label("Mode:");
-                    let mode_label =
-                        Self::analog_scratch_mode_to_string(self.mouse_scratch_mode);
+                    let mode_label = Self::analog_scratch_mode_to_string(self.mouse_scratch_mode);
                     egui::ComboBox::from_id_salt("input_mouse_scratch_mode")
                         .selected_text(mode_label)
                         .show_ui(ui, |ui| {

@@ -2,7 +2,6 @@
 
 /// Numeric value type for the spinner (Integer or Double in Java)
 #[derive(Clone, Debug, PartialEq)]
-#[allow(dead_code)]
 pub enum NumericValue {
     Integer(i32),
     Double(f64),
@@ -11,9 +10,8 @@ pub enum NumericValue {
 /// JavaFX Spinner extension for numeric values.
 /// In Java, this extends Spinner<T> and handles focus-loss commit,
 /// value factory configuration, and value clamping.
-/// In Rust, this is a data struct — egui rendering is deferred.
+/// Renders as an egui DragValue with step buttons.
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct NumericSpinner {
     pub value: NumericValue,
     pub min: NumericValue,
@@ -23,7 +21,6 @@ pub struct NumericSpinner {
     pub editor_text: String,
 }
 
-#[allow(dead_code)]
 impl NumericSpinner {
     /// Creates a new NumericSpinner with default integer values.
     /// Java: NumericSpinner() constructor registers focusedProperty listener
@@ -171,6 +168,39 @@ impl NumericSpinner {
     /// Sets the editor text.
     pub fn set_editor_text(&mut self, text: String) {
         self.editor_text = text;
+    }
+
+    /// Renders the spinner as an egui DragValue widget.
+    /// Returns true if the value changed.
+    pub fn show(&mut self, ui: &mut egui::Ui) -> bool {
+        match (
+            &mut self.value,
+            &self.min,
+            &self.max,
+            &self.amount_to_step_by,
+        ) {
+            (
+                NumericValue::Integer(val),
+                NumericValue::Integer(min),
+                NumericValue::Integer(max),
+                NumericValue::Integer(step),
+            ) => {
+                let old = *val;
+                ui.add(egui::DragValue::new(val).range(*min..=*max).speed(*step));
+                *val != old
+            }
+            (
+                NumericValue::Double(val),
+                NumericValue::Double(min),
+                NumericValue::Double(max),
+                NumericValue::Double(step),
+            ) => {
+                let old = *val;
+                ui.add(egui::DragValue::new(val).range(*min..=*max).speed(*step));
+                *val != old
+            }
+            _ => false,
+        }
     }
 }
 

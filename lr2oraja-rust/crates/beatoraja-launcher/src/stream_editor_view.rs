@@ -1,11 +1,11 @@
 // Translates: bms.player.beatoraja.launcher.StreamEditorView
 
 use beatoraja_core::player_config::PlayerConfig;
+use egui;
 
 /// Translates: StreamEditorView (JavaFX → egui)
 ///
 /// Stream request configuration UI: enable, notify, max count.
-#[allow(dead_code)]
 #[derive(Default)]
 pub struct StreamEditorView {
     // @FXML private CheckBox enableRequest;
@@ -19,7 +19,6 @@ pub struct StreamEditorView {
     player: Option<PlayerConfig>,
 }
 
-#[allow(dead_code)]
 impl StreamEditorView {
     // public void initialize(URL arg0, ResourceBundle arg1)
     pub fn initialize(&mut self) {
@@ -52,5 +51,24 @@ impl StreamEditorView {
             // player.setMaxRequestCount(maxRequestCount.getValue());
             player.max_request_count = self.max_request_count;
         }
+    }
+
+    /// Render the stream editor UI.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("stream_editor_grid")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Enable Request:");
+                ui.checkbox(&mut self.enable_request, "");
+                ui.end_row();
+
+                ui.label("Notify Request:");
+                ui.checkbox(&mut self.notify_request, "");
+                ui.end_row();
+
+                ui.label("Max Request Count:");
+                ui.add(egui::DragValue::new(&mut self.max_request_count).range(0..=100));
+                ui.end_row();
+            });
     }
 }

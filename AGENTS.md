@@ -84,7 +84,7 @@ lr2oraja-rust/       # Cargo workspace
 
 ## Status
 
-**2909 tests.** Phases 1–62 complete + post-62 stub audit + hardening pass. Zero clippy warnings. Zero regressions.
+**3286 tests.** Phases 1–62 complete + post-62 stub audit + hardening pass + Phase 9 launcher egui + E2E lifecycle tests. Zero clippy warnings. Zero regressions.
 **Migration audit**: 100% method resolution (4,279/4,279). 0 missing. 0 constant mismatches. Gap: 0.
 **ast-compare**: 2,235 methods ignored (789 patterns). Method-level ignore via `.ast-compare-method-ignore`.
 **"Not implemented" stubs**: 0 remaining. All 151 stubs resolved (Phase 58–62).

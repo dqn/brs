@@ -12,7 +12,6 @@ use crate::table_editor_view::TableEditorView;
 ///
 /// JavaFX UI widgets are translated to data structs.
 /// Rendering will be implemented via egui when the course editor tab is wired.
-#[allow(dead_code)]
 pub struct CourseEditorView {
     // JavaFX @FXML fields → egui widget state
     search: String,
@@ -54,7 +53,6 @@ pub struct CourseEditorView {
     songdb: Option<Box<dyn SongDatabaseAccessor>>,
 }
 
-#[allow(dead_code)]
 impl CourseEditorView {
     /// Constructor
     pub fn new() -> Self {

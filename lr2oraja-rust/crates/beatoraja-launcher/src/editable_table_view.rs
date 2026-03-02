@@ -3,9 +3,8 @@
 /// TableView extension with add/remove/moveUp/moveDown operations.
 /// Java: EditableTableView<T> extends TableView<T>
 /// In Rust, this wraps a Vec<T> with selected indices tracking.
-/// egui rendering is deferred.
+/// Renders control buttons (add/remove/up/down) via egui.
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct EditableTableView<T: Clone> {
     /// The items in the table (Java: getItems())
     pub items: Vec<T>,
@@ -13,7 +12,6 @@ pub struct EditableTableView<T: Clone> {
     pub selected_indices: Vec<usize>,
 }
 
-#[allow(dead_code)]
 impl<T: Clone> EditableTableView<T> {
     /// Creates a new empty EditableTableView.
     pub fn new() -> Self {
@@ -178,6 +176,38 @@ impl<T: Clone> EditableTableView<T> {
     /// Sets the selected indices.
     pub fn set_selected_indices(&mut self, indices: Vec<usize>) {
         self.selected_indices = indices;
+    }
+
+    /// Renders the add/remove/move-up/move-down control buttons via egui.
+    /// `add_item_fn` is called when the user clicks "Add" and should return the new item.
+    /// Returns true if the items list was modified.
+    pub fn show_controls(
+        &mut self,
+        ui: &mut egui::Ui,
+        add_item_fn: Option<&dyn Fn() -> T>,
+    ) -> bool {
+        let mut changed = false;
+        ui.horizontal(|ui| {
+            if let Some(f) = add_item_fn
+                && ui.button("Add").clicked()
+            {
+                self.add_item(f());
+                changed = true;
+            }
+            if ui.button("Remove").clicked() && !self.selected_indices.is_empty() {
+                self.remove_selected_items();
+                changed = true;
+            }
+            if ui.button("Up").clicked() && !self.selected_indices.is_empty() {
+                self.move_selected_items_up();
+                changed = true;
+            }
+            if ui.button("Down").clicked() && !self.selected_indices.is_empty() {
+                self.move_selected_items_down();
+                changed = true;
+            }
+        });
+        changed
     }
 }
 

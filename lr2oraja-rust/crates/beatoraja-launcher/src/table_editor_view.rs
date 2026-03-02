@@ -23,7 +23,6 @@ enum EditorTab {
 ///
 /// JavaFX UI widgets are translated to data structs.
 /// Rendering via egui `render()` method.
-#[allow(dead_code)]
 pub struct TableEditorView {
     filepath: Option<PathBuf>,
 
@@ -37,7 +36,6 @@ pub struct TableEditorView {
     selected_tab: EditorTab,
 }
 
-#[allow(dead_code)]
 impl TableEditorView {
     /// Hexadecimal pattern for md5/sha256 validation
     /// Java: private static final Pattern hexadecimalPattern = Pattern.compile("[0-9a-fA-F]*");

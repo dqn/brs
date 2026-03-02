@@ -2,13 +2,13 @@
 
 use beatoraja_core::player_config::PlayerConfig;
 use beatoraja_modmenu::random_trainer::RandomTrainer;
+use egui;
 use log::warn;
 
 /// TrainerView — Random trainer UI.
 /// Java: TrainerView with @FXML CheckBox traineractive, Button setbutton, TextField laneorder.
 /// In Rust, this is a data struct — egui rendering is deferred.
 #[derive(Clone, Debug, Default)]
-#[allow(dead_code)]
 pub struct TrainerView {
     // Java: @FXML private CheckBox traineractive;
     pub trainer_active: bool,
@@ -21,7 +21,6 @@ pub struct TrainerView {
     pub player: Option<PlayerConfig>,
 }
 
-#[allow(dead_code)]
 impl TrainerView {
     /// Creates a new TrainerView.
     pub fn new() -> Self {
@@ -119,5 +118,26 @@ impl TrainerView {
 
         // Java: randomtrainer.setLaneOrder(this.laneorder.getCharacters().toString());
         RandomTrainer::set_lane_order(&self.lane_order);
+    }
+
+    /// Render the random trainer UI.
+    pub fn render(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("trainer_grid")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Active:");
+                if ui.checkbox(&mut self.trainer_active, "").changed() {
+                    self.set_active();
+                }
+                ui.end_row();
+
+                ui.label("Lane Order:");
+                ui.text_edit_singleline(&mut self.lane_order);
+                ui.end_row();
+            });
+
+        if ui.button("Set").clicked() {
+            self.set_random();
+        }
     }
 }

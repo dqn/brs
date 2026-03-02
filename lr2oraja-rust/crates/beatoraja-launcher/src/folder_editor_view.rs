@@ -11,13 +11,11 @@ use egui;
 use crate::table_editor_view::TableEditorView;
 
 /// SongDataView stub — corresponds to the SongDataView FXML sub-controller
-#[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
 pub struct SongDataView {
     visible_columns: Vec<String>,
 }
 
-#[allow(dead_code)]
 impl SongDataView {
     pub fn set_visible(&mut self, columns: &[&str]) {
         self.visible_columns = columns.iter().map(|s| s.to_string()).collect();
@@ -34,7 +32,6 @@ impl SongDataView {
 ///
 /// JavaFX UI widgets are translated to data structs.
 /// Rendering will be implemented via egui when the folder editor tab is wired.
-#[allow(dead_code)]
 pub struct FolderEditorView {
     // JavaFX @FXML fields → egui widget state
     search: String,
@@ -60,7 +57,6 @@ pub struct FolderEditorView {
     courses: Vec<CourseData>,
 }
 
-#[allow(dead_code)]
 impl FolderEditorView {
     /// Constructor
     pub fn new() -> Self {

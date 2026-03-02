@@ -280,11 +280,7 @@ impl AudioConfigurationView {
                         .selected_text(&name_label)
                         .show_ui(ui, |ui| {
                             for name in &self.audioname_items.clone() {
-                                ui.selectable_value(
-                                    &mut self.audioname,
-                                    Some(name.clone()),
-                                    name,
-                                );
+                                ui.selectable_value(&mut self.audioname, Some(name.clone()), name);
                             }
                         });
                     ui.end_row();
