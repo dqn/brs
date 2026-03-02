@@ -121,3 +121,131 @@ struct ChartMeta {
     #[serde(default)]
     song_url: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_success_response() {
+        let json = r#"{
+            "result": "success",
+            "msg": null,
+            "chart": "test_chart",
+            "data": {
+                "chart_name": "Test Chart",
+                "md5": "abc123def456",
+                "sha256": "sha256hash",
+                "song_name": "Test Song",
+                "song_url": "https://example.com/download/test.7z"
+            }
+        }"#;
+        let resp: RespData<ChartMeta> = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.result.as_deref(), Some("success"));
+        assert!(resp.msg.is_none());
+        assert_eq!(resp.chart.as_deref(), Some("test_chart"));
+        let data = resp.data.unwrap();
+        assert_eq!(data.chart_name.as_deref(), Some("Test Chart"));
+        assert_eq!(data.md5.as_deref(), Some("abc123def456"));
+        assert_eq!(data.sha256.as_deref(), Some("sha256hash"));
+        assert_eq!(data.song_name.as_deref(), Some("Test Song"));
+        assert_eq!(
+            data.song_url.as_deref(),
+            Some("https://example.com/download/test.7z")
+        );
+    }
+
+    #[test]
+    fn deserialize_failure_response() {
+        let json = r#"{
+            "result": "fail",
+            "msg": "Song not found"
+        }"#;
+        let resp: RespData<ChartMeta> = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.result.as_deref(), Some("fail"));
+        assert_eq!(resp.msg.as_deref(), Some("Song not found"));
+        assert!(resp.data.is_none());
+        assert!(resp.chart.is_none());
+    }
+
+    #[test]
+    fn deserialize_empty_json_object() {
+        let json = r#"{}"#;
+        let resp: RespData<ChartMeta> = serde_json::from_str(json).unwrap();
+        assert!(resp.result.is_none());
+        assert!(resp.msg.is_none());
+        assert!(resp.chart.is_none());
+        assert!(resp.data.is_none());
+    }
+
+    #[test]
+    fn deserialize_data_with_empty_song_url() {
+        let json = r#"{
+            "result": "success",
+            "data": {
+                "song_url": ""
+            }
+        }"#;
+        let resp: RespData<ChartMeta> = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.result.as_deref(), Some("success"));
+        let data = resp.data.unwrap();
+        assert_eq!(data.song_url.as_deref(), Some(""));
+        // Empty song_url should be treated as "not found" by the download logic
+    }
+
+    #[test]
+    fn deserialize_data_with_null_song_url() {
+        let json = r#"{
+            "result": "success",
+            "data": {
+                "song_url": null
+            }
+        }"#;
+        let resp: RespData<ChartMeta> = serde_json::from_str(json).unwrap();
+        let data = resp.data.unwrap();
+        assert!(data.song_url.is_none());
+    }
+
+    #[test]
+    fn chart_meta_default() {
+        let meta = ChartMeta::default();
+        assert!(meta.chart_name.is_none());
+        assert!(meta.md5.is_none());
+        assert!(meta.sha256.is_none());
+        assert!(meta.song_name.is_none());
+        assert!(meta.song_url.is_none());
+    }
+
+    #[test]
+    fn deserialize_ignores_unknown_fields() {
+        let json = r#"{
+            "result": "success",
+            "unknown_field": 42,
+            "data": {
+                "song_url": "https://example.com/dl.7z",
+                "extra_field": true
+            }
+        }"#;
+        let resp: RespData<ChartMeta> = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.result.as_deref(), Some("success"));
+        assert_eq!(
+            resp.data.unwrap().song_url.as_deref(),
+            Some("https://example.com/dl.7z")
+        );
+    }
+
+    #[test]
+    fn meta_name_and_default_url() {
+        let meta = &*META;
+        assert_eq!(meta.get_name(), "konmai");
+        assert_eq!(
+            meta.get_default_url(),
+            "https://bms.alvorna.com/api/hash?md5=%s"
+        );
+    }
+
+    #[test]
+    fn success_result_constant() {
+        assert_eq!(SUCCESS_RESULT, "success");
+    }
+}

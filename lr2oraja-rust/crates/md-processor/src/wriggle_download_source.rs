@@ -51,3 +51,70 @@ impl HttpDownloadSource for WriggleDownloadSource {
         false
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn meta_name_and_default_url() {
+        let meta = &*META;
+        assert_eq!(meta.get_name(), "wriggle");
+        assert_eq!(
+            meta.get_default_url(),
+            "https://bms.wrigglebug.xyz/download/package/%s"
+        );
+    }
+
+    #[test]
+    fn url_substitution_with_md5() {
+        let source = WriggleDownloadSource {
+            download_url: "https://bms.wrigglebug.xyz/download/package/%s".to_string(),
+        };
+        let url = source.get_download_url_based_on_md5("deadbeef1234").unwrap();
+        assert_eq!(
+            url,
+            "https://bms.wrigglebug.xyz/download/package/deadbeef1234"
+        );
+    }
+
+    #[test]
+    fn url_substitution_with_empty_md5() {
+        let source = WriggleDownloadSource {
+            download_url: "https://example.com/%s".to_string(),
+        };
+        let url = source.get_download_url_based_on_md5("").unwrap();
+        assert_eq!(url, "https://example.com/");
+    }
+
+    #[test]
+    fn url_substitution_with_special_characters() {
+        let source = WriggleDownloadSource {
+            download_url: "https://example.com/dl/%s/file".to_string(),
+        };
+        let url = source
+            .get_download_url_based_on_md5("abc+def/ghi")
+            .unwrap();
+        assert_eq!(url, "https://example.com/dl/abc+def/ghi/file");
+    }
+
+    #[test]
+    fn download_source_trait_methods() {
+        let source = WriggleDownloadSource {
+            download_url: "https://example.com/%s".to_string(),
+        };
+        assert_eq!(source.get_name(), "wriggle");
+        assert!(source.is_allow_download_through_md5());
+        assert!(!source.is_allow_download_through_sha256());
+        assert!(!source.is_allow_meta_query());
+    }
+
+    #[test]
+    fn url_without_placeholder_returns_unchanged() {
+        let source = WriggleDownloadSource {
+            download_url: "https://example.com/static-url".to_string(),
+        };
+        let url = source.get_download_url_based_on_md5("anything").unwrap();
+        assert_eq!(url, "https://example.com/static-url");
+    }
+}
