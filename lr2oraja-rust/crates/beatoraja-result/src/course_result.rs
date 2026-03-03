@@ -66,6 +66,60 @@ impl CourseIRSendStatus {
     }
 }
 
+// ============================================================
+// Pure computation helpers extracted from update_score_database
+// ============================================================
+
+/// Compute average judge timing when notes > 0.
+/// Returns `total_duration / notes`.
+#[inline]
+fn compute_avgjudge(total_duration: i64, notes: i32) -> i64 {
+    total_duration / notes as i64
+}
+
+/// Apply avgjudge to a ScoreData in-place, guarding against division by zero.
+/// When notes == 0, avgjudge is left unchanged (keeps its default of i64::MAX).
+#[inline]
+fn apply_avgjudge(score: &mut beatoraja_core::score_data::ScoreData) {
+    if score.notes != 0 {
+        score.avgjudge = compute_avgjudge(score.total_duration, score.notes);
+    }
+}
+
+/// Determine the random mode value based on player config options and double-play flag.
+///
+/// Logic (translated from Java):
+/// - Start with random = 0
+/// - If random_cfg > 0 OR (dp AND (random2_cfg > 0 OR doubleoption_cfg > 0)): random = 2
+/// - If random_cfg == 1 AND (!dp OR (random2_cfg == 1 AND doubleoption_cfg == 1)): random = 1
+fn determine_random_mode(
+    random_cfg: i32,
+    random2_cfg: i32,
+    doubleoption_cfg: i32,
+    dp: bool,
+) -> i32 {
+    let mut random = 0;
+    if random_cfg > 0 || (dp && (random2_cfg > 0 || doubleoption_cfg > 0)) {
+        random = 2;
+    }
+    if random_cfg == 1 && (!dp || (random2_cfg == 1 && doubleoption_cfg == 1)) {
+        random = 1;
+    }
+    random
+}
+
+/// Check if any course BMS model uses double-play mode (player count == 2).
+fn is_double_play(models: &[bms_model::bms_model::BMSModel]) -> bool {
+    models
+        .iter()
+        .any(|m| m.get_mode().map(|mode| mode.player()).unwrap_or(1) == 2)
+}
+
+/// Sum total notes across all course BMS models.
+fn aggregate_total_notes(models: &[bms_model::bms_model::BMSModel]) -> i32 {
+    models.iter().map(|m| m.get_total_notes()).sum()
+}
+
 /// Course result screen
 pub struct CourseResult {
     pub data: AbstractResultData,
@@ -511,25 +565,16 @@ impl CourseResult {
         }
         let mut newscore = newscore.unwrap();
 
-        let mut dp = false;
-        if let Some(models) = self.resource.get_course_bms_models() {
-            for model in models {
-                dp |= model.get_mode().map(|m| m.player()).unwrap_or(1) == 2;
-            }
-        }
+        let dp = self
+            .resource
+            .get_course_bms_models()
+            .map(is_double_play)
+            .unwrap_or(false);
 
         newscore.maxcombo = self.resource.get_maxcombo();
-        if newscore.notes != 0 {
-            newscore.avgjudge = newscore.total_duration / newscore.notes as i64;
-        }
+        apply_avgjudge(&mut newscore);
 
-        let mut random = 0;
-        if random_cfg > 0 || (dp && (random2_cfg > 0 || doubleoption_cfg > 0)) {
-            random = 2;
-        }
-        if random_cfg == 1 && (!dp || (random2_cfg == 1 && doubleoption_cfg == 1)) {
-            random = 1;
-        }
+        let random = determine_random_mode(random_cfg, random2_cfg, doubleoption_cfg, dp);
 
         if let Some(models) = self.resource.get_course_bms_models() {
             let score = self.main.get_play_data_accessor().read_score_data_course(
@@ -549,7 +594,7 @@ impl CourseResult {
         let total_notes: i32 = self
             .resource
             .get_course_bms_models()
-            .map(|models| models.iter().map(|m| m.get_total_notes()).sum())
+            .map(aggregate_total_notes)
             .unwrap_or(0);
         self.data.score.set_target_score(
             self.data.oldscore.get_exscore(),
@@ -1076,6 +1121,161 @@ mod tests {
         // Even with send failure, state should transition to IR_FINISHED
         assert_eq!(cr.data.state, crate::abstract_result::STATE_IR_FINISHED);
         assert!(ir_conn.send_called.load(Ordering::SeqCst));
+    }
+
+    // ---- Score database update pure computation tests ----
+
+    #[test]
+    fn test_compute_avgjudge_with_positive_notes() {
+        // 1000 total_duration / 10 notes = 100
+        assert_eq!(compute_avgjudge(1000, 10), 100);
+    }
+
+    #[test]
+    fn test_compute_avgjudge_with_large_values() {
+        // Large timing values typical in microsecond-based system
+        assert_eq!(compute_avgjudge(500_000, 250), 2000);
+    }
+
+    #[test]
+    fn test_compute_avgjudge_with_zero_notes_returns_none() {
+        // Division by zero guard: notes == 0 should not compute
+        // The original code skips the assignment, leaving avgjudge at its default (i64::MAX)
+        let mut score = beatoraja_core::score_data::ScoreData::default();
+        score.total_duration = 1000;
+        score.notes = 0;
+        apply_avgjudge(&mut score);
+        assert_eq!(score.avgjudge, i64::MAX); // unchanged from default
+    }
+
+    #[test]
+    fn test_compute_avgjudge_with_nonzero_notes_updates_score() {
+        let mut score = beatoraja_core::score_data::ScoreData::default();
+        score.total_duration = 5000;
+        score.notes = 50;
+        apply_avgjudge(&mut score);
+        assert_eq!(score.avgjudge, 100);
+    }
+
+    #[test]
+    fn test_compute_avgjudge_with_one_note() {
+        assert_eq!(compute_avgjudge(42, 1), 42);
+    }
+
+    #[test]
+    fn test_compute_avgjudge_negative_duration() {
+        // Negative total_duration can happen with early timing
+        assert_eq!(compute_avgjudge(-500, 5), -100);
+    }
+
+    #[test]
+    fn test_determine_random_mode_all_zero() {
+        // No random options set, single player
+        assert_eq!(determine_random_mode(0, 0, 0, false), 0);
+    }
+
+    #[test]
+    fn test_determine_random_mode_random_cfg_mirror() {
+        // random_cfg=1, no dp -> random=2 first, then overridden to 1
+        assert_eq!(determine_random_mode(1, 0, 0, false), 1);
+    }
+
+    #[test]
+    fn test_determine_random_mode_random_cfg_nonmirror() {
+        // random_cfg=2 (not mirror), no dp -> random=2
+        assert_eq!(determine_random_mode(2, 0, 0, false), 2);
+    }
+
+    #[test]
+    fn test_determine_random_mode_dp_random2_set() {
+        // dp=true, random2_cfg>0 -> random=2
+        assert_eq!(determine_random_mode(0, 1, 0, true), 2);
+    }
+
+    #[test]
+    fn test_determine_random_mode_dp_doubleoption_set() {
+        // dp=true, doubleoption_cfg>0 -> random=2
+        assert_eq!(determine_random_mode(0, 0, 1, true), 2);
+    }
+
+    #[test]
+    fn test_determine_random_mode_dp_all_mirror() {
+        // random_cfg=1, dp=true, random2_cfg=1, doubleoption_cfg=1 -> random=1
+        assert_eq!(determine_random_mode(1, 1, 1, true), 1);
+    }
+
+    #[test]
+    fn test_determine_random_mode_dp_random_mirror_but_random2_not_mirror() {
+        // random_cfg=1, dp=true, random2_cfg=2, doubleoption_cfg=1
+        // First branch: random_cfg>0 -> random=2
+        // Second branch: random_cfg==1 && dp && random2_cfg==1 is false (random2_cfg==2) -> no override
+        assert_eq!(determine_random_mode(1, 2, 1, true), 2);
+    }
+
+    #[test]
+    fn test_determine_random_mode_dp_random_mirror_but_doubleoption_not_mirror() {
+        // random_cfg=1, dp=true, random2_cfg=1, doubleoption_cfg=2
+        // First branch: random_cfg>0 -> random=2
+        // Second branch: random_cfg==1 && dp && doubleoption_cfg==1 is false -> no override
+        assert_eq!(determine_random_mode(1, 1, 2, true), 2);
+    }
+
+    #[test]
+    fn test_determine_random_mode_no_random_no_dp_random2_ignored() {
+        // random_cfg=0, dp=false -> random2 and doubleoption don't matter
+        assert_eq!(determine_random_mode(0, 5, 5, false), 0);
+    }
+
+    #[test]
+    fn test_is_double_play_empty_models() {
+        let models: Vec<bms_model::bms_model::BMSModel> = vec![];
+        assert!(!is_double_play(&models));
+    }
+
+    #[test]
+    fn test_is_double_play_single_player_model() {
+        // Mode::BEAT_7K has player() == 1
+        let mut model = bms_model::bms_model::BMSModel::default();
+        model.set_mode(bms_model::mode::Mode::BEAT_7K);
+        assert!(!is_double_play(&[model]));
+    }
+
+    #[test]
+    fn test_is_double_play_double_player_model() {
+        // Mode::BEAT_14K has player() == 2
+        let mut model = bms_model::bms_model::BMSModel::default();
+        model.set_mode(bms_model::mode::Mode::BEAT_14K);
+        assert!(is_double_play(&[model]));
+    }
+
+    #[test]
+    fn test_is_double_play_mixed_models() {
+        // One single, one double -> dp = true (OR logic)
+        let mut m1 = bms_model::bms_model::BMSModel::default();
+        m1.set_mode(bms_model::mode::Mode::BEAT_7K);
+        let mut m2 = bms_model::bms_model::BMSModel::default();
+        m2.set_mode(bms_model::mode::Mode::BEAT_14K);
+        assert!(is_double_play(&[m1, m2]));
+    }
+
+    #[test]
+    fn test_is_double_play_no_mode_set() {
+        // Model with no mode -> get_mode() returns None, unwrap_or(1) == 1, not dp
+        let model = bms_model::bms_model::BMSModel::default();
+        assert!(!is_double_play(&[model]));
+    }
+
+    #[test]
+    fn test_aggregate_total_notes_empty() {
+        let models: Vec<bms_model::bms_model::BMSModel> = vec![];
+        assert_eq!(aggregate_total_notes(&models), 0);
+    }
+
+    #[test]
+    fn test_aggregate_total_notes_single_model() {
+        // BMSModel::default() has 0 total notes
+        let model = bms_model::bms_model::BMSModel::default();
+        assert_eq!(aggregate_total_notes(&[model]), 0);
     }
 }
 
