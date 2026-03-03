@@ -89,6 +89,7 @@ impl SkinLuaAccessor {
         Some(Box::new(LuaBooleanProperty {
             func_key: Arc::new(Mutex::new(func_key)),
             lua_ptr,
+            creation_thread_id: std::thread::current().id(),
         }))
     }
 
@@ -124,6 +125,7 @@ impl SkinLuaAccessor {
         Some(Box::new(LuaIntegerProperty {
             func_key: Arc::new(Mutex::new(func_key)),
             lua_ptr,
+            creation_thread_id: std::thread::current().id(),
         }))
     }
 
@@ -156,6 +158,7 @@ impl SkinLuaAccessor {
         Some(Box::new(LuaFloatProperty {
             func_key: Arc::new(Mutex::new(func_key)),
             lua_ptr,
+            creation_thread_id: std::thread::current().id(),
         }))
     }
 
@@ -191,6 +194,7 @@ impl SkinLuaAccessor {
         Some(Box::new(LuaStringProperty {
             func_key: Arc::new(Mutex::new(func_key)),
             lua_ptr,
+            creation_thread_id: std::thread::current().id(),
         }))
     }
 
@@ -241,6 +245,7 @@ impl SkinLuaAccessor {
         Some(Box::new(LuaTimerProperty {
             func_key: Arc::new(Mutex::new(func_key)),
             lua_ptr,
+            creation_thread_id: std::thread::current().id(),
         }))
     }
 
@@ -266,6 +271,7 @@ impl SkinLuaAccessor {
         Some(Box::new(LuaEvent {
             func_key: Arc::new(Mutex::new(func_key)),
             lua_ptr,
+            creation_thread_id: std::thread::current().id(),
         }))
     }
 
@@ -297,6 +303,7 @@ impl SkinLuaAccessor {
         Some(Box::new(LuaFloatWriter {
             func_key: Arc::new(Mutex::new(func_key)),
             lua_ptr,
+            creation_thread_id: std::thread::current().id(),
         }))
     }
 
@@ -523,7 +530,7 @@ impl SkinLuaAccessor {
             table.set("option", options_table)?;
             table.set("enabled_options", enabled_options_table)?;
 
-            // offsets table (all defaults — actual values set by setSkinConfigProperty)
+            // offsets table (all defaults -- actual values set by setSkinConfigProperty)
             let offsets_table = self.lua.create_table()?;
             for offset_def in &header.custom_offsets {
                 let offset_table = self.lua.create_table()?;
@@ -573,14 +580,17 @@ pub struct SkinConfigFilePath {
 // registry keys. They are only valid as long as the SkinLuaAccessor (and its Lua)
 // is alive. In beatoraja, properties are always used within the lifetime of their
 // SkinLuaAccessor, so this is safe in practice. The Send+Sync impls are required
-// by the property traits.
+// by the property traits. The creation_thread_id field enables debug_assert checks
+// that detect cross-thread access at runtime in debug builds.
 
 struct LuaBooleanProperty {
     func_key: Arc<Mutex<LuaRegistryKey>>,
     lua_ptr: *const Lua,
+    creation_thread_id: std::thread::ThreadId,
 }
 
-// SAFETY: The Lua VM is accessed single-threaded in beatoraja's skin system
+// SAFETY: The Lua VM is accessed single-threaded in beatoraja's skin system.
+// debug_assert in get() verifies this invariant at runtime in debug builds.
 unsafe impl Send for LuaBooleanProperty {}
 unsafe impl Sync for LuaBooleanProperty {}
 
@@ -590,6 +600,11 @@ impl BooleanProperty for LuaBooleanProperty {
     }
 
     fn get(&self, _state: &dyn MainState) -> bool {
+        debug_assert_eq!(
+            std::thread::current().id(),
+            self.creation_thread_id,
+            "LuaBooleanProperty must be accessed on the thread where it was created"
+        );
         let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
         match lua.registry_value::<LuaFunction>(&key) {
@@ -616,6 +631,7 @@ impl BooleanProperty for LuaBooleanProperty {
 struct LuaIntegerProperty {
     func_key: Arc<Mutex<LuaRegistryKey>>,
     lua_ptr: *const Lua,
+    creation_thread_id: std::thread::ThreadId,
 }
 
 unsafe impl Send for LuaIntegerProperty {}
@@ -623,6 +639,11 @@ unsafe impl Sync for LuaIntegerProperty {}
 
 impl IntegerProperty for LuaIntegerProperty {
     fn get(&self, _state: &dyn MainState) -> i32 {
+        debug_assert_eq!(
+            std::thread::current().id(),
+            self.creation_thread_id,
+            "LuaIntegerProperty must be accessed on the thread where it was created"
+        );
         let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
         match lua.registry_value::<LuaFunction>(&key) {
@@ -648,6 +669,7 @@ impl IntegerProperty for LuaIntegerProperty {
 struct LuaFloatProperty {
     func_key: Arc<Mutex<LuaRegistryKey>>,
     lua_ptr: *const Lua,
+    creation_thread_id: std::thread::ThreadId,
 }
 
 unsafe impl Send for LuaFloatProperty {}
@@ -655,6 +677,11 @@ unsafe impl Sync for LuaFloatProperty {}
 
 impl FloatProperty for LuaFloatProperty {
     fn get(&self, _state: &dyn MainState) -> f32 {
+        debug_assert_eq!(
+            std::thread::current().id(),
+            self.creation_thread_id,
+            "LuaFloatProperty must be accessed on the thread where it was created"
+        );
         let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
         match lua.registry_value::<LuaFunction>(&key) {
@@ -680,6 +707,7 @@ impl FloatProperty for LuaFloatProperty {
 struct LuaStringProperty {
     func_key: Arc<Mutex<LuaRegistryKey>>,
     lua_ptr: *const Lua,
+    creation_thread_id: std::thread::ThreadId,
 }
 
 unsafe impl Send for LuaStringProperty {}
@@ -687,6 +715,11 @@ unsafe impl Sync for LuaStringProperty {}
 
 impl StringProperty for LuaStringProperty {
     fn get(&self, _state: &dyn MainState) -> String {
+        debug_assert_eq!(
+            std::thread::current().id(),
+            self.creation_thread_id,
+            "LuaStringProperty must be accessed on the thread where it was created"
+        );
         let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
         match lua.registry_value::<LuaFunction>(&key) {
@@ -711,6 +744,7 @@ impl StringProperty for LuaStringProperty {
 struct LuaTimerProperty {
     func_key: Arc<Mutex<LuaRegistryKey>>,
     lua_ptr: *const Lua,
+    creation_thread_id: std::thread::ThreadId,
 }
 
 unsafe impl Send for LuaTimerProperty {}
@@ -718,6 +752,11 @@ unsafe impl Sync for LuaTimerProperty {}
 
 impl TimerProperty for LuaTimerProperty {
     fn get_micro(&self, _state: &dyn MainState) -> i64 {
+        debug_assert_eq!(
+            std::thread::current().id(),
+            self.creation_thread_id,
+            "LuaTimerProperty must be accessed on the thread where it was created"
+        );
         let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
         match lua.registry_value::<LuaFunction>(&key) {
@@ -743,6 +782,7 @@ impl TimerProperty for LuaTimerProperty {
 struct LuaEvent {
     func_key: Arc<Mutex<LuaRegistryKey>>,
     lua_ptr: *const Lua,
+    creation_thread_id: std::thread::ThreadId,
 }
 
 unsafe impl Send for LuaEvent {}
@@ -750,6 +790,11 @@ unsafe impl Sync for LuaEvent {}
 
 impl Event for LuaEvent {
     fn exec(&self, _state: &mut dyn MainState, arg1: i32, arg2: i32) {
+        debug_assert_eq!(
+            std::thread::current().id(),
+            self.creation_thread_id,
+            "LuaEvent must be accessed on the thread where it was created"
+        );
         let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
         match lua.registry_value::<LuaFunction>(&key) {
@@ -769,6 +814,7 @@ impl Event for LuaEvent {
 struct LuaFloatWriter {
     func_key: Arc<Mutex<LuaRegistryKey>>,
     lua_ptr: *const Lua,
+    creation_thread_id: std::thread::ThreadId,
 }
 
 unsafe impl Send for LuaFloatWriter {}
@@ -776,6 +822,11 @@ unsafe impl Sync for LuaFloatWriter {}
 
 impl FloatWriter for LuaFloatWriter {
     fn set(&self, _state: &mut dyn MainState, value: f32) {
+        debug_assert_eq!(
+            std::thread::current().id(),
+            self.creation_thread_id,
+            "LuaFloatWriter must be accessed on the thread where it was created"
+        );
         let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
         match lua.registry_value::<LuaFunction>(&key) {
@@ -788,5 +839,191 @@ impl FloatWriter for LuaFloatWriter {
                 log::warn!("Lua registry error (float writer): {}", e);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stubs::{MainController, PlayerResource, SkinOffset, TextureRegion, Timer};
+
+    /// Minimal mock MainState for Lua property tests.
+    struct MockMainState {
+        timer: Timer,
+        main: MainController,
+        resource: PlayerResource,
+    }
+
+    impl Default for MockMainState {
+        fn default() -> Self {
+            Self {
+                timer: Timer::default(),
+                main: MainController { debug: false },
+                resource: PlayerResource,
+            }
+        }
+    }
+
+    impl MainState for MockMainState {
+        fn get_timer(&self) -> &dyn beatoraja_types::timer_access::TimerAccess {
+            &self.timer
+        }
+        fn get_offset_value(&self, _id: i32) -> Option<&SkinOffset> {
+            None
+        }
+        fn get_main(&self) -> &MainController {
+            &self.main
+        }
+        fn get_image(&self, _id: i32) -> Option<TextureRegion> {
+            None
+        }
+        fn get_resource(&self) -> &PlayerResource {
+            &self.resource
+        }
+    }
+
+    #[test]
+    fn boolean_property_works_on_creation_thread() {
+        let accessor = SkinLuaAccessor::new(true);
+        // load_boolean_property_from_script prepends "return ", so the script
+        // becomes "return true" which evaluates to a boolean value directly.
+        let prop = accessor
+            .load_boolean_property_from_script("true")
+            .expect("should load boolean property");
+        let state = MockMainState::default();
+        assert!(prop.get(&state));
+    }
+
+    #[test]
+    fn integer_property_works_on_creation_thread() {
+        let accessor = SkinLuaAccessor::new(true);
+        let prop = accessor
+            .load_integer_property_from_script("42")
+            .expect("should load integer property");
+        let state = MockMainState::default();
+        assert_eq!(prop.get(&state), 42);
+    }
+
+    #[test]
+    fn float_property_works_on_creation_thread() {
+        let accessor = SkinLuaAccessor::new(true);
+        let prop = accessor
+            .load_float_property_from_script("3.14")
+            .expect("should load float property");
+        let state = MockMainState::default();
+        assert!((prop.get(&state) - 3.14).abs() < 0.01);
+    }
+
+    #[test]
+    fn string_property_works_on_creation_thread() {
+        let accessor = SkinLuaAccessor::new(true);
+        let prop = accessor
+            .load_string_property_from_script("'hello'")
+            .expect("should load string property");
+        let state = MockMainState::default();
+        assert_eq!(prop.get(&state), "hello");
+    }
+
+    #[test]
+    fn timer_property_works_on_creation_thread() {
+        let accessor = SkinLuaAccessor::new(true);
+        // Timer property has special handling: if the script returns a function,
+        // that function is used as the timer function (trial call mechanism).
+        let prop = accessor
+            .load_timer_property_from_script("function() return 1000000 end")
+            .expect("should load timer property");
+        let state = MockMainState::default();
+        assert_eq!(prop.get_micro(&state), 1000000);
+    }
+
+    #[test]
+    fn event_works_on_creation_thread() {
+        let accessor = SkinLuaAccessor::new(true);
+        // load_event_from_script loads the script directly (no "return " prefix).
+        // The script must be a valid Lua chunk that compiles to a function.
+        // Use "return function(a, b) end" so the chunk returns a callable function.
+        let func = accessor
+            .lua()
+            .load("return function(a, b) end")
+            .into_function()
+            .expect("should compile event chunk");
+        let result: LuaValue = func.call(()).expect("should call chunk");
+        if let LuaValue::Function(inner) = result {
+            let event = accessor
+                .load_event_from_function(inner)
+                .expect("should load event");
+            let mut state = MockMainState::default();
+            // Should not panic
+            event.exec(&mut state, 1, 2);
+        } else {
+            panic!("Expected Lua function from chunk");
+        }
+    }
+
+    #[test]
+    fn float_writer_works_on_creation_thread() {
+        let accessor = SkinLuaAccessor::new(true);
+        let func = accessor
+            .lua()
+            .load("return function(v) end")
+            .into_function()
+            .expect("should compile float writer chunk");
+        let result: LuaValue = func.call(()).expect("should call chunk");
+        if let LuaValue::Function(inner) = result {
+            let writer = accessor
+                .load_float_writer_from_function(inner)
+                .expect("should load float writer");
+            let mut state = MockMainState::default();
+            // Should not panic
+            writer.set(&mut state, 1.0);
+        } else {
+            panic!("Expected Lua function from chunk");
+        }
+    }
+
+    /// Verify that the debug_assert fires when a Lua property is accessed from a
+    /// different thread than where it was created. This test only runs in debug mode.
+    #[test]
+    #[cfg(debug_assertions)]
+    fn boolean_property_panics_on_wrong_thread() {
+        let accessor = SkinLuaAccessor::new(true);
+        let prop = accessor
+            .load_boolean_property_from_script("true")
+            .expect("should load boolean property");
+        let state = MockMainState::default();
+
+        // Access from a different thread should panic due to debug_assert
+        let handle = std::thread::spawn(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                prop.get(&state);
+            }));
+            assert!(
+                result.is_err(),
+                "Expected panic when accessing LuaBooleanProperty from wrong thread"
+            );
+        });
+        handle.join().expect("thread should complete");
+    }
+
+    /// Verify that the debug_assert fires for integer property on wrong thread.
+    #[test]
+    #[cfg(debug_assertions)]
+    fn integer_property_panics_on_wrong_thread() {
+        let accessor = SkinLuaAccessor::new(true);
+        let prop = accessor
+            .load_integer_property_from_script("42")
+            .expect("should load integer property");
+        let state = MockMainState::default();
+
+        let handle = std::thread::spawn(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                prop.get(&state);
+            }));
+            assert!(
+                result.is_err(),
+                "Expected panic when accessing LuaIntegerProperty from wrong thread"
+            );
+        });
+        handle.join().expect("thread should complete");
     }
 }

@@ -78,12 +78,10 @@ impl StreamController {
     }
 
     pub fn run(&mut self) {
-        if self.pipe_buffer.is_none() {
+        // Combine check and extraction to avoid TOCTOU race
+        let Some(pipe_buffer) = self.pipe_buffer.take() else {
             return;
-        }
-
-        // Move pipe_buffer out for the thread
-        let pipe_buffer = self.pipe_buffer.take().unwrap();
+        };
         let commands: Vec<Box<dyn StreamCommand>> = std::mem::take(&mut self.commands);
         let commands = Arc::new(Mutex::new(commands));
         let commands_clone = Arc::clone(&commands);
