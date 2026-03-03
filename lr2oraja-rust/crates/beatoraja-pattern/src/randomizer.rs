@@ -309,6 +309,24 @@ impl Randomizer {
         }
     }
 
+    /// Returns a reference to the inner `SRandomizer` if this is the `SRandom` variant,
+    /// or `None` otherwise.
+    pub fn as_srandom(&self) -> Option<&SRandomizer> {
+        match self {
+            Randomizer::SRandom(r) => Some(r),
+            _ => None,
+        }
+    }
+
+    /// Returns a mutable reference to the inner `SRandomizer` if this is the `SRandom` variant,
+    /// or `None` otherwise.
+    pub fn as_srandom_mut(&mut self) -> Option<&mut SRandomizer> {
+        match self {
+            Randomizer::SRandom(r) => Some(r),
+            _ => None,
+        }
+    }
+
     pub fn set_mode(&mut self, m: Mode) {
         match self {
             Randomizer::AllScratch(r) => r.set_mode(m),
@@ -1399,11 +1417,10 @@ mod tests {
         config.hran_threshold_bpm = 150;
         let r = Randomizer::create(Random::HRandom, &Mode::BEAT_7K, &config);
         // threshold_millis = ceil(15000.0 / 150) = 100
-        if let Randomizer::SRandom(sr) = &r {
-            assert_eq!(sr.time_state.threshold, 100);
-        } else {
-            panic!("Expected SRandom variant");
-        }
+        let sr = r
+            .as_srandom()
+            .expect("HRandom should produce SRandom variant");
+        assert_eq!(sr.time_state.threshold, 100);
     }
 
     #[test]
@@ -1411,11 +1428,10 @@ mod tests {
         let mut config = PlayerConfig::default();
         config.hran_threshold_bpm = 0;
         let r = Randomizer::create(Random::HRandom, &Mode::BEAT_7K, &config);
-        if let Randomizer::SRandom(sr) = &r {
-            assert_eq!(sr.time_state.threshold, 0);
-        } else {
-            panic!("Expected SRandom variant");
-        }
+        let sr = r
+            .as_srandom()
+            .expect("HRandom should produce SRandom variant");
+        assert_eq!(sr.time_state.threshold, 0);
     }
 
     #[test]
@@ -1423,10 +1439,71 @@ mod tests {
         let mut config = PlayerConfig::default();
         config.hran_threshold_bpm = -1;
         let r = Randomizer::create(Random::HRandom, &Mode::BEAT_7K, &config);
-        if let Randomizer::SRandom(sr) = &r {
-            assert_eq!(sr.time_state.threshold, DEFAULT_HRAN_THRESHOLD);
-        } else {
-            panic!("Expected SRandom variant");
+        let sr = r
+            .as_srandom()
+            .expect("HRandom should produce SRandom variant");
+        assert_eq!(sr.time_state.threshold, DEFAULT_HRAN_THRESHOLD);
+    }
+
+    #[test]
+    fn as_srandom_returns_none_for_non_srandom_variants() {
+        let config = PlayerConfig::default();
+        let spiral = Randomizer::create(Random::Spiral, &Mode::BEAT_7K, &config);
+        assert!(
+            spiral.as_srandom().is_none(),
+            "Spiral should not be SRandom"
+        );
+
+        let allscr = Randomizer::create(Random::AllScr, &Mode::BEAT_7K, &config);
+        assert!(
+            allscr.as_srandom().is_none(),
+            "AllScr should not be SRandom"
+        );
+
+        let converge = Randomizer::create(Random::Converge, &Mode::BEAT_7K, &config);
+        assert!(
+            converge.as_srandom().is_none(),
+            "Converge should not be SRandom"
+        );
+
+        let playable = Randomizer::create(Random::SRandomPlayable, &Mode::BEAT_7K, &config);
+        assert!(
+            playable.as_srandom().is_none(),
+            "SRandomPlayable should not be SRandom"
+        );
+    }
+
+    #[test]
+    fn as_srandom_returns_some_for_srandom_variants() {
+        let config = PlayerConfig::default();
+
+        let srandom = Randomizer::create(Random::SRandom, &Mode::BEAT_7K, &config);
+        assert!(srandom.as_srandom().is_some(), "SRandom should be SRandom");
+
+        let hrandom = Randomizer::create(Random::HRandom, &Mode::BEAT_7K, &config);
+        assert!(hrandom.as_srandom().is_some(), "HRandom should be SRandom");
+
+        let srandom_ex = Randomizer::create(Random::SRandomEx, &Mode::BEAT_7K, &config);
+        assert!(
+            srandom_ex.as_srandom().is_some(),
+            "SRandomEx should be SRandom"
+        );
+
+        let no_threshold = Randomizer::create(Random::SRandomNoThreshold, &Mode::BEAT_7K, &config);
+        assert!(
+            no_threshold.as_srandom().is_some(),
+            "SRandomNoThreshold should be SRandom"
+        );
+    }
+
+    #[test]
+    fn as_srandom_mut_allows_mutation() {
+        let config = PlayerConfig::default();
+        let mut r = Randomizer::create(Random::SRandom, &Mode::BEAT_7K, &config);
+        if let Some(sr) = r.as_srandom_mut() {
+            sr.time_state.threshold = 999;
         }
+        let sr = r.as_srandom().expect("should still be SRandom");
+        assert_eq!(sr.time_state.threshold, 999);
     }
 }
