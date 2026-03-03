@@ -978,7 +978,6 @@ impl RandomFolder {
             // In Java: uses reflection to call getters on ScoreData
             // This is a simplified version that handles integer comparison
             if let Some(int_value) = value.as_i64() {
-                let int_value = int_value as i32;
                 if let Some(score) = score_data {
                     let property_value = get_score_data_property(score, key);
                     if property_value != int_value {
@@ -1010,34 +1009,36 @@ impl RandomFolder {
     }
 }
 
-fn get_score_data_property(score: &ScoreData, key: &str) -> i32 {
+fn get_score_data_property(score: &ScoreData, key: &str) -> i64 {
     match key {
-        "clear" => score.get_clear(),
-        "exscore" => score.get_exscore(),
-        "notes" => score.get_notes(),
-        "minbp" => score.get_minbp(),
+        "clear" => score.get_clear() as i64,
+        "exscore" => score.get_exscore() as i64,
+        "notes" => score.get_notes() as i64,
+        "minbp" => score.get_minbp() as i64,
+        "date" => score.get_date(),
+        "playcount" => score.get_playcount() as i64,
         _ => 0,
     }
 }
 
-fn evaluate_filter_expression(expr: &str, property_value: i32) -> bool {
+fn evaluate_filter_expression(expr: &str, property_value: i64) -> bool {
     if expr.is_empty() {
         return true;
     }
     if let Some(stripped) = expr.strip_prefix(">=") {
-        if let Ok(v) = stripped.parse::<i32>() {
+        if let Ok(v) = stripped.parse::<i64>() {
             return property_value >= v;
         }
     } else if let Some(stripped) = expr.strip_prefix("<=") {
-        if let Ok(v) = stripped.parse::<i32>() {
+        if let Ok(v) = stripped.parse::<i64>() {
             return property_value <= v;
         }
     } else if let Some(stripped) = expr.strip_prefix('>') {
-        if let Ok(v) = stripped.parse::<i32>() {
+        if let Ok(v) = stripped.parse::<i64>() {
             return property_value > v;
         }
     } else if let Some(stripped) = expr.strip_prefix('<')
-        && let Ok(v) = stripped.parse::<i32>()
+        && let Ok(v) = stripped.parse::<i64>()
     {
         return property_value < v;
     }
@@ -1816,6 +1817,71 @@ mod tests {
     #[test]
     fn test_evaluate_filter_empty() {
         assert!(evaluate_filter_expression("", 42));
+    }
+
+    // ---- i64 truncation bug tests ----
+
+    #[test]
+    fn test_filter_song_date_i64_not_truncated() {
+        // Unix timestamp 1_700_000_000 exceeds i32::MAX (2_147_483_647 fits, but
+        // 3_000_000_000 does not). Ensure large i64 values are compared correctly.
+        let timestamp: i64 = 3_000_000_000; // exceeds i32::MAX
+        let mut filter = HashMap::new();
+        filter.insert(
+            "date".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(timestamp)),
+        );
+        let rf = RandomFolder {
+            name: Some("Test".to_string()),
+            filter: Some(filter),
+        };
+        let mut score = ScoreData::default();
+        score.date = timestamp;
+        // Should match: both filter and score have the same i64 value
+        assert!(rf.filter_song(Some(&score)));
+    }
+
+    #[test]
+    fn test_filter_song_date_i64_mismatch_detected() {
+        // When the filter value and score differ, it should correctly detect the mismatch
+        let mut filter = HashMap::new();
+        filter.insert(
+            "date".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(3_000_000_000_i64)),
+        );
+        let rf = RandomFolder {
+            name: Some("Test".to_string()),
+            filter: Some(filter),
+        };
+        let mut score = ScoreData::default();
+        score.date = 3_000_000_001_i64;
+        // Should NOT match: values differ by 1
+        assert!(!rf.filter_song(Some(&score)));
+    }
+
+    #[test]
+    fn test_evaluate_filter_expression_large_i64() {
+        // Comparison operators should work with values exceeding i32::MAX
+        assert!(evaluate_filter_expression(">=3000000000", 3_000_000_000));
+        assert!(evaluate_filter_expression(">=3000000000", 3_000_000_001));
+        assert!(!evaluate_filter_expression(">=3000000000", 2_999_999_999));
+
+        assert!(evaluate_filter_expression("<=3000000000", 3_000_000_000));
+        assert!(!evaluate_filter_expression("<=3000000000", 3_000_000_001));
+
+        assert!(evaluate_filter_expression(">3000000000", 3_000_000_001));
+        assert!(!evaluate_filter_expression(">3000000000", 3_000_000_000));
+
+        assert!(evaluate_filter_expression("<3000000000", 2_999_999_999));
+        assert!(!evaluate_filter_expression("<3000000000", 3_000_000_000));
+    }
+
+    #[test]
+    fn test_get_score_data_property_date_i64() {
+        let mut score = ScoreData::default();
+        score.date = 3_000_000_000;
+        // Should return the full i64 value without truncation
+        assert_eq!(get_score_data_property(&score, "date"), 3_000_000_000_i64);
     }
 
     // ---- bar_class_name tests ----
