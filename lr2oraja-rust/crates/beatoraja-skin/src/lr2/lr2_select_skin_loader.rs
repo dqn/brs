@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use crate::lr2::lr2_skin_csv_loader::{LR2SkinCSVLoaderState, LR2SkinLoaderAccess};
-use crate::lr2::lr2_skin_loader::{self, LR2SkinLoaderState};
-use crate::stubs::{MainState, Rectangle, Resolution, TextureRegion};
+use crate::lr2::lr2_skin_loader;
+use crate::stubs::{Rectangle, Resolution, TextureRegion};
 
 /// LR2 select skin loader
 ///

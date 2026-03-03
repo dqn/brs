@@ -1,6 +1,6 @@
 use crate::lr2::lr2_skin_csv_loader::{LR2SkinCSVLoaderState, LR2SkinLoaderAccess};
-use crate::lr2::lr2_skin_loader::{self, LR2SkinLoaderState};
-use crate::stubs::{MainState, Rectangle, Resolution};
+use crate::lr2::lr2_skin_loader;
+use crate::stubs::{Rectangle, Resolution};
 
 /// LR2 course result skin loader
 ///

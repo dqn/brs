@@ -7,7 +7,7 @@ use crate::lr2::lr2_skin_loader::{self, LR2SkinLoaderState};
 use crate::skin::SkinObject;
 use crate::skin_gauge::SkinGauge;
 use crate::skin_image::SkinImage;
-use crate::stubs::{MainState, Rectangle, Resolution, Texture, TextureRegion};
+use crate::stubs::{MainState, Resolution, Texture, TextureRegion};
 
 /// LR2 CSV skin loader base
 ///
@@ -297,8 +297,8 @@ impl LR2SkinCSVLoaderState {
                     && matches!(self.imagelist[gr], ImageListEntry::TextureEntry(_))
                 {
                     let values = Self::parse_int(str_parts);
-                    let divx = if values[7] > 0 { values[7] } else { 1 };
-                    let divy = if values[8] > 0 { values[8] } else { 1 };
+                    let _divx = if values[7] > 0 { values[7] } else { 1 };
+                    let _divy = if values[8] > 0 { values[8] } else { 1 };
                     let length = values[15];
                     let images = if length <= 0 {
                         // Grid-based division: each cell is one animation frame
