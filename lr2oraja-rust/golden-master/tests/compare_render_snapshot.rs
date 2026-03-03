@@ -26,7 +26,7 @@ use beatoraja_skin::lua::lua_skin_loader::LuaSkinLoader;
 use beatoraja_skin::skin::Skin;
 use beatoraja_skin::skin_data_converter;
 use beatoraja_skin::skin_type::SkinType;
-use beatoraja_skin::stubs::Resolution as SkinResolution;
+use beatoraja_skin::stubs::{MainState, Resolution as SkinResolution};
 use golden_master::render_snapshot::{
     DrawCommand, DrawDetail, RenderSnapshot, capture_render_snapshot, compare_snapshots,
 };
@@ -107,8 +107,12 @@ fn load_lua_skin_with_state(relative_path: &str, provider: &StaticStateProvider)
 
     // Export main_state module to Lua VM so skins can call
     // main_state.number() and main_state.text() during loading.
-    let adapter = StaticMainStateAdapter::new(provider);
-    loader.lua.export_main_state_accessor(&adapter);
+    let mut adapter = StaticMainStateAdapter::new(provider);
+    let adapter_ptr: *mut dyn MainState = &mut adapter;
+    // SAFETY: Transmute erases the trait object lifetime. adapter lives for the
+    // duration of skin loading (outlives the Lua closures), and is single-threaded.
+    let adapter_ptr: *mut dyn MainState = unsafe { std::mem::transmute(adapter_ptr) };
+    unsafe { loader.lua.export_main_state_accessor(adapter_ptr) };
 
     let header = loader
         .load_header(&path)

@@ -34,15 +34,16 @@ pub struct MainStateAccessor {
 }
 
 impl MainStateAccessor {
-    pub fn new(state: &dyn MainState) -> Self {
-        // SAFETY: We erase the lifetime of the trait object pointer.
-        // The caller guarantees that state outlives MainStateAccessor.
-        // We cast to *mut to support mutable operations (set_timer, set_volume, etc.).
-        // The Lua callbacks that mutate state are only called single-threaded.
-        let ptr: *const dyn MainState = state;
-        let ptr: *mut dyn MainState = unsafe { std::mem::transmute(ptr) };
+    /// Create a new MainStateAccessor from a raw mutable pointer to MainState.
+    ///
+    /// # Safety
+    /// - `state` must point to a valid `dyn MainState` that outlives this accessor
+    ///   and any Lua closures exported from it.
+    /// - The caller must ensure no aliasing &mut references exist while Lua callbacks
+    ///   are invoked. In practice, this is guaranteed by single-threaded skin access.
+    pub unsafe fn new(state: *mut dyn MainState) -> Self {
         Self {
-            state_ptr: StatePtr(ptr),
+            state_ptr: StatePtr(state),
         }
     }
 
@@ -576,10 +577,16 @@ mod tests {
     }
 
     /// Helper: create accessor, export to Lua, and return (Lua, table) for testing.
-    fn setup_lua_with_state(state: &dyn MainState) -> (mlua::Lua, mlua::Table) {
+    fn setup_lua_with_state(state: &mut dyn MainState) -> (mlua::Lua, mlua::Table) {
         let lua = mlua::Lua::new();
         let table = lua.create_table().unwrap();
-        let accessor = MainStateAccessor::new(state);
+        let ptr: *mut dyn MainState = state;
+        // SAFETY: Transmute erases the trait object lifetime ('a -> 'static).
+        // state outlives the returned Lua VM (tests are synchronous and
+        // single-threaded). The raw pointer is only dereferenced by Lua closures
+        // called within this test function's scope.
+        let ptr: *mut dyn MainState = unsafe { std::mem::transmute(ptr) };
+        let accessor = unsafe { MainStateAccessor::new(ptr) };
         accessor.export(&lua, &table);
         // We need to return the Lua and table, but Lua owns the table.
         // Use scope-safe approach: return owned values.
@@ -629,7 +636,7 @@ mod tests {
     fn test_rate_returns_now_rate() {
         let mut state = LuaTestState::default();
         state.score_data_property.nowrate = 0.85;
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let rate_fn: mlua::Function = table.get("rate").unwrap();
         let result: f64 = rate_fn.call(()).unwrap();
         assert!((result - 0.85).abs() < 0.001);
@@ -639,7 +646,7 @@ mod tests {
     fn test_exscore_returns_now_exscore() {
         let mut state = LuaTestState::default();
         state.score_data_property.nowscore = 1234;
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let exscore_fn: mlua::Function = table.get("exscore").unwrap();
         let result: f64 = exscore_fn.call(()).unwrap();
         assert_eq!(result, 1234.0);
@@ -649,7 +656,7 @@ mod tests {
     fn test_rate_best_returns_now_best_score_rate() {
         let mut state = LuaTestState::default();
         state.score_data_property.nowbestscorerate = 0.92;
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let rate_best_fn: mlua::Function = table.get("rate_best").unwrap();
         let result: f64 = rate_best_fn.call(()).unwrap();
         assert!((result - 0.92).abs() < 0.001);
@@ -659,7 +666,7 @@ mod tests {
     fn test_exscore_best_returns_best_score() {
         let mut state = LuaTestState::default();
         state.score_data_property.bestscore = 999;
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let exscore_best_fn: mlua::Function = table.get("exscore_best").unwrap();
         let result: f64 = exscore_best_fn.call(()).unwrap();
         assert_eq!(result, 999.0);
@@ -669,7 +676,7 @@ mod tests {
     fn test_rate_rival_returns_rival_score_rate() {
         let mut state = LuaTestState::default();
         state.score_data_property.rivalscorerate = 0.75;
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let rate_rival_fn: mlua::Function = table.get("rate_rival").unwrap();
         let result: f64 = rate_rival_fn.call(()).unwrap();
         assert!((result - 0.75).abs() < 0.001);
@@ -679,7 +686,7 @@ mod tests {
     fn test_exscore_rival_returns_rival_score() {
         let mut state = LuaTestState::default();
         state.score_data_property.rivalscore = 500;
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let exscore_rival_fn: mlua::Function = table.get("exscore_rival").unwrap();
         let result: f64 = exscore_rival_fn.call(()).unwrap();
         assert_eq!(result, 500.0);
@@ -692,7 +699,7 @@ mod tests {
             systemvolume: 0.8,
             ..Default::default()
         });
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let volume_sys_fn: mlua::Function = table.get("volume_sys").unwrap();
         let result: f64 = volume_sys_fn.call(()).unwrap();
         assert!((result - 0.8).abs() < 0.001);
@@ -705,7 +712,7 @@ mod tests {
             keyvolume: 0.6,
             ..Default::default()
         });
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let volume_key_fn: mlua::Function = table.get("volume_key").unwrap();
         let result: f64 = volume_key_fn.call(()).unwrap();
         assert!((result - 0.6).abs() < 0.001);
@@ -718,7 +725,7 @@ mod tests {
             bgvolume: 0.4,
             ..Default::default()
         });
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let volume_bg_fn: mlua::Function = table.get("volume_bg").unwrap();
         let result: f64 = volume_bg_fn.call(()).unwrap();
         assert!((result - 0.4).abs() < 0.001);
@@ -730,7 +737,7 @@ mod tests {
         // Judge index 0 (PGREAT): 50 fast + 30 slow = 80
         state.judge_counts.insert((0, true), 50);
         state.judge_counts.insert((0, false), 30);
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let judge_fn: mlua::Function = table.get("judge").unwrap();
         let result: i32 = judge_fn.call(0).unwrap();
         assert_eq!(result, 80);
@@ -738,8 +745,8 @@ mod tests {
 
     #[test]
     fn test_gauge_returns_zero_when_not_bms_player() {
-        let state = LuaTestState::default();
-        let (lua, table) = setup_lua_with_state(&state);
+        let mut state = LuaTestState::default();
+        let (lua, table) = setup_lua_with_state(&mut state);
         let gauge_fn: mlua::Function = table.get("gauge").unwrap();
         let result: f64 = gauge_fn.call(()).unwrap();
         assert_eq!(result, 0.0);
@@ -750,7 +757,7 @@ mod tests {
         let mut state = LuaTestState::default();
         state.is_bms_player = true;
         state.gauge_value = 0.85;
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let gauge_fn: mlua::Function = table.get("gauge").unwrap();
         let result: f64 = gauge_fn.call(()).unwrap();
         assert!((result - 0.85).abs() < 0.001);
@@ -758,8 +765,8 @@ mod tests {
 
     #[test]
     fn test_gauge_type_returns_zero_when_not_bms_player() {
-        let state = LuaTestState::default();
-        let (lua, table) = setup_lua_with_state(&state);
+        let mut state = LuaTestState::default();
+        let (lua, table) = setup_lua_with_state(&mut state);
         let gauge_type_fn: mlua::Function = table.get("gauge_type").unwrap();
         let result: f64 = gauge_type_fn.call(()).unwrap();
         assert_eq!(result, 0.0);
@@ -770,7 +777,7 @@ mod tests {
         let mut state = LuaTestState::default();
         state.is_bms_player = true;
         state.gauge_type = 2;
-        let (lua, table) = setup_lua_with_state(&state);
+        let (lua, table) = setup_lua_with_state(&mut state);
         let gauge_type_fn: mlua::Function = table.get("gauge_type").unwrap();
         let result: f64 = gauge_type_fn.call(()).unwrap();
         assert_eq!(result, 2.0);
@@ -782,64 +789,64 @@ mod tests {
 
     #[test]
     fn test_set_timer_exists_on_table() {
-        let state = LuaTestState::default();
-        let (_lua, table) = setup_lua_with_state(&state);
+        let mut state = LuaTestState::default();
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Result<mlua::Function> = table.get("set_timer");
         assert!(func.is_ok(), "set_timer function should be exported");
     }
 
     #[test]
     fn test_event_exec_exists_on_table() {
-        let state = LuaTestState::default();
-        let (_lua, table) = setup_lua_with_state(&state);
+        let mut state = LuaTestState::default();
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Result<mlua::Function> = table.get("event_exec");
         assert!(func.is_ok(), "event_exec function should be exported");
     }
 
     #[test]
     fn test_set_volume_sys_exists_on_table() {
-        let state = LuaTestState::default();
-        let (_lua, table) = setup_lua_with_state(&state);
+        let mut state = LuaTestState::default();
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Result<mlua::Function> = table.get("set_volume_sys");
         assert!(func.is_ok(), "set_volume_sys function should be exported");
     }
 
     #[test]
     fn test_set_volume_key_exists_on_table() {
-        let state = LuaTestState::default();
-        let (_lua, table) = setup_lua_with_state(&state);
+        let mut state = LuaTestState::default();
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Result<mlua::Function> = table.get("set_volume_key");
         assert!(func.is_ok(), "set_volume_key function should be exported");
     }
 
     #[test]
     fn test_set_volume_bg_exists_on_table() {
-        let state = LuaTestState::default();
-        let (_lua, table) = setup_lua_with_state(&state);
+        let mut state = LuaTestState::default();
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Result<mlua::Function> = table.get("set_volume_bg");
         assert!(func.is_ok(), "set_volume_bg function should be exported");
     }
 
     #[test]
     fn test_audio_play_exists_on_table() {
-        let state = LuaTestState::default();
-        let (_lua, table) = setup_lua_with_state(&state);
+        let mut state = LuaTestState::default();
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Result<mlua::Function> = table.get("audio_play");
         assert!(func.is_ok(), "audio_play function should be exported");
     }
 
     #[test]
     fn test_audio_loop_exists_on_table() {
-        let state = LuaTestState::default();
-        let (_lua, table) = setup_lua_with_state(&state);
+        let mut state = LuaTestState::default();
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Result<mlua::Function> = table.get("audio_loop");
         assert!(func.is_ok(), "audio_loop function should be exported");
     }
 
     #[test]
     fn test_audio_stop_exists_on_table() {
-        let state = LuaTestState::default();
-        let (_lua, table) = setup_lua_with_state(&state);
+        let mut state = LuaTestState::default();
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let func: mlua::Result<mlua::Function> = table.get("audio_stop");
         assert!(func.is_ok(), "audio_stop function should be exported");
     }

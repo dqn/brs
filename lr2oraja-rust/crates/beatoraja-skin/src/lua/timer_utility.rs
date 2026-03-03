@@ -28,9 +28,10 @@ pub struct TimerUtility {
 
 impl TimerUtility {
     pub fn new(state: &dyn MainState) -> Self {
-        // SAFETY: We erase the lifetime of the trait object pointer.
-        // The caller guarantees that state outlives TimerUtility.
         let ptr: *const dyn MainState = state;
+        // SAFETY: Transmute erases the trait object lifetime ('a -> 'static).
+        // The caller guarantees that state outlives TimerUtility and its Lua closures.
+        // Only read access (*const) is used -- no aliasing violations.
         let ptr: *const dyn MainState = unsafe { std::mem::transmute(ptr) };
         Self {
             state_ptr: StatePtr(ptr),

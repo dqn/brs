@@ -117,12 +117,12 @@ struct ObsWsClientInner {
     /// Stored for reconnection — shutdown_notify is needed to pass to do_connect.
     shutdown_notify: Arc<Notify>,
 
-    on_close_handler: Option<Box<dyn Fn() + Send + Sync>>,
-    on_error_handler: Option<Box<dyn Fn(String) + Send + Sync>>,
-    on_version_received: Option<Box<dyn Fn(ObsVersionInfo) + Send + Sync>>,
-    on_scenes_received: Option<Box<dyn Fn(Vec<String>) + Send + Sync>>,
-    on_record_state_changed: Option<Box<dyn Fn(String) + Send + Sync>>,
-    custom_message_handler: Option<Box<dyn Fn(String) + Send + Sync>>,
+    on_close_handler: Option<Arc<dyn Fn() + Send + Sync>>,
+    on_error_handler: Option<Arc<dyn Fn(String) + Send + Sync>>,
+    on_version_received: Option<Arc<dyn Fn(ObsVersionInfo) + Send + Sync>>,
+    on_scenes_received: Option<Arc<dyn Fn(Vec<String>) + Send + Sync>>,
+    on_record_state_changed: Option<Arc<dyn Fn(String) + Send + Sync>>,
+    custom_message_handler: Option<Arc<dyn Fn(String) + Send + Sync>>,
 }
 
 /// ObsWsClient - WebSocket client for OBS Studio
@@ -280,11 +280,12 @@ impl ObsWsClient {
                                 if !msg.is_empty() {
                                     warn!("OBS WebSocket error: {}", msg);
                                 }
-                                {
+                                let handler = {
                                     let guard = inner_clone.lock().unwrap();
-                                    if let Some(ref handler) = guard.on_error_handler {
-                                        handler(msg);
-                                    }
+                                    guard.on_error_handler.clone()
+                                };
+                                if let Some(handler) = handler {
+                                    handler(msg);
                                 }
                                 Self::on_close(&inner_clone).await;
                                 break;
@@ -348,12 +349,13 @@ impl ObsWsClient {
             _ => {}
         }
 
-        // Custom message handler
-        {
+        // Custom message handler -- clone before calling to avoid re-entrancy deadlock
+        let custom_handler = {
             let guard = inner.lock().unwrap();
-            if let Some(ref handler) = guard.custom_message_handler {
-                handler(message.to_string());
-            }
+            guard.custom_message_handler.clone()
+        };
+        if let Some(handler) = custom_handler {
+            handler(message.to_string());
         }
     }
 
@@ -535,11 +537,12 @@ impl ObsWsClient {
                         ImGuiNotify::info(&format!("OBS: {}.", notify_message));
                     }
 
-                    {
+                    let record_handler = {
                         let guard = inner.lock().unwrap();
-                        if let Some(ref handler) = guard.on_record_state_changed {
-                            handler(output_state.to_string());
-                        }
+                        guard.on_record_state_changed.clone()
+                    };
+                    if let Some(handler) = record_handler {
+                        handler(output_state.to_string());
                     }
                 }
             }
@@ -575,8 +578,11 @@ impl ObsWsClient {
                         .unwrap_or("")
                         .to_string();
 
-                    let guard = inner.lock().unwrap();
-                    if let Some(ref handler) = guard.on_version_received {
+                    let handler = {
+                        let guard = inner.lock().unwrap();
+                        guard.on_version_received.clone()
+                    };
+                    if let Some(handler) = handler {
                         handler(ObsVersionInfo::new(obs_version, ws_version));
                     }
                 }
@@ -597,8 +603,11 @@ impl ObsWsClient {
 
                 scene_names.reverse();
 
-                let guard = inner.lock().unwrap();
-                if let Some(ref handler) = guard.on_scenes_received {
+                let handler = {
+                    let guard = inner.lock().unwrap();
+                    guard.on_scenes_received.clone()
+                };
+                if let Some(handler) = handler {
                     handler(scene_names);
                 }
             }
@@ -641,11 +650,12 @@ impl ObsWsClient {
             )
         };
 
-        {
+        let close_handler = {
             let guard = inner.lock().unwrap();
-            if let Some(ref handler) = guard.on_close_handler {
-                handler();
-            }
+            guard.on_close_handler.clone()
+        };
+        if let Some(handler) = close_handler {
+            handler();
         }
 
         if auto_reconnect && was_connected && !is_reconnecting && !is_shutting_down {
@@ -952,34 +962,37 @@ impl ObsWsClient {
 
     // ---- Callback setters ----
 
-    pub fn set_on_close(&self, handler: Box<dyn Fn() + Send + Sync>) {
+    pub fn set_on_close(&self, handler: impl Fn() + Send + Sync + 'static) {
         let mut guard = self.inner.lock().unwrap();
-        guard.on_close_handler = Some(handler);
+        guard.on_close_handler = Some(Arc::new(handler));
     }
 
-    pub fn set_on_error(&self, handler: Box<dyn Fn(String) + Send + Sync>) {
+    pub fn set_on_error(&self, handler: impl Fn(String) + Send + Sync + 'static) {
         let mut guard = self.inner.lock().unwrap();
-        guard.on_error_handler = Some(handler);
+        guard.on_error_handler = Some(Arc::new(handler));
     }
 
-    pub fn set_on_version_received(&self, handler: Box<dyn Fn(ObsVersionInfo) + Send + Sync>) {
+    pub fn set_on_version_received(
+        &self,
+        handler: impl Fn(ObsVersionInfo) + Send + Sync + 'static,
+    ) {
         let mut guard = self.inner.lock().unwrap();
-        guard.on_version_received = Some(handler);
+        guard.on_version_received = Some(Arc::new(handler));
     }
 
-    pub fn set_on_scenes_received(&self, handler: Box<dyn Fn(Vec<String>) + Send + Sync>) {
+    pub fn set_on_scenes_received(&self, handler: impl Fn(Vec<String>) + Send + Sync + 'static) {
         let mut guard = self.inner.lock().unwrap();
-        guard.on_scenes_received = Some(handler);
+        guard.on_scenes_received = Some(Arc::new(handler));
     }
 
-    pub fn set_on_record_state_changed(&self, handler: Box<dyn Fn(String) + Send + Sync>) {
+    pub fn set_on_record_state_changed(&self, handler: impl Fn(String) + Send + Sync + 'static) {
         let mut guard = self.inner.lock().unwrap();
-        guard.on_record_state_changed = Some(handler);
+        guard.on_record_state_changed = Some(Arc::new(handler));
     }
 
-    pub fn set_custom_message_handler(&self, handler: Box<dyn Fn(String) + Send + Sync>) {
+    pub fn set_custom_message_handler(&self, handler: impl Fn(String) + Send + Sync + 'static) {
         let mut guard = self.inner.lock().unwrap();
-        guard.custom_message_handler = Some(handler);
+        guard.custom_message_handler = Some(Arc::new(handler));
     }
 }
 

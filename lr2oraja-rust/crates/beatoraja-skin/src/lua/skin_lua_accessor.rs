@@ -28,13 +28,18 @@ const EVENT_UTIL: &str = "event_util";
 pub struct SkinLuaAccessor {
     /// Whether to export to global scope (true) or as modules (false)
     is_global: bool,
-    /// The Lua VM instance
-    lua: Lua,
+    /// The Lua VM instance, wrapped in Arc so Lua property types can share
+    /// ownership and the VM cannot be dropped while properties are alive.
+    lua: Arc<Lua>,
 }
 
 impl SkinLuaAccessor {
     pub fn new(is_global: bool) -> Self {
-        let lua = Lua::new();
+        // Arc<Lua> is intentional: Lua is !Send+!Sync, but property types share ownership
+        // of the VM via Arc (not across threads). Thread-safety is enforced via creation_thread_id
+        // assertions in each property type's get() method.
+        #[allow(clippy::arc_with_non_send_sync)]
+        let lua = Arc::new(Lua::new());
 
         if !is_global {
             // Pre-register empty tables so require("main_state") etc. don't error during header loading
@@ -85,10 +90,9 @@ impl SkinLuaAccessor {
         func: LuaFunction,
     ) -> Option<Box<dyn BooleanProperty>> {
         let func_key = self.lua.create_registry_value(func).ok()?;
-        let lua_ptr = &self.lua as *const Lua;
         Some(Box::new(LuaBooleanProperty {
             func_key: Arc::new(Mutex::new(func_key)),
-            lua_ptr,
+            lua: Arc::clone(&self.lua),
             creation_thread_id: std::thread::current().id(),
         }))
     }
@@ -121,10 +125,9 @@ impl SkinLuaAccessor {
         func: LuaFunction,
     ) -> Option<Box<dyn IntegerProperty>> {
         let func_key = self.lua.create_registry_value(func).ok()?;
-        let lua_ptr = &self.lua as *const Lua;
         Some(Box::new(LuaIntegerProperty {
             func_key: Arc::new(Mutex::new(func_key)),
-            lua_ptr,
+            lua: Arc::clone(&self.lua),
             creation_thread_id: std::thread::current().id(),
         }))
     }
@@ -154,10 +157,9 @@ impl SkinLuaAccessor {
         func: LuaFunction,
     ) -> Option<Box<dyn FloatProperty>> {
         let func_key = self.lua.create_registry_value(func).ok()?;
-        let lua_ptr = &self.lua as *const Lua;
         Some(Box::new(LuaFloatProperty {
             func_key: Arc::new(Mutex::new(func_key)),
-            lua_ptr,
+            lua: Arc::clone(&self.lua),
             creation_thread_id: std::thread::current().id(),
         }))
     }
@@ -190,10 +192,9 @@ impl SkinLuaAccessor {
         func: LuaFunction,
     ) -> Option<Box<dyn StringProperty>> {
         let func_key = self.lua.create_registry_value(func).ok()?;
-        let lua_ptr = &self.lua as *const Lua;
         Some(Box::new(LuaStringProperty {
             func_key: Arc::new(Mutex::new(func_key)),
-            lua_ptr,
+            lua: Arc::clone(&self.lua),
             creation_thread_id: std::thread::current().id(),
         }))
     }
@@ -241,10 +242,9 @@ impl SkinLuaAccessor {
         func: LuaFunction,
     ) -> Option<Box<dyn TimerProperty>> {
         let func_key = self.lua.create_registry_value(func).ok()?;
-        let lua_ptr = &self.lua as *const Lua;
         Some(Box::new(LuaTimerProperty {
             func_key: Arc::new(Mutex::new(func_key)),
-            lua_ptr,
+            lua: Arc::clone(&self.lua),
             creation_thread_id: std::thread::current().id(),
         }))
     }
@@ -267,10 +267,9 @@ impl SkinLuaAccessor {
 
     fn load_event_from_lua_function(&self, func: LuaFunction) -> Option<Box<dyn Event>> {
         let func_key = self.lua.create_registry_value(func).ok()?;
-        let lua_ptr = &self.lua as *const Lua;
         Some(Box::new(LuaEvent {
             func_key: Arc::new(Mutex::new(func_key)),
-            lua_ptr,
+            lua: Arc::clone(&self.lua),
             creation_thread_id: std::thread::current().id(),
         }))
     }
@@ -299,10 +298,9 @@ impl SkinLuaAccessor {
         func: LuaFunction,
     ) -> Option<Box<dyn FloatWriter>> {
         let func_key = self.lua.create_registry_value(func).ok()?;
-        let lua_ptr = &self.lua as *const Lua;
         Some(Box::new(LuaFloatWriter {
             func_key: Arc::new(Mutex::new(func_key)),
-            lua_ptr,
+            lua: Arc::clone(&self.lua),
             creation_thread_id: std::thread::current().id(),
         }))
     }
@@ -358,8 +356,13 @@ impl SkinLuaAccessor {
     /// Export MainState accessor functions to Lua
     /// When is_global is true, exported as global variables.
     /// When is_global is false, exported as module "main_state".
-    pub fn export_main_state_accessor(&self, state: &dyn MainState) {
-        let accessor = MainStateAccessor::new(state);
+    ///
+    /// # Safety
+    /// `state` must point to a valid `dyn MainState` that outlives the Lua VM
+    /// and any closures exported from it. The caller must ensure single-threaded
+    /// access to the state while Lua callbacks are active.
+    pub unsafe fn export_main_state_accessor(&self, state: *mut dyn MainState) {
+        let accessor = unsafe { MainStateAccessor::new(state) };
         if self.is_global {
             let globals = self.lua.globals();
             accessor.export(&self.lua, &globals);
@@ -576,16 +579,16 @@ pub struct SkinConfigFilePath {
 // Lua-backed property implementations
 // ============================================================
 
-// SAFETY NOTE: These structs hold a raw pointer to the Lua VM that owns the
-// registry keys. They are only valid as long as the SkinLuaAccessor (and its Lua)
-// is alive. In beatoraja, properties are always used within the lifetime of their
-// SkinLuaAccessor, so this is safe in practice. The Send+Sync impls are required
-// by the property traits. The creation_thread_id field enables debug_assert checks
-// that detect cross-thread access at runtime in debug builds.
+// SAFETY NOTE: These structs hold an Arc<Lua> that shares ownership of the Lua VM
+// with the SkinLuaAccessor. The Arc ensures the VM cannot be dropped while any
+// property is alive, preventing use-after-free. The Send+Sync impls are required
+// by the property traits; Lua (without the "send" feature) is !Send, so we rely
+// on the single-threaded access invariant. The creation_thread_id field enables
+// debug_assert checks that detect cross-thread access at runtime in debug builds.
 
 struct LuaBooleanProperty {
     func_key: Arc<Mutex<LuaRegistryKey>>,
-    lua_ptr: *const Lua,
+    lua: Arc<Lua>,
     creation_thread_id: std::thread::ThreadId,
 }
 
@@ -605,9 +608,8 @@ impl BooleanProperty for LuaBooleanProperty {
             self.creation_thread_id,
             "LuaBooleanProperty must be accessed on the thread where it was created"
         );
-        let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
-        match lua.registry_value::<LuaFunction>(&key) {
+        match self.lua.registry_value::<LuaFunction>(&key) {
             Ok(func) => match func.call::<LuaValue>(()) {
                 Ok(val) => match val {
                     LuaValue::Boolean(b) => b,
@@ -630,7 +632,7 @@ impl BooleanProperty for LuaBooleanProperty {
 
 struct LuaIntegerProperty {
     func_key: Arc<Mutex<LuaRegistryKey>>,
-    lua_ptr: *const Lua,
+    lua: Arc<Lua>,
     creation_thread_id: std::thread::ThreadId,
 }
 
@@ -644,9 +646,8 @@ impl IntegerProperty for LuaIntegerProperty {
             self.creation_thread_id,
             "LuaIntegerProperty must be accessed on the thread where it was created"
         );
-        let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
-        match lua.registry_value::<LuaFunction>(&key) {
+        match self.lua.registry_value::<LuaFunction>(&key) {
             Ok(func) => match func.call::<LuaValue>(()) {
                 Ok(val) => match val {
                     LuaValue::Integer(i) => i as i32,
@@ -668,7 +669,7 @@ impl IntegerProperty for LuaIntegerProperty {
 
 struct LuaFloatProperty {
     func_key: Arc<Mutex<LuaRegistryKey>>,
-    lua_ptr: *const Lua,
+    lua: Arc<Lua>,
     creation_thread_id: std::thread::ThreadId,
 }
 
@@ -682,9 +683,8 @@ impl FloatProperty for LuaFloatProperty {
             self.creation_thread_id,
             "LuaFloatProperty must be accessed on the thread where it was created"
         );
-        let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
-        match lua.registry_value::<LuaFunction>(&key) {
+        match self.lua.registry_value::<LuaFunction>(&key) {
             Ok(func) => match func.call::<LuaValue>(()) {
                 Ok(val) => match val {
                     LuaValue::Number(f) => f as f32,
@@ -706,7 +706,7 @@ impl FloatProperty for LuaFloatProperty {
 
 struct LuaStringProperty {
     func_key: Arc<Mutex<LuaRegistryKey>>,
-    lua_ptr: *const Lua,
+    lua: Arc<Lua>,
     creation_thread_id: std::thread::ThreadId,
 }
 
@@ -720,9 +720,8 @@ impl StringProperty for LuaStringProperty {
             self.creation_thread_id,
             "LuaStringProperty must be accessed on the thread where it was created"
         );
-        let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
-        match lua.registry_value::<LuaFunction>(&key) {
+        match self.lua.registry_value::<LuaFunction>(&key) {
             Ok(func) => match func.call::<LuaValue>(()) {
                 Ok(val) => match val {
                     LuaValue::String(s) => s.to_str().map(|s| s.to_string()).unwrap_or_default(),
@@ -743,7 +742,7 @@ impl StringProperty for LuaStringProperty {
 
 struct LuaTimerProperty {
     func_key: Arc<Mutex<LuaRegistryKey>>,
-    lua_ptr: *const Lua,
+    lua: Arc<Lua>,
     creation_thread_id: std::thread::ThreadId,
 }
 
@@ -757,9 +756,8 @@ impl TimerProperty for LuaTimerProperty {
             self.creation_thread_id,
             "LuaTimerProperty must be accessed on the thread where it was created"
         );
-        let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
-        match lua.registry_value::<LuaFunction>(&key) {
+        match self.lua.registry_value::<LuaFunction>(&key) {
             Ok(func) => match func.call::<LuaValue>(()) {
                 Ok(val) => match val {
                     LuaValue::Integer(i) => i,
@@ -781,7 +779,7 @@ impl TimerProperty for LuaTimerProperty {
 
 struct LuaEvent {
     func_key: Arc<Mutex<LuaRegistryKey>>,
-    lua_ptr: *const Lua,
+    lua: Arc<Lua>,
     creation_thread_id: std::thread::ThreadId,
 }
 
@@ -795,9 +793,8 @@ impl Event for LuaEvent {
             self.creation_thread_id,
             "LuaEvent must be accessed on the thread where it was created"
         );
-        let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
-        match lua.registry_value::<LuaFunction>(&key) {
+        match self.lua.registry_value::<LuaFunction>(&key) {
             Ok(func) => {
                 // Pass both args; Lua functions ignore extra args
                 if let Err(e) = func.call::<LuaValue>((arg1, arg2)) {
@@ -813,7 +810,7 @@ impl Event for LuaEvent {
 
 struct LuaFloatWriter {
     func_key: Arc<Mutex<LuaRegistryKey>>,
-    lua_ptr: *const Lua,
+    lua: Arc<Lua>,
     creation_thread_id: std::thread::ThreadId,
 }
 
@@ -827,9 +824,8 @@ impl FloatWriter for LuaFloatWriter {
             self.creation_thread_id,
             "LuaFloatWriter must be accessed on the thread where it was created"
         );
-        let lua = unsafe { &*self.lua_ptr };
         let key = self.func_key.lock().unwrap();
-        match lua.registry_value::<LuaFunction>(&key) {
+        match self.lua.registry_value::<LuaFunction>(&key) {
             Ok(func) => {
                 if let Err(e) = func.call::<LuaValue>(value) {
                     log::warn!("Lua runtime error (float writer): {}", e);

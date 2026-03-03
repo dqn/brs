@@ -12,6 +12,17 @@ use crate::music_database_accessor::MusicDatabaseAccessor;
 
 /// Corresponds to MusicDownloadProcessor in Java
 /// IPFS-based song download processor
+///
+/// # Lock ordering
+///
+/// When acquiring multiple locks, always follow this order to prevent deadlock:
+///   1. `daemon`    (outermost)
+///   2. `ipfs`
+///   3. `commands`
+///   4. `message`   (innermost)
+///
+/// The `DaemonHandle.downloadpath` mutex is only accessed while holding `daemon`.
+/// The daemon thread receives cloned Arcs and acquires them independently (no nesting).
 pub struct MusicDownloadProcessor {
     commands: Arc<Mutex<VecDeque<Box<dyn IpfsInformation>>>>,
     ipfs: Arc<Mutex<String>>,
@@ -178,65 +189,68 @@ fn download_daemon_thread_run(
 
             let is_download = download.load(Ordering::SeqCst);
 
-            if !commands.lock().unwrap().is_empty() && !is_download {
-                let song = commands.lock().unwrap().pop_front();
-                if let Some(song) = song {
-                    ipfspath = song.get_ipfs();
-                    diffpath = song.get_append_ipfs();
+            // Single lock acquisition: check + pop atomically (avoids TOCTOU race)
+            let song = if !is_download {
+                commands.lock().unwrap().pop_front()
+            } else {
+                None
+            };
+            if let Some(song) = song {
+                ipfspath = song.get_ipfs();
+                diffpath = song.get_append_ipfs();
 
-                    if ipfspath.to_lowercase().starts_with("/ipfs/") {
-                        // Java: ipfspath = path.substring(5);
-                        // NOTE: This is a bug in the Java code - it uses `path` instead of `ipfspath`
-                        // Translating as-is
-                        ipfspath = path[5..].to_string();
-                    }
-                    path = format!("[{}]{}", song.get_artist(), song.get_title());
-                    // path = "ipfs/" + path.replaceAll("[(\\\\|/|:|\\*|\\?|\"|<|>|\\|)]", "");
-                    path = format!("ipfs/{}", path_sanitize_re.replace_all(&path, ""));
+                if ipfspath.to_lowercase().starts_with("/ipfs/") {
+                    // Java: ipfspath = path.substring(5);
+                    // NOTE: This is a bug in the Java code - it uses `path` instead of `ipfspath`
+                    // Translating as-is
+                    ipfspath = path[5..].to_string();
+                }
+                path = format!("[{}]{}", song.get_artist(), song.get_title());
+                // path = "ipfs/" + path.replaceAll("[(\\\\|/|:|\\*|\\?|\"|<|>|\\|)]", "");
+                path = format!("ipfs/{}", path_sanitize_re.replace_all(&path, ""));
 
-                    if !diffpath.is_empty() && diffpath.to_lowercase().starts_with("/ipfs/") {
-                        diffpath = diffpath[5..].to_string();
-                    }
+                if !diffpath.is_empty() && diffpath.to_lowercase().starts_with("/ipfs/") {
+                    diffpath = diffpath[5..].to_string();
+                }
 
-                    let orgmd5 = song.get_org_md5();
-                    orgbms = None;
-                    if !orgmd5.is_empty() {
-                        let s = main.get_music_paths(&orgmd5);
-                        if !s.is_empty() {
-                            for bms in &s {
-                                let bmspath = PathBuf::from(bms);
-                                if bmspath.exists() {
-                                    orgbms = Some(bmspath.clone());
-                                    if let Some(parent) = bmspath.parent() {
-                                        path = parent.to_string_lossy().to_string();
-                                    }
-                                    break;
+                let orgmd5 = song.get_org_md5();
+                orgbms = None;
+                if !orgmd5.is_empty() {
+                    let s = main.get_music_paths(&orgmd5);
+                    if !s.is_empty() {
+                        for bms in &s {
+                            let bmspath = PathBuf::from(bms);
+                            if bmspath.exists() {
+                                orgbms = Some(bmspath.clone());
+                                if let Some(parent) = bmspath.parent() {
+                                    path = parent.to_string_lossy().to_string();
                                 }
+                                break;
                             }
                         }
                     }
-                    if !ipfspath.is_empty() && orgbms.is_none() {
-                        let ipfs_url = ipfs.lock().unwrap().clone();
-                        let ipfspath_clone = ipfspath.clone();
-                        let path_clone = path.clone();
-                        let message_clone = message.clone();
-                        let alive_flag = download_ipfs_alive.clone();
-                        alive_flag.store(true, Ordering::SeqCst);
-                        download_ipfs_handle = Some(thread::spawn(move || {
-                            download_ipfs_thread_run(
-                                &ipfs_url,
-                                &ipfspath_clone,
-                                &path_clone,
-                                message_clone,
-                            );
-                            alive_flag.store(false, Ordering::SeqCst);
-                        }));
-                        download.store(true, Ordering::SeqCst);
-                        log::info!("BMS本体取得開始");
-                    } else if !ipfspath.is_empty() && !diffpath.is_empty() {
-                        log::info!("{}は既に存在します（差分取得のみ）", path);
-                        download.store(true, Ordering::SeqCst);
-                    }
+                }
+                if !ipfspath.is_empty() && orgbms.is_none() {
+                    let ipfs_url = ipfs.lock().unwrap().clone();
+                    let ipfspath_clone = ipfspath.clone();
+                    let path_clone = path.clone();
+                    let message_clone = message.clone();
+                    let alive_flag = download_ipfs_alive.clone();
+                    alive_flag.store(true, Ordering::SeqCst);
+                    download_ipfs_handle = Some(thread::spawn(move || {
+                        download_ipfs_thread_run(
+                            &ipfs_url,
+                            &ipfspath_clone,
+                            &path_clone,
+                            message_clone,
+                        );
+                        alive_flag.store(false, Ordering::SeqCst);
+                    }));
+                    download.store(true, Ordering::SeqCst);
+                    log::info!("BMS本体取得開始");
+                } else if !ipfspath.is_empty() && !diffpath.is_empty() {
+                    log::info!("{}は既に存在します（差分取得のみ）", path);
+                    download.store(true, Ordering::SeqCst);
                 }
             }
 
