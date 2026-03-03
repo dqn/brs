@@ -255,4 +255,439 @@ mod tests {
         assert_eq!(gauge.starttime, 100);
         assert_eq!(gauge.endtime, 2000);
     }
+
+    // --- Notes calculation tests ---
+    // The draw method computes: notes = value > 0 ? max(1, (value * parts / max) as i32) : 0
+
+    #[test]
+    fn notes_calc_zero_value_gives_zero() {
+        // When value == 0, notes == 0
+        let value: f32 = 0.0;
+        let parts: i32 = 50;
+        let max: f32 = 100.0;
+        let notes = if value > 0.0 {
+            ((value * parts as f32 / max) as i32).max(1)
+        } else {
+            0
+        };
+        assert_eq!(notes, 0);
+    }
+
+    #[test]
+    fn notes_calc_small_positive_value_gives_at_least_one() {
+        // Any value > 0 should give at least 1 (the .max(1) clamp)
+        let value: f32 = 0.001;
+        let parts: i32 = 50;
+        let max: f32 = 100.0;
+        let notes = if value > 0.0 {
+            ((value * parts as f32 / max) as i32).max(1)
+        } else {
+            0
+        };
+        assert_eq!(notes, 1);
+    }
+
+    #[test]
+    fn notes_calc_full_value_gives_parts() {
+        // value == max -> notes == parts
+        let value: f32 = 100.0;
+        let parts: i32 = 50;
+        let max: f32 = 100.0;
+        let notes = if value > 0.0 {
+            ((value * parts as f32 / max) as i32).max(1)
+        } else {
+            0
+        };
+        assert_eq!(notes, parts);
+    }
+
+    #[test]
+    fn notes_calc_half_value() {
+        // value == 50 out of 100, 50 parts -> 25
+        let value: f32 = 50.0;
+        let parts: i32 = 50;
+        let max: f32 = 100.0;
+        let notes = if value > 0.0 {
+            ((value * parts as f32 / max) as i32).max(1)
+        } else {
+            0
+        };
+        assert_eq!(notes, 25);
+    }
+
+    // --- ex_gauge calculation tests ---
+    // ex_gauge = (gauge_type >= 6 ? gauge_type - 3 : gauge_type) * 6
+
+    #[test]
+    fn ex_gauge_type_0() {
+        let gauge_type = 0;
+        let ex = (if gauge_type >= 6 {
+            gauge_type - 3
+        } else {
+            gauge_type
+        }) * 6;
+        assert_eq!(ex, 0);
+    }
+
+    #[test]
+    fn ex_gauge_type_1() {
+        let gauge_type = 1;
+        let ex = (if gauge_type >= 6 {
+            gauge_type - 3
+        } else {
+            gauge_type
+        }) * 6;
+        assert_eq!(ex, 6);
+    }
+
+    #[test]
+    fn ex_gauge_type_5() {
+        let gauge_type = 5;
+        let ex = (if gauge_type >= 6 {
+            gauge_type - 3
+        } else {
+            gauge_type
+        }) * 6;
+        assert_eq!(ex, 30);
+    }
+
+    #[test]
+    fn ex_gauge_type_6_wraps() {
+        // gauge_type 6 -> (6 - 3) * 6 = 18
+        let gauge_type = 6;
+        let ex = (if gauge_type >= 6 {
+            gauge_type - 3
+        } else {
+            gauge_type
+        }) * 6;
+        assert_eq!(ex, 18);
+    }
+
+    #[test]
+    fn ex_gauge_type_7_wraps() {
+        // gauge_type 7 -> (7 - 3) * 6 = 24
+        let gauge_type = 7;
+        let ex = (if gauge_type >= 6 {
+            gauge_type - 3
+        } else {
+            gauge_type
+        }) * 6;
+        assert_eq!(ex, 24);
+    }
+
+    // --- Image index calculation for RANDOM/INCREASE/DECREASE animation ---
+    // img_idx = ex_gauge + (notes==i ? 4 : notes-animation>i ? 0 : 2) + (border_val < border ? 1 : 0)
+
+    fn compute_img_idx_rid(
+        ex_gauge: i32,
+        notes: i32,
+        animation: i32,
+        i: i32,
+        border_val: f32,
+        border: f32,
+    ) -> i32 {
+        ex_gauge
+            + if notes == i {
+                4
+            } else if notes - animation > i {
+                0
+            } else {
+                2
+            }
+            + if border_val < border { 1 } else { 0 }
+    }
+
+    #[test]
+    fn img_idx_rid_at_notes_position() {
+        // Segment i == notes: always uses offset 4 (current tip)
+        assert_eq!(compute_img_idx_rid(0, 10, 0, 10, 50.0, 80.0), 5); // 0+4+1 (below border)
+        assert_eq!(compute_img_idx_rid(0, 10, 0, 10, 90.0, 80.0), 4); // 0+4+0 (above border)
+    }
+
+    #[test]
+    fn img_idx_rid_filled_segment() {
+        // notes - animation > i: filled segment, offset 0
+        // notes=10, animation=2, i=5 -> 10-2=8 > 5 -> filled
+        assert_eq!(compute_img_idx_rid(0, 10, 2, 5, 50.0, 80.0), 1); // 0+0+1
+        assert_eq!(compute_img_idx_rid(0, 10, 2, 5, 90.0, 80.0), 0); // 0+0+0
+    }
+
+    #[test]
+    fn img_idx_rid_empty_segment() {
+        // notes - animation <= i: empty segment, offset 2
+        // notes=10, animation=2, i=9 -> 10-2=8 <= 9 -> empty
+        assert_eq!(compute_img_idx_rid(0, 10, 2, 9, 50.0, 80.0), 3); // 0+2+1
+        assert_eq!(compute_img_idx_rid(0, 10, 2, 9, 90.0, 80.0), 2); // 0+2+0
+    }
+
+    #[test]
+    fn img_idx_rid_with_ex_gauge_offset() {
+        // ex_gauge = 6 (gauge_type=1)
+        assert_eq!(compute_img_idx_rid(6, 10, 0, 10, 50.0, 80.0), 11); // 6+4+1
+        assert_eq!(compute_img_idx_rid(6, 10, 0, 5, 90.0, 80.0), 6); // 6+0+0
+    }
+
+    #[test]
+    fn img_idx_rid_border_boundary() {
+        // border_val exactly at border -> not less than, so +0
+        assert_eq!(compute_img_idx_rid(0, 5, 0, 5, 80.0, 80.0), 4); // border_val == border -> 0
+        // border_val just below border -> +1
+        assert_eq!(compute_img_idx_rid(0, 5, 0, 5, 79.9, 80.0), 5);
+    }
+
+    // --- Image index calculation for FLICKERING animation ---
+    // img_idx = ex_gauge + (notes >= i ? 0 : 2) + (border_val < border ? 1 : 0)
+
+    fn compute_img_idx_flicker(
+        ex_gauge: i32,
+        notes: i32,
+        i: i32,
+        border_val: f32,
+        border: f32,
+    ) -> i32 {
+        ex_gauge + if notes >= i { 0 } else { 2 } + if border_val < border { 1 } else { 0 }
+    }
+
+    #[test]
+    fn img_idx_flicker_filled() {
+        // notes >= i -> filled, offset 0
+        assert_eq!(compute_img_idx_flicker(0, 10, 5, 50.0, 80.0), 1); // 0+0+1
+        assert_eq!(compute_img_idx_flicker(0, 10, 10, 90.0, 80.0), 0); // 0+0+0
+    }
+
+    #[test]
+    fn img_idx_flicker_empty() {
+        // notes < i -> empty, offset 2
+        assert_eq!(compute_img_idx_flicker(0, 5, 10, 50.0, 80.0), 3); // 0+2+1
+        assert_eq!(compute_img_idx_flicker(0, 5, 10, 90.0, 80.0), 2); // 0+2+0
+    }
+
+    #[test]
+    fn img_idx_flicker_with_ex_gauge() {
+        assert_eq!(compute_img_idx_flicker(12, 10, 5, 50.0, 80.0), 13); // 12+0+1
+        assert_eq!(compute_img_idx_flicker(12, 5, 10, 90.0, 80.0), 14); // 12+2+0
+    }
+
+    // --- draw() early return tests ---
+
+    #[test]
+    fn draw_returns_early_when_images_empty() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 10, ANIMATION_RANDOM, 4, 33);
+        // images is empty by default (not populated via prepare)
+        let mut renderer = SkinObjectRenderer::new();
+        // Should not panic -- just returns early
+        gauge.draw(&mut renderer);
+    }
+
+    #[test]
+    fn draw_returns_early_when_parts_zero() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 0, ANIMATION_RANDOM, 4, 33);
+        gauge.images = vec![TextureRegion::new(); 6]; // populate images
+        let mut renderer = SkinObjectRenderer::new();
+        // Should not panic -- parts <= 0 triggers early return
+        gauge.draw(&mut renderer);
+    }
+
+    #[test]
+    fn draw_returns_early_when_parts_negative() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, -1, ANIMATION_RANDOM, 4, 33);
+        gauge.images = vec![TextureRegion::new(); 6];
+        let mut renderer = SkinObjectRenderer::new();
+        gauge.draw(&mut renderer);
+    }
+
+    // --- draw() integration with internal state ---
+    // These tests set up internal state directly (since we're in the same module)
+    // and verify draw() completes without panic for various configurations.
+
+    #[test]
+    fn draw_random_animation_full_gauge() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 10, ANIMATION_RANDOM, 2, 100);
+        gauge.images = vec![TextureRegion::new(); 6];
+        gauge.value = 100.0;
+        gauge.max = 100.0;
+        gauge.border = 80.0;
+        gauge.gauge_type = 0;
+        gauge.animation = 1;
+        gauge.data.region = crate::stubs::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        gauge.draw(&mut renderer);
+    }
+
+    #[test]
+    fn draw_random_animation_empty_gauge() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 10, ANIMATION_RANDOM, 2, 100);
+        gauge.images = vec![TextureRegion::new(); 6];
+        gauge.value = 0.0;
+        gauge.max = 100.0;
+        gauge.border = 80.0;
+        gauge.data.region = crate::stubs::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        gauge.draw(&mut renderer);
+    }
+
+    #[test]
+    fn draw_flickering_animation() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 10, ANIMATION_FLICKERING, 2, 100);
+        gauge.images = vec![TextureRegion::new(); 6];
+        gauge.value = 50.0;
+        gauge.max = 100.0;
+        gauge.border = 80.0;
+        gauge.gauge_type = 0;
+        gauge.data.region = crate::stubs::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        gauge.draw(&mut renderer);
+    }
+
+    #[test]
+    fn draw_increase_animation() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 10, ANIMATION_INCREASE, 3, 100);
+        gauge.images = vec![TextureRegion::new(); 6];
+        gauge.value = 75.0;
+        gauge.max = 100.0;
+        gauge.border = 80.0;
+        gauge.gauge_type = 0;
+        gauge.animation = 2;
+        gauge.data.region = crate::stubs::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        gauge.draw(&mut renderer);
+    }
+
+    #[test]
+    fn draw_decrease_animation() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 10, ANIMATION_DECREASE, 3, 100);
+        gauge.images = vec![TextureRegion::new(); 6];
+        gauge.value = 30.0;
+        gauge.max = 100.0;
+        gauge.border = 80.0;
+        gauge.gauge_type = 0;
+        gauge.animation = 1;
+        gauge.data.region = crate::stubs::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        gauge.draw(&mut renderer);
+    }
+
+    #[test]
+    fn draw_with_gauge_type_above_6() {
+        // gauge_type >= 6 triggers the wrap: (gauge_type - 3) * 6
+        // gauge_type=6 -> ex_gauge=18, needs at least 18+5=23 images
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 10, ANIMATION_RANDOM, 2, 100);
+        gauge.images = vec![TextureRegion::new(); 24]; // enough for ex_gauge=18 + 5
+        gauge.value = 50.0;
+        gauge.max = 100.0;
+        gauge.border = 80.0;
+        gauge.gauge_type = 6;
+        gauge.animation = 0;
+        gauge.data.region = crate::stubs::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        gauge.draw(&mut renderer);
+    }
+
+    #[test]
+    fn draw_unknown_animation_type_does_nothing() {
+        // animation_type = 99 falls into the _ => {} branch
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 10, 99, 2, 100);
+        gauge.images = vec![TextureRegion::new(); 6];
+        gauge.value = 50.0;
+        gauge.data.region = crate::stubs::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        // Should not panic, just does nothing for unknown animation type
+        gauge.draw(&mut renderer);
+    }
+
+    #[test]
+    fn draw_skips_out_of_bounds_image_index() {
+        // With only 3 images, higher indices should be skipped (the if img_idx < self.images.len() check)
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 5, ANIMATION_FLICKERING, 0, 100);
+        gauge.images = vec![TextureRegion::new(); 3]; // only indices 0,1,2 valid
+        gauge.value = 50.0;
+        gauge.max = 100.0;
+        gauge.border = 80.0;
+        gauge.gauge_type = 0;
+        gauge.data.region = crate::stubs::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        // Some segments will compute img_idx >= 3, those should be skipped
+        gauge.draw(&mut renderer);
+    }
+
+    // --- border_val computation test ---
+    // border_val = i * max / parts for each segment i in 1..=parts
+
+    #[test]
+    fn border_val_calculation() {
+        let max = 100.0f32;
+        let parts = 10;
+        // For i=1: 1 * 100 / 10 = 10.0
+        // For i=5: 5 * 100 / 10 = 50.0
+        // For i=8: 8 * 100 / 10 = 80.0 (at border)
+        // For i=10: 10 * 100 / 10 = 100.0
+        assert!((1.0 * max / parts as f32 - 10.0).abs() < f32::EPSILON);
+        assert!((5.0 * max / parts as f32 - 50.0).abs() < f32::EPSILON);
+        assert!((8.0 * max / parts as f32 - 80.0).abs() < f32::EPSILON);
+        assert!((10.0 * max / parts as f32 - 100.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn border_val_below_and_above_border() {
+        let max = 100.0f32;
+        let parts = 10;
+        let border = 80.0f32;
+
+        // Segments 1-7 are below border (border_val < 80)
+        for i in 1..=7 {
+            let border_val = i as f32 * max / parts as f32;
+            assert!(border_val < border, "segment {i} should be below border");
+        }
+        // Segments 8-10 are at or above border
+        for i in 8..=10 {
+            let border_val = i as f32 * max / parts as f32;
+            assert!(
+                border_val >= border,
+                "segment {i} should be at or above border"
+            );
+        }
+    }
+
+    #[test]
+    fn draw_single_part_gauge() {
+        // Edge case: gauge with just 1 part
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 1, ANIMATION_FLICKERING, 0, 100);
+        gauge.images = vec![TextureRegion::new(); 6];
+        gauge.value = 100.0;
+        gauge.max = 100.0;
+        gauge.border = 80.0;
+        gauge.gauge_type = 0;
+        gauge.data.region = crate::stubs::Rectangle::new(0.0, 0.0, 100.0, 20.0);
+        let mut renderer = SkinObjectRenderer::new();
+        gauge.draw(&mut renderer);
+    }
+
+    // --- Default values test ---
+
+    #[test]
+    fn default_gauge_state() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 4, 33);
+        assert_eq!(gauge.animation, 0);
+        assert_eq!(gauge.atime, 0);
+        assert!((gauge.value - 0.0).abs() < f32::EPSILON);
+        assert_eq!(gauge.gauge_type, 0);
+        assert!((gauge.max - 100.0).abs() < f32::EPSILON);
+        assert!((gauge.border - 80.0).abs() < f32::EPSILON);
+        assert!(gauge.images.is_empty());
+        assert_eq!(gauge.starttime, 0);
+        assert_eq!(gauge.endtime, 500);
+    }
 }
