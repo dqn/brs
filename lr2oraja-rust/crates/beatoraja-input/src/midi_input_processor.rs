@@ -137,7 +137,12 @@ impl MidiInputProcessor {
                     } else {
                         0
                     };
-                    let _ = tx.send((command, data1, data2));
+                    if let Err(e) = tx.send((command, data1, data2)) {
+                        log::warn!(
+                            "MIDI event dropped (channel disconnected): command=0x{:02X}, data1={}, data2={} - {}",
+                            e.0.0, e.0.1, e.0.2, e
+                        );
+                    }
                 },
                 (),
             ) {
