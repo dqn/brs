@@ -2332,6 +2332,7 @@ dependencies = [
  "beatoraja-song",
  "beatoraja-types",
  "bms-model",
+ "image",
  "serde",
  "serde_json",
  "tempfile",
