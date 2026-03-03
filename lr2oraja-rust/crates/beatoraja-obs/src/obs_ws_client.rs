@@ -140,6 +140,12 @@ const INITIAL_RECONNECT_DELAY_MS: i32 = 2000;
 const MAX_RECONNECT_DELAY_MS: i32 = 15000;
 const RECONNECT_BACKOFF_MULTIPLIER: f64 = 1.25;
 
+/// Compute the next reconnect delay using exponential backoff, clamped to the maximum.
+fn compute_next_reconnect_delay(current_delay: i32) -> i32 {
+    let new_delay = ((current_delay as f64) * RECONNECT_BACKOFF_MULTIPLIER) as i32;
+    new_delay.min(MAX_RECONNECT_DELAY_MS)
+}
+
 impl ObsWsClient {
     pub fn new(config: &Config) -> Result<Self> {
         let server_uri = format!("ws://{}:{}", config.obs_ws_host, config.obs_ws_port);
@@ -685,9 +691,8 @@ impl ObsWsClient {
             // Update backoff delay for next attempt
             {
                 let mut guard = inner_clone.lock().unwrap();
-                let new_delay =
-                    ((guard.current_reconnect_delay as f64) * RECONNECT_BACKOFF_MULTIPLIER) as i32;
-                guard.current_reconnect_delay = new_delay.min(MAX_RECONNECT_DELAY_MS);
+                guard.current_reconnect_delay =
+                    compute_next_reconnect_delay(guard.current_reconnect_delay);
 
                 if guard.auto_reconnect && !guard.is_shutting_down {
                     guard.is_reconnecting = false;
@@ -1051,5 +1056,57 @@ mod tests {
     #[test]
     fn get_action_label_not_found() {
         assert_eq!(get_action_label("NonExistent"), None);
+    }
+
+    // -- compute_next_reconnect_delay (exponential backoff) --
+
+    #[test]
+    fn backoff_from_initial_delay() {
+        // 2000 * 1.25 = 2500
+        let next = compute_next_reconnect_delay(INITIAL_RECONNECT_DELAY_MS);
+        assert_eq!(next, 2500);
+    }
+
+    #[test]
+    fn backoff_progression_sequence() {
+        // Verify the full exponential backoff sequence from initial to max
+        let mut delay = INITIAL_RECONNECT_DELAY_MS;
+        let expected = [
+            2500, 3125, 3906, 4882, 6102, 7627, 9533, 11916, 14895, 15000,
+        ];
+        for &exp in &expected {
+            delay = compute_next_reconnect_delay(delay);
+            assert_eq!(delay, exp, "backoff mismatch at expected value {}", exp);
+        }
+    }
+
+    #[test]
+    fn backoff_clamps_at_maximum() {
+        // Starting at max should stay at max
+        let next = compute_next_reconnect_delay(MAX_RECONNECT_DELAY_MS);
+        assert_eq!(next, MAX_RECONNECT_DELAY_MS);
+    }
+
+    #[test]
+    fn backoff_from_just_below_max() {
+        // 14000 * 1.25 = 17500, clamped to 15000
+        let next = compute_next_reconnect_delay(14000);
+        assert_eq!(next, MAX_RECONNECT_DELAY_MS);
+    }
+
+    #[test]
+    fn backoff_from_zero() {
+        // 0 * 1.25 = 0 (edge case: should not go negative)
+        let next = compute_next_reconnect_delay(0);
+        assert_eq!(next, 0);
+    }
+
+    // -- Reconnect constants --
+
+    #[test]
+    fn reconnect_constants_are_sane() {
+        assert!(INITIAL_RECONNECT_DELAY_MS > 0);
+        assert!(MAX_RECONNECT_DELAY_MS > INITIAL_RECONNECT_DELAY_MS);
+        assert!(RECONNECT_BACKOFF_MULTIPLIER > 1.0);
     }
 }

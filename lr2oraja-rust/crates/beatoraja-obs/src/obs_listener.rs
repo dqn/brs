@@ -205,6 +205,17 @@ impl ObsListener {
             client.close();
         }
     }
+
+    /// Test-only constructor that doesn't try to connect to OBS.
+    #[cfg(test)]
+    fn new_without_client(config: Config) -> Self {
+        Self {
+            config,
+            obs_client: None,
+            last_state_type: None,
+            scheduled_stop_task: Arc::new(Mutex::new(None)),
+        }
+    }
 }
 
 impl MainStateListener for ObsListener {
@@ -235,5 +246,130 @@ impl MainStateListener for ObsListener {
         }
 
         self.last_state_type = Some(current_state_type);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -- cancel_scheduled_stop --
+
+    #[tokio::test]
+    async fn cancel_scheduled_stop_returns_false_when_empty() {
+        let listener = ObsListener::new_without_client(Config::default());
+        assert!(!listener.cancel_scheduled_stop());
+    }
+
+    #[tokio::test]
+    async fn cancel_scheduled_stop_returns_true_and_aborts_task() {
+        let listener = ObsListener::new_without_client(Config::default());
+
+        // Spawn a long-running task and store its handle
+        let handle = tokio::spawn(async {
+            tokio::time::sleep(Duration::from_secs(3600)).await;
+        });
+        {
+            let mut guard = listener.scheduled_stop_task.lock().unwrap();
+            *guard = Some(handle);
+        }
+
+        // cancel_scheduled_stop should return true and abort the task
+        assert!(listener.cancel_scheduled_stop());
+
+        // After cancellation, the slot should be empty
+        let guard = listener.scheduled_stop_task.lock().unwrap();
+        assert!(guard.is_none());
+    }
+
+    #[tokio::test]
+    async fn cancel_scheduled_stop_is_idempotent() {
+        let listener = ObsListener::new_without_client(Config::default());
+
+        let handle = tokio::spawn(async {
+            tokio::time::sleep(Duration::from_secs(3600)).await;
+        });
+        {
+            let mut guard = listener.scheduled_stop_task.lock().unwrap();
+            *guard = Some(handle);
+        }
+
+        // First cancel returns true
+        assert!(listener.cancel_scheduled_stop());
+        // Second cancel returns false (already consumed)
+        assert!(!listener.cancel_scheduled_stop());
+    }
+
+    // -- close cancels scheduled stop --
+
+    #[tokio::test]
+    async fn close_cancels_scheduled_stop_task() {
+        let listener = ObsListener::new_without_client(Config::default());
+
+        let handle = tokio::spawn(async {
+            tokio::time::sleep(Duration::from_secs(3600)).await;
+        });
+        assert!(!handle.is_finished());
+        {
+            let mut guard = listener.scheduled_stop_task.lock().unwrap();
+            *guard = Some(handle);
+        }
+
+        listener.close();
+
+        // After close, the slot should be empty
+        let guard = listener.scheduled_stop_task.lock().unwrap();
+        assert!(guard.is_none());
+    }
+
+    // -- trigger_state_change with no client is a no-op --
+
+    #[test]
+    fn trigger_state_change_without_client_does_not_panic() {
+        let listener = ObsListener::new_without_client(Config::default());
+        // Should return early without panic when obs_client is None
+        listener.trigger_state_change("PLAY");
+        listener.trigger_state_change_by_type(MainStateType::Play);
+        listener.trigger_play_ended();
+    }
+
+    // -- new_without_client initial state --
+
+    #[test]
+    fn new_without_client_has_no_obs_client() {
+        let listener = ObsListener::new_without_client(Config::default());
+        assert!(listener.get_obs_client().is_none());
+        assert!(listener.last_state_type.is_none());
+    }
+
+    // -- trigger_state_change_by_type name mapping (exhaustive) --
+
+    #[test]
+    fn trigger_state_change_by_type_maps_all_variants() {
+        // Verify the mapping is exhaustive by calling each variant.
+        // Since obs_client is None, trigger_state_change returns early,
+        // but the match in trigger_state_change_by_type still executes.
+        let listener = ObsListener::new_without_client(Config::default());
+        let variants = [
+            MainStateType::MusicSelect,
+            MainStateType::Decide,
+            MainStateType::Play,
+            MainStateType::Result,
+            MainStateType::CourseResult,
+            MainStateType::Config,
+            MainStateType::SkinConfig,
+        ];
+        for variant in variants {
+            // Should not panic for any variant
+            listener.trigger_state_change_by_type(variant);
+        }
+    }
+
+    // -- SCENE_NONE / ACTION_NONE constants --
+
+    #[test]
+    fn scene_none_and_action_none_are_expected_values() {
+        assert_eq!(SCENE_NONE, "(No Change)");
+        assert_eq!(ACTION_NONE, "(Do Nothing)");
     }
 }
