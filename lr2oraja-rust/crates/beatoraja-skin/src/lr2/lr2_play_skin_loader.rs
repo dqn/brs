@@ -114,6 +114,11 @@ pub struct LR2PlaySkinLoaderState {
 
     /// Parsed PomyuChara entries for deferred assembly.
     pub pmchara_entries: Vec<PmCharaEntry>,
+
+    /// Computed judge region count (set by load_skin post-processing)
+    pub computed_judge_reg: Option<i32>,
+    /// Computed line count (set by load_skin post-processing)
+    pub computed_line_count: Option<usize>,
 }
 
 impl LR2PlaySkinLoaderState {
@@ -173,6 +178,8 @@ impl LR2PlaySkinLoaderState {
             judge_objects: [None, None, None],
             judge_detail_added: [false; 3],
             pmchara_entries: Vec::new(),
+            computed_judge_reg: None,
+            computed_line_count: None,
         }
     }
 
@@ -836,8 +843,18 @@ impl LR2PlaySkinLoaderState {
         }
     }
 
-    /// Load play skin
-    pub fn load_skin(&mut self, _state: Option<&dyn MainState>) -> anyhow::Result<()> {
+    /// Load play skin from a .lr2skin CSV file.
+    ///
+    /// Pipeline: initialize arrays -> parse CSV lines -> finalize -> post-process
+    /// (lane cover, lines, judge regions, lane regions).
+    ///
+    /// Corresponds to LR2PlaySkinLoader.loadSkin() in Java (lines 897-975).
+    pub fn load_skin(
+        &mut self,
+        path: &std::path::Path,
+        state: Option<&dyn MainState>,
+    ) -> anyhow::Result<()> {
+        // 1. Initialize note/lane arrays based on mode key count
         self.mode = self.skin_type.mode();
         if let Some(ref mode) = self.mode {
             let key = mode.key() as usize;
@@ -861,16 +878,69 @@ impl LR2PlaySkinLoaderState {
             self.playerr = vec![Some(Rectangle::default()); player_count];
         }
 
-        // Would call self.csv.load_skin0(...) here
-        // Then set up lane rendering, lines, etc.
+        // 2. Read and parse CSV file, routing commands through process_play_command
+        //    which handles play-specific commands and delegates the rest to the CSV loader.
+        let raw_bytes = std::fs::read(path)?;
+        let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&raw_bytes);
+        let content = decoded.into_owned();
+
+        for line in content.lines() {
+            self.csv.line = Some(line.to_string());
+            if let Some((cmd, str_parts)) = self.csv.base.process_line_directives(line, state) {
+                self.process_play_command(&cmd, &str_parts);
+            }
+        }
+
+        // 3. Flush any remaining active objects in the CSV loader
+        self.csv.finalize_active_objects();
+
+        // 4. Post-processing: lane cover Y position adjustment
+        // When white number (lane cover position) is 0, reduce lane height by (dsth - laneCoverPosition).
+        let lane_cover_position = self.get_lane_cover_position();
+        if lane_cover_position > 0.0 {
+            for rect in self.laner.iter_mut().flatten() {
+                rect.height -= self.dsth - lane_cover_position;
+            }
+        }
+
+        // 5. Wire lane rendering: lanerender.setLaneRegion(laner, scale, dstnote2, skin)
+        // This is handled in assemble_objects() where SkinNoteObject is created with lane regions.
+
+        // 6. Count line images for judge/BPM/stop/time lines
+        // Java: skinline = lines[0..n] where n = count of non-null leading lines
+        let line_count = if self.line_images[0].is_some() {
+            if self.line_images[1].is_some() { 2 } else { 1 }
+        } else {
+            0
+        };
+
+        // Time lines (lines[6..7]): create defaults if missing but judge line exists
+        // TODO: makeDefaultLines for time/BPM/stop lines when SkinImage creation from Texture is wired
+        // Java creates default line images from "skin/default/system.png" texture.
+        // For now, we count existing line_images and set placeholder Vecs on PlaySkin.
+
+        // 7. Count judge regions
+        // Java: judge_reg starts at 1, increments for consecutive non-null judge entries
+        let mut judge_reg = 1i32;
+        for i in 1..self.judge_objects.len() {
+            if self.judge_objects[i].is_some() {
+                judge_reg += 1;
+            } else {
+                break;
+            }
+        }
+
+        // Store computed values for apply_to_play_skin to use
+        self.computed_judge_reg = Some(judge_reg);
+        self.computed_line_count = Some(line_count);
 
         Ok(())
     }
 
     /// Apply accumulated play skin properties to a PlaySkin.
-    /// Call this after processing all commands to transfer CLOSE, PLAYSTART,
-    /// LOADSTART, LOADEND, FINISHMARGIN, JUDGETIMER, DST_NOTE_EXPANSION_RATE
-    /// values to the PlaySkin object.
+    /// Call this after load_skin() to transfer CLOSE, PLAYSTART,
+    /// LOADSTART, LOADEND, FINISHMARGIN, JUDGETIMER, DST_NOTE_EXPANSION_RATE,
+    /// judge region count, lane regions, and lane group regions to the PlaySkin.
     pub fn apply_to_play_skin(&self, play_skin: &mut beatoraja_play::play_skin::PlaySkin) {
         if let Some(close) = self.play_close {
             play_skin.set_close(close);
@@ -893,6 +963,38 @@ impl LR2PlaySkinLoaderState {
         if let Some(rate) = self.play_note_expansion_rate {
             play_skin.set_note_expansion_rate(rate);
         }
+
+        // Apply computed judge region count
+        if let Some(judge_reg) = self.computed_judge_reg {
+            play_skin.set_judgeregion(judge_reg);
+        }
+
+        // Apply lane regions (convert Vec<Option<Rectangle>> -> Vec<Rectangle>)
+        let lane_rects: Vec<Rectangle> = self
+            .laner
+            .iter()
+            .map(|opt| opt.clone().unwrap_or_default())
+            .collect();
+        if !lane_rects.is_empty() {
+            play_skin.set_lane_region(Some(lane_rects));
+        }
+
+        // Apply lane group regions (player regions)
+        let group_rects: Vec<Rectangle> = self
+            .playerr
+            .iter()
+            .map(|opt| opt.clone().unwrap_or_default())
+            .collect();
+        if !group_rects.is_empty() {
+            play_skin.set_lane_group_region(Some(group_rects));
+        }
+
+        // Apply line/time/BPM/stop line counts as placeholder Vecs
+        let line_count = self.computed_line_count.unwrap_or(0);
+        play_skin.set_line(vec![(); line_count]);
+        play_skin.set_time_line(vec![(); line_count]);
+        play_skin.set_bpm_line(vec![(); line_count]);
+        play_skin.set_stop_line(vec![(); line_count]);
     }
 
     /// Get lane cover position (y coordinate when white number is 0)
@@ -1397,6 +1499,97 @@ mod tests {
         // STARTINPUT should be handled by the CSV base loader via delegation
         state.process_play_command("STARTINPUT", &str_vec(&["STARTINPUT", "750"]));
         assert_eq!(state.csv.skin_input, Some(750));
+    }
+
+    // ===== load_skin CSV pipeline integration =====
+
+    /// Helper: write content to a temp file and return the path.
+    fn write_temp_csv(name: &str, content: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join("lr2_play_skin_test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(name);
+        std::fs::write(&path, content).unwrap();
+        path
+    }
+
+    #[test]
+    fn test_load_skin_parses_csv_commands() {
+        let csv_content = "#CLOSE,500\n#PLAYSTART,1000\n#STARTINPUT,750\n";
+        let path = write_temp_csv("test_load_skin_cmds.lr2skin", csv_content);
+
+        let mut state = make_state();
+        state.load_skin(&path, None).unwrap();
+
+        assert_eq!(state.play_close, Some(500));
+        assert_eq!(state.play_playstart, Some(1000));
+        // STARTINPUT is delegated to the CSV loader
+        assert_eq!(state.csv.skin_input, Some(750));
+    }
+
+    #[test]
+    fn test_load_skin_initializes_arrays_from_mode() {
+        let csv_content = "";
+        let path = write_temp_csv("test_load_skin_init.lr2skin", csv_content);
+
+        let mut state = make_state();
+        state.load_skin(&path, None).unwrap();
+
+        // Play7Keys mode has 8 keys
+        assert_eq!(state.note.len(), 8);
+        assert_eq!(state.laner.len(), 8);
+        assert_eq!(state.scale.len(), 8);
+        assert_eq!(state.dstnote2.len(), 8);
+        // All dstnote2 should be i32::MIN
+        assert!(state.dstnote2.iter().all(|&v| v == i32::MIN));
+    }
+
+    #[test]
+    fn test_load_skin_computes_judge_reg_default() {
+        let csv_content = "";
+        let path = write_temp_csv("test_load_skin_judge.lr2skin", csv_content);
+
+        let mut state = make_state();
+        state.load_skin(&path, None).unwrap();
+
+        // No judge objects created, default judge_reg = 1
+        assert_eq!(state.computed_judge_reg, Some(1));
+    }
+
+    #[test]
+    fn test_load_skin_computes_line_count_zero() {
+        let csv_content = "";
+        let path = write_temp_csv("test_load_skin_lines.lr2skin", csv_content);
+
+        let mut state = make_state();
+        state.load_skin(&path, None).unwrap();
+
+        // No line images created
+        assert_eq!(state.computed_line_count, Some(0));
+    }
+
+    #[test]
+    fn test_load_skin_file_not_found_returns_error() {
+        let mut state = make_state();
+        let result = state.load_skin(std::path::Path::new("/nonexistent/skin.lr2skin"), None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_skin_applies_to_play_skin_with_computed_values() {
+        let csv_content = "#CLOSE,500\n#JUDGETIMER,2\n";
+        let path = write_temp_csv("test_load_skin_apply.lr2skin", csv_content);
+
+        let mut state = make_state();
+        state.load_skin(&path, None).unwrap();
+
+        let mut play_skin = beatoraja_play::play_skin::PlaySkin::new();
+        state.apply_to_play_skin(&mut play_skin);
+
+        assert_eq!(play_skin.get_close(), 500);
+        assert_eq!(play_skin.get_judgetimer(), 2);
+        assert_eq!(play_skin.get_judgeregion(), 1); // default
+        // Lane region should be set (8 default rectangles)
+        assert!(play_skin.get_lane_region().is_some());
     }
 }
 
