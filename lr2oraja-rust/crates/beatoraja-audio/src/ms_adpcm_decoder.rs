@@ -138,10 +138,10 @@ impl MSADPCMDecoder {
                     block_pos += 1;
 
                     self.channel_samples[ch][sample_ptr] =
-                        self.expand_nibble(((current_byte & 0xFF) >> 4), ch);
+                        self.expand_nibble((current_byte & 0xFF) >> 4, ch);
                     sample_ptr += 1;
                     self.channel_samples[ch][sample_ptr] =
-                        self.expand_nibble(((current_byte & 0xFF) & 0xf), ch);
+                        self.expand_nibble((current_byte & 0xFF) & 0xf, ch);
                     sample_ptr += 1;
                 }
             }
@@ -202,12 +202,12 @@ impl MSADPCMDecoder {
                 let current_byte = block_data[block_pos] as u32 as i32;
                 block_pos += 1;
 
-                let s1 = self.expand_nibble(((current_byte & 0xFF) >> 4), ch);
+                let s1 = self.expand_nibble((current_byte & 0xFF) >> 4, ch);
                 write_i16_le(out, out_short_pos, s1);
                 out_short_pos += 2;
                 ch = (ch + 1) % self.channels as usize;
 
-                let s2 = self.expand_nibble(((current_byte & 0xFF) & 0xf), ch);
+                let s2 = self.expand_nibble((current_byte & 0xFF) & 0xf, ch);
                 write_i16_le(out, out_short_pos, s2);
                 out_short_pos += 2;
                 ch = (ch + 1) % self.channels as usize;

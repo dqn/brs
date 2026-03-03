@@ -43,11 +43,7 @@ impl ScreenShotExporter for ScreenShotTwitterExporter {
 
         let screen_type = get_screen_type(current_state);
 
-        if screen_type == ScreenType::MusicSelector {
-            // empty
-        } else if screen_type == ScreenType::MusicDecide {
-            // empty
-        }
+        // MusicSelector and MusicDecide: no-op (Java stub)
 
         if screen_type == ScreenType::BMSPlayer {
             let tablename =

@@ -50,7 +50,7 @@ impl ShortPCM {
             8 => {
                 let mut s = vec![0i16; bytes];
                 for i in 0..s.len() {
-                    s[i] = (((pcm[i] as i16) - 128) * 256);
+                    s[i] = ((pcm[i] as i16) - 128) * 256;
                 }
                 sample = s;
             }

@@ -739,14 +739,7 @@ impl SkinObjectData {
         if let Some(ref fixc) = self.fixc {
             self.color.set(fixc);
             for off in self.off.iter().flatten() {
-                let mut a = self.color.a + (off.a / 255.0);
-                a = if a > 1.0 {
-                    1.0
-                } else if a < 0.0 {
-                    0.0
-                } else {
-                    a
-                };
+                let a = (self.color.a + (off.a / 255.0)).clamp(0.0, 1.0);
                 self.color.a = a;
             }
             return;
@@ -784,14 +777,7 @@ impl SkinObjectData {
             return;
         }
         for off in self.off.iter().flatten() {
-            let mut a = self.color.a + (off.a / 255.0);
-            a = if a > 1.0 {
-                1.0
-            } else if a < 0.0 {
-                0.0
-            } else {
-                a
-            };
+            let a = (self.color.a + (off.a / 255.0)).clamp(0.0, 1.0);
             self.color.a = a;
         }
     }

@@ -114,12 +114,7 @@ impl BMSRenderer {
             // -6dB headroom to try to alleviate clipping
             s *= 0.5f32;
 
-            if s > 1.0f32 {
-                s = 1.0f32;
-            }
-            if s < -1.0f32 {
-                s = -1.0f32;
-            }
+            s = s.clamp(-1.0f32, 1.0f32);
 
             let short_val = (s * 32767.0f32) as i16;
             output_buffer.extend_from_slice(&short_val.to_le_bytes());

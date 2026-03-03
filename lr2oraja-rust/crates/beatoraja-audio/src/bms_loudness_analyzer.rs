@@ -50,7 +50,7 @@ impl AnalysisResult {
         let gain_adjustment = 10.0f64.powf(-loudness_diff / 20.0);
 
         let adjusted_volume = (0.5f64 * gain_adjustment) as f32;
-        adjusted_volume.max(0.0).min(1.0)
+        adjusted_volume.clamp(0.0, 1.0)
     }
 }
 

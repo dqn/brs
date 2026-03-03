@@ -4,7 +4,6 @@
 #![allow(unreachable_code)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::needless_range_loop)]
-#![allow(clippy::if_same_then_else)]
 #![allow(clippy::diverging_sub_expression)]
 
 // beatoraja-external: External integrations (screenshot, webhook, BMS search, Discord, score import)

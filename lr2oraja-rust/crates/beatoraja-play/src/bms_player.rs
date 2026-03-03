@@ -932,12 +932,9 @@ impl BMSPlayer {
     /// Corresponds to Java getSkinType() which iterates SkinType.values().
     pub fn get_skin_type(&self) -> Option<SkinType> {
         let model_mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
-        for skin_type in SkinType::values() {
-            if skin_type.get_mode() == Some(model_mode.clone()) {
-                return Some(skin_type);
-            }
-        }
-        None
+        SkinType::values()
+            .into_iter()
+            .find(|&skin_type| skin_type.get_mode() == Some(model_mode.clone()))
     }
 
     /// Save play config from lane renderer state.
@@ -2233,7 +2230,7 @@ impl MainState for BMSPlayer {
                         } else {
                             // SELECT_TO_UNDER
                             if gauge.is_course_gauge() {
-                                (self.player_config.gauge.max(NORMAL).min(EXHARDCLASS) + CLASS
+                                (self.player_config.gauge.clamp(NORMAL, EXHARDCLASS) + CLASS
                                     - NORMAL)
                                     .min(EXHARDCLASS)
                                     + 1

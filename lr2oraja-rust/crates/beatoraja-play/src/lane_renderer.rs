@@ -797,11 +797,7 @@ impl LaneRenderer {
                                 };
                                 if let Some(pair_tl_idx) = pair_idx {
                                     let pair_tl = &all_tl[pair_tl_idx];
-                                    let pair_time = if *end {
-                                        pair_tl.get_micro_time()
-                                    } else {
-                                        pair_tl.get_micro_time()
-                                    };
+                                    let pair_time = pair_tl.get_micro_time();
                                     if pair_time >= microtime {
                                         can_advance = false;
                                         break;

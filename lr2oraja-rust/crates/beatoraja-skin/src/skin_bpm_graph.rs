@@ -157,7 +157,7 @@ impl SkinBPMGraph {
                 &shapetex_clone,
                 region.x,
                 region.y + region.height,
-                (region.width * render),
+                region.width * render,
                 -region.height,
             );
         }

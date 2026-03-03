@@ -99,12 +99,7 @@ impl Mode {
             Mode::KEYBOARD_24K,
             Mode::KEYBOARD_24K_DOUBLE,
         ];
-        for mode in modes {
-            if mode.hint() == hint {
-                return Some(mode);
-            }
-        }
-        None
+        modes.into_iter().find(|mode| mode.hint() == hint)
     }
 }
 

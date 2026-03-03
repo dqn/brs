@@ -90,7 +90,7 @@ impl BMSPlayerRule {
 }
 
 fn calculate_default_total(_mode: &Mode, totalnotes: i32) -> f64 {
-    160.0 + (totalnotes as f64 + (totalnotes as f64 - 400.0).max(0.0).min(200.0)) * 0.16
+    160.0 + (totalnotes as f64 + (totalnotes as f64 - 400.0).clamp(0.0, 200.0)) * 0.16
 }
 
 /// BMSPlayerRuleSet::LR2
