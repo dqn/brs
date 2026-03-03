@@ -460,6 +460,7 @@ impl SkinTextBitmapSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stubs::Rectangle;
 
     fn make_source(original_size: f32, source_type: i32) -> SkinTextBitmapSource {
         SkinTextBitmapSource {

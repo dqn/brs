@@ -116,7 +116,7 @@ impl SkinNoteObject {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use beatoraja_play::lane_renderer::DrawCommand;
+    use beatoraja_play::lane_renderer::{DrawCommand, NoteImageType};
 
     #[test]
     fn test_new_skin_note_object() {

@@ -1189,8 +1189,8 @@ fn get_texture_for_src(
 mod tests {
     use super::*;
     use crate::json::json_skin_loader::{
-        CustomEventData, CustomTimerData, DestinationData, RectData, SkinData, SkinHeaderData,
-        SkinObjectData as DataSkinObjectData,
+        CustomEventData, CustomOffsetData, CustomOptionData, CustomTimerData, DestinationData,
+        RectData, SkinData, SkinHeaderData, SkinObjectData as DataSkinObjectData,
     };
     use crate::stubs::Resolution;
 

@@ -1207,6 +1207,7 @@ impl BarContentsLoaderThread {
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
+    use crate::bar::song_bar::SongBar;
 
     fn make_song_data(sha256: &str, path: Option<&str>) -> SongData {
         let mut sd = SongData::default();

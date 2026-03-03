@@ -380,7 +380,7 @@ impl JSONSkinLoader {
 
         // Process properties -> options
         let mut options: Vec<CustomOptionData> = Vec::new();
-        for (_i, pr) in sk.property.iter().enumerate() {
+        for pr in sk.property.iter() {
             let mut op: Vec<i32> = Vec::new();
             let mut names: Vec<String> = Vec::new();
             for item in &pr.item {

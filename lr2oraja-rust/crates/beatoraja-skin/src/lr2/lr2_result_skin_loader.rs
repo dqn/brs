@@ -1,10 +1,10 @@
 use crate::lr2::lr2_skin_csv_loader::{LR2SkinCSVLoaderState, LR2SkinLoaderAccess};
-use crate::lr2::lr2_skin_loader::{self, LR2SkinLoaderState};
+use crate::lr2::lr2_skin_loader::{self};
 use crate::skin_bpm_graph::SkinBPMGraph;
 use crate::skin_gauge_graph_object::SkinGaugeGraphObject;
 use crate::skin_note_distribution_graph::SkinNoteDistributionGraph;
 use crate::skin_timing_distribution_graph::SkinTimingDistributionGraph;
-use crate::stubs::{MainState, Rectangle, Resolution};
+use crate::stubs::{Rectangle, Resolution};
 
 /// LR2 result skin loader
 ///

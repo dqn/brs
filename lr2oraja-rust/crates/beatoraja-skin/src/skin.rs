@@ -655,7 +655,7 @@ impl Skin {
                 // Now we need to rebuild the draw conditions
                 // We can't move out of the borrowed vec directly, so we use swap logic
                 // For simplicity in the translation, we just mark for removal
-                for (_j, (is_static, get_val)) in static_results.iter().enumerate() {
+                for (is_static, get_val) in static_results.iter() {
                     if *is_static && !get_val {
                         should_remove = true;
                     }

@@ -130,7 +130,7 @@ impl MainState for MusicDecide {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::stubs::NullPlayerResource;
+    use crate::stubs::{NullMainController, NullPlayerResource};
     use beatoraja_core::main_state::SkinDrawable;
     use beatoraja_types::timer_access::TimerAccess;
 

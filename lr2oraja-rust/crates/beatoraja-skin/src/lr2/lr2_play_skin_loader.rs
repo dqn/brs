@@ -1061,6 +1061,7 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stubs::Texture;
 
     fn make_state() -> LR2PlaySkinLoaderState {
         LR2PlaySkinLoaderState::new(

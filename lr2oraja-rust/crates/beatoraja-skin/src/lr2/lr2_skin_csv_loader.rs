@@ -9,7 +9,7 @@ use crate::skin::SkinObject;
 use crate::skin_gauge::SkinGauge;
 use crate::skin_image::SkinImage;
 use crate::skin_text_image::SkinTextImageSource;
-use crate::stubs::{MainState, Rectangle, Resolution, Texture, TextureRegion};
+use crate::stubs::{MainState, Resolution, Texture, TextureRegion};
 
 /// LR2 CSV skin loader base
 ///
