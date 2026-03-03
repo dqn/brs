@@ -290,7 +290,7 @@ impl Section {
         let basetl_key = f64_to_key(basetl_section);
         tlcache
             .get_mut(&basetl_key)
-            .unwrap()
+            .expect("timeline key must exist")
             .timeline
             .set_section_line(true);
 
@@ -319,7 +319,7 @@ impl Section {
             let layer = Layer::new(Event::new(EventType::Miss, 1), vec![poors]);
             tlcache
                 .get_mut(&basetl_key)
-                .unwrap()
+                .expect("timeline key must exist")
                 .timeline
                 .set_eventlayer(vec![layer]);
         }
@@ -367,14 +367,20 @@ impl Section {
                 let scroll_val = sce.unwrap().1;
                 let section = self.sectionnum + sc * self.rate;
                 ensure_timeline(tlcache, section, mode_key);
-                let tl = &mut tlcache.get_mut(&f64_to_key(section)).unwrap().timeline;
+                let tl = &mut tlcache
+                    .get_mut(&f64_to_key(section))
+                    .expect("timeline key must exist")
+                    .timeline;
                 tl.set_scroll(scroll_val);
                 sc_idx += 1;
             } else if bc <= st {
                 let bpm_val = bce.unwrap().1;
                 let section = self.sectionnum + bc * self.rate;
                 ensure_timeline(tlcache, section, mode_key);
-                let tl = &mut tlcache.get_mut(&f64_to_key(section)).unwrap().timeline;
+                let tl = &mut tlcache
+                    .get_mut(&f64_to_key(section))
+                    .expect("timeline key must exist")
+                    .timeline;
                 tl.set_bpm(bpm_val);
                 bc_idx += 1;
             } else if st <= 1.0 {
@@ -383,13 +389,21 @@ impl Section {
                 let section = self.sectionnum + ste_key * self.rate;
                 ensure_timeline(tlcache, section, mode_key);
                 let key = f64_to_key(section);
-                let bpm = tlcache.get(&key).unwrap().timeline.get_bpm();
+                let bpm = tlcache
+                    .get(&key)
+                    .expect("timeline key must exist")
+                    .timeline
+                    .get_bpm();
                 let stop_us = if bpm != 0.0 {
                     (1000.0 * 1000.0 * 60.0 * 4.0 * stop_val / bpm) as i64
                 } else {
                     0
                 };
-                tlcache.get_mut(&key).unwrap().timeline.set_stop(stop_us);
+                tlcache
+                    .get_mut(&key)
+                    .expect("timeline key must exist")
+                    .timeline
+                    .set_stop(stop_us);
                 st_idx += 1;
             } else {
                 break;
@@ -440,8 +454,17 @@ impl Section {
                     ensure_timeline(tlcache, section, mode_key);
                     let tl_key = f64_to_key(section);
 
-                    if tlcache.get(&tl_key).unwrap().timeline.exist_note_at(key) {
-                        let tl_time = tlcache.get(&tl_key).unwrap().timeline.get_time();
+                    if tlcache
+                        .get(&tl_key)
+                        .expect("timeline key must exist")
+                        .timeline
+                        .exist_note_at(key)
+                    {
+                        let tl_time = tlcache
+                            .get(&tl_key)
+                            .expect("timeline key must exist")
+                            .timeline
+                            .get_time();
                         log.push(DecodeLog::new(
                             State::Warning,
                             format!(
@@ -452,26 +475,39 @@ impl Section {
                         ));
                     }
                     if data == lnobj {
-                        let tl_section = tlcache.get(&tl_key).unwrap().timeline.get_section();
+                        let tl_section = tlcache
+                            .get(&tl_key)
+                            .expect("timeline key must exist")
+                            .timeline
+                            .get_section();
                         let keys_desc: Vec<u64> = tlcache.keys().rev().cloned().collect();
                         for &ekey in &keys_desc {
-                            let e_section = tlcache.get(&ekey).unwrap().timeline.get_section();
+                            let e_section = tlcache
+                                .get(&ekey)
+                                .expect("timeline key must exist")
+                                .timeline
+                                .get_section();
                             if e_section >= tl_section {
                                 continue;
                             }
-                            if !tlcache.get(&ekey).unwrap().timeline.exist_note_at(key) {
+                            if !tlcache
+                                .get(&ekey)
+                                .expect("timeline key must exist")
+                                .timeline
+                                .exist_note_at(key)
+                            {
                                 continue;
                             }
                             let note_is_normal = tlcache
                                 .get(&ekey)
-                                .unwrap()
+                                .expect("timeline key must exist")
                                 .timeline
                                 .get_note(key)
                                 .map(|n| n.is_normal())
                                 .unwrap_or(false);
                             let note_is_long_no_pair = tlcache
                                 .get(&ekey)
-                                .unwrap()
+                                .expect("timeline key must exist")
                                 .timeline
                                 .get_note(key)
                                 .map(|n| n.is_long() && n.get_pair().is_none())
@@ -480,28 +516,34 @@ impl Section {
                             if note_is_normal {
                                 let note_wav = tlcache
                                     .get(&ekey)
-                                    .unwrap()
+                                    .expect("timeline key must exist")
                                     .timeline
                                     .get_note(key)
-                                    .unwrap()
+                                    .expect("exist_note_at check guarantees note exists")
                                     .get_wav();
                                 let mut ln = Note::new_long(note_wav);
                                 ln.set_long_note_type(lnmode);
                                 tlcache
                                     .get_mut(&ekey)
-                                    .unwrap()
+                                    .expect("timeline key must exist")
                                     .timeline
                                     .set_note(key, Some(ln));
                                 let lnend = Note::new_long(-2);
                                 tlcache
                                     .get_mut(&tl_key)
-                                    .unwrap()
+                                    .expect("timeline key must exist")
                                     .timeline
                                     .set_note(key, Some(lnend));
-                                let start_section =
-                                    tlcache.get(&ekey).unwrap().timeline.get_section();
-                                let end_section =
-                                    tlcache.get(&tl_key).unwrap().timeline.get_section();
+                                let start_section = tlcache
+                                    .get(&ekey)
+                                    .expect("timeline key must exist")
+                                    .timeline
+                                    .get_section();
+                                let end_section = tlcache
+                                    .get(&tl_key)
+                                    .expect("timeline key must exist")
+                                    .timeline
+                                    .get_section();
                                 set_long_note_pair_sections(tlcache, ekey, tl_key, key);
 
                                 let key_usize = key as usize;
@@ -517,10 +559,16 @@ impl Section {
                                 });
                                 break;
                             } else if note_is_long_no_pair {
-                                let tl2_section =
-                                    tlcache.get(&ekey).unwrap().timeline.get_section();
-                                let tl_section_display =
-                                    tlcache.get(&tl_key).unwrap().timeline.get_section();
+                                let tl2_section = tlcache
+                                    .get(&ekey)
+                                    .expect("timeline key must exist")
+                                    .timeline
+                                    .get_section();
+                                let tl_section_display = tlcache
+                                    .get(&tl_key)
+                                    .expect("timeline key must exist")
+                                    .timeline
+                                    .get_section();
                                 log.push(DecodeLog::new(
                                     State::Warning,
                                     format!(
@@ -531,7 +579,7 @@ impl Section {
                                 let lnend = Note::new_long(-2);
                                 tlcache
                                     .get_mut(&tl_key)
-                                    .unwrap()
+                                    .expect("timeline key must exist")
                                     .timeline
                                     .set_note(key, Some(lnend));
                                 set_long_note_pair_sections(tlcache, ekey, tl_key, key);
@@ -553,7 +601,11 @@ impl Section {
                                 startln[key_usize] = None;
                                 break;
                             } else {
-                                let tl2_time = tlcache.get(&ekey).unwrap().timeline.get_time();
+                                let tl2_time = tlcache
+                                    .get(&ekey)
+                                    .expect("timeline key must exist")
+                                    .timeline
+                                    .get_time();
                                 log.push(DecodeLog::new(
                                     State::Warning,
                                     format!(
@@ -573,7 +625,7 @@ impl Section {
                         let note = Note::new_normal(wav_val);
                         tlcache
                             .get_mut(&tl_key)
-                            .unwrap()
+                            .expect("timeline key must exist")
                             .timeline
                             .set_note(key, Some(note));
                     }
@@ -591,7 +643,7 @@ impl Section {
                     };
                     tlcache
                         .get_mut(&tl_key)
-                        .unwrap()
+                        .expect("timeline key must exist")
                         .timeline
                         .set_hidden_note(key, Some(Note::new_normal(wav_val)));
                 }
@@ -601,7 +653,11 @@ impl Section {
                     let section = self.sectionnum + self.rate * pos;
                     ensure_timeline(tlcache, section, mode_key);
                     let tl_key = f64_to_key(section);
-                    let tl_section = tlcache.get(&tl_key).unwrap().timeline.get_section();
+                    let tl_section = tlcache
+                        .get(&tl_key)
+                        .expect("timeline key must exist")
+                        .timeline
+                        .get_section();
                     let key_usize = key as usize;
 
                     let mut insideln = false;
@@ -625,8 +681,17 @@ impl Section {
 
                     if !insideln {
                         if startln[key_usize].is_none() {
-                            if tlcache.get(&tl_key).unwrap().timeline.exist_note_at(key) {
-                                let tl_time = tlcache.get(&tl_key).unwrap().timeline.get_time();
+                            if tlcache
+                                .get(&tl_key)
+                                .expect("timeline key must exist")
+                                .timeline
+                                .exist_note_at(key)
+                            {
+                                let tl_time = tlcache
+                                    .get(&tl_key)
+                                    .expect("timeline key must exist")
+                                    .timeline
+                                    .get_time();
                                 log.push(DecodeLog::new(
                                     State::Warning,
                                     format!(
@@ -636,7 +701,7 @@ impl Section {
                                 ));
                                 let existing_is_normal = tlcache
                                     .get(&tl_key)
-                                    .unwrap()
+                                    .expect("timeline key must exist")
                                     .timeline
                                     .get_note(key)
                                     .map(|n| n.is_normal())
@@ -648,18 +713,21 @@ impl Section {
                                 };
                                 let existing_wav = tlcache
                                     .get(&tl_key)
-                                    .unwrap()
+                                    .expect("timeline key must exist")
                                     .timeline
                                     .get_note(key)
                                     .map(|n| n.get_wav())
                                     .unwrap_or(0);
                                 if existing_is_normal && existing_wav != wav_val {
-                                    let note =
-                                        tlcache.get_mut(&tl_key).unwrap().timeline.take_note(key);
+                                    let note = tlcache
+                                        .get_mut(&tl_key)
+                                        .expect("timeline key must exist")
+                                        .timeline
+                                        .take_note(key);
                                     if let Some(n) = note {
                                         tlcache
                                             .get_mut(&tl_key)
-                                            .unwrap()
+                                            .expect("timeline key must exist")
                                             .timeline
                                             .add_back_ground_note(n);
                                     }
@@ -671,10 +739,14 @@ impl Section {
                                 -2
                             };
                             let ln = Note::new_long(wav_val);
-                            let ln_section = tlcache.get(&tl_key).unwrap().timeline.get_section();
+                            let ln_section = tlcache
+                                .get(&tl_key)
+                                .expect("timeline key must exist")
+                                .timeline
+                                .get_section();
                             tlcache
                                 .get_mut(&tl_key)
-                                .unwrap()
+                                .expect("timeline key must exist")
                                 .timeline
                                 .set_note(key, Some(ln));
                             startln[key_usize] = Some(StartLnInfo {
@@ -692,14 +764,21 @@ impl Section {
                             let start_info = startln[key_usize].as_ref().unwrap().clone();
                             let keys_desc: Vec<u64> = tlcache.keys().rev().cloned().collect();
                             for &ekey in &keys_desc {
-                                let e_section = tlcache.get(&ekey).unwrap().timeline.get_section();
+                                let e_section = tlcache
+                                    .get(&ekey)
+                                    .expect("timeline key must exist")
+                                    .timeline
+                                    .get_section();
                                 if e_section >= tl_section {
                                     continue;
                                 }
 
                                 if e_section == start_info.section {
-                                    if let Some(note) =
-                                        tlcache.get_mut(&ekey).unwrap().timeline.get_note_mut(key)
+                                    if let Some(note) = tlcache
+                                        .get_mut(&ekey)
+                                        .expect("timeline key must exist")
+                                        .timeline
+                                        .get_note_mut(key)
                                     {
                                         note.set_long_note_type(lnmode);
                                     }
@@ -716,13 +795,16 @@ impl Section {
                                     let noteend = Note::new_long(noteend_wav);
                                     tlcache
                                         .get_mut(&tl_key)
-                                        .unwrap()
+                                        .expect("timeline key must exist")
                                         .timeline
                                         .set_note(key, Some(noteend));
                                     set_long_note_pair_sections(tlcache, ekey, tl_key, key);
 
-                                    let end_section =
-                                        tlcache.get(&tl_key).unwrap().timeline.get_section();
+                                    let end_section = tlcache
+                                        .get(&tl_key)
+                                        .expect("timeline key must exist")
+                                        .timeline
+                                        .get_section();
                                     if lnlist[key_usize].is_none() {
                                         lnlist[key_usize] = Some(Vec::new());
                                     }
@@ -733,11 +815,20 @@ impl Section {
 
                                     startln[key_usize] = None;
                                     break;
-                                } else if tlcache.get(&ekey).unwrap().timeline.exist_note_at(key) {
-                                    let tl2_time = tlcache.get(&ekey).unwrap().timeline.get_time();
+                                } else if tlcache
+                                    .get(&ekey)
+                                    .expect("timeline key must exist")
+                                    .timeline
+                                    .exist_note_at(key)
+                                {
+                                    let tl2_time = tlcache
+                                        .get(&ekey)
+                                        .expect("timeline key must exist")
+                                        .timeline
+                                        .get_time();
                                     let existing_is_normal = tlcache
                                         .get(&ekey)
-                                        .unwrap()
+                                        .expect("timeline key must exist")
                                         .timeline
                                         .get_note(key)
                                         .map(|n| n.is_normal())
@@ -749,12 +840,15 @@ impl Section {
                                             key + 1, tl2_time
                                         ),
                                     ));
-                                    let note =
-                                        tlcache.get_mut(&ekey).unwrap().timeline.take_note(key);
+                                    let note = tlcache
+                                        .get_mut(&ekey)
+                                        .expect("timeline key must exist")
+                                        .timeline
+                                        .take_note(key);
                                     if existing_is_normal && let Some(n) = note {
                                         tlcache
                                             .get_mut(&ekey)
-                                            .unwrap()
+                                            .expect("timeline key must exist")
                                             .timeline
                                             .add_back_ground_note(n);
                                     }
@@ -767,7 +861,11 @@ impl Section {
                         } else {
                             -2
                         };
-                        let tl_time = tlcache.get(&tl_key).unwrap().timeline.get_time();
+                        let tl_time = tlcache
+                            .get(&tl_key)
+                            .expect("timeline key must exist")
+                            .timeline
+                            .get_time();
                         startln[key_usize] = Some(StartLnInfo {
                             section: f64::MIN,
                             wav: wav_val,
@@ -786,13 +884,17 @@ impl Section {
                             if tlcache.contains_key(&start_key) {
                                 tlcache
                                     .get_mut(&start_key)
-                                    .unwrap()
+                                    .expect("timeline key must exist")
                                     .timeline
                                     .set_note(key, None);
                             }
                         }
                         startln[key_usize] = None;
-                        let tl_time = tlcache.get(&tl_key).unwrap().timeline.get_time();
+                        let tl_time = tlcache
+                            .get(&tl_key)
+                            .expect("timeline key must exist")
+                            .timeline
+                            .get_time();
                         log.push(DecodeLog::new(
                             State::Warning,
                             format!(
@@ -808,10 +910,18 @@ impl Section {
                     let section = self.sectionnum + self.rate * pos;
                     ensure_timeline(tlcache, section, mode_key);
                     let tl_key = f64_to_key(section);
-                    let tl_section = tlcache.get(&tl_key).unwrap().timeline.get_section();
+                    let tl_section = tlcache
+                        .get(&tl_key)
+                        .expect("timeline key must exist")
+                        .timeline
+                        .get_section();
                     let key_usize = key as usize;
 
-                    let mut insideln = tlcache.get(&tl_key).unwrap().timeline.exist_note_at(key);
+                    let mut insideln = tlcache
+                        .get(&tl_key)
+                        .expect("timeline key must exist")
+                        .timeline
+                        .exist_note_at(key);
                     while lnlist.len() <= key_usize {
                         lnlist.push(None);
                     }
@@ -839,11 +949,15 @@ impl Section {
                         let note = Note::new_mine(wav_val, data as f64);
                         tlcache
                             .get_mut(&tl_key)
-                            .unwrap()
+                            .expect("timeline key must exist")
                             .timeline
                             .set_note(key, Some(note));
                     } else {
-                        let tl_time = tlcache.get(&tl_key).unwrap().timeline.get_time();
+                        let tl_time = tlcache
+                            .get(&tl_key)
+                            .expect("timeline key must exist")
+                            .timeline
+                            .get_time();
                         log.push(DecodeLog::new(
                             State::Warning,
                             format!(
@@ -867,7 +981,7 @@ impl Section {
                     };
                     tlcache
                         .get_mut(&tl_key)
-                        .unwrap()
+                        .expect("timeline key must exist")
                         .timeline
                         .add_back_ground_note(Note::new_normal(wav_val));
                 }
@@ -882,7 +996,11 @@ impl Section {
                     } else {
                         -2
                     };
-                    tlcache.get_mut(&tl_key).unwrap().timeline.set_bga(bga_val);
+                    tlcache
+                        .get_mut(&tl_key)
+                        .expect("timeline key must exist")
+                        .timeline
+                        .set_bga(bga_val);
                 }
             } else if channel == LAYER_PLAY {
                 let results = process_data_collect(line, base, log, model.get_title());
@@ -897,7 +1015,7 @@ impl Section {
                     };
                     tlcache
                         .get_mut(&tl_key)
-                        .unwrap()
+                        .expect("timeline key must exist")
                         .timeline
                         .set_layer(bga_val);
                 }
@@ -969,13 +1087,21 @@ fn set_long_note_pair_sections(
     end_key: u64,
     lane: i32,
 ) {
-    let end_section = tlcache.get(&end_key).unwrap().timeline.get_section();
-    let start_section = tlcache.get(&start_key).unwrap().timeline.get_section();
+    let end_section = tlcache
+        .get(&end_key)
+        .expect("timeline key must exist")
+        .timeline
+        .get_section();
+    let start_section = tlcache
+        .get(&start_key)
+        .expect("timeline key must exist")
+        .timeline
+        .get_section();
 
     // Read start note type first
     let start_type = tlcache
         .get(&start_key)
-        .unwrap()
+        .expect("timeline key must exist")
         .timeline
         .get_note(lane)
         .map(|n| n.get_long_note_type())
@@ -983,7 +1109,7 @@ fn set_long_note_pair_sections(
 
     if let Some(note) = tlcache
         .get_mut(&start_key)
-        .unwrap()
+        .expect("timeline key must exist")
         .timeline
         .get_note_mut(lane)
         && note.is_long()
@@ -993,7 +1119,7 @@ fn set_long_note_pair_sections(
     }
     if let Some(note) = tlcache
         .get_mut(&end_key)
-        .unwrap()
+        .expect("timeline key must exist")
         .timeline
         .get_note_mut(lane)
         && note.is_long()
