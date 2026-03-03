@@ -266,4 +266,236 @@ mod tests {
         let result = pcm.change_sample_rate(0);
         assert_eq!(result.sample.len(), 0);
     }
+
+    // --- Construction tests ---
+
+    #[test]
+    fn new_stores_fields_correctly() {
+        let pcm = FloatPCM::new(2, 48000, 5, 100, vec![0.1, 0.2, 0.3, 0.4]);
+        assert_eq!(pcm.channels, 2);
+        assert_eq!(pcm.sample_rate, 48000);
+        assert_eq!(pcm.start, 5);
+        assert_eq!(pcm.len, 100);
+        assert_eq!(*pcm.sample, vec![0.1, 0.2, 0.3, 0.4]);
+    }
+
+    #[test]
+    fn new_empty_data() {
+        let pcm = FloatPCM::new(1, 44100, 0, 0, Vec::new());
+        assert!(pcm.sample.is_empty());
+        assert_eq!(pcm.len, 0);
+    }
+
+    #[test]
+    fn new_single_sample() {
+        let pcm = FloatPCM::new(1, 44100, 0, 1, vec![0.5]);
+        assert_eq!(pcm.sample.len(), 1);
+        assert!((pcm.sample[0] - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn new_extreme_values() {
+        let pcm = FloatPCM::new(1, 44100, 0, 3, vec![-1.0, 0.0, 1.0]);
+        assert!((pcm.sample[0] - (-1.0)).abs() < f32::EPSILON);
+        assert!((pcm.sample[1] - 0.0).abs() < f32::EPSILON);
+        assert!((pcm.sample[2] - 1.0).abs() < f32::EPSILON);
+    }
+
+    // --- Validate tests ---
+
+    #[test]
+    fn validate_non_empty() {
+        let pcm = FloatPCM::new(1, 44100, 0, 1, vec![0.5]);
+        assert!(pcm.validate());
+    }
+
+    #[test]
+    fn validate_empty() {
+        let pcm = FloatPCM::new(1, 44100, 0, 0, Vec::new());
+        assert!(!pcm.validate());
+    }
+
+    // --- Clone / Arc sharing tests ---
+
+    #[test]
+    fn clone_shares_sample_arc() {
+        let pcm = FloatPCM::new(1, 44100, 0, 2, vec![0.1, 0.2]);
+        let cloned = pcm.clone();
+        assert_eq!(Arc::strong_count(&pcm.sample), 2);
+        assert_eq!(*cloned.sample, vec![0.1, 0.2]);
+    }
+
+    // --- load_pcm tests ---
+
+    #[test]
+    fn load_pcm_8bit_converts_to_float() {
+        // 8-bit: (byte - 128) / 128
+        // 128 -> 0.0, 0 -> -1.0, 255 -> ~0.992
+        let loader = crate::pcm::PCMLoader {
+            pcm_data: vec![128, 0, 255],
+            channels: 1,
+            sample_rate: 44100,
+            bits_per_sample: 8,
+            block_align: 1,
+        };
+        let pcm = FloatPCM::load_pcm(&loader).unwrap();
+        assert_eq!(pcm.len, 3);
+        assert!((pcm.sample[0] - 0.0).abs() < 0.01); // 128 -> 0
+        assert!((pcm.sample[1] - (-1.0)).abs() < 0.01); // 0 -> -1
+        assert!((pcm.sample[2] - (127.0 / 128.0)).abs() < 0.01); // 255 -> ~0.992
+    }
+
+    #[test]
+    fn load_pcm_16bit_converts_to_float() {
+        // 16-bit LE: i16 / 32767
+        // 0x7FFF (32767) -> 1.0, 0x0000 -> 0.0, 0x8001 (-32767) -> -1.0
+        let loader = crate::pcm::PCMLoader {
+            pcm_data: vec![0xFF, 0x7F, 0x00, 0x00, 0x01, 0x80],
+            channels: 1,
+            sample_rate: 44100,
+            bits_per_sample: 16,
+            block_align: 2,
+        };
+        let pcm = FloatPCM::load_pcm(&loader).unwrap();
+        assert_eq!(pcm.len, 3);
+        assert!((pcm.sample[0] - 1.0).abs() < 0.001);
+        assert!((pcm.sample[1] - 0.0).abs() < 0.001);
+        assert!((pcm.sample[2] - (-1.0)).abs() < 0.001);
+    }
+
+    #[test]
+    fn load_pcm_32bit_passthrough() {
+        // 32-bit float: direct passthrough
+        let val = 0.75f32;
+        let bytes = val.to_le_bytes();
+        let loader = crate::pcm::PCMLoader {
+            pcm_data: bytes.to_vec(),
+            channels: 1,
+            sample_rate: 44100,
+            bits_per_sample: 32,
+            block_align: 4,
+        };
+        let pcm = FloatPCM::load_pcm(&loader).unwrap();
+        assert_eq!(pcm.len, 1);
+        assert!((pcm.sample[0] - 0.75).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn load_pcm_unsupported_bits() {
+        let loader = crate::pcm::PCMLoader {
+            pcm_data: vec![0; 8],
+            channels: 1,
+            sample_rate: 44100,
+            bits_per_sample: 12,
+            block_align: 2,
+        };
+        let result = FloatPCM::load_pcm(&loader);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("12 bits"));
+    }
+
+    // --- change_sample_rate tests ---
+
+    #[test]
+    fn change_sample_rate_same_rate_preserves_data() {
+        let pcm = FloatPCM::new(1, 44100, 0, 4, vec![0.1, 0.2, 0.3, 0.4]);
+        let result = pcm.change_sample_rate(44100);
+        assert_eq!(result.sample_rate, 44100);
+        assert_eq!(result.len, 4);
+        assert_eq!(*result.sample, vec![0.1, 0.2, 0.3, 0.4]);
+    }
+
+    #[test]
+    fn change_sample_rate_double_upsamples() {
+        let pcm = FloatPCM::new(1, 44100, 0, 4, vec![0.0, 0.5, 1.0, 0.25]);
+        let result = pcm.change_sample_rate(88200);
+        assert_eq!(result.sample_rate, 88200);
+        assert_eq!(result.sample.len(), 8);
+        // First sample preserved
+        assert!((result.sample[0] - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn change_sample_rate_interpolation_midpoint() {
+        // 2 samples [0.0, 1.0] at 1Hz -> upsample to 2Hz -> 4 samples
+        // At i=1: position=0, modv=1, sample=2
+        // interpolation: (0.0*(2-1) + 1.0*1) / 2 = 0.5
+        let pcm = FloatPCM::new(1, 1, 0, 2, vec![0.0, 1.0]);
+        let result = pcm.change_sample_rate(2);
+        assert_eq!(result.sample.len(), 4);
+        assert!((result.sample[0] - 0.0).abs() < f32::EPSILON); // original
+        assert!((result.sample[1] - 0.5).abs() < 0.01); // interpolated midpoint
+    }
+
+    // --- change_channels tests ---
+
+    #[test]
+    fn change_channels_mono_to_stereo() {
+        let pcm = FloatPCM::new(1, 44100, 0, 3, vec![0.1, 0.5, 0.9]);
+        let result = pcm.change_channels(2);
+        assert_eq!(result.channels, 2);
+        assert_eq!(result.sample.len(), 6);
+        // Each mono sample duplicated
+        assert!((result.sample[0] - 0.1).abs() < f32::EPSILON);
+        assert!((result.sample[1] - 0.1).abs() < f32::EPSILON);
+        assert!((result.sample[2] - 0.5).abs() < f32::EPSILON);
+        assert!((result.sample[3] - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn change_channels_stereo_to_mono() {
+        let pcm = FloatPCM::new(2, 44100, 0, 4, vec![0.1, 0.9, 0.5, 0.3]);
+        let result = pcm.change_channels(1);
+        assert_eq!(result.channels, 1);
+        assert_eq!(result.sample.len(), 2);
+        // Takes first channel of each frame
+        assert!((result.sample[0] - 0.1).abs() < f32::EPSILON);
+        assert!((result.sample[1] - 0.5).abs() < f32::EPSILON);
+    }
+
+    // --- slice tests ---
+
+    #[test]
+    fn slice_all_silent_mono_returns_some_with_one_frame() {
+        // The while loop trims trailing silence but stops when length <= channels.
+        // So all-zero mono data results in length=1 (one frame), which is > 0 -> Some.
+        let pcm = FloatPCM::new(1, 44100, 0, 4, vec![0.0, 0.0, 0.0, 0.0]);
+        let result = pcm.slice(0, 0);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().len, 1);
+    }
+
+    #[test]
+    fn slice_returns_some_for_non_silent_data() {
+        let pcm = FloatPCM::new(1, 44100, 0, 4, vec![0.5, 0.25, 0.1, 0.0]);
+        let result = pcm.slice(0, 0);
+        assert!(result.is_some());
+        let sliced = result.unwrap();
+        assert_eq!(Arc::strong_count(&sliced.sample), 2);
+    }
+
+    #[test]
+    fn slice_trims_trailing_silence() {
+        let pcm = FloatPCM::new(1, 44100, 0, 4, vec![0.5, 0.25, 0.0, 0.0]);
+        let result = pcm.slice(0, 0).unwrap();
+        assert_eq!(result.len, 2);
+    }
+
+    // --- change_frequency tests ---
+
+    #[test]
+    fn change_frequency_rate_one_preserves() {
+        let pcm = FloatPCM::new(1, 44100, 0, 4, vec![0.1, 0.2, 0.3, 0.4]);
+        let result = pcm.change_frequency(1.0);
+        assert_eq!(result.sample_rate, 44100);
+        assert_eq!(*result.sample, vec![0.1, 0.2, 0.3, 0.4]);
+    }
+
+    #[test]
+    fn change_frequency_double_speed() {
+        let pcm = FloatPCM::new(1, 44100, 0, 4, vec![0.1, 0.2, 0.3, 0.4]);
+        let result = pcm.change_frequency(2.0);
+        // 2x speed -> half the samples
+        assert_eq!(result.sample.len(), 2);
+    }
 }
