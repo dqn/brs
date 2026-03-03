@@ -857,7 +857,9 @@ impl PlayConfigurationView {
         self.commit_player();
 
         if let Some(ref config) = self.config {
-            let _ = Config::write(config);
+            if let Err(e) = Config::write(config) {
+                log::error!("Failed to write config: {}", e);
+            }
         }
 
         // tableController.commit()
@@ -944,7 +946,9 @@ impl PlayConfigurationView {
         self.skin_controller.commit();
 
         if let (Some(config), Some(player)) = (&self.config, &self.player) {
-            let _ = PlayerConfig::write(&config.playerpath, player);
+            if let Err(e) = PlayerConfig::write(&config.playerpath, player) {
+                log::error!("Failed to write player config: {}", e);
+            }
         }
     }
 
