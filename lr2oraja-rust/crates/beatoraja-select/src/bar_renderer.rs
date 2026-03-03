@@ -186,7 +186,7 @@ impl BarRenderer {
             .as_millis() as i64;
         let apply_movement = self.duration != 0 && self.duration > time_millis;
         let mut angle_lerp: f32 = 0.0;
-        if apply_movement {
+        if apply_movement && self.angle != 0 {
             if self.angle < 0 {
                 angle_lerp = (time_millis - self.duration) as f32 / self.angle as f32;
             } else {
@@ -1030,6 +1030,54 @@ mod tests {
         assert!(!renderer.bartextcharset.is_empty());
         assert!(renderer.bartextcharset.contains(&'T'));
         assert!(renderer.bartextcharset.contains(&'e'));
+    }
+
+    #[test]
+    fn test_bar_renderer_prepare_angle_zero_no_nan() {
+        let mut renderer = BarRenderer::new(300, 100, 5);
+        let mut bar = SkinBar::new(0);
+
+        // Set up two adjacent bar images so the lerp path is exercised
+        bar.barimageoff[0] = Some(make_test_image(10.0, 20.0, 100.0, 30.0));
+        bar.barimageoff[1] = Some(make_test_image(10.0, 60.0, 100.0, 30.0));
+
+        let songs = vec![
+            make_song_bar_bar("a", Some("/a.bms")),
+            make_song_bar_bar("b", Some("/b.bms")),
+        ];
+
+        // Simulate: angle=0 but duration far in the future => apply_movement=true
+        // This triggers the division-by-zero path: angle_lerp = ... / self.angle as f32
+        renderer.angle = 0;
+        renderer.duration = i64::MAX;
+
+        let ctx = PrepareContext {
+            center_bar: 2,
+            currentsongs: &songs,
+            selectedindex: 0,
+        };
+
+        renderer.prepare(&bar, 1000, &ctx);
+
+        // When angle=0, no movement should be applied. Bar positions should match
+        // the skin-defined positions (the bar image region coordinates).
+        // Before the fix, division by zero produced Infinity which corrupted positions.
+        assert_eq!(
+            renderer.bararea[0].x, 10.0,
+            "bararea[0].x should match skin position"
+        );
+        assert_eq!(
+            renderer.bararea[0].y, 20.0,
+            "bararea[0].y should match skin position"
+        );
+        assert_eq!(
+            renderer.bararea[1].x, 10.0,
+            "bararea[1].x should match skin position"
+        );
+        assert_eq!(
+            renderer.bararea[1].y, 60.0,
+            "bararea[1].y should match skin position"
+        );
     }
 
     #[test]
