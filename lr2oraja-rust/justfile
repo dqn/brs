@@ -182,4 +182,55 @@ ast-constants:
 ast-full:
     cargo run -p ast-compare -- {{ ast_common }} full
 
+# Seed fuzz corpus directories with real BMS files
+fuzz-seed:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    BMS_CORPUS="crates/bms-model/fuzz/corpus/fuzz_bms"
+    BMSON_CORPUS="crates/bms-model/fuzz/corpus/fuzz_bmson"
+    OSU_CORPUS="crates/bms-model/fuzz/corpus/fuzz_osu"
+    mkdir -p "$BMS_CORPUS" "$BMSON_CORPUS" "$OSU_CORPUS"
+    bms_count=0
+    for f in ../bms/bms-001/*.bms ../bms/bms-002/*.bms; do
+        [ -f "$f" ] || continue
+        cp "$f" "$BMS_CORPUS/real_$(basename "$f")"
+        bms_count=$((bms_count + 1))
+    done
+    for f in test-bms/*.bms; do
+        [ -f "$f" ] || continue
+        cp "$f" "$BMS_CORPUS/test_$(basename "$f")"
+        bms_count=$((bms_count + 1))
+    done
+    bmson_count=0
+    for f in test-bms/*.bmson; do
+        [ -f "$f" ] || continue
+        cp "$f" "$BMSON_CORPUS/test_$(basename "$f")"
+        bmson_count=$((bmson_count + 1))
+    done
+    osu_count=0
+    for f in test-bms/*.osu; do
+        [ -f "$f" ] || continue
+        cp "$f" "$OSU_CORPUS/test_$(basename "$f")"
+        osu_count=$((osu_count + 1))
+    done
+    echo "Seeded $bms_count BMS, $bmson_count BMSON, $osu_count OSU files"
+
+# Run a single fuzz target
+fuzz TARGET FUZZ_DURATION="60":
+    cd crates/bms-model && cargo +nightly fuzz run {{TARGET}} -- -max_total_time={{FUZZ_DURATION}}
+
+# Run all 3 fuzz targets sequentially
+fuzz-all FUZZ_DURATION="60":
+    just fuzz fuzz_bms {{FUZZ_DURATION}}
+    just fuzz fuzz_bmson {{FUZZ_DURATION}}
+    just fuzz fuzz_osu {{FUZZ_DURATION}}
+
+# Update real BMS golden master fixtures
+golden-master-real-bms-update:
+    UPDATE_REAL_BMS_FIXTURES=1 cargo test -p golden-master --test real_bms_integration real_bms_golden_master_regression -- --nocapture
+
+# Update ECFN timepoint snapshot fixtures
+golden-master-ecfn-timepoint-update:
+    UPDATE_ECFN_TIMEPOINT_SNAPSHOTS=1 cargo test -p golden-master --test skin_ecfn_integration skin_ecfn_timepoint_snapshot_regression -- --nocapture
+
 all: check test clippy fmt-check
