@@ -1,5 +1,5 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
-use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 use md5::Md5;
@@ -125,9 +125,8 @@ impl BMSDecoder {
 
         let mut maxsec: usize = 0;
 
-        // Decode MS932 (Shift_JIS) to string
-        let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(data);
-        let text = decoded.into_owned();
+        // Decode MS932 (Shift_JIS) to string (Cow::Borrowed when pure ASCII)
+        let (text, _, _) = encoding_rs::SHIFT_JIS.decode(data);
 
         model.set_mode(if ispms { Mode::POPN_9K } else { Mode::BEAT_5K });
 
@@ -149,19 +148,14 @@ impl BMSDecoder {
         let mut crandom: Vec<i32> = Vec::new();
         let mut skip: Vec<bool> = Vec::new();
 
-        let reader = BufReader::new(text.as_bytes());
-        for line_result in reader.lines() {
-            let line = match line_result {
-                Ok(l) => l,
-                Err(_) => continue,
-            };
+        for line in text.lines() {
             if line.len() < 2 {
                 continue;
             }
 
             let first_char = line.as_bytes()[0] as char;
             if first_char == '#' {
-                if matches_reserve_word(&line, "RANDOM") {
+                if matches_reserve_word(line, "RANDOM") {
                     let Some(arg) = line.get(8..) else {
                         continue;
                     };
@@ -187,7 +181,7 @@ impl BMSDecoder {
                             ));
                         }
                     }
-                } else if matches_reserve_word(&line, "IF") {
+                } else if matches_reserve_word(line, "IF") {
                     if !crandom.is_empty() {
                         let Some(arg) = line.get(4..) else {
                             continue;
@@ -209,7 +203,7 @@ impl BMSDecoder {
                             "#IFに対応する#RANDOMが定義されていません",
                         ));
                     }
-                } else if matches_reserve_word(&line, "ENDIF") {
+                } else if matches_reserve_word(line, "ENDIF") {
                     if !skip.is_empty() {
                         skip.pop();
                     } else {
@@ -218,7 +212,7 @@ impl BMSDecoder {
                             format!("ENDIFに対応するIFが存在しません: {}", line),
                         ));
                     }
-                } else if matches_reserve_word(&line, "ENDRANDOM") {
+                } else if matches_reserve_word(line, "ENDRANDOM") {
                     if !crandom.is_empty() {
                         crandom.pop();
                     } else {
@@ -241,7 +235,10 @@ impl BMSDecoder {
                                 if self.lines[bar_index].is_none() {
                                     self.lines[bar_index] = Some(Vec::new());
                                 }
-                                self.lines[bar_index].as_mut().unwrap().push(line.clone());
+                                self.lines[bar_index]
+                                    .as_mut()
+                                    .unwrap()
+                                    .push(line.to_owned());
                                 maxsec = if maxsec > bar_index {
                                     maxsec
                                 } else {
@@ -254,7 +251,7 @@ impl BMSDecoder {
                                 format!("小節に数字が定義されていません : {}", line),
                             ));
                         }
-                    } else if matches_reserve_word(&line, "BPM") {
+                    } else if matches_reserve_word(line, "BPM") {
                         if line.len() > 4 && line.as_bytes()[4] == b' ' {
                             match line[5..].trim().parse::<f64>() {
                                 Ok(bpm) => {
@@ -285,7 +282,7 @@ impl BMSDecoder {
                                 Ok(bpm) => {
                                     if bpm > 0.0 {
                                         if base == 62 {
-                                            match chart_decoder::parse_int62_str(&line, 4) {
+                                            match chart_decoder::parse_int62_str(line, 4) {
                                                 Ok(idx) => {
                                                     self.bpmtable.insert(idx, bpm);
                                                 }
@@ -300,7 +297,7 @@ impl BMSDecoder {
                                                 }
                                             }
                                         } else {
-                                            match chart_decoder::parse_int36_str(&line, 4) {
+                                            match chart_decoder::parse_int36_str(line, 4) {
                                                 Ok(idx) => {
                                                     self.bpmtable.insert(idx, bpm);
                                                 }
@@ -333,17 +330,17 @@ impl BMSDecoder {
                                 }
                             }
                         }
-                    } else if matches_reserve_word(&line, "WAV") {
+                    } else if matches_reserve_word(line, "WAV") {
                         if line.len() >= 8 {
                             let parse_result = if base == 62 {
-                                chart_decoder::parse_int62_str(&line, 4)
+                                chart_decoder::parse_int62_str(line, 4)
                             } else {
-                                chart_decoder::parse_int36_str(&line, 4)
+                                chart_decoder::parse_int36_str(line, 4)
                             };
                             match parse_result {
                                 Ok(idx) => {
-                                    let file_name =
-                                        line.get(7..).unwrap_or("").trim().replace('\\', "/");
+                                    let raw = line.get(7..).unwrap_or("").trim();
+                                    let file_name = normalize_path_separators(raw);
                                     if (idx as usize) < self.wm.len() {
                                         self.wm[idx as usize] = self.wavlist.len() as i32;
                                     } else {
@@ -353,7 +350,7 @@ impl BMSDecoder {
                                             self.wm.len() - 1
                                         );
                                     }
-                                    self.wavlist.push(file_name);
+                                    self.wavlist.push(file_name.into_owned());
                                 }
                                 Err(_) => {
                                     self.log.push(DecodeLog::new(
@@ -368,17 +365,17 @@ impl BMSDecoder {
                                 format!("#WAVxxは不十分な定義です : {}", line),
                             ));
                         }
-                    } else if matches_reserve_word(&line, "BMP") {
+                    } else if matches_reserve_word(line, "BMP") {
                         if line.len() >= 8 {
                             let parse_result = if base == 62 {
-                                chart_decoder::parse_int62_str(&line, 4)
+                                chart_decoder::parse_int62_str(line, 4)
                             } else {
-                                chart_decoder::parse_int36_str(&line, 4)
+                                chart_decoder::parse_int36_str(line, 4)
                             };
                             match parse_result {
                                 Ok(idx) => {
-                                    let file_name =
-                                        line.get(7..).unwrap_or("").trim().replace('\\', "/");
+                                    let raw = line.get(7..).unwrap_or("").trim();
+                                    let file_name = normalize_path_separators(raw);
                                     if (idx as usize) < self.bm.len() {
                                         self.bm[idx as usize] = self.bgalist.len() as i32;
                                     } else {
@@ -388,7 +385,7 @@ impl BMSDecoder {
                                             self.bm.len() - 1
                                         );
                                     }
-                                    self.bgalist.push(file_name);
+                                    self.bgalist.push(file_name.into_owned());
                                 }
                                 Err(_) => {
                                     self.log.push(DecodeLog::new(
@@ -403,12 +400,12 @@ impl BMSDecoder {
                                 format!("#BMPxxは不十分な定義です : {}", line),
                             ));
                         }
-                    } else if matches_reserve_word(&line, "STOP") {
+                    } else if matches_reserve_word(line, "STOP") {
                         if line.len() >= 9 {
                             let parse_result = if base == 62 {
-                                chart_decoder::parse_int62_str(&line, 5)
+                                chart_decoder::parse_int62_str(line, 5)
                             } else {
-                                chart_decoder::parse_int36_str(&line, 5)
+                                chart_decoder::parse_int36_str(line, 5)
                             };
                             match parse_result {
                                 Ok(idx) => {
@@ -451,12 +448,12 @@ impl BMSDecoder {
                                 format!("#STOPxxは不十分な定義です : {}", line),
                             ));
                         }
-                    } else if matches_reserve_word(&line, "SCROLL") {
+                    } else if matches_reserve_word(line, "SCROLL") {
                         if line.len() >= 11 {
                             let parse_result = if base == 62 {
-                                chart_decoder::parse_int62_str(&line, 7)
+                                chart_decoder::parse_int62_str(line, 7)
                             } else {
-                                chart_decoder::parse_int36_str(&line, 7)
+                                chart_decoder::parse_int36_str(line, 7)
                             };
                             match parse_result {
                                 Ok(idx) => match line.get(10..).unwrap_or("").trim().parse::<f64>()
@@ -489,7 +486,7 @@ impl BMSDecoder {
                         }
                     } else {
                         // Command words
-                        let handled = process_command_word(&line, &mut model, &mut self.log);
+                        let handled = process_command_word(line, &mut model, &mut self.log);
                         let _ = handled;
                     }
                 }
@@ -511,8 +508,8 @@ impl BMSDecoder {
             }
         }
 
-        model.set_wav_list(self.wavlist.clone());
-        model.set_bga_list(self.bgalist.clone());
+        model.set_wav_list(std::mem::take(&mut self.wavlist));
+        model.set_bga_list(std::mem::take(&mut self.bgalist));
 
         let mut sections: Vec<Section> = Vec::with_capacity(maxsec + 1);
         let mut prev_sectionnum: f64 = 0.0;
@@ -670,6 +667,16 @@ impl BMSDecoder {
                 }
             }
         }
+    }
+}
+
+/// Replace backslashes with forward slashes, returning `Cow::Borrowed` when no
+/// replacement is needed (the common case on non-Windows paths).
+fn normalize_path_separators(s: &str) -> Cow<'_, str> {
+    if s.contains('\\') {
+        Cow::Owned(s.replace('\\', "/"))
+    } else {
+        Cow::Borrowed(s)
     }
 }
 
@@ -874,21 +881,21 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
         CmdDef {
             name: "STAGEFILE",
             handler: |model, arg| {
-                model.set_stagefile(arg.replace('\\', "/"));
+                model.set_stagefile(normalize_path_separators(arg).into_owned());
                 None
             },
         },
         CmdDef {
             name: "BACKBMP",
             handler: |model, arg| {
-                model.set_backbmp(arg.replace('\\', "/"));
+                model.set_backbmp(normalize_path_separators(arg).into_owned());
                 None
             },
         },
         CmdDef {
             name: "PREVIEW",
             handler: |model, arg| {
-                model.set_preview(arg.replace('\\', "/"));
+                model.set_preview(normalize_path_separators(arg).into_owned());
                 None
             },
         },
@@ -962,7 +969,7 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
         CmdDef {
             name: "BANNER",
             handler: |model, arg| {
-                model.set_banner(arg.replace('\\', "/"));
+                model.set_banner(normalize_path_separators(arg).into_owned());
                 None
             },
         },
