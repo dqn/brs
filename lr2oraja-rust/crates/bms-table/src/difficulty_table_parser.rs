@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use std::sync::OnceLock;
 
 use anyhow::Result;
 use regex::Regex;
@@ -11,6 +12,21 @@ use crate::bms_table_element::BmsTableElement;
 use crate::course::{Course, Trophy};
 use crate::difficulty_table::DifficultyTable;
 use crate::difficulty_table_element::DifficultyTableElement;
+
+struct HtmlRegexes {
+    br: Regex,
+    anchor: Regex,
+    avg_judge: Regex,
+}
+
+fn html_regexes() -> &'static HtmlRegexes {
+    static REGEXES: OnceLock<HtmlRegexes> = OnceLock::new();
+    REGEXES.get_or_init(|| HtmlRegexes {
+        br: Regex::new(r"(?i)<br\s*/?>").expect("valid br regex"),
+        anchor: Regex::new(r"(?i)<a\s+href=.+'>|</a>").expect("valid anchor regex"),
+        avg_judge: Regex::new(r"Avg:.*JUDGE:[A-Z]+\s*").expect("valid avg_judge regex"),
+    })
+}
 
 pub struct DifficultyTableParser {
     data: HashMap<String, Vec<String>>,
@@ -88,10 +104,11 @@ impl DifficultyTableParser {
             {
                 self.data.insert(urlname.clone(), lines);
             }
-            if self.data.get(&urlname).is_none() {
-                return Err(anyhow::anyhow!("Failed to read URL"));
-            }
-            let lines = self.data.get(&urlname).unwrap().clone();
+            let lines = self
+                .data
+                .get(&urlname)
+                .ok_or_else(|| anyhow::anyhow!("Failed to read URL"))?
+                .clone();
             for line in &lines {
                 if line
                     .to_lowercase()
@@ -178,7 +195,7 @@ impl DifficultyTableParser {
                 }
                 for dte in table.get_elements() {
                     let level_conf = conf.get(dte.get_level());
-                    if level_conf.is_none() || !level_conf.unwrap().is_empty() {
+                    if level_conf.is_none_or(|v| !v.is_empty()) {
                         let contains = false;
                         if !contains {
                             let mut dte = dte.clone();
@@ -523,11 +540,7 @@ impl DifficultyTableParser {
         }
     }
 
-    #[allow(
-        dead_code,
-        clippy::needless_range_loop,
-        clippy::regex_creation_in_loops
-    )]
+    #[allow(dead_code, clippy::needless_range_loop)]
     fn parse_difficulty_table(
         &self,
         dt: &mut DifficultyTable,
@@ -599,10 +612,9 @@ impl DifficultyTableParser {
                             {
                                 d.element.set_url(split[1]);
                             }
-                            let br_re = Regex::new(r"(?i)<br\s*/?>").unwrap();
-                            let split_br: Vec<&str> = br_re.split(parts[1]).collect();
-                            let a_re = Regex::new(r"(?i)<a\s+href=.+'>|</a>").unwrap();
-                            let artist = a_re.replace_all(split_br[0], "");
+                            let regexes = html_regexes();
+                            let split_br: Vec<&str> = regexes.br.split(parts[1]).collect();
+                            let artist = regexes.anchor.replace_all(split_br[0], "");
                             if let Some(ref mut d) = dte {
                                 d.element.set_artist(&artist);
                             }
@@ -613,7 +625,7 @@ impl DifficultyTableParser {
                                 {
                                     d.set_package_url(split2[1]);
                                 }
-                                let pkg_name = a_re.replace_all(split_br[1], "");
+                                let pkg_name = regexes.anchor.replace_all(split_br[1], "");
                                 if let Some(ref mut d) = dte {
                                     d.set_package_name(&pkg_name);
                                 }
@@ -630,8 +642,7 @@ impl DifficultyTableParser {
                             {
                                 d.set_append_url(split3[1]);
                             }
-                            let a_re = Regex::new(r"(?i)<a\s+href=.+'>|</a>").unwrap();
-                            let append_artist = a_re.replace_all(parts[1], "");
+                            let append_artist = html_regexes().anchor.replace_all(parts[1], "");
                             if let Some(ref mut d) = dte {
                                 d.set_append_artist(&append_artist);
                             }
@@ -641,8 +652,7 @@ impl DifficultyTableParser {
                     5 => {
                         let parts: Vec<&str> = line.split('"').collect();
                         if parts.len() > 1 {
-                            let avg_re = Regex::new(r"Avg:.*JUDGE:[A-Z]+\s*").unwrap();
-                            let comment = avg_re.replace_all(parts[1], "");
+                            let comment = html_regexes().avg_judge.replace_all(parts[1], "");
                             if let Some(ref mut d) = dte {
                                 d.set_comment(&comment);
                             }
