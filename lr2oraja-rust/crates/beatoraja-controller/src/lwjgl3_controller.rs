@@ -635,22 +635,42 @@ mod tests {
     fn poll_state_reflects_connected_flag() {
         let mut ctrl = Lwjgl3Controller::new_with_state(0, 2, 2, "Pad".to_string());
 
-        // Not connected → Disconnected
+        // Not connected -> Disconnected
         ctrl.connected = false;
         assert!(matches!(ctrl.poll_state(), PollResult::Disconnected));
 
-        // Connected → Connected with empty changes
+        // Connected -> Connected with empty changes
         ctrl.connected = true;
-        match ctrl.poll_state() {
-            PollResult::Connected {
-                axis_changes,
-                button_changes,
-            } => {
-                assert!(axis_changes.is_empty());
-                assert!(button_changes.is_empty());
-            }
-            PollResult::Disconnected => panic!("expected Connected"),
-        }
+        let result = ctrl.poll_state();
+        assert!(
+            matches!(
+                &result,
+                PollResult::Connected {
+                    axis_changes,
+                    button_changes,
+                } if axis_changes.is_empty() && button_changes.is_empty()
+            ),
+            "expected Connected with empty changes, got Disconnected"
+        );
+    }
+
+    #[test]
+    fn disconnect_during_poll_does_not_panic() {
+        // A controller disconnect should be handled gracefully, not crash.
+        let mut ctrl = Lwjgl3Controller::new_with_state(0, 4, 4, "Pad".to_string());
+        ctrl.connected = true;
+
+        // Simulate disconnect by flipping the flag mid-session
+        ctrl.connected = false;
+        let result = ctrl.poll_state();
+        assert!(matches!(result, PollResult::Disconnected));
+
+        // Verify the controller reports disconnected state through the trait
+        assert!(!ctrl.is_connected());
+
+        // Operations on a disconnected controller should still work safely
+        assert!(!ctrl.get_button(0));
+        assert!((ctrl.get_axis(0) - 0.0).abs() < f32::EPSILON);
     }
 
     #[test]
