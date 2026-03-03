@@ -162,7 +162,10 @@ impl BMSDecoder {
             let first_char = line.as_bytes()[0] as char;
             if first_char == '#' {
                 if matches_reserve_word(&line, "RANDOM") {
-                    match line[8..].trim().parse::<i32>() {
+                    let Some(arg) = line.get(8..) else {
+                        continue;
+                    };
+                    match arg.trim().parse::<i32>() {
                         Ok(r) => {
                             randoms.push(r);
                             if let Some(sr) = selected_random {
@@ -186,7 +189,10 @@ impl BMSDecoder {
                     }
                 } else if matches_reserve_word(&line, "IF") {
                     if !crandom.is_empty() {
-                        match line[4..].trim().parse::<i32>() {
+                        let Some(arg) = line.get(4..) else {
+                            continue;
+                        };
+                        match arg.trim().parse::<i32>() {
                             Ok(val) => {
                                 skip.push(*crandom.last().unwrap() != val);
                             }
@@ -272,7 +278,10 @@ impl BMSDecoder {
                                 }
                             }
                         } else if line.len() > 7 {
-                            match line[7..].trim().parse::<f64>() {
+                            let Some(bpm_arg) = line.get(7..) else {
+                                continue;
+                            };
+                            match bpm_arg.trim().parse::<f64>() {
                                 Ok(bpm) => {
                                     if bpm > 0.0 {
                                         if base == 62 {
@@ -333,7 +342,8 @@ impl BMSDecoder {
                             };
                             match parse_result {
                                 Ok(idx) => {
-                                    let file_name = line[7..].trim().replace('\\', "/");
+                                    let file_name =
+                                        line.get(7..).unwrap_or("").trim().replace('\\', "/");
                                     if (idx as usize) < self.wm.len() {
                                         self.wm[idx as usize] = self.wavlist.len() as i32;
                                     } else {
@@ -367,7 +377,8 @@ impl BMSDecoder {
                             };
                             match parse_result {
                                 Ok(idx) => {
-                                    let file_name = line[7..].trim().replace('\\', "/");
+                                    let file_name =
+                                        line.get(7..).unwrap_or("").trim().replace('\\', "/");
                                     if (idx as usize) < self.bm.len() {
                                         self.bm[idx as usize] = self.bgalist.len() as i32;
                                     } else {
@@ -400,28 +411,33 @@ impl BMSDecoder {
                                 chart_decoder::parse_int36_str(&line, 5)
                             };
                             match parse_result {
-                                Ok(idx) => match line[8..].trim().parse::<f64>() {
-                                    Ok(mut stop) => {
-                                        stop /= 192.0;
-                                        if stop < 0.0 {
-                                            stop = stop.abs();
-                                            self.log.push(DecodeLog::new(
+                                Ok(idx) => {
+                                    match line.get(8..).unwrap_or("").trim().parse::<f64>() {
+                                        Ok(mut stop) => {
+                                            stop /= 192.0;
+                                            if stop < 0.0 {
+                                                stop = stop.abs();
+                                                self.log.push(DecodeLog::new(
                                                 State::Warning,
                                                 format!(
                                                     "#negative STOPはサポートされていません : {}",
                                                     line
                                                 ),
                                             ));
+                                            }
+                                            self.stoptable.insert(idx, stop);
                                         }
-                                        self.stoptable.insert(idx, stop);
+                                        Err(_) => {
+                                            self.log.push(DecodeLog::new(
+                                                State::Warning,
+                                                format!(
+                                                    "#STOPxxに数字が定義されていません : {}",
+                                                    line
+                                                ),
+                                            ));
+                                        }
                                     }
-                                    Err(_) => {
-                                        self.log.push(DecodeLog::new(
-                                            State::Warning,
-                                            format!("#STOPxxに数字が定義されていません : {}", line),
-                                        ));
-                                    }
-                                },
+                                }
                                 Err(_) => {
                                     self.log.push(DecodeLog::new(
                                         State::Warning,
@@ -443,7 +459,8 @@ impl BMSDecoder {
                                 chart_decoder::parse_int36_str(&line, 7)
                             };
                             match parse_result {
-                                Ok(idx) => match line[10..].trim().parse::<f64>() {
+                                Ok(idx) => match line.get(10..).unwrap_or("").trim().parse::<f64>()
+                                {
                                     Ok(scroll) => {
                                         self.scrolltable.insert(idx, scroll);
                                     }
@@ -983,7 +1000,10 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
 
     for cmd in commands {
         if line.len() > cmd.name.len() + 2 && matches_reserve_word(line, cmd.name) {
-            let arg = line[cmd.name.len() + 2..].trim();
+            let Some(arg) = line.get(cmd.name.len() + 2..) else {
+                continue;
+            };
+            let arg = arg.trim();
             let result = (cmd.handler)(model, arg);
             if let Some(dl) = result {
                 log.push(dl);
@@ -1393,5 +1413,187 @@ mod tests {
         assert!(handled);
         // Invalid player value should produce a warning
         assert!(!log.is_empty());
+    }
+
+    // --- Multi-byte char boundary safety regression tests ---
+    //
+    // These tests verify that string slicing does not panic when multi-byte
+    // UTF-8 characters (e.g., from Shift_JIS decoded text) appear at positions
+    // where the old byte-index slicing would land mid-character.
+
+    /// Helper: encode a UTF-8 string as Shift_JIS bytes (mimicking real BMS files).
+    fn make_bms_bytes_sjis(lines: &[&str]) -> Vec<u8> {
+        let mut content = String::new();
+        for line in lines {
+            content.push_str(line);
+            content.push('\n');
+        }
+        let (encoded, _, _) = encoding_rs::SHIFT_JIS.encode(&content);
+        encoded.into_owned()
+    }
+
+    #[test]
+    fn multibyte_title_no_panic() {
+        // #TITLE followed by multi-byte Japanese text
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes_sjis(&[
+            "#BPM 120",
+            "#TITLE \u{8868}\u{793a}\u{30c6}\u{30b9}\u{30c8}",
+        ]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(
+            model.unwrap().get_title(),
+            "\u{8868}\u{793a}\u{30c6}\u{30b9}\u{30c8}"
+        );
+    }
+
+    #[test]
+    fn multibyte_artist_no_panic() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes_sjis(&["#BPM 120", "#ARTIST \u{97f3}\u{697d}\u{5bb6}"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(model.unwrap().get_artist(), "\u{97f3}\u{697d}\u{5bb6}");
+    }
+
+    #[test]
+    fn multibyte_genre_no_panic() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes_sjis(&[
+            "#BPM 120",
+            "#GENRE \u{30cf}\u{30fc}\u{30c9}\u{30b3}\u{30a2}",
+        ]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert_eq!(
+            model.unwrap().get_genre(),
+            "\u{30cf}\u{30fc}\u{30c9}\u{30b3}\u{30a2}"
+        );
+    }
+
+    #[test]
+    fn multibyte_wav_filename_no_panic() {
+        // #WAV01 with a Japanese filename
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes_sjis(&["#BPM 120", "#WAV01 \u{97f3}\u{58f0}.wav"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        let wav_list = model.get_wav_list();
+        assert!(wav_list.iter().any(|w| w.contains(".wav")));
+    }
+
+    #[test]
+    fn multibyte_bmp_filename_no_panic() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes_sjis(&["#BPM 120", "#BMP01 \u{80cc}\u{666f}.bmp"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        let bga_list = model.get_bga_list();
+        assert!(bga_list.iter().any(|b| b.contains(".bmp")));
+    }
+
+    #[test]
+    fn multibyte_stagefile_no_panic() {
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes_sjis(&["#BPM 120", "#STAGEFILE \u{753b}\u{50cf}/stage.bmp"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        assert!(model.unwrap().get_stagefile().contains("stage.bmp"));
+    }
+
+    #[test]
+    fn malformed_random_with_multibyte_no_panic() {
+        // #RANDOM followed directly by a multi-byte char (no space, no valid number).
+        // This used to panic when slicing at byte index 8 mid-character.
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes_sjis(&["#BPM 120", "#RANDOM\u{8868}"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+    }
+
+    #[test]
+    fn malformed_if_with_multibyte_no_panic() {
+        // #IF followed by multi-byte char
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes_sjis(&[
+            "#BPM 120",
+            "#RANDOM 2",
+            "#IF \u{8868}",
+            "#ENDIF",
+            "#ENDRANDOM",
+        ]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+    }
+
+    #[test]
+    fn malformed_bpmxx_with_multibyte_no_panic() {
+        // #BPM with multi-byte chars in the index position
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes_sjis(&["#BPM 120", "#BPM\u{8868}\u{793a} 180"]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+    }
+
+    #[test]
+    fn process_command_word_multibyte_value_no_panic() {
+        let mut model = BMSModel::new();
+        let mut log = Vec::new();
+        let handled = process_command_word(
+            "#TITLE \u{8868}\u{793a}\u{30c6}\u{30b9}\u{30c8}",
+            &mut model,
+            &mut log,
+        );
+        assert!(handled);
+        assert_eq!(
+            model.get_title(),
+            "\u{8868}\u{793a}\u{30c6}\u{30b9}\u{30c8}"
+        );
+    }
+
+    #[test]
+    fn process_command_word_multibyte_genre_no_panic() {
+        let mut model = BMSModel::new();
+        let mut log = Vec::new();
+        let handled = process_command_word(
+            "#GENRE \u{30cf}\u{30fc}\u{30c9}\u{30b3}\u{30a2}",
+            &mut model,
+            &mut log,
+        );
+        assert!(handled);
+        assert_eq!(
+            model.get_genre(),
+            "\u{30cf}\u{30fc}\u{30c9}\u{30b3}\u{30a2}"
+        );
+    }
+
+    #[test]
+    fn full_bms_with_multibyte_metadata_no_panic() {
+        // Integration test: a complete BMS with all multi-byte metadata fields
+        let mut decoder = BMSDecoder::new();
+        let data = make_bms_bytes_sjis(&[
+            "#TITLE \u{661f}\u{306e}\u{5668}",
+            "#ARTIST \u{4f5c}\u{66f2}\u{8005}",
+            "#GENRE \u{30c8}\u{30e9}\u{30f3}\u{30b9}",
+            "#SUBTITLE [\u{5225}\u{540d}]",
+            "#SUBARTIST feat.\u{6b4c}\u{624b}",
+            "#STAGEFILE \u{753b}\u{50cf}\\bg.bmp",
+            "#BPM 140",
+            "#PLAYLEVEL 12",
+            "#RANK 2",
+            "#TOTAL 300",
+            "#WAV01 \u{97f3}\u{58f0}/kick.wav",
+            "#BMP01 \u{80cc}\u{666f}/bg.bmp",
+        ]);
+        let model = decoder.decode_bytes(&data, false, None);
+        assert!(model.is_some());
+        let model = model.unwrap();
+        assert_eq!(model.get_title(), "\u{661f}\u{306e}\u{5668}");
+        assert_eq!(model.get_artist(), "\u{4f5c}\u{66f2}\u{8005}");
+        assert_eq!(model.get_genre(), "\u{30c8}\u{30e9}\u{30f3}\u{30b9}");
+        assert!((model.get_bpm() - 140.0).abs() < f64::EPSILON);
     }
 }
