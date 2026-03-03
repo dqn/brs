@@ -280,6 +280,15 @@ impl TimeLine {
             None
         }
     }
+
+    pub fn take_hidden_note(&mut self, lane: i32) -> Option<Note> {
+        let idx = lane as usize;
+        if idx < self.hiddennotes.len() {
+            self.hiddennotes[idx].take()
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
