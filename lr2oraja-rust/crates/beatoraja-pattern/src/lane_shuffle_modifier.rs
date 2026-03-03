@@ -45,10 +45,11 @@ fn lane_shuffle_modify(
     make_random: impl FnOnce(&[i32], &BMSModel, i64) -> Vec<i32>,
 ) -> Vec<i32> {
     let mode = match model.get_mode() {
-        Some(m) => m.clone(),
+        Some(m) => m,
         None => return Vec::new(),
     };
-    let keys = PatternModifierBase::get_keys_static(&mode, base.player, is_scratch_lane_modify);
+    let keys = PatternModifierBase::get_keys_static(mode, base.player, is_scratch_lane_modify);
+    let lanes = mode.key() as usize;
     if keys.is_empty() {
         return Vec::new();
     }
@@ -66,37 +67,35 @@ fn lane_shuffle_modify(
         ));
     }
 
-    let lanes = mode.key() as usize;
     let timelines = model.get_all_time_lines_mut();
     for index in 0..timelines.len() {
         let tl = &timelines[index];
         if tl.exist_note() || tl.exist_hidden_note() {
+            // Take all notes out of the timeline (move, not clone)
             let mut notes: Vec<Option<Note>> = Vec::with_capacity(lanes);
             let mut hnotes: Vec<Option<Note>> = Vec::with_capacity(lanes);
-            let mut cloned: Vec<bool> = vec![false; lanes];
             for i in 0..lanes {
-                notes.push(timelines[index].get_note(i as i32).cloned());
-                hnotes.push(timelines[index].get_hidden_note(i as i32).cloned());
+                notes.push(timelines[index].take_note(i as i32));
+                hnotes.push(timelines[index].take_hidden_note(i as i32));
             }
+            // Track which source lanes have already been consumed (moved)
+            let mut consumed: Vec<bool> = vec![false; lanes];
             for i in 0..lanes {
                 let m = if i < random.len() {
                     random[i] as usize
                 } else {
                     i
                 };
-                if cloned[m] {
+                if consumed[m] {
+                    // Source already moved; must clone for duplicate mapping (e.g. Battle)
                     if let Some(ref note) = notes[m] {
                         if note.is_long() && note.is_end() {
-                            // Use pair index to find the start note's timeline directly
-                            // Java: ((LongNote) notes[mod]).getPair().getSection() == timelines[j].getSection()
-                            // In Rust, pair index IS the timeline index, so use it directly
                             if let Some(pair_tl_idx) = note.get_pair()
                                 && pair_tl_idx < timelines.len()
                                 && let Some(ln_start) =
                                     timelines[pair_tl_idx].get_note(i as i32).cloned()
                                 && ln_start.is_long()
                             {
-                                // Clone the end note (equivalent to Java's ln.getPair())
                                 timelines[index].set_note(i as i32, Some(note.clone()));
                             }
                         } else {
@@ -111,9 +110,10 @@ fn lane_shuffle_modify(
                         timelines[index].set_hidden_note(i as i32, None);
                     }
                 } else {
+                    // First use of this source lane: move instead of clone
                     timelines[index].set_note(i as i32, notes[m].take());
                     timelines[index].set_hidden_note(i as i32, hnotes[m].take());
-                    cloned[m] = true;
+                    consumed[m] = true;
                 }
             }
         }
@@ -563,10 +563,11 @@ impl PlayerBattleModifier {
 impl PatternModifier for PlayerBattleModifier {
     fn modify(&mut self, model: &mut BMSModel) {
         let mode = match model.get_mode() {
-            Some(m) => m.clone(),
+            Some(m) => m,
             None => return,
         };
-        let keys = PatternModifierBase::get_keys_static(&mode, self.base.player, true);
+        let keys = PatternModifierBase::get_keys_static(mode, self.base.player, true);
+        let lanes = mode.key() as usize;
         if keys.is_empty() {
             return;
         }
@@ -576,24 +577,24 @@ impl PatternModifier for PlayerBattleModifier {
             return;
         }
 
-        let lanes = mode.key() as usize;
         let timelines = model.get_all_time_lines_mut();
         for tl in timelines.iter_mut() {
             if tl.exist_note() || tl.exist_hidden_note() {
+                // Take all notes out of the timeline (move, not clone)
                 let mut notes: Vec<Option<Note>> = Vec::with_capacity(lanes);
                 let mut hnotes: Vec<Option<Note>> = Vec::with_capacity(lanes);
-                let mut cloned: Vec<bool> = vec![false; lanes];
                 for i in 0..lanes {
-                    notes.push(tl.get_note(i as i32).cloned());
-                    hnotes.push(tl.get_hidden_note(i as i32).cloned());
+                    notes.push(tl.take_note(i as i32));
+                    hnotes.push(tl.take_hidden_note(i as i32));
                 }
+                let mut consumed: Vec<bool> = vec![false; lanes];
                 for i in 0..lanes {
                     let m = if i < random.len() {
                         random[i] as usize
                     } else {
                         i
                     };
-                    if cloned[m] {
+                    if consumed[m] {
                         if let Some(ref note) = notes[m] {
                             tl.set_note(i as i32, Some(note.clone()));
                         } else {
@@ -607,7 +608,7 @@ impl PatternModifier for PlayerBattleModifier {
                     } else {
                         tl.set_note(i as i32, notes[m].take());
                         tl.set_hidden_note(i as i32, hnotes[m].take());
-                        cloned[m] = true;
+                        consumed[m] = true;
                     }
                 }
             }
@@ -761,7 +762,7 @@ impl LanePlayableRandomShuffleModifier {
 
     pub fn make_random(keys: &[i32], model: &BMSModel, _seed: i64) -> Vec<i32> {
         let mode = match model.get_mode() {
-            Some(m) => m.clone(),
+            Some(m) => m,
             None => return Vec::new(),
         };
         let lanes = mode.key() as usize;

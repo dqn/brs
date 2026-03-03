@@ -26,11 +26,10 @@ impl NoteShuffleModifier {
 impl PatternModifier for NoteShuffleModifier {
     fn modify(&mut self, model: &mut BMSModel) {
         self.randomizer.set_random_seed(self.base.seed);
-        let mode = match model.get_mode() {
-            Some(m) => m.clone(),
+        let keys = match model.get_mode() {
+            Some(m) => self.get_keys(m, self.base.player, self.is_scratch_lane_modify),
             None => return,
         };
-        let keys = self.get_keys(&mode, self.base.player, self.is_scratch_lane_modify);
         self.randomizer.set_modify_lanes(&keys);
         let timelines = model.get_all_time_lines_mut();
         for tl in timelines.iter_mut() {
@@ -67,7 +66,7 @@ impl PatternModifier for NoteShuffleModifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pattern_modifier::{make_test_model, PatternModifier};
+    use crate::pattern_modifier::{PatternModifier, make_test_model};
     use bms_model::note::Note;
     use bms_model::time_line::TimeLine;
     use std::collections::HashSet;
@@ -79,11 +78,7 @@ mod tests {
     /// Build a model with the given number of timelines, each having notes on
     /// the specified lanes. Each note gets a unique wav id derived from the
     /// timeline index and lane so we can track where it ends up.
-    fn make_model_with_notes(
-        mode: &Mode,
-        timeline_count: usize,
-        note_lanes: &[i32],
-    ) -> BMSModel {
+    fn make_model_with_notes(mode: &Mode, timeline_count: usize, note_lanes: &[i32]) -> BMSModel {
         let key_count = mode.key() as usize;
         let mut timelines = Vec::with_capacity(timeline_count);
         for i in 0..timeline_count {
@@ -106,9 +101,7 @@ mod tests {
             .iter()
             .map(|tl| {
                 (0..key_count)
-                    .filter_map(|lane| {
-                        tl.get_note(lane).map(|n| (lane, n.get_wav()))
-                    })
+                    .filter_map(|lane| tl.get_note(lane).map(|n| (lane, n.get_wav())))
                     .collect()
             })
             .collect()
@@ -353,7 +346,10 @@ mod tests {
 
         let result1 = run();
         let result2 = run();
-        assert_eq!(result1, result2, "Same seed should produce identical permutations");
+        assert_eq!(
+            result1, result2,
+            "Same seed should produce identical permutations"
+        );
     }
 
     #[test]
@@ -373,7 +369,10 @@ mod tests {
 
         let result1 = run();
         let result2 = run();
-        assert_eq!(result1, result2, "Same seed should produce identical permutations");
+        assert_eq!(
+            result1, result2,
+            "Same seed should produce identical permutations"
+        );
     }
 
     #[test]
