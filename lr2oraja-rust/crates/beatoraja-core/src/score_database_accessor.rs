@@ -457,13 +457,7 @@ impl ScoreDatabaseAccessor {
 
             // Calculate today's local midnight unixtime
             // Java uses Calendar.getInstance(TimeZone.getDefault()) for local timezone
-            let unixtime = chrono::Local::now()
-                .date_naive()
-                .and_hms_opt(0, 0, 0)
-                .unwrap()
-                .and_local_timezone(chrono::Local)
-                .unwrap()
-                .timestamp();
+            let unixtime = local_midnight_timestamp();
 
             let mut pd_copy = pd.clone();
             pd_copy.date = unixtime;
@@ -592,6 +586,27 @@ fn score_data_to_value(score: &ScoreData, col_name: &str) -> rusqlite::types::Va
     }
 }
 
+/// Calculate today's local midnight as a unix timestamp.
+///
+/// Handles DST transitions safely:
+/// - Ambiguous time (clocks fall back): picks the earlier of the two.
+/// - Non-existent time (clocks spring forward): falls back to the current local time's
+///   start-of-day in UTC.
+fn local_midnight_timestamp() -> i64 {
+    let naive_midnight = chrono::Local::now()
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+    naive_midnight
+        .and_local_timezone(chrono::Local)
+        .earliest()
+        .unwrap_or_else(|| {
+            // DST spring forward: local midnight doesn't exist, fall back to UTC interpretation
+            naive_midnight.and_utc().with_timezone(&chrono::Local)
+        })
+        .timestamp()
+}
+
 fn player_data_to_value(pd: &PlayerData, col_name: &str) -> rusqlite::types::Value {
     match col_name {
         "date" => rusqlite::types::Value::Integer(pd.date),
@@ -612,5 +627,54 @@ fn player_data_to_value(pd: &PlayerData, col_name: &str) -> rusqlite::types::Val
         "playtime" => rusqlite::types::Value::Integer(pd.playtime),
         "maxcombo" => rusqlite::types::Value::Integer(pd.maxcombo),
         _ => rusqlite::types::Value::Null,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn local_midnight_timestamp_does_not_panic() {
+        // This would panic before the fix if called during a DST transition
+        // because and_local_timezone().unwrap() fails on Ambiguous/None results.
+        let ts = local_midnight_timestamp();
+        assert!(ts > 0, "timestamp should be positive");
+    }
+
+    #[test]
+    fn local_midnight_timestamp_is_start_of_day() {
+        let ts = local_midnight_timestamp();
+        let now_ts = chrono::Local::now().timestamp();
+        // Midnight should be at most 24 hours before now (86400 seconds)
+        assert!(
+            now_ts - ts < 86400,
+            "midnight timestamp should be within the last 24 hours"
+        );
+        assert!(ts <= now_ts, "midnight should not be in the future");
+    }
+
+    #[test]
+    fn set_player_data_does_not_panic() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test_score.db");
+        let accessor = ScoreDatabaseAccessor::new(db_path.to_str().unwrap()).unwrap();
+        accessor.create_table();
+
+        let mut pd = PlayerData::default();
+        pd.playcount = 10;
+        pd.clear = 5;
+        pd.playtime = 3600;
+
+        // This should not panic even during DST transitions
+        accessor.set_player_data(&pd);
+
+        // Verify the data was written
+        let loaded = accessor.get_player_data();
+        assert!(loaded.is_some());
+        let loaded = loaded.unwrap();
+        assert_eq!(loaded.playcount, 10);
+        assert_eq!(loaded.clear, 5);
+        assert!(loaded.date > 0, "date should be set to local midnight");
     }
 }
