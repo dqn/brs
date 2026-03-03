@@ -964,10 +964,7 @@ SCENETIME,9999\n\
     #[test]
     fn test_image_command_nonexistent_file_pushes_null() {
         let mut state = make_state();
-        state.process_csv_command(
-            "IMAGE",
-            &str_vec(&["#IMAGE", "/nonexistent/image.png"]),
-        );
+        state.process_csv_command("IMAGE", &str_vec(&["#IMAGE", "/nonexistent/image.png"]));
         assert_eq!(state.imagelist.len(), 1);
         assert!(matches!(state.imagelist[0], ImageListEntry::Null));
     }
@@ -981,10 +978,7 @@ SCENETIME,9999\n\
         std::fs::write(&movie_path, b"fake movie data").unwrap();
 
         let mut state = make_state();
-        state.process_csv_command(
-            "IMAGE",
-            &str_vec(&["#IMAGE", movie_path.to_str().unwrap()]),
-        );
+        state.process_csv_command("IMAGE", &str_vec(&["#IMAGE", movie_path.to_str().unwrap()]));
         assert_eq!(state.imagelist.len(), 1);
         assert!(matches!(state.imagelist[0], ImageListEntry::Movie(_)));
     }
@@ -1010,10 +1004,7 @@ SCENETIME,9999\n\
         std::fs::write(&png_path, png_data).unwrap();
 
         let mut state = make_state();
-        state.process_csv_command(
-            "IMAGE",
-            &str_vec(&["#IMAGE", png_path.to_str().unwrap()]),
-        );
+        state.process_csv_command("IMAGE", &str_vec(&["#IMAGE", png_path.to_str().unwrap()]));
         assert_eq!(state.imagelist.len(), 1);
         assert!(matches!(
             state.imagelist[0],
@@ -1032,7 +1023,12 @@ SCENETIME,9999\n\
             );
         }
         assert_eq!(state.imagelist.len(), 5);
-        assert!(state.imagelist.iter().all(|e| matches!(e, ImageListEntry::Null)));
+        assert!(
+            state
+                .imagelist
+                .iter()
+                .all(|e| matches!(e, ImageListEntry::Null))
+        );
     }
 
     // --- LR2FONT command tests ---
@@ -1120,8 +1116,8 @@ SCENETIME,9999\n\
     #[test]
     fn test_read_offset_basic() {
         let parts = str_vec(&[
-            "#DST", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0",
-            "0", "0", "0", "0", "0", "0", "100", "200",
+            "#DST", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0",
+            "0", "0", "0", "0", "0", "100", "200",
         ]);
         let offsets = LR2SkinCSVLoaderState::read_offset(&parts, 21);
         // Index 21 is "0", index 22 is "100", index 23 is "200"
@@ -1165,8 +1161,7 @@ SCENETIME,9999\n\
             height: 150,
             ..Default::default()
         };
-        let images =
-            LR2SkinCSVLoaderState::get_source_image_from_texture(&tex, 0, 0, -1, -1, 1, 1);
+        let images = LR2SkinCSVLoaderState::get_source_image_from_texture(&tex, 0, 0, -1, -1, 1, 1);
         assert_eq!(images.len(), 1);
         assert_eq!(images[0].region_width, 200);
         assert_eq!(images[0].region_height, 150);
@@ -1180,8 +1175,7 @@ SCENETIME,9999\n\
             ..Default::default()
         };
         // divx=0, divy=0 should be treated as 1
-        let images =
-            LR2SkinCSVLoaderState::get_source_image_from_texture(&tex, 0, 0, 64, 64, 0, 0);
+        let images = LR2SkinCSVLoaderState::get_source_image_from_texture(&tex, 0, 0, 64, 64, 0, 0);
         assert_eq!(images.len(), 1);
         assert_eq!(images[0].region_width, 64);
         assert_eq!(images[0].region_height, 64);
@@ -1356,11 +1350,7 @@ SCENETIME,9999\n\
             let mut test_state = make_state();
             let line = format!("#{},0", cmd);
             let result = test_state.base.process_line_directives(&line, None);
-            assert!(
-                result.is_some(),
-                "Command {} should be recognized",
-                cmd
-            );
+            assert!(result.is_some(), "Command {} should be recognized", cmd);
         }
     }
 

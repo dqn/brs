@@ -644,9 +644,9 @@ mod tests {
     fn compare_times_asymmetric_judgetable() {
         // Asymmetric windows (late window larger than early window)
         let jt: Vec<[i64; 2]> = vec![
-            [-20_000, 10_000],  // PGREAT
-            [-80_000, 40_000],  // GREAT
-            [-200_000, 80_000], // GOOD
+            [-20_000, 10_000],   // PGREAT
+            [-80_000, 40_000],   // GREAT
+            [-200_000, 80_000],  // GOOD
             [-300_000, 200_000], // BAD
             [-200_000, 500_000], // MISS
         ];
