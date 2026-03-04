@@ -50,7 +50,7 @@ pub fn version_long() -> &'static str {
         } else {
             "pre-release "
         };
-        format!("LR2oraja Endless Dream {}{}", pre, unqualified_version())
+        format!("rubato {}{}", pre, unqualified_version())
     })
 }
 
@@ -205,7 +205,7 @@ mod tests {
     fn test_version_long_format() {
         let v = version_long();
         assert!(
-            v.contains("LR2oraja Endless Dream"),
+            v.contains("rubato"),
             "long version should contain product name, got: {}",
             v
         );

@@ -24,13 +24,9 @@ use rubato_render::gpu_context::GpuContext;
 use rubato_render::gpu_texture_manager::GpuTextureManager;
 use rubato_render::render_pipeline::SpriteRenderPipeline;
 
-/// LR2oraja Endless Dream - BMS player
+/// rubato - BMS player
 #[derive(Parser, Debug)]
-#[command(
-    name = "beatoraja",
-    version,
-    about = "LR2oraja Endless Dream - BMS player"
-)]
+#[command(name = "rubato", version, about = "rubato - BMS player")]
 struct Args {
     /// BMS file path to play
     #[arg(value_name = "BMS_FILE")]
@@ -358,7 +354,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = BeatorajaApp {
+    let mut app = RubatoApp {
         controller: main_controller,
         window: None,
         gpu: None,
@@ -385,7 +381,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
 ///
 /// Java equivalent: the anonymous ApplicationListener passed to Lwjgl3Application
 /// with create(), render(), resize(), pause(), resume(), dispose() callbacks.
-struct BeatorajaApp {
+struct RubatoApp {
     controller: MainController,
     window: Option<Arc<Window>>,
     gpu: Option<GpuContext>,
@@ -408,7 +404,7 @@ struct BeatorajaApp {
     initialized: bool,
 }
 
-impl ApplicationHandler for BeatorajaApp {
+impl ApplicationHandler for RubatoApp {
     /// Java: ApplicationListener.create() — called when the application is first created.
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // Populate monitor cache for VideoConfigurationView
@@ -713,7 +709,7 @@ impl ApplicationHandler for BeatorajaApp {
                         let mut encoder =
                             gpu.device
                                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                                    label: Some("beatoraja frame encoder"),
+                                    label: Some("rubato frame encoder"),
                                 });
 
                         // Upload pending textures and prepare sprite batch resources
@@ -774,7 +770,7 @@ impl ApplicationHandler for BeatorajaApp {
                         {
                             let mut render_pass =
                                 encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                                    label: Some("beatoraja sprite pass"),
+                                    label: Some("rubato sprite pass"),
                                     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                                         view: &view,
                                         resolve_target: None,
@@ -864,7 +860,7 @@ impl ApplicationHandler for BeatorajaApp {
     }
 }
 
-impl BeatorajaApp {
+impl RubatoApp {
     /// Capture the current frame and save as a PNG screenshot.
     fn capture_screenshot(&self, gpu: &GpuContext, _window: &Window) {
         let Some(ref surface_config) = gpu.surface_config else {

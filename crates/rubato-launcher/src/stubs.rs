@@ -229,7 +229,7 @@ impl VersionChecker {
 
     fn fetch_latest_release(&self) -> anyhow::Result<(String, String)> {
         let client = reqwest::blocking::Client::builder()
-            .user_agent("beatoraja-rust")
+            .user_agent("rubato")
             .build()?;
         let resp: serde_json::Value = client
             .get("https://api.github.com/repos/seraxis/lr2oraja-endlessdream/releases/latest")
