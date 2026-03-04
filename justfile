@@ -66,7 +66,7 @@ fuzz-seed:
     OSU_CORPUS="crates/bms-model/fuzz/corpus/fuzz_osu"
     mkdir -p "$BMS_CORPUS" "$BMSON_CORPUS" "$OSU_CORPUS"
     bms_count=0
-    for f in ../bms/bms-001/*.bms ../bms/bms-002/*.bms; do
+    for f in bms/bms-001/*.bms bms/bms-002/*.bms; do
         [ -f "$f" ] || continue
         cp "$f" "$BMS_CORPUS/real_$(basename "$f")"
         bms_count=$((bms_count + 1))

@@ -36,7 +36,7 @@ struct RealBmsFixture {
 
 /// Root directory containing real BMS subdirectories, relative to CARGO_MANIFEST_DIR.
 fn bms_real_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bms")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../bms")
 }
 
 /// Discover all .bms files under the known subdirectories.

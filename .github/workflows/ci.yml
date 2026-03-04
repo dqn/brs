@@ -27,19 +27,14 @@ jobs:
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "lr2oraja-rust -> target"
 
       - name: Run cargo check
-        working-directory: lr2oraja-rust
         run: cargo check --workspace
 
       - name: Run cargo fmt check
-        working-directory: lr2oraja-rust
         run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
-        working-directory: lr2oraja-rust
         run: cargo clippy --workspace -- -D warnings
 
   test:
@@ -58,11 +53,7 @@ jobs:
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "lr2oraja-rust -> target"
 
       # Exclude golden-master (requires Java environment) and screenshot tests (require GPU)
       - name: Run cargo test
-        working-directory: lr2oraja-rust
         run: cargo test --workspace --exclude golden-master
-

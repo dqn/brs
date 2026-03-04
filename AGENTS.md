@@ -36,7 +36,7 @@ beatoraja fork (Java 313 files / 72k+ lines) → Rust. 25 crates, 167k lines.
 ## Structure
 
 ```
-lr2oraja-rust/       # Cargo workspace (15 crates)
+brs/                 # Cargo workspace (15 crates) at repo root
   crates/
     bms-model        # BMS/BME/BML parser + model
     bms-table        # Difficulty table parser

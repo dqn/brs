@@ -44,7 +44,7 @@ fn make_dense_model(mode: &Mode, timeline_count: usize) -> BMSModel {
 /// and may not be present in worktrees).
 fn discover_real_bms_files() -> Vec<PathBuf> {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let candidates = [manifest.join("../../../bms"), manifest.join("../../bms")];
+    let candidates = [manifest.join("../../bms"), manifest.join("../bms")];
 
     let base = match candidates.iter().find(|p| p.is_dir()) {
         Some(p) => p.clone(),
