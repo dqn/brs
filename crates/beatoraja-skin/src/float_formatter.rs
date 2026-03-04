@@ -138,3 +138,79 @@ impl FloatFormatter {
         &self.digits
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    // output_length_invariant: The returned digits slice length always equals
+    // `length + 1` (i.e., `get_keta_length() + 1`), regardless of the input value.
+    proptest! {
+        #[test]
+        fn output_length_invariant(
+            iketa in 0..=6i32,
+            fketa in 0..=6i32,
+            sign in proptest::bool::ANY,
+            zeropadding in 0..=2i32,
+            value in 0.0..=999999.0f64,
+        ) {
+            let mut formatter = FloatFormatter::new(iketa, fketa, sign, zeropadding);
+            let expected_len = (formatter.get_keta_length() + 1) as usize;
+            let digits = formatter.calculate_and_get_digits(value);
+            prop_assert_eq!(
+                digits.len(),
+                expected_len,
+                "iketa={}, fketa={}, sign={}, zeropadding={}, value={}",
+                iketa, fketa, sign, zeropadding, value,
+            );
+        }
+    }
+
+    // digit_values_in_valid_range: Each element in the returned digits array is
+    // either -1 (unused/blank) or in the range 0..=SIGNSYMBOL (0-9 digits,
+    // REVERSEZERO=10, DECIMALPOINT=11, SIGNSYMBOL=12).
+    proptest! {
+        #[test]
+        fn digit_values_in_valid_range(
+            iketa in 0..=6i32,
+            fketa in 0..=6i32,
+            sign in proptest::bool::ANY,
+            zeropadding in 0..=2i32,
+            value in 0.0..=999999.0f64,
+        ) {
+            let mut formatter = FloatFormatter::new(iketa, fketa, sign, zeropadding);
+            let digits = formatter.calculate_and_get_digits(value);
+            for (i, &d) in digits.iter().enumerate() {
+                prop_assert!(
+                    d == -1 || (0..=SIGNSYMBOL).contains(&d),
+                    "digit[{}] = {} is out of valid range for iketa={}, fketa={}, sign={}, zeropadding={}, value={}",
+                    i, d, iketa, fketa, sign, zeropadding, value,
+                );
+            }
+        }
+    }
+
+    // decimal_point_present_when_fketa_positive: When fketa > 0 and zeropadding >= 1,
+    // the digits array contains exactly one DECIMALPOINT value.
+    proptest! {
+        #[test]
+        fn decimal_point_present_when_fketa_positive(
+            iketa in 0..=6i32,
+            fketa in 1..=6i32,
+            sign in proptest::bool::ANY,
+            zeropadding in 1..=2i32,
+            value in 0.0..=999999.0f64,
+        ) {
+            let mut formatter = FloatFormatter::new(iketa, fketa, sign, zeropadding);
+            let digits = formatter.calculate_and_get_digits(value);
+            let dp_count = digits.iter().filter(|&&d| d == DECIMALPOINT).count();
+            prop_assert_eq!(
+                dp_count,
+                1,
+                "Expected exactly 1 DECIMALPOINT but found {} for iketa={}, fketa={}, sign={}, zeropadding={}, value={}",
+                dp_count, iketa, fketa, sign, zeropadding, value,
+            );
+        }
+    }
+}
