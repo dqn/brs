@@ -49,6 +49,8 @@ pub struct GlyphAtlas {
     atlas_texture: Texture,
     /// Version counter for texture path uniqueness.
     version: u64,
+    /// Whether pixel data has been modified since last texture upload.
+    dirty: bool,
 }
 
 impl GlyphAtlas {
@@ -66,6 +68,7 @@ impl GlyphAtlas {
             cache: HashMap::new(),
             atlas_texture: Texture::default(),
             version: 0,
+            dirty: false,
         }
     }
 
@@ -143,11 +146,21 @@ impl GlyphAtlas {
         };
         self.cache.insert(key, cached.clone());
 
-        // Mark atlas texture as dirty
-        self.version += 1;
-        self.update_texture();
+        // Mark atlas as needing texture upload (deferred to flush)
+        self.dirty = true;
 
         Some(cached)
+    }
+
+    /// Flush the texture if any glyphs were rasterized since the last flush.
+    /// This batches all pending glyph rasterizations into a single texture upload,
+    /// avoiding per-glyph `pixels.clone()` overhead.
+    pub fn flush_texture_if_dirty(&mut self) {
+        if self.dirty {
+            self.version += 1;
+            self.update_texture();
+            self.dirty = false;
+        }
     }
 
     /// Create a TextureRegion for a cached glyph.
@@ -220,6 +233,77 @@ mod tests {
             atlas.pixels.len(),
             (atlas.atlas_width * atlas.atlas_height * 4) as usize
         );
+    }
+
+    #[test]
+    fn test_flush_texture_if_dirty_only_updates_when_dirty() {
+        let mut atlas = GlyphAtlas::new();
+        assert!(!atlas.dirty);
+        assert_eq!(atlas.version, 0);
+
+        // Flush when not dirty: no version bump
+        atlas.flush_texture_if_dirty();
+        assert_eq!(atlas.version, 0);
+
+        // Simulate dirty state
+        atlas.dirty = true;
+        atlas.flush_texture_if_dirty();
+        assert_eq!(atlas.version, 1);
+        assert!(!atlas.dirty);
+
+        // Flush again when not dirty: no version bump
+        atlas.flush_texture_if_dirty();
+        assert_eq!(atlas.version, 1);
+    }
+
+    /// Load the test font (NotoSansJP from assets/).
+    fn test_font() -> ab_glyph::FontVec {
+        let font_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../assets/fonts/NotoSansJP-Regular.ttf");
+        let font_data = std::fs::read(&font_path).unwrap_or_else(|e| {
+            panic!("Failed to read test font at {}: {}", font_path.display(), e)
+        });
+        ab_glyph::FontVec::try_from_vec(font_data).expect("Failed to parse test font")
+    }
+
+    #[test]
+    fn test_multiple_rasterizations_single_flush() {
+        let font = test_font();
+        let mut atlas = GlyphAtlas::new();
+        assert_eq!(atlas.version, 0);
+
+        // Rasterize multiple glyphs — version should NOT change
+        for ch in ['A', 'B', 'C', 'D', 'E'] {
+            use ab_glyph::Font;
+            let glyph_id = font.glyph_id(ch);
+            atlas.get_or_rasterize(&font, glyph_id, 24.0);
+        }
+        assert!(atlas.dirty);
+        assert_eq!(atlas.version, 0); // No version bump yet
+
+        // Single flush produces exactly one version bump
+        atlas.flush_texture_if_dirty();
+        assert_eq!(atlas.version, 1);
+        assert!(!atlas.dirty);
+
+        // Rasterize more glyphs
+        for ch in ['F', 'G'] {
+            use ab_glyph::Font;
+            let glyph_id = font.glyph_id(ch);
+            atlas.get_or_rasterize(&font, glyph_id, 24.0);
+        }
+        atlas.flush_texture_if_dirty();
+        assert_eq!(atlas.version, 2); // Second flush
+
+        // Cached glyphs don't set dirty
+        for ch in ['A', 'B', 'C'] {
+            use ab_glyph::Font;
+            let glyph_id = font.glyph_id(ch);
+            atlas.get_or_rasterize(&font, glyph_id, 24.0);
+        }
+        assert!(!atlas.dirty);
+        atlas.flush_texture_if_dirty();
+        assert_eq!(atlas.version, 2); // No change
     }
 
     #[test]

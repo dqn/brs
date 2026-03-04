@@ -210,8 +210,11 @@ impl BitmapFont {
     }
 
     /// Draw text at (x, y) using the glyph atlas.
-    /// Rasterizes glyphs on demand and submits quads to the SpriteBatch.
+    /// Uses a two-pass approach: first rasterizes all needed glyphs and collects
+    /// positions, then flushes the atlas texture once, then draws all quads.
+    /// This produces 1 texture clone per draw() call instead of N (one per new glyph).
     pub fn draw(&mut self, batch: &mut SpriteBatch, text: &str, x: f32, y: f32) {
+        use crate::glyph_atlas::CachedGlyph;
         use ab_glyph::{Font, ScaleFont};
 
         let Some(font) = self.font.clone() else {
@@ -229,8 +232,11 @@ impl BitmapFont {
             self.color[3],
         ));
 
-        let mut cursor_x = x;
         let ascent = scaled.ascent();
+
+        // Pass 1: rasterize all needed glyphs and collect positions
+        let mut glyphs_to_draw: Vec<(CachedGlyph, f32, f32)> = Vec::new();
+        let mut cursor_x = x;
         let mut prev_glyph: Option<ab_glyph::GlyphId> = None;
 
         for ch in text.chars() {
@@ -240,15 +246,22 @@ impl BitmapFont {
             }
 
             if let Some(cached) = atlas.get_or_rasterize(&font, glyph_id, self.scale) {
-                let region = atlas.texture_region(&cached);
-                // Position: cursor + bearing offsets, with y adjusted for baseline
                 let gx = cursor_x + cached.bearing_x;
                 let gy = y + ascent + cached.bearing_y;
-                batch.draw_region(&region, gx, gy, cached.width as f32, cached.height as f32);
+                glyphs_to_draw.push((cached, gx, gy));
             }
 
             cursor_x += scaled.h_advance(glyph_id);
             prev_glyph = Some(glyph_id);
+        }
+
+        // Snapshot texture once (1 clone instead of N)
+        atlas.flush_texture_if_dirty();
+
+        // Pass 2: draw all quads (all reference same texture version → 1 DrawBatch)
+        for (cached, gx, gy) in &glyphs_to_draw {
+            let region = atlas.texture_region(cached);
+            batch.draw_region(&region, *gx, *gy, cached.width as f32, cached.height as f32);
         }
 
         // Restore batch color
