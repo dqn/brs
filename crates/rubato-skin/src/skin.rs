@@ -1289,6 +1289,73 @@ mod tests {
     }
 
     #[test]
+    fn test_swap_sprite_batch_exchanges_batches() {
+        use rubato_render::sprite_batch::SpriteBatch;
+        use rubato_render::texture::{Texture, TextureRegion};
+        use std::sync::Arc;
+
+        let mut skin = make_test_skin();
+        let mut external = SpriteBatch::new();
+
+        // Draw a quad into the external batch
+        external.begin();
+        let tex = Texture {
+            width: 10,
+            height: 10,
+            disposed: false,
+            path: Some(Arc::from("swap_test")),
+            rgba_data: Some(Arc::new(vec![255u8; 400])),
+            ..Default::default()
+        };
+        let region = TextureRegion {
+            u: 0.0,
+            v: 0.0,
+            u2: 1.0,
+            v2: 1.0,
+            region_x: 0,
+            region_y: 0,
+            region_width: 10,
+            region_height: 10,
+            texture: Some(tex),
+        };
+        external.draw_region(&region, 0.0, 0.0, 10.0, 10.0);
+        external.end();
+        assert_eq!(
+            external.vertices().len(),
+            6,
+            "precondition: 1 quad = 6 vertices"
+        );
+
+        // Swap: skin takes the populated batch, external gets empty one
+        skin.swap_sprite_batch(&mut external);
+        assert!(
+            external.vertices().is_empty(),
+            "after swap-in, external should be empty"
+        );
+
+        // Swap back: external gets the populated batch back
+        skin.swap_sprite_batch(&mut external);
+        assert_eq!(
+            external.vertices().len(),
+            6,
+            "after swap-back, external has vertices again"
+        );
+    }
+
+    #[test]
+    fn test_swap_sprite_batch_creates_renderer_if_needed() {
+        use rubato_render::sprite_batch::SpriteBatch;
+
+        let mut skin = make_test_skin();
+        // Skin starts with renderer = None
+        let mut batch = SpriteBatch::new();
+        // Should not panic — swap_sprite_batch creates renderer lazily
+        skin.swap_sprite_batch(&mut batch);
+        // Swap back to verify it worked
+        skin.swap_sprite_batch(&mut batch);
+    }
+
+    #[test]
     fn test_skin_is_send() {
         fn assert_send<T: Send>() {}
         assert_send::<Skin>();

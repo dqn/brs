@@ -2515,6 +2515,115 @@ mod tests {
         );
     }
 
+    /// A SkinDrawable that generates vertices via swap_sprite_batch.
+    /// This catches the original SpriteBatch disconnect bug: if MainController
+    /// doesn't call swap_sprite_batch, the mock draws to its own internal batch
+    /// and MainController's batch stays empty.
+    struct VertexGeneratingSkinDrawable {
+        sprite: SpriteBatch,
+    }
+
+    impl VertexGeneratingSkinDrawable {
+        fn new() -> Self {
+            Self {
+                sprite: SpriteBatch::new(),
+            }
+        }
+    }
+
+    impl SkinDrawable for VertexGeneratingSkinDrawable {
+        fn draw_all_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+            // Draw a test quad to our internal sprite batch.
+            // After swap_sprite_batch, this is actually MainController's batch.
+            use rubato_render::texture::{Texture, TextureRegion};
+            use std::sync::Arc;
+
+            let tex = Texture {
+                width: 10,
+                height: 10,
+                disposed: false,
+                path: Some(Arc::from("test_vertex_gen")),
+                rgba_data: Some(Arc::new(vec![255u8; 400])),
+                ..Default::default()
+            };
+            let region = TextureRegion {
+                u: 0.0,
+                v: 0.0,
+                u2: 1.0,
+                v2: 1.0,
+                region_x: 0,
+                region_y: 0,
+                region_width: 10,
+                region_height: 10,
+                texture: Some(tex),
+            };
+            self.sprite.draw_region(&region, 0.0, 0.0, 10.0, 10.0);
+        }
+
+        fn update_custom_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn mouse_pressed_at(&mut self, _button: i32, _x: i32, _y: i32) {}
+        fn mouse_dragged_at(&mut self, _button: i32, _x: i32, _y: i32) {}
+        fn prepare_skin(&mut self) {}
+        fn dispose_skin(&mut self) {}
+        fn get_fadeout(&self) -> i32 {
+            0
+        }
+        fn get_input(&self) -> i32 {
+            0
+        }
+        fn get_scene(&self) -> i32 {
+            0
+        }
+        fn get_width(&self) -> f32 {
+            1280.0
+        }
+        fn get_height(&self) -> f32 {
+            720.0
+        }
+
+        fn swap_sprite_batch(&mut self, batch: &mut SpriteBatch) {
+            std::mem::swap(&mut self.sprite, batch);
+        }
+    }
+
+    /// Verifies end-to-end vertex flow: Skin -> swap -> draw -> swap back -> MainController sprite batch.
+    /// This test directly catches the SpriteBatch disconnect bug where skin drew to an internal
+    /// batch but MainController flushed a separate empty one.
+    #[test]
+    fn test_render_produces_vertices_via_skin() {
+        let mut mc = make_test_controller();
+        mc.create();
+
+        let skin = Box::new(VertexGeneratingSkinDrawable::new());
+        mc.current = Some(Box::new(SkinTestState::new_with_skin(skin)));
+
+        // Before render, sprite batch should be empty
+        let batch = mc.get_sprite_batch().unwrap();
+        assert!(
+            batch.vertices().is_empty(),
+            "sprite batch should start empty"
+        );
+
+        // Render one frame
+        mc.render();
+
+        // After render, sprite batch should contain vertices from the skin
+        let batch = mc.get_sprite_batch().unwrap();
+        assert!(
+            !batch.vertices().is_empty(),
+            "after render, sprite batch should contain vertices drawn by skin"
+        );
+        assert_eq!(batch.vertices().len(), 6, "one quad = 6 vertices");
+    }
+
     // --- triggerLnWarning tests ---
 
     #[test]

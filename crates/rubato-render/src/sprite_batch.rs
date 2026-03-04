@@ -390,6 +390,11 @@ impl SpriteBatch {
         }
     }
 
+    #[cfg(test)]
+    pub fn draw_batch_count(&self) -> usize {
+        self.draw_batches.len()
+    }
+
     /// Push a simple axis-aligned quad.
     #[allow(clippy::too_many_arguments)]
     fn push_quad(&mut self, x: f32, y: f32, w: f32, h: f32, u1: f32, v1: f32, u2: f32, v2: f32) {
@@ -612,5 +617,167 @@ mod tests {
         assert_eq!(layout.attributes[0].offset, 0);
         assert_eq!(layout.attributes[1].offset, 8);
         assert_eq!(layout.attributes[2].offset, 16);
+    }
+
+    #[test]
+    fn test_draw_batches_split_on_texture_change() {
+        let mut batch = SpriteBatch::new();
+        batch.begin();
+
+        // Draw with texture A
+        let tex_a = Texture {
+            width: 10,
+            height: 10,
+            disposed: false,
+            path: Some(Arc::from("tex_a")),
+            rgba_data: Some(Arc::new(vec![255u8; 400])),
+            ..Default::default()
+        };
+        let region_a = TextureRegion {
+            u: 0.0,
+            v: 0.0,
+            u2: 1.0,
+            v2: 1.0,
+            region_x: 0,
+            region_y: 0,
+            region_width: 10,
+            region_height: 10,
+            texture: Some(tex_a),
+        };
+        batch.draw_region(&region_a, 0.0, 0.0, 10.0, 10.0);
+
+        // Draw with texture B
+        let tex_b = Texture {
+            width: 10,
+            height: 10,
+            disposed: false,
+            path: Some(Arc::from("tex_b")),
+            rgba_data: Some(Arc::new(vec![255u8; 400])),
+            ..Default::default()
+        };
+        let region_b = TextureRegion {
+            u: 0.0,
+            v: 0.0,
+            u2: 1.0,
+            v2: 1.0,
+            region_x: 0,
+            region_y: 0,
+            region_width: 10,
+            region_height: 10,
+            texture: Some(tex_b),
+        };
+        batch.draw_region(&region_b, 20.0, 0.0, 10.0, 10.0);
+
+        batch.end();
+
+        assert_eq!(batch.vertices().len(), 12, "two quads = 12 vertices");
+        assert_eq!(
+            batch.draw_batch_count(),
+            2,
+            "different textures = 2 batches"
+        );
+    }
+
+    #[test]
+    fn test_draw_batches_same_texture_single_batch() {
+        let mut batch = SpriteBatch::new();
+        batch.begin();
+
+        let tex = Texture {
+            width: 10,
+            height: 10,
+            disposed: false,
+            path: Some(Arc::from("tex_same")),
+            rgba_data: Some(Arc::new(vec![255u8; 400])),
+            ..Default::default()
+        };
+        let region = TextureRegion {
+            u: 0.0,
+            v: 0.0,
+            u2: 1.0,
+            v2: 1.0,
+            region_x: 0,
+            region_y: 0,
+            region_width: 10,
+            region_height: 10,
+            texture: Some(tex),
+        };
+        batch.draw_region(&region, 0.0, 0.0, 10.0, 10.0);
+        batch.draw_region(&region, 20.0, 0.0, 10.0, 10.0);
+
+        batch.end();
+
+        assert_eq!(batch.vertices().len(), 12);
+        assert_eq!(batch.draw_batch_count(), 1, "same texture = 1 batch");
+    }
+
+    #[test]
+    fn test_pending_textures_registered_on_draw() {
+        let mut batch = SpriteBatch::new();
+        batch.begin();
+
+        let tex = Texture {
+            width: 8,
+            height: 8,
+            disposed: false,
+            path: Some(Arc::from("test_pending")),
+            rgba_data: Some(Arc::new(vec![0u8; 256])),
+            ..Default::default()
+        };
+        let region = TextureRegion {
+            u: 0.0,
+            v: 0.0,
+            u2: 1.0,
+            v2: 1.0,
+            region_x: 0,
+            region_y: 0,
+            region_width: 8,
+            region_height: 8,
+            texture: Some(tex.clone()),
+        };
+        batch.draw_region(&region, 0.0, 0.0, 8.0, 8.0);
+        // Draw again with same texture - should NOT duplicate
+        batch.draw_region(&region, 10.0, 0.0, 8.0, 8.0);
+
+        let pending = batch.drain_pending_textures();
+        assert_eq!(pending.len(), 1, "same texture registered only once");
+        assert!(pending.contains_key(&Arc::from("test_pending") as &Arc<str>));
+
+        batch.end();
+    }
+
+    #[test]
+    fn test_drain_pending_textures_clears() {
+        let mut batch = SpriteBatch::new();
+        batch.begin();
+
+        let tex = Texture {
+            width: 4,
+            height: 4,
+            disposed: false,
+            path: Some(Arc::from("drain_test")),
+            rgba_data: Some(Arc::new(vec![0u8; 64])),
+            ..Default::default()
+        };
+        let region = TextureRegion {
+            u: 0.0,
+            v: 0.0,
+            u2: 1.0,
+            v2: 1.0,
+            region_x: 0,
+            region_y: 0,
+            region_width: 4,
+            region_height: 4,
+            texture: Some(tex),
+        };
+        batch.draw_region(&region, 0.0, 0.0, 4.0, 4.0);
+
+        let first = batch.drain_pending_textures();
+        assert_eq!(first.len(), 1);
+
+        let second = batch.drain_pending_textures();
+        assert!(second.is_empty(), "drain should clear pending textures");
+
+        batch.end();
     }
 }
