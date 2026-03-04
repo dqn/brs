@@ -16,81 +16,13 @@ fmt:
 fmt-check:
     cargo fmt --all -- --check
 
-# Generate Java golden master fixtures
-golden-master-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
 # Run golden master comparison tests
 golden-master-test:
     cargo test -p golden-master -- --nocapture
 
-# Generate rule engine GM fixtures
-golden-master-rule-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.RuleExporter --args="$(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate pattern shuffle GM fixtures
-golden-master-pattern-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.PatternExporter --args="$(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate replay GM fixtures
-golden-master-replay-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.ReplayExporter --args="$(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate database GM fixtures
-golden-master-database-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.DatabaseExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate config GM fixtures
-golden-master-config-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.ConfigExporter --args="$(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate autoplay GM fixtures
-golden-master-autoplay-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.AutoplayExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate audio GM fixtures
-golden-master-audio-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.AudioExporter --args="$(pwd)/../lr2oraja-rust/test-bms/audio $(pwd)/../lr2oraja-rust/golden-master/fixtures/audio_fixtures.json"
-
-# Generate JudgeManager GM fixtures
-golden-master-judge-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.JudgeManagerExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
 # Update skin snapshot fixtures
 golden-master-skin-snapshot:
     UPDATE_SNAPSHOTS=1 cargo test -p golden-master compare_skin -- --nocapture
-
-# Generate Java skin snapshot fixture (ECFN select)
-golden-master-skin-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master-skin:run \
-        --args="$(pwd)/../skins/ECFN/select/select.json $(pwd)/../lr2oraja-rust/golden-master/fixtures/skin_ecfn_select_snapshot.json"
-
-# Generate replay E2E GM fixtures
-golden-master-replay-e2e-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.ReplayE2EExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate SongInformation GM fixtures
-golden-master-song-info-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.SongInformationExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate ScoreDataProperty GM fixtures
-golden-master-score-data-property-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.ScoreDataPropertyExporter --args="$(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate Pattern Modifier Detail GM fixtures
-golden-master-pattern-modifier-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.PatternModifierDetailExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate CourseData GM fixtures
-golden-master-course-data-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.CourseDataExporter --args="$(pwd)/../lr2oraja-rust/test-bms/courses $(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate BGA Timeline GM fixtures
-golden-master-bga-timeline-gen:
-    cd ../lr2oraja-java && ./gradlew golden-master:run -PmainClass=bms.model.golden.BgaTimelineExporter --args="$(pwd)/../lr2oraja-rust/test-bms $(pwd)/../lr2oraja-rust/golden-master/fixtures"
-
-# Generate all GM fixtures (parse + rule + pattern + replay + database + config + autoplay + audio + judge + replay-e2e + render-snapshot + song-info + score-data-property + pattern-modifier + course-data + bga-timeline)
-golden-master-gen-all: golden-master-gen golden-master-rule-gen golden-master-pattern-gen golden-master-replay-gen golden-master-database-gen golden-master-config-gen golden-master-autoplay-gen golden-master-audio-gen golden-master-judge-gen golden-master-replay-e2e-gen golden-master-render-snapshot-gen golden-master-song-info-gen golden-master-score-data-property-gen golden-master-pattern-modifier-gen golden-master-course-data-gen golden-master-bga-timeline-gen
 
 # Screenshot tests (GPU required, local execution)
 screenshot-test:
@@ -100,41 +32,9 @@ screenshot-test:
 screenshot-update:
     UPDATE_SCREENSHOTS=1 cargo test -p bms-render --test screenshot_tests -- --ignored --nocapture
 
-# Generate Java RenderSnapshot JSON fixtures
-golden-master-render-snapshot-gen:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    JAVA_DIR="$(cd ../lr2oraja-java && pwd)"
-    RUST_DIR="$(pwd)"
-    SKIN_DIR="$(cd ../skins/ECFN && pwd)"
-    STATE_DIR="$RUST_DIR/golden-master/fixtures/screenshot_states"
-    OUT_DIR="$RUST_DIR/golden-master/fixtures/render_snapshots_java"
-    mkdir -p "$OUT_DIR"
-    run_export() {
-        local skin="$1" state="$2" output="$3" w="$4" h="$5" type="$6"
-        echo "Generating: $output"
-        cd "$JAVA_DIR" && ./gradlew -q golden-master-screenshot:run \
-            -PmainClass=bms.model.golden.RenderSnapshotExporter \
-            --args="$skin $state $output $w $h $type"
-    }
-    run_export "$SKIN_DIR/select/select.luaskin"   "$STATE_DIR/state_default.json"        "$OUT_DIR/ecfn_select.json"          1920 1080 5
-    run_export "$SKIN_DIR/decide/decide.luaskin"   "$STATE_DIR/state_default.json"        "$OUT_DIR/ecfn_decide.json"          1920 1080 6
-    run_export "$SKIN_DIR/play/play7.luaskin"      "$STATE_DIR/state_play_active.json"    "$OUT_DIR/ecfn_play7_active.json"    1920 1080 0
-    run_export "$SKIN_DIR/play/play7.luaskin"      "$STATE_DIR/state_play_fullcombo.json"  "$OUT_DIR/ecfn_play7_fullcombo.json" 1920 1080 0
-    run_export "$SKIN_DIR/play/play7.luaskin"      "$STATE_DIR/state_play_danger.json"    "$OUT_DIR/ecfn_play7_danger.json"    1920 1080 0
-    run_export "$SKIN_DIR/RESULT/result.luaskin"   "$STATE_DIR/state_result_clear.json"   "$OUT_DIR/ecfn_result_clear.json"    1920 1080 7
-    run_export "$SKIN_DIR/RESULT/result.luaskin"   "$STATE_DIR/state_result_fail.json"    "$OUT_DIR/ecfn_result_fail.json"     1920 1080 7
-    run_export "$SKIN_DIR/play/play14.luaskin"          "$STATE_DIR/state_play_active.json"    "$OUT_DIR/ecfn_play14_active.json"    1920 1080 2
-    run_export "$SKIN_DIR/play/play7wide.luaskin"        "$STATE_DIR/state_play_active.json"    "$OUT_DIR/ecfn_play7wide_active.json"  1920 1080 0
-    run_export "$SKIN_DIR/RESULT/course_result.luaskin"  "$STATE_DIR/state_result_clear.json"   "$OUT_DIR/ecfn_course_result.json"     1920 1080 15
-
 # Compare Java-Rust RenderSnapshot (structural draw command comparison)
 golden-master-render-snapshot-compare:
     cargo test -p golden-master --test compare_render_snapshot -- --nocapture --ignored
-
-# Clean RenderSnapshot debug artifacts generated by compare_render_snapshot
-golden-master-render-snapshot-debug-clean:
-    rm -f 'golden-master/fixtures/render_snapshots_debug/'*.json 'golden-master/fixtures/render_snapshots_debug/'*.txt
 
 # Run criterion benchmarks
 bench:

@@ -1,17 +1,14 @@
 # lr2oraja Rust Porting
 
-beatoraja fork (Java 313 files / 72k+ lines) → Rust. 26 crates, 167k lines. Source: `./lr2oraja-java`.
+beatoraja fork (Java 313 files / 72k+ lines) → Rust. 25 crates, 167k lines.
 
 ## Rules
 
-- Workflow: `Read Java → Write Rust → Test → Next`. Copy Java verbatim, refactor ONLY after ALL tests pass.
-- Translate one method → test immediately — green before moving on.
-- Golden Master: export Java values as JSON, compare with Rust. Tolerance: ±2μs.
+- Golden Master: pre-generated JSON fixtures in `golden-master/fixtures/`. Tolerance: ±2μs.
 - Preserve ALL branch/loop/fallthrough structure. Copy constants/magic numbers AS-IS.
 - Explicit type conversions — every implicit Java cast → explicit Rust cast.
 - After completing a phase/task, update TODO.md and AGENTS.md.
 - Worktree isolation: **always merge worktree branches before sending shutdown requests**.
-- Deferred items: always tag with `→ **Phase XX**`. At phase completion, audit all deferred items.
 
 ## Type Mapping
 
@@ -39,7 +36,6 @@ beatoraja fork (Java 313 files / 72k+ lines) → Rust. 26 crates, 167k lines. So
 ## Structure
 
 ```
-lr2oraja-java/       # Java source (read-only)
 lr2oraja-rust/       # Cargo workspace
   crates/
     bms-model        # BMS/BME/BML parser + model
@@ -78,7 +74,7 @@ lr2oraja-rust/       # Cargo workspace
 ## Testing
 
 - **Test runner:** `just test` (excludes slow render snapshot tests) or `just test-all` (full).
-- **Golden Master:** `just golden-master-gen`. Fixtures: `filename.ext.json`.
+- **Golden Master:** `just golden-master-test`. Fixtures: `golden-master/fixtures/*.json` (pre-generated).
 - **TDD:** Red-Green-Refactor.
 
 ## Status
