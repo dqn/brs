@@ -132,6 +132,7 @@ mod tests {
     use super::*;
     use crate::decide::stubs::{NullMainController, NullPlayerResource};
     use rubato_core::main_state::SkinDrawable;
+    use rubato_core::sprite_batch_helper::SpriteBatch;
     use rubato_types::timer_access::TimerAccess;
 
     /// Mock SkinDrawable for testing render logic with configurable timing values.
@@ -189,6 +190,7 @@ mod tests {
         fn get_height(&self) -> f32 {
             0.0
         }
+        fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
     }
 
     fn make_decide() -> MusicDecide {

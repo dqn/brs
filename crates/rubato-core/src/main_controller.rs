@@ -751,9 +751,10 @@ impl MainController {
             current.render();
         }
 
-        // sprite.begin()
-        if let Some(ref mut sprite) = self.sprite {
-            sprite.begin();
+        // Take sprite batch to avoid borrow conflict with self.current
+        let mut sprite = self.sprite.take();
+        if let Some(ref mut s) = sprite {
+            s.begin();
         }
 
         // Skin update and draw
@@ -768,7 +769,15 @@ impl MainController {
             data.timer.set_state_type(st);
             if let Some(mut skin) = data.skin.take() {
                 skin.update_custom_objects_timed(&mut data.timer);
+                // Swap MainController's sprite batch into the skin so skin objects
+                // draw directly into it (matches Java: drawAllObjects(sprite, current))
+                if let Some(ref mut s) = sprite {
+                    skin.swap_sprite_batch(s);
+                }
                 skin.draw_all_objects_timed(&mut data.timer);
+                if let Some(ref mut s) = sprite {
+                    skin.swap_sprite_batch(s);
+                }
                 // Put skin back
                 current.main_state_data_mut().skin = Some(skin);
             } else {
@@ -780,10 +789,10 @@ impl MainController {
             }
         }
 
-        // sprite.end()
-        if let Some(ref mut sprite) = self.sprite {
-            sprite.end();
+        if let Some(ref mut s) = sprite {
+            s.end();
         }
+        self.sprite = sprite;
 
         // Stage update/draw skipped (no scene2d equivalent yet)
 
@@ -2368,6 +2377,7 @@ mod tests {
         fn get_height(&self) -> f32 {
             720.0
         }
+        fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
     }
 
     /// A test state that allows setting a skin for render testing.
@@ -2478,6 +2488,7 @@ mod tests {
             fn get_height(&self) -> f32 {
                 720.0
             }
+            fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
         }
 
         let counts = Arc::new(Mutex::new((0, 0)));

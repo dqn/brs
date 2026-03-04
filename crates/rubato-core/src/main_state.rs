@@ -1,5 +1,6 @@
 use crate::score_data_property::ScoreDataProperty;
 use crate::timer_manager::TimerManager;
+use rubato_render::sprite_batch::SpriteBatch;
 use rubato_types::sound_type::SoundType;
 
 // MainStateType moved to beatoraja-types (Phase 15d)
@@ -228,6 +229,10 @@ pub trait SkinDrawable: Send {
 
     /// Get skin height.
     fn get_height(&self) -> f32;
+
+    /// Swap the internal SpriteBatch with the given one.
+    /// Used to let the skin draw into MainController's SpriteBatch.
+    fn swap_sprite_batch(&mut self, batch: &mut SpriteBatch);
 }
 
 /// Shared data for MainState implementations

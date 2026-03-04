@@ -1161,6 +1161,13 @@ impl rubato_core::main_state::SkinDrawable for Skin {
     fn get_height(&self) -> f32 {
         self.height
     }
+
+    fn swap_sprite_batch(&mut self, batch: &mut rubato_render::sprite_batch::SpriteBatch) {
+        if self.renderer.is_none() {
+            self.renderer = Some(SkinObjectRenderer::new());
+        }
+        std::mem::swap(&mut self.renderer.as_mut().unwrap().sprite, batch);
+    }
 }
 
 #[cfg(test)]
