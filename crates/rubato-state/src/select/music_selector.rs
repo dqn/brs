@@ -1521,7 +1521,18 @@ impl MainState for MusicSelector {
             self.input_processor = Some(input);
         }
 
-        self.manager.update_bar_refresh();
+        // Build context so bar_manager can query the song database.
+        // Java: BarManager has direct access to MusicSelector fields; in Rust
+        // we must pass them explicitly via UpdateBarContext.
+        {
+            let mut ctx = BarManager::make_context(
+                &self.app_config,
+                &mut self.config,
+                &*self.songdb,
+                self.scorecache.as_mut(),
+            );
+            self.manager.update_bar_with_context(None, Some(&mut ctx));
+        }
 
         // In Java: loadSkin(SkinType.MUSIC_SELECT)
         self.load_skin(SkinType::MusicSelect.id());

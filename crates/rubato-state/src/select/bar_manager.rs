@@ -105,6 +105,24 @@ impl BarManager {
         }
     }
 
+    /// Build an UpdateBarContext from MusicSelector fields.
+    /// Helper to avoid duplicating context construction at every call site.
+    pub fn make_context<'a>(
+        config: &'a Config,
+        player_config: &'a mut PlayerConfig,
+        songdb: &'a dyn SongDatabaseAccessor,
+        score_cache: Option<&'a mut ScoreDataCache>,
+    ) -> UpdateBarContext<'a> {
+        UpdateBarContext {
+            config,
+            player_config,
+            songdb,
+            score_cache,
+            is_folderlamp: false,
+            max_search_bar_count: 10,
+        }
+    }
+
     /// Initialize the bar manager: load tables, courses, favorites, command/random folders.
     /// Corresponds to Java BarManager.init()
     pub fn init(&mut self, config: &Config, ir_table_urls: &[(String, String)]) {

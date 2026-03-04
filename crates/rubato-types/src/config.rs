@@ -597,6 +597,17 @@ impl Validatable for Config {
 
         self.bmsroot = remove_empty_strings(&self.bmsroot);
 
+        // Auto-detect ./bms directory relative to CWD and add it to bmsroot if not already present.
+        if let Ok(cwd) = std::env::current_dir() {
+            let bms_dir = cwd.join("bms");
+            if bms_dir.is_dir() {
+                let bms_path = bms_dir.to_string_lossy().to_string();
+                if !self.bmsroot.iter().any(|p| p == &bms_path) {
+                    self.bmsroot.push(bms_path);
+                }
+            }
+        }
+
         if self.table_url.is_empty() {
             self.table_url = DEFAULT_TABLEURL.iter().map(|s| s.to_string()).collect();
         }

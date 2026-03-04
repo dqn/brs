@@ -143,8 +143,14 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
             config.get_bmsroot(),
         ) {
             Ok(accessor) => {
-                MainLoader::set_score_database_accessor(Box::new(accessor));
+                // Scan BMS files and populate song.db so the select screen has songs.
+                // Java: MainLoader calls updateSongDatas() before creating the controller.
+                // In the launcher path this happens via the egui "Start" button, but in
+                // the direct play path we must do it here.
+                info!("Scanning BMS files from configured paths...");
+                accessor.update_song_datas(None, config.get_bmsroot(), false, false, None);
                 info!("Song database initialized: {}", config.get_songpath());
+                MainLoader::set_score_database_accessor(Box::new(accessor));
             }
             Err(e) => {
                 warn!(
