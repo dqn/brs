@@ -1210,6 +1210,7 @@ impl LaneRenderer {
     ///   CN/LN: 0=start, 1=end, 2=active_body, 3=inactive_body
     ///   HCN:   4=start, 5=end, 6=active_body, 7=inactive_body,
     ///          8=hell_ok_body, 9=hell_ng_body
+    #[allow(clippy::too_many_arguments)]
     fn draw_long_note_commands(
         &self,
         commands: &mut Vec<DrawCommand>,

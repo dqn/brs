@@ -285,9 +285,9 @@ impl BMSONDecoder {
                 let n_up = n.up;
 
                 let mut next_y: Option<i32> = None;
-                for j in (i + 1)..length {
-                    if notes[j].y > n_y {
-                        next_y = Some(notes[j].y);
+                for note in &notes[(i + 1)..length] {
+                    if note.y > n_y {
+                        next_y = Some(note.y);
                         break;
                     }
                 }

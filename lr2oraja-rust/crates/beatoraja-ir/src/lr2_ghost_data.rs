@@ -136,14 +136,14 @@ impl LR2GhostData {
             targets.swap(lane, swap);
         }
         let mut lanes: [i32; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
-        for i in 1..8 {
-            lanes[targets[i] as usize] = i as i32;
+        for (i, &target) in targets[1..8].iter().enumerate() {
+            lanes[target as usize] = (i + 1) as i32;
         }
         // we store the lane order as a decimal where the digits
         // encode the lanes left-to-right, and most to least significant
         let mut encoded_lanes = 0i32;
-        for i in 1..8 {
-            encoded_lanes = encoded_lanes * 10 + lanes[i];
+        for &lane in &lanes[1..8] {
+            encoded_lanes = encoded_lanes * 10 + lane;
         }
 
         let judgements = Self::decode_play_ghost(fields[3].trim());

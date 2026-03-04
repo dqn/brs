@@ -569,8 +569,8 @@ impl BMSDecoder {
             return None;
         }
 
-        for i in 0..lnendstatus.len() {
-            if let Some(ref status) = lnendstatus[i] {
+        for (i, lnend) in lnendstatus.iter().enumerate() {
+            if let Some(status) = lnend {
                 self.log.push(DecodeLog::new(
                     State::Warning,
                     format!(

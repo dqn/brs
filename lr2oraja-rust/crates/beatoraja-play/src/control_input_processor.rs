@@ -449,6 +449,7 @@ impl ControlInputProcessor {
     /// Change cover value by scratch input (START + Scratch).
     ///
     /// Translated from: Java changeCoverValue(int key, boolean up)
+    #[allow(clippy::too_many_arguments)]
     fn change_cover_value(
         &mut self,
         key: usize,
@@ -503,6 +504,7 @@ impl ControlInputProcessor {
     /// Change duration by scratch input (SELECT + Scratch).
     ///
     /// Translated from: Java changeDuration(int key, boolean up)
+    #[allow(clippy::too_many_arguments)]
     fn change_duration(
         &mut self,
         key: usize,

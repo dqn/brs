@@ -1,7 +1,9 @@
 #![allow(clippy::needless_range_loop)]
 #![allow(dead_code)]
 #![allow(clippy::too_many_arguments)]
-#![allow(clippy::type_complexity)]
+#![allow(clippy::if_same_then_else)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 
 // Property submodule (interfaces + factories)
 pub mod property;

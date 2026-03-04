@@ -375,8 +375,8 @@ impl WebhookHandler {
                 if let Some(ref pattern) = rd.lane_shuffle_pattern
                     && !pattern.is_empty()
                 {
-                    for i in 0..7.min(pattern[0].len()) {
-                        sb += &format!("{}", pattern[0][i] + 1);
+                    for &val in pattern[0].iter().take(7) {
+                        sb += &format!("{}", val + 1);
                     }
                 }
             }

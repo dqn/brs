@@ -132,6 +132,7 @@ impl SkinGaugeGraphObject {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new_with_string_colors(
         assist_clear_bg_color: &str,
         assist_and_easy_fail_bg_color: &str,

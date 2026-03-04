@@ -1,8 +1,10 @@
-#![allow(clippy::needless_range_loop)]
-#![allow(unused_parens)]
+#![allow(clippy::manual_find)]
+#![allow(clippy::comparison_chain)]
 #![allow(dead_code)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::type_complexity)]
+#![allow(clippy::manual_clamp)]
+#![allow(clippy::if_same_then_else)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 
 // Stubs for external dependencies
 pub mod stubs;

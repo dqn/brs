@@ -18,6 +18,7 @@ pub struct CommandEntry {
 /// Command handler types
 pub enum CommandHandler {
     /// A closure-based handler
+    #[allow(clippy::type_complexity)]
     Fn(Box<dyn Fn(&[String]) + Send + Sync>),
     /// Placeholder for enum-based commands (dispatched externally)
     External,

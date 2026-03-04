@@ -1,8 +1,7 @@
 #![allow(dead_code)]
-#![allow(unreachable_code)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::needless_range_loop)]
-#![allow(clippy::diverging_sub_expression)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+#![allow(clippy::if_same_then_else)]
 
 // beatoraja-external: External integrations (screenshot, webhook, BMS search, Discord, score import)
 

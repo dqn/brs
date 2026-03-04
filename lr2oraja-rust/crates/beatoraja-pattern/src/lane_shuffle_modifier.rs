@@ -58,8 +58,8 @@ fn lane_shuffle_modify(
     // Random Trainer History
     if random.len() == 8 {
         let mut random_sb = String::new();
-        for i in 0..random.len() - 1 {
-            random_sb.push_str(&(random[i] + 1).to_string());
+        for &r in &random[..random.len() - 1] {
+            random_sb.push_str(&(r + 1).to_string());
         }
         add_random_history(RandomHistoryEntry::new(
             model.get_title().to_string(),
@@ -797,12 +797,12 @@ impl LanePlayableRandomShuffleModifier {
                 }
                 // Normal notes
                 let mut note_lane: Vec<i32> = Vec::new();
-                for i in 0..lanes {
+                for (i, &ln_val) in ln.iter().enumerate() {
                     if let Some(n) = tl.get_note(i as i32) {
-                        if n.is_normal() || ln[i] != -1 {
+                        if n.is_normal() || ln_val != -1 {
                             note_lane.push(i as i32);
                         }
-                    } else if ln[i] != -1 {
+                    } else if ln_val != -1 {
                         note_lane.push(i as i32);
                     }
                 }
@@ -830,13 +830,13 @@ impl LanePlayableRandomShuffleModifier {
         let mut result = vec![0i32; 9];
         if !kouho_pattern_list.is_empty() {
             let r = (rand::random::<f64>() * kouho_pattern_list.len() as f64) as usize;
-            for i in 0..9 {
-                result[kouho_pattern_list[r][i] as usize] = i as i32;
+            for (i, &kouho) in kouho_pattern_list[r].iter().enumerate().take(9) {
+                result[kouho as usize] = i as i32;
             }
         } else {
             let mirror = (rand::random::<f64>() * 2.0) as i32;
-            for i in 0..9 {
-                result[i] = if mirror == 0 { i as i32 } else { 8 - i as i32 };
+            for (i, slot) in result.iter_mut().enumerate().take(9) {
+                *slot = if mirror == 0 { i as i32 } else { 8 - i as i32 };
             }
         }
         result
@@ -891,9 +891,9 @@ pub fn search_for_no_murioshi_lane_combinations(
             let mut murioshi_flag = false;
             for pattern in original_pattern_list {
                 let mut temp_pattern: Vec<i32> = Vec::new();
-                for j in 0..9 {
+                for (j, &lane_num) in lane_numbers.iter().enumerate().take(9) {
                     if ((pattern / (2f64).powi(j as i32) as i32) % 2) == 1 {
-                        temp_pattern.push(lane_numbers[j] + 1);
+                        temp_pattern.push(lane_num + 1);
                     }
                 }
 

@@ -266,13 +266,13 @@ impl BMSRenderer {
         let base_path = Path::new(&model_path).parent().unwrap_or(Path::new(""));
 
         let mut loaded = 0;
-        for i in 0..wav_list.len() {
-            if wav_list[i].is_empty() {
+        for (i, wav_name) in wav_list.iter().enumerate() {
+            if wav_name.is_empty() {
                 continue;
             }
 
             // Resolve audio file path
-            let resolved_path = base_path.join(&wav_list[i]);
+            let resolved_path = base_path.join(wav_name);
             let resolved_str = resolved_path.to_string_lossy().to_string();
             let candidates = audio_driver::get_paths(&resolved_str);
 
@@ -287,7 +287,7 @@ impl BMSRenderer {
             let wav_path = match wav_path {
                 Some(p) => p,
                 None => {
-                    warn!("Audio file not found: {}", wav_list[i]);
+                    warn!("Audio file not found: {}", wav_name);
                     continue;
                 }
             };

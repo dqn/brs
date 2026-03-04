@@ -1,5 +1,6 @@
 #![allow(dead_code)]
-#![allow(clippy::needless_range_loop)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 
 // Re-exports (formerly in stubs.rs)
 pub use beatoraja_types::imgui_notify::ImGuiNotify;
