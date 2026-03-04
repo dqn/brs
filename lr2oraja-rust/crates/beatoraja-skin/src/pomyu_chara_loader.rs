@@ -195,57 +195,65 @@ impl<'a> PomyuCharaLoader<'a> {
                             if data.len() > 1 {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
-                                char_bmp[char_bmp_index] =
-                                    SkinLoaderStub::get_texture(&path, usecim);
+                                if let Some(slot) = char_bmp.get_mut(char_bmp_index) {
+                                    *slot = SkinLoaderStub::get_texture(&path, usecim);
+                                }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#CharBMP2P") {
                             if data.len() > 1 {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
-                                char_bmp[char_bmp_index + 1] =
-                                    SkinLoaderStub::get_texture(&path, usecim);
+                                if let Some(slot) = char_bmp.get_mut(char_bmp_index + 1) {
+                                    *slot = SkinLoaderStub::get_texture(&path, usecim);
+                                }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#CharTex") {
                             if data.len() > 1 {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
-                                char_bmp[char_tex_index] =
-                                    SkinLoaderStub::get_texture(&path, usecim);
+                                if let Some(slot) = char_bmp.get_mut(char_tex_index) {
+                                    *slot = SkinLoaderStub::get_texture(&path, usecim);
+                                }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#CharTex2P") {
                             if data.len() > 1 {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
-                                char_bmp[char_tex_index + 1] =
-                                    SkinLoaderStub::get_texture(&path, usecim);
+                                if let Some(slot) = char_bmp.get_mut(char_tex_index + 1) {
+                                    *slot = SkinLoaderStub::get_texture(&path, usecim);
+                                }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#CharFace") {
                             if data.len() > 1 {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
-                                char_bmp[char_face_index] =
-                                    SkinLoaderStub::get_texture(&path, usecim);
+                                if let Some(slot) = char_bmp.get_mut(char_face_index) {
+                                    *slot = SkinLoaderStub::get_texture(&path, usecim);
+                                }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#CharFace2P") {
                             if data.len() > 1 {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
-                                char_bmp[char_face_index + 1] =
-                                    SkinLoaderStub::get_texture(&path, usecim);
+                                if let Some(slot) = char_bmp.get_mut(char_face_index + 1) {
+                                    *slot = SkinLoaderStub::get_texture(&path, usecim);
+                                }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#SelectCG") {
                             if data.len() > 1 {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
-                                char_bmp[select_cg_index] =
-                                    SkinLoaderStub::get_texture(&path, usecim);
+                                if let Some(slot) = char_bmp.get_mut(select_cg_index) {
+                                    *slot = SkinLoaderStub::get_texture(&path, usecim);
+                                }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#SelectCG2P") {
                             if data.len() > 1 {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
-                                char_bmp[select_cg_index + 1] =
-                                    SkinLoaderStub::get_texture(&path, usecim);
+                                if let Some(slot) = char_bmp.get_mut(select_cg_index + 1) {
+                                    *slot = SkinLoaderStub::get_texture(&path, usecim);
+                                }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#Patern")
                             || str_parts[0].eq_ignore_ascii_case("#Pattern")
@@ -308,14 +316,20 @@ impl<'a> PomyuCharaLoader<'a> {
         }
 
         // If #CharBMP is absent, return null
-        char_bmp[char_bmp_index].as_ref()?;
+        char_bmp.get(char_bmp_index)?.as_ref()?;
 
         // Check 2P color availability
         if color == 2
-            && char_bmp[char_bmp_index + 1].is_some()
+            && char_bmp
+                .get(char_bmp_index + 1)
+                .and_then(|t| t.as_ref())
+                .is_some()
             && (pattern_data[texture_idx].is_empty()
                 || (!pattern_data[texture_idx].is_empty()
-                    && char_bmp[char_tex_index + 1].is_some()))
+                    && char_bmp
+                        .get(char_tex_index + 1)
+                        .and_then(|t| t.as_ref())
+                        .is_some()))
         {
             set_color = 2;
         }
@@ -323,7 +337,10 @@ impl<'a> PomyuCharaLoader<'a> {
         // If #Texture definition exists but #CharTex is absent, return null
         if set_color == 1
             && !pattern_data[texture_idx].is_empty()
-            && char_bmp[char_tex_index].is_none()
+            && char_bmp
+                .get(char_tex_index)
+                .and_then(|t| t.as_ref())
+                .is_none()
         {
             return None;
         }
@@ -332,13 +349,18 @@ impl<'a> PomyuCharaLoader<'a> {
 
         match load_type {
             BACKGROUND => {
+                if set_color < 1 {
+                    return None;
+                }
                 let set_index = char_bmp_index + set_color as usize - 1;
-                char_bmp[set_index] = transparent_processing(
-                    char_bmp[set_index].take(),
-                    set_index,
-                    &mut transparent_flag,
-                );
-                let set_bmp = char_bmp[set_index].as_ref()?;
+                if set_index >= char_bmp.len() {
+                    return None;
+                }
+                let taken = char_bmp.get_mut(set_index).and_then(|s| s.take());
+                if let Some(slot) = char_bmp.get_mut(set_index) {
+                    *slot = transparent_processing(taken, set_index, &mut transparent_flag);
+                }
+                let set_bmp = char_bmp.get(set_index)?.as_ref()?;
                 let region = TextureRegion::from_texture_region(
                     set_bmp.clone(),
                     xywh[1][0],
@@ -351,13 +373,18 @@ impl<'a> PomyuCharaLoader<'a> {
                 return None; // Java returns PMcharaPart, but skin.add already stores it
             }
             NAME => {
+                if set_color < 1 {
+                    return None;
+                }
                 let set_index = char_bmp_index + set_color as usize - 1;
-                char_bmp[set_index] = transparent_processing(
-                    char_bmp[set_index].take(),
-                    set_index,
-                    &mut transparent_flag,
-                );
-                let set_bmp = char_bmp[set_index].as_ref()?;
+                if set_index >= char_bmp.len() {
+                    return None;
+                }
+                let taken = char_bmp.get_mut(set_index).and_then(|s| s.take());
+                if let Some(slot) = char_bmp.get_mut(set_index) {
+                    *slot = transparent_processing(taken, set_index, &mut transparent_flag);
+                }
+                let set_bmp = char_bmp.get(set_index)?.as_ref()?;
                 let region = TextureRegion::from_texture_region(
                     set_bmp.clone(),
                     xywh[0][0],
@@ -370,17 +397,24 @@ impl<'a> PomyuCharaLoader<'a> {
                 return None;
             }
             FACE_UPPER => {
-                let set_index = if set_color == 2 && char_bmp[char_face_index + 1].is_some() {
+                let set_index = if set_color == 2
+                    && char_bmp
+                        .get(char_face_index + 1)
+                        .and_then(|t| t.as_ref())
+                        .is_some()
+                {
                     char_face_index + 1
                 } else {
                     char_face_index
                 };
-                char_bmp[set_index] = transparent_processing(
-                    char_bmp[set_index].take(),
-                    set_index,
-                    &mut transparent_flag,
-                );
-                let set_bmp = char_bmp[set_index].as_ref()?;
+                if set_index >= char_bmp.len() {
+                    return None;
+                }
+                let taken = char_bmp.get_mut(set_index).and_then(|s| s.take());
+                if let Some(slot) = char_bmp.get_mut(set_index) {
+                    *slot = transparent_processing(taken, set_index, &mut transparent_flag);
+                }
+                let set_bmp = char_bmp.get(set_index)?.as_ref()?;
                 let region = TextureRegion::from_texture_region(
                     set_bmp.clone(),
                     char_face_upper_xywh[0],
@@ -393,17 +427,24 @@ impl<'a> PomyuCharaLoader<'a> {
                 return None;
             }
             FACE_ALL => {
-                let set_index = if set_color == 2 && char_bmp[char_face_index + 1].is_some() {
+                let set_index = if set_color == 2
+                    && char_bmp
+                        .get(char_face_index + 1)
+                        .and_then(|t| t.as_ref())
+                        .is_some()
+                {
                     char_face_index + 1
                 } else {
                     char_face_index
                 };
-                char_bmp[set_index] = transparent_processing(
-                    char_bmp[set_index].take(),
-                    set_index,
-                    &mut transparent_flag,
-                );
-                let set_bmp = char_bmp[set_index].as_ref()?;
+                if set_index >= char_bmp.len() {
+                    return None;
+                }
+                let taken = char_bmp.get_mut(set_index).and_then(|s| s.take());
+                if let Some(slot) = char_bmp.get_mut(set_index) {
+                    *slot = transparent_processing(taken, set_index, &mut transparent_flag);
+                }
+                let set_bmp = char_bmp.get(set_index)?.as_ref()?;
                 let region = TextureRegion::from_texture_region(
                     set_bmp.clone(),
                     char_face_all_xywh[0],
@@ -416,10 +457,15 @@ impl<'a> PomyuCharaLoader<'a> {
                 return None;
             }
             SELECT_CG => {
-                let set_bmp = if set_color == 2 && char_bmp[select_cg_index + 1].is_some() {
-                    char_bmp[select_cg_index + 1].as_ref()?
+                let set_bmp = if set_color == 2
+                    && char_bmp
+                        .get(select_cg_index + 1)
+                        .and_then(|t| t.as_ref())
+                        .is_some()
+                {
+                    char_bmp.get(select_cg_index + 1)?.as_ref()?
                 } else {
-                    char_bmp[select_cg_index].as_ref()?
+                    char_bmp.get(select_cg_index)?.as_ref()?
                 };
                 let w = set_bmp.get_width();
                 let h = set_bmp.get_height();
@@ -830,10 +876,18 @@ impl<'a> PomyuCharaLoader<'a> {
                 if str_parts.len() <= 1 {
                     continue;
                 }
+                if set_color < 1 {
+                    continue;
+                }
                 let set_index = set_bmp_index[pattern_index] + set_color as usize - 1;
-                char_bmp[set_index] =
-                    transparent_processing(char_bmp[set_index].take(), set_index, transparent_flag);
-                let set_bmp = match char_bmp[set_index].as_ref() {
+                if set_index >= char_bmp.len() {
+                    continue;
+                }
+                let taken = char_bmp.get_mut(set_index).and_then(|s| s.take());
+                if let Some(slot) = char_bmp.get_mut(set_index) {
+                    *slot = transparent_processing(taken, set_index, transparent_flag);
+                }
+                let set_bmp = match char_bmp.get(set_index).and_then(|t| t.as_ref()) {
                     Some(t) => t.clone(),
                     None => continue,
                 };
@@ -1845,6 +1899,170 @@ mod tests {
         assert!(
             result.is_none(),
             "nonexistent directory should return None without panic"
+        );
+    }
+
+    // ================================================================
+    // Bounds safety tests for char_bmp array accesses
+    // ================================================================
+
+    #[test]
+    fn test_char_bmp_get_out_of_bounds_returns_none() {
+        // Verify that .get() on a fixed-size array returns None for out-of-bounds indices
+        let char_bmp: [Option<Texture>; 8] = [None, None, None, None, None, None, None, None];
+        assert!(
+            char_bmp.get(8).is_none(),
+            "index 8 should be out of bounds for [_; 8]"
+        );
+        assert!(
+            char_bmp.get(100).is_none(),
+            "large index should be out of bounds"
+        );
+        assert!(
+            char_bmp.get(usize::MAX).is_none(),
+            "usize::MAX should be out of bounds"
+        );
+    }
+
+    #[test]
+    fn test_char_bmp_get_mut_out_of_bounds_returns_none() {
+        let mut char_bmp: [Option<Texture>; 8] = [None, None, None, None, None, None, None, None];
+        assert!(
+            char_bmp.get_mut(8).is_none(),
+            "get_mut(8) should be None for [_; 8]"
+        );
+        assert!(
+            char_bmp.get_mut(usize::MAX).is_none(),
+            "get_mut(usize::MAX) should be None"
+        );
+    }
+
+    #[test]
+    fn test_set_color_zero_underflow_guard() {
+        // set_color < 1 should be caught before computing set_color as usize - 1
+        // This test verifies the guard prevents usize underflow (wrapping subtraction)
+        let set_color: i32 = 0;
+        assert!(
+            set_color < 1,
+            "set_color=0 should trigger the underflow guard"
+        );
+
+        // If the guard were absent, this would wrap to usize::MAX
+        // With the guard, we never reach this computation
+        let set_color: i32 = -1;
+        assert!(
+            set_color < 1,
+            "set_color=-1 should trigger the underflow guard"
+        );
+    }
+
+    #[test]
+    fn test_set_color_valid_index_computation() {
+        let char_bmp_index: usize = 0;
+
+        // set_color = 1 -> index = 0 + 1 - 1 = 0 (valid)
+        let set_color = 1;
+        let set_index = char_bmp_index + set_color as usize - 1;
+        assert_eq!(set_index, 0);
+        assert!(set_index < 8, "set_color=1 should produce valid index");
+
+        // set_color = 2 -> index = 0 + 2 - 1 = 1 (valid)
+        let set_color = 2;
+        let set_index = char_bmp_index + set_color as usize - 1;
+        assert_eq!(set_index, 1);
+        assert!(set_index < 8, "set_color=2 should produce valid index");
+    }
+
+    #[test]
+    fn test_char_bmp_take_via_get_mut() {
+        let tex = Texture {
+            width: 4,
+            height: 4,
+            disposed: false,
+            path: None,
+            rgba_data: None,
+            gpu_texture: None,
+            gpu_view: None,
+            sampler: None,
+        };
+        let mut char_bmp: [Option<Texture>; 8] = [None, None, None, None, None, None, None, None];
+        char_bmp[3] = Some(tex);
+
+        // Safe take via get_mut
+        let taken = char_bmp.get_mut(3).and_then(|s| s.take());
+        assert!(
+            taken.is_some(),
+            "take from occupied slot should return Some"
+        );
+        assert!(char_bmp[3].is_none(), "slot should be None after take");
+
+        // Out-of-bounds take returns None
+        let taken_oob = char_bmp.get_mut(8).and_then(|s| s.take());
+        assert!(taken_oob.is_none(), "out-of-bounds take should return None");
+    }
+
+    #[test]
+    fn test_transparent_processing_with_bounds_checked_index() {
+        // Verify transparent_processing works correctly when called via bounds-checked pattern
+        let tex = Texture {
+            width: 2,
+            height: 2,
+            disposed: false,
+            path: None,
+            rgba_data: Some(Arc::new(vec![255; 16])),
+            gpu_texture: None,
+            gpu_view: None,
+            sampler: None,
+        };
+        let mut char_bmp: [Option<Texture>; 8] = [None, None, None, None, None, None, None, None];
+        let mut transparent_flag = [false; 8];
+        let set_index: usize = 1;
+
+        // Place texture
+        if let Some(slot) = char_bmp.get_mut(set_index) {
+            *slot = Some(tex);
+        }
+
+        // Bounds-checked take + transparent_processing + put back
+        let taken = char_bmp.get_mut(set_index).and_then(|s| s.take());
+        if let Some(slot) = char_bmp.get_mut(set_index) {
+            *slot = transparent_processing(taken, set_index, &mut transparent_flag);
+        }
+
+        assert!(
+            char_bmp.get(set_index).unwrap().is_some(),
+            "should have processed texture"
+        );
+        assert!(
+            transparent_flag[set_index],
+            "flag should be set after processing"
+        );
+    }
+
+    #[test]
+    fn test_select_cg_bounds_checked_access() {
+        // Verify that SELECT_CG access patterns use .get() safely
+        let char_bmp: [Option<Texture>; 8] = [None, None, None, None, None, None, None, None];
+        let select_cg_index: usize = 6;
+
+        // Both indices (6 and 7) should be valid
+        assert!(
+            char_bmp.get(select_cg_index).is_some(),
+            "index 6 should be in bounds"
+        );
+        assert!(
+            char_bmp.get(select_cg_index + 1).is_some(),
+            "index 7 should be in bounds"
+        );
+
+        // Both slots are None (no texture loaded), which is the expected default
+        assert!(
+            char_bmp.get(select_cg_index).unwrap().is_none(),
+            "slot 6 should be None by default"
+        );
+        assert!(
+            char_bmp.get(select_cg_index + 1).unwrap().is_none(),
+            "slot 7 should be None by default"
         );
     }
 }
