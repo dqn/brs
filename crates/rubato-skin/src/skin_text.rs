@@ -187,7 +187,7 @@ impl SkinTextData {
     }
 }
 
-pub trait SkinText {
+pub trait SkinText: Send {
     fn get_text_data(&self) -> &SkinTextData;
     fn get_text_data_mut(&mut self) -> &mut SkinTextData;
     fn prepare_font(&mut self, text: &str);

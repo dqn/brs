@@ -48,6 +48,9 @@ pub struct LR2SelectSkinLoaderState {
 
     pub gauge: Rectangle,
 
+    pub center_bar: i32,
+    pub clickable_bar: Vec<i32>,
+
     pub srcw: f32,
     pub srch: f32,
     pub dstw: f32,
@@ -68,6 +71,8 @@ impl LR2SelectSkinLoaderState {
             barimageoff: (0..BAR_COUNT).map(|_| None).collect(),
             barcycle: 0,
             gauge: Rectangle::default(),
+            center_bar: 0,
+            clickable_bar: Vec::new(),
             srcw,
             srch,
             dstw,
@@ -150,8 +155,7 @@ impl LR2SelectSkinLoaderState {
             }
             "BAR_CENTER" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
-                // skin.setCenterBar(values[1])
-                let _ = values[1];
+                self.center_bar = values[1];
             }
             "BAR_AVAILABLE" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
@@ -159,7 +163,7 @@ impl LR2SelectSkinLoaderState {
                 for i in 0..clickable.len() {
                     clickable[i] = values[1] + i as i32;
                 }
-                // skin.setClickableBar(clickable)
+                self.clickable_bar = clickable;
             }
             "SRC_BAR_FLASH" | "DST_BAR_FLASH" => {
                 // No-op
@@ -389,19 +393,24 @@ impl LR2SkinLoaderAccess for LR2SelectSkinLoaderState {
         use crate::skin::SkinObject;
 
         // Create SkinBarObject to register with the skin pipeline.
-        // The bar body on/off images (barimageon/barimageoff) have been parsed
-        // as placeholders; full SkinImage construction requires texture sources
-        // from get_source_image() which are consumed during CSV parsing.
         // The SkinBarObject itself is a minimal wrapper — actual bar rendering
-        // is handled by BarRenderer in beatoraja-select.
+        // is handled by BarRenderer in rubato-state/select.
         let has_bars = self
             .barimageon
             .iter()
             .chain(self.barimageoff.iter())
             .any(|b| b.is_some());
         if has_bars {
-            let bar_obj = crate::skin_bar_object::SkinBarObject::new(0);
+            let bar_obj = crate::skin_bar_object::SkinBarObject::new(self.center_bar);
             skin.add(SkinObject::Bar(bar_obj));
+
+            // Transfer bar data so MusicSelector can build SkinBar + BarRenderer
+            skin.select_bar_data = Some(crate::select_bar_data::SelectBarData {
+                barimageon: std::mem::take(&mut self.barimageon),
+                barimageoff: std::mem::take(&mut self.barimageoff),
+                center_bar: self.center_bar,
+                clickable_bar: std::mem::take(&mut self.clickable_bar),
+            });
         }
 
         log::debug!("LR2SelectSkinLoader: assembled objects into skin");

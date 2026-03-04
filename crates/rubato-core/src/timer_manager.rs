@@ -81,6 +81,11 @@ impl TimerManager {
         self.get_micro_timer(id) / 1000
     }
 
+    /// Export a clone of the timer array for creating skin Timer snapshots.
+    pub fn export_timer_array(&self) -> Vec<i64> {
+        self.timer.clone()
+    }
+
     pub fn get_micro_timer(&self, id: i32) -> i64 {
         if id >= 0 && (id as usize) < TIMER_COUNT {
             self.timer[id as usize]

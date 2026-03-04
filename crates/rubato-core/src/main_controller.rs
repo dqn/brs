@@ -796,11 +796,9 @@ impl MainController {
             s.begin();
         }
 
-        // Skin update and draw
-        // Java: if (current.getSkin() != null) {
-        //     current.getSkin().updateCustomObjects(current);
-        //     current.getSkin().drawAllObjects(sprite, current);
-        // }
+        // Skin update and draw — delegated to state via render_skin() override.
+        // Default implementation does update_custom_objects + draw_all_objects.
+        // MusicSelector overrides to add BarRenderer prepare/render around the cycle.
         if let Some(ref mut current) = self.current {
             // Read state type before mutable borrow
             let st = current.state_type();
@@ -809,19 +807,11 @@ impl MainController {
             // Rust has separate TimerManagers for controller and state).
             data.timer.update();
             data.timer.set_state_type(st);
-            if let Some(mut skin) = data.skin.take() {
-                skin.update_custom_objects_timed(&mut data.timer);
-                // Swap MainController's sprite batch into the skin so skin objects
-                // draw directly into it (matches Java: drawAllObjects(sprite, current))
+
+            if current.main_state_data().skin.is_some() {
                 if let Some(ref mut s) = sprite {
-                    skin.swap_sprite_batch(s);
+                    current.render_skin(s);
                 }
-                skin.draw_all_objects_timed(&mut data.timer);
-                if let Some(ref mut s) = sprite {
-                    skin.swap_sprite_batch(s);
-                }
-                // Put skin back
-                current.main_state_data_mut().skin = Some(skin);
             } else {
                 use std::sync::Once;
                 static WARN_ONCE: Once = Once::new();
@@ -2546,6 +2536,7 @@ mod tests {
         });
 
         let mut mc = make_test_controller();
+        mc.sprite = Some(SpriteBatch::new());
         mc.current = Some(Box::new(SkinTestState::new_with_skin(skin)));
 
         // Render 3 frames

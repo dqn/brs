@@ -51,4 +51,77 @@ pub trait SkinRenderContext: TimerAccess {
     fn get_recent_judges_index(&self) -> usize {
         0
     }
+
+    // ============================================================
+    // Property value delegation (skin property factories)
+    // ============================================================
+
+    /// Returns the integer property value for the given ID.
+    /// Delegate properties call this via MainState::integer_value().
+    fn integer_value(&self, _id: i32) -> i32 {
+        0
+    }
+
+    /// Returns the boolean property value for the given ID.
+    fn boolean_value(&self, _id: i32) -> bool {
+        false
+    }
+
+    /// Returns the float property value for the given ID.
+    fn float_value(&self, _id: i32) -> f32 {
+        0.0
+    }
+
+    /// Returns the string property value for the given ID.
+    fn string_value(&self, _id: i32) -> String {
+        String::new()
+    }
+
+    /// Sets the float property value for the given ID.
+    fn set_float_value(&mut self, _id: i32, _value: f32) {
+        // default no-op
+    }
+
+    // ============================================================
+    // Gameplay state queries
+    // ============================================================
+
+    /// Returns the judge count for the given judge index.
+    fn get_judge_count(&self, _judge: i32, _fast: bool) -> i32 {
+        0
+    }
+
+    /// Returns the gauge value (0.0-1.0).
+    fn get_gauge_value(&self) -> f32 {
+        0.0
+    }
+
+    /// Returns the gauge type ID.
+    fn get_gauge_type(&self) -> i32 {
+        0
+    }
+
+    /// Returns the current judge type for the given player.
+    fn get_now_judge(&self, _player: i32) -> i32 {
+        0
+    }
+
+    /// Returns the current combo count for the given player.
+    fn get_now_combo(&self, _player: i32) -> i32 {
+        0
+    }
+
+    // ============================================================
+    // Config access
+    // ============================================================
+
+    /// Returns immutable reference to the player config.
+    fn get_player_config_ref(&self) -> Option<&crate::player_config::PlayerConfig> {
+        None
+    }
+
+    /// Returns immutable reference to the global config.
+    fn get_config_ref(&self) -> Option<&crate::config::Config> {
+        None
+    }
 }

@@ -60,6 +60,9 @@ pub mod skin_text_image;
 pub mod skin_timing_distribution_graph;
 pub mod skin_timing_visualizer;
 
+// Select-specific data extracted during skin loading
+pub mod select_bar_data;
+
 // Skin data converter (SkinData -> Skin)
 pub mod skin_data_converter;
 

@@ -41,6 +41,20 @@ pub trait MainState {
         // default empty
     }
 
+    /// Override point for state-specific rendering within the skin pipeline.
+    /// Called by MainController::render() with the sprite batch.
+    /// Default: update custom objects + standard skin draw_all_objects cycle.
+    fn render_skin(&mut self, sprite: &mut SpriteBatch) {
+        let data = self.main_state_data_mut();
+        if let Some(mut skin) = data.skin.take() {
+            skin.update_custom_objects_timed(&mut data.timer);
+            skin.swap_sprite_batch(sprite);
+            skin.draw_all_objects_timed(&mut data.timer);
+            skin.swap_sprite_batch(sprite);
+            data.skin = Some(skin);
+        }
+    }
+
     fn pause(&mut self) {
         // default empty
     }

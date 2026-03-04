@@ -10,6 +10,7 @@ use super::bar::bar::Bar;
 use super::bar::grade_bar::GradeBar;
 use super::bar_manager::BarManager;
 use super::bar_renderer::BarRenderer;
+use super::bar_renderer::{PrepareContext, RenderContext};
 use super::bar_sorter::BarSorter;
 use super::music_select_command::MusicSelectCommand;
 use super::music_select_input_processor::{
@@ -20,6 +21,92 @@ use super::preview_music_processor::PreviewMusicProcessor;
 use super::score_data_cache::ScoreDataCache;
 use super::search_text_field::SearchTextField;
 use super::stubs::*;
+
+/// Render context adapter that wraps TimerManager + config references for skin property delegation.
+/// Used during the skin draw cycle so that TimerOnlyMainState can delegate property queries
+/// (integer_value, boolean_value, config access) back to real state data.
+struct SelectRenderContext<'a> {
+    timer: &'a mut TimerManager,
+    player_config: &'a PlayerConfig,
+    app_config: &'a Config,
+}
+
+impl rubato_types::timer_access::TimerAccess for SelectRenderContext<'_> {
+    fn get_now_time(&self) -> i64 {
+        self.timer.get_now_time()
+    }
+    fn get_now_micro_time(&self) -> i64 {
+        self.timer.get_now_micro_time()
+    }
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_micro_timer(timer_id)
+    }
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_timer(timer_id)
+    }
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        self.timer.get_now_time_for_id(timer_id)
+    }
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.timer.is_timer_on(timer_id)
+    }
+}
+
+impl rubato_types::skin_render_context::SkinRenderContext for SelectRenderContext<'_> {
+    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+        Some(rubato_types::main_state_type::MainStateType::MusicSelect)
+    }
+
+    fn get_player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+        Some(self.player_config)
+    }
+
+    fn get_config_ref(&self) -> Option<&rubato_types::config::Config> {
+        Some(self.app_config)
+    }
+
+    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+        self.timer.set_micro_timer(timer_id, micro_time);
+    }
+}
+
+/// Minimal adapter implementing rubato_skin::stubs::MainState for BarRenderer's RenderContext.
+/// Delegates get_timer() to a Timer snapshot; other methods use defaults.
+struct MinimalSkinMainState<'a> {
+    timer: &'a rubato_skin::stubs::Timer,
+}
+
+impl<'a> MinimalSkinMainState<'a> {
+    fn new(timer: &'a rubato_skin::stubs::Timer) -> Self {
+        Self { timer }
+    }
+}
+
+impl rubato_skin::stubs::MainState for MinimalSkinMainState<'_> {
+    fn get_timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
+        self.timer
+    }
+
+    fn get_offset_value(&self, _id: i32) -> Option<&rubato_types::skin_offset::SkinOffset> {
+        None
+    }
+
+    fn get_main(&self) -> &rubato_skin::stubs::MainController {
+        static MC: std::sync::OnceLock<rubato_skin::stubs::MainController> =
+            std::sync::OnceLock::new();
+        MC.get_or_init(|| rubato_skin::stubs::MainController { debug: false })
+    }
+
+    fn get_image(&self, _id: i32) -> Option<rubato_skin::stubs::TextureRegion> {
+        None
+    }
+
+    fn get_resource(&self) -> &rubato_skin::stubs::PlayerResource {
+        static RES: std::sync::OnceLock<rubato_skin::stubs::PlayerResource> =
+            std::sync::OnceLock::new();
+        RES.get_or_init(|| rubato_skin::stubs::PlayerResource)
+    }
+}
 
 /// Music selector screen
 /// Translates: bms.player.beatoraja.select.MusicSelector
@@ -43,6 +130,12 @@ pub struct MusicSelector {
 
     /// Bar renderer
     pub bar: Option<BarRenderer>,
+
+    /// Skin bar data (bar body images, lamps, text, etc.)
+    pub skin_bar: Option<super::skin_bar::SkinBar>,
+
+    /// Center bar index from skin
+    pub select_center_bar: i32,
 
     /// Bar manager
     pub manager: BarManager,
@@ -127,6 +220,8 @@ impl MusicSelector {
             app_config,
             preview: None,
             bar: None,
+            skin_bar: None,
+            select_center_bar: 0,
             manager: BarManager::new(),
             musicinput: None,
             search: None,
@@ -1434,8 +1529,33 @@ impl MainState for MusicSelector {
             &self.config,
             skin_type,
         ) {
-            Some(skin) => {
+            Some(mut skin) => {
                 log::info!("Skin loaded for type {}", skin_type);
+
+                // Extract bar data before boxing into dyn SkinDrawable
+                if let Some(bar_data) = skin.take_select_bar_data() {
+                    let mut skin_bar = super::skin_bar::SkinBar::new(bar_data.center_bar);
+                    // Pad LR2's 20-element vecs to SkinBar's 60-element vecs
+                    for (i, img) in bar_data.barimageon.into_iter().enumerate() {
+                        if i < skin_bar.barimageon.len() {
+                            skin_bar.barimageon[i] = img;
+                        }
+                    }
+                    for (i, img) in bar_data.barimageoff.into_iter().enumerate() {
+                        if i < skin_bar.barimageoff.len() {
+                            skin_bar.barimageoff[i] = img;
+                        }
+                    }
+                    self.select_center_bar = bar_data.center_bar;
+                    self.skin_bar = Some(skin_bar);
+                    self.bar = Some(BarRenderer::new(300, 100, 5));
+                    log::info!(
+                        "Bar data extracted: center_bar={}, clickable={}",
+                        bar_data.center_bar,
+                        bar_data.clickable_bar.len()
+                    );
+                }
+
                 self.main_state_data.skin = Some(Box::new(skin));
             }
             None => {
@@ -1539,6 +1659,77 @@ impl MainState for MusicSelector {
 
         // In Java: search text field setup from skin region
         // Blocked on MusicSelectSkin integration
+    }
+
+    /// Override skin rendering to add BarRenderer prepare/render around the default cycle.
+    /// Java: MusicSelectSkin.render() wraps MainSkin.render() with bar logic.
+    fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
+        use rubato_skin::skin_object::SkinObjectRenderer;
+        let time = self.main_state_data.timer.get_now_time();
+
+        // Bar prepare — compute bar positions
+        if let (Some(bar_renderer), Some(skin_bar)) = (&mut self.bar, &self.skin_bar) {
+            let ctx = PrepareContext {
+                center_bar: self.select_center_bar,
+                currentsongs: &self.manager.currentsongs,
+                selectedindex: self.manager.selectedindex,
+            };
+            bar_renderer.prepare(skin_bar, time, &ctx);
+        }
+
+        // Skin draw cycle with rich render context (config + timer)
+        {
+            let mut skin = match self.main_state_data.skin.take() {
+                Some(s) => s,
+                None => return,
+            };
+            let mut timer = std::mem::take(&mut self.main_state_data.timer);
+
+            {
+                let mut ctx = SelectRenderContext {
+                    timer: &mut timer,
+                    player_config: &self.config,
+                    app_config: &self.app_config,
+                };
+                skin.update_custom_objects_timed(&mut ctx);
+                skin.swap_sprite_batch(sprite);
+                skin.draw_all_objects_timed(&mut ctx);
+                skin.swap_sprite_batch(sprite);
+            }
+
+            self.main_state_data.timer = timer;
+            self.main_state_data.skin = Some(skin);
+        }
+
+        // Bar render — draw bar images, text, lamps, etc.
+        {
+            let timer_snapshot = rubato_skin::stubs::Timer::with_timers(
+                self.main_state_data.timer.get_now_time(),
+                self.main_state_data.timer.get_now_micro_time(),
+                self.main_state_data.timer.export_timer_array(),
+            );
+            let adapter = MinimalSkinMainState::new(&timer_snapshot);
+
+            let currentsongs = &self.manager.currentsongs;
+            let rival = self.rival.is_some();
+            let lnmode = self.config.get_lnmode();
+            let center_bar = self.select_center_bar;
+
+            if let (Some(bar_renderer), Some(skin_bar)) = (&mut self.bar, &mut self.skin_bar) {
+                let mut renderer = SkinObjectRenderer::new();
+                std::mem::swap(&mut renderer.sprite, sprite);
+                let ctx = RenderContext {
+                    center_bar,
+                    currentsongs,
+                    rival,
+                    state: &adapter,
+                    lnmode,
+                    loader_finished: false,
+                };
+                bar_renderer.render(&mut renderer, skin_bar, &ctx);
+                std::mem::swap(&mut renderer.sprite, sprite);
+            }
+        }
     }
 
     /// Prepare state — start preview music.

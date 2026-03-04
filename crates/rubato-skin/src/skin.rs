@@ -394,6 +394,10 @@ pub struct Skin {
     /// Image registry: maps image IDs to TextureRegions.
     /// Populated during skin loading; resolved by SkinSourceReference at draw time.
     image_registry: HashMap<i32, TextureRegion>,
+
+    /// Select-specific bar data extracted from the skin loader.
+    /// MusicSelector takes this after loading to build SkinBar + BarRenderer.
+    pub select_bar_data: Option<crate::select_bar_data::SelectBarData>,
 }
 
 impl Skin {
@@ -445,7 +449,14 @@ impl Skin {
             nextpreparetime: -1,
             prepareduration: 1,
             image_registry: Self::create_system_image_registry(),
+            select_bar_data: None,
         }
+    }
+
+    /// Take select-specific bar data out, leaving None.
+    /// Called by MusicSelector after skin loading to build SkinBar + BarRenderer.
+    pub fn take_select_bar_data(&mut self) -> Option<crate::select_bar_data::SelectBarData> {
+        self.select_bar_data.take()
     }
 
     /// Create system placeholder images (BLACK=110, WHITE=111).
@@ -1161,6 +1172,54 @@ impl crate::stubs::MainState for TimerOnlyMainState<'_> {
 
     fn get_recent_judges_index(&self) -> usize {
         self.ctx.map_or(0, |c| c.get_recent_judges_index())
+    }
+
+    fn integer_value(&self, id: i32) -> i32 {
+        self.ctx.map_or(0, |c| c.integer_value(id))
+    }
+
+    fn boolean_value(&self, id: i32) -> bool {
+        self.ctx.is_some_and(|c| c.boolean_value(id))
+    }
+
+    fn float_value(&self, id: i32) -> f32 {
+        self.ctx.map_or(0.0, |c| c.float_value(id))
+    }
+
+    fn string_value(&self, id: i32) -> String {
+        self.ctx.map_or_else(String::new, |c| c.string_value(id))
+    }
+
+    fn set_float_value(&mut self, _id: i32, _value: f32) {
+        // TimerOnlyMainState is an ephemeral adapter; writes are dropped
+    }
+
+    fn get_judge_count(&self, judge: i32, fast: bool) -> i32 {
+        self.ctx.map_or(0, |c| c.get_judge_count(judge, fast))
+    }
+
+    fn get_gauge_value(&self) -> f32 {
+        self.ctx.map_or(0.0, |c| c.get_gauge_value())
+    }
+
+    fn get_gauge_type(&self) -> i32 {
+        self.ctx.map_or(0, |c| c.get_gauge_type())
+    }
+
+    fn get_now_judge(&self, player: i32) -> i32 {
+        self.ctx.map_or(0, |c| c.get_now_judge(player))
+    }
+
+    fn get_now_combo(&self, player: i32) -> i32 {
+        self.ctx.map_or(0, |c| c.get_now_combo(player))
+    }
+
+    fn get_player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+        self.ctx.and_then(|c| c.get_player_config_ref())
+    }
+
+    fn get_config_ref(&self) -> Option<&rubato_types::config::Config> {
+        self.ctx.and_then(|c| c.get_config_ref())
     }
 }
 
