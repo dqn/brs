@@ -12,6 +12,7 @@ env:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -28,9 +29,6 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Run cargo check
-        run: cargo check --workspace
-
       - name: Run cargo fmt check
         run: cargo fmt --all -- --check
 
@@ -39,7 +37,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    needs: check
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -51,9 +49,12 @@ jobs:
       - name: Install Rust stable toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
       # Exclude golden-master (requires Java environment) and screenshot tests (require GPU)
-      - name: Run cargo test
-        run: cargo test --workspace --exclude golden-master
+      - name: Run cargo nextest
+        run: cargo nextest run --workspace --exclude golden-master

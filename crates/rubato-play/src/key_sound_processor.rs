@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -22,8 +22,11 @@ struct BgShared {
     /// Current play time in microseconds (`get_now_micro_time_for_id(TIMER_PLAY)`).
     /// Updated by the main thread each frame.
     play_time: AtomicI64,
-    /// Stop flag. Set to true to terminate the thread.
-    stop: AtomicBool,
+    /// Stop flag + condvar for interruptible sleep.
+    /// `stop_bg_play()` sets the flag and notifies the condvar so the thread
+    /// wakes immediately instead of sleeping until the next timeline.
+    stop_flag: Mutex<bool>,
+    stop_signal: Condvar,
     /// Current effective volume for BG notes.
     /// Stored as raw f32 bits via `f32::to_bits()` / `f32::from_bits()`.
     volume_bits: AtomicI64,
@@ -107,7 +110,8 @@ impl KeySoundProcessor {
 
         let shared = Arc::new(BgShared {
             play_time: AtomicI64::new(0),
-            stop: AtomicBool::new(false),
+            stop_flag: Mutex::new(false),
+            stop_signal: Condvar::new(),
             volume_bits: AtomicI64::new((bg_volume).to_bits() as i64),
             pending_notes: Mutex::new(Vec::new()),
         });
@@ -133,7 +137,11 @@ impl KeySoundProcessor {
     /// Translated from: Java `KeySoundProcessor.stopBGPlay()`.
     pub fn stop_bg_play(&mut self) {
         if let Some(ref mut handle) = self.handle {
-            handle.shared.stop.store(true, Ordering::Release);
+            {
+                let mut guard = handle.shared.stop_flag.lock().unwrap();
+                *guard = true;
+            }
+            handle.shared.stop_signal.notify_one();
             if let Some(thread) = handle.thread.take() {
                 let _ = thread.join();
             }
@@ -205,7 +213,11 @@ fn autoplay_run(shared: Arc<BgShared>, entries: Vec<BgTimelineEntry>, starttime:
         p += 1;
     }
 
-    while !shared.stop.load(Ordering::Acquire) {
+    loop {
+        if *shared.stop_flag.lock().unwrap() {
+            break;
+        }
+
         let time = shared.play_time.load(Ordering::Acquire);
         let volume_bits = shared.volume_bits.load(Ordering::Acquire) as u32;
         let volume = f32::from_bits(volume_bits);
@@ -228,12 +240,18 @@ fn autoplay_run(shared: Arc<BgShared>, entries: Vec<BgTimelineEntry>, starttime:
             p += 1;
         }
 
-        // Sleep until next timeline.
+        // Interruptible sleep until next timeline.
+        // Uses Condvar so stop_bg_play() can wake us immediately.
         if p < entries.len() {
             let sleeptime = entries[p].micro_time - time;
             if sleeptime > 0 {
                 // Java: Thread.sleep(sleeptime / 1000) — converts micros to millis.
-                thread::sleep(Duration::from_micros(sleeptime as u64));
+                let guard = shared.stop_flag.lock().unwrap();
+                if !*guard {
+                    let _ = shared
+                        .stop_signal
+                        .wait_timeout(guard, Duration::from_micros(sleeptime as u64));
+                }
             }
         }
 
