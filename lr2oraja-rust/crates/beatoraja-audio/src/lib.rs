@@ -1,6 +1,4 @@
-#![allow(clippy::needless_range_loop)]
 #![allow(clippy::manual_find)]
-#![allow(clippy::result_unit_err)]
 #![allow(unused_parens)]
 #![allow(clippy::comparison_chain)]
 #![allow(dead_code)]

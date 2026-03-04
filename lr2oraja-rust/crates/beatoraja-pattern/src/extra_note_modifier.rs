@@ -29,15 +29,14 @@ impl PatternModifier for ExtraNoteModifier {
 
         let mode = model.get_mode().cloned();
         let timelines = model.get_all_time_lines_mut();
-        let tl_len = timelines.len();
         let mut lns = vec![false; mode_key as usize];
         let mut blank = vec![false; mode_key as usize];
         let mut lastnote: Vec<Option<Note>> = vec![None; mode_key as usize];
         let mut lastoffset = 0usize;
 
-        for i in 0..tl_len {
+        for tl in timelines.iter_mut() {
             for key in 0..mode_key as usize {
-                let note = timelines[i].get_note(key as i32);
+                let note = tl.get_note(key as i32);
                 if let Some(n) = note
                     && n.is_long()
                 {
@@ -47,14 +46,13 @@ impl PatternModifier for ExtraNoteModifier {
                     .as_ref()
                     .map(|m| m.is_scratch_key(key as i32))
                     .unwrap_or(false);
-                blank[key] = !lns[key]
-                    && timelines[i].get_note(key as i32).is_none()
-                    && (scratch || !is_scratch);
+                blank[key] =
+                    !lns[key] && tl.get_note(key as i32).is_none() && (scratch || !is_scratch);
             }
 
             for _d in 0..self.depth {
-                if !timelines[i].get_back_ground_notes().is_empty() {
-                    let note = timelines[i].get_back_ground_notes()[0].clone();
+                if !tl.get_back_ground_notes().is_empty() {
+                    let note = tl.get_back_ground_notes()[0].clone();
 
                     let mut offset = lastoffset;
                     for _j in 1..mode_key as usize {
@@ -72,8 +70,8 @@ impl PatternModifier for ExtraNoteModifier {
                     for _j in 0..mode_key as usize {
                         if blank[key] {
                             lastnote[key] = Some(note.clone());
-                            timelines[i].set_note(key as i32, Some(note.clone()));
-                            timelines[i].remove_back_ground_note(0);
+                            tl.set_note(key as i32, Some(note.clone()));
+                            tl.remove_back_ground_note(0);
                             assist = AssistLevel::Assist;
                             placed = true;
                             break;

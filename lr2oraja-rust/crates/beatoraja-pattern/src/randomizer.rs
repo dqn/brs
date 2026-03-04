@@ -648,18 +648,18 @@ impl AllScratchRandomizer {
                 match modify_side {
                     SIDE_1P => {
                         let mut min = i32::MAX;
-                        for i in 0..lane.len() {
-                            if lane[i] < min {
-                                min = lane[i];
+                        for (i, &val) in lane.iter().enumerate() {
+                            if val < min {
+                                min = val;
                                 index = i;
                             }
                         }
                     }
                     SIDE_2P => {
                         let mut max = i32::MIN;
-                        for i in 0..lane.len() {
-                            if lane[i] > max {
-                                max = lane[i];
+                        for (i, &val) in lane.iter().enumerate() {
+                            if val > max {
+                                max = val;
                                 index = i;
                             }
                         }

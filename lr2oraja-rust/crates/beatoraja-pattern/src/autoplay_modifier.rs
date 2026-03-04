@@ -39,11 +39,11 @@ impl PatternModifier for AutoplayModifier {
 
             if self.margin > 0 {
                 while timelines[pos].get_time() < timelines[i].get_time() - self.margin {
-                    for lane in 0..lns.len() {
+                    for (lane, ln_active) in lns.iter_mut().enumerate() {
                         if let Some(note) = timelines[pos].get_note(lane as i32)
                             && note.is_long()
                         {
-                            lns[lane] = !note.is_end();
+                            *ln_active = !note.is_end();
                         }
                     }
                     pos += 1;
@@ -58,11 +58,11 @@ impl PatternModifier for AutoplayModifier {
                     }
                 }
 
-                for j in pos..tl_len {
-                    if timelines[j].get_time() >= endtime {
+                for tl in &timelines[pos..tl_len] {
+                    if tl.get_time() >= endtime {
                         break;
                     }
-                    for lane in 0..mode_key {
+                    for (lane, &ln_active) in lns.iter().enumerate() {
                         let mut b = true;
                         for &rlane in &self.lanes {
                             if lane as i32 == rlane {
@@ -70,7 +70,7 @@ impl PatternModifier for AutoplayModifier {
                                 break;
                             }
                         }
-                        if b && (timelines[j].get_note(lane as i32).is_some() || lns[lane]) {
+                        if b && (tl.get_note(lane as i32).is_some() || ln_active) {
                             remove = true;
                             break;
                         }

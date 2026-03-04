@@ -1,11 +1,7 @@
-#![allow(clippy::needless_range_loop)]
 #![allow(clippy::manual_find)]
 #![allow(clippy::comparison_chain)]
 #![allow(unused_parens)]
 #![allow(dead_code)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::type_complexity)]
-#![allow(clippy::wildcard_in_or_patterns)]
 
 pub mod autoplay_modifier;
 pub mod extra_note_modifier;

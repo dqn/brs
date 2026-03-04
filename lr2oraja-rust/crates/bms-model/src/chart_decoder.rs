@@ -73,6 +73,7 @@ pub fn get_decoder(p: &Path) -> Option<ChartDecoderImpl> {
     None
 }
 
+#[allow(clippy::result_unit_err)]
 pub fn parse_int36_str(s: &str, index: usize) -> Result<i32, ()> {
     let bytes = s.as_bytes();
     if index + 1 >= bytes.len() {
@@ -107,6 +108,7 @@ pub fn parse_int36(c1: char, c2: char) -> i32 {
     result
 }
 
+#[allow(clippy::result_unit_err)]
 pub fn parse_int62_str(s: &str, index: usize) -> Result<i32, ()> {
     let bytes = s.as_bytes();
     if index + 1 >= bytes.len() {
@@ -144,7 +146,7 @@ pub fn parse_int62(c1: char, c2: char) -> i32 {
 pub fn to_base62(mut decimal: i32) -> String {
     let mut sb = Vec::with_capacity(2);
     for _ in 0..2 {
-        let m = (decimal % 62);
+        let m = decimal % 62;
         if m < 10 {
             sb.push((b'0' + m as u8) as char);
         } else if m < 36 {

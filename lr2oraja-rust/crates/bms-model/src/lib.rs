@@ -1,8 +1,5 @@
 #![allow(clippy::manual_is_ascii_check)]
 #![allow(clippy::manual_find)]
-#![allow(clippy::result_unit_err)]
-#![allow(clippy::needless_range_loop)]
-#![allow(unused_parens)]
 
 pub mod bms_decoder;
 pub mod bms_generator;

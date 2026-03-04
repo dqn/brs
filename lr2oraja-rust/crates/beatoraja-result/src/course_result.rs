@@ -178,10 +178,10 @@ impl CourseResult {
                 .get_groove_gauge()
                 .map(|g| g.get_gauge_type_length())
                 .unwrap_or(9);
-            for i in course_gauge_size..models.len() {
+            for model in &models[course_gauge_size..] {
                 let mut list: Vec<Vec<f32>> = Vec::with_capacity(gauge_type_length);
                 for _type_idx in 0..gauge_type_length {
-                    let last_note_time = models[i].get_last_note_time();
+                    let last_note_time = model.get_last_note_time();
                     let fa = vec![0.0f32; ((last_note_time + 500) / 500) as usize];
                     list.push(fa);
                 }
@@ -316,11 +316,11 @@ impl CourseResult {
                 let mut succeed = true;
                 let mut irsend = 0;
                 let mut remove_indices: Vec<usize> = Vec::new();
-                for idx in 0..statuses.len() {
+                for (idx, status) in statuses.iter_mut().enumerate() {
                     irsend += 1;
-                    let send_ok = statuses[idx].send();
+                    let send_ok = status.send();
                     succeed &= send_ok;
-                    if statuses[idx].retry < 0 || statuses[idx].retry > ir_send_count {
+                    if status.retry < 0 || status.retry > ir_send_count {
                         remove_indices.push(idx);
                     }
                 }

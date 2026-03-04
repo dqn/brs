@@ -86,19 +86,18 @@ impl PatternModifier for MineNoteModifier {
         } else {
             let mut rng = JavaRandom::new(self.base.seed);
             let timelines = model.get_all_time_lines_mut();
-            let tl_len = timelines.len();
             let mut ln = vec![false; mode_key as usize];
             let mut blank = vec![false; mode_key as usize];
 
-            for i in 0..tl_len {
+            for tl in timelines.iter_mut() {
                 for key in 0..mode_key as usize {
-                    let note = timelines[i].get_note(key as i32);
+                    let note = tl.get_note(key as i32);
                     if let Some(n) = note
                         && n.is_long()
                     {
                         ln[key] = !n.is_end();
                     }
-                    blank[key] = !ln[key] && timelines[i].get_note(key as i32).is_none();
+                    blank[key] = !ln[key] && tl.get_note(key as i32).is_none();
                 }
 
                 for key in 0..mode_key as usize {
@@ -106,7 +105,7 @@ impl PatternModifier for MineNoteModifier {
                         match self.mode {
                             Mode::AddRandom => {
                                 if rng.next_double() > 0.9 {
-                                    timelines[i].set_note(
+                                    tl.set_note(
                                         key as i32,
                                         Some(Note::new_mine(-1, self.damage as f64)),
                                     );
@@ -116,14 +115,14 @@ impl PatternModifier for MineNoteModifier {
                                 if (key > 0 && !blank[key - 1])
                                     || (key < mode_key as usize - 1 && !blank[key + 1])
                                 {
-                                    timelines[i].set_note(
+                                    tl.set_note(
                                         key as i32,
                                         Some(Note::new_mine(-1, self.damage as f64)),
                                     );
                                 }
                             }
                             Mode::AddBlank => {
-                                timelines[i].set_note(
+                                tl.set_note(
                                     key as i32,
                                     Some(Note::new_mine(-1, self.damage as f64)),
                                 );

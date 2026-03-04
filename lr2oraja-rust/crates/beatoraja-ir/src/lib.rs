@@ -1,4 +1,3 @@
-#![allow(clippy::needless_range_loop)]
 #![allow(unused_imports)]
 
 // Re-exports (formerly in stubs.rs)

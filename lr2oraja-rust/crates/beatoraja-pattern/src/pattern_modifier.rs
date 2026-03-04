@@ -216,18 +216,18 @@ pub fn move_to_background(tls: &mut [TimeLine], tl_index: usize, lane: i32) {
                 // Actually, in our model, get_pair() returns an Option<usize> which is the pair index
                 // in the timelines array, but in the pattern context, we need to search by section.
                 // Let's search for the pair note by iterating over timelines.
-                for i in 0..tls.len() {
+                for (i, tl_item) in tls.iter_mut().enumerate() {
                     if i == tl_index {
                         continue;
                     }
-                    if let Some(pair_note) = tls[i].get_note(lane)
+                    if let Some(pair_note) = tl_item.get_note(lane)
                         && pair_note.is_long()
                         && pair_note.is_end()
                     {
                         // Check if this is the matching pair
-                        let pair_note_clone = tls[i].take_note(lane);
+                        let pair_note_clone = tl_item.take_note(lane);
                         if let Some(pn) = pair_note_clone {
-                            tls[i].add_back_ground_note(pn);
+                            tl_item.add_back_ground_note(pn);
                         }
                         break;
                     }

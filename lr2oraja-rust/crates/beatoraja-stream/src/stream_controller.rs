@@ -126,15 +126,15 @@ impl StreamController {
     }
 
     fn execute_commands(commands: &mut [Box<dyn StreamCommand>], line: &str) {
-        for i in 0..commands.len() {
-            let cmd_str = format!("{} ", commands[i].command_string());
+        for cmd in commands.iter_mut() {
+            let cmd_str = format!("{} ", cmd.command_string());
             let split_line: Vec<&str> = line.split(&cmd_str).collect();
             let data = if split_line.len() == 2 {
                 split_line[1]
             } else {
                 ""
             };
-            commands[i].run(data);
+            cmd.run(data);
         }
     }
 }
