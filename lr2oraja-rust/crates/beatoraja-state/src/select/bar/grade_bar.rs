@@ -88,14 +88,22 @@ impl GradeBar {
                 <= score.get_exscore() as f32 * 100.0 / (score.get_notes() as f32 * 2.0)
     }
 
-    pub fn get_lamp(&self, _is_player: bool) -> i32 {
+    pub fn get_lamp(&self, is_player: bool) -> i32 {
+        if !is_player {
+            return self
+                .selectable
+                .bar_data
+                .get_rival_score()
+                .map(|s| s.get_clear())
+                .unwrap_or(0);
+        }
+
         let mut result = 0;
         if let Some(score) = self.selectable.bar_data.get_score()
             && score.get_clear() > result
         {
             result = score.get_clear();
         }
-        // Java: // TODO ライバルスコア — rival score intentionally excluded
         if let Some(score) = self.get_mirror_score()
             && score.get_clear() > result
         {
@@ -107,5 +115,68 @@ impl GradeBar {
             result = score.get_clear();
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn score_with_clear(clear: i32) -> ScoreData {
+        let mut sd = ScoreData::default();
+        sd.clear = clear;
+        sd
+    }
+
+    #[test]
+    fn test_get_lamp_player_returns_max_of_all_scores() {
+        let mut bar = GradeBar::new(CourseData::default());
+
+        // No scores: returns 0
+        assert_eq!(bar.get_lamp(true), 0);
+
+        // Player score only
+        bar.selectable.bar_data.set_score(Some(score_with_clear(3)));
+        assert_eq!(bar.get_lamp(true), 3);
+
+        // Mirror score is higher
+        bar.set_mirror_score(Some(score_with_clear(5)));
+        assert_eq!(bar.get_lamp(true), 5);
+
+        // Random score is highest
+        bar.set_random_score(Some(score_with_clear(7)));
+        assert_eq!(bar.get_lamp(true), 7);
+
+        // Player score is highest
+        bar.selectable.bar_data.set_score(Some(score_with_clear(9)));
+        assert_eq!(bar.get_lamp(true), 9);
+    }
+
+    #[test]
+    fn test_get_lamp_rival_returns_rival_clear() {
+        let mut bar = GradeBar::new(CourseData::default());
+
+        // Set player scores (should be ignored for rival)
+        bar.selectable.bar_data.set_score(Some(score_with_clear(9)));
+        bar.set_mirror_score(Some(score_with_clear(8)));
+        bar.set_random_score(Some(score_with_clear(7)));
+
+        // Set rival score
+        bar.selectable
+            .bar_data
+            .set_rival_score(Some(score_with_clear(4)));
+
+        assert_eq!(bar.get_lamp(false), 4);
+    }
+
+    #[test]
+    fn test_get_lamp_rival_with_no_rival_score_returns_zero() {
+        let mut bar = GradeBar::new(CourseData::default());
+
+        // Set player scores but no rival score
+        bar.selectable.bar_data.set_score(Some(score_with_clear(9)));
+        bar.set_mirror_score(Some(score_with_clear(8)));
+
+        assert_eq!(bar.get_lamp(false), 0);
     }
 }
