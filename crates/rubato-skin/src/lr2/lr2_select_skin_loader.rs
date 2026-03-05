@@ -1,6 +1,8 @@
 use crate::lr2::lr2_skin_csv_loader::{LR2SkinCSVLoaderState, LR2SkinLoaderAccess};
 use crate::lr2::lr2_skin_loader::{self};
+use crate::skin_bpm_graph::SkinBPMGraph;
 use crate::skin_image::SkinImage;
+use crate::skin_note_distribution_graph::SkinNoteDistributionGraph;
 use crate::stubs::{Rectangle, Resolution, TextureRegion};
 
 /// LR2 select skin loader
@@ -37,6 +39,10 @@ const BARLABEL_COUNT: usize = 3;
 /// BARTEXT_COUNT constant
 const BARTEXT_COUNT: usize = 11;
 
+fn str_at(parts: &[String], idx: usize) -> &str {
+    parts.get(idx).map(|s| s.trim()).unwrap_or("")
+}
+
 /// Select skin loader state
 pub struct LR2SelectSkinLoaderState {
     pub csv: LR2SkinCSVLoaderState,
@@ -58,6 +64,8 @@ pub struct LR2SelectSkinLoaderState {
     pub bargraph_images: Option<Vec<TextureRegion>>,
     pub bargraph_region: Rectangle,
 
+    pub noteobj: Option<SkinNoteDistributionGraph>,
+    pub bpmgraphobj: Option<SkinBPMGraph>,
     pub gauge: Rectangle,
 
     pub center_bar: i32,
@@ -92,6 +100,8 @@ impl LR2SelectSkinLoaderState {
             bargraph_type: None,
             bargraph_images: None,
             bargraph_region: Rectangle::default(),
+            noteobj: None,
+            bpmgraphobj: None,
             gauge: Rectangle::default(),
             center_bar: 0,
             clickable_bar: Vec::new(),
@@ -147,7 +157,32 @@ impl LR2SelectSkinLoaderState {
                         None,
                     ));
                 }
-                // barimageoff[values[1]].setDestination(...)
+                if idx < self.barimageoff.len()
+                    && let Some(ref mut img) = self.barimageoff[idx]
+                {
+                    let dstw = self.csv.dst.width / self.csv.src.width;
+                    let dsth = self.csv.dst.height / self.csv.src.height;
+                    let offsets = lr2_skin_loader::read_offset(str_parts, 21);
+                    img.data.set_destination_with_int_timer_ops(
+                        values[2] as i64,
+                        values[3] as f32 * dstw,
+                        self.csv.dst.height - (values[4] + values[6]) as f32 * dsth,
+                        values[5] as f32 * dstw,
+                        values[6] as f32 * dsth,
+                        values[7],
+                        values[8],
+                        values[9],
+                        values[10],
+                        values[11],
+                        values[12],
+                        values[13],
+                        values[14],
+                        values[15],
+                        values[16],
+                        values[17],
+                        &offsets,
+                    );
+                }
             }
             "DST_BAR_BODY_ON" => {
                 let mut values = lr2_skin_loader::parse_int(str_parts);
@@ -173,7 +208,32 @@ impl LR2SelectSkinLoaderState {
                         None,
                     ));
                 }
-                // barimageon[values[1]].setDestination(...)
+                if idx < self.barimageon.len()
+                    && let Some(ref mut img) = self.barimageon[idx]
+                {
+                    let dstw = self.csv.dst.width / self.csv.src.width;
+                    let dsth = self.csv.dst.height / self.csv.src.height;
+                    let offsets = lr2_skin_loader::read_offset(str_parts, 21);
+                    img.data.set_destination_with_int_timer_ops(
+                        values[2] as i64,
+                        values[3] as f32 * dstw,
+                        self.csv.dst.height - (values[4] + values[6]) as f32 * dsth,
+                        values[5] as f32 * dstw,
+                        values[6] as f32 * dsth,
+                        values[7],
+                        values[8],
+                        values[9],
+                        values[10],
+                        values[11],
+                        values[12],
+                        values[13],
+                        values[14],
+                        values[15],
+                        values[16],
+                        values[17],
+                        &offsets,
+                    );
+                }
             }
             "BAR_CENTER" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
@@ -612,9 +672,11 @@ impl LR2SelectSkinLoaderState {
             }
             "SRC_NOTECHART" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
-                // noteobj = new SkinNoteDistributionGraph(...)
+                let obj = SkinNoteDistributionGraph::new(
+                    values[1], values[15], values[16], values[17], values[18], values[19],
+                );
                 self.gauge = Rectangle::new(0.0, 0.0, values[11] as f32, values[12] as f32);
-                // skin.add(noteobj)
+                self.noteobj = Some(obj);
             }
             "DST_NOTECHART" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
@@ -624,9 +686,18 @@ impl LR2SelectSkinLoaderState {
             }
             "SRC_BPMCHART" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
-                // bpmgraphobj = new SkinBPMGraph(...)
+                let obj = SkinBPMGraph::new(
+                    values[3],
+                    values[4],
+                    str_at(str_parts, 5),
+                    str_at(str_parts, 6),
+                    str_at(str_parts, 7),
+                    str_at(str_parts, 8),
+                    str_at(str_parts, 9),
+                    str_at(str_parts, 10),
+                );
                 self.gauge = Rectangle::new(0.0, 0.0, values[1] as f32, values[2] as f32);
-                // skin.add(bpmgraphobj)
+                self.bpmgraphobj = Some(obj);
             }
             "DST_BPMCHART" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
