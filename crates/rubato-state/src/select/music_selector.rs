@@ -507,6 +507,11 @@ impl MusicSelector {
         self.main = Some(main);
     }
 
+    /// Set the player config (play options, key bindings, etc.).
+    pub fn set_player_config(&mut self, config: PlayerConfig) {
+        self.config = config;
+    }
+
     pub fn set_rival(&mut self, rival: Option<PlayerInformation>) {
         // In Java: finds rival index, sets rival and rival cache, updates bar
         self.rival = rival;
@@ -1883,6 +1888,12 @@ impl MainState for MusicSelector {
     /// Create state — initialize DB access, song list, bar manager.
     /// Corresponds to Java MusicSelector.create()
     fn create(&mut self) {
+        if self.main.is_none() {
+            log::warn!(
+                "MusicSelector::create(): main controller not set - state transitions, sounds, and score access will be disabled"
+            );
+        }
+
         // Java: main.getSoundManager().shuffle()
         if let Some(ref mut main) = self.main {
             main.shuffle_sounds();

@@ -219,7 +219,7 @@ impl StateFactory for LauncherStateFactory {
                 // Open a separate SQLite connection for the selector (same pattern
                 // as download processors in main.rs).
                 let config = controller.get_config();
-                let selector = match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
+                let mut selector = match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
                     config.get_songpath(),
                     config.get_bmsroot(),
                 ) {
@@ -229,6 +229,13 @@ impl StateFactory for LauncherStateFactory {
                         MusicSelector::with_config(config.clone())
                     }
                 };
+                // Wire dependencies (same pattern as Decide/Result)
+                let mc_access = ConfigMainControllerAccess::new(
+                    config.clone(),
+                    controller.get_player_config().clone(),
+                );
+                selector.set_main_controller(Box::new(mc_access));
+                selector.set_player_config(controller.get_player_config().clone());
                 Some(StateCreateResult {
                     state: Box::new(selector),
                     target_score: None,

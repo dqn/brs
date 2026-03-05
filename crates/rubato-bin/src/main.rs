@@ -138,7 +138,12 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     // In the direct play path (-s flag or bms_path), we must do it here.
     {
         use rubato_core::config::Config;
-        let config = Config::read().unwrap_or_default();
+        use rubato_types::validatable::Validatable;
+        let mut config = Config::read().unwrap_or_default();
+        config.validate();
+        if config.get_bmsroot().is_empty() {
+            warn!("No bmsroot configured - song scan will find nothing");
+        }
         match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
             config.get_songpath(),
             config.get_bmsroot(),
@@ -327,7 +332,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     // Both StreamController and StateFactory (MusicSelect arm) use the same instance.
     if main_controller.get_player_config().enable_request {
         let config = main_controller.get_config();
-        let selector =
+        let mut selector =
             match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
                 config.get_songpath(),
                 config.get_bmsroot(),
@@ -343,6 +348,15 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
                     rubato_state::select::music_selector::MusicSelector::with_config(config.clone())
                 }
             };
+        // Wire dependencies so the shared selector can access config, sounds, scores, etc.
+        {
+            let mc_access = rubato_types::main_controller_access::ConfigMainControllerAccess::new(
+                config.clone(),
+                main_controller.get_player_config().clone(),
+            );
+            selector.set_main_controller(Box::new(mc_access));
+            selector.set_player_config(main_controller.get_player_config().clone());
+        }
         let selector = std::sync::Arc::new(std::sync::Mutex::new(selector));
         // Store the shared selector on MainController for StateFactory to retrieve
         main_controller.set_shared_music_selector(Box::new(std::sync::Arc::clone(&selector)));
