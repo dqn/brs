@@ -9,7 +9,7 @@ use log::{debug, info, warn};
 use crate::custom_event::CustomEvent;
 use crate::custom_timer::CustomTimer;
 use crate::json::json_skin_loader::{
-    CustomCategoryData, CustomItemData, SkinData, SkinHeaderData,
+    CustomCategoryData, CustomItemData, ResolvedImageEntry, SkinData, SkinHeaderData,
     SkinObjectData as LoaderSkinObjectData, SkinObjectType, SongListBarData, SourceData,
     SourceDataType,
 };
@@ -510,6 +510,10 @@ fn convert_skin_object(
                 binding_id
             );
             Some(SkinObject::Image(SkinImage::new_with_image_id(binding_id)))
+        }
+
+        SkinObjectType::ResolvedImageSet { images, ref_id } => {
+            resolve_image_set(images, *ref_id, source_map, skin_path, usecim)
         }
 
         SkinObjectType::Number {
@@ -1196,6 +1200,35 @@ fn get_texture_for_src(
     }
 
     tex_result
+}
+
+/// Resolve an ImageSet into a multi-source SkinImage with actual textures.
+/// Each entry in the set is looked up and its texture resolved from source_map.
+fn resolve_image_set(
+    entries: &[ResolvedImageEntry],
+    ref_id: i32,
+    source_map: &mut HashMap<String, SourceData>,
+    skin_path: &Path,
+    usecim: bool,
+) -> Option<SkinObject> {
+    if entries.is_empty() {
+        return None;
+    }
+    let images: Vec<Vec<TextureRegion>> = entries
+        .iter()
+        .filter_map(|entry| {
+            let tex = get_texture_for_src(entry.src.as_deref(), source_map, skin_path, usecim)?;
+            Some(get_source_image(
+                &tex, entry.x, entry.y, entry.w, entry.h, entry.divx, entry.divy,
+            ))
+        })
+        .collect();
+    if images.is_empty() {
+        return None;
+    }
+    Some(SkinObject::Image(SkinImage::new_with_int_timer_ref_id(
+        images, 0, 0, ref_id,
+    )))
 }
 
 /// Build SelectBarData from resolved JSON SongList bar sub-objects.

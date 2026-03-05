@@ -1103,6 +1103,13 @@ pub enum SkinObjectType {
         act: Option<i32>,
         click: i32,
     },
+    /// ImageSet with each image resolved to its full Image definition.
+    /// Used for bar sub-objects where images must be resolved at conversion time
+    /// (bar rendering uses MinimalSkinMainState which can't resolve SkinSourceReference).
+    ResolvedImageSet {
+        images: Vec<ResolvedImageEntry>,
+        ref_id: i32,
+    },
     /// SkinNumber
     Number {
         src: Option<String>,
@@ -1364,6 +1371,18 @@ pub enum SkinObjectType {
     },
     /// Search text region (select skin only)
     SearchTextRegion { x: f32, y: f32, w: f32, h: f32 },
+}
+
+/// A single resolved image from an ImageSet (carries the full src/region info).
+#[derive(Clone, Debug, Default)]
+pub struct ResolvedImageEntry {
+    pub src: Option<String>,
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+    pub divx: i32,
+    pub divy: i32,
 }
 
 /// Resolved bar sub-object data for JSON skin SongList.

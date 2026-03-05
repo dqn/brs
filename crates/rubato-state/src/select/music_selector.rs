@@ -1967,6 +1967,18 @@ impl MainState for MusicSelector {
         use rubato_skin::skin_object::SkinObjectRenderer;
         let time = self.main_state_data.timer.get_now_time();
 
+        // Prepare skin_bar sub-objects (sets data.draw = true on bar images).
+        // Must be called before bar_renderer.prepare() which checks data.draw.
+        if let Some(skin_bar) = &mut self.skin_bar {
+            let timer_snapshot = rubato_skin::stubs::Timer::with_timers(
+                self.main_state_data.timer.get_now_time(),
+                self.main_state_data.timer.get_now_micro_time(),
+                self.main_state_data.timer.export_timer_array(),
+            );
+            let adapter = MinimalSkinMainState::new(&timer_snapshot);
+            skin_bar.prepare(time, &adapter);
+        }
+
         // Bar prepare — compute bar positions
         if let (Some(bar_renderer), Some(skin_bar)) = (&mut self.bar, &self.skin_bar) {
             let ctx = PrepareContext {

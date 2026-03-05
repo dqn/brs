@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::json::json_skin;
 use crate::json::json_skin_loader::{
-    JSONSkinLoader, SkinData, SkinObjectData, SkinObjectType, SongListBarData,
+    JSONSkinLoader, ResolvedImageEntry, SkinData, SkinObjectData, SkinObjectType, SongListBarData,
 };
 use crate::json::json_skin_object_loader::{self, JsonSkinObjectLoader};
 
@@ -76,6 +76,35 @@ fn resolve_songlist_bar_data(
                 // Populate destinations from the sub-destination's dst array
                 let mut dummy_skin = SkinData::new();
                 loader.set_destination(&mut dummy_skin, &mut obj, sub_dst);
+                // Resolve ImageSet to ResolvedImageSet so bar images can be
+                // converted with actual textures (bar rendering uses
+                // MinimalSkinMainState which can't resolve SkinSourceReference).
+                if let SkinObjectType::ImageSet {
+                    ref images, ref_id, ..
+                } = obj.object_type
+                {
+                    let entries: Vec<ResolvedImageEntry> = images
+                        .iter()
+                        .filter_map(|name| {
+                            sk.image
+                                .iter()
+                                .find(|img| img.id.as_deref().unwrap_or("") == name.as_str())
+                        })
+                        .map(|img| ResolvedImageEntry {
+                            src: img.src.clone(),
+                            x: img.x,
+                            y: img.y,
+                            w: img.w,
+                            h: img.h,
+                            divx: img.divx,
+                            divy: img.divy,
+                        })
+                        .collect();
+                    obj.object_type = SkinObjectType::ResolvedImageSet {
+                        images: entries,
+                        ref_id,
+                    };
+                }
                 Some(obj)
             })
             .collect()
