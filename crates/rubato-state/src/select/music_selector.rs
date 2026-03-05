@@ -5,6 +5,7 @@ use rubato_core::pixmap_resource_pool::PixmapResourcePool;
 use rubato_core::timer_manager::TimerManager;
 use rubato_ir::ranking_data;
 use rubato_types::main_controller_access::MainControllerAccess;
+use rubato_types::player_resource_access::PlayerResourceAccess;
 
 use super::bar::bar::Bar;
 use super::bar::grade_bar::GradeBar;
@@ -427,6 +428,14 @@ pub struct MusicSelector {
 
     /// Input processor for keyboard/controller input (created from config)
     input_processor: Option<BMSPlayerInputProcessor>,
+
+    /// Pending state change request (outbox pattern).
+    /// MainController polls this via take_pending_state_change() each frame.
+    pending_state_change: Option<MainStateType>,
+
+    /// Local PlayerResource for BMS file loading in read_chart().
+    /// Handed off to MainController via take_player_resource_box() during state transition.
+    player_resource: Option<rubato_core::player_resource::PlayerResource>,
 }
 
 pub static MODE: [Option<bms_model::Mode>; 8] = [
@@ -487,6 +496,8 @@ impl MusicSelector {
             stagefiles: PixmapResourcePool::with_maxgen(2),
             main: None,
             input_processor: None,
+            pending_state_change: None,
+            player_resource: None,
         }
     }
 
@@ -873,21 +884,18 @@ impl MusicSelector {
     /// Read a chart for play.
     /// Corresponds to Java MusicSelector.readChart(SongData, Bar)
     pub fn read_chart(&mut self, song: &SongData, current: &Bar) {
-        let main = match self.main.as_mut() {
-            Some(m) => m,
-            None => {
-                log::warn!("read_chart: no MainController available");
-                return;
-            }
-        };
-
         // Get play mode for set_bms_file encoding
         let (mode_type, mode_id) = Self::encode_bms_player_mode(self.play.as_ref());
 
-        // resource.clear()
-        if let Some(res) = main.get_player_resource_mut() {
-            res.clear();
+        // Ensure local PlayerResource exists
+        if self.player_resource.is_none() {
+            self.player_resource = Some(rubato_core::player_resource::PlayerResource::new(
+                self.app_config.clone(),
+                self.config.clone(),
+            ));
         }
+        let res = self.player_resource.as_mut().unwrap();
+        res.clear();
 
         // resource.setBMSFile(path, play)
         let path_str = match song.get_path() {
@@ -899,24 +907,26 @@ impl MusicSelector {
         };
         let path = std::path::Path::new(&path_str);
 
-        let load_success = main
-            .get_player_resource_mut()
-            .map(|res| res.set_bms_file(path, mode_type, mode_id))
-            .unwrap_or(false);
+        let load_success = PlayerResourceAccess::set_bms_file(res, path, mode_type, mode_id);
 
         if load_success {
             // Set table name/level from directory hierarchy
+            let table_urls: Vec<String> = self
+                .main
+                .as_ref()
+                .map(|m| {
+                    m.get_config()
+                        .get_table_url()
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+
             let dir = self.manager.get_directory();
             if !dir.is_empty()
                 && !matches!(dir.last(), Some(bar) if matches!(**bar, Bar::SameFolder(_)))
             {
-                let table_urls: Vec<String> = main
-                    .get_config()
-                    .get_table_url()
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect();
-
                 let mut is_dtable = false;
                 let mut tablename: Option<String> = None;
                 let mut tablelevel: Option<String> = None;
@@ -935,21 +945,21 @@ impl MusicSelector {
                     }
                 }
 
-                if let Some(ref name) = tablename
-                    && let Some(res) = main.get_player_resource_mut()
-                {
+                let res = self.player_resource.as_mut().unwrap();
+                if let Some(ref name) = tablename {
                     res.set_tablename(name);
                 }
-                if let Some(ref level) = tablelevel
-                    && let Some(res) = main.get_player_resource_mut()
-                {
+                if let Some(ref level) = tablelevel {
                     res.set_tablelevel(level);
                 }
             }
 
             // Java L384-388: only create new RankingData when IR active AND currentir is null.
             // Do NOT null out currentir when IR inactive (selectedBarMoved already set it).
-            if !main.get_ir_table_urls().is_empty() && self.currentir.is_none() {
+            if let Some(ref mut main) = self.main
+                && !main.get_ir_table_urls().is_empty()
+                && self.currentir.is_none()
+            {
                 use rubato_ir::ranking_data::RankingData;
                 let lnmode = main.get_player_config().get_lnmode();
                 let rd = RankingData::new();
@@ -959,39 +969,41 @@ impl MusicSelector {
                 }
             }
             // Java L388: resource.setRankingData(currentir)
-            if let Some(res) = main.get_player_resource_mut() {
+            {
+                let res = self.player_resource.as_mut().unwrap();
                 let ranking_any = self
                     .currentir
                     .clone()
                     .map(|rd| Box::new(rd) as Box<dyn std::any::Any + Send + Sync>);
                 res.set_ranking_data_any(ranking_any);
-            }
 
-            // Set rival score
-            let rival_score = current.get_rival_score().cloned();
-            if let Some(res) = main.get_player_resource_mut() {
+                // Set rival score
+                let rival_score = current.get_rival_score().cloned();
                 res.set_rival_score_data_option(rival_score);
             }
 
             // Chart replication mode
-            let songdata = main
-                .get_player_resource()
+            let songdata = self
+                .player_resource
+                .as_ref()
                 .and_then(|r| r.get_songdata())
                 .cloned();
             let replay_index = self.play.as_ref().map_or(0, |p| p.id);
+            let main_ref = self.main.as_deref().unwrap();
             let chart_option = Self::compute_chart_option(
                 &self.config,
                 current.get_rival_score(),
-                &**main,
+                main_ref,
                 songdata.as_ref(),
                 replay_index,
             );
-            if let Some(res) = main.get_player_resource_mut() {
-                res.set_chart_option_data(chart_option);
-            }
+            self.player_resource
+                .as_mut()
+                .unwrap()
+                .set_chart_option_data(chart_option);
 
             self.playedsong = Some(song.clone());
-            main.change_state(MainStateType::Decide);
+            self.pending_state_change = Some(MainStateType::Decide);
         } else {
             ImGuiNotify::error("Failed to loading BMS : Song not found, or Song has error");
         }
@@ -1275,11 +1287,9 @@ impl MusicSelector {
         };
 
         // Set banner and stagefile on the player resource's BMSResource
-        if let Some(main) = &mut self.main
-            && let Some(resource) = main.get_player_resource_mut()
-        {
-            resource.set_bms_banner_raw(banner_data);
-            resource.set_bms_stagefile_raw(stagefile_data);
+        if let Some(res) = self.player_resource.as_mut() {
+            res.set_bms_banner_raw(banner_data);
+            res.set_bms_stagefile_raw(stagefile_data);
         }
     }
 
@@ -1315,15 +1325,10 @@ impl MusicSelector {
     pub fn process_input_with_context(&mut self, input: &mut BMSPlayerInputProcessor) {
         // Java: if (input.getControlKeyState(ControlKeys.NUM6)) main.changeState(CONFIG)
         // Java: else if (input.isActivated(OPEN_SKIN_CONFIGURATION)) main.changeState(SKINCONFIG)
-        // These require MainController.changeState() — logged as warnings for now
         if input.get_control_key_state(ControlKeys::Num6) {
-            if let Some(ref mut main) = self.main {
-                main.change_state(MainStateType::Config);
-            }
-        } else if input.is_activated(KeyCommand::OpenSkinConfiguration)
-            && let Some(ref mut main) = self.main
-        {
-            main.change_state(MainStateType::SkinConfig);
+            self.pending_state_change = Some(MainStateType::Config);
+        } else if input.is_activated(KeyCommand::OpenSkinConfiguration) {
+            self.pending_state_change = Some(MainStateType::SkinConfig);
         }
 
         // Classify the selected bar before borrowing musicinput
@@ -1458,9 +1463,7 @@ impl MusicSelector {
                     }
                 }
                 InputEvent::ChangeState(state_type) => {
-                    if let Some(ref mut main) = self.main {
-                        main.change_state(state_type);
-                    }
+                    self.pending_state_change = Some(state_type);
                 }
                 InputEvent::SearchRequested => {
                     // In Java, opens a TextInputDialog for song search text.
@@ -1624,36 +1627,23 @@ impl MusicSelector {
         if paths.is_empty() {
             return;
         }
-        if let Some(main) = self.main.as_mut() {
-            let should_transition = if let Some(res) = main.get_player_resource_mut() {
-                res.clear();
-                res.set_auto_play_songs(paths, false);
-                res.next_song()
-            } else {
-                false
-            };
-            if should_transition {
-                main.change_state(MainStateType::Decide);
-            }
+        if self.player_resource.is_none() {
+            self.player_resource = Some(rubato_core::player_resource::PlayerResource::new(
+                self.app_config.clone(),
+                self.config.clone(),
+            ));
+        }
+        let res = self.player_resource.as_mut().unwrap();
+        res.clear();
+        res.set_auto_play_songs(paths, false);
+        if res.next_song() {
+            self.pending_state_change = Some(MainStateType::Decide);
         }
     }
 
     /// Internal course reading implementation.
     /// Corresponds to Java MusicSelector._readCourse(BMSPlayerMode, GradeBar)
     fn _read_course(&mut self, mode: &BMSPlayerMode, grade_bar: &Bar) -> bool {
-        let main = match self.main.as_mut() {
-            Some(m) => m,
-            None => {
-                log::warn!("_read_course: no MainController available");
-                return false;
-            }
-        };
-
-        // resource.clear()
-        if let Some(res) = main.get_player_resource_mut() {
-            res.clear();
-        }
-
         // Get song paths from grade bar
         let gb = match grade_bar.as_grade_bar() {
             Some(gb) => gb,
@@ -1671,11 +1661,18 @@ impl MusicSelector {
             return false;
         }
 
+        // Ensure local PlayerResource exists
+        if self.player_resource.is_none() {
+            self.player_resource = Some(rubato_core::player_resource::PlayerResource::new(
+                self.app_config.clone(),
+                self.config.clone(),
+            ));
+        }
+        let res = self.player_resource.as_mut().unwrap();
+        res.clear();
+
         // resource.setCourseBMSFiles(files)
-        let load_success = main
-            .get_player_resource_mut()
-            .map(|res| res.set_course_bms_files(&files))
-            .unwrap_or(false);
+        let load_success = res.set_course_bms_files(&files);
 
         if load_success {
             // Apply constraints for PLAY/AUTOPLAY modes only
@@ -1720,9 +1717,10 @@ impl MusicSelector {
             }
 
             // Update course data with song data from loaded models
-            let course_song_data = main
-                .get_player_resource()
-                .map(|res| res.get_course_song_data())
+            let course_song_data = self
+                .player_resource
+                .as_ref()
+                .map(|r| r.get_course_song_data())
                 .unwrap_or_default();
 
             let mut course_data = gb.get_course_data().clone();
@@ -1730,17 +1728,18 @@ impl MusicSelector {
 
             // resource.setCourseData, setBMSFile for first song
             let (mode_type, mode_id) = Self::encode_bms_player_mode(Some(mode));
-            if let Some(res) = main.get_player_resource_mut() {
+            {
+                let res = self.player_resource.as_mut().unwrap();
                 res.set_course_data(course_data.clone());
                 if !files.is_empty() {
-                    res.set_bms_file(&files[0], mode_type, mode_id);
+                    PlayerResourceAccess::set_bms_file(res, &files[0], mode_type, mode_id);
                 }
             }
 
             self.playedcourse = Some(course_data);
 
             // Load/create cached IR ranking data for course
-            {
+            if let Some(ref mut main) = self.main {
                 use rubato_ir::ranking_data::RankingData;
                 let lnmode = main.get_player_config().get_lnmode();
                 let course = gb.get_course_data();
@@ -1760,12 +1759,13 @@ impl MusicSelector {
                 }
             }
             // Set rival score/chart option to None for course play
-            if let Some(res) = main.get_player_resource_mut() {
+            {
+                let res = self.player_resource.as_mut().unwrap();
                 res.set_rival_score_data_option(None);
                 res.set_chart_option_data(None);
             }
 
-            main.change_state(MainStateType::Decide);
+            self.pending_state_change = Some(MainStateType::Decide);
             true
         } else {
             false
@@ -1939,6 +1939,16 @@ impl MainState for MusicSelector {
         }
     }
 
+    fn take_pending_state_change(&mut self) -> Option<MainStateType> {
+        self.pending_state_change.take()
+    }
+
+    fn take_player_resource_box(&mut self) -> Option<Box<dyn std::any::Any + Send>> {
+        self.player_resource
+            .take()
+            .map(|r| Box::new(r) as Box<dyn std::any::Any + Send>)
+    }
+
     /// Create state — initialize DB access, song list, bar manager.
     /// Corresponds to Java MusicSelector.create()
     fn create(&mut self) {
@@ -1959,10 +1969,16 @@ impl MainState for MusicSelector {
         // In Java: resource.setPlayerData(main.getPlayDataAccessor().readPlayerData())
         if let Some(ref mut main) = self.main {
             let player_data = main.read_player_data();
-            if let Some(pd) = player_data
-                && let Some(res) = main.get_player_resource_mut()
-            {
-                res.set_player_data(pd);
+            if let Some(pd) = player_data {
+                if self.player_resource.is_none() {
+                    self.player_resource = Some(rubato_core::player_resource::PlayerResource::new(
+                        self.app_config.clone(),
+                        self.config.clone(),
+                    ));
+                }
+                if let Some(res) = self.player_resource.as_mut() {
+                    res.set_player_data(pd);
+                }
             }
         }
 
@@ -2156,10 +2172,8 @@ impl MainState for MusicSelector {
                 .get_selected()
                 .and_then(|b| b.as_grade_bar())
                 .map(|gb| gb.get_course_data().clone());
-            if let Some(ref mut main) = self.main
-                && let Some(res) = main.get_player_resource_mut()
-            {
-                res.set_songdata(song_data);
+            if let Some(res) = self.player_resource.as_mut() {
+                PlayerResourceAccess::set_songdata(res, song_data);
                 if let Some(cd) = course_data {
                     res.set_course_data(cd);
                 } else {
