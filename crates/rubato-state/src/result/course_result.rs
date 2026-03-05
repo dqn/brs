@@ -120,6 +120,125 @@ fn aggregate_total_notes(models: &[bms_model::bms_model::BMSModel]) -> i32 {
     models.iter().map(|m| m.get_total_notes()).sum()
 }
 
+/// Render context adapter for course result screen skin rendering.
+/// Provides score data, gauge, config through SkinRenderContext.
+struct CourseResultRenderContext<'a> {
+    timer: &'a mut rubato_core::timer_manager::TimerManager,
+    data: &'a AbstractResultData,
+    resource: &'a PlayerResource,
+    main: &'a MainController,
+}
+
+impl rubato_types::timer_access::TimerAccess for CourseResultRenderContext<'_> {
+    fn get_now_time(&self) -> i64 {
+        self.timer.get_now_time()
+    }
+    fn get_now_micro_time(&self) -> i64 {
+        self.timer.get_now_micro_time()
+    }
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_micro_timer(timer_id)
+    }
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_timer(timer_id)
+    }
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        self.timer.get_now_time_for_id(timer_id)
+    }
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.timer.is_timer_on(timer_id)
+    }
+}
+
+impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRenderContext<'_> {
+    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+        Some(rubato_types::main_state_type::MainStateType::CourseResult)
+    }
+
+    fn get_player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+        Some(self.resource.get_player_config())
+    }
+
+    fn get_config_ref(&self) -> Option<&rubato_types::config::Config> {
+        Some(self.main.get_config())
+    }
+
+    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+        self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn get_gauge_value(&self) -> f32 {
+        self.data.oldscore.gauge as f32 / 100.0
+    }
+
+    fn get_gauge_type(&self) -> i32 {
+        self.data.gauge_type
+    }
+
+    fn get_judge_count(&self, judge: i32, fast: bool) -> i32 {
+        self.data
+            .score
+            .score
+            .as_ref()
+            .map_or(0, |s| s.get_judge_count(judge, fast))
+    }
+
+    fn integer_value(&self, id: i32) -> i32 {
+        use rubato_types::timer_access::TimerAccess;
+        match id {
+            // EX score
+            71 => self.data.score.nowscore,
+            // Max combo
+            75 => self.data.score.score.as_ref().map_or(0, |s| s.maxcombo),
+            // Miss count
+            76 => self.data.score.score.as_ref().map_or(0, |s| s.minbp),
+            // Total notes
+            350 => self.data.score.totalnotes,
+            // Playtime
+            17 => (self.timer.get_now_time() / 3_600_000) as i32,
+            18 => ((self.timer.get_now_time() % 3_600_000) / 60_000) as i32,
+            19 => ((self.timer.get_now_time() % 60_000) / 1_000) as i32,
+            _ => 0,
+        }
+    }
+
+    fn float_value(&self, id: i32) -> f32 {
+        match id {
+            // Score rate
+            1102 => self.data.score.rate,
+            _ => 0.0,
+        }
+    }
+
+    fn boolean_value(&self, id: i32) -> bool {
+        match id {
+            // Clear result
+            90 => self.data.oldscore.clear >= ClearType::AssistEasy as i32,
+            // Fail result
+            91 => self.data.oldscore.clear < ClearType::AssistEasy as i32,
+            _ => false,
+        }
+    }
+
+    fn string_value(&self, id: i32) -> String {
+        match id {
+            10 => self
+                .resource
+                .get_songdata()
+                .map_or_else(String::new, |s| s.title.clone()),
+            11 => self
+                .resource
+                .get_songdata()
+                .map_or_else(String::new, |s| s.subtitle.clone()),
+            14 => self
+                .resource
+                .get_songdata()
+                .map_or_else(String::new, |s| s.artist.clone()),
+            _ => String::new(),
+        }
+    }
+}
+
 /// Course result screen
 pub struct CourseResult {
     pub data: AbstractResultData,
@@ -1306,6 +1425,30 @@ impl rubato_core::main_state::MainState for CourseResult {
 
     fn render(&mut self) {
         self.do_render();
+    }
+
+    fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
+        let mut skin = match self.main_data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.main_data.timer);
+
+        {
+            let mut ctx = CourseResultRenderContext {
+                timer: &mut timer,
+                data: &self.data,
+                resource: &self.resource,
+                main: &self.main,
+            };
+            skin.update_custom_objects_timed(&mut ctx);
+            skin.swap_sprite_batch(sprite);
+            skin.draw_all_objects_timed(&mut ctx);
+            skin.swap_sprite_batch(sprite);
+        }
+
+        self.main_data.timer = timer;
+        self.main_data.skin = Some(skin);
     }
 
     fn input(&mut self) {

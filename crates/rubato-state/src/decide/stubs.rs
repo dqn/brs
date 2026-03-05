@@ -45,6 +45,14 @@ impl MainControllerRef {
         }
     }
 
+    pub fn get_config(&self) -> &rubato_types::config::Config {
+        self.inner.get_config()
+    }
+
+    pub fn get_player_config(&self) -> &rubato_types::player_config::PlayerConfig {
+        self.inner.get_player_config()
+    }
+
     pub fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
         self.inner.change_state(state);
     }

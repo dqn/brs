@@ -190,9 +190,9 @@ impl LR2SelectSkinLoaderState {
                             let _pn_count = images.len() / 24;
                             // skinbar.setBarlevel(values[1], new SkinNumber(pn, mn, ...))
                         } else {
-                            let d = if images.len() % 10 == 0 { 10 } else { 11 };
-                            // skinbar.setBarlevel(values[1], new SkinNumber(nimages, ...))
-                            let _ = d;
+                            let _d = if images.len() % 10 == 0 { 10 } else { 11 };
+                            // TODO: Create SkinNumber from nimages with digit count _d
+                            // and wire to skinbar.setBarlevel(values[1], skin_number)
                         }
                     }
                 }
@@ -365,9 +365,9 @@ impl LR2SelectSkinLoaderState {
                 if values[1] < 0 || values[1] >= BARTEXT_COUNT as i32 {
                     return;
                 }
-                // Create SkinText based on fontlist availability
-                // skinbar.setText(values[1], bartext)
-                let _ = values;
+                // TODO: Create SkinText from fontlist for bar title display
+                // and wire to skinbar.setText(values[1], bartext)
+                let _values = values;
             }
             "DST_BAR_TITLE" => {
                 let _values = lr2_skin_loader::parse_int(str_parts);

@@ -9,6 +9,89 @@ use rubato_skin::skin_type::SkinType;
 
 use super::stubs::{ControlKeys, MainControllerRef, NullPlayerResource, PlayerResourceAccess};
 
+/// Render context adapter for decide screen skin rendering.
+/// Provides config access through SkinRenderContext.
+struct DecideRenderContext<'a> {
+    timer: &'a mut TimerManager,
+    resource: &'a dyn PlayerResourceAccess,
+    main: &'a MainControllerRef,
+}
+
+impl rubato_types::timer_access::TimerAccess for DecideRenderContext<'_> {
+    fn get_now_time(&self) -> i64 {
+        self.timer.get_now_time()
+    }
+    fn get_now_micro_time(&self) -> i64 {
+        self.timer.get_now_micro_time()
+    }
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_micro_timer(timer_id)
+    }
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_timer(timer_id)
+    }
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        self.timer.get_now_time_for_id(timer_id)
+    }
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.timer.is_timer_on(timer_id)
+    }
+}
+
+impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContext<'_> {
+    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+        Some(rubato_types::main_state_type::MainStateType::Decide)
+    }
+
+    fn get_player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+        Some(self.main.get_player_config())
+    }
+
+    fn get_config_ref(&self) -> Option<&rubato_types::config::Config> {
+        Some(self.main.get_config())
+    }
+
+    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+        self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn string_value(&self, id: i32) -> String {
+        match id {
+            10 => self
+                .resource
+                .get_songdata()
+                .map_or_else(String::new, |s| s.title.clone()),
+            11 => self
+                .resource
+                .get_songdata()
+                .map_or_else(String::new, |s| s.subtitle.clone()),
+            14 => self
+                .resource
+                .get_songdata()
+                .map_or_else(String::new, |s| s.artist.clone()),
+            _ => String::new(),
+        }
+    }
+
+    fn integer_value(&self, id: i32) -> i32 {
+        use rubato_types::timer_access::TimerAccess;
+        match id {
+            // Song BPM from songdata
+            90 => self.resource.get_songdata().map_or(0, |s| s.maxbpm),
+            91 => self.resource.get_songdata().map_or(0, |s| s.minbpm),
+            // Total notes
+            350 => self.resource.get_songdata().map_or(0, |s| s.notes),
+            // Song duration
+            312 => self.resource.get_songdata().map_or(0, |s| s.length),
+            // Playtime
+            17 => (self.timer.get_now_time() / 3_600_000) as i32,
+            18 => ((self.timer.get_now_time() % 3_600_000) / 60_000) as i32,
+            19 => ((self.timer.get_now_time() % 60_000) / 1_000) as i32,
+            _ => 0,
+        }
+    }
+}
+
 /// MusicDecide - music decide screen state
 ///
 /// Translated from MusicDecide.java
@@ -64,6 +147,29 @@ impl MainState for MusicDecide {
         // super.prepare() - default empty in MainState
         // play(DECIDE)
         self.main.play_sound(&SoundType::Decide, false);
+    }
+
+    fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
+        let mut skin = match self.data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.data.timer);
+
+        {
+            let mut ctx = DecideRenderContext {
+                timer: &mut timer,
+                resource: &*self.resource,
+                main: &self.main,
+            };
+            skin.update_custom_objects_timed(&mut ctx);
+            skin.swap_sprite_batch(sprite);
+            skin.draw_all_objects_timed(&mut ctx);
+            skin.swap_sprite_batch(sprite);
+        }
+
+        self.data.timer = timer;
+        self.data.skin = Some(skin);
     }
 
     fn render(&mut self) {
