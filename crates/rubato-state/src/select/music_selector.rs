@@ -1789,6 +1789,18 @@ impl MainState for MusicSelector {
                             skin_bar.barimageoff[i] = img;
                         }
                     }
+                    // Transfer bar level SkinNumber objects
+                    for (i, level) in bar_data.barlevel.into_iter().enumerate() {
+                        if let Some(sn) = level {
+                            skin_bar.set_barlevel(i as i32, sn);
+                        }
+                    }
+                    // Transfer bar title SkinText objects
+                    for (i, text) in bar_data.bartext.into_iter().enumerate() {
+                        if let Some(t) = text {
+                            skin_bar.set_text(i, t);
+                        }
+                    }
                     self.select_center_bar = bar_data.center_bar;
                     self.skin_bar = Some(skin_bar);
                     self.bar = Some(BarRenderer::new(300, 100, 5));

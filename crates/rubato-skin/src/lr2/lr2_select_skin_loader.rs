@@ -46,6 +46,9 @@ pub struct LR2SelectSkinLoaderState {
     pub barimageoff: Vec<Option<SkinImage>>,
     pub barcycle: i32,
 
+    pub barlevel: Vec<Option<crate::skin_number::SkinNumber>>,
+    pub bartext: Vec<Option<Box<dyn crate::skin_text::SkinText>>>,
+
     pub gauge: Rectangle,
 
     pub center_bar: i32,
@@ -70,6 +73,8 @@ impl LR2SelectSkinLoaderState {
             barimageon: (0..BAR_COUNT).map(|_| None).collect(),
             barimageoff: (0..BAR_COUNT).map(|_| None).collect(),
             barcycle: 0,
+            barlevel: (0..BARLEVEL_COUNT).map(|_| None).collect(),
+            bartext: (0..BARTEXT_COUNT).map(|_| None).collect(),
             gauge: Rectangle::default(),
             center_bar: 0,
             clickable_bar: Vec::new(),
@@ -185,14 +190,46 @@ impl LR2SelectSkinLoaderState {
                 if divx * divy >= 10 {
                     let images = self.csv.get_source_image(&values);
                     if let Some(images) = images {
+                        let idx = values[1] as usize;
                         if images.len() % 24 == 0 {
-                            // Split into positive/negative number images
-                            let _pn_count = images.len() / 24;
-                            // skinbar.setBarlevel(values[1], new SkinNumber(pn, mn, ...))
+                            // Split into positive (12 digits) and negative (12 digits) images
+                            let d = 12;
+                            let frames = images.len() / (d * 2);
+                            let mut pimages = Vec::with_capacity(frames);
+                            let mut mimages = Vec::with_capacity(frames);
+                            for f in 0..frames {
+                                let base = f * d * 2;
+                                pimages.push(images[base..base + d].to_vec());
+                                mimages.push(images[base + d..base + d * 2].to_vec());
+                            }
+                            let sn = crate::skin_number::SkinNumber::new_with_int_timer(
+                                pimages,
+                                Some(mimages),
+                                values[9],
+                                values[10],
+                                divx,
+                                values[11],
+                                0,
+                                0,
+                                0,
+                            );
+                            if idx < self.barlevel.len() {
+                                self.barlevel[idx] = Some(sn);
+                            }
                         } else {
-                            let _d = if images.len() % 10 == 0 { 10 } else { 11 };
-                            // TODO: Create SkinNumber from nimages with digit count _d
-                            // and wire to skinbar.setBarlevel(values[1], skin_number)
+                            let d = if images.len() % 10 == 0 { 10 } else { 11 };
+                            let frames = images.len() / d;
+                            let mut nimages = Vec::with_capacity(frames);
+                            for f in 0..frames {
+                                let base = f * d;
+                                nimages.push(images[base..base + d].to_vec());
+                            }
+                            let sn = crate::skin_number::SkinNumber::new_with_int_timer(
+                                nimages, None, values[9], values[10], divx, values[11], 0, 0, 0,
+                            );
+                            if idx < self.barlevel.len() {
+                                self.barlevel[idx] = Some(sn);
+                            }
                         }
                     }
                 }
@@ -365,9 +402,16 @@ impl LR2SelectSkinLoaderState {
                 if values[1] < 0 || values[1] >= BARTEXT_COUNT as i32 {
                     return;
                 }
-                // TODO: Create SkinText from fontlist for bar title display
-                // and wire to skinbar.setText(values[1], bartext)
-                let _values = values;
+                let font_idx = values[2] as usize;
+                if font_idx < self.csv.fontlist.len()
+                    && let Some(source) = self.csv.fontlist[font_idx].take()
+                {
+                    let text = crate::skin_text_image::SkinTextImage::new(source);
+                    let idx = values[1] as usize;
+                    if idx < self.bartext.len() {
+                        self.bartext[idx] = Some(Box::new(text));
+                    }
+                }
             }
             "DST_BAR_TITLE" => {
                 let _values = lr2_skin_loader::parse_int(str_parts);
@@ -410,6 +454,8 @@ impl LR2SkinLoaderAccess for LR2SelectSkinLoaderState {
                 barimageoff: std::mem::take(&mut self.barimageoff),
                 center_bar: self.center_bar,
                 clickable_bar: std::mem::take(&mut self.clickable_bar),
+                barlevel: std::mem::take(&mut self.barlevel),
+                bartext: std::mem::take(&mut self.bartext),
             });
         }
 

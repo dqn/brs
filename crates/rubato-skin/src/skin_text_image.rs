@@ -146,6 +146,32 @@ impl SkinTextImage {
     }
 }
 
+impl crate::skin_text::SkinText for SkinTextImage {
+    fn get_text_data(&self) -> &SkinTextData {
+        &self.text_data
+    }
+
+    fn get_text_data_mut(&mut self) -> &mut SkinTextData {
+        &mut self.text_data
+    }
+
+    fn prepare_font(&mut self, text: &str) {
+        self.prepare_font(text);
+    }
+
+    fn prepare_text(&mut self, text: &str) {
+        self.prepare_text(text);
+    }
+
+    fn draw_with_offset(&mut self, sprite: &mut SkinObjectRenderer, offset_x: f32, offset_y: f32) {
+        self.draw_with_offset(sprite, offset_x, offset_y);
+    }
+
+    fn dispose(&mut self) {
+        self.dispose();
+    }
+}
+
 pub struct SkinTextImageSource {
     size: i32,
     margin: i32,
