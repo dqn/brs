@@ -1,7 +1,13 @@
 use crate::lr2::lr2_skin_csv_loader::{LR2SkinCSVLoaderState, LR2SkinLoaderAccess};
 use crate::lr2::lr2_skin_loader;
+use crate::skin_bpm_graph::SkinBPMGraph;
 use crate::skin_image::SkinImage;
+use crate::skin_note_distribution_graph::SkinNoteDistributionGraph;
 use crate::stubs::{MainState, Rectangle, Resolution, Texture, TextureRegion};
+
+fn str_at(parts: &[String], idx: usize) -> &str {
+    parts.get(idx).map(|s| s.trim()).unwrap_or("")
+}
 
 /// LR2 play skin loader
 ///
@@ -74,6 +80,8 @@ pub struct LR2PlaySkinLoaderState {
     pub dsth: f32,
 
     pub gauge: Rectangle,
+    pub noteobj: Option<SkinNoteDistributionGraph>,
+    pub bpmgraphobj: Option<SkinBPMGraph>,
     pub playerr: Vec<Option<Rectangle>>,
     pub hidden: bool,
     pub lanerender: bool,
@@ -151,6 +159,8 @@ impl LR2PlaySkinLoaderState {
             dstw,
             dsth,
             gauge: Rectangle::default(),
+            noteobj: None,
+            bpmgraphobj: None,
             playerr: Vec::new(),
             hidden: false,
             lanerender: false,
@@ -590,27 +600,84 @@ impl LR2PlaySkinLoaderState {
             }
             "SRC_NOTECHART_1P" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
-                // noteobj = new SkinNoteDistributionGraph(...)
+                let obj = SkinNoteDistributionGraph::new(
+                    values[1], values[15], values[16], values[17], values[18], values[19],
+                );
                 self.gauge = Rectangle::new(0.0, 0.0, values[11] as f32, values[12] as f32);
-                // skin.add(noteobj)
+                self.noteobj = Some(obj);
             }
             "DST_NOTECHART_1P" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
                 self.gauge.x = values[3] as f32;
                 self.gauge.y = self.csv.src.height - values[4] as f32;
-                // skin.setDestination(noteobj, ...)
+                if let Some(ref mut obj) = self.noteobj {
+                    let dstw = self.csv.dst.width / self.csv.src.width;
+                    let dsth = self.csv.dst.height / self.csv.src.height;
+                    let offsets = lr2_skin_loader::read_offset(str_parts, 21);
+                    obj.data.set_destination_with_int_timer_ops(
+                        values[2] as i64,
+                        self.gauge.x * dstw,
+                        self.csv.dst.height - (values[4] as f32 + self.gauge.height) * dsth,
+                        self.gauge.width * dstw,
+                        self.gauge.height * dsth,
+                        values[7],
+                        values[8],
+                        values[9],
+                        values[10],
+                        values[11],
+                        values[12],
+                        values[13],
+                        values[14],
+                        values[15],
+                        values[16],
+                        values[17],
+                        &offsets,
+                    );
+                }
             }
             "SRC_BPMCHART" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
-                // bpmgraphobj = new SkinBPMGraph(...)
+                let obj = SkinBPMGraph::new(
+                    values[3],
+                    values[4],
+                    str_at(str_parts, 5),
+                    str_at(str_parts, 6),
+                    str_at(str_parts, 7),
+                    str_at(str_parts, 8),
+                    str_at(str_parts, 9),
+                    str_at(str_parts, 10),
+                );
                 self.gauge = Rectangle::new(0.0, 0.0, values[1] as f32, values[2] as f32);
-                // skin.add(bpmgraphobj)
+                self.bpmgraphobj = Some(obj);
             }
             "DST_BPMCHART" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
                 self.gauge.x = values[3] as f32;
                 self.gauge.y = self.csv.src.height - values[4] as f32;
-                // skin.setDestination(bpmgraphobj, ...)
+                if let Some(ref mut obj) = self.bpmgraphobj {
+                    let dstw = self.csv.dst.width / self.csv.src.width;
+                    let dsth = self.csv.dst.height / self.csv.src.height;
+                    let offsets = lr2_skin_loader::read_offset(str_parts, 21);
+                    obj.data.set_destination_with_int_timer_ops(
+                        values[2] as i64,
+                        self.gauge.x * dstw,
+                        self.csv.dst.height - (values[4] as f32 + self.gauge.height) * dsth,
+                        self.gauge.width * dstw,
+                        self.gauge.height * dsth,
+                        values[7],
+                        values[8],
+                        values[9],
+                        values[10],
+                        values[11],
+                        values[12],
+                        values[13],
+                        values[14],
+                        values[15],
+                        values[16],
+                        values[17],
+                        &offsets,
+                    );
+                }
             }
             "SRC_TIMING_1P" => {
                 let values = lr2_skin_loader::parse_int(str_parts);
@@ -1115,7 +1182,15 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
             skin.add(SkinObject::Bga(bga_obj));
         }
 
-        // 6. Apply play-specific timing to skin
+        // 6. Add graph objects
+        if let Some(obj) = self.noteobj.take() {
+            skin.add(SkinObject::NoteDistributionGraph(obj));
+        }
+        if let Some(obj) = self.bpmgraphobj.take() {
+            skin.add(SkinObject::BpmGraph(obj));
+        }
+
+        // 7. Apply play-specific timing to skin
         if let Some(close) = self.play_close {
             skin.set_scene(close);
         }

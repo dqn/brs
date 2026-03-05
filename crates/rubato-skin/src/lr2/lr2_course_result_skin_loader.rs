@@ -46,7 +46,30 @@ impl LR2CourseResultSkinLoaderState {
                 let values = lr2_skin_loader::parse_int(str_parts);
                 self.gauge.x = values[3] as f32;
                 self.gauge.y = self.csv.src.height - values[4] as f32;
-                // skin.setDestination(gaugeobj, values[2], gauge.x, gauge.y, gauge.width, gauge.height, ...)
+                if let Some(ref mut obj) = self.gaugeobj {
+                    let dstw = self.csv.dst.width / self.csv.src.width;
+                    let dsth = self.csv.dst.height / self.csv.src.height;
+                    let offsets = lr2_skin_loader::read_offset(str_parts, 21);
+                    obj.data.set_destination_with_int_timer_ops(
+                        values[2] as i64,
+                        self.gauge.x * dstw,
+                        self.csv.dst.height - (values[4] as f32 + self.gauge.height) * dsth,
+                        self.gauge.width * dstw,
+                        self.gauge.height * dsth,
+                        values[7],
+                        values[8],
+                        values[9],
+                        values[10],
+                        values[11],
+                        values[12],
+                        values[13],
+                        values[14],
+                        values[15],
+                        values[16],
+                        values[17],
+                        &offsets,
+                    );
+                }
             }
             "SRC_NOTECHART_1P" => {
                 // #SRC_NOTECHART_1P,(index),(gr),(x),(y),(w),(h),(div_x),(div_y),(cycle),(timer),field_w,field_h,(start),(end),delay,backTexOff,orderReverse,noGap
@@ -61,7 +84,30 @@ impl LR2CourseResultSkinLoaderState {
                 let values = lr2_skin_loader::parse_int(str_parts);
                 self.gauge.x = values[3] as f32;
                 self.gauge.y = self.csv.src.height - values[4] as f32;
-                // skin.setDestination(noteobj, ...)
+                if let Some(ref mut obj) = self.noteobj {
+                    let dstw = self.csv.dst.width / self.csv.src.width;
+                    let dsth = self.csv.dst.height / self.csv.src.height;
+                    let offsets = lr2_skin_loader::read_offset(str_parts, 21);
+                    obj.data.set_destination_with_int_timer_ops(
+                        values[2] as i64,
+                        self.gauge.x * dstw,
+                        self.csv.dst.height - (values[4] as f32 + self.gauge.height) * dsth,
+                        self.gauge.width * dstw,
+                        self.gauge.height * dsth,
+                        values[7],
+                        values[8],
+                        values[9],
+                        values[10],
+                        values[11],
+                        values[12],
+                        values[13],
+                        values[14],
+                        values[15],
+                        values[16],
+                        values[17],
+                        &offsets,
+                    );
+                }
             }
             _ => {
                 // Delegate to CSV loader
@@ -76,8 +122,14 @@ impl LR2SkinLoaderAccess for LR2CourseResultSkinLoaderState {
         &mut self.csv
     }
 
-    fn assemble_objects(&mut self, _skin: &mut crate::skin::Skin) {
-        // Graph objects are stored in self.gaugeobj/noteobj.
-        // Full skin.add() + setDestination() wiring deferred to rendering pipeline integration.
+    fn assemble_objects(&mut self, skin: &mut crate::skin::Skin) {
+        use crate::skin::SkinObject;
+
+        if let Some(obj) = self.gaugeobj.take() {
+            skin.add(SkinObject::GaugeGraph(obj));
+        }
+        if let Some(obj) = self.noteobj.take() {
+            skin.add(SkinObject::NoteDistributionGraph(obj));
+        }
     }
 }
