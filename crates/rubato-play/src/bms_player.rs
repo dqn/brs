@@ -1758,6 +1758,55 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
     }
 }
 
+struct PlayMouseContext<'a> {
+    timer: &'a mut TimerManager,
+    player: &'a mut BMSPlayer,
+}
+
+impl rubato_types::timer_access::TimerAccess for PlayMouseContext<'_> {
+    fn get_now_time(&self) -> i64 {
+        self.timer.get_now_time()
+    }
+
+    fn get_now_micro_time(&self) -> i64 {
+        self.timer.get_now_micro_time()
+    }
+
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_micro_timer(timer_id)
+    }
+
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_timer(timer_id)
+    }
+
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        self.timer.get_now_time_for_id(timer_id)
+    }
+
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.timer.is_timer_on(timer_id)
+    }
+}
+
+impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'_> {
+    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+        Some(rubato_types::main_state_type::MainStateType::Play)
+    }
+
+    fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
+        self.player.pending_state_change = Some(state);
+    }
+
+    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+        self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn get_player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+        Some(&mut self.player.player_config)
+    }
+}
+
 impl MainState for BMSPlayer {
     fn state_type(&self) -> Option<MainStateType> {
         Some(MainStateType::Play)
@@ -1825,6 +1874,44 @@ impl MainState for BMSPlayer {
             skin.swap_sprite_batch(sprite);
             skin.draw_all_objects_timed(&mut ctx);
             skin.swap_sprite_batch(sprite);
+        }
+
+        self.main_state_data.timer = timer;
+        self.main_state_data.skin = Some(skin);
+    }
+
+    fn handle_skin_mouse_pressed(&mut self, button: i32, x: i32, y: i32) {
+        let mut skin = match self.main_state_data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.main_state_data.timer);
+
+        {
+            let mut ctx = PlayMouseContext {
+                timer: &mut timer,
+                player: self,
+            };
+            skin.mouse_pressed_at(&mut ctx, button, x, y);
+        }
+
+        self.main_state_data.timer = timer;
+        self.main_state_data.skin = Some(skin);
+    }
+
+    fn handle_skin_mouse_dragged(&mut self, button: i32, x: i32, y: i32) {
+        let mut skin = match self.main_state_data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.main_state_data.timer);
+
+        {
+            let mut ctx = PlayMouseContext {
+                timer: &mut timer,
+                player: self,
+            };
+            skin.mouse_dragged_at(&mut ctx, button, x, y);
         }
 
         self.main_state_data.timer = timer;
@@ -2801,7 +2888,9 @@ mod tests {
     use bms_model::bms_model::BMSModel;
     use bms_model::mode::Mode;
     use rubato_core::config::Config;
+    use rubato_core::main_state::SkinDrawable;
     use rubato_core::player_config::PlayerConfig;
+    use rubato_core::sprite_batch_helper::SpriteBatch;
     use rubato_input::bms_player_input_device::DeviceType;
     use rubato_input::bms_player_input_processor::{BMSPlayerInputProcessor, KEYSTATE_SIZE};
     use rubato_input::keyboard_input_processor::ControlKeys;
@@ -2823,6 +2912,69 @@ mod tests {
         timelines.push(tl);
         model.set_all_time_line(timelines);
         model
+    }
+
+    struct PlayerConfigMutatingSkin;
+
+    impl SkinDrawable for PlayerConfigMutatingSkin {
+        fn draw_all_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn update_custom_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn mouse_pressed_at(
+            &mut self,
+            ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+            if let Some(config) = ctx.get_player_config_mut() {
+                config.judgetiming += 1;
+            }
+        }
+
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+
+        fn prepare_skin(&mut self) {}
+
+        fn dispose_skin(&mut self) {}
+
+        fn get_fadeout(&self) -> i32 {
+            0
+        }
+
+        fn get_input(&self) -> i32 {
+            0
+        }
+
+        fn get_scene(&self) -> i32 {
+            0
+        }
+
+        fn get_width(&self) -> f32 {
+            0.0
+        }
+
+        fn get_height(&self) -> f32 {
+            0.0
+        }
+
+        fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
     }
 
     // --- Constructor tests ---
@@ -2861,6 +3013,18 @@ mod tests {
         let data = player.main_state_data();
         // Timer should be initialized
         assert!(!data.timer.is_timer_on(TIMER_PLAY));
+    }
+
+    #[test]
+    fn handle_skin_mouse_pressed_uses_live_play_context() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.main_state_data.skin = Some(Box::new(PlayerConfigMutatingSkin));
+        player.player_config.judgetiming = 0;
+
+        <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
+
+        assert_eq!(player.player_config.judgetiming, 1);
     }
 
     // --- State machine transition tests ---

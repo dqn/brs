@@ -92,6 +92,51 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
     }
 }
 
+struct DecideMouseContext<'a> {
+    timer: &'a mut TimerManager,
+    main: &'a mut MainControllerRef,
+}
+
+impl rubato_types::timer_access::TimerAccess for DecideMouseContext<'_> {
+    fn get_now_time(&self) -> i64 {
+        self.timer.get_now_time()
+    }
+
+    fn get_now_micro_time(&self) -> i64 {
+        self.timer.get_now_micro_time()
+    }
+
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_micro_timer(timer_id)
+    }
+
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_timer(timer_id)
+    }
+
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        self.timer.get_now_time_for_id(timer_id)
+    }
+
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.timer.is_timer_on(timer_id)
+    }
+}
+
+impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext<'_> {
+    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+        Some(rubato_types::main_state_type::MainStateType::Decide)
+    }
+
+    fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
+        self.main.change_state(state);
+    }
+
+    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+        self.timer.set_micro_timer(timer_id, micro_time);
+    }
+}
+
 /// MusicDecide - music decide screen state
 ///
 /// Translated from MusicDecide.java
@@ -166,6 +211,44 @@ impl MainState for MusicDecide {
             skin.swap_sprite_batch(sprite);
             skin.draw_all_objects_timed(&mut ctx);
             skin.swap_sprite_batch(sprite);
+        }
+
+        self.data.timer = timer;
+        self.data.skin = Some(skin);
+    }
+
+    fn handle_skin_mouse_pressed(&mut self, button: i32, x: i32, y: i32) {
+        let mut skin = match self.data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.data.timer);
+
+        {
+            let mut ctx = DecideMouseContext {
+                timer: &mut timer,
+                main: &mut self.main,
+            };
+            skin.mouse_pressed_at(&mut ctx, button, x, y);
+        }
+
+        self.data.timer = timer;
+        self.data.skin = Some(skin);
+    }
+
+    fn handle_skin_mouse_dragged(&mut self, button: i32, x: i32, y: i32) {
+        let mut skin = match self.data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.data.timer);
+
+        {
+            let mut ctx = DecideMouseContext {
+                timer: &mut timer,
+                main: &mut self.main,
+            };
+            skin.mouse_dragged_at(&mut ctx, button, x, y);
         }
 
         self.data.timer = timer;
@@ -268,7 +351,9 @@ mod tests {
     use crate::decide::stubs::{NullMainController, NullPlayerResource};
     use rubato_core::main_state::SkinDrawable;
     use rubato_core::sprite_batch_helper::SpriteBatch;
+    use rubato_types::main_controller_access::MainControllerAccess;
     use rubato_types::timer_access::TimerAccess;
+    use std::sync::{Arc, Mutex};
 
     /// Mock SkinDrawable for testing render logic with configurable timing values.
     struct MockSkin {
@@ -340,6 +425,119 @@ mod tests {
             0.0
         }
         fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+    }
+
+    struct ChangeStateSkin {
+        state: MainStateType,
+    }
+
+    impl SkinDrawable for ChangeStateSkin {
+        fn draw_all_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn update_custom_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn mouse_pressed_at(
+            &mut self,
+            ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+            ctx.change_state(self.state);
+        }
+
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+
+        fn prepare_skin(&mut self) {}
+
+        fn dispose_skin(&mut self) {}
+
+        fn get_fadeout(&self) -> i32 {
+            0
+        }
+
+        fn get_input(&self) -> i32 {
+            0
+        }
+
+        fn get_scene(&self) -> i32 {
+            0
+        }
+
+        fn get_width(&self) -> f32 {
+            0.0
+        }
+
+        fn get_height(&self) -> f32 {
+            0.0
+        }
+
+        fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+    }
+
+    struct RecordingMainController {
+        changed_states: Arc<Mutex<Vec<MainStateType>>>,
+        config: rubato_types::config::Config,
+        player_config: rubato_types::player_config::PlayerConfig,
+    }
+
+    impl RecordingMainController {
+        fn new(changed_states: Arc<Mutex<Vec<MainStateType>>>) -> Self {
+            Self {
+                changed_states,
+                config: rubato_types::config::Config::default(),
+                player_config: rubato_types::player_config::PlayerConfig::default(),
+            }
+        }
+    }
+
+    impl MainControllerAccess for RecordingMainController {
+        fn get_config(&self) -> &rubato_types::config::Config {
+            &self.config
+        }
+
+        fn get_player_config(&self) -> &rubato_types::player_config::PlayerConfig {
+            &self.player_config
+        }
+
+        fn change_state(&mut self, state: MainStateType) {
+            self.changed_states.lock().unwrap().push(state);
+        }
+
+        fn save_config(&self) {}
+
+        fn exit(&self) {}
+
+        fn save_last_recording(&self, _reason: &str) {}
+
+        fn update_song(&mut self, _path: Option<&str>) {}
+
+        fn get_player_resource(
+            &self,
+        ) -> Option<&dyn rubato_types::player_resource_access::PlayerResourceAccess> {
+            None
+        }
+
+        fn get_player_resource_mut(
+            &mut self,
+        ) -> Option<&mut dyn rubato_types::player_resource_access::PlayerResourceAccess> {
+            None
+        }
     }
 
     fn make_decide() -> MusicDecide {
@@ -472,6 +670,28 @@ mod tests {
         decide.input();
         assert!(!decide.cancel);
         assert!(!decide.data.timer.is_timer_on(TIMER_FADEOUT));
+    }
+
+    #[test]
+    fn test_handle_skin_mouse_pressed_uses_decide_context() {
+        let changed_states = Arc::new(Mutex::new(Vec::new()));
+        let mut decide = MusicDecide::new(
+            MainControllerRef::new(Box::new(RecordingMainController::new(Arc::clone(
+                &changed_states,
+            )))),
+            Box::new(NullPlayerResource::new()),
+            TimerManager::new(),
+        );
+        decide.data.skin = Some(Box::new(ChangeStateSkin {
+            state: MainStateType::MusicSelect,
+        }));
+
+        <MusicDecide as MainState>::handle_skin_mouse_pressed(&mut decide, 0, 10, 10);
+
+        assert_eq!(
+            *changed_states.lock().unwrap(),
+            vec![MainStateType::MusicSelect]
+        );
     }
 
     #[test]

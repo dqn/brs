@@ -239,6 +239,67 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
     }
 }
 
+fn course_replay_index_from_event_id(event_id: i32) -> Option<usize> {
+    match event_id {
+        19 => Some(0),
+        316 => Some(1),
+        317 => Some(2),
+        318 => Some(3),
+        _ => None,
+    }
+}
+
+struct CourseResultMouseContext<'a> {
+    timer: &'a mut rubato_core::timer_manager::TimerManager,
+    result: &'a mut CourseResult,
+}
+
+impl rubato_types::timer_access::TimerAccess for CourseResultMouseContext<'_> {
+    fn get_now_time(&self) -> i64 {
+        self.timer.get_now_time()
+    }
+
+    fn get_now_micro_time(&self) -> i64 {
+        self.timer.get_now_micro_time()
+    }
+
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_micro_timer(timer_id)
+    }
+
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_timer(timer_id)
+    }
+
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        self.timer.get_now_time_for_id(timer_id)
+    }
+
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.timer.is_timer_on(timer_id)
+    }
+}
+
+impl rubato_types::skin_render_context::SkinRenderContext for CourseResultMouseContext<'_> {
+    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+        Some(rubato_types::main_state_type::MainStateType::CourseResult)
+    }
+
+    fn execute_event(&mut self, id: i32, _arg1: i32, _arg2: i32) {
+        if let Some(index) = course_replay_index_from_event_id(id) {
+            self.result.save_replay_data(index);
+        }
+    }
+
+    fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
+        self.result.main.change_state(state);
+    }
+
+    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+        self.timer.set_micro_timer(timer_id, micro_time);
+    }
+}
+
 /// Course result screen
 pub struct CourseResult {
     pub data: AbstractResultData,
@@ -846,13 +907,153 @@ impl Default for CourseResult {
 mod tests {
     use super::*;
     use rubato_core::main_state::MainState;
+    use rubato_core::main_state::SkinDrawable;
+    use rubato_core::sprite_batch_helper::SpriteBatch;
     use rubato_skin::skin_property::{TIMER_RESULTGRAPH_BEGIN, TIMER_STARTINPUT};
     use rubato_skin::skin_type::SkinType;
+    use rubato_types::main_controller_access::MainControllerAccess;
+    use rubato_types::player_resource_access::PlayerResourceAccess;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct ExecuteEventSkin {
+        event_id: i32,
+    }
+
+    impl SkinDrawable for ExecuteEventSkin {
+        fn draw_all_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn update_custom_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn mouse_pressed_at(
+            &mut self,
+            ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+            ctx.execute_event(self.event_id, 0, 0);
+        }
+
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+
+        fn prepare_skin(&mut self) {}
+
+        fn dispose_skin(&mut self) {}
+
+        fn get_fadeout(&self) -> i32 {
+            0
+        }
+
+        fn get_input(&self) -> i32 {
+            0
+        }
+
+        fn get_scene(&self) -> i32 {
+            0
+        }
+
+        fn get_width(&self) -> f32 {
+            0.0
+        }
+
+        fn get_height(&self) -> f32 {
+            0.0
+        }
+
+        fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+    }
+
+    struct TestMainControllerAccess {
+        config: rubato_types::config::Config,
+        player_config: rubato_types::player_config::PlayerConfig,
+    }
+
+    impl TestMainControllerAccess {
+        fn new(config: rubato_types::config::Config) -> Self {
+            Self {
+                config,
+                player_config: rubato_types::player_config::PlayerConfig::default(),
+            }
+        }
+    }
+
+    impl MainControllerAccess for TestMainControllerAccess {
+        fn get_config(&self) -> &rubato_types::config::Config {
+            &self.config
+        }
+
+        fn get_player_config(&self) -> &rubato_types::player_config::PlayerConfig {
+            &self.player_config
+        }
+
+        fn change_state(&mut self, _state: rubato_core::main_state::MainStateType) {}
+
+        fn save_config(&self) {}
+
+        fn exit(&self) {}
+
+        fn save_last_recording(&self, _reason: &str) {}
+
+        fn update_song(&mut self, _path: Option<&str>) {}
+
+        fn get_player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+            None
+        }
+
+        fn get_player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+            None
+        }
+    }
+
+    fn make_test_config(label: &str) -> rubato_types::config::Config {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let mut config = rubato_types::config::Config::default();
+        let player_dir = std::env::temp_dir().join(format!("rubato-{label}-{unique}"));
+        config.playerpath = player_dir.to_string_lossy().into_owned();
+        config.playername = Some("mouse-course-result".to_string());
+        config
+    }
 
     fn make_default() -> CourseResult {
         CourseResult::new(
             MainController::new(Box::new(crate::result::stubs::NullMainController)),
             PlayerResource::default(),
+            rubato_core::timer_manager::TimerManager::new(),
+        )
+    }
+
+    fn make_course_result_for_mouse() -> CourseResult {
+        let config = make_test_config("course-result");
+        let main = MainController::new(Box::new(TestMainControllerAccess::new(config)));
+        let mut resource = PlayerResource::new(
+            Box::new(MockPlayerResourceForIR::new_with_course_score()),
+            crate::result::stubs::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        resource.set_course_bms_models(Some(vec![bms_model::bms_model::BMSModel::default()]));
+        resource
+            .get_course_replay_mut()
+            .push(rubato_core::replay_data::ReplayData::default());
+        CourseResult::new(
+            main,
+            resource,
             rubato_core::timer_manager::TimerManager::new(),
         )
     }
@@ -864,6 +1065,16 @@ mod tests {
             cr.state_type(),
             Some(rubato_core::main_state::MainStateType::CourseResult)
         );
+    }
+
+    #[test]
+    fn test_handle_skin_mouse_pressed_saves_replay_via_course_result_context() {
+        let mut cr = make_course_result_for_mouse();
+        cr.main_data.skin = Some(Box::new(ExecuteEventSkin { event_id: 19 }));
+
+        <CourseResult as MainState>::handle_skin_mouse_pressed(&mut cr, 0, 10, 10);
+
+        assert_eq!(cr.data.save_replay[0], ReplayStatus::Saved);
     }
 
     #[test]
@@ -1455,6 +1666,44 @@ impl rubato_core::main_state::MainState for CourseResult {
             skin.swap_sprite_batch(sprite);
             skin.draw_all_objects_timed(&mut ctx);
             skin.swap_sprite_batch(sprite);
+        }
+
+        self.main_data.timer = timer;
+        self.main_data.skin = Some(skin);
+    }
+
+    fn handle_skin_mouse_pressed(&mut self, button: i32, x: i32, y: i32) {
+        let mut skin = match self.main_data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.main_data.timer);
+
+        {
+            let mut ctx = CourseResultMouseContext {
+                timer: &mut timer,
+                result: self,
+            };
+            skin.mouse_pressed_at(&mut ctx, button, x, y);
+        }
+
+        self.main_data.timer = timer;
+        self.main_data.skin = Some(skin);
+    }
+
+    fn handle_skin_mouse_dragged(&mut self, button: i32, x: i32, y: i32) {
+        let mut skin = match self.main_data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.main_data.timer);
+
+        {
+            let mut ctx = CourseResultMouseContext {
+                timer: &mut timer,
+                result: self,
+            };
+            skin.mouse_dragged_at(&mut ctx, button, x, y);
         }
 
         self.main_data.timer = timer;

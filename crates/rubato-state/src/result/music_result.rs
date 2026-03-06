@@ -166,6 +166,67 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
     }
 }
 
+fn replay_index_from_event_id(event_id: i32) -> Option<usize> {
+    match event_id {
+        19 => Some(0),
+        316 => Some(1),
+        317 => Some(2),
+        318 => Some(3),
+        _ => None,
+    }
+}
+
+struct ResultMouseContext<'a> {
+    timer: &'a mut TimerManager,
+    result: &'a mut MusicResult,
+}
+
+impl rubato_types::timer_access::TimerAccess for ResultMouseContext<'_> {
+    fn get_now_time(&self) -> i64 {
+        self.timer.get_now_time()
+    }
+
+    fn get_now_micro_time(&self) -> i64 {
+        self.timer.get_now_micro_time()
+    }
+
+    fn get_micro_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_micro_timer(timer_id)
+    }
+
+    fn get_timer(&self, timer_id: i32) -> i64 {
+        self.timer.get_timer(timer_id)
+    }
+
+    fn get_now_time_for(&self, timer_id: i32) -> i64 {
+        self.timer.get_now_time_for_id(timer_id)
+    }
+
+    fn is_timer_on(&self, timer_id: i32) -> bool {
+        self.timer.is_timer_on(timer_id)
+    }
+}
+
+impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext<'_> {
+    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
+        Some(rubato_types::main_state_type::MainStateType::Result)
+    }
+
+    fn execute_event(&mut self, id: i32, _arg1: i32, _arg2: i32) {
+        if let Some(index) = replay_index_from_event_id(id) {
+            self.result.save_replay_data(index);
+        }
+    }
+
+    fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
+        self.result.main.change_state(state);
+    }
+
+    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+        self.timer.set_micro_timer(timer_id, micro_time);
+    }
+}
+
 /// Music result screen
 pub struct MusicResult {
     pub data: AbstractResultData,
@@ -1039,6 +1100,44 @@ impl MainState for MusicResult {
         self.main_data.skin = Some(skin);
     }
 
+    fn handle_skin_mouse_pressed(&mut self, button: i32, x: i32, y: i32) {
+        let mut skin = match self.main_data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.main_data.timer);
+
+        {
+            let mut ctx = ResultMouseContext {
+                timer: &mut timer,
+                result: self,
+            };
+            skin.mouse_pressed_at(&mut ctx, button, x, y);
+        }
+
+        self.main_data.timer = timer;
+        self.main_data.skin = Some(skin);
+    }
+
+    fn handle_skin_mouse_dragged(&mut self, button: i32, x: i32, y: i32) {
+        let mut skin = match self.main_data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.main_data.timer);
+
+        {
+            let mut ctx = ResultMouseContext {
+                timer: &mut timer,
+                result: self,
+            };
+            skin.mouse_dragged_at(&mut ctx, button, x, y);
+        }
+
+        self.main_data.timer = timer;
+        self.main_data.skin = Some(skin);
+    }
+
     fn input(&mut self) {
         self.do_input();
     }
@@ -1095,6 +1194,344 @@ impl Default for MusicResult {
 mod tests {
     use super::*;
     use crate::result::abstract_result::{STATE_IR_FINISHED, STATE_IR_PROCESSING, STATE_OFFLINE};
+    use rubato_core::main_state::SkinDrawable;
+    use rubato_core::sprite_batch_helper::SpriteBatch;
+    use rubato_types::main_controller_access::MainControllerAccess;
+    use rubato_types::player_resource_access::PlayerResourceAccess;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct ExecuteEventSkin {
+        event_id: i32,
+    }
+
+    impl SkinDrawable for ExecuteEventSkin {
+        fn draw_all_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn update_custom_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn mouse_pressed_at(
+            &mut self,
+            ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+            ctx.execute_event(self.event_id, 0, 0);
+        }
+
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+
+        fn prepare_skin(&mut self) {}
+
+        fn dispose_skin(&mut self) {}
+
+        fn get_fadeout(&self) -> i32 {
+            0
+        }
+
+        fn get_input(&self) -> i32 {
+            0
+        }
+
+        fn get_scene(&self) -> i32 {
+            0
+        }
+
+        fn get_width(&self) -> f32 {
+            0.0
+        }
+
+        fn get_height(&self) -> f32 {
+            0.0
+        }
+
+        fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+    }
+
+    struct TestMainControllerAccess {
+        config: rubato_types::config::Config,
+        player_config: rubato_types::player_config::PlayerConfig,
+    }
+
+    impl TestMainControllerAccess {
+        fn new(config: rubato_types::config::Config) -> Self {
+            Self {
+                config,
+                player_config: rubato_types::player_config::PlayerConfig::default(),
+            }
+        }
+    }
+
+    impl MainControllerAccess for TestMainControllerAccess {
+        fn get_config(&self) -> &rubato_types::config::Config {
+            &self.config
+        }
+
+        fn get_player_config(&self) -> &rubato_types::player_config::PlayerConfig {
+            &self.player_config
+        }
+
+        fn change_state(&mut self, _state: MainStateType) {}
+
+        fn save_config(&self) {}
+
+        fn exit(&self) {}
+
+        fn save_last_recording(&self, _reason: &str) {}
+
+        fn update_song(&mut self, _path: Option<&str>) {}
+
+        fn get_player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+            None
+        }
+
+        fn get_player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+            None
+        }
+    }
+
+    struct MouseResultResourceAccess {
+        config: rubato_types::config::Config,
+        player_config: rubato_types::player_config::PlayerConfig,
+        score_data: Option<rubato_core::score_data::ScoreData>,
+        replay_data: Option<rubato_core::replay_data::ReplayData>,
+        song_data: Option<rubato_types::song_data::SongData>,
+        course_data: Option<rubato_types::course_data::CourseData>,
+        course_gauge: Vec<Vec<Vec<f32>>>,
+        course_replay: Vec<rubato_core::replay_data::ReplayData>,
+        update_score: bool,
+    }
+
+    impl MouseResultResourceAccess {
+        fn new(config: rubato_types::config::Config) -> Self {
+            Self {
+                config,
+                player_config: rubato_types::player_config::PlayerConfig::default(),
+                score_data: Some(rubato_core::score_data::ScoreData::default()),
+                replay_data: Some(rubato_core::replay_data::ReplayData::default()),
+                song_data: None,
+                course_data: None,
+                course_gauge: Vec::new(),
+                course_replay: Vec::new(),
+                update_score: true,
+            }
+        }
+    }
+
+    impl PlayerResourceAccess for MouseResultResourceAccess {
+        fn into_any_send(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+            self
+        }
+
+        fn get_config(&self) -> &rubato_types::config::Config {
+            &self.config
+        }
+
+        fn get_player_config(&self) -> &rubato_types::player_config::PlayerConfig {
+            &self.player_config
+        }
+
+        fn get_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+            self.score_data.as_ref()
+        }
+
+        fn get_rival_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+            None
+        }
+
+        fn get_target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+            None
+        }
+
+        fn get_course_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+            None
+        }
+
+        fn set_course_score_data(&mut self, _score: rubato_core::score_data::ScoreData) {}
+
+        fn get_songdata(&self) -> Option<&rubato_types::song_data::SongData> {
+            self.song_data.as_ref()
+        }
+
+        fn get_songdata_mut(&mut self) -> Option<&mut rubato_types::song_data::SongData> {
+            self.song_data.as_mut()
+        }
+
+        fn set_songdata(&mut self, data: Option<rubato_types::song_data::SongData>) {
+            self.song_data = data;
+        }
+
+        fn get_replay_data(&self) -> Option<&rubato_core::replay_data::ReplayData> {
+            self.replay_data.as_ref()
+        }
+
+        fn get_replay_data_mut(&mut self) -> Option<&mut rubato_core::replay_data::ReplayData> {
+            self.replay_data.as_mut()
+        }
+
+        fn get_course_replay(&self) -> &[rubato_core::replay_data::ReplayData] {
+            &self.course_replay
+        }
+
+        fn add_course_replay(&mut self, rd: rubato_core::replay_data::ReplayData) {
+            self.course_replay.push(rd);
+        }
+
+        fn get_course_data(&self) -> Option<&rubato_types::course_data::CourseData> {
+            self.course_data.as_ref()
+        }
+
+        fn get_course_index(&self) -> usize {
+            0
+        }
+
+        fn next_course(&mut self) -> bool {
+            false
+        }
+
+        fn get_constraint(&self) -> Vec<rubato_types::course_data::CourseDataConstraint> {
+            vec![]
+        }
+
+        fn get_gauge(&self) -> Option<&Vec<Vec<f32>>> {
+            None
+        }
+
+        fn get_groove_gauge(&self) -> Option<&rubato_types::groove_gauge::GrooveGauge> {
+            None
+        }
+
+        fn get_course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
+            &self.course_gauge
+        }
+
+        fn add_course_gauge(&mut self, gauge: Vec<Vec<f32>>) {
+            self.course_gauge.push(gauge);
+        }
+
+        fn get_course_gauge_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
+            &mut self.course_gauge
+        }
+
+        fn get_score_data_mut(&mut self) -> Option<&mut rubato_core::score_data::ScoreData> {
+            self.score_data.as_mut()
+        }
+
+        fn get_course_replay_mut(&mut self) -> &mut Vec<rubato_core::replay_data::ReplayData> {
+            &mut self.course_replay
+        }
+
+        fn get_maxcombo(&self) -> i32 {
+            0
+        }
+
+        fn get_org_gauge_option(&self) -> i32 {
+            0
+        }
+
+        fn set_org_gauge_option(&mut self, _val: i32) {}
+
+        fn get_assist(&self) -> i32 {
+            0
+        }
+
+        fn is_update_score(&self) -> bool {
+            self.update_score
+        }
+
+        fn is_update_course_score(&self) -> bool {
+            false
+        }
+
+        fn is_force_no_ir_send(&self) -> bool {
+            false
+        }
+
+        fn is_freq_on(&self) -> bool {
+            false
+        }
+
+        fn get_reverse_lookup_data(&self) -> Vec<String> {
+            vec![]
+        }
+
+        fn get_reverse_lookup_levels(&self) -> Vec<String> {
+            vec![]
+        }
+
+        fn clear(&mut self) {}
+
+        fn set_bms_file(&mut self, _path: &Path, _mode_type: i32, _mode_id: i32) -> bool {
+            false
+        }
+
+        fn set_course_bms_files(&mut self, _files: &[PathBuf]) -> bool {
+            false
+        }
+
+        fn set_tablename(&mut self, _name: &str) {}
+
+        fn set_tablelevel(&mut self, _level: &str) {}
+
+        fn set_rival_score_data_option(
+            &mut self,
+            _score: Option<rubato_core::score_data::ScoreData>,
+        ) {
+        }
+
+        fn set_chart_option_data(&mut self, _option: Option<rubato_core::replay_data::ReplayData>) {
+        }
+
+        fn set_course_data(&mut self, data: rubato_types::course_data::CourseData) {
+            self.course_data = Some(data);
+        }
+
+        fn clear_course_data(&mut self) {
+            self.course_data = None;
+        }
+
+        fn get_course_song_data(&self) -> Vec<rubato_types::song_data::SongData> {
+            vec![]
+        }
+    }
+
+    fn make_test_config(label: &str) -> rubato_types::config::Config {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let mut config = rubato_types::config::Config::default();
+        let player_dir = std::env::temp_dir().join(format!("rubato-{label}-{unique}"));
+        config.playerpath = player_dir.to_string_lossy().into_owned();
+        config.playername = Some("mouse-result".to_string());
+        config
+    }
+
+    fn make_result_for_mouse() -> MusicResult {
+        let config = make_test_config("music-result");
+        let main = MainController::new(Box::new(TestMainControllerAccess::new(config.clone())));
+        let resource = PlayerResource::new(
+            Box::new(MouseResultResourceAccess::new(config)),
+            crate::result::stubs::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        MusicResult::new(main, resource, TimerManager::new())
+    }
 
     #[test]
     fn test_music_result_new_defaults() {
@@ -1103,6 +1540,16 @@ mod tests {
         assert_eq!(mr.data.gauge_type, 0);
         assert_eq!(mr.data.ranking_offset, 0);
         assert!(mr.skin.is_none());
+    }
+
+    #[test]
+    fn test_handle_skin_mouse_pressed_saves_replay_via_result_context() {
+        let mut mr = make_result_for_mouse();
+        mr.main_data.skin = Some(Box::new(ExecuteEventSkin { event_id: 19 }));
+
+        <MusicResult as MainState>::handle_skin_mouse_pressed(&mut mr, 0, 10, 10);
+
+        assert_eq!(mr.data.save_replay[0], ReplayStatus::Saved);
     }
 
     #[test]
