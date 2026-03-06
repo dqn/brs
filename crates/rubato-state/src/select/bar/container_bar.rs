@@ -19,8 +19,8 @@ impl ContainerBar {
         }
     }
 
-    pub fn title(&self) -> String {
-        self.title.clone()
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     pub fn children(&self) -> &[Bar] {

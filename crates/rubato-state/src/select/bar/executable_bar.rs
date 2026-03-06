@@ -77,8 +77,8 @@ impl ExecutableBar {
         }
     }
 
-    pub fn title(&self) -> String {
-        self.title.clone()
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     pub fn lamp(&self, _is_player: bool) -> i32 {

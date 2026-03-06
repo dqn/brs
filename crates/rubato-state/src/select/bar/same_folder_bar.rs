@@ -21,8 +21,8 @@ impl SameFolderBar {
         }
     }
 
-    pub fn title(&self) -> String {
-        self.title.clone()
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     /// Get children bars for same-folder songs.

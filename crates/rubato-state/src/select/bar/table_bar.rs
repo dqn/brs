@@ -38,8 +38,8 @@ impl TableBar {
         bar
     }
 
-    pub fn title(&self) -> String {
-        self.td.name().to_string()
+    pub fn title(&self) -> &str {
+        self.td.name()
     }
 
     pub fn url(&self) -> Option<&str> {

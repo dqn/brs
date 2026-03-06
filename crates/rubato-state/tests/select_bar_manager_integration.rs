@@ -348,7 +348,7 @@ fn add_search_deduplicates_and_shows_at_root() {
     manager.update_bar(None);
 
     // Should have exactly 2 search bars (deduplicated "test" + "other")
-    let search_titles: Vec<String> = manager
+    let search_titles: Vec<&str> = manager
         .currentsongs
         .iter()
         .filter(|b| matches!(b, Bar::SearchWord(_)))

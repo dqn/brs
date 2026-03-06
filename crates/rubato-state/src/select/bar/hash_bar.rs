@@ -33,8 +33,8 @@ impl HashBar {
         }
     }
 
-    pub fn title(&self) -> String {
-        self.title.clone()
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     pub fn elements(&self) -> &[SongData] {

@@ -46,7 +46,7 @@ impl ContextMenuBar {
     }
 
     pub fn new_for_table(table: TableBar) -> Self {
-        let title = table.title();
+        let title = table.title().to_owned();
         let mut bar = Self {
             directory: DirectoryBarData::new(true),
             song: None,
@@ -60,7 +60,7 @@ impl ContextMenuBar {
     }
 
     pub fn new_for_table_folder(table: TableBar, folder: HashBar) -> Self {
-        let title = folder.title();
+        let title = folder.title().to_owned();
         let mut bar = Self {
             directory: DirectoryBarData::new(true),
             song: None,
@@ -89,8 +89,8 @@ impl ContextMenuBar {
         true
     }
 
-    pub fn title(&self) -> String {
-        self.title.clone()
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     pub fn lamp(&self, _is_player: bool) -> i32 {

@@ -48,7 +48,7 @@ pub enum Bar {
 }
 
 impl Bar {
-    pub fn title(&self) -> String {
+    pub fn title(&self) -> &str {
         match self {
             Bar::Song(b) => b.title(),
             Bar::Folder(b) => b.title(),

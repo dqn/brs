@@ -32,8 +32,8 @@ impl GradeBar {
         &self.course.hash
     }
 
-    pub fn title(&self) -> String {
-        self.course.name().to_string()
+    pub fn title(&self) -> &str {
+        self.course.name()
     }
 
     pub fn exists_all_songs(&self) -> bool {
