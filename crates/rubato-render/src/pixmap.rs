@@ -68,14 +68,6 @@ impl Pixmap {
         }
     }
 
-    pub fn get_width(&self) -> i32 {
-        self.width
-    }
-
-    pub fn get_height(&self) -> i32 {
-        self.height
-    }
-
     /// Blit source pixmap region into this pixmap with scaling.
     /// Corresponds to Pixmap.drawPixmap(src, sx, sy, sw, sh, dx, dy, dw, dh).
     #[allow(clippy::too_many_arguments)]
@@ -231,7 +223,7 @@ impl Pixmap {
     }
 
     /// Get pixel as packed RGBA8888 integer.
-    pub fn get_pixel(&self, x: i32, y: i32) -> i32 {
+    pub fn pixel(&self, x: i32, y: i32) -> i32 {
         if x < 0 || y < 0 || x >= self.width || y >= self.height {
             return 0;
         }
@@ -319,8 +311,8 @@ mod tests {
     #[test]
     fn test_new_pixmap_is_transparent() {
         let p = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
-        assert_eq!(p.get_pixel(0, 0), 0);
-        assert_eq!(p.get_pixel(3, 3), 0);
+        assert_eq!(p.pixel(0, 0), 0);
+        assert_eq!(p.pixel(3, 3), 0);
     }
 
     #[test]
@@ -329,9 +321,9 @@ mod tests {
         p.set_color_rgba(1.0, 0.0, 0.0, 1.0);
         p.fill_rectangle(1, 1, 2, 2);
         // Outside fill area should be 0
-        assert_eq!(p.get_pixel(0, 0), 0);
+        assert_eq!(p.pixel(0, 0), 0);
         // Inside fill area should be red (0xFF0000FF)
-        let pixel = p.get_pixel(1, 1);
+        let pixel = p.pixel(1, 1);
         assert_eq!(pixel, 0xFF0000FFu32 as i32);
     }
 
@@ -340,16 +332,16 @@ mod tests {
         let mut p = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
         let color = 0x12345678u32 as i32;
         p.draw_pixel(2, 3, color);
-        assert_eq!(p.get_pixel(2, 3), color);
+        assert_eq!(p.pixel(2, 3), color);
     }
 
     #[test]
     fn test_out_of_bounds_returns_zero() {
         let p = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
-        assert_eq!(p.get_pixel(-1, 0), 0);
-        assert_eq!(p.get_pixel(0, -1), 0);
-        assert_eq!(p.get_pixel(4, 0), 0);
-        assert_eq!(p.get_pixel(0, 4), 0);
+        assert_eq!(p.pixel(-1, 0), 0);
+        assert_eq!(p.pixel(0, -1), 0);
+        assert_eq!(p.pixel(4, 0), 0);
+        assert_eq!(p.pixel(0, 4), 0);
     }
 
     #[test]
@@ -359,7 +351,7 @@ mod tests {
         p.fill();
         for y in 0..2 {
             for x in 0..2 {
-                assert_eq!(p.get_pixel(x, y), 0x00FF00FFu32 as i32);
+                assert_eq!(p.pixel(x, y), 0x00FF00FFu32 as i32);
             }
         }
     }
@@ -370,6 +362,6 @@ mod tests {
         let color = 0xAABBCCDDu32 as i32;
         p.set_color_int(color);
         p.fill();
-        assert_eq!(p.get_pixel(0, 0), color);
+        assert_eq!(p.pixel(0, 0), color);
     }
 }

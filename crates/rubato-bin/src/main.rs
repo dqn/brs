@@ -809,7 +809,7 @@ impl ApplicationHandler for RubatoApp {
                 };
 
                 // wgpu render pass: clear screen, sprite batch flush, egui overlay, present
-                match gpu.get_current_texture() {
+                match gpu.current_texture() {
                     Ok(output) => {
                         let view = output
                             .texture

@@ -243,7 +243,7 @@ impl GpuTextureManager {
 
     /// Get the bind group for a texture by key and shader type.
     /// Returns the fallback bind group if the key is not found.
-    pub fn get_bind_group(&self, key: Option<&Arc<str>>, shader_type: i32) -> &wgpu::BindGroup {
+    pub fn bind_group(&self, key: Option<&Arc<str>>, shader_type: i32) -> &wgpu::BindGroup {
         let linear = SpriteRenderPipeline::is_linear_sampler(shader_type);
         if let Some(key) = key
             && let Some(entry) = self.entries.get(key)

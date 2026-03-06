@@ -119,8 +119,8 @@ impl BitmapFontBatchLoader {
                 scale_h = s.scale_h;
             }
             if scale_w == 0.0 && !image_regions.is_empty() {
-                scale_w = image_regions[0].get_region_width() as f32;
-                scale_h = image_regions[0].get_region_height() as f32;
+                scale_w = image_regions[0].region_width as f32;
+                scale_h = image_regions[0].region_height as f32;
             }
 
             let font_cache = CacheableBitmapFont {

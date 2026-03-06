@@ -126,7 +126,7 @@ impl GpuContext {
     }
 
     /// Get current surface texture for rendering.
-    pub fn get_current_texture(&self) -> Result<wgpu::SurfaceTexture> {
+    pub fn current_texture(&self) -> Result<wgpu::SurfaceTexture> {
         let surface = self
             .surface
             .as_ref()

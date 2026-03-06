@@ -130,7 +130,7 @@ impl SpriteBatch {
         self.shader_type = shader_type;
     }
 
-    pub fn get_shader_type(&self) -> i32 {
+    pub fn shader_type(&self) -> i32 {
         self.shader_type
     }
 
@@ -138,7 +138,7 @@ impl SpriteBatch {
         self.current_color = color.to_array();
     }
 
-    pub fn get_color(&self) -> Color {
+    pub fn color(&self) -> Color {
         Color::new(
             self.current_color[0],
             self.current_color[1],
@@ -154,7 +154,7 @@ impl SpriteBatch {
         self.blend_mode = BlendMode::from_gl_factors(src, dst);
     }
 
-    pub fn get_blend_mode(&self) -> BlendMode {
+    pub fn blend_mode(&self) -> BlendMode {
         self.blend_mode
     }
 
@@ -224,9 +224,8 @@ impl SpriteBatch {
 
         // If no draw batches recorded, fall back to single-batch rendering
         if self.draw_batches.is_empty() {
-            let bind_group = texture_manager.get_bind_group(None, self.shader_type);
-            if let Some(render_pipeline) = pipeline.get_pipeline(self.shader_type, self.blend_mode)
-            {
+            let bind_group = texture_manager.bind_group(None, self.shader_type);
+            if let Some(render_pipeline) = pipeline.pipeline(self.shader_type, self.blend_mode) {
                 render_pass.set_pipeline(render_pipeline);
                 render_pass.set_bind_group(1, bind_group, &[]);
                 render_pass.draw(0..self.vertices.len() as u32, 0..1);
@@ -238,9 +237,9 @@ impl SpriteBatch {
                     continue;
                 }
                 let bind_group =
-                    texture_manager.get_bind_group(batch.texture_key.as_ref(), batch.shader_type);
+                    texture_manager.bind_group(batch.texture_key.as_ref(), batch.shader_type);
                 if let Some(render_pipeline) =
-                    pipeline.get_pipeline(batch.shader_type, batch.blend_mode)
+                    pipeline.pipeline(batch.shader_type, batch.blend_mode)
                 {
                     render_pass.set_pipeline(render_pipeline);
                     render_pass.set_bind_group(1, bind_group, &[]);
@@ -449,7 +448,7 @@ mod tests {
         let batch = SpriteBatch::new();
         assert!(batch.vertices().is_empty());
         assert!(!batch.is_drawing());
-        assert_eq!(batch.get_blend_mode(), BlendMode::Normal);
+        assert_eq!(batch.blend_mode(), BlendMode::Normal);
     }
 
     #[test]
@@ -513,7 +512,7 @@ mod tests {
         let mut batch = SpriteBatch::new();
         let red = Color::new(1.0, 0.0, 0.0, 1.0);
         batch.set_color(&red);
-        let got = batch.get_color();
+        let got = batch.color();
         assert_eq!(got.r, 1.0);
         assert_eq!(got.g, 0.0);
         assert_eq!(got.b, 0.0);
@@ -556,27 +555,27 @@ mod tests {
     fn test_sprite_batch_blend_mode_from_gl_factors() {
         let mut batch = SpriteBatch::new();
         // Default: Normal
-        assert_eq!(batch.get_blend_mode(), BlendMode::Normal);
+        assert_eq!(batch.blend_mode(), BlendMode::Normal);
         // Additive: SRC_ALPHA, ONE
         batch.set_blend_function(0x0302, 1);
-        assert_eq!(batch.get_blend_mode(), BlendMode::Additive);
+        assert_eq!(batch.blend_mode(), BlendMode::Additive);
         // Multiply: ZERO, SRC_COLOR
         batch.set_blend_function(0, 0x0300);
-        assert_eq!(batch.get_blend_mode(), BlendMode::Multiply);
+        assert_eq!(batch.blend_mode(), BlendMode::Multiply);
         // Inversion: ONE_MINUS_DST_COLOR, ZERO
         batch.set_blend_function(0x0307, 0);
-        assert_eq!(batch.get_blend_mode(), BlendMode::Inversion);
+        assert_eq!(batch.blend_mode(), BlendMode::Inversion);
         // Reset to normal
         batch.set_blend_function(0x0302, 0x0303);
-        assert_eq!(batch.get_blend_mode(), BlendMode::Normal);
+        assert_eq!(batch.blend_mode(), BlendMode::Normal);
     }
 
     #[test]
     fn test_sprite_batch_shader_type() {
         let mut batch = SpriteBatch::new();
-        assert_eq!(batch.get_shader_type(), 0);
+        assert_eq!(batch.shader_type(), 0);
         batch.set_shader_type(3);
-        assert_eq!(batch.get_shader_type(), 3);
+        assert_eq!(batch.shader_type(), 3);
     }
 
     #[test]

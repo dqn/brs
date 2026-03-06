@@ -913,8 +913,8 @@ impl SkinObjectData {
         sprite.set_blend(self.dstblend);
         sprite.set_type(
             if self.dstfilter != 0 && self.image_type == SkinObjectRenderer::TYPE_NORMAL {
-                if self.tmp_rect.width == self.tmp_image.get_region_width() as f32
-                    && self.tmp_rect.height == self.tmp_image.get_region_height() as f32
+                if self.tmp_rect.width == self.tmp_image.region_width as f32
+                    && self.tmp_rect.height == self.tmp_image.region_height as f32
                 {
                     SkinObjectRenderer::TYPE_NORMAL
                 } else {
@@ -983,8 +983,8 @@ impl SkinObjectData {
         sprite.set_blend(self.dstblend);
         sprite.set_type(
             if self.dstfilter != 0 && self.image_type == SkinObjectRenderer::TYPE_NORMAL {
-                if self.tmp_rect.width == self.tmp_image.get_region_width() as f32
-                    && self.tmp_rect.height == self.tmp_image.get_region_height() as f32
+                if self.tmp_rect.width == self.tmp_image.region_width as f32
+                    && self.tmp_rect.height == self.tmp_image.region_height as f32
                 {
                     SkinObjectRenderer::TYPE_NORMAL
                 } else {
@@ -1318,7 +1318,7 @@ impl SkinObjectRenderer {
         }
 
         // Java: orgcolor = sprite.getColor(); sprite.setColor(color);
-        self.orgcolor = Some(self.sprite.get_color());
+        self.orgcolor = Some(self.sprite.color());
         self.sprite.set_color(&self.color);
     }
 
@@ -1478,7 +1478,7 @@ mod tests {
         renderer.draw(&region, 0.0, 0.0, 10.0, 10.0);
         // After post_draw, blend should be reset to Normal
         // (post_draw resets blend to SRC_ALPHA/ONE_MINUS_SRC_ALPHA when blend >= 2)
-        let color = renderer.sprite.get_color();
+        let color = renderer.sprite.color();
         // Color should be restored to white (default)
         assert_eq!(color.r, 1.0);
         assert_eq!(color.g, 1.0);
@@ -1498,7 +1498,7 @@ mod tests {
         // After pre_draw, current_shader should match obj_type
         assert_eq!(renderer.current_shader, SkinObjectRenderer::TYPE_FFMPEG);
         assert_eq!(
-            renderer.sprite.get_shader_type(),
+            renderer.sprite.shader_type(),
             SkinObjectRenderer::TYPE_FFMPEG
         );
     }
@@ -1523,7 +1523,7 @@ mod tests {
         // Draw: pre_draw saves blue, sets red; post_draw restores blue
         let region = TextureRegion::new();
         renderer.draw(&region, 0.0, 0.0, 10.0, 10.0);
-        let restored = renderer.sprite.get_color();
+        let restored = renderer.sprite.color();
         assert_eq!(restored.r, 0.0);
         assert_eq!(restored.g, 0.0);
         assert_eq!(restored.b, 1.0);
@@ -1760,7 +1760,7 @@ mod tests {
         let tex = Texture::default();
         renderer.draw_texture(&tex, 0.0, 0.0, 10.0, 10.0);
         // After post_draw, blend is reset to Normal
-        let color = renderer.sprite.get_color();
+        let color = renderer.sprite.color();
         assert_eq!(color.r, 1.0);
         assert_eq!(color.a, 1.0);
     }
@@ -1773,7 +1773,7 @@ mod tests {
         renderer.draw_texture(&tex, 0.0, 0.0, 10.0, 10.0);
         assert_eq!(renderer.current_shader, SkinObjectRenderer::TYPE_LINEAR);
         assert_eq!(
-            renderer.sprite.get_shader_type(),
+            renderer.sprite.shader_type(),
             SkinObjectRenderer::TYPE_LINEAR
         );
     }
@@ -1802,7 +1802,7 @@ mod tests {
         renderer.draw_font(&mut font, "Test", 0.0, 0.0, &green);
 
         // After post_draw, sprite color should be restored to blue
-        let restored = renderer.sprite.get_color();
+        let restored = renderer.sprite.color();
         assert_eq!(restored.r, 0.0);
         assert_eq!(restored.g, 0.0);
         assert_eq!(restored.b, 1.0);
@@ -1828,7 +1828,7 @@ mod tests {
         // After draw_font, shader should have been switched to TYPE_LINEAR
         assert_eq!(renderer.current_shader, SkinObjectRenderer::TYPE_LINEAR);
         assert_eq!(
-            renderer.sprite.get_shader_type(),
+            renderer.sprite.shader_type(),
             SkinObjectRenderer::TYPE_LINEAR
         );
     }

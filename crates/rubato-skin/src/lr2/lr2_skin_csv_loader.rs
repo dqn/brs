@@ -171,10 +171,10 @@ impl LR2SkinCSVLoaderState {
         mut divy: i32,
     ) -> Vec<TextureRegion> {
         if w == -1 {
-            w = image.get_width();
+            w = image.width;
         }
         if h == -1 {
-            h = image.get_height();
+            h = image.height;
         }
         if divx <= 0 {
             divx = 1;

@@ -496,7 +496,7 @@ mod tests {
         assert_eq!(img.data.image_type, 0);
         // Renderer should have had TYPE_FFMPEG (3) set during draw
         assert_eq!(
-            renderer.sprite.get_shader_type(),
+            renderer.sprite.shader_type(),
             SkinObjectRenderer::TYPE_FFMPEG
         );
         assert_eq!(renderer.sprite.vertices().len(), 6);

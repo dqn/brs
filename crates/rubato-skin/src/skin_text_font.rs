@@ -144,7 +144,7 @@ impl SkinTextFont {
         // destination height. The ratio region.height / parameter.size is the scale
         // factor relative to the configured font size.
         let region = self.text_data.data.region.clone();
-        let original_scale = font.get_scale();
+        let original_scale = font.scale();
         font.set_scale(region.height);
 
         // Java: sprite.setType(SkinObjectRenderer.TYPE_LINEAR)
@@ -236,7 +236,7 @@ impl SkinTextFont {
                 if actual_width > region_width && region_width > 0.0 {
                     // Java: font.getData().setScale(scaleX * r.getWidth() / actualWidth, scaleY)
                     if let Some(f) = self.font.as_mut() {
-                        let current_scale = f.get_scale();
+                        let current_scale = f.scale();
                         f.set_scale(current_scale * region_width / actual_width);
                         let shrunk = f.measure(text);
                         if let Some(ref mut layout) = self.layout {
@@ -439,10 +439,10 @@ mod tests {
         stf.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
         stf.text_data.set_text("Test".to_string());
 
-        let original_scale = stf.font.as_ref().unwrap().get_scale();
+        let original_scale = stf.font.as_ref().unwrap().scale();
         let mut renderer = SkinObjectRenderer::new();
         stf.draw_with_offset(&mut renderer, 0.0, 0.0);
-        assert_eq!(stf.font.as_ref().unwrap().get_scale(), original_scale);
+        assert_eq!(stf.font.as_ref().unwrap().scale(), original_scale);
     }
 
     // ---- Shadow color formula test ----

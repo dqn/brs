@@ -448,8 +448,7 @@ impl BGAProcessor {
     ) {
         self.tmp_rect.set(r);
         self.image.set_texture(bga.clone());
-        self.image
-            .set_region_from(0, 0, bga.get_width(), bga.get_height());
+        self.image.set_region_from(0, 0, bga.width, bga.height);
 
         // Apply stretch type to modify rectangle and image region
         stretch.stretch_rect(&mut self.tmp_rect, &mut self.image);

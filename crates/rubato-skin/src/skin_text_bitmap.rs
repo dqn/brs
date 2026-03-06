@@ -90,7 +90,7 @@ impl SkinTextBitmap {
         let scale = self.size / original_size;
 
         // Java: font.getData().setScale(scale)
-        let original_scale = font.get_scale();
+        let original_scale = font.scale();
         font.set_scale(original_size * scale);
 
         let region = &self.text_data.data.region;
@@ -215,7 +215,7 @@ impl SkinTextBitmap {
                     // Java: font.getData().setScale(scaleX * r.getWidth() / actualWidth, scaleY)
                     // Scale down font horizontally to fit
                     if let Some(f) = self.font.as_mut() {
-                        let current_scale = f.get_scale();
+                        let current_scale = f.scale();
                         f.set_scale(current_scale * region_width / actual_width);
                         let shrunk = f.measure(text);
                         self.layout.width = shrunk.width;

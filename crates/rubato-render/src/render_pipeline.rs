@@ -195,7 +195,7 @@ impl SpriteRenderPipeline {
     }
 
     /// Get the render pipeline for the given shader type and blend mode.
-    pub fn get_pipeline(
+    pub fn pipeline(
         &self,
         shader_type: i32,
         blend_mode: BlendMode,
@@ -208,7 +208,7 @@ impl SpriteRenderPipeline {
 
     /// Get the appropriate sampler for the given shader type.
     /// Java: TYPE_LINEAR, TYPE_FFMPEG, TYPE_DISTANCE_FIELD use Linear filter.
-    pub fn get_sampler(&self, shader_type: i32) -> &wgpu::Sampler {
+    pub fn sampler(&self, shader_type: i32) -> &wgpu::Sampler {
         match shader_type {
             SHADER_TYPE_LINEAR | SHADER_TYPE_FFMPEG | SHADER_TYPE_DISTANCE_FIELD => {
                 &self.sampler_linear
@@ -273,7 +273,7 @@ mod tests {
         for shader_type in 0..=5 {
             for &blend_mode in &blend_modes {
                 assert!(
-                    pipeline.get_pipeline(shader_type, blend_mode).is_some(),
+                    pipeline.pipeline(shader_type, blend_mode).is_some(),
                     "Missing pipeline for shader_type={}, blend_mode={:?}",
                     shader_type,
                     blend_mode
@@ -292,26 +292,20 @@ mod tests {
         let pipeline = SpriteRenderPipeline::new(&ctx.device, format);
 
         // TYPE_NORMAL -> nearest
-        let nearest = pipeline.get_sampler(SHADER_TYPE_NORMAL) as *const _;
-        let linear = pipeline.get_sampler(SHADER_TYPE_LINEAR) as *const _;
+        let nearest = pipeline.sampler(SHADER_TYPE_NORMAL) as *const _;
+        let linear = pipeline.sampler(SHADER_TYPE_LINEAR) as *const _;
 
         // TYPE_LINEAR, TYPE_FFMPEG, TYPE_DISTANCE_FIELD -> linear
-        assert_eq!(pipeline.get_sampler(SHADER_TYPE_LINEAR) as *const _, linear);
-        assert_eq!(pipeline.get_sampler(SHADER_TYPE_FFMPEG) as *const _, linear);
+        assert_eq!(pipeline.sampler(SHADER_TYPE_LINEAR) as *const _, linear);
+        assert_eq!(pipeline.sampler(SHADER_TYPE_FFMPEG) as *const _, linear);
         assert_eq!(
-            pipeline.get_sampler(SHADER_TYPE_DISTANCE_FIELD) as *const _,
+            pipeline.sampler(SHADER_TYPE_DISTANCE_FIELD) as *const _,
             linear
         );
 
         // TYPE_NORMAL, TYPE_BILINEAR, TYPE_LAYER -> nearest
-        assert_eq!(
-            pipeline.get_sampler(SHADER_TYPE_NORMAL) as *const _,
-            nearest
-        );
-        assert_eq!(
-            pipeline.get_sampler(SHADER_TYPE_BILINEAR) as *const _,
-            nearest
-        );
-        assert_eq!(pipeline.get_sampler(SHADER_TYPE_LAYER) as *const _, nearest);
+        assert_eq!(pipeline.sampler(SHADER_TYPE_NORMAL) as *const _, nearest);
+        assert_eq!(pipeline.sampler(SHADER_TYPE_BILINEAR) as *const _, nearest);
+        assert_eq!(pipeline.sampler(SHADER_TYPE_LAYER) as *const _, nearest);
     }
 }

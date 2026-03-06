@@ -189,15 +189,15 @@ impl BitmapFont {
         }
     }
 
-    pub fn get_font(&self) -> Option<&Arc<ab_glyph::FontVec>> {
+    pub fn font(&self) -> Option<&Arc<ab_glyph::FontVec>> {
         self.font.as_ref()
     }
 
-    pub fn get_regions(&self) -> Vec<TextureRegion> {
+    pub fn regions(&self) -> Vec<TextureRegion> {
         vec![]
     }
 
-    pub fn get_scale(&self) -> f32 {
+    pub fn scale(&self) -> f32 {
         self.scale
     }
 
@@ -224,7 +224,7 @@ impl BitmapFont {
         let scaled = font.as_scaled(ab_glyph::PxScale::from(self.scale));
 
         // Save current batch color
-        let saved_color = batch.get_color();
+        let saved_color = batch.color();
         batch.set_color(&Color::new(
             self.color[0],
             self.color[1],

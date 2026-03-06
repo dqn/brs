@@ -468,8 +468,8 @@ impl<'a> PomyuCharaLoader<'a> {
                 } else {
                     char_bmp.get(select_cg_index)?.as_ref()?
                 };
-                let w = set_bmp.get_width();
-                let h = set_bmp.get_height();
+                let w = set_bmp.width;
+                let h = set_bmp.height;
                 let region = TextureRegion::from_texture_region(set_bmp.clone(), 0, 0, w, h);
                 let pm_chara_part = SkinImage::new_with_int_timer(vec![region], 0, 0);
                 self.skin.add(pm_chara_part);
@@ -1397,8 +1397,8 @@ fn transparent_processing(
         return Some(tex);
     }
 
-    let w = tex.get_width();
-    let h = tex.get_height();
+    let w = tex.width;
+    let h = tex.height;
     if w <= 0 || h <= 0 {
         flag[index] = true;
         return Some(tex);

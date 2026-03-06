@@ -192,10 +192,10 @@ impl SkinGraph {
                 self.current.set_region_from_parent(
                     current_image,
                     0,
-                    current_image.get_region_height()
-                        - (current_image.get_region_height() as f32 * self.current_value) as i32,
-                    current_image.get_region_width(),
-                    (current_image.get_region_height() as f32 * self.current_value) as i32,
+                    current_image.region_height
+                        - (current_image.region_height as f32 * self.current_value) as i32,
+                    current_image.region_width,
+                    (current_image.region_height as f32 * self.current_value) as i32,
                 );
                 let region = self.data.region.clone();
                 self.data.draw_image_at(
@@ -212,8 +212,8 @@ impl SkinGraph {
                     current_image,
                     0,
                     0,
-                    (current_image.get_region_width() as f32 * self.current_value) as i32,
-                    current_image.get_region_height(),
+                    (current_image.region_width as f32 * self.current_value) as i32,
+                    current_image.region_height,
                 );
                 let region = self.data.region.clone();
                 self.data.draw_image_at(

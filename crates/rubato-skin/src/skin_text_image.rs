@@ -73,7 +73,7 @@ impl SkinTextImage {
                 }
             }
             if let Some(ch) = self.source.get_image(code) {
-                self.textwidth += ch.get_region_width() as f32;
+                self.textwidth += ch.region_width as f32;
                 self.texts.push(ch);
             }
         }
@@ -126,7 +126,7 @@ impl SkinTextImage {
         };
         let mut dx: f32 = 0.0;
         for ch in &self.texts {
-            let tw = ch.get_region_width() as f32 * scale * region.height / source_size;
+            let tw = ch.region_width as f32 * scale * region.height / source_size;
             self.text_data.data.draw_image_at_with_color(
                 sprite,
                 ch,

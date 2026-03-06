@@ -78,28 +78,28 @@ impl StretchType {
             }
             StretchType::KeepAspectRatioFitInner => {
                 trimmed_image.set_from(image);
-                let scale_x = rectangle.width / image.get_region_width() as f32;
-                let scale_y = rectangle.height / image.get_region_height() as f32;
+                let scale_x = rectangle.width / image.region_width as f32;
+                let scale_y = rectangle.height / image.region_height as f32;
                 if scale_x <= scale_y {
-                    fit_height(rectangle, image.get_region_height() as f32 * scale_x);
+                    fit_height(rectangle, image.region_height as f32 * scale_x);
                 } else {
-                    fit_width(rectangle, image.get_region_width() as f32 * scale_y);
+                    fit_width(rectangle, image.region_width as f32 * scale_y);
                 }
             }
             StretchType::KeepAspectRatioFitOuter => {
                 trimmed_image.set_from(image);
-                let scale_x = rectangle.width / image.get_region_width() as f32;
-                let scale_y = rectangle.height / image.get_region_height() as f32;
+                let scale_x = rectangle.width / image.region_width as f32;
+                let scale_y = rectangle.height / image.region_height as f32;
                 if scale_x >= scale_y {
-                    fit_height(rectangle, image.get_region_height() as f32 * scale_x);
+                    fit_height(rectangle, image.region_height as f32 * scale_x);
                 } else {
-                    fit_width(rectangle, image.get_region_width() as f32 * scale_y);
+                    fit_width(rectangle, image.region_width as f32 * scale_y);
                 }
             }
             StretchType::KeepAspectRatioFitOuterTrimmed => {
                 trimmed_image.set_from(image);
-                let scale_x = rectangle.width / image.get_region_width() as f32;
-                let scale_y = rectangle.height / image.get_region_height() as f32;
+                let scale_x = rectangle.width / image.region_width as f32;
+                let scale_y = rectangle.height / image.region_height as f32;
                 if scale_x >= scale_y {
                     fit_height_trimmed(rectangle, scale_x, trimmed_image);
                 } else {
@@ -110,15 +110,14 @@ impl StretchType {
                 trimmed_image.set_from(image);
                 fit_height(
                     rectangle,
-                    image.get_region_height() as f32 * rectangle.width
-                        / image.get_region_width() as f32,
+                    image.region_height as f32 * rectangle.width / image.region_width as f32,
                 );
             }
             StretchType::KeepAspectRatioFitWidthTrimmed => {
                 trimmed_image.set_from(image);
                 fit_height_trimmed(
                     rectangle,
-                    rectangle.width / image.get_region_width() as f32,
+                    rectangle.width / image.region_width as f32,
                     trimmed_image,
                 );
             }
@@ -126,31 +125,30 @@ impl StretchType {
                 trimmed_image.set_from(image);
                 fit_width(
                     rectangle,
-                    image.get_region_width() as f32 * rectangle.height
-                        / image.get_region_height() as f32,
+                    image.region_width as f32 * rectangle.height / image.region_height as f32,
                 );
             }
             StretchType::KeepAspectRatioFitHeightTrimmed => {
                 trimmed_image.set_from(image);
                 fit_width_trimmed(
                     rectangle,
-                    rectangle.height / image.get_region_height() as f32,
+                    rectangle.height / image.region_height as f32,
                     trimmed_image,
                 );
             }
             StretchType::KeepAspectRatioNoExpanding => {
                 trimmed_image.set_from(image);
                 let scale = 1.0f32.min(
-                    (rectangle.width / image.get_region_width() as f32)
-                        .min(rectangle.height / image.get_region_height() as f32),
+                    (rectangle.width / image.region_width as f32)
+                        .min(rectangle.height / image.region_height as f32),
                 );
-                fit_width(rectangle, image.get_region_width() as f32 * scale);
-                fit_height(rectangle, image.get_region_height() as f32 * scale);
+                fit_width(rectangle, image.region_width as f32 * scale);
+                fit_height(rectangle, image.region_height as f32 * scale);
             }
             StretchType::NoResize => {
                 trimmed_image.set_from(image);
-                fit_width(rectangle, image.get_region_width() as f32);
-                fit_height(rectangle, image.get_region_height() as f32);
+                fit_width(rectangle, image.region_width as f32);
+                fit_height(rectangle, image.region_height as f32);
             }
             StretchType::NoResizeTrimmed => {
                 trimmed_image.set_from(image);
@@ -174,9 +172,9 @@ fn fit_height(rectangle: &mut Rectangle, height: f32) {
 }
 
 fn fit_width_trimmed(rectangle: &mut Rectangle, scale: f32, image: &mut TextureRegion) {
-    let width = scale * image.get_region_width() as f32;
+    let width = scale * image.region_width as f32;
     if rectangle.width < width {
-        let cx = image.get_region_x() as f32 + image.get_region_width() as f32 * 0.5;
+        let cx = image.region_x as f32 + image.region_width as f32 * 0.5;
         let w = rectangle.width / scale;
         image.set_region_x((cx - w * 0.5) as i32);
         image.set_region_width(w as i32);
@@ -186,9 +184,9 @@ fn fit_width_trimmed(rectangle: &mut Rectangle, scale: f32, image: &mut TextureR
 }
 
 fn fit_height_trimmed(rectangle: &mut Rectangle, scale: f32, image: &mut TextureRegion) {
-    let height = scale * image.get_region_height() as f32;
+    let height = scale * image.region_height as f32;
     if rectangle.height < height {
-        let cy = image.get_region_y() as f32 + image.get_region_height() as f32 * 0.5;
+        let cy = image.region_y as f32 + image.region_height as f32 * 0.5;
         let h = rectangle.height / scale;
         image.set_region_y((cy - h * 0.5) as i32);
         image.set_region_height(h as i32);

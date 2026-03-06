@@ -254,9 +254,8 @@ impl SkinGaugeGraphObject {
         {
             let needs_dispose = if let Some(ref shapetex) = self.shapetex {
                 if !self.redraw {
-                    if let Some(tex) = shapetex.get_texture() {
-                        tex.get_width() != region_width as i32
-                            || tex.get_height() != region_height as i32
+                    if let Some(tex) = shapetex.texture.as_ref() {
+                        tex.width != region_width as i32 || tex.height != region_height as i32
                     } else {
                         false
                     }

@@ -98,14 +98,6 @@ impl Texture {
         }
     }
 
-    pub fn get_width(&self) -> i32 {
-        self.width
-    }
-
-    pub fn get_height(&self) -> i32 {
-        self.height
-    }
-
     /// Apply texture filter by creating a wgpu::Sampler with the specified filter modes.
     /// Requires a GpuContext; without one, updates are deferred until the next GPU upload.
     pub fn set_filter(&mut self, min: TextureFilter, mag: TextureFilter) {
@@ -234,17 +226,17 @@ impl Texture {
     }
 
     /// Get the GPU texture handle, if uploaded.
-    pub fn get_gpu_texture(&self) -> Option<&wgpu::Texture> {
+    pub fn gpu_texture(&self) -> Option<&wgpu::Texture> {
         self.gpu_texture.as_deref()
     }
 
     /// Get the GPU texture view, if uploaded.
-    pub fn get_gpu_view(&self) -> Option<&wgpu::TextureView> {
+    pub fn gpu_view(&self) -> Option<&wgpu::TextureView> {
         self.gpu_view.as_deref()
     }
 
     /// Get the GPU sampler, if created.
-    pub fn get_sampler(&self) -> Option<&wgpu::Sampler> {
+    pub fn sampler(&self) -> Option<&wgpu::Sampler> {
         self.sampler.as_deref()
     }
 
@@ -366,22 +358,6 @@ impl TextureRegion {
         }
     }
 
-    pub fn get_region_x(&self) -> i32 {
-        self.region_x
-    }
-
-    pub fn get_region_y(&self) -> i32 {
-        self.region_y
-    }
-
-    pub fn get_region_width(&self) -> i32 {
-        self.region_width
-    }
-
-    pub fn get_region_height(&self) -> i32 {
-        self.region_height
-    }
-
     pub fn set_region_x(&mut self, x: i32) {
         self.region_x = x;
     }
@@ -396,10 +372,6 @@ impl TextureRegion {
 
     pub fn set_region_height(&mut self, height: i32) {
         self.region_height = height;
-    }
-
-    pub fn get_texture(&self) -> Option<&Texture> {
-        self.texture.as_ref()
     }
 
     pub fn set_texture(&mut self, texture: Texture) {
@@ -680,8 +652,8 @@ mod tests {
     #[test]
     fn getters_return_none_by_default() {
         let tex = Texture::default();
-        assert!(tex.get_gpu_texture().is_none());
-        assert!(tex.get_gpu_view().is_none());
-        assert!(tex.get_sampler().is_none());
+        assert!(tex.gpu_texture().is_none());
+        assert!(tex.gpu_view().is_none());
+        assert!(tex.sampler().is_none());
     }
 }

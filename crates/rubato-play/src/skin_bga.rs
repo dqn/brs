@@ -40,8 +40,8 @@ impl StretchType {
                 // No modification — stretch to fill
             }
             StretchType::KeepAspectRatioFitInner => {
-                let img_w = image.get_region_width() as f32;
-                let img_h = image.get_region_height() as f32;
+                let img_w = image.region_width as f32;
+                let img_h = image.region_height as f32;
                 if img_w > 0.0 && img_h > 0.0 {
                     let scale_x = rectangle.width / img_w;
                     let scale_y = rectangle.height / img_h;
@@ -61,8 +61,8 @@ impl StretchType {
                 }
             }
             StretchType::KeepAspectRatioNoExpanding => {
-                let img_w = image.get_region_width() as f32;
-                let img_h = image.get_region_height() as f32;
+                let img_w = image.region_width as f32;
+                let img_h = image.region_height as f32;
                 if img_w > 0.0 && img_h > 0.0 {
                     let scale = 1.0f32.min((rectangle.width / img_w).min(rectangle.height / img_h));
                     let new_w = img_w * scale;
