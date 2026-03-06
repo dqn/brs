@@ -159,6 +159,14 @@ impl MusicDownloadProcessor {
     }
 }
 
+fn normalize_ipfs_path(path: &str) -> String {
+    if path.to_lowercase().starts_with("/ipfs/") {
+        path[5..].to_string()
+    } else {
+        path.to_string()
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn download_daemon_thread_run(
     commands: Arc<Mutex<VecDeque<Box<dyn IpfsInformation>>>>,
@@ -199,18 +207,13 @@ fn download_daemon_thread_run(
                 ipfspath = song.get_ipfs();
                 diffpath = song.get_append_ipfs();
 
-                if ipfspath.to_lowercase().starts_with("/ipfs/") {
-                    // Java: ipfspath = path.substring(5);
-                    // NOTE: This is a bug in the Java code - it uses `path` instead of `ipfspath`
-                    // Translating as-is
-                    ipfspath = path[5..].to_string();
-                }
+                ipfspath = normalize_ipfs_path(&ipfspath);
                 path = format!("[{}]{}", song.get_artist(), song.get_title());
                 // path = "ipfs/" + path.replaceAll("[(\\\\|/|:|\\*|\\?|\"|<|>|\\|)]", "");
                 path = format!("ipfs/{}", path_sanitize_re.replace_all(&path, ""));
 
-                if !diffpath.is_empty() && diffpath.to_lowercase().starts_with("/ipfs/") {
-                    diffpath = diffpath[5..].to_string();
+                if !diffpath.is_empty() {
+                    diffpath = normalize_ipfs_path(&diffpath);
                 }
 
                 let orgmd5 = song.get_org_md5();
@@ -439,5 +442,22 @@ impl rubato_types::music_download_access::MusicDownloadAccess for MusicDownloadP
 
     fn get_message(&self) -> String {
         MusicDownloadProcessor::get_message(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_ipfs_path_strips_ipfs_prefix() {
+        assert_eq!(normalize_ipfs_path("/ipfs/QmMain"), "/QmMain");
+        assert_eq!(normalize_ipfs_path("/IPFS/QmUpper"), "/QmUpper");
+    }
+
+    #[test]
+    fn normalize_ipfs_path_keeps_non_prefixed_paths() {
+        assert_eq!(normalize_ipfs_path("QmMain"), "QmMain");
+        assert_eq!(normalize_ipfs_path(""), String::new());
     }
 }

@@ -5759,10 +5759,12 @@ mod tests {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
 
-        let mut config = PlayerConfig::default();
-        config.chart_preview = false;
-        config.is_window_hold = true;
-        config.gauge_auto_shift = 3;
+        let config = PlayerConfig {
+            chart_preview: false,
+            is_window_hold: true,
+            gauge_auto_shift: 3,
+            ..Default::default()
+        };
 
         player.set_player_config(config);
 

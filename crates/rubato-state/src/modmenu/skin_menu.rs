@@ -747,6 +747,47 @@ fn scan_skins(path: &Path, paths: &mut Vec<PathBuf>) {
     }
 }
 
+fn matches_skin_file_pattern_case_insensitive(filename: &str, pattern: &str) -> bool {
+    let normalized_filename = filename.to_ascii_lowercase();
+    let normalized_pattern = pattern.to_ascii_lowercase();
+
+    if !normalized_pattern.contains('*') {
+        return normalized_filename == normalized_pattern;
+    }
+
+    let parts: Vec<&str> = normalized_pattern
+        .split('*')
+        .filter(|part| !part.is_empty())
+        .collect();
+    if parts.is_empty() {
+        return true;
+    }
+
+    let mut search_start = 0usize;
+    for (index, part) in parts.iter().enumerate() {
+        if index == 0 && !normalized_pattern.starts_with('*') {
+            if !normalized_filename[search_start..].starts_with(part) {
+                return false;
+            }
+            search_start += part.len();
+            continue;
+        }
+
+        let Some(relative_pos) = normalized_filename[search_start..].find(part) else {
+            return false;
+        };
+        search_start += relative_pos + part.len();
+    }
+
+    if !normalized_pattern.ends_with('*')
+        && let Some(last_part) = parts.last()
+    {
+        return normalized_filename.ends_with(last_part);
+    }
+
+    true
+}
+
 fn parse_custom_file(file: &CustomFile) -> Option<Vec<String>> {
     let mut file_selection: Vec<String> = Vec::new();
 
@@ -799,9 +840,7 @@ fn parse_custom_file(file: &CustomFile) -> Option<Vec<String>> {
     if let Ok(entries) = fs::read_dir(&dirpath) {
         for entry in entries.flatten() {
             let entry_name = entry.file_name().to_string_lossy().to_string();
-            if entry_name.to_lowercase() == name.to_lowercase()
-                || entry_name.to_uppercase() == name.to_uppercase()
-            {
+            if matches_skin_file_pattern_case_insensitive(&entry_name, &name) {
                 file_selection.push(entry_name);
             }
         }
@@ -1251,5 +1290,39 @@ mod tests {
     fn test_option_index_empty_option() {
         let option = CustomOption::new("test".to_string(), vec![], vec![]);
         assert_eq!(option_index(&option, 0), OPTION_RANDOM_VALUE);
+    }
+
+    #[test]
+    fn test_parse_custom_file_matches_wildcards_case_insensitively() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let lane_dir = tmp_dir.path().join("lane");
+        std::fs::create_dir_all(&lane_dir).unwrap();
+        std::fs::write(lane_dir.join("lane_default.png"), []).unwrap();
+        std::fs::write(lane_dir.join("LANE_ALT.PNG"), []).unwrap();
+        std::fs::write(lane_dir.join("notes.txt"), []).unwrap();
+
+        let file = CustomFile::new(
+            "Lane".to_string(),
+            format!("{}/lane*.png", lane_dir.to_string_lossy()),
+            None,
+        );
+
+        let choices = parse_custom_file(&file).expect("existing directory should be scanned");
+        assert!(
+            choices.iter().any(|choice| choice == "lane_default.png"),
+            "wildcard matching should include lowercase files"
+        );
+        assert!(
+            choices.iter().any(|choice| choice == "LANE_ALT.PNG"),
+            "wildcard matching should include uppercase files"
+        );
+        assert!(
+            choices.iter().any(|choice| choice == "Random"),
+            "Random fallback should still be appended"
+        );
+        assert!(
+            !choices.iter().any(|choice| choice == "notes.txt"),
+            "non-matching files should not be included"
+        );
     }
 }

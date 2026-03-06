@@ -147,10 +147,10 @@ fn find_files_recursively(dir: &Path, extension: &str) -> Vec<PathBuf> {
             let path = entry.path();
             if path.is_dir() {
                 stack.push(path);
-            } else if let Some(ext) = path.extension() {
-                if ext.eq_ignore_ascii_case(extension) {
-                    results.push(path);
-                }
+            } else if let Some(ext) = path.extension()
+                && ext.eq_ignore_ascii_case(extension)
+            {
+                results.push(path);
             }
         }
     }
@@ -661,7 +661,7 @@ fn skin_ecfn_timepoint_position_delta() {
             let all_visible = snapshots.iter().all(|s| {
                 s.commands
                     .get(idx)
-                    .map_or(false, |c| c.visible && c.dst.is_some())
+                    .is_some_and(|c| c.visible && c.dst.is_some())
             });
             if !all_visible {
                 continue;
@@ -774,14 +774,12 @@ fn skin_ecfn_play_specific_positions() {
 
     // 4. Visible SkinNote objects should have y within the play area (0..1080).
     for cmd in &note_cmds {
-        if cmd.visible {
-            if let Some(ref d) = cmd.dst {
-                assert!(
-                    d.y >= -10.0 && d.y <= 1090.0,
-                    "play7: SkinNote dst.y={} is outside play area",
-                    d.y
-                );
-            }
+        if cmd.visible && let Some(ref d) = cmd.dst {
+            assert!(
+                d.y >= -10.0 && d.y <= 1090.0,
+                "play7: SkinNote dst.y={} is outside play area",
+                d.y
+            );
         }
     }
 

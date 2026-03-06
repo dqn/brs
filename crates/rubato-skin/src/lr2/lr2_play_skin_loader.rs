@@ -1202,6 +1202,22 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
     }
 }
 
+/// Note target types for add_note dispatch
+enum NoteTarget {
+    Note,
+    LnStart,
+    LnEnd,
+    LnBody,
+    LnBodyA,
+    HcnStart,
+    HcnEnd,
+    HcnBody,
+    HcnBodyA,
+    HcnBodyD,
+    HcnBodyR,
+    Mine,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1921,20 +1937,4 @@ mod tests {
             time_h
         );
     }
-}
-
-/// Note target types for add_note dispatch
-enum NoteTarget {
-    Note,
-    LnStart,
-    LnEnd,
-    LnBody,
-    LnBodyA,
-    HcnStart,
-    HcnEnd,
-    HcnBody,
-    HcnBodyA,
-    HcnBodyD,
-    HcnBodyR,
-    Mine,
 }

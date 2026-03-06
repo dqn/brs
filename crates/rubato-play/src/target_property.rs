@@ -976,11 +976,13 @@ mod tests {
     fn test_ir_async_load_success() {
         use std::sync::Arc;
 
-        let mut score_data = ScoreData::default();
-        score_data.player = "TestPlayer".to_string();
-        score_data.epg = 500;
-        score_data.egr = 200;
-        score_data.option = 42;
+        let score_data = ScoreData {
+            player: "TestPlayer".to_string(),
+            epg: 500,
+            egr: 200,
+            option: 42,
+            ..Default::default()
+        };
         let ir_score = rubato_ir::ir_score_data::IRScoreData::new(&score_data);
 
         let conn: Arc<dyn rubato_ir::ir_connection::IRConnection + Send + Sync> =
@@ -1055,11 +1057,13 @@ mod tests {
 
         // Simulate a completed async load by injecting a pre-loaded channel
         let (tx, rx) = mpsc::channel();
-        let mut score = ScoreData::default();
-        score.player = "AsyncPlayer".to_string();
-        score.epg = 100;
-        score.egr = 1;
-        score.option = 7;
+        let score = ScoreData {
+            player: "AsyncPlayer".to_string(),
+            epg: 100,
+            egr: 1,
+            option: 7,
+            ..Default::default()
+        };
         tx.send(score).unwrap();
         prop.ir_result_rx = Some(rx);
         prop.loading_initiated = true;

@@ -94,7 +94,7 @@ mod tests {
         });
         producer.join().unwrap();
 
-        let consumer = std::thread::spawn(|| consume());
+        let consumer = std::thread::spawn(consume);
         let result = consumer.join().unwrap();
 
         let s = result.unwrap();

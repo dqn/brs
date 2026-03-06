@@ -753,9 +753,11 @@ mod tests {
 
     #[test]
     fn test_gauge_returns_value_when_bms_player() {
-        let mut state = LuaTestState::default();
-        state.is_bms_player = true;
-        state.gauge_value = 0.85;
+        let mut state = LuaTestState {
+            is_bms_player: true,
+            gauge_value: 0.85,
+            ..Default::default()
+        };
         let (lua, table) = setup_lua_with_state(&mut state);
         let gauge_fn: mlua::Function = table.get("gauge").unwrap();
         let result: f64 = gauge_fn.call(()).unwrap();
@@ -773,9 +775,11 @@ mod tests {
 
     #[test]
     fn test_gauge_type_returns_value_when_bms_player() {
-        let mut state = LuaTestState::default();
-        state.is_bms_player = true;
-        state.gauge_type = 2;
+        let mut state = LuaTestState {
+            is_bms_player: true,
+            gauge_type: 2,
+            ..Default::default()
+        };
         let (lua, table) = setup_lua_with_state(&mut state);
         let gauge_type_fn: mlua::Function = table.get("gauge_type").unwrap();
         let result: f64 = gauge_type_fn.call(()).unwrap();

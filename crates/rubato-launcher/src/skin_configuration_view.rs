@@ -895,14 +895,9 @@ impl SkinConfigurationView {
                     let mut combo_items: Vec<String> = Vec::new();
                     match std::fs::read_dir(&dirpath) {
                         Ok(entries) => {
-                            let name_lower = name.to_lowercase();
-                            let name_upper = name.to_uppercase();
                             for entry in entries.flatten() {
                                 let filename = entry.file_name().to_string_lossy().to_string();
-                                // Glob matching: filename matches name pattern (case-insensitive)
-                                if filename.to_lowercase().contains(&name_lower)
-                                    || filename.to_uppercase().contains(&name_upper)
-                                {
+                                if matches_skin_file_pattern_case_insensitive(&filename, &name) {
                                     // combo.getItems().add(p.getFileName().toString());
                                     combo_items.push(filename);
                                 }
@@ -1028,6 +1023,47 @@ impl SkinConfigurationView {
             format!("{} (LR2 Skin)", name)
         }
     }
+}
+
+fn matches_skin_file_pattern_case_insensitive(filename: &str, pattern: &str) -> bool {
+    let normalized_filename = filename.to_ascii_lowercase();
+    let normalized_pattern = pattern.to_ascii_lowercase();
+
+    if !normalized_pattern.contains('*') {
+        return normalized_filename == normalized_pattern;
+    }
+
+    let parts: Vec<&str> = normalized_pattern
+        .split('*')
+        .filter(|part| !part.is_empty())
+        .collect();
+    if parts.is_empty() {
+        return true;
+    }
+
+    let mut search_start = 0usize;
+    for (index, part) in parts.iter().enumerate() {
+        if index == 0 && !normalized_pattern.starts_with('*') {
+            if !normalized_filename[search_start..].starts_with(part) {
+                return false;
+            }
+            search_start += part.len();
+            continue;
+        }
+
+        let Some(relative_pos) = normalized_filename[search_start..].find(part) else {
+            return false;
+        };
+        search_start += relative_pos + part.len();
+    }
+
+    if !normalized_pattern.ends_with('*')
+        && let Some(last_part) = parts.last()
+    {
+        return normalized_filename.ends_with(last_part);
+    }
+
+    true
 }
 
 /// Internal enum for the create() method's item list
@@ -1166,6 +1202,7 @@ fn convert_lr2_custom_offset(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rubato_skin::skin_header::CustomFile;
     use rubato_skin::skin_header::TYPE_LR2SKIN;
 
     /// Helper to get the path to the test skin directory
@@ -1259,8 +1296,10 @@ mod tests {
             return;
         }
 
-        let mut config = Config::default();
-        config.skinpath = skin_dir.to_string_lossy().to_string();
+        let config = Config {
+            skinpath: skin_dir.to_string_lossy().to_string(),
+            ..Default::default()
+        };
 
         let mut view = SkinConfigurationView::new();
         view.update_config(&config);
@@ -1278,8 +1317,10 @@ mod tests {
             return;
         }
 
-        let mut config = Config::default();
-        config.skinpath = skin_dir.to_string_lossy().to_string();
+        let config = Config {
+            skinpath: skin_dir.to_string_lossy().to_string(),
+            ..Default::default()
+        };
 
         let mut view = SkinConfigurationView::new();
         view.update_config(&config);
@@ -1300,8 +1341,10 @@ mod tests {
     fn update_config_empty_directory_loads_no_headers() {
         let tmp_dir = tempfile::tempdir().unwrap();
 
-        let mut config = Config::default();
-        config.skinpath = tmp_dir.path().to_string_lossy().to_string();
+        let config = Config {
+            skinpath: tmp_dir.path().to_string_lossy().to_string(),
+            ..Default::default()
+        };
 
         let mut view = SkinConfigurationView::new();
         view.update_config(&config);
@@ -1319,8 +1362,10 @@ mod tests {
             return;
         }
 
-        let mut config = Config::default();
-        config.skinpath = skin_dir.to_string_lossy().to_string();
+        let config = Config {
+            skinpath: skin_dir.to_string_lossy().to_string(),
+            ..Default::default()
+        };
 
         let mut view = SkinConfigurationView::new();
         view.update_config(&config);
@@ -1342,10 +1387,12 @@ mod tests {
     fn convert_lr2_header_data_sets_type_lr2skin() {
         use rubato_skin::lr2::lr2_skin_header_loader::LR2SkinHeaderData;
 
-        let mut lr2_data = LR2SkinHeaderData::default();
-        lr2_data.name = "Test LR2 Skin".to_string();
-        lr2_data.skin_type = Some(SkinType::Play7Keys);
-        lr2_data.path = Some(PathBuf::from("/test/skin.lr2skin"));
+        let lr2_data = LR2SkinHeaderData {
+            name: "Test LR2 Skin".to_string(),
+            skin_type: Some(SkinType::Play7Keys),
+            path: Some(PathBuf::from("/test/skin.lr2skin")),
+            ..Default::default()
+        };
 
         let header = convert_lr2_header_data(&lr2_data);
 
@@ -1364,12 +1411,14 @@ mod tests {
             CustomOption as LR2CustomOption, LR2SkinHeaderData,
         };
 
-        let mut lr2_data = LR2SkinHeaderData::default();
-        lr2_data.custom_options = vec![LR2CustomOption::new(
-            "BGA Size",
-            vec![30, 31],
-            vec!["Normal".to_string(), "Extend".to_string()],
-        )];
+        let lr2_data = LR2SkinHeaderData {
+            custom_options: vec![LR2CustomOption::new(
+                "BGA Size",
+                vec![30, 31],
+                vec!["Normal".to_string(), "Extend".to_string()],
+            )],
+            ..Default::default()
+        };
 
         let header = convert_lr2_header_data(&lr2_data);
 
@@ -1384,12 +1433,14 @@ mod tests {
             CustomFile as LR2CustomFile, LR2SkinHeaderData,
         };
 
-        let mut lr2_data = LR2SkinHeaderData::default();
-        lr2_data.custom_files = vec![LR2CustomFile::new(
-            "Lane",
-            "skin/lane/*.png",
-            Some("default"),
-        )];
+        let lr2_data = LR2SkinHeaderData {
+            custom_files: vec![LR2CustomFile::new(
+                "Lane",
+                "skin/lane/*.png",
+                Some("default"),
+            )],
+            ..Default::default()
+        };
 
         let header = convert_lr2_header_data(&lr2_data);
 
@@ -1408,17 +1459,19 @@ mod tests {
             CustomOffset as LR2CustomOffset, LR2SkinHeaderData,
         };
 
-        let mut lr2_data = LR2SkinHeaderData::default();
-        lr2_data.custom_offsets = vec![LR2CustomOffset::new(
-            "All offset(%)",
-            0,
-            true,
-            true,
-            true,
-            true,
-            false,
-            false,
-        )];
+        let lr2_data = LR2SkinHeaderData {
+            custom_offsets: vec![LR2CustomOffset::new(
+                "All offset(%)",
+                0,
+                true,
+                true,
+                true,
+                true,
+                false,
+                false,
+            )],
+            ..Default::default()
+        };
 
         let header = convert_lr2_header_data(&lr2_data);
 
@@ -1445,5 +1498,53 @@ mod tests {
         let header = header.unwrap();
         assert_eq!(header.get_type(), TYPE_LR2SKIN);
         assert_eq!(header.get_name(), Some("Test LR2"));
+    }
+
+    #[test]
+    fn create_file_item_matches_wildcard_paths_case_insensitively() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let lane_dir = tmp_dir.path().join("lane");
+        std::fs::create_dir_all(&lane_dir).unwrap();
+        std::fs::write(lane_dir.join("lane_default.png"), []).unwrap();
+        std::fs::write(lane_dir.join("LANE_ALT.PNG"), []).unwrap();
+        std::fs::write(lane_dir.join("notes.txt"), []).unwrap();
+
+        let mut header = SkinHeader::new();
+        header.set_custom_files(vec![CustomFile::new(
+            "Lane".to_string(),
+            format!("{}/lane*.png", lane_dir.to_string_lossy()),
+            Some("lane_default".to_string()),
+        )]);
+
+        let mut view = SkinConfigurationView::new();
+        view.create(&header, None);
+
+        let file_item = view.skinconfig_items.iter().find_map(|item| match item {
+            SkinConfigItem::File {
+                name,
+                items,
+                selected_value,
+            } if name == "Lane" => Some((items, selected_value)),
+            _ => None,
+        });
+
+        let (items, selected_value) = file_item.expect("custom file item should be created");
+        assert!(
+            items.iter().any(|item| item == "lane_default.png"),
+            "wildcard file list should include the lowercase match"
+        );
+        assert!(
+            items.iter().any(|item| item == "LANE_ALT.PNG"),
+            "wildcard file list should include the uppercase match"
+        );
+        assert!(
+            items.iter().any(|item| item == "Random"),
+            "file list should keep the Random fallback"
+        );
+        assert_eq!(
+            selected_value.as_deref(),
+            Some("lane_default.png"),
+            "default selection should resolve to the wildcard-matched file"
+        );
     }
 }

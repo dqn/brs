@@ -364,7 +364,7 @@ mod tests {
 
     #[test]
     fn video_mode_info_sorting() {
-        let mut modes = vec![
+        let mut modes = [
             VideoModeInfo {
                 width: 2560,
                 height: 1440,

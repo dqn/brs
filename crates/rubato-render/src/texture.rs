@@ -617,7 +617,7 @@ mod tests {
 
         let data = tex.rgba_data.as_ref().unwrap();
         // Pixel at (1,1) should be red
-        let idx = (1 * 4 + 1) * 4;
+        let idx = (4 + 1) * 4;
         assert_eq!(data[idx], 255); // R
         assert_eq!(data[idx + 1], 0); // G
         assert_eq!(data[idx + 2], 0); // B
@@ -649,7 +649,7 @@ mod tests {
 
         let data = tex.rgba_data.as_ref().unwrap();
         // Pixel at (1,1) should be blue
-        let idx = (1 * 2 + 1) * 4;
+        let idx = (2 + 1) * 4;
         assert_eq!(data[idx], 0);
         assert_eq!(data[idx + 1], 0);
         assert_eq!(data[idx + 2], 255);

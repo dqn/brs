@@ -15,62 +15,45 @@ use rubato_core::pattern::lane_shuffle_modifier::LaneCrossShuffleModifier;
 // LaneCrossShuffleModifier: empty keys causes usize underflow
 // ---------------------------------------------------------------------------
 
-/// BUG: LaneCrossShuffleModifier::make_random() computes `keys.len() / 2 - 1` (line 685).
-/// When keys is empty, `keys.len() / 2` = 0, and `0usize - 1` causes arithmetic
-/// underflow which panics in debug mode (or wraps to usize::MAX in release mode,
-/// leading to an immediate index-out-of-bounds panic on the next line).
-///
-/// In production, lane_shuffle_modify() calls get_keys_static() which returns empty
-/// for invalid player values, and the `if keys.is_empty() { return; }` guard prevents
-/// make_random() from being called. However, make_random() is a pub fn that can be
-/// called directly with empty keys, and the guard is in the caller, not the function.
+/// LaneCrossShuffleModifier::make_random() should return the identity mapping for
+/// an empty key slice instead of panicking.
 #[test]
-#[should_panic]
-fn cross_shuffle_empty_keys_underflow() {
+fn cross_shuffle_empty_keys_returns_identity() {
     let mut model = BMSModel::new();
     model.set_all_time_line(vec![TimeLine::new(0.0, 0, 8)]);
     model.set_mode(Mode::BEAT_7K);
 
-    // Empty keys slice → 0 / 2 - 1 = usize underflow → panic
-    let _result = LaneCrossShuffleModifier::make_random(&[], &model, 42);
+    let result = LaneCrossShuffleModifier::make_random(&[], &model, 42);
+    assert_eq!(result, (0..Mode::BEAT_7K.key()).collect::<Vec<_>>());
 }
 
-/// Same underflow with a single-element keys slice: len=1, 1/2=0, 0-1 = underflow.
+/// A single-element key slice should also return the identity mapping.
 #[test]
-#[should_panic]
-fn cross_shuffle_single_key_underflow() {
+fn cross_shuffle_single_key_returns_identity() {
     let mut model = BMSModel::new();
     model.set_all_time_line(vec![TimeLine::new(0.0, 0, 8)]);
     model.set_mode(Mode::BEAT_7K);
 
-    // keys.len()=1 → 1/2=0 → 0-1 = usize underflow → panic
-    let _result = LaneCrossShuffleModifier::make_random(&[0], &model, 42);
+    let result = LaneCrossShuffleModifier::make_random(&[0], &model, 42);
+    assert_eq!(result, (0..Mode::BEAT_7K.key()).collect::<Vec<_>>());
 }
 
 // ---------------------------------------------------------------------------
 // LaneRotateShuffleModifier: empty keys causes panic in next_int_bounded
 // ---------------------------------------------------------------------------
 
-/// BUG: LaneRotateShuffleModifier::make_random() computes `keys.len() as i32 - 1`
-/// and passes it to JavaRandom::next_int_bounded() (line 267).
-/// When keys is empty, this becomes next_int_bounded(-1).
-///
-/// JavaRandom::next_int_bounded() with bound <= 0 will either panic or loop forever
-/// depending on the implementation.
-///
-/// The guard in lane_shuffle_modify() prevents this in normal use, but make_random()
-/// is directly callable.
+/// LaneRotateShuffleModifier::make_random() should return the identity mapping
+/// for an empty key slice instead of calling JavaRandom with an invalid bound.
 #[test]
-#[should_panic]
-fn rotate_shuffle_empty_keys_panics() {
+fn rotate_shuffle_empty_keys_returns_identity() {
     use rubato_core::pattern::lane_shuffle_modifier::LaneRotateShuffleModifier;
 
     let mut model = BMSModel::new();
     model.set_all_time_line(vec![TimeLine::new(0.0, 0, 8)]);
     model.set_mode(Mode::BEAT_7K);
 
-    // keys.len()=0 → next_int_bounded(-1) → panic or infinite loop
-    let _result = LaneRotateShuffleModifier::make_random(&[], &model, 42);
+    let result = LaneRotateShuffleModifier::make_random(&[], &model, 42);
+    assert_eq!(result, (0..Mode::BEAT_7K.key()).collect::<Vec<_>>());
 }
 
 // ---------------------------------------------------------------------------

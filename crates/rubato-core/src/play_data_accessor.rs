@@ -878,7 +878,7 @@ mod tests {
         );
 
         // Read it back: the mode value should be 11121
-        let expected_mode = 1 + 2 * 10 + 1 * 100 + 1 * 1000 + 1 * 10000;
+        let expected_mode = 1 + 2 * 10 + 100 + 1000 + 10000;
         assert_eq!(expected_mode, 11121, "mode formula verification");
 
         let hash: String = hashes.join("");
@@ -949,7 +949,7 @@ mod tests {
 
         accessor.write_score_data_for_course(&newscore, hashes, 10, true, 1, 3, constraint, true);
 
-        let expected_mode = 1 + 3 * 10 + 1 * 100 + 2 * 1000 + 5 * 10000;
+        let expected_mode = 1 + 3 * 10 + 100 + 2 * 1000 + 5 * 10000;
         assert_eq!(expected_mode, 52131, "mode value for all constraint types");
 
         let hash: String = hashes.join("");

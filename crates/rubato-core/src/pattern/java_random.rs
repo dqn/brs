@@ -112,7 +112,7 @@ mod tests {
         let mut rng = JavaRandom::new(12345);
         for _ in 0..1000 {
             let val = rng.next_double();
-            assert!(val >= 0.0 && val < 1.0);
+            assert!((0.0..1.0).contains(&val));
         }
     }
 
@@ -184,7 +184,7 @@ mod prop_tests {
             let mut rng = JavaRandom::new(seed);
             for _ in 0..20 {
                 let val = rng.next_double();
-                prop_assert!(val >= 0.0 && val < 1.0, "val={} not in [0.0, 1.0)", val);
+                prop_assert!((0.0..1.0).contains(&val), "val={} not in [0.0, 1.0)", val);
             }
         }
     }

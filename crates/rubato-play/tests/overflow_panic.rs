@@ -73,15 +73,9 @@ fn rhythm_timer_nowbpm_zero_produces_saturated_cast() {
 // GrooveGauge / Gauge: judge index out-of-bounds
 // ---------------------------------------------------------------------------
 
-/// BUG: Gauge::update() indexes into self.gauge with `judge as usize` (line 127).
-/// The gauge vec has 6 elements (PG=0, GR=1, GD=2, BD=3, PR=4, MS=5).
-/// Any judge value >= 6 causes an index-out-of-bounds panic.
-///
-/// In production, judge values come from JudgeManager which uses 0-5, but there
-/// is no bounds check in Gauge::update() itself.
+/// Gauge::update() should ignore out-of-range judge values instead of panicking.
 #[test]
-#[should_panic]
-fn gauge_update_judge_index_oob() {
+fn gauge_update_judge_index_oob_is_ignored() {
     let model = BMSModel::new();
     let element = GaugeElementProperty {
         modifier: None,
@@ -94,39 +88,44 @@ fn gauge_update_judge_index_oob() {
         guts: vec![],
     };
     let mut gauge = Gauge::new(&model, element, ClearType::Hard);
+    let initial = gauge.get_value();
 
-    // judge=6 is out of bounds for the 6-element gauge vec → panic
+    // judge=6 is out of bounds for the 6-element gauge vec. The update should
+    // be ignored rather than panicking.
     gauge.update(6, 1.0);
+    assert_eq!(gauge.get_value(), initial);
 }
 
-/// BUG: GrooveGauge::update() delegates to Gauge::update() for all gauges.
-/// Same OOB panic propagates through the GrooveGauge wrapper.
+/// GrooveGauge::update() should ignore out-of-range judge values instead of
+/// propagating an index-out-of-bounds panic from Gauge::update().
 #[test]
-#[should_panic]
-fn groove_gauge_update_judge_index_oob() {
+fn groove_gauge_update_judge_index_oob_is_ignored() {
     let mut model = BMSModel::new();
     model.set_total(300.0);
     model.set_mode(Mode::BEAT_7K);
 
     let mut gg = GrooveGauge::new(&model, NORMAL, &GaugeProperty::SevenKeys);
+    let initial = gg.get_value();
 
-    // judge=6 → panics in every internal Gauge::update() call
+    // judge=6 should be ignored by every internal Gauge::update() call.
     gg.update(6);
+    assert_eq!(gg.get_value(), initial);
 }
 
-/// GrooveGauge: negative judge values also panic because `(-1i32) as usize` wraps
-/// to a huge index on 64-bit platforms.
+/// GrooveGauge should also ignore negative judge values instead of panicking on
+/// the wrapped `usize` conversion.
 #[test]
-#[should_panic]
-fn groove_gauge_update_negative_judge_panics() {
+fn groove_gauge_update_negative_judge_is_ignored() {
     let mut model = BMSModel::new();
     model.set_total(300.0);
     model.set_mode(Mode::BEAT_7K);
 
     let mut gg = GrooveGauge::new(&model, NORMAL, &GaugeProperty::SevenKeys);
+    let initial = gg.get_value();
 
-    // judge=-1 → (-1i32 as usize) = usize::MAX → index OOB
+    // judge=-1 should be ignored rather than wrapping to usize::MAX.
     gg.update(-1);
+    assert_eq!(gg.get_value(), initial);
 }
 
 // ---------------------------------------------------------------------------

@@ -661,10 +661,12 @@ mod tests {
         let accessor = ScoreDatabaseAccessor::new(db_path.to_str().unwrap()).unwrap();
         accessor.create_table();
 
-        let mut pd = PlayerData::default();
-        pd.playcount = 10;
-        pd.clear = 5;
-        pd.playtime = 3600;
+        let pd = PlayerData {
+            playcount: 10,
+            clear: 5,
+            playtime: 3600,
+            ..Default::default()
+        };
 
         // This should not panic even during DST transitions
         accessor.set_player_data(&pd);
@@ -682,36 +684,38 @@ mod tests {
 
     #[test]
     fn test_score_data_to_value_basic() {
-        let mut sd = ScoreData::default();
-        sd.sha256 = "abc123def456".to_string();
-        sd.mode = 7;
-        sd.clear = 5;
-        sd.epg = 100;
-        sd.lpg = 90;
-        sd.egr = 80;
-        sd.lgr = 70;
-        sd.egd = 10;
-        sd.lgd = 9;
-        sd.ebd = 3;
-        sd.lbd = 2;
-        sd.epr = 1;
-        sd.lpr = 0;
-        sd.ems = 4;
-        sd.lms = 5;
-        sd.notes = 500;
-        sd.maxcombo = 300;
-        sd.minbp = 15;
-        sd.avgjudge = 42;
-        sd.playcount = 10;
-        sd.clearcount = 7;
-        sd.trophy = "g".to_string();
-        sd.ghost = "ghost_data".to_string();
-        sd.option = 2;
-        sd.seed = 12345;
-        sd.random = 1;
-        sd.date = 1700000000;
-        sd.state = 3;
-        sd.scorehash = "hashvalue".to_string();
+        let sd = ScoreData {
+            sha256: "abc123def456".to_string(),
+            mode: 7,
+            clear: 5,
+            epg: 100,
+            lpg: 90,
+            egr: 80,
+            lgr: 70,
+            egd: 10,
+            lgd: 9,
+            ebd: 3,
+            lbd: 2,
+            epr: 1,
+            lpr: 0,
+            ems: 4,
+            lms: 5,
+            notes: 500,
+            maxcombo: 300,
+            minbp: 15,
+            avgjudge: 42,
+            playcount: 10,
+            clearcount: 7,
+            trophy: "g".to_string(),
+            ghost: "ghost_data".to_string(),
+            option: 2,
+            seed: 12345,
+            random: 1,
+            date: 1700000000,
+            state: 3,
+            scorehash: "hashvalue".to_string(),
+            ..Default::default()
+        };
 
         assert_eq!(
             score_data_to_value(&sd, "sha256"),

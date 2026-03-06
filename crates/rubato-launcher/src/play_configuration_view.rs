@@ -2647,11 +2647,10 @@ mod tests {
 
     // ---- LR2 score import tests ----
 
+    type Lr2ScoreRow<'a> = (&'a str, i32, i32, i32, i32, i32, i32, i32, i32, i32);
+
     /// Helper: create a minimal LR2 score.db with the given rows.
-    fn create_lr2_score_db(
-        path: &str,
-        rows: &[(&str, i32, i32, i32, i32, i32, i32, i32, i32, i32)],
-    ) {
+    fn create_lr2_score_db(path: &str, rows: &[Lr2ScoreRow<'_>]) {
         let conn = rusqlite::Connection::open(path).unwrap();
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS score (
@@ -2895,7 +2894,7 @@ mod tests {
 
         // Create LR2 score.db with each clear value
         let lr2_path = tmpdir.path().join("lr2score.db");
-        let rows: Vec<(&str, i32, i32, i32, i32, i32, i32, i32, i32, i32)> = (0..7)
+        let rows: Vec<Lr2ScoreRow<'_>> = (0..7)
             .map(|i| {
                 (
                     md5s[i].as_str(),

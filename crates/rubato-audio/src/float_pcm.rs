@@ -520,7 +520,11 @@ mod prop_tests {
             };
             let pcm = FloatPCM::load_pcm(&loader).unwrap();
             for &s in pcm.sample.iter() {
-                prop_assert!(s >= -1.0 && s <= 1.0, "sample {} out of range [-1.0, 1.0]", s);
+                prop_assert!(
+                    (-1.0..=1.0).contains(&s),
+                    "sample {} out of range [-1.0, 1.0]",
+                    s
+                );
             }
         }
 
@@ -545,7 +549,7 @@ mod prop_tests {
             for &s in pcm.sample.iter() {
                 // -32768 / 32767 = -1.0000305... so we allow a small margin below -1.0
                 prop_assert!(
-                    s >= -1.01 && s <= 1.0,
+                    (-1.01..=1.0).contains(&s),
                     "sample {} out of expected range [-1.01, 1.0]",
                     s
                 );

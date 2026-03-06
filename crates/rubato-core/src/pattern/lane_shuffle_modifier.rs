@@ -14,8 +14,18 @@ fn get_random_pattern_impl(
     player: i32,
     mode: &Mode,
 ) -> Vec<i32> {
-    let keys = mode.key() / mode.player();
+    let player_count = mode.player();
+    if player_count <= 0 {
+        return Vec::new();
+    }
+    let keys = mode.key() / player_count;
+    if keys <= 0 {
+        return Vec::new();
+    }
     let mut repr = vec![0i32; keys as usize];
+    if player < 0 || player >= player_count {
+        return repr;
+    }
     if show_shuffle_pattern {
         let scratch_key = mode.scratch_key();
         if !scratch_key.is_empty() && !is_scratch_lane_modify {
@@ -25,7 +35,9 @@ fn get_random_pattern_impl(
             if src_start + copy_len <= random.len() {
                 repr[..copy_len].copy_from_slice(&random[src_start..src_start + copy_len]);
             }
-            repr[keys as usize - 1] = scratch_key[player as usize];
+            if let Some(&scratch_lane) = scratch_key.get(player as usize) {
+                repr[keys as usize - 1] = scratch_lane;
+            }
         } else {
             let src_start = (keys * player) as usize;
             let copy_len = keys as usize;
@@ -251,11 +263,14 @@ impl LaneRotateShuffleModifier {
     }
 
     pub fn make_random(keys: &[i32], model: &BMSModel, seed: i64) -> Vec<i32> {
+        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let mut result: Vec<i32> = (0..mode_key).collect();
+        if keys.len() <= 1 {
+            return result;
+        }
         let mut rand = JavaRandom::new(seed);
         let inc = rand.next_int_bounded(2) == 1;
         let start = rand.next_int_bounded(keys.len() as i32 - 1) as usize + if inc { 1 } else { 0 };
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
-        let mut result: Vec<i32> = (0..mode_key).collect();
         let mut rlane = start;
         for lane in 0..keys.len() {
             result[keys[lane] as usize] = keys[rlane];
@@ -671,8 +686,12 @@ impl LaneCrossShuffleModifier {
     pub fn make_random(keys: &[i32], model: &BMSModel, _seed: i64) -> Vec<i32> {
         let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
         let mut result: Vec<i32> = (0..mode_key).collect();
+        let limit = keys.len() / 2;
+        if limit == 0 {
+            return result;
+        }
         let mut i = 0;
-        while i < keys.len() / 2 - 1 {
+        while i < limit.saturating_sub(1) {
             result[keys[i] as usize] = keys[i + 1];
             result[keys[i + 1] as usize] = keys[i];
             result[keys[keys.len() - i - 1] as usize] = keys[keys.len() - i - 2];

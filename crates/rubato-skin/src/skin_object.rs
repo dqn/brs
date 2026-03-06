@@ -1696,7 +1696,7 @@ mod tests {
 
         // Between phases: caller can read the cached state
         let cached_region = data.region.clone();
-        let _cached_color = data.color.clone();
+        let _cached_color = data.color;
         assert_eq!(cached_region.x, 50.0);
         assert_eq!(cached_region.width, 200.0);
 

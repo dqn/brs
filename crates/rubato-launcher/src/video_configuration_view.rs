@@ -397,8 +397,10 @@ mod tests {
     #[test]
     fn update_and_commit_player_roundtrip() {
         let mut view = VideoConfigurationView::default();
-        let mut player = PlayerConfig::default();
-        player.misslayer_duration = 500;
+        let mut player = PlayerConfig {
+            misslayer_duration: 500,
+            ..Default::default()
+        };
 
         view.update_player(&mut player);
 
@@ -412,8 +414,10 @@ mod tests {
     #[test]
     fn update_resolutions_window_mode_filters_by_desktop() {
         // In WINDOW mode (non-fullscreen), resolutions up to desktop mode are included
-        let mut view = VideoConfigurationView::default();
-        view.display_mode = Some(DisplayMode::WINDOW);
+        let mut view = VideoConfigurationView {
+            display_mode: Some(DisplayMode::WINDOW),
+            ..Default::default()
+        };
         view.update_resolutions();
 
         // Desktop fallback is 1920x1080, so all resolutions <= 1920x1080 should be included
@@ -431,8 +435,10 @@ mod tests {
     #[test]
     fn update_resolutions_fullscreen_mode_filters_by_available() {
         // In FULLSCREEN mode, only resolutions matching available display modes are included
-        let mut view = VideoConfigurationView::default();
-        view.display_mode = Some(DisplayMode::FULLSCREEN);
+        let mut view = VideoConfigurationView {
+            display_mode: Some(DisplayMode::FULLSCREEN),
+            ..Default::default()
+        };
         view.update_resolutions();
 
         let items = view.resolution_items();
@@ -443,9 +449,11 @@ mod tests {
 
     #[test]
     fn update_resolutions_preserves_old_value_if_available() {
-        let mut view = VideoConfigurationView::default();
-        view.display_mode = Some(DisplayMode::WINDOW);
-        view.resolution = Some(Resolution::HD); // 1280x720
+        let mut view = VideoConfigurationView {
+            display_mode: Some(DisplayMode::WINDOW),
+            resolution: Some(Resolution::HD),
+            ..Default::default()
+        }; // 1280x720
         view.update_resolutions();
 
         // HD (1280x720) should be preserved since it's within desktop mode
@@ -454,9 +462,11 @@ mod tests {
 
     #[test]
     fn update_resolutions_selects_last_if_old_not_available() {
-        let mut view = VideoConfigurationView::default();
-        view.display_mode = Some(DisplayMode::WINDOW);
-        view.resolution = Some(Resolution::ULTRAHD); // 3840x2160, larger than desktop
+        let mut view = VideoConfigurationView {
+            display_mode: Some(DisplayMode::WINDOW),
+            resolution: Some(Resolution::ULTRAHD),
+            ..Default::default()
+        }; // 3840x2160, larger than desktop
         view.update_resolutions();
 
         // ULTRAHD exceeds desktop mode so old value is not in the list
@@ -470,12 +480,16 @@ mod tests {
     #[test]
     fn update_resolutions_borderless_same_as_window() {
         // BORDERLESS mode uses the same logic as WINDOW mode (non-fullscreen path)
-        let mut view_window = VideoConfigurationView::default();
-        view_window.display_mode = Some(DisplayMode::WINDOW);
+        let mut view_window = VideoConfigurationView {
+            display_mode: Some(DisplayMode::WINDOW),
+            ..Default::default()
+        };
         view_window.update_resolutions();
 
-        let mut view_borderless = VideoConfigurationView::default();
-        view_borderless.display_mode = Some(DisplayMode::BORDERLESS);
+        let mut view_borderless = VideoConfigurationView {
+            display_mode: Some(DisplayMode::BORDERLESS),
+            ..Default::default()
+        };
         view_borderless.update_resolutions();
 
         assert_eq!(

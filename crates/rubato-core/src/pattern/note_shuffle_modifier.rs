@@ -280,7 +280,7 @@ mod tests {
         for i in 0..7 {
             let mut tl = TimeLine::new(i as f64, (i * 100) as i64, key_count as i32);
             // Put a single note on lane 0 in each timeline
-            tl.set_note(0, Some(Note::new_normal(i as i32)));
+            tl.set_note(0, Some(Note::new_normal(i)));
             timelines.push(tl);
         }
         let mut model = make_test_model(&mode, timelines);

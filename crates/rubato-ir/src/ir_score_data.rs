@@ -159,11 +159,13 @@ mod tests {
 
     #[test]
     fn exscore_calculation() {
-        let mut sd = ScoreData::default();
-        sd.epg = 10;
-        sd.lpg = 5;
-        sd.egr = 3;
-        sd.lgr = 2;
+        let sd = ScoreData {
+            epg: 10,
+            lpg: 5,
+            egr: 3,
+            lgr: 2,
+            ..Default::default()
+        };
         let ir = IRScoreData::new(&sd);
         // exscore = (epg + lpg) * 2 + egr + lgr = (10+5)*2 + 3+2 = 35
         assert_eq!(ir.get_exscore(), 35);
@@ -171,13 +173,15 @@ mod tests {
 
     #[test]
     fn convert_to_score_data_roundtrip() {
-        let mut sd = ScoreData::default();
-        sd.sha256 = "abc123".to_string();
-        sd.epg = 100;
-        sd.lpg = 50;
-        sd.maxcombo = 42;
-        sd.minbp = 3;
-        sd.clear = 7;
+        let sd = ScoreData {
+            sha256: "abc123".to_string(),
+            epg: 100,
+            lpg: 50,
+            maxcombo: 42,
+            minbp: 3,
+            clear: 7,
+            ..Default::default()
+        };
 
         let ir = IRScoreData::new(&sd);
         let converted = ir.convert_to_score_data();
@@ -191,9 +195,11 @@ mod tests {
 
     #[test]
     fn clone_preserves_all_fields() {
-        let mut sd = ScoreData::default();
-        sd.sha256 = "test".to_string();
-        sd.epg = 7;
+        let sd = ScoreData {
+            sha256: "test".to_string(),
+            epg: 7,
+            ..Default::default()
+        };
         let ir = IRScoreData::new(&sd);
         let cloned = ir.clone();
         assert_eq!(cloned.sha256, "test");
@@ -316,9 +322,11 @@ mod tests {
     #[test]
     fn test_convert_to_score_data_passnotes_nonzero_uses_notes() {
         // When passnotes != 0, converted score.passnotes should be self.notes
-        let mut s = ScoreData::default();
-        s.notes = 500;
-        s.passnotes = 100; // nonzero
+        let s = ScoreData {
+            notes: 500,
+            passnotes: 100,
+            ..Default::default()
+        };
         let ir = IRScoreData::new(&s);
         let converted = ir.convert_to_score_data();
         assert_eq!(converted.passnotes, 500); // uses notes, not passnotes
@@ -327,9 +335,11 @@ mod tests {
     #[test]
     fn test_convert_to_score_data_passnotes_zero_uses_passnotes() {
         // When passnotes == 0, converted score.passnotes should be self.passnotes (0)
-        let mut s = ScoreData::default();
-        s.notes = 500;
-        s.passnotes = 0;
+        let s = ScoreData {
+            notes: 500,
+            passnotes: 0,
+            ..Default::default()
+        };
         let ir = IRScoreData::new(&s);
         let converted = ir.convert_to_score_data();
         assert_eq!(converted.passnotes, 0);

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use rubato_audio::audio_driver::AudioDriver;
 use rubato_core::main_state::{MainState, MainStateData};
 use rubato_core::pixmap_resource_pool::PixmapResourcePool;
 use rubato_core::timer_manager::TimerManager;
@@ -2128,6 +2129,12 @@ impl MainState for MusicSelector {
         }
     }
 
+    fn sync_audio(&mut self, audio: &mut dyn AudioDriver) {
+        if let Some(preview) = &mut self.preview {
+            preview.tick_preview(audio, &self.app_config);
+        }
+    }
+
     fn take_pending_state_change(&mut self) -> Option<MainStateType> {
         self.pending_state_change.take()
     }
@@ -2854,12 +2861,81 @@ impl ChartReplicationMode {
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
+    use ::bms_model::bms_model::BMSModel;
+    use ::bms_model::note::Note;
     use crate::select::bar::bar::Bar;
     use crate::select::bar::grade_bar::GradeBar;
     use crate::select::bar::selectable_bar::SelectableBarData;
     use crate::select::bar::song_bar::SongBar;
+    use rubato_audio::audio_driver::AudioDriver;
     use rubato_core::main_state::MainState;
     use rubato_types::skin_render_context::SkinRenderContext;
+
+    struct MockAudioDriver {
+        play_count: usize,
+        stop_count: usize,
+    }
+
+    impl MockAudioDriver {
+        fn new() -> Self {
+            Self {
+                play_count: 0,
+                stop_count: 0,
+            }
+        }
+    }
+
+    impl AudioDriver for MockAudioDriver {
+        fn play_path(&mut self, _path: &str, _volume: f32, _loop_play: bool) {
+            self.play_count += 1;
+        }
+
+        fn set_volume_path(&mut self, _path: &str, _volume: f32) {}
+
+        fn is_playing_path(&self, _path: &str) -> bool {
+            false
+        }
+
+        fn stop_path(&mut self, _path: &str) {
+            self.stop_count += 1;
+        }
+
+        fn dispose_path(&mut self, _path: &str) {}
+
+        fn set_model(&mut self, _model: &BMSModel) {}
+
+        fn set_additional_key_sound(
+            &mut self,
+            _judge: i32,
+            _fast: bool,
+            _path: Option<&str>,
+        ) {
+        }
+
+        fn abort(&mut self) {}
+
+        fn get_progress(&self) -> f32 {
+            1.0
+        }
+
+        fn play_note(&mut self, _n: &Note, _volume: f32, _pitch: i32) {}
+
+        fn play_judge(&mut self, _judge: i32, _fast: bool) {}
+
+        fn stop_note(&mut self, _n: Option<&Note>) {}
+
+        fn set_volume_note(&mut self, _n: &Note, _volume: f32) {}
+
+        fn set_global_pitch(&mut self, _pitch: f32) {}
+
+        fn get_global_pitch(&self) -> f32 {
+            1.0
+        }
+
+        fn dispose_old(&mut self) {}
+
+        fn dispose(&mut self) {}
+    }
 
     fn make_song_data(sha256: &str, path: Option<&str>) -> SongData {
         let mut sd = SongData::default();
@@ -2903,6 +2979,21 @@ mod tests {
                 .timer
                 .is_timer_on(skin_property::TIMER_STARTINPUT)
         );
+    }
+
+    #[test]
+    fn test_sync_audio_ticks_preview_processor() {
+        let config = Config::default();
+        let mut selector = MusicSelector::with_config(config.clone());
+        let mut preview = PreviewMusicProcessor::new(&config);
+        preview.set_default("/bgm/default.ogg");
+        preview.start(None);
+        selector.preview = Some(preview);
+
+        let mut audio = MockAudioDriver::new();
+        selector.sync_audio(&mut audio);
+
+        assert_eq!(audio.play_count, 1);
     }
 
     #[test]
@@ -3451,6 +3542,7 @@ mod tests {
     #[derive(Default)]
     struct MockState {
         state_changes: Vec<MainStateType>,
+        played_audio_paths: Vec<String>,
         cleared: bool,
         bms_file_path: Option<PathBuf>,
         bms_file_mode_type: Option<i32>,
@@ -3666,6 +3758,13 @@ mod tests {
         }
         fn get_player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
             Some(&mut self.resource)
+        }
+        fn play_audio_path(&mut self, path: &str, _volume: f32, _loop_play: bool) {
+            self.state
+                .lock()
+                .unwrap()
+                .played_audio_paths
+                .push(path.to_string());
         }
     }
 

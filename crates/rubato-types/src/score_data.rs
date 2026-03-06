@@ -1493,8 +1493,10 @@ mod prop_tests {
         /// for judge values in the valid range 0..=5.
         #[test]
         fn ghost_roundtrip(judges in prop::collection::vec(0..=5i32, 0..2000)) {
-            let mut score = ScoreData::default();
-            score.notes = judges.len() as i32;
+            let mut score = ScoreData {
+                notes: judges.len() as i32,
+                ..Default::default()
+            };
             score.encode_ghost(Some(&judges));
             let decoded = score.decode_ghost();
             if judges.is_empty() {
@@ -1509,8 +1511,10 @@ mod prop_tests {
         /// encode_ghost(None) always clears the ghost field.
         #[test]
         fn ghost_encode_none_clears(ghost_content in "[a-zA-Z0-9_]{0,100}") {
-            let mut score = ScoreData::default();
-            score.ghost = ghost_content;
+            let mut score = ScoreData {
+                ghost: ghost_content,
+                ..Default::default()
+            };
             score.encode_ghost(None);
             prop_assert!(score.ghost.is_empty());
         }
@@ -1521,9 +1525,11 @@ mod prop_tests {
             judges in prop::collection::vec(0..=5i32, 1..100usize),
             extra in 1..100usize,
         ) {
-            let mut score = ScoreData::default();
+            let mut score = ScoreData {
+                notes: judges.len() as i32,
+                ..Default::default()
+            };
             // Encode the original judges
-            score.notes = judges.len() as i32;
             score.encode_ghost(Some(&judges));
 
             // Now set notes larger than encoded length to trigger padding
@@ -1537,8 +1543,8 @@ mod prop_tests {
                 prop_assert_eq!(decoded[i], j, "mismatch at index {}", i);
             }
             // Extra positions are filled with 4 (MISS)
-            for i in judges.len()..padded_len {
-                prop_assert_eq!(decoded[i], 4, "expected MISS (4) at index {}", i);
+            for (i, value) in decoded.iter().enumerate().take(padded_len).skip(judges.len()) {
+                prop_assert_eq!(*value, 4, "expected MISS (4) at index {}", i);
             }
         }
     }

@@ -124,7 +124,17 @@ impl Gauge {
     }
 
     pub fn update(&mut self, judge: i32, rate: f32) {
-        let mut inc = self.gauge[judge as usize] * rate;
+        let Some(judge_index) = usize::try_from(judge).ok() else {
+            return;
+        };
+        let Some(mut inc) = self
+            .gauge
+            .get(judge_index)
+            .copied()
+            .map(|value| value * rate)
+        else {
+            return;
+        };
         if inc < 0.0 {
             for gut in &self.element.guts {
                 if self.value < gut[0] {
@@ -603,7 +613,7 @@ mod prop_tests {
             // set_value clamps to [min, max], then sets to 0 if below death
             // So result is either 0.0 (dead) or in [min, max]
             prop_assert!(
-                result == 0.0 || (result >= 2.0 && result <= 100.0),
+                result == 0.0 || (2.0..=100.0).contains(&result),
                 "expected 0.0 or [2.0, 100.0], got {}",
                 result
             );

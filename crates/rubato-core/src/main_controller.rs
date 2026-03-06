@@ -654,6 +654,9 @@ impl MainController {
                 self.resource = Some(*core_resource);
             }
             old_state.shutdown();
+            if let Some(ref mut audio) = self.audio {
+                old_state.sync_audio(audio.as_mut());
+            }
             // setSkin(null) equivalent
             old_state.main_state_data_mut().skin = None;
         }
@@ -719,6 +722,26 @@ impl MainController {
                 MainControllerCommand::StopAllNotes => {
                     if let Some(ref mut audio) = self.audio {
                         audio.stop_note(None);
+                    }
+                }
+                MainControllerCommand::PlayAudioPath(path, volume, loop_play) => {
+                    if let Some(ref mut audio) = self.audio {
+                        audio.play_path(&path, volume, loop_play);
+                    }
+                }
+                MainControllerCommand::SetAudioPathVolume(path, volume) => {
+                    if let Some(ref mut audio) = self.audio {
+                        audio.set_volume_path(&path, volume);
+                    }
+                }
+                MainControllerCommand::StopAudioPath(path) => {
+                    if let Some(ref mut audio) = self.audio {
+                        audio.stop_path(&path);
+                    }
+                }
+                MainControllerCommand::DisposeAudioPath(path) => {
+                    if let Some(ref mut audio) = self.audio {
+                        audio.dispose_path(&path);
                     }
                 }
             }
@@ -848,6 +871,12 @@ impl MainController {
         // current.render()
         if let Some(ref mut current) = self.current {
             current.render();
+        }
+
+        if let Some(ref mut current) = self.current
+            && let Some(ref mut audio) = self.audio
+        {
+            current.sync_audio(audio.as_mut());
         }
 
         // Take sprite batch to avoid borrow conflict with self.current
@@ -1870,6 +1899,51 @@ impl MainControllerAccess for MainController {
             .and_then(|sm| sm.get_sound(sound).cloned())
     }
 
+    fn play_audio_path(&mut self, path: &str, volume: f32, loop_play: bool) {
+        if path.is_empty() {
+            return;
+        }
+        if let Some(ref mut audio) = self.audio {
+            audio.play_path(path, volume, loop_play);
+        }
+    }
+
+    fn set_audio_path_volume(&mut self, path: &str, volume: f32) {
+        if path.is_empty() {
+            return;
+        }
+        if let Some(ref mut audio) = self.audio {
+            audio.set_volume_path(path, volume);
+        }
+    }
+
+    fn is_audio_path_playing(&self, path: &str) -> bool {
+        if path.is_empty() {
+            return false;
+        }
+        self.audio
+            .as_ref()
+            .is_some_and(|audio| audio.is_playing_path(path))
+    }
+
+    fn stop_audio_path(&mut self, path: &str) {
+        if path.is_empty() {
+            return;
+        }
+        if let Some(ref mut audio) = self.audio {
+            audio.stop_path(path);
+        }
+    }
+
+    fn dispose_audio_path(&mut self, path: &str) {
+        if path.is_empty() {
+            return;
+        }
+        if let Some(ref mut audio) = self.audio {
+            audio.dispose_path(path);
+        }
+    }
+
     fn shuffle_sounds(&mut self) {
         if let Some(ref mut sm) = self.sound {
             sm.shuffle();
@@ -2062,6 +2136,95 @@ mod tests {
         let mut mc = MainController::new(None, config, player, None, false);
         mc.set_state_factory(Box::new(TestStateFactory));
         mc
+    }
+
+    struct AudioSyncTestState {
+        state_data: MainStateData,
+        state_type: MainStateType,
+        render_sync_calls: Arc<Mutex<usize>>,
+        shutdown_sync_calls: Arc<Mutex<usize>>,
+        was_shutdown: bool,
+    }
+
+    impl AudioSyncTestState {
+        fn new(
+            state_type: MainStateType,
+            render_sync_calls: Arc<Mutex<usize>>,
+            shutdown_sync_calls: Arc<Mutex<usize>>,
+        ) -> Self {
+            Self {
+                state_data: MainStateData::new(TimerManager::new()),
+                state_type,
+                render_sync_calls,
+                shutdown_sync_calls,
+                was_shutdown: false,
+            }
+        }
+    }
+
+    impl MainState for AudioSyncTestState {
+        fn state_type(&self) -> Option<MainStateType> {
+            Some(self.state_type)
+        }
+
+        fn main_state_data(&self) -> &MainStateData {
+            &self.state_data
+        }
+
+        fn main_state_data_mut(&mut self) -> &mut MainStateData {
+            &mut self.state_data
+        }
+
+        fn create(&mut self) {}
+
+        fn shutdown(&mut self) {
+            self.was_shutdown = true;
+        }
+
+        fn render(&mut self) {}
+
+        fn sync_audio(&mut self, _audio: &mut dyn AudioDriver) {
+            let counter = if self.was_shutdown {
+                &self.shutdown_sync_calls
+            } else {
+                &self.render_sync_calls
+            };
+            *counter.lock().unwrap() += 1;
+        }
+    }
+
+    struct AudioSyncStateFactory {
+        render_sync_calls: Arc<Mutex<usize>>,
+        shutdown_sync_calls: Arc<Mutex<usize>>,
+    }
+
+    impl AudioSyncStateFactory {
+        fn new(
+            render_sync_calls: Arc<Mutex<usize>>,
+            shutdown_sync_calls: Arc<Mutex<usize>>,
+        ) -> Self {
+            Self {
+                render_sync_calls,
+                shutdown_sync_calls,
+            }
+        }
+    }
+
+    impl StateFactory for AudioSyncStateFactory {
+        fn create_state(
+            &self,
+            state_type: MainStateType,
+            _controller: &mut MainController,
+        ) -> Option<StateCreateResult> {
+            Some(StateCreateResult {
+                state: Box::new(AudioSyncTestState::new(
+                    state_type,
+                    Arc::clone(&self.render_sync_calls),
+                    Arc::clone(&self.shutdown_sync_calls),
+                )),
+                target_score: None,
+            })
+        }
     }
 
     #[test]
@@ -2949,6 +3112,45 @@ mod tests {
         let audio = mc.get_audio_processor_mut().unwrap();
         audio.play_path("/test/sound.wav", 0.8, false);
         assert!(!audio.is_playing_path("/test/sound.wav"));
+    }
+
+    #[test]
+    fn render_invokes_state_sync_audio_when_audio_driver_exists() {
+        let render_sync_calls = Arc::new(Mutex::new(0));
+        let shutdown_sync_calls = Arc::new(Mutex::new(0));
+        let config = Config::default();
+        let player = PlayerConfig::default();
+        let mut mc = MainController::new(None, config, player, None, false);
+        mc.set_state_factory(Box::new(AudioSyncStateFactory::new(
+            Arc::clone(&render_sync_calls),
+            Arc::clone(&shutdown_sync_calls),
+        )));
+        mc.set_audio_driver(Box::new(MockAudioDriver::new()));
+
+        mc.change_state(MainStateType::MusicSelect);
+        mc.render();
+
+        assert_eq!(*render_sync_calls.lock().unwrap(), 1);
+        assert_eq!(*shutdown_sync_calls.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn state_transition_flushes_audio_after_shutdown() {
+        let render_sync_calls = Arc::new(Mutex::new(0));
+        let shutdown_sync_calls = Arc::new(Mutex::new(0));
+        let config = Config::default();
+        let player = PlayerConfig::default();
+        let mut mc = MainController::new(None, config, player, None, false);
+        mc.set_state_factory(Box::new(AudioSyncStateFactory::new(
+            Arc::clone(&render_sync_calls),
+            Arc::clone(&shutdown_sync_calls),
+        )));
+        mc.set_audio_driver(Box::new(MockAudioDriver::new()));
+
+        mc.change_state(MainStateType::MusicSelect);
+        mc.change_state(MainStateType::Config);
+
+        assert_eq!(*shutdown_sync_calls.lock().unwrap(), 1);
     }
 
     // --- Phase 24f: update_main_state_listener tests ---

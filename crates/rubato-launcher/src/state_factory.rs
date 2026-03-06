@@ -5,6 +5,7 @@
 // Java creates states eagerly in initializeStates(); Rust creates them on-demand via factory.
 
 use std::any::Any;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use rubato_audio::audio_driver::AudioDriver;
@@ -50,6 +51,7 @@ struct QueuedControllerAccess {
     rivals: Vec<PlayerInformation>,
     ipfs_download_alive: bool,
     http_downloader: Option<Arc<dyn rubato_types::http_download_submitter::HttpDownloadSubmitter>>,
+    active_audio_paths: HashSet<String>,
 }
 
 impl QueuedControllerAccess {
@@ -78,6 +80,7 @@ impl QueuedControllerAccess {
             commands,
             ir_connection,
             rivals,
+            active_audio_paths: HashSet::new(),
         }
     }
 }
@@ -134,6 +137,51 @@ impl MainControllerAccess for QueuedControllerAccess {
 
     fn get_sound_path(&self, sound: &SoundType) -> Option<String> {
         self.sound.get_sound(sound).cloned()
+    }
+
+    fn play_audio_path(&mut self, path: &str, volume: f32, loop_play: bool) {
+        if path.is_empty() {
+            return;
+        }
+        self.active_audio_paths.insert(path.to_string());
+        self.commands.push(MainControllerCommand::PlayAudioPath(
+            path.to_string(),
+            volume,
+            loop_play,
+        ));
+    }
+
+    fn set_audio_path_volume(&mut self, path: &str, volume: f32) {
+        if path.is_empty() {
+            return;
+        }
+        self.commands
+            .push(MainControllerCommand::SetAudioPathVolume(
+                path.to_string(),
+                volume,
+            ));
+    }
+
+    fn is_audio_path_playing(&self, path: &str) -> bool {
+        self.active_audio_paths.contains(path)
+    }
+
+    fn stop_audio_path(&mut self, path: &str) {
+        if path.is_empty() {
+            return;
+        }
+        self.active_audio_paths.remove(path);
+        self.commands
+            .push(MainControllerCommand::StopAudioPath(path.to_string()));
+    }
+
+    fn dispose_audio_path(&mut self, path: &str) {
+        if path.is_empty() {
+            return;
+        }
+        self.active_audio_paths.remove(path);
+        self.commands
+            .push(MainControllerCommand::DisposeAudioPath(path.to_string()));
     }
 
     fn shuffle_sounds(&mut self) {
@@ -195,7 +243,9 @@ impl MainControllerAccess for QueuedControllerAccess {
             return false;
         }
         self.commands
-            .push(MainControllerCommand::StartIpfsDownload(song.clone()));
+            .push(MainControllerCommand::StartIpfsDownload(Box::new(
+                song.clone(),
+            )));
         true
     }
 

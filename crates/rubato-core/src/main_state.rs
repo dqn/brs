@@ -1,5 +1,6 @@
 use crate::score_data_property::ScoreDataProperty;
 use crate::timer_manager::TimerManager;
+use rubato_audio::audio_driver::AudioDriver;
 use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
 use rubato_render::sprite_batch::SpriteBatch;
 use rubato_types::sound_type::SoundType;
@@ -49,6 +50,12 @@ pub trait MainState {
 
     /// Flush consumed state-local input back to the controller after `input()`.
     fn sync_input_back_to(&mut self, _input: &mut BMSPlayerInputProcessor) {
+        // default empty
+    }
+
+    /// Give the state one chance per frame to synchronize preview/background audio
+    /// using the live audio driver owned by MainController.
+    fn sync_audio(&mut self, _audio: &mut dyn AudioDriver) {
         // default empty
     }
 

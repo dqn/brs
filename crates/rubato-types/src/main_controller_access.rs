@@ -27,9 +27,13 @@ pub enum MainControllerCommand {
     StopSound(SoundType),
     ShuffleSounds,
     UpdateTable(Box<dyn crate::table_update_source::TableUpdateSource>),
-    StartIpfsDownload(crate::song_data::SongData),
+    StartIpfsDownload(Box<crate::song_data::SongData>),
     SetGlobalPitch(f32),
     StopAllNotes,
+    PlayAudioPath(String, f32, bool),
+    SetAudioPathVolume(String, f32),
+    StopAudioPath(String),
+    DisposeAudioPath(String),
 }
 
 /// Shared command queue for state-facing MainController proxies.
@@ -105,6 +109,31 @@ pub trait MainControllerAccess {
     /// Check if a sound exists for the given type.
     fn get_sound_path(&self, _sound: &SoundType) -> Option<String> {
         None
+    }
+
+    /// Play an arbitrary audio path, typically used for preview music.
+    fn play_audio_path(&mut self, _path: &str, _volume: f32, _loop_play: bool) {
+        // default no-op
+    }
+
+    /// Update the volume of an arbitrary audio path.
+    fn set_audio_path_volume(&mut self, _path: &str, _volume: f32) {
+        // default no-op
+    }
+
+    /// Check whether an arbitrary audio path is still considered active.
+    fn is_audio_path_playing(&self, _path: &str) -> bool {
+        false
+    }
+
+    /// Stop an arbitrary audio path.
+    fn stop_audio_path(&mut self, _path: &str) {
+        // default no-op
+    }
+
+    /// Dispose cached state for an arbitrary audio path.
+    fn dispose_audio_path(&mut self, _path: &str) {
+        // default no-op
     }
 
     /// Shuffle select-screen sounds (BGM, cursor, decide sounds).

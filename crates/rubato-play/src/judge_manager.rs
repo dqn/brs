@@ -2256,6 +2256,6 @@ mod tests {
         assert!(!jm.judge_vanish.get(3).copied().unwrap_or(false));
         assert!(!jm.judge_vanish.get(5).copied().unwrap_or(false));
         // Index 0 should return the actual value
-        assert!(jm.judge_vanish.get(0).copied().unwrap_or(false));
+        assert!(jm.judge_vanish.first().copied().unwrap_or(false));
     }
 }

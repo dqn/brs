@@ -236,13 +236,15 @@ mod tests {
         lgr: i32,
         clear: ClearType,
     ) -> IRScoreData {
-        let mut s = rubato_core::score_data::ScoreData::default();
-        s.player = player.to_string();
-        s.epg = epg;
-        s.lpg = lpg;
-        s.egr = egr;
-        s.lgr = lgr;
-        s.clear = clear.id();
+        let s = rubato_core::score_data::ScoreData {
+            player: player.to_string(),
+            epg,
+            lpg,
+            egr,
+            lgr,
+            clear: clear.id(),
+            ..Default::default()
+        };
         let mut ir = IRScoreData::new(&s);
         ir.player = player.to_string();
         ir
@@ -360,11 +362,13 @@ mod tests {
         ];
 
         // Local score with exscore 150 should be ranked 2 (between 240 and 140)
-        let mut local = rubato_core::score_data::ScoreData::default();
-        local.epg = 35;
-        local.lpg = 35;
-        local.egr = 10;
-        local.lgr = 10;
+        let local = rubato_core::score_data::ScoreData {
+            epg: 35,
+            lpg: 35,
+            egr: 10,
+            lgr: 10,
+            ..Default::default()
+        };
         // local exscore = (35+35)*2 + 10 + 10 = 160
 
         rd.update_score(&scores, Some(&local));

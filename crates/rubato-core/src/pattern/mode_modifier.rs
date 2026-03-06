@@ -395,8 +395,8 @@ mod tests {
 
         assert_eq!(result.len(), 9);
         // key_lane=0, so result[0..7] = 0..7
-        for i in 0..7 {
-            assert_eq!(result[i], i as i32);
+        for (i, lane) in result.iter().enumerate().take(7) {
+            assert_eq!(*lane, i as i32);
         }
         // sc_lane=8 gets 7, rest_lane=7 gets 8
         assert_eq!(result[8], 7);

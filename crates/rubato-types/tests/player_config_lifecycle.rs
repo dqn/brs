@@ -9,9 +9,10 @@ use tempfile::TempDir;
 
 /// Helper: create a Config with playerpath pointing to a subdirectory of the given tempdir.
 fn config_with_playerpath(tempdir: &TempDir, subdir: &str) -> Config {
-    let mut config = Config::default();
-    config.playerpath = tempdir.path().join(subdir).to_string_lossy().to_string();
-    config
+    Config {
+        playerpath: tempdir.path().join(subdir).to_string_lossy().to_string(),
+        ..Default::default()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -128,11 +129,13 @@ fn read_write_roundtrip() {
     std::fs::create_dir_all(&player_dir).unwrap();
 
     // Build a PlayerConfig with custom values
-    let mut player = PlayerConfig::default();
-    player.id = Some("roundtrip_player".to_string());
-    player.name = "test".to_string();
-    player.gauge = 3;
-    player.random = 5;
+    let player = PlayerConfig {
+        id: Some("roundtrip_player".to_string()),
+        name: "test".to_string(),
+        gauge: 3,
+        random: 5,
+        ..Default::default()
+    };
 
     // Write it
     PlayerConfig::write(&playerpath, &player).unwrap();
@@ -183,9 +186,11 @@ fn write_creates_parent_directory_when_missing() {
     // The playerpath directory does not exist yet
     assert!(!std::path::Path::new(&playerpath).exists());
 
-    let mut player = PlayerConfig::default();
-    player.id = Some("newplayer".to_string());
-    player.name = "Fresh Player".to_string();
+    let player = PlayerConfig {
+        id: Some("newplayer".to_string()),
+        name: "Fresh Player".to_string(),
+        ..Default::default()
+    };
 
     // write() should create the directory and succeed
     PlayerConfig::write(&playerpath, &player).unwrap();
@@ -263,9 +268,11 @@ fn write_preserves_player_id() {
     std::fs::create_dir_all(&player_dir).unwrap();
 
     // Build a PlayerConfig with a specific id
-    let mut player = PlayerConfig::default();
-    player.id = Some("myid".to_string());
-    player.name = "Custom Player".to_string();
+    let player = PlayerConfig {
+        id: Some("myid".to_string()),
+        name: "Custom Player".to_string(),
+        ..Default::default()
+    };
 
     // Write it
     PlayerConfig::write(&playerpath, &player).unwrap();

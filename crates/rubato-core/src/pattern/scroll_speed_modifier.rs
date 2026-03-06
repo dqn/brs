@@ -442,7 +442,7 @@ mod tests {
         // So scroll is in range [1.0 * (1.0 - 0.5), 1.0 * (1.0 + 0.5)] = [0.5, 1.5]
         let scroll2 = tls[2].get_scroll();
         assert!(
-            scroll2 >= 0.5 && scroll2 <= 1.5,
+            (0.5..=1.5).contains(&scroll2),
             "scroll at tl[2] should be in [0.5, 1.5], got {}",
             scroll2
         );
@@ -499,12 +499,12 @@ mod tests {
         let s1 = tls[1].get_scroll();
         let s2 = tls[2].get_scroll();
         assert!(
-            s1 >= 0.5 && s1 <= 1.5,
+            (0.5..=1.5).contains(&s1),
             "tl[1] scroll should be in [0.5, 1.5], got {}",
             s1
         );
         assert!(
-            s2 >= 0.5 && s2 <= 1.5,
+            (0.5..=1.5).contains(&s2),
             "tl[2] scroll should be in [0.5, 1.5], got {}",
             s2
         );
@@ -589,7 +589,7 @@ mod tests {
         // section_line is true, sectioncount=1 == section=1, so scroll is randomized
         let s = tls[0].get_scroll();
         assert!(
-            s >= 0.5 && s <= 1.5,
+            (0.5..=1.5).contains(&s),
             "scroll should be in [0.5, 1.5], got {}",
             s
         );

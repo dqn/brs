@@ -925,7 +925,8 @@ mod tests {
             .load_float_property_from_script("3.14")
             .expect("should load float property");
         let state = MockMainState::default();
-        assert!((prop.get(&state) - 3.14).abs() < 0.01);
+        let expected: f32 = "3.14".parse().unwrap();
+        assert!((prop.get(&state) - expected).abs() < 0.01);
     }
 
     #[test]

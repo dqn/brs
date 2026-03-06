@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use rubato_audio::audio_driver::AudioDriver;
+use rubato_types::main_controller_access::MainControllerAccess;
 
 use super::stubs::*;
 
@@ -15,6 +16,69 @@ pub struct PreviewMusicProcessor {
     preview_running: Arc<AtomicBool>,
     default_music: String,
     current: Option<SongData>,
+    playing: String,
+    current_volume: f32,
+    default_started: bool,
+}
+
+trait PreviewAudioTarget {
+    fn play_preview_path(&mut self, path: &str, volume: f32, loop_play: bool);
+    fn set_preview_volume(&mut self, path: &str, volume: f32);
+    fn is_preview_playing(&self, path: &str) -> bool;
+    fn stop_preview_path(&mut self, path: &str);
+    fn dispose_preview_path(&mut self, path: &str);
+}
+
+struct AudioDriverTarget<'a> {
+    inner: &'a mut dyn AudioDriver,
+}
+
+impl PreviewAudioTarget for AudioDriverTarget<'_> {
+    fn play_preview_path(&mut self, path: &str, volume: f32, loop_play: bool) {
+        self.inner.play_path(path, volume, loop_play);
+    }
+
+    fn set_preview_volume(&mut self, path: &str, volume: f32) {
+        self.inner.set_volume_path(path, volume);
+    }
+
+    fn is_preview_playing(&self, path: &str) -> bool {
+        self.inner.is_playing_path(path)
+    }
+
+    fn stop_preview_path(&mut self, path: &str) {
+        self.inner.stop_path(path);
+    }
+
+    fn dispose_preview_path(&mut self, path: &str) {
+        self.inner.dispose_path(path);
+    }
+}
+
+struct MainControllerTarget<'a> {
+    inner: &'a mut dyn MainControllerAccess,
+}
+
+impl PreviewAudioTarget for MainControllerTarget<'_> {
+    fn play_preview_path(&mut self, path: &str, volume: f32, loop_play: bool) {
+        self.inner.play_audio_path(path, volume, loop_play);
+    }
+
+    fn set_preview_volume(&mut self, path: &str, volume: f32) {
+        self.inner.set_audio_path_volume(path, volume);
+    }
+
+    fn is_preview_playing(&self, path: &str) -> bool {
+        self.inner.is_audio_path_playing(path)
+    }
+
+    fn stop_preview_path(&mut self, path: &str) {
+        self.inner.stop_audio_path(path);
+    }
+
+    fn dispose_preview_path(&mut self, path: &str) {
+        self.inner.dispose_audio_path(path);
+    }
 }
 
 impl PreviewMusicProcessor {
@@ -24,6 +88,9 @@ impl PreviewMusicProcessor {
             preview_running: Arc::new(AtomicBool::new(false)),
             default_music: String::new(),
             current: None,
+            playing: String::new(),
+            current_volume: 0.0,
+            default_started: false,
         }
     }
 
@@ -64,6 +131,88 @@ impl PreviewMusicProcessor {
         self.preview_running.store(false, Ordering::SeqCst);
     }
 
+    pub fn tick_preview(&mut self, audio: &mut dyn AudioDriver, config: &Config) {
+        let mut target = AudioDriverTarget { inner: audio };
+        self.tick_with_target(&mut target, config);
+    }
+
+    pub fn tick_preview_with_main(
+        &mut self,
+        main: &mut dyn MainControllerAccess,
+        config: &Config,
+    ) {
+        let mut target = MainControllerTarget { inner: main };
+        self.tick_with_target(&mut target, config);
+    }
+
+    fn tick_with_target<T: PreviewAudioTarget + ?Sized>(&mut self, audio: &mut T, config: &Config) {
+        let sys_vol = config.audio.as_ref().map(|a| a.systemvolume).unwrap_or(0.5);
+
+        if !self.preview_running.load(Ordering::SeqCst) {
+            if !self.playing.is_empty() {
+                Self::stop_preview_internal(
+                    audio,
+                    &self.playing,
+                    &self.default_music,
+                    sys_vol,
+                    false,
+                );
+                self.playing.clear();
+                self.default_started = false;
+            }
+            return;
+        }
+
+        if !self.default_started {
+            audio.play_preview_path(&self.default_music, sys_vol, true);
+            self.playing = self.default_music.clone();
+            self.current_volume = sys_vol;
+            self.default_started = true;
+        }
+
+        if let Ok(mut cmds) = self.commands.lock() {
+            if let Some(path) = cmds.pop_front() {
+                let path = if path.is_empty() {
+                    self.default_music.clone()
+                } else {
+                    path
+                };
+                if path != self.playing {
+                    Self::stop_preview_internal(
+                        audio,
+                        &self.playing,
+                        &self.default_music,
+                        sys_vol,
+                        true,
+                    );
+                    if path != self.default_music {
+                        let looping = matches!(config.song_preview, SongPreview::LOOP);
+                        audio.play_preview_path(&path, sys_vol, looping);
+                    } else {
+                        audio.set_preview_volume(&self.default_music, sys_vol);
+                    }
+                    self.playing = path;
+                    self.current_volume = sys_vol;
+                }
+            } else if self.playing != self.default_music && !audio.is_preview_playing(&self.playing)
+            {
+                Self::stop_preview_internal(
+                    audio,
+                    &self.playing,
+                    &self.default_music,
+                    sys_vol,
+                    true,
+                );
+                audio.set_preview_volume(&self.default_music, sys_vol);
+                self.playing = self.default_music.clone();
+                self.current_volume = sys_vol;
+            } else if (self.current_volume - sys_vol).abs() > f32::EPSILON {
+                audio.set_preview_volume(&self.playing, sys_vol);
+                self.current_volume = sys_vol;
+            }
+        }
+    }
+
     /// Run the preview thread main loop.
     /// Corresponds to Java PreviewThread.run()
     /// In Java this is the inner thread's run() method that:
@@ -87,8 +236,9 @@ impl PreviewMusicProcessor {
                         path
                     };
                     if path != playing {
+                        let mut target = AudioDriverTarget { inner: audio };
                         Self::stop_preview_internal(
-                            audio,
+                            &mut target,
                             &playing,
                             &self.default_music,
                             sys_vol,
@@ -104,8 +254,9 @@ impl PreviewMusicProcessor {
                     }
                 } else if playing != self.default_music && !audio.is_playing_path(&playing) {
                     // Preview finished, return to default music
+                    let mut target = AudioDriverTarget { inner: audio };
                     Self::stop_preview_internal(
-                        audio,
+                        &mut target,
                         &playing,
                         &self.default_music,
                         sys_vol,
@@ -124,13 +275,14 @@ impl PreviewMusicProcessor {
             }
         }
         let sys_vol = config.audio.as_ref().map(|a| a.systemvolume).unwrap_or(0.5);
-        Self::stop_preview_internal(audio, &playing, &self.default_music, sys_vol, false);
+        let mut target = AudioDriverTarget { inner: audio };
+        Self::stop_preview_internal(&mut target, &playing, &self.default_music, sys_vol, false);
     }
 
     /// Stop the currently playing preview.
     /// Corresponds to Java PreviewThread.stopPreview(boolean pause)
-    fn stop_preview_internal(
-        audio: &mut dyn AudioDriver,
+    fn stop_preview_internal<T: PreviewAudioTarget + ?Sized>(
+        audio: &mut T,
         playing: &str,
         default_music: &str,
         sys_vol: f32,
@@ -138,17 +290,17 @@ impl PreviewMusicProcessor {
     ) {
         if !playing.is_empty() {
             if playing != default_music {
-                audio.stop_path(playing);
-                audio.dispose_path(playing);
+                audio.stop_preview_path(playing);
+                audio.dispose_preview_path(playing);
             } else if pause {
                 // Fade out
                 for i in (0..=10).rev() {
                     let vol = i as f32 * 0.1 * sys_vol;
-                    audio.set_volume_path(playing, vol);
+                    audio.set_preview_volume(playing, vol);
                     std::thread::sleep(std::time::Duration::from_millis(15));
                 }
             } else {
-                audio.stop_path(playing);
+                audio.stop_preview_path(playing);
             }
         }
     }
@@ -270,5 +422,18 @@ mod tests {
         assert!(audio.play_count.load(Ordering::SeqCst) >= 1);
         // Should have stopped the default music on exit
         assert!(audio.stop_count.load(Ordering::SeqCst) >= 1);
+    }
+
+    #[test]
+    fn test_tick_preview_starts_default_music_when_running() {
+        let mut audio = MockAudioDriver::new();
+        let config = Config::default();
+        let mut processor = PreviewMusicProcessor::new(&config);
+        processor.set_default("/bgm/default.ogg");
+        processor.preview_running.store(true, Ordering::SeqCst);
+
+        processor.tick_preview(&mut audio, &config);
+
+        assert_eq!(audio.play_count.load(Ordering::SeqCst), 1);
     }
 }
