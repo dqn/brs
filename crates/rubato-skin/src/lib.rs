@@ -1,3 +1,6 @@
+//! Skin format loaders (LR2 CSV, JSON, Lua), property system,
+//! and rendering object hierarchy.
+
 // Property submodule (interfaces + factories)
 pub mod property;
 

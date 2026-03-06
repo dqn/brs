@@ -1,3 +1,6 @@
+//! BMS playback engine: judge timing, gauge calculation, lane rendering,
+//! and input processing.
+
 pub mod bga;
 pub mod bms_player;
 pub mod bms_player_rule;
