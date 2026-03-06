@@ -530,7 +530,7 @@ impl PlayerResource {
         self.tablefull = None;
     }
 
-    pub fn get_table_fullname(&mut self) -> &str {
+    pub fn table_fullname(&mut self) -> &str {
         if self.tablefull.is_none() {
             self.tablefull = Some(format!("{}{}", self.tablelevel, self.tablename));
         }

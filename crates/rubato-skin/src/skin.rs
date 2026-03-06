@@ -671,7 +671,7 @@ impl Skin {
         &self.objects
     }
 
-    pub fn get_objects_mut(&mut self) -> &mut Vec<SkinObject> {
+    pub fn objects_mut(&mut self) -> &mut Vec<SkinObject> {
         &mut self.objects
     }
 
@@ -1269,7 +1269,7 @@ impl crate::stubs::MainState for TimerOnlyMainState<'_> {
             .and_then(rubato_types::skin_render_context::SkinRenderContext::config_ref)
     }
 
-    fn get_player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+    fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
         self.ctx
             .as_deref_mut()
             .and_then(rubato_types::skin_render_context::SkinRenderContext::player_config_mut)

@@ -839,7 +839,7 @@ impl SkinConfiguration {
     }
 
     /// Get a mutable reference to the current player config.
-    pub fn get_player_mut(&mut self) -> &mut PlayerConfig {
+    pub fn player_mut(&mut self) -> &mut PlayerConfig {
         &mut self.player
     }
 

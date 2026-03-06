@@ -353,14 +353,14 @@ pub fn convert_skin_data(
 
             // Set offset IDs
             if !obj_data.offset_ids.is_empty()
-                && let Some(obj) = skin.get_objects_mut().get_mut(obj_index)
+                && let Some(obj) = skin.objects_mut().get_mut(obj_index)
             {
                 obj.data_mut().set_offset_id(&obj_data.offset_ids);
             }
 
             // Set stretch
             if obj_data.stretch >= 0
-                && let Some(obj) = skin.get_objects_mut().get_mut(obj_index)
+                && let Some(obj) = skin.objects_mut().get_mut(obj_index)
             {
                 obj.data_mut().set_stretch_by_id(obj_data.stretch);
             }

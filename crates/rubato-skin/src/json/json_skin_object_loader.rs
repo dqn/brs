@@ -40,7 +40,7 @@ pub fn load_base_skin_object(
     // image
     for img in &sk.image {
         if dst_id == img.id.as_deref().unwrap_or("") {
-            let data = loader.get_source(img.src.as_deref().unwrap_or(""), p);
+            let data = loader.source(img.src.as_deref().unwrap_or(""), p);
             let is_movie = matches!(&data, Some(SourceDataType::Movie(_)));
 
             if data.is_some() {

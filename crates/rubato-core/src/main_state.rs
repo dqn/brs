@@ -125,7 +125,7 @@ pub trait MainState {
         &self.main_state_data().score
     }
 
-    fn get_score_data_property_mut(&mut self) -> &mut ScoreDataProperty {
+    fn score_data_property_mut(&mut self) -> &mut ScoreDataProperty {
         &mut self.main_state_data_mut().score
     }
 

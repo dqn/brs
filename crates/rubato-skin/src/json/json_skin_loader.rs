@@ -880,7 +880,7 @@ impl JSONSkinLoader {
         }
     }
 
-    pub fn get_source(&mut self, srcid: &str, p: &Path) -> Option<SourceDataType> {
+    pub fn source(&mut self, srcid: &str, p: &Path) -> Option<SourceDataType> {
         // Check if already loaded
         if let Some(data) = self.source_map.get(srcid) {
             if data.loaded {

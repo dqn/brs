@@ -266,7 +266,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultMouseContext
     }
 
     fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
-        self.result.resource.get_player_config_mut()
+        self.result.resource.player_config_mut()
     }
 }
 
@@ -527,7 +527,7 @@ impl MusicResult {
             let fadeout_time = self.data.timer.now_time_for_id(TIMER_FADEOUT);
             let skin_fadeout = self.skin.as_ref().map(|s| s.fadeout() as i64).unwrap_or(0);
             if fadeout_time > skin_fadeout {
-                if let Some(audio) = self.main.get_audio_processor_mut() {
+                if let Some(audio) = self.main.audio_processor_mut() {
                     audio.stop_note(None);
                 }
                 {
@@ -591,7 +591,7 @@ impl MusicResult {
                                 .map(|ranking| *ranking);
                             if !self.main.ir_status().is_empty() && songrank.is_none() {
                                 let new_ranking = RankingData::new();
-                                self.main.get_ranking_data_cache_mut().put_song_any(
+                                self.main.ranking_data_cache_mut().put_song_any(
                                     songdata,
                                     lnmode,
                                     Box::new(new_ranking.clone()),
@@ -635,7 +635,7 @@ impl MusicResult {
                     {
                         info!("Replay without changing options");
                         // Replay without changing options - same chart
-                        if let Some(rd) = self.resource.get_replay_data_mut() {
+                        if let Some(rd) = self.resource.replay_data_mut() {
                             rd.randomoptionseed = -1;
                         }
                         self.resource.reload_bms_file();
@@ -648,7 +648,7 @@ impl MusicResult {
                             info!("Replay with same chart");
                         } else {
                             info!("Cannot replay with same chart in assist mode");
-                            if let Some(rd) = self.resource.get_replay_data_mut() {
+                            if let Some(rd) = self.resource.replay_data_mut() {
                                 rd.randomoptionseed = -1;
                             }
                         }
@@ -846,7 +846,7 @@ impl MusicResult {
         // Course mode score accumulation
         if self.resource.course_bms_models().is_some() {
             if newscore.clear == ClearType::Failed.id()
-                && let Some(sd) = self.resource.get_score_data_mut()
+                && let Some(sd) = self.resource.score_data_mut()
             {
                 sd.clear = ClearType::NoPlay.id();
             }
@@ -955,7 +955,7 @@ impl MusicResult {
         }
 
         if FreqTrainerMenu::is_freq_trainer_enabled()
-            && let Some(sd) = self.resource.get_score_data_mut()
+            && let Some(sd) = self.resource.score_data_mut()
         {
             sd.clear = ClearType::NoPlay.id();
         }
@@ -1657,7 +1657,7 @@ mod tests {
     fn test_result_render_context_uses_replay_option_for_image_index_42() {
         let mut mr = make_result_for_mouse();
         mr.resource
-            .get_replay_data_mut()
+            .replay_data_mut()
             .expect("replay data should exist")
             .randomoption = 6;
         let mut timer = TimerManager::new();

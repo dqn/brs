@@ -1304,14 +1304,14 @@ mod tests {
 
         {
             let state = mc
-                .get_current_state_mut()
+                .current_state_mut()
                 .expect("decide state should be current");
             state
                 .main_state_data_mut()
                 .timer
                 .set_timer_on(rubato_skin::skin_property::TIMER_STARTINPUT);
         }
-        mc.get_input_processor_mut()
+        mc.input_processor_mut()
             .expect("controller should own an input processor")
             .set_key_state(0, true, 1);
 

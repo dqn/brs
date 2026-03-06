@@ -218,7 +218,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
                 ir_status.config.importrival,
             );
             main_controller
-                .get_ir_status_mut()
+                .ir_status_mut()
                 .push(rubato_core::main_controller::IRStatus {
                     config: ir_status.config,
                     rival_provider: Some(Box::new(rival_provider)),
@@ -824,7 +824,7 @@ impl ApplicationHandler for RubatoApp {
                         // before the render pass (bind groups must outlive the render pass)
                         let sprite_resources = if let Some(sprite_pipeline) = &self.sprite_pipeline
                             && let Some(texture_manager) = &mut self.texture_manager
-                            && let Some(sprite_batch) = self.controller.get_sprite_batch_mut()
+                            && let Some(sprite_batch) = self.controller.sprite_batch_mut()
                             && !sprite_batch.vertices().is_empty()
                         {
                             // Upload any new textures encountered this frame
@@ -897,7 +897,7 @@ impl ApplicationHandler for RubatoApp {
                             if let Some(ref uniform_bind_group) = sprite_resources
                                 && let Some(sprite_pipeline) = &self.sprite_pipeline
                                 && let Some(texture_manager) = &self.texture_manager
-                                && let Some(sprite_batch) = self.controller.get_sprite_batch_mut()
+                                && let Some(sprite_batch) = self.controller.sprite_batch_mut()
                             {
                                 sprite_batch.flush_to_gpu(
                                     &mut render_pass,

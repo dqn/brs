@@ -315,7 +315,7 @@ impl AbstractResultData {
         &self.score
     }
 
-    pub fn get_score_data_property_mut(&mut self) -> &mut ScoreDataProperty {
+    pub fn score_data_property_mut(&mut self) -> &mut ScoreDataProperty {
         &mut self.score
     }
 }

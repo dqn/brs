@@ -346,7 +346,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultMouseC
     }
 
     fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
-        self.result.resource.get_player_config_mut()
+        self.result.resource.player_config_mut()
     }
 }
 
@@ -417,7 +417,7 @@ impl CourseResult {
             }
         }
         for list in gauge_fill_data {
-            self.resource.get_course_gauge_mut().push(list);
+            self.resource.course_gauge_mut().push(list);
         }
 
         if let Some(mode) = self.resource.bms_model().mode() {
@@ -681,7 +681,7 @@ impl CourseResult {
             let fadeout_time = self.data.timer.now_time_for_id(TIMER_FADEOUT);
             let skin_fadeout = self.skin.as_ref().map(|s| s.fadeout() as i64).unwrap_or(0);
             if fadeout_time > skin_fadeout {
-                if let Some(audio) = self.main.get_audio_processor_mut() {
+                if let Some(audio) = self.main.audio_processor_mut() {
                     audio.stop_note(None);
                 }
                 {
@@ -890,7 +890,7 @@ impl CourseResult {
         {
             // Extract gauge value first to avoid borrow conflict
             let gauge = self.resource.player_config().gauge;
-            let rd = self.resource.get_course_replay_mut();
+            let rd = self.resource.course_replay_mut();
             for replay in rd.iter_mut() {
                 replay.gauge = gauge;
             }
@@ -1148,7 +1148,7 @@ mod tests {
         );
         resource.set_course_bms_models(Some(vec![bms_model::bms_model::BMSModel::default()]));
         resource
-            .get_course_replay_mut()
+            .course_replay_mut()
             .push(rubato_core::replay_data::ReplayData::default());
         CourseResult::new(
             main,
@@ -1190,7 +1190,7 @@ mod tests {
     fn test_course_result_render_context_uses_replay_option_for_image_index_42() {
         let mut cr = make_course_result_for_mouse();
         cr.resource
-            .get_replay_data_mut()
+            .replay_data_mut()
             .expect("replay data should exist")
             .randomoption = 5;
         let mut timer = rubato_core::timer_manager::TimerManager::new();

@@ -1309,7 +1309,7 @@ impl MusicSelector {
         &self.manager
     }
 
-    pub fn get_bar_manager_mut(&mut self) -> &mut BarManager {
+    pub fn bar_manager_mut(&mut self) -> &mut BarManager {
         &mut self.manager
     }
 

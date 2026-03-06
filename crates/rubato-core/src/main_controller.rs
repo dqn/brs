@@ -394,7 +394,7 @@ impl MainController {
         }
     }
 
-    pub fn get_offset_mut(&mut self, index: i32) -> Option<&mut SkinOffset> {
+    pub fn offset_mut(&mut self, index: i32) -> Option<&mut SkinOffset> {
         if index >= 0 && (index as usize) < self.offset.len() {
             Some(&mut self.offset[index as usize])
         } else {
@@ -429,7 +429,7 @@ impl MainController {
         self.sprite.as_ref()
     }
 
-    pub fn get_sprite_batch_mut(&mut self) -> Option<&mut SpriteBatch> {
+    pub fn sprite_batch_mut(&mut self) -> Option<&mut SpriteBatch> {
         self.sprite.as_mut()
     }
 
@@ -441,7 +441,7 @@ impl MainController {
         &self.rivals
     }
 
-    pub fn get_rival_data_accessor_mut(&mut self) -> &mut RivalDataAccessor {
+    pub fn rival_data_accessor_mut(&mut self) -> &mut RivalDataAccessor {
         &mut self.rivals
     }
 
@@ -449,7 +449,7 @@ impl MainController {
         self.ircache.as_deref()
     }
 
-    pub fn get_ranking_data_cache_mut(
+    pub fn ranking_data_cache_mut(
         &mut self,
     ) -> Option<&mut (dyn RankingDataCacheAccess + 'static)> {
         self.ircache.as_deref_mut()
@@ -463,7 +463,7 @@ impl MainController {
         self.sound.as_ref()
     }
 
-    pub fn get_sound_manager_mut(&mut self) -> Option<&mut SystemSoundManager> {
+    pub fn sound_manager_mut(&mut self) -> Option<&mut SystemSoundManager> {
         self.sound.as_mut()
     }
 
@@ -471,7 +471,7 @@ impl MainController {
         &self.ir
     }
 
-    pub fn get_ir_status_mut(&mut self) -> &mut Vec<IRStatus> {
+    pub fn ir_status_mut(&mut self) -> &mut Vec<IRStatus> {
         &mut self.ir
     }
 
@@ -486,7 +486,7 @@ impl MainController {
         &self.timer
     }
 
-    pub fn get_timer_mut(&mut self) -> &mut TimerManager {
+    pub fn timer_mut(&mut self) -> &mut TimerManager {
         &mut self.timer
     }
 
@@ -1404,7 +1404,7 @@ impl MainController {
     }
 
     /// Returns a mutable reference to the current state.
-    pub fn get_current_state_mut(&mut self) -> Option<&mut dyn MainState> {
+    pub fn current_state_mut(&mut self) -> Option<&mut dyn MainState> {
         self.current
             .as_mut()
             .map(|b| &mut **b as &mut dyn MainState)
@@ -1433,7 +1433,7 @@ impl MainController {
     }
 
     /// Returns a mutable reference to the input processor.
-    pub fn get_input_processor_mut(&mut self) -> Option<&mut BMSPlayerInputProcessor> {
+    pub fn input_processor_mut(&mut self) -> Option<&mut BMSPlayerInputProcessor> {
         self.input.as_mut()
     }
 
@@ -1445,7 +1445,7 @@ impl MainController {
     }
 
     /// Returns a mutable reference to the audio processor.
-    pub fn get_audio_processor_mut(&mut self) -> Option<&mut dyn AudioDriver> {
+    pub fn audio_processor_mut(&mut self) -> Option<&mut dyn AudioDriver> {
         self.audio
             .as_mut()
             .map(|b| &mut **b as &mut dyn AudioDriver)
@@ -2565,7 +2565,7 @@ mod tests {
         mc.create();
 
         // Should be able to get mutable reference to sprite batch
-        let batch = mc.get_sprite_batch_mut().unwrap();
+        let batch = mc.sprite_batch_mut().unwrap();
         batch.begin();
         assert!(batch.is_drawing());
         batch.end();
@@ -3066,7 +3066,7 @@ mod tests {
         let mut mc = make_test_controller();
         mc.set_audio_driver(Box::new(MockAudioDriver::new()));
 
-        let audio = mc.get_audio_processor_mut().unwrap();
+        let audio = mc.audio_processor_mut().unwrap();
         audio.set_global_pitch(1.5);
         assert_eq!(audio.get_global_pitch(), 1.5);
     }
@@ -3076,7 +3076,7 @@ mod tests {
         let mut mc = make_test_controller();
         mc.set_audio_driver(Box::new(MockAudioDriver::new()));
 
-        let audio = mc.get_audio_processor_mut().unwrap();
+        let audio = mc.audio_processor_mut().unwrap();
         audio.play_path("/test/sound.wav", 0.8, false);
         assert!(!audio.is_playing_path("/test/sound.wav"));
     }
@@ -3316,7 +3316,7 @@ mod tests {
     #[test]
     fn test_get_sound_manager_mut() {
         let mut mc = make_test_controller();
-        assert!(mc.get_sound_manager_mut().is_some());
+        assert!(mc.sound_manager_mut().is_some());
     }
 
     // --- exit() and save_config() tests ---

@@ -283,7 +283,7 @@ impl MainState for MusicDecide {
             && self.data.timer.is_timer_on(TIMER_STARTINPUT)
         {
             // Collect input state first, then release &mut borrow on self.main
-            // before calling get_audio_processor_mut (avoids overlapping &mut borrows).
+            // before calling audio_processor_mut (avoids overlapping &mut borrows).
             let (decide, cancel) = {
                 let input = self.main.input_processor();
                 let decide = input.key_state(0)
@@ -300,7 +300,7 @@ impl MainState for MusicDecide {
             }
             if cancel {
                 self.cancel = true;
-                if let Some(audio) = self.main.get_audio_processor_mut() {
+                if let Some(audio) = self.main.audio_processor_mut() {
                     audio.set_global_pitch(1f32);
                 }
                 self.data.timer.set_timer_on(TIMER_FADEOUT);

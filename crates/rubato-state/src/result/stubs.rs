@@ -185,7 +185,7 @@ impl MainController {
         &self.play_data_accessor
     }
 
-    pub fn get_audio_processor_mut(&mut self) -> Option<&mut dyn AudioDriver> {
+    pub fn audio_processor_mut(&mut self) -> Option<&mut dyn AudioDriver> {
         self.audio
             .as_mut()
             .map(|b| &mut **b as &mut dyn AudioDriver)
@@ -197,7 +197,7 @@ impl MainController {
         &*self.ranking_data_cache
     }
 
-    pub fn get_ranking_data_cache_mut(
+    pub fn ranking_data_cache_mut(
         &mut self,
     ) -> &mut dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess {
         &mut *self.ranking_data_cache
@@ -276,9 +276,7 @@ impl PlayerResource {
         self.inner.player_config()
     }
 
-    pub fn get_player_config_mut(
-        &mut self,
-    ) -> Option<&mut rubato_core::player_config::PlayerConfig> {
+    pub fn player_config_mut(&mut self) -> Option<&mut rubato_core::player_config::PlayerConfig> {
         self.inner.player_config_mut()
     }
 
@@ -286,7 +284,7 @@ impl PlayerResource {
         self.inner.score_data()
     }
 
-    pub fn get_score_data_mut(&mut self) -> Option<&mut rubato_core::score_data::ScoreData> {
+    pub fn score_data_mut(&mut self) -> Option<&mut rubato_core::score_data::ScoreData> {
         self.inner.score_data_mut()
     }
 
@@ -314,7 +312,7 @@ impl PlayerResource {
         self.inner.course_replay()
     }
 
-    pub fn get_course_replay_mut(&mut self) -> &mut Vec<rubato_core::replay_data::ReplayData> {
+    pub fn course_replay_mut(&mut self) -> &mut Vec<rubato_core::replay_data::ReplayData> {
         self.inner.course_replay_mut()
     }
 
@@ -350,7 +348,7 @@ impl PlayerResource {
         self.inner.course_gauge()
     }
 
-    pub fn get_course_gauge_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
+    pub fn course_gauge_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
         self.inner.course_gauge_mut()
     }
 
@@ -423,7 +421,7 @@ impl PlayerResource {
         Some(std::mem::replace(&mut self.inner, null))
     }
 
-    pub fn get_replay_data_mut(&mut self) -> Option<&mut rubato_core::replay_data::ReplayData> {
+    pub fn replay_data_mut(&mut self) -> Option<&mut rubato_core::replay_data::ReplayData> {
         self.inner.replay_data_mut()
     }
 
@@ -530,7 +528,7 @@ mod tests {
     #[test]
     fn test_main_controller_new_has_no_audio() {
         let mut mc = MainController::new(Box::new(NullMainController));
-        assert!(mc.get_audio_processor_mut().is_none());
+        assert!(mc.audio_processor_mut().is_none());
     }
 
     #[test]
@@ -539,7 +537,7 @@ mod tests {
             Box::new(NullMainController),
             Box::new(MockAudioDriver::new()),
         );
-        assert!(mc.get_audio_processor_mut().is_some());
+        assert!(mc.audio_processor_mut().is_some());
     }
 
     #[test]
@@ -548,7 +546,7 @@ mod tests {
             Box::new(NullMainController),
             Box::new(MockAudioDriver::new()),
         );
-        if let Some(audio) = mc.get_audio_processor_mut() {
+        if let Some(audio) = mc.audio_processor_mut() {
             audio.stop_note(None);
         }
         // Verify the call went through (cannot inspect mock after borrow, but no panic = pass)
@@ -560,7 +558,7 @@ mod tests {
             Box::new(NullMainController),
             Box::new(MockAudioDriver::new()),
         );
-        if let Some(audio) = mc.get_audio_processor_mut() {
+        if let Some(audio) = mc.audio_processor_mut() {
             audio.set_global_pitch(1.5);
             assert_eq!(audio.get_global_pitch(), 1.5);
         } else {

@@ -33,7 +33,7 @@ impl RivalDataAccessor {
         self.rivalcaches.get(index)
     }
 
-    pub fn get_rival_score_data_cache_mut(&mut self, index: usize) -> Option<&mut ScoreDataCache> {
+    pub fn rival_score_data_cache_mut(&mut self, index: usize) -> Option<&mut ScoreDataCache> {
         self.rivalcaches.get_mut(index)
     }
 
@@ -79,7 +79,7 @@ impl RivalDataAccessor {
             }
             // Clear import flag via mutable access
             if let Some(p) = main
-                .get_ir_status_mut()
+                .ir_status_mut()
                 .get_mut(0)
                 .and_then(|s| s.rival_provider.as_mut())
             {

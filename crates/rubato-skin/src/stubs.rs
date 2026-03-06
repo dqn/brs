@@ -72,7 +72,7 @@ pub trait MainState {
 
     /// Returns mutable reference to the player config.
     /// Returns None if config is not available (e.g., stub state).
-    fn get_player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+    fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
         None
     }
 

@@ -913,7 +913,7 @@ impl Event for ModeEvent {
         if !state.is_music_selector() {
             return;
         }
-        let Some(config) = state.get_player_config_mut() else {
+        let Some(config) = state.player_config_mut() else {
             return;
         };
         let current_mode = config.mode.clone();
@@ -952,7 +952,7 @@ impl Event for SortEvent {
             return;
         }
         let len = rubato_types::bar_sorter::BarSorter::DEFAULT_SORTER.len() as i32;
-        let Some(config) = state.get_player_config_mut() else {
+        let Some(config) = state.player_config_mut() else {
             return;
         };
         let current = config.sort;
@@ -989,7 +989,7 @@ impl Event for SongbarSortEvent {
         }
         let all = &rubato_types::bar_sorter::BarSorter::ALL_SORTER;
         let len = all.len();
-        let Some(config) = state.get_player_config_mut() else {
+        let Some(config) = state.player_config_mut() else {
             return;
         };
         let current_sortid = config.sortid.clone().unwrap_or_default();
@@ -1035,7 +1035,7 @@ impl Event for PlayerConfigCycleEvent {
         if self.music_selector_only && !state.is_music_selector() {
             return;
         }
-        let Some(config) = state.get_player_config_mut() else {
+        let Some(config) = state.player_config_mut() else {
             return;
         };
         let current = (self.get)(config);
@@ -1242,7 +1242,7 @@ struct NotesDisplayTimingEvent;
 
 impl Event for NotesDisplayTimingEvent {
     fn exec(&self, state: &mut dyn MainState, arg1: i32, _arg2: i32) {
-        let Some(config) = state.get_player_config_mut() else {
+        let Some(config) = state.player_config_mut() else {
             return;
         };
         let max = rubato_types::player_config::JUDGETIMING_MAX;
@@ -1275,7 +1275,7 @@ struct NotesDisplayTimingAutoAdjustEvent;
 
 impl Event for NotesDisplayTimingAutoAdjustEvent {
     fn exec(&self, state: &mut dyn MainState, _arg1: i32, _arg2: i32) {
-        let Some(config) = state.get_player_config_mut() else {
+        let Some(config) = state.player_config_mut() else {
             return;
         };
         config.notes_display_timing_auto_adjust = !config.notes_display_timing_auto_adjust;
@@ -1297,7 +1297,7 @@ struct TargetEvent;
 
 impl Event for TargetEvent {
     fn exec(&self, state: &mut dyn MainState, arg1: i32, _arg2: i32) {
-        let Some(config) = state.get_player_config_mut() else {
+        let Some(config) = state.player_config_mut() else {
             return;
         };
         let targets = {
@@ -1391,7 +1391,7 @@ impl Event for AutoSaveReplayEvent {
         }
         // ReplayAutoSaveConstraint::values().len() = 11
         let length = 11;
-        let Some(config) = state.get_player_config_mut() else {
+        let Some(config) = state.player_config_mut() else {
             return;
         };
         if self.index >= config.autosavereplay.len() {
@@ -1461,7 +1461,7 @@ impl Event for GuideSeEvent {
         if !state.is_music_selector() {
             return;
         }
-        let Some(config) = state.get_player_config_mut() else {
+        let Some(config) = state.player_config_mut() else {
             return;
         };
         config.is_guide_se = !config.is_guide_se;
@@ -1487,7 +1487,7 @@ impl Event for ChartReplicationModeEvent {
         // ChartReplicationMode.values() = [NONE, RIVALCHART, RIVALOPTION]
         let values = ["NONE", "RIVALCHART", "RIVALOPTION"];
         let len = values.len();
-        let Some(config) = state.get_player_config_mut() else {
+        let Some(config) = state.player_config_mut() else {
             return;
         };
         let current_id = config.sortid.clone().unwrap_or_default();
@@ -1579,9 +1579,7 @@ mod tests {
             self.is_selector
         }
 
-        fn get_player_config_mut(
-            &mut self,
-        ) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+        fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
             Some(&mut self.player_config)
         }
 

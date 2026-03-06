@@ -243,8 +243,8 @@ impl RivalTargetProperty {
                     .rival_information(index)
                     .map(|info| info.name().to_string());
                 score = main
-                    .get_rival_data_accessor_mut()
-                    .get_rival_score_data_cache_mut(index)
+                    .rival_data_accessor_mut()
+                    .rival_score_data_cache_mut(index)
                     .and_then(|cache| cache.read_score_data(&songdata, lnmode).cloned());
             }
             RivalTarget::Rank => {
@@ -322,8 +322,8 @@ impl RivalTargetProperty {
         #[allow(clippy::needless_range_loop)]
         for i in 0..rival_count {
             let score = main
-                .get_rival_data_accessor_mut()
-                .get_rival_score_data_cache_mut(i)
+                .rival_data_accessor_mut()
+                .rival_score_data_cache_mut(i)
                 .and_then(|cache| cache.read_score_data(songdata, lnmode).cloned());
 
             if let Some(mut sd) = score {

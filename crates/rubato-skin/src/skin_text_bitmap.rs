@@ -31,7 +31,7 @@ impl SkinTextBitmap {
         } else {
             SkinTextData::new_with_id(-1)
         };
-        let font = source.get_font();
+        let font = source.font();
         Self {
             text_data,
             source,
@@ -393,7 +393,7 @@ impl SkinTextBitmapSource {
     ///
     /// Translated from: SkinTextBitmapSource.getFont
     /// Uses BitmapFontCache to avoid reloading the same font.
-    pub fn get_font(&mut self) -> Option<BitmapFont> {
+    pub fn font(&mut self) -> Option<BitmapFont> {
         if !crate::bitmap_font_cache::has(Some(&self.font_path)) {
             let new_font = self.create_cacheable_font(&self.font_path.clone(), self.source_type);
             crate::bitmap_font_cache::set(
