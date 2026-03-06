@@ -8,7 +8,7 @@ use rubato_core::stubs::SongData;
 use rubato_core::table_data::TableFolder;
 use rubato_types::song_database_accessor::SongDatabaseAccessor;
 
-use crate::table_editor_view::TableEditorView;
+use crate::views::editors::table_editor_view::TableEditorView;
 
 /// SongDataView stub — corresponds to the SongDataView FXML sub-controller
 #[derive(Clone, Debug, Default)]

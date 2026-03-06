@@ -9,8 +9,8 @@ use rubato_core::stubs::SongData;
 use rubato_core::table_data::TableData;
 use rubato_types::song_database_accessor::SongDatabaseAccessor;
 
-use crate::course_editor_view::CourseEditorView;
-use crate::folder_editor_view::FolderEditorView;
+use crate::views::editors::course_editor_view::CourseEditorView;
+use crate::views::editors::folder_editor_view::FolderEditorView;
 
 /// Which sub-editor tab is active in the table editor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

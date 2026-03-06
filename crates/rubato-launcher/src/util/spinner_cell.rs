@@ -1,7 +1,7 @@
 // Translated from SpinnerCell.java
 
-use crate::controller_config_view_model::ControllerConfigViewModel;
-use crate::numeric_spinner::{NumericSpinner, NumericValue};
+use crate::util::controller_config_view_model::ControllerConfigViewModel;
+use crate::util::numeric_spinner::{NumericSpinner, NumericValue};
 
 /// TableCell with NumericSpinner for ControllerConfigViewModel.
 /// Java: SpinnerCell extends TableCell<ControllerConfigViewModel, Integer>

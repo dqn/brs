@@ -6,7 +6,7 @@ use egui;
 use rubato_core::play_mode_config::{ANALOG_SCRATCH_VER_1, ANALOG_SCRATCH_VER_2, PlayModeConfig};
 use rubato_core::player_config::PlayerConfig;
 
-use crate::controller_config_view_model::ControllerConfigViewModel;
+use crate::util::controller_config_view_model::ControllerConfigViewModel;
 
 /// PlayMode enum
 /// Translates: PlayConfigurationView.PlayMode (inner enum)

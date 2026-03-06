@@ -10,8 +10,8 @@ use log::error;
 use rubato_core::config::{AVAILABLE_TABLEURL, Config};
 use rubato_core::table_data_accessor::TableDataAccessor;
 
-use crate::play_configuration_view::PlayConfigurationView;
 use crate::stubs::show_directory_chooser;
+use crate::views::play_configuration_view::PlayConfigurationView;
 
 /// TableInfo - inner data class for table URL entries
 /// Translates: ResourceConfigurationView.TableInfo (JavaFX property → plain struct)

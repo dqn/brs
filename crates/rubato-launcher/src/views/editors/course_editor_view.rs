@@ -5,8 +5,8 @@ use rubato_core::course_data::{CourseData, CourseDataConstraint, TrophyData};
 use rubato_core::stubs::SongData;
 use rubato_types::song_database_accessor::SongDatabaseAccessor;
 
-use crate::folder_editor_view::SongDataView;
-use crate::table_editor_view::TableEditorView;
+use crate::views::editors::folder_editor_view::SongDataView;
+use crate::views::editors::table_editor_view::TableEditorView;
 
 /// CourseEditorView - course editor with constraints, trophies, song search
 ///

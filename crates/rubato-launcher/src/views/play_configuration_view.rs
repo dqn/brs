@@ -15,19 +15,19 @@ use rubato_song::song_database_update_listener::SongDatabaseUpdateListener as So
 use rubato_song::song_information_accessor::SongInformationAccessor;
 use rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor;
 
-use crate::audio_configuration_view::AudioConfigurationView;
-use crate::discord_configuration_view::DiscordConfigurationView;
-use crate::input_configuration_view::InputConfigurationView;
-use crate::ir_configuration_view::IRConfigurationView;
-use crate::music_select_configuration_view::MusicSelectConfigurationView;
-use crate::obs_configuration_view::ObsConfigurationView;
-use crate::resource_configuration_view::ResourceConfigurationView;
-use crate::skin_configuration_view::SkinConfigurationView;
-use crate::stream_editor_view::StreamEditorView;
 use crate::stubs::{BMSPlayerMode, MainLoader, TwitterAuth, Version};
-use crate::table_editor_view::TableEditorView;
-use crate::trainer_view::TrainerView;
-use crate::video_configuration_view::VideoConfigurationView;
+use crate::views::config::audio_configuration_view::AudioConfigurationView;
+use crate::views::config::discord_configuration_view::DiscordConfigurationView;
+use crate::views::config::input_configuration_view::InputConfigurationView;
+use crate::views::config::ir_configuration_view::IRConfigurationView;
+use crate::views::config::music_select_configuration_view::MusicSelectConfigurationView;
+use crate::views::config::obs_configuration_view::ObsConfigurationView;
+use crate::views::config::stream_editor_view::StreamEditorView;
+use crate::views::config::trainer_view::TrainerView;
+use crate::views::config::video_configuration_view::VideoConfigurationView;
+use crate::views::editors::table_editor_view::TableEditorView;
+use crate::views::resource_configuration_view::ResourceConfigurationView;
+use crate::views::skin_configuration_view::SkinConfigurationView;
 
 /// State of async BMS database loading.
 ///

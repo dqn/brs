@@ -7,7 +7,7 @@ use rubato_core::config::Config;
 use rubato_core::main_state::MainStateType;
 use rubato_external::obs::obs_ws_client::{ObsVersionInfo, ObsWsClient, action_label, obs_actions};
 
-use crate::play_configuration_view::PlayConfigurationView;
+use crate::views::play_configuration_view::PlayConfigurationView;
 
 /// SCENE_NONE - label for no scene change
 pub const SCENE_NONE: &str = "(No Change)";
