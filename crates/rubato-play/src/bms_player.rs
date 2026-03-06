@@ -247,6 +247,39 @@ impl Default for PlayerInputState {
     }
 }
 
+/// Score, replay, and analysis state for the current play session.
+pub struct PlayerScoreState {
+    pub playinfo: ReplayData,
+    pub replay_config: Option<rubato_types::play_config::PlayConfig>,
+    pub active_replay: Option<ReplayData>,
+    pub db_score: Option<ScoreData>,
+    pub rival_score: Option<ScoreData>,
+    pub target_score: Option<ScoreData>,
+    pub analysis_result: Option<rubato_audio::bms_loudness_analyzer::AnalysisResult>,
+    pub analysis_checked: bool,
+}
+
+impl PlayerScoreState {
+    pub fn new() -> Self {
+        Self {
+            playinfo: ReplayData::new(),
+            replay_config: None,
+            active_replay: None,
+            db_score: None,
+            rival_score: None,
+            target_score: None,
+            analysis_result: None,
+            analysis_checked: false,
+        }
+    }
+}
+
+impl Default for PlayerScoreState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// BMS Player main struct
 pub struct BMSPlayer {
     model: BMSModel,
@@ -268,9 +301,8 @@ pub struct BMSPlayer {
     rhythm: Option<RhythmTimerProcessor>,
     startpressedtime: i64,
     adjusted_volume: f32,
-    analysis_checked: bool,
-    playinfo: ReplayData,
-    replay_config: Option<rubato_types::play_config::PlayConfig>,
+    /// Score, replay, and analysis state.
+    score: PlayerScoreState,
     /// Gauge log per gauge type
     gaugelog: Vec<Vec<f32>>,
     /// Skin for play screen
@@ -279,8 +311,6 @@ pub struct BMSPlayer {
     main_state_data: MainStateData,
     /// Total notes in song (from songdata)
     total_notes: i32,
-    /// Active replay data for keylog playback (set when in REPLAY mode)
-    active_replay: Option<ReplayData>,
     /// Margin time in milliseconds (from resource)
     margin_time: i64,
     /// Pending side-effect requests produced during render/state transitions.
@@ -310,8 +340,6 @@ pub struct BMSPlayer {
     chart_option: Option<ReplayData>,
     /// Skin name from header (set during skin loading for score recording).
     skin_name: Option<String>,
-    /// Analysis result from BMSLoudnessAnalyzer (set by caller via async task).
-    analysis_result: Option<rubato_audio::bms_loudness_analyzer::AnalysisResult>,
     /// Whether media loading has finished (set by the caller via resource.mediaLoadFinished()).
     media_load_finished: bool,
     /// Whether we are in course mode (resource.getCourseBMSModels() != null).
@@ -319,20 +347,6 @@ pub struct BMSPlayer {
     is_course_mode: bool,
     /// Input device type (for create_score_data). Set by the caller.
     device_type: rubato_input::bms_player_input_device::DeviceType,
-    /// Player's own score data loaded from the score DB.
-    /// Set by the caller before create(). Used to initialize ScoreDataProperty.
-    /// Java: main.getPlayDataAccessor().readScoreData(model, config.getLnmode())
-    db_score: Option<ScoreData>,
-    /// Rival score data from PlayerResource.
-    /// Set by the caller before create(). Used for target score computation.
-    /// Java: resource.getRivalScoreData()
-    rival_score: Option<ScoreData>,
-    /// Target score data (computed from TargetProperty or rival score).
-    /// Set by the caller before create(). The caller is responsible for computing
-    /// target via TargetProperty::from_id(config.targetid).target(main)
-    /// when rival_score is None or course mode is active.
-    /// Java: TargetProperty.getTargetProperty(config.getTargetid()).getTarget(main)
-    target_score: Option<ScoreData>,
 }
 
 impl BMSPlayer {
@@ -366,14 +380,11 @@ impl BMSPlayer {
             rhythm: None,
             startpressedtime: 0,
             adjusted_volume: -1.0,
-            analysis_checked: false,
-            playinfo: ReplayData::new(),
-            replay_config: None,
+            score: PlayerScoreState::new(),
             gaugelog: Vec::new(),
             play_skin: PlaySkin::new(),
             main_state_data: MainStateData::new(TimerManager::new()),
             total_notes,
-            active_replay: None,
             margin_time: 0,
             pending: PendingActions::new(),
             fast_forward_freq_option: FrequencyType::UNPROCESSED,
@@ -385,13 +396,9 @@ impl BMSPlayer {
             player_config: PlayerConfig::default(),
             chart_option: None,
             skin_name: None,
-            analysis_result: None,
             media_load_finished: false,
             is_course_mode: false,
             device_type: rubato_input::bms_player_input_device::DeviceType::Keyboard,
-            db_score: None,
-            rival_score: None,
-            target_score: None,
         }
     }
 
@@ -431,7 +438,7 @@ impl BMSPlayer {
         &mut self,
         result: Option<rubato_audio::bms_loudness_analyzer::AnalysisResult>,
     ) {
-        self.analysis_result = result;
+        self.score.analysis_result = result;
     }
 
     /// Set the play mode before calling create().
@@ -599,7 +606,7 @@ impl BMSPlayer {
     /// Set the active replay data for keylog playback.
     /// Should be called when entering REPLAY mode after restore_replay_data().
     pub fn set_active_replay(&mut self, replay: Option<ReplayData>) {
-        self.active_replay = replay;
+        self.score.active_replay = replay;
     }
 
     /// Set the margin time in milliseconds (from resource).
@@ -616,7 +623,7 @@ impl BMSPlayer {
     ///
     /// Java: `main.getPlayDataAccessor().readScoreData(model, config.getLnmode())`
     pub fn set_db_score(&mut self, score: Option<ScoreData>) {
-        self.db_score = score;
+        self.score.db_score = score;
     }
 
     /// Set the rival score data from PlayerResource.
@@ -627,7 +634,7 @@ impl BMSPlayer {
     ///
     /// Java: `resource.getRivalScoreData()`
     pub fn set_rival_score(&mut self, score: Option<ScoreData>) {
-        self.rival_score = score;
+        self.score.rival_score = score;
     }
 
     /// Set the target score data computed from TargetProperty.
@@ -640,7 +647,7 @@ impl BMSPlayer {
     ///
     /// Java: `TargetProperty.getTargetProperty(config.getTargetid()).getTarget(main)`
     pub fn set_target_score(&mut self, score: Option<ScoreData>) {
-        self.target_score = score;
+        self.score.target_score = score;
     }
 
     /// Take the pending global pitch value, if any.
@@ -661,7 +668,7 @@ impl BMSPlayer {
         analysis_result: &rubato_audio::bms_loudness_analyzer::AnalysisResult,
         config_key_volume: f32,
     ) -> f32 {
-        self.analysis_checked = true;
+        self.score.analysis_checked = true;
         if analysis_result.success {
             self.adjusted_volume = analysis_result.calculate_adjusted_volume(config_key_volume);
             log::info!(
@@ -680,7 +687,7 @@ impl BMSPlayer {
 
     /// Check if loudness analysis has been applied.
     pub fn is_analysis_checked(&self) -> bool {
-        self.analysis_checked
+        self.score.analysis_checked
     }
 
     pub fn practice_configuration(&self) -> &PracticeConfiguration {
@@ -1017,15 +1024,15 @@ impl BMSPlayer {
     /// these values from replay) and before `build_pattern_modifiers` (which
     /// uses the final values).
     pub fn init_playinfo_from_config(&mut self, config: &PlayerConfig) {
-        self.playinfo.randomoption = config.random;
-        self.playinfo.randomoption2 = config.random2;
-        self.playinfo.doubleoption = config.doubleoption;
+        self.score.playinfo.randomoption = config.random;
+        self.score.playinfo.randomoption2 = config.random2;
+        self.score.playinfo.doubleoption = config.doubleoption;
     }
 
     /// Get option information (replay data with random options).
     /// Corresponds to Java getOptionInformation() returning playinfo.
     pub fn option_information(&self) -> &ReplayData {
-        &self.playinfo
+        &self.score.playinfo
     }
 
     /// Encode the random seed for ScoreData storage.
@@ -1038,9 +1045,9 @@ impl BMSPlayer {
     pub fn encode_seed_for_score(&self) -> i64 {
         let player_count = self.model.mode().map_or(1, |m| m.player());
         if player_count == 2 {
-            self.playinfo.randomoption2seed * 65536 * 256 + self.playinfo.randomoptionseed
+            self.score.playinfo.randomoption2seed * 65536 * 256 + self.score.playinfo.randomoptionseed
         } else {
-            self.playinfo.randomoptionseed
+            self.score.playinfo.randomoptionseed
         }
     }
 
@@ -1055,11 +1062,11 @@ impl BMSPlayer {
     pub fn encode_option_for_score(&self) -> i32 {
         let player_count = self.model.mode().map_or(1, |m| m.player());
         if player_count == 2 {
-            self.playinfo.randomoption
-                + self.playinfo.randomoption2 * 10
-                + self.playinfo.doubleoption * 100
+            self.score.playinfo.randomoption
+                + self.score.playinfo.randomoption2 * 10
+                + self.score.playinfo.doubleoption * 100
         } else {
-            self.playinfo.randomoption
+            self.score.playinfo.randomoption
         }
     }
 
@@ -1083,15 +1090,15 @@ impl BMSPlayer {
         // GhostBattle seed/option override (Java lines 119-138)
         let mut ghost_battle = crate::ghost_battle_play::consume();
         if let Some(ref mut gb) = ghost_battle {
-            self.playinfo.randomoption = gb.random;
+            self.score.playinfo.randomoption = gb.random;
             // Mirror inversion: if player config is MIRROR, flip ghost's option
             const IDENTITY: i32 = 0; // Random::Identity ordinal
             const MIRROR: i32 = 1; // Random::Mirror ordinal
             const RANDOM: i32 = 2; // Random::Random ordinal
             if config.random == MIRROR {
                 match gb.random {
-                    IDENTITY => self.playinfo.randomoption = MIRROR,
-                    MIRROR => self.playinfo.randomoption = IDENTITY,
+                    IDENTITY => self.score.playinfo.randomoption = MIRROR,
+                    MIRROR => self.score.playinfo.randomoption = IDENTITY,
                     RANDOM => {
                         // Reverse the decimal digit representation of the lane pattern
                         let reversed: i32 = gb
@@ -1109,12 +1116,12 @@ impl BMSPlayer {
             }
         } else if let Some(chart_option) = self.chart_option.take() {
             // ChartOption override (Java lines 140-148)
-            self.playinfo.randomoption = chart_option.randomoption;
-            self.playinfo.randomoptionseed = chart_option.randomoptionseed;
-            self.playinfo.randomoption2 = chart_option.randomoption2;
-            self.playinfo.randomoption2seed = chart_option.randomoption2seed;
-            self.playinfo.doubleoption = chart_option.doubleoption;
-            self.playinfo.rand = chart_option.rand;
+            self.score.playinfo.randomoption = chart_option.randomoption;
+            self.score.playinfo.randomoptionseed = chart_option.randomoptionseed;
+            self.score.playinfo.randomoption2 = chart_option.randomoption2;
+            self.score.playinfo.randomoption2seed = chart_option.randomoption2seed;
+            self.score.playinfo.doubleoption = chart_option.doubleoption;
+            self.score.playinfo.rand = chart_option.rand;
         }
 
         // -- Phase 1: Pre-option modifiers (scroll, LN, mine, extra) --
@@ -1159,7 +1166,7 @@ impl BMSPlayer {
         }
 
         // -- Phase 2: DP battle mode handling (doubleoption >= 2) --
-        if self.playinfo.doubleoption >= 2 {
+        if self.score.playinfo.doubleoption >= 2 {
             let mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
             if mode == Mode::BEAT_5K || mode == Mode::BEAT_7K || mode == Mode::KEYBOARD_24K {
                 // Convert SP mode to DP mode
@@ -1176,7 +1183,7 @@ impl BMSPlayer {
                 battle_mod.modify(&mut self.model);
 
                 // If doubleoption == 3, also add AutoplayModifier for scratch keys
-                if self.playinfo.doubleoption == 3 {
+                if self.score.playinfo.doubleoption == 3 {
                     let dp_mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_14K);
                     let scratch_keys = dp_mode.scratch_key().to_vec();
                     let mut autoplay_mod = AutoplayModifier::new(scratch_keys);
@@ -1188,7 +1195,7 @@ impl BMSPlayer {
                 log::info!("Pattern option: BATTLE (L-ASSIST)");
             } else {
                 // Not SP mode, so BATTLE is not applied
-                self.playinfo.doubleoption = 0;
+                self.score.playinfo.doubleoption = 0;
             }
         }
 
@@ -1202,51 +1209,51 @@ impl BMSPlayer {
 
         // DP option modifiers
         if player_count == 2 {
-            if self.playinfo.doubleoption == 1 {
+            if self.score.playinfo.doubleoption == 1 {
                 random_mods.push(Box::new(PlayerFlipModifier::new()));
             }
-            log::info!("Pattern option (DP): {}", self.playinfo.doubleoption);
+            log::info!("Pattern option (DP): {}", self.score.playinfo.doubleoption);
 
             // 2P random option
             let mut pm2 = rubato_core::pattern::pattern_modifier::create_pattern_modifier(
-                self.playinfo.randomoption2,
+                self.score.playinfo.randomoption2,
                 1,
                 &mode,
                 config,
             );
-            if self.playinfo.randomoption2seed != -1 {
-                pm2.set_seed(self.playinfo.randomoption2seed);
+            if self.score.playinfo.randomoption2seed != -1 {
+                pm2.set_seed(self.score.playinfo.randomoption2seed);
             } else {
-                self.playinfo.randomoption2seed = pm2.get_seed();
+                self.score.playinfo.randomoption2seed = pm2.get_seed();
             }
             random_mods.push(pm2);
             log::info!(
                 "Pattern option (2P): {}, Seed: {}",
-                self.playinfo.randomoption2,
-                self.playinfo.randomoption2seed
+                self.score.playinfo.randomoption2,
+                self.score.playinfo.randomoption2seed
             );
         }
 
         // 1P random option
         let mut pm1 = rubato_core::pattern::pattern_modifier::create_pattern_modifier(
-            self.playinfo.randomoption,
+            self.score.playinfo.randomoption,
             0,
             &mode,
             config,
         );
-        if self.playinfo.randomoptionseed != -1 {
-            pm1.set_seed(self.playinfo.randomoptionseed);
+        if self.score.playinfo.randomoptionseed != -1 {
+            pm1.set_seed(self.score.playinfo.randomoptionseed);
         } else {
             // GhostBattle/RandomTrainer seed override requires RandomTrainer::getRandomSeedMap()
             // which lives in beatoraja-modmenu (circular dep). The seed map would need to be
             // passed in as an external dependency when GhostBattle or RandomTrainer is active.
-            self.playinfo.randomoptionseed = pm1.get_seed();
+            self.score.playinfo.randomoptionseed = pm1.get_seed();
         }
         random_mods.push(pm1);
         log::info!(
             "Pattern option (1P): {}, Seed: {}",
-            self.playinfo.randomoption,
-            self.playinfo.randomoptionseed
+            self.score.playinfo.randomoption,
+            self.score.playinfo.randomoptionseed
         );
 
         // 7to9 mode
@@ -1290,7 +1297,7 @@ impl BMSPlayer {
                 .into_iter()
                 .map(|p| p.unwrap_or_default())
                 .collect();
-            self.playinfo.lane_shuffle_pattern = Some(patterns);
+            self.score.playinfo.lane_shuffle_pattern = Some(patterns);
         }
 
         score
@@ -1353,19 +1360,19 @@ impl BMSPlayer {
                 if key_state.pattern_key {
                     // Replay pattern mode: copy options + seeds + rand
                     log::info!("リプレイ再現モード : 譜面");
-                    self.playinfo.randomoption = replay_data.randomoption;
-                    self.playinfo.randomoptionseed = replay_data.randomoptionseed;
-                    self.playinfo.randomoption2 = replay_data.randomoption2;
-                    self.playinfo.randomoption2seed = replay_data.randomoption2seed;
-                    self.playinfo.doubleoption = replay_data.doubleoption;
-                    self.playinfo.rand = replay_data.rand.clone();
+                    self.score.playinfo.randomoption = replay_data.randomoption;
+                    self.score.playinfo.randomoptionseed = replay_data.randomoptionseed;
+                    self.score.playinfo.randomoption2 = replay_data.randomoption2;
+                    self.score.playinfo.randomoption2seed = replay_data.randomoption2seed;
+                    self.score.playinfo.doubleoption = replay_data.doubleoption;
+                    self.score.playinfo.rand = replay_data.rand.clone();
                     is_replay_pattern_play = true;
                 } else if key_state.option_key {
                     // Replay option mode: copy options only (no seeds, no rand)
                     log::info!("リプレイ再現モード : オプション");
-                    self.playinfo.randomoption = replay_data.randomoption;
-                    self.playinfo.randomoption2 = replay_data.randomoption2;
-                    self.playinfo.doubleoption = replay_data.doubleoption;
+                    self.score.playinfo.randomoption = replay_data.randomoption;
+                    self.score.playinfo.randomoption2 = replay_data.randomoption2;
+                    self.score.playinfo.doubleoption = replay_data.doubleoption;
                     is_replay_pattern_play = true;
                 }
 
@@ -1452,24 +1459,24 @@ impl BMSPlayer {
         {
             if is_replay_mode {
                 if let Some(replay_data) = replay {
-                    self.playinfo.rand = replay_data.rand.clone();
+                    self.score.playinfo.rand = replay_data.rand.clone();
                 }
             } else if resource_replay_seed != -1 {
                 // This path is hit on MusicResult / QuickRetry
-                self.playinfo.rand = resource_rand.to_vec();
+                self.score.playinfo.rand = resource_rand.to_vec();
             }
 
-            if !self.playinfo.rand.is_empty() {
+            if !self.score.playinfo.rand.is_empty() {
                 // Return rand to the caller for model reload via PlayerResource.
                 // Caller should: resource.load_bms_model(rand), then update self.model
-                // and self.playinfo.rand = model.random().
-                log::info!("譜面分岐 : {:?}", self.playinfo.rand);
-                return Some(self.playinfo.rand.clone());
+                // and self.score.playinfo.rand = model.random().
+                log::info!("譜面分岐 : {:?}", self.score.playinfo.rand);
+                return Some(self.score.playinfo.rand.clone());
             }
 
             // No rand override, store model's random into playinfo
-            self.playinfo.rand = random.clone();
-            log::info!("譜面分岐 : {:?}", self.playinfo.rand);
+            self.score.playinfo.rand = random.clone();
+            log::info!("譜面分岐 : {:?}", self.score.playinfo.rand);
         }
         None
     }
@@ -1624,7 +1631,7 @@ impl BMSPlayer {
     /// Get mutable reference to playinfo for testing.
     #[cfg(test)]
     pub fn playinfo_mut(&mut self) -> &mut ReplayData {
-        &mut self.playinfo
+        &mut self.score.playinfo
     }
 }
 
@@ -1880,7 +1887,7 @@ impl MainState for BMSPlayer {
                 judge: &self.judge,
                 gauge: self.gauge.as_ref(),
                 player_config: &self.player_config,
-                option_info: &self.playinfo,
+                option_info: &self.score.playinfo,
                 play_config: &self
                     .player_config
                     .play_config_ref(
@@ -1890,7 +1897,7 @@ impl MainState for BMSPlayer {
                             .unwrap_or(bms_model::mode::Mode::BEAT_7K),
                     )
                     .playconfig,
-                target_score: self.target_score.as_ref(),
+                target_score: self.score.target_score.as_ref(),
                 playtime: self.playtime,
                 total_notes: self.total_notes,
                 play_mode: self.play_mode.clone(),
@@ -2069,7 +2076,7 @@ impl MainState for BMSPlayer {
         //
         // The caller must pre-load db_score, rival_score, and target_score via
         // set_db_score(), set_rival_score(), and set_target_score() before create().
-        let score = self.db_score.clone().unwrap_or_default();
+        let score = self.score.db_score.clone().unwrap_or_default();
         log::info!("Score data loaded from score database");
 
         let total_notes = self.model.total_notes();
@@ -2085,10 +2092,10 @@ impl MainState for BMSPlayer {
             // - If rival score is absent or in course mode, use the pre-computed target_score
             //   (caller should have computed via TargetProperty::from_id().target())
             // - Otherwise, use the rival score as the target
-            let effective_target = if self.rival_score.is_none() || self.is_course_mode {
-                self.target_score.clone()
+            let effective_target = if self.score.rival_score.is_none() || self.is_course_mode {
+                self.score.target_score.clone()
             } else {
-                self.rival_score.clone()
+                self.score.rival_score.clone()
             };
 
             let (target_exscore, target_ghost) = match effective_target {
@@ -2161,10 +2168,10 @@ impl MainState for BMSPlayer {
                     }
 
                     // Loudness analysis check (Java BMSPlayer.render() lines 615-641)
-                    if !self.analysis_checked {
+                    if !self.score.analysis_checked {
                         self.adjusted_volume = -1.0;
-                        self.analysis_checked = true;
-                        if let Some(result) = self.analysis_result.take() {
+                        self.score.analysis_checked = true;
+                        if let Some(result) = self.score.analysis_result.take() {
                             let config_key_volume = self.bg_volume;
                             self.apply_loudness_analysis(&result, config_key_volume);
                         }
@@ -2366,7 +2373,7 @@ impl MainState for BMSPlayer {
                     > self.play_skin.playstart() as i64
                 {
                     if let Some(ref lr) = self.lanerender {
-                        self.replay_config = Some(lr.play_config().clone());
+                        self.score.replay_config = Some(lr.play_config().clone());
                     }
                     self.state = STATE_PLAY;
                     self.main_state_data
@@ -2382,7 +2389,7 @@ impl MainState for BMSPlayer {
                     if let Some(ref mut ki) = self.input.keyinput {
                         let timelines = self.model.all_time_lines();
                         let last_tl_micro = timelines.last().map_or(0, |tl| tl.micro_time());
-                        let keylog = self.active_replay.as_ref().map(|r| r.keylog.as_slice());
+                        let keylog = self.score.active_replay.as_ref().map(|r| r.keylog.as_slice());
                         ki.start_judge(last_tl_micro, keylog, self.margin_time);
                     }
                     // Resolve initial BG volume: use adjusted_volume if >= 0,
@@ -3059,7 +3066,7 @@ mod tests {
         assert_eq!(player.state(), STATE_PRELOAD);
         assert_eq!(player.play_speed(), 100);
         assert_eq!(player.adjusted_volume(), -1.0);
-        assert!(!player.analysis_checked);
+        assert!(!player.score.analysis_checked);
     }
 
     #[test]
@@ -3105,7 +3112,7 @@ mod tests {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
         player.player_config.random = 1;
-        player.playinfo.randomoption = 6;
+        player.score.playinfo.randomoption = 6;
         let observed = Arc::new(AtomicI32::new(-1));
         player.main_state_data.skin = Some(Box::new(ProbeImageIndexSkin {
             id: 42,
@@ -3685,7 +3692,7 @@ mod tests {
 
         let mut config = make_default_config();
         config.doubleoption = 2;
-        player.playinfo.doubleoption = 2;
+        player.score.playinfo.doubleoption = 2;
 
         let score = player.build_pattern_modifiers(&config);
         // SP BEAT_7K should be converted to BEAT_14K
@@ -3705,7 +3712,7 @@ mod tests {
 
         let mut config = make_default_config();
         config.doubleoption = 3; // Battle + L-ASSIST (autoplay scratch)
-        player.playinfo.doubleoption = 3;
+        player.score.playinfo.doubleoption = 3;
 
         player.build_pattern_modifiers(&config);
         // SP BEAT_7K should be converted to BEAT_14K
@@ -3722,12 +3729,12 @@ mod tests {
 
         let mut config = make_default_config();
         config.doubleoption = 2;
-        player.playinfo.doubleoption = 2;
+        player.score.playinfo.doubleoption = 2;
 
         player.build_pattern_modifiers(&config);
         // Not SP mode, so BATTLE is not applied
         assert_eq!(player.mode(), Mode::BEAT_14K);
-        assert_eq!(player.playinfo.doubleoption, 0);
+        assert_eq!(player.score.playinfo.doubleoption, 0);
     }
 
     #[test]
@@ -3739,7 +3746,7 @@ mod tests {
 
         let mut config = make_default_config();
         config.doubleoption = 1;
-        player.playinfo.doubleoption = 1;
+        player.score.playinfo.doubleoption = 1;
 
         player.build_pattern_modifiers(&config);
         // PlayerFlipModifier should be applied, mode stays BEAT_14K
@@ -3755,7 +3762,7 @@ mod tests {
         player.build_pattern_modifiers(&config);
         // After applying modifiers, the 1P random seed should be saved in playinfo
         // Even with Identity (random=0), the seed is initialized
-        assert_ne!(player.playinfo.randomoptionseed, -1);
+        assert_ne!(player.score.playinfo.randomoptionseed, -1);
     }
 
     #[test]
@@ -3765,11 +3772,11 @@ mod tests {
         let config = make_default_config();
 
         // Pre-set a seed (as if restoring from replay)
-        player.playinfo.randomoptionseed = 12345;
+        player.score.playinfo.randomoptionseed = 12345;
 
         player.build_pattern_modifiers(&config);
         // The seed should be preserved (not overwritten)
-        assert_eq!(player.playinfo.randomoptionseed, 12345);
+        assert_eq!(player.score.playinfo.randomoptionseed, 12345);
     }
 
     #[test]
@@ -3782,7 +3789,7 @@ mod tests {
 
         player.build_pattern_modifiers(&config);
         // In DP mode, the 2P random seed should also be saved
-        assert_ne!(player.playinfo.randomoption2seed, -1);
+        assert_ne!(player.score.playinfo.randomoption2seed, -1);
     }
 
     #[test]
@@ -3829,7 +3836,7 @@ mod tests {
 
         let mut config = make_default_config();
         config.doubleoption = 2;
-        player.playinfo.doubleoption = 2;
+        player.score.playinfo.doubleoption = 2;
 
         player.build_pattern_modifiers(&config);
         // BEAT_5K should be converted to BEAT_10K
@@ -3842,7 +3849,7 @@ mod tests {
     fn encode_seed_for_score_sp_returns_1p_seed() {
         let model = make_model(); // BEAT_7K (player=1)
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoptionseed = 12345;
+        player.score.playinfo.randomoptionseed = 12345;
         assert_eq!(player.encode_seed_for_score(), 12345);
     }
 
@@ -3852,8 +3859,8 @@ mod tests {
         model.set_mode(Mode::BEAT_14K); // DP (player=2)
         model.set_judgerank(100);
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoptionseed = 100;
-        player.playinfo.randomoption2seed = 3;
+        player.score.playinfo.randomoptionseed = 100;
+        player.score.playinfo.randomoption2seed = 3;
         // Combined: 3 * 65536 * 256 + 100 = 3 * 16777216 + 100 = 50331748
         assert_eq!(player.encode_seed_for_score(), 50_331_748);
     }
@@ -3864,8 +3871,8 @@ mod tests {
         model.set_mode(Mode::BEAT_14K);
         model.set_judgerank(100);
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoptionseed = 0;
-        player.playinfo.randomoption2seed = 0;
+        player.score.playinfo.randomoptionseed = 0;
+        player.score.playinfo.randomoption2seed = 0;
         assert_eq!(player.encode_seed_for_score(), 0);
     }
 
@@ -3875,7 +3882,7 @@ mod tests {
     fn encode_option_for_score_sp_returns_randomoption() {
         let model = make_model(); // BEAT_7K (player=1)
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoption = 5;
+        player.score.playinfo.randomoption = 5;
         assert_eq!(player.encode_option_for_score(), 5);
     }
 
@@ -3885,9 +3892,9 @@ mod tests {
         model.set_mode(Mode::BEAT_14K); // DP (player=2)
         model.set_judgerank(100);
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoption = 2;
-        player.playinfo.randomoption2 = 3;
-        player.playinfo.doubleoption = 1;
+        player.score.playinfo.randomoption = 2;
+        player.score.playinfo.randomoption2 = 3;
+        player.score.playinfo.doubleoption = 1;
         // Combined: 2 + 3 * 10 + 1 * 100 = 132
         assert_eq!(player.encode_option_for_score(), 132);
     }
@@ -3898,9 +3905,9 @@ mod tests {
         model.set_mode(Mode::BEAT_14K);
         model.set_judgerank(100);
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoption = 1;
-        player.playinfo.randomoption2 = 4;
-        player.playinfo.doubleoption = 0;
+        player.score.playinfo.randomoption = 1;
+        player.score.playinfo.randomoption2 = 4;
+        player.score.playinfo.doubleoption = 0;
         // Combined: 1 + 4 * 10 + 0 * 100 = 41
         assert_eq!(player.encode_option_for_score(), 41);
     }
@@ -3915,17 +3922,17 @@ mod tests {
 
         // First build: generates a new seed
         player.build_pattern_modifiers(&config);
-        let saved_seed = player.playinfo.randomoptionseed;
+        let saved_seed = player.score.playinfo.randomoptionseed;
         assert_ne!(saved_seed, -1, "Seed should be initialized");
 
         // Second build with the same player: seed should be preserved
         // (since randomoptionseed is no longer -1, the restore path is used)
         let model2 = make_model();
         let mut player2 = BMSPlayer::new(model2);
-        player2.playinfo.randomoptionseed = saved_seed;
+        player2.score.playinfo.randomoptionseed = saved_seed;
         player2.build_pattern_modifiers(&config);
         assert_eq!(
-            player2.playinfo.randomoptionseed, saved_seed,
+            player2.score.playinfo.randomoptionseed, saved_seed,
             "Seed should be preserved on rebuild"
         );
     }
@@ -3942,11 +3949,11 @@ mod tests {
         let mut config = make_default_config();
         // Random (id=2) creates LaneRandomShuffleModifier with show_shuffle_pattern=true
         config.random = 2;
-        player.playinfo.randomoption = 2;
+        player.score.playinfo.randomoption = 2;
 
         player.build_pattern_modifiers(&config);
         // lane_shuffle_pattern should be initialized with player count
-        let lsp = player.playinfo.lane_shuffle_pattern.as_ref();
+        let lsp = player.score.playinfo.lane_shuffle_pattern.as_ref();
         assert!(
             lsp.is_some(),
             "lane_shuffle_pattern should be set for DP mode with Random option"
@@ -3988,8 +3995,8 @@ mod tests {
         assert!(result.replay.is_none());
         assert!(result.hs_replay_config.is_none());
         // playinfo should be unchanged
-        assert_eq!(player.playinfo.randomoption, 0);
-        assert_eq!(player.playinfo.randomoptionseed, -1);
+        assert_eq!(player.score.playinfo.randomoption, 0);
+        assert_eq!(player.score.playinfo.randomoptionseed, -1);
     }
 
     #[test]
@@ -4009,12 +4016,12 @@ mod tests {
         assert!(result.replay.is_none());
 
         // All fields should be copied
-        assert_eq!(player.playinfo.randomoption, 3);
-        assert_eq!(player.playinfo.randomoptionseed, 99999);
-        assert_eq!(player.playinfo.randomoption2, 2);
-        assert_eq!(player.playinfo.randomoption2seed, 88888);
-        assert_eq!(player.playinfo.doubleoption, 1);
-        assert_eq!(player.playinfo.rand, vec![2, 5, 1]);
+        assert_eq!(player.score.playinfo.randomoption, 3);
+        assert_eq!(player.score.playinfo.randomoptionseed, 99999);
+        assert_eq!(player.score.playinfo.randomoption2, 2);
+        assert_eq!(player.score.playinfo.randomoption2seed, 88888);
+        assert_eq!(player.score.playinfo.doubleoption, 1);
+        assert_eq!(player.score.playinfo.rand, vec![2, 5, 1]);
     }
 
     #[test]
@@ -4034,16 +4041,16 @@ mod tests {
         assert!(result.replay.is_none());
 
         // Options should be copied
-        assert_eq!(player.playinfo.randomoption, 3);
-        assert_eq!(player.playinfo.randomoption2, 2);
-        assert_eq!(player.playinfo.doubleoption, 1);
+        assert_eq!(player.score.playinfo.randomoption, 3);
+        assert_eq!(player.score.playinfo.randomoption2, 2);
+        assert_eq!(player.score.playinfo.doubleoption, 1);
 
         // Seeds should NOT be copied (remain at default -1)
-        assert_eq!(player.playinfo.randomoptionseed, -1);
-        assert_eq!(player.playinfo.randomoption2seed, -1);
+        assert_eq!(player.score.playinfo.randomoptionseed, -1);
+        assert_eq!(player.score.playinfo.randomoption2seed, -1);
 
         // Rand should NOT be copied
-        assert!(player.playinfo.rand.is_empty());
+        assert!(player.score.playinfo.rand.is_empty());
     }
 
     #[test]
@@ -4085,8 +4092,8 @@ mod tests {
         assert!(result.replay.is_none());
 
         // Pattern fields should be copied
-        assert_eq!(player.playinfo.randomoption, 3);
-        assert_eq!(player.playinfo.randomoptionseed, 99999);
+        assert_eq!(player.score.playinfo.randomoption, 3);
+        assert_eq!(player.score.playinfo.randomoptionseed, 99999);
 
         // HS config should also be returned
         assert!(result.hs_replay_config.is_some());
@@ -4107,8 +4114,8 @@ mod tests {
         assert!(result.hs_replay_config.is_none());
 
         // playinfo should be unchanged
-        assert_eq!(player.playinfo.randomoption, 0);
-        assert_eq!(player.playinfo.randomoptionseed, -1);
+        assert_eq!(player.score.playinfo.randomoption, 0);
+        assert_eq!(player.score.playinfo.randomoptionseed, -1);
     }
 
     // --- select_gauge_type tests (Phase 34c) ---
@@ -4208,7 +4215,7 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         let result = player.handle_random_syntax(false, None, -1, &[]);
         assert!(result.is_none());
-        assert!(player.playinfo.rand.is_empty());
+        assert!(player.score.playinfo.rand.is_empty());
     }
 
     #[test]
@@ -4230,7 +4237,7 @@ mod tests {
         // Should return Some with the replay's rand for model reload
         assert!(result.is_some());
         assert_eq!(result.unwrap(), vec![2, 1, 3]);
-        assert_eq!(player.playinfo.rand, vec![2, 1, 3]);
+        assert_eq!(player.score.playinfo.rand, vec![2, 1, 3]);
     }
 
     #[test]
@@ -4250,7 +4257,7 @@ mod tests {
         let result = player.handle_random_syntax(false, None, 42, &resource_rand);
         assert!(result.is_some());
         assert_eq!(result.unwrap(), vec![3, 2, 1]);
-        assert_eq!(player.playinfo.rand, vec![3, 2, 1]);
+        assert_eq!(player.score.playinfo.rand, vec![3, 2, 1]);
     }
 
     #[test]
@@ -4268,7 +4275,7 @@ mod tests {
         let result = player.handle_random_syntax(false, None, -1, &[]);
         // No reload needed (no rand override), but model's random should be stored
         assert!(result.is_none());
-        assert_eq!(player.playinfo.rand, vec![4, 5, 6]);
+        assert_eq!(player.score.playinfo.rand, vec![4, 5, 6]);
     }
 
     #[test]
@@ -4289,7 +4296,7 @@ mod tests {
         let result = player.handle_random_syntax(true, Some(&replay), -1, &[]);
         // Empty rand means no reload, store model's random
         assert!(result.is_none());
-        assert_eq!(player.playinfo.rand, vec![1, 2]);
+        assert_eq!(player.score.playinfo.rand, vec![1, 2]);
     }
 
     // --- calculate_non_modifier_assist tests (Phase 34d) ---
@@ -4541,9 +4548,9 @@ mod tests {
 
         player.init_playinfo_from_config(&config);
 
-        assert_eq!(player.playinfo.randomoption, 3);
-        assert_eq!(player.playinfo.randomoption2, 5);
-        assert_eq!(player.playinfo.doubleoption, 2);
+        assert_eq!(player.score.playinfo.randomoption, 3);
+        assert_eq!(player.score.playinfo.randomoption2, 5);
+        assert_eq!(player.score.playinfo.doubleoption, 2);
     }
 
     #[test]
@@ -4554,9 +4561,9 @@ mod tests {
 
         player.init_playinfo_from_config(&config);
 
-        assert_eq!(player.playinfo.randomoption, 0);
-        assert_eq!(player.playinfo.randomoption2, 0);
-        assert_eq!(player.playinfo.doubleoption, 0);
+        assert_eq!(player.score.playinfo.randomoption, 0);
+        assert_eq!(player.score.playinfo.randomoption2, 0);
+        assert_eq!(player.score.playinfo.doubleoption, 0);
     }
 
     #[test]
@@ -4569,8 +4576,8 @@ mod tests {
         player.init_playinfo_from_config(&config);
 
         // Seeds should remain at their default (-1 from ReplayData::new())
-        assert_eq!(player.playinfo.randomoptionseed, -1);
-        assert_eq!(player.playinfo.randomoption2seed, -1);
+        assert_eq!(player.score.playinfo.randomoptionseed, -1);
+        assert_eq!(player.score.playinfo.randomoption2seed, -1);
     }
 
     // --- End-to-end DP flow tests (Phase 34e) ---
@@ -4591,9 +4598,9 @@ mod tests {
 
         // Step 1: init from config
         player.init_playinfo_from_config(&config);
-        assert_eq!(player.playinfo.randomoption, 2);
-        assert_eq!(player.playinfo.randomoption2, 3);
-        assert_eq!(player.playinfo.doubleoption, 1);
+        assert_eq!(player.score.playinfo.randomoption, 2);
+        assert_eq!(player.score.playinfo.randomoption2, 3);
+        assert_eq!(player.score.playinfo.doubleoption, 1);
 
         // Step 2: build pattern modifiers
         player.build_pattern_modifiers(&config);
@@ -4637,9 +4644,9 @@ mod tests {
         player.restore_replay_data(Some(replay), &key_state);
 
         // After replay override, playinfo should reflect replay values
-        assert_eq!(player.playinfo.randomoption, 5);
-        assert_eq!(player.playinfo.randomoption2, 7);
-        assert_eq!(player.playinfo.doubleoption, 0);
+        assert_eq!(player.score.playinfo.randomoption, 5);
+        assert_eq!(player.score.playinfo.randomoption2, 7);
+        assert_eq!(player.score.playinfo.doubleoption, 0);
 
         // Step 3: build pattern modifiers (uses overridden values)
         player.build_pattern_modifiers(&config);
@@ -4663,9 +4670,9 @@ mod tests {
         // Step 1: init from config
         player.init_playinfo_from_config(&config);
         // All values are copied to playinfo
-        assert_eq!(player.playinfo.randomoption, 3);
-        assert_eq!(player.playinfo.randomoption2, 5);
-        assert_eq!(player.playinfo.doubleoption, 1);
+        assert_eq!(player.score.playinfo.randomoption, 3);
+        assert_eq!(player.score.playinfo.randomoption2, 5);
+        assert_eq!(player.score.playinfo.doubleoption, 1);
 
         // Step 2: build pattern modifiers
         player.build_pattern_modifiers(&config);
