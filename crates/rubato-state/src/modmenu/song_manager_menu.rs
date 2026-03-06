@@ -27,7 +27,7 @@ impl SongManagerMenu {
 
                 let last_play_record_time = current_score_data
                     .as_ref()
-                    .map(|sd| format!("{}", sd.get_date()))
+                    .map(|sd| format!("{}", sd.date))
                     .unwrap_or_else(|| "N/A".to_string());
 
                 if song_name.is_empty() {

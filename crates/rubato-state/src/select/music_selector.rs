@@ -241,11 +241,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
                 self.selected_song_data().map_or(0, |s| s.maxbpm)
             }
             // Song play/clear/fail counts
-            77 => self.selected_score().map_or(0, |s| s.get_playcount()),
-            78 => self.selected_score().map_or(0, |s| s.get_clearcount()),
+            77 => self.selected_score().map_or(0, |s| s.playcount),
+            78 => self.selected_score().map_or(0, |s| s.clearcount),
             79 => {
                 let score = self.selected_score();
-                score.map_or(0, |s| s.get_playcount() - s.get_clearcount())
+                score.map_or(0, |s| s.playcount - s.clearcount)
             }
             // Song duration
             312 => self.selected_song_data().map_or(0, |s| s.length),
@@ -1221,18 +1221,18 @@ impl MusicSelector {
             ChartReplicationMode::None => None,
             ChartReplicationMode::RivalChart => rival_score.map(|rival| {
                 let mut opt = rubato_types::replay_data::ReplayData::new();
-                opt.randomoption = rival.get_option() % 10;
-                opt.randomoption2 = (rival.get_option() / 10) % 10;
-                opt.doubleoption = rival.get_option() / 100;
-                opt.randomoptionseed = rival.get_seed() % (65536 * 256);
-                opt.randomoption2seed = rival.get_seed() / (65536 * 256);
+                opt.randomoption = rival.option % 10;
+                opt.randomoption2 = (rival.option / 10) % 10;
+                opt.doubleoption = rival.option / 100;
+                opt.randomoptionseed = rival.seed % (65536 * 256);
+                opt.randomoption2seed = rival.seed / (65536 * 256);
                 opt
             }),
             ChartReplicationMode::RivalOption => rival_score.map(|rival| {
                 let mut opt = rubato_types::replay_data::ReplayData::new();
-                opt.randomoption = rival.get_option() % 10;
-                opt.randomoption2 = (rival.get_option() / 10) % 10;
-                opt.doubleoption = rival.get_option() / 100;
+                opt.randomoption = rival.option % 10;
+                opt.randomoption2 = (rival.option / 10) % 10;
+                opt.doubleoption = rival.option / 100;
                 opt
             }),
             ChartReplicationMode::ReplayChart | ChartReplicationMode::ReplayOption => {

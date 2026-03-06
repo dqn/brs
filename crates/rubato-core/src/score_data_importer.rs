@@ -20,8 +20,8 @@ impl<'a> ScoreDataImporter<'a> {
         let mut result: Vec<ScoreData> = Vec::new();
 
         for score in scores {
-            let sha256 = score.get_sha256();
-            let mode = score.get_mode();
+            let sha256 = &score.sha256;
+            let mode = score.mode;
             let mut oldsd = match self.scoredb.get_score_data(sha256, mode) {
                 Some(existing) => existing,
                 None => ScoreData {

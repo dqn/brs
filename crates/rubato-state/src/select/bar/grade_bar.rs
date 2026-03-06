@@ -82,10 +82,10 @@ impl GradeBar {
     }
 
     fn qualified(score: &ScoreData, trophy: &TrophyData) -> bool {
-        score.get_notes() != 0
-            && trophy.get_missrate() >= score.get_minbp() as f32 * 100.0 / score.get_notes() as f32
+        score.notes != 0
+            && trophy.get_missrate() >= score.minbp as f32 * 100.0 / score.notes as f32
             && trophy.get_scorerate()
-                <= score.get_exscore() as f32 * 100.0 / (score.get_notes() as f32 * 2.0)
+                <= score.get_exscore() as f32 * 100.0 / (score.notes as f32 * 2.0)
     }
 
     pub fn get_lamp(&self, is_player: bool) -> i32 {
@@ -94,25 +94,25 @@ impl GradeBar {
                 .selectable
                 .bar_data
                 .get_rival_score()
-                .map(|s| s.get_clear())
+                .map(|s| s.clear)
                 .unwrap_or(0);
         }
 
         let mut result = 0;
         if let Some(score) = self.selectable.bar_data.get_score()
-            && score.get_clear() > result
+            && score.clear > result
         {
-            result = score.get_clear();
+            result = score.clear;
         }
         if let Some(score) = self.get_mirror_score()
-            && score.get_clear() > result
+            && score.clear > result
         {
-            result = score.get_clear();
+            result = score.clear;
         }
         if let Some(score) = self.get_random_score()
-            && score.get_clear() > result
+            && score.clear > result
         {
-            result = score.get_clear();
+            result = score.clear;
         }
         result
     }

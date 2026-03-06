@@ -1046,12 +1046,12 @@ impl RandomFolder {
 
 fn get_score_data_property(score: &ScoreData, key: &str) -> i64 {
     match key {
-        "clear" => score.get_clear() as i64,
+        "clear" => score.clear as i64,
         "exscore" => score.get_exscore() as i64,
-        "notes" => score.get_notes() as i64,
-        "minbp" => score.get_minbp() as i64,
-        "date" => score.get_date(),
-        "playcount" => score.get_playcount() as i64,
+        "notes" => score.notes as i64,
+        "minbp" => score.minbp as i64,
+        "date" => score.date,
+        "playcount" => score.playcount as i64,
         _ => 0,
     }
 }

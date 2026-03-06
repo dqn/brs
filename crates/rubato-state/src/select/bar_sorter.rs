@@ -214,7 +214,7 @@ impl BarSorter {
             (None, None) => Ordering::Equal,
             (None, _) => Ordering::Greater,
             (_, None) => Ordering::Less,
-            (Some(s1), Some(s2)) => s1.get_clear().cmp(&s2.get_clear()),
+            (Some(s1), Some(s2)) => s1.clear.cmp(&s2.clear),
         }
     }
 
@@ -228,8 +228,8 @@ impl BarSorter {
             (_, None) => return Ordering::Less,
             (Some(s1), Some(s2)) => (s1, s2),
         };
-        let n1 = s1.get_notes();
-        let n2 = s2.get_notes();
+        let n1 = s1.notes;
+        let n2 = s2.notes;
         if n1 == 0 && n2 == 0 {
             return Ordering::Equal;
         }
@@ -252,7 +252,7 @@ impl BarSorter {
             (None, None) => Ordering::Equal,
             (None, _) => Ordering::Greater,
             (_, None) => Ordering::Less,
-            (Some(s1), Some(s2)) => s1.get_minbp().cmp(&s2.get_minbp()),
+            (Some(s1), Some(s2)) => s1.minbp.cmp(&s2.minbp),
         }
     }
 
@@ -266,8 +266,8 @@ impl BarSorter {
             (_, None) => return Ordering::Less,
             (Some(s1), Some(s2)) => (s1, s2),
         };
-        let exists1 = s1.get_avgjudge() != i64::MAX;
-        let exists2 = s2.get_avgjudge() != i64::MAX;
+        let exists1 = s1.avgjudge != i64::MAX;
+        let exists2 = s2.avgjudge != i64::MAX;
         if !exists1 && !exists2 {
             return Ordering::Equal;
         }
@@ -277,7 +277,7 @@ impl BarSorter {
         if !exists2 {
             return Ordering::Less;
         }
-        let d = s1.get_avgjudge() - s2.get_avgjudge();
+        let d = s1.avgjudge - s2.avgjudge;
         d.cmp(&0)
     }
 
@@ -290,7 +290,7 @@ impl BarSorter {
             (None, _) => Ordering::Greater,
             (_, None) => Ordering::Less,
             (Some(s1), Some(s2)) => {
-                let d = s1.get_date() - s2.get_date();
+                let d = s1.date - s2.date;
                 d.cmp(&0)
             }
         }
@@ -313,8 +313,8 @@ impl BarSorter {
             (None, _) => Ordering::Greater,
             (_, None) => Ordering::Less,
             (Some((s1, r1)), Some((s2, r2))) => {
-                let d1 = s1.get_clear() - r1.get_clear();
-                let d2 = s2.get_clear() - r2.get_clear();
+                let d1 = s1.clear - r1.clear;
+                let d2 = s2.clear - r2.clear;
                 d1.cmp(&d2)
             }
         }
@@ -325,11 +325,11 @@ impl BarSorter {
             return Self::compare_title(o1, o2);
         }
         let pair1 = match (o1.get_score(), o1.get_rival_score()) {
-            (Some(s), Some(r)) if s.get_notes() > 0 && r.get_notes() > 0 => Some((s, r)),
+            (Some(s), Some(r)) if s.notes > 0 && r.notes > 0 => Some((s, r)),
             _ => None,
         };
         let pair2 = match (o2.get_score(), o2.get_rival_score()) {
-            (Some(s), Some(r)) if s.get_notes() > 0 && r.get_notes() > 0 => Some((s, r)),
+            (Some(s), Some(r)) if s.notes > 0 && r.notes > 0 => Some((s, r)),
             _ => None,
         };
         match (pair1, pair2) {
@@ -337,10 +337,10 @@ impl BarSorter {
             (None, _) => Ordering::Greater,
             (_, None) => Ordering::Less,
             (Some((s1, r1)), Some((s2, r2))) => {
-                let v1 = s1.get_exscore() as f32 / s1.get_notes() as f32
-                    - r1.get_exscore() as f32 / r1.get_notes() as f32;
-                let v2 = s2.get_exscore() as f32 / s2.get_notes() as f32
-                    - r2.get_exscore() as f32 / r2.get_notes() as f32;
+                let v1 = s1.get_exscore() as f32 / s1.notes as f32
+                    - r1.get_exscore() as f32 / r1.notes as f32;
+                let v2 = s2.get_exscore() as f32 / s2.notes as f32
+                    - r2.get_exscore() as f32 / r2.notes as f32;
                 v1.partial_cmp(&v2).unwrap_or(Ordering::Equal)
             }
         }

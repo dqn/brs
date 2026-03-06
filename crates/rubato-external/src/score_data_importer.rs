@@ -65,17 +65,15 @@ impl ScoreDataImporter {
         let mut result: Vec<ScoreData> = Vec::new();
 
         for score in scores {
-            let mut oldsd = self
-                .scoredb
-                .get_score_data(score.get_sha256(), score.get_mode());
+            let mut oldsd = self.scoredb.get_score_data(&score.sha256, score.mode);
             #[allow(clippy::field_reassign_with_default)]
             if oldsd.is_none() {
                 let mut new_sd = ScoreData::default();
-                new_sd.playcount = score.get_playcount();
-                new_sd.clearcount = score.get_clearcount();
-                new_sd.sha256 = score.get_sha256().to_string();
-                new_sd.mode = score.get_mode();
-                new_sd.notes = score.get_notes();
+                new_sd.playcount = score.playcount;
+                new_sd.clearcount = score.clearcount;
+                new_sd.sha256 = score.sha256.clone();
+                new_sd.mode = score.mode;
+                new_sd.notes = score.notes;
                 oldsd = Some(new_sd);
             }
             if let Some(ref mut old) = oldsd {

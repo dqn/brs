@@ -142,138 +142,6 @@ impl ScoreData {
         self.player = player.unwrap_or("").to_string();
     }
 
-    pub fn get_sha256(&self) -> &str {
-        &self.sha256
-    }
-
-    pub fn get_player(&self) -> &str {
-        &self.player
-    }
-
-    pub fn get_mode(&self) -> i32 {
-        self.mode
-    }
-
-    pub fn get_clear(&self) -> i32 {
-        self.clear
-    }
-
-    pub fn get_date(&self) -> i64 {
-        self.date
-    }
-
-    pub fn get_playcount(&self) -> i32 {
-        self.playcount
-    }
-
-    pub fn get_clearcount(&self) -> i32 {
-        self.clearcount
-    }
-
-    pub fn get_notes(&self) -> i32 {
-        self.notes
-    }
-
-    pub fn get_combo(&self) -> i32 {
-        self.maxcombo
-    }
-
-    pub fn get_minbp(&self) -> i32 {
-        self.minbp
-    }
-
-    pub fn get_passnotes(&self) -> i32 {
-        self.passnotes
-    }
-
-    pub fn get_random(&self) -> i32 {
-        self.random
-    }
-
-    pub fn get_option(&self) -> i32 {
-        self.option
-    }
-
-    pub fn get_seed(&self) -> i64 {
-        self.seed
-    }
-
-    pub fn get_assist(&self) -> i32 {
-        self.assist
-    }
-
-    pub fn get_gauge(&self) -> i32 {
-        self.gauge
-    }
-
-    pub fn get_state(&self) -> i32 {
-        self.state
-    }
-
-    pub fn get_scorehash(&self) -> &str {
-        &self.scorehash
-    }
-
-    pub fn get_trophy(&self) -> &str {
-        &self.trophy
-    }
-
-    pub fn get_ghost(&self) -> &str {
-        &self.ghost
-    }
-
-    pub fn get_epg(&self) -> i32 {
-        self.epg
-    }
-
-    pub fn get_lpg(&self) -> i32 {
-        self.lpg
-    }
-
-    pub fn get_egr(&self) -> i32 {
-        self.egr
-    }
-
-    pub fn get_lgr(&self) -> i32 {
-        self.lgr
-    }
-
-    pub fn get_egd(&self) -> i32 {
-        self.egd
-    }
-
-    pub fn get_lgd(&self) -> i32 {
-        self.lgd
-    }
-
-    pub fn get_ebd(&self) -> i32 {
-        self.ebd
-    }
-
-    pub fn get_lbd(&self) -> i32 {
-        self.lbd
-    }
-
-    pub fn get_epr(&self) -> i32 {
-        self.epr
-    }
-
-    pub fn get_lpr(&self) -> i32 {
-        self.lpr
-    }
-
-    pub fn get_ems(&self) -> i32 {
-        self.ems
-    }
-
-    pub fn get_lms(&self) -> i32 {
-        self.lms
-    }
-
-    pub fn get_avgjudge(&self) -> i64 {
-        self.avgjudge
-    }
-
     pub fn get_exscore(&self) -> i32 {
         (self.epg.saturating_add(self.lpg))
             .saturating_mul(2)
@@ -656,34 +524,34 @@ mod tests {
     #[test]
     fn test_score_data_default() {
         let sd = ScoreData::default();
-        assert_eq!(sd.get_player(), "unknown");
-        assert_eq!(sd.get_sha256(), "");
-        assert_eq!(sd.get_mode(), 0);
-        assert_eq!(sd.get_clear(), 0);
-        assert_eq!(sd.get_date(), 0);
-        assert_eq!(sd.get_playcount(), 0);
-        assert_eq!(sd.get_clearcount(), 0);
-        assert_eq!(sd.get_epg(), 0);
-        assert_eq!(sd.get_lpg(), 0);
-        assert_eq!(sd.get_egr(), 0);
-        assert_eq!(sd.get_lgr(), 0);
-        assert_eq!(sd.get_egd(), 0);
-        assert_eq!(sd.get_lgd(), 0);
-        assert_eq!(sd.get_ebd(), 0);
-        assert_eq!(sd.get_lbd(), 0);
-        assert_eq!(sd.get_epr(), 0);
-        assert_eq!(sd.get_lpr(), 0);
-        assert_eq!(sd.get_ems(), 0);
-        assert_eq!(sd.get_lms(), 0);
-        assert_eq!(sd.get_combo(), 0);
-        assert_eq!(sd.get_notes(), 0);
-        assert_eq!(sd.get_passnotes(), 0);
-        assert_eq!(sd.get_minbp(), i32::MAX);
-        assert_eq!(sd.get_avgjudge(), i64::MAX);
-        assert_eq!(sd.get_seed(), -1);
-        assert_eq!(sd.get_trophy(), "");
-        assert_eq!(sd.get_ghost(), "");
-        assert_eq!(sd.get_scorehash(), "");
+        assert_eq!(sd.player, "unknown");
+        assert_eq!(sd.sha256, "");
+        assert_eq!(sd.mode, 0);
+        assert_eq!(sd.clear, 0);
+        assert_eq!(sd.date, 0);
+        assert_eq!(sd.playcount, 0);
+        assert_eq!(sd.clearcount, 0);
+        assert_eq!(sd.epg, 0);
+        assert_eq!(sd.lpg, 0);
+        assert_eq!(sd.egr, 0);
+        assert_eq!(sd.lgr, 0);
+        assert_eq!(sd.egd, 0);
+        assert_eq!(sd.lgd, 0);
+        assert_eq!(sd.ebd, 0);
+        assert_eq!(sd.lbd, 0);
+        assert_eq!(sd.epr, 0);
+        assert_eq!(sd.lpr, 0);
+        assert_eq!(sd.ems, 0);
+        assert_eq!(sd.lms, 0);
+        assert_eq!(sd.maxcombo, 0);
+        assert_eq!(sd.notes, 0);
+        assert_eq!(sd.passnotes, 0);
+        assert_eq!(sd.minbp, i32::MAX);
+        assert_eq!(sd.avgjudge, i64::MAX);
+        assert_eq!(sd.seed, -1);
+        assert_eq!(sd.trophy, "");
+        assert_eq!(sd.ghost, "");
+        assert_eq!(sd.scorehash, "");
         assert!(sd.device_type.is_none());
         assert!(sd.judge_algorithm.is_none());
         assert!(sd.rule.is_none());
@@ -694,7 +562,7 @@ mod tests {
     fn test_score_data_new_with_mode() {
         let sd = ScoreData::new(Mode::BEAT_5K);
         assert_eq!(sd.playmode, Mode::BEAT_5K);
-        assert_eq!(sd.get_player(), "unknown");
+        assert_eq!(sd.player, "unknown");
     }
 
     #[test]
@@ -716,18 +584,18 @@ mod tests {
         let json = serde_json::to_string(&sd).unwrap();
         let deserialized: ScoreData = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(deserialized.get_sha256(), "abc123");
-        assert_eq!(deserialized.get_player(), "player1");
-        assert_eq!(deserialized.get_clear(), 5);
-        assert_eq!(deserialized.get_epg(), 100);
-        assert_eq!(deserialized.get_lpg(), 90);
-        assert_eq!(deserialized.get_egr(), 80);
-        assert_eq!(deserialized.get_lgr(), 70);
-        assert_eq!(deserialized.get_egd(), 10);
-        assert_eq!(deserialized.get_lgd(), 5);
-        assert_eq!(deserialized.get_combo(), 250);
-        assert_eq!(deserialized.get_notes(), 500);
-        assert_eq!(deserialized.get_date(), 1700000000);
+        assert_eq!(deserialized.sha256, "abc123");
+        assert_eq!(deserialized.player, "player1");
+        assert_eq!(deserialized.clear, 5);
+        assert_eq!(deserialized.epg, 100);
+        assert_eq!(deserialized.lpg, 90);
+        assert_eq!(deserialized.egr, 80);
+        assert_eq!(deserialized.lgr, 70);
+        assert_eq!(deserialized.egd, 10);
+        assert_eq!(deserialized.lgd, 5);
+        assert_eq!(deserialized.maxcombo, 250);
+        assert_eq!(deserialized.notes, 500);
+        assert_eq!(deserialized.date, 1700000000);
     }
 
     #[test]
@@ -798,20 +666,20 @@ mod tests {
         // Out of range should be no-op
         sd.add_judge_count(6, true, 100);
 
-        assert_eq!(sd.get_epg(), 5);
-        assert_eq!(sd.get_lpg(), 3);
-        assert_eq!(sd.get_egr(), 10);
-        assert_eq!(sd.get_lms(), 2);
+        assert_eq!(sd.epg, 5);
+        assert_eq!(sd.lpg, 3);
+        assert_eq!(sd.egr, 10);
+        assert_eq!(sd.lms, 2);
     }
 
     #[test]
     fn test_set_player() {
         let mut sd = ScoreData::default();
         sd.set_player(Some("TestPlayer"));
-        assert_eq!(sd.get_player(), "TestPlayer");
+        assert_eq!(sd.player, "TestPlayer");
 
         sd.set_player(None);
-        assert_eq!(sd.get_player(), "");
+        assert_eq!(sd.player, "");
     }
 
     #[test]

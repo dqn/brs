@@ -106,12 +106,12 @@ impl DirectoryBarData {
             }
             let score = score_fn(song);
             if let Some(ref score) = score {
-                let clear = score.get_clear() as usize;
+                let clear = score.clear as usize;
                 if clear < self.lamps.len() {
                     self.lamps[clear] += 1;
                 }
-                if score.get_notes() != 0 {
-                    let rank = (score.get_exscore() * 27 / (score.get_notes() * 2)) as usize;
+                if score.notes != 0 {
+                    let rank = (score.get_exscore() * 27 / (score.notes * 2)) as usize;
                     let rank = if rank < 28 { rank } else { 27 };
                     self.ranks[rank] += 1;
                 } else {

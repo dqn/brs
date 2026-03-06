@@ -62,7 +62,7 @@ impl SongBar {
             self.selectable.bar_data.get_rival_score()
         };
         if let Some(score) = score {
-            return score.get_clear();
+            return score.clear;
         }
         0
     }

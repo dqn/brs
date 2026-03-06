@@ -676,7 +676,7 @@ impl ContextMenuBar {
             }
             let score = score_fn(song);
             let lamp_index = if let Some(ref s) = score {
-                s.get_clear() as usize
+                s.clear as usize
             } else {
                 0
             };

@@ -64,25 +64,25 @@ mod tests {
         sd.scorehash = "hash123".to_string();
         sd.trophy = "trophy1".to_string();
 
-        assert_eq!(sd.get_sha256(), "abc123");
-        assert_eq!(sd.get_player(), "player1");
-        assert_eq!(sd.get_mode(), 7);
-        assert_eq!(sd.get_clear(), 5);
-        assert_eq!(sd.get_date(), 1234567890);
-        assert_eq!(sd.get_playcount(), 10);
-        assert_eq!(sd.get_clearcount(), 3);
-        assert_eq!(sd.get_combo(), 200);
-        assert_eq!(sd.get_notes(), 500);
-        assert_eq!(sd.get_passnotes(), 450);
-        assert_eq!(sd.get_minbp(), 5);
-        assert_eq!(sd.get_random(), 1);
-        assert_eq!(sd.get_option(), 2);
-        assert_eq!(sd.get_seed(), 42);
-        assert_eq!(sd.get_assist(), 0);
-        assert_eq!(sd.get_gauge(), 3);
-        assert_eq!(sd.get_state(), 1);
-        assert_eq!(sd.get_scorehash(), "hash123");
-        assert_eq!(sd.get_trophy(), "trophy1");
+        assert_eq!(sd.sha256, "abc123");
+        assert_eq!(sd.player, "player1");
+        assert_eq!(sd.mode, 7);
+        assert_eq!(sd.clear, 5);
+        assert_eq!(sd.date, 1234567890);
+        assert_eq!(sd.playcount, 10);
+        assert_eq!(sd.clearcount, 3);
+        assert_eq!(sd.maxcombo, 200);
+        assert_eq!(sd.notes, 500);
+        assert_eq!(sd.passnotes, 450);
+        assert_eq!(sd.minbp, 5);
+        assert_eq!(sd.random, 1);
+        assert_eq!(sd.option, 2);
+        assert_eq!(sd.seed, 42);
+        assert_eq!(sd.assist, 0);
+        assert_eq!(sd.gauge, 3);
+        assert_eq!(sd.state, 1);
+        assert_eq!(sd.scorehash, "hash123");
+        assert_eq!(sd.trophy, "trophy1");
     }
 
     #[test]
@@ -101,18 +101,18 @@ mod tests {
         sd.ems = 0;
         sd.lms = 1;
 
-        assert_eq!(sd.get_epg(), 10);
-        assert_eq!(sd.get_lpg(), 20);
-        assert_eq!(sd.get_egr(), 30);
-        assert_eq!(sd.get_lgr(), 40);
-        assert_eq!(sd.get_egd(), 5);
-        assert_eq!(sd.get_lgd(), 6);
-        assert_eq!(sd.get_ebd(), 2);
-        assert_eq!(sd.get_lbd(), 3);
-        assert_eq!(sd.get_epr(), 1);
-        assert_eq!(sd.get_lpr(), 2);
-        assert_eq!(sd.get_ems(), 0);
-        assert_eq!(sd.get_lms(), 1);
+        assert_eq!(sd.epg, 10);
+        assert_eq!(sd.lpg, 20);
+        assert_eq!(sd.egr, 30);
+        assert_eq!(sd.lgr, 40);
+        assert_eq!(sd.egd, 5);
+        assert_eq!(sd.lgd, 6);
+        assert_eq!(sd.ebd, 2);
+        assert_eq!(sd.lbd, 3);
+        assert_eq!(sd.epr, 1);
+        assert_eq!(sd.lpr, 2);
+        assert_eq!(sd.ems, 0);
+        assert_eq!(sd.lms, 1);
     }
 
     #[test]
@@ -237,10 +237,10 @@ mod tests {
         let mut sd = ScoreData::default();
 
         sd.set_player(Some("test_player"));
-        assert_eq!(sd.get_player(), "test_player");
+        assert_eq!(sd.player, "test_player");
 
         sd.set_player(None);
-        assert_eq!(sd.get_player(), "");
+        assert_eq!(sd.player, "");
     }
 
     #[test]
