@@ -52,26 +52,26 @@ impl SongInformation {
 
     pub fn from_model(model: &BMSModel) -> Self {
         let mut info = SongInformation::new();
-        info.sha256 = model.get_sha256().to_string();
+        info.sha256 = model.sha256().to_string();
         info.n = get_total_notes_with_type(model, TOTALNOTES_KEY);
         info.ln = get_total_notes_with_type(model, TOTALNOTES_LONG_KEY);
         info.s = get_total_notes_with_type(model, TOTALNOTES_SCRATCH);
         info.ls = get_total_notes_with_type(model, TOTALNOTES_LONG_SCRATCH);
-        info.total = model.get_total();
+        info.total = model.total();
 
-        let mode = match model.get_mode() {
+        let mode = match model.mode() {
             Some(m) => m,
             None => return info,
         };
 
         let mode_key = mode.key();
         let mut lanenotes_arr = vec![[0i32; 3]; mode_key as usize];
-        let last_time = model.get_last_time();
+        let last_time = model.last_time();
         let data_len = (last_time / 1000 + 2) as usize;
         let mut data = vec![[0i32; 7]; data_len];
         let mut pos: i32 = 0;
-        let total_notes = model.get_total_notes();
-        let model_total = model.get_total();
+        let total_notes = model.total_notes();
+        let model_total = model.total();
         let mut border = if model_total != 0.0 {
             (total_notes as f64 * (1.0 - 100.0 / model_total)) as i32
         } else {
@@ -79,33 +79,33 @@ impl SongInformation {
         };
         let mut borderpos: i32 = 0;
 
-        let lnmode = model.get_lnmode();
-        let lntype = model.get_lntype();
+        let lnmode = model.lnmode();
+        let lntype = model.lntype();
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         for (tl_idx, tl) in all_tls.iter().enumerate() {
-            if tl.get_time() / 1000 != pos {
-                pos = tl.get_time() / 1000;
+            if tl.time() / 1000 != pos {
+                pos = tl.time() / 1000;
             }
             for i in 0..mode_key {
-                let note = match tl.get_note(i) {
+                let note = match tl.note(i) {
                     Some(n) => n,
                     None => continue,
                 };
 
                 if note.is_long() && !note.is_end() {
                     // Find the paired LN end note by scanning forward
-                    let mut end_time = tl.get_time();
+                    let mut end_time = tl.time();
                     for future_tl in &all_tls[(tl_idx + 1)..] {
-                        if let Some(end_note) = future_tl.get_note(i)
+                        if let Some(end_note) = future_tl.note(i)
                             && end_note.is_long()
                             && end_note.is_end()
                         {
-                            end_time = future_tl.get_time();
+                            end_time = future_tl.time();
                             break;
                         }
                     }
-                    let start_idx = tl.get_time() / 1000;
+                    let start_idx = tl.time() / 1000;
                     let end_idx = end_time / 1000;
                     let col = if mode.is_scratch_key(i) { 1 } else { 4 };
                     for index in start_idx..=end_idx {
@@ -120,7 +120,7 @@ impl SongInformation {
                     && note.is_end();
 
                 if !is_ln_end_skip {
-                    let time_idx = (tl.get_time() / 1000) as usize;
+                    let time_idx = (tl.time() / 1000) as usize;
                     if note.is_normal() {
                         if time_idx < data.len() {
                             data[time_idx][if mode.is_scratch_key(i) { 2 } else { 5 }] += 1;
@@ -201,23 +201,23 @@ impl SongInformation {
         // Speed change tracking
         let mut speed_list: Vec<[f64; 2]> = Vec::new();
         let mut bpm_note_count_map: HashMap<u64, i32> = HashMap::new();
-        let mut now_speed = model.get_bpm();
+        let mut now_speed = model.bpm();
         speed_list.push([now_speed, 0.0]);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         for tl in tls {
-            let bpm_key = tl.get_bpm().to_bits();
+            let bpm_key = tl.bpm().to_bits();
             let notecount = *bpm_note_count_map.get(&bpm_key).unwrap_or(&0);
-            bpm_note_count_map.insert(bpm_key, notecount + tl.get_total_notes());
+            bpm_note_count_map.insert(bpm_key, notecount + tl.total_notes());
 
-            if tl.get_stop() > 0 {
+            if tl.stop() > 0 {
                 if now_speed != 0.0 {
                     now_speed = 0.0;
-                    speed_list.push([now_speed, tl.get_time() as f64]);
+                    speed_list.push([now_speed, tl.time() as f64]);
                 }
-            } else if now_speed != tl.get_bpm() * tl.get_scroll() {
-                now_speed = tl.get_bpm() * tl.get_scroll();
-                speed_list.push([now_speed, tl.get_time() as f64]);
+            } else if now_speed != tl.bpm() * tl.scroll() {
+                now_speed = tl.bpm() * tl.scroll();
+                speed_list.push([now_speed, tl.time() as f64]);
             }
         }
 
@@ -237,7 +237,7 @@ impl SongInformation {
         }
 
         if !tls.is_empty() {
-            let last_tl_time = tls[tls.len() - 1].get_time() as f64;
+            let last_tl_time = tls[tls.len() - 1].time() as f64;
             if speed_list.last().map(|s| s[1]) != Some(last_tl_time) {
                 speed_list.push([now_speed, last_tl_time]);
             }

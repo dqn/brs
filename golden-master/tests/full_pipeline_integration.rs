@@ -23,7 +23,7 @@ fn bms_to_replay_full_pipeline() {
     let normal = count_normal_notes(&jn);
 
     // Step 1: Generate perfect keylog
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let keylog = create_note_press_log(&jn, mode, 0);
     assert!(!keylog.is_empty());
 
@@ -45,7 +45,7 @@ fn bms_to_replay_full_pipeline() {
         .collect();
     let replay = ReplayData {
         sha256: Some("test_pipeline".to_string()),
-        mode: model.get_mode().map(|m| m.key()).unwrap_or(0),
+        mode: model.mode().map(|m| m.key()).unwrap_or(0),
         keylog: replay_keylog,
         gauge: NORMAL,
         ..Default::default()
@@ -92,7 +92,7 @@ fn full_pipeline_multiple_bms() {
     for filename in files {
         let model = load_bms(filename);
         let jn = model.build_judge_notes();
-        let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+        let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
         let keylog = create_note_press_log(&jn, mode, 0);
 
         // Simulate
@@ -108,7 +108,7 @@ fn full_pipeline_multiple_bms() {
             })
             .collect();
         let replay = ReplayData {
-            mode: model.get_mode().map(|m| m.key()).unwrap_or(0),
+            mode: model.mode().map(|m| m.key()).unwrap_or(0),
             keylog: replay_keylog,
             ..Default::default()
         };
@@ -153,7 +153,7 @@ fn pipeline_judge_rank_affects_distribution() {
     // defexrank.bms has custom rank settings
     let model_rank2 = load_bms("minimal_7k.bms");
     let jn = model_rank2.build_judge_notes();
-    let mode = model_rank2.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model_rank2.mode().unwrap_or(&Mode::BEAT_7K);
 
     // At 25ms offset: RANK 2 → within GR window (40ms), outside PG (18ms)
     let keylog_25ms = create_note_press_log(&jn, mode, 25_000);
@@ -194,7 +194,7 @@ fn pipeline_judge_rank_affects_distribution() {
 fn pipeline_cross_gauge_score_consistency() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let keylog = create_note_press_log(&jn, mode, 0);
 
     let gauge_types = [NORMAL, EASY, HARD, EXHARD, ASSISTEASY];

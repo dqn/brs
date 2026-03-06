@@ -25,11 +25,11 @@ impl ExtraNoteModifier {
 impl PatternModifier for ExtraNoteModifier {
     fn modify(&mut self, model: &mut BMSModel) {
         let mut assist = AssistLevel::None;
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
         let scratch = self.scratch;
 
-        let mode = model.get_mode().cloned();
-        let timelines = model.get_all_time_lines_mut();
+        let mode = model.mode().cloned();
+        let timelines = model.all_time_lines_mut();
         let mut lns = vec![false; mode_key as usize];
         let mut blank = vec![false; mode_key as usize];
         let mut lastnote: Vec<Option<Note>> = vec![None; mode_key as usize];
@@ -37,7 +37,7 @@ impl PatternModifier for ExtraNoteModifier {
 
         for tl in timelines.iter_mut() {
             for key in 0..mode_key as usize {
-                let note = tl.get_note(key as i32);
+                let note = tl.note(key as i32);
                 if let Some(n) = note
                     && n.is_long()
                 {
@@ -47,18 +47,17 @@ impl PatternModifier for ExtraNoteModifier {
                     .as_ref()
                     .map(|m| m.is_scratch_key(key as i32))
                     .unwrap_or(false);
-                blank[key] =
-                    !lns[key] && tl.get_note(key as i32).is_none() && (scratch || !is_scratch);
+                blank[key] = !lns[key] && tl.note(key as i32).is_none() && (scratch || !is_scratch);
             }
 
             for _d in 0..self.depth {
-                if !tl.get_back_ground_notes().is_empty() {
-                    let note = tl.get_back_ground_notes()[0].clone();
+                if !tl.back_ground_notes().is_empty() {
+                    let note = tl.back_ground_notes()[0].clone();
 
                     let mut offset = lastoffset;
                     for _j in 1..mode_key as usize {
                         if let Some(ref ln) = lastnote[offset]
-                            && ln.get_wav() == note.get_wav()
+                            && ln.wav() == note.wav()
                         {
                             break;
                         }
@@ -174,11 +173,11 @@ mod tests {
         modifier.modify(&mut model);
 
         // Background note should be placed somewhere on the lanes
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         let mut found = false;
         for lane in 0..8 {
-            if let Some(note) = tls[0].get_note(lane)
-                && note.get_wav() == 5
+            if let Some(note) = tls[0].note(lane)
+                && note.wav() == 5
             {
                 found = true;
                 break;
@@ -203,10 +202,10 @@ mod tests {
         let mut modifier = ExtraNoteModifier::new(0, 1, false);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         let mut placed_count = 0;
         for lane in 0..8 {
-            if tls[0].get_note(lane).is_some() {
+            if tls[0].note(lane).is_some() {
                 placed_count += 1;
             }
         }
@@ -226,10 +225,10 @@ mod tests {
         let mut modifier = ExtraNoteModifier::new(0, 2, false);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         let mut placed_count = 0;
         for lane in 0..8 {
-            if tls[0].get_note(lane).is_some() {
+            if tls[0].note(lane).is_some() {
                 placed_count += 1;
             }
         }

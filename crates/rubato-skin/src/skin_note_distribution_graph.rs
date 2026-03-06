@@ -208,7 +208,7 @@ impl SkinNoteDistributionGraph {
         if self.chips.is_none() {
             let is_pms = self.graph_type != TYPE_NORMAL
                 && model.is_some()
-                && model.unwrap().get_mode() == Some(&Mode::POPN_9K);
+                && model.unwrap().mode() == Some(&Mode::POPN_9K);
             let graphcolor = if is_pms {
                 get_pms_graph_colors(self.graph_type)
             } else {
@@ -355,7 +355,7 @@ impl SkinNoteDistributionGraph {
     fn update_graph(&mut self, model: Option<&BMSModel>) {
         if let Some(model) = model {
             let dl = DATA_LENGTH[self.graph_type as usize] as usize;
-            let data_len = (model.get_last_time() / 1000 + 1) as usize;
+            let data_len = (model.last_time() / 1000 + 1) as usize;
             self.dist_data = vec![vec![0; dl]; data_len];
 
             self.update_data(model);
@@ -376,16 +376,15 @@ impl SkinNoteDistributionGraph {
             }
         }
 
-        let mode = model.get_mode().cloned();
+        let mode = model.mode().cloned();
         // #LNMODE is explicitly set to 1 (LN)
         // or #LNMODE is undefined and getLntype (which reflects playconfig) is LN (0)
-        let ignore_ln_end = model.get_lnmode() == 1
-            || (model.get_lnmode() == 0
-                && model.get_lntype() == bms_model::bms_model::LNTYPE_LONGNOTE);
+        let ignore_ln_end = model.lnmode() == 1
+            || (model.lnmode() == 0 && model.lntype() == bms_model::bms_model::LNTYPE_LONGNOTE);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         for tl in tls {
-            let index = (tl.get_time() / 1000) as usize;
+            let index = (tl.time() / 1000) as usize;
             if index >= self.dist_data.len() {
                 break;
             }
@@ -402,9 +401,9 @@ impl SkinNoteDistributionGraph {
             }
             if let Some(ref mode) = mode {
                 for i in 0..mode.key() {
-                    if let Some(n) = tl.get_note(i) {
-                        let st = n.get_state();
-                        let t = n.get_play_time();
+                    if let Some(n) = tl.note(i) {
+                        let st = n.state();
+                        let t = n.play_time();
                         match self.graph_type {
                             TYPE_NORMAL => {
                                 if n.is_normal() {
@@ -415,9 +414,9 @@ impl SkinNoteDistributionGraph {
                                     if !n.is_end() {
                                         // For LN start: fill from index to pair end time
                                         let col = if mode.is_scratch_key(i) { 1 } else { 4 };
-                                        let end_index = if let Some(pair_tl_idx) = n.get_pair() {
+                                        let end_index = if let Some(pair_tl_idx) = n.pair() {
                                             if pair_tl_idx < tls.len() {
-                                                (tls[pair_tl_idx].get_time() / 1000) as usize
+                                                (tls[pair_tl_idx].time() / 1000) as usize
                                             } else {
                                                 index
                                             }

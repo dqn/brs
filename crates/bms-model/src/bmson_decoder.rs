@@ -145,8 +145,8 @@ impl BMSONDecoder {
             model.set_lnmode(bmson_data.info.ln_type);
         }
 
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
-        let keyassign: Vec<i32> = match model.get_mode() {
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
+        let keyassign: Vec<i32> = match model.mode() {
             Some(Mode::BEAT_5K) => vec![0, 1, 2, 3, 4, -1, -1, 5],
             Some(Mode::BEAT_10K) => {
                 vec![0, 1, 2, 3, 4, -1, -1, 5, 6, 7, 8, 9, 10, -1, -1, 11]
@@ -163,7 +163,7 @@ impl BMSONDecoder {
         model.set_preview(&bmson_data.info.preview_music);
 
         let mut basetl = TimeLine::new(0.0, 0, mode_key);
-        basetl.set_bpm(model.get_bpm());
+        basetl.set_bpm(model.bpm());
         tlcache.insert(0, TimeLineCache::new(0.0, basetl));
 
         let mut bpm_events = bmson_data.bpm_events;
@@ -234,7 +234,7 @@ impl BMSONDecoder {
                 if stop_events[stoppos].duration >= 0 {
                     ensure_timeline(&mut tlcache, stopy, resolution, mode_key);
                     let tl = &mut tlcache.get_mut(&stopy).unwrap().timeline;
-                    let bpm = tl.get_bpm();
+                    let bpm = tl.bpm();
                     tl.set_stop(
                         ((1000.0 * 1000.0 * 60.0 * 4.0 * stop_events[stoppos].duration as f64)
                             / (bpm * resolution)) as i64,
@@ -298,8 +298,8 @@ impl BMSONDecoder {
                 ensure_timeline(&mut tlcache, n_y, resolution, mode_key);
                 if let Some(next_y_val) = next_y {
                     ensure_timeline(&mut tlcache, next_y_val, resolution, mode_key);
-                    let next_time = tlcache.get(&next_y_val).unwrap().timeline.get_micro_time();
-                    let cur_time = tlcache.get(&n_y).unwrap().timeline.get_micro_time();
+                    let next_time = tlcache.get(&next_y_val).unwrap().timeline.micro_time();
+                    let cur_time = tlcache.get(&n_y).unwrap().timeline.micro_time();
                     duration = next_time - cur_time;
                 }
 
@@ -328,7 +328,7 @@ impl BMSONDecoder {
                             if section == ln_info.end_section {
                                 // Modify the end note on the timeline
                                 let end_tl = &mut tlcache.get_mut(&ln_info.end_y).unwrap().timeline;
-                                if let Some(end_note) = end_tl.get_note_mut(key) {
+                                if let Some(end_note) = end_tl.note_mut(key) {
                                     end_note.set_wav(id);
                                     end_note.set_micro_starttime(starttime);
                                     end_note.set_micro_duration(duration);
@@ -389,7 +389,7 @@ impl BMSONDecoder {
                                 .get(&n_y)
                                 .unwrap()
                                 .timeline
-                                .get_note(key)
+                                .note(key)
                                 .map(|en| en.is_long())
                                 .unwrap_or(false);
 
@@ -401,7 +401,7 @@ impl BMSONDecoder {
                                     lns.iter()
                                         .find(|info| {
                                             let start_sec =
-                                                tlcache.get(&n_y).unwrap().timeline.get_section();
+                                                tlcache.get(&n_y).unwrap().timeline.section();
                                             (info.start_section - start_sec).abs() < f64::EPSILON
                                         })
                                         .map(|info| info.end_y)
@@ -419,7 +419,7 @@ impl BMSONDecoder {
                                     .get_mut(&n_y)
                                     .unwrap()
                                     .timeline
-                                    .get_note_mut(key)
+                                    .note_mut(key)
                                     .unwrap()
                                     .add_layered_note(ln);
                             } else {
@@ -487,13 +487,13 @@ impl BMSONDecoder {
                                 let ln_type = if n_t > 0 && n_t <= 3 {
                                     n_t
                                 } else {
-                                    model.get_lnmode()
+                                    model.lnmode()
                                 };
                                 tlcache
                                     .get_mut(&n_y)
                                     .unwrap()
                                     .timeline
-                                    .get_note_mut(key)
+                                    .note_mut(key)
                                     .unwrap()
                                     .set_long_note_type(ln_type);
 
@@ -502,21 +502,19 @@ impl BMSONDecoder {
                                     .get_mut(&end_y)
                                     .unwrap()
                                     .timeline
-                                    .get_note_mut(key)
+                                    .note_mut(key)
                                     .unwrap()
                                     .set_end(true);
                                 tlcache
                                     .get_mut(&end_y)
                                     .unwrap()
                                     .timeline
-                                    .get_note_mut(key)
+                                    .note_mut(key)
                                     .unwrap()
                                     .set_long_note_type(ln_type);
 
-                                let start_section =
-                                    tlcache.get(&n_y).unwrap().timeline.get_section();
-                                let end_section =
-                                    tlcache.get(&end_y).unwrap().timeline.get_section();
+                                let start_section = tlcache.get(&n_y).unwrap().timeline.section();
+                                let end_section = tlcache.get(&end_y).unwrap().timeline.section();
 
                                 while lnlist.len() <= key_usize {
                                     lnlist.push(None);
@@ -535,8 +533,7 @@ impl BMSONDecoder {
                         // Normal note
                         let tl = &tlcache.get(&n_y).unwrap().timeline;
                         if tl.exist_note_at(key) {
-                            let is_normal =
-                                tl.get_note(key).map(|n| n.is_normal()).unwrap_or(false);
+                            let is_normal = tl.note(key).map(|n| n.is_normal()).unwrap_or(false);
                             if is_normal {
                                 let layered =
                                     Note::new_normal_with_start_duration(id, starttime, duration);
@@ -544,7 +541,7 @@ impl BMSONDecoder {
                                     .get_mut(&n_y)
                                     .unwrap()
                                     .timeline
-                                    .get_note_mut(key)
+                                    .note_mut(key)
                                     .unwrap()
                                     .add_layered_note(layered);
                             } else {
@@ -782,13 +779,13 @@ fn ensure_timeline(
     }
 
     let (&le_key, le_val) = tlcache.range(..y).next_back().unwrap();
-    let bpm = le_val.timeline.get_bpm();
+    let bpm = le_val.timeline.bpm();
     let time = if bpm != 0.0 {
         le_val.time
-            + le_val.timeline.get_micro_stop() as f64
+            + le_val.timeline.micro_stop() as f64
             + (240000.0 * 1000.0 * ((y - le_key) as f64 / resolution)) / bpm
     } else {
-        le_val.time + le_val.timeline.get_micro_stop() as f64
+        le_val.time + le_val.timeline.micro_stop() as f64
     };
 
     let mut tl = TimeLine::new(y as f64 / resolution, time as i64, mode_key);
@@ -814,40 +811,40 @@ mod tests {
             .expect("decode_path should return Some for valid bmson");
 
         assert_eq!(
-            model.get_mode(),
+            model.mode(),
             Some(&Mode::BEAT_7K),
             "mode should be BEAT_7K for mode_hint 'beat-7k'"
         );
         assert_eq!(
-            model.get_title(),
+            model.title(),
             "Minimal 7K Bmson Test",
             "title should match bmson info.title"
         );
         assert_eq!(
-            model.get_artist(),
+            model.artist(),
             "brs-test",
             "artist should match bmson info.artist"
         );
         assert!(
-            (model.get_bpm() - 120.0).abs() < f64::EPSILON,
+            (model.bpm() - 120.0).abs() < f64::EPSILON,
             "init_bpm should be 120.0"
         );
         assert_eq!(
-            model.get_total_notes(),
+            model.total_notes(),
             8,
             "minimal 7k fixture has 8 normal notes across 2 sound channels"
         );
         assert!(
-            !model.get_sha256().is_empty(),
+            !model.sha256().is_empty(),
             "SHA-256 hash should be computed"
         );
         assert_eq!(
-            model.get_wav_list().len(),
+            model.wav_list().len(),
             2,
             "two sound channels should produce two wav entries"
         );
-        assert_eq!(model.get_wav_list()[0], "kick.wav");
-        assert_eq!(model.get_wav_list()[1], "snare.wav");
+        assert_eq!(model.wav_list()[0], "kick.wav");
+        assert_eq!(model.wav_list()[1], "snare.wav");
     }
 
     #[test]
@@ -860,10 +857,10 @@ mod tests {
 
         // The fixture has init_bpm=120 and a bpm_event at y=960 changing to 180.
         // There must be at least one timeline with BPM != init_bpm.
-        let timelines = model.get_all_time_lines();
+        let timelines = model.all_time_lines();
         let has_bpm_change = timelines
             .iter()
-            .any(|tl| (tl.get_bpm() - 180.0).abs() < f64::EPSILON);
+            .any(|tl| (tl.bpm() - 180.0).abs() < f64::EPSILON);
         assert!(
             has_bpm_change,
             "model should contain a timeline with BPM 180.0 from the bpm_event"
@@ -871,7 +868,7 @@ mod tests {
 
         // Verify initial BPM is preserved on the first timeline
         assert!(
-            (timelines[0].get_bpm() - 120.0).abs() < f64::EPSILON,
+            (timelines[0].bpm() - 120.0).abs() < f64::EPSILON,
             "first timeline should have init_bpm 120.0"
         );
     }
@@ -884,15 +881,15 @@ mod tests {
             .decode_path(&path)
             .expect("decode_path should return Some for longnote bmson");
 
-        let timelines = model.get_all_time_lines();
-        let mode_key = model.get_mode().unwrap().key();
+        let timelines = model.all_time_lines();
+        let mode_key = model.mode().unwrap().key();
 
         // Collect all long notes (start and end) across all timelines
         let mut ln_start_count = 0;
         let mut ln_end_count = 0;
         for tl in timelines {
             for lane in 0..mode_key {
-                if let Some(note) = tl.get_note(lane)
+                if let Some(note) = tl.note(lane)
                     && note.is_long()
                 {
                     if note.is_end() {
@@ -924,8 +921,8 @@ mod tests {
             .decode_path(&path)
             .expect("decode_path should return Some for stop_sequence bmson");
 
-        let timelines = model.get_all_time_lines();
-        let has_stop = timelines.iter().any(|tl| tl.get_micro_stop() > 0);
+        let timelines = model.all_time_lines();
+        let has_stop = timelines.iter().any(|tl| tl.micro_stop() > 0);
         assert!(
             has_stop,
             "model should contain at least one timeline with a stop event"
@@ -934,12 +931,9 @@ mod tests {
         // Verify the stop is at the expected position (y=480, which is section 0.5)
         let stop_tl = timelines
             .iter()
-            .find(|tl| tl.get_micro_stop() > 0)
+            .find(|tl| tl.micro_stop() > 0)
             .expect("should find a timeline with stop");
-        assert!(
-            stop_tl.get_micro_stop() > 0,
-            "stop duration should be positive"
-        );
+        assert!(stop_tl.micro_stop() > 0, "stop duration should be positive");
     }
 
     #[test]
@@ -950,14 +944,14 @@ mod tests {
             .decode_path(&path)
             .expect("decode_path should return Some for mine_invisible bmson");
 
-        let timelines = model.get_all_time_lines();
-        let mode_key = model.get_mode().unwrap().key();
+        let timelines = model.all_time_lines();
+        let mode_key = model.mode().unwrap().key();
 
         // Check for mine notes
         let mut mine_count = 0;
         for tl in timelines.iter() {
             for lane in 0..mode_key {
-                if let Some(note) = tl.get_note(lane)
+                if let Some(note) = tl.note(lane)
                     && note.is_mine()
                 {
                     mine_count += 1;
@@ -973,7 +967,7 @@ mod tests {
         let mut hidden_count = 0;
         for tl in timelines.iter() {
             for lane in 0..mode_key {
-                if tl.get_hidden_note(lane).is_some() {
+                if tl.hidden_note(lane).is_some() {
                     hidden_count += 1;
                 }
             }
@@ -986,15 +980,15 @@ mod tests {
         // Verify mine damage values
         let mines: Vec<&crate::note::Note> = timelines
             .iter()
-            .flat_map(|tl| (0..mode_key).filter_map(move |lane| tl.get_note(lane)))
+            .flat_map(|tl| (0..mode_key).filter_map(move |lane| tl.note(lane)))
             .filter(|n| n.is_mine())
             .collect();
         assert!(
-            (mines[0].get_damage() - 50.0).abs() < f64::EPSILON,
+            (mines[0].damage() - 50.0).abs() < f64::EPSILON,
             "first mine should have damage 50.0"
         );
         assert!(
-            (mines[1].get_damage() - 100.0).abs() < f64::EPSILON,
+            (mines[1].damage() - 100.0).abs() < f64::EPSILON,
             "second mine should have damage 100.0"
         );
     }
@@ -1007,11 +1001,11 @@ mod tests {
             .decode_path(&path)
             .expect("decode_path should return Some for bpm_ln_cross bmson");
 
-        let timelines = model.get_all_time_lines();
-        let mode_key = model.get_mode().unwrap().key();
+        let timelines = model.all_time_lines();
+        let mode_key = model.mode().unwrap().key();
 
         // Verify BPM changes exist: 120 -> 180 -> 60 -> 120
-        let bpm_values: Vec<f64> = timelines.iter().map(|tl| tl.get_bpm()).collect();
+        let bpm_values: Vec<f64> = timelines.iter().map(|tl| tl.bpm()).collect();
         let unique_bpms: std::collections::HashSet<u64> =
             bpm_values.iter().map(|b| b.to_bits()).collect();
         assert!(
@@ -1024,7 +1018,7 @@ mod tests {
         let mut has_ln = false;
         for tl in timelines.iter() {
             for lane in 0..mode_key {
-                if let Some(note) = tl.get_note(lane)
+                if let Some(note) = tl.note(lane)
                     && note.is_long()
                     && !note.is_end()
                 {
@@ -1041,7 +1035,7 @@ mod tests {
         // Verify normal notes also exist
         let normal_count: i32 = timelines
             .iter()
-            .flat_map(|tl| (0..mode_key).filter_map(move |lane| tl.get_note(lane)))
+            .flat_map(|tl| (0..mode_key).filter_map(move |lane| tl.note(lane)))
             .filter(|n| n.is_normal())
             .count() as i32;
         assert_eq!(
@@ -1065,7 +1059,7 @@ mod tests {
         // but produces a model with 0 playable notes.
         if let Some(ref m) = model {
             assert_eq!(
-                m.get_total_notes(),
+                m.total_notes(),
                 0,
                 "empty bmson should produce 0 total notes"
             );
@@ -1153,12 +1147,12 @@ mod tests {
             .expect("decode via ChartInformation should return Some");
 
         assert_eq!(
-            model.get_title(),
+            model.title(),
             "Minimal 7K Bmson Test",
             "title should match when decoding via ChartInformation"
         );
         assert_eq!(
-            model.get_total_notes(),
+            model.total_notes(),
             8,
             "total notes should match when decoding via ChartInformation"
         );

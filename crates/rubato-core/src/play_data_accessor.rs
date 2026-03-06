@@ -552,7 +552,7 @@ impl PlayDataAccessor {
 
     /// Read score data for a single BMSModel (delegates to read_score_data_by_hash).
     pub fn read_score_data_model(&self, model: &BMSModel, lnmode: i32) -> Option<ScoreData> {
-        let hash = model.get_sha256();
+        let hash = model.sha256();
         let ln = model.contains_undefined_long_note();
         self.read_score_data_by_hash(hash, ln, lnmode)
     }
@@ -565,17 +565,17 @@ impl PlayDataAccessor {
         lnmode: i32,
         update_score: bool,
     ) {
-        let hash = model.get_sha256();
+        let hash = model.sha256();
         let contains_undefined_ln = model.contains_undefined_long_note();
-        let total_notes = model.get_total_notes();
+        let total_notes = model.total_notes();
         // Calculate last note time in microseconds
         let last_note_time_us = {
-            let keys = model.get_mode().map(|m| m.key()).unwrap_or(0);
+            let keys = model.mode().map(|m| m.key()).unwrap_or(0);
             let mut time: i64 = 0;
-            for tl in model.get_all_time_lines() {
+            for tl in model.all_time_lines() {
                 for i in 0..keys {
-                    if tl.get_note(i).is_some_and(|n| n.get_state() != 0) {
-                        time = tl.get_micro_time();
+                    if tl.note(i).is_some_and(|n| n.state() != 0) {
+                        time = tl.micro_time();
                     }
                 }
             }
@@ -595,7 +595,7 @@ impl PlayDataAccessor {
     /// Check if replay data exists for a single BMSModel.
     pub fn exists_replay_data_model(&self, model: &BMSModel, lnmode: i32, index: i32) -> bool {
         let ln = model.contains_undefined_long_note();
-        self.exists_replay_data(model.get_sha256(), ln, lnmode, index)
+        self.exists_replay_data(model.sha256(), ln, lnmode, index)
     }
 
     /// Write replay data for a single BMSModel.
@@ -607,16 +607,12 @@ impl PlayDataAccessor {
         index: i32,
     ) {
         let ln = model.contains_undefined_long_note();
-        self.write_replay_data(rd, model.get_sha256(), ln, lnmode, index);
+        self.write_replay_data(rd, model.sha256(), ln, lnmode, index);
     }
 
     /// Delete score data for a single BMSModel.
     pub fn delete_score_data_model(&self, model: &BMSModel, lnmode: i32) {
-        self.delete_score_data(
-            model.get_sha256(),
-            model.contains_undefined_long_note(),
-            lnmode,
-        );
+        self.delete_score_data(model.sha256(), model.contains_undefined_long_note(), lnmode);
     }
 
     // ========================================================================
@@ -653,8 +649,8 @@ impl PlayDataAccessor {
         constraint: &[CourseDataConstraint],
         update_score: bool,
     ) {
-        let hashes: Vec<&str> = models.iter().map(|m| m.get_sha256()).collect();
-        let total_notes: i32 = models.iter().map(|m| m.get_total_notes()).sum();
+        let hashes: Vec<&str> = models.iter().map(|m| m.sha256()).collect();
+        let total_notes: i32 = models.iter().map(|m| m.total_notes()).sum();
         let ln = models.iter().any(|m| m.contains_undefined_long_note());
         self.write_score_data_for_course(
             newscore,
@@ -676,7 +672,7 @@ impl PlayDataAccessor {
         index: i32,
         constraint: &[CourseDataConstraint],
     ) -> bool {
-        let hashes: Vec<String> = models.iter().map(|m| m.get_sha256().to_string()).collect();
+        let hashes: Vec<String> = models.iter().map(|m| m.sha256().to_string()).collect();
         let hash_refs: Vec<&str> = hashes.iter().map(|s| s.as_str()).collect();
         let ln = models.iter().any(|m| m.contains_undefined_long_note());
         let path = format!(
@@ -697,7 +693,7 @@ impl PlayDataAccessor {
         if !self.exists_replay_data_course(models, lnmode, index, constraint) {
             return None;
         }
-        let hashes: Vec<String> = models.iter().map(|m| m.get_sha256().to_string()).collect();
+        let hashes: Vec<String> = models.iter().map(|m| m.sha256().to_string()).collect();
         let hash_refs: Vec<&str> = hashes.iter().map(|s| s.as_str()).collect();
         let ln = models.iter().any(|m| m.contains_undefined_long_note());
         let path = format!(
@@ -722,7 +718,7 @@ impl PlayDataAccessor {
         index: i32,
         constraint: &[CourseDataConstraint],
     ) {
-        let hashes: Vec<String> = models.iter().map(|m| m.get_sha256().to_string()).collect();
+        let hashes: Vec<String> = models.iter().map(|m| m.sha256().to_string()).collect();
         let hash_refs: Vec<&str> = hashes.iter().map(|s| s.as_str()).collect();
         let ln = models.iter().any(|m| m.contains_undefined_long_note());
         let path = format!(
@@ -799,7 +795,7 @@ impl PlayDataAccessor {
     fn course_hash(models: &[BMSModel]) -> String {
         models
             .iter()
-            .map(|m| m.get_sha256())
+            .map(|m| m.sha256())
             .collect::<Vec<_>>()
             .join("")
     }

@@ -27,9 +27,9 @@ impl AutoplayModifier {
 impl PatternModifier for AutoplayModifier {
     fn modify(&mut self, model: &mut BMSModel) {
         let mut assist = AssistLevel::None;
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0) as usize;
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0) as usize;
 
-        let timelines = model.get_all_time_lines_mut();
+        let timelines = model.all_time_lines_mut();
         let tl_len = timelines.len();
         let mut pos = 0usize;
         let mut lns = vec![false; mode_key];
@@ -38,9 +38,9 @@ impl PatternModifier for AutoplayModifier {
             let mut remove = false;
 
             if self.margin > 0 {
-                while timelines[pos].get_time() < timelines[i].get_time() - self.margin {
+                while timelines[pos].time() < timelines[i].time() - self.margin {
                     for (lane, ln_active) in lns.iter_mut().enumerate() {
-                        if let Some(note) = timelines[pos].get_note(lane as i32)
+                        if let Some(note) = timelines[pos].note(lane as i32)
                             && note.is_long()
                         {
                             *ln_active = !note.is_end();
@@ -48,18 +48,18 @@ impl PatternModifier for AutoplayModifier {
                     }
                     pos += 1;
                 }
-                let mut endtime = timelines[i].get_time() + self.margin;
+                let mut endtime = timelines[i].time() + self.margin;
                 for &lane in &self.lanes {
-                    if let Some(note) = timelines[i].get_note(lane)
+                    if let Some(note) = timelines[i].note(lane)
                         && note.is_long()
                         && !note.is_end()
                     {
-                        endtime = endtime.max(note.get_time() + self.margin);
+                        endtime = endtime.max(note.time() + self.margin);
                     }
                 }
 
                 for tl in &timelines[pos..tl_len] {
-                    if tl.get_time() >= endtime {
+                    if tl.time() >= endtime {
                         break;
                     }
                     for (lane, &ln_active) in lns.iter().enumerate() {
@@ -70,7 +70,7 @@ impl PatternModifier for AutoplayModifier {
                                 break;
                             }
                         }
-                        if b && (tl.get_note(lane as i32).is_some() || ln_active) {
+                        if b && (tl.note(lane as i32).is_some() || ln_active) {
                             remove = true;
                             break;
                         }
@@ -174,14 +174,14 @@ mod tests {
         let mut modifier = AutoplayModifier::new(vec![0]);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Lane 0 note should be moved to background
-        assert!(tls[0].get_note(0).is_none());
+        assert!(tls[0].note(0).is_none());
         // Lane 1 note should also be moved (margin=0 means remove=true for all)
         // Wait, re-read: margin=0 means else branch: remove = true
         // So ALL specified lanes are moved to background
         // Lane 1 is NOT in the lanes list, so it stays
-        assert!(tls[0].get_note(1).is_some());
+        assert!(tls[0].note(1).is_some());
         assert_eq!(modifier.get_assist_level(), AssistLevel::Assist);
     }
 
@@ -226,11 +226,11 @@ mod tests {
         let mut modifier = AutoplayModifier::new(vec![0, 1]);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
-        assert!(tls[0].get_note(0).is_none());
-        assert!(tls[0].get_note(1).is_none());
+        let tls = model.all_time_lines();
+        assert!(tls[0].note(0).is_none());
+        assert!(tls[0].note(1).is_none());
         // Lane 2 is not in autoplay lanes
-        assert!(tls[0].get_note(2).is_some());
+        assert!(tls[0].note(2).is_some());
     }
 
     #[test]
@@ -244,9 +244,9 @@ mod tests {
         let mut modifier = AutoplayModifier::new(vec![0]);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
-        assert!(tls[0].get_note(0).is_none());
+        let tls = model.all_time_lines();
+        assert!(tls[0].note(0).is_none());
         // Mine notes are removed entirely, not added to background
-        assert!(tls[0].get_back_ground_notes().is_empty());
+        assert!(tls[0].back_ground_notes().is_empty());
     }
 }

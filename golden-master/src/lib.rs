@@ -138,8 +138,8 @@ struct FlatNote {
 }
 
 fn flatten_notes(model: &BMSModel) -> Vec<FlatNote> {
-    let keys = model.get_mode().map(|m| m.key()).unwrap_or(0);
-    let timelines = model.get_all_time_lines();
+    let keys = model.mode().map(|m| m.key()).unwrap_or(0);
+    let timelines = model.all_time_lines();
     let mut flat = Vec::new();
 
     // Per-timeline: regular notes for all lanes, then hidden notes for all lanes.
@@ -147,7 +147,7 @@ fn flatten_notes(model: &BMSModel) -> Vec<FlatNote> {
     for (tl_idx, tl) in timelines.iter().enumerate() {
         // First: regular notes for all lanes
         for lane in 0..keys {
-            if let Some(note) = tl.get_note(lane) {
+            if let Some(note) = tl.note(lane) {
                 // Skip LN end notes
                 if note.is_end() {
                     continue;
@@ -167,30 +167,30 @@ fn flatten_notes(model: &BMSModel) -> Vec<FlatNote> {
                 let (end_time_us, end_wav_id) = if note.is_long() {
                     find_ln_end_time(timelines, tl_idx, lane)
                 } else {
-                    (0, note.get_wav())
+                    (0, note.wav())
                 };
 
                 flat.push(FlatNote {
                     lane: lane as usize,
-                    time_us: note.get_micro_time(),
+                    time_us: note.micro_time(),
                     note_type_str,
-                    wav_id: note.get_wav(),
+                    wav_id: note.wav(),
                     end_time_us,
                     end_wav_id,
-                    damage: note.get_damage(),
+                    damage: note.damage(),
                 });
             }
         }
         // Then: hidden (invisible) notes for all lanes
         for lane in 0..keys {
-            if let Some(note) = tl.get_hidden_note(lane) {
+            if let Some(note) = tl.hidden_note(lane) {
                 flat.push(FlatNote {
                     lane: lane as usize,
-                    time_us: note.get_micro_time(),
+                    time_us: note.micro_time(),
                     note_type_str: "Invisible".to_string(),
-                    wav_id: note.get_wav(),
+                    wav_id: note.wav(),
                     end_time_us: 0,
-                    end_wav_id: note.get_wav(),
+                    end_wav_id: note.wav(),
                     damage: 0.0,
                 });
             }
@@ -208,11 +208,11 @@ fn find_ln_end_time(
     lane: i32,
 ) -> (i64, i32) {
     for tl in &timelines[(start_tl_idx + 1)..] {
-        if let Some(note) = tl.get_note(lane)
+        if let Some(note) = tl.note(lane)
             && note.is_long()
             && note.is_end()
         {
-            return (note.get_micro_time(), note.get_wav());
+            return (note.micro_time(), note.wav());
         }
     }
     // No end note found
@@ -221,11 +221,11 @@ fn find_ln_end_time(
 
 /// Count mine notes in the model.
 fn count_mines(model: &BMSModel) -> usize {
-    let keys = model.get_mode().map(|m| m.key()).unwrap_or(0);
+    let keys = model.mode().map(|m| m.key()).unwrap_or(0);
     let mut count = 0;
-    for tl in model.get_all_time_lines() {
+    for tl in model.all_time_lines() {
         for lane in 0..keys {
-            if let Some(note) = tl.get_note(lane)
+            if let Some(note) = tl.note(lane)
                 && note.is_mine()
             {
                 count += 1;
@@ -241,70 +241,70 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
     let mut diffs = Vec::new();
 
     // Metadata
-    if model.get_title() != fixture.metadata.title {
+    if model.title() != fixture.metadata.title {
         diffs.push(format!(
             "title: rust={:?} java={:?}",
-            model.get_title(),
+            model.title(),
             fixture.metadata.title
         ));
     }
-    if model.get_sub_title() != fixture.metadata.subtitle {
+    if model.sub_title() != fixture.metadata.subtitle {
         diffs.push(format!(
             "subtitle: rust={:?} java={:?}",
-            model.get_sub_title(),
+            model.sub_title(),
             fixture.metadata.subtitle
         ));
     }
-    if model.get_artist() != fixture.metadata.artist {
+    if model.artist() != fixture.metadata.artist {
         diffs.push(format!(
             "artist: rust={:?} java={:?}",
-            model.get_artist(),
+            model.artist(),
             fixture.metadata.artist
         ));
     }
-    if model.get_sub_artist() != fixture.metadata.sub_artist {
+    if model.sub_artist() != fixture.metadata.sub_artist {
         diffs.push(format!(
             "sub_artist: rust={:?} java={:?}",
-            model.get_sub_artist(),
+            model.sub_artist(),
             fixture.metadata.sub_artist
         ));
     }
-    if model.get_genre() != fixture.metadata.genre {
+    if model.genre() != fixture.metadata.genre {
         diffs.push(format!(
             "genre: rust={:?} java={:?}",
-            model.get_genre(),
+            model.genre(),
             fixture.metadata.genre
         ));
     }
-    if (model.get_bpm() - fixture.metadata.initial_bpm).abs() > 0.001 {
+    if (model.bpm() - fixture.metadata.initial_bpm).abs() > 0.001 {
         diffs.push(format!(
             "initial_bpm: rust={} java={}",
-            model.get_bpm(),
+            model.bpm(),
             fixture.metadata.initial_bpm
         ));
     }
-    if model.get_judgerank() != fixture.metadata.judge_rank {
+    if model.judgerank() != fixture.metadata.judge_rank {
         diffs.push(format!(
             "judge_rank: rust={} java={}",
-            model.get_judgerank(),
+            model.judgerank(),
             fixture.metadata.judge_rank
         ));
     }
-    if (model.get_total() - fixture.metadata.total).abs() > 0.001 {
+    if (model.total() - fixture.metadata.total).abs() > 0.001 {
         diffs.push(format!(
             "total: rust={} java={}",
-            model.get_total(),
+            model.total(),
             fixture.metadata.total
         ));
     }
-    if fixture.metadata.player > 0 && model.get_player() != fixture.metadata.player {
+    if fixture.metadata.player > 0 && model.player() != fixture.metadata.player {
         diffs.push(format!(
             "player: rust={} java={}",
-            model.get_player(),
+            model.player(),
             fixture.metadata.player
         ));
     }
-    if let Some(mode) = model.get_mode()
+    if let Some(mode) = model.mode()
         && mode.key() as usize != fixture.metadata.mode_key_count
     {
         diffs.push(format!(
@@ -313,45 +313,45 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
             fixture.metadata.mode_key_count
         ));
     }
-    if fixture.metadata.ln_type > 0 && model.get_lnmode() != fixture.metadata.ln_type {
+    if fixture.metadata.ln_type > 0 && model.lnmode() != fixture.metadata.ln_type {
         diffs.push(format!(
             "ln_type: rust={} java={}",
-            model.get_lnmode(),
+            model.lnmode(),
             fixture.metadata.ln_type
         ));
     }
-    if model.get_banner() != fixture.metadata.banner {
+    if model.banner() != fixture.metadata.banner {
         diffs.push(format!(
             "banner: rust={:?} java={:?}",
-            model.get_banner(),
+            model.banner(),
             fixture.metadata.banner
         ));
     }
-    if model.get_stagefile() != fixture.metadata.stagefile {
+    if model.stagefile() != fixture.metadata.stagefile {
         diffs.push(format!(
             "stagefile: rust={:?} java={:?}",
-            model.get_stagefile(),
+            model.stagefile(),
             fixture.metadata.stagefile
         ));
     }
-    if model.get_backbmp() != fixture.metadata.backbmp {
+    if model.backbmp() != fixture.metadata.backbmp {
         diffs.push(format!(
             "backbmp: rust={:?} java={:?}",
-            model.get_backbmp(),
+            model.backbmp(),
             fixture.metadata.backbmp
         ));
     }
-    if model.get_preview() != fixture.metadata.preview {
+    if model.preview() != fixture.metadata.preview {
         diffs.push(format!(
             "preview: rust={:?} java={:?}",
-            model.get_preview(),
+            model.preview(),
             fixture.metadata.preview
         ));
     }
 
     // Play mode
     if let Some(expected_mode) = mode_hint_to_mode(&fixture.metadata.mode) {
-        if let Some(actual_mode) = model.get_mode() {
+        if let Some(actual_mode) = model.mode() {
             if actual_mode != &expected_mode {
                 diffs.push(format!(
                     "mode: rust={:?} java={:?} ({})",
@@ -367,23 +367,23 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
     }
 
     // Hashes
-    if model.get_md5() != fixture.hashes.md5 {
+    if model.md5() != fixture.hashes.md5 {
         diffs.push(format!(
             "md5: rust={} java={}",
-            model.get_md5(),
+            model.md5(),
             fixture.hashes.md5
         ));
     }
-    if model.get_sha256() != fixture.hashes.sha256 {
+    if model.sha256() != fixture.hashes.sha256 {
         diffs.push(format!(
             "sha256: rust={} java={}",
-            model.get_sha256(),
+            model.sha256(),
             fixture.hashes.sha256
         ));
     }
 
     // Statistics
-    let rust_total_notes = model.get_total_notes() as usize;
+    let rust_total_notes = model.total_notes() as usize;
     if rust_total_notes != fixture.statistics.total_notes {
         diffs.push(format!(
             "total_notes: rust={} java={}",
@@ -399,17 +399,17 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
         ));
     }
 
-    if (model.get_min_bpm() - fixture.statistics.min_bpm).abs() > 0.001 {
+    if (model.min_bpm() - fixture.statistics.min_bpm).abs() > 0.001 {
         diffs.push(format!(
             "min_bpm: rust={} java={}",
-            model.get_min_bpm(),
+            model.min_bpm(),
             fixture.statistics.min_bpm
         ));
     }
-    if (model.get_max_bpm() - fixture.statistics.max_bpm).abs() > 0.001 {
+    if (model.max_bpm() - fixture.statistics.max_bpm).abs() > 0.001 {
         diffs.push(format!(
             "max_bpm: rust={} java={}",
-            model.get_max_bpm(),
+            model.max_bpm(),
             fixture.statistics.max_bpm
         ));
     }
@@ -509,11 +509,11 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
     if !fixture.bpm_changes.is_empty() {
         // Extract BPM changes from timelines
         let mut rust_bpm_changes = Vec::new();
-        let mut prev_bpm = model.get_bpm();
-        for tl in model.get_all_time_lines() {
-            let bpm = tl.get_bpm();
+        let mut prev_bpm = model.bpm();
+        for tl in model.all_time_lines() {
+            let bpm = tl.bpm();
             if (bpm - prev_bpm).abs() > 0.0001 {
-                rust_bpm_changes.push((tl.get_micro_time(), bpm));
+                rust_bpm_changes.push((tl.micro_time(), bpm));
                 prev_bpm = bpm;
             }
         }
@@ -550,10 +550,10 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
     if !fixture.stop_events.is_empty() {
         // Extract stop events from timelines
         let mut rust_stops = Vec::new();
-        for tl in model.get_all_time_lines() {
-            let stop = tl.get_micro_stop();
+        for tl in model.all_time_lines() {
+            let stop = tl.micro_stop();
             if stop > 0 {
-                rust_stops.push((tl.get_micro_time(), stop));
+                rust_stops.push((tl.micro_time(), stop));
             }
         }
 

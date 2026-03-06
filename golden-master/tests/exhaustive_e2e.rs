@@ -12,7 +12,7 @@ use rubato_types::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, HAZARD, NORMAL}
 
 fn run_autoplay_test(bms_file: &str, gauge_type: i32, label: &str) {
     let model = load_bms(bms_file);
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     assert!(total > 0, "{label}: should have playable notes");
 
     let result = run_autoplay_simulation(&model, gauge_type);
@@ -25,7 +25,7 @@ fn run_manual_perfect_test(bms_file: &str, gauge_type: i32, label: &str) {
     let normal = count_normal_notes(&jn);
     assert!(normal > 0, "{label}: should have normal notes");
 
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 0);
     let result = run_manual_simulation(&model, &log, gauge_type);
 
@@ -52,7 +52,7 @@ fn run_manual_perfect_test(bms_file: &str, gauge_type: i32, label: &str) {
 
 fn run_manual_all_miss_test(bms_file: &str, gauge_type: i32, label: &str) {
     let model = load_bms(bms_file);
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     assert!(total > 0, "{label}: should have playable notes");
 
     let result = run_manual_simulation(&model, &[], gauge_type);

@@ -74,7 +74,7 @@ fn make_model_for_gauge(total: f64, total_notes: usize) -> BMSModel {
     model.set_total(total);
     model.set_mode(Mode::BEAT_7K);
 
-    let key_count = model.get_mode().unwrap().key();
+    let key_count = model.mode().unwrap().key();
 
     // Build timelines with normal notes
     let mut timelines = Vec::with_capacity(total_notes);

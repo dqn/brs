@@ -121,12 +121,12 @@ fn ensure_timelines_match_fixture(model: &mut BMSModel, timeline_times: &[i64]) 
     use std::collections::HashSet;
 
     let existing_times: HashSet<i64> = model
-        .get_all_time_lines()
+        .all_time_lines()
         .iter()
-        .map(|tl| tl.get_micro_time())
+        .map(|tl| tl.micro_time())
         .collect();
 
-    let keys = model.get_mode().map(|m| m.key()).unwrap_or(8);
+    let keys = model.mode().map(|m| m.key()).unwrap_or(8);
 
     // Check if any Java times are missing from Rust model
     let missing: Vec<i64> = timeline_times
@@ -144,14 +144,14 @@ fn ensure_timelines_match_fixture(model: &mut BMSModel, timeline_times: &[i64]) 
     for &t in &missing {
         let mut tl = TimeLine::new(0.0, t, keys);
         // Set BPM from nearest existing timeline
-        if let Some(nearest) = timelines.iter().rfind(|tl| tl.get_micro_time() <= t) {
-            tl.set_bpm(nearest.get_bpm());
+        if let Some(nearest) = timelines.iter().rfind(|tl| tl.micro_time() <= t) {
+            tl.set_bpm(nearest.bpm());
         } else if let Some(first) = timelines.first() {
-            tl.set_bpm(first.get_bpm());
+            tl.set_bpm(first.bpm());
         }
         timelines.push(tl);
     }
-    timelines.sort_by_key(|tl| tl.get_micro_time());
+    timelines.sort_by_key(|tl| tl.micro_time());
     model.set_all_time_line(timelines);
 }
 

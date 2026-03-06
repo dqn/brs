@@ -9,10 +9,10 @@ use bms_model::bms_decoder::BMSDecoder;
 /// Helper: collect all WAV indices found across all timelines and lanes.
 fn collect_note_wavs(model: &bms_model::bms_model::BMSModel) -> Vec<i32> {
     let mut wavs = Vec::new();
-    for tl in model.get_all_time_lines() {
-        for lane in 0..tl.get_lane_count() {
-            if let Some(note) = tl.get_note(lane) {
-                wavs.push(note.get_wav());
+    for tl in model.all_time_lines() {
+        for lane in 0..tl.lane_count() {
+            if let Some(note) = tl.note(lane) {
+                wavs.push(note.wav());
             }
         }
     }
@@ -39,7 +39,7 @@ fn test_random_if_value_match() {
     let model = decoder.decode_bytes(data, false, Some(&[1]));
     let model = model.expect("decode should succeed");
     assert_eq!(
-        model.get_total_notes(),
+        model.total_notes(),
         1,
         "note inside matching #IF 1 branch should be included"
     );
@@ -61,7 +61,7 @@ fn test_random_if_value_mismatch() {
     let model = decoder.decode_bytes(data, false, Some(&[2]));
     let model = model.expect("decode should succeed");
     assert_eq!(
-        model.get_total_notes(),
+        model.total_notes(),
         0,
         "note inside non-matching #IF 1 branch should be excluded when random=2"
     );
@@ -124,7 +124,7 @@ fn test_nested_random_inner_mismatch() {
     let model = decoder.decode_bytes(data, false, Some(&[1, 1]));
     let model = model.expect("decode should succeed");
     assert_eq!(
-        model.get_total_notes(),
+        model.total_notes(),
         1,
         "only outer note should appear when inner #IF does not match"
     );
@@ -163,7 +163,7 @@ fn test_nested_random_outer_mismatch() {
     // However, the inner note (#00114:02) IS included because skip.last()
     // only checks the innermost #IF, which matches (inner #IF 1 == random 1).
     assert_eq!(
-        model.get_total_notes(),
+        model.total_notes(),
         1,
         "inner note should appear because skip stack only checks the top element"
     );
@@ -237,7 +237,7 @@ fn test_deeply_nested_random_partial_match() {
     let model = decoder.decode_bytes(data, false, Some(&[1, 2, 4]));
     let model = model.expect("decode should succeed");
     assert_eq!(
-        model.get_total_notes(),
+        model.total_notes(),
         2,
         "only level 1 and level 2 notes should appear (level 3 mismatched)"
     );
@@ -269,7 +269,7 @@ fn test_extra_endif_graceful() {
     // The note before the stray #ENDIF should still be decoded
     let model = model.unwrap();
     assert_eq!(
-        model.get_total_notes(),
+        model.total_notes(),
         1,
         "note before stray #ENDIF should still be included"
     );
@@ -299,7 +299,7 @@ fn test_extra_endrandom_graceful() {
     );
     let model = model.unwrap();
     assert_eq!(
-        model.get_total_notes(),
+        model.total_notes(),
         1,
         "note before stray #ENDRANDOM should still be included"
     );
@@ -338,7 +338,7 @@ fn test_sequential_random_blocks() {
     let model = decoder.decode_bytes(data, false, Some(&[1, 3]));
     let model = model.expect("decode should succeed");
     assert_eq!(
-        model.get_total_notes(),
+        model.total_notes(),
         2,
         "one note from each sequential #RANDOM block"
     );
@@ -377,7 +377,7 @@ fn test_selected_random_shorter_than_blocks() {
     let model = model.unwrap();
     // First block: selected_random[0]=1 matches #IF 1, so at least 1 note
     assert!(
-        model.get_total_notes() >= 1,
+        model.total_notes() >= 1,
         "at least the first #RANDOM block note should be present"
     );
 }
@@ -420,7 +420,7 @@ fn test_random_none_no_panic() {
     let model = model.unwrap();
     // Exactly one of the 5 branches should be selected
     assert_eq!(
-        model.get_total_notes(),
+        model.total_notes(),
         1,
         "exactly one #IF branch should be selected by random"
     );

@@ -133,14 +133,14 @@ impl PatternModifier for IdentityModifier {
 
 /// Apply pattern modify log to a model
 pub fn apply_modify_log(model: &mut BMSModel, log: &[PatternModifyLog]) {
-    let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+    let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
     let lanes = mode_key as usize;
 
-    let timelines = model.get_all_time_lines_mut();
+    let timelines = model.all_time_lines_mut();
     for tl in timelines.iter_mut() {
         let mut pm: Option<&PatternModifyLog> = None;
         for pms in log {
-            if pms.section == tl.get_section() {
+            if pms.section == tl.section() {
                 pm = Some(pms);
                 break;
             }
@@ -157,7 +157,7 @@ pub fn apply_modify_log(model: &mut BMSModel, log: &[PatternModifyLog]) {
                     i as i32
                 };
                 notes.push(tl.take_note(m));
-                hnotes.push(tl.get_hidden_note(m).cloned());
+                hnotes.push(tl.hidden_note(m).cloned());
             }
             for i in 0..lanes {
                 tl.set_note(i as i32, notes[i].take());
@@ -206,11 +206,11 @@ pub(crate) fn make_test_model(mode: &Mode, timelines: Vec<TimeLine>) -> BMSModel
 }
 
 pub fn move_to_background(tls: &mut [TimeLine], tl_index: usize, lane: i32) {
-    let note = tls[tl_index].get_note(lane).cloned();
+    let note = tls[tl_index].note(lane).cloned();
     if let Some(ref n) = note {
         if n.is_long() {
             // Find the pair timeline
-            if let Some(_pair_idx) = n.get_pair() {
+            if let Some(_pair_idx) = n.pair() {
                 // In the Java code, pair is a direct reference. Here pair_idx is the timeline index
                 // where the pair note lives. We need to find the timeline where the pair note is.
                 // Actually, in our model, get_pair() returns an Option<usize> which is the pair index
@@ -220,7 +220,7 @@ pub fn move_to_background(tls: &mut [TimeLine], tl_index: usize, lane: i32) {
                     if i == tl_index {
                         continue;
                     }
-                    if let Some(pair_note) = tl_item.get_note(lane)
+                    if let Some(pair_note) = tl_item.note(lane)
                         && pair_note.is_long()
                         && pair_note.is_end()
                     {
@@ -348,17 +348,14 @@ mod tests {
         model.set_all_time_line(vec![tl]);
         model.set_mode(Mode::BEAT_7K);
         let note = Note::new_normal(1);
-        model.get_all_time_lines_mut()[0].set_note(0, Some(note));
+        model.all_time_lines_mut()[0].set_note(0, Some(note));
 
         let mut modifier = IdentityModifier::new();
         modifier.modify(&mut model);
 
         // Note should still be in lane 0
-        assert!(model.get_all_time_lines()[0].get_note(0).is_some());
-        assert_eq!(
-            model.get_all_time_lines()[0].get_note(0).unwrap().get_wav(),
-            1
-        );
+        assert!(model.all_time_lines()[0].note(0).is_some());
+        assert_eq!(model.all_time_lines()[0].note(0).unwrap().wav(), 1);
     }
 
     // -- get_keys --
@@ -432,10 +429,10 @@ mod tests {
         move_to_background(&mut tls, 0, 0);
 
         // Note should be removed from lane 0
-        assert!(tls[0].get_note(0).is_none());
+        assert!(tls[0].note(0).is_none());
         // Note should be in background
-        assert_eq!(tls[0].get_back_ground_notes().len(), 1);
-        assert_eq!(tls[0].get_back_ground_notes()[0].get_wav(), 1);
+        assert_eq!(tls[0].back_ground_notes().len(), 1);
+        assert_eq!(tls[0].back_ground_notes()[0].wav(), 1);
     }
 
     #[test]
@@ -447,9 +444,9 @@ mod tests {
         move_to_background(&mut tls, 0, 0);
 
         // Mine note should be removed
-        assert!(tls[0].get_note(0).is_none());
+        assert!(tls[0].note(0).is_none());
         // Should NOT be placed in background
-        assert!(tls[0].get_back_ground_notes().is_empty());
+        assert!(tls[0].back_ground_notes().is_empty());
     }
 
     #[test]
@@ -457,8 +454,8 @@ mod tests {
         let tl = TimeLine::new(0.0, 0, 8);
         let mut tls = vec![tl];
         move_to_background(&mut tls, 0, 0);
-        assert!(tls[0].get_note(0).is_none());
-        assert!(tls[0].get_back_ground_notes().is_empty());
+        assert!(tls[0].note(0).is_none());
+        assert!(tls[0].back_ground_notes().is_empty());
     }
 
     // -- apply_modify_log --
@@ -476,11 +473,11 @@ mod tests {
         let log = vec![PatternModifyLog::new(1.0, vec![1, 0, 2, 3, 4, 5, 6, 7])];
         apply_modify_log(&mut model, &log);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Lane 0 should now have wav=20 (originally from lane 1)
-        assert_eq!(tls[0].get_note(0).unwrap().get_wav(), 20);
+        assert_eq!(tls[0].note(0).unwrap().wav(), 20);
         // Lane 1 should now have wav=10 (originally from lane 0)
-        assert_eq!(tls[0].get_note(1).unwrap().get_wav(), 10);
+        assert_eq!(tls[0].note(1).unwrap().wav(), 10);
     }
 
     #[test]
@@ -495,7 +492,7 @@ mod tests {
         let log = vec![PatternModifyLog::new(2.0, vec![1, 0, 2, 3, 4, 5, 6, 7])];
         apply_modify_log(&mut model, &log);
 
-        let tls = model.get_all_time_lines();
-        assert_eq!(tls[0].get_note(0).unwrap().get_wav(), 10);
+        let tls = model.all_time_lines();
+        assert_eq!(tls[0].note(0).unwrap().wav(), 10);
     }
 }

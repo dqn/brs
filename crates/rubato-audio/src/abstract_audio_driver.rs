@@ -78,8 +78,8 @@ impl AudioKey {
     pub fn new(path: String, n: &Note) -> Self {
         AudioKey {
             path,
-            start: n.get_micro_starttime(),
-            duration: n.get_micro_duration(),
+            start: n.micro_starttime(),
+            duration: n.micro_duration(),
         }
     }
 }

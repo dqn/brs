@@ -77,14 +77,14 @@ struct SimResult {
 
 fn run_simulation(model: &BMSModel, tc: &ReplayE2ETestCase) -> SimResult {
     let judge_notes = model.build_judge_notes();
-    let mode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+    let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
     let rule = BMSPlayerRule::get_bms_player_rule(&mode);
 
     let config = JudgeConfig {
         notes: &judge_notes,
         mode: &mode,
-        ln_type: model.get_lntype(),
-        judge_rank: model.get_judgerank(),
+        ln_type: model.lntype(),
+        judge_rank: model.judgerank(),
         judge_window_rate: [100, 100, 100],
         scratch_judge_window_rate: [100, 100, 100],
         algorithm: JudgeAlgorithm::Combo,

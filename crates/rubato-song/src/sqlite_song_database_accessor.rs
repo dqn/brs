@@ -1146,12 +1146,7 @@ impl BMSFolder {
 
             let mut sd = SongData::new_from_model(model, self.txt);
 
-            if sd.notes != 0
-                || !sd
-                    .model
-                    .as_ref()
-                    .is_none_or(|m| m.get_wav_list().is_empty())
-            {
+            if sd.notes != 0 || !sd.model.as_ref().is_none_or(|m| m.wav_list().is_empty()) {
                 if sd.difficulty == 0 {
                     let fulltitle = format!("{}{}", sd.title, sd.subtitle).to_lowercase();
                     let diffname = sd.subtitle.to_lowercase();

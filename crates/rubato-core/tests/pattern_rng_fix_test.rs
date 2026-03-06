@@ -36,13 +36,9 @@ fn mine_note_modifier_deterministic_with_seed() {
 
     let extract_notes = |model: &BMSModel| -> Vec<Vec<Option<i32>>> {
         model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
-            .map(|tl| {
-                (0..8)
-                    .map(|lane| tl.get_note(lane).map(|n| n.get_wav()))
-                    .collect()
-            })
+            .map(|tl| (0..8).map(|lane| tl.note(lane).map(|n| n.wav())).collect())
             .collect()
     };
 
@@ -97,13 +93,9 @@ fn long_note_modifier_deterministic_with_seed() {
 
     let extract_notes = |model: &BMSModel| -> Vec<Vec<Option<i32>>> {
         model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
-            .map(|tl| {
-                (0..8)
-                    .map(|lane| tl.get_note(lane).map(|n| n.get_wav()))
-                    .collect()
-            })
+            .map(|tl| (0..8).map(|lane| tl.note(lane).map(|n| n.wav())).collect())
             .collect()
     };
 

@@ -289,8 +289,8 @@ impl BMSPlayer {
     /// Create a BMSPlayer with the given song_resource_gen for BGAProcessor cache sizing.
     /// Java: BGAProcessor(256, Math.max(config.getSongResourceGen(), 1))
     pub fn new_with_resource_gen(model: BMSModel, song_resource_gen: i32) -> Self {
-        let playtime = model.get_last_note_time() + TIME_MARGIN;
-        let total_notes = model.get_total_notes();
+        let playtime = model.last_note_time() + TIME_MARGIN;
+        let total_notes = model.total_notes();
         BMSPlayer {
             model,
             lanerender: None,
@@ -791,14 +791,14 @@ impl BMSPlayer {
         let mut avgduration: i64 = 0;
         let mut average: i64 = 0;
         let mut play_times: Vec<i64> = Vec::new();
-        let lanes = self.model.get_mode().map(|m| m.key()).unwrap_or(0);
-        for tl in self.model.get_all_time_lines() {
+        let lanes = self.model.mode().map(|m| m.key()).unwrap_or(0);
+        for tl in self.model.all_time_lines() {
             for i in 0..lanes {
-                if let Some(note) = tl.get_note(i) {
+                if let Some(note) = tl.note(i) {
                     let include = match note {
                         Note::Normal(_) => true,
                         Note::Long { end, note_type, .. } => {
-                            let is_ln_end = ((self.model.get_lntype() == LNTYPE_LONGNOTE
+                            let is_ln_end = ((self.model.lntype() == LNTYPE_LONGNOTE
                                 && *note_type == TYPE_UNDEFINED)
                                 || *note_type == TYPE_LONGNOTE)
                                 && *end;
@@ -807,8 +807,8 @@ impl BMSPlayer {
                         _ => false,
                     };
                     if include {
-                        let state = note.get_state();
-                        let time = note.get_micro_play_time();
+                        let state = note.state();
+                        let time = note.micro_play_time();
                         if (1..=4).contains(&state) {
                             play_times.push(time);
                             avgduration += time.abs();
@@ -911,16 +911,16 @@ impl BMSPlayer {
     }
 
     pub fn get_mode(&self) -> Mode {
-        self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K)
+        self.model.mode().cloned().unwrap_or(Mode::BEAT_7K)
     }
 
     /// Get skin type matching the current model mode.
     /// Corresponds to Java getSkinType() which iterates SkinType.values().
     pub fn get_skin_type(&self) -> Option<SkinType> {
-        let model_mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+        let model_mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
         SkinType::values()
             .into_iter()
-            .find(|&skin_type| skin_type.get_mode() == Some(model_mode.clone()))
+            .find(|&skin_type| skin_type.mode() == Some(model_mode.clone()))
     }
 
     /// Save play config from lane renderer state.
@@ -948,7 +948,7 @@ impl BMSPlayer {
         let hidden = lr.get_hidden_cover();
 
         // 3. Get PlayConfig from playerConfig.getPlayConfig(mode).getPlayconfig()
-        let mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+        let mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
         let pc = self
             .player_config
             .get_play_config(mode)
@@ -999,7 +999,7 @@ impl BMSPlayer {
     /// Corresponds to Java BMSPlayer line 1029:
     /// `score.setSeed((model.getMode().player == 2 ? playinfo.randomoption2seed * 65536 * 256 : 0) + playinfo.randomoptionseed)`
     pub fn encode_seed_for_score(&self) -> i64 {
-        let player_count = self.model.get_mode().map_or(1, |m| m.player());
+        let player_count = self.model.mode().map_or(1, |m| m.player());
         if player_count == 2 {
             self.playinfo.randomoption2seed * 65536 * 256 + self.playinfo.randomoptionseed
         } else {
@@ -1016,7 +1016,7 @@ impl BMSPlayer {
     /// `score.setOption(playinfo.randomoption + (model.getMode().player == 2
     ///     ? (playinfo.randomoption2 * 10 + playinfo.doubleoption * 100) : 0))`
     pub fn encode_option_for_score(&self) -> i32 {
-        let player_count = self.model.get_mode().map_or(1, |m| m.player());
+        let player_count = self.model.mode().map_or(1, |m| m.player());
         if player_count == 2 {
             self.playinfo.randomoption
                 + self.playinfo.randomoption2 * 10
@@ -1123,7 +1123,7 @@ impl BMSPlayer {
 
         // -- Phase 2: DP battle mode handling (doubleoption >= 2) --
         if self.playinfo.doubleoption >= 2 {
-            let mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+            let mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
             if mode == Mode::BEAT_5K || mode == Mode::BEAT_7K || mode == Mode::KEYBOARD_24K {
                 // Convert SP mode to DP mode
                 let new_mode = match mode {
@@ -1140,7 +1140,7 @@ impl BMSPlayer {
 
                 // If doubleoption == 3, also add AutoplayModifier for scratch keys
                 if self.playinfo.doubleoption == 3 {
-                    let dp_mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_14K);
+                    let dp_mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_14K);
                     let scratch_keys = dp_mode.scratch_key().to_vec();
                     let mut autoplay_mod = AutoplayModifier::new(scratch_keys);
                     autoplay_mod.modify(&mut self.model);
@@ -1157,7 +1157,7 @@ impl BMSPlayer {
 
         // -- Phase 3: Random option modifiers --
         // This section corresponds to Java lines 384-447
-        let mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+        let mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
         let player_count = mode.player();
         let mut pattern_array: Vec<Option<Vec<i32>>> = vec![None; player_count as usize];
 
@@ -1235,7 +1235,7 @@ impl BMSPlayer {
 
             // Collect lane shuffle patterns for display
             if m.is_lane_shuffle_to_display() {
-                let current_mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+                let current_mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
                 let player_idx = m.get_player() as usize;
                 if player_idx < pattern_array.len()
                     && let Some(pattern) = m.get_lane_shuffle_random_pattern(&current_mode)
@@ -1409,7 +1409,7 @@ impl BMSPlayer {
         resource_replay_seed: i64,
         resource_rand: &[i32],
     ) -> Option<Vec<i32>> {
-        let model_random = self.model.get_random().map(|r| r.to_vec());
+        let model_random = self.model.random().map(|r| r.to_vec());
         if let Some(ref random) = model_random
             && !random.is_empty()
         {
@@ -1425,7 +1425,7 @@ impl BMSPlayer {
             if !self.playinfo.rand.is_empty() {
                 // Return rand to the caller for model reload via PlayerResource.
                 // Caller should: resource.load_bms_model(rand), then update self.model
-                // and self.playinfo.rand = model.get_random().
+                // and self.playinfo.rand = model.random().
                 log::info!("譜面分岐 : {:?}", self.playinfo.rand);
                 return Some(self.playinfo.rand.clone());
             }
@@ -1452,7 +1452,7 @@ impl BMSPlayer {
 
         // BPM Guide check (Java lines 269-272)
         // BPM変化がなければBPMガイドなし
-        if config.bpmguide && (self.model.get_min_bpm() < self.model.get_max_bpm()) {
+        if config.bpmguide && (self.model.min_bpm() < self.model.max_bpm()) {
             self.assist = self.assist.max(1);
             score = false;
         }
@@ -1473,7 +1473,7 @@ impl BMSPlayer {
         // Constant speed check (Java lines 297-301)
         // Constant considered as assist in Endless Dream
         // This is a community discussion result, see https://github.com/seraxis/lr2oraja-endlessdream/issues/42
-        let mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+        let mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
         if config
             .get_play_config_ref(mode)
             .get_playconfig()
@@ -1509,7 +1509,7 @@ impl BMSPlayer {
         }
 
         // Adjust playtime: (lastNoteTime + 1000) * 100 / freq + TIME_MARGIN
-        self.playtime = (self.model.get_last_note_time() + 1000) * 100 / freq + TIME_MARGIN;
+        self.playtime = (self.model.last_note_time() + 1000) * 100 / freq + TIME_MARGIN;
 
         // Scale chart timing
         bms_model_utils::change_frequency(&mut self.model, freq as f32 / 100.0);
@@ -1852,7 +1852,7 @@ impl MainState for BMSPlayer {
                     .player_config
                     .get_play_config_ref(
                         self.model
-                            .get_mode()
+                            .mode()
                             .cloned()
                             .unwrap_or(bms_model::mode::Mode::BEAT_7K),
                     )
@@ -1913,7 +1913,7 @@ impl MainState for BMSPlayer {
     }
 
     fn create(&mut self) {
-        let mode = self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+        let mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
         self.lane_property = Some(LaneProperty::new(&mode));
         self.judge = JudgeManager::new();
         self.control = Some(ControlInputProcessor::new(mode.clone()));
@@ -2039,7 +2039,7 @@ impl MainState for BMSPlayer {
         let score = self.db_score.clone().unwrap_or_default();
         log::info!("Score data loaded from score database");
 
-        let total_notes = self.model.get_total_notes();
+        let total_notes = self.model.total_notes();
 
         if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice {
             self.main_state_data
@@ -2263,7 +2263,7 @@ impl MainState for BMSPlayer {
                     pm.modify(&mut self.model);
 
                     // DP options
-                    if self.model.get_mode().map_or(1, |m| m.player()) == 2 {
+                    if self.model.mode().map_or(1, |m| m.player()) == 2 {
                         if property.doubleop == 1 {
                             let mut flip =
                                 rubato_core::pattern::lane_shuffle_modifier::PlayerFlipModifier::new();
@@ -2273,7 +2273,7 @@ impl MainState for BMSPlayer {
                             rubato_core::pattern::pattern_modifier::create_pattern_modifier(
                                 property.random2,
                                 1,
-                                &self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K),
+                                &self.model.mode().cloned().unwrap_or(Mode::BEAT_7K),
                                 &self.player_config,
                             );
                         pm2.modify(&mut self.model);
@@ -2283,7 +2283,7 @@ impl MainState for BMSPlayer {
                     let mut pm1 = rubato_core::pattern::pattern_modifier::create_pattern_modifier(
                         property.random,
                         0,
-                        &self.model.get_mode().cloned().unwrap_or(Mode::BEAT_7K),
+                        &self.model.mode().cloned().unwrap_or(Mode::BEAT_7K),
                         &self.player_config,
                     );
                     pm1.modify(&mut self.model);
@@ -2352,8 +2352,8 @@ impl MainState for BMSPlayer {
                     // input.setKeyLogMarginTime(resource.getMarginTime());
                     // Java: keyinput.startJudge(model, replay != null ? replay.keylog : null, resource.getMarginTime())
                     if let Some(ref mut ki) = self.keyinput {
-                        let timelines = self.model.get_all_time_lines();
-                        let last_tl_micro = timelines.last().map_or(0, |tl| tl.get_micro_time());
+                        let timelines = self.model.all_time_lines();
+                        let last_tl_micro = timelines.last().map_or(0, |tl| tl.micro_time());
                         let keylog = self.active_replay.as_ref().map(|r| r.keylog.as_slice());
                         ki.start_judge(last_tl_micro, keylog, self.margin_time);
                     }
@@ -3060,7 +3060,7 @@ mod tests {
     #[test]
     fn new_sets_playtime_from_model() {
         let model = make_model();
-        let expected_playtime = model.get_last_note_time() + TIME_MARGIN;
+        let expected_playtime = model.last_note_time() + TIME_MARGIN;
         let player = BMSPlayer::new(model);
         assert_eq!(player.get_playtime(), expected_playtime);
     }
@@ -4740,7 +4740,7 @@ mod tests {
     fn freq_trainer_freq_150_adjusts_playtime() {
         let model = make_model_with_time(10000);
         let mut player = BMSPlayer::new(model);
-        let last_note_time = player.model.get_last_note_time();
+        let last_note_time = player.model.last_note_time();
 
         let result = player.apply_freq_trainer(150, true, false, &FrequencyType::FREQUENCY);
         assert!(result.is_some());
@@ -4754,7 +4754,7 @@ mod tests {
     fn freq_trainer_freq_50_adjusts_playtime() {
         let model = make_model_with_time(10000);
         let mut player = BMSPlayer::new(model);
-        let last_note_time = player.model.get_last_note_time();
+        let last_note_time = player.model.last_note_time();
 
         let result = player.apply_freq_trainer(50, true, false, &FrequencyType::FREQUENCY);
         assert!(result.is_some());
@@ -4835,14 +4835,14 @@ mod tests {
         tl2.set_bpm(120.0);
         tl2.set_note(0, Some(bms_model::note::Note::new_normal(1)));
         model.set_all_time_line(vec![tl, tl2]);
-        let original_bpm = model.get_bpm();
+        let original_bpm = model.bpm();
 
         let mut player = BMSPlayer::new(model);
         player.apply_freq_trainer(150, true, false, &FrequencyType::FREQUENCY);
 
         // BPM should be scaled by 1.5
         let expected_bpm = original_bpm * 1.5;
-        let actual_bpm = player.model.get_bpm();
+        let actual_bpm = player.model.bpm();
         assert!(
             (actual_bpm - expected_bpm).abs() < 0.001,
             "BPM should be scaled: expected {}, got {}",
@@ -5776,7 +5776,7 @@ mod tests {
             1.0
         }
         fn play_note(&mut self, n: &bms_model::note::Note, volume: f32, _pitch: i32) {
-            self.played_notes.push((n.get_wav(), volume));
+            self.played_notes.push((n.wav(), volume));
         }
         fn play_judge(&mut self, _judge: i32, _fast: bool) {}
         fn stop_note(&mut self, _n: Option<&bms_model::note::Note>) {}

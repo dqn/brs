@@ -162,8 +162,8 @@ fn judge_manager_from_config_initializes_correctly() {
     let config = JudgeConfig {
         notes: &judge_notes,
         mode: &mode,
-        ln_type: model.get_lntype(),
-        judge_rank: model.get_judgerank(),
+        ln_type: model.lntype(),
+        judge_rank: model.judgerank(),
         judge_window_rate: [100, 100, 100],
         scratch_judge_window_rate: [100, 100, 100],
         algorithm: JudgeAlgorithm::Combo,
@@ -205,8 +205,8 @@ fn judge_manager_autoplay_judges_all_pgreat() {
     let config = JudgeConfig {
         notes: &judge_notes,
         mode: &mode,
-        ln_type: model.get_lntype(),
-        judge_rank: model.get_judgerank(),
+        ln_type: model.lntype(),
+        judge_rank: model.judgerank(),
         judge_window_rate: [100, 100, 100],
         scratch_judge_window_rate: [100, 100, 100],
         algorithm: JudgeAlgorithm::Combo,
@@ -357,8 +357,8 @@ fn manual_input_at_note_time_produces_pgreat() {
     let config = JudgeConfig {
         notes: &judge_notes,
         mode: &mode,
-        ln_type: model.get_lntype(),
-        judge_rank: model.get_judgerank(),
+        ln_type: model.lntype(),
+        judge_rank: model.judgerank(),
         judge_window_rate: [100, 100, 100],
         scratch_judge_window_rate: [100, 100, 100],
         algorithm: JudgeAlgorithm::Combo,
@@ -417,8 +417,8 @@ fn no_input_produces_all_miss() {
     let config = JudgeConfig {
         notes: &judge_notes,
         mode: &mode,
-        ln_type: model.get_lntype(),
-        judge_rank: model.get_judgerank(),
+        ln_type: model.lntype(),
+        judge_rank: model.judgerank(),
         judge_window_rate: [100, 100, 100],
         scratch_judge_window_rate: [100, 100, 100],
         algorithm: JudgeAlgorithm::Combo,

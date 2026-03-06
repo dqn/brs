@@ -64,7 +64,7 @@ pub struct IRChartData {
 impl IRChartData {
     pub fn new(song: &SongData) -> Self {
         let lntype = if let Some(model) = song.get_bms_model() {
-            model.get_lntype()
+            model.lntype()
         } else {
             0
         };
@@ -91,15 +91,15 @@ impl IRChartData {
     pub fn new_with_lntype(song: &SongData, lntype: i32) -> Self {
         let model = song.get_bms_model();
         let total = if let Some(m) = model {
-            m.get_total() as i32
+            m.total() as i32
         } else {
             0
         };
-        let mode = model.and_then(|m| m.get_mode().cloned());
+        let mode = model.and_then(|m| m.mode().cloned());
 
         let mut values = HashMap::new();
         if let Some(m) = model {
-            for (k, v) in m.get_values() {
+            for (k, v) in m.values() {
                 values.insert(k.clone(), v.clone());
             }
         }

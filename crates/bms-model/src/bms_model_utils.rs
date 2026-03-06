@@ -32,7 +32,7 @@ pub fn get_total_notes_full(
     note_type: i32,
     side: i32,
 ) -> i32 {
-    let mode = match model.get_mode() {
+    let mode = match model.mode() {
         Some(m) => m,
         None => return 0,
     };
@@ -67,18 +67,18 @@ pub fn get_total_notes_full(
         i += 1;
     }
 
-    let lntype = model.get_lntype();
+    let lntype = model.lntype();
     let mut count = 0;
-    for tl in model.get_all_time_lines() {
-        if tl.get_time() >= start && tl.get_time() < end {
+    for tl in model.all_time_lines() {
+        if tl.time() >= start && tl.time() < end {
             match note_type {
                 TOTALNOTES_ALL => {
-                    count += tl.get_total_notes_with_lntype(lntype);
+                    count += tl.total_notes_with_lntype(lntype);
                 }
                 TOTALNOTES_KEY => {
                     for &lane in &nlane {
                         if tl.exist_note_at(lane)
-                            && let Some(note) = tl.get_note(lane)
+                            && let Some(note) = tl.note(lane)
                             && note.is_normal()
                         {
                             count += 1;
@@ -88,10 +88,10 @@ pub fn get_total_notes_full(
                 TOTALNOTES_LONG_KEY => {
                     for &lane in &nlane {
                         if tl.exist_note_at(lane)
-                            && let Some(note) = tl.get_note(lane)
+                            && let Some(note) = tl.note(lane)
                             && note.is_long()
                         {
-                            let ln_type = note.get_long_note_type();
+                            let ln_type = note.long_note_type();
                             if ln_type == TYPE_CHARGENOTE
                                 || ln_type == TYPE_HELLCHARGENOTE
                                 || (ln_type == TYPE_UNDEFINED && lntype != LNTYPE_LONGNOTE)
@@ -105,7 +105,7 @@ pub fn get_total_notes_full(
                 TOTALNOTES_SCRATCH => {
                     for &lane in &slane {
                         if tl.exist_note_at(lane)
-                            && let Some(note) = tl.get_note(lane)
+                            && let Some(note) = tl.note(lane)
                             && note.is_normal()
                         {
                             count += 1;
@@ -114,10 +114,10 @@ pub fn get_total_notes_full(
                 }
                 TOTALNOTES_LONG_SCRATCH => {
                     for &lane in &slane {
-                        if let Some(note) = tl.get_note(lane)
+                        if let Some(note) = tl.note(lane)
                             && note.is_long()
                         {
-                            let ln_type = note.get_long_note_type();
+                            let ln_type = note.long_note_type();
                             if ln_type == TYPE_CHARGENOTE
                                 || ln_type == TYPE_HELLCHARGENOTE
                                 || (ln_type == TYPE_UNDEFINED && lntype != LNTYPE_LONGNOTE)
@@ -131,7 +131,7 @@ pub fn get_total_notes_full(
                 TOTALNOTES_MINE => {
                     for &lane in &nlane {
                         if tl.exist_note_at(lane)
-                            && let Some(note) = tl.get_note(lane)
+                            && let Some(note) = tl.note(lane)
                             && note.is_mine()
                         {
                             count += 1;
@@ -139,7 +139,7 @@ pub fn get_total_notes_full(
                     }
                     for &lane in &slane {
                         if tl.exist_note_at(lane)
-                            && let Some(note) = tl.get_note(lane)
+                            && let Some(note) = tl.note(lane)
                             && note.is_mine()
                         {
                             count += 1;
@@ -163,23 +163,23 @@ pub fn get_average_notes_per_time(model: &BMSModel, start: i32, end: i32) -> f64
 }
 
 pub fn change_frequency(model: &mut BMSModel, freq: f32) {
-    model.set_bpm(model.get_bpm() * (freq as f64));
-    for tl in model.get_all_time_lines_mut() {
-        tl.set_bpm(tl.get_bpm() * (freq as f64));
-        tl.set_stop((tl.get_micro_stop() as f64 / (freq as f64)) as i64);
-        tl.set_micro_time((tl.get_micro_time() as f64 / (freq as f64)) as i64);
+    model.set_bpm(model.bpm() * (freq as f64));
+    for tl in model.all_time_lines_mut() {
+        tl.set_bpm(tl.bpm() * (freq as f64));
+        tl.set_stop((tl.micro_stop() as f64 / (freq as f64)) as i64);
+        tl.set_micro_time((tl.micro_time() as f64 / (freq as f64)) as i64);
     }
 }
 
 pub fn get_max_notes_per_time(model: &BMSModel, range: i32) -> f64 {
     let mut maxnotes: i32 = 0;
-    let tl = model.get_all_time_lines();
-    let lntype = model.get_lntype();
+    let tl = model.all_time_lines();
+    let lntype = model.lntype();
     for i in 0..tl.len() {
         let mut notes = 0;
         let mut j = i;
-        while j < tl.len() && tl[j].get_time() < tl[i].get_time() + range {
-            notes += tl[j].get_total_notes_with_lntype(lntype);
+        while j < tl.len() && tl[j].time() < tl[i].time() + range {
+            notes += tl[j].total_notes_with_lntype(lntype);
             j += 1;
         }
         maxnotes = if maxnotes < notes { notes } else { maxnotes };
@@ -189,26 +189,26 @@ pub fn get_max_notes_per_time(model: &BMSModel, range: i32) -> f64 {
 
 pub fn set_start_note_time(model: &mut BMSModel, starttime: i64) -> i64 {
     let mut margin_time: i64 = 0;
-    for tl in model.get_all_time_lines() {
-        if tl.get_milli_time() >= starttime {
+    for tl in model.all_time_lines() {
+        if tl.milli_time() >= starttime {
             break;
         }
         if tl.exist_note() {
-            margin_time = starttime - tl.get_milli_time();
+            margin_time = starttime - tl.milli_time();
             break;
         }
     }
 
     if margin_time > 0 {
-        let first_bpm = model.get_all_time_lines()[0].get_bpm();
+        let first_bpm = model.all_time_lines()[0].bpm();
         let margin_section = (margin_time as f64) * first_bpm / 240000.0;
-        for tl in model.get_all_time_lines_mut() {
-            tl.set_section(tl.get_section() + margin_section);
-            tl.set_micro_time(tl.get_micro_time() + margin_time * 1000);
+        for tl in model.all_time_lines_mut() {
+            tl.set_section(tl.section() + margin_section);
+            tl.set_micro_time(tl.micro_time() + margin_time * 1000);
         }
 
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
-        let bpm = model.get_bpm();
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
+        let bpm = model.bpm();
 
         let mut old_timelines = model.take_all_time_lines();
         let mut new_timelines: Vec<TimeLine> = Vec::with_capacity(old_timelines.len() + 1);
@@ -329,11 +329,11 @@ mod tests {
 
         change_frequency(&mut model, 2.0);
 
-        assert!((model.get_bpm() - 240.0).abs() < f64::EPSILON);
-        let tl = &model.get_all_time_lines()[0];
-        assert!((tl.get_bpm() - 240.0).abs() < f64::EPSILON);
-        assert_eq!(tl.get_micro_time(), 500_000); // halved
-        assert_eq!(tl.get_micro_stop(), 250_000); // halved
+        assert!((model.bpm() - 240.0).abs() < f64::EPSILON);
+        let tl = &model.all_time_lines()[0];
+        assert!((tl.bpm() - 240.0).abs() < f64::EPSILON);
+        assert_eq!(tl.micro_time(), 500_000); // halved
+        assert_eq!(tl.micro_stop(), 250_000); // halved
     }
 
     #[test]
@@ -346,11 +346,11 @@ mod tests {
 
         change_frequency(&mut model, 0.5);
 
-        assert!((model.get_bpm() - 60.0).abs() < f64::EPSILON);
-        let tl = &model.get_all_time_lines()[0];
-        assert!((tl.get_bpm() - 60.0).abs() < f64::EPSILON);
-        assert_eq!(tl.get_micro_time(), 2_000_000); // doubled
-        assert_eq!(tl.get_micro_stop(), 1_000_000); // doubled
+        assert!((model.bpm() - 60.0).abs() < f64::EPSILON);
+        let tl = &model.all_time_lines()[0];
+        assert!((tl.bpm() - 60.0).abs() < f64::EPSILON);
+        assert_eq!(tl.micro_time(), 2_000_000); // doubled
+        assert_eq!(tl.micro_stop(), 1_000_000); // doubled
     }
 
     // --- get_max_notes_per_time ---
@@ -388,9 +388,9 @@ mod tests {
         assert_eq!(margin, 1000);
 
         // Should have inserted a padding timeline at the beginning
-        assert_eq!(model.get_all_time_lines().len(), 2);
+        assert_eq!(model.all_time_lines().len(), 2);
         // First timeline is the padding (time=0, section=0)
-        assert_eq!(model.get_all_time_lines()[0].get_micro_time(), 0);
+        assert_eq!(model.all_time_lines()[0].micro_time(), 0);
     }
 
     #[test]
@@ -404,7 +404,7 @@ mod tests {
         let margin = set_start_note_time(&mut model, 1000);
         assert_eq!(margin, 0);
         // No padding inserted
-        assert_eq!(model.get_all_time_lines().len(), 1);
+        assert_eq!(model.all_time_lines().len(), 1);
     }
 
     #[test]

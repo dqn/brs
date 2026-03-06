@@ -56,7 +56,7 @@ fn lane_shuffle_modify(
     _show_shuffle_pattern: bool,
     make_random: impl FnOnce(&[i32], &BMSModel, i64) -> Vec<i32>,
 ) -> Vec<i32> {
-    let mode = match model.get_mode() {
+    let mode = match model.mode() {
         Some(m) => m,
         None => return Vec::new(),
     };
@@ -74,12 +74,12 @@ fn lane_shuffle_modify(
             random_sb.push_str(&(r + 1).to_string());
         }
         add_random_history(RandomHistoryEntry::new(
-            model.get_title().to_string(),
+            model.title().to_string(),
             random_sb,
         ));
     }
 
-    let timelines = model.get_all_time_lines_mut();
+    let timelines = model.all_time_lines_mut();
     for index in 0..timelines.len() {
         let tl = &timelines[index];
         if tl.exist_note() || tl.exist_hidden_note() {
@@ -102,10 +102,10 @@ fn lane_shuffle_modify(
                     // Source already moved; must clone for duplicate mapping (e.g. Battle)
                     if let Some(ref note) = notes[m] {
                         if note.is_long() && note.is_end() {
-                            if let Some(pair_tl_idx) = note.get_pair()
+                            if let Some(pair_tl_idx) = note.pair()
                                 && pair_tl_idx < timelines.len()
                                 && let Some(ln_start) =
-                                    timelines[pair_tl_idx].get_note(i as i32).cloned()
+                                    timelines[pair_tl_idx].note(i as i32).cloned()
                                 && ln_start.is_long()
                             {
                                 timelines[index].set_note(i as i32, Some(note.clone()));
@@ -172,7 +172,7 @@ impl LaneMirrorShuffleModifier {
     }
 
     pub fn make_random(keys: &[i32], model: &BMSModel, _seed: i64) -> Vec<i32> {
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
         let mut result: Vec<i32> = (0..mode_key).collect();
         for lane in 0..keys.len() {
             result[keys[lane] as usize] = keys[keys.len() - 1 - lane];
@@ -263,7 +263,7 @@ impl LaneRotateShuffleModifier {
     }
 
     pub fn make_random(keys: &[i32], model: &BMSModel, seed: i64) -> Vec<i32> {
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
         let mut result: Vec<i32> = (0..mode_key).collect();
         if keys.len() <= 1 {
             return result;
@@ -368,7 +368,7 @@ impl LaneRandomShuffleModifier {
     pub fn make_random(keys: &[i32], model: &BMSModel, seed: i64) -> Vec<i32> {
         let mut rand = JavaRandom::new(seed);
         let mut l: Vec<i32> = keys.to_vec();
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
         let mut result: Vec<i32> = (0..mode_key).collect();
         for lane in 0..keys.len() {
             let r = rand.next_int_bounded(l.len() as i32) as usize;
@@ -461,9 +461,9 @@ impl PlayerFlipModifier {
     }
 
     pub fn make_random(_keys: &[i32], model: &BMSModel, _seed: i64) -> Vec<i32> {
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0) as usize;
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0) as usize;
         let mut result: Vec<i32> = (0..mode_key as i32).collect();
-        if model.get_mode().map(|m| m.player()).unwrap_or(0) == 2 {
+        if model.mode().map(|m| m.player()).unwrap_or(0) == 2 {
             for i in 0..result.len() {
                 result[i] = ((i + result.len() / 2) % result.len()) as i32;
             }
@@ -549,7 +549,7 @@ impl PlayerBattleModifier {
     }
 
     pub fn make_random(keys: &[i32], model: &BMSModel, _seed: i64) -> (Vec<i32>, AssistLevel) {
-        if model.get_mode().map(|m| m.player()).unwrap_or(0) == 1 {
+        if model.mode().map(|m| m.player()).unwrap_or(0) == 1 {
             (Vec::new(), AssistLevel::Assist)
         } else {
             let mut result = vec![0i32; keys.len() * 2];
@@ -577,7 +577,7 @@ impl PlayerBattleModifier {
 
 impl PatternModifier for PlayerBattleModifier {
     fn modify(&mut self, model: &mut BMSModel) {
-        let mode = match model.get_mode() {
+        let mode = match model.mode() {
             Some(m) => m,
             None => return,
         };
@@ -592,7 +592,7 @@ impl PatternModifier for PlayerBattleModifier {
             return;
         }
 
-        let timelines = model.get_all_time_lines_mut();
+        let timelines = model.all_time_lines_mut();
         for tl in timelines.iter_mut() {
             if tl.exist_note() || tl.exist_hidden_note() {
                 // Take all notes out of the timeline (move, not clone)
@@ -684,7 +684,7 @@ impl LaneCrossShuffleModifier {
     }
 
     pub fn make_random(keys: &[i32], model: &BMSModel, _seed: i64) -> Vec<i32> {
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
         let mut result: Vec<i32> = (0..mode_key).collect();
         let limit = keys.len() / 2;
         if limit == 0 {
@@ -780,7 +780,7 @@ impl LanePlayableRandomShuffleModifier {
     }
 
     pub fn make_random(keys: &[i32], model: &BMSModel, _seed: i64) -> Vec<i32> {
-        let mode = match model.get_mode() {
+        let mode = match model.mode() {
             Some(m) => m,
             None => return Vec::new(),
         };
@@ -795,21 +795,21 @@ impl LanePlayableRandomShuffleModifier {
         let mut original_pattern_list: HashSet<i32> = HashSet::new();
 
         // Build list of 3+ simultaneous press patterns
-        for tl in model.get_all_time_lines() {
+        for tl in model.all_time_lines() {
             if tl.exist_note() {
                 // LN
                 for i in 0..lanes {
-                    if let Some(n) = tl.get_note(i as i32)
+                    if let Some(n) = tl.note(i as i32)
                         && n.is_long()
                     {
-                        if n.is_end() && tl.get_time() == end_ln_note_time[i] {
+                        if n.is_end() && tl.time() == end_ln_note_time[i] {
                             ln[i] = -1;
                             end_ln_note_time[i] = -1;
                         } else {
                             ln[i] = i as i32;
                             if !n.is_end() {
                                 // Get pair time
-                                end_ln_note_time[i] = n.get_time();
+                                end_ln_note_time[i] = n.time();
                             }
                         }
                     }
@@ -817,7 +817,7 @@ impl LanePlayableRandomShuffleModifier {
                 // Normal notes
                 let mut note_lane: Vec<i32> = Vec::new();
                 for (i, &ln_val) in ln.iter().enumerate() {
-                    if let Some(n) = tl.get_note(i as i32) {
+                    if let Some(n) = tl.note(i as i32) {
                         if n.is_normal() || ln_val != -1 {
                             note_lane.push(i as i32);
                         }
@@ -1090,10 +1090,10 @@ mod tests {
         let mut modifier = LaneMirrorShuffleModifier::new(0, false);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Lane 0 mirrored to lane 6, lane 6 mirrored to lane 0
-        assert_eq!(tls[0].get_note(6).unwrap().get_wav(), 10);
-        assert_eq!(tls[0].get_note(0).unwrap().get_wav(), 20);
+        assert_eq!(tls[0].note(6).unwrap().wav(), 10);
+        assert_eq!(tls[0].note(0).unwrap().wav(), 20);
     }
 
     // -- LaneMirrorShuffleModifier set_seed --

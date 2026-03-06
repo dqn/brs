@@ -66,14 +66,14 @@ pub fn count_normal_notes(notes: &[JudgeNote]) -> usize {
 /// Run autoplay simulation: JudgeManager with autoplay=true, empty key inputs.
 pub fn run_autoplay_simulation(model: &BMSModel, gauge_type: i32) -> SimulationResult {
     let judge_notes = model.build_judge_notes();
-    let mode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+    let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
     let rule = BMSPlayerRule::get_bms_player_rule(&mode);
 
     let config = JudgeConfig {
         notes: &judge_notes,
         mode: &mode,
-        ln_type: model.get_lntype(),
-        judge_rank: model.get_judgerank(),
+        ln_type: model.lntype(),
+        judge_rank: model.judgerank(),
         judge_window_rate: [100, 100, 100],
         scratch_judge_window_rate: [100, 100, 100],
         algorithm: JudgeAlgorithm::Combo,
@@ -157,14 +157,14 @@ pub fn run_manual_simulation(
     gauge_type: i32,
 ) -> SimulationResult {
     let judge_notes = model.build_judge_notes();
-    let mode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+    let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
     let rule = BMSPlayerRule::get_bms_player_rule(&mode);
 
     let config = JudgeConfig {
         notes: &judge_notes,
         mode: &mode,
-        ln_type: model.get_lntype(),
-        judge_rank: model.get_judgerank(),
+        ln_type: model.lntype(),
+        judge_rank: model.judgerank(),
         judge_window_rate: [100, 100, 100],
         scratch_judge_window_rate: [100, 100, 100],
         algorithm: JudgeAlgorithm::Combo,
@@ -263,14 +263,14 @@ pub fn run_course_simulation(models: &[&BMSModel], gauge_type: i32) -> CourseSim
         }
 
         let judge_notes = model.build_judge_notes();
-        let mode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+        let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
         let rule = BMSPlayerRule::get_bms_player_rule(&mode);
 
         let config = JudgeConfig {
             notes: &judge_notes,
             mode: &mode,
-            ln_type: model.get_lntype(),
-            judge_rank: model.get_judgerank(),
+            ln_type: model.lntype(),
+            judge_rank: model.judgerank(),
             judge_window_rate: [100, 100, 100],
             scratch_judge_window_rate: [100, 100, 100],
             algorithm: JudgeAlgorithm::Combo,
@@ -356,14 +356,14 @@ pub fn run_course_simulation_manual(
         }
 
         let judge_notes = model.build_judge_notes();
-        let mode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+        let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
         let rule = BMSPlayerRule::get_bms_player_rule(&mode);
 
         let config = JudgeConfig {
             notes: &judge_notes,
             mode: &mode,
-            ln_type: model.get_lntype(),
-            judge_rank: model.get_judgerank(),
+            ln_type: model.lntype(),
+            judge_rank: model.judgerank(),
             judge_window_rate: [100, 100, 100],
             scratch_judge_window_rate: [100, 100, 100],
             algorithm: JudgeAlgorithm::Combo,

@@ -173,9 +173,9 @@ impl PracticeConfiguration {
     }
 
     pub fn create(&mut self, model: &BMSModel) {
-        self.sha256 = model.get_sha256().to_string();
-        self.property.judgerank = model.get_judgerank();
-        self.property.endtime = model.get_last_time() + 1000;
+        self.sha256 = model.sha256().to_string();
+        self.property.judgerank = model.judgerank();
+        self.property.endtime = model.last_time() + 1000;
 
         // Load saved practice property from practice/<sha256>.json if exists
         if !self.sha256.is_empty() {
@@ -186,12 +186,9 @@ impl PracticeConfiguration {
                 saved.sanitize();
                 self.property = saved;
                 // Restore model-specific data
-                let mode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
-                let timeline_times: Vec<i32> = model
-                    .get_all_time_lines()
-                    .iter()
-                    .map(|tl| tl.get_time())
-                    .collect();
+                let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
+                let timeline_times: Vec<i32> =
+                    model.all_time_lines().iter().map(|tl| tl.time()).collect();
                 self.model_data = Some(PracticeModelData {
                     mode,
                     timeline_times,
@@ -201,21 +198,17 @@ impl PracticeConfiguration {
         }
 
         if self.property.gaugecategory.is_none() {
-            let mode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+            let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
             self.property.gaugecategory = Some(BMSPlayerRule::get_bms_player_rule(&mode).gauge);
         }
-        let mode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
-        let timeline_times: Vec<i32> = model
-            .get_all_time_lines()
-            .iter()
-            .map(|tl| tl.get_time())
-            .collect();
+        let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
+        let timeline_times: Vec<i32> = model.all_time_lines().iter().map(|tl| tl.time()).collect();
         self.model_data = Some(PracticeModelData {
             mode,
             timeline_times,
         });
         if self.property.total == 0.0 {
-            self.property.total = model.get_total();
+            self.property.total = model.total();
         }
     }
 
@@ -295,7 +288,7 @@ impl PracticeConfiguration {
         pm.modify(model);
 
         // DP modifiers
-        let mode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+        let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
         if mode.player() == 2 {
             if property.doubleop == 1 {
                 PlayerFlipModifier::new().modify(model);
@@ -702,9 +695,9 @@ mod tests {
         // freq == 100 → no frequency change
         assert!(result.freq_ratio.is_none());
         // total overwritten
-        assert!((model.get_total() - 250.0).abs() < f64::EPSILON);
+        assert!((model.total() - 250.0).abs() < f64::EPSILON);
         // judgerank overwritten
-        assert_eq!(model.get_judgerank(), 80);
+        assert_eq!(model.judgerank(), 80);
         // starttimeoffset: starttime(0) <= 1000 → 0
         assert_eq!(result.starttimeoffset, 0);
         // playtime: (10000 + 1000) * 100 / 100 = 11000

@@ -155,40 +155,40 @@ impl AudioDriver for GdxSoundDriver {
         self.slice_handles.clear();
 
         // Set volume from model's volwav
-        let volwav = model.get_volwav();
+        let volwav = model.volwav();
         if volwav > 0 && volwav < 100 {
             self.volume = volwav as f32 / 100.0;
         } else {
             self.volume = 1.0;
         }
 
-        let wav_list = model.get_wav_list();
+        let wav_list = model.wav_list();
         if wav_list.is_empty() {
             return;
         }
 
         // Get BMS directory from model path
         let bms_dir = model
-            .get_path()
+            .path()
             .and_then(|p| Path::new(&p).parent().map(|d| d.to_path_buf()));
 
         // Collect notes by wav ID, deduplicating by (starttime, duration)
         // Translated from AbstractAudioDriver.addNoteList()
         let mut notemap: HashMap<i32, Vec<(i64, i64)>> = HashMap::new();
-        let lanes = model.get_mode().map(|m| m.key()).unwrap_or(0);
-        for tl in model.get_all_time_lines() {
+        let lanes = model.mode().map(|m| m.key()).unwrap_or(0);
+        for tl in model.all_time_lines() {
             for i in 0..lanes {
-                if let Some(n) = tl.get_note(i) {
+                if let Some(n) = tl.note(i) {
                     add_note_entry(&mut notemap, n);
-                    for ln in n.get_layered_notes() {
+                    for ln in n.layered_notes() {
                         add_note_entry(&mut notemap, ln);
                     }
                 }
-                if let Some(hn) = tl.get_hidden_note(i) {
+                if let Some(hn) = tl.hidden_note(i) {
                     add_note_entry(&mut notemap, hn);
                 }
             }
-            for n in tl.get_back_ground_notes() {
+            for n in tl.back_ground_notes() {
                 add_note_entry(&mut notemap, n);
             }
         }
@@ -320,7 +320,7 @@ impl AudioDriver for GdxSoundDriver {
 
     fn play_note(&mut self, n: &Note, volume: f32, pitch: i32) {
         self.play_note_internal(n, self.volume * volume, pitch);
-        for ln in n.get_layered_notes() {
+        for ln in n.layered_notes() {
             self.play_note_internal(ln, self.volume * volume, pitch);
         }
     }
@@ -362,7 +362,7 @@ impl AudioDriver for GdxSoundDriver {
             }
             Some(note) => {
                 self.stop_note_internal(note);
-                for ln in note.get_layered_notes() {
+                for ln in note.layered_notes() {
                     self.stop_note_internal(ln);
                 }
             }
@@ -371,7 +371,7 @@ impl AudioDriver for GdxSoundDriver {
 
     fn set_volume_note(&mut self, n: &Note, volume: f32) {
         self.set_volume_note_internal(n, volume);
-        for ln in n.get_layered_notes() {
+        for ln in n.layered_notes() {
             self.set_volume_note_internal(ln, volume);
         }
     }
@@ -457,13 +457,13 @@ impl GdxSoundDriver {
     /// Play a single note's keysound (without layered notes).
     /// Translated from AbstractAudioDriver.play0()
     fn play_note_internal(&mut self, n: &Note, volume: f32, pitch_shift: i32) {
-        let wav_id = n.get_wav();
+        let wav_id = n.wav();
         if wav_id < 0 {
             return;
         }
 
-        let starttime = n.get_micro_starttime();
-        let duration = n.get_micro_duration();
+        let starttime = n.micro_starttime();
+        let duration = n.micro_duration();
 
         // Check for sliced sound first
         if (starttime != 0 || duration != 0)
@@ -513,13 +513,13 @@ impl GdxSoundDriver {
     /// Stop a single note's keysound (without layered notes).
     /// Translated from AbstractAudioDriver.stop0()
     fn stop_note_internal(&mut self, n: &Note) {
-        let wav_id = n.get_wav();
+        let wav_id = n.wav();
         if wav_id < 0 {
             return;
         }
 
-        let starttime = n.get_micro_starttime();
-        let duration = n.get_micro_duration();
+        let starttime = n.micro_starttime();
+        let duration = n.micro_duration();
 
         if starttime != 0 || duration != 0 {
             let key = (wav_id, starttime, duration);
@@ -537,13 +537,13 @@ impl GdxSoundDriver {
     /// Set volume on a single note's keysound (without layered notes).
     /// Translated from AbstractAudioDriver.setVolume0()
     fn set_volume_note_internal(&mut self, n: &Note, volume: f32) {
-        let wav_id = n.get_wav();
+        let wav_id = n.wav();
         if wav_id < 0 {
             return;
         }
 
-        let starttime = n.get_micro_starttime();
-        let duration = n.get_micro_duration();
+        let starttime = n.micro_starttime();
+        let duration = n.micro_duration();
 
         if starttime != 0 || duration != 0 {
             let key = (wav_id, starttime, duration);
@@ -562,12 +562,12 @@ impl GdxSoundDriver {
 /// Add note entry to notemap, deduplicating by (starttime, duration).
 /// Translated from AbstractAudioDriver.addNoteList()
 pub(crate) fn add_note_entry(notemap: &mut HashMap<i32, Vec<(i64, i64)>>, n: &Note) {
-    let wav_id = n.get_wav();
+    let wav_id = n.wav();
     if wav_id < 0 {
         return;
     }
-    let starttime = n.get_micro_starttime();
-    let duration = n.get_micro_duration();
+    let starttime = n.micro_starttime();
+    let duration = n.micro_duration();
     let entry = notemap.entry(wav_id).or_default();
     if !entry.iter().any(|&(s, d)| s == starttime && d == duration) {
         entry.push((starttime, duration));

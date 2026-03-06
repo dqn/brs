@@ -38,9 +38,9 @@ fn write_temp_osu(content: &str) -> NamedTempFile {
 /// Collect all notes (non-background) from all timelines across all lanes.
 fn collect_lane_notes(model: &bms_model::bms_model::BMSModel) -> Vec<(i32, &Note)> {
     let mut notes = Vec::new();
-    for tl in model.get_all_time_lines() {
-        for lane in 0..tl.get_lane_count() {
-            if let Some(note) = tl.get_note(lane) {
+    for tl in model.all_time_lines() {
+        for lane in 0..tl.lane_count() {
+            if let Some(note) = tl.note(lane) {
                 notes.push((lane, note));
             }
         }
@@ -60,12 +60,12 @@ fn decode_7k_fixture_metadata() {
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
 
-    assert_eq!(model.get_title(), "Test Song");
-    assert_eq!(model.get_sub_title(), "[7K Hard]");
-    assert_eq!(model.get_artist(), "Test Artist");
-    assert_eq!(model.get_sub_artist(), "Test Creator");
-    assert_eq!(model.get_genre(), "7K");
-    assert_eq!(model.get_mode(), Some(&Mode::BEAT_7K));
+    assert_eq!(model.title(), "Test Song");
+    assert_eq!(model.sub_title(), "[7K Hard]");
+    assert_eq!(model.artist(), "Test Artist");
+    assert_eq!(model.sub_artist(), "Test Creator");
+    assert_eq!(model.genre(), "7K");
+    assert_eq!(model.mode(), Some(&Mode::BEAT_7K));
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn decode_7k_fixture_bpm() {
         .expect("should decode 7K .osu fixture");
 
     // beat_length=500ms => BPM = 60000/500 = 120
-    let bpm = model.get_bpm();
+    let bpm = model.bpm();
     assert!((bpm - 120.0).abs() < 0.01, "expected BPM ~120, got {}", bpm);
 }
 
@@ -90,14 +90,12 @@ fn decode_7k_fixture_timing_points() {
         .expect("should decode 7K .osu fixture");
 
     // Verify timelines contain BPM data from the uninherited timing point
-    let timelines = model.get_all_time_lines();
+    let timelines = model.all_time_lines();
     assert!(!timelines.is_empty(), "decoded model should have timelines");
 
     // The first timing point is at time=0ms with beat_length=500 (120 BPM).
     // After offset adjustment (+38ms), the timeline at time=38 should have BPM=120.
-    let first_bpm_tl = timelines
-        .iter()
-        .find(|tl| (tl.get_bpm() - 120.0).abs() < 0.01);
+    let first_bpm_tl = timelines.iter().find(|tl| (tl.bpm() - 120.0).abs() < 0.01);
     assert!(
         first_bpm_tl.is_some(),
         "should have at least one timeline with BPM=120"
@@ -114,10 +112,8 @@ fn decode_7k_fixture_scroll_velocity() {
 
     // The inherited timing point at 10000ms has beat_length=-50,
     // so scroll = 100 / -(-50) = 2.0
-    let timelines = model.get_all_time_lines();
-    let sv2_tl = timelines
-        .iter()
-        .find(|tl| (tl.get_scroll() - 2.0).abs() < 0.01);
+    let timelines = model.all_time_lines();
+    let sv2_tl = timelines.iter().find(|tl| (tl.scroll() - 2.0).abs() < 0.01);
     assert!(
         sv2_tl.is_some(),
         "should have a timeline with scroll velocity 2.0x from inherited point"
@@ -194,8 +190,8 @@ fn decode_7k_fixture_section_lines() {
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
 
-    let timelines = model.get_all_time_lines();
-    let section_line_count = timelines.iter().filter(|tl| tl.get_section_line()).count();
+    let timelines = model.all_time_lines();
+    let section_line_count = timelines.iter().filter(|tl| tl.section_line()).count();
 
     // With beat_length=500ms and notes spanning ~2000ms, we should have
     // multiple section lines (one per measure = 4 beats = 2000ms at 120 BPM).
@@ -214,8 +210,8 @@ fn decode_7k_fixture_sections_are_monotonically_increasing() {
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
 
-    let timelines = model.get_all_time_lines();
-    let sections: Vec<f64> = timelines.iter().map(|tl| tl.get_section()).collect();
+    let timelines = model.all_time_lines();
+    let sections: Vec<f64> = timelines.iter().map(|tl| tl.section()).collect();
 
     for window in sections.windows(2) {
         assert!(
@@ -240,11 +236,11 @@ fn decode_7k_fixture_events() {
         .expect("should decode 7K .osu fixture");
 
     // Event type "0" sets backbmp/stagefile
-    assert_eq!(model.get_backbmp(), "bg.jpg");
-    assert_eq!(model.get_stagefile(), "bg.jpg");
+    assert_eq!(model.backbmp(), "bg.jpg");
+    assert_eq!(model.stagefile(), "bg.jpg");
 
     // Video event adds to bga_list
-    let bga_list = model.get_bga_list();
+    let bga_list = model.bga_list();
     assert!(
         bga_list.iter().any(|s| s == "video.mp4"),
         "bga_list should contain 'video.mp4', got: {:?}",
@@ -252,7 +248,7 @@ fn decode_7k_fixture_events() {
     );
 
     // Audio preview set from general.audio_filename
-    assert_eq!(model.get_preview(), "audio.mp3");
+    assert_eq!(model.preview(), "audio.mp3");
 }
 
 // ---------------------------------------------------------------------------
@@ -267,19 +263,12 @@ fn decode_7k_fixture_hashes_are_nonempty() {
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
 
-    assert!(!model.get_md5().is_empty(), "md5 hash should be computed");
-    assert!(
-        !model.get_sha256().is_empty(),
-        "sha256 hash should be computed"
-    );
+    assert!(!model.md5().is_empty(), "md5 hash should be computed");
+    assert!(!model.sha256().is_empty(), "sha256 hash should be computed");
     // MD5 is always 32 hex chars
-    assert_eq!(model.get_md5().len(), 32, "md5 should be 32 hex chars");
+    assert_eq!(model.md5().len(), 32, "md5 should be 32 hex chars");
     // SHA256 is always 64 hex chars
-    assert_eq!(
-        model.get_sha256().len(),
-        64,
-        "sha256 should be 64 hex chars"
-    );
+    assert_eq!(model.sha256().len(), 64, "sha256 should be 64 hex chars");
 }
 
 // ---------------------------------------------------------------------------
@@ -319,8 +308,8 @@ CircleSize:4
         .decode_path(f.path())
         .expect("should decode 4K .osu");
 
-    assert_eq!(model.get_mode(), Some(&Mode::BEAT_7K));
-    assert_eq!(model.get_genre(), "4K");
+    assert_eq!(model.mode(), Some(&Mode::BEAT_7K));
+    assert_eq!(model.genre(), "4K");
 }
 
 #[test]
@@ -357,8 +346,8 @@ CircleSize:5
         .decode_path(f.path())
         .expect("should decode 5K .osu");
 
-    assert_eq!(model.get_mode(), Some(&Mode::BEAT_5K));
-    assert_eq!(model.get_genre(), "5K");
+    assert_eq!(model.mode(), Some(&Mode::BEAT_5K));
+    assert_eq!(model.genre(), "5K");
 }
 
 #[test]
@@ -399,8 +388,8 @@ CircleSize:9
         .decode_path(f.path())
         .expect("should decode 9K .osu");
 
-    assert_eq!(model.get_mode(), Some(&Mode::POPN_9K));
-    assert_eq!(model.get_genre(), "9K");
+    assert_eq!(model.mode(), Some(&Mode::POPN_9K));
+    assert_eq!(model.genre(), "9K");
 }
 
 // ---------------------------------------------------------------------------
@@ -732,18 +721,14 @@ CircleSize:7
         .decode_path(f.path())
         .expect("should decode with BPM change");
 
-    let timelines = model.get_all_time_lines();
+    let timelines = model.all_time_lines();
 
     // First timing point: beat_length=500 => BPM=120
-    let has_120bpm = timelines
-        .iter()
-        .any(|tl| (tl.get_bpm() - 120.0).abs() < 0.01);
+    let has_120bpm = timelines.iter().any(|tl| (tl.bpm() - 120.0).abs() < 0.01);
     assert!(has_120bpm, "should have timelines with BPM=120");
 
     // Second timing point: beat_length=250 => BPM=240
-    let has_240bpm = timelines
-        .iter()
-        .any(|tl| (tl.get_bpm() - 240.0).abs() < 0.01);
+    let has_240bpm = timelines.iter().any(|tl| (tl.bpm() - 240.0).abs() < 0.01);
     assert!(has_240bpm, "should have timelines with BPM=240");
 }
 
@@ -759,7 +744,7 @@ fn wav_list_includes_audio_and_samples() {
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
 
-    let wav_list = model.get_wav_list();
+    let wav_list = model.wav_list();
     // First entry should be the general audio filename
     assert_eq!(
         wav_list[0], "audio.mp3",
@@ -800,5 +785,5 @@ fn decode_via_chart_information() {
         .decode(info)
         .expect("should decode via ChartInformation");
 
-    assert_eq!(model.get_title(), "Test Song");
+    assert_eq!(model.title(), "Test Song");
 }

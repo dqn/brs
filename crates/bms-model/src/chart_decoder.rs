@@ -47,7 +47,7 @@ impl ChartDecoderImpl {
         }
     }
 
-    pub fn get_decode_log(&self) -> &[DecodeLog] {
+    pub fn decode_log(&self) -> &[DecodeLog] {
         match self {
             ChartDecoderImpl::Bms(d) => &d.log,
             ChartDecoderImpl::Bmson(d) => &d.log,

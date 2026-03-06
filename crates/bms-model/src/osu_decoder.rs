@@ -138,7 +138,7 @@ impl OSUDecoder {
         }
         model.set_preview(&osu.general.audio_filename);
 
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
         let mut timelines: BTreeMap<i32, TimeLine> = BTreeMap::new();
         let mut timing_points: Vec<TimingPoints> = Vec::new();
         let mut svs: Vec<TimingPoints> = Vec::new();
@@ -181,12 +181,12 @@ impl OSUDecoder {
 
         model.set_bpm(get_bpm(&timing_points, 0));
 
-        bga_list.push(model.get_backbmp().to_string());
+        bga_list.push(model.backbmp().to_string());
         let bgm_tl = get_timeline(&mut timelines, 0, 0.0, mode_key);
         let bgm = Note::new_normal_with_start_duration(0, 0, 0);
         bgm_tl.add_back_ground_note(bgm);
-        bgm_tl.set_bpm(get_bpm(&timing_points, bgm_tl.get_time()));
-        bgm_tl.set_scroll(get_sv(&svs, bgm_tl.get_time()));
+        bgm_tl.set_bpm(get_bpm(&timing_points, bgm_tl.time()));
+        bgm_tl.set_scroll(get_sv(&svs, bgm_tl.time()));
         bgm_tl.set_bga(bga_list.len() as i32 - 1);
 
         for (i, &(start_time, _)) in videos.iter().enumerate() {
@@ -276,8 +276,8 @@ impl OSUDecoder {
             let section = get_section(&timing_points, adjusted_time);
 
             let tl = get_timeline(&mut timelines, adjusted_time, section, mode_key);
-            tl.set_bpm(get_bpm(&timing_points, tl.get_time()));
-            tl.set_scroll(get_sv(&svs, tl.get_time()));
+            tl.set_bpm(get_bpm(&timing_points, tl.time()));
+            tl.set_scroll(get_sv(&svs, tl.time()));
             let is_mania_hold = (hit_object.hit_type & 0x80) > 0;
             let wav_idx: i32 = -2;
 
@@ -300,12 +300,12 @@ impl OSUDecoder {
                 }
                 let mut head =
                     Note::new_long_with_start_duration(wav_idx, adjusted_time as i64 * 1000, 0);
-                head.set_long_note_type(model.get_lntype());
+                head.set_long_note_type(model.lntype());
                 tl.set_note(mapping[column_idx as usize], Some(head));
 
                 let tail_section = get_section(&timing_points, tail_time_ms);
                 let mut tail = Note::new_long_with_start_duration(wav_idx, tail_time_us, 0);
-                tail.set_long_note_type(model.get_lntype());
+                tail.set_long_note_type(model.lntype());
                 tail.set_end(true);
                 let tail_tl = get_timeline(&mut timelines, tail_time_ms, tail_section, mode_key);
                 tail_tl.set_bpm(get_bpm(&timing_points, tail_time_ms));

@@ -218,7 +218,7 @@ fn e2e_gameplay_bms_model_propagates_to_play_state() {
         let model = resource
             .get_bms_model()
             .expect("model should be present after load");
-        expected_notes = model.get_total_notes();
+        expected_notes = model.total_notes();
         assert!(
             expected_notes > 0,
             "test BMS file should have at least 1 note"
@@ -233,7 +233,7 @@ fn e2e_gameplay_bms_model_propagates_to_play_state() {
     let actual_notes = mc
         .get_player_resource()
         .and_then(|r| r.get_bms_model())
-        .map(|m| m.get_total_notes())
+        .map(|m| m.total_notes())
         .unwrap_or(0);
     assert_eq!(
         actual_notes, expected_notes,

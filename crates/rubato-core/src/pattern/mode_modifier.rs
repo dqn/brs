@@ -46,16 +46,16 @@ impl PatternModifier for ModeModifier {
         let seven_to_nine_pattern = self.config.seven_to_nine_pattern;
         let seven_to_nine_type = self.config.seven_to_nine_type;
 
-        let timelines = model.get_all_time_lines_mut();
+        let timelines = model.all_time_lines_mut();
         // Pre-compute timeline index → time for LN end note pair lookup
-        let tl_times: Vec<i32> = timelines.iter().map(|tl| tl.get_time()).collect();
+        let tl_times: Vec<i32> = timelines.iter().map(|tl| tl.time()).collect();
         for tl in timelines.iter_mut() {
             if tl.exist_note() || tl.exist_hidden_note() {
                 let mut notes: Vec<Option<Note>> = Vec::with_capacity(lanes);
                 let mut hnotes: Vec<Option<Note>> = Vec::with_capacity(lanes);
                 for i in 0..lanes {
-                    notes.push(tl.get_note(i as i32).cloned());
-                    hnotes.push(tl.get_hidden_note(i as i32).cloned());
+                    notes.push(tl.note(i as i32).cloned());
+                    hnotes.push(tl.hidden_note(i as i32).cloned());
                 }
 
                 let keys = PatternModifierBase::get_keys_static(&after_mode, 0, true);
@@ -66,7 +66,7 @@ impl PatternModifier for ModeModifier {
                             &ln,
                             &notes,
                             &last_note_time,
-                            tl.get_time(),
+                            tl.time(),
                             hran_threshold,
                             seven_to_nine_pattern,
                             seven_to_nine_type,
@@ -89,9 +89,9 @@ impl PatternModifier for ModeModifier {
                     if let Some(ref note) = n {
                         let is_long = note.is_long();
                         let is_end = note.is_end();
-                        let _note_time = note.get_time();
+                        let _note_time = note.time();
                         if is_long {
-                            if is_end && tl.get_time() == end_ln_note_time[i] {
+                            if is_end && tl.time() == end_ln_note_time[i] {
                                 tl.set_note(i as i32, n);
                                 ln[i] = -1;
                                 end_ln_note_time[i] = -1;
@@ -101,13 +101,13 @@ impl PatternModifier for ModeModifier {
                                     // Java: endLnNoteTime[i] = ln2.getPair().getTime()
                                     // Store the END note's timeline time (not the start note's)
                                     end_ln_note_time[i] =
-                                        note.get_pair().map(|idx| tl_times[idx]).unwrap_or(-1);
+                                        note.pair().map(|idx| tl_times[idx]).unwrap_or(-1);
                                 }
-                                last_note_time[i] = tl.get_time();
+                                last_note_time[i] = tl.time();
                                 tl.set_note(i as i32, n);
                             }
                         } else {
-                            last_note_time[i] = tl.get_time();
+                            last_note_time[i] = tl.time();
                             tl.set_note(i as i32, n);
                         }
                     } else {
@@ -660,7 +660,7 @@ mod tests {
         let mut modifier = ModeModifier::new(Mode::BEAT_7K, Mode::POPN_9K, config);
         modifier.modify(&mut model);
 
-        assert_eq!(model.get_mode(), Some(&Mode::POPN_9K));
+        assert_eq!(model.mode(), Some(&Mode::POPN_9K));
     }
 
     // -- ModeModifier::modify remaps notes for 7K -> 9K --
@@ -682,7 +682,7 @@ mod tests {
         let mut modifier = ModeModifier::new(Mode::BEAT_7K, Mode::POPN_9K, config);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // After conversion, model is POPN_9K (9 lanes)
         // With pattern=0: key_lane=2, sc_lane=1, rest_lane=0
         // result[2..9] = 0..7 (input lanes), result[1]=7 (scratch), result[0]=8 (rest)
@@ -691,15 +691,15 @@ mod tests {
 
         // Verify the key lanes got the original notes
         // result[2]=0 -> output lane 2 gets input lane 0 (wav=1)
-        assert_eq!(tls[0].get_note(2).unwrap().get_wav(), 1);
+        assert_eq!(tls[0].note(2).unwrap().wav(), 1);
         // result[3]=1 -> output lane 3 gets input lane 1 (wav=2)
-        assert_eq!(tls[0].get_note(3).unwrap().get_wav(), 2);
+        assert_eq!(tls[0].note(3).unwrap().wav(), 2);
         // result[8]=6 -> output lane 8 gets input lane 6 (wav=7)
-        assert_eq!(tls[0].get_note(8).unwrap().get_wav(), 7);
+        assert_eq!(tls[0].note(8).unwrap().wav(), 7);
         // result[1]=7 -> output lane 1 gets input lane 7 (wav=8, scratch)
-        assert_eq!(tls[0].get_note(1).unwrap().get_wav(), 8);
+        assert_eq!(tls[0].note(1).unwrap().wav(), 8);
         // result[0]=8 -> output lane 0 gets input lane 8 (None in 8-lane model)
-        assert!(tls[0].get_note(0).is_none());
+        assert!(tls[0].note(0).is_none());
     }
 
     // -- hran_threshold_bpm <= 0 sets threshold to 0 --
@@ -738,10 +738,10 @@ mod tests {
         let mut modifier = ModeModifier::new(Mode::BEAT_7K, Mode::BEAT_7K, config);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Notes should be in the same positions (identity mapping)
-        assert_eq!(tls[0].get_note(0).unwrap().get_wav(), 1);
-        assert_eq!(tls[0].get_note(3).unwrap().get_wav(), 4);
+        assert_eq!(tls[0].note(0).unwrap().wav(), 1);
+        assert_eq!(tls[0].note(3).unwrap().wav(), 4);
     }
 
     // -- Empty model: no panic --

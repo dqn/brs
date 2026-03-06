@@ -51,7 +51,7 @@ fn bga_parse_model_has_bga_data() {
         .expect("Failed to parse BMS");
 
     // BGA list should contain the BMP definitions
-    let bga_list = model.get_bga_list();
+    let bga_list = model.bga_list();
     assert_eq!(bga_list.len(), 5, "should have 5 BMP definitions");
     assert_eq!(bga_list[0], "bg1.bmp");
     assert_eq!(bga_list[1], "bg2.bmp");
@@ -61,9 +61,9 @@ fn bga_parse_model_has_bga_data() {
 
     // Timelines should contain BGA data
     let timelines_with_bga: Vec<_> = model
-        .get_all_time_lines()
+        .all_time_lines()
         .iter()
-        .filter(|tl| tl.get_bga() != -1 || tl.get_layer() != -1)
+        .filter(|tl| tl.bga() != -1 || tl.layer() != -1)
         .collect();
     assert!(
         timelines_with_bga.len() >= 5,

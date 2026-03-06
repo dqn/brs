@@ -224,7 +224,7 @@ fn bench_real_bms_srandom(c: &mut Criterion) {
         let filename = path.file_name().unwrap().to_string_lossy().to_string();
         let base_model = decode_bms(path);
         let mode = base_model
-            .get_mode()
+            .mode()
             .unwrap_or_else(|| panic!("{filename}: mode should be set"))
             .clone();
 

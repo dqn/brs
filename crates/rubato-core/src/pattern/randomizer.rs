@@ -98,8 +98,8 @@ impl RandomizerBase {
         let mut hnotes: Vec<Option<Note>> = vec![None; mode_key];
         for i in 0..self.modify_lanes.len() {
             let lane = self.modify_lanes[i];
-            notes[lane as usize] = tl.get_note(lane).cloned();
-            hnotes[lane as usize] = tl.get_hidden_note(lane).cloned();
+            notes[lane as usize] = tl.note(lane).cloned();
+            hnotes[lane as usize] = tl.hidden_note(lane).cloned();
         }
 
         for (&x, &y) in &permutation_map {
@@ -108,10 +108,7 @@ impl RandomizerBase {
             if let Some(ref note) = n
                 && note.is_long()
             {
-                if note.is_end()
-                    && self.ln_active.contains_key(&x)
-                    && tl.get_time() == note.get_time()
-                {
+                if note.is_end() && self.ln_active.contains_key(&x) && tl.time() == note.time() {
                     self.ln_active.remove(&x);
                     self.changeable_lane.push(x);
                     self.assignable_lane.push(y);
@@ -167,7 +164,7 @@ impl TimeBasedRandomizerState {
         let mut inferior_lane: Vec<i32> = Vec::with_capacity(assignable_lane.len());
 
         for &cl in changeable_lane.iter() {
-            let note = tl.get_note(cl);
+            let note = tl.note(cl);
             if note.is_none() || note.map(|n| n.is_mine()).unwrap_or(false) {
                 empty_lane.push(cl);
             } else {
@@ -175,7 +172,7 @@ impl TimeBasedRandomizerState {
             }
         }
         for &al in assignable_lane.iter() {
-            if tl.get_time() - *self.last_note_time.get(&al).unwrap_or(&-10000) > self.threshold {
+            if tl.time() - *self.last_note_time.get(&al).unwrap_or(&-10000) > self.threshold {
                 primary_lane.push(al);
             } else {
                 inferior_lane.push(al);
@@ -222,9 +219,9 @@ impl TimeBasedRandomizerState {
 
     pub fn update_note_time(&mut self, tl: &TimeLine, random_map: &HashMap<i32, i32>) {
         for (&key, &val) in random_map {
-            let note = tl.get_note(key);
+            let note = tl.note(key);
             if note.is_some() && !note.map(|n| n.is_mine()).unwrap_or(false) {
-                self.last_note_time.insert(val, tl.get_time());
+                self.last_note_time.insert(val, tl.time());
             }
         }
     }
@@ -455,8 +452,8 @@ impl SRandomizer {
         let mut notes: Vec<Option<Note>> = vec![None; mode_key];
         let mut hnotes: Vec<Option<Note>> = vec![None; mode_key];
         for &lane in &self.base.modify_lanes {
-            notes[lane as usize] = tl.get_note(lane).cloned();
-            hnotes[lane as usize] = tl.get_hidden_note(lane).cloned();
+            notes[lane as usize] = tl.note(lane).cloned();
+            hnotes[lane as usize] = tl.hidden_note(lane).cloned();
         }
 
         for (&x, &y) in &full_map {
@@ -465,9 +462,7 @@ impl SRandomizer {
             if let Some(ref note) = n
                 && note.is_long()
             {
-                if note.is_end()
-                    && self.base.ln_active.contains_key(&x)
-                    && tl.get_time() == note.get_time()
+                if note.is_end() && self.base.ln_active.contains_key(&x) && tl.time() == note.time()
                 {
                     self.base.ln_active.remove(&x);
                     self.base.changeable_lane.push(x);
@@ -548,8 +543,8 @@ impl SpiralRandomizer {
         let mut notes: Vec<Option<Note>> = vec![None; mode_key];
         let mut hnotes: Vec<Option<Note>> = vec![None; mode_key];
         for &lane in &self.base.modify_lanes {
-            notes[lane as usize] = tl.get_note(lane).cloned();
-            hnotes[lane as usize] = tl.get_hidden_note(lane).cloned();
+            notes[lane as usize] = tl.note(lane).cloned();
+            hnotes[lane as usize] = tl.hidden_note(lane).cloned();
         }
 
         for (&x, &y) in &full_map {
@@ -558,9 +553,7 @@ impl SpiralRandomizer {
             if let Some(ref note) = n
                 && note.is_long()
             {
-                if note.is_end()
-                    && self.base.ln_active.contains_key(&x)
-                    && tl.get_time() == note.get_time()
+                if note.is_end() && self.base.ln_active.contains_key(&x) && tl.time() == note.time()
                 {
                     self.base.ln_active.remove(&x);
                     self.base.changeable_lane.push(x);
@@ -630,7 +623,7 @@ impl AllScratchRandomizer {
         // Try to assign to scratch lane first
         if !self.scratch_lane.is_empty()
             && assignable.contains(&self.scratch_lane[self.scratch_index])
-            && tl.get_time()
+            && tl.time()
                 - *self
                     .time_state
                     .last_note_time
@@ -640,7 +633,7 @@ impl AllScratchRandomizer {
         {
             let mut l: i32 = -1;
             for &cl in &changeable {
-                let note = tl.get_note(cl);
+                let note = tl.note(cl);
                 if note.is_some() && !note.map(|n| n.is_mine()).unwrap_or(false) {
                     l = cl;
                     break;
@@ -713,8 +706,8 @@ impl AllScratchRandomizer {
         let mut notes: Vec<Option<Note>> = vec![None; mode_key];
         let mut hnotes: Vec<Option<Note>> = vec![None; mode_key];
         for &lane in &self.base.modify_lanes {
-            notes[lane as usize] = tl.get_note(lane).cloned();
-            hnotes[lane as usize] = tl.get_hidden_note(lane).cloned();
+            notes[lane as usize] = tl.note(lane).cloned();
+            hnotes[lane as usize] = tl.hidden_note(lane).cloned();
         }
 
         for (&x, &y) in &full_map {
@@ -723,9 +716,7 @@ impl AllScratchRandomizer {
             if let Some(ref note) = n
                 && note.is_long()
             {
-                if note.is_end()
-                    && self.base.ln_active.contains_key(&x)
-                    && tl.get_time() == note.get_time()
+                if note.is_end() && self.base.ln_active.contains_key(&x) && tl.time() == note.time()
                 {
                     self.base.ln_active.remove(&x);
                     self.base.changeable_lane.push(x);
@@ -791,7 +782,7 @@ impl NoMurioshiRandomizer {
     fn get_note_exist_lane(&self, tl: &TimeLine) -> Vec<i32> {
         let mut l = Vec::new();
         for &lane in &self.base.modify_lanes {
-            let note = tl.get_note(lane);
+            let note = tl.note(lane);
             if note.is_some() && !note.map(|n| n.is_mine()).unwrap_or(false) {
                 l.push(lane);
             }
@@ -822,7 +813,7 @@ impl NoMurioshiRandomizer {
                     .time_state
                     .last_note_time
                     .iter()
-                    .filter(|(_lane, time)| tl.get_time() - **time < threshold)
+                    .filter(|(_lane, time)| tl.time() - **time < threshold)
                     .map(|(&lane, _)| lane)
                     .collect();
 
@@ -948,8 +939,8 @@ impl NoMurioshiRandomizer {
         let mut notes: Vec<Option<Note>> = vec![None; mode_key];
         let mut hnotes: Vec<Option<Note>> = vec![None; mode_key];
         for &lane in &self.base.modify_lanes {
-            notes[lane as usize] = tl.get_note(lane).cloned();
-            hnotes[lane as usize] = tl.get_hidden_note(lane).cloned();
+            notes[lane as usize] = tl.note(lane).cloned();
+            hnotes[lane as usize] = tl.hidden_note(lane).cloned();
         }
 
         for (&x, &y) in &full_map {
@@ -958,9 +949,7 @@ impl NoMurioshiRandomizer {
             if let Some(ref note) = n
                 && note.is_long()
             {
-                if note.is_end()
-                    && self.base.ln_active.contains_key(&x)
-                    && tl.get_time() == note.get_time()
+                if note.is_end() && self.base.ln_active.contains_key(&x) && tl.time() == note.time()
                 {
                     self.base.ln_active.remove(&x);
                     self.base.changeable_lane.push(x);
@@ -1003,7 +992,7 @@ impl ConvergeRandomizer {
     pub fn permutate(&mut self, tl: &mut TimeLine) -> Vec<i32> {
         // Reset renda count for non-renda lanes
         let threshold2 = self.threshold2;
-        let time = tl.get_time();
+        let time = tl.time();
         for (&key, count) in self.renda_count.iter_mut() {
             if time - *self.time_state.last_note_time.get(&key).unwrap_or(&-10000) > threshold2 {
                 *count = 0;
@@ -1042,9 +1031,7 @@ impl ConvergeRandomizer {
         // The select_fn above increments the renda_count for the chosen lane
         // We need to do it here since we can't mutate renda_count inside the closure
         for (&_key, &val) in &random_map {
-            if tl.get_note(_key).is_some()
-                && !tl.get_note(_key).map(|n| n.is_mine()).unwrap_or(false)
-            {
+            if tl.note(_key).is_some() && !tl.note(_key).map(|n| n.is_mine()).unwrap_or(false) {
                 *self.renda_count.entry(val).or_insert(0) += 1;
             }
         }
@@ -1061,8 +1048,8 @@ impl ConvergeRandomizer {
         let mut notes: Vec<Option<Note>> = vec![None; mode_key];
         let mut hnotes: Vec<Option<Note>> = vec![None; mode_key];
         for &lane in &self.base.modify_lanes {
-            notes[lane as usize] = tl.get_note(lane).cloned();
-            hnotes[lane as usize] = tl.get_hidden_note(lane).cloned();
+            notes[lane as usize] = tl.note(lane).cloned();
+            hnotes[lane as usize] = tl.hidden_note(lane).cloned();
         }
 
         for (&x, &y) in &full_map {
@@ -1071,9 +1058,7 @@ impl ConvergeRandomizer {
             if let Some(ref note) = n
                 && note.is_long()
             {
-                if note.is_end()
-                    && self.base.ln_active.contains_key(&x)
-                    && tl.get_time() == note.get_time()
+                if note.is_end() && self.base.ln_active.contains_key(&x) && tl.time() == note.time()
                 {
                     self.base.ln_active.remove(&x);
                     self.base.changeable_lane.push(x);

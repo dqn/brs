@@ -14,11 +14,11 @@ impl DecodeLog {
         }
     }
 
-    pub fn get_state(&self) -> &State {
+    pub fn state(&self) -> &State {
         &self.state
     }
 
-    pub fn get_message(&self) -> &str {
+    pub fn message(&self) -> &str {
         &self.message
     }
 }

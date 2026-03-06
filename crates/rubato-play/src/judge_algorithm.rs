@@ -24,19 +24,18 @@ impl JudgeAlgorithm {
     pub fn compare(&self, t1: &Note, t2: &Note, ptime: i64, judgetable: &[Vec<i64>]) -> bool {
         match self {
             JudgeAlgorithm::Combo => {
-                t2.get_state() == 0
-                    && t1.get_micro_time() < ptime + judgetable[2][0]
-                    && t2.get_micro_time() <= ptime + judgetable[2][1]
+                t2.state() == 0
+                    && t1.micro_time() < ptime + judgetable[2][0]
+                    && t2.micro_time() <= ptime + judgetable[2][1]
             }
             JudgeAlgorithm::Duration => {
-                (t1.get_micro_time() - ptime).abs() > (t2.get_micro_time() - ptime).abs()
-                    && t2.get_state() == 0
+                (t1.micro_time() - ptime).abs() > (t2.micro_time() - ptime).abs() && t2.state() == 0
             }
             JudgeAlgorithm::Lowest => false,
             JudgeAlgorithm::Score => {
-                t2.get_state() == 0
-                    && t1.get_micro_time() < ptime + judgetable[1][0]
-                    && t2.get_micro_time() <= ptime + judgetable[1][1]
+                t2.state() == 0
+                    && t1.micro_time() < ptime + judgetable[1][0]
+                    && t2.micro_time() <= ptime + judgetable[1][1]
             }
         }
     }

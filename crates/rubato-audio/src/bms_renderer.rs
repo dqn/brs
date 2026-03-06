@@ -61,7 +61,7 @@ impl BMSRenderer {
 
         // Calculate output buffer size
         // (number of samples = sampling rate * seconds)
-        let mut end_time = model.get_last_milli_time();
+        let mut end_time = model.last_milli_time();
 
         // Apply time limit if specified (0 = no limit)
         if max_duration_ms > 0 && end_time > max_duration_ms {
@@ -86,21 +86,21 @@ impl BMSRenderer {
         let mut mix_buffer = vec![0.0f32; mix_len];
 
         // Process all timelines
-        let timelines = model.get_all_time_lines();
+        let timelines = model.all_time_lines();
 
         for tl in timelines {
-            let time = tl.get_milli_time();
+            let time = tl.milli_time();
             if time >= end_time {
                 break;
             }
-            for note in tl.get_back_ground_notes() {
+            for note in tl.back_ground_notes() {
                 self.render_note(note, time, &wav_cache, &mut mix_buffer);
             }
-            let lanes = model.get_mode().map(|m| m.key()).unwrap_or(0);
+            let lanes = model.mode().map(|m| m.key()).unwrap_or(0);
             for i in 0..lanes {
-                if let Some(note) = tl.get_note(i) {
+                if let Some(note) = tl.note(i) {
                     self.render_note(note, time, &wav_cache, &mut mix_buffer);
-                    for layered in note.get_layered_notes() {
+                    for layered in note.layered_notes() {
                         self.render_note(layered, time, &wav_cache, &mut mix_buffer);
                     }
                 }
@@ -135,7 +135,7 @@ impl BMSRenderer {
         wav_cache: &HashMap<i32, PCM>,
         mix_buffer: &mut [f32],
     ) -> bool {
-        let wav_id = note.get_wav();
+        let wav_id = note.wav();
         if wav_id < 0 {
             return false;
         }
@@ -145,8 +145,8 @@ impl BMSRenderer {
         };
 
         let start_sample = note_time * self.sample_rate as i64 / 1000;
-        let micro_start_time = note.get_micro_starttime();
-        let micro_duration = note.get_micro_duration();
+        let micro_start_time = note.micro_starttime();
+        let micro_duration = note.micro_duration();
 
         let render_pcm: PCM;
         if micro_start_time > 0 || micro_duration > 0 {
@@ -258,8 +258,8 @@ impl BMSRenderer {
         info!("Loading audio files...");
 
         let mut result: HashMap<i32, PCM> = HashMap::new();
-        let wav_list = model.get_wav_list();
-        let model_path = match model.get_path() {
+        let wav_list = model.wav_list();
+        let model_path = match model.path() {
             Some(p) => p,
             None => return result,
         };

@@ -68,28 +68,28 @@ fn note_type_to_string(note: &Note) -> &'static str {
 /// Returns (lane, time_ms, note_type, end_time_ms) tuples sorted by (time_ms, lane).
 /// Skips LN end notes.
 fn capture_notes(model: &BMSModel) -> Vec<ModifierNote> {
-    let keys = model.get_mode().map(|m| m.key()).unwrap_or(0);
-    let timelines = model.get_all_time_lines();
+    let keys = model.mode().map(|m| m.key()).unwrap_or(0);
+    let timelines = model.all_time_lines();
     let mut notes: Vec<ModifierNote> = Vec::new();
 
     for (tl_idx, tl) in timelines.iter().enumerate() {
         for lane in 0..keys {
-            if let Some(note) = tl.get_note(lane) {
+            if let Some(note) = tl.note(lane) {
                 // Skip LN end notes
                 if note.is_end() {
                     continue;
                 }
 
-                let time_ms = (tl.get_micro_time() / 1000) as i32;
+                let time_ms = (tl.micro_time() / 1000) as i32;
                 let end_time_ms = if note.is_long() {
                     // Find the paired end note by scanning forward
                     let mut end_time = None;
                     for future_tl in &timelines[(tl_idx + 1)..] {
-                        if let Some(end_note) = future_tl.get_note(lane)
+                        if let Some(end_note) = future_tl.note(lane)
                             && end_note.is_long()
                             && end_note.is_end()
                         {
-                            end_time = Some((future_tl.get_micro_time() / 1000) as i32);
+                            end_time = Some((future_tl.micro_time() / 1000) as i32);
                             break;
                         }
                     }
@@ -111,8 +111,8 @@ fn capture_notes(model: &BMSModel) -> Vec<ModifierNote> {
     // Also capture hidden (invisible) notes
     for tl in timelines.iter() {
         for lane in 0..keys {
-            if let Some(_note) = tl.get_hidden_note(lane) {
-                let time_ms = (tl.get_micro_time() / 1000) as i32;
+            if let Some(_note) = tl.hidden_note(lane) {
+                let time_ms = (tl.micro_time() / 1000) as i32;
                 notes.push(ModifierNote {
                     lane: lane as usize,
                     time_ms,
@@ -405,21 +405,21 @@ fn run_scroll_speed_remove_test(bms_file: &str) {
 
         // Verify BPM normalization: all BPM changes should be set to initial_bpm
         let ref_bpm = tc.config["ref_bpm"].as_f64().unwrap();
-        for tl in model.get_all_time_lines() {
+        for tl in model.all_time_lines() {
             assert!(
-                (tl.get_bpm() - ref_bpm).abs() < 0.001,
+                (tl.bpm() - ref_bpm).abs() < 0.001,
                 "scroll_speed_remove/{}: BPM not normalized: expected={} got={}",
                 tc.bms_file,
                 ref_bpm,
-                tl.get_bpm()
+                tl.bpm()
             );
         }
 
         // Verify all stops are cleared
         let stop_count: usize = model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
-            .filter(|tl| tl.get_stop() != 0)
+            .filter(|tl| tl.stop() != 0)
             .count();
         assert!(
             stop_count == 0,

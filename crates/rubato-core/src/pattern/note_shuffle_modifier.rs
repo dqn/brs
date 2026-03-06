@@ -26,12 +26,12 @@ impl NoteShuffleModifier {
 impl PatternModifier for NoteShuffleModifier {
     fn modify(&mut self, model: &mut BMSModel) {
         self.randomizer.set_random_seed(self.base.seed);
-        let keys = match model.get_mode() {
+        let keys = match model.mode() {
             Some(m) => self.get_keys(m, self.base.player, self.is_scratch_lane_modify),
             None => return,
         };
         self.randomizer.set_modify_lanes(&keys);
-        let timelines = model.get_all_time_lines_mut();
+        let timelines = model.all_time_lines_mut();
         for tl in timelines.iter_mut() {
             if tl.exist_note() || tl.exist_hidden_note() {
                 self.randomizer.permutate(tl);
@@ -95,13 +95,13 @@ mod tests {
 
     /// Collect the (lane -> wav) mapping from all timelines.
     fn collect_note_positions(model: &BMSModel) -> Vec<Vec<(i32, i32)>> {
-        let key_count = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let key_count = model.mode().map(|m| m.key()).unwrap_or(0);
         model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
             .map(|tl| {
                 (0..key_count)
-                    .filter_map(|lane| tl.get_note(lane).map(|n| (lane, n.get_wav())))
+                    .filter_map(|lane| tl.note(lane).map(|n| (lane, n.wav())))
                     .collect()
             })
             .collect()
@@ -291,9 +291,9 @@ mod tests {
 
         // Collect which lane each note ended up on
         let mut assigned_lanes: Vec<i32> = Vec::new();
-        for tl in model.get_all_time_lines() {
+        for tl in model.all_time_lines() {
             for lane in 0..key_count as i32 {
-                if tl.get_note(lane).is_some() {
+                if tl.note(lane).is_some() {
                     assigned_lanes.push(lane);
                     break;
                 }
@@ -414,11 +414,8 @@ mod tests {
         modifier.modify(&mut model);
 
         // Note should remain unchanged
-        assert!(model.get_all_time_lines()[0].get_note(0).is_some());
-        assert_eq!(
-            model.get_all_time_lines()[0].get_note(0).unwrap().get_wav(),
-            1
-        );
+        assert!(model.all_time_lines()[0].note(0).is_some());
+        assert_eq!(model.all_time_lines()[0].note(0).unwrap().wav(), 1);
     }
 
     #[test]
@@ -431,7 +428,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        assert!(model.get_all_time_lines().is_empty());
+        assert!(model.all_time_lines().is_empty());
     }
 
     #[test]
@@ -453,10 +450,10 @@ mod tests {
         modifier.modify(&mut model);
 
         // Second timeline should still have no notes
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         let mut has_note = false;
         for lane in 0..key_count as i32 {
-            if tls[1].get_note(lane).is_some() {
+            if tls[1].note(lane).is_some() {
                 has_note = true;
                 break;
             }
@@ -472,11 +469,11 @@ mod tests {
         let mut model = make_model_with_notes(&mode, 5, &note_lanes);
 
         let before_count: usize = model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
             .map(|tl| {
                 (0..mode.key())
-                    .filter(|&lane| tl.get_note(lane).is_some())
+                    .filter(|&lane| tl.note(lane).is_some())
                     .count()
             })
             .sum();
@@ -486,11 +483,11 @@ mod tests {
         modifier.modify(&mut model);
 
         let after_count: usize = model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
             .map(|tl| {
                 (0..mode.key())
-                    .filter(|&lane| tl.get_note(lane).is_some())
+                    .filter(|&lane| tl.note(lane).is_some())
                     .count()
             })
             .sum();

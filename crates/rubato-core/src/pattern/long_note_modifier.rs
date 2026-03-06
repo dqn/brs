@@ -66,22 +66,22 @@ impl LongNoteModifier {
 
 impl PatternModifier for LongNoteModifier {
     fn modify(&mut self, model: &mut BMSModel) {
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
         let mut rng = JavaRandom::new(self.base.seed);
 
         if self.mode == Mode::Remove {
             let mut assist = AssistLevel::None;
-            let timelines = model.get_all_time_lines_mut();
+            let timelines = model.all_time_lines_mut();
             for tl in timelines.iter_mut() {
                 for lane in 0..mode_key {
-                    if let Some(note) = tl.get_note(lane)
+                    if let Some(note) = tl.note(lane)
                         && note.is_long()
                         && rng.next_double() < self.rate
                     {
                         let replacement = if note.is_end() {
                             None
                         } else {
-                            Some(Note::new_normal(note.get_wav()))
+                            Some(Note::new_normal(note.wav()))
                         };
                         tl.set_note(lane, replacement);
                         assist = AssistLevel::Assist;
@@ -92,12 +92,12 @@ impl PatternModifier for LongNoteModifier {
         } else {
             let mut assist = AssistLevel::None;
 
-            let timelines = model.get_all_time_lines_mut();
+            let timelines = model.all_time_lines_mut();
             let tl_len = timelines.len();
             for i in 0..tl_len - 1 {
                 for lane in 0..mode_key {
                     let is_normal = timelines[i]
-                        .get_note(lane)
+                        .note(lane)
                         .map(|n| n.is_normal())
                         .unwrap_or(false);
                     let next_empty = !timelines[i + 1].exist_note_at(lane);
@@ -114,9 +114,9 @@ impl PatternModifier for LongNoteModifier {
                             assist = AssistLevel::Assist;
                         }
 
-                        let wav = timelines[i].get_note(lane).unwrap().get_wav();
-                        let start = timelines[i].get_note(lane).unwrap().get_micro_starttime();
-                        let duration = timelines[i].get_note(lane).unwrap().get_micro_duration();
+                        let wav = timelines[i].note(lane).unwrap().wav();
+                        let start = timelines[i].note(lane).unwrap().micro_starttime();
+                        let duration = timelines[i].note(lane).unwrap().micro_duration();
 
                         let mut lnstart = Note::new_long_with_start_duration(wav, start, duration);
                         lnstart.set_long_note_type(lntype);
@@ -271,14 +271,14 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // tl[0] lane 0 should have a normal note with wav=1
-        let note0 = tls[0].get_note(0).expect("should have note at lane 0");
+        let note0 = tls[0].note(0).expect("should have note at lane 0");
         assert!(note0.is_normal());
-        assert_eq!(note0.get_wav(), 1);
+        assert_eq!(note0.wav(), 1);
 
         // tl[1] lane 0 should be None (LN end removed)
-        assert!(tls[1].get_note(0).is_none());
+        assert!(tls[1].note(0).is_none());
 
         // assist level should be Assist
         assert_eq!(modifier.get_assist_level(), AssistLevel::Assist);
@@ -304,10 +304,10 @@ mod tests {
         modifier.set_seed(0);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Both notes should remain as LN (next_double() is always >= 0.0, never < 0.0)
-        assert!(tls[0].get_note(0).unwrap().is_long());
-        assert!(tls[1].get_note(0).unwrap().is_long());
+        assert!(tls[0].note(0).unwrap().is_long());
+        assert!(tls[1].note(0).unwrap().is_long());
 
         // No changes made, so assist should remain None
         assert_eq!(modifier.get_assist_level(), AssistLevel::None);
@@ -330,14 +330,14 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // tl[0] lane 0 should have LN start with TYPE_LONGNOTE
-        let note0 = tls[0].get_note(0).expect("should have LN start");
+        let note0 = tls[0].note(0).expect("should have LN start");
         assert!(note0.is_long());
-        assert_eq!(note0.get_long_note_type(), TYPE_LONGNOTE);
+        assert_eq!(note0.long_note_type(), TYPE_LONGNOTE);
 
         // tl[1] lane 0 should have LN end
-        let note1 = tls[1].get_note(0).expect("should have LN end");
+        let note1 = tls[1].note(0).expect("should have LN end");
         assert!(note1.is_long());
 
         // AddLn with TYPE_LONGNOTE does not set assist (only non-LONGNOTE types set Assist)
@@ -360,12 +360,12 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
-        let note0 = tls[0].get_note(0).expect("should have LN start");
+        let tls = model.all_time_lines();
+        let note0 = tls[0].note(0).expect("should have LN start");
         assert!(note0.is_long());
-        assert_eq!(note0.get_long_note_type(), TYPE_CHARGENOTE);
+        assert_eq!(note0.long_note_type(), TYPE_CHARGENOTE);
 
-        let note1 = tls[1].get_note(0).expect("should have LN end");
+        let note1 = tls[1].note(0).expect("should have LN end");
         assert!(note1.is_long());
 
         // Non-LONGNOTE type sets Assist
@@ -388,10 +388,10 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
-        let note0 = tls[0].get_note(0).expect("should have LN start");
+        let tls = model.all_time_lines();
+        let note0 = tls[0].note(0).expect("should have LN start");
         assert!(note0.is_long());
-        assert_eq!(note0.get_long_note_type(), TYPE_HELLCHARGENOTE);
+        assert_eq!(note0.long_note_type(), TYPE_HELLCHARGENOTE);
 
         assert_eq!(modifier.get_assist_level(), AssistLevel::Assist);
     }
@@ -414,10 +414,10 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // tl[0] lane 0 should remain normal (next_empty is false for tl[1] lane 0)
-        assert!(tls[0].get_note(0).unwrap().is_normal());
-        assert_eq!(tls[0].get_note(0).unwrap().get_wav(), 1);
+        assert!(tls[0].note(0).unwrap().is_normal());
+        assert_eq!(tls[0].note(0).unwrap().wav(), 1);
     }
 
     // -- AddAll mode assigns a random LN type --
@@ -436,11 +436,11 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
-        let note0 = tls[0].get_note(0).expect("should have LN start");
+        let tls = model.all_time_lines();
+        let note0 = tls[0].note(0).expect("should have LN start");
         assert!(note0.is_long());
         // LN type should be one of 1, 2, or 3
-        let lntype = note0.get_long_note_type();
+        let lntype = note0.long_note_type();
         assert!(
             lntype == TYPE_LONGNOTE || lntype == TYPE_CHARGENOTE || lntype == TYPE_HELLCHARGENOTE,
             "unexpected LN type: {}",
@@ -474,13 +474,13 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Both lanes should be converted to normal
-        assert!(tls[0].get_note(0).unwrap().is_normal());
-        assert!(tls[0].get_note(1).unwrap().is_normal());
+        assert!(tls[0].note(0).unwrap().is_normal());
+        assert!(tls[0].note(1).unwrap().is_normal());
         // Both LN ends should be removed
-        assert!(tls[1].get_note(0).is_none());
-        assert!(tls[1].get_note(1).is_none());
+        assert!(tls[1].note(0).is_none());
+        assert!(tls[1].note(1).is_none());
     }
 
     // -- No notes in model: no panic --
@@ -510,7 +510,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
-        assert!(tls[0].get_note(0).unwrap().is_normal());
+        let tls = model.all_time_lines();
+        assert!(tls[0].note(0).unwrap().is_normal());
     }
 }

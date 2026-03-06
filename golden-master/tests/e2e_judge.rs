@@ -20,7 +20,7 @@ use rubato_types::groove_gauge::{ASSISTEASY, EASY, EXHARD, HARD, HAZARD, NORMAL}
 #[test]
 fn autoplay_minimal_7k() {
     let model = load_bms("minimal_7k.bms");
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     assert!(total > 0, "minimal_7k should have playable notes");
     let result = run_autoplay_simulation(&model, NORMAL);
     assert_all_pgreat(&result, total, "autoplay_minimal_7k");
@@ -29,7 +29,7 @@ fn autoplay_minimal_7k() {
 #[test]
 fn autoplay_5key() {
     let model = load_bms("5key.bms");
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     assert!(total > 0);
     let result = run_autoplay_simulation(&model, NORMAL);
     assert_all_pgreat(&result, total, "autoplay_5key");
@@ -38,7 +38,7 @@ fn autoplay_5key() {
 #[test]
 fn autoplay_14key_dp() {
     let model = load_bms("14key_dp.bms");
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     assert!(total > 0);
     let result = run_autoplay_simulation(&model, NORMAL);
     assert_all_pgreat(&result, total, "autoplay_14key_dp");
@@ -47,7 +47,7 @@ fn autoplay_14key_dp() {
 #[test]
 fn autoplay_9key_pms() {
     let model = load_bms("9key_pms.bms");
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     assert!(total > 0);
     let result = run_autoplay_simulation(&model, NORMAL);
     assert_all_pgreat(&result, total, "autoplay_9key_pms");
@@ -56,7 +56,7 @@ fn autoplay_9key_pms() {
 #[test]
 fn autoplay_bpm_change() {
     let model = load_bms("bpm_change.bms");
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     assert!(total > 0);
     let result = run_autoplay_simulation(&model, NORMAL);
     assert_all_pgreat(&result, total, "autoplay_bpm_change");
@@ -65,7 +65,7 @@ fn autoplay_bpm_change() {
 #[test]
 fn autoplay_mine_no_damage() {
     let model = load_bms("mine_notes.bms");
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     assert!(total > 0, "mine_notes should have playable notes");
 
     let result = run_autoplay_simulation(&model, NORMAL);
@@ -120,7 +120,7 @@ fn manual_perfect() {
     let jn = model.build_judge_notes();
     let normal = count_normal_notes(&jn);
     // Create press events at exact note times (0 offset)
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 0);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -139,7 +139,7 @@ fn manual_great() {
     //   PG +/-18ms, GR +/-40ms, GD +/-100ms, BD +/-200ms
     // Offset by 25ms -- within GR window (+/-40ms) but outside PG window (+/-18ms)
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 25_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -170,7 +170,7 @@ fn manual_good() {
     //   PG +/-18ms, GR +/-40ms, GD +/-100ms, BD +/-200ms
     // Offset by 50ms -- within GD window (+/-100ms) but outside GR window (+/-40ms)
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 50_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -199,7 +199,7 @@ fn manual_bad() {
     //   PG +/-18ms, GR +/-40ms, GD +/-100ms, BD +/-200ms
     // Offset by 150ms -- within BD window (+/-200ms) but outside GD window (+/-100ms)
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 150_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -219,7 +219,7 @@ fn manual_bad() {
 #[test]
 fn manual_all_miss() {
     let model = load_bms("minimal_7k.bms");
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     // No input at all -- all notes should be MISS
     let result = run_manual_simulation(&model, &[], NORMAL);
 
@@ -342,7 +342,7 @@ fn cross_mode_invariants() {
 
     for filename in test_files {
         let model = load_bms(filename);
-        let total = model.get_total_notes() as usize;
+        let total = model.total_notes() as usize;
         assert!(total > 0, "{filename} should have playable notes");
 
         let result = run_autoplay_simulation(&model, NORMAL);

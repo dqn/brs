@@ -674,7 +674,7 @@ impl StateFactory for LauncherStateFactory {
                 // --- Target/rival score DB load ---
                 // Java: main.getPlayDataAccessor().readScoreData(model, config.getLnmode())
                 let lnmode = controller.get_player_config().get_lnmode();
-                let sha256 = model.get_sha256();
+                let sha256 = model.sha256();
                 let has_ln = model.contains_undefined_long_note();
                 let db_score = controller.read_score_data_by_hash(sha256, has_ln, lnmode);
                 player.set_db_score(db_score);
@@ -688,7 +688,7 @@ impl StateFactory for LauncherStateFactory {
                 // Java: resource.setTargetScoreData(targetScore)
                 let target_score = if rival_score.is_none() || is_course_mode {
                     let targetid = controller.get_player_config().targetid.clone();
-                    let total_notes = model.get_total_notes();
+                    let total_notes = model.total_notes();
                     Self::compute_target_score(&targetid, total_notes, controller)
                 } else {
                     rival_score

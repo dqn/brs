@@ -28,16 +28,14 @@ impl GaugeModifier {
         match self {
             GaugeModifier::Total => {
                 if f > 0.0 {
-                    f * model.get_total() as f32 / model.get_total_notes() as f32
+                    f * model.total() as f32 / model.total_notes() as f32
                 } else {
                     f
                 }
             }
             GaugeModifier::LimitIncrement => {
                 let pg = (0.15f32)
-                    .min(
-                        ((2.0 * model.get_total() - 320.0) / model.get_total_notes() as f64) as f32,
-                    )
+                    .min(((2.0 * model.total() - 320.0) / model.total_notes() as f64) as f32)
                     .max(0.0);
                 if f > 0.0 { f * pg / 0.15 } else { f }
             }
@@ -47,12 +45,11 @@ impl GaugeModifier {
 
                     // TOTAL correction (<240)
                     let fix1: f32 = (10.0
-                        / (10.0f64)
-                            .min((model.get_total() / 16.0).floor() - 5.0)
-                            .max(1.0)) as f32;
+                        / (10.0f64).min((model.total() / 16.0).floor() - 5.0).max(1.0))
+                        as f32;
 
                     // Notes count correction (<1000)
-                    let total_notes = model.get_total_notes();
+                    let total_notes = model.total_notes();
                     if total_notes <= 20 {
                         fix2 = 10.0;
                     } else if total_notes < 30 {

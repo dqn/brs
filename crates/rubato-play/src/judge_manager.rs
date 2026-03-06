@@ -1261,9 +1261,9 @@ impl JudgeManager {
         self.judgefast = vec![0; judgeregion as usize];
         self.mjudgefast = vec![0; judgeregion as usize];
 
-        let orgmode = model.get_mode().cloned().unwrap_or(Mode::BEAT_7K);
+        let orgmode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
         self.score = ScoreData::default();
-        self.score.notes = model.get_total_notes();
+        self.score.notes = model.total_notes();
         self.score.judge_algorithm = Some(match self.algorithm {
             JudgeAlgorithm::Combo => rubato_types::judge_algorithm::JudgeAlgorithm::Combo,
             JudgeAlgorithm::Duration => rubato_types::judge_algorithm::JudgeAlgorithm::Duration,
@@ -1275,11 +1275,11 @@ impl JudgeManager {
         let _ = BMSPlayerRule::get_bms_player_rule(&orgmode);
         self.score.rule = Some(rubato_types::bms_player_rule::BMSPlayerRule::LR2);
 
-        self.ghost = vec![4; model.get_total_notes() as usize];
-        self.lntype = model.get_lntype();
+        self.ghost = vec![4; model.total_notes() as usize];
+        self.lntype = model.lntype();
 
         let rule = BMSPlayerRule::get_bms_player_rule(&orgmode);
-        let judgerank = model.get_judgerank();
+        let judgerank = model.judgerank();
 
         let mut key_judge_window_rate = if let Some(config) = player_config {
             if config.is_custom_judge() {
@@ -1648,7 +1648,7 @@ mod tests {
         jm.init(&model, 1, None, &[]);
 
         let ghost = jm.get_ghost();
-        let total = model.get_total_notes() as usize;
+        let total = model.total_notes() as usize;
         assert_eq!(ghost.len(), total);
         for &g in ghost {
             assert_eq!(g, 4);

@@ -69,23 +69,23 @@ impl KeyInputLog {
     pub fn create_autoplay_log(model: &BMSModel) -> Vec<KeyInputLog> {
         // Java: "TODO 地雷を確実に回避するアルゴリズム" — unimplemented in Java: mine avoidance algorithm
         let mut keylog: Vec<KeyInputLog> = Vec::new();
-        let mode: &Mode = match model.get_mode() {
+        let mode: &Mode = match model.mode() {
             Some(m) => m,
             None => return keylog,
         };
         let keys: i32 = mode.key();
         let sc: &[i32] = mode.scratch_key();
         let mut ln: Vec<Option<Note>> = vec![None; keys as usize];
-        for tl in model.get_all_time_lines() {
-            let i: i64 = tl.get_micro_time();
+        for tl in model.all_time_lines() {
+            let i: i64 = tl.micro_time();
             for lane in 0..keys {
-                let note = tl.get_note(lane);
+                let note = tl.note(lane);
                 if let Some(note) = note {
                     let note: &Note = note;
                     if note.is_long() {
                         if note.is_end() {
                             keylog.push(KeyInputLog::with_data(i, lane, false));
-                            if model.get_lntype() != 0 && sc.contains(&lane) {
+                            if model.lntype() != 0 && sc.contains(&lane) {
                                 // BSS handling
                                 keylog.push(KeyInputLog::with_data(i, lane + 1, true));
                             }

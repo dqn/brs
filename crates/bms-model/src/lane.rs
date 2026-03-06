@@ -14,13 +14,13 @@ impl Lane {
     pub fn new(model: &BMSModel, lane: i32) -> Self {
         let mut notes = Vec::new();
         let mut hiddens = Vec::new();
-        for tl in model.get_all_time_lines() {
+        for tl in model.all_time_lines() {
             if tl.exist_note_at(lane)
-                && let Some(note) = tl.get_note(lane)
+                && let Some(note) = tl.note(lane)
             {
                 notes.push(note.clone());
             }
-            if let Some(hnote) = tl.get_hidden_note(lane) {
+            if let Some(hnote) = tl.hidden_note(lane) {
                 hiddens.push(hnote.clone());
             }
         }
@@ -34,15 +34,15 @@ impl Lane {
         }
     }
 
-    pub fn get_notes(&self) -> &[Note] {
+    pub fn notes(&self) -> &[Note] {
         &self.notes
     }
 
-    pub fn get_hiddens(&self) -> &[Note] {
+    pub fn hiddens(&self) -> &[Note] {
         &self.hiddens
     }
 
-    pub fn get_note(&mut self) -> Option<&Note> {
+    pub fn note(&mut self) -> Option<&Note> {
         if self.noteseekpos < self.notes.len() {
             let pos = self.noteseekpos;
             self.noteseekpos += 1;
@@ -52,7 +52,7 @@ impl Lane {
         }
     }
 
-    pub fn get_hidden(&mut self) -> Option<&Note> {
+    pub fn hidden(&mut self) -> Option<&Note> {
         if self.hiddenseekpos < self.hiddens.len() {
             let pos = self.hiddenseekpos;
             self.hiddenseekpos += 1;
@@ -69,20 +69,20 @@ impl Lane {
 
     pub fn mark(&mut self, time: i32) {
         while self.notebasepos < self.notes.len() - 1
-            && self.notes[self.notebasepos + 1].get_time() < time
+            && self.notes[self.notebasepos + 1].time() < time
         {
             self.notebasepos += 1;
         }
-        while self.notebasepos > 0 && self.notes[self.notebasepos].get_time() > time {
+        while self.notebasepos > 0 && self.notes[self.notebasepos].time() > time {
             self.notebasepos -= 1;
         }
         self.noteseekpos = self.notebasepos;
         while self.hiddenbasepos < self.hiddens.len() - 1
-            && self.hiddens[self.hiddenbasepos + 1].get_time() < time
+            && self.hiddens[self.hiddenbasepos + 1].time() < time
         {
             self.hiddenbasepos += 1;
         }
-        while self.hiddenbasepos > 0 && self.hiddens[self.hiddenbasepos].get_time() > time {
+        while self.hiddenbasepos > 0 && self.hiddens[self.hiddenbasepos].time() > time {
             self.hiddenbasepos -= 1;
         }
         self.hiddenseekpos = self.hiddenbasepos;

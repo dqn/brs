@@ -70,12 +70,12 @@ impl JudgeNote {
 /// (51-59). We compute pairing here by matching each LongStart with the next LongEnd
 /// in the same lane (stack-based, LIFO for nested LNs).
 pub fn build_judge_notes(model: &BMSModel) -> Vec<JudgeNote> {
-    let keys = model.get_mode().map(|m| m.key()).unwrap_or(0);
+    let keys = model.mode().map(|m| m.key()).unwrap_or(0);
     let mut all_notes = Vec::new();
 
     for lane_idx in 0..keys {
         let lane = Lane::new(model, lane_idx);
-        let lane_notes = lane.get_notes();
+        let lane_notes = lane.notes();
         let base_idx = all_notes.len();
 
         for note in lane_notes {

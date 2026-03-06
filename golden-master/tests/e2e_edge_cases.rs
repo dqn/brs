@@ -28,7 +28,7 @@ fn autoplay_ln_bpm_cross() {
 #[test]
 fn autoplay_bpm_extreme() {
     let model = load_bms("bpm_extreme.bms");
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     assert!(total > 0, "bpm_extreme should have playable notes");
     let result = run_autoplay_simulation(&model, NORMAL);
     assert_all_pgreat(&result, total, "autoplay_bpm_extreme");
@@ -37,7 +37,7 @@ fn autoplay_bpm_extreme() {
 #[test]
 fn autoplay_multi_stop_rapid() {
     let model = load_bms("multi_stop_rapid.bms");
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
     assert!(total > 0, "multi_stop_rapid should have playable notes");
     let result = run_autoplay_simulation(&model, NORMAL);
     assert_all_pgreat(&result, total, "autoplay_multi_stop_rapid");
@@ -197,11 +197,11 @@ fn channel_extended_note_types() {
     assert!(mine_count > 0, "Should have mine notes");
 
     // Check invisible notes via timeline API
-    let keys = model.get_mode().map(|m| m.key()).unwrap_or(0);
+    let keys = model.mode().map(|m| m.key()).unwrap_or(0);
     let mut invisible_count = 0;
-    for tl in model.get_all_time_lines() {
+    for tl in model.all_time_lines() {
         for lane in 0..keys {
-            if tl.get_hidden_note(lane).is_some() {
+            if tl.hidden_note(lane).is_some() {
                 invisible_count += 1;
             }
         }

@@ -22,13 +22,13 @@ impl PracticeModifier {
 
 impl PatternModifier for PracticeModifier {
     fn modify(&mut self, model: &mut BMSModel) {
-        let totalnotes = model.get_total_notes();
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let totalnotes = model.total_notes();
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
 
-        let timelines = model.get_all_time_lines_mut();
+        let timelines = model.all_time_lines_mut();
         let tl_len = timelines.len();
         for tl_idx in 0..tl_len {
-            let time = timelines[tl_idx].get_time();
+            let time = timelines[tl_idx].time();
             for i in 0..mode_key {
                 if (time as i64) < self.start || (time as i64) >= self.end {
                     move_to_background(timelines, tl_idx, i);
@@ -36,9 +36,9 @@ impl PatternModifier for PracticeModifier {
             }
         }
 
-        let new_total_notes = model.get_total_notes();
+        let new_total_notes = model.total_notes();
         if totalnotes > 0 {
-            let total = model.get_total();
+            let total = model.total();
             model.set_total(total * new_total_notes as f64 / totalnotes as f64);
         }
     }
@@ -139,19 +139,19 @@ mod tests {
         let mut modifier = PracticeModifier::new(1000, 3000);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // tl[0] (time=500) is before start=1000, note should be moved to background
-        assert!(tls[0].get_note(0).is_none());
-        assert_eq!(tls[0].get_back_ground_notes().len(), 1);
-        assert_eq!(tls[0].get_back_ground_notes()[0].get_wav(), 1);
+        assert!(tls[0].note(0).is_none());
+        assert_eq!(tls[0].back_ground_notes().len(), 1);
+        assert_eq!(tls[0].back_ground_notes()[0].wav(), 1);
 
         // tl[1] (time=1500) is within range, note should remain
-        assert!(tls[1].get_note(0).is_some());
-        assert_eq!(tls[1].get_note(0).unwrap().get_wav(), 2);
+        assert!(tls[1].note(0).is_some());
+        assert_eq!(tls[1].note(0).unwrap().wav(), 2);
 
         // tl[2] (time=2500) is within range, note should remain
-        assert!(tls[2].get_note(0).is_some());
-        assert_eq!(tls[2].get_note(0).unwrap().get_wav(), 3);
+        assert!(tls[2].note(0).is_some());
+        assert_eq!(tls[2].note(0).unwrap().wav(), 3);
     }
 
     // -- Notes after end are moved to background --
@@ -172,15 +172,15 @@ mod tests {
         let mut modifier = PracticeModifier::new(0, 2000);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // tl[0] and tl[1] are within range, notes remain
-        assert!(tls[0].get_note(0).is_some());
-        assert!(tls[1].get_note(0).is_some());
+        assert!(tls[0].note(0).is_some());
+        assert!(tls[1].note(0).is_some());
 
         // tl[2] (time=2500) is >= end=2000, note moved to background
-        assert!(tls[2].get_note(0).is_none());
-        assert_eq!(tls[2].get_back_ground_notes().len(), 1);
-        assert_eq!(tls[2].get_back_ground_notes()[0].get_wav(), 3);
+        assert!(tls[2].note(0).is_none());
+        assert_eq!(tls[2].back_ground_notes().len(), 1);
+        assert_eq!(tls[2].back_ground_notes()[0].wav(), 3);
     }
 
     // -- All notes within range: no changes --
@@ -201,10 +201,10 @@ mod tests {
         let mut modifier = PracticeModifier::new(0, 5000);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
-        assert!(tls[0].get_note(0).is_some());
-        assert!(tls[1].get_note(0).is_some());
-        assert!(tls[2].get_note(0).is_some());
+        let tls = model.all_time_lines();
+        assert!(tls[0].note(0).is_some());
+        assert!(tls[1].note(0).is_some());
+        assert!(tls[2].note(0).is_some());
     }
 
     // -- start==end: all notes moved to background --
@@ -223,11 +223,11 @@ mod tests {
         let mut modifier = PracticeModifier::new(1000, 1000);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
-        assert!(tls[0].get_note(0).is_none());
-        assert!(tls[1].get_note(0).is_none());
-        assert_eq!(tls[0].get_back_ground_notes().len(), 1);
-        assert_eq!(tls[1].get_back_ground_notes().len(), 1);
+        let tls = model.all_time_lines();
+        assert!(tls[0].note(0).is_none());
+        assert!(tls[1].note(0).is_none());
+        assert_eq!(tls[0].back_ground_notes().len(), 1);
+        assert_eq!(tls[1].back_ground_notes().len(), 1);
     }
 
     // -- Total scaling --
@@ -256,7 +256,7 @@ mod tests {
         modifier.modify(&mut model);
 
         // new_total = 300.0 * 2/4 = 150.0
-        assert!((model.get_total() - 150.0).abs() < f64::EPSILON);
+        assert!((model.total() - 150.0).abs() < f64::EPSILON);
     }
 
     // -- Total scaling: all notes removed -> total becomes 0.0 --
@@ -274,7 +274,7 @@ mod tests {
         modifier.modify(&mut model);
 
         // new_total_notes = 0, so 200.0 * 0/1 = 0.0
-        assert!((model.get_total()).abs() < f64::EPSILON);
+        assert!((model.total()).abs() < f64::EPSILON);
     }
 
     // -- Empty model: no panic --
@@ -302,12 +302,12 @@ mod tests {
         let mut modifier = PracticeModifier::new(1000, 2000);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // All 3 notes on tl[0] (time=500) should be moved to background
-        assert!(tls[0].get_note(0).is_none());
-        assert!(tls[0].get_note(1).is_none());
-        assert!(tls[0].get_note(2).is_none());
-        assert_eq!(tls[0].get_back_ground_notes().len(), 3);
+        assert!(tls[0].note(0).is_none());
+        assert!(tls[0].note(1).is_none());
+        assert!(tls[0].note(2).is_none());
+        assert_eq!(tls[0].back_ground_notes().len(), 3);
     }
 
     // -- Boundary: time exactly at start is included --
@@ -323,9 +323,9 @@ mod tests {
         let mut modifier = PracticeModifier::new(1000, 2000);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Note at exactly start should remain
-        assert!(tls[0].get_note(0).is_some());
+        assert!(tls[0].note(0).is_some());
     }
 
     // -- Boundary: time exactly at end is excluded --
@@ -341,9 +341,9 @@ mod tests {
         let mut modifier = PracticeModifier::new(1000, 2000);
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Note at exactly end should be moved to background
-        assert!(tls[0].get_note(0).is_none());
-        assert_eq!(tls[0].get_back_ground_notes().len(), 1);
+        assert!(tls[0].note(0).is_none());
+        assert_eq!(tls[0].back_ground_notes().len(), 1);
     }
 }

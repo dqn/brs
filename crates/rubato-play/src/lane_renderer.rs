@@ -142,7 +142,7 @@ pub struct LaneGroupRegion {
 pub struct LaneRenderer {
     basehispeed: f32,
     hispeedmargin: f32,
-    /// Filtered timeline indices (indexes into BMSModel.get_all_time_lines())
+    /// Filtered timeline indices (indexes into BMSModel.all_time_lines())
     timeline_indices: Vec<usize>,
     pos: usize,
     currentduration: i32,
@@ -202,34 +202,34 @@ impl LaneRenderer {
 
     pub fn init(&mut self, model: &BMSModel) {
         self.pos = 0;
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let mut indices: Vec<usize> = Vec::new();
-        let mut cbpm = model.get_bpm();
+        let mut cbpm = model.bpm();
         let mut cscr = 1.0;
         for (i, tl) in all_tls.iter().enumerate() {
-            if cbpm != tl.get_bpm()
-                || tl.get_stop() > 0
-                || cscr != tl.get_scroll()
-                || tl.get_section_line()
+            if cbpm != tl.bpm()
+                || tl.stop() > 0
+                || cscr != tl.scroll()
+                || tl.section_line()
                 || tl.exist_note()
                 || tl.exist_hidden_note()
             {
                 indices.push(i);
             }
-            cbpm = tl.get_bpm();
-            cscr = tl.get_scroll();
+            cbpm = tl.bpm();
+            cscr = tl.scroll();
         }
         self.timeline_indices = indices;
 
-        self.minbpm = model.get_min_bpm();
-        self.maxbpm = model.get_max_bpm();
+        self.minbpm = model.min_bpm();
+        self.maxbpm = model.max_bpm();
 
         // Find main BPM (BPM with most notes)
         let mut bpm_counts: HashMap<u64, (f64, i32)> = HashMap::new();
         for tl in all_tls {
-            let key = tl.get_bpm().to_bits();
-            let entry = bpm_counts.entry(key).or_insert((tl.get_bpm(), 0));
-            entry.1 += tl.get_total_notes();
+            let key = tl.bpm().to_bits();
+            let entry = bpm_counts.entry(key).or_insert((tl.bpm(), 0));
+            entry.1 += tl.total_notes();
         }
         let mut maxcount = 0;
         for (bpm, count) in bpm_counts.values() {
@@ -241,7 +241,7 @@ impl LaneRenderer {
 
         self.basebpm = match self.fixhispeed {
             FIX_HISPEED_OFF => self.basebpm,
-            FIX_HISPEED_STARTBPM => model.get_bpm(),
+            FIX_HISPEED_STARTBPM => model.bpm(),
             FIX_HISPEED_MINBPM => self.minbpm,
             FIX_HISPEED_MAXBPM => self.maxbpm,
             FIX_HISPEED_MAINBPM => self.mainbpm,
@@ -357,19 +357,18 @@ impl LaneRenderer {
     ///
     /// Java: y += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * ...
     pub fn calc_y_offset(tl: &TimeLine, prev_tl: &TimeLine, microtime: i64, rxhs: f64) -> f64 {
-        if prev_tl.get_micro_time() + prev_tl.get_micro_stop() > microtime {
+        if prev_tl.micro_time() + prev_tl.micro_stop() > microtime {
             // During a stop: full section distance
-            (tl.get_section() - prev_tl.get_section()) * prev_tl.get_scroll() * rxhs
+            (tl.section() - prev_tl.section()) * prev_tl.scroll() * rxhs
         } else {
             // Normal scrolling: proportional to time remaining
-            let time_diff = tl.get_micro_time() - microtime;
-            let total_time =
-                tl.get_micro_time() - prev_tl.get_micro_time() - prev_tl.get_micro_stop();
+            let time_diff = tl.micro_time() - microtime;
+            let total_time = tl.micro_time() - prev_tl.micro_time() - prev_tl.micro_stop();
             if total_time == 0 {
                 0.0
             } else {
-                (tl.get_section() - prev_tl.get_section())
-                    * prev_tl.get_scroll()
+                (tl.section() - prev_tl.section())
+                    * prev_tl.scroll()
                     * (time_diff as f64 / total_time as f64)
                     * rxhs
             }
@@ -378,11 +377,10 @@ impl LaneRenderer {
 
     /// Calculate the y-position for the first timeline (no previous timeline).
     pub fn calc_y_offset_first(tl: &TimeLine, microtime: i64, rxhs: f64) -> f64 {
-        if tl.get_micro_time() == 0 {
+        if tl.micro_time() == 0 {
             0.0
         } else {
-            tl.get_section() * (tl.get_micro_time() - microtime) as f64 / tl.get_micro_time() as f64
-                * rxhs
+            tl.section() * (tl.micro_time() - microtime) as f64 / tl.micro_time() as f64 * rxhs
         }
     }
 
@@ -550,11 +548,11 @@ impl LaneRenderer {
         let start_idx = self.pos.saturating_sub(5);
         for i in start_idx..tl_count {
             let tl = &all_tl[timelines[i]];
-            if tl.get_micro_time() > microtime {
+            if tl.micro_time() > microtime {
                 break;
             }
-            nbpm = tl.get_bpm();
-            nscroll = tl.get_scroll();
+            nbpm = tl.bpm();
+            nscroll = tl.scroll();
         }
         self.nowbpm = nbpm;
 
@@ -625,27 +623,27 @@ impl LaneRenderer {
                 let judgetime = &ctx.judge_time_regions[lane];
                 for i in self.pos..tl_count {
                     let tl = &all_tl[timelines[i]];
-                    if tl.get_micro_time() >= microtime {
+                    if tl.micro_time() >= microtime {
                         let prev_section = if i > 0 {
-                            all_tl[timelines[i - 1]].get_section()
+                            all_tl[timelines[i - 1]].section()
                         } else {
                             0.0
                         };
                         let prev_scroll = if i > 0 {
-                            all_tl[timelines[i - 1]].get_scroll()
+                            all_tl[timelines[i - 1]].scroll()
                         } else {
                             1.0
                         };
                         let prev_microtime = if i > 0 {
-                            all_tl[timelines[i - 1]].get_micro_time()
-                                + all_tl[timelines[i - 1]].get_micro_stop()
+                            all_tl[timelines[i - 1]].micro_time()
+                                + all_tl[timelines[i - 1]].micro_stop()
                         } else {
                             0
                         };
 
-                        let denom = tl.get_micro_time() - prev_microtime;
+                        let denom = tl.micro_time() - prev_microtime;
                         let rate = if denom != 0 {
-                            (tl.get_section() - prev_section) * prev_scroll * rxhs / denom as f64
+                            (tl.section() - prev_section) * prev_scroll * rxhs / denom as f64
                         } else {
                             0.0
                         };
@@ -691,11 +689,11 @@ impl LaneRenderer {
                 break;
             }
             let tl = &all_tl[timelines[i]];
-            if tl.get_micro_time() >= microtime {
+            if tl.micro_time() >= microtime {
                 // Constant mode alpha
                 if enable_constant {
                     match Self::calc_constant_alpha(
-                        tl.get_micro_time(),
+                        tl.micro_time(),
                         microtime,
                         baseduration,
                         alpha_limit,
@@ -732,7 +730,7 @@ impl LaneRenderer {
                 // Timeline display (practice mode)
                 if show_timeline
                     && i > 0
-                    && (tl.get_time() / 1000) > (all_tl[timelines[i - 1]].get_time() / 1000)
+                    && (tl.time() / 1000) > (all_tl[timelines[i - 1]].time() / 1000)
                 {
                     commands.push(DrawCommand::DrawTimeLine {
                         y_offset: (y - hl as f64) as i32,
@@ -741,9 +739,9 @@ impl LaneRenderer {
                         commands.push(DrawCommand::DrawTimeText {
                             text: format!(
                                 "{:2}:{:02}.{:1}",
-                                tl.get_time() / 60000,
-                                (tl.get_time() / 1000) % 60,
-                                (tl.get_time() / 100) % 10
+                                tl.time() / 60000,
+                                (tl.time() / 1000) % 60,
+                                (tl.time() / 100) % 10
                             ),
                             x: r.x + 4.0,
                             y: y as f32 + 20.0,
@@ -753,27 +751,27 @@ impl LaneRenderer {
 
                 // BPM guide / Stop lines
                 if ctx.show_bpmguide || show_timeline {
-                    if tl.get_bpm() != nbpm {
+                    if tl.bpm() != nbpm {
                         commands.push(DrawCommand::DrawBpmLine {
                             y_offset: (y - hl as f64) as i32,
-                            bpm: tl.get_bpm(),
+                            bpm: tl.bpm(),
                         });
                         for r in &ctx.lane_group_regions {
                             commands.push(DrawCommand::DrawBpmText {
-                                text: format!("BPM{}", tl.get_bpm() as i32),
+                                text: format!("BPM{}", tl.bpm() as i32),
                                 x: r.x + r.width / 2.0,
                                 y: y as f32 + 20.0,
                             });
                         }
                     }
-                    if tl.get_stop() > 0 {
+                    if tl.stop() > 0 {
                         commands.push(DrawCommand::DrawStopLine {
                             y_offset: (y - hl as f64) as i32,
-                            stop_ms: tl.get_stop(),
+                            stop_ms: tl.stop(),
                         });
                         for r in &ctx.lane_group_regions {
                             commands.push(DrawCommand::DrawStopText {
-                                text: format!("STOP {}ms", tl.get_stop()),
+                                text: format!("STOP {}ms", tl.stop()),
                                 x: r.x + r.width / 2.0,
                                 y: y as f32 + 20.0,
                             });
@@ -782,18 +780,18 @@ impl LaneRenderer {
                 }
 
                 // Section line
-                if tl.get_section_line() {
+                if tl.section_line() {
                     commands.push(DrawCommand::DrawSectionLine {
                         y_offset: (y - hl as f64) as i32,
                     });
                 }
 
-                nbpm = tl.get_bpm();
+                nbpm = tl.bpm();
             } else if self.pos == i.wrapping_sub(1) {
                 // Advance pos: check if all notes in this timeline are past
                 let mut can_advance = true;
                 for lane in 0..lanes.len() {
-                    let note = tl.get_note(lane as i32);
+                    let note = tl.note(lane as i32);
                     if let Some(note) = note {
                         match note {
                             Note::Long { end, pair, .. } => {
@@ -807,7 +805,7 @@ impl LaneRenderer {
                                 };
                                 if let Some(pair_tl_idx) = pair_idx {
                                     let pair_tl = &all_tl[pair_tl_idx];
-                                    let pair_time = pair_tl.get_micro_time();
+                                    let pair_time = pair_tl.micro_time();
                                     if pair_time >= microtime {
                                         can_advance = false;
                                         break;
@@ -815,7 +813,7 @@ impl LaneRenderer {
                                 }
                             }
                             Note::Normal(_) => {
-                                if ctx.show_pastnote && note.get_state() == 0 {
+                                if ctx.show_pastnote && note.state() == 0 {
                                     can_advance = false;
                                     break;
                                 }
@@ -853,7 +851,7 @@ impl LaneRenderer {
             // Constant mode alpha for notes
             if enable_constant {
                 match Self::calc_constant_alpha(
-                    tl.get_micro_time(),
+                    tl.micro_time(),
                     microtime,
                     baseduration,
                     alpha_limit,
@@ -880,7 +878,7 @@ impl LaneRenderer {
             }
 
             // Calculate y position
-            if tl.get_micro_time() >= microtime {
+            if tl.micro_time() >= microtime {
                 if i > 0 {
                     let prev_tl = &all_tl[timelines[i - 1]];
                     y += Self::calc_y_offset(tl, prev_tl, microtime, rxhs);
@@ -893,7 +891,7 @@ impl LaneRenderer {
             #[allow(clippy::needless_range_loop)]
             for lane in 0..lanes.len() {
                 let scale = lanes[lane].scale;
-                let note = tl.get_note(lane as i32);
+                let note = tl.note(lane as i32);
                 if let Some(note) = note {
                     // PMS note expansion
                     let (exp_w, exp_h) = Self::calc_note_expansion(
@@ -922,15 +920,15 @@ impl LaneRenderer {
                             // Draw normal note
                             if lanes[lane].dstnote2 != i32::MIN {
                                 // PMS mode: only draw if future and unjudged or state >= 4
-                                if tl.get_micro_time() >= microtime
-                                    && (note.get_state() == 0 || note.get_state() >= 4)
+                                if tl.micro_time() >= microtime
+                                    && (note.state() == 0 || note.state() >= 4)
                                 {
-                                    let image_type =
-                                        if ctx.mark_processednote && note.get_state() != 0 {
-                                            NoteImageType::Processed
-                                        } else {
-                                            NoteImageType::Normal
-                                        };
+                                    let image_type = if ctx.mark_processednote && note.state() != 0
+                                    {
+                                        NoteImageType::Processed
+                                    } else {
+                                        NoteImageType::Normal
+                                    };
                                     commands.push(DrawCommand::DrawNote {
                                         lane,
                                         x: dstx,
@@ -940,11 +938,10 @@ impl LaneRenderer {
                                         image_type,
                                     });
                                 }
-                            } else if tl.get_micro_time() >= microtime
-                                || (ctx.show_pastnote && note.get_state() == 0)
+                            } else if tl.micro_time() >= microtime
+                                || (ctx.show_pastnote && note.state() == 0)
                             {
-                                let image_type = if ctx.mark_processednote && note.get_state() != 0
-                                {
+                                let image_type = if ctx.mark_processednote && note.state() != 0 {
                                     NoteImageType::Processed
                                 } else {
                                     NoteImageType::Normal
@@ -964,36 +961,35 @@ impl LaneRenderer {
                                 // Only draw from start note
                                 if let Some(pair_tl_idx) = pair {
                                     let pair_tl = &all_tl[*pair_tl_idx];
-                                    if pair_tl.get_micro_time() >= microtime {
+                                    if pair_tl.micro_time() >= microtime {
                                         // Calculate long note body height
                                         let mut dy: f64 = 0.0;
                                         let mut prev_tl_ref = tl;
-                                        let pair_section = pair_tl.get_section();
+                                        let pair_section = pair_tl.section();
 
                                         for j in (i + 1)..tl_count {
                                             let now_tl = &all_tl[timelines[j]];
-                                            if prev_tl_ref.get_section() == pair_section {
+                                            if prev_tl_ref.section() == pair_section {
                                                 break;
                                             }
-                                            if now_tl.get_micro_time() >= microtime {
-                                                if prev_tl_ref.get_micro_time()
-                                                    + prev_tl_ref.get_micro_stop()
+                                            if now_tl.micro_time() >= microtime {
+                                                if prev_tl_ref.micro_time()
+                                                    + prev_tl_ref.micro_stop()
                                                     > microtime
                                                 {
-                                                    dy += (now_tl.get_section()
-                                                        - prev_tl_ref.get_section())
-                                                        * prev_tl_ref.get_scroll()
+                                                    dy += (now_tl.section()
+                                                        - prev_tl_ref.section())
+                                                        * prev_tl_ref.scroll()
                                                         * rxhs;
                                                 } else {
-                                                    let time_diff =
-                                                        now_tl.get_micro_time() - microtime;
-                                                    let total_time = now_tl.get_micro_time()
-                                                        - prev_tl_ref.get_micro_time()
-                                                        - prev_tl_ref.get_micro_stop();
+                                                    let time_diff = now_tl.micro_time() - microtime;
+                                                    let total_time = now_tl.micro_time()
+                                                        - prev_tl_ref.micro_time()
+                                                        - prev_tl_ref.micro_stop();
                                                     if total_time != 0 {
-                                                        dy += (now_tl.get_section()
-                                                            - prev_tl_ref.get_section())
-                                                            * prev_tl_ref.get_scroll()
+                                                        dy += (now_tl.section()
+                                                            - prev_tl_ref.section())
+                                                            * prev_tl_ref.scroll()
                                                             * (time_diff as f64
                                                                 / total_time as f64)
                                                             * rxhs;
@@ -1045,7 +1041,7 @@ impl LaneRenderer {
                         }
                         Note::Mine { .. } => {
                             // Draw mine note
-                            if tl.get_micro_time() >= microtime {
+                            if tl.micro_time() >= microtime {
                                 commands.push(DrawCommand::DrawNote {
                                     lane,
                                     x: dstx,
@@ -1060,8 +1056,8 @@ impl LaneRenderer {
                 }
 
                 // Hidden note rendering
-                if ctx.show_hiddennote && tl.get_micro_time() >= microtime {
-                    let hnote = tl.get_hidden_note(lane as i32);
+                if ctx.show_hiddennote && tl.micro_time() >= microtime {
+                    let hnote = tl.hidden_note(lane as i32);
                     if hnote.is_some() {
                         commands.push(DrawCommand::DrawNote {
                             lane,
@@ -1092,7 +1088,7 @@ impl LaneRenderer {
             let mut now_pos = tl_count.saturating_sub(1);
             for i in self.pos..tl_count {
                 let tl = &all_tl[timelines[i]];
-                if tl.get_micro_time() >= microtime {
+                if tl.micro_time() >= microtime {
                     now_pos = i;
                     break;
                 }
@@ -1108,54 +1104,53 @@ impl LaneRenderer {
 
                 if i + 1 < tl_count {
                     let mut j = i;
-                    while j + 1 < tl_count && all_tl[timelines[j + 1]].get_micro_time() < microtime
-                    {
-                        if all_tl[timelines[j + 1]].get_micro_time()
-                            > tl.get_micro_time() + tl.get_micro_stop() + bad_time
+                    while j + 1 < tl_count && all_tl[timelines[j + 1]].micro_time() < microtime {
+                        if all_tl[timelines[j + 1]].micro_time()
+                            > tl.micro_time() + tl.micro_stop() + bad_time
                         {
                             let stop_time = 0i64.max(
-                                tl.get_micro_time() + tl.get_micro_stop() + bad_time
-                                    - all_tl[timelines[j]].get_micro_time()
-                                    - all_tl[timelines[j]].get_micro_stop(),
+                                tl.micro_time() + tl.micro_stop() + bad_time
+                                    - all_tl[timelines[j]].micro_time()
+                                    - all_tl[timelines[j]].micro_stop(),
                             );
-                            y -= (all_tl[timelines[j + 1]].get_micro_time()
-                                - all_tl[timelines[j]].get_micro_time()
-                                - all_tl[timelines[j]].get_micro_stop()
+                            y -= (all_tl[timelines[j + 1]].micro_time()
+                                - all_tl[timelines[j]].micro_time()
+                                - all_tl[timelines[j]].micro_stop()
                                 - stop_time) as f64
                                 * rxhs2
-                                * all_tl[timelines[j]].get_bpm()
+                                * all_tl[timelines[j]].bpm()
                                 / 240000000.0;
                         }
                         j += 1;
                     }
-                    if all_tl[timelines[j]].get_micro_time() + all_tl[timelines[j]].get_micro_stop()
+                    if all_tl[timelines[j]].micro_time() + all_tl[timelines[j]].micro_stop()
                         < microtime
-                        && microtime > tl.get_micro_time() + tl.get_micro_stop() + bad_time
+                        && microtime > tl.micro_time() + tl.micro_stop() + bad_time
                     {
                         let stop_time = 0i64.max(
-                            tl.get_micro_time() + tl.get_micro_stop() + bad_time
-                                - all_tl[timelines[j]].get_micro_time()
-                                - all_tl[timelines[j]].get_micro_stop(),
+                            tl.micro_time() + tl.micro_stop() + bad_time
+                                - all_tl[timelines[j]].micro_time()
+                                - all_tl[timelines[j]].micro_stop(),
                         );
                         y -= (microtime
-                            - all_tl[timelines[j]].get_micro_time()
-                            - all_tl[timelines[j]].get_micro_stop()
+                            - all_tl[timelines[j]].micro_time()
+                            - all_tl[timelines[j]].micro_stop()
                             - stop_time) as f64
                             * rxhs2
-                            * all_tl[timelines[j]].get_bpm()
+                            * all_tl[timelines[j]].bpm()
                             / 240000000.0;
                     }
-                } else if tl.get_micro_time() + tl.get_micro_stop() < microtime
-                    && microtime > tl.get_micro_time() + tl.get_micro_stop() + bad_time
+                } else if tl.micro_time() + tl.micro_stop() < microtime
+                    && microtime > tl.micro_time() + tl.micro_stop() + bad_time
                 {
                     let stop_time = 0i64.max(
-                        tl.get_micro_time() + tl.get_micro_stop() + bad_time
-                            - tl.get_micro_time()
-                            - tl.get_micro_stop(),
+                        tl.micro_time() + tl.micro_stop() + bad_time
+                            - tl.micro_time()
+                            - tl.micro_stop(),
                     );
-                    y -= (microtime - tl.get_micro_time() - tl.get_micro_stop() - stop_time) as f64
+                    y -= (microtime - tl.micro_time() - tl.micro_stop() - stop_time) as f64
                         * rxhs2
-                        * tl.get_bpm()
+                        * tl.bpm()
                         / 240000000.0;
                 }
 
@@ -1163,7 +1158,7 @@ impl LaneRenderer {
                 #[allow(clippy::needless_range_loop)]
                 for lane in 0..lanes.len() {
                     let scale = lanes[lane].scale;
-                    if let Some(note) = tl.get_note(lane as i32).filter(|n| n.is_normal()) {
+                    if let Some(note) = tl.note(lane as i32).filter(|n| n.is_normal()) {
                         let (exp_w, exp_h) = Self::calc_note_expansion(
                             now,
                             ctx.now_quarter_note_time,
@@ -1185,8 +1180,8 @@ impl LaneRenderer {
                             dsty -= (dsth - scale) / 2.0;
                         }
 
-                        if (note.get_state() == 0 || note.get_state() >= 4)
-                            && tl.get_micro_time() <= microtime
+                        if (note.state() == 0 || note.state() >= 4)
+                            && tl.micro_time() <= microtime
                             && y >= orgy2
                         {
                             if y > orgy {
@@ -1258,8 +1253,7 @@ impl LaneRenderer {
                     .iter()
                     .position(|&idx| {
                         ctx.all_timelines.get(idx).is_some_and(|tl| {
-                            tl.get_note(lane as i32)
-                                .is_some_and(|n| std::ptr::eq(n, note))
+                            tl.note(lane as i32).is_some_and(|n| std::ptr::eq(n, note))
                         })
                     })
                     .unwrap_or(usize::MAX),
@@ -1272,7 +1266,7 @@ impl LaneRenderer {
             // HCN
             let body_idx = if is_processing {
                 6 // active body
-            } else if is_passing && note.get_state() != 0 {
+            } else if is_passing && note.state() != 0 {
                 if hell_charge_ok { 8 } else { 9 } // hell charge ok/ng
             } else {
                 7 // inactive body
@@ -1694,7 +1688,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let result = renderer.draw_lane(&ctx, &[], &[]);
 
@@ -1712,7 +1706,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1, tl2], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let mut ctx = default_ctx(all_tls);
         // Set time to 750ms (past tl1 at 500ms but before tl2 at 1000ms)
         ctx.time = 750;
@@ -1733,7 +1727,7 @@ mod tests {
         let mut renderer = LaneRenderer::new(&model);
         renderer.duration = 1000;
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1752,7 +1746,7 @@ mod tests {
         renderer.enable_lanecover = true;
         renderer.lanecover = 0.5;
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1770,7 +1764,7 @@ mod tests {
         renderer.enable_lift = true;
         renderer.lift = 0.2;
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1789,7 +1783,7 @@ mod tests {
         renderer.enable_hidden = true;
         renderer.hidden = 0.3;
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1807,7 +1801,7 @@ mod tests {
         let mut renderer = LaneRenderer::new(&model);
         renderer.enable_hidden = false;
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1824,7 +1818,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1846,7 +1840,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1874,7 +1868,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1902,7 +1896,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let mut ctx = default_ctx(all_tls);
         ctx.time = 1000; // well past the note
         ctx.show_pastnote = false;
@@ -1939,7 +1933,7 @@ mod tests {
         renderer.duration = 500; // target = 500_000 us
         renderer.constant_fadein_time = 0.0; // alpha_limit = 0
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let mut ctx = default_ctx(all_tls);
         ctx.time = 0;
 
@@ -1971,7 +1965,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let offsets = vec![
@@ -2028,7 +2022,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let mut ctx = default_ctx(all_tls);
         ctx.is_practice = true;
         ctx.practice_start_time = 500; // 500ms
@@ -2066,7 +2060,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1, tl2], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -2093,7 +2087,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let mut ctx = default_ctx(all_tls);
         ctx.show_hiddennote = true;
 
@@ -2121,7 +2115,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let mut ctx = default_ctx(all_tls);
         ctx.show_hiddennote = false;
 
@@ -2154,7 +2148,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let mut ctx = default_ctx(all_tls);
         ctx.show_bpmguide = true;
         ctx.lane_group_regions = vec![LaneGroupRegion {
@@ -2189,7 +2183,7 @@ mod tests {
         renderer.enable_lift = true;
         renderer.lift = 0.2;
 
-        let all_tls = model.get_all_time_lines();
+        let all_tls = model.all_time_lines();
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);

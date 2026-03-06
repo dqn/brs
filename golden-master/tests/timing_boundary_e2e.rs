@@ -21,7 +21,7 @@ fn boundary_17ms_all_pgreat() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
     let normal = count_normal_notes(&jn);
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 17_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -41,7 +41,7 @@ fn boundary_17ms_all_pgreat() {
 fn boundary_19ms_no_pgreat() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 19_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -70,7 +70,7 @@ fn boundary_39ms_all_great() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
     let normal = count_normal_notes(&jn);
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 39_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -92,7 +92,7 @@ fn boundary_39ms_all_great() {
 fn boundary_41ms_no_great() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 41_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -121,7 +121,7 @@ fn boundary_99ms_all_good() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
     let normal = count_normal_notes(&jn);
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 99_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -146,7 +146,7 @@ fn boundary_99ms_all_good() {
 fn boundary_101ms_no_good() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 101_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -177,7 +177,7 @@ fn boundary_101ms_no_good() {
 fn boundary_199ms_not_miss() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 199_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -197,7 +197,7 @@ fn boundary_199ms_not_miss() {
 fn boundary_201ms_all_miss() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     let log = create_note_press_log(&jn, mode, 201_000);
     let result = run_manual_simulation(&model, &log, NORMAL);
 
@@ -227,7 +227,7 @@ fn boundary_201ms_all_miss() {
 fn early_late_symmetry_25ms() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
 
     let late_log = create_note_press_log(&jn, mode, 25_000);
     let early_log = create_note_press_log(&jn, mode, -25_000);
@@ -260,7 +260,7 @@ fn early_late_symmetry_25ms() {
 fn early_late_symmetry_50ms() {
     let model = load_bms("minimal_7k.bms");
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
 
     let late_log = create_note_press_log(&jn, mode, 50_000);
     let early_log = create_note_press_log(&jn, mode, -50_000);

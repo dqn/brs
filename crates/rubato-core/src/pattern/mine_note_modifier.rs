@@ -66,14 +66,14 @@ impl MineNoteModifier {
 
 impl PatternModifier for MineNoteModifier {
     fn modify(&mut self, model: &mut BMSModel) {
-        let mode_key = model.get_mode().map(|m| m.key()).unwrap_or(0);
+        let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
 
         if self.mode == Mode::Remove {
             let mut assist = AssistLevel::None;
-            let timelines = model.get_all_time_lines_mut();
+            let timelines = model.all_time_lines_mut();
             for tl in timelines.iter_mut() {
                 for lane in 0..mode_key {
-                    if let Some(note) = tl.get_note(lane)
+                    if let Some(note) = tl.note(lane)
                         && note.is_mine()
                     {
                         assist = AssistLevel::LightAssist;
@@ -85,19 +85,19 @@ impl PatternModifier for MineNoteModifier {
             self.base.assist = assist;
         } else {
             let mut rng = JavaRandom::new(self.base.seed);
-            let timelines = model.get_all_time_lines_mut();
+            let timelines = model.all_time_lines_mut();
             let mut ln = vec![false; mode_key as usize];
             let mut blank = vec![false; mode_key as usize];
 
             for tl in timelines.iter_mut() {
                 for key in 0..mode_key as usize {
-                    let note = tl.get_note(key as i32);
+                    let note = tl.note(key as i32);
                     if let Some(n) = note
                         && n.is_long()
                     {
                         ln[key] = !n.is_end();
                     }
-                    blank[key] = !ln[key] && tl.get_note(key as i32).is_none();
+                    blank[key] = !ln[key] && tl.note(key as i32).is_none();
                 }
 
                 for key in 0..mode_key as usize {
@@ -234,11 +234,11 @@ mod tests {
         let mut modifier = MineNoteModifier::new(); // default is Remove
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Mine note in lane 0 should be removed
-        assert!(tls[0].get_note(0).is_none());
+        assert!(tls[0].note(0).is_none());
         // Normal note in lane 1 should remain
-        assert!(tls[0].get_note(1).is_some());
+        assert!(tls[0].note(1).is_some());
         assert_eq!(modifier.get_assist_level(), AssistLevel::LightAssist);
         assert!(modifier.mine_note_exists());
     }
@@ -272,12 +272,12 @@ mod tests {
         let mut modifier = MineNoteModifier::with_mode(3); // AddBlank
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Lane 0 should still have the normal note
-        assert!(tls[0].get_note(0).unwrap().is_normal());
+        assert!(tls[0].note(0).unwrap().is_normal());
         // All other lanes should have mine notes
         for lane in 1..8 {
-            let note = tls[0].get_note(lane);
+            let note = tls[0].note(lane);
             assert!(note.is_some(), "Lane {} should have a mine note", lane);
             assert!(
                 note.unwrap().is_mine(),
@@ -301,13 +301,13 @@ mod tests {
         let mut modifier = MineNoteModifier::with_mode(2); // AddNear
         modifier.modify(&mut model);
 
-        let tls = model.get_all_time_lines();
+        let tls = model.all_time_lines();
         // Lane 3 should still have normal note
-        assert!(tls[0].get_note(3).unwrap().is_normal());
+        assert!(tls[0].note(3).unwrap().is_normal());
         // Lane 2 (adjacent) should have a mine
-        assert!(tls[0].get_note(2).unwrap().is_mine());
+        assert!(tls[0].note(2).unwrap().is_mine());
         // Lane 4 (adjacent) should have a mine
-        assert!(tls[0].get_note(4).unwrap().is_mine());
+        assert!(tls[0].note(4).unwrap().is_mine());
     }
 
     // -- Default trait --

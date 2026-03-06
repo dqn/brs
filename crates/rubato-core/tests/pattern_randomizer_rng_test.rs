@@ -135,13 +135,9 @@ fn s_randomizer_determinism_same_seed() {
     // Extract note positions from both runs
     let extract_notes = |model: &BMSModel| -> Vec<Vec<Option<i32>>> {
         model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
-            .map(|tl| {
-                (0..8)
-                    .map(|lane| tl.get_note(lane).map(|n| n.get_wav()))
-                    .collect()
-            })
+            .map(|tl| (0..8).map(|lane| tl.note(lane).map(|n| n.wav())).collect())
             .collect()
     };
 
@@ -211,13 +207,9 @@ fn mine_note_modifier_honors_seed() {
         modifier.modify(&mut model);
 
         let layout: Vec<Vec<Option<i32>>> = model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
-            .map(|tl| {
-                (0..8)
-                    .map(|lane| tl.get_note(lane).map(|n| n.get_wav()))
-                    .collect()
-            })
+            .map(|tl| (0..8).map(|lane| tl.note(lane).map(|n| n.wav())).collect())
             .collect();
         results.push(layout);
     }
@@ -272,13 +264,9 @@ fn long_note_modifier_honors_seed() {
         modifier.modify(&mut model);
 
         let layout: Vec<Vec<Option<i32>>> = model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
-            .map(|tl| {
-                (0..8)
-                    .map(|lane| tl.get_note(lane).map(|n| n.get_wav()))
-                    .collect()
-            })
+            .map(|tl| (0..8).map(|lane| tl.note(lane).map(|n| n.wav())).collect())
             .collect();
         results.push(layout);
     }

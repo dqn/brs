@@ -101,7 +101,7 @@ impl BMSModel {
         }
     }
 
-    pub fn get_player(&self) -> i32 {
+    pub fn player(&self) -> i32 {
         self.player
     }
 
@@ -109,7 +109,7 @@ impl BMSModel {
         self.player = player;
     }
 
-    pub fn get_title(&self) -> &str {
+    pub fn title(&self) -> &str {
         &self.title
     }
 
@@ -118,7 +118,7 @@ impl BMSModel {
         self.title = t;
     }
 
-    pub fn get_sub_title(&self) -> &str {
+    pub fn sub_title(&self) -> &str {
         &self.sub_title
     }
 
@@ -127,7 +127,7 @@ impl BMSModel {
         self.sub_title = t;
     }
 
-    pub fn get_genre(&self) -> &str {
+    pub fn genre(&self) -> &str {
         &self.genre
     }
 
@@ -136,7 +136,7 @@ impl BMSModel {
         self.genre = t;
     }
 
-    pub fn get_artist(&self) -> &str {
+    pub fn artist(&self) -> &str {
         &self.artist
     }
 
@@ -145,7 +145,7 @@ impl BMSModel {
         self.artist = t;
     }
 
-    pub fn get_sub_artist(&self) -> &str {
+    pub fn sub_artist(&self) -> &str {
         &self.subartist
     }
 
@@ -159,11 +159,11 @@ impl BMSModel {
         self.banner = t;
     }
 
-    pub fn get_banner(&self) -> &str {
+    pub fn banner(&self) -> &str {
         &self.banner
     }
 
-    pub fn get_bpm(&self) -> f64 {
+    pub fn bpm(&self) -> f64 {
         self.bpm
     }
 
@@ -171,7 +171,7 @@ impl BMSModel {
         self.bpm = bpm;
     }
 
-    pub fn get_playlevel(&self) -> &str {
+    pub fn playlevel(&self) -> &str {
         &self.playlevel
     }
 
@@ -179,7 +179,7 @@ impl BMSModel {
         self.playlevel = playlevel.into();
     }
 
-    pub fn get_judgerank(&self) -> i32 {
+    pub fn judgerank(&self) -> i32 {
         self.judgerank
     }
 
@@ -187,7 +187,7 @@ impl BMSModel {
         self.judgerank = judgerank;
     }
 
-    pub fn get_total(&self) -> f64 {
+    pub fn total(&self) -> f64 {
         self.total
     }
 
@@ -195,7 +195,7 @@ impl BMSModel {
         self.total = total;
     }
 
-    pub fn get_volwav(&self) -> i32 {
+    pub fn volwav(&self) -> i32 {
         self.volwav
     }
 
@@ -203,19 +203,19 @@ impl BMSModel {
         self.volwav = volwav;
     }
 
-    pub fn get_min_bpm(&self) -> f64 {
-        let mut bpm = self.get_bpm();
+    pub fn min_bpm(&self) -> f64 {
+        let mut bpm = self.bpm();
         for time in &self.timelines {
-            let d = time.get_bpm();
+            let d = time.bpm();
             bpm = if bpm <= d { bpm } else { d };
         }
         bpm
     }
 
-    pub fn get_max_bpm(&self) -> f64 {
-        let mut bpm = self.get_bpm();
+    pub fn max_bpm(&self) -> f64 {
+        let mut bpm = self.bpm();
         for time in &self.timelines {
-            let d = time.get_bpm();
+            let d = time.bpm();
             bpm = if bpm >= d { bpm } else { d };
         }
         bpm
@@ -225,11 +225,11 @@ impl BMSModel {
         self.timelines = timelines;
     }
 
-    pub fn get_all_time_lines(&self) -> &[TimeLine] {
+    pub fn all_time_lines(&self) -> &[TimeLine] {
         &self.timelines
     }
 
-    pub fn get_all_time_lines_mut(&mut self) -> &mut [TimeLine] {
+    pub fn all_time_lines_mut(&mut self) -> &mut [TimeLine] {
         &mut self.timelines
     }
 
@@ -237,55 +237,55 @@ impl BMSModel {
         std::mem::take(&mut self.timelines)
     }
 
-    pub fn get_all_times(&self) -> Vec<i64> {
-        let times = self.get_all_time_lines();
+    pub fn all_times(&self) -> Vec<i64> {
+        let times = self.all_time_lines();
         let mut result = Vec::with_capacity(times.len());
         for tl in times {
-            result.push(tl.get_time() as i64);
+            result.push(tl.time() as i64);
         }
         result
     }
 
-    pub fn get_last_time(&self) -> i32 {
-        self.get_last_milli_time() as i32
+    pub fn last_time(&self) -> i32 {
+        self.last_milli_time() as i32
     }
 
-    pub fn get_last_milli_time(&self) -> i64 {
+    pub fn last_milli_time(&self) -> i64 {
         let keys = self.mode.as_ref().map(|m| m.key()).unwrap_or(0);
         for i in (0..self.timelines.len()).rev() {
             let tl = &self.timelines[i];
             for lane in 0..keys {
                 if tl.exist_note_at(lane)
-                    || tl.get_hidden_note(lane).is_some()
-                    || !tl.get_back_ground_notes().is_empty()
-                    || tl.get_bga() != -1
-                    || tl.get_layer() != -1
+                    || tl.hidden_note(lane).is_some()
+                    || !tl.back_ground_notes().is_empty()
+                    || tl.bga() != -1
+                    || tl.layer() != -1
                 {
-                    return tl.get_milli_time();
+                    return tl.milli_time();
                 }
             }
         }
         0
     }
 
-    pub fn get_last_note_time(&self) -> i32 {
-        self.get_last_note_milli_time() as i32
+    pub fn last_note_time(&self) -> i32 {
+        self.last_note_milli_time() as i32
     }
 
-    pub fn get_last_note_milli_time(&self) -> i64 {
+    pub fn last_note_milli_time(&self) -> i64 {
         let keys = self.mode.as_ref().map(|m| m.key()).unwrap_or(0);
         for i in (0..self.timelines.len()).rev() {
             let tl = &self.timelines[i];
             for lane in 0..keys {
                 if tl.exist_note_at(lane) {
-                    return tl.get_milli_time();
+                    return tl.milli_time();
                 }
             }
         }
         0
     }
 
-    pub fn get_difficulty(&self) -> i32 {
+    pub fn difficulty(&self) -> i32 {
         self.difficulty
     }
 
@@ -293,7 +293,7 @@ impl BMSModel {
         self.difficulty = difficulty;
     }
 
-    pub fn get_full_title(&self) -> String {
+    pub fn full_title(&self) -> String {
         let mut s = self.title.clone();
         if !self.sub_title.is_empty() {
             s.push(' ');
@@ -302,7 +302,7 @@ impl BMSModel {
         s
     }
 
-    pub fn get_full_artist(&self) -> String {
+    pub fn full_artist(&self) -> String {
         let mut s = self.artist.clone();
         if !self.subartist.is_empty() {
             s.push(' ');
@@ -315,11 +315,11 @@ impl BMSModel {
         self.md5 = hash.into();
     }
 
-    pub fn get_md5(&self) -> &str {
+    pub fn md5(&self) -> &str {
         &self.md5
     }
 
-    pub fn get_sha256(&self) -> &str {
+    pub fn sha256(&self) -> &str {
         &self.sha256
     }
 
@@ -335,11 +335,11 @@ impl BMSModel {
         }
     }
 
-    pub fn get_mode(&self) -> Option<&Mode> {
+    pub fn mode(&self) -> Option<&Mode> {
         self.mode.as_ref()
     }
 
-    pub fn get_wav_list(&self) -> &[String] {
+    pub fn wav_list(&self) -> &[String] {
         &self.wavmap
     }
 
@@ -347,7 +347,7 @@ impl BMSModel {
         self.wavmap = wavmap;
     }
 
-    pub fn get_bga_list(&self) -> &[String] {
+    pub fn bga_list(&self) -> &[String] {
         &self.bgamap
     }
 
@@ -355,7 +355,7 @@ impl BMSModel {
         self.bgamap = bgamap;
     }
 
-    pub fn get_chart_information(&self) -> Option<&ChartInformation> {
+    pub fn chart_information(&self) -> Option<&ChartInformation> {
         self.info.as_ref()
     }
 
@@ -363,27 +363,27 @@ impl BMSModel {
         self.info = Some(info);
     }
 
-    pub fn get_random(&self) -> Option<&[i32]> {
+    pub fn random(&self) -> Option<&[i32]> {
         self.info
             .as_ref()
             .and_then(|i| i.selected_randoms.as_deref())
     }
 
-    pub fn get_path(&self) -> Option<String> {
+    pub fn path(&self) -> Option<String> {
         self.info
             .as_ref()
             .and_then(|i| i.path.as_ref())
             .map(|p| p.to_string_lossy().to_string())
     }
 
-    pub fn get_lntype(&self) -> i32 {
+    pub fn lntype(&self) -> i32 {
         self.info
             .as_ref()
             .map(|i| i.lntype)
             .unwrap_or(LNTYPE_LONGNOTE)
     }
 
-    pub fn get_stagefile(&self) -> &str {
+    pub fn stagefile(&self) -> &str {
         &self.stagefile
     }
 
@@ -392,7 +392,7 @@ impl BMSModel {
         self.stagefile = t;
     }
 
-    pub fn get_backbmp(&self) -> &str {
+    pub fn backbmp(&self) -> &str {
         &self.backbmp
     }
 
@@ -401,7 +401,7 @@ impl BMSModel {
         self.backbmp = t;
     }
 
-    pub fn get_total_notes(&self) -> i32 {
+    pub fn total_notes(&self) -> i32 {
         crate::bms_model_utils::get_total_notes(self)
     }
 
@@ -421,9 +421,9 @@ impl BMSModel {
         let keys = self.mode.as_ref().map(|m| m.key()).unwrap_or(0);
         for tl in &self.timelines {
             for i in 0..keys {
-                if let Some(note) = tl.get_note(i)
+                if let Some(note) = tl.note(i)
                     && note.is_long()
-                    && note.get_long_note_type() == crate::note::TYPE_UNDEFINED
+                    && note.long_note_type() == crate::note::TYPE_UNDEFINED
                 {
                     return true;
                 }
@@ -436,7 +436,7 @@ impl BMSModel {
         let keys = self.mode.as_ref().map(|m| m.key()).unwrap_or(0);
         for tl in &self.timelines {
             for i in 0..keys {
-                if let Some(note) = tl.get_note(i)
+                if let Some(note) = tl.note(i)
                     && note.is_long()
                 {
                     return true;
@@ -450,7 +450,7 @@ impl BMSModel {
         let keys = self.mode.as_ref().map(|m| m.key()).unwrap_or(0);
         for tl in &self.timelines {
             for i in 0..keys {
-                if let Some(note) = tl.get_note(i)
+                if let Some(note) = tl.note(i)
                     && note.is_mine()
                 {
                     return true;
@@ -460,7 +460,7 @@ impl BMSModel {
         false
     }
 
-    pub fn get_preview(&self) -> &str {
+    pub fn preview(&self) -> &str {
         &self.preview
     }
 
@@ -468,7 +468,7 @@ impl BMSModel {
         self.preview = preview.into();
     }
 
-    pub fn get_lnobj(&self) -> i32 {
+    pub fn lnobj(&self) -> i32 {
         self.lnobj
     }
 
@@ -476,7 +476,7 @@ impl BMSModel {
         self.lnobj = lnobj;
     }
 
-    pub fn get_lnmode(&self) -> i32 {
+    pub fn lnmode(&self) -> i32 {
         self.lnmode
     }
 
@@ -484,11 +484,11 @@ impl BMSModel {
         self.lnmode = lnmode;
     }
 
-    pub fn get_values(&self) -> &HashMap<String, String> {
+    pub fn values(&self) -> &HashMap<String, String> {
         &self.values
     }
 
-    pub fn get_values_mut(&mut self) -> &mut HashMap<String, String> {
+    pub fn values_mut(&mut self) -> &mut HashMap<String, String> {
         &mut self.values
     }
 
@@ -507,25 +507,25 @@ impl BMSModel {
         let mut nowbpm = -f64::MIN_POSITIVE;
         for tl in &self.timelines {
             let mut tlsb = String::new();
-            tlsb.push_str(&format!("{}:", tl.get_time()));
+            tlsb.push_str(&format!("{}:", tl.time()));
             let mut write = false;
-            if nowbpm != tl.get_bpm() {
-                nowbpm = tl.get_bpm();
+            if nowbpm != tl.bpm() {
+                nowbpm = tl.bpm();
                 tlsb.push_str(&format!("B({})", nowbpm));
                 write = true;
             }
-            if tl.get_stop() != 0 {
-                tlsb.push_str(&format!("S({})", tl.get_stop()));
+            if tl.stop() != 0 {
+                tlsb.push_str(&format!("S({})", tl.stop()));
                 write = true;
             }
-            if tl.get_section_line() {
+            if tl.section_line() {
                 tlsb.push('L');
                 write = true;
             }
 
             tlsb.push('[');
             for lane in 0..key {
-                if let Some(n) = tl.get_note(lane) {
+                if let Some(n) = tl.note(lane) {
                     match n {
                         Note::Normal(_) => {
                             tlsb.push('1');
@@ -535,7 +535,7 @@ impl BMSModel {
                             if !end {
                                 let lnchars = ['l', 'L', 'C', 'H'];
                                 tlsb.push(lnchars[*note_type as usize]);
-                                tlsb.push_str(&format!("{}", n.get_milli_duration()));
+                                tlsb.push_str(&format!("{}", n.milli_duration()));
                                 write = true;
                             }
                         }
@@ -560,7 +560,7 @@ impl BMSModel {
         sb
     }
 
-    pub fn get_judgerank_type(&self) -> &JudgeRankType {
+    pub fn judgerank_type(&self) -> &JudgeRankType {
         &self.judgerank_type
     }
 
@@ -568,7 +568,7 @@ impl BMSModel {
         self.judgerank_type = judgerank_type;
     }
 
-    pub fn get_total_type(&self) -> &TotalType {
+    pub fn total_type(&self) -> &TotalType {
         &self.total_type
     }
 
@@ -576,7 +576,7 @@ impl BMSModel {
         self.total_type = total_type;
     }
 
-    pub fn get_base(&self) -> i32 {
+    pub fn base(&self) -> i32 {
         self.base
     }
 
@@ -588,12 +588,12 @@ impl BMSModel {
         }
     }
 
-    pub fn get_event_lane(&self) -> EventLane {
+    pub fn event_lane(&self) -> EventLane {
         EventLane::new(self)
     }
 
-    pub fn get_lanes(&self) -> Vec<Lane> {
-        let key = self.get_mode().map(|m| m.key()).unwrap_or(0);
+    pub fn lanes(&self) -> Vec<Lane> {
+        let key = self.mode().map(|m| m.key()).unwrap_or(0);
         (0..key).map(|i| Lane::new(self, i)).collect()
     }
 }
@@ -605,50 +605,50 @@ mod tests {
     #[test]
     fn new_defaults() {
         let model = BMSModel::new();
-        assert_eq!(model.get_player(), 0);
-        assert!(model.get_mode().is_none());
-        assert_eq!(model.get_title(), "");
-        assert_eq!(model.get_sub_title(), "");
-        assert_eq!(model.get_genre(), "");
-        assert_eq!(model.get_artist(), "");
-        assert_eq!(model.get_sub_artist(), "");
-        assert_eq!(model.get_banner(), "");
-        assert_eq!(model.get_stagefile(), "");
-        assert_eq!(model.get_backbmp(), "");
-        assert_eq!(model.get_preview(), "");
-        assert!((model.get_bpm()).abs() < f64::EPSILON);
-        assert_eq!(model.get_playlevel(), "");
-        assert_eq!(model.get_difficulty(), 0);
-        assert_eq!(model.get_judgerank(), 2);
-        assert_eq!(model.get_judgerank_type(), &JudgeRankType::BmsRank);
-        assert!((model.get_total() - 100.0).abs() < f64::EPSILON);
-        assert_eq!(model.get_total_type(), &TotalType::Bmson);
-        assert_eq!(model.get_volwav(), 0);
-        assert_eq!(model.get_md5(), "");
-        assert_eq!(model.get_sha256(), "");
-        assert!(model.get_wav_list().is_empty());
-        assert!(model.get_bga_list().is_empty());
-        assert_eq!(model.get_base(), 36);
-        assert_eq!(model.get_lnmode(), crate::note::TYPE_UNDEFINED);
-        assert_eq!(model.get_lnobj(), -1);
+        assert_eq!(model.player(), 0);
+        assert!(model.mode().is_none());
+        assert_eq!(model.title(), "");
+        assert_eq!(model.sub_title(), "");
+        assert_eq!(model.genre(), "");
+        assert_eq!(model.artist(), "");
+        assert_eq!(model.sub_artist(), "");
+        assert_eq!(model.banner(), "");
+        assert_eq!(model.stagefile(), "");
+        assert_eq!(model.backbmp(), "");
+        assert_eq!(model.preview(), "");
+        assert!((model.bpm()).abs() < f64::EPSILON);
+        assert_eq!(model.playlevel(), "");
+        assert_eq!(model.difficulty(), 0);
+        assert_eq!(model.judgerank(), 2);
+        assert_eq!(model.judgerank_type(), &JudgeRankType::BmsRank);
+        assert!((model.total() - 100.0).abs() < f64::EPSILON);
+        assert_eq!(model.total_type(), &TotalType::Bmson);
+        assert_eq!(model.volwav(), 0);
+        assert_eq!(model.md5(), "");
+        assert_eq!(model.sha256(), "");
+        assert!(model.wav_list().is_empty());
+        assert!(model.bga_list().is_empty());
+        assert_eq!(model.base(), 36);
+        assert_eq!(model.lnmode(), crate::note::TYPE_UNDEFINED);
+        assert_eq!(model.lnobj(), -1);
         assert!(!model.is_from_osu());
-        assert!(model.get_all_time_lines().is_empty());
+        assert!(model.all_time_lines().is_empty());
     }
 
     #[test]
     fn default_matches_new() {
         let from_new = BMSModel::new();
         let from_default = BMSModel::default();
-        assert_eq!(from_new.get_title(), from_default.get_title());
-        assert_eq!(from_new.get_player(), from_default.get_player());
-        assert_eq!(from_new.get_base(), from_default.get_base());
+        assert_eq!(from_new.title(), from_default.title());
+        assert_eq!(from_new.player(), from_default.player());
+        assert_eq!(from_new.base(), from_default.base());
     }
 
     #[test]
     fn mode_set_and_get() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        assert_eq!(model.get_mode(), Some(&Mode::BEAT_7K));
+        assert_eq!(model.mode(), Some(&Mode::BEAT_7K));
     }
 
     #[test]
@@ -659,28 +659,28 @@ mod tests {
 
         model.set_mode(Mode::BEAT_7K);
         // BEAT_7K has key=8, so timelines should be resized to 8 lanes
-        assert_eq!(model.get_all_time_lines()[0].get_lane_count(), 8);
+        assert_eq!(model.all_time_lines()[0].lane_count(), 8);
     }
 
     #[test]
     fn title_set_and_get() {
         let mut model = BMSModel::new();
         model.set_title("Test Song");
-        assert_eq!(model.get_title(), "Test Song");
+        assert_eq!(model.title(), "Test Song");
     }
 
     #[test]
     fn sub_title_set_and_get() {
         let mut model = BMSModel::new();
         model.set_sub_title("[SPA]");
-        assert_eq!(model.get_sub_title(), "[SPA]");
+        assert_eq!(model.sub_title(), "[SPA]");
     }
 
     #[test]
     fn full_title_without_subtitle() {
         let mut model = BMSModel::new();
         model.set_title("Main Title");
-        assert_eq!(model.get_full_title(), "Main Title");
+        assert_eq!(model.full_title(), "Main Title");
     }
 
     #[test]
@@ -688,28 +688,28 @@ mod tests {
         let mut model = BMSModel::new();
         model.set_title("Main Title");
         model.set_sub_title("[ANOTHER]");
-        assert_eq!(model.get_full_title(), "Main Title [ANOTHER]");
+        assert_eq!(model.full_title(), "Main Title [ANOTHER]");
     }
 
     #[test]
     fn artist_set_and_get() {
         let mut model = BMSModel::new();
         model.set_artist("Artist Name");
-        assert_eq!(model.get_artist(), "Artist Name");
+        assert_eq!(model.artist(), "Artist Name");
     }
 
     #[test]
     fn sub_artist_set_and_get() {
         let mut model = BMSModel::new();
         model.set_sub_artist("feat. Someone");
-        assert_eq!(model.get_sub_artist(), "feat. Someone");
+        assert_eq!(model.sub_artist(), "feat. Someone");
     }
 
     #[test]
     fn full_artist_without_subartist() {
         let mut model = BMSModel::new();
         model.set_artist("DJ Test");
-        assert_eq!(model.get_full_artist(), "DJ Test");
+        assert_eq!(model.full_artist(), "DJ Test");
     }
 
     #[test]
@@ -717,122 +717,122 @@ mod tests {
         let mut model = BMSModel::new();
         model.set_artist("DJ Test");
         model.set_sub_artist("feat. Vocal");
-        assert_eq!(model.get_full_artist(), "DJ Test feat. Vocal");
+        assert_eq!(model.full_artist(), "DJ Test feat. Vocal");
     }
 
     #[test]
     fn genre_set_and_get() {
         let mut model = BMSModel::new();
         model.set_genre("Techno");
-        assert_eq!(model.get_genre(), "Techno");
+        assert_eq!(model.genre(), "Techno");
     }
 
     #[test]
     fn bpm_set_and_get() {
         let mut model = BMSModel::new();
         model.set_bpm(150.0);
-        assert!((model.get_bpm() - 150.0).abs() < f64::EPSILON);
+        assert!((model.bpm() - 150.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn playlevel_set_and_get() {
         let mut model = BMSModel::new();
         model.set_playlevel("12");
-        assert_eq!(model.get_playlevel(), "12");
+        assert_eq!(model.playlevel(), "12");
     }
 
     #[test]
     fn difficulty_set_and_get() {
         let mut model = BMSModel::new();
         model.set_difficulty(5);
-        assert_eq!(model.get_difficulty(), 5);
+        assert_eq!(model.difficulty(), 5);
     }
 
     #[test]
     fn judgerank_set_and_get() {
         let mut model = BMSModel::new();
         model.set_judgerank(3);
-        assert_eq!(model.get_judgerank(), 3);
+        assert_eq!(model.judgerank(), 3);
     }
 
     #[test]
     fn judgerank_type_set_and_get() {
         let mut model = BMSModel::new();
         model.set_judgerank_type(JudgeRankType::BmsDefexrank);
-        assert_eq!(model.get_judgerank_type(), &JudgeRankType::BmsDefexrank);
+        assert_eq!(model.judgerank_type(), &JudgeRankType::BmsDefexrank);
 
         model.set_judgerank_type(JudgeRankType::BmsonJudgerank);
-        assert_eq!(model.get_judgerank_type(), &JudgeRankType::BmsonJudgerank);
+        assert_eq!(model.judgerank_type(), &JudgeRankType::BmsonJudgerank);
     }
 
     #[test]
     fn total_set_and_get() {
         let mut model = BMSModel::new();
         model.set_total(300.0);
-        assert!((model.get_total() - 300.0).abs() < f64::EPSILON);
+        assert!((model.total() - 300.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn total_type_set_and_get() {
         let mut model = BMSModel::new();
         model.set_total_type(TotalType::Bms);
-        assert_eq!(model.get_total_type(), &TotalType::Bms);
+        assert_eq!(model.total_type(), &TotalType::Bms);
     }
 
     #[test]
     fn volwav_set_and_get() {
         let mut model = BMSModel::new();
         model.set_volwav(100);
-        assert_eq!(model.get_volwav(), 100);
+        assert_eq!(model.volwav(), 100);
     }
 
     #[test]
     fn md5_set_and_get() {
         let mut model = BMSModel::new();
         model.set_md5("abc123");
-        assert_eq!(model.get_md5(), "abc123");
+        assert_eq!(model.md5(), "abc123");
     }
 
     #[test]
     fn sha256_set_and_get() {
         let mut model = BMSModel::new();
         model.set_sha256("deadbeef");
-        assert_eq!(model.get_sha256(), "deadbeef");
+        assert_eq!(model.sha256(), "deadbeef");
     }
 
     #[test]
     fn banner_set_and_get() {
         let mut model = BMSModel::new();
         model.set_banner("banner.png");
-        assert_eq!(model.get_banner(), "banner.png");
+        assert_eq!(model.banner(), "banner.png");
     }
 
     #[test]
     fn stagefile_set_and_get() {
         let mut model = BMSModel::new();
         model.set_stagefile("stage.bmp");
-        assert_eq!(model.get_stagefile(), "stage.bmp");
+        assert_eq!(model.stagefile(), "stage.bmp");
     }
 
     #[test]
     fn backbmp_set_and_get() {
         let mut model = BMSModel::new();
         model.set_backbmp("back.bmp");
-        assert_eq!(model.get_backbmp(), "back.bmp");
+        assert_eq!(model.backbmp(), "back.bmp");
     }
 
     #[test]
     fn preview_set_and_get() {
         let mut model = BMSModel::new();
         model.set_preview("preview.ogg");
-        assert_eq!(model.get_preview(), "preview.ogg");
+        assert_eq!(model.preview(), "preview.ogg");
     }
 
     #[test]
     fn player_set_and_get() {
         let mut model = BMSModel::new();
         model.set_player(2);
-        assert_eq!(model.get_player(), 2);
+        assert_eq!(model.player(), 2);
     }
 
     #[test]
@@ -847,7 +847,7 @@ mod tests {
         let mut model = BMSModel::new();
         let wavs = vec!["sound1.wav".to_string(), "sound2.ogg".to_string()];
         model.set_wav_list(wavs.clone());
-        assert_eq!(model.get_wav_list(), &wavs);
+        assert_eq!(model.wav_list(), &wavs);
     }
 
     #[test]
@@ -855,63 +855,63 @@ mod tests {
         let mut model = BMSModel::new();
         let bgas = vec!["video.mpg".to_string()];
         model.set_bga_list(bgas.clone());
-        assert_eq!(model.get_bga_list(), &bgas);
+        assert_eq!(model.bga_list(), &bgas);
     }
 
     #[test]
     fn base_set_62() {
         let mut model = BMSModel::new();
         model.set_base(62);
-        assert_eq!(model.get_base(), 62);
+        assert_eq!(model.base(), 62);
     }
 
     #[test]
     fn base_set_non62_defaults_to_36() {
         let mut model = BMSModel::new();
         model.set_base(16);
-        assert_eq!(model.get_base(), 36);
+        assert_eq!(model.base(), 36);
 
         model.set_base(100);
-        assert_eq!(model.get_base(), 36);
+        assert_eq!(model.base(), 36);
     }
 
     #[test]
     fn lnobj_set_and_get() {
         let mut model = BMSModel::new();
         model.set_lnobj(5);
-        assert_eq!(model.get_lnobj(), 5);
+        assert_eq!(model.lnobj(), 5);
     }
 
     #[test]
     fn lnmode_set_and_get() {
         let mut model = BMSModel::new();
         model.set_lnmode(2);
-        assert_eq!(model.get_lnmode(), 2);
+        assert_eq!(model.lnmode(), 2);
     }
 
     #[test]
     fn timeline_management() {
         let mut model = BMSModel::new();
-        assert!(model.get_all_time_lines().is_empty());
+        assert!(model.all_time_lines().is_empty());
 
         let tl1 = TimeLine::new(0.0, 0, 8);
         let tl2 = TimeLine::new(1.0, 1000, 8);
         model.set_all_time_line(vec![tl1, tl2]);
 
-        assert_eq!(model.get_all_time_lines().len(), 2);
-        assert_eq!(model.get_all_time_lines()[0].get_micro_time(), 0);
-        assert_eq!(model.get_all_time_lines()[1].get_micro_time(), 1000);
+        assert_eq!(model.all_time_lines().len(), 2);
+        assert_eq!(model.all_time_lines()[0].micro_time(), 0);
+        assert_eq!(model.all_time_lines()[1].micro_time(), 1000);
     }
 
     #[test]
     fn take_all_timelines_empties_model() {
         let mut model = BMSModel::new();
         model.set_all_time_line(vec![TimeLine::new(0.0, 0, 8)]);
-        assert_eq!(model.get_all_time_lines().len(), 1);
+        assert_eq!(model.all_time_lines().len(), 1);
 
         let taken = model.take_all_time_lines();
         assert_eq!(taken.len(), 1);
-        assert!(model.get_all_time_lines().is_empty());
+        assert!(model.all_time_lines().is_empty());
     }
 
     #[test]
@@ -923,7 +923,7 @@ mod tests {
         tl2.set_micro_time(5000000); // 5000 ms = 5000 time
         model.set_all_time_line(vec![tl1, tl2]);
 
-        let times = model.get_all_times();
+        let times = model.all_times();
         assert_eq!(times.len(), 2);
         assert_eq!(times[0], 0);
         assert_eq!(times[1], 5000); // get_time() returns time/1000
@@ -942,8 +942,8 @@ mod tests {
         tl3.set_bpm(150.0);
         model.set_all_time_line(vec![tl1, tl2, tl3]);
 
-        assert!((model.get_min_bpm() - 100.0).abs() < f64::EPSILON);
-        assert!((model.get_max_bpm() - 200.0).abs() < f64::EPSILON);
+        assert!((model.min_bpm() - 100.0).abs() < f64::EPSILON);
+        assert!((model.max_bpm() - 200.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -951,8 +951,8 @@ mod tests {
         let mut model = BMSModel::new();
         model.set_bpm(130.0);
 
-        assert!((model.get_min_bpm() - 130.0).abs() < f64::EPSILON);
-        assert!((model.get_max_bpm() - 130.0).abs() < f64::EPSILON);
+        assert!((model.min_bpm() - 130.0).abs() < f64::EPSILON);
+        assert!((model.max_bpm() - 130.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -967,13 +967,13 @@ mod tests {
         model.set_all_time_line(vec![tl]);
 
         // Only normal notes are counted, not mines
-        assert_eq!(model.get_total_notes(), 2);
+        assert_eq!(model.total_notes(), 2);
     }
 
     #[test]
     fn total_notes_empty_model() {
         let model = BMSModel::new();
-        assert_eq!(model.get_total_notes(), 0);
+        assert_eq!(model.total_notes(), 0);
     }
 
     #[test]
@@ -1029,50 +1029,50 @@ mod tests {
     #[test]
     fn lntype_without_chart_information() {
         let model = BMSModel::new();
-        assert_eq!(model.get_lntype(), LNTYPE_LONGNOTE);
+        assert_eq!(model.lntype(), LNTYPE_LONGNOTE);
     }
 
     #[test]
     fn chart_information_set_and_get() {
         let mut model = BMSModel::new();
-        assert!(model.get_chart_information().is_none());
+        assert!(model.chart_information().is_none());
 
         let info = ChartInformation::new(None, 1, Some(vec![3, 5]));
         model.set_chart_information(info);
-        assert!(model.get_chart_information().is_some());
-        assert_eq!(model.get_lntype(), 1);
-        assert_eq!(model.get_random(), Some(&[3, 5][..]));
+        assert!(model.chart_information().is_some());
+        assert_eq!(model.lntype(), 1);
+        assert_eq!(model.random(), Some(&[3, 5][..]));
     }
 
     #[test]
     fn get_path_without_chart_information() {
         let model = BMSModel::new();
-        assert!(model.get_path().is_none());
+        assert!(model.path().is_none());
     }
 
     #[test]
     fn values_map() {
         let mut model = BMSModel::new();
-        assert!(model.get_values().is_empty());
+        assert!(model.values().is_empty());
 
         model
-            .get_values_mut()
+            .values_mut()
             .insert("key1".to_string(), "val1".to_string());
-        assert_eq!(model.get_values().get("key1").unwrap(), "val1");
+        assert_eq!(model.values().get("key1").unwrap(), "val1");
     }
 
     #[test]
     fn get_last_time_empty() {
         let model = BMSModel::new();
-        assert_eq!(model.get_last_time(), 0);
-        assert_eq!(model.get_last_milli_time(), 0);
+        assert_eq!(model.last_time(), 0);
+        assert_eq!(model.last_milli_time(), 0);
     }
 
     #[test]
     fn get_last_note_time_empty() {
         let model = BMSModel::new();
-        assert_eq!(model.get_last_note_time(), 0);
-        assert_eq!(model.get_last_note_milli_time(), 0);
+        assert_eq!(model.last_note_time(), 0);
+        assert_eq!(model.last_note_milli_time(), 0);
     }
 
     #[test]
@@ -1087,7 +1087,7 @@ mod tests {
         model.set_all_time_line(vec![tl1, tl2, tl3]);
 
         // Last timeline with a note is tl2 at 5_000_000 microseconds = 5000 ms
-        assert_eq!(model.get_last_note_milli_time(), 5000);
+        assert_eq!(model.last_note_milli_time(), 5000);
     }
 
     #[test]
@@ -1105,9 +1105,9 @@ mod tests {
         tl.set_bpm(150.0);
         model.set_all_time_line(vec![tl]);
 
-        let event_lane = model.get_event_lane();
+        let event_lane = model.event_lane();
         // The BPM changed from 120 to 150, so there should be 1 BPM change event
-        assert_eq!(event_lane.get_bpm_changes().len(), 1);
+        assert_eq!(event_lane.bpm_changes().len(), 1);
     }
 
     #[test]
@@ -1115,7 +1115,7 @@ mod tests {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
 
-        let lanes = model.get_lanes();
+        let lanes = model.lanes();
         // BEAT_7K has key() == 8
         assert_eq!(lanes.len(), 8);
     }
@@ -1124,7 +1124,7 @@ mod tests {
     fn get_lanes_returns_empty_when_no_mode() {
         let model = BMSModel::new();
 
-        let lanes = model.get_lanes();
+        let lanes = model.lanes();
         assert!(lanes.is_empty());
     }
 }

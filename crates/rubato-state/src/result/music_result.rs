@@ -308,7 +308,7 @@ impl MusicResult {
                 };
         }
 
-        if let Some(mode) = self.resource.get_bms_model().get_mode() {
+        if let Some(mode) = self.resource.get_bms_model().mode() {
             self.property = ResultKeyProperty::get(mode).unwrap_or_else(ResultKeyProperty::beat_7k);
         } else {
             self.property = ResultKeyProperty::beat_7k();
@@ -573,7 +573,7 @@ impl MusicResult {
                                         .iter()
                                         .enumerate()
                                         .filter(|(i, _)| course_gauge_size <= *i)
-                                        .map(|(_, m)| m.get_total_notes())
+                                        .map(|(_, m)| m.total_notes())
                                         .collect()
                                 })
                                 .unwrap_or_default();
@@ -806,7 +806,7 @@ impl MusicResult {
     fn update_score_database(&mut self) {
         let newscore = self.resource.get_score_data().cloned();
         if newscore.is_none() {
-            let total_notes = self.resource.get_bms_model().get_total_notes();
+            let total_notes = self.resource.get_bms_model().total_notes();
             if let Some(mut cscore) = self.resource.get_course_score_data().cloned() {
                 cscore.minbp += total_notes;
                 cscore.clear = ClearType::Failed.id();
@@ -830,7 +830,7 @@ impl MusicResult {
         self.data.score.set_target_score(
             self.data.oldscore.get_exscore(),
             target_exscore,
-            self.resource.get_bms_model().get_total_notes(),
+            self.resource.get_bms_model().total_notes(),
         );
         self.data.score.update_score(Some(&newscore));
 
@@ -841,20 +841,20 @@ impl MusicResult {
         self.data.timing_distribution.init();
 
         let model = self.resource.get_bms_model();
-        let lanes = model.get_mode().map(|m| m.key()).unwrap_or(8);
-        for tl in model.get_all_time_lines() {
+        let lanes = model.mode().map(|m| m.key()).unwrap_or(8);
+        for tl in model.all_time_lines() {
             for i in 0..lanes {
-                let n = tl.get_note(i);
+                let n = tl.note(i);
                 if let Some(note) = n {
                     // Check if this is not an end LN in LN mode
-                    let is_end_ln = (model.get_lnmode() == 1
-                        || (model.get_lnmode() == 0
-                            && model.get_lntype() == bms_model::bms_model::LNTYPE_LONGNOTE))
+                    let is_end_ln = (model.lnmode() == 1
+                        || (model.lnmode() == 0
+                            && model.lntype() == bms_model::bms_model::LNTYPE_LONGNOTE))
                         && note.is_long()
                         && note.is_end();
                     if !is_end_ln {
-                        let state = note.get_state();
-                        let play_time = note.get_play_time();
+                        let state = note.state();
+                        let play_time = note.play_time();
                         if state >= 1 {
                             self.data.timing_distribution.add(play_time);
                         }
@@ -880,7 +880,7 @@ impl MusicResult {
                 let mut notes = 0;
                 if let Some(models) = self.resource.get_course_bms_models() {
                     for mo in models {
-                        notes += mo.get_total_notes();
+                        notes += mo.total_notes();
                     }
                 }
                 new_cscore.notes = notes;
@@ -935,7 +935,7 @@ impl MusicResult {
                     {
                         let mut course_total_notes = 0;
                         for m in models {
-                            course_total_notes += m.get_total_notes();
+                            course_total_notes += m.total_notes();
                         }
                         if course_total_notes == self.resource.get_maxcombo() {
                             if cs.get_judge_count(2, true) + cs.get_judge_count(2, false) == 0 {
@@ -963,7 +963,7 @@ impl MusicResult {
                     if let Some(models) = self.resource.get_course_bms_models() {
                         for m in models {
                             if b {
-                                cs.minbp += m.get_total_notes();
+                                cs.minbp += m.total_notes();
                             }
                             if std::ptr::eq(m, self.resource.get_bms_model()) {
                                 b = true;
@@ -1054,7 +1054,7 @@ impl MusicResult {
     }
 
     pub fn get_total_notes(&self) -> i32 {
-        self.resource.get_bms_model().get_total_notes()
+        self.resource.get_bms_model().total_notes()
     }
 
     pub fn get_new_score(&self) -> Option<&ScoreData> {

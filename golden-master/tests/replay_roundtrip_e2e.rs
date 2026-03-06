@@ -18,7 +18,7 @@ fn record_autoplay_keylog(
     model: &bms_model::bms_model::BMSModel,
 ) -> Vec<rubato_input::key_input_log::KeyInputLog> {
     let jn = model.build_judge_notes();
-    let mode = model.get_mode().unwrap_or(&Mode::BEAT_7K);
+    let mode = model.mode().unwrap_or(&Mode::BEAT_7K);
     create_note_press_log(&jn, mode, 0)
 }
 
@@ -82,7 +82,7 @@ fn replay_json_round_trip() {
     let replay = ReplayData {
         player: Some("test".to_string()),
         sha256: Some("abc123".to_string()),
-        mode: model.get_mode().map(|m| m.key()).unwrap_or(0),
+        mode: model.mode().map(|m| m.key()).unwrap_or(0),
         keylog: replay_keylog.clone(),
         gauge: NORMAL,
         ..Default::default()
@@ -116,7 +116,7 @@ fn replay_json_round_trip() {
     // Verify metadata
     assert_eq!(loaded.player.as_deref(), Some("test"));
     assert_eq!(loaded.sha256.as_deref(), Some("abc123"));
-    assert_eq!(loaded.mode, model.get_mode().map(|m| m.key()).unwrap_or(0));
+    assert_eq!(loaded.mode, model.mode().map(|m| m.key()).unwrap_or(0));
 }
 
 /// JSON round-trip preserves playback: loaded keylog produces same simulation result.
@@ -139,7 +139,7 @@ fn replay_json_playback_matches() {
         .collect();
 
     let replay = ReplayData {
-        mode: model.get_mode().map(|m| m.key()).unwrap_or(0),
+        mode: model.mode().map(|m| m.key()).unwrap_or(0),
         keylog: replay_keylog,
         ..Default::default()
     };
@@ -233,7 +233,7 @@ fn replay_different_gauge_same_input() {
 #[test]
 fn replay_different_gauge_all_miss() {
     let model = load_bms("minimal_7k.bms");
-    let total = model.get_total_notes() as usize;
+    let total = model.total_notes() as usize;
 
     let normal_result = run_manual_simulation(&model, &[], NORMAL);
     let hard_result = run_manual_simulation(&model, &[], HARD);

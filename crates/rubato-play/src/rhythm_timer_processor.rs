@@ -15,26 +15,26 @@ impl RhythmTimerProcessor {
     pub fn new(model: &BMSModel, use_quarter_note_time: bool) -> Self {
         let mut sectiontimes: Vec<i64> = Vec::new();
         let mut quarter_note_times: Vec<i64> = Vec::new();
-        let timelines = model.get_all_time_lines();
+        let timelines = model.all_time_lines();
 
         for i in 0..timelines.len() {
-            if timelines[i].get_section_line() {
-                sectiontimes.push(timelines[i].get_micro_time());
+            if timelines[i].section_line() {
+                sectiontimes.push(timelines[i].micro_time());
 
                 if use_quarter_note_time {
-                    quarter_note_times.push(timelines[i].get_micro_time());
-                    let section_line_section = timelines[i].get_section();
+                    quarter_note_times.push(timelines[i].micro_time());
+                    let section_line_section = timelines[i].section();
                     let mut next_section_line_section =
-                        timelines[i].get_section() - section_line_section;
+                        timelines[i].section() - section_line_section;
                     let mut last = false;
                     for j in (i + 1)..timelines.len() {
-                        if timelines[j].get_section_line() {
+                        if timelines[j].section_line() {
                             next_section_line_section =
-                                timelines[j].get_section() - section_line_section;
+                                timelines[j].section() - section_line_section;
                             break;
                         } else if j == timelines.len() - 1 {
                             next_section_line_section =
-                                timelines[j].get_section() - section_line_section;
+                                timelines[j].section() - section_line_section;
                             last = true;
                         }
                     }
@@ -42,15 +42,15 @@ impl RhythmTimerProcessor {
                     while j <= next_section_line_section {
                         if last || j != next_section_line_section {
                             let mut prev_index = i;
-                            while timelines[prev_index].get_section() - section_line_section < j {
+                            while timelines[prev_index].section() - section_line_section < j {
                                 prev_index += 1;
                             }
                             prev_index -= 1;
-                            let bpm = timelines[prev_index].get_bpm();
+                            let bpm = timelines[prev_index].bpm();
                             let bpm_safe = if bpm == 0.0 { 1.0 } else { bpm };
-                            let time = timelines[prev_index].get_micro_time()
-                                + timelines[prev_index].get_micro_stop()
-                                + ((j + section_line_section - timelines[prev_index].get_section())
+                            let time = timelines[prev_index].micro_time()
+                                + timelines[prev_index].micro_stop()
+                                + ((j + section_line_section - timelines[prev_index].section())
                                     * 240000000.0
                                     / bpm_safe) as i64;
                             quarter_note_times.push(time);

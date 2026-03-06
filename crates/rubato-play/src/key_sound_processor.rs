@@ -94,11 +94,11 @@ impl KeySoundProcessor {
 
         // Pre-extract BG timeline data (notes + times) so the thread owns them.
         let mut entries: Vec<BgTimelineEntry> = Vec::new();
-        for tl in model.get_all_time_lines() {
-            let bg_notes = tl.get_back_ground_notes();
+        for tl in model.all_time_lines() {
+            let bg_notes = tl.back_ground_notes();
             if !bg_notes.is_empty() {
                 entries.push(BgTimelineEntry {
-                    micro_time: tl.get_micro_time(),
+                    micro_time: tl.micro_time(),
                     notes: bg_notes.to_vec(),
                 });
             }
@@ -339,10 +339,10 @@ mod tests {
         let notes = ksp.drain_pending_bg_notes();
         // Should have 3 notes total (1 from first timeline, 2 from second).
         assert_eq!(notes.len(), 3);
-        assert_eq!(notes[0].note.get_wav(), 10);
+        assert_eq!(notes[0].note.wav(), 10);
         assert!((notes[0].volume - 0.8).abs() < f32::EPSILON);
-        assert_eq!(notes[1].note.get_wav(), 20);
-        assert_eq!(notes[2].note.get_wav(), 21);
+        assert_eq!(notes[1].note.wav(), 20);
+        assert_eq!(notes[2].note.wav(), 21);
 
         ksp.stop_bg_play();
     }
@@ -362,7 +362,7 @@ mod tests {
         let notes = ksp.drain_pending_bg_notes();
         // Should have notes from timelines at 200us and 300us (wavs 2 and 3),
         // but NOT from 100us (wav 1).
-        let wavs: Vec<i32> = notes.iter().map(|n| n.note.get_wav()).collect();
+        let wavs: Vec<i32> = notes.iter().map(|n| n.note.wav()).collect();
         assert!(
             !wavs.contains(&1),
             "should not contain wav 1 (before starttime)"
@@ -412,7 +412,7 @@ mod tests {
         // Drain to verify it produced the note.
         let notes = ksp.drain_pending_bg_notes();
         assert_eq!(notes.len(), 1);
-        assert_eq!(notes[0].note.get_wav(), 1);
+        assert_eq!(notes[0].note.wav(), 1);
 
         ksp.stop_bg_play();
     }
@@ -466,7 +466,7 @@ mod tests {
         let notes = ksp.drain_pending_bg_notes();
         // Should only have notes from the second model.
         assert!(!notes.is_empty());
-        assert_eq!(notes[0].note.get_wav(), 2);
+        assert_eq!(notes[0].note.wav(), 2);
 
         ksp.stop_bg_play();
     }

@@ -148,50 +148,50 @@ impl SongData {
 
     pub fn set_bms_model(&mut self, model: BMSModel) {
         // BMSPlayerRule::validate(&model) - stubbed, no-op
-        self.set_title(model.get_title().to_string());
-        self.set_subtitle(model.get_sub_title().to_string());
-        self.genre = model.get_genre().to_string();
-        self.set_artist(model.get_artist().to_string());
-        self.set_subartist(model.get_sub_artist().to_string());
-        if let Some(p) = model.get_path() {
+        self.set_title(model.title().to_string());
+        self.set_subtitle(model.sub_title().to_string());
+        self.genre = model.genre().to_string();
+        self.set_artist(model.artist().to_string());
+        self.set_subartist(model.sub_artist().to_string());
+        if let Some(p) = model.path() {
             self.path.push(p);
         }
-        self.md5 = model.get_md5().to_string();
-        self.sha256 = model.get_sha256().to_string();
-        self.banner = model.get_banner().to_string();
+        self.md5 = model.md5().to_string();
+        self.sha256 = model.sha256().to_string();
+        self.banner = model.banner().to_string();
 
-        self.stagefile = model.get_stagefile().to_string();
-        self.backbmp = model.get_backbmp().to_string();
+        self.stagefile = model.stagefile().to_string();
+        self.backbmp = model.backbmp().to_string();
         if self.preview.is_empty() {
-            self.preview = model.get_preview().to_string();
+            self.preview = model.preview().to_string();
         }
 
-        if let Ok(l) = model.get_playlevel().parse::<i32>() {
+        if let Ok(l) = model.playlevel().parse::<i32>() {
             self.level = l;
         }
 
-        self.mode = model.get_mode().map(|m| m.id()).unwrap_or(0);
+        self.mode = model.mode().map(|m| m.id()).unwrap_or(0);
         if self.difficulty == 0 {
-            self.difficulty = model.get_difficulty();
+            self.difficulty = model.difficulty();
         }
-        self.judge = model.get_judgerank();
-        self.minbpm = model.get_min_bpm() as i32;
-        self.maxbpm = model.get_max_bpm() as i32;
+        self.judge = model.judgerank();
+        self.minbpm = model.min_bpm() as i32;
+        self.maxbpm = model.max_bpm() as i32;
         self.feature = 0;
 
-        let keys = model.get_mode().map(|m| m.key()).unwrap_or(0);
-        for tl in model.get_all_time_lines() {
-            if tl.get_stop() > 0 {
+        let keys = model.mode().map(|m| m.key()).unwrap_or(0);
+        for tl in model.all_time_lines() {
+            if tl.stop() > 0 {
                 self.feature |= FEATURE_STOPSEQUENCE;
             }
-            if tl.get_scroll() != 1.0 {
+            if tl.scroll() != 1.0 {
                 self.feature |= FEATURE_SCROLL;
             }
 
             for i in 0..keys {
-                if let Some(n) = tl.get_note(i) {
+                if let Some(n) = tl.note(i) {
                     if n.is_long() {
-                        match n.get_long_note_type() {
+                        match n.long_note_type() {
                             note::TYPE_UNDEFINED => self.feature |= FEATURE_UNDEFINEDLN,
                             note::TYPE_LONGNOTE => self.feature |= FEATURE_LONGNOTE,
                             note::TYPE_CHARGENOTE => self.feature |= FEATURE_CHARGENOTE,
@@ -206,19 +206,19 @@ impl SongData {
             }
         }
 
-        self.length = model.get_last_time();
-        self.notes = model.get_total_notes();
+        self.length = model.last_time();
+        self.notes = model.total_notes();
 
-        if let Some(random) = model.get_random()
+        if let Some(random) = model.random()
             && !random.is_empty()
         {
             self.feature |= FEATURE_RANDOM;
         }
-        if !model.get_bga_list().is_empty() {
+        if !model.bga_list().is_empty() {
             self.content |= CONTENT_BGA;
         }
         if self.length >= 30000
-            && (model.get_wav_list().len() as i32) <= (self.length / (50 * 1000)) + 3
+            && (model.wav_list().len() as i32) <= (self.length / (50 * 1000)) + 3
         {
             self.content |= CONTENT_NOKEYSOUND;
         }
@@ -597,7 +597,7 @@ mod tests {
 
         assert_eq!(sd.full_title(), "Main Extra");
         // Also test the mutable caching version
-        assert_eq!(sd.get_full_title(), "Main Extra");
+        assert_eq!(sd.full_title(), "Main Extra");
     }
 
     #[test]
@@ -606,7 +606,7 @@ mod tests {
         sd.set_title("Main".to_string());
 
         assert_eq!(sd.full_title(), "Main");
-        assert_eq!(sd.get_full_title(), "Main");
+        assert_eq!(sd.full_title(), "Main");
     }
 
     #[test]
@@ -614,15 +614,15 @@ mod tests {
         let mut sd = SongData::new();
         sd.set_title("A".to_string());
         sd.set_subtitle("B".to_string());
-        assert_eq!(sd.get_full_title(), "A B");
+        assert_eq!(sd.full_title(), "A B");
 
         // Changing title should invalidate cache
         sd.set_title("C".to_string());
-        assert_eq!(sd.get_full_title(), "C B");
+        assert_eq!(sd.full_title(), "C B");
 
         // Changing subtitle should invalidate cache
         sd.set_subtitle("D".to_string());
-        assert_eq!(sd.get_full_title(), "C D");
+        assert_eq!(sd.full_title(), "C D");
     }
 
     #[test]

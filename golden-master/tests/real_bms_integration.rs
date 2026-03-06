@@ -89,19 +89,19 @@ fn is_playable_note(note: &Note) -> bool {
 /// Compute per-note data fields for a BMSModel fixture entry.
 /// Returns (first_note_lane, first_note_time_us, last_note_time_us, lane_distribution, bpm_change_count).
 fn compute_note_data(model: &BMSModel) -> (i32, i64, i64, Vec<i32>, usize) {
-    let key_count = model.get_mode().map(|m| m.key()).unwrap_or(0) as usize;
+    let key_count = model.mode().map(|m| m.key()).unwrap_or(0) as usize;
     let mut lane_distribution = vec![0i32; key_count];
     let mut first_note_lane: i32 = -1;
     let mut first_note_time_us: i64 = i64::MAX;
     let mut last_note_time_us: i64 = i64::MIN;
 
-    for tl in model.get_all_time_lines() {
+    for tl in model.all_time_lines() {
         for (lane, count) in lane_distribution.iter_mut().enumerate().take(key_count) {
-            if let Some(note) = tl.get_note(lane as i32)
+            if let Some(note) = tl.note(lane as i32)
                 && is_playable_note(note)
             {
                 *count += 1;
-                let t = tl.get_micro_time();
+                let t = tl.micro_time();
                 if t < first_note_time_us
                     || (t == first_note_time_us
                         && (first_note_lane < 0 || (lane as i32) < first_note_lane))
@@ -124,8 +124,8 @@ fn compute_note_data(model: &BMSModel) -> (i32, i64, i64, Vec<i32>, usize) {
 
     // Count distinct BPM values across all timelines
     let mut bpm_set = BTreeSet::new();
-    for tl in model.get_all_time_lines() {
-        bpm_set.insert(tl.get_bpm().to_bits());
+    for tl in model.all_time_lines() {
+        bpm_set.insert(tl.bpm().to_bits());
     }
     let bpm_change_count = bpm_set.len();
 
@@ -152,28 +152,28 @@ fn real_bms_decode_all_without_panic() {
 
         // Mode must be set
         assert!(
-            model.get_mode().is_some(),
+            model.mode().is_some(),
             "{filename}: mode should be set after decode"
         );
 
         // BPM must be positive
         assert!(
-            model.get_bpm() > 0.0,
+            model.bpm() > 0.0,
             "{filename}: BPM should be > 0, got {}",
-            model.get_bpm()
+            model.bpm()
         );
 
         // Timelines must be non-empty
         assert!(
-            !model.get_all_time_lines().is_empty(),
+            !model.all_time_lines().is_empty(),
             "{filename}: timelines should be non-empty"
         );
 
         // Total notes must be > 0 (these are real playable charts)
         assert!(
-            model.get_total_notes() > 0,
+            model.total_notes() > 0,
             "{filename}: total_notes should be > 0, got {}",
-            model.get_total_notes()
+            model.total_notes()
         );
     }
 }
@@ -191,11 +191,11 @@ fn real_bms_metadata_is_populated() {
         let filename = path.file_name().unwrap().to_string_lossy();
 
         assert!(
-            !model.get_title().is_empty(),
+            !model.title().is_empty(),
             "{filename}: title should be non-empty"
         );
         assert!(
-            !model.get_artist().is_empty(),
+            !model.artist().is_empty(),
             "{filename}: artist should be non-empty"
         );
     }
@@ -214,9 +214,9 @@ fn real_bms_timing_is_valid() {
         let filename = path.file_name().unwrap().to_string_lossy();
 
         let times: Vec<i64> = model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
-            .map(|tl| tl.get_micro_time())
+            .map(|tl| tl.micro_time())
             .collect();
 
         assert!(
@@ -257,8 +257,8 @@ fn real_bms_hashes_are_stable() {
         let model = decode_bms(path);
         let filename = path.file_name().unwrap().to_string_lossy();
 
-        let md5 = model.get_md5();
-        let sha256 = model.get_sha256();
+        let md5 = model.md5();
+        let sha256 = model.sha256();
 
         // MD5 should be 32 hex characters
         assert_eq!(
@@ -288,12 +288,12 @@ fn real_bms_hashes_are_stable() {
         let model2 = decode_bms(path);
         assert_eq!(
             md5,
-            model2.get_md5(),
+            model2.md5(),
             "{filename}: MD5 should be stable across decodes"
         );
         assert_eq!(
             sha256,
-            model2.get_sha256(),
+            model2.sha256(),
             "{filename}: SHA-256 should be stable across decodes"
         );
     }
@@ -321,15 +321,15 @@ fn real_bms_golden_master_regression() {
             ) = compute_note_data(&model);
             RealBmsFixture {
                 filename,
-                md5: model.get_md5().to_string(),
-                sha256: model.get_sha256().to_string(),
+                md5: model.md5().to_string(),
+                sha256: model.sha256().to_string(),
                 mode: model
-                    .get_mode()
+                    .mode()
                     .map(|m| m.hint().to_string())
                     .unwrap_or_default(),
-                bpm: model.get_bpm(),
-                total_notes: model.get_total_notes(),
-                timeline_count: model.get_all_time_lines().len(),
+                bpm: model.bpm(),
+                total_notes: model.total_notes(),
+                timeline_count: model.all_time_lines().len(),
                 first_note_lane,
                 first_note_time_us,
                 last_note_time_us,
@@ -459,9 +459,9 @@ fn real_bms_pattern_modifiers_no_panic() {
         let model = decode_bms(path);
         let filename = path.file_name().unwrap().to_string_lossy();
         let mode = model
-            .get_mode()
+            .mode()
             .unwrap_or_else(|| panic!("{filename}: mode should be set"));
-        let original_notes = model.get_total_notes();
+        let original_notes = model.total_notes();
 
         // LaneMirrorShuffleModifier (mirror, player=0, is_scratch=false)
         {
@@ -469,7 +469,7 @@ fn real_bms_pattern_modifiers_no_panic() {
             let mut modifier = LaneMirrorShuffleModifier::new(0, false);
             modifier.modify(&mut model_mirror);
             assert_eq!(
-                model_mirror.get_total_notes(),
+                model_mirror.total_notes(),
                 original_notes,
                 "{filename}: mirror modifier should preserve total note count"
             );
@@ -482,7 +482,7 @@ fn real_bms_pattern_modifiers_no_panic() {
             modifier.set_seed(42);
             modifier.modify(&mut model_srandom);
             assert_eq!(
-                model_srandom.get_total_notes(),
+                model_srandom.total_notes(),
                 original_notes,
                 "{filename}: S-Random modifier should preserve total note count"
             );
@@ -495,7 +495,7 @@ fn real_bms_pattern_modifiers_no_panic() {
             modifier.set_seed(42);
             modifier.modify(&mut model_hrandom);
             assert_eq!(
-                model_hrandom.get_total_notes(),
+                model_hrandom.total_notes(),
                 original_notes,
                 "{filename}: H-Random modifier should preserve total note count"
             );
@@ -517,9 +517,9 @@ fn real_bms_full_pipeline_decode_validate_judge() {
 
         // Validate: all timeline times must be >= 0
         let times: Vec<i64> = model
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
-            .map(|tl| tl.get_micro_time())
+            .map(|tl| tl.micro_time())
             .collect();
         assert!(
             !times.is_empty(),
@@ -566,14 +566,14 @@ fn real_bms_scroll_speed_modifier_no_panic() {
             let mut modifier = ScrollSpeedModifier::with_params(0, 4, 0.5);
             modifier.modify(&mut model_remove);
             // After Remove mode, all timelines should have uniform BPM
-            let tls = model_remove.get_all_time_lines();
+            let tls = model_remove.all_time_lines();
             if tls.len() > 1 {
-                let start_bpm = tls[0].get_bpm();
+                let start_bpm = tls[0].bpm();
                 for (i, tl) in tls.iter().enumerate().skip(1) {
                     assert!(
-                        (tl.get_bpm() - start_bpm).abs() < f64::EPSILON,
+                        (tl.bpm() - start_bpm).abs() < f64::EPSILON,
                         "{filename}: after Remove, timeline[{i}] BPM should be {start_bpm}, got {}",
-                        tl.get_bpm()
+                        tl.bpm()
                     );
                 }
             }
@@ -587,8 +587,8 @@ fn real_bms_scroll_speed_modifier_no_panic() {
             // Just verify no panic; scroll values are randomized so we only
             // check that timelines still exist
             assert_eq!(
-                model_add.get_all_time_lines().len(),
-                model.get_all_time_lines().len(),
+                model_add.all_time_lines().len(),
+                model.all_time_lines().len(),
                 "{filename}: Add mode should not change timeline count"
             );
         }
@@ -605,14 +605,14 @@ fn real_bms_note_distribution_sanity() {
     for path in &files {
         let model = decode_bms(path);
         let filename = path.file_name().unwrap().to_string_lossy();
-        let mode = model.get_mode().expect("mode should be set");
+        let mode = model.mode().expect("mode should be set");
         let key_count = mode.key() as usize;
 
         // Build lane distribution
         let mut lane_counts = vec![0i32; key_count];
-        for tl in model.get_all_time_lines() {
+        for tl in model.all_time_lines() {
             for (lane, count) in lane_counts.iter_mut().enumerate().take(key_count) {
-                if let Some(note) = tl.get_note(lane as i32)
+                if let Some(note) = tl.note(lane as i32)
                     && is_playable_note(note)
                 {
                     *count += 1;
@@ -656,28 +656,28 @@ fn real_bms_mirror_deterministic_lanes() {
 
         // Mirror is deterministic - same input should produce same output
         assert_eq!(
-            model1.get_total_notes(),
-            model2.get_total_notes(),
+            model1.total_notes(),
+            model2.total_notes(),
             "{filename}: mirror total notes should be deterministic"
         );
 
         // Compare per-timeline lane assignments
         for (i, (tl1, tl2)) in model1
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
-            .zip(model2.get_all_time_lines().iter())
+            .zip(model2.all_time_lines().iter())
             .enumerate()
         {
             assert_eq!(
-                tl1.get_micro_time(),
-                tl2.get_micro_time(),
+                tl1.micro_time(),
+                tl2.micro_time(),
                 "{filename}: timeline {i}: times differ after mirror"
             );
             // Verify notes are identical per lane
-            let key_count = model.get_mode().map(|m| m.key()).unwrap_or(0);
+            let key_count = model.mode().map(|m| m.key()).unwrap_or(0);
             for lane in 0..key_count {
-                let n1 = tl1.get_note(lane).map(|n| n.get_wav());
-                let n2 = tl2.get_note(lane).map(|n| n.get_wav());
+                let n1 = tl1.note(lane).map(|n| n.wav());
+                let n2 = tl2.note(lane).map(|n| n.wav());
                 assert_eq!(
                     n1, n2,
                     "{filename}: timeline {i}, lane {lane}: note wav differs after mirror"
@@ -697,7 +697,7 @@ fn real_bms_random_seed_deterministic() {
     let config = PlayerConfig::default();
     for path in &files {
         let model = decode_bms(path);
-        let mode = model.get_mode().unwrap();
+        let mode = model.mode().unwrap();
         let filename = path.file_name().unwrap().to_string_lossy();
 
         // Same seed should preserve total note count
@@ -706,8 +706,8 @@ fn real_bms_random_seed_deterministic() {
         mod1.set_seed(42);
         mod1.modify(&mut model1);
         assert_eq!(
-            model1.get_total_notes(),
-            model.get_total_notes(),
+            model1.total_notes(),
+            model.total_notes(),
             "{filename}: S-Random should preserve total notes"
         );
 
@@ -724,8 +724,8 @@ fn real_bms_random_seed_deterministic() {
 
         // Both should preserve note count
         assert_eq!(
-            model_seed_a.get_total_notes(),
-            model_seed_b.get_total_notes(),
+            model_seed_a.total_notes(),
+            model_seed_b.total_notes(),
             "{filename}: both seeds should preserve total notes"
         );
 
@@ -733,13 +733,13 @@ fn real_bms_random_seed_deterministic() {
         let key_count = mode.key();
         let mut any_different = false;
         for (tl_a, tl_b) in model_seed_a
-            .get_all_time_lines()
+            .all_time_lines()
             .iter()
-            .zip(model_seed_b.get_all_time_lines().iter())
+            .zip(model_seed_b.all_time_lines().iter())
         {
             for lane in 0..key_count {
-                let n_a = tl_a.get_note(lane).map(|n| n.get_wav());
-                let n_b = tl_b.get_note(lane).map(|n| n.get_wav());
+                let n_a = tl_a.note(lane).map(|n| n.wav());
+                let n_b = tl_b.note(lane).map(|n| n.wav());
                 if n_a != n_b {
                     any_different = true;
                     break;

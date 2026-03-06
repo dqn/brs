@@ -170,7 +170,7 @@ impl PlayerResource {
         self.replay = Some(ReplayData::new());
         let result = Self::load_bms_model(f, self.pconfig.get_lnmode());
         if let Some((model, margin_time)) = result {
-            if model.get_all_time_lines().is_empty() {
+            if model.all_time_lines().is_empty() {
                 return false;
             }
             self.margin_time = margin_time;
@@ -204,7 +204,7 @@ impl PlayerResource {
     /// Preserves tablename and tablelevel across clear().
     /// Java: PlayerResource.reloadBMSFile()
     pub fn reload_bms_file(&mut self) {
-        if let Some(path_str) = self.get_bms_model().and_then(|m| m.get_path()) {
+        if let Some(path_str) = self.get_bms_model().and_then(|m| m.path()) {
             let path = PathBuf::from(&path_str);
             if let Some((model, margin_time)) =
                 Self::load_bms_model(&path, self.pconfig.get_lnmode())
@@ -368,7 +368,7 @@ impl PlayerResource {
             .course
             .as_ref()
             .and_then(|models| models.get(self.courseindex))
-            .and_then(|model| model.get_path());
+            .and_then(|model| model.path());
         let mode = self.mode.clone();
         if let (Some(path_str), Some(mode)) = (path, mode) {
             self.set_bms_file(Path::new(&path_str), mode);
@@ -879,19 +879,19 @@ impl PlayerResourceAccess for PlayerResource {
                 .map(|m| {
                     // Build SongData from model metadata without consuming the model
                     let mut sd = rubato_types::song_data::SongData::default();
-                    sd.set_title(m.get_title().to_string());
-                    sd.set_subtitle(m.get_sub_title().to_string());
-                    sd.genre = m.get_genre().to_string();
-                    sd.set_artist(m.get_artist().to_string());
-                    sd.set_subartist(m.get_sub_artist().to_string());
-                    if let Some(p) = m.get_path() {
+                    sd.set_title(m.title().to_string());
+                    sd.set_subtitle(m.sub_title().to_string());
+                    sd.genre = m.genre().to_string();
+                    sd.set_artist(m.artist().to_string());
+                    sd.set_subartist(m.sub_artist().to_string());
+                    if let Some(p) = m.path() {
                         sd.set_path(p);
                     }
-                    sd.md5 = m.get_md5().to_string();
-                    sd.sha256 = m.get_sha256().to_string();
-                    sd.notes = m.get_total_notes();
-                    sd.length = m.get_last_time();
-                    sd.mode = m.get_mode().map(|mode| mode.id()).unwrap_or(0);
+                    sd.md5 = m.md5().to_string();
+                    sd.sha256 = m.sha256().to_string();
+                    sd.notes = m.total_notes();
+                    sd.length = m.last_time();
+                    sd.mode = m.mode().map(|mode| mode.id()).unwrap_or(0);
                     sd
                 })
                 .collect(),

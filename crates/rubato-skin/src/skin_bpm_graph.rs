@@ -184,22 +184,22 @@ impl SkinBPMGraph {
         if let Some(model) = model {
             let mut speed_list: Vec<[f64; 2]> = Vec::new();
             let mut bpm_note_count_map: HashMap<u64, i32> = HashMap::new();
-            let mut now_speed = model.get_bpm();
+            let mut now_speed = model.bpm();
             speed_list.push([now_speed, 0.0]);
-            let tls = model.get_all_time_lines();
+            let tls = model.all_time_lines();
             for tl in tls {
-                let bpm_key = tl.get_bpm().to_bits();
+                let bpm_key = tl.bpm().to_bits();
                 let notecount = bpm_note_count_map.get(&bpm_key).copied().unwrap_or(0);
-                bpm_note_count_map.insert(bpm_key, notecount + tl.get_total_notes());
+                bpm_note_count_map.insert(bpm_key, notecount + tl.total_notes());
 
-                if tl.get_stop() > 0 {
+                if tl.stop() > 0 {
                     if now_speed != 0.0 {
                         now_speed = 0.0;
-                        speed_list.push([now_speed, tl.get_time() as f64]);
+                        speed_list.push([now_speed, tl.time() as f64]);
                     }
-                } else if now_speed != tl.get_bpm() * tl.get_scroll() {
-                    now_speed = tl.get_bpm() * tl.get_scroll();
-                    speed_list.push([now_speed, tl.get_time() as f64]);
+                } else if now_speed != tl.bpm() * tl.scroll() {
+                    now_speed = tl.bpm() * tl.scroll();
+                    speed_list.push([now_speed, tl.time() as f64]);
                 }
             }
 
@@ -212,14 +212,14 @@ impl SkinBPMGraph {
             }
             if !speed_list.is_empty()
                 && !tls.is_empty()
-                && speed_list[speed_list.len() - 1][1] != tls[tls.len() - 1].get_time() as f64
+                && speed_list[speed_list.len() - 1][1] != tls[tls.len() - 1].time() as f64
             {
-                speed_list.push([now_speed, tls[tls.len() - 1].get_time() as f64]);
+                speed_list.push([now_speed, tls[tls.len() - 1].time() as f64]);
             }
 
             self.bpm_data = speed_list;
-            self.minbpm = model.get_min_bpm();
-            self.maxbpm = model.get_max_bpm();
+            self.minbpm = model.min_bpm();
+            self.maxbpm = model.max_bpm();
         } else {
             self.bpm_data = Vec::new();
         }

@@ -112,12 +112,12 @@ fn determine_random_mode(
 fn is_double_play(models: &[bms_model::bms_model::BMSModel]) -> bool {
     models
         .iter()
-        .any(|m| m.get_mode().map(|mode| mode.player()).unwrap_or(1) == 2)
+        .any(|m| m.mode().map(|mode| mode.player()).unwrap_or(1) == 2)
 }
 
 /// Sum total notes across all course BMS models.
 fn aggregate_total_notes(models: &[bms_model::bms_model::BMSModel]) -> i32 {
-    models.iter().map(|m| m.get_total_notes()).sum()
+    models.iter().map(|m| m.total_notes()).sum()
 }
 
 /// Render context adapter for course result screen skin rendering.
@@ -410,7 +410,7 @@ impl CourseResult {
             for model in &models[course_gauge_size..] {
                 let mut list: Vec<Vec<f32>> = Vec::with_capacity(gauge_type_length);
                 for _type_idx in 0..gauge_type_length {
-                    let last_note_time = model.get_last_note_time();
+                    let last_note_time = model.last_note_time();
                     let fa = vec![0.0f32; ((last_note_time + 500) / 500) as usize];
                     list.push(fa);
                 }
@@ -421,7 +421,7 @@ impl CourseResult {
             self.resource.get_course_gauge_mut().push(list);
         }
 
-        if let Some(mode) = self.resource.get_bms_model().get_mode() {
+        if let Some(mode) = self.resource.get_bms_model().mode() {
             self.property = ResultKeyProperty::get(mode).unwrap_or_else(ResultKeyProperty::beat_7k);
         } else {
             self.property = ResultKeyProperty::beat_7k();

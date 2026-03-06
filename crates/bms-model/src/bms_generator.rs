@@ -21,7 +21,7 @@ impl BMSGenerator {
         decoder.decode_bytes(&self.data, self.ispms, random)
     }
 
-    pub fn get_random(&self) -> &[i32] {
+    pub fn random(&self) -> &[i32] {
         &self.random
     }
 }

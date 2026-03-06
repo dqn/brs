@@ -112,7 +112,7 @@ impl StaticTargetProperty {
         let total_notes = main
             .get_player_resource()
             .and_then(|r| r.get_bms_model())
-            .map(|m| m.get_total_notes())
+            .map(|m| m.total_notes())
             .unwrap_or(0);
         let rivalscore = (total_notes as f64 * 2.0 * self.rate as f64 / 100.0).ceil() as i32;
         self.target_score.player = self.name.clone();
@@ -659,7 +659,7 @@ impl NextRankTargetProperty {
             .map(|s| s.get_exscore())
             .unwrap_or(0);
 
-        let max = model.map(|m| m.get_total_notes() * 2).unwrap_or(0);
+        let max = model.map(|m| m.total_notes() * 2).unwrap_or(0);
 
         // Find next rank threshold: iterate from 15/27 to 26/27
         let mut targetscore = max;
