@@ -264,6 +264,12 @@ impl PlayerResource {
         self.inner.get_player_config()
     }
 
+    pub fn get_player_config_mut(
+        &mut self,
+    ) -> Option<&mut rubato_core::player_config::PlayerConfig> {
+        self.inner.get_player_config_mut()
+    }
+
     pub fn get_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
         self.inner.get_score_data()
     }

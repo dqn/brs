@@ -37,6 +37,27 @@ fn delegated_event_type_from_id(event_id: i32) -> Option<EventType> {
     }
 }
 
+fn normalized_play_config_mode(mode: bms_model::Mode) -> bms_model::Mode {
+    match mode {
+        bms_model::Mode::POPN_5K | bms_model::Mode::POPN_9K => bms_model::Mode::POPN_9K,
+        _ => mode,
+    }
+}
+
+fn play_config_mode_from_song(song: &SongData) -> Option<bms_model::Mode> {
+    match song.get_mode() {
+        5 => Some(bms_model::Mode::BEAT_5K),
+        7 => Some(bms_model::Mode::BEAT_7K),
+        9 => Some(bms_model::Mode::POPN_9K),
+        10 => Some(bms_model::Mode::BEAT_10K),
+        14 => Some(bms_model::Mode::BEAT_14K),
+        25 => Some(bms_model::Mode::KEYBOARD_24K),
+        50 => Some(bms_model::Mode::KEYBOARD_24K_DOUBLE),
+        _ => None,
+    }
+    .map(normalized_play_config_mode)
+}
+
 /// Rich skin context for music select rendering and mouse interaction.
 /// This keeps skin-side events wired to the real selector instead of a timer-only stub.
 struct SelectSkinContext<'a> {
@@ -79,6 +100,10 @@ impl SelectSkinContext<'_> {
     fn selected_score(&self) -> Option<&rubato_types::score_data::ScoreData> {
         self.selected_bar()?.get_score()
     }
+
+    fn selected_rival_score(&self) -> Option<&rubato_types::score_data::ScoreData> {
+        self.selected_bar()?.get_rival_score()
+    }
 }
 
 impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<'_> {
@@ -106,6 +131,42 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
         &mut self,
     ) -> Option<&mut rubato_types::play_config::PlayConfig> {
         self.selector.get_selected_play_config_mut()
+    }
+
+    fn get_current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+        self.selector.get_selected_play_config_ref()
+    }
+
+    fn get_target_score_data(&self) -> Option<&rubato_types::score_data::ScoreData> {
+        self.selected_rival_score()
+    }
+
+    fn get_score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+        self.selected_score()
+    }
+
+    fn get_rival_score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
+        self.selected_rival_score()
+    }
+
+    fn get_song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
+        self.selected_song_data()
+    }
+
+    fn get_mode_image_index(&self) -> Option<i32> {
+        let current_mode = self.selector.config.get_mode();
+        let mode_index = MODE.iter().position(|mode| mode.as_ref() == current_mode)?;
+        let lr2_mode_indices = [0, 2, 4, 5, 1, 3];
+        Some(
+            lr2_mode_indices
+                .get(mode_index)
+                .copied()
+                .unwrap_or(mode_index as i32),
+        )
+    }
+
+    fn get_sort_image_index(&self) -> Option<i32> {
+        Some(self.selector.get_sort())
     }
 
     fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
@@ -954,14 +1015,55 @@ impl MusicSelector {
         self.play_sound(SoundType::OptionChange);
     }
 
+    fn selected_play_config_mode(&self) -> Option<bms_model::Mode> {
+        if let Some(song_bar) = self
+            .manager
+            .get_selected()
+            .and_then(|bar| bar.as_song_bar())
+            && song_bar.exists_song()
+        {
+            return play_config_mode_from_song(song_bar.get_song_data());
+        }
+
+        if let Some(grade_bar) = self
+            .manager
+            .get_selected()
+            .and_then(|bar| bar.as_grade_bar())
+            && grade_bar.exists_all_songs()
+        {
+            let mut selected_mode: Option<bms_model::Mode> = None;
+            for song in grade_bar.get_song_datas() {
+                let song_mode = play_config_mode_from_song(song)?;
+                if let Some(current_mode) = selected_mode.as_ref() {
+                    if *current_mode != song_mode {
+                        return None;
+                    }
+                } else {
+                    selected_mode = Some(song_mode);
+                }
+            }
+            if selected_mode.is_some() {
+                return selected_mode;
+            }
+        }
+
+        Some(normalized_play_config_mode(
+            self.config
+                .get_mode()
+                .cloned()
+                .unwrap_or(bms_model::Mode::BEAT_7K),
+        ))
+    }
+
+    fn get_selected_play_config_ref(&self) -> Option<&PlayConfig> {
+        let mode = self.selected_play_config_mode()?;
+        Some(self.config.get_play_config_ref(mode).get_playconfig())
+    }
+
     /// Get mutable reference to the PlayConfig for the currently selected mode.
-    /// Falls back to BEAT_7K if mode cannot be determined.
+    /// Matches Java MusicSelector.getSelectedBarPlayConfig().
     fn get_selected_play_config_mut(&mut self) -> Option<&mut PlayConfig> {
-        let mode = self
-            .config
-            .get_mode()
-            .cloned()
-            .unwrap_or(bms_model::Mode::BEAT_7K);
+        let mode = self.selected_play_config_mode()?;
         Some(self.config.get_play_config(mode).get_playconfig_mut())
     }
 
@@ -2757,6 +2859,7 @@ mod tests {
     use crate::select::bar::selectable_bar::SelectableBarData;
     use crate::select::bar::song_bar::SongBar;
     use rubato_core::main_state::MainState;
+    use rubato_types::skin_render_context::SkinRenderContext;
 
     fn make_song_data(sha256: &str, path: Option<&str>) -> SongData {
         let mut sd = SongData::default();
@@ -2769,6 +2872,11 @@ mod tests {
 
     fn make_song_bar(sha256: &str, path: Option<&str>) -> Bar {
         Bar::Song(Box::new(SongBar::new(make_song_data(sha256, path))))
+    }
+
+    fn set_selected_bar(selector: &mut MusicSelector, bar: Bar) {
+        selector.manager.currentsongs = vec![bar];
+        selector.manager.selectedindex = 0;
     }
 
     #[test]
@@ -2795,6 +2903,129 @@ mod tests {
                 .timer
                 .is_timer_on(skin_property::TIMER_STARTINPUT)
         );
+    }
+
+    #[test]
+    fn test_select_skin_context_uses_sort_for_image_index_12() {
+        let mut selector = MusicSelector::new();
+        selector.config.sort = 5;
+        selector.config.judgetiming = 17;
+        let mut timer = TimerManager::new();
+        let ctx = SelectSkinContext {
+            timer: &mut timer,
+            selector: &mut selector,
+        };
+
+        assert_eq!(ctx.image_index_value(12), 5);
+    }
+
+    #[test]
+    fn test_select_skin_context_uses_random_for_image_index_42() {
+        let mut selector = MusicSelector::new();
+        selector.config.random = 4;
+        let mut timer = TimerManager::new();
+        let ctx = SelectSkinContext {
+            timer: &mut timer,
+            selector: &mut selector,
+        };
+
+        assert_eq!(ctx.image_index_value(42), 4);
+    }
+
+    #[test]
+    fn test_select_skin_context_uses_mode_image_index_mapping() {
+        let mut selector = MusicSelector::new();
+        selector.config.mode = Some(bms_model::Mode::BEAT_5K);
+        let mut timer = TimerManager::new();
+        let ctx = SelectSkinContext {
+            timer: &mut timer,
+            selector: &mut selector,
+        };
+
+        assert_eq!(ctx.image_index_value(11), 1);
+    }
+
+    #[test]
+    fn test_select_skin_context_uses_selected_song_play_config_for_image_index_330() {
+        let mut selector = MusicSelector::new();
+        selector.config.mode = Some(bms_model::Mode::BEAT_7K);
+        selector.config.mode7.playconfig.enablelanecover = false;
+        selector.config.mode5.playconfig.enablelanecover = true;
+        let mut song = make_song_data("play-config", Some("/test/selected.bms"));
+        song.set_mode(bms_model::Mode::BEAT_5K.id());
+        set_selected_bar(&mut selector, Bar::Song(Box::new(SongBar::new(song))));
+        let mut timer = TimerManager::new();
+        let ctx = SelectSkinContext {
+            timer: &mut timer,
+            selector: &mut selector,
+        };
+
+        assert_eq!(ctx.image_index_value(330), 1);
+    }
+
+    #[test]
+    fn test_select_skin_context_uses_selected_song_judge_algorithm_for_image_index_340() {
+        let mut selector = MusicSelector::new();
+        selector.config.mode = Some(bms_model::Mode::BEAT_7K);
+        selector.config.mode7.playconfig.judgetype = "Combo".to_string();
+        selector.config.mode5.playconfig.judgetype = "Lowest".to_string();
+        let mut song = make_song_data("judge-type", Some("/test/judge.bms"));
+        song.set_mode(bms_model::Mode::BEAT_5K.id());
+        set_selected_bar(&mut selector, Bar::Song(Box::new(SongBar::new(song))));
+        let mut timer = TimerManager::new();
+        let ctx = SelectSkinContext {
+            timer: &mut timer,
+            selector: &mut selector,
+        };
+
+        assert_eq!(ctx.image_index_value(340), 2);
+    }
+
+    #[test]
+    fn test_select_skin_context_uses_selected_score_clear_for_image_index_370() {
+        let mut selector = MusicSelector::new();
+        let mut bar = make_song_bar("clear", Some("/test/clear.bms"));
+        let mut score = ScoreData::default();
+        score.clear = 6;
+        bar.set_score(Some(score));
+        set_selected_bar(&mut selector, bar);
+        let mut timer = TimerManager::new();
+        let ctx = SelectSkinContext {
+            timer: &mut timer,
+            selector: &mut selector,
+        };
+
+        assert_eq!(ctx.image_index_value(370), 6);
+    }
+
+    #[test]
+    fn test_select_skin_context_uses_rival_clear_for_image_index_371() {
+        let mut selector = MusicSelector::new();
+        let mut bar = make_song_bar("rival-clear", Some("/test/rival-clear.bms"));
+        let mut rival = ScoreData::default();
+        rival.clear = 8;
+        bar.set_rival_score(Some(rival));
+        set_selected_bar(&mut selector, bar);
+        let mut timer = TimerManager::new();
+        let ctx = SelectSkinContext {
+            timer: &mut timer,
+            selector: &mut selector,
+        };
+
+        assert_eq!(ctx.image_index_value(371), 8);
+    }
+
+    #[test]
+    fn test_select_skin_context_uses_target_visual_index_for_image_index_77() {
+        let mut selector = MusicSelector::new();
+        selector.config.targetid = "MAX".to_string();
+        let mut timer = TimerManager::new();
+        let ctx = SelectSkinContext {
+            timer: &mut timer,
+            selector: &mut selector,
+        };
+
+        assert_eq!(ctx.image_index_value(77), 10);
     }
 
     #[test]

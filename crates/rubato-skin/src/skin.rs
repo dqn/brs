@@ -1204,6 +1204,10 @@ impl crate::stubs::MainState for TimerOnlyMainState<'_> {
         self.ctx.as_deref().map_or(0, |c| c.integer_value(id))
     }
 
+    fn image_index_value(&self, id: i32) -> i32 {
+        self.ctx.as_deref().map_or(0, |c| c.image_index_value(id))
+    }
+
     fn boolean_value(&self, id: i32) -> bool {
         self.ctx.as_deref().is_some_and(|c| c.boolean_value(id))
     }

@@ -22,6 +22,13 @@ pub trait MainState {
         0
     }
 
+    /// Returns the image-index property value for the given ID.
+    /// This is separate from `integer_value()` because some LR2 IDs collide
+    /// between numeric refs and image selector refs.
+    fn image_index_value(&self, id: i32) -> i32 {
+        self.integer_value(id)
+    }
+
     /// Returns the string property value for the given ID.
     /// Used by StringPropertyFactory delegate to look up pre-computed values.
     fn string_value(&self, _id: i32) -> String {

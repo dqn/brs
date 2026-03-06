@@ -40,7 +40,7 @@ pub fn get_image_index_property_by_id(optionid: i32) -> Option<Box<dyn IntegerPr
     // Check IndexType enum
     for it in INDEX_TYPES.iter() {
         if it.id == optionid {
-            return Some(Box::new(DelegateIntegerProperty { id: it.id }));
+            return Some(Box::new(DelegateImageIndexProperty { id: it.id }));
         }
     }
 
@@ -48,14 +48,14 @@ pub fn get_image_index_property_by_id(optionid: i32) -> Option<Box<dyn IntegerPr
     // SkinSelectType properties
     // All require Phase 7+ dependencies
 
-    Some(Box::new(DelegateIntegerProperty { id: optionid }))
+    Some(Box::new(DelegateImageIndexProperty { id: optionid }))
 }
 
 /// Returns an IntegerProperty for the given IndexType name.
 pub fn get_image_index_property_by_name(name: &str) -> Option<Box<dyn IntegerProperty>> {
     for it in INDEX_TYPES.iter() {
         if it.name == name {
-            return Some(Box::new(DelegateIntegerProperty { id: it.id }));
+            return Some(Box::new(DelegateImageIndexProperty { id: it.id }));
         }
     }
     None
@@ -922,5 +922,91 @@ impl IntegerProperty for DelegateIntegerProperty {
 
     fn get_id(&self) -> i32 {
         self.id
+    }
+}
+
+struct DelegateImageIndexProperty {
+    id: i32,
+}
+
+impl IntegerProperty for DelegateImageIndexProperty {
+    fn get(&self, state: &dyn MainState) -> i32 {
+        state.image_index_value(self.id)
+    }
+
+    fn get_id(&self) -> i32 {
+        self.id
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rendering_stubs::TextureRegion;
+    use crate::stubs::{MainController, PlayerResource, SkinOffset, Timer};
+
+    struct TestState {
+        timer: Timer,
+        integer_value: i32,
+        image_index_value: i32,
+    }
+
+    impl TestState {
+        fn new(integer_value: i32, image_index_value: i32) -> Self {
+            Self {
+                timer: Timer::default(),
+                integer_value,
+                image_index_value,
+            }
+        }
+    }
+
+    impl MainState for TestState {
+        fn get_timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
+            &self.timer
+        }
+
+        fn get_offset_value(&self, _id: i32) -> Option<&SkinOffset> {
+            None
+        }
+
+        fn get_main(&self) -> &MainController {
+            static MAIN: MainController = MainController { debug: false };
+            &MAIN
+        }
+
+        fn get_image(&self, _id: i32) -> Option<TextureRegion> {
+            None
+        }
+
+        fn get_resource(&self) -> &PlayerResource {
+            static RESOURCE: PlayerResource = PlayerResource;
+            &RESOURCE
+        }
+
+        fn integer_value(&self, _id: i32) -> i32 {
+            self.integer_value
+        }
+
+        fn image_index_value(&self, _id: i32) -> i32 {
+            self.image_index_value
+        }
+    }
+
+    #[test]
+    fn value_refs_read_integer_value() {
+        let state = TestState::new(7, 9);
+        let property = get_integer_property_by_id(42).expect("value property should exist");
+
+        assert_eq!(property.get(&state), 7);
+    }
+
+    #[test]
+    fn image_index_refs_read_image_index_value() {
+        let state = TestState::new(7, 9);
+        let property =
+            get_image_index_property_by_id(42).expect("image index property should exist");
+
+        assert_eq!(property.get(&state), 9);
     }
 }

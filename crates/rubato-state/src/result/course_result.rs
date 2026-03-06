@@ -163,6 +163,52 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
         Some(self.main.get_config())
     }
 
+    fn get_replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+        self.resource.get_replay_data()
+    }
+
+    fn get_target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+        self.resource.get_target_score_data()
+    }
+
+    fn get_score_data_ref(&self) -> Option<&rubato_core::score_data::ScoreData> {
+        self.data.score.score.as_ref()
+    }
+
+    fn get_rival_score_data_ref(&self) -> Option<&rubato_core::score_data::ScoreData> {
+        Some(&self.data.oldscore)
+    }
+
+    fn get_current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+        let course = self.resource.get_course_data()?;
+        let mut current_mode: Option<bms_model::mode::Mode> = None;
+        for song in course.get_song() {
+            let song_mode = match song.get_mode() {
+                5 => Some(bms_model::mode::Mode::BEAT_5K),
+                7 => Some(bms_model::mode::Mode::BEAT_7K),
+                9 => Some(bms_model::mode::Mode::POPN_9K),
+                10 => Some(bms_model::mode::Mode::BEAT_10K),
+                14 => Some(bms_model::mode::Mode::BEAT_14K),
+                25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
+                50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
+                _ => None,
+            }?;
+            if let Some(mode) = current_mode.as_ref() {
+                if *mode != song_mode {
+                    return None;
+                }
+            } else {
+                current_mode = Some(song_mode);
+            }
+        }
+        Some(
+            self.resource
+                .get_player_config()
+                .get_play_config_ref(current_mode?)
+                .get_playconfig(),
+        )
+    }
+
     fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
@@ -297,6 +343,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultMouseC
 
     fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn get_player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+        self.result.resource.get_player_config_mut()
     }
 }
 
@@ -913,6 +963,7 @@ mod tests {
     use rubato_skin::skin_type::SkinType;
     use rubato_types::main_controller_access::MainControllerAccess;
     use rubato_types::player_resource_access::PlayerResourceAccess;
+    use rubato_types::skin_render_context::SkinRenderContext;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     struct ExecuteEventSkin {
@@ -940,6 +991,69 @@ mod tests {
             _y: i32,
         ) {
             ctx.execute_event(self.event_id, 0, 0);
+        }
+
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+
+        fn prepare_skin(&mut self) {}
+
+        fn dispose_skin(&mut self) {}
+
+        fn get_fadeout(&self) -> i32 {
+            0
+        }
+
+        fn get_input(&self) -> i32 {
+            0
+        }
+
+        fn get_scene(&self) -> i32 {
+            0
+        }
+
+        fn get_width(&self) -> f32 {
+            0.0
+        }
+
+        fn get_height(&self) -> f32 {
+            0.0
+        }
+
+        fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+    }
+
+    struct PlayerConfigMutatingSkin;
+
+    impl SkinDrawable for PlayerConfigMutatingSkin {
+        fn draw_all_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn update_custom_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn mouse_pressed_at(
+            &mut self,
+            ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+            if let Some(config) = ctx.get_player_config_mut() {
+                config.random = (config.random + 1) % 10;
+            }
         }
 
         fn mouse_dragged_at(
@@ -1075,6 +1189,34 @@ mod tests {
         <CourseResult as MainState>::handle_skin_mouse_pressed(&mut cr, 0, 10, 10);
 
         assert_eq!(cr.data.save_replay[0], ReplayStatus::Saved);
+    }
+
+    #[test]
+    fn test_course_result_mouse_context_exposes_player_config_mut() {
+        let mut cr = make_course_result_for_mouse();
+        cr.main_data.skin = Some(Box::new(PlayerConfigMutatingSkin));
+
+        <CourseResult as MainState>::handle_skin_mouse_pressed(&mut cr, 0, 10, 10);
+
+        assert_eq!(cr.resource.get_player_config().random, 1);
+    }
+
+    #[test]
+    fn test_course_result_render_context_uses_replay_option_for_image_index_42() {
+        let mut cr = make_course_result_for_mouse();
+        cr.resource
+            .get_replay_data_mut()
+            .expect("replay data should exist")
+            .randomoption = 5;
+        let mut timer = rubato_core::timer_manager::TimerManager::new();
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &cr.data,
+            resource: &cr.resource,
+            main: &cr.main,
+        };
+
+        assert_eq!(ctx.image_index_value(42), 5);
     }
 
     #[test]
@@ -1230,10 +1372,12 @@ mod tests {
 
     /// Mock PlayerResourceAccess that provides course data for IR testing
     struct MockPlayerResourceForIR {
+        player_config: rubato_types::player_config::PlayerConfig,
         course_score: Option<rubato_core::score_data::ScoreData>,
         course_data: Option<rubato_core::course_data::CourseData>,
         course_gauge: Vec<Vec<Vec<f32>>>,
         course_replay: Vec<rubato_core::replay_data::ReplayData>,
+        replay_data: Option<rubato_core::replay_data::ReplayData>,
     }
 
     impl MockPlayerResourceForIR {
@@ -1248,10 +1392,12 @@ mod tests {
                 ..Default::default()
             };
             Self {
+                player_config: rubato_types::player_config::PlayerConfig::default(),
                 course_score: Some(score),
                 course_data: Some(course),
                 course_gauge: Vec::new(),
                 course_replay: Vec::new(),
+                replay_data: Some(rubato_core::replay_data::ReplayData::default()),
             }
         }
     }
@@ -1266,9 +1412,12 @@ mod tests {
             CONFIG.get_or_init(rubato_types::config::Config::default)
         }
         fn get_player_config(&self) -> &rubato_types::player_config::PlayerConfig {
-            static PC: std::sync::OnceLock<rubato_types::player_config::PlayerConfig> =
-                std::sync::OnceLock::new();
-            PC.get_or_init(rubato_types::player_config::PlayerConfig::default)
+            &self.player_config
+        }
+        fn get_player_config_mut(
+            &mut self,
+        ) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+            Some(&mut self.player_config)
         }
         fn get_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
             None
@@ -1292,10 +1441,10 @@ mod tests {
             None
         }
         fn get_replay_data(&self) -> Option<&rubato_core::replay_data::ReplayData> {
-            None
+            self.replay_data.as_ref()
         }
         fn get_replay_data_mut(&mut self) -> Option<&mut rubato_core::replay_data::ReplayData> {
-            None
+            self.replay_data.as_mut()
         }
         fn get_course_replay(&self) -> &[rubato_core::replay_data::ReplayData] {
             &self.course_replay

@@ -132,7 +132,7 @@ static EVENT_TYPES: &[EventTypeEntry] = &[
                 get: |c| c.random,
                 set: |c, v| c.random = v,
                 count: 10,
-                music_selector_only: true,
+                music_selector_only: false,
             })
         },
     },
@@ -1297,16 +1297,20 @@ struct TargetEvent;
 
 impl Event for TargetEvent {
     fn exec(&self, state: &mut dyn MainState, arg1: i32, _arg2: i32) {
-        if !state.is_music_selector() {
-            return;
-        }
-        let targets = TargetProperty::get_targets();
-        if targets.is_empty() {
-            return;
-        }
         let Some(config) = state.get_player_config_mut() else {
             return;
         };
+        let targets = {
+            let targets = TargetProperty::get_targets();
+            if targets.is_empty() {
+                config.targetlist.clone()
+            } else {
+                targets
+            }
+        };
+        if targets.is_empty() {
+            return;
+        }
         let mut index = 0;
         for (i, t) in targets.iter().enumerate() {
             if *t == config.targetid {
@@ -1321,6 +1325,10 @@ impl Event for TargetEvent {
             (index + len - 1) % len
         };
         config.targetid = targets[next].clone();
+        state.play_option_change_sound();
+        if state.is_music_selector() {
+            state.update_bar_after_change();
+        }
     }
 
     fn get_event_id(&self) -> i32 {
@@ -1672,6 +1680,16 @@ mod tests {
     }
 
     #[test]
+    fn test_option1p_cycle_not_music_selector() {
+        let mut state = TestMainState::new();
+        state.is_selector = false;
+        state.player_config.random = 9;
+        let event = get_event_by_id(42).unwrap(); // option1p
+        event.exec(&mut state, 1, 0);
+        assert_eq!(state.player_config.random, 0);
+    }
+
+    #[test]
     fn test_option2p_cycle() {
         let mut state = TestMainState::new();
         state.player_config.random2 = 5;
@@ -2006,6 +2024,16 @@ mod tests {
         // Should not modify config since not MusicSelector
         assert_eq!(state.player_config.gauge, 0);
         assert!(!state.option_change_played);
+    }
+
+    #[test]
+    fn test_target_cycle_not_music_selector() {
+        let mut state = TestMainState::new();
+        state.is_selector = false;
+        state.player_config.targetid = "RATE_MAX-".to_string();
+        let event = get_event_by_id(77).unwrap();
+        event.exec(&mut state, 1, 0);
+        assert_eq!(state.player_config.targetid, "MAX");
     }
 
     #[test]

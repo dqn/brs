@@ -665,6 +665,10 @@ impl PlayerResourceAccess for PlayerResource {
         &self.pconfig
     }
 
+    fn get_player_config_mut(&mut self) -> Option<&mut PlayerConfig> {
+        Some(&mut self.pconfig)
+    }
+
     fn get_score_data(&self) -> Option<&ScoreData> {
         self.score.as_ref()
     }

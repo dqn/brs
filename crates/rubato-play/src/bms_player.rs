@@ -1639,6 +1639,9 @@ struct PlayRenderContext<'a> {
     judge: &'a JudgeManager,
     gauge: Option<&'a GrooveGauge>,
     player_config: &'a PlayerConfig,
+    option_info: &'a ReplayData,
+    play_config: &'a PlayConfig,
+    target_score: Option<&'a ScoreData>,
     playtime: i32,
     total_notes: i32,
     play_mode: BMSPlayerMode,
@@ -1674,6 +1677,18 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
 
     fn get_player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
         Some(self.player_config)
+    }
+
+    fn get_replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+        Some(self.option_info)
+    }
+
+    fn get_target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+        self.target_score
+    }
+
+    fn get_current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+        Some(self.play_config)
     }
 
     fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
@@ -1864,6 +1879,17 @@ impl MainState for BMSPlayer {
                 judge: &self.judge,
                 gauge: self.gauge.as_ref(),
                 player_config: &self.player_config,
+                option_info: &self.playinfo,
+                play_config: self
+                    .player_config
+                    .get_play_config_ref(
+                        self.model
+                            .get_mode()
+                            .cloned()
+                            .unwrap_or(bms_model::mode::Mode::BEAT_7K),
+                    )
+                    .get_playconfig(),
+                target_score: self.target_score.as_ref(),
                 playtime: self.playtime,
                 total_notes: self.total_notes,
                 play_mode: self.play_mode.clone(),
@@ -2888,12 +2914,15 @@ mod tests {
     use bms_model::bms_model::BMSModel;
     use bms_model::mode::Mode;
     use rubato_core::config::Config;
+    use rubato_core::main_state::MainState;
     use rubato_core::main_state::SkinDrawable;
     use rubato_core::player_config::PlayerConfig;
     use rubato_core::sprite_batch_helper::SpriteBatch;
     use rubato_input::bms_player_input_device::DeviceType;
     use rubato_input::bms_player_input_processor::{BMSPlayerInputProcessor, KEYSTATE_SIZE};
     use rubato_input::keyboard_input_processor::ControlKeys;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicI32, Ordering};
 
     fn make_model() -> BMSModel {
         let mut model = BMSModel::new();
@@ -2939,6 +2968,71 @@ mod tests {
             if let Some(config) = ctx.get_player_config_mut() {
                 config.judgetiming += 1;
             }
+        }
+
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+
+        fn prepare_skin(&mut self) {}
+
+        fn dispose_skin(&mut self) {}
+
+        fn get_fadeout(&self) -> i32 {
+            0
+        }
+
+        fn get_input(&self) -> i32 {
+            0
+        }
+
+        fn get_scene(&self) -> i32 {
+            0
+        }
+
+        fn get_width(&self) -> f32 {
+            0.0
+        }
+
+        fn get_height(&self) -> f32 {
+            0.0
+        }
+
+        fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+    }
+
+    struct ProbeImageIndexSkin {
+        id: i32,
+        observed: Arc<AtomicI32>,
+    }
+
+    impl SkinDrawable for ProbeImageIndexSkin {
+        fn draw_all_objects_timed(
+            &mut self,
+            ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+            self.observed
+                .store(ctx.image_index_value(self.id), Ordering::SeqCst);
+        }
+
+        fn update_custom_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn mouse_pressed_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
         }
 
         fn mouse_dragged_at(
@@ -3025,6 +3119,41 @@ mod tests {
         <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
 
         assert_eq!(player.player_config.judgetiming, 1);
+    }
+
+    #[test]
+    fn render_skin_uses_play_option_for_image_index_42() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.player_config.random = 1;
+        player.playinfo.randomoption = 6;
+        let observed = Arc::new(AtomicI32::new(-1));
+        player.main_state_data.skin = Some(Box::new(ProbeImageIndexSkin {
+            id: 42,
+            observed: observed.clone(),
+        }));
+
+        let mut sprite = SpriteBatch::new();
+        <BMSPlayer as MainState>::render_skin(&mut player, &mut sprite);
+
+        assert_eq!(observed.load(Ordering::SeqCst), 6);
+    }
+
+    #[test]
+    fn render_skin_uses_target_visual_index_for_image_index_77() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.player_config.targetid = "MAX".to_string();
+        let observed = Arc::new(AtomicI32::new(-1));
+        player.main_state_data.skin = Some(Box::new(ProbeImageIndexSkin {
+            id: 77,
+            observed: observed.clone(),
+        }));
+
+        let mut sprite = SpriteBatch::new();
+        <BMSPlayer as MainState>::render_skin(&mut player, &mut sprite);
+
+        assert_eq!(observed.load(Ordering::SeqCst), 10);
     }
 
     // --- State machine transition tests ---

@@ -32,6 +32,11 @@ pub trait PlayerResourceAccess: Send {
     /// Get player config reference
     fn get_player_config(&self) -> &PlayerConfig;
 
+    /// Get mutable player config when the resource owns it.
+    fn get_player_config_mut(&mut self) -> Option<&mut PlayerConfig> {
+        None
+    }
+
     // ---- Score data ----
 
     /// Get current score data
