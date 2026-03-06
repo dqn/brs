@@ -52,7 +52,7 @@ impl MiscSettingMenu {
         let players = read_all_player_id("player");
         let player_idx = players
             .iter()
-            .position(|p| config.get_playername().is_some_and(|name| p == name))
+            .position(|p| config.playername().is_some_and(|name| p == name))
             .unwrap_or(0);
 
         *PLAYERS.lock().unwrap() = players;
@@ -172,8 +172,8 @@ fn get_play_config() -> PlayConfig {
         let mode = CURRENT_PLAY_MODE.lock().unwrap();
         if let Some(ref mode) = *mode {
             let mut player_config = m.get_player_config().clone();
-            let play_mode_config = player_config.get_play_config(mode.clone());
-            return play_mode_config.get_playconfig().clone();
+            let play_mode_config = player_config.play_config(mode.clone());
+            return play_mode_config.playconfig.clone();
         }
     }
     PlayConfig::default()
@@ -185,19 +185,19 @@ fn change_play_mode(mode: &Mode) {
     let conf = get_play_config();
 
     *ENABLE_LIFT.lock().unwrap() = conf.is_enablelift();
-    *LIFT_VALUE.lock().unwrap() = (conf.get_lift() * 1000.0) as i32;
+    *LIFT_VALUE.lock().unwrap() = (conf.lift * 1000.0) as i32;
 
     *ENABLE_HIDDEN.lock().unwrap() = conf.is_enablehidden();
-    *HIDDEN_VALUE.lock().unwrap() = (conf.get_hidden() * 1000.0) as i32;
+    *HIDDEN_VALUE.lock().unwrap() = (conf.hidden * 1000.0) as i32;
 
     *ENABLE_LANECOVER.lock().unwrap() = conf.is_enablelanecover();
-    *LANECOVER_VALUE.lock().unwrap() = (conf.get_lanecover() * 1000.0) as i32;
-    *LANE_COVER_MARGIN_LOW.lock().unwrap() = conf.get_lanecovermarginlow();
-    *LANE_COVER_MARGIN_HIGH.lock().unwrap() = conf.get_lanecovermarginhigh();
-    *LANE_COVER_SWITCH_DURATION.lock().unwrap() = conf.get_lanecoverswitchduration();
+    *LANECOVER_VALUE.lock().unwrap() = (conf.lanecover * 1000.0) as i32;
+    *LANE_COVER_MARGIN_LOW.lock().unwrap() = conf.lanecovermarginlow;
+    *LANE_COVER_MARGIN_HIGH.lock().unwrap() = conf.lanecovermarginhigh;
+    *LANE_COVER_SWITCH_DURATION.lock().unwrap() = conf.lanecoverswitchduration;
 
     *ENABLE_CONSTANT.lock().unwrap() = conf.is_enable_constant();
-    *CONSTANT_VALUE.lock().unwrap() = conf.get_constant_fadein_time();
+    *CONSTANT_VALUE.lock().unwrap() = conf.constant_fadein_time;
 }
 
 fn profile_switcher_ui(ui: &mut egui::Ui) {
@@ -249,7 +249,7 @@ fn profile_switcher() {
     let _can_click = if let (Some(_m), Some(c)) = (&*main, &*config) {
         // In Java: main.getCurrentState() instanceof MusicSelector
         // && !config.getPlayername().equals(players[SELECTED_PLAYER.get()])
-        selected < players.len() && c.get_playername() != Some(players[selected].as_str())
+        selected < players.len() && c.playername() != Some(players[selected].as_str())
     } else {
         false
     };

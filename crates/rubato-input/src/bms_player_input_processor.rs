@@ -122,7 +122,7 @@ pub struct BMSPlayerInputProcessor {
 
 impl BMSPlayerInputProcessor {
     pub fn new(config: &Config, _player: &PlayerConfig) -> Self {
-        let resolution = config.get_resolution();
+        let resolution = config.resolution;
         let default_kb_config = KeyboardConfig::default();
         let kbinput = KeyBoardInputProcesseor::new(&default_kb_config, resolution);
         // Gdx.input.setInputProcessor(kbinput);
@@ -208,7 +208,7 @@ impl BMSPlayerInputProcessor {
                 if configs[i].get_name().is_none()
                     || configs[i].get_name().is_some_and(|n| n.is_empty())
                 {
-                    configs[i].set_name(controller.get_name().to_string());
+                    configs[i].name = controller.get_name().to_string();
                 }
                 if controller.get_name() == configs[i].get_name().unwrap_or("") {
                     controller.set_config(&configs[i]);
@@ -303,7 +303,7 @@ impl BMSPlayerInputProcessor {
 
     pub fn set_play_config(&mut self, playconfig: &mut PlayModeConfig) {
         // KB, controller, Midi exclusive button processing
-        let kbkeys = playconfig.get_keyboard_config().get_key_assign().to_vec();
+        let kbkeys = playconfig.keyboard.keys.to_vec();
         let mut kbkeys = kbkeys;
         let mut exclusive = vec![false; kbkeys.len()];
         for i in kbkeys.len()..self.keystate.len() {
@@ -315,15 +315,15 @@ impl BMSPlayerInputProcessor {
 
         let mut cokeys: Vec<Vec<i32>> = Vec::new();
         let mut cocount = 0;
-        for i in 0..playconfig.get_controller().len() {
-            let keys = playconfig.get_controller()[i].get_key_assign().to_vec();
+        for i in 0..playconfig.controller.len() {
+            let keys = playconfig.controller[i].keys.to_vec();
             cokeys.push(keys);
         }
         for item in &mut cokeys {
             cocount += Self::set_play_config0(item, &mut exclusive);
         }
 
-        let midi_keys = playconfig.get_midi_config().get_keys().to_vec();
+        let midi_keys = playconfig.midi.keys.to_vec();
         let mut midi_keys_mut = midi_keys;
         let mut micount = 0;
         for i in 0..midi_keys_mut.len() {
@@ -338,10 +338,10 @@ impl BMSPlayerInputProcessor {
         }
 
         // Set key configs for each device
-        self.kbinput.set_config(playconfig.get_keyboard_config());
-        let controllers = playconfig.get_controller_mut();
+        self.kbinput.set_config(&playconfig.keyboard);
+        let controllers = &mut playconfig.controller;
         self.set_controller_config(controllers);
-        self.midiinput.set_config(playconfig.get_midi_config());
+        self.midiinput.set_config(&playconfig.midi);
 
         if kbcount >= cocount && kbcount >= micount {
             self.device_type = DeviceType::Keyboard;

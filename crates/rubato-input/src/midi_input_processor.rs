@@ -190,7 +190,7 @@ impl MidiInputProcessor {
         self.clear_impl();
         self.clear_handlers();
 
-        let keys = config.get_keys();
+        let keys = &config.keys;
         for i in 0..keys.len() {
             if let Some(input) = &keys[i] {
                 self.set_handler(

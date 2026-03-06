@@ -267,9 +267,9 @@ impl KeyBoardInputProcesseor {
     }
 
     pub fn set_config(&mut self, config: &KeyboardConfig) {
-        self.keys = config.get_key_assign().to_vec();
-        self.duration = config.get_duration();
-        self.control = vec![config.get_start(), config.get_select()];
+        self.keys = config.keys.to_vec();
+        self.duration = config.duration;
+        self.control = vec![config.start, config.select];
         self.mouse_scratch_input.set_config(config);
     }
 

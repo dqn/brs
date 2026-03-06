@@ -992,7 +992,7 @@ impl PlayConfigurationView {
 
         if let Some(ref pc) = self.pc {
             let mode = pc.to_mode();
-            let conf = &mut player.get_play_config(mode).playconfig;
+            let conf = &mut player.play_config(mode).playconfig;
             conf.hispeed = self.hispeed as f32;
             conf.duration = self.gvalue;
             conf.enable_constant = self.enable_constant;
@@ -1023,7 +1023,7 @@ impl PlayConfigurationView {
 
         if let Some(ref pc) = self.pc {
             let mode = pc.to_mode();
-            let conf = &player.get_play_config(mode).playconfig.clone();
+            let conf = &player.play_config(mode).playconfig.clone();
             self.hispeed = conf.hispeed as f64;
             self.gvalue = conf.duration;
             self.enable_constant = conf.enable_constant;
@@ -1129,10 +1129,10 @@ impl PlayConfigurationView {
         let listener = Arc::new(SongListener::new());
         let listener_clone = Arc::clone(&listener);
 
-        let songpath = config.get_songpath().to_string();
-        let bmsroot = config.get_bmsroot().to_vec();
+        let songpath = config.songpath.clone();
+        let bmsroot = config.bmsroot.clone();
         let use_song_info = config.use_song_info;
-        let songinfopath = config.get_songinfopath().to_string();
+        let songinfopath = config.songinfopath.clone();
 
         let join_handle = std::thread::spawn(move || -> anyhow::Result<()> {
             log::info!("song.db update started");
@@ -1260,8 +1260,7 @@ impl PlayConfigurationView {
         let sep = std::path::MAIN_SEPARATOR;
         let score_db_path = format!(
             "{}{sep}{}{sep}score.db",
-            config.get_playerpath(),
-            player_selected
+            &config.playerpath, player_selected
         );
 
         let scoredb = match rubato_core::score_database_accessor::ScoreDatabaseAccessor::new(
@@ -1274,14 +1273,13 @@ impl PlayConfigurationView {
             }
         };
 
-        let songdb =
-            match SQLiteSongDatabaseAccessor::new(config.get_songpath(), config.get_bmsroot()) {
-                Ok(db) => db,
-                Err(e) => {
-                    log::error!("Failed to open song database: {}", e);
-                    return;
-                }
-            };
+        let songdb = match SQLiteSongDatabaseAccessor::new(&config.songpath, &config.bmsroot) {
+            Ok(db) => db,
+            Err(e) => {
+                log::error!("Failed to open song database: {}", e);
+                return;
+            }
+        };
 
         let importer = rubato_external::score_data_importer::ScoreDataImporter::new(scoredb);
         importer.import_from_lr2_score_database(lr2_path, &songdb);

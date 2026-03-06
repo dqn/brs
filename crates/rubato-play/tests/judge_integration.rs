@@ -54,13 +54,13 @@ fn gauge_increases_on_pgreat() {
     let model = make_model_with_normal_notes(1);
     let mut gg = create_groove_gauge(&model, NORMAL, 0, None).unwrap();
 
-    let initial = gg.get_value();
+    let initial = gg.value();
     gg.update(0); // PGREAT
     assert!(
-        gg.get_value() > initial,
+        gg.value() > initial,
         "gauge should increase on PGREAT: before={}, after={}",
         initial,
-        gg.get_value()
+        gg.value()
     );
 }
 
@@ -71,13 +71,13 @@ fn gauge_decreases_on_poor() {
 
     // Raise gauge first so the decrease is observable
     gg.set_value(80.0);
-    let before = gg.get_value();
+    let before = gg.value();
     gg.update(4); // POOR
     assert!(
-        gg.get_value() < before,
+        gg.value() < before,
         "gauge should decrease on POOR: before={}, after={}",
         before,
-        gg.get_value()
+        gg.value()
     );
 }
 
@@ -86,12 +86,12 @@ fn gauge_sequence_pgreat_then_poor() {
     let model = make_model_with_normal_notes(4);
     let mut gg = create_groove_gauge(&model, NORMAL, 0, None).unwrap();
 
-    let initial = gg.get_value();
+    let initial = gg.value();
 
     // Two PGREATs should increase the gauge
     gg.update(0);
     gg.update(0);
-    let after_pgreats = gg.get_value();
+    let after_pgreats = gg.value();
     assert!(
         after_pgreats > initial,
         "gauge should rise after 2 PGREATs: {} -> {}",
@@ -101,7 +101,7 @@ fn gauge_sequence_pgreat_then_poor() {
 
     // One POOR should decrease
     gg.update(4);
-    let after_poor = gg.get_value();
+    let after_poor = gg.value();
     assert!(
         after_poor < after_pgreats,
         "gauge should drop after POOR: {} -> {}",
@@ -114,16 +114,16 @@ fn gauge_sequence_pgreat_then_poor() {
 fn hard_gauge_dies_after_many_poors() {
     let model = make_model_with_normal_notes(1);
     let mut gg = create_groove_gauge(&model, HARD, 0, None).unwrap();
-    assert!((gg.get_value() - 100.0).abs() < f32::EPSILON);
+    assert!((gg.value() - 100.0).abs() < f32::EPSILON);
 
     // Repeatedly apply POOR until gauge reaches 0
     for _ in 0..50 {
         gg.update(4); // POOR
     }
     assert!(
-        (gg.get_value() - 0.0).abs() < f32::EPSILON,
+        (gg.value() - 0.0).abs() < f32::EPSILON,
         "hard gauge should be dead after many POORs, got {}",
-        gg.get_value()
+        gg.value()
     );
     assert!(
         !gg.is_qualified(),
@@ -371,7 +371,7 @@ fn manual_input_at_note_time_produces_pgreat() {
 
     let mut jm = JudgeManager::from_config(&config);
     let mut gg = create_groove_gauge(&model, NORMAL, 0, None).unwrap();
-    let gauge_before = gg.get_value();
+    let gauge_before = gg.value();
 
     let key_count = mode.key() as usize;
 
@@ -399,10 +399,10 @@ fn manual_input_at_note_time_produces_pgreat() {
 
     // Gauge should have increased
     assert!(
-        gg.get_value() > gauge_before,
+        gg.value() > gauge_before,
         "gauge should increase after PGREAT: before={}, after={}",
         gauge_before,
-        gg.get_value()
+        gg.value()
     );
 }
 

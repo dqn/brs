@@ -71,7 +71,7 @@ impl MusicSelectInputProcessor {
         }
 
         let property = &MusicSelectKeyProperty::VALUES
-            [config.get_musicselectinput() as usize % MusicSelectKeyProperty::VALUES.len()];
+            [config.musicselectinput as usize % MusicSelectKeyProperty::VALUES.len()];
 
         if !input.start_pressed()
             && !input.is_select_pressed()
@@ -217,41 +217,37 @@ impl MusicSelectInputProcessor {
             }
 
             if property.is_pressed(input, MusicSelectKey::JudgeWindowUp, true) {
-                config.set_custom_judge(!config.is_custom_judge());
+                config.custom_judge = !config.is_custom_judge();
                 ctx.events
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
             if property.is_pressed(input, MusicSelectKey::Constant, true) {
-                config.set_scroll_mode(if config.get_scroll_mode() == 1 { 0 } else { 1 });
+                config.scroll_mode = if config.scroll_mode == 1 { 0 } else { 1 };
                 ctx.events
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
             if property.is_pressed(input, MusicSelectKey::JudgeArea, true) {
-                config.set_showjudgearea(!config.is_showjudgearea());
+                config.showjudgearea = !config.is_showjudgearea();
                 ctx.events
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
             if property.is_pressed(input, MusicSelectKey::LegacyNote, true) {
-                config.set_longnote_mode(if config.get_longnote_mode() == 1 {
-                    0
-                } else {
-                    1
-                });
+                config.longnote_mode = if config.longnote_mode == 1 { 0 } else { 1 };
                 ctx.events
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
             if property.is_pressed(input, MusicSelectKey::MarkNote, true) {
-                config.set_markprocessednote(!config.is_markprocessednote());
+                config.markprocessednote = !config.is_markprocessednote();
                 ctx.events
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
             if property.is_pressed(input, MusicSelectKey::BpmGuide, true) {
-                config.set_bpmguide(!config.is_bpmguide());
+                config.bpmguide = !config.is_bpmguide();
                 ctx.events
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
             if property.is_pressed(input, MusicSelectKey::Nomine, true) {
-                config.set_mine_mode(if config.get_mine_mode() == 1 { 0 } else { 1 });
+                config.mine_mode = if config.mine_mode == 1 { 0 } else { 1 };
                 ctx.events
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }

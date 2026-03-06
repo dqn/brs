@@ -28,10 +28,10 @@ pub fn initialize_ir_config(player: &PlayerConfig) -> Vec<IRStatus> {
             None => continue,
         };
         let ir: Option<Box<dyn IRConnection + Send + Sync>> =
-            IRConnectionManager::get_ir_connection(irconfig.get_irname());
+            IRConnectionManager::get_ir_connection(&irconfig.irname);
         if let Some(ir) = ir {
-            let userid = irconfig.get_userid();
-            let password = irconfig.get_password();
+            let userid = irconfig.userid();
+            let password = irconfig.password();
             if userid.is_empty() || password.is_empty() {
                 // Java: empty block — skip if no credentials
             } else {

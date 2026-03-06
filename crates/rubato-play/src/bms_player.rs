@@ -761,7 +761,7 @@ impl BMSPlayer {
                     clear = ClearType::FullCombo;
                 }
             } else if !self.is_course_mode {
-                clear = gauge.get_clear_type();
+                clear = gauge.clear_type();
             }
         }
         score.clear = clear.id();
@@ -769,7 +769,7 @@ impl BMSPlayer {
             score.gauge = if gauge.is_type_changed() {
                 -1
             } else {
-                gauge.get_type()
+                gauge.gauge_type()
             };
         }
         score.option = self.encode_option_for_score();
@@ -949,10 +949,7 @@ impl BMSPlayer {
 
         // 3. Get PlayConfig from playerConfig.getPlayConfig(mode).getPlayconfig()
         let mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
-        let pc = self
-            .player_config
-            .get_play_config(mode)
-            .get_playconfig_mut();
+        let pc = &mut self.player_config.play_config(mode).playconfig;
 
         // 4. If fixhispeed != OFF: save duration; else save hispeed
         if pc.fixhispeed != rubato_types::play_config::FIX_HISPEED_OFF {
@@ -1474,11 +1471,7 @@ impl BMSPlayer {
         // Constant considered as assist in Endless Dream
         // This is a community discussion result, see https://github.com/seraxis/lr2oraja-endlessdream/issues/42
         let mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
-        if config
-            .get_play_config_ref(mode)
-            .get_playconfig()
-            .enable_constant
-        {
+        if config.play_config_ref(mode).playconfig.enable_constant {
             self.assist = self.assist.max(2);
             score = false;
         }
@@ -1672,11 +1665,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
     }
 
     fn get_gauge_value(&self) -> f32 {
-        self.gauge.map_or(0.0, |g| g.get_value())
+        self.gauge.map_or(0.0, |g| g.value())
     }
 
     fn get_gauge_type(&self) -> i32 {
-        self.gauge.map_or(0, |g| g.get_type())
+        self.gauge.map_or(0, |g| g.gauge_type())
     }
 
     fn get_recent_judges(&self) -> &[i64] {
@@ -1714,7 +1707,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
     fn float_value(&self, id: i32) -> f32 {
         match id {
             // Gauge value (0.0-1.0)
-            1107 => self.gauge.map_or(0.0, |g| g.get_value()),
+            1107 => self.gauge.map_or(0.0, |g| g.value()),
             // Hi-speed
             310 => self.player_config.mode7.playconfig.hispeed,
             _ => 0.0,
@@ -1848,15 +1841,15 @@ impl MainState for BMSPlayer {
                 gauge: self.gauge.as_ref(),
                 player_config: &self.player_config,
                 option_info: &self.playinfo,
-                play_config: self
+                play_config: &self
                     .player_config
-                    .get_play_config_ref(
+                    .play_config_ref(
                         self.model
                             .mode()
                             .cloned()
                             .unwrap_or(bms_model::mode::Mode::BEAT_7K),
                     )
-                    .get_playconfig(),
+                    .playconfig,
                 target_score: self.target_score.as_ref(),
                 playtime: self.playtime,
                 total_notes: self.total_notes,
@@ -1999,7 +1992,7 @@ impl MainState for BMSPlayer {
 
         // Initialize gauge log
         if let Some(ref gauge) = self.gauge {
-            let gauge_type_len = gauge.get_gauge_type_length();
+            let gauge_type_len = gauge.gauge_type_length();
             self.gaugelog = Vec::with_capacity(gauge_type_len);
             for _ in 0..gauge_type_len {
                 self.gaugelog
@@ -2431,19 +2424,19 @@ impl MainState for BMSPlayer {
                 if let Some(ref gauge) = self.gauge {
                     for i in 0..self.gaugelog.len() {
                         if self.gaugelog[i].len() as i64 <= ptime / 500 {
-                            let val = gauge.get_value_by_type(i as i32);
+                            let val = gauge.value_by_type(i as i32);
                             self.gaugelog[i].push(val);
                         }
                     }
                     self.main_state_data
                         .timer
-                        .switch_timer(TIMER_GAUGE_MAX_1P, gauge.get_gauge().is_max());
+                        .switch_timer(TIMER_GAUGE_MAX_1P, gauge.gauge().is_max());
                 }
 
                 // pomyu timer update
                 // Translated from: Java BMSPlayer.render() line 766
                 let past_notes = self.judge.get_past_notes();
-                let gauge_is_max = self.gauge.as_ref().is_some_and(|g| g.get_gauge().is_max());
+                let gauge_is_max = self.gauge.as_ref().is_some_and(|g| g.gauge().is_max());
                 self.play_skin.pomyu.update_timer(
                     &mut self.main_state_data.timer,
                     past_notes,
@@ -2480,7 +2473,7 @@ impl MainState for BMSPlayer {
                     if gas == GAUGEAUTOSHIFT_BESTCLEAR || gas == GAUGEAUTOSHIFT_SELECT_TO_UNDER {
                         // Auto-shift to best qualifying gauge
                         let len = if gas == GAUGEAUTOSHIFT_BESTCLEAR {
-                            if gauge.get_type() >= CLASS {
+                            if gauge.gauge_type() >= CLASS {
                                 EXHARDCLASS + 1
                             } else {
                                 HAZARD + 1
@@ -2498,21 +2491,20 @@ impl MainState for BMSPlayer {
                         };
                         let start_type = if gauge.is_course_gauge() {
                             CLASS
-                        } else if gauge.get_type() < self.player_config.bottom_shiftable_gauge {
-                            gauge.get_type()
+                        } else if gauge.gauge_type() < self.player_config.bottom_shiftable_gauge {
+                            gauge.gauge_type()
                         } else {
                             self.player_config.bottom_shiftable_gauge
                         };
                         let mut best_type = start_type;
                         for i in start_type..len {
-                            if gauge.get_value_by_type(i) > 0.0
-                                && gauge.get_gauge_by_type(i).is_qualified()
+                            if gauge.value_by_type(i) > 0.0 && gauge.gauge_by_type(i).is_qualified()
                             {
                                 best_type = i;
                             }
                         }
                         gauge.set_type(best_type);
-                    } else if gauge.get_value() == 0.0 {
+                    } else if gauge.value() == 0.0 {
                         match gas {
                             GAUGEAUTOSHIFT_NONE => {
                                 // FAILED transition
@@ -5302,17 +5294,17 @@ mod tests {
         // Set a known state on the lane renderer
         let pc_before = player
             .player_config
-            .get_play_config_ref(Mode::BEAT_7K)
-            .get_playconfig()
+            .play_config_ref(Mode::BEAT_7K)
+            .playconfig
             .clone();
 
         player.save_config();
 
         // Config should not have changed
-        let pc_after = player
+        let pc_after = &player
             .player_config
-            .get_play_config_ref(Mode::BEAT_7K)
-            .get_playconfig();
+            .play_config_ref(Mode::BEAT_7K)
+            .playconfig;
         assert_eq!(pc_before.hispeed, pc_after.hispeed);
         assert_eq!(pc_before.lanecover, pc_after.lanecover);
     }
@@ -5326,10 +5318,10 @@ mod tests {
         // Default fixhispeed is FIX_HISPEED_MAINBPM (not OFF), so duration should be saved
         player.save_config();
 
-        let pc = player
+        let pc = &player
             .player_config
-            .get_play_config_ref(Mode::BEAT_7K)
-            .get_playconfig();
+            .play_config_ref(Mode::BEAT_7K)
+            .playconfig;
         // Duration should be set from lane renderer (default duration)
         let lr_duration = player.lanerender.as_ref().unwrap().get_duration();
         assert_eq!(pc.duration, lr_duration);
@@ -5344,16 +5336,16 @@ mod tests {
         // Set fixhispeed to OFF
         player
             .player_config
-            .get_play_config(Mode::BEAT_7K)
-            .get_playconfig_mut()
+            .play_config(Mode::BEAT_7K)
+            .playconfig
             .fixhispeed = rubato_types::play_config::FIX_HISPEED_OFF;
 
         player.save_config();
 
-        let pc = player
+        let pc = &player
             .player_config
-            .get_play_config_ref(Mode::BEAT_7K)
-            .get_playconfig();
+            .play_config_ref(Mode::BEAT_7K)
+            .playconfig;
         let lr_hispeed = player.lanerender.as_ref().unwrap().get_hispeed();
         assert_eq!(pc.hispeed, lr_hispeed);
     }
@@ -5577,7 +5569,7 @@ mod tests {
         // Should shift to NORMAL gauge type, not FAILED
         assert_eq!(player.get_state(), STATE_PLAY);
         assert_eq!(
-            player.gauge.as_ref().unwrap().get_type(),
+            player.gauge.as_ref().unwrap().gauge_type(),
             rubato_types::groove_gauge::NORMAL
         );
     }

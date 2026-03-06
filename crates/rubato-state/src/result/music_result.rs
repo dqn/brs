@@ -97,10 +97,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
                 _ => None,
             })?;
         Some(
-            self.resource
+            &self
+                .resource
                 .get_player_config()
-                .get_play_config_ref(mode)
-                .get_playconfig(),
+                .play_config_ref(mode)
+                .playconfig,
         )
     }
 
@@ -346,7 +347,7 @@ impl MusicResult {
         self.data.gauge_type = self
             .resource
             .get_groove_gauge()
-            .map(|g| g.get_type())
+            .map(|g| g.gauge_type())
             .unwrap_or(0);
 
         // loadSkin(SkinType.RESULT)
@@ -377,13 +378,13 @@ impl MusicResult {
             for irc in ir {
                 let mut send =
                     self.resource.is_update_score() && !self.resource.is_force_no_ir_send();
-                match irc.config.get_irsend() {
+                match irc.config.irsend {
                     IR_SEND_ALWAYS => {}
                     IR_SEND_COMPLETE_SONG => {
                         if let (Some(gauge_data), Some(groove_gauge)) =
                             (self.resource.get_gauge(), self.resource.get_groove_gauge())
                         {
-                            let gauge = &gauge_data[groove_gauge.get_type() as usize];
+                            let gauge = &gauge_data[groove_gauge.gauge_type() as usize];
                             send &= gauge.last().copied().unwrap_or(0.0) > 0.0;
                         }
                     }
@@ -551,7 +552,7 @@ impl MusicResult {
                     let gauge_type = self
                         .resource
                         .get_groove_gauge()
-                        .map(|g| g.get_type() as usize)
+                        .map(|g| g.gauge_type() as usize)
                         .unwrap_or(0);
                     let last_gauge = self
                         .resource
@@ -912,7 +913,7 @@ impl MusicResult {
                 let gauge_type = self
                     .resource
                     .get_groove_gauge()
-                    .map(|g| g.get_type() as usize)
+                    .map(|g| g.gauge_type() as usize)
                     .unwrap_or(0);
                 let last_gauge_val = self
                     .resource
@@ -951,7 +952,7 @@ impl MusicResult {
                             cs.clear = self
                                 .resource
                                 .get_groove_gauge()
-                                .map(|g| g.get_clear_type())
+                                .map(|g| g.clear_type())
                                 .unwrap_or(ClearType::Failed)
                                 .id();
                         }

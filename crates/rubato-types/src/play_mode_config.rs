@@ -176,37 +176,6 @@ impl PlayModeConfig {
     }
 }
 
-// Compatibility getters for stub API
-impl PlayModeConfig {
-    pub fn get_playconfig(&self) -> &PlayConfig {
-        &self.playconfig
-    }
-
-    pub fn get_playconfig_mut(&mut self) -> &mut PlayConfig {
-        &mut self.playconfig
-    }
-
-    pub fn get_keyboard_config(&self) -> &KeyboardConfig {
-        &self.keyboard
-    }
-
-    pub fn get_controller(&self) -> &[ControllerConfig] {
-        &self.controller
-    }
-
-    pub fn get_controller_mut(&mut self) -> &mut [ControllerConfig] {
-        &mut self.controller
-    }
-
-    pub fn get_midi_config(&self) -> &MidiConfig {
-        &self.midi
-    }
-
-    pub fn get_midi_config_mut(&mut self) -> &mut MidiConfig {
-        &mut self.midi
-    }
-}
-
 fn validate_exclusive(keys: &mut [i32], exclusive: &mut [bool]) {
     for i in 0..exclusive.len().min(keys.len()) {
         if exclusive[i] {
@@ -378,29 +347,6 @@ impl KeyboardConfig {
     }
 }
 
-// Compatibility getters for stub API
-impl KeyboardConfig {
-    pub fn get_key_assign(&self) -> &[i32] {
-        &self.keys
-    }
-
-    pub fn get_duration(&self) -> i32 {
-        self.duration
-    }
-
-    pub fn get_start(&self) -> i32 {
-        self.start
-    }
-
-    pub fn get_select(&self) -> i32 {
-        self.select
-    }
-
-    pub fn get_mouse_scratch_config(&self) -> &MouseScratchConfig {
-        &self.mouse_scratch_config
-    }
-}
-
 // -- MouseScratchConfig --
 
 pub const MOUSE_SCRATCH_VER_2: i32 = 0;
@@ -461,21 +407,21 @@ impl MouseScratchConfig {
         self.select = -1;
     }
 
-    pub fn get_key_string(&self, index: usize) -> Option<&'static str> {
+    pub fn key_string(&self, index: usize) -> Option<&'static str> {
         if self.keys[index] == -1 {
             return None;
         }
         Some(MOUSESCRATCH_STRING[self.keys[index] as usize])
     }
 
-    pub fn get_start_string(&self) -> Option<&'static str> {
+    pub fn start_string(&self) -> Option<&'static str> {
         if self.start == -1 {
             return None;
         }
         Some(MOUSESCRATCH_STRING[self.start as usize])
     }
 
-    pub fn get_select_string(&self) -> Option<&'static str> {
+    pub fn select_string(&self) -> Option<&'static str> {
         if self.select == -1 {
             return None;
         }
@@ -491,37 +437,12 @@ impl MouseScratchConfig {
     }
 }
 
-// Compatibility getters and constants for stub API
 impl MouseScratchConfig {
     pub const MOUSE_SCRATCH_VER_1: i32 = MOUSE_SCRATCH_VER_1;
     pub const MOUSE_SCRATCH_VER_2: i32 = MOUSE_SCRATCH_VER_2;
 
-    pub fn get_key_assign(&self) -> &[i32] {
-        &self.keys
-    }
-
-    pub fn get_start(&self) -> i32 {
-        self.start
-    }
-
-    pub fn get_select(&self) -> i32 {
-        self.select
-    }
-
     pub fn is_mouse_scratch_enabled(&self) -> bool {
         self.mouse_scratch_enabled
-    }
-
-    pub fn get_mouse_scratch_time_threshold(&self) -> i32 {
-        self.mouse_scratch_time_threshold
-    }
-
-    pub fn get_mouse_scratch_distance(&self) -> i32 {
-        self.mouse_scratch_distance
-    }
-
-    pub fn get_mouse_scratch_mode(&self) -> i32 {
-        self.mouse_scratch_mode
     }
 }
 
@@ -807,14 +728,9 @@ impl ControllerConfig {
     }
 }
 
-// Compatibility getters and constants for stub API
 impl ControllerConfig {
     pub const ANALOG_SCRATCH_VER_1: i32 = ANALOG_SCRATCH_VER_1;
     pub const ANALOG_SCRATCH_VER_2: i32 = ANALOG_SCRATCH_VER_2;
-
-    pub fn get_key_assign(&self) -> &[i32] {
-        &self.keys
-    }
 
     pub fn get_name(&self) -> Option<&str> {
         if self.name.is_empty() {
@@ -824,37 +740,8 @@ impl ControllerConfig {
         }
     }
 
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
-    }
-
-    pub fn get_start(&self) -> i32 {
-        self.start
-    }
-
-    pub fn get_select(&self) -> i32 {
-        self.select
-    }
-
-    pub fn get_duration(&self) -> i32 {
-        self.duration
-    }
-
-    #[allow(non_snake_case)]
-    pub fn get_jkoc(&self) -> bool {
-        self.jkoc_hack
-    }
-
     pub fn is_analog_scratch(&self) -> bool {
         self.analog_scratch
-    }
-
-    pub fn get_analog_scratch_threshold(&self) -> i32 {
-        self.analog_scratch_threshold
-    }
-
-    pub fn get_analog_scratch_mode(&self) -> i32 {
-        self.analog_scratch_mode
     }
 }
 
@@ -1055,16 +942,7 @@ impl MidiConfig {
     }
 }
 
-// Compatibility getters for stub API
 impl MidiConfig {
-    pub fn get_keys(&self) -> &[Option<MidiInput>] {
-        &self.keys
-    }
-
-    pub fn get_keys_mut(&mut self) -> &mut [Option<MidiInput>] {
-        &mut self.keys
-    }
-
     pub fn get_start(&self) -> Option<&MidiInput> {
         self.start.as_ref()
     }

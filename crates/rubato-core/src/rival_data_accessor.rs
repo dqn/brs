@@ -60,7 +60,7 @@ impl RivalDataAccessor {
         // Step 1: Import own scores if configured
         if provider.should_import_scores() {
             let config = main.get_config();
-            let player_name = config.get_playername().unwrap_or("player1");
+            let player_name = config.playername().unwrap_or("player1");
             let score_db_path = format!("{}/{}/score.db", config.playerpath, player_name);
             match provider.fetch_own_scores() {
                 Ok(scores) => {

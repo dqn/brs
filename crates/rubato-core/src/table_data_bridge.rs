@@ -88,14 +88,14 @@ fn course_to_course_data(course: &Course, default_mode: Option<&Mode>) -> Course
         .iter()
         .map(|chart| bms_table_element_to_song_data(chart, default_mode))
         .collect();
-    cd.set_song(songs);
+    cd.hash = songs;
 
     let constraints: Vec<CourseDataConstraint> = course
         .get_constraint()
         .iter()
         .filter_map(|c| CourseDataConstraint::get_value(c))
         .collect();
-    cd.set_constraint(constraints);
+    cd.constraint = constraints;
 
     if !course.get_trophy().is_empty() {
         let trophies: Vec<TrophyData> = course
@@ -103,7 +103,7 @@ fn course_to_course_data(course: &Course, default_mode: Option<&Mode>) -> Course
             .iter()
             .map(trophy_to_trophy_data)
             .collect();
-        cd.set_trophy(trophies);
+        cd.trophy = trophies;
     }
 
     cd
@@ -113,8 +113,8 @@ fn course_to_course_data(course: &Course, default_mode: Option<&Mode>) -> Course
 fn trophy_to_trophy_data(trophy: &Trophy) -> TrophyData {
     let mut td = TrophyData::default();
     td.set_name(trophy.get_name().to_string());
-    td.set_missrate(trophy.get_missrate() as f32);
-    td.set_scorerate(trophy.get_scorerate() as f32);
+    td.missrate = trophy.get_missrate() as f32;
+    td.scorerate = trophy.get_scorerate() as f32;
     td
 }
 
@@ -342,18 +342,18 @@ mod tests {
         assert_eq!(td.get_course().len(), 1);
         let cd = &td.get_course()[0];
         assert_eq!(cd.get_name(), "Dan 1st");
-        assert_eq!(cd.get_song().len(), 2);
-        assert_eq!(cd.get_song()[0].md5, "course_hash_1");
-        assert_eq!(cd.get_song()[1].md5, "course_hash_2");
+        assert_eq!(cd.hash.len(), 2);
+        assert_eq!(cd.hash[0].md5, "course_hash_1");
+        assert_eq!(cd.hash[1].md5, "course_hash_2");
 
-        assert_eq!(cd.get_constraint().len(), 2);
-        assert_eq!(cd.get_constraint()[0], CourseDataConstraint::Mirror);
-        assert_eq!(cd.get_constraint()[1], CourseDataConstraint::GaugeLr2);
+        assert_eq!(cd.constraint.len(), 2);
+        assert_eq!(cd.constraint[0], CourseDataConstraint::Mirror);
+        assert_eq!(cd.constraint[1], CourseDataConstraint::GaugeLr2);
 
-        assert_eq!(cd.get_trophy().len(), 1);
-        assert_eq!(cd.get_trophy()[0].get_name(), "Gold");
-        assert_eq!(cd.get_trophy()[0].get_missrate(), 5.0);
-        assert_eq!(cd.get_trophy()[0].get_scorerate(), 90.0);
+        assert_eq!(cd.trophy.len(), 1);
+        assert_eq!(cd.trophy[0].get_name(), "Gold");
+        assert_eq!(cd.trophy[0].missrate, 5.0);
+        assert_eq!(cd.trophy[0].scorerate, 90.0);
     }
 
     #[test]
@@ -498,8 +498,8 @@ mod tests {
         let cd = course_to_course_data(&course, None);
 
         // "unknown_constraint" should be filtered out
-        assert_eq!(cd.get_constraint().len(), 2);
-        assert_eq!(cd.get_constraint()[0], CourseDataConstraint::Mirror);
-        assert_eq!(cd.get_constraint()[1], CourseDataConstraint::GaugeLr2);
+        assert_eq!(cd.constraint.len(), 2);
+        assert_eq!(cd.constraint[0], CourseDataConstraint::Mirror);
+        assert_eq!(cd.constraint[1], CourseDataConstraint::GaugeLr2);
     }
 }

@@ -28,13 +28,10 @@ impl MainLoader {
     /// In Java this is lazily created on first access. In Rust, we eagerly create it
     /// and set it on the core MainLoader's global slot, which then passes it to MainController.
     pub fn init_score_database_accessor(config: &Config) {
-        match SQLiteSongDatabaseAccessor::new(config.get_songpath(), config.get_bmsroot()) {
+        match SQLiteSongDatabaseAccessor::new(&config.songpath, &config.bmsroot) {
             Ok(accessor) => {
                 CoreMainLoader::set_score_database_accessor(Box::new(accessor));
-                log::info!(
-                    "Song database accessor initialized: {}",
-                    config.get_songpath()
-                );
+                log::info!("Song database accessor initialized: {}", &config.songpath);
             }
             Err(e) => {
                 log::error!("Failed to create song database accessor: {}", e);

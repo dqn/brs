@@ -126,7 +126,7 @@ impl BarManager {
     /// Initialize the bar manager: load tables, courses, favorites, command/random folders.
     /// Corresponds to Java BarManager.init()
     pub fn init(&mut self, config: &Config, ir_table_urls: &[(String, String)]) {
-        let tablepath = config.get_tablepath();
+        let tablepath = &config.tablepath;
         let tdaccessor = TableDataAccessor::new(tablepath);
 
         // Load saved table data
@@ -136,7 +136,7 @@ impl BarManager {
 
         // Sort tables according to config table URL order
         let mut sorted_tables: Vec<TableData> = Vec::with_capacity(unsorted_tables.len());
-        for url in config.get_table_url() {
+        for url in &config.table_url {
             for item in unsorted_tables.iter_mut() {
                 if let Some(td) = item.as_ref()
                     && td.get_url_opt() == Some(url.as_str())
@@ -186,7 +186,7 @@ impl BarManager {
         let fav_courses = fav_accessor.read_all();
         self.favorites = fav_courses
             .into_iter()
-            .map(|cd| HashBar::new(cd.get_name().to_string(), cd.get_song().to_vec()))
+            .map(|cd| HashBar::new(cd.get_name().to_string(), cd.hash.to_vec()))
             .collect();
 
         // Build command bars
@@ -455,7 +455,7 @@ impl BarManager {
                             format!("{}/{}/score.db", ctx.config.playerpath, player_name);
                         let scorelog_path =
                             format!("{}/{}/scorelog.db", ctx.config.playerpath, player_name);
-                        let songinfo_path = ctx.config.get_songinfopath().to_string();
+                        let songinfo_path = ctx.config.songinfopath.to_string();
                         let cmd_ctx = crate::select::bar::command_bar::CommandBarContext {
                             score_db_path: &score_path,
                             scorelog_db_path: &scorelog_path,
@@ -525,7 +525,7 @@ impl BarManager {
 
                 for trial_count in 0..MODE.len() {
                     let mode = &MODE[(mode_index + trial_count) % MODE.len()];
-                    ctx.player_config.set_mode(mode.clone());
+                    ctx.player_config.mode = mode.clone();
 
                     let before_len = l.len();
                     let remove_count = l
@@ -600,7 +600,7 @@ impl BarManager {
             if let Some(ref mut ctx) = ctx
                 && let Some(ref mut cache) = ctx.score_cache
             {
-                let lnmode = ctx.player_config.get_lnmode();
+                let lnmode = ctx.player_config.lnmode;
                 for b in &mut l {
                     if let Some(sb) = b.as_song_bar() {
                         let sd = sb.get_song_data();
@@ -1101,7 +1101,7 @@ impl BarContentsLoaderThread {
     /// Run the loader on the given bars.
     /// Corresponds to Java BarContentsLoaderThread.run()
     pub fn run(&self, bars: &mut [Bar], ctx: &mut LoaderContext) {
-        let lnmode = ctx.player_config.get_lnmode();
+        let lnmode = ctx.player_config.lnmode;
 
         // Phase 1: Load scores
         for bar in bars.iter_mut() {

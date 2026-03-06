@@ -36,7 +36,7 @@ impl IRCourseData {
             .collect();
         let mut cd = CourseData::default();
         cd.set_name(self.name.clone());
-        cd.set_song(songs);
+        cd.hash = songs;
         cd.constraint = self.constraint.clone();
         cd.trophy = trophy;
         cd.release = true;
@@ -48,7 +48,7 @@ impl IRCourseData {
     }
 
     pub fn new_with_lntype(course: &CourseData, lntype: i32) -> Self {
-        let songs = course.get_song();
+        let songs = &course.hash;
         let mut charts = Vec::with_capacity(songs.len());
         for song in songs {
             // CourseData uses rubato_core::stubs::SongData which is different from our stubs::SongData
@@ -57,7 +57,7 @@ impl IRCourseData {
             charts.push(create_ir_chart_data_from_core_song(song));
         }
 
-        let constraints = course.get_constraint().to_vec();
+        let constraints = course.constraint.to_vec();
 
         let mut trophy = Vec::with_capacity(course.trophy.len());
         for t in &course.trophy {

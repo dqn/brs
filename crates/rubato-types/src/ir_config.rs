@@ -36,7 +36,7 @@ impl Default for IRConfig {
 }
 
 impl IRConfig {
-    pub fn get_userid(&self) -> String {
+    pub fn userid(&self) -> String {
         if !self.cuserid.is_empty() {
             match cipher_decrypt(&self.cuserid, KEY) {
                 Ok(decrypted) => return decrypted,
@@ -56,7 +56,7 @@ impl IRConfig {
         self.validate();
     }
 
-    pub fn get_password(&self) -> String {
+    pub fn password(&self) -> String {
         if !self.cpassword.is_empty() {
             match cipher_decrypt(&self.cpassword, KEY) {
                 Ok(decrypted) => return decrypted,
@@ -74,14 +74,6 @@ impl IRConfig {
             self.cpassword = String::new();
         }
         self.validate();
-    }
-
-    pub fn get_irsend(&self) -> i32 {
-        self.irsend
-    }
-
-    pub fn get_irname(&self) -> &str {
-        &self.irname
     }
 }
 

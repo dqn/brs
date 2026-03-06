@@ -60,7 +60,7 @@ impl TableBar {
         let courses = td.get_course();
         let mut hashset: HashSet<String> = HashSet::new();
         for course in courses {
-            for song in course.get_song() {
+            for song in &course.hash {
                 if !song.sha256.is_empty() {
                     hashset.insert(song.sha256.clone());
                 } else {

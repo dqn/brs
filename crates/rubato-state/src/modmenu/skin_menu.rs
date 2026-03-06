@@ -875,7 +875,7 @@ fn load_saved_skin_settings(header: &SkinHeader) {
     }
 
     if saved_properties.is_none() {
-        for saved_config in pc.get_skin_history() {
+        for saved_config in &pc.skin_history {
             if saved_config.get_path().is_some_and(|p| p == skin_path) {
                 saved_properties = saved_config.get_properties();
                 break;

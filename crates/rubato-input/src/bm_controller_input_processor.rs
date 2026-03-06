@@ -376,18 +376,18 @@ impl BMControllerInputProcessor {
     }
 
     pub fn set_config(&mut self, controller_config: &ControllerConfig) {
-        self.buttons = controller_config.get_key_assign().to_vec();
-        self.start = controller_config.get_start();
-        self.select = controller_config.get_select();
-        self.duration = controller_config.get_duration();
-        self.jkoc = controller_config.get_jkoc();
+        self.buttons = controller_config.keys.to_vec();
+        self.start = controller_config.start;
+        self.select = controller_config.select;
+        self.duration = controller_config.duration;
+        self.jkoc = controller_config.jkoc_hack;
 
         if controller_config.is_analog_scratch() {
             let mut analog_scratch_algorithm: Vec<Box<dyn AnalogScratchAlgorithm>> =
                 Vec::with_capacity(AXIS_LENGTH);
-            let analog_scratch_threshold = controller_config.get_analog_scratch_threshold();
+            let analog_scratch_threshold = controller_config.analog_scratch_threshold;
             for _i in 0..AXIS_LENGTH {
-                match controller_config.get_analog_scratch_mode() {
+                match controller_config.analog_scratch_mode {
                     ControllerConfig::ANALOG_SCRATCH_VER_1 => {
                         analog_scratch_algorithm.push(Box::new(
                             AnalogScratchAlgorithmVersion1::new(analog_scratch_threshold),

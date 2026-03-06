@@ -105,11 +105,11 @@ fn groove_gauge_update_judge_index_oob_is_ignored() {
     model.set_mode(Mode::BEAT_7K);
 
     let mut gg = GrooveGauge::new(&model, NORMAL, &GaugeProperty::SevenKeys);
-    let initial = gg.get_value();
+    let initial = gg.value();
 
     // judge=6 should be ignored by every internal Gauge::update() call.
     gg.update(6);
-    assert_eq!(gg.get_value(), initial);
+    assert_eq!(gg.value(), initial);
 }
 
 /// GrooveGauge should also ignore negative judge values instead of panicking on
@@ -121,11 +121,11 @@ fn groove_gauge_update_negative_judge_is_ignored() {
     model.set_mode(Mode::BEAT_7K);
 
     let mut gg = GrooveGauge::new(&model, NORMAL, &GaugeProperty::SevenKeys);
-    let initial = gg.get_value();
+    let initial = gg.value();
 
     // judge=-1 should be ignored rather than wrapping to usize::MAX.
     gg.update(-1);
-    assert_eq!(gg.get_value(), initial);
+    assert_eq!(gg.value(), initial);
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +141,7 @@ fn groove_gauge_extreme_damage_floors_at_zero() {
     model.set_mode(Mode::BEAT_7K);
 
     let mut gg = GrooveGauge::new(&model, HARD, &GaugeProperty::SevenKeys);
-    assert!((gg.get_value() - 100.0).abs() < f32::EPSILON);
+    assert!((gg.value() - 100.0).abs() < f32::EPSILON);
 
     // Apply 200 POOR judgments (judge=4)
     for _ in 0..200 {
@@ -150,13 +150,13 @@ fn groove_gauge_extreme_damage_floors_at_zero() {
 
     // Hard gauge should be at 0.0 (dead), not negative
     assert!(
-        gg.get_value() >= 0.0,
+        gg.value() >= 0.0,
         "gauge value should not go negative, got {}",
-        gg.get_value()
+        gg.value()
     );
     assert!(
-        (gg.get_value() - 0.0).abs() < f32::EPSILON,
+        (gg.value() - 0.0).abs() < f32::EPSILON,
         "gauge should be dead (0.0) after extreme damage, got {}",
-        gg.get_value()
+        gg.value()
     );
 }

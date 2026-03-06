@@ -233,7 +233,7 @@ impl RivalTargetProperty {
                 return self.target_score.clone();
             }
         };
-        let lnmode = main.get_player_config().get_lnmode();
+        let lnmode = main.get_player_config().lnmode;
         let index = self.index as usize;
 
         let mut name: Option<String> = None;
@@ -648,7 +648,7 @@ impl NextRankTargetProperty {
 
     /// Translated from: Java NextRankTargetProperty.getTarget(MainController)
     fn get_target(&mut self, main: &MainController) -> ScoreData {
-        let lnmode = main.get_player_config().get_lnmode();
+        let lnmode = main.get_player_config().lnmode;
         let model = main.get_player_resource().and_then(|r| r.get_bms_model());
 
         let nowscore = model

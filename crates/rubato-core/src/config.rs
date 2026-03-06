@@ -101,19 +101,19 @@ mod tests {
         let mut config = Config::default();
         config.playername = Some("Player1".to_string());
 
-        assert_eq!(config.get_playername(), Some("Player1"));
-        assert_eq!(config.get_songpath(), SONGPATH_DEFAULT);
-        assert_eq!(config.get_songinfopath(), SONGINFOPATH_DEFAULT);
-        assert_eq!(config.get_tablepath(), TABLEPATH_DEFAULT);
-        assert_eq!(config.get_playerpath(), PLAYERPATH_DEFAULT);
-        assert_eq!(config.get_skinpath(), SKINPATH_DEFAULT);
-        assert_eq!(config.get_bgmpath(), "bgm");
-        assert_eq!(config.get_soundpath(), "sound");
-        assert_eq!(config.get_max_frame_per_second(), 240);
-        assert_eq!(config.get_max_search_bar_count(), 10);
-        assert_eq!(config.get_bga(), BGA_ON);
-        assert_eq!(config.get_bga_expand(), BGAEXPAND_KEEP_ASPECT_RATIO);
-        assert_eq!(config.get_frameskip(), 1);
+        assert_eq!(config.playername(), Some("Player1"));
+        assert_eq!(config.songpath, SONGPATH_DEFAULT);
+        assert_eq!(config.songinfopath, SONGINFOPATH_DEFAULT);
+        assert_eq!(config.tablepath, TABLEPATH_DEFAULT);
+        assert_eq!(config.playerpath, PLAYERPATH_DEFAULT);
+        assert_eq!(config.skinpath, SKINPATH_DEFAULT);
+        assert_eq!(config.bgmpath, "bgm");
+        assert_eq!(config.soundpath, "sound");
+        assert_eq!(config.max_frame_per_second, 240);
+        assert_eq!(config.max_search_bar_count, 10);
+        assert_eq!(config.bga, BGA_ON);
+        assert_eq!(config.bga_expand, BGAEXPAND_KEEP_ASPECT_RATIO);
+        assert_eq!(config.frameskip, 1);
     }
 
     #[test]
@@ -205,16 +205,16 @@ mod tests {
 
         // Set a scene
         config.set_obs_scene("play".to_string(), Some("PlayScene".to_string()));
-        assert_eq!(config.get_obs_scene("play"), Some(&"PlayScene".to_string()));
+        assert_eq!(config.obs_scene("play"), Some(&"PlayScene".to_string()));
 
         // Remove with None
         config.set_obs_scene("play".to_string(), None);
-        assert!(config.get_obs_scene("play").is_none());
+        assert!(config.obs_scene("play").is_none());
 
         // Remove with empty string
         config.set_obs_scene("select".to_string(), Some("SelectScene".to_string()));
         config.set_obs_scene("select".to_string(), Some(String::new()));
-        assert!(config.get_obs_scene("select").is_none());
+        assert!(config.obs_scene("select").is_none());
     }
 
     #[test]
@@ -223,12 +223,12 @@ mod tests {
 
         config.set_obs_action("play".to_string(), Some("StartRecording".to_string()));
         assert_eq!(
-            config.get_obs_action("play"),
+            config.obs_action("play"),
             Some(&"StartRecording".to_string())
         );
 
         config.set_obs_action("play".to_string(), None);
-        assert!(config.get_obs_action("play").is_none());
+        assert!(config.obs_action("play").is_none());
     }
 
     #[test]
@@ -236,14 +236,11 @@ mod tests {
         let mut config = Config::default();
 
         // Empty returns None
-        assert!(config.get_override_download_url().is_none());
+        assert!(config.override_download_url().is_none());
 
         // Non-empty returns Some
         config.override_download_url = "https://example.com".to_string();
-        assert_eq!(
-            config.get_override_download_url(),
-            Some("https://example.com")
-        );
+        assert_eq!(config.override_download_url(), Some("https://example.com"));
     }
 
     #[test]
@@ -254,13 +251,10 @@ mod tests {
         config.webhook_avatar = "https://example.com/avatar.png".to_string();
         config.webhook_url = vec!["https://hook.example.com".to_string()];
 
-        assert_eq!(config.get_webhook_option(), 1);
-        assert_eq!(config.get_webhook_name(), "MyBot");
-        assert_eq!(
-            config.get_webhook_avatar(),
-            "https://example.com/avatar.png"
-        );
-        assert_eq!(config.get_webhook_url().len(), 1);
+        assert_eq!(config.webhook_option, 1);
+        assert_eq!(config.webhook_name, "MyBot");
+        assert_eq!(config.webhook_avatar, "https://example.com/avatar.png");
+        assert_eq!(config.webhook_url.len(), 1);
     }
 
     #[test]

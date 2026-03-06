@@ -70,7 +70,7 @@ impl RankingDataCache {
 
     fn course_cache_index(course: &CourseData, lnmode: i32) -> usize {
         let mut cacheindex = 3usize;
-        for song in course.get_song() {
+        for song in &course.hash {
             if song.has_undefined_long_note() {
                 cacheindex = lnmode as usize;
             }
@@ -120,7 +120,7 @@ impl RankingDataCache {
 
     fn create_course_hash(&self, course: &CourseData) -> Option<String> {
         let mut sb = String::new();
-        for song in course.get_song() {
+        for song in &course.hash {
             let sha256 = song.sha256.clone();
             if sha256.len() == 64 {
                 sb.push_str(&sha256);
@@ -128,7 +128,7 @@ impl RankingDataCache {
                 return None;
             }
         }
-        for constraint in course.get_constraint() {
+        for constraint in &course.constraint {
             sb.push_str(constraint.name_str());
         }
         let mut hasher = Sha256::new();

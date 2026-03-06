@@ -169,7 +169,7 @@ impl ObsConfigurationView {
 
         for state in self.states.clone() {
             if let Some(scene_box) = self.scene_boxes.get_mut(&state) {
-                let saved_scene = config.get_obs_scene(&state);
+                let saved_scene = config.obs_scene(&state);
                 if let Some(saved) = saved_scene {
                     if !saved.is_empty() {
                         scene_box.value = Some(saved.clone());
@@ -182,7 +182,7 @@ impl ObsConfigurationView {
             }
 
             if let Some(action_box) = self.action_boxes.get_mut(&state) {
-                let saved_action = config.get_obs_action(&state);
+                let saved_action = config.obs_action(&state);
                 let saved_action_label = if let Some(action) = saved_action {
                     get_action_label(action)
                 } else {
@@ -357,7 +357,7 @@ impl ObsConfigurationView {
 
         for (state_name, scene_box) in &mut self.scene_boxes {
             let previous_value = scene_box.value.clone();
-            let saved_scene = config.get_obs_scene(state_name).cloned();
+            let saved_scene = config.obs_scene(state_name).cloned();
 
             scene_box.items.clear();
             scene_box.items.push(SCENE_NONE.to_string());
@@ -393,7 +393,7 @@ impl ObsConfigurationView {
         for (state_name, action_box) in &mut self.action_boxes {
             let previous_value = action_box.value.clone();
             let saved_action_label = config
-                .get_obs_action(state_name)
+                .obs_action(state_name)
                 .and_then(|a| get_action_label(a));
 
             action_box.items.clear();

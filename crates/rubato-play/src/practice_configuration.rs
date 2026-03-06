@@ -742,7 +742,7 @@ mod tests {
         // Gauge should be created with startgauge value
         assert!(result.gauge.is_some());
         let gauge = result.gauge.unwrap();
-        assert!((gauge.get_value() - 50.0).abs() < f64::EPSILON as f32);
+        assert!((gauge.value() - 50.0).abs() < f64::EPSILON as f32);
     }
 
     #[test]

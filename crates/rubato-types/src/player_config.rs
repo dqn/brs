@@ -260,7 +260,7 @@ impl Default for PlayerConfig {
 }
 
 impl PlayerConfig {
-    pub fn get_play_config_ref(&self, mode_id: Mode) -> &PlayModeConfig {
+    pub fn play_config_ref(&self, mode_id: Mode) -> &PlayModeConfig {
         match mode_id {
             Mode::BEAT_5K => &self.mode5,
             Mode::BEAT_7K => &self.mode7,
@@ -272,7 +272,7 @@ impl PlayerConfig {
         }
     }
 
-    pub fn get_play_config(&mut self, mode_id: Mode) -> &mut PlayModeConfig {
+    pub fn play_config(&mut self, mode_id: Mode) -> &mut PlayModeConfig {
         match mode_id {
             Mode::BEAT_5K => &mut self.mode5,
             Mode::BEAT_7K => &mut self.mode7,
@@ -284,7 +284,7 @@ impl PlayerConfig {
         }
     }
 
-    pub fn get_play_config_by_id(&mut self, mode_id: i32) -> &mut PlayModeConfig {
+    pub fn play_config_by_id(&mut self, mode_id: i32) -> &mut PlayModeConfig {
         match mode_id {
             5 => &mut self.mode5,
             7 => &mut self.mode7,
@@ -337,62 +337,6 @@ impl PlayerConfig {
         self.twitter_access_token_secret.as_deref()
     }
 
-    pub fn get_skin_history(&self) -> &[SkinConfig] {
-        &self.skin_history
-    }
-
-    pub fn set_skin_history(&mut self, history: Vec<SkinConfig>) {
-        self.skin_history = history;
-    }
-
-    pub fn get_gauge(&self) -> i32 {
-        self.gauge
-    }
-
-    pub fn get_random(&self) -> i32 {
-        self.random
-    }
-
-    pub fn set_random(&mut self, v: i32) {
-        self.random = v;
-    }
-
-    pub fn get_random2(&self) -> i32 {
-        self.random2
-    }
-
-    pub fn set_random2(&mut self, v: i32) {
-        self.random2 = v;
-    }
-
-    pub fn get_doubleoption(&self) -> i32 {
-        self.doubleoption
-    }
-
-    pub fn set_doubleoption(&mut self, v: i32) {
-        self.doubleoption = v;
-    }
-
-    pub fn get_judgetiming(&self) -> i32 {
-        self.judgetiming
-    }
-
-    pub fn get_lnmode(&self) -> i32 {
-        self.lnmode
-    }
-
-    pub fn set_lnmode(&mut self, v: i32) {
-        self.lnmode = v;
-    }
-
-    pub fn get_sort(&self) -> i32 {
-        self.sort
-    }
-
-    pub fn set_sort(&mut self, v: i32) {
-        self.sort = v;
-    }
-
     pub fn get_sortid(&self) -> Option<&str> {
         self.sortid.as_deref()
     }
@@ -401,16 +345,8 @@ impl PlayerConfig {
         self.sortid = Some(v);
     }
 
-    pub fn get_musicselectinput(&self) -> i32 {
-        self.musicselectinput
-    }
-
     pub fn get_mode(&self) -> Option<&Mode> {
         self.mode.as_ref()
-    }
-
-    pub fn set_mode(&mut self, m: Option<Mode>) {
-        self.mode = m;
     }
 
     pub fn is_event_mode(&self) -> bool {
@@ -425,72 +361,16 @@ impl PlayerConfig {
         self.custom_judge
     }
 
-    pub fn set_custom_judge(&mut self, v: bool) {
-        self.custom_judge = v;
-    }
-
-    pub fn get_scroll_mode(&self) -> i32 {
-        self.scroll_mode
-    }
-
-    pub fn set_scroll_mode(&mut self, v: i32) {
-        self.scroll_mode = v;
-    }
-
     pub fn is_showjudgearea(&self) -> bool {
         self.showjudgearea
-    }
-
-    pub fn set_showjudgearea(&mut self, v: bool) {
-        self.showjudgearea = v;
-    }
-
-    pub fn get_longnote_mode(&self) -> i32 {
-        self.longnote_mode
-    }
-
-    pub fn set_longnote_mode(&mut self, v: i32) {
-        self.longnote_mode = v;
     }
 
     pub fn is_markprocessednote(&self) -> bool {
         self.markprocessednote
     }
 
-    pub fn set_markprocessednote(&mut self, v: bool) {
-        self.markprocessednote = v;
-    }
-
     pub fn is_bpmguide(&self) -> bool {
         self.bpmguide
-    }
-
-    pub fn set_bpmguide(&mut self, v: bool) {
-        self.bpmguide = v;
-    }
-
-    pub fn get_mine_mode(&self) -> i32 {
-        self.mine_mode
-    }
-
-    pub fn set_mine_mode(&mut self, v: i32) {
-        self.mine_mode = v;
-    }
-
-    pub fn get_chart_replication_mode(&self) -> &str {
-        &self.chart_replication_mode
-    }
-
-    pub fn get_gauge_auto_shift(&self) -> i32 {
-        self.gauge_auto_shift
-    }
-
-    pub fn get_bottom_shiftable_gauge(&self) -> i32 {
-        self.bottom_shiftable_gauge
-    }
-
-    pub fn get_targetid(&self) -> &str {
-        &self.targetid
     }
 
     pub fn get_misslayer_duration(&mut self) -> i32 {

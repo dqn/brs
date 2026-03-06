@@ -1908,7 +1908,7 @@ mod tests {
 
         // Custom judge with narrower windows
         let mut config = PlayerConfig::default();
-        config.set_custom_judge(true);
+        config.custom_judge = true;
         config.key_judge_window_rate_perfect_great = 50;
         config.key_judge_window_rate_great = 50;
         config.key_judge_window_rate_good = 50;

@@ -211,7 +211,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
                 (self
                     .selector
                     .app_config
-                    .get_audio_config()
+                    .audio_config()
                     .map_or(0.5, |a| a.systemvolume)
                     * 100.0) as i32
             }
@@ -219,7 +219,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
                 (self
                     .selector
                     .app_config
-                    .get_audio_config()
+                    .audio_config()
                     .map_or(0.5, |a| a.keyvolume)
                     * 100.0) as i32
             }
@@ -227,7 +227,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
                 (self
                     .selector
                     .app_config
-                    .get_audio_config()
+                    .audio_config()
                     .map_or(0.5, |a| a.bgvolume)
                     * 100.0) as i32
             }
@@ -405,17 +405,17 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
             17 => self
                 .selector
                 .app_config
-                .get_audio_config()
+                .audio_config()
                 .map_or(0.5, |a| a.systemvolume),
             18 => self
                 .selector
                 .app_config
-                .get_audio_config()
+                .audio_config()
                 .map_or(0.5, |a| a.keyvolume),
             19 => self
                 .selector
                 .app_config
-                .get_audio_config()
+                .audio_config()
                 .map_or(0.5, |a| a.bgvolume),
             8 => self.selector.get_ranking_position(),
             // Level (0.0-1.0 normalized)
@@ -745,8 +745,7 @@ impl MusicSelector {
                     }
                 }
                 let step = if arg1 >= 0 { 1 } else { MODE.len() - 1 };
-                self.config
-                    .set_mode(MODE[(idx + step) % MODE.len()].clone());
+                self.config.mode = MODE[(idx + step) % MODE.len()].clone();
                 self.refresh_bar_with_context();
                 self.play_option_change();
             }
@@ -759,26 +758,22 @@ impl MusicSelector {
             }
             EventType::Lnmode => {
                 let step = if arg1 >= 0 { 1 } else { 2 };
-                self.config
-                    .set_lnmode((self.config.get_lnmode() + step) % 3);
+                self.config.lnmode = (self.config.lnmode + step) % 3;
                 self.play_option_change();
             }
             EventType::Option1p => {
                 let step = if arg1 >= 0 { 1 } else { 9 };
-                self.config
-                    .set_random((self.config.get_random() + step) % 10);
+                self.config.random = (self.config.random + step) % 10;
                 self.play_option_change();
             }
             EventType::Option2p => {
                 let step = if arg1 >= 0 { 1 } else { 9 };
-                self.config
-                    .set_random2((self.config.get_random2() + step) % 10);
+                self.config.random2 = (self.config.random2 + step) % 10;
                 self.play_option_change();
             }
             EventType::Optiondp => {
                 let step = if arg1 >= 0 { 1 } else { 3 };
-                self.config
-                    .set_doubleoption((self.config.get_doubleoption() + step) % 4);
+                self.config.doubleoption = (self.config.doubleoption + step) % 4;
                 self.play_option_change();
             }
             EventType::Gauge1p => {
@@ -794,7 +789,7 @@ impl MusicSelector {
             EventType::Hsfix => {
                 if let Some(pc) = self.get_selected_play_config_mut() {
                     let step = if arg1 >= 0 { 1 } else { 4 };
-                    pc.set_fixhispeed((pc.get_fixhispeed() + step) % 5);
+                    pc.fixhispeed = (pc.fixhispeed + step) % 5;
                 }
                 self.play_option_change();
             }
@@ -802,8 +797,8 @@ impl MusicSelector {
                 if let Some(pc) = self.get_selected_play_config_mut() {
                     let delta = if _arg2 != 0 { _arg2 } else { 1 };
                     let step = if arg1 >= 0 { delta } else { -delta };
-                    let new_val = (pc.get_duration() + step).clamp(1, 5000);
-                    pc.set_duration(new_val);
+                    let new_val = (pc.duration + step).clamp(1, 5000);
+                    pc.duration = new_val;
                 }
                 self.play_option_change();
             }
@@ -1050,14 +1045,14 @@ impl MusicSelector {
 
     fn get_selected_play_config_ref(&self) -> Option<&PlayConfig> {
         let mode = self.selected_play_config_mode()?;
-        Some(self.config.get_play_config_ref(mode).get_playconfig())
+        Some(&self.config.play_config_ref(mode).playconfig)
     }
 
     /// Get mutable reference to the PlayConfig for the currently selected mode.
     /// Matches Java MusicSelector.getSelectedBarPlayConfig().
     fn get_selected_play_config_mut(&mut self) -> Option<&mut PlayConfig> {
         let mode = self.selected_play_config_mode()?;
-        Some(self.config.get_play_config(mode).get_playconfig_mut())
+        Some(&mut self.config.play_config(mode).playconfig)
     }
 
     /// Read a chart for play.
@@ -1095,7 +1090,7 @@ impl MusicSelector {
                 .as_ref()
                 .map(|m| {
                     m.get_config()
-                        .get_table_url()
+                        .table_url
                         .iter()
                         .map(|s| s.to_string())
                         .collect()
@@ -1140,7 +1135,7 @@ impl MusicSelector {
                 && self.currentir.is_none()
             {
                 use rubato_ir::ranking_data::RankingData;
-                let lnmode = main.get_player_config().get_lnmode();
+                let lnmode = main.get_player_config().lnmode;
                 let rd = RankingData::new();
                 self.currentir = Some(rd.clone());
                 if let Some(cache) = main.get_ranking_data_cache_mut() {
@@ -1216,7 +1211,7 @@ impl MusicSelector {
         songdata: Option<&SongData>,
         replay_index: i32,
     ) -> Option<rubato_types::replay_data::ReplayData> {
-        let mode = ChartReplicationMode::get(config.get_chart_replication_mode());
+        let mode = ChartReplicationMode::get(&config.chart_replication_mode);
         match mode {
             ChartReplicationMode::None => None,
             ChartReplicationMode::RivalChart => rival_score.map(|rival| {
@@ -1255,11 +1250,11 @@ impl MusicSelector {
     }
 
     pub fn get_sort(&self) -> i32 {
-        self.config.get_sort()
+        self.config.sort
     }
 
     pub fn set_sort(&mut self, sort: i32) {
-        self.config.set_sort(sort);
+        self.config.sort = sort;
         self.config
             .set_sortid(BarSorter::DEFAULT_SORTER[sort as usize].name().to_string());
     }
@@ -1305,14 +1300,14 @@ impl MusicSelector {
         };
 
         if let Some(grade) = selected.as_grade_bar() {
-            for con in grade.get_course_data().get_constraint() {
+            for con in &grade.get_course_data().constraint {
                 if con == constraint {
                     return true;
                 }
             }
         } else if let Some(rc) = selected.as_random_course_bar() {
             for con in &rc.get_course_data().constraint {
-                if con == constraint {
+                if *con == *constraint {
                     return true;
                 }
             }
@@ -1391,7 +1386,7 @@ impl MusicSelector {
                         // Refresh currentir from cache
                         if let Some(main) = self.main.as_ref() {
                             use rubato_ir::ranking_data::RankingData;
-                            let lnmode = main.get_player_config().get_lnmode();
+                            let lnmode = main.get_player_config().lnmode;
                             let song = song_bar.get_song_data();
                             self.currentir = main
                                 .get_ranking_data_cache()
@@ -1416,7 +1411,7 @@ impl MusicSelector {
                         // Refresh currentir from cache for course
                         if let Some(main) = self.main.as_ref() {
                             use rubato_ir::ranking_data::RankingData;
-                            let lnmode = main.get_player_config().get_lnmode();
+                            let lnmode = main.get_player_config().lnmode;
                             let course = grade_bar.get_course_data();
                             self.currentir = main
                                 .get_ranking_data_cache()
@@ -1557,7 +1552,7 @@ impl MusicSelector {
         if bar_renderer_do_input {
             // Take bar out of self to avoid overlapping borrows with self.manager and input
             if let Some(mut bar) = self.bar.take() {
-                let property_idx = self.config.get_musicselectinput() as usize;
+                let property_idx = self.config.musicselectinput as usize;
                 let property = &MusicSelectKeyProperty::VALUES
                     [property_idx.min(MusicSelectKeyProperty::VALUES.len() - 1)];
                 let mut bar_input_ctx = crate::select::bar_renderer::BarInputContext {
@@ -1669,7 +1664,7 @@ impl MusicSelector {
             .get_mode()
             .cloned()
             .unwrap_or(bms_model::Mode::BEAT_7K);
-        Some(self.config.get_play_config_ref(mode).get_playconfig())
+        Some(&self.config.play_config_ref(mode).playconfig)
     }
 
     pub fn get_current_ranking_data(&self) -> Option<&RankingData> {
@@ -1764,7 +1759,7 @@ impl MusicSelector {
             let score_path = format!("{}/{}/score.db", self.app_config.playerpath, player_name);
             let scorelog_path =
                 format!("{}/{}/scorelog.db", self.app_config.playerpath, player_name);
-            let songinfo_path = self.app_config.get_songinfopath().to_string();
+            let songinfo_path = self.app_config.songinfopath.to_string();
             rcd.lottery_song_datas(songdb, &score_path, &scorelog_path, Some(&songinfo_path));
         }
         let course_data = rcd.create_course_data();
@@ -1859,39 +1854,39 @@ impl MusicSelector {
         if load_success {
             // Apply constraints for PLAY/AUTOPLAY modes only
             if mode.mode == BMSPlayerModeType::Play || mode.mode == BMSPlayerModeType::Autoplay {
-                for constraint in gb.get_course_data().get_constraint() {
+                for constraint in &gb.get_course_data().constraint {
                     match constraint {
                         CourseDataConstraint::Class => {
-                            self.config.set_random(0);
-                            self.config.set_random2(0);
-                            self.config.set_doubleoption(0);
+                            self.config.random = 0;
+                            self.config.random2 = 0;
+                            self.config.doubleoption = 0;
                         }
                         CourseDataConstraint::Mirror => {
-                            if self.config.get_random() == 1 {
-                                self.config.set_random2(1);
-                                self.config.set_doubleoption(1);
+                            if self.config.random == 1 {
+                                self.config.random2 = 1;
+                                self.config.doubleoption = 1;
                             } else {
-                                self.config.set_random(0);
-                                self.config.set_random2(0);
-                                self.config.set_doubleoption(0);
+                                self.config.random = 0;
+                                self.config.random2 = 0;
+                                self.config.doubleoption = 0;
                             }
                         }
                         CourseDataConstraint::Random => {
-                            if self.config.get_random() > 5 {
-                                self.config.set_random(0);
+                            if self.config.random > 5 {
+                                self.config.random = 0;
                             }
-                            if self.config.get_random2() > 5 {
-                                self.config.set_random2(0);
+                            if self.config.random2 > 5 {
+                                self.config.random2 = 0;
                             }
                         }
                         CourseDataConstraint::Ln => {
-                            self.config.set_lnmode(0);
+                            self.config.lnmode = 0;
                         }
                         CourseDataConstraint::Cn => {
-                            self.config.set_lnmode(1);
+                            self.config.lnmode = 1;
                         }
                         CourseDataConstraint::Hcn => {
-                            self.config.set_lnmode(2);
+                            self.config.lnmode = 2;
                         }
                         _ => {}
                     }
@@ -1906,7 +1901,7 @@ impl MusicSelector {
                 .unwrap_or_default();
 
             let mut course_data = gb.get_course_data().clone();
-            course_data.set_song(course_song_data);
+            course_data.hash = course_song_data;
 
             // resource.setCourseData, setBMSFile for first song
             let (mode_type, mode_id) = Self::encode_bms_player_mode(Some(mode));
@@ -1923,7 +1918,7 @@ impl MusicSelector {
             // Load/create cached IR ranking data for course
             if let Some(ref mut main) = self.main {
                 use rubato_ir::ranking_data::RankingData;
-                let lnmode = main.get_player_config().get_lnmode();
+                let lnmode = main.get_player_config().lnmode;
                 let course = gb.get_course_data();
                 let cached = main
                     .get_ranking_data_cache()
@@ -2183,15 +2178,15 @@ impl MainState for MusicSelector {
         // Update score cache for previously played song
         if let Some(ref song) = self.playedsong {
             if let Some(ref mut cache) = self.scorecache {
-                cache.update(song, self.config.get_lnmode());
+                cache.update(song, self.config.lnmode);
             }
             self.playedsong = None;
         }
         // Update score cache for previously played course
         if let Some(ref course) = self.playedcourse.take() {
-            for sd in course.get_song() {
+            for sd in &course.hash {
                 if let Some(ref mut cache) = self.scorecache {
-                    cache.update(sd, self.config.get_lnmode());
+                    cache.update(sd, self.config.lnmode);
                 }
             }
         }
@@ -2209,14 +2204,14 @@ impl MainState for MusicSelector {
         // musicselectinput: 0 -> mode7, 1 -> mode9, _ -> mode14
         {
             let mut input = BMSPlayerInputProcessor::new(&self.app_config, &self.config);
-            let pc = match self.config.get_musicselectinput() {
+            let pc = match self.config.musicselectinput {
                 0 => &self.config.mode7,
                 1 => &self.config.mode9,
                 _ => &self.config.mode14,
             };
-            input.set_keyboard_config(pc.get_keyboard_config());
-            input.set_controller_config(&mut pc.get_controller().to_vec());
-            input.set_midi_config(pc.get_midi_config());
+            input.set_keyboard_config(&pc.keyboard);
+            input.set_controller_config(&mut pc.controller.to_vec());
+            input.set_midi_config(&pc.midi);
             self.input_processor = Some(input);
         }
 
@@ -2307,7 +2302,7 @@ impl MainState for MusicSelector {
 
             let currentsongs = &self.manager.currentsongs;
             let rival = self.rival.is_some();
-            let lnmode = self.config.get_lnmode();
+            let lnmode = self.config.lnmode;
             let center_bar = self.select_center_bar;
 
             if let (Some(bar_renderer), Some(skin_bar)) = (&mut self.bar, &mut self.skin_bar) {
@@ -2455,7 +2450,7 @@ impl MainState for MusicSelector {
                             .get_song_data()
                             .get_path()
                             .map(std::path::PathBuf::from);
-                        let lnmode = self.config.get_lnmode();
+                        let lnmode = self.config.lnmode;
                         if let Some(path) = path
                             && let Some((model, _margin)) =
                                 rubato_core::player_resource::PlayerResource::load_bms_model(
@@ -2493,7 +2488,7 @@ impl MainState for MusicSelector {
                 && let Some(main) = self.main.as_mut()
             {
                 use rubato_ir::ranking_data::RankingData;
-                let lnmode = main.get_player_config().get_lnmode();
+                let lnmode = main.get_player_config().lnmode;
                 if let Some(song_bar) = current.as_song_bar()
                     && song_bar.exists_song()
                     && self.play.is_none()
@@ -2647,7 +2642,7 @@ impl MainState for MusicSelector {
                                 "{}/{}/scorelog.db",
                                 self.app_config.playerpath, player_name
                             );
-                            let songinfo_path = self.app_config.get_songinfopath().to_string();
+                            let songinfo_path = self.app_config.songinfopath.to_string();
                             let cmd_ctx = crate::select::bar::command_bar::CommandBarContext {
                                 score_db_path: &score_path,
                                 scorelog_db_path: &scorelog_path,
@@ -3982,9 +3977,9 @@ mod tests {
 
         let mut selector = MusicSelector::new();
         // Set non-zero random options
-        selector.config.set_random(3);
-        selector.config.set_random2(4);
-        selector.config.set_doubleoption(2);
+        selector.config.random = 3;
+        selector.config.random2 = 4;
+        selector.config.doubleoption = 2;
 
         let course = CourseData {
             name: Some("Class Course".to_string()),
@@ -3998,19 +3993,13 @@ mod tests {
 
         selector.read_course(BMSPlayerMode::PLAY);
 
+        assert_eq!(selector.config.random, 0, "CLASS should reset random to 0");
         assert_eq!(
-            selector.config.get_random(),
-            0,
-            "CLASS should reset random to 0"
-        );
-        assert_eq!(
-            selector.config.get_random2(),
-            0,
+            selector.config.random2, 0,
             "CLASS should reset random2 to 0"
         );
         assert_eq!(
-            selector.config.get_doubleoption(),
-            0,
+            selector.config.doubleoption, 0,
             "CLASS should reset doubleoption to 0"
         );
     }
@@ -4028,7 +4017,7 @@ mod tests {
         let path_str = bms_path.to_string_lossy().to_string();
 
         let mut selector = MusicSelector::new();
-        selector.config.set_lnmode(2);
+        selector.config.lnmode = 2;
 
         let course = CourseData {
             name: Some("LN Course".to_string()),
@@ -4043,8 +4032,7 @@ mod tests {
 
         assert!(result, "_read_course should return true on success");
         assert_eq!(
-            selector.config.get_lnmode(),
-            0,
+            selector.config.lnmode, 0,
             "LN constraint should set lnmode to 0"
         );
     }
@@ -4058,7 +4046,7 @@ mod tests {
         let path_str = bms_path.to_string_lossy().to_string();
 
         let mut selector = MusicSelector::new();
-        selector.config.set_random(5);
+        selector.config.random = 5;
 
         let course = CourseData {
             name: Some("Class Course".to_string()),
@@ -4074,8 +4062,7 @@ mod tests {
         assert!(result);
         // AUTOPLAY applies CLASS constraint (same as PLAY)
         assert_eq!(
-            selector.config.get_random(),
-            0,
+            selector.config.random, 0,
             "AUTOPLAY should apply CLASS constraint and reset random"
         );
     }
@@ -4089,7 +4076,7 @@ mod tests {
         let path_str = bms_path.to_string_lossy().to_string();
 
         let mut selector = MusicSelector::new();
-        selector.config.set_random(5);
+        selector.config.random = 5;
 
         let course = CourseData {
             name: Some("Class Course".to_string()),
@@ -4104,11 +4091,7 @@ mod tests {
 
         assert!(result);
         // REPLAY should NOT apply constraints
-        assert_eq!(
-            selector.config.get_random(),
-            5,
-            "REPLAY should not reset random"
-        );
+        assert_eq!(selector.config.random, 5, "REPLAY should not reset random");
     }
 
     // ============================================================

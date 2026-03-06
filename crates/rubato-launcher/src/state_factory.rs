@@ -227,7 +227,7 @@ impl MainControllerAccess for QueuedControllerAccess {
         self.ir_connection.as_ref().and_then(|conn| {
             conn.get_course_url(&IRCourseData::new_with_lntype(
                 course_data,
-                self.player_config.get_lnmode(),
+                self.player_config.lnmode,
             ))
         })
     }
@@ -568,8 +568,8 @@ impl StateFactory for LauncherStateFactory {
                 // as download processors in main.rs).
                 let config = controller.get_config();
                 let mut selector = match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-                    config.get_songpath(),
-                    config.get_bmsroot(),
+                    &config.songpath,
+                    &config.bmsroot,
                 ) {
                     Ok(db) => MusicSelector::with_song_database(Box::new(db)),
                     Err(e) => {
@@ -661,7 +661,7 @@ impl StateFactory for LauncherStateFactory {
                 player.set_guide_se(controller.get_player_config().is_guide_se);
 
                 // Wire audio config
-                if let Some(audio_config) = controller.get_config().get_audio_config() {
+                if let Some(audio_config) = controller.get_config().audio_config() {
                     player.set_fast_forward_freq_option(audio_config.fast_forward.clone());
                     player.set_bg_volume(audio_config.bgvolume);
                 }
@@ -673,7 +673,7 @@ impl StateFactory for LauncherStateFactory {
 
                 // --- Target/rival score DB load ---
                 // Java: main.getPlayDataAccessor().readScoreData(model, config.getLnmode())
-                let lnmode = controller.get_player_config().get_lnmode();
+                let lnmode = controller.get_player_config().lnmode;
                 let sha256 = model.sha256();
                 let has_ln = model.contains_undefined_long_note();
                 let db_score = controller.read_score_data_by_hash(sha256, has_ln, lnmode);

@@ -144,7 +144,7 @@ impl Gauge {
         self.set_value(new_value);
     }
 
-    pub fn get_property(&self) -> &GaugeElementProperty {
+    pub fn property(&self) -> &GaugeElementProperty {
         &self.element
     }
 
@@ -222,13 +222,13 @@ impl GrooveGauge {
             .and_then(|i| self.gauges.get_mut(i))
     }
 
-    pub fn get_value(&self) -> f32 {
+    pub fn value(&self) -> f32 {
         self.gauge_at(self.gauge_type)
             .map(|g| g.get_value())
             .unwrap_or(0.0)
     }
 
-    pub fn get_value_by_type(&self, gauge_type: i32) -> f32 {
+    pub fn value_by_type(&self, gauge_type: i32) -> f32 {
         self.gauge_at(gauge_type)
             .map(|g| g.get_value())
             .unwrap_or(0.0)
@@ -260,7 +260,7 @@ impl GrooveGauge {
         }
     }
 
-    pub fn get_type(&self) -> i32 {
+    pub fn gauge_type(&self) -> i32 {
         self.gauge_type
     }
 
@@ -280,25 +280,25 @@ impl GrooveGauge {
         self.gauge_type >= CLASS && self.gauge_type <= EXHARDCLASS
     }
 
-    pub fn get_gauge_type_length(&self) -> usize {
+    pub fn gauge_type_length(&self) -> usize {
         self.gauges.len()
     }
 
-    pub fn get_clear_type(&self) -> ClearType {
+    pub fn clear_type(&self) -> ClearType {
         self.gauge_at(self.gauge_type)
             .map(|g| g.cleartype)
             .unwrap_or(ClearType::Failed)
     }
 
-    pub fn get_gauge(&self) -> &Gauge {
+    pub fn gauge(&self) -> &Gauge {
         self.gauge_at(self.gauge_type).unwrap_or(&self.gauges[0])
     }
 
-    pub fn get_gauge_by_type(&self, gauge_type: i32) -> &Gauge {
+    pub fn gauge_by_type(&self, gauge_type: i32) -> &Gauge {
         self.gauge_at(gauge_type).unwrap_or(&self.gauges[0])
     }
 
-    pub fn get_gauge_by_type_mut(&mut self, gauge_type: i32) -> &mut Gauge {
+    pub fn gauge_by_type_mut(&mut self, gauge_type: i32) -> &mut Gauge {
         let idx = usize::try_from(gauge_type)
             .ok()
             .filter(|&i| i < self.gauges.len())
@@ -493,9 +493,9 @@ mod tests {
     fn test_groove_gauge_construction() {
         let model = make_model();
         let gg = GrooveGauge::new(&model, NORMAL, &GaugeProperty::SevenKeys);
-        assert_eq!(gg.get_type(), NORMAL);
+        assert_eq!(gg.gauge_type(), NORMAL);
         assert!(!gg.is_type_changed());
-        assert_eq!(gg.get_gauge_type_length(), 9);
+        assert_eq!(gg.gauge_type_length(), 9);
     }
 
     #[test]
@@ -505,7 +505,7 @@ mod tests {
         assert!(!gg.is_type_changed());
 
         gg.set_type(HARD);
-        assert_eq!(gg.get_type(), HARD);
+        assert_eq!(gg.gauge_type(), HARD);
         assert!(gg.is_type_changed());
     }
 
@@ -530,7 +530,7 @@ mod tests {
         let model = make_model();
         let gg = GrooveGauge::new(&model, NORMAL, &GaugeProperty::SevenKeys);
         // NORMAL init = 20.0
-        assert_eq!(gg.get_value(), 20.0);
+        assert_eq!(gg.value(), 20.0);
     }
 
     #[test]
@@ -540,14 +540,14 @@ mod tests {
         gg.set_value(50.0);
         // All gauges should be clamped to their respective min/max
         // NORMAL gauge value should be set to 50
-        assert_eq!(gg.get_value(), 50.0);
+        assert_eq!(gg.value(), 50.0);
     }
 
     #[test]
     fn test_groove_gauge_get_clear_type() {
         let model = make_model();
         let gg = GrooveGauge::new(&model, NORMAL, &GaugeProperty::SevenKeys);
-        let ct = gg.get_clear_type();
+        let ct = gg.clear_type();
         // Gauge type 2 (NORMAL) maps to ClearType::Normal via get_clear_type_by_gauge
         assert_eq!(ct, ClearType::Normal);
     }
@@ -569,7 +569,7 @@ mod tests {
     fn test_groove_gauge_create_with_id() {
         let model = make_model();
         let gg = GrooveGauge::create_with_id(&model, EASY, &GaugeProperty::FiveKeys);
-        assert_eq!(gg.get_type(), EASY);
+        assert_eq!(gg.gauge_type(), EASY);
     }
 
     #[test]
@@ -579,15 +579,15 @@ mod tests {
 
         // set_type with negative should be no-op
         gg.set_type(-1);
-        assert_eq!(gg.get_type(), NORMAL);
+        assert_eq!(gg.gauge_type(), NORMAL);
 
         // by_type accessors with negative should not panic
-        assert_eq!(gg.get_value_by_type(-1), 0.0);
+        assert_eq!(gg.value_by_type(-1), 0.0);
         assert!(!gg.is_qualified_by_type(-1));
         gg.set_value_by_type(-1, 50.0); // no-op
 
         // get_gauge_by_type with negative falls back to gauges[0]
-        let gauge = gg.get_gauge_by_type(-1);
+        let gauge = gg.gauge_by_type(-1);
         assert_eq!(
             gauge.cleartype,
             ClearType::get_clear_type_by_gauge(0).unwrap()
@@ -601,16 +601,16 @@ mod tests {
 
         // set_type with too-large value should be no-op
         gg.set_type(100);
-        assert_eq!(gg.get_type(), NORMAL);
+        assert_eq!(gg.gauge_type(), NORMAL);
 
         // by_type accessors with too-large value should not panic
-        assert_eq!(gg.get_value_by_type(100), 0.0);
+        assert_eq!(gg.value_by_type(100), 0.0);
         assert!(!gg.is_qualified_by_type(100));
         gg.set_value_by_type(100, 50.0); // no-op
 
         // get_clear_type / get_gauge fallbacks
-        assert_eq!(gg.get_clear_type(), ClearType::Normal);
-        let gauge = gg.get_gauge_by_type(100);
+        assert_eq!(gg.clear_type(), ClearType::Normal);
+        let gauge = gg.gauge_by_type(100);
         assert_eq!(
             gauge.cleartype,
             ClearType::get_clear_type_by_gauge(0).unwrap()
@@ -623,13 +623,13 @@ mod tests {
         let mut gg = GrooveGauge::new(&model, NORMAL, &GaugeProperty::SevenKeys);
 
         // Should not panic, falls back to gauges[0]
-        let gauge = gg.get_gauge_by_type_mut(-1);
+        let gauge = gg.gauge_by_type_mut(-1);
         gauge.set_value(42.0);
-        assert_eq!(gg.get_value_by_type(0), 42.0);
+        assert_eq!(gg.value_by_type(0), 42.0);
 
-        let gauge = gg.get_gauge_by_type_mut(100);
+        let gauge = gg.gauge_by_type_mut(100);
         gauge.set_value(55.0);
-        assert_eq!(gg.get_value_by_type(0), 55.0);
+        assert_eq!(gg.value_by_type(0), 55.0);
     }
 }
 

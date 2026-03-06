@@ -143,12 +143,8 @@ impl ScreenShotFileExporter {
     }
 
     fn send_webhook(&self, current_state: &MainState, path: &str) {
-        if current_state.resource.get_config().get_webhook_option() == 0
-            || current_state
-                .resource
-                .get_config()
-                .get_webhook_url()
-                .is_empty()
+        if current_state.resource.get_config().webhook_option == 0
+            || current_state.resource.get_config().webhook_url.is_empty()
         {
             // Webhook action not enabled or missing URL
             return;
@@ -159,11 +155,8 @@ impl ScreenShotFileExporter {
             let payload = handler.create_webhook_payload(current_state);
             let payload_as_string = serde_json::to_string(&payload)?;
 
-            let webhook_urls: Vec<String> = current_state
-                .resource
-                .get_config()
-                .get_webhook_url()
-                .to_vec();
+            let webhook_urls: Vec<String> =
+                current_state.resource.get_config().webhook_url.to_vec();
 
             for webhook_url in &webhook_urls {
                 handler.send_webhook_with_image(&payload_as_string, path, webhook_url);

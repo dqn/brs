@@ -23,17 +23,17 @@ fn make_song(title: &str, md5: &str) -> SongData {
 fn course_data_with_class_constraint_is_class_course() {
     let mut cd = CourseData::default();
     cd.set_name("Dan Course".to_string());
-    cd.set_song(vec![
+    cd.hash = vec![
         make_song("Stage 1", "aaa111"),
         make_song("Stage 2", "bbb222"),
         make_song("Stage 3", "ccc333"),
         make_song("Stage 4", "ddd444"),
-    ]);
-    cd.set_constraint(vec![
+    ];
+    cd.constraint = vec![
         CourseDataConstraint::Class,
         CourseDataConstraint::NoSpeed,
         CourseDataConstraint::Gauge7Keys,
-    ]);
+    ];
 
     assert!(
         cd.is_class_course(),
@@ -45,8 +45,8 @@ fn course_data_with_class_constraint_is_class_course() {
 fn course_data_with_mirror_constraint_is_class_course() {
     let mut cd = CourseData::default();
     cd.set_name("Mirror Dan".to_string());
-    cd.set_song(vec![make_song("Stage 1", "aaa111")]);
-    cd.set_constraint(vec![CourseDataConstraint::Mirror]);
+    cd.hash = vec![make_song("Stage 1", "aaa111")];
+    cd.constraint = vec![CourseDataConstraint::Mirror];
 
     assert!(
         cd.is_class_course(),
@@ -58,8 +58,8 @@ fn course_data_with_mirror_constraint_is_class_course() {
 fn course_data_with_random_constraint_is_class_course() {
     let mut cd = CourseData::default();
     cd.set_name("Random Dan".to_string());
-    cd.set_song(vec![make_song("Stage 1", "aaa111")]);
-    cd.set_constraint(vec![CourseDataConstraint::Random]);
+    cd.hash = vec![make_song("Stage 1", "aaa111")];
+    cd.constraint = vec![CourseDataConstraint::Random];
 
     assert!(
         cd.is_class_course(),
@@ -71,12 +71,12 @@ fn course_data_with_random_constraint_is_class_course() {
 fn course_data_without_class_mirror_random_is_not_class_course() {
     let mut cd = CourseData::default();
     cd.set_name("Casual Course".to_string());
-    cd.set_song(vec![make_song("Stage 1", "aaa111")]);
-    cd.set_constraint(vec![
+    cd.hash = vec![make_song("Stage 1", "aaa111")];
+    cd.constraint = vec![
         CourseDataConstraint::NoSpeed,
         CourseDataConstraint::NoGood,
         CourseDataConstraint::Ln,
-    ]);
+    ];
 
     assert!(
         !cd.is_class_course(),
@@ -103,7 +103,7 @@ fn validate_empty_songs_returns_false() {
 fn validate_assigns_default_name_when_missing() {
     let mut cd = CourseData::default();
     // name is None by default
-    cd.set_song(vec![make_song("Stage 1", "aaa111")]);
+    cd.hash = vec![make_song("Stage 1", "aaa111")];
     assert!(cd.validate());
     assert_eq!(
         cd.get_name(),
@@ -116,7 +116,7 @@ fn validate_assigns_default_name_when_missing() {
 fn validate_assigns_default_name_when_empty() {
     let mut cd = CourseData::default();
     cd.set_name(String::new());
-    cd.set_song(vec![make_song("Stage 1", "aaa111")]);
+    cd.hash = vec![make_song("Stage 1", "aaa111")];
     assert!(cd.validate());
     assert_eq!(cd.get_name(), "No Course Title");
 }
@@ -135,22 +135,22 @@ fn validate_assigns_default_titles_to_untitled_songs() {
     song2.md5 = "hash2".to_string();
     // title is empty
 
-    cd.set_song(vec![song1, song2]);
+    cd.hash = vec![song1, song2];
     assert!(cd.validate());
 
     // Songs should have been assigned default titles
-    assert_eq!(cd.get_song()[0].title, "course 1");
-    assert_eq!(cd.get_song()[1].title, "course 2");
+    assert_eq!(cd.hash[0].title, "course 1");
+    assert_eq!(cd.hash[1].title, "course 2");
 }
 
 #[test]
 fn validate_deduplicates_constraints_by_type() {
     let mut cd = CourseData::default();
     cd.set_name("Dedup Course".to_string());
-    cd.set_song(vec![make_song("Stage 1", "aaa111")]);
+    cd.hash = vec![make_song("Stage 1", "aaa111")];
 
     // Add multiple constraints of the same type (type 0: Class, Mirror, Random)
-    cd.set_constraint(vec![
+    cd.constraint = vec![
         CourseDataConstraint::Class,
         CourseDataConstraint::Mirror,     // same type as Class (type 0)
         CourseDataConstraint::NoSpeed,    // type 1
@@ -159,12 +159,12 @@ fn validate_deduplicates_constraints_by_type() {
         CourseDataConstraint::Gauge7Keys, // type 3
         CourseDataConstraint::Ln,         // type 4
         CourseDataConstraint::Cn,         // same type as Ln (type 4)
-    ]);
+    ];
 
     assert!(cd.validate());
 
     // After validation, only one constraint per type should remain
-    let constraints = cd.get_constraint();
+    let constraints = cd.constraint;
     assert_eq!(
         constraints.len(),
         5,
@@ -183,19 +183,19 @@ fn validate_deduplicates_constraints_by_type() {
 fn validate_removes_invalid_trophies() {
     let mut cd = CourseData::default();
     cd.set_name("Trophy Course".to_string());
-    cd.set_song(vec![make_song("Stage 1", "aaa111")]);
+    cd.hash = vec![make_song("Stage 1", "aaa111")];
 
     // Mix valid and invalid trophies
-    cd.set_trophy(vec![
+    cd.trophy = vec![
         TrophyData::new("Gold".to_string(), 5.0, 90.0), // valid
         TrophyData::new("Bad".to_string(), 0.0, 90.0),  // invalid: missrate <= 0
         TrophyData::new("Silver".to_string(), 10.0, 80.0), // valid
         TrophyData::new("Overflow".to_string(), 5.0, 100.0), // invalid: scorerate >= 100
-    ]);
+    ];
 
     assert!(cd.validate());
 
-    let trophies = cd.get_trophy();
+    let trophies = cd.trophy;
     assert_eq!(trophies.len(), 2, "Should keep only 2 valid trophies");
     assert_eq!(trophies[0].get_name(), "Gold");
     assert_eq!(trophies[1].get_name(), "Silver");
@@ -211,7 +211,7 @@ fn validate_fails_for_song_without_hash() {
     invalid_song.title = "No Hash".to_string();
     // md5 and sha256 are both empty
 
-    cd.set_song(vec![invalid_song]);
+    cd.hash = vec![invalid_song];
     assert!(
         !cd.validate(),
         "Course with unhashable song should fail validation"
@@ -226,22 +226,22 @@ fn validate_fails_for_song_without_hash() {
 fn course_data_full_serde_roundtrip() {
     let mut cd = CourseData::default();
     cd.set_name("Full Course".to_string());
-    cd.set_release(false);
-    cd.set_song(vec![
+    cd.release = false;
+    cd.hash = vec![
         make_song("Stage 1", "hash_a"),
         make_song("Stage 2", "hash_b"),
         make_song("Stage 3", "hash_c"),
-    ]);
-    cd.set_constraint(vec![
+    ];
+    cd.constraint = vec![
         CourseDataConstraint::Class,
         CourseDataConstraint::NoSpeed,
         CourseDataConstraint::Gauge7Keys,
         CourseDataConstraint::Ln,
-    ]);
-    cd.set_trophy(vec![
+    ];
+    cd.trophy = vec![
         TrophyData::new("Gold".to_string(), 3.0, 95.0),
         TrophyData::new("Silver".to_string(), 10.0, 85.0),
-    ]);
+    ];
 
     let json = serde_json::to_string_pretty(&cd).expect("Serialization should succeed");
     let restored: CourseData = serde_json::from_str(&json).expect("Deserialization should succeed");
@@ -253,28 +253,25 @@ fn course_data_full_serde_roundtrip() {
     assert!(!restored.release);
 
     // Verify songs
-    assert_eq!(restored.get_song().len(), 3);
-    assert_eq!(restored.get_song()[0].title, "Stage 1");
-    assert_eq!(restored.get_song()[0].md5, "hash_a");
-    assert_eq!(restored.get_song()[1].title, "Stage 2");
-    assert_eq!(restored.get_song()[2].title, "Stage 3");
+    assert_eq!(restored.hash.len(), 3);
+    assert_eq!(restored.hash[0].title, "Stage 1");
+    assert_eq!(restored.hash[0].md5, "hash_a");
+    assert_eq!(restored.hash[1].title, "Stage 2");
+    assert_eq!(restored.hash[2].title, "Stage 3");
 
     // Verify constraints
-    assert_eq!(restored.get_constraint().len(), 4);
-    assert_eq!(restored.get_constraint()[0], CourseDataConstraint::Class);
-    assert_eq!(restored.get_constraint()[1], CourseDataConstraint::NoSpeed);
-    assert_eq!(
-        restored.get_constraint()[2],
-        CourseDataConstraint::Gauge7Keys
-    );
-    assert_eq!(restored.get_constraint()[3], CourseDataConstraint::Ln);
+    assert_eq!(restored.constraint.len(), 4);
+    assert_eq!(restored.constraint[0], CourseDataConstraint::Class);
+    assert_eq!(restored.constraint[1], CourseDataConstraint::NoSpeed);
+    assert_eq!(restored.constraint[2], CourseDataConstraint::Gauge7Keys);
+    assert_eq!(restored.constraint[3], CourseDataConstraint::Ln);
 
     // Verify trophies
-    assert_eq!(restored.get_trophy().len(), 2);
-    assert_eq!(restored.get_trophy()[0].get_name(), "Gold");
-    assert_eq!(restored.get_trophy()[0].get_missrate(), 3.0);
-    assert_eq!(restored.get_trophy()[0].get_scorerate(), 95.0);
-    assert_eq!(restored.get_trophy()[1].get_name(), "Silver");
+    assert_eq!(restored.trophy.len(), 2);
+    assert_eq!(restored.trophy[0].get_name(), "Gold");
+    assert_eq!(restored.trophy[0].missrate, 3.0);
+    assert_eq!(restored.trophy[0].scorerate, 95.0);
+    assert_eq!(restored.trophy[1].get_name(), "Silver");
 }
 
 #[test]
@@ -285,9 +282,9 @@ fn course_data_empty_serde_roundtrip() {
     let restored: CourseData = serde_json::from_str(&json).unwrap();
 
     assert_eq!(restored.get_name(), "");
-    assert!(restored.get_song().is_empty());
-    assert!(restored.get_constraint().is_empty());
-    assert!(restored.get_trophy().is_empty());
+    assert!(restored.hash.is_empty());
+    assert!(restored.constraint.is_empty());
+    assert!(restored.trophy.is_empty());
     assert!(restored.release);
 }
 
@@ -335,8 +332,8 @@ fn trophy_data_serde_roundtrip() {
     let restored: TrophyData = serde_json::from_str(&json).unwrap();
 
     assert_eq!(restored.get_name(), "Platinum");
-    assert_eq!(restored.get_missrate(), 2.5);
-    assert_eq!(restored.get_scorerate(), 97.5);
+    assert_eq!(restored.missrate, 2.5);
+    assert_eq!(restored.scorerate, 97.5);
 }
 
 #[test]
@@ -371,23 +368,23 @@ fn end_to_end_course_pipeline() {
     // Step 1: Create a course with realistic data
     let mut cd = CourseData::default();
     cd.set_name("10th Dan".to_string());
-    cd.set_release(true);
-    cd.set_song(vec![
+    cd.release = true;
+    cd.hash = vec![
         make_song("FREEDOM DiVE", "abc123def456"),
         make_song("Blue Zenith", "789012abc345"),
         make_song("Yomi yori", "def678ghi901"),
         make_song("XTREME", "jkl234mno567"),
-    ]);
-    cd.set_constraint(vec![
+    ];
+    cd.constraint = vec![
         CourseDataConstraint::Class,
         CourseDataConstraint::NoSpeed,
         CourseDataConstraint::Gauge7Keys,
-    ]);
-    cd.set_trophy(vec![
+    ];
+    cd.trophy = vec![
         TrophyData::new("Clear".to_string(), 50.0, 10.0),
         TrophyData::new("Hard Clear".to_string(), 20.0, 50.0),
         TrophyData::new("Full Combo".to_string(), 1.0, 90.0),
-    ]);
+    ];
 
     // Step 2: Validate
     assert!(cd.validate(), "Well-formed course should pass validation");
@@ -402,15 +399,15 @@ fn end_to_end_course_pipeline() {
     // Step 5: Verify restored data
     assert_eq!(restored.get_name(), "10th Dan");
     assert!(restored.release);
-    assert_eq!(restored.get_song().len(), 4);
-    assert_eq!(restored.get_song()[0].title, "FREEDOM DiVE");
-    assert_eq!(restored.get_song()[3].md5, "jkl234mno567");
+    assert_eq!(restored.hash.len(), 4);
+    assert_eq!(restored.hash[0].title, "FREEDOM DiVE");
+    assert_eq!(restored.hash[3].md5, "jkl234mno567");
     assert!(restored.is_class_course());
 
     // Constraints should have been deduplicated to one per type
-    assert_eq!(restored.get_constraint().len(), 3);
+    assert_eq!(restored.constraint.len(), 3);
 
     // Trophies should all be valid
-    assert_eq!(restored.get_trophy().len(), 3);
-    assert_eq!(restored.get_trophy()[2].get_name(), "Full Combo");
+    assert_eq!(restored.trophy.len(), 3);
+    assert_eq!(restored.trophy[2].get_name(), "Full Combo");
 }

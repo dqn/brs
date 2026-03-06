@@ -117,7 +117,7 @@ impl IRConfigurationView {
             // IRConfig ir = irmap.get(s);
             if let Some(ir) = self.irmap.get(s) {
                 // if(ir != null && ir.getUserid().length() > 0) {
-                if !ir.get_userid().is_empty() {
+                if !ir.userid().is_empty() {
                     // if(s.equals(primary) ) {
                     if Some(s) == self.primary.as_ref() {
                         // irlist.add(0, ir);
@@ -201,9 +201,9 @@ impl IRConfigurationView {
         let ir = self.irmap.get(&current_name).cloned();
         if let Some(ref ir) = ir {
             // iruserid.setText(currentir.getUserid());
-            self.iruserid = ir.get_userid();
+            self.iruserid = ir.userid();
             // irpassword.setText(currentir.getPassword());
-            self.irpassword = ir.get_password();
+            self.irpassword = ir.password();
             // irsend.setValue(currentir.getIrsend());
             self.irsend = Some(ir.irsend);
             // importscore.setSelected(currentir.isImportscore());

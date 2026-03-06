@@ -790,7 +790,7 @@ impl MainController {
         if self.audio.is_none() {
             let driver_type = self
                 .config
-                .get_audio_config()
+                .audio_config()
                 .map(|ac| format!("{:?}", ac.driver))
                 .unwrap_or_else(|| "None".to_string());
             log::info!(
@@ -1374,7 +1374,7 @@ impl MainController {
             }
         );
         let update_path = if path.is_empty() { None } else { Some(path) };
-        let bmsroot = self.config.get_bmsroot().to_vec();
+        let bmsroot = self.config.bmsroot.to_vec();
         if let Some(ref songdb) = self.songdb {
             songdb.update_song_datas(update_path, &bmsroot, false, update_parent_when_missing);
         }
@@ -1686,7 +1686,7 @@ impl MainController {
     /// }
     /// ```
     pub fn trigger_ln_warning(&self) {
-        let ln_mode_name = match self.player.get_lnmode() {
+        let ln_mode_name = match self.player.lnmode {
             1 => "CN",
             2 => "HCN",
             _ => "LN",
@@ -2982,7 +2982,7 @@ mod tests {
     fn test_trigger_ln_warning_lnmode_0_is_ln_no_warning() {
         // lnmode=0 → "LN" → no warning (default)
         let mut mc = make_test_controller();
-        mc.player.set_lnmode(0);
+        mc.player.lnmode = 0;
         // Should not panic; "LN" mode does not trigger warning
         mc.trigger_ln_warning();
     }
@@ -2991,7 +2991,7 @@ mod tests {
     fn test_trigger_ln_warning_lnmode_1_is_cn() {
         // lnmode=1 → "CN" → warning triggered
         let mut mc = make_test_controller();
-        mc.player.set_lnmode(1);
+        mc.player.lnmode = 1;
         mc.trigger_ln_warning();
         // No assertion on log output, but should not panic
     }
@@ -3000,7 +3000,7 @@ mod tests {
     fn test_trigger_ln_warning_lnmode_2_is_hcn() {
         // lnmode=2 → "HCN" → warning triggered
         let mut mc = make_test_controller();
-        mc.player.set_lnmode(2);
+        mc.player.lnmode = 2;
         mc.trigger_ln_warning();
     }
 
@@ -3008,7 +3008,7 @@ mod tests {
     fn test_trigger_ln_warning_lnmode_3_is_ln_no_warning() {
         // lnmode=3 → default "LN" → no warning
         let mut mc = make_test_controller();
-        mc.player.set_lnmode(3);
+        mc.player.lnmode = 3;
         mc.trigger_ln_warning();
     }
 

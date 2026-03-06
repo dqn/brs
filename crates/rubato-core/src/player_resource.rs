@@ -168,7 +168,7 @@ impl PlayerResource {
     pub fn set_bms_file(&mut self, f: &Path, mode: BMSPlayerMode) -> bool {
         self.mode = Some(mode);
         self.replay = Some(ReplayData::new());
-        let result = Self::load_bms_model(f, self.pconfig.get_lnmode());
+        let result = Self::load_bms_model(f, self.pconfig.lnmode);
         if let Some((model, margin_time)) = result {
             if model.all_time_lines().is_empty() {
                 return false;
@@ -206,9 +206,7 @@ impl PlayerResource {
     pub fn reload_bms_file(&mut self) {
         if let Some(path_str) = self.get_bms_model().and_then(|m| m.path()) {
             let path = PathBuf::from(&path_str);
-            if let Some((model, margin_time)) =
-                Self::load_bms_model(&path, self.pconfig.get_lnmode())
-            {
+            if let Some((model, margin_time)) = Self::load_bms_model(&path, self.pconfig.lnmode) {
                 self.margin_time = margin_time;
                 let songdata = SongData::new_from_model(model, false);
                 self.songdata = Some(songdata);
@@ -303,7 +301,7 @@ impl PlayerResource {
     }
 
     pub fn set_course_bms_files(&mut self, files: &[PathBuf]) -> bool {
-        let lnmode = self.pconfig.get_lnmode();
+        let lnmode = self.pconfig.lnmode;
         let mut models = Vec::with_capacity(files.len());
         for f in files {
             match Self::load_bms_model(f, lnmode) {
@@ -442,7 +440,7 @@ impl PlayerResource {
 
     pub fn get_constraint(&self) -> Vec<CourseDataConstraint> {
         if let Some(ref cd) = self.coursedata {
-            cd.get_constraint().to_vec()
+            cd.constraint.to_vec()
         } else {
             Vec::new()
         }
@@ -591,14 +589,10 @@ impl PlayerResource {
         let Some(songdata) = self.songdata.as_ref() else {
             return Vec::new();
         };
-        let url_set: std::collections::HashSet<&str> = self
-            .config
-            .get_table_url()
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
+        let url_set: std::collections::HashSet<&str> =
+            self.config.table_url.iter().map(|s| s.as_str()).collect();
         let tdaccessor =
-            crate::table_data_accessor::TableDataAccessor::new(self.config.get_tablepath());
+            crate::table_data_accessor::TableDataAccessor::new(self.config.tablepath.as_str());
         let tds = tdaccessor.read_all();
         let mut result = Vec::new();
         for td in &tds {
@@ -623,14 +617,10 @@ impl PlayerResource {
         let Some(songdata) = self.songdata.as_ref() else {
             return Vec::new();
         };
-        let url_set: std::collections::HashSet<&str> = self
-            .config
-            .get_table_url()
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
+        let url_set: std::collections::HashSet<&str> =
+            self.config.table_url.iter().map(|s| s.as_str()).collect();
         let tdaccessor =
-            crate::table_data_accessor::TableDataAccessor::new(self.config.get_tablepath());
+            crate::table_data_accessor::TableDataAccessor::new(self.config.tablepath.as_str());
         let tds = tdaccessor.read_all();
         let mut result = Vec::new();
         for td in &tds {

@@ -92,10 +92,10 @@ impl SkinGauge {
             }
         }
 
-        self.value = gauge.get_value();
-        self.gauge_type = gauge.get_type();
-        let g = gauge.get_gauge_by_type(self.gauge_type);
-        let prop = g.get_property();
+        self.value = gauge.value();
+        self.gauge_type = gauge.gauge_type();
+        let g = gauge.gauge_by_type(self.gauge_type);
+        let prop = g.property();
         self.max = prop.max;
         self.border = prop.border;
     }

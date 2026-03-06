@@ -141,12 +141,12 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         use rubato_types::validatable::Validatable;
         let mut config = Config::read().unwrap_or_default();
         config.validate();
-        if config.get_bmsroot().is_empty() {
+        if config.bmsroot.is_empty() {
             warn!("No bmsroot configured - song scan will find nothing");
         }
         match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-            config.get_songpath(),
-            config.get_bmsroot(),
+            &config.songpath,
+            &config.bmsroot,
         ) {
             Ok(accessor) => {
                 // Scan BMS files and populate song.db so the select screen has songs.
@@ -154,8 +154,8 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
                 // In the launcher path this happens via the egui "Start" button, but in
                 // the direct play path we must do it here.
                 info!("Scanning BMS files from configured paths...");
-                accessor.update_song_datas(None, config.get_bmsroot(), false, false, None);
-                info!("Song database initialized: {}", config.get_songpath());
+                accessor.update_song_datas(None, &config.bmsroot, false, false, None);
+                info!("Song database initialized: {}", &config.songpath);
                 MainLoader::set_score_database_accessor(Box::new(accessor));
             }
             Err(e) => {
@@ -241,8 +241,8 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         // IPFS download processor (Java: lines 496-506)
         if config.enable_ipfs {
             match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-                config.get_songpath(),
-                config.get_bmsroot(),
+                &config.songpath,
+                &config.bmsroot,
             ) {
                 Ok(songdb) => {
                     let adapter = Arc::new(SongDbMusicDatabaseAdapter { songdb });
@@ -280,11 +280,11 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
             // The MainControllerRef adapter opens its own song DB connection so the background
             // download thread can call update_song() without borrowing MainController.
             match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-                config.get_songpath(),
-                config.get_bmsroot(),
+                &config.songpath,
+                &config.bmsroot,
             ) {
                 Ok(songdb) => {
-                    let bmsroot = config.get_bmsroot().to_vec();
+                    let bmsroot = config.bmsroot.clone();
                     let main_ref: Arc<dyn rubato_song::md_processor::MainControllerRef> =
                         Arc::new(SongDbMainControllerRef { songdb, bmsroot });
                     let processor = Arc::new(
@@ -334,8 +334,8 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         let config = main_controller.get_config();
         let mut selector =
             match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-                config.get_songpath(),
-                config.get_bmsroot(),
+                &config.songpath,
+                &config.bmsroot,
             ) {
                 Ok(db) => rubato_state::select::music_selector::MusicSelector::with_song_database(
                     Box::new(db),

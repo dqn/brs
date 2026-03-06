@@ -173,7 +173,7 @@ impl InputConfigurationView {
             .player
             .as_mut()
             .expect("player must be set before updateMode");
-        let conf: PlayModeConfig = player.get_play_config(bms_mode).clone();
+        let conf: PlayModeConfig = player.play_config(bms_mode).clone();
 
         // List<ControllerConfigViewModel> listControllerConfigViewModel = Arrays.asList(conf.getController()).stream()
         //     .map(config -> new ControllerConfigViewModel(config)).collect(Collectors.toList());
@@ -248,7 +248,7 @@ impl InputConfigurationView {
                 .player
                 .as_mut()
                 .expect("player must be set before commitMode");
-            let conf = player.get_play_config(bms_mode);
+            let conf = player.play_config(bms_mode);
 
             // conf.getKeyboardConfig().setDuration(inputduration.getValue());
             conf.keyboard.duration = self.inputduration;

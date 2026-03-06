@@ -325,7 +325,7 @@ impl Config {
         self.obs_ws_rec_stop_wait = wait.clamp(0, 10000);
     }
 
-    pub fn get_obs_scene(&self, state_name: &str) -> Option<&String> {
+    pub fn obs_scene(&self, state_name: &str) -> Option<&String> {
         self.obs_scenes.get(state_name)
     }
 
@@ -343,7 +343,7 @@ impl Config {
         }
     }
 
-    pub fn get_obs_action(&self, state_name: &str) -> Option<&String> {
+    pub fn obs_action(&self, state_name: &str) -> Option<&String> {
         self.obs_actions.get(state_name)
     }
 
@@ -361,7 +361,7 @@ impl Config {
         }
     }
 
-    pub fn get_playername(&self) -> Option<&str> {
+    pub fn playername(&self) -> Option<&str> {
         self.playername.as_deref()
     }
 
@@ -369,107 +369,7 @@ impl Config {
         self.set_clipboard_screenshot
     }
 
-    pub fn set_clipboard_when_screenshot(&mut self, value: bool) {
-        self.set_clipboard_screenshot = value;
-    }
-
-    pub fn get_scroll_duration_low(&self) -> i32 {
-        self.scrolldurationlow
-    }
-
-    pub fn set_scroll_duration_low(&mut self, value: i32) {
-        self.scrolldurationlow = value;
-    }
-
-    pub fn get_scroll_duration_high(&self) -> i32 {
-        self.scrolldurationhigh
-    }
-
-    pub fn set_scroll_duration_high(&mut self, value: i32) {
-        self.scrolldurationhigh = value;
-    }
-
-    pub fn get_webhook_option(&self) -> i32 {
-        self.webhook_option
-    }
-
-    pub fn get_webhook_url(&self) -> &[String] {
-        &self.webhook_url
-    }
-
-    pub fn get_webhook_name(&self) -> &str {
-        &self.webhook_name
-    }
-
-    pub fn get_webhook_avatar(&self) -> &str {
-        &self.webhook_avatar
-    }
-
-    pub fn get_bmsroot(&self) -> &[String] {
-        &self.bmsroot
-    }
-
-    pub fn get_table_url(&self) -> &[String] {
-        &self.table_url
-    }
-
-    pub fn get_songpath(&self) -> &str {
-        &self.songpath
-    }
-
-    pub fn get_songinfopath(&self) -> &str {
-        &self.songinfopath
-    }
-
-    pub fn get_tablepath(&self) -> &str {
-        &self.tablepath
-    }
-
-    pub fn get_playerpath(&self) -> &str {
-        &self.playerpath
-    }
-
-    pub fn get_skinpath(&self) -> &str {
-        &self.skinpath
-    }
-
-    pub fn get_bgmpath(&self) -> &str {
-        &self.bgmpath
-    }
-
-    pub fn get_soundpath(&self) -> &str {
-        &self.soundpath
-    }
-
-    pub fn get_systemfontpath(&self) -> &str {
-        &self.systemfontpath
-    }
-
-    pub fn get_messagefontpath(&self) -> &str {
-        &self.messagefontpath
-    }
-
-    pub fn get_max_frame_per_second(&self) -> i32 {
-        self.max_frame_per_second
-    }
-
-    pub fn get_max_search_bar_count(&self) -> i32 {
-        self.max_search_bar_count
-    }
-
-    pub fn get_bga(&self) -> i32 {
-        self.bga
-    }
-
-    pub fn get_bga_expand(&self) -> i32 {
-        self.bga_expand
-    }
-
-    pub fn get_frameskip(&self) -> i32 {
-        self.frameskip
-    }
-
-    pub fn get_override_download_url(&self) -> Option<&str> {
+    pub fn override_download_url(&self) -> Option<&str> {
         if self.override_download_url.is_empty() {
             None
         } else {
@@ -477,28 +377,12 @@ impl Config {
         }
     }
 
-    pub fn get_download_directory(&self) -> &str {
-        &self.download_directory
-    }
-
-    pub fn get_monitor_name(&self) -> &str {
-        &self.monitor_name
-    }
-
     pub fn is_analog_scroll(&self) -> bool {
         self.analog_scroll
     }
 
-    pub fn get_resolution(&self) -> Resolution {
-        self.resolution
-    }
-
-    pub fn get_audio_config(&self) -> Option<&AudioConfig> {
+    pub fn audio_config(&self) -> Option<&AudioConfig> {
         self.audio.as_ref()
-    }
-
-    pub fn get_song_resource_gen(&self) -> i32 {
-        self.song_resource_gen
     }
 
     pub fn get_config_json(config: &Config) -> anyhow::Result<String> {

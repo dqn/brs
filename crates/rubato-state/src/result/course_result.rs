@@ -182,7 +182,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
     fn get_current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
         let course = self.resource.get_course_data()?;
         let mut current_mode: Option<bms_model::mode::Mode> = None;
-        for song in course.get_song() {
+        for song in &course.hash {
             let song_mode = match song.mode {
                 5 => Some(bms_model::mode::Mode::BEAT_5K),
                 7 => Some(bms_model::mode::Mode::BEAT_7K),
@@ -202,10 +202,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
             }
         }
         Some(
-            self.resource
+            &self
+                .resource
                 .get_player_config()
-                .get_play_config_ref(current_mode?)
-                .get_playconfig(),
+                .play_config_ref(current_mode?)
+                .playconfig,
         )
     }
 
@@ -405,7 +406,7 @@ impl CourseResult {
             let gauge_type_length = self
                 .resource
                 .get_groove_gauge()
-                .map(|g| g.get_gauge_type_length())
+                .map(|g| g.gauge_type_length())
                 .unwrap_or(9);
             for model in &models[course_gauge_size..] {
                 let mut list: Vec<Vec<f32>> = Vec::with_capacity(gauge_type_length);
@@ -446,7 +447,7 @@ impl CourseResult {
         self.data.gauge_type = self
             .resource
             .get_groove_gauge()
-            .map(|g| g.get_type())
+            .map(|g| g.gauge_type())
             .unwrap_or(0);
 
         // loadSkin(SkinType.COURSE_RESULT)
@@ -496,7 +497,7 @@ impl CourseResult {
                         .get_course_data()
                         .map(|cd| cd.release)
                         .unwrap_or(false);
-                match irc.config.get_irsend() {
+                match irc.config.irsend {
                     IR_SEND_ALWAYS => {}
                     IR_SEND_COMPLETE_SONG => {
                         // commented out in Java

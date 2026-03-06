@@ -64,8 +64,8 @@ impl ObsListener {
 
         // Capture config values for PLAY state before entering async block,
         // since self (ObsListener) is not Send.
-        let play_scene = self.config.get_obs_scene("PLAY").cloned();
-        let play_action = self.config.get_obs_action("PLAY").cloned();
+        let play_scene = self.config.obs_scene("PLAY").cloned();
+        let play_action = self.config.obs_action("PLAY").cloned();
         let stop_wait = self.config.obs_ws_rec_stop_wait;
         let scheduled_stop_task = Arc::clone(&self.scheduled_stop_task);
 
@@ -150,8 +150,8 @@ impl ObsListener {
             return;
         }
 
-        let scene = self.config.get_obs_scene(state_name).cloned();
-        let action = self.config.get_obs_action(state_name).cloned();
+        let scene = self.config.obs_scene(state_name).cloned();
+        let action = self.config.obs_action(state_name).cloned();
 
         // If a StopRecord action was already scheduled, StopRecord immediately
         let stop_record_now = self.cancel_scheduled_stop();

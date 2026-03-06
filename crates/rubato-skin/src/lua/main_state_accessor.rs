@@ -250,7 +250,7 @@ impl MainStateAccessor {
                 let state = unsafe { &*sp.0 };
                 let vol = state
                     .get_config_ref()
-                    .and_then(|c| c.get_audio_config())
+                    .and_then(|c| c.audio_config())
                     .map(|a| a.systemvolume)
                     .unwrap_or(0.0);
                 Ok(vol as f64)
@@ -276,7 +276,7 @@ impl MainStateAccessor {
                 let state = unsafe { &*sp.0 };
                 let vol = state
                     .get_config_ref()
-                    .and_then(|c| c.get_audio_config())
+                    .and_then(|c| c.audio_config())
                     .map(|a| a.keyvolume)
                     .unwrap_or(0.0);
                 Ok(vol as f64)
@@ -302,7 +302,7 @@ impl MainStateAccessor {
                 let state = unsafe { &*sp.0 };
                 let vol = state
                     .get_config_ref()
-                    .and_then(|c| c.get_audio_config())
+                    .and_then(|c| c.audio_config())
                     .map(|a| a.bgvolume)
                     .unwrap_or(0.0);
                 Ok(vol as f64)
@@ -368,7 +368,7 @@ impl MainStateAccessor {
                     let state = unsafe { &mut *sp.0 };
                     let sys_vol = state
                         .get_config_ref()
-                        .and_then(|c| c.get_audio_config())
+                        .and_then(|c| c.audio_config())
                         .map(|a| a.systemvolume)
                         .unwrap_or(1.0);
                     state.audio_play(&path, sys_vol * vol, false);
@@ -389,7 +389,7 @@ impl MainStateAccessor {
                     let state = unsafe { &mut *sp.0 };
                     let sys_vol = state
                         .get_config_ref()
-                        .and_then(|c| c.get_audio_config())
+                        .and_then(|c| c.audio_config())
                         .map(|a| a.systemvolume)
                         .unwrap_or(1.0);
                     state.audio_play(&path, sys_vol * vol, true);

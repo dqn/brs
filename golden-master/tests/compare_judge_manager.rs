@@ -166,7 +166,7 @@ fn run_simulation(model: &BMSModel, tc: &JudgeTestCase) -> SimResult {
         score: jm.score().clone(),
         max_combo: jm.max_combo(),
         ghost: jm.ghost().to_vec(),
-        gauge_value: gauge.get_value(),
+        gauge_value: gauge.value(),
         gauge_qualified: gauge.is_qualified(),
         pass_notes: jm.past_notes(),
     }

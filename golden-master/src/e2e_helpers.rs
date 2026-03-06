@@ -112,7 +112,7 @@ pub fn run_autoplay_simulation(model: &BMSModel, gauge_type: i32) -> SimulationR
         score: jm.score().clone(),
         max_combo: jm.max_combo(),
         ghost: jm.ghost().to_vec(),
-        gauge_value: gauge.get_value(),
+        gauge_value: gauge.value(),
         gauge_qualified: gauge.is_qualified(),
     }
 }
@@ -226,7 +226,7 @@ pub fn run_manual_simulation(
         score: jm.score().clone(),
         max_combo: jm.max_combo(),
         ghost: jm.ghost().to_vec(),
-        gauge_value: gauge.get_value(),
+        gauge_value: gauge.value(),
         gauge_qualified: gauge.is_qualified(),
     }
 }
@@ -313,7 +313,7 @@ pub fn run_course_simulation(models: &[&BMSModel], gauge_type: i32) -> CourseSim
             score: jm.score().clone(),
             max_combo: jm.max_combo(),
             ghost: jm.ghost().to_vec(),
-            gauge_value: gauge.get_value(),
+            gauge_value: gauge.value(),
             gauge_qualified: gauge.is_qualified(),
         };
 
@@ -428,7 +428,7 @@ pub fn run_course_simulation_manual(
             score: jm.score().clone(),
             max_combo: jm.max_combo(),
             ghost: jm.ghost().to_vec(),
-            gauge_value: gauge.get_value(),
+            gauge_value: gauge.value(),
             gauge_qualified: gauge.is_qualified(),
         };
 

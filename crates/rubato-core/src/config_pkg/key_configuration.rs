@@ -303,11 +303,11 @@ impl KeyConfiguration {
         default: Option<&str>,
     ) -> Option<String> {
         let result = if index >= 0 {
-            msc.get_key_string(index as usize)
+            msc.key_string(index as usize)
         } else if index == -1 {
-            msc.get_start_string()
+            msc.start_string()
         } else if index == -2 {
-            msc.get_select_string()
+            msc.select_string()
         } else {
             None
         };

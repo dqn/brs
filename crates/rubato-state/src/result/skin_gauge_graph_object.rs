@@ -233,8 +233,8 @@ impl SkinGaugeGraphObject {
                 }
             }
             if let Some(groove_gauge) = resource.get_groove_gauge() {
-                let gauge = groove_gauge.get_gauge_by_type(self.current_type);
-                let prop = gauge.get_property();
+                let gauge = groove_gauge.gauge_by_type(self.current_type);
+                let prop = gauge.property();
                 self.gg = Some(GaugeRef {
                     border: prop.border,
                     max: prop.max,

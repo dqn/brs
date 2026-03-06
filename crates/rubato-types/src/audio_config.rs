@@ -61,7 +61,6 @@ impl Default for AudioConfig {
     }
 }
 
-// Compatibility getters for stub API
 impl AudioConfig {
     pub fn is_normalize_volume(&self) -> bool {
         self.normalize_volume
@@ -69,18 +68,6 @@ impl AudioConfig {
 
     pub fn get_driver_name(&self) -> Option<&str> {
         self.driver_name.as_deref()
-    }
-
-    pub fn get_sample_rate(&self) -> i32 {
-        self.sample_rate
-    }
-
-    pub fn get_device_buffer_size(&self) -> i32 {
-        self.device_buffer_size
-    }
-
-    pub fn get_device_simultaneous_sources(&self) -> i32 {
-        self.device_simultaneous_sources
     }
 }
 

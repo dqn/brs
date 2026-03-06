@@ -145,7 +145,7 @@ impl LauncherUi {
         for state in &obs_state_types {
             let name = format!("{:?}", state);
             obs_states.push(name.clone());
-            let scene = config.get_obs_scene(&name).cloned().unwrap_or_default();
+            let scene = config.obs_scene(&name).cloned().unwrap_or_default();
             obs_scene_selections.insert(
                 name.clone(),
                 if scene.is_empty() {
@@ -155,17 +155,14 @@ impl LauncherUi {
                 },
             );
             let action_label = config
-                .get_obs_action(&name)
+                .obs_action(&name)
                 .and_then(|a| rubato_external::obs::obs_ws_client::get_action_label(a))
                 .unwrap_or_else(|| ACTION_NONE.to_string());
             obs_action_selections.insert(name.clone(), action_label);
 
             if name == "Play" {
                 obs_states.push("PLAY_ENDED".to_string());
-                let scene_ended = config
-                    .get_obs_scene("PLAY_ENDED")
-                    .cloned()
-                    .unwrap_or_default();
+                let scene_ended = config.obs_scene("PLAY_ENDED").cloned().unwrap_or_default();
                 obs_scene_selections.insert(
                     "PLAY_ENDED".to_string(),
                     if scene_ended.is_empty() {
@@ -175,7 +172,7 @@ impl LauncherUi {
                     },
                 );
                 let action_ended = config
-                    .get_obs_action("PLAY_ENDED")
+                    .obs_action("PLAY_ENDED")
                     .and_then(|a| rubato_external::obs::obs_ws_client::get_action_label(a))
                     .unwrap_or_else(|| ACTION_NONE.to_string());
                 obs_action_selections.insert("PLAY_ENDED".to_string(), action_ended);
@@ -502,7 +499,7 @@ impl LauncherUi {
         ui.heading("Input Configuration");
 
         let mode = self.current_mode();
-        let pmc = self.player.get_play_config(mode);
+        let pmc = self.player.play_config(mode);
 
         // Keyboard settings
         ui.label("Keyboard");
@@ -836,8 +833,8 @@ impl LauncherUi {
     /// Java equivalent: IRConfigurationView.updateIRConnection() load-side.
     fn load_ir_buffers(&mut self, idx: usize) {
         if let Some(Some(ir)) = self.player.irconfig.get(idx) {
-            self.ir_userid_buf = ir.get_userid();
-            self.ir_password_buf = ir.get_password();
+            self.ir_userid_buf = ir.userid();
+            self.ir_password_buf = ir.password();
         } else {
             self.ir_userid_buf.clear();
             self.ir_password_buf.clear();

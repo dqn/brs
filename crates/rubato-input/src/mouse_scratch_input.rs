@@ -127,23 +127,23 @@ impl MouseScratchInput {
     }
 
     pub fn set_config(&mut self, config: &KeyboardConfig) {
-        let msconfig = config.get_mouse_scratch_config();
-        self.keys = msconfig.get_key_assign().to_vec();
-        self._duration = config.get_duration();
-        self.control = vec![msconfig.get_start(), msconfig.get_select()];
+        let msconfig = &config.mouse_scratch_config;
+        self.keys = msconfig.keys.to_vec();
+        self._duration = config.duration;
+        self.control = vec![msconfig.start, msconfig.select];
 
         self.mouse_scratch_enabled = msconfig.is_mouse_scratch_enabled();
-        self._mouse_scratch_time_threshold = msconfig.get_mouse_scratch_time_threshold();
-        self._mouse_scratch_distance = msconfig.get_mouse_scratch_distance();
+        self._mouse_scratch_time_threshold = msconfig.mouse_scratch_time_threshold;
+        self._mouse_scratch_distance = msconfig.mouse_scratch_distance;
         if self.mouse_scratch_enabled {
-            let mouse_to_analog = MouseToAnalog::new(msconfig.get_mouse_scratch_distance());
+            let mouse_to_analog = MouseToAnalog::new(msconfig.mouse_scratch_distance);
             for i in 0..self.mouse_scratch_algorithm.len() {
                 let x_axis = i == 0;
-                match msconfig.get_mouse_scratch_mode() {
+                match msconfig.mouse_scratch_mode {
                     MouseScratchConfig::MOUSE_SCRATCH_VER_1 => {
                         self.mouse_scratch_algorithm[i] =
                             Some(Box::new(MouseScratchAlgorithmVersion1::new(
-                                msconfig.get_mouse_scratch_time_threshold(),
+                                msconfig.mouse_scratch_time_threshold,
                                 &mouse_to_analog,
                                 x_axis,
                             )));
@@ -151,7 +151,7 @@ impl MouseScratchInput {
                     MouseScratchConfig::MOUSE_SCRATCH_VER_2 => {
                         self.mouse_scratch_algorithm[i] =
                             Some(Box::new(MouseScratchAlgorithmVersion2::new(
-                                msconfig.get_mouse_scratch_time_threshold(),
+                                msconfig.mouse_scratch_time_threshold,
                                 &mouse_to_analog,
                                 x_axis,
                             )));
