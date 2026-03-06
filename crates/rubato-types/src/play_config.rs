@@ -108,12 +108,12 @@ impl PlayConfig {
         self.hispeedautoadjust
     }
 
-    pub fn judgetype(&self) -> String {
+    pub fn judgetype(&self) -> &str {
         for alg in JudgeAlgorithm::values() {
             if alg.name() == self.judgetype {
-                return self.judgetype.clone();
+                return &self.judgetype;
             }
         }
-        "Combo".to_string()
+        "Combo"
     }
 }

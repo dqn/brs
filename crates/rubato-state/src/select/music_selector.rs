@@ -1093,10 +1093,10 @@ impl MusicSelector {
                         && table_urls.iter().any(|u| u == url)
                     {
                         is_dtable = true;
-                        tablename = Some(bar.title());
+                        tablename = Some(bar.title().to_owned());
                     }
                     if bar.as_hash_bar().is_some() && is_dtable {
-                        tablelevel = Some(bar.title());
+                        tablelevel = Some(bar.title().to_owned());
                         break;
                     }
                 }

@@ -340,7 +340,7 @@ impl BarManager {
         mut ctx: Option<&mut UpdateBarContext>,
     ) -> bool {
         let prevbar_title = if !self.currentsongs.is_empty() {
-            Some(self.currentsongs[self.selectedindex].title())
+            Some(self.currentsongs[self.selectedindex].title().to_owned())
         } else {
             None
         };
@@ -429,7 +429,7 @@ impl BarManager {
                     if let Some(sb) = self.sourcebars.pop()
                         && let Some(sb) = sb
                     {
-                        sourcebar_title = Some(sb.title());
+                        sourcebar_title = Some(sb.title().to_owned());
                         sourcebar_sha256 = sb
                             .as_song_bar()
                             .filter(|s| s.exists_song())
@@ -480,10 +480,10 @@ impl BarManager {
             {
                 let mut ds = String::new();
                 for d in &self.dir {
-                    ds.push_str(&d.title());
+                    ds.push_str(d.title());
                     ds.push_str(" > ");
                 }
-                ds.push_str(&bar.title());
+                ds.push_str(bar.title());
                 ds.push_str(" > ");
                 for r in &self.random_course_result {
                     if r.dir_string == ds {
@@ -739,7 +739,7 @@ impl BarManager {
             // Build directory string
             let mut dir_str = String::new();
             for d in &self.dir {
-                dir_str.push_str(&d.title());
+                dir_str.push_str(d.title());
                 dir_str.push_str(" > ");
             }
             self.dir_string = dir_str;

@@ -11,6 +11,8 @@ pub struct SongBar {
     pub selectable: SelectableBarData,
     /// Song data
     pub song: SongData,
+    /// Cached title (computed from song.full_title())
+    title: String,
     /// Banner data
     pub banner: Option<Pixmap>,
     /// Stage file data
@@ -19,8 +21,10 @@ pub struct SongBar {
 
 impl SongBar {
     pub fn new(song: SongData) -> Self {
+        let title = song.full_title();
         Self {
             selectable: SelectableBarData::default(),
+            title,
             song,
             banner: None,
             stagefile: None,
@@ -51,8 +55,8 @@ impl SongBar {
         self.stagefile = stagefile;
     }
 
-    pub fn title(&self) -> String {
-        self.song.full_title()
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     pub fn lamp(&self, is_player: bool) -> i32 {

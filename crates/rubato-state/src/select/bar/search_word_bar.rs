@@ -45,8 +45,8 @@ impl SearchWordBar {
             .update_folder_status_with_songs(&songs, None, |_| None);
     }
 
-    pub fn title(&self) -> String {
-        self.title.clone()
+    pub fn title(&self) -> &str {
+        &self.title
     }
 }
 

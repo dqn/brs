@@ -35,8 +35,8 @@ impl CommandBar {
         }
     }
 
-    pub fn title(&self) -> String {
-        self.title.clone()
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     /// Get children bars by executing SQL query against the song database.

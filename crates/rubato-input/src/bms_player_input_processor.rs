@@ -63,8 +63,8 @@ impl KeyLogger {
         self.poolindex = 0;
     }
 
-    pub fn to_array(&self) -> Vec<KeyInputLog> {
-        self.keylog.clone()
+    pub fn to_array(&self) -> &[KeyInputLog] {
+        &self.keylog
     }
 }
 
@@ -486,7 +486,7 @@ impl BMSPlayerInputProcessor {
         d_ticks
     }
 
-    pub fn key_input_log(&self) -> Vec<KeyInputLog> {
+    pub fn key_input_log(&self) -> &[KeyInputLog] {
         self.keylog.to_array()
     }
 

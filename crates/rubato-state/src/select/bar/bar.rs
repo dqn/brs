@@ -74,7 +74,7 @@ pub enum Bar {
 }
 
 impl Bar {
-    pub fn title(&self) -> String {
+    pub fn title(&self) -> &str {
         bar_dispatch!(self, title)
     }
 

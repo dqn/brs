@@ -9,14 +9,21 @@ use crate::select::stubs::*;
 pub struct FolderBar {
     pub directory: DirectoryBarData,
     pub folder: Option<FolderData>,
+    /// Cached title (computed from folder.title())
+    title: String,
     pub crc: String,
 }
 
 impl FolderBar {
     pub fn new(folder: Option<FolderData>, crc: String) -> Self {
+        let title = folder
+            .as_ref()
+            .map(|f| f.title().to_string())
+            .unwrap_or_default();
         Self {
             directory: DirectoryBarData::default(),
             folder,
+            title,
             crc,
         }
     }
@@ -29,11 +36,8 @@ impl FolderBar {
         &self.crc
     }
 
-    pub fn title(&self) -> String {
-        self.folder
-            .as_ref()
-            .map(|f| f.title().to_string())
-            .unwrap_or_default()
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     /// Get children bars for this folder.

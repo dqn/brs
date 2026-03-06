@@ -191,7 +191,7 @@ impl MusicSelectCommand {
                             .filter(|sd| seen.insert(sd.sha256.clone()))
                             .map(|sd| Bar::Song(Box::new(SongBar::new(sd.clone()))))
                             .collect();
-                        let container = ContainerBar::new(current.title(), songbars);
+                        let container = ContainerBar::new(current.title().to_owned(), songbars);
                         let bar = Bar::Container(Box::new(container));
                         selector.update_bar_with_songdb_context(Some(&bar));
                         selector.play_sound(SoundType::FolderOpen);
@@ -252,7 +252,7 @@ impl MusicSelectCommand {
                     if !content.is_empty()
                         && let Ok(mut clipboard) = arboard::Clipboard::new()
                     {
-                        let _ = clipboard.set_text(content.clone());
+                        let _ = clipboard.set_text(content);
                         ImGuiNotify::info(&format!("Copied highlighted menu text: {}", content));
                     }
                 }
