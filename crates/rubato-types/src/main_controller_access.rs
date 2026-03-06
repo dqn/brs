@@ -42,21 +42,28 @@ pub struct MainControllerCommandQueue {
     inner: Arc<Mutex<Vec<MainControllerCommand>>>,
 }
 
+fn lock_or_recover<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    match mutex.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
+
 impl MainControllerCommandQueue {
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn push(&self, command: MainControllerCommand) {
-        self.inner.lock().unwrap().push(command);
+        lock_or_recover(&self.inner).push(command);
     }
 
     pub fn drain(&self) -> Vec<MainControllerCommand> {
-        std::mem::take(&mut *self.inner.lock().unwrap())
+        std::mem::take(&mut *lock_or_recover(&self.inner))
     }
 
     pub fn is_empty(&self) -> bool {
-        self.inner.lock().unwrap().is_empty()
+        lock_or_recover(&self.inner).is_empty()
     }
 }
 
@@ -345,5 +352,24 @@ impl MainControllerAccess for ConfigMainControllerAccess {
     }
     fn get_player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_queue_recovers_after_poison() {
+        let queue = MainControllerCommandQueue::new();
+        let poisoned = queue.clone();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = poisoned.inner.lock().unwrap();
+            panic!("poison queue");
+        }));
+
+        queue.push(MainControllerCommand::Exit);
+        assert!(!queue.is_empty());
+        assert_eq!(queue.drain().len(), 1);
     }
 }

@@ -54,8 +54,15 @@ struct QueuedControllerAccess {
     active_audio_paths: HashSet<String>,
 }
 
+fn ensure_controller_ranking_cache(controller: &mut MainController) {
+    if controller.get_ranking_data_cache().is_none() {
+        controller.set_ranking_data_cache(Box::new(RankingDataCache::new()));
+    }
+}
+
 impl QueuedControllerAccess {
-    fn from_controller(controller: &MainController, commands: MainControllerCommandQueue) -> Self {
+    fn from_controller(controller: &mut MainController, commands: MainControllerCommandQueue) -> Self {
+        ensure_controller_ranking_cache(controller);
         let config = controller.get_config().clone();
         let player_config = controller.get_player_config().clone();
         let ir_connection = controller.get_ir_connection_any().and_then(|any| {
@@ -65,6 +72,10 @@ impl QueuedControllerAccess {
         let rivals = (0..controller.get_rival_count())
             .filter_map(|i| controller.get_rival_information(i))
             .collect();
+        let ranking_data_cache = controller
+            .get_ranking_data_cache()
+            .map(|cache| cache.clone_box())
+            .unwrap_or_else(|| Box::new(RankingDataCache::new()));
 
         Self {
             sound: SystemSoundManager::new(
@@ -72,7 +83,7 @@ impl QueuedControllerAccess {
                 Some(config.soundpath.as_str()),
             ),
             play_data_accessor: PlayDataAccessor::new(&config),
-            ranking_data_cache: Box::new(RankingDataCache::new()),
+            ranking_data_cache,
             ipfs_download_alive: controller.is_ipfs_download_alive(),
             http_downloader: controller.clone_http_download_processor(),
             config,
@@ -285,7 +296,7 @@ impl MainControllerAccess for QueuedControllerAccess {
 }
 
 pub fn new_state_main_controller_access(
-    controller: &MainController,
+    controller: &mut MainController,
 ) -> Box<dyn MainControllerAccess + Send> {
     Box::new(QueuedControllerAccess::from_controller(
         controller,
@@ -412,6 +423,10 @@ impl MainState for SharedMusicSelectorState {
         self.with_selector(|selector| selector.input());
     }
 
+    fn sync_audio(&mut self, audio: &mut dyn rubato_audio::audio_driver::AudioDriver) {
+        self.with_selector(|selector| selector.sync_audio(audio));
+    }
+
     fn pause(&mut self) {
         self.with_selector(|selector| selector.pause());
     }
@@ -422,6 +437,14 @@ impl MainState for SharedMusicSelectorState {
 
     fn resize(&mut self, width: i32, height: i32) {
         self.with_selector(|selector| selector.resize(width, height));
+    }
+
+    fn handle_skin_mouse_pressed(&mut self, button: i32, x: i32, y: i32) {
+        self.with_selector(|selector| selector.handle_skin_mouse_pressed(button, x, y));
+    }
+
+    fn handle_skin_mouse_dragged(&mut self, button: i32, x: i32, y: i32) {
+        self.with_selector(|selector| selector.handle_skin_mouse_dragged(button, x, y));
     }
 
     fn dispose(&mut self) {
@@ -748,7 +771,13 @@ impl StateFactory for LauncherStateFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ::bms_model::bms_model::BMSModel;
+    use ::bms_model::note::Note;
+    use rubato_audio::audio_driver::AudioDriver;
+    use rubato_ir::ranking_data::RankingData;
     use rubato_core::sprite_batch_helper::SpriteBatchHelper;
+    use rubato_state::select::preview_music_processor::PreviewMusicProcessor;
+    use rubato_types::song_data::SongData;
     use rubato_types::skin_render_context::SkinRenderContext;
     use std::sync::{Arc, Mutex};
 
@@ -773,6 +802,111 @@ mod tests {
             _y: i32,
         ) {
         }
+        fn prepare_skin(&mut self) {}
+        fn dispose_skin(&mut self) {}
+        fn get_fadeout(&self) -> i32 {
+            0
+        }
+        fn get_input(&self) -> i32 {
+            0
+        }
+        fn get_scene(&self) -> i32 {
+            0
+        }
+        fn get_width(&self) -> f32 {
+            0.0
+        }
+        fn get_height(&self) -> f32 {
+            0.0
+        }
+        fn swap_sprite_batch(
+            &mut self,
+            _batch: &mut rubato_core::sprite_batch_helper::SpriteBatch,
+        ) {
+        }
+    }
+
+    struct MockAudioDriver {
+        play_count: usize,
+    }
+
+    impl MockAudioDriver {
+        fn new() -> Self {
+            Self { play_count: 0 }
+        }
+    }
+
+    impl AudioDriver for MockAudioDriver {
+        fn play_path(&mut self, _path: &str, _volume: f32, _loop_play: bool) {
+            self.play_count += 1;
+        }
+
+        fn set_volume_path(&mut self, _path: &str, _volume: f32) {}
+
+        fn is_playing_path(&self, _path: &str) -> bool {
+            false
+        }
+
+        fn stop_path(&mut self, _path: &str) {}
+
+        fn dispose_path(&mut self, _path: &str) {}
+
+        fn set_model(&mut self, _model: &BMSModel) {}
+
+        fn set_additional_key_sound(&mut self, _judge: i32, _fast: bool, _path: Option<&str>) {}
+
+        fn abort(&mut self) {}
+
+        fn get_progress(&self) -> f32 {
+            1.0
+        }
+
+        fn play_note(&mut self, _n: &Note, _volume: f32, _pitch: i32) {}
+
+        fn play_judge(&mut self, _judge: i32, _fast: bool) {}
+
+        fn stop_note(&mut self, _n: Option<&Note>) {}
+
+        fn set_volume_note(&mut self, _n: &Note, _volume: f32) {}
+
+        fn set_global_pitch(&mut self, _pitch: f32) {}
+
+        fn get_global_pitch(&self) -> f32 {
+            1.0
+        }
+
+        fn dispose_old(&mut self) {}
+
+        fn dispose(&mut self) {}
+    }
+
+    struct ChangeStateSkin;
+
+    impl rubato_core::main_state::SkinDrawable for ChangeStateSkin {
+        fn draw_all_objects_timed(&mut self, _ctx: &mut dyn SkinRenderContext) {}
+
+        fn update_custom_objects_timed(&mut self, _ctx: &mut dyn SkinRenderContext) {}
+
+        fn mouse_pressed_at(
+            &mut self,
+            ctx: &mut dyn SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+            ctx.change_state(MainStateType::Config);
+        }
+
+        fn mouse_dragged_at(
+            &mut self,
+            ctx: &mut dyn SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+            ctx.change_state(MainStateType::SkinConfig);
+        }
+
         fn prepare_skin(&mut self) {}
         fn dispose_skin(&mut self) {}
         fn get_fadeout(&self) -> i32 {
@@ -980,9 +1114,9 @@ mod tests {
 
     #[test]
     fn queued_controller_access_enqueues_side_effect_commands() {
-        let controller = make_test_controller();
+        let mut controller = make_test_controller();
         let queue = controller.controller_command_queue();
-        let mut access = QueuedControllerAccess::from_controller(&controller, queue.clone());
+        let mut access = QueuedControllerAccess::from_controller(&mut controller, queue.clone());
 
         access.change_state(MainStateType::Play);
         access.play_sound(&SoundType::Decide, false);
@@ -1031,6 +1165,51 @@ mod tests {
         assert!(shared.main_state_data().skin.is_some());
     }
 
+    #[test]
+    fn shared_music_selector_state_delegates_sync_audio() {
+        let config = Config::default();
+        let mut selector = MusicSelector::with_config(config.clone());
+        let mut preview = PreviewMusicProcessor::new(&config);
+        preview.set_default("/bgm/default.ogg");
+        preview.start(None);
+        selector.preview = Some(preview);
+
+        let mut shared = SharedMusicSelectorState::new(Arc::new(Mutex::new(selector)));
+        let mut audio = MockAudioDriver::new();
+
+        shared.sync_audio(&mut audio);
+
+        assert_eq!(audio.play_count, 1);
+    }
+
+    #[test]
+    fn shared_music_selector_state_delegates_skin_mouse_pressed() {
+        let mut selector = MusicSelector::new();
+        selector.main_state_data.skin = Some(Box::new(ChangeStateSkin));
+        let mut shared = SharedMusicSelectorState::new(Arc::new(Mutex::new(selector)));
+
+        <SharedMusicSelectorState as MainState>::handle_skin_mouse_pressed(&mut shared, 0, 32, 48);
+
+        assert_eq!(
+            shared.take_pending_state_change(),
+            Some(MainStateType::Config)
+        );
+    }
+
+    #[test]
+    fn shared_music_selector_state_delegates_skin_mouse_dragged() {
+        let mut selector = MusicSelector::new();
+        selector.main_state_data.skin = Some(Box::new(ChangeStateSkin));
+        let mut shared = SharedMusicSelectorState::new(Arc::new(Mutex::new(selector)));
+
+        <SharedMusicSelectorState as MainState>::handle_skin_mouse_dragged(&mut shared, 0, 32, 48);
+
+        assert_eq!(
+            shared.take_pending_state_change(),
+            Some(MainStateType::SkinConfig)
+        );
+    }
+
     struct MockHttpDownloadSubmitter {
         submitted: Arc<Mutex<Vec<(String, String)>>>,
     }
@@ -1052,7 +1231,7 @@ mod tests {
             submitted: Arc::clone(&submitted),
         }));
         let queue = controller.controller_command_queue();
-        let access = QueuedControllerAccess::from_controller(&controller, queue);
+        let access = QueuedControllerAccess::from_controller(&mut controller, queue);
 
         let downloader = access
             .get_http_downloader()
@@ -1062,6 +1241,31 @@ mod tests {
         assert_eq!(
             &*submitted.lock().unwrap(),
             &[("deadbeef".to_string(), "Song".to_string())]
+        );
+    }
+
+    #[test]
+    fn queued_controller_access_shares_ranking_cache_with_controller() {
+        let mut controller = make_test_controller();
+        controller.set_ranking_data_cache(Box::new(RankingDataCache::new()));
+        let queue = controller.controller_command_queue();
+        let mut access = QueuedControllerAccess::from_controller(&mut controller, queue);
+        let song = SongData::default();
+
+        access
+            .get_ranking_data_cache_mut()
+            .expect("queued access should expose ranking cache")
+            .put_song_any(&song, 0, Box::new(RankingData::new()));
+
+        let cached = controller
+            .get_ranking_data_cache()
+            .expect("controller should expose ranking cache")
+            .get_song_any(&song, 0)
+            .and_then(|any| any.downcast::<RankingData>().ok())
+            .map(|ranking| *ranking);
+        assert!(
+            cached.is_some(),
+            "queued access should write into the controller-backed ranking cache"
         );
     }
 

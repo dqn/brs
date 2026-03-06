@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use log::warn;
 use sha2::{Digest, Sha256};
@@ -14,11 +15,23 @@ use crate::ranking_data::RankingData;
 /// IR access data cache
 ///
 /// Translated from: RankingDataCache.java
+#[derive(Clone)]
 pub struct RankingDataCache {
+    inner: Arc<Mutex<RankingDataCacheInner>>,
+}
+
+struct RankingDataCacheInner {
     /// Score cache: indexed by lnmode (0-3)
     scorecache: [HashMap<String, RankingData>; 4],
     /// Course score cache: indexed by lnmode (0-3)
     cscorecache: [HashMap<String, RankingData>; 4],
+}
+
+fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    match mutex.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
 }
 
 impl Default for RankingDataCache {
@@ -30,42 +43,61 @@ impl Default for RankingDataCache {
 impl RankingDataCache {
     pub fn new() -> Self {
         Self {
-            scorecache: [
-                HashMap::with_capacity(2000),
-                HashMap::with_capacity(2000),
-                HashMap::with_capacity(2000),
-                HashMap::with_capacity(2000),
-            ],
-            cscorecache: [
-                HashMap::with_capacity(100),
-                HashMap::with_capacity(100),
-                HashMap::with_capacity(100),
-                HashMap::with_capacity(100),
-            ],
+            inner: Arc::new(Mutex::new(RankingDataCacheInner {
+                scorecache: [
+                    HashMap::with_capacity(2000),
+                    HashMap::with_capacity(2000),
+                    HashMap::with_capacity(2000),
+                    HashMap::with_capacity(2000),
+                ],
+                cscorecache: [
+                    HashMap::with_capacity(100),
+                    HashMap::with_capacity(100),
+                    HashMap::with_capacity(100),
+                    HashMap::with_capacity(100),
+                ],
+            })),
         }
     }
 
-    /// Get ranking data for a song with given LN mode. Returns None if not found.
-    pub fn get_song(&self, song: &SongData, lnmode: i32) -> Option<&RankingData> {
-        let cacheindex = if song.has_undefined_long_note() {
+    fn song_cache_index(song: &SongData, lnmode: i32) -> usize {
+        if song.has_undefined_long_note() {
             lnmode as usize
         } else {
             3
-        };
-        let sha256 = song.sha256.clone();
-        self.scorecache[cacheindex].get(&sha256)
+        }
     }
 
-    /// Get ranking data for a course with given LN mode. Returns None if not found.
-    pub fn get_course(&self, course: &CourseData, lnmode: i32) -> Option<&RankingData> {
+    fn course_cache_index(course: &CourseData, lnmode: i32) -> usize {
         let mut cacheindex = 3usize;
         for song in course.get_song() {
             if song.has_undefined_long_note() {
                 cacheindex = lnmode as usize;
             }
         }
+        cacheindex
+    }
+
+    /// Get ranking data for a song with given LN mode. Returns None if not found.
+    pub fn get_song(&self, song: &SongData, lnmode: i32) -> Option<RankingData> {
+        let cacheindex = if song.has_undefined_long_note() {
+            lnmode as usize
+        } else {
+            3
+        };
+        let sha256 = song.sha256.clone();
+        lock_or_recover(&self.inner).scorecache[cacheindex]
+            .get(&sha256)
+            .cloned()
+    }
+
+    /// Get ranking data for a course with given LN mode. Returns None if not found.
+    pub fn get_course(&self, course: &CourseData, lnmode: i32) -> Option<RankingData> {
+        let cacheindex = Self::course_cache_index(course, lnmode);
         if let Some(hash) = self.create_course_hash(course) {
-            self.cscorecache[cacheindex].get(&hash)
+            lock_or_recover(&self.inner).cscorecache[cacheindex]
+                .get(&hash)
+                .cloned()
         } else {
             None
         }
@@ -73,25 +105,16 @@ impl RankingDataCache {
 
     /// Put ranking data for a song with given LN mode.
     pub fn put_song(&mut self, song: &SongData, lnmode: i32, iras: RankingData) {
-        let cacheindex = if song.has_undefined_long_note() {
-            lnmode as usize
-        } else {
-            3
-        };
+        let cacheindex = Self::song_cache_index(song, lnmode);
         let sha256 = song.sha256.clone();
-        self.scorecache[cacheindex].insert(sha256, iras);
+        lock_or_recover(&self.inner).scorecache[cacheindex].insert(sha256, iras);
     }
 
     /// Put ranking data for a course with given LN mode.
     pub fn put_course(&mut self, course: &CourseData, lnmode: i32, iras: RankingData) {
-        let mut cacheindex = 3usize;
-        for song in course.get_song() {
-            if song.has_undefined_long_note() {
-                cacheindex = lnmode as usize;
-            }
-        }
+        let cacheindex = Self::course_cache_index(course, lnmode);
         if let Some(hash) = self.create_course_hash(course) {
-            self.cscorecache[cacheindex].insert(hash, iras);
+            lock_or_recover(&self.inner).cscorecache[cacheindex].insert(hash, iras);
         }
     }
 
@@ -116,12 +139,18 @@ impl RankingDataCache {
 }
 
 impl RankingDataCacheAccess for RankingDataCache {
-    fn get_song_any(&self, song: &SongData, lnmode: i32) -> Option<&dyn Any> {
-        self.get_song(song, lnmode).map(|r| r as &dyn Any)
+    fn clone_box(&self) -> Box<dyn RankingDataCacheAccess> {
+        Box::new(self.clone())
     }
 
-    fn get_course_any(&self, course: &CourseData, lnmode: i32) -> Option<&dyn Any> {
-        self.get_course(course, lnmode).map(|r| r as &dyn Any)
+    fn get_song_any(&self, song: &SongData, lnmode: i32) -> Option<Box<dyn Any>> {
+        self.get_song(song, lnmode)
+            .map(|ranking| Box::new(ranking) as Box<dyn Any>)
+    }
+
+    fn get_course_any(&self, course: &CourseData, lnmode: i32) -> Option<Box<dyn Any>> {
+        self.get_course(course, lnmode)
+            .map(|ranking| Box::new(ranking) as Box<dyn Any>)
     }
 
     fn put_song_any(&mut self, song: &SongData, lnmode: i32, data: Box<dyn Any>) {

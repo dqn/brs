@@ -136,11 +136,7 @@ impl PreviewMusicProcessor {
         self.tick_with_target(&mut target, config);
     }
 
-    pub fn tick_preview_with_main(
-        &mut self,
-        main: &mut dyn MainControllerAccess,
-        config: &Config,
-    ) {
+    pub fn tick_preview_with_main(&mut self, main: &mut dyn MainControllerAccess, config: &Config) {
         let mut target = MainControllerTarget { inner: main };
         self.tick_with_target(&mut target, config);
     }
@@ -170,32 +166,19 @@ impl PreviewMusicProcessor {
             self.default_started = true;
         }
 
-        if let Ok(mut cmds) = self.commands.lock() {
-            if let Some(path) = cmds.pop_front() {
-                let path = if path.is_empty() {
-                    self.default_music.clone()
-                } else {
-                    path
-                };
-                if path != self.playing {
-                    Self::stop_preview_internal(
-                        audio,
-                        &self.playing,
-                        &self.default_music,
-                        sys_vol,
-                        true,
-                    );
-                    if path != self.default_music {
-                        let looping = matches!(config.song_preview, SongPreview::LOOP);
-                        audio.play_preview_path(&path, sys_vol, looping);
-                    } else {
-                        audio.set_preview_volume(&self.default_music, sys_vol);
-                    }
-                    self.playing = path;
-                    self.current_volume = sys_vol;
-                }
-            } else if self.playing != self.default_music && !audio.is_preview_playing(&self.playing)
-            {
+        let next_path = self
+            .commands
+            .lock()
+            .ok()
+            .and_then(|mut cmds| cmds.pop_front());
+
+        if let Some(path) = next_path {
+            let path = if path.is_empty() {
+                self.default_music.clone()
+            } else {
+                path
+            };
+            if path != self.playing {
                 Self::stop_preview_internal(
                     audio,
                     &self.playing,
@@ -203,13 +186,23 @@ impl PreviewMusicProcessor {
                     sys_vol,
                     true,
                 );
-                audio.set_preview_volume(&self.default_music, sys_vol);
-                self.playing = self.default_music.clone();
-                self.current_volume = sys_vol;
-            } else if (self.current_volume - sys_vol).abs() > f32::EPSILON {
-                audio.set_preview_volume(&self.playing, sys_vol);
+                if path != self.default_music {
+                    let looping = matches!(config.song_preview, SongPreview::LOOP);
+                    audio.play_preview_path(&path, sys_vol, looping);
+                } else {
+                    audio.set_preview_volume(&self.default_music, sys_vol);
+                }
+                self.playing = path;
                 self.current_volume = sys_vol;
             }
+        } else if self.playing != self.default_music && !audio.is_preview_playing(&self.playing) {
+            Self::stop_preview_internal(audio, &self.playing, &self.default_music, sys_vol, true);
+            audio.set_preview_volume(&self.default_music, sys_vol);
+            self.playing = self.default_music.clone();
+            self.current_volume = sys_vol;
+        } else if (self.current_volume - sys_vol).abs() > f32::EPSILON {
+            audio.set_preview_volume(&self.playing, sys_vol);
+            self.current_volume = sys_vol;
         }
     }
 
@@ -311,6 +304,7 @@ mod tests {
     use super::*;
     use ::bms_model::bms_model::BMSModel;
     use ::bms_model::note::Note;
+    use std::sync::atomic::AtomicBool;
     use std::sync::atomic::AtomicI32;
 
     /// Mock AudioDriver for testing PreviewMusicProcessor.
@@ -356,6 +350,39 @@ mod tests {
         }
         fn dispose_old(&mut self) {}
         fn dispose(&mut self) {}
+    }
+
+    struct LockCheckingTarget {
+        commands: Arc<Mutex<VecDeque<String>>>,
+        queue_was_unlocked_during_fade: AtomicBool,
+    }
+
+    impl LockCheckingTarget {
+        fn new(commands: Arc<Mutex<VecDeque<String>>>) -> Self {
+            Self {
+                commands,
+                queue_was_unlocked_during_fade: AtomicBool::new(true),
+            }
+        }
+    }
+
+    impl PreviewAudioTarget for LockCheckingTarget {
+        fn play_preview_path(&mut self, _path: &str, _volume: f32, _loop_play: bool) {}
+
+        fn set_preview_volume(&mut self, _path: &str, _volume: f32) {
+            if self.commands.try_lock().is_err() {
+                self.queue_was_unlocked_during_fade
+                    .store(false, Ordering::SeqCst);
+            }
+        }
+
+        fn is_preview_playing(&self, _path: &str) -> bool {
+            false
+        }
+
+        fn stop_preview_path(&mut self, _path: &str) {}
+
+        fn dispose_preview_path(&mut self, _path: &str) {}
     }
 
     #[test]
@@ -435,5 +462,29 @@ mod tests {
         processor.tick_preview(&mut audio, &config);
 
         assert_eq!(audio.play_count.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_tick_preview_releases_command_queue_before_fade() {
+        let config = Config::default();
+        let mut processor = PreviewMusicProcessor::new(&config);
+        processor.set_default("/bgm/default.ogg");
+        processor.preview_running.store(true, Ordering::SeqCst);
+        processor.playing = "/bgm/default.ogg".to_string();
+        processor.default_started = true;
+        processor.current_volume = 0.5;
+        processor
+            .commands
+            .lock()
+            .unwrap()
+            .push_back("/preview/song.ogg".to_string());
+
+        let mut target = LockCheckingTarget::new(Arc::clone(&processor.commands));
+        processor.tick_with_target(&mut target, &config);
+
+        assert!(
+            target.queue_was_unlocked_during_fade.load(Ordering::SeqCst),
+            "command queue should not stay locked while fade-out work runs"
+        );
     }
 }

@@ -5,26 +5,33 @@ use crate::player_information::PlayerInformation;
 static TARGETS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static TARGET_NAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
+fn lock_or_recover<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    match mutex.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
+
 /// Set the target ID list.
 pub fn set_target_ids(targets: Vec<String>) {
-    *TARGETS.lock().unwrap() = targets;
+    *lock_or_recover(&TARGETS) = targets;
 }
 
 /// Set the display names for the current target list.
 /// Must be called after `set_target_ids` with a names vec of the same length.
 pub fn set_target_names(names: Vec<String>) {
-    *TARGET_NAMES.lock().unwrap() = names;
+    *lock_or_recover(&TARGET_NAMES) = names;
 }
 
 /// Get the current target ID list.
 pub fn get_targets() -> Vec<String> {
-    TARGETS.lock().unwrap().clone()
+    lock_or_recover(&TARGETS).clone()
 }
 
 /// Look up the display name for a target ID.
 pub fn get_target_name(target: &str) -> String {
-    let targets = TARGETS.lock().unwrap();
-    let names = TARGET_NAMES.lock().unwrap();
+    let targets = lock_or_recover(&TARGETS);
+    let names = lock_or_recover(&TARGET_NAMES);
     for i in 0..targets.len() {
         if targets[i] == target && i < names.len() {
             return names[i].clone();
@@ -97,5 +104,23 @@ mod tests {
     #[test]
     fn test_resolve_target_name_unknown() {
         assert_eq!(resolve_target_name("UNKNOWN", &[]), "UNKNOWN");
+    }
+
+    #[test]
+    fn target_list_recovers_after_poison() {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = TARGETS.lock().unwrap();
+            panic!("poison targets");
+        }));
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = TARGET_NAMES.lock().unwrap();
+            panic!("poison names");
+        }));
+
+        set_target_ids(vec!["MYBEST".to_string()]);
+        set_target_names(vec!["MY BEST".to_string()]);
+
+        assert_eq!(get_targets(), vec!["MYBEST".to_string()]);
+        assert_eq!(get_target_name("MYBEST"), "MY BEST");
     }
 }

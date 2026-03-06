@@ -57,6 +57,10 @@ impl MainController {
         let player_config = inner.get_player_config();
         let input_processor = BMSPlayerInputProcessor::new(config, player_config);
         let play_data_accessor = PlayDataAccessor::new(config);
+        let ranking_data_cache = inner
+            .get_ranking_data_cache()
+            .map(|cache| cache.clone_box())
+            .unwrap_or_else(|| Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()));
         Self {
             inner,
             audio: None,
@@ -64,7 +68,7 @@ impl MainController {
             ir_send_statuses: crate::result::ir_resend::shared_ir_statuses(),
             input_processor,
             play_data_accessor,
-            ranking_data_cache: Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()),
+            ranking_data_cache,
         }
     }
 
@@ -73,6 +77,10 @@ impl MainController {
         let player_config = inner.get_player_config();
         let input_processor = BMSPlayerInputProcessor::new(config, player_config);
         let play_data_accessor = PlayDataAccessor::new(config);
+        let ranking_data_cache = inner
+            .get_ranking_data_cache()
+            .map(|cache| cache.clone_box())
+            .unwrap_or_else(|| Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()));
         Self {
             inner,
             audio: Some(audio),
@@ -80,7 +88,7 @@ impl MainController {
             ir_send_statuses: crate::result::ir_resend::shared_ir_statuses(),
             input_processor,
             play_data_accessor,
-            ranking_data_cache: Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()),
+            ranking_data_cache,
         }
     }
 
@@ -92,6 +100,10 @@ impl MainController {
         let player_config = inner.get_player_config();
         let input_processor = BMSPlayerInputProcessor::new(config, player_config);
         let play_data_accessor = PlayDataAccessor::new(config);
+        let ranking_data_cache = inner
+            .get_ranking_data_cache()
+            .map(|cache| cache.clone_box())
+            .unwrap_or_else(|| Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()));
         Self {
             inner,
             audio: None,
@@ -99,7 +111,7 @@ impl MainController {
             ir_send_statuses: crate::result::ir_resend::shared_ir_statuses(),
             input_processor,
             play_data_accessor,
-            ranking_data_cache: Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()),
+            ranking_data_cache,
         }
     }
 
@@ -468,6 +480,7 @@ mod tests {
     use super::*;
     use bms_model::bms_model::BMSModel;
     use bms_model::note::Note;
+    use rubato_types::song_data::SongData;
 
     /// Mock AudioDriver for testing.
     struct MockAudioDriver {
@@ -553,5 +566,84 @@ mod tests {
         } else {
             panic!("expected audio processor to be present");
         }
+    }
+
+    struct CacheBackedMainControllerAccess {
+        config: Config,
+        player_config: PlayerConfig,
+        ranking_data_cache: Box<dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess>,
+    }
+
+    impl CacheBackedMainControllerAccess {
+        fn new() -> Self {
+            Self {
+                config: Config::default(),
+                player_config: PlayerConfig::default(),
+                ranking_data_cache: Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()),
+            }
+        }
+    }
+
+    impl MainControllerAccess for CacheBackedMainControllerAccess {
+        fn get_config(&self) -> &Config {
+            &self.config
+        }
+
+        fn get_player_config(&self) -> &PlayerConfig {
+            &self.player_config
+        }
+
+        fn change_state(&mut self, _state: rubato_core::main_state::MainStateType) {}
+
+        fn save_config(&self) {}
+
+        fn exit(&self) {}
+
+        fn save_last_recording(&self, _tag: &str) {}
+
+        fn update_song(&mut self, _path: Option<&str>) {}
+
+        fn get_player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+            None
+        }
+
+        fn get_player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+            None
+        }
+
+        fn get_ranking_data_cache(
+            &self,
+        ) -> Option<&dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess> {
+            Some(&*self.ranking_data_cache)
+        }
+
+        fn get_ranking_data_cache_mut(
+            &mut self,
+        ) -> Option<&mut (dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess + 'static)>
+        {
+            Some(&mut *self.ranking_data_cache)
+        }
+    }
+
+    #[test]
+    fn test_main_controller_reuses_inner_ranking_cache() {
+        let song = SongData::default();
+        let mut access = CacheBackedMainControllerAccess::new();
+        access
+            .get_ranking_data_cache_mut()
+            .expect("test access should expose ranking cache")
+            .put_song_any(&song, 0, Box::new(RankingData::new()));
+
+        let mc = MainController::new(Box::new(access));
+        let cached = mc
+            .get_ranking_data_cache()
+            .get_song_any(&song, 0)
+            .and_then(|any| any.downcast::<RankingData>().ok())
+            .map(|ranking| *ranking);
+
+        assert!(
+            cached.is_some(),
+            "result wrapper should reuse the ranking cache exposed by its inner controller access"
+        );
     }
 }

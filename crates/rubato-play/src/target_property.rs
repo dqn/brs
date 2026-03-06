@@ -513,17 +513,19 @@ impl InternetRankingTargetProperty {
         }
 
         // Get ranking data from cache via dyn Any downcast
-        let ranking_data = (|| -> Option<&rubato_ir::ranking_data::RankingData> {
+        let ranking_data = (|| -> Option<rubato_ir::ranking_data::RankingData> {
             let resource = main.get_player_resource()?;
             let songdata = resource.get_songdata()?;
             let lnmode = resource.get_player_config().lnmode;
             let cache = main.get_ranking_data_cache()?;
             let any = cache.get_song_any(songdata, lnmode)?;
-            any.downcast_ref::<rubato_ir::ranking_data::RankingData>()
+            any.downcast::<rubato_ir::ranking_data::RankingData>()
+                .ok()
+                .map(|ranking| *ranking)
         })();
 
         match ranking_data {
-            Some(ranking) if ranking.get_state() == rubato_ir::ranking_data::FINISH => {
+            Some(ref ranking) if ranking.get_state() == rubato_ir::ranking_data::FINISH => {
                 if ranking.get_total_player() > 0 {
                     let index = self.get_target_rank(main, ranking);
                     if let Some(ir_score) = ranking.get_score(index) {

@@ -1404,8 +1404,8 @@ impl MusicSelector {
                             self.currentir = main
                                 .get_ranking_data_cache()
                                 .and_then(|c| c.get_song_any(song, lnmode))
-                                .and_then(|a| a.downcast_ref::<RankingData>())
-                                .cloned();
+                                .and_then(|a| a.downcast::<RankingData>().ok())
+                                .map(|ranking| *ranking);
                         }
                         let ranking_reload_dur = self.ranking_reload_duration;
                         let ranking_dur = self.ranking_duration as i64;
@@ -1429,8 +1429,8 @@ impl MusicSelector {
                             self.currentir = main
                                 .get_ranking_data_cache()
                                 .and_then(|c| c.get_course_any(course, lnmode))
-                                .and_then(|a| a.downcast_ref::<RankingData>())
-                                .cloned();
+                                .and_then(|a| a.downcast::<RankingData>().ok())
+                                .map(|ranking| *ranking);
                         }
                         let ranking_reload_dur = self.ranking_reload_duration;
                         let ranking_dur = self.ranking_duration as i64;
@@ -1936,8 +1936,8 @@ impl MusicSelector {
                 let cached = main
                     .get_ranking_data_cache()
                     .and_then(|c| c.get_course_any(course, lnmode))
-                    .and_then(|a| a.downcast_ref::<RankingData>())
-                    .cloned();
+                    .and_then(|a| a.downcast::<RankingData>().ok())
+                    .map(|ranking| *ranking);
                 if let Some(rd) = cached {
                     self.currentir = Some(rd);
                 } else {
@@ -2510,8 +2510,8 @@ impl MainState for MusicSelector {
                     let cached = main
                         .get_ranking_data_cache()
                         .and_then(|c| c.get_song_any(song, lnmode))
-                        .and_then(|a| a.downcast_ref::<RankingData>())
-                        .cloned();
+                        .and_then(|a| a.downcast::<RankingData>().ok())
+                        .map(|ranking| *ranking);
                     if cached.is_none() {
                         let rd = RankingData::new();
                         self.currentir = Some(rd.clone());
@@ -2549,8 +2549,8 @@ impl MainState for MusicSelector {
                     let cached = main
                         .get_ranking_data_cache()
                         .and_then(|c| c.get_course_any(course, lnmode))
-                        .and_then(|a| a.downcast_ref::<RankingData>())
-                        .cloned();
+                        .and_then(|a| a.downcast::<RankingData>().ok())
+                        .map(|ranking| *ranking);
                     if cached.is_none() {
                         let rd = RankingData::new();
                         self.currentir = Some(rd.clone());
@@ -2861,12 +2861,12 @@ impl ChartReplicationMode {
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
-    use ::bms_model::bms_model::BMSModel;
-    use ::bms_model::note::Note;
     use crate::select::bar::bar::Bar;
     use crate::select::bar::grade_bar::GradeBar;
     use crate::select::bar::selectable_bar::SelectableBarData;
     use crate::select::bar::song_bar::SongBar;
+    use ::bms_model::bms_model::BMSModel;
+    use ::bms_model::note::Note;
     use rubato_audio::audio_driver::AudioDriver;
     use rubato_core::main_state::MainState;
     use rubato_types::skin_render_context::SkinRenderContext;
@@ -2904,13 +2904,7 @@ mod tests {
 
         fn set_model(&mut self, _model: &BMSModel) {}
 
-        fn set_additional_key_sound(
-            &mut self,
-            _judge: i32,
-            _fast: bool,
-            _path: Option<&str>,
-        ) {
-        }
+        fn set_additional_key_sound(&mut self, _judge: i32, _fast: bool, _path: Option<&str>) {}
 
         fn abort(&mut self) {}
 

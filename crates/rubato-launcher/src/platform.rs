@@ -117,6 +117,13 @@ static CACHED_FULL_DISPLAY_MODES: std::sync::Mutex<Vec<VideoModeInfo>> =
     std::sync::Mutex::new(Vec::new());
 static CACHED_DESKTOP_MODE: std::sync::Mutex<(u32, u32)> = std::sync::Mutex::new((0, 0));
 
+fn lock_or_recover<T>(mutex: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    match mutex.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
+
 /// Update cached monitor list and display modes from winit's ActiveEventLoop.
 /// Call this from the event loop's `resumed()` handler.
 pub fn update_monitors_from_winit(event_loop: &winit::event_loop::ActiveEventLoop) {
@@ -185,10 +192,10 @@ pub fn update_monitors_from_winit(event_loop: &winit::event_loop::ActiveEventLoo
     // Sort full modes by resolution, then refresh rate, then bit depth
     full_display_modes.sort_by_key(|m| (m.width, m.height, m.refresh_rate_millihertz, m.bit_depth));
 
-    *CACHED_MONITORS.lock().unwrap() = monitors;
-    *CACHED_DISPLAY_MODES.lock().unwrap() = display_modes;
-    *CACHED_FULL_DISPLAY_MODES.lock().unwrap() = full_display_modes;
-    *CACHED_DESKTOP_MODE.lock().unwrap() = desktop_mode;
+    *lock_or_recover(&CACHED_MONITORS) = monitors;
+    *lock_or_recover(&CACHED_DISPLAY_MODES) = display_modes;
+    *lock_or_recover(&CACHED_FULL_DISPLAY_MODES) = full_display_modes;
+    *lock_or_recover(&CACHED_DESKTOP_MODE) = desktop_mode;
 }
 
 /// Enumerate available monitors.
@@ -201,7 +208,7 @@ pub fn get_monitors() -> Vec<MonitorInfo> {
 
     #[cfg(not(target_os = "macos"))]
     {
-        let cached = CACHED_MONITORS.lock().unwrap();
+        let cached = lock_or_recover(&CACHED_MONITORS);
         if cached.is_empty() {
             log::warn!(
                 "Monitor list not yet populated — call update_monitors_from_winit() from the event loop first"
@@ -214,7 +221,7 @@ pub fn get_monitors() -> Vec<MonitorInfo> {
 /// Get cached display modes (unique width/height pairs from primary monitor).
 /// Returns empty if cache not yet populated (call update_monitors_from_winit first).
 pub fn get_cached_display_modes() -> Vec<(u32, u32)> {
-    CACHED_DISPLAY_MODES.lock().unwrap().clone()
+    lock_or_recover(&CACHED_DISPLAY_MODES).clone()
 }
 
 /// Get cached full display modes (all video modes from primary monitor with refresh rate and bit depth).
@@ -224,13 +231,13 @@ pub fn get_cached_display_modes() -> Vec<(u32, u32)> {
 ///
 /// Returns empty if cache not yet populated (call update_monitors_from_winit first).
 pub fn get_cached_full_display_modes() -> Vec<VideoModeInfo> {
-    CACHED_FULL_DISPLAY_MODES.lock().unwrap().clone()
+    lock_or_recover(&CACHED_FULL_DISPLAY_MODES).clone()
 }
 
 /// Get cached desktop display mode (primary monitor's native resolution).
 /// Returns (0, 0) if cache not yet populated.
 pub fn get_cached_desktop_display_mode() -> (u32, u32) {
-    *CACHED_DESKTOP_MODE.lock().unwrap()
+    *lock_or_recover(&CACHED_DESKTOP_MODE)
 }
 
 #[cfg(target_os = "macos")]
@@ -401,6 +408,26 @@ mod tests {
         let _ = get_cached_display_modes();
         let _ = get_cached_full_display_modes();
         let _ = get_cached_desktop_display_mode();
+    }
+
+    #[test]
+    fn cached_display_modes_recover_after_poison() {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = CACHED_DISPLAY_MODES.lock().unwrap();
+            panic!("poison display modes");
+        }));
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = CACHED_FULL_DISPLAY_MODES.lock().unwrap();
+            panic!("poison full display modes");
+        }));
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = CACHED_DESKTOP_MODE.lock().unwrap();
+            panic!("poison desktop mode");
+        }));
+
+        assert!(get_cached_display_modes().is_empty());
+        assert!(get_cached_full_display_modes().is_empty());
+        assert_eq!(get_cached_desktop_display_mode(), (0, 0));
     }
 
     #[test]

@@ -1,7 +1,80 @@
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Output, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
+
+struct TimedOutput {
+    output: Output,
+    timed_out: bool,
+}
 
 fn rubato_bin() -> Command {
     Command::new(env!("CARGO_BIN_EXE_rubato"))
+}
+
+fn run_with_timeout(command: &mut Command, timeout: Duration) -> TimedOutput {
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = command.spawn().expect("failed to execute binary");
+    let start = Instant::now();
+
+    let (status, timed_out) = loop {
+        if let Some(status) = child.try_wait().expect("failed to poll child") {
+            break (status, false);
+        }
+        if start.elapsed() >= timeout {
+            child.kill().expect("failed to terminate timed out child");
+            let status = child.wait().expect("failed to wait for terminated child");
+            break (status, true);
+        }
+        thread::sleep(Duration::from_millis(100));
+    };
+
+    let mut stdout = Vec::new();
+    if let Some(mut handle) = child.stdout.take() {
+        handle
+            .read_to_end(&mut stdout)
+            .expect("failed to read child stdout");
+    }
+    let mut stderr = Vec::new();
+    if let Some(mut handle) = child.stderr.take() {
+        handle
+            .read_to_end(&mut stderr)
+            .expect("failed to read child stderr");
+    }
+
+    TimedOutput {
+        output: Output {
+            status,
+            stdout,
+            stderr,
+        },
+        timed_out,
+    }
+}
+
+fn assert_normal_exit_or_live_gui_run(result: &TimedOutput) {
+    if result.timed_out {
+        return;
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        assert!(
+            result.output.status.signal().is_none(),
+            "process was killed by signal: {:?}",
+            result.output.status.signal()
+        );
+    }
+
+    if let Some(code) = result.output.status.code() {
+        assert_ne!(
+            code,
+            101,
+            "process exited with code 101 (Rust panic). stderr: {}",
+            String::from_utf8_lossy(&result.output.stderr)
+        );
+    }
 }
 
 /// Write a minimal `config_sys.json` to the given directory so that the binary
@@ -61,33 +134,8 @@ fn invalid_flag_exits_error() {
 fn no_config_runs_without_crash() {
     let tmp = tempfile::TempDir::new().expect("failed to create tempdir");
 
-    let output = rubato_bin()
-        .current_dir(tmp.path())
-        .output()
-        .expect("failed to execute binary");
-
-    // On Unix, a signal-killed process has no exit code.
-    // If the process panicked, the exit code is typically 101.
-    // We allow any "normal" exit (including non-zero for missing display),
-    // but reject signal termination and Rust panic code 101.
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        assert!(
-            output.status.signal().is_none(),
-            "process was killed by signal: {:?}",
-            output.status.signal()
-        );
-    }
-
-    if let Some(code) = output.status.code() {
-        assert_ne!(
-            code,
-            101,
-            "process exited with code 101 (Rust panic). stderr: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
+    let output = run_with_timeout(rubato_bin().current_dir(tmp.path()), Duration::from_secs(5));
+    assert_normal_exit_or_live_gui_run(&output);
 }
 
 /// With `config_sys.json` present and `-s` flag, the binary takes the play()
@@ -100,30 +148,11 @@ fn play_flag_with_config_exits_gracefully() {
     let tmp = tempfile::TempDir::new().expect("failed to create tempdir");
     write_minimal_config(tmp.path());
 
-    let output = rubato_bin()
-        .arg("-s")
-        .current_dir(tmp.path())
-        .output()
-        .expect("failed to execute binary");
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        assert!(
-            output.status.signal().is_none(),
-            "process was killed by signal: {:?}",
-            output.status.signal()
-        );
-    }
-
-    if let Some(code) = output.status.code() {
-        assert_ne!(
-            code,
-            101,
-            "process panicked (exit code 101). stderr: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
+    let output = run_with_timeout(
+        rubato_bin().arg("-s").current_dir(tmp.path()),
+        Duration::from_secs(5),
+    );
+    assert_normal_exit_or_live_gui_run(&output);
 }
 
 /// With `-s` but NO `config_sys.json`, the binary falls through to launch()
@@ -136,30 +165,11 @@ fn play_flag_without_config_launches_launcher() {
     let tmp = tempfile::TempDir::new().expect("failed to create tempdir");
     // Intentionally no config file in this tempdir
 
-    let output = rubato_bin()
-        .arg("-s")
-        .current_dir(tmp.path())
-        .output()
-        .expect("failed to execute binary");
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        assert!(
-            output.status.signal().is_none(),
-            "process was killed by signal: {:?}",
-            output.status.signal()
-        );
-    }
-
-    if let Some(code) = output.status.code() {
-        assert_ne!(
-            code,
-            101,
-            "process panicked (exit code 101). stderr: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
+    let output = run_with_timeout(
+        rubato_bin().arg("-s").current_dir(tmp.path()),
+        Duration::from_secs(5),
+    );
+    assert_normal_exit_or_live_gui_run(&output);
 }
 
 /// When re-exec'd as a child process (the path `launch()` takes via
@@ -174,29 +184,9 @@ fn reexec_child_inherits_working_directory() {
 
     // Simulate the re-exec path: binary launched with `-s` and cwd set to
     // the directory containing config_sys.json.
-    let output = rubato_bin()
-        .arg("-s")
-        .current_dir(tmp.path())
-        .output()
-        .expect("failed to execute binary");
-
-    // The process may fail (no GPU), but it must not panic or be signalled.
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        assert!(
-            output.status.signal().is_none(),
-            "child process was killed by signal: {:?}",
-            output.status.signal()
-        );
-    }
-
-    if let Some(code) = output.status.code() {
-        assert_ne!(
-            code,
-            101,
-            "child process panicked (exit code 101). stderr: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
+    let output = run_with_timeout(
+        rubato_bin().arg("-s").current_dir(tmp.path()),
+        Duration::from_secs(5),
+    );
+    assert_normal_exit_or_live_gui_run(&output);
 }

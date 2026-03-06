@@ -59,7 +59,7 @@ e2e-test:
 
 # Run E2E subprocess test (requires binary build, ~30s)
 e2e-test-subprocess:
-    cargo test -p rubato-bin --test e2e_subprocess -- --ignored --nocapture
+    cargo test -p rubato-bin --test cli_smoke -- --ignored --nocapture
 
 # Seed fuzz corpus directories with real BMS files
 fuzz-seed:

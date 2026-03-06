@@ -601,8 +601,8 @@ impl MusicResult {
                                 .main
                                 .get_ranking_data_cache()
                                 .get_song_any(songdata, lnmode)
-                                .and_then(|any| any.downcast_ref::<RankingData>())
-                                .cloned();
+                                .and_then(|any| any.downcast::<RankingData>().ok())
+                                .map(|ranking| *ranking);
                             if !self.main.get_ir_status().is_empty() && songrank.is_none() {
                                 let new_ranking = RankingData::new();
                                 self.main.get_ranking_data_cache_mut().put_song_any(
