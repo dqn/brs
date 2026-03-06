@@ -9,6 +9,7 @@ use crate::score_database_accessor::ScoreDatabaseAccessor;
 
 /// Rival data accessor.
 /// Translated from Java: RivalDataAccessor
+#[derive(Default)]
 pub struct RivalDataAccessor {
     rivals: Vec<PlayerInformation>,
     rivalcaches: Vec<ScoreDataCache>,
@@ -236,11 +237,5 @@ impl RivalDataAccessor {
                 }
             }),
         )
-    }
-}
-
-impl Default for RivalDataAccessor {
-    fn default() -> Self {
-        Self::new()
     }
 }
