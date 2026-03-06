@@ -637,6 +637,40 @@ impl StateFactory for LauncherStateFactory {
                 let is_course_mode = resource.and_then(|r| r.get_course_data()).is_some();
                 player.set_course_mode(is_course_mode);
 
+                // Wire play mode from PlayerResource
+                if let Some(mode) = resource.and_then(|r| r.get_play_mode()).cloned() {
+                    player.set_play_mode(mode);
+                }
+
+                // Wire chart option (chart replication / rival replay)
+                if let Some(chart_opt) = resource.and_then(|r| r.get_chart_option()).cloned() {
+                    player.set_chart_option(Some(chart_opt));
+                }
+
+                // Wire margin time
+                if let Some(res) = resource {
+                    player.set_margin_time(res.get_margin_time());
+                }
+
+                // Wire course constraints
+                if let Some(res) = resource {
+                    player.set_constraints(res.get_constraint());
+                }
+
+                // Wire guide SE from player config
+                player.set_guide_se(controller.get_player_config().is_guide_se);
+
+                // Wire audio config
+                if let Some(audio_config) = controller.get_config().get_audio_config() {
+                    player.set_fast_forward_freq_option(audio_config.fast_forward.clone());
+                    player.set_bg_volume(audio_config.bgvolume);
+                }
+
+                // Wire replay data for REPLAY mode
+                if let Some(replay) = resource.and_then(|r| r.get_replay_data()).cloned() {
+                    player.set_active_replay(Some(replay));
+                }
+
                 // --- Target/rival score DB load ---
                 // Java: main.getPlayDataAccessor().readScoreData(model, config.getLnmode())
                 let lnmode = controller.get_player_config().get_lnmode();

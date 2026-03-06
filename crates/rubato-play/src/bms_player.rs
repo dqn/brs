@@ -445,34 +445,6 @@ impl BMSPlayer {
         &self.player_config
     }
 
-    /// Set whether media loading has finished.
-    /// Called by the caller when resource.mediaLoadFinished() becomes true.
-    pub fn set_media_load_finished(&mut self, finished: bool) {
-        self.media_load_finished = finished;
-    }
-
-    /// Update input state from BMSPlayerInputProcessor each frame.
-    pub fn set_input_state(
-        &mut self,
-        start_pressed: bool,
-        select_pressed: bool,
-        key_states: &[bool],
-    ) {
-        self.input_start_pressed = start_pressed;
-        self.input_select_pressed = select_pressed;
-        self.input_key_states.clear();
-        self.input_key_states.extend_from_slice(key_states);
-    }
-
-    /// Update control key states for practice mode navigation.
-    /// [up, down, left, right] maps to numpad [Num8, Num2, Num4, Num6].
-    pub fn set_control_key_state(&mut self, up: bool, down: bool, left: bool, right: bool) {
-        self.control_key_up = up;
-        self.control_key_down = down;
-        self.control_key_left = left;
-        self.control_key_right = right;
-    }
-
     /// Take the pending state change (if any). Returns None if no transition is pending.
     /// The caller should apply this via main.changeState().
     pub fn take_pending_state_change(&mut self) -> Option<MainStateType> {
@@ -482,14 +454,6 @@ impl BMSPlayer {
     /// Set whether we are in course mode.
     pub fn set_course_mode(&mut self, is_course: bool) {
         self.is_course_mode = is_course;
-    }
-
-    /// Set the input device type (for create_score_data).
-    pub fn set_device_type(
-        &mut self,
-        device_type: rubato_input::bms_player_input_device::DeviceType,
-    ) {
-        self.device_type = device_type;
     }
 
     /// Queue a system sound to be played by MainController.
@@ -5414,22 +5378,6 @@ mod tests {
     }
 
     // --- input state wiring tests ---
-
-    #[test]
-    fn set_input_state_updates_fields() {
-        let model = make_model();
-        let mut player = BMSPlayer::new(model);
-
-        player.set_input_state(true, false, &[true, false, true]);
-        assert!(player.input_start_pressed);
-        assert!(!player.input_select_pressed);
-        assert_eq!(player.input_key_states, vec![true, false, true]);
-
-        player.set_input_state(false, true, &[false]);
-        assert!(!player.input_start_pressed);
-        assert!(player.input_select_pressed);
-        assert_eq!(player.input_key_states, vec![false]);
-    }
 
     #[test]
     fn sync_input_from_copies_live_controller_state() {
