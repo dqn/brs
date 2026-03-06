@@ -210,6 +210,12 @@ pub trait MainState {
     // --- Inbox pattern methods ---
     // MainController pushes data back into the current state after processing outbox items.
 
+    /// Notify the state that media loading is complete.
+    /// Called by MainController each frame when resource.media_load_finished() is true.
+    fn notify_media_load_finished(&mut self) {
+        // Default no-op — only BMSPlayer uses this.
+    }
+
     /// Receive a reloaded BMS model from resource after reload_bms_file().
     /// Used by practice mode to get a fresh model without a full state change.
     fn receive_reloaded_model(&mut self, _model: bms_model::bms_model::BMSModel) {

@@ -868,6 +868,19 @@ impl MainController {
 
         // GL clear is handled by wgpu render pass in main.rs
 
+        // Notify current state of media load status from PlayerResource.
+        // Java: BMSPlayer.render() checks resource.mediaLoadFinished() directly;
+        // Rust: BMSPlayer cannot access the resource, so MainController polls and pushes.
+        if let Some(ref mut current) = self.current {
+            let media_ready = self
+                .resource
+                .as_ref()
+                .is_none_or(|r| r.media_load_finished());
+            if media_ready {
+                current.notify_media_load_finished();
+            }
+        }
+
         // current.render()
         if let Some(ref mut current) = self.current {
             current.render();

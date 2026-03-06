@@ -1855,6 +1855,10 @@ impl MainState for BMSPlayer {
         std::mem::take(&mut self.pending_reload_bms)
     }
 
+    fn notify_media_load_finished(&mut self) {
+        self.media_load_finished = true;
+    }
+
     fn receive_reloaded_model(&mut self, model: bms_model::bms_model::BMSModel) {
         self.model = model;
     }
