@@ -67,9 +67,10 @@ impl TimerUtility {
             // timer_function(timer_id) -> function() -> number
             let sp = self.state_ptr;
             let timer_function_func = lua.create_function(move |lua, timer_id: i32| {
+                let tid = rubato_types::timer_id::TimerId::new(timer_id);
                 let timer_func = lua.create_function(move |_, ()| {
                     let state = unsafe { &*sp.0 };
-                    Ok(state.timer().micro_timer(timer_id))
+                    Ok(state.timer().micro_timer(tid))
                 })?;
                 Ok(timer_func)
             })?;

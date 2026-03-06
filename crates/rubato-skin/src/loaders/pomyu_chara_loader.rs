@@ -917,17 +917,17 @@ impl<'a> PomyuCharaLoader<'a> {
                 } else if set_motion == i32::MIN {
                     if side != 2 {
                         if motion == 1 {
-                            timer = TIMER_PM_CHARA_1P_NEUTRAL;
+                            timer = TIMER_PM_CHARA_1P_NEUTRAL.as_i32();
                         } else if motion == 6 {
-                            timer = TIMER_PM_CHARA_1P_FEVER;
+                            timer = TIMER_PM_CHARA_1P_FEVER.as_i32();
                         } else if motion == 7 {
-                            timer = TIMER_PM_CHARA_1P_GREAT;
+                            timer = TIMER_PM_CHARA_1P_GREAT.as_i32();
                         } else if motion == 8 {
-                            timer = TIMER_PM_CHARA_1P_GOOD;
+                            timer = TIMER_PM_CHARA_1P_GOOD.as_i32();
                         } else if motion == 10 {
-                            timer = TIMER_PM_CHARA_1P_BAD;
+                            timer = TIMER_PM_CHARA_1P_BAD.as_i32();
                         } else if (15..=17).contains(&motion) {
-                            timer = TIMER_MUSIC_END;
+                            timer = TIMER_MUSIC_END.as_i32();
                             if motion == 15 {
                                 // WIN
                                 op[0] = OPTION_1P_BORDER_OR_MORE;
@@ -941,13 +941,13 @@ impl<'a> PomyuCharaLoader<'a> {
                             }
                         }
                     } else if motion == 1 {
-                        timer = TIMER_PM_CHARA_2P_NEUTRAL;
+                        timer = TIMER_PM_CHARA_2P_NEUTRAL.as_i32();
                     } else if motion == 7 {
-                        timer = TIMER_PM_CHARA_2P_GREAT;
+                        timer = TIMER_PM_CHARA_2P_GREAT.as_i32();
                     } else if motion == 10 {
-                        timer = TIMER_PM_CHARA_2P_BAD;
+                        timer = TIMER_PM_CHARA_2P_BAD.as_i32();
                     } else if motion == 15 || motion == 16 {
-                        timer = TIMER_MUSIC_END;
+                        timer = TIMER_MUSIC_END.as_i32();
                         if motion == 15 {
                             // WIN (2P side: reversed)
                             op[0] = -OPTION_1P_BORDER_OR_MORE;
@@ -976,11 +976,12 @@ impl<'a> PomyuCharaLoader<'a> {
                     let loop_time = frame[motion as usize] * (loop_val[motion as usize] + 1);
 
                     if set_motion == i32::MIN
-                        && (TIMER_PM_CHARA_1P_NEUTRAL..TIMER_MUSIC_END).contains(&timer)
+                        && (TIMER_PM_CHARA_1P_NEUTRAL.as_i32()..TIMER_MUSIC_END.as_i32())
+                            .contains(&timer)
                     {
                         self.skin
                             .pomyu
-                            .set_pm_chara_time(timer - TIMER_PM_CHARA_1P_NEUTRAL, cycle);
+                            .set_pm_chara_time(timer - TIMER_PM_CHARA_1P_NEUTRAL.as_i32(), cycle);
                     }
 
                     // Check for hyphen interpolation flag

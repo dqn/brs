@@ -21,7 +21,7 @@ pub trait SkinRenderContext: TimerAccess {
     }
 
     /// Set a timer value by ID (micro-seconds).
-    fn set_timer_micro(&mut self, _timer_id: i32, _micro_time: i64) {
+    fn set_timer_micro(&mut self, _timer_id: crate::timer_id::TimerId, _micro_time: i64) {
         // default no-op
     }
 

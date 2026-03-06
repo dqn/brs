@@ -68,6 +68,10 @@ pub mod song_data;
 pub mod song_database_accessor;
 pub mod song_information;
 
+// Semantic newtypes for type safety
+pub mod timer_id;
+pub mod value_id;
+
 // Additional types from Phase 30+ stubs
 pub mod abstract_result_access;
 pub mod event_type;

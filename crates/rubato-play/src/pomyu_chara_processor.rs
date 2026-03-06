@@ -1,15 +1,16 @@
 use rubato_core::timer_manager::TimerManager;
+use rubato_types::timer_id::TimerId;
 
 // SkinProperty timer constants for PM character animations
-const TIMER_PM_CHARA_1P_NEUTRAL: i32 = 900;
-const TIMER_PM_CHARA_1P_FEVER: i32 = 901;
-const TIMER_PM_CHARA_1P_GREAT: i32 = 902;
-const TIMER_PM_CHARA_1P_GOOD: i32 = 903;
-const TIMER_PM_CHARA_1P_BAD: i32 = 904;
-const TIMER_PM_CHARA_2P_NEUTRAL: i32 = 905;
-const TIMER_PM_CHARA_2P_GREAT: i32 = 906;
-const TIMER_PM_CHARA_2P_BAD: i32 = 907;
-const TIMER_PM_CHARA_DANCE: i32 = 909;
+const TIMER_PM_CHARA_1P_NEUTRAL: TimerId = TimerId(900);
+const TIMER_PM_CHARA_1P_FEVER: TimerId = TimerId(901);
+const TIMER_PM_CHARA_1P_GREAT: TimerId = TimerId(902);
+const TIMER_PM_CHARA_1P_GOOD: TimerId = TimerId(903);
+const TIMER_PM_CHARA_1P_BAD: TimerId = TimerId(904);
+const TIMER_PM_CHARA_2P_NEUTRAL: TimerId = TimerId(905);
+const TIMER_PM_CHARA_2P_GREAT: TimerId = TimerId(906);
+const TIMER_PM_CHARA_2P_BAD: TimerId = TimerId(907);
+const TIMER_PM_CHARA_DANCE: TimerId = TimerId(909);
 
 /// PMS character animation timer processor
 pub struct PomyuCharaProcessor {
@@ -83,8 +84,8 @@ impl PomyuCharaProcessor {
         }
 
         // 2P neutral check
-        let neutral_time_2p =
-            self.pm_chara_time(TIMER_PM_CHARA_2P_NEUTRAL - TIMER_PM_CHARA_1P_NEUTRAL);
+        let neutral_time_2p = self
+            .pm_chara_time(TIMER_PM_CHARA_2P_NEUTRAL.as_i32() - TIMER_PM_CHARA_1P_NEUTRAL.as_i32());
         if timer.is_timer_on(TIMER_PM_CHARA_2P_NEUTRAL)
             && timer.now_time_for_id(TIMER_PM_CHARA_2P_NEUTRAL) >= neutral_time_2p as i64
             && timer.now_time_for_id(TIMER_PM_CHARA_2P_NEUTRAL) % (neutral_time_2p as i64) < 17
@@ -100,11 +101,12 @@ impl PomyuCharaProcessor {
         }
 
         // Non-neutral timer cycling
-        for i in TIMER_PM_CHARA_1P_FEVER..=TIMER_PM_CHARA_2P_BAD {
+        for raw in TIMER_PM_CHARA_1P_FEVER.as_i32()..=TIMER_PM_CHARA_2P_BAD.as_i32() {
+            let i = TimerId::new(raw);
             if i != TIMER_PM_CHARA_2P_NEUTRAL
                 && timer.is_timer_on(i)
                 && timer.now_time_for_id(i)
-                    >= self.pm_chara_time(i - TIMER_PM_CHARA_1P_NEUTRAL) as i64
+                    >= self.pm_chara_time(raw - TIMER_PM_CHARA_1P_NEUTRAL.as_i32()) as i64
             {
                 if i <= TIMER_PM_CHARA_1P_BAD {
                     timer.set_timer_on(TIMER_PM_CHARA_1P_NEUTRAL);
