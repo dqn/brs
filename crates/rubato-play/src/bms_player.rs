@@ -155,6 +155,131 @@ const TIMER_PM_CHARA_2P_BAD: i32 = 907;
 const TIMER_MUSIC_END: i32 = 908;
 const TIMER_PM_CHARA_DANCE: i32 = 909;
 
+/// Pending side-effect requests produced during BMSPlayer render/state transitions.
+///
+/// Consumed by MainController each frame via the corresponding `take_*` / `drain_*` methods.
+pub struct PendingActions {
+    /// Pending state change to request from MainController.
+    pub pending_state_change: Option<MainStateType>,
+    /// Pending system sound requests.
+    pub pending_sounds: Vec<(rubato_types::sound_type::SoundType, bool)>,
+    /// Pending score handoff for Result state.
+    pub pending_score_handoff: Option<rubato_types::score_handoff::ScoreHandoff>,
+    /// Pending BMS file reload request (for quick retry).
+    pub pending_reload_bms: bool,
+    /// Pending global pitch to apply to the audio driver.
+    pub pending_global_pitch: Option<f32>,
+}
+
+impl PendingActions {
+    pub fn new() -> Self {
+        Self {
+            pending_state_change: None,
+            pending_sounds: Vec::new(),
+            pending_score_handoff: None,
+            pending_reload_bms: false,
+            pending_global_pitch: None,
+        }
+    }
+}
+
+impl Default for PendingActions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Input state snapshot copied from BMSPlayerInputProcessor each frame.
+///
+/// Updated by the caller before calling render(). Contains both key/button
+/// states and controller-specific analog input data.
+pub struct PlayerInputState {
+    pub keyinput: Option<KeyInputProccessor>,
+    pub control: Option<ControlInputProcessor>,
+    pub input_start_pressed: bool,
+    pub input_select_pressed: bool,
+    pub input_key_states: Vec<bool>,
+    pub control_key_up: bool,
+    pub control_key_down: bool,
+    pub control_key_left: bool,
+    pub control_key_right: bool,
+    pub control_key_escape_pressed: bool,
+    pub control_key_num1: bool,
+    pub control_key_num2: bool,
+    pub control_key_num3: bool,
+    pub control_key_num4: bool,
+    pub input_scroll: i32,
+    pub input_is_analog: Vec<bool>,
+    pub input_analog_diff_ticks: Vec<i32>,
+    pub input_analog_recent_ms: Vec<i64>,
+    pub pending_analog_resets: Vec<usize>,
+}
+
+impl PlayerInputState {
+    pub fn new() -> Self {
+        Self {
+            keyinput: None,
+            control: None,
+            input_start_pressed: false,
+            input_select_pressed: false,
+            input_key_states: Vec::new(),
+            control_key_up: false,
+            control_key_down: false,
+            control_key_left: false,
+            control_key_right: false,
+            control_key_escape_pressed: false,
+            control_key_num1: false,
+            control_key_num2: false,
+            control_key_num3: false,
+            control_key_num4: false,
+            input_scroll: 0,
+            input_is_analog: Vec::new(),
+            input_analog_diff_ticks: Vec::new(),
+            input_analog_recent_ms: Vec::new(),
+            pending_analog_resets: Vec::new(),
+        }
+    }
+}
+
+impl Default for PlayerInputState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Score, replay, and analysis state for the current play session.
+pub struct PlayerScoreState {
+    pub playinfo: ReplayData,
+    pub replay_config: Option<rubato_types::play_config::PlayConfig>,
+    pub active_replay: Option<ReplayData>,
+    pub db_score: Option<ScoreData>,
+    pub rival_score: Option<ScoreData>,
+    pub target_score: Option<ScoreData>,
+    pub analysis_result: Option<rubato_audio::bms_loudness_analyzer::AnalysisResult>,
+    pub analysis_checked: bool,
+}
+
+impl PlayerScoreState {
+    pub fn new() -> Self {
+        Self {
+            playinfo: ReplayData::new(),
+            replay_config: None,
+            active_replay: None,
+            db_score: None,
+            rival_score: None,
+            target_score: None,
+            analysis_result: None,
+            analysis_checked: false,
+        }
+    }
+}
+
+impl Default for PlayerScoreState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// BMS Player main struct
 pub struct BMSPlayer {
     model: BMSModel,
@@ -164,8 +289,8 @@ pub struct BMSPlayer {
     bga: Arc<Mutex<BGAProcessor>>,
     gauge: Option<GrooveGauge>,
     playtime: i32,
-    keyinput: Option<KeyInputProccessor>,
-    control: Option<ControlInputProcessor>,
+    /// Input state snapshot (keys, buttons, analog, controllers).
+    input: PlayerInputState,
     keysound: KeySoundProcessor,
     assist: i32,
     playspeed: i32,
@@ -176,9 +301,8 @@ pub struct BMSPlayer {
     rhythm: Option<RhythmTimerProcessor>,
     startpressedtime: i64,
     adjusted_volume: f32,
-    analysis_checked: bool,
-    playinfo: ReplayData,
-    replay_config: Option<rubato_types::play_config::PlayConfig>,
+    /// Score, replay, and analysis state.
+    score: PlayerScoreState,
     /// Gauge log per gauge type
     gaugelog: Vec<Vec<f32>>,
     /// Skin for play screen
@@ -187,14 +311,10 @@ pub struct BMSPlayer {
     main_state_data: MainStateData,
     /// Total notes in song (from songdata)
     total_notes: i32,
-    /// Active replay data for keylog playback (set when in REPLAY mode)
-    active_replay: Option<ReplayData>,
     /// Margin time in milliseconds (from resource)
     margin_time: i64,
-    /// Pending global pitch to apply to the audio driver.
-    /// Set by BMSPlayer during state transitions; consumed by the caller.
-    /// None means no change requested.
-    pending_global_pitch: Option<f32>,
+    /// Pending side-effect requests produced during render/state transitions.
+    pending: PendingActions,
     /// Fast-forward frequency option (from AudioConfig).
     /// Cached during initialization so set_play_speed can determine
     /// whether to apply pitch changes.
@@ -220,65 +340,13 @@ pub struct BMSPlayer {
     chart_option: Option<ReplayData>,
     /// Skin name from header (set during skin loading for score recording).
     skin_name: Option<String>,
-    /// Analysis result from BMSLoudnessAnalyzer (set by caller via async task).
-    analysis_result: Option<rubato_audio::bms_loudness_analyzer::AnalysisResult>,
     /// Whether media loading has finished (set by the caller via resource.mediaLoadFinished()).
     media_load_finished: bool,
-    /// Input state: START button pressed (from BMSPlayerInputProcessor).
-    /// Updated each frame by the caller before calling render().
-    input_start_pressed: bool,
-    /// Input state: SELECT button pressed (from BMSPlayerInputProcessor).
-    /// Updated each frame by the caller before calling render().
-    input_select_pressed: bool,
-    /// Input state: key states array (from BMSPlayerInputProcessor).
-    /// Updated each frame by the caller before calling render().
-    input_key_states: Vec<bool>,
-    /// Control key states for practice mode navigation (from InputProcessorAccess).
-    /// [up, down, left, right] = [Num8, Num2, Num4, Num6]
-    /// Updated each frame by the caller before calling render().
-    control_key_up: bool,
-    control_key_down: bool,
-    control_key_left: bool,
-    control_key_right: bool,
-    control_key_escape_pressed: bool,
-    control_key_num1: bool,
-    control_key_num2: bool,
-    control_key_num3: bool,
-    control_key_num4: bool,
-    input_scroll: i32,
-    input_is_analog: Vec<bool>,
-    input_analog_diff_ticks: Vec<i32>,
-    input_analog_recent_ms: Vec<i64>,
-    pending_analog_resets: Vec<usize>,
-    /// Pending state change to request from MainController.
-    /// Set during render() when a state transition is needed.
-    /// The caller should consume this via `take_pending_state_change()`.
-    pending_state_change: Option<MainStateType>,
     /// Whether we are in course mode (resource.getCourseBMSModels() != null).
     /// Set by the caller. Quick retry is disabled during courses.
     is_course_mode: bool,
-    /// Pending system sound requests. Consumed by MainController via drain_pending_sounds().
-    pending_sounds: Vec<(rubato_types::sound_type::SoundType, bool)>,
-    /// Pending score handoff for Result state. Consumed by MainController.
-    pending_score_handoff: Option<rubato_types::score_handoff::ScoreHandoff>,
-    /// Pending BMS file reload request (for quick retry).
-    pending_reload_bms: bool,
     /// Input device type (for create_score_data). Set by the caller.
     device_type: rubato_input::bms_player_input_device::DeviceType,
-    /// Player's own score data loaded from the score DB.
-    /// Set by the caller before create(). Used to initialize ScoreDataProperty.
-    /// Java: main.getPlayDataAccessor().readScoreData(model, config.getLnmode())
-    db_score: Option<ScoreData>,
-    /// Rival score data from PlayerResource.
-    /// Set by the caller before create(). Used for target score computation.
-    /// Java: resource.getRivalScoreData()
-    rival_score: Option<ScoreData>,
-    /// Target score data (computed from TargetProperty or rival score).
-    /// Set by the caller before create(). The caller is responsible for computing
-    /// target via TargetProperty::from_id(config.targetid).target(main)
-    /// when rival_score is None or course mode is active.
-    /// Java: TargetProperty.getTargetProperty(config.getTargetid()).getTarget(main)
-    target_score: Option<ScoreData>,
 }
 
 impl BMSPlayer {
@@ -301,8 +369,7 @@ impl BMSPlayer {
             ))),
             gauge: None,
             playtime,
-            keyinput: None,
-            control: None,
+            input: PlayerInputState::new(),
             keysound: KeySoundProcessor::new(),
             assist: 0,
             playspeed: 100,
@@ -313,16 +380,13 @@ impl BMSPlayer {
             rhythm: None,
             startpressedtime: 0,
             adjusted_volume: -1.0,
-            analysis_checked: false,
-            playinfo: ReplayData::new(),
-            replay_config: None,
+            score: PlayerScoreState::new(),
             gaugelog: Vec::new(),
             play_skin: PlaySkin::new(),
             main_state_data: MainStateData::new(TimerManager::new()),
             total_notes,
-            active_replay: None,
             margin_time: 0,
-            pending_global_pitch: None,
+            pending: PendingActions::new(),
             fast_forward_freq_option: FrequencyType::UNPROCESSED,
             bg_volume: 0.5,
             play_mode: BMSPlayerMode::PLAY,
@@ -332,34 +396,9 @@ impl BMSPlayer {
             player_config: PlayerConfig::default(),
             chart_option: None,
             skin_name: None,
-            analysis_result: None,
             media_load_finished: false,
-            input_start_pressed: false,
-            input_select_pressed: false,
-            input_key_states: Vec::new(),
-            control_key_up: false,
-            control_key_down: false,
-            control_key_left: false,
-            control_key_right: false,
-            control_key_escape_pressed: false,
-            control_key_num1: false,
-            control_key_num2: false,
-            control_key_num3: false,
-            control_key_num4: false,
-            input_scroll: 0,
-            input_is_analog: Vec::new(),
-            input_analog_diff_ticks: Vec::new(),
-            input_analog_recent_ms: Vec::new(),
-            pending_analog_resets: Vec::new(),
-            pending_state_change: None,
             is_course_mode: false,
-            pending_sounds: Vec::new(),
-            pending_score_handoff: None,
-            pending_reload_bms: false,
             device_type: rubato_input::bms_player_input_device::DeviceType::Keyboard,
-            db_score: None,
-            rival_score: None,
-            target_score: None,
         }
     }
 
@@ -399,7 +438,7 @@ impl BMSPlayer {
         &mut self,
         result: Option<rubato_audio::bms_loudness_analyzer::AnalysisResult>,
     ) {
-        self.analysis_result = result;
+        self.score.analysis_result = result;
     }
 
     /// Set the play mode before calling create().
@@ -448,7 +487,7 @@ impl BMSPlayer {
     /// Take the pending state change (if any). Returns None if no transition is pending.
     /// The caller should apply this via main.changeState().
     pub fn take_pending_state_change(&mut self) -> Option<MainStateType> {
-        self.pending_state_change.take()
+        self.pending.pending_state_change.take()
     }
 
     /// Set whether we are in course mode.
@@ -458,7 +497,7 @@ impl BMSPlayer {
 
     /// Queue a system sound to be played by MainController.
     fn queue_sound(&mut self, sound: rubato_types::sound_type::SoundType) {
-        self.pending_sounds.push((sound, false));
+        self.pending.pending_sounds.push((sound, false));
     }
 
     /// Take the side effects produced by create().
@@ -492,7 +531,7 @@ impl BMSPlayer {
         // In Java: if (config.getAudioConfig().getFastForward() == FrequencyType.FREQUENCY)
         //     main.getAudioProcessor().setGlobalPitch(playspeed / 100f);
         if self.fast_forward_freq_option == FrequencyType::FREQUENCY {
-            self.pending_global_pitch = Some(playspeed as f32 / 100.0);
+            self.pending.pending_global_pitch = Some(playspeed as f32 / 100.0);
         }
     }
 
@@ -501,7 +540,17 @@ impl BMSPlayer {
     }
 
     pub fn keyinput(&mut self) -> Option<&mut KeyInputProccessor> {
-        self.keyinput.as_mut()
+        self.input.keyinput.as_mut()
+    }
+
+    /// Get a reference to the player input state sub-struct.
+    pub fn input_state(&self) -> &PlayerInputState {
+        &self.input
+    }
+
+    /// Get a mutable reference to the player input state sub-struct.
+    pub fn input_state_mut(&mut self) -> &mut PlayerInputState {
+        &mut self.input
     }
 
     pub fn state(&self) -> i32 {
@@ -557,7 +606,7 @@ impl BMSPlayer {
     /// Set the active replay data for keylog playback.
     /// Should be called when entering REPLAY mode after restore_replay_data().
     pub fn set_active_replay(&mut self, replay: Option<ReplayData>) {
-        self.active_replay = replay;
+        self.score.active_replay = replay;
     }
 
     /// Set the margin time in milliseconds (from resource).
@@ -574,7 +623,7 @@ impl BMSPlayer {
     ///
     /// Java: `main.getPlayDataAccessor().readScoreData(model, config.getLnmode())`
     pub fn set_db_score(&mut self, score: Option<ScoreData>) {
-        self.db_score = score;
+        self.score.db_score = score;
     }
 
     /// Set the rival score data from PlayerResource.
@@ -585,7 +634,7 @@ impl BMSPlayer {
     ///
     /// Java: `resource.getRivalScoreData()`
     pub fn set_rival_score(&mut self, score: Option<ScoreData>) {
-        self.rival_score = score;
+        self.score.rival_score = score;
     }
 
     /// Set the target score data computed from TargetProperty.
@@ -598,14 +647,14 @@ impl BMSPlayer {
     ///
     /// Java: `TargetProperty.getTargetProperty(config.getTargetid()).getTarget(main)`
     pub fn set_target_score(&mut self, score: Option<ScoreData>) {
-        self.target_score = score;
+        self.score.target_score = score;
     }
 
     /// Take the pending global pitch value, if any.
     /// After calling this, the pending value is cleared (consumed).
     /// The caller should apply the returned pitch to the audio driver.
     pub fn take_pending_global_pitch(&mut self) -> Option<f32> {
-        self.pending_global_pitch.take()
+        self.pending.pending_global_pitch.take()
     }
 
     /// Apply loudness analysis result to compute the adjusted volume.
@@ -619,7 +668,7 @@ impl BMSPlayer {
         analysis_result: &rubato_audio::bms_loudness_analyzer::AnalysisResult,
         config_key_volume: f32,
     ) -> f32 {
-        self.analysis_checked = true;
+        self.score.analysis_checked = true;
         if analysis_result.success {
             self.adjusted_volume = analysis_result.calculate_adjusted_volume(config_key_volume);
             log::info!(
@@ -638,7 +687,7 @@ impl BMSPlayer {
 
     /// Check if loudness analysis has been applied.
     pub fn is_analysis_checked(&self) -> bool {
-        self.analysis_checked
+        self.score.analysis_checked
     }
 
     pub fn practice_configuration(&self) -> &PracticeConfiguration {
@@ -659,7 +708,7 @@ impl BMSPlayer {
             return;
         }
         if self.state == STATE_PRELOAD || self.state == STATE_READY {
-            self.pending_global_pitch = Some(1.0);
+            self.pending.pending_global_pitch = Some(1.0);
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
             if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play {
                 self.state = STATE_ABORTED;
@@ -682,7 +731,7 @@ impl BMSPlayer {
                 == 0
         {
             // No notes judged and not in course mode - abort
-            if let Some(ref mut keyinput) = self.keyinput {
+            if let Some(ref mut keyinput) = self.input.keyinput {
                 keyinput.stop_judge();
             }
             self.keysound.stop_bg_play();
@@ -703,7 +752,7 @@ impl BMSPlayer {
         {
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
         } else if self.state != STATE_FINISHED {
-            self.pending_global_pitch = Some(1.0);
+            self.pending.pending_global_pitch = Some(1.0);
             self.state = STATE_FAILED;
             self.main_state_data.timer.set_timer_on(TIMER_FAILED);
             // if resource.mediaLoadFinished() { main.getAudioProcessor().stop(null); }
@@ -975,15 +1024,15 @@ impl BMSPlayer {
     /// these values from replay) and before `build_pattern_modifiers` (which
     /// uses the final values).
     pub fn init_playinfo_from_config(&mut self, config: &PlayerConfig) {
-        self.playinfo.randomoption = config.random;
-        self.playinfo.randomoption2 = config.random2;
-        self.playinfo.doubleoption = config.doubleoption;
+        self.score.playinfo.randomoption = config.random;
+        self.score.playinfo.randomoption2 = config.random2;
+        self.score.playinfo.doubleoption = config.doubleoption;
     }
 
     /// Get option information (replay data with random options).
     /// Corresponds to Java getOptionInformation() returning playinfo.
     pub fn option_information(&self) -> &ReplayData {
-        &self.playinfo
+        &self.score.playinfo
     }
 
     /// Encode the random seed for ScoreData storage.
@@ -996,9 +1045,9 @@ impl BMSPlayer {
     pub fn encode_seed_for_score(&self) -> i64 {
         let player_count = self.model.mode().map_or(1, |m| m.player());
         if player_count == 2 {
-            self.playinfo.randomoption2seed * 65536 * 256 + self.playinfo.randomoptionseed
+            self.score.playinfo.randomoption2seed * 65536 * 256 + self.score.playinfo.randomoptionseed
         } else {
-            self.playinfo.randomoptionseed
+            self.score.playinfo.randomoptionseed
         }
     }
 
@@ -1013,11 +1062,11 @@ impl BMSPlayer {
     pub fn encode_option_for_score(&self) -> i32 {
         let player_count = self.model.mode().map_or(1, |m| m.player());
         if player_count == 2 {
-            self.playinfo.randomoption
-                + self.playinfo.randomoption2 * 10
-                + self.playinfo.doubleoption * 100
+            self.score.playinfo.randomoption
+                + self.score.playinfo.randomoption2 * 10
+                + self.score.playinfo.doubleoption * 100
         } else {
-            self.playinfo.randomoption
+            self.score.playinfo.randomoption
         }
     }
 
@@ -1041,15 +1090,15 @@ impl BMSPlayer {
         // GhostBattle seed/option override (Java lines 119-138)
         let mut ghost_battle = crate::ghost_battle_play::consume();
         if let Some(ref mut gb) = ghost_battle {
-            self.playinfo.randomoption = gb.random;
+            self.score.playinfo.randomoption = gb.random;
             // Mirror inversion: if player config is MIRROR, flip ghost's option
             const IDENTITY: i32 = 0; // Random::Identity ordinal
             const MIRROR: i32 = 1; // Random::Mirror ordinal
             const RANDOM: i32 = 2; // Random::Random ordinal
             if config.random == MIRROR {
                 match gb.random {
-                    IDENTITY => self.playinfo.randomoption = MIRROR,
-                    MIRROR => self.playinfo.randomoption = IDENTITY,
+                    IDENTITY => self.score.playinfo.randomoption = MIRROR,
+                    MIRROR => self.score.playinfo.randomoption = IDENTITY,
                     RANDOM => {
                         // Reverse the decimal digit representation of the lane pattern
                         let reversed: i32 = gb
@@ -1067,12 +1116,12 @@ impl BMSPlayer {
             }
         } else if let Some(chart_option) = self.chart_option.take() {
             // ChartOption override (Java lines 140-148)
-            self.playinfo.randomoption = chart_option.randomoption;
-            self.playinfo.randomoptionseed = chart_option.randomoptionseed;
-            self.playinfo.randomoption2 = chart_option.randomoption2;
-            self.playinfo.randomoption2seed = chart_option.randomoption2seed;
-            self.playinfo.doubleoption = chart_option.doubleoption;
-            self.playinfo.rand = chart_option.rand;
+            self.score.playinfo.randomoption = chart_option.randomoption;
+            self.score.playinfo.randomoptionseed = chart_option.randomoptionseed;
+            self.score.playinfo.randomoption2 = chart_option.randomoption2;
+            self.score.playinfo.randomoption2seed = chart_option.randomoption2seed;
+            self.score.playinfo.doubleoption = chart_option.doubleoption;
+            self.score.playinfo.rand = chart_option.rand;
         }
 
         // -- Phase 1: Pre-option modifiers (scroll, LN, mine, extra) --
@@ -1117,7 +1166,7 @@ impl BMSPlayer {
         }
 
         // -- Phase 2: DP battle mode handling (doubleoption >= 2) --
-        if self.playinfo.doubleoption >= 2 {
+        if self.score.playinfo.doubleoption >= 2 {
             let mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
             if mode == Mode::BEAT_5K || mode == Mode::BEAT_7K || mode == Mode::KEYBOARD_24K {
                 // Convert SP mode to DP mode
@@ -1134,7 +1183,7 @@ impl BMSPlayer {
                 battle_mod.modify(&mut self.model);
 
                 // If doubleoption == 3, also add AutoplayModifier for scratch keys
-                if self.playinfo.doubleoption == 3 {
+                if self.score.playinfo.doubleoption == 3 {
                     let dp_mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_14K);
                     let scratch_keys = dp_mode.scratch_key().to_vec();
                     let mut autoplay_mod = AutoplayModifier::new(scratch_keys);
@@ -1146,7 +1195,7 @@ impl BMSPlayer {
                 log::info!("Pattern option: BATTLE (L-ASSIST)");
             } else {
                 // Not SP mode, so BATTLE is not applied
-                self.playinfo.doubleoption = 0;
+                self.score.playinfo.doubleoption = 0;
             }
         }
 
@@ -1160,51 +1209,51 @@ impl BMSPlayer {
 
         // DP option modifiers
         if player_count == 2 {
-            if self.playinfo.doubleoption == 1 {
+            if self.score.playinfo.doubleoption == 1 {
                 random_mods.push(Box::new(PlayerFlipModifier::new()));
             }
-            log::info!("Pattern option (DP): {}", self.playinfo.doubleoption);
+            log::info!("Pattern option (DP): {}", self.score.playinfo.doubleoption);
 
             // 2P random option
             let mut pm2 = rubato_core::pattern::pattern_modifier::create_pattern_modifier(
-                self.playinfo.randomoption2,
+                self.score.playinfo.randomoption2,
                 1,
                 &mode,
                 config,
             );
-            if self.playinfo.randomoption2seed != -1 {
-                pm2.set_seed(self.playinfo.randomoption2seed);
+            if self.score.playinfo.randomoption2seed != -1 {
+                pm2.set_seed(self.score.playinfo.randomoption2seed);
             } else {
-                self.playinfo.randomoption2seed = pm2.get_seed();
+                self.score.playinfo.randomoption2seed = pm2.get_seed();
             }
             random_mods.push(pm2);
             log::info!(
                 "Pattern option (2P): {}, Seed: {}",
-                self.playinfo.randomoption2,
-                self.playinfo.randomoption2seed
+                self.score.playinfo.randomoption2,
+                self.score.playinfo.randomoption2seed
             );
         }
 
         // 1P random option
         let mut pm1 = rubato_core::pattern::pattern_modifier::create_pattern_modifier(
-            self.playinfo.randomoption,
+            self.score.playinfo.randomoption,
             0,
             &mode,
             config,
         );
-        if self.playinfo.randomoptionseed != -1 {
-            pm1.set_seed(self.playinfo.randomoptionseed);
+        if self.score.playinfo.randomoptionseed != -1 {
+            pm1.set_seed(self.score.playinfo.randomoptionseed);
         } else {
             // GhostBattle/RandomTrainer seed override requires RandomTrainer::getRandomSeedMap()
             // which lives in beatoraja-modmenu (circular dep). The seed map would need to be
             // passed in as an external dependency when GhostBattle or RandomTrainer is active.
-            self.playinfo.randomoptionseed = pm1.get_seed();
+            self.score.playinfo.randomoptionseed = pm1.get_seed();
         }
         random_mods.push(pm1);
         log::info!(
             "Pattern option (1P): {}, Seed: {}",
-            self.playinfo.randomoption,
-            self.playinfo.randomoptionseed
+            self.score.playinfo.randomoption,
+            self.score.playinfo.randomoptionseed
         );
 
         // 7to9 mode
@@ -1248,7 +1297,7 @@ impl BMSPlayer {
                 .into_iter()
                 .map(|p| p.unwrap_or_default())
                 .collect();
-            self.playinfo.lane_shuffle_pattern = Some(patterns);
+            self.score.playinfo.lane_shuffle_pattern = Some(patterns);
         }
 
         score
@@ -1311,19 +1360,19 @@ impl BMSPlayer {
                 if key_state.pattern_key {
                     // Replay pattern mode: copy options + seeds + rand
                     log::info!("リプレイ再現モード : 譜面");
-                    self.playinfo.randomoption = replay_data.randomoption;
-                    self.playinfo.randomoptionseed = replay_data.randomoptionseed;
-                    self.playinfo.randomoption2 = replay_data.randomoption2;
-                    self.playinfo.randomoption2seed = replay_data.randomoption2seed;
-                    self.playinfo.doubleoption = replay_data.doubleoption;
-                    self.playinfo.rand = replay_data.rand.clone();
+                    self.score.playinfo.randomoption = replay_data.randomoption;
+                    self.score.playinfo.randomoptionseed = replay_data.randomoptionseed;
+                    self.score.playinfo.randomoption2 = replay_data.randomoption2;
+                    self.score.playinfo.randomoption2seed = replay_data.randomoption2seed;
+                    self.score.playinfo.doubleoption = replay_data.doubleoption;
+                    self.score.playinfo.rand = replay_data.rand.clone();
                     is_replay_pattern_play = true;
                 } else if key_state.option_key {
                     // Replay option mode: copy options only (no seeds, no rand)
                     log::info!("リプレイ再現モード : オプション");
-                    self.playinfo.randomoption = replay_data.randomoption;
-                    self.playinfo.randomoption2 = replay_data.randomoption2;
-                    self.playinfo.doubleoption = replay_data.doubleoption;
+                    self.score.playinfo.randomoption = replay_data.randomoption;
+                    self.score.playinfo.randomoption2 = replay_data.randomoption2;
+                    self.score.playinfo.doubleoption = replay_data.doubleoption;
                     is_replay_pattern_play = true;
                 }
 
@@ -1410,24 +1459,24 @@ impl BMSPlayer {
         {
             if is_replay_mode {
                 if let Some(replay_data) = replay {
-                    self.playinfo.rand = replay_data.rand.clone();
+                    self.score.playinfo.rand = replay_data.rand.clone();
                 }
             } else if resource_replay_seed != -1 {
                 // This path is hit on MusicResult / QuickRetry
-                self.playinfo.rand = resource_rand.to_vec();
+                self.score.playinfo.rand = resource_rand.to_vec();
             }
 
-            if !self.playinfo.rand.is_empty() {
+            if !self.score.playinfo.rand.is_empty() {
                 // Return rand to the caller for model reload via PlayerResource.
                 // Caller should: resource.load_bms_model(rand), then update self.model
-                // and self.playinfo.rand = model.random().
-                log::info!("譜面分岐 : {:?}", self.playinfo.rand);
-                return Some(self.playinfo.rand.clone());
+                // and self.score.playinfo.rand = model.random().
+                log::info!("譜面分岐 : {:?}", self.score.playinfo.rand);
+                return Some(self.score.playinfo.rand.clone());
             }
 
             // No rand override, store model's random into playinfo
-            self.playinfo.rand = random.clone();
-            log::info!("譜面分岐 : {:?}", self.playinfo.rand);
+            self.score.playinfo.rand = random.clone();
+            log::info!("譜面分岐 : {:?}", self.score.playinfo.rand);
         }
         None
     }
@@ -1582,7 +1631,7 @@ impl BMSPlayer {
     /// Get mutable reference to playinfo for testing.
     #[cfg(test)]
     pub fn playinfo_mut(&mut self) -> &mut ReplayData {
-        &mut self.playinfo
+        &mut self.score.playinfo
     }
 }
 
@@ -1765,7 +1814,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
     }
 
     fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
-        self.player.pending_state_change = Some(state);
+        self.player.pending.pending_state_change = Some(state);
     }
 
     fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
@@ -1791,23 +1840,23 @@ impl MainState for BMSPlayer {
     }
 
     fn take_pending_state_change(&mut self) -> Option<MainStateType> {
-        self.pending_state_change.take()
+        self.pending.pending_state_change.take()
     }
 
     fn take_pending_global_pitch(&mut self) -> Option<f32> {
-        self.pending_global_pitch.take()
+        self.pending.pending_global_pitch.take()
     }
 
     fn drain_pending_sounds(&mut self) -> Vec<(rubato_types::sound_type::SoundType, bool)> {
-        std::mem::take(&mut self.pending_sounds)
+        std::mem::take(&mut self.pending.pending_sounds)
     }
 
     fn take_score_handoff(&mut self) -> Option<rubato_types::score_handoff::ScoreHandoff> {
-        self.pending_score_handoff.take()
+        self.pending.pending_score_handoff.take()
     }
 
     fn take_pending_reload_bms(&mut self) -> bool {
-        std::mem::take(&mut self.pending_reload_bms)
+        std::mem::take(&mut self.pending.pending_reload_bms)
     }
 
     fn notify_media_load_finished(&mut self) {
@@ -1838,7 +1887,7 @@ impl MainState for BMSPlayer {
                 judge: &self.judge,
                 gauge: self.gauge.as_ref(),
                 player_config: &self.player_config,
-                option_info: &self.playinfo,
+                option_info: &self.score.playinfo,
                 play_config: &self
                     .player_config
                     .play_config_ref(
@@ -1848,7 +1897,7 @@ impl MainState for BMSPlayer {
                             .unwrap_or(bms_model::mode::Mode::BEAT_7K),
                     )
                     .playconfig,
-                target_score: self.target_score.as_ref(),
+                target_score: self.score.target_score.as_ref(),
                 playtime: self.playtime,
                 total_notes: self.total_notes,
                 play_mode: self.play_mode.clone(),
@@ -1907,9 +1956,9 @@ impl MainState for BMSPlayer {
         let mode = self.model.mode().cloned().unwrap_or(Mode::BEAT_7K);
         self.lane_property = Some(LaneProperty::new(&mode));
         self.judge = JudgeManager::new();
-        self.control = Some(ControlInputProcessor::new(mode.clone()));
+        self.input.control = Some(ControlInputProcessor::new(mode.clone()));
         if let Some(ref lp) = self.lane_property {
-            self.keyinput = Some(KeyInputProccessor::new(lp));
+            self.input.keyinput = Some(KeyInputProccessor::new(lp));
         }
 
         // --- loadSkin(getSkinType()) ---
@@ -1963,7 +2012,7 @@ impl MainState for BMSPlayer {
         // }
         // ```
         if self.constraints.contains(&CourseDataConstraint::NoSpeed)
-            && let Some(ref mut control) = self.control
+            && let Some(ref mut control) = self.input.control
         {
             control.set_enable_control(false);
         }
@@ -2027,7 +2076,7 @@ impl MainState for BMSPlayer {
         //
         // The caller must pre-load db_score, rival_score, and target_score via
         // set_db_score(), set_rival_score(), and set_target_score() before create().
-        let score = self.db_score.clone().unwrap_or_default();
+        let score = self.score.db_score.clone().unwrap_or_default();
         log::info!("Score data loaded from score database");
 
         let total_notes = self.model.total_notes();
@@ -2043,10 +2092,10 @@ impl MainState for BMSPlayer {
             // - If rival score is absent or in course mode, use the pre-computed target_score
             //   (caller should have computed via TargetProperty::from_id().target())
             // - Otherwise, use the rival score as the target
-            let effective_target = if self.rival_score.is_none() || self.is_course_mode {
-                self.target_score.clone()
+            let effective_target = if self.score.rival_score.is_none() || self.is_course_mode {
+                self.score.target_score.clone()
             } else {
-                self.rival_score.clone()
+                self.score.rival_score.clone()
             };
 
             let (target_exscore, target_ghost) = match effective_target {
@@ -2076,7 +2125,7 @@ impl MainState for BMSPlayer {
         }
         // startpressedtime tracking: update when START or SELECT is pressed
         // Translated from: Java BMSPlayer.render() line 590
-        if self.input_start_pressed || self.input_select_pressed {
+        if self.input.input_start_pressed || self.input.input_select_pressed {
             self.startpressedtime = micronow;
         }
 
@@ -2119,10 +2168,10 @@ impl MainState for BMSPlayer {
                     }
 
                     // Loudness analysis check (Java BMSPlayer.render() lines 615-641)
-                    if !self.analysis_checked {
+                    if !self.score.analysis_checked {
                         self.adjusted_volume = -1.0;
-                        self.analysis_checked = true;
-                        if let Some(result) = self.analysis_result.take() {
+                        self.score.analysis_checked = true;
+                        if let Some(result) = self.score.analysis_result.take() {
                             let config_key_volume = self.bg_volume;
                             self.apply_loudness_analysis(&result, config_key_volume);
                         }
@@ -2161,11 +2210,11 @@ impl MainState for BMSPlayer {
                     // Java: resource.reloadBMSFile(); model = resource.getBMSModel();
                     // Rust: pending flag triggers MainController to reload resource and
                     // push fresh model back via receive_reloaded_model().
-                    self.pending_reload_bms = true;
+                    self.pending.pending_reload_bms = true;
                     if let Some(ref mut lr) = self.lanerender {
                         lr.init(&self.model);
                     }
-                    if let Some(ref mut ki) = self.keyinput {
+                    if let Some(ref mut ki) = self.input.keyinput {
                         ki.set_key_beam_stop(false);
                     }
                     self.main_state_data.timer.set_timer_off(TIMER_PLAY);
@@ -2194,7 +2243,7 @@ impl MainState for BMSPlayer {
                         .timer
                         .set_timer_on(TIMER_PM_CHARA_2P_NEUTRAL);
                 }
-                if let Some(ref mut control) = self.control {
+                if let Some(ref mut control) = self.input.control {
                     control.set_enable_control(false);
                     control.set_enable_cursor(false);
                 }
@@ -2208,16 +2257,16 @@ impl MainState for BMSPlayer {
                 // In the Java version, these come from BMSPlayerInputProcessor control keys.
                 // For now we pass the input_start/select state as a proxy for key0 check.
                 self.practice.process_input(
-                    self.control_key_up,
-                    self.control_key_down,
-                    self.control_key_left,
-                    self.control_key_right,
+                    self.input.control_key_up,
+                    self.input.control_key_down,
+                    self.input.control_key_left,
+                    self.input.control_key_right,
                     now_millis,
                 );
 
                 // Practice start logic: press key0 while media is loaded and timers elapsed
                 // Translated from: Java BMSPlayer.render() lines 682-723
-                let key0_pressed = self.input_key_states.first().copied().unwrap_or(false);
+                let key0_pressed = self.input.input_key_states.first().copied().unwrap_or(false);
                 let load_threshold =
                     (self.play_skin.loadstart() + self.play_skin.loadend()) as i64 * 1000;
                 if key0_pressed
@@ -2226,7 +2275,7 @@ impl MainState for BMSPlayer {
                     && micronow - self.startpressedtime > 1_000_000
                 {
                     // Apply practice configuration and start play
-                    if let Some(ref mut control) = self.control {
+                    if let Some(ref mut control) = self.input.control {
                         control.set_enable_control(true);
                         control.set_enable_cursor(true);
                     }
@@ -2240,7 +2289,7 @@ impl MainState for BMSPlayer {
                             property.freq as f32 / 100.0,
                         );
                         if self.fast_forward_freq_option == FrequencyType::FREQUENCY {
-                            self.pending_global_pitch = Some(property.freq as f32 / 100.0);
+                            self.pending.pending_global_pitch = Some(property.freq as f32 / 100.0);
                         }
                     }
 
@@ -2313,7 +2362,7 @@ impl MainState for BMSPlayer {
                     .map_or(0, |s| s.fadeout()) as i64;
                 if self.main_state_data.timer.now_time_for_id(TIMER_FADEOUT) > skin_fadeout {
                     // input.setEnable(true); input.setStartTime(0);
-                    self.pending_state_change = Some(MainStateType::MusicSelect);
+                    self.pending.pending_state_change = Some(MainStateType::MusicSelect);
                     log::info!("Practice finished, transition to MUSICSELECT");
                 }
             }
@@ -2324,7 +2373,7 @@ impl MainState for BMSPlayer {
                     > self.play_skin.playstart() as i64
                 {
                     if let Some(ref lr) = self.lanerender {
-                        self.replay_config = Some(lr.play_config().clone());
+                        self.score.replay_config = Some(lr.play_config().clone());
                     }
                     self.state = STATE_PLAY;
                     self.main_state_data
@@ -2337,10 +2386,10 @@ impl MainState for BMSPlayer {
                     // input.setStartTime(micronow + timer.getStartMicroTime() - starttimeoffset * 1000);
                     // input.setKeyLogMarginTime(resource.getMarginTime());
                     // Java: keyinput.startJudge(model, replay != null ? replay.keylog : null, resource.getMarginTime())
-                    if let Some(ref mut ki) = self.keyinput {
+                    if let Some(ref mut ki) = self.input.keyinput {
                         let timelines = self.model.all_time_lines();
                         let last_tl_micro = timelines.last().map_or(0, |tl| tl.micro_time());
-                        let keylog = self.active_replay.as_ref().map(|r| r.keylog.as_slice());
+                        let keylog = self.score.active_replay.as_ref().map(|r| r.keylog.as_slice());
                         ki.start_judge(last_tl_micro, keylog, self.margin_time);
                     }
                     // Resolve initial BG volume: use adjusted_volume if >= 0,
@@ -2516,29 +2565,29 @@ impl MainState for BMSPlayer {
             // STATE_FAILED
             // Translated from: Java BMSPlayer.render() lines 818-869
             STATE_FAILED => {
-                if let Some(ref mut control) = self.control {
+                if let Some(ref mut control) = self.input.control {
                     control.set_enable_control(false);
                     control.set_enable_cursor(false);
                 }
-                if let Some(ref mut ki) = self.keyinput {
+                if let Some(ref mut ki) = self.input.keyinput {
                     ki.stop_judge();
                 }
                 self.keysound.stop_bg_play();
 
                 // Quick retry check (START xor SELECT)
                 // Translated from: Java BMSPlayer.render() lines 823-838
-                if (self.input_start_pressed ^ self.input_select_pressed)
+                if (self.input.input_start_pressed ^ self.input.input_select_pressed)
                     && !self.is_course_mode
                     && self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play
                 {
-                    self.pending_global_pitch = Some(1.0);
+                    self.pending.pending_global_pitch = Some(1.0);
                     self.save_config();
-                    self.pending_reload_bms = true;
-                    self.pending_state_change = Some(MainStateType::Play);
+                    self.pending.pending_reload_bms = true;
+                    self.pending.pending_state_change = Some(MainStateType::Play);
                 } else if self.main_state_data.timer.now_time_for_id(TIMER_FAILED)
                     > self.play_skin.close() as i64
                 {
-                    self.pending_global_pitch = Some(1.0);
+                    self.pending.pending_global_pitch = Some(1.0);
                     // if resource.mediaLoadFinished() { resource.getBGAManager().stop(); }
 
                     // Fill remaining gauge log with 0
@@ -2560,7 +2609,7 @@ impl MainState for BMSPlayer {
                     } else {
                         None
                     };
-                    self.pending_score_handoff = Some(rubato_types::score_handoff::ScoreHandoff {
+                    self.pending.pending_score_handoff = Some(rubato_types::score_handoff::ScoreHandoff {
                         score_data: score,
                         combo: self.judge.course_combo(),
                         maxcombo: self.judge.course_maxcombo(),
@@ -2575,13 +2624,13 @@ impl MainState for BMSPlayer {
                     if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice {
                         self.state = STATE_PRACTICE;
                     } else if self
-                        .pending_score_handoff
+                        .pending.pending_score_handoff
                         .as_ref()
                         .is_some_and(|h| h.score_data.is_some())
                     {
-                        self.pending_state_change = Some(MainStateType::Result);
+                        self.pending.pending_state_change = Some(MainStateType::Result);
                     } else {
-                        self.pending_state_change = Some(MainStateType::MusicSelect);
+                        self.pending.pending_state_change = Some(MainStateType::MusicSelect);
                     }
                     log::info!("Failed close, transition to result/select");
                 }
@@ -2590,11 +2639,11 @@ impl MainState for BMSPlayer {
             // STATE_FINISHED
             // Translated from: Java BMSPlayer.render() lines 872-911
             STATE_FINISHED => {
-                if let Some(ref mut control) = self.control {
+                if let Some(ref mut control) = self.input.control {
                     control.set_enable_control(false);
                     control.set_enable_cursor(false);
                 }
-                if let Some(ref mut ki) = self.keyinput {
+                if let Some(ref mut ki) = self.input.keyinput {
                     ki.stop_judge();
                 }
                 self.keysound.stop_bg_play();
@@ -2611,7 +2660,7 @@ impl MainState for BMSPlayer {
                     .as_ref()
                     .map_or(0, |s| s.fadeout()) as i64;
                 if self.main_state_data.timer.now_time_for_id(TIMER_FADEOUT) > skin_fadeout {
-                    self.pending_global_pitch = Some(1.0);
+                    self.pending.pending_global_pitch = Some(1.0);
                     // resource.getBGAManager().stop();
                     let score = if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play
                         || self.play_mode.mode == rubato_core::bms_player_mode::Mode::Replay
@@ -2621,7 +2670,7 @@ impl MainState for BMSPlayer {
                         None
                     };
                     self.save_config();
-                    self.pending_score_handoff = Some(rubato_types::score_handoff::ScoreHandoff {
+                    self.pending.pending_score_handoff = Some(rubato_types::score_handoff::ScoreHandoff {
                         score_data: score,
                         combo: self.judge.course_combo(),
                         maxcombo: self.judge.course_maxcombo(),
@@ -2635,7 +2684,7 @@ impl MainState for BMSPlayer {
                     if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice {
                         self.state = STATE_PRACTICE;
                     } else {
-                        self.pending_state_change = Some(MainStateType::Result);
+                        self.pending.pending_state_change = Some(MainStateType::Result);
                     }
                     log::info!("Finished, transition to result/select");
                 }
@@ -2646,13 +2695,13 @@ impl MainState for BMSPlayer {
             STATE_ABORTED => {
                 // Quick retry check (START xor SELECT in PLAY mode, not course)
                 if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play
-                    && (self.input_start_pressed ^ self.input_select_pressed)
+                    && (self.input.input_start_pressed ^ self.input.input_select_pressed)
                     && !self.is_course_mode
                 {
-                    self.pending_global_pitch = Some(1.0);
+                    self.pending.pending_global_pitch = Some(1.0);
                     self.save_config();
-                    self.pending_reload_bms = true;
-                    self.pending_state_change = Some(MainStateType::Play);
+                    self.pending.pending_reload_bms = true;
+                    self.pending.pending_state_change = Some(MainStateType::Play);
                 }
 
                 // skin.getFadeout() from the loaded skin
@@ -2663,7 +2712,7 @@ impl MainState for BMSPlayer {
                     .map_or(0, |s| s.fadeout()) as i64;
                 if self.main_state_data.timer.now_time_for_id(TIMER_FADEOUT) > skin_fadeout {
                     // input.setEnable(true); input.setStartTime(0);
-                    self.pending_state_change = Some(MainStateType::MusicSelect);
+                    self.pending.pending_state_change = Some(MainStateType::MusicSelect);
                     log::info!("Aborted, transition to MUSICSELECT");
                 }
             }
@@ -2690,11 +2739,11 @@ impl MainState for BMSPlayer {
 
         // Process control input (START+SELECT, lane cover, hispeed, etc.)
         if let (Some(mut control), Some(lanerender)) =
-            (self.control.take(), self.lanerender.as_mut())
+            (self.input.control.take(), self.lanerender.as_mut())
         {
-            let pending_analog_resets = &mut self.pending_analog_resets;
-            let input_analog_recent_ms = &mut self.input_analog_recent_ms;
-            let input_analog_diff_ticks = &mut self.input_analog_diff_ticks;
+            let pending_analog_resets = &mut self.input.pending_analog_resets;
+            let input_analog_recent_ms = &mut self.input.input_analog_recent_ms;
+            let input_analog_diff_ticks = &mut self.input.input_analog_diff_ticks;
             let mut analog_diff_and_reset = |key: usize, ms_tolerance: i32| -> i32 {
                 if key >= input_analog_recent_ms.len() || key >= input_analog_diff_ticks.len() {
                     return 0;
@@ -2713,18 +2762,18 @@ impl MainState for BMSPlayer {
             };
             let mut ctx = crate::control_input_processor::ControlInputContext {
                 lanerender,
-                start_pressed: self.input_start_pressed,
-                select_pressed: self.input_select_pressed,
-                control_key_up: self.control_key_up,
-                control_key_down: self.control_key_down,
-                control_key_escape_pressed: self.control_key_escape_pressed,
-                control_key_num1: self.control_key_num1,
-                control_key_num2: self.control_key_num2,
-                control_key_num3: self.control_key_num3,
-                control_key_num4: self.control_key_num4,
-                key_states: &self.input_key_states,
-                scroll: self.input_scroll,
-                is_analog: &self.input_is_analog,
+                start_pressed: self.input.input_start_pressed,
+                select_pressed: self.input.input_select_pressed,
+                control_key_up: self.input.control_key_up,
+                control_key_down: self.input.control_key_down,
+                control_key_escape_pressed: self.input.control_key_escape_pressed,
+                control_key_num1: self.input.control_key_num1,
+                control_key_num2: self.input.control_key_num2,
+                control_key_num3: self.input.control_key_num3,
+                control_key_num4: self.input.control_key_num4,
+                key_states: &self.input.input_key_states,
+                scroll: self.input.input_scroll,
+                is_analog: &self.input.input_is_analog,
                 analog_diff_and_reset: &mut analog_diff_and_reset,
                 is_timer_play_on,
                 is_note_end,
@@ -2740,20 +2789,20 @@ impl MainState for BMSPlayer {
                 self.set_play_speed(speed);
             }
             if result.clear_start {
-                self.input_start_pressed = false;
+                self.input.input_start_pressed = false;
             }
             if result.clear_select {
-                self.input_select_pressed = false;
+                self.input.input_select_pressed = false;
             }
             if result.reset_scroll {
-                self.input_scroll = 0;
+                self.input.input_scroll = 0;
             }
             if result.stop_play {
                 // Restore control before stopping (stop_play may need it)
-                self.control = Some(control);
+                self.input.control = Some(control);
                 self.stop_play();
             } else {
-                self.control = Some(control);
+                self.input.control = Some(control);
             }
         }
 
@@ -2761,10 +2810,10 @@ impl MainState for BMSPlayer {
         let auto_presstime = self.judge.auto_presstime().to_vec();
         let now = self.main_state_data.timer.now_time();
         let is_autoplay = self.play_mode.mode == rubato_core::bms_player_mode::Mode::Autoplay;
-        if let Some(ref mut keyinput) = self.keyinput {
+        if let Some(ref mut keyinput) = self.input.keyinput {
             let mut ctx = crate::key_input_processor::InputContext {
                 now,
-                key_states: &self.input_key_states,
+                key_states: &self.input.input_key_states,
                 auto_presstime: &auto_presstime,
                 is_autoplay,
                 timer: &mut self.main_state_data.timer,
@@ -2774,45 +2823,45 @@ impl MainState for BMSPlayer {
     }
 
     fn sync_input_from(&mut self, input: &BMSPlayerInputProcessor) {
-        self.input_start_pressed = input.start_pressed();
-        self.input_select_pressed = input.is_select_pressed();
-        self.input_key_states.clear();
-        self.input_key_states
+        self.input.input_start_pressed = input.start_pressed();
+        self.input.input_select_pressed = input.is_select_pressed();
+        self.input.input_key_states.clear();
+        self.input.input_key_states
             .extend((0..KEYSTATE_SIZE as i32).map(|i| input.key_state(i)));
-        self.control_key_up = input.control_key_state(ControlKeys::Up);
-        self.control_key_down = input.control_key_state(ControlKeys::Down);
-        self.control_key_left = input.control_key_state(ControlKeys::Left);
-        self.control_key_right = input.control_key_state(ControlKeys::Right);
-        self.control_key_escape_pressed = input.control_key_state(ControlKeys::Escape);
-        self.control_key_num1 = input.control_key_state(ControlKeys::Num1);
-        self.control_key_num2 = input.control_key_state(ControlKeys::Num2);
-        self.control_key_num3 = input.control_key_state(ControlKeys::Num3);
-        self.control_key_num4 = input.control_key_state(ControlKeys::Num4);
-        self.input_scroll = input.scroll();
-        self.input_is_analog.clear();
-        self.input_is_analog
+        self.input.control_key_up = input.control_key_state(ControlKeys::Up);
+        self.input.control_key_down = input.control_key_state(ControlKeys::Down);
+        self.input.control_key_left = input.control_key_state(ControlKeys::Left);
+        self.input.control_key_right = input.control_key_state(ControlKeys::Right);
+        self.input.control_key_escape_pressed = input.control_key_state(ControlKeys::Escape);
+        self.input.control_key_num1 = input.control_key_state(ControlKeys::Num1);
+        self.input.control_key_num2 = input.control_key_state(ControlKeys::Num2);
+        self.input.control_key_num3 = input.control_key_state(ControlKeys::Num3);
+        self.input.control_key_num4 = input.control_key_state(ControlKeys::Num4);
+        self.input.input_scroll = input.scroll();
+        self.input.input_is_analog.clear();
+        self.input.input_is_analog
             .extend((0..KEYSTATE_SIZE).map(|i| input.is_analog_input(i)));
-        self.input_analog_diff_ticks.clear();
-        self.input_analog_diff_ticks
+        self.input.input_analog_diff_ticks.clear();
+        self.input.input_analog_diff_ticks
             .extend((0..KEYSTATE_SIZE).map(|i| input.analog_diff(i)));
-        self.input_analog_recent_ms.clear();
-        self.input_analog_recent_ms
+        self.input.input_analog_recent_ms.clear();
+        self.input.input_analog_recent_ms
             .extend((0..KEYSTATE_SIZE).map(|i| input.time_since_last_analog_reset(i)));
-        self.pending_analog_resets.clear();
+        self.input.pending_analog_resets.clear();
         self.device_type = input.device_type();
     }
 
     fn sync_input_back_to(&mut self, input: &mut BMSPlayerInputProcessor) {
-        if !self.input_start_pressed {
+        if !self.input.input_start_pressed {
             input.start_changed(false);
         }
-        if !self.input_select_pressed {
+        if !self.input.input_select_pressed {
             input.set_select_pressed(false);
         }
-        if self.input_scroll == 0 {
+        if self.input.input_scroll == 0 {
             input.reset_scroll();
         }
-        for key in self.pending_analog_resets.drain(..) {
+        for key in self.input.pending_analog_resets.drain(..) {
             input.reset_analog_input(key);
         }
     }
@@ -3017,7 +3066,7 @@ mod tests {
         assert_eq!(player.state(), STATE_PRELOAD);
         assert_eq!(player.play_speed(), 100);
         assert_eq!(player.adjusted_volume(), -1.0);
-        assert!(!player.analysis_checked);
+        assert!(!player.score.analysis_checked);
     }
 
     #[test]
@@ -3063,7 +3112,7 @@ mod tests {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
         player.player_config.random = 1;
-        player.playinfo.randomoption = 6;
+        player.score.playinfo.randomoption = 6;
         let observed = Arc::new(AtomicI32::new(-1));
         player.main_state_data.skin = Some(Box::new(ProbeImageIndexSkin {
             id: 42,
@@ -3247,7 +3296,7 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         player.state = STATE_PLAY;
         // Judge has no notes hit (all counts = 0), and keyinput needs to exist
-        player.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+        player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
         player.stop_play();
         assert_eq!(player.state(), STATE_ABORTED);
     }
@@ -3643,7 +3692,7 @@ mod tests {
 
         let mut config = make_default_config();
         config.doubleoption = 2;
-        player.playinfo.doubleoption = 2;
+        player.score.playinfo.doubleoption = 2;
 
         let score = player.build_pattern_modifiers(&config);
         // SP BEAT_7K should be converted to BEAT_14K
@@ -3663,7 +3712,7 @@ mod tests {
 
         let mut config = make_default_config();
         config.doubleoption = 3; // Battle + L-ASSIST (autoplay scratch)
-        player.playinfo.doubleoption = 3;
+        player.score.playinfo.doubleoption = 3;
 
         player.build_pattern_modifiers(&config);
         // SP BEAT_7K should be converted to BEAT_14K
@@ -3680,12 +3729,12 @@ mod tests {
 
         let mut config = make_default_config();
         config.doubleoption = 2;
-        player.playinfo.doubleoption = 2;
+        player.score.playinfo.doubleoption = 2;
 
         player.build_pattern_modifiers(&config);
         // Not SP mode, so BATTLE is not applied
         assert_eq!(player.mode(), Mode::BEAT_14K);
-        assert_eq!(player.playinfo.doubleoption, 0);
+        assert_eq!(player.score.playinfo.doubleoption, 0);
     }
 
     #[test]
@@ -3697,7 +3746,7 @@ mod tests {
 
         let mut config = make_default_config();
         config.doubleoption = 1;
-        player.playinfo.doubleoption = 1;
+        player.score.playinfo.doubleoption = 1;
 
         player.build_pattern_modifiers(&config);
         // PlayerFlipModifier should be applied, mode stays BEAT_14K
@@ -3713,7 +3762,7 @@ mod tests {
         player.build_pattern_modifiers(&config);
         // After applying modifiers, the 1P random seed should be saved in playinfo
         // Even with Identity (random=0), the seed is initialized
-        assert_ne!(player.playinfo.randomoptionseed, -1);
+        assert_ne!(player.score.playinfo.randomoptionseed, -1);
     }
 
     #[test]
@@ -3723,11 +3772,11 @@ mod tests {
         let config = make_default_config();
 
         // Pre-set a seed (as if restoring from replay)
-        player.playinfo.randomoptionseed = 12345;
+        player.score.playinfo.randomoptionseed = 12345;
 
         player.build_pattern_modifiers(&config);
         // The seed should be preserved (not overwritten)
-        assert_eq!(player.playinfo.randomoptionseed, 12345);
+        assert_eq!(player.score.playinfo.randomoptionseed, 12345);
     }
 
     #[test]
@@ -3740,7 +3789,7 @@ mod tests {
 
         player.build_pattern_modifiers(&config);
         // In DP mode, the 2P random seed should also be saved
-        assert_ne!(player.playinfo.randomoption2seed, -1);
+        assert_ne!(player.score.playinfo.randomoption2seed, -1);
     }
 
     #[test]
@@ -3787,7 +3836,7 @@ mod tests {
 
         let mut config = make_default_config();
         config.doubleoption = 2;
-        player.playinfo.doubleoption = 2;
+        player.score.playinfo.doubleoption = 2;
 
         player.build_pattern_modifiers(&config);
         // BEAT_5K should be converted to BEAT_10K
@@ -3800,7 +3849,7 @@ mod tests {
     fn encode_seed_for_score_sp_returns_1p_seed() {
         let model = make_model(); // BEAT_7K (player=1)
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoptionseed = 12345;
+        player.score.playinfo.randomoptionseed = 12345;
         assert_eq!(player.encode_seed_for_score(), 12345);
     }
 
@@ -3810,8 +3859,8 @@ mod tests {
         model.set_mode(Mode::BEAT_14K); // DP (player=2)
         model.set_judgerank(100);
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoptionseed = 100;
-        player.playinfo.randomoption2seed = 3;
+        player.score.playinfo.randomoptionseed = 100;
+        player.score.playinfo.randomoption2seed = 3;
         // Combined: 3 * 65536 * 256 + 100 = 3 * 16777216 + 100 = 50331748
         assert_eq!(player.encode_seed_for_score(), 50_331_748);
     }
@@ -3822,8 +3871,8 @@ mod tests {
         model.set_mode(Mode::BEAT_14K);
         model.set_judgerank(100);
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoptionseed = 0;
-        player.playinfo.randomoption2seed = 0;
+        player.score.playinfo.randomoptionseed = 0;
+        player.score.playinfo.randomoption2seed = 0;
         assert_eq!(player.encode_seed_for_score(), 0);
     }
 
@@ -3833,7 +3882,7 @@ mod tests {
     fn encode_option_for_score_sp_returns_randomoption() {
         let model = make_model(); // BEAT_7K (player=1)
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoption = 5;
+        player.score.playinfo.randomoption = 5;
         assert_eq!(player.encode_option_for_score(), 5);
     }
 
@@ -3843,9 +3892,9 @@ mod tests {
         model.set_mode(Mode::BEAT_14K); // DP (player=2)
         model.set_judgerank(100);
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoption = 2;
-        player.playinfo.randomoption2 = 3;
-        player.playinfo.doubleoption = 1;
+        player.score.playinfo.randomoption = 2;
+        player.score.playinfo.randomoption2 = 3;
+        player.score.playinfo.doubleoption = 1;
         // Combined: 2 + 3 * 10 + 1 * 100 = 132
         assert_eq!(player.encode_option_for_score(), 132);
     }
@@ -3856,9 +3905,9 @@ mod tests {
         model.set_mode(Mode::BEAT_14K);
         model.set_judgerank(100);
         let mut player = BMSPlayer::new(model);
-        player.playinfo.randomoption = 1;
-        player.playinfo.randomoption2 = 4;
-        player.playinfo.doubleoption = 0;
+        player.score.playinfo.randomoption = 1;
+        player.score.playinfo.randomoption2 = 4;
+        player.score.playinfo.doubleoption = 0;
         // Combined: 1 + 4 * 10 + 0 * 100 = 41
         assert_eq!(player.encode_option_for_score(), 41);
     }
@@ -3873,17 +3922,17 @@ mod tests {
 
         // First build: generates a new seed
         player.build_pattern_modifiers(&config);
-        let saved_seed = player.playinfo.randomoptionseed;
+        let saved_seed = player.score.playinfo.randomoptionseed;
         assert_ne!(saved_seed, -1, "Seed should be initialized");
 
         // Second build with the same player: seed should be preserved
         // (since randomoptionseed is no longer -1, the restore path is used)
         let model2 = make_model();
         let mut player2 = BMSPlayer::new(model2);
-        player2.playinfo.randomoptionseed = saved_seed;
+        player2.score.playinfo.randomoptionseed = saved_seed;
         player2.build_pattern_modifiers(&config);
         assert_eq!(
-            player2.playinfo.randomoptionseed, saved_seed,
+            player2.score.playinfo.randomoptionseed, saved_seed,
             "Seed should be preserved on rebuild"
         );
     }
@@ -3900,11 +3949,11 @@ mod tests {
         let mut config = make_default_config();
         // Random (id=2) creates LaneRandomShuffleModifier with show_shuffle_pattern=true
         config.random = 2;
-        player.playinfo.randomoption = 2;
+        player.score.playinfo.randomoption = 2;
 
         player.build_pattern_modifiers(&config);
         // lane_shuffle_pattern should be initialized with player count
-        let lsp = player.playinfo.lane_shuffle_pattern.as_ref();
+        let lsp = player.score.playinfo.lane_shuffle_pattern.as_ref();
         assert!(
             lsp.is_some(),
             "lane_shuffle_pattern should be set for DP mode with Random option"
@@ -3946,8 +3995,8 @@ mod tests {
         assert!(result.replay.is_none());
         assert!(result.hs_replay_config.is_none());
         // playinfo should be unchanged
-        assert_eq!(player.playinfo.randomoption, 0);
-        assert_eq!(player.playinfo.randomoptionseed, -1);
+        assert_eq!(player.score.playinfo.randomoption, 0);
+        assert_eq!(player.score.playinfo.randomoptionseed, -1);
     }
 
     #[test]
@@ -3967,12 +4016,12 @@ mod tests {
         assert!(result.replay.is_none());
 
         // All fields should be copied
-        assert_eq!(player.playinfo.randomoption, 3);
-        assert_eq!(player.playinfo.randomoptionseed, 99999);
-        assert_eq!(player.playinfo.randomoption2, 2);
-        assert_eq!(player.playinfo.randomoption2seed, 88888);
-        assert_eq!(player.playinfo.doubleoption, 1);
-        assert_eq!(player.playinfo.rand, vec![2, 5, 1]);
+        assert_eq!(player.score.playinfo.randomoption, 3);
+        assert_eq!(player.score.playinfo.randomoptionseed, 99999);
+        assert_eq!(player.score.playinfo.randomoption2, 2);
+        assert_eq!(player.score.playinfo.randomoption2seed, 88888);
+        assert_eq!(player.score.playinfo.doubleoption, 1);
+        assert_eq!(player.score.playinfo.rand, vec![2, 5, 1]);
     }
 
     #[test]
@@ -3992,16 +4041,16 @@ mod tests {
         assert!(result.replay.is_none());
 
         // Options should be copied
-        assert_eq!(player.playinfo.randomoption, 3);
-        assert_eq!(player.playinfo.randomoption2, 2);
-        assert_eq!(player.playinfo.doubleoption, 1);
+        assert_eq!(player.score.playinfo.randomoption, 3);
+        assert_eq!(player.score.playinfo.randomoption2, 2);
+        assert_eq!(player.score.playinfo.doubleoption, 1);
 
         // Seeds should NOT be copied (remain at default -1)
-        assert_eq!(player.playinfo.randomoptionseed, -1);
-        assert_eq!(player.playinfo.randomoption2seed, -1);
+        assert_eq!(player.score.playinfo.randomoptionseed, -1);
+        assert_eq!(player.score.playinfo.randomoption2seed, -1);
 
         // Rand should NOT be copied
-        assert!(player.playinfo.rand.is_empty());
+        assert!(player.score.playinfo.rand.is_empty());
     }
 
     #[test]
@@ -4043,8 +4092,8 @@ mod tests {
         assert!(result.replay.is_none());
 
         // Pattern fields should be copied
-        assert_eq!(player.playinfo.randomoption, 3);
-        assert_eq!(player.playinfo.randomoptionseed, 99999);
+        assert_eq!(player.score.playinfo.randomoption, 3);
+        assert_eq!(player.score.playinfo.randomoptionseed, 99999);
 
         // HS config should also be returned
         assert!(result.hs_replay_config.is_some());
@@ -4065,8 +4114,8 @@ mod tests {
         assert!(result.hs_replay_config.is_none());
 
         // playinfo should be unchanged
-        assert_eq!(player.playinfo.randomoption, 0);
-        assert_eq!(player.playinfo.randomoptionseed, -1);
+        assert_eq!(player.score.playinfo.randomoption, 0);
+        assert_eq!(player.score.playinfo.randomoptionseed, -1);
     }
 
     // --- select_gauge_type tests (Phase 34c) ---
@@ -4166,7 +4215,7 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         let result = player.handle_random_syntax(false, None, -1, &[]);
         assert!(result.is_none());
-        assert!(player.playinfo.rand.is_empty());
+        assert!(player.score.playinfo.rand.is_empty());
     }
 
     #[test]
@@ -4188,7 +4237,7 @@ mod tests {
         // Should return Some with the replay's rand for model reload
         assert!(result.is_some());
         assert_eq!(result.unwrap(), vec![2, 1, 3]);
-        assert_eq!(player.playinfo.rand, vec![2, 1, 3]);
+        assert_eq!(player.score.playinfo.rand, vec![2, 1, 3]);
     }
 
     #[test]
@@ -4208,7 +4257,7 @@ mod tests {
         let result = player.handle_random_syntax(false, None, 42, &resource_rand);
         assert!(result.is_some());
         assert_eq!(result.unwrap(), vec![3, 2, 1]);
-        assert_eq!(player.playinfo.rand, vec![3, 2, 1]);
+        assert_eq!(player.score.playinfo.rand, vec![3, 2, 1]);
     }
 
     #[test]
@@ -4226,7 +4275,7 @@ mod tests {
         let result = player.handle_random_syntax(false, None, -1, &[]);
         // No reload needed (no rand override), but model's random should be stored
         assert!(result.is_none());
-        assert_eq!(player.playinfo.rand, vec![4, 5, 6]);
+        assert_eq!(player.score.playinfo.rand, vec![4, 5, 6]);
     }
 
     #[test]
@@ -4247,7 +4296,7 @@ mod tests {
         let result = player.handle_random_syntax(true, Some(&replay), -1, &[]);
         // Empty rand means no reload, store model's random
         assert!(result.is_none());
-        assert_eq!(player.playinfo.rand, vec![1, 2]);
+        assert_eq!(player.score.playinfo.rand, vec![1, 2]);
     }
 
     // --- calculate_non_modifier_assist tests (Phase 34d) ---
@@ -4499,9 +4548,9 @@ mod tests {
 
         player.init_playinfo_from_config(&config);
 
-        assert_eq!(player.playinfo.randomoption, 3);
-        assert_eq!(player.playinfo.randomoption2, 5);
-        assert_eq!(player.playinfo.doubleoption, 2);
+        assert_eq!(player.score.playinfo.randomoption, 3);
+        assert_eq!(player.score.playinfo.randomoption2, 5);
+        assert_eq!(player.score.playinfo.doubleoption, 2);
     }
 
     #[test]
@@ -4512,9 +4561,9 @@ mod tests {
 
         player.init_playinfo_from_config(&config);
 
-        assert_eq!(player.playinfo.randomoption, 0);
-        assert_eq!(player.playinfo.randomoption2, 0);
-        assert_eq!(player.playinfo.doubleoption, 0);
+        assert_eq!(player.score.playinfo.randomoption, 0);
+        assert_eq!(player.score.playinfo.randomoption2, 0);
+        assert_eq!(player.score.playinfo.doubleoption, 0);
     }
 
     #[test]
@@ -4527,8 +4576,8 @@ mod tests {
         player.init_playinfo_from_config(&config);
 
         // Seeds should remain at their default (-1 from ReplayData::new())
-        assert_eq!(player.playinfo.randomoptionseed, -1);
-        assert_eq!(player.playinfo.randomoption2seed, -1);
+        assert_eq!(player.score.playinfo.randomoptionseed, -1);
+        assert_eq!(player.score.playinfo.randomoption2seed, -1);
     }
 
     // --- End-to-end DP flow tests (Phase 34e) ---
@@ -4549,9 +4598,9 @@ mod tests {
 
         // Step 1: init from config
         player.init_playinfo_from_config(&config);
-        assert_eq!(player.playinfo.randomoption, 2);
-        assert_eq!(player.playinfo.randomoption2, 3);
-        assert_eq!(player.playinfo.doubleoption, 1);
+        assert_eq!(player.score.playinfo.randomoption, 2);
+        assert_eq!(player.score.playinfo.randomoption2, 3);
+        assert_eq!(player.score.playinfo.doubleoption, 1);
 
         // Step 2: build pattern modifiers
         player.build_pattern_modifiers(&config);
@@ -4595,9 +4644,9 @@ mod tests {
         player.restore_replay_data(Some(replay), &key_state);
 
         // After replay override, playinfo should reflect replay values
-        assert_eq!(player.playinfo.randomoption, 5);
-        assert_eq!(player.playinfo.randomoption2, 7);
-        assert_eq!(player.playinfo.doubleoption, 0);
+        assert_eq!(player.score.playinfo.randomoption, 5);
+        assert_eq!(player.score.playinfo.randomoption2, 7);
+        assert_eq!(player.score.playinfo.doubleoption, 0);
 
         // Step 3: build pattern modifiers (uses overridden values)
         player.build_pattern_modifiers(&config);
@@ -4621,9 +4670,9 @@ mod tests {
         // Step 1: init from config
         player.init_playinfo_from_config(&config);
         // All values are copied to playinfo
-        assert_eq!(player.playinfo.randomoption, 3);
-        assert_eq!(player.playinfo.randomoption2, 5);
-        assert_eq!(player.playinfo.doubleoption, 1);
+        assert_eq!(player.score.playinfo.randomoption, 3);
+        assert_eq!(player.score.playinfo.randomoption2, 5);
+        assert_eq!(player.score.playinfo.doubleoption, 1);
 
         // Step 2: build pattern modifiers
         player.build_pattern_modifiers(&config);
@@ -5099,7 +5148,7 @@ mod tests {
         player.set_constraints(vec![CourseDataConstraint::NoSpeed]);
         player.create();
         // Verify control is disabled by checking its enable_control field
-        let control = player.control.as_ref().unwrap();
+        let control = player.input.control.as_ref().unwrap();
         assert!(!control.is_enable_control());
     }
 
@@ -5109,7 +5158,7 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         player.set_constraints(vec![CourseDataConstraint::Class]);
         player.create();
-        let control = player.control.as_ref().unwrap();
+        let control = player.input.control.as_ref().unwrap();
         assert!(control.is_enable_control());
     }
 
@@ -5119,7 +5168,7 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         player.set_constraints(vec![]);
         player.create();
-        let control = player.control.as_ref().unwrap();
+        let control = player.input.control.as_ref().unwrap();
         assert!(control.is_enable_control());
     }
 
@@ -5245,7 +5294,7 @@ mod tests {
             CourseDataConstraint::Mirror,
         ]);
         player.create();
-        let control = player.control.as_ref().unwrap();
+        let control = player.input.control.as_ref().unwrap();
         assert!(!control.is_enable_control());
     }
 
@@ -5364,14 +5413,14 @@ mod tests {
 
         <BMSPlayer as MainState>::sync_input_from(&mut player, &input);
 
-        assert!(player.input_start_pressed);
-        assert!(player.input_select_pressed);
-        assert_eq!(player.input_key_states.len(), KEYSTATE_SIZE);
-        assert!(player.input_key_states[0]);
-        assert!(player.control_key_up);
-        assert!(player.control_key_down);
-        assert!(player.control_key_left);
-        assert!(player.control_key_right);
+        assert!(player.input.input_start_pressed);
+        assert!(player.input.input_select_pressed);
+        assert_eq!(player.input.input_key_states.len(), KEYSTATE_SIZE);
+        assert!(player.input.input_key_states[0]);
+        assert!(player.input.control_key_up);
+        assert!(player.input.control_key_down);
+        assert!(player.input.control_key_left);
+        assert!(player.input.control_key_right);
     }
 
     #[test]
@@ -5384,8 +5433,8 @@ mod tests {
 
         input.start_changed(true);
         input.set_select_pressed(true);
-        player.input_start_pressed = false;
-        player.input_select_pressed = false;
+        player.input.input_start_pressed = false;
+        player.input.input_select_pressed = false;
 
         <BMSPlayer as MainState>::sync_input_back_to(&mut player, &mut input);
 
@@ -5398,7 +5447,7 @@ mod tests {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
         player.total_notes = 1;
-        player.control = Some(ControlInputProcessor::new(Mode::BEAT_7K));
+        player.input.control = Some(ControlInputProcessor::new(Mode::BEAT_7K));
         player.lanerender = Some(LaneRenderer::new(&player.model));
         player
             .lanerender
@@ -5423,18 +5472,18 @@ mod tests {
         let expected_delta = input.analog_diff(7) as f32 * 0.001;
 
         <BMSPlayer as MainState>::sync_input_from(&mut player, &input);
-        assert!(player.input_start_pressed);
-        assert!(player.input_key_states[7]);
-        assert!(player.input_is_analog[7]);
-        assert_eq!(player.input_analog_diff_ticks[7], input.analog_diff(7));
+        assert!(player.input.input_start_pressed);
+        assert!(player.input.input_key_states[7]);
+        assert!(player.input.input_is_analog[7]);
+        assert_eq!(player.input.input_analog_diff_ticks[7], input.analog_diff(7));
         player.input();
         <BMSPlayer as MainState>::sync_input_back_to(&mut player, &mut input);
 
         <BMSPlayer as MainState>::sync_input_from(&mut player, &input);
-        assert!(player.input_start_pressed);
-        assert!(player.input_key_states[7]);
-        assert!(player.input_is_analog[7]);
-        assert_eq!(player.input_analog_diff_ticks[7], input.analog_diff(7));
+        assert!(player.input.input_start_pressed);
+        assert!(player.input.input_key_states[7]);
+        assert!(player.input.input_is_analog[7]);
+        assert_eq!(player.input.input_analog_diff_ticks[7], input.analog_diff(7));
         player.input();
         <BMSPlayer as MainState>::sync_input_back_to(&mut player, &mut input);
 
@@ -5458,7 +5507,7 @@ mod tests {
     fn startpressedtime_updates_when_start_pressed() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.input_start_pressed = true;
+        player.input.input_start_pressed = true;
         player.startpressedtime = -999;
 
         std::thread::sleep(std::time::Duration::from_millis(1));
@@ -5549,13 +5598,13 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         player.state = STATE_FAILED;
         player.lanerender = Some(LaneRenderer::new(&player.model));
-        player.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+        player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
         player.set_play_mode(BMSPlayerMode::PLAY);
         player.is_course_mode = false;
 
         // START pressed, SELECT not pressed (XOR = true)
-        player.input_start_pressed = true;
-        player.input_select_pressed = false;
+        player.input.input_start_pressed = true;
+        player.input.input_select_pressed = false;
 
         player.main_state_data.timer.update();
         player.render();
@@ -5571,12 +5620,12 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         player.state = STATE_FAILED;
         player.lanerender = Some(LaneRenderer::new(&player.model));
-        player.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+        player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
         player.set_play_mode(BMSPlayerMode::PLAY);
         player.is_course_mode = true;
 
-        player.input_start_pressed = true;
-        player.input_select_pressed = false;
+        player.input.input_start_pressed = true;
+        player.input.input_select_pressed = false;
 
         player.main_state_data.timer.update();
         player.render();
@@ -5597,8 +5646,8 @@ mod tests {
         player.is_course_mode = false;
 
         // SELECT pressed, START not pressed (XOR = true)
-        player.input_start_pressed = false;
-        player.input_select_pressed = true;
+        player.input.input_start_pressed = false;
+        player.input.input_select_pressed = true;
 
         player.main_state_data.timer.update();
         player.render();
@@ -5616,7 +5665,7 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         player.state = STATE_FAILED;
         player.lanerender = Some(LaneRenderer::new(&player.model));
-        player.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
+        player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
         player.set_play_mode(BMSPlayerMode::PRACTICE);
 
         // Set TIMER_FAILED so close time is exceeded
@@ -5639,7 +5688,7 @@ mod tests {
     fn pending_state_change_consumed_once() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.pending_state_change = Some(MainStateType::Result);
+        player.pending.pending_state_change = Some(MainStateType::Result);
 
         let first = player.take_pending_state_change();
         assert_eq!(first, Some(MainStateType::Result));
