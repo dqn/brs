@@ -1,6 +1,7 @@
 use crate::bms_player::TIME_MARGIN;
 use crate::lane_property::LaneProperty;
 use rubato_core::timer_manager::TimerManager;
+use rubato_types::timer_id::TimerId;
 
 // SkinProperty timer constants for key beam on/off
 // Translated from SkinPropertyMapper.keyOnTimerId / keyOffTimerId
@@ -12,29 +13,29 @@ const TIMER_KEYOFF_1P_KEY10: i32 = 1610;
 /// Compute the timer ID for key-on (key beam start).
 ///
 /// Translated from: SkinPropertyMapper.keyOnTimerId(player, key)
-fn key_on_timer_id(player: i32, key: i32) -> i32 {
+fn key_on_timer_id(player: i32, key: i32) -> TimerId {
     if player < 2 {
         if key < 10 {
-            return TIMER_KEYON_1P_SCRATCH + key + player * 10;
+            return TimerId::new(TIMER_KEYON_1P_SCRATCH + key + player * 10);
         } else if key < 100 {
-            return TIMER_KEYON_1P_KEY10 + key - 10 + player * 100;
+            return TimerId::new(TIMER_KEYON_1P_KEY10 + key - 10 + player * 100);
         }
     }
-    -1
+    TimerId::new(-1)
 }
 
 /// Compute the timer ID for key-off (key beam end).
 ///
 /// Translated from: SkinPropertyMapper.keyOffTimerId(player, key)
-fn key_off_timer_id(player: i32, key: i32) -> i32 {
+fn key_off_timer_id(player: i32, key: i32) -> TimerId {
     if player < 2 {
         if key < 10 {
-            return TIMER_KEYOFF_1P_SCRATCH + key + player * 10;
+            return TimerId::new(TIMER_KEYOFF_1P_SCRATCH + key + player * 10);
         } else if key < 100 {
-            return TIMER_KEYOFF_1P_KEY10 + key - 10 + player * 100;
+            return TimerId::new(TIMER_KEYOFF_1P_KEY10 + key - 10 + player * 100);
         }
     }
-    -1
+    TimerId::new(-1)
 }
 
 /// Context passed into KeyInputProccessor::input() each frame.
@@ -712,38 +713,56 @@ mod tests {
     #[test]
     fn test_key_on_timer_id_scratch_range() {
         // player 0, key 0 (scratch) -> 100
-        assert_eq!(key_on_timer_id(0, 0), TIMER_KEYON_1P_SCRATCH);
+        assert_eq!(key_on_timer_id(0, 0), TimerId::new(TIMER_KEYON_1P_SCRATCH));
         // player 0, key 7 -> 107
-        assert_eq!(key_on_timer_id(0, 7), TIMER_KEYON_1P_SCRATCH + 7);
+        assert_eq!(
+            key_on_timer_id(0, 7),
+            TimerId::new(TIMER_KEYON_1P_SCRATCH + 7)
+        );
         // player 1, key 0 -> 110
-        assert_eq!(key_on_timer_id(1, 0), TIMER_KEYON_1P_SCRATCH + 10);
+        assert_eq!(
+            key_on_timer_id(1, 0),
+            TimerId::new(TIMER_KEYON_1P_SCRATCH + 10)
+        );
     }
 
     #[test]
     fn test_key_off_timer_id_scratch_range() {
-        assert_eq!(key_off_timer_id(0, 0), TIMER_KEYOFF_1P_SCRATCH);
-        assert_eq!(key_off_timer_id(0, 7), TIMER_KEYOFF_1P_SCRATCH + 7);
-        assert_eq!(key_off_timer_id(1, 0), TIMER_KEYOFF_1P_SCRATCH + 10);
+        assert_eq!(
+            key_off_timer_id(0, 0),
+            TimerId::new(TIMER_KEYOFF_1P_SCRATCH)
+        );
+        assert_eq!(
+            key_off_timer_id(0, 7),
+            TimerId::new(TIMER_KEYOFF_1P_SCRATCH + 7)
+        );
+        assert_eq!(
+            key_off_timer_id(1, 0),
+            TimerId::new(TIMER_KEYOFF_1P_SCRATCH + 10)
+        );
     }
 
     #[test]
     fn test_key_on_timer_id_key10_range() {
         // key 10 -> TIMER_KEYON_1P_KEY10 + 0
-        assert_eq!(key_on_timer_id(0, 10), TIMER_KEYON_1P_KEY10);
+        assert_eq!(key_on_timer_id(0, 10), TimerId::new(TIMER_KEYON_1P_KEY10));
         // key 15 -> TIMER_KEYON_1P_KEY10 + 5
-        assert_eq!(key_on_timer_id(0, 15), TIMER_KEYON_1P_KEY10 + 5);
+        assert_eq!(
+            key_on_timer_id(0, 15),
+            TimerId::new(TIMER_KEYON_1P_KEY10 + 5)
+        );
     }
 
     #[test]
     fn test_key_timer_id_invalid_player() {
-        assert_eq!(key_on_timer_id(2, 0), -1);
-        assert_eq!(key_off_timer_id(2, 0), -1);
+        assert_eq!(key_on_timer_id(2, 0), TimerId::new(-1));
+        assert_eq!(key_off_timer_id(2, 0), TimerId::new(-1));
     }
 
     #[test]
     fn test_key_timer_id_invalid_key() {
-        assert_eq!(key_on_timer_id(0, 100), -1);
-        assert_eq!(key_off_timer_id(0, 100), -1);
+        assert_eq!(key_on_timer_id(0, 100), TimerId::new(-1));
+        assert_eq!(key_off_timer_id(0, 100), TimerId::new(-1));
     }
 
     // --- input() method tests (Phase 41f) ---
@@ -780,7 +799,7 @@ mod tests {
         proc.input(&mut ctx);
         // No timers should be set
         for id in 100..110 {
-            assert!(!ctx.timer.is_timer_on(id));
+            assert!(!ctx.timer.is_timer_on(TimerId::new(id)));
         }
     }
 
@@ -799,8 +818,8 @@ mod tests {
         let auto_presstime = vec![i64::MIN; 9];
         let mut ctx = make_context(100, &key_states, &auto_presstime, false, &mut timer);
         proc.input(&mut ctx);
-        assert!(ctx.timer.is_timer_on(101)); // KEYON timer for offset 1
-        assert!(!ctx.timer.is_timer_on(121)); // KEYOFF timer should be off
+        assert!(ctx.timer.is_timer_on(TimerId::new(101))); // KEYON timer for offset 1
+        assert!(!ctx.timer.is_timer_on(TimerId::new(121))); // KEYOFF timer should be off
     }
 
     #[test]
@@ -817,7 +836,7 @@ mod tests {
             let mut ctx = make_context(100, &key_states, &auto_presstime, false, &mut timer);
             proc.input(&mut ctx);
         }
-        assert!(timer.is_timer_on(101)); // KEYON on
+        assert!(timer.is_timer_on(TimerId::new(101))); // KEYON on
 
         // Then: release key 0
         key_states[0] = false;
@@ -826,8 +845,8 @@ mod tests {
             proc.input(&mut ctx);
         }
         // After release: timer_off(121) becomes on, timer_on(101) becomes off
-        assert!(timer.is_timer_on(121)); // KEYOFF on
-        assert!(!timer.is_timer_on(101)); // KEYON off
+        assert!(timer.is_timer_on(TimerId::new(121))); // KEYOFF on
+        assert!(!timer.is_timer_on(TimerId::new(101))); // KEYON off
     }
 
     #[test]
@@ -843,7 +862,7 @@ mod tests {
         let mut ctx = make_context(100, &key_states, &auto_presstime, false, &mut timer);
         proc.input(&mut ctx);
         // Should trigger beam as if key was pressed
-        assert!(ctx.timer.is_timer_on(101));
+        assert!(ctx.timer.is_timer_on(TimerId::new(101)));
     }
 
     #[test]
@@ -859,7 +878,7 @@ mod tests {
         let mut ctx = make_context(100, &key_states, &auto_presstime, false, &mut timer);
         proc.input(&mut ctx);
         // key_beam_stop is true, so no timers should be set
-        assert!(!ctx.timer.is_timer_on(101));
+        assert!(!ctx.timer.is_timer_on(TimerId::new(101)));
     }
 
     #[test]
@@ -878,14 +897,14 @@ mod tests {
             let mut ctx = make_context(100, &key_states, &auto_presstime, false, &mut timer);
             proc.input(&mut ctx);
         }
-        assert!(!timer.is_timer_on(101));
+        assert!(!timer.is_timer_on(TimerId::new(101)));
 
         // judge is started, IS autoplay -> beam timer sets
         {
             let mut ctx = make_context(200, &key_states, &auto_presstime, true, &mut timer);
             proc.input(&mut ctx);
         }
-        assert!(timer.is_timer_on(101));
+        assert!(timer.is_timer_on(TimerId::new(101)));
     }
 
     #[test]
@@ -904,7 +923,7 @@ mod tests {
             let mut ctx = make_context(100, &key_states, &auto_presstime, false, &mut timer);
             proc.input(&mut ctx);
         }
-        assert!(timer.is_timer_on(100));
+        assert!(timer.is_timer_on(TimerId::new(100)));
 
         // Now press key 8 instead (switch scratch direction)
         key_states[7] = false;
@@ -914,7 +933,7 @@ mod tests {
             proc.input(&mut ctx);
         }
         // scratch_changed should be true, timer should be re-set
-        assert!(timer.is_timer_on(100));
+        assert!(timer.is_timer_on(TimerId::new(100)));
     }
 
     // --- Scratch animation tests ---
@@ -1107,12 +1126,12 @@ mod tests {
         proc.input(&mut ctx);
 
         // timer_on IDs: 101, 103, 105
-        assert!(ctx.timer.is_timer_on(101));
-        assert!(ctx.timer.is_timer_on(103));
-        assert!(ctx.timer.is_timer_on(105));
+        assert!(ctx.timer.is_timer_on(TimerId::new(101)));
+        assert!(ctx.timer.is_timer_on(TimerId::new(103)));
+        assert!(ctx.timer.is_timer_on(TimerId::new(105)));
         // Unpressed lanes should NOT have timers
-        assert!(!ctx.timer.is_timer_on(102)); // offset 2
-        assert!(!ctx.timer.is_timer_on(104)); // offset 4
+        assert!(!ctx.timer.is_timer_on(TimerId::new(102))); // offset 2
+        assert!(!ctx.timer.is_timer_on(TimerId::new(104))); // offset 4
     }
 
     // --- input_key_on() tests ---
@@ -1125,8 +1144,8 @@ mod tests {
 
         // lane 0, offset 1, player 0 -> timer_on = 101, timer_off = 121
         proc.input_key_on(0, &mut timer);
-        assert!(timer.is_timer_on(101));
-        assert!(!timer.is_timer_on(121));
+        assert!(timer.is_timer_on(TimerId::new(101)));
+        assert!(!timer.is_timer_on(TimerId::new(121)));
     }
 
     #[test]
@@ -1137,12 +1156,12 @@ mod tests {
 
         // lane 7 is scratch, offset 0, player 0 -> timer_on = 100
         proc.input_key_on(7, &mut timer);
-        assert!(timer.is_timer_on(100));
+        assert!(timer.is_timer_on(TimerId::new(100)));
 
         // Call again — scratch lanes should re-trigger
         // (scratch condition: lane_scratch[lane] != -1 -> always true for scratch)
         proc.input_key_on(7, &mut timer);
-        assert!(timer.is_timer_on(100));
+        assert!(timer.is_timer_on(TimerId::new(100)));
     }
 
     #[test]
@@ -1153,7 +1172,7 @@ mod tests {
         let mut timer = make_timer();
 
         proc.input_key_on(0, &mut timer);
-        assert!(!timer.is_timer_on(101));
+        assert!(!timer.is_timer_on(TimerId::new(101)));
     }
 
     #[test]
@@ -1174,7 +1193,7 @@ mod tests {
 
         // lane 0 (non-scratch), offset 1 -> timer_on = 101
         proc.input_key_on(0, &mut timer);
-        assert!(timer.is_timer_on(101));
+        assert!(timer.is_timer_on(TimerId::new(101)));
 
         // Manually set timer_on to OFF, then call again
         // Since timer_on is already ON and lane is not scratch, it should NOT re-trigger

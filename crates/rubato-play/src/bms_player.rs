@@ -135,25 +135,27 @@ pub const STATE_FINISHED: i32 = 6;
 pub const STATE_ABORTED: i32 = 7;
 
 // SkinProperty timer constants used in BMSPlayer
-const TIMER_STARTINPUT: i32 = 1;
-const TIMER_FADEOUT: i32 = 2;
-const TIMER_FAILED: i32 = 3;
-const TIMER_READY: i32 = 40;
-const TIMER_PLAY: i32 = 41;
-const TIMER_GAUGE_MAX_1P: i32 = 44;
-const TIMER_FULLCOMBO_1P: i32 = 48;
-const TIMER_RHYTHM: i32 = 140;
-const TIMER_ENDOFNOTE_1P: i32 = 143;
-const TIMER_SCORE_A: i32 = 348;
-const TIMER_SCORE_AA: i32 = 349;
-const TIMER_SCORE_AAA: i32 = 350;
-const TIMER_SCORE_BEST: i32 = 351;
-const TIMER_SCORE_TARGET: i32 = 352;
-const TIMER_PM_CHARA_1P_NEUTRAL: i32 = 900;
-const TIMER_PM_CHARA_2P_NEUTRAL: i32 = 905;
-const TIMER_PM_CHARA_2P_BAD: i32 = 907;
-const TIMER_MUSIC_END: i32 = 908;
-const TIMER_PM_CHARA_DANCE: i32 = 909;
+use rubato_types::timer_id::TimerId;
+
+const TIMER_STARTINPUT: TimerId = TimerId(1);
+const TIMER_FADEOUT: TimerId = TimerId(2);
+const TIMER_FAILED: TimerId = TimerId(3);
+const TIMER_READY: TimerId = TimerId(40);
+const TIMER_PLAY: TimerId = TimerId(41);
+const TIMER_GAUGE_MAX_1P: TimerId = TimerId(44);
+const TIMER_FULLCOMBO_1P: TimerId = TimerId(48);
+const TIMER_RHYTHM: TimerId = TimerId(140);
+const TIMER_ENDOFNOTE_1P: TimerId = TimerId(143);
+const TIMER_SCORE_A: TimerId = TimerId(348);
+const TIMER_SCORE_AA: TimerId = TimerId(349);
+const TIMER_SCORE_AAA: TimerId = TimerId(350);
+const TIMER_SCORE_BEST: TimerId = TimerId(351);
+const TIMER_SCORE_TARGET: TimerId = TimerId(352);
+const TIMER_PM_CHARA_1P_NEUTRAL: TimerId = TimerId(900);
+const TIMER_PM_CHARA_2P_NEUTRAL: TimerId = TimerId(905);
+const TIMER_PM_CHARA_2P_BAD: TimerId = TimerId(907);
+const TIMER_MUSIC_END: TimerId = TimerId(908);
+const TIMER_PM_CHARA_DANCE: TimerId = TimerId(909);
 
 /// BMS Player main struct
 pub struct BMSPlayer {
@@ -1611,16 +1613,16 @@ impl rubato_types::timer_access::TimerAccess for PlayRenderContext<'_> {
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: i32) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: i32) -> i64 {
+    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: i32) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
-    fn is_timer_on(&self, timer_id: i32) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
@@ -1646,7 +1648,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
         Some(self.play_config)
     }
 
-    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -1742,19 +1744,19 @@ impl rubato_types::timer_access::TimerAccess for PlayMouseContext<'_> {
         self.timer.now_micro_time()
     }
 
-    fn micro_timer(&self, timer_id: i32) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
 
-    fn timer(&self, timer_id: i32) -> i64 {
+    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
 
-    fn now_time_for(&self, timer_id: i32) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
 
-    fn is_timer_on(&self, timer_id: i32) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
@@ -1768,7 +1770,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
         self.player.pending_state_change = Some(state);
     }
 
-    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -2086,19 +2088,20 @@ impl MainState for BMSPlayer {
                 // Chart preview handling
                 // Translated from: Java BMSPlayer.render() lines 598-604
                 if self.player_config.chart_preview {
-                    if self.main_state_data.timer.is_timer_on(141)
+                    if self.main_state_data.timer.is_timer_on(TimerId::new(141))
                         && micronow > self.startpressedtime
                     {
-                        self.main_state_data.timer.set_timer_off(141);
+                        self.main_state_data.timer.set_timer_off(TimerId::new(141));
                         if let Some(ref mut lr) = self.lanerender {
                             lr.init(&self.model);
                         }
-                    } else if !self.main_state_data.timer.is_timer_on(141)
+                    } else if !self.main_state_data.timer.is_timer_on(TimerId::new(141))
                         && micronow == self.startpressedtime
                     {
-                        self.main_state_data
-                            .timer
-                            .set_micro_timer(141, micronow - self.starttimeoffset * 1000);
+                        self.main_state_data.timer.set_micro_timer(
+                            TimerId::new(141),
+                            micronow - self.starttimeoffset * 1000,
+                        );
                     }
                 }
 
@@ -2112,7 +2115,7 @@ impl MainState for BMSPlayer {
                 {
                     // Chart preview cleanup on transition
                     if self.player_config.chart_preview {
-                        self.main_state_data.timer.set_timer_off(141);
+                        self.main_state_data.timer.set_timer_off(TimerId::new(141));
                         if let Some(ref mut lr) = self.lanerender {
                             lr.init(&self.model);
                         }
@@ -2174,8 +2177,8 @@ impl MainState for BMSPlayer {
                     self.main_state_data.timer.set_timer_off(TIMER_FADEOUT);
                     self.main_state_data.timer.set_timer_off(TIMER_ENDOFNOTE_1P);
 
-                    for i in TIMER_PM_CHARA_1P_NEUTRAL..=TIMER_PM_CHARA_DANCE {
-                        self.main_state_data.timer.set_timer_off(i);
+                    for raw in TIMER_PM_CHARA_1P_NEUTRAL.as_i32()..=TIMER_PM_CHARA_DANCE.as_i32() {
+                        self.main_state_data.timer.set_timer_off(TimerId::new(raw));
                     }
                 }
                 if !self
@@ -2432,8 +2435,8 @@ impl MainState for BMSPlayer {
                 if (self.playtime as i64) < ptime {
                     self.state = STATE_FINISHED;
                     self.main_state_data.timer.set_timer_on(TIMER_MUSIC_END);
-                    for i in TIMER_PM_CHARA_1P_NEUTRAL..=TIMER_PM_CHARA_2P_BAD {
-                        self.main_state_data.timer.set_timer_off(i);
+                    for raw in TIMER_PM_CHARA_1P_NEUTRAL.as_i32()..=TIMER_PM_CHARA_2P_BAD.as_i32() {
+                        self.main_state_data.timer.set_timer_off(TimerId::new(raw));
                     }
                     self.main_state_data
                         .timer
@@ -5666,7 +5669,7 @@ mod tests {
         player.render();
 
         // Timer 141 should have been set
-        assert!(player.main_state_data.timer.is_timer_on(141));
+        assert!(player.main_state_data.timer.is_timer_on(TimerId::new(141)));
     }
 
     // --- player config wiring tests ---

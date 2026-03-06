@@ -1,5 +1,6 @@
 use super::timer_property::TimerProperty;
 use crate::stubs::MainState;
+use rubato_types::timer_id::TimerId;
 
 /// Returns a TimerProperty for the given timer ID.
 /// Returns None if timer_id is negative.
@@ -8,11 +9,13 @@ pub fn timer_property(timer_id: i32) -> Option<Box<dyn TimerProperty>> {
         return None;
     }
 
-    Some(Box::new(TimerPropertyImpl { timer_id }))
+    Some(Box::new(TimerPropertyImpl {
+        timer_id: TimerId::new(timer_id),
+    }))
 }
 
 struct TimerPropertyImpl {
-    timer_id: i32,
+    timer_id: TimerId,
 }
 
 impl TimerProperty for TimerPropertyImpl {
@@ -37,7 +40,7 @@ impl TimerProperty for TimerPropertyImpl {
     }
 
     fn get_timer_id(&self) -> i32 {
-        self.timer_id
+        self.timer_id.as_i32()
     }
 }
 

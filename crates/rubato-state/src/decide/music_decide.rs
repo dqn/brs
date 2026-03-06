@@ -24,16 +24,16 @@ impl rubato_types::timer_access::TimerAccess for DecideRenderContext<'_> {
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: i32) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: i32) -> i64 {
+    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: i32) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
-    fn is_timer_on(&self, timer_id: i32) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
@@ -51,7 +51,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
         Some(self.main.config())
     }
 
-    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -105,19 +105,19 @@ impl rubato_types::timer_access::TimerAccess for DecideMouseContext<'_> {
         self.timer.now_micro_time()
     }
 
-    fn micro_timer(&self, timer_id: i32) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
 
-    fn timer(&self, timer_id: i32) -> i64 {
+    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
 
-    fn now_time_for(&self, timer_id: i32) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
 
-    fn is_timer_on(&self, timer_id: i32) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
@@ -131,7 +131,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideMouseContext
         self.main.change_state(state);
     }
 
-    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 }

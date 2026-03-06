@@ -226,7 +226,7 @@ pub trait MainState {
     /// Set a timer value by ID. Only writable timers (custom timers) are allowed.
     /// Used by Lua `set_timer(id, value)` function.
     /// Default no-op — SkinRenderContext now carries this capability.
-    fn set_timer_micro(&mut self, _timer_id: i32, _micro_time: i64) {
+    fn set_timer_micro(&mut self, _timer_id: rubato_types::timer_id::TimerId, _micro_time: i64) {
         // default no-op
     }
 
@@ -328,19 +328,20 @@ impl Timer {
         self.now_micro_time
     }
 
-    pub fn micro_timer(&self, timer_id: i32) -> i64 {
-        if timer_id >= 0 && (timer_id as usize) < self.timers.len() {
-            self.timers[timer_id as usize]
+    pub fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
+        let raw = timer_id.as_i32();
+        if raw >= 0 && (raw as usize) < self.timers.len() {
+            self.timers[raw as usize]
         } else {
             i64::MIN
         }
     }
 
-    pub fn timer(&self, timer_id: i32) -> i64 {
+    pub fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.micro_timer(timer_id) / 1000
     }
 
-    pub fn now_time_for(&self, timer_id: i32) -> i64 {
+    pub fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         if self.is_timer_on(timer_id) {
             (self.now_micro_time - self.micro_timer(timer_id)) / 1000
         } else {
@@ -348,7 +349,7 @@ impl Timer {
         }
     }
 
-    pub fn is_timer_on(&self, timer_id: i32) -> bool {
+    pub fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
         self.micro_timer(timer_id) != i64::MIN
     }
 }
@@ -362,16 +363,16 @@ impl rubato_types::timer_access::TimerAccess for Timer {
     fn now_micro_time(&self) -> i64 {
         self.now_micro_time
     }
-    fn micro_timer(&self, timer_id: i32) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         Timer::micro_timer(self, timer_id)
     }
-    fn timer(&self, timer_id: i32) -> i64 {
+    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         Timer::timer(self, timer_id)
     }
-    fn now_time_for(&self, timer_id: i32) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         Timer::now_time_for(self, timer_id)
     }
-    fn is_timer_on(&self, timer_id: i32) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
         Timer::is_timer_on(self, timer_id)
     }
 }

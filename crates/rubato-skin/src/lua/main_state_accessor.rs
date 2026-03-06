@@ -113,7 +113,9 @@ impl MainStateAccessor {
             let sp = self.state_ptr;
             let timer_func = lua.create_function(move |_, id: i32| {
                 let state = unsafe { &*sp.0 };
-                Ok(state.timer().micro_timer(id))
+                Ok(state
+                    .timer()
+                    .micro_timer(rubato_types::timer_id::TimerId::new(id)))
             })?;
             table.set("timer", timer_func)?;
 
@@ -133,13 +135,18 @@ impl MainStateAccessor {
             let sp = self.state_ptr;
             let set_timer_func =
                 lua.create_function(move |_, (timer_id, timer_value): (i32, i64)| {
-                    if !skin_property_mapper::is_timer_writable_by_skin(timer_id) {
+                    if !skin_property_mapper::is_timer_writable_by_skin(
+                        rubato_types::timer_id::TimerId::new(timer_id),
+                    ) {
                         return Err(LuaError::RuntimeError(
                             "The specified timer cannot be changed by skin".to_string(),
                         ));
                     }
                     let state = unsafe { &mut *sp.0 };
-                    state.set_timer_micro(timer_id, timer_value);
+                    state.set_timer_micro(
+                        rubato_types::timer_id::TimerId::new(timer_id),
+                        timer_value,
+                    );
                     Ok(true)
                 })?;
             table.set("set_timer", set_timer_func)?;
@@ -556,8 +563,8 @@ mod tests {
             Some(&mut self.config)
         }
 
-        fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
-            self.timer.set_timer_value(timer_id, micro_time);
+        fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
+            self.timer.set_timer_value(timer_id.as_i32(), micro_time);
         }
 
         fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {

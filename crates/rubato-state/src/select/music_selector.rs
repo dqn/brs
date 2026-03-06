@@ -73,16 +73,16 @@ impl rubato_types::timer_access::TimerAccess for SelectSkinContext<'_> {
     fn now_micro_time(&self) -> i64 {
         self.timer.now_micro_time()
     }
-    fn micro_timer(&self, timer_id: i32) -> i64 {
+    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(timer_id)
     }
-    fn timer(&self, timer_id: i32) -> i64 {
+    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.timer(timer_id)
     }
-    fn now_time_for(&self, timer_id: i32) -> i64 {
+    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(timer_id)
     }
-    fn is_timer_on(&self, timer_id: i32) -> bool {
+    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
         self.timer.is_timer_on(timer_id)
     }
 }
@@ -166,7 +166,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
         Some(self.selector.sort())
     }
 
-    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
@@ -1252,18 +1252,26 @@ impl MusicSelector {
             if self.panelstate != 0 {
                 self.main_state_data
                     .timer
-                    .set_timer_on(skin_property::TIMER_PANEL1_OFF + self.panelstate - 1);
+                    .set_timer_on(rubato_types::timer_id::TimerId::new(
+                        skin_property::TIMER_PANEL1_OFF.as_i32() + self.panelstate - 1,
+                    ));
                 self.main_state_data
                     .timer
-                    .set_timer_off(skin_property::TIMER_PANEL1_ON + self.panelstate - 1);
+                    .set_timer_off(rubato_types::timer_id::TimerId::new(
+                        skin_property::TIMER_PANEL1_ON.as_i32() + self.panelstate - 1,
+                    ));
             }
             if panelstate != 0 {
                 self.main_state_data
                     .timer
-                    .set_timer_on(skin_property::TIMER_PANEL1_ON + panelstate - 1);
+                    .set_timer_on(rubato_types::timer_id::TimerId::new(
+                        skin_property::TIMER_PANEL1_ON.as_i32() + panelstate - 1,
+                    ));
                 self.main_state_data
                     .timer
-                    .set_timer_off(skin_property::TIMER_PANEL1_OFF + panelstate - 1);
+                    .set_timer_off(rubato_types::timer_id::TimerId::new(
+                        skin_property::TIMER_PANEL1_OFF.as_i32() + panelstate - 1,
+                    ));
             }
         }
         self.panelstate = panelstate;
@@ -3155,7 +3163,9 @@ mod tests {
             selector
                 .main_state_data
                 .timer
-                .is_timer_on(skin_property::TIMER_PANEL1_ON + 1)
+                .is_timer_on(rubato_types::timer_id::TimerId::new(
+                    skin_property::TIMER_PANEL1_ON.as_i32() + 1
+                ))
         );
 
         // Set panel state to 0
@@ -3165,7 +3175,9 @@ mod tests {
             selector
                 .main_state_data
                 .timer
-                .is_timer_on(skin_property::TIMER_PANEL1_OFF + 1)
+                .is_timer_on(rubato_types::timer_id::TimerId::new(
+                    skin_property::TIMER_PANEL1_OFF.as_i32() + 1
+                ))
         );
     }
 

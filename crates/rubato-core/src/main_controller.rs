@@ -672,7 +672,7 @@ impl MainController {
             let timer = &mut current.main_state_data_mut().timer;
             timer.set_main_state();
             timer.set_state_type(st);
-            timer.set_timer_on(0);
+            timer.set_timer_on(rubato_types::timer_id::TimerId::new(0));
         }
 
         // Prepare the new state
@@ -1283,7 +1283,7 @@ impl MainController {
         self.timer.now_time()
     }
 
-    pub fn now_time_for_id(&self, id: i32) -> i64 {
+    pub fn now_time_for_id(&self, id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.now_time_for_id(id)
     }
 
@@ -1291,35 +1291,35 @@ impl MainController {
         self.timer.now_micro_time()
     }
 
-    pub fn now_micro_time_for_id(&self, id: i32) -> i64 {
+    pub fn now_micro_time_for_id(&self, id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.now_micro_time_for_id(id)
     }
 
-    pub fn timer_value(&self, id: i32) -> i64 {
+    pub fn timer_value(&self, id: rubato_types::timer_id::TimerId) -> i64 {
         self.micro_timer(id) / 1000
     }
 
-    pub fn micro_timer(&self, id: i32) -> i64 {
+    pub fn micro_timer(&self, id: rubato_types::timer_id::TimerId) -> i64 {
         self.timer.micro_timer(id)
     }
 
-    pub fn is_timer_on(&self, id: i32) -> bool {
+    pub fn is_timer_on(&self, id: rubato_types::timer_id::TimerId) -> bool {
         self.micro_timer(id) != i64::MIN
     }
 
-    pub fn set_timer_on(&mut self, id: i32) {
+    pub fn set_timer_on(&mut self, id: rubato_types::timer_id::TimerId) {
         self.timer.set_timer_on(id);
     }
 
-    pub fn set_timer_off(&mut self, id: i32) {
+    pub fn set_timer_off(&mut self, id: rubato_types::timer_id::TimerId) {
         self.set_micro_timer(id, i64::MIN);
     }
 
-    pub fn set_micro_timer(&mut self, id: i32, microtime: i64) {
+    pub fn set_micro_timer(&mut self, id: rubato_types::timer_id::TimerId, microtime: i64) {
         self.timer.set_micro_timer(id, microtime);
     }
 
-    pub fn switch_timer(&mut self, id: i32, on: bool) {
+    pub fn switch_timer(&mut self, id: rubato_types::timer_id::TimerId, on: bool) {
         self.timer.switch_timer(id, on);
     }
 

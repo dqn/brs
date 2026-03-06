@@ -1326,7 +1326,7 @@ impl crate::stubs::MainState for TimerOnlyMainState<'_> {
         ctx.select_song_mode(event_id);
     }
 
-    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         if let Some(ctx) = self.ctx.as_deref_mut() {
             ctx.set_timer_micro(timer_id, micro_time);
         }
@@ -1490,19 +1490,19 @@ mod tests {
             self.timer.now_micro_time()
         }
 
-        fn micro_timer(&self, timer_id: i32) -> i64 {
+        fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
             self.timer.micro_timer(timer_id)
         }
 
-        fn timer(&self, timer_id: i32) -> i64 {
+        fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
             self.timer.timer(timer_id)
         }
 
-        fn now_time_for(&self, timer_id: i32) -> i64 {
+        fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
             self.timer.now_time_for(timer_id)
         }
 
-        fn is_timer_on(&self, timer_id: i32) -> bool {
+        fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
             self.timer.is_timer_on(timer_id)
         }
     }
@@ -1516,8 +1516,8 @@ mod tests {
             self.changed_states.push(state);
         }
 
-        fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
-            self.timer_writes.push((timer_id, micro_time));
+        fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
+            self.timer_writes.push((timer_id.as_i32(), micro_time));
         }
 
         fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
@@ -1562,11 +1562,11 @@ mod tests {
 
         let mut tm = TimerManager::new();
         tm.update(); // Advance nowmicrotime from Instant::now()
-        tm.set_timer_on(10); // Timer 10 = ON at current micro time
+        tm.set_timer_on(rubato_types::timer_id::TimerId::new(10)); // Timer 10 = ON at current micro time
 
         // Verify TimerManager implements TimerAccess correctly
-        assert!(tm.is_timer_on(10));
-        assert!(!tm.is_timer_on(20)); // Timer 20 was never set
+        assert!(tm.is_timer_on(rubato_types::timer_id::TimerId::new(10)));
+        assert!(!tm.is_timer_on(rubato_types::timer_id::TimerId::new(20))); // Timer 20 was never set
 
         // Create adapter from TimerManager (the path SkinDrawable takes)
         let adapter = TimerOnlyMainState::from_timer(&tm);
@@ -1574,23 +1574,31 @@ mod tests {
 
         // Timer 10 should be ON through the adapter
         assert!(
-            state.timer().is_timer_on(10),
+            state
+                .timer()
+                .is_timer_on(rubato_types::timer_id::TimerId::new(10)),
             "Timer 10 should be ON through adapter"
         );
         // Timer 20 should be OFF
         assert!(
-            !state.timer().is_timer_on(20),
+            !state
+                .timer()
+                .is_timer_on(rubato_types::timer_id::TimerId::new(20)),
             "Timer 20 should be OFF through adapter"
         );
         // micro_timer for ON timer should not be i64::MIN
         assert_ne!(
-            state.timer().micro_timer(10),
+            state
+                .timer()
+                .micro_timer(rubato_types::timer_id::TimerId::new(10)),
             i64::MIN,
             "ON timer should return its activation time, not i64::MIN"
         );
         // micro_timer for OFF timer should be i64::MIN
         assert_eq!(
-            state.timer().micro_timer(20),
+            state
+                .timer()
+                .micro_timer(rubato_types::timer_id::TimerId::new(20)),
             i64::MIN,
             "OFF timer should return i64::MIN"
         );
@@ -1675,7 +1683,7 @@ mod tests {
 
         adapter.execute_event(55, 1, 2);
         adapter.change_state(MainStateType::Config);
-        adapter.set_timer_micro(9, 12_345);
+        adapter.set_timer_micro(rubato_types::timer_id::TimerId::new(9), 12_345);
         adapter.audio_play("test.wav", 0.75, true);
         adapter.audio_stop("test.wav");
         adapter.set_float_value(42, 0.5);
