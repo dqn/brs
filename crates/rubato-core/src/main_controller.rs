@@ -1018,19 +1018,13 @@ impl MainController {
                 let mouse_y = input.get_mouse_y();
                 if mouse_pressed {
                     if let Some(ref mut current) = self.current {
-                        let data = current.main_state_data_mut();
-                        if let Some(ref mut skin) = data.skin {
-                            skin.mouse_pressed_at(mouse_button, mouse_x, mouse_y);
-                        }
+                        current.handle_skin_mouse_pressed(mouse_button, mouse_x, mouse_y);
                     }
                     input.set_mouse_pressed();
                 }
                 if mouse_dragged {
                     if let Some(ref mut current) = self.current {
-                        let data = current.main_state_data_mut();
-                        if let Some(ref mut skin) = data.skin {
-                            skin.mouse_dragged_at(mouse_button, mouse_x, mouse_y);
-                        }
+                        current.handle_skin_mouse_dragged(mouse_button, mouse_x, mouse_y);
                     }
                     input.set_mouse_dragged();
                 }
@@ -2497,8 +2491,22 @@ mod tests {
             self.update_count += 1;
         }
 
-        fn mouse_pressed_at(&mut self, _button: i32, _x: i32, _y: i32) {}
-        fn mouse_dragged_at(&mut self, _button: i32, _x: i32, _y: i32) {}
+        fn mouse_pressed_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
         fn prepare_skin(&mut self) {}
         fn dispose_skin(&mut self) {}
         fn get_fadeout(&self) -> i32 {
@@ -2608,8 +2616,22 @@ mod tests {
                 self.counts.lock().unwrap().0 += 1;
             }
 
-            fn mouse_pressed_at(&mut self, _button: i32, _x: i32, _y: i32) {}
-            fn mouse_dragged_at(&mut self, _button: i32, _x: i32, _y: i32) {}
+            fn mouse_pressed_at(
+                &mut self,
+                _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+                _button: i32,
+                _x: i32,
+                _y: i32,
+            ) {
+            }
+            fn mouse_dragged_at(
+                &mut self,
+                _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+                _button: i32,
+                _x: i32,
+                _y: i32,
+            ) {
+            }
             fn prepare_skin(&mut self) {}
             fn dispose_skin(&mut self) {}
             fn get_fadeout(&self) -> i32 {
@@ -2709,8 +2731,22 @@ mod tests {
         ) {
         }
 
-        fn mouse_pressed_at(&mut self, _button: i32, _x: i32, _y: i32) {}
-        fn mouse_dragged_at(&mut self, _button: i32, _x: i32, _y: i32) {}
+        fn mouse_pressed_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
         fn prepare_skin(&mut self) {}
         fn dispose_skin(&mut self) {}
         fn get_fadeout(&self) -> i32 {

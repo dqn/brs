@@ -306,8 +306,22 @@ mod tests {
             _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
         ) {
         }
-        fn mouse_pressed_at(&mut self, _button: i32, _x: i32, _y: i32) {}
-        fn mouse_dragged_at(&mut self, _button: i32, _x: i32, _y: i32) {}
+        fn mouse_pressed_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
         fn prepare_skin(&mut self) {}
         fn dispose_skin(&mut self) {}
         fn get_fadeout(&self) -> i32 {

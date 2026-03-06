@@ -707,8 +707,22 @@ mod tests {
     impl rubato_core::main_state::SkinDrawable for MockSkin {
         fn draw_all_objects_timed(&mut self, _ctx: &mut dyn SkinRenderContext) {}
         fn update_custom_objects_timed(&mut self, _ctx: &mut dyn SkinRenderContext) {}
-        fn mouse_pressed_at(&mut self, _button: i32, _x: i32, _y: i32) {}
-        fn mouse_dragged_at(&mut self, _button: i32, _x: i32, _y: i32) {}
+        fn mouse_pressed_at(
+            &mut self,
+            _ctx: &mut dyn SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
         fn prepare_skin(&mut self) {}
         fn dispose_skin(&mut self) {}
         fn get_fadeout(&self) -> i32 {

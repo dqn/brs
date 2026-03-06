@@ -41,6 +41,19 @@ pub trait SkinRenderContext: TimerAccess {
         None
     }
 
+    /// Returns true when the current skin context is the music select screen.
+    fn is_music_selector(&self) -> bool {
+        self.current_state_type() == Some(MainStateType::MusicSelect)
+    }
+
+    /// Returns true when the current skin context is a result screen.
+    fn is_result_state(&self) -> bool {
+        matches!(
+            self.current_state_type(),
+            Some(MainStateType::Result | MainStateType::CourseResult)
+        )
+    }
+
     /// Returns the recent judge timing offsets (milliseconds).
     /// 100-element circular buffer. Used by SkinTimingVisualizer and SkinHitErrorVisualizer.
     fn get_recent_judges(&self) -> &[i64] {
@@ -120,8 +133,39 @@ pub trait SkinRenderContext: TimerAccess {
         None
     }
 
+    /// Returns mutable reference to the player config when the current state allows editing it.
+    fn get_player_config_mut(&mut self) -> Option<&mut crate::player_config::PlayerConfig> {
+        None
+    }
+
     /// Returns immutable reference to the global config.
     fn get_config_ref(&self) -> Option<&crate::config::Config> {
         None
+    }
+
+    /// Returns mutable reference to the global config when the current state allows editing it.
+    fn get_config_mut(&mut self) -> Option<&mut crate::config::Config> {
+        None
+    }
+
+    /// Returns mutable reference to the selected play config when available.
+    fn get_selected_play_config_mut(&mut self) -> Option<&mut crate::play_config::PlayConfig> {
+        None
+    }
+
+    /// Plays the option change sound for click/slider-driven config changes.
+    fn play_option_change_sound(&mut self) {
+        // default no-op
+    }
+
+    /// Refreshes bar UI after a config change on music select.
+    fn update_bar_after_change(&mut self) {
+        // default no-op
+    }
+
+    /// Starts song selection for a built-in click event.
+    /// Uses the skin event ID to avoid introducing a core dependency here.
+    fn select_song_mode(&mut self, _event_id: i32) {
+        // default no-op
     }
 }

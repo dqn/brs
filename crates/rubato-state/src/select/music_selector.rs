@@ -23,18 +23,28 @@ use super::score_data_cache::ScoreDataCache;
 use super::search_text_field::SearchTextField;
 use super::stubs::*;
 
-/// Render context adapter that wraps TimerManager + config references for skin property delegation.
-/// Used during the skin draw cycle so that TimerOnlyMainState can delegate property queries
-/// (integer_value, boolean_value, config access) back to real state data.
-struct SelectRenderContext<'a> {
-    timer: &'a mut TimerManager,
-    player_config: &'a PlayerConfig,
-    app_config: &'a Config,
-    manager: &'a BarManager,
-    selectedreplay: i32,
+fn delegated_event_type_from_id(event_id: i32) -> Option<EventType> {
+    match event_id {
+        17 => Some(EventType::OpenDocument),
+        79 => Some(EventType::Rival),
+        89 => Some(EventType::FavoriteSong),
+        90 => Some(EventType::FavoriteChart),
+        210 => Some(EventType::OpenIr),
+        211 => Some(EventType::UpdateFolder),
+        212 => Some(EventType::OpenWithExplorer),
+        213 => Some(EventType::OpenDownloadSite),
+        _ => None,
+    }
 }
 
-impl rubato_types::timer_access::TimerAccess for SelectRenderContext<'_> {
+/// Rich skin context for music select rendering and mouse interaction.
+/// This keeps skin-side events wired to the real selector instead of a timer-only stub.
+struct SelectSkinContext<'a> {
+    timer: &'a mut TimerManager,
+    selector: &'a mut MusicSelector,
+}
+
+impl rubato_types::timer_access::TimerAccess for SelectSkinContext<'_> {
     fn get_now_time(&self) -> i64 {
         self.timer.get_now_time()
     }
@@ -55,9 +65,9 @@ impl rubato_types::timer_access::TimerAccess for SelectRenderContext<'_> {
     }
 }
 
-impl SelectRenderContext<'_> {
+impl SelectSkinContext<'_> {
     fn selected_bar(&self) -> Option<&Bar> {
-        self.manager.get_selected()
+        self.selector.manager.get_selected()
     }
 
     fn selected_song_data(&self) -> Option<&rubato_types::song_data::SongData> {
@@ -71,21 +81,65 @@ impl SelectRenderContext<'_> {
     }
 }
 
-impl rubato_types::skin_render_context::SkinRenderContext for SelectRenderContext<'_> {
+impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<'_> {
     fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
         Some(rubato_types::main_state_type::MainStateType::MusicSelect)
     }
 
     fn get_player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
-        Some(self.player_config)
+        Some(&self.selector.config)
+    }
+
+    fn get_player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+        Some(&mut self.selector.config)
     }
 
     fn get_config_ref(&self) -> Option<&rubato_types::config::Config> {
-        Some(self.app_config)
+        Some(&self.selector.app_config)
+    }
+
+    fn get_config_mut(&mut self) -> Option<&mut rubato_types::config::Config> {
+        Some(&mut self.selector.app_config)
+    }
+
+    fn get_selected_play_config_mut(
+        &mut self,
+    ) -> Option<&mut rubato_types::play_config::PlayConfig> {
+        self.selector.get_selected_play_config_mut()
     }
 
     fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
+    }
+
+    fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
+        if let Some(event) = delegated_event_type_from_id(id) {
+            self.selector.execute_event_with_args(event, arg1, arg2);
+        }
+    }
+
+    fn change_state(&mut self, state: MainStateType) {
+        self.selector.pending_state_change = Some(state);
+    }
+
+    fn play_option_change_sound(&mut self) {
+        self.selector.play_option_change();
+    }
+
+    fn update_bar_after_change(&mut self) {
+        self.selector.refresh_bar_with_context();
+    }
+
+    fn select_song_mode(&mut self, event_id: i32) {
+        let mode = match event_id {
+            15 => Some(BMSPlayerMode::PLAY),
+            16 => Some(BMSPlayerMode::AUTOPLAY),
+            315 => Some(BMSPlayerMode::PRACTICE),
+            _ => None,
+        };
+        if let Some(mode) = mode {
+            self.selector.select_song(mode);
+        }
     }
 
     fn integer_value(&self, id: i32) -> i32 {
@@ -94,6 +148,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectRenderContex
             // Volume (0-100 scale)
             57 => {
                 (self
+                    .selector
                     .app_config
                     .get_audio_config()
                     .map_or(0.5, |a| a.systemvolume)
@@ -101,6 +156,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectRenderContex
             }
             58 => {
                 (self
+                    .selector
                     .app_config
                     .get_audio_config()
                     .map_or(0.5, |a| a.keyvolume)
@@ -108,13 +164,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectRenderContex
             }
             59 => {
                 (self
+                    .selector
                     .app_config
                     .get_audio_config()
                     .map_or(0.5, |a| a.bgvolume)
                     * 100.0) as i32
             }
             // Display timing
-            12 => self.player_config.judgetiming,
+            12 => self.selector.config.judgetiming,
             // Song BPM
             90 => self.selected_song_data().map_or(0, |s| s.maxbpm),
             91 => self.selected_song_data().map_or(0, |s| s.minbpm),
@@ -289,27 +346,54 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectRenderContex
     fn float_value(&self, id: i32) -> f32 {
         match id {
             // Music select scroll position
-            1 => self.manager.get_selected_position(),
+            1 => self.selector.manager.get_selected_position(),
             // Volume (0.0-1.0)
             17 => self
+                .selector
                 .app_config
                 .get_audio_config()
                 .map_or(0.5, |a| a.systemvolume),
             18 => self
+                .selector
                 .app_config
                 .get_audio_config()
                 .map_or(0.5, |a| a.keyvolume),
             19 => self
+                .selector
                 .app_config
                 .get_audio_config()
                 .map_or(0.5, |a| a.bgvolume),
+            8 => self.selector.get_ranking_position(),
             // Level (0.0-1.0 normalized)
             103 => self
                 .selected_song_data()
                 .map_or(0.0, |s| s.level as f32 / 12.0),
             // Hi-speed (from default mode7 play config)
-            310 => self.player_config.mode7.playconfig.hispeed,
+            310 => self.selector.config.mode7.playconfig.hispeed,
             _ => 0.0,
+        }
+    }
+
+    fn set_float_value(&mut self, id: i32, value: f32) {
+        match id {
+            1 => self.selector.manager.set_selected_position(value),
+            8 => self.selector.set_ranking_position(value),
+            17 => {
+                if let Some(audio) = self.selector.app_config.audio.as_mut() {
+                    audio.systemvolume = value.clamp(0.0, 1.0);
+                }
+            }
+            18 => {
+                if let Some(audio) = self.selector.app_config.audio.as_mut() {
+                    audio.keyvolume = value.clamp(0.0, 1.0);
+                }
+            }
+            19 => {
+                if let Some(audio) = self.selector.app_config.audio.as_mut() {
+                    audio.bgvolume = value.clamp(0.0, 1.0);
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -2097,12 +2181,9 @@ impl MainState for MusicSelector {
             let mut timer = std::mem::take(&mut self.main_state_data.timer);
 
             {
-                let mut ctx = SelectRenderContext {
+                let mut ctx = SelectSkinContext {
                     timer: &mut timer,
-                    player_config: &self.config,
-                    app_config: &self.app_config,
-                    manager: &self.manager,
-                    selectedreplay: self.selectedreplay,
+                    selector: self,
                 };
                 skin.update_custom_objects_timed(&mut ctx);
                 skin.swap_sprite_batch(sprite);
@@ -2143,6 +2224,44 @@ impl MainState for MusicSelector {
                 std::mem::swap(&mut renderer.sprite, sprite);
             }
         }
+    }
+
+    fn handle_skin_mouse_pressed(&mut self, button: i32, x: i32, y: i32) {
+        let mut skin = match self.main_state_data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.main_state_data.timer);
+
+        {
+            let mut ctx = SelectSkinContext {
+                timer: &mut timer,
+                selector: self,
+            };
+            skin.mouse_pressed_at(&mut ctx, button, x, y);
+        }
+
+        self.main_state_data.timer = timer;
+        self.main_state_data.skin = Some(skin);
+    }
+
+    fn handle_skin_mouse_dragged(&mut self, button: i32, x: i32, y: i32) {
+        let mut skin = match self.main_state_data.skin.take() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut timer = std::mem::take(&mut self.main_state_data.timer);
+
+        {
+            let mut ctx = SelectSkinContext {
+                timer: &mut timer,
+                selector: self,
+            };
+            skin.mouse_dragged_at(&mut ctx, button, x, y);
+        }
+
+        self.main_state_data.timer = timer;
+        self.main_state_data.skin = Some(skin);
     }
 
     /// Prepare state — start preview music.
@@ -3327,6 +3446,60 @@ mod tests {
         (selector, state)
     }
 
+    struct ChangeStateSkin;
+
+    impl rubato_core::main_state::SkinDrawable for ChangeStateSkin {
+        fn draw_all_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn update_custom_objects_timed(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        ) {
+        }
+
+        fn mouse_pressed_at(
+            &mut self,
+            ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+            ctx.change_state(MainStateType::Config);
+        }
+
+        fn mouse_dragged_at(
+            &mut self,
+            _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+            _button: i32,
+            _x: i32,
+            _y: i32,
+        ) {
+        }
+
+        fn prepare_skin(&mut self) {}
+        fn dispose_skin(&mut self) {}
+        fn get_fadeout(&self) -> i32 {
+            0
+        }
+        fn get_input(&self) -> i32 {
+            0
+        }
+        fn get_scene(&self) -> i32 {
+            0
+        }
+        fn get_width(&self) -> f32 {
+            0.0
+        }
+        fn get_height(&self) -> f32 {
+            0.0
+        }
+        fn swap_sprite_batch(&mut self, _batch: &mut rubato_render::sprite_batch::SpriteBatch) {}
+    }
+
     // ============================================================
     // read_chart tests
     // ============================================================
@@ -3739,5 +3912,15 @@ mod tests {
         assert_eq!(paths.len(), 2);
         assert_eq!(paths[0], PathBuf::from("/dir/song_a.bms"));
         assert_eq!(paths[1], PathBuf::from("/dir/song_b.bms"));
+    }
+
+    #[test]
+    fn test_handle_skin_mouse_pressed_uses_selector_context() {
+        let mut selector = MusicSelector::new();
+        selector.main_state_data.skin = Some(Box::new(ChangeStateSkin));
+
+        <MusicSelector as MainState>::handle_skin_mouse_pressed(&mut selector, 0, 32, 48);
+
+        assert_eq!(selector.pending_state_change, Some(MainStateType::Config));
     }
 }

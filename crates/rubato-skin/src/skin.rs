@@ -1075,7 +1075,7 @@ impl Skin {
 
     /// Update user-defined objects once per frame.
     /// Update order: timers -> events, each in ascending ID order.
-    pub fn update_custom_objects(&mut self, state: &dyn MainState) {
+    pub fn update_custom_objects(&mut self, state: &mut dyn MainState) {
         // Sort by ID for ordered iteration
         let mut timer_ids: Vec<i32> = self.custom_timers.keys().copied().collect();
         timer_ids.sort_unstable();
@@ -1085,16 +1085,13 @@ impl Skin {
             }
         }
 
-        // Events need &mut MainState but we only have &dyn MainState here
-        // In the original Java, updateCustomObjects takes MainState
-        // For now we skip event update as it requires &mut
-        // let mut event_ids: Vec<i32> = self.custom_events.keys().copied().collect();
-        // event_ids.sort_unstable();
-        // for id in event_ids {
-        //     if let Some(event) = self.custom_events.get_mut(&id) {
-        //         event.update(state);
-        //     }
-        // }
+        let mut event_ids: Vec<i32> = self.custom_events.keys().copied().collect();
+        event_ids.sort_unstable();
+        for id in event_ids {
+            if let Some(event) = self.custom_events.get_mut(&id) {
+                event.update(state);
+            }
+        }
     }
 }
 
@@ -1104,8 +1101,8 @@ impl Skin {
 /// Holds a reference to the real `TimerAccess` (typically a `TimerManager`) so that
 /// per-timer-id queries return actual values instead of always 0.
 struct TimerOnlyMainState<'a> {
-    timer: &'a dyn rubato_types::timer_access::TimerAccess,
-    ctx: Option<&'a dyn rubato_types::skin_render_context::SkinRenderContext>,
+    timer: Option<&'a dyn rubato_types::timer_access::TimerAccess>,
+    ctx: Option<&'a mut dyn rubato_types::skin_render_context::SkinRenderContext>,
     main_controller: crate::stubs::MainController,
     resource: crate::stubs::PlayerResource,
     state_type: Option<rubato_types::main_state_type::MainStateType>,
@@ -1117,7 +1114,7 @@ impl<'a> TimerOnlyMainState<'a> {
         static EMPTY: std::sync::LazyLock<HashMap<i32, TextureRegion>> =
             std::sync::LazyLock::new(HashMap::new);
         Self {
-            timer,
+            timer: Some(timer),
             ctx: None,
             main_controller: crate::stubs::MainController { debug: false },
             resource: crate::stubs::PlayerResource,
@@ -1127,15 +1124,16 @@ impl<'a> TimerOnlyMainState<'a> {
     }
 
     fn from_render_context_with_images(
-        ctx: &'a dyn rubato_types::skin_render_context::SkinRenderContext,
+        ctx: &'a mut dyn rubato_types::skin_render_context::SkinRenderContext,
         image_registry: &'a HashMap<i32, TextureRegion>,
     ) -> Self {
+        let state_type = ctx.current_state_type();
         Self {
-            timer: ctx,
+            timer: None,
             ctx: Some(ctx),
             main_controller: crate::stubs::MainController { debug: false },
             resource: crate::stubs::PlayerResource,
-            state_type: ctx.current_state_type(),
+            state_type,
             image_registry,
         }
     }
@@ -1143,7 +1141,11 @@ impl<'a> TimerOnlyMainState<'a> {
 
 impl crate::stubs::MainState for TimerOnlyMainState<'_> {
     fn get_timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-        self.timer
+        if let Some(ctx) = self.ctx.as_deref() {
+            ctx
+        } else {
+            self.timer.expect("timer-only adapter must carry a timer")
+        }
     }
 
     fn get_offset_value(&self, _id: i32) -> Option<&crate::stubs::SkinOffset> {
@@ -1162,64 +1164,173 @@ impl crate::stubs::MainState for TimerOnlyMainState<'_> {
         &self.resource
     }
 
+    fn is_music_selector(&self) -> bool {
+        self.ctx
+            .as_deref()
+            .is_some_and(rubato_types::skin_render_context::SkinRenderContext::is_music_selector)
+            || self.state_type == Some(rubato_types::main_state_type::MainStateType::MusicSelect)
+    }
+
+    fn is_result_state(&self) -> bool {
+        self.ctx
+            .as_deref()
+            .is_some_and(rubato_types::skin_render_context::SkinRenderContext::is_result_state)
+            || matches!(
+                self.state_type,
+                Some(
+                    rubato_types::main_state_type::MainStateType::Result
+                        | rubato_types::main_state_type::MainStateType::CourseResult
+                )
+            )
+    }
+
     fn is_bms_player(&self) -> bool {
         self.state_type == Some(rubato_types::main_state_type::MainStateType::Play)
     }
 
     fn get_recent_judges(&self) -> &[i64] {
-        self.ctx.map_or(&[] as &[i64], |c| c.get_recent_judges())
+        self.ctx
+            .as_deref()
+            .map_or(&[] as &[i64], |c| c.get_recent_judges())
     }
 
     fn get_recent_judges_index(&self) -> usize {
-        self.ctx.map_or(0, |c| c.get_recent_judges_index())
+        self.ctx
+            .as_deref()
+            .map_or(0, |c| c.get_recent_judges_index())
     }
 
     fn integer_value(&self, id: i32) -> i32 {
-        self.ctx.map_or(0, |c| c.integer_value(id))
+        self.ctx.as_deref().map_or(0, |c| c.integer_value(id))
     }
 
     fn boolean_value(&self, id: i32) -> bool {
-        self.ctx.is_some_and(|c| c.boolean_value(id))
+        self.ctx.as_deref().is_some_and(|c| c.boolean_value(id))
     }
 
     fn float_value(&self, id: i32) -> f32 {
-        self.ctx.map_or(0.0, |c| c.float_value(id))
+        self.ctx.as_deref().map_or(0.0, |c| c.float_value(id))
     }
 
     fn string_value(&self, id: i32) -> String {
-        self.ctx.map_or_else(String::new, |c| c.string_value(id))
+        self.ctx
+            .as_deref()
+            .map_or_else(String::new, |c| c.string_value(id))
     }
 
-    fn set_float_value(&mut self, _id: i32, _value: f32) {
-        // TimerOnlyMainState is an ephemeral adapter; writes are dropped
+    fn set_float_value(&mut self, id: i32, value: f32) {
+        if let Some(ctx) = self.ctx.as_deref_mut() {
+            ctx.set_float_value(id, value);
+        }
     }
 
     fn get_judge_count(&self, judge: i32, fast: bool) -> i32 {
-        self.ctx.map_or(0, |c| c.get_judge_count(judge, fast))
+        self.ctx
+            .as_deref()
+            .map_or(0, |c| c.get_judge_count(judge, fast))
     }
 
     fn get_gauge_value(&self) -> f32 {
-        self.ctx.map_or(0.0, |c| c.get_gauge_value())
+        self.ctx.as_deref().map_or(0.0, |c| c.get_gauge_value())
     }
 
     fn get_gauge_type(&self) -> i32 {
-        self.ctx.map_or(0, |c| c.get_gauge_type())
+        self.ctx.as_deref().map_or(0, |c| c.get_gauge_type())
     }
 
     fn get_now_judge(&self, player: i32) -> i32 {
-        self.ctx.map_or(0, |c| c.get_now_judge(player))
+        self.ctx.as_deref().map_or(0, |c| c.get_now_judge(player))
     }
 
     fn get_now_combo(&self, player: i32) -> i32 {
-        self.ctx.map_or(0, |c| c.get_now_combo(player))
+        self.ctx.as_deref().map_or(0, |c| c.get_now_combo(player))
     }
 
     fn get_player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
-        self.ctx.and_then(|c| c.get_player_config_ref())
+        self.ctx
+            .as_deref()
+            .and_then(rubato_types::skin_render_context::SkinRenderContext::get_player_config_ref)
     }
 
     fn get_config_ref(&self) -> Option<&rubato_types::config::Config> {
-        self.ctx.and_then(|c| c.get_config_ref())
+        self.ctx
+            .as_deref()
+            .and_then(rubato_types::skin_render_context::SkinRenderContext::get_config_ref)
+    }
+
+    fn get_player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
+        self.ctx
+            .as_deref_mut()
+            .and_then(rubato_types::skin_render_context::SkinRenderContext::get_player_config_mut)
+    }
+
+    fn get_config_mut(&mut self) -> Option<&mut rubato_types::config::Config> {
+        self.ctx
+            .as_deref_mut()
+            .and_then(rubato_types::skin_render_context::SkinRenderContext::get_config_mut)
+    }
+
+    fn get_selected_play_config_mut(
+        &mut self,
+    ) -> Option<&mut rubato_types::play_config::PlayConfig> {
+        self.ctx.as_deref_mut().and_then(
+            rubato_types::skin_render_context::SkinRenderContext::get_selected_play_config_mut,
+        )
+    }
+
+    fn play_option_change_sound(&mut self) {
+        if let Some(ctx) = self.ctx.as_deref_mut() {
+            ctx.play_option_change_sound();
+        }
+    }
+
+    fn update_bar_after_change(&mut self) {
+        if let Some(ctx) = self.ctx.as_deref_mut() {
+            ctx.update_bar_after_change();
+        }
+    }
+
+    fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
+        if let Some(ctx) = self.ctx.as_deref_mut() {
+            ctx.execute_event(id, arg1, arg2);
+        }
+    }
+
+    fn change_state(&mut self, state_type: rubato_types::main_state_type::MainStateType) {
+        if let Some(ctx) = self.ctx.as_deref_mut() {
+            ctx.change_state(state_type);
+        }
+    }
+
+    fn select_song(&mut self, mode: rubato_core::bms_player_mode::BMSPlayerMode) {
+        let Some(ctx) = self.ctx.as_deref_mut() else {
+            return;
+        };
+        let event_id = match mode.mode {
+            rubato_core::bms_player_mode::Mode::Play => 15,
+            rubato_core::bms_player_mode::Mode::Autoplay => 16,
+            rubato_core::bms_player_mode::Mode::Practice => 315,
+            rubato_core::bms_player_mode::Mode::Replay => return,
+        };
+        ctx.select_song_mode(event_id);
+    }
+
+    fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+        if let Some(ctx) = self.ctx.as_deref_mut() {
+            ctx.set_timer_micro(timer_id, micro_time);
+        }
+    }
+
+    fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
+        if let Some(ctx) = self.ctx.as_deref_mut() {
+            ctx.audio_play(path, volume, is_loop);
+        }
+    }
+
+    fn audio_stop(&mut self, path: &str) {
+        if let Some(ctx) = self.ctx.as_deref_mut() {
+            ctx.audio_stop(path);
+        }
     }
 }
 
@@ -1246,21 +1357,35 @@ impl rubato_core::main_state::SkinDrawable for Skin {
         ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
     ) {
         let registry = std::mem::take(&mut self.image_registry);
-        let adapter = TimerOnlyMainState::from_render_context_with_images(ctx, &registry);
-        self.update_custom_objects(&adapter);
+        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, &registry);
+        self.update_custom_objects(&mut adapter);
         self.image_registry = registry;
     }
 
-    fn mouse_pressed_at(&mut self, button: i32, x: i32, y: i32) {
-        let null_timer = rubato_types::timer_access::NullTimer;
-        let mut adapter = TimerOnlyMainState::from_timer(&null_timer);
+    fn mouse_pressed_at(
+        &mut self,
+        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        button: i32,
+        x: i32,
+        y: i32,
+    ) {
+        let registry = std::mem::take(&mut self.image_registry);
+        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, &registry);
         self.mouse_pressed(&mut adapter, button, x, y);
+        self.image_registry = registry;
     }
 
-    fn mouse_dragged_at(&mut self, button: i32, x: i32, y: i32) {
-        let null_timer = rubato_types::timer_access::NullTimer;
-        let mut adapter = TimerOnlyMainState::from_timer(&null_timer);
+    fn mouse_dragged_at(
+        &mut self,
+        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        button: i32,
+        x: i32,
+        y: i32,
+    ) {
+        let registry = std::mem::take(&mut self.image_registry);
+        let mut adapter = TimerOnlyMainState::from_render_context_with_images(ctx, &registry);
         self.mouse_dragged(&mut adapter, button, x, y);
+        self.image_registry = registry;
     }
 
     fn dispose_skin(&mut self) {
@@ -1298,8 +1423,108 @@ impl rubato_core::main_state::SkinDrawable for Skin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::property::boolean_property::BooleanProperty;
+    use crate::property::event_factory;
     use crate::skin_header::SkinHeader;
+    use crate::skin_image::SkinImage;
     use rubato_core::main_state::SkinDrawable;
+    use rubato_types::main_state_type::MainStateType;
+    use rubato_types::skin_render_context::SkinRenderContext;
+    use rubato_types::timer_access::TimerAccess;
+
+    struct AlwaysTrue;
+
+    impl BooleanProperty for AlwaysTrue {
+        fn is_static(&self, _state: &dyn MainState) -> bool {
+            false
+        }
+
+        fn get(&self, _state: &dyn MainState) -> bool {
+            true
+        }
+    }
+
+    struct RecordingSkinRenderContext {
+        timer: crate::stubs::Timer,
+        state_type: MainStateType,
+        executed_events: Vec<(i32, i32, i32)>,
+        changed_states: Vec<MainStateType>,
+        timer_writes: Vec<(i32, i64)>,
+        audio_plays: Vec<(String, f32, bool)>,
+        audio_stops: Vec<String>,
+        float_writes: Vec<(i32, f32)>,
+    }
+
+    impl RecordingSkinRenderContext {
+        fn new(state_type: MainStateType) -> Self {
+            Self {
+                timer: crate::stubs::Timer::with_timers(100, 100_000, Vec::new()),
+                state_type,
+                executed_events: Vec::new(),
+                changed_states: Vec::new(),
+                timer_writes: Vec::new(),
+                audio_plays: Vec::new(),
+                audio_stops: Vec::new(),
+                float_writes: Vec::new(),
+            }
+        }
+    }
+
+    impl TimerAccess for RecordingSkinRenderContext {
+        fn get_now_time(&self) -> i64 {
+            self.timer.get_now_time()
+        }
+
+        fn get_now_micro_time(&self) -> i64 {
+            self.timer.get_now_micro_time()
+        }
+
+        fn get_micro_timer(&self, timer_id: i32) -> i64 {
+            self.timer.get_micro_timer(timer_id)
+        }
+
+        fn get_timer(&self, timer_id: i32) -> i64 {
+            self.timer.get_timer(timer_id)
+        }
+
+        fn get_now_time_for(&self, timer_id: i32) -> i64 {
+            self.timer.get_now_time_for(timer_id)
+        }
+
+        fn is_timer_on(&self, timer_id: i32) -> bool {
+            self.timer.is_timer_on(timer_id)
+        }
+    }
+
+    impl SkinRenderContext for RecordingSkinRenderContext {
+        fn execute_event(&mut self, id: i32, arg1: i32, arg2: i32) {
+            self.executed_events.push((id, arg1, arg2));
+        }
+
+        fn change_state(&mut self, state: MainStateType) {
+            self.changed_states.push(state);
+        }
+
+        fn set_timer_micro(&mut self, timer_id: i32, micro_time: i64) {
+            self.timer_writes.push((timer_id, micro_time));
+        }
+
+        fn audio_play(&mut self, path: &str, volume: f32, is_loop: bool) {
+            self.audio_plays.push((path.to_string(), volume, is_loop));
+        }
+
+        fn audio_stop(&mut self, path: &str) {
+            self.audio_stops.push(path.to_string());
+        }
+
+        fn current_state_type(&self) -> Option<MainStateType> {
+            Some(self.state_type)
+        }
+
+        fn set_float_value(&mut self, id: i32, value: f32) {
+            self.float_writes.push((id, value));
+        }
+    }
 
     fn make_test_skin() -> Skin {
         Skin::new(SkinHeader::new())
@@ -1393,6 +1618,22 @@ mod tests {
     }
 
     #[test]
+    fn test_update_custom_objects_timed_executes_custom_events() {
+        let mut skin = make_test_skin();
+        skin.add_custom_event(CustomEvent::new(
+            9001,
+            event_factory::create_zero_arg_event(777),
+            Some(Box::new(AlwaysTrue)),
+            0,
+        ));
+        let mut ctx = RecordingSkinRenderContext::new(MainStateType::MusicSelect);
+
+        skin.update_custom_objects_timed(&mut ctx);
+
+        assert_eq!(ctx.executed_events, vec![(777, 0, 0)]);
+    }
+
+    #[test]
     fn test_dispose_skin_empty() {
         let mut skin = make_test_skin();
         // Should not panic with no objects
@@ -1402,15 +1643,57 @@ mod tests {
     #[test]
     fn test_mouse_pressed_at_empty_skin() {
         let mut skin = make_test_skin();
+        let mut timer = rubato_types::timer_access::NullTimer;
         // Should not panic with no objects
-        skin.mouse_pressed_at(0, 100, 200);
+        skin.mouse_pressed_at(&mut timer, 0, 100, 200);
     }
 
     #[test]
     fn test_mouse_dragged_at_empty_skin() {
         let mut skin = make_test_skin();
+        let mut timer = rubato_types::timer_access::NullTimer;
         // Should not panic with no objects
-        skin.mouse_dragged_at(0, 100, 200);
+        skin.mouse_dragged_at(&mut timer, 0, 100, 200);
+    }
+
+    #[test]
+    fn test_timer_only_main_state_delegates_mutating_context_methods() {
+        let registry = HashMap::new();
+        let mut ctx = RecordingSkinRenderContext::new(MainStateType::MusicSelect);
+        let mut adapter = TimerOnlyMainState::from_render_context_with_images(&mut ctx, &registry);
+
+        adapter.execute_event(55, 1, 2);
+        adapter.change_state(MainStateType::Config);
+        adapter.set_timer_micro(9, 12_345);
+        adapter.audio_play("test.wav", 0.75, true);
+        adapter.audio_stop("test.wav");
+        adapter.set_float_value(42, 0.5);
+
+        assert_eq!(ctx.executed_events, vec![(55, 1, 2)]);
+        assert_eq!(ctx.changed_states, vec![MainStateType::Config]);
+        assert_eq!(ctx.timer_writes, vec![(9, 12_345)]);
+        assert_eq!(ctx.audio_plays, vec![("test.wav".to_string(), 0.75, true)]);
+        assert_eq!(ctx.audio_stops, vec!["test.wav".to_string()]);
+        assert_eq!(ctx.float_writes, vec![(42, 0.5)]);
+    }
+
+    #[test]
+    fn test_mouse_pressed_dispatches_click_event_through_render_context() {
+        let mut skin = make_test_skin();
+        let mut image = SkinImage::new_empty();
+        image.data.draw = true;
+        image.data.region.set_xywh(0.0, 0.0, 100.0, 100.0);
+        image.data.set_clickevent_by_id(13);
+        skin.add(SkinObject::Image(image));
+        skin.objectarray_indices.push(0);
+
+        let registry = HashMap::new();
+        let mut ctx = RecordingSkinRenderContext::new(MainStateType::MusicSelect);
+        let mut adapter = TimerOnlyMainState::from_render_context_with_images(&mut ctx, &registry);
+
+        skin.mouse_pressed(&mut adapter, 0, 50, 50);
+
+        assert_eq!(ctx.changed_states, vec![MainStateType::Config]);
     }
 
     #[test]

@@ -246,6 +246,10 @@ pub struct BMSPlayer {
     control_key_num3: bool,
     control_key_num4: bool,
     input_scroll: i32,
+    input_is_analog: Vec<bool>,
+    input_analog_diff_ticks: Vec<i32>,
+    input_analog_recent_ms: Vec<i64>,
+    pending_analog_resets: Vec<usize>,
     /// Pending state change to request from MainController.
     /// Set during render() when a state transition is needed.
     /// The caller should consume this via `take_pending_state_change()`.
@@ -343,6 +347,10 @@ impl BMSPlayer {
             control_key_num3: false,
             control_key_num4: false,
             input_scroll: 0,
+            input_is_analog: Vec::new(),
+            input_analog_diff_ticks: Vec::new(),
+            input_analog_recent_ms: Vec::new(),
+            pending_analog_resets: Vec::new(),
             pending_state_change: None,
             is_course_mode: false,
             pending_sounds: Vec::new(),
@@ -2640,8 +2648,25 @@ impl MainState for BMSPlayer {
         if let (Some(mut control), Some(lanerender)) =
             (self.control.take(), self.lanerender.as_mut())
         {
-            // Wire BMSPlayerInputProcessor state into context
-            let mut noop_analog = |_key: usize, _ms: i32| -> i32 { 0 };
+            let pending_analog_resets = &mut self.pending_analog_resets;
+            let input_analog_recent_ms = &mut self.input_analog_recent_ms;
+            let input_analog_diff_ticks = &mut self.input_analog_diff_ticks;
+            let mut analog_diff_and_reset = |key: usize, ms_tolerance: i32| -> i32 {
+                if key >= input_analog_recent_ms.len() || key >= input_analog_diff_ticks.len() {
+                    return 0;
+                }
+                let d_ticks = if input_analog_recent_ms[key] <= ms_tolerance as i64 {
+                    0.max(input_analog_diff_ticks[key])
+                } else {
+                    0
+                };
+                input_analog_recent_ms[key] = i64::MAX;
+                input_analog_diff_ticks[key] = 0;
+                if !pending_analog_resets.contains(&key) {
+                    pending_analog_resets.push(key);
+                }
+                d_ticks
+            };
             let mut ctx = crate::control_input_processor::ControlInputContext {
                 lanerender,
                 start_pressed: self.input_start_pressed,
@@ -2655,8 +2680,8 @@ impl MainState for BMSPlayer {
                 control_key_num4: self.control_key_num4,
                 key_states: &self.input_key_states,
                 scroll: self.input_scroll,
-                is_analog: &[],
-                analog_diff_and_reset: &mut noop_analog,
+                is_analog: &self.input_is_analog,
+                analog_diff_and_reset: &mut analog_diff_and_reset,
                 is_timer_play_on,
                 is_note_end,
                 window_hold: self.player_config.is_window_hold,
@@ -2720,6 +2745,16 @@ impl MainState for BMSPlayer {
         self.control_key_num3 = input.get_control_key_state(ControlKeys::Num3);
         self.control_key_num4 = input.get_control_key_state(ControlKeys::Num4);
         self.input_scroll = input.get_scroll();
+        self.input_is_analog.clear();
+        self.input_is_analog
+            .extend((0..KEYSTATE_SIZE).map(|i| input.is_analog_input(i)));
+        self.input_analog_diff_ticks.clear();
+        self.input_analog_diff_ticks
+            .extend((0..KEYSTATE_SIZE).map(|i| input.get_analog_diff(i)));
+        self.input_analog_recent_ms.clear();
+        self.input_analog_recent_ms
+            .extend((0..KEYSTATE_SIZE).map(|i| input.get_time_since_last_analog_reset(i)));
+        self.pending_analog_resets.clear();
         self.device_type = input.get_device_type();
     }
 
@@ -2732,6 +2767,9 @@ impl MainState for BMSPlayer {
         }
         if self.input_scroll == 0 {
             input.reset_scroll();
+        }
+        for key in self.pending_analog_resets.drain(..) {
+            input.reset_analog_input(key);
         }
     }
 
@@ -5143,6 +5181,65 @@ mod tests {
 
         assert!(!input.start_pressed());
         assert!(!input.is_select_pressed());
+    }
+
+    #[test]
+    fn analog_cover_change_uses_live_input_and_flushes_reset_back() {
+        let model = make_model();
+        let mut player = BMSPlayer::new(model);
+        player.total_notes = 1;
+        player.control = Some(ControlInputProcessor::new(Mode::BEAT_7K));
+        player.lanerender = Some(LaneRenderer::new(&player.model));
+        player
+            .lanerender
+            .as_mut()
+            .expect("lane renderer")
+            .set_enable_lanecover(true);
+        player
+            .lanerender
+            .as_mut()
+            .expect("lane renderer")
+            .set_lanecover(0.5);
+
+        let config = Config::default();
+        let player_config = PlayerConfig::default();
+        let mut input = BMSPlayerInputProcessor::new(&config, &player_config);
+        input.start_changed(true);
+        input.set_key_state(7, true, 1_000);
+        input.set_analog_state(7, true, 0.75);
+        input.reset_analog_input(7);
+        input.set_analog_state(7, true, 0.80);
+        assert!(input.start_pressed());
+        let expected_delta = input.get_analog_diff(7) as f32 * 0.001;
+
+        <BMSPlayer as MainState>::sync_input_from(&mut player, &input);
+        assert!(player.input_start_pressed);
+        assert!(player.input_key_states[7]);
+        assert!(player.input_is_analog[7]);
+        assert_eq!(player.input_analog_diff_ticks[7], input.get_analog_diff(7));
+        player.input();
+        <BMSPlayer as MainState>::sync_input_back_to(&mut player, &mut input);
+
+        <BMSPlayer as MainState>::sync_input_from(&mut player, &input);
+        assert!(player.input_start_pressed);
+        assert!(player.input_key_states[7]);
+        assert!(player.input_is_analog[7]);
+        assert_eq!(player.input_analog_diff_ticks[7], input.get_analog_diff(7));
+        player.input();
+        <BMSPlayer as MainState>::sync_input_back_to(&mut player, &mut input);
+
+        let actual_cover = player
+            .lanerender
+            .as_ref()
+            .expect("lane renderer")
+            .get_lanecover();
+        assert!(
+            (actual_cover - (0.5 + expected_delta)).abs() < 0.001,
+            "expected lanecover {}, got {}",
+            0.5 + expected_delta,
+            actual_cover
+        );
+        assert_eq!(input.get_analog_diff(7), 0);
     }
 
     // --- startpressedtime tracking tests ---

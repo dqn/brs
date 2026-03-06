@@ -447,6 +447,14 @@ impl BMSPlayerInputProcessor {
         }
     }
 
+    /// Injects analog state into the runtime snapshot.
+    ///
+    /// Used by cross-crate state wrappers that need to mirror live controller state
+    /// without polling device backends directly.
+    pub fn set_analog_state(&mut self, i: usize, is_analog: bool, analog_value: f32) {
+        self.set_analog_state_internal(i, is_analog, analog_value);
+    }
+
     pub fn reset_analog_input(&mut self, i: usize) {
         self.last_analog_value[i] = self.current_analog_value[i];
         self.analog_last_reset_time[i] = std::time::SystemTime::now()

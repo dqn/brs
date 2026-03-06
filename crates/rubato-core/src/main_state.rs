@@ -52,6 +52,22 @@ pub trait MainState {
         // default empty
     }
 
+    fn handle_skin_mouse_pressed(&mut self, button: i32, x: i32, y: i32) {
+        let data = self.main_state_data_mut();
+        if let Some(mut skin) = data.skin.take() {
+            skin.mouse_pressed_at(&mut data.timer, button, x, y);
+            data.skin = Some(skin);
+        }
+    }
+
+    fn handle_skin_mouse_dragged(&mut self, button: i32, x: i32, y: i32) {
+        let data = self.main_state_data_mut();
+        if let Some(mut skin) = data.skin.take() {
+            skin.mouse_dragged_at(&mut data.timer, button, x, y);
+            data.skin = Some(skin);
+        }
+    }
+
     /// Override point for state-specific rendering within the skin pipeline.
     /// Called by MainController::render() with the sprite batch.
     /// Default: update custom objects + standard skin draw_all_objects cycle.
@@ -237,10 +253,22 @@ pub trait SkinDrawable: Send {
     );
 
     /// Handle mouse press events (reverse order iteration).
-    fn mouse_pressed_at(&mut self, button: i32, x: i32, y: i32);
+    fn mouse_pressed_at(
+        &mut self,
+        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        button: i32,
+        x: i32,
+        y: i32,
+    );
 
     /// Handle mouse drag events (slider objects only).
-    fn mouse_dragged_at(&mut self, button: i32, x: i32, y: i32);
+    fn mouse_dragged_at(
+        &mut self,
+        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        button: i32,
+        x: i32,
+        y: i32,
+    );
 
     /// Prepare skin for rendering: validate objects, build draw list, load resources.
     fn prepare_skin(&mut self);
