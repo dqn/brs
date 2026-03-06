@@ -434,8 +434,8 @@ impl PlayerResource {
         self.coursedata = Some(coursedata);
     }
 
-    pub fn coursetitle(&self) -> Option<String> {
-        self.coursedata.as_ref().map(|cd| cd.name().to_string())
+    pub fn coursetitle(&self) -> Option<&str> {
+        self.coursedata.as_ref().map(|cd| cd.name())
     }
 
     pub fn constraint(&self) -> Vec<CourseDataConstraint> {

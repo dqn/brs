@@ -27,8 +27,8 @@ impl RandomCourseData {
         &self.stage
     }
 
-    pub fn song_datas(&self) -> Vec<SongData> {
-        self.song_datas.clone()
+    pub fn song_datas(&self) -> &[SongData] {
+        &self.song_datas
     }
 
     pub fn is_release(&self) -> bool {

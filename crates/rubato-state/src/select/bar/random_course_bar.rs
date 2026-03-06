@@ -25,7 +25,7 @@ impl RandomCourseBar {
         self.course.name()
     }
 
-    pub fn song_datas(&self) -> Vec<SongData> {
+    pub fn song_datas(&self) -> &[SongData] {
         self.course.song_datas()
     }
 
