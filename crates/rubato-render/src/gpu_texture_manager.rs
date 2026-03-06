@@ -139,6 +139,18 @@ impl GpuTextureManager {
             return;
         }
 
+        let max_dim = device.limits().max_texture_dimension_2d;
+        if width > max_dim || height > max_dim {
+            log::warn!(
+                "Texture '{}' dimensions {}x{} exceed GPU limit {}; skipping upload",
+                key,
+                width,
+                height,
+                max_dim,
+            );
+            return;
+        }
+
         let expected_size = (width * height * 4) as usize;
         if rgba_data.len() < expected_size {
             log::warn!(
