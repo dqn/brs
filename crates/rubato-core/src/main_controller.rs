@@ -152,6 +152,56 @@ impl MainStateAccess for StateAccessAdapter<'_> {
     }
 }
 
+/// Timing and lifecycle state for the main loop.
+pub struct LifecycleState {
+    pub boottime: Instant,
+    pub prevtime: i64,
+    pub last_config_save: Instant,
+    pub mouse_moved_time: i64,
+}
+
+impl LifecycleState {
+    pub fn new() -> Self {
+        let now = Instant::now();
+        Self {
+            boottime: now,
+            prevtime: 0,
+            last_config_save: now,
+            mouse_moved_time: 0,
+        }
+    }
+}
+
+impl Default for LifecycleState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Database and data accessor state.
+#[derive(Default)]
+pub struct DatabaseState {
+    pub playdata: Option<PlayDataAccessor>,
+    pub songdb: Option<Box<dyn SongDatabaseAccessorTrait>>,
+    pub infodb: Option<Box<dyn SongInformationDb>>,
+    pub rivals: RivalDataAccessor,
+    pub ircache: Option<Box<dyn RankingDataCacheAccess>>,
+    pub ir: Vec<IRStatus>,
+}
+
+/// External integration state (ImGui, OBS, IR, downloads, streaming).
+#[derive(Default)]
+pub struct IntegrationState {
+    pub imgui: Option<Box<dyn rubato_types::imgui_access::ImGuiAccess>>,
+    pub ir_resend_service: Option<Box<dyn rubato_types::ir_resend_service::IrResendService>>,
+    pub obs_client: Option<Box<dyn rubato_types::obs_access::ObsAccess>>,
+    pub download: Option<Box<dyn rubato_types::music_download_access::MusicDownloadAccess>>,
+    pub http_download_processor:
+        Option<std::sync::Arc<dyn rubato_types::http_download_submitter::HttpDownloadSubmitter>>,
+    pub stream_controller:
+        Option<Box<dyn rubato_types::stream_controller_access::StreamControllerAccess>>,
+}
+
 /// MainController - root class of the application
 #[allow(dead_code)]
 pub struct MainController {
@@ -160,10 +210,8 @@ pub struct MainController {
     auto: Option<BMSPlayerMode>,
     song_updated: bool,
 
-    /// Boot time
-    boottime: Instant,
-    /// Mouse moved time
-    mouse_moved_time: i64,
+    /// Timing and lifecycle state.
+    lifecycle: LifecycleState,
 
     /// Audio driver
     /// Translated from: MainController.audio (AudioDriver)
@@ -199,26 +247,11 @@ pub struct MainController {
     /// Show FPS flag
     showfps: bool,
 
-    /// Play data accessor
-    playdata: Option<PlayDataAccessor>,
+    /// Database and data accessor state.
+    db: DatabaseState,
 
     /// System sound manager
     sound: Option<SystemSoundManager>,
-
-    /// IR status array
-    ir: Vec<IRStatus>,
-
-    /// Rival data accessor
-    rivals: RivalDataAccessor,
-
-    /// Ranking data cache (trait object — real impl in beatoraja-ir)
-    ircache: Option<Box<dyn RankingDataCacheAccess>>,
-
-    /// Song database accessor (trait object)
-    songdb: Option<Box<dyn SongDatabaseAccessorTrait>>,
-
-    /// Song information accessor
-    infodb: Option<Box<dyn SongInformationDb>>,
 
     /// Offset array for skin
     offset: Vec<SkinOffset>,
@@ -229,35 +262,13 @@ pub struct MainController {
     /// Deferred controller commands from state-facing access proxies.
     command_queue: rubato_types::main_controller_access::MainControllerCommandQueue,
 
-    /// ImGui renderer (trait bridge for beatoraja-modmenu)
-    pub imgui: Option<Box<dyn rubato_types::imgui_access::ImGuiAccess>>,
-
-    /// IR resend service (trait bridge for background IR score retry)
-    ir_resend_service: Option<Box<dyn rubato_types::ir_resend_service::IrResendService>>,
-
-    /// OBS client (trait bridge for beatoraja-obs)
-    obs_client: Option<Box<dyn rubato_types::obs_access::ObsAccess>>,
-
-    /// IPFS download processor (trait bridge for md-processor)
-    download: Option<Box<dyn rubato_types::music_download_access::MusicDownloadAccess>>,
-    /// HTTP download processor (trait bridge for md-processor)
-    http_download_processor:
-        Option<std::sync::Arc<dyn rubato_types::http_download_submitter::HttpDownloadSubmitter>>,
-
-    /// Stream controller (trait bridge for beatoraja-stream)
-    stream_controller:
-        Option<Box<dyn rubato_types::stream_controller_access::StreamControllerAccess>>,
+    /// External integration state (ImGui, OBS, IR, downloads, streaming).
+    pub integration: IntegrationState,
 
     /// Shared music selector (type-erased Arc<Mutex<MusicSelector>>).
     /// Java shares the same MusicSelector between StreamController and MusicSelect state.
     /// The launcher stores this so StateFactory can reuse it instead of creating a new one.
     shared_music_selector: Option<Box<dyn std::any::Any + Send>>,
-
-    /// Previous render time
-    prevtime: i64,
-
-    /// Last config save time (nanos since boot, using Instant)
-    last_config_save: Instant,
 
     /// Callback for updating cross-state references (modmenu wiring).
     /// Set by the launcher to wire SkinMenu/SongManagerMenu.
@@ -346,8 +357,7 @@ impl MainController {
             player,
             auto,
             song_updated,
-            boottime: Instant::now(),
-            mouse_moved_time: 0,
+            lifecycle: LifecycleState::new(),
             audio: None,
             resource: None,
             current: None,
@@ -358,25 +368,20 @@ impl MainController {
             input: Some(input),
             input_poll_quit: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             showfps: false,
-            playdata,
+            db: DatabaseState {
+                playdata,
+                songdb: None,
+                infodb: None,
+                rivals: RivalDataAccessor::new(),
+                ircache: None,
+                ir: Vec::new(),
+            },
             sound: Some(sound),
-            ir: Vec::new(),
-            rivals: RivalDataAccessor::new(),
-            ircache: None,
-            songdb: None,
-            infodb: None,
             offset,
             state_listener,
             command_queue: rubato_types::main_controller_access::MainControllerCommandQueue::new(),
-            imgui: None,
-            ir_resend_service: None,
-            obs_client: None,
-            download: None,
-            http_download_processor: None,
-            stream_controller: None,
+            integration: IntegrationState::default(),
             shared_music_selector: None,
-            prevtime: 0,
-            last_config_save: Instant::now(),
             state_references_callback: None,
             exit_requested: AtomicBool::new(false),
             debug: false,
@@ -434,29 +439,29 @@ impl MainController {
     }
 
     pub fn play_data_accessor(&self) -> Option<&PlayDataAccessor> {
-        self.playdata.as_ref()
+        self.db.playdata.as_ref()
     }
 
     pub fn rival_data_accessor(&self) -> &RivalDataAccessor {
-        &self.rivals
+        &self.db.rivals
     }
 
     pub fn rival_data_accessor_mut(&mut self) -> &mut RivalDataAccessor {
-        &mut self.rivals
+        &mut self.db.rivals
     }
 
     pub fn ranking_data_cache(&self) -> Option<&dyn RankingDataCacheAccess> {
-        self.ircache.as_deref()
+        self.db.ircache.as_deref()
     }
 
     pub fn ranking_data_cache_mut(
         &mut self,
     ) -> Option<&mut (dyn RankingDataCacheAccess + 'static)> {
-        self.ircache.as_deref_mut()
+        self.db.ircache.as_deref_mut()
     }
 
     pub fn set_ranking_data_cache(&mut self, cache: Box<dyn RankingDataCacheAccess>) {
-        self.ircache = Some(cache);
+        self.db.ircache = Some(cache);
     }
 
     pub fn sound_manager(&self) -> Option<&SystemSoundManager> {
@@ -468,11 +473,11 @@ impl MainController {
     }
 
     pub fn ir_status(&self) -> &[IRStatus] {
-        &self.ir
+        &self.db.ir
     }
 
     pub fn ir_status_mut(&mut self) -> &mut Vec<IRStatus> {
-        &mut self.ir
+        &mut self.db.ir
     }
 
     /// Clone the shared controller command queue used by launcher-side state proxies.
@@ -491,15 +496,15 @@ impl MainController {
     }
 
     pub fn has_obs_client(&self) -> bool {
-        self.obs_client.is_some()
+        self.integration.obs_client.is_some()
     }
 
     pub fn set_obs_client(&mut self, client: Box<dyn rubato_types::obs_access::ObsAccess>) {
-        self.obs_client = Some(client);
+        self.integration.obs_client = Some(client);
     }
 
     pub fn save_last_recording(&self, reason: &str) {
-        if let Some(ref client) = self.obs_client {
+        if let Some(ref client) = self.integration.obs_client {
             client.save_last_recording(reason);
         }
     }
@@ -833,7 +838,7 @@ impl MainController {
         self.trigger_ln_warning();
         self.set_target_list();
 
-        self.last_config_save = Instant::now();
+        self.lifecycle.last_config_save = Instant::now();
 
         info!("Initialization time (ms): {}", t.elapsed().as_millis());
     }
@@ -1024,8 +1029,8 @@ impl MainController {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as i64;
-        if time > self.prevtime {
-            self.prevtime = time;
+        if time > self.lifecycle.prevtime {
+            self.lifecycle.prevtime = time;
             if let Some(ref input) = self.input
                 && let Some(ref mut current) = self.current
             {
@@ -1067,7 +1072,7 @@ impl MainController {
 
                 // Mouse moved → cursor visibility timer
                 if input.is_mouse_moved() {
-                    self.mouse_moved_time = time;
+                    self.lifecycle.mouse_moved_time = time;
                     input.set_mouse_moved(false);
                 }
             }
@@ -1100,7 +1105,7 @@ impl MainController {
 
                 // Mod menu toggle
                 if input.is_activated(KeyCommand::ToggleModMenu)
-                    && let Some(ref mut imgui) = self.imgui
+                    && let Some(ref mut imgui) = self.integration.imgui
                 {
                     imgui.toggle_menu();
                 }
@@ -1130,12 +1135,12 @@ impl MainController {
         self.current = None;
 
         // Java: if (streamController != null) { streamController.dispose(); }
-        if let Some(ref mut sc) = self.stream_controller {
+        if let Some(ref mut sc) = self.integration.stream_controller {
             sc.dispose();
         }
-        self.stream_controller = None;
+        self.integration.stream_controller = None;
 
-        if let Some(mut imgui) = self.imgui.take() {
+        if let Some(mut imgui) = self.integration.imgui.take() {
             imgui.dispose();
         }
         if let Some(mut resource) = self.resource.take() {
@@ -1268,7 +1273,7 @@ impl MainController {
     }
 
     pub fn play_time(&self) -> i64 {
-        self.boottime.elapsed().as_millis() as i64
+        self.lifecycle.boottime.elapsed().as_millis() as i64
     }
 
     pub fn start_time(&self) -> i64 {
@@ -1326,7 +1331,8 @@ impl MainController {
     pub fn http_download_processor(
         &self,
     ) -> Option<&dyn rubato_types::http_download_submitter::HttpDownloadSubmitter> {
-        self.http_download_processor
+        self.integration
+            .http_download_processor
             .as_ref()
             .map(|processor| processor.as_ref())
     }
@@ -1335,14 +1341,14 @@ impl MainController {
         &self,
     ) -> Option<std::sync::Arc<dyn rubato_types::http_download_submitter::HttpDownloadSubmitter>>
     {
-        self.http_download_processor.clone()
+        self.integration.http_download_processor.clone()
     }
 
     pub fn set_http_download_processor(
         &mut self,
         processor: Box<dyn rubato_types::http_download_submitter::HttpDownloadSubmitter>,
     ) {
-        self.http_download_processor = Some(std::sync::Arc::from(processor));
+        self.integration.http_download_processor = Some(std::sync::Arc::from(processor));
     }
 
     /// Start song database update.
@@ -1369,7 +1375,7 @@ impl MainController {
         );
         let update_path = if path.is_empty() { None } else { Some(path) };
         let bmsroot = self.config.bmsroot.to_vec();
-        if let Some(ref songdb) = self.songdb {
+        if let Some(ref songdb) = self.db.songdb {
             songdb.update_song_datas(update_path, &bmsroot, false, update_parent_when_missing);
         }
     }
@@ -1387,13 +1393,13 @@ impl MainController {
     /// Translated from: MainController.getSongDatabase()
     /// In Java: return MainLoader.getScoreDatabaseAccessor()
     pub fn song_database(&self) -> Option<&dyn SongDatabaseAccessorTrait> {
-        self.songdb.as_deref()
+        self.db.songdb.as_deref()
     }
 
     /// Set the song database accessor.
     /// Called by the application entry point (beatoraja-launcher) after creating the DB.
     pub fn set_song_database(&mut self, songdb: Box<dyn SongDatabaseAccessorTrait>) {
-        self.songdb = Some(songdb);
+        self.db.songdb = Some(songdb);
     }
 
     /// Returns the current state.
@@ -1490,39 +1496,39 @@ impl MainController {
     }
 
     pub fn info_database(&self) -> Option<&dyn SongInformationDb> {
-        self.infodb.as_deref()
+        self.db.infodb.as_deref()
     }
 
     /// Set the song information database.
     /// Called from launcher layer since beatoraja-core cannot depend on beatoraja-song.
     pub fn set_info_database(&mut self, db: Box<dyn SongInformationDb>) {
-        self.infodb = Some(db);
+        self.db.infodb = Some(db);
     }
 
     pub fn music_download_processor(
         &self,
     ) -> Option<&dyn rubato_types::music_download_access::MusicDownloadAccess> {
-        self.download.as_deref()
+        self.integration.download.as_deref()
     }
 
     pub fn set_music_download_processor(
         &mut self,
         processor: Box<dyn rubato_types::music_download_access::MusicDownloadAccess>,
     ) {
-        self.download = Some(processor);
+        self.integration.download = Some(processor);
     }
 
     pub fn stream_controller(
         &self,
     ) -> Option<&dyn rubato_types::stream_controller_access::StreamControllerAccess> {
-        self.stream_controller.as_deref()
+        self.integration.stream_controller.as_deref()
     }
 
     pub fn set_stream_controller(
         &mut self,
         controller: Box<dyn rubato_types::stream_controller_access::StreamControllerAccess>,
     ) {
-        self.stream_controller = Some(controller);
+        self.integration.stream_controller = Some(controller);
     }
 
     /// Gets the shared MusicSelector as `&dyn Any`. Callers downcast via
@@ -1540,18 +1546,18 @@ impl MainController {
     pub fn ir_resend_service(
         &self,
     ) -> Option<&dyn rubato_types::ir_resend_service::IrResendService> {
-        self.ir_resend_service.as_deref()
+        self.integration.ir_resend_service.as_deref()
     }
 
     pub fn set_ir_resend_service(
         &mut self,
         service: Box<dyn rubato_types::ir_resend_service::IrResendService>,
     ) {
-        self.ir_resend_service = Some(service);
+        self.integration.ir_resend_service = Some(service);
     }
 
     pub fn set_imgui(&mut self, imgui: Box<dyn rubato_types::imgui_access::ImGuiAccess>) {
-        self.imgui = Some(imgui);
+        self.integration.imgui = Some(imgui);
     }
 
     /// Load a new player profile, re-initialize states and IR config.
@@ -1578,7 +1584,7 @@ impl MainController {
         // Enter select state
         self.change_state(MainStateType::MusicSelect);
 
-        self.last_config_save = Instant::now();
+        self.lifecycle.last_config_save = Instant::now();
     }
 
     /// Initialize IR configurations from config.
@@ -1624,7 +1630,7 @@ impl MainController {
         ));
 
         // In Java: playdata = new PlayDataAccessor(config);
-        self.playdata = Some(PlayDataAccessor::new(&self.config));
+        self.db.playdata = Some(PlayDataAccessor::new(&self.config));
 
         info!("Initializing states (PlayerResource created, states created on-demand via factory)");
     }
@@ -1719,14 +1725,14 @@ impl MainController {
     pub fn set_target_list(&mut self) {
         // Build target list: player's target list + rival targets
         let mut targetlist: Vec<String> = self.player.targetlist.clone();
-        for i in 0..self.rivals.rival_count() {
+        for i in 0..self.db.rivals.rival_count() {
             targetlist.push(format!("RIVAL_{}", i + 1));
         }
 
         // Resolve display names for each target ID
         let rivals: Vec<rubato_types::player_information::PlayerInformation> =
-            (0..self.rivals.rival_count())
-                .filter_map(|i| self.rivals.rival_information(i).cloned())
+            (0..self.db.rivals.rival_count())
+                .filter_map(|i| self.db.rivals.rival_information(i).cloned())
                 .collect();
         let names: Vec<String> = targetlist
             .iter()
@@ -1760,12 +1766,12 @@ impl MainController {
         }
 
         // Save once every 2 minutes (Java: 2 * 60 * 1000000000L ns)
-        let elapsed = self.last_config_save.elapsed();
+        let elapsed = self.lifecycle.last_config_save.elapsed();
         if elapsed.as_secs() < 120 {
             return;
         }
 
-        self.last_config_save = Instant::now();
+        self.lifecycle.last_config_save = Instant::now();
         self.save_config();
     }
 
@@ -1789,7 +1795,7 @@ impl MainController {
     pub fn download_ipfs_message_renderer(&mut self, message: &str) {
         // In Java: spawns DownloadMessageThread that polls download.isDownload() + download.getMessage()
         // When download processor is available, poll its status; otherwise show initial notification.
-        if let Some(ref dl) = self.download
+        if let Some(ref dl) = self.integration.download
             && dl.is_download()
         {
             let msg = dl.message();
@@ -1956,7 +1962,8 @@ impl MainControllerAccess for MainController {
         lnmode: i32,
         index: i32,
     ) -> Option<rubato_types::replay_data::ReplayData> {
-        self.playdata
+        self.db
+            .playdata
             .as_ref()
             .and_then(|pda| pda.read_replay_data(sha256, has_ln, lnmode, index))
     }
@@ -1978,23 +1985,27 @@ impl MainControllerAccess for MainController {
         &mut self,
     ) -> Option<&mut (dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess + 'static)>
     {
-        self.ircache.as_deref_mut()
+        self.db.ircache.as_deref_mut()
     }
 
     fn http_downloader(
         &self,
     ) -> Option<&dyn rubato_types::http_download_submitter::HttpDownloadSubmitter> {
-        self.http_download_processor
+        self.integration
+            .http_download_processor
             .as_ref()
             .map(|processor| processor.as_ref())
     }
 
     fn is_ipfs_download_alive(&self) -> bool {
-        self.download.as_ref().is_some_and(|dl| dl.is_alive())
+        self.integration
+            .download
+            .as_ref()
+            .is_some_and(|dl| dl.is_alive())
     }
 
     fn start_ipfs_download(&mut self, song: &rubato_types::song_data::SongData) -> bool {
-        if let Some(ref dl) = self.download {
+        if let Some(ref dl) = self.integration.download {
             dl.start_download(song);
             true
         } else {
@@ -2003,14 +2014,14 @@ impl MainControllerAccess for MainController {
     }
 
     fn rival_count(&self) -> usize {
-        self.rivals.rival_count()
+        self.db.rivals.rival_count()
     }
 
     fn rival_information(
         &self,
         index: usize,
     ) -> Option<rubato_types::player_information::PlayerInformation> {
-        self.rivals.rival_information(index).cloned()
+        self.db.rivals.rival_information(index).cloned()
     }
 
     fn read_score_data_by_hash(
@@ -2019,23 +2030,26 @@ impl MainControllerAccess for MainController {
         ln: bool,
         lnmode: i32,
     ) -> Option<rubato_types::score_data::ScoreData> {
-        self.playdata
+        self.db
+            .playdata
             .as_ref()
             .and_then(|pda| pda.read_score_data_by_hash(hash, ln, lnmode))
     }
 
     fn read_player_data(&self) -> Option<rubato_types::player_data::PlayerData> {
-        self.playdata
+        self.db
+            .playdata
             .as_ref()
             .and_then(|pda| pda.read_player_data())
     }
 
     fn info_database(&self) -> Option<&dyn rubato_types::song_information_db::SongInformationDb> {
-        self.infodb.as_deref()
+        self.db.infodb.as_deref()
     }
 
     fn ir_connection_any(&self) -> Option<&dyn std::any::Any> {
-        self.ir
+        self.db
+            .ir
             .first()
             .and_then(|status| status.connection.as_ref())
             .map(|conn| conn.as_ref() as &dyn std::any::Any)
@@ -2531,12 +2545,12 @@ mod tests {
         mc.create();
 
         // prevtime starts at 0; first render should update it
-        assert_eq!(mc.prevtime, 0);
+        assert_eq!(mc.lifecycle.prevtime, 0);
 
         mc.render();
 
         // After render, prevtime should be updated to current time
-        assert!(mc.prevtime > 0);
+        assert!(mc.lifecycle.prevtime > 0);
     }
 
     #[test]
@@ -3245,24 +3259,24 @@ mod tests {
         let mut mc = make_test_controller();
         mc.change_state(MainStateType::Play);
         // Set last_config_save to a long time ago to ensure it would trigger otherwise
-        mc.last_config_save = Instant::now() - std::time::Duration::from_secs(300);
+        mc.lifecycle.last_config_save = Instant::now() - std::time::Duration::from_secs(300);
 
         // Should skip because current state is Play
         mc.periodic_config_save();
         // Verify it was NOT reset (still old)
-        assert!(mc.last_config_save.elapsed().as_secs() >= 299);
+        assert!(mc.lifecycle.last_config_save.elapsed().as_secs() >= 299);
     }
 
     #[test]
     fn test_periodic_config_save_does_not_trigger_within_interval() {
         let mut mc = make_test_controller();
         mc.change_state(MainStateType::MusicSelect);
-        mc.last_config_save = Instant::now();
+        mc.lifecycle.last_config_save = Instant::now();
 
         // Should not trigger because less than 2 minutes elapsed
         mc.periodic_config_save();
         // last_config_save should not have changed significantly
-        assert!(mc.last_config_save.elapsed().as_millis() < 100);
+        assert!(mc.lifecycle.last_config_save.elapsed().as_millis() < 100);
     }
 
     // --- Phase 24f: add_state_listener tests ---

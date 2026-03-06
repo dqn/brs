@@ -1045,7 +1045,8 @@ impl BMSPlayer {
     pub fn encode_seed_for_score(&self) -> i64 {
         let player_count = self.model.mode().map_or(1, |m| m.player());
         if player_count == 2 {
-            self.score.playinfo.randomoption2seed * 65536 * 256 + self.score.playinfo.randomoptionseed
+            self.score.playinfo.randomoption2seed * 65536 * 256
+                + self.score.playinfo.randomoptionseed
         } else {
             self.score.playinfo.randomoptionseed
         }
@@ -2266,7 +2267,12 @@ impl MainState for BMSPlayer {
 
                 // Practice start logic: press key0 while media is loaded and timers elapsed
                 // Translated from: Java BMSPlayer.render() lines 682-723
-                let key0_pressed = self.input.input_key_states.first().copied().unwrap_or(false);
+                let key0_pressed = self
+                    .input
+                    .input_key_states
+                    .first()
+                    .copied()
+                    .unwrap_or(false);
                 let load_threshold =
                     (self.play_skin.loadstart() + self.play_skin.loadend()) as i64 * 1000;
                 if key0_pressed
@@ -2389,7 +2395,11 @@ impl MainState for BMSPlayer {
                     if let Some(ref mut ki) = self.input.keyinput {
                         let timelines = self.model.all_time_lines();
                         let last_tl_micro = timelines.last().map_or(0, |tl| tl.micro_time());
-                        let keylog = self.score.active_replay.as_ref().map(|r| r.keylog.as_slice());
+                        let keylog = self
+                            .score
+                            .active_replay
+                            .as_ref()
+                            .map(|r| r.keylog.as_slice());
                         ki.start_judge(last_tl_micro, keylog, self.margin_time);
                     }
                     // Resolve initial BG volume: use adjusted_volume if >= 0,
@@ -2609,14 +2619,15 @@ impl MainState for BMSPlayer {
                     } else {
                         None
                     };
-                    self.pending.pending_score_handoff = Some(rubato_types::score_handoff::ScoreHandoff {
-                        score_data: score,
-                        combo: self.judge.course_combo(),
-                        maxcombo: self.judge.course_maxcombo(),
-                        gauge: self.gaugelog.clone(),
-                        groove_gauge: self.gauge.clone(),
-                        assist: self.assist,
-                    });
+                    self.pending.pending_score_handoff =
+                        Some(rubato_types::score_handoff::ScoreHandoff {
+                            score_data: score,
+                            combo: self.judge.course_combo(),
+                            maxcombo: self.judge.course_maxcombo(),
+                            gauge: self.gaugelog.clone(),
+                            groove_gauge: self.gauge.clone(),
+                            assist: self.assist,
+                        });
                     // input.setEnable(true); input.setStartTime(0);
                     self.save_config();
 
@@ -2624,7 +2635,8 @@ impl MainState for BMSPlayer {
                     if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice {
                         self.state = STATE_PRACTICE;
                     } else if self
-                        .pending.pending_score_handoff
+                        .pending
+                        .pending_score_handoff
                         .as_ref()
                         .is_some_and(|h| h.score_data.is_some())
                     {
@@ -2670,14 +2682,15 @@ impl MainState for BMSPlayer {
                         None
                     };
                     self.save_config();
-                    self.pending.pending_score_handoff = Some(rubato_types::score_handoff::ScoreHandoff {
-                        score_data: score,
-                        combo: self.judge.course_combo(),
-                        maxcombo: self.judge.course_maxcombo(),
-                        gauge: self.gaugelog.clone(),
-                        groove_gauge: self.gauge.clone(),
-                        assist: self.assist,
-                    });
+                    self.pending.pending_score_handoff =
+                        Some(rubato_types::score_handoff::ScoreHandoff {
+                            score_data: score,
+                            combo: self.judge.course_combo(),
+                            maxcombo: self.judge.course_maxcombo(),
+                            gauge: self.gaugelog.clone(),
+                            groove_gauge: self.gauge.clone(),
+                            assist: self.assist,
+                        });
                     // input.setEnable(true); input.setStartTime(0);
 
                     // Transition: practice -> STATE_PRACTICE, else -> RESULT
@@ -2826,7 +2839,8 @@ impl MainState for BMSPlayer {
         self.input.input_start_pressed = input.start_pressed();
         self.input.input_select_pressed = input.is_select_pressed();
         self.input.input_key_states.clear();
-        self.input.input_key_states
+        self.input
+            .input_key_states
             .extend((0..KEYSTATE_SIZE as i32).map(|i| input.key_state(i)));
         self.input.control_key_up = input.control_key_state(ControlKeys::Up);
         self.input.control_key_down = input.control_key_state(ControlKeys::Down);
@@ -2839,13 +2853,16 @@ impl MainState for BMSPlayer {
         self.input.control_key_num4 = input.control_key_state(ControlKeys::Num4);
         self.input.input_scroll = input.scroll();
         self.input.input_is_analog.clear();
-        self.input.input_is_analog
+        self.input
+            .input_is_analog
             .extend((0..KEYSTATE_SIZE).map(|i| input.is_analog_input(i)));
         self.input.input_analog_diff_ticks.clear();
-        self.input.input_analog_diff_ticks
+        self.input
+            .input_analog_diff_ticks
             .extend((0..KEYSTATE_SIZE).map(|i| input.analog_diff(i)));
         self.input.input_analog_recent_ms.clear();
-        self.input.input_analog_recent_ms
+        self.input
+            .input_analog_recent_ms
             .extend((0..KEYSTATE_SIZE).map(|i| input.time_since_last_analog_reset(i)));
         self.input.pending_analog_resets.clear();
         self.device_type = input.device_type();
@@ -5475,7 +5492,10 @@ mod tests {
         assert!(player.input.input_start_pressed);
         assert!(player.input.input_key_states[7]);
         assert!(player.input.input_is_analog[7]);
-        assert_eq!(player.input.input_analog_diff_ticks[7], input.analog_diff(7));
+        assert_eq!(
+            player.input.input_analog_diff_ticks[7],
+            input.analog_diff(7)
+        );
         player.input();
         <BMSPlayer as MainState>::sync_input_back_to(&mut player, &mut input);
 
@@ -5483,7 +5503,10 @@ mod tests {
         assert!(player.input.input_start_pressed);
         assert!(player.input.input_key_states[7]);
         assert!(player.input.input_is_analog[7]);
-        assert_eq!(player.input.input_analog_diff_ticks[7], input.analog_diff(7));
+        assert_eq!(
+            player.input.input_analog_diff_ticks[7],
+            input.analog_diff(7)
+        );
         player.input();
         <BMSPlayer as MainState>::sync_input_back_to(&mut player, &mut input);
 

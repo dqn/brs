@@ -529,20 +529,11 @@ impl Default for RankingState {
 }
 
 /// Bar renderer and skin bar state.
+#[derive(Default)]
 pub struct BarRenderingState {
     pub bar: Option<BarRenderer>,
     pub skin_bar: Option<super::skin_bar::SkinBar>,
     pub select_center_bar: i32,
-}
-
-impl Default for BarRenderingState {
-    fn default() -> Self {
-        Self {
-            bar: None,
-            skin_bar: None,
-            select_center_bar: 0,
-        }
-    }
 }
 
 /// Music selector screen
@@ -1156,7 +1147,8 @@ impl MusicSelector {
             {
                 let res = self.player_resource.as_mut().unwrap();
                 let ranking_any = self
-                    .ranking.currentir
+                    .ranking
+                    .currentir
                     .clone()
                     .map(|rd| Box::new(rd) as Box<dyn std::any::Any + Send + Sync>);
                 res.set_ranking_data_any(ranking_any);
@@ -1406,12 +1398,13 @@ impl MusicSelector {
                         }
                         let ranking_reload_dur = self.ranking.ranking_reload_duration;
                         let ranking_dur = self.ranking.ranking_duration as i64;
-                        self.ranking.current_ranking_duration = if let Some(ref ir) = self.ranking.currentir {
-                            (ranking_reload_dur - (now_millis - ir.last_update_time())).max(0)
-                                + ranking_dur
-                        } else {
-                            ranking_dur
-                        };
+                        self.ranking.current_ranking_duration =
+                            if let Some(ref ir) = self.ranking.currentir {
+                                (ranking_reload_dur - (now_millis - ir.last_update_time())).max(0)
+                                    + ranking_dur
+                            } else {
+                                ranking_dur
+                            };
                     } else {
                         self.ranking.currentir = None;
                         self.ranking.current_ranking_duration = -1;
@@ -1431,12 +1424,13 @@ impl MusicSelector {
                         }
                         let ranking_reload_dur = self.ranking.ranking_reload_duration;
                         let ranking_dur = self.ranking.ranking_duration as i64;
-                        self.ranking.current_ranking_duration = if let Some(ref ir) = self.ranking.currentir {
-                            (ranking_reload_dur - (now_millis - ir.last_update_time())).max(0)
-                                + ranking_dur
-                        } else {
-                            ranking_dur
-                        };
+                        self.ranking.current_ranking_duration =
+                            if let Some(ref ir) = self.ranking.currentir {
+                                (ranking_reload_dur - (now_millis - ir.last_update_time())).max(0)
+                                    + ranking_dur
+                            } else {
+                                ranking_dur
+                            };
                     } else {
                         self.ranking.currentir = None;
                         self.ranking.current_ranking_duration = -1;
@@ -1691,7 +1685,8 @@ impl MusicSelector {
 
     pub fn ranking_position(&self) -> f32 {
         let ranking_max = self
-            .ranking.currentir
+            .ranking
+            .currentir
             .as_ref()
             .map(|ir: &RankingData| ir.total_player().max(1))
             .unwrap_or(1);
@@ -1701,7 +1696,8 @@ impl MusicSelector {
     pub fn set_ranking_position(&mut self, value: f32) {
         if (0.0..1.0).contains(&value) {
             let ranking_max = self
-                .ranking.currentir
+                .ranking
+                .currentir
                 .as_ref()
                 .map(|ir: &RankingData| ir.total_player().max(1))
                 .unwrap_or(1);
@@ -2269,7 +2265,9 @@ impl MainState for MusicSelector {
         }
 
         // Bar prepare — compute bar positions
-        if let (Some(bar_renderer), Some(skin_bar)) = (&mut self.bar_rendering.bar, &self.bar_rendering.skin_bar) {
+        if let (Some(bar_renderer), Some(skin_bar)) =
+            (&mut self.bar_rendering.bar, &self.bar_rendering.skin_bar)
+        {
             let ctx = PrepareContext {
                 center_bar: self.bar_rendering.select_center_bar,
                 currentsongs: &self.manager.currentsongs,
@@ -2315,7 +2313,10 @@ impl MainState for MusicSelector {
             let lnmode = self.config.lnmode;
             let center_bar = self.bar_rendering.select_center_bar;
 
-            if let (Some(bar_renderer), Some(skin_bar)) = (&mut self.bar_rendering.bar, &mut self.bar_rendering.skin_bar) {
+            if let (Some(bar_renderer), Some(skin_bar)) = (
+                &mut self.bar_rendering.bar,
+                &mut self.bar_rendering.skin_bar,
+            ) {
                 let mut renderer = SkinObjectRenderer::new();
                 std::mem::swap(&mut renderer.sprite, sprite);
                 let ctx = RenderContext {
@@ -2427,7 +2428,8 @@ impl MainState for MusicSelector {
                 if self.play.is_none()
                     && now_time > songbar_change_time + self.preview_state.preview_duration as i64
                 {
-                    let should_start_preview = if let Some(ref preview) = self.preview_state.preview {
+                    let should_start_preview = if let Some(ref preview) = self.preview_state.preview
+                    {
                         let preview_song = preview.song_data();
                         // In Java: song != preview.getSongData() (reference comparison)
                         match preview_song {
@@ -2450,7 +2452,8 @@ impl MainState for MusicSelector {
                 // Read BMS information (notes graph)
                 if !self.preview_state.show_note_graph
                     && self.play.is_none()
-                    && now_time > songbar_change_time + self.preview_state.notes_graph_duration as i64
+                    && now_time
+                        > songbar_change_time + self.preview_state.notes_graph_duration as i64
                 {
                     if song_bar.exists_song() {
                         // Java: spawns thread to call resource.loadBMSModel(path, lnmode)
@@ -2570,7 +2573,12 @@ impl MainState for MusicSelector {
         }
 
         // Update IR connection timers
-        let irstate = self.ranking.currentir.as_ref().map(|ir| ir.state()).unwrap_or(-1);
+        let irstate = self
+            .ranking
+            .currentir
+            .as_ref()
+            .map(|ir| ir.state())
+            .unwrap_or(-1);
         self.main_state_data.timer.switch_timer(
             skin_property::TIMER_IR_CONNECT_BEGIN,
             irstate == ranking_data::ACCESS,
