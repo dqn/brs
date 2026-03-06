@@ -1301,7 +1301,7 @@ impl Event for TargetEvent {
             return;
         };
         let targets = {
-            let targets = TargetProperty::get_targets();
+            let targets = TargetProperty::targets();
             if targets.is_empty() {
                 config.targetlist.clone()
             } else {

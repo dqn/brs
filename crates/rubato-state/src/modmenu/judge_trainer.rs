@@ -37,7 +37,7 @@ impl JudgeTrainer {
         // EASY 0 -> 3 | NORMAL: 1 -> 2 | HARD: 2 -> 1 | VERY-HARD: 3 -> 0
         // We can observe that the sum is always 3
         let judge_rank = *JUDGE_RANK.lock().unwrap();
-        let rule = BMSPlayerRule::get_bms_player_rule(mode);
+        let rule = BMSPlayerRule::for_mode(mode);
         rule.judge.windowrule.judgerank[(3 - judge_rank) as usize]
     }
 }

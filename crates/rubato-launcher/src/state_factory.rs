@@ -518,7 +518,7 @@ impl LauncherStateFactory {
         controller: &mut MainController,
     ) -> Option<ScoreData> {
         use rubato_play::target_property::TargetProperty;
-        let mut target = TargetProperty::get_target_property(targetid)?;
+        let mut target = TargetProperty::from_id(targetid)?;
         match target {
             TargetProperty::Static(ref p) => {
                 // Static targets can be computed without MainController access.
@@ -532,8 +532,8 @@ impl LauncherStateFactory {
                 Some(score)
             }
             _ => {
-                // Rival, IR, and NextRank targets use the full get_target() pipeline.
-                let score = target.get_target(controller);
+                // Rival, IR, and NextRank targets use the full target() pipeline.
+                let score = target.target(controller);
                 Some(score)
             }
         }
@@ -692,7 +692,7 @@ impl StateFactory for LauncherStateFactory {
                 };
                 player.set_target_score(target_score.clone());
 
-                if let Some(skin_type) = player.get_skin_type()
+                if let Some(skin_type) = player.skin_type()
                     && let Some(skin) = rubato_skin::skin_loader::load_skin_from_config(
                         controller.get_config(),
                         controller.get_player_config(),

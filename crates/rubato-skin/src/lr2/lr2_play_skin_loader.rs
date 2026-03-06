@@ -475,7 +475,7 @@ impl LR2PlaySkinLoaderState {
                 };
                 if self.judge_objects[player]
                     .as_ref()
-                    .is_some_and(|j| j.inner.get_judge(judge_idx))
+                    .is_some_and(|j| j.inner.judge(judge_idx))
                 {
                     let mut values = lr2_skin_loader::parse_int(str_parts);
                     if values[5] < 0 {
@@ -541,7 +541,7 @@ impl LR2PlaySkinLoaderState {
                     judge_idx_raw as usize
                 };
                 if let Some(ref judge_obj) = self.judge_objects[player]
-                    && judge_obj.inner.get_judge_count(judge_idx)
+                    && judge_obj.inner.judge_count(judge_idx)
                 {
                     let _values = lr2_skin_loader::parse_int(str_parts);
                     // Combo number destination — SkinJudge currently uses ()
@@ -1391,7 +1391,7 @@ mod tests {
         let parts = make_parts("SRC_NOWJUDGE_1P", &[5, 0, 0, 0, 10, 10, 1, 1, 0, 0, 0]);
         state.process_play_command("SRC_NOWJUDGE_1P", &parts);
         let judge = state.judge_objects[0].as_ref().unwrap();
-        assert!(judge.inner.get_judge(0));
+        assert!(judge.inner.judge(0));
     }
 
     #[test]
@@ -1404,10 +1404,10 @@ mod tests {
         let parts = make_parts("SRC_NOWJUDGE_1P", &[3, 0, 0, 0, 10, 10, 1, 1, 0, 0, 0]);
         state.process_play_command("SRC_NOWJUDGE_1P", &parts);
         let judge = state.judge_objects[0].as_ref().unwrap();
-        assert!(judge.inner.get_judge(2));
+        assert!(judge.inner.judge(2));
         // Other indices should be unset
-        assert!(!judge.inner.get_judge(0));
-        assert!(!judge.inner.get_judge(1));
+        assert!(!judge.inner.judge(0));
+        assert!(!judge.inner.judge(1));
     }
 
     // ===== SRC_NOWCOMBO =====
@@ -1426,7 +1426,7 @@ mod tests {
         let combo_parts = make_parts("SRC_NOWCOMBO_1P", &[5, 0, 0, 0, 10, 10, 10, 1, 0, 0, 0]);
         state.process_play_command("SRC_NOWCOMBO_1P", &combo_parts);
         let judge = state.judge_objects[0].as_ref().unwrap();
-        assert!(judge.inner.get_judge_count(0));
+        assert!(judge.inner.judge_count(0));
     }
 
     // ===== SRC_JUDGELINE / DST_JUDGELINE =====
@@ -1623,22 +1623,22 @@ mod tests {
 
         let mut play_skin = rubato_play::play_skin::PlaySkin::new();
         state.apply_to_play_skin(&mut play_skin);
-        assert_eq!(play_skin.get_close(), 500);
-        assert_eq!(play_skin.get_playstart(), 1000);
-        assert_eq!(play_skin.get_loadstart(), 200);
-        assert_eq!(play_skin.get_loadend(), 3000);
-        assert_eq!(play_skin.get_finish_margin(), 2000);
-        assert_eq!(play_skin.get_judgetimer(), 1);
-        assert_eq!(play_skin.get_note_expansion_rate(), &[150, 200]);
+        assert_eq!(play_skin.close(), 500);
+        assert_eq!(play_skin.playstart(), 1000);
+        assert_eq!(play_skin.loadstart(), 200);
+        assert_eq!(play_skin.loadend(), 3000);
+        assert_eq!(play_skin.finish_margin(), 2000);
+        assert_eq!(play_skin.judgetimer(), 1);
+        assert_eq!(play_skin.note_expansion_rate(), &[150, 200]);
     }
 
     #[test]
     fn test_apply_to_play_skin_none_values_preserved() {
         let state = make_state();
         let mut play_skin = rubato_play::play_skin::PlaySkin::new();
-        let orig_close = play_skin.get_close();
+        let orig_close = play_skin.close();
         state.apply_to_play_skin(&mut play_skin);
-        assert_eq!(play_skin.get_close(), orig_close);
+        assert_eq!(play_skin.close(), orig_close);
     }
 
     // ===== Unknown command delegation =====
@@ -1735,11 +1735,11 @@ mod tests {
         let mut play_skin = rubato_play::play_skin::PlaySkin::new();
         state.apply_to_play_skin(&mut play_skin);
 
-        assert_eq!(play_skin.get_close(), 500);
-        assert_eq!(play_skin.get_judgetimer(), 2);
-        assert_eq!(play_skin.get_judgeregion(), 1); // default
+        assert_eq!(play_skin.close(), 500);
+        assert_eq!(play_skin.judgetimer(), 2);
+        assert_eq!(play_skin.judgeregion(), 1); // default
         // Lane region should be set (8 default rectangles)
-        assert!(play_skin.get_lane_region().is_some());
+        assert!(play_skin.lane_region().is_some());
     }
 
     // ===== make_default_line / default line images =====

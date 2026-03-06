@@ -17,7 +17,7 @@ impl GdxVideoProcessor {
 
     /// Get shader program. Returns None (null in Java).
     /// Corresponds to Java getShader() which returns null ShaderProgram.
-    pub fn get_shader(&self) -> Option<()> {
+    pub fn shader(&self) -> Option<()> {
         None
     }
 }

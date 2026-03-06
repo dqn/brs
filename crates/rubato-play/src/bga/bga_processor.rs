@@ -283,7 +283,7 @@ impl BGAProcessor {
     /// Draw BGA content to the given renderer.
     /// Translated from: Java BGAProcessor.drawBGA(SkinBGA dst, SkinObjectRenderer sprite, Rectangle r)
     ///
-    /// The `stretch` parameter comes from SkinBGA.get_stretch_type().
+    /// The `stretch` parameter comes from SkinBGA.stretch_type().
     /// The `color` and `blend` are from the SkinObject destination state.
     pub fn draw_bga(
         &mut self,
@@ -397,7 +397,7 @@ impl BGAProcessor {
         self.movies.clear();
     }
 
-    pub fn get_progress(&self) -> f32 {
+    pub fn progress(&self) -> f32 {
         self.progress
     }
 
@@ -430,7 +430,7 @@ impl BGAProcessor {
         }
         // Fall back to static image cache
         if let Some(ref mut cache) = self.cache
-            && let Some(tex) = cache.get_texture(idx)
+            && let Some(tex) = cache.texture(idx)
         {
             return Some(tex.clone());
         }

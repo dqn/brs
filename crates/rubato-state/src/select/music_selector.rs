@@ -816,7 +816,7 @@ impl MusicSelector {
                 self.play_option_change();
             }
             EventType::Target => {
-                let targets = rubato_play::target_property::TargetProperty::get_targets();
+                let targets = rubato_play::target_property::TargetProperty::targets();
                 if !targets.is_empty() {
                     let mut index = targets.len();
                     for (i, t) in targets.iter().enumerate() {
