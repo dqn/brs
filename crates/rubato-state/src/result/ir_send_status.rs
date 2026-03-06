@@ -52,7 +52,7 @@ impl IRSendStatusMain {
             self.is_sent = true;
             true
         } else {
-            log::warn!("IRスコア送信失敗 : {}", send1.get_message());
+            log::warn!("IRスコア送信失敗 : {}", send1.message);
             false
         }
     }

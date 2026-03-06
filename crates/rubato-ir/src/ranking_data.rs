@@ -80,7 +80,7 @@ impl RankingData {
                 self.state = FAIL;
             }
         } else {
-            warn!("IR ranking data load failed: {}", response.get_message());
+            warn!("IR ranking data load failed: {}", response.message);
             self.state = FAIL;
         }
     }
@@ -103,10 +103,7 @@ impl RankingData {
                 self.state = FAIL;
             }
         } else {
-            warn!(
-                "IR course ranking data load failed: {}",
-                response.get_message()
-            );
+            warn!("IR course ranking data load failed: {}", response.message);
             self.state = FAIL;
         }
     }
@@ -115,12 +112,12 @@ impl RankingData {
         let first_update = self.scores.is_none();
 
         let mut sorted_scores: Vec<IRScoreData> = scores.to_vec();
-        sorted_scores.sort_by_key(|s| std::cmp::Reverse(s.get_exscore()));
+        sorted_scores.sort_by_key(|s| std::cmp::Reverse(s.exscore()));
 
         let mut scorerankings = vec![0i32; sorted_scores.len()];
         for i in 0..scorerankings.len() {
             scorerankings[i] =
-                if i > 0 && sorted_scores[i].get_exscore() == sorted_scores[i - 1].get_exscore() {
+                if i > 0 && sorted_scores[i].exscore() == sorted_scores[i - 1].exscore() {
                     scorerankings[i - 1]
                 } else {
                     (i + 1) as i32
@@ -142,7 +139,7 @@ impl RankingData {
             }
             if let Some(ls) = localscore
                 && self.localrank == 0
-                && sorted_scores[i].get_exscore() <= ls.get_exscore()
+                && sorted_scores[i].exscore() <= ls.get_exscore()
             {
                 self.localrank = scorerankings[i];
             }
@@ -164,27 +161,27 @@ impl RankingData {
     }
 
     /// Get current IR rank for selected song
-    pub fn get_rank(&self) -> i32 {
+    pub fn rank(&self) -> i32 {
         self.irrank
     }
 
     /// Get previous IR rank for selected song
-    pub fn get_previous_rank(&self) -> i32 {
+    pub fn previous_rank(&self) -> i32 {
         self.prevrank
     }
 
     /// Get expected IR rank using local score
-    pub fn get_local_rank(&self) -> i32 {
+    pub fn local_rank(&self) -> i32 {
         self.localrank
     }
 
     /// Get total player count on IR
-    pub fn get_total_player(&self) -> i32 {
+    pub fn total_player(&self) -> i32 {
         self.irtotal
     }
 
     /// Get score data at index. Returns None if index is out of bounds.
-    pub fn get_score(&self, index: i32) -> Option<&IRScoreData> {
+    pub fn score(&self, index: i32) -> Option<&IRScoreData> {
         if let Some(ref scores) = self.scores
             && index >= 0
             && (index as usize) < scores.len()
@@ -195,7 +192,7 @@ impl RankingData {
     }
 
     /// Get score ranking at index. Returns i32::MIN if index is out of bounds.
-    pub fn get_score_ranking(&self, index: i32) -> i32 {
+    pub fn score_ranking(&self, index: i32) -> i32 {
         if let Some(ref rankings) = self.scorerankings
             && index >= 0
             && (index as usize) < rankings.len()
@@ -205,7 +202,7 @@ impl RankingData {
         i32::MIN
     }
 
-    pub fn get_clear_count(&self, clear_type: i32) -> i32 {
+    pub fn clear_count(&self, clear_type: i32) -> i32 {
         if clear_type >= 0 && (clear_type as usize) < self.lamps.len() {
             self.lamps[clear_type as usize]
         } else {
@@ -213,12 +210,12 @@ impl RankingData {
         }
     }
 
-    pub fn get_state(&self) -> i32 {
+    pub fn state(&self) -> i32 {
         self.state
     }
 
     /// Get last update time in milliseconds
-    pub fn get_last_update_time(&self) -> i64 {
+    pub fn last_update_time(&self) -> i64 {
         self.last_update_time
     }
 }
@@ -253,12 +250,12 @@ mod tests {
     #[test]
     fn test_ranking_data_initial_state() {
         let rd = RankingData::new();
-        assert_eq!(rd.get_rank(), 0);
-        assert_eq!(rd.get_previous_rank(), 0);
-        assert_eq!(rd.get_local_rank(), 0);
-        assert_eq!(rd.get_total_player(), 0);
-        assert_eq!(rd.get_state(), NONE);
-        assert!(rd.get_score(0).is_none());
+        assert_eq!(rd.rank(), 0);
+        assert_eq!(rd.previous_rank(), 0);
+        assert_eq!(rd.local_rank(), 0);
+        assert_eq!(rd.total_player(), 0);
+        assert_eq!(rd.state(), NONE);
+        assert!(rd.score(0).is_none());
     }
 
     #[test]
@@ -271,10 +268,10 @@ mod tests {
         ];
         rd.update_score(&scores, None);
 
-        assert_eq!(rd.get_total_player(), 3);
-        assert_eq!(rd.get_score(0).unwrap().get_exscore(), 240);
-        assert_eq!(rd.get_score(1).unwrap().get_exscore(), 140);
-        assert_eq!(rd.get_score(2).unwrap().get_exscore(), 50);
+        assert_eq!(rd.total_player(), 3);
+        assert_eq!(rd.score(0).unwrap().exscore(), 240);
+        assert_eq!(rd.score(1).unwrap().exscore(), 140);
+        assert_eq!(rd.score(2).unwrap().exscore(), 50);
     }
 
     #[test]
@@ -288,10 +285,10 @@ mod tests {
         rd.update_score(&scores, None);
 
         // Both tied scores should share rank 1
-        assert_eq!(rd.get_score_ranking(0), 1);
-        assert_eq!(rd.get_score_ranking(1), 1);
+        assert_eq!(rd.score_ranking(0), 1);
+        assert_eq!(rd.score_ranking(1), 1);
         // Third place is rank 3 (not 2)
-        assert_eq!(rd.get_score_ranking(2), 3);
+        assert_eq!(rd.score_ranking(2), 3);
     }
 
     #[test]
@@ -304,7 +301,7 @@ mod tests {
         ];
         rd.update_score(&scores, None);
 
-        assert_eq!(rd.get_rank(), 2); // own IR rank
+        assert_eq!(rd.rank(), 2); // own IR rank
     }
 
     #[test]
@@ -317,39 +314,39 @@ mod tests {
         ];
         rd.update_score(&scores, None);
 
-        assert_eq!(rd.get_clear_count(5), 2); // Normal
-        assert_eq!(rd.get_clear_count(6), 1); // Hard
-        assert_eq!(rd.get_clear_count(0), 0); // NoPlay
+        assert_eq!(rd.clear_count(5), 2); // Normal
+        assert_eq!(rd.clear_count(6), 1); // Hard
+        assert_eq!(rd.clear_count(0), 0); // NoPlay
     }
 
     #[test]
     fn test_get_score_out_of_bounds() {
         let rd = RankingData::new();
-        assert!(rd.get_score(-1).is_none());
-        assert!(rd.get_score(0).is_none());
-        assert!(rd.get_score(100).is_none());
+        assert!(rd.score(-1).is_none());
+        assert!(rd.score(0).is_none());
+        assert!(rd.score(100).is_none());
     }
 
     #[test]
     fn test_get_score_ranking_out_of_bounds() {
         let rd = RankingData::new();
-        assert_eq!(rd.get_score_ranking(-1), i32::MIN);
-        assert_eq!(rd.get_score_ranking(0), i32::MIN);
+        assert_eq!(rd.score_ranking(-1), i32::MIN);
+        assert_eq!(rd.score_ranking(0), i32::MIN);
     }
 
     #[test]
     fn test_get_clear_count_out_of_bounds() {
         let rd = RankingData::new();
-        assert_eq!(rd.get_clear_count(-1), 0);
-        assert_eq!(rd.get_clear_count(99), 0);
+        assert_eq!(rd.clear_count(-1), 0);
+        assert_eq!(rd.clear_count(99), 0);
     }
 
     #[test]
     fn test_update_score_sets_state_finish() {
         let mut rd = RankingData::new();
         rd.update_score(&[], None);
-        assert_eq!(rd.get_state(), FINISH);
-        assert!(rd.get_last_update_time() > 0);
+        assert_eq!(rd.state(), FINISH);
+        assert!(rd.last_update_time() > 0);
     }
 
     #[test]
@@ -372,6 +369,6 @@ mod tests {
         // local exscore = (35+35)*2 + 10 + 10 = 160
 
         rd.update_score(&scores, Some(&local));
-        assert_eq!(rd.get_local_rank(), 2);
+        assert_eq!(rd.local_rank(), 2);
     }
 }

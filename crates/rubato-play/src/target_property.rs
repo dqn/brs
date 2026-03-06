@@ -446,10 +446,10 @@ impl InternetRankingTargetProperty {
             let mut ranking = rubato_ir::ranking_data::RankingData::new();
             ranking.load_song(&*connection, &chart, local_score.as_ref());
 
-            if ranking.get_state() == rubato_ir::ranking_data::FINISH {
+            if ranking.state() == rubato_ir::ranking_data::FINISH {
                 let mut score = ScoreData::default();
-                if ranking.get_total_player() > 0 {
-                    let total = ranking.get_total_player();
+                if ranking.total_player() > 0 {
+                    let total = ranking.total_player();
                     let target_index = match target {
                         IRTarget::Next => {
                             // In the async path, nowscore is 0 (game just started)
@@ -458,8 +458,8 @@ impl InternetRankingTargetProperty {
                         IRTarget::Rank => (value.min(total) - 1).max(0),
                         IRTarget::RankRate => total * value / 100,
                     };
-                    if let Some(ir_score) = ranking.get_score(target_index) {
-                        let exscore = ir_score.get_exscore();
+                    if let Some(ir_score) = ranking.score(target_index) {
+                        let exscore = ir_score.exscore();
                         score.player = if ir_score.player.is_empty() {
                             "YOU".to_string()
                         } else {
@@ -526,11 +526,11 @@ impl InternetRankingTargetProperty {
         })();
 
         match ranking_data {
-            Some(ref ranking) if ranking.get_state() == rubato_ir::ranking_data::FINISH => {
-                if ranking.get_total_player() > 0 {
+            Some(ref ranking) if ranking.state() == rubato_ir::ranking_data::FINISH => {
+                if ranking.total_player() > 0 {
                     let index = self.get_target_rank(main, ranking);
-                    if let Some(ir_score) = ranking.get_score(index) {
-                        let exscore = ir_score.get_exscore();
+                    if let Some(ir_score) = ranking.score(index) {
+                        let exscore = ir_score.exscore();
                         self.target_score.player = if ir_score.player.is_empty() {
                             "YOU".to_string()
                         } else {
@@ -563,7 +563,7 @@ impl InternetRankingTargetProperty {
         main: &MainController,
         ranking: &rubato_ir::ranking_data::RankingData,
     ) -> i32 {
-        let total = ranking.get_total_player();
+        let total = ranking.total_player();
         // Get the player's current exscore
         let nowscore = main
             .get_player_resource()
@@ -576,8 +576,8 @@ impl InternetRankingTargetProperty {
                 // Find the rank of the first score <= nowscore, then go 'value' ranks above
                 let mut target_index = 0;
                 for i in 0..total {
-                    if let Some(score) = ranking.get_score(i)
-                        && score.get_exscore() <= nowscore
+                    if let Some(score) = ranking.score(i)
+                        && score.exscore() <= nowscore
                     {
                         target_index = (i - self.value).max(0);
                         break;

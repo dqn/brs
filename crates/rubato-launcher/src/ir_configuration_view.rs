@@ -60,7 +60,7 @@ impl IRConfigurationView {
         self.irsend_items = vec![0, 1, 2];
 
         // irname.getItems().setAll(IRConnectionManager.getAllAvailableIRConnectionName());
-        self.irname_items = IRConnectionManager::get_all_available_ir_connection_name();
+        self.irname_items = IRConnectionManager::all_available_ir_connection_name();
     }
 
     // public void update(PlayerConfig player)
@@ -168,7 +168,7 @@ impl IRConfigurationView {
 
         // String homeurl = IRConnectionManager.getHomeURL(irname.getValue());
         let current_name = self.irname.clone().unwrap_or_default();
-        let homeurl = IRConnectionManager::get_home_url(&current_name).unwrap_or_default();
+        let homeurl = IRConnectionManager::home_url(&current_name).unwrap_or_default();
         // irhome.setText(homeurl);
         self.irhome = homeurl.clone();
         // irhome.setOnAction((event) -> {

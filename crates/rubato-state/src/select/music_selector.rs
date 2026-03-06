@@ -1397,7 +1397,7 @@ impl MusicSelector {
                         let ranking_reload_dur = self.ranking_reload_duration;
                         let ranking_dur = self.ranking_duration as i64;
                         self.current_ranking_duration = if let Some(ref ir) = self.currentir {
-                            (ranking_reload_dur - (now_millis - ir.get_last_update_time())).max(0)
+                            (ranking_reload_dur - (now_millis - ir.last_update_time())).max(0)
                                 + ranking_dur
                         } else {
                             ranking_dur
@@ -1422,7 +1422,7 @@ impl MusicSelector {
                         let ranking_reload_dur = self.ranking_reload_duration;
                         let ranking_dur = self.ranking_duration as i64;
                         self.current_ranking_duration = if let Some(ref ir) = self.currentir {
-                            (ranking_reload_dur - (now_millis - ir.get_last_update_time())).max(0)
+                            (ranking_reload_dur - (now_millis - ir.last_update_time())).max(0)
                                 + ranking_dur
                         } else {
                             ranking_dur
@@ -1683,7 +1683,7 @@ impl MusicSelector {
         let ranking_max = self
             .currentir
             .as_ref()
-            .map(|ir| ir.get_total_player().max(1))
+            .map(|ir| ir.total_player().max(1))
             .unwrap_or(1);
         self.ranking_offset as f32 / ranking_max as f32
     }
@@ -1693,7 +1693,7 @@ impl MusicSelector {
             let ranking_max = self
                 .currentir
                 .as_ref()
-                .map(|ir| ir.get_total_player().max(1))
+                .map(|ir| ir.total_player().max(1))
                 .unwrap_or(1);
             self.ranking_offset = (ranking_max as f32 * value) as i32;
         }
@@ -2565,11 +2565,7 @@ impl MainState for MusicSelector {
         }
 
         // Update IR connection timers
-        let irstate = self
-            .currentir
-            .as_ref()
-            .map(|ir| ir.get_state())
-            .unwrap_or(-1);
+        let irstate = self.currentir.as_ref().map(|ir| ir.state()).unwrap_or(-1);
         self.main_state_data.timer.switch_timer(
             skin_property::TIMER_IR_CONNECT_BEGIN,
             irstate == ranking_data::ACCESS,

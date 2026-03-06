@@ -24,17 +24,17 @@ pub struct IRConnectionManager;
 
 impl IRConnectionManager {
     /// Get all available IR connection names
-    pub fn get_all_available_ir_connection_name() -> Vec<String> {
-        let entries = Self::get_all_available_ir_connection();
+    pub fn all_available_ir_connection_name() -> Vec<String> {
+        let entries = Self::all_available_ir_connection();
         entries.iter().map(|e| e.name.clone()).collect()
     }
 
     /// Get an IRConnection instance by name. Returns None if not found.
-    pub fn get_ir_connection(name: &str) -> Option<Box<dyn IRConnection + Send + Sync>> {
+    pub fn ir_connection(name: &str) -> Option<Box<dyn IRConnection + Send + Sync>> {
         if name.is_empty() {
             return None;
         }
-        let entries = Self::get_all_available_ir_connection();
+        let entries = Self::all_available_ir_connection();
         for entry in entries {
             if entry.name == name {
                 return Some((entry.factory)());
@@ -44,8 +44,8 @@ impl IRConnectionManager {
     }
 
     /// Get the home URL for an IR by name. Returns None if not found.
-    pub fn get_home_url(name: &str) -> Option<String> {
-        let entries = Self::get_all_available_ir_connection();
+    pub fn home_url(name: &str) -> Option<String> {
+        let entries = Self::all_available_ir_connection();
         for entry in entries {
             if entry.name == name {
                 return entry.home.clone();
@@ -54,7 +54,7 @@ impl IRConnectionManager {
         None
     }
 
-    fn get_all_available_ir_connection() -> &'static Vec<IRConnectionEntry> {
+    fn all_available_ir_connection() -> &'static Vec<IRConnectionEntry> {
         IR_CONNECTIONS.get_or_init(|| {
             let mut connections = Vec::new();
             // In Java, this scans classpath/JAR files for IRConnection implementations.

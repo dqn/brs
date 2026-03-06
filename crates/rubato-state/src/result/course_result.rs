@@ -59,7 +59,7 @@ impl CourseIRSendStatus {
             self.retry = -255;
             true
         } else {
-            warn!("IR score send failed: {}", send_result.get_message());
+            warn!("IR score send failed: {}", send_result.message);
             self.retry += 1;
             false
         }
@@ -567,10 +567,10 @@ impl CourseResult {
                     let ir_course_data = IRCourseData::new_with_lntype(cd, lnmode);
                     let response = conn.get_course_play_data(None, &ir_course_data);
                     if response.is_succeeded() {
-                        ranking_result = response.get_data().cloned();
-                        info!("IR score fetch succeeded: {}", response.get_message());
+                        ranking_result = response.data().cloned();
+                        info!("IR score fetch succeeded: {}", response.message);
                     } else {
-                        warn!("IR score fetch failed: {}", response.get_message());
+                        warn!("IR score fetch failed: {}", response.message);
                     }
                 }
 
@@ -609,8 +609,8 @@ impl CourseResult {
                         };
                     if let Some(ref mut ranking) = self.data.ranking {
                         ranking.update_score(&ir_scores, score_for_rank);
-                        if ranking.get_rank() > 10 {
-                            self.data.ranking_offset = ranking.get_rank() - 5;
+                        if ranking.rank() > 10 {
+                            self.data.ranking_offset = ranking.rank() - 5;
                         } else {
                             self.data.ranking_offset = 0;
                         }

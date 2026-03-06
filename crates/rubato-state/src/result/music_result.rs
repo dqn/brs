@@ -459,7 +459,7 @@ impl MusicResult {
                     let chart_data = rubato_ir::ir_chart_data::IRChartData::new(songdata);
                     let response = ir_status[0].connection.get_play_data(None, &chart_data);
                     if response.is_succeeded() {
-                        if let Some(ir_scores) = response.get_data() {
+                        if let Some(ir_scores) = response.data() {
                             let use_newscore = newscore_clone
                                 .as_ref()
                                 .map(|ns| ns.get_exscore() > self.data.oldscore.get_exscore())
@@ -471,16 +471,16 @@ impl MusicResult {
                             };
                             if let Some(ref mut ranking) = self.data.ranking {
                                 ranking.update_score(ir_scores, score_for_rank);
-                                if ranking.get_rank() > 10 {
-                                    self.data.ranking_offset = ranking.get_rank() - 5;
+                                if ranking.rank() > 10 {
+                                    self.data.ranking_offset = ranking.rank() - 5;
                                 } else {
                                     self.data.ranking_offset = 0;
                                 }
                             }
                         }
-                        info!("IR score fetch succeeded: {}", response.get_message());
+                        info!("IR score fetch succeeded: {}", response.message);
                     } else {
-                        warn!("IR score fetch failed: {}", response.get_message());
+                        warn!("IR score fetch failed: {}", response.message);
                     }
                 }
             }

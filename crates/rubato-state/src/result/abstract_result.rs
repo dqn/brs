@@ -232,7 +232,7 @@ impl AbstractResultData {
 
     pub fn get_ir_rank(&self) -> i32 {
         if let Some(ref r) = self.ranking {
-            r.get_rank()
+            r.rank()
         } else {
             0
         }
@@ -240,7 +240,7 @@ impl AbstractResultData {
 
     pub fn get_old_ir_rank(&self) -> i32 {
         if let Some(ref r) = self.ranking {
-            r.get_previous_rank()
+            r.previous_rank()
         } else {
             0
         }
@@ -248,7 +248,7 @@ impl AbstractResultData {
 
     pub fn get_ir_total_player(&self) -> i32 {
         if let Some(ref r) = self.ranking {
-            r.get_total_player()
+            r.total_player()
         } else {
             0
         }
@@ -281,7 +281,7 @@ impl AbstractResultData {
         if mov != 0
             && let Some(ref ranking) = self.ranking
         {
-            let total = ranking.get_total_player();
+            let total = ranking.total_player();
             let ranking_max = 1i32.max(total);
             self.ranking_offset = (self.ranking_offset + mov).clamp(0, ranking_max - 1);
         }
@@ -293,7 +293,7 @@ impl AbstractResultData {
 
     pub fn get_ranking_position(&self) -> f32 {
         let ranking_max: i32 = if let Some(ref r) = self.ranking {
-            let total = r.get_total_player();
+            let total = r.total_player();
             1i32.max(total)
         } else {
             1
@@ -304,7 +304,7 @@ impl AbstractResultData {
     pub fn set_ranking_position(&mut self, value: f32) {
         if (0.0..1.0).contains(&value) {
             let ranking_max: i32 = if let Some(ref r) = self.ranking {
-                let total = r.get_total_player();
+                let total = r.total_player();
                 1i32.max(total)
             } else {
                 1

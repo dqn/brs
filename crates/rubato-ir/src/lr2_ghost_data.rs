@@ -42,39 +42,39 @@ impl LR2GhostData {
         }
     }
 
-    pub fn get_random(&self) -> Random {
+    pub fn random(&self) -> Random {
         self.random
     }
 
-    pub fn get_lane_order(&self) -> i32 {
+    pub fn lane_order(&self) -> i32 {
         self.lane_order
     }
 
-    pub fn get_seed(&self) -> i32 {
+    pub fn seed(&self) -> i32 {
         self.seed
     }
 
-    pub fn get_judgements(&self) -> &[i32] {
+    pub fn judgements(&self) -> &[i32] {
         &self.judgements
     }
 
-    pub fn get_pgreat(&self) -> i32 {
+    pub fn pgreat(&self) -> i32 {
         self.pgreat
     }
 
-    pub fn get_great(&self) -> i32 {
+    pub fn great(&self) -> i32 {
         self.great
     }
 
-    pub fn get_good(&self) -> i32 {
+    pub fn good(&self) -> i32 {
         self.good
     }
 
-    pub fn get_bad(&self) -> i32 {
+    pub fn bad(&self) -> i32 {
         self.bad
     }
 
-    pub fn get_poor(&self) -> i32 {
+    pub fn poor(&self) -> i32 {
         self.poor
     }
 
@@ -370,13 +370,13 @@ mod tests {
         let ghost = LR2GhostData::parse(csv);
         assert!(ghost.is_some());
         let ghost = ghost.unwrap();
-        assert_eq!(ghost.get_random(), Random::Identity);
-        assert_eq!(ghost.get_seed(), 12345);
-        assert_eq!(ghost.get_pgreat(), 3);
-        assert_eq!(ghost.get_great(), 2);
-        assert_eq!(ghost.get_good(), 0);
-        assert_eq!(ghost.get_bad(), 0);
-        assert_eq!(ghost.get_poor(), 0);
+        assert_eq!(ghost.random(), Random::Identity);
+        assert_eq!(ghost.seed(), 12345);
+        assert_eq!(ghost.pgreat(), 3);
+        assert_eq!(ghost.great(), 2);
+        assert_eq!(ghost.good(), 0);
+        assert_eq!(ghost.bad(), 0);
+        assert_eq!(ghost.poor(), 0);
     }
 
     #[test]
@@ -386,7 +386,7 @@ mod tests {
         let csv = "name,option,seed,ghost\nplayer1,10,99,E2";
         let ghost = LR2GhostData::parse(csv);
         assert!(ghost.is_some());
-        assert_eq!(ghost.unwrap().get_random(), Random::Mirror);
+        assert_eq!(ghost.unwrap().random(), Random::Mirror);
     }
 
     #[test]
@@ -395,7 +395,7 @@ mod tests {
         let csv = "name,option,seed,ghost\nplayer1,20,99,E2";
         let ghost = LR2GhostData::parse(csv);
         assert!(ghost.is_some());
-        assert_eq!(ghost.unwrap().get_random(), Random::Random);
+        assert_eq!(ghost.unwrap().random(), Random::Random);
     }
 
     #[test]
@@ -424,11 +424,11 @@ mod tests {
         // "EDCBA" = one pgreat, one great, one good, one bad, one poor
         let csv = "name,option,seed,ghost\nplayer1,0,1,EDCBA";
         let ghost = LR2GhostData::parse(csv).unwrap();
-        assert_eq!(ghost.get_pgreat(), 1);
-        assert_eq!(ghost.get_great(), 1);
-        assert_eq!(ghost.get_good(), 1);
-        assert_eq!(ghost.get_bad(), 1);
-        assert_eq!(ghost.get_poor(), 1);
-        assert_eq!(ghost.get_judgements().len(), 5);
+        assert_eq!(ghost.pgreat(), 1);
+        assert_eq!(ghost.great(), 1);
+        assert_eq!(ghost.good(), 1);
+        assert_eq!(ghost.bad(), 1);
+        assert_eq!(ghost.poor(), 1);
+        assert_eq!(ghost.judgements().len(), 5);
     }
 }

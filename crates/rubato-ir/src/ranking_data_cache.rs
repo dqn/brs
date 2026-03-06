@@ -79,7 +79,7 @@ impl RankingDataCache {
     }
 
     /// Get ranking data for a song with given LN mode. Returns None if not found.
-    pub fn get_song(&self, song: &SongData, lnmode: i32) -> Option<RankingData> {
+    pub fn song(&self, song: &SongData, lnmode: i32) -> Option<RankingData> {
         let cacheindex = if song.has_undefined_long_note() {
             lnmode as usize
         } else {
@@ -92,7 +92,7 @@ impl RankingDataCache {
     }
 
     /// Get ranking data for a course with given LN mode. Returns None if not found.
-    pub fn get_course(&self, course: &CourseData, lnmode: i32) -> Option<RankingData> {
+    pub fn course(&self, course: &CourseData, lnmode: i32) -> Option<RankingData> {
         let cacheindex = Self::course_cache_index(course, lnmode);
         if let Some(hash) = self.create_course_hash(course) {
             lock_or_recover(&self.inner).cscorecache[cacheindex]
@@ -144,12 +144,12 @@ impl RankingDataCacheAccess for RankingDataCache {
     }
 
     fn get_song_any(&self, song: &SongData, lnmode: i32) -> Option<Box<dyn Any>> {
-        self.get_song(song, lnmode)
+        self.song(song, lnmode)
             .map(|ranking| Box::new(ranking) as Box<dyn Any>)
     }
 
     fn get_course_any(&self, course: &CourseData, lnmode: i32) -> Option<Box<dyn Any>> {
-        self.get_course(course, lnmode)
+        self.course(course, lnmode)
             .map(|ranking| Box::new(ranking) as Box<dyn Any>)
     }
 

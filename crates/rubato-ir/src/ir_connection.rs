@@ -141,7 +141,7 @@ mod tests {
         let account = IRAccount::new("id".to_string(), "pass".to_string(), "name".to_string());
         let resp = ir.register(&account);
         assert!(!resp.is_succeeded());
-        assert!(resp.get_message().contains("register()"));
+        assert!(resp.message.contains("register()"));
     }
 
     #[test]
@@ -149,7 +149,7 @@ mod tests {
         let ir = MinimalIR;
         let resp = ir.register_with_credentials("id", "pass", "name");
         assert!(!resp.is_succeeded());
-        assert!(resp.get_message().contains("register_with_credentials()"));
+        assert!(resp.message.contains("register_with_credentials()"));
     }
 
     #[test]
@@ -158,7 +158,7 @@ mod tests {
         let account = IRAccount::new("id".to_string(), "pass".to_string(), "name".to_string());
         let resp = ir.login(&account);
         assert!(!resp.is_succeeded());
-        assert!(resp.get_message().contains("login()"));
+        assert!(resp.message.contains("login()"));
     }
 
     #[test]
@@ -166,6 +166,6 @@ mod tests {
         let ir = MinimalIR;
         let resp = ir.login_with_credentials("id", "pass");
         assert!(!resp.is_succeeded());
-        assert!(resp.get_message().contains("login_with_credentials()"));
+        assert!(resp.message.contains("login_with_credentials()"));
     }
 }

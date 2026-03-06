@@ -67,7 +67,7 @@ impl LeaderBoardBar {
             bars.push(self.create_function_bar(
                 (i + 1) as i32,
                 entry,
-                entry.get_ir_score().player.is_empty(),
+                entry.ir_score().player.is_empty(),
             ));
         }
         bars
@@ -83,9 +83,7 @@ impl LeaderBoardBar {
         let mut id = 0;
         let mut inserted = false;
 
-        if leaderboard.is_empty()
-            || local_score.get_exscore() > leaderboard[0].get_ir_score().get_exscore()
-        {
+        if leaderboard.is_empty() || local_score.exscore() > leaderboard[0].ir_score().exscore() {
             id += 1;
             bars.push(self.create_function_bar(
                 id,
@@ -97,14 +95,14 @@ impl LeaderBoardBar {
 
         for i in 0..leaderboard.len() {
             let entry = &leaderboard[i];
-            let score = entry.get_ir_score();
+            let score = entry.ir_score();
             bars.push(self.create_function_bar(id + 1, entry, false));
             id += 1;
 
             if !inserted
-                && score.get_exscore() > local_score.get_exscore()
+                && score.exscore() > local_score.exscore()
                 && (i == leaderboard.len() - 1
-                    || leaderboard[i + 1].get_ir_score().get_exscore() <= local_score.get_exscore())
+                    || leaderboard[i + 1].ir_score().exscore() <= local_score.exscore())
             {
                 bars.push(self.create_function_bar(
                     id + 1,
@@ -133,7 +131,7 @@ impl LeaderBoardBar {
         entry: &LeaderboardEntry,
         is_self_score: bool,
     ) -> FunctionBar {
-        let score_data = entry.get_ir_score();
+        let score_data = entry.ir_score();
         let title = if is_self_score {
             format!("{}. {}", rank, self.get_current_player_name())
         } else {

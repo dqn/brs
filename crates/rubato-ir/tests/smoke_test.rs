@@ -15,15 +15,15 @@ use rubato_ir::ranking_data::{self, RankingData};
 fn ranking_data_default_construction() {
     let rd = RankingData::default();
 
-    assert_eq!(rd.get_rank(), 0);
-    assert_eq!(rd.get_previous_rank(), 0);
-    assert_eq!(rd.get_local_rank(), 0);
-    assert_eq!(rd.get_total_player(), 0);
-    assert_eq!(rd.get_state(), ranking_data::NONE);
-    assert_eq!(rd.get_last_update_time(), 0);
-    assert!(rd.get_score(0).is_none());
-    assert_eq!(rd.get_score_ranking(0), i32::MIN);
-    assert_eq!(rd.get_clear_count(0), 0);
+    assert_eq!(rd.rank(), 0);
+    assert_eq!(rd.previous_rank(), 0);
+    assert_eq!(rd.local_rank(), 0);
+    assert_eq!(rd.total_player(), 0);
+    assert_eq!(rd.state(), ranking_data::NONE);
+    assert_eq!(rd.last_update_time(), 0);
+    assert!(rd.score(0).is_none());
+    assert_eq!(rd.score_ranking(0), i32::MIN);
+    assert_eq!(rd.clear_count(0), 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -73,13 +73,13 @@ fn lr2_ir_song_data_url_encode_unicode() {
 fn ir_response_success_with_vec_data() {
     let resp = IRResponse::success("OK".to_string(), vec![1, 2, 3]);
     assert!(resp.is_succeeded());
-    assert_eq!(resp.get_data(), Some(&vec![1, 2, 3]));
+    assert_eq!(resp.data(), Some(&vec![1, 2, 3]));
 }
 
 #[test]
 fn ir_response_failure_has_no_data() {
     let resp: IRResponse<String> = IRResponse::failure("network error".to_string());
     assert!(!resp.is_succeeded());
-    assert!(resp.get_data().is_none());
-    assert_eq!(resp.get_message(), "network error");
+    assert!(resp.data().is_none());
+    assert_eq!(resp.message, "network error");
 }

@@ -99,7 +99,7 @@ impl IRScoreData {
         }
     }
 
-    pub fn get_exscore(&self) -> i32 {
+    pub fn exscore(&self) -> i32 {
         (self.epg + self.lpg) * 2 + self.egr + self.lgr
     }
 
@@ -168,7 +168,7 @@ mod tests {
         };
         let ir = IRScoreData::new(&sd);
         // exscore = (epg + lpg) * 2 + egr + lgr = (10+5)*2 + 3+2 = 35
-        assert_eq!(ir.get_exscore(), 35);
+        assert_eq!(ir.exscore(), 35);
     }
 
     #[test]
@@ -276,14 +276,14 @@ mod tests {
         let ir = IRScoreData::new(&score);
         // exscore = (epg + lpg) * 2 + egr + lgr
         // = (100 + 90) * 2 + 50 + 40 = 380 + 90 = 470
-        assert_eq!(ir.get_exscore(), 470);
+        assert_eq!(ir.exscore(), 470);
     }
 
     #[test]
     fn test_get_exscore_zero_when_all_zero() {
         let s = ScoreData::default();
         let ir = IRScoreData::new(&s);
-        assert_eq!(ir.get_exscore(), 0);
+        assert_eq!(ir.exscore(), 0);
     }
 
     #[test]

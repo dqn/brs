@@ -28,7 +28,7 @@ pub fn initialize_ir_config(player: &PlayerConfig) -> Vec<IRStatus> {
             None => continue,
         };
         let ir: Option<Box<dyn IRConnection + Send + Sync>> =
-            IRConnectionManager::get_ir_connection(&irconfig.irname);
+            IRConnectionManager::ir_connection(&irconfig.irname);
         if let Some(ir) = ir {
             let userid = irconfig.userid();
             let password = irconfig.password();
@@ -50,7 +50,7 @@ pub fn initialize_ir_config(player: &PlayerConfig) -> Vec<IRStatus> {
                                 ir_array.push(IRStatus::new(irconfig.clone(), ir, player_data));
                             }
                         } else {
-                            log::warn!("IRへのログイン失敗 : {}", response.get_message());
+                            log::warn!("IRへのログイン失敗 : {}", response.message);
                         }
                     }
                     Err(_) => {
@@ -62,7 +62,7 @@ pub fn initialize_ir_config(player: &PlayerConfig) -> Vec<IRStatus> {
                                 ir_array.push(IRStatus::new(irconfig.clone(), ir, player_data));
                             }
                         } else {
-                            log::warn!("IRへのログイン失敗 : {}", response.get_message());
+                            log::warn!("IRへのログイン失敗 : {}", response.message);
                         }
                     }
                 }

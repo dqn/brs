@@ -98,7 +98,7 @@ impl LR2IRConnection {
     ///
     /// Returns a pair: (local_score, leaderboard_entries).
     /// The local score can be None.
-    pub fn get_score_data(chart: &IRChartData) -> (Option<IRScoreData>, Vec<LeaderboardEntry>) {
+    pub fn score_data(chart: &IRChartData) -> (Option<IRScoreData>, Vec<LeaderboardEntry>) {
         if chart.md5.is_empty() {
             return (None, Vec::new());
         }
@@ -165,7 +165,7 @@ impl LR2IRConnection {
         (local_score, score_data)
     }
 
-    pub fn get_ghost_data(md5: &str, score_id: i64) -> Option<LR2GhostData> {
+    pub fn ghost_data(md5: &str, score_id: i64) -> Option<LR2GhostData> {
         let api = format!(
             "/getghost.cgi?songmd5={}&mode=top&targetid={}",
             md5, score_id
@@ -247,7 +247,7 @@ impl Ranking {
             let mut tmp = ScoreData::new(mode);
             tmp.sha256 = model.sha256.clone();
             tmp.player = s.name.clone().unwrap_or_default();
-            tmp.clear = s.get_rubato_clear();
+            tmp.clear = s.rubato_clear();
             tmp.notes = s.notes;
             tmp.maxcombo = s.combo;
             tmp.epg = s.pg;
@@ -259,11 +259,7 @@ impl Ranking {
             ));
         }
 
-        res.sort_by(|a, b| {
-            b.get_ir_score()
-                .get_exscore()
-                .cmp(&a.get_ir_score().get_exscore())
-        });
+        res.sort_by(|a, b| b.ir_score().exscore().cmp(&a.ir_score().exscore()));
         res
     }
 }
@@ -290,7 +286,7 @@ pub struct Score {
 }
 
 impl Score {
-    pub fn get_rubato_clear(&self) -> i32 {
+    pub fn rubato_clear(&self) -> i32 {
         match self.clear {
             1 => 1, // Failed
             2 => 4, // Easy
@@ -321,7 +317,7 @@ mod tests {
             clear: 1,
             ..Default::default()
         };
-        assert_eq!(s.get_rubato_clear(), 1);
+        assert_eq!(s.rubato_clear(), 1);
     }
 
     #[test]
@@ -330,7 +326,7 @@ mod tests {
             clear: 2,
             ..Default::default()
         };
-        assert_eq!(s.get_rubato_clear(), 4);
+        assert_eq!(s.rubato_clear(), 4);
     }
 
     #[test]
@@ -339,7 +335,7 @@ mod tests {
             clear: 3,
             ..Default::default()
         };
-        assert_eq!(s.get_rubato_clear(), 5);
+        assert_eq!(s.rubato_clear(), 5);
     }
 
     #[test]
@@ -348,7 +344,7 @@ mod tests {
             clear: 4,
             ..Default::default()
         };
-        assert_eq!(s.get_rubato_clear(), 6);
+        assert_eq!(s.rubato_clear(), 6);
     }
 
     #[test]
@@ -361,7 +357,7 @@ mod tests {
             notes: 300,
             ..Default::default()
         };
-        assert_eq!(s.get_rubato_clear(), 9);
+        assert_eq!(s.rubato_clear(), 9);
     }
 
     #[test]
@@ -374,7 +370,7 @@ mod tests {
             notes: 300,
             ..Default::default()
         };
-        assert_eq!(s.get_rubato_clear(), 8);
+        assert_eq!(s.rubato_clear(), 8);
     }
 
     #[test]
@@ -383,12 +379,12 @@ mod tests {
             clear: 0,
             ..Default::default()
         };
-        assert_eq!(s.get_rubato_clear(), 0);
+        assert_eq!(s.rubato_clear(), 0);
         let s = Score {
             clear: 99,
             ..Default::default()
         };
-        assert_eq!(s.get_rubato_clear(), 0);
+        assert_eq!(s.rubato_clear(), 0);
     }
 
     // --- LR2IRSongData tests ---
@@ -503,9 +499,9 @@ mod tests {
         let entries = ranking.to_rubato_score_data(&chart);
         assert_eq!(entries.len(), 2);
         // Higher exscore should be first
-        assert!(entries[0].get_ir_score().get_exscore() >= entries[1].get_ir_score().get_exscore());
-        assert_eq!(entries[0].get_ir_score().player, "High");
-        assert_eq!(entries[1].get_ir_score().player, "Low");
+        assert!(entries[0].ir_score().exscore() >= entries[1].ir_score().exscore());
+        assert_eq!(entries[0].ir_score().player, "High");
+        assert_eq!(entries[1].ir_score().player, "Low");
     }
 
     // --- LR2IRConnection.get_score_data empty md5 test ---
@@ -539,7 +535,7 @@ mod tests {
             has_stop: false,
             values: std::collections::HashMap::new(),
         };
-        let (local, entries) = LR2IRConnection::get_score_data(&chart);
+        let (local, entries) = LR2IRConnection::score_data(&chart);
         assert!(local.is_none());
         assert!(entries.is_empty());
     }

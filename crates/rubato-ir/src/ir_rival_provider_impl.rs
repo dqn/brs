@@ -64,7 +64,7 @@ impl IRRivalProvider for IRRivalProviderImpl {
                 None => Ok(Vec::new()),
             }
         } else {
-            bail!("IR score fetch failed: {}", response.get_message())
+            bail!("IR score fetch failed: {}", response.message)
         }
     }
 
@@ -87,7 +87,7 @@ impl IRRivalProvider for IRRivalProviderImpl {
                 None => Ok(Vec::new()),
             }
         } else {
-            bail!("IR rival list fetch failed: {}", response.get_message())
+            bail!("IR rival list fetch failed: {}", response.message)
         }
     }
 
@@ -108,7 +108,7 @@ impl IRRivalProvider for IRRivalProviderImpl {
             bail!(
                 "IR rival score fetch failed for {}: {}",
                 rival.name,
-                response.get_message()
+                response.message
             )
         }
     }
