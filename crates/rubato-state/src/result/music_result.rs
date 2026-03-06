@@ -1054,7 +1054,7 @@ impl MusicResult {
         }
     }
 
-    pub fn get_total_notes(&self) -> i32 {
+    pub fn total_notes(&self) -> i32 {
         self.resource.get_bms_model().total_notes()
     }
 
@@ -1719,9 +1719,9 @@ mod tests {
     }
 
     #[test]
-    fn test_get_total_notes_default() {
+    fn test_total_notes_default() {
         let mr = MusicResult::default();
-        assert_eq!(mr.get_total_notes(), 0);
+        assert_eq!(mr.total_notes(), 0);
     }
 
     #[test]

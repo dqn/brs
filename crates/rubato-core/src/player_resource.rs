@@ -224,7 +224,7 @@ impl PlayerResource {
     /// Returns (model, margin_time).
     /// Java: PlayerResource.loadBMSModel(Path, int lnmode)
     pub fn load_bms_model(path: &Path, lnmode: i32) -> Option<(BMSModel, i64)> {
-        let mut decoder = chart_decoder::get_decoder(path)?;
+        let mut decoder = chart_decoder::decoder(path)?;
         let info = ChartInformation::new(Some(path.to_path_buf()), lnmode, None);
         let mut model = decoder.decode(info)?;
         let margin_time = set_start_note_time(&mut model, 1000);

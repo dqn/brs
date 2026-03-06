@@ -37,7 +37,7 @@ pub fn bms_table_element_to_song_data(
     }
 
     // Resolve mode: element mode takes precedence, then default_mode
-    let element_mode = te.mode().and_then(Mode::get_mode);
+    let element_mode = te.mode().and_then(Mode::from_hint);
     let mode_id = element_mode
         .as_ref()
         .map(|m| m.id())
@@ -119,7 +119,7 @@ fn trophy_to_trophy_data(trophy: &Trophy) -> TrophyData {
 /// Translated from Java: DifficultyTableAccessor.read()
 /// Creates TableData with folders (one per level) and courses.
 pub fn difficulty_table_to_table_data(dt: &DifficultyTable, url: &str) -> TableData {
-    let default_mode = dt.table.mode().and_then(Mode::get_mode);
+    let default_mode = dt.table.mode().and_then(Mode::from_hint);
 
     let tag = dt
         .table
@@ -467,7 +467,7 @@ mod tests {
 
         let song = bms_table_element_to_song_data(&te, Some(&Mode::BEAT_7K));
 
-        // invalid mode string -> Mode::get_mode returns None -> falls back to default
+        // invalid mode string -> Mode::from_hint returns None -> falls back to default
         assert_eq!(song.mode, 7);
     }
 
