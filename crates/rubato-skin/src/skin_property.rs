@@ -2,6 +2,7 @@
 // Mechanical line-by-line translation of all constant definitions.
 
 use rubato_types::timer_id::TimerId;
+use rubato_types::value_id::ValueId;
 
 pub const IMAGE_STAGEFILE: i32 = 100;
 pub const IMAGE_BACKBMP: i32 = 101;
@@ -591,9 +592,9 @@ pub const FLOAT_IR_PLAYER_FULLCOMBO_RATE: i32 = 219;
 pub const FLOAT_IR_PLAYER_PERFECT_RATE: i32 = 223;
 pub const FLOAT_IR_PLAYER_MAX_RATE: i32 = 225;
 
-pub const VALUE_JUDGE_1P_DURATION: i32 = 525;
-pub const VALUE_JUDGE_2P_DURATION: i32 = 526;
-pub const VALUE_JUDGE_3P_DURATION: i32 = 527;
+pub const VALUE_JUDGE_1P_DURATION: ValueId = ValueId(525);
+pub const VALUE_JUDGE_2P_DURATION: ValueId = ValueId(526);
+pub const VALUE_JUDGE_3P_DURATION: ValueId = ValueId(527);
 
 pub const OPTION_RANDOM_VALUE: i32 = -1;
 
@@ -1018,16 +1019,16 @@ pub const BUTTON_SKINSELECT_24KEY_BATTLE: i32 = 388;
 pub const EVENT_CUSTOM_BEGIN: i32 = 1000;
 pub const EVENT_CUSTOM_END: i32 = 1999;
 
-pub const VALUE_JUDGE_1P_SCRATCH: i32 = 500;
-pub const VALUE_JUDGE_1P_KEY1: i32 = 501;
-pub const VALUE_JUDGE_1P_KEY9: i32 = 509;
-pub const VALUE_JUDGE_2P_SCRATCH: i32 = 510;
-pub const VALUE_JUDGE_2P_KEY1: i32 = 511;
-pub const VALUE_JUDGE_2P_KEY9: i32 = 519;
-pub const VALUE_JUDGE_1P: i32 = 520;
-pub const VALUE_JUDGE_2P: i32 = 521;
-pub const VALUE_JUDGE_3P: i32 = 522;
-pub const VALUE_JUDGE_1P_KEY10: i32 = 1510;
-pub const VALUE_JUDGE_1P_KEY99: i32 = 1599;
-pub const VALUE_JUDGE_2P_KEY10: i32 = 1610;
-pub const VALUE_JUDGE_2P_KEY99: i32 = 1699;
+pub const VALUE_JUDGE_1P_SCRATCH: ValueId = ValueId(500);
+pub const VALUE_JUDGE_1P_KEY1: ValueId = ValueId(501);
+pub const VALUE_JUDGE_1P_KEY9: ValueId = ValueId(509);
+pub const VALUE_JUDGE_2P_SCRATCH: ValueId = ValueId(510);
+pub const VALUE_JUDGE_2P_KEY1: ValueId = ValueId(511);
+pub const VALUE_JUDGE_2P_KEY9: ValueId = ValueId(519);
+pub const VALUE_JUDGE_1P: ValueId = ValueId(520);
+pub const VALUE_JUDGE_2P: ValueId = ValueId(521);
+pub const VALUE_JUDGE_3P: ValueId = ValueId(522);
+pub const VALUE_JUDGE_1P_KEY10: ValueId = ValueId(1510);
+pub const VALUE_JUDGE_1P_KEY99: ValueId = ValueId(1599);
+pub const VALUE_JUDGE_2P_KEY10: ValueId = ValueId(1610);
+pub const VALUE_JUDGE_2P_KEY99: ValueId = ValueId(1699);

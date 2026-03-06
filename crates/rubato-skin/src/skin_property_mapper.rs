@@ -1,4 +1,5 @@
 use rubato_types::timer_id::TimerId;
+use rubato_types::value_id::ValueId;
 
 use crate::skin_property::*;
 use crate::skin_type::SkinType;
@@ -96,11 +97,12 @@ pub fn key_off_timer_id(player: i32, key: i32) -> TimerId {
 /// Extracts the player index (0 or 1) from a per-key judge value ID.
 ///
 /// `value_id`: a value in the `VALUE_JUDGE_1P_SCRATCH..=VALUE_JUDGE_2P_KEY99` range.
-pub fn key_judge_value_player(value_id: i32) -> i32 {
+pub fn key_judge_value_player(value_id: ValueId) -> i32 {
+    let raw = value_id.as_i32();
     if (VALUE_JUDGE_1P_SCRATCH..=VALUE_JUDGE_2P_KEY9).contains(&value_id) {
-        (value_id - VALUE_JUDGE_1P_SCRATCH) / 10
+        (raw - VALUE_JUDGE_1P_SCRATCH.as_i32()) / 10
     } else {
-        (value_id - VALUE_JUDGE_1P_KEY10) / 100
+        (raw - VALUE_JUDGE_1P_KEY10.as_i32()) / 100
     }
 }
 
@@ -108,27 +110,28 @@ pub fn key_judge_value_player(value_id: i32) -> i32 {
 ///
 /// `value_id`: a value in the `VALUE_JUDGE_1P_SCRATCH..=VALUE_JUDGE_2P_KEY99` range.
 /// Returns 0-9 for standard keys, 10-99 for extended keys.
-pub fn key_judge_value_offset(value_id: i32) -> i32 {
+pub fn key_judge_value_offset(value_id: ValueId) -> i32 {
+    let raw = value_id.as_i32();
     if (VALUE_JUDGE_1P_SCRATCH..=VALUE_JUDGE_2P_KEY9).contains(&value_id) {
-        (value_id - VALUE_JUDGE_1P_SCRATCH) % 10
+        (raw - VALUE_JUDGE_1P_SCRATCH.as_i32()) % 10
     } else {
-        (value_id - VALUE_JUDGE_1P_KEY10) % 100 + 10
+        (raw - VALUE_JUDGE_1P_KEY10.as_i32()) % 100 + 10
     }
 }
 
 /// Returns the per-key judge value ID for the given player and key.
 ///
 /// `player`: 0 (1P) or 1 (2P). `key`: 0-9 or 10-99 (extended).
-/// Returns -1 if out of range.
-pub fn key_judge_value_id(player: i32, key: i32) -> i32 {
+/// Returns ValueId::UNDEFINED if out of range.
+pub fn key_judge_value_id(player: i32, key: i32) -> ValueId {
     if player < 2 {
         if key < 10 {
-            return VALUE_JUDGE_1P_SCRATCH + key + player * 10;
+            return ValueId::new(VALUE_JUDGE_1P_SCRATCH.as_i32() + key + player * 10);
         } else if key < 100 {
-            return VALUE_JUDGE_1P_KEY10 + key - 10 + player * 100;
+            return ValueId::new(VALUE_JUDGE_1P_KEY10.as_i32() + key - 10 + player * 100);
         }
     }
-    -1
+    ValueId::UNDEFINED
 }
 
 /// Returns whether the button ID is a skin-select button (7KEY..COURSE_RESULT or 24KEY range).

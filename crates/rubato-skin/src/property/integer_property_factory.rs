@@ -1,3 +1,5 @@
+use rubato_types::value_id::ValueId;
+
 use super::integer_property::IntegerProperty;
 use crate::stubs::MainState;
 
@@ -5,20 +7,21 @@ const ID_LENGTH: usize = 65536;
 
 /// Returns an IntegerProperty for the given option ID.
 pub fn integer_property_by_id(optionid: i32) -> Option<Box<dyn IntegerProperty>> {
+    let id = ValueId::new(optionid);
     if optionid < 0 || optionid as usize >= ID_LENGTH {
         return None;
     }
 
     // Check ValueType enum
     for vt in VALUE_TYPES.iter() {
-        if vt.id == optionid {
+        if vt.id == id {
             return Some(Box::new(DelegateIntegerProperty { id: vt.id }));
         }
     }
 
     // Check various range-based properties and switch-based properties
     // All reference BMSPlayer, MusicSelector, AbstractResult etc.
-    Some(Box::new(DelegateIntegerProperty { id: optionid }))
+    Some(Box::new(DelegateIntegerProperty { id }))
 }
 
 /// Returns an IntegerProperty for the given ValueType name.
@@ -33,13 +36,14 @@ pub fn integer_property_by_name(name: &str) -> Option<Box<dyn IntegerProperty>> 
 
 /// Returns an IntegerProperty for image index usage.
 pub fn image_index_property_by_id(optionid: i32) -> Option<Box<dyn IntegerProperty>> {
+    let id = ValueId::new(optionid);
     if optionid < 0 || optionid as usize >= ID_LENGTH {
         return None;
     }
 
     // Check IndexType enum
     for it in INDEX_TYPES.iter() {
-        if it.id == optionid {
+        if it.id == id {
             return Some(Box::new(DelegateImageIndexProperty { id: it.id }));
         }
     }
@@ -48,7 +52,7 @@ pub fn image_index_property_by_id(optionid: i32) -> Option<Box<dyn IntegerProper
     // SkinSelectType properties
     // All require Phase 7+ dependencies
 
-    Some(Box::new(DelegateImageIndexProperty { id: optionid }))
+    Some(Box::new(DelegateImageIndexProperty { id }))
 }
 
 /// Returns an IntegerProperty for the given IndexType name.
@@ -63,847 +67,847 @@ pub fn image_index_property_by_name(name: &str) -> Option<Box<dyn IntegerPropert
 
 // ValueType enum data
 struct ValueTypeEntry {
-    id: i32,
+    id: ValueId,
     name: &'static str,
 }
 
 static VALUE_TYPES: &[ValueTypeEntry] = &[
     ValueTypeEntry {
-        id: 12,
+        id: ValueId(12),
         name: "notesdisplaytiming",
     },
     ValueTypeEntry {
-        id: 17,
+        id: ValueId(17),
         name: "playtime_total_hour",
     },
     ValueTypeEntry {
-        id: 18,
+        id: ValueId(18),
         name: "playtime_total_minute",
     },
     ValueTypeEntry {
-        id: 19,
+        id: ValueId(19),
         name: "playtime_totla_saecond",
     },
     ValueTypeEntry {
-        id: 20,
+        id: ValueId(20),
         name: "current_fps",
     },
     ValueTypeEntry {
-        id: 21,
+        id: ValueId(21),
         name: "currenttime_year",
     },
     ValueTypeEntry {
-        id: 22,
+        id: ValueId(22),
         name: "currenttime_month",
     },
     ValueTypeEntry {
-        id: 23,
+        id: ValueId(23),
         name: "currenttime_day",
     },
     ValueTypeEntry {
-        id: 24,
+        id: ValueId(24),
         name: "currenttime_hour",
     },
     ValueTypeEntry {
-        id: 25,
+        id: ValueId(25),
         name: "currenttime_minute",
     },
     ValueTypeEntry {
-        id: 26,
+        id: ValueId(26),
         name: "currenttime_saecond",
     },
     ValueTypeEntry {
-        id: 27,
+        id: ValueId(27),
         name: "boottime_hour",
     },
     ValueTypeEntry {
-        id: 28,
+        id: ValueId(28),
         name: "boottime_minute",
     },
     ValueTypeEntry {
-        id: 29,
+        id: ValueId(29),
         name: "boottime_second",
     },
     ValueTypeEntry {
-        id: 30,
+        id: ValueId(30),
         name: "player_playcount",
     },
     ValueTypeEntry {
-        id: 31,
+        id: ValueId(31),
         name: "player_clearcount",
     },
     ValueTypeEntry {
-        id: 32,
+        id: ValueId(32),
         name: "player_failcount",
     },
     ValueTypeEntry {
-        id: 33,
+        id: ValueId(33),
         name: "player_perfect",
     },
     ValueTypeEntry {
-        id: 34,
+        id: ValueId(34),
         name: "player_great",
     },
     ValueTypeEntry {
-        id: 35,
+        id: ValueId(35),
         name: "player_good",
     },
     ValueTypeEntry {
-        id: 36,
+        id: ValueId(36),
         name: "player_bad",
     },
     ValueTypeEntry {
-        id: 37,
+        id: ValueId(37),
         name: "player_poor",
     },
     ValueTypeEntry {
-        id: 333,
+        id: ValueId(333),
         name: "player_notes",
     },
     ValueTypeEntry {
-        id: 57,
+        id: ValueId(57),
         name: "volume_system",
     },
     ValueTypeEntry {
-        id: 58,
+        id: ValueId(58),
         name: "volume_key",
     },
     ValueTypeEntry {
-        id: 59,
+        id: ValueId(59),
         name: "volume_background",
     },
     ValueTypeEntry {
-        id: 77,
+        id: ValueId(77),
         name: "playcount",
     },
     ValueTypeEntry {
-        id: 78,
+        id: ValueId(78),
         name: "clearcount",
     },
     ValueTypeEntry {
-        id: 79,
+        id: ValueId(79),
         name: "failcount",
     },
     ValueTypeEntry {
-        id: 90,
+        id: ValueId(90),
         name: "maxbpm",
     },
     ValueTypeEntry {
-        id: 91,
+        id: ValueId(91),
         name: "minbpm",
     },
     ValueTypeEntry {
-        id: 92,
+        id: ValueId(92),
         name: "mainbpm",
     },
     ValueTypeEntry {
-        id: 160,
+        id: ValueId(160),
         name: "nowbpm",
     },
     ValueTypeEntry {
-        id: 161,
+        id: ValueId(161),
         name: "playtime_minute",
     },
     ValueTypeEntry {
-        id: 162,
+        id: ValueId(162),
         name: "playtime_second",
     },
     ValueTypeEntry {
-        id: 163,
+        id: ValueId(163),
         name: "timeleft_minute",
     },
     ValueTypeEntry {
-        id: 164,
+        id: ValueId(164),
         name: "timeleft_second",
     },
     ValueTypeEntry {
-        id: 165,
+        id: ValueId(165),
         name: "loading_progress",
     },
     ValueTypeEntry {
-        id: 179,
+        id: ValueId(179),
         name: "ir_rank",
     },
     ValueTypeEntry {
-        id: 182,
+        id: ValueId(182),
         name: "ir_prevrank",
     },
     ValueTypeEntry {
-        id: 202,
+        id: ValueId(202),
         name: "ir_player_noplay",
     },
     ValueTypeEntry {
-        id: 210,
+        id: ValueId(210),
         name: "ir_player_failed",
     },
     ValueTypeEntry {
-        id: 204,
+        id: ValueId(204),
         name: "ir_player_assist",
     },
     ValueTypeEntry {
-        id: 206,
+        id: ValueId(206),
         name: "ir_player_lightassist",
     },
     ValueTypeEntry {
-        id: 212,
+        id: ValueId(212),
         name: "ir_player_easy",
     },
     ValueTypeEntry {
-        id: 214,
+        id: ValueId(214),
         name: "ir_player_normal",
     },
     ValueTypeEntry {
-        id: 216,
+        id: ValueId(216),
         name: "ir_player_hard",
     },
     ValueTypeEntry {
-        id: 208,
+        id: ValueId(208),
         name: "ir_player_exhard",
     },
     ValueTypeEntry {
-        id: 218,
+        id: ValueId(218),
         name: "ir_player_fullcombo",
     },
     ValueTypeEntry {
-        id: 222,
+        id: ValueId(222),
         name: "ir_player_perfect",
     },
     ValueTypeEntry {
-        id: 224,
+        id: ValueId(224),
         name: "ir_player_max",
     },
     ValueTypeEntry {
-        id: 220,
+        id: ValueId(220),
         name: "ir_update_waiting",
     },
     ValueTypeEntry {
-        id: 226,
+        id: ValueId(226),
         name: "ir_totalclear",
     },
     ValueTypeEntry {
-        id: 227,
+        id: ValueId(227),
         name: "ir_totalclearrate",
     },
     ValueTypeEntry {
-        id: 241,
+        id: ValueId(241),
         name: "ir_totalclearrate_afterdot",
     },
     ValueTypeEntry {
-        id: 228,
+        id: ValueId(228),
         name: "ir_totalfullcombo",
     },
     ValueTypeEntry {
-        id: 229,
+        id: ValueId(229),
         name: "ir_totalfullcomborate",
     },
     ValueTypeEntry {
-        id: 242,
+        id: ValueId(242),
         name: "ir_totalfullcomborate_afterdot",
     },
     ValueTypeEntry {
-        id: 203,
+        id: ValueId(203),
         name: "ir_player_noplay_rate",
     },
     ValueTypeEntry {
-        id: 230,
+        id: ValueId(230),
         name: "ir_player_noplay_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 211,
+        id: ValueId(211),
         name: "ir_player_failed_rate",
     },
     ValueTypeEntry {
-        id: 234,
+        id: ValueId(234),
         name: "ir_player_failed_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 205,
+        id: ValueId(205),
         name: "ir_player_assist_rate",
     },
     ValueTypeEntry {
-        id: 231,
+        id: ValueId(231),
         name: "ir_player_assist_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 207,
+        id: ValueId(207),
         name: "ir_player_lightassist_rate",
     },
     ValueTypeEntry {
-        id: 232,
+        id: ValueId(232),
         name: "ir_player_lightassist_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 213,
+        id: ValueId(213),
         name: "ir_player_easy_rate",
     },
     ValueTypeEntry {
-        id: 235,
+        id: ValueId(235),
         name: "ir_player_easy_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 215,
+        id: ValueId(215),
         name: "ir_player_normal_rate",
     },
     ValueTypeEntry {
-        id: 236,
+        id: ValueId(236),
         name: "ir_player_normal_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 217,
+        id: ValueId(217),
         name: "ir_player_hard_rate",
     },
     ValueTypeEntry {
-        id: 237,
+        id: ValueId(237),
         name: "ir_player_hard_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 209,
+        id: ValueId(209),
         name: "ir_player_exhard_rate",
     },
     ValueTypeEntry {
-        id: 233,
+        id: ValueId(233),
         name: "ir_player_exhard_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 219,
+        id: ValueId(219),
         name: "ir_player_fullcombo_rate",
     },
     ValueTypeEntry {
-        id: 238,
+        id: ValueId(238),
         name: "ir_player_fullcombo_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 223,
+        id: ValueId(223),
         name: "ir_player_perfect_rate",
     },
     ValueTypeEntry {
-        id: 239,
+        id: ValueId(239),
         name: "ir_player_perfect_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 225,
+        id: ValueId(225),
         name: "ir_player_max_rate",
     },
     ValueTypeEntry {
-        id: 240,
+        id: ValueId(240),
         name: "ir_player_max_rate_afterdot",
     },
     ValueTypeEntry {
-        id: 312,
+        id: ValueId(312),
         name: "duration",
     },
     ValueTypeEntry {
-        id: 313,
+        id: ValueId(313),
         name: "duration_green",
     },
     ValueTypeEntry {
-        id: 320,
+        id: ValueId(320),
         name: "folder_noplay",
     },
     ValueTypeEntry {
-        id: 321,
+        id: ValueId(321),
         name: "folder_failed",
     },
     ValueTypeEntry {
-        id: 322,
+        id: ValueId(322),
         name: "folder_assist",
     },
     ValueTypeEntry {
-        id: 323,
+        id: ValueId(323),
         name: "folder_lightassist",
     },
     ValueTypeEntry {
-        id: 324,
+        id: ValueId(324),
         name: "folder_easy",
     },
     ValueTypeEntry {
-        id: 325,
+        id: ValueId(325),
         name: "folder_normal",
     },
     ValueTypeEntry {
-        id: 326,
+        id: ValueId(326),
         name: "folder_hard",
     },
     ValueTypeEntry {
-        id: 327,
+        id: ValueId(327),
         name: "folder_exhard",
     },
     ValueTypeEntry {
-        id: 328,
+        id: ValueId(328),
         name: "folder_fullcombo",
     },
     ValueTypeEntry {
-        id: 329,
+        id: ValueId(329),
         name: "folder_prefect",
     },
     ValueTypeEntry {
-        id: 330,
+        id: ValueId(330),
         name: "folder_max",
     },
     ValueTypeEntry {
-        id: 350,
+        id: ValueId(350),
         name: "chart_totalnote_n",
     },
     ValueTypeEntry {
-        id: 351,
+        id: ValueId(351),
         name: "chart_totalnote_ln",
     },
     ValueTypeEntry {
-        id: 352,
+        id: ValueId(352),
         name: "chart_totalnote_s",
     },
     ValueTypeEntry {
-        id: 353,
+        id: ValueId(353),
         name: "chart_totalnote_ls",
     },
     ValueTypeEntry {
-        id: 364,
+        id: ValueId(364),
         name: "chart_averagedensity",
     },
     ValueTypeEntry {
-        id: 365,
+        id: ValueId(365),
         name: "chart_averagedensity_afterdot",
     },
     ValueTypeEntry {
-        id: 362,
+        id: ValueId(362),
         name: "chart_enddensity",
     },
     ValueTypeEntry {
-        id: 363,
+        id: ValueId(363),
         name: "chart_enddensity_peak",
     },
     ValueTypeEntry {
-        id: 360,
+        id: ValueId(360),
         name: "chart_peakdensity",
     },
     ValueTypeEntry {
-        id: 361,
+        id: ValueId(361),
         name: "chart_peakdensity_afterdot",
     },
     ValueTypeEntry {
-        id: 368,
+        id: ValueId(368),
         name: "chart_totalgauge",
     },
     ValueTypeEntry {
-        id: 372,
+        id: ValueId(372),
         name: "duration_average",
     },
     ValueTypeEntry {
-        id: 373,
+        id: ValueId(373),
         name: "duration_average_afterdot",
     },
     ValueTypeEntry {
-        id: 374,
+        id: ValueId(374),
         name: "timing_average",
     },
     ValueTypeEntry {
-        id: 375,
+        id: ValueId(375),
         name: "timing_average_afterdot",
     },
     ValueTypeEntry {
-        id: 376,
+        id: ValueId(376),
         name: "timing_stddev",
     },
     ValueTypeEntry {
-        id: 377,
+        id: ValueId(377),
         name: "timing_atddev_afterdot",
     },
     ValueTypeEntry {
-        id: 380,
+        id: ValueId(380),
         name: "ranking_exscore1",
     },
     ValueTypeEntry {
-        id: 381,
+        id: ValueId(381),
         name: "ranking_exscore2",
     },
     ValueTypeEntry {
-        id: 382,
+        id: ValueId(382),
         name: "ranking_exscore3",
     },
     ValueTypeEntry {
-        id: 383,
+        id: ValueId(383),
         name: "ranking_exscore4",
     },
     ValueTypeEntry {
-        id: 384,
+        id: ValueId(384),
         name: "ranking_exscore5",
     },
     ValueTypeEntry {
-        id: 385,
+        id: ValueId(385),
         name: "ranking_exscore6",
     },
     ValueTypeEntry {
-        id: 386,
+        id: ValueId(386),
         name: "ranking_exscore7",
     },
     ValueTypeEntry {
-        id: 387,
+        id: ValueId(387),
         name: "ranking_exscore8",
     },
     ValueTypeEntry {
-        id: 388,
+        id: ValueId(388),
         name: "ranking_exscore9",
     },
     ValueTypeEntry {
-        id: 389,
+        id: ValueId(389),
         name: "ranking_exscore10",
     },
     ValueTypeEntry {
-        id: 390,
+        id: ValueId(390),
         name: "ranking_index1",
     },
     ValueTypeEntry {
-        id: 391,
+        id: ValueId(391),
         name: "ranking_index2",
     },
     ValueTypeEntry {
-        id: 392,
+        id: ValueId(392),
         name: "ranking_index3",
     },
     ValueTypeEntry {
-        id: 393,
+        id: ValueId(393),
         name: "ranking_index4",
     },
     ValueTypeEntry {
-        id: 394,
+        id: ValueId(394),
         name: "ranking_index5",
     },
     ValueTypeEntry {
-        id: 395,
+        id: ValueId(395),
         name: "ranking_index6",
     },
     ValueTypeEntry {
-        id: 396,
+        id: ValueId(396),
         name: "ranking_index7",
     },
     ValueTypeEntry {
-        id: 397,
+        id: ValueId(397),
         name: "ranking_index8",
     },
     ValueTypeEntry {
-        id: 398,
+        id: ValueId(398),
         name: "ranking_index9",
     },
     ValueTypeEntry {
-        id: 399,
+        id: ValueId(399),
         name: "ranking_index10",
     },
     ValueTypeEntry {
-        id: 400,
+        id: ValueId(400),
         name: "judgerank",
     },
     ValueTypeEntry {
-        id: 525,
+        id: ValueId(525),
         name: "judge_duration1",
     },
     ValueTypeEntry {
-        id: 526,
+        id: ValueId(526),
         name: "judge_duration2",
     },
     ValueTypeEntry {
-        id: 527,
+        id: ValueId(527),
         name: "judge_duration3",
     },
     ValueTypeEntry {
-        id: 1163,
+        id: ValueId(1163),
         name: "chartlength_minute",
     },
     ValueTypeEntry {
-        id: 1164,
+        id: ValueId(1164),
         name: "chartlength_second",
     },
 ];
 
 // IndexType enum data
 struct IndexTypeEntry {
-    id: i32,
+    id: ValueId,
     name: &'static str,
 }
 
 static INDEX_TYPES: &[IndexTypeEntry] = &[
     IndexTypeEntry {
-        id: 303,
+        id: ValueId(303),
         name: "showjudgearea",
     },
     IndexTypeEntry {
-        id: 305,
+        id: ValueId(305),
         name: "markprocessednote",
     },
     IndexTypeEntry {
-        id: 306,
+        id: ValueId(306),
         name: "bpmguide",
     },
     IndexTypeEntry {
-        id: 301,
+        id: ValueId(301),
         name: "customjudge",
     },
     IndexTypeEntry {
-        id: 308,
+        id: ValueId(308),
         name: "lnmode",
     },
     IndexTypeEntry {
-        id: 75,
+        id: ValueId(75),
         name: "notesdisplaytimingautoadjust",
     },
     IndexTypeEntry {
-        id: 78,
+        id: ValueId(78),
         name: "gaugeautoshift",
     },
     IndexTypeEntry {
-        id: 341,
+        id: ValueId(341),
         name: "bottomshiftablegauge",
     },
     IndexTypeEntry {
-        id: 72,
+        id: ValueId(72),
         name: "bga",
     },
     IndexTypeEntry {
-        id: 11,
+        id: ValueId(11),
         name: "mode",
     },
     IndexTypeEntry {
-        id: 12,
+        id: ValueId(12),
         name: "sort",
     },
     IndexTypeEntry {
-        id: 40,
+        id: ValueId(40),
         name: "gaugetype_1p",
     },
     IndexTypeEntry {
-        id: 42,
+        id: ValueId(42),
         name: "option_1p",
     },
     IndexTypeEntry {
-        id: 43,
+        id: ValueId(43),
         name: "option_2p",
     },
     IndexTypeEntry {
-        id: 54,
+        id: ValueId(54),
         name: "option_dp",
     },
     IndexTypeEntry {
-        id: 55,
+        id: ValueId(55),
         name: "hsfix",
     },
     IndexTypeEntry {
-        id: 61,
+        id: ValueId(61),
         name: "option_target1_1p",
     },
     IndexTypeEntry {
-        id: 62,
+        id: ValueId(62),
         name: "option_target1_2p",
     },
     IndexTypeEntry {
-        id: 63,
+        id: ValueId(63),
         name: "option_target1_dp",
     },
     IndexTypeEntry {
-        id: 342,
+        id: ValueId(342),
         name: "hispeedautoadjust",
     },
     IndexTypeEntry {
-        id: 89,
+        id: ValueId(89),
         name: "favorite_song",
     },
     IndexTypeEntry {
-        id: 90,
+        id: ValueId(90),
         name: "favorite_chart",
     },
     IndexTypeEntry {
-        id: 321,
+        id: ValueId(321),
         name: "autosave_replay1",
     },
     IndexTypeEntry {
-        id: 322,
+        id: ValueId(322),
         name: "autosave_replay2",
     },
     IndexTypeEntry {
-        id: 323,
+        id: ValueId(323),
         name: "autosave_replay3",
     },
     IndexTypeEntry {
-        id: 324,
+        id: ValueId(324),
         name: "autosave_replay4",
     },
     IndexTypeEntry {
-        id: 330,
+        id: ValueId(330),
         name: "lanecover",
     },
     IndexTypeEntry {
-        id: 331,
+        id: ValueId(331),
         name: "lift",
     },
     IndexTypeEntry {
-        id: 332,
+        id: ValueId(332),
         name: "hidden",
     },
     IndexTypeEntry {
-        id: 340,
+        id: ValueId(340),
         name: "judgealgorithm",
     },
     IndexTypeEntry {
-        id: 343,
+        id: ValueId(343),
         name: "guidese",
     },
     IndexTypeEntry {
-        id: 350,
+        id: ValueId(350),
         name: "extranotedepth",
     },
     IndexTypeEntry {
-        id: 351,
+        id: ValueId(351),
         name: "minemode",
     },
     IndexTypeEntry {
-        id: 352,
+        id: ValueId(352),
         name: "scrollmode",
     },
     IndexTypeEntry {
-        id: 353,
+        id: ValueId(353),
         name: "longnotemode",
     },
     IndexTypeEntry {
-        id: 360,
+        id: ValueId(360),
         name: "seventonine_pattern",
     },
     IndexTypeEntry {
-        id: 361,
+        id: ValueId(361),
         name: "seventonine_type",
     },
     IndexTypeEntry {
-        id: 370,
+        id: ValueId(370),
         name: "cleartype",
     },
     IndexTypeEntry {
-        id: 371,
+        id: ValueId(371),
         name: "cleartype_target",
     },
     IndexTypeEntry {
-        id: 390,
+        id: ValueId(390),
         name: "cleartype_ranking1",
     },
     IndexTypeEntry {
-        id: 391,
+        id: ValueId(391),
         name: "cleartype_ranking2",
     },
     IndexTypeEntry {
-        id: 392,
+        id: ValueId(392),
         name: "cleartype_ranking3",
     },
     IndexTypeEntry {
-        id: 393,
+        id: ValueId(393),
         name: "cleartype_ranking4",
     },
     IndexTypeEntry {
-        id: 394,
+        id: ValueId(394),
         name: "cleartype_ranking5",
     },
     IndexTypeEntry {
-        id: 395,
+        id: ValueId(395),
         name: "cleartype_ranking6",
     },
     IndexTypeEntry {
-        id: 396,
+        id: ValueId(396),
         name: "cleartype_ranking7",
     },
     IndexTypeEntry {
-        id: 397,
+        id: ValueId(397),
         name: "cleartype_ranking8",
     },
     IndexTypeEntry {
-        id: 398,
+        id: ValueId(398),
         name: "cleartype_ranking9",
     },
     IndexTypeEntry {
-        id: 399,
+        id: ValueId(399),
         name: "cleartype_ranking10",
     },
     IndexTypeEntry {
-        id: 400,
+        id: ValueId(400),
         name: "constant",
     },
     IndexTypeEntry {
-        id: 450,
+        id: ValueId(450),
         name: "pattern_1p_1",
     },
     IndexTypeEntry {
-        id: 451,
+        id: ValueId(451),
         name: "pattern_1p_2",
     },
     IndexTypeEntry {
-        id: 452,
+        id: ValueId(452),
         name: "pattern_1p_3",
     },
     IndexTypeEntry {
-        id: 453,
+        id: ValueId(453),
         name: "pattern_1p_4",
     },
     IndexTypeEntry {
-        id: 454,
+        id: ValueId(454),
         name: "pattern_1p_5",
     },
     IndexTypeEntry {
-        id: 455,
+        id: ValueId(455),
         name: "pattern_1p_6",
     },
     IndexTypeEntry {
-        id: 456,
+        id: ValueId(456),
         name: "pattern_1p_7",
     },
     IndexTypeEntry {
-        id: 457,
+        id: ValueId(457),
         name: "pattern_1p_8",
     },
     IndexTypeEntry {
-        id: 458,
+        id: ValueId(458),
         name: "pattern_1p_9",
     },
     IndexTypeEntry {
-        id: 459,
+        id: ValueId(459),
         name: "pattern_1p_SCR",
     },
     IndexTypeEntry {
-        id: 460,
+        id: ValueId(460),
         name: "pattern_2p_1",
     },
     IndexTypeEntry {
-        id: 461,
+        id: ValueId(461),
         name: "pattern_2p_2",
     },
     IndexTypeEntry {
-        id: 462,
+        id: ValueId(462),
         name: "pattern_2p_3",
     },
     IndexTypeEntry {
-        id: 463,
+        id: ValueId(463),
         name: "pattern_2p_4",
     },
     IndexTypeEntry {
-        id: 464,
+        id: ValueId(464),
         name: "pattern_2p_5",
     },
     IndexTypeEntry {
-        id: 465,
+        id: ValueId(465),
         name: "pattern_2p_6",
     },
     IndexTypeEntry {
-        id: 466,
+        id: ValueId(466),
         name: "pattern_2p_7",
     },
     IndexTypeEntry {
-        id: 469,
+        id: ValueId(469),
         name: "pattern_2p_SCR",
     },
     // Old spec assist options
     IndexTypeEntry {
-        id: 1046,
+        id: ValueId(1046),
         name: "assist_constant",
     },
     IndexTypeEntry {
-        id: 1047,
+        id: ValueId(1047),
         name: "assist_legacy",
     },
     IndexTypeEntry {
-        id: 1048,
+        id: ValueId(1048),
         name: "assist_nomine",
     },
 ];
@@ -912,30 +916,30 @@ static INDEX_TYPES: &[IndexTypeEntry] = &[
 /// This enables both StaticStateProvider (golden-master) and real game states
 /// to provide integer values through the same interface.
 struct DelegateIntegerProperty {
-    id: i32,
+    id: ValueId,
 }
 
 impl IntegerProperty for DelegateIntegerProperty {
     fn get(&self, state: &dyn MainState) -> i32 {
-        state.integer_value(self.id)
+        state.integer_value(self.id.as_i32())
     }
 
     fn get_id(&self) -> i32 {
-        self.id
+        self.id.as_i32()
     }
 }
 
 struct DelegateImageIndexProperty {
-    id: i32,
+    id: ValueId,
 }
 
 impl IntegerProperty for DelegateImageIndexProperty {
     fn get(&self, state: &dyn MainState) -> i32 {
-        state.image_index_value(self.id)
+        state.image_index_value(self.id.as_i32())
     }
 
     fn get_id(&self) -> i32 {
-        self.id
+        self.id.as_i32()
     }
 }
 
