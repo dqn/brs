@@ -21,7 +21,17 @@ static EVENT_ID_INDEX: LazyLock<HashMap<EventId, usize>> = LazyLock::new(|| {
         .collect()
 });
 
+/// Lazily-built index from event name to position in EVENT_TYPES for O(1) lookup.
+static EVENT_NAME_INDEX: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|| {
+    EVENT_TYPES
+        .iter()
+        .enumerate()
+        .map(|(i, et)| (et.name, i))
+        .collect()
+});
+
 /// Returns an Event for the given event ID.
+/// Uses a HashMap for O(1) lookup instead of linear search.
 /// If the ID matches a built-in EventType, returns that event.
 /// Otherwise, returns a generic event that delegates to `state.execute_event()`.
 pub fn event_by_id(event_id: i32) -> Option<Box<dyn Event>> {
@@ -35,11 +45,10 @@ pub fn event_by_id(event_id: i32) -> Option<Box<dyn Event>> {
 }
 
 /// Returns an Event for the given event name.
+/// Uses a HashMap for O(1) lookup instead of linear search.
 pub fn event_by_name(event_name: &str) -> Option<Box<dyn Event>> {
-    for et in EVENT_TYPES.iter() {
-        if et.name == event_name {
-            return Some((et.create_event)());
-        }
+    if let Some(&idx) = EVENT_NAME_INDEX.get(event_name) {
+        return Some((EVENT_TYPES[idx].create_event)());
     }
     None
 }
@@ -341,7 +350,7 @@ static EVENT_TYPES: &[EventTypeEntry] = &[
         name: "rival",
         create_event: || {
             // Rival selection requires RivalDataAccessor which is not yet available
-            // → delegate to state.execute_event for now
+            // -> delegate to state.execute_event for now
             Box::new(DelegateEvent {
                 event_id: EventId(79),
             })
@@ -353,7 +362,7 @@ static EVENT_TYPES: &[EventTypeEntry] = &[
         name: "favorite_chart",
         create_event: || {
             // Favorite chart requires SongDatabase.setSongDatas, BarManager.updateBar,
-            // and ImGuiNotify which cross crate boundaries → delegate
+            // and ImGuiNotify which cross crate boundaries -> delegate
             Box::new(DelegateEvent {
                 event_id: EventId(90),
             })
@@ -363,7 +372,7 @@ static EVENT_TYPES: &[EventTypeEntry] = &[
         id: EventId(89),
         name: "favorite_song",
         create_event: || {
-            // Favorite song similarly requires cross-crate access → delegate
+            // Favorite song similarly requires cross-crate access -> delegate
             Box::new(DelegateEvent {
                 event_id: EventId(89),
             })

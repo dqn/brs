@@ -125,3 +125,10 @@ pub mod obs_access;
 
 // Shared synchronization utilities (lock_or_recover, etc.)
 pub mod sync_utils;
+
+// ImGui overlay access (core↔modmenu bridge)
+pub mod imgui_access;
+
+// Facade modules grouping related types by domain.
+// Original module paths remain fully supported for backward compatibility.
+pub mod facade;

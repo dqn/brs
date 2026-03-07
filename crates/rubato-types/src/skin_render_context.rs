@@ -68,7 +68,12 @@ pub trait SkinPropertyProvider: SkinStateQuery + SkinConfigAccess {
 
     /// Shared default implementation for image-index refs.
     ///
-    /// Arms are grouped into helper methods by functional domain.
+    /// NOTE: This match statement is intentionally kept as-is rather than converted
+    /// to a lookup table. Each arm calls different `self` methods with distinct
+    /// Option-chaining logic (player_config, current_play_config, song_data, etc.),
+    /// making function-pointer tables impractical without introducing trait-object
+    /// overhead or complex generic indirection. The match is the most readable and
+    /// maintainable representation of this heterogeneous dispatch.
     fn default_image_index_value(&self, id: i32) -> i32 {
         match id {
             11 => self.mode_image_index().unwrap_or(-1),
