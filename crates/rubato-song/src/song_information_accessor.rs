@@ -120,7 +120,7 @@ impl SongInformationAccessor {
     }
 
     pub fn update(&self, model: &BMSModel) {
-        let info = SongInformation::from_model(model);
+        let info = SongInformation::from(model);
         if let Err(e) = self.insert_information(&info) {
             log::error!("Error inserting information: {}", e);
         }
