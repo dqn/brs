@@ -25,7 +25,7 @@ pub type FloatArray = Vec<f32>;
 /// PlayerResource - holds game session state for data exchange between components
 pub struct PlayerResource {
     /// Margin time
-    margin_time: i64,
+    pub margin_time: i64,
     /// Current song data
     songdata: Option<SongData>,
     /// Original BMS mode
@@ -246,10 +246,6 @@ impl PlayerResource {
         self.songdata.as_ref().and_then(|sd| sd.bms_model())
     }
 
-    pub fn margin_time(&self) -> i64 {
-        self.margin_time
-    }
-
     pub fn play_mode(&self) -> Option<&BMSPlayerMode> {
         self.mode.as_ref()
     }
@@ -421,14 +417,6 @@ impl PlayerResource {
         self.cscore = Some(cscore);
     }
 
-    pub fn is_update_score(&self) -> bool {
-        self.update_score
-    }
-
-    pub fn is_update_course_score(&self) -> bool {
-        self.update_course_score
-    }
-
     pub fn course_data(&self) -> Option<&CourseData> {
         self.coursedata.as_ref()
     }
@@ -465,14 +453,6 @@ impl PlayerResource {
         self.coursegauge.push(gauge);
     }
 
-    pub fn combo(&self) -> i32 {
-        self.combo
-    }
-
-    pub fn get_maxcombo(&self) -> i32 {
-        self.maxcombo
-    }
-
     pub fn dispose(&mut self) {
         if let Some(mut bmsresource) = self.bmsresource.take() {
             bmsresource.dispose();
@@ -489,14 +469,6 @@ impl PlayerResource {
 
     pub fn bms_resource(&self) -> Option<&BMSResource> {
         self.bmsresource.as_ref()
-    }
-
-    pub fn org_gauge_option(&self) -> i32 {
-        self.org_gauge_option
-    }
-
-    pub fn assist(&self) -> i32 {
-        self.assist
     }
 
     pub fn get_tablename(&self) -> &str {
@@ -524,10 +496,6 @@ impl PlayerResource {
         self.tablefull.as_ref().expect("tablefull is Some")
     }
 
-    pub fn player_data(&self) -> &PlayerData {
-        &self.playerdata
-    }
-
     pub fn chart_option(&self) -> Option<&ReplayData> {
         self.chart_option.as_ref()
     }
@@ -544,20 +512,12 @@ impl PlayerResource {
         self.orgmode = Some(orgmode);
     }
 
-    pub fn is_freq_on(&self) -> bool {
-        self.freq_on
-    }
-
     pub fn freq_string(&self) -> Option<&str> {
         self.freq_string.as_deref()
     }
 
     pub fn set_freq_string(&mut self, freq_string: String) {
         self.freq_string = Some(freq_string);
-    }
-
-    pub fn is_force_no_ir_send(&self) -> bool {
-        self.force_no_ir_send
     }
 
     pub fn reverse_lookup_data(&self) -> Vec<String> {
@@ -976,7 +936,7 @@ mod tests {
         resource.set_bms_file(&bms_path, BMSPlayerMode::PLAY);
         // margin_time is set by set_start_note_time (may be 0 if first note >= 1000ms)
         // Just verify it doesn't panic and the field is accessible
-        let _margin = resource.margin_time();
+        let _margin = resource.margin_time;
     }
 
     #[test]

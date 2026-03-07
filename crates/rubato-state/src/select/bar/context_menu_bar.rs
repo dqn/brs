@@ -251,7 +251,7 @@ impl ContextMenuBar {
             let song_for_fav = song.clone();
             fav_chart.set_function(Arc::new(move |selector| {
                 let mut sd = song_for_fav.clone();
-                let new_fav = sd.get_favorite() ^ FAVORITE_CHART;
+                let new_fav = sd.favorite ^ FAVORITE_CHART;
                 sd.favorite = new_fav;
                 selector.songdb.set_song_datas(&[sd]);
             }));
@@ -278,7 +278,7 @@ impl ContextMenuBar {
             let song_for_fav = song.clone();
             fav_song.set_function(Arc::new(move |selector| {
                 let mut sd = song_for_fav.clone();
-                let new_fav = sd.get_favorite() ^ FAVORITE_SONG;
+                let new_fav = sd.favorite ^ FAVORITE_SONG;
                 sd.favorite = new_fav;
                 selector.songdb.set_song_datas(&[sd]);
             }));
