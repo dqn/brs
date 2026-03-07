@@ -470,18 +470,22 @@ impl SkinConfigurationView {
         }
 
         // if (selected != null) {
-        if let Some(selected) = self.selected.clone() {
+        if self.selected.is_some() {
+            let (path_str, skin_type_id) = {
+                let selected = self.selected.as_ref().expect("selected is Some");
+                let path_str: String = selected
+                    .path()
+                    .map(|p: &PathBuf| p.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                let skin_type_id = selected.skin_type().map(|st| st.id() as usize);
+                (path_str, skin_type_id)
+            };
             // SkinConfig skin = new SkinConfig(selected.getPath().toString());
-            let path_str: String = selected
-                .path()
-                .map(|p: &PathBuf| p.to_string_lossy().to_string())
-                .unwrap_or_default();
             let mut skin = SkinConfig::new_with_path(&path_str);
             // skin.setProperties(getProperty());
             skin.properties = Some(self.property());
             // player.getSkin()[selected.getSkinType().getId()] = skin;
-            if let Some(skin_type) = selected.skin_type() {
-                let type_id = skin_type.id() as usize;
+            if let Some(type_id) = skin_type_id {
                 let player = self.player.as_mut().expect("player is Some");
                 while player.skin.len() <= type_id {
                     player.skin.push(None);
@@ -618,8 +622,7 @@ impl SkinConfigurationView {
         }
         // skinconfig.setContent(create(header, property));
         if let Some(header) = header {
-            let header_clone = header.clone();
-            self.create(&header_clone, property.as_ref());
+            self.create(header, property.as_ref());
         } else {
             self.selected = None;
             self.skinconfig_items.clear();
@@ -633,10 +636,14 @@ impl SkinConfigurationView {
     /// Saves current skin config to skin history.
     pub fn commit_skin_header(&mut self) {
         // if(selected != null) {
-        let selected = match self.selected.clone() {
-            Some(s) => s,
-            None => return,
-        };
+        let sel_path_str: Option<String> = self
+            .selected
+            .as_ref()
+            .and_then(|s| s.path())
+            .map(|p: &PathBuf| p.to_string_lossy().to_string());
+        if self.selected.is_none() {
+            return;
+        }
 
         // SkinConfig.Property property = getProperty();
         let property = self.property();
@@ -651,9 +658,6 @@ impl SkinConfigurationView {
         // for(int i = 0; i < player.getSkinHistory().length; i++) {
         for (i, history_entry) in player.skin_history.iter().enumerate() {
             // if(player.getSkinHistory()[i].getPath().equals(selected.getPath().toString())) {
-            let sel_path_str: Option<String> = selected
-                .path()
-                .map(|p: &PathBuf| p.to_string_lossy().to_string());
             if let (Some(hist_path), Some(sel_path)) = (&history_entry.path, &sel_path_str)
                 && hist_path == sel_path
             {
@@ -665,9 +669,7 @@ impl SkinConfigurationView {
         // SkinConfig sc = new SkinConfig();
         // sc.setPath(selected.getPath().toString()); sc.setProperties(property);
         let sc = SkinConfig {
-            path: selected
-                .path()
-                .map(|p: &PathBuf| p.to_string_lossy().to_string()),
+            path: sel_path_str,
             properties: Some(property),
         };
 
