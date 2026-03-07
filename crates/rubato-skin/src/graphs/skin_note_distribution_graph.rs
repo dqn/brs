@@ -90,21 +90,19 @@ static TRANSPARENT_COLOR: Color = Color {
 fn get_graph_colors(graph_type: i32) -> Vec<Color> {
     let idx = (graph_type as usize).min(DATA_LENGTH.len() - 1);
     let data_len = DATA_LENGTH[idx] as usize;
-    let mut colors = Vec::with_capacity(data_len);
-    for color_val in &JGRAPH[idx][..data_len] {
-        colors.push(Color::value_of(color_val));
-    }
-    colors
+    JGRAPH[idx][..data_len]
+        .iter()
+        .map(|&c| Color::value_of(c))
+        .collect()
 }
 
 fn get_pms_graph_colors(graph_type: i32) -> Vec<Color> {
     let idx = (graph_type as usize).min(DATA_LENGTH.len() - 1);
     let data_len = DATA_LENGTH[idx] as usize;
-    let mut colors = Vec::with_capacity(data_len);
-    for color_val in &PMS_GRAPH_COLOR[idx][..data_len] {
-        colors.push(Color::value_of(color_val));
-    }
-    colors
+    PMS_GRAPH_COLOR[idx][..data_len]
+        .iter()
+        .map(|&c| Color::value_of(c))
+        .collect()
 }
 
 impl SkinNoteDistributionGraph {
@@ -212,16 +210,16 @@ impl SkinNoteDistributionGraph {
                 get_graph_colors(self.graph_type)
             };
             let mut chips = Vec::with_capacity(graphcolor.len());
-            for gc in &graphcolor {
+            for color in &graphcolor {
                 let mut pixmap = Pixmap::new(1, 1, PixmapFormat::RGBA8888);
                 pixmap.draw_pixel(
                     0,
                     0,
                     Color::to_int_bits(
                         255,
-                        (gc.b * 255.0) as i32,
-                        (gc.g * 255.0) as i32,
-                        (gc.r * 255.0) as i32,
+                        (color.b * 255.0) as i32,
+                        (color.g * 255.0) as i32,
+                        (color.r * 255.0) as i32,
                     ),
                 );
                 chips.push(pixmap);
@@ -337,10 +335,7 @@ impl SkinNoteDistributionGraph {
         self.dist_data = distribution.to_vec();
         self.max = 20;
         for row in distribution {
-            let mut count = 0;
-            for val in row {
-                count += val;
-            }
+            let count: i32 = row.iter().sum();
             if self.max < count {
                 self.max = ((count / 10) * 10 + 10).min(100);
             }

@@ -50,14 +50,9 @@ impl PlayModeConfig {
         let is_midi = mode == Mode::KEYBOARD_24K || mode == Mode::KEYBOARD_24K_DOUBLE;
         let keyboard = KeyboardConfig::new(mode.clone(), !is_midi);
         let player_count = mode.player() as usize;
-        let mut controller = Vec::with_capacity(player_count);
-        for i in 0..player_count {
-            controller.push(ControllerConfig::new_with_mode(
-                mode.clone(),
-                i as i32,
-                false,
-            ));
-        }
+        let controller: Vec<ControllerConfig> = (0..player_count)
+            .map(|i| ControllerConfig::new_with_mode(mode.clone(), i as i32, false))
+            .collect();
         let midi = MidiConfig::new(mode, is_midi);
         PlayModeConfig {
             playconfig: PlayConfig::default(),
@@ -82,7 +77,6 @@ impl PlayModeConfig {
         }
     }
 
-    #[allow(clippy::needless_range_loop)]
     pub fn validate(&mut self, keys: usize) {
         self.playconfig.validate();
 
@@ -129,9 +123,9 @@ impl PlayModeConfig {
             }
             if c.keys.len() != keys {
                 let mut newkeys = vec![-1i32; keys];
-                for i in 0..c.keys.len() {
+                for &key in &c.keys {
                     if index < newkeys.len() {
-                        newkeys[index] = c.keys[i];
+                        newkeys[index] = key;
                         index += 1;
                     }
                 }
@@ -143,9 +137,9 @@ impl PlayModeConfig {
         // Button count extension (16->32) conversion (0.8.1 -> 0.8.2)
         if self.version == 0 {
             for c in &mut self.controller {
-                for i in 0..c.keys.len() {
-                    if c.keys[i] >= BMKeys::BUTTON_17 && c.keys[i] <= BMKeys::BUTTON_20 {
-                        c.keys[i] += BMKeys::AXIS1_PLUS - BMKeys::BUTTON_17;
+                for key in &mut c.keys {
+                    if *key >= BMKeys::BUTTON_17 && *key <= BMKeys::BUTTON_20 {
+                        *key += BMKeys::AXIS1_PLUS - BMKeys::BUTTON_17;
                     }
                 }
             }
@@ -162,26 +156,24 @@ impl PlayModeConfig {
         // Exclusive processing for KB, controller, Midi buttons
         let mut exclusive = vec![false; self.keyboard.keys.len()];
         validate_exclusive(&mut self.keyboard.keys, &mut exclusive);
-        for i in 0..self.controller.len() {
-            // Need to use index-based access to avoid borrow issues
-            let controller_keys = &mut self.controller[i].keys;
-            validate_exclusive(controller_keys, &mut exclusive);
+        for c in &mut self.controller {
+            validate_exclusive(&mut c.keys, &mut exclusive);
         }
 
-        for i in 0..self.midi.keys.len() {
+        for (i, key) in self.midi.keys.iter_mut().enumerate() {
             if exclusive[i] {
-                self.midi.keys[i] = None;
+                *key = None;
             }
         }
     }
 }
 
 fn validate_exclusive(keys: &mut [i32], exclusive: &mut [bool]) {
-    for i in 0..exclusive.len().min(keys.len()) {
-        if exclusive[i] {
-            keys[i] = -1;
-        } else if keys[i] != -1 {
-            exclusive[i] = true;
+    for (key, excl) in keys.iter_mut().zip(exclusive.iter_mut()) {
+        if *excl {
+            *key = -1;
+        } else if *key != -1 {
+            *excl = true;
         }
     }
 }
@@ -828,11 +820,9 @@ impl MidiConfig {
     pub fn set_key_assign(&mut self, mode: Mode, enable: bool) {
         match mode {
             Mode::BEAT_5K => {
-                self.keys = Vec::with_capacity(7);
-                for i in 0..5 {
-                    self.keys
-                        .push(Some(MidiInput::new(MidiInputType::NOTE, 53 + i)));
-                }
+                self.keys = (0..5)
+                    .map(|i| Some(MidiInput::new(MidiInputType::NOTE, 53 + i)))
+                    .collect();
                 self.keys
                     .push(Some(MidiInput::new(MidiInputType::NOTE, 49)));
                 self.keys
@@ -841,11 +831,9 @@ impl MidiConfig {
                 self.select = Some(MidiInput::new(MidiInputType::NOTE, 48));
             }
             Mode::BEAT_7K => {
-                self.keys = Vec::with_capacity(9);
-                for i in 0..7 {
-                    self.keys
-                        .push(Some(MidiInput::new(MidiInputType::NOTE, 53 + i)));
-                }
+                self.keys = (0..7)
+                    .map(|i| Some(MidiInput::new(MidiInputType::NOTE, 53 + i)))
+                    .collect();
                 self.keys
                     .push(Some(MidiInput::new(MidiInputType::NOTE, 49)));
                 self.keys
@@ -888,18 +876,16 @@ impl MidiConfig {
                 self.select = Some(MidiInput::new(MidiInputType::NOTE, 48));
             }
             Mode::POPN_5K | Mode::POPN_9K => {
-                self.keys = Vec::with_capacity(9);
-                for i in 0..9 {
-                    self.keys
-                        .push(Some(MidiInput::new(MidiInputType::NOTE, 52 + i)));
-                }
+                self.keys = (0..9)
+                    .map(|i| Some(MidiInput::new(MidiInputType::NOTE, 52 + i)))
+                    .collect();
                 self.start = Some(MidiInput::new(MidiInputType::NOTE, 47));
                 self.select = Some(MidiInput::new(MidiInputType::NOTE, 48));
             }
             Mode::KEYBOARD_24K => {
                 self.keys = vec![None; 26];
-                for i in 0..24 {
-                    self.keys[i] = Some(MidiInput::new(MidiInputType::NOTE, 48 + i as i32));
+                for (i, key) in self.keys.iter_mut().enumerate().take(24) {
+                    *key = Some(MidiInput::new(MidiInputType::NOTE, 48 + i as i32));
                 }
                 self.keys[24] = Some(MidiInput::new(MidiInputType::PITCH_BEND, 1));
                 self.keys[25] = Some(MidiInput::new(MidiInputType::PITCH_BEND, -1));
@@ -921,11 +907,9 @@ impl MidiConfig {
             }
             _ => {
                 // Default same as BEAT_7K
-                self.keys = Vec::with_capacity(9);
-                for i in 0..7 {
-                    self.keys
-                        .push(Some(MidiInput::new(MidiInputType::NOTE, 53 + i)));
-                }
+                self.keys = (0..7)
+                    .map(|i| Some(MidiInput::new(MidiInputType::NOTE, 53 + i)))
+                    .collect();
                 self.keys
                     .push(Some(MidiInput::new(MidiInputType::NOTE, 49)));
                 self.keys

@@ -298,21 +298,15 @@ impl Section {
             let mut poors: Vec<Sequence> = Vec::with_capacity(self.poor.len() + 1);
             let poortime: i64 = 500;
 
-            for i in 0..self.poor.len() {
-                let poor_idx = self.poor[i];
+            for (i, &poor_idx) in self.poor.iter().enumerate() {
+                let time = (i as i64) * poortime / (self.poor.len() as i64);
                 if poor_idx >= 0
                     && (poor_idx as usize) < bgamap.len()
                     && bgamap[poor_idx as usize] != -2
                 {
-                    poors.push(Sequence::new(
-                        (i as i64) * poortime / (self.poor.len() as i64),
-                        bgamap[poor_idx as usize],
-                    ));
+                    poors.push(Sequence::new(time, bgamap[poor_idx as usize]));
                 } else {
-                    poors.push(Sequence::new(
-                        (i as i64) * poortime / (self.poor.len() as i64),
-                        -1,
-                    ));
+                    poors.push(Sequence::new(time, -1));
                 }
             }
             poors.push(Sequence::new_end(poortime));

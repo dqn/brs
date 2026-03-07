@@ -291,12 +291,12 @@ impl KeyBoardInputProcesseor {
         // accessing imgui menu's field directly
         let accept_input = !rubato_types::skin_widget_focus::focus();
         if accept_input && !self.textmode {
-            for i in 0..self.keys.len() {
-                if self.keys[i] < 0 {
+            for (i, &key) in self.keys.iter().enumerate() {
+                if key < 0 {
                     continue;
                 }
-                let key_idx = self.keys[i] as usize;
-                let pressed = GdxInput::is_key_pressed(self.keys[i]);
+                let key_idx = key as usize;
+                let pressed = GdxInput::is_key_pressed(key);
                 if pressed != self.keystate[key_idx]
                     && microtime >= self.keytime[key_idx] + (self.duration as i64) * 1000
                 {
@@ -367,7 +367,6 @@ impl KeyBoardInputProcesseor {
         false
     }
 
-    #[allow(clippy::needless_range_loop)]
     pub fn is_key_pressed_with_modifiers(
         &mut self,
         keycode: i32,
@@ -380,8 +379,8 @@ impl KeyBoardInputProcesseor {
             if (modifiers & held_modifiers) != held_modifiers {
                 return false;
             }
-            for i in 0..not_held_modifiers.len() {
-                if (modifiers & not_held_modifiers[i]) == not_held_modifiers[i] {
+            for &modifier in not_held_modifiers {
+                if (modifiers & modifier) == modifier {
                     return false;
                 }
             }

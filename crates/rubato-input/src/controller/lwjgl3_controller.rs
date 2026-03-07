@@ -166,7 +166,6 @@ impl Lwjgl3Controller {
 
     /// Processes axis state changes and fires local listener events.
     /// Called with new axis values read from the gamepad API.
-    #[allow(clippy::needless_range_loop)]
     pub fn process_axis_changes(&mut self, new_axes: &[f32]) -> Vec<(i32, f32)> {
         let mut changes = Vec::new();
 
@@ -179,17 +178,17 @@ impl Lwjgl3Controller {
         //     }
         //     axisState[i] = axes.get(i);
         // }
-        for i in 0..new_axes.len().min(self.axis_state.len()) {
-            if (self.axis_state[i] - new_axes[i]).abs() > f32::EPSILON {
+        for (i, (state, &new_val)) in self.axis_state.iter_mut().zip(new_axes.iter()).enumerate() {
+            if (*state - new_val).abs() > f32::EPSILON {
                 // Fire local listeners
                 for listener in &mut self.listeners {
-                    if listener.axis_moved(0, i as i32, new_axes[i]) {
+                    if listener.axis_moved(0, i as i32, new_val) {
                         break;
                     }
                 }
-                changes.push((i as i32, new_axes[i]));
+                changes.push((i as i32, new_val));
             }
-            self.axis_state[i] = new_axes[i];
+            *state = new_val;
         }
 
         changes
@@ -197,7 +196,6 @@ impl Lwjgl3Controller {
 
     /// Processes button state changes and fires local listener events.
     /// Called with new button values read from the gamepad API.
-    #[allow(clippy::needless_range_loop)]
     pub fn process_button_changes(&mut self, new_buttons: &[bool]) -> Vec<(i32, bool)> {
         let mut changes = Vec::new();
 
@@ -214,11 +212,16 @@ impl Lwjgl3Controller {
         //     }
         //     buttonState[i] = buttons.get(i) == GLFW.GLFW_PRESS;
         // }
-        for i in 0..new_buttons.len().min(self.button_state.len()) {
-            if self.button_state[i] != new_buttons[i] {
+        for (i, (state, &new_val)) in self
+            .button_state
+            .iter_mut()
+            .zip(new_buttons.iter())
+            .enumerate()
+        {
+            if *state != new_val {
                 // Fire local listeners
                 for listener in &mut self.listeners {
-                    if new_buttons[i] {
+                    if new_val {
                         if listener.button_down(0, i as i32) {
                             break;
                         }
@@ -226,9 +229,9 @@ impl Lwjgl3Controller {
                         break;
                     }
                 }
-                changes.push((i as i32, new_buttons[i]));
+                changes.push((i as i32, new_val));
             }
-            self.button_state[i] = new_buttons[i];
+            *state = new_val;
         }
 
         changes

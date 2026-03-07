@@ -67,17 +67,9 @@ impl SkinDistributionGraph {
                 pixmap.draw_pixel(i as i32, 0, rgba);
             }
             let tex = Texture::from_pixmap(&pixmap);
-            let mut result = Vec::with_capacity(11);
-            for i in 0..LAMP.len() as i32 {
-                result.push(Some(TextureRegion::from_texture_region(
-                    tex.clone(),
-                    i,
-                    0,
-                    1,
-                    1,
-                )));
-            }
-            result
+            (0..LAMP.len() as i32)
+                .map(|i| Some(TextureRegion::from_texture_region(tex.clone(), i, 0, 1, 1)))
+                .collect()
         } else {
             // Rank: 28 colors
             let mut pixmap = Pixmap::new(28, 1, PixmapFormat::RGBA8888);
@@ -87,17 +79,9 @@ impl SkinDistributionGraph {
                 pixmap.draw_pixel(i as i32, 0, rgba);
             }
             let tex = Texture::from_pixmap(&pixmap);
-            let mut result = Vec::with_capacity(28);
-            for i in 0..RANK.len() as i32 {
-                result.push(Some(TextureRegion::from_texture_region(
-                    tex.clone(),
-                    i,
-                    0,
-                    1,
-                    1,
-                )));
-            }
-            result
+            (0..RANK.len() as i32)
+                .map(|i| Some(TextureRegion::from_texture_region(tex.clone(), i, 0, 1, 1)))
+                .collect()
         }
     }
 

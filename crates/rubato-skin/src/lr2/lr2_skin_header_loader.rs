@@ -159,13 +159,13 @@ impl LR2SkinHeaderLoader {
 
         // Set up options in op map
         for option in &self.header.custom_options {
-            for i in 0..option.option.len() {
-                let val = if option.selected_option() == option.option[i] {
+            for &opt in &option.option {
+                let val = if option.selected_option() == opt {
                     1
                 } else {
                     0
                 };
-                self.base.op.insert(option.option[i], val);
+                self.base.op.insert(opt, val);
             }
         }
 
@@ -303,10 +303,7 @@ impl LR2SkinHeaderLoader {
                         }
                     }
                     let base_op: i32 = str_parts[2].trim().parse().unwrap_or(0);
-                    let mut op = vec![0i32; contents.len()];
-                    for (i, o) in op.iter_mut().enumerate() {
-                        *o = base_op + i as i32;
-                    }
+                    let op: Vec<i32> = (0..contents.len()).map(|i| base_op + i as i32).collect();
                     self.options
                         .push(CustomOption::new(&str_parts[1], op, contents));
                 }
@@ -361,14 +358,14 @@ impl LR2SkinHeaderLoader {
                 }
                 // Remove in reverse order to maintain indices
                 let mut to_remove: Vec<usize> = Vec::new();
-                for i in 0..addition_names.len() {
+                for (i, &add_idx) in addition_indices.iter().enumerate() {
                     if i + 1 < str_parts.len() {
                         let cleaned: String = str_parts[i + 1]
                             .chars()
                             .filter(|c| c.is_ascii_digit() || *c == '-')
                             .collect();
                         if cleaned == "0"
-                            && let Some(idx) = addition_indices[i]
+                            && let Some(idx) = add_idx
                         {
                             to_remove.push(idx);
                         }

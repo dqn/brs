@@ -101,10 +101,10 @@ impl Lwjgl3ControllerManager {
         let mut all_changes: Vec<ControllerChanges> = Vec::new();
         let mut disconnected_indices: Vec<usize> = Vec::new();
 
-        for idx in 0..self.controllers.len() {
-            if let Some(gid) = self.controllers[idx].gamepad_id {
+        for (idx, controller) in self.controllers.iter_mut().enumerate() {
+            if let Some(gid) = controller.gamepad_id {
                 let gamepad = gilrs.gamepad(gid);
-                match self.controllers[idx].update_from_gamepad(&gamepad) {
+                match controller.update_from_gamepad(&gamepad) {
                     PollResult::Disconnected => {
                         disconnected_indices.push(idx);
                     }

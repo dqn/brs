@@ -26,8 +26,8 @@ impl BmsTableManager {
     }
 
     pub fn fire_model_changed(&mut self) {
-        for i in 0..self.listeners.len() {
-            self.listeners[i].model_changed();
+        for listener in &mut self.listeners {
+            listener.model_changed();
         }
     }
 
@@ -86,8 +86,8 @@ impl BmsTableManager {
     }
 
     pub fn clear_all_table_elements(&mut self) {
-        for i in 0..self.table_list.len() {
-            self.table_list[i].table.remove_all_elements();
+        for dt in &mut self.table_list {
+            dt.table.remove_all_elements();
         }
     }
 }

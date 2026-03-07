@@ -133,17 +133,17 @@ impl RankingData {
         self.lamps = [0; 11];
         self.irrank = 0;
         self.localrank = 0;
-        for i in 0..sorted_scores.len() {
-            if self.irrank == 0 && sorted_scores[i].player.is_empty() {
-                self.irrank = scorerankings[i];
+        for (score, &ranking) in sorted_scores.iter().zip(scorerankings.iter()) {
+            if self.irrank == 0 && score.player.is_empty() {
+                self.irrank = ranking;
             }
             if let Some(ls) = localscore
                 && self.localrank == 0
-                && sorted_scores[i].exscore() <= ls.exscore()
+                && score.exscore() <= ls.exscore()
             {
-                self.localrank = scorerankings[i];
+                self.localrank = ranking;
             }
-            let clear_id = sorted_scores[i].clear.id() as usize;
+            let clear_id = score.clear.id() as usize;
             if clear_id < self.lamps.len() {
                 self.lamps[clear_id] += 1;
             }

@@ -164,10 +164,8 @@ impl SkinHeader {
                     break;
                 }
             }
-            for i in 0..custom_option.option.len() {
-                if custom_option.option[i] == op {
-                    custom_option.selected_index = i as i32;
-                }
+            if let Some(pos) = custom_option.option.iter().position(|&o| o == op) {
+                custom_option.selected_index = pos as i32;
             }
         }
 
@@ -378,9 +376,9 @@ impl CustomOption {
 
     pub fn default_option(&self) -> i32 {
         if let Some(ref def) = self.def {
-            for i in 0..self.option.len() {
-                if i < self.contents.len() && self.contents[i] == *def {
-                    return self.option[i];
+            for (&opt, content) in self.option.iter().zip(self.contents.iter()) {
+                if *content == *def {
+                    return opt;
                 }
             }
         }

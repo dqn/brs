@@ -376,21 +376,17 @@ impl PracticeConfiguration {
             3 => {
                 // GAUGECATEGORY
                 let categories = GaugeProperty::values();
-                if let Some(current) = self.property.gaugecategory {
-                    for i in 0..categories.len() {
-                        if current == categories[i] {
-                            let next = if inc {
-                                (i + 1) % categories.len()
-                            } else {
-                                (i + categories.len() - 1) % categories.len()
-                            };
-                            self.property.gaugecategory = Some(categories[next]);
-                            let values = categories[next].element_values();
-                            self.property.startgauge =
-                                values[self.property.gaugetype as usize].init as i32;
-                            break;
-                        }
-                    }
+                if let Some(current) = self.property.gaugecategory
+                    && let Some(i) = categories.iter().position(|&c| c == current)
+                {
+                    let next = if inc {
+                        (i + 1) % categories.len()
+                    } else {
+                        (i + categories.len() - 1) % categories.len()
+                    };
+                    self.property.gaugecategory = Some(categories[next]);
+                    let values = categories[next].element_values();
+                    self.property.startgauge = values[self.property.gaugetype as usize].init as i32;
                 }
             }
             4 => {

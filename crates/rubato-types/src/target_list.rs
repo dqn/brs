@@ -33,9 +33,9 @@ pub fn targets() -> Vec<String> {
 pub fn target_name(target: &str) -> String {
     let targets = lock_or_recover(&TARGETS);
     let names = lock_or_recover(&TARGET_NAMES);
-    for i in 0..targets.len() {
-        if targets[i] == target && i < names.len() {
-            return names[i].clone();
+    for (t, n) in targets.iter().zip(names.iter()) {
+        if *t == target {
+            return n.clone();
         }
     }
     String::new()

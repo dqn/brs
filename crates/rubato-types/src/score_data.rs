@@ -279,15 +279,16 @@ impl ScoreData {
         if decompressed.is_empty() {
             return None;
         }
-        let mut value = vec![0i32; self.notes as usize];
-        for i in 0..value.len() {
-            if i < decompressed.len() {
-                let judge = decompressed[i] as i32;
-                value[i] = if judge >= 0 { judge } else { 4 };
-            } else {
-                value[i] = 4;
-            }
-        }
+        let value: Vec<i32> = (0..self.notes as usize)
+            .map(|i| {
+                if i < decompressed.len() {
+                    let judge = decompressed[i] as i32;
+                    if judge >= 0 { judge } else { 4 }
+                } else {
+                    4
+                }
+            })
+            .collect();
         Some(value)
     }
 

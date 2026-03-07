@@ -30,27 +30,19 @@ impl DifficultyTable {
         self.table.models().clone()
     }
 
-    #[allow(dead_code, clippy::needless_range_loop)]
+    #[allow(dead_code)]
     fn index_of(&self, level: &str) -> i32 {
         let desc = self.level_description();
-        for i in 0..desc.len() {
-            if desc[i] == level {
-                return i as i32;
-            }
-        }
-        -1
+        desc.iter()
+            .position(|d| d == level)
+            .map_or(-1, |i| i as i32)
     }
 
-    #[allow(clippy::needless_range_loop)]
     pub fn level_description(&self) -> Vec<String> {
         if let Some(l) = self.table.values().get(LEVEL_ORDER)
             && let Some(arr) = l.as_array()
         {
-            let mut levels: Vec<String> = Vec::with_capacity(arr.len());
-            for i in 0..arr.len() {
-                levels.push(value_to_string(&arr[i]));
-            }
-            return levels;
+            return arr.iter().map(value_to_string).collect();
         }
         Vec::new()
     }

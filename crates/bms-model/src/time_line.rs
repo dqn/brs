@@ -20,12 +20,8 @@ pub struct TimeLine {
 impl TimeLine {
     pub fn new(section: f64, time: i64, notesize: i32) -> Self {
         let notesize = notesize as usize;
-        let mut notes = Vec::with_capacity(notesize);
-        let mut hiddennotes = Vec::with_capacity(notesize);
-        for _ in 0..notesize {
-            notes.push(None);
-            hiddennotes.push(None);
-        }
+        let notes = vec![None; notesize];
+        let hiddennotes = vec![None; notesize];
         TimeLine {
             section,
             time,

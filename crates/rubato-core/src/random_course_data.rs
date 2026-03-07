@@ -65,8 +65,8 @@ impl RandomCourseData {
         let mut results: Vec<Option<SongData>> = vec![None; stage_count];
         let mut lots: Vec<SongData> = Vec::new();
 
-        for i in 0..stage_count {
-            let sql_opt = self.stage[i].sql.as_deref().filter(|s| !s.is_empty());
+        for (i, stage) in self.stage.iter().enumerate() {
+            let sql_opt = stage.sql.as_deref().filter(|s| !s.is_empty());
             if sql_opt.is_none() && i > 0 {
                 Self::lottery_song_data(&mut results, i, &lots, is_distinct);
                 continue;

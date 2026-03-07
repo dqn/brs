@@ -868,12 +868,10 @@ impl ResourceConfigurationView {
     /// Helper: move selected items up in a list
     fn move_selected_items_up(list: &mut [TableInfo], selected: &mut [usize]) {
         selected.sort_unstable();
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..selected.len() {
-            let idx = selected[i];
-            if idx > 0 {
-                list.swap(idx, idx - 1);
-                selected[i] = idx - 1;
+        for sel in selected.iter_mut() {
+            if *sel > 0 {
+                list.swap(*sel, *sel - 1);
+                *sel -= 1;
             }
         }
     }
@@ -882,12 +880,10 @@ impl ResourceConfigurationView {
     fn move_selected_items_down(list: &mut [TableInfo], selected: &mut [usize]) {
         selected.sort_unstable();
         selected.reverse();
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..selected.len() {
-            let idx = selected[i];
-            if idx < list.len().saturating_sub(1) {
-                list.swap(idx, idx + 1);
-                selected[i] = idx + 1;
+        for sel in selected.iter_mut() {
+            if *sel < list.len().saturating_sub(1) {
+                list.swap(*sel, *sel + 1);
+                *sel += 1;
             }
         }
     }

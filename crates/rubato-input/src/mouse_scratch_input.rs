@@ -89,8 +89,7 @@ impl MouseScratchInput {
                 }
             }
 
-            for i in 0..self.keys.len() {
-                let axis = self.keys[i];
+            for (i, &axis) in self.keys.iter().enumerate() {
                 if axis >= 0 && self.mouse_scratch_changed[axis as usize] {
                     callback.key_changed_from_keyboard(
                         microtime,
@@ -117,9 +116,9 @@ impl MouseScratchInput {
                 self.mouse_scratch_changed[self.control[1] as usize] = false;
             }
 
-            for i in 0..self.keys.len() {
-                if self.keys[i] >= 0 {
-                    let value = self.mouse_analog_value(self.keys[i]);
+            for (i, &key) in self.keys.iter().enumerate() {
+                if key >= 0 {
+                    let value = self.mouse_analog_value(key);
                     callback.set_analog_state(i, true, value);
                 }
             }
@@ -137,24 +136,22 @@ impl MouseScratchInput {
         self._mouse_scratch_distance = msconfig.mouse_scratch_distance;
         if self.mouse_scratch_enabled {
             let mouse_to_analog = MouseToAnalog::new(msconfig.mouse_scratch_distance);
-            for i in 0..self.mouse_scratch_algorithm.len() {
+            for (i, alg_slot) in self.mouse_scratch_algorithm.iter_mut().enumerate() {
                 let x_axis = i == 0;
                 match msconfig.mouse_scratch_mode {
                     MouseScratchConfig::MOUSE_SCRATCH_VER_1 => {
-                        self.mouse_scratch_algorithm[i] =
-                            Some(Box::new(MouseScratchAlgorithmVersion1::new(
-                                msconfig.mouse_scratch_time_threshold,
-                                &mouse_to_analog,
-                                x_axis,
-                            )));
+                        *alg_slot = Some(Box::new(MouseScratchAlgorithmVersion1::new(
+                            msconfig.mouse_scratch_time_threshold,
+                            &mouse_to_analog,
+                            x_axis,
+                        )));
                     }
                     MouseScratchConfig::MOUSE_SCRATCH_VER_2 => {
-                        self.mouse_scratch_algorithm[i] =
-                            Some(Box::new(MouseScratchAlgorithmVersion2::new(
-                                msconfig.mouse_scratch_time_threshold,
-                                &mouse_to_analog,
-                                x_axis,
-                            )));
+                        *alg_slot = Some(Box::new(MouseScratchAlgorithmVersion2::new(
+                            msconfig.mouse_scratch_time_threshold,
+                            &mouse_to_analog,
+                            x_axis,
+                        )));
                     }
                     _ => {}
                 }
@@ -162,18 +159,16 @@ impl MouseScratchInput {
             self.mouse_to_analog = Some(mouse_to_analog);
         } else {
             self.mouse_to_analog = None;
-            for i in 0..self.mouse_scratch_algorithm.len() {
-                self.mouse_scratch_algorithm[i] = None;
+            for alg in &mut self.mouse_scratch_algorithm {
+                *alg = None;
             }
         }
     }
 
     pub fn clear(&mut self) {
         //Arrays.fill(keytime, -duration);
-        for i in 0..self.mouse_scratch_algorithm.len() {
-            if let Some(ref mut alg) = self.mouse_scratch_algorithm[i] {
-                alg.reset();
-            }
+        for alg in self.mouse_scratch_algorithm.iter_mut().flatten() {
+            alg.reset();
         }
         self.last_mouse_scratch = -1;
     }

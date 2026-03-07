@@ -386,7 +386,7 @@ impl BMControllerInputProcessor {
             let mut analog_scratch_algorithm: Vec<Box<dyn AnalogScratchAlgorithm>> =
                 Vec::with_capacity(AXIS_LENGTH);
             let analog_scratch_threshold = controller_config.analog_scratch_threshold;
-            for _i in 0..AXIS_LENGTH {
+            for _ in 0..AXIS_LENGTH {
                 match controller_config.analog_scratch_mode {
                     ControllerConfig::ANALOG_SCRATCH_VER_1 => {
                         analog_scratch_algorithm.push(Box::new(
@@ -462,8 +462,7 @@ impl BMControllerInputProcessor {
             }
         }
 
-        for i in 0..self.buttons.len() {
-            let button = self.buttons[i];
+        for (i, &button) in self.buttons.iter().enumerate() {
             if button >= 0
                 && (button as usize) < BMKeys::MAXID
                 && self.buttonchanged[button as usize]
@@ -494,8 +493,7 @@ impl BMControllerInputProcessor {
         }
 
         let is_analog = !self.jkoc && self.analog_scratch_algorithm.is_some();
-        for i in 0..self.buttons.len() {
-            let button = self.buttons[i];
+        for (i, &button) in self.buttons.iter().enumerate() {
             if button < 0 || (button as usize) >= BMKeys::MAXID {
                 continue;
             }

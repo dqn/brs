@@ -375,31 +375,33 @@ impl LR2PlaySkinLoaderState {
                     }
                     if !self.lanerender {
                         // Fill in missing HCN sources from LN sources
-                        for i in 0..self.hcnend.len() {
-                            if self.hcnend[i].is_none() {
-                                self.hcnend[i] = self.lnend[i].clone();
+                        for (hcn, ln) in self.hcnend.iter_mut().zip(self.lnend.iter()) {
+                            if hcn.is_none() {
+                                *hcn = ln.clone();
                             }
                         }
-                        for i in 0..self.hcnstart.len() {
-                            if self.hcnstart[i].is_none() {
-                                self.hcnstart[i] = self.lnstart[i].clone();
+                        for (hcn, ln) in self.hcnstart.iter_mut().zip(self.lnstart.iter()) {
+                            if hcn.is_none() {
+                                *hcn = ln.clone();
                             }
                         }
-                        for i in 0..self.hcnbody.len() {
-                            if self.hcnbody[i].is_none() {
-                                self.hcnbody[i] = self.lnbody[i].clone();
+                        for (hcn, ln) in self.hcnbody.iter_mut().zip(self.lnbody.iter()) {
+                            if hcn.is_none() {
+                                *hcn = ln.clone();
                             }
                         }
-                        for i in 0..self.hcnbodya.len() {
-                            if self.hcnbodya[i].is_none() {
-                                self.hcnbodya[i] = self.lnbodya[i].clone();
+                        for (hcn, ln) in self.hcnbodya.iter_mut().zip(self.lnbodya.iter()) {
+                            if hcn.is_none() {
+                                *hcn = ln.clone();
                             }
                         }
+                        // hcnbodyd falls back to hcnbody - can't zip self with self, use index
                         for i in 0..self.hcnbodyd.len() {
                             if self.hcnbodyd[i].is_none() {
                                 self.hcnbodyd[i] = self.hcnbody[i].clone();
                             }
                         }
+                        // hcnbodyr falls back to hcnbodya - can't zip self with self, use index
                         for i in 0..self.hcnbodyr.len() {
                             if self.hcnbodyr[i].is_none() {
                                 self.hcnbodyr[i] = self.hcnbodya[i].clone();

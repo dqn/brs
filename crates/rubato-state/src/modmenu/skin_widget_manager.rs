@@ -114,14 +114,14 @@ impl SkinWidgetManager {
             let dsts = skin_object.all_destination();
             let mut destinations: Vec<SkinWidgetDestination> = Vec::new();
 
-            for i in 0..dsts.len() {
+            for (i, dst) in dsts.iter().enumerate() {
                 let dst_base_name = skin_object_name.as_deref().unwrap_or("Unnamed Destination");
                 let combined_name = if dsts.len() == 1 {
                     dst_base_name.to_string()
                 } else {
                     format!("{}({})", dst_base_name, i)
                 };
-                destinations.push(SkinWidgetDestination::new(combined_name, dsts[i].clone()));
+                destinations.push(SkinWidgetDestination::new(combined_name, dst.clone()));
             }
 
             let widget_base_name = skin_object_name.as_deref().unwrap_or("Unnamed Widget");

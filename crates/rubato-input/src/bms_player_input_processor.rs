@@ -57,7 +57,7 @@ impl KeyLogger {
     pub fn clear(&mut self) {
         self.keylog.clear();
         self.logpool.clear();
-        for _i in 0..Self::INITIAL_LOG_COUNT {
+        for _ in 0..Self::INITIAL_LOG_COUNT {
             self.logpool.push(KeyInputLog::new());
         }
         self.poolindex = 0;
@@ -201,17 +201,17 @@ impl BMSPlayerInputProcessor {
         let mut b = vec![false; configs.len()];
         for controller in self.bminput.iter_mut() {
             controller.set_enable(false);
-            for i in 0..configs.len() {
-                if b[i] {
+            for (config, matched) in configs.iter_mut().zip(b.iter_mut()) {
+                if *matched {
                     continue;
                 }
-                if configs[i].name().is_none() || configs[i].name().is_some_and(|n| n.is_empty()) {
-                    configs[i].name = controller.name().to_string();
+                if config.name().is_none() || config.name().is_some_and(|n| n.is_empty()) {
+                    config.name = controller.name().to_string();
                 }
-                if controller.name() == configs[i].name().unwrap_or("") {
-                    controller.set_config(&configs[i]);
+                if controller.name() == config.name().unwrap_or("") {
+                    controller.set_config(config);
                     controller.set_enable(true);
-                    b[i] = true;
+                    *matched = true;
                     break;
                 }
             }
@@ -313,9 +313,8 @@ impl BMSPlayerInputProcessor {
 
         let mut cokeys: Vec<Vec<i32>> = Vec::new();
         let mut cocount = 0;
-        for i in 0..playconfig.controller.len() {
-            let keys = playconfig.controller[i].keys.to_vec();
-            cokeys.push(keys);
+        for controller in &playconfig.controller {
+            cokeys.push(controller.keys.to_vec());
         }
         for item in &mut cokeys {
             cocount += Self::set_play_config0(item, &mut exclusive);
@@ -324,13 +323,11 @@ impl BMSPlayerInputProcessor {
         let midi_keys = playconfig.midi.keys.to_vec();
         let mut midi_keys_mut = midi_keys;
         let mut micount = 0;
-        for i in 0..midi_keys_mut.len() {
-            if i < exclusive.len() && exclusive[i] {
-                midi_keys_mut[i] = None;
+        for (key, excl) in midi_keys_mut.iter_mut().zip(exclusive.iter_mut()) {
+            if *excl {
+                *key = None;
             } else {
-                if i < exclusive.len() {
-                    exclusive[i] = true;
-                }
+                *excl = true;
                 micount += 1;
             }
         }
@@ -356,14 +353,12 @@ impl BMSPlayerInputProcessor {
 
     fn set_play_config0(keys: &mut [i32], exclusive: &mut [bool]) -> i32 {
         let mut count = 0;
-        for i in 0..keys.len() {
-            if i < exclusive.len() {
-                if exclusive[i] {
-                    keys[i] = -1;
-                } else if keys[i] != -1 {
-                    exclusive[i] = true;
-                    count += 1;
-                }
+        for (key, excl) in keys.iter_mut().zip(exclusive.iter_mut()) {
+            if *excl {
+                *key = -1;
+            } else if *key != -1 {
+                *excl = true;
+                count += 1;
             }
         }
         count

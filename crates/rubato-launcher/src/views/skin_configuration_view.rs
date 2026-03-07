@@ -696,22 +696,9 @@ impl SkinConfigurationView {
         // List items = new ArrayList();
         // List<CustomItem> otheritems = new ArrayList<CustomItem>();
         let mut items: Vec<CreateItem> = Vec::new();
-        let mut other_options: Vec<usize> = Vec::new(); // indices into header's custom options
-        let mut other_files: Vec<usize> = Vec::new(); // indices into header's custom files
-        let mut other_offsets: Vec<usize> = Vec::new(); // indices into header's custom offsets
-
-        // otheritems.addAll(Arrays.asList(header.getCustomOptions()));
-        for i in 0..header.custom_options().len() {
-            other_options.push(i);
-        }
-        // otheritems.addAll(Arrays.asList(header.getCustomFiles()));
-        for i in 0..header.custom_files().len() {
-            other_files.push(i);
-        }
-        // otheritems.addAll(Arrays.asList(header.getCustomOffsets()));
-        for i in 0..header.custom_offsets().len() {
-            other_offsets.push(i);
-        }
+        let mut other_options: Vec<usize> = (0..header.custom_options().len()).collect();
+        let mut other_files: Vec<usize> = (0..header.custom_files().len()).collect();
+        let mut other_offsets: Vec<usize> = (0..header.custom_offsets().len()).collect();
 
         // for(CustomCategory category : header.getCustomCategories()) {
         for category in header.custom_categories() {

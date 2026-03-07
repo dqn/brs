@@ -65,11 +65,11 @@ impl Validatable for CourseData {
         if self.name.as_ref().is_none_or(|n| n.is_empty()) {
             self.name = Some("No Course Title".to_string());
         }
-        for i in 0..self.hash.len() {
-            if self.hash[i].title.is_empty() {
-                self.hash[i].title = format!("course {}", i + 1);
+        for (i, hash) in self.hash.iter_mut().enumerate() {
+            if hash.title.is_empty() {
+                hash.title = format!("course {}", i + 1);
             }
-            if !self.hash[i].validate() {
+            if !hash.validate() {
                 return false;
             }
         }

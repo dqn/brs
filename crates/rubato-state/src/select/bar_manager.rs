@@ -137,13 +137,17 @@ impl BarManager {
         // Sort tables according to config table URL order
         let mut sorted_tables: Vec<TableData> = Vec::with_capacity(unsorted_tables.len());
         for url in &config.table_url {
-            for item in unsorted_tables.iter_mut() {
-                if let Some(td) = item.as_ref()
-                    && td.url_opt() == Some(url.as_str())
+            if let Some(td) = unsorted_tables.iter_mut().find_map(|slot| {
+                if slot
+                    .as_ref()
+                    .is_some_and(|td| td.url_opt() == Some(url.as_str()))
                 {
-                    sorted_tables.push(item.take().unwrap());
-                    break;
+                    slot.take()
+                } else {
+                    None
                 }
+            }) {
+                sorted_tables.push(td);
             }
         }
         // Append remaining tables not in URL list
@@ -511,11 +515,8 @@ impl BarManager {
             if let Some(ref mut ctx) = ctx {
                 let mut mode_index = 0usize;
                 let current_mode = ctx.player_config.mode().cloned();
-                for (i, mode) in MODE.iter().enumerate() {
-                    if *mode == current_mode {
-                        mode_index = i;
-                        break;
-                    }
+                if let Some(pos) = MODE.iter().position(|m| *m == current_mode) {
+                    mode_index = pos;
                 }
 
                 for trial_count in 0..MODE.len() {
@@ -687,44 +688,34 @@ impl BarManager {
                 let target_title = sourcebar_title.as_deref();
                 let target_sha = sourcebar_sha256.as_deref();
                 if sourcebar_is_song && target_sha.is_some() {
-                    for i in 0..self.currentsongs.len() {
-                        if let Some(sb) = self.currentsongs[i].as_song_bar()
-                            && sb.exists_song()
-                            && Some(sb.song_data().sha256.as_str()) == target_sha
-                        {
-                            self.selectedindex = i;
-                            break;
-                        }
+                    if let Some(pos) = self.currentsongs.iter().position(|bar| {
+                        bar.as_song_bar().is_some_and(|sb| {
+                            sb.exists_song() && Some(sb.song_data().sha256.as_str()) == target_sha
+                        })
+                    }) {
+                        self.selectedindex = pos;
                     }
-                } else if let Some(title) = target_title {
-                    for i in 0..self.currentsongs.len() {
-                        if self.currentsongs[i].title() == title {
-                            self.selectedindex = i;
-                            break;
-                        }
-                    }
+                } else if let Some(title) = target_title
+                    && let Some(pos) = self
+                        .currentsongs
+                        .iter()
+                        .position(|bar| bar.title() == title)
+                {
+                    self.selectedindex = pos;
                 }
             } else if let Some(ref prev_title) = prevbar_title {
                 if prevbar_is_song && prevbar_sha256.is_some() {
                     let sha = prevbar_sha256.as_deref().unwrap();
-                    for i in 0..self.currentsongs.len() {
-                        if let Some(sb) = self.currentsongs[i].as_song_bar()
-                            && sb.exists_song()
-                            && sb.song_data().sha256 == sha
-                        {
-                            self.selectedindex = i;
-                            break;
-                        }
+                    if let Some(pos) = self.currentsongs.iter().position(|bar| {
+                        bar.as_song_bar()
+                            .is_some_and(|sb| sb.exists_song() && sb.song_data().sha256 == sha)
+                    }) {
+                        self.selectedindex = pos;
                     }
-                } else {
-                    for i in 0..self.currentsongs.len() {
-                        if bar_class_name(&self.currentsongs[i]) == prevbar_class_name
-                            && self.currentsongs[i].title() == *prev_title
-                        {
-                            self.selectedindex = i;
-                            break;
-                        }
-                    }
+                } else if let Some(pos) = self.currentsongs.iter().position(|bar| {
+                    bar_class_name(bar) == prevbar_class_name && bar.title() == *prev_title
+                }) {
+                    self.selectedindex = pos;
                 }
             }
 
@@ -816,11 +807,12 @@ impl BarManager {
     }
 
     pub fn set_selected(&mut self, bar: &Bar) {
-        for i in 0..self.currentsongs.len() {
-            if self.currentsongs[i].title() == bar.title() {
-                self.selectedindex = i;
-                break;
-            }
+        if let Some(pos) = self
+            .currentsongs
+            .iter()
+            .position(|b| b.title() == bar.title())
+        {
+            self.selectedindex = pos;
         }
     }
 

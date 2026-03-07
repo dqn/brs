@@ -112,15 +112,15 @@ impl SkinTimingVisualizer {
             let mut beforex2 = self.center + 1;
             shape.set_color(&self.center_color);
             shape.fill_rectangle(self.center, 0, 1, 1);
-            for i in 0..self.j_color.len() {
-                shape.set_color(&self.j_color[i]);
-                let x1 = if self.judge_area.len() > i {
-                    self.center + self.judge_area[i][0].clamp(-self.center, self.center)
+            for (i, color) in self.j_color.iter().enumerate() {
+                shape.set_color(color);
+                let x1 = if let Some(area) = self.judge_area.get(i) {
+                    self.center + area[0].clamp(-self.center, self.center)
                 } else {
                     self.center
                 };
-                let x2 = if self.judge_area.len() > i {
-                    self.center + self.judge_area[i][1].clamp(-self.center, self.center) + 1
+                let x2 = if let Some(area) = self.judge_area.get(i) {
+                    self.center + area[1].clamp(-self.center, self.center) + 1
                 } else {
                     self.center + 1
                 };
@@ -152,15 +152,16 @@ impl SkinTimingVisualizer {
             pix.set_color(&Color::WHITE);
             pix.fill();
             self.line = Some(TextureRegion::from_texture(Texture::from_pixmap(&pix)));
-            self.line_colors = Vec::with_capacity(self.recent.len());
-            for i in 0..self.recent.len() {
-                self.line_colors.push(Color::new(
-                    self.line_color.r,
-                    self.line_color.g,
-                    self.line_color.b,
-                    self.line_color.a / 100.0 * (i as f32 + 1.0),
-                ));
-            }
+            self.line_colors = (0..self.recent.len())
+                .map(|i| {
+                    Color::new(
+                        self.line_color.r,
+                        self.line_color.g,
+                        self.line_color.b,
+                        self.line_color.a / 100.0 * (i as f32 + 1.0),
+                    )
+                })
+                .collect();
             pix.dispose();
         }
     }

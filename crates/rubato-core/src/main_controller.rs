@@ -300,10 +300,7 @@ impl MainController {
         auto: Option<BMSPlayerMode>,
         song_updated: bool,
     ) -> Self {
-        let mut offset = Vec::with_capacity(OFFSET_COUNT);
-        for _ in 0..OFFSET_COUNT {
-            offset.push(SkinOffset::new());
-        }
+        let offset: Vec<SkinOffset> = (0..OFFSET_COUNT).map(|_| SkinOffset::new()).collect();
 
         // IPFS directory setup (Java: MainController constructor lines 161-170)
         if config.enable_ipfs {

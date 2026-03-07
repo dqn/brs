@@ -185,14 +185,13 @@ impl MidiInputProcessor {
         self.receiver = Some(receiver);
     }
 
-    #[allow(clippy::needless_range_loop)]
     pub fn set_config(&mut self, config: &MidiConfig) {
         self.clear_impl();
         self.clear_handlers();
 
         let keys = &config.keys;
-        for i in 0..keys.len() {
-            if let Some(input) = &keys[i] {
+        for (i, key) in keys.iter().enumerate() {
+            if let Some(input) = key {
                 self.set_handler(
                     input,
                     KeyHandler {

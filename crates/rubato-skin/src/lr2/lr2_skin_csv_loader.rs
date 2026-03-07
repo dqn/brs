@@ -863,13 +863,13 @@ pub fn load_lr2_skin(
 
     // Transfer header options to loader's op map
     for option in &header_data.custom_options {
-        for i in 0..option.option.len() {
-            let val = if option.selected_option() == option.option[i] {
+        for &opt in &option.option {
+            let val = if option.selected_option() == opt {
                 1
             } else {
                 0
             };
-            loader.csv_mut().base.op.insert(option.option[i], val);
+            loader.csv_mut().base.op.insert(opt, val);
         }
     }
 

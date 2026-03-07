@@ -136,10 +136,9 @@ pub struct PlayerConfig {
 impl Default for PlayerConfig {
     fn default() -> Self {
         let max_skin_id = SkinType::max_skin_type_id();
-        let mut skin = Vec::with_capacity(max_skin_id as usize + 1);
-        for i in 0..=max_skin_id {
-            skin.push(Some(SkinConfig::default_for_id(i)));
-        }
+        let skin: Vec<Option<SkinConfig>> = (0..=max_skin_id)
+            .map(|i| Some(SkinConfig::default_for_id(i)))
+            .collect();
 
         PlayerConfig {
             id: None,
@@ -395,11 +394,11 @@ impl PlayerConfig {
         if self.skin.len() != max_skin_id + 1 {
             self.skin.resize_with(max_skin_id + 1, || None);
         }
-        for i in 0..self.skin.len() {
-            if self.skin[i].is_none() {
-                self.skin[i] = Some(SkinConfig::default_for_id(i as i32));
+        for (i, skin) in self.skin.iter_mut().enumerate() {
+            if skin.is_none() {
+                *skin = Some(SkinConfig::default_for_id(i as i32));
             }
-            if let Some(ref mut s) = self.skin[i] {
+            if let Some(s) = skin {
                 s.validate();
             }
         }

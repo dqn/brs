@@ -167,8 +167,8 @@ pub fn build_judge_notes(model: &BMSModel) -> Vec<JudgeNote> {
 
     // Create a mapping from old index to new index
     let mut old_to_new = vec![0; all_notes.len()];
-    for new_idx in 0..indices.len() {
-        old_to_new[indices[new_idx]] = new_idx;
+    for (new_idx, &old_idx) in indices.iter().enumerate() {
+        old_to_new[old_idx] = new_idx;
     }
 
     // Reorder notes according to sorted indices

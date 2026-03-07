@@ -160,10 +160,11 @@ impl ScoreDataProperty {
         self.nowrate_int = (self.nowrate * 100.0) as i32;
         self.nowrate_after_dot = ((self.nowrate * 10000.0) as i32) % 100;
         self.nextrank = i32::MIN;
-        for i in 0..self.rank.len() {
-            self.rank[i] = totalnotes != 0 && self.rate >= 1f32 * i as f32 / self.rank.len() as f32;
-            if i % 3 == 0 && !self.rank[i] && self.nextrank == i32::MIN {
-                self.nextrank = (((i as f64) * ((notes * 2) as f64) / (self.rank.len() as f64))
+        let rank_len = self.rank.len();
+        for (i, rank) in self.rank.iter_mut().enumerate() {
+            *rank = totalnotes != 0 && self.rate >= 1f32 * i as f32 / rank_len as f32;
+            if i % 3 == 0 && !*rank && self.nextrank == i32::MIN {
+                self.nextrank = (((i as f64) * ((notes * 2) as f64) / (rank_len as f64))
                     - (self.rate as f64) * ((notes * 2) as f64))
                     .ceil() as i32;
             }
@@ -171,9 +172,9 @@ impl ScoreDataProperty {
         if self.nextrank == i32::MIN {
             self.nextrank = (notes * 2) - exscore;
         }
-        for i in 0..self.nowrank.len() {
-            self.nowrank[i] =
-                totalnotes != 0 && self.nowrate >= 1f32 * i as f32 / self.nowrank.len() as f32;
+        let nowrank_len = self.nowrank.len();
+        for (i, nowrank) in self.nowrank.iter_mut().enumerate() {
+            *nowrank = totalnotes != 0 && self.nowrate >= 1f32 * i as f32 / nowrank_len as f32;
         }
 
         if self.use_best_ghost {
@@ -265,8 +266,9 @@ impl ScoreDataProperty {
         self.bestrate_int = (self.bestscorerate * 100.0) as i32;
         self.bestrate_after_dot = ((self.bestscorerate * 10000.0) as i32) % 100;
         self.rivalscorerate = (rivalscore as f32) / (totalnotes * 2) as f32;
-        for i in 0..self.bestrank.len() {
-            self.bestrank[i] = self.bestscorerate >= 1f32 * i as f32 / self.bestrank.len() as f32;
+        let bestrank_len = self.bestrank.len();
+        for (i, bestrank) in self.bestrank.iter_mut().enumerate() {
+            *bestrank = self.bestscorerate >= 1f32 * i as f32 / bestrank_len as f32;
         }
         self.rivalrate_int = (self.rivalscorerate * 100.0) as i32;
         self.rivalrate_after_dot = ((self.rivalscorerate * 10000.0) as i32) % 100;

@@ -45,8 +45,8 @@ impl RandomTrainerMenu {
         let lane_order = LANE_ORDER.lock().unwrap();
         let bw_permute = *BLACK_WHITE_RANDOM_PERMUTATION.lock().unwrap();
 
-        for i in 0..lane_order.len() {
-            let lane_char = lane_order[i].chars().next().unwrap_or('1');
+        for lane in lane_order.iter() {
+            let lane_char = lane.chars().next().unwrap_or('1');
             let to_random = RandomTrainer::is_lane_to_random(lane_char);
 
             // Color selection based on black/white keys and random state
@@ -113,8 +113,8 @@ impl RandomTrainerMenu {
                 // Key display
                 ui.horizontal(|ui| {
                     let lane_order = LANE_ORDER.lock().unwrap();
-                    for i in 0..lane_order.len() {
-                        let lane_char = lane_order[i].chars().next().unwrap_or('1');
+                    for lane in lane_order.iter() {
+                        let lane_char = lane.chars().next().unwrap_or('1');
                         let is_random =
                             crate::modmenu::random_trainer::RandomTrainer::is_lane_to_random(
                                 lane_char,
@@ -122,7 +122,7 @@ impl RandomTrainerMenu {
                         let label = if is_random {
                             "?".to_string()
                         } else {
-                            lane_order[i].clone()
+                            lane.clone()
                         };
                         let color = if is_random {
                             egui::Color32::from_rgb(255, 100, 150) // pink
@@ -187,8 +187,8 @@ impl RandomTrainerMenu {
 fn change_lane_order(random: &str) {
     let mut lane_order = LANE_ORDER.lock().unwrap();
     let chars: Vec<char> = random.chars().collect();
-    for i in 0..lane_order.len().min(chars.len()) {
-        lane_order[i] = chars[i].to_string();
+    for (slot, &ch) in lane_order.iter_mut().zip(chars.iter()) {
+        *slot = ch.to_string();
     }
 }
 

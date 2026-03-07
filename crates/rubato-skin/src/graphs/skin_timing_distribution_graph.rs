@@ -119,15 +119,15 @@ impl SkinTimingDistributionGraph {
 
             let mut beforex1 = self.c;
             let mut beforex2 = self.c + 1;
-            for i in 0..self.j_color.len() {
-                shape.set_color(&self.j_color[i]);
-                let x1 = if judge_area.len() > i {
-                    self.c + judge_area[i][0].clamp(-self.c, self.c)
+            for (i, color) in self.j_color.iter().enumerate() {
+                shape.set_color(color);
+                let x1 = if let Some(area) = judge_area.get(i) {
+                    self.c + area[0].clamp(-self.c, self.c)
                 } else {
                     self.c
                 };
-                let x2 = if judge_area.len() > i {
-                    self.c + judge_area[i][1].clamp(-self.c, self.c) + 1
+                let x2 = if let Some(area) = judge_area.get(i) {
+                    self.c + area[1].clamp(-self.c, self.c) + 1
                 } else {
                     self.c + 1
                 };

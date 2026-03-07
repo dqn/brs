@@ -69,10 +69,7 @@ impl SkinLane {
 
 impl SkinNote {
     pub fn new(lane_count: usize) -> Self {
-        let mut lanes = Vec::with_capacity(lane_count);
-        for _ in 0..lane_count {
-            lanes.push(SkinLane::new());
-        }
+        let lanes: Vec<SkinLane> = (0..lane_count).map(|_| SkinLane::new()).collect();
         SkinNote { lanes, time: 0 }
     }
 

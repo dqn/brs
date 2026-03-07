@@ -501,8 +501,8 @@ impl SkinFloat {
     /// Draw the float number.
     /// Corresponds to Java SkinFloat.draw(SkinObjectRenderer sprite)
     pub fn draw(&self, sprite: &mut SkinObjectRenderer) {
-        for j in 0..self.current_images.len() {
-            if let Some(ref img) = self.current_images[j] {
+        for (j, current_img) in self.current_images.iter().enumerate() {
+            if let Some(img) = current_img {
                 if let Some(ref offsets) = self.offsets {
                     if j < offsets.len() {
                         sprite.draw(

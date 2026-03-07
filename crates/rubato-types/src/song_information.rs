@@ -266,10 +266,10 @@ impl SongInformation {
             log::warn!("distribution string is invalid");
         }
         self.distribution_values = vec![[0i32; 7]; count];
-        for i in 0..count {
+        for (i, dist_val) in self.distribution_values.iter_mut().enumerate() {
             for (j, &idx) in index.iter().enumerate() {
                 match parse_int36(dist, i * (index.len() * 2) + j * 2) {
-                    Ok(val) => self.distribution_values[i][idx] = val,
+                    Ok(val) => dist_val[idx] = val,
                     Err(_) => {
                         log::warn!("exception while parsing distribution");
                     }

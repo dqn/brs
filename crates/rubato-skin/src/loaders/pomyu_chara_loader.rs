@@ -1371,7 +1371,7 @@ fn pm_parse_int_radix(s: &str, radix: i32) -> i32 {
 
 fn pm_parse_str(s: &[&str]) -> Vec<String> {
     let mut list = Vec::new();
-    for item in s {
+    for &item in s {
         if !item.is_empty() {
             if item.starts_with('/') {
                 break;

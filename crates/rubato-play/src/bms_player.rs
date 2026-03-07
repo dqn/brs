@@ -2469,10 +2469,10 @@ impl MainState for BMSPlayer {
                 let ptime = self.main_state_data.timer.now_time_for_id(TIMER_PLAY);
                 // Gauge log
                 if let Some(ref gauge) = self.gauge {
-                    for i in 0..self.gaugelog.len() {
-                        if self.gaugelog[i].len() as i64 <= ptime / 500 {
+                    for (i, log) in self.gaugelog.iter_mut().enumerate() {
+                        if log.len() as i64 <= ptime / 500 {
                             let val = gauge.value_by_type(i as i32);
-                            self.gaugelog[i].push(val);
+                            log.push(val);
                         }
                     }
                     self.main_state_data

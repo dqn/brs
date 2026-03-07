@@ -146,9 +146,14 @@ impl MultiBadCollector {
 
         // Find tnote's dmtime in the collector
         let mut tdmtime: i64 = -1;
-        for i in 0..self.size {
-            if self.note_list[i] == tnote_idx {
-                tdmtime = self.time_list[i];
+        for (&note, &time) in self
+            .note_list
+            .iter()
+            .zip(self.time_list.iter())
+            .take(self.size)
+        {
+            if note == tnote_idx {
+                tdmtime = time;
             }
         }
         if tdmtime == -1 {
@@ -164,19 +169,23 @@ impl MultiBadCollector {
         // Filter: keep only notes in bad range but not good range, excluding tnote
         let mut new_notes = Vec::new();
         let mut new_times = Vec::new();
-        for i in 0..self.size {
-            let dt = self.time_list[i];
+        for (&note, &dt) in self
+            .note_list
+            .iter()
+            .zip(self.time_list.iter())
+            .take(self.size)
+        {
             if dt < bad_start || dt > bad_end {
                 continue;
             }
             if dt >= good_start && dt <= good_end {
                 continue;
             }
-            if self.note_list[i] == tnote_idx {
+            if note == tnote_idx {
                 continue;
             }
-            new_notes.push(self.note_list[i]);
-            new_times.push(self.time_list[i]);
+            new_notes.push(note);
+            new_times.push(dt);
         }
         self.note_list = new_notes;
         self.time_list = new_times;
@@ -195,25 +204,22 @@ impl MultiBadCollector {
         // If tnote is not a bad or is a LN, remove all notes after tnote in time
         let tnote_is_bad = (bad_start <= tdmtime && tdmtime < good_start)
             || (good_end < tdmtime && tdmtime <= bad_end);
-        if !tnote_is_bad || notes[tnote_idx].is_long() {
-            for i in 0..self.size {
-                if self.time_list[i] >= tdmtime {
-                    self.size = i;
-                    self.note_list.truncate(self.size);
-                    self.time_list.truncate(self.size);
-                    break;
-                }
-            }
+        if (!tnote_is_bad || notes[tnote_idx].is_long())
+            && let Some(pos) = self.time_list[..self.size]
+                .iter()
+                .position(|&t| t >= tdmtime)
+        {
+            self.size = pos;
+            self.note_list.truncate(self.size);
+            self.time_list.truncate(self.size);
         }
 
         // Remove preceding LNs before tnote
-        self.array_start = self.size;
-        for i in 0..self.size {
-            if self.time_list[i] >= tdmtime || !notes[self.note_list[i]].is_long() {
-                self.array_start = i;
-                break;
-            }
-        }
+        self.array_start = self.note_list[..self.size]
+            .iter()
+            .zip(self.time_list[..self.size].iter())
+            .position(|(&note, &time)| time >= tdmtime || !notes[note].is_long())
+            .unwrap_or(self.size);
     }
 }
 

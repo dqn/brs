@@ -475,8 +475,8 @@ fn skin_config_option_radio(ui: &mut egui::Ui, option: &CustomOption) {
 
         ui.indent("radio-indent", |ui| {
             ui.horizontal(|ui| {
-                for i in 0..option.contents.len() {
-                    ui.radio_value(&mut value, option.option[i], option.contents[i].as_str());
+                for (&opt, content) in option.option.iter().zip(option.contents.iter()) {
+                    ui.radio_value(&mut value, opt, content.as_str());
                 }
                 ui.radio_value(&mut value, OPTION_RANDOM_VALUE, "Random");
             });
@@ -492,12 +492,11 @@ fn skin_config_option_radio(ui: &mut egui::Ui, option: &CustomOption) {
 }
 
 fn option_index(option: &CustomOption, value: i32) -> i32 {
-    for i in 0..option.option.len() {
-        if option.option[i] == value {
-            return i as i32;
-        }
-    }
-    OPTION_RANDOM_VALUE
+    option
+        .option
+        .iter()
+        .position(|&o| o == value)
+        .map_or(OPTION_RANDOM_VALUE, |i| i as i32)
 }
 
 /// Render a skin file selector with arrow buttons and combo box.
@@ -1066,11 +1065,13 @@ fn save_current_config(next_skin: &SkinHeader) {
         return;
     }
 
-    for i in 0..pc.skin_history.len() {
-        if pc.skin_history[i].path().is_some_and(|p| p == skin_path) {
-            pc.skin_history[i] = config;
-            return;
-        }
+    if let Some(entry) = pc
+        .skin_history
+        .iter_mut()
+        .find(|h| h.path().is_some_and(|p| p == skin_path))
+    {
+        *entry = config;
+        return;
     }
 
     // this skin hasn't been in the config history before, add it

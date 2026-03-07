@@ -211,12 +211,12 @@ impl SkinImage {
 
     pub fn validate(&mut self) -> bool {
         let mut exist = false;
-        for i in 0..self.image.len() {
-            if let Some(ref source) = self.image[i] {
+        for slot in self.image.iter_mut() {
+            if let Some(source) = slot.as_ref() {
                 if source.validate() {
                     exist = true;
                 } else {
-                    let removed = self.image[i].take().unwrap();
+                    let removed = slot.take().unwrap();
                     self.removed_sources.push(removed);
                 }
             }

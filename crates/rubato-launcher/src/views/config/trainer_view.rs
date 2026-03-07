@@ -105,9 +105,9 @@ impl TrainerView {
         }
 
         // Java: for (int i = 0; i < has_all.length; i++)
-        for i in 0..has_all.len() {
+        for (&li, &hai) in l.iter().zip(has_all.iter()) {
             // Java: if (l[i] != has_all[i])
-            if l[i] != has_all[i] {
+            if li != hai {
                 // Java: logger.warn("RandomTrainer: Lanes in incorrect format, falling back to nonran or last ran used");
                 warn!(
                     "RandomTrainer: Lanes in incorrect format, falling back to nonran or last ran used"

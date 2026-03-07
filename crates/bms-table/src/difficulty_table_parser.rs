@@ -281,11 +281,8 @@ impl DifficultyTableParser {
             Vec::new()
         };
         let data_urls = dt.table.data_url().to_vec();
-        for i in 0..data_urls.len() {
-            if i == merge.len() {
-                break;
-            }
-            mergerule.insert(data_urls[i].clone(), merge[i].clone());
+        for (url, m) in data_urls.iter().zip(merge.iter()) {
+            mergerule.insert(url.clone(), m.clone());
         }
         dt.table.set_merge_configurations(mergerule);
         let mut courses: Vec<Vec<Course>> = Vec::new();
@@ -417,13 +414,7 @@ impl DifficultyTableParser {
                 }
 
                 let level = m.get("level").map(value_to_string).unwrap_or_default();
-                let mut b = true;
-                for j in 0..levelorder.len() {
-                    if levelorder[j] == level {
-                        b = false;
-                    }
-                }
-                if b {
+                if !levelorder.contains(&level) {
                     levelorder.push(level);
                 }
                 dt.table.add_element(dte);
@@ -665,21 +656,16 @@ impl DifficultyTableParser {
             }
         }
         if save_element {
-            for i in 0..result.len() {
-                dt.table.add_element(result[i].clone());
+            for elem in &result {
+                dt.table.add_element(elem.clone());
             }
         }
         if dt.level_description().is_empty() {
             let mut l: Vec<String> = Vec::new();
-            for i in 0..result.len() {
-                let mut b = true;
-                for j in 0..l.len() {
-                    if l[j] == result[i].level() {
-                        b = false;
-                    }
-                }
-                if b {
-                    l.push(result[i].level().to_string());
+            for elem in &result {
+                let level = elem.level().to_string();
+                if !l.contains(&level) {
+                    l.push(level);
                 }
             }
             dt.set_level_description(&l);

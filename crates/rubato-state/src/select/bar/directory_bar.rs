@@ -53,10 +53,8 @@ impl DirectoryBarData {
 
     pub fn lamp(&self, is_player: bool) -> i32 {
         let lamps = if is_player { &self.lamps } else { &self.rlamps };
-        for (i, &lamp) in lamps.iter().enumerate() {
-            if lamp > 0 {
-                return i as i32;
-            }
+        if let Some(pos) = lamps.iter().position(|&l| l > 0) {
+            return pos as i32;
         }
         0
     }

@@ -109,9 +109,9 @@ impl TimingDistribution {
         let mut sum = 0;
         let mut sumf: f32 = 0.0;
 
-        for i in 0..self.dist.len() {
-            count += self.dist[i];
-            sum += self.dist[i] * (i as i32 - self.array_center);
+        for (i, &d) in self.dist.iter().enumerate() {
+            count += d;
+            sum += d * (i as i32 - self.array_center);
         }
 
         if count == 0 {
@@ -120,8 +120,8 @@ impl TimingDistribution {
 
         self.average = sum as f32 * 1.0 / count as f32;
 
-        for i in 0..self.dist.len() {
-            sumf += self.dist[i] as f32
+        for (i, &d) in self.dist.iter().enumerate() {
+            sumf += d as f32
                 * (i as i32 as f32 - self.array_center as f32 - self.average)
                 * (i as i32 as f32 - self.array_center as f32 - self.average);
         }

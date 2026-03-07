@@ -570,15 +570,11 @@ impl SkinObjectData {
         if self.dstloop == 0 {
             self.dstloop = loop_val;
         }
-        for i in 0..self.dst.len() {
-            if self.dst[i].time > time {
-                self.dst.insert(i, obj);
-                self.starttime = self.dst[0].time;
-                self.endtime = self.dst[self.dst.len() - 1].time;
-                return;
-            }
+        if let Some(pos) = self.dst.iter().position(|d| d.time > time) {
+            self.dst.insert(pos, obj);
+        } else {
+            self.dst.push(obj);
         }
-        self.dst.push(obj);
         self.starttime = self.dst[0].time;
         self.endtime = self.dst[self.dst.len() - 1].time;
     }
@@ -674,9 +670,9 @@ impl SkinObjectData {
         self.nowtime = time;
         self.rate = -1.0;
         self.index = -1;
-        for i in 0..self.off.len() {
-            self.off[i] = if let Some(s) = state {
-                s.get_offset_value(self.offset[i]).cloned()
+        for (off, &offset) in self.off.iter_mut().zip(self.offset.iter()) {
+            *off = if let Some(s) = state {
+                s.get_offset_value(offset).cloned()
             } else {
                 None
             };
