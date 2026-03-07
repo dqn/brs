@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use super::ipfs_information::IpfsInformation;
 use super::music_database_accessor::MusicDatabaseAccessor;
+use rubato_types::sync_utils::lock_or_recover;
 
 /// Corresponds to MusicDownloadProcessor in Java
 /// IPFS-based song download processor
@@ -51,14 +52,14 @@ impl MusicDownloadProcessor {
     }
 
     pub fn start(&self, song: Option<Box<dyn IpfsInformation>>) {
-        let mut daemon_guard = self.daemon.lock().expect("daemon lock poisoned");
+        let mut daemon_guard = lock_or_recover(&self.daemon);
         let need_start = match &*daemon_guard {
             None => true,
             Some(d) => !d.alive.load(Ordering::SeqCst),
         };
         if need_start {
             {
-                let mut ipfs = self.ipfs.lock().expect("ipfs lock poisoned");
+                let mut ipfs = lock_or_recover(&self.ipfs);
                 if ipfs.is_empty() {
                     *ipfs = "https://gateway.ipfs.io/".to_string();
                 }
@@ -102,13 +103,13 @@ impl MusicDownloadProcessor {
             });
         }
         if let Some(song) = song {
-            let mut cmds = self.commands.lock().expect("commands lock poisoned");
+            let mut cmds = lock_or_recover(&self.commands);
             cmds.push_back(song);
         }
     }
 
     pub fn dispose(&self) {
-        let mut daemon_guard = self.daemon.lock().expect("daemon lock poisoned");
+        let mut daemon_guard = lock_or_recover(&self.daemon);
         if let Some(ref mut d) = *daemon_guard
             && d.alive.load(Ordering::SeqCst)
         {
@@ -120,7 +121,7 @@ impl MusicDownloadProcessor {
     }
 
     pub fn is_download(&self) -> bool {
-        let daemon_guard = self.daemon.lock().expect("daemon lock poisoned");
+        let daemon_guard = lock_or_recover(&self.daemon);
         match &*daemon_guard {
             None => false,
             Some(d) => d.download.load(Ordering::SeqCst),
@@ -128,7 +129,7 @@ impl MusicDownloadProcessor {
     }
 
     pub fn is_alive(&self) -> bool {
-        let daemon_guard = self.daemon.lock().expect("daemon lock poisoned");
+        let daemon_guard = lock_or_recover(&self.daemon);
         match &*daemon_guard {
             None => false,
             Some(d) => d.alive.load(Ordering::SeqCst),
@@ -136,30 +137,28 @@ impl MusicDownloadProcessor {
     }
 
     pub fn get_downloadpath(&self) -> Option<String> {
-        let daemon_guard = self.daemon.lock().expect("daemon lock poisoned");
+        let daemon_guard = lock_or_recover(&self.daemon);
         match &*daemon_guard {
             None => None,
             Some(d) => d
-                .downloadpath
-                .lock()
-                .expect("downloadpath lock poisoned")
+                .lock_or_recover(&downloadpath)
                 .clone(),
         }
     }
 
     pub fn set_downloadpath(&self, downloadpath: String) {
-        let daemon_guard = self.daemon.lock().expect("daemon lock poisoned");
+        let daemon_guard = lock_or_recover(&self.daemon);
         if let Some(ref d) = *daemon_guard {
-            *d.downloadpath.lock().expect("downloadpath lock poisoned") = Some(downloadpath);
+            *lock_or_recover(&d.downloadpath) = Some(downloadpath);
         }
     }
 
     pub fn get_message(&self) -> String {
-        self.message.lock().expect("message lock poisoned").clone()
+        lock_or_recover(&self.message).clone()
     }
 
     pub fn set_message(&self, message: String) {
-        *self.message.lock().expect("message lock poisoned") = message;
+        *lock_or_recover(&self.message) = message;
     }
 }
 
@@ -203,7 +202,7 @@ fn download_daemon_thread_run(
 
             // Single lock acquisition: check + pop atomically (avoids TOCTOU race)
             let song = if !is_download {
-                commands.lock().expect("commands lock poisoned").pop_front()
+                lock_or_recover(&commands).pop_front()
             } else {
                 None
             };
@@ -238,7 +237,7 @@ fn download_daemon_thread_run(
                     }
                 }
                 if !ipfspath.is_empty() && orgbms.is_none() {
-                    let ipfs_url = ipfs.lock().expect("ipfs lock poisoned").clone();
+                    let ipfs_url = lock_or_recover(&ipfs).clone();
                     let ipfspath_clone = ipfspath.clone();
                     let path_clone = path.clone();
                     let message_clone = message.clone();
@@ -283,7 +282,7 @@ fn download_daemon_thread_run(
                         }
                         diffpath = String::new();
                     } else {
-                        let ipfs_url = ipfs.lock().expect("ipfs lock poisoned").clone();
+                        let ipfs_url = lock_or_recover(&ipfs).clone();
                         let diffpath_clone = diffpath.clone();
                         let diff_dest = format!("ipfs{}{}", std::path::MAIN_SEPARATOR, &diffpath);
                         let message_clone = message.clone();
@@ -312,7 +311,7 @@ fn download_daemon_thread_run(
                             None
                         }
                     };
-                    *downloadpath.lock().expect("downloadpath lock poisoned") = dp;
+                    *lock_or_recover(&downloadpath) = dp;
                     download.store(false, Ordering::SeqCst);
                     ipfspath = String::new();
                 }
@@ -336,7 +335,7 @@ fn download_daemon_thread_run(
 }
 
 fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc<Mutex<String>>) {
-    *message.lock().expect("message lock poisoned") = format!("downloading:{}", path);
+    *lock_or_recover(&message) = format!("downloading:{}", path);
 
     // Download tar.gz from IPFS gateway
     let url_str = format!(
@@ -359,7 +358,7 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
                             let end = std::cmp::min(offset + chunk_size, data.len());
                             let count = end - offset;
                             total += count as i64;
-                            *message.lock().expect("message lock poisoned") =
+                            *lock_or_recover(&message) =
                                 format!("downloading:{} {}MB", path, total / 1024 / 1024);
                             if out.write_all(&data[offset..end]).is_err() {
                                 break;

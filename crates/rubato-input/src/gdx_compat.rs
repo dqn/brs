@@ -1,6 +1,7 @@
 // GdxInput/GdxGraphics replacements using SharedKeyState from winit_input_bridge.
 
 use crate::winit_input_bridge::SharedKeyState;
+use rubato_types::sync_utils::lock_or_recover;
 use std::sync::Mutex;
 
 /// Global shared key state. When set (via `set_shared_key_state()`),
@@ -11,17 +12,13 @@ static SHARED_KEY_STATE: Mutex<Option<SharedKeyState>> = Mutex::new(None);
 
 /// Set the global shared key state. Can be called multiple times (later calls replace earlier).
 pub fn set_shared_key_state(state: SharedKeyState) {
-    let mut guard = SHARED_KEY_STATE
-        .lock()
-        .expect("SHARED_KEY_STATE lock poisoned");
+    let mut guard = lock_or_recover(&SHARED_KEY_STATE);
     *guard = Some(state);
 }
 
 /// Get the global shared key state, if set.
 pub fn get_shared_key_state() -> Option<SharedKeyState> {
-    let guard = SHARED_KEY_STATE
-        .lock()
-        .expect("SHARED_KEY_STATE lock poisoned");
+    let guard = lock_or_recover(&SHARED_KEY_STATE);
     guard.clone()
 }
 
@@ -30,9 +27,7 @@ pub struct GdxInput;
 
 impl GdxInput {
     pub fn is_key_pressed(keycode: i32) -> bool {
-        let guard = SHARED_KEY_STATE
-            .lock()
-            .expect("SHARED_KEY_STATE lock poisoned");
+        let guard = lock_or_recover(&SHARED_KEY_STATE);
         if let Some(ref state) = *guard {
             state.is_key_pressed(keycode)
         } else {
@@ -41,9 +36,7 @@ impl GdxInput {
     }
 
     pub fn get_x() -> i32 {
-        let guard = SHARED_KEY_STATE
-            .lock()
-            .expect("SHARED_KEY_STATE lock poisoned");
+        let guard = lock_or_recover(&SHARED_KEY_STATE);
         if let Some(ref state) = *guard {
             state.get_mouse_x()
         } else {
@@ -52,9 +45,7 @@ impl GdxInput {
     }
 
     pub fn get_y() -> i32 {
-        let guard = SHARED_KEY_STATE
-            .lock()
-            .expect("SHARED_KEY_STATE lock poisoned");
+        let guard = lock_or_recover(&SHARED_KEY_STATE);
         if let Some(ref state) = *guard {
             state.get_mouse_y()
         } else {
@@ -63,18 +54,14 @@ impl GdxInput {
     }
 
     pub fn set_cursor_position(x: i32, y: i32) {
-        let guard = SHARED_KEY_STATE
-            .lock()
-            .expect("SHARED_KEY_STATE lock poisoned");
+        let guard = lock_or_recover(&SHARED_KEY_STATE);
         if let Some(ref state) = *guard {
             state.set_cursor_position(x, y);
         }
     }
 
     pub fn is_button_pressed(button: i32) -> bool {
-        let guard = SHARED_KEY_STATE
-            .lock()
-            .expect("SHARED_KEY_STATE lock poisoned");
+        let guard = lock_or_recover(&SHARED_KEY_STATE);
         if let Some(ref state) = *guard {
             state.is_mouse_button_pressed(button)
         } else {
@@ -83,9 +70,7 @@ impl GdxInput {
     }
 
     pub fn drain_scroll() -> (f32, f32) {
-        let guard = SHARED_KEY_STATE
-            .lock()
-            .expect("SHARED_KEY_STATE lock poisoned");
+        let guard = lock_or_recover(&SHARED_KEY_STATE);
         if let Some(ref state) = *guard {
             state.drain_scroll()
         } else {
@@ -99,9 +84,7 @@ pub struct GdxGraphics;
 
 impl GdxGraphics {
     pub fn get_width() -> i32 {
-        let guard = SHARED_KEY_STATE
-            .lock()
-            .expect("SHARED_KEY_STATE lock poisoned");
+        let guard = lock_or_recover(&SHARED_KEY_STATE);
         if let Some(ref state) = *guard {
             state.get_window_width()
         } else {
@@ -110,9 +93,7 @@ impl GdxGraphics {
     }
 
     pub fn get_height() -> i32 {
-        let guard = SHARED_KEY_STATE
-            .lock()
-            .expect("SHARED_KEY_STATE lock poisoned");
+        let guard = lock_or_recover(&SHARED_KEY_STATE);
         if let Some(ref state) = *guard {
             state.get_window_height()
         } else {

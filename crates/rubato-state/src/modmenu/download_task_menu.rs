@@ -5,6 +5,7 @@ use rubato_song::md_processor::http_download_processor::HttpDownloadProcessor;
 
 use super::imgui_renderer;
 use rubato_song::md_processor::download_task_state::DownloadTaskState;
+use rubato_types::sync_utils::lock_or_recover;
 
 pub const MAXIMUM_TASK_NAME_LENGTH: usize = 10;
 
@@ -17,7 +18,7 @@ impl DownloadTaskMenu {
     ///
     /// Translated from: DownloadTaskMenu.setProcessor(HttpDownloadProcessor)
     pub fn set_processor(processor: Arc<HttpDownloadProcessor>) {
-        let mut guard = PROCESSOR.lock().expect("PROCESSOR lock poisoned");
+        let mut guard = lock_or_recover(&PROCESSOR);
         *guard = Some(processor);
     }
 
@@ -37,7 +38,7 @@ impl DownloadTaskMenu {
                 ui.end_row();
 
                 for task_arc in tasks {
-                    let task = task_arc.lock().expect("task_arc lock poisoned");
+                    let task = lock_or_recover(&task_arc);
 
                     // Column 0: Task name
                     let name = task.name();
@@ -69,7 +70,7 @@ impl DownloadTaskMenu {
                     drop(task); // release lock before UI interaction
                     if is_error {
                         if ui.button("Retry").clicked() {
-                            let processor = PROCESSOR.lock().expect("PROCESSOR lock poisoned");
+                            let processor = lock_or_recover(&PROCESSOR);
                             if let Some(ref proc) = *processor {
                                 proc.retry_download_task(task_arc.clone());
                             }

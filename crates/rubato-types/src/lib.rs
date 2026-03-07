@@ -122,3 +122,6 @@ pub mod music_download_access;
 
 // OBS WebSocket access (core↔obs bridge)
 pub mod obs_access;
+
+// Shared synchronization utilities (lock_or_recover, etc.)
+pub mod sync_utils;

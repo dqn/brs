@@ -5,6 +5,7 @@ use super::bar_manager::BarManager;
 use super::music_select_key_property::{MusicSelectKey, MusicSelectKeyProperty};
 use super::skin_bar::SkinBar;
 use super::stubs::*;
+use rubato_types::sync_utils::lock_or_recover;
 
 /// Bar area data for rendering
 struct BarArea {
@@ -444,7 +445,7 @@ impl BarRenderer {
                     if let Some(song_bar) = sd.as_song_bar() {
                         let song_md5 = &song_bar.song_data().md5;
                         for task_arc in download_tasks.values() {
-                            let task = task_arc.lock().expect("task_arc lock poisoned");
+                            let task = lock_or_recover(&task_arc);
                             if task.hash() != song_md5 {
                                 continue;
                             }

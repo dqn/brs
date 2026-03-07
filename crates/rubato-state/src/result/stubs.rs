@@ -5,6 +5,7 @@ use rubato_audio::audio_driver::AudioDriver;
 use rubato_types::config::Config;
 use rubato_types::player_config::PlayerConfig;
 use rubato_types::sound_type::SoundType;
+use rubato_types::sync_utils::lock_or_recover;
 
 // ============================================================
 // Re-exports from real crates (Phase 11 stub replacements)
@@ -164,15 +165,11 @@ impl MainController {
     }
 
     pub fn ir_send_status(&self) -> std::sync::MutexGuard<'_, Vec<IRSendStatusMain>> {
-        self.ir_send_statuses
-            .lock()
-            .expect("ir_send_statuses lock poisoned")
+        lock_or_recover(&self.ir_send_statuses)
     }
 
     pub fn ir_send_status_mut(&self) -> std::sync::MutexGuard<'_, Vec<IRSendStatusMain>> {
-        self.ir_send_statuses
-            .lock()
-            .expect("ir_send_statuses lock poisoned")
+        lock_or_recover(&self.ir_send_statuses)
     }
 
     pub fn play_data_accessor(&self) -> &PlayDataAccessor {

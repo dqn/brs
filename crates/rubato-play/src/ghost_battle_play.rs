@@ -1,4 +1,5 @@
 use std::sync::Mutex;
+use rubato_types::sync_utils::lock_or_recover;
 
 static BATTLE: Mutex<Option<Settings>> = Mutex::new(None);
 
@@ -9,12 +10,12 @@ pub struct Settings {
 }
 
 pub fn consume() -> Option<Settings> {
-    let mut lock = BATTLE.lock().expect("BATTLE lock poisoned");
+    let mut lock = lock_or_recover(&BATTLE);
     lock.take()
 }
 
 pub fn setup(random: i32, lane_sequence: i32) {
-    let mut lock = BATTLE.lock().expect("BATTLE lock poisoned");
+    let mut lock = lock_or_recover(&BATTLE);
     *lock = Some(Settings {
         random,
         lanes: lane_sequence,

@@ -1,6 +1,7 @@
 use super::random_trainer::RandomTrainer;
 
 use std::sync::Mutex;
+use rubato_types::sync_utils::lock_or_recover;
 
 static RANDOM_TRAINER_ENABLED: Mutex<bool> = Mutex::new(false);
 static BLACK_WHITE_RANDOM_PERMUTATION: Mutex<bool> = Mutex::new(false);
@@ -8,7 +9,7 @@ static LANE_ORDER: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static TRACK_RAN_WHEN_DISABLED: Mutex<bool> = Mutex::new(false);
 
 fn init_lane_order() {
-    let mut lo = LANE_ORDER.lock().expect("LANE_ORDER lock poisoned");
+    let mut lo = lock_or_recover(&LANE_ORDER);
     if lo.is_empty() {
         *lo = vec![
             "1".to_string(),
@@ -42,10 +43,8 @@ impl RandomTrainerMenu {
 
     #[allow(dead_code)]
     fn drag_and_drop_key_display() {
-        let lane_order = LANE_ORDER.lock().expect("LANE_ORDER lock poisoned");
-        let bw_permute = *BLACK_WHITE_RANDOM_PERMUTATION
-            .lock()
-            .expect("BLACK_WHITE_RANDOM_PERMUTATION lock poisoned");
+        let lane_order = lock_or_recover(&LANE_ORDER);
+        let bw_permute = *lock_or_recover(&BLACK_WHITE_RANDOM_PERMUTATION);
 
         for lane in lane_order.iter() {
             let lane_char = lane.chars().next().unwrap_or('1');
@@ -114,7 +113,7 @@ impl RandomTrainerMenu {
             .show(ctx, |ui| {
                 // Key display
                 ui.horizontal(|ui| {
-                    let lane_order = LANE_ORDER.lock().expect("LANE_ORDER lock poisoned");
+                    let lane_order = lock_or_recover(&LANE_ORDER);
                     for lane_item in lane_order.iter() {
                         let lane_char = lane_item.chars().next().unwrap_or('1');
                         let is_random =
@@ -144,21 +143,15 @@ impl RandomTrainerMenu {
                 ui.separator();
                 ui.label("Controls");
                 ui.indent("random_controls", |ui| {
-                    let mut enabled = RANDOM_TRAINER_ENABLED
-                        .lock()
-                        .expect("RANDOM_TRAINER_ENABLED lock poisoned");
+                    let mut enabled = lock_or_recover(&RANDOM_TRAINER_ENABLED);
                     ui.checkbox(&mut enabled, "Trainer Enabled");
                     drop(enabled);
 
-                    let mut track = TRACK_RAN_WHEN_DISABLED
-                        .lock()
-                        .expect("TRACK_RAN_WHEN_DISABLED lock poisoned");
+                    let mut track = lock_or_recover(&TRACK_RAN_WHEN_DISABLED);
                     ui.checkbox(&mut track, "Track Current Random");
                     drop(track);
 
-                    let mut bw = BLACK_WHITE_RANDOM_PERMUTATION
-                        .lock()
-                        .expect("BLACK_WHITE_RANDOM_PERMUTATION lock poisoned");
+                    let mut bw = lock_or_recover(&BLACK_WHITE_RANDOM_PERMUTATION);
                     ui.checkbox(&mut bw, "Black/White Random Select");
                     drop(bw);
                 });
@@ -176,9 +169,7 @@ impl RandomTrainerMenu {
                 });
 
                 // Sync state
-                let trainer_enabled = *RANDOM_TRAINER_ENABLED
-                    .lock()
-                    .expect("RANDOM_TRAINER_ENABLED lock poisoned");
+                let trainer_enabled = *lock_or_recover(&RANDOM_TRAINER_ENABLED);
                 crate::modmenu::random_trainer::RandomTrainer::set_active(trainer_enabled);
                 if trainer_enabled {
                     let current = get_lane_order_string();
@@ -188,16 +179,14 @@ impl RandomTrainerMenu {
                     }
                 }
 
-                let bw = *BLACK_WHITE_RANDOM_PERMUTATION
-                    .lock()
-                    .expect("BLACK_WHITE_RANDOM_PERMUTATION lock poisoned");
+                let bw = *lock_or_recover(&BLACK_WHITE_RANDOM_PERMUTATION);
                 crate::modmenu::random_trainer::RandomTrainer::set_black_white_permute(bw);
             });
     }
 }
 
 fn change_lane_order(random: &str) {
-    let mut lane_order = LANE_ORDER.lock().expect("LANE_ORDER lock poisoned");
+    let mut lane_order = lock_or_recover(&LANE_ORDER);
     let chars: Vec<char> = random.chars().collect();
     for (slot, &ch) in lane_order.iter_mut().zip(chars.iter()) {
         *slot = ch.to_string();
@@ -205,7 +194,7 @@ fn change_lane_order(random: &str) {
 }
 
 fn get_lane_order_string() -> String {
-    let lane_order = LANE_ORDER.lock().expect("LANE_ORDER lock poisoned");
+    let lane_order = lock_or_recover(&LANE_ORDER);
     lane_order.join("")
 }
 
