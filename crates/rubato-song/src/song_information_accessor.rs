@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 
+use anyhow::Context;
 use bms_model::bms_model::BMSModel;
 use rubato_core::sqlite_database_accessor::{Column, SQLiteDatabaseAccessor, Table};
 use rubato_core::validatable::remove_invalid_elements_vec;
@@ -38,9 +39,11 @@ impl SongInformationAccessor {
             ],
         )]);
 
-        let conn = Connection::open(filepath)?;
-        conn.execute_batch("PRAGMA shared_cache = ON; PRAGMA synchronous = OFF;")?;
-        base.validate(&conn)?;
+        let conn = Connection::open(filepath)
+            .with_context(|| format!("failed to open song information database: {}", filepath))?;
+        conn.execute_batch("PRAGMA shared_cache = ON; PRAGMA synchronous = OFF;")
+            .context("failed to set song information database pragmas")?;
+        base.validate(&conn).context("failed to validate song information database schema")?;
 
         Ok(Self {
             base,

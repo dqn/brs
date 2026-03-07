@@ -2,7 +2,7 @@ use std::fs;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE;
 use flate2::Compression;
@@ -75,9 +75,11 @@ impl ReplayData {
     /// Read a single ReplayData from a .brd file (gzip-compressed JSON).
     /// Calls validate() after deserialization, matching Java PlayDataAccessor.readReplayData().
     pub fn read_brd(path: &Path) -> Result<ReplayData> {
-        let file = fs::File::open(path)?;
+        let file = fs::File::open(path)
+            .with_context(|| format!("failed to open replay file: {}", path.display()))?;
         let reader = BufReader::new(GzDecoder::new(file));
-        let mut rd: ReplayData = serde_json::from_reader(reader)?;
+        let mut rd: ReplayData = serde_json::from_reader(reader)
+            .with_context(|| format!("failed to parse replay file: {}", path.display()))?;
         if !rd.validate() {
             anyhow::bail!("ReplayData validation failed for {:?}", path);
         }
@@ -88,21 +90,26 @@ impl ReplayData {
     /// Calls shrink() before serialization, matching Java PlayDataAccessor.wrireReplayData().
     pub fn write_brd(&mut self, path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create replay directory: {}", parent.display()))?;
         }
         self.shrink();
-        let file = fs::File::create(path)?;
+        let file = fs::File::create(path)
+            .with_context(|| format!("failed to create replay file: {}", path.display()))?;
         let encoder = GzEncoder::new(BufWriter::new(file), Compression::default());
-        serde_json::to_writer_pretty(encoder, &self)?;
+        serde_json::to_writer_pretty(encoder, &self)
+            .with_context(|| format!("failed to write replay file: {}", path.display()))?;
         Ok(())
     }
 
     /// Read a course ReplayData array from a .brd file (gzip-compressed JSON array).
     /// Calls validate() on each element, matching Java PlayDataAccessor.readReplayData(String[], ...).
     pub fn read_brd_course(path: &Path) -> Result<Vec<ReplayData>> {
-        let file = fs::File::open(path)?;
+        let file = fs::File::open(path)
+            .with_context(|| format!("failed to open course replay file: {}", path.display()))?;
         let reader = BufReader::new(GzDecoder::new(file));
-        let mut rds: Vec<ReplayData> = serde_json::from_reader(reader)?;
+        let mut rds: Vec<ReplayData> = serde_json::from_reader(reader)
+            .with_context(|| format!("failed to parse course replay file: {}", path.display()))?;
         for rd in &mut rds {
             if !rd.validate() {
                 anyhow::bail!("ReplayData validation failed in course file {:?}", path);
@@ -115,14 +122,17 @@ impl ReplayData {
     /// Calls shrink() on each element, matching Java PlayDataAccessor.wrireReplayData(ReplayData[], ...).
     pub fn write_brd_course(rds: &mut [ReplayData], path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create course replay directory: {}", parent.display()))?;
         }
         for rd in rds.iter_mut() {
             rd.shrink();
         }
-        let file = fs::File::create(path)?;
+        let file = fs::File::create(path)
+            .with_context(|| format!("failed to create course replay file: {}", path.display()))?;
         let encoder = GzEncoder::new(BufWriter::new(file), Compression::default());
-        serde_json::to_writer_pretty(encoder, &rds)?;
+        serde_json::to_writer_pretty(encoder, &rds)
+            .with_context(|| format!("failed to write course replay file: {}", path.display()))?;
         Ok(())
     }
 }

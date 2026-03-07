@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use anyhow::Context;
+
 use crate::audio_config::AudioConfig;
 use crate::player_config::PlayerConfig;
 use crate::resolution::Resolution;
@@ -605,7 +607,7 @@ impl Config {
     }
 
     pub fn config_json(config: &Config) -> anyhow::Result<String> {
-        Ok(serde_json::to_string_pretty(config)?)
+        serde_json::to_string_pretty(config).context("failed to serialize config to JSON")
     }
 
     pub fn validate_config(mut config: Config) -> anyhow::Result<Config> {
@@ -656,8 +658,10 @@ impl Config {
     /// Write config to a specific directory as `config_sys.json`.
     pub fn write_to(config: &Config, dir: &Path) -> anyhow::Result<()> {
         let configpath = dir.join("config_sys.json");
-        let json = serde_json::to_string_pretty(config)?;
-        std::fs::write(configpath, json.as_bytes())?;
+        let json = serde_json::to_string_pretty(config)
+            .context("failed to serialize config to JSON")?;
+        std::fs::write(&configpath, json.as_bytes())
+            .with_context(|| format!("failed to write config file: {}", configpath.display()))?;
         Ok(())
     }
 

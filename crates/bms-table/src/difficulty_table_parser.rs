@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::OnceLock;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use regex::Regex;
 use serde_json::Value;
 
@@ -220,8 +220,10 @@ impl DifficultyTableParser {
         dt: &mut DifficultyTable,
         jsonheader: &Path,
     ) -> Result<()> {
-        let content = fs::read_to_string(jsonheader)?;
-        let result: HashMap<String, Value> = serde_json::from_str(&content)?;
+        let content = fs::read_to_string(jsonheader)
+            .with_context(|| format!("failed to read table header file: {}", jsonheader.display()))?;
+        let result: HashMap<String, Value> = serde_json::from_str(&content)
+            .with_context(|| format!("failed to parse table header JSON: {}", jsonheader.display()))?;
         self.decode_json_table_header_internal(dt, &result)?;
         Ok(())
     }
@@ -231,9 +233,12 @@ impl DifficultyTableParser {
         dt: &mut DifficultyTable,
         jsonheader_url: &str,
     ) -> Result<()> {
-        let response = reqwest::blocking::get(jsonheader_url)?;
-        let text = response.text()?;
-        let result: HashMap<String, Value> = serde_json::from_str(&text)?;
+        let response = reqwest::blocking::get(jsonheader_url)
+            .with_context(|| format!("failed to fetch table header from URL: {}", jsonheader_url))?;
+        let text = response.text()
+            .with_context(|| format!("failed to read table header response body: {}", jsonheader_url))?;
+        let result: HashMap<String, Value> = serde_json::from_str(&text)
+            .with_context(|| format!("failed to parse table header JSON from: {}", jsonheader_url))?;
         self.decode_json_table_header_internal(dt, &result)?;
         dt.table.set_head_url(jsonheader_url);
         Ok(())
@@ -360,8 +365,10 @@ impl DifficultyTableParser {
         dt: &mut DifficultyTable,
         jsondata: &Path,
     ) -> Result<()> {
-        let content = fs::read_to_string(jsondata)?;
-        let result: Vec<HashMap<String, Value>> = serde_json::from_str(&content)?;
+        let content = fs::read_to_string(jsondata)
+            .with_context(|| format!("failed to read table data file: {}", jsondata.display()))?;
+        let result: Vec<HashMap<String, Value>> = serde_json::from_str(&content)
+            .with_context(|| format!("failed to parse table data JSON: {}", jsondata.display()))?;
         self.decode_json_table_data_internal(dt, &result, true);
         Ok(())
     }
@@ -375,9 +382,12 @@ impl DifficultyTableParser {
             "\u{96e3}\u{6613}\u{5ea6}\u{8868}\u{30c7}\u{30fc}\u{30bf}\u{8aad}\u{307f}\u{8fbc}\u{307f} - {}",
             jsondata_url
         );
-        let response = reqwest::blocking::get(jsondata_url)?;
-        let text = response.text()?;
-        let result: Vec<HashMap<String, Value>> = serde_json::from_str(&text)?;
+        let response = reqwest::blocking::get(jsondata_url)
+            .with_context(|| format!("failed to fetch table data from URL: {}", jsondata_url))?;
+        let text = response.text()
+            .with_context(|| format!("failed to read table data response body: {}", jsondata_url))?;
+        let result: Vec<HashMap<String, Value>> = serde_json::from_str(&text)
+            .with_context(|| format!("failed to parse table data JSON from: {}", jsondata_url))?;
         self.decode_json_table_data_internal(dt, &result, false);
         Ok(())
     }

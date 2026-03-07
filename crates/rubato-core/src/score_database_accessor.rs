@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
 use rusqlite::Connection;
 
 use crate::player_data::PlayerData;
@@ -26,8 +27,10 @@ pub struct ScoreDatabaseAccessor {
 
 impl ScoreDatabaseAccessor {
     pub fn new(path: &str) -> anyhow::Result<Self> {
-        let conn = Connection::open(path)?;
-        conn.execute_batch("PRAGMA shared_cache = ON")?;
+        let conn = Connection::open(path)
+            .with_context(|| format!("failed to open score database: {}", path))?;
+        conn.execute_batch("PRAGMA shared_cache = ON")
+            .context("failed to set score database pragmas")?;
         conn.pragma_update(None, "synchronous", "OFF")?;
         conn.pragma_update(None, "cache_size", 2000)?;
 

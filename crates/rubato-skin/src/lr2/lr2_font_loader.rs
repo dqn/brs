@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use anyhow::Context;
+
 use crate::lr2::lr2_skin_loader::{self, LR2SkinLoaderState};
 
 /// LR2 font loader
@@ -82,7 +84,8 @@ impl LR2FontLoader {
         self.textimage = SkinTextImageSourceData::new(self.usecim);
         self.path = Some(p.to_path_buf());
 
-        let raw_bytes = std::fs::read(p)?;
+        let raw_bytes = std::fs::read(p)
+            .with_context(|| format!("failed to read LR2 font file: {}", p.display()))?;
         let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&raw_bytes);
         let content = decoded.into_owned();
 

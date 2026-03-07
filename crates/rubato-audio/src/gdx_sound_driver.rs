@@ -68,7 +68,8 @@ pub struct GdxSoundDriver {
 
 impl GdxSoundDriver {
     pub fn new(song_resource_gen: i32) -> anyhow::Result<Self> {
-        let manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())?;
+        let manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())
+            .map_err(|e| anyhow::anyhow!("failed to initialize audio manager: {}", e))?;
         Ok(GdxSoundDriver {
             manager,
             path_sounds: HashMap::new(),

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::Context;
 use bms_model::bms_decoder::BMSDecoder;
 use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
 use bms_model::bmson_decoder::BMSONDecoder;
@@ -88,10 +89,12 @@ impl SQLiteSongDatabaseAccessor {
             ),
         ]);
 
-        let conn = Connection::open(filepath)?;
+        let conn = Connection::open(filepath)
+            .with_context(|| format!("failed to open song database: {}", filepath))?;
         conn.execute_batch(
             "PRAGMA shared_cache = ON; PRAGMA synchronous = OFF; PRAGMA recursive_triggers = ON;",
-        )?;
+        )
+        .context("failed to set song database pragmas")?;
         let root = PathBuf::from(".");
 
         let accessor = Self {
@@ -101,7 +104,7 @@ impl SQLiteSongDatabaseAccessor {
             plugins: Vec::new(),
             checked_parent: HashSet::new(),
         };
-        accessor.create_table()?;
+        accessor.create_table().context("failed to initialize song database tables")?;
         Ok(accessor)
     }
 
