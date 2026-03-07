@@ -41,45 +41,29 @@ impl BytePCM {
     }
 
     pub fn load_pcm(loader: &crate::pcm::PCMLoader) -> Result<BytePCM> {
-        let sample: Vec<u8>;
-        let bytes = loader.pcm_data.len();
         let pcm = &loader.pcm_data;
 
-        match loader.bits_per_sample {
-            8 => {
-                sample = pcm.to_vec();
-            }
+        let sample: Vec<u8> = match loader.bits_per_sample {
+            8 => pcm.to_vec(),
             16 => {
-                let mut s = vec![0u8; bytes / 2];
-                for i in 0..s.len() {
-                    // Java: pcm.get(i * 2 + 1) -- takes high byte of each 16-bit sample
-                    s[i] = pcm[i * 2 + 1];
-                }
-                sample = s;
+                // Java: pcm.get(i * 2 + 1) -- takes high byte of each 16-bit sample
+                pcm.chunks_exact(2).map(|chunk| chunk[1]).collect()
             }
             24 => {
-                let mut s = vec![0u8; bytes / 3];
-                for i in 0..s.len() {
-                    // Java: pcm.get(i * 3 + 2) -- takes highest byte of each 24-bit sample
-                    s[i] = pcm[i * 3 + 2];
-                }
-                sample = s;
+                // Java: pcm.get(i * 3 + 2) -- takes highest byte of each 24-bit sample
+                pcm.chunks_exact(3).map(|chunk| chunk[2]).collect()
             }
             32 => {
-                let mut s = vec![0u8; bytes / 4];
-                for i in 0..s.len() {
-                    let f = f32::from_le_bytes([
-                        pcm[i * 4],
-                        pcm[i * 4 + 1],
-                        pcm[i * 4 + 2],
-                        pcm[i * 4 + 3],
-                    ]);
-                    // Java: (byte)(pcm.getFloat() * Byte.MAX_VALUE)
-                    // float→int truncates toward zero, int→byte truncates to low 8 bits.
-                    // Rust `as i8` saturates (since 1.45), so go via i32 first.
-                    s[i] = ((f * i8::MAX as f32) as i32 as i8) as u8;
-                }
-                sample = s;
+                pcm.chunks_exact(4)
+                    .map(|chunk| {
+                        let f = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                        // Java float->i8 truncation semantics: (byte)(pcm.getFloat() * Byte.MAX_VALUE)
+                        // float->int truncates toward zero, int->byte truncates to low 8 bits.
+                        // SAFETY: lossy narrowing matches Java behavior -- Rust `as i8` saturates
+                        // (since 1.45), so go via i32 first to get truncation.
+                        ((f * i8::MAX as f32) as i32 as i8) as u8
+                    })
+                    .collect()
             }
             _ => {
                 bail!(
@@ -87,7 +71,7 @@ impl BytePCM {
                     loader.bits_per_sample
                 );
             }
-        }
+        };
 
         Ok(BytePCM::new(
             loader.channels,
@@ -153,8 +137,10 @@ impl BytePCM {
                     && (((position + 1) * self.channels as i64 + j as i64) as usize)
                         < self.sample.len()
                 {
-                    // Java's byte is signed; assigning byte→short does sign extension.
-                    // u8→i8→i16 matches Java's sign-extended promotion.
+                    // Java float->i8 truncation semantics: Java's byte is signed;
+                    // assigning byte->short does sign extension.
+                    // SAFETY: lossy narrowing matches Java behavior -- u8->i8->i16
+                    // replicates Java's sign-extended promotion.
                     let sample1 = self.sample[(position * self.channels as i64 + j as i64) as usize]
                         as i8 as i16;
                     let sample2 = self.sample
@@ -213,10 +199,9 @@ impl BytePCM {
         let mut length =
             ((duration * self.sample_rate as i64 / 1000000) * self.channels as i64) as i32;
         while length > self.channels {
-            let mut zero = true;
-            for i in 0..self.channels {
-                zero &= self.sample[(self.start + start + length - i - 1) as usize] == 0;
-            }
+            let frame_start = (self.start + start + length - self.channels) as usize;
+            let frame_end = (self.start + start + length) as usize;
+            let zero = self.sample[frame_start..frame_end].iter().all(|&b| b == 0);
             if zero {
                 length -= self.channels;
             } else {
