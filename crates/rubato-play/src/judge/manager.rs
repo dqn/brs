@@ -2,7 +2,7 @@ use crate::bms_player_rule::BMSPlayerRule;
 use crate::judge::algorithm::JudgeAlgorithm;
 use crate::judge::property::{JudgeProperty, MissCondition, NoteType};
 use crate::lane_property::LaneProperty;
-use bms_model::bms_model::{BMSModel, LNTYPE_LONGNOTE};
+use bms_model::bms_model::{BMSModel, LNTYPE_HELLCHARGENOTE, LNTYPE_LONGNOTE, LnType};
 use bms_model::judge_note::{JUDGE_PR, JudgeNote};
 use bms_model::mode::Mode;
 use bms_model::note::{TYPE_CHARGENOTE, TYPE_HELLCHARGENOTE, TYPE_LONGNOTE, TYPE_UNDEFINED};
@@ -18,7 +18,7 @@ const HCN_MDURATION: i64 = 200000;
 pub struct JudgeConfig<'a> {
     pub notes: &'a [JudgeNote],
     pub mode: &'a Mode,
-    pub ln_type: i32,
+    pub ln_type: LnType,
     pub judge_rank: i32,
     pub judge_window_rate: [i32; 3],
     pub scratch_judge_window_rate: [i32; 3],
@@ -225,7 +225,7 @@ impl MultiBadCollector {
 
 /// Note judge manager
 pub struct JudgeManager {
-    lntype: i32,
+    lntype: LnType,
     score: ScoreData,
     combo: i32,
     coursecombo: i32,
@@ -293,7 +293,7 @@ impl Default for JudgeManager {
 impl JudgeManager {
     pub fn new() -> Self {
         JudgeManager {
-            lntype: 0,
+            lntype: LnType::LongNote,
             score: ScoreData::default(),
             combo: 0,
             coursecombo: 0,
@@ -556,7 +556,7 @@ impl JudgeManager {
                 if notes[note_idx].is_long() {
                     let ln_type = notes[note_idx].ln_type;
                     let is_end = notes[note_idx].is_long_end();
-                    if (ln_type == TYPE_UNDEFINED && self.lntype == LNTYPE_LONGNOTE + 2)
+                    if (ln_type == TYPE_UNDEFINED && self.lntype == LNTYPE_HELLCHARGENOTE)
                         || ln_type == TYPE_HELLCHARGENOTE
                     {
                         if is_end {
@@ -1759,7 +1759,7 @@ mod tests {
         let config = JudgeConfig {
             notes: &notes,
             mode: &Mode::BEAT_7K,
-            ln_type: 0,
+            ln_type: LnType::LongNote,
             judge_rank: 100,
             judge_window_rate: [100, 100, 100],
             scratch_judge_window_rate: [100, 100, 100],
@@ -1787,7 +1787,7 @@ mod tests {
         let config = JudgeConfig {
             notes: &notes,
             mode: &Mode::BEAT_7K,
-            ln_type: 0,
+            ln_type: LnType::LongNote,
             judge_rank: 100,
             judge_window_rate: [100, 100, 100],
             scratch_judge_window_rate: [100, 100, 100],
@@ -1837,7 +1837,7 @@ mod tests {
         let config = JudgeConfig {
             notes: &notes,
             mode: &Mode::BEAT_7K,
-            ln_type: 0,
+            ln_type: LnType::LongNote,
             judge_rank: 100,
             judge_window_rate: [100, 100, 100],
             scratch_judge_window_rate: [100, 100, 100],
@@ -2057,7 +2057,7 @@ mod tests {
         let config = JudgeConfig {
             notes: &notes,
             mode: &Mode::BEAT_7K,
-            ln_type: 0,
+            ln_type: LnType::LongNote,
             judge_rank: 100,
             judge_window_rate: [100, 100, 100],
             scratch_judge_window_rate: [100, 100, 100],
@@ -2123,7 +2123,7 @@ mod tests {
         let config = JudgeConfig {
             notes: &notes,
             mode: &Mode::BEAT_7K,
-            ln_type: 0,
+            ln_type: LnType::LongNote,
             judge_rank: 100,
             judge_window_rate: [100, 100, 100],
             scratch_judge_window_rate: [100, 100, 100],
@@ -2175,7 +2175,7 @@ mod tests {
         let config = JudgeConfig {
             notes: &notes,
             mode: &Mode::BEAT_7K,
-            ln_type: 0,
+            ln_type: LnType::LongNote,
             judge_rank: 100,
             judge_window_rate: [100, 100, 100],
             scratch_judge_window_rate: [100, 100, 100],

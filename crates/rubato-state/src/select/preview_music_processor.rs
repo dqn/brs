@@ -407,7 +407,7 @@ mod tests {
         processor.start(None);
         assert!(processor.song_data().is_none());
         // Command queue should have one entry (empty path)
-        assert_eq!(processor.commands.lock().unwrap().len(), 1);
+        assert_eq!(processor.commands.lock().expect("mutex poisoned").len(), 1);
     }
 
     #[test]

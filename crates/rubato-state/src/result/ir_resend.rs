@@ -196,7 +196,7 @@ mod tests {
             .as_millis() as i64;
 
         {
-            let mut statuses = ir_send_status.lock().unwrap();
+            let mut statuses = ir_send_status.lock().expect("mutex poisoned");
             let mut remove_indices: Vec<usize> = Vec::new();
 
             for (i, score) in statuses.iter_mut().enumerate() {
@@ -216,7 +216,7 @@ mod tests {
             }
         }
 
-        assert!(ir_send_status.lock().unwrap().is_empty());
+        assert!(ir_send_status.lock().expect("mutex poisoned").is_empty());
     }
 
     #[test]
@@ -233,7 +233,7 @@ mod tests {
         let ir_send_status = Arc::new(Mutex::new(vec![status]));
 
         {
-            let mut statuses = ir_send_status.lock().unwrap();
+            let mut statuses = ir_send_status.lock().expect("mutex poisoned");
             let mut remove_indices: Vec<usize> = Vec::new();
 
             for (i, score) in statuses.iter_mut().enumerate() {
@@ -249,7 +249,7 @@ mod tests {
             }
         }
 
-        assert!(ir_send_status.lock().unwrap().is_empty());
+        assert!(ir_send_status.lock().expect("mutex poisoned").is_empty());
     }
 
     #[test]

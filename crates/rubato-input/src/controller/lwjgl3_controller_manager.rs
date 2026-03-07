@@ -300,27 +300,36 @@ mod tests {
         }
 
         fn axis_moved(&mut self, controller_index: usize, axis_code: i32, value: f32) -> bool {
-            self.events.lock().unwrap().push(ManagerEvent::AxisMoved {
-                controller: controller_index,
-                axis: axis_code,
-                value,
-            });
+            self.events
+                .lock()
+                .expect("mutex poisoned")
+                .push(ManagerEvent::AxisMoved {
+                    controller: controller_index,
+                    axis: axis_code,
+                    value,
+                });
             self.consume
         }
 
         fn button_down(&mut self, controller_index: usize, button_code: i32) -> bool {
-            self.events.lock().unwrap().push(ManagerEvent::ButtonDown {
-                controller: controller_index,
-                button: button_code,
-            });
+            self.events
+                .lock()
+                .expect("mutex poisoned")
+                .push(ManagerEvent::ButtonDown {
+                    controller: controller_index,
+                    button: button_code,
+                });
             self.consume
         }
 
         fn button_up(&mut self, controller_index: usize, button_code: i32) -> bool {
-            self.events.lock().unwrap().push(ManagerEvent::ButtonUp {
-                controller: controller_index,
-                button: button_code,
-            });
+            self.events
+                .lock()
+                .expect("mutex poisoned")
+                .push(ManagerEvent::ButtonUp {
+                    controller: controller_index,
+                    button: button_code,
+                });
             self.consume
         }
     }
@@ -348,7 +357,7 @@ mod tests {
 
         assert_eq!(mgr.controllers.len(), 1);
         assert_eq!(mgr.controllers[0].name, "Pad A");
-        let recorded = events.lock().unwrap();
+        let recorded = events.lock().expect("mutex poisoned");
         assert_eq!(recorded.len(), 1);
         assert_eq!(recorded[0], ManagerEvent::Connected(0));
     }
@@ -379,7 +388,7 @@ mod tests {
         assert_eq!(mgr.controllers.len(), 1);
         assert_eq!(mgr.controllers[0].name, "Pad B");
 
-        let recorded = events.lock().unwrap();
+        let recorded = events.lock().expect("mutex poisoned");
         // 2 Connected + 1 Disconnected
         assert_eq!(recorded.len(), 3);
         assert_eq!(recorded[2], ManagerEvent::Disconnected(0));
@@ -406,7 +415,7 @@ mod tests {
         // button release
         mgr.button_changed(0, 5, false);
 
-        let recorded = events.lock().unwrap();
+        let recorded = events.lock().expect("mutex poisoned");
         assert_eq!(recorded.len(), 2);
         assert_eq!(
             recorded[0],
@@ -433,7 +442,7 @@ mod tests {
 
         mgr.axis_changed(1, 3, 0.85);
 
-        let recorded = events.lock().unwrap();
+        let recorded = events.lock().expect("mutex poisoned");
         assert_eq!(recorded.len(), 1);
         assert_eq!(
             recorded[0],
@@ -461,8 +470,8 @@ mod tests {
         mgr.button_changed(0, 0, true);
         mgr.axis_changed(0, 0, 0.5);
 
-        assert_eq!(events_first.lock().unwrap().len(), 2);
-        assert_eq!(events_second.lock().unwrap().len(), 0);
+        assert_eq!(events_first.lock().expect("mutex poisoned").len(), 2);
+        assert_eq!(events_second.lock().expect("mutex poisoned").len(), 0);
     }
 
     #[test]

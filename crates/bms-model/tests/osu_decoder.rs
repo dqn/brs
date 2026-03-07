@@ -55,7 +55,7 @@ fn collect_lane_notes(model: &bms_model::bms_model::BMSModel) -> Vec<(i32, &Note
 #[test]
 fn decode_7k_fixture_metadata() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -71,7 +71,7 @@ fn decode_7k_fixture_metadata() {
 #[test]
 fn decode_7k_fixture_bpm() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -84,7 +84,7 @@ fn decode_7k_fixture_bpm() {
 #[test]
 fn decode_7k_fixture_timing_points() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -105,7 +105,7 @@ fn decode_7k_fixture_timing_points() {
 #[test]
 fn decode_7k_fixture_scroll_velocity() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -123,7 +123,7 @@ fn decode_7k_fixture_scroll_velocity() {
 #[test]
 fn decode_7k_fixture_normal_notes() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -148,7 +148,7 @@ fn decode_7k_fixture_normal_notes() {
 #[test]
 fn decode_7k_fixture_long_note() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -185,7 +185,7 @@ fn decode_7k_fixture_long_note() {
 #[test]
 fn decode_7k_fixture_section_lines() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -205,7 +205,7 @@ fn decode_7k_fixture_section_lines() {
 #[test]
 fn decode_7k_fixture_sections_are_monotonically_increasing() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -230,7 +230,7 @@ fn decode_7k_fixture_sections_are_monotonically_increasing() {
 #[test]
 fn decode_7k_fixture_events() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -258,7 +258,7 @@ fn decode_7k_fixture_events() {
 #[test]
 fn decode_7k_fixture_hashes_are_nonempty() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -303,7 +303,7 @@ CircleSize:4
 448,192,200,1,0,0:0:0:0:
 ";
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(f.path())
         .expect("should decode 4K .osu");
@@ -341,7 +341,7 @@ CircleSize:5
 460,192,300,1,0,0:0:0:0:
 ";
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(f.path())
         .expect("should decode 5K .osu");
@@ -383,7 +383,7 @@ CircleSize:9
 484,192,500,1,0,0:0:0:0:
 ";
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(f.path())
         .expect("should decode 9K .osu");
@@ -423,7 +423,7 @@ CircleSize:7
     // tail_time=500 + offset(38) = 538, head_time=1000 + offset(38) = 1038
     // tail <= head, so this should degrade to a normal note
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(f.path())
         .expect("should decode LN edge case");
@@ -478,7 +478,7 @@ CircleSize:4
 256,192,100,1,0,0:0:0:0:
 ";
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let result = decoder.decode_path(f.path());
     assert!(
         result.is_none(),
@@ -517,7 +517,7 @@ CircleSize:3
 426,192,200,1,0,0:0:0:0:
 ";
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let result = decoder.decode_path(f.path());
     assert!(
         result.is_none(),
@@ -532,7 +532,7 @@ CircleSize:3
 #[test]
 fn empty_file_returns_none() {
     let f = write_temp_osu("");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let result = decoder.decode_path(f.path());
     assert!(result.is_none(), "empty file should return None");
 }
@@ -560,7 +560,7 @@ Version:7K
 CircleSize:7
 ";
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let result = decoder.decode_path(f.path());
     assert!(
         result.is_none(),
@@ -594,7 +594,7 @@ CircleSize:7
 0,500,4,1,0,70,1,0
 ";
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let result = decoder.decode_path(f.path());
     assert!(
         result.is_none(),
@@ -628,7 +628,7 @@ CircleSize:7
 36,192,100,1,0,0:0:0:0:
 ";
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let result = decoder.decode_path(f.path());
     assert!(
         result.is_none(),
@@ -666,7 +666,7 @@ CircleSize:7
 109,192,100,1,0,0:0:0:0:
 ";
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(f.path())
         .expect("should decode despite negative-time object");
@@ -716,7 +716,7 @@ CircleSize:7
 36,192,6000,1,0,0:0:0:0:
 ";
     let f = write_temp_osu(content);
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(f.path())
         .expect("should decode with BPM change");
@@ -739,7 +739,7 @@ CircleSize:7
 #[test]
 fn wav_list_includes_audio_and_samples() {
     let path = fixture_path("osu_7k_basic.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode_path(&path)
         .expect("should decode 7K .osu fixture");
@@ -765,7 +765,7 @@ fn wav_list_includes_audio_and_samples() {
 #[test]
 fn nonexistent_file_returns_none() {
     let path = PathBuf::from("/tmp/does_not_exist_osu_test_12345.osu");
-    let mut decoder = OSUDecoder::new(0);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let result = decoder.decode_path(&path);
     assert!(result.is_none(), "nonexistent file should return None");
 }
@@ -779,8 +779,8 @@ fn decode_via_chart_information() {
     use bms_model::chart_information::ChartInformation;
 
     let path = fixture_path("osu_7k_basic.osu");
-    let info = ChartInformation::new(Some(path), 0, None);
-    let mut decoder = OSUDecoder::new(0);
+    let info = ChartInformation::new(Some(path), bms_model::bms_model::LnType::LongNote, None);
+    let mut decoder = OSUDecoder::new(bms_model::bms_model::LnType::LongNote);
     let model = decoder
         .decode(info)
         .expect("should decode via ChartInformation");

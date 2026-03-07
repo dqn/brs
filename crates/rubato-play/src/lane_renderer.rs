@@ -112,7 +112,7 @@ pub struct DrawLaneContext<'a> {
     /// Whether to show judge area
     pub show_judgearea: bool,
     /// LN type from model
-    pub lntype: i32,
+    pub lntype: bms_model::bms_model::LnType,
     /// Judge time regions per lane (5 judge levels, [start, end])
     pub judge_time_regions: Vec<Vec<[i64; 2]>>,
     /// Processing long note per lane (timeline index of the LN pair, if actively pressing)

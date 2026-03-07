@@ -395,27 +395,36 @@ mod tests {
         fn disconnected(&mut self, _controller_index: usize) {}
 
         fn axis_moved(&mut self, controller_index: usize, axis_code: i32, value: f32) -> bool {
-            self.events.lock().unwrap().push(ListenerEvent::AxisMoved {
-                controller: controller_index,
-                axis: axis_code,
-                value,
-            });
+            self.events
+                .lock()
+                .expect("mutex poisoned")
+                .push(ListenerEvent::AxisMoved {
+                    controller: controller_index,
+                    axis: axis_code,
+                    value,
+                });
             self.consume
         }
 
         fn button_down(&mut self, controller_index: usize, button_code: i32) -> bool {
-            self.events.lock().unwrap().push(ListenerEvent::ButtonDown {
-                controller: controller_index,
-                button: button_code,
-            });
+            self.events
+                .lock()
+                .expect("mutex poisoned")
+                .push(ListenerEvent::ButtonDown {
+                    controller: controller_index,
+                    button: button_code,
+                });
             self.consume
         }
 
         fn button_up(&mut self, controller_index: usize, button_code: i32) -> bool {
-            self.events.lock().unwrap().push(ListenerEvent::ButtonUp {
-                controller: controller_index,
-                button: button_code,
-            });
+            self.events
+                .lock()
+                .expect("mutex poisoned")
+                .push(ListenerEvent::ButtonUp {
+                    controller: controller_index,
+                    button: button_code,
+                });
             self.consume
         }
     }
@@ -561,7 +570,7 @@ mod tests {
         let new_axes = vec![0.7, 0.0];
         ctrl.process_axis_changes(&new_axes);
 
-        let recorded = events.lock().unwrap();
+        let recorded = events.lock().expect("mutex poisoned");
         assert_eq!(recorded.len(), 1);
         assert_eq!(
             recorded[0],
@@ -584,7 +593,7 @@ mod tests {
         // Release button 1
         ctrl.process_button_changes(&[false, false]);
 
-        let recorded = events.lock().unwrap();
+        let recorded = events.lock().expect("mutex poisoned");
         assert_eq!(recorded.len(), 2);
         assert_eq!(
             recorded[0],
@@ -618,18 +627,18 @@ mod tests {
 
         // Axis change
         ctrl.process_axis_changes(&[1.0, 0.0]);
-        assert_eq!(events_first.lock().unwrap().len(), 1);
-        assert_eq!(events_second.lock().unwrap().len(), 0);
+        assert_eq!(events_first.lock().expect("mutex poisoned").len(), 1);
+        assert_eq!(events_second.lock().expect("mutex poisoned").len(), 0);
 
         // Button press
         ctrl.process_button_changes(&[true, false]);
-        assert_eq!(events_first.lock().unwrap().len(), 2); // +1 button_down
-        assert_eq!(events_second.lock().unwrap().len(), 0); // still 0
+        assert_eq!(events_first.lock().expect("mutex poisoned").len(), 2); // +1 button_down
+        assert_eq!(events_second.lock().expect("mutex poisoned").len(), 0); // still 0
 
         // Button release
         ctrl.process_button_changes(&[false, false]);
-        assert_eq!(events_first.lock().unwrap().len(), 3); // +1 button_up
-        assert_eq!(events_second.lock().unwrap().len(), 0); // still 0
+        assert_eq!(events_first.lock().expect("mutex poisoned").len(), 3); // +1 button_up
+        assert_eq!(events_second.lock().expect("mutex poisoned").len(), 0); // still 0
     }
 
     #[test]
@@ -690,8 +699,8 @@ mod tests {
 
         // Fire event — only second listener (now at index 0) receives it
         ctrl.process_button_changes(&[true, false]);
-        assert!(events_a.lock().unwrap().is_empty());
-        assert_eq!(events_b.lock().unwrap().len(), 1);
+        assert!(events_a.lock().expect("mutex poisoned").is_empty());
+        assert_eq!(events_b.lock().expect("mutex poisoned").len(), 1);
 
         // Remove out-of-bounds index — no panic
         ctrl.remove_listener(99);

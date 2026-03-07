@@ -85,7 +85,9 @@ impl KeyInputLog {
                     if note.is_long() {
                         if note.is_end() {
                             keylog.push(KeyInputLog::with_data(i, lane, false));
-                            if model.lntype() != 0 && sc.contains(&lane) {
+                            if model.lntype() != bms_model::bms_model::LnType::LongNote
+                                && sc.contains(&lane)
+                            {
                                 // BSS handling
                                 keylog.push(KeyInputLog::with_data(i, lane + 1, true));
                             }

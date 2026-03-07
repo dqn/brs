@@ -3696,48 +3696,52 @@ mod tests {
             vec![]
         }
         fn clear(&mut self) {
-            self.state.lock().unwrap().cleared = true;
+            self.state.lock().expect("mutex poisoned").cleared = true;
         }
         fn set_bms_file(&mut self, path: &Path, mode_type: i32, mode_id: i32) -> bool {
-            let mut s = self.state.lock().unwrap();
+            let mut s = self.state.lock().expect("mutex poisoned");
             s.bms_file_path = Some(path.to_path_buf());
             s.bms_file_mode_type = Some(mode_type);
             s.bms_file_mode_id = Some(mode_id);
             s.bms_file_result
         }
         fn set_course_bms_files(&mut self, files: &[PathBuf]) -> bool {
-            let mut s = self.state.lock().unwrap();
+            let mut s = self.state.lock().expect("mutex poisoned");
             s.course_files = Some(files.to_vec());
             s.course_files_result
         }
         fn set_tablename(&mut self, name: &str) {
-            self.state.lock().unwrap().tablename = Some(name.to_string());
+            self.state.lock().expect("mutex poisoned").tablename = Some(name.to_string());
         }
         fn set_tablelevel(&mut self, level: &str) {
-            self.state.lock().unwrap().tablelevel = Some(level.to_string());
+            self.state.lock().expect("mutex poisoned").tablelevel = Some(level.to_string());
         }
         fn set_rival_score_data_option(&mut self, score: Option<ScoreData>) {
-            self.state.lock().unwrap().rival_score = Some(score);
+            self.state.lock().expect("mutex poisoned").rival_score = Some(score);
         }
         fn set_chart_option_data(&mut self, option: Option<rubato_types::replay_data::ReplayData>) {
-            self.state.lock().unwrap().chart_option = Some(option);
+            self.state.lock().expect("mutex poisoned").chart_option = Some(option);
         }
         fn set_course_data(&mut self, data: CourseData) {
-            self.state.lock().unwrap().course_data = Some(data);
+            self.state.lock().expect("mutex poisoned").course_data = Some(data);
         }
         fn clear_course_data(&mut self) {
-            self.state.lock().unwrap().course_data = None;
+            self.state.lock().expect("mutex poisoned").course_data = None;
         }
         fn course_song_data(&self) -> Vec<SongData> {
-            self.state.lock().unwrap().course_song_data.clone()
+            self.state
+                .lock()
+                .expect("mutex poisoned")
+                .course_song_data
+                .clone()
         }
         fn set_auto_play_songs(&mut self, paths: Vec<PathBuf>, loop_play: bool) {
-            let mut s = self.state.lock().unwrap();
+            let mut s = self.state.lock().expect("mutex poisoned");
             s.auto_play_songs = Some(paths);
             s.auto_play_loop = Some(loop_play);
         }
         fn next_song(&mut self) -> bool {
-            self.state.lock().unwrap().next_song_result
+            self.state.lock().expect("mutex poisoned").next_song_result
         }
     }
 
@@ -3770,7 +3774,11 @@ mod tests {
             PC.get_or_init(rubato_types::player_config::PlayerConfig::default)
         }
         fn change_state(&mut self, state: MainStateType) {
-            self.state.lock().unwrap().state_changes.push(state);
+            self.state
+                .lock()
+                .expect("mutex poisoned")
+                .state_changes
+                .push(state);
         }
         fn save_config(&self) {}
         fn exit(&self) {}
@@ -4157,7 +4165,7 @@ mod tests {
 
         selector.read_random_course(BMSPlayerMode::PLAY);
 
-        let s = state.lock().unwrap();
+        let s = state.lock().expect("mutex poisoned");
         assert!(
             s.state_changes.is_empty(),
             "should NOT transition when random course has no stages"

@@ -15,12 +15,12 @@ use crate::osu::{Osu, TimingPoints};
 use crate::time_line::TimeLine;
 
 pub struct OSUDecoder {
-    pub lntype: i32,
+    pub lntype: crate::bms_model::LnType,
     pub log: Vec<DecodeLog>,
 }
 
 impl OSUDecoder {
-    pub fn new(lntype: i32) -> Self {
+    pub fn new(lntype: crate::bms_model::LnType) -> Self {
         OSUDecoder {
             lntype,
             log: Vec::new(),
@@ -300,12 +300,12 @@ impl OSUDecoder {
                 }
                 let mut head =
                     Note::new_long_with_start_duration(wav_idx, adjusted_time as i64 * 1000, 0);
-                head.set_long_note_type(model.lntype());
+                head.set_long_note_type(model.lntype().as_i32());
                 tl.set_note(mapping[column_idx as usize], Some(head));
 
                 let tail_section = get_section(&timing_points, tail_time_ms);
                 let mut tail = Note::new_long_with_start_duration(wav_idx, tail_time_us, 0);
-                tail.set_long_note_type(model.lntype());
+                tail.set_long_note_type(model.lntype().as_i32());
                 tail.set_end(true);
                 let tail_tl = get_timeline(&mut timelines, tail_time_ms, tail_section, mode_key);
                 tail_tl.bpm = get_bpm(&timing_points, tail_time_ms);

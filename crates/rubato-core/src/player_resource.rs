@@ -229,7 +229,11 @@ impl PlayerResource {
     /// Java: PlayerResource.loadBMSModel(Path, int lnmode)
     pub fn load_bms_model(path: &Path, lnmode: i32) -> Option<(BMSModel, i64)> {
         let mut decoder = chart_decoder::decoder(path)?;
-        let info = ChartInformation::new(Some(path.to_path_buf()), lnmode, None);
+        let info = ChartInformation::new(
+            Some(path.to_path_buf()),
+            bms_model::bms_model::LnType::from_i32(lnmode),
+            None,
+        );
         let mut model = decoder.decode(info)?;
         let margin_time = set_start_note_time(&mut model, 1000);
         rubato_types::bms_player_rule::BMSPlayerRule::validate(&mut model);

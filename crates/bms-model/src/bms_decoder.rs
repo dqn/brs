@@ -5,7 +5,7 @@ use std::path::Path;
 use md5::Md5;
 use sha2::{Digest, Sha256};
 
-use crate::bms_model::{BMSModel, JudgeRankType, LNTYPE_LONGNOTE, TotalType};
+use crate::bms_model::{BMSModel, JudgeRankType, LNTYPE_LONGNOTE, LnType, TotalType};
 use crate::chart_decoder::{self, TimeLineCache};
 use crate::chart_information::ChartInformation;
 use crate::decode_log::{DecodeLog, State};
@@ -14,7 +14,7 @@ use crate::section::{self, Section, f64_to_key};
 use crate::time_line::TimeLine;
 
 pub struct BMSDecoder {
-    pub lntype: i32,
+    pub lntype: LnType,
     pub log: Vec<DecodeLog>,
     wavlist: Vec<String>,
     wm: Vec<i32>,
@@ -37,7 +37,7 @@ impl BMSDecoder {
         Self::new_with_lntype(LNTYPE_LONGNOTE)
     }
 
-    pub fn new_with_lntype(lntype: i32) -> Self {
+    pub fn new_with_lntype(lntype: LnType) -> Self {
         BMSDecoder {
             lntype,
             log: Vec::new(),
@@ -1027,6 +1027,7 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bms_model::LNTYPE_HELLCHARGENOTE;
 
     // --- convert_hex_string tests ---
 
@@ -1098,8 +1099,8 @@ mod tests {
 
     #[test]
     fn decoder_new_with_lntype() {
-        let decoder = BMSDecoder::new_with_lntype(2);
-        assert_eq!(decoder.lntype, 2);
+        let decoder = BMSDecoder::new_with_lntype(LNTYPE_HELLCHARGENOTE);
+        assert_eq!(decoder.lntype, LNTYPE_HELLCHARGENOTE);
     }
 
     // --- Header parsing via decode_bytes tests ---

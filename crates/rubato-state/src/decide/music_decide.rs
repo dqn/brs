@@ -515,7 +515,10 @@ mod tests {
         }
 
         fn change_state(&mut self, state: MainStateType) {
-            self.changed_states.lock().unwrap().push(state);
+            self.changed_states
+                .lock()
+                .expect("mutex poisoned")
+                .push(state);
         }
 
         fn save_config(&self) {}
@@ -688,7 +691,7 @@ mod tests {
         <MusicDecide as MainState>::handle_skin_mouse_pressed(&mut decide, 0, 10, 10);
 
         assert_eq!(
-            *changed_states.lock().unwrap(),
+            *changed_states.lock().expect("mutex poisoned"),
             vec![MainStateType::MusicSelect]
         );
     }

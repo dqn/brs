@@ -110,11 +110,11 @@ mod tests {
     #[test]
     fn target_list_recovers_after_poison() {
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = TARGETS.lock().unwrap();
+            let _guard = TARGETS.lock().expect("mutex poisoned");
             panic!("poison targets");
         }));
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = TARGET_NAMES.lock().unwrap();
+            let _guard = TARGET_NAMES.lock().expect("mutex poisoned");
             panic!("poison names");
         }));
 

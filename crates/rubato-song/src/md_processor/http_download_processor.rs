@@ -333,7 +333,7 @@ fn download_file_from_url(
         download_bytes += read as i64;
         offset = end;
         {
-            let mut t = task.lock().unwrap();
+            let mut t = task.lock().expect("mutex poisoned");
             t.download_size = download_bytes;
             t.content_length = content_length;
         }

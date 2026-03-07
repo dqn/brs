@@ -479,14 +479,14 @@ mod tests {
     #[test]
     fn test_version_checker_default() {
         let vc = MainLoader::version_checker();
-        let guard = vc.lock().unwrap();
+        let guard = vc.lock().expect("mutex poisoned");
         assert!(guard.is_some());
     }
 
     #[test]
     fn test_version_checker_message() {
         let vc = MainLoader::version_checker();
-        let guard = vc.lock().unwrap();
+        let guard = vc.lock().expect("mutex poisoned");
         let checker = guard.as_ref().unwrap();
         let msg = checker.get_message();
         assert!(!msg.is_empty());

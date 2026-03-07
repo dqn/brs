@@ -8,9 +8,37 @@ use crate::mode::Mode;
 use crate::note::Note;
 use crate::time_line::TimeLine;
 
-pub const LNTYPE_LONGNOTE: i32 = 0;
-pub const LNTYPE_CHARGENOTE: i32 = 1;
-pub const LNTYPE_HELLCHARGENOTE: i32 = 2;
+/// Long note type for BMS charts.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[repr(i32)]
+pub enum LnType {
+    #[default]
+    LongNote = 0,
+    ChargeNote = 1,
+    HellChargeNote = 2,
+}
+
+impl LnType {
+    /// Convert from i32 (for deserialization and legacy compatibility).
+    pub fn from_i32(v: i32) -> Self {
+        match v {
+            0 => LnType::LongNote,
+            1 => LnType::ChargeNote,
+            2 => LnType::HellChargeNote,
+            _ => LnType::LongNote,
+        }
+    }
+
+    /// Convert to i32 (for serialization and legacy compatibility).
+    pub fn as_i32(self) -> i32 {
+        self as i32
+    }
+}
+
+// Backward-compatible constants for migration period
+pub const LNTYPE_LONGNOTE: LnType = LnType::LongNote;
+pub const LNTYPE_CHARGENOTE: LnType = LnType::ChargeNote;
+pub const LNTYPE_HELLCHARGENOTE: LnType = LnType::HellChargeNote;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum JudgeRankType {
@@ -331,11 +359,11 @@ impl BMSModel {
             .map(|p| p.to_string_lossy().to_string())
     }
 
-    pub fn lntype(&self) -> i32 {
+    pub fn lntype(&self) -> LnType {
         self.info
             .as_ref()
             .map(|i| i.lntype)
-            .unwrap_or(LNTYPE_LONGNOTE)
+            .unwrap_or(LnType::LongNote)
     }
 
     pub fn stagefile(&self) -> &str {
@@ -967,10 +995,10 @@ mod tests {
         let mut model = BMSModel::new();
         assert!(model.get_chart_information().is_none());
 
-        let info = ChartInformation::new(None, 1, Some(vec![3, 5]));
+        let info = ChartInformation::new(None, LnType::ChargeNote, Some(vec![3, 5]));
         model.set_chart_information(info);
         assert!(model.get_chart_information().is_some());
-        assert_eq!(model.lntype(), 1);
+        assert_eq!(model.lntype(), LnType::ChargeNote);
         assert_eq!(model.random(), Some(&[3, 5][..]));
     }
 
@@ -1022,9 +1050,9 @@ mod tests {
 
     #[test]
     fn lntype_constants() {
-        assert_eq!(LNTYPE_LONGNOTE, 0);
-        assert_eq!(LNTYPE_CHARGENOTE, 1);
-        assert_eq!(LNTYPE_HELLCHARGENOTE, 2);
+        assert_eq!(LNTYPE_LONGNOTE.as_i32(), 0);
+        assert_eq!(LNTYPE_CHARGENOTE.as_i32(), 1);
+        assert_eq!(LNTYPE_HELLCHARGENOTE.as_i32(), 2);
     }
 
     #[test]

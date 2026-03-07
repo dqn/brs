@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn test_focus_recovers_after_poison() {
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = FOCUS.lock().unwrap();
+            let _guard = FOCUS.lock().expect("mutex poisoned");
             panic!("poison focus");
         }));
 

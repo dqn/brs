@@ -125,14 +125,18 @@ pub struct CreateSideEffects {
     pub skin_type: Option<SkinType>,
 }
 
-pub const STATE_PRELOAD: i32 = 0;
-pub const STATE_PRACTICE: i32 = 1;
-pub const STATE_PRACTICE_FINISHED: i32 = 2;
-pub const STATE_READY: i32 = 3;
-pub const STATE_PLAY: i32 = 4;
-pub const STATE_FAILED: i32 = 5;
-pub const STATE_FINISHED: i32 = 6;
-pub const STATE_ABORTED: i32 = 7;
+/// Play state machine states for BMSPlayer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PlayState {
+    Preload = 0,
+    Practice = 1,
+    PracticeFinished = 2,
+    Ready = 3,
+    Play = 4,
+    Failed = 5,
+    Finished = 6,
+    Aborted = 7,
+}
 
 // SkinProperty timer constants used in BMSPlayer
 use rubato_types::timer_id::TimerId;
@@ -296,7 +300,7 @@ pub struct BMSPlayer {
     keysound: KeySoundProcessor,
     assist: i32,
     playspeed: i32,
-    state: i32,
+    state: PlayState,
     prevtime: i64,
     practice: PracticeConfiguration,
     starttimeoffset: i64,
@@ -375,7 +379,7 @@ impl BMSPlayer {
             keysound: KeySoundProcessor::new(),
             assist: 0,
             playspeed: 100,
-            state: STATE_PRELOAD,
+            state: PlayState::Preload,
             prevtime: 0,
             practice: PracticeConfiguration::new(),
             starttimeoffset: 0,
@@ -555,7 +559,7 @@ impl BMSPlayer {
         &mut self.input
     }
 
-    pub fn state(&self) -> i32 {
+    pub fn state(&self) -> PlayState {
         self.state
     }
 
@@ -661,7 +665,7 @@ impl BMSPlayer {
 
     /// Apply loudness analysis result to compute the adjusted volume.
     ///
-    /// Translated from: BMSPlayer.render() STATE_PRELOAD loudness check (Java lines 614-641)
+    /// Translated from: BMSPlayer.render() PlayState::Preload loudness check (Java lines 614-641)
     ///
     /// When called, sets `adjusted_volume` based on the analysis result.
     /// Returns the adjusted volume (or -1.0 if analysis failed).
@@ -703,19 +707,19 @@ impl BMSPlayer {
     /// Corresponds to Java BMSPlayer.stopPlay()
     pub fn stop_play(&mut self) {
         // if main.hasObsListener() { main.getObsListener().triggerPlayEnded(); }
-        if self.state == STATE_PRACTICE {
+        if self.state == PlayState::Practice {
             self.practice.save_property();
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
-            self.state = STATE_PRACTICE_FINISHED;
+            self.state = PlayState::PracticeFinished;
             return;
         }
-        if self.state == STATE_PRELOAD || self.state == STATE_READY {
+        if self.state == PlayState::Preload || self.state == PlayState::Ready {
             self.pending.pending_global_pitch = Some(1.0);
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
             if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play {
-                self.state = STATE_ABORTED;
+                self.state = PlayState::Aborted;
             } else {
-                self.state = STATE_PRACTICE_FINISHED;
+                self.state = PlayState::PracticeFinished;
             }
             return;
         }
@@ -724,7 +728,7 @@ impl BMSPlayer {
         {
             return;
         }
-        if self.state != STATE_FINISHED
+        if self.state != PlayState::Finished
             && !self.is_course_mode
             && self.judge.judge_count(0)
                 + self.judge.judge_count(1)
@@ -738,28 +742,28 @@ impl BMSPlayer {
             }
             self.keysound.stop_bg_play();
             // if resource.mediaLoadFinished() { main.getAudioProcessor().stop(null); }
-            self.state = STATE_ABORTED;
+            self.state = PlayState::Aborted;
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
             return;
         }
-        if self.state != STATE_FINISHED
+        if self.state != PlayState::Finished
             && (self.judge.past_notes() == self.total_notes
                 || self.play_mode.mode == rubato_core::bms_player_mode::Mode::Autoplay)
         {
-            self.state = STATE_FINISHED;
+            self.state = PlayState::Finished;
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
-            log::info!("STATE_FINISHED");
-        } else if self.state == STATE_FINISHED
+            log::info!("PlayState::Finished");
+        } else if self.state == PlayState::Finished
             && !self.main_state_data.timer.is_timer_on(TIMER_FADEOUT)
         {
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
-        } else if self.state != STATE_FINISHED {
+        } else if self.state != PlayState::Finished {
             self.pending.pending_global_pitch = Some(1.0);
-            self.state = STATE_FAILED;
+            self.state = PlayState::Failed;
             self.main_state_data.timer.set_timer_on(TIMER_FAILED);
             // if resource.mediaLoadFinished() { main.getAudioProcessor().stop(null); }
             self.queue_sound(rubato_types::sound_type::SoundType::PlayStop);
-            log::info!("STATE_FAILED");
+            log::info!("PlayState::Failed");
         }
     }
 
@@ -774,7 +778,7 @@ impl BMSPlayer {
 
         // If not in course mode and not aborted, check if any notes were hit
         if !self.is_course_mode
-            && self.state != STATE_ABORTED
+            && self.state != PlayState::Aborted
             && (score.epg
                 + score.lpg
                 + score.egr
@@ -789,7 +793,7 @@ impl BMSPlayer {
         }
 
         let mut clear = ClearType::Failed;
-        if self.state != STATE_FAILED
+        if self.state != PlayState::Failed
             && let Some(ref gauge) = self.gauge
             && gauge.is_qualified()
         {
@@ -1655,7 +1659,7 @@ struct PlayRenderContext<'a> {
     playtime: i32,
     total_notes: i32,
     play_mode: BMSPlayerMode,
-    state: i32,
+    state: PlayState,
     media_load_finished: bool,
 }
 
@@ -1776,8 +1780,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             }
             // Practice mode
             201 => self.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice,
-            // Loading state (STATE_PRELOAD = 0)
-            80 => self.state == STATE_PRELOAD,
+            // Loading state (PlayState::Preload = 0)
+            80 => self.state == PlayState::Preload,
             _ => false,
         }
     }
@@ -2063,7 +2067,7 @@ impl MainState for BMSPlayer {
         // if (autoplay.mode == PRACTICE) {
         //     getScoreDataProperty().setTargetScore(0, null, 0, null, model.getTotalNotes());
         //     practice.create(model, main.getConfig());
-        //     state = STATE_PRACTICE;
+        //     state = PlayState::Practice;
         // } else {
         //     if (resource.getRivalScoreData() == null || resource.getCourseBMSModels() != null) {
         //         ScoreData targetScore = TargetProperty.getTargetProperty(config.getTargetid()).getTarget(main);
@@ -2092,7 +2096,7 @@ impl MainState for BMSPlayer {
                 .score
                 .set_target_score_with_ghost(0, None, 0, None, total_notes);
             self.practice.create(&self.model);
-            self.state = STATE_PRACTICE;
+            self.state = PlayState::Practice;
         } else {
             // Determine the effective target score:
             // - If rival score is absent or in course mode, use the pre-computed target_score
@@ -2136,8 +2140,8 @@ impl MainState for BMSPlayer {
         }
 
         match self.state {
-            // STATE_PRELOAD - wait for resources
-            STATE_PRELOAD => {
+            // PlayState::Preload - wait for resources
+            PlayState::Preload => {
                 // Chart preview handling
                 // Translated from: Java BMSPlayer.render() lines 598-604
                 if self.player_config.chart_preview {
@@ -2188,10 +2192,10 @@ impl MainState for BMSPlayer {
                         .lock()
                         .expect("bga lock poisoned")
                         .prepare(&() as &dyn std::any::Any);
-                    self.state = STATE_READY;
+                    self.state = PlayState::Ready;
                     self.main_state_data.timer.set_timer_on(TIMER_READY);
                     self.queue_sound(rubato_types::sound_type::SoundType::PlayReady);
-                    log::info!("STATE_READY");
+                    log::info!("PlayState::Ready");
                 }
                 // PM character neutral timer
                 if !self
@@ -2212,8 +2216,8 @@ impl MainState for BMSPlayer {
                 }
             }
 
-            // STATE_PRACTICE - practice mode config
-            STATE_PRACTICE => {
+            // PlayState::Practice - practice mode config
+            PlayState::Practice => {
                 if self.main_state_data.timer.is_timer_on(TIMER_PLAY) {
                     // Reset for practice restart: reload BMS file to get a fresh model
                     // (modifiers mutate the model during play, so we need a clean copy).
@@ -2364,15 +2368,15 @@ impl MainState for BMSPlayer {
                         .lock()
                         .expect("bga lock poisoned")
                         .prepare(&() as &dyn std::any::Any);
-                    self.state = STATE_READY;
+                    self.state = PlayState::Ready;
                     self.main_state_data.timer.set_timer_on(TIMER_READY);
-                    log::info!("Practice -> STATE_READY");
+                    log::info!("Practice -> PlayState::Ready");
                 }
             }
 
-            // STATE_PRACTICE_FINISHED
+            // PlayState::PracticeFinished
             // Translated from: Java BMSPlayer.render() lines 726-731
-            STATE_PRACTICE_FINISHED => {
+            PlayState::PracticeFinished => {
                 let skin_fadeout = self
                     .main_state_data
                     .skin
@@ -2385,15 +2389,15 @@ impl MainState for BMSPlayer {
                 }
             }
 
-            // STATE_READY - countdown before play
-            STATE_READY => {
+            // PlayState::Ready - countdown before play
+            PlayState::Ready => {
                 if self.main_state_data.timer.now_time_for_id(TIMER_READY)
                     > self.play_skin.get_playstart() as i64
                 {
                     if let Some(ref lr) = self.lanerender {
                         self.score.replay_config = Some(lr.play_config().clone());
                     }
-                    self.state = STATE_PLAY;
+                    self.state = PlayState::Play;
                     self.main_state_data
                         .timer
                         .set_micro_timer(TIMER_PLAY, micronow - self.starttimeoffset * 1000);
@@ -2426,12 +2430,12 @@ impl MainState for BMSPlayer {
                         self.starttimeoffset * 1000,
                         initial_bg_vol,
                     );
-                    log::info!("STATE_PLAY");
+                    log::info!("PlayState::Play");
                 }
             }
 
-            // STATE_PLAY - main gameplay
-            STATE_PLAY => {
+            // PlayState::Play - main gameplay
+            PlayState::Play => {
                 let deltatime = micronow - self.prevtime;
                 let deltaplay = deltatime.saturating_mul(100 - self.playspeed as i64) / 100;
                 let freq = self.practice.practice_property().freq;
@@ -2501,7 +2505,7 @@ impl MainState for BMSPlayer {
 
                 // Check play time elapsed
                 if (self.playtime as i64) < ptime {
-                    self.state = STATE_FINISHED;
+                    self.state = PlayState::Finished;
                     self.main_state_data.timer.set_timer_on(TIMER_MUSIC_END);
                     for raw in TIMER_PM_CHARA_1P_NEUTRAL.as_i32()..=TIMER_PM_CHARA_2P_BAD.as_i32() {
                         self.main_state_data.timer.set_timer_off(TimerId::new(raw));
@@ -2509,7 +2513,7 @@ impl MainState for BMSPlayer {
                     self.main_state_data
                         .timer
                         .set_timer_off(TIMER_PM_CHARA_DANCE);
-                    log::info!("STATE_FINISHED");
+                    log::info!("PlayState::Finished");
                 } else if (self.playtime - TIME_MARGIN) as i64 <= ptime {
                     self.main_state_data
                         .timer
@@ -2564,11 +2568,11 @@ impl MainState for BMSPlayer {
                         match gas {
                             GAUGEAUTOSHIFT_NONE => {
                                 // FAILED transition
-                                self.state = STATE_FAILED;
+                                self.state = PlayState::Failed;
                                 self.main_state_data.timer.set_timer_on(TIMER_FAILED);
                                 // if resource.mediaLoadFinished() { main.getAudioProcessor().stop(null); }
                                 self.queue_sound(rubato_types::sound_type::SoundType::PlayStop);
-                                log::info!("STATE_FAILED");
+                                log::info!("PlayState::Failed");
                             }
                             GAUGEAUTOSHIFT_CONTINUE => {
                                 // Continue playing with 0 gauge
@@ -2584,9 +2588,9 @@ impl MainState for BMSPlayer {
                 }
             }
 
-            // STATE_FAILED
+            // PlayState::Failed
             // Translated from: Java BMSPlayer.render() lines 818-869
-            STATE_FAILED => {
+            PlayState::Failed => {
                 if let Some(ref mut control) = self.input.control {
                     control.set_enable_control(false);
                     control.set_enable_cursor(false);
@@ -2643,9 +2647,9 @@ impl MainState for BMSPlayer {
                     // input.setEnable(true); input.setStartTime(0);
                     self.save_config();
 
-                    // Transition: practice -> STATE_PRACTICE, else -> RESULT or MUSICSELECT
+                    // Transition: practice -> PlayState::Practice, else -> RESULT or MUSICSELECT
                     if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice {
-                        self.state = STATE_PRACTICE;
+                        self.state = PlayState::Practice;
                     } else if self
                         .pending
                         .pending_score_handoff
@@ -2660,9 +2664,9 @@ impl MainState for BMSPlayer {
                 }
             }
 
-            // STATE_FINISHED
+            // PlayState::Finished
             // Translated from: Java BMSPlayer.render() lines 872-911
-            STATE_FINISHED => {
+            PlayState::Finished => {
                 if let Some(ref mut control) = self.input.control {
                     control.set_enable_control(false);
                     control.set_enable_cursor(false);
@@ -2705,9 +2709,9 @@ impl MainState for BMSPlayer {
                         });
                     // input.setEnable(true); input.setStartTime(0);
 
-                    // Transition: practice -> STATE_PRACTICE, else -> RESULT
+                    // Transition: practice -> PlayState::Practice, else -> RESULT
                     if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice {
-                        self.state = STATE_PRACTICE;
+                        self.state = PlayState::Practice;
                     } else {
                         self.pending.pending_state_change = Some(MainStateType::Result);
                     }
@@ -2715,9 +2719,9 @@ impl MainState for BMSPlayer {
                 }
             }
 
-            // STATE_ABORTED
+            // PlayState::Aborted
             // Translated from: Java BMSPlayer.render() lines 914-936
-            STATE_ABORTED => {
+            PlayState::Aborted => {
                 // Quick retry check (START xor SELECT in PLAY mode, not course)
                 if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play
                     && (self.input.input_start_pressed ^ self.input.input_select_pressed)
@@ -2741,8 +2745,6 @@ impl MainState for BMSPlayer {
                     log::info!("Aborted, transition to MUSICSELECT");
                 }
             }
-
-            _ => {}
         }
 
         self.prevtime = micronow;
@@ -3092,7 +3094,7 @@ mod tests {
     fn new_creates_default_state() {
         let model = make_model();
         let player = BMSPlayer::new(model);
-        assert_eq!(player.state(), STATE_PRELOAD);
+        assert_eq!(player.state(), PlayState::Preload);
         assert_eq!(player.play_speed(), 100);
         assert_eq!(player.adjusted_volume(), -1.0);
         assert!(!player.score.analysis_checked);
@@ -3191,7 +3193,7 @@ mod tests {
         // We force this by setting TIMER_PLAY to a known value and using set_micro_timer
         // to manipulate the effective "now" time. However, the simplest approach is
         // to directly manipulate the state and verify the transition logic.
-        player.state = STATE_PRELOAD;
+        player.state = PlayState::Preload;
         player.startpressedtime = -2_000_000;
 
         // Set the timer's starttime far in the past by calling update repeatedly
@@ -3205,14 +3207,14 @@ mod tests {
         player.main_state_data.timer.update();
 
         player.render();
-        assert_eq!(player.state(), STATE_READY);
+        assert_eq!(player.state(), PlayState::Ready);
     }
 
     #[test]
     fn state_ready_transitions_to_play() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_READY;
+        player.state = PlayState::Ready;
         player.play_skin.playstart = 0; // Instant transition
         player.main_state_data.timer.set_timer_on(TIMER_READY);
         player.lanerender = Some(LaneRenderer::new(&player.model));
@@ -3233,14 +3235,14 @@ mod tests {
             .set_micro_timer(TIMER_READY, now - 2000); // 2ms ago
 
         player.render();
-        assert_eq!(player.state(), STATE_PLAY);
+        assert_eq!(player.state(), PlayState::Play);
     }
 
     #[test]
     fn state_play_transitions_to_finished_when_playtime_exceeded() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PLAY;
+        player.state = PlayState::Play;
         player.playtime = 0; // Instant finish
 
         // Set TIMER_PLAY to far past so ptime is large
@@ -3253,14 +3255,14 @@ mod tests {
         player.prevtime = now - 1000; // Small delta
 
         player.render();
-        assert_eq!(player.state(), STATE_FINISHED);
+        assert_eq!(player.state(), PlayState::Finished);
     }
 
     #[test]
     fn state_play_transitions_to_failed_on_zero_gauge() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PLAY;
+        player.state = PlayState::Play;
         player.playtime = 999_999; // Long playtime so we don't finish
 
         // Create a gauge at 0 value
@@ -3285,7 +3287,7 @@ mod tests {
         player.prevtime = now - 500;
 
         player.render();
-        assert_eq!(player.state(), STATE_FAILED);
+        assert_eq!(player.state(), PlayState::Failed);
     }
 
     // --- stop_play tests ---
@@ -3294,9 +3296,9 @@ mod tests {
     fn stop_play_from_practice_goes_to_practice_finished() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PRACTICE;
+        player.state = PlayState::Practice;
         player.stop_play();
-        assert_eq!(player.state(), STATE_PRACTICE_FINISHED);
+        assert_eq!(player.state(), PlayState::PracticeFinished);
         assert!(player.main_state_data.timer.is_timer_on(TIMER_FADEOUT));
     }
 
@@ -3304,9 +3306,9 @@ mod tests {
     fn stop_play_from_preload_goes_to_aborted() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PRELOAD;
+        player.state = PlayState::Preload;
         player.stop_play();
-        assert_eq!(player.state(), STATE_ABORTED);
+        assert_eq!(player.state(), PlayState::Aborted);
         assert!(player.main_state_data.timer.is_timer_on(TIMER_FADEOUT));
     }
 
@@ -3314,27 +3316,27 @@ mod tests {
     fn stop_play_from_ready_goes_to_aborted() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_READY;
+        player.state = PlayState::Ready;
         player.stop_play();
-        assert_eq!(player.state(), STATE_ABORTED);
+        assert_eq!(player.state(), PlayState::Aborted);
     }
 
     #[test]
     fn stop_play_from_play_with_no_notes_goes_to_aborted() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PLAY;
+        player.state = PlayState::Play;
         // Judge has no notes hit (all counts = 0), and keyinput needs to exist
         player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
         player.stop_play();
-        assert_eq!(player.state(), STATE_ABORTED);
+        assert_eq!(player.state(), PlayState::Aborted);
     }
 
     #[test]
     fn stop_play_ignores_if_already_failed_timer() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PLAY;
+        player.state = PlayState::Play;
         player.main_state_data.timer.set_timer_on(TIMER_FAILED);
         let prev_state = player.state;
         player.stop_play();
@@ -3373,7 +3375,7 @@ mod tests {
         let model = make_model_with_timed_notes(&[(1, 1000), (2, -2000), (3, 3000)]);
         let mut player = BMSPlayer::new(model);
         // Use ABORTED state to bypass the zero-notes-hit check
-        player.state = STATE_ABORTED;
+        player.state = PlayState::Aborted;
 
         let score = player.create_score_data(DeviceType::Keyboard).unwrap();
 
@@ -3402,7 +3404,7 @@ mod tests {
         // Fields should stay at their initial values.
         let model = make_model_with_timed_notes(&[(0, 5000), (0, -3000)]);
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_ABORTED;
+        player.state = PlayState::Aborted;
 
         let score = player.create_score_data(DeviceType::Keyboard).unwrap();
 
@@ -3448,7 +3450,7 @@ mod tests {
         model.timelines = vec![tl];
 
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_ABORTED;
+        player.state = PlayState::Aborted;
 
         let score = player.create_score_data(DeviceType::Keyboard).unwrap();
 
@@ -3472,7 +3474,7 @@ mod tests {
     fn create_score_data_returns_some_when_aborted() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_ABORTED;
+        player.state = PlayState::Aborted;
         // Even with no notes, aborted state returns score data
         let result = player.create_score_data(DeviceType::Keyboard);
         assert!(result.is_some());
@@ -3486,7 +3488,7 @@ mod tests {
 
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_ABORTED;
+        player.state = PlayState::Aborted;
 
         let score = player.create_score_data(DeviceType::Keyboard).unwrap();
         assert_eq!(
@@ -3501,7 +3503,7 @@ mod tests {
 
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_ABORTED;
+        player.state = PlayState::Aborted;
 
         let score = player.create_score_data(DeviceType::BmController).unwrap();
         assert_eq!(
@@ -3516,7 +3518,7 @@ mod tests {
 
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_ABORTED;
+        player.state = PlayState::Aborted;
 
         let score = player.create_score_data(DeviceType::Midi).unwrap();
         assert_eq!(score.device_type, Some(bms_player_input_device::Type::MIDI));
@@ -3603,7 +3605,7 @@ mod tests {
         player.media_load_finished = true;
 
         // Start at PRELOAD
-        assert_eq!(player.state(), STATE_PRELOAD);
+        assert_eq!(player.state(), PlayState::Preload);
 
         // Force transition to READY
         player.startpressedtime = -2_000_000;
@@ -3612,7 +3614,7 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(2));
         player.main_state_data.timer.update();
         player.render();
-        assert_eq!(player.state(), STATE_READY);
+        assert_eq!(player.state(), PlayState::Ready);
 
         // Force transition to PLAY
         player.play_skin.playstart = 0;
@@ -3623,7 +3625,7 @@ mod tests {
             .timer
             .set_micro_timer(TIMER_READY, now - 2000);
         player.render();
-        assert_eq!(player.state(), STATE_PLAY);
+        assert_eq!(player.state(), PlayState::Play);
 
         // Force transition to FINISHED
         player.playtime = 0; // Instant finish
@@ -3634,7 +3636,7 @@ mod tests {
             .set_micro_timer(TIMER_PLAY, now - 2_000_000);
         player.prevtime = now - 1000;
         player.render();
-        assert_eq!(player.state(), STATE_FINISHED);
+        assert_eq!(player.state(), PlayState::Finished);
     }
 
     // --- dispose test ---
@@ -4254,7 +4256,7 @@ mod tests {
         model.judgerank = 100;
         model.set_chart_information(bms_model::chart_information::ChartInformation::new(
             None,
-            0,
+            bms_model::bms_model::LnType::LongNote,
             Some(vec![1, 3, 2]),
         )); // Model has random branches
         let mut player = BMSPlayer::new(model);
@@ -4276,7 +4278,7 @@ mod tests {
         model.judgerank = 100;
         model.set_chart_information(bms_model::chart_information::ChartInformation::new(
             None,
-            0,
+            bms_model::bms_model::LnType::LongNote,
             Some(vec![1, 3, 2]),
         ));
         let mut player = BMSPlayer::new(model);
@@ -4296,7 +4298,7 @@ mod tests {
         model.judgerank = 100;
         model.set_chart_information(bms_model::chart_information::ChartInformation::new(
             None,
-            0,
+            bms_model::bms_model::LnType::LongNote,
             Some(vec![4, 5, 6]),
         ));
         let mut player = BMSPlayer::new(model);
@@ -4314,7 +4316,7 @@ mod tests {
         model.judgerank = 100;
         model.set_chart_information(bms_model::chart_information::ChartInformation::new(
             None,
-            0,
+            bms_model::bms_model::LnType::LongNote,
             Some(vec![1, 2]),
         ));
         let mut player = BMSPlayer::new(model);
@@ -4927,7 +4929,7 @@ mod tests {
     fn stop_play_preload_sets_pending_pitch_to_one() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PRELOAD;
+        player.state = PlayState::Preload;
         player.stop_play();
         assert_eq!(player.take_pending_global_pitch(), Some(1.0));
     }
@@ -4936,7 +4938,7 @@ mod tests {
     fn stop_play_ready_sets_pending_pitch_to_one() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_READY;
+        player.state = PlayState::Ready;
         player.stop_play();
         assert_eq!(player.take_pending_global_pitch(), Some(1.0));
     }
@@ -4945,11 +4947,11 @@ mod tests {
     fn stop_play_failed_state_sets_pending_pitch_to_one() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PLAY;
+        player.state = PlayState::Play;
         // Ensure no notes judged and no prior timer
         player.stop_play();
         // This goes to ABORTED (no notes judged), no pitch reset here
-        assert_eq!(player.state, STATE_ABORTED);
+        assert_eq!(player.state, PlayState::Aborted);
         // No pending pitch for ABORTED path (matches Java - only resets on failed path)
         assert_eq!(player.take_pending_global_pitch(), None);
     }
@@ -4960,14 +4962,14 @@ mod tests {
         model.set_mode(Mode::BEAT_7K);
         model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PLAY;
+        player.state = PlayState::Play;
 
         // Simulate some notes judged (not finished but notes exist)
         // Force the judge counts so we enter the failed branch
         player.judge.score_data_mut().epg = 5; // 5 early PGreats
         player.total_notes = 100; // not all past
         player.stop_play();
-        assert_eq!(player.state, STATE_FAILED);
+        assert_eq!(player.state, PlayState::Failed);
         assert_eq!(player.take_pending_global_pitch(), Some(1.0));
     }
 
@@ -5207,7 +5209,7 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         player.set_play_mode(BMSPlayerMode::PRACTICE);
         player.create();
-        assert_eq!(player.state(), STATE_PRACTICE);
+        assert_eq!(player.state(), PlayState::Practice);
     }
 
     #[test]
@@ -5216,7 +5218,7 @@ mod tests {
         let mut player = BMSPlayer::new(model);
         player.set_play_mode(BMSPlayerMode::PLAY);
         player.create();
-        assert_eq!(player.state(), STATE_PRELOAD);
+        assert_eq!(player.state(), PlayState::Preload);
     }
 
     #[test]
@@ -5411,7 +5413,7 @@ mod tests {
         player.render();
 
         // Should stay in PRELOAD because media not loaded
-        assert_eq!(player.state(), STATE_PRELOAD);
+        assert_eq!(player.state(), PlayState::Preload);
     }
 
     // --- input state wiring tests ---
@@ -5559,7 +5561,7 @@ mod tests {
     fn gauge_autoshift_continue_does_not_fail() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PLAY;
+        player.state = PlayState::Play;
         player.playtime = 999_999;
         player.player_config.gauge_auto_shift =
             rubato_types::player_config::GAUGEAUTOSHIFT_CONTINUE;
@@ -5585,14 +5587,14 @@ mod tests {
         player.render();
 
         // Should NOT transition to FAILED with CONTINUE mode
-        assert_eq!(player.state(), STATE_PLAY);
+        assert_eq!(player.state(), PlayState::Play);
     }
 
     #[test]
     fn gauge_autoshift_survival_to_groove_shifts_type() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PLAY;
+        player.state = PlayState::Play;
         player.playtime = 999_999;
         player.player_config.gauge_auto_shift =
             rubato_types::player_config::GAUGEAUTOSHIFT_SURVIVAL_TO_GROOVE;
@@ -5618,7 +5620,7 @@ mod tests {
         player.render();
 
         // Should shift to NORMAL gauge type, not FAILED
-        assert_eq!(player.state(), STATE_PLAY);
+        assert_eq!(player.state(), PlayState::Play);
         assert_eq!(
             player.gauge.as_ref().unwrap().gauge_type(),
             rubato_types::groove_gauge::NORMAL
@@ -5631,7 +5633,7 @@ mod tests {
     fn quick_retry_in_failed_state_with_start_xor_select() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_FAILED;
+        player.state = PlayState::Failed;
         player.lanerender = Some(LaneRenderer::new(&player.model));
         player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
         player.set_play_mode(BMSPlayerMode::PLAY);
@@ -5653,7 +5655,7 @@ mod tests {
     fn no_quick_retry_in_course_mode() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_FAILED;
+        player.state = PlayState::Failed;
         player.lanerender = Some(LaneRenderer::new(&player.model));
         player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
         player.set_play_mode(BMSPlayerMode::PLAY);
@@ -5675,7 +5677,7 @@ mod tests {
     fn aborted_quick_retry_with_start_xor_select() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_ABORTED;
+        player.state = PlayState::Aborted;
         player.lanerender = Some(LaneRenderer::new(&player.model));
         player.set_play_mode(BMSPlayerMode::PLAY);
         player.is_course_mode = false;
@@ -5698,7 +5700,7 @@ mod tests {
     fn failed_transitions_to_practice_in_practice_mode() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_FAILED;
+        player.state = PlayState::Failed;
         player.lanerender = Some(LaneRenderer::new(&player.model));
         player.input.keyinput = Some(KeyInputProccessor::new(&LaneProperty::new(&Mode::BEAT_7K)));
         player.set_play_mode(BMSPlayerMode::PRACTICE);
@@ -5715,8 +5717,8 @@ mod tests {
 
         player.render();
 
-        // In practice mode, should return to STATE_PRACTICE
-        assert_eq!(player.state(), STATE_PRACTICE);
+        // In practice mode, should return to PlayState::Practice
+        assert_eq!(player.state(), PlayState::Practice);
     }
 
     #[test]
@@ -5738,7 +5740,7 @@ mod tests {
     fn chart_preview_sets_timer_141_when_enabled() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.state = STATE_PRELOAD;
+        player.state = PlayState::Preload;
         player.player_config.chart_preview = true;
         player.startpressedtime = 0;
 

@@ -64,7 +64,7 @@ pub struct IRChartData {
 impl IRChartData {
     pub fn new(song: &SongData) -> Self {
         let lntype = if let Some(model) = song.bms_model() {
-            model.lntype()
+            model.lntype().as_i32()
         } else {
             0
         };

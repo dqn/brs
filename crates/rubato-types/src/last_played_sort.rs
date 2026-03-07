@@ -28,7 +28,7 @@ mod tests {
     #[test]
     fn last_played_sort_recovers_after_poison() {
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = LAST_PLAYED_SORT.lock().unwrap();
+            let _guard = LAST_PLAYED_SORT.lock().expect("mutex poisoned");
             panic!("poison last played sort");
         }));
 

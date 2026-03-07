@@ -90,7 +90,7 @@ impl TimeLine {
         self.total_notes_with_lntype(super::bms_model::LNTYPE_LONGNOTE)
     }
 
-    pub fn total_notes_with_lntype(&self, lntype: i32) -> i32 {
+    pub fn total_notes_with_lntype(&self, lntype: super::bms_model::LnType) -> i32 {
         let mut count = 0;
         for note in self.notes.iter().flatten() {
             match note {

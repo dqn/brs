@@ -2197,7 +2197,7 @@ mod tests {
             } else {
                 &self.render_sync_calls
             };
-            *counter.lock().unwrap() += 1;
+            *counter.lock().expect("mutex poisoned") += 1;
         }
     }
 
@@ -2747,14 +2747,14 @@ mod tests {
                 &mut self,
                 _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
             ) {
-                self.counts.lock().unwrap().1 += 1;
+                self.counts.lock().expect("mutex poisoned").1 += 1;
             }
 
             fn update_custom_objects_timed(
                 &mut self,
                 _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
             ) {
-                self.counts.lock().unwrap().0 += 1;
+                self.counts.lock().expect("mutex poisoned").0 += 1;
             }
 
             fn mouse_pressed_at(
@@ -2807,7 +2807,7 @@ mod tests {
         mc.render();
         mc.render();
 
-        let (update_count, draw_count) = *counts.lock().unwrap();
+        let (update_count, draw_count) = *counts.lock().expect("mutex poisoned");
         assert_eq!(
             update_count, 3,
             "update_custom_objects_timed should be called once per frame"
@@ -3108,8 +3108,8 @@ mod tests {
         mc.change_state(MainStateType::MusicSelect);
         mc.render();
 
-        assert_eq!(*render_sync_calls.lock().unwrap(), 1);
-        assert_eq!(*shutdown_sync_calls.lock().unwrap(), 0);
+        assert_eq!(*render_sync_calls.lock().expect("mutex poisoned"), 1);
+        assert_eq!(*shutdown_sync_calls.lock().expect("mutex poisoned"), 0);
     }
 
     #[test]
@@ -3128,7 +3128,7 @@ mod tests {
         mc.change_state(MainStateType::MusicSelect);
         mc.change_state(MainStateType::Config);
 
-        assert_eq!(*shutdown_sync_calls.lock().unwrap(), 1);
+        assert_eq!(*shutdown_sync_calls.lock().expect("mutex poisoned"), 1);
     }
 
     // --- Phase 24f: update_main_state_listener tests ---
@@ -3167,7 +3167,7 @@ mod tests {
 
         // The transition_to_state calls update_main_state_listener(0) internally,
         // so we should already have one call.
-        let recorded = calls.lock().unwrap();
+        let recorded = calls.lock().expect("mutex poisoned");
         assert_eq!(recorded.len(), 1);
         assert_eq!(recorded[0], (ScreenType::MusicSelector, 0));
     }
@@ -3183,10 +3183,16 @@ mod tests {
 
         mc.change_state(MainStateType::Config);
 
-        assert_eq!(calls1.lock().unwrap().len(), 1);
-        assert_eq!(calls2.lock().unwrap().len(), 1);
-        assert_eq!(calls1.lock().unwrap()[0], (ScreenType::KeyConfiguration, 0));
-        assert_eq!(calls2.lock().unwrap()[0], (ScreenType::KeyConfiguration, 0));
+        assert_eq!(calls1.lock().expect("mutex poisoned").len(), 1);
+        assert_eq!(calls2.lock().expect("mutex poisoned").len(), 1);
+        assert_eq!(
+            calls1.lock().expect("mutex poisoned")[0],
+            (ScreenType::KeyConfiguration, 0)
+        );
+        assert_eq!(
+            calls2.lock().expect("mutex poisoned")[0],
+            (ScreenType::KeyConfiguration, 0)
+        );
     }
 
     #[test]
@@ -3197,7 +3203,7 @@ mod tests {
 
         // No current state → no dispatch
         mc.update_main_state_listener(0);
-        assert!(calls.lock().unwrap().is_empty());
+        assert!(calls.lock().expect("mutex poisoned").is_empty());
     }
 
     #[test]
@@ -3208,12 +3214,12 @@ mod tests {
 
         mc.change_state(MainStateType::Result);
         // Clear the initial call from transition
-        calls.lock().unwrap().clear();
+        calls.lock().expect("mutex poisoned").clear();
 
         // Manual call with custom status
         mc.update_main_state_listener(42);
 
-        let recorded = calls.lock().unwrap();
+        let recorded = calls.lock().expect("mutex poisoned");
         assert_eq!(recorded.len(), 1);
         assert_eq!(recorded[0], (ScreenType::MusicResult, 42));
     }
@@ -3226,7 +3232,7 @@ mod tests {
 
     impl StateReferencesCallback for MockReferencesCallback {
         fn update_references(&self, _config: &Config, _player: &PlayerConfig) {
-            *self.called.lock().unwrap() = true;
+            *self.called.lock().expect("mutex poisoned") = true;
         }
     }
 
@@ -3239,7 +3245,7 @@ mod tests {
         }));
 
         mc.update_state_references();
-        assert!(*called.lock().unwrap());
+        assert!(*called.lock().expect("mutex poisoned"));
     }
 
     #[test]
@@ -3299,7 +3305,7 @@ mod tests {
         }));
 
         mc.create();
-        assert!(*called.lock().unwrap());
+        assert!(*called.lock().expect("mutex poisoned"));
     }
 
     // --- Phase 41i: Loudness analyzer tests ---
@@ -3340,7 +3346,7 @@ mod tests {
 
     #[test]
     fn test_exit_sets_exit_requested_flag() {
-        let _lock = CWD_MUTEX.lock().unwrap();
+        let _lock = CWD_MUTEX.lock().expect("mutex poisoned");
         let dir = tempfile::tempdir().unwrap();
         let original_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(dir.path()).unwrap();
@@ -3357,7 +3363,7 @@ mod tests {
 
     #[test]
     fn test_exit_calls_save_config() {
-        let _lock = CWD_MUTEX.lock().unwrap();
+        let _lock = CWD_MUTEX.lock().expect("mutex poisoned");
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("config_sys.json");
 
@@ -3378,7 +3384,7 @@ mod tests {
 
     #[test]
     fn test_save_config_writes_config_sys_json() {
-        let _lock = CWD_MUTEX.lock().unwrap();
+        let _lock = CWD_MUTEX.lock().expect("mutex poisoned");
         let dir = tempfile::tempdir().unwrap();
         let original_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(dir.path()).unwrap();
@@ -3399,7 +3405,7 @@ mod tests {
 
     #[test]
     fn test_save_config_writes_player_config_json() {
-        let _lock = CWD_MUTEX.lock().unwrap();
+        let _lock = CWD_MUTEX.lock().expect("mutex poisoned");
         let dir = tempfile::tempdir().unwrap();
         let original_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(dir.path()).unwrap();

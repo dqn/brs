@@ -15,7 +15,7 @@ use crate::note::Note;
 use crate::time_line::TimeLine;
 
 pub struct BMSONDecoder {
-    pub lntype: i32,
+    pub lntype: crate::bms_model::LnType,
     pub log: Vec<DecodeLog>,
 }
 
@@ -33,7 +33,7 @@ struct LnUpInfo {
 }
 
 impl BMSONDecoder {
-    pub fn new(lntype: i32) -> Self {
+    pub fn new(lntype: crate::bms_model::LnType) -> Self {
         BMSONDecoder {
             lntype,
             log: Vec::new(),
@@ -206,12 +206,20 @@ impl BMSONDecoder {
             };
             if scrolly <= stopy && scrolly <= bpmy {
                 ensure_timeline(&mut tlcache, scrolly, resolution, mode_key);
-                tlcache.get_mut(&scrolly).unwrap().timeline.scroll = scroll_events[scrollpos].rate;
+                tlcache
+                    .get_mut(&scrolly)
+                    .expect("timeline in cache")
+                    .timeline
+                    .scroll = scroll_events[scrollpos].rate;
                 scrollpos += 1;
             } else if bpmy <= stopy {
                 if bpm_events[bpmpos].bpm > 0.0 {
                     ensure_timeline(&mut tlcache, bpmy, resolution, mode_key);
-                    tlcache.get_mut(&bpmy).unwrap().timeline.bpm = bpm_events[bpmpos].bpm;
+                    tlcache
+                        .get_mut(&bpmy)
+                        .expect("timeline in cache")
+                        .timeline
+                        .bpm = bpm_events[bpmpos].bpm;
                 } else {
                     self.log.push(DecodeLog::new(
                         State::Warning,
@@ -225,7 +233,7 @@ impl BMSONDecoder {
             } else if stopy != i32::MAX {
                 if stop_events[stoppos].duration >= 0 {
                     ensure_timeline(&mut tlcache, stopy, resolution, mode_key);
-                    let tl = &mut tlcache.get_mut(&stopy).unwrap().timeline;
+                    let tl = &mut tlcache.get_mut(&stopy).expect("timeline in cache").timeline;
                     let bpm = tl.get_bpm();
                     tl.stop =
                         ((1000.0 * 1000.0 * 60.0 * 4.0 * stop_events[stoppos].duration as f64)
@@ -246,7 +254,11 @@ impl BMSONDecoder {
         // Bar lines
         for bl in &bmson_data.lines {
             ensure_timeline(&mut tlcache, bl.y, resolution, mode_key);
-            tlcache.get_mut(&bl.y).unwrap().timeline.section_line = true;
+            tlcache
+                .get_mut(&bl.y)
+                .expect("timeline in cache")
+                .timeline
+                .section_line = true;
         }
 
         // Sound channels, key channels, mine channels
@@ -703,7 +715,11 @@ impl BMSONDecoder {
                 for bn in bga_events {
                     ensure_timeline(&mut tlcache, bn.y, resolution, mode_key);
                     if let Some(&mapped_id) = idmap.get(&bn.id) {
-                        tlcache.get_mut(&bn.y).unwrap().timeline.bga = mapped_id;
+                        tlcache
+                            .get_mut(&bn.y)
+                            .expect("timeline in cache")
+                            .timeline
+                            .bga = mapped_id;
                     }
                 }
             }
@@ -730,8 +746,11 @@ impl BMSONDecoder {
                             ]);
                         }
                     }
-                    tlcache.get_mut(&bn.y).unwrap().timeline.eventlayer =
-                        vec![Layer::new(event, seqs)];
+                    tlcache
+                        .get_mut(&bn.y)
+                        .expect("timeline in cache")
+                        .timeline
+                        .eventlayer = vec![Layer::new(event, seqs)];
                 }
             }
 
@@ -749,8 +768,11 @@ impl BMSONDecoder {
                     } else {
                         vec![]
                     };
-                    tlcache.get_mut(&bn.y).unwrap().timeline.eventlayer =
-                        vec![Layer::new(event, seqs)];
+                    tlcache
+                        .get_mut(&bn.y)
+                        .expect("timeline in cache")
+                        .timeline
+                        .eventlayer = vec![Layer::new(event, seqs)];
                 }
             }
 
@@ -819,7 +841,7 @@ mod tests {
     #[test]
     fn test_decode_minimal_7k() {
         let path = test_bms_dir().join("bmson_minimal_7k.bmson");
-        let mut decoder = BMSONDecoder::new(0);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let model = decoder
             .decode_path(&path)
             .expect("decode_path should return Some for valid bmson");
@@ -864,7 +886,7 @@ mod tests {
     #[test]
     fn test_decode_bpm_change() {
         let path = test_bms_dir().join("bmson_bpm_change.bmson");
-        let mut decoder = BMSONDecoder::new(0);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let model = decoder
             .decode_path(&path)
             .expect("decode_path should return Some for bpm_change bmson");
@@ -890,7 +912,7 @@ mod tests {
     #[test]
     fn test_decode_longnote() {
         let path = test_bms_dir().join("bmson_longnote.bmson");
-        let mut decoder = BMSONDecoder::new(0);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let model = decoder
             .decode_path(&path)
             .expect("decode_path should return Some for longnote bmson");
@@ -930,7 +952,7 @@ mod tests {
     #[test]
     fn test_decode_stop_sequence() {
         let path = test_bms_dir().join("bmson_stop_sequence.bmson");
-        let mut decoder = BMSONDecoder::new(0);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let model = decoder
             .decode_path(&path)
             .expect("decode_path should return Some for stop_sequence bmson");
@@ -953,7 +975,7 @@ mod tests {
     #[test]
     fn test_decode_mine_invisible() {
         let path = test_bms_dir().join("bmson_mine_invisible.bmson");
-        let mut decoder = BMSONDecoder::new(0);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let model = decoder
             .decode_path(&path)
             .expect("decode_path should return Some for mine_invisible bmson");
@@ -1010,7 +1032,7 @@ mod tests {
     #[test]
     fn test_decode_bpm_ln_cross() {
         let path = test_bms_dir().join("bmson_bpm_ln_cross.bmson");
-        let mut decoder = BMSONDecoder::new(0);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let model = decoder
             .decode_path(&path)
             .expect("decode_path should return Some for bpm_ln_cross bmson");
@@ -1066,7 +1088,7 @@ mod tests {
         f.write_all(b"{}").expect("failed to write");
         drop(f);
 
-        let mut decoder = BMSONDecoder::new(0);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let model = decoder.decode_path(&path);
 
         // Empty JSON deserializes to default Bmson (init_bpm=0.0), which is technically valid
@@ -1090,7 +1112,7 @@ mod tests {
             .expect("failed to write");
         drop(f);
 
-        let mut decoder = BMSONDecoder::new(0);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let result = decoder.decode_path(&path);
         assert!(
             result.is_none(),
@@ -1130,7 +1152,7 @@ mod tests {
         }"#;
         std::fs::write(&path, bmson_json).expect("failed to write");
 
-        let mut decoder = BMSONDecoder::new(0);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         // Should not panic. resolution=0 is handled by falling back to 960.0
         let result = decoder.decode_path(&path);
         assert!(
@@ -1142,7 +1164,7 @@ mod tests {
     #[test]
     fn test_decode_nonexistent_file() {
         let path = std::path::Path::new("/nonexistent/path/to/file.bmson");
-        let mut decoder = BMSONDecoder::new(0);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let result = decoder.decode_path(path);
         assert!(
             result.is_none(),
@@ -1154,8 +1176,8 @@ mod tests {
     fn test_decode_via_chart_information() {
         // Test the decode() method that wraps decode_path via ChartInformation
         let path = test_bms_dir().join("bmson_minimal_7k.bmson");
-        let info = ChartInformation::new(Some(path), 0, None);
-        let mut decoder = BMSONDecoder::new(0);
+        let info = ChartInformation::new(Some(path), crate::bms_model::LnType::LongNote, None);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let model = decoder
             .decode(info)
             .expect("decode via ChartInformation should return Some");
@@ -1174,8 +1196,8 @@ mod tests {
 
     #[test]
     fn test_decode_chart_information_without_path() {
-        let info = ChartInformation::new(None, 0, None);
-        let mut decoder = BMSONDecoder::new(0);
+        let info = ChartInformation::new(None, crate::bms_model::LnType::LongNote, None);
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
         let result = decoder.decode(info);
         assert!(
             result.is_none(),

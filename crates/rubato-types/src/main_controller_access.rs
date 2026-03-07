@@ -358,7 +358,7 @@ mod tests {
         let queue = MainControllerCommandQueue::new();
         let poisoned = queue.clone();
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = poisoned.inner.lock().unwrap();
+            let _guard = poisoned.inner.lock().expect("mutex poisoned");
             panic!("poison queue");
         }));
 

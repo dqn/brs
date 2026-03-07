@@ -48,7 +48,7 @@ mod tests {
     #[test]
     fn random_history_recovers_after_poison() {
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = LANE_ORDER_HISTORY.lock().unwrap();
+            let _guard = LANE_ORDER_HISTORY.lock().expect("mutex poisoned");
             panic!("poison random history");
         }));
 

@@ -413,15 +413,15 @@ mod tests {
     #[test]
     fn cached_display_modes_recover_after_poison() {
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = CACHED_DISPLAY_MODES.lock().unwrap();
+            let _guard = CACHED_DISPLAY_MODES.lock().expect("mutex poisoned");
             panic!("poison display modes");
         }));
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = CACHED_FULL_DISPLAY_MODES.lock().unwrap();
+            let _guard = CACHED_FULL_DISPLAY_MODES.lock().expect("mutex poisoned");
             panic!("poison full display modes");
         }));
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = CACHED_DESKTOP_MODE.lock().unwrap();
+            let _guard = CACHED_DESKTOP_MODE.lock().expect("mutex poisoned");
             panic!("poison desktop mode");
         }));
 

@@ -324,7 +324,7 @@ mod tests {
         let mut sprite = SkinObjectRenderer::new();
         bga.draw(&mut sprite);
 
-        let mock_locked = mock.lock().unwrap();
+        let mock_locked = mock.lock().expect("mutex poisoned");
         assert_eq!(mock_locked.draw_calls.len(), 1);
         assert_eq!(
             mock_locked.draw_calls[0],
