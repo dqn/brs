@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io::BufReader;
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use rubato_core::pixmap_resource_pool::PixmapResourcePool;
-use serde::Deserialize;
 
 use super::bar::bar::Bar;
 use super::bar::command_bar::CommandBar;
@@ -911,7 +909,9 @@ impl BarManager {
     }
 }
 
-include!("loader.rs");
+mod loader;
+pub use loader::*;
+use loader::{CourseTableAccessor, RandomCourseResult, bar_class_name};
 
 #[cfg(test)]
 mod tests;

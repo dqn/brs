@@ -23,269 +23,10 @@ use super::stubs::{
 };
 use rubato_core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE};
 
-/// Render context adapter for result screen skin rendering.
-/// Provides score data, gauge, config through SkinRenderContext.
-struct ResultRenderContext<'a> {
-    timer: &'a mut TimerManager,
-    data: &'a AbstractResultData,
-    resource: &'a PlayerResource,
-    main: &'a MainController,
-}
+mod render_context;
 
-impl rubato_types::timer_access::TimerAccess for ResultRenderContext<'_> {
-    fn now_time(&self) -> i64 {
-        self.timer.now_time()
-    }
-    fn now_micro_time(&self) -> i64 {
-        self.timer.now_micro_time()
-    }
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        self.timer.micro_timer(timer_id)
-    }
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        self.timer.timer(timer_id)
-    }
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        self.timer.now_time_for_id(timer_id)
-    }
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
-        self.timer.is_timer_on(timer_id)
-    }
-}
+use render_context::*;
 
-impl rubato_types::skin_render_context::SkinEventHandler for ResultRenderContext<'_> {
-    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
-        self.timer.set_micro_timer(timer_id, micro_time);
-    }
-}
-
-impl rubato_types::skin_render_context::SkinAudioControl for ResultRenderContext<'_> {}
-
-impl rubato_types::skin_render_context::SkinStateQuery for ResultRenderContext<'_> {
-    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
-        Some(rubato_types::main_state_type::MainStateType::Result)
-    }
-
-    fn gauge_value(&self) -> f32 {
-        // Return final gauge value from score data
-        self.data.oldscore.play_option.gauge as f32 / 100.0
-    }
-
-    fn gauge_type(&self) -> i32 {
-        self.data.gauge_type
-    }
-
-    fn judge_count(&self, judge: i32, fast: bool) -> i32 {
-        self.data
-            .score
-            .score
-            .as_ref()
-            .map_or(0, |s| s.judge_count(judge, fast))
-    }
-}
-
-impl rubato_types::skin_render_context::SkinConfigAccess for ResultRenderContext<'_> {
-    fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
-        Some(self.resource.player_config())
-    }
-
-    fn config_ref(&self) -> Option<&rubato_types::config::Config> {
-        Some(self.main.config())
-    }
-}
-
-impl rubato_types::skin_render_context::SkinPropertyProvider for ResultRenderContext<'_> {
-    fn replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
-        self.resource.replay_data()
-    }
-
-    fn target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
-        self.resource.target_score_data()
-    }
-
-    fn score_data_ref(&self) -> Option<&rubato_core::score_data::ScoreData> {
-        self.data.score.score.as_ref()
-    }
-
-    fn rival_score_data_ref(&self) -> Option<&rubato_core::score_data::ScoreData> {
-        Some(&self.data.oldscore)
-    }
-
-    fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
-        let mode = self.resource.songdata().and_then(|song| match song.mode {
-            5 => Some(bms_model::mode::Mode::BEAT_5K),
-            7 => Some(bms_model::mode::Mode::BEAT_7K),
-            9 => Some(bms_model::mode::Mode::POPN_9K),
-            10 => Some(bms_model::mode::Mode::BEAT_10K),
-            14 => Some(bms_model::mode::Mode::BEAT_14K),
-            25 => Some(bms_model::mode::Mode::KEYBOARD_24K),
-            50 => Some(bms_model::mode::Mode::KEYBOARD_24K_DOUBLE),
-            _ => None,
-        })?;
-        Some(
-            &self
-                .resource
-                .player_config()
-                .play_config_ref(mode)
-                .playconfig,
-        )
-    }
-
-    fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
-        self.resource.songdata()
-    }
-
-    fn integer_value(&self, id: i32) -> i32 {
-        match id {
-            // EX score
-            71 => self.data.score.nowscore,
-            // Max combo
-            75 => self.data.score.score.as_ref().map_or(0, |s| s.maxcombo),
-            // Miss count
-            76 => self.data.score.score.as_ref().map_or(0, |s| s.minbp),
-            // Total notes
-            350 => self.data.score.totalnotes,
-            // Playtime (hours/minutes/seconds from boot)
-            17 => (self.timer.now_time() / 3_600_000) as i32,
-            18 => ((self.timer.now_time() % 3_600_000) / 60_000) as i32,
-            19 => ((self.timer.now_time() % 60_000) / 1_000) as i32,
-            _ => 0,
-        }
-    }
-
-    fn float_value(&self, id: i32) -> f32 {
-        match id {
-            // Score rate
-            1102 => self.data.score.rate,
-            _ => 0.0,
-        }
-    }
-
-    fn boolean_value(&self, id: i32) -> bool {
-        match id {
-            // Clear result
-            90 => self.data.oldscore.clear >= ClearType::AssistEasy as i32,
-            // Fail result
-            91 => self.data.oldscore.clear < ClearType::AssistEasy as i32,
-            _ => false,
-        }
-    }
-
-    fn string_value(&self, id: i32) -> String {
-        match id {
-            // Song metadata from resource
-            10 => self
-                .resource
-                .songdata()
-                .map_or_else(String::new, |s| s.title.clone()),
-            11 => self
-                .resource
-                .songdata()
-                .map_or_else(String::new, |s| s.subtitle.clone()),
-            12 => self.resource.songdata().map_or_else(String::new, |s| {
-                if s.subtitle.is_empty() {
-                    s.title.clone()
-                } else {
-                    format!("{} {}", s.title, s.subtitle)
-                }
-            }),
-            13 => self
-                .resource
-                .songdata()
-                .map_or_else(String::new, |s| s.genre.clone()),
-            14 => self
-                .resource
-                .songdata()
-                .map_or_else(String::new, |s| s.artist.clone()),
-            15 => self
-                .resource
-                .songdata()
-                .map_or_else(String::new, |s| s.subartist.clone()),
-            16 => self.resource.songdata().map_or_else(String::new, |s| {
-                if s.subartist.is_empty() {
-                    s.artist.clone()
-                } else {
-                    format!("{} {}", s.artist, s.subartist)
-                }
-            }),
-            _ => String::new(),
-        }
-    }
-}
-
-fn replay_index_from_event_id(event_id: i32) -> Option<usize> {
-    match event_id {
-        19 => Some(0),
-        316 => Some(1),
-        317 => Some(2),
-        318 => Some(3),
-        _ => None,
-    }
-}
-
-struct ResultMouseContext<'a> {
-    timer: &'a mut TimerManager,
-    result: &'a mut MusicResult,
-}
-
-impl rubato_types::timer_access::TimerAccess for ResultMouseContext<'_> {
-    fn now_time(&self) -> i64 {
-        self.timer.now_time()
-    }
-
-    fn now_micro_time(&self) -> i64 {
-        self.timer.now_micro_time()
-    }
-
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        self.timer.micro_timer(timer_id)
-    }
-
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        self.timer.timer(timer_id)
-    }
-
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        self.timer.now_time_for_id(timer_id)
-    }
-
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
-        self.timer.is_timer_on(timer_id)
-    }
-}
-
-impl rubato_types::skin_render_context::SkinEventHandler for ResultMouseContext<'_> {
-    fn execute_event(&mut self, id: i32, _arg1: i32, _arg2: i32) {
-        if let Some(index) = replay_index_from_event_id(id) {
-            self.result.save_replay_data(index);
-        }
-    }
-
-    fn change_state(&mut self, state: rubato_types::main_state_type::MainStateType) {
-        self.result.main.change_state(state);
-    }
-
-    fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
-        self.timer.set_micro_timer(timer_id, micro_time);
-    }
-}
-
-impl rubato_types::skin_render_context::SkinAudioControl for ResultMouseContext<'_> {}
-impl rubato_types::skin_render_context::SkinPropertyProvider for ResultMouseContext<'_> {}
-
-impl rubato_types::skin_render_context::SkinStateQuery for ResultMouseContext<'_> {
-    fn current_state_type(&self) -> Option<rubato_types::main_state_type::MainStateType> {
-        Some(rubato_types::main_state_type::MainStateType::Result)
-    }
-}
-
-impl rubato_types::skin_render_context::SkinConfigAccess for ResultMouseContext<'_> {
-    fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
-        self.result.resource.player_config_mut()
-    }
-}
-
-/// Music result screen
 pub struct MusicResult {
     pub data: AbstractResultData,
     pub main_data: MainStateData,
@@ -1236,12 +977,9 @@ mod tests {
     use crate::result::abstract_result::{STATE_IR_FINISHED, STATE_IR_PROCESSING, STATE_OFFLINE};
     use rubato_core::main_state::SkinDrawable;
     use rubato_core::sprite_batch_helper::SpriteBatch;
-    use rubato_types::main_controller_access::{
-        AudioSystemAccess, ControllerConfigAccess, DataReadAccess, IRConnectionAccess,
-        MainControllerAccess, StateTransitionAccess,
-    };
+    use rubato_types::main_controller_access::MainControllerAccess;
     use rubato_types::player_resource_access::PlayerResourceAccess;
-    use rubato_types::skin_render_context::SkinPropertyProvider;
+    use rubato_types::skin_render_context::SkinRenderContext;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -1385,7 +1123,7 @@ mod tests {
         }
     }
 
-    impl ControllerConfigAccess for TestMainControllerAccess {
+    impl MainControllerAccess for TestMainControllerAccess {
         fn config(&self) -> &rubato_types::config::Config {
             &self.config
         }
@@ -1393,23 +1131,17 @@ mod tests {
         fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
             &self.player_config
         }
-    }
 
-    impl StateTransitionAccess for TestMainControllerAccess {
         fn change_state(&mut self, _state: MainStateType) {}
+
         fn save_config(&self) {}
+
         fn exit(&self) {}
+
         fn save_last_recording(&self, _reason: &str) {}
+
         fn update_song(&mut self, _path: Option<&str>) {}
-    }
 
-    impl AudioSystemAccess for TestMainControllerAccess {}
-
-    impl IRConnectionAccess for TestMainControllerAccess {}
-
-    impl DataReadAccess for TestMainControllerAccess {}
-
-    impl MainControllerAccess for TestMainControllerAccess {
         fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
             None
         }
@@ -1447,7 +1179,11 @@ mod tests {
         }
     }
 
-    impl rubato_types::player_resource_access::PlayerConfigAccess for MouseResultResourceAccess {
+    impl PlayerResourceAccess for MouseResultResourceAccess {
+        fn into_any_send(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+            self
+        }
+
         fn config(&self) -> &rubato_types::config::Config {
             &self.config
         }
@@ -1459,15 +1195,9 @@ mod tests {
         fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
             Some(&mut self.player_config)
         }
-    }
 
-    impl rubato_types::player_resource_access::ScoreDataAccess for MouseResultResourceAccess {
         fn score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
             self.score_data.as_ref()
-        }
-
-        fn score_data_mut(&mut self) -> Option<&mut rubato_core::score_data::ScoreData> {
-            self.score_data.as_mut()
         }
 
         fn rival_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
@@ -1483,9 +1213,7 @@ mod tests {
         }
 
         fn set_course_score_data(&mut self, _score: rubato_core::score_data::ScoreData) {}
-    }
 
-    impl rubato_types::player_resource_access::SongDataAccess for MouseResultResourceAccess {
         fn songdata(&self) -> Option<&rubato_types::song_data::SongData> {
             self.song_data.as_ref()
         }
@@ -1496,6 +1224,22 @@ mod tests {
 
         fn set_songdata(&mut self, data: Option<rubato_types::song_data::SongData>) {
             self.song_data = data;
+        }
+
+        fn replay_data(&self) -> Option<&rubato_core::replay_data::ReplayData> {
+            self.replay_data.as_ref()
+        }
+
+        fn replay_data_mut(&mut self) -> Option<&mut rubato_core::replay_data::ReplayData> {
+            self.replay_data.as_mut()
+        }
+
+        fn course_replay(&self) -> &[rubato_core::replay_data::ReplayData] {
+            &self.course_replay
+        }
+
+        fn add_course_replay(&mut self, rd: rubato_core::replay_data::ReplayData) {
+            self.course_replay.push(rd);
         }
 
         fn course_data(&self) -> Option<&rubato_types::course_data::CourseData> {
@@ -1514,34 +1258,6 @@ mod tests {
             vec![]
         }
 
-        fn course_song_data(&self) -> Vec<rubato_types::song_data::SongData> {
-            vec![]
-        }
-    }
-
-    impl rubato_types::player_resource_access::ReplayAccess for MouseResultResourceAccess {
-        fn replay_data(&self) -> Option<&rubato_core::replay_data::ReplayData> {
-            self.replay_data.as_ref()
-        }
-
-        fn replay_data_mut(&mut self) -> Option<&mut rubato_core::replay_data::ReplayData> {
-            self.replay_data.as_mut()
-        }
-
-        fn course_replay(&self) -> &[rubato_core::replay_data::ReplayData] {
-            &self.course_replay
-        }
-
-        fn course_replay_mut(&mut self) -> &mut Vec<rubato_core::replay_data::ReplayData> {
-            &mut self.course_replay
-        }
-
-        fn add_course_replay(&mut self, rd: rubato_core::replay_data::ReplayData) {
-            self.course_replay.push(rd);
-        }
-    }
-
-    impl rubato_types::player_resource_access::GaugeAccess for MouseResultResourceAccess {
         fn gauge(&self) -> Option<&Vec<Vec<f32>>> {
             None
         }
@@ -1554,16 +1270,22 @@ mod tests {
             &self.course_gauge
         }
 
+        fn add_course_gauge(&mut self, gauge: Vec<Vec<f32>>) {
+            self.course_gauge.push(gauge);
+        }
+
         fn course_gauge_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
             &mut self.course_gauge
         }
 
-        fn add_course_gauge(&mut self, gauge: Vec<Vec<f32>>) {
-            self.course_gauge.push(gauge);
+        fn score_data_mut(&mut self) -> Option<&mut rubato_core::score_data::ScoreData> {
+            self.score_data.as_mut()
         }
-    }
 
-    impl rubato_types::player_resource_access::PlayerStateQuery for MouseResultResourceAccess {
+        fn course_replay_mut(&mut self) -> &mut Vec<rubato_core::replay_data::ReplayData> {
+            &mut self.course_replay
+        }
+
         fn maxcombo(&self) -> i32 {
             0
         }
@@ -1601,12 +1323,6 @@ mod tests {
         fn reverse_lookup_levels(&self) -> Vec<String> {
             vec![]
         }
-    }
-
-    impl PlayerResourceAccess for MouseResultResourceAccess {
-        fn into_any_send(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
-            self
-        }
 
         fn clear(&mut self) {}
 
@@ -1637,6 +1353,10 @@ mod tests {
 
         fn clear_course_data(&mut self) {
             self.course_data = None;
+        }
+
+        fn course_song_data(&self) -> Vec<rubato_types::song_data::SongData> {
+            vec![]
         }
     }
 

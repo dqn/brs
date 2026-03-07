@@ -1,5 +1,17 @@
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use serde::Deserialize;
+
+use super::super::bar::bar::Bar;
+use super::super::bar::grade_bar::GradeBar;
+use super::super::stubs::*;
+use super::LoaderContext;
+
 /// Get a string identifier for a Bar variant (simulates Java getClass())
-fn bar_class_name(bar: &Bar) -> &'static str {
+pub(super) fn bar_class_name(bar: &Bar) -> &'static str {
     match bar {
         Bar::Song(_) => "SongBar",
         Bar::Folder(_) => "FolderBar",
@@ -20,7 +32,7 @@ fn bar_class_name(bar: &Bar) -> &'static str {
 
 /// A no-op TableAccessor for course tables.
 /// Corresponds to the anonymous TableAccessor in Java BarManager.init()
-struct CourseTableAccessor;
+pub(super) struct CourseTableAccessor;
 impl TableAccessor for CourseTableAccessor {
     fn name(&self) -> &str {
         "course"
@@ -127,7 +139,7 @@ impl RandomFolder {
     }
 }
 
-fn score_data_property(score: &ScoreData, key: &str) -> i64 {
+pub(super) fn score_data_property(score: &ScoreData, key: &str) -> i64 {
     match key {
         "clear" => score.clear as i64,
         "exscore" => score.exscore() as i64,
@@ -139,7 +151,7 @@ fn score_data_property(score: &ScoreData, key: &str) -> i64 {
     }
 }
 
-fn evaluate_filter_expression(expr: &str, property_value: i64) -> bool {
+pub(super) fn evaluate_filter_expression(expr: &str, property_value: i64) -> bool {
     if expr.is_empty() {
         return true;
     }
@@ -164,7 +176,7 @@ fn evaluate_filter_expression(expr: &str, property_value: i64) -> bool {
 }
 
 /// Random course result
-struct RandomCourseResult {
+pub(super) struct RandomCourseResult {
     pub course: GradeBar,
     pub dir_string: String,
 }
@@ -323,4 +335,3 @@ impl BarContentsLoaderThread {
         self.stop.load(Ordering::SeqCst)
     }
 }
-

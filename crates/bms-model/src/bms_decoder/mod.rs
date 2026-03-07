@@ -1,11 +1,12 @@
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::path::Path;
 
 use md5::Md5;
 use sha2::{Digest, Sha256};
 
-use crate::bms_model::{BMSModel, JudgeRankType, LNTYPE_LONGNOTE, LnType, TotalType};
+#[cfg(test)]
+use crate::bms_model::JudgeRankType;
+use crate::bms_model::{BMSModel, LNTYPE_LONGNOTE, LnType, TotalType};
 use crate::chart_decoder::{self, TimeLineCache};
 use crate::chart_information::ChartInformation;
 use crate::decode_log::{DecodeLog, State};
@@ -230,7 +231,7 @@ impl BMSDecoder {
                     }
                 } else if !skip.last().copied().unwrap_or(false) {
                     let c = line.as_bytes()[1] as char;
-                    let base = model.base;
+                    let base = model.get_base();
                     if c.is_ascii_digit() && line.len() > 6 {
                         let c2 = line.as_bytes()[2] as char;
                         let c3 = line.as_bytes()[3] as char;
@@ -502,7 +503,7 @@ impl BMSDecoder {
                     && line.len() > index + 1
                 {
                     model
-                        .values
+                        .values_mut()
                         .insert(line[1..index].to_string(), line[index + 1..].to_string());
                 }
             } else if first_char == '@'
@@ -510,7 +511,7 @@ impl BMSDecoder {
                 && line.len() > index + 1
             {
                 model
-                    .values
+                    .values_mut()
                     .insert(line[1..index].to_string(), line[index + 1..].to_string());
             }
         }
@@ -585,7 +586,7 @@ impl BMSDecoder {
                 ));
                 if status.section != f64::MIN {
                     // Find the timeline in model's timelines and clear the note
-                    for tl in model.timelines.iter_mut() {
+                    for tl in model.all_time_lines_mut() {
                         if tl.get_section() == status.section {
                             tl.set_note(i as i32, None);
                             break;
@@ -610,7 +611,7 @@ impl BMSDecoder {
                 "最後のノート定義から30秒以上の余白があります",
             ));
         }
-        if model.player > 1
+        if model.player() > 1
             && (model.mode() == Some(&Mode::BEAT_5K) || model.mode() == Some(&Mode::BEAT_7K))
         {
             self.log.push(DecodeLog::new(
@@ -618,7 +619,7 @@ impl BMSDecoder {
                 "#PLAYER定義が2以上にもかかわらず2P側のノーツ定義が一切ありません",
             ));
         }
-        if model.player == 1
+        if model.player() == 1
             && (model.mode() == Some(&Mode::BEAT_10K) || model.mode() == Some(&Mode::BEAT_14K))
         {
             self.log.push(DecodeLog::new(
@@ -629,8 +630,8 @@ impl BMSDecoder {
 
         let md5_result = md5_hasher.finalize();
         let sha256_result = sha256_hasher.finalize();
-        model.md5 = convert_hex_string(&md5_result);
-        model.sha256 = convert_hex_string(&sha256_result);
+        model.set_md5(convert_hex_string(&md5_result));
+        model.set_sha256(convert_hex_string(&sha256_result));
 
         self.log.push(DecodeLog::new(
             State::Info,
@@ -673,354 +674,9 @@ impl BMSDecoder {
     }
 }
 
-/// Replace backslashes with forward slashes, returning `Cow::Borrowed` when no
-/// replacement is needed (the common case on non-Windows paths).
-fn normalize_path_separators(s: &str) -> Cow<'_, str> {
-    if s.contains('\\') {
-        Cow::Owned(s.replace('\\', "/"))
-    } else {
-        Cow::Borrowed(s)
-    }
-}
-
-fn matches_reserve_word(line: &str, s: &str) -> bool {
-    let len = s.len();
-    if line.len() <= len {
-        return false;
-    }
-    let line_bytes = line.as_bytes();
-    let s_bytes = s.as_bytes();
-    for (&c, &c2) in line_bytes[1..].iter().zip(s_bytes.iter()) {
-        if c != c2 && c != c2 + 32 {
-            return false;
-        }
-    }
-    true
-}
-
-pub fn convert_hex_string(data: &[u8]) -> String {
-    let mut sb = String::with_capacity(data.len() * 2);
-    for &b in data {
-        sb.push(char::from_digit(((b >> 4) & 0xf) as u32, 16).expect("valid hex digit"));
-        sb.push(char::from_digit((b & 0xf) as u32, 16).expect("valid hex digit"));
-    }
-    sb
-}
-
-fn rand_f64() -> f64 {
-    // Simple random - use system time as seed
-    use std::time::SystemTime;
-    let nanos = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos();
-    (nanos as f64) / 1_000_000_000.0
-}
-
-fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLog>) -> bool {
-    struct CmdDef {
-        name: &'static str,
-        handler: fn(&mut BMSModel, &str) -> Option<DecodeLog>,
-    }
-
-    let commands: &[CmdDef] = &[
-        CmdDef {
-            name: "PLAYER",
-            handler: |model, arg| {
-                match arg.parse::<i32>() {
-                    Ok(player) => {
-                        if (1..3).contains(&player) {
-                            model.player = player;
-                        } else {
-                            return Some(DecodeLog::new(
-                                State::Warning,
-                                format!("#PLAYERに規定外の数字が定義されています : {}", player),
-                            ));
-                        }
-                    }
-                    Err(_) => {
-                        return Some(DecodeLog::new(
-                            State::Warning,
-                            "#PLAYERに数字が定義されていません",
-                        ));
-                    }
-                }
-                None
-            },
-        },
-        CmdDef {
-            name: "GENRE",
-            handler: |model, arg| {
-                model.genre = arg.to_string();
-                None
-            },
-        },
-        CmdDef {
-            name: "TITLE",
-            handler: |model, arg| {
-                model.title = arg.to_string();
-                None
-            },
-        },
-        CmdDef {
-            name: "SUBTITLE",
-            handler: |model, arg| {
-                model.sub_title = arg.to_string();
-                None
-            },
-        },
-        CmdDef {
-            name: "ARTIST",
-            handler: |model, arg| {
-                model.artist = arg.to_string();
-                None
-            },
-        },
-        CmdDef {
-            name: "SUBARTIST",
-            handler: |model, arg| {
-                model.subartist = arg.to_string();
-                None
-            },
-        },
-        CmdDef {
-            name: "PLAYLEVEL",
-            handler: |model, arg| {
-                model.playlevel = arg.to_string();
-                None
-            },
-        },
-        CmdDef {
-            name: "RANK",
-            handler: |model, arg| {
-                match arg.parse::<i32>() {
-                    Ok(rank) => {
-                        if (0..5).contains(&rank) {
-                            model.judgerank = rank;
-                            model.judgerank_type = JudgeRankType::BmsRank;
-                        } else {
-                            return Some(DecodeLog::new(
-                                State::Warning,
-                                format!("#RANKに規定外の数字が定義されています : {}", rank),
-                            ));
-                        }
-                    }
-                    Err(_) => {
-                        return Some(DecodeLog::new(
-                            State::Warning,
-                            "#RANKに数字が定義されていません",
-                        ));
-                    }
-                }
-                None
-            },
-        },
-        CmdDef {
-            name: "DEFEXRANK",
-            handler: |model, arg| {
-                match arg.parse::<i32>() {
-                    Ok(rank) => {
-                        if rank >= 1 {
-                            model.judgerank = rank;
-                            model.judgerank_type = JudgeRankType::BmsDefexrank;
-                        } else {
-                            return Some(DecodeLog::new(
-                                State::Warning,
-                                format!("#DEFEXRANK 1以下はサポートしていません{}", rank),
-                            ));
-                        }
-                    }
-                    Err(_) => {
-                        return Some(DecodeLog::new(
-                            State::Warning,
-                            "#DEFEXRANKに数字が定義されていません",
-                        ));
-                    }
-                }
-                None
-            },
-        },
-        CmdDef {
-            name: "TOTAL",
-            handler: |model, arg| {
-                match arg.parse::<f64>() {
-                    Ok(total) => {
-                        if total > 0.0 {
-                            model.total = total;
-                            model.total_type = TotalType::Bms;
-                        } else {
-                            return Some(DecodeLog::new(State::Warning, "#TOTALが0以下です"));
-                        }
-                    }
-                    Err(_) => {
-                        return Some(DecodeLog::new(
-                            State::Warning,
-                            "#TOTALに数字が定義されていません",
-                        ));
-                    }
-                }
-                None
-            },
-        },
-        CmdDef {
-            name: "VOLWAV",
-            handler: |model, arg| {
-                match arg.parse::<i32>() {
-                    Ok(v) => {
-                        model.volwav = v;
-                    }
-                    Err(_) => {
-                        return Some(DecodeLog::new(
-                            State::Warning,
-                            "#VOLWAVに数字が定義されていません",
-                        ));
-                    }
-                }
-                None
-            },
-        },
-        CmdDef {
-            name: "STAGEFILE",
-            handler: |model, arg| {
-                model.stagefile = normalize_path_separators(arg).into_owned();
-                None
-            },
-        },
-        CmdDef {
-            name: "BACKBMP",
-            handler: |model, arg| {
-                model.backbmp = normalize_path_separators(arg).into_owned();
-                None
-            },
-        },
-        CmdDef {
-            name: "PREVIEW",
-            handler: |model, arg| {
-                model.preview = normalize_path_separators(arg).into_owned();
-                None
-            },
-        },
-        CmdDef {
-            name: "LNOBJ",
-            handler: |model, arg| {
-                if model.base == 62 {
-                    match chart_decoder::parse_int62_str(arg, 0) {
-                        Ok(v) => model.lnobj = v,
-                        Err(_) => {
-                            return Some(DecodeLog::new(
-                                State::Warning,
-                                "#LNOBJに数字が定義されていません",
-                            ));
-                        }
-                    }
-                } else {
-                    match i32::from_str_radix(&arg.to_uppercase(), 36) {
-                        Ok(v) => model.lnobj = v,
-                        Err(_) => {
-                            return Some(DecodeLog::new(
-                                State::Warning,
-                                "#LNOBJに数字が定義されていません",
-                            ));
-                        }
-                    }
-                }
-                None
-            },
-        },
-        CmdDef {
-            name: "LNMODE",
-            handler: |model, arg| {
-                match arg.parse::<i32>() {
-                    Ok(mut lnmode) => {
-                        if !(0..=3).contains(&lnmode) {
-                            return Some(DecodeLog::new(
-                                State::Warning,
-                                "#LNMODEに無効な数字が定義されています",
-                            ));
-                        }
-                        // LR2oraja Endless Dream: LR2 does not support LNMODE, suppress modes 1 or 2
-                        lnmode = 0;
-                        model.lnmode = lnmode;
-                    }
-                    Err(_) => {
-                        return Some(DecodeLog::new(
-                            State::Warning,
-                            "#LNMODEに数字が定義されていません",
-                        ));
-                    }
-                }
-                None
-            },
-        },
-        CmdDef {
-            name: "DIFFICULTY",
-            handler: |model, arg| {
-                match arg.parse::<i32>() {
-                    Ok(v) => model.difficulty = v,
-                    Err(_) => {
-                        return Some(DecodeLog::new(
-                            State::Warning,
-                            "#DIFFICULTYに数字が定義されていません",
-                        ));
-                    }
-                }
-                None
-            },
-        },
-        CmdDef {
-            name: "BANNER",
-            handler: |model, arg| {
-                model.banner = normalize_path_separators(arg).into_owned();
-                None
-            },
-        },
-        CmdDef {
-            name: "COMMENT",
-            handler: |_model, _arg| {
-                // #COMMENT: metadata-only, no behavioral effect
-                None
-            },
-        },
-        CmdDef {
-            name: "BASE",
-            handler: |model, arg| {
-                match arg.parse::<i32>() {
-                    Ok(base) => {
-                        if base != 62 {
-                            return Some(DecodeLog::new(
-                                State::Warning,
-                                "#BASEに無効な数字が定義されています",
-                            ));
-                        }
-                        model.set_base(base);
-                    }
-                    Err(_) => {
-                        return Some(DecodeLog::new(
-                            State::Warning,
-                            "#BASEに数字が定義されていません",
-                        ));
-                    }
-                }
-                None
-            },
-        },
-    ];
-
-    for cmd in commands {
-        if line.len() > cmd.name.len() + 2 && matches_reserve_word(line, cmd.name) {
-            let Some(arg) = line.get(cmd.name.len() + 2..) else {
-                continue;
-            };
-            let arg = arg.trim();
-            let result = (cmd.handler)(model, arg);
-            if let Some(dl) = result {
-                log.push(dl);
-            }
-            return true;
-        }
-    }
-    false
-}
+mod helpers;
+pub use helpers::convert_hex_string;
+use helpers::*;
 
 #[cfg(test)]
 mod tests {
@@ -1119,7 +775,7 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        assert_eq!(model.title.as_str(), "My Song");
+        assert_eq!(model.get_title(), "My Song");
     }
 
     #[test]
@@ -1128,7 +784,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#ARTIST DJ Test"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().artist, "DJ Test");
+        assert_eq!(model.unwrap().artist(), "DJ Test");
     }
 
     #[test]
@@ -1147,7 +803,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#PLAYLEVEL 12"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().playlevel.as_str(), "12");
+        assert_eq!(model.unwrap().get_playlevel(), "12");
     }
 
     #[test]
@@ -1156,7 +812,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#GENRE Hardcore"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().genre, "Hardcore");
+        assert_eq!(model.unwrap().genre(), "Hardcore");
     }
 
     #[test]
@@ -1165,7 +821,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#SUBTITLE [SPA]"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().sub_title, "[SPA]");
+        assert_eq!(model.unwrap().sub_title(), "[SPA]");
     }
 
     #[test]
@@ -1174,7 +830,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#SUBARTIST feat. Vocalist"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().subartist, "feat. Vocalist");
+        assert_eq!(model.unwrap().sub_artist(), "feat. Vocalist");
     }
 
     #[test]
@@ -1194,7 +850,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#DIFFICULTY 4"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().difficulty, 4);
+        assert_eq!(model.unwrap().difficulty(), 4);
     }
 
     #[test]
@@ -1204,8 +860,8 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        assert_eq!(model.judgerank, 3);
-        assert_eq!(model.judgerank_type, JudgeRankType::BmsRank);
+        assert_eq!(model.judgerank(), 3);
+        assert_eq!(model.judgerank_type(), &JudgeRankType::BmsRank);
     }
 
     #[test]
@@ -1215,7 +871,7 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         // Backslash should be converted to forward slash
-        assert_eq!(model.unwrap().stagefile, "bg/stage.bmp");
+        assert_eq!(model.unwrap().stagefile(), "bg/stage.bmp");
     }
 
     #[test]
@@ -1224,7 +880,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#BANNER banner.png"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().banner, "banner.png");
+        assert_eq!(model.unwrap().banner(), "banner.png");
     }
 
     #[test]
@@ -1233,7 +889,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#PREVIEW preview.ogg"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().preview, "preview.ogg");
+        assert_eq!(model.unwrap().preview(), "preview.ogg");
     }
 
     #[test]
@@ -1271,12 +927,12 @@ mod tests {
         assert!(model.is_some());
         let model = model.unwrap();
         // MD5 hash should be 32 hex characters
-        assert_eq!(model.md5.len(), 32);
+        assert_eq!(model.md5().len(), 32);
         // SHA256 hash should be 64 hex characters
-        assert_eq!(model.sha256.len(), 64);
+        assert_eq!(model.sha256().len(), 64);
         // Should only contain hex digits
-        assert!(model.md5.chars().all(|c| c.is_ascii_hexdigit()));
-        assert!(model.sha256.chars().all(|c| c.is_ascii_hexdigit()));
+        assert!(model.md5().chars().all(|c| c.is_ascii_hexdigit()));
+        assert!(model.sha256().chars().all(|c| c.is_ascii_hexdigit()));
     }
 
     #[test]
@@ -1285,7 +941,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#PLAYER 1"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().player, 1);
+        assert_eq!(model.unwrap().player(), 1);
     }
 
     #[test]
@@ -1304,8 +960,8 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        assert_eq!(model.judgerank, 100);
-        assert_eq!(model.judgerank_type, JudgeRankType::BmsDefexrank);
+        assert_eq!(model.judgerank(), 100);
+        assert_eq!(model.judgerank_type(), &JudgeRankType::BmsDefexrank);
     }
 
     #[test]
@@ -1314,7 +970,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#BASE 62"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().base, 62);
+        assert_eq!(model.unwrap().get_base(), 62);
     }
 
     #[test]
@@ -1323,7 +979,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#BACKBMP img\\back.bmp"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().backbmp, "img/back.bmp");
+        assert_eq!(model.unwrap().backbmp(), "img/back.bmp");
     }
 
     #[test]
@@ -1334,7 +990,7 @@ mod tests {
         assert!(model.is_some());
         let model = model.unwrap();
         assert_eq!(
-            model.values.get("URL"),
+            model.get_values().get("URL"),
             Some(&"http://example.com".to_string())
         );
     }
@@ -1346,7 +1002,7 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        let wav_list = model.wavmap.as_slice();
+        let wav_list = model.wav_list();
         assert!(!wav_list.is_empty());
         // Backslash should be converted to forward slash
         assert!(wav_list.iter().any(|w| w == "sound/kick.wav"));
@@ -1366,13 +1022,13 @@ mod tests {
         ]);
         let model = decoder.decode_bytes(&data, false, None).unwrap();
 
-        assert_eq!(model.title.as_str(), "Combined Test");
-        assert_eq!(model.artist, "Multi Artist");
+        assert_eq!(model.get_title(), "Combined Test");
+        assert_eq!(model.artist(), "Multi Artist");
         assert!((model.bpm - 180.0).abs() < f64::EPSILON);
-        assert_eq!(model.playlevel.as_str(), "7");
-        assert_eq!(model.genre, "Trance");
+        assert_eq!(model.get_playlevel(), "7");
+        assert_eq!(model.genre(), "Trance");
         assert!((model.total - 350.0).abs() < f64::EPSILON);
-        assert_eq!(model.judgerank, 2);
+        assert_eq!(model.judgerank(), 2);
     }
 
     // --- process_command_word tests ---
@@ -1383,7 +1039,7 @@ mod tests {
         let mut log = Vec::new();
         let handled = process_command_word("#TITLE Hello World", &mut model, &mut log);
         assert!(handled);
-        assert_eq!(model.title.as_str(), "Hello World");
+        assert_eq!(model.get_title(), "Hello World");
         assert!(log.is_empty());
     }
 
@@ -1393,7 +1049,7 @@ mod tests {
         let mut log = Vec::new();
         let handled = process_command_word("#ARTIST Test Artist", &mut model, &mut log);
         assert!(handled);
-        assert_eq!(model.artist, "Test Artist");
+        assert_eq!(model.artist(), "Test Artist");
     }
 
     #[test]
@@ -1410,7 +1066,7 @@ mod tests {
         let mut log = Vec::new();
         let handled = process_command_word("#PLAYER 1", &mut model, &mut log);
         assert!(handled);
-        assert_eq!(model.player, 1);
+        assert_eq!(model.player(), 1);
         assert!(log.is_empty());
     }
 
@@ -1452,7 +1108,7 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         assert_eq!(
-            model.unwrap().title.as_str(),
+            model.unwrap().get_title(),
             "\u{8868}\u{793a}\u{30c6}\u{30b9}\u{30c8}"
         );
     }
@@ -1463,7 +1119,7 @@ mod tests {
         let data = make_bms_bytes_sjis(&["#BPM 120", "#ARTIST \u{97f3}\u{697d}\u{5bb6}"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().artist, "\u{97f3}\u{697d}\u{5bb6}");
+        assert_eq!(model.unwrap().artist(), "\u{97f3}\u{697d}\u{5bb6}");
     }
 
     #[test]
@@ -1476,7 +1132,7 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         assert_eq!(
-            model.unwrap().genre,
+            model.unwrap().genre(),
             "\u{30cf}\u{30fc}\u{30c9}\u{30b3}\u{30a2}"
         );
     }
@@ -1489,7 +1145,7 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        let wav_list = model.wavmap.as_slice();
+        let wav_list = model.wav_list();
         assert!(wav_list.iter().any(|w| w.contains(".wav")));
     }
 
@@ -1510,7 +1166,7 @@ mod tests {
         let data = make_bms_bytes_sjis(&["#BPM 120", "#STAGEFILE \u{753b}\u{50cf}/stage.bmp"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert!(model.unwrap().stagefile.contains("stage.bmp"));
+        assert!(model.unwrap().stagefile().contains("stage.bmp"));
     }
 
     #[test]
@@ -1558,7 +1214,7 @@ mod tests {
         );
         assert!(handled);
         assert_eq!(
-            model.title.as_str(),
+            model.get_title(),
             "\u{8868}\u{793a}\u{30c6}\u{30b9}\u{30c8}"
         );
     }
@@ -1573,7 +1229,7 @@ mod tests {
             &mut log,
         );
         assert!(handled);
-        assert_eq!(model.genre, "\u{30cf}\u{30fc}\u{30c9}\u{30b3}\u{30a2}");
+        assert_eq!(model.genre(), "\u{30cf}\u{30fc}\u{30c9}\u{30b3}\u{30a2}");
     }
 
     #[test]
@@ -1597,9 +1253,9 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        assert_eq!(model.title.as_str(), "\u{661f}\u{306e}\u{5668}");
-        assert_eq!(model.artist, "\u{4f5c}\u{66f2}\u{8005}");
-        assert_eq!(model.genre, "\u{30c8}\u{30e9}\u{30f3}\u{30b9}");
+        assert_eq!(model.get_title(), "\u{661f}\u{306e}\u{5668}");
+        assert_eq!(model.artist(), "\u{4f5c}\u{66f2}\u{8005}");
+        assert_eq!(model.genre(), "\u{30c8}\u{30e9}\u{30f3}\u{30b9}");
         assert!((model.bpm - 140.0).abs() < f64::EPSILON);
     }
 }
