@@ -90,7 +90,7 @@ fn java_random_different_seeds_diverge() {
 /// Helper: create a BMSModel with the given mode and timelines.
 fn make_test_model(mode: &Mode, timelines: Vec<TimeLine>) -> BMSModel {
     let mut model = BMSModel::new();
-    model.set_all_time_line(timelines);
+    model.timelines = timelines;
     model.set_mode(mode.clone());
     model
 }
@@ -135,7 +135,7 @@ fn s_randomizer_determinism_same_seed() {
     // Extract note positions from both runs
     let extract_notes = |model: &BMSModel| -> Vec<Vec<Option<i32>>> {
         model
-            .all_time_lines()
+            .timelines
             .iter()
             .map(|tl| (0..8).map(|lane| tl.note(lane).map(|n| n.wav())).collect())
             .collect()
@@ -207,7 +207,7 @@ fn mine_note_modifier_honors_seed() {
         modifier.modify(&mut model);
 
         let layout: Vec<Vec<Option<i32>>> = model
-            .all_time_lines()
+            .timelines
             .iter()
             .map(|tl| (0..8).map(|lane| tl.note(lane).map(|n| n.wav())).collect())
             .collect();
@@ -264,7 +264,7 @@ fn long_note_modifier_honors_seed() {
         modifier.modify(&mut model);
 
         let layout: Vec<Vec<Option<i32>>> = model
-            .all_time_lines()
+            .timelines
             .iter()
             .map(|tl| (0..8).map(|lane| tl.note(lane).map(|n| n.wav())).collect())
             .collect();

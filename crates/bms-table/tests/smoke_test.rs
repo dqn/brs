@@ -21,7 +21,7 @@ fn difficulty_table_default() {
     assert!(dt.course().is_empty());
     assert!(dt.table.name().is_none());
     assert!(dt.table.id().is_none());
-    assert!(dt.table.tag().is_none());
+    assert!(dt.table.get_tag().is_none());
     assert!(dt.table.data_url().is_empty());
     assert!(dt.table.models().is_empty());
     assert!(!dt.table.is_editable());
@@ -47,14 +47,14 @@ fn difficulty_table_with_source_url_and_elements() {
         "abc123",
         "",
     );
-    elem.set_state(1);
-    elem.set_evaluation(5);
+    elem.state = 1;
+    elem.eval = 5;
 
     dt.table.add_element(elem);
 
     let elements = dt.elements();
     assert_eq!(elements.len(), 1);
-    assert_eq!(elements[0].level(), "12");
+    assert_eq!(elements[0].get_level(), "12");
     assert_eq!(elements[0].element.title(), Some("Test Song"));
     assert_eq!(elements[0].bmsid(), 42);
     assert_eq!(elements[0].state(), 1);
@@ -118,15 +118,15 @@ fn course_construction() {
     assert_eq!(course.name(), "Dan Course A");
 
     course.set_style("7KEYS");
-    assert_eq!(course.style(), "7KEYS");
+    assert_eq!(course.get_style(), "7KEYS");
 
-    course.set_constraint(vec!["GAUGE_LR2".to_string()]);
+    course.constraint = vec!["GAUGE_LR2".to_string()];
     assert_eq!(course.constraint(), &["GAUGE_LR2".to_string()]);
 
     // Charts
     let mut chart = BmsTableElement::new();
     chart.set_md5("abc123");
-    course.set_charts(vec![chart]);
+    course.charts = vec![chart];
     assert_eq!(course.charts().len(), 1);
 }
 
@@ -138,11 +138,11 @@ fn trophy_construction() {
 
     trophy.set_name("Gold Trophy");
     trophy.set_style("gold");
-    trophy.set_scorerate(90.0);
-    trophy.set_missrate(5.0);
+    trophy.scorerate = 90.0;
+    trophy.missrate = 5.0;
 
     assert_eq!(trophy.name(), "Gold Trophy");
     assert_eq!(trophy.style(), "gold");
     assert!((trophy.scorerate() - 90.0).abs() < f64::EPSILON);
-    assert!((trophy.missrate() - 5.0).abs() < f64::EPSILON);
+    assert!((trophy.missrate - 5.0).abs() < f64::EPSILON);
 }

@@ -25,10 +25,10 @@ fn rhythm_timer_freq_zero_no_panic() {
 
     use bms_model::time_line::TimeLine;
     let mut tl = TimeLine::new(0.0, 0, 8);
-    tl.set_section_line(true);
+    tl.section_line = true;
     let mut model2 = BMSModel::new();
     model2.set_mode(Mode::BEAT_7K);
-    model2.set_all_time_line(vec![tl]);
+    model2.timelines = vec![tl];
 
     let mut processor2 = RhythmTimerProcessor::new(&model2, false);
 
@@ -101,7 +101,7 @@ fn gauge_update_judge_index_oob_is_ignored() {
 #[test]
 fn groove_gauge_update_judge_index_oob_is_ignored() {
     let mut model = BMSModel::new();
-    model.set_total(300.0);
+    model.total = 300.0;
     model.set_mode(Mode::BEAT_7K);
 
     let mut gg = GrooveGauge::new(&model, NORMAL, &GaugeProperty::SevenKeys);
@@ -117,7 +117,7 @@ fn groove_gauge_update_judge_index_oob_is_ignored() {
 #[test]
 fn groove_gauge_update_negative_judge_is_ignored() {
     let mut model = BMSModel::new();
-    model.set_total(300.0);
+    model.total = 300.0;
     model.set_mode(Mode::BEAT_7K);
 
     let mut gg = GrooveGauge::new(&model, NORMAL, &GaugeProperty::SevenKeys);
@@ -137,7 +137,7 @@ fn groove_gauge_update_negative_judge_is_ignored() {
 #[test]
 fn groove_gauge_extreme_damage_floors_at_zero() {
     let mut model = BMSModel::new();
-    model.set_total(300.0);
+    model.total = 300.0;
     model.set_mode(Mode::BEAT_7K);
 
     let mut gg = GrooveGauge::new(&model, HARD, &GaugeProperty::SevenKeys);

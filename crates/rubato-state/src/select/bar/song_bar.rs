@@ -124,8 +124,7 @@ impl SongBar {
                     count -= 1;
                 }
             }
-            for j in 0..elements.len() {
-                let element = &elements[j];
+            for element in elements.iter_mut() {
                 if element.path().is_none()
                     && ((!element.md5.is_empty()
                         && element.md5
@@ -145,9 +144,9 @@ impl SongBar {
                         .expect("song is Some after is_none guard")
                         .path()
                         .map(|s| s.to_string());
-                    elements[j].set_path_opt(song_path);
+                    element.set_path_opt(song_path);
                     if let Some(ref _song) = songs[i] {
-                        let elem_clone = elements[j].clone();
+                        let elem_clone = element.clone();
                         songs[i]
                             .as_mut()
                             .expect("song is Some after is_none guard")

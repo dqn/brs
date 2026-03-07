@@ -167,9 +167,11 @@ impl BarManager {
 
         // Load IR tables if IR connections provide table URLs
         for (ir_name, table_url) in ir_table_urls {
-            let mut td = TableData::default();
-            td.set_name(format!("{} {}", ir_name, table_url));
-            td.set_url(table_url.clone());
+            let td = TableData {
+                name: format!("{} {}", ir_name, table_url),
+                url: table_url.clone(),
+                ..Default::default()
+            };
             let accessor: Arc<dyn TableAccessor> =
                 Arc::new(DifficultyTableAccessor::new(tablepath, table_url));
             table_bars.push(TableBar::new(td, accessor));
@@ -179,9 +181,11 @@ impl BarManager {
 
         // Load courses
         let course_accessor = CourseDataAccessor::new("course");
-        let mut course_td = TableData::default();
-        course_td.set_name("COURSE".to_string());
-        course_td.set_course(course_accessor.read_all());
+        let course_td = TableData {
+            name: "COURSE".to_string(),
+            course: course_accessor.read_all(),
+            ..Default::default()
+        };
         let course_tr: Arc<dyn TableAccessor> = Arc::new(CourseTableAccessor);
         self.courses = Some(TableBar::new(course_td, course_tr));
 
@@ -613,7 +617,7 @@ impl BarManager {
                 if let Some(ref ctx) = ctx {
                     let sorter = ctx
                         .player_config
-                        .sortid()
+                        .get_sortid()
                         .and_then(BarSorter::value_of)
                         .unwrap_or(BarSorter::Title);
                     l.sort_by(|a, b| sorter.compare(a, b));
@@ -933,10 +937,11 @@ impl TableAccessor for CourseTableAccessor {
         "course"
     }
     fn read(&self) -> Option<TableData> {
-        let mut td = TableData::default();
-        td.set_name("COURSE".to_string());
-        td.set_course(CourseDataAccessor::new("course").read_all());
-        Some(td)
+        Some(TableData {
+            name: "COURSE".to_string(),
+            course: CourseDataAccessor::new("course").read_all(),
+            ..Default::default()
+        })
     }
     fn write(&self, _td: &mut TableData) {
         // No-op for course tables

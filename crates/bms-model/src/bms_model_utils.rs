@@ -63,7 +63,7 @@ pub fn total_notes_full(model: &BMSModel, start: i32, end: i32, note_type: i32, 
 
     let lntype = model.lntype();
     let mut count = 0;
-    for tl in model.all_time_lines() {
+    for tl in &model.timelines {
         if tl.time() >= start && tl.time() < end {
             match note_type {
                 TOTALNOTES_ALL => {
@@ -157,17 +157,17 @@ pub fn average_notes_per_time(model: &BMSModel, start: i32, end: i32) -> f64 {
 }
 
 pub fn change_frequency(model: &mut BMSModel, freq: f32) {
-    model.set_bpm(model.bpm() * (freq as f64));
-    for tl in model.all_time_lines_mut() {
-        tl.set_bpm(tl.bpm() * (freq as f64));
-        tl.set_stop((tl.micro_stop() as f64 / (freq as f64)) as i64);
+    model.bpm *= freq as f64;
+    for tl in &mut model.timelines {
+        tl.bpm = tl.get_bpm() * (freq as f64);
+        tl.stop = (tl.micro_stop() as f64 / (freq as f64)) as i64;
         tl.set_micro_time((tl.micro_time() as f64 / (freq as f64)) as i64);
     }
 }
 
 pub fn max_notes_per_time(model: &BMSModel, range: i32) -> f64 {
     let mut maxnotes: i32 = 0;
-    let tl = model.all_time_lines();
+    let tl = &model.timelines;
     let lntype = model.lntype();
     for i in 0..tl.len() {
         let mut notes = 0;
@@ -183,7 +183,7 @@ pub fn max_notes_per_time(model: &BMSModel, range: i32) -> f64 {
 
 pub fn set_start_note_time(model: &mut BMSModel, starttime: i64) -> i64 {
     let mut margin_time: i64 = 0;
-    for tl in model.all_time_lines() {
+    for tl in &model.timelines {
         if tl.milli_time() >= starttime {
             break;
         }
@@ -194,23 +194,23 @@ pub fn set_start_note_time(model: &mut BMSModel, starttime: i64) -> i64 {
     }
 
     if margin_time > 0 {
-        let first_bpm = model.all_time_lines()[0].bpm();
+        let first_bpm = model.timelines[0].bpm;
         let margin_section = (margin_time as f64) * first_bpm / 240000.0;
         for tl in model.all_time_lines_mut() {
-            tl.set_section(tl.section() + margin_section);
+            tl.set_section(tl.get_section() + margin_section);
             tl.set_micro_time(tl.micro_time() + margin_time * 1000);
         }
 
         let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
-        let bpm = model.bpm();
+        let bpm = model.bpm;
 
         let mut old_timelines = model.take_all_time_lines();
         let mut new_timelines: Vec<TimeLine> = Vec::with_capacity(old_timelines.len() + 1);
         let mut first = TimeLine::new(0.0, 0, mode_key);
-        first.set_bpm(bpm);
+        first.bpm = bpm;
         new_timelines.push(first);
         new_timelines.append(&mut old_timelines);
-        model.set_all_time_line(new_timelines);
+        model.timelines = new_timelines;
     }
 
     margin_time
@@ -226,8 +226,8 @@ mod tests {
     fn make_model_7k(timelines: Vec<TimeLine>) -> BMSModel {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_bpm(120.0);
-        model.set_all_time_line(timelines);
+        model.bpm = 120.0;
+        model.timelines = timelines;
         model
     }
 
@@ -316,16 +316,16 @@ mod tests {
     #[test]
     fn change_frequency_doubles() {
         let mut tl = TimeLine::new(0.0, 1_000_000, 8);
-        tl.set_bpm(120.0);
-        tl.set_stop(500_000);
+        tl.bpm = 120.0;
+        tl.stop = 500_000;
         let mut model = make_model_7k(vec![tl]);
-        model.set_bpm(120.0);
+        model.bpm = 120.0;
 
         change_frequency(&mut model, 2.0);
 
-        assert!((model.bpm() - 240.0).abs() < f64::EPSILON);
-        let tl = &model.all_time_lines()[0];
-        assert!((tl.bpm() - 240.0).abs() < f64::EPSILON);
+        assert!((model.bpm - 240.0).abs() < f64::EPSILON);
+        let tl = &model.timelines[0];
+        assert!((tl.bpm - 240.0).abs() < f64::EPSILON);
         assert_eq!(tl.micro_time(), 500_000); // halved
         assert_eq!(tl.micro_stop(), 250_000); // halved
     }
@@ -333,16 +333,16 @@ mod tests {
     #[test]
     fn change_frequency_halves() {
         let mut tl = TimeLine::new(0.0, 1_000_000, 8);
-        tl.set_bpm(120.0);
-        tl.set_stop(500_000);
+        tl.bpm = 120.0;
+        tl.stop = 500_000;
         let mut model = make_model_7k(vec![tl]);
-        model.set_bpm(120.0);
+        model.bpm = 120.0;
 
         change_frequency(&mut model, 0.5);
 
-        assert!((model.bpm() - 60.0).abs() < f64::EPSILON);
-        let tl = &model.all_time_lines()[0];
-        assert!((tl.bpm() - 60.0).abs() < f64::EPSILON);
+        assert!((model.bpm - 60.0).abs() < f64::EPSILON);
+        let tl = &model.timelines[0];
+        assert!((tl.bpm - 60.0).abs() < f64::EPSILON);
         assert_eq!(tl.micro_time(), 2_000_000); // doubled
         assert_eq!(tl.micro_stop(), 1_000_000); // doubled
     }
@@ -373,38 +373,38 @@ mod tests {
     fn set_start_note_time_note_before_starttime_inserts_padding() {
         // First note is at time=0ms, starttime=1000ms
         let mut tl = TimeLine::new(0.0, 0, 8);
-        tl.set_bpm(120.0);
+        tl.bpm = 120.0;
         tl.set_note(0, Some(Note::new_normal(1)));
         let mut model = make_model_7k(vec![tl]);
-        model.set_bpm(120.0);
+        model.bpm = 120.0;
 
         let margin = set_start_note_time(&mut model, 1000);
         assert_eq!(margin, 1000);
 
         // Should have inserted a padding timeline at the beginning
-        assert_eq!(model.all_time_lines().len(), 2);
+        assert_eq!(model.timelines.len(), 2);
         // First timeline is the padding (time=0, section=0)
-        assert_eq!(model.all_time_lines()[0].micro_time(), 0);
+        assert_eq!(model.timelines[0].micro_time(), 0);
     }
 
     #[test]
     fn set_start_note_time_note_after_starttime_returns_zero() {
         // First note at 2000ms, starttime=1000ms
         let mut tl = TimeLine::new(0.0, 2_000_000, 8);
-        tl.set_bpm(120.0);
+        tl.bpm = 120.0;
         tl.set_note(0, Some(Note::new_normal(1)));
         let mut model = make_model_7k(vec![tl]);
 
         let margin = set_start_note_time(&mut model, 1000);
         assert_eq!(margin, 0);
         // No padding inserted
-        assert_eq!(model.all_time_lines().len(), 1);
+        assert_eq!(model.timelines.len(), 1);
     }
 
     #[test]
     fn set_start_note_time_no_notes_returns_zero() {
         let mut tl = TimeLine::new(0.0, 0, 8);
-        tl.set_bpm(120.0);
+        tl.bpm = 120.0;
         // No notes set
         let mut model = make_model_7k(vec![tl]);
 

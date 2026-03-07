@@ -86,7 +86,7 @@ impl BMSRenderer {
         let mut mix_buffer = vec![0.0f32; mix_len];
 
         // Process all timelines
-        let timelines = model.all_time_lines();
+        let timelines = &model.timelines;
 
         for tl in timelines {
             let time = tl.milli_time();

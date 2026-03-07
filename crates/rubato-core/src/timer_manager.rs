@@ -12,11 +12,11 @@ pub struct TimerManager {
     /// Current microsecond time (relative to starttime)
     nowmicrotime: i64,
     /// Whether time updates are frozen
-    frozen: bool,
+    pub frozen: bool,
     /// Timer array, indexed by timer ID
     timer: Vec<i64>,
     /// Current main state type, set by MainController before skin draw
-    state_type: Option<rubato_types::main_state_type::MainStateType>,
+    pub state_type: Option<rubato_types::main_state_type::MainStateType>,
     /// Recent judge timing offsets (milliseconds), set by BMSPlayer::render()
     recent_judges: Vec<i64>,
     /// Current write index into recent_judges circular buffer
@@ -144,24 +144,11 @@ impl TimerManager {
         self.starttime = Instant::now();
         self.nowmicrotime = self.starttime.elapsed().as_micros() as i64;
     }
-
-    pub fn set_state_type(
-        &mut self,
-        state_type: Option<rubato_types::main_state_type::MainStateType>,
-    ) {
-        self.state_type = state_type;
-    }
-
     pub fn set_recent_judges(&mut self, index: usize, judges: &[i64]) {
         self.recent_judges_index = index;
         self.recent_judges.clear();
         self.recent_judges.extend_from_slice(judges);
     }
-
-    pub fn set_frozen(&mut self, freeze: bool) {
-        self.frozen = freeze;
-    }
-
     pub fn update(&mut self) {
         if !self.frozen {
             self.nowmicrotime = self.starttime.elapsed().as_micros() as i64;
@@ -337,7 +324,7 @@ mod tests {
     #[test]
     fn frozen_prevents_time_update() {
         let mut tm = TimerManager::new();
-        tm.set_frozen(true);
+        tm.frozen = true;
         let before = tm.now_micro_time();
         tm.update();
         assert_eq!(tm.now_micro_time(), before);

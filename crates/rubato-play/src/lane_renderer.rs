@@ -142,7 +142,7 @@ pub struct LaneGroupRegion {
 pub struct LaneRenderer {
     basehispeed: f32,
     hispeedmargin: f32,
-    /// Filtered timeline indices (indexes into BMSModel.all_time_lines())
+    /// Filtered timeline indices (indexes into BMSModel.timelines)
     timeline_indices: Vec<usize>,
     pos: usize,
     currentduration: i32,
@@ -202,33 +202,33 @@ impl LaneRenderer {
 
     pub fn init(&mut self, model: &BMSModel) {
         self.pos = 0;
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let mut indices: Vec<usize> = Vec::new();
-        let mut cbpm = model.bpm();
+        let mut cbpm = model.bpm;
         let mut cscr = 1.0;
         for (i, tl) in all_tls.iter().enumerate() {
-            if cbpm != tl.bpm()
+            if cbpm != tl.bpm
                 || tl.stop() > 0
-                || cscr != tl.scroll()
-                || tl.section_line()
+                || cscr != tl.scroll
+                || tl.section_line
                 || tl.exist_note()
                 || tl.exist_hidden_note()
             {
                 indices.push(i);
             }
-            cbpm = tl.bpm();
-            cscr = tl.scroll();
+            cbpm = tl.bpm;
+            cscr = tl.scroll;
         }
         self.timeline_indices = indices;
 
-        self.minbpm = model.min_bpm();
+        self.minbpm = model.get_min_bpm();
         self.maxbpm = model.max_bpm();
 
         // Find main BPM (BPM with most notes)
         let mut bpm_counts: HashMap<u64, (f64, i32)> = HashMap::new();
         for tl in all_tls {
-            let key = tl.bpm().to_bits();
-            let entry = bpm_counts.entry(key).or_insert((tl.bpm(), 0));
+            let key = tl.bpm.to_bits();
+            let entry = bpm_counts.entry(key).or_insert((tl.bpm, 0));
             entry.1 += tl.total_notes();
         }
         let mut maxcount = 0;
@@ -241,7 +241,7 @@ impl LaneRenderer {
 
         self.basebpm = match self.fixhispeed {
             FIX_HISPEED_OFF => self.basebpm,
-            FIX_HISPEED_STARTBPM => model.bpm(),
+            FIX_HISPEED_STARTBPM => model.bpm,
             FIX_HISPEED_MINBPM => self.minbpm,
             FIX_HISPEED_MAXBPM => self.maxbpm,
             FIX_HISPEED_MAINBPM => self.mainbpm,
@@ -359,7 +359,7 @@ impl LaneRenderer {
     pub fn calc_y_offset(tl: &TimeLine, prev_tl: &TimeLine, microtime: i64, rxhs: f64) -> f64 {
         if prev_tl.micro_time() + prev_tl.micro_stop() > microtime {
             // During a stop: full section distance
-            (tl.section() - prev_tl.section()) * prev_tl.scroll() * rxhs
+            (tl.get_section() - prev_tl.get_section()) * prev_tl.scroll * rxhs
         } else {
             // Normal scrolling: proportional to time remaining
             let time_diff = tl.micro_time() - microtime;
@@ -367,8 +367,8 @@ impl LaneRenderer {
             if total_time == 0 {
                 0.0
             } else {
-                (tl.section() - prev_tl.section())
-                    * prev_tl.scroll()
+                (tl.get_section() - prev_tl.get_section())
+                    * prev_tl.scroll
                     * (time_diff as f64 / total_time as f64)
                     * rxhs
             }
@@ -380,7 +380,7 @@ impl LaneRenderer {
         if tl.micro_time() == 0 {
             0.0
         } else {
-            tl.section() * (tl.micro_time() - microtime) as f64 / tl.micro_time() as f64 * rxhs
+            tl.get_section() * (tl.micro_time() - microtime) as f64 / tl.micro_time() as f64 * rxhs
         }
     }
 
@@ -551,8 +551,8 @@ impl LaneRenderer {
             if tl.micro_time() > microtime {
                 break;
             }
-            nbpm = tl.bpm();
-            nscroll = tl.scroll();
+            nbpm = tl.bpm;
+            nscroll = tl.scroll;
         }
         self.nowbpm = nbpm;
 
@@ -625,12 +625,12 @@ impl LaneRenderer {
                     let tl = &all_tl[timelines[i]];
                     if tl.micro_time() >= microtime {
                         let prev_section = if i > 0 {
-                            all_tl[timelines[i - 1]].section()
+                            all_tl[timelines[i - 1]].get_section()
                         } else {
                             0.0
                         };
                         let prev_scroll = if i > 0 {
-                            all_tl[timelines[i - 1]].scroll()
+                            all_tl[timelines[i - 1]].scroll
                         } else {
                             1.0
                         };
@@ -643,7 +643,7 @@ impl LaneRenderer {
 
                         let denom = tl.micro_time() - prev_microtime;
                         let rate = if denom != 0 {
-                            (tl.section() - prev_section) * prev_scroll * rxhs / denom as f64
+                            (tl.get_section() - prev_section) * prev_scroll * rxhs / denom as f64
                         } else {
                             0.0
                         };
@@ -751,14 +751,14 @@ impl LaneRenderer {
 
                 // BPM guide / Stop lines
                 if ctx.show_bpmguide || show_timeline {
-                    if tl.bpm() != nbpm {
+                    if tl.bpm != nbpm {
                         commands.push(DrawCommand::DrawBpmLine {
                             y_offset: (y - hl as f64) as i32,
-                            bpm: tl.bpm(),
+                            bpm: tl.bpm,
                         });
                         for r in &ctx.lane_group_regions {
                             commands.push(DrawCommand::DrawBpmText {
-                                text: format!("BPM{}", tl.bpm() as i32),
+                                text: format!("BPM{}", tl.bpm as i32),
                                 x: r.x + r.width / 2.0,
                                 y: y as f32 + 20.0,
                             });
@@ -780,13 +780,13 @@ impl LaneRenderer {
                 }
 
                 // Section line
-                if tl.section_line() {
+                if tl.section_line {
                     commands.push(DrawCommand::DrawSectionLine {
                         y_offset: (y - hl as f64) as i32,
                     });
                 }
 
-                nbpm = tl.bpm();
+                nbpm = tl.bpm;
             } else if self.pos == i.wrapping_sub(1) {
                 // Advance pos: check if all notes in this timeline are past
                 let mut can_advance = true;
@@ -965,11 +965,11 @@ impl LaneRenderer {
                                         // Calculate long note body height
                                         let mut dy: f64 = 0.0;
                                         let mut prev_tl_ref = tl;
-                                        let pair_section = pair_tl.section();
+                                        let pair_section = pair_tl.get_section();
 
                                         for j in (i + 1)..tl_count {
                                             let now_tl = &all_tl[timelines[j]];
-                                            if prev_tl_ref.section() == pair_section {
+                                            if prev_tl_ref.get_section() == pair_section {
                                                 break;
                                             }
                                             if now_tl.micro_time() >= microtime {
@@ -977,9 +977,9 @@ impl LaneRenderer {
                                                     + prev_tl_ref.micro_stop()
                                                     > microtime
                                                 {
-                                                    dy += (now_tl.section()
-                                                        - prev_tl_ref.section())
-                                                        * prev_tl_ref.scroll()
+                                                    dy += (now_tl.get_section()
+                                                        - prev_tl_ref.get_section())
+                                                        * prev_tl_ref.scroll
                                                         * rxhs;
                                                 } else {
                                                     let time_diff = now_tl.micro_time() - microtime;
@@ -987,9 +987,9 @@ impl LaneRenderer {
                                                         - prev_tl_ref.micro_time()
                                                         - prev_tl_ref.micro_stop();
                                                     if total_time != 0 {
-                                                        dy += (now_tl.section()
-                                                            - prev_tl_ref.section())
-                                                            * prev_tl_ref.scroll()
+                                                        dy += (now_tl.get_section()
+                                                            - prev_tl_ref.get_section())
+                                                            * prev_tl_ref.scroll
                                                             * (time_diff as f64
                                                                 / total_time as f64)
                                                             * rxhs;
@@ -1118,7 +1118,7 @@ impl LaneRenderer {
                                 - all_tl[timelines[j]].micro_stop()
                                 - stop_time) as f64
                                 * rxhs2
-                                * all_tl[timelines[j]].bpm()
+                                * all_tl[timelines[j]].bpm
                                 / 240000000.0;
                         }
                         j += 1;
@@ -1137,7 +1137,7 @@ impl LaneRenderer {
                             - all_tl[timelines[j]].micro_stop()
                             - stop_time) as f64
                             * rxhs2
-                            * all_tl[timelines[j]].bpm()
+                            * all_tl[timelines[j]].bpm
                             / 240000000.0;
                     }
                 } else if tl.micro_time() + tl.micro_stop() < microtime
@@ -1150,7 +1150,7 @@ impl LaneRenderer {
                     );
                     y -= (microtime - tl.micro_time() - tl.micro_stop() - stop_time) as f64
                         * rxhs2
-                        * tl.bpm()
+                        * tl.bpm
                         / 240000000.0;
                 }
 
@@ -1441,14 +1441,14 @@ mod tests {
 
     fn make_model_with_timelines(timelines: Vec<TimeLine>, bpm: f64) -> BMSModel {
         let mut model = BMSModel::new();
-        model.set_bpm(bpm);
-        model.set_all_time_line(timelines);
+        model.bpm = bpm;
+        model.timelines = timelines;
         model
     }
 
     fn make_timeline(section: f64, time_us: i64, bpm: f64, notesize: i32) -> TimeLine {
         let mut tl = TimeLine::new(section, time_us, notesize);
-        tl.set_bpm(bpm);
+        tl.bpm = bpm;
         tl
     }
 
@@ -1629,7 +1629,7 @@ mod tests {
     fn y_offset_during_stop() {
         // When prev timeline is in a stop, full section distance is used
         let mut prev = make_timeline(0.0, 0, 120.0, 8);
-        prev.set_stop(2_000_000); // 2 second stop
+        prev.stop = 2_000_000; // 2 second stop
         let tl = make_timeline(1.0, 1_000_000, 120.0, 8);
 
         let offset = LaneRenderer::calc_y_offset(&tl, &prev, 500_000, 100.0);
@@ -1653,7 +1653,7 @@ mod tests {
     #[test]
     fn y_offset_with_scroll() {
         let mut prev = make_timeline(0.0, 0, 120.0, 8);
-        prev.set_scroll(2.0);
+        prev.scroll = 2.0;
         let tl = make_timeline(1.0, 1_000_000, 120.0, 8);
 
         let offset = LaneRenderer::calc_y_offset(&tl, &prev, 500_000, 100.0);
@@ -1688,7 +1688,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let result = renderer.draw_lane(&ctx, &[], &[]);
 
@@ -1698,15 +1698,15 @@ mod tests {
     #[test]
     fn draw_lane_updates_now_bpm() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_section_line(true);
+        tl0.section_line = true;
         let mut tl1 = make_timeline(1.0, 500_000, 150.0, 8);
-        tl1.set_section_line(true);
+        tl1.section_line = true;
         let mut tl2 = make_timeline(2.0, 1_000_000, 180.0, 8);
-        tl2.set_section_line(true);
+        tl2.section_line = true;
         let model = make_model_with_timelines(vec![tl0, tl1, tl2], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let mut ctx = default_ctx(all_tls);
         // Set time to 750ms (past tl1 at 500ms but before tl2 at 1000ms)
         ctx.time = 750;
@@ -1722,12 +1722,12 @@ mod tests {
     #[test]
     fn draw_lane_calculates_current_duration() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_section_line(true);
+        tl0.section_line = true;
         let model = make_model_with_timelines(vec![tl0], 120.0);
         let mut renderer = LaneRenderer::new(&model);
         renderer.duration = 1000;
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1740,13 +1740,13 @@ mod tests {
     #[test]
     fn draw_lane_current_duration_with_lanecover() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_section_line(true);
+        tl0.section_line = true;
         let model = make_model_with_timelines(vec![tl0], 120.0);
         let mut renderer = LaneRenderer::new(&model);
         renderer.enable_lanecover = true;
         renderer.lanecover = 0.5;
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1758,13 +1758,13 @@ mod tests {
     #[test]
     fn draw_lane_lift_offset() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_section_line(true);
+        tl0.section_line = true;
         let model = make_model_with_timelines(vec![tl0], 120.0);
         let mut renderer = LaneRenderer::new(&model);
         renderer.enable_lift = true;
         renderer.lift = 0.2;
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1777,13 +1777,13 @@ mod tests {
     #[test]
     fn draw_lane_hidden_cover_enabled() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_section_line(true);
+        tl0.section_line = true;
         let model = make_model_with_timelines(vec![tl0], 120.0);
         let mut renderer = LaneRenderer::new(&model);
         renderer.enable_hidden = true;
         renderer.hidden = 0.3;
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1796,12 +1796,12 @@ mod tests {
     #[test]
     fn draw_lane_hidden_cover_disabled() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_section_line(true);
+        tl0.section_line = true;
         let model = make_model_with_timelines(vec![tl0], 120.0);
         let mut renderer = LaneRenderer::new(&model);
         renderer.enable_hidden = false;
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1812,13 +1812,13 @@ mod tests {
     #[test]
     fn draw_lane_section_line_emitted() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
         let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
-        tl1.set_section_line(true);
+        tl1.section_line = true;
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1834,13 +1834,13 @@ mod tests {
     #[test]
     fn draw_lane_normal_note_emitted() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
         let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
         tl1.set_note(0, Some(Note::new_normal(1)));
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1862,13 +1862,13 @@ mod tests {
     #[test]
     fn draw_lane_mine_note_emitted() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
         let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
         tl1.set_note(2, Some(Note::new_mine(1, 0.5)));
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -1889,14 +1889,14 @@ mod tests {
     #[test]
     fn draw_lane_past_note_not_shown_without_flag() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
         // Note at time 0 is already past when time > 0
         let mut tl1 = make_timeline(0.5, 500_000, 120.0, 8);
         tl1.set_note(0, Some(Note::new_normal(1)));
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let mut ctx = default_ctx(all_tls);
         ctx.time = 1000; // well past the note
         ctx.show_pastnote = false;
@@ -1923,7 +1923,7 @@ mod tests {
     #[test]
     fn draw_lane_constant_mode_hides_far_notes() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
         // Note far in the future
         let mut tl1 = make_timeline(10.0, 10_000_000, 120.0, 8);
         tl1.set_note(0, Some(Note::new_normal(1)));
@@ -1933,7 +1933,7 @@ mod tests {
         renderer.duration = 500; // target = 500_000 us
         renderer.constant_fadein_time = 0.0; // alpha_limit = 0
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let mut ctx = default_ctx(all_tls);
         ctx.time = 0;
 
@@ -1959,13 +1959,13 @@ mod tests {
     #[test]
     fn draw_lane_offsets_accumulated() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
         let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
         tl1.set_note(0, Some(Note::new_normal(1)));
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let offsets = vec![
@@ -2015,14 +2015,14 @@ mod tests {
     #[test]
     fn draw_lane_practice_mode_uses_start_time() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
-        tl0.set_section_line(true);
+        tl0.bpm = 120.0;
+        tl0.section_line = true;
         let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
         tl1.set_note(0, Some(Note::new_normal(1)));
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let mut ctx = default_ctx(all_tls);
         ctx.is_practice = true;
         ctx.practice_start_time = 500; // 500ms
@@ -2038,7 +2038,7 @@ mod tests {
     #[test]
     fn draw_lane_long_note_emits_body_and_caps() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
 
         // Create LN start at tl1, end at tl2
         let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
@@ -2060,7 +2060,7 @@ mod tests {
         let model = make_model_with_timelines(vec![tl0, tl1, tl2], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);
@@ -2081,13 +2081,13 @@ mod tests {
     #[test]
     fn draw_lane_hidden_note_shown_when_enabled() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
         let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
         tl1.set_hidden_note(0, Some(Note::new_normal(1)));
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let mut ctx = default_ctx(all_tls);
         ctx.show_hiddennote = true;
 
@@ -2109,13 +2109,13 @@ mod tests {
     #[test]
     fn draw_lane_hidden_note_not_shown_when_disabled() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
         let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
         tl1.set_hidden_note(0, Some(Note::new_normal(1)));
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let mut ctx = default_ctx(all_tls);
         ctx.show_hiddennote = false;
 
@@ -2140,15 +2140,15 @@ mod tests {
     #[test]
     fn draw_lane_bpm_guide_emitted() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_bpm(120.0);
-        tl0.set_section_line(true);
+        tl0.bpm = 120.0;
+        tl0.section_line = true;
         // tl1 has different BPM
         let mut tl1 = make_timeline(1.0, 1_000_000, 180.0, 8);
-        tl1.set_section_line(true);
+        tl1.section_line = true;
         let model = make_model_with_timelines(vec![tl0, tl1], 120.0);
         let mut renderer = LaneRenderer::new(&model);
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let mut ctx = default_ctx(all_tls);
         ctx.show_bpmguide = true;
         ctx.lane_group_regions = vec![LaneGroupRegion {
@@ -2175,7 +2175,7 @@ mod tests {
     #[test]
     fn draw_lane_hidden_cover_with_lift() {
         let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
-        tl0.set_section_line(true);
+        tl0.section_line = true;
         let model = make_model_with_timelines(vec![tl0], 120.0);
         let mut renderer = LaneRenderer::new(&model);
         renderer.enable_hidden = true;
@@ -2183,7 +2183,7 @@ mod tests {
         renderer.enable_lift = true;
         renderer.lift = 0.2;
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         let ctx = default_ctx(all_tls);
         let lanes = make_lanes(8);
         let result = renderer.draw_lane(&ctx, &lanes, &[]);

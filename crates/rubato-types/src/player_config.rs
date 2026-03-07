@@ -336,7 +336,33 @@ impl PlayerConfig {
         self.twitter_access_token_secret.as_deref()
     }
 
-    pub fn sortid(&self) -> Option<&str> {
+    pub fn get_skin_history(&self) -> &[SkinConfig] {
+        &self.skin_history
+    }
+    pub fn get_gauge(&self) -> i32 {
+        self.gauge
+    }
+
+    pub fn get_random(&self) -> i32 {
+        self.random
+    }
+    pub fn get_random2(&self) -> i32 {
+        self.random2
+    }
+    pub fn get_doubleoption(&self) -> i32 {
+        self.doubleoption
+    }
+    pub fn get_judgetiming(&self) -> i32 {
+        self.judgetiming
+    }
+
+    pub fn get_lnmode(&self) -> i32 {
+        self.lnmode
+    }
+    pub fn get_sort(&self) -> i32 {
+        self.sort
+    }
+    pub fn get_sortid(&self) -> Option<&str> {
         self.sortid.as_deref()
     }
 
@@ -347,7 +373,6 @@ impl PlayerConfig {
     pub fn mode(&self) -> Option<&Mode> {
         self.mode.as_ref()
     }
-
     pub fn is_event_mode(&self) -> bool {
         self.event_mode
     }
@@ -359,20 +384,41 @@ impl PlayerConfig {
     pub fn is_custom_judge(&self) -> bool {
         self.custom_judge
     }
-
+    pub fn get_scroll_mode(&self) -> i32 {
+        self.scroll_mode
+    }
     pub fn is_showjudgearea(&self) -> bool {
         self.showjudgearea
     }
-
+    pub fn get_longnote_mode(&self) -> i32 {
+        self.longnote_mode
+    }
     pub fn is_markprocessednote(&self) -> bool {
         self.markprocessednote
     }
-
     pub fn is_bpmguide(&self) -> bool {
         self.bpmguide
     }
+    pub fn get_mine_mode(&self) -> i32 {
+        self.mine_mode
+    }
+    pub fn get_chart_replication_mode(&self) -> &str {
+        &self.chart_replication_mode
+    }
 
-    pub fn misslayer_duration(&mut self) -> i32 {
+    pub fn get_gauge_auto_shift(&self) -> i32 {
+        self.gauge_auto_shift
+    }
+
+    pub fn get_bottom_shiftable_gauge(&self) -> i32 {
+        self.bottom_shiftable_gauge
+    }
+
+    pub fn get_targetid(&self) -> &str {
+        &self.targetid
+    }
+
+    pub fn get_misslayer_duration(&mut self) -> i32 {
         if self.misslayer_duration < 0 {
             self.misslayer_duration = 0;
         }

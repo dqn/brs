@@ -62,26 +62,26 @@ impl PatternModifier for ScrollSpeedModifier {
             let mut assist = AssistLevel::None;
             let timelines = model.all_time_lines_mut();
 
-            let start_bpm = timelines[0].bpm();
-            let start_scroll = timelines[0].scroll();
+            let start_bpm = timelines[0].bpm;
+            let start_scroll = timelines[0].scroll;
 
             for tl in timelines.iter_mut() {
-                if tl.bpm() != start_bpm || tl.scroll() != start_scroll || tl.stop() != 0 {
+                if tl.bpm != start_bpm || tl.scroll != start_scroll || tl.stop() != 0 {
                     assist = AssistLevel::LightAssist;
                 }
                 tl.set_section(start_bpm * tl.micro_time() as f64 / 240000000.0);
-                tl.set_stop(0);
-                tl.set_bpm(start_bpm);
-                tl.set_scroll(start_scroll);
+                tl.stop = 0;
+                tl.bpm = start_bpm;
+                tl.scroll = start_scroll;
             }
             self.base.assist = assist;
         } else {
             let timelines = model.all_time_lines_mut();
-            let base = timelines[0].scroll();
+            let base = timelines[0].scroll;
             let mut current = base;
             let mut sectioncount = 0;
             for tl in timelines.iter_mut() {
-                if tl.section_line() {
+                if tl.section_line {
                     sectioncount += 1;
                     if self.section == sectioncount {
                         current =
@@ -89,7 +89,7 @@ impl PatternModifier for ScrollSpeedModifier {
                         sectioncount = 0;
                     }
                 }
-                tl.set_scroll(current);
+                tl.scroll = current;
             }
         }
     }
@@ -224,10 +224,10 @@ mod tests {
     fn remove_mode_uniform_timelines_keeps_none_assist() {
         // All timelines have the same BPM, scroll, and stop=0
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_bpm(120.0);
+        tl1.bpm = 120.0;
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1]);
 
@@ -242,10 +242,10 @@ mod tests {
     #[test]
     fn remove_mode_different_bpm_sets_light_assist() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_bpm(180.0); // different BPM
+        tl1.bpm = 180.0; // different BPM
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1]);
 
@@ -255,9 +255,9 @@ mod tests {
         assert_eq!(modifier.assist_level(), AssistLevel::LightAssist);
 
         // After modification, all timelines should have start_bpm
-        let tls = model.all_time_lines();
-        assert!((tls[0].bpm() - 120.0).abs() < f64::EPSILON);
-        assert!((tls[1].bpm() - 120.0).abs() < f64::EPSILON);
+        let tls = model.timelines;
+        assert!((tls[0].bpm - 120.0).abs() < f64::EPSILON);
+        assert!((tls[1].bpm - 120.0).abs() < f64::EPSILON);
     }
 
     // -- Remove mode: different scroll -> LightAssist --
@@ -265,12 +265,12 @@ mod tests {
     #[test]
     fn remove_mode_different_scroll_sets_light_assist() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
-        tl0.set_scroll(1.0);
+        tl0.bpm = 120.0;
+        tl0.scroll = 1.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_bpm(120.0);
-        tl1.set_scroll(2.0); // different scroll
+        tl1.bpm = 120.0;
+        tl1.scroll = 2.0; // different scroll
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1]);
 
@@ -279,9 +279,9 @@ mod tests {
 
         assert_eq!(modifier.assist_level(), AssistLevel::LightAssist);
 
-        let tls = model.all_time_lines();
-        assert!((tls[0].scroll() - 1.0).abs() < f64::EPSILON);
-        assert!((tls[1].scroll() - 1.0).abs() < f64::EPSILON);
+        let tls = model.timelines;
+        assert!((tls[0].scroll - 1.0).abs() < f64::EPSILON);
+        assert!((tls[1].scroll - 1.0).abs() < f64::EPSILON);
     }
 
     // -- Remove mode: non-zero stop -> LightAssist --
@@ -289,11 +289,11 @@ mod tests {
     #[test]
     fn remove_mode_nonzero_stop_sets_light_assist() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_bpm(120.0);
-        tl1.set_stop(5_000_000); // non-zero stop (get_stop() = 5000)
+        tl1.bpm = 120.0;
+        tl1.stop = 5_000_000; // non-zero stop (get_stop() = 5000)
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1]);
 
@@ -303,7 +303,7 @@ mod tests {
         assert_eq!(modifier.assist_level(), AssistLevel::LightAssist);
 
         // Stop should be zeroed after modification
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         assert_eq!(tls[1].stop(), 0);
     }
 
@@ -312,22 +312,22 @@ mod tests {
     #[test]
     fn remove_mode_normalizes_bpm_to_first_timeline() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(150.0);
+        tl0.bpm = 150.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_bpm(200.0);
+        tl1.bpm = 200.0;
 
         let mut tl2 = TimeLine::new(2.0, 2_000_000, 8);
-        tl2.set_bpm(100.0);
+        tl2.bpm = 100.0;
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1, tl2]);
 
         let mut modifier = ScrollSpeedModifier::new();
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         for tl in tls {
-            assert!((tl.bpm() - 150.0).abs() < f64::EPSILON);
+            assert!((tl.bpm - 150.0).abs() < f64::EPSILON);
         }
     }
 
@@ -336,25 +336,25 @@ mod tests {
     #[test]
     fn remove_mode_normalizes_scroll_to_first_timeline() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
-        tl0.set_scroll(1.5);
+        tl0.bpm = 120.0;
+        tl0.scroll = 1.5;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_bpm(120.0);
-        tl1.set_scroll(0.5);
+        tl1.bpm = 120.0;
+        tl1.scroll = 0.5;
 
         let mut tl2 = TimeLine::new(2.0, 2_000_000, 8);
-        tl2.set_bpm(120.0);
-        tl2.set_scroll(3.0);
+        tl2.bpm = 120.0;
+        tl2.scroll = 3.0;
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1, tl2]);
 
         let mut modifier = ScrollSpeedModifier::new();
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         for tl in tls {
-            assert!((tl.scroll() - 1.5).abs() < f64::EPSILON);
+            assert!((tl.scroll - 1.5).abs() < f64::EPSILON);
         }
     }
 
@@ -363,19 +363,19 @@ mod tests {
     #[test]
     fn remove_mode_zeroes_all_stops() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
-        tl0.set_stop(2_000_000);
+        tl0.bpm = 120.0;
+        tl0.stop = 2_000_000;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_bpm(120.0);
-        tl1.set_stop(3_000_000);
+        tl1.bpm = 120.0;
+        tl1.stop = 3_000_000;
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1]);
 
         let mut modifier = ScrollSpeedModifier::new();
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         assert_eq!(tls[0].stop(), 0);
         assert_eq!(tls[1].stop(), 0);
     }
@@ -385,22 +385,22 @@ mod tests {
     #[test]
     fn remove_mode_recalculates_section() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
 
         // micro_time = 2_000_000 -> section = 120.0 * 2_000_000 / 240_000_000 = 1.0
         let mut tl1 = TimeLine::new(5.0, 2_000_000, 8);
-        tl1.set_bpm(120.0);
+        tl1.bpm = 120.0;
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1]);
 
         let mut modifier = ScrollSpeedModifier::new();
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // tl[0]: 120.0 * 0 / 240_000_000 = 0.0
-        assert!((tls[0].section() - 0.0).abs() < f64::EPSILON);
+        assert!((tls[0].get_section() - 0.0).abs() < f64::EPSILON);
         // tl[1]: 120.0 * 2_000_000 / 240_000_000 = 1.0
-        assert!((tls[1].section() - 1.0).abs() < f64::EPSILON);
+        assert!((tls[1].get_section() - 1.0).abs() < f64::EPSILON);
     }
 
     // -- Add mode: section count advances and scroll changes --
@@ -410,41 +410,41 @@ mod tests {
         // Create timelines with section_line markers. section=2, so after 2 section lines
         // the scroll should be re-randomized.
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
-        tl0.set_scroll(1.0);
+        tl0.bpm = 120.0;
+        tl0.scroll = 1.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_bpm(120.0);
-        tl1.set_section_line(true);
+        tl1.bpm = 120.0;
+        tl1.section_line = true;
 
         let mut tl2 = TimeLine::new(2.0, 2_000_000, 8);
-        tl2.set_bpm(120.0);
-        tl2.set_section_line(true); // sectioncount reaches 2 -> reset
+        tl2.bpm = 120.0;
+        tl2.section_line = true; // sectioncount reaches 2 -> reset
 
         let mut tl3 = TimeLine::new(3.0, 3_000_000, 8);
-        tl3.set_bpm(120.0);
+        tl3.bpm = 120.0;
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1, tl2, tl3]);
 
         let mut modifier = ScrollSpeedModifier::with_params(1, 2, 0.5); // Add, section=2
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // tl[0] has no section_line, so scroll starts at base (1.0)
-        assert!((tls[0].scroll() - 1.0).abs() < f64::EPSILON);
+        assert!((tls[0].scroll - 1.0).abs() < f64::EPSILON);
         // tl[1] is the first section_line, sectioncount=1 (not yet = section=2), scroll stays 1.0
-        assert!((tls[1].scroll() - 1.0).abs() < f64::EPSILON);
+        assert!((tls[1].scroll - 1.0).abs() < f64::EPSILON);
         // tl[2] is the second section_line, sectioncount=2 == section=2, scroll randomized
         // The new scroll is base * (1.0 + rand * rate * 2 - rate) where base=1.0, rate=0.5
         // So scroll is in range [1.0 * (1.0 - 0.5), 1.0 * (1.0 + 0.5)] = [0.5, 1.5]
-        let scroll2 = tls[2].scroll();
+        let scroll2 = tls[2].scroll;
         assert!(
             (0.5..=1.5).contains(&scroll2),
             "scroll at tl[2] should be in [0.5, 1.5], got {}",
             scroll2
         );
         // tl[3] carries the same scroll as tl[2] (no new section_line)
-        assert!((tls[3].scroll() - scroll2).abs() < f64::EPSILON);
+        assert!((tls[3].scroll - scroll2).abs() < f64::EPSILON);
     }
 
     // -- Add mode: no section lines -> all timelines keep base scroll --
@@ -452,11 +452,11 @@ mod tests {
     #[test]
     fn add_mode_no_section_lines_keeps_base_scroll() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
-        tl0.set_scroll(2.0);
+        tl0.bpm = 120.0;
+        tl0.scroll = 2.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_bpm(120.0);
+        tl1.bpm = 120.0;
         // section_line defaults to false
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1]);
@@ -464,9 +464,9 @@ mod tests {
         let mut modifier = ScrollSpeedModifier::with_params(1, 4, 0.5); // Add
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
-        assert!((tls[0].scroll() - 2.0).abs() < f64::EPSILON);
-        assert!((tls[1].scroll() - 2.0).abs() < f64::EPSILON);
+        let tls = model.timelines;
+        assert!((tls[0].scroll - 2.0).abs() < f64::EPSILON);
+        assert!((tls[1].scroll - 2.0).abs() < f64::EPSILON);
     }
 
     // -- Add mode: section count resets after reaching threshold --
@@ -475,26 +475,26 @@ mod tests {
     fn add_mode_section_count_resets() {
         // section=1: every section_line triggers a scroll change
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
-        tl0.set_scroll(1.0);
+        tl0.bpm = 120.0;
+        tl0.scroll = 1.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_section_line(true); // sectioncount=1 == section=1, randomize
+        tl1.section_line = true; // sectioncount=1 == section=1, randomize
 
         let mut tl2 = TimeLine::new(2.0, 2_000_000, 8);
-        tl2.set_section_line(true); // sectioncount=1 again (reset), randomize again
+        tl2.section_line = true; // sectioncount=1 again (reset), randomize again
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1, tl2]);
 
         let mut modifier = ScrollSpeedModifier::with_params(1, 1, 0.5); // Add, section=1
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // tl[0] keeps the base scroll
-        assert!((tls[0].scroll() - 1.0).abs() < f64::EPSILON);
+        assert!((tls[0].scroll - 1.0).abs() < f64::EPSILON);
         // tl[1] and tl[2] should each have randomized scroll in [0.5, 1.5]
-        let s1 = tls[1].scroll();
-        let s2 = tls[2].scroll();
+        let s1 = tls[1].scroll;
+        let s2 = tls[2].scroll;
         assert!(
             (0.5..=1.5).contains(&s1),
             "tl[1] scroll should be in [0.5, 1.5], got {}",
@@ -512,10 +512,10 @@ mod tests {
     #[test]
     fn add_mode_rate_zero_keeps_base_scroll() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_scroll(1.0);
+        tl0.scroll = 1.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_section_line(true);
+        tl1.section_line = true;
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1]);
 
@@ -523,9 +523,9 @@ mod tests {
         let mut modifier = ScrollSpeedModifier::with_params(1, 1, 0.0);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
-        assert!((tls[0].scroll() - 1.0).abs() < f64::EPSILON);
-        assert!((tls[1].scroll() - 1.0).abs() < f64::EPSILON);
+        let tls = model.timelines;
+        assert!((tls[0].scroll - 1.0).abs() < f64::EPSILON);
+        assert!((tls[1].scroll - 1.0).abs() < f64::EPSILON);
     }
 
     // -- Edge case: single timeline, Remove mode --
@@ -533,9 +533,9 @@ mod tests {
     #[test]
     fn remove_mode_single_timeline() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(130.0);
-        tl0.set_scroll(1.0);
-        tl0.set_stop(0);
+        tl0.bpm = 130.0;
+        tl0.scroll = 1.0;
+        tl0.stop = 0;
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0]);
 
@@ -545,9 +545,9 @@ mod tests {
         // Single timeline with same values as itself -> no assist needed
         assert_eq!(modifier.assist_level(), AssistLevel::None);
 
-        let tls = model.all_time_lines();
-        assert!((tls[0].bpm() - 130.0).abs() < f64::EPSILON);
-        assert!((tls[0].scroll() - 1.0).abs() < f64::EPSILON);
+        let tls = model.timelines;
+        assert!((tls[0].bpm - 130.0).abs() < f64::EPSILON);
+        assert!((tls[0].scroll - 1.0).abs() < f64::EPSILON);
         assert_eq!(tls[0].stop(), 0);
     }
 
@@ -556,7 +556,7 @@ mod tests {
     #[test]
     fn add_mode_single_timeline() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_scroll(1.0);
+        tl0.scroll = 1.0;
         // No section_line, so sectioncount never advances
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0]);
@@ -564,9 +564,9 @@ mod tests {
         let mut modifier = ScrollSpeedModifier::with_params(1, 1, 0.5);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Single timeline with no section_line -> scroll stays at base
-        assert!((tls[0].scroll() - 1.0).abs() < f64::EPSILON);
+        assert!((tls[0].scroll - 1.0).abs() < f64::EPSILON);
     }
 
     // -- Edge case: single timeline with section_line, Add mode --
@@ -574,17 +574,17 @@ mod tests {
     #[test]
     fn add_mode_single_timeline_with_section_line() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_scroll(1.0);
-        tl0.set_section_line(true);
+        tl0.scroll = 1.0;
+        tl0.section_line = true;
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0]);
 
         let mut modifier = ScrollSpeedModifier::with_params(1, 1, 0.5); // section=1
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // section_line is true, sectioncount=1 == section=1, so scroll is randomized
-        let s = tls[0].scroll();
+        let s = tls[0].scroll;
         assert!(
             (0.5..=1.5).contains(&s),
             "scroll should be in [0.5, 1.5], got {}",
@@ -597,8 +597,8 @@ mod tests {
     #[test]
     fn remove_mode_first_timeline_with_stop() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_bpm(120.0);
-        tl0.set_stop(1_000_000); // get_stop() = 1000
+        tl0.bpm = 120.0;
+        tl0.stop = 1_000_000; // get_stop() = 1000
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0]);
 
@@ -607,7 +607,7 @@ mod tests {
 
         // Even the first timeline triggers LightAssist because get_stop() != 0
         assert_eq!(modifier.assist_level(), AssistLevel::LightAssist);
-        assert_eq!(model.all_time_lines()[0].stop(), 0);
+        assert_eq!(model.timelines[0].stop(), 0);
     }
 
     // -- Add mode: base scroll propagates from first timeline --
@@ -615,20 +615,20 @@ mod tests {
     #[test]
     fn add_mode_uses_first_timeline_scroll_as_base() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_scroll(3.0);
+        tl0.scroll = 3.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_scroll(1.0); // different initial scroll, but base comes from tl[0]
+        tl1.scroll = 1.0; // different initial scroll, but base comes from tl[0]
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1]);
 
         let mut modifier = ScrollSpeedModifier::with_params(1, 4, 0.5);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // No section lines -> all get base scroll (3.0)
-        assert!((tls[0].scroll() - 3.0).abs() < f64::EPSILON);
-        assert!((tls[1].scroll() - 3.0).abs() < f64::EPSILON);
+        assert!((tls[0].scroll - 3.0).abs() < f64::EPSILON);
+        assert!((tls[1].scroll - 3.0).abs() < f64::EPSILON);
     }
 
     // -- Add mode does not set assist level --
@@ -636,10 +636,10 @@ mod tests {
     #[test]
     fn add_mode_does_not_change_assist_level() {
         let mut tl0 = TimeLine::new(0.0, 0, 8);
-        tl0.set_scroll(1.0);
+        tl0.scroll = 1.0;
 
         let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
-        tl1.set_section_line(true);
+        tl1.section_line = true;
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1]);
 

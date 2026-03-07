@@ -230,7 +230,7 @@ impl BMSDecoder {
                     }
                 } else if !skip.last().copied().unwrap_or(false) {
                     let c = line.as_bytes()[1] as char;
-                    let base = model.base();
+                    let base = model.get_base();
                     if c.is_ascii_digit() && line.len() > 6 {
                         let c2 = line.as_bytes()[2] as char;
                         let c3 = line.as_bytes()[3] as char;
@@ -263,7 +263,7 @@ impl BMSDecoder {
                             match line[5..].trim().parse::<f64>() {
                                 Ok(bpm) => {
                                     if bpm > 0.0 {
-                                        model.set_bpm(bpm);
+                                        model.bpm = bpm;
                                     } else {
                                         self.log.push(DecodeLog::new(
                                             State::Warning,
@@ -515,8 +515,8 @@ impl BMSDecoder {
             }
         }
 
-        model.set_wav_list(std::mem::take(&mut self.wavlist));
-        model.set_bga_list(std::mem::take(&mut self.bgalist));
+        model.wavmap = std::mem::take(&mut self.wavlist);
+        model.bgamap = std::mem::take(&mut self.bgalist);
 
         let mut sections: Vec<Section> = Vec::with_capacity(maxsec + 1);
         let mut prev_sectionnum: f64 = 0.0;
@@ -547,7 +547,7 @@ impl BMSDecoder {
         let mut lnendstatus: Vec<Option<section::StartLnInfo>> = vec![None; mode_key as usize];
         let basetl = TimeLine::new(0.0, 0, mode_key);
         let mut basetl = basetl;
-        basetl.set_bpm(model.bpm());
+        basetl.bpm = model.bpm;
         tlcache.insert(f64_to_key(0.0), TimeLineCache::new(0.0, basetl));
 
         for section in &sections {
@@ -563,10 +563,10 @@ impl BMSDecoder {
         }
 
         let tl_vec: Vec<TimeLine> = tlcache.into_values().map(|tlc| tlc.timeline).collect();
-        model.set_all_time_line(tl_vec);
+        model.timelines = tl_vec;
 
-        let all_tl = model.all_time_lines();
-        if !all_tl.is_empty() && all_tl[0].bpm() == 0.0 {
+        let all_tl = &model.timelines;
+        if !all_tl.is_empty() && all_tl[0].bpm == 0.0 {
             self.log.push(DecodeLog::new(
                 State::Error,
                 "開始BPMが定義されていないため、BMS解析に失敗しました",
@@ -586,7 +586,7 @@ impl BMSDecoder {
                 if status.section != f64::MIN {
                     // Find the timeline in model's timelines and clear the note
                     for tl in model.all_time_lines_mut() {
-                        if tl.section() == status.section {
+                        if tl.get_section() == status.section {
                             tl.set_note(i as i32, None);
                             break;
                         }
@@ -595,15 +595,15 @@ impl BMSDecoder {
             }
         }
 
-        if *model.total_type() != TotalType::Bms {
+        if model.total_type != TotalType::Bms {
             self.log
                 .push(DecodeLog::new(State::Warning, "TOTALが未定義です"));
         }
-        if model.total() <= 60.0 {
+        if model.total <= 60.0 {
             self.log
                 .push(DecodeLog::new(State::Warning, "TOTAL値が少なすぎます"));
         }
-        let all_tl = model.all_time_lines();
+        let all_tl = &model.timelines;
         if !all_tl.is_empty() && all_tl[all_tl.len() - 1].time() >= model.last_time() + 30000 {
             self.log.push(DecodeLog::new(
                 State::Warning,
@@ -732,7 +732,7 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
                 match arg.parse::<i32>() {
                     Ok(player) => {
                         if (1..3).contains(&player) {
-                            model.set_player(player);
+                            model.player = player;
                         } else {
                             return Some(DecodeLog::new(
                                 State::Warning,
@@ -798,8 +798,8 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
                 match arg.parse::<i32>() {
                     Ok(rank) => {
                         if (0..5).contains(&rank) {
-                            model.set_judgerank(rank);
-                            model.set_judgerank_type(JudgeRankType::BmsRank);
+                            model.judgerank = rank;
+                            model.judgerank_type = JudgeRankType::BmsRank;
                         } else {
                             return Some(DecodeLog::new(
                                 State::Warning,
@@ -823,8 +823,8 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
                 match arg.parse::<i32>() {
                     Ok(rank) => {
                         if rank >= 1 {
-                            model.set_judgerank(rank);
-                            model.set_judgerank_type(JudgeRankType::BmsDefexrank);
+                            model.judgerank = rank;
+                            model.judgerank_type = JudgeRankType::BmsDefexrank;
                         } else {
                             return Some(DecodeLog::new(
                                 State::Warning,
@@ -848,8 +848,8 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
                 match arg.parse::<f64>() {
                     Ok(total) => {
                         if total > 0.0 {
-                            model.set_total(total);
-                            model.set_total_type(TotalType::Bms);
+                            model.total = total;
+                            model.total_type = TotalType::Bms;
                         } else {
                             return Some(DecodeLog::new(State::Warning, "#TOTALが0以下です"));
                         }
@@ -869,7 +869,7 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
             handler: |model, arg| {
                 match arg.parse::<i32>() {
                     Ok(v) => {
-                        model.set_volwav(v);
+                        model.volwav = v;
                     }
                     Err(_) => {
                         return Some(DecodeLog::new(
@@ -905,9 +905,9 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
         CmdDef {
             name: "LNOBJ",
             handler: |model, arg| {
-                if model.base() == 62 {
+                if model.get_base() == 62 {
                     match chart_decoder::parse_int62_str(arg, 0) {
-                        Ok(v) => model.set_lnobj(v),
+                        Ok(v) => model.lnobj = v,
                         Err(_) => {
                             return Some(DecodeLog::new(
                                 State::Warning,
@@ -917,7 +917,7 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
                     }
                 } else {
                     match i32::from_str_radix(&arg.to_uppercase(), 36) {
-                        Ok(v) => model.set_lnobj(v),
+                        Ok(v) => model.lnobj = v,
                         Err(_) => {
                             return Some(DecodeLog::new(
                                 State::Warning,
@@ -942,7 +942,7 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
                         }
                         // LR2oraja Endless Dream: LR2 does not support LNMODE, suppress modes 1 or 2
                         lnmode = 0;
-                        model.set_lnmode(lnmode);
+                        model.lnmode = lnmode;
                     }
                     Err(_) => {
                         return Some(DecodeLog::new(
@@ -958,7 +958,7 @@ fn process_command_word(line: &str, model: &mut BMSModel, log: &mut Vec<DecodeLo
             name: "DIFFICULTY",
             handler: |model, arg| {
                 match arg.parse::<i32>() {
-                    Ok(v) => model.set_difficulty(v),
+                    Ok(v) => model.difficulty = v,
                     Err(_) => {
                         return Some(DecodeLog::new(
                             State::Warning,
@@ -1120,7 +1120,7 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        assert_eq!(model.title(), "My Song");
+        assert_eq!(model.get_title(), "My Song");
     }
 
     #[test]
@@ -1139,7 +1139,7 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        assert!((model.bpm() - 150.0).abs() < f64::EPSILON);
+        assert!((model.bpm - 150.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -1148,7 +1148,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#PLAYLEVEL 12"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().playlevel(), "12");
+        assert_eq!(model.unwrap().get_playlevel(), "12");
     }
 
     #[test]
@@ -1185,8 +1185,8 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        assert!((model.total() - 300.0).abs() < f64::EPSILON);
-        assert_eq!(model.total_type(), &TotalType::Bms);
+        assert!((model.total - 300.0).abs() < f64::EPSILON);
+        assert_eq!(model.total_type, TotalType::Bms);
     }
 
     #[test]
@@ -1295,7 +1295,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#VOLWAV 80"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().volwav(), 80);
+        assert_eq!(model.unwrap().volwav, 80);
     }
 
     #[test]
@@ -1315,7 +1315,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#BASE 62"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().base(), 62);
+        assert_eq!(model.unwrap().get_base(), 62);
     }
 
     #[test]
@@ -1335,7 +1335,7 @@ mod tests {
         assert!(model.is_some());
         let model = model.unwrap();
         assert_eq!(
-            model.values().get("URL"),
+            model.get_values().get("URL"),
             Some(&"http://example.com".to_string())
         );
     }
@@ -1367,12 +1367,12 @@ mod tests {
         ]);
         let model = decoder.decode_bytes(&data, false, None).unwrap();
 
-        assert_eq!(model.title(), "Combined Test");
+        assert_eq!(model.get_title(), "Combined Test");
         assert_eq!(model.artist(), "Multi Artist");
-        assert!((model.bpm() - 180.0).abs() < f64::EPSILON);
-        assert_eq!(model.playlevel(), "7");
+        assert!((model.bpm - 180.0).abs() < f64::EPSILON);
+        assert_eq!(model.get_playlevel(), "7");
         assert_eq!(model.genre(), "Trance");
-        assert!((model.total() - 350.0).abs() < f64::EPSILON);
+        assert!((model.total - 350.0).abs() < f64::EPSILON);
         assert_eq!(model.judgerank(), 2);
     }
 
@@ -1384,7 +1384,7 @@ mod tests {
         let mut log = Vec::new();
         let handled = process_command_word("#TITLE Hello World", &mut model, &mut log);
         assert!(handled);
-        assert_eq!(model.title(), "Hello World");
+        assert_eq!(model.get_title(), "Hello World");
         assert!(log.is_empty());
     }
 
@@ -1453,7 +1453,7 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         assert_eq!(
-            model.unwrap().title(),
+            model.unwrap().get_title(),
             "\u{8868}\u{793a}\u{30c6}\u{30b9}\u{30c8}"
         );
     }
@@ -1501,7 +1501,7 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        let bga_list = model.bga_list();
+        let bga_list = model.bgamap;
         assert!(bga_list.iter().any(|b| b.contains(".bmp")));
     }
 
@@ -1558,7 +1558,10 @@ mod tests {
             &mut log,
         );
         assert!(handled);
-        assert_eq!(model.title(), "\u{8868}\u{793a}\u{30c6}\u{30b9}\u{30c8}");
+        assert_eq!(
+            model.get_title(),
+            "\u{8868}\u{793a}\u{30c6}\u{30b9}\u{30c8}"
+        );
     }
 
     #[test]
@@ -1595,9 +1598,9 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        assert_eq!(model.title(), "\u{661f}\u{306e}\u{5668}");
+        assert_eq!(model.get_title(), "\u{661f}\u{306e}\u{5668}");
         assert_eq!(model.artist(), "\u{4f5c}\u{66f2}\u{8005}");
         assert_eq!(model.genre(), "\u{30c8}\u{30e9}\u{30f3}\u{30b9}");
-        assert!((model.bpm() - 140.0).abs() < f64::EPSILON);
+        assert!((model.bpm - 140.0).abs() < f64::EPSILON);
     }
 }

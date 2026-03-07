@@ -731,6 +731,22 @@ impl ControllerConfig {
             Some(&self.name)
         }
     }
+    pub fn get_start(&self) -> i32 {
+        self.start
+    }
+
+    pub fn get_select(&self) -> i32 {
+        self.select
+    }
+
+    pub fn get_duration(&self) -> i32 {
+        self.duration
+    }
+
+    #[allow(non_snake_case)]
+    pub fn get_jkoc(&self) -> bool {
+        self.jkoc_hack
+    }
 
     pub fn is_analog_scratch(&self) -> bool {
         self.analog_scratch

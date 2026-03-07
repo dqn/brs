@@ -77,13 +77,13 @@ pub struct PlayerResource {
     /// Course score
     cscore: Option<ScoreData>,
     /// Combo count (for course play carry-over)
-    combo: i32,
+    pub combo: i32,
     /// Max combo count (for course play carry-over)
-    maxcombo: i32,
+    pub maxcombo: i32,
     /// Original gauge option
     org_gauge_option: i32,
     /// Assist flag
-    assist: i32,
+    pub assist: i32,
     /// Table name for current song
     tablename: String,
     /// Table level for current song
@@ -170,7 +170,7 @@ impl PlayerResource {
         self.replay = Some(ReplayData::new());
         let result = Self::load_bms_model(f, self.pconfig.lnmode);
         if let Some((model, margin_time)) = result {
-            if model.all_time_lines().is_empty() {
+            if model.timelines.is_empty() {
                 return false;
             }
             self.margin_time = margin_time;
@@ -470,16 +470,8 @@ impl PlayerResource {
         self.combo
     }
 
-    pub fn set_combo(&mut self, combo: i32) {
-        self.combo = combo;
-    }
-
-    pub fn maxcombo(&self) -> i32 {
+    pub fn get_maxcombo(&self) -> i32 {
         self.maxcombo
-    }
-
-    pub fn set_maxcombo(&mut self, maxcombo: i32) {
-        self.maxcombo = maxcombo;
     }
 
     pub fn dispose(&mut self) {
@@ -512,11 +504,7 @@ impl PlayerResource {
         self.assist
     }
 
-    pub fn set_assist(&mut self, assist: i32) {
-        self.assist = assist;
-    }
-
-    pub fn tablename(&self) -> &str {
+    pub fn get_tablename(&self) -> &str {
         &self.tablename
     }
 
@@ -600,11 +588,11 @@ impl PlayerResource {
         let tds = tdaccessor.read_all();
         let mut result = Vec::new();
         for td in &tds {
-            if !url_set.contains(td.url()) {
+            if !url_set.contains(td.get_url()) {
                 continue;
             }
-            for tf in td.folder() {
-                let found = tf.song().iter().any(|ts| {
+            for tf in td.get_folder() {
+                let found = tf.get_song().iter().any(|ts| {
                     (!ts.md5.is_empty() && ts.md5 == songdata.md5)
                         || (!ts.sha256.is_empty() && ts.sha256 == songdata.sha256)
                 });
@@ -628,11 +616,11 @@ impl PlayerResource {
         let tds = tdaccessor.read_all();
         let mut result = Vec::new();
         for td in &tds {
-            if !url_set.contains(td.url()) {
+            if !url_set.contains(td.get_url()) {
                 continue;
             }
-            for tf in td.folder() {
-                let found = tf.song().iter().any(|ts| {
+            for tf in td.get_folder() {
+                let found = tf.get_song().iter().any(|ts| {
                     (!ts.md5.is_empty() && ts.md5 == songdata.md5)
                         || (!ts.sha256.is_empty() && ts.sha256 == songdata.sha256)
                 });
@@ -873,7 +861,7 @@ impl PlayerResourceAccess for PlayerResource {
                 .map(|m| {
                     // Build SongData from model metadata without consuming the model
                     let mut sd = rubato_types::song_data::SongData::default();
-                    sd.set_title(m.title().to_string());
+                    sd.set_title(m.get_title().to_string());
                     sd.set_subtitle(m.sub_title().to_string());
                     sd.genre = m.genre().to_string();
                     sd.set_artist(m.artist().to_string());
@@ -1049,7 +1037,7 @@ mod tests {
             "model should be Some after reload"
         );
         // Table info should be preserved
-        assert_eq!(resource.tablename(), "insane");
+        assert_eq!(resource.get_tablename(), "insane");
         assert_eq!(resource.tablelevel(), "★12");
         // Other fields should be cleared
         assert!(resource.score_data().is_none());
@@ -1066,7 +1054,7 @@ mod tests {
         resource.set_tablelevel("1");
         resource.reload_bms_file();
 
-        assert_eq!(resource.tablename(), "test");
+        assert_eq!(resource.get_tablename(), "test");
         assert_eq!(resource.tablelevel(), "1");
     }
 

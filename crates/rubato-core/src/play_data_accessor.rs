@@ -572,7 +572,7 @@ impl PlayDataAccessor {
         let last_note_time_us = {
             let keys = model.mode().map(|m| m.key()).unwrap_or(0);
             let mut time: i64 = 0;
-            for tl in model.all_time_lines() {
+            for tl in &model.timelines {
                 for i in 0..keys {
                     if tl.note(i).is_some_and(|n| n.state() != 0) {
                         time = tl.micro_time();

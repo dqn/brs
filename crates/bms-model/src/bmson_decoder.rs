@@ -102,7 +102,7 @@ impl BMSONDecoder {
                 ),
             ));
         } else if bmson_data.info.judge_rank < 5 {
-            model.set_judgerank(bmson_data.info.judge_rank);
+            model.judgerank = bmson_data.info.judge_rank;
             self.log.push(DecodeLog::new(
                 State::Warning,
                 format!(
@@ -110,15 +110,15 @@ impl BMSONDecoder {
                     bmson_data.info.judge_rank
                 ),
             ));
-            model.set_judgerank_type(JudgeRankType::BmsRank);
+            model.judgerank_type = JudgeRankType::BmsRank;
         } else {
-            model.set_judgerank(bmson_data.info.judge_rank);
-            model.set_judgerank_type(JudgeRankType::BmsonJudgerank);
+            model.judgerank = bmson_data.info.judge_rank;
+            model.judgerank_type = JudgeRankType::BmsonJudgerank;
         }
 
         if bmson_data.info.total > 0.0 {
-            model.set_total(bmson_data.info.total);
-            model.set_total_type(TotalType::Bmson);
+            model.total = bmson_data.info.total;
+            model.total_type = TotalType::Bmson;
         } else {
             self.log.push(DecodeLog::new(
                 State::Warning,
@@ -126,7 +126,7 @@ impl BMSONDecoder {
             ));
         }
 
-        model.set_bpm(bmson_data.info.init_bpm);
+        model.bpm = bmson_data.info.init_bpm;
         model.set_playlevel(bmson_data.info.level.to_string());
         let mode = Mode::from_hint(&bmson_data.info.mode_hint);
         if let Some(mode) = mode {
@@ -142,7 +142,7 @@ impl BMSONDecoder {
             model.set_mode(Mode::BEAT_7K);
         }
         if bmson_data.info.ln_type > 0 && bmson_data.info.ln_type <= 3 {
-            model.set_lnmode(bmson_data.info.ln_type);
+            model.lnmode = bmson_data.info.ln_type;
         }
 
         let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
@@ -163,7 +163,7 @@ impl BMSONDecoder {
         model.set_preview(&bmson_data.info.preview_music);
 
         let mut basetl = TimeLine::new(0.0, 0, mode_key);
-        basetl.set_bpm(model.bpm());
+        basetl.bpm = model.bpm;
         tlcache.insert(0, TimeLineCache::new(0.0, basetl));
 
         let mut bpm_events = bmson_data.bpm_events;
@@ -206,20 +206,12 @@ impl BMSONDecoder {
             };
             if scrolly <= stopy && scrolly <= bpmy {
                 ensure_timeline(&mut tlcache, scrolly, resolution, mode_key);
-                tlcache
-                    .get_mut(&scrolly)
-                    .expect("timeline in cache")
-                    .timeline
-                    .set_scroll(scroll_events[scrollpos].rate);
+                tlcache.get_mut(&scrolly).unwrap().timeline.scroll = scroll_events[scrollpos].rate;
                 scrollpos += 1;
             } else if bpmy <= stopy {
                 if bpm_events[bpmpos].bpm > 0.0 {
                     ensure_timeline(&mut tlcache, bpmy, resolution, mode_key);
-                    tlcache
-                        .get_mut(&bpmy)
-                        .expect("timeline in cache")
-                        .timeline
-                        .set_bpm(bpm_events[bpmpos].bpm);
+                    tlcache.get_mut(&bpmy).unwrap().timeline.bpm = bpm_events[bpmpos].bpm;
                 } else {
                     self.log.push(DecodeLog::new(
                         State::Warning,
@@ -233,12 +225,11 @@ impl BMSONDecoder {
             } else if stopy != i32::MAX {
                 if stop_events[stoppos].duration >= 0 {
                     ensure_timeline(&mut tlcache, stopy, resolution, mode_key);
-                    let tl = &mut tlcache.get_mut(&stopy).expect("timeline in cache").timeline;
-                    let bpm = tl.bpm();
-                    tl.set_stop(
+                    let tl = &mut tlcache.get_mut(&stopy).unwrap().timeline;
+                    let bpm = tl.get_bpm();
+                    tl.stop =
                         ((1000.0 * 1000.0 * 60.0 * 4.0 * stop_events[stoppos].duration as f64)
-                            / (bpm * resolution)) as i64,
-                    );
+                            / (bpm * resolution)) as i64;
                 } else {
                     self.log.push(DecodeLog::new(
                         State::Warning,
@@ -255,11 +246,7 @@ impl BMSONDecoder {
         // Bar lines
         for bl in &bmson_data.lines {
             ensure_timeline(&mut tlcache, bl.y, resolution, mode_key);
-            tlcache
-                .get_mut(&bl.y)
-                .expect("timeline in cache")
-                .timeline
-                .set_section_line(true);
+            tlcache.get_mut(&bl.y).unwrap().timeline.section_line = true;
         }
 
         // Sound channels, key channels, mine channels
@@ -419,7 +406,7 @@ impl BMSONDecoder {
                                                 .get(&n_y)
                                                 .expect("timeline in cache")
                                                 .timeline
-                                                .section();
+                                                .get_section();
                                             (info.start_section - start_sec).abs() < f64::EPSILON
                                         })
                                         .map(|info| info.end_y)
@@ -505,7 +492,7 @@ impl BMSONDecoder {
                                 let ln_type = if n_t > 0 && n_t <= 3 {
                                     n_t
                                 } else {
-                                    model.lnmode()
+                                    model.lnmode
                                 };
                                 tlcache
                                     .get_mut(&n_y)
@@ -535,12 +522,12 @@ impl BMSONDecoder {
                                     .get(&n_y)
                                     .expect("timeline in cache")
                                     .timeline
-                                    .section();
+                                    .get_section();
                                 let end_section = tlcache
                                     .get(&end_y)
                                     .expect("timeline in cache")
                                     .timeline
-                                    .section();
+                                    .get_section();
 
                                 while lnlist.len() <= key_usize {
                                     lnlist.push(None);
@@ -682,7 +669,7 @@ impl BMSONDecoder {
             id += 1;
         }
 
-        model.set_wav_list(wavmap);
+        model.wavmap = wavmap;
 
         // BGA processing
         if let Some(ref bga) = bmson_data.bga
@@ -716,11 +703,7 @@ impl BMSONDecoder {
                 for bn in bga_events {
                     ensure_timeline(&mut tlcache, bn.y, resolution, mode_key);
                     if let Some(&mapped_id) = idmap.get(&bn.id) {
-                        tlcache
-                            .get_mut(&bn.y)
-                            .expect("timeline in cache")
-                            .timeline
-                            .set_bga(mapped_id);
+                        tlcache.get_mut(&bn.y).unwrap().timeline.bga = mapped_id;
                     }
                 }
             }
@@ -747,11 +730,8 @@ impl BMSONDecoder {
                             ]);
                         }
                     }
-                    tlcache
-                        .get_mut(&bn.y)
-                        .expect("timeline in cache")
-                        .timeline
-                        .set_eventlayer(vec![Layer::new(event, seqs)]);
+                    tlcache.get_mut(&bn.y).unwrap().timeline.eventlayer =
+                        vec![Layer::new(event, seqs)];
                 }
             }
 
@@ -769,19 +749,16 @@ impl BMSONDecoder {
                     } else {
                         vec![]
                     };
-                    tlcache
-                        .get_mut(&bn.y)
-                        .expect("timeline in cache")
-                        .timeline
-                        .set_eventlayer(vec![Layer::new(event, seqs)]);
+                    tlcache.get_mut(&bn.y).unwrap().timeline.eventlayer =
+                        vec![Layer::new(event, seqs)];
                 }
             }
 
-            model.set_bga_list(bgamap);
+            model.bgamap = bgamap;
         }
 
         let timelines: Vec<TimeLine> = tlcache.into_values().map(|tlc| tlc.timeline).collect();
-        model.set_all_time_line(timelines);
+        model.timelines = timelines;
 
         log::debug!("BMSONファイル解析完了 :{}", f.display());
 
@@ -816,7 +793,7 @@ fn ensure_timeline(
     }
 
     let (&le_key, le_val) = tlcache.range(..y).next_back().expect("next_back");
-    let bpm = le_val.timeline.bpm();
+    let bpm = le_val.timeline.bpm;
     let time = if bpm != 0.0 {
         le_val.time
             + le_val.timeline.micro_stop() as f64
@@ -826,7 +803,7 @@ fn ensure_timeline(
     };
 
     let mut tl = TimeLine::new(y as f64 / resolution, time as i64, mode_key);
-    tl.set_bpm(bpm);
+    tl.bpm = bpm;
     tlcache.insert(y, TimeLineCache::new(time, tl));
 }
 
@@ -853,7 +830,7 @@ mod tests {
             "mode should be BEAT_7K for mode_hint 'beat-7k'"
         );
         assert_eq!(
-            model.title(),
+            model.get_title(),
             "Minimal 7K Bmson Test",
             "title should match bmson info.title"
         );
@@ -863,7 +840,7 @@ mod tests {
             "artist should match bmson info.artist"
         );
         assert!(
-            (model.bpm() - 120.0).abs() < f64::EPSILON,
+            (model.bpm - 120.0).abs() < f64::EPSILON,
             "init_bpm should be 120.0"
         );
         assert_eq!(
@@ -894,10 +871,10 @@ mod tests {
 
         // The fixture has init_bpm=120 and a bpm_event at y=960 changing to 180.
         // There must be at least one timeline with BPM != init_bpm.
-        let timelines = model.all_time_lines();
+        let timelines = model.timelines;
         let has_bpm_change = timelines
             .iter()
-            .any(|tl| (tl.bpm() - 180.0).abs() < f64::EPSILON);
+            .any(|tl| (tl.bpm - 180.0).abs() < f64::EPSILON);
         assert!(
             has_bpm_change,
             "model should contain a timeline with BPM 180.0 from the bpm_event"
@@ -905,7 +882,7 @@ mod tests {
 
         // Verify initial BPM is preserved on the first timeline
         assert!(
-            (timelines[0].bpm() - 120.0).abs() < f64::EPSILON,
+            (timelines[0].bpm - 120.0).abs() < f64::EPSILON,
             "first timeline should have init_bpm 120.0"
         );
     }
@@ -918,7 +895,7 @@ mod tests {
             .decode_path(&path)
             .expect("decode_path should return Some for longnote bmson");
 
-        let timelines = model.all_time_lines();
+        let timelines = &model.timelines;
         let mode_key = model.mode().unwrap().key();
 
         // Collect all long notes (start and end) across all timelines
@@ -958,7 +935,7 @@ mod tests {
             .decode_path(&path)
             .expect("decode_path should return Some for stop_sequence bmson");
 
-        let timelines = model.all_time_lines();
+        let timelines = &model.timelines;
         let has_stop = timelines.iter().any(|tl| tl.micro_stop() > 0);
         assert!(
             has_stop,
@@ -981,7 +958,7 @@ mod tests {
             .decode_path(&path)
             .expect("decode_path should return Some for mine_invisible bmson");
 
-        let timelines = model.all_time_lines();
+        let timelines = &model.timelines;
         let mode_key = model.mode().unwrap().key();
 
         // Check for mine notes
@@ -1038,11 +1015,11 @@ mod tests {
             .decode_path(&path)
             .expect("decode_path should return Some for bpm_ln_cross bmson");
 
-        let timelines = model.all_time_lines();
+        let timelines = &model.timelines;
         let mode_key = model.mode().unwrap().key();
 
         // Verify BPM changes exist: 120 -> 180 -> 60 -> 120
-        let bpm_values: Vec<f64> = timelines.iter().map(|tl| tl.bpm()).collect();
+        let bpm_values: Vec<f64> = timelines.iter().map(|tl| tl.bpm).collect();
         let unique_bpms: std::collections::HashSet<u64> =
             bpm_values.iter().map(|b| b.to_bits()).collect();
         assert!(
@@ -1184,7 +1161,7 @@ mod tests {
             .expect("decode via ChartInformation should return Some");
 
         assert_eq!(
-            model.title(),
+            model.get_title(),
             "Minimal 7K Bmson Test",
             "title should match when decoding via ChartInformation"
         );
@@ -1214,7 +1191,7 @@ mod tests {
         let resolution = 960.0;
 
         let mut tl0 = TimeLine::new(0.0, 0, mode_key);
-        tl0.set_bpm(0.0); // BPM=0 triggers division-by-zero path
+        tl0.bpm = 0.0; // BPM=0 triggers division-by-zero path
         tlcache.insert(0, TimeLineCache::new(0.0, tl0));
 
         // This should NOT produce Inf or NaN
@@ -1239,7 +1216,7 @@ mod tests {
         let resolution = 960.0;
 
         let mut tl0 = TimeLine::new(0.0, 0, mode_key);
-        tl0.set_bpm(120.0);
+        tl0.bpm = 120.0;
         tlcache.insert(0, TimeLineCache::new(0.0, tl0));
 
         ensure_timeline(&mut tlcache, 480, resolution, mode_key);

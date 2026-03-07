@@ -1629,7 +1629,7 @@ mod tests {
         let mut jm = JudgeManager::new();
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         jm.init(&model, 1, None, &[]);
 
         assert_eq!(jm.now_judge(0), 0);
@@ -1644,7 +1644,7 @@ mod tests {
         let mut jm = JudgeManager::new();
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         jm.init(&model, 1, None, &[]);
 
         let ghost = jm.ghost();
@@ -1711,7 +1711,7 @@ mod tests {
         let mut jm = JudgeManager::new();
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         jm.init(&model, 2, None, &[]);
 
         assert_eq!(jm.now_judge(0), 0);
@@ -1723,7 +1723,7 @@ mod tests {
         let mut jm = JudgeManager::new();
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         jm.init(&model, 1, None, &[]);
 
         let region = jm.judge_time_region(0);
@@ -1737,7 +1737,7 @@ mod tests {
     fn make_model_with_notes(note_times_us: &[i64]) -> BMSModel {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut timelines = Vec::new();
         for &time_us in note_times_us {
             let mut tl = TimeLine::new(0.0, time_us, 8);
@@ -1746,7 +1746,7 @@ mod tests {
             tl.set_note(0, Some(note));
             timelines.push(tl);
         }
-        model.set_all_time_line(timelines);
+        model.timelines = timelines;
         model
     }
 
@@ -1880,7 +1880,7 @@ mod tests {
         let mut jm = JudgeManager::new();
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         jm.init(&model, 1, None, &[]);
 
         let nm = jm.judge_table(false);
@@ -1900,7 +1900,7 @@ mod tests {
     fn init_custom_judge_rates_differ_from_default() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
 
         // Default init
         let mut jm_default = JudgeManager::new();
@@ -1936,7 +1936,7 @@ mod tests {
     fn init_custom_judge_false_uses_default_rates() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
 
         let mut jm_default = JudgeManager::new();
         jm_default.init(&model, 1, None, &[]);
@@ -1960,7 +1960,7 @@ mod tests {
     fn init_no_great_constraint_zeroes_great_and_good() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
 
         // Without constraint
         let mut jm_normal = JudgeManager::new();
@@ -1993,7 +1993,7 @@ mod tests {
     fn init_no_good_constraint_zeroes_good_only() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
 
         // Without constraint
         let mut jm_normal = JudgeManager::new();
@@ -2024,7 +2024,7 @@ mod tests {
     fn init_no_great_zeroes_more_than_no_good() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
 
         let mut jm_no_good = JudgeManager::new();
         jm_no_good.init(&model, 1, None, &[CourseDataConstraint::NoGood]);

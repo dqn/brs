@@ -12,7 +12,7 @@ use rubato_core::pattern::pattern_modifier::PatternModifier;
 
 fn make_test_model(mode: &Mode, timelines: Vec<TimeLine>) -> BMSModel {
     let mut model = BMSModel::new();
-    model.set_all_time_line(timelines);
+    model.timelines = timelines;
     model.set_mode(mode.clone());
     model
 }
@@ -36,7 +36,7 @@ fn mine_note_modifier_deterministic_with_seed() {
 
     let extract_notes = |model: &BMSModel| -> Vec<Vec<Option<i32>>> {
         model
-            .all_time_lines()
+            .timelines
             .iter()
             .map(|tl| (0..8).map(|lane| tl.note(lane).map(|n| n.wav())).collect())
             .collect()
@@ -93,7 +93,7 @@ fn long_note_modifier_deterministic_with_seed() {
 
     let extract_notes = |model: &BMSModel| -> Vec<Vec<Option<i32>>> {
         model
-            .all_time_lines()
+            .timelines
             .iter()
             .map(|tl| (0..8).map(|lane| tl.note(lane).map(|n| n.wav())).collect())
             .collect()

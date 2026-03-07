@@ -333,9 +333,9 @@ fn download_file_from_url(
         download_bytes += read as i64;
         offset = end;
         {
-            let mut t = task.lock().expect("task lock poisoned");
-            t.set_download_size(download_bytes);
-            t.set_content_length(content_length);
+            let mut t = task.lock().unwrap();
+            t.download_size = download_bytes;
+            t.content_length = content_length;
         }
     }
     let _ = total;

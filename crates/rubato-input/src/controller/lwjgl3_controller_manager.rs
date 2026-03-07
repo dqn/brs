@@ -209,13 +209,6 @@ impl Lwjgl3ControllerManager {
             }
         }
     }
-
-    /// Corresponds to Lwjgl3ControllerManager.setUnfocused(long, boolean)
-    ///
-    /// GLFW window focus callback.
-    pub fn set_unfocused(&mut self, _win: i64, is_focused: bool) {
-        self.focused = is_focused;
-    }
 }
 
 impl Default for Lwjgl3ControllerManager {
@@ -497,10 +490,10 @@ mod tests {
         let mut mgr = manager_without_gilrs();
         assert!(mgr.focused);
 
-        mgr.set_unfocused(0, false);
+        mgr.focused = false;
         assert!(!mgr.focused);
 
-        mgr.set_unfocused(0, true);
+        mgr.focused = true;
         assert!(mgr.focused);
     }
 

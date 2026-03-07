@@ -155,7 +155,7 @@ impl AudioDriver for GdxSoundDriver {
         self.slice_handles.clear();
 
         // Set volume from model's volwav
-        let volwav = model.volwav();
+        let volwav = model.volwav;
         if volwav > 0 && volwav < 100 {
             self.volume = volwav as f32 / 100.0;
         } else {
@@ -176,7 +176,7 @@ impl AudioDriver for GdxSoundDriver {
         // Translated from AbstractAudioDriver.addNoteList()
         let mut notemap: HashMap<i32, Vec<(i64, i64)>> = HashMap::new();
         let lanes = model.mode().map(|m| m.key()).unwrap_or(0);
-        for tl in model.all_time_lines() {
+        for tl in &model.timelines {
             for i in 0..lanes {
                 if let Some(n) = tl.note(i) {
                     add_note_entry(&mut notemap, n);

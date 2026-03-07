@@ -54,39 +54,39 @@ impl BMSPlayerRule {
                 } else {
                     2 // default to rank 2 (NORMAL)
                 };
-                model.set_judgerank(table[idx]);
+                model.judgerank = table[idx];
             }
             JudgeRankType::BmsDefexrank => {
                 if judgerank > 0 {
-                    model.set_judgerank(judgerank * table[2] / 100);
+                    model.judgerank = judgerank * table[2] / 100;
                 } else {
-                    model.set_judgerank(table[2]);
+                    model.judgerank = table[2];
                 }
             }
             JudgeRankType::BmsonJudgerank => {
                 if judgerank <= 0 {
-                    model.set_judgerank(100);
+                    model.judgerank = 100;
                 }
             }
         }
-        model.set_judgerank_type(JudgeRankType::BmsonJudgerank);
+        model.judgerank_type = JudgeRankType::BmsonJudgerank;
 
-        match model.total_type() {
+        match model.total_type {
             TotalType::Bms => {
-                if model.total() <= 0.0 {
-                    model.set_total(calculate_default_total(model.total_notes()));
+                if model.get_total() <= 0.0 {
+                    model.total = calculate_default_total(model.total_notes());
                 }
             }
             TotalType::Bmson => {
                 let default_total = calculate_default_total(model.total_notes());
-                if model.total() > 0.0 {
-                    model.set_total(model.total() / 100.0 * default_total);
+                if model.get_total() > 0.0 {
+                    model.total = model.get_total() / 100.0 * default_total;
                 } else {
-                    model.set_total(default_total);
+                    model.total = default_total;
                 }
             }
         }
-        model.set_total_type(TotalType::Bms);
+        model.total_type = TotalType::Bms;
     }
 }
 
@@ -137,28 +137,28 @@ mod tests {
     #[test]
     fn test_validate_bms_rank() {
         let mut model = BMSModel::new();
-        model.set_judgerank(2); // NORMAL rank
-        model.set_judgerank_type(JudgeRankType::BmsRank);
-        model.set_total(300.0);
-        model.set_total_type(TotalType::Bms);
+        model.judgerank = 2; // NORMAL rank
+        model.judgerank_type = JudgeRankType::BmsRank;
+        model.total = 300.0;
+        model.total_type = TotalType::Bms;
 
         BMSPlayerRule::validate(&mut model);
 
         // Rank 2 with normal table → 75
         assert_eq!(model.judgerank(), 75);
         assert_eq!(model.judgerank_type(), &JudgeRankType::BmsonJudgerank);
-        assert_eq!(model.total_type(), &TotalType::Bms);
+        assert_eq!(model.total_type, TotalType::Bms);
         // Total was > 0, should be unchanged
-        assert!((model.total() - 300.0).abs() < 0.001);
+        assert!((model.total - 300.0).abs() < 0.001);
     }
 
     #[test]
     fn test_validate_bms_rank_out_of_range_uses_default() {
         let mut model = BMSModel::new();
-        model.set_judgerank(10); // out of range
-        model.set_judgerank_type(JudgeRankType::BmsRank);
-        model.set_total(100.0);
-        model.set_total_type(TotalType::Bms);
+        model.judgerank = 10; // out of range
+        model.judgerank_type = JudgeRankType::BmsRank;
+        model.total = 100.0;
+        model.total_type = TotalType::Bms;
 
         BMSPlayerRule::validate(&mut model);
 
@@ -169,10 +169,10 @@ mod tests {
     #[test]
     fn test_validate_defexrank() {
         let mut model = BMSModel::new();
-        model.set_judgerank(150); // 150% of normal
-        model.set_judgerank_type(JudgeRankType::BmsDefexrank);
-        model.set_total(100.0);
-        model.set_total_type(TotalType::Bms);
+        model.judgerank = 150; // 150% of normal
+        model.judgerank_type = JudgeRankType::BmsDefexrank;
+        model.total = 100.0;
+        model.total_type = TotalType::Bms;
 
         BMSPlayerRule::validate(&mut model);
 
@@ -183,10 +183,10 @@ mod tests {
     #[test]
     fn test_validate_bmson_judgerank_zero() {
         let mut model = BMSModel::new();
-        model.set_judgerank(0);
-        model.set_judgerank_type(JudgeRankType::BmsonJudgerank);
-        model.set_total(100.0);
-        model.set_total_type(TotalType::Bms);
+        model.judgerank = 0;
+        model.judgerank_type = JudgeRankType::BmsonJudgerank;
+        model.total = 100.0;
+        model.total_type = TotalType::Bms;
 
         BMSPlayerRule::validate(&mut model);
 
@@ -197,30 +197,30 @@ mod tests {
     #[test]
     fn test_validate_total_bms_unset() {
         let mut model = BMSModel::new();
-        model.set_judgerank(100);
-        model.set_judgerank_type(JudgeRankType::BmsonJudgerank);
-        model.set_total(0.0); // unset
-        model.set_total_type(TotalType::Bms);
+        model.judgerank = 100;
+        model.judgerank_type = JudgeRankType::BmsonJudgerank;
+        model.total = 0.0; // unset
+        model.total_type = TotalType::Bms;
 
         BMSPlayerRule::validate(&mut model);
 
         // Should calculate default total
-        assert!(model.total() > 0.0);
+        assert!(model.total > 0.0);
     }
 
     #[test]
     fn test_validate_total_bmson_percentage() {
         let mut model = BMSModel::new();
-        model.set_judgerank(100);
-        model.set_judgerank_type(JudgeRankType::BmsonJudgerank);
-        model.set_total(200.0); // 200% of default
-        model.set_total_type(TotalType::Bmson);
+        model.judgerank = 100;
+        model.judgerank_type = JudgeRankType::BmsonJudgerank;
+        model.total = 200.0; // 200% of default
+        model.total_type = TotalType::Bmson;
 
         BMSPlayerRule::validate(&mut model);
 
         let default_total = calculate_default_total(model.total_notes());
         let expected = 200.0 / 100.0 * default_total;
-        assert!((model.total() - expected).abs() < 0.001);
-        assert_eq!(model.total_type(), &TotalType::Bms);
+        assert!((model.total - expected).abs() < 0.001);
+        assert_eq!(model.total_type, TotalType::Bms);
     }
 }

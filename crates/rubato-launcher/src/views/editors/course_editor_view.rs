@@ -19,7 +19,7 @@ pub struct CourseEditorView {
     search_songs_controller: SongDataView,
     search_songs_selected_items: Vec<SongData>,
 
-    courses: Vec<CourseData>,
+    pub courses: Vec<CourseData>,
     courses_selected_index: Option<usize>,
     course_pane_visible: bool,
     course_name: String,
@@ -177,12 +177,6 @@ impl CourseEditorView {
         self.commit_course();
         self.courses.clone()
     }
-
-    /// setCourseData - sets the course list
-    pub fn set_course_data(&mut self, course: Vec<CourseData>) {
-        self.courses = course;
-    }
-
     /// updateCourseData - commits current course and updates to selected course
     pub fn update_course_data(&mut self) {
         self.commit_course();
@@ -856,7 +850,7 @@ mod tests {
     fn test_set_and_get_course_data() {
         let mut view = CourseEditorView::new();
         let courses = vec![make_course("Course A"), make_course("Course B")];
-        view.set_course_data(courses);
+        view.courses = courses;
         let result = view.course_data();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].name(), "Course A");

@@ -184,11 +184,11 @@ impl SkinBPMGraph {
         if let Some(model) = model {
             let mut speed_list: Vec<[f64; 2]> = Vec::new();
             let mut bpm_note_count_map: HashMap<u64, i32> = HashMap::new();
-            let mut now_speed = model.bpm();
+            let mut now_speed = model.bpm;
             speed_list.push([now_speed, 0.0]);
-            let tls = model.all_time_lines();
+            let tls = &model.timelines;
             for tl in tls {
-                let bpm_key = tl.bpm().to_bits();
+                let bpm_key = tl.bpm.to_bits();
                 let notecount = bpm_note_count_map.get(&bpm_key).copied().unwrap_or(0);
                 bpm_note_count_map.insert(bpm_key, notecount + tl.total_notes());
 
@@ -197,8 +197,8 @@ impl SkinBPMGraph {
                         now_speed = 0.0;
                         speed_list.push([now_speed, tl.time() as f64]);
                     }
-                } else if now_speed != tl.bpm() * tl.scroll() {
-                    now_speed = tl.bpm() * tl.scroll();
+                } else if now_speed != tl.bpm * tl.scroll {
+                    now_speed = tl.bpm * tl.scroll;
                     speed_list.push([now_speed, tl.time() as f64]);
                 }
             }
@@ -218,7 +218,7 @@ impl SkinBPMGraph {
             }
 
             self.bpm_data = speed_list;
-            self.minbpm = model.min_bpm();
+            self.minbpm = model.get_min_bpm();
             self.maxbpm = model.max_bpm();
         } else {
             self.bpm_data = Vec::new();

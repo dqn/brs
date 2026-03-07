@@ -9,7 +9,7 @@ pub const LEVEL_ORDER: &str = "level_order";
 #[derive(Debug, Clone)]
 pub struct DifficultyTable {
     pub table: BmsTable<DifficultyTableElement>,
-    course: Vec<Vec<Course>>,
+    pub course: Vec<Vec<Course>>,
 }
 
 impl DifficultyTable {
@@ -39,7 +39,7 @@ impl DifficultyTable {
     }
 
     pub fn level_description(&self) -> Vec<String> {
-        if let Some(l) = self.table.values().get(LEVEL_ORDER)
+        if let Some(l) = self.table.get_values().get(LEVEL_ORDER)
             && let Some(arr) = l.as_array()
         {
             return arr.iter().map(value_to_string).collect();
@@ -59,10 +59,6 @@ impl DifficultyTable {
 
     pub fn course(&self) -> &Vec<Vec<Course>> {
         &self.course
-    }
-
-    pub fn set_course(&mut self, course: Vec<Vec<Course>>) {
-        self.course = course;
     }
 }
 
@@ -113,14 +109,14 @@ mod tests {
         assert!(dt.course().is_empty());
 
         let courses: Vec<Vec<Course>> = vec![vec![], vec![]];
-        dt.set_course(courses.clone());
+        dt.course = courses.clone();
         assert_eq!(dt.course().len(), 2);
     }
 
     #[test]
     fn bms_table_element_default_fields() {
         let elem = DifficultyTableElement::new();
-        assert_eq!(elem.level(), "");
+        assert_eq!(elem.get_level(), "");
         assert_eq!(elem.state(), 0);
         assert_eq!(elem.evaluation(), 0);
         assert_eq!(elem.comment(), "");
@@ -138,7 +134,7 @@ mod tests {
         elem.set_proposer("tester");
         elem.set_bmsid(42);
 
-        assert_eq!(elem.level(), "12");
+        assert_eq!(elem.get_level(), "12");
         assert_eq!(elem.comment(), "test comment");
         assert_eq!(elem.information(), "test info");
         assert_eq!(elem.proposer(), "tester");

@@ -235,11 +235,14 @@ mod tests {
         let mut config = Config::default();
 
         // Empty returns None
-        assert!(config.override_download_url().is_none());
+        assert!(config.get_override_download_url().is_none());
 
         // Non-empty returns Some
         config.override_download_url = "https://example.com".to_string();
-        assert_eq!(config.override_download_url(), Some("https://example.com"));
+        assert_eq!(
+            config.get_override_download_url(),
+            Some("https://example.com")
+        );
     }
 
     #[test]

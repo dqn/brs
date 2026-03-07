@@ -304,7 +304,7 @@ pub struct BMControllerInputProcessor {
     /// Device name
     name: String,
     /// Controller enabled
-    enabled: bool,
+    pub enabled: bool,
     /// Button key assign
     buttons: Vec<i32>,
     /// Start key assign
@@ -322,7 +322,7 @@ pub struct BMControllerInputProcessor {
     /// Button state change re-acceptance time (ms)
     duration: i32,
     /// Last pressed button
-    last_pressed_button: i32,
+    pub last_pressed_button: i32,
     /// JKOC_HACK (UP/DOWN false reaction prevention)
     jkoc: bool,
     /// Analog scratch algorithm (None = do not use analog scratch)
@@ -457,7 +457,7 @@ impl BMControllerInputProcessor {
                 }
 
                 if !prev && self.buttonstate[button] {
-                    self.set_last_pressed_button(button as i32);
+                    self.last_pressed_button = button as i32;
                 }
             }
         }
@@ -536,14 +536,6 @@ impl BMControllerInputProcessor {
 
     pub fn last_pressed_button(&self) -> i32 {
         self.last_pressed_button
-    }
-
-    pub fn set_last_pressed_button(&mut self, last_pressed_button: i32) {
-        self.last_pressed_button = last_pressed_button;
-    }
-
-    pub fn set_enable(&mut self, enabled: bool) {
-        self.enabled = enabled;
     }
 }
 

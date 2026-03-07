@@ -771,22 +771,22 @@ impl MusicSelector {
             }
             EventType::Lnmode => {
                 let step = if arg1 >= 0 { 1 } else { 2 };
-                self.config.lnmode = (self.config.lnmode + step) % 3;
+                self.config.lnmode = (self.config.get_lnmode() + step) % 3;
                 self.play_option_change();
             }
             EventType::Option1p => {
                 let step = if arg1 >= 0 { 1 } else { 9 };
-                self.config.random = (self.config.random + step) % 10;
+                self.config.random = (self.config.get_random() + step) % 10;
                 self.play_option_change();
             }
             EventType::Option2p => {
                 let step = if arg1 >= 0 { 1 } else { 9 };
-                self.config.random2 = (self.config.random2 + step) % 10;
+                self.config.random2 = (self.config.get_random2() + step) % 10;
                 self.play_option_change();
             }
             EventType::Optiondp => {
                 let step = if arg1 >= 0 { 1 } else { 3 };
-                self.config.doubleoption = (self.config.doubleoption + step) % 4;
+                self.config.doubleoption = (self.config.get_doubleoption() + step) % 4;
                 self.play_option_change();
             }
             EventType::Gauge1p => {
@@ -802,7 +802,7 @@ impl MusicSelector {
             EventType::Hsfix => {
                 if let Some(pc) = self.get_selected_play_config_mut() {
                     let step = if arg1 >= 0 { 1 } else { 4 };
-                    pc.fixhispeed = (pc.fixhispeed + step) % 5;
+                    pc.fixhispeed = (pc.get_fixhispeed() + step) % 5;
                 }
                 self.play_option_change();
             }
@@ -810,7 +810,7 @@ impl MusicSelector {
                 if let Some(pc) = self.get_selected_play_config_mut() {
                     let delta = if _arg2 != 0 { _arg2 } else { 1 };
                     let step = if arg1 >= 0 { delta } else { -delta };
-                    let new_val = (pc.duration + step).clamp(1, 5000);
+                    let new_val = (pc.get_duration() + step).clamp(1, 5000);
                     pc.duration = new_val;
                 }
                 self.play_option_change();
@@ -1891,7 +1891,7 @@ impl MusicSelector {
                             self.config.doubleoption = 0;
                         }
                         CourseDataConstraint::Mirror => {
-                            if self.config.random == 1 {
+                            if self.config.get_random() == 1 {
                                 self.config.random2 = 1;
                                 self.config.doubleoption = 1;
                             } else {
@@ -1901,10 +1901,10 @@ impl MusicSelector {
                             }
                         }
                         CourseDataConstraint::Random => {
-                            if self.config.random > 5 {
+                            if self.config.get_random() > 5 {
                                 self.config.random = 0;
                             }
-                            if self.config.random2 > 5 {
+                            if self.config.get_random2() > 5 {
                                 self.config.random2 = 0;
                             }
                         }
@@ -2724,7 +2724,7 @@ impl MainState for MusicSelector {
                     // 1. If song has IPFS hash and IPFS daemon is alive -> IPFS download
                     // 2. Else if HTTP download processor is available -> HTTP download
                     // 3. Else -> open download site in browser
-                    let ipfs_available = !song.ipfs_str().is_empty()
+                    let ipfs_available = !song.get_ipfs_str().is_empty()
                         && self
                             .main
                             .as_ref()

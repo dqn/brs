@@ -8,13 +8,13 @@ pub struct TimeLine {
     notes: Vec<Option<Note>>,
     hiddennotes: Vec<Option<Note>>,
     bgnotes: Vec<Note>,
-    section_line: bool,
-    bpm: f64,
-    stop: i64,
-    scroll: f64,
-    bga: i32,
-    layer: i32,
-    eventlayer: Vec<Layer>,
+    pub section_line: bool,
+    pub bpm: f64,
+    pub stop: i64,
+    pub scroll: f64,
+    pub bga: i32,
+    pub layer: i32,
+    pub eventlayer: Vec<Layer>,
 }
 
 impl TimeLine {
@@ -186,48 +186,23 @@ impl TimeLine {
     pub fn back_ground_notes(&self) -> &[Note] {
         &self.bgnotes
     }
-
-    pub fn set_bpm(&mut self, bpm: f64) {
-        self.bpm = bpm;
-    }
-
-    pub fn bpm(&self) -> f64 {
+    pub fn get_bpm(&self) -> f64 {
         self.bpm
     }
-
-    pub fn set_section_line(&mut self, section: bool) {
-        self.section_line = section;
-    }
-
-    pub fn section_line(&self) -> bool {
+    pub fn get_section_line(&self) -> bool {
         self.section_line
     }
 
     pub fn bga(&self) -> i32 {
         self.bga
     }
-
-    pub fn set_bga(&mut self, bga: i32) {
-        self.bga = bga;
-    }
-
-    pub fn layer(&self) -> i32 {
+    pub fn get_layer(&self) -> i32 {
         self.layer
     }
-
-    pub fn set_layer(&mut self, layer: i32) {
-        self.layer = layer;
-    }
-
-    pub fn eventlayer(&self) -> &[Layer] {
+    pub fn get_eventlayer(&self) -> &[Layer] {
         &self.eventlayer
     }
-
-    pub fn set_eventlayer(&mut self, eventlayer: Vec<Layer>) {
-        self.eventlayer = eventlayer;
-    }
-
-    pub fn section(&self) -> f64 {
+    pub fn get_section(&self) -> f64 {
         self.section
     }
 
@@ -255,19 +230,9 @@ impl TimeLine {
     pub fn micro_stop(&self) -> i64 {
         self.stop
     }
-
-    pub fn set_stop(&mut self, stop: i64) {
-        self.stop = stop;
-    }
-
-    pub fn scroll(&self) -> f64 {
+    pub fn get_scroll(&self) -> f64 {
         self.scroll
     }
-
-    pub fn set_scroll(&mut self, scroll: f64) {
-        self.scroll = scroll;
-    }
-
     pub fn take_note(&mut self, lane: i32) -> Option<Note> {
         let idx = lane as usize;
         if idx < self.notes.len() {
@@ -294,7 +259,7 @@ mod tests {
     #[test]
     fn new_creates_timeline_with_correct_values() {
         let tl = TimeLine::new(1.5, 2000, 8);
-        assert!((tl.section() - 1.5).abs() < f64::EPSILON);
+        assert!((tl.get_section() - 1.5).abs() < f64::EPSILON);
         assert_eq!(tl.micro_time(), 2000);
         assert_eq!(tl.milli_time(), 2);
         assert_eq!(tl.time(), 2);
@@ -355,31 +320,31 @@ mod tests {
     #[test]
     fn bpm_set_and_get() {
         let mut tl = TimeLine::new(0.0, 0, 8);
-        assert!((tl.bpm()).abs() < f64::EPSILON);
+        assert!((tl.bpm).abs() < f64::EPSILON);
 
-        tl.set_bpm(150.0);
-        assert!((tl.bpm() - 150.0).abs() < f64::EPSILON);
+        tl.bpm = 150.0;
+        assert!((tl.get_bpm() - 150.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn section_line_set_and_get() {
         let mut tl = TimeLine::new(0.0, 0, 8);
-        assert!(!tl.section_line());
+        assert!(!tl.get_section_line());
 
-        tl.set_section_line(true);
-        assert!(tl.section_line());
+        tl.section_line = true;
+        assert!(tl.get_section_line());
     }
 
     #[test]
     fn bga_and_layer_set_and_get() {
         let mut tl = TimeLine::new(0.0, 0, 8);
         assert_eq!(tl.bga(), -1);
-        assert_eq!(tl.layer(), -1);
+        assert_eq!(tl.get_layer(), -1);
 
-        tl.set_bga(5);
-        tl.set_layer(3);
-        assert_eq!(tl.bga(), 5);
-        assert_eq!(tl.layer(), 3);
+        tl.bga = 5;
+        tl.layer = 3;
+        assert_eq!(tl.bga, 5);
+        assert_eq!(tl.get_layer(), 3);
     }
 
     #[test]
@@ -387,7 +352,7 @@ mod tests {
         let mut tl = TimeLine::new(0.0, 0, 8);
         assert_eq!(tl.micro_stop(), 0);
 
-        tl.set_stop(5000);
+        tl.stop = 5000;
         assert_eq!(tl.micro_stop(), 5000);
         assert_eq!(tl.milli_stop(), 5);
         assert_eq!(tl.stop(), 5);
@@ -396,10 +361,10 @@ mod tests {
     #[test]
     fn scroll_default_and_set() {
         let mut tl = TimeLine::new(0.0, 0, 8);
-        assert!((tl.scroll() - 1.0).abs() < f64::EPSILON);
+        assert!((tl.get_scroll() - 1.0).abs() < f64::EPSILON);
 
-        tl.set_scroll(2.0);
-        assert!((tl.scroll() - 2.0).abs() < f64::EPSILON);
+        tl.scroll = 2.0;
+        assert!((tl.get_scroll() - 2.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -461,7 +426,7 @@ mod tests {
 
         tl.set_section(5.5);
 
-        assert!((tl.section() - 5.5).abs() < f64::EPSILON);
+        assert!((tl.get_section() - 5.5).abs() < f64::EPSILON);
         assert!((tl.note(0).unwrap().section() - 5.5).abs() < f64::EPSILON);
         assert!((tl.hidden_note(1).unwrap().section() - 5.5).abs() < f64::EPSILON);
         assert!((tl.back_ground_notes()[0].section() - 5.5).abs() < f64::EPSILON);
@@ -528,10 +493,10 @@ mod tests {
         use crate::layer::{Event, EventType, Layer};
 
         let mut tl = TimeLine::new(0.0, 0, 8);
-        assert!(tl.eventlayer().is_empty());
+        assert!(tl.get_eventlayer().is_empty());
 
         let layers = vec![Layer::new(Event::new(EventType::Always, 0), vec![])];
-        tl.set_eventlayer(layers);
-        assert_eq!(tl.eventlayer().len(), 1);
+        tl.eventlayer = layers;
+        assert_eq!(tl.get_eventlayer().len(), 1);
     }
 }

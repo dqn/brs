@@ -187,8 +187,7 @@ impl PracticeConfiguration {
                 self.property = saved;
                 // Restore model-specific data
                 let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
-                let timeline_times: Vec<i32> =
-                    model.all_time_lines().iter().map(|tl| tl.time()).collect();
+                let timeline_times: Vec<i32> = model.timelines.iter().map(|tl| tl.time()).collect();
                 self.model_data = Some(PracticeModelData {
                     mode,
                     timeline_times,
@@ -202,13 +201,13 @@ impl PracticeConfiguration {
             self.property.gaugecategory = Some(BMSPlayerRule::for_mode(&mode).gauge);
         }
         let mode = model.mode().cloned().unwrap_or(Mode::BEAT_7K);
-        let timeline_times: Vec<i32> = model.all_time_lines().iter().map(|tl| tl.time()).collect();
+        let timeline_times: Vec<i32> = model.timelines.iter().map(|tl| tl.time()).collect();
         self.model_data = Some(PracticeModelData {
             mode,
             timeline_times,
         });
         if self.property.total == 0.0 {
-            self.property.total = model.total();
+            self.property.total = model.total;
         }
     }
 
@@ -279,7 +278,7 @@ impl PracticeConfiguration {
         };
 
         // Set total
-        model.set_total(property.total);
+        model.total = property.total;
 
         // PracticeModifier: filter notes outside the time range (scaled by freq)
         let pm_start = (property.starttime as i64) * 100 / (property.freq as i64);
@@ -306,7 +305,7 @@ impl PracticeConfiguration {
         let gauge = self.gauge(model);
 
         // Judge rank
-        model.set_judgerank(property.judgerank);
+        model.judgerank = property.judgerank;
 
         // Timing calculations
         let starttimeoffset = if property.starttime > 1000 {
@@ -664,12 +663,12 @@ mod tests {
         let mut timelines = Vec::new();
         for &t in times {
             let mut tl = TimeLine::new(t.into(), 0, mode.key());
-            tl.set_bpm(120.0);
+            tl.bpm = 120.0;
             timelines.push(tl);
         }
-        model.set_all_time_line(timelines);
-        model.set_total(300.0);
-        model.set_judgerank(100);
+        model.timelines = timelines;
+        model.total = 300.0;
+        model.judgerank = 100;
         model
     }
 
@@ -691,7 +690,7 @@ mod tests {
         // freq == 100 → no frequency change
         assert!(result.freq_ratio.is_none());
         // total overwritten
-        assert!((model.total() - 250.0).abs() < f64::EPSILON);
+        assert!((model.total - 250.0).abs() < f64::EPSILON);
         // judgerank overwritten
         assert_eq!(model.judgerank(), 80);
         // starttimeoffset: starttime(0) <= 1000 → 0
@@ -770,9 +769,9 @@ mod tests {
             let tl = TimeLine::new(120.0, micro, mode.key());
             timelines.push(tl);
         }
-        model.set_all_time_line(timelines);
-        model.set_total(300.0);
-        model.set_judgerank(100);
+        model.timelines = timelines;
+        model.total = 300.0;
+        model.judgerank = 100;
         model
     }
 

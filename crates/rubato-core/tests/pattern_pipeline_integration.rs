@@ -33,7 +33,7 @@ fn parse_minimal_7k() -> BMSModel {
 fn collect_note_positions(model: &BMSModel) -> Vec<(usize, i32)> {
     let mode_key = model.mode().map(|m| m.key()).unwrap_or(0);
     let mut positions = Vec::new();
-    for (tl_idx, tl) in model.all_time_lines().iter().enumerate() {
+    for (tl_idx, tl) in model.timelines.iter().enumerate() {
         for lane in 0..mode_key {
             if tl.note(lane).is_some() {
                 positions.push((tl_idx, lane));
@@ -49,7 +49,7 @@ fn parse_minimal_7k_produces_valid_model() {
 
     // The BMS file should produce a valid model with notes
     assert!(
-        !model.all_time_lines().is_empty(),
+        !model.timelines.is_empty(),
         "Parsed model should have timelines"
     );
 
@@ -70,9 +70,9 @@ fn parse_minimal_7k_produces_valid_model() {
     );
 
     // Verify metadata
-    assert_eq!(model.title(), "Minimal 7K Test");
+    assert_eq!(model.get_title(), "Minimal 7K Test");
     assert_eq!(model.artist(), "brs-test");
-    assert!((model.bpm() - 120.0).abs() < f64::EPSILON);
+    assert!((model.bpm - 120.0).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -89,7 +89,7 @@ fn identity_modifier_preserves_notes() {
     // Record the wav values for each note position
     let wavs_before: Vec<i32> = positions_before
         .iter()
-        .map(|&(tl_idx, lane)| model.all_time_lines()[tl_idx].note(lane).unwrap().wav())
+        .map(|&(tl_idx, lane)| model.timelines[tl_idx].note(lane).unwrap().wav())
         .collect();
 
     // Apply identity modifier (should do nothing)
@@ -107,7 +107,7 @@ fn identity_modifier_preserves_notes() {
 
     let wavs_after: Vec<i32> = positions_after
         .iter()
-        .map(|&(tl_idx, lane)| model.all_time_lines()[tl_idx].note(lane).unwrap().wav())
+        .map(|&(tl_idx, lane)| model.timelines[tl_idx].note(lane).unwrap().wav())
         .collect();
     assert_eq!(
         wavs_before, wavs_after,
@@ -124,7 +124,7 @@ fn mirror_modifier_reverses_lanes() {
     // Record the note wav values per lane for each timeline (before mirror)
     let mode_key = mode.key();
     let before: Vec<Vec<Option<i32>>> = model
-        .all_time_lines()
+        .timelines
         .iter()
         .map(|tl| {
             (0..mode_key)
@@ -144,7 +144,7 @@ fn mirror_modifier_reverses_lanes() {
     modifier.modify(&mut model);
 
     let after: Vec<Vec<Option<i32>>> = model
-        .all_time_lines()
+        .timelines
         .iter()
         .map(|tl| {
             (0..mode_key)
@@ -193,7 +193,7 @@ fn mirror_then_mirror_restores_original() {
 
     // Record original state
     let original: Vec<Vec<Option<i32>>> = model
-        .all_time_lines()
+        .timelines
         .iter()
         .map(|tl| {
             (0..mode_key)
@@ -211,7 +211,7 @@ fn mirror_then_mirror_restores_original() {
 
     // After two mirrors, should be back to original
     let restored: Vec<Vec<Option<i32>>> = model
-        .all_time_lines()
+        .timelines
         .iter()
         .map(|tl| {
             (0..mode_key)

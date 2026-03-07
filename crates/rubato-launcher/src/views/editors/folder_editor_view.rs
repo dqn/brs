@@ -40,7 +40,7 @@ pub struct FolderEditorView {
     search_songs_selected_items: Vec<SongData>,
     _search_songs_selected_index: Option<usize>,
 
-    folders: Vec<TableFolder>,
+    pub folders: Vec<TableFolder>,
     folders_selected_index: Option<usize>,
     folder_pane_visible: bool,
     folder_name: String,
@@ -267,12 +267,6 @@ impl FolderEditorView {
         self.commit_folder();
         self.folders.clone()
     }
-
-    /// setTableFolder - sets the folder list
-    pub fn set_table_folder(&mut self, folder: Vec<TableFolder>) {
-        self.folders = folder;
-    }
-
     /// getFoldersContainingSong - finds which folders contain a given song
     pub fn folders_containing_song(folders: &[TableFolder], song: &SongData) -> String {
         let mut sb = String::new();
@@ -558,7 +552,7 @@ mod tests {
             make_folder("Folder A", vec![]),
             make_folder("Folder B", vec![]),
         ];
-        view.set_table_folder(folders);
+        view.folders = folders;
         let result = view.table_folder();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].name(), "Folder A");

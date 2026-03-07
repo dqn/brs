@@ -821,13 +821,13 @@ impl MusicResult {
 
         let model = self.resource.bms_model();
         let lanes = model.mode().map(|m| m.key()).unwrap_or(8);
-        for tl in model.all_time_lines() {
+        for tl in &model.timelines {
             for i in 0..lanes {
                 let n = tl.note(i);
                 if let Some(note) = n {
                     // Check if this is not an end LN in LN mode
-                    let is_end_ln = (model.lnmode() == 1
-                        || (model.lnmode() == 0
+                    let is_end_ln = (model.lnmode == 1
+                        || (model.lnmode == 0
                             && model.lntype() == bms_model::bms_model::LNTYPE_LONGNOTE))
                         && note.is_long()
                         && note.is_end();

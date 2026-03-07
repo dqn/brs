@@ -107,13 +107,13 @@ pub struct BMSPlayerInputProcessor {
     pub mousebutton: i32,
     pub mousepressed: bool,
     pub mousedragged: bool,
-    mouse_moved: bool,
+    pub mouse_moved: bool,
 
     pub scroll_x: f32,
     pub scroll_y: f32,
 
     start_pressed: bool,
-    select_pressed: bool,
+    pub select_pressed: bool,
 
     device_type: DeviceType,
 
@@ -200,18 +200,18 @@ impl BMSPlayerInputProcessor {
     pub fn set_controller_config(&mut self, configs: &mut [ControllerConfig]) {
         let mut b = vec![false; configs.len()];
         for controller in self.bminput.iter_mut() {
-            controller.set_enable(false);
-            for (config, matched) in configs.iter_mut().zip(b.iter_mut()) {
-                if *matched {
+            controller.enabled = false;
+            for i in 0..configs.len() {
+                if b[i] {
                     continue;
                 }
-                if config.name().is_none() || config.name().is_some_and(|n| n.is_empty()) {
-                    config.name = controller.name().to_string();
+                if configs[i].name().is_none() || configs[i].name().is_some_and(|n| n.is_empty()) {
+                    configs[i].name = controller.name().to_string();
                 }
-                if controller.name() == config.name().unwrap_or("") {
-                    controller.set_config(config);
-                    controller.set_enable(true);
-                    *matched = true;
+                if controller.name() == configs[i].name().unwrap_or("") {
+                    controller.set_config(&configs[i]);
+                    controller.enabled = true;
+                    b[i] = true;
                     break;
                 }
             }
@@ -232,7 +232,7 @@ impl BMSPlayerInputProcessor {
                 bm.clear();
             }
         }
-        self.midiinput.set_start_time(starttime);
+        self.midiinput.starttime = starttime;
     }
 
     pub fn set_key_log_margin_time(&mut self, milli_margin_time: i64) {
@@ -537,12 +537,7 @@ impl BMSPlayerInputProcessor {
     pub fn is_select_pressed(&self) -> bool {
         self.select_pressed
     }
-
-    pub fn set_select_pressed(&mut self, select_pressed: bool) {
-        self.select_pressed = select_pressed;
-    }
-
-    pub fn keyboard_input_processor(&self) -> &KeyBoardInputProcesseor {
+    pub fn get_keyboard_input_processor(&self) -> &KeyBoardInputProcesseor {
         &self.kbinput
     }
 
@@ -577,12 +572,7 @@ impl BMSPlayerInputProcessor {
     pub fn is_mouse_moved(&self) -> bool {
         self.mouse_moved
     }
-
-    pub fn set_mouse_moved(&mut self, mouse_moved: bool) {
-        self.mouse_moved = mouse_moved;
-    }
-
-    pub fn scroll(&self) -> i32 {
+    pub fn get_scroll(&self) -> i32 {
         -(self.scroll_y as i32)
     }
 
@@ -943,7 +933,7 @@ mod tests {
         assert!(!proc.is_mouse_pressed());
         assert!(!proc.is_mouse_dragged());
         assert!(!proc.is_mouse_moved());
-        assert_eq!(proc.scroll(), 0);
+        assert_eq!(proc.get_scroll(), 0);
     }
 
     #[test]
@@ -955,7 +945,7 @@ mod tests {
         proc.start_changed(true);
         assert!(proc.start_pressed());
 
-        proc.set_select_pressed(true);
+        proc.select_pressed = true;
         assert!(proc.is_select_pressed());
     }
 

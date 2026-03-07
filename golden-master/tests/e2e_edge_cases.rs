@@ -199,7 +199,7 @@ fn channel_extended_note_types() {
     // Check invisible notes via timeline API
     let keys = model.mode().map(|m| m.key()).unwrap_or(0);
     let mut invisible_count = 0;
-    for tl in model.all_time_lines() {
+    for tl in &model.timelines {
         for lane in 0..keys {
             if tl.hidden_note(lane).is_some() {
                 invisible_count += 1;

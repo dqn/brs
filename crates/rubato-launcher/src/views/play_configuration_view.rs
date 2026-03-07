@@ -2685,7 +2685,7 @@ mod tests {
                 sd.sha256 = sha256.to_string();
                 sd.notes = notes;
                 // SongData::validate() requires title to be non-empty
-                sd.set_title("test".to_string());
+                sd.title = "test".to_string();
                 // Each song needs a unique path (primary key in song table)
                 sd.set_path(format!("/test/song_{i}.bms"));
                 sd

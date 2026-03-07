@@ -139,7 +139,7 @@ struct FlatNote {
 
 fn flatten_notes(model: &BMSModel) -> Vec<FlatNote> {
     let keys = model.mode().map(|m| m.key()).unwrap_or(0);
-    let timelines = model.all_time_lines();
+    let timelines = &model.timelines;
     let mut flat = Vec::new();
 
     // Per-timeline: regular notes for all lanes, then hidden notes for all lanes.
@@ -223,7 +223,7 @@ fn find_ln_end_time(
 fn count_mines(model: &BMSModel) -> usize {
     let keys = model.mode().map(|m| m.key()).unwrap_or(0);
     let mut count = 0;
-    for tl in model.all_time_lines() {
+    for tl in &model.timelines {
         for lane in 0..keys {
             if let Some(note) = tl.note(lane)
                 && note.is_mine()
@@ -241,10 +241,10 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
     let mut diffs = Vec::new();
 
     // Metadata
-    if model.title() != fixture.metadata.title {
+    if model.get_title() != fixture.metadata.title {
         diffs.push(format!(
             "title: rust={:?} java={:?}",
-            model.title(),
+            model.get_title(),
             fixture.metadata.title
         ));
     }
@@ -276,11 +276,10 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
             fixture.metadata.genre
         ));
     }
-    if (model.bpm() - fixture.metadata.initial_bpm).abs() > 0.001 {
+    if (model.bpm - fixture.metadata.initial_bpm).abs() > 0.001 {
         diffs.push(format!(
             "initial_bpm: rust={} java={}",
-            model.bpm(),
-            fixture.metadata.initial_bpm
+            model.bpm, fixture.metadata.initial_bpm
         ));
     }
     if model.judgerank() != fixture.metadata.judge_rank {
@@ -290,11 +289,10 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
             fixture.metadata.judge_rank
         ));
     }
-    if (model.total() - fixture.metadata.total).abs() > 0.001 {
+    if (model.total - fixture.metadata.total).abs() > 0.001 {
         diffs.push(format!(
             "total: rust={} java={}",
-            model.total(),
-            fixture.metadata.total
+            model.total, fixture.metadata.total
         ));
     }
     if fixture.metadata.player > 0 && model.player() != fixture.metadata.player {
@@ -313,11 +311,10 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
             fixture.metadata.mode_key_count
         ));
     }
-    if fixture.metadata.ln_type > 0 && model.lnmode() != fixture.metadata.ln_type {
+    if fixture.metadata.ln_type > 0 && model.lnmode != fixture.metadata.ln_type {
         diffs.push(format!(
             "ln_type: rust={} java={}",
-            model.lnmode(),
-            fixture.metadata.ln_type
+            model.lnmode, fixture.metadata.ln_type
         ));
     }
     if model.banner() != fixture.metadata.banner {
@@ -399,10 +396,10 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
         ));
     }
 
-    if (model.min_bpm() - fixture.statistics.min_bpm).abs() > 0.001 {
+    if (model.get_min_bpm() - fixture.statistics.min_bpm).abs() > 0.001 {
         diffs.push(format!(
             "min_bpm: rust={} java={}",
-            model.min_bpm(),
+            model.get_min_bpm(),
             fixture.statistics.min_bpm
         ));
     }
@@ -509,9 +506,9 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
     if !fixture.bpm_changes.is_empty() {
         // Extract BPM changes from timelines
         let mut rust_bpm_changes = Vec::new();
-        let mut prev_bpm = model.bpm();
-        for tl in model.all_time_lines() {
-            let bpm = tl.bpm();
+        let mut prev_bpm = model.bpm;
+        for tl in &model.timelines {
+            let bpm = tl.bpm;
             if (bpm - prev_bpm).abs() > 0.0001 {
                 rust_bpm_changes.push((tl.micro_time(), bpm));
                 prev_bpm = bpm;
@@ -550,7 +547,7 @@ pub fn compare_model(model: &BMSModel, fixture: &Fixture) -> Vec<String> {
     if !fixture.stop_events.is_empty() {
         // Extract stop events from timelines
         let mut rust_stops = Vec::new();
-        for tl in model.all_time_lines() {
+        for tl in &model.timelines {
             let stop = tl.micro_stop();
             if stop > 0 {
                 rust_stops.push((tl.micro_time(), stop));

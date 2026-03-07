@@ -843,7 +843,7 @@ impl BMSPlayer {
         let mut average: i64 = 0;
         let mut play_times: Vec<i64> = Vec::new();
         let lanes = self.model.mode().map(|m| m.key()).unwrap_or(0);
-        for tl in self.model.all_time_lines() {
+        for tl in &self.model.timelines {
             for i in 0..lanes {
                 if let Some(note) = tl.note(i) {
                     let include = match note {
@@ -1502,7 +1502,7 @@ impl BMSPlayer {
 
         // BPM Guide check (Java lines 269-272)
         // BPM変化がなければBPMガイドなし
-        if config.bpmguide && (self.model.min_bpm() < self.model.max_bpm()) {
+        if config.bpmguide && (self.model.get_min_bpm() < self.model.max_bpm()) {
             self.assist = self.assist.max(1);
             score = false;
         }
@@ -2032,7 +2032,7 @@ impl MainState for BMSPlayer {
         //     (getSkin() instanceof PlaySkin) ? ((PlaySkin) getSkin()).getNoteExpansionRate()[0] != 100
         //         || ((PlaySkin) getSkin()).getNoteExpansionRate()[1] != 100 : false);
         // ```
-        let rates = self.play_skin.note_expansion_rate();
+        let rates = self.play_skin.get_note_expansion_rate();
         let use_expansion = rates[0] != 100 || rates[1] != 100;
         self.rhythm = Some(RhythmTimerProcessor::new(&self.model, use_expansion));
 
@@ -2123,7 +2123,7 @@ impl MainState for BMSPlayer {
         let micronow = self.main_state_data.timer.now_micro_time();
 
         // Input start timer
-        let input_time = self.play_skin.loadstart() as i64; // skin.getInput() in Java
+        let input_time = self.play_skin.get_loadstart() as i64; // skin.getInput() in Java
         if micronow > input_time * 1000 {
             self.main_state_data
                 .timer
@@ -2160,7 +2160,7 @@ impl MainState for BMSPlayer {
 
                 // Check if media loaded and load timers elapsed
                 let load_threshold =
-                    (self.play_skin.loadstart() + self.play_skin.loadend()) as i64 * 1000;
+                    (self.play_skin.get_loadstart() + self.play_skin.get_loadend()) as i64 * 1000;
                 // Translated from: Java BMSPlayer.render() lines 607-608
                 if self.media_load_finished
                     && micronow > load_threshold
@@ -2283,7 +2283,7 @@ impl MainState for BMSPlayer {
                     .copied()
                     .unwrap_or(false);
                 let load_threshold =
-                    (self.play_skin.loadstart() + self.play_skin.loadend()) as i64 * 1000;
+                    (self.play_skin.get_loadstart() + self.play_skin.get_loadend()) as i64 * 1000;
                 if key0_pressed
                     && self.media_load_finished
                     && micronow > load_threshold
@@ -2308,7 +2308,7 @@ impl MainState for BMSPlayer {
                         }
                     }
 
-                    self.model.set_total(property.total);
+                    self.model.total = property.total;
 
                     // Apply practice modifier (time range)
                     let mut pm = rubato_core::pattern::practice_modifier::PracticeModifier::new(
@@ -2345,7 +2345,7 @@ impl MainState for BMSPlayer {
 
                     // Gauge, judgerank, lane init
                     self.gauge = self.practice.gauge(&self.model);
-                    self.model.set_judgerank(property.judgerank);
+                    self.model.judgerank = property.judgerank;
                     if let Some(ref mut lr) = self.lanerender {
                         lr.init(&self.model);
                     }
@@ -2388,7 +2388,7 @@ impl MainState for BMSPlayer {
             // STATE_READY - countdown before play
             STATE_READY => {
                 if self.main_state_data.timer.now_time_for_id(TIMER_READY)
-                    > self.play_skin.playstart() as i64
+                    > self.play_skin.get_playstart() as i64
                 {
                     if let Some(ref lr) = self.lanerender {
                         self.score.replay_config = Some(lr.play_config().clone());
@@ -2405,7 +2405,7 @@ impl MainState for BMSPlayer {
                     // input.setKeyLogMarginTime(resource.getMarginTime());
                     // Java: keyinput.startJudge(model, replay != null ? replay.keylog : null, resource.getMarginTime())
                     if let Some(ref mut ki) = self.input.keyinput {
-                        let timelines = self.model.all_time_lines();
+                        let timelines = &self.model.timelines;
                         let last_tl_micro = timelines.last().map_or(0, |tl| tl.micro_time());
                         let keylog = self
                             .score
@@ -2607,7 +2607,7 @@ impl MainState for BMSPlayer {
                     self.pending.pending_reload_bms = true;
                     self.pending.pending_state_change = Some(MainStateType::Play);
                 } else if self.main_state_data.timer.now_time_for_id(TIMER_FAILED)
-                    > self.play_skin.close() as i64
+                    > self.play_skin.get_close() as i64
                 {
                     self.pending.pending_global_pitch = Some(1.0);
                     // if resource.mediaLoadFinished() { resource.getBGAManager().stop(); }
@@ -2673,7 +2673,7 @@ impl MainState for BMSPlayer {
                 self.keysound.stop_bg_play();
 
                 if self.main_state_data.timer.now_time_for_id(TIMER_MUSIC_END)
-                    > self.play_skin.finish_margin() as i64
+                    > self.play_skin.get_finish_margin() as i64
                 {
                     self.main_state_data.timer.switch_timer(TIMER_FADEOUT, true);
                 }
@@ -2863,7 +2863,7 @@ impl MainState for BMSPlayer {
         self.input.control_key_num2 = input.control_key_state(ControlKeys::Num2);
         self.input.control_key_num3 = input.control_key_state(ControlKeys::Num3);
         self.input.control_key_num4 = input.control_key_state(ControlKeys::Num4);
-        self.input.input_scroll = input.scroll();
+        self.input.input_scroll = input.get_scroll();
         self.input.input_is_analog.clear();
         self.input
             .input_is_analog
@@ -2885,7 +2885,7 @@ impl MainState for BMSPlayer {
             input.start_changed(false);
         }
         if !self.input.input_select_pressed {
-            input.set_select_pressed(false);
+            input.select_pressed = false;
         }
         if self.input.input_scroll == 0 {
             input.reset_scroll();
@@ -2942,19 +2942,19 @@ mod tests {
     fn make_model() -> BMSModel {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         model
     }
 
     fn make_model_with_time(last_note_time: i32) -> BMSModel {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         // Add a timeline at the given time to set last_note_time
         let mut timelines = Vec::new();
         let tl = bms_model::time_line::TimeLine::new(130.0, last_note_time as i64 * 1000, 8);
         timelines.push(tl);
-        model.set_all_time_line(timelines);
+        model.timelines = timelines;
         model
     }
 
@@ -3177,8 +3177,8 @@ mod tests {
     fn state_preload_transitions_to_ready() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.play_skin.set_loadstart(0);
-        player.play_skin.set_loadend(0);
+        player.play_skin.loadstart = 0;
+        player.play_skin.loadend = 0;
         player.media_load_finished = true;
 
         // The PRELOAD->READY transition requires:
@@ -3213,7 +3213,7 @@ mod tests {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
         player.state = STATE_READY;
-        player.play_skin.set_playstart(0); // Instant transition
+        player.play_skin.playstart = 0; // Instant transition
         player.main_state_data.timer.set_timer_on(TIMER_READY);
         player.lanerender = Some(LaneRenderer::new(&player.model));
 
@@ -3349,7 +3349,7 @@ mod tests {
     fn make_model_with_timed_notes(notes_spec: &[(i32, i64)]) -> BMSModel {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
 
         let mut timelines = Vec::new();
         for (i, &(state, playtime)) in notes_spec.iter().enumerate() {
@@ -3360,7 +3360,7 @@ mod tests {
             tl.set_note(0, Some(note));
             timelines.push(tl);
         }
-        model.set_all_time_line(timelines);
+        model.timelines = timelines;
         model
     }
 
@@ -3421,7 +3421,7 @@ mod tests {
         // LN end notes of longnote type should be excluded from timing stats.
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         // Default lntype is LNTYPE_LONGNOTE (0)
 
         let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
@@ -3445,7 +3445,7 @@ mod tests {
         ln_start.set_micro_play_time(2000);
         tl.set_note(2, Some(ln_start));
 
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
 
         let mut player = BMSPlayer::new(model);
         player.state = STATE_ABORTED;
@@ -3607,15 +3607,15 @@ mod tests {
 
         // Force transition to READY
         player.startpressedtime = -2_000_000;
-        player.play_skin.set_loadstart(0);
-        player.play_skin.set_loadend(0);
+        player.play_skin.loadstart = 0;
+        player.play_skin.loadend = 0;
         std::thread::sleep(std::time::Duration::from_millis(2));
         player.main_state_data.timer.update();
         player.render();
         assert_eq!(player.state(), STATE_READY);
 
         // Force transition to PLAY
-        player.play_skin.set_playstart(0);
+        player.play_skin.playstart = 0;
         player.lanerender = Some(LaneRenderer::new(&player.model));
         let now = player.main_state_data.timer.now_micro_time();
         player
@@ -3669,9 +3669,9 @@ mod tests {
         // ScrollSpeedModifier requires at least one timeline
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let tl = bms_model::time_line::TimeLine::new(130.0, 0, 8);
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
 
         let mut player = BMSPlayer::new(model);
         let mut config = make_default_config();
@@ -3716,7 +3716,7 @@ mod tests {
     fn build_pattern_modifiers_dp_battle_converts_sp_to_dp() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
 
         let mut config = make_default_config();
@@ -3736,7 +3736,7 @@ mod tests {
     fn build_pattern_modifiers_dp_battle_with_autoplay_scratch() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
 
         let mut config = make_default_config();
@@ -3753,7 +3753,7 @@ mod tests {
     fn build_pattern_modifiers_dp_battle_non_sp_resets_doubleoption() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K); // Already DP
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
 
         let mut config = make_default_config();
@@ -3770,7 +3770,7 @@ mod tests {
     fn build_pattern_modifiers_dp_flip() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K); // DP mode
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
 
         let mut config = make_default_config();
@@ -3812,7 +3812,7 @@ mod tests {
     fn build_pattern_modifiers_dp_random2_seed_saved() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K); // DP mode
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
         let config = make_default_config();
 
@@ -3838,11 +3838,11 @@ mod tests {
     fn build_pattern_modifiers_assist_accumulates_light() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         // Add timelines with a mine note to trigger assist
         let mut tl = bms_model::time_line::TimeLine::new(130.0, 0, 8);
         tl.set_note(0, Some(bms_model::note::Note::new_mine(-1, 10.0)));
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
 
         let mut player = BMSPlayer::new(model);
         let mut config = make_default_config();
@@ -3860,7 +3860,7 @@ mod tests {
     fn build_pattern_modifiers_5k_battle() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_5K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
 
         let mut config = make_default_config();
@@ -3886,7 +3886,7 @@ mod tests {
     fn encode_seed_for_score_dp_returns_combined() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K); // DP (player=2)
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
         player.score.playinfo.randomoptionseed = 100;
         player.score.playinfo.randomoption2seed = 3;
@@ -3898,7 +3898,7 @@ mod tests {
     fn encode_seed_for_score_dp_zero_seeds() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
         player.score.playinfo.randomoptionseed = 0;
         player.score.playinfo.randomoption2seed = 0;
@@ -3919,7 +3919,7 @@ mod tests {
     fn encode_option_for_score_dp_returns_combined() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K); // DP (player=2)
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
         player.score.playinfo.randomoption = 2;
         player.score.playinfo.randomoption2 = 3;
@@ -3932,7 +3932,7 @@ mod tests {
     fn encode_option_for_score_dp_no_doubleoption() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
         player.score.playinfo.randomoption = 1;
         player.score.playinfo.randomoption2 = 4;
@@ -3970,9 +3970,9 @@ mod tests {
     fn build_pattern_modifiers_lane_shuffle_pattern_saved() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K); // DP mode
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let tl = bms_model::time_line::TimeLine::new(130.0, 0, 16);
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
         let mut player = BMSPlayer::new(model);
 
         let mut config = make_default_config();
@@ -4251,7 +4251,7 @@ mod tests {
     fn handle_random_syntax_replay_mode_uses_replay_rand() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         model.set_chart_information(bms_model::chart_information::ChartInformation::new(
             None,
             0,
@@ -4273,7 +4273,7 @@ mod tests {
     fn handle_random_syntax_resource_seed_set_uses_resource_rand() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         model.set_chart_information(bms_model::chart_information::ChartInformation::new(
             None,
             0,
@@ -4293,7 +4293,7 @@ mod tests {
     fn handle_random_syntax_normal_play_stores_model_random() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         model.set_chart_information(bms_model::chart_information::ChartInformation::new(
             None,
             0,
@@ -4311,7 +4311,7 @@ mod tests {
     fn handle_random_syntax_replay_empty_rand_stores_model_random() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         model.set_chart_information(bms_model::chart_information::ChartInformation::new(
             None,
             0,
@@ -4334,12 +4334,12 @@ mod tests {
     fn make_model_uniform_bpm() -> BMSModel {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_bpm(150.0);
-        model.set_judgerank(100);
+        model.bpm = 150.0;
+        model.judgerank = 100;
         // Single timeline at the same BPM → min == max
         let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
-        tl.set_bpm(150.0);
-        model.set_all_time_line(vec![tl]);
+        tl.bpm = 150.0;
+        model.timelines = vec![tl];
         model
     }
 
@@ -4347,14 +4347,14 @@ mod tests {
     fn make_model_variable_bpm() -> BMSModel {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_bpm(120.0);
-        model.set_judgerank(100);
+        model.bpm = 120.0;
+        model.judgerank = 100;
         // Two timelines with different BPMs → min != max
         let mut tl1 = bms_model::time_line::TimeLine::new(0.0, 0, 8);
-        tl1.set_bpm(120.0);
+        tl1.bpm = 120.0;
         let mut tl2 = bms_model::time_line::TimeLine::new(1.0, 1_000_000, 8);
-        tl2.set_bpm(180.0);
-        model.set_all_time_line(vec![tl1, tl2]);
+        tl2.bpm = 180.0;
+        model.timelines = vec![tl1, tl2];
         model
     }
 
@@ -4617,7 +4617,7 @@ mod tests {
         // DP mode (BEAT_14K) with FLIP (doubleoption=1), random=2, random2=3
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
 
         let mut config = make_default_config();
@@ -4646,7 +4646,7 @@ mod tests {
         // Replay pattern key overrides to random=5, random2=7, doubleoption=0
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
 
         let mut config = make_default_config();
@@ -4716,7 +4716,7 @@ mod tests {
         // DP battle mode: SP BEAT_7K with doubleoption=2 → converts to BEAT_14K
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
 
         let mut config = make_default_config();
@@ -4868,22 +4868,22 @@ mod tests {
         // Verify that change_frequency is called on the model
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
-        model.set_bpm(120.0);
+        model.judgerank = 100;
+        model.bpm = 120.0;
         let mut tl = bms_model::time_line::TimeLine::new(0.0, 0, 8);
-        tl.set_bpm(120.0);
+        tl.bpm = 120.0;
         let mut tl2 = bms_model::time_line::TimeLine::new(1.0, 1_000_000, 8);
-        tl2.set_bpm(120.0);
+        tl2.bpm = 120.0;
         tl2.set_note(0, Some(bms_model::note::Note::new_normal(1)));
-        model.set_all_time_line(vec![tl, tl2]);
-        let original_bpm = model.bpm();
+        model.timelines = vec![tl, tl2];
+        let original_bpm = model.bpm;
 
         let mut player = BMSPlayer::new(model);
         player.apply_freq_trainer(150, true, false, &FrequencyType::FREQUENCY);
 
         // BPM should be scaled by 1.5
         let expected_bpm = original_bpm * 1.5;
-        let actual_bpm = player.model.bpm();
+        let actual_bpm = player.model.bpm;
         assert!(
             (actual_bpm - expected_bpm).abs() < 0.001,
             "BPM should be scaled: expected {}, got {}",
@@ -4958,7 +4958,7 @@ mod tests {
     fn stop_play_failed_path_sets_pending_pitch_to_one() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
         player.state = STATE_PLAY;
 
@@ -5086,7 +5086,7 @@ mod tests {
     fn create_side_effects_skin_type_5k() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_5K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
         player.create();
         let effects = player.take_create_side_effects().unwrap();
@@ -5097,7 +5097,7 @@ mod tests {
     fn create_side_effects_skin_type_14k() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_14K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
         player.create();
         let effects = player.take_create_side_effects().unwrap();
@@ -5234,7 +5234,7 @@ mod tests {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
         // Set custom expansion rate before create
-        player.play_skin.set_note_expansion_rate([120, 100]);
+        player.play_skin.note_expansion_rate = [120, 100];
         player.create();
         assert!(player.rhythm.is_some());
     }
@@ -5302,7 +5302,7 @@ mod tests {
     fn create_input_mode_5k_model_with_play_mode() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_5K);
-        model.set_judgerank(100);
+        model.judgerank = 100;
         let mut player = BMSPlayer::new(model);
         player.set_play_mode(BMSPlayerMode::PLAY);
         player.create();
@@ -5401,8 +5401,8 @@ mod tests {
     fn preload_does_not_transition_when_media_not_loaded() {
         let model = make_model();
         let mut player = BMSPlayer::new(model);
-        player.play_skin.set_loadstart(0);
-        player.play_skin.set_loadend(0);
+        player.play_skin.loadstart = 0;
+        player.play_skin.loadend = 0;
         player.media_load_finished = false; // Media not loaded
         player.startpressedtime = -2_000_000;
 
@@ -5425,7 +5425,7 @@ mod tests {
         let mut input = BMSPlayerInputProcessor::new(&config, &player_config);
 
         input.start_changed(true);
-        input.set_select_pressed(true);
+        input.select_pressed = true;
         input.set_key_state(0, true, 1000);
         input
             .keyboard_input_processor_mut()
@@ -5461,7 +5461,7 @@ mod tests {
         let mut input = BMSPlayerInputProcessor::new(&config, &player_config);
 
         input.start_changed(true);
-        input.set_select_pressed(true);
+        input.select_pressed = true;
         player.input.input_start_pressed = false;
         player.input.input_select_pressed = false;
 
@@ -5711,7 +5711,7 @@ mod tests {
             .main_state_data
             .timer
             .set_micro_timer(TIMER_FAILED, now - 10_000_000);
-        player.play_skin.set_close(0);
+        player.play_skin.close = 0;
 
         player.render();
 
@@ -5843,7 +5843,7 @@ mod tests {
         let mut model = make_model();
         let mut tl = TimeLine::new(120.0, 0, 8);
         tl.add_back_ground_note(Note::new_normal(1));
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
 
         let mut player = BMSPlayer::new(model);
 

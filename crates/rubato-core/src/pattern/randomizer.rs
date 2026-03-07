@@ -15,7 +15,7 @@ pub struct RandomizerBase {
     ln_active: HashMap<i32, i32>,
     changeable_lane: Vec<i32>,
     assignable_lane: Vec<i32>,
-    assist: AssistLevel,
+    pub assist: AssistLevel,
 }
 
 impl Default for RandomizerBase {
@@ -59,11 +59,6 @@ impl RandomizerBase {
     pub fn assist_level(&self) -> AssistLevel {
         self.assist
     }
-
-    pub fn set_assist_level(&mut self, assist: AssistLevel) {
-        self.assist = assist;
-    }
-
     pub fn set_random_seed(&mut self, seed: i64) {
         if seed >= 0 {
             self.random = JavaRandom::new(seed);
@@ -327,7 +322,7 @@ impl Randomizer {
     pub fn set_mode(&mut self, m: Mode) {
         match self {
             Randomizer::AllScratch(r) => r.set_mode(m),
-            _ => self.base_mut().set_mode(m),
+            _ => self.base_mut().mode = Some(m),
         }
     }
 
@@ -407,7 +402,7 @@ pub struct SRandomizer {
 impl SRandomizer {
     pub fn new(threshold: i32, assist: AssistLevel) -> Self {
         let mut base = RandomizerBase::new();
-        base.set_assist_level(assist);
+        base.assist = assist;
         SRandomizer {
             base,
             time_state: TimeBasedRandomizerState::new(threshold),
@@ -499,7 +494,7 @@ impl Default for SpiralRandomizer {
 impl SpiralRandomizer {
     pub fn new() -> Self {
         let mut base = RandomizerBase::new();
-        base.set_assist_level(AssistLevel::LightAssist);
+        base.assist = AssistLevel::LightAssist;
         SpiralRandomizer {
             base,
             increment: 0,
@@ -590,7 +585,7 @@ const SIDE_2P: i32 = 1;
 impl AllScratchRandomizer {
     pub fn new(s: i32, k: i32, modify_side: i32) -> Self {
         let mut base = RandomizerBase::new();
-        base.set_assist_level(AssistLevel::LightAssist);
+        base.assist = AssistLevel::LightAssist;
         AllScratchRandomizer {
             base,
             time_state: TimeBasedRandomizerState::new(k),
@@ -612,7 +607,7 @@ impl AllScratchRandomizer {
         } else {
             self.scratch_lane = m.scratch_key().to_vec();
         }
-        self.base.set_mode(m);
+        self.base.mode = Some(m);
     }
 
     pub fn permutate(&mut self, tl: &mut TimeLine) -> Vec<i32> {
@@ -766,7 +761,7 @@ fn button_combination_table() -> &'static Vec<Vec<i32>> {
 impl NoMurioshiRandomizer {
     pub fn new(threshold: i32) -> Self {
         let mut base = RandomizerBase::new();
-        base.set_assist_level(AssistLevel::LightAssist);
+        base.assist = AssistLevel::LightAssist;
         NoMurioshiRandomizer {
             base,
             time_state: TimeBasedRandomizerState::new(threshold),
@@ -986,7 +981,7 @@ pub struct ConvergeRandomizer {
 impl ConvergeRandomizer {
     pub fn new(threshold1: i32, threshold2: i32) -> Self {
         let mut base = RandomizerBase::new();
-        base.set_assist_level(AssistLevel::LightAssist);
+        base.assist = AssistLevel::LightAssist;
         ConvergeRandomizer {
             base,
             time_state: TimeBasedRandomizerState::new(threshold1),
@@ -1106,7 +1101,7 @@ mod tests {
     #[test]
     fn randomizer_base_set_mode() {
         let mut base = RandomizerBase::new();
-        base.set_mode(Mode::BEAT_7K);
+        base.mode = Some(Mode::BEAT_7K);
         assert_eq!(base.mode, Some(Mode::BEAT_7K));
     }
 
@@ -1126,7 +1121,7 @@ mod tests {
     #[test]
     fn randomizer_base_set_assist_level() {
         let mut base = RandomizerBase::new();
-        base.set_assist_level(AssistLevel::Assist);
+        base.assist = AssistLevel::Assist;
         assert_eq!(base.assist_level(), AssistLevel::Assist);
     }
 
@@ -1284,7 +1279,7 @@ mod tests {
     fn randomizer_base_mut_accessor() {
         let config = PlayerConfig::default();
         let mut r = Randomizer::create(Random::SRandom, &Mode::BEAT_7K, &config);
-        r.base_mut().set_assist_level(AssistLevel::Assist);
+        r.base_mut().assist = AssistLevel::Assist;
         assert_eq!(r.assist_level(), AssistLevel::Assist);
     }
 

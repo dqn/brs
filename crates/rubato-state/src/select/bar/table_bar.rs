@@ -52,12 +52,12 @@ impl TableBar {
 
     pub fn set_table_data(&mut self, td: TableData) {
         self.levels = td
-            .folder()
+            .get_folder()
             .iter()
-            .map(|folder| HashBar::new(folder.name().to_string(), folder.song().to_vec()))
+            .map(|folder| HashBar::new(folder.name().to_string(), folder.get_song().to_vec()))
             .collect();
 
-        let courses = td.course();
+        let courses = td.get_course();
         let mut hashset: HashSet<String> = HashSet::new();
         for course in courses {
             for song in &course.hash {

@@ -172,7 +172,7 @@ mod tests {
         modifier.modify(&mut model);
 
         // Background note should be placed somewhere on the lanes
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         let mut found = false;
         for lane in 0..8 {
             if let Some(note) = tls[0].note(lane)
@@ -201,7 +201,7 @@ mod tests {
         let mut modifier = ExtraNoteModifier::new(0, 1, false);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         let mut placed_count = 0;
         for lane in 0..8 {
             if tls[0].note(lane).is_some() {
@@ -224,7 +224,7 @@ mod tests {
         let mut modifier = ExtraNoteModifier::new(0, 2, false);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         let mut placed_count = 0;
         for lane in 0..8 {
             if tls[0].note(lane).is_some() {

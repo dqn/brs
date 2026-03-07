@@ -14,7 +14,7 @@ impl Lane {
     pub fn new(model: &BMSModel, lane: i32) -> Self {
         let mut notes = Vec::new();
         let mut hiddens = Vec::new();
-        for tl in model.all_time_lines() {
+        for tl in &model.timelines {
             if tl.exist_note_at(lane)
                 && let Some(note) = tl.note(lane)
             {

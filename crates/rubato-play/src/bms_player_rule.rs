@@ -50,7 +50,7 @@ impl BMSPlayerRule {
                 } else {
                     rule.judge.windowrule.judgerank[2]
                 };
-                model.set_judgerank(new_rank);
+                model.judgerank = new_rank;
             }
             JudgeRankType::BmsDefexrank => {
                 let new_rank = if judgerank > 0 {
@@ -58,34 +58,34 @@ impl BMSPlayerRule {
                 } else {
                     rule.judge.windowrule.judgerank[2]
                 };
-                model.set_judgerank(new_rank);
+                model.judgerank = new_rank;
             }
             JudgeRankType::BmsonJudgerank => {
                 let new_rank = if judgerank > 0 { judgerank } else { 100 };
-                model.set_judgerank(new_rank);
+                model.judgerank = new_rank;
             }
         }
-        model.set_judgerank_type(JudgeRankType::BmsonJudgerank);
+        model.judgerank_type = JudgeRankType::BmsonJudgerank;
 
         let totalnotes = model.total_notes();
-        match model.total_type() {
+        match model.total_type {
             TotalType::Bms => {
                 // TOTAL undefined case
-                if model.total() <= 0.0 {
-                    model.set_total(calculate_default_total(&mode, totalnotes));
+                if model.get_total() <= 0.0 {
+                    model.total = calculate_default_total(&mode, totalnotes);
                 }
             }
             TotalType::Bmson => {
                 let total = calculate_default_total(&mode, totalnotes);
-                let new_total = if model.total() > 0.0 {
-                    model.total() / 100.0 * total
+                let new_total = if model.total > 0.0 {
+                    model.total / 100.0 * total
                 } else {
                     total
                 };
-                model.set_total(new_total);
+                model.total = new_total;
             }
         }
-        model.set_total_type(TotalType::Bms);
+        model.total_type = TotalType::Bms;
     }
 }
 
@@ -296,7 +296,7 @@ mod tests {
     fn validate_bms_rank_out_of_range_uses_default() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(10); // out of range 0..5
+        model.judgerank = 10; // out of range 0..5
         BMSPlayerRule::validate(&mut model);
         // Should use judgerank[2] = 75 as fallback
         assert_eq!(model.judgerank(), 75);
@@ -307,15 +307,15 @@ mod tests {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
         BMSPlayerRule::validate(&mut model);
-        assert_eq!(model.total_type(), &TotalType::Bms);
+        assert_eq!(model.total_type, TotalType::Bms);
     }
 
     #[test]
     fn validate_bmson_judgerank_preserves_positive_value() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(120);
-        model.set_judgerank_type(JudgeRankType::BmsonJudgerank);
+        model.judgerank = 120;
+        model.judgerank_type = JudgeRankType::BmsonJudgerank;
         BMSPlayerRule::validate(&mut model);
         // Positive BmsonJudgerank preserved as-is
         assert_eq!(model.judgerank(), 120);
@@ -325,8 +325,8 @@ mod tests {
     fn validate_bmson_judgerank_zero_becomes_100() {
         let mut model = BMSModel::new();
         model.set_mode(Mode::BEAT_7K);
-        model.set_judgerank(0);
-        model.set_judgerank_type(JudgeRankType::BmsonJudgerank);
+        model.judgerank = 0;
+        model.judgerank_type = JudgeRankType::BmsonJudgerank;
         BMSPlayerRule::validate(&mut model);
         assert_eq!(model.judgerank(), 100);
     }

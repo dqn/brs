@@ -27,7 +27,7 @@ pub enum TotalType {
 
 #[derive(Clone)]
 pub struct BMSModel {
-    player: i32,
+    pub player: i32,
     mode: Option<Mode>,
     title: String,
     sub_title: String,
@@ -38,23 +38,23 @@ pub struct BMSModel {
     stagefile: String,
     backbmp: String,
     preview: String,
-    bpm: f64,
+    pub bpm: f64,
     playlevel: String,
-    difficulty: i32,
-    judgerank: i32,
-    judgerank_type: JudgeRankType,
-    total: f64,
-    total_type: TotalType,
-    volwav: i32,
+    pub difficulty: i32,
+    pub judgerank: i32,
+    pub judgerank_type: JudgeRankType,
+    pub total: f64,
+    pub total_type: TotalType,
+    pub volwav: i32,
     md5: String,
     sha256: String,
-    wavmap: Vec<String>,
-    bgamap: Vec<String>,
+    pub wavmap: Vec<String>,
+    pub bgamap: Vec<String>,
     base: i32,
-    lnmode: i32,
-    lnobj: i32,
-    from_osu: bool,
-    timelines: Vec<TimeLine>,
+    pub lnmode: i32,
+    pub lnobj: i32,
+    pub from_osu: bool,
+    pub timelines: Vec<TimeLine>,
     info: Option<ChartInformation>,
     values: HashMap<String, String>,
 }
@@ -104,12 +104,7 @@ impl BMSModel {
     pub fn player(&self) -> i32 {
         self.player
     }
-
-    pub fn set_player(&mut self, player: i32) {
-        self.player = player;
-    }
-
-    pub fn title(&self) -> &str {
+    pub fn get_title(&self) -> &str {
         &self.title
     }
 
@@ -166,12 +161,7 @@ impl BMSModel {
     pub fn bpm(&self) -> f64 {
         self.bpm
     }
-
-    pub fn set_bpm(&mut self, bpm: f64) {
-        self.bpm = bpm;
-    }
-
-    pub fn playlevel(&self) -> &str {
+    pub fn get_playlevel(&self) -> &str {
         &self.playlevel
     }
 
@@ -182,50 +172,30 @@ impl BMSModel {
     pub fn judgerank(&self) -> i32 {
         self.judgerank
     }
-
-    pub fn set_judgerank(&mut self, judgerank: i32) {
-        self.judgerank = judgerank;
-    }
-
-    pub fn total(&self) -> f64 {
+    pub fn get_total(&self) -> f64 {
         self.total
     }
-
-    pub fn set_total(&mut self, total: f64) {
-        self.total = total;
-    }
-
-    pub fn volwav(&self) -> i32 {
+    pub fn get_volwav(&self) -> i32 {
         self.volwav
     }
-
-    pub fn set_volwav(&mut self, volwav: i32) {
-        self.volwav = volwav;
-    }
-
-    pub fn min_bpm(&self) -> f64 {
-        let mut bpm = self.bpm();
+    pub fn get_min_bpm(&self) -> f64 {
+        let mut bpm = self.bpm;
         for time in &self.timelines {
-            let d = time.bpm();
+            let d = time.bpm;
             bpm = if bpm <= d { bpm } else { d };
         }
         bpm
     }
 
     pub fn max_bpm(&self) -> f64 {
-        let mut bpm = self.bpm();
+        let mut bpm = self.bpm;
         for time in &self.timelines {
-            let d = time.bpm();
+            let d = time.bpm;
             bpm = if bpm >= d { bpm } else { d };
         }
         bpm
     }
-
-    pub fn set_all_time_line(&mut self, timelines: Vec<TimeLine>) {
-        self.timelines = timelines;
-    }
-
-    pub fn all_time_lines(&self) -> &[TimeLine] {
+    pub fn get_all_time_lines(&self) -> &[TimeLine] {
         &self.timelines
     }
 
@@ -238,7 +208,7 @@ impl BMSModel {
     }
 
     pub fn all_times(&self) -> Vec<i64> {
-        let times = self.all_time_lines();
+        let times = &self.timelines;
         let mut result = Vec::with_capacity(times.len());
         for tl in times {
             result.push(tl.time() as i64);
@@ -259,7 +229,7 @@ impl BMSModel {
                     || tl.hidden_note(lane).is_some()
                     || !tl.back_ground_notes().is_empty()
                     || tl.bga() != -1
-                    || tl.layer() != -1
+                    || tl.get_layer() != -1
                 {
                     return tl.milli_time();
                 }
@@ -288,12 +258,7 @@ impl BMSModel {
     pub fn difficulty(&self) -> i32 {
         self.difficulty
     }
-
-    pub fn set_difficulty(&mut self, difficulty: i32) {
-        self.difficulty = difficulty;
-    }
-
-    pub fn full_title(&self) -> String {
+    pub fn get_full_title(&self) -> String {
         let mut s = self.title.clone();
         if !self.sub_title.is_empty() {
             s.push(' ');
@@ -342,20 +307,10 @@ impl BMSModel {
     pub fn wav_list(&self) -> &[String] {
         &self.wavmap
     }
-
-    pub fn set_wav_list(&mut self, wavmap: Vec<String>) {
-        self.wavmap = wavmap;
-    }
-
-    pub fn bga_list(&self) -> &[String] {
+    pub fn get_bga_list(&self) -> &[String] {
         &self.bgamap
     }
-
-    pub fn set_bga_list(&mut self, bgamap: Vec<String>) {
-        self.bgamap = bgamap;
-    }
-
-    pub fn chart_information(&self) -> Option<&ChartInformation> {
+    pub fn get_chart_information(&self) -> Option<&ChartInformation> {
         self.info.as_ref()
     }
 
@@ -412,11 +367,6 @@ impl BMSModel {
     pub fn is_from_osu(&self) -> bool {
         self.from_osu
     }
-
-    pub fn set_from_osu(&mut self, from_osu: bool) {
-        self.from_osu = from_osu;
-    }
-
     pub fn contains_undefined_long_note(&self) -> bool {
         let keys = self.mode.as_ref().map(|m| m.key()).unwrap_or(0);
         for tl in &self.timelines {
@@ -471,20 +421,10 @@ impl BMSModel {
     pub fn lnobj(&self) -> i32 {
         self.lnobj
     }
-
-    pub fn set_lnobj(&mut self, lnobj: i32) {
-        self.lnobj = lnobj;
-    }
-
-    pub fn lnmode(&self) -> i32 {
+    pub fn get_lnmode(&self) -> i32 {
         self.lnmode
     }
-
-    pub fn set_lnmode(&mut self, lnmode: i32) {
-        self.lnmode = lnmode;
-    }
-
-    pub fn values(&self) -> &HashMap<String, String> {
+    pub fn get_values(&self) -> &HashMap<String, String> {
         &self.values
     }
 
@@ -509,8 +449,8 @@ impl BMSModel {
             let mut tlsb = String::new();
             tlsb.push_str(&format!("{}:", tl.time()));
             let mut write = false;
-            if nowbpm != tl.bpm() {
-                nowbpm = tl.bpm();
+            if nowbpm != tl.bpm {
+                nowbpm = tl.bpm;
                 tlsb.push_str(&format!("B({})", nowbpm));
                 write = true;
             }
@@ -518,7 +458,7 @@ impl BMSModel {
                 tlsb.push_str(&format!("S({})", tl.stop()));
                 write = true;
             }
-            if tl.section_line() {
+            if tl.get_section_line() {
                 tlsb.push('L');
                 write = true;
             }
@@ -563,20 +503,10 @@ impl BMSModel {
     pub fn judgerank_type(&self) -> &JudgeRankType {
         &self.judgerank_type
     }
-
-    pub fn set_judgerank_type(&mut self, judgerank_type: JudgeRankType) {
-        self.judgerank_type = judgerank_type;
-    }
-
-    pub fn total_type(&self) -> &TotalType {
+    pub fn get_total_type(&self) -> &TotalType {
         &self.total_type
     }
-
-    pub fn set_total_type(&mut self, total_type: TotalType) {
-        self.total_type = total_type;
-    }
-
-    pub fn base(&self) -> i32 {
+    pub fn get_base(&self) -> i32 {
         self.base
     }
 
@@ -607,7 +537,7 @@ mod tests {
         let model = BMSModel::new();
         assert_eq!(model.player(), 0);
         assert!(model.mode().is_none());
-        assert_eq!(model.title(), "");
+        assert_eq!(model.get_title(), "");
         assert_eq!(model.sub_title(), "");
         assert_eq!(model.genre(), "");
         assert_eq!(model.artist(), "");
@@ -616,32 +546,32 @@ mod tests {
         assert_eq!(model.stagefile(), "");
         assert_eq!(model.backbmp(), "");
         assert_eq!(model.preview(), "");
-        assert!((model.bpm()).abs() < f64::EPSILON);
-        assert_eq!(model.playlevel(), "");
+        assert!((model.bpm).abs() < f64::EPSILON);
+        assert_eq!(model.get_playlevel(), "");
         assert_eq!(model.difficulty(), 0);
         assert_eq!(model.judgerank(), 2);
         assert_eq!(model.judgerank_type(), &JudgeRankType::BmsRank);
-        assert!((model.total() - 100.0).abs() < f64::EPSILON);
-        assert_eq!(model.total_type(), &TotalType::Bmson);
-        assert_eq!(model.volwav(), 0);
+        assert!((model.total - 100.0).abs() < f64::EPSILON);
+        assert_eq!(model.total_type, TotalType::Bmson);
+        assert_eq!(model.volwav, 0);
         assert_eq!(model.md5(), "");
         assert_eq!(model.sha256(), "");
         assert!(model.wav_list().is_empty());
-        assert!(model.bga_list().is_empty());
-        assert_eq!(model.base(), 36);
-        assert_eq!(model.lnmode(), crate::note::TYPE_UNDEFINED);
+        assert!(model.bgamap.is_empty());
+        assert_eq!(model.get_base(), 36);
+        assert_eq!(model.lnmode, crate::note::TYPE_UNDEFINED);
         assert_eq!(model.lnobj(), -1);
         assert!(!model.is_from_osu());
-        assert!(model.all_time_lines().is_empty());
+        assert!(model.timelines.is_empty());
     }
 
     #[test]
     fn default_matches_new() {
         let from_new = BMSModel::new();
         let from_default = BMSModel::default();
-        assert_eq!(from_new.title(), from_default.title());
+        assert_eq!(from_new.get_title(), from_default.get_title());
         assert_eq!(from_new.player(), from_default.player());
-        assert_eq!(from_new.base(), from_default.base());
+        assert_eq!(from_new.get_base(), from_default.get_base());
     }
 
     #[test]
@@ -655,18 +585,18 @@ mod tests {
     fn set_mode_adjusts_timeline_lane_count() {
         let mut model = BMSModel::new();
         let tl = TimeLine::new(0.0, 0, 6);
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
 
         model.set_mode(Mode::BEAT_7K);
         // BEAT_7K has key=8, so timelines should be resized to 8 lanes
-        assert_eq!(model.all_time_lines()[0].lane_count(), 8);
+        assert_eq!(model.timelines[0].lane_count(), 8);
     }
 
     #[test]
     fn title_set_and_get() {
         let mut model = BMSModel::new();
         model.set_title("Test Song");
-        assert_eq!(model.title(), "Test Song");
+        assert_eq!(model.get_title(), "Test Song");
     }
 
     #[test]
@@ -680,7 +610,7 @@ mod tests {
     fn full_title_without_subtitle() {
         let mut model = BMSModel::new();
         model.set_title("Main Title");
-        assert_eq!(model.full_title(), "Main Title");
+        assert_eq!(model.get_full_title(), "Main Title");
     }
 
     #[test]
@@ -688,7 +618,7 @@ mod tests {
         let mut model = BMSModel::new();
         model.set_title("Main Title");
         model.set_sub_title("[ANOTHER]");
-        assert_eq!(model.full_title(), "Main Title [ANOTHER]");
+        assert_eq!(model.get_full_title(), "Main Title [ANOTHER]");
     }
 
     #[test]
@@ -730,60 +660,60 @@ mod tests {
     #[test]
     fn bpm_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_bpm(150.0);
-        assert!((model.bpm() - 150.0).abs() < f64::EPSILON);
+        model.bpm = 150.0;
+        assert!((model.bpm - 150.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn playlevel_set_and_get() {
         let mut model = BMSModel::new();
         model.set_playlevel("12");
-        assert_eq!(model.playlevel(), "12");
+        assert_eq!(model.get_playlevel(), "12");
     }
 
     #[test]
     fn difficulty_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_difficulty(5);
-        assert_eq!(model.difficulty(), 5);
+        model.difficulty = 5;
+        assert_eq!(model.difficulty, 5);
     }
 
     #[test]
     fn judgerank_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_judgerank(3);
-        assert_eq!(model.judgerank(), 3);
+        model.judgerank = 3;
+        assert_eq!(model.judgerank, 3);
     }
 
     #[test]
     fn judgerank_type_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_judgerank_type(JudgeRankType::BmsDefexrank);
-        assert_eq!(model.judgerank_type(), &JudgeRankType::BmsDefexrank);
+        model.judgerank_type = JudgeRankType::BmsDefexrank;
+        assert_eq!(model.judgerank_type, JudgeRankType::BmsDefexrank);
 
-        model.set_judgerank_type(JudgeRankType::BmsonJudgerank);
-        assert_eq!(model.judgerank_type(), &JudgeRankType::BmsonJudgerank);
+        model.judgerank_type = JudgeRankType::BmsonJudgerank;
+        assert_eq!(model.judgerank_type, JudgeRankType::BmsonJudgerank);
     }
 
     #[test]
     fn total_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_total(300.0);
-        assert!((model.total() - 300.0).abs() < f64::EPSILON);
+        model.total = 300.0;
+        assert!((model.get_total() - 300.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn total_type_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_total_type(TotalType::Bms);
-        assert_eq!(model.total_type(), &TotalType::Bms);
+        model.total_type = TotalType::Bms;
+        assert_eq!(model.get_total_type(), &TotalType::Bms);
     }
 
     #[test]
     fn volwav_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_volwav(100);
-        assert_eq!(model.volwav(), 100);
+        model.volwav = 100;
+        assert_eq!(model.get_volwav(), 100);
     }
 
     #[test]
@@ -831,14 +761,14 @@ mod tests {
     #[test]
     fn player_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_player(2);
-        assert_eq!(model.player(), 2);
+        model.player = 2;
+        assert_eq!(model.player, 2);
     }
 
     #[test]
     fn from_osu_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_from_osu(true);
+        model.from_osu = true;
         assert!(model.is_from_osu());
     }
 
@@ -846,72 +776,72 @@ mod tests {
     fn wav_list_set_and_get() {
         let mut model = BMSModel::new();
         let wavs = vec!["sound1.wav".to_string(), "sound2.ogg".to_string()];
-        model.set_wav_list(wavs.clone());
-        assert_eq!(model.wav_list(), &wavs);
+        model.wavmap = wavs.clone();
+        assert_eq!(model.wavmap, wavs);
     }
 
     #[test]
     fn bga_list_set_and_get() {
         let mut model = BMSModel::new();
         let bgas = vec!["video.mpg".to_string()];
-        model.set_bga_list(bgas.clone());
-        assert_eq!(model.bga_list(), &bgas);
+        model.bgamap = bgas.clone();
+        assert_eq!(model.get_bga_list(), &bgas);
     }
 
     #[test]
     fn base_set_62() {
         let mut model = BMSModel::new();
         model.set_base(62);
-        assert_eq!(model.base(), 62);
+        assert_eq!(model.get_base(), 62);
     }
 
     #[test]
     fn base_set_non62_defaults_to_36() {
         let mut model = BMSModel::new();
         model.set_base(16);
-        assert_eq!(model.base(), 36);
+        assert_eq!(model.get_base(), 36);
 
         model.set_base(100);
-        assert_eq!(model.base(), 36);
+        assert_eq!(model.get_base(), 36);
     }
 
     #[test]
     fn lnobj_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_lnobj(5);
-        assert_eq!(model.lnobj(), 5);
+        model.lnobj = 5;
+        assert_eq!(model.lnobj, 5);
     }
 
     #[test]
     fn lnmode_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_lnmode(2);
-        assert_eq!(model.lnmode(), 2);
+        model.lnmode = 2;
+        assert_eq!(model.get_lnmode(), 2);
     }
 
     #[test]
     fn timeline_management() {
         let mut model = BMSModel::new();
-        assert!(model.all_time_lines().is_empty());
+        assert!(model.timelines.is_empty());
 
         let tl1 = TimeLine::new(0.0, 0, 8);
         let tl2 = TimeLine::new(1.0, 1000, 8);
-        model.set_all_time_line(vec![tl1, tl2]);
+        model.timelines = vec![tl1, tl2];
 
-        assert_eq!(model.all_time_lines().len(), 2);
-        assert_eq!(model.all_time_lines()[0].micro_time(), 0);
-        assert_eq!(model.all_time_lines()[1].micro_time(), 1000);
+        assert_eq!(model.timelines.len(), 2);
+        assert_eq!(model.timelines[0].micro_time(), 0);
+        assert_eq!(model.timelines[1].micro_time(), 1000);
     }
 
     #[test]
     fn take_all_timelines_empties_model() {
         let mut model = BMSModel::new();
-        model.set_all_time_line(vec![TimeLine::new(0.0, 0, 8)]);
-        assert_eq!(model.all_time_lines().len(), 1);
+        model.timelines = vec![TimeLine::new(0.0, 0, 8)];
+        assert_eq!(model.get_all_time_lines().len(), 1);
 
         let taken = model.take_all_time_lines();
         assert_eq!(taken.len(), 1);
-        assert!(model.all_time_lines().is_empty());
+        assert!(model.timelines.is_empty());
     }
 
     #[test]
@@ -921,7 +851,7 @@ mod tests {
         tl1.set_micro_time(0);
         let mut tl2 = TimeLine::new(1.0, 5000000, 8);
         tl2.set_micro_time(5000000); // 5000 ms = 5000 time
-        model.set_all_time_line(vec![tl1, tl2]);
+        model.timelines = vec![tl1, tl2];
 
         let times = model.all_times();
         assert_eq!(times.len(), 2);
@@ -932,26 +862,26 @@ mod tests {
     #[test]
     fn min_and_max_bpm() {
         let mut model = BMSModel::new();
-        model.set_bpm(120.0);
+        model.bpm = 120.0;
 
         let mut tl1 = TimeLine::new(0.0, 0, 8);
-        tl1.set_bpm(100.0);
+        tl1.bpm = 100.0;
         let mut tl2 = TimeLine::new(1.0, 1000, 8);
-        tl2.set_bpm(200.0);
+        tl2.bpm = 200.0;
         let mut tl3 = TimeLine::new(2.0, 2000, 8);
-        tl3.set_bpm(150.0);
-        model.set_all_time_line(vec![tl1, tl2, tl3]);
+        tl3.bpm = 150.0;
+        model.timelines = vec![tl1, tl2, tl3];
 
-        assert!((model.min_bpm() - 100.0).abs() < f64::EPSILON);
+        assert!((model.get_min_bpm() - 100.0).abs() < f64::EPSILON);
         assert!((model.max_bpm() - 200.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn min_and_max_bpm_no_timelines() {
         let mut model = BMSModel::new();
-        model.set_bpm(130.0);
+        model.bpm = 130.0;
 
-        assert!((model.min_bpm() - 130.0).abs() < f64::EPSILON);
+        assert!((model.get_min_bpm() - 130.0).abs() < f64::EPSILON);
         assert!((model.max_bpm() - 130.0).abs() < f64::EPSILON);
     }
 
@@ -964,7 +894,7 @@ mod tests {
         tl.set_note(0, Some(Note::new_normal(1)));
         tl.set_note(1, Some(Note::new_normal(2)));
         tl.set_note(2, Some(Note::new_mine(3, 0.5)));
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
 
         // Only normal notes are counted, not mines
         assert_eq!(model.total_notes(), 2);
@@ -983,12 +913,12 @@ mod tests {
 
         let mut tl = TimeLine::new(0.0, 0, 8);
         tl.set_note(0, Some(Note::new_normal(1)));
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
         assert!(!model.contains_long_note());
 
         let mut tl = TimeLine::new(0.0, 0, 8);
         tl.set_note(0, Some(Note::new_long(1)));
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
         assert!(model.contains_long_note());
     }
 
@@ -1001,12 +931,12 @@ mod tests {
         let mut ln = Note::new_long(1);
         ln.set_long_note_type(crate::note::TYPE_CHARGENOTE);
         tl.set_note(0, Some(ln));
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
         assert!(!model.contains_undefined_long_note());
 
         let mut tl = TimeLine::new(0.0, 0, 8);
         tl.set_note(0, Some(Note::new_long(1))); // TYPE_UNDEFINED by default
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
         assert!(model.contains_undefined_long_note());
     }
 
@@ -1017,12 +947,12 @@ mod tests {
 
         let mut tl = TimeLine::new(0.0, 0, 8);
         tl.set_note(0, Some(Note::new_normal(1)));
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
         assert!(!model.contains_mine_note());
 
         let mut tl = TimeLine::new(0.0, 0, 8);
         tl.set_note(0, Some(Note::new_mine(1, 0.5)));
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
         assert!(model.contains_mine_note());
     }
 
@@ -1035,11 +965,11 @@ mod tests {
     #[test]
     fn chart_information_set_and_get() {
         let mut model = BMSModel::new();
-        assert!(model.chart_information().is_none());
+        assert!(model.get_chart_information().is_none());
 
         let info = ChartInformation::new(None, 1, Some(vec![3, 5]));
         model.set_chart_information(info);
-        assert!(model.chart_information().is_some());
+        assert!(model.get_chart_information().is_some());
         assert_eq!(model.lntype(), 1);
         assert_eq!(model.random(), Some(&[3, 5][..]));
     }
@@ -1053,12 +983,12 @@ mod tests {
     #[test]
     fn values_map() {
         let mut model = BMSModel::new();
-        assert!(model.values().is_empty());
+        assert!(model.get_values().is_empty());
 
         model
             .values_mut()
             .insert("key1".to_string(), "val1".to_string());
-        assert_eq!(model.values().get("key1").unwrap(), "val1");
+        assert_eq!(model.get_values().get("key1").unwrap(), "val1");
     }
 
     #[test]
@@ -1084,7 +1014,7 @@ mod tests {
         let mut tl2 = TimeLine::new(1.0, 5_000_000, 8);
         tl2.set_note(0, Some(Note::new_normal(1)));
         let tl3 = TimeLine::new(2.0, 10_000_000, 8);
-        model.set_all_time_line(vec![tl1, tl2, tl3]);
+        model.timelines = vec![tl1, tl2, tl3];
 
         // Last timeline with a note is tl2 at 5_000_000 microseconds = 5000 ms
         assert_eq!(model.last_note_milli_time(), 5000);
@@ -1100,10 +1030,10 @@ mod tests {
     #[test]
     fn get_event_lane_returns_event_lane() {
         let mut model = BMSModel::new();
-        model.set_bpm(120.0);
+        model.bpm = 120.0;
         let mut tl = TimeLine::new(0.0, 0, 8);
-        tl.set_bpm(150.0);
-        model.set_all_time_line(vec![tl]);
+        tl.bpm = 150.0;
+        model.timelines = vec![tl];
 
         let event_lane = model.event_lane();
         // The BPM changed from 120 to 150, so there should be 1 BPM change event

@@ -277,7 +277,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // tl[0] lane 0 should have a normal note with wav=1
         let note0 = tls[0].note(0).expect("should have note at lane 0");
         assert!(note0.is_normal());
@@ -310,7 +310,7 @@ mod tests {
         modifier.set_seed(0);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Both notes should remain as LN (next_double() is always >= 0.0, never < 0.0)
         assert!(tls[0].note(0).unwrap().is_long());
         assert!(tls[1].note(0).unwrap().is_long());
@@ -336,7 +336,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // tl[0] lane 0 should have LN start with TYPE_LONGNOTE
         let note0 = tls[0].note(0).expect("should have LN start");
         assert!(note0.is_long());
@@ -366,7 +366,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         let note0 = tls[0].note(0).expect("should have LN start");
         assert!(note0.is_long());
         assert_eq!(note0.long_note_type(), TYPE_CHARGENOTE);
@@ -394,7 +394,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         let note0 = tls[0].note(0).expect("should have LN start");
         assert!(note0.is_long());
         assert_eq!(note0.long_note_type(), TYPE_HELLCHARGENOTE);
@@ -420,7 +420,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // tl[0] lane 0 should remain normal (next_empty is false for tl[1] lane 0)
         assert!(tls[0].note(0).unwrap().is_normal());
         assert_eq!(tls[0].note(0).unwrap().wav(), 1);
@@ -442,7 +442,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         let note0 = tls[0].note(0).expect("should have LN start");
         assert!(note0.is_long());
         // LN type should be one of 1, 2, or 3
@@ -480,7 +480,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Both lanes should be converted to normal
         assert!(tls[0].note(0).unwrap().is_normal());
         assert!(tls[0].note(1).unwrap().is_normal());
@@ -516,7 +516,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         assert!(tls[0].note(0).unwrap().is_normal());
     }
 }

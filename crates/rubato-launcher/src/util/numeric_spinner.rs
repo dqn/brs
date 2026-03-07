@@ -74,12 +74,6 @@ impl NumericSpinner {
             }
         }
     }
-
-    /// Sets whether the spinner is editable.
-    pub fn set_editable(&mut self, editable: bool) {
-        self.editable = editable;
-    }
-
     /// Returns whether the spinner is editable.
     pub fn is_editable(&self) -> bool {
         self.editable

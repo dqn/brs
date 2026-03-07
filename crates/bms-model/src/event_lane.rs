@@ -19,20 +19,20 @@ impl EventLane {
         let mut bpms = Vec::new();
         let mut stops = Vec::new();
 
-        let timelines = model.all_time_lines();
+        let timelines = &model.timelines;
         let mut prev_bpm: Option<f64> = None;
         for (i, tl) in timelines.iter().enumerate() {
-            if tl.section_line() {
+            if tl.section_line {
                 sections.push(i);
             }
-            let compare_bpm = prev_bpm.unwrap_or(model.bpm());
-            if tl.bpm() != compare_bpm {
+            let compare_bpm = prev_bpm.unwrap_or(model.bpm);
+            if tl.bpm != compare_bpm {
                 bpms.push(i);
             }
             if tl.stop() != 0 {
                 stops.push(i);
             }
-            prev_bpm = Some(tl.bpm());
+            prev_bpm = Some(tl.bpm);
         }
 
         EventLane {

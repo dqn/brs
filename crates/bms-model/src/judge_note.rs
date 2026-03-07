@@ -256,7 +256,7 @@ mod tests {
         let mut tl2 = TimeLine::new(1.0, 2_000_000, 8);
         tl2.set_note(0, Some(Note::new_normal(3)));
 
-        model.set_all_time_line(vec![tl, tl2]);
+        model.timelines = vec![tl, tl2];
 
         let notes = build_judge_notes(&model);
         assert_eq!(notes.len(), 3);
@@ -284,7 +284,7 @@ mod tests {
         let mut tl = TimeLine::new(0.0, 500_000, 8);
         tl.set_note(1, Some(Note::new_mine(10, 0.75)));
 
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
 
         let notes = build_judge_notes(&model);
         assert_eq!(notes.len(), 1);
@@ -314,7 +314,7 @@ mod tests {
         let mut tl2 = TimeLine::new(1.0, 2_000_000, 8);
         tl2.set_note(0, Some(ln_end));
 
-        model.set_all_time_line(vec![tl1, tl2]);
+        model.timelines = vec![tl1, tl2];
 
         let notes = build_judge_notes(&model);
         assert_eq!(notes.len(), 2);
@@ -343,7 +343,7 @@ mod tests {
         let mut tl = TimeLine::new(0.0, 500_000, 8);
         tl.set_note(0, Some(ln));
 
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
 
         let notes = build_judge_notes(&model);
         assert_eq!(notes.len(), 1);
@@ -363,7 +363,7 @@ mod tests {
         let mut tl2 = TimeLine::new(1.0, 2_000_000, 8);
         tl2.set_note(0, Some(Note::new_normal(3))); // lane 0, t=2s
 
-        model.set_all_time_line(vec![tl1, tl2]);
+        model.timelines = vec![tl1, tl2];
 
         let notes = build_judge_notes(&model);
         assert_eq!(notes.len(), 3);

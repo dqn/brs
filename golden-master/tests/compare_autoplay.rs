@@ -120,11 +120,7 @@ fn compare_autoplay_logs(
 fn ensure_timelines_match_fixture(model: &mut BMSModel, timeline_times: &[i64]) {
     use std::collections::HashSet;
 
-    let existing_times: HashSet<i64> = model
-        .all_time_lines()
-        .iter()
-        .map(|tl| tl.micro_time())
-        .collect();
+    let existing_times: HashSet<i64> = model.timelines.iter().map(|tl| tl.micro_time()).collect();
 
     let keys = model.mode().map(|m| m.key()).unwrap_or(8);
 
@@ -145,14 +141,14 @@ fn ensure_timelines_match_fixture(model: &mut BMSModel, timeline_times: &[i64]) 
         let mut tl = TimeLine::new(0.0, t, keys);
         // Set BPM from nearest existing timeline
         if let Some(nearest) = timelines.iter().rfind(|tl| tl.micro_time() <= t) {
-            tl.set_bpm(nearest.bpm());
+            tl.bpm = nearest.get_bpm();
         } else if let Some(first) = timelines.first() {
-            tl.set_bpm(first.bpm());
+            tl.bpm = first.get_bpm();
         }
         timelines.push(tl);
     }
     timelines.sort_by_key(|tl| tl.micro_time());
-    model.set_all_time_line(timelines);
+    model.timelines = timelines;
 }
 
 /// Run a single BMS autoplay golden master test

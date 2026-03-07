@@ -37,20 +37,22 @@ impl IRTableData {
             .map(|f| {
                 let songs: Vec<rubato_types::song_data::SongData> =
                     f.charts.iter().map(|c| c.to_song_data()).collect();
-                let mut tf = TableFolder::default();
-                tf.set_name(f.name.clone());
-                tf.songs = songs;
-                tf
+                TableFolder {
+                    name: Some(f.name.clone()),
+                    songs,
+                }
             })
             .collect();
 
         let course: Vec<rubato_core::course_data::CourseData> =
             self.courses.iter().map(|c| c.to_course_data()).collect();
 
-        let mut td = TableData::default();
-        td.set_name(self.name.clone());
-        td.folder = folder;
-        td.course = course;
+        let mut td = TableData {
+            name: self.name.clone(),
+            folder,
+            course,
+            ..Default::default()
+        };
 
         if td.validate() { Some(td) } else { None }
     }

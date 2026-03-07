@@ -28,14 +28,14 @@ impl GaugeModifier {
         match self {
             GaugeModifier::Total => {
                 if f > 0.0 {
-                    f * model.total() as f32 / model.total_notes() as f32
+                    f * model.total as f32 / model.total_notes() as f32
                 } else {
                     f
                 }
             }
             GaugeModifier::LimitIncrement => {
                 let pg = (0.15f32)
-                    .min(((2.0 * model.total() - 320.0) / model.total_notes() as f64) as f32)
+                    .min(((2.0 * model.total - 320.0) / model.total_notes() as f64) as f32)
                     .max(0.0);
                 if f > 0.0 { f * pg / 0.15 } else { f }
             }
@@ -44,9 +44,8 @@ impl GaugeModifier {
                     let fix2: f32;
 
                     // TOTAL correction (<240)
-                    let fix1: f32 = (10.0
-                        / (10.0f64).min((model.total() / 16.0).floor() - 5.0).max(1.0))
-                        as f32;
+                    let fix1: f32 =
+                        (10.0 / (10.0f64).min((model.total / 16.0).floor() - 5.0).max(1.0)) as f32;
 
                     // Notes count correction (<1000)
                     let total_notes = model.total_notes();
@@ -315,7 +314,7 @@ mod tests {
 
     fn make_model() -> BMSModel {
         let mut model = BMSModel::new();
-        model.set_total(300.0);
+        model.total = 300.0;
         model
     }
 
@@ -634,7 +633,7 @@ mod prop_tests {
 
     fn make_model() -> BMSModel {
         let mut model = BMSModel::new();
-        model.set_total(300.0);
+        model.total = 300.0;
         model
     }
 

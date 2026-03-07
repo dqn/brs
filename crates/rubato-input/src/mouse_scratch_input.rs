@@ -22,7 +22,7 @@ pub struct MouseScratchInput {
     /// Mouse scratch algorithm (None = do not use mouse scratch)
     mouse_scratch_algorithm: [Option<Box<dyn MouseScratchAlgorithm>>; 2],
     /// Last pressed mouse scratch
-    last_mouse_scratch: i32,
+    pub last_mouse_scratch: i32,
     /// Minimum key input interval (Java: stored for potential future use)
     _duration: i32,
     /// Use mouse scratch
@@ -186,10 +186,6 @@ impl MouseScratchInput {
 
     pub fn last_mouse_scratch(&self) -> i32 {
         self.last_mouse_scratch
-    }
-
-    pub fn set_last_mouse_scratch(&mut self, value: i32) {
-        self.last_mouse_scratch = value;
     }
 }
 

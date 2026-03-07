@@ -184,7 +184,7 @@ pub struct SkinConfiguration {
     state_data: MainStateData,
     skin_type: Option<SkinType>,
     config: Option<SkinConfig>,
-    all_skins: Vec<SkinHeaderInfo>,
+    pub all_skins: Vec<SkinHeaderInfo>,
     available_skins: Vec<SkinHeaderInfo>,
     selected_skin_index: i32,
     selected_skin_header: Option<SkinHeaderInfo>,
@@ -192,7 +192,7 @@ pub struct SkinConfiguration {
     custom_option_offset: i32,
     custom_option_offset_max: i32,
     player: PlayerConfig,
-    custom_property_count: i32,
+    pub custom_property_count: i32,
 }
 
 impl SkinConfiguration {
@@ -821,17 +821,6 @@ impl SkinConfiguration {
             log::warn!("load_all_skins: no skin headers loaded from 'skin' directory");
         }
     }
-
-    /// Inject pre-loaded skin headers (for use by external loaders or tests).
-    pub fn set_all_skins(&mut self, skins: Vec<SkinHeaderInfo>) {
-        self.all_skins = skins;
-    }
-
-    /// Set the custom property count (normally read from SkinConfigurationSkin).
-    pub fn set_custom_property_count(&mut self, count: i32) {
-        self.custom_property_count = count;
-    }
-
     /// Get a reference to the current player config.
     pub fn player(&self) -> &PlayerConfig {
         &self.player
@@ -1675,7 +1664,7 @@ mod tests {
             make_test_header("skin/a.json", SkinType::Play7Keys),
             make_test_header("skin/b.json", SkinType::MusicSelect),
         ];
-        sc.set_all_skins(skins);
+        sc.all_skins = skins;
         assert_eq!(sc.all_skins.len(), 2);
     }
 

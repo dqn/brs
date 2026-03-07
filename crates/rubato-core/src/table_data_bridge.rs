@@ -97,8 +97,12 @@ fn course_to_course_data(course: &Course, default_mode: Option<&Mode>) -> Course
         .collect();
     cd.constraint = constraints;
 
-    if !course.trophy().is_empty() {
-        let trophies: Vec<TrophyData> = course.trophy().iter().map(trophy_to_trophy_data).collect();
+    if !course.get_trophy().is_empty() {
+        let trophies: Vec<TrophyData> = course
+            .get_trophy()
+            .iter()
+            .map(trophy_to_trophy_data)
+            .collect();
         cd.trophy = trophies;
     }
 
@@ -109,7 +113,7 @@ fn course_to_course_data(course: &Course, default_mode: Option<&Mode>) -> Course
 fn trophy_to_trophy_data(trophy: &Trophy) -> TrophyData {
     let mut td = TrophyData::default();
     td.set_name(trophy.name().to_string());
-    td.missrate = trophy.missrate() as f32;
+    td.missrate = trophy.get_missrate() as f32;
     td.scorerate = trophy.scorerate() as f32;
     td
 }
@@ -123,7 +127,7 @@ pub fn difficulty_table_to_table_data(dt: &DifficultyTable, url: &str) -> TableD
 
     let tag = dt
         .table
-        .tag()
+        .get_tag()
         .unwrap_or_else(|| dt.table.id().unwrap_or("").to_string());
 
     let folders: Vec<TableFolder> = dt
@@ -134,7 +138,7 @@ pub fn difficulty_table_to_table_data(dt: &DifficultyTable, url: &str) -> TableD
             let songs: Vec<SongData> = dt
                 .elements()
                 .iter()
-                .filter(|dte| dte.level() == lv)
+                .filter(|dte| dte.get_level() == lv)
                 .map(|dte| difficulty_table_element_to_song_data(dte, default_mode.as_ref()))
                 .collect();
             TableFolder {
@@ -186,7 +190,7 @@ mod tests {
         assert_eq!(song.title, "Test Song");
         assert_eq!(song.artist, "Test Artist");
         assert_eq!(song.url(), "https://example.com/download");
-        assert_eq!(song.ipfs_str(), "QmTestHash");
+        assert_eq!(song.get_ipfs_str(), "QmTestHash");
         assert_eq!(song.mode, 0); // no mode set
     }
 
@@ -292,19 +296,19 @@ mod tests {
         let td = difficulty_table_to_table_data(&dt, "https://example.com/table");
 
         assert_eq!(td.name(), "Normal Table");
-        assert_eq!(td.url(), "https://example.com/table");
+        assert_eq!(td.get_url(), "https://example.com/table");
         assert_eq!(td.tag, "N");
-        assert_eq!(td.folder().len(), 2);
+        assert_eq!(td.get_folder().len(), 2);
 
         // Level "1" folder
-        assert_eq!(td.folder()[0].name(), "N1");
-        assert_eq!(td.folder()[0].song().len(), 1);
-        assert_eq!(td.folder()[0].song()[0].md5, "hash_a");
+        assert_eq!(td.get_folder()[0].name(), "N1");
+        assert_eq!(td.get_folder()[0].get_song().len(), 1);
+        assert_eq!(td.get_folder()[0].get_song()[0].md5, "hash_a");
 
         // Level "2" folder
-        assert_eq!(td.folder()[1].name(), "N2");
-        assert_eq!(td.folder()[1].song().len(), 1);
-        assert_eq!(td.folder()[1].song()[0].md5, "hash_b");
+        assert_eq!(td.get_folder()[1].name(), "N2");
+        assert_eq!(td.get_folder()[1].get_song().len(), 1);
+        assert_eq!(td.get_folder()[1].get_song()[0].md5, "hash_b");
     }
 
     #[test]
@@ -322,21 +326,21 @@ mod tests {
 
         let mut course = Course::new();
         course.set_name("Dan 1st");
-        course.set_charts(vec![chart1, chart2]);
-        course.set_constraint(vec!["grade_mirror".to_string(), "gauge_lr2".to_string()]);
+        course.charts = vec![chart1, chart2];
+        course.constraint = vec!["grade_mirror".to_string(), "gauge_lr2".to_string()];
 
         let mut trophy = Trophy::new();
         trophy.set_name("Gold");
-        trophy.set_missrate(5.0);
-        trophy.set_scorerate(90.0);
-        course.set_trophy(vec![trophy]);
+        trophy.missrate = 5.0;
+        trophy.scorerate = 90.0;
+        course.trophy = vec![trophy];
 
-        dt.set_course(vec![vec![course]]);
+        dt.course = vec![vec![course]];
 
         let td = difficulty_table_to_table_data(&dt, "https://example.com/course");
 
-        assert_eq!(td.course().len(), 1);
-        let cd = &td.course()[0];
+        assert_eq!(td.get_course().len(), 1);
+        let cd = &td.get_course()[0];
         assert_eq!(cd.name(), "Dan 1st");
         assert_eq!(cd.hash.len(), 2);
         assert_eq!(cd.hash[0].md5, "course_hash_1");
@@ -367,7 +371,7 @@ mod tests {
 
         let td = difficulty_table_to_table_data(&dt, "https://example.com/dp");
 
-        assert_eq!(td.folder()[0].song()[0].mode, 14);
+        assert_eq!(td.get_folder()[0].get_song()[0].mode, 14);
     }
 
     #[test]
@@ -379,8 +383,8 @@ mod tests {
         let td = difficulty_table_to_table_data(&dt, "https://example.com/empty");
 
         assert_eq!(td.name(), "Empty Table");
-        assert!(td.folder().is_empty());
-        assert!(td.course().is_empty());
+        assert!(td.get_folder().is_empty());
+        assert!(td.get_course().is_empty());
     }
 
     #[test]
@@ -392,7 +396,7 @@ mod tests {
 
         let td = difficulty_table_to_table_data(&dt, "https://example.com");
 
-        // BmsTable.tag() returns id when no tag is set
+        // BmsTable.get_tag() returns id when no tag is set
         assert_eq!(td.tag, "TID");
     }
 
@@ -413,8 +417,8 @@ mod tests {
 
         let td = difficulty_table_to_table_data(&dt, "url");
 
-        assert_eq!(td.folder().len(), 1);
-        assert_eq!(td.folder()[0].song().len(), 3);
+        assert_eq!(td.get_folder().len(), 1);
+        assert_eq!(td.get_folder()[0].get_song().len(), 3);
     }
 
     #[test]
@@ -430,14 +434,14 @@ mod tests {
         let mut course2 = Course::new();
         course2.set_name("Course 2");
 
-        dt.set_course(vec![vec![course1], vec![course2]]);
+        dt.course = vec![vec![course1], vec![course2]];
 
         let td = difficulty_table_to_table_data(&dt, "url");
 
         // flat_map merges all course lists
-        assert_eq!(td.course().len(), 2);
-        assert_eq!(td.course()[0].name(), "Course 1");
-        assert_eq!(td.course()[1].name(), "Course 2");
+        assert_eq!(td.get_course().len(), 2);
+        assert_eq!(td.get_course()[0].name(), "Course 1");
+        assert_eq!(td.get_course()[1].name(), "Course 2");
     }
 
     #[test]
@@ -485,11 +489,11 @@ mod tests {
     fn test_course_unknown_constraint_filtered() {
         let mut course = Course::new();
         course.set_name("Test Course");
-        course.set_constraint(vec![
+        course.constraint = vec![
             "grade_mirror".to_string(),
             "unknown_constraint".to_string(),
             "gauge_lr2".to_string(),
-        ]);
+        ];
 
         let cd = course_to_course_data(&course, None);
 

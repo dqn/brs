@@ -83,8 +83,8 @@ impl TableEditorView {
             },
         };
 
-        self.course_controller.set_course_data(td.course.clone());
-        self.folder_controller.set_table_folder(td.folder.clone());
+        self.course_controller.courses = td.course.clone();
+        self.folder_controller.folders = td.folder.clone();
         self.table_name = td.name.clone();
         self.filepath = Some(p.to_path_buf());
     }
@@ -560,15 +560,15 @@ mod tests {
 
         // Set up view with data
         view.table_name = "Saved Table".to_string();
-        view.course_controller.set_course_data(vec![CourseData {
+        view.course_controller.courses = vec![CourseData {
             name: Some("C1".to_string()),
             hash: vec![make_song("S1", "abcd1234abcd1234abcd1234abcd1234", "sha")],
             ..Default::default()
-        }]);
-        view.folder_controller.set_table_folder(vec![TableFolder {
+        }];
+        view.folder_controller.folders = vec![TableFolder {
             name: Some("F1".to_string()),
             songs: vec![make_song("S2", "1234abcd1234abcd1234abcd1234abcd", "sha2")],
-        }]);
+        }];
 
         let tmpfile = NamedTempFile::with_suffix(".json").unwrap();
         view.filepath = Some(tmpfile.path().to_path_buf());

@@ -97,7 +97,7 @@ mod tests {
     fn collect_note_positions(model: &BMSModel) -> Vec<Vec<(i32, i32)>> {
         let key_count = model.mode().map(|m| m.key()).unwrap_or(0);
         model
-            .all_time_lines()
+            .timelines
             .iter()
             .map(|tl| {
                 (0..key_count)
@@ -291,7 +291,7 @@ mod tests {
 
         // Collect which lane each note ended up on
         let mut assigned_lanes: Vec<i32> = Vec::new();
-        for tl in model.all_time_lines() {
+        for tl in model.timelines {
             for lane in 0..key_count as i32 {
                 if tl.note(lane).is_some() {
                     assigned_lanes.push(lane);
@@ -405,7 +405,7 @@ mod tests {
         let mut model = BMSModel::new();
         let mut tl = TimeLine::new(0.0, 0, 8);
         tl.set_note(0, Some(Note::new_normal(1)));
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
         // Do NOT call model.set_mode()
 
         let config = default_config();
@@ -414,8 +414,8 @@ mod tests {
         modifier.modify(&mut model);
 
         // Note should remain unchanged
-        assert!(model.all_time_lines()[0].note(0).is_some());
-        assert_eq!(model.all_time_lines()[0].note(0).unwrap().wav(), 1);
+        assert!(model.timelines[0].note(0).is_some());
+        assert_eq!(model.timelines[0].note(0).unwrap().wav(), 1);
     }
 
     #[test]
@@ -428,7 +428,7 @@ mod tests {
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
-        assert!(model.all_time_lines().is_empty());
+        assert!(model.timelines.is_empty());
     }
 
     #[test]
@@ -450,7 +450,7 @@ mod tests {
         modifier.modify(&mut model);
 
         // Second timeline should still have no notes
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         let mut has_note = false;
         for lane in 0..key_count as i32 {
             if tls[1].note(lane).is_some() {
@@ -469,7 +469,7 @@ mod tests {
         let mut model = make_model_with_notes(&mode, 5, &note_lanes);
 
         let before_count: usize = model
-            .all_time_lines()
+            .timelines
             .iter()
             .map(|tl| {
                 (0..mode.key())
@@ -483,7 +483,7 @@ mod tests {
         modifier.modify(&mut model);
 
         let after_count: usize = model
-            .all_time_lines()
+            .timelines
             .iter()
             .map(|tl| {
                 (0..mode.key())

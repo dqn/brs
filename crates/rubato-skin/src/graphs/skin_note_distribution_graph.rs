@@ -371,10 +371,10 @@ impl SkinNoteDistributionGraph {
         let mode = model.mode().cloned();
         // #LNMODE is explicitly set to 1 (LN)
         // or #LNMODE is undefined and getLntype (which reflects playconfig) is LN (0)
-        let ignore_ln_end = model.lnmode() == 1
-            || (model.lnmode() == 0 && model.lntype() == bms_model::bms_model::LNTYPE_LONGNOTE);
+        let ignore_ln_end = model.lnmode == 1
+            || (model.lnmode == 0 && model.lntype() == bms_model::bms_model::LNTYPE_LONGNOTE);
 
-        let tls = model.all_time_lines();
+        let tls = &model.timelines;
         for tl in tls {
             let index = (tl.time() / 1000) as usize;
             if index >= self.dist_data.len() {

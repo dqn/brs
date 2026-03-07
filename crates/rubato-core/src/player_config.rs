@@ -92,17 +92,17 @@ mod tests {
         let mut pc = PlayerConfig::default();
 
         pc.random = 3;
-        assert_eq!(pc.random, 3);
+        assert_eq!(pc.get_random(), 3);
 
         pc.random2 = 5;
-        assert_eq!(pc.random2, 5);
+        assert_eq!(pc.get_random2(), 5);
     }
 
     #[test]
     fn test_player_config_doubleoption_getter_setter() {
         let mut pc = PlayerConfig::default();
         pc.doubleoption = 2;
-        assert_eq!(pc.doubleoption, 2);
+        assert_eq!(pc.get_doubleoption(), 2);
     }
 
     #[test]
@@ -116,23 +116,23 @@ mod tests {
     fn test_player_config_lnmode_getter_setter() {
         let mut pc = PlayerConfig::default();
         pc.lnmode = 2;
-        assert_eq!(pc.lnmode, 2);
+        assert_eq!(pc.get_lnmode(), 2);
     }
 
     #[test]
     fn test_player_config_sort_getter_setter() {
         let mut pc = PlayerConfig::default();
         pc.sort = 3;
-        assert_eq!(pc.sort, 3);
+        assert_eq!(pc.get_sort(), 3);
     }
 
     #[test]
     fn test_player_config_sortid_getter_setter() {
         let mut pc = PlayerConfig::default();
-        assert!(pc.sortid().is_none());
+        assert!(pc.get_sortid().is_none());
 
         pc.set_sortid("CLEAR".to_string());
-        assert_eq!(pc.sortid(), Some("CLEAR"));
+        assert_eq!(pc.get_sortid(), Some("CLEAR"));
     }
 
     #[test]
@@ -177,31 +177,31 @@ mod tests {
     fn test_player_config_scroll_mode_getter_setter() {
         let mut pc = PlayerConfig::default();
         pc.scroll_mode = 2;
-        assert_eq!(pc.scroll_mode, 2);
+        assert_eq!(pc.get_scroll_mode(), 2);
     }
 
     #[test]
     fn test_player_config_longnote_mode_getter_setter() {
         let mut pc = PlayerConfig::default();
         pc.longnote_mode = 1;
-        assert_eq!(pc.longnote_mode, 1);
+        assert_eq!(pc.get_longnote_mode(), 1);
     }
 
     #[test]
     fn test_player_config_mine_mode_getter_setter() {
         let mut pc = PlayerConfig::default();
         pc.mine_mode = 1;
-        assert_eq!(pc.mine_mode, 1);
+        assert_eq!(pc.get_mine_mode(), 1);
     }
 
     #[test]
     fn test_player_config_misslayer_duration() {
         let mut pc = PlayerConfig::default();
-        assert_eq!(pc.misslayer_duration(), 500);
+        assert_eq!(pc.get_misslayer_duration(), 500);
 
         // Test negative clamping
         pc.misslayer_duration = -10;
-        assert_eq!(pc.misslayer_duration(), 0);
+        assert_eq!(pc.get_misslayer_duration(), 0);
         // After the call, the field is clamped to 0
         assert_eq!(pc.misslayer_duration, 0);
     }
@@ -246,7 +246,7 @@ mod tests {
 
         let history = vec![crate::skin_config::SkinConfig::default_for_id(0)];
         pc.skin_history = history.clone();
-        assert_eq!(pc.skin_history.len(), 1);
+        assert_eq!(pc.get_skin_history().len(), 1);
     }
 
     #[test]

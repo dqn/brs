@@ -9,7 +9,7 @@ use bms_model::bms_decoder::BMSDecoder;
 /// Helper: collect all WAV indices found across all timelines and lanes.
 fn collect_note_wavs(model: &bms_model::bms_model::BMSModel) -> Vec<i32> {
     let mut wavs = Vec::new();
-    for tl in model.all_time_lines() {
+    for tl in &model.timelines {
         for lane in 0..tl.lane_count() {
             if let Some(note) = tl.note(lane) {
                 wavs.push(note.wav());

@@ -30,7 +30,7 @@ impl SpinnerCell {
             NumericValue::Integer(initial),
             NumericValue::Integer(step),
         );
-        spinner.set_editable(true);
+        spinner.editable = true;
         // Java: spinner.valueProperty().addListener((o, oldValue, newValue) -> {
         //     WritableValue<Integer> cellProperty = (WritableValue<Integer>)
         //         getTableColumn().getCellObservableValue((ControllerConfigViewModel)getTableRow().getItem());

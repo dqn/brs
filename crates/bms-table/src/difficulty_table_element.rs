@@ -14,8 +14,8 @@ pub const STATE_REVIVE: i32 = 6;
 #[derive(Debug, Clone)]
 pub struct DifficultyTableElement {
     pub element: BmsTableElement,
-    state: i32,
-    eval: i32,
+    pub state: i32,
+    pub eval: i32,
     level: String,
     diffname: String,
     comment: String,
@@ -63,12 +63,7 @@ impl DifficultyTableElement {
     pub fn state(&self) -> i32 {
         self.state
     }
-
-    pub fn set_state(&mut self, id: i32) {
-        self.state = id;
-    }
-
-    pub fn level(&self) -> &str {
+    pub fn get_level(&self) -> &str {
         &self.level
     }
 
@@ -86,12 +81,7 @@ impl DifficultyTableElement {
     pub fn evaluation(&self) -> i32 {
         self.eval
     }
-
-    pub fn set_evaluation(&mut self, eval: i32) {
-        self.eval = eval;
-    }
-
-    pub fn package_url(&self) -> Option<&str> {
+    pub fn get_package_url(&self) -> Option<&str> {
         self.element.values.get("url_pack").and_then(|v| v.as_str())
     }
 
@@ -211,7 +201,10 @@ impl DifficultyTableElement {
 
     pub fn values(&self) -> HashMap<String, Value> {
         let mut result = self.element.values.clone();
-        result.insert("level".to_string(), Value::String(self.level().to_string()));
+        result.insert(
+            "level".to_string(),
+            Value::String(self.get_level().to_string()),
+        );
         result.insert(
             "eval".to_string(),
             Value::Number(serde_json::Number::from(self.evaluation())),

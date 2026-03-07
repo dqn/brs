@@ -91,7 +91,7 @@ impl IRChartData {
     pub fn new_with_lntype(song: &SongData, lntype: i32) -> Self {
         let model = song.bms_model();
         let total = if let Some(m) = model {
-            m.total() as i32
+            m.total as i32
         } else {
             0
         };
@@ -99,7 +99,7 @@ impl IRChartData {
 
         let mut values = HashMap::new();
         if let Some(m) = model {
-            for (k, v) in m.values() {
+            for (k, v) in m.get_values() {
                 values.insert(k.clone(), v.clone());
             }
         }

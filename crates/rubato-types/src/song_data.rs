@@ -148,7 +148,7 @@ impl SongData {
 
     pub fn set_bms_model(&mut self, model: BMSModel) {
         // BMSPlayerRule::validate(&model) - stubbed, no-op
-        self.set_title(model.title().to_string());
+        self.set_title(model.get_title().to_string());
         self.set_subtitle(model.sub_title().to_string());
         self.genre = model.genre().to_string();
         self.set_artist(model.artist().to_string());
@@ -166,7 +166,7 @@ impl SongData {
             self.preview = model.preview().to_string();
         }
 
-        if let Ok(l) = model.playlevel().parse::<i32>() {
+        if let Ok(l) = model.get_playlevel().parse::<i32>() {
             self.level = l;
         }
 
@@ -175,16 +175,16 @@ impl SongData {
             self.difficulty = model.difficulty();
         }
         self.judge = model.judgerank();
-        self.minbpm = model.min_bpm() as i32;
+        self.minbpm = model.get_min_bpm() as i32;
         self.maxbpm = model.max_bpm() as i32;
         self.feature = 0;
 
         let keys = model.mode().map(|m| m.key()).unwrap_or(0);
-        for tl in model.all_time_lines() {
+        for tl in &model.timelines {
             if tl.stop() > 0 {
                 self.feature |= FEATURE_STOPSEQUENCE;
             }
-            if tl.scroll() != 1.0 {
+            if tl.scroll != 1.0 {
                 self.feature |= FEATURE_SCROLL;
             }
 
@@ -214,7 +214,7 @@ impl SongData {
         {
             self.feature |= FEATURE_RANDOM;
         }
-        if !model.bga_list().is_empty() {
+        if !model.bgamap.is_empty() {
             self.content |= CONTENT_BGA;
         }
         if self.length >= 30000
@@ -391,14 +391,92 @@ impl SongData {
         self.appendurl.as_deref().unwrap_or("")
     }
 
-    pub fn charthash(&self) -> Option<&str> {
+    pub fn get_level(&self) -> i32 {
+        self.level
+    }
+
+    pub fn get_judge(&self) -> i32 {
+        self.judge
+    }
+
+    pub fn get_minbpm(&self) -> i32 {
+        self.minbpm
+    }
+
+    pub fn get_maxbpm(&self) -> i32 {
+        self.maxbpm
+    }
+
+    pub fn get_notes(&self) -> i32 {
+        self.notes
+    }
+
+    pub fn get_mode(&self) -> i32 {
+        self.mode
+    }
+
+    pub fn get_difficulty(&self) -> i32 {
+        self.difficulty
+    }
+
+    pub fn get_favorite(&self) -> i32 {
+        self.favorite
+    }
+    pub fn get_feature(&self) -> i32 {
+        self.feature
+    }
+
+    pub fn get_content(&self) -> i32 {
+        self.content
+    }
+
+    pub fn get_length(&self) -> i32 {
+        self.length
+    }
+
+    pub fn get_date(&self) -> i32 {
+        self.date
+    }
+
+    pub fn get_adddate(&self) -> i32 {
+        self.adddate
+    }
+
+    pub fn get_tag(&self) -> &str {
+        &self.tag
+    }
+
+    pub fn get_folder(&self) -> &str {
+        &self.folder
+    }
+
+    pub fn get_parent(&self) -> &str {
+        &self.parent
+    }
+
+    pub fn get_stagefile(&self) -> &str {
+        &self.stagefile
+    }
+
+    pub fn get_backbmp(&self) -> &str {
+        &self.backbmp
+    }
+
+    pub fn get_banner(&self) -> &str {
+        &self.banner
+    }
+
+    pub fn get_preview(&self) -> &str {
+        &self.preview
+    }
+
+    pub fn get_charthash(&self) -> Option<&str> {
         self.charthash.as_deref()
     }
 
     pub fn song_information(&self) -> Option<&SongInformation> {
         self.info.as_ref()
     }
-
     pub fn set_url(&mut self, url: String) {
         self.url = Some(url);
     }
@@ -406,8 +484,7 @@ impl SongData {
     pub fn set_appendurl(&mut self, appendurl: String) {
         self.appendurl = Some(appendurl);
     }
-
-    pub fn ipfs_str(&self) -> &str {
+    pub fn get_ipfs_str(&self) -> &str {
         self.ipfs.as_deref().unwrap_or("")
     }
 
@@ -564,7 +641,7 @@ mod tests {
     #[test]
     fn test_field_accessors() {
         let mut sd = SongData::new();
-        sd.set_title("My Title".to_string());
+        sd.title = "My Title".to_string();
         sd.set_subtitle("Sub".to_string());
         sd.genre = "Pop".to_string();
         sd.set_artist("Artist A".to_string());
@@ -592,7 +669,7 @@ mod tests {
     #[test]
     fn test_full_title_with_subtitle() {
         let mut sd = SongData::new();
-        sd.set_title("Main".to_string());
+        sd.title = "Main".to_string();
         sd.set_subtitle("Extra".to_string());
 
         assert_eq!(sd.full_title(), "Main Extra");
@@ -603,7 +680,7 @@ mod tests {
     #[test]
     fn test_full_title_without_subtitle() {
         let mut sd = SongData::new();
-        sd.set_title("Main".to_string());
+        sd.title = "Main".to_string();
 
         assert_eq!(sd.full_title(), "Main");
         assert_eq!(sd.full_title(), "Main");
@@ -731,7 +808,7 @@ mod tests {
     #[test]
     fn test_shrink() {
         let mut sd = SongData::new();
-        sd.set_title("Title".to_string());
+        sd.title = "Title".to_string();
         sd.set_subtitle("Sub".to_string());
         sd.set_path("/path".to_string());
         sd.level = 10;
@@ -752,7 +829,7 @@ mod tests {
     #[test]
     fn test_clone() {
         let mut sd = SongData::new();
-        sd.set_title("Clone Test".to_string());
+        sd.title = "Clone Test".to_string();
         sd.md5 = "md5clone".to_string();
         sd.level = 7;
 
@@ -765,12 +842,12 @@ mod tests {
     #[test]
     fn test_ipfs_accessors() {
         let mut sd = SongData::new();
-        assert_eq!(sd.ipfs_str(), "");
+        assert_eq!(sd.get_ipfs_str(), "");
         assert_eq!(sd.append_ipfs_str(), "");
 
         sd.ipfs = Some("Qm123".to_string());
         sd.appendipfs = Some("Qm456".to_string());
-        assert_eq!(sd.ipfs_str(), "Qm123");
+        assert_eq!(sd.get_ipfs_str(), "Qm123");
         assert_eq!(sd.append_ipfs_str(), "Qm456");
     }
 

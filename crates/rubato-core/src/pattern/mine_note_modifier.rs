@@ -234,7 +234,7 @@ mod tests {
         let mut modifier = MineNoteModifier::new(); // default is Remove
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Mine note in lane 0 should be removed
         assert!(tls[0].note(0).is_none());
         // Normal note in lane 1 should remain
@@ -272,7 +272,7 @@ mod tests {
         let mut modifier = MineNoteModifier::with_mode(3); // AddBlank
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Lane 0 should still have the normal note
         assert!(tls[0].note(0).unwrap().is_normal());
         // All other lanes should have mine notes
@@ -301,7 +301,7 @@ mod tests {
         let mut modifier = MineNoteModifier::with_mode(2); // AddNear
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Lane 3 should still have normal note
         assert!(tls[0].note(3).unwrap().is_normal());
         // Lane 2 (adjacent) should have a mine

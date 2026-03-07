@@ -650,7 +650,7 @@ impl BarRenderer {
     /// Translates: Java BarRenderer.input()
     pub fn input(&mut self, ctx: &mut BarInputContext) {
         // song bar scroll on mouse wheel
-        let mut mov = -ctx.input.scroll();
+        let mut mov = -ctx.input.get_scroll();
         ctx.input.reset_scroll();
 
         // analog scroll

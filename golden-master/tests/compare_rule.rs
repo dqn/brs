@@ -71,7 +71,7 @@ fn gauge_index_to_clear_type(index: usize) -> ClearType {
 /// Adds exactly `total_notes` normal notes to a BEAT_7K model.
 fn make_model_for_gauge(total: f64, total_notes: usize) -> BMSModel {
     let mut model = BMSModel::new();
-    model.set_total(total);
+    model.total = total;
     model.set_mode(Mode::BEAT_7K);
 
     let key_count = model.mode().unwrap().key();
@@ -82,13 +82,13 @@ fn make_model_for_gauge(total: f64, total_notes: usize) -> BMSModel {
         let section = i as f64;
         let time_us = (i as i64 + 1) * 100_000; // 100ms apart
         let mut tl = TimeLine::new(section, time_us, key_count);
-        tl.set_bpm(120.0);
+        tl.bpm = 120.0;
         // Place note on lane 0
         let note = Note::new_normal(1);
         tl.set_note(0, Some(note));
         timelines.push(tl);
     }
-    model.set_all_time_line(timelines);
+    model.timelines = timelines;
 
     model
 }

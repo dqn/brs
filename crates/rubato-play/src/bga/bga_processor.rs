@@ -137,14 +137,14 @@ impl BGAProcessor {
         self.reset_currently_playing_bga();
 
         let mut tls = Vec::new();
-        for tl in model.all_time_lines() {
-            if tl.bga() != -1 || tl.layer() != -1 || !tl.eventlayer().is_empty() {
+        for tl in &model.timelines {
+            if tl.bga() != -1 || tl.layer != -1 || !tl.eventlayer.is_empty() {
                 tls.push(BgaTimeline {
                     // Java TimeLine.getTime() returns (int)(time / 1000) i.e. milliseconds
                     time_ms: tl.time() as i64,
                     bga: tl.bga(),
-                    layer: tl.layer(),
-                    eventlayer: tl.eventlayer().to_vec(),
+                    layer: tl.layer,
+                    eventlayer: tl.eventlayer.to_vec(),
                 });
             }
         }
@@ -476,11 +476,11 @@ mod tests {
         let mut timelines = Vec::new();
         for &(time_us, bga, layer) in entries {
             let mut tl = TimeLine::new(0.0, time_us, 18);
-            tl.set_bga(bga);
-            tl.set_layer(layer);
+            tl.bga = bga;
+            tl.layer = layer;
             timelines.push(tl);
         }
-        model.set_all_time_line(timelines);
+        model.timelines = timelines;
         model
     }
 

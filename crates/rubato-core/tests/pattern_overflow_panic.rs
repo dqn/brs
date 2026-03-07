@@ -20,7 +20,7 @@ use rubato_core::pattern::lane_shuffle_modifier::LaneCrossShuffleModifier;
 #[test]
 fn cross_shuffle_empty_keys_returns_identity() {
     let mut model = BMSModel::new();
-    model.set_all_time_line(vec![TimeLine::new(0.0, 0, 8)]);
+    model.timelines = vec![TimeLine::new(0.0, 0, 8)];
     model.set_mode(Mode::BEAT_7K);
 
     let result = LaneCrossShuffleModifier::make_random(&[], &model, 42);
@@ -31,7 +31,7 @@ fn cross_shuffle_empty_keys_returns_identity() {
 #[test]
 fn cross_shuffle_single_key_returns_identity() {
     let mut model = BMSModel::new();
-    model.set_all_time_line(vec![TimeLine::new(0.0, 0, 8)]);
+    model.timelines = vec![TimeLine::new(0.0, 0, 8)];
     model.set_mode(Mode::BEAT_7K);
 
     let result = LaneCrossShuffleModifier::make_random(&[0], &model, 42);
@@ -49,7 +49,7 @@ fn rotate_shuffle_empty_keys_returns_identity() {
     use rubato_core::pattern::lane_shuffle_modifier::LaneRotateShuffleModifier;
 
     let mut model = BMSModel::new();
-    model.set_all_time_line(vec![TimeLine::new(0.0, 0, 8)]);
+    model.timelines = vec![TimeLine::new(0.0, 0, 8)];
     model.set_mode(Mode::BEAT_7K);
 
     let result = LaneRotateShuffleModifier::make_random(&[], &model, 42);
@@ -78,7 +78,7 @@ fn mode_modifier_hran_threshold_bpm_zero_handled() {
     let mut modifier = ModeModifier::new(Mode::BEAT_7K, Mode::POPN_9K, config);
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
-    model.set_all_time_line(vec![TimeLine::new(0.0, 0, 9)]);
+    model.timelines = vec![TimeLine::new(0.0, 0, 9)];
 
     // Should not panic — the <= 0 branch avoids the division
     modifier.modify(&mut model);
@@ -99,7 +99,7 @@ fn mode_modifier_hran_threshold_bpm_negative_handled() {
     let mut modifier = ModeModifier::new(Mode::BEAT_7K, Mode::POPN_9K, config);
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
-    model.set_all_time_line(vec![TimeLine::new(0.0, 0, 9)]);
+    model.timelines = vec![TimeLine::new(0.0, 0, 9)];
 
     // Should not panic
     modifier.modify(&mut model);

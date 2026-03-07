@@ -72,10 +72,10 @@ impl OSUDecoder {
         model.set_artist(&osu.metadata.artist);
         model.set_sub_artist(&osu.metadata.creator);
         model.set_genre(format!("{}K", keymode));
-        model.set_judgerank(3);
-        model.set_judgerank_type(JudgeRankType::BmsRank);
-        model.set_total(0.0);
-        model.set_total_type(TotalType::Bms);
+        model.judgerank = 3;
+        model.judgerank_type = JudgeRankType::BmsRank;
+        model.total = 0.0;
+        model.total_type = TotalType::Bms;
         model.set_playlevel("");
 
         let mapping: Vec<i32> = match keymode {
@@ -179,47 +179,47 @@ impl OSUDecoder {
             }
         }
 
-        model.set_bpm(get_bpm(&timing_points, 0));
+        model.bpm = get_bpm(&timing_points, 0);
 
         bga_list.push(model.backbmp().to_string());
         let bgm_tl = get_timeline(&mut timelines, 0, 0.0, mode_key);
         let bgm = Note::new_normal_with_start_duration(0, 0, 0);
         bgm_tl.add_back_ground_note(bgm);
-        bgm_tl.set_bpm(get_bpm(&timing_points, bgm_tl.time()));
-        bgm_tl.set_scroll(get_sv(&svs, bgm_tl.time()));
-        bgm_tl.set_bga(bga_list.len() as i32 - 1);
+        bgm_tl.bpm = get_bpm(&timing_points, bgm_tl.time());
+        bgm_tl.scroll = get_sv(&svs, bgm_tl.time());
+        bgm_tl.bga = bga_list.len() as i32 - 1;
 
         for (i, &(start_time, _)) in videos.iter().enumerate() {
             let section = get_section(&timing_points, start_time);
             let tl = get_timeline(&mut timelines, start_time, section, mode_key);
-            tl.set_bga(i as i32);
-            tl.set_bpm(get_bpm(&timing_points, start_time));
-            tl.set_scroll(get_sv(&svs, start_time));
+            tl.bga = i as i32;
+            tl.bpm = get_bpm(&timing_points, start_time);
+            tl.scroll = get_sv(&svs, start_time);
         }
         for (i, &(start_time, _)) in bg_sounds.iter().enumerate() {
             let section = get_section(&timing_points, start_time);
             let tl = get_timeline(&mut timelines, start_time, section, mode_key);
             let note = Note::new_normal_with_start_duration((i + 1) as i32, start_time as i64, 0);
             tl.add_back_ground_note(note);
-            tl.set_bpm(get_bpm(&timing_points, start_time));
-            tl.set_scroll(get_sv(&svs, start_time));
+            tl.bpm = get_bpm(&timing_points, start_time);
+            tl.scroll = get_sv(&svs, start_time);
         }
 
         for point in &timing_points {
             let time = point.time as i32;
             let section = get_section(&timing_points, time);
             let tl = get_timeline(&mut timelines, time, section, mode_key);
-            tl.set_bpm(safe_bpm_from_beat_length(point.beat_length as f64));
-            tl.set_scroll(get_sv(&svs, time));
+            tl.bpm = safe_bpm_from_beat_length(point.beat_length as f64);
+            tl.scroll = get_sv(&svs, time);
         }
         for sv in &svs {
             let time = sv.time as i32;
             let section = get_section(&timing_points, time);
             let tl = get_timeline(&mut timelines, time, section, mode_key);
             if sv.beat_length != 0.0 {
-                tl.set_scroll(100.0 / (-sv.beat_length as f64));
+                tl.scroll = 100.0 / (-sv.beat_length as f64);
             }
-            tl.set_bpm(get_bpm(&timing_points, time));
+            tl.bpm = get_bpm(&timing_points, time);
         }
 
         // Generate section lines
@@ -241,25 +241,25 @@ impl OSUDecoder {
             };
             if total_sections > 10000.0 {
                 let first_line = get_timeline(&mut timelines, begin_time, begin_section, mode_key);
-                first_line.set_bpm(safe_bpm_from_beat_length(point.beat_length as f64));
-                first_line.set_scroll(get_sv(&svs, begin_time));
-                first_line.set_section_line(true);
+                first_line.bpm = safe_bpm_from_beat_length(point.beat_length as f64);
+                first_line.scroll = get_sv(&svs, begin_time);
+                first_line.section_line = true;
 
                 let end_sec = begin_section + total_sections as f64;
                 let last_line = get_timeline(&mut timelines, end_time, end_sec, mode_key);
                 let first_bpm = safe_bpm_from_beat_length(point.beat_length as f64);
-                last_line.set_bpm(first_bpm);
-                last_line.set_scroll(get_sv(&svs, end_time));
-                last_line.set_section_line(true);
+                last_line.bpm = first_bpm;
+                last_line.scroll = get_sv(&svs, end_time);
+                last_line.section_line = true;
                 continue;
             }
             for section_idx in 0..=(total_sections as i32) {
                 let time = begin_time + (section_idx as f32 * point.beat_length * 4.0) as i32;
                 let section = begin_section + section_idx as f64;
                 let line = get_timeline(&mut timelines, time, section, mode_key);
-                line.set_bpm(safe_bpm_from_beat_length(point.beat_length as f64));
-                line.set_scroll(get_sv(&svs, time));
-                line.set_section_line(true);
+                line.bpm = safe_bpm_from_beat_length(point.beat_length as f64);
+                line.scroll = get_sv(&svs, time);
+                line.section_line = true;
             }
         }
 
@@ -276,8 +276,8 @@ impl OSUDecoder {
             let section = get_section(&timing_points, adjusted_time);
 
             let tl = get_timeline(&mut timelines, adjusted_time, section, mode_key);
-            tl.set_bpm(get_bpm(&timing_points, tl.time()));
-            tl.set_scroll(get_sv(&svs, tl.time()));
+            tl.bpm = get_bpm(&timing_points, tl.time());
+            tl.scroll = get_sv(&svs, tl.time());
             let is_mania_hold = (hit_object.hit_type & 0x80) > 0;
             let wav_idx: i32 = -2;
 
@@ -308,8 +308,8 @@ impl OSUDecoder {
                 tail.set_long_note_type(model.lntype());
                 tail.set_end(true);
                 let tail_tl = get_timeline(&mut timelines, tail_time_ms, tail_section, mode_key);
-                tail_tl.set_bpm(get_bpm(&timing_points, tail_time_ms));
-                tail_tl.set_scroll(get_sv(&svs, tail_time_ms));
+                tail_tl.bpm = get_bpm(&timing_points, tail_time_ms);
+                tail_tl.scroll = get_sv(&svs, tail_time_ms);
                 tail_tl.set_note(mapping[column_idx as usize], Some(tail));
             } else {
                 let note =
@@ -318,10 +318,10 @@ impl OSUDecoder {
             }
         }
 
-        model.set_wav_list(wavmap);
+        model.wavmap = wavmap;
         let tl_vec: Vec<TimeLine> = timelines.into_values().collect();
-        model.set_all_time_line(tl_vec);
-        model.set_bga_list(bga_list);
+        model.timelines = tl_vec;
+        model.bgamap = bga_list;
         model.set_chart_information(ChartInformation::new(
             Some(f.to_path_buf()),
             self.lntype,

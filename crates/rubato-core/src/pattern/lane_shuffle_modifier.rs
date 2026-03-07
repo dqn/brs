@@ -74,7 +74,7 @@ fn lane_shuffle_modify(
             random_sb.push_str(&(r + 1).to_string());
         }
         add_random_history(RandomHistoryEntry::new(
-            model.title().to_string(),
+            model.get_title().to_string(),
             random_sb,
         ));
     }
@@ -795,7 +795,7 @@ impl LanePlayableRandomShuffleModifier {
         let mut original_pattern_list: HashSet<i32> = HashSet::new();
 
         // Build list of 3+ simultaneous press patterns
-        for tl in model.all_time_lines() {
+        for tl in &model.timelines {
             if tl.exist_note() {
                 // LN
                 for i in 0..lanes {
@@ -1054,7 +1054,7 @@ mod tests {
         // For BEAT_7K without scratch: keys = [0,1,2,3,4,5,6]
         // Mirror should reverse: result[0]=6, result[1]=5, ..., result[6]=0
         let mut model = BMSModel::new();
-        model.set_all_time_line(vec![TimeLine::new(0.0, 0, 8)]);
+        model.timelines = vec![TimeLine::new(0.0, 0, 8)];
         model.set_mode(Mode::BEAT_7K);
 
         let keys = PatternModifierBase::keys_static(&Mode::BEAT_7K, 0, false);
@@ -1068,7 +1068,7 @@ mod tests {
     #[test]
     fn mirror_make_random_with_scratch() {
         let mut model = BMSModel::new();
-        model.set_all_time_line(vec![TimeLine::new(0.0, 0, 8)]);
+        model.timelines = vec![TimeLine::new(0.0, 0, 8)];
         model.set_mode(Mode::BEAT_7K);
 
         let keys = PatternModifierBase::keys_static(&Mode::BEAT_7K, 0, true);
@@ -1090,7 +1090,7 @@ mod tests {
         let mut modifier = LaneMirrorShuffleModifier::new(0, false);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Lane 0 mirrored to lane 6, lane 6 mirrored to lane 0
         assert_eq!(tls[0].note(6).unwrap().wav(), 10);
         assert_eq!(tls[0].note(0).unwrap().wav(), 20);

@@ -140,7 +140,7 @@ pub fn apply_modify_log(model: &mut BMSModel, log: &[PatternModifyLog]) {
     for tl in timelines.iter_mut() {
         let mut pm: Option<&PatternModifyLog> = None;
         for pms in log {
-            if pms.section == tl.section() {
+            if pms.section == tl.get_section() {
                 pm = Some(pms);
                 break;
             }
@@ -200,7 +200,7 @@ pub fn create_pattern_modifier(
 #[cfg(test)]
 pub(crate) fn make_test_model(mode: &Mode, timelines: Vec<TimeLine>) -> BMSModel {
     let mut model = BMSModel::new();
-    model.set_all_time_line(timelines);
+    model.timelines = timelines;
     model.set_mode(mode.clone());
     model
 }
@@ -345,7 +345,7 @@ mod tests {
     fn identity_modifier_does_not_change_model() {
         let mut model = BMSModel::new();
         let tl = TimeLine::new(0.0, 0, 8);
-        model.set_all_time_line(vec![tl]);
+        model.timelines = vec![tl];
         model.set_mode(Mode::BEAT_7K);
         let note = Note::new_normal(1);
         model.all_time_lines_mut()[0].set_note(0, Some(note));
@@ -354,8 +354,8 @@ mod tests {
         modifier.modify(&mut model);
 
         // Note should still be in lane 0
-        assert!(model.all_time_lines()[0].note(0).is_some());
-        assert_eq!(model.all_time_lines()[0].note(0).unwrap().wav(), 1);
+        assert!(model.timelines[0].note(0).is_some());
+        assert_eq!(model.timelines[0].note(0).unwrap().wav(), 1);
     }
 
     // -- keys --
@@ -473,7 +473,7 @@ mod tests {
         let log = vec![PatternModifyLog::new(1.0, vec![1, 0, 2, 3, 4, 5, 6, 7])];
         apply_modify_log(&mut model, &log);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Lane 0 should now have wav=20 (originally from lane 1)
         assert_eq!(tls[0].note(0).unwrap().wav(), 20);
         // Lane 1 should now have wav=10 (originally from lane 0)
@@ -492,7 +492,7 @@ mod tests {
         let log = vec![PatternModifyLog::new(2.0, vec![1, 0, 2, 3, 4, 5, 6, 7])];
         apply_modify_log(&mut model, &log);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         assert_eq!(tls[0].note(0).unwrap().wav(), 10);
     }
 }

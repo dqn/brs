@@ -673,8 +673,8 @@ impl MainController {
             let st = current.state_type();
             let timer = &mut current.main_state_data_mut().timer;
             timer.set_main_state();
-            timer.set_state_type(st);
-            timer.set_timer_on(rubato_types::timer_id::TimerId::new(0));
+            timer.state_type = st;
+            timer.set_timer_on(rubato_types::timer_id::TimerId(0));
         }
 
         // Prepare the new state
@@ -910,7 +910,7 @@ impl MainController {
             // Advance the state's timer each frame (Java shares one timer;
             // Rust has separate TimerManagers for controller and state).
             data.timer.update();
-            data.timer.set_state_type(st);
+            data.timer.state_type = st;
 
             if current.main_state_data().skin.is_some() {
                 if let Some(ref mut s) = sprite {
@@ -975,13 +975,13 @@ impl MainController {
             if let Some(score) = handoff.score_data {
                 resource.set_score_data(score);
             }
-            resource.set_combo(handoff.combo);
-            resource.set_maxcombo(handoff.maxcombo);
+            resource.combo = handoff.combo;
+            resource.maxcombo = handoff.maxcombo;
             resource.set_gauge(handoff.gauge);
             if let Some(gg) = handoff.groove_gauge {
                 resource.set_groove_gauge(gg);
             }
-            resource.set_assist(handoff.assist);
+            resource.assist = handoff.assist;
         }
 
         // Reload BMS file (before state change so new Play state gets fresh model)
@@ -1070,7 +1070,7 @@ impl MainController {
                 // Mouse moved → cursor visibility timer
                 if input.is_mouse_moved() {
                     self.lifecycle.mouse_moved_time = time;
-                    input.set_mouse_moved(false);
+                    input.mouse_moved = false;
                 }
             }
 

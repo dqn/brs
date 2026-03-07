@@ -18,10 +18,6 @@ impl WebhookInfo {
     }
 
     // public void setUrl(String url)
-    pub fn set_url(&mut self, url: String) {
-        self.url = url;
-    }
-
     // public StringProperty urlProperty()
     // In Rust, the field is accessed directly — no JavaFX property wrapper needed.
 

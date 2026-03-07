@@ -174,7 +174,7 @@ impl DifficultyTableParser {
             for url in &urls {
                 let conf = dt
                     .table
-                    .merge_configurations()
+                    .get_merge_configurations()
                     .get(url)
                     .cloned()
                     .unwrap_or_default();
@@ -194,12 +194,12 @@ impl DifficultyTableParser {
                     levels.push(l.clone());
                 }
                 for dte in table.elements() {
-                    let level_conf = conf.get(dte.level());
+                    let level_conf = conf.get(dte.get_level());
                     if level_conf.is_none_or(|v| !v.is_empty()) {
                         let contains = false;
                         if !contains {
                             let mut dte = dte.clone();
-                            if let Some(new_level) = conf.get(dte.level()) {
+                            if let Some(new_level) = conf.get(dte.get_level()) {
                                 dte.set_level(Some(new_level));
                             }
                             elements.push(dte);
@@ -248,14 +248,14 @@ impl DifficultyTableParser {
         let dataurl = result.get("data_url");
         if let Some(du) = dataurl {
             if let Some(s) = du.as_str() {
-                dt.table.set_data_url(vec![s.to_string()]);
+                dt.table.data_url = vec![s.to_string()];
             }
             if let Some(arr) = du.as_array() {
                 let urls: Vec<String> = arr
                     .iter()
                     .filter_map(|v| v.as_str().map(|s| s.to_string()))
                     .collect();
-                dt.table.set_data_url(urls);
+                dt.table.data_url = urls;
             }
         }
         let mut mergerule: HashMap<String, HashMap<String, String>> = HashMap::new();
@@ -284,7 +284,7 @@ impl DifficultyTableParser {
         for (url, m) in data_urls.iter().zip(merge.iter()) {
             mergerule.insert(url.clone(), m.clone());
         }
-        dt.table.set_merge_configurations(mergerule);
+        dt.table.merge_configurations = mergerule;
         let mut courses: Vec<Vec<Course>> = Vec::new();
         if let Some(course_val) = result.get("course") {
             if let Some(course_arr) = course_val.as_array()
@@ -336,17 +336,17 @@ impl DifficultyTableParser {
                             }
                         }
                     }
-                    gr.set_charts(charts);
+                    gr.charts = charts;
                     if let Some(style) = grade_obj.get("style").and_then(|v| v.as_str()) {
                         gr.set_style(style);
                     }
-                    gr.set_constraint(vec!["grade_mirror".to_string(), "gauge_lr2".to_string()]);
+                    gr.constraint = vec!["grade_mirror".to_string(), "gauge_lr2".to_string()];
                     l.push(gr);
                 }
             }
             courses.push(l);
         }
-        dt.set_course(courses);
+        dt.course = courses;
         if result.get("name").is_none() || result.get("symbol").is_none() {
             return Err(anyhow::anyhow!(
                 "\u{30d8}\u{30c3}\u{30c0}\u{90e8}\u{306e}\u{60c5}\u{5831}\u{304c}\u{4e0d}\u{8db3}\u{3057}\u{3066}\u{3044}\u{307e}\u{3059}"
@@ -449,7 +449,7 @@ impl DifficultyTableParser {
             );
             header.insert(
                 "tag".to_string(),
-                Value::String(dt.table.tag().unwrap_or_default()),
+                Value::String(dt.table.get_tag().unwrap_or_default()),
             );
             let levels: Vec<Value> = dt
                 .level_description()
@@ -464,7 +464,7 @@ impl DifficultyTableParser {
             } else if data_urls.len() == 1 {
                 header.insert("data_url".to_string(), Value::String(data_urls[0].clone()));
             }
-            let attrmap = dt.table.attrmap();
+            let attrmap = dt.table.get_attrmap();
             if !attrmap.is_empty() {
                 let obj: serde_json::Map<String, Value> = attrmap
                     .into_iter()
@@ -480,7 +480,10 @@ impl DifficultyTableParser {
                 for g in &course[0] {
                     let mut m: serde_json::Map<String, Value> = serde_json::Map::new();
                     m.insert("name".to_string(), Value::String(g.name().to_string()));
-                    m.insert("style".to_string(), Value::String(g.style().to_string()));
+                    m.insert(
+                        "style".to_string(),
+                        Value::String(g.get_style().to_string()),
+                    );
                     grade.push(Value::Object(m));
                 }
                 header.insert("course".to_string(), Value::Array(grade));
@@ -510,7 +513,7 @@ impl DifficultyTableParser {
                 .and_then(|s| s.to_str())
                 .unwrap_or_default()
                 .to_string();
-            dt.table.set_data_url(vec![data_filename]);
+            dt.table.data_url = vec![data_filename];
             self.encode_json_table_header(dt, jsonheader);
             let mut datas: Vec<HashMap<String, Value>> = Vec::new();
             for te in &dt.elements() {
@@ -663,7 +666,7 @@ impl DifficultyTableParser {
         if dt.level_description().is_empty() {
             let mut l: Vec<String> = Vec::new();
             for elem in &result {
-                let level = elem.level().to_string();
+                let level = elem.get_level().to_string();
                 if !l.contains(&level) {
                     l.push(level);
                 }
@@ -711,7 +714,7 @@ fn parse_course(grade_obj: &serde_json::Map<String, Value>) -> Result<Course> {
             }
         }
     }
-    gr.set_charts(charts);
+    gr.charts = charts;
     if let Some(style) = grade_obj.get("style").and_then(|v| v.as_str()) {
         gr.set_style(style);
     }
@@ -720,7 +723,7 @@ fn parse_course(grade_obj: &serde_json::Map<String, Value>) -> Result<Course> {
             .iter()
             .filter_map(|v| v.as_str().map(|s| s.to_string()))
             .collect();
-        gr.set_constraint(constraint);
+        gr.constraint = constraint;
     }
     if let Some(trophy_val) = grade_obj.get("trophy")
         && let Some(trophy_arr) = trophy_val.as_array()
@@ -733,10 +736,10 @@ fn parse_course(grade_obj: &serde_json::Map<String, Value>) -> Result<Course> {
                     t.set_name(name);
                 }
                 if let Some(missrate) = tr_obj.get("missrate").and_then(|v| v.as_f64()) {
-                    t.set_missrate(missrate);
+                    t.missrate = missrate;
                 }
                 if let Some(scorerate) = tr_obj.get("scorerate").and_then(|v| v.as_f64()) {
-                    t.set_scorerate(scorerate);
+                    t.scorerate = scorerate;
                 }
                 if let Some(style) = tr_obj.get("style").and_then(|v| v.as_str()) {
                     t.set_style(style);
@@ -744,7 +747,7 @@ fn parse_course(grade_obj: &serde_json::Map<String, Value>) -> Result<Course> {
                 trophy_list.push(t);
             }
         }
-        gr.set_trophy(trophy_list);
+        gr.trophy = trophy_list;
     }
     Ok(gr)
 }
@@ -826,10 +829,10 @@ mod tests {
         assert_eq!(elements.len(), 2);
         assert_eq!(elements[0].element.title().unwrap(), "Song 1");
         assert_eq!(elements[0].element.md5().unwrap(), "abc123");
-        assert_eq!(elements[0].level(), "5");
+        assert_eq!(elements[0].get_level(), "5");
         assert_eq!(elements[1].element.title().unwrap(), "Song 2");
         assert_eq!(elements[1].element.sha256().unwrap(), "def456");
-        assert_eq!(elements[1].level(), "10");
+        assert_eq!(elements[1].get_level(), "10");
     }
 
     #[test]
@@ -893,7 +896,7 @@ mod tests {
         dt.table.set_name("Roundtrip Table");
         dt.table.set_id("RT");
         dt.table.set_tag("roundtrip-tag");
-        dt.table.set_data_url(vec!["data.json".to_string()]);
+        dt.table.data_url = vec!["data.json".to_string()];
         dt.set_level_description(&["1".to_string(), "2".to_string(), "3".to_string()]);
 
         let parser = DifficultyTableParser::new();
@@ -1021,19 +1024,19 @@ mod tests {
 
         let course_a = &courses[0][0];
         assert_eq!(course_a.name(), "Course A");
-        assert_eq!(course_a.style(), "7KEYS");
+        assert_eq!(course_a.get_style(), "7KEYS");
         assert_eq!(course_a.charts().len(), 2);
         assert_eq!(course_a.charts()[0].md5().expect("md5"), "hash1");
         assert_eq!(course_a.charts()[1].md5().expect("md5"), "hash2");
         assert_eq!(course_a.constraint(), &["grade_mirror", "gauge_lr2"]);
-        assert_eq!(course_a.trophy().len(), 1);
-        assert_eq!(course_a.trophy()[0].name(), "Gold");
-        assert_eq!(course_a.trophy()[0].missrate(), 5.0);
-        assert_eq!(course_a.trophy()[0].scorerate(), 90.0);
+        assert_eq!(course_a.get_trophy().len(), 1);
+        assert_eq!(course_a.get_trophy()[0].name(), "Gold");
+        assert_eq!(course_a.get_trophy()[0].get_missrate(), 5.0);
+        assert_eq!(course_a.get_trophy()[0].scorerate(), 90.0);
 
         let course_b = &courses[0][1];
         assert_eq!(course_b.name(), "Course B");
-        assert_eq!(course_b.style(), "14KEYS");
+        assert_eq!(course_b.get_style(), "14KEYS");
         assert_eq!(course_b.charts().len(), 1);
         assert_eq!(course_b.charts()[0].sha256().expect("sha256"), "hash3");
     }
@@ -1108,7 +1111,7 @@ mod tests {
         assert_eq!(courses[0].len(), 1);
         let dan = &courses[0][0];
         assert_eq!(dan.name(), "Dan 1");
-        assert_eq!(dan.style(), "7KEYS");
+        assert_eq!(dan.get_style(), "7KEYS");
         assert_eq!(dan.charts().len(), 2);
         assert_eq!(dan.charts()[0].md5().expect("md5"), "md5_a");
         assert_eq!(dan.charts()[1].md5().expect("md5"), "md5_b");
@@ -1152,10 +1155,10 @@ mod tests {
         assert_eq!(elements.len(), 2);
         assert_eq!(elements[0].element.title().unwrap(), "Song A");
         assert_eq!(elements[0].element.md5().unwrap(), "hash_aaa");
-        assert_eq!(elements[0].level(), "5");
+        assert_eq!(elements[0].get_level(), "5");
         assert_eq!(elements[1].element.title().unwrap(), "Song B");
         assert_eq!(elements[1].element.sha256().unwrap(), "hash_bbb");
-        assert_eq!(elements[1].level(), "10");
+        assert_eq!(elements[1].get_level(), "10");
     }
 
     #[test]
@@ -1205,8 +1208,7 @@ mod tests {
         let mut dt = DifficultyTable::new();
         dt.table.set_name("Multi URL");
         dt.table.set_id("MU");
-        dt.table
-            .set_data_url(vec!["a.json".to_string(), "b.json".to_string()]);
+        dt.table.data_url = vec!["a.json".to_string(), "b.json".to_string()];
 
         let parser = DifficultyTableParser::new();
         parser.encode_json_table_header(&dt, &header_path);
@@ -1245,7 +1247,7 @@ mod tests {
             .decode_json_table_header_from_file(&mut dt, tmp.path())
             .unwrap();
 
-        let configs = dt.table.merge_configurations();
+        let configs = dt.table.get_merge_configurations();
         assert_eq!(configs.len(), 2);
         assert_eq!(configs["main.json"]["1"], "A");
         assert_eq!(configs["main.json"]["2"], "B");

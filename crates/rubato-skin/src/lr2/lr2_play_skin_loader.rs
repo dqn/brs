@@ -1021,30 +1021,30 @@ impl LR2PlaySkinLoaderState {
     /// judge region count, lane regions, and lane group regions to the PlaySkin.
     pub fn apply_to_play_skin(&self, play_skin: &mut rubato_play::play_skin::PlaySkin) {
         if let Some(close) = self.play_close {
-            play_skin.set_close(close);
+            play_skin.close = close;
         }
         if let Some(playstart) = self.play_playstart {
-            play_skin.set_playstart(playstart);
+            play_skin.playstart = playstart;
         }
         if let Some(loadstart) = self.play_loadstart {
-            play_skin.set_loadstart(loadstart);
+            play_skin.loadstart = loadstart;
         }
         if let Some(loadend) = self.play_loadend {
-            play_skin.set_loadend(loadend);
+            play_skin.loadend = loadend;
         }
         if let Some(finish_margin) = self.play_finish_margin {
-            play_skin.set_finish_margin(finish_margin);
+            play_skin.finish_margin = finish_margin;
         }
         if let Some(judgetimer) = self.play_judgetimer {
-            play_skin.set_judgetimer(judgetimer);
+            play_skin.judgetimer = judgetimer;
         }
         if let Some(rate) = self.play_note_expansion_rate {
-            play_skin.set_note_expansion_rate(rate);
+            play_skin.note_expansion_rate = rate;
         }
 
         // Apply computed judge region count
         if let Some(judge_reg) = self.computed_judge_reg {
-            play_skin.set_judgeregion(judge_reg);
+            play_skin.judgeregion = judge_reg;
         }
 
         // Apply lane regions (convert Vec<Option<Rectangle>> -> Vec<Rectangle>)
@@ -1054,7 +1054,7 @@ impl LR2PlaySkinLoaderState {
             .map(|opt| opt.clone().unwrap_or_default())
             .collect();
         if !lane_rects.is_empty() {
-            play_skin.set_lane_region(Some(lane_rects));
+            play_skin.laneregion = Some(lane_rects);
         }
 
         // Apply lane group regions (player regions)
@@ -1064,15 +1064,15 @@ impl LR2PlaySkinLoaderState {
             .map(|opt| opt.clone().unwrap_or_default())
             .collect();
         if !group_rects.is_empty() {
-            play_skin.set_lane_group_region(Some(group_rects));
+            play_skin.lanegroupregion = Some(group_rects);
         }
 
         // Apply line/time/BPM/stop line counts as placeholder Vecs
         let line_count = self.computed_line_count.unwrap_or(0);
-        play_skin.set_line(vec![(); line_count]);
-        play_skin.set_time_line(vec![(); line_count]);
-        play_skin.set_bpm_line(vec![(); line_count]);
-        play_skin.set_stop_line(vec![(); line_count]);
+        play_skin.line = vec![(); line_count];
+        play_skin.time = vec![(); line_count];
+        play_skin.bpm = vec![(); line_count];
+        play_skin.stop = vec![(); line_count];
     }
 
     /// Get lane cover position (y coordinate when white number is 0)
@@ -1576,22 +1576,22 @@ mod tests {
 
         let mut play_skin = rubato_play::play_skin::PlaySkin::new();
         state.apply_to_play_skin(&mut play_skin);
-        assert_eq!(play_skin.close(), 500);
-        assert_eq!(play_skin.playstart(), 1000);
-        assert_eq!(play_skin.loadstart(), 200);
-        assert_eq!(play_skin.loadend(), 3000);
-        assert_eq!(play_skin.finish_margin(), 2000);
-        assert_eq!(play_skin.judgetimer(), 1);
-        assert_eq!(play_skin.note_expansion_rate(), &[150, 200]);
+        assert_eq!(play_skin.close, 500);
+        assert_eq!(play_skin.playstart, 1000);
+        assert_eq!(play_skin.loadstart, 200);
+        assert_eq!(play_skin.loadend, 3000);
+        assert_eq!(play_skin.finish_margin, 2000);
+        assert_eq!(play_skin.judgetimer, 1);
+        assert_eq!(play_skin.note_expansion_rate, [150, 200]);
     }
 
     #[test]
     fn test_apply_to_play_skin_none_values_preserved() {
         let state = make_state();
         let mut play_skin = rubato_play::play_skin::PlaySkin::new();
-        let orig_close = play_skin.close();
+        let orig_close = play_skin.close;
         state.apply_to_play_skin(&mut play_skin);
-        assert_eq!(play_skin.close(), orig_close);
+        assert_eq!(play_skin.close, orig_close);
     }
 
     // ===== Unknown command delegation =====
@@ -1688,11 +1688,11 @@ mod tests {
         let mut play_skin = rubato_play::play_skin::PlaySkin::new();
         state.apply_to_play_skin(&mut play_skin);
 
-        assert_eq!(play_skin.close(), 500);
-        assert_eq!(play_skin.judgetimer(), 2);
+        assert_eq!(play_skin.close, 500);
+        assert_eq!(play_skin.judgetimer, 2);
         assert_eq!(play_skin.judgeregion(), 1); // default
         // Lane region should be set (8 default rectangles)
-        assert!(play_skin.lane_region().is_some());
+        assert!(play_skin.get_lane_region().is_some());
     }
 
     // ===== make_default_line / default line images =====

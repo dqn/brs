@@ -57,7 +57,7 @@ impl SongInformation {
         info.ln = total_notes_with_type(model, TOTALNOTES_LONG_KEY);
         info.s = total_notes_with_type(model, TOTALNOTES_SCRATCH);
         info.ls = total_notes_with_type(model, TOTALNOTES_LONG_SCRATCH);
-        info.total = model.total();
+        info.total = model.total;
 
         let mode = match model.mode() {
             Some(m) => m,
@@ -71,7 +71,7 @@ impl SongInformation {
         let mut data = vec![[0i32; 7]; data_len];
         let mut pos: i32 = 0;
         let total_notes = model.total_notes();
-        let model_total = model.total();
+        let model_total = model.total;
         let mut border = if model_total != 0.0 {
             (total_notes as f64 * (1.0 - 100.0 / model_total)) as i32
         } else {
@@ -79,10 +79,10 @@ impl SongInformation {
         };
         let mut borderpos: i32 = 0;
 
-        let lnmode = model.lnmode();
+        let lnmode = model.lnmode;
         let lntype = model.lntype();
 
-        let all_tls = model.all_time_lines();
+        let all_tls = &model.timelines;
         for (tl_idx, tl) in all_tls.iter().enumerate() {
             if tl.time() / 1000 != pos {
                 pos = tl.time() / 1000;
@@ -201,12 +201,12 @@ impl SongInformation {
         // Speed change tracking
         let mut speed_list: Vec<[f64; 2]> = Vec::new();
         let mut bpm_note_count_map: HashMap<u64, i32> = HashMap::new();
-        let mut now_speed = model.bpm();
+        let mut now_speed = model.bpm;
         speed_list.push([now_speed, 0.0]);
 
-        let tls = model.all_time_lines();
-        for tl in tls {
-            let bpm_key = tl.bpm().to_bits();
+        let tls = &model.timelines;
+        for tl in tls.iter() {
+            let bpm_key = tl.bpm.to_bits();
             let notecount = *bpm_note_count_map.get(&bpm_key).unwrap_or(&0);
             bpm_note_count_map.insert(bpm_key, notecount + tl.total_notes());
 
@@ -215,8 +215,8 @@ impl SongInformation {
                     now_speed = 0.0;
                     speed_list.push([now_speed, tl.time() as f64]);
                 }
-            } else if now_speed != tl.bpm() * tl.scroll() {
-                now_speed = tl.bpm() * tl.scroll();
+            } else if now_speed != tl.bpm * tl.scroll {
+                now_speed = tl.bpm * tl.scroll;
                 speed_list.push([now_speed, tl.time() as f64]);
             }
         }

@@ -201,9 +201,9 @@ pub struct KeyBoardInputProcesseor {
 
     reserved: Vec<i32>,
     /// Last pressed key
-    last_pressed_key: i32,
+    pub last_pressed_key: i32,
 
-    textmode: bool,
+    pub textmode: bool,
 
     /// Screen resolution. Used for mouse input event processing
     resolution: Resolution,
@@ -274,7 +274,7 @@ impl KeyBoardInputProcesseor {
     }
 
     pub fn key_down(&mut self, keycode: i32) -> bool {
-        self.set_last_pressed_key(keycode);
+        self.last_pressed_key = keycode;
         true
     }
 
@@ -464,23 +464,13 @@ impl KeyBoardInputProcesseor {
     pub fn last_pressed_key(&self) -> i32 {
         self.last_pressed_key
     }
-
-    pub fn set_last_pressed_key(&mut self, last_pressed_key: i32) {
-        self.last_pressed_key = last_pressed_key;
-    }
-
-    pub fn mouse_scratch_input(&self) -> &MouseScratchInput {
+    pub fn get_mouse_scratch_input(&self) -> &MouseScratchInput {
         &self.mouse_scratch_input
     }
 
     pub fn mouse_scratch_input_mut(&mut self) -> &mut MouseScratchInput {
         &mut self.mouse_scratch_input
     }
-
-    pub fn set_text_input_mode(&mut self, textmode: bool) {
-        self.textmode = textmode;
-    }
-
     pub fn is_reserved_key(&self, key: i32) -> bool {
         self.reserved.contains(&key)
     }

@@ -42,8 +42,8 @@ pub struct DownloadTask {
     name: String,
     hash: String,
     download_task_status: DownloadTaskStatus,
-    download_size: i64,
-    content_length: i64,
+    pub download_size: i64,
+    pub content_length: i64,
     error_message: Option<String>,
     time_finished: AtomicI64,
 }
@@ -95,20 +95,10 @@ impl DownloadTask {
     pub fn download_size(&self) -> i64 {
         self.download_size
     }
-
-    pub fn set_download_size(&mut self, download_size: i64) {
-        self.download_size = download_size;
-    }
-
-    pub fn content_length(&self) -> i64 {
+    pub fn get_content_length(&self) -> i64 {
         self.content_length
     }
-
-    pub fn set_content_length(&mut self, content_length: i64) {
-        self.content_length = content_length;
-    }
-
-    pub fn error_message(&self) -> Option<&str> {
+    pub fn get_error_message(&self) -> Option<&str> {
         self.error_message.as_deref()
     }
 
@@ -164,8 +154,8 @@ mod tests {
         assert_eq!(task.hash(), "abc123");
         assert_eq!(task.download_task_status(), DownloadTaskStatus::Prepare);
         assert_eq!(task.download_size(), 0);
-        assert_eq!(task.content_length(), 0);
-        assert!(task.error_message().is_none());
+        assert_eq!(task.get_content_length(), 0);
+        assert!(task.get_error_message().is_none());
         assert_eq!(task.time_finished(), 0);
     }
 
@@ -221,10 +211,10 @@ mod tests {
             "Song D".to_string(),
             "hash_d".to_string(),
         );
-        task.set_download_size(4096);
-        task.set_content_length(8192);
+        task.download_size = 4096;
+        task.content_length = 8192;
         assert_eq!(task.download_size(), 4096);
-        assert_eq!(task.content_length(), 8192);
+        assert_eq!(task.get_content_length(), 8192);
     }
 
     #[test]
@@ -235,9 +225,9 @@ mod tests {
             "Song E".to_string(),
             "hash_e".to_string(),
         );
-        assert!(task.error_message().is_none());
+        assert!(task.get_error_message().is_none());
         task.set_error_message("Connection timeout".to_string());
-        assert_eq!(task.error_message(), Some("Connection timeout"));
+        assert_eq!(task.get_error_message(), Some("Connection timeout"));
     }
 
     #[test]

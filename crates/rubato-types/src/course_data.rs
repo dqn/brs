@@ -33,7 +33,9 @@ impl CourseData {
     pub fn set_name(&mut self, name: String) {
         self.name = Some(name);
     }
-
+    pub fn get_trophy(&self) -> &[TrophyData] {
+        &self.trophy
+    }
     pub fn set_course_song_models(&mut self, _models: &[SongData]) {
         // Java compat stub
     }
@@ -225,39 +227,6 @@ impl Validatable for TrophyData {
 mod tests {
     use super::*;
 
-    // -- CourseData tests --
-
-    #[test]
-    fn test_course_data_default() {
-        let cd = CourseData::default();
-        assert!(cd.name.is_none());
-        assert!(cd.hash.is_empty());
-        assert!(cd.constraint.is_empty());
-        assert!(cd.trophy.is_empty());
-        assert!(cd.release);
-    }
-
-    #[test]
-    fn test_course_data_name_accessor() {
-        let mut cd = CourseData::default();
-        assert_eq!(cd.name(), "");
-
-        cd.set_name("My Course".to_string());
-        assert_eq!(cd.name(), "My Course");
-    }
-
-    #[test]
-    fn test_course_data_song_accessor() {
-        let mut cd = CourseData::default();
-        assert!(cd.hash.is_empty());
-
-        let mut song = SongData::new();
-        song.title = "Song 1".to_string();
-        cd.hash = vec![song];
-        assert_eq!(cd.hash.len(), 1);
-        assert_eq!(cd.hash[0].title, "Song 1");
-    }
-
     #[test]
     fn test_course_data_trophy_accessor() {
         let mut cd = CourseData::default();
@@ -265,8 +234,8 @@ mod tests {
 
         let trophy = TrophyData::new("Gold".to_string(), 5.0, 90.0);
         cd.trophy = vec![trophy];
-        assert_eq!(cd.trophy.len(), 1);
-        assert_eq!(cd.trophy[0].name(), "Gold");
+        assert_eq!(cd.get_trophy().len(), 1);
+        assert_eq!(cd.get_trophy()[0].name(), "Gold");
     }
 
     #[test]

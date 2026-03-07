@@ -5,10 +5,10 @@ use crate::difficulty_table::DifficultyTable;
 use crate::difficulty_table_element::DifficultyTableElement;
 
 pub struct BmsTableManager {
-    table_list: Vec<DifficultyTable>,
+    pub table_list: Vec<DifficultyTable>,
     listeners: Vec<Box<dyn BmsTableManagerListener>>,
-    user_list: HashMap<String, Vec<DifficultyTableElement>>,
-    memo_map: HashMap<String, String>,
+    pub user_list: HashMap<String, Vec<DifficultyTableElement>>,
+    pub memo_map: HashMap<String, String>,
 }
 
 impl BmsTableManager {
@@ -58,20 +58,10 @@ impl BmsTableManager {
     pub fn user_list(&self) -> &HashMap<String, Vec<DifficultyTableElement>> {
         &self.user_list
     }
-
-    pub fn set_user_list(&mut self, user_list: HashMap<String, Vec<DifficultyTableElement>>) {
-        self.user_list = user_list;
-    }
-
-    pub fn memo_map(&self) -> &HashMap<String, String> {
+    pub fn get_memo_map(&self) -> &HashMap<String, String> {
         &self.memo_map
     }
-
-    pub fn set_memo_map(&mut self, memo_map: HashMap<String, String>) {
-        self.memo_map = memo_map;
-    }
-
-    pub fn user_difficulty_table_elements(
+    pub fn get_user_difficulty_table_elements(
         &mut self,
         name: &str,
     ) -> &mut Vec<DifficultyTableElement> {
@@ -80,11 +70,6 @@ impl BmsTableManager {
         }
         self.user_list.get_mut(name).expect("key exists")
     }
-
-    pub fn set_table_list(&mut self, table_list: Vec<DifficultyTable>) {
-        self.table_list = table_list;
-    }
-
     pub fn clear_all_table_elements(&mut self) {
         for dt in &mut self.table_list {
             dt.table.remove_all_elements();

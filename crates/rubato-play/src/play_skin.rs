@@ -4,31 +4,31 @@ use rubato_render::color::Rectangle;
 /// Play skin
 pub struct PlaySkin {
     /// Margin from STATE_READY to STATE_PLAY (ms)
-    playstart: i32,
+    pub playstart: i32,
     /// Section line images
-    line: Vec<()>,
+    pub line: Vec<()>,
     /// Timeline images
-    time: Vec<()>,
+    pub time: Vec<()>,
     /// BPM line images
-    bpm: Vec<()>,
+    pub bpm: Vec<()>,
     /// Stop line images
-    stop: Vec<()>,
+    pub stop: Vec<()>,
     /// Lane region per lane
-    laneregion: Option<Vec<Rectangle>>,
+    pub laneregion: Option<Vec<Rectangle>>,
     /// Lane group region per player
-    lanegroupregion: Option<Vec<Rectangle>>,
+    pub lanegroupregion: Option<Vec<Rectangle>>,
     /// Judge region count
-    judgeregion: i32,
+    pub judgeregion: i32,
     /// Margin from STATE_FAILED to exit (ms)
-    close: i32,
+    pub close: i32,
     /// Margin from STATE_FINISHED to fadeout (ms)
-    finish_margin: i32,
-    loadstart: i32,
-    loadend: i32,
+    pub finish_margin: i32,
+    pub loadstart: i32,
+    pub loadend: i32,
     /// Judge timer trigger condition (0:PG, 1:GR, 2:GD, 3:BD)
-    judgetimer: i32,
+    pub judgetimer: i32,
     /// PMS rhythm-based note expansion rate (%) [w, h]
-    note_expansion_rate: [i32; 2],
+    pub note_expansion_rate: [i32; 2],
     /// PMS character processor
     pub pomyu: PomyuCharaProcessor,
 }
@@ -64,111 +64,55 @@ impl PlaySkin {
         self.judgeregion
     }
 
-    pub fn set_judgeregion(&mut self, jr: i32) {
-        self.judgeregion = jr;
-    }
-
-    pub fn close(&self) -> i32 {
+    pub fn get_close(&self) -> i32 {
         self.close
     }
 
-    pub fn set_close(&mut self, close: i32) {
-        self.close = close;
-    }
-
-    pub fn finish_margin(&self) -> i32 {
+    pub fn get_finish_margin(&self) -> i32 {
         self.finish_margin
     }
 
-    pub fn set_finish_margin(&mut self, finish_margin: i32) {
-        self.finish_margin = finish_margin;
-    }
-
-    pub fn playstart(&self) -> i32 {
+    pub fn get_playstart(&self) -> i32 {
         self.playstart
     }
 
-    pub fn set_playstart(&mut self, playstart: i32) {
-        self.playstart = playstart;
-    }
-
-    pub fn loadstart(&self) -> i32 {
+    pub fn get_loadstart(&self) -> i32 {
         self.loadstart
     }
 
-    pub fn set_loadstart(&mut self, loadstart: i32) {
-        self.loadstart = loadstart;
-    }
-
-    pub fn loadend(&self) -> i32 {
+    pub fn get_loadend(&self) -> i32 {
         self.loadend
     }
 
-    pub fn set_loadend(&mut self, loadend: i32) {
-        self.loadend = loadend;
-    }
-
-    pub fn judgetimer(&self) -> i32 {
+    pub fn get_judgetimer(&self) -> i32 {
         self.judgetimer
     }
 
-    pub fn set_judgetimer(&mut self, judgetimer: i32) {
-        self.judgetimer = judgetimer;
-    }
-
-    pub fn note_expansion_rate(&self) -> &[i32; 2] {
+    pub fn get_note_expansion_rate(&self) -> &[i32; 2] {
         &self.note_expansion_rate
     }
 
-    pub fn set_note_expansion_rate(&mut self, rate: [i32; 2]) {
-        self.note_expansion_rate = rate;
-    }
-
-    pub fn lane_group_region(&self) -> Option<&[Rectangle]> {
+    pub fn get_lane_group_region(&self) -> Option<&[Rectangle]> {
         self.lanegroupregion.as_deref()
     }
 
-    pub fn set_lane_group_region(&mut self, r: Option<Vec<Rectangle>>) {
-        self.lanegroupregion = r;
-    }
-
-    pub fn lane_region(&self) -> Option<&[Rectangle]> {
+    pub fn get_lane_region(&self) -> Option<&[Rectangle]> {
         self.laneregion.as_deref()
     }
 
-    pub fn set_lane_region(&mut self, r: Option<Vec<Rectangle>>) {
-        self.laneregion = r;
-    }
-
-    pub fn line(&self) -> &[()] {
+    pub fn get_line(&self) -> &[()] {
         &self.line
     }
 
-    pub fn set_line(&mut self, line: Vec<()>) {
-        self.line = line;
-    }
-
-    pub fn bpm_line(&self) -> &[()] {
+    pub fn get_bpm_line(&self) -> &[()] {
         &self.bpm
     }
 
-    pub fn set_bpm_line(&mut self, bpm: Vec<()>) {
-        self.bpm = bpm;
-    }
-
-    pub fn stop_line(&self) -> &[()] {
+    pub fn get_stop_line(&self) -> &[()] {
         &self.stop
     }
 
-    pub fn set_stop_line(&mut self, stop: Vec<()>) {
-        self.stop = stop;
-    }
-
-    pub fn time_line(&self) -> &[()] {
+    pub fn get_time_line(&self) -> &[()] {
         &self.time
-    }
-
-    pub fn set_time_line(&mut self, time: Vec<()>) {
-        self.time = time;
     }
 }

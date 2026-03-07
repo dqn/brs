@@ -139,7 +139,7 @@ impl SkinDistributionGraph {
         let percent: f32 = match task.download_task_status() {
             DownloadTaskStatus::Prepare => 0.0,
             DownloadTaskStatus::Downloading => {
-                task.download_size() as f32 / task.content_length() as f32
+                task.download_size() as f32 / task.get_content_length() as f32
             }
             DownloadTaskStatus::Downloaded => 1.0,
             DownloadTaskStatus::Extracted => 1.0,
@@ -231,8 +231,8 @@ mod tests {
         let mut task =
             DownloadTask::new(2, "http://example.com".into(), "test".into(), "def".into());
         task.set_download_task_status(DownloadTaskStatus::Downloading);
-        task.set_download_size(50);
-        task.set_content_length(100);
+        task.download_size = 50;
+        task.content_length = 100;
         let percent = compute_download_percent(&task);
         assert!((percent - 0.5).abs() < f32::EPSILON);
     }
@@ -348,7 +348,7 @@ mod tests {
         match task.download_task_status() {
             DownloadTaskStatus::Prepare => 0.0,
             DownloadTaskStatus::Downloading => {
-                task.download_size() as f32 / task.content_length() as f32
+                task.download_size() as f32 / task.get_content_length() as f32
             }
             DownloadTaskStatus::Downloaded => 1.0,
             DownloadTaskStatus::Extracted => 1.0,

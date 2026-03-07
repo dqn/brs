@@ -15,13 +15,13 @@ pub struct BmsTable<T> {
     values: HashMap<String, Value>,
     source_url: String,
     head_url: String,
-    data_url: Vec<String>,
-    auto_update: bool,
-    merge_configurations: HashMap<String, HashMap<String, String>>,
+    pub data_url: Vec<String>,
+    pub auto_update: bool,
+    pub merge_configurations: HashMap<String, HashMap<String, String>>,
     lastupdate: i64,
     models: Vec<T>,
-    editable: bool,
-    access_count: i32,
+    pub editable: bool,
+    pub access_count: i32,
 }
 
 impl<T: Clone> BmsTable<T> {
@@ -61,23 +61,10 @@ impl<T: Clone> BmsTable<T> {
     pub fn data_url(&self) -> &[String] {
         &self.data_url
     }
-
-    pub fn set_data_url(&mut self, datas: Vec<String>) {
-        self.data_url = datas;
-    }
-
-    pub fn merge_configurations(&self) -> &HashMap<String, HashMap<String, String>> {
+    pub fn get_merge_configurations(&self) -> &HashMap<String, HashMap<String, String>> {
         &self.merge_configurations
     }
-
-    pub fn set_merge_configurations(
-        &mut self,
-        merge_configurations: HashMap<String, HashMap<String, String>>,
-    ) {
-        self.merge_configurations = merge_configurations;
-    }
-
-    pub fn tag(&self) -> Option<String> {
+    pub fn get_tag(&self) -> Option<String> {
         if self.values.contains_key(TAG) {
             return self
                 .values
@@ -138,12 +125,7 @@ impl<T: Clone> BmsTable<T> {
     pub fn is_editable(&self) -> bool {
         self.editable
     }
-
-    pub fn set_editable(&mut self, editable: bool) {
-        self.editable = editable;
-    }
-
-    pub fn attrmap(&self) -> HashMap<String, String> {
+    pub fn get_attrmap(&self) -> HashMap<String, String> {
         if let Some(v) = self.values.get(ATTR)
             && let Some(obj) = v.as_object()
         {
@@ -181,20 +163,10 @@ impl<T: Clone> BmsTable<T> {
     pub fn access_count(&self) -> i32 {
         self.access_count
     }
-
-    pub fn set_access_count(&mut self, access_count: i32) {
-        self.access_count = access_count;
-    }
-
     pub fn is_auto_update(&self) -> bool {
         self.auto_update
     }
-
-    pub fn set_auto_update(&mut self, autoupdate: bool) {
-        self.auto_update = autoupdate;
-    }
-
-    pub fn values(&self) -> &HashMap<String, Value> {
+    pub fn get_values(&self) -> &HashMap<String, Value> {
         &self.values
     }
 

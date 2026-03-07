@@ -103,81 +103,32 @@ impl ScoreLog {
     pub fn mode(&self) -> i32 {
         self.mode
     }
-
-    pub fn set_mode(&mut self, mode: i32) {
-        self.mode = mode;
-    }
-
-    pub fn clear(&self) -> i32 {
+    pub fn get_clear(&self) -> i32 {
         self.clear
     }
-
-    pub fn set_clear(&mut self, clear: i32) {
-        self.clear = clear;
-    }
-
-    pub fn oldclear(&self) -> i32 {
+    pub fn get_oldclear(&self) -> i32 {
         self.oldclear
     }
-
-    pub fn set_oldclear(&mut self, oldclear: i32) {
-        self.oldclear = oldclear;
-    }
-
-    pub fn score(&self) -> i32 {
+    pub fn get_score(&self) -> i32 {
         self.score
     }
-
-    pub fn set_score(&mut self, score: i32) {
-        self.score = score;
-    }
-
-    pub fn oldscore(&self) -> i32 {
+    pub fn get_oldscore(&self) -> i32 {
         self.oldscore
     }
-
-    pub fn set_oldscore(&mut self, oldscore: i32) {
-        self.oldscore = oldscore;
-    }
-
-    pub fn combo(&self) -> i32 {
+    pub fn get_combo(&self) -> i32 {
         self.combo
     }
-
-    pub fn set_combo(&mut self, combo: i32) {
-        self.combo = combo;
-    }
-
-    pub fn oldcombo(&self) -> i32 {
+    pub fn get_oldcombo(&self) -> i32 {
         self.oldcombo
     }
-
-    pub fn set_oldcombo(&mut self, oldcombo: i32) {
-        self.oldcombo = oldcombo;
-    }
-
-    pub fn minbp(&self) -> i32 {
+    pub fn get_minbp(&self) -> i32 {
         self.minbp
     }
-
-    pub fn set_minbp(&mut self, minbp: i32) {
-        self.minbp = minbp;
-    }
-
-    pub fn oldminbp(&self) -> i32 {
+    pub fn get_oldminbp(&self) -> i32 {
         self.oldminbp
     }
-
-    pub fn set_oldminbp(&mut self, oldminbp: i32) {
-        self.oldminbp = oldminbp;
-    }
-
-    pub fn date(&self) -> i64 {
+    pub fn get_date(&self) -> i64 {
         self.date
-    }
-
-    pub fn set_date(&mut self, date: i64) {
-        self.date = date;
     }
 }
 

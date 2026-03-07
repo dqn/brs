@@ -50,13 +50,13 @@ impl DownloadTaskMenu {
                     ui.label(&display);
 
                     // Column 1: Progress
-                    let error_message = task.error_message();
+                    let error_message = task.get_error_message();
                     if error_message.is_none() || error_message.is_some_and(|s: &str| s.is_empty())
                     {
                         let progress = format!(
                             "{}/{}",
                             humanize_file_size(task.download_size()),
-                            humanize_file_size(task.content_length())
+                            humanize_file_size(task.get_content_length())
                         );
                         ui.label(&progress);
                     } else {

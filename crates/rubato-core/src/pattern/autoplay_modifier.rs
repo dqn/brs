@@ -174,7 +174,7 @@ mod tests {
         let mut modifier = AutoplayModifier::new(vec![0]);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Lane 0 note should be moved to background
         assert!(tls[0].note(0).is_none());
         // Lane 1 note should also be moved (margin=0 means remove=true for all)
@@ -226,7 +226,7 @@ mod tests {
         let mut modifier = AutoplayModifier::new(vec![0, 1]);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         assert!(tls[0].note(0).is_none());
         assert!(tls[0].note(1).is_none());
         // Lane 2 is not in autoplay lanes
@@ -244,7 +244,7 @@ mod tests {
         let mut modifier = AutoplayModifier::new(vec![0]);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         assert!(tls[0].note(0).is_none());
         // Mine notes are removed entirely, not added to background
         assert!(tls[0].back_ground_notes().is_empty());

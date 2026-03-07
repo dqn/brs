@@ -33,7 +33,7 @@ enum KeyHandlerType {
 /// MIDI input processor
 pub struct MidiInputProcessor {
     // milliseconds
-    starttime: i64,
+    pub starttime: i64,
 
     pitch: i32,
 
@@ -221,11 +221,6 @@ impl MidiInputProcessor {
             );
         }
     }
-
-    pub fn set_start_time(&mut self, starttime: i64) {
-        self.starttime = starttime;
-    }
-
     fn clear_impl(&mut self) {
         self.last_pressed_key_available = false;
     }

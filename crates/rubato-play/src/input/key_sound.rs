@@ -94,7 +94,7 @@ impl KeySoundProcessor {
 
         // Pre-extract BG timeline data (notes + times) so the thread owns them.
         let mut entries: Vec<BgTimelineEntry> = Vec::new();
-        for tl in model.all_time_lines() {
+        for tl in &model.timelines {
             let bg_notes = tl.back_ground_notes();
             if !bg_notes.is_empty() {
                 entries.push(BgTimelineEntry {
@@ -294,7 +294,7 @@ mod tests {
             }
             timelines.push(tl);
         }
-        model.set_all_time_line(timelines);
+        model.timelines = timelines;
         model
     }
 
@@ -318,7 +318,7 @@ mod tests {
         let mut ksp = KeySoundProcessor::new();
         let mut model = BMSModel::new();
         // Add a timeline with no BG notes.
-        model.set_all_time_line(vec![TimeLine::new(0.0, 1000, 8)]);
+        model.timelines = vec![TimeLine::new(0.0, 1000, 8)];
         ksp.start_bg_play(&model, 0, 0.5);
         assert!(!ksp.is_bg_playing());
     }

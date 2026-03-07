@@ -26,7 +26,7 @@ use rubato_types::groove_gauge::{HARD, NORMAL};
 /// Sets timelines before mode so that set_mode can resize lane counts.
 fn make_model(mode: Mode, timelines: Vec<TimeLine>) -> BMSModel {
     let mut model = BMSModel::new();
-    model.set_all_time_line(timelines);
+    model.timelines = timelines;
     model.set_mode(mode);
     model
 }

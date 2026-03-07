@@ -38,8 +38,8 @@ impl PatternModifier for PracticeModifier {
 
         let new_total_notes = model.total_notes();
         if totalnotes > 0 {
-            let total = model.total();
-            model.set_total(total * new_total_notes as f64 / totalnotes as f64);
+            let total = model.get_total();
+            model.total = total * new_total_notes as f64 / totalnotes as f64;
         }
     }
 
@@ -139,7 +139,7 @@ mod tests {
         let mut modifier = PracticeModifier::new(1000, 3000);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // tl[0] (time=500) is before start=1000, note should be moved to background
         assert!(tls[0].note(0).is_none());
         assert_eq!(tls[0].back_ground_notes().len(), 1);
@@ -172,7 +172,7 @@ mod tests {
         let mut modifier = PracticeModifier::new(0, 2000);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // tl[0] and tl[1] are within range, notes remain
         assert!(tls[0].note(0).is_some());
         assert!(tls[1].note(0).is_some());
@@ -201,7 +201,7 @@ mod tests {
         let mut modifier = PracticeModifier::new(0, 5000);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         assert!(tls[0].note(0).is_some());
         assert!(tls[1].note(0).is_some());
         assert!(tls[2].note(0).is_some());
@@ -223,7 +223,7 @@ mod tests {
         let mut modifier = PracticeModifier::new(1000, 1000);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         assert!(tls[0].note(0).is_none());
         assert!(tls[1].note(0).is_none());
         assert_eq!(tls[0].back_ground_notes().len(), 1);
@@ -248,7 +248,7 @@ mod tests {
         tl3.set_note(0, Some(Note::new_normal(4)));
 
         let mut model = make_test_model(&Mode::BEAT_7K, vec![tl0, tl1, tl2, tl3]);
-        model.set_total(300.0);
+        model.total = 300.0;
 
         // Remove notes outside [1000, 3000) - removes tl[0](time=500) and tl[3](time=3500)
         // 2 notes removed, 2 remain
@@ -256,7 +256,7 @@ mod tests {
         modifier.modify(&mut model);
 
         // new_total = 300.0 * 2/4 = 150.0
-        assert!((model.total() - 150.0).abs() < f64::EPSILON);
+        assert!((model.total - 150.0).abs() < f64::EPSILON);
     }
 
     // -- Total scaling: all notes removed -> total becomes 0.0 --
@@ -267,14 +267,14 @@ mod tests {
         tl0.set_note(0, Some(Note::new_normal(1)));
 
         let mut model = make_test_model(&Mode::BEAT_7K, vec![tl0]);
-        model.set_total(200.0);
+        model.total = 200.0;
 
         // Range excludes all notes
         let mut modifier = PracticeModifier::new(1000, 1000);
         modifier.modify(&mut model);
 
         // new_total_notes = 0, so 200.0 * 0/1 = 0.0
-        assert!((model.total()).abs() < f64::EPSILON);
+        assert!((model.total).abs() < f64::EPSILON);
     }
 
     // -- Empty model: no panic --
@@ -302,7 +302,7 @@ mod tests {
         let mut modifier = PracticeModifier::new(1000, 2000);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // All 3 notes on tl[0] (time=500) should be moved to background
         assert!(tls[0].note(0).is_none());
         assert!(tls[0].note(1).is_none());
@@ -323,7 +323,7 @@ mod tests {
         let mut modifier = PracticeModifier::new(1000, 2000);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Note at exactly start should remain
         assert!(tls[0].note(0).is_some());
     }
@@ -341,7 +341,7 @@ mod tests {
         let mut modifier = PracticeModifier::new(1000, 2000);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Note at exactly end should be moved to background
         assert!(tls[0].note(0).is_none());
         assert_eq!(tls[0].back_ground_notes().len(), 1);

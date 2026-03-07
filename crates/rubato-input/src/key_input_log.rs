@@ -76,7 +76,7 @@ impl KeyInputLog {
         let keys: i32 = mode.key();
         let sc: &[i32] = mode.scratch_key();
         let mut ln: Vec<Option<Note>> = vec![None; keys as usize];
-        for tl in model.all_time_lines() {
+        for tl in &model.timelines {
             let i: i64 = tl.micro_time();
             for lane in 0..keys {
                 let note = tl.note(lane);
@@ -267,7 +267,7 @@ mod tests {
     fn make_model(mode: Mode, timelines: Vec<TimeLine>) -> BMSModel {
         let mut model = BMSModel::new();
         // Must set timelines before set_mode, because set_mode resizes lane counts
-        model.set_all_time_line(timelines);
+        model.timelines = timelines;
         model.set_mode(mode);
         model
     }

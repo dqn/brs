@@ -681,7 +681,7 @@ mod tests {
         let mut modifier = ModeModifier::new(Mode::BEAT_7K, Mode::POPN_9K, config);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // After conversion, model is POPN_9K (9 lanes)
         // With pattern=0: key_lane=2, sc_lane=1, rest_lane=0
         // result[2..9] = 0..7 (input lanes), result[1]=7 (scratch), result[0]=8 (rest)
@@ -736,7 +736,7 @@ mod tests {
         let mut modifier = ModeModifier::new(Mode::BEAT_7K, Mode::BEAT_7K, config);
         modifier.modify(&mut model);
 
-        let tls = model.all_time_lines();
+        let tls = model.timelines;
         // Notes should be in the same positions (identity mapping)
         assert_eq!(tls[0].note(0).unwrap().wav(), 1);
         assert_eq!(tls[0].note(3).unwrap().wav(), 4);

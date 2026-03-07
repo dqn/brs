@@ -95,7 +95,7 @@ fn compute_note_data(model: &BMSModel) -> (i32, i64, i64, Vec<i32>, usize) {
     let mut first_note_time_us: i64 = i64::MAX;
     let mut last_note_time_us: i64 = i64::MIN;
 
-    for tl in model.all_time_lines() {
+    for tl in &model.timelines {
         for (lane, count) in lane_distribution.iter_mut().enumerate().take(key_count) {
             if let Some(note) = tl.note(lane as i32)
                 && is_playable_note(note)
@@ -124,8 +124,8 @@ fn compute_note_data(model: &BMSModel) -> (i32, i64, i64, Vec<i32>, usize) {
 
     // Count distinct BPM values across all timelines
     let mut bpm_set = BTreeSet::new();
-    for tl in model.all_time_lines() {
-        bpm_set.insert(tl.bpm().to_bits());
+    for tl in &model.timelines {
+        bpm_set.insert(tl.bpm.to_bits());
     }
     let bpm_change_count = bpm_set.len();
 
@@ -158,14 +158,14 @@ fn real_bms_decode_all_without_panic() {
 
         // BPM must be positive
         assert!(
-            model.bpm() > 0.0,
+            model.bpm > 0.0,
             "{filename}: BPM should be > 0, got {}",
-            model.bpm()
+            model.bpm
         );
 
         // Timelines must be non-empty
         assert!(
-            !model.all_time_lines().is_empty(),
+            !model.timelines.is_empty(),
             "{filename}: timelines should be non-empty"
         );
 
@@ -191,7 +191,7 @@ fn real_bms_metadata_is_populated() {
         let filename = path.file_name().unwrap().to_string_lossy();
 
         assert!(
-            !model.title().is_empty(),
+            !model.get_title().is_empty(),
             "{filename}: title should be non-empty"
         );
         assert!(
@@ -213,11 +213,7 @@ fn real_bms_timing_is_valid() {
         let model = decode_bms(path);
         let filename = path.file_name().unwrap().to_string_lossy();
 
-        let times: Vec<i64> = model
-            .all_time_lines()
-            .iter()
-            .map(|tl| tl.micro_time())
-            .collect();
+        let times: Vec<i64> = model.timelines.iter().map(|tl| tl.micro_time()).collect();
 
         assert!(
             !times.is_empty(),
@@ -327,9 +323,9 @@ fn real_bms_golden_master_regression() {
                     .mode()
                     .map(|m| m.hint().to_string())
                     .unwrap_or_default(),
-                bpm: model.bpm(),
+                bpm: model.bpm,
                 total_notes: model.total_notes(),
-                timeline_count: model.all_time_lines().len(),
+                timeline_count: model.timelines.len(),
                 first_note_lane,
                 first_note_time_us,
                 last_note_time_us,
@@ -516,11 +512,7 @@ fn real_bms_full_pipeline_decode_validate_judge() {
         let filename = path.file_name().unwrap().to_string_lossy();
 
         // Validate: all timeline times must be >= 0
-        let times: Vec<i64> = model
-            .all_time_lines()
-            .iter()
-            .map(|tl| tl.micro_time())
-            .collect();
+        let times: Vec<i64> = model.timelines.iter().map(|tl| tl.micro_time()).collect();
         assert!(
             !times.is_empty(),
             "{filename}: timelines should be non-empty after decode"
@@ -566,14 +558,14 @@ fn real_bms_scroll_speed_modifier_no_panic() {
             let mut modifier = ScrollSpeedModifier::with_params(0, 4, 0.5);
             modifier.modify(&mut model_remove);
             // After Remove mode, all timelines should have uniform BPM
-            let tls = model_remove.all_time_lines();
+            let tls = model_remove.timelines;
             if tls.len() > 1 {
-                let start_bpm = tls[0].bpm();
+                let start_bpm = tls[0].bpm;
                 for (i, tl) in tls.iter().enumerate().skip(1) {
                     assert!(
-                        (tl.bpm() - start_bpm).abs() < f64::EPSILON,
+                        (tl.bpm - start_bpm).abs() < f64::EPSILON,
                         "{filename}: after Remove, timeline[{i}] BPM should be {start_bpm}, got {}",
-                        tl.bpm()
+                        tl.bpm
                     );
                 }
             }
@@ -587,8 +579,8 @@ fn real_bms_scroll_speed_modifier_no_panic() {
             // Just verify no panic; scroll values are randomized so we only
             // check that timelines still exist
             assert_eq!(
-                model_add.all_time_lines().len(),
-                model.all_time_lines().len(),
+                model_add.timelines.len(),
+                model.timelines.len(),
                 "{filename}: Add mode should not change timeline count"
             );
         }
@@ -610,7 +602,7 @@ fn real_bms_note_distribution_sanity() {
 
         // Build lane distribution
         let mut lane_counts = vec![0i32; key_count];
-        for tl in model.all_time_lines() {
+        for tl in &model.timelines {
             for (lane, count) in lane_counts.iter_mut().enumerate().take(key_count) {
                 if let Some(note) = tl.note(lane as i32)
                     && is_playable_note(note)
@@ -663,9 +655,9 @@ fn real_bms_mirror_deterministic_lanes() {
 
         // Compare per-timeline lane assignments
         for (i, (tl1, tl2)) in model1
-            .all_time_lines()
+            .timelines
             .iter()
-            .zip(model2.all_time_lines().iter())
+            .zip(model2.timelines.iter())
             .enumerate()
         {
             assert_eq!(
@@ -733,9 +725,9 @@ fn real_bms_random_seed_deterministic() {
         let key_count = mode.key();
         let mut any_different = false;
         for (tl_a, tl_b) in model_seed_a
-            .all_time_lines()
+            .timelines
             .iter()
-            .zip(model_seed_b.all_time_lines().iter())
+            .zip(model_seed_b.timelines.iter())
         {
             for lane in 0..key_count {
                 let n_a = tl_a.note(lane).map(|n| n.wav());

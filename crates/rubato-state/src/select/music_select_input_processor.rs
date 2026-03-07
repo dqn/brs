@@ -146,7 +146,7 @@ impl MusicSelectInputProcessor {
             }
 
             // Mouse wheel scroll for target
-            let mut mov = -(input.scroll());
+            let mut mov = -(input.get_scroll());
             input.reset_scroll();
 
             self.analog_scroll_buffer += property.analog_change(input, MusicSelectKey::TargetUp)
@@ -221,7 +221,7 @@ impl MusicSelectInputProcessor {
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
             if property.is_pressed(input, MusicSelectKey::Constant, true) {
-                config.scroll_mode = if config.scroll_mode == 1 { 0 } else { 1 };
+                config.scroll_mode = if config.get_scroll_mode() == 1 { 0 } else { 1 };
                 ctx.events
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
@@ -231,7 +231,11 @@ impl MusicSelectInputProcessor {
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
             if property.is_pressed(input, MusicSelectKey::LegacyNote, true) {
-                config.longnote_mode = if config.longnote_mode == 1 { 0 } else { 1 };
+                config.longnote_mode = if config.get_longnote_mode() == 1 {
+                    0
+                } else {
+                    1
+                };
                 ctx.events
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
@@ -246,7 +250,7 @@ impl MusicSelectInputProcessor {
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }
             if property.is_pressed(input, MusicSelectKey::Nomine, true) {
-                config.mine_mode = if config.mine_mode == 1 { 0 } else { 1 };
+                config.mine_mode = if config.get_mine_mode() == 1 { 0 } else { 1 };
                 ctx.events
                     .push(InputEvent::PlaySound(SoundType::OptionChange));
             }

@@ -69,7 +69,7 @@ fn note_type_to_string(note: &Note) -> &'static str {
 /// Skips LN end notes.
 fn capture_notes(model: &BMSModel) -> Vec<ModifierNote> {
     let keys = model.mode().map(|m| m.key()).unwrap_or(0);
-    let timelines = model.all_time_lines();
+    let timelines = &model.timelines;
     let mut notes: Vec<ModifierNote> = Vec::new();
 
     for (tl_idx, tl) in timelines.iter().enumerate() {
@@ -405,22 +405,18 @@ fn run_scroll_speed_remove_test(bms_file: &str) {
 
         // Verify BPM normalization: all BPM changes should be set to initial_bpm
         let ref_bpm = tc.config["ref_bpm"].as_f64().unwrap();
-        for tl in model.all_time_lines() {
+        for tl in &model.timelines {
             assert!(
-                (tl.bpm() - ref_bpm).abs() < 0.001,
+                (tl.bpm - ref_bpm).abs() < 0.001,
                 "scroll_speed_remove/{}: BPM not normalized: expected={} got={}",
                 tc.bms_file,
                 ref_bpm,
-                tl.bpm()
+                tl.bpm
             );
         }
 
         // Verify all stops are cleared
-        let stop_count: usize = model
-            .all_time_lines()
-            .iter()
-            .filter(|tl| tl.stop() != 0)
-            .count();
+        let stop_count: usize = model.timelines.iter().filter(|tl| tl.stop() != 0).count();
         assert!(
             stop_count == 0,
             "scroll_speed_remove/{}: stop events not cleared: {} remain",

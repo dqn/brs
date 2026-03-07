@@ -3,10 +3,10 @@ use crate::bms_table_element::BmsTableElement;
 #[derive(Debug, Clone)]
 pub struct Course {
     name: String,
-    charts: Vec<BmsTableElement>,
+    pub charts: Vec<BmsTableElement>,
     style: String,
-    constraint: Vec<String>,
-    trophy: Vec<Trophy>,
+    pub constraint: Vec<String>,
+    pub trophy: Vec<Trophy>,
 }
 
 impl Course {
@@ -31,12 +31,7 @@ impl Course {
     pub fn charts(&self) -> &[BmsTableElement] {
         &self.charts
     }
-
-    pub fn set_charts(&mut self, charts: Vec<BmsTableElement>) {
-        self.charts = charts;
-    }
-
-    pub fn style(&self) -> &str {
+    pub fn get_style(&self) -> &str {
         &self.style
     }
 
@@ -47,17 +42,8 @@ impl Course {
     pub fn constraint(&self) -> &[String] {
         &self.constraint
     }
-
-    pub fn set_constraint(&mut self, constraint: Vec<String>) {
-        self.constraint = constraint;
-    }
-
-    pub fn trophy(&self) -> &[Trophy] {
+    pub fn get_trophy(&self) -> &[Trophy] {
         &self.trophy
-    }
-
-    pub fn set_trophy(&mut self, trophy: Vec<Trophy>) {
-        self.trophy = trophy;
     }
 }
 
@@ -71,8 +57,8 @@ impl Default for Course {
 pub struct Trophy {
     name: String,
     style: String,
-    scorerate: f64,
-    missrate: f64,
+    pub scorerate: f64,
+    pub missrate: f64,
 }
 
 impl Trophy {
@@ -104,17 +90,8 @@ impl Trophy {
     pub fn scorerate(&self) -> f64 {
         self.scorerate
     }
-
-    pub fn set_scorerate(&mut self, scorerate: f64) {
-        self.scorerate = scorerate;
-    }
-
-    pub fn missrate(&self) -> f64 {
+    pub fn get_missrate(&self) -> f64 {
         self.missrate
-    }
-
-    pub fn set_missrate(&mut self, missrate: f64) {
-        self.missrate = missrate;
     }
 }
 

@@ -24,9 +24,10 @@ impl BMSSearchAccessor {
         let mut td: Option<TableData> = None;
         match Self::fetch_elements() {
             Ok(elements) => {
-                let mut table_data = TableData::default();
-                let mut tde_new = TableFolder::default();
-                tde_new.set_name("New".to_string());
+                let mut tde_new = TableFolder {
+                    name: Some("New".to_string()),
+                    ..Default::default()
+                };
                 let mut songs: Vec<SongData> = Vec::new();
                 for element in &elements {
                     let mut song = SongData::default();
@@ -59,9 +60,12 @@ impl BMSSearchAccessor {
 
                     songs.push(song);
                 }
-                tde_new.set_song(songs);
-                table_data.set_folder(vec![tde_new]);
-                table_data.set_name("BMS Search".to_string());
+                tde_new.songs = songs;
+                let table_data = TableData {
+                    name: "BMS Search".to_string(),
+                    folder: vec![tde_new],
+                    ..Default::default()
+                };
                 log::info!("BMS Search fetch complete");
                 td = Some(table_data);
             }

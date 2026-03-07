@@ -122,8 +122,8 @@ impl TableDataAccessor {
     }
 
     pub fn write(&self, td: &mut TableData) {
-        let path =
-            PathBuf::from(&self.tabledir).join(format!("{}.bmt", Self::get_file_name(td.url())));
+        let path = PathBuf::from(&self.tabledir)
+            .join(format!("{}.bmt", Self::get_file_name(td.get_url())));
         if let Err(e) = TableData::write_to_path(&path, td) {
             log::warn!("Failed to write table data to {}: {:#}", path.display(), e);
         }
@@ -324,7 +324,7 @@ mod tests {
                 songs: vec![{
                     let mut s = crate::stubs::SongData::new();
                     s.md5 = "abcdef0123456789abcdef0123456789".to_string();
-                    s.set_title("Test Song".to_string());
+                    s.title = "Test Song".to_string();
                     s
                 }],
             }],
@@ -337,10 +337,10 @@ mod tests {
         assert!(cached.is_some());
         let cached = cached.unwrap();
         assert_eq!(cached.name(), "Test Table");
-        assert_eq!(cached.url(), "https://example.com/table");
+        assert_eq!(cached.get_url(), "https://example.com/table");
         assert_eq!(cached.tag, "T");
-        assert_eq!(cached.folder().len(), 1);
-        assert_eq!(cached.folder()[0].name(), "T1");
+        assert_eq!(cached.get_folder().len(), 1);
+        assert_eq!(cached.get_folder()[0].name(), "T1");
     }
 
     #[test]
@@ -377,7 +377,7 @@ mod tests {
                     songs: vec![{
                         let mut s = crate::stubs::SongData::new();
                         s.md5 = format!("md5hash{:032}", i);
-                        s.set_title(format!("Song {}", i));
+                        s.title = format!("Song {}", i);
                         s
                     }],
                 }],
@@ -404,7 +404,7 @@ mod tests {
                 songs: vec![{
                     let mut s = crate::stubs::SongData::new();
                     s.md5 = "custom_md5_hash_01234567890123".to_string();
-                    s.set_title("Custom Song".to_string());
+                    s.title = "Custom Song".to_string();
                     s
                 }],
             }],
@@ -433,7 +433,7 @@ mod tests {
                 songs: vec![{
                     let mut s = crate::stubs::SongData::new();
                     s.md5 = "named_md5_hash_012345678901234".to_string();
-                    s.set_title("Named Song".to_string());
+                    s.title = "Named Song".to_string();
                     s
                 }],
             }],
@@ -467,7 +467,7 @@ mod tests {
                 songs: vec![{
                     let mut s = crate::stubs::SongData::new();
                     s.md5 = "local_md5_hash_01234567890123".to_string();
-                    s.set_title("Local Song".to_string());
+                    s.title = "Local Song".to_string();
                     s
                 }],
             }],
@@ -519,7 +519,7 @@ mod tests {
                 songs: vec![{
                     let mut s = crate::stubs::SongData::new();
                     s.md5 = "existing_md5_hash_0123456789012".to_string();
-                    s.set_title("Existing Song".to_string());
+                    s.title = "Existing Song".to_string();
                     s
                 }],
             }],
