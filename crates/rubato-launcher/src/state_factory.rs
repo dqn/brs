@@ -33,7 +33,9 @@ use rubato_state::result::stubs::PlayerResource as ResultPlayerResource;
 use rubato_state::result::stubs::RankingData;
 use rubato_state::select::music_selector::MusicSelector;
 use rubato_types::main_controller_access::{
+    AudioSystemAccess, ControllerConfigAccess, DataReadAccess, IRConnectionAccess,
     MainControllerAccess, MainControllerCommand, MainControllerCommandQueue,
+    StateTransitionAccess,
 };
 use rubato_types::player_information::PlayerInformation;
 use rubato_types::player_resource_access::{NullPlayerResource, PlayerResourceAccess};
@@ -99,7 +101,7 @@ impl QueuedControllerAccess {
     }
 }
 
-impl MainControllerAccess for QueuedControllerAccess {
+impl ControllerConfigAccess for QueuedControllerAccess {
     fn config(&self) -> &rubato_types::config::Config {
         &self.config
     }
@@ -107,7 +109,9 @@ impl MainControllerAccess for QueuedControllerAccess {
     fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
         &self.player_config
     }
+}
 
+impl StateTransitionAccess for QueuedControllerAccess {
     fn change_state(&mut self, state: MainStateType) {
         self.commands
             .push(MainControllerCommand::ChangeState(state));
@@ -130,15 +134,9 @@ impl MainControllerAccess for QueuedControllerAccess {
         self.commands
             .push(MainControllerCommand::UpdateSong(path.map(str::to_string)));
     }
+}
 
-    fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
-        None
-    }
-
-    fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
-        None
-    }
-
+impl AudioSystemAccess for QueuedControllerAccess {
     fn play_sound(&mut self, sound: &SoundType, loop_sound: bool) {
         self.commands
             .push(MainControllerCommand::PlaySound(*sound, loop_sound));
@@ -201,18 +199,9 @@ impl MainControllerAccess for QueuedControllerAccess {
         self.sound.shuffle();
         self.commands.push(MainControllerCommand::ShuffleSounds);
     }
+}
 
-    fn read_replay_data(
-        &self,
-        sha256: &str,
-        has_ln: bool,
-        lnmode: i32,
-        index: i32,
-    ) -> Option<rubato_types::replay_data::ReplayData> {
-        self.play_data_accessor
-            .read_replay_data(sha256, has_ln, lnmode, index)
-    }
-
+impl IRConnectionAccess for QueuedControllerAccess {
     fn ir_song_url(&self, song_data: &rubato_types::song_data::SongData) -> Option<String> {
         self.ir_connection
             .as_ref()
@@ -226,6 +215,53 @@ impl MainControllerAccess for QueuedControllerAccess {
                 self.player_config.play_settings.lnmode,
             ))
         })
+    }
+
+    fn ranking_data_cache(
+        &self,
+    ) -> Option<&dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess> {
+        Some(&*self.ranking_data_cache)
+    }
+
+    fn ranking_data_cache_mut(
+        &mut self,
+    ) -> Option<&mut (dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess + 'static)>
+    {
+        Some(&mut *self.ranking_data_cache)
+    }
+
+    fn rival_count(&self) -> usize {
+        self.rivals.len()
+    }
+
+    fn rival_information(&self, index: usize) -> Option<PlayerInformation> {
+        self.rivals.get(index).cloned()
+    }
+
+    fn ir_connection_any(&self) -> Option<&dyn Any> {
+        self.ir_connection.as_ref().map(|conn| conn as &dyn Any)
+    }
+}
+
+impl DataReadAccess for QueuedControllerAccess {
+    fn read_replay_data(
+        &self,
+        sha256: &str,
+        has_ln: bool,
+        lnmode: i32,
+        index: i32,
+    ) -> Option<rubato_types::replay_data::ReplayData> {
+        self.play_data_accessor
+            .read_replay_data(sha256, has_ln, lnmode, index)
+    }
+
+    fn read_score_data_by_hash(&self, hash: &str, ln: bool, lnmode: i32) -> Option<ScoreData> {
+        self.play_data_accessor
+            .read_score_data_by_hash(hash, ln, lnmode)
+    }
+
+    fn read_player_data(&self) -> Option<rubato_types::player_data::PlayerData> {
+        self.play_data_accessor.read_player_data()
     }
 
     fn update_table(
@@ -258,39 +294,15 @@ impl MainControllerAccess for QueuedControllerAccess {
             )));
         true
     }
+}
 
-    fn ranking_data_cache(
-        &self,
-    ) -> Option<&dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess> {
-        Some(&*self.ranking_data_cache)
+impl MainControllerAccess for QueuedControllerAccess {
+    fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+        None
     }
 
-    fn ranking_data_cache_mut(
-        &mut self,
-    ) -> Option<&mut (dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess + 'static)>
-    {
-        Some(&mut *self.ranking_data_cache)
-    }
-
-    fn rival_count(&self) -> usize {
-        self.rivals.len()
-    }
-
-    fn rival_information(&self, index: usize) -> Option<PlayerInformation> {
-        self.rivals.get(index).cloned()
-    }
-
-    fn read_score_data_by_hash(&self, hash: &str, ln: bool, lnmode: i32) -> Option<ScoreData> {
-        self.play_data_accessor
-            .read_score_data_by_hash(hash, ln, lnmode)
-    }
-
-    fn read_player_data(&self) -> Option<rubato_types::player_data::PlayerData> {
-        self.play_data_accessor.read_player_data()
-    }
-
-    fn ir_connection_any(&self) -> Option<&dyn Any> {
-        self.ir_connection.as_ref().map(|conn| conn as &dyn Any)
+    fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+        None
     }
 }
 

@@ -670,7 +670,10 @@ fn test_dispatch_open_directory_event() {
 // Mock MainController for read_chart/read_course tests
 // ============================================================
 
-use rubato_types::main_controller_access::MainControllerAccess;
+use rubato_types::main_controller_access::{
+    AudioSystemAccess, ControllerConfigAccess, DataReadAccess, IRConnectionAccess,
+    MainControllerAccess, StateTransitionAccess,
+};
 use rubato_types::player_resource_access::PlayerResourceAccess;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -875,7 +878,7 @@ impl MockMainController {
     }
 }
 
-impl MainControllerAccess for MockMainController {
+impl ControllerConfigAccess for MockMainController {
     fn config(&self) -> &rubato_types::config::Config {
         static CFG: std::sync::OnceLock<rubato_types::config::Config> = std::sync::OnceLock::new();
         CFG.get_or_init(rubato_types::config::Config::default)
@@ -885,6 +888,9 @@ impl MainControllerAccess for MockMainController {
             std::sync::OnceLock::new();
         PC.get_or_init(rubato_types::player_config::PlayerConfig::default)
     }
+}
+
+impl StateTransitionAccess for MockMainController {
     fn change_state(&mut self, state: MainStateType) {
         self.state
             .lock()
@@ -896,18 +902,28 @@ impl MainControllerAccess for MockMainController {
     fn exit(&self) {}
     fn save_last_recording(&self, _reason: &str) {}
     fn update_song(&mut self, _path: Option<&str>) {}
-    fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
-        Some(&self.resource)
-    }
-    fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
-        Some(&mut self.resource)
-    }
+}
+
+impl AudioSystemAccess for MockMainController {
     fn play_audio_path(&mut self, path: &str, _volume: f32, _loop_play: bool) {
         self.state
             .lock()
             .unwrap()
             .played_audio_paths
             .push(path.to_string());
+    }
+}
+
+impl IRConnectionAccess for MockMainController {}
+
+impl DataReadAccess for MockMainController {}
+
+impl MainControllerAccess for MockMainController {
+    fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+        Some(&self.resource)
+    }
+    fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+        Some(&mut self.resource)
     }
 }
 
