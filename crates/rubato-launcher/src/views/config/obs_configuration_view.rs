@@ -145,12 +145,12 @@ impl ObsConfigurationView {
 
     /// update - loads config values into UI state
     pub fn update(&mut self, config: Config) {
-        self.obs_ws_enabled = config.use_obs_ws;
-        self.obs_ws_host = config.obs_ws_host.clone();
-        self.obs_ws_port = config.obs_ws_port;
-        self.obs_ws_pass = config.obs_ws_pass.clone();
-        self.obs_ws_rec_stop_wait = config.obs_ws_rec_stop_wait;
-        self.obs_ws_rec_mode = config.obs_ws_rec_mode;
+        self.obs_ws_enabled = config.obs.use_obs_ws;
+        self.obs_ws_host = config.obs.obs_ws_host.clone();
+        self.obs_ws_port = config.obs.obs_ws_port;
+        self.obs_ws_pass = config.obs.obs_ws_pass.clone();
+        self.obs_ws_rec_stop_wait = config.obs.obs_ws_rec_stop_wait;
+        self.obs_ws_rec_mode = config.obs.obs_ws_rec_mode;
         self.reset_connection_status();
 
         self.config = Some(config);
@@ -202,12 +202,12 @@ impl ObsConfigurationView {
     /// commit - saves UI state back to config
     pub fn commit(&mut self) {
         if let Some(config) = &mut self.config {
-            config.use_obs_ws = self.obs_ws_enabled;
-            config.obs_ws_host = self.obs_ws_host.clone();
-            config.obs_ws_port = self.obs_ws_port;
-            config.obs_ws_pass = self.obs_ws_pass.clone();
-            config.obs_ws_rec_stop_wait = self.obs_ws_rec_stop_wait;
-            config.obs_ws_rec_mode = self.obs_ws_rec_mode;
+            config.obs.use_obs_ws = self.obs_ws_enabled;
+            config.obs.obs_ws_host = self.obs_ws_host.clone();
+            config.obs.obs_ws_port = self.obs_ws_port;
+            config.obs.obs_ws_pass = self.obs_ws_pass.clone();
+            config.obs.obs_ws_rec_stop_wait = self.obs_ws_rec_stop_wait;
+            config.obs.obs_ws_rec_mode = self.obs_ws_rec_mode;
         }
 
         self.save_selections();
@@ -273,9 +273,12 @@ impl ObsConfigurationView {
         self.close_existing_connection();
 
         let temp_config = Config {
-            obs_ws_host: self.obs_ws_host.clone(),
-            obs_ws_port: self.obs_ws_port,
-            obs_ws_pass: self.obs_ws_pass.clone(),
+            obs: rubato_core::config::ObsConfig {
+                obs_ws_host: self.obs_ws_host.clone(),
+                obs_ws_port: self.obs_ws_port,
+                obs_ws_pass: self.obs_ws_pass.clone(),
+                ..Default::default()
+            },
             ..Default::default()
         };
 

@@ -182,7 +182,7 @@ impl MainLoader {
         }
 
         let player = player.unwrap_or_else(|| {
-            let playerpath = &config.playerpath;
+            let playerpath = &config.paths.playerpath;
             let playername = config.playername.as_deref().unwrap_or("default");
             PlayerConfig::read_player_config(playerpath, playername).unwrap_or_else(|e| {
                 error!("Player config read failed: {}", e);
@@ -194,10 +194,10 @@ impl MainLoader {
         //        final int h = config.getResolution().height;
         //        config.setWindowWidth(w);
         //        config.setWindowHeight(h);
-        let w = config.resolution.width();
-        let h = config.resolution.height();
-        config.window_width = w;
-        config.window_height = h;
+        let w = config.display.resolution.width();
+        let h = config.display.resolution.height();
+        config.display.window_width = w;
+        config.display.window_height = h;
 
         // Java: MainController main = new MainController(bmsPath, config, player, playerMode, songUpdated)
         let mut main = MainController::new(bms_path, config, player, player_mode, song_updated);
@@ -383,7 +383,7 @@ impl MainLoader {
         }
 
         let player = {
-            let playerpath = &config.playerpath;
+            let playerpath = &config.paths.playerpath;
             let playername = config.playername.as_deref().unwrap_or("default");
             PlayerConfig::read_player_config(playerpath, playername).unwrap_or_else(|e| {
                 error!("Player config read failed, using defaults: {}", e);
@@ -580,8 +580,8 @@ mod tests {
         let cfg = controller.config();
         let expected_w = Resolution::HD.width();
         let expected_h = Resolution::HD.height();
-        assert_eq!(cfg.window_width, expected_w);
-        assert_eq!(cfg.window_height, expected_h);
+        assert_eq!(cfg.display.window_width, expected_w);
+        assert_eq!(cfg.display.window_height, expected_h);
     }
 
     #[test]
@@ -598,10 +598,10 @@ mod tests {
         MainLoader::clear_score_database_accessor();
 
         let mut config = Config::default();
-        config.resolution = Resolution::FULLHD;
+        config.display.resolution = Resolution::FULLHD;
         // Set different initial window dimensions to verify they get overwritten
-        config.window_width = 100;
-        config.window_height = 100;
+        config.display.window_width = 100;
+        config.display.window_height = 100;
 
         let controller = MainLoader::play(
             None,
@@ -614,8 +614,8 @@ mod tests {
         .unwrap();
 
         let cfg = controller.config();
-        assert_eq!(cfg.window_width, Resolution::FULLHD.width());
-        assert_eq!(cfg.window_height, Resolution::FULLHD.height());
+        assert_eq!(cfg.display.window_width, Resolution::FULLHD.width());
+        assert_eq!(cfg.display.window_height, Resolution::FULLHD.height());
     }
 
     #[test]
@@ -654,7 +654,7 @@ mod tests {
         let (config, player, title) = MainLoader::start();
 
         // Config should be valid (validated)
-        assert!(config.max_frame_per_second >= 0);
+        assert!(config.display.max_frame_per_second >= 0);
 
         // Player should have a default name
         assert!(!player.name.is_empty() || player.name.is_empty()); // Just check it doesn't panic

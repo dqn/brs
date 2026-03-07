@@ -64,58 +64,58 @@ impl MusicSelectConfigurationView {
         self.config = Some(config.clone());
 
         // scrolldurationlow.getValueFactory().setValue(config.getScrollDurationLow());
-        self.scrolldurationlow = config.scrolldurationlow;
+        self.scrolldurationlow = config.select.scrolldurationlow;
         // scrolldurationhigh.getValueFactory().setValue(config.getScrollDurationHigh());
-        self.scrolldurationhigh = config.scrolldurationhigh;
+        self.scrolldurationhigh = config.select.scrolldurationhigh;
 
         // analogScroll.setSelected(config.isAnalogScroll());
-        self.analog_scroll = config.analog_scroll;
+        self.analog_scroll = config.select.analog_scroll;
         // analogTicksPerScroll.getValueFactory().setValue(config.getAnalogTicksPerScroll());
-        self.analog_ticks_per_scroll = config.analog_ticks_per_scroll;
+        self.analog_ticks_per_scroll = config.select.analog_ticks_per_scroll;
 
         // useSongInfo.setSelected(config.isUseSongInfo());
         self.use_song_info = config.use_song_info;
         // folderlamp.setSelected(config.isFolderlamp());
-        self.folderlamp = config.folderlamp;
+        self.folderlamp = config.select.folderlamp;
         // shownoexistingbar.setSelected(config.isShowNoSongExistingBar());
-        self.shownoexistingbar = config.show_no_song_existing_bar;
+        self.shownoexistingbar = config.select.show_no_song_existing_bar;
         // songPreview.setValue(config.getSongPreview());
-        self.song_preview = Some(config.song_preview);
+        self.song_preview = Some(config.select.song_preview);
 
         // maxsearchbar.getValueFactory().setValue(config.getMaxSearchBarCount());
-        self.maxsearchbar = config.max_search_bar_count;
+        self.maxsearchbar = config.select.max_search_bar_count;
         // skipDecideScreen.setSelected(config.isSkipDecideScreen());
-        self.skip_decide_screen = config.skip_decide_screen;
+        self.skip_decide_screen = config.select.skip_decide_screen;
     }
 
     // public void commit()
     pub fn commit(&mut self) {
         if let Some(ref mut config) = self.config {
             // config.setScrollDutationLow(scrolldurationlow.getValue());
-            config.scrolldurationlow = self.scrolldurationlow;
+            config.select.scrolldurationlow = self.scrolldurationlow;
             // config.setScrollDutationHigh(scrolldurationhigh.getValue());
-            config.scrolldurationhigh = self.scrolldurationhigh;
+            config.select.scrolldurationhigh = self.scrolldurationhigh;
 
             // config.setAnalogScroll(analogScroll.isSelected());
-            config.analog_scroll = self.analog_scroll;
+            config.select.analog_scroll = self.analog_scroll;
             // config.setAnalogTicksPerScroll(analogTicksPerScroll.getValue());
-            config.analog_ticks_per_scroll = self.analog_ticks_per_scroll;
+            config.select.analog_ticks_per_scroll = self.analog_ticks_per_scroll;
 
             // config.setUseSongInfo(useSongInfo.isSelected());
             config.use_song_info = self.use_song_info;
             // config.setFolderlamp(folderlamp.isSelected());
-            config.folderlamp = self.folderlamp;
+            config.select.folderlamp = self.folderlamp;
             // config.setShowNoSongExistingBar(shownoexistingbar.isSelected());
-            config.show_no_song_existing_bar = self.shownoexistingbar;
+            config.select.show_no_song_existing_bar = self.shownoexistingbar;
             // config.setSongPreview(songPreview.getValue());
             if let Some(ref sp) = self.song_preview {
-                config.song_preview = *sp;
+                config.select.song_preview = *sp;
             }
 
             // config.setMaxSearchBarCount(maxsearchbar.getValue());
-            config.max_search_bar_count = self.maxsearchbar;
+            config.select.max_search_bar_count = self.maxsearchbar;
             // config.setSkipDecideScreen(skipDecideScreen.isSelected());
-            config.skip_decide_screen = self.skip_decide_screen;
+            config.select.skip_decide_screen = self.skip_decide_screen;
         }
     }
 

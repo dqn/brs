@@ -66,7 +66,7 @@ impl ObsListener {
         // since self (ObsListener) is not Send.
         let play_scene = self.config.obs_scene("PLAY").cloned();
         let play_action = self.config.obs_action("PLAY").cloned();
-        let stop_wait = self.config.obs_ws_rec_stop_wait;
+        let stop_wait = self.config.obs.obs_ws_rec_stop_wait;
         let scheduled_stop_task = Arc::clone(&self.scheduled_stop_task);
 
         tokio::spawn(async move {
@@ -171,7 +171,7 @@ impl ObsListener {
             && action != ACTION_NONE
         {
             if action == "StopRecord" {
-                let delay = self.config.obs_ws_rec_stop_wait;
+                let delay = self.config.obs.obs_ws_rec_stop_wait;
                 // We already executed StopRecord above
                 if stop_record_now {
                     return;

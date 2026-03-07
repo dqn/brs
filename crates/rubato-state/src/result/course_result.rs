@@ -520,7 +520,7 @@ impl CourseResult {
             }
 
             // IR processing in background thread (Java spawns a Thread)
-            let ir_send_count = self.main.config().ir_send_count;
+            let ir_send_count = self.main.config().network.ir_send_count;
             if !self.ir_send_status.is_empty() {
                 self.data
                     .timer
@@ -1126,7 +1126,7 @@ mod tests {
             .as_nanos();
         let mut config = rubato_types::config::Config::default();
         let player_dir = std::env::temp_dir().join(format!("rubato-{label}-{unique}"));
-        config.playerpath = player_dir.to_string_lossy().into_owned();
+        config.paths.playerpath = player_dir.to_string_lossy().into_owned();
         config.playername = Some("mouse-course-result".to_string());
         config
     }

@@ -126,7 +126,7 @@ impl BarManager {
     /// Initialize the bar manager: load tables, courses, favorites, command/random folders.
     /// Corresponds to Java BarManager.init()
     pub fn init(&mut self, config: &Config, ir_table_urls: &[(String, String)]) {
-        let tablepath = &config.tablepath;
+        let tablepath = &config.paths.tablepath;
         let tdaccessor = TableDataAccessor::new(tablepath);
 
         // Load saved table data
@@ -136,7 +136,7 @@ impl BarManager {
 
         // Sort tables according to config table URL order
         let mut sorted_tables: Vec<TableData> = Vec::with_capacity(unsorted_tables.len());
-        for url in &config.table_url {
+        for url in &config.paths.table_url {
             if let Some(td) = unsorted_tables.iter_mut().find_map(|slot| {
                 if slot
                     .as_ref()
@@ -455,10 +455,12 @@ impl BarManager {
                     Bar::Command(b) => {
                         let player_name = ctx.config.playername.as_deref().unwrap_or("default");
                         let score_path =
-                            format!("{}/{}/score.db", ctx.config.playerpath, player_name);
-                        let scorelog_path =
-                            format!("{}/{}/scorelog.db", ctx.config.playerpath, player_name);
-                        let songinfo_path = ctx.config.songinfopath.to_string();
+                            format!("{}/{}/score.db", ctx.config.paths.playerpath, player_name);
+                        let scorelog_path = format!(
+                            "{}/{}/scorelog.db",
+                            ctx.config.paths.playerpath, player_name
+                        );
+                        let songinfo_path = ctx.config.paths.songinfopath.to_string();
                         let cmd_ctx = crate::select::bar::command_bar::CommandBarContext {
                             score_db_path: &score_path,
                             scorelog_db_path: &scorelog_path,

@@ -8,40 +8,40 @@ mod tests {
     fn test_config_default_construction() {
         let config = Config::default();
         assert!(config.playername.is_none());
-        assert_eq!(config.window_width, 1280);
-        assert_eq!(config.window_height, 720);
-        assert!(config.folderlamp);
-        assert_eq!(config.max_frame_per_second, 240);
-        assert_eq!(config.max_search_bar_count, 10);
-        assert!(!config.skip_decide_screen);
-        assert!(config.show_no_song_existing_bar);
-        assert!(config.use_resolution);
-        assert!(!config.vsync);
+        assert_eq!(config.display.window_width, 1280);
+        assert_eq!(config.display.window_height, 720);
+        assert!(config.select.folderlamp);
+        assert_eq!(config.display.max_frame_per_second, 240);
+        assert_eq!(config.select.max_search_bar_count, 10);
+        assert!(!config.select.skip_decide_screen);
+        assert!(config.select.show_no_song_existing_bar);
+        assert!(config.display.use_resolution);
+        assert!(!config.display.vsync);
     }
 
     #[test]
     fn test_config_default_paths() {
         let config = Config::default();
-        assert_eq!(config.songpath, SONGPATH_DEFAULT);
-        assert_eq!(config.songinfopath, SONGINFOPATH_DEFAULT);
-        assert_eq!(config.tablepath, TABLEPATH_DEFAULT);
-        assert_eq!(config.playerpath, PLAYERPATH_DEFAULT);
-        assert_eq!(config.skinpath, SKINPATH_DEFAULT);
-        assert_eq!(config.bgmpath, "bgm");
-        assert_eq!(config.soundpath, "sound");
+        assert_eq!(config.paths.songpath, SONGPATH_DEFAULT);
+        assert_eq!(config.paths.songinfopath, SONGINFOPATH_DEFAULT);
+        assert_eq!(config.paths.tablepath, TABLEPATH_DEFAULT);
+        assert_eq!(config.paths.playerpath, PLAYERPATH_DEFAULT);
+        assert_eq!(config.paths.skinpath, SKINPATH_DEFAULT);
+        assert_eq!(config.paths.bgmpath, "bgm");
+        assert_eq!(config.paths.soundpath, "sound");
     }
 
     #[test]
     fn test_config_default_bga() {
         let config = Config::default();
-        assert_eq!(config.bga, BGA_ON);
-        assert_eq!(config.bga_expand, BGAEXPAND_KEEP_ASPECT_RATIO);
+        assert_eq!(config.render.bga, BGA_ON);
+        assert_eq!(config.render.bga_expand, BGAEXPAND_KEEP_ASPECT_RATIO);
     }
 
     #[test]
     fn test_config_default_table_urls_not_empty() {
         let config = Config::default();
-        assert!(!config.table_url.is_empty());
+        assert!(!config.paths.table_url.is_empty());
     }
 
     #[test]
@@ -50,49 +50,55 @@ mod tests {
         let json = serde_json::to_string_pretty(&config).unwrap();
         let deserialized: Config = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(config.window_width, deserialized.window_width);
-        assert_eq!(config.window_height, deserialized.window_height);
-        assert_eq!(config.songpath, deserialized.songpath);
-        assert_eq!(config.songinfopath, deserialized.songinfopath);
-        assert_eq!(config.tablepath, deserialized.tablepath);
-        assert_eq!(config.playerpath, deserialized.playerpath);
-        assert_eq!(config.skinpath, deserialized.skinpath);
         assert_eq!(
-            config.max_frame_per_second,
-            deserialized.max_frame_per_second
+            config.display.window_width,
+            deserialized.display.window_width
         );
-        assert_eq!(config.bga, deserialized.bga);
-        assert_eq!(config.bga_expand, deserialized.bga_expand);
-        assert_eq!(config.vsync, deserialized.vsync);
-        assert_eq!(config.folderlamp, deserialized.folderlamp);
+        assert_eq!(
+            config.display.window_height,
+            deserialized.display.window_height
+        );
+        assert_eq!(config.paths.songpath, deserialized.paths.songpath);
+        assert_eq!(config.paths.songinfopath, deserialized.paths.songinfopath);
+        assert_eq!(config.paths.tablepath, deserialized.paths.tablepath);
+        assert_eq!(config.paths.playerpath, deserialized.paths.playerpath);
+        assert_eq!(config.paths.skinpath, deserialized.paths.skinpath);
+        assert_eq!(
+            config.display.max_frame_per_second,
+            deserialized.display.max_frame_per_second
+        );
+        assert_eq!(config.render.bga, deserialized.render.bga);
+        assert_eq!(config.render.bga_expand, deserialized.render.bga_expand);
+        assert_eq!(config.display.vsync, deserialized.display.vsync);
+        assert_eq!(config.select.folderlamp, deserialized.select.folderlamp);
     }
 
     #[test]
     fn test_config_serde_with_custom_values() {
         let mut config = Config::default();
         config.playername = Some("TestPlayer".to_string());
-        config.window_width = 1920;
-        config.window_height = 1080;
-        config.vsync = true;
-        config.bga = BGA_OFF;
+        config.display.window_width = 1920;
+        config.display.window_height = 1080;
+        config.display.vsync = true;
+        config.render.bga = BGA_OFF;
 
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: Config = serde_json::from_str(&json).unwrap();
 
         assert_eq!(deserialized.playername, Some("TestPlayer".to_string()));
-        assert_eq!(deserialized.window_width, 1920);
-        assert_eq!(deserialized.window_height, 1080);
-        assert!(deserialized.vsync);
-        assert_eq!(deserialized.bga, BGA_OFF);
+        assert_eq!(deserialized.display.window_width, 1920);
+        assert_eq!(deserialized.display.window_height, 1080);
+        assert!(deserialized.display.vsync);
+        assert_eq!(deserialized.render.bga, BGA_OFF);
     }
 
     #[test]
     fn test_config_deserialize_empty_json_uses_defaults() {
         let config: Config = serde_json::from_str("{}").unwrap();
         let default = Config::default();
-        assert_eq!(config.window_width, default.window_width);
-        assert_eq!(config.window_height, default.window_height);
-        assert_eq!(config.songpath, default.songpath);
+        assert_eq!(config.display.window_width, default.display.window_width);
+        assert_eq!(config.display.window_height, default.display.window_height);
+        assert_eq!(config.paths.songpath, default.paths.songpath);
     }
 
     #[test]
@@ -101,18 +107,18 @@ mod tests {
         config.playername = Some("Player1".to_string());
 
         assert_eq!(config.playername(), Some("Player1"));
-        assert_eq!(config.songpath, SONGPATH_DEFAULT);
-        assert_eq!(config.songinfopath, SONGINFOPATH_DEFAULT);
-        assert_eq!(config.tablepath, TABLEPATH_DEFAULT);
-        assert_eq!(config.playerpath, PLAYERPATH_DEFAULT);
-        assert_eq!(config.skinpath, SKINPATH_DEFAULT);
-        assert_eq!(config.bgmpath, "bgm");
-        assert_eq!(config.soundpath, "sound");
-        assert_eq!(config.max_frame_per_second, 240);
-        assert_eq!(config.max_search_bar_count, 10);
-        assert_eq!(config.bga, BGA_ON);
-        assert_eq!(config.bga_expand, BGAEXPAND_KEEP_ASPECT_RATIO);
-        assert_eq!(config.frameskip, 1);
+        assert_eq!(config.paths.songpath, SONGPATH_DEFAULT);
+        assert_eq!(config.paths.songinfopath, SONGINFOPATH_DEFAULT);
+        assert_eq!(config.paths.tablepath, TABLEPATH_DEFAULT);
+        assert_eq!(config.paths.playerpath, PLAYERPATH_DEFAULT);
+        assert_eq!(config.paths.skinpath, SKINPATH_DEFAULT);
+        assert_eq!(config.paths.bgmpath, "bgm");
+        assert_eq!(config.paths.soundpath, "sound");
+        assert_eq!(config.display.max_frame_per_second, 240);
+        assert_eq!(config.select.max_search_bar_count, 10);
+        assert_eq!(config.render.bga, BGA_ON);
+        assert_eq!(config.render.bga_expand, BGAEXPAND_KEEP_ASPECT_RATIO);
+        assert_eq!(config.render.frameskip, 1);
     }
 
     #[test]
@@ -123,18 +129,18 @@ mod tests {
         assert!(config.is_show_no_song_existing_bar());
 
         // Even if show_no_song_existing_bar is false, enable_http makes it true
-        config.show_no_song_existing_bar = false;
-        config.enable_http = true;
+        config.select.show_no_song_existing_bar = false;
+        config.network.enable_http = true;
         assert!(config.is_show_no_song_existing_bar());
 
         // Both false
-        config.show_no_song_existing_bar = false;
-        config.enable_http = false;
+        config.select.show_no_song_existing_bar = false;
+        config.network.enable_http = false;
         assert!(!config.is_show_no_song_existing_bar());
 
         // Only show_no_song_existing_bar true
-        config.show_no_song_existing_bar = true;
-        config.enable_http = false;
+        config.select.show_no_song_existing_bar = true;
+        config.network.enable_http = false;
         assert!(config.is_show_no_song_existing_bar());
     }
 
@@ -143,14 +149,14 @@ mod tests {
         let mut config = Config::default();
 
         config.set_analog_ticks_per_scroll(5);
-        assert_eq!(config.analog_ticks_per_scroll, 5);
+        assert_eq!(config.select.analog_ticks_per_scroll, 5);
 
         // Should clamp to minimum of 1
         config.set_analog_ticks_per_scroll(0);
-        assert_eq!(config.analog_ticks_per_scroll, 1);
+        assert_eq!(config.select.analog_ticks_per_scroll, 1);
 
         config.set_analog_ticks_per_scroll(-10);
-        assert_eq!(config.analog_ticks_per_scroll, 1);
+        assert_eq!(config.select.analog_ticks_per_scroll, 1);
     }
 
     #[test]
@@ -161,11 +167,11 @@ mod tests {
         assert!(config.obs_ws_pass().is_none());
 
         // Whitespace-only password returns None
-        config.obs_ws_pass = "   ".to_string();
+        config.obs.obs_ws_pass = "   ".to_string();
         assert!(config.obs_ws_pass().is_none());
 
         // Valid password returns Some
-        config.obs_ws_pass = "secret123".to_string();
+        config.obs.obs_ws_pass = "secret123".to_string();
         assert_eq!(config.obs_ws_pass(), Some("secret123"));
     }
 
@@ -174,14 +180,14 @@ mod tests {
         let mut config = Config::default();
 
         config.set_obs_ws_port(8080);
-        assert_eq!(config.obs_ws_port, 8080);
+        assert_eq!(config.obs.obs_ws_port, 8080);
 
         // Clamp to valid range
         config.set_obs_ws_port(-1);
-        assert_eq!(config.obs_ws_port, 0);
+        assert_eq!(config.obs.obs_ws_port, 0);
 
         config.set_obs_ws_port(70000);
-        assert_eq!(config.obs_ws_port, 65535);
+        assert_eq!(config.obs.obs_ws_port, 65535);
     }
 
     #[test]
@@ -189,13 +195,13 @@ mod tests {
         let mut config = Config::default();
 
         config.set_obs_ws_rec_stop_wait(3000);
-        assert_eq!(config.obs_ws_rec_stop_wait, 3000);
+        assert_eq!(config.obs.obs_ws_rec_stop_wait, 3000);
 
         config.set_obs_ws_rec_stop_wait(-1);
-        assert_eq!(config.obs_ws_rec_stop_wait, 0);
+        assert_eq!(config.obs.obs_ws_rec_stop_wait, 0);
 
         config.set_obs_ws_rec_stop_wait(20000);
-        assert_eq!(config.obs_ws_rec_stop_wait, 10000);
+        assert_eq!(config.obs.obs_ws_rec_stop_wait, 10000);
     }
 
     #[test]
@@ -238,7 +244,7 @@ mod tests {
         assert!(config.get_override_download_url().is_none());
 
         // Non-empty returns Some
-        config.override_download_url = "https://example.com".to_string();
+        config.network.override_download_url = "https://example.com".to_string();
         assert_eq!(
             config.get_override_download_url(),
             Some("https://example.com")
@@ -248,15 +254,18 @@ mod tests {
     #[test]
     fn test_config_webhook_getters() {
         let mut config = Config::default();
-        config.webhook_option = 1;
-        config.webhook_name = "MyBot".to_string();
-        config.webhook_avatar = "https://example.com/avatar.png".to_string();
-        config.webhook_url = vec!["https://hook.example.com".to_string()];
+        config.integration.webhook_option = 1;
+        config.integration.webhook_name = "MyBot".to_string();
+        config.integration.webhook_avatar = "https://example.com/avatar.png".to_string();
+        config.integration.webhook_url = vec!["https://hook.example.com".to_string()];
 
-        assert_eq!(config.webhook_option, 1);
-        assert_eq!(config.webhook_name, "MyBot");
-        assert_eq!(config.webhook_avatar, "https://example.com/avatar.png");
-        assert_eq!(config.webhook_url.len(), 1);
+        assert_eq!(config.integration.webhook_option, 1);
+        assert_eq!(config.integration.webhook_name, "MyBot");
+        assert_eq!(
+            config.integration.webhook_avatar,
+            "https://example.com/avatar.png"
+        );
+        assert_eq!(config.integration.webhook_url.len(), 1);
     }
 
     #[test]

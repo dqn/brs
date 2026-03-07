@@ -414,7 +414,7 @@ impl MusicResult {
             // The thread sends scores, fetches ranking, and updates state.
             // For now, immediately mark as finished (blocking stub).
             let ir_len = self.main.ir_status().len();
-            let ir_send_count = self.main.config().ir_send_count;
+            let ir_send_count = self.main.config().network.ir_send_count;
             let mut ir_send_list = self.main.ir_send_status_mut();
             let mut irsend = 0;
             let mut succeed = true;
@@ -1609,7 +1609,7 @@ mod tests {
             .as_nanos();
         let mut config = rubato_types::config::Config::default();
         let player_dir = std::env::temp_dir().join(format!("rubato-{label}-{unique}"));
-        config.playerpath = player_dir.to_string_lossy().into_owned();
+        config.paths.playerpath = player_dir.to_string_lossy().into_owned();
         config.playername = Some("mouse-result".to_string());
         config
     }

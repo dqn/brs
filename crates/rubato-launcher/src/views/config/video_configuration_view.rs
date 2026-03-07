@@ -75,19 +75,19 @@ impl VideoConfigurationView {
     // public void update(Config config)
     pub fn update(&mut self, config: &Config) {
         // displayMode.setValue(config.getDisplaymode());
-        self.display_mode = Some(config.displaymode);
+        self.display_mode = Some(config.display.displaymode);
         // resolution.setValue(config.getResolution());
-        self.resolution = Some(config.resolution);
+        self.resolution = Some(config.display.resolution);
         // vSync.setSelected(config.isVsync());
-        self.vsync = config.vsync;
+        self.vsync = config.display.vsync;
         // monitor.setValue(config.getMonitorName());
-        self.monitor = Some(config.monitor_name.clone());
+        self.monitor = Some(config.integration.monitor_name.clone());
         // bgaOp.getSelectionModel().select(config.getBga());
-        self.bga_op = config.bga;
+        self.bga_op = config.render.bga;
         // bgaExpand.getSelectionModel().select(config.getBgaExpand());
-        self.bga_expand = config.bga_expand;
+        self.bga_expand = config.render.bga_expand;
         // maxFps.getValueFactory().setValue(config.getMaxFramePerSecond());
-        self.max_fps = config.max_frame_per_second;
+        self.max_fps = config.display.max_frame_per_second;
     }
 
     // public void updatePlayer(PlayerConfig player)
@@ -100,24 +100,24 @@ impl VideoConfigurationView {
     pub fn commit(&self, config: &mut Config) {
         // config.setResolution(resolution.getValue());
         if let Some(ref r) = self.resolution {
-            config.resolution = *r;
+            config.display.resolution = *r;
         }
         // config.setDisplaymode(displayMode.getValue());
         if let Some(ref dm) = self.display_mode {
-            config.displaymode = *dm;
+            config.display.displaymode = *dm;
         }
         // config.setVsync(vSync.isSelected());
-        config.vsync = self.vsync;
+        config.display.vsync = self.vsync;
         // config.setMonitorName(monitor.getValue());
         if let Some(ref m) = self.monitor {
-            config.monitor_name = m.clone();
+            config.integration.monitor_name = m.clone();
         }
         // config.setBga(bgaOp.getSelectionModel().getSelectedIndex());
-        config.bga = self.bga_op;
+        config.render.bga = self.bga_op;
         // config.setBgaExpand(bgaExpand.getSelectionModel().getSelectedIndex());
-        config.bga_expand = self.bga_expand;
+        config.render.bga_expand = self.bga_expand;
         // config.setMaxFramePerSecond(maxFps.getValue());
-        config.max_frame_per_second = self.max_fps;
+        config.display.max_frame_per_second = self.max_fps;
     }
 
     // public void commitPlayer(PlayerConfig player)
@@ -317,7 +317,7 @@ impl VideoConfigurationView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_core::config::BGA_ON;
+    use rubato_core::config::{BGA_ON, DisplayConfig, IntegrationConfig, RenderConfig};
 
     // --- Default / initialization tests ---
 
@@ -347,13 +347,22 @@ mod tests {
     fn update_copies_config_fields() {
         let mut view = VideoConfigurationView::default();
         let config = Config {
-            displaymode: DisplayMode::FULLSCREEN,
-            resolution: Resolution::FULLHD,
-            vsync: true,
-            monitor_name: "Test Monitor [0, 0]".to_string(),
-            bga: 2,
-            bga_expand: 1,
-            max_frame_per_second: 120,
+            display: DisplayConfig {
+                displaymode: DisplayMode::FULLSCREEN,
+                resolution: Resolution::FULLHD,
+                vsync: true,
+                max_frame_per_second: 120,
+                ..DisplayConfig::default()
+            },
+            integration: IntegrationConfig {
+                monitor_name: "Test Monitor [0, 0]".to_string(),
+                ..IntegrationConfig::default()
+            },
+            render: RenderConfig {
+                bga: 2,
+                bga_expand: 1,
+                ..RenderConfig::default()
+            },
             ..Config::default()
         };
         view.update(&config);
@@ -369,13 +378,22 @@ mod tests {
     fn commit_roundtrip_preserves_values() {
         let mut view = VideoConfigurationView::default();
         let input = Config {
-            displaymode: DisplayMode::BORDERLESS,
-            resolution: Resolution::HD,
-            vsync: true,
-            monitor_name: "Display 1 [0, 0]".to_string(),
-            bga: 2,
-            bga_expand: 0,
-            max_frame_per_second: 144,
+            display: DisplayConfig {
+                displaymode: DisplayMode::BORDERLESS,
+                resolution: Resolution::HD,
+                vsync: true,
+                max_frame_per_second: 144,
+                ..DisplayConfig::default()
+            },
+            integration: IntegrationConfig {
+                monitor_name: "Display 1 [0, 0]".to_string(),
+                ..IntegrationConfig::default()
+            },
+            render: RenderConfig {
+                bga: 2,
+                bga_expand: 0,
+                ..RenderConfig::default()
+            },
             ..Config::default()
         };
         view.update(&input);
@@ -383,13 +401,16 @@ mod tests {
         let mut output = Config::default();
         view.commit(&mut output);
 
-        assert!(matches!(output.displaymode, DisplayMode::BORDERLESS));
-        assert_eq!(output.resolution, Resolution::HD);
-        assert!(output.vsync);
-        assert_eq!(output.monitor_name, "Display 1 [0, 0]");
-        assert_eq!(output.bga, 2);
-        assert_eq!(output.bga_expand, 0);
-        assert_eq!(output.max_frame_per_second, 144);
+        assert!(matches!(
+            output.display.displaymode,
+            DisplayMode::BORDERLESS
+        ));
+        assert_eq!(output.display.resolution, Resolution::HD);
+        assert!(output.display.vsync);
+        assert_eq!(output.integration.monitor_name, "Display 1 [0, 0]");
+        assert_eq!(output.render.bga, 2);
+        assert_eq!(output.render.bga_expand, 0);
+        assert_eq!(output.display.max_frame_per_second, 144);
     }
 
     // --- update_player / commit_player tests ---
@@ -516,6 +537,6 @@ mod tests {
 
         let mut out = Config::default();
         view.commit(&mut out);
-        assert_eq!(out.bga, BGA_ON);
+        assert_eq!(out.render.bga, BGA_ON);
     }
 }

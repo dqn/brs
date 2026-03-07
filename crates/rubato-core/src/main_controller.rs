@@ -303,41 +303,41 @@ impl MainController {
         let offset: Vec<SkinOffset> = (0..OFFSET_COUNT).map(|_| SkinOffset::new()).collect();
 
         // IPFS directory setup (Java: MainController constructor lines 161-170)
-        if config.enable_ipfs {
+        if config.network.enable_ipfs {
             let ipfspath = std::path::Path::new("ipfs")
                 .canonicalize()
                 .unwrap_or_else(|_| std::env::current_dir().expect("current_dir").join("ipfs"));
             let _ = std::fs::create_dir_all(&ipfspath);
             if ipfspath.exists() {
                 let ipfs_str = ipfspath.to_string_lossy().to_string();
-                if !config.bmsroot.contains(&ipfs_str) {
-                    config.bmsroot.push(ipfs_str);
+                if !config.paths.bmsroot.contains(&ipfs_str) {
+                    config.paths.bmsroot.push(ipfs_str);
                 }
             }
         }
 
         // HTTP download directory setup (Java: MainController constructor lines 171-180)
-        if config.enable_http {
-            let httpdl_path = std::path::Path::new(&config.download_directory)
+        if config.network.enable_http {
+            let httpdl_path = std::path::Path::new(&config.network.download_directory)
                 .canonicalize()
                 .unwrap_or_else(|_| {
                     std::env::current_dir()
                         .expect("current_dir")
-                        .join(&config.download_directory)
+                        .join(&config.network.download_directory)
                 });
             let _ = std::fs::create_dir_all(&httpdl_path);
             if httpdl_path.exists() {
                 let http_str = httpdl_path.to_string_lossy().to_string();
-                if !config.bmsroot.contains(&http_str) {
-                    config.bmsroot.push(http_str);
+                if !config.paths.bmsroot.contains(&http_str) {
+                    config.paths.bmsroot.push(http_str);
                 }
             }
         }
 
         let timer = TimerManager::new();
         let sound = SystemSoundManager::new(
-            Some(config.bgmpath.as_str()),
-            Some(config.soundpath.as_str()),
+            Some(config.paths.bgmpath.as_str()),
+            Some(config.paths.soundpath.as_str()),
         );
 
         // Java: playdata = new PlayDataAccessor(config);
@@ -572,7 +572,8 @@ impl MainController {
 
         // Determine the actual state type to create
         // (for Decide with skip, we create Play instead)
-        let actual_type = if state == MainStateType::Decide && self.config.skip_decide_screen {
+        let actual_type = if state == MainStateType::Decide && self.config.select.skip_decide_screen
+        {
             MainStateType::Play
         } else {
             state
@@ -771,8 +772,8 @@ impl MainController {
         // to NDC y=+1 (top) and y=height maps to NDC y=-1 (bottom).
         ortho.set_to_ortho(
             0.0,
-            self.config.window_width as f32,
-            self.config.window_height as f32,
+            self.config.display.window_width as f32,
+            self.config.display.window_height as f32,
             0.0,
             -1.0,
             1.0,
@@ -1198,7 +1199,7 @@ impl MainController {
         if let Err(e) = Config::write(&self.config) {
             log::error!("Failed to write config: {}", e);
         }
-        if let Err(e) = PlayerConfig::write(&self.config.playerpath, &self.player) {
+        if let Err(e) = PlayerConfig::write(&self.config.paths.playerpath, &self.player) {
             log::error!("Failed to write player config: {}", e);
         }
         info!("Config saved");
@@ -1371,7 +1372,7 @@ impl MainController {
             }
         );
         let update_path = if path.is_empty() { None } else { Some(path) };
-        let bmsroot = self.config.bmsroot.to_vec();
+        let bmsroot = self.config.paths.bmsroot.to_vec();
         if let Some(ref songdb) = self.db.songdb {
             songdb.update_song_datas(update_path, &bmsroot, false, update_parent_when_missing);
         }
@@ -2057,6 +2058,7 @@ impl MainControllerAccess for MainController {
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
+    use crate::config::SelectConfig;
     use crate::config_pkg::key_configuration::KeyConfiguration;
     use crate::config_pkg::skin_configuration::SkinConfiguration;
     use crate::main_state::MainStateData;
@@ -2336,7 +2338,10 @@ mod tests {
     #[test]
     fn test_decide_skip_creates_play_state() {
         let config = Config {
-            skip_decide_screen: true,
+            select: SelectConfig {
+                skip_decide_screen: true,
+                ..SelectConfig::default()
+            },
             ..Config::default()
         };
         let player = PlayerConfig::default();
@@ -2352,7 +2357,10 @@ mod tests {
     #[test]
     fn test_decide_no_skip_creates_decide_state() {
         let config = Config {
-            skip_decide_screen: false,
+            select: SelectConfig {
+                skip_decide_screen: false,
+                ..SelectConfig::default()
+            },
             ..Config::default()
         };
         let player = PlayerConfig::default();
@@ -3398,7 +3406,10 @@ mod tests {
         // Verify it's valid JSON that round-trips back to Config
         let contents = std::fs::read_to_string(&config_path).unwrap();
         let deserialized: Config = serde_json::from_str(&contents).unwrap();
-        assert_eq!(deserialized.window_width, mc.config.window_width);
+        assert_eq!(
+            deserialized.display.window_width,
+            mc.config.display.window_width
+        );
 
         std::env::set_current_dir(original_dir).unwrap();
     }
@@ -3411,20 +3422,20 @@ mod tests {
         std::env::set_current_dir(dir.path()).unwrap();
 
         let mut config = Config::default();
-        config.playerpath = dir.path().join("player").to_string_lossy().to_string();
+        config.paths.playerpath = dir.path().join("player").to_string_lossy().to_string();
         let mut player = PlayerConfig::default();
         player.id = Some("test_player".to_string());
         player.name = "TestName".to_string();
 
         let mc = MainController::new(None, config.clone(), player, None, false);
         // Create the player directory so write succeeds
-        std::fs::create_dir_all(format!("{}/test_player", config.playerpath)).unwrap();
+        std::fs::create_dir_all(format!("{}/test_player", config.paths.playerpath)).unwrap();
 
         mc.save_config();
 
         let player_config_path = PathBuf::from(format!(
             "{}/test_player/config_player.json",
-            config.playerpath
+            config.paths.playerpath
         ));
         assert!(
             player_config_path.exists(),

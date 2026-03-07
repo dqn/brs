@@ -434,11 +434,12 @@ fn e2e_render_pause_resume_on_all_states_without_bms() {
 
     for state_type in &types {
         mc.change_state(*state_type);
-        let expected = if mc.config.skip_decide_screen && *state_type == MainStateType::Decide {
-            MainStateType::Play
-        } else {
-            *state_type
-        };
+        let expected =
+            if mc.config.select.skip_decide_screen && *state_type == MainStateType::Decide {
+                MainStateType::Play
+            } else {
+                *state_type
+            };
         assert_eq!(
             mc.current_state_type(),
             Some(expected),
@@ -723,11 +724,12 @@ fn e2e_dispose_during_mid_cycle() {
         mc.change_state(*dispose_at);
         mc.render();
 
-        let expected = if mc.config.skip_decide_screen && *dispose_at == MainStateType::Decide {
-            MainStateType::Play
-        } else {
-            *dispose_at
-        };
+        let expected =
+            if mc.config.select.skip_decide_screen && *dispose_at == MainStateType::Decide {
+                MainStateType::Play
+            } else {
+                *dispose_at
+            };
         assert_eq!(
             mc.current_state_type(),
             Some(expected),

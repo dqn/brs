@@ -122,7 +122,7 @@ pub struct BMSPlayerInputProcessor {
 
 impl BMSPlayerInputProcessor {
     pub fn new(config: &Config, _player: &PlayerConfig) -> Self {
-        let resolution = config.resolution;
+        let resolution = config.display.resolution;
         let default_kb_config = KeyboardConfig::default();
         let kbinput = KeyBoardInputProcesseor::new(&default_kb_config, resolution);
         // Gdx.input.setInputProcessor(kbinput);

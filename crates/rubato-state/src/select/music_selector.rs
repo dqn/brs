@@ -817,7 +817,7 @@ impl MusicSelector {
             }
             EventType::Bga => {
                 let step = if arg1 >= 0 { 1 } else { 2 };
-                self.app_config.bga = (self.app_config.bga + step) % 3;
+                self.app_config.render.bga = (self.app_config.render.bga + step) % 3;
                 self.play_option_change();
             }
             EventType::NotesDisplayTiming => {
@@ -1098,7 +1098,14 @@ impl MusicSelector {
             let table_urls: Vec<String> = self
                 .main
                 .as_ref()
-                .map(|m| m.config().table_url.iter().map(|s| s.to_string()).collect())
+                .map(|m| {
+                    m.config()
+                        .paths
+                        .table_url
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect()
+                })
                 .unwrap_or_default();
 
             let dir = self.manager.directory();
@@ -1779,10 +1786,15 @@ impl MusicSelector {
         {
             let songdb = self.song_database();
             let player_name = self.app_config.playername.as_deref().unwrap_or("default");
-            let score_path = format!("{}/{}/score.db", self.app_config.playerpath, player_name);
-            let scorelog_path =
-                format!("{}/{}/scorelog.db", self.app_config.playerpath, player_name);
-            let songinfo_path = self.app_config.songinfopath.to_string();
+            let score_path = format!(
+                "{}/{}/score.db",
+                self.app_config.paths.playerpath, player_name
+            );
+            let scorelog_path = format!(
+                "{}/{}/scorelog.db",
+                self.app_config.paths.playerpath, player_name
+            );
+            let songinfo_path = self.app_config.paths.songinfopath.to_string();
             rcd.lottery_song_datas(songdb, &score_path, &scorelog_path, Some(&songinfo_path));
         }
         let course_data = rcd.create_course_data();
@@ -2469,7 +2481,7 @@ impl MainState for MusicSelector {
                         false
                     };
                     if should_start_preview
-                        && !matches!(self.app_config.song_preview, SongPreview::NONE)
+                        && !matches!(self.app_config.select.song_preview, SongPreview::NONE)
                     {
                         let song_clone = song_bar.song_data().clone();
                         if let Some(preview) = &mut self.preview_state.preview {
@@ -2674,13 +2686,15 @@ impl MainState for MusicSelector {
                         Bar::Command(b) => {
                             let player_name =
                                 self.app_config.playername.as_deref().unwrap_or("default");
-                            let score_path =
-                                format!("{}/{}/score.db", self.app_config.playerpath, player_name);
+                            let score_path = format!(
+                                "{}/{}/score.db",
+                                self.app_config.paths.playerpath, player_name
+                            );
                             let scorelog_path = format!(
                                 "{}/{}/scorelog.db",
-                                self.app_config.playerpath, player_name
+                                self.app_config.paths.playerpath, player_name
                             );
-                            let songinfo_path = self.app_config.songinfopath.to_string();
+                            let songinfo_path = self.app_config.paths.songinfopath.to_string();
                             let cmd_ctx = crate::select::bar::command_bar::CommandBarContext {
                                 score_db_path: &score_path,
                                 scorelog_db_path: &scorelog_path,

@@ -35,14 +35,14 @@ fn play_configuration_view_new_defaults() {
 #[test]
 fn launcher_ui_preserves_config() {
     let mut config = Config::default();
-    config.vsync = true;
-    config.max_frame_per_second = 120;
+    config.display.vsync = true;
+    config.display.max_frame_per_second = 120;
     let player = PlayerConfig::default();
 
     let ui = LauncherUi::new(config, player);
 
-    assert!(ui.config().vsync);
-    assert_eq!(ui.config().max_frame_per_second, 120);
+    assert!(ui.config().display.vsync);
+    assert_eq!(ui.config().display.max_frame_per_second, 120);
 }
 
 #[test]

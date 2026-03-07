@@ -184,7 +184,7 @@ impl PreviewMusicProcessor {
                     true,
                 );
                 if path != self.default_music {
-                    let looping = matches!(config.song_preview, SongPreview::LOOP);
+                    let looping = matches!(config.select.song_preview, SongPreview::LOOP);
                     audio.play_preview_path(&path, sys_vol, looping);
                 } else {
                     audio.set_preview_volume(&self.default_music, sys_vol);
@@ -235,7 +235,7 @@ impl PreviewMusicProcessor {
                             true,
                         );
                         if path != self.default_music {
-                            let looping = matches!(config.song_preview, SongPreview::LOOP);
+                            let looping = matches!(config.select.song_preview, SongPreview::LOOP);
                             audio.play_path(&path, sys_vol, looping);
                         } else {
                             audio.set_volume_path(&self.default_music, sys_vol);

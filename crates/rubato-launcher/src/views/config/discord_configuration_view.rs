@@ -84,15 +84,15 @@ impl DiscordConfigurationView {
     pub fn update(&mut self, config: &mut Config) {
         // this.config = config;
         // discordRichPresence.setSelected(config.isUseDiscordRPC());
-        self.discord_rich_presence = config.use_discord_rpc;
+        self.discord_rich_presence = config.integration.use_discord_rpc;
         // webhookName.setText(config.getWebhookName());
-        self.webhook_name = config.webhook_name.clone();
+        self.webhook_name = config.integration.webhook_name.clone();
         // webhookAvatar.setText(config.getWebhookAvatar());
-        self.webhook_avatar = config.webhook_avatar.clone();
+        self.webhook_avatar = config.integration.webhook_avatar.clone();
         // webhookOption.getSelectionModel().select(config.getWebhookOption());
-        self.webhook_option = config.webhook_option;
+        self.webhook_option = config.integration.webhook_option;
         // WebhookInfo.populateList(webhookURL.getItems(), config.getWebhookUrl());
-        WebhookInfo::populate_list(&mut self.webhook_url, &config.webhook_url);
+        WebhookInfo::populate_list(&mut self.webhook_url, &config.integration.webhook_url);
 
         self.config = Some(config.clone());
     }
@@ -101,15 +101,15 @@ impl DiscordConfigurationView {
     pub fn commit(&mut self) {
         if let Some(ref mut config) = self.config {
             // config.setUseDiscordRPC(discordRichPresence.isSelected());
-            config.use_discord_rpc = self.discord_rich_presence;
+            config.integration.use_discord_rpc = self.discord_rich_presence;
             // config.setWebhookOption(webhookOption.getSelectionModel().getSelectedIndex());
-            config.webhook_option = self.webhook_option;
+            config.integration.webhook_option = self.webhook_option;
             // config.setWebhookName(webhookName.getText());
-            config.webhook_name = self.webhook_name.clone();
+            config.integration.webhook_name = self.webhook_name.clone();
             // config.setWebhookAvatar(webhookAvatar.getText());
-            config.webhook_avatar = self.webhook_avatar.clone();
+            config.integration.webhook_avatar = self.webhook_avatar.clone();
             // config.setWebhookUrl(WebhookInfo.toURLArray(webhookURL.getItems()));
-            config.webhook_url = WebhookInfo::to_url_array(&self.webhook_url);
+            config.integration.webhook_url = WebhookInfo::to_url_array(&self.webhook_url);
         }
     }
 

@@ -586,10 +586,16 @@ impl PlayerResource {
         let Some(songdata) = self.songdata.as_ref() else {
             return Vec::new();
         };
-        let url_set: std::collections::HashSet<&str> =
-            self.config.table_url.iter().map(|s| s.as_str()).collect();
-        let tdaccessor =
-            crate::table_data_accessor::TableDataAccessor::new(self.config.tablepath.as_str());
+        let url_set: std::collections::HashSet<&str> = self
+            .config
+            .paths
+            .table_url
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        let tdaccessor = crate::table_data_accessor::TableDataAccessor::new(
+            self.config.paths.tablepath.as_str(),
+        );
         let tds = tdaccessor.read_all();
         let mut result = Vec::new();
         for td in &tds {
@@ -614,10 +620,16 @@ impl PlayerResource {
         let Some(songdata) = self.songdata.as_ref() else {
             return Vec::new();
         };
-        let url_set: std::collections::HashSet<&str> =
-            self.config.table_url.iter().map(|s| s.as_str()).collect();
-        let tdaccessor =
-            crate::table_data_accessor::TableDataAccessor::new(self.config.tablepath.as_str());
+        let url_set: std::collections::HashSet<&str> = self
+            .config
+            .paths
+            .table_url
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
+        let tdaccessor = crate::table_data_accessor::TableDataAccessor::new(
+            self.config.paths.tablepath.as_str(),
+        );
         let tds = tdaccessor.read_all();
         let mut result = Vec::new();
         for td in &tds {

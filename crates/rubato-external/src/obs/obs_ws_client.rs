@@ -147,9 +147,9 @@ fn compute_next_reconnect_delay(current_delay: i32) -> i32 {
 
 impl ObsWsClient {
     pub fn new(config: &Config) -> Result<Self> {
-        let server_uri = format!("ws://{}:{}", config.obs_ws_host, config.obs_ws_port);
-        let password = config.obs_ws_pass.clone();
-        let recording_mode = ObsRecordingMode::from_value(config.obs_ws_rec_mode)?;
+        let server_uri = format!("ws://{}:{}", config.obs.obs_ws_host, config.obs.obs_ws_port);
+        let password = config.obs.obs_ws_pass.clone();
+        let recording_mode = ObsRecordingMode::from_value(config.obs.obs_ws_rec_mode)?;
         let shutdown_notify = Arc::new(Notify::new());
 
         let inner = Arc::new(Mutex::new(ObsWsClientInner {

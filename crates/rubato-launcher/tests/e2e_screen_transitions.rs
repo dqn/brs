@@ -168,7 +168,7 @@ fn e2e_dispose_clears_all_state() {
 #[test]
 fn e2e_skip_decide_screen() {
     let mut config = Config::default();
-    config.skip_decide_screen = true;
+    config.select.skip_decide_screen = true;
     let player = PlayerConfig::default();
     let mut mc = MainController::new(None, config, player, None, false);
     mc.set_state_factory(Box::new(LauncherStateFactory::new()));
@@ -217,11 +217,12 @@ fn e2e_all_state_types_reachable() {
 
     for state_type in &types {
         mc.change_state(*state_type);
-        let expected = if mc.config.skip_decide_screen && *state_type == MainStateType::Decide {
-            MainStateType::Play
-        } else {
-            *state_type
-        };
+        let expected =
+            if mc.config.select.skip_decide_screen && *state_type == MainStateType::Decide {
+                MainStateType::Play
+            } else {
+                *state_type
+            };
         assert_eq!(
             mc.current_state_type(),
             Some(expected),

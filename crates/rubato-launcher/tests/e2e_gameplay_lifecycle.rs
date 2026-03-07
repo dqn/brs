@@ -328,7 +328,7 @@ fn e2e_gameplay_skip_decide_with_bms() {
     let bms_path = test_bms_path();
 
     let mut config = Config::default();
-    config.skip_decide_screen = true;
+    config.select.skip_decide_screen = true;
     let player = PlayerConfig::default();
     let mut mc = MainController::new(None, config, player, None, false);
     mc.set_state_factory(Box::new(LauncherStateFactory::new()));

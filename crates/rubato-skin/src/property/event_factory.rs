@@ -267,8 +267,8 @@ static EVENT_TYPES: &[EventTypeEntry] = &[
         create_event: || {
             Box::new(ConfigCycleEvent {
                 event_id: EventId(72),
-                get: |c| c.bga,
-                set: |c, v| c.bga = v,
+                get: |c| c.render.bga,
+                set: |c, v| c.render.bga = v,
                 count: 3,
             })
         },
@@ -279,8 +279,8 @@ static EVENT_TYPES: &[EventTypeEntry] = &[
         create_event: || {
             Box::new(ConfigCycleEvent {
                 event_id: EventId(73),
-                get: |c| c.bga_expand,
-                set: |c, v| c.bga_expand = v,
+                get: |c| c.render.bga_expand,
+                set: |c, v| c.render.bga_expand = v,
                 count: 3,
             })
         },
@@ -1844,19 +1844,19 @@ mod tests {
     #[test]
     fn test_bga_cycle() {
         let mut state = TestMainState::new();
-        state.config.bga = 2;
+        state.config.render.bga = 2;
         let event = event_by_id(72).unwrap();
         event.exec(&mut state, 1, 0);
-        assert_eq!(state.config.bga, 0); // wraps from 2
+        assert_eq!(state.config.render.bga, 0); // wraps from 2
     }
 
     #[test]
     fn test_bgaexpand_cycle() {
         let mut state = TestMainState::new();
-        state.config.bga_expand = 0;
+        state.config.render.bga_expand = 0;
         let event = event_by_id(73).unwrap();
         event.exec(&mut state, 1, 0);
-        assert_eq!(state.config.bga_expand, 1);
+        assert_eq!(state.config.render.bga_expand, 1);
     }
 
     #[test]

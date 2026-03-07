@@ -91,7 +91,7 @@ impl SkinDistributionGraph {
 
         let is_folderlamp = state
             .get_config_ref()
-            .is_none_or(|config| config.folderlamp);
+            .is_none_or(|config| config.select.folderlamp);
         if !is_folderlamp {
             self.draw = false;
             return;
@@ -282,7 +282,10 @@ mod tests {
         let mut graph = SkinDistributionGraph::new(0);
         let mut state = MockMainState::default();
         let config = rubato_types::config::Config {
-            folderlamp: false,
+            select: rubato_types::config::SelectConfig {
+                folderlamp: false,
+                ..Default::default()
+            },
             ..Default::default()
         };
         state.config = Some(config);
@@ -295,7 +298,10 @@ mod tests {
         let mut graph = SkinDistributionGraph::new(1);
         let mut state = MockMainState::default();
         let config = rubato_types::config::Config {
-            folderlamp: true,
+            select: rubato_types::config::SelectConfig {
+                folderlamp: true,
+                ..Default::default()
+            },
             ..Default::default()
         };
         state.config = Some(config);

@@ -10,7 +10,10 @@ use tempfile::TempDir;
 /// Helper: create a Config with playerpath pointing to a subdirectory of the given tempdir.
 fn config_with_playerpath(tempdir: &TempDir, subdir: &str) -> Config {
     Config {
-        playerpath: tempdir.path().join(subdir).to_string_lossy().to_string(),
+        paths: rubato_types::config::PathConfig {
+            playerpath: tempdir.path().join(subdir).to_string_lossy().to_string(),
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
@@ -25,12 +28,12 @@ fn init_creates_player_directory() {
     let mut config = config_with_playerpath(&tempdir, "players");
 
     // The "players" subdirectory does not exist yet
-    assert!(!std::path::Path::new(&config.playerpath).exists());
+    assert!(!std::path::Path::new(&config.paths.playerpath).exists());
 
     PlayerConfig::init(&mut config).unwrap();
 
     // After init, the playerpath directory should exist
-    assert!(std::path::Path::new(&config.playerpath).is_dir());
+    assert!(std::path::Path::new(&config.paths.playerpath).is_dir());
 }
 
 #[test]
@@ -41,7 +44,7 @@ fn init_creates_default_player_and_sets_playername() {
     PlayerConfig::init(&mut config).unwrap();
 
     // Should have created a "player1" subdirectory
-    let player1_dir = std::path::Path::new(&config.playerpath).join("player1");
+    let player1_dir = std::path::Path::new(&config.paths.playerpath).join("player1");
     assert!(player1_dir.is_dir(), "player1 directory should exist");
 
     // config.playername should be set to "player1"
@@ -54,7 +57,8 @@ fn init_noop_when_players_exist() {
     let mut config = config_with_playerpath(&tempdir, "players");
 
     // Pre-create the playerpath and an existing player subdirectory
-    let existing_player_dir = std::path::Path::new(&config.playerpath).join("existing_player");
+    let existing_player_dir =
+        std::path::Path::new(&config.paths.playerpath).join("existing_player");
     std::fs::create_dir_all(&existing_player_dir).unwrap();
 
     // Set playername to None so we can verify it stays unchanged
@@ -63,7 +67,7 @@ fn init_noop_when_players_exist() {
     PlayerConfig::init(&mut config).unwrap();
 
     // No new "player1" directory should have been created
-    let player1_dir = std::path::Path::new(&config.playerpath).join("player1");
+    let player1_dir = std::path::Path::new(&config.paths.playerpath).join("player1");
     assert!(
         !player1_dir.exists(),
         "player1 should NOT be created when players already exist"
@@ -73,7 +77,7 @@ fn init_noop_when_players_exist() {
     assert_eq!(config.playername, None);
 
     // Only the existing player directory should be present
-    let ids = read_all_player_id(&config.playerpath);
+    let ids = read_all_player_id(&config.paths.playerpath);
     assert_eq!(ids.len(), 1);
     assert!(ids.contains(&"existing_player".to_string()));
 }
@@ -247,7 +251,7 @@ fn init_then_read_full_cycle() {
     PlayerConfig::init(&mut config).unwrap();
 
     // Read the config that was created by init
-    let player = PlayerConfig::read_player_config(&config.playerpath, "player1").unwrap();
+    let player = PlayerConfig::read_player_config(&config.paths.playerpath, "player1").unwrap();
 
     assert_eq!(player.id, Some("player1".to_string()));
     // Name should be the default since init creates a default PlayerConfig

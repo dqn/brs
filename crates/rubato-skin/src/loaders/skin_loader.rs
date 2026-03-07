@@ -30,8 +30,8 @@ fn skin_path_candidates(config: &Config, skin_path: &Path) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
     push_unique_path(&mut candidates, skin_path.to_path_buf());
 
-    if !config.skinpath.is_empty() {
-        let skin_root = PathBuf::from(&config.skinpath);
+    if !config.paths.skinpath.is_empty() {
+        let skin_root = PathBuf::from(&config.paths.skinpath);
         push_unique_path(&mut candidates, skin_root.join(skin_path));
 
         if let Ok(stripped) = skin_path.strip_prefix("skin")
@@ -127,7 +127,7 @@ pub fn load_skin_from_config(
             log::warn!(
                 "Skin path {:?} could not be resolved (skin root {:?})",
                 skin_path,
-                config.skinpath
+                config.paths.skinpath
             );
             return None;
         }
@@ -177,8 +177,8 @@ pub fn load_skin_from_config(
     } else {
         // LR2 CSV skin
         let dst = crate::stubs::Resolution {
-            width: config.window_width as f32,
-            height: config.window_height as f32,
+            width: config.display.window_width as f32,
+            height: config.display.window_height as f32,
         };
         let skin = crate::lr2::lr2_skin_csv_loader::load_lr2_skin(&path, &skin_type, dst);
 

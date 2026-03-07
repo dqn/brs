@@ -624,7 +624,7 @@ impl PlayConfigurationView {
         }
 
         let config = self.config.as_ref().expect("config is Some");
-        let playerpath = config.playerpath.clone();
+        let playerpath = config.paths.playerpath.clone();
         self.players = rubato_core::player_config::read_all_player_id(&playerpath);
 
         // videoController.update(config)
@@ -636,8 +636,8 @@ impl PlayConfigurationView {
         // musicselectController.update(config)
         self.music_select_controller.update(config);
 
-        self.bgmpath = config.bgmpath.clone();
-        self.soundpath = config.soundpath.clone();
+        self.bgmpath = config.paths.bgmpath.clone();
+        self.soundpath = config.paths.soundpath.clone();
 
         // resourceController.update(config)
         // discordController.update(config)
@@ -654,16 +654,16 @@ impl PlayConfigurationView {
         }
 
         let config = self.config.as_ref().expect("config is Some");
-        self.usecim = config.cache_skin_image;
-        self.clipboard_screenshot = config.set_clipboard_screenshot;
+        self.usecim = config.select.cache_skin_image;
+        self.clipboard_screenshot = config.integration.set_clipboard_screenshot;
 
-        self.enable_ipfs = config.enable_ipfs;
-        self.ipfsurl = config.ipfsurl.clone();
+        self.enable_ipfs = config.network.enable_ipfs;
+        self.ipfsurl = config.network.ipfsurl.clone();
 
-        self.enable_http = config.enable_http;
-        self.http_download_source_selected = Some(config.download_source.clone());
-        self.default_download_url = config.default_download_url.clone();
-        self.override_download_url = config.override_download_url.clone();
+        self.enable_http = config.network.enable_http;
+        self.http_download_source_selected = Some(config.network.download_source.clone());
+        self.default_download_url = config.network.default_download_url.clone();
+        self.override_download_url = config.network.override_download_url.clone();
 
         let playername_config = config.playername.clone().unwrap_or_default();
         if self.players.contains(&playername_config) {
@@ -691,7 +691,7 @@ impl PlayConfigurationView {
             Some(c) => c,
             None => return,
         };
-        let ids = rubato_core::player_config::read_all_player_id(&config.playerpath);
+        let ids = rubato_core::player_config::read_all_player_id(&config.paths.playerpath);
         for i in 1..1000 {
             let playerid = format!("player{}", i);
             let mut b = true;
@@ -702,7 +702,8 @@ impl PlayConfigurationView {
                 }
             }
             if b {
-                let _ = rubato_core::player_config::create_player(&config.playerpath, &playerid);
+                let _ =
+                    rubato_core::player_config::create_player(&config.paths.playerpath, &playerid);
                 self.players.push(playerid);
                 break;
             }
@@ -720,7 +721,8 @@ impl PlayConfigurationView {
             Some(p) => p.clone(),
             None => return,
         };
-        let mut player = match PlayerConfig::read_player_config(&config.playerpath, &playerid) {
+        let mut player = match PlayerConfig::read_player_config(&config.paths.playerpath, &playerid)
+        {
             Ok(p) => p,
             Err(e) => {
                 warn!("Player config failed to load: {}", e);
@@ -828,8 +830,8 @@ impl PlayConfigurationView {
         if let Some(ref mut config) = self.config {
             config.playername = self.players_selected.clone();
 
-            config.bgmpath = self.bgmpath.clone();
-            config.soundpath = self.soundpath.clone();
+            config.paths.bgmpath = self.bgmpath.clone();
+            config.paths.soundpath = self.soundpath.clone();
         }
 
         // resourceController.commit()
@@ -840,18 +842,18 @@ impl PlayConfigurationView {
         self.obs_controller.commit();
 
         if let Some(ref mut config) = self.config {
-            config.cache_skin_image = self.usecim;
+            config.select.cache_skin_image = self.usecim;
 
-            config.enable_ipfs = self.enable_ipfs;
-            config.ipfsurl = self.ipfsurl.clone();
+            config.network.enable_ipfs = self.enable_ipfs;
+            config.network.ipfsurl = self.ipfsurl.clone();
 
-            config.enable_http = self.enable_http;
+            config.network.enable_http = self.enable_http;
             if let Some(ref source) = self.http_download_source_selected {
-                config.download_source = source.clone();
+                config.network.download_source = source.clone();
             }
-            config.override_download_url = self.override_download_url.clone();
+            config.network.override_download_url = self.override_download_url.clone();
 
-            config.set_clipboard_screenshot = self.clipboard_screenshot;
+            config.integration.set_clipboard_screenshot = self.clipboard_screenshot;
         }
 
         self.commit_player();
@@ -946,7 +948,7 @@ impl PlayConfigurationView {
         self.skin_controller.commit();
 
         if let (Some(config), Some(player)) = (&self.config, &self.player)
-            && let Err(e) = PlayerConfig::write(&config.playerpath, player)
+            && let Err(e) = PlayerConfig::write(&config.paths.playerpath, player)
         {
             log::error!("Failed to write player config: {}", e);
         }
@@ -1127,10 +1129,10 @@ impl PlayConfigurationView {
         let listener = Arc::new(SongListener::new());
         let listener_clone = Arc::clone(&listener);
 
-        let songpath = config.songpath.clone();
-        let bmsroot = config.bmsroot.clone();
+        let songpath = config.paths.songpath.clone();
+        let bmsroot = config.paths.bmsroot.clone();
         let use_song_info = config.use_song_info;
-        let songinfopath = config.songinfopath.clone();
+        let songinfopath = config.paths.songinfopath.clone();
 
         let join_handle = std::thread::spawn(move || -> anyhow::Result<()> {
             log::info!("song.db update started");
@@ -1258,7 +1260,7 @@ impl PlayConfigurationView {
         let sep = std::path::MAIN_SEPARATOR;
         let score_db_path = format!(
             "{}{sep}{}{sep}score.db",
-            &config.playerpath, player_selected
+            &config.paths.playerpath, player_selected
         );
 
         let scoredb = match rubato_core::score_database_accessor::ScoreDatabaseAccessor::new(
@@ -1271,13 +1273,14 @@ impl PlayConfigurationView {
             }
         };
 
-        let songdb = match SQLiteSongDatabaseAccessor::new(&config.songpath, &config.bmsroot) {
-            Ok(db) => db,
-            Err(e) => {
-                log::error!("Failed to open song database: {}", e);
-                return;
-            }
-        };
+        let songdb =
+            match SQLiteSongDatabaseAccessor::new(&config.paths.songpath, &config.paths.bmsroot) {
+                Ok(db) => db,
+                Err(e) => {
+                    log::error!("Failed to open song database: {}", e);
+                    return;
+                }
+            };
 
         let importer = rubato_external::score_data_importer::ScoreDataImporter::new(scoredb);
         importer.import_from_lr2_score_database(lr2_path, &songdb);
@@ -2136,9 +2139,15 @@ mod tests {
     fn test_update_delegates_to_video_controller() {
         let mut view = initialized_view();
         let config = Config {
-            vsync: true,
-            max_frame_per_second: 120,
-            bga: 2,
+            display: rubato_core::config::DisplayConfig {
+                vsync: true,
+                max_frame_per_second: 120,
+                ..Default::default()
+            },
+            render: rubato_core::config::RenderConfig {
+                bga: 2,
+                ..Default::default()
+            },
             ..Default::default()
         };
 
@@ -2148,9 +2157,9 @@ mod tests {
         // We can verify by calling commit() and checking config roundtrip
         let mut out_config = Config::default();
         view.video_controller.commit(&mut out_config);
-        assert!(out_config.vsync);
-        assert_eq!(out_config.max_frame_per_second, 120);
-        assert_eq!(out_config.bga, 2);
+        assert!(out_config.display.vsync);
+        assert_eq!(out_config.display.max_frame_per_second, 120);
+        assert_eq!(out_config.render.bga, 2);
     }
 
     #[test]
@@ -2176,9 +2185,12 @@ mod tests {
     fn test_update_delegates_to_music_select_controller() {
         let mut view = initialized_view();
         let config = Config {
-            scrolldurationlow: 300,
-            scrolldurationhigh: 500,
-            folderlamp: true,
+            select: rubato_core::config::SelectConfig {
+                scrolldurationlow: 300,
+                scrolldurationhigh: 500,
+                folderlamp: true,
+                ..Default::default()
+            },
             ..Default::default()
         };
 
@@ -2192,7 +2204,10 @@ mod tests {
     fn test_update_delegates_to_resource_controller() {
         let mut view = initialized_view();
         let config = Config {
-            bmsroot: vec!["path1".to_string(), "path2".to_string()],
+            paths: rubato_core::config::PathConfig {
+                bmsroot: vec!["path1".to_string(), "path2".to_string()],
+                ..Default::default()
+            },
             updatesong: true,
             ..Default::default()
         };
@@ -2207,8 +2222,11 @@ mod tests {
     fn test_update_delegates_to_discord_controller() {
         let mut view = initialized_view();
         let config = Config {
-            use_discord_rpc: true,
-            webhook_name: "test_hook".to_string(),
+            integration: rubato_core::config::IntegrationConfig {
+                use_discord_rpc: true,
+                webhook_name: "test_hook".to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         };
 
@@ -2221,9 +2239,12 @@ mod tests {
     fn test_update_delegates_to_obs_controller() {
         let mut view = initialized_view();
         let config = Config {
-            use_obs_ws: true,
-            obs_ws_host: "localhost".to_string(),
-            obs_ws_port: 4455,
+            obs: rubato_core::config::ObsConfig {
+                use_obs_ws: true,
+                obs_ws_host: "localhost".to_string(),
+                obs_ws_port: 4455,
+                ..Default::default()
+            },
             ..Default::default()
         };
 
@@ -2258,7 +2279,10 @@ mod tests {
     fn test_update_player_delegates_to_ir_controller() {
         let mut view = initialized_view();
         view.config = Some(Config {
-            playerpath: "nonexistent_path".to_string(),
+            paths: rubato_core::config::PathConfig {
+                playerpath: "nonexistent_path".to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         });
 
@@ -2271,7 +2295,10 @@ mod tests {
     fn test_update_player_delegates_to_stream_controller() {
         let mut view = initialized_view();
         view.config = Some(Config {
-            playerpath: "nonexistent_path".to_string(),
+            paths: rubato_core::config::PathConfig {
+                playerpath: "nonexistent_path".to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         });
 
@@ -2283,7 +2310,10 @@ mod tests {
     fn test_update_player_delegates_to_input_controller() {
         let mut view = initialized_view();
         view.config = Some(Config {
-            playerpath: "nonexistent_path".to_string(),
+            paths: rubato_core::config::PathConfig {
+                playerpath: "nonexistent_path".to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         });
 
@@ -2295,7 +2325,10 @@ mod tests {
     fn test_update_player_delegates_to_skin_controller() {
         let mut view = initialized_view();
         view.config = Some(Config {
-            playerpath: "nonexistent_path".to_string(),
+            paths: rubato_core::config::PathConfig {
+                playerpath: "nonexistent_path".to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         });
 
@@ -2382,8 +2415,11 @@ mod tests {
         let bmsroot = tmpdir.path().to_string_lossy().to_string();
         let songdb_path = tmpdir.path().join("song.db");
         let config = Config {
-            songpath: songdb_path.to_string_lossy().to_string(),
-            bmsroot: vec![bmsroot],
+            paths: rubato_core::config::PathConfig {
+                songpath: songdb_path.to_string_lossy().to_string(),
+                bmsroot: vec![bmsroot],
+                ..Default::default()
+            },
             ..Default::default()
         };
         view.update(config);
@@ -2415,8 +2451,11 @@ mod tests {
         let bmsroot = tmpdir.path().to_string_lossy().to_string();
         let songdb_path = tmpdir.path().join("song.db");
         let config = Config {
-            songpath: songdb_path.to_string_lossy().to_string(),
-            bmsroot: vec![bmsroot],
+            paths: rubato_core::config::PathConfig {
+                songpath: songdb_path.to_string_lossy().to_string(),
+                bmsroot: vec![bmsroot],
+                ..Default::default()
+            },
             ..Default::default()
         };
         view.update(config);
@@ -2453,8 +2492,11 @@ mod tests {
         let bmsroot = tmpdir.path().to_string_lossy().to_string();
         let songdb_path = tmpdir.path().join("song.db");
         let config = Config {
-            songpath: songdb_path.to_string_lossy().to_string(),
-            bmsroot: vec![bmsroot],
+            paths: rubato_core::config::PathConfig {
+                songpath: songdb_path.to_string_lossy().to_string(),
+                bmsroot: vec![bmsroot],
+                ..Default::default()
+            },
             ..Default::default()
         };
         view.update(config);
@@ -2495,8 +2537,11 @@ mod tests {
         let bmsroot = tmpdir.path().to_string_lossy().to_string();
         let songdb_path = tmpdir.path().join("song.db");
         let config = Config {
-            songpath: songdb_path.to_string_lossy().to_string(),
-            bmsroot: vec![bmsroot],
+            paths: rubato_core::config::PathConfig {
+                songpath: songdb_path.to_string_lossy().to_string(),
+                bmsroot: vec![bmsroot],
+                ..Default::default()
+            },
             ..Default::default()
         };
         view.update(config);
@@ -2531,8 +2576,11 @@ mod tests {
         let bmsroot = tmpdir.path().to_string_lossy().to_string();
         let songdb_path = tmpdir.path().join("song.db");
         let config = Config {
-            songpath: songdb_path.to_string_lossy().to_string(),
-            bmsroot: vec![bmsroot],
+            paths: rubato_core::config::PathConfig {
+                songpath: songdb_path.to_string_lossy().to_string(),
+                bmsroot: vec![bmsroot],
+                ..Default::default()
+            },
             ..Default::default()
         };
         view.update(config);
@@ -2565,15 +2613,27 @@ mod tests {
     fn test_update_commit_roundtrip_preserves_config_fields() {
         let mut view = initialized_view();
         let config = Config {
-            bgmpath: "/music/bgm".to_string(),
-            soundpath: "/music/sounds".to_string(),
-            cache_skin_image: true,
-            enable_ipfs: true,
-            ipfsurl: "http://ipfs.example.com".to_string(),
-            enable_http: true,
-            download_source: "source1".to_string(),
-            override_download_url: "http://override.example.com".to_string(),
-            set_clipboard_screenshot: true,
+            paths: rubato_core::config::PathConfig {
+                bgmpath: "/music/bgm".to_string(),
+                soundpath: "/music/sounds".to_string(),
+                ..Default::default()
+            },
+            select: rubato_core::config::SelectConfig {
+                cache_skin_image: true,
+                ..Default::default()
+            },
+            network: rubato_core::config::NetworkConfig {
+                enable_ipfs: true,
+                ipfsurl: "http://ipfs.example.com".to_string(),
+                enable_http: true,
+                download_source: "source1".to_string(),
+                override_download_url: "http://override.example.com".to_string(),
+                ..Default::default()
+            },
+            integration: rubato_core::config::IntegrationConfig {
+                set_clipboard_screenshot: true,
+                ..Default::default()
+            },
             ..Default::default()
         };
 
@@ -2753,9 +2813,12 @@ mod tests {
 
         let mut view = initialized_view();
         view.config = Some(Config {
-            songpath: songdb_path.to_string_lossy().to_string(),
-            playerpath: playerpath.to_string_lossy().to_string(),
-            bmsroot: vec![bmsroot],
+            paths: rubato_core::config::PathConfig {
+                songpath: songdb_path.to_string_lossy().to_string(),
+                playerpath: playerpath.to_string_lossy().to_string(),
+                bmsroot: vec![bmsroot],
+                ..Default::default()
+            },
             ..Default::default()
         });
         view.players_selected = Some("testplayer".to_string());
@@ -2824,9 +2887,12 @@ mod tests {
 
         let mut view = initialized_view();
         view.config = Some(Config {
-            songpath: songdb_path.to_string_lossy().to_string(),
-            playerpath: playerpath.to_string_lossy().to_string(),
-            bmsroot: vec![bmsroot],
+            paths: rubato_core::config::PathConfig {
+                songpath: songdb_path.to_string_lossy().to_string(),
+                playerpath: playerpath.to_string_lossy().to_string(),
+                bmsroot: vec![bmsroot],
+                ..Default::default()
+            },
             ..Default::default()
         });
         view.players_selected = Some("testplayer".to_string());
@@ -2864,9 +2930,12 @@ mod tests {
 
         let mut view = initialized_view();
         view.config = Some(Config {
-            songpath: songdb_path.to_string_lossy().to_string(),
-            playerpath: playerpath.to_string_lossy().to_string(),
-            bmsroot: vec![bmsroot],
+            paths: rubato_core::config::PathConfig {
+                songpath: songdb_path.to_string_lossy().to_string(),
+                playerpath: playerpath.to_string_lossy().to_string(),
+                bmsroot: vec![bmsroot],
+                ..Default::default()
+            },
             ..Default::default()
         });
         view.players_selected = Some("testplayer".to_string());
@@ -2920,9 +2989,12 @@ mod tests {
 
         let mut view = initialized_view();
         view.config = Some(Config {
-            songpath: songdb_path.to_string_lossy().to_string(),
-            playerpath: playerpath.to_string_lossy().to_string(),
-            bmsroot: vec![bmsroot],
+            paths: rubato_core::config::PathConfig {
+                songpath: songdb_path.to_string_lossy().to_string(),
+                playerpath: playerpath.to_string_lossy().to_string(),
+                bmsroot: vec![bmsroot],
+                ..Default::default()
+            },
             ..Default::default()
         });
         view.players_selected = Some("testplayer".to_string());

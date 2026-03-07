@@ -62,7 +62,7 @@ impl RivalDataAccessor {
         if provider.should_import_scores() {
             let config = main.config();
             let player_name = config.playername().unwrap_or("player1");
-            let score_db_path = format!("{}/{}/score.db", config.playerpath, player_name);
+            let score_db_path = format!("{}/{}/score.db", config.paths.playerpath, player_name);
             match provider.fetch_own_scores() {
                 Ok(scores) => {
                     if let Ok(scoredb) = ScoreDatabaseAccessor::new(&score_db_path) {

@@ -554,17 +554,17 @@ impl PlayerConfig {
     }
 
     pub fn init(config: &mut Config) -> anyhow::Result<()> {
-        let playerpath = Path::new(&config.playerpath);
+        let playerpath = Path::new(&config.paths.playerpath);
         if !playerpath.exists() {
             std::fs::create_dir_all(playerpath)?;
         }
 
-        if read_all_player_id(&config.playerpath).is_empty() {
-            create_player(&config.playerpath, "player1")?;
+        if read_all_player_id(&config.paths.playerpath).is_empty() {
+            create_player(&config.paths.playerpath, "player1")?;
             // Copy score data if exists
             let parent_score_db = PathBuf::from("playerscore.db");
             if parent_score_db.exists() {
-                let dest = PathBuf::from(format!("{}/player1/score.db", config.playerpath));
+                let dest = PathBuf::from(format!("{}/player1/score.db", config.paths.playerpath));
                 if let Err(e) = std::fs::copy(&parent_score_db, &dest) {
                     log::error!("Failed to copy playerscore.db: {}", e);
                 }
@@ -647,7 +647,7 @@ pub fn create_player(playerpath: &str, playerid: &str) -> anyhow::Result<()> {
 }
 
 fn copy_replays(config: &Config) {
-    let player1_replay_dir = PathBuf::from(format!("{}/player1/replay", config.playerpath));
+    let player1_replay_dir = PathBuf::from(format!("{}/player1/replay", config.paths.playerpath));
     let parent_replay_dir = PathBuf::from("replay");
 
     if let Err(e) = std::fs::create_dir_all(&player1_replay_dir) {

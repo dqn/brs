@@ -143,12 +143,12 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         use rubato_types::validatable::Validatable;
         let mut config = Config::read().unwrap_or_default();
         config.validate();
-        if config.bmsroot.is_empty() {
+        if config.paths.bmsroot.is_empty() {
             warn!("No bmsroot configured - song scan will find nothing");
         }
         match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-            &config.songpath,
-            &config.bmsroot,
+            &config.paths.songpath,
+            &config.paths.bmsroot,
         ) {
             Ok(accessor) => {
                 // Scan BMS files and populate song.db so the select screen has songs.
@@ -156,8 +156,8 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
                 // In the launcher path this happens via the egui "Start" button, but in
                 // the direct play path we must do it here.
                 info!("Scanning BMS files from configured paths...");
-                accessor.update_song_datas(None, &config.bmsroot, false, false, None);
-                info!("Song database initialized: {}", &config.songpath);
+                accessor.update_song_datas(None, &config.paths.bmsroot, false, false, None);
+                info!("Song database initialized: {}", &config.paths.songpath);
                 MainLoader::set_score_database_accessor(Box::new(accessor));
             }
             Err(e) => {
@@ -176,7 +176,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     // Java: audio = new GdxSoundDriver(config.getSongResourceGen())
     // Wire the Kira-based audio driver so keysounds, BGM, and UI sounds work.
     {
-        let song_resource_gen = main_controller.config().song_resource_gen;
+        let song_resource_gen = main_controller.config().render.song_resource_gen;
         let audio_driver = rubato_audio::gdx_sound_driver::GdxSoundDriver::new(song_resource_gen)?;
         main_controller.set_audio_driver(Box::new(audio_driver));
     }
@@ -190,7 +190,11 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     {
         let (use_discord_rpc, use_obs_ws, cfg_clone) = {
             let cfg = main_controller.config();
-            (cfg.use_discord_rpc, cfg.use_obs_ws, cfg.clone())
+            (
+                cfg.integration.use_discord_rpc,
+                cfg.obs.use_obs_ws,
+                cfg.clone(),
+            )
         };
         if use_discord_rpc {
             let listener = rubato_external::discord_listener::DiscordListener::new();
@@ -228,7 +232,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
                 });
         }
         // Wire IR resend service
-        let ir_send_count = main_controller.config().ir_send_count;
+        let ir_send_count = main_controller.config().network.ir_send_count;
         let resend_service =
             rubato_state::result::ir_resend::IrResendServiceImpl::new(ir_send_count);
         main_controller.set_ir_resend_service(Box::new(resend_service));
@@ -241,16 +245,16 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         let config = main_controller.config().clone();
 
         // IPFS download processor (Java: lines 496-506)
-        if config.enable_ipfs {
+        if config.network.enable_ipfs {
             match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-                &config.songpath,
-                &config.bmsroot,
+                &config.paths.songpath,
+                &config.paths.bmsroot,
             ) {
                 Ok(songdb) => {
                     let adapter = Arc::new(SongDbMusicDatabaseAdapter { songdb });
                     let processor =
                         rubato_song::md_processor::music_download_processor::MusicDownloadProcessor::new(
-                            config.ipfsurl.clone(),
+                            config.network.ipfsurl.clone(),
                             adapter,
                         );
                     processor.start(None);
@@ -267,10 +271,10 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         }
 
         // HTTP download processor (Java: lines 508-513)
-        if config.enable_http {
-            // Look up download source by config.download_source, fall back to default
+        if config.network.enable_http {
+            // Look up download source by config.network.download_source, fall back to default
             let source_meta = rubato_song::md_processor::http_download_processor::DOWNLOAD_SOURCES
-                .get(&config.download_source)
+                .get(&config.network.download_source)
                 .copied()
                 .unwrap_or_else(|| {
                     rubato_song::md_processor::http_download_processor::HttpDownloadProcessor::default_download_source()
@@ -282,18 +286,18 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
             // The MainControllerRef adapter opens its own song DB connection so the background
             // download thread can call update_song() without borrowing MainController.
             match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-                &config.songpath,
-                &config.bmsroot,
+                &config.paths.songpath,
+                &config.paths.bmsroot,
             ) {
                 Ok(songdb) => {
-                    let bmsroot = config.bmsroot.clone();
+                    let bmsroot = config.paths.bmsroot.clone();
                     let main_ref: Arc<dyn rubato_song::md_processor::MainControllerRef> =
                         Arc::new(SongDbMainControllerRef { songdb, bmsroot });
                     let processor = Arc::new(
                         rubato_song::md_processor::http_download_processor::HttpDownloadProcessor::new(
                             main_ref,
                             http_download_source,
-                            config.download_directory.clone(),
+                            config.network.download_directory.clone(),
                         ),
                     );
 
@@ -309,7 +313,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
                     ));
                     info!(
                         "HTTP HttpDownloadProcessor initialized (source: {})",
-                        config.download_source
+                        config.network.download_source
                     );
                 }
                 Err(e) => {
@@ -336,8 +340,8 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         let config = main_controller.config();
         let mut selector =
             match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-                &config.songpath,
-                &config.bmsroot,
+                &config.paths.songpath,
+                &config.paths.bmsroot,
             ) {
                 Ok(db) => rubato_state::select::music_selector::MusicSelector::with_song_database(
                     Box::new(db),
@@ -371,11 +375,11 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     // Extract window config from the controller's Config
     // Java: these were set by MainLoader.play() → config.setWindowWidth/Height
     let config = main_controller.config();
-    let w = config.window_width;
-    let h = config.window_height;
-    let vsync = config.vsync;
-    let display_mode = config.displaymode;
-    let max_fps = config.max_frame_per_second;
+    let w = config.display.window_width;
+    let h = config.display.window_height;
+    let vsync = config.display.vsync;
+    let display_mode = config.display.displaymode;
+    let max_fps = config.display.max_frame_per_second;
     // Java: gdxConfig.setTitle(MainController.getVersion())
     let title = version::version_long().to_string();
 
@@ -471,7 +475,7 @@ impl ApplicationHandler for RubatoApp {
             // Java: Find target monitor by config.monitorName
             // Format: "MonitorName [virtualX, virtualY]"
             let config = self.controller.config();
-            let monitor_name = config.monitor_name.clone();
+            let monitor_name = config.integration.monitor_name.clone();
 
             let target_monitor = if !monitor_name.is_empty() {
                 event_loop.available_monitors().find(|handle| {

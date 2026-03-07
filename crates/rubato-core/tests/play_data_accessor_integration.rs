@@ -11,7 +11,10 @@ use rubato_core::score_data::ScoreData;
 /// Helper: create a Config pointing at a tempdir with the given player name.
 fn make_config(playerpath: &str, playername: &str) -> Config {
     Config {
-        playerpath: playerpath.to_string(),
+        paths: rubato_core::config::PathConfig {
+            playerpath: playerpath.to_string(),
+            ..Default::default()
+        },
         playername: Some(playername.to_string()),
         ..Default::default()
     }

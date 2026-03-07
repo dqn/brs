@@ -43,7 +43,7 @@ impl PlayDataAccessor {
 
     pub fn new(config: &Config) -> Self {
         let player = config.playername.clone().unwrap_or_default();
-        let playerpath = config.playerpath.clone();
+        let playerpath = config.paths.playerpath.clone();
 
         let sep = std::path::MAIN_SEPARATOR;
         let player_dir = format!("{}{}{}", playerpath, sep, player);
@@ -829,7 +829,7 @@ mod tests {
     /// Helper: create a PlayDataAccessor backed by in-memory databases via a temp directory.
     fn create_test_accessor(dir: &std::path::Path) -> PlayDataAccessor {
         let mut config = Config::default();
-        config.playerpath = dir.to_string_lossy().to_string();
+        config.paths.playerpath = dir.to_string_lossy().to_string();
         config.playername = Some("test".to_string());
         PlayDataAccessor::new(&config)
     }

@@ -504,7 +504,7 @@ impl SkinConfigurationView {
         // List<Path> skinpaths = new ArrayList<>();
         let mut skinpaths: Vec<PathBuf> = Vec::new();
         // scan(Paths.get(config.getSkinpath()), skinpaths);
-        Self::scan(&PathBuf::from(&config.skinpath), &mut skinpaths);
+        Self::scan(&PathBuf::from(&config.paths.skinpath), &mut skinpaths);
 
         // for (Path path : skinpaths) {
         for path in &skinpaths {
@@ -1096,7 +1096,7 @@ pub fn load_skin_header(path: &Path, config: &Config) -> Option<SkinHeader> {
         let src = header_data.source_resolution.clone().unwrap_or(default_src);
         Some(convert_header_data(&header_data, &src, &default_dst))
     } else {
-        let mut loader = LR2SkinHeaderLoader::new(&config.skinpath);
+        let mut loader = LR2SkinHeaderLoader::new(&config.paths.skinpath);
         match loader.load_skin(path, None) {
             Ok(lr2_data) => Some(convert_lr2_header_data(&lr2_data)),
             Err(e) => {
@@ -1280,7 +1280,10 @@ mod tests {
         }
 
         let config = Config {
-            skinpath: skin_dir.to_string_lossy().to_string(),
+            paths: rubato_core::config::PathConfig {
+                skinpath: skin_dir.to_string_lossy().to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         };
 
@@ -1301,7 +1304,10 @@ mod tests {
         }
 
         let config = Config {
-            skinpath: skin_dir.to_string_lossy().to_string(),
+            paths: rubato_core::config::PathConfig {
+                skinpath: skin_dir.to_string_lossy().to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         };
 
@@ -1325,7 +1331,10 @@ mod tests {
         let tmp_dir = tempfile::tempdir().unwrap();
 
         let config = Config {
-            skinpath: tmp_dir.path().to_string_lossy().to_string(),
+            paths: rubato_core::config::PathConfig {
+                skinpath: tmp_dir.path().to_string_lossy().to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         };
 
@@ -1346,7 +1355,10 @@ mod tests {
         }
 
         let config = Config {
-            skinpath: skin_dir.to_string_lossy().to_string(),
+            paths: rubato_core::config::PathConfig {
+                skinpath: skin_dir.to_string_lossy().to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         };
 

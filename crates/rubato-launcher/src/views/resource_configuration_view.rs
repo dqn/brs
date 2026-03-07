@@ -466,9 +466,9 @@ impl ResourceConfigurationView {
         // this.config = config;
         self.config = Some(config.clone());
         // this.downloadDirectory = config.getDownloadDirectory();
-        self.download_directory = config.download_directory.clone();
+        self.download_directory = config.network.download_directory.clone();
         // bmsroot.getItems().setAll(config.getBmsroot());
-        self.bmsroot = config.bmsroot.clone();
+        self.bmsroot = config.paths.bmsroot.clone();
         // updatesong.setSelected(config.isUpdatesong());
         self.updatesong = config.updatesong;
 
@@ -476,15 +476,19 @@ impl ResourceConfigurationView {
         // String[] intermediate = addUniqueTable(Config.AVAILABLE_TABLEURL, config.getAvailableURL());
         let available_tableurl: Vec<String> =
             AVAILABLE_TABLEURL.iter().map(|s| s.to_string()).collect();
-        let intermediate = Self::add_unique_table(&available_tableurl, &config.available_url);
+        let intermediate = Self::add_unique_table(&available_tableurl, &config.paths.available_url);
         // Remove user tables that have already been added to the active list
         // intermediate = subtractTable(intermediate, config.getTableURL());
-        let intermediate = Self::subtract_table(&intermediate, &config.table_url);
+        let intermediate = Self::subtract_table(&intermediate, &config.paths.table_url);
         // config.setAvailableURL(intermediate);
-        config.available_url = intermediate.clone();
-        self.config.as_mut().expect("config is Some").available_url = intermediate.clone();
+        config.paths.available_url = intermediate.clone();
+        self.config
+            .as_mut()
+            .expect("config is Some")
+            .paths
+            .available_url = intermediate.clone();
         // TableInfo.populateList(tableurl.getItems(), config.getTableURL());
-        TableInfo::populate_list(&mut self.tableurl, &config.table_url);
+        TableInfo::populate_list(&mut self.tableurl, &config.paths.table_url);
         // TableInfo.populateList(available_tables.getItems(), config.getAvailableURL());
         TableInfo::populate_list(&mut self.available_tables, &intermediate);
     }
@@ -493,13 +497,13 @@ impl ResourceConfigurationView {
     pub fn commit(&mut self) {
         if let Some(ref mut config) = self.config {
             // config.setBmsroot(bmsroot.getItems().toArray(new String[0]));
-            config.bmsroot = self.bmsroot.clone();
+            config.paths.bmsroot = self.bmsroot.clone();
             // config.setUpdatesong(updatesong.isSelected());
             config.updatesong = self.updatesong;
             // config.setTableURL(TableInfo.toUrlArray(tableurl.getItems()));
-            config.table_url = TableInfo::to_url_array(&self.tableurl);
+            config.paths.table_url = TableInfo::to_url_array(&self.tableurl);
             // config.setDownloadDirectory(downloadDirectory);
-            config.download_directory = self.download_directory.clone();
+            config.network.download_directory = self.download_directory.clone();
         }
     }
 
@@ -512,7 +516,7 @@ impl ResourceConfigurationView {
 
         if let Some(ref config) = self.config {
             // TableDataAccessor tda = new TableDataAccessor(config.getTablepath());
-            let tda = TableDataAccessor::new(&config.tablepath);
+            let tda = TableDataAccessor::new(&config.paths.tablepath);
             // HashMap<String,String> urlToTableNameMap = tda.readLocalTableNames(urls);
             let url_to_table_name_map = tda.read_local_table_names(&url_refs);
             // for (TableInfo tableInfo : tableurl.getItems()) {
@@ -539,11 +543,11 @@ impl ResourceConfigurationView {
 
         if let Some(ref config) = self.config.clone() {
             // Files.createDirectories(Paths.get(config.getTablepath()));
-            let _ = fs::create_dir_all(&config.tablepath);
+            let _ = fs::create_dir_all(&config.paths.tablepath);
 
             // Delete existing .bmt files
             // paths.forEach((p) -> { if(p.toString().toLowerCase().endsWith(".bmt")) { Files.deleteIfExists(p); } });
-            if let Ok(entries) = fs::read_dir(&config.tablepath) {
+            if let Ok(entries) = fs::read_dir(&config.paths.tablepath) {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.to_string_lossy().to_lowercase().ends_with(".bmt") {
@@ -553,9 +557,9 @@ impl ResourceConfigurationView {
             }
 
             // TableDataAccessor tda = new TableDataAccessor(config.getTablepath());
-            let tda = TableDataAccessor::new(&config.tablepath);
+            let tda = TableDataAccessor::new(&config.paths.tablepath);
             // tda.updateTableData(config.getTableURL());
-            let url_refs: Vec<&str> = config.table_url.iter().map(|s| s.as_str()).collect();
+            let url_refs: Vec<&str> = config.paths.table_url.iter().map(|s| s.as_str()).collect();
             tda.update_table_data(&url_refs);
             // refreshLocalTableInfo();
             self.refresh_local_table_info();
@@ -570,10 +574,10 @@ impl ResourceConfigurationView {
 
         if let Some(ref config) = self.config.clone() {
             // Files.createDirectories(Paths.get(config.getTablepath()));
-            let _ = fs::create_dir_all(&config.tablepath);
+            let _ = fs::create_dir_all(&config.paths.tablepath);
 
             // TableDataAccessor tda = new TableDataAccessor(config.getTablepath());
-            let tda = TableDataAccessor::new(&config.tablepath);
+            let tda = TableDataAccessor::new(&config.paths.tablepath);
             // String[] urls = TableInfo.toUrlArray(tableurl.getSelectionModel().getSelectedItems());
             let selected: Vec<TableInfo> = self
                 .tableurl_selected_items
@@ -597,12 +601,12 @@ impl ResourceConfigurationView {
 
         if let Some(ref config) = self.config.clone() {
             // Files.createDirectories(Paths.get(config.getTablepath()));
-            let _ = fs::create_dir_all(&config.tablepath);
+            let _ = fs::create_dir_all(&config.paths.tablepath);
 
             // TableDataAccessor tda = new TableDataAccessor(config.getTablepath());
-            let tda = TableDataAccessor::new(&config.tablepath);
+            let tda = TableDataAccessor::new(&config.paths.tablepath);
             // tda.loadNewTableData(config.getTableURL());
-            let url_refs: Vec<&str> = config.table_url.iter().map(|s| s.as_str()).collect();
+            let url_refs: Vec<&str> = config.paths.table_url.iter().map(|s| s.as_str()).collect();
             tda.load_new_table_data(&url_refs);
             // refreshLocalTableInfo();
             self.refresh_local_table_info();

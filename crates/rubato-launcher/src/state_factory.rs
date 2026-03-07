@@ -82,8 +82,8 @@ impl QueuedControllerAccess {
 
         Self {
             sound: SystemSoundManager::new(
-                Some(config.bgmpath.as_str()),
-                Some(config.soundpath.as_str()),
+                Some(config.paths.bgmpath.as_str()),
+                Some(config.paths.soundpath.as_str()),
             ),
             play_data_accessor: PlayDataAccessor::new(&config),
             ranking_data_cache,
@@ -567,8 +567,8 @@ impl StateFactory for LauncherStateFactory {
                 // as download processors in main.rs).
                 let config = controller.config();
                 let mut selector = match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
-                    &config.songpath,
-                    &config.bmsroot,
+                    &config.paths.songpath,
+                    &config.paths.bmsroot,
                 ) {
                     Ok(db) => MusicSelector::with_song_database(Box::new(db)),
                     Err(e) => {
@@ -618,7 +618,7 @@ impl StateFactory for LauncherStateFactory {
                     .and_then(|r| r.bms_model())
                     .cloned()
                     .unwrap_or_default();
-                let song_resource_gen = controller.config().song_resource_gen;
+                let song_resource_gen = controller.config().render.song_resource_gen;
                 let mut player = BMSPlayer::new_with_resource_gen(model.clone(), song_resource_gen);
 
                 // Reuse BGAProcessor from PlayerResource to preserve texture cache between plays.

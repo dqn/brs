@@ -18,19 +18,19 @@ fn write_then_read_roundtrip() {
     let dir = TempDir::new().unwrap();
 
     let mut config = Config::default();
-    config.vsync = true;
-    config.max_frame_per_second = 120;
-    config.window_width = 1920;
-    config.window_height = 1080;
-    config.playerpath = dir.path().join("player").to_string_lossy().to_string();
+    config.display.vsync = true;
+    config.display.max_frame_per_second = 120;
+    config.display.window_width = 1920;
+    config.display.window_height = 1080;
+    config.paths.playerpath = dir.path().join("player").to_string_lossy().to_string();
 
     Config::write_to(&config, dir.path()).unwrap();
     let loaded = Config::read_from(dir.path()).unwrap();
 
-    assert!(loaded.vsync);
-    assert_eq!(loaded.max_frame_per_second, 120);
-    assert_eq!(loaded.window_width, 1920);
-    assert_eq!(loaded.window_height, 1080);
+    assert!(loaded.display.vsync);
+    assert_eq!(loaded.display.max_frame_per_second, 120);
+    assert_eq!(loaded.display.window_width, 1920);
+    assert_eq!(loaded.display.window_height, 1080);
 }
 
 // ---------------------------------------------------------------------------
@@ -50,8 +50,8 @@ fn read_nonexistent_returns_validated_default() {
         config.audio.is_some(),
         "Validated default should have audio filled in"
     );
-    assert_eq!(config.songpath, SONGPATH_DEFAULT);
-    assert_eq!(config.playerpath, PLAYERPATH_DEFAULT);
+    assert_eq!(config.paths.songpath, SONGPATH_DEFAULT);
+    assert_eq!(config.paths.playerpath, PLAYERPATH_DEFAULT);
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ fn read_corrupt_json_creates_backup() {
         config.audio.is_some(),
         "Should return validated default after corrupt file"
     );
-    assert_eq!(config.songpath, SONGPATH_DEFAULT);
+    assert_eq!(config.paths.songpath, SONGPATH_DEFAULT);
 
     // A backup file should have been created
     let backup_path = dir.path().join("config_sys_backup.json");
@@ -97,17 +97,17 @@ fn read_old_format_fallback() {
 
     // Write a valid config to the old path (config.json)
     let mut config = Config::default();
-    config.vsync = true;
-    config.max_frame_per_second = 60;
-    config.playerpath = dir.path().join("player").to_string_lossy().to_string();
+    config.display.vsync = true;
+    config.display.max_frame_per_second = 60;
+    config.paths.playerpath = dir.path().join("player").to_string_lossy().to_string();
 
     let json = serde_json::to_string_pretty(&config).unwrap();
     fs::write(dir.path().join("config.json"), json.as_bytes()).unwrap();
 
     let loaded = Config::read_from(dir.path()).unwrap();
 
-    assert!(loaded.vsync);
-    assert_eq!(loaded.max_frame_per_second, 60);
+    assert!(loaded.display.vsync);
+    assert_eq!(loaded.display.max_frame_per_second, 60);
 }
 
 // ---------------------------------------------------------------------------
@@ -121,15 +121,15 @@ fn read_new_format_preferred() {
 
     // Write config_sys.json with max_frame_per_second = 144
     let mut new_config = Config::default();
-    new_config.max_frame_per_second = 144;
-    new_config.playerpath = player_dir.clone();
+    new_config.display.max_frame_per_second = 144;
+    new_config.paths.playerpath = player_dir.clone();
     let new_json = serde_json::to_string_pretty(&new_config).unwrap();
     fs::write(dir.path().join("config_sys.json"), new_json.as_bytes()).unwrap();
 
     // Write config.json with max_frame_per_second = 60
     let mut old_config = Config::default();
-    old_config.max_frame_per_second = 60;
-    old_config.playerpath = player_dir;
+    old_config.display.max_frame_per_second = 60;
+    old_config.paths.playerpath = player_dir;
     let old_json = serde_json::to_string_pretty(&old_config).unwrap();
     fs::write(dir.path().join("config.json"), old_json.as_bytes()).unwrap();
 
@@ -137,7 +137,7 @@ fn read_new_format_preferred() {
 
     // Should use config_sys.json (new format), not config.json
     assert_eq!(
-        loaded.max_frame_per_second, 144,
+        loaded.display.max_frame_per_second, 144,
         "read_from should prefer config_sys.json over config.json"
     );
 }
@@ -149,19 +149,19 @@ fn read_new_format_preferred() {
 #[test]
 fn validate_fills_empty_paths() {
     let mut config = Config::default();
-    config.songpath = String::new();
-    config.playerpath = String::new();
-    config.skinpath = String::new();
-    config.tablepath = String::new();
-    config.songinfopath = String::new();
+    config.paths.songpath = String::new();
+    config.paths.playerpath = String::new();
+    config.paths.skinpath = String::new();
+    config.paths.tablepath = String::new();
+    config.paths.songinfopath = String::new();
 
     config.validate();
 
-    assert_eq!(config.songpath, "songdata.db");
-    assert_eq!(config.playerpath, "player");
-    assert_eq!(config.skinpath, "skin");
-    assert_eq!(config.tablepath, "table");
-    assert_eq!(config.songinfopath, "songinfo.db");
+    assert_eq!(config.paths.songpath, "songdata.db");
+    assert_eq!(config.paths.playerpath, "player");
+    assert_eq!(config.paths.skinpath, "skin");
+    assert_eq!(config.paths.tablepath, "table");
+    assert_eq!(config.paths.songinfopath, "songinfo.db");
 }
 
 // ---------------------------------------------------------------------------
@@ -171,36 +171,36 @@ fn validate_fills_empty_paths() {
 #[test]
 fn validate_clamps_values() {
     let mut config = Config::default();
-    config.max_frame_per_second = 999_999;
-    config.window_width = -1;
-    config.window_height = -1;
-    config.max_search_bar_count = 0;
-    config.scrolldurationlow = 1;
-    config.scrolldurationhigh = 0;
-    config.ir_send_count = 0;
+    config.display.max_frame_per_second = 999_999;
+    config.display.window_width = -1;
+    config.display.window_height = -1;
+    config.select.max_search_bar_count = 0;
+    config.select.scrolldurationlow = 1;
+    config.select.scrolldurationhigh = 0;
+    config.network.ir_send_count = 0;
 
     config.validate();
 
     // max_frame_per_second clamped to [0, 50000]
-    assert_eq!(config.max_frame_per_second, 50000);
+    assert_eq!(config.display.max_frame_per_second, 50000);
 
     // window_width clamped to [SD.width (640), ULTRAHD.width (3840)]
-    assert_eq!(config.window_width, 640);
+    assert_eq!(config.display.window_width, 640);
 
     // window_height clamped to [SD.height (480), ULTRAHD.height (2160)]
-    assert_eq!(config.window_height, 480);
+    assert_eq!(config.display.window_height, 480);
 
     // max_search_bar_count clamped to [1, 100]
-    assert_eq!(config.max_search_bar_count, 1);
+    assert_eq!(config.select.max_search_bar_count, 1);
 
     // scrolldurationlow clamped to [2, 1000]
-    assert_eq!(config.scrolldurationlow, 2);
+    assert_eq!(config.select.scrolldurationlow, 2);
 
     // scrolldurationhigh clamped to [1, 1000]
-    assert_eq!(config.scrolldurationhigh, 1);
+    assert_eq!(config.select.scrolldurationhigh, 1);
 
     // ir_send_count clamped to [1, 100]
-    assert_eq!(config.ir_send_count, 1);
+    assert_eq!(config.network.ir_send_count, 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +218,7 @@ fn validate_config_calls_player_init() {
     );
 
     let mut config = Config::default();
-    config.playerpath = player_dir.to_string_lossy().to_string();
+    config.paths.playerpath = player_dir.to_string_lossy().to_string();
 
     let _config = Config::validate_config(config).unwrap();
 

@@ -231,7 +231,7 @@ impl MusicSelectCommand {
                         let enable_http = selector
                             .main
                             .as_ref()
-                            .is_some_and(|m| m.config().enable_http);
+                            .is_some_and(|m| m.config().network.enable_http);
                         if !already_in_context_menu && enable_http {
                             let menu = ContextMenuBar::new_for_table_folder(
                                 prev_table.clone(),

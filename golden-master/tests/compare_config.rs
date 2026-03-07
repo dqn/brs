@@ -49,13 +49,16 @@ fn config_system_deserialize() {
     // Verify non-default values were deserialized correctly
     assert_eq!(config.playername.as_deref(), Some("TestPlayer"));
     assert_eq!(config.last_booted_version, "0.8.8");
-    assert!(matches!(config.displaymode, DisplayMode::FULLSCREEN));
-    assert!(config.vsync);
-    assert_eq!(config.resolution, Resolution::FULLHD);
-    assert!(!config.use_resolution);
-    assert_eq!(config.window_width, 1920);
-    assert_eq!(config.window_height, 1080);
-    assert!(!config.folderlamp);
+    assert!(matches!(
+        config.display.displaymode,
+        DisplayMode::FULLSCREEN
+    ));
+    assert!(config.display.vsync);
+    assert_eq!(config.display.resolution, Resolution::FULLHD);
+    assert!(!config.display.use_resolution);
+    assert_eq!(config.display.window_width, 1920);
+    assert_eq!(config.display.window_height, 1080);
+    assert!(!config.select.folderlamp);
 
     // Audio (Option<AudioConfig>)
     let audio = config
@@ -77,95 +80,107 @@ fn config_system_deserialize() {
     assert!(audio.is_loop_course_result_sound);
 
     // Frame/scroll settings
-    assert_eq!(config.max_frame_per_second, 120);
-    assert_eq!(config.prepare_frame_per_second, 60);
-    assert_eq!(config.max_search_bar_count, 20);
-    assert!(config.skip_decide_screen);
-    assert!(!config.show_no_song_existing_bar);
-    assert_eq!(config.scrolldurationlow, 200);
-    assert_eq!(config.scrolldurationhigh, 80);
-    assert!(!config.analog_scroll);
-    assert_eq!(config.analog_ticks_per_scroll, 5);
-    assert!(matches!(config.song_preview, SongPreview::ONCE));
-    assert!(config.cache_skin_image);
+    assert_eq!(config.display.max_frame_per_second, 120);
+    assert_eq!(config.display.prepare_frame_per_second, 60);
+    assert_eq!(config.select.max_search_bar_count, 20);
+    assert!(config.select.skip_decide_screen);
+    assert!(!config.select.show_no_song_existing_bar);
+    assert_eq!(config.select.scrolldurationlow, 200);
+    assert_eq!(config.select.scrolldurationhigh, 80);
+    assert!(!config.select.analog_scroll);
+    assert_eq!(config.select.analog_ticks_per_scroll, 5);
+    assert!(matches!(config.select.song_preview, SongPreview::ONCE));
+    assert!(config.select.cache_skin_image);
     assert!(!config.use_song_info);
 
     // Paths
-    assert_eq!(config.songpath, "custom_songdata.db");
-    assert_eq!(config.songinfopath, "custom_songinfo.db");
-    assert_eq!(config.tablepath, "custom_table");
-    assert_eq!(config.playerpath, "custom_player");
-    assert_eq!(config.skinpath, "custom_skin");
-    assert_eq!(config.bgmpath, "custom_bgm");
-    assert_eq!(config.soundpath, "custom_sound");
-    assert_eq!(config.systemfontpath, "font/custom.ttf");
-    assert_eq!(config.messagefontpath, "font/custom_msg.ttf");
+    assert_eq!(config.paths.songpath, "custom_songdata.db");
+    assert_eq!(config.paths.songinfopath, "custom_songinfo.db");
+    assert_eq!(config.paths.tablepath, "custom_table");
+    assert_eq!(config.paths.playerpath, "custom_player");
+    assert_eq!(config.paths.skinpath, "custom_skin");
+    assert_eq!(config.paths.bgmpath, "custom_bgm");
+    assert_eq!(config.paths.soundpath, "custom_sound");
+    assert_eq!(config.paths.systemfontpath, "font/custom.ttf");
+    assert_eq!(config.paths.messagefontpath, "font/custom_msg.ttf");
 
     // Arrays
-    assert_eq!(config.bmsroot, vec!["C:\\BMS\\songs", "D:\\BMS\\extra"]);
     assert_eq!(
-        config.table_url,
+        config.paths.bmsroot,
+        vec!["C:\\BMS\\songs", "D:\\BMS\\extra"]
+    );
+    assert_eq!(
+        config.paths.table_url,
         vec![
             "https://example.com/table1.html",
             "https://example.com/table2.html"
         ]
     );
     assert_eq!(
-        config.available_url,
+        config.paths.available_url,
         vec!["https://example.com/available.html"]
     );
 
     // BGA/resource
-    assert_eq!(config.bga, 1);
-    assert_eq!(config.bga_expand, 2);
-    assert_eq!(config.frameskip, 0);
+    assert_eq!(config.render.bga, 1);
+    assert_eq!(config.render.bga_expand, 2);
+    assert_eq!(config.render.frameskip, 0);
     assert!(config.updatesong);
-    assert_eq!(config.skin_pixmap_gen, 8);
-    assert_eq!(config.stagefile_pixmap_gen, 4);
-    assert_eq!(config.banner_pixmap_gen, 3);
-    assert_eq!(config.song_resource_gen, 2);
+    assert_eq!(config.render.skin_pixmap_gen, 8);
+    assert_eq!(config.render.stagefile_pixmap_gen, 4);
+    assert_eq!(config.render.banner_pixmap_gen, 3);
+    assert_eq!(config.render.song_resource_gen, 2);
 
     // Network
-    assert!(!config.enable_ipfs);
-    assert_eq!(config.ipfsurl, "https://custom-gateway.io/");
-    assert!(!config.enable_http);
-    assert_eq!(config.download_source, "custom_source");
-    assert_eq!(config.default_download_url, "https://download.example.com");
-    assert_eq!(config.override_download_url, "https://override.example.com");
-    assert_eq!(config.download_directory, "custom_download");
+    assert!(!config.network.enable_ipfs);
+    assert_eq!(config.network.ipfsurl, "https://custom-gateway.io/");
+    assert!(!config.network.enable_http);
+    assert_eq!(config.network.download_source, "custom_source");
+    assert_eq!(
+        config.network.default_download_url,
+        "https://download.example.com"
+    );
+    assert_eq!(
+        config.network.override_download_url,
+        "https://override.example.com"
+    );
+    assert_eq!(config.network.download_directory, "custom_download");
 
     // IR/Discord/screenshot
-    assert_eq!(config.ir_send_count, 10);
-    assert!(config.use_discord_rpc);
-    assert!(config.set_clipboard_screenshot);
-    assert_eq!(config.monitor_name, "HDMI-1");
+    assert_eq!(config.network.ir_send_count, 10);
+    assert!(config.integration.use_discord_rpc);
+    assert!(config.integration.set_clipboard_screenshot);
+    assert_eq!(config.integration.monitor_name, "HDMI-1");
 
     // Webhook
-    assert_eq!(config.webhook_option, 1);
-    assert_eq!(config.webhook_name, "TestHook");
-    assert_eq!(config.webhook_avatar, "https://example.com/avatar.png");
+    assert_eq!(config.integration.webhook_option, 1);
+    assert_eq!(config.integration.webhook_name, "TestHook");
     assert_eq!(
-        config.webhook_url,
+        config.integration.webhook_avatar,
+        "https://example.com/avatar.png"
+    );
+    assert_eq!(
+        config.integration.webhook_url,
         vec!["https://discord.com/api/webhooks/test1"]
     );
 
     // OBS
-    assert!(config.use_obs_ws);
-    assert_eq!(config.obs_ws_host, "192.168.1.100");
-    assert_eq!(config.obs_ws_port, 4444);
-    assert_eq!(config.obs_ws_pass, "secret123");
-    assert_eq!(config.obs_ws_rec_stop_wait, 3000);
-    assert_eq!(config.obs_ws_rec_mode, 1);
+    assert!(config.obs.use_obs_ws);
+    assert_eq!(config.obs.obs_ws_host, "192.168.1.100");
+    assert_eq!(config.obs.obs_ws_port, 4444);
+    assert_eq!(config.obs.obs_ws_pass, "secret123");
+    assert_eq!(config.obs.obs_ws_rec_stop_wait, 3000);
+    assert_eq!(config.obs.obs_ws_rec_mode, 1);
     assert_eq!(
-        config.obs_scenes.get("play").map(String::as_str),
+        config.obs.obs_scenes.get("play").map(String::as_str),
         Some("Gaming Scene")
     );
     assert_eq!(
-        config.obs_scenes.get("select").map(String::as_str),
+        config.obs.obs_scenes.get("select").map(String::as_str),
         Some("Menu Scene")
     );
     assert_eq!(
-        config.obs_actions.get("start").map(String::as_str),
+        config.obs.obs_actions.get("start").map(String::as_str),
         Some("StartRecording")
     );
 }
@@ -181,12 +196,12 @@ fn config_system_validate_after_deserialize() {
     config.validate();
 
     // After validation, values within valid range should remain unchanged
-    assert_eq!(config.window_width, 1920);
-    assert_eq!(config.window_height, 1080);
-    assert_eq!(config.max_frame_per_second, 120);
-    assert_eq!(config.scrolldurationlow, 200);
-    assert_eq!(config.bga, 1);
-    assert_eq!(config.bga_expand, 2);
+    assert_eq!(config.display.window_width, 1920);
+    assert_eq!(config.display.window_height, 1080);
+    assert_eq!(config.display.max_frame_per_second, 120);
+    assert_eq!(config.select.scrolldurationlow, 200);
+    assert_eq!(config.render.bga, 1);
+    assert_eq!(config.render.bga_expand, 2);
 }
 
 #[test]
@@ -204,15 +219,18 @@ fn config_system_serde_round_trip() {
 
     assert_eq!(config.playername, config2.playername);
     assert!(matches!(
-        (&config.displaymode, &config2.displaymode),
+        (&config.display.displaymode, &config2.display.displaymode),
         (DisplayMode::FULLSCREEN, DisplayMode::FULLSCREEN)
             | (DisplayMode::BORDERLESS, DisplayMode::BORDERLESS)
             | (DisplayMode::WINDOW, DisplayMode::WINDOW)
     ));
-    assert_eq!(config.resolution, config2.resolution);
-    assert_eq!(config.max_frame_per_second, config2.max_frame_per_second);
-    assert_eq!(config.table_url, config2.table_url);
-    assert_eq!(config.obs_ws_port, config2.obs_ws_port);
+    assert_eq!(config.display.resolution, config2.display.resolution);
+    assert_eq!(
+        config.display.max_frame_per_second,
+        config2.display.max_frame_per_second
+    );
+    assert_eq!(config.paths.table_url, config2.paths.table_url);
+    assert_eq!(config.obs.obs_ws_port, config2.obs.obs_ws_port);
 }
 
 // --- Player Config tests ---

@@ -127,7 +127,7 @@ impl LauncherUi {
         skin_view.initialize();
         skin_view.update_config(&config);
         skin_view.update_player(&player);
-        let webhook_urls = config.webhook_url.clone();
+        let webhook_urls = config.integration.webhook_url.clone();
 
         // Initialize OBS state rows
         let mut obs_states = Vec::new();
@@ -337,21 +337,23 @@ impl LauncherUi {
             ui.label("Resolution:");
             ui.label(format!(
                 "{}x{}",
-                self.config.resolution.width(),
-                self.config.resolution.height()
+                self.config.display.resolution.width(),
+                self.config.display.resolution.height()
             ));
             ui.end_row();
 
             ui.label("Display Mode:");
-            ui.label(format!("{:?}", self.config.displaymode));
+            ui.label(format!("{:?}", self.config.display.displaymode));
             ui.end_row();
 
             ui.label("VSync:");
-            ui.checkbox(&mut self.config.vsync, "");
+            ui.checkbox(&mut self.config.display.vsync, "");
             ui.end_row();
 
             ui.label("Max FPS:");
-            ui.add(egui::DragValue::new(&mut self.config.max_frame_per_second).range(0..=999));
+            ui.add(
+                egui::DragValue::new(&mut self.config.display.max_frame_per_second).range(0..=999),
+            );
             ui.end_row();
         });
     }
@@ -613,7 +615,10 @@ impl LauncherUi {
     fn render_skin_tab(&mut self, ui: &mut egui::Ui) {
         ui.heading("Skin Configuration");
 
-        ui.checkbox(&mut self.config.cache_skin_image, "Cache Skin Image (CIM)");
+        ui.checkbox(
+            &mut self.config.select.cache_skin_image,
+            "Cache Skin Image (CIM)",
+        );
 
         ui.separator();
 
@@ -772,7 +777,7 @@ impl LauncherUi {
 
         // Screenshot
         ui.checkbox(
-            &mut self.config.set_clipboard_screenshot,
+            &mut self.config.integration.set_clipboard_screenshot,
             "Clipboard Screenshot",
         );
 
@@ -782,12 +787,12 @@ impl LauncherUi {
         ui.label("IPFS");
         egui::Grid::new("ipfs_grid").show(ui, |ui| {
             ui.label("Enable:");
-            ui.checkbox(&mut self.config.enable_ipfs, "");
+            ui.checkbox(&mut self.config.network.enable_ipfs, "");
             ui.end_row();
 
-            if self.config.enable_ipfs {
+            if self.config.network.enable_ipfs {
                 ui.label("IPFS URL:");
-                ui.text_edit_singleline(&mut self.config.ipfsurl);
+                ui.text_edit_singleline(&mut self.config.network.ipfsurl);
                 ui.end_row();
             }
         });
@@ -798,20 +803,20 @@ impl LauncherUi {
         ui.label("HTTP Download");
         egui::Grid::new("http_grid").show(ui, |ui| {
             ui.label("Enable:");
-            ui.checkbox(&mut self.config.enable_http, "");
+            ui.checkbox(&mut self.config.network.enable_http, "");
             ui.end_row();
 
-            if self.config.enable_http {
+            if self.config.network.enable_http {
                 ui.label("Download Source:");
-                ui.text_edit_singleline(&mut self.config.download_source);
+                ui.text_edit_singleline(&mut self.config.network.download_source);
                 ui.end_row();
 
                 ui.label("Default URL:");
-                ui.text_edit_singleline(&mut self.config.default_download_url);
+                ui.text_edit_singleline(&mut self.config.network.default_download_url);
                 ui.end_row();
 
                 ui.label("Override URL:");
-                ui.text_edit_singleline(&mut self.config.override_download_url);
+                ui.text_edit_singleline(&mut self.config.network.override_download_url);
                 ui.end_row();
             }
         });
@@ -947,7 +952,7 @@ impl LauncherUi {
         ui.heading("Discord");
 
         ui.checkbox(
-            &mut self.config.use_discord_rpc,
+            &mut self.config.integration.use_discord_rpc,
             "Enable Discord Rich Presence",
         );
 
@@ -959,24 +964,28 @@ impl LauncherUi {
         egui::Grid::new("discord_webhook_grid").show(ui, |ui| {
             let webhook_options = ["All Clear", "FC / AAA", "Clear"];
             let selected_label = webhook_options
-                .get(self.config.webhook_option as usize)
+                .get(self.config.integration.webhook_option as usize)
                 .unwrap_or(&"All Clear");
             ui.label("Send On:");
             egui::ComboBox::from_id_salt("webhook_option")
                 .selected_text(*selected_label)
                 .show_ui(ui, |ui| {
                     for (i, label) in webhook_options.iter().enumerate() {
-                        ui.selectable_value(&mut self.config.webhook_option, i as i32, *label);
+                        ui.selectable_value(
+                            &mut self.config.integration.webhook_option,
+                            i as i32,
+                            *label,
+                        );
                     }
                 });
             ui.end_row();
 
             ui.label("Bot Name:");
-            ui.text_edit_singleline(&mut self.config.webhook_name);
+            ui.text_edit_singleline(&mut self.config.integration.webhook_name);
             ui.end_row();
 
             ui.label("Avatar URL:");
-            ui.text_edit_singleline(&mut self.config.webhook_avatar);
+            ui.text_edit_singleline(&mut self.config.integration.webhook_avatar);
             ui.end_row();
         });
 
@@ -1016,44 +1025,49 @@ impl LauncherUi {
 
         egui::Grid::new("obs_grid").show(ui, |ui| {
             ui.label("Enable:");
-            ui.checkbox(&mut self.config.use_obs_ws, "");
+            ui.checkbox(&mut self.config.obs.use_obs_ws, "");
             ui.end_row();
 
-            if self.config.use_obs_ws {
+            if self.config.obs.use_obs_ws {
                 ui.label("Host:");
-                ui.text_edit_singleline(&mut self.config.obs_ws_host);
+                ui.text_edit_singleline(&mut self.config.obs.obs_ws_host);
                 ui.end_row();
 
                 ui.label("Port:");
-                ui.add(egui::DragValue::new(&mut self.config.obs_ws_port).range(1..=65535));
+                ui.add(egui::DragValue::new(&mut self.config.obs.obs_ws_port).range(1..=65535));
                 ui.end_row();
 
                 ui.label("Password:");
-                ui.text_edit_singleline(&mut self.config.obs_ws_pass);
+                ui.text_edit_singleline(&mut self.config.obs.obs_ws_pass);
                 ui.end_row();
 
                 let selected_label = OBS_REC_MODE_LABELS
-                    .get(self.config.obs_ws_rec_mode as usize)
+                    .get(self.config.obs.obs_ws_rec_mode as usize)
                     .unwrap_or(&"DEFAULT");
                 ui.label("Recording Mode:");
                 egui::ComboBox::from_id_salt("obs_rec_mode")
                     .selected_text(*selected_label)
                     .show_ui(ui, |ui| {
                         for (i, label) in OBS_REC_MODE_LABELS.iter().enumerate() {
-                            ui.selectable_value(&mut self.config.obs_ws_rec_mode, i as i32, *label);
+                            ui.selectable_value(
+                                &mut self.config.obs.obs_ws_rec_mode,
+                                i as i32,
+                                *label,
+                            );
                         }
                     });
                 ui.end_row();
 
                 ui.label("Rec Stop Wait:");
                 ui.add(
-                    egui::DragValue::new(&mut self.config.obs_ws_rec_stop_wait).range(0..=60000),
+                    egui::DragValue::new(&mut self.config.obs.obs_ws_rec_stop_wait)
+                        .range(0..=60000),
                 );
                 ui.end_row();
             }
         });
 
-        if self.config.use_obs_ws {
+        if self.config.obs.use_obs_ws {
             ui.separator();
             ui.heading("State Actions");
 
@@ -1162,7 +1176,7 @@ impl LauncherUi {
     fn commit_config(&mut self) {
         self.config.playername = Some(self.player_name.clone());
         // Commit webhook URLs
-        self.config.webhook_url = self.webhook_urls.clone();
+        self.config.integration.webhook_url = self.webhook_urls.clone();
         // Commit OBS scene/action selections
         let actions = rubato_external::obs::obs_ws_client::obs_actions();
         for state in &self.obs_states {
@@ -1195,7 +1209,7 @@ impl LauncherUi {
         if let Err(e) = Config::write(&self.config) {
             log::error!("Failed to save config: {}", e);
         }
-        if let Err(e) = PlayerConfig::write(&self.config.playerpath, &self.player) {
+        if let Err(e) = PlayerConfig::write(&self.config.paths.playerpath, &self.player) {
             log::error!("Failed to save player config: {}", e);
         }
     }
@@ -1283,7 +1297,7 @@ pub fn run_launcher(
 
     // Re-read config/player from disk (commit_config saved them in on_exit).
     let config = Config::read().unwrap_or_default();
-    let playerpath = &config.playerpath;
+    let playerpath = &config.paths.playerpath;
     let playername = config.playername.as_deref().unwrap_or("default");
     let player = PlayerConfig::read_player_config(playerpath, playername)
         .unwrap_or_else(|_| PlayerConfig::default());
@@ -1314,13 +1328,13 @@ mod tests {
     #[test]
     fn test_launcher_ui_config_accessors() {
         let mut config = Config::default();
-        config.vsync = true;
-        config.max_frame_per_second = 120;
+        config.display.vsync = true;
+        config.display.max_frame_per_second = 120;
         let player = PlayerConfig::default();
         let ui = LauncherUi::new(config, player);
 
-        assert!(ui.config().vsync);
-        assert_eq!(ui.config().max_frame_per_second, 120);
+        assert!(ui.config().display.vsync);
+        assert_eq!(ui.config().display.max_frame_per_second, 120);
     }
 
     #[test]

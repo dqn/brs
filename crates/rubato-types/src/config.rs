@@ -115,12 +115,12 @@ static DEFAULT_TABLEURL: &[&str] = &[
     "https://rattoto10.jounin.jp/table_overjoy.html",
 ];
 
+// --- Sub-structs for Config decomposition ---
+
+/// Display and window configuration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
-pub struct Config {
-    pub playername: Option<String>,
-    #[serde(rename = "lastBootedVersion")]
-    pub last_booted_version: String,
+pub struct DisplayConfig {
     pub displaymode: DisplayMode,
     pub vsync: bool,
     pub resolution: Resolution,
@@ -130,30 +130,31 @@ pub struct Config {
     pub window_width: i32,
     #[serde(rename = "windowHeight")]
     pub window_height: i32,
-    pub folderlamp: bool,
-    pub audio: Option<AudioConfig>,
     #[serde(rename = "maxFramePerSecond")]
     pub max_frame_per_second: i32,
     #[serde(rename = "prepareFramePerSecond")]
     pub prepare_frame_per_second: i32,
-    #[serde(rename = "maxSearchBarCount")]
-    pub max_search_bar_count: i32,
-    #[serde(rename = "skipDecideScreen")]
-    pub skip_decide_screen: bool,
-    #[serde(rename = "showNoSongExistingBar")]
-    pub show_no_song_existing_bar: bool,
-    pub scrolldurationlow: i32,
-    pub scrolldurationhigh: i32,
-    #[serde(rename = "analogScroll")]
-    pub analog_scroll: bool,
-    #[serde(rename = "analogTicksPerScroll")]
-    pub analog_ticks_per_scroll: i32,
-    #[serde(rename = "songPreview")]
-    pub song_preview: SongPreview,
-    #[serde(rename = "cacheSkinImage")]
-    pub cache_skin_image: bool,
-    #[serde(rename = "useSongInfo")]
-    pub use_song_info: bool,
+}
+
+impl Default for DisplayConfig {
+    fn default() -> Self {
+        Self {
+            displaymode: DisplayMode::WINDOW,
+            vsync: false,
+            resolution: Resolution::HD,
+            use_resolution: true,
+            window_width: 1280,
+            window_height: 720,
+            max_frame_per_second: 240,
+            prepare_frame_per_second: 0,
+        }
+    }
+}
+
+/// File and directory path configuration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct PathConfig {
     pub songpath: String,
     pub songinfopath: String,
     pub tablepath: String,
@@ -168,11 +169,35 @@ pub struct Config {
     pub table_url: Vec<String>,
     #[serde(rename = "availableURL")]
     pub available_url: Vec<String>,
+}
+
+impl Default for PathConfig {
+    fn default() -> Self {
+        Self {
+            songpath: SONGPATH_DEFAULT.to_string(),
+            songinfopath: SONGINFOPATH_DEFAULT.to_string(),
+            tablepath: TABLEPATH_DEFAULT.to_string(),
+            playerpath: PLAYERPATH_DEFAULT.to_string(),
+            skinpath: SKINPATH_DEFAULT.to_string(),
+            bgmpath: "bgm".to_string(),
+            soundpath: "sound".to_string(),
+            systemfontpath: "font/VL-Gothic-Regular.ttf".to_string(),
+            messagefontpath: "font/VL-Gothic-Regular.ttf".to_string(),
+            bmsroot: Vec::new(),
+            table_url: DEFAULT_TABLEURL.iter().map(|s| s.to_string()).collect(),
+            available_url: AVAILABLE_TABLEURL.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+}
+
+/// BGA and resource generation configuration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct RenderConfig {
     pub bga: i32,
     #[serde(rename = "bgaExpand")]
     pub bga_expand: i32,
     pub frameskip: i32,
-    pub updatesong: bool,
     #[serde(rename = "skinPixmapGen")]
     pub skin_pixmap_gen: i32,
     #[serde(rename = "stagefilePixmapGen")]
@@ -181,6 +206,26 @@ pub struct Config {
     pub banner_pixmap_gen: i32,
     #[serde(rename = "songResourceGen")]
     pub song_resource_gen: i32,
+}
+
+impl Default for RenderConfig {
+    fn default() -> Self {
+        Self {
+            bga: BGA_ON,
+            bga_expand: BGAEXPAND_KEEP_ASPECT_RATIO,
+            frameskip: 1,
+            skin_pixmap_gen: 4,
+            stagefile_pixmap_gen: 2,
+            banner_pixmap_gen: 2,
+            song_resource_gen: 1,
+        }
+    }
+}
+
+/// Download and network configuration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct NetworkConfig {
     #[serde(rename = "enableIpfs")]
     pub enable_ipfs: bool,
     pub ipfsurl: String,
@@ -196,20 +241,27 @@ pub struct Config {
     pub download_directory: String,
     #[serde(rename = "irSendCount")]
     pub ir_send_count: i32,
-    #[serde(rename = "useDiscordRpc", alias = "useDiscordRPC")]
-    pub use_discord_rpc: bool,
-    #[serde(rename = "setClipboardScreenshot")]
-    pub set_clipboard_screenshot: bool,
-    #[serde(rename = "monitorName")]
-    pub monitor_name: String,
-    #[serde(rename = "webhookOption")]
-    pub webhook_option: i32,
-    #[serde(rename = "webhookName")]
-    pub webhook_name: String,
-    #[serde(rename = "webhookAvatar")]
-    pub webhook_avatar: String,
-    #[serde(rename = "webhookUrl")]
-    pub webhook_url: Vec<String>,
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self {
+            enable_ipfs: true,
+            ipfsurl: "https://gateway.ipfs.io/".to_string(),
+            enable_http: true,
+            download_source: String::new(),
+            default_download_url: String::new(),
+            override_download_url: String::new(),
+            download_directory: DEFAULT_DOWNLOAD_DIRECTORY.to_string(),
+            ir_send_count: 5,
+        }
+    }
+}
+
+/// OBS WebSocket configuration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct ObsConfig {
     #[serde(rename = "useObsWs")]
     pub use_obs_ws: bool,
     #[serde(rename = "obsWsHost")]
@@ -228,66 +280,9 @@ pub struct Config {
     pub obs_actions: HashMap<String, String>,
 }
 
-impl Default for Config {
+impl Default for ObsConfig {
     fn default() -> Self {
-        Config {
-            playername: None,
-            last_booted_version: String::new(),
-            displaymode: DisplayMode::WINDOW,
-            vsync: false,
-            resolution: Resolution::HD,
-            use_resolution: true,
-            window_width: 1280,
-            window_height: 720,
-            folderlamp: true,
-            audio: None,
-            max_frame_per_second: 240,
-            prepare_frame_per_second: 0,
-            max_search_bar_count: 10,
-            skip_decide_screen: false,
-            show_no_song_existing_bar: true,
-            scrolldurationlow: 300,
-            scrolldurationhigh: 50,
-            analog_scroll: true,
-            analog_ticks_per_scroll: 3,
-            song_preview: SongPreview::LOOP,
-            cache_skin_image: false,
-            use_song_info: true,
-            songpath: SONGPATH_DEFAULT.to_string(),
-            songinfopath: SONGINFOPATH_DEFAULT.to_string(),
-            tablepath: TABLEPATH_DEFAULT.to_string(),
-            playerpath: PLAYERPATH_DEFAULT.to_string(),
-            skinpath: SKINPATH_DEFAULT.to_string(),
-            bgmpath: "bgm".to_string(),
-            soundpath: "sound".to_string(),
-            systemfontpath: "font/VL-Gothic-Regular.ttf".to_string(),
-            messagefontpath: "font/VL-Gothic-Regular.ttf".to_string(),
-            bmsroot: Vec::new(),
-            table_url: DEFAULT_TABLEURL.iter().map(|s| s.to_string()).collect(),
-            available_url: AVAILABLE_TABLEURL.iter().map(|s| s.to_string()).collect(),
-            bga: BGA_ON,
-            bga_expand: BGAEXPAND_KEEP_ASPECT_RATIO,
-            frameskip: 1,
-            updatesong: false,
-            skin_pixmap_gen: 4,
-            stagefile_pixmap_gen: 2,
-            banner_pixmap_gen: 2,
-            song_resource_gen: 1,
-            enable_ipfs: true,
-            ipfsurl: "https://gateway.ipfs.io/".to_string(),
-            enable_http: true,
-            download_source: String::new(),
-            default_download_url: String::new(),
-            override_download_url: String::new(),
-            download_directory: DEFAULT_DOWNLOAD_DIRECTORY.to_string(),
-            ir_send_count: 5,
-            use_discord_rpc: false,
-            set_clipboard_screenshot: false,
-            monitor_name: String::new(),
-            webhook_option: 0,
-            webhook_name: String::new(),
-            webhook_avatar: String::new(),
-            webhook_url: Vec::new(),
+        Self {
             use_obs_ws: false,
             obs_ws_host: "localhost".to_string(),
             obs_ws_port: 4455,
@@ -300,63 +295,171 @@ impl Default for Config {
     }
 }
 
+/// External integrations: Discord, clipboard, webhook.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct IntegrationConfig {
+    #[serde(rename = "useDiscordRpc", alias = "useDiscordRPC")]
+    pub use_discord_rpc: bool,
+    #[serde(rename = "setClipboardScreenshot")]
+    pub set_clipboard_screenshot: bool,
+    #[serde(rename = "monitorName")]
+    pub monitor_name: String,
+    #[serde(rename = "webhookOption")]
+    pub webhook_option: i32,
+    #[serde(rename = "webhookName")]
+    pub webhook_name: String,
+    #[serde(rename = "webhookAvatar")]
+    pub webhook_avatar: String,
+    #[serde(rename = "webhookUrl")]
+    pub webhook_url: Vec<String>,
+}
+
+/// Music select screen configuration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct SelectConfig {
+    pub folderlamp: bool,
+    #[serde(rename = "maxSearchBarCount")]
+    pub max_search_bar_count: i32,
+    #[serde(rename = "skipDecideScreen")]
+    pub skip_decide_screen: bool,
+    #[serde(rename = "showNoSongExistingBar")]
+    pub show_no_song_existing_bar: bool,
+    pub scrolldurationlow: i32,
+    pub scrolldurationhigh: i32,
+    #[serde(rename = "analogScroll")]
+    pub analog_scroll: bool,
+    #[serde(rename = "analogTicksPerScroll")]
+    pub analog_ticks_per_scroll: i32,
+    #[serde(rename = "songPreview")]
+    pub song_preview: SongPreview,
+    #[serde(rename = "cacheSkinImage")]
+    pub cache_skin_image: bool,
+}
+
+impl Default for SelectConfig {
+    fn default() -> Self {
+        Self {
+            folderlamp: true,
+            max_search_bar_count: 10,
+            skip_decide_screen: false,
+            show_no_song_existing_bar: true,
+            scrolldurationlow: 300,
+            scrolldurationhigh: 50,
+            analog_scroll: true,
+            analog_ticks_per_scroll: 3,
+            song_preview: SongPreview::LOOP,
+            cache_skin_image: false,
+        }
+    }
+}
+
+// --- Main Config struct ---
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Config {
+    pub playername: Option<String>,
+    #[serde(rename = "lastBootedVersion")]
+    pub last_booted_version: String,
+    pub audio: Option<AudioConfig>,
+    #[serde(rename = "useSongInfo")]
+    pub use_song_info: bool,
+    pub updatesong: bool,
+
+    #[serde(flatten)]
+    pub display: DisplayConfig,
+    #[serde(flatten)]
+    pub paths: PathConfig,
+    #[serde(flatten)]
+    pub render: RenderConfig,
+    #[serde(flatten)]
+    pub network: NetworkConfig,
+    #[serde(flatten)]
+    pub obs: ObsConfig,
+    #[serde(flatten)]
+    pub integration: IntegrationConfig,
+    #[serde(flatten)]
+    pub select: SelectConfig,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            playername: None,
+            last_booted_version: String::new(),
+            audio: None,
+            use_song_info: true,
+            updatesong: false,
+            display: DisplayConfig::default(),
+            paths: PathConfig::default(),
+            render: RenderConfig::default(),
+            network: NetworkConfig::default(),
+            obs: ObsConfig::default(),
+            integration: IntegrationConfig::default(),
+            select: SelectConfig::default(),
+        }
+    }
+}
+
 impl Config {
     pub fn is_show_no_song_existing_bar(&self) -> bool {
-        self.show_no_song_existing_bar || self.enable_http
+        self.select.show_no_song_existing_bar || self.network.enable_http
     }
 
     pub fn set_analog_ticks_per_scroll(&mut self, value: i32) {
-        self.analog_ticks_per_scroll = value.max(1);
+        self.select.analog_ticks_per_scroll = value.max(1);
     }
 
     pub fn obs_ws_pass(&self) -> Option<&str> {
-        if self.obs_ws_pass.is_empty() || self.obs_ws_pass.trim().is_empty() {
+        if self.obs.obs_ws_pass.is_empty() || self.obs.obs_ws_pass.trim().is_empty() {
             None
         } else {
-            Some(&self.obs_ws_pass)
+            Some(&self.obs.obs_ws_pass)
         }
     }
 
     pub fn set_obs_ws_port(&mut self, port: i32) {
-        self.obs_ws_port = port.clamp(0, 65535);
+        self.obs.obs_ws_port = port.clamp(0, 65535);
     }
 
     pub fn set_obs_ws_rec_stop_wait(&mut self, wait: i32) {
-        self.obs_ws_rec_stop_wait = wait.clamp(0, 10000);
+        self.obs.obs_ws_rec_stop_wait = wait.clamp(0, 10000);
     }
 
     pub fn obs_scene(&self, state_name: &str) -> Option<&String> {
-        self.obs_scenes.get(state_name)
+        self.obs.obs_scenes.get(state_name)
     }
 
     pub fn set_obs_scene(&mut self, state_name: String, scene_name: Option<String>) {
         match scene_name {
             None => {
-                self.obs_scenes.remove(&state_name);
+                self.obs.obs_scenes.remove(&state_name);
             }
             Some(s) if s.is_empty() => {
-                self.obs_scenes.remove(&state_name);
+                self.obs.obs_scenes.remove(&state_name);
             }
             Some(s) => {
-                self.obs_scenes.insert(state_name, s);
+                self.obs.obs_scenes.insert(state_name, s);
             }
         }
     }
 
     pub fn obs_action(&self, state_name: &str) -> Option<&String> {
-        self.obs_actions.get(state_name)
+        self.obs.obs_actions.get(state_name)
     }
 
     pub fn set_obs_action(&mut self, state_name: String, action_name: Option<String>) {
         match action_name {
             None => {
-                self.obs_actions.remove(&state_name);
+                self.obs.obs_actions.remove(&state_name);
             }
             Some(s) if s.is_empty() => {
-                self.obs_actions.remove(&state_name);
+                self.obs.obs_actions.remove(&state_name);
             }
             Some(s) => {
-                self.obs_actions.insert(state_name, s);
+                self.obs.obs_actions.insert(state_name, s);
             }
         }
     }
@@ -366,108 +469,139 @@ impl Config {
     }
 
     pub fn is_set_clipboard_screenshot(&self) -> bool {
-        self.set_clipboard_screenshot
+        self.integration.set_clipboard_screenshot
     }
+
+    pub fn set_clipboard_when_screenshot(&mut self, value: bool) {
+        self.integration.set_clipboard_screenshot = value;
+    }
+
     pub fn get_scroll_duration_low(&self) -> i32 {
-        self.scrolldurationlow
+        self.select.scrolldurationlow
     }
+
+    pub fn set_scroll_duration_low(&mut self, value: i32) {
+        self.select.scrolldurationlow = value;
+    }
+
     pub fn get_scroll_duration_high(&self) -> i32 {
-        self.scrolldurationhigh
+        self.select.scrolldurationhigh
     }
+
+    pub fn set_scroll_duration_high(&mut self, value: i32) {
+        self.select.scrolldurationhigh = value;
+    }
+
     pub fn get_webhook_option(&self) -> i32 {
-        self.webhook_option
+        self.integration.webhook_option
     }
 
     pub fn get_webhook_url(&self) -> &[String] {
-        &self.webhook_url
+        &self.integration.webhook_url
     }
 
     pub fn get_webhook_name(&self) -> &str {
-        &self.webhook_name
+        &self.integration.webhook_name
     }
 
     pub fn get_webhook_avatar(&self) -> &str {
-        &self.webhook_avatar
+        &self.integration.webhook_avatar
     }
 
     pub fn get_bmsroot(&self) -> &[String] {
-        &self.bmsroot
+        &self.paths.bmsroot
     }
 
     pub fn get_table_url(&self) -> &[String] {
-        &self.table_url
+        &self.paths.table_url
     }
 
     pub fn get_songpath(&self) -> &str {
-        &self.songpath
+        &self.paths.songpath
     }
 
     pub fn get_songinfopath(&self) -> &str {
-        &self.songinfopath
+        &self.paths.songinfopath
     }
 
     pub fn get_tablepath(&self) -> &str {
-        &self.tablepath
+        &self.paths.tablepath
     }
 
     pub fn get_playerpath(&self) -> &str {
-        &self.playerpath
+        &self.paths.playerpath
     }
 
     pub fn get_skinpath(&self) -> &str {
-        &self.skinpath
+        &self.paths.skinpath
     }
 
     pub fn get_bgmpath(&self) -> &str {
-        &self.bgmpath
+        &self.paths.bgmpath
     }
 
     pub fn get_soundpath(&self) -> &str {
-        &self.soundpath
+        &self.paths.soundpath
     }
 
     pub fn get_systemfontpath(&self) -> &str {
-        &self.systemfontpath
+        &self.paths.systemfontpath
     }
 
     pub fn get_messagefontpath(&self) -> &str {
-        &self.messagefontpath
+        &self.paths.messagefontpath
     }
 
     pub fn get_max_frame_per_second(&self) -> i32 {
-        self.max_frame_per_second
+        self.display.max_frame_per_second
     }
 
     pub fn get_max_search_bar_count(&self) -> i32 {
-        self.max_search_bar_count
+        self.select.max_search_bar_count
     }
 
     pub fn get_bga(&self) -> i32 {
-        self.bga
+        self.render.bga
     }
 
     pub fn get_bga_expand(&self) -> i32 {
-        self.bga_expand
+        self.render.bga_expand
     }
 
     pub fn get_frameskip(&self) -> i32 {
-        self.frameskip
+        self.render.frameskip
     }
 
     pub fn get_override_download_url(&self) -> Option<&str> {
-        if self.override_download_url.is_empty() {
+        if self.network.override_download_url.is_empty() {
             None
         } else {
-            Some(&self.override_download_url)
+            Some(&self.network.override_download_url)
         }
     }
 
+    pub fn download_directory(&self) -> &str {
+        &self.network.download_directory
+    }
+
+    pub fn monitor_name(&self) -> &str {
+        &self.integration.monitor_name
+    }
+
     pub fn is_analog_scroll(&self) -> bool {
-        self.analog_scroll
+        self.select.analog_scroll
+    }
+
+    pub fn resolution(&self) -> Resolution {
+        self.display.resolution
     }
 
     pub fn audio_config(&self) -> Option<&AudioConfig> {
         self.audio.as_ref()
+    }
+
+    pub fn song_resource_gen(&self) -> i32 {
+        self.render.song_resource_gen
     }
 
     pub fn config_json(config: &Config) -> anyhow::Result<String> {
@@ -538,10 +672,12 @@ impl Config {
 
 impl Validatable for Config {
     fn validate(&mut self) -> bool {
-        self.window_width = self
+        self.display.window_width = self
+            .display
             .window_width
             .clamp(Resolution::SD.width(), Resolution::ULTRAHD.width());
-        self.window_height = self
+        self.display.window_height = self
+            .display
             .window_height
             .clamp(Resolution::SD.height(), Resolution::ULTRAHD.height());
 
@@ -551,63 +687,64 @@ impl Validatable for Config {
         if let Some(ref mut audio) = self.audio {
             audio.validate();
         }
-        self.max_frame_per_second = self.max_frame_per_second.clamp(0, 50000);
-        self.prepare_frame_per_second = self.prepare_frame_per_second.clamp(0, 100000);
-        self.max_search_bar_count = self.max_search_bar_count.clamp(1, 100);
+        self.display.max_frame_per_second = self.display.max_frame_per_second.clamp(0, 50000);
+        self.display.prepare_frame_per_second =
+            self.display.prepare_frame_per_second.clamp(0, 100000);
+        self.select.max_search_bar_count = self.select.max_search_bar_count.clamp(1, 100);
 
-        self.scrolldurationlow = self.scrolldurationlow.clamp(2, 1000);
-        self.scrolldurationhigh = self.scrolldurationhigh.clamp(1, 1000);
-        self.ir_send_count = self.ir_send_count.clamp(1, 100);
+        self.select.scrolldurationlow = self.select.scrolldurationlow.clamp(2, 1000);
+        self.select.scrolldurationhigh = self.select.scrolldurationhigh.clamp(1, 1000);
+        self.network.ir_send_count = self.network.ir_send_count.clamp(1, 100);
 
-        self.skin_pixmap_gen = self.skin_pixmap_gen.clamp(0, 100);
-        self.stagefile_pixmap_gen = self.stagefile_pixmap_gen.clamp(0, 100);
-        self.banner_pixmap_gen = self.banner_pixmap_gen.clamp(0, 100);
-        self.song_resource_gen = self.song_resource_gen.clamp(0, 100);
+        self.render.skin_pixmap_gen = self.render.skin_pixmap_gen.clamp(0, 100);
+        self.render.stagefile_pixmap_gen = self.render.stagefile_pixmap_gen.clamp(0, 100);
+        self.render.banner_pixmap_gen = self.render.banner_pixmap_gen.clamp(0, 100);
+        self.render.song_resource_gen = self.render.song_resource_gen.clamp(0, 100);
 
-        self.bmsroot = remove_empty_strings(&self.bmsroot);
+        self.paths.bmsroot = remove_empty_strings(&self.paths.bmsroot);
 
         // Auto-detect ./bms directory relative to CWD and add it to bmsroot if not already present.
         if let Ok(cwd) = std::env::current_dir() {
             let bms_dir = cwd.join("bms");
             if bms_dir.is_dir() {
                 let bms_path = bms_dir.to_string_lossy().to_string();
-                if !self.bmsroot.iter().any(|p| p == &bms_path) {
-                    self.bmsroot.push(bms_path);
+                if !self.paths.bmsroot.iter().any(|p| p == &bms_path) {
+                    self.paths.bmsroot.push(bms_path);
                 }
             }
         }
 
-        if self.table_url.is_empty() {
-            self.table_url = DEFAULT_TABLEURL.iter().map(|s| s.to_string()).collect();
+        if self.paths.table_url.is_empty() {
+            self.paths.table_url = DEFAULT_TABLEURL.iter().map(|s| s.to_string()).collect();
         }
-        self.table_url = remove_empty_strings(&self.table_url);
+        self.paths.table_url = remove_empty_strings(&self.paths.table_url);
 
-        self.bga = self.bga.clamp(0, 2);
-        self.bga_expand = self.bga_expand.clamp(0, 2);
-        if self.ipfsurl.is_empty() {
-            self.ipfsurl = "https://gateway.ipfs.io/".to_string();
+        self.render.bga = self.render.bga.clamp(0, 2);
+        self.render.bga_expand = self.render.bga_expand.clamp(0, 2);
+        if self.network.ipfsurl.is_empty() {
+            self.network.ipfsurl = "https://gateway.ipfs.io/".to_string();
         }
 
-        if self.songpath.is_empty() {
-            self.songpath = SONGPATH_DEFAULT.to_string();
+        if self.paths.songpath.is_empty() {
+            self.paths.songpath = SONGPATH_DEFAULT.to_string();
         }
-        if self.songinfopath.is_empty() {
-            self.songinfopath = SONGINFOPATH_DEFAULT.to_string();
+        if self.paths.songinfopath.is_empty() {
+            self.paths.songinfopath = SONGINFOPATH_DEFAULT.to_string();
         }
-        if self.tablepath.is_empty() {
-            self.tablepath = TABLEPATH_DEFAULT.to_string();
+        if self.paths.tablepath.is_empty() {
+            self.paths.tablepath = TABLEPATH_DEFAULT.to_string();
         }
-        if self.playerpath.is_empty() {
-            self.playerpath = PLAYERPATH_DEFAULT.to_string();
+        if self.paths.playerpath.is_empty() {
+            self.paths.playerpath = PLAYERPATH_DEFAULT.to_string();
         }
-        if self.skinpath.is_empty() {
-            self.skinpath = SKINPATH_DEFAULT.to_string();
+        if self.paths.skinpath.is_empty() {
+            self.paths.skinpath = SKINPATH_DEFAULT.to_string();
         }
-        if !validate_path(&self.download_directory) {
-            self.download_directory = DEFAULT_DOWNLOAD_DIRECTORY.to_string();
+        if !validate_path(&self.network.download_directory) {
+            self.network.download_directory = DEFAULT_DOWNLOAD_DIRECTORY.to_string();
         }
         // ObsRecordingMode has 3 variants: 0=KeepAll, 1=OnScreenshot, 2=OnReplay
-        self.obs_ws_rec_mode = self.obs_ws_rec_mode.clamp(0, 2);
+        self.obs.obs_ws_rec_mode = self.obs.obs_ws_rec_mode.clamp(0, 2);
         true
     }
 }

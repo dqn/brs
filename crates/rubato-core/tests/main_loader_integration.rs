@@ -95,20 +95,26 @@ fn start_returns_validated_config() {
     );
 
     // Default paths should be non-empty after validation
-    assert!(!config.songpath.is_empty(), "songpath should be non-empty");
     assert!(
-        !config.songinfopath.is_empty(),
+        !config.paths.songpath.is_empty(),
+        "songpath should be non-empty"
+    );
+    assert!(
+        !config.paths.songinfopath.is_empty(),
         "songinfopath should be non-empty"
     );
     assert!(
-        !config.tablepath.is_empty(),
+        !config.paths.tablepath.is_empty(),
         "tablepath should be non-empty"
     );
     assert!(
-        !config.playerpath.is_empty(),
+        !config.paths.playerpath.is_empty(),
         "playerpath should be non-empty"
     );
-    assert!(!config.skinpath.is_empty(), "skinpath should be non-empty");
+    assert!(
+        !config.paths.skinpath.is_empty(),
+        "skinpath should be non-empty"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -164,14 +170,14 @@ fn play_returns_controller_with_config() {
     let expected_w = Resolution::HD.width();
     let expected_h = Resolution::HD.height();
     assert_eq!(
-        cfg.window_width, expected_w,
+        cfg.display.window_width, expected_w,
         "window_width should be {} (HD), got {}",
-        expected_w, cfg.window_width
+        expected_w, cfg.display.window_width
     );
     assert_eq!(
-        cfg.window_height, expected_h,
+        cfg.display.window_height, expected_h,
         "window_height should be {} (HD), got {}",
-        expected_h, cfg.window_height
+        expected_h, cfg.display.window_height
     );
 }
 
@@ -184,10 +190,10 @@ fn play_sets_window_dimensions() {
     let _lock = lock_and_clear_state();
 
     let mut config = Config::default();
-    config.resolution = Resolution::FULLHD;
+    config.display.resolution = Resolution::FULLHD;
     // Set different initial values to verify they get overwritten
-    config.window_width = 100;
-    config.window_height = 100;
+    config.display.window_width = 100;
+    config.display.window_height = 100;
 
     let controller = MainLoader::play(
         None,
@@ -201,13 +207,13 @@ fn play_sets_window_dimensions() {
 
     let cfg = controller.config();
     assert_eq!(
-        cfg.window_width,
+        cfg.display.window_width,
         Resolution::FULLHD.width(),
         "window_width should match FULLHD resolution ({})",
         Resolution::FULLHD.width()
     );
     assert_eq!(
-        cfg.window_height,
+        cfg.display.window_height,
         Resolution::FULLHD.height(),
         "window_height should match FULLHD resolution ({})",
         Resolution::FULLHD.height()
@@ -382,8 +388,14 @@ fn start_then_play_sequential_lifecycle() {
     let cfg = controller.config();
 
     // Config should be valid — window dimensions set from resolution
-    assert!(cfg.window_width > 0, "window_width should be positive");
-    assert!(cfg.window_height > 0, "window_height should be positive");
+    assert!(
+        cfg.display.window_width > 0,
+        "window_width should be positive"
+    );
+    assert!(
+        cfg.display.window_height > 0,
+        "window_height should be positive"
+    );
 
     // Global state should be clean
     assert_eq!(
@@ -417,12 +429,12 @@ fn play_twice_sequential_does_not_corrupt_state() {
     );
 
     let controller1 = result1.unwrap();
-    let w1 = controller1.config().window_width;
-    let h1 = controller1.config().window_height;
+    let w1 = controller1.config().display.window_width;
+    let h1 = controller1.config().display.window_height;
 
     // Second play() — must also succeed with independent config
     let mut config2 = Config::default();
-    config2.resolution = Resolution::FULLHD;
+    config2.display.resolution = Resolution::FULLHD;
     let player2 = PlayerConfig::default();
     let result2 = MainLoader::play(None, None, true, Some(config2), Some(player2), false);
     assert!(
@@ -435,8 +447,8 @@ fn play_twice_sequential_does_not_corrupt_state() {
     );
 
     let controller2 = result2.unwrap();
-    let w2 = controller2.config().window_width;
-    let h2 = controller2.config().window_height;
+    let w2 = controller2.config().display.window_width;
+    let h2 = controller2.config().display.window_height;
 
     // The two controllers should have independent configs — different resolutions
     assert_ne!(
