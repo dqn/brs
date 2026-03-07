@@ -12,6 +12,7 @@ use crate::ir_score_data::IRScoreData;
 use crate::leaderboard_entry::LeaderboardEntry;
 use crate::lr2_ghost_data::LR2GhostData;
 use rubato_types::imgui_notify::ImGuiNotify;
+use rubato_types::sync_utils::lock_or_recover;
 
 /// LR2 IR connection
 ///
@@ -39,9 +40,7 @@ pub struct LR2IRConnection;
 
 impl LR2IRConnection {
     pub fn set_score_database_accessor(accessor: Box<dyn ScoreDatabaseAccess>) {
-        let mut guard = SCORE_DATABASE_ACCESSOR
-            .lock()
-            .expect("SCORE_DATABASE_ACCESSOR lock poisoned");
+        let mut guard = lock_or_recover(&SCORE_DATABASE_ACCESSOR);
         *guard = Some(accessor);
     }
 
@@ -107,9 +106,7 @@ impl LR2IRConnection {
         let request_url = format!("songmd5={}&id={}&lastupdate=", chart.md5, "114328");
 
         let score_data = {
-            let cache = LR2_IR_RANKING_CACHE
-                .lock()
-                .expect("LR2_IR_RANKING_CACHE lock poisoned");
+            let cache = lock_or_recover(&LR2_IR_RANKING_CACHE);
             cache.get(&request_url).cloned()
         };
 
@@ -127,9 +124,7 @@ impl LR2IRConnection {
                         match Self::convert_xml_to_ranking(&xml) {
                             Some(ranking) => {
                                 let entries = ranking.to_rubato_score_data(chart);
-                                let mut cache = LR2_IR_RANKING_CACHE
-                                    .lock()
-                                    .expect("LR2_IR_RANKING_CACHE lock poisoned");
+                                let mut cache = lock_or_recover(&LR2_IR_RANKING_CACHE);
                                 cache.insert(request_url, entries.clone());
                                 entries
                             }
@@ -150,9 +145,7 @@ impl LR2IRConnection {
 
         // Get local score
         let local_score = {
-            let accessor = SCORE_DATABASE_ACCESSOR
-                .lock()
-                .expect("SCORE_DATABASE_ACCESSOR lock poisoned");
+            let accessor = lock_or_recover(&SCORE_DATABASE_ACCESSOR);
             if let Some(ref acc) = *accessor {
                 let lntype = if chart.has_undefined_ln {
                     chart.lntype

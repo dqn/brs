@@ -129,3 +129,6 @@ pub mod obs_access;
 
 // ImGui overlay access (core↔modmenu bridge)
 pub mod imgui_access;
+
+// Shared synchronization utilities (lock_or_recover, etc.)
+pub mod sync_utils;

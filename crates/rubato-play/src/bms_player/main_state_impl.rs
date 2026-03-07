@@ -1,5 +1,6 @@
 use super::skin_context::{PlayMouseContext, PlayRenderContext};
 use super::*;
+use rubato_types::sync_utils::lock_or_recover;
 
 impl MainState for BMSPlayer {
     fn state_type(&self) -> Option<MainStateType> {
@@ -353,9 +354,7 @@ impl MainState for BMSPlayer {
                         }
                     }
 
-                    self.bga
-                        .lock()
-                        .expect("bga lock poisoned")
+                    lock_or_recover(&self.bga)
                         .prepare(&() as &dyn std::any::Any);
                     self.state = PlayState::Ready;
                     self.main_state_data.timer.set_timer_on(TIMER_READY);
@@ -529,9 +528,7 @@ impl MainState for BMSPlayer {
                         as i32
                         + TIME_MARGIN;
 
-                    self.bga
-                        .lock()
-                        .expect("bga lock poisoned")
+                    lock_or_recover(&self.bga)
                         .prepare(&() as &dyn std::any::Any);
                     self.state = PlayState::Ready;
                     self.main_state_data.timer.set_timer_on(TIMER_READY);

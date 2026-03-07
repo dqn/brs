@@ -12,6 +12,7 @@ use crate::replay_data::ReplayData;
 use crate::score_data::ScoreData;
 use crate::song_information_db::SongInformationDb;
 use crate::sound_type::SoundType;
+use crate::sync_utils::lock_or_recover;
 
 /// Cross-crate side-effect commands issued by state-facing MainController proxies.
 ///
@@ -40,13 +41,6 @@ pub enum MainControllerCommand {
 #[derive(Clone, Default)]
 pub struct MainControllerCommandQueue {
     inner: Arc<Mutex<Vec<MainControllerCommand>>>,
-}
-
-fn lock_or_recover<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    match mutex.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    }
 }
 
 impl MainControllerCommandQueue {

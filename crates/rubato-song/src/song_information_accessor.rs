@@ -8,6 +8,7 @@ use rusqlite::Connection;
 
 use crate::song_data::SongData;
 use crate::song_information::SongInformation;
+use rubato_types::sync_utils::lock_or_recover;
 
 const LOAD_CHUNK_SIZE: usize = 1000;
 
@@ -111,7 +112,7 @@ impl SongInformationAccessor {
     }
 
     pub fn start_update(&self) -> anyhow::Result<()> {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         conn.execute_batch("BEGIN TRANSACTION")?;
         Ok(())
     }
@@ -124,7 +125,7 @@ impl SongInformationAccessor {
     }
 
     pub fn end_update(&self) {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         if let Err(e) = conn.execute_batch("COMMIT") {
             log::error!("Error committing update: {}", e);
         }
@@ -135,7 +136,7 @@ impl SongInformationAccessor {
         sql: &str,
         params: &[&str],
     ) -> anyhow::Result<Vec<SongInformation>> {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         let mut stmt = conn.prepare(sql)?;
         let param_values: Vec<&dyn rusqlite::types::ToSql> = params
             .iter()
@@ -182,7 +183,7 @@ impl SongInformationAccessor {
     }
 
     fn insert_information(&self, info: &SongInformation) -> anyhow::Result<()> {
-        let conn = self.conn.lock().expect("conn lock poisoned");
+        let conn = lock_or_recover(&self.conn);
         self.base.insert_with_values(
             &conn,
             "information",

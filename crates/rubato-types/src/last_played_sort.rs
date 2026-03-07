@@ -1,13 +1,8 @@
 use std::sync::Mutex;
 
-static LAST_PLAYED_SORT: Mutex<bool> = Mutex::new(false);
+use crate::sync_utils::lock_or_recover;
 
-fn lock_or_recover<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    match mutex.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    }
-}
+static LAST_PLAYED_SORT: Mutex<bool> = Mutex::new(false);
 
 pub fn is_enabled() -> bool {
     *lock_or_recover(&LAST_PLAYED_SORT)
