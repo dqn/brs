@@ -6,7 +6,10 @@ pub(crate) use log::info;
 
 pub(crate) use rubato_audio::audio_driver::AudioDriver;
 pub(crate) use rubato_types::imgui_notify::ImGuiNotify;
-pub(crate) use rubato_types::main_controller_access::MainControllerAccess;
+pub(crate) use rubato_types::main_controller_access::{
+    AudioSystemAccess, ControllerConfigAccess, DataReadAccess, IRConnectionAccess,
+    MainControllerAccess, StateTransitionAccess,
+};
 pub(crate) use rubato_types::main_state_access::MainStateAccess;
 pub(crate) use rubato_types::player_resource_access::PlayerResourceAccess;
 pub(crate) use rubato_types::ranking_data_cache_access::RankingDataCacheAccess;

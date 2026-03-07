@@ -34,7 +34,10 @@ pub use rubato_core::play_data_accessor::PlayDataAccessor;
 // ============================================================
 
 // MainControllerAccess: real trait from beatoraja-types (Phase 41b)
-pub use rubato_types::main_controller_access::{MainControllerAccess, NullMainController};
+pub use rubato_types::main_controller_access::{
+    AudioSystemAccess, ControllerConfigAccess, DataReadAccess, IRConnectionAccess,
+    MainControllerAccess, NullMainController, StateTransitionAccess,
+};
 
 /// Wrapper for bms.player.beatoraja.MainController.
 /// Delegates trait methods (config, player_config, change_state, save_last_recording)
@@ -562,7 +565,7 @@ mod tests {
         }
     }
 
-    impl MainControllerAccess for CacheBackedMainControllerAccess {
+    impl ControllerConfigAccess for CacheBackedMainControllerAccess {
         fn config(&self) -> &Config {
             &self.config
         }
@@ -570,25 +573,19 @@ mod tests {
         fn player_config(&self) -> &PlayerConfig {
             &self.player_config
         }
+    }
 
+    impl StateTransitionAccess for CacheBackedMainControllerAccess {
         fn change_state(&mut self, _state: rubato_core::main_state::MainStateType) {}
-
         fn save_config(&self) {}
-
         fn exit(&self) {}
-
         fn save_last_recording(&self, _tag: &str) {}
-
         fn update_song(&mut self, _path: Option<&str>) {}
+    }
 
-        fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
-            None
-        }
+    impl AudioSystemAccess for CacheBackedMainControllerAccess {}
 
-        fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
-            None
-        }
-
+    impl IRConnectionAccess for CacheBackedMainControllerAccess {
         fn ranking_data_cache(
             &self,
         ) -> Option<&dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess> {
@@ -601,6 +598,18 @@ mod tests {
             &mut (dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess + 'static),
         > {
             Some(&mut *self.ranking_data_cache)
+        }
+    }
+
+    impl DataReadAccess for CacheBackedMainControllerAccess {}
+
+    impl MainControllerAccess for CacheBackedMainControllerAccess {
+        fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+            None
+        }
+
+        fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+            None
         }
     }
 

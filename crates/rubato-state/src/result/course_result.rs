@@ -947,7 +947,10 @@ mod tests {
     use rubato_core::sprite_batch_helper::SpriteBatch;
     use rubato_skin::skin_property::{TIMER_RESULTGRAPH_BEGIN, TIMER_STARTINPUT};
     use rubato_skin::skin_type::SkinType;
-    use rubato_types::main_controller_access::MainControllerAccess;
+    use rubato_types::main_controller_access::{
+        AudioSystemAccess, ControllerConfigAccess, DataReadAccess, IRConnectionAccess,
+        MainControllerAccess, StateTransitionAccess,
+    };
     use rubato_types::player_resource_access::PlayerResourceAccess;
     use rubato_types::skin_render_context::SkinRenderContext;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1092,7 +1095,7 @@ mod tests {
         }
     }
 
-    impl MainControllerAccess for TestMainControllerAccess {
+    impl ControllerConfigAccess for TestMainControllerAccess {
         fn config(&self) -> &rubato_types::config::Config {
             &self.config
         }
@@ -1100,17 +1103,23 @@ mod tests {
         fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
             &self.player_config
         }
+    }
 
+    impl StateTransitionAccess for TestMainControllerAccess {
         fn change_state(&mut self, _state: rubato_core::main_state::MainStateType) {}
-
         fn save_config(&self) {}
-
         fn exit(&self) {}
-
         fn save_last_recording(&self, _reason: &str) {}
-
         fn update_song(&mut self, _path: Option<&str>) {}
+    }
 
+    impl AudioSystemAccess for TestMainControllerAccess {}
+
+    impl IRConnectionAccess for TestMainControllerAccess {}
+
+    impl DataReadAccess for TestMainControllerAccess {}
+
+    impl MainControllerAccess for TestMainControllerAccess {
         fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
             None
         }

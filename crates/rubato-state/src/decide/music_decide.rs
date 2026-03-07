@@ -350,7 +350,10 @@ mod tests {
     use crate::decide::stubs::{NullMainController, NullPlayerResource};
     use rubato_core::main_state::SkinDrawable;
     use rubato_core::sprite_batch_helper::SpriteBatch;
-    use rubato_types::main_controller_access::MainControllerAccess;
+    use rubato_types::main_controller_access::{
+        AudioSystemAccess, ControllerConfigAccess, DataReadAccess, IRConnectionAccess,
+        MainControllerAccess, StateTransitionAccess,
+    };
     use rubato_types::timer_access::TimerAccess;
     use std::sync::{Arc, Mutex};
 
@@ -505,7 +508,7 @@ mod tests {
         }
     }
 
-    impl MainControllerAccess for RecordingMainController {
+    impl ControllerConfigAccess for RecordingMainController {
         fn config(&self) -> &rubato_types::config::Config {
             &self.config
         }
@@ -513,7 +516,9 @@ mod tests {
         fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
             &self.player_config
         }
+    }
 
+    impl StateTransitionAccess for RecordingMainController {
         fn change_state(&mut self, state: MainStateType) {
             self.changed_states
                 .lock()
@@ -528,7 +533,15 @@ mod tests {
         fn save_last_recording(&self, _reason: &str) {}
 
         fn update_song(&mut self, _path: Option<&str>) {}
+    }
 
+    impl AudioSystemAccess for RecordingMainController {}
+
+    impl IRConnectionAccess for RecordingMainController {}
+
+    impl DataReadAccess for RecordingMainController {}
+
+    impl MainControllerAccess for RecordingMainController {
         fn player_resource(
             &self,
         ) -> Option<&dyn rubato_types::player_resource_access::PlayerResourceAccess> {
