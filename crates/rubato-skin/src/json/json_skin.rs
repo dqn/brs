@@ -68,8 +68,7 @@ pub struct Skin {
 }
 
 impl Skin {
-    #[allow(dead_code)]
-    fn default_skin_type() -> i32 {
+    fn _default_skin_type() -> i32 {
         -1
     }
 }

@@ -301,6 +301,7 @@ impl RivalTargetProperty {
 
     /// Create score array from rivals + own score.
     /// Translated from: Java RivalTargetProperty.createScoreArray(MainController)
+    #[allow(clippy::needless_range_loop)] // Index i used for method calls and parallel array access
     fn create_score_array_impl(
         main: &mut MainController,
         songdata: &rubato_types::song_data::SongData,

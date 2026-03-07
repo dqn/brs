@@ -7,8 +7,6 @@
 // - LauncherUi preserves PlayerConfig fields through construction
 // - LauncherUi play_requested is initially false
 
-#![allow(clippy::field_reassign_with_default)]
-
 use rubato_core::config::Config;
 use rubato_core::player_config::PlayerConfig;
 use rubato_launcher::launcher_ui::LauncherUi;

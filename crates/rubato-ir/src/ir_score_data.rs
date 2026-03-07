@@ -103,42 +103,42 @@ impl IRScoreData {
         (self.epg + self.lpg) * 2 + self.egr + self.lgr
     }
 
-    #[allow(clippy::field_reassign_with_default)]
     pub fn convert_to_score_data(&self) -> ScoreData {
-        let mut score = ScoreData::default();
-        score.sha256 = self.sha256.clone();
-        score.mode = self.lntype;
-        score.player = self.player.clone();
-        score.clear = self.clear.id();
-        score.date = self.date;
-        score.epg = self.epg;
-        score.lpg = self.lpg;
-        score.egr = self.egr;
-        score.lgr = self.lgr;
-        score.egd = self.egd;
-        score.lgd = self.lgd;
-        score.ebd = self.ebd;
-        score.lbd = self.lbd;
-        score.epr = self.epr;
-        score.lpr = self.lpr;
-        score.ems = self.ems;
-        score.lms = self.lms;
-        score.maxcombo = self.maxcombo;
-        score.notes = self.notes;
-        // Java: score.setPassnotes(this.passnotes != 0 ? this.notes : this.passnotes);
-        score.passnotes = if self.passnotes != 0 {
-            self.notes
-        } else {
-            self.passnotes
-        };
-        score.minbp = self.minbp;
-        score.avgjudge = self.avgjudge;
-        score.option = self.option;
-        score.seed = self.seed;
-        score.assist = self.assist;
-        score.gauge = self.gauge;
-        score.device_type = self.device_type.clone();
-        score
+        ScoreData {
+            sha256: self.sha256.clone(),
+            mode: self.lntype,
+            player: self.player.clone(),
+            clear: self.clear.id(),
+            date: self.date,
+            epg: self.epg,
+            lpg: self.lpg,
+            egr: self.egr,
+            lgr: self.lgr,
+            egd: self.egd,
+            lgd: self.lgd,
+            ebd: self.ebd,
+            lbd: self.lbd,
+            epr: self.epr,
+            lpr: self.lpr,
+            ems: self.ems,
+            lms: self.lms,
+            maxcombo: self.maxcombo,
+            notes: self.notes,
+            // Java: score.setPassnotes(this.passnotes != 0 ? this.notes : this.passnotes);
+            passnotes: if self.passnotes != 0 {
+                self.notes
+            } else {
+                self.passnotes
+            },
+            minbp: self.minbp,
+            avgjudge: self.avgjudge,
+            option: self.option,
+            seed: self.seed,
+            assist: self.assist,
+            gauge: self.gauge,
+            device_type: self.device_type.clone(),
+            ..Default::default()
+        }
     }
 }
 

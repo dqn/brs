@@ -170,8 +170,7 @@ pub struct SkinSourceMovie {
     _timer: i32,
     _playing: bool,
     disposed: bool,
-    #[allow(dead_code)]
-    region: TextureRegion,
+    _region: TextureRegion,
     #[cfg(feature = "ffmpeg")]
     decoder: Mutex<Option<MovieDecoder>>,
 }
@@ -190,7 +189,7 @@ impl SkinSourceMovie {
             _timer: timer,
             _playing: false,
             disposed: false,
-            region: TextureRegion::new(),
+            _region: TextureRegion::new(),
             #[cfg(feature = "ffmpeg")]
             decoder,
         }

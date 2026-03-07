@@ -154,14 +154,13 @@ static KEYSA: &[&[i32]] = &[
 
 static PLAYER_OFFSET: i32 = 100;
 
-#[allow(dead_code)]
 pub struct KeyConfiguration {
     state_data: MainStateData,
     cursorpos: usize,
-    scrollpos: usize,
+    _scrollpos: usize,
     keyinput: bool,
     mode: usize,
-    deletepressed: bool,
+    _deletepressed: bool,
     // References to input processors and config are Phase 5+ types
     // Stubbed for now
 }
@@ -171,10 +170,10 @@ impl KeyConfiguration {
         Self {
             state_data: MainStateData::new(TimerManager::new()),
             cursorpos: 0,
-            scrollpos: 0,
+            _scrollpos: 0,
             keyinput: false,
             mode: 0,
-            deletepressed: false,
+            _deletepressed: false,
         }
     }
 
@@ -704,10 +703,10 @@ mod tests {
         KeyConfiguration {
             state_data: MainStateData::new(TimerManager::new()),
             cursorpos: 0,
-            scrollpos: 0,
+            _scrollpos: 0,
             keyinput: false,
             mode,
-            deletepressed: false,
+            _deletepressed: false,
         }
     }
 

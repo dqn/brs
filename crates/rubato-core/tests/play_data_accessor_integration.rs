@@ -56,7 +56,6 @@ fn new_with_valid_config() {
 }
 
 #[test]
-#[allow(clippy::field_reassign_with_default)]
 fn write_then_read_score() {
     let dir = tempfile::tempdir().unwrap();
     let player_dir = dir.path().join("player1");

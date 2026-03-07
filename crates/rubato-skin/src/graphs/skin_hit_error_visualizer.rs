@@ -32,12 +32,10 @@ pub struct SkinHitErrorVisualizer {
     color_mode: bool,
     draw_decay: bool,
 
-    #[allow(dead_code)]
-    model_set: bool,
+    _model_set: bool,
     judge_area: Vec<Vec<i32>>,
 
-    #[allow(dead_code)]
-    current_index: i32,
+    _current_index: i32,
 
     index: usize,
     recent: Vec<i64>,
@@ -110,9 +108,9 @@ impl SkinHitErrorVisualizer {
             hiterror_mode,
             color_mode,
             draw_decay,
-            model_set: false,
+            _model_set: false,
             judge_area: Vec::new(),
-            current_index: -1,
+            _current_index: -1,
             index: 0,
             recent: Vec::new(),
             ema: Some(0),
@@ -130,8 +128,7 @@ impl SkinHitErrorVisualizer {
         self.recent = state.recent_judges().to_vec();
     }
 
-    #[allow(dead_code)]
-    fn update_ema(&mut self, value: i64) {
+    fn _update_ema(&mut self, value: i64) {
         if let Some(ema) = self.ema {
             self.ema = Some(ema + (self.alpha * (value - ema) as f32) as i64);
         }

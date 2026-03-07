@@ -96,8 +96,7 @@ impl WebhookHandler {
         }
     }
 
-    #[allow(dead_code)]
-    fn create_field(name: &str, value: &str) -> HashMap<String, String> {
+    fn _create_field(name: &str, value: &str) -> HashMap<String, String> {
         let mut field: HashMap<String, String> = HashMap::new();
         field.insert("name".to_string(), name.to_string());
         field.insert("value".to_string(), value.to_string());

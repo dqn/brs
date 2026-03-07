@@ -9,7 +9,7 @@ use crate::bga::movie_processor::MovieProcessor;
 /// Processor status
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ProcessorStatus {
+enum _ProcessorStatus {
     TextureInactive,
     TextureActive,
     Disposed,
@@ -19,7 +19,7 @@ enum ProcessorStatus {
 /// Translated from: FFmpegProcessor.Command
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Command {
+enum _Command {
     Play,
     Loop,
     Stop,
@@ -493,23 +493,21 @@ mod ffmpeg_impl {
 /// Translated from: FFmpegProcessor.java
 pub struct FFmpegProcessor {
     /// Frame display rate (1/n)
-    #[allow(dead_code)]
-    fpsd: i32,
+    _fpsd: i32,
     /// Background thread handle (only when ffmpeg feature is enabled)
     #[cfg(feature = "ffmpeg")]
     handle: Option<ffmpeg_impl::MovieSeekHandle>,
     /// Cached texture from last decoded frame
-    #[allow(dead_code)]
-    showing_tex: Option<Texture>,
+    _showing_tex: Option<Texture>,
 }
 
 impl FFmpegProcessor {
     pub fn new(fpsd: i32) -> Self {
         FFmpegProcessor {
-            fpsd,
+            _fpsd: fpsd,
             #[cfg(feature = "ffmpeg")]
             handle: None,
-            showing_tex: None,
+            _showing_tex: None,
         }
     }
 
@@ -518,7 +516,7 @@ impl FFmpegProcessor {
     pub fn create(&mut self, filepath: &str) {
         #[cfg(feature = "ffmpeg")]
         {
-            self.handle = ffmpeg_impl::start_movie_seek(filepath, self.fpsd);
+            self.handle = ffmpeg_impl::start_movie_seek(filepath, self._fpsd);
         }
         #[cfg(not(feature = "ffmpeg"))]
         {
@@ -541,7 +539,7 @@ impl MovieProcessor for FFmpegProcessor {
                 if let Ok(mut s) = handle.shared.lock() {
                     if s.status == ProcessorStatus::TextureActive {
                         if let Some(ref frame) = s.frame {
-                            self.showing_tex = Some(Texture {
+                            self._showing_tex = Some(Texture {
                                 width: frame.width as i32,
                                 height: frame.height as i32,
                                 disposed: false,
@@ -551,7 +549,7 @@ impl MovieProcessor for FFmpegProcessor {
                     }
                 }
             }
-            self.showing_tex.clone()
+            self._showing_tex.clone()
         }
         #[cfg(not(feature = "ffmpeg"))]
         {
@@ -607,7 +605,7 @@ impl MovieProcessor for FFmpegProcessor {
                     let _ = thread.join();
                 }
             }
-            self.showing_tex = None;
+            self._showing_tex = None;
         }
     }
 }

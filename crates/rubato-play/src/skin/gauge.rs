@@ -33,8 +33,7 @@ pub struct SkinGauge {
     /// Result mode end time (ms)
     pub endtime: i32,
     /// Whether 7to9 border check is done
-    #[allow(dead_code)]
-    is_checked_seven_to_nine: bool,
+    _is_checked_seven_to_nine: bool,
 }
 
 impl SkinGauge {
@@ -52,7 +51,7 @@ impl SkinGauge {
             border: 0.0,
             starttime: 0,
             endtime: 500,
-            is_checked_seven_to_nine: false,
+            _is_checked_seven_to_nine: false,
         }
     }
 

@@ -5,8 +5,7 @@ use crate::pattern::pattern_modifier::{AssistLevel, PatternModifier, PatternModi
 
 pub struct ExtraNoteModifier {
     pub base: PatternModifierBase,
-    #[allow(dead_code)]
-    note_type: i32,
+    _note_type: i32,
     depth: i32,
     scratch: bool,
 }
@@ -15,7 +14,7 @@ impl ExtraNoteModifier {
     pub fn new(note_type: i32, depth: i32, scratch: bool) -> Self {
         ExtraNoteModifier {
             base: PatternModifierBase::new(),
-            note_type,
+            _note_type: note_type,
             depth,
             scratch,
         }

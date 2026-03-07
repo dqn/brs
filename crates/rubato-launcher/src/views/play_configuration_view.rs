@@ -970,15 +970,13 @@ impl PlayConfigurationView {
 
     /// Show file chooser
     /// Translates: private String showFileChooser(String title)
-    #[allow(dead_code)]
-    fn show_file_chooser(title: &str) -> Option<String> {
+    fn _show_file_chooser(title: &str) -> Option<String> {
         crate::stubs::show_file_chooser(title)
     }
 
     /// Show directory chooser
     /// Translates: private String showDirectoryChooser(String title)
-    #[allow(dead_code)]
-    fn show_directory_chooser(title: &str) -> Option<String> {
+    fn _show_directory_chooser(title: &str) -> Option<String> {
         crate::stubs::show_directory_chooser(title)
     }
 
@@ -2091,7 +2089,6 @@ impl Default for PlayConfigurationView {
 }
 
 #[cfg(test)]
-#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use rubato_core::audio_config::AudioConfig;

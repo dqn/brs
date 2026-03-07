@@ -274,7 +274,6 @@ pub fn winit_keycode_to_java(key: WinitKeyCode) -> i32 {
 /// The caller (e.g., beatoraja-bin or beatoraja-launcher) maps from the actual
 /// winit::keyboard::KeyCode to this enum before calling into the input bridge.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[allow(dead_code)]
 pub enum WinitKeyCode {
     // Letters
     KeyA,

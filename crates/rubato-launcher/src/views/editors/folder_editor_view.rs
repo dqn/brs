@@ -38,8 +38,7 @@ pub struct FolderEditorView {
     search_songs: Vec<SongData>,
     search_songs_controller: SongDataView,
     search_songs_selected_items: Vec<SongData>,
-    #[allow(dead_code)]
-    search_songs_selected_index: Option<usize>,
+    _search_songs_selected_index: Option<usize>,
 
     folders: Vec<TableFolder>,
     folders_selected_index: Option<usize>,
@@ -49,14 +48,14 @@ pub struct FolderEditorView {
     folder_songs_controller: SongDataView,
     folder_songs_selected_index: Option<usize>,
 
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Used in tests; Java-ported field for future egui wiring
     filepath: Option<PathBuf>,
 
     selected_folder: Option<usize>, // index into folders
 
     songdb: Option<Box<dyn SongDatabaseAccessor>>,
 
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Used in tests; Java-ported field for future egui wiring
     courses: Vec<CourseData>,
 }
 
@@ -68,7 +67,7 @@ impl FolderEditorView {
             search_songs: Vec::new(),
             search_songs_controller: SongDataView::default(),
             search_songs_selected_items: Vec::new(),
-            search_songs_selected_index: None,
+            _search_songs_selected_index: None,
 
             folders: Vec::new(),
             folders_selected_index: None,
@@ -307,8 +306,7 @@ impl FolderEditorView {
     }
 
     /// displayChartDetailsDialog - shows chart details dialog for a song
-    #[allow(dead_code)]
-    fn display_chart_details_dialog(&self, song: &SongData) {
+    fn _display_chart_details_dialog(&self, song: &SongData) {
         let extra = format!(
             "In custom folder(s):\n{}",
             Self::folders_containing_song(&self.folders, song)
@@ -447,7 +445,6 @@ impl Default for FolderEditorView {
 }
 
 #[cfg(test)]
-#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use rubato_core::table_data::TableFolder;

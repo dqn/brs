@@ -98,8 +98,7 @@ pub struct AbstractAudioDriverState<T> {
     pub global_pitch: f32,
     pub sample_rate: i32,
     pub channels: i32,
-    #[allow(dead_code)]
-    maxgen: i32,
+    _maxgen: i32,
     // AudioCache simplified: HashMap<AudioKey, T>
     pub pcm_cache: HashMap<String, PCM>,
     pub audio_cache: HashMap<AudioKey, T>,
@@ -119,7 +118,7 @@ impl<T> AbstractAudioDriverState<T> {
             global_pitch: 1.0,
             sample_rate: 0,
             channels: 0,
-            maxgen,
+            _maxgen: maxgen,
             pcm_cache: HashMap::new(),
             audio_cache: HashMap::new(),
         }
@@ -140,8 +139,7 @@ impl<T> AbstractAudioDriverState<T> {
         self.progress.store(self.note_map_size, Ordering::Relaxed);
     }
 
-    #[allow(dead_code)]
-    fn channel(id: i32, pitch: i32) -> i32 {
+    fn _channel(id: i32, pitch: i32) -> i32 {
         id * 256 + pitch + 128
     }
 }
@@ -154,8 +152,7 @@ impl<T> Default for AbstractAudioDriverState<T> {
 }
 
 // We need Default for Option<T> arrays, so use a helper
-#[allow(dead_code)]
-fn default_additional_key_sounds<T>() -> [[Option<T>; 2]; 6] {
+fn _default_additional_key_sounds<T>() -> [[Option<T>; 2]; 6] {
     [
         [None, None],
         [None, None],

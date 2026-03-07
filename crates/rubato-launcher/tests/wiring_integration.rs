@@ -8,8 +8,6 @@
 // This catches "missing wiring" bugs where individual components work but the
 // caller fails to assemble all required parts before first use.
 
-#![allow(clippy::field_reassign_with_default)]
-
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 

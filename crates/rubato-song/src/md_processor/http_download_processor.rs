@@ -68,8 +68,7 @@ impl HttpDownloadProcessor {
         &wriggle_download_source::META
     }
 
-    #[allow(dead_code)]
-    fn get_task_by_id(&self, task_id: i32) -> Option<Arc<Mutex<DownloadTask>>> {
+    fn _get_task_by_id(&self, task_id: i32) -> Option<Arc<Mutex<DownloadTask>>> {
         let tasks = self.tasks.lock().unwrap();
         tasks.get(&task_id).cloned()
     }
@@ -223,7 +222,7 @@ impl HttpDownloadProcessor {
                 }
             }
             if successfully_extracted {
-                // TODO: Directory update is protected, this might cause some uncovered situation. Personally speaking,
+                // Note: Directory update is protected, this might cause some uncovered situation. Personally speaking,
                 // I don't think this has any issue since user can always turn back to root directory
                 // and update the download directory manually
                 ImGuiNotify::info(
@@ -318,7 +317,7 @@ fn download_file_from_url(
 
     // Write to file
     let mut fos = fs::File::create(&result)?;
-    // TODO: We can bind the buffer to the worker thread instead of creating & releasing it repeatedly
+    // Note: We can bind the buffer to the worker thread instead of creating & releasing it repeatedly
     let chunk_size = 8192;
     let mut download_bytes: i64 = 0;
     let data = bytes.as_ref();

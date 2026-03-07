@@ -18,8 +18,7 @@ use crate::stubs::{BitmapFont, BitmapFontData, TextureRegion};
 /// Translated from BitmapFontBatchLoader.java
 pub struct BitmapFontBatchLoader {
     usecim: bool,
-    #[allow(dead_code)]
-    use_mip_maps: bool,
+    _use_mip_maps: bool,
     font_paths: HashMap<PathBuf, i32>,
     font_data: HashMap<PathBuf, BitmapFontData>,
 }
@@ -61,7 +60,7 @@ impl BitmapFontBatchLoader {
 
         Self {
             usecim,
-            use_mip_maps,
+            _use_mip_maps: use_mip_maps,
             font_paths,
             font_data: HashMap::new(),
         }

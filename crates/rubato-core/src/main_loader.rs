@@ -392,7 +392,6 @@ impl MainLoader {
 }
 
 #[cfg(test)]
-#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use rubato_types::folder_data::FolderData;

@@ -12,8 +12,6 @@
 // - Lifecycle methods (create/render/dispose) work with real chart data in each state
 // - PlayerResource correctly propagates BMS model to Play state via factory
 
-#![allow(clippy::field_reassign_with_default)]
-
 use std::path::PathBuf;
 
 use rubato_core::config::Config;

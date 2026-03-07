@@ -10,8 +10,6 @@
 // - State type is correct after each transition
 // - Dispose clears all state
 
-#![allow(clippy::field_reassign_with_default)]
-
 use rubato_core::config::Config;
 use rubato_core::main_controller::MainController;
 use rubato_core::main_state::MainStateType;

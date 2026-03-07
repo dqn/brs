@@ -282,6 +282,7 @@ impl KeyInputProccessor {
     ///
     /// Returns scratch angle values indexed by scratch index.
     /// The caller should write `result[s]` to `main.getOffset(OFFSET_SCRATCHANGLE_1P + s).r`.
+    #[allow(clippy::needless_range_loop)] // Multiple parallel arrays indexed by s/lane
     pub fn input(&mut self, ctx: &mut InputContext) {
         let lane_offsets = self.lane_property.lane_skin_offset();
         let lane_keys = self.lane_property.lane_key_assign();

@@ -38,12 +38,9 @@ pub struct SkinNoteDistributionGraph {
     is_no_gap_x: bool,
 
     /// Processed note count - only update when changed during play
-    #[allow(dead_code)]
-    past_notes: i32,
-    #[allow(dead_code)]
-    notes_last_update_time: i64,
-    #[allow(dead_code)]
-    cursor_last_update_time: i64,
+    _past_notes: i32,
+    _notes_last_update_time: i64,
+    _cursor_last_update_time: i64,
 
     starttime: i32,
     endtime: i32,
@@ -162,9 +159,9 @@ impl SkinNoteDistributionGraph {
             is_order_reverse: order_reverse == 1,
             is_no_gap: no_gap == 1,
             is_no_gap_x: no_gap_x == 1,
-            past_notes: 0,
-            notes_last_update_time: 0,
-            cursor_last_update_time: 0,
+            _past_notes: 0,
+            _notes_last_update_time: 0,
+            _cursor_last_update_time: 0,
             starttime: -1,
             endtime: -1,
             freq: 0.0,

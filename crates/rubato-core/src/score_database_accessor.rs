@@ -494,39 +494,39 @@ impl rubato_types::score_database_access::ScoreDatabaseAccess for ScoreDatabaseA
     }
 }
 
-#[allow(clippy::field_reassign_with_default)]
 fn row_to_score_data(row: &rusqlite::Row) -> ScoreData {
-    let mut sd = ScoreData::default();
-    sd.sha256 = row.get::<_, String>("sha256").unwrap_or_default();
-    sd.mode = row.get("mode").unwrap_or(0);
-    sd.clear = row.get("clear").unwrap_or(0);
-    sd.epg = row.get("epg").unwrap_or(0);
-    sd.lpg = row.get("lpg").unwrap_or(0);
-    sd.egr = row.get("egr").unwrap_or(0);
-    sd.lgr = row.get("lgr").unwrap_or(0);
-    sd.egd = row.get("egd").unwrap_or(0);
-    sd.lgd = row.get("lgd").unwrap_or(0);
-    sd.ebd = row.get("ebd").unwrap_or(0);
-    sd.lbd = row.get("lbd").unwrap_or(0);
-    sd.epr = row.get("epr").unwrap_or(0);
-    sd.lpr = row.get("lpr").unwrap_or(0);
-    sd.ems = row.get("ems").unwrap_or(0);
-    sd.lms = row.get("lms").unwrap_or(0);
-    sd.notes = row.get("notes").unwrap_or(0);
-    sd.maxcombo = row.get("combo").unwrap_or(0);
-    sd.minbp = row.get("minbp").unwrap_or(i32::MAX);
-    sd.avgjudge = row.get("avgjudge").unwrap_or(i64::MAX);
-    sd.playcount = row.get("playcount").unwrap_or(0);
-    sd.clearcount = row.get("clearcount").unwrap_or(0);
-    sd.trophy = row.get::<_, String>("trophy").unwrap_or_default();
-    sd.ghost = row.get::<_, String>("ghost").unwrap_or_default();
-    sd.option = row.get("option").unwrap_or(0);
-    sd.seed = row.get("seed").unwrap_or(-1);
-    sd.random = row.get("random").unwrap_or(0);
-    sd.date = row.get("date").unwrap_or(0);
-    sd.state = row.get("state").unwrap_or(0);
-    sd.scorehash = row.get::<_, String>("scorehash").unwrap_or_default();
-    sd
+    ScoreData {
+        sha256: row.get::<_, String>("sha256").unwrap_or_default(),
+        mode: row.get("mode").unwrap_or(0),
+        clear: row.get("clear").unwrap_or(0),
+        epg: row.get("epg").unwrap_or(0),
+        lpg: row.get("lpg").unwrap_or(0),
+        egr: row.get("egr").unwrap_or(0),
+        lgr: row.get("lgr").unwrap_or(0),
+        egd: row.get("egd").unwrap_or(0),
+        lgd: row.get("lgd").unwrap_or(0),
+        ebd: row.get("ebd").unwrap_or(0),
+        lbd: row.get("lbd").unwrap_or(0),
+        epr: row.get("epr").unwrap_or(0),
+        lpr: row.get("lpr").unwrap_or(0),
+        ems: row.get("ems").unwrap_or(0),
+        lms: row.get("lms").unwrap_or(0),
+        notes: row.get("notes").unwrap_or(0),
+        maxcombo: row.get("combo").unwrap_or(0),
+        minbp: row.get("minbp").unwrap_or(i32::MAX),
+        avgjudge: row.get("avgjudge").unwrap_or(i64::MAX),
+        playcount: row.get("playcount").unwrap_or(0),
+        clearcount: row.get("clearcount").unwrap_or(0),
+        trophy: row.get::<_, String>("trophy").unwrap_or_default(),
+        ghost: row.get::<_, String>("ghost").unwrap_or_default(),
+        option: row.get("option").unwrap_or(0),
+        seed: row.get("seed").unwrap_or(-1),
+        random: row.get("random").unwrap_or(0),
+        date: row.get("date").unwrap_or(0),
+        state: row.get("state").unwrap_or(0),
+        scorehash: row.get::<_, String>("scorehash").unwrap_or_default(),
+        ..Default::default()
+    }
 }
 
 fn row_to_player_data(row: &rusqlite::Row) -> PlayerData {
@@ -1077,7 +1077,6 @@ mod tests {
     }
 
     /// Build a valid ScoreData (passes validate()) with given sha256, mode, clear.
-    #[allow(clippy::field_reassign_with_default)]
     fn make_score(sha256: &str, mode: i32, clear: i32) -> ScoreData {
         let mut sd = ScoreData::default();
         sd.sha256 = sha256.to_string();

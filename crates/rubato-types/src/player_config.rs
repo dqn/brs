@@ -389,7 +389,6 @@ impl PlayerConfig {
         &mut self.skin
     }
 
-    #[allow(clippy::field_reassign_with_default)]
     pub fn validate(&mut self) {
         let max_skin_id = SkinType::max_skin_type_id() as usize;
 
@@ -475,9 +474,10 @@ impl PlayerConfig {
             self.irconfig = irnames
                 .iter()
                 .map(|name| {
-                    let mut ir = IRConfig::default();
-                    ir.irname = name.clone();
-                    Some(ir)
+                    Some(IRConfig {
+                        irname: name.clone(),
+                        ..Default::default()
+                    })
                 })
                 .collect();
         }
@@ -587,15 +587,16 @@ pub fn read_all_player_id(playerpath: &str) -> Vec<String> {
     result
 }
 
-#[allow(clippy::field_reassign_with_default)]
 pub fn create_player(playerpath: &str, playerid: &str) -> anyhow::Result<()> {
     let p = PathBuf::from(format!("{}/{}", playerpath, playerid));
     if p.exists() {
         return Ok(());
     }
     std::fs::create_dir(&p)?;
-    let mut player = PlayerConfig::default();
-    player.id = Some(playerid.to_string());
+    let player = PlayerConfig {
+        id: Some(playerid.to_string()),
+        ..Default::default()
+    };
     PlayerConfig::write(playerpath, &player)?;
     Ok(())
 }

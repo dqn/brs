@@ -15,8 +15,7 @@ pub struct MSADPCMDecoder {
     samples_per_block: i32,
     channels: i32,
     block_size: i32,
-    #[allow(dead_code)]
-    sample_rate: i32,
+    _sample_rate: i32,
 }
 
 #[allow(clippy::upper_case_acronyms)]
@@ -56,7 +55,7 @@ impl MSADPCMDecoder {
             samples_per_block,
             channels,
             block_size,
-            sample_rate,
+            _sample_rate: sample_rate,
         })
     }
 

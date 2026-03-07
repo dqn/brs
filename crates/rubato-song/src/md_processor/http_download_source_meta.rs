@@ -4,7 +4,7 @@ use super::http_download_source::HttpDownloadSource;
 /// Corresponds to HttpDownloadSourceMeta in Java
 pub struct HttpDownloadSourceMeta {
     name: String,
-    // TODO: This is a bad design since it doesn't reserved the space for other download strategies
+    // Note: This design doesn't reserve space for other download strategies
     // (e.g. download through an unique field from IR server or simply sha256). Could be extended
     // in the near future. As for now, keep it simple and stupid
     // However, it's not very easy to give user such flexibility

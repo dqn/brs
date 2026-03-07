@@ -3,8 +3,6 @@
 // Tests the Config struct's round-trip through the filesystem,
 // fallback behavior, corrupt-file recovery, and validation side effects.
 
-#![allow(clippy::field_reassign_with_default)]
-
 use std::fs;
 
 use rubato_types::config::{Config, PLAYERPATH_DEFAULT, SONGPATH_DEFAULT};

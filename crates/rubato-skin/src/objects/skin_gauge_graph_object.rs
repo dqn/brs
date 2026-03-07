@@ -8,8 +8,7 @@ use crate::types::skin_object::{SkinObjectData, SkinObjectRenderer};
 use rubato_render::color::Color;
 
 /// Type-to-color-index mapping table (Java: typetable)
-#[allow(dead_code)]
-const TYPE_TABLE: [usize; 10] = [0, 1, 2, 3, 4, 5, 3, 4, 5, 3];
+const _TYPE_TABLE: [usize; 10] = [0, 1, 2, 3, 4, 5, 3, 4, 5, 3];
 
 /// Gauge transition graph rendering object.
 ///
@@ -22,17 +21,13 @@ pub struct SkinGaugeGraphObject {
     /// Line width for the graph
     line_width: i32,
     /// Background colors per gauge type (below border)
-    #[allow(dead_code)]
-    graph_color: [Color; 6],
+    _graph_color: [Color; 6],
     /// Graph line colors per gauge type (below border)
-    #[allow(dead_code)]
-    graph_line: [Color; 6],
+    _graph_line: [Color; 6],
     /// Background colors per gauge type (above border)
-    #[allow(dead_code)]
-    border_color: [Color; 6],
+    _border_color: [Color; 6],
     /// Graph line colors per gauge type (above border)
-    #[allow(dead_code)]
-    border_line: [Color; 6],
+    _border_line: [Color; 6],
 }
 
 impl SkinGaugeGraphObject {
@@ -101,10 +96,10 @@ impl SkinGaugeGraphObject {
             data: SkinObjectData::new(),
             delay: 1500,
             line_width: 2,
-            graph_color,
-            graph_line,
-            border_color,
-            border_line,
+            _graph_color: graph_color,
+            _graph_line: graph_line,
+            _border_color: border_color,
+            _border_line: border_line,
         }
     }
 
@@ -151,10 +146,10 @@ impl SkinGaugeGraphObject {
             data: SkinObjectData::new(),
             delay: 1500,
             line_width: 2,
-            graph_color,
-            graph_line,
-            border_color,
-            border_line,
+            _graph_color: graph_color,
+            _graph_line: graph_line,
+            _border_color: border_color,
+            _border_line: border_line,
         }
     }
 
@@ -220,10 +215,10 @@ impl SkinGaugeGraphObject {
             data: SkinObjectData::new(),
             delay: 1500,
             line_width: 2,
-            graph_color,
-            graph_line,
-            border_color,
-            border_line,
+            _graph_color: graph_color,
+            _graph_line: graph_line,
+            _border_color: border_color,
+            _border_line: border_line,
         }
     }
 

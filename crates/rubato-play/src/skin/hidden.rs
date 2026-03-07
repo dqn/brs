@@ -11,11 +11,9 @@ pub struct SkinHidden {
     disapear_line_added_lift: f32,
     /// Whether disappear line is linked to lift
     is_disapear_line_link_lift: bool,
-    #[allow(dead_code)]
-    previous_y: f32,
+    _previous_y: f32,
     previous_lift: f32,
-    #[allow(dead_code)]
-    timer: i32,
+    _timer: i32,
     cycle: i32,
     image_index: usize,
     image_count: usize,
@@ -27,9 +25,9 @@ impl SkinHidden {
             disapear_line: -1.0,
             disapear_line_added_lift: -1.0,
             is_disapear_line_link_lift: true,
-            previous_y: f32::MIN,
+            _previous_y: f32::MIN,
             previous_lift: f32::MIN,
-            timer,
+            _timer: timer,
             cycle,
             image_index: 0,
             image_count,

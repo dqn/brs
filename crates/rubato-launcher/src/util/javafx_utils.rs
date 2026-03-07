@@ -11,7 +11,6 @@
 ///
 /// # Returns
 /// The found parent node, or None if not found
-#[allow(dead_code)]
 pub fn find_parent_by_class_simple_name<T>(_node: &T, _class_name: &str) -> Option<T> {
     // Java implementation:
     // - Maintains a list of visited parents to prevent infinite loops

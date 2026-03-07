@@ -46,8 +46,7 @@ pub struct CourseEditorView {
     gauge_type_items: Vec<Option<CourseDataConstraint>>,
     ln_type_items: Vec<Option<CourseDataConstraint>>,
 
-    #[allow(dead_code)]
-    filename: String,
+    _filename: String,
 
     selected_course: Option<usize>, // index into courses
 
@@ -115,7 +114,7 @@ impl CourseEditorView {
                 Some(CourseDataConstraint::Hcn),
             ],
 
-            filename: String::new(),
+            _filename: String::new(),
 
             selected_course: None,
 
@@ -352,7 +351,7 @@ impl CourseEditorView {
 
     /// getValue - helper to get spinner value (in Java, forces text → value conversion)
     /// In Rust, f64 fields are used directly.
-    #[allow(dead_code)]
+    #[cfg(test)]
     fn value(value: f64) -> f64 {
         // In Java:
         // spinner.getValueFactory().setValue(
@@ -673,7 +672,6 @@ impl Default for CourseEditorView {
 }
 
 #[cfg(test)]
-#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use rubato_types::folder_data::FolderData;

@@ -180,7 +180,6 @@ enum PersistAction {
 
 /// Skin configuration screen.
 /// Translated from Java: SkinConfiguration extends MainState
-#[allow(dead_code)]
 pub struct SkinConfiguration {
     state_data: MainStateData,
     skin_type: Option<SkinType>,

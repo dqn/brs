@@ -73,7 +73,7 @@ pub fn decoder(p: &Path) -> Option<ChartDecoderImpl> {
     None
 }
 
-#[allow(clippy::result_unit_err)]
+#[allow(clippy::result_unit_err)] // Java-ported API returns Result<i32, ()>
 pub fn parse_int36_str(s: &str, index: usize) -> Result<i32, ()> {
     let bytes = s.as_bytes();
     if index + 1 >= bytes.len() {
@@ -108,7 +108,7 @@ pub fn parse_int36(c1: char, c2: char) -> i32 {
     result
 }
 
-#[allow(clippy::result_unit_err)]
+#[allow(clippy::result_unit_err)] // Java-ported API returns Result<i32, ()>
 pub fn parse_int62_str(s: &str, index: usize) -> Result<i32, ()> {
     let bytes = s.as_bytes();
     if index + 1 >= bytes.len() {

@@ -3,8 +3,6 @@
 // Creates a Config with non-default values, serializes to JSON,
 // deserializes back, and verifies all fields match.
 
-#![allow(clippy::field_reassign_with_default)]
-
 use std::collections::HashMap;
 
 use rubato_core::config::{BGA_OFF, BGAEXPAND_FULL, Config, DisplayMode, SongPreview};

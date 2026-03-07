@@ -304,8 +304,7 @@ impl BarManager {
         false
     }
 
-    #[allow(dead_code)]
-    fn update_bar_with_last_dir(&mut self) -> bool {
+    fn _update_bar_with_last_dir(&mut self) -> bool {
         self.update_bar_with_last_dir_with_context(None)
     }
 
@@ -321,8 +320,7 @@ impl BarManager {
         self.update_bar_with_context(None, ctx)
     }
 
-    #[allow(dead_code)]
-    fn update_bar_at_dir_index(&mut self, index: usize) -> bool {
+    fn _update_bar_at_dir_index(&mut self, index: usize) -> bool {
         self.update_bar_at_dir_index_with_context(index, None)
     }
 
@@ -1238,7 +1236,6 @@ impl BarContentsLoaderThread {
 }
 
 #[cfg(test)]
-#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::select::bar::song_bar::SongBar;

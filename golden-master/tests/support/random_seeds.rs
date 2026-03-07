@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-#[allow(dead_code)]
 pub fn try_load_selected_randoms(test_bms_dir: &Path, chart_name: &str) -> Option<Vec<i32>> {
     let seeds_path = test_bms_dir.join("random_seeds.json");
     let content = std::fs::read_to_string(&seeds_path)
@@ -13,7 +12,6 @@ pub fn try_load_selected_randoms(test_bms_dir: &Path, chart_name: &str) -> Optio
     seeds_map.get(chart_name).cloned()
 }
 
-#[allow(dead_code)]
 pub fn load_selected_randoms(test_bms_dir: &Path, chart_name: &str) -> Vec<i32> {
     try_load_selected_randoms(test_bms_dir, chart_name).unwrap_or_else(|| {
         let seeds_path = test_bms_dir.join("random_seeds.json");

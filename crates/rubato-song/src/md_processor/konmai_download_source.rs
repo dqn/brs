@@ -44,7 +44,7 @@ impl HttpDownloadSource for KonmaiDownloadSource {
     /// that it's expired.
     fn get_download_url_based_on_md5(&self, md5: &str) -> anyhow::Result<String> {
         let meta_url = self.download_query_url.replace("%s", md5);
-        // TODO: Server side doesn't provide auth currently
+        // Note: Server side doesn't provide auth currently
         let response = reqwest::blocking::get(&meta_url)?;
         let response_code = response.status();
 
@@ -91,13 +91,13 @@ impl HttpDownloadSource for KonmaiDownloadSource {
 
 /// Response wrapper from Konmai
 #[derive(Deserialize)]
+#[allow(dead_code)] // Fields populated by serde deserialization
 struct RespData<T> {
     #[serde(default)]
     result: Option<String>,
     #[serde(default)]
     msg: Option<String>,
     #[serde(default)]
-    #[allow(dead_code)]
     chart: Option<String>,
     #[serde(default)]
     data: Option<T>,
@@ -105,18 +105,15 @@ struct RespData<T> {
 
 /// Represents one chart meta info from Konmai
 #[derive(Deserialize, Default)]
+#[allow(dead_code)] // Fields populated by serde deserialization
 struct ChartMeta {
     #[serde(default)]
-    #[allow(dead_code)]
     chart_name: Option<String>,
     #[serde(default)]
-    #[allow(dead_code)]
     md5: Option<String>,
     #[serde(default)]
-    #[allow(dead_code)]
     sha256: Option<String>,
     #[serde(default)]
-    #[allow(dead_code)]
     song_name: Option<String>,
     #[serde(default)]
     song_url: Option<String>,

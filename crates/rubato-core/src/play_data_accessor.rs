@@ -175,7 +175,7 @@ impl PlayDataAccessor {
         self.scoredb.as_ref()?.score_datas(sql)
     }
 
-    #[allow(clippy::too_many_arguments, clippy::field_reassign_with_default)]
+    #[allow(clippy::too_many_arguments)]
     pub fn write_score_data(
         &self,
         newscore: &ScoreData,
@@ -193,10 +193,9 @@ impl PlayDataAccessor {
 
         let mut score = scoredb
             .score_data(hash, if contains_undefined_ln { lnmode } else { 0 })
-            .unwrap_or_else(|| {
-                let mut s = ScoreData::default();
-                s.mode = if contains_undefined_ln { lnmode } else { 0 };
-                s
+            .unwrap_or_else(|| ScoreData {
+                mode: if contains_undefined_ln { lnmode } else { 0 },
+                ..Default::default()
             });
         score.sha256 = hash.to_string();
         if update_score {
@@ -296,7 +295,7 @@ impl PlayDataAccessor {
         log::info!("Score database update completed");
     }
 
-    #[allow(clippy::too_many_arguments, clippy::field_reassign_with_default)]
+    #[allow(clippy::too_many_arguments)]
     pub fn write_score_data_for_course(
         &self,
         newscore: &ScoreData,
@@ -321,11 +320,12 @@ impl PlayDataAccessor {
             + judge * 1000
             + gauge * 10000;
 
-        let mut score = scoredb.score_data(&hash, mode_val).unwrap_or_else(|| {
-            let mut s = ScoreData::default();
-            s.mode = mode_val;
-            s
-        });
+        let mut score = scoredb
+            .score_data(&hash, mode_val)
+            .unwrap_or_else(|| ScoreData {
+                mode: mode_val,
+                ..Default::default()
+            });
         score.sha256 = hash.clone();
         score.notes = total_notes;
 
@@ -821,7 +821,6 @@ impl PlayDataAccessor {
 }
 
 #[cfg(test)]
-#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::config::Config;

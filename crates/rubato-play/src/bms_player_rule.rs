@@ -103,7 +103,7 @@ fn bms_player_rule_set_lr2() -> Vec<BMSPlayerRule> {
 }
 
 /// BMSPlayerRuleSet::Beatoraja
-#[allow(dead_code)]
+#[cfg(test)]
 fn bms_player_rule_set_beatoraja() -> Vec<BMSPlayerRule> {
     vec![
         BMSPlayerRule::new(

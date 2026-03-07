@@ -7,8 +7,6 @@
 // IMPORTANT: MainLoader uses global statics (ILLEGAL_SONGS, SONGDB).
 // All tests that touch global state must hold TEST_LOCK and clear state first.
 
-#![allow(clippy::field_reassign_with_default)]
-
 use std::sync::Mutex;
 
 use rubato_core::config::Config;
@@ -33,7 +31,6 @@ impl MockSongDb {
         Self { songs: Vec::new() }
     }
 
-    #[allow(dead_code)]
     fn with_songs(songs: Vec<SongData>) -> Self {
         Self { songs }
     }

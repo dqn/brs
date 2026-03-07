@@ -1,7 +1,6 @@
 pub use rubato_types::score_data::*;
 
 #[cfg(test)]
-#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use bms_model::mode::Mode;

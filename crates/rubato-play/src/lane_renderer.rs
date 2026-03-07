@@ -486,7 +486,7 @@ impl LaneRenderer {
     ///
     /// Returns a Vec of DrawCommands that the caller should execute on the rendering backend.
     /// Also returns offset values for LIFT, LANECOVER, and HIDDEN_COVER positioning.
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::needless_range_loop)] // Java-ported lane iteration with parallel arrays
     pub fn draw_lane(
         &mut self,
         ctx: &DrawLaneContext,

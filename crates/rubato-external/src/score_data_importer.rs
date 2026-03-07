@@ -27,28 +27,31 @@ impl ScoreDataImporter {
                         .unwrap_or_default()
                         .to_string();
                     let song = songdb.song_datas_by_hashes(std::slice::from_ref(&md5));
-                    #[allow(clippy::field_reassign_with_default)]
                     if !song.is_empty() {
-                        let mut sd = ScoreData::default();
-                        sd.epg = score.get("perfect").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.egr = score.get("great").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.egd = score.get("good").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.ebd = score.get("bad").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.epr = score.get("poor").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.minbp = score.get("minbp").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
                         let clear_idx =
                             score.get("clear").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
-                        if clear_idx < clears.len() {
-                            sd.clear = clears[clear_idx];
-                        }
-                        sd.playcount =
-                            score.get("playcount").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        sd.clearcount = score
-                            .get("clearcount")
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or(0) as i32;
-                        sd.sha256 = song[0].sha256.clone();
-                        sd.notes = song[0].notes;
+                        let sd = ScoreData {
+                            epg: score.get("perfect").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                            egr: score.get("great").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                            egd: score.get("good").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                            ebd: score.get("bad").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                            epr: score.get("poor").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                            minbp: score.get("minbp").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+                            clear: if clear_idx < clears.len() {
+                                clears[clear_idx]
+                            } else {
+                                0
+                            },
+                            playcount: score.get("playcount").and_then(|v| v.as_i64()).unwrap_or(0)
+                                as i32,
+                            clearcount: score
+                                .get("clearcount")
+                                .and_then(|v| v.as_i64())
+                                .unwrap_or(0) as i32,
+                            sha256: song[0].sha256.clone(),
+                            notes: song[0].notes,
+                            ..Default::default()
+                        };
                         result.push(sd);
                     }
                 }
@@ -66,15 +69,15 @@ impl ScoreDataImporter {
 
         for score in scores {
             let mut oldsd = self.scoredb.score_data(&score.sha256, score.mode);
-            #[allow(clippy::field_reassign_with_default)]
             if oldsd.is_none() {
-                let mut new_sd = ScoreData::default();
-                new_sd.playcount = score.playcount;
-                new_sd.clearcount = score.clearcount;
-                new_sd.sha256 = score.sha256.clone();
-                new_sd.mode = score.mode;
-                new_sd.notes = score.notes;
-                oldsd = Some(new_sd);
+                oldsd = Some(ScoreData {
+                    playcount: score.playcount,
+                    clearcount: score.clearcount,
+                    sha256: score.sha256.clone(),
+                    mode: score.mode,
+                    notes: score.notes,
+                    ..Default::default()
+                });
             }
             if let Some(ref mut old) = oldsd {
                 old.scorehash = scorehash.to_string();

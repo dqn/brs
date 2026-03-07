@@ -176,8 +176,7 @@ pub struct SkinTextImageSource {
     size: i32,
     margin: i32,
     elements: HashMap<i32, SkinTextImageSourceElement>,
-    #[allow(dead_code)]
-    usecim: bool,
+    _usecim: bool,
     regions: HashMap<i32, SkinTextImageSourceRegion>,
 }
 
@@ -187,7 +186,7 @@ impl SkinTextImageSource {
             size: 0,
             margin: 0,
             elements: HashMap::with_capacity(400),
-            usecim,
+            _usecim: usecim,
             regions: HashMap::with_capacity(10000),
         }
     }

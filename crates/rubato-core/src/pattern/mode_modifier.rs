@@ -666,7 +666,6 @@ mod tests {
     // -- ModeModifier::modify remaps notes for 7K -> 9K --
 
     #[test]
-    #[allow(clippy::field_reassign_with_default)]
     fn modify_7k_to_9k_remaps_notes() {
         let mut config = PlayerConfig::default();
         config.seven_to_nine_pattern = 0; // default pattern
@@ -705,7 +704,6 @@ mod tests {
     // -- hran_threshold_bpm <= 0 sets threshold to 0 --
 
     #[test]
-    #[allow(clippy::field_reassign_with_default)]
     fn hran_threshold_bpm_zero_sets_threshold_zero() {
         let mut config = PlayerConfig::default();
         config.hran_threshold_bpm = 0;

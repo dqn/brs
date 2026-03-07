@@ -87,6 +87,7 @@ fn lr2_judge_scaling(mut base: i64, judgerank: i32) -> i64 {
     sign * (x1 + (judgerank as i64 - judgeindex as i64 * 25) * (x2 - x1) / 25) / d
 }
 
+#[allow(clippy::needless_range_loop)] // Index j used for [i64; 2] array with cross-index reads
 fn create_lr2(org: &[[i64; 2]], judgerank: i32, judge_window_rate: &[i32]) -> Vec<[i64; 2]> {
     let mut judge: Vec<[i64; 2]> = org.to_vec();
 
@@ -127,6 +128,7 @@ fn create_lr2(org: &[[i64; 2]], judgerank: i32, judge_window_rate: &[i32]) -> Ve
 }
 
 impl JudgeWindowRule {
+    #[allow(clippy::needless_range_loop)] // Index j used for [i64; 2] array with cross-index reads
     fn create_normal(
         &self,
         org: &[[i64; 2]],

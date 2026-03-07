@@ -10,8 +10,6 @@
 //
 // Follows the same patterns as e2e_screen_transitions.rs.
 
-#![allow(clippy::field_reassign_with_default)]
-
 use std::path::PathBuf;
 
 use rubato_core::config::Config;
