@@ -169,13 +169,12 @@ impl ContextMenuBar {
 
         // Related — navigate to SameFolderBar showing same-folder songs
         {
-            let song_title = song.full_title();
             let song_folder = song.folder.clone();
             let mut related = FunctionBar::new("Related".to_string(), STYLE_TABLE);
-            let title_clone = song_title.clone();
-            let folder_clone = song_folder.clone();
+            let title_for_closure = song.full_title();
+            let folder_for_closure = song_folder.clone();
             related.set_function(Arc::new(move |selector| {
-                let same = SameFolderBar::new(title_clone.clone(), folder_clone.clone());
+                let same = SameFolderBar::new(title_for_closure.clone(), folder_for_closure.clone());
                 let bar = Bar::SameFolder(Box::new(same));
                 selector.update_bar_with_songdb_context(Some(&bar));
                 selector.play_sound(SoundType::FolderOpen);
@@ -488,50 +487,47 @@ impl ContextMenuBar {
 
         if show_meta {
             // Copy Title
-            let title = song.title.clone();
-            if !title.is_empty() {
+            if !song.title.is_empty() {
                 let mut copy_title = FunctionBar::new_with_text_type(
                     "Copy Title".to_string(),
                     STYLE_SEARCH,
                     STYLE_TEXT_NEW,
                 );
-                copy_title.set_subtitle(title.clone());
                 copy_title.set_function(clipboard_copy_callback(
-                    &title,
+                    &song.title,
                     "Copied song title to clipboard.",
                 ));
+                copy_title.set_subtitle(song.title.clone());
                 options.push(Bar::Function(Box::new(copy_title)));
             }
 
             // Copy MD5
-            let md5_str = song.md5.clone();
-            if !md5_str.is_empty() {
+            if !song.md5.is_empty() {
                 let mut copy_md5 = FunctionBar::new_with_text_type(
                     "Copy MD5".to_string(),
                     STYLE_SEARCH,
                     STYLE_TEXT_NEW,
                 );
-                copy_md5.set_subtitle(md5_str.clone());
                 copy_md5.set_function(clipboard_copy_callback(
-                    &md5_str,
+                    &song.md5,
                     "Copied MD5 to clipboard.",
                 ));
+                copy_md5.set_subtitle(song.md5.clone());
                 options.push(Bar::Function(Box::new(copy_md5)));
             }
 
             // Copy SHA256
-            let sha256 = song.sha256.clone();
-            if !sha256.is_empty() {
+            if !song.sha256.is_empty() {
                 let mut copy_sha256 = FunctionBar::new_with_text_type(
                     "Copy SHA256".to_string(),
                     STYLE_SEARCH,
                     STYLE_TEXT_NEW,
                 );
-                copy_sha256.set_subtitle(sha256.clone());
                 copy_sha256.set_function(clipboard_copy_callback(
-                    &sha256,
+                    &song.sha256,
                     "Copied SHA256 to clipboard.",
                 ));
+                copy_sha256.set_subtitle(song.sha256.clone());
                 options.push(Bar::Function(Box::new(copy_sha256)));
             }
 
@@ -543,11 +539,11 @@ impl ContextMenuBar {
                     STYLE_SEARCH,
                     STYLE_TEXT_NEW,
                 );
-                copy_path.set_subtitle(path_str.clone());
                 copy_path.set_function(clipboard_copy_callback(
                     &path_str,
                     "Copied song path to clipboard.",
                 ));
+                copy_path.set_subtitle(path_str);
                 options.push(Bar::Function(Box::new(copy_path)));
             }
 
@@ -561,11 +557,11 @@ impl ContextMenuBar {
                         STYLE_SEARCH,
                         STYLE_TEXT_NEW,
                     );
-                    copy_url.set_subtitle(url_str.clone());
                     copy_url.set_function(clipboard_copy_callback(
                         &url_str,
                         "Copied URL to clipboard.",
                     ));
+                    copy_url.set_subtitle(url_str);
                     options.push(Bar::Function(Box::new(copy_url)));
                 }
             }
@@ -581,11 +577,11 @@ impl ContextMenuBar {
                         STYLE_SEARCH,
                         STYLE_TEXT_NEW,
                     );
-                    copy_append.set_subtitle(append_str.clone());
                     copy_append.set_function(clipboard_copy_callback(
                         &append_str,
                         "Copied append URL to clipboard.",
                     ));
+                    copy_append.set_subtitle(append_str);
                     options.push(Bar::Function(Box::new(copy_append)));
                 }
             }
@@ -707,10 +703,10 @@ impl ContextMenuBar {
         }
         let md5_array: Vec<String> = md5_and_names.iter().map(|(md5, _)| md5.clone()).collect();
         let in_hand = songdb.song_datas_by_hashes(&md5_array);
-        let in_hand_md5s: HashSet<String> = in_hand.iter().map(|sd| sd.md5.clone()).collect();
+        let in_hand_md5s: HashSet<&str> = in_hand.iter().map(|sd| sd.md5.as_str()).collect();
         let missing: Vec<&(String, String)> = md5_and_names
             .iter()
-            .filter(|(md5, _)| !in_hand_md5s.contains(md5))
+            .filter(|(md5, _)| !in_hand_md5s.contains(md5.as_str()))
             .collect();
         for (md5, title) in &missing {
             downloader.submit_md5_task(md5, title);

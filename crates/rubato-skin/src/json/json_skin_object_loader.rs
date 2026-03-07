@@ -499,13 +499,14 @@ pub fn note_texture(
     p: &Path,
 ) -> Vec<Option<Vec<TextureRegion>>> {
     let sk = match &loader.sk {
-        Some(sk) => sk.clone(),
+        Some(sk) => sk,
         None => return vec![None; images.len()],
     };
+    let sk_images = sk.image.clone();
     let mut note_images: Vec<Option<Vec<TextureRegion>>> = Vec::with_capacity(images.len());
     for image_id in images {
         let mut found = false;
-        for img in &sk.image {
+        for img in &sk_images {
             if img.id.as_deref() == Some(image_id.as_str()) {
                 let tex = texture(loader, img.src.as_deref(), p);
                 if let Some(tex) = tex {
@@ -604,7 +605,7 @@ pub fn source_image(
             let src_idx = (i * divy + j) as usize;
             let dst_idx = (divx * j + i) as usize;
             if src_idx < images.len() && dst_idx < result.len() {
-                result[dst_idx] = images[src_idx].clone();
+                result[dst_idx] = std::mem::take(&mut images[src_idx]);
             }
         }
     }
@@ -667,9 +668,7 @@ pub fn set_destination_on_object(obj: &mut SkinObjectData, dst: &json_skin::Dest
     }
 
     let mut offsets: Vec<i32> = Vec::with_capacity(dst.offsets.len() + 1);
-    for o in &dst.offsets {
-        offsets.push(*o);
-    }
+    offsets.extend_from_slice(&dst.offsets);
     offsets.push(dst.offset);
     obj.offset_ids = offsets;
 

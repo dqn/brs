@@ -263,7 +263,7 @@ fn skin_config_menu(ui: &mut egui::Ui) {
     let skin = current_skin.as_ref().expect("current_skin is Some").clone();
     drop(current_skin);
 
-    let mut shown = HashSet::new();
+    let mut shown: HashSet<&str> = HashSet::new();
     let categories = skin.custom_categories().to_vec();
     let has_tabs = !categories.is_empty();
 
@@ -303,13 +303,13 @@ fn skin_config_menu(ui: &mut egui::Ui) {
                 for item in &cat.items {
                     match item {
                         CustomCategoryItem::Option(option) => {
-                            shown.insert(option.name.clone());
+                            shown.insert(&option.name);
                         }
                         CustomCategoryItem::File(file) => {
-                            shown.insert(file.name.clone());
+                            shown.insert(&file.name);
                         }
                         CustomCategoryItem::Offset(offset) => {
-                            shown.insert(offset.name.clone());
+                            shown.insert(&offset.name);
                         }
                     }
                 }
@@ -336,13 +336,13 @@ fn skin_config_menu(ui: &mut egui::Ui) {
                 for item in &cat.items {
                     match item {
                         CustomCategoryItem::Option(option) => {
-                            shown.insert(option.name.clone());
+                            shown.insert(&option.name);
                         }
                         CustomCategoryItem::File(file) => {
-                            shown.insert(file.name.clone());
+                            shown.insert(&file.name);
                         }
                         CustomCategoryItem::Offset(offset) => {
-                            shown.insert(offset.name.clone());
+                            shown.insert(&offset.name);
                         }
                     }
                 }
@@ -358,24 +358,24 @@ fn skin_config_menu(ui: &mut egui::Ui) {
 }
 
 /// Render uncategorized options/files/offsets (items not in any category).
-fn render_uncategorized(ui: &mut egui::Ui, skin: &SkinHeader, shown: &HashSet<String>) {
+fn render_uncategorized(ui: &mut egui::Ui, skin: &SkinHeader, shown: &HashSet<&str>) {
     let options = skin.custom_options();
     for option in options {
-        if shown.contains(&option.name) {
+        if shown.contains(option.name.as_str()) {
             continue;
         }
         skin_config_option(ui, option);
     }
     let files = skin.custom_files();
     for file in files {
-        if shown.contains(&file.name) {
+        if shown.contains(file.name.as_str()) {
             continue;
         }
         skin_config_file(ui, file);
     }
     let offsets = skin.custom_offsets();
     for offset in offsets {
-        if shown.contains(&offset.name) {
+        if shown.contains(offset.name.as_str()) {
             continue;
         }
         skin_config_offset(ui, offset);
