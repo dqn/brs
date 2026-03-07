@@ -177,10 +177,6 @@ impl LaneMirrorShuffleModifier {
         result
     }
 
-    pub fn is_to_display(&self) -> bool {
-        self.show_shuffle_pattern
-    }
-
     pub fn random_pattern(&self, mode: &Mode) -> Vec<i32> {
         get_random_pattern_impl(
             &self.random,
@@ -280,10 +276,6 @@ impl LaneRotateShuffleModifier {
         result
     }
 
-    pub fn is_to_display(&self) -> bool {
-        self.show_shuffle_pattern
-    }
-
     pub fn random_pattern(&self, mode: &Mode) -> Vec<i32> {
         get_random_pattern_impl(
             &self.random,
@@ -373,10 +365,6 @@ impl LaneRandomShuffleModifier {
             l.remove(r);
         }
         result
-    }
-
-    pub fn is_to_display(&self) -> bool {
-        self.show_shuffle_pattern
     }
 
     pub fn random_pattern(&self, mode: &Mode) -> Vec<i32> {
@@ -469,10 +457,6 @@ impl PlayerFlipModifier {
         result
     }
 
-    pub fn is_to_display(&self) -> bool {
-        self.show_shuffle_pattern
-    }
-
     pub fn random_pattern(&self, mode: &Mode) -> Vec<i32> {
         // Java: super(0, true, false) -> isScratchLaneModify = true
         get_random_pattern_impl(
@@ -555,10 +539,6 @@ impl PlayerBattleModifier {
             result[keys.len()..keys.len() * 2].copy_from_slice(keys);
             (result, AssistLevel::Assist)
         }
-    }
-
-    pub fn is_to_display(&self) -> bool {
-        self.show_shuffle_pattern
     }
 
     pub fn random_pattern(&self, mode: &Mode) -> Vec<i32> {
@@ -697,10 +677,6 @@ impl LaneCrossShuffleModifier {
             i += 2;
         }
         result
-    }
-
-    pub fn is_to_display(&self) -> bool {
-        self.show_shuffle_pattern
     }
 
     pub fn random_pattern(&self, mode: &Mode) -> Vec<i32> {
@@ -857,10 +833,6 @@ impl LanePlayableRandomShuffleModifier {
             }
         }
         result
-    }
-
-    pub fn is_to_display(&self) -> bool {
-        self.show_shuffle_pattern
     }
 
     pub fn random_pattern(&self, mode: &Mode) -> Vec<i32> {

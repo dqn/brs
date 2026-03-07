@@ -657,7 +657,7 @@ impl StateFactory for LauncherStateFactory {
 
                 // Wire margin time
                 if let Some(res) = resource {
-                    player.set_margin_time(res.margin_time());
+                    player.set_margin_time(res.margin_time);
                 }
 
                 // Wire course constraints
