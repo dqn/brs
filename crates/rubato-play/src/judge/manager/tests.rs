@@ -168,8 +168,8 @@ fn get_score_data_returns_default() {
     let jm = JudgeManager::new();
     let score = jm.score_data();
     assert_eq!(score.maxcombo, 0);
-    assert_eq!(score.epg, 0);
-    assert_eq!(score.egr, 0);
+    assert_eq!(score.judge_counts.epg, 0);
+    assert_eq!(score.judge_counts.egr, 0);
 }
 
 #[test]
@@ -286,7 +286,7 @@ fn autoplay_judges_all_notes_as_pgreat() {
     }
 
     // All 3 notes should be PGREAT
-    assert_eq!(jm.score().epg + jm.score().lpg, 3);
+    assert_eq!(jm.score().judge_counts.epg + jm.score().judge_counts.lpg, 3);
     assert_eq!(jm.max_combo(), 3);
     assert_eq!(jm.past_notes(), 3);
     for &g in jm.ghost() {

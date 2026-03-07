@@ -11,24 +11,24 @@ mod tests {
         assert_eq!(sd.player, "unknown");
         assert_eq!(sd.mode, 0);
         assert_eq!(sd.clear, 0);
-        assert_eq!(sd.epg, 0);
-        assert_eq!(sd.lpg, 0);
-        assert_eq!(sd.egr, 0);
-        assert_eq!(sd.lgr, 0);
-        assert_eq!(sd.egd, 0);
-        assert_eq!(sd.lgd, 0);
-        assert_eq!(sd.ebd, 0);
-        assert_eq!(sd.lbd, 0);
-        assert_eq!(sd.epr, 0);
-        assert_eq!(sd.lpr, 0);
-        assert_eq!(sd.ems, 0);
-        assert_eq!(sd.lms, 0);
+        assert_eq!(sd.judge_counts.epg, 0);
+        assert_eq!(sd.judge_counts.lpg, 0);
+        assert_eq!(sd.judge_counts.egr, 0);
+        assert_eq!(sd.judge_counts.lgr, 0);
+        assert_eq!(sd.judge_counts.egd, 0);
+        assert_eq!(sd.judge_counts.lgd, 0);
+        assert_eq!(sd.judge_counts.ebd, 0);
+        assert_eq!(sd.judge_counts.lbd, 0);
+        assert_eq!(sd.judge_counts.epr, 0);
+        assert_eq!(sd.judge_counts.lpr, 0);
+        assert_eq!(sd.judge_counts.ems, 0);
+        assert_eq!(sd.judge_counts.lms, 0);
         assert_eq!(sd.maxcombo, 0);
         assert_eq!(sd.notes, 0);
         assert_eq!(sd.passnotes, 0);
         assert_eq!(sd.minbp, i32::MAX);
-        assert_eq!(sd.avgjudge, i64::MAX);
-        assert_eq!(sd.seed, -1);
+        assert_eq!(sd.timing_stats.avgjudge, i64::MAX);
+        assert_eq!(sd.play_option.seed, -1);
     }
 
     #[test]
@@ -54,11 +54,11 @@ mod tests {
         sd.notes = 500;
         sd.passnotes = 450;
         sd.minbp = 5;
-        sd.random = 1;
-        sd.option = 2;
-        sd.seed = 42;
-        sd.assist = 0;
-        sd.gauge = 3;
+        sd.play_option.random = 1;
+        sd.play_option.option = 2;
+        sd.play_option.seed = 42;
+        sd.play_option.assist = 0;
+        sd.play_option.gauge = 3;
         sd.state = 1;
         sd.scorehash = "hash123".to_string();
         sd.trophy = "trophy1".to_string();
@@ -74,11 +74,11 @@ mod tests {
         assert_eq!(sd.notes, 500);
         assert_eq!(sd.passnotes, 450);
         assert_eq!(sd.minbp, 5);
-        assert_eq!(sd.random, 1);
-        assert_eq!(sd.option, 2);
-        assert_eq!(sd.seed, 42);
-        assert_eq!(sd.assist, 0);
-        assert_eq!(sd.gauge, 3);
+        assert_eq!(sd.play_option.random, 1);
+        assert_eq!(sd.play_option.option, 2);
+        assert_eq!(sd.play_option.seed, 42);
+        assert_eq!(sd.play_option.assist, 0);
+        assert_eq!(sd.play_option.gauge, 3);
         assert_eq!(sd.state, 1);
         assert_eq!(sd.scorehash, "hash123");
         assert_eq!(sd.trophy, "trophy1");
@@ -87,40 +87,40 @@ mod tests {
     #[test]
     fn test_score_data_judge_getters() {
         let mut sd = ScoreData::default();
-        sd.epg = 10;
-        sd.lpg = 20;
-        sd.egr = 30;
-        sd.lgr = 40;
-        sd.egd = 5;
-        sd.lgd = 6;
-        sd.ebd = 2;
-        sd.lbd = 3;
-        sd.epr = 1;
-        sd.lpr = 2;
-        sd.ems = 0;
-        sd.lms = 1;
+        sd.judge_counts.epg = 10;
+        sd.judge_counts.lpg = 20;
+        sd.judge_counts.egr = 30;
+        sd.judge_counts.lgr = 40;
+        sd.judge_counts.egd = 5;
+        sd.judge_counts.lgd = 6;
+        sd.judge_counts.ebd = 2;
+        sd.judge_counts.lbd = 3;
+        sd.judge_counts.epr = 1;
+        sd.judge_counts.lpr = 2;
+        sd.judge_counts.ems = 0;
+        sd.judge_counts.lms = 1;
 
-        assert_eq!(sd.epg, 10);
-        assert_eq!(sd.lpg, 20);
-        assert_eq!(sd.egr, 30);
-        assert_eq!(sd.lgr, 40);
-        assert_eq!(sd.egd, 5);
-        assert_eq!(sd.lgd, 6);
-        assert_eq!(sd.ebd, 2);
-        assert_eq!(sd.lbd, 3);
-        assert_eq!(sd.epr, 1);
-        assert_eq!(sd.lpr, 2);
-        assert_eq!(sd.ems, 0);
-        assert_eq!(sd.lms, 1);
+        assert_eq!(sd.judge_counts.epg, 10);
+        assert_eq!(sd.judge_counts.lpg, 20);
+        assert_eq!(sd.judge_counts.egr, 30);
+        assert_eq!(sd.judge_counts.lgr, 40);
+        assert_eq!(sd.judge_counts.egd, 5);
+        assert_eq!(sd.judge_counts.lgd, 6);
+        assert_eq!(sd.judge_counts.ebd, 2);
+        assert_eq!(sd.judge_counts.lbd, 3);
+        assert_eq!(sd.judge_counts.epr, 1);
+        assert_eq!(sd.judge_counts.lpr, 2);
+        assert_eq!(sd.judge_counts.ems, 0);
+        assert_eq!(sd.judge_counts.lms, 1);
     }
 
     #[test]
     fn test_score_data_exscore_calculation() {
         let mut sd = ScoreData::default();
-        sd.epg = 10;
-        sd.lpg = 20;
-        sd.egr = 30;
-        sd.lgr = 40;
+        sd.judge_counts.epg = 10;
+        sd.judge_counts.lpg = 20;
+        sd.judge_counts.egr = 30;
+        sd.judge_counts.lgr = 40;
 
         // exscore = (epg + lpg) * 2 + egr + lgr
         // = (10 + 20) * 2 + 30 + 40 = 60 + 70 = 130
@@ -136,18 +136,18 @@ mod tests {
     #[test]
     fn test_score_data_get_judge_count() {
         let mut sd = ScoreData::default();
-        sd.epg = 10;
-        sd.lpg = 20;
-        sd.egr = 30;
-        sd.lgr = 40;
-        sd.egd = 5;
-        sd.lgd = 6;
-        sd.ebd = 2;
-        sd.lbd = 3;
-        sd.epr = 1;
-        sd.lpr = 2;
-        sd.ems = 7;
-        sd.lms = 8;
+        sd.judge_counts.epg = 10;
+        sd.judge_counts.lpg = 20;
+        sd.judge_counts.egr = 30;
+        sd.judge_counts.lgr = 40;
+        sd.judge_counts.egd = 5;
+        sd.judge_counts.lgd = 6;
+        sd.judge_counts.ebd = 2;
+        sd.judge_counts.lbd = 3;
+        sd.judge_counts.epr = 1;
+        sd.judge_counts.lpr = 2;
+        sd.judge_counts.ems = 7;
+        sd.judge_counts.lms = 8;
 
         // judge 0 = PG
         assert_eq!(sd.judge_count(0, true), 10); // epg
@@ -175,10 +175,10 @@ mod tests {
     #[test]
     fn test_score_data_get_judge_count_total() {
         let mut sd = ScoreData::default();
-        sd.epg = 10;
-        sd.lpg = 20;
-        sd.egr = 30;
-        sd.lgr = 40;
+        sd.judge_counts.epg = 10;
+        sd.judge_counts.lpg = 20;
+        sd.judge_counts.egr = 30;
+        sd.judge_counts.lgr = 40;
 
         assert_eq!(sd.judge_count_total(0), 30); // epg + lpg
         assert_eq!(sd.judge_count_total(1), 70); // egr + lgr
@@ -189,34 +189,34 @@ mod tests {
         let mut sd = ScoreData::default();
 
         sd.add_judge_count(0, true, 5);
-        assert_eq!(sd.epg, 5);
+        assert_eq!(sd.judge_counts.epg, 5);
         sd.add_judge_count(0, false, 3);
-        assert_eq!(sd.lpg, 3);
+        assert_eq!(sd.judge_counts.lpg, 3);
 
         sd.add_judge_count(1, true, 10);
-        assert_eq!(sd.egr, 10);
+        assert_eq!(sd.judge_counts.egr, 10);
         sd.add_judge_count(1, false, 8);
-        assert_eq!(sd.lgr, 8);
+        assert_eq!(sd.judge_counts.lgr, 8);
 
         sd.add_judge_count(2, true, 2);
-        assert_eq!(sd.egd, 2);
+        assert_eq!(sd.judge_counts.egd, 2);
         sd.add_judge_count(2, false, 1);
-        assert_eq!(sd.lgd, 1);
+        assert_eq!(sd.judge_counts.lgd, 1);
 
         sd.add_judge_count(3, true, 4);
-        assert_eq!(sd.ebd, 4);
+        assert_eq!(sd.judge_counts.ebd, 4);
         sd.add_judge_count(3, false, 7);
-        assert_eq!(sd.lbd, 7);
+        assert_eq!(sd.judge_counts.lbd, 7);
 
         sd.add_judge_count(4, true, 6);
-        assert_eq!(sd.epr, 6);
+        assert_eq!(sd.judge_counts.epr, 6);
         sd.add_judge_count(4, false, 9);
-        assert_eq!(sd.lpr, 9);
+        assert_eq!(sd.judge_counts.lpr, 9);
 
         sd.add_judge_count(5, true, 11);
-        assert_eq!(sd.ems, 11);
+        assert_eq!(sd.judge_counts.ems, 11);
         sd.add_judge_count(5, false, 12);
-        assert_eq!(sd.lms, 12);
+        assert_eq!(sd.judge_counts.lms, 12);
 
         // Invalid judge - no change
         sd.add_judge_count(6, true, 100);
@@ -228,7 +228,7 @@ mod tests {
         let mut sd = ScoreData::default();
         sd.add_judge_count(0, true, 5);
         sd.add_judge_count(0, true, 3);
-        assert_eq!(sd.epg, 8);
+        assert_eq!(sd.judge_counts.epg, 8);
     }
 
     #[test]
@@ -313,19 +313,19 @@ mod tests {
     #[test]
     fn test_score_data_update_exscore_improves() {
         let mut current = ScoreData::default();
-        current.epg = 5;
-        current.lpg = 5;
+        current.judge_counts.epg = 5;
+        current.judge_counts.lpg = 5;
 
         let mut newscore = ScoreData::default();
-        newscore.epg = 10;
-        newscore.lpg = 10;
-        newscore.egr = 5;
+        newscore.judge_counts.epg = 10;
+        newscore.judge_counts.lpg = 10;
+        newscore.judge_counts.egr = 5;
 
         let updated = current.update(&newscore, true);
         assert!(updated);
-        assert_eq!(current.epg, 10);
-        assert_eq!(current.lpg, 10);
-        assert_eq!(current.egr, 5);
+        assert_eq!(current.judge_counts.epg, 10);
+        assert_eq!(current.judge_counts.lpg, 10);
+        assert_eq!(current.judge_counts.egr, 5);
     }
 
     #[test]
@@ -359,10 +359,10 @@ mod tests {
         let mut sd = ScoreData::default();
         sd.sha256 = "test_hash".to_string();
         sd.player = "player1".to_string();
-        sd.epg = 100;
-        sd.lpg = 200;
-        sd.egr = 50;
-        sd.lgr = 60;
+        sd.judge_counts.epg = 100;
+        sd.judge_counts.lpg = 200;
+        sd.judge_counts.egr = 50;
+        sd.judge_counts.lgr = 60;
         sd.clear = 5;
         sd.notes = 500;
         sd.maxcombo = 300;
@@ -372,10 +372,10 @@ mod tests {
 
         assert_eq!(deserialized.sha256, "test_hash");
         assert_eq!(deserialized.player, "player1");
-        assert_eq!(deserialized.epg, 100);
-        assert_eq!(deserialized.lpg, 200);
-        assert_eq!(deserialized.egr, 50);
-        assert_eq!(deserialized.lgr, 60);
+        assert_eq!(deserialized.judge_counts.epg, 100);
+        assert_eq!(deserialized.judge_counts.lpg, 200);
+        assert_eq!(deserialized.judge_counts.egr, 50);
+        assert_eq!(deserialized.judge_counts.lgr, 60);
         assert_eq!(deserialized.clear, 5);
         assert_eq!(deserialized.notes, 500);
         assert_eq!(deserialized.maxcombo, 300);

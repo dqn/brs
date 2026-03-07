@@ -82,11 +82,9 @@ mod tests {
 
     #[test]
     fn test_get_ir_score_returns_reference() {
-        let s = ScoreData {
-            epg: 100,
-            lpg: 50,
-            ..Default::default()
-        };
+        let mut s = ScoreData::default();
+        s.judge_counts.epg = 100;
+        s.judge_counts.lpg = 50;
         let ir = IRScoreData::new(&s);
         let entry = LeaderboardEntry::new_entry_primary_ir(ir);
         assert_eq!(entry.ir_score().epg, 100);

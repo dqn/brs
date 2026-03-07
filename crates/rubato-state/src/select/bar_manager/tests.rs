@@ -267,12 +267,12 @@ fn test_loader_loads_score_from_cache() {
     let mut bars = vec![Bar::Song(Box::new(SongBar::new(sd.clone())))];
 
     let mut score = ScoreData::default();
-    score.epg = 100;
+    score.judge_counts.epg = 100;
 
     let mut cache = ScoreDataCache::new(
         Box::new(move |_sd, _lnmode| {
             let mut s = ScoreData::default();
-            s.epg = 100;
+            s.judge_counts.epg = 100;
             Some(s)
         }),
         Box::new(|_collector, _songs, _lnmode| {}),
@@ -293,7 +293,7 @@ fn test_loader_loads_score_from_cache() {
 
     // Score should be loaded
     assert!(bars[0].score().is_some());
-    assert_eq!(bars[0].score().unwrap().epg, 100);
+    assert_eq!(bars[0].score().unwrap().judge_counts.epg, 100);
 }
 
 // ---- banner/stagefile loading tests ----

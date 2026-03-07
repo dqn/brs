@@ -525,12 +525,12 @@ impl LauncherStateFactory {
             TargetProperty::Static(ref p) => {
                 // Static targets can be computed without MainController access.
                 let rivalscore = (total_notes as f64 * 2.0 * p.rate as f64 / 100.0).ceil() as i32;
-                let score = ScoreData {
+                let mut score = ScoreData {
                     player: p.name.clone(),
-                    epg: rivalscore / 2,
-                    egr: rivalscore % 2,
                     ..Default::default()
                 };
+                score.judge_counts.epg = rivalscore / 2;
+                score.judge_counts.egr = rivalscore % 2;
                 Some(score)
             }
             _ => {

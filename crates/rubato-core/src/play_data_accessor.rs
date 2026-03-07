@@ -134,18 +134,18 @@ impl PlayDataAccessor {
             Some(p) => p,
             None => return,
         };
-        pd.epg += score.epg as i64;
-        pd.lpg += score.lpg as i64;
-        pd.egr += score.egr as i64;
-        pd.lgr += score.lgr as i64;
-        pd.egd += score.egd as i64;
-        pd.lgd += score.lgd as i64;
-        pd.ebd += score.ebd as i64;
-        pd.lbd += score.lbd as i64;
-        pd.epr += score.epr as i64;
-        pd.lpr += score.lpr as i64;
-        pd.ems += score.ems as i64;
-        pd.lms += score.lms as i64;
+        pd.epg += score.judge_counts.epg as i64;
+        pd.lpg += score.judge_counts.lpg as i64;
+        pd.egr += score.judge_counts.egr as i64;
+        pd.lgr += score.judge_counts.lgr as i64;
+        pd.egd += score.judge_counts.egd as i64;
+        pd.lgd += score.judge_counts.lgd as i64;
+        pd.ebd += score.judge_counts.ebd as i64;
+        pd.lbd += score.judge_counts.lbd as i64;
+        pd.epr += score.judge_counts.epr as i64;
+        pd.lpr += score.judge_counts.lpr as i64;
+        pd.ems += score.judge_counts.ems as i64;
+        pd.lms += score.judge_counts.lms as i64;
 
         pd.playcount += 1;
         if score.clear > ClearType::Failed.id() {
@@ -220,7 +220,7 @@ impl PlayDataAccessor {
             std::collections::HashSet::new();
         // Clear trophies
         let clear = newscore.clear;
-        if newscore.gauge != -1 {
+        if newscore.play_option.gauge != -1 {
             if clear >= ClearType::Hard.id() {
                 if clear == ClearType::ExHard.id() {
                     new_trophies.insert(SongTrophy::ExHard);
@@ -249,7 +249,10 @@ impl PlayDataAccessor {
         ];
 
         if clear >= ClearType::Easy.id() {
-            let idx = std::cmp::max(newscore.option % 10, (newscore.option / 10) % 10) as usize;
+            let idx = std::cmp::max(
+                newscore.play_option.option % 10,
+                (newscore.play_option.option / 10) % 10,
+            ) as usize;
             if idx < option_trophy.len() {
                 new_trophies.insert(option_trophy[idx]);
             }
@@ -381,26 +384,26 @@ impl PlayDataAccessor {
             self.hashkey,
             score.sha256,
             score.exscore(),
-            score.epg,
-            score.lpg,
-            score.egr,
-            score.lgr,
-            score.egd,
-            score.lgd,
-            score.ebd,
-            score.lbd,
-            score.epr,
-            score.lpr,
-            score.ems,
-            score.lms,
+            score.judge_counts.epg,
+            score.judge_counts.lpg,
+            score.judge_counts.egr,
+            score.judge_counts.lgr,
+            score.judge_counts.egd,
+            score.judge_counts.lgd,
+            score.judge_counts.ebd,
+            score.judge_counts.lbd,
+            score.judge_counts.epr,
+            score.judge_counts.lpr,
+            score.judge_counts.ems,
+            score.judge_counts.lms,
             score.clear,
             score.minbp,
             score.maxcombo,
             score.mode,
             score.clearcount,
             score.playcount,
-            score.option,
-            score.random,
+            score.play_option.option,
+            score.play_option.random,
             score.trophy,
             score.date
         );
@@ -854,8 +857,8 @@ mod tests {
         let mut newscore = ScoreData::default();
         newscore.clear = ClearType::Failed.id(); // won't increment clearcount
         newscore.notes = 100;
-        newscore.epg = 10;
-        newscore.lpg = 10;
+        newscore.judge_counts.epg = 10;
+        newscore.judge_counts.lpg = 10;
         newscore.minbp = 5;
 
         let hashes = &["abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"];
@@ -893,7 +896,7 @@ mod tests {
         let mut newscore = ScoreData::default();
         newscore.clear = ClearType::Normal.id();
         newscore.notes = 50;
-        newscore.epg = 5;
+        newscore.judge_counts.epg = 5;
         newscore.minbp = 2;
 
         let hashes = &["a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"];
@@ -928,7 +931,7 @@ mod tests {
         let mut newscore = ScoreData::default();
         newscore.clear = ClearType::Failed.id();
         newscore.notes = 10;
-        newscore.epg = 1;
+        newscore.judge_counts.epg = 1;
         newscore.minbp = 1;
 
         let hashes = &["0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"];
@@ -1311,11 +1314,11 @@ mod tests {
         // First play: get Easy and Normal trophies
         let mut score1 = ScoreData::default();
         score1.clear = ClearType::Easy.id();
-        score1.gauge = 0;
-        score1.option = 0; // option index 0 = Normal trophy
+        score1.play_option.gauge = 0;
+        score1.play_option.option = 0; // option index 0 = Normal trophy
         score1.notes = 100;
-        score1.epg = 50;
-        score1.lpg = 30;
+        score1.judge_counts.epg = 50;
+        score1.judge_counts.lpg = 30;
         score1.minbp = 5;
         score1.maxcombo = 80;
 
@@ -1337,11 +1340,11 @@ mod tests {
         // Second play: get Hard trophy with Mirror option
         let mut score2 = ScoreData::default();
         score2.clear = ClearType::Hard.id();
-        score2.gauge = 0;
-        score2.option = 1; // option index 1 = Mirror
+        score2.play_option.gauge = 0;
+        score2.play_option.option = 1; // option index 1 = Mirror
         score2.notes = 100;
-        score2.epg = 60;
-        score2.lpg = 35;
+        score2.judge_counts.epg = 60;
+        score2.judge_counts.lpg = 35;
         score2.minbp = 3;
         score2.maxcombo = 90;
 
@@ -1383,11 +1386,11 @@ mod tests {
 
         let mut score = ScoreData::default();
         score.clear = ClearType::ExHard.id();
-        score.gauge = 0;
-        score.option = 0;
+        score.play_option.gauge = 0;
+        score.play_option.option = 0;
         score.notes = 100;
-        score.epg = 50;
-        score.lpg = 30;
+        score.judge_counts.epg = 50;
+        score.judge_counts.lpg = 30;
         score.minbp = 2;
         score.maxcombo = 80;
 
@@ -1419,11 +1422,11 @@ mod tests {
 
         let mut score = ScoreData::default();
         score.clear = ClearType::Hard.id();
-        score.gauge = -1; // special value: skip clear trophies
-        score.option = 0;
+        score.play_option.gauge = -1; // special value: skip clear trophies
+        score.play_option.option = 0;
         score.notes = 100;
-        score.epg = 50;
-        score.lpg = 30;
+        score.judge_counts.epg = 50;
+        score.judge_counts.lpg = 30;
         score.minbp = 5;
         score.maxcombo = 80;
 
@@ -1455,18 +1458,18 @@ mod tests {
 
         let mut score = ScoreData::default();
         score.sha256 = "testhash".to_string();
-        score.epg = 10;
-        score.lpg = 20;
-        score.egr = 5;
-        score.lgr = 3;
+        score.judge_counts.epg = 10;
+        score.judge_counts.lpg = 20;
+        score.judge_counts.egr = 5;
+        score.judge_counts.lgr = 3;
         score.clear = 5;
         score.minbp = 2;
         score.maxcombo = 100;
         score.mode = 0;
         score.clearcount = 1;
         score.playcount = 5;
-        score.option = 0;
-        score.random = 0;
+        score.play_option.option = 0;
+        score.play_option.random = 0;
         score.trophy = "gn".to_string();
         score.date = 1700000000;
 
@@ -1490,12 +1493,12 @@ mod tests {
 
         let mut score1 = ScoreData::default();
         score1.sha256 = "hash1".to_string();
-        score1.epg = 10;
+        score1.judge_counts.epg = 10;
         score1.date = 1000;
 
         let mut score2 = ScoreData::default();
         score2.sha256 = "hash2".to_string();
-        score2.epg = 10;
+        score2.judge_counts.epg = 10;
         score2.date = 1000;
 
         let h1 = accessor.get_score_hash(&score1).unwrap();
@@ -1532,15 +1535,15 @@ mod tests {
 
         let mut score = ScoreData::default();
         score.clear = 3;
-        score.epg = 10;
-        score.lpg = 10;
+        score.judge_counts.epg = 10;
+        score.judge_counts.lpg = 10;
         score.minbp = 10;
         score.maxcombo = 50;
 
         let mut newscore = ScoreData::default();
         newscore.clear = 5;
-        newscore.epg = 10;
-        newscore.lpg = 10;
+        newscore.judge_counts.epg = 10;
+        newscore.judge_counts.lpg = 10;
         newscore.minbp = 10;
         newscore.maxcombo = 50;
 
@@ -1560,15 +1563,15 @@ mod tests {
 
         let mut score = ScoreData::default();
         score.clear = 5;
-        score.epg = 50;
-        score.lpg = 50;
+        score.judge_counts.epg = 50;
+        score.judge_counts.lpg = 50;
         score.minbp = 2;
         score.maxcombo = 100;
 
         let mut newscore = ScoreData::default();
         newscore.clear = 3; // lower
-        newscore.epg = 30; // lower exscore
-        newscore.lpg = 30;
+        newscore.judge_counts.epg = 30; // lower exscore
+        newscore.judge_counts.lpg = 30;
         newscore.minbp = 5; // higher (worse)
         newscore.maxcombo = 80; // lower
 
@@ -1589,12 +1592,12 @@ mod tests {
         let accessor = PlayDataAccessor::null();
 
         let mut score = ScoreData::default();
-        score.epg = 10;
-        score.lpg = 10;
+        score.judge_counts.epg = 10;
+        score.judge_counts.lpg = 10;
 
         let mut newscore = ScoreData::default();
-        newscore.epg = 50;
-        newscore.lpg = 50;
+        newscore.judge_counts.epg = 50;
+        newscore.judge_counts.lpg = 50;
 
         let log = accessor.update_score(&mut score, &newscore, "hash", true);
 
@@ -1611,14 +1614,14 @@ mod tests {
         let accessor = PlayDataAccessor::null();
 
         let mut score = ScoreData::default();
-        score.epg = 10;
-        score.lpg = 10;
+        score.judge_counts.epg = 10;
+        score.judge_counts.lpg = 10;
         score.minbp = 10;
         score.maxcombo = 50;
 
         let mut newscore = ScoreData::default();
-        newscore.epg = 50;
-        newscore.lpg = 50;
+        newscore.judge_counts.epg = 50;
+        newscore.judge_counts.lpg = 50;
         newscore.minbp = 5;
         newscore.maxcombo = 100;
 

@@ -258,8 +258,8 @@ impl Ranking {
             tmp.clear = s.rubato_clear();
             tmp.notes = s.notes;
             tmp.maxcombo = s.combo;
-            tmp.epg = s.pg;
-            tmp.egr = s.gr;
+            tmp.judge_counts.epg = s.pg;
+            tmp.judge_counts.egr = s.gr;
             tmp.minbp = s.minbp;
             res.push(LeaderboardEntry::new_entry_lr2_ir(
                 IRScoreData::new(&tmp),

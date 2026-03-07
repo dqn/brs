@@ -30,28 +30,31 @@ impl ScoreDataImporter {
                     if !song.is_empty() {
                         let clear_idx =
                             score.get("clear").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
-                        let sd = ScoreData {
-                            epg: score.get("perfect").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                            egr: score.get("great").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                            egd: score.get("good").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                            ebd: score.get("bad").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                            epr: score.get("poor").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                            minbp: score.get("minbp").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                            clear: if clear_idx < clears.len() {
-                                clears[clear_idx]
-                            } else {
-                                0
-                            },
-                            playcount: score.get("playcount").and_then(|v| v.as_i64()).unwrap_or(0)
-                                as i32,
-                            clearcount: score
-                                .get("clearcount")
-                                .and_then(|v| v.as_i64())
-                                .unwrap_or(0) as i32,
-                            sha256: song[0].sha256.clone(),
-                            notes: song[0].notes,
-                            ..Default::default()
+                        let mut sd = ScoreData::default();
+                        sd.judge_counts.epg =
+                            score.get("perfect").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.judge_counts.egr =
+                            score.get("great").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.judge_counts.egd =
+                            score.get("good").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.judge_counts.ebd =
+                            score.get("bad").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.judge_counts.epr =
+                            score.get("poor").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.minbp = score.get("minbp").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.clear = if clear_idx < clears.len() {
+                            clears[clear_idx]
+                        } else {
+                            0
                         };
+                        sd.playcount =
+                            score.get("playcount").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        sd.clearcount = score
+                            .get("clearcount")
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0) as i32;
+                        sd.sha256 = song[0].sha256.clone();
+                        sd.notes = song[0].notes;
                         result.push(sd);
                     }
                 }

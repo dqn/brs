@@ -264,8 +264,8 @@ impl BarSorter {
             (_, None) => return Ordering::Less,
             (Some(s1), Some(s2)) => (s1, s2),
         };
-        let exists1 = s1.avgjudge != i64::MAX;
-        let exists2 = s2.avgjudge != i64::MAX;
+        let exists1 = s1.timing_stats.avgjudge != i64::MAX;
+        let exists2 = s2.timing_stats.avgjudge != i64::MAX;
         if !exists1 && !exists2 {
             return Ordering::Equal;
         }
@@ -275,7 +275,7 @@ impl BarSorter {
         if !exists2 {
             return Ordering::Less;
         }
-        let d = s1.avgjudge - s2.avgjudge;
+        let d = s1.timing_stats.avgjudge - s2.timing_stats.avgjudge;
         d.cmp(&0)
     }
 
@@ -368,14 +368,13 @@ mod tests {
 
     /// Create a ScoreData with specific exscore components and notes
     fn make_score(epg: i32, lpg: i32, egr: i32, lgr: i32, notes: i32) -> ScoreData {
-        ScoreData {
-            epg,
-            lpg,
-            egr,
-            lgr,
-            notes,
-            ..Default::default()
-        }
+        let mut sd = ScoreData::default();
+        sd.judge_counts.epg = epg;
+        sd.judge_counts.lpg = lpg;
+        sd.judge_counts.egr = egr;
+        sd.judge_counts.lgr = lgr;
+        sd.notes = notes;
+        sd
     }
 
     // ---- compare_score: None score handling ----
@@ -421,9 +420,10 @@ mod tests {
 
     #[test]
     fn compare_duration_first_none_second_has_score() {
-        let score = ScoreData {
-            avgjudge: 100,
-            ..Default::default()
+        let score = {
+            let mut sd = ScoreData::default();
+            sd.timing_stats.avgjudge = 100;
+            sd
         };
         let b1 = song_bar_no_score("A");
         let b2 = song_bar_with_score("B", score);
@@ -432,9 +432,10 @@ mod tests {
 
     #[test]
     fn compare_duration_first_has_score_second_none() {
-        let score = ScoreData {
-            avgjudge: 100,
-            ..Default::default()
+        let score = {
+            let mut sd = ScoreData::default();
+            sd.timing_stats.avgjudge = 100;
+            sd
         };
         let b1 = song_bar_with_score("A", score);
         let b2 = song_bar_no_score("B");
@@ -443,13 +444,15 @@ mod tests {
 
     #[test]
     fn compare_duration_both_have_scores() {
-        let s1 = ScoreData {
-            avgjudge: 50,
-            ..Default::default()
+        let s1 = {
+            let mut sd = ScoreData::default();
+            sd.timing_stats.avgjudge = 50;
+            sd
         };
-        let s2 = ScoreData {
-            avgjudge: 100,
-            ..Default::default()
+        let s2 = {
+            let mut sd = ScoreData::default();
+            sd.timing_stats.avgjudge = 100;
+            sd
         };
         let b1 = song_bar_with_score("A", s1);
         let b2 = song_bar_with_score("B", s2);

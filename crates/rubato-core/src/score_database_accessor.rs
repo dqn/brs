@@ -495,33 +495,42 @@ impl rubato_types::score_database_access::ScoreDatabaseAccess for ScoreDatabaseA
 }
 
 fn row_to_score_data(row: &rusqlite::Row) -> ScoreData {
+    use rubato_types::score_data::{JudgeCounts, PlayOption, TimingStats};
     ScoreData {
         sha256: row.get::<_, String>("sha256").unwrap_or_default(),
         mode: row.get("mode").unwrap_or(0),
         clear: row.get("clear").unwrap_or(0),
-        epg: row.get("epg").unwrap_or(0),
-        lpg: row.get("lpg").unwrap_or(0),
-        egr: row.get("egr").unwrap_or(0),
-        lgr: row.get("lgr").unwrap_or(0),
-        egd: row.get("egd").unwrap_or(0),
-        lgd: row.get("lgd").unwrap_or(0),
-        ebd: row.get("ebd").unwrap_or(0),
-        lbd: row.get("lbd").unwrap_or(0),
-        epr: row.get("epr").unwrap_or(0),
-        lpr: row.get("lpr").unwrap_or(0),
-        ems: row.get("ems").unwrap_or(0),
-        lms: row.get("lms").unwrap_or(0),
+        judge_counts: JudgeCounts {
+            epg: row.get("epg").unwrap_or(0),
+            lpg: row.get("lpg").unwrap_or(0),
+            egr: row.get("egr").unwrap_or(0),
+            lgr: row.get("lgr").unwrap_or(0),
+            egd: row.get("egd").unwrap_or(0),
+            lgd: row.get("lgd").unwrap_or(0),
+            ebd: row.get("ebd").unwrap_or(0),
+            lbd: row.get("lbd").unwrap_or(0),
+            epr: row.get("epr").unwrap_or(0),
+            lpr: row.get("lpr").unwrap_or(0),
+            ems: row.get("ems").unwrap_or(0),
+            lms: row.get("lms").unwrap_or(0),
+        },
         notes: row.get("notes").unwrap_or(0),
         maxcombo: row.get("combo").unwrap_or(0),
         minbp: row.get("minbp").unwrap_or(i32::MAX),
-        avgjudge: row.get("avgjudge").unwrap_or(i64::MAX),
+        timing_stats: TimingStats {
+            avgjudge: row.get("avgjudge").unwrap_or(i64::MAX),
+            ..Default::default()
+        },
         playcount: row.get("playcount").unwrap_or(0),
         clearcount: row.get("clearcount").unwrap_or(0),
         trophy: row.get::<_, String>("trophy").unwrap_or_default(),
         ghost: row.get::<_, String>("ghost").unwrap_or_default(),
-        option: row.get("option").unwrap_or(0),
-        seed: row.get("seed").unwrap_or(-1),
-        random: row.get("random").unwrap_or(0),
+        play_option: PlayOption {
+            option: row.get("option").unwrap_or(0),
+            seed: row.get("seed").unwrap_or(-1),
+            random: row.get("random").unwrap_or(0),
+            ..Default::default()
+        },
         date: row.get("date").unwrap_or(0),
         state: row.get("state").unwrap_or(0),
         scorehash: row.get::<_, String>("scorehash").unwrap_or_default(),
@@ -556,29 +565,29 @@ fn score_data_to_value(score: &ScoreData, col_name: &str) -> rusqlite::types::Va
         "sha256" => rusqlite::types::Value::Text(score.sha256.clone()),
         "mode" => rusqlite::types::Value::Integer(score.mode as i64),
         "clear" => rusqlite::types::Value::Integer(score.clear as i64),
-        "epg" => rusqlite::types::Value::Integer(score.epg as i64),
-        "lpg" => rusqlite::types::Value::Integer(score.lpg as i64),
-        "egr" => rusqlite::types::Value::Integer(score.egr as i64),
-        "lgr" => rusqlite::types::Value::Integer(score.lgr as i64),
-        "egd" => rusqlite::types::Value::Integer(score.egd as i64),
-        "lgd" => rusqlite::types::Value::Integer(score.lgd as i64),
-        "ebd" => rusqlite::types::Value::Integer(score.ebd as i64),
-        "lbd" => rusqlite::types::Value::Integer(score.lbd as i64),
-        "epr" => rusqlite::types::Value::Integer(score.epr as i64),
-        "lpr" => rusqlite::types::Value::Integer(score.lpr as i64),
-        "ems" => rusqlite::types::Value::Integer(score.ems as i64),
-        "lms" => rusqlite::types::Value::Integer(score.lms as i64),
+        "epg" => rusqlite::types::Value::Integer(score.judge_counts.epg as i64),
+        "lpg" => rusqlite::types::Value::Integer(score.judge_counts.lpg as i64),
+        "egr" => rusqlite::types::Value::Integer(score.judge_counts.egr as i64),
+        "lgr" => rusqlite::types::Value::Integer(score.judge_counts.lgr as i64),
+        "egd" => rusqlite::types::Value::Integer(score.judge_counts.egd as i64),
+        "lgd" => rusqlite::types::Value::Integer(score.judge_counts.lgd as i64),
+        "ebd" => rusqlite::types::Value::Integer(score.judge_counts.ebd as i64),
+        "lbd" => rusqlite::types::Value::Integer(score.judge_counts.lbd as i64),
+        "epr" => rusqlite::types::Value::Integer(score.judge_counts.epr as i64),
+        "lpr" => rusqlite::types::Value::Integer(score.judge_counts.lpr as i64),
+        "ems" => rusqlite::types::Value::Integer(score.judge_counts.ems as i64),
+        "lms" => rusqlite::types::Value::Integer(score.judge_counts.lms as i64),
         "notes" => rusqlite::types::Value::Integer(score.notes as i64),
         "combo" => rusqlite::types::Value::Integer(score.maxcombo as i64),
         "minbp" => rusqlite::types::Value::Integer(score.minbp as i64),
-        "avgjudge" => rusqlite::types::Value::Integer(score.avgjudge),
+        "avgjudge" => rusqlite::types::Value::Integer(score.timing_stats.avgjudge),
         "playcount" => rusqlite::types::Value::Integer(score.playcount as i64),
         "clearcount" => rusqlite::types::Value::Integer(score.clearcount as i64),
         "trophy" => rusqlite::types::Value::Text(score.trophy.clone()),
         "ghost" => rusqlite::types::Value::Text(score.ghost.clone()),
-        "option" => rusqlite::types::Value::Integer(score.option as i64),
-        "seed" => rusqlite::types::Value::Integer(score.seed),
-        "random" => rusqlite::types::Value::Integer(score.random as i64),
+        "option" => rusqlite::types::Value::Integer(score.play_option.option as i64),
+        "seed" => rusqlite::types::Value::Integer(score.play_option.seed),
+        "random" => rusqlite::types::Value::Integer(score.play_option.random as i64),
         "date" => rusqlite::types::Value::Integer(score.date),
         "state" => rusqlite::types::Value::Integer(score.state as i64),
         "scorehash" => rusqlite::types::Value::Text(score.scorehash.clone()),
@@ -684,33 +693,42 @@ mod tests {
 
     #[test]
     fn test_score_data_to_value_basic() {
+        use rubato_types::score_data::{JudgeCounts, PlayOption, TimingStats};
         let sd = ScoreData {
             sha256: "abc123def456".to_string(),
             mode: 7,
             clear: 5,
-            epg: 100,
-            lpg: 90,
-            egr: 80,
-            lgr: 70,
-            egd: 10,
-            lgd: 9,
-            ebd: 3,
-            lbd: 2,
-            epr: 1,
-            lpr: 0,
-            ems: 4,
-            lms: 5,
+            judge_counts: JudgeCounts {
+                epg: 100,
+                lpg: 90,
+                egr: 80,
+                lgr: 70,
+                egd: 10,
+                lgd: 9,
+                ebd: 3,
+                lbd: 2,
+                epr: 1,
+                lpr: 0,
+                ems: 4,
+                lms: 5,
+            },
             notes: 500,
             maxcombo: 300,
             minbp: 15,
-            avgjudge: 42,
+            timing_stats: TimingStats {
+                avgjudge: 42,
+                ..Default::default()
+            },
             playcount: 10,
             clearcount: 7,
             trophy: "g".to_string(),
             ghost: "ghost_data".to_string(),
-            option: 2,
-            seed: 12345,
-            random: 1,
+            play_option: PlayOption {
+                option: 2,
+                seed: 12345,
+                random: 1,
+                ..Default::default()
+            },
             date: 1700000000,
             state: 3,
             scorehash: "hashvalue".to_string(),
@@ -1084,28 +1102,28 @@ mod tests {
         sd.clear = clear;
         sd.notes = 100;
         sd.passnotes = 100;
-        sd.epg = 50;
-        sd.lpg = 30;
-        sd.egr = 10;
-        sd.lgr = 5;
-        sd.egd = 2;
-        sd.lgd = 1;
-        sd.ebd = 1;
-        sd.lbd = 0;
-        sd.epr = 1;
-        sd.lpr = 0;
-        sd.ems = 0;
-        sd.lms = 0;
+        sd.judge_counts.epg = 50;
+        sd.judge_counts.lpg = 30;
+        sd.judge_counts.egr = 10;
+        sd.judge_counts.lgr = 5;
+        sd.judge_counts.egd = 2;
+        sd.judge_counts.lgd = 1;
+        sd.judge_counts.ebd = 1;
+        sd.judge_counts.lbd = 0;
+        sd.judge_counts.epr = 1;
+        sd.judge_counts.lpr = 0;
+        sd.judge_counts.ems = 0;
+        sd.judge_counts.lms = 0;
         sd.maxcombo = 80;
         sd.minbp = 5;
-        sd.avgjudge = 10;
+        sd.timing_stats.avgjudge = 10;
         sd.playcount = 3;
         sd.clearcount = 2;
         sd.trophy = "g".to_string();
         sd.ghost = String::new();
-        sd.option = 0;
-        sd.seed = 42;
-        sd.random = 0;
+        sd.play_option.option = 0;
+        sd.play_option.seed = 42;
+        sd.play_option.random = 0;
         sd.date = 1700000000;
         sd.state = 0;
         sd.scorehash = "hash1".to_string();
@@ -1126,28 +1144,28 @@ mod tests {
         assert_eq!(loaded.sha256, "abc123");
         assert_eq!(loaded.mode, 0);
         assert_eq!(loaded.clear, 5);
-        assert_eq!(loaded.epg, 50);
-        assert_eq!(loaded.lpg, 30);
-        assert_eq!(loaded.egr, 10);
-        assert_eq!(loaded.lgr, 5);
-        assert_eq!(loaded.egd, 2);
-        assert_eq!(loaded.lgd, 1);
-        assert_eq!(loaded.ebd, 1);
-        assert_eq!(loaded.lbd, 0);
-        assert_eq!(loaded.epr, 1);
-        assert_eq!(loaded.lpr, 0);
-        assert_eq!(loaded.ems, 0);
-        assert_eq!(loaded.lms, 0);
+        assert_eq!(loaded.judge_counts.epg, 50);
+        assert_eq!(loaded.judge_counts.lpg, 30);
+        assert_eq!(loaded.judge_counts.egr, 10);
+        assert_eq!(loaded.judge_counts.lgr, 5);
+        assert_eq!(loaded.judge_counts.egd, 2);
+        assert_eq!(loaded.judge_counts.lgd, 1);
+        assert_eq!(loaded.judge_counts.ebd, 1);
+        assert_eq!(loaded.judge_counts.lbd, 0);
+        assert_eq!(loaded.judge_counts.epr, 1);
+        assert_eq!(loaded.judge_counts.lpr, 0);
+        assert_eq!(loaded.judge_counts.ems, 0);
+        assert_eq!(loaded.judge_counts.lms, 0);
         assert_eq!(loaded.notes, 100);
         assert_eq!(loaded.maxcombo, 80);
         assert_eq!(loaded.minbp, 5);
-        assert_eq!(loaded.avgjudge, 10);
+        assert_eq!(loaded.timing_stats.avgjudge, 10);
         assert_eq!(loaded.playcount, 3);
         assert_eq!(loaded.clearcount, 2);
         assert_eq!(loaded.trophy, "g");
-        assert_eq!(loaded.option, 0);
-        assert_eq!(loaded.seed, 42);
-        assert_eq!(loaded.random, 0);
+        assert_eq!(loaded.play_option.option, 0);
+        assert_eq!(loaded.play_option.seed, 42);
+        assert_eq!(loaded.play_option.random, 0);
         assert_eq!(loaded.date, 1700000000);
         assert_eq!(loaded.state, 0);
         assert_eq!(loaded.scorehash, "hash1");
@@ -1189,7 +1207,7 @@ mod tests {
         accessor.set_score_data(&sd_low);
 
         let mut sd_high = make_score("hash_best", 0, 8);
-        sd_high.epg = 70;
+        sd_high.judge_counts.epg = 70;
         // Different mode so both exist
         sd_high.mode = 1;
         accessor.set_score_data(&sd_high);
@@ -1201,7 +1219,7 @@ mod tests {
         // mode=1 returns the clear=8 score
         let loaded1 = accessor.score_data("hash_best", 1).unwrap();
         assert_eq!(loaded1.clear, 8);
-        assert_eq!(loaded1.epg, 70);
+        assert_eq!(loaded1.judge_counts.epg, 70);
     }
 
     #[test]

@@ -82,7 +82,8 @@ fn compute_avgjudge(total_duration: i64, notes: i32) -> i64 {
 #[inline]
 fn apply_avgjudge(score: &mut rubato_core::score_data::ScoreData) {
     if score.notes != 0 {
-        score.avgjudge = compute_avgjudge(score.total_duration, score.notes);
+        score.timing_stats.avgjudge =
+            compute_avgjudge(score.timing_stats.total_duration, score.notes);
     }
 }
 
@@ -215,7 +216,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
     }
 
     fn gauge_value(&self) -> f32 {
-        self.data.oldscore.gauge as f32 / 100.0
+        self.data.oldscore.play_option.gauge as f32 / 100.0
     }
 
     fn gauge_type(&self) -> i32 {
@@ -835,44 +836,44 @@ impl CourseResult {
             match judge {
                 0 => {
                     if fast {
-                        score.epg
+                        score.judge_counts.epg
                     } else {
-                        score.lpg
+                        score.judge_counts.lpg
                     }
                 }
                 1 => {
                     if fast {
-                        score.egr
+                        score.judge_counts.egr
                     } else {
-                        score.lgr
+                        score.judge_counts.lgr
                     }
                 }
                 2 => {
                     if fast {
-                        score.egd
+                        score.judge_counts.egd
                     } else {
-                        score.lgd
+                        score.judge_counts.lgd
                     }
                 }
                 3 => {
                     if fast {
-                        score.ebd
+                        score.judge_counts.ebd
                     } else {
-                        score.lbd
+                        score.judge_counts.lbd
                     }
                 }
                 4 => {
                     if fast {
-                        score.epr
+                        score.judge_counts.epr
                     } else {
-                        score.lpr
+                        score.judge_counts.lpr
                     }
                 }
                 5 => {
                     if fast {
-                        score.ems
+                        score.judge_counts.ems
                     } else {
-                        score.lms
+                        score.judge_counts.lms
                     }
                 }
                 _ => 0,
@@ -1618,23 +1619,23 @@ mod tests {
         // Division by zero guard: notes == 0 should not compute
         // The original code skips the assignment, leaving avgjudge at its default (i64::MAX)
         let mut score = rubato_core::score_data::ScoreData {
-            total_duration: 1000,
             notes: 0,
             ..Default::default()
         };
+        score.timing_stats.total_duration = 1000;
         apply_avgjudge(&mut score);
-        assert_eq!(score.avgjudge, i64::MAX); // unchanged from default
+        assert_eq!(score.timing_stats.avgjudge, i64::MAX); // unchanged from default
     }
 
     #[test]
     fn test_compute_avgjudge_with_nonzero_notes_updates_score() {
         let mut score = rubato_core::score_data::ScoreData {
-            total_duration: 5000,
             notes: 50,
             ..Default::default()
         };
+        score.timing_stats.total_duration = 5000;
         apply_avgjudge(&mut score);
-        assert_eq!(score.avgjudge, 100);
+        assert_eq!(score.timing_stats.avgjudge, 100);
     }
 
     #[test]

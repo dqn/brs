@@ -71,31 +71,31 @@ impl IRScoreData {
             player: score.player.clone(),
             clear: ClearType::clear_type_by_id(score.clear),
             date: score.date,
-            epg: score.epg,
-            lpg: score.lpg,
-            egr: score.egr,
-            lgr: score.lgr,
-            egd: score.egd,
-            lgd: score.lgd,
-            ebd: score.ebd,
-            lbd: score.lbd,
-            epr: score.epr,
-            lpr: score.lpr,
-            ems: score.ems,
-            lms: score.lms,
-            avgjudge: score.avgjudge,
+            epg: score.judge_counts.epg,
+            lpg: score.judge_counts.lpg,
+            egr: score.judge_counts.egr,
+            lgr: score.judge_counts.lgr,
+            egd: score.judge_counts.egd,
+            lgd: score.judge_counts.lgd,
+            ebd: score.judge_counts.ebd,
+            lbd: score.judge_counts.lbd,
+            epr: score.judge_counts.epr,
+            lpr: score.judge_counts.lpr,
+            ems: score.judge_counts.ems,
+            lms: score.judge_counts.lms,
+            avgjudge: score.timing_stats.avgjudge,
             maxcombo: score.maxcombo,
             notes: score.notes,
             passnotes: score.passnotes,
             minbp: score.minbp,
-            option: score.option,
-            seed: score.seed,
-            assist: score.assist,
-            gauge: score.gauge,
-            device_type: score.device_type,
-            judge_algorithm: score.judge_algorithm,
-            rule: score.rule,
-            skin: score.skin.clone(),
+            option: score.play_option.option,
+            seed: score.play_option.seed,
+            assist: score.play_option.assist,
+            gauge: score.play_option.gauge,
+            device_type: score.play_option.device_type,
+            judge_algorithm: score.play_option.judge_algorithm,
+            rule: score.play_option.rule,
+            skin: score.play_option.skin.clone(),
         }
     }
 
@@ -104,24 +104,27 @@ impl IRScoreData {
     }
 
     pub fn convert_to_score_data(&self) -> ScoreData {
+        use rubato_types::score_data::{JudgeCounts, PlayOption, TimingStats};
         ScoreData {
             sha256: self.sha256.clone(),
             mode: self.lntype,
             player: self.player.clone(),
             clear: self.clear.id(),
             date: self.date,
-            epg: self.epg,
-            lpg: self.lpg,
-            egr: self.egr,
-            lgr: self.lgr,
-            egd: self.egd,
-            lgd: self.lgd,
-            ebd: self.ebd,
-            lbd: self.lbd,
-            epr: self.epr,
-            lpr: self.lpr,
-            ems: self.ems,
-            lms: self.lms,
+            judge_counts: JudgeCounts {
+                epg: self.epg,
+                lpg: self.lpg,
+                egr: self.egr,
+                lgr: self.lgr,
+                egd: self.egd,
+                lgd: self.lgd,
+                ebd: self.ebd,
+                lbd: self.lbd,
+                epr: self.epr,
+                lpr: self.lpr,
+                ems: self.ems,
+                lms: self.lms,
+            },
             maxcombo: self.maxcombo,
             notes: self.notes,
             // Java: score.setPassnotes(this.passnotes != 0 ? this.notes : this.passnotes);
@@ -131,12 +134,18 @@ impl IRScoreData {
                 self.passnotes
             },
             minbp: self.minbp,
-            avgjudge: self.avgjudge,
-            option: self.option,
-            seed: self.seed,
-            assist: self.assist,
-            gauge: self.gauge,
-            device_type: self.device_type,
+            timing_stats: TimingStats {
+                avgjudge: self.avgjudge,
+                ..Default::default()
+            },
+            play_option: PlayOption {
+                option: self.option,
+                seed: self.seed,
+                assist: self.assist,
+                gauge: self.gauge,
+                device_type: self.device_type,
+                ..Default::default()
+            },
             ..Default::default()
         }
     }
@@ -159,13 +168,11 @@ mod tests {
 
     #[test]
     fn exscore_calculation() {
-        let sd = ScoreData {
-            epg: 10,
-            lpg: 5,
-            egr: 3,
-            lgr: 2,
-            ..Default::default()
-        };
+        let mut sd = ScoreData::default();
+        sd.judge_counts.epg = 10;
+        sd.judge_counts.lpg = 5;
+        sd.judge_counts.egr = 3;
+        sd.judge_counts.lgr = 2;
         let ir = IRScoreData::new(&sd);
         // exscore = (epg + lpg) * 2 + egr + lgr = (10+5)*2 + 3+2 = 35
         assert_eq!(ir.exscore(), 35);
@@ -173,33 +180,29 @@ mod tests {
 
     #[test]
     fn convert_to_score_data_roundtrip() {
-        let sd = ScoreData {
-            sha256: "abc123".to_string(),
-            epg: 100,
-            lpg: 50,
-            maxcombo: 42,
-            minbp: 3,
-            clear: 7,
-            ..Default::default()
-        };
+        let mut sd = ScoreData::default();
+        sd.sha256 = "abc123".to_string();
+        sd.judge_counts.epg = 100;
+        sd.judge_counts.lpg = 50;
+        sd.maxcombo = 42;
+        sd.minbp = 3;
+        sd.clear = 7;
 
         let ir = IRScoreData::new(&sd);
         let converted = ir.convert_to_score_data();
 
         assert_eq!(converted.sha256, "abc123");
-        assert_eq!(converted.epg, 100);
-        assert_eq!(converted.lpg, 50);
+        assert_eq!(converted.judge_counts.epg, 100);
+        assert_eq!(converted.judge_counts.lpg, 50);
         assert_eq!(converted.maxcombo, 42);
         assert_eq!(converted.minbp, 3);
     }
 
     #[test]
     fn clone_preserves_all_fields() {
-        let sd = ScoreData {
-            sha256: "test".to_string(),
-            epg: 7,
-            ..Default::default()
-        };
+        let mut sd = ScoreData::default();
+        sd.sha256 = "test".to_string();
+        sd.judge_counts.epg = 7;
         let ir = IRScoreData::new(&sd);
         let cloned = ir.clone();
         assert_eq!(cloned.sha256, "test");
@@ -213,27 +216,27 @@ mod tests {
         s.player = "TestPlayer".to_string();
         s.clear = 5; // Normal
         s.date = 1700000000;
-        s.epg = 100;
-        s.lpg = 90;
-        s.egr = 50;
-        s.lgr = 40;
-        s.egd = 10;
-        s.lgd = 8;
-        s.ebd = 3;
-        s.lbd = 2;
-        s.epr = 1;
-        s.lpr = 0;
-        s.ems = 0;
-        s.lms = 1;
-        s.avgjudge = 500;
+        s.judge_counts.epg = 100;
+        s.judge_counts.lpg = 90;
+        s.judge_counts.egr = 50;
+        s.judge_counts.lgr = 40;
+        s.judge_counts.egd = 10;
+        s.judge_counts.lgd = 8;
+        s.judge_counts.ebd = 3;
+        s.judge_counts.lbd = 2;
+        s.judge_counts.epr = 1;
+        s.judge_counts.lpr = 0;
+        s.judge_counts.ems = 0;
+        s.judge_counts.lms = 1;
+        s.timing_stats.avgjudge = 500;
         s.maxcombo = 280;
         s.notes = 305;
         s.passnotes = 300;
         s.minbp = 7;
-        s.option = 2;
-        s.seed = 42;
-        s.assist = 0;
-        s.gauge = 3;
+        s.play_option.option = 2;
+        s.play_option.seed = 42;
+        s.play_option.assist = 0;
+        s.play_option.gauge = 3;
         s
     }
 
@@ -297,26 +300,29 @@ mod tests {
         assert_eq!(converted.player, original.player);
         assert_eq!(converted.clear, original.clear);
         assert_eq!(converted.date, original.date);
-        assert_eq!(converted.epg, original.epg);
-        assert_eq!(converted.lpg, original.lpg);
-        assert_eq!(converted.egr, original.egr);
-        assert_eq!(converted.lgr, original.lgr);
-        assert_eq!(converted.egd, original.egd);
-        assert_eq!(converted.lgd, original.lgd);
-        assert_eq!(converted.ebd, original.ebd);
-        assert_eq!(converted.lbd, original.lbd);
-        assert_eq!(converted.epr, original.epr);
-        assert_eq!(converted.lpr, original.lpr);
-        assert_eq!(converted.ems, original.ems);
-        assert_eq!(converted.lms, original.lms);
+        assert_eq!(converted.judge_counts.epg, original.judge_counts.epg);
+        assert_eq!(converted.judge_counts.lpg, original.judge_counts.lpg);
+        assert_eq!(converted.judge_counts.egr, original.judge_counts.egr);
+        assert_eq!(converted.judge_counts.lgr, original.judge_counts.lgr);
+        assert_eq!(converted.judge_counts.egd, original.judge_counts.egd);
+        assert_eq!(converted.judge_counts.lgd, original.judge_counts.lgd);
+        assert_eq!(converted.judge_counts.ebd, original.judge_counts.ebd);
+        assert_eq!(converted.judge_counts.lbd, original.judge_counts.lbd);
+        assert_eq!(converted.judge_counts.epr, original.judge_counts.epr);
+        assert_eq!(converted.judge_counts.lpr, original.judge_counts.lpr);
+        assert_eq!(converted.judge_counts.ems, original.judge_counts.ems);
+        assert_eq!(converted.judge_counts.lms, original.judge_counts.lms);
         assert_eq!(converted.maxcombo, original.maxcombo);
         assert_eq!(converted.notes, original.notes);
         assert_eq!(converted.minbp, original.minbp);
-        assert_eq!(converted.avgjudge, original.avgjudge);
-        assert_eq!(converted.option, original.option);
-        assert_eq!(converted.seed, original.seed);
-        assert_eq!(converted.assist, original.assist);
-        assert_eq!(converted.gauge, original.gauge);
+        assert_eq!(
+            converted.timing_stats.avgjudge,
+            original.timing_stats.avgjudge
+        );
+        assert_eq!(converted.play_option.option, original.play_option.option);
+        assert_eq!(converted.play_option.seed, original.play_option.seed);
+        assert_eq!(converted.play_option.assist, original.play_option.assist);
+        assert_eq!(converted.play_option.gauge, original.play_option.gauge);
     }
 
     #[test]

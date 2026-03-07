@@ -22,8 +22,8 @@ fn make_all_pg_score(mode: Mode, notes: i32) -> ScoreData {
     let mut sd = ScoreData::new(mode);
     sd.notes = notes;
     // Split evenly between early-PG and late-PG
-    sd.epg = notes / 2;
-    sd.lpg = notes - sd.epg;
+    sd.judge_counts.epg = notes / 2;
+    sd.judge_counts.lpg = notes - sd.judge_counts.epg;
     // combo = notes for a perfect play
     sd.maxcombo = notes;
     sd
@@ -81,8 +81,8 @@ fn score_rate_calculation_overflow() {
     let mut sd = ScoreData::new(Mode::KEYBOARD_24K);
     sd.notes = 1;
     // Intentionally inconsistent: 3000 PG judges but only 1 note
-    sd.epg = 1500;
-    sd.lpg = 1500;
+    sd.judge_counts.epg = 1500;
+    sd.judge_counts.lpg = 1500;
     sd.maxcombo = 1;
 
     let mut prop = ScoreDataProperty::new();

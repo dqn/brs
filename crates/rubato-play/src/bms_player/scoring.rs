@@ -76,14 +76,14 @@ impl BMSPlayer {
         // If not in course mode and not aborted, check if any notes were hit
         if !self.is_course_mode
             && self.state != PlayState::Aborted
-            && (score.epg
-                + score.lpg
-                + score.egr
-                + score.lgr
-                + score.egd
-                + score.lgd
-                + score.ebd
-                + score.lbd
+            && (score.judge_counts.epg
+                + score.judge_counts.lpg
+                + score.judge_counts.egr
+                + score.judge_counts.lgr
+                + score.judge_counts.egd
+                + score.judge_counts.lgd
+                + score.judge_counts.ebd
+                + score.judge_counts.lbd
                 == 0)
         {
             return None;
@@ -118,24 +118,24 @@ impl BMSPlayer {
         }
         score.clear = clear.id();
         if let Some(ref gauge) = self.gauge {
-            score.gauge = if gauge.is_type_changed() {
+            score.play_option.gauge = if gauge.is_type_changed() {
                 -1
             } else {
                 gauge.gauge_type()
             };
         }
-        score.option = self.encode_option_for_score();
-        score.seed = self.encode_seed_for_score();
+        score.play_option.option = self.encode_option_for_score();
+        score.play_option.seed = self.encode_seed_for_score();
         let ghost: Vec<i32> = self.judge.ghost().to_vec();
         score.encode_ghost(Some(&ghost));
 
         score.passnotes = self.judge.past_notes();
-        score.minbp = score.ebd
-            + score.lbd
-            + score.epr
-            + score.lpr
-            + score.ems
-            + score.lms
+        score.minbp = score.judge_counts.ebd
+            + score.judge_counts.lbd
+            + score.judge_counts.epr
+            + score.judge_counts.lpr
+            + score.judge_counts.ems
+            + score.judge_counts.lms
             + self.total_notes
             - self.judge.past_notes();
 
@@ -170,25 +170,25 @@ impl BMSPlayer {
                 }
             }
         }
-        score.total_duration = avgduration;
-        score.total_avg = average;
+        score.timing_stats.total_duration = avgduration;
+        score.timing_stats.total_avg = average;
         if !play_times.is_empty() {
-            score.avgjudge = avgduration / play_times.len() as i64;
-            score.avg = average / play_times.len() as i64;
+            score.timing_stats.avgjudge = avgduration / play_times.len() as i64;
+            score.timing_stats.avg = average / play_times.len() as i64;
         }
 
         let mut stddev: i64 = 0;
         for &time in &play_times {
-            let mean_offset = time - score.avg;
+            let mean_offset = time - score.timing_stats.avg;
             stddev += mean_offset * mean_offset;
         }
         if !play_times.is_empty() {
             stddev = ((stddev / play_times.len() as i64) as f64).sqrt() as i64;
         }
-        score.stddev = stddev;
+        score.timing_stats.stddev = stddev;
 
         // Java: score.setDeviceType(main.getInputProcessor().getDeviceType());
-        score.device_type = Some(match device_type {
+        score.play_option.device_type = Some(match device_type {
             rubato_input::bms_player_input_device::DeviceType::Keyboard => {
                 rubato_types::stubs::bms_player_input_device::Type::KEYBOARD
             }
@@ -199,7 +199,7 @@ impl BMSPlayer {
                 rubato_types::stubs::bms_player_input_device::Type::MIDI
             }
         });
-        score.skin = self.skin_name.clone();
+        score.play_option.skin = self.skin_name.clone();
 
         Some(score)
     }

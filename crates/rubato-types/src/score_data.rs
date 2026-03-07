@@ -14,16 +14,10 @@ use crate::clear_type::ClearType;
 use crate::stubs::{BMSPlayerRule, JudgeAlgorithm, bms_player_input_device};
 use crate::validatable::Validatable;
 
-/// Score data
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ScoreData {
-    pub sha256: String,
-    pub player: String,
-    pub mode: i32,
-    pub clear: i32,
-    pub date: i64,
-    pub playcount: i32,
-    pub clearcount: i32,
+/// Early/late judge counts for each judge type (PG, GR, GD, BD, PR, MS).
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct JudgeCounts {
     pub epg: i32,
     pub lpg: i32,
     pub egr: i32,
@@ -36,10 +30,12 @@ pub struct ScoreData {
     pub lpr: i32,
     pub ems: i32,
     pub lms: i32,
-    pub maxcombo: i32,
-    pub notes: i32,
-    pub passnotes: i32,
-    pub minbp: i32,
+}
+
+/// Timing statistics (average judge, duration, averages, standard deviation).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct TimingStats {
     pub avgjudge: i64,
     #[serde(rename = "totalDuration")]
     pub total_duration: i64,
@@ -47,8 +43,24 @@ pub struct ScoreData {
     #[serde(rename = "totalAvg")]
     pub total_avg: i64,
     pub stddev: i64,
-    pub trophy: String,
-    pub ghost: String,
+}
+
+impl Default for TimingStats {
+    fn default() -> Self {
+        Self {
+            avgjudge: i64::MAX,
+            total_duration: 0,
+            avg: i64::MAX,
+            total_avg: 0,
+            stddev: i64::MAX,
+        }
+    }
+}
+
+/// Play options and configuration at the time of scoring.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct PlayOption {
     pub random: i32,
     pub option: i32,
     pub seed: i64,
@@ -56,13 +68,37 @@ pub struct ScoreData {
     pub gauge: i32,
     #[serde(rename = "deviceType")]
     pub device_type: Option<bms_player_input_device::Type>,
-    pub state: i32,
-    pub scorehash: String,
-    pub playmode: Mode,
     #[serde(rename = "judgeAlgorithm")]
     pub judge_algorithm: Option<JudgeAlgorithm>,
     pub rule: Option<BMSPlayerRule>,
     pub skin: Option<String>,
+}
+
+/// Score data
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ScoreData {
+    pub sha256: String,
+    pub player: String,
+    pub mode: i32,
+    pub clear: i32,
+    pub date: i64,
+    pub playcount: i32,
+    pub clearcount: i32,
+    #[serde(flatten)]
+    pub judge_counts: JudgeCounts,
+    pub maxcombo: i32,
+    pub notes: i32,
+    pub passnotes: i32,
+    pub minbp: i32,
+    #[serde(flatten)]
+    pub timing_stats: TimingStats,
+    pub trophy: String,
+    pub ghost: String,
+    #[serde(flatten)]
+    pub play_option: PlayOption,
+    pub state: i32,
+    pub scorehash: String,
+    pub playmode: Mode,
 }
 
 impl ScoreData {
@@ -100,41 +136,21 @@ impl ScoreData {
             date: 0,
             playcount: 0,
             clearcount: 0,
-            epg: 0,
-            lpg: 0,
-            egr: 0,
-            lgr: 0,
-            egd: 0,
-            lgd: 0,
-            ebd: 0,
-            lbd: 0,
-            epr: 0,
-            lpr: 0,
-            ems: 0,
-            lms: 0,
+            judge_counts: JudgeCounts::default(),
             maxcombo: 0,
             notes: 0,
             passnotes: 0,
             minbp: i32::MAX,
-            avgjudge: i64::MAX,
-            total_duration: 0,
-            avg: i64::MAX,
-            total_avg: 0,
-            stddev: i64::MAX,
+            timing_stats: TimingStats::default(),
             trophy: String::new(),
             ghost: String::new(),
-            random: 0,
-            option: 0,
-            seed: -1,
-            assist: 0,
-            gauge: 0,
-            device_type: None,
+            play_option: PlayOption {
+                seed: -1,
+                ..Default::default()
+            },
             state: 0,
             scorehash: String::new(),
             playmode,
-            judge_algorithm: None,
-            rule: None,
-            skin: None,
         }
     }
 
@@ -143,10 +159,11 @@ impl ScoreData {
     }
 
     pub fn exscore(&self) -> i32 {
-        (self.epg.saturating_add(self.lpg))
+        let jc = &self.judge_counts;
+        (jc.epg.saturating_add(jc.lpg))
             .saturating_mul(2)
-            .saturating_add(self.egr)
-            .saturating_add(self.lgr)
+            .saturating_add(jc.egr)
+            .saturating_add(jc.lgr)
     }
 
     pub fn judge_count_total(&self, judge: i32) -> i32 {
@@ -157,47 +174,48 @@ impl ScoreData {
     /// judge: 0=PG, 1=GR, 2=GD, 3=BD, 4=PR, 5=MS
     /// fast: true=FAST, false=SLOW
     pub fn judge_count(&self, judge: i32, fast: bool) -> i32 {
+        let jc = &self.judge_counts;
         match judge {
             0 => {
                 if fast {
-                    self.epg
+                    jc.epg
                 } else {
-                    self.lpg
+                    jc.lpg
                 }
             }
             1 => {
                 if fast {
-                    self.egr
+                    jc.egr
                 } else {
-                    self.lgr
+                    jc.lgr
                 }
             }
             2 => {
                 if fast {
-                    self.egd
+                    jc.egd
                 } else {
-                    self.lgd
+                    jc.lgd
                 }
             }
             3 => {
                 if fast {
-                    self.ebd
+                    jc.ebd
                 } else {
-                    self.lbd
+                    jc.lbd
                 }
             }
             4 => {
                 if fast {
-                    self.epr
+                    jc.epr
                 } else {
-                    self.lpr
+                    jc.lpr
                 }
             }
             5 => {
                 if fast {
-                    self.ems
+                    jc.ems
                 } else {
-                    self.lms
+                    jc.lms
                 }
             }
             _ => 0,
@@ -205,47 +223,48 @@ impl ScoreData {
     }
 
     pub fn add_judge_count(&mut self, judge: i32, fast: bool, count: i32) {
+        let jc = &mut self.judge_counts;
         match judge {
             0 => {
                 if fast {
-                    self.epg += count;
+                    jc.epg += count;
                 } else {
-                    self.lpg += count;
+                    jc.lpg += count;
                 }
             }
             1 => {
                 if fast {
-                    self.egr += count;
+                    jc.egr += count;
                 } else {
-                    self.lgr += count;
+                    jc.lgr += count;
                 }
             }
             2 => {
                 if fast {
-                    self.egd += count;
+                    jc.egd += count;
                 } else {
-                    self.lgd += count;
+                    jc.lgd += count;
                 }
             }
             3 => {
                 if fast {
-                    self.ebd += count;
+                    jc.ebd += count;
                 } else {
-                    self.lbd += count;
+                    jc.lbd += count;
                 }
             }
             4 => {
                 if fast {
-                    self.epr += count;
+                    jc.epr += count;
                 } else {
-                    self.lpr += count;
+                    jc.lpr += count;
                 }
             }
             5 => {
                 if fast {
-                    self.ems += count;
+                    jc.ems += count;
                 } else {
-                    self.lms += count;
+                    jc.lms += count;
                 }
             }
             _ => {}
@@ -326,44 +345,33 @@ impl ScoreData {
         let mut update = false;
         if self.clear < newscore.clear {
             self.clear = newscore.clear;
-            self.option = newscore.option;
-            self.seed = newscore.seed;
+            self.play_option.option = newscore.play_option.option;
+            self.play_option.seed = newscore.play_option.seed;
             update = true;
         }
         if self.exscore() < newscore.exscore() && update_score {
-            self.epg = newscore.epg;
-            self.lpg = newscore.lpg;
-            self.egr = newscore.egr;
-            self.lgr = newscore.lgr;
-            self.egd = newscore.egd;
-            self.lgd = newscore.lgd;
-            self.ebd = newscore.ebd;
-            self.lbd = newscore.lbd;
-            self.epr = newscore.epr;
-            self.lpr = newscore.lpr;
-            self.ems = newscore.ems;
-            self.lms = newscore.lms;
-            self.option = newscore.option;
-            self.seed = newscore.seed;
+            self.judge_counts = newscore.judge_counts.clone();
+            self.play_option.option = newscore.play_option.option;
+            self.play_option.seed = newscore.play_option.seed;
             self.ghost = newscore.ghost.clone();
             update = true;
         }
-        if self.avgjudge > newscore.avgjudge && update_score {
-            self.avgjudge = newscore.avgjudge;
-            self.option = newscore.option;
-            self.seed = newscore.seed;
+        if self.timing_stats.avgjudge > newscore.timing_stats.avgjudge && update_score {
+            self.timing_stats.avgjudge = newscore.timing_stats.avgjudge;
+            self.play_option.option = newscore.play_option.option;
+            self.play_option.seed = newscore.play_option.seed;
             update = true;
         }
         if self.minbp > newscore.minbp && update_score {
             self.minbp = newscore.minbp;
-            self.option = newscore.option;
-            self.seed = newscore.seed;
+            self.play_option.option = newscore.play_option.option;
+            self.play_option.seed = newscore.play_option.seed;
             update = true;
         }
         if self.maxcombo < newscore.maxcombo && update_score {
             self.maxcombo = newscore.maxcombo;
-            self.option = newscore.option;
-            self.seed = newscore.seed;
+            self.play_option.option = newscore.play_option.option;
+            self.play_option.seed = newscore.play_option.seed;
             update = true;
         }
         update
@@ -372,21 +380,23 @@ impl ScoreData {
 
 impl Validatable for ScoreData {
     fn validate(&mut self) -> bool {
+        let jc = &self.judge_counts;
+        let po = &self.play_option;
         self.mode >= 0
             && self.clear >= 0
             && self.clear <= ClearType::Max.id()
-            && self.epg >= 0
-            && self.lpg >= 0
-            && self.egr >= 0
-            && self.lgr >= 0
-            && self.egd >= 0
-            && self.lgd >= 0
-            && self.ebd >= 0
-            && self.lbd >= 0
-            && self.epr >= 0
-            && self.lpr >= 0
-            && self.ems >= 0
-            && self.lms >= 0
+            && jc.epg >= 0
+            && jc.lpg >= 0
+            && jc.egr >= 0
+            && jc.lgr >= 0
+            && jc.egd >= 0
+            && jc.lgd >= 0
+            && jc.ebd >= 0
+            && jc.lbd >= 0
+            && jc.epr >= 0
+            && jc.lpr >= 0
+            && jc.ems >= 0
+            && jc.lms >= 0
             && self.clearcount >= 0
             && self.playcount >= self.clearcount
             && self.maxcombo >= 0
@@ -394,48 +404,51 @@ impl Validatable for ScoreData {
             && self.passnotes >= 0
             && self.passnotes <= self.notes
             && self.minbp >= 0
-            && self.avgjudge >= 0
-            && self.random >= 0
-            && self.option >= 0
-            && self.assist >= 0
-            && self.gauge >= 0
+            && self.timing_stats.avgjudge >= 0
+            && po.random >= 0
+            && po.option >= 0
+            && po.assist >= 0
+            && po.gauge >= 0
     }
 }
 
 impl fmt::Display for ScoreData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let jc = &self.judge_counts;
+        let ts = &self.timing_stats;
+        let po = &self.play_option;
         write!(f, "{{")?;
         write!(f, "\"Date\": {}, ", self.date)?;
         write!(f, "\"Playcount\": {}, ", self.playcount)?;
         write!(f, "\"Clear\": {}, ", self.clear)?;
-        write!(f, "\"Epg\": {}, ", self.epg)?;
-        write!(f, "\"Lpg\": {}, ", self.lpg)?;
-        write!(f, "\"Egr\": {}, ", self.egr)?;
-        write!(f, "\"Lgr\": {}, ", self.lgr)?;
-        write!(f, "\"Egd\": {}, ", self.egd)?;
-        write!(f, "\"Lgd\": {}, ", self.lgd)?;
-        write!(f, "\"Ebd\": {}, ", self.ebd)?;
-        write!(f, "\"Lbd\": {}, ", self.lbd)?;
-        write!(f, "\"Epr\": {}, ", self.epr)?;
-        write!(f, "\"Lpr\": {}, ", self.lpr)?;
-        write!(f, "\"Ems\": {}, ", self.ems)?;
-        write!(f, "\"Lms\": {}, ", self.lms)?;
+        write!(f, "\"Epg\": {}, ", jc.epg)?;
+        write!(f, "\"Lpg\": {}, ", jc.lpg)?;
+        write!(f, "\"Egr\": {}, ", jc.egr)?;
+        write!(f, "\"Lgr\": {}, ", jc.lgr)?;
+        write!(f, "\"Egd\": {}, ", jc.egd)?;
+        write!(f, "\"Lgd\": {}, ", jc.lgd)?;
+        write!(f, "\"Ebd\": {}, ", jc.ebd)?;
+        write!(f, "\"Lbd\": {}, ", jc.lbd)?;
+        write!(f, "\"Epr\": {}, ", jc.epr)?;
+        write!(f, "\"Lpr\": {}, ", jc.lpr)?;
+        write!(f, "\"Ems\": {}, ", jc.ems)?;
+        write!(f, "\"Lms\": {}, ", jc.lms)?;
         write!(f, "\"Combo\": {}, ", self.maxcombo)?;
         write!(f, "\"Mode\": {}, ", self.mode)?;
         write!(f, "\"Notes\": {}, ", self.notes)?;
         write!(f, "\"Clearcount\": {}, ", self.clearcount)?;
         write!(f, "\"Minbp\": {}, ", self.minbp)?;
-        write!(f, "\"Avgjudge\": {}, ", self.avgjudge)?;
+        write!(f, "\"Avgjudge\": {}, ", ts.avgjudge)?;
         write!(f, "\"Trophy\": \"{}\", ", self.trophy)?;
-        write!(f, "\"Option\": {}, ", self.option)?;
+        write!(f, "\"Option\": {}, ", po.option)?;
         write!(f, "\"State\": {}, ", self.state)?;
         write!(f, "\"Sha256\": \"{}\", ", self.sha256)?;
         write!(f, "\"Exscore\": {}, ", self.exscore())?;
-        write!(f, "\"Random\": {}, ", self.random)?;
+        write!(f, "\"Random\": {}, ", po.random)?;
         write!(f, "\"Scorehash\": \"{}\", ", self.scorehash)?;
-        write!(f, "\"Assist\": {}, ", self.assist)?;
-        write!(f, "\"Gauge\": {}, ", self.gauge)?;
-        write!(f, "\"DeviceType\": \"{:?}\", ", self.device_type)?;
+        write!(f, "\"Assist\": {}, ", po.assist)?;
+        write!(f, "\"Gauge\": {}, ", po.gauge)?;
+        write!(f, "\"DeviceType\": \"{:?}\", ", po.device_type)?;
         write!(f, "\"Playmode\": \"{:?}\", ", self.playmode)?;
         write!(f, "\"Ghost\": \"{}\", ", self.ghost)?;
         write!(f, "\"Passnotes\": {}", self.passnotes)?;
@@ -531,31 +544,31 @@ mod tests {
         assert_eq!(sd.date, 0);
         assert_eq!(sd.playcount, 0);
         assert_eq!(sd.clearcount, 0);
-        assert_eq!(sd.epg, 0);
-        assert_eq!(sd.lpg, 0);
-        assert_eq!(sd.egr, 0);
-        assert_eq!(sd.lgr, 0);
-        assert_eq!(sd.egd, 0);
-        assert_eq!(sd.lgd, 0);
-        assert_eq!(sd.ebd, 0);
-        assert_eq!(sd.lbd, 0);
-        assert_eq!(sd.epr, 0);
-        assert_eq!(sd.lpr, 0);
-        assert_eq!(sd.ems, 0);
-        assert_eq!(sd.lms, 0);
+        assert_eq!(sd.judge_counts.epg, 0);
+        assert_eq!(sd.judge_counts.lpg, 0);
+        assert_eq!(sd.judge_counts.egr, 0);
+        assert_eq!(sd.judge_counts.lgr, 0);
+        assert_eq!(sd.judge_counts.egd, 0);
+        assert_eq!(sd.judge_counts.lgd, 0);
+        assert_eq!(sd.judge_counts.ebd, 0);
+        assert_eq!(sd.judge_counts.lbd, 0);
+        assert_eq!(sd.judge_counts.epr, 0);
+        assert_eq!(sd.judge_counts.lpr, 0);
+        assert_eq!(sd.judge_counts.ems, 0);
+        assert_eq!(sd.judge_counts.lms, 0);
         assert_eq!(sd.maxcombo, 0);
         assert_eq!(sd.notes, 0);
         assert_eq!(sd.passnotes, 0);
         assert_eq!(sd.minbp, i32::MAX);
-        assert_eq!(sd.avgjudge, i64::MAX);
-        assert_eq!(sd.seed, -1);
+        assert_eq!(sd.timing_stats.avgjudge, i64::MAX);
+        assert_eq!(sd.play_option.seed, -1);
         assert_eq!(sd.trophy, "");
         assert_eq!(sd.ghost, "");
         assert_eq!(sd.scorehash, "");
-        assert!(sd.device_type.is_none());
-        assert!(sd.judge_algorithm.is_none());
-        assert!(sd.rule.is_none());
-        assert!(sd.skin.is_none());
+        assert!(sd.play_option.device_type.is_none());
+        assert!(sd.play_option.judge_algorithm.is_none());
+        assert!(sd.play_option.rule.is_none());
+        assert!(sd.play_option.skin.is_none());
     }
 
     #[test]
@@ -571,12 +584,12 @@ mod tests {
         sd.sha256 = "abc123".to_string();
         sd.player = "player1".to_string();
         sd.clear = 5;
-        sd.epg = 100;
-        sd.lpg = 90;
-        sd.egr = 80;
-        sd.lgr = 70;
-        sd.egd = 10;
-        sd.lgd = 5;
+        sd.judge_counts.epg = 100;
+        sd.judge_counts.lpg = 90;
+        sd.judge_counts.egr = 80;
+        sd.judge_counts.lgr = 70;
+        sd.judge_counts.egd = 10;
+        sd.judge_counts.lgd = 5;
         sd.maxcombo = 250;
         sd.notes = 500;
         sd.date = 1700000000;
@@ -587,12 +600,12 @@ mod tests {
         assert_eq!(deserialized.sha256, "abc123");
         assert_eq!(deserialized.player, "player1");
         assert_eq!(deserialized.clear, 5);
-        assert_eq!(deserialized.epg, 100);
-        assert_eq!(deserialized.lpg, 90);
-        assert_eq!(deserialized.egr, 80);
-        assert_eq!(deserialized.lgr, 70);
-        assert_eq!(deserialized.egd, 10);
-        assert_eq!(deserialized.lgd, 5);
+        assert_eq!(deserialized.judge_counts.epg, 100);
+        assert_eq!(deserialized.judge_counts.lpg, 90);
+        assert_eq!(deserialized.judge_counts.egr, 80);
+        assert_eq!(deserialized.judge_counts.lgr, 70);
+        assert_eq!(deserialized.judge_counts.egd, 10);
+        assert_eq!(deserialized.judge_counts.lgd, 5);
         assert_eq!(deserialized.maxcombo, 250);
         assert_eq!(deserialized.notes, 500);
         assert_eq!(deserialized.date, 1700000000);
@@ -601,10 +614,10 @@ mod tests {
     #[test]
     fn test_exscore_calculation() {
         let mut sd = ScoreData::default();
-        sd.epg = 100;
-        sd.lpg = 50;
-        sd.egr = 30;
-        sd.lgr = 20;
+        sd.judge_counts.epg = 100;
+        sd.judge_counts.lpg = 50;
+        sd.judge_counts.egr = 30;
+        sd.judge_counts.lgr = 20;
         // exscore = (epg + lpg) * 2 + egr + lgr = (100+50)*2 + 30+20 = 350
         assert_eq!(sd.exscore(), 350);
     }
@@ -612,18 +625,18 @@ mod tests {
     #[test]
     fn test_judge_count() {
         let mut sd = ScoreData::default();
-        sd.epg = 10;
-        sd.lpg = 20;
-        sd.egr = 30;
-        sd.lgr = 40;
-        sd.egd = 5;
-        sd.lgd = 6;
-        sd.ebd = 3;
-        sd.lbd = 4;
-        sd.epr = 1;
-        sd.lpr = 2;
-        sd.ems = 7;
-        sd.lms = 8;
+        sd.judge_counts.epg = 10;
+        sd.judge_counts.lpg = 20;
+        sd.judge_counts.egr = 30;
+        sd.judge_counts.lgr = 40;
+        sd.judge_counts.egd = 5;
+        sd.judge_counts.lgd = 6;
+        sd.judge_counts.ebd = 3;
+        sd.judge_counts.lbd = 4;
+        sd.judge_counts.epr = 1;
+        sd.judge_counts.lpr = 2;
+        sd.judge_counts.ems = 7;
+        sd.judge_counts.lms = 8;
 
         // PG (judge=0)
         assert_eq!(sd.judge_count(0, true), 10);
@@ -666,10 +679,10 @@ mod tests {
         // Out of range should be no-op
         sd.add_judge_count(6, true, 100);
 
-        assert_eq!(sd.epg, 5);
-        assert_eq!(sd.lpg, 3);
-        assert_eq!(sd.egr, 10);
-        assert_eq!(sd.lms, 2);
+        assert_eq!(sd.judge_counts.epg, 5);
+        assert_eq!(sd.judge_counts.lpg, 3);
+        assert_eq!(sd.judge_counts.egr, 10);
+        assert_eq!(sd.judge_counts.lms, 2);
     }
 
     #[test]
@@ -731,29 +744,29 @@ mod tests {
     #[test]
     fn test_update_exscore() {
         let mut sd = ScoreData::default();
-        sd.epg = 10;
-        sd.lpg = 10;
+        sd.judge_counts.epg = 10;
+        sd.judge_counts.lpg = 10;
         sd.notes = 100;
 
         let mut newscore = ScoreData::default();
-        newscore.epg = 50;
-        newscore.lpg = 50;
+        newscore.judge_counts.epg = 50;
+        newscore.judge_counts.lpg = 50;
         newscore.notes = 100;
 
         assert!(sd.update(&newscore, true));
-        assert_eq!(sd.epg, 50);
-        assert_eq!(sd.lpg, 50);
+        assert_eq!(sd.judge_counts.epg, 50);
+        assert_eq!(sd.judge_counts.lpg, 50);
     }
 
     #[test]
     fn test_update_no_change() {
         let mut sd = ScoreData::default();
         sd.clear = 5;
-        sd.epg = 100;
-        sd.lpg = 100;
+        sd.judge_counts.epg = 100;
+        sd.judge_counts.lpg = 100;
         sd.maxcombo = 200;
         sd.minbp = 0;
-        sd.avgjudge = 0;
+        sd.timing_stats.avgjudge = 0;
 
         let newscore = sd.clone();
         assert!(!sd.update(&newscore, true));
@@ -835,10 +848,10 @@ mod tests {
     fn test_score_data_serde_java_field_names() {
         let mut sd = ScoreData::new(Mode::BEAT_7K);
         sd.maxcombo = 250;
-        sd.total_duration = 120_000;
-        sd.total_avg = 500;
-        sd.device_type = None;
-        sd.judge_algorithm = None;
+        sd.timing_stats.total_duration = 120_000;
+        sd.timing_stats.total_avg = 500;
+        sd.play_option.device_type = None;
+        sd.play_option.judge_algorithm = None;
 
         let json = serde_json::to_string(&sd).unwrap();
 
@@ -896,8 +909,8 @@ mod tests {
         // Round-trip: deserialize from Java-style JSON
         let deserialized: ScoreData = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.maxcombo, 250);
-        assert_eq!(deserialized.total_duration, 120_000);
-        assert_eq!(deserialized.total_avg, 500);
+        assert_eq!(deserialized.timing_stats.total_duration, 120_000);
+        assert_eq!(deserialized.timing_stats.total_avg, 500);
     }
 
     #[test]
@@ -918,10 +931,10 @@ mod tests {
     /// Helper: build a ScoreData with specific judge counts and notes.
     fn make_score(epg: i32, lpg: i32, egr: i32, lgr: i32, notes: i32) -> ScoreData {
         let mut sd = ScoreData::default();
-        sd.epg = epg;
-        sd.lpg = lpg;
-        sd.egr = egr;
-        sd.lgr = lgr;
+        sd.judge_counts.epg = epg;
+        sd.judge_counts.lpg = lpg;
+        sd.judge_counts.egr = egr;
+        sd.judge_counts.lgr = lgr;
         sd.notes = notes;
         sd
     }
@@ -1326,14 +1339,14 @@ mod tests {
     #[test]
     fn test_exscore_ignores_gd_bd_pr_ms() {
         let mut sd = ScoreData::default();
-        sd.egd = 100;
-        sd.lgd = 200;
-        sd.ebd = 300;
-        sd.lbd = 400;
-        sd.epr = 500;
-        sd.lpr = 600;
-        sd.ems = 700;
-        sd.lms = 800;
+        sd.judge_counts.egd = 100;
+        sd.judge_counts.lgd = 200;
+        sd.judge_counts.ebd = 300;
+        sd.judge_counts.lbd = 400;
+        sd.judge_counts.epr = 500;
+        sd.judge_counts.lpr = 600;
+        sd.judge_counts.ems = 700;
+        sd.judge_counts.lms = 800;
         sd.notes = 3600;
         // None of these contribute to exscore
         assert_eq!(sd.exscore(), 0);

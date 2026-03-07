@@ -451,13 +451,13 @@ fn create_score_data_timing_stats_with_hit_notes() {
     let score = player.create_score_data(DeviceType::Keyboard).unwrap();
 
     // total_duration = |1000| + |-2000| + |3000| = 6000
-    assert_eq!(score.total_duration, 6000);
+    assert_eq!(score.timing_stats.total_duration, 6000);
     // total_avg = 1000 + (-2000) + 3000 = 2000
-    assert_eq!(score.total_avg, 2000);
+    assert_eq!(score.timing_stats.total_avg, 2000);
     // avgjudge = total_duration / count = 6000 / 3 = 2000
-    assert_eq!(score.avgjudge, 2000);
+    assert_eq!(score.timing_stats.avgjudge, 2000);
     // avg = total_avg / count = 2000 / 3 = 666
-    assert_eq!(score.avg, 666);
+    assert_eq!(score.timing_stats.avg, 666);
     // stddev = sqrt(((1000 - 666)^2 + (-2000 - 666)^2 + (3000 - 666)^2) / 3)
     //        = sqrt((111556 + 7111696 + 5449956) / 3)
     //        = sqrt(12673208 / 3)
@@ -466,7 +466,7 @@ fn create_score_data_timing_stats_with_hit_notes() {
     let mean = 666_i64;
     let var = ((1000 - mean).pow(2) + (-2000 - mean).pow(2) + (3000 - mean).pow(2)) / 3;
     let expected_stddev = (var as f64).sqrt() as i64;
-    assert_eq!(score.stddev, expected_stddev);
+    assert_eq!(score.timing_stats.stddev, expected_stddev);
 }
 
 #[test]
@@ -481,12 +481,12 @@ fn create_score_data_timing_stats_no_judged_notes() {
 
     // No notes matched state 1-4:
     // avgjudge and avg stay at initial i64::MAX (conditional set not entered)
-    assert_eq!(score.avgjudge, i64::MAX);
-    assert_eq!(score.avg, i64::MAX);
+    assert_eq!(score.timing_stats.avgjudge, i64::MAX);
+    assert_eq!(score.timing_stats.avg, i64::MAX);
     // total_duration, total_avg, and stddev are unconditionally set to 0
-    assert_eq!(score.total_duration, 0);
-    assert_eq!(score.total_avg, 0);
-    assert_eq!(score.stddev, 0);
+    assert_eq!(score.timing_stats.total_duration, 0);
+    assert_eq!(score.timing_stats.total_avg, 0);
+    assert_eq!(score.timing_stats.stddev, 0);
 }
 
 #[test]
@@ -526,10 +526,10 @@ fn create_score_data_timing_stats_filters_ln_end_notes() {
     let score = player.create_score_data(DeviceType::Keyboard).unwrap();
 
     // Only normal(1000) and ln_start(2000) should be included
-    assert_eq!(score.total_duration, 3000); // |1000| + |2000|
-    assert_eq!(score.total_avg, 3000); // 1000 + 2000
-    assert_eq!(score.avgjudge, 1500); // 3000 / 2
-    assert_eq!(score.avg, 1500); // 3000 / 2
+    assert_eq!(score.timing_stats.total_duration, 3000); // |1000| + |2000|
+    assert_eq!(score.timing_stats.total_avg, 3000); // 1000 + 2000
+    assert_eq!(score.timing_stats.avgjudge, 1500); // 3000 / 2
+    assert_eq!(score.timing_stats.avg, 1500); // 3000 / 2
 }
 
 #[test]
@@ -563,7 +563,7 @@ fn create_score_data_sets_device_type_keyboard() {
 
     let score = player.create_score_data(DeviceType::Keyboard).unwrap();
     assert_eq!(
-        score.device_type,
+        score.play_option.device_type,
         Some(bms_player_input_device::Type::KEYBOARD)
     );
 }
@@ -578,7 +578,7 @@ fn create_score_data_sets_device_type_bm_controller() {
 
     let score = player.create_score_data(DeviceType::BmController).unwrap();
     assert_eq!(
-        score.device_type,
+        score.play_option.device_type,
         Some(bms_player_input_device::Type::BM_CONTROLLER)
     );
 }
@@ -592,7 +592,10 @@ fn create_score_data_sets_device_type_midi() {
     player.state = PlayState::Aborted;
 
     let score = player.create_score_data(DeviceType::Midi).unwrap();
-    assert_eq!(score.device_type, Some(bms_player_input_device::Type::MIDI));
+    assert_eq!(
+        score.play_option.device_type,
+        Some(bms_player_input_device::Type::MIDI)
+    );
 }
 
 // --- update_judge tests ---
@@ -2042,7 +2045,7 @@ fn stop_play_failed_path_sets_pending_pitch_to_one() {
 
     // Simulate some notes judged (not finished but notes exist)
     // Force the judge counts so we enter the failed branch
-    player.judge.score_data_mut().epg = 5; // 5 early PGreats
+    player.judge.score_data_mut().judge_counts.epg = 5; // 5 early PGreats
     player.total_notes = 100; // not all past
     player.stop_play();
     assert_eq!(player.state, PlayState::Failed);

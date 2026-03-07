@@ -224,18 +224,18 @@ impl MusicSelector {
             ChartReplicationMode::None => None,
             ChartReplicationMode::RivalChart => rival_score.map(|rival| {
                 let mut opt = rubato_types::replay_data::ReplayData::new();
-                opt.randomoption = rival.option % 10;
-                opt.randomoption2 = (rival.option / 10) % 10;
-                opt.doubleoption = rival.option / 100;
-                opt.randomoptionseed = rival.seed % (65536 * 256);
-                opt.randomoption2seed = rival.seed / (65536 * 256);
+                opt.randomoption = rival.play_option.option % 10;
+                opt.randomoption2 = (rival.play_option.option / 10) % 10;
+                opt.doubleoption = rival.play_option.option / 100;
+                opt.randomoptionseed = rival.play_option.seed % (65536 * 256);
+                opt.randomoption2seed = rival.play_option.seed / (65536 * 256);
                 opt
             }),
             ChartReplicationMode::RivalOption => rival_score.map(|rival| {
                 let mut opt = rubato_types::replay_data::ReplayData::new();
-                opt.randomoption = rival.option % 10;
-                opt.randomoption2 = (rival.option / 10) % 10;
-                opt.doubleoption = rival.option / 100;
+                opt.randomoption = rival.play_option.option % 10;
+                opt.randomoption2 = (rival.play_option.option / 10) % 10;
+                opt.doubleoption = rival.play_option.option / 100;
                 opt
             }),
             ChartReplicationMode::ReplayChart | ChartReplicationMode::ReplayOption => {

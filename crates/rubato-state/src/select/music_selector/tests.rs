@@ -449,7 +449,7 @@ fn test_ranking_position_with_ir() {
     let scores: Vec<IRScoreData> = (0..10)
         .map(|i| {
             let mut sd = CoreScoreData::default();
-            sd.epg = (i + 1) * 10; // different exscores so sorting works
+            sd.judge_counts.epg = (i + 1) * 10; // different exscores so sorting works
             IRScoreData::new(&sd)
         })
         .collect();

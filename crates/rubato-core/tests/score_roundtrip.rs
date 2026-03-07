@@ -13,37 +13,46 @@ use rubato_core::score_database_accessor::ScoreDatabaseAccessor;
 /// `avg`, `total_avg`, `stddev`, `assist`, `gauge`, `device_type`, `playmode`,
 /// `judge_algorithm`, `rule`, and `skin` are NOT stored in the score table.
 fn make_test_score() -> ScoreData {
+    use rubato_types::score_data::{JudgeCounts, PlayOption, TimingStats};
     ScoreData {
         sha256: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string(),
         mode: 0,
         clear: 7, // ExHard
-        epg: 500,
-        lpg: 480,
-        egr: 120,
-        lgr: 110,
-        egd: 30,
-        lgd: 25,
-        ebd: 10,
-        lbd: 8,
-        epr: 3,
-        lpr: 2,
-        ems: 1,
-        lms: 1,
+        judge_counts: JudgeCounts {
+            epg: 500,
+            lpg: 480,
+            egr: 120,
+            lgr: 110,
+            egd: 30,
+            lgd: 25,
+            ebd: 10,
+            lbd: 8,
+            epr: 3,
+            lpr: 2,
+            ems: 1,
+            lms: 1,
+        },
         notes: 1290,
         maxcombo: 1250,
         minbp: 15,
-        avgjudge: 42000,
+        timing_stats: TimingStats {
+            avgjudge: 42000,
+            ..Default::default()
+        },
         playcount: 50,
         clearcount: 35,
         trophy: "gGhH".to_string(),
         ghost: "test_ghost_data".to_string(),
-        option: 3,
-        seed: 12345,
-        random: 2,
+        play_option: PlayOption {
+            option: 3,
+            seed: 12345,
+            random: 2,
+            ..Default::default()
+        },
         date: 1700000000,
         state: 1,
         scorehash: "deadbeef01234567deadbeef01234567".to_string(),
-        // Fields not persisted in the score table — use defaults
+        // Fields not persisted in the score table -- use defaults
         ..Default::default()
     }
 }
@@ -72,24 +81,24 @@ fn score_data_roundtrip() {
     assert_eq!(restored.clear, score.clear);
 
     // Verify judge counts (early/late for PG, GR, GD, BD, PR, MS)
-    assert_eq!(restored.epg, score.epg);
-    assert_eq!(restored.lpg, score.lpg);
-    assert_eq!(restored.egr, score.egr);
-    assert_eq!(restored.lgr, score.lgr);
-    assert_eq!(restored.egd, score.egd);
-    assert_eq!(restored.lgd, score.lgd);
-    assert_eq!(restored.ebd, score.ebd);
-    assert_eq!(restored.lbd, score.lbd);
-    assert_eq!(restored.epr, score.epr);
-    assert_eq!(restored.lpr, score.lpr);
-    assert_eq!(restored.ems, score.ems);
-    assert_eq!(restored.lms, score.lms);
+    assert_eq!(restored.judge_counts.epg, score.judge_counts.epg);
+    assert_eq!(restored.judge_counts.lpg, score.judge_counts.lpg);
+    assert_eq!(restored.judge_counts.egr, score.judge_counts.egr);
+    assert_eq!(restored.judge_counts.lgr, score.judge_counts.lgr);
+    assert_eq!(restored.judge_counts.egd, score.judge_counts.egd);
+    assert_eq!(restored.judge_counts.lgd, score.judge_counts.lgd);
+    assert_eq!(restored.judge_counts.ebd, score.judge_counts.ebd);
+    assert_eq!(restored.judge_counts.lbd, score.judge_counts.lbd);
+    assert_eq!(restored.judge_counts.epr, score.judge_counts.epr);
+    assert_eq!(restored.judge_counts.lpr, score.judge_counts.lpr);
+    assert_eq!(restored.judge_counts.ems, score.judge_counts.ems);
+    assert_eq!(restored.judge_counts.lms, score.judge_counts.lms);
 
     // Verify note/combo/bp/judge stats
     assert_eq!(restored.notes, score.notes);
     assert_eq!(restored.maxcombo, score.maxcombo);
     assert_eq!(restored.minbp, score.minbp);
-    assert_eq!(restored.avgjudge, score.avgjudge);
+    assert_eq!(restored.timing_stats.avgjudge, score.timing_stats.avgjudge);
 
     // Verify play statistics
     assert_eq!(restored.playcount, score.playcount);
@@ -101,9 +110,9 @@ fn score_data_roundtrip() {
     assert_eq!(restored.scorehash, score.scorehash);
 
     // Verify option/random/seed
-    assert_eq!(restored.option, score.option);
-    assert_eq!(restored.seed, score.seed);
-    assert_eq!(restored.random, score.random);
+    assert_eq!(restored.play_option.option, score.play_option.option);
+    assert_eq!(restored.play_option.seed, score.play_option.seed);
+    assert_eq!(restored.play_option.random, score.play_option.random);
 
     // Verify date and state
     assert_eq!(restored.date, score.date);

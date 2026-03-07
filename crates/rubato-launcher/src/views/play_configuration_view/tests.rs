@@ -760,11 +760,26 @@ fn test_import_score_data_from_lr2_imports_matching_scores() {
     assert!(score.is_some(), "Score should have been imported");
 
     let score = score.unwrap();
-    assert_eq!(score.epg, 100, "epg should be mapped from LR2 perfect");
-    assert_eq!(score.egr, 50, "egr should be mapped from LR2 great");
-    assert_eq!(score.egd, 10, "egd should be mapped from LR2 good");
-    assert_eq!(score.ebd, 5, "ebd should be mapped from LR2 bad");
-    assert_eq!(score.epr, 3, "epr should be mapped from LR2 poor");
+    assert_eq!(
+        score.judge_counts.epg, 100,
+        "epg should be mapped from LR2 perfect"
+    );
+    assert_eq!(
+        score.judge_counts.egr, 50,
+        "egr should be mapped from LR2 great"
+    );
+    assert_eq!(
+        score.judge_counts.egd, 10,
+        "egd should be mapped from LR2 good"
+    );
+    assert_eq!(
+        score.judge_counts.ebd, 5,
+        "ebd should be mapped from LR2 bad"
+    );
+    assert_eq!(
+        score.judge_counts.epr, 3,
+        "epr should be mapped from LR2 poor"
+    );
     assert_eq!(score.minbp, 8, "minbp should be mapped from LR2 minbp");
     // LR2 clear=2 -> clears[2]=4
     assert_eq!(score.clear, 4, "clear should be mapped via clears table");

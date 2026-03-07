@@ -112,7 +112,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for ResultRenderContex
 
     fn gauge_value(&self) -> f32 {
         // Return final gauge value from score data
-        self.data.oldscore.gauge as f32 / 100.0
+        self.data.oldscore.play_option.gauge as f32 / 100.0
     }
 
     fn gauge_type(&self) -> i32 {
@@ -569,7 +569,8 @@ impl MusicResult {
                                 if let Some(mut cscore) = self.resource.course_score_data().cloned()
                                 {
                                     cscore.minbp += total_notes;
-                                    cscore.total_duration += 1000000i64 * total_notes as i64;
+                                    cscore.timing_stats.total_duration +=
+                                        1000000i64 * total_notes as i64;
                                     self.resource.set_course_score_data(cscore);
                                 }
                             }
@@ -814,9 +815,9 @@ impl MusicResult {
         self.data.score.update_score(Some(&newscore));
 
         // duration average
-        self.data.avgduration = newscore.avgjudge;
-        self.data.avg = newscore.avg;
-        self.data.stddev = newscore.stddev;
+        self.data.avgduration = newscore.timing_stats.avgjudge;
+        self.data.avg = newscore.timing_stats.avg;
+        self.data.stddev = newscore.timing_stats.stddev;
         self.data.timing_distribution.init();
 
         let model = self.resource.bms_model();
@@ -863,30 +864,30 @@ impl MusicResult {
                     }
                 }
                 new_cscore.notes = notes;
-                new_cscore.device_type = newscore.device_type;
-                new_cscore.option = newscore.option;
-                new_cscore.judge_algorithm = newscore.judge_algorithm;
-                new_cscore.rule = newscore.rule;
+                new_cscore.play_option.device_type = newscore.play_option.device_type;
+                new_cscore.play_option.option = newscore.play_option.option;
+                new_cscore.play_option.judge_algorithm = newscore.play_option.judge_algorithm;
+                new_cscore.play_option.rule = newscore.play_option.rule;
                 self.resource.set_course_score_data(new_cscore.clone());
                 cscore = Some(new_cscore);
             }
 
             if let Some(ref mut cs) = cscore {
                 cs.passnotes += newscore.passnotes;
-                cs.epg += newscore.epg;
-                cs.lpg += newscore.lpg;
-                cs.egr += newscore.egr;
-                cs.lgr += newscore.lgr;
-                cs.egd += newscore.egd;
-                cs.lgd += newscore.lgd;
-                cs.ebd += newscore.ebd;
-                cs.lbd += newscore.lbd;
-                cs.epr += newscore.epr;
-                cs.lpr += newscore.lpr;
-                cs.ems += newscore.ems;
-                cs.lms += newscore.lms;
+                cs.judge_counts.epg += newscore.judge_counts.epg;
+                cs.judge_counts.lpg += newscore.judge_counts.lpg;
+                cs.judge_counts.egr += newscore.judge_counts.egr;
+                cs.judge_counts.lgr += newscore.judge_counts.lgr;
+                cs.judge_counts.egd += newscore.judge_counts.egd;
+                cs.judge_counts.lgd += newscore.judge_counts.lgd;
+                cs.judge_counts.ebd += newscore.judge_counts.ebd;
+                cs.judge_counts.lbd += newscore.judge_counts.lbd;
+                cs.judge_counts.epr += newscore.judge_counts.epr;
+                cs.judge_counts.lpr += newscore.judge_counts.lpr;
+                cs.judge_counts.ems += newscore.judge_counts.ems;
+                cs.judge_counts.lms += newscore.judge_counts.lms;
                 cs.minbp += newscore.minbp;
-                cs.total_duration += newscore.total_duration;
+                cs.timing_stats.total_duration += newscore.timing_stats.total_duration;
 
                 let gauge_type = self
                     .resource
@@ -981,47 +982,48 @@ impl MusicResult {
 
     pub fn judge_count(&self, judge: i32, fast: bool) -> i32 {
         if let Some(score) = self.resource.score_data() {
+            let jc = &score.judge_counts;
             match judge {
                 0 => {
                     if fast {
-                        score.epg
+                        jc.epg
                     } else {
-                        score.lpg
+                        jc.lpg
                     }
                 }
                 1 => {
                     if fast {
-                        score.egr
+                        jc.egr
                     } else {
-                        score.lgr
+                        jc.lgr
                     }
                 }
                 2 => {
                     if fast {
-                        score.egd
+                        jc.egd
                     } else {
-                        score.lgd
+                        jc.lgd
                     }
                 }
                 3 => {
                     if fast {
-                        score.ebd
+                        jc.ebd
                     } else {
-                        score.lbd
+                        jc.lbd
                     }
                 }
                 4 => {
                     if fast {
-                        score.epr
+                        jc.epr
                     } else {
-                        score.lpr
+                        jc.lpr
                     }
                 }
                 5 => {
                     if fast {
-                        score.ems
+                        jc.ems
                     } else {
-                        score.lms
+                        jc.lms
                     }
                 }
                 _ => 0,

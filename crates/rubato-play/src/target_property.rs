@@ -116,8 +116,8 @@ impl StaticTargetProperty {
             .unwrap_or(0);
         let rivalscore = (total_notes as f64 * 2.0 * self.rate as f64 / 100.0).ceil() as i32;
         self.target_score.player = self.name.clone();
-        self.target_score.epg = rivalscore / 2;
-        self.target_score.egr = rivalscore % 2;
+        self.target_score.judge_counts.epg = rivalscore / 2;
+        self.target_score.judge_counts.egr = rivalscore % 2;
         self.target_score.clone()
     }
 
@@ -226,7 +226,7 @@ impl RivalTargetProperty {
             Some(sd) => sd,
             None => {
                 self.target_score.player = "NO RIVAL".to_string();
-                self.target_score.option = 0;
+                self.target_score.play_option.option = 0;
                 return self.target_score.clone();
             }
         };
@@ -283,17 +283,17 @@ impl RivalTargetProperty {
 
         if let Some(s) = score {
             self.target_score.player = name.unwrap_or_default();
-            self.target_score.epg = s.epg;
-            self.target_score.lpg = s.lpg;
-            self.target_score.egr = s.egr;
-            self.target_score.lgr = s.lgr;
-            self.target_score.option = s.option;
+            self.target_score.judge_counts.epg = s.judge_counts.epg;
+            self.target_score.judge_counts.lpg = s.judge_counts.lpg;
+            self.target_score.judge_counts.egr = s.judge_counts.egr;
+            self.target_score.judge_counts.lgr = s.judge_counts.lgr;
+            self.target_score.play_option.option = s.play_option.option;
         } else if name.is_some() {
             self.target_score.player = "NO DATA".to_string();
-            self.target_score.option = 0;
+            self.target_score.play_option.option = 0;
         } else {
             self.target_score.player = "NO RIVAL".to_string();
-            self.target_score.option = 0;
+            self.target_score.play_option.option = 0;
         }
 
         self.target_score.clone()
@@ -463,9 +463,9 @@ impl InternetRankingTargetProperty {
                         } else {
                             ir_score.player.clone()
                         };
-                        score.epg = exscore / 2;
-                        score.egr = exscore % 2;
-                        score.option = ir_score.option;
+                        score.judge_counts.epg = exscore / 2;
+                        score.judge_counts.egr = exscore % 2;
+                        score.play_option.option = ir_score.option;
                     } else {
                         score.player = "NO DATA".to_string();
                     }
@@ -534,22 +534,22 @@ impl InternetRankingTargetProperty {
                         } else {
                             ir_score.player.clone()
                         };
-                        self.target_score.epg = exscore / 2;
-                        self.target_score.egr = exscore % 2;
-                        self.target_score.option = ir_score.option;
+                        self.target_score.judge_counts.epg = exscore / 2;
+                        self.target_score.judge_counts.egr = exscore % 2;
+                        self.target_score.play_option.option = ir_score.option;
                     } else {
                         self.target_score.player = "NO DATA".to_string();
-                        self.target_score.option = 0;
+                        self.target_score.play_option.option = 0;
                     }
                 } else {
                     self.target_score.player = "NO DATA".to_string();
-                    self.target_score.option = 0;
+                    self.target_score.play_option.option = 0;
                 }
             }
             _ => {
                 // Not yet loaded or no ranking data available
                 self.target_score.player = "NO DATA".to_string();
-                self.target_score.option = 0;
+                self.target_score.play_option.option = 0;
             }
         }
         self.target_score.clone()
@@ -670,8 +670,8 @@ impl NextRankTargetProperty {
         }
 
         self.target_score.player = "NEXT RANK".to_string();
-        self.target_score.epg = targetscore / 2;
-        self.target_score.egr = targetscore % 2;
+        self.target_score.judge_counts.epg = targetscore / 2;
+        self.target_score.judge_counts.egr = targetscore % 2;
         self.target_score.clone()
     }
 }
@@ -846,8 +846,8 @@ mod tests {
         let mut main = make_main();
         let score = target.target(&mut main);
         // No PlayerResource → total_notes=0 → rivalscore=0
-        assert_eq!(score.epg, 0);
-        assert_eq!(score.egr, 0);
+        assert_eq!(score.judge_counts.epg, 0);
+        assert_eq!(score.judge_counts.egr, 0);
         assert_eq!(score.player, "MAX");
     }
 
@@ -876,8 +876,8 @@ mod tests {
         let score = target.target(&mut main);
         assert_eq!(score.player, "NEXT RANK");
         // No model → max=0, nowscore=0, targetscore=0
-        assert_eq!(score.epg, 0);
-        assert_eq!(score.egr, 0);
+        assert_eq!(score.judge_counts.epg, 0);
+        assert_eq!(score.judge_counts.egr, 0);
     }
 
     #[test]
@@ -977,13 +977,11 @@ mod tests {
     fn test_ir_async_load_success() {
         use std::sync::Arc;
 
-        let score_data = ScoreData {
-            player: "TestPlayer".to_string(),
-            epg: 500,
-            egr: 200,
-            option: 42,
-            ..Default::default()
-        };
+        let mut score_data = ScoreData::default();
+        score_data.player = "TestPlayer".to_string();
+        score_data.judge_counts.epg = 500;
+        score_data.judge_counts.egr = 200;
+        score_data.play_option.option = 42;
         let ir_score = rubato_ir::ir_score_data::IRScoreData::new(&score_data);
 
         let conn: Arc<dyn rubato_ir::ir_connection::IRConnection + Send + Sync> =
@@ -1016,7 +1014,7 @@ mod tests {
 
         assert!(received, "should have received async IR load result");
         assert_eq!(prop.target_score.player, "TestPlayer");
-        assert_eq!(prop.target_score.option, 42);
+        assert_eq!(prop.target_score.play_option.option, 42);
     }
 
     #[test]
@@ -1058,13 +1056,11 @@ mod tests {
 
         // Simulate a completed async load by injecting a pre-loaded channel
         let (tx, rx) = mpsc::channel();
-        let score = ScoreData {
-            player: "AsyncPlayer".to_string(),
-            epg: 100,
-            egr: 1,
-            option: 7,
-            ..Default::default()
-        };
+        let mut score = ScoreData::default();
+        score.player = "AsyncPlayer".to_string();
+        score.judge_counts.epg = 100;
+        score.judge_counts.egr = 1;
+        score.play_option.option = 7;
         tx.send(score).unwrap();
         prop.ir_result_rx = Some(rx);
         prop.loading_initiated = true;
@@ -1072,9 +1068,9 @@ mod tests {
         let main = make_main();
         let result = prop.target(&main);
         assert_eq!(result.player, "AsyncPlayer");
-        assert_eq!(result.epg, 100);
-        assert_eq!(result.egr, 1);
-        assert_eq!(result.option, 7);
+        assert_eq!(result.judge_counts.epg, 100);
+        assert_eq!(result.judge_counts.egr, 1);
+        assert_eq!(result.play_option.option, 7);
         assert!(
             prop.ir_result_rx.is_none(),
             "receiver should be consumed after receiving"

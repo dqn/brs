@@ -125,22 +125,22 @@ pub trait SkinRenderContext: TimerAccess {
                 .current_play_config_ref()
                 .map_or(-1, |config| config.fixhispeed),
             61 => self.target_score_data().map_or(-1, |score| {
-                if score.option >= 0 {
-                    score.option % 10
+                if score.play_option.option >= 0 {
+                    score.play_option.option % 10
                 } else {
                     -1
                 }
             }),
             62 => self.target_score_data().map_or(-1, |score| {
-                if score.option >= 0 {
-                    (score.option / 10) % 10
+                if score.play_option.option >= 0 {
+                    (score.play_option.option / 10) % 10
                 } else {
                     -1
                 }
             }),
             63 => self.target_score_data().map_or(-1, |score| {
-                if score.option >= 0 {
-                    (score.option / 100) % 10
+                if score.play_option.option >= 0 {
+                    (score.play_option.option / 100) % 10
                 } else {
                     -1
                 }
