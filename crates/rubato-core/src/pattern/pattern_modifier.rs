@@ -309,7 +309,7 @@ mod tests {
     fn identity_modifier_default_values() {
         let modifier = IdentityModifier::new();
         assert_eq!(modifier.assist_level(), AssistLevel::None);
-        assert_eq!(modifier.player(), 0);
+        assert_eq!(modifier.player, 0);
     }
 
     #[test]
@@ -413,7 +413,7 @@ mod tests {
     fn get_keys_invalid_player_returns_empty() {
         let modifier = IdentityModifier::new();
         let mode = Mode::BEAT_7K;
-        // player=1 but mode.player()=1, so player >= mode.player() -> empty
+        // player=1 but mode.player=1, so player >= mode.player -> empty
         let keys = modifier.keys(&mode, 1, false);
         assert!(keys.is_empty());
     }
