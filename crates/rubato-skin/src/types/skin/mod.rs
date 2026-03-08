@@ -22,7 +22,7 @@ use crate::objects::skin_note_object::SkinNoteObject;
 use crate::objects::skin_number::SkinNumber;
 use crate::objects::skin_slider::SkinSlider;
 use crate::property::boolean_property::BooleanProperty;
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::TimerPropertyEnum;
 use crate::property::timer_property_factory;
 use crate::stubs::{MainState, SkinConfigOffset, SkinOffset, TextureRegion};
 use crate::text::skin_text_bitmap::SkinTextBitmap;
@@ -252,7 +252,7 @@ impl SkinObject {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         op1: i32,
         op2: i32,
         op3: i32,
@@ -282,7 +282,7 @@ impl SkinObject {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         op: &[i32],
     ) {
         self.data_mut().set_destination_with_timer_and_ops(
@@ -308,7 +308,7 @@ impl SkinObject {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         draw: Box<dyn BooleanProperty>,
     ) {
         self.data_mut().set_destination_with_timer_draw(

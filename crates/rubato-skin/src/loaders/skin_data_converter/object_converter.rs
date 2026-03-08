@@ -911,7 +911,7 @@ fn convert_bar_sub_text(
     skin_path: &Path,
     usecim: bool,
     scale_y: f32,
-) -> Vec<Option<Box<dyn crate::skin_text::SkinText>>> {
+) -> Vec<Option<crate::skin_text::SkinTextEnum>> {
     objs.iter()
         .map(|opt_obj| {
             let obj_data = opt_obj.as_ref()?;
@@ -924,7 +924,7 @@ fn convert_bar_sub_text(
             )?;
             if let SkinObject::TextFont(mut stf) = skin_obj {
                 apply_destinations(&mut stf.text_data.data, &obj_data.destinations);
-                Some(Box::new(stf) as Box<dyn crate::skin_text::SkinText>)
+                Some(crate::skin_text::SkinTextEnum::Font(stf))
             } else {
                 None
             }

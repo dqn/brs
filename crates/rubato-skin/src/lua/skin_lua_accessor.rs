@@ -8,11 +8,11 @@ use crate::lua::main_state_accessor::MainStateAccessor;
 use crate::lua::timer_utility::TimerUtility;
 use crate::property::boolean_property::BooleanProperty;
 use crate::property::event::Event;
-use crate::property::float_property::FloatProperty;
+use crate::property::float_property::{FloatProperty, FloatPropertyEnum};
 use crate::property::float_writer::FloatWriter;
 use crate::property::integer_property::IntegerProperty;
 use crate::property::string_property::StringProperty;
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::{TimerProperty, TimerPropertyEnum};
 use crate::stubs::MainState;
 
 /// Lua skin accessor
@@ -133,7 +133,7 @@ impl SkinLuaAccessor {
     }
 
     /// Load a FloatProperty from a Lua script string
-    pub fn load_float_property_from_script(&self, script: &str) -> Option<Box<dyn FloatProperty>> {
+    pub fn load_float_property_from_script(&self, script: &str) -> Option<FloatPropertyEnum> {
         let full_script = format!("return {}", script);
         match self.lua.load(&full_script).into_function() {
             Ok(func) => self.load_float_property_from_lua_function(func),
@@ -148,16 +148,16 @@ impl SkinLuaAccessor {
     pub fn load_float_property_from_function(
         &self,
         func: LuaFunction,
-    ) -> Option<Box<dyn FloatProperty>> {
+    ) -> Option<FloatPropertyEnum> {
         self.load_float_property_from_lua_function(func)
     }
 
     fn load_float_property_from_lua_function(
         &self,
         func: LuaFunction,
-    ) -> Option<Box<dyn FloatProperty>> {
+    ) -> Option<FloatPropertyEnum> {
         let func_key = self.lua.create_registry_value(func).ok()?;
-        Some(Box::new(LuaFloatProperty {
+        Some(FloatPropertyEnum::Lua(LuaFloatProperty {
             func_key: Arc::new(Mutex::new(func_key)),
             lua: Arc::clone(&self.lua),
             creation_thread_id: std::thread::current().id(),
@@ -203,7 +203,7 @@ impl SkinLuaAccessor {
     /// If the script returns a function, that function is used as a timer function.
     /// Otherwise, the script itself is regarded as a timer function.
     /// A timer function returns start time in microseconds if on, or i64::MIN if off.
-    pub fn load_timer_property_from_script(&self, script: &str) -> Option<Box<dyn TimerProperty>> {
+    pub fn load_timer_property_from_script(&self, script: &str) -> Option<TimerPropertyEnum> {
         let full_script = format!("return {}", script);
         match self.lua.load(&full_script).into_function() {
             Ok(func) => {
@@ -233,16 +233,16 @@ impl SkinLuaAccessor {
     pub fn load_timer_property_from_function(
         &self,
         func: LuaFunction,
-    ) -> Option<Box<dyn TimerProperty>> {
+    ) -> Option<TimerPropertyEnum> {
         self.load_timer_property_from_lua_function(func)
     }
 
     fn load_timer_property_from_lua_function(
         &self,
         func: LuaFunction,
-    ) -> Option<Box<dyn TimerProperty>> {
+    ) -> Option<TimerPropertyEnum> {
         let func_key = self.lua.create_registry_value(func).ok()?;
-        Some(Box::new(LuaTimerProperty {
+        Some(TimerPropertyEnum::Lua(LuaTimerProperty {
             func_key: Arc::new(Mutex::new(func_key)),
             lua: Arc::clone(&self.lua),
             creation_thread_id: std::thread::current().id(),
@@ -670,10 +670,10 @@ impl IntegerProperty for LuaIntegerProperty {
     }
 }
 
-struct LuaFloatProperty {
-    func_key: Arc<Mutex<LuaRegistryKey>>,
-    lua: Arc<Lua>,
-    creation_thread_id: std::thread::ThreadId,
+pub struct LuaFloatProperty {
+    pub(crate) func_key: Arc<Mutex<LuaRegistryKey>>,
+    pub(crate) lua: Arc<Lua>,
+    pub(crate) creation_thread_id: std::thread::ThreadId,
 }
 
 // SAFETY: LuaFloatProperty contains Arc<Lua> which is !Send because mlua::Lua
@@ -749,10 +749,10 @@ impl StringProperty for LuaStringProperty {
     }
 }
 
-struct LuaTimerProperty {
-    func_key: Arc<Mutex<LuaRegistryKey>>,
-    lua: Arc<Lua>,
-    creation_thread_id: std::thread::ThreadId,
+pub struct LuaTimerProperty {
+    pub(crate) func_key: Arc<Mutex<LuaRegistryKey>>,
+    pub(crate) lua: Arc<Lua>,
+    pub(crate) creation_thread_id: std::thread::ThreadId,
 }
 
 // SAFETY: LuaTimerProperty contains Arc<Lua> which is !Send because mlua::Lua

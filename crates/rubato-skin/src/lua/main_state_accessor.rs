@@ -2,6 +2,7 @@ use mlua::prelude::*;
 
 use crate::core::skin_property_mapper;
 use crate::property::boolean_property_factory;
+use crate::property::float_property::FloatProperty;
 use crate::property::float_property_factory;
 use crate::property::integer_property_factory;
 use crate::property::string_property_factory;

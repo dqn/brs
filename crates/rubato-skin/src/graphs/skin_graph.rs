@@ -1,9 +1,9 @@
 // SkinGraph.java -> skin_graph.rs
 // Mechanical line-by-line translation.
 
-use crate::property::float_property::FloatProperty;
+use crate::property::float_property::{FloatProperty, FloatPropertyEnum};
 use crate::property::float_property_factory;
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::TimerPropertyEnum;
 use crate::sources::skin_source::SkinSource;
 use crate::sources::skin_source_image::SkinSourceImage;
 use crate::sources::skin_source_reference::SkinSourceReference;
@@ -13,7 +13,7 @@ use crate::types::skin_object::{RateProperty, SkinObjectData, SkinObjectRenderer
 pub struct SkinGraph {
     pub data: SkinObjectData,
     source: Box<dyn SkinSource>,
-    ref_prop: Option<Box<dyn FloatProperty>>,
+    ref_prop: Option<FloatPropertyEnum>,
     pub direction: i32,
     current: TextureRegion,
     current_image: Option<TextureRegion>,
@@ -43,7 +43,7 @@ impl SkinGraph {
         Self {
             data: SkinObjectData::new(),
             source: Box::new(SkinSourceReference::new(imageid)),
-            ref_prop: Some(Box::new(RateProperty::new(id, min, max))),
+            ref_prop: Some(FloatPropertyEnum::Rate(RateProperty::new(id, min, max))),
             direction,
             current: TextureRegion::new(),
             current_image: None,
@@ -85,7 +85,7 @@ impl SkinGraph {
             source: Box::new(SkinSourceImage::new_with_int_timer_from_vec(
                 image, timer, cycle,
             )),
-            ref_prop: Some(Box::new(RateProperty::new(id, min, max))),
+            ref_prop: Some(FloatPropertyEnum::Rate(RateProperty::new(id, min, max))),
             direction,
             current: TextureRegion::new(),
             current_image: None,
@@ -95,7 +95,7 @@ impl SkinGraph {
 
     pub fn new_with_timer(
         image: Vec<TextureRegion>,
-        timer: Box<dyn TimerProperty>,
+        timer: TimerPropertyEnum,
         cycle: i32,
         id: i32,
         direction: i32,
@@ -117,9 +117,9 @@ impl SkinGraph {
 
     pub fn new_with_timer_ref(
         image: Vec<TextureRegion>,
-        timer: Box<dyn TimerProperty>,
+        timer: TimerPropertyEnum,
         cycle: i32,
-        ref_prop: Box<dyn FloatProperty>,
+        ref_prop: FloatPropertyEnum,
         direction: i32,
     ) -> Self {
         Self {
@@ -139,7 +139,7 @@ impl SkinGraph {
 
     pub fn new_with_timer_minmax(
         image: Vec<TextureRegion>,
-        timer: Box<dyn TimerProperty>,
+        timer: TimerPropertyEnum,
         cycle: i32,
         id: i32,
         min: i32,
@@ -153,7 +153,7 @@ impl SkinGraph {
                 Some(timer),
                 cycle,
             )),
-            ref_prop: Some(Box::new(RateProperty::new(id, min, max))),
+            ref_prop: Some(FloatPropertyEnum::Rate(RateProperty::new(id, min, max))),
             direction,
             current: TextureRegion::new(),
             current_image: None,
@@ -228,8 +228,8 @@ impl SkinGraph {
         }
     }
 
-    pub fn ref_prop(&self) -> Option<&dyn FloatProperty> {
-        self.ref_prop.as_deref()
+    pub fn ref_prop(&self) -> Option<&FloatPropertyEnum> {
+        self.ref_prop.as_ref()
     }
 
     pub fn direction(&self) -> i32 {

@@ -1,7 +1,7 @@
 use crate::core::float_formatter::FloatFormatter;
-use crate::property::float_property::FloatProperty;
+use crate::property::float_property::{FloatProperty, FloatPropertyEnum};
 use crate::property::float_property_factory;
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::TimerPropertyEnum;
 use crate::sources::skin_source_image_set::SkinSourceImageSet;
 use crate::sources::skin_source_set::SkinSourceSet;
 use crate::stubs::{MainState, Rectangle, SkinOffset, TextureRegion};
@@ -15,7 +15,7 @@ pub struct SkinFloat {
     ff: FloatFormatter,
     image: Option<Box<dyn SkinSourceSet>>,
     mimage: Option<Box<dyn SkinSourceSet>>,
-    ref_prop: Option<Box<dyn FloatProperty>>,
+    ref_prop: Option<FloatPropertyEnum>,
     pub iketa: i32,
     pub fketa: i32,
     pub is_sign_visible: bool,
@@ -80,7 +80,7 @@ impl SkinFloat {
     fn new_with_images_timer_prop(
         image: Vec<Vec<Option<TextureRegion>>>,
         mimage: Option<Vec<Vec<Option<TextureRegion>>>>,
-        _timer: Option<Box<dyn TimerProperty>>,
+        _timer: Option<TimerPropertyEnum>,
         cycle: i32,
         iketa: i32,
         fketa: i32,
@@ -99,7 +99,7 @@ impl SkinFloat {
             space,
             gain,
         );
-        // Note: SkinSourceImageSet needs timer cloning which isn't trivial with Box<dyn TimerProperty>
+        // Note: SkinSourceImageSet needs timer cloning which isn't trivial with TimerPropertyEnum
         // For now, create without timer
         s.image = Some(Box::new(SkinSourceImageSet::new_with_timer(
             image, None, cycle,
@@ -181,7 +181,7 @@ impl SkinFloat {
     #[allow(clippy::too_many_arguments)]
     pub fn new_with_timer_prop_int_id(
         image: Vec<Vec<Option<TextureRegion>>>,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         cycle: i32,
         iketa: i32,
         fketa: i32,
@@ -220,7 +220,7 @@ impl SkinFloat {
         align: i32,
         zeropadding: i32,
         space: i32,
-        ref_prop: Box<dyn FloatProperty>,
+        ref_prop: FloatPropertyEnum,
         gain: f32,
     ) -> Self {
         Self::new_with_int_timer_float_prop_mimage(
@@ -243,7 +243,7 @@ impl SkinFloat {
     #[allow(clippy::too_many_arguments)]
     pub fn new_with_timer_prop_float_prop(
         image: Vec<Vec<Option<TextureRegion>>>,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         cycle: i32,
         iketa: i32,
         fketa: i32,
@@ -251,7 +251,7 @@ impl SkinFloat {
         align: i32,
         zeropadding: i32,
         space: i32,
-        ref_prop: Box<dyn FloatProperty>,
+        ref_prop: FloatPropertyEnum,
         gain: f32,
     ) -> Self {
         Self::new_with_timer_prop_float_prop_mimage(
@@ -308,7 +308,7 @@ impl SkinFloat {
     pub fn new_with_timer_prop_int_id_mimage(
         image: Vec<Vec<Option<TextureRegion>>>,
         mimage: Option<Vec<Vec<Option<TextureRegion>>>>,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         cycle: i32,
         iketa: i32,
         fketa: i32,
@@ -349,7 +349,7 @@ impl SkinFloat {
         align: i32,
         zeropadding: i32,
         space: i32,
-        ref_prop: Box<dyn FloatProperty>,
+        ref_prop: FloatPropertyEnum,
         gain: f32,
     ) -> Self {
         let mut s = Self::new_with_images_int_timer(
@@ -374,7 +374,7 @@ impl SkinFloat {
     pub fn new_with_timer_prop_float_prop_mimage(
         image: Vec<Vec<Option<TextureRegion>>>,
         mimage: Option<Vec<Vec<Option<TextureRegion>>>>,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         cycle: i32,
         iketa: i32,
         fketa: i32,
@@ -382,7 +382,7 @@ impl SkinFloat {
         align: i32,
         zeropadding: i32,
         space: i32,
-        ref_prop: Box<dyn FloatProperty>,
+        ref_prop: FloatPropertyEnum,
         gain: f32,
     ) -> Self {
         let mut s = Self::new_with_images_timer_prop(

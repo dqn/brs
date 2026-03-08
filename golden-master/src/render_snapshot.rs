@@ -4,6 +4,8 @@
 // engines), this captures "what to draw" as a serializable data structure.
 // Both Java and Rust generate the same JSON format for field-by-field comparison.
 
+use rubato_skin::property::float_property::FloatProperty;
+use rubato_skin::property::timer_property::TimerProperty;
 use rubato_skin::skin::SkinObject;
 use rubato_skin::skin_object::SkinObjectData;
 use rubato_skin::skin_property;

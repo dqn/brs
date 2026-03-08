@@ -1,7 +1,7 @@
 use crate::objects::skin_image::SkinImage;
 use crate::objects::skin_number::SkinNumber;
 use crate::stubs::{Rectangle, TextureRegion};
-use crate::text::skin_text::SkinText;
+use crate::text::skin_text::SkinTextEnum;
 
 /// Bar data extracted from select skin loaders (LR2, JSON).
 /// Transferred to MusicSelector after skin loading so BarRenderer can use it.
@@ -17,7 +17,7 @@ pub struct SelectBarData {
     /// Bar level SkinNumber objects (e.g., difficulty level display)
     pub barlevel: Vec<Option<SkinNumber>>,
     /// Bar title SkinText objects (e.g., song title text)
-    pub bartext: Vec<Option<Box<dyn SkinText>>>,
+    pub bartext: Vec<Option<SkinTextEnum>>,
     /// Lamp images indexed by lamp ID (0-10)
     pub barlamp: Vec<Option<SkinImage>>,
     /// Player lamp images indexed by lamp ID (0-10)

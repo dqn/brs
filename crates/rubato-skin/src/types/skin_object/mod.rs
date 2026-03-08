@@ -10,7 +10,7 @@ use crate::property::event::Event;
 use crate::property::event_factory;
 use crate::property::float_property::FloatProperty;
 use crate::property::integer_property_factory;
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::{TimerProperty, TimerPropertyEnum};
 use crate::skin_property;
 #[cfg(test)]
 use crate::stubs::{BitmapFont, GlyphLayout, Texture};
@@ -84,7 +84,7 @@ impl FloatProperty for RateProperty {
 pub struct SkinObjectData {
     pub offset: Vec<i32>,
     pub relative: bool,
-    pub dsttimer: Option<Box<dyn TimerProperty>>,
+    pub dsttimer: Option<TimerPropertyEnum>,
     pub dstloop: i32,
     pub dstblend: i32,
     pub dstfilter: i32,
@@ -368,7 +368,7 @@ impl SkinObjectData {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         op1: i32,
         op2: i32,
         op3: i32,
@@ -414,7 +414,7 @@ impl SkinObjectData {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         op1: i32,
         op2: i32,
         op3: i32,
@@ -460,7 +460,7 @@ impl SkinObjectData {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         op: &[i32],
     ) {
         self.set_destination_core(
@@ -489,7 +489,7 @@ impl SkinObjectData {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         draw_prop: Box<dyn BooleanProperty>,
     ) {
         self.set_destination_core(
@@ -516,7 +516,7 @@ impl SkinObjectData {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
     ) {
         let obj = SkinObjectDestination::new(
             time,
@@ -1125,8 +1125,8 @@ impl SkinObjectData {
         &self.off
     }
 
-    pub fn destination_timer(&self) -> Option<&dyn TimerProperty> {
-        self.dsttimer.as_deref()
+    pub fn destination_timer(&self) -> Option<&TimerPropertyEnum> {
+        self.dsttimer.as_ref()
     }
 
     pub fn image_type(&self) -> i32 {

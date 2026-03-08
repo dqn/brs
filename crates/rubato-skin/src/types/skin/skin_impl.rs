@@ -225,7 +225,7 @@ impl Skin {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         op: &[i32],
     ) {
         let dw = self.dw;
@@ -272,7 +272,7 @@ impl Skin {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         draw: Box<dyn BooleanProperty>,
     ) {
         let dw = self.dw;
@@ -592,7 +592,7 @@ impl Skin {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         op1: i32,
         op2: i32,
         op3: i32,
@@ -648,7 +648,7 @@ impl Skin {
         angle: i32,
         center: i32,
         loop_val: i32,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         op1: i32,
         op2: i32,
         op3: i32,
