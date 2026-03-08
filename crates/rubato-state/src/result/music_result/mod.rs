@@ -95,11 +95,7 @@ impl MusicResult {
             }
         }
 
-        self.data.gauge_type = self
-            .resource
-            .groove_gauge()
-            .map(|g| g.gauge_type())
-            .unwrap_or(0);
+        self.data.gauge_type = super::result_common::set_gauge_type(&self.resource);
 
         // loadSkin(SkinType.RESULT)
         self.load_skin(rubato_skin::skin_type::SkinType::Result.id());
@@ -808,19 +804,19 @@ impl MusicResult {
     }
 
     fn has_sound(&self, sound: SoundType) -> bool {
-        self.main.sound_path(&sound).is_some()
+        super::result_common::has_sound(&self.main, &sound)
     }
 
     fn play_sound_inner(&mut self, sound: SoundType) {
-        self.main.play_sound(&sound, false);
+        super::result_common::play_sound(&mut self.main, &sound);
     }
 
     fn play_sound_loop_inner(&mut self, sound: SoundType, loop_sound: bool) {
-        self.main.play_sound(&sound, loop_sound);
+        super::result_common::play_sound_loop(&mut self.main, &sound, loop_sound);
     }
 
     fn stop_sound_inner(&mut self, sound: SoundType) {
-        self.main.stop_sound(&sound);
+        super::result_common::stop_sound(&mut self.main, &sound);
     }
 }
 

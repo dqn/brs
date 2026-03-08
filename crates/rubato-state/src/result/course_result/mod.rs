@@ -121,11 +121,7 @@ impl CourseResult {
             }
         }
 
-        self.data.gauge_type = self
-            .resource
-            .groove_gauge()
-            .map(|g| g.gauge_type())
-            .unwrap_or(0);
+        self.data.gauge_type = super::result_common::set_gauge_type(&self.resource);
 
         // loadSkin(SkinType.COURSE_RESULT)
         rubato_core::main_state::MainState::load_skin(
@@ -338,7 +334,7 @@ impl CourseResult {
     }
 
     fn stop_sound_inner(&mut self, sound: SoundType) {
-        self.main.stop_sound(&sound);
+        super::result_common::stop_sound(&mut self.main, &sound);
     }
 
     fn do_render(&mut self) {

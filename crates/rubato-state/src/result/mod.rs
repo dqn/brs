@@ -11,6 +11,7 @@ pub mod ir_status;
 pub mod abstract_result;
 pub mod course_result;
 pub mod music_result;
+pub(crate) mod result_common;
 pub mod result_key_property;
 pub mod result_skin_data;
 pub(crate) mod shared_render_context;
