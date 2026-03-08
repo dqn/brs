@@ -253,8 +253,8 @@ impl BarContentsLoaderThread {
             let song_info = bar.as_song_bar().filter(|sb| sb.exists_song()).map(|sb| {
                 let sd = sb.song_data();
                 (
-                    sd.banner.clone(),
-                    sd.stagefile.clone(),
+                    sd.file.banner.clone(),
+                    sd.file.stagefile.clone(),
                     sd.path().map(|s| s.to_string()),
                 )
             });
