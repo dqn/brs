@@ -75,13 +75,12 @@ impl MouseScratchInput {
                 }
             }
 
-            for mouse_input in 0..self.mouse_scratch_state.len() {
-                let prev = self.mouse_scratch_state[mouse_input];
+            for (mouse_input, state) in self.mouse_scratch_state.iter_mut().enumerate() {
+                let prev = *state;
                 if let Some(ref alg) = self.mouse_scratch_algorithm[mouse_input / 2] {
-                    self.mouse_scratch_state[mouse_input] =
-                        alg.is_scratch_active(mouse_input % 2 == 0);
+                    *state = alg.is_scratch_active(mouse_input % 2 == 0);
                 }
-                if prev != self.mouse_scratch_state[mouse_input] {
+                if prev != *state {
                     self.mouse_scratch_changed[mouse_input] = true;
                     if !prev {
                         self.last_mouse_scratch = mouse_input as i32;

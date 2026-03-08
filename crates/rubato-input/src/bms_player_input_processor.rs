@@ -201,15 +201,15 @@ impl BMSPlayerInputProcessor {
         let mut b = vec![false; configs.len()];
         for controller in self.bminput.iter_mut() {
             controller.enabled = false;
-            for i in 0..configs.len() {
+            for (i, config) in configs.iter_mut().enumerate() {
                 if b[i] {
                     continue;
                 }
-                if configs[i].name().is_none() || configs[i].name().is_some_and(|n| n.is_empty()) {
-                    configs[i].name = controller.name().to_string();
+                if config.name().is_none() || config.name().is_some_and(|n| n.is_empty()) {
+                    config.name = controller.name().to_string();
                 }
-                if controller.name() == configs[i].name().unwrap_or("") {
-                    controller.set_config(&configs[i]);
+                if controller.name() == config.name().unwrap_or("") {
+                    controller.set_config(config);
                     controller.enabled = true;
                     b[i] = true;
                     break;
