@@ -208,23 +208,25 @@ mod tests {
         let mut img = SkinImage::new_with_single(TextureRegion::new());
         // Must add a destination so prepare_region sets draw=true
         img.data.set_destination_with_int_timer_ops(
+            &crate::skin_object::DestinationParams {
+                time: 0,
+                x: 0.0,
+                y: 0.0,
+                w: 100.0,
+                h: 50.0,
+                acc: 0,
+                a: 255,
+                r: 255,
+                g: 255,
+                b: 255,
+                blend: 0,
+                filter: 0,
+                angle: 0,
+                center: 0,
+                loop_val: 0,
+            },
             0,
-            0.0,
-            0.0,
-            100.0,
-            50.0, // time, x, y, w, h
-            0,
-            255,
-            255,
-            255,
-            255, // acc, a, r, g, b
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,    // blend, filter, angle, center, loop, timer
-            &[0], // ops
+            &[0],
         );
         img
     }

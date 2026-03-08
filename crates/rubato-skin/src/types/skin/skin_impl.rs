@@ -148,155 +148,69 @@ impl Skin {
         self.image_registry.get(&id).cloned()
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination(
         &mut self,
         obj_index: usize,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: i32,
-        op1: i32,
-        op2: i32,
-        op3: i32,
+        ops: &[i32],
         offset: &[i32],
     ) {
-        let dw = self.dw;
-        let dh = self.dh;
+        let scaled = self.scale_params(params);
         let timer_prop = if timer > 0 {
             timer_property_factory::timer_property(timer)
         } else {
             None
         };
         if let Some(obj) = self.objects.get_mut(obj_index) {
-            obj.set_destination(
-                time,
-                x * dw,
-                y * dh,
-                w * dw,
-                h * dh,
-                acc,
-                a,
-                r,
-                g,
-                b,
-                blend,
-                filter,
-                angle,
-                center,
-                loop_val,
-                timer_prop,
-                op1,
-                op2,
-                op3,
-                offset,
-            );
+            obj.set_destination(&scaled, timer_prop, ops, offset);
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_timer(
         &mut self,
         obj_index: usize,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
         op: &[i32],
     ) {
-        let dw = self.dw;
-        let dh = self.dh;
+        let scaled = self.scale_params(params);
         if let Some(obj) = self.objects.get_mut(obj_index) {
-            obj.set_destination_with_timer_ops(
-                time,
-                x * dw,
-                y * dh,
-                w * dw,
-                h * dh,
-                acc,
-                a,
-                r,
-                g,
-                b,
-                blend,
-                filter,
-                angle,
-                center,
-                loop_val,
-                timer,
-                op,
-            );
+            obj.set_destination_with_timer_ops(&scaled, timer, op);
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_timer_draw(
         &mut self,
         obj_index: usize,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
         draw: Box<dyn BooleanProperty>,
     ) {
-        let dw = self.dw;
-        let dh = self.dh;
+        let scaled = self.scale_params(params);
         if let Some(obj) = self.objects.get_mut(obj_index) {
-            obj.set_destination_with_timer_draw(
-                time,
-                x * dw,
-                y * dh,
-                w * dw,
-                h * dh,
-                acc,
-                a,
-                r,
-                g,
-                b,
-                blend,
-                filter,
-                angle,
-                center,
-                loop_val,
-                timer,
-                draw,
-            );
+            obj.set_destination_with_timer_draw(&scaled, timer, draw);
+        }
+    }
+
+    /// Scale destination params by the skin's dw/dh ratios.
+    fn scale_params(&self, params: &DestinationParams) -> DestinationParams {
+        DestinationParams {
+            time: params.time,
+            x: params.x * self.dw,
+            y: params.y * self.dh,
+            w: params.w * self.dw,
+            h: params.h * self.dh,
+            acc: params.acc,
+            a: params.a,
+            r: params.r,
+            g: params.g,
+            b: params.b,
+            blend: params.blend,
+            filter: params.filter,
+            angle: params.angle,
+            center: params.center,
+            loop_val: params.loop_val,
         }
     }
 
@@ -573,114 +487,36 @@ impl Skin {
 
     /// Add a SkinNumber with destination and register it.
     /// Corresponds to Java Skin.addNumber(21 params)
-    #[allow(clippy::too_many_arguments)]
     pub fn add_number(
         &mut self,
         number: SkinNumber,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
-        op1: i32,
-        op2: i32,
-        op3: i32,
+        ops: &[i32],
         offset: i32,
     ) {
-        let dw = self.dw;
-        let dh = self.dh;
+        let scaled = self.scale_params(params);
         let mut obj = SkinObject::Number(number);
         obj.data_mut()
-            .set_destination_with_timer_ops_and_single_offset(
-                time,
-                x * dw,
-                y * dh,
-                w * dw,
-                h * dh,
-                acc,
-                a,
-                r,
-                g,
-                b,
-                blend,
-                filter,
-                angle,
-                center,
-                loop_val,
-                timer,
-                op1,
-                op2,
-                op3,
-                offset,
-            );
+            .set_destination_with_timer_ops_and_single_offset(&scaled, timer, ops, offset);
         self.objects.push(obj);
     }
 
     /// Add a SkinImage from a TextureRegion with destination and register it.
     /// Corresponds to Java Skin.addImage(21 params)
-    #[allow(clippy::too_many_arguments)]
     pub fn add_image(
         &mut self,
         tr: TextureRegion,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
-        op1: i32,
-        op2: i32,
-        op3: i32,
+        ops: &[i32],
         offset: i32,
     ) -> usize {
-        let dw = self.dw;
-        let dh = self.dh;
+        let scaled = self.scale_params(params);
         let si = SkinImage::new_with_single(tr);
         let mut obj = SkinObject::Image(si);
         obj.data_mut()
-            .set_destination_with_timer_ops_and_single_offset(
-                time,
-                x * dw,
-                y * dh,
-                w * dw,
-                h * dh,
-                acc,
-                a,
-                r,
-                g,
-                b,
-                blend,
-                filter,
-                angle,
-                center,
-                loop_val,
-                timer,
-                op1,
-                op2,
-                op3,
-                offset,
-            );
+            .set_destination_with_timer_ops_and_single_offset(&scaled, timer, ops, offset);
         self.objects.push(obj);
         self.objects.len() - 1
     }

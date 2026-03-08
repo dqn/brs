@@ -3,6 +3,7 @@ use crate::lr2::lr2_skin_loader::{self};
 use crate::skin_bpm_graph::SkinBPMGraph;
 use crate::skin_gauge_graph_object::SkinGaugeGraphObject;
 use crate::skin_note_distribution_graph::SkinNoteDistributionGraph;
+use crate::skin_object::DestinationParams;
 use crate::skin_timing_distribution_graph::SkinTimingDistributionGraph;
 use crate::stubs::{Rectangle, Resolution};
 
@@ -61,21 +62,23 @@ impl LR2ResultSkinLoaderState {
                     let dsth = self.csv.dst.height / self.csv.src.height;
                     let offsets = lr2_skin_loader::read_offset(str_parts, 21);
                     obj.data.set_destination_with_int_timer_ops(
-                        values[2] as i64,
-                        self.gauge.x * dstw,
-                        self.csv.dst.height - (values[4] as f32 + self.gauge.height) * dsth,
-                        self.gauge.width * dstw,
-                        self.gauge.height * dsth,
-                        values[7],
-                        values[8],
-                        values[9],
-                        values[10],
-                        values[11],
-                        values[12],
-                        values[13],
-                        values[14],
-                        values[15],
-                        values[16],
+                        &DestinationParams {
+                            time: values[2] as i64,
+                            x: self.gauge.x * dstw,
+                            y: self.csv.dst.height - (values[4] as f32 + self.gauge.height) * dsth,
+                            w: self.gauge.width * dstw,
+                            h: self.gauge.height * dsth,
+                            acc: values[7],
+                            a: values[8],
+                            r: values[9],
+                            g: values[10],
+                            b: values[11],
+                            blend: values[12],
+                            filter: values[13],
+                            angle: values[14],
+                            center: values[15],
+                            loop_val: values[16],
+                        },
                         values[17],
                         &offsets,
                     );
@@ -148,21 +151,23 @@ impl LR2ResultSkinLoaderState {
                     let dsth = self.csv.dst.height / self.csv.src.height;
                     let offsets = lr2_skin_loader::read_offset(str_parts, 21);
                     obj.data.set_destination_with_int_timer_ops(
-                        values[2] as i64,
-                        self.gauge.x * dstw,
-                        self.csv.dst.height - (values[4] as f32 + self.gauge.height) * dsth,
-                        self.gauge.width * dstw,
-                        self.gauge.height * dsth,
-                        values[7],
-                        values[8],
-                        values[9],
-                        values[10],
-                        values[11],
-                        values[12],
-                        values[13],
-                        values[14],
-                        values[15],
-                        values[16],
+                        &DestinationParams {
+                            time: values[2] as i64,
+                            x: self.gauge.x * dstw,
+                            y: self.csv.dst.height - (values[4] as f32 + self.gauge.height) * dsth,
+                            w: self.gauge.width * dstw,
+                            h: self.gauge.height * dsth,
+                            acc: values[7],
+                            a: values[8],
+                            r: values[9],
+                            g: values[10],
+                            b: values[11],
+                            blend: values[12],
+                            filter: values[13],
+                            angle: values[14],
+                            center: values[15],
+                            loop_val: values[16],
+                        },
                         values[17],
                         &offsets,
                     );

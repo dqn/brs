@@ -1,6 +1,7 @@
 use crate::lr2::lr2_skin_csv_loader::LR2SkinCSVLoaderState;
 use crate::lr2::lr2_skin_loader;
 use crate::skin_image::SkinImage;
+use crate::skin_object::DestinationParams;
 use crate::stubs::{Rectangle, Texture, TextureRegion};
 
 use super::{LR2PlaySkinLoaderState, PmCharaEntry, SkinSourceData};
@@ -101,21 +102,24 @@ impl LR2PlaySkinLoaderState {
                     );
                     if let Some(ref mut li) = self.line_images[idx] {
                         li.data.set_destination_with_int_timer_and_offsets(
-                            values[2] as i64,
-                            values[3] as f32 * self.dstw / self.srcw,
-                            self.dsth - (values[4] + values[6]) as f32 * self.dsth / self.srch,
-                            values[5] as f32 * self.dstw / self.srcw,
-                            values[6] as f32 * self.dsth / self.srch,
-                            values[7],
-                            values[8],
-                            values[9],
-                            values[10],
-                            values[11],
-                            values[12],
-                            values[13],
-                            values[14],
-                            values[15],
-                            values[16],
+                            &DestinationParams {
+                                time: values[2] as i64,
+                                x: values[3] as f32 * self.dstw / self.srcw,
+                                y: self.dsth
+                                    - (values[4] + values[6]) as f32 * self.dsth / self.srch,
+                                w: values[5] as f32 * self.dstw / self.srcw,
+                                h: values[6] as f32 * self.dsth / self.srch,
+                                acc: values[7],
+                                a: values[8],
+                                r: values[9],
+                                g: values[10],
+                                b: values[11],
+                                blend: values[12],
+                                filter: values[13],
+                                angle: values[14],
+                                center: values[15],
+                                loop_val: values[16],
+                            },
                             values[17],
                             values[18],
                             values[19],
@@ -415,21 +419,24 @@ impl LR2PlaySkinLoaderState {
                     );
                     if let Some(ref mut jl) = self.judgeline {
                         jl.data.set_destination_with_int_timer_and_offsets(
-                            values[2] as i64,
-                            values[3] as f32 * self.dstw / self.srcw,
-                            self.dsth - (values[4] + values[6]) as f32 * self.dsth / self.srch,
-                            values[5] as f32 * self.dstw / self.srcw,
-                            values[6] as f32 * self.dsth / self.srch,
-                            values[7],
-                            values[8],
-                            values[9],
-                            values[10],
-                            values[11],
-                            values[12],
-                            values[13],
-                            values[14],
-                            values[15],
-                            values[16],
+                            &DestinationParams {
+                                time: values[2] as i64,
+                                x: values[3] as f32 * self.dstw / self.srcw,
+                                y: self.dsth
+                                    - (values[4] + values[6]) as f32 * self.dsth / self.srch,
+                                w: values[5] as f32 * self.dstw / self.srcw,
+                                h: values[6] as f32 * self.dsth / self.srch,
+                                acc: values[7],
+                                a: values[8],
+                                r: values[9],
+                                g: values[10],
+                                b: values[11],
+                                blend: values[12],
+                                filter: values[13],
+                                angle: values[14],
+                                center: values[15],
+                                loop_val: values[16],
+                            },
                             values[17],
                             values[18],
                             values[19],
@@ -732,20 +739,27 @@ impl LR2PlaySkinLoaderState {
 
         if let Some(ref mut li) = self.line_images[index] {
             li.data.set_destination_with_int_timer_and_offsets(
-                time, x, y, w, dst_h, values[7],  // acc
-                255,        // alpha (overridden to full)
-                r,          // red (overridden)
-                g,          // green (overridden)
-                b,          // blue (overridden)
-                values[12], // blend
-                values[13], // filter
-                values[14], // angle
-                values[15], // center
-                values[16], // loop
-                values[17], // timer
-                values[18], // op1
-                values[19], // op2
-                values[20], // op3
+                &DestinationParams {
+                    time,
+                    x,
+                    y,
+                    w,
+                    h: dst_h,
+                    acc: values[7],
+                    a: 255,
+                    r,
+                    g,
+                    b,
+                    blend: values[12],
+                    filter: values[13],
+                    angle: values[14],
+                    center: values[15],
+                    loop_val: values[16],
+                },
+                values[17],
+                values[18],
+                values[19],
+                values[20],
                 &offset,
             );
         }

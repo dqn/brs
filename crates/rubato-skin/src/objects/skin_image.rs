@@ -409,23 +409,25 @@ mod tests {
     /// Uses time=0, full white color, no timer/loop/blend.
     fn setup_data(data: &mut crate::skin_object::SkinObjectData, x: f32, y: f32, w: f32, h: f32) {
         data.set_destination_with_int_timer_ops(
+            &crate::skin_object::DestinationParams {
+                time: 0,
+                x,
+                y,
+                w,
+                h,
+                acc: 0,
+                a: 255,
+                r: 255,
+                g: 255,
+                b: 255,
+                blend: 0,
+                filter: 0,
+                angle: 0,
+                center: 0,
+                loop_val: 0,
+            },
             0,
-            x,
-            y,
-            w,
-            h,
-            0, // acc
-            255,
-            255,
-            255,
-            255,  // argb
-            0,    // blend
-            0,    // filter
-            0,    // angle
-            0,    // center
-            0,    // loop
-            0,    // timer
-            &[0], // ops
+            &[0],
         );
     }
 

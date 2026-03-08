@@ -8,6 +8,7 @@ use crate::lr2::lr2_skin_loader::{self, LR2SkinLoaderState};
 use crate::skin::SkinObject;
 use crate::skin_gauge::SkinGauge;
 use crate::skin_image::SkinImage;
+use crate::skin_object::DestinationParams;
 use crate::skin_text_image::SkinTextImageSource;
 use crate::stubs::{MainState, Resolution, Texture, TextureRegion};
 
@@ -330,21 +331,23 @@ impl LR2SkinCSVLoaderState {
                     let dsth = self.dst.height / self.src.height;
                     let offsets = Self::read_offset(str_parts, 21);
                     button.data.set_destination_with_int_timer_ops(
-                        values[2] as i64,
-                        values[3] as f32 * dstw,
-                        self.dst.height - (values[4] + values[6]) as f32 * dsth,
-                        values[5] as f32 * dstw,
-                        values[6] as f32 * dsth,
-                        values[7],
-                        values[8],
-                        values[9],
-                        values[10],
-                        values[11],
-                        values[12],
-                        values[13],
-                        values[14],
-                        values[15],
-                        values[16],
+                        &DestinationParams {
+                            time: values[2] as i64,
+                            x: values[3] as f32 * dstw,
+                            y: self.dst.height - (values[4] + values[6]) as f32 * dsth,
+                            w: values[5] as f32 * dstw,
+                            h: values[6] as f32 * dsth,
+                            acc: values[7],
+                            a: values[8],
+                            r: values[9],
+                            g: values[10],
+                            b: values[11],
+                            blend: values[12],
+                            filter: values[13],
+                            angle: values[14],
+                            center: values[15],
+                            loop_val: values[16],
+                        },
                         values[17],
                         &offsets,
                     );
@@ -382,21 +385,23 @@ impl LR2SkinCSVLoaderState {
                     let dsth = self.dst.height / self.src.height;
                     let offsets = Self::read_offset(str_parts, 21);
                     onmouse.data.set_destination_with_int_timer_ops(
-                        values[2] as i64,
-                        values[3] as f32 * dstw,
-                        self.dst.height - (values[4] + values[6]) as f32 * dsth,
-                        values[5] as f32 * dstw,
-                        values[6] as f32 * dsth,
-                        values[7],
-                        values[8],
-                        values[9],
-                        values[10],
-                        values[11],
-                        values[12],
-                        values[13],
-                        values[14],
-                        values[15],
-                        values[16],
+                        &DestinationParams {
+                            time: values[2] as i64,
+                            x: values[3] as f32 * dstw,
+                            y: self.dst.height - (values[4] + values[6]) as f32 * dsth,
+                            w: values[5] as f32 * dstw,
+                            h: values[6] as f32 * dsth,
+                            acc: values[7],
+                            a: values[8],
+                            r: values[9],
+                            g: values[10],
+                            b: values[11],
+                            blend: values[12],
+                            filter: values[13],
+                            angle: values[14],
+                            center: values[15],
+                            loop_val: values[16],
+                        },
                         values[17],
                         &offsets,
                     );
@@ -472,21 +477,23 @@ impl LR2SkinCSVLoaderState {
                     let y = self.dst.height - values[4] as f32 * dsth - height;
                     let offsets = Self::read_offset(str_parts, 21);
                     gauger.data.set_destination_with_int_timer_ops(
-                        values[2] as i64,
-                        x,
-                        y,
-                        width,
-                        height,
-                        values[7],
-                        values[8],
-                        values[9],
-                        values[10],
-                        values[11],
-                        values[12],
-                        values[13],
-                        values[14],
-                        values[15],
-                        values[16],
+                        &DestinationParams {
+                            time: values[2] as i64,
+                            x,
+                            y,
+                            w: width,
+                            h: height,
+                            acc: values[7],
+                            a: values[8],
+                            r: values[9],
+                            g: values[10],
+                            b: values[11],
+                            blend: values[12],
+                            filter: values[13],
+                            angle: values[14],
+                            center: values[15],
+                            loop_val: values[16],
+                        },
                         values[17],
                         &offsets,
                     );

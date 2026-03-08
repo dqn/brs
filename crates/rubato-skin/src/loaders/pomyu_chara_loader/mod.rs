@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use crate::objects::skin_image::SkinImage;
 use crate::property::timer_property::TimerProperty;
+use crate::skin_object::DestinationParams;
 use crate::skin_property::*;
 use crate::stubs::{Pixmap, PixmapFormat, PlaySkinStub, SkinLoaderStub, Texture, TextureRegion};
 

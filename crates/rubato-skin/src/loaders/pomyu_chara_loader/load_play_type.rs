@@ -363,23 +363,25 @@ impl<'a> PomyuCharaLoader<'a> {
 
                         for i in 0..(loop_frame + increase_rate) as usize {
                             part.data.set_destination_with_int_timer_and_single_offset(
-                                (frame_time * i as f64) as i64,
-                                dstx + dstxywh[i][0] as f32 * dstw / size[0] as f32,
-                                dsty + dsth
-                                    - (dstxywh[i][1] + dstxywh[i][3]) as f32 * dsth
-                                        / size[1] as f32,
-                                dstxywh[i][2] as f32 * dstw / size[0] as f32,
-                                dstxywh[i][3] as f32 * dsth / size[1] as f32,
-                                3,
-                                alpha_angle[i][0],
-                                255,
-                                255,
-                                255,
-                                1,
-                                0,
-                                alpha_angle[i][1],
-                                0,
-                                -1,
+                                &DestinationParams {
+                                    time: (frame_time * i as f64) as i64,
+                                    x: dstx + dstxywh[i][0] as f32 * dstw / size[0] as f32,
+                                    y: dsty + dsth
+                                        - (dstxywh[i][1] + dstxywh[i][3]) as f32 * dsth
+                                            / size[1] as f32,
+                                    w: dstxywh[i][2] as f32 * dstw / size[0] as f32,
+                                    h: dstxywh[i][3] as f32 * dsth / size[1] as f32,
+                                    acc: 3,
+                                    a: alpha_angle[i][0],
+                                    r: 255,
+                                    g: 255,
+                                    b: 255,
+                                    blend: 1,
+                                    filter: 0,
+                                    angle: alpha_angle[i][1],
+                                    center: 0,
+                                    loop_val: -1,
+                                },
                                 timer,
                                 op[0],
                                 op[1],
@@ -389,23 +391,25 @@ impl<'a> PomyuCharaLoader<'a> {
                         }
                         let last_pre = (loop_frame + increase_rate - 1) as usize;
                         part.data.set_destination_with_int_timer_and_single_offset(
-                            (loop_time - 1) as i64,
-                            dstx + dstxywh[last_pre][0] as f32 * dstw / size[0] as f32,
-                            dsty + dsth
-                                - (dstxywh[last_pre][1] + dstxywh[last_pre][3]) as f32 * dsth
-                                    / size[1] as f32,
-                            dstxywh[last_pre][2] as f32 * dstw / size[0] as f32,
-                            dstxywh[last_pre][3] as f32 * dsth / size[1] as f32,
-                            3,
-                            alpha_angle[last_pre][0],
-                            255,
-                            255,
-                            255,
-                            1,
-                            0,
-                            alpha_angle[last_pre][1],
-                            0,
-                            -1,
+                            &DestinationParams {
+                                time: (loop_time - 1) as i64,
+                                x: dstx + dstxywh[last_pre][0] as f32 * dstw / size[0] as f32,
+                                y: dsty + dsth
+                                    - (dstxywh[last_pre][1] + dstxywh[last_pre][3]) as f32 * dsth
+                                        / size[1] as f32,
+                                w: dstxywh[last_pre][2] as f32 * dstw / size[0] as f32,
+                                h: dstxywh[last_pre][3] as f32 * dsth / size[1] as f32,
+                                acc: 3,
+                                a: alpha_angle[last_pre][0],
+                                r: 255,
+                                g: 255,
+                                b: 255,
+                                blend: 1,
+                                filter: 0,
+                                angle: alpha_angle[last_pre][1],
+                                center: 0,
+                                loop_val: -1,
+                            },
                             timer,
                             op[0],
                             op[1],
@@ -453,22 +457,25 @@ impl<'a> PomyuCharaLoader<'a> {
 
                     for i in (loop_frame + increase_rate) as usize..dstxywh.len() {
                         part.data.set_destination_with_int_timer_and_single_offset(
-                            (frame_time * i as f64) as i64,
-                            dstx + dstxywh[i][0] as f32 * dstw / size[0] as f32,
-                            dsty + dsth
-                                - (dstxywh[i][1] + dstxywh[i][3]) as f32 * dsth / size[1] as f32,
-                            dstxywh[i][2] as f32 * dstw / size[0] as f32,
-                            dstxywh[i][3] as f32 * dsth / size[1] as f32,
-                            3,
-                            alpha_angle[i][0],
-                            255,
-                            255,
-                            255,
-                            1,
-                            0,
-                            alpha_angle[i][1],
-                            0,
-                            loop_time,
+                            &DestinationParams {
+                                time: (frame_time * i as f64) as i64,
+                                x: dstx + dstxywh[i][0] as f32 * dstw / size[0] as f32,
+                                y: dsty + dsth
+                                    - (dstxywh[i][1] + dstxywh[i][3]) as f32 * dsth
+                                        / size[1] as f32,
+                                w: dstxywh[i][2] as f32 * dstw / size[0] as f32,
+                                h: dstxywh[i][3] as f32 * dsth / size[1] as f32,
+                                acc: 3,
+                                a: alpha_angle[i][0],
+                                r: 255,
+                                g: 255,
+                                b: 255,
+                                blend: 1,
+                                filter: 0,
+                                angle: alpha_angle[i][1],
+                                center: 0,
+                                loop_val: loop_time,
+                            },
                             timer,
                             op[0],
                             op[1],
@@ -478,22 +485,25 @@ impl<'a> PomyuCharaLoader<'a> {
                     }
                     let last = dstxywh.len() - 1;
                     part.data.set_destination_with_int_timer_and_single_offset(
-                        cycle as i64,
-                        dstx + dstxywh[last][0] as f32 * dstw / size[0] as f32,
-                        dsty + dsth
-                            - (dstxywh[last][1] + dstxywh[last][3]) as f32 * dsth / size[1] as f32,
-                        dstxywh[last][2] as f32 * dstw / size[0] as f32,
-                        dstxywh[last][3] as f32 * dsth / size[1] as f32,
-                        3,
-                        alpha_angle[last][0],
-                        255,
-                        255,
-                        255,
-                        1,
-                        0,
-                        alpha_angle[last][1],
-                        0,
-                        loop_time,
+                        &DestinationParams {
+                            time: cycle as i64,
+                            x: dstx + dstxywh[last][0] as f32 * dstw / size[0] as f32,
+                            y: dsty + dsth
+                                - (dstxywh[last][1] + dstxywh[last][3]) as f32 * dsth
+                                    / size[1] as f32,
+                            w: dstxywh[last][2] as f32 * dstw / size[0] as f32,
+                            h: dstxywh[last][3] as f32 * dsth / size[1] as f32,
+                            acc: 3,
+                            a: alpha_angle[last][0],
+                            r: 255,
+                            g: 255,
+                            b: 255,
+                            blend: 1,
+                            filter: 0,
+                            angle: alpha_angle[last][1],
+                            center: 0,
+                            loop_val: loop_time,
+                        },
                         timer,
                         op[0],
                         op[1],

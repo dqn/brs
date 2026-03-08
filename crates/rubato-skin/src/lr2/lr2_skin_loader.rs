@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::property::boolean_property_factory::BooleanPropertyFactory;
+use crate::skin_object::DestinationParams;
 use crate::stubs::MainState;
 
 /// LR2 skin loader base
@@ -295,21 +296,23 @@ pub fn process_dst_notechart(
         let dsth = dst_height / src_height;
         let offsets = read_offset(str_parts, 21);
         obj.data.set_destination_with_int_timer_ops(
-            values[2] as i64,
-            gauge.x * dstw,
-            dst_height - (values[4] as f32 + gauge.height) * dsth,
-            gauge.width * dstw,
-            gauge.height * dsth,
-            values[7],
-            values[8],
-            values[9],
-            values[10],
-            values[11],
-            values[12],
-            values[13],
-            values[14],
-            values[15],
-            values[16],
+            &DestinationParams {
+                time: values[2] as i64,
+                x: gauge.x * dstw,
+                y: dst_height - (values[4] as f32 + gauge.height) * dsth,
+                w: gauge.width * dstw,
+                h: gauge.height * dsth,
+                acc: values[7],
+                a: values[8],
+                r: values[9],
+                g: values[10],
+                b: values[11],
+                blend: values[12],
+                filter: values[13],
+                angle: values[14],
+                center: values[15],
+                loop_val: values[16],
+            },
             values[17],
             &offsets,
         );
@@ -362,21 +365,23 @@ pub fn process_dst_bpmchart(
         let dsth = dst_height / src_height;
         let offsets = read_offset(str_parts, 21);
         obj.data.set_destination_with_int_timer_ops(
-            values[2] as i64,
-            gauge.x * dstw,
-            dst_height - (values[4] as f32 + gauge.height) * dsth,
-            gauge.width * dstw,
-            gauge.height * dsth,
-            values[7],
-            values[8],
-            values[9],
-            values[10],
-            values[11],
-            values[12],
-            values[13],
-            values[14],
-            values[15],
-            values[16],
+            &DestinationParams {
+                time: values[2] as i64,
+                x: gauge.x * dstw,
+                y: dst_height - (values[4] as f32 + gauge.height) * dsth,
+                w: gauge.width * dstw,
+                h: gauge.height * dsth,
+                acc: values[7],
+                a: values[8],
+                r: values[9],
+                g: values[10],
+                b: values[11],
+                blend: values[12],
+                filter: values[13],
+                angle: values[14],
+                center: values[15],
+                loop_val: values[16],
+            },
             values[17],
             &offsets,
         );

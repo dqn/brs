@@ -40,6 +40,7 @@ use crate::types::skin_bar_object::SkinBarObject;
 use crate::types::skin_header::{
     CustomCategory, CustomFile, CustomItemEnum, CustomOffset, CustomOption, SkinHeader,
 };
+use crate::types::skin_object::DestinationParams;
 use crate::types::skin_type::SkinType;
 
 /// Converts SkinHeaderData into a SkinHeader.
@@ -253,30 +254,48 @@ pub fn convert_skin_data(
                     } else {
                         None
                     };
+                    let params = DestinationParams {
+                        time: dst.time as i64,
+                        x: dst.x as f32,
+                        y: dst.y as f32,
+                        w: dst.w as f32,
+                        h: dst.h as f32,
+                        acc: dst.acc,
+                        a: dst.a,
+                        r: dst.r,
+                        g: dst.g,
+                        b: dst.b,
+                        blend: dst.blend,
+                        filter: dst.filter,
+                        angle: dst.angle,
+                        center: dst.center,
+                        loop_val: dst.loop_val,
+                    };
                     if let Some(draw_prop) = boolean_property_factory::boolean_property(draw_id) {
                         skin.set_destination_with_timer_draw(
-                            obj_index,
-                            dst.time as i64,
-                            dst.x as f32,
-                            dst.y as f32,
-                            dst.w as f32,
-                            dst.h as f32,
-                            dst.acc,
-                            dst.a,
-                            dst.r,
-                            dst.g,
-                            dst.b,
-                            dst.blend,
-                            dst.filter,
-                            dst.angle,
-                            dst.center,
-                            dst.loop_val,
-                            timer_prop,
-                            draw_prop,
+                            obj_index, &params, timer_prop, draw_prop,
                         );
                         continue;
                     }
                 }
+
+                let params = DestinationParams {
+                    time: dst.time as i64,
+                    x: dst.x as f32,
+                    y: dst.y as f32,
+                    w: dst.w as f32,
+                    h: dst.h as f32,
+                    acc: dst.acc,
+                    a: dst.a,
+                    r: dst.r,
+                    g: dst.g,
+                    b: dst.b,
+                    blend: dst.blend,
+                    filter: dst.filter,
+                    angle: dst.angle,
+                    center: dst.center,
+                    loop_val: dst.loop_val,
+                };
 
                 // Handle op-based destination
                 if !dst.op.is_empty() {
@@ -285,51 +304,10 @@ pub fn convert_skin_data(
                     } else {
                         None
                     };
-                    skin.set_destination_with_timer(
-                        obj_index,
-                        dst.time as i64,
-                        dst.x as f32,
-                        dst.y as f32,
-                        dst.w as f32,
-                        dst.h as f32,
-                        dst.acc,
-                        dst.a,
-                        dst.r,
-                        dst.g,
-                        dst.b,
-                        dst.blend,
-                        dst.filter,
-                        dst.angle,
-                        dst.center,
-                        dst.loop_val,
-                        timer_prop,
-                        &dst.op,
-                    );
+                    skin.set_destination_with_timer(obj_index, &params, timer_prop, &dst.op);
                 } else {
                     // Simple destination with offsets (from obj_data)
-                    skin.set_destination(
-                        obj_index,
-                        dst.time as i64,
-                        dst.x as f32,
-                        dst.y as f32,
-                        dst.w as f32,
-                        dst.h as f32,
-                        dst.acc,
-                        dst.a,
-                        dst.r,
-                        dst.g,
-                        dst.b,
-                        dst.blend,
-                        dst.filter,
-                        dst.angle,
-                        dst.center,
-                        dst.loop_val,
-                        timer_id,
-                        0,
-                        0,
-                        0,
-                        &[],
-                    );
+                    skin.set_destination(obj_index, &params, timer_id, &[0, 0, 0], &[]);
                 }
             }
 

@@ -30,7 +30,7 @@ use crate::text::skin_text_font::SkinTextFont;
 use crate::text::skin_text_image::SkinTextImage;
 use crate::types::skin_bar_object::SkinBarObject;
 use crate::types::skin_header::SkinHeader;
-use crate::types::skin_object::{SkinObjectData, SkinObjectRenderer};
+use crate::types::skin_object::{DestinationParams, SkinObjectData, SkinObjectRenderer};
 
 use log::debug;
 
@@ -234,86 +234,35 @@ impl SkinObject {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
-        op1: i32,
-        op2: i32,
-        op3: i32,
+        ops: &[i32],
         offset: &[i32],
     ) {
-        self.data_mut().set_destination_with_timer_ops_and_offsets(
-            time, x, y, w, h, acc, a, r, g, b, blend, filter, angle, center, loop_val, timer, op1,
-            op2, op3, offset,
-        );
+        self.data_mut()
+            .set_destination_with_timer_ops_and_offsets(params, timer, ops, offset);
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_timer_ops(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
         op: &[i32],
     ) {
-        self.data_mut().set_destination_with_timer_and_ops(
-            time, x, y, w, h, acc, a, r, g, b, blend, filter, angle, center, loop_val, timer, op,
-        );
+        self.data_mut()
+            .set_destination_with_timer_and_ops(params, timer, op);
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_timer_draw(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
         draw: Box<dyn BooleanProperty>,
     ) {
-        self.data_mut().set_destination_with_timer_draw(
-            time, x, y, w, h, acc, a, r, g, b, blend, filter, angle, center, loop_val, timer, draw,
-        );
+        self.data_mut()
+            .set_destination_with_timer_draw(params, timer, draw);
     }
 
     pub fn set_mouse_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {

@@ -3,6 +3,8 @@
 // The full SkinBar implementation lives in beatoraja-select::skin_bar.
 
 use crate::stubs::MainState;
+#[cfg(test)]
+use crate::types::skin_object::DestinationParams;
 use crate::types::skin_object::{SkinObjectData, SkinObjectRenderer};
 
 /// SkinBar skin object — minimal wrapper with SkinObjectData for the skin pipeline.
@@ -42,21 +44,23 @@ mod tests {
     /// Helper: set up a single-destination SkinObjectData so prepare() sets draw=true.
     fn setup_data(data: &mut SkinObjectData, x: f32, y: f32, w: f32, h: f32) {
         data.set_destination_with_int_timer_ops(
-            0,
-            x,
-            y,
-            w,
-            h,
-            0,
-            255,
-            255,
-            255,
-            255,
-            0,
-            0,
-            0,
-            0,
-            0,
+            &DestinationParams {
+                time: 0,
+                x,
+                y,
+                w,
+                h,
+                acc: 0,
+                a: 255,
+                r: 255,
+                g: 255,
+                b: 255,
+                blend: 0,
+                filter: 0,
+                angle: 0,
+                center: 0,
+                loop_val: 0,
+            },
             0,
             &[0],
         );
