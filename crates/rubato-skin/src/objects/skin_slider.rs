@@ -1,10 +1,10 @@
 // SkinSlider.java -> skin_slider.rs
 // Mechanical line-by-line translation.
 
-use crate::property::float_property::FloatProperty;
+use crate::property::float_property::{FloatProperty, FloatPropertyEnum};
 use crate::property::float_property_factory;
 use crate::property::float_writer::FloatWriter;
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::TimerPropertyEnum;
 use crate::sources::skin_source::SkinSource;
 use crate::sources::skin_source_image::SkinSourceImage;
 use crate::stubs::{MainState, TextureRegion};
@@ -25,7 +25,7 @@ pub struct SliderIntTimerMinmaxParams {
 /// Parameters for constructing a SkinSlider with timer property and min/max rate.
 pub struct SliderTimerMinmaxParams {
     pub image: Vec<TextureRegion>,
-    pub timer: Box<dyn TimerProperty>,
+    pub timer: TimerPropertyEnum,
     pub cycle: i32,
     pub angle: i32,
     pub range: i32,
@@ -39,7 +39,7 @@ pub struct SkinSlider {
     source: Box<dyn SkinSource>,
     direction: i32,
     range: i32,
-    ref_prop: Option<Box<dyn FloatProperty>>,
+    ref_prop: Option<FloatPropertyEnum>,
     writer: Option<Box<dyn FloatWriter>>,
     current_image: Option<TextureRegion>,
     current_value: f32,
@@ -79,7 +79,7 @@ impl SkinSlider {
         cycle: i32,
         angle: i32,
         range: i32,
-        ref_prop: Box<dyn FloatProperty>,
+        ref_prop: FloatPropertyEnum,
     ) -> Self {
         Self::new_with_int_timer_ref_writer(image, timer, cycle, angle, range, ref_prop, None)
     }
@@ -90,7 +90,7 @@ impl SkinSlider {
         cycle: i32,
         angle: i32,
         range: i32,
-        ref_prop: Box<dyn FloatProperty>,
+        ref_prop: FloatPropertyEnum,
         writer: Option<Box<dyn FloatWriter>>,
     ) -> Self {
         Self {
@@ -117,7 +117,7 @@ impl SkinSlider {
             )),
             direction: params.angle,
             range: params.range,
-            ref_prop: Some(Box::new(RateProperty::new(
+            ref_prop: Some(FloatPropertyEnum::Rate(RateProperty::new(
                 params.type_id,
                 params.min,
                 params.max,
@@ -130,7 +130,7 @@ impl SkinSlider {
 
     pub fn new_with_timer(
         image: Vec<TextureRegion>,
-        timer: Box<dyn TimerProperty>,
+        timer: TimerPropertyEnum,
         cycle: i32,
         angle: i32,
         range: i32,
@@ -159,11 +159,11 @@ impl SkinSlider {
 
     pub fn new_with_timer_ref_writer(
         image: Vec<TextureRegion>,
-        timer: Box<dyn TimerProperty>,
+        timer: TimerPropertyEnum,
         cycle: i32,
         angle: i32,
         range: i32,
-        ref_prop: Box<dyn FloatProperty>,
+        ref_prop: FloatPropertyEnum,
         writer: Option<Box<dyn FloatWriter>>,
     ) -> Self {
         Self {
@@ -192,7 +192,7 @@ impl SkinSlider {
             )),
             direction: params.angle,
             range: params.range,
-            ref_prop: Some(Box::new(RateProperty::new(
+            ref_prop: Some(FloatPropertyEnum::Rate(RateProperty::new(
                 params.type_id,
                 params.min,
                 params.max,
@@ -351,8 +351,8 @@ impl SkinSlider {
         self.direction
     }
 
-    pub fn ref_prop(&self) -> Option<&dyn FloatProperty> {
-        self.ref_prop.as_deref()
+    pub fn ref_prop(&self) -> Option<&FloatPropertyEnum> {
+        self.ref_prop.as_ref()
     }
 
     pub fn direction(&self) -> i32 {

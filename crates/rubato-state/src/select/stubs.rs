@@ -128,7 +128,7 @@ pub use rubato_skin::skin_header::SkinHeader;
 pub use rubato_skin::skin_image::SkinImage;
 pub use rubato_skin::skin_number::SkinNumber;
 pub use rubato_skin::skin_object::SkinObjectRenderer;
-pub use rubato_skin::skin_text::{SkinText, SkinTextData};
+pub use rubato_skin::skin_text::{SkinText, SkinTextData, SkinTextEnum};
 
 /// SkinRegion — alias for Rectangle (same fields: x, y, width, height).
 /// Kept as type alias to minimize churn in select crate code.

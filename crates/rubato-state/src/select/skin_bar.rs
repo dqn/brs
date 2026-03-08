@@ -14,7 +14,7 @@ pub struct SkinBar {
     /// Index: 0=normal, 1=new, 2=SongBar(normal), 3=SongBar(new), 4=FolderBar(normal),
     /// 5=FolderBar(new), 6=TableBar/HashBar, 7=GradeBar(songs exist),
     /// 8=(SongBar/GradeBar)(songs missing), 9=CommandBar/ContainerBar, 10=SearchWordBar
-    pub text: Vec<Option<Box<dyn SkinText>>>,
+    pub text: Vec<Option<SkinTextEnum>>,
     /// Level SkinNumbers (relative to bar position)
     pub barlevel: Vec<Option<SkinNumber>>,
     /// Label SkinImages (relative to bar position)
@@ -54,7 +54,7 @@ impl SkinBar {
     pub const BARLAMP_COUNT: usize = 11;
 
     pub fn new(position: i32) -> Self {
-        // Real SkinImage/SkinNumber/Box<dyn SkinText> are not Clone,
+        // Real SkinImage/SkinNumber/SkinTextEnum are not Clone,
         // so use repeat_with instead of vec![None; N].
         let none_images = |n| {
             std::iter::repeat_with(|| None::<SkinImage>)
@@ -66,7 +66,7 @@ impl SkinBar {
                 .take(n)
                 .collect()
         };
-        let text: Vec<Option<Box<dyn SkinText>>> = std::iter::repeat_with(|| None)
+        let text: Vec<Option<SkinTextEnum>> = std::iter::repeat_with(|| None)
             .take(Self::BARTEXT_COUNT)
             .collect();
         Self {
@@ -139,9 +139,9 @@ impl SkinBar {
         }
     }
 
-    pub fn text(&self, id: usize) -> Option<&dyn SkinText> {
+    pub fn text(&self, id: usize) -> Option<&SkinTextEnum> {
         if id < self.text.len() {
-            self.text[id].as_deref()
+            self.text[id].as_ref()
         } else {
             None
         }
@@ -165,7 +165,7 @@ impl SkinBar {
         }
     }
 
-    pub fn set_text(&mut self, id: usize, text: Box<dyn SkinText>) {
+    pub fn set_text(&mut self, id: usize, text: SkinTextEnum) {
         if id < self.text.len() {
             self.text[id] = Some(text);
         }

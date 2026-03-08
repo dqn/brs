@@ -171,3 +171,53 @@ pub trait SkinText: Send {
     fn draw_with_offset(&mut self, sprite: &mut SkinObjectRenderer, offset_x: f32, offset_y: f32);
     fn dispose(&mut self);
 }
+
+/// Enum dispatch for SkinText, replacing `Box<dyn SkinText>`.
+pub enum SkinTextEnum {
+    Font(crate::text::skin_text_font::SkinTextFont),
+    Image(crate::text::skin_text_image::SkinTextImage),
+}
+
+impl SkinText for SkinTextEnum {
+    fn get_text_data(&self) -> &SkinTextData {
+        match self {
+            Self::Font(inner) => inner.get_text_data(),
+            Self::Image(inner) => inner.get_text_data(),
+        }
+    }
+
+    fn get_text_data_mut(&mut self) -> &mut SkinTextData {
+        match self {
+            Self::Font(inner) => inner.get_text_data_mut(),
+            Self::Image(inner) => inner.get_text_data_mut(),
+        }
+    }
+
+    fn prepare_font(&mut self, text: &str) {
+        match self {
+            Self::Font(inner) => inner.prepare_font(text),
+            Self::Image(inner) => inner.prepare_font(text),
+        }
+    }
+
+    fn prepare_text(&mut self, text: &str) {
+        match self {
+            Self::Font(inner) => inner.prepare_text(text),
+            Self::Image(inner) => inner.prepare_text(text),
+        }
+    }
+
+    fn draw_with_offset(&mut self, sprite: &mut SkinObjectRenderer, offset_x: f32, offset_y: f32) {
+        match self {
+            Self::Font(inner) => inner.draw_with_offset(sprite, offset_x, offset_y),
+            Self::Image(inner) => inner.draw_with_offset(sprite, offset_x, offset_y),
+        }
+    }
+
+    fn dispose(&mut self) {
+        match self {
+            Self::Font(inner) => inner.dispose(),
+            Self::Image(inner) => inner.dispose(),
+        }
+    }
+}

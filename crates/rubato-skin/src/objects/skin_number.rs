@@ -3,7 +3,7 @@
 
 use crate::property::integer_property::IntegerProperty;
 use crate::property::integer_property_factory;
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::TimerPropertyEnum;
 use crate::sources::skin_source_image_set::SkinSourceImageSet;
 use crate::sources::skin_source_set::SkinSourceSet;
 use crate::stubs::{MainState, SkinOffset, TextureRegion};
@@ -131,7 +131,7 @@ impl SkinNumber {
     pub fn new_with_timer(
         image: Vec<Vec<TextureRegion>>,
         mimage: Option<Vec<Vec<TextureRegion>>>,
-        timer: Box<dyn TimerProperty>,
+        timer: TimerPropertyEnum,
         cycle: i32,
         config: NumberDisplayConfig,
         id: i32,
@@ -166,7 +166,7 @@ impl SkinNumber {
     pub fn new_with_timer_ref(
         image: Vec<Vec<TextureRegion>>,
         mimage: Option<Vec<Vec<TextureRegion>>>,
-        timer: Box<dyn TimerProperty>,
+        timer: TimerPropertyEnum,
         cycle: i32,
         config: NumberDisplayConfig,
         ref_prop: Box<dyn IntegerProperty>,

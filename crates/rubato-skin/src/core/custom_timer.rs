@@ -1,4 +1,4 @@
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::{TimerProperty, TimerPropertyEnum};
 use crate::stubs::MainState;
 
 /// Custom timer definition
@@ -6,12 +6,12 @@ use crate::stubs::MainState;
 /// Translated from CustomTimer.java
 pub struct CustomTimer {
     pub id: i32,
-    timer_func: Option<Box<dyn TimerProperty>>,
+    timer_func: Option<TimerPropertyEnum>,
     time: i64,
 }
 
 impl CustomTimer {
-    pub fn new(id: i32, timer_func: Option<Box<dyn TimerProperty>>) -> Self {
+    pub fn new(id: i32, timer_func: Option<TimerPropertyEnum>) -> Self {
         Self {
             id,
             timer_func,

@@ -1,3 +1,5 @@
+use crate::lua::skin_lua_accessor::LuaTimerProperty;
+use crate::property::timer_property_factory::TimerPropertyImpl;
 use crate::stubs::MainState;
 
 pub trait TimerProperty: Send + Sync {
@@ -28,5 +30,55 @@ pub trait TimerProperty: Send + Sync {
     /// For script-defined timers, returns `i32::MIN`.
     fn get_timer_id(&self) -> i32 {
         i32::MIN
+    }
+}
+
+/// Enum dispatch for TimerProperty, replacing `Box<dyn TimerProperty>`.
+pub enum TimerPropertyEnum {
+    Impl(TimerPropertyImpl),
+    Lua(LuaTimerProperty),
+}
+
+impl TimerProperty for TimerPropertyEnum {
+    fn get_micro(&self, state: &dyn MainState) -> i64 {
+        match self {
+            Self::Impl(inner) => inner.get_micro(state),
+            Self::Lua(inner) => inner.get_micro(state),
+        }
+    }
+
+    fn get(&self, state: &dyn MainState) -> i64 {
+        match self {
+            Self::Impl(inner) => inner.get(state),
+            Self::Lua(inner) => inner.get(state),
+        }
+    }
+
+    fn now_time(&self, state: &dyn MainState) -> i64 {
+        match self {
+            Self::Impl(inner) => inner.now_time(state),
+            Self::Lua(inner) => inner.now_time(state),
+        }
+    }
+
+    fn is_on(&self, state: &dyn MainState) -> bool {
+        match self {
+            Self::Impl(inner) => inner.is_on(state),
+            Self::Lua(inner) => inner.is_on(state),
+        }
+    }
+
+    fn is_off(&self, state: &dyn MainState) -> bool {
+        match self {
+            Self::Impl(inner) => inner.is_off(state),
+            Self::Lua(inner) => inner.is_off(state),
+        }
+    }
+
+    fn get_timer_id(&self) -> i32 {
+        match self {
+            Self::Impl(inner) => inner.get_timer_id(),
+            Self::Lua(inner) => inner.get_timer_id(),
+        }
     }
 }

@@ -3,7 +3,7 @@
 
 use crate::property::integer_property::IntegerProperty;
 use crate::property::integer_property_factory;
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::TimerPropertyEnum;
 use crate::sources::skin_source::SkinSource;
 use crate::sources::skin_source_image::SkinSourceImage;
 use crate::sources::skin_source_movie::SkinSourceMovie;
@@ -108,11 +108,7 @@ impl SkinImage {
         }
     }
 
-    pub fn new_with_timer(
-        image: Vec<TextureRegion>,
-        timer: Box<dyn TimerProperty>,
-        cycle: i32,
-    ) -> Self {
+    pub fn new_with_timer(image: Vec<TextureRegion>, timer: TimerPropertyEnum, cycle: i32) -> Self {
         Self {
             data: SkinObjectData::new(),
             image: vec![Some(Box::new(SkinSourceImage::new_with_timer_from_vec(
@@ -129,7 +125,7 @@ impl SkinImage {
 
     pub fn new_with_timer_ref_id(
         images: Vec<Vec<TextureRegion>>,
-        timer: Box<dyn TimerProperty>,
+        timer: TimerPropertyEnum,
         cycle: i32,
         ref_id: i32,
     ) -> Self {

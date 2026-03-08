@@ -2,7 +2,7 @@
 // Mechanical line-by-line translation.
 // Hidden/lift cover object for play skin.
 
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::{TimerProperty, TimerPropertyEnum};
 use crate::property::timer_property_factory;
 use crate::stubs::{MainState, TextureRegion};
 use crate::types::skin_object::{SkinObjectData, SkinObjectRenderer};
@@ -29,7 +29,7 @@ pub struct SkinHidden {
     /// Previous lift value (for detecting lift changes)
     previous_lift: f32,
     /// Timer property for animation
-    timer: Option<Box<dyn TimerProperty>>,
+    timer: Option<TimerPropertyEnum>,
     /// Animation cycle duration
     cycle: i32,
     /// Current image index
@@ -39,7 +39,7 @@ pub struct SkinHidden {
 impl SkinHidden {
     /// Creates a SkinHidden from images with an integer timer ID.
     pub fn new_with_int_timer(image: Vec<TextureRegion>, timer: i32, cycle: i32) -> Self {
-        let timer_prop: Option<Box<dyn TimerProperty>> = if timer > 0 {
+        let timer_prop: Option<TimerPropertyEnum> = if timer > 0 {
             timer_property_factory::timer_property(timer)
         } else {
             None

@@ -171,7 +171,7 @@ impl Skin {
         &mut self,
         obj_index: usize,
         params: &DestinationParams,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         op: &[i32],
     ) {
         let scaled = self.scale_params(params);
@@ -184,7 +184,7 @@ impl Skin {
         &mut self,
         obj_index: usize,
         params: &DestinationParams,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         draw: Box<dyn BooleanProperty>,
     ) {
         let scaled = self.scale_params(params);
@@ -491,7 +491,7 @@ impl Skin {
         &mut self,
         number: SkinNumber,
         params: &DestinationParams,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         ops: &[i32],
         offset: i32,
     ) {
@@ -508,7 +508,7 @@ impl Skin {
         &mut self,
         tr: TextureRegion,
         params: &DestinationParams,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         ops: &[i32],
         offset: i32,
     ) -> usize {

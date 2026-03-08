@@ -1,11 +1,11 @@
-use crate::property::timer_property::TimerProperty;
+use crate::property::timer_property::{TimerProperty, TimerPropertyEnum};
 use crate::sources::skin_source_set::SkinSourceSet;
 use crate::stubs::{MainState, TextureRegion};
 
 /// Skin source image set (SkinSourceImageSet.java)
 pub struct SkinSourceImageSet {
     image: Vec<Vec<Option<TextureRegion>>>,
-    timer: Option<Box<dyn TimerProperty>>,
+    timer: Option<TimerPropertyEnum>,
     cycle: i32,
     disposed: bool,
 }
@@ -31,7 +31,7 @@ impl SkinSourceImageSet {
         timer: i32,
         cycle: i32,
     ) -> Self {
-        let timer_prop: Option<Box<dyn TimerProperty>> = if timer > 0 {
+        let timer_prop: Option<TimerPropertyEnum> = if timer > 0 {
             crate::property::timer_property_factory::timer_property(timer)
         } else {
             None
@@ -46,7 +46,7 @@ impl SkinSourceImageSet {
 
     pub fn new_with_timer_from_vecs(
         image: Vec<Vec<TextureRegion>>,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         cycle: i32,
     ) -> Self {
         Self::new_with_timer(
@@ -61,7 +61,7 @@ impl SkinSourceImageSet {
 
     pub fn new_with_timer(
         image: Vec<Vec<Option<TextureRegion>>>,
-        timer: Option<Box<dyn TimerProperty>>,
+        timer: Option<TimerPropertyEnum>,
         cycle: i32,
     ) -> Self {
         Self {

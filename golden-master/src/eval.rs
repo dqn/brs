@@ -4,6 +4,7 @@
 // functions that take &SkinObjectData + &dyn SkinStateProvider and return computed
 // values without mutation.
 
+use rubato_skin::property::timer_property::TimerProperty;
 use rubato_skin::skin_object::{SkinObjectData, SkinObjectDestination};
 use rubato_skin::skin_text::SkinTextData;
 use rubato_skin::stubs::SkinOffset;

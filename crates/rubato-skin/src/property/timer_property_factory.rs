@@ -1,21 +1,21 @@
-use super::timer_property::TimerProperty;
+use super::timer_property::{TimerProperty, TimerPropertyEnum};
 use crate::stubs::MainState;
 use rubato_types::timer_id::TimerId;
 
 /// Returns a TimerProperty for the given timer ID.
 /// Returns None if timer_id is negative.
-pub fn timer_property(timer_id: i32) -> Option<Box<dyn TimerProperty>> {
+pub fn timer_property(timer_id: i32) -> Option<TimerPropertyEnum> {
     if timer_id < 0 {
         return None;
     }
 
-    Some(Box::new(TimerPropertyImpl {
+    Some(TimerPropertyEnum::Impl(TimerPropertyImpl {
         timer_id: TimerId::new(timer_id),
     }))
 }
 
-struct TimerPropertyImpl {
-    timer_id: TimerId,
+pub struct TimerPropertyImpl {
+    pub(crate) timer_id: TimerId,
 }
 
 impl TimerProperty for TimerPropertyImpl {

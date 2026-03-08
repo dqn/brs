@@ -4,6 +4,7 @@ use crate::skin_bpm_graph::SkinBPMGraph;
 use crate::skin_image::SkinImage;
 use crate::skin_note_distribution_graph::SkinNoteDistributionGraph;
 use crate::skin_object::DestinationParams;
+use crate::skin_text::SkinText;
 use crate::stubs::{Rectangle, Resolution, TextureRegion};
 
 /// LR2 select skin loader
@@ -50,7 +51,7 @@ pub struct LR2SelectSkinLoaderState {
     pub barcycle: i32,
 
     pub barlevel: Vec<Option<crate::skin_number::SkinNumber>>,
-    pub bartext: Vec<Option<Box<dyn crate::skin_text::SkinText>>>,
+    pub bartext: Vec<Option<crate::skin_text::SkinTextEnum>>,
 
     pub barlamp: Vec<Option<SkinImage>>,
     pub barmylamp: Vec<Option<SkinImage>>,
@@ -740,7 +741,7 @@ impl LR2SelectSkinLoaderState {
                     let text = crate::skin_text_image::SkinTextImage::new(source);
                     let idx = values[1] as usize;
                     if idx < self.bartext.len() {
-                        self.bartext[idx] = Some(Box::new(text));
+                        self.bartext[idx] = Some(crate::skin_text::SkinTextEnum::Image(text));
                     }
                 }
             }
