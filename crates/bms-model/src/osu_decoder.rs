@@ -59,8 +59,8 @@ impl OSUDecoder {
         }
 
         let mut model = BMSModel::new();
-        model.md5 = md5_hash.into();
-        model.sha256 = sha256_hash.into();
+        model.md5 = md5_hash;
+        model.sha256 = sha256_hash;
 
         if osu.general.mode != 3 {
             return None;

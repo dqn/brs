@@ -68,7 +68,7 @@ impl RivalDataAccessor {
                     if let Ok(scoredb) = ScoreDatabaseAccessor::new(&score_db_path) {
                         let importer = ScoreDataImporter::new(&scoredb);
                         let score_hash = provider.score_hash();
-                        importer.import_scores(&scores, &score_hash);
+                        importer.import_scores(&scores, score_hash);
                         log::info!("IR score import complete");
                     } else {
                         log::warn!("Failed to open score database: {}", score_db_path);
