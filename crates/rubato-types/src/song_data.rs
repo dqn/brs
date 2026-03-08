@@ -410,14 +410,6 @@ impl SongData {
         self.file.set_path_opt(path);
     }
 
-    pub fn add_another_path(&mut self, path: String) {
-        self.file.add_another_path(path);
-    }
-
-    pub fn all_paths(&self) -> &[String] {
-        self.file.all_paths()
-    }
-
     pub fn org_md5_vec(&self) -> &[String] {
         self.file.org_md5_vec()
     }
@@ -432,10 +424,6 @@ impl SongData {
         self.metadata.set_subtitle(subtitle);
     }
 
-    pub fn full_title_cached(&mut self) -> &str {
-        self.metadata.full_title_cached()
-    }
-
     pub fn full_title(&self) -> String {
         self.metadata.full_title()
     }
@@ -448,23 +436,7 @@ impl SongData {
         self.metadata.set_subartist(subartist);
     }
 
-    pub fn full_artist(&mut self) -> &str {
-        self.metadata.full_artist()
-    }
-
     // --- Delegation methods for ChartInfo ---
-
-    pub fn has_document(&self) -> bool {
-        self.chart.has_document()
-    }
-
-    pub fn has_bga(&self) -> bool {
-        self.chart.has_bga()
-    }
-
-    pub fn has_preview(&self) -> bool {
-        self.chart.has_preview()
-    }
 
     pub fn has_random_sequence(&self) -> bool {
         self.chart.has_random_sequence()
@@ -490,19 +462,9 @@ impl SongData {
         self.chart.has_hell_charge_note()
     }
 
-    pub fn has_any_long_note(&self) -> bool {
-        self.chart.has_any_long_note()
-    }
-
     pub fn is_bpmstop(&self) -> bool {
         self.chart.is_bpmstop()
     }
-
-    pub fn has_scroll_change(&self) -> bool {
-        self.chart.has_scroll_change()
-    }
-
-    // --- Remaining methods on SongData ---
 
     pub fn url(&self) -> &str {
         self.url.as_deref().unwrap_or("")
@@ -512,100 +474,8 @@ impl SongData {
         self.appendurl.as_deref().unwrap_or("")
     }
 
-    pub fn get_level(&self) -> i32 {
-        self.chart.level
-    }
-
-    pub fn get_judge(&self) -> i32 {
-        self.chart.judge
-    }
-
-    pub fn get_minbpm(&self) -> i32 {
-        self.chart.minbpm
-    }
-
-    pub fn get_maxbpm(&self) -> i32 {
-        self.chart.maxbpm
-    }
-
-    pub fn get_notes(&self) -> i32 {
-        self.chart.notes
-    }
-
-    pub fn get_mode(&self) -> i32 {
-        self.chart.mode
-    }
-
-    pub fn get_difficulty(&self) -> i32 {
-        self.chart.difficulty
-    }
-
-    pub fn get_favorite(&self) -> i32 {
-        self.favorite
-    }
-
-    pub fn get_feature(&self) -> i32 {
-        self.chart.feature
-    }
-
-    pub fn get_content(&self) -> i32 {
-        self.chart.content
-    }
-
-    pub fn get_length(&self) -> i32 {
-        self.chart.length
-    }
-
-    pub fn get_date(&self) -> i32 {
-        self.chart.date
-    }
-
-    pub fn get_adddate(&self) -> i32 {
-        self.chart.adddate
-    }
-
-    pub fn get_tag(&self) -> &str {
-        &self.metadata.tag
-    }
-
-    pub fn get_folder(&self) -> &str {
-        &self.folder
-    }
-
-    pub fn get_parent(&self) -> &str {
-        &self.parent
-    }
-
-    pub fn get_stagefile(&self) -> &str {
-        &self.file.stagefile
-    }
-
-    pub fn get_backbmp(&self) -> &str {
-        &self.file.backbmp
-    }
-
-    pub fn get_banner(&self) -> &str {
-        &self.file.banner
-    }
-
-    pub fn get_preview(&self) -> &str {
-        &self.file.preview
-    }
-
-    pub fn get_charthash(&self) -> Option<&str> {
-        self.file.charthash.as_deref()
-    }
-
-    pub fn song_information(&self) -> Option<&SongInformation> {
-        self.info.as_ref()
-    }
-
     pub fn set_url(&mut self, url: String) {
         self.url = Some(url);
-    }
-
-    pub fn set_appendurl(&mut self, appendurl: String) {
-        self.appendurl = Some(appendurl);
     }
 
     pub fn get_ipfs_str(&self) -> &str {
@@ -769,7 +639,6 @@ mod tests {
         sd.file.md5 = "md5hash".to_string();
         sd.file.sha256 = "sha256hash".to_string();
         sd.set_url("https://url.com".to_string());
-        sd.set_appendurl("https://append.com".to_string());
         sd.chart.mode = 14;
         sd.favorite = FAVORITE_CHART;
 
@@ -781,7 +650,6 @@ mod tests {
         assert_eq!(sd.file.md5, "md5hash");
         assert_eq!(sd.file.sha256, "sha256hash");
         assert_eq!(sd.url(), "https://url.com");
-        assert_eq!(sd.appendurl(), "https://append.com");
         assert_eq!(sd.chart.mode, 14);
         assert_eq!(sd.favorite, FAVORITE_CHART);
     }
@@ -827,10 +695,10 @@ mod tests {
         let mut sd = SongData::new();
         sd.set_artist("Artist".to_string());
         sd.set_subartist("Sub".to_string());
-        assert_eq!(sd.full_artist(), "Artist Sub");
+        assert_eq!(sd.metadata.full_artist(), "Artist Sub");
 
         sd.set_subartist("".to_string());
-        assert_eq!(sd.full_artist(), "Artist");
+        assert_eq!(sd.metadata.full_artist(), "Artist");
     }
 
     #[test]
@@ -841,13 +709,13 @@ mod tests {
         sd.set_path("/songs/test.bms".to_string());
         assert_eq!(sd.path(), Some("/songs/test.bms"));
 
-        sd.add_another_path("/songs/test2.bms".to_string());
-        assert_eq!(sd.all_paths().len(), 2);
-        assert_eq!(sd.all_paths()[1], "/songs/test2.bms");
+        sd.file.add_another_path("/songs/test2.bms".to_string());
+        assert_eq!(sd.file.all_paths().len(), 2);
+        assert_eq!(sd.file.all_paths()[1], "/songs/test2.bms");
 
         sd.clear_path();
         assert!(sd.path().is_none());
-        assert!(sd.all_paths().is_empty());
+        assert!(sd.file.all_paths().is_empty());
     }
 
     #[test]
@@ -868,13 +736,13 @@ mod tests {
         assert!(sd.has_long_note());
         assert!(sd.has_mine_note());
         assert!(sd.is_bpmstop());
-        assert!(sd.has_any_long_note());
+        assert!(sd.chart.has_any_long_note());
 
         assert!(!sd.has_undefined_long_note());
         assert!(!sd.has_charge_note());
         assert!(!sd.has_hell_charge_note());
         assert!(!sd.has_random_sequence());
-        assert!(!sd.has_scroll_change());
+        assert!(!sd.chart.has_scroll_change());
     }
 
     #[test]
@@ -882,9 +750,9 @@ mod tests {
         let mut sd = SongData::new();
         sd.chart.content = CONTENT_TEXT | CONTENT_BGA;
 
-        assert!(sd.has_document());
-        assert!(sd.has_bga());
-        assert!(!sd.has_preview());
+        assert!(sd.chart.has_document());
+        assert!(sd.chart.has_bga());
+        assert!(!sd.chart.has_preview());
     }
 
     #[test]
@@ -937,7 +805,7 @@ mod tests {
 
         sd.shrink();
 
-        assert!(sd.all_paths().is_empty());
+        assert!(sd.file.all_paths().is_empty());
         assert_eq!(sd.chart.level, 0);
         assert_eq!(sd.chart.notes, 0);
         assert!(sd.file.preview.is_empty());
