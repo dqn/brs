@@ -173,7 +173,7 @@ impl PracticeConfiguration {
     }
 
     pub fn create(&mut self, model: &BMSModel) {
-        self.sha256 = model.sha256().to_string();
+        self.sha256 = model.sha256.clone();
         self.property.judgerank = model.judgerank;
         self.property.endtime = model.last_time() + 1000;
 

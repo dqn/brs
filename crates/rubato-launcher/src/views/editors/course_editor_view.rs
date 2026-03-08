@@ -586,7 +586,8 @@ impl CourseEditorView {
                 .show(ui, |ui| {
                     for (i, song) in self.course_songs.iter().enumerate() {
                         let selected = self.course_songs_selected_index == Some(i);
-                        let label = format!("{} [{}]", song.metadata.full_title(), &song.file.sha256);
+                        let label =
+                            format!("{} [{}]", song.metadata.full_title(), &song.file.sha256);
                         if ui.selectable_label(selected, &label).clicked() {
                             self.course_songs_selected_index = Some(i);
                         }

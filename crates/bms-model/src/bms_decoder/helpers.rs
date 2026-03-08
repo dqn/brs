@@ -86,42 +86,42 @@ pub(super) fn process_command_word(
         CmdDef {
             name: "GENRE",
             handler: |model, arg| {
-                model.set_genre(arg);
+                model.genre = arg.to_string();
                 None
             },
         },
         CmdDef {
             name: "TITLE",
             handler: |model, arg| {
-                model.set_title(arg);
+                model.title = arg.to_string();
                 None
             },
         },
         CmdDef {
             name: "SUBTITLE",
             handler: |model, arg| {
-                model.set_sub_title(arg);
+                model.sub_title = arg.to_string();
                 None
             },
         },
         CmdDef {
             name: "ARTIST",
             handler: |model, arg| {
-                model.set_artist(arg);
+                model.artist = arg.to_string();
                 None
             },
         },
         CmdDef {
             name: "SUBARTIST",
             handler: |model, arg| {
-                model.set_sub_artist(arg);
+                model.subartist = arg.to_string();
                 None
             },
         },
         CmdDef {
             name: "PLAYLEVEL",
             handler: |model, arg| {
-                model.set_playlevel(arg);
+                model.playlevel = arg.to_string();
                 None
             },
         },
@@ -217,21 +217,21 @@ pub(super) fn process_command_word(
         CmdDef {
             name: "STAGEFILE",
             handler: |model, arg| {
-                model.set_stagefile(normalize_path_separators(arg).into_owned());
+                model.stagefile = normalize_path_separators(arg).into_owned();
                 None
             },
         },
         CmdDef {
             name: "BACKBMP",
             handler: |model, arg| {
-                model.set_backbmp(normalize_path_separators(arg).into_owned());
+                model.backbmp = normalize_path_separators(arg).into_owned();
                 None
             },
         },
         CmdDef {
             name: "PREVIEW",
             handler: |model, arg| {
-                model.set_preview(normalize_path_separators(arg).into_owned());
+                model.preview = normalize_path_separators(arg).into_owned();
                 None
             },
         },
@@ -305,7 +305,7 @@ pub(super) fn process_command_word(
         CmdDef {
             name: "BANNER",
             handler: |model, arg| {
-                model.set_banner(normalize_path_separators(arg).into_owned());
+                model.banner = normalize_path_separators(arg).into_owned();
                 None
             },
         },

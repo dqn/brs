@@ -1327,7 +1327,7 @@ fn handle_random_syntax_replay_mode_uses_replay_rand() {
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
-    model.set_chart_information(bms_model::chart_information::ChartInformation::new(
+    model.info = Some(bms_model::chart_information::ChartInformation::new(
         None,
         bms_model::bms_model::LnType::LongNote,
         Some(vec![1, 3, 2]),
@@ -1349,7 +1349,7 @@ fn handle_random_syntax_resource_seed_set_uses_resource_rand() {
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
-    model.set_chart_information(bms_model::chart_information::ChartInformation::new(
+    model.info = Some(bms_model::chart_information::ChartInformation::new(
         None,
         bms_model::bms_model::LnType::LongNote,
         Some(vec![1, 3, 2]),
@@ -1369,7 +1369,7 @@ fn handle_random_syntax_normal_play_stores_model_random() {
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
-    model.set_chart_information(bms_model::chart_information::ChartInformation::new(
+    model.info = Some(bms_model::chart_information::ChartInformation::new(
         None,
         bms_model::bms_model::LnType::LongNote,
         Some(vec![4, 5, 6]),
@@ -1387,7 +1387,7 @@ fn handle_random_syntax_replay_empty_rand_stores_model_random() {
     let mut model = BMSModel::new();
     model.set_mode(Mode::BEAT_7K);
     model.judgerank = 100;
-    model.set_chart_information(bms_model::chart_information::ChartInformation::new(
+    model.info = Some(bms_model::chart_information::ChartInformation::new(
         None,
         bms_model::bms_model::LnType::LongNote,
         Some(vec![1, 2]),

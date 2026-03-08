@@ -164,7 +164,7 @@ impl PatternModifier for PlayerBattleModifier {
             return;
         }
 
-        let timelines = model.all_time_lines_mut();
+        let timelines = &mut model.timelines;
         for tl in timelines.iter_mut() {
             if tl.exist_note() || tl.exist_hidden_note() {
                 // Take all notes out of the timeline (move, not clone)

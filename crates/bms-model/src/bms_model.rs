@@ -57,25 +57,25 @@ pub enum TotalType {
 pub struct BMSModel {
     pub player: i32,
     mode: Option<Mode>,
-    title: String,
-    sub_title: String,
-    genre: String,
-    artist: String,
-    subartist: String,
-    banner: String,
-    stagefile: String,
-    backbmp: String,
-    preview: String,
+    pub title: String,
+    pub sub_title: String,
+    pub genre: String,
+    pub artist: String,
+    pub subartist: String,
+    pub banner: String,
+    pub stagefile: String,
+    pub backbmp: String,
+    pub preview: String,
     pub bpm: f64,
-    playlevel: String,
+    pub playlevel: String,
     pub difficulty: i32,
     pub judgerank: i32,
     pub judgerank_type: JudgeRankType,
     pub total: f64,
     pub total_type: TotalType,
     pub volwav: i32,
-    md5: String,
-    sha256: String,
+    pub md5: String,
+    pub sha256: String,
     pub wavmap: Vec<String>,
     pub bgamap: Vec<String>,
     base: i32,
@@ -83,7 +83,7 @@ pub struct BMSModel {
     pub lnobj: i32,
     pub from_osu: bool,
     pub timelines: Vec<TimeLine>,
-    info: Option<ChartInformation>,
+    pub info: Option<ChartInformation>,
     pub values: HashMap<String, String>,
 }
 
@@ -129,104 +129,22 @@ impl BMSModel {
         }
     }
 
-    pub fn get_title(&self) -> &str {
-        &self.title
-    }
-
-    pub fn set_title(&mut self, title: impl Into<String>) {
-        let t: String = title.into();
-        self.title = t;
-    }
-
-    pub fn sub_title(&self) -> &str {
-        &self.sub_title
-    }
-
-    pub fn set_sub_title(&mut self, sub_title: impl Into<String>) {
-        let t: String = sub_title.into();
-        self.sub_title = t;
-    }
-
-    pub fn genre(&self) -> &str {
-        &self.genre
-    }
-
-    pub fn set_genre(&mut self, genre: impl Into<String>) {
-        let t: String = genre.into();
-        self.genre = t;
-    }
-
-    pub fn artist(&self) -> &str {
-        &self.artist
-    }
-
-    pub fn set_artist(&mut self, artist: impl Into<String>) {
-        let t: String = artist.into();
-        self.artist = t;
-    }
-
-    pub fn sub_artist(&self) -> &str {
-        &self.subartist
-    }
-
-    pub fn set_sub_artist(&mut self, artist: impl Into<String>) {
-        let t: String = artist.into();
-        self.subartist = t;
-    }
-
-    pub fn set_banner(&mut self, banner: impl Into<String>) {
-        let t: String = banner.into();
-        self.banner = t;
-    }
-
-    pub fn banner(&self) -> &str {
-        &self.banner
-    }
-
-    pub fn get_playlevel(&self) -> &str {
-        &self.playlevel
-    }
-
-    pub fn set_playlevel(&mut self, playlevel: impl Into<String>) {
-        self.playlevel = playlevel.into();
-    }
-
     pub fn get_min_bpm(&self) -> f64 {
-        let mut bpm = self.bpm;
-        for time in &self.timelines {
-            let d = time.bpm;
-            bpm = if bpm <= d { bpm } else { d };
-        }
-        bpm
+        self.timelines
+            .iter()
+            .map(|tl| tl.bpm)
+            .fold(self.bpm, f64::min)
     }
 
     pub fn max_bpm(&self) -> f64 {
-        let mut bpm = self.bpm;
-        for time in &self.timelines {
-            let d = time.bpm;
-            bpm = if bpm >= d { bpm } else { d };
-        }
-        bpm
-    }
-    pub fn get_all_time_lines(&self) -> &[TimeLine] {
-        &self.timelines
-    }
-
-    pub fn all_time_lines_mut(&mut self) -> &mut [TimeLine] {
-        &mut self.timelines
-    }
-
-    pub fn take_all_time_lines(&mut self) -> Vec<TimeLine> {
-        std::mem::take(&mut self.timelines)
+        self.timelines
+            .iter()
+            .map(|tl| tl.bpm)
+            .fold(self.bpm, f64::max)
     }
 
     pub fn all_times(&self) -> Vec<i64> {
-        let times = &self.timelines;
-        let mut result = Vec::with_capacity(times.len());
-        for tl in times {
-            result.push(tl.time() as i64);
-        }
-        result
+        self.timelines.iter().map(|tl| tl.time() as i64).collect()
     }
 
     pub fn last_time(&self) -> i32 {
@@ -268,9 +186,6 @@ impl BMSModel {
         0
     }
 
-    pub fn difficulty(&self) -> i32 {
-        self.difficulty
-    }
     pub fn get_full_title(&self) -> String {
         let mut s = self.title.clone();
         if !self.sub_title.is_empty() {
@@ -289,22 +204,6 @@ impl BMSModel {
         s
     }
 
-    pub fn set_md5(&mut self, hash: impl Into<String>) {
-        self.md5 = hash.into();
-    }
-
-    pub fn md5(&self) -> &str {
-        &self.md5
-    }
-
-    pub fn sha256(&self) -> &str {
-        &self.sha256
-    }
-
-    pub fn set_sha256(&mut self, sha256: impl Into<String>) {
-        self.sha256 = sha256.into();
-    }
-
     pub fn set_mode(&mut self, mode: Mode) {
         let key = mode.key();
         self.mode = Some(mode);
@@ -315,20 +214,6 @@ impl BMSModel {
 
     pub fn mode(&self) -> Option<&Mode> {
         self.mode.as_ref()
-    }
-
-    pub fn wav_list(&self) -> &[String] {
-        &self.wavmap
-    }
-    pub fn get_bga_list(&self) -> &[String] {
-        &self.bgamap
-    }
-    pub fn get_chart_information(&self) -> Option<&ChartInformation> {
-        self.info.as_ref()
-    }
-
-    pub fn set_chart_information(&mut self, info: ChartInformation) {
-        self.info = Some(info);
     }
 
     pub fn random(&self) -> Option<&[i32]> {
@@ -349,24 +234,6 @@ impl BMSModel {
             .as_ref()
             .map(|i| i.lntype)
             .unwrap_or(LnType::LongNote)
-    }
-
-    pub fn stagefile(&self) -> &str {
-        &self.stagefile
-    }
-
-    pub fn set_stagefile(&mut self, stagefile: impl Into<String>) {
-        let t: String = stagefile.into();
-        self.stagefile = t;
-    }
-
-    pub fn backbmp(&self) -> &str {
-        &self.backbmp
-    }
-
-    pub fn set_backbmp(&mut self, backbmp: impl Into<String>) {
-        let t: String = backbmp.into();
-        self.backbmp = t;
     }
 
     pub fn total_notes(&self) -> i32 {
@@ -418,18 +285,6 @@ impl BMSModel {
             }
         }
         false
-    }
-
-    pub fn preview(&self) -> &str {
-        &self.preview
-    }
-
-    pub fn set_preview(&mut self, preview: impl Into<String>) {
-        self.preview = preview.into();
-    }
-
-    pub fn lnobj(&self) -> i32 {
-        self.lnobj
     }
 
     pub fn to_chart_string(&self) -> String {
@@ -531,30 +386,30 @@ mod tests {
         let model = BMSModel::new();
         assert_eq!(model.player, 0);
         assert!(model.mode().is_none());
-        assert_eq!(model.get_title(), "");
-        assert_eq!(model.sub_title(), "");
-        assert_eq!(model.genre(), "");
-        assert_eq!(model.artist(), "");
-        assert_eq!(model.sub_artist(), "");
-        assert_eq!(model.banner(), "");
-        assert_eq!(model.stagefile(), "");
-        assert_eq!(model.backbmp(), "");
-        assert_eq!(model.preview(), "");
+        assert_eq!(model.title, "");
+        assert_eq!(model.sub_title, "");
+        assert_eq!(model.genre, "");
+        assert_eq!(model.artist, "");
+        assert_eq!(model.subartist, "");
+        assert_eq!(model.banner, "");
+        assert_eq!(model.stagefile, "");
+        assert_eq!(model.backbmp, "");
+        assert_eq!(model.preview, "");
         assert!((model.bpm).abs() < f64::EPSILON);
-        assert_eq!(model.get_playlevel(), "");
-        assert_eq!(model.difficulty(), 0);
+        assert_eq!(model.playlevel, "");
+        assert_eq!(model.difficulty, 0);
         assert_eq!(model.judgerank, 2);
         assert_eq!(model.judgerank_type, JudgeRankType::BmsRank);
         assert!((model.total - 100.0).abs() < f64::EPSILON);
         assert_eq!(model.total_type, TotalType::Bmson);
         assert_eq!(model.volwav, 0);
-        assert_eq!(model.md5(), "");
-        assert_eq!(model.sha256(), "");
-        assert!(model.wav_list().is_empty());
+        assert_eq!(model.md5, "");
+        assert_eq!(model.sha256, "");
+        assert!(model.wavmap.is_empty());
         assert!(model.bgamap.is_empty());
         assert_eq!(model.get_base(), 36);
         assert_eq!(model.lnmode, crate::note::TYPE_UNDEFINED);
-        assert_eq!(model.lnobj(), -1);
+        assert_eq!(model.lnobj, -1);
         assert!(!model.from_osu);
         assert!(model.timelines.is_empty());
     }
@@ -563,7 +418,7 @@ mod tests {
     fn default_matches_new() {
         let from_new = BMSModel::new();
         let from_default = BMSModel::default();
-        assert_eq!(from_new.get_title(), from_default.get_title());
+        assert_eq!(from_new.title, from_default.title);
         assert_eq!(from_new.player, from_default.player);
         assert_eq!(from_new.get_base(), from_default.get_base());
     }
@@ -589,66 +444,66 @@ mod tests {
     #[test]
     fn title_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_title("Test Song");
-        assert_eq!(model.get_title(), "Test Song");
+        model.title = "Test Song".into();
+        assert_eq!(model.title, "Test Song");
     }
 
     #[test]
     fn sub_title_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_sub_title("[SPA]");
-        assert_eq!(model.sub_title(), "[SPA]");
+        model.sub_title = "[SPA]".into();
+        assert_eq!(model.sub_title, "[SPA]");
     }
 
     #[test]
     fn full_title_without_subtitle() {
         let mut model = BMSModel::new();
-        model.set_title("Main Title");
+        model.title = "Main Title".into();
         assert_eq!(model.get_full_title(), "Main Title");
     }
 
     #[test]
     fn full_title_with_subtitle() {
         let mut model = BMSModel::new();
-        model.set_title("Main Title");
-        model.set_sub_title("[ANOTHER]");
+        model.title = "Main Title".into();
+        model.sub_title = "[ANOTHER]".into();
         assert_eq!(model.get_full_title(), "Main Title [ANOTHER]");
     }
 
     #[test]
     fn artist_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_artist("Artist Name");
-        assert_eq!(model.artist(), "Artist Name");
+        model.artist = "Artist Name".into();
+        assert_eq!(model.artist, "Artist Name");
     }
 
     #[test]
     fn sub_artist_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_sub_artist("feat. Someone");
-        assert_eq!(model.sub_artist(), "feat. Someone");
+        model.subartist = "feat. Someone".into();
+        assert_eq!(model.subartist, "feat. Someone");
     }
 
     #[test]
     fn full_artist_without_subartist() {
         let mut model = BMSModel::new();
-        model.set_artist("DJ Test");
+        model.artist = "DJ Test".into();
         assert_eq!(model.full_artist(), "DJ Test");
     }
 
     #[test]
     fn full_artist_with_subartist() {
         let mut model = BMSModel::new();
-        model.set_artist("DJ Test");
-        model.set_sub_artist("feat. Vocal");
+        model.artist = "DJ Test".into();
+        model.subartist = "feat. Vocal".into();
         assert_eq!(model.full_artist(), "DJ Test feat. Vocal");
     }
 
     #[test]
     fn genre_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_genre("Techno");
-        assert_eq!(model.genre(), "Techno");
+        model.genre = "Techno".into();
+        assert_eq!(model.genre, "Techno");
     }
 
     #[test]
@@ -661,8 +516,8 @@ mod tests {
     #[test]
     fn playlevel_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_playlevel("12");
-        assert_eq!(model.get_playlevel(), "12");
+        model.playlevel = "12".into();
+        assert_eq!(model.playlevel, "12");
     }
 
     #[test]
@@ -713,43 +568,43 @@ mod tests {
     #[test]
     fn md5_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_md5("abc123");
-        assert_eq!(model.md5(), "abc123");
+        model.md5 = "abc123".into();
+        assert_eq!(model.md5, "abc123");
     }
 
     #[test]
     fn sha256_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_sha256("deadbeef");
-        assert_eq!(model.sha256(), "deadbeef");
+        model.sha256 = "deadbeef".into();
+        assert_eq!(model.sha256, "deadbeef");
     }
 
     #[test]
     fn banner_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_banner("banner.png");
-        assert_eq!(model.banner(), "banner.png");
+        model.banner = "banner.png".into();
+        assert_eq!(model.banner, "banner.png");
     }
 
     #[test]
     fn stagefile_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_stagefile("stage.bmp");
-        assert_eq!(model.stagefile(), "stage.bmp");
+        model.stagefile = "stage.bmp".into();
+        assert_eq!(model.stagefile, "stage.bmp");
     }
 
     #[test]
     fn backbmp_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_backbmp("back.bmp");
-        assert_eq!(model.backbmp(), "back.bmp");
+        model.backbmp = "back.bmp".into();
+        assert_eq!(model.backbmp, "back.bmp");
     }
 
     #[test]
     fn preview_set_and_get() {
         let mut model = BMSModel::new();
-        model.set_preview("preview.ogg");
-        assert_eq!(model.preview(), "preview.ogg");
+        model.preview = "preview.ogg".into();
+        assert_eq!(model.preview, "preview.ogg");
     }
 
     #[test]
@@ -779,7 +634,7 @@ mod tests {
         let mut model = BMSModel::new();
         let bgas = vec!["video.mpg".to_string()];
         model.bgamap = bgas.clone();
-        assert_eq!(model.get_bga_list(), &bgas);
+        assert_eq!(model.bgamap, bgas);
     }
 
     #[test]
@@ -831,9 +686,9 @@ mod tests {
     fn take_all_timelines_empties_model() {
         let mut model = BMSModel::new();
         model.timelines = vec![TimeLine::new(0.0, 0, 8)];
-        assert_eq!(model.get_all_time_lines().len(), 1);
+        assert_eq!(model.timelines.len(), 1);
 
-        let taken = model.take_all_time_lines();
+        let taken = std::mem::take(&mut model.timelines);
         assert_eq!(taken.len(), 1);
         assert!(model.timelines.is_empty());
     }
@@ -959,11 +814,11 @@ mod tests {
     #[test]
     fn chart_information_set_and_get() {
         let mut model = BMSModel::new();
-        assert!(model.get_chart_information().is_none());
+        assert!(model.info.is_none());
 
         let info = ChartInformation::new(None, LnType::ChargeNote, Some(vec![3, 5]));
-        model.set_chart_information(info);
-        assert!(model.get_chart_information().is_some());
+        model.info = Some(info);
+        assert!(model.info.is_some());
         assert_eq!(model.lntype(), LnType::ChargeNote);
         assert_eq!(model.random(), Some(&[3, 5][..]));
     }

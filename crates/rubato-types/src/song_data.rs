@@ -300,31 +300,31 @@ impl SongData {
 
     pub fn set_bms_model(&mut self, model: BMSModel) {
         // BMSPlayerRule::validate(&model) - stubbed, no-op
-        self.metadata.set_title(model.get_title().to_string());
-        self.metadata.set_subtitle(model.sub_title().to_string());
-        self.metadata.genre = model.genre().to_string();
-        self.metadata.set_artist(model.artist().to_string());
-        self.metadata.set_subartist(model.sub_artist().to_string());
+        self.metadata.set_title(model.title.clone());
+        self.metadata.set_subtitle(model.sub_title.clone());
+        self.metadata.genre = model.genre.clone();
+        self.metadata.set_artist(model.artist.clone());
+        self.metadata.set_subartist(model.subartist.clone());
         if let Some(p) = model.path() {
             self.file.path.push(p);
         }
-        self.file.md5 = model.md5().to_string();
-        self.file.sha256 = model.sha256().to_string();
-        self.file.banner = model.banner().to_string();
+        self.file.md5 = model.md5.clone();
+        self.file.sha256 = model.sha256.clone();
+        self.file.banner = model.banner.clone();
 
-        self.file.stagefile = model.stagefile().to_string();
-        self.file.backbmp = model.backbmp().to_string();
+        self.file.stagefile = model.stagefile.clone();
+        self.file.backbmp = model.backbmp.clone();
         if self.file.preview.is_empty() {
-            self.file.preview = model.preview().to_string();
+            self.file.preview = model.preview.clone();
         }
 
-        if let Ok(l) = model.get_playlevel().parse::<i32>() {
+        if let Ok(l) = model.playlevel.parse::<i32>() {
             self.chart.level = l;
         }
 
         self.chart.mode = model.mode().map(|m| m.id()).unwrap_or(0);
         if self.chart.difficulty == 0 {
-            self.chart.difficulty = model.difficulty();
+            self.chart.difficulty = model.difficulty;
         }
         self.chart.judge = model.judgerank;
         self.chart.minbpm = model.get_min_bpm() as i32;
@@ -372,7 +372,7 @@ impl SongData {
             self.chart.content |= CONTENT_BGA;
         }
         if self.chart.length >= 30000
-            && (model.wav_list().len() as i32) <= (self.chart.length / (50 * 1000)) + 3
+            && (model.wavmap.len() as i32) <= (self.chart.length / (50 * 1000)) + 3
         {
             self.chart.content |= CONTENT_NOKEYSOUND;
         }

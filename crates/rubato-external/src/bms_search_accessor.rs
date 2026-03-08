@@ -32,7 +32,8 @@ impl BMSSearchAccessor {
                 for element in &elements {
                     let mut song = SongData::default();
                     song.metadata.title = element.title.clone().unwrap_or_default();
-                    song.metadata.set_artist(element.artist.clone().unwrap_or_default());
+                    song.metadata
+                        .set_artist(element.artist.clone().unwrap_or_default());
                     song.metadata.genre = element.genre.clone().unwrap_or_default();
                     if let Some(ref downloads) = element.downloads
                         && !downloads.is_empty()

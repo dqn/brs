@@ -293,7 +293,9 @@ impl SQLiteSongDatabaseAccessor {
                     "artist" => rusqlite::types::Value::Text(sd.metadata.artist.clone()),
                     "subartist" => rusqlite::types::Value::Text(sd.metadata.subartist.clone()),
                     "tag" => rusqlite::types::Value::Text(sd.metadata.tag.clone()),
-                    "path" => rusqlite::types::Value::Text(sd.file.path().unwrap_or("").to_string()),
+                    "path" => {
+                        rusqlite::types::Value::Text(sd.file.path().unwrap_or("").to_string())
+                    }
                     "folder" => rusqlite::types::Value::Text(sd.folder.clone()),
                     "stagefile" => rusqlite::types::Value::Text(sd.file.stagefile.clone()),
                     "banner" => rusqlite::types::Value::Text(sd.file.banner.clone()),
@@ -1155,7 +1157,7 @@ impl BMSFolder {
 
             let mut sd = SongData::new_from_model(model, self.txt);
 
-            if sd.chart.notes != 0 || !sd.model.as_ref().is_none_or(|m| m.wav_list().is_empty()) {
+            if sd.chart.notes != 0 || !sd.model.as_ref().is_none_or(|m| m.wavmap.is_empty()) {
                 if sd.chart.difficulty == 0 {
                     let fulltitle =
                         format!("{}{}", sd.metadata.title, sd.metadata.subtitle).to_lowercase();

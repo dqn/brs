@@ -138,7 +138,8 @@ impl SongBar {
                     let song_path = songs[i]
                         .as_ref()
                         .expect("song is Some after is_none guard")
-                        .file.path()
+                        .file
+                        .path()
                         .map(|s| s.to_string());
                     element.file.set_path_opt(song_path);
                     if let Some(ref _song) = songs[i] {

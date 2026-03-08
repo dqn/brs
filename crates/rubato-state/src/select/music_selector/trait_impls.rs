@@ -493,7 +493,11 @@ impl MainState for MusicSelector {
                         // Java: spawns thread to call resource.loadBMSModel(path, lnmode)
                         // and sets result on SongData for the density graph.
                         // Rust: load synchronously (BMS parsing is fast).
-                        let path = song_bar.song_data().file.path().map(std::path::PathBuf::from);
+                        let path = song_bar
+                            .song_data()
+                            .file
+                            .path()
+                            .map(std::path::PathBuf::from);
                         let lnmode = self.config.play_settings.lnmode;
                         if let Some(path) = path
                             && let Some((model, _margin)) =

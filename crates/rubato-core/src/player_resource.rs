@@ -820,16 +820,16 @@ impl PlayerResourceAccess for PlayerResource {
                 .map(|m| {
                     // Build SongData from model metadata without consuming the model
                     let mut sd = rubato_types::song_data::SongData::default();
-                    sd.metadata.title = m.get_title().to_string();
-                    sd.metadata.set_subtitle(m.sub_title().to_string());
-                    sd.metadata.genre = m.genre().to_string();
-                    sd.metadata.set_artist(m.artist().to_string());
-                    sd.metadata.set_subartist(m.sub_artist().to_string());
+                    sd.metadata.title = m.title.clone();
+                    sd.metadata.set_subtitle(m.sub_title.clone());
+                    sd.metadata.genre = m.genre.clone();
+                    sd.metadata.set_artist(m.artist.clone());
+                    sd.metadata.set_subartist(m.subartist.clone());
                     if let Some(p) = m.path() {
                         sd.file.set_path(p);
                     }
-                    sd.file.md5 = m.md5().to_string();
-                    sd.file.sha256 = m.sha256().to_string();
+                    sd.file.md5 = m.md5.clone();
+                    sd.file.sha256 = m.sha256.clone();
                     sd.chart.notes = m.total_notes();
                     sd.chart.length = m.last_time();
                     sd.chart.mode = m.mode().map(|mode| mode.id()).unwrap_or(0);
