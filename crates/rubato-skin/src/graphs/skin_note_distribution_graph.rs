@@ -248,7 +248,7 @@ impl SkinNoteDistributionGraph {
             self.model_set = model.is_some();
             if self.graph_type == TYPE_NORMAL {
                 if let Some(s) = song {
-                    if let Some(info) = s.song_information() {
+                    if let Some(info) = s.info.as_ref() {
                         let distribution: Vec<Vec<i32>> = info
                             .distribution_values()
                             .iter()

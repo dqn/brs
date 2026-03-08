@@ -139,7 +139,7 @@ impl SkinBPMGraph {
             self.current = song.cloned();
             self.model_set = model.is_some();
             if let Some(s) = song {
-                if let Some(info) = s.song_information() {
+                if let Some(info) = s.info.as_ref() {
                     self.update_graph_from_info(info);
                 } else {
                     self.update_graph_from_model(model);

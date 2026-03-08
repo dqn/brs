@@ -93,7 +93,7 @@ fn compare_song_data(rust: &SongData, java: &SongDataFixture) -> Vec<String> {
     }
     // path is set by new_from_model in Rust but not in Java fixture export;
     // skip comparison when Java path is empty (database layer sets it later)
-    let rust_path = rust.path().unwrap_or("");
+    let rust_path = rust.file.path().unwrap_or("");
     if !java.path.is_empty() && rust_path != java.path {
         diffs.push(format!("path: rust={:?} java={:?}", rust_path, java.path));
     }
