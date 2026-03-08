@@ -80,6 +80,25 @@ impl FloatProperty for RateProperty {
     }
 }
 
+/// Parameters for skin object destination (position, color, blend, etc.)
+pub struct DestinationParams {
+    pub time: i64,
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+    pub acc: i32,
+    pub a: i32,
+    pub r: i32,
+    pub g: i32,
+    pub b: i32,
+    pub blend: i32,
+    pub filter: i32,
+    pub angle: i32,
+    pub center: i32,
+    pub loop_val: i32,
+}
+
 /// Shared data for all SkinObject types.
 pub struct SkinObjectData {
     pub offset: Vec<i32>,
@@ -182,24 +201,9 @@ impl SkinObjectData {
         &self.dst
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_int_timer_and_single_offset(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: i32,
         op1: i32,
         op2: i32,
@@ -211,46 +215,13 @@ impl SkinObjectData {
         } else {
             None
         };
-        self.set_destination_with_timer_and_ops(
-            time,
-            x,
-            y,
-            w,
-            h,
-            acc,
-            a,
-            r,
-            g,
-            b,
-            blend,
-            filter,
-            angle,
-            center,
-            loop_val,
-            timer_prop,
-            &[op1, op2, op3],
-        );
+        self.set_destination_with_timer_and_ops(params, timer_prop, &[op1, op2, op3]);
         self.set_offset_id_single(offset);
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_int_timer_and_offsets(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: i32,
         op1: i32,
         op2: i32,
@@ -262,46 +233,13 @@ impl SkinObjectData {
         } else {
             None
         };
-        self.set_destination_with_timer_and_ops(
-            time,
-            x,
-            y,
-            w,
-            h,
-            acc,
-            a,
-            r,
-            g,
-            b,
-            blend,
-            filter,
-            angle,
-            center,
-            loop_val,
-            timer_prop,
-            &[op1, op2, op3],
-        );
+        self.set_destination_with_timer_and_ops(params, timer_prop, &[op1, op2, op3]);
         self.set_offset_id(offset);
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_int_timer_ops(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: i32,
         op: &[i32],
     ) {
@@ -310,32 +248,15 @@ impl SkinObjectData {
         } else {
             None
         };
-        self.set_destination_core(
-            time, x, y, w, h, acc, a, r, g, b, blend, filter, angle, center, loop_val, timer_prop,
-        );
+        self.set_destination_core(params, timer_prop);
         if self.dstop.is_empty() && self.dstdraw.is_empty() {
             self.set_draw_condition_from_ops(op);
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_int_timer_draw(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: i32,
         draw_prop: Box<dyn BooleanProperty>,
     ) {
@@ -344,191 +265,70 @@ impl SkinObjectData {
         } else {
             None
         };
-        self.set_destination_core(
-            time, x, y, w, h, acc, a, r, g, b, blend, filter, angle, center, loop_val, timer_prop,
-        );
+        self.set_destination_core(params, timer_prop);
         self.dstdraw = vec![draw_prop];
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_timer_ops_and_single_offset(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
-        op1: i32,
-        op2: i32,
-        op3: i32,
+        ops: &[i32],
         offset: i32,
     ) {
-        self.set_destination_with_timer_and_ops(
-            time,
-            x,
-            y,
-            w,
-            h,
-            acc,
-            a,
-            r,
-            g,
-            b,
-            blend,
-            filter,
-            angle,
-            center,
-            loop_val,
-            timer,
-            &[op1, op2, op3],
-        );
+        self.set_destination_with_timer_and_ops(params, timer, ops);
         self.set_offset_id_single(offset);
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_timer_ops_and_offsets(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
-        op1: i32,
-        op2: i32,
-        op3: i32,
+        ops: &[i32],
         offset: &[i32],
     ) {
-        self.set_destination_with_timer_and_ops(
-            time,
-            x,
-            y,
-            w,
-            h,
-            acc,
-            a,
-            r,
-            g,
-            b,
-            blend,
-            filter,
-            angle,
-            center,
-            loop_val,
-            timer,
-            &[op1, op2, op3],
-        );
+        self.set_destination_with_timer_and_ops(params, timer, ops);
         self.set_offset_id(offset);
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_timer_and_ops(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
         op: &[i32],
     ) {
-        self.set_destination_core(
-            time, x, y, w, h, acc, a, r, g, b, blend, filter, angle, center, loop_val, timer,
-        );
+        self.set_destination_core(params, timer);
         if self.dstop.is_empty() && self.dstdraw.is_empty() {
             self.set_draw_condition_from_ops(op);
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn set_destination_with_timer_draw(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
         draw_prop: Box<dyn BooleanProperty>,
     ) {
-        self.set_destination_core(
-            time, x, y, w, h, acc, a, r, g, b, blend, filter, angle, center, loop_val, timer,
-        );
+        self.set_destination_core(params, timer);
         self.dstdraw = vec![draw_prop];
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn set_destination_core(
         &mut self,
-        time: i64,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        acc: i32,
-        a: i32,
-        r: i32,
-        g: i32,
-        b: i32,
-        blend: i32,
-        filter: i32,
-        angle: i32,
-        center: i32,
-        loop_val: i32,
+        params: &DestinationParams,
         timer: Option<Box<dyn TimerProperty>>,
     ) {
         let obj = SkinObjectDestination::new(
-            time,
-            Rectangle::new(x, y, w, h),
+            params.time,
+            Rectangle::new(params.x, params.y, params.w, params.h),
             Color::new(
-                r as f32 / 255.0,
-                g as f32 / 255.0,
-                b as f32 / 255.0,
-                a as f32 / 255.0,
+                params.r as f32 / 255.0,
+                params.g as f32 / 255.0,
+                params.b as f32 / 255.0,
+                params.a as f32 / 255.0,
             ),
-            angle,
-            acc,
+            params.angle,
+            params.acc,
         );
         if self.dst.is_empty() {
             self.fixr = Some(obj.region.clone());
@@ -550,26 +350,26 @@ impl SkinObjectData {
             }
         }
         if self.acc == 0 {
-            self.acc = acc;
+            self.acc = params.acc;
         }
         if self.dstblend == 0 {
-            self.dstblend = blend;
+            self.dstblend = params.blend;
         }
         if self.dstfilter == 0 {
-            self.dstfilter = filter;
+            self.dstfilter = params.filter;
         }
-        if self.dstcenter == 0 && (0..10).contains(&center) {
-            self.dstcenter = center;
-            self.centerx = CENTERX[center as usize];
-            self.centery = CENTERY[center as usize];
+        if self.dstcenter == 0 && (0..10).contains(&params.center) {
+            self.dstcenter = params.center;
+            self.centerx = CENTERX[params.center as usize];
+            self.centery = CENTERY[params.center as usize];
         }
         if self.dsttimer.is_none() {
             self.dsttimer = timer;
         }
         if self.dstloop == 0 {
-            self.dstloop = loop_val;
+            self.dstloop = params.loop_val;
         }
-        if let Some(pos) = self.dst.iter().position(|d| d.time > time) {
+        if let Some(pos) = self.dst.iter().position(|d| d.time > params.time) {
             self.dst.insert(pos, obj);
         } else {
             self.dst.push(obj);
@@ -1321,21 +1121,23 @@ mod tests {
     /// Helper: set up a single-destination SkinObjectData so prepare() sets draw=true.
     fn setup_data(data: &mut SkinObjectData, x: f32, y: f32, w: f32, h: f32) {
         data.set_destination_with_int_timer_ops(
-            0,
-            x,
-            y,
-            w,
-            h,
-            0,
-            255,
-            255,
-            255,
-            255,
-            0,
-            0,
-            0,
-            0,
-            0,
+            &DestinationParams {
+                time: 0,
+                x,
+                y,
+                w,
+                h,
+                acc: 0,
+                a: 255,
+                r: 255,
+                g: 255,
+                b: 255,
+                blend: 0,
+                filter: 0,
+                angle: 0,
+                center: 0,
+                loop_val: 0,
+            },
             0,
             &[0],
         );
@@ -1386,21 +1188,23 @@ mod tests {
         let mut data = SkinObjectData::new();
         // Set up with specific color (128, 64, 32, 200) and angle=45
         data.set_destination_with_int_timer_ops(
-            0,
-            0.0,
-            0.0,
-            50.0,
-            50.0,
-            0,
-            200,
-            128,
-            64,
-            32,
-            0,
-            0,
-            45,
-            0,
-            0,
+            &DestinationParams {
+                time: 0,
+                x: 0.0,
+                y: 0.0,
+                w: 50.0,
+                h: 50.0,
+                acc: 0,
+                a: 200,
+                r: 128,
+                g: 64,
+                b: 32,
+                blend: 0,
+                filter: 0,
+                angle: 45,
+                center: 0,
+                loop_val: 0,
+            },
             0,
             &[0],
         );

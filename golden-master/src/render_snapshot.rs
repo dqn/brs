@@ -1039,6 +1039,7 @@ mod tests {
     use rubato_skin::skin::Skin;
     use rubato_skin::skin_header::SkinHeader;
     use rubato_skin::skin_image::SkinImage;
+    use rubato_skin::skin_object::DestinationParams;
     use rubato_skin::stubs::TextureRegion;
 
     fn make_provider() -> StaticStateProvider {
@@ -1050,21 +1051,23 @@ mod tests {
         let image = SkinImage::new_with_single(TextureRegion::new());
         let mut obj = SkinObject::Image(image);
         obj.data_mut().set_destination_with_int_timer_ops(
-            0,
-            10.0,
-            20.0,
-            100.0,
-            50.0,
-            0,
-            255,
-            255,
-            255,
-            255,
-            0,
-            0,
-            0,
-            0,
-            0,
+            &DestinationParams {
+                time: 0,
+                x: 10.0,
+                y: 20.0,
+                w: 100.0,
+                h: 50.0,
+                acc: 0,
+                a: 255,
+                r: 255,
+                g: 255,
+                b: 255,
+                blend: 0,
+                filter: 0,
+                angle: 0,
+                center: 0,
+                loop_val: 0,
+            },
             0,
             &[],
         );
