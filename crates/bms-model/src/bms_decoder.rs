@@ -502,7 +502,7 @@ impl BMSDecoder {
                     && line.len() > index + 1
                 {
                     model
-                        .values_mut()
+                        .values
                         .insert(line[1..index].to_string(), line[index + 1..].to_string());
                 }
             } else if first_char == '@'
@@ -510,7 +510,7 @@ impl BMSDecoder {
                 && line.len() > index + 1
             {
                 model
-                    .values_mut()
+                    .values
                     .insert(line[1..index].to_string(), line[index + 1..].to_string());
             }
         }
@@ -610,7 +610,7 @@ impl BMSDecoder {
                 "最後のノート定義から30秒以上の余白があります",
             ));
         }
-        if model.player() > 1
+        if model.player > 1
             && (model.mode() == Some(&Mode::BEAT_5K) || model.mode() == Some(&Mode::BEAT_7K))
         {
             self.log.push(DecodeLog::new(
@@ -618,7 +618,7 @@ impl BMSDecoder {
                 "#PLAYER定義が2以上にもかかわらず2P側のノーツ定義が一切ありません",
             ));
         }
-        if model.player() == 1
+        if model.player == 1
             && (model.mode() == Some(&Mode::BEAT_10K) || model.mode() == Some(&Mode::BEAT_14K))
         {
             self.log.push(DecodeLog::new(
@@ -1206,8 +1206,8 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        assert_eq!(model.judgerank(), 3);
-        assert_eq!(model.judgerank_type(), &JudgeRankType::BmsRank);
+        assert_eq!(model.judgerank, 3);
+        assert_eq!(model.judgerank_type, JudgeRankType::BmsRank);
     }
 
     #[test]
@@ -1287,7 +1287,7 @@ mod tests {
         let data = make_bms_bytes(&["#BPM 120", "#PLAYER 1"]);
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
-        assert_eq!(model.unwrap().player(), 1);
+        assert_eq!(model.unwrap().player, 1);
     }
 
     #[test]
@@ -1306,8 +1306,8 @@ mod tests {
         let model = decoder.decode_bytes(&data, false, None);
         assert!(model.is_some());
         let model = model.unwrap();
-        assert_eq!(model.judgerank(), 100);
-        assert_eq!(model.judgerank_type(), &JudgeRankType::BmsDefexrank);
+        assert_eq!(model.judgerank, 100);
+        assert_eq!(model.judgerank_type, JudgeRankType::BmsDefexrank);
     }
 
     #[test]
@@ -1336,7 +1336,7 @@ mod tests {
         assert!(model.is_some());
         let model = model.unwrap();
         assert_eq!(
-            model.get_values().get("URL"),
+            model.values.get("URL"),
             Some(&"http://example.com".to_string())
         );
     }
@@ -1374,7 +1374,7 @@ mod tests {
         assert_eq!(model.get_playlevel(), "7");
         assert_eq!(model.genre(), "Trance");
         assert!((model.total - 350.0).abs() < f64::EPSILON);
-        assert_eq!(model.judgerank(), 2);
+        assert_eq!(model.judgerank, 2);
     }
 
     // --- process_command_word tests ---
@@ -1412,7 +1412,7 @@ mod tests {
         let mut log = Vec::new();
         let handled = process_command_word("#PLAYER 1", &mut model, &mut log);
         assert!(handled);
-        assert_eq!(model.player(), 1);
+        assert_eq!(model.player, 1);
         assert!(log.is_empty());
     }
 
