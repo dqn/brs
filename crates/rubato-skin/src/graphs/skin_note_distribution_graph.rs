@@ -272,8 +272,8 @@ impl SkinNoteDistributionGraph {
 
         if is_bms_player {
             // Real-time update path (stubbed)
-            if let Some(ref backtex) = self.backtex.clone() {
-                let region = self.data.region.clone();
+            if let Some(ref backtex) = self.backtex {
+                let region = self.data.region;
                 self.data.draw_image_at(
                     sprite,
                     backtex,
@@ -286,7 +286,7 @@ impl SkinNoteDistributionGraph {
             if let Some(ref mut shapetex) = self.shapetex.clone() {
                 let tex_width = shapetex.texture.as_ref().map(|t| t.width).unwrap_or(0);
                 shapetex.region_width = (tex_width as f32 * self.render) as i32;
-                let region = self.data.region.clone();
+                let region = self.data.region;
                 self.data.draw_image_at(
                     sprite,
                     shapetex,
@@ -297,8 +297,8 @@ impl SkinNoteDistributionGraph {
                 );
             }
         } else {
-            if let Some(ref backtex) = self.backtex.clone() {
-                let region = self.data.region.clone();
+            if let Some(ref backtex) = self.backtex {
+                let region = self.data.region;
                 self.data.draw_image_at(
                     sprite,
                     backtex,
@@ -311,7 +311,7 @@ impl SkinNoteDistributionGraph {
             if let Some(ref mut shapetex) = self.shapetex.clone() {
                 let tex_width = shapetex.texture.as_ref().map(|t| t.width).unwrap_or(0);
                 shapetex.region_width = (tex_width as f32 * self.render) as i32;
-                let region = self.data.region.clone();
+                let region = self.data.region;
                 self.data.draw_image_at(
                     sprite,
                     shapetex,
