@@ -396,26 +396,36 @@ fn extract_compressed_file(
         fs::create_dir_all(&dest)?;
     }
 
+    // Record pre-existing directories so we only return newly extracted ones.
+    let pre_existing: std::collections::HashSet<_> = fs::read_dir(&dest)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .map(|e| e.path())
+        .collect();
+
     sevenz_rust::decompress_file(file, &dest)
         .map_err(|e| anyhow::anyhow!("7z extraction failed: {}", e))?;
 
     // Verify extracted entries are within the destination to guard against path traversal.
     let canonical_dest = dest.canonicalize()?;
 
-    // Find the extracted directory (first subdirectory in dest)
+    // Find the first newly created subdirectory.
     let mut extracted_dir = None;
     if let Ok(entries) = fs::read_dir(&dest) {
         for entry in entries.flatten() {
-            let canonical = entry.path().canonicalize().unwrap_or_default();
+            let path = entry.path();
+            let canonical = path.canonicalize().unwrap_or_default();
             if !canonical.starts_with(&canonical_dest) {
                 log::warn!(
                     "Skipping extracted path outside destination: {}",
-                    entry.path().display()
+                    path.display()
                 );
                 continue;
             }
-            if entry.path().is_dir() {
-                extracted_dir = Some(entry.path().to_string_lossy().to_string());
+            if path.is_dir() && !pre_existing.contains(&path) {
+                extracted_dir = Some(path.to_string_lossy().to_string());
                 break;
             }
         }

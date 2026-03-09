@@ -51,7 +51,8 @@ fn convert_skin_object(
         } => {
             if *is_movie {
                 // Movie sources: create SkinImage with SkinSourceMovie
-                let movie_source = crate::skin_source_movie::SkinSourceMovie::new("");
+                let movie_path = src.as_deref().unwrap_or("");
+                let movie_source = crate::skin_source_movie::SkinSourceMovie::new(movie_path);
                 return Some(SkinObject::Image(SkinImage::new_with_movie(movie_source)));
             }
 

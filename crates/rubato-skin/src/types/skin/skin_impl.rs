@@ -331,9 +331,10 @@ impl Skin {
 
         // Debug mode setup (skipped since debug is false)
 
-        // Prepare frame rate
-        // state.main.getConfig().getPrepareFramePerSecond() stubbed
-        self.prepareduration = 1;
+        // Prepare frame rate throttle: microseconds per prepare cycle.
+        // Java: prepareduration = fps > 0 ? 1_000_000 / fps : 1
+        let fps = state.get_main().config().display.prepare_frame_per_second;
+        self.prepareduration = if fps > 0 { 1_000_000 / fps as i64 } else { 1 };
         self.nextpreparetime = -1;
     }
 

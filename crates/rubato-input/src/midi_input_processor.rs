@@ -47,6 +47,9 @@ pub struct MidiInputProcessor {
     // NOTE: this approach does not allow multiple key assignments to one MIDI key
     key_map: Vec<Option<KeyHandler>>,
 
+    // MIDI CC number -> game key handler
+    cc_map: Vec<Option<KeyHandler>>,
+
     pitch_bend_up: Option<KeyHandler>,
     pitch_bend_down: Option<KeyHandler>,
 
@@ -72,6 +75,7 @@ impl MidiInputProcessor {
             last_pressed_key: MidiInput::default(),
             pitch_threshold: 8192 / 32,
             key_map: Vec::new(),
+            cc_map: Vec::new(),
             pitch_bend_up: None,
             pitch_bend_down: None,
             connections: Vec::new(),
@@ -227,6 +231,7 @@ impl MidiInputProcessor {
 
     pub fn clear_handlers(&mut self) {
         self.key_map = (0..MAX_KEYS).map(|_| None).collect();
+        self.cc_map = (0..128).map(|_| None).collect();
         self.pitch_bend_up = None;
         self.pitch_bend_down = None;
     }
@@ -249,7 +254,12 @@ impl MidiInputProcessor {
                 }
             }
             MidiInputType::CONTROL_CHANGE => {
-                // no-op
+                if input.value >= 0
+                    && (input.value as usize) < 128
+                    && self.cc_map[input.value as usize].is_none()
+                {
+                    self.cc_map[input.value as usize] = Some(handler);
+                }
             }
         }
     }
@@ -348,6 +358,7 @@ impl MidiInputProcessor {
         // ShortMessage constants
         const NOTE_OFF: i32 = 0x80;
         const NOTE_ON: i32 = 0x90;
+        const CONTROL_CHANGE: i32 = 0xB0;
         const PITCH_BEND: i32 = 0xE0;
 
         match command {
@@ -359,6 +370,18 @@ impl MidiInputProcessor {
                     self.note_off(data1 as usize, callback);
                 } else {
                     self.note_on(data1 as usize, callback);
+                }
+            }
+            CONTROL_CHANGE => {
+                let cc_num = data1 as usize;
+                if cc_num < 128 {
+                    if let Some(handler) = &self.cc_map[cc_num] {
+                        let pressed = data2 > 0;
+                        Self::dispatch_handler(handler, pressed, self.current_time(), callback);
+                    }
+                    self.last_pressed_key_available = true;
+                    self.last_pressed_key.input_type = MidiInputType::CONTROL_CHANGE;
+                    self.last_pressed_key.value = cc_num as i32;
                 }
             }
             PITCH_BEND => {

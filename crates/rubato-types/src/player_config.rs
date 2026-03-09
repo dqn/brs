@@ -7,10 +7,7 @@ use crate::ir_config::IRConfig;
 use crate::play_mode_config::PlayModeConfig;
 use crate::skin_config::SkinConfig;
 use crate::skin_type::SkinType;
-use crate::stubs::{
-    BarSorter, GrooveGauge, IRConnectionManager, long_note_modifier, mine_note_modifier,
-    scroll_speed_modifier,
-};
+use crate::stubs::{BarSorter, GrooveGauge, IRConnectionManager, scroll_speed_modifier};
 use crate::validatable::{Validatable, remove_invalid_elements};
 
 pub const JUDGETIMING_MAX: i32 = 500;
@@ -540,16 +537,15 @@ impl PlayerConfig {
             .clamp(0, scroll_speed_modifier::Mode::values().len() as i32);
         self.display_settings.scroll_section = self.display_settings.scroll_section.clamp(1, 1024);
         self.display_settings.scroll_rate = self.display_settings.scroll_rate.clamp(0.0, 1.0);
-        self.note_modifier_settings.longnote_mode = self
-            .note_modifier_settings
-            .longnote_mode
-            .clamp(0, long_note_modifier::Mode::values().len() as i32);
+        // longnote_mode: 0=off, 1-5=Remove/AddLn/AddCn/AddHcn/AddAll (6 values total,
+        // matching skin event cycling count). rubato-types enum is incomplete; the full
+        // set lives in rubato-core::pattern::long_note_modifier::Mode which has 5 variants.
+        self.note_modifier_settings.longnote_mode =
+            self.note_modifier_settings.longnote_mode.clamp(0, 5);
         self.note_modifier_settings.longnote_rate =
             self.note_modifier_settings.longnote_rate.clamp(0.0, 1.0);
-        self.play_settings.mine_mode = self
-            .play_settings
-            .mine_mode
-            .clamp(0, mine_note_modifier::Mode::values().len() as i32);
+        // mine_mode: 0=off, 1-4=modifier modes (5 values total, matching skin event cycling count).
+        self.play_settings.mine_mode = self.play_settings.mine_mode.clamp(0, 4);
         self.display_settings.extranote_depth = self.display_settings.extranote_depth.clamp(0, 100);
 
         if self.irconfig.is_empty() {

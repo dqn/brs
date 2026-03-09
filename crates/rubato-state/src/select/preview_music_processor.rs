@@ -221,32 +221,20 @@ impl PreviewMusicProcessor {
 
         while self.preview_running.load(Ordering::SeqCst) {
             let sys_vol = config.audio.as_ref().map(|a| a.systemvolume).unwrap_or(0.5);
-            if let Ok(mut cmds) = self.commands.lock() {
-                if let Some(path) = cmds.pop_front() {
-                    let path = if path.is_empty() {
-                        self.default_music.clone()
-                    } else {
-                        path
-                    };
-                    if path != playing {
-                        let mut target = AudioDriverTarget { inner: audio };
-                        Self::stop_preview_internal(
-                            &mut target,
-                            &playing,
-                            &self.default_music,
-                            sys_vol,
-                            true,
-                        );
-                        if path != self.default_music {
-                            let looping = matches!(config.select.song_preview, SongPreview::LOOP);
-                            audio.play_path(&path, sys_vol, looping);
-                        } else {
-                            audio.set_volume_path(&self.default_music, sys_vol);
-                        }
-                        playing = path;
-                    }
-                } else if playing != self.default_music && !audio.is_playing_path(&playing) {
-                    // Preview finished, return to default music
+            // Drain command with lock held only briefly, then perform audio work unlocked.
+            let next_cmd = self
+                .commands
+                .lock()
+                .ok()
+                .and_then(|mut cmds| cmds.pop_front());
+
+            if let Some(path) = next_cmd {
+                let path = if path.is_empty() {
+                    self.default_music.clone()
+                } else {
+                    path
+                };
+                if path != playing {
                     let mut target = AudioDriverTarget { inner: audio };
                     Self::stop_preview_internal(
                         &mut target,
@@ -255,16 +243,32 @@ impl PreviewMusicProcessor {
                         sys_vol,
                         true,
                     );
-                    audio.set_volume_path(&self.default_music, sys_vol);
-                    playing = self.default_music.clone();
-                } else if (current_volume - sys_vol).abs() > f32::EPSILON {
-                    audio.set_volume_path(&playing, sys_vol);
-                    current_volume = sys_vol;
-                } else {
-                    drop(cmds);
-                    std::thread::sleep(std::time::Duration::from_millis(50));
-                    continue;
+                    if path != self.default_music {
+                        let looping = matches!(config.select.song_preview, SongPreview::LOOP);
+                        audio.play_path(&path, sys_vol, looping);
+                    } else {
+                        audio.set_volume_path(&self.default_music, sys_vol);
+                    }
+                    playing = path;
                 }
+            } else if playing != self.default_music && !audio.is_playing_path(&playing) {
+                // Preview finished, return to default music
+                let mut target = AudioDriverTarget { inner: audio };
+                Self::stop_preview_internal(
+                    &mut target,
+                    &playing,
+                    &self.default_music,
+                    sys_vol,
+                    true,
+                );
+                audio.set_volume_path(&self.default_music, sys_vol);
+                playing = self.default_music.clone();
+            } else if (current_volume - sys_vol).abs() > f32::EPSILON {
+                audio.set_volume_path(&playing, sys_vol);
+                current_volume = sys_vol;
+            } else {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                continue;
             }
         }
         let sys_vol = config.audio.as_ref().map(|a| a.systemvolume).unwrap_or(0.5);

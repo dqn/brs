@@ -88,7 +88,7 @@ impl GdxSoundDriver {
 }
 
 impl AudioDriver for GdxSoundDriver {
-    fn play_path(&mut self, path: &str, volume: f32, _loop_play: bool) {
+    fn play_path(&mut self, path: &str, volume: f32, loop_play: bool) {
         if path.is_empty() {
             return;
         }
@@ -105,6 +105,9 @@ impl AudioDriver for GdxSoundDriver {
                 Ok(sound_data) => match self.manager.play(sound_data) {
                     Ok(mut handle) => {
                         handle.set_volume(linear_to_db(volume), Tween::default());
+                        if loop_play {
+                            handle.set_loop_region(0.0..);
+                        }
                         self.path_sounds.insert(path.to_string(), handle);
                         return;
                     }

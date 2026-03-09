@@ -697,6 +697,22 @@ impl BMSPlayerInputProcessor {
                 self.select_pressed = pressed;
             }
         }
+
+        // Poll MIDI
+        let mut midi_events = MidiEvents::default();
+        self.midiinput.poll(&mut midi_events);
+        for event in &midi_events.key_events {
+            self.key_changed_internal(DeviceType::Midi, event.microtime, event.key, event.pressed);
+        }
+        for event in &midi_events.analog_events {
+            self.set_analog_state_internal(event.key, event.is_analog, event.value);
+        }
+        if let Some(pressed) = midi_events.start_changed {
+            self.start_pressed = pressed;
+        }
+        if let Some(pressed) = midi_events.select_changed {
+            self.select_pressed = pressed;
+        }
     }
 
     pub fn dispose(&mut self) {
@@ -830,6 +846,40 @@ impl BMControllerCallback for CtrlEvents {
         key: usize,
         pressed: bool,
     ) {
+        self.key_events.push(KeyEvent {
+            microtime,
+            key,
+            pressed,
+        });
+    }
+
+    fn start_changed(&mut self, pressed: bool) {
+        self.start_changed = Some(pressed);
+    }
+
+    fn set_select_pressed(&mut self, pressed: bool) {
+        self.select_changed = Some(pressed);
+    }
+
+    fn set_analog_state(&mut self, key: usize, is_analog: bool, value: f32) {
+        self.analog_events.push(AnalogEvent {
+            key,
+            is_analog,
+            value,
+        });
+    }
+}
+
+#[derive(Default)]
+struct MidiEvents {
+    key_events: Vec<KeyEvent>,
+    analog_events: Vec<AnalogEvent>,
+    start_changed: Option<bool>,
+    select_changed: Option<bool>,
+}
+
+impl crate::midi_input_processor::MidiCallback for MidiEvents {
+    fn key_changed_from_midi(&mut self, microtime: i64, key: usize, pressed: bool) {
         self.key_events.push(KeyEvent {
             microtime,
             key,

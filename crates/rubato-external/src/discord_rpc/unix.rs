@@ -54,17 +54,19 @@ impl IPCConnection for UnixIPCConnection {
             }
         }
 
-        let ipc_path = format!(
-            "{}/discord-ipc-0",
-            if let Some(ref bp) = base_path {
-                bp.as_str()
-            } else {
-                "/tmp"
+        let base = base_path.as_deref().unwrap_or("/tmp");
+        let mut last_err = anyhow::anyhow!("No Discord IPC socket found");
+        for slot in 0..10 {
+            let ipc_path = format!("{}/discord-ipc-{}", base, slot);
+            match UnixStream::connect(&ipc_path) {
+                Ok(stream) => {
+                    self.socket = Some(stream);
+                    return Ok(());
+                }
+                Err(e) => last_err = e.into(),
             }
-        );
-        let stream = UnixStream::connect(&ipc_path)?;
-        self.socket = Some(stream);
-        Ok(())
+        }
+        Err(last_err)
     }
 
     /// Translates:

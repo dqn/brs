@@ -82,7 +82,7 @@ impl WebhookHandler {
                 .send()?;
 
             let response_code = response.status().as_u16();
-            if response_code != 200 {
+            if response_code != 200 && response_code != 204 {
                 ImGuiNotify::warning(&format!(
                     "Unexpected http response code when sending webhook: {}",
                     response_code

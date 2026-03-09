@@ -208,15 +208,20 @@ impl MusicSelector {
             EventType::Target => {
                 let targets = rubato_play::target_property::TargetProperty::targets();
                 if !targets.is_empty() {
-                    let mut index = targets.len();
+                    let mut index = None;
                     for (i, t) in targets.iter().enumerate() {
                         if t == &self.config.select_settings.targetid {
-                            index = i;
+                            index = Some(i);
                             break;
                         }
                     }
-                    let step = if arg1 >= 0 { 1 } else { targets.len() - 1 };
-                    let new_index = (index + step) % targets.len();
+                    let new_index = match index {
+                        Some(i) => {
+                            let step = if arg1 >= 0 { 1 } else { targets.len() - 1 };
+                            (i + step) % targets.len()
+                        }
+                        None => 0,
+                    };
                     self.config.select_settings.targetid = targets[new_index].clone();
                 }
                 self.play_option_change();

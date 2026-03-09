@@ -389,7 +389,14 @@ impl SpriteBatch {
 
     /// Record a texture for the current draw call and manage batch boundaries.
     fn record_texture(&mut self, texture: &Texture) {
-        let key = texture.path.clone();
+        // For pixmap-backed textures (no path), generate a synthetic key from the
+        // Arc pointer address so they get registered for GPU upload.
+        let key = texture.path.clone().or_else(|| {
+            texture
+                .rgba_data
+                .as_ref()
+                .map(|data| Arc::from(format!("__pixmap_{:x}", Arc::as_ptr(data) as usize)))
+        });
 
         // Register pending texture for GPU upload if it has rgba data
         if let Some(ref path) = key
