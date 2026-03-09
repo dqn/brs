@@ -425,7 +425,7 @@ impl SkinTextBitmapSource {
     /// Uses BitmapFontCache to avoid reloading the same font.
     pub fn font(&mut self) -> Option<BitmapFont> {
         if !crate::bitmap_font_cache::has(Some(&self.font_path)) {
-            let new_font = self.create_cacheable_font(&self.font_path.clone(), self.source_type);
+            let new_font = self.create_cacheable_font(&self.font_path, self.source_type);
             crate::bitmap_font_cache::set(
                 self.font_path.clone(),
                 crate::bitmap_font_cache::CacheableBitmapFont {

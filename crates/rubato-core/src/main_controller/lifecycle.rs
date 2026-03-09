@@ -62,12 +62,12 @@ impl MainController {
         if self.bmsfile.is_some() {
             // Java: if(resource.setBMSFile(bmsfile, auto)) changeState(PLAY)
             //       else { changeState(CONFIG); exit(); }
-            let bmsfile = self.bmsfile.clone().expect("bmsfile is Some");
+            let bmsfile = self.bmsfile.as_ref().expect("bmsfile is Some");
             let mode = self.auto.unwrap_or(BMSPlayerMode::PLAY);
             let load_ok = self
                 .resource
                 .as_mut()
-                .map(|r| r.set_bms_file(&bmsfile, mode))
+                .map(|r| r.set_bms_file(bmsfile, mode))
                 .unwrap_or(false);
             if load_ok {
                 self.change_state(MainStateType::Play);

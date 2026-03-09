@@ -47,8 +47,8 @@ impl VersionChecker for GithubVersionChecker {
     fn get_message(&self) -> String {
         {
             let msg = self.message.lock().expect("message lock poisoned");
-            if msg.is_some() {
-                return msg.clone().expect("msg is Some");
+            if let Some(ref m) = *msg {
+                return m.clone();
             }
         }
         self.information();

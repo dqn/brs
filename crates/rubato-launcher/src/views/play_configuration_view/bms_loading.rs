@@ -42,7 +42,7 @@ impl PlayConfigurationView {
 
         if let Some(ref pc) = self.pc {
             let mode = pc.to_mode();
-            let conf = &player.play_config(mode).playconfig.clone();
+            let conf = &player.play_config(mode).playconfig;
             self.hispeed = conf.hispeed as f64;
             self.gvalue = conf.duration;
             self.enable_constant = conf.enable_constant;

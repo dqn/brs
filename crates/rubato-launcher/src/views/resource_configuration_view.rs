@@ -541,7 +541,7 @@ impl ResourceConfigurationView {
         // commit();
         self.commit();
 
-        if let Some(ref config) = self.config.clone() {
+        if let Some(ref config) = self.config {
             // Files.createDirectories(Paths.get(config.getTablepath()));
             let _ = fs::create_dir_all(&config.paths.tablepath);
 
@@ -572,7 +572,7 @@ impl ResourceConfigurationView {
         // commit();
         self.commit();
 
-        if let Some(ref config) = self.config.clone() {
+        if let Some(ref config) = self.config {
             // Files.createDirectories(Paths.get(config.getTablepath()));
             let _ = fs::create_dir_all(&config.paths.tablepath);
 
@@ -599,7 +599,7 @@ impl ResourceConfigurationView {
         // commit();
         self.commit();
 
-        if let Some(ref config) = self.config.clone() {
+        if let Some(ref config) = self.config {
             // Files.createDirectories(Paths.get(config.getTablepath()));
             let _ = fs::create_dir_all(&config.paths.tablepath);
 
