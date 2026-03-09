@@ -30,6 +30,18 @@ fn skins_dir() -> PathBuf {
         .join("skin/ECFN")
 }
 
+/// Returns true if ECFN skins are available locally.
+/// Tests that require ECFN skins should call this and return early if false.
+fn ecfn_skins_available() -> bool {
+    let dir = skins_dir();
+    if dir.exists() {
+        true
+    } else {
+        eprintln!("Skipping: ECFN skins not found at {}", dir.display());
+        false
+    }
+}
+
 fn state_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/screenshot_states")
 }
@@ -179,6 +191,9 @@ const ALL_LUA_SKINS: &[&str] = &[
 
 #[test]
 fn skin_ecfn_all_lua_skins_load_successfully() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let provider = load_state("state_default.json");
     for &skin_path in ALL_LUA_SKINS {
         let skin = load_lua_skin_with_state(skin_path, &provider);
@@ -194,6 +209,9 @@ fn skin_ecfn_all_lua_skins_load_successfully() {
 
 #[test]
 fn skin_ecfn_select_json_loads_successfully() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let skin = load_json_skin("select/select.json");
     let object_count = skin.objects().len();
     assert!(
@@ -205,6 +223,9 @@ fn skin_ecfn_select_json_loads_successfully() {
 
 #[test]
 fn skin_ecfn_skin_object_counts_reasonable() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let provider = load_state("state_default.json");
     for &skin_path in ALL_LUA_SKINS {
         let skin = load_lua_skin_with_state(skin_path, &provider);
@@ -267,6 +288,9 @@ const SNAPSHOT_COMBOS: &[SkinStateCombo] = &[
 
 #[test]
 fn skin_ecfn_multi_timepoint_snapshots() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let time_points: &[i64] = &[0, 5000, 30000, 60000];
 
     for combo in SNAPSHOT_COMBOS {
@@ -307,6 +331,9 @@ fn skin_ecfn_multi_timepoint_snapshots() {
 
 #[test]
 fn skin_ecfn_play_with_active_state_has_objects() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let provider = load_state("state_play_active.json");
     let skin = load_lua_skin_with_state("play/play7.luaskin", &provider);
     let snapshot = capture_render_snapshot(&skin, &provider);
@@ -343,6 +370,9 @@ fn skin_ecfn_play_with_active_state_has_objects() {
 
 #[test]
 fn skin_ecfn_fnt_files_parse_successfully() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let ecfn_dir = skins_dir();
     let fnt_files = find_files_recursively(&ecfn_dir, "fnt");
     assert!(
@@ -418,6 +448,9 @@ fn skin_ecfn_fnt_files_parse_successfully() {
 
 #[test]
 fn skin_ecfn_ttf_files_load_successfully() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let ecfn_dir = skins_dir();
     let ttf_files = find_files_recursively(&ecfn_dir, "ttf");
     assert!(
@@ -443,6 +476,9 @@ fn skin_ecfn_ttf_files_load_successfully() {
 
 #[test]
 fn skin_ecfn_png_files_decode_successfully() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let ecfn_dir = skins_dir();
     let png_files = find_files_recursively(&ecfn_dir, "png");
     assert!(
@@ -513,6 +549,9 @@ fn fixture_slug(skin_path: &str, state_json: &str, time_ms: i64) -> String {
 
 #[test]
 fn skin_ecfn_timepoint_snapshot_regression() {
+    if !ecfn_skins_available() {
+        return;
+    }
     use golden_master::render_snapshot::compare_snapshots;
 
     let time_points: &[i64] = &[0, 5000, 30000, 60000];
@@ -584,6 +623,9 @@ fn skin_ecfn_timepoint_snapshot_regression() {
 
 #[test]
 fn skin_ecfn_play_state_diversity() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let snapshot = capture_at_time("play/play7.luaskin", "state_play_active.json", 5000);
 
     // Collect distinct DrawDetail variant type names from commands that have detail.
@@ -642,6 +684,9 @@ fn skin_ecfn_play_state_diversity() {
 /// indicates a regression in timer-driven destination evaluation.
 #[test]
 fn skin_ecfn_timepoint_position_delta() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let time_points: &[i64] = &[0, 5000, 30000];
 
     for combo in SNAPSHOT_COMBOS {
@@ -719,6 +764,9 @@ fn skin_ecfn_timepoint_position_delta() {
 /// Checks that Image, SkinNote, and SkinJudge objects exist with valid positions.
 #[test]
 fn skin_ecfn_play_specific_positions() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let snapshot = capture_at_time("play/play7.luaskin", "state_play_active.json", 5000);
 
     // 1. Find Image objects and verify the largest one is reasonably sized.

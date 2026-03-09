@@ -52,6 +52,18 @@ fn skins_dir() -> PathBuf {
         .join("skin/ECFN")
 }
 
+/// Returns true if ECFN skins are available locally.
+/// Tests that require ECFN skins should call this and return early if false.
+fn ecfn_skins_available() -> bool {
+    let dir = skins_dir();
+    if dir.exists() {
+        true
+    } else {
+        eprintln!("Skipping: ECFN skins not found at {}", dir.display());
+        false
+    }
+}
+
 fn fixture_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures")
 }
@@ -579,6 +591,9 @@ fn render_snapshot_java_fixtures_exist() {
 
 #[test]
 fn render_snapshot_parity_regression_guard() {
+    if !ecfn_skins_available() {
+        return;
+    }
     for tc in TEST_CASES {
         // Skip test cases whose skins can't be loaded yet (Lua API gaps)
         if try_snapshot_diffs(tc).is_none() {
@@ -611,60 +626,90 @@ fn render_snapshot_parity_regression_guard() {
 
 #[test]
 fn render_snapshot_ecfn_select() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let tc = &TEST_CASES[0];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
 fn render_snapshot_ecfn_decide() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let tc = &TEST_CASES[1];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
 fn render_snapshot_ecfn_play7_active() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let tc = &TEST_CASES[2];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
 fn render_snapshot_ecfn_play7_fullcombo() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let tc = &TEST_CASES[3];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
 fn render_snapshot_ecfn_play7_danger() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let tc = &TEST_CASES[4];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
 fn render_snapshot_ecfn_result_clear() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let tc = &TEST_CASES[5];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
 fn render_snapshot_ecfn_result_fail() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let tc = &TEST_CASES[6];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
 fn render_snapshot_ecfn_play14_active() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let tc = &TEST_CASES[7];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
 fn render_snapshot_ecfn_play7wide_active() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let tc = &TEST_CASES[8];
     compare_java_rust_render_snapshot(tc);
 }
 
 #[test]
 fn render_snapshot_ecfn_course_result() {
+    if !ecfn_skins_available() {
+        return;
+    }
     let tc = &TEST_CASES[9];
     compare_java_rust_render_snapshot(tc);
 }
@@ -743,16 +788,25 @@ fn run_rust_only_snapshot(tc: &RustOnlySnapshotTestCase) {
 
 #[test]
 fn rust_only_snapshot_ecfn_play7_mid_song() {
+    if !ecfn_skins_available() {
+        return;
+    }
     run_rust_only_snapshot(&RUST_ONLY_CASES[0]);
 }
 
 #[test]
 fn rust_only_snapshot_ecfn_select_with_song() {
+    if !ecfn_skins_available() {
+        return;
+    }
     run_rust_only_snapshot(&RUST_ONLY_CASES[1]);
 }
 
 #[test]
 fn rust_only_snapshot_ecfn_result2_clear() {
+    if !ecfn_skins_available() {
+        return;
+    }
     run_rust_only_snapshot(&RUST_ONLY_CASES[2]);
 }
 
@@ -778,6 +832,9 @@ fn capture_at_time(skin_path: &str, state_json: &str, time_ms: i64) -> RenderSna
 
 #[test]
 fn timeline_decide_visibility_changes() {
+    if !ecfn_skins_available() {
+        return;
+    }
     // Decide skin should have different visibility at different times
     // (timer-driven animations change which objects are shown)
     let snap_0 = capture_at_time("decide/decide.luaskin", "state_default.json", 0);
@@ -800,6 +857,9 @@ fn timeline_decide_visibility_changes() {
 
 #[test]
 fn timeline_play7_has_consistent_structure() {
+    if !ecfn_skins_available() {
+        return;
+    }
     // Play skin should have consistent structure across time points
     let times = [0i64, 1000, 5000, 30000];
     let snapshots: Vec<_> = times
@@ -827,6 +887,9 @@ fn timeline_play7_has_consistent_structure() {
 
 #[test]
 fn timeline_result_has_stable_visible_set() {
+    if !ecfn_skins_available() {
+        return;
+    }
     // Result screen should reach a stable state after initial animations
     let snap_5000 = capture_at_time("RESULT/result.luaskin", "state_result_clear.json", 5000);
     let snap_10000 = capture_at_time("RESULT/result.luaskin", "state_result_clear.json", 10000);
@@ -871,6 +934,9 @@ fn count_visible_object_types(snapshot: &RenderSnapshot) -> BTreeMap<String, usi
 
 #[test]
 fn skin_state_objects_play_has_note_judge() {
+    if !ecfn_skins_available() {
+        return;
+    }
     // Play skin snapshots must contain SkinNote and SkinJudge objects
     for tc in TEST_CASES.iter().filter(|tc| tc.name.contains("play7")) {
         let (_, rust_snapshot, _) = snapshot_diffs(tc);
@@ -893,6 +959,9 @@ fn skin_state_objects_play_has_note_judge() {
 
 #[test]
 fn skin_state_objects_select_has_bar() {
+    if !ecfn_skins_available() {
+        return;
+    }
     // Select skin snapshot must contain SkinBar objects
     let tc = &TEST_CASES[0]; // ecfn_select
     assert!(tc.name.contains("select"));
@@ -908,6 +977,9 @@ fn skin_state_objects_select_has_bar() {
 
 #[test]
 fn skin_state_objects_type_distribution_parity() {
+    if !ecfn_skins_available() {
+        return;
+    }
     // For each snapshot with zero known diffs, verify Java and Rust produce the same object type distribution.
     // Skip test cases with known_diff_budget > 0 or skins that can't be loaded yet.
     for tc in TEST_CASES {
@@ -943,6 +1015,9 @@ fn skin_state_objects_type_distribution_parity() {
 
 #[test]
 fn skin_state_objects_visible_type_distribution_parity() {
+    if !ecfn_skins_available() {
+        return;
+    }
     // Verify visible object type distribution matches between Java and Rust
     for tc in TEST_CASES {
         // Skip cases with known diff budgets or skins that can't be loaded yet

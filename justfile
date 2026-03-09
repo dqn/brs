@@ -28,17 +28,9 @@ golden-master-test:
 golden-master-skin-snapshot:
     UPDATE_SNAPSHOTS=1 cargo test -p golden-master compare_skin -- --nocapture
 
-# Screenshot tests (GPU required, local execution)
-screenshot-test:
-    cargo test -p bms-render --test screenshot_tests -- --ignored --nocapture
-
-# Regenerate screenshot fixtures
-screenshot-update:
-    UPDATE_SCREENSHOTS=1 cargo test -p bms-render --test screenshot_tests -- --ignored --nocapture
-
 # Compare Java-Rust RenderSnapshot (structural draw command comparison)
 golden-master-render-snapshot-compare:
-    cargo test -p golden-master --test compare_render_snapshot -- --nocapture --ignored
+    cargo test -p golden-master --test compare_render_snapshot -- --nocapture
 
 # Run criterion benchmarks
 bench:
