@@ -143,18 +143,6 @@ impl GpuTextureManager {
             return;
         }
 
-        let max_dim = ctx.device.limits().max_texture_dimension_2d;
-        if width > max_dim || height > max_dim {
-            log::warn!(
-                "Texture '{}' dimensions {}x{} exceed GPU limit {}; skipping upload",
-                key,
-                width,
-                height,
-                max_dim,
-            );
-            return;
-        }
-
         let expected_size = (width * height * 4) as usize;
         if rgba_data.len() < expected_size {
             log::warn!(
@@ -166,9 +154,41 @@ impl GpuTextureManager {
             return;
         }
 
+        let max_dim = ctx.device.limits().max_texture_dimension_2d;
+        let (upload_width, upload_height, upload_data);
+        if width > max_dim || height > max_dim {
+            let scale = max_dim as f32 / width.max(height) as f32;
+            let new_w = (width as f32 * scale).round() as u32;
+            let new_h = (height as f32 * scale).round() as u32;
+            let new_w = new_w.max(1).min(max_dim);
+            let new_h = new_h.max(1).min(max_dim);
+            log::info!(
+                "Texture '{}' dimensions {}x{} exceed GPU limit {}; downscaling to {}x{}",
+                key,
+                width,
+                height,
+                max_dim,
+                new_w,
+                new_h,
+            );
+            upload_data = bilinear_resize(rgba_data, width, height, new_w, new_h);
+            upload_width = new_w;
+            upload_height = new_h;
+        } else {
+            upload_data = Vec::new(); // unused; we'll use rgba_data directly
+            upload_width = width;
+            upload_height = height;
+        }
+
+        let actual_data: &[u8] = if !upload_data.is_empty() {
+            &upload_data
+        } else {
+            rgba_data
+        };
+
         let size = wgpu::Extent3d {
-            width,
-            height,
+            width: upload_width,
+            height: upload_height,
             depth_or_array_layers: 1,
         };
         let wgpu_texture = ctx.device.create_texture(&wgpu::TextureDescriptor {
@@ -188,11 +208,11 @@ impl GpuTextureManager {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            rgba_data,
+            actual_data,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * width),
-                rows_per_image: Some(height),
+                bytes_per_row: Some(4 * upload_width),
+                rows_per_image: Some(upload_height),
             },
             size,
         );
@@ -264,4 +284,56 @@ impl GpuTextureManager {
             &self.fallback_bind_group_nearest
         }
     }
+}
+
+/// Bilinear interpolation resize for RGBA (4 bytes/pixel) image data.
+fn bilinear_resize(src: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> Vec<u8> {
+    let mut dst = vec![0u8; (dst_w * dst_h * 4) as usize];
+    let src_w_f = src_w as f32;
+    let src_h_f = src_h as f32;
+    let dst_w_f = dst_w as f32;
+    let dst_h_f = dst_h as f32;
+
+    for dy in 0..dst_h {
+        for dx in 0..dst_w {
+            // Map destination pixel center to source coordinates
+            let sx = (dx as f32 + 0.5) * src_w_f / dst_w_f - 0.5;
+            let sy = (dy as f32 + 0.5) * src_h_f / dst_h_f - 0.5;
+
+            let x0 = sx.floor() as i32;
+            let y0 = sy.floor() as i32;
+            let x1 = x0 + 1;
+            let y1 = y0 + 1;
+
+            let fx = sx - x0 as f32;
+            let fy = sy - y0 as f32;
+
+            // Clamp to source bounds
+            let x0 = x0.clamp(0, src_w as i32 - 1) as u32;
+            let y0 = y0.clamp(0, src_h as i32 - 1) as u32;
+            let x1 = x1.clamp(0, src_w as i32 - 1) as u32;
+            let y1 = y1.clamp(0, src_h as i32 - 1) as u32;
+
+            let idx00 = ((y0 * src_w + x0) * 4) as usize;
+            let idx10 = ((y0 * src_w + x1) * 4) as usize;
+            let idx01 = ((y1 * src_w + x0) * 4) as usize;
+            let idx11 = ((y1 * src_w + x1) * 4) as usize;
+
+            let dst_idx = ((dy * dst_w + dx) * 4) as usize;
+            for c in 0..4 {
+                let v00 = src[idx00 + c] as f32;
+                let v10 = src[idx10 + c] as f32;
+                let v01 = src[idx01 + c] as f32;
+                let v11 = src[idx11 + c] as f32;
+
+                let v = v00 * (1.0 - fx) * (1.0 - fy)
+                    + v10 * fx * (1.0 - fy)
+                    + v01 * (1.0 - fx) * fy
+                    + v11 * fx * fy;
+
+                dst[dst_idx + c] = v.round() as u8;
+            }
+        }
+    }
+    dst
 }

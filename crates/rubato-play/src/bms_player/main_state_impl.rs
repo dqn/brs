@@ -60,6 +60,66 @@ impl MainState for BMSPlayer {
         };
         let mut timer = std::mem::take(&mut self.main_state_data.timer);
 
+        // Compute note draw commands via the type-erased SkinDrawable bridge.
+        // This calls LaneRenderer::draw_lane() inside the skin to populate SkinNoteObject.draw_commands.
+        if let Some(ref mut lr) = self.lanerender {
+            let lane_count = self.model.mode().map_or(8, |m| m.key() as usize);
+            // Safety: DrawLaneContext is consumed synchronously within compute_note_draw_commands.
+            // self.model.timelines outlives the context because the function returns before
+            // self is accessed again.
+            let all_timelines: &'static [bms_model::time_line::TimeLine] =
+                unsafe { std::mem::transmute(self.model.timelines.as_slice()) };
+            let judge_table = self.judge.judge_table(false);
+            let bad_judge_time = judge_table.get(3).map_or(0, |jt| jt[1]);
+            let draw_ctx = crate::lane_renderer::DrawLaneContext {
+                time: timer.now_time(),
+                timer_play: if timer.is_timer_on(TIMER_PLAY) {
+                    Some(timer.now_time_for_id(TIMER_PLAY))
+                } else {
+                    None
+                },
+                timer_141: if timer.is_timer_on(TimerId::new(141)) {
+                    Some(timer.now_time_for_id(TimerId::new(141)))
+                } else {
+                    None
+                },
+                judge_timing: self.player_config.judge_settings.judgetiming as i64,
+                is_practice: self.state == PlayState::Practice
+                    || self.state == PlayState::PracticeFinished,
+                practice_start_time: self.practice.practice_property().starttime as i64,
+                now_time: timer.now_time(),
+                now_quarter_note_time: self
+                    .rhythm
+                    .as_ref()
+                    .map_or(0, |r| r.now_quarter_note_time()),
+                note_expansion_rate: self.play_skin.note_expansion_rate,
+                lane_group_regions: Vec::new(),
+                show_bpmguide: self.player_config.display_settings.bpmguide,
+                show_pastnote: self.player_config.display_settings.showpastnote,
+                mark_processednote: self.player_config.display_settings.markprocessednote,
+                show_hiddennote: self.player_config.display_settings.showhiddennote,
+                show_judgearea: self.player_config.display_settings.showjudgearea,
+                lntype: self.model.lntype(),
+                judge_time_regions: (0..lane_count)
+                    .map(|i| self.judge.judge_time_region(i).to_vec())
+                    .collect(),
+                processing_long_notes: (0..lane_count)
+                    .map(|i| self.judge.processing_long_note(i))
+                    .collect(),
+                passing_long_notes: (0..lane_count)
+                    .map(|i| self.judge.passing_long_note(i))
+                    .collect(),
+                hell_charge_judges: (0..lane_count)
+                    .map(|i| self.judge.hell_charge_judge(i))
+                    .collect(),
+                bad_judge_time,
+                model_bpm: self.model.bpm,
+                all_timelines,
+                forced_cn_endings: false,
+            };
+            skin.compute_note_draw_commands(lr, Box::new(draw_ctx));
+        }
+
         {
             let mut ctx = PlayRenderContext {
                 timer: &mut timer,
@@ -197,6 +257,7 @@ impl MainState for BMSPlayer {
         }
 
         self.judge.init(&self.model, 0, None, &[]);
+        self.judge_notes = bms_model::judge_note::build_judge_notes(&self.model);
 
         // --- Note expansion rate from PlaySkin ---
         // Translated from: BMSPlayer.create() Java line 542-543
@@ -649,6 +710,21 @@ impl MainState for BMSPlayer {
                     self.keysound.update_volume(vol);
                 }
 
+                // Judge update: evaluate key presses against notes
+                // Translated from: Java BMSPlayer.render() judge.update() call
+                {
+                    let play_micro = self.main_state_data.timer.now_micro_time_for_id(TIMER_PLAY);
+                    if let Some(ref mut gauge) = self.gauge {
+                        self.judge.update(
+                            play_micro,
+                            &self.judge_notes,
+                            &self.input.input_key_states,
+                            &self.input.input_key_changed_times,
+                            gauge,
+                        );
+                    }
+                }
+
                 let ptime = self.main_state_data.timer.now_time_for_id(TIMER_PLAY);
                 // Gauge log
                 if let Some(ref gauge) = self.gauge {
@@ -1033,6 +1109,10 @@ impl MainState for BMSPlayer {
         self.input
             .input_key_states
             .extend((0..KEYSTATE_SIZE as i32).map(|i| input.key_state(i)));
+        self.input.input_key_changed_times.clear();
+        self.input
+            .input_key_changed_times
+            .extend((0..KEYSTATE_SIZE as i32).map(|i| input.key_changed_time(i)));
         self.input.control_key_up = input.control_key_state(ControlKeys::Up);
         self.input.control_key_down = input.control_key_state(ControlKeys::Down);
         self.input.control_key_left = input.control_key_state(ControlKeys::Left);

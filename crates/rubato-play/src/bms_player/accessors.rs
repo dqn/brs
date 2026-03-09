@@ -15,6 +15,7 @@ impl BMSPlayer {
             lanerender: None,
             lane_property: None,
             judge: JudgeManager::new(),
+            judge_notes: Vec::new(),
             bga: Arc::new(Mutex::new(BGAProcessor::new_with_resource_gen(
                 song_resource_gen,
             ))),

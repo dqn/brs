@@ -297,6 +297,20 @@ pub trait SkinDrawable: Send {
     /// Dispose all skin objects and release resources.
     fn dispose_skin(&mut self);
 
+    /// Compute and store note draw commands for the SkinNoteObject.
+    ///
+    /// The lane_renderer and ctx are type-erased as `&mut dyn Any` / `Box<dyn Any>`
+    /// to avoid circular dependencies (LaneRenderer/DrawLaneContext live in
+    /// rubato-play which depends on rubato-core). The concrete Skin implementation
+    /// downcasts them and calls `LaneRenderer::draw_lane()` with its own SkinLane data.
+    fn compute_note_draw_commands(
+        &mut self,
+        _lane_renderer: &mut dyn std::any::Any,
+        _ctx: Box<dyn std::any::Any>,
+    ) {
+        // default no-op
+    }
+
     /// Get fadeout duration in milliseconds.
     fn fadeout(&self) -> i32;
 

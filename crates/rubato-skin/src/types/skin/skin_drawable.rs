@@ -326,5 +326,27 @@ impl rubato_core::main_state::SkinDrawable for Skin {
             batch,
         );
     }
+
+    fn compute_note_draw_commands(
+        &mut self,
+        lane_renderer: &mut dyn std::any::Any,
+        ctx: Box<dyn std::any::Any>,
+    ) {
+        let Some(lr) = lane_renderer.downcast_mut::<rubato_play::lane_renderer::LaneRenderer>()
+        else {
+            return;
+        };
+        let Ok(ctx) = ctx.downcast::<rubato_play::lane_renderer::DrawLaneContext<'_>>() else {
+            return;
+        };
+        for obj in &mut self.objects {
+            if let SkinObject::Note(note) = obj {
+                let lanes = note.inner.lanes();
+                let result = lr.draw_lane(&ctx, lanes, &[]);
+                note.draw_commands = result.commands;
+                return;
+            }
+        }
+    }
 }
 
