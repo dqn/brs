@@ -7,6 +7,10 @@ beatoraja fork (Java 313 files / 72k+ lines) → Rust. 25 crates, 167k lines.
 - Golden Master: pre-generated JSON fixtures in `golden-master/fixtures/`. Tolerance: ±2μs.
 - Preserve ALL branch/loop/fallthrough structure. Copy constants/magic numbers AS-IS.
 - Explicit type conversions — every implicit Java cast → explicit Rust cast.
+- Treat "mechanical translation complete", "zero stubs", and "runtime parity verified" as separate milestones. Do not declare a phase complete based on compile success, test counts, or stub counts alone.
+- For black screens, no-op inputs, broken transitions, or silent state desync, investigate wiring and lifecycle boundaries before rewriting business logic. The default state wiring checklist is: input, timer, audio, `skin.prepare()`, skin property delegation, state transitions, controller/resource sync, and interactive mouse context when applicable.
+- After broad renames, file splits, crate consolidation, or other structural refactors in ported code, run runtime smoke on every affected entrypoint immediately. Build/lint green is insufficient.
+- During Java parity review, explicitly audit RNG, serde field names and aliases, tolerant JSON/Gson coercions, timezone and DST behavior, truncating numeric casts, and path/CRC semantics.
 - After completing a phase/task, update TODO.md and AGENTS.md.
 - Worktree isolation: **always merge worktree branches before sending shutdown requests**.
 - Worktree cleanup: **always run `rm -rf target/` inside a worktree before removing it** to avoid multi-GB disk waste. Each worktree's `target/` can be 4+ GB.
@@ -97,6 +101,7 @@ rubato/              # Cargo workspace (15 crates) at repo root
 
 ## Lessons Learned
 
+- **Completion gates:** Mechanical translation done, zero stubs, and runtime parity verified are separate milestones. The first two are weak signals for actual behavior.
 - **Encoding:** `encoding_rs::SHIFT_JIS` for MS932. **Serde:** `BPM`→`Bpm`, `URL`→`Url`, `#[serde(alias)]`.
 - **Borrow checker:** `&mut` conflicts → scoped block. Self-ref → `Option::take()`. Parent ref → callback trait.
 - **Stubs:** `stubs.rs` per crate → replace via `pub use`. Always `cargo check` after removal.
@@ -105,6 +110,7 @@ rubato/              # Cargo workspace (15 crates) at repo root
 - **Bar Clone:** `Box<dyn Trait>` blocks Clone → use `Arc<dyn Trait>` for shared trait objects.
 - **Property delegate pattern:** `integer_value(id)` / `float_value(id)` / `boolean_value(id)` on MainState — skin property factories delegate via ID lookup.
 - **Java float→int→byte truncation:** Use `as i32 as i8` in Rust (via i32 to get truncation). Direct `as i8` saturates since Rust 1.45.
+- **Wiring-first debugging:** Black screens, no-op interactions, and broken transitions were much more often wiring/lifecycle faults than algorithm mistakes.
 - **Controller wiring across crates:** When states cannot own `&mut MainController`, use a queued `MainControllerAccess` proxy plus a MainController-side drain step instead of config-only no-op adapters. Shared `Arc<Mutex<State>>` wrappers must explicitly sync `MainStateData` back and forth or skins/timers will desynchronize.
 - **Skin event wiring:** `SkinDrawable` mouse/custom-event paths need a state-aware `SkinRenderContext`, not a timer-only adapter. Delegate mutating methods (`execute_event`, `change_state`, config writes, float writes) through the adapter, and let interactive states like `MusicSelector` build their own context for mouse/render passes.
 - **Mouse bridge parity:** Having a live render context is not enough. States with clickable skins must also override `handle_skin_mouse_pressed()` / `handle_skin_mouse_dragged()`, temporarily take ownership of `skin` and `TimerManager`, and build the same kind of state-aware context for the mouse pass or replay buttons / play-screen option clicks will silently no-op.
