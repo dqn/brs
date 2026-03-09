@@ -248,6 +248,8 @@ impl RivalTargetProperty {
                     .and_then(|cache| cache.read_score_data(&songdata, lnmode).cloned());
             }
             RivalTarget::Rank => {
+                // Java parity: own score (empty player name) is included in the sorted list.
+                // This means RIVAL_RANK_1 may resolve to the player's own score if highest.
                 let mut scores = Self::create_score_array_impl(main, &songdata, lnmode);
                 if !scores.is_empty() {
                     scores.sort_by_key(|b| std::cmp::Reverse(b.exscore()));
@@ -262,6 +264,9 @@ impl RivalTargetProperty {
                 }
             }
             RivalTarget::Next => {
+                // Java parity: RIVAL_NEXT_n picks rank = own_position - index, which may
+                // select the player's own score for RIVAL_NEXT_1 (index=0). The offset
+                // direction also picks lower-ranked (worse) scores rather than higher-ranked.
                 let mut scores = Self::create_score_array_impl(main, &songdata, lnmode);
                 if !scores.is_empty() {
                     scores.sort_by_key(|b| std::cmp::Reverse(b.exscore()));
