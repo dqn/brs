@@ -1,0 +1,60 @@
+{
+  "commands": [
+    {
+      "type": "DrawSectionLine",
+      "y_offset": 0
+    },
+    {
+      "type": "DrawSectionLine",
+      "y_offset": -250
+    },
+    {
+      "type": "DrawSectionLine",
+      "y_offset": -500
+    },
+    {
+      "type": "SetColor",
+      "r": 1.0,
+      "g": 1.0,
+      "b": 1.0,
+      "a": 1.0
+    },
+    {
+      "type": "SetBlend",
+      "blend": 0
+    },
+    {
+      "type": "SetType",
+      "typ": 0
+    },
+    {
+      "type": "DrawNote",
+      "lane": 0,
+      "x": 100.0,
+      "y": 500.0,
+      "w": 38.0,
+      "h": 8.0,
+      "image_type": "Normal"
+    },
+    {
+      "type": "DrawNote",
+      "lane": 3,
+      "x": 220.0,
+      "y": 250.0,
+      "w": 38.0,
+      "h": 8.0,
+      "image_type": "Normal"
+    },
+    {
+      "type": "DrawNote",
+      "lane": 5,
+      "x": 300.0,
+      "y": 125.0,
+      "w": 38.0,
+      "h": 8.0,
+      "image_type": "Mine"
+    }
+  ],
+  "lift_offset_y": 0.0,
+  "lanecover_offset_y": -0.0
+}
