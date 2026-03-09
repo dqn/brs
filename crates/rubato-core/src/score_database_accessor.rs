@@ -289,6 +289,10 @@ impl ScoreDatabaseAccessor {
         }
     }
 
+    // SQL injection note: `sql` is a raw WHERE clause from local folder config JSON files.
+    // This is a local-only desktop app -- the user who can write those files already has full
+    // local access. Parameterization would require a significant refactor of the folder filter
+    // system. Same pattern as the Java original (beatoraja).
     pub fn score_datas(&self, sql: &str) -> Option<Vec<ScoreData>> {
         match self
             .conn

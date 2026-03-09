@@ -315,15 +315,18 @@ impl BarManager {
     }
 
     /// Update bar using a directory bar at the given index in self.dir.
-    /// Workaround for borrow checker: can't borrow dir elements while mutating self.
+    /// Clone the dir bar to satisfy the borrow checker (can't borrow dir elements while mutating self).
     fn update_bar_at_dir_index_with_context(
         &mut self,
-        _index: usize,
+        index: usize,
         ctx: Option<&mut UpdateBarContext>,
     ) -> bool {
-        // The full implementation would need to clone dir[index] and pass it as bar.
-        // Without the dir bar, we rebuild root.
-        self.update_bar_with_context(None, ctx)
+        if index < self.dir.len() {
+            let bar = (*self.dir[index]).clone();
+            self.update_bar_with_context(Some(&bar), ctx)
+        } else {
+            self.update_bar_with_context(None, ctx)
+        }
     }
 
     fn _update_bar_at_dir_index(&mut self, index: usize) -> bool {

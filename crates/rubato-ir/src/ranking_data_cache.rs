@@ -62,7 +62,7 @@ impl RankingDataCache {
 
     fn song_cache_index(song: &SongData, lnmode: i32) -> usize {
         if song.chart.has_undefined_long_note() {
-            lnmode as usize
+            lnmode.clamp(0, 3) as usize
         } else {
             3
         }
@@ -72,7 +72,7 @@ impl RankingDataCache {
         let mut cacheindex = 3usize;
         for song in &course.hash {
             if song.chart.has_undefined_long_note() {
-                cacheindex = lnmode as usize;
+                cacheindex = lnmode.clamp(0, 3) as usize;
             }
         }
         cacheindex
@@ -81,7 +81,7 @@ impl RankingDataCache {
     /// Get ranking data for a song with given LN mode. Returns None if not found.
     pub fn song(&self, song: &SongData, lnmode: i32) -> Option<RankingData> {
         let cacheindex = if song.chart.has_undefined_long_note() {
-            lnmode as usize
+            lnmode.clamp(0, 3) as usize
         } else {
             3
         };

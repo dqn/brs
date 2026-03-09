@@ -38,14 +38,30 @@ pub fn convert_hex_string(data: &[u8]) -> String {
     sb
 }
 
+/// Thread-local LCG for BMS `#RANDOM` directives.
+/// Uses a simple linear congruential generator seeded once per thread from system time,
+/// so successive calls within the same decode pass produce independent values.
 pub(super) fn rand_f64() -> f64 {
-    // Simple random - use system time as seed
+    use std::cell::Cell;
     use std::time::SystemTime;
-    let nanos = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos();
-    (nanos as f64) / 1_000_000_000.0
+
+    thread_local! {
+        static STATE: Cell<u64> = Cell::new({
+            let nanos = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .subsec_nanos();
+            nanos as u64 ^ 0x5DEECE66D
+        });
+    }
+
+    STATE.with(|s| {
+        // Java-style LCG: next = (state * 0x5DEECE66D + 0xB) & 0xFFFF_FFFF_FFFF
+        let state = s.get();
+        let next = state.wrapping_mul(0x5DEECE66D).wrapping_add(0xB) & 0xFFFF_FFFF_FFFF;
+        s.set(next);
+        (next as f64) / (0x1_0000_0000_0000u64 as f64)
+    })
 }
 
 pub(super) fn process_command_word(

@@ -70,7 +70,10 @@ pub fn start_ir_resend_thread(
 
                     for (i, score) in statuses.iter_mut().enumerate() {
                         // Java: long timeUntilNextTry = (long)(Math.pow(4, score.retry) * 1000);
-                        let time_until_next_try = (4_i64.pow(score.retry as u32)) * 1000;
+                        let time_until_next_try = 4_i64
+                            .checked_pow(score.retry as u32)
+                            .unwrap_or(i64::MAX / 1000)
+                            .saturating_mul(1000);
                         // Java: if (score.retry != 0 && now - score.lastTry >= timeUntilNextTry)
                         if score.retry != 0 && now - score.last_try >= time_until_next_try {
                             score.send();
@@ -200,7 +203,10 @@ mod tests {
             let mut remove_indices: Vec<usize> = Vec::new();
 
             for (i, score) in statuses.iter_mut().enumerate() {
-                let time_until_next_try = (4_i64.pow(score.retry as u32)) * 1000;
+                let time_until_next_try = 4_i64
+                    .checked_pow(score.retry as u32)
+                    .unwrap_or(i64::MAX / 1000)
+                    .saturating_mul(1000);
                 if score.retry != 0 && now - score.last_try >= time_until_next_try {
                     score.send();
                 }

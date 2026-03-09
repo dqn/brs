@@ -117,6 +117,9 @@ impl BytePCM {
     ///
     /// Translated from: BytePCM.changeFrequency
     pub fn change_frequency(&self, rate: f32) -> BytePCM {
+        if rate <= 0.0 {
+            return self.clone();
+        }
         let samples = self.get_sample((self.sample_rate as f32 / rate) as i32);
         let start = ((((self.start as i64) as f32 / rate / self.sample_rate as f32) as i32)
             .min(samples.len() as i32 - 1)

@@ -116,7 +116,7 @@ impl RandomFolder {
                 } else if int_value != 0 {
                     return false;
                 }
-                return true;
+                continue;
             }
 
             // String filter with comparison operators
