@@ -88,6 +88,9 @@ impl BufferUtils {
 pub struct PixmapIO;
 
 impl PixmapIO {
+    /// Write a PNG file. Errors are logged but not propagated, matching the Java
+    /// fire-and-forget screenshot pattern where the caller always shows a "saved"
+    /// notification regardless of I/O outcome.
     pub fn write_png(path: &str, pixmap: &Pixmap) {
         use image::{ImageBuffer, Rgba};
         use std::path::Path;

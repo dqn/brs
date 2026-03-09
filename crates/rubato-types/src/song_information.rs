@@ -67,6 +67,8 @@ impl SongInformation {
         let mode_key = mode.key();
         let mut lanenotes_arr = vec![[0i32; 3]; mode_key as usize];
         let last_time = model.last_time();
+        // Allocation size is proportional to song duration (microseconds / 1000).
+        // Input comes from a validated BMS model so OOM from adversarial data is not a concern.
         let data_len = (last_time / 1000 + 2) as usize;
         let mut data = vec![[0i32; 7]; data_len];
         let mut pos: i32 = 0;
