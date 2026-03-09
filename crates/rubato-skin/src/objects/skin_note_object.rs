@@ -2,7 +2,7 @@
 // Wraps rubato_play::SkinNote with SkinObjectData for the skin pipeline.
 // Translated from: SkinNote.java
 
-use rubato_play::lane_renderer::DrawCommand;
+use rubato_play::lane_renderer::{DrawCommand, NoteImageType};
 
 use crate::stubs::MainState;
 use crate::types::skin_object::{SkinObjectData, SkinObjectRenderer};
@@ -21,6 +21,12 @@ pub struct SkinNoteObject {
     /// Draw commands from the last LaneRenderer.draw_lane() call.
     /// Set by the caller before draw() is invoked.
     pub draw_commands: Vec<DrawCommand>,
+    /// Per-lane normal note textures (first frame of animation).
+    pub note_images: Vec<Option<crate::stubs::TextureRegion>>,
+    /// Per-lane mine note textures.
+    pub mine_images: Vec<Option<crate::stubs::TextureRegion>>,
+    /// Per-lane LN body textures (10 types).
+    pub ln_body_images: Vec<[Option<crate::stubs::TextureRegion>; 10]>,
 }
 
 impl SkinNoteObject {
@@ -29,6 +35,9 @@ impl SkinNoteObject {
             data: SkinObjectData::new(),
             inner: rubato_play::skin_note::SkinNote::new(lane_count),
             draw_commands: Vec::new(),
+            note_images: vec![None; lane_count],
+            mine_images: vec![None; lane_count],
+            ln_body_images: vec![Default::default(); lane_count],
         }
     }
 
@@ -62,30 +71,37 @@ impl SkinNoteObject {
                     sprite.obj_type = *t;
                 }
                 DrawCommand::DrawNote {
-                    lane: _,
+                    lane,
                     x,
                     y,
                     w,
                     h,
-                    image_type: _,
+                    image_type,
                 } => {
-                    // Known rendering gap: DrawNote ignores image_type and uses an empty
-                    // TextureRegion. SkinLane holds has_note/has_longnote flags but not actual
-                    // texture references. Fix: store resolved note textures (Normal/Processed/
-                    // Mine/Hidden) in SkinLane and select the correct one based on image_type.
-                    let region = crate::stubs::TextureRegion::new();
-                    sprite.draw(&region, *x, *y, *w, *h);
+                    let region = match image_type {
+                        NoteImageType::Mine => self.mine_images.get(*lane).and_then(|r| r.as_ref()),
+                        _ => self.note_images.get(*lane).and_then(|r| r.as_ref()),
+                    };
+                    if let Some(region) = region {
+                        sprite.draw(region, *x, *y, *w, *h);
+                    }
                 }
                 DrawCommand::DrawLongNote {
-                    lane: _,
+                    lane,
                     x,
                     y,
                     w,
                     h,
-                    image_index: _,
+                    image_index,
                 } => {
-                    let region = crate::stubs::TextureRegion::new();
-                    sprite.draw(&region, *x, *y, *w, *h);
+                    let region = self
+                        .ln_body_images
+                        .get(*lane)
+                        .and_then(|arr| arr.get(*image_index))
+                        .and_then(|r| r.as_ref());
+                    if let Some(region) = region {
+                        sprite.draw(region, *x, *y, *w, *h);
+                    }
                 }
                 DrawCommand::DrawSectionLine { .. }
                 | DrawCommand::DrawTimeLine { .. }

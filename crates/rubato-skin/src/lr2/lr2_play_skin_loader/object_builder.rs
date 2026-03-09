@@ -218,6 +218,48 @@ impl LR2SkinLoaderAccess for LR2PlaySkinLoaderState {
                     );
                 }
             }
+            // Wire note textures (first frame of each lane's animation)
+            for (i, src) in self.note.iter().enumerate() {
+                if let Some(data) = src
+                    && let Some(images) = &data.images
+                    && let Some(first) = images.first()
+                    && i < note_obj.note_images.len()
+                {
+                    note_obj.note_images[i] = Some(first.clone());
+                }
+            }
+            for (i, src) in self.mine.iter().enumerate() {
+                if let Some(data) = src
+                    && let Some(images) = &data.images
+                    && let Some(first) = images.first()
+                    && i < note_obj.mine_images.len()
+                {
+                    note_obj.mine_images[i] = Some(first.clone());
+                }
+            }
+            // Wire LN body textures (first frame)
+            let ln_sources: [&Vec<Option<super::SkinSourceData>>; 10] = [
+                &self.lnstart,
+                &self.lnbodya,
+                &self.lnbody,
+                &self.lnend,
+                &self.hcnstart,
+                &self.hcnbodya,
+                &self.hcnbody,
+                &self.hcnend,
+                &self.hcnbodyd,
+                &self.hcnbodyr,
+            ];
+            for (i, arr) in note_obj.ln_body_images.iter_mut().enumerate() {
+                for (idx, src_vec) in ln_sources.iter().enumerate() {
+                    if let Some(Some(data)) = src_vec.get(i)
+                        && let Some(images) = &data.images
+                        && let Some(first) = images.first()
+                    {
+                        arr[idx] = Some(first.clone());
+                    }
+                }
+            }
             skin.add(SkinObject::Note(note_obj));
         }
 

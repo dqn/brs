@@ -13,14 +13,15 @@ impl MainController {
         let mut sprite = SpriteBatchHelper::create_sprite_batch();
         // Java: SpriteBatch constructor calls setToOrtho2D(0, 0, width, height)
         let mut ortho = rubato_render::color::Matrix4::new();
-        // wgpu NDC has y=-1 at bottom and y=1 at top, but skin coordinates
-        // use y=0 at the top of the screen. Swap bottom/top so that y=0 maps
-        // to NDC y=+1 (top) and y=height maps to NDC y=-1 (bottom).
+        // Match Java LibGDX setToOrtho2D(0, 0, width, height): Y-up projection
+        // where y=0 is at the bottom and y=height is at the top.
+        // The LR2 skin loader already flips Y coordinates from LR2 format (y-down)
+        // to this Y-up system (e.g. y = dsth - (skin_y + skin_h) * scale).
         ortho.set_to_ortho(
             0.0,
             self.config.display.window_width as f32,
-            self.config.display.window_height as f32,
             0.0,
+            self.config.display.window_height as f32,
             -1.0,
             1.0,
         );
@@ -414,7 +415,7 @@ impl MainController {
         // Java: SpriteBatch projection is updated via Gdx.graphics viewport
         if let Some(ref mut sprite) = self.sprite {
             let mut ortho = rubato_render::color::Matrix4::new();
-            ortho.set_to_ortho(0.0, width as f32, height as f32, 0.0, -1.0, 1.0);
+            ortho.set_to_ortho(0.0, width as f32, 0.0, height as f32, -1.0, 1.0);
             sprite.set_projection_matrix(&ortho);
         }
         if let Some(ref mut current) = self.current {

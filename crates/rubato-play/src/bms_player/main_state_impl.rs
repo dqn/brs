@@ -723,6 +723,17 @@ impl MainState for BMSPlayer {
                             gauge,
                         );
                     }
+                    // Trigger key beam timers for newly judged lanes.
+                    // In Java, JudgeManager calls keyinput.inputKeyOn(lane) directly;
+                    // in Rust, we drain the event queue after update().
+                    let judged = self.judge.drain_judged_lanes();
+                    if !judged.is_empty()
+                        && let Some(ref mut keyinput) = self.input.keyinput
+                    {
+                        for lane in judged {
+                            keyinput.input_key_on(lane, &mut self.main_state_data.timer);
+                        }
+                    }
                 }
 
                 let ptime = self.main_state_data.timer.now_time_for_id(TIMER_PLAY);

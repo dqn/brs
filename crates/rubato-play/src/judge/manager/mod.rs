@@ -284,6 +284,9 @@ pub struct JudgeManager {
     multi_bad: MultiBadCollector,
     /// Total lane count
     lane_count: usize,
+    /// Lanes that received a new judgment during the last update() call.
+    /// Drained by the caller after update() to trigger key beam timers.
+    judged_lanes: Vec<usize>,
 }
 
 impl Default for JudgeManager {

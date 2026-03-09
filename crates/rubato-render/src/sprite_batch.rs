@@ -446,36 +446,39 @@ impl SpriteBatch {
     /// Push a simple axis-aligned quad.
     fn push_quad(&mut self, x: f32, y: f32, w: f32, h: f32, uv: UVRect) {
         let color = self.current_color;
-        // Two triangles: top-left, top-right, bottom-right, top-left, bottom-right, bottom-left
+        // Y-up projection: (x, y) is bottom-left, (x+w, y+h) is top-right.
+        // wgpu textures have UV (0,0) at top-left, so swap v1/v2 so that
+        // the texture top (v1) maps to the visual top of the quad (y+h).
+        // This matches Java LibGDX SpriteBatch which also swaps V for Y-up.
         let verts = [
             SpriteVertex {
                 position: [x, y],
-                tex_coord: [uv.u1, uv.v1],
+                tex_coord: [uv.u1, uv.v2],
                 color,
             },
             SpriteVertex {
                 position: [x + w, y],
+                tex_coord: [uv.u2, uv.v2],
+                color,
+            },
+            SpriteVertex {
+                position: [x + w, y + h],
                 tex_coord: [uv.u2, uv.v1],
                 color,
             },
             SpriteVertex {
-                position: [x + w, y + h],
-                tex_coord: [uv.u2, uv.v2],
-                color,
-            },
-            SpriteVertex {
                 position: [x, y],
-                tex_coord: [uv.u1, uv.v1],
+                tex_coord: [uv.u1, uv.v2],
                 color,
             },
             SpriteVertex {
                 position: [x + w, y + h],
-                tex_coord: [uv.u2, uv.v2],
+                tex_coord: [uv.u2, uv.v1],
                 color,
             },
             SpriteVertex {
                 position: [x, y + h],
-                tex_coord: [uv.u1, uv.v2],
+                tex_coord: [uv.u1, uv.v1],
                 color,
             },
         ];
@@ -550,9 +553,9 @@ mod tests {
         assert_eq!(verts[3].position, [10.0, 20.0]);
         assert_eq!(verts[4].position, [40.0, 60.0]);
         assert_eq!(verts[5].position, [10.0, 60.0]);
-        // Check UV coords
-        assert_eq!(verts[0].tex_coord, [0.25, 0.25]);
-        assert_eq!(verts[2].tex_coord, [0.75, 0.75]);
+        // Check UV coords (v1/v2 swapped for Y-up projection)
+        assert_eq!(verts[0].tex_coord, [0.25, 0.75]);
+        assert_eq!(verts[2].tex_coord, [0.75, 0.25]);
     }
 
     #[test]

@@ -43,6 +43,7 @@ impl JudgeManager {
             note_states: Vec::new(),
             multi_bad: MultiBadCollector::new(),
             lane_count: 0,
+            judged_lanes: Vec::new(),
         }
     }
 
@@ -212,6 +213,7 @@ impl JudgeManager {
             ],
             multi_bad: MultiBadCollector::new(),
             lane_count,
+            judged_lanes: Vec::new(),
         };
         jm.score.notes = total_notes as i32;
         jm

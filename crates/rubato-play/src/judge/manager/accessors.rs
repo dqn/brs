@@ -273,4 +273,10 @@ impl JudgeManager {
     pub fn ghost(&self) -> &[i32] {
         &self.ghost
     }
+
+    /// Drain lanes that received new judgments during the last update() call.
+    /// The caller uses this to trigger key beam timers via input_key_on().
+    pub fn drain_judged_lanes(&mut self) -> Vec<usize> {
+        std::mem::take(&mut self.judged_lanes)
+    }
 }

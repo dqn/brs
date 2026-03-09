@@ -26,6 +26,7 @@ impl JudgeManager {
         key_changed_times: &[i64],
         gauge: &mut GrooveGauge,
     ) {
+        self.judged_lanes.clear();
         let lane_count = self.lane_count;
 
         // --- Pass-through loop ---
@@ -779,6 +780,8 @@ impl JudgeManager {
         let multi_bad = p.multi_bad;
         let gauge = p.gauge;
         let _ = notes; // used for type info if needed in future
+        // Record this lane for key beam timer triggering by the caller.
+        self.judged_lanes.push(lane_idx);
         if note_idx >= self.note_states.len() {
             return;
         }
