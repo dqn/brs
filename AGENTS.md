@@ -135,6 +135,6 @@ rubato/              # Cargo workspace (15 crates) at repo root
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
-4. **Sync beads** - `bd sync`
+4. **Sync beads** - `bd dolt push`
 5. **Clean up** - Clear stashes, prune remote branches
 6. **Hand off** - Provide context for next session
