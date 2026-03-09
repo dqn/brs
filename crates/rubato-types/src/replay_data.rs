@@ -501,24 +501,23 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // BUG: keycode=127 causes i8 overflow in shrink() — (127+1)*1 = 128, which wraps
-    // to -128 as i8, corrupting the pressed flag (always reads as "not pressed")
-    fn test_replay_shrink_keycode_127_overflow() {
+    fn test_replay_shrink_keycode_127_clamped() {
         let recovered = shrink_validate_roundtrip(127, true);
-        // After the bug: pressed becomes false because 128 as i8 = -128 (negative)
-        assert_eq!(recovered.keycode, 127, "keycode should survive roundtrip");
+        // keycode=127 is clamped to 126 in shrink() to avoid i8 overflow
+        assert_eq!(
+            recovered.keycode, 126,
+            "keycode 127 should be clamped to 126"
+        );
         assert!(recovered.pressed, "pressed flag should survive roundtrip");
     }
 
     #[test]
-    #[ignore] // BUG: keycode=200 causes both pressed flag AND keycode corruption in shrink()
-    // — (200+1)*1 = 201 as i8 = -55, so pressed reads as false and keycode reads as 54
-    fn test_replay_shrink_keycode_200_corrupted() {
+    fn test_replay_shrink_keycode_200_clamped() {
         let recovered = shrink_validate_roundtrip(200, true);
+        // keycode=200 is clamped to 126 in shrink() to avoid i8 overflow
         assert_eq!(
-            recovered.keycode, 200,
-            "keycode should survive roundtrip (actual: {})",
-            recovered.keycode
+            recovered.keycode, 126,
+            "keycode 200 should be clamped to 126"
         );
         assert!(recovered.pressed, "pressed flag should survive roundtrip");
     }

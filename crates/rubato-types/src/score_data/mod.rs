@@ -718,21 +718,15 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // BUG: encode_ghost uses `j as u8` which silently truncates values >= 256
-    // — value 256 becomes 0 after truncation, corrupting the ghost data
-    fn test_ghost_encode_truncation_256() {
+    fn test_ghost_encode_clamp_256() {
         let mut sd = ScoreData::default();
         let ghost_data: Vec<i32> = vec![256];
         sd.notes = 1;
         sd.encode_ghost(Some(&ghost_data));
 
         let decoded = sd.decode_ghost().unwrap();
-        // After the bug: 256 as u8 = 0, so decoded[0] = 0 instead of 256
-        assert_eq!(
-            decoded[0], 256,
-            "value 256 should survive roundtrip (actual: {})",
-            decoded[0]
-        );
+        // value 256 is clamped to 255 in encode_ghost()
+        assert_eq!(decoded[0], 255, "value 256 should be clamped to 255");
     }
 
     // -- SongTrophy tests --
