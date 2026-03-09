@@ -613,3 +613,38 @@ fn test_select_cg_bounds_checked_access() {
         "slot 7 should be None by default"
     );
 }
+
+// ================================================================
+// Shift_JIS decoding regression test (P7-01)
+// ================================================================
+
+#[test]
+fn load_chp_decodes_shift_jis_japanese_filenames() {
+    // Simulate a .chp file with Shift_JIS-encoded Japanese filenames.
+    // In Shift_JIS, "音楽" is [0x89, 0xB9, 0x8A, 0x79].
+    // The loader must decode these bytes correctly.
+    let chp_line = "#CharBMP\t0\t音楽.bmp";
+    let (encoded, _, _) = encoding_rs::SHIFT_JIS.encode(chp_line);
+
+    // Decode it back as the loader does
+    let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&encoded);
+    assert_eq!(decoded, chp_line, "Shift_JIS roundtrip should preserve Japanese text");
+
+    // Verify the line parses correctly
+    let parts: Vec<&str> = decoded.split('\t').collect();
+    assert_eq!(parts.len(), 3);
+    assert_eq!(parts[0], "#CharBMP");
+    assert_eq!(parts[1], "0");
+    assert_eq!(parts[2], "音楽.bmp");
+}
+
+#[test]
+fn load_chp_handles_pure_ascii_in_shift_jis_mode() {
+    // ASCII is a subset of Shift_JIS, so pure ASCII input must work unchanged.
+    let chp_content = b"#CharBMP\t0\tchar.bmp\n#CharFace\t0\tface.bmp";
+    let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(chp_content);
+    let lines: Vec<&str> = decoded.lines().collect();
+    assert_eq!(lines.len(), 2);
+    assert!(lines[0].starts_with("#CharBMP"));
+    assert!(lines[1].starts_with("#CharFace"));
+}
