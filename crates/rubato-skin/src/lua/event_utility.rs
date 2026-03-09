@@ -16,6 +16,17 @@ use crate::stubs::MainState;
 pub const TIMER_OFF_VALUE: i64 = i64::MIN;
 
 /// Wrapper for raw MainState pointer to implement Send/Sync.
+///
+/// # Accepted design trade-off: lifetime erasure via transmute
+///
+/// The raw pointer's lifetime is erased to 'static via transmute in `new()`.
+/// This is necessary because Lua closures cannot carry non-'static references.
+/// The safety invariant is: the MainState must outlive the `Arc<Lua>` VM and all
+/// closures exported from it. This is maintained by the skin render lifecycle
+/// (SkinLuaAccessor owns the Lua VM, and states own SkinLuaAccessor), but cannot
+/// be enforced at compile time. Changing this would require threading a lifetime
+/// parameter through the entire Lua closure registration chain and the mlua API,
+/// which does not support non-'static captures in closures.
 #[derive(Clone, Copy)]
 struct StatePtr(*const dyn MainState);
 // SAFETY: StatePtr contains a *const dyn MainState raw pointer, which is !Send and !Sync

@@ -3,6 +3,8 @@ use std::sync::Mutex;
 
 use crate::player_information::PlayerInformation;
 
+// Lock ordering convention: always acquire TARGETS before TARGET_NAMES.
+// target_name() acquires both in this order; no other site currently needs both.
 static TARGETS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static TARGET_NAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 

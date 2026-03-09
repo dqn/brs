@@ -56,6 +56,10 @@ impl AnalysisResult {
 
 impl BMSLoudnessAnalyzer {
     pub fn new() -> Self {
+        // Accepted trade-off: relative path, resolved against CWD at runtime.
+        // Matches the Java original which uses a relative "cache/normalize" directory.
+        // A platform-appropriate cache dir (dirs::cache_dir()) would be more robust but
+        // diverges from the original behavior where cache lives next to the application.
         let cache_dir = PathBuf::from("cache/normalize");
         if let Err(e) = std::fs::create_dir_all(&cache_dir) {
             log::warn!("Failed to create cache directory: {}", e);

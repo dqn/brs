@@ -17,6 +17,12 @@ use crate::stubs::MainState;
 pub const TIMER_OFF_VALUE: i64 = i64::MIN;
 
 /// Wrapper for raw MainState pointer to implement Send/Sync.
+///
+/// # Accepted design trade-off: lifetime erasure via transmute
+///
+/// See EventUtility::StatePtr for the full rationale. The raw pointer's lifetime
+/// is erased to 'static because Lua closures cannot carry non-'static references.
+/// Safety invariant: MainState must outlive the Arc<Lua> VM and all exported closures.
 #[derive(Clone, Copy)]
 struct StatePtr(*const dyn MainState);
 // SAFETY: StatePtr contains a *const dyn MainState raw pointer, which is !Send and !Sync
