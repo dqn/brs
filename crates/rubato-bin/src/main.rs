@@ -119,7 +119,7 @@ fn launch() -> Result<()> {
     if result.play_requested {
         info!("Launcher requested play, re-launching as child process...");
         let exe = std::env::current_exe()?;
-        let status = std::process::Command::new(exe).arg("-s").status()?;
+        let status = spawn_child_with_timeout(exe, &["-s"])?;
         if !status.success() {
             anyhow::bail!("Game process exited with {}", status);
         }
@@ -1237,5 +1237,85 @@ fn winit_to_bridge_keycode(
         W::F11 => B::F11,
         W::F12 => B::F12,
         _ => B::Unknown,
+    }
+}
+
+/// Spawn a child process and wait for it with an optional timeout.
+///
+/// When `RUBATO_CHILD_TIMEOUT_SECS` is set, the child is killed after that many seconds.
+/// This prevents hangs in headless/CI environments where the GUI event loop may never exit.
+/// In normal interactive use, the env var is unset and the wait is unbounded.
+fn spawn_child_with_timeout(exe: PathBuf, args: &[&str]) -> Result<std::process::ExitStatus> {
+    let mut child = std::process::Command::new(&exe).args(args).spawn()?;
+
+    let timeout_secs: Option<u64> = std::env::var("RUBATO_CHILD_TIMEOUT_SECS")
+        .ok()
+        .and_then(|v| v.parse().ok());
+
+    match timeout_secs {
+        Some(secs) => {
+            let deadline = Instant::now() + Duration::from_secs(secs);
+            loop {
+                if let Some(status) = child.try_wait()? {
+                    return Ok(status);
+                }
+                if Instant::now() >= deadline {
+                    warn!("Child process did not exit within {}s, killing", secs);
+                    child.kill()?;
+                    return child.wait().map_err(Into::into);
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+        None => child.wait().map_err(Into::into),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spawn_child_with_timeout_succeeds_for_fast_command() {
+        // `true` exits immediately with status 0
+        let status = spawn_child_with_timeout(PathBuf::from("true"), &[])
+            .expect("should spawn successfully");
+        assert!(status.success());
+    }
+
+    #[test]
+    fn spawn_child_with_timeout_reports_failure() {
+        let status = spawn_child_with_timeout(PathBuf::from("false"), &[])
+            .expect("should spawn successfully");
+        assert!(!status.success());
+    }
+
+    #[test]
+    fn spawn_child_with_timeout_kills_on_timeout() {
+        // Set a 1-second timeout and run `sleep 60` which would otherwise block
+        // SAFETY: This test is single-threaded and the env var is only used by spawn_child_with_timeout.
+        unsafe { std::env::set_var("RUBATO_CHILD_TIMEOUT_SECS", "1") };
+        let start = Instant::now();
+        let status = spawn_child_with_timeout(PathBuf::from("sleep"), &["60"])
+            .expect("should spawn successfully");
+        let elapsed = start.elapsed();
+
+        // SAFETY: This test is single-threaded and the env var is only used by spawn_child_with_timeout.
+        unsafe { std::env::remove_var("RUBATO_CHILD_TIMEOUT_SECS") };
+
+        // Should have been killed, not waited 60 seconds
+        assert!(
+            elapsed.as_secs() < 10,
+            "should have been killed by timeout, but took {:?}",
+            elapsed
+        );
+        // Killed processes have non-success status
+        assert!(!status.success());
+    }
+
+    #[test]
+    fn spawn_child_with_timeout_invalid_exe_returns_error() {
+        let result = spawn_child_with_timeout(PathBuf::from("/nonexistent/binary/path"), &[]);
+        assert!(result.is_err());
     }
 }

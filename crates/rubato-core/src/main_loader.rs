@@ -680,4 +680,84 @@ mod tests {
             title
         );
     }
+
+    #[test]
+    fn test_concurrent_global_access_serialized_by_lock() {
+        // Verify that TEST_LOCK properly serializes concurrent access to OnceLock<Mutex> globals.
+        // Spawn multiple threads that each acquire TEST_LOCK, mutate globals, and verify isolation.
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(4));
+        let handles: Vec<_> = (0..4)
+            .map(|i| {
+                let barrier = std::sync::Arc::clone(&barrier);
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    let _lock = TEST_LOCK.lock().unwrap();
+
+                    // Clear state, set unique value, verify it's ours
+                    MainLoader::clear_illegal_songs();
+                    let hash = format!("concurrent_test_{}", i);
+                    MainLoader::put_illegal_song(&hash);
+
+                    // Under the lock, only our hash should be present
+                    let songs = MainLoader::get_illegal_songs();
+                    assert!(songs.contains(&hash), "thread {} hash should be present", i);
+                    assert_eq!(
+                        songs.len(),
+                        1,
+                        "thread {} should see exactly 1 song (got {})",
+                        i,
+                        songs.len()
+                    );
+
+                    MainLoader::clear_illegal_songs();
+                })
+            })
+            .collect();
+
+        for h in handles {
+            h.join().expect("thread should not panic");
+        }
+    }
+
+    #[test]
+    fn test_songdb_clear_provides_isolation() {
+        let _lock = TEST_LOCK.lock().unwrap();
+
+        // Set a mock, verify it's set
+        MainLoader::set_score_database_accessor(Box::new(MockSongDb::new()));
+        assert!(MainLoader::take_score_database_accessor().is_some());
+
+        // After take, slot is empty
+        assert!(MainLoader::take_score_database_accessor().is_none());
+
+        // Clear also works when already empty
+        MainLoader::clear_score_database_accessor();
+        assert!(MainLoader::take_score_database_accessor().is_none());
+
+        // Set again, clear explicitly, verify empty
+        MainLoader::set_score_database_accessor(Box::new(MockSongDb::new()));
+        MainLoader::clear_score_database_accessor();
+        assert!(MainLoader::take_score_database_accessor().is_none());
+    }
+
+    #[test]
+    fn test_display_mode_globals_are_independent() {
+        // DISPLAY_MODES and DESKTOP_MODE are plain Mutex (not OnceLock),
+        // so they can be freely set/reset without test isolation issues.
+        let original_modes = MainLoader::get_available_display_mode();
+        let original_desktop = MainLoader::get_desktop_display_mode();
+
+        MainLoader::set_display_modes(vec![(800, 600), (1024, 768)]);
+        MainLoader::set_desktop_display_mode((800, 600));
+
+        assert_eq!(
+            MainLoader::get_available_display_mode(),
+            vec![(800, 600), (1024, 768)]
+        );
+        assert_eq!(MainLoader::get_desktop_display_mode(), (800, 600));
+
+        // Restore originals
+        MainLoader::set_display_modes(original_modes);
+        MainLoader::set_desktop_display_mode(original_desktop);
+    }
 }
