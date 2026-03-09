@@ -206,16 +206,10 @@ impl DifficultyTableElement {
             "name_diff".to_string(),
             Value::String(self.diffname.clone()),
         );
-        result.insert(
-            "comment".to_string(),
-            Value::String(self.comment.clone()),
-        );
+        result.insert("comment".to_string(), Value::String(self.comment.clone()));
         result.insert("tag".to_string(), Value::String(self.info.clone()));
         if !self.proposer.is_empty() {
-            result.insert(
-                "proposer".to_string(),
-                Value::String(self.proposer.clone()),
-            );
+            result.insert("proposer".to_string(), Value::String(self.proposer.clone()));
         } else {
             result.remove("proposer");
         }
