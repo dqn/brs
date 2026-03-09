@@ -628,7 +628,10 @@ fn load_chp_decodes_shift_jis_japanese_filenames() {
 
     // Decode it back as the loader does
     let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&encoded);
-    assert_eq!(decoded, chp_line, "Shift_JIS roundtrip should preserve Japanese text");
+    assert_eq!(
+        decoded, chp_line,
+        "Shift_JIS roundtrip should preserve Japanese text"
+    );
 
     // Verify the line parses correctly
     let parts: Vec<&str> = decoded.split('\t').collect();
