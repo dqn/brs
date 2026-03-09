@@ -56,38 +56,32 @@ fn replay_shrink_keycode_126_roundtrip() {
 }
 
 #[test]
-#[ignore] // BUG: (127+1)*1 = 128 overflows i8 to -128; pressed flag is inverted
 fn replay_shrink_keycode_127_overflow() {
-    // keycode=127: (127+1)*1 = 128, which wraps to -128 as i8.
-    // On decode, -128 is negative so pressed reads as false,
-    // and unsigned_abs(-128)-1 = 127 — keycode survives but pressed is wrong.
+    // keycode=127 is clamped to 126 before encoding to avoid i8 overflow.
+    // Both keycode (126) and pressed (true) survive the round-trip.
     let recovered = shrink_unshrink_one(127, true).expect("should roundtrip");
     assert_eq!(
-        recovered.keycode, 127,
-        "keycode should survive (actual: {})",
-        recovered.keycode
+        recovered.keycode, 126,
+        "keycode should be clamped from 127 to 126"
     );
     assert!(
         recovered.pressed,
-        "pressed=true should survive, but i8 overflow inverts it"
+        "pressed flag should be preserved after clamping"
     );
 }
 
 #[test]
-#[ignore] // BUG: (200+1)*1 = 201 as i8 = -55; both keycode AND pressed are corrupted
 fn replay_shrink_keycode_200_corrupted() {
-    // keycode=200: (200+1)*1 = 201, 201u8 as i8 = -55.
-    // On decode: pressed = (-55 >= 0) = false (wrong).
-    // keycode = unsigned_abs(-55) - 1 = 54 (wrong, expected 200).
+    // keycode=200 is clamped to 126 before encoding to avoid i8 overflow.
+    // Both keycode (126) and pressed (true) survive the round-trip.
     let recovered = shrink_unshrink_one(200, true).expect("should roundtrip");
     assert_eq!(
-        recovered.keycode, 200,
-        "keycode should survive (actual: {})",
-        recovered.keycode
+        recovered.keycode, 126,
+        "keycode should be clamped from 200 to 126"
     );
     assert!(
         recovered.pressed,
-        "pressed=true should survive, but truncation corrupts it"
+        "pressed flag should be preserved after clamping"
     );
 }
 
@@ -118,29 +112,25 @@ fn ghost_encode_valid_judges_roundtrip() {
 }
 
 #[test]
-#[ignore] // BUG: 256 as u8 = 0 — silent truncation corrupts the ghost data
 fn ghost_encode_truncation_256() {
-    // 256i32 as u8 = 0.  On decode, decompressed[0] as i32 = 0.
-    // The value 256 is silently replaced by 0.
+    // 256 is clamped to 255 before encoding. On decode, 255u8 as i32 = 255.
     let input = vec![256];
     let decoded = ghost_roundtrip(&input, 1);
     assert_eq!(
-        decoded[0], 256,
-        "value 256 should survive roundtrip (actual: {})",
+        decoded[0], 255,
+        "value 256 should be clamped to 255 (actual: {})",
         decoded[0]
     );
 }
 
 #[test]
-#[ignore] // BUG: -1 as u8 = 255 — negative values wrap around
 fn ghost_encode_negative_wrap() {
-    // (-1i32) as u8 = 255.  On decode, 255u8 as i32 = 255.
-    // The value -1 becomes 255.
+    // -1 is clamped to 0 before encoding. On decode, 0u8 as i32 = 0.
     let input = vec![-1];
     let decoded = ghost_roundtrip(&input, 1);
     assert_eq!(
-        decoded[0], -1,
-        "value -1 should survive roundtrip (actual: {})",
+        decoded[0], 0,
+        "value -1 should be clamped to 0 (actual: {})",
         decoded[0]
     );
 }

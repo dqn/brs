@@ -12,6 +12,7 @@ pub fn try_load_selected_randoms(test_bms_dir: &Path, chart_name: &str) -> Optio
     seeds_map.get(chart_name).cloned()
 }
 
+#[allow(dead_code)]
 pub fn load_selected_randoms(test_bms_dir: &Path, chart_name: &str) -> Vec<i32> {
     try_load_selected_randoms(test_bms_dir, chart_name).unwrap_or_else(|| {
         let seeds_path = test_bms_dir.join("random_seeds.json");

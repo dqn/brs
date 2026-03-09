@@ -632,9 +632,8 @@ mod tests {
         ExecuteEventSkin, PlayerConfigMutatingSkin, TestMainControllerAccess, make_test_config,
     };
     use rubato_core::main_state::MainState;
-    use rubato_skin::skin_property::{TIMER_RESULTGRAPH_BEGIN, TIMER_STARTINPUT};
+    use rubato_skin::skin_property::TIMER_RESULTGRAPH_BEGIN;
     use rubato_skin::skin_type::SkinType;
-    use rubato_types::player_resource_access::PlayerResourceAccess;
     use rubato_types::skin_render_context::SkinRenderContext;
 
     fn make_default() -> CourseResult {

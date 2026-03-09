@@ -36,6 +36,7 @@ use rubato_skin::stubs::{MainState, Resolution as SkinResolution};
 // Helpers
 // ---------------------------------------------------------------------------
 
+#[allow(dead_code)]
 fn project_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()

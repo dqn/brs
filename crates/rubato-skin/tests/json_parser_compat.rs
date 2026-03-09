@@ -207,6 +207,7 @@ fn fix_lenient_json_preserves_braces_in_strings() {
 #[test]
 fn json_numeric_to_string_rejected() {
     #[derive(Deserialize)]
+    #[allow(dead_code)]
     struct WithStringPath {
         path: String,
     }

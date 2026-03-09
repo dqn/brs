@@ -322,7 +322,8 @@ impl ScoreData {
             }
             Some(v) => {
                 let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-                let bytes: Vec<u8> = v.iter().map(|&j| j as u8).collect();
+                // Clamp to 0..=255 to avoid silent truncation of out-of-range judge values.
+                let bytes: Vec<u8> = v.iter().map(|&j| j.clamp(0, 255) as u8).collect();
                 if encoder.write_all(&bytes).is_err() {
                     self.ghost = String::new();
                     return;
@@ -1357,5 +1358,44 @@ mod prop_tests {
                 prop_assert_eq!(*value, 4, "expected MISS (4) at index {}", i);
             }
         }
+    }
+
+    /// Empty ghost string with notes > 0 should decode to None.
+    #[test]
+    fn ghost_decode_empty_string() {
+        let score = ScoreData {
+            ghost: String::new(),
+            notes: 100,
+            ..Default::default()
+        };
+        assert!(score.decode_ghost().is_none());
+    }
+
+    /// Invalid base64 in ghost field should decode to None.
+    #[test]
+    fn ghost_decode_invalid_base64() {
+        let score = ScoreData {
+            ghost: "not-valid-base64!!!".to_string(),
+            notes: 10,
+            ..Default::default()
+        };
+        assert!(score.decode_ghost().is_none());
+    }
+
+    /// Valid base64 of non-gzip bytes should decode to None.
+    #[test]
+    fn ghost_decode_invalid_gzip() {
+        use base64::Engine;
+        use base64::engine::general_purpose::URL_SAFE;
+
+        // Encode random non-gzip bytes as valid base64
+        let garbage = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let encoded = URL_SAFE.encode(&garbage);
+        let score = ScoreData {
+            ghost: encoded,
+            notes: 5,
+            ..Default::default()
+        };
+        assert!(score.decode_ghost().is_none());
     }
 }

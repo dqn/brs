@@ -51,7 +51,10 @@ impl ReplayData {
         }
         let mut keyinputdata: Vec<u8> = Vec::with_capacity(self.keylog.len() * 9);
         for log in &self.keylog {
-            let keycode_byte = ((log.keycode + 1) * if log.pressed { 1 } else { -1 }) as i8 as u8;
+            // Clamp keycode to 0..=126 to avoid i8 overflow: (126+1)*sign = ±127 fits in i8.
+            let clamped_keycode = log.keycode.clamp(0, 126);
+            let keycode_byte =
+                ((clamped_keycode + 1) * if log.pressed { 1 } else { -1 }) as i8 as u8;
             keyinputdata.push(keycode_byte);
             keyinputdata.extend_from_slice(&log.time.to_le_bytes());
         }
@@ -590,5 +593,180 @@ mod tests {
         assert!(rd.keyinput.is_some(), "keyinput should be set after shrink");
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn shrink_single_entry() {
+        let mut rd = ReplayData::new();
+        rd.keylog = vec![KeyInputLog {
+            time: 42,
+            keycode: 5,
+            pressed: true,
+        }];
+        rd.shrink();
+        assert!(rd.keyinput.is_some());
+        assert!(rd.keylog.is_empty());
+        assert!(rd.validate());
+        assert_eq!(rd.keylog.len(), 1);
+        assert_eq!(rd.keylog[0].keycode, 5);
+        assert!(rd.keylog[0].pressed);
+        assert_eq!(rd.keylog[0].time, 42);
+    }
+
+    #[test]
+    fn shrink_large_keylog() {
+        let mut rd = ReplayData::new();
+        for i in 0..10_000 {
+            rd.keylog.push(KeyInputLog {
+                time: i as i64 * 1000,
+                keycode: (i % 127) as i32,
+                pressed: i % 2 == 0,
+            });
+        }
+        rd.shrink();
+        assert!(rd.keyinput.is_some());
+        assert!(rd.keylog.is_empty());
+        assert!(rd.validate());
+        assert_eq!(rd.keylog.len(), 10_000);
+        for i in 0..10_000 {
+            assert_eq!(rd.keylog[i].time, i as i64 * 1000);
+            assert_eq!(rd.keylog[i].keycode, (i % 127) as i32);
+            assert_eq!(rd.keylog[i].pressed, i % 2 == 0);
+        }
+    }
+
+    #[test]
+    fn shrink_negative_time() {
+        let mut rd = ReplayData::new();
+        rd.keylog = vec![
+            KeyInputLog {
+                time: -999_999,
+                keycode: 0,
+                pressed: true,
+            },
+            KeyInputLog {
+                time: -1,
+                keycode: 10,
+                pressed: false,
+            },
+            KeyInputLog {
+                time: i64::MIN,
+                keycode: 50,
+                pressed: true,
+            },
+        ];
+        rd.shrink();
+        assert!(rd.keyinput.is_some());
+        assert!(rd.keylog.is_empty());
+        assert!(rd.validate());
+        assert_eq!(rd.keylog.len(), 3);
+        assert_eq!(rd.keylog[0].time, -999_999);
+        assert_eq!(rd.keylog[1].time, -1);
+        assert_eq!(rd.keylog[2].time, i64::MIN);
+    }
+
+    #[test]
+    fn brd_file_roundtrip() {
+        let dir = std::env::temp_dir().join(format!(
+            "rubato_test_brd_prop_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("roundtrip.brd");
+
+        let mut rd = ReplayData::new();
+        rd.player = Some("PropPlayer".to_string());
+        rd.sha256 = Some("deadbeef".to_string());
+        rd.mode = 14;
+        rd.gauge = 2;
+        rd.date = 1234567890;
+        rd.rand = vec![7, 8, 9];
+        rd.randomoption = 3;
+        rd.randomoptionseed = 99;
+        rd.keylog = vec![
+            KeyInputLog {
+                time: -500,
+                keycode: 0,
+                pressed: true,
+            },
+            KeyInputLog {
+                time: 0,
+                keycode: 126,
+                pressed: false,
+            },
+            KeyInputLog {
+                time: 999_999,
+                keycode: 42,
+                pressed: true,
+            },
+        ];
+
+        rd.write_brd(&path).unwrap();
+        assert!(path.exists());
+
+        let loaded = ReplayData::read_brd(&path).unwrap();
+        assert_eq!(loaded.player.as_deref(), Some("PropPlayer"));
+        assert_eq!(loaded.sha256.as_deref(), Some("deadbeef"));
+        assert_eq!(loaded.mode, 14);
+        assert_eq!(loaded.gauge, 2);
+        assert_eq!(loaded.date, 1234567890);
+        assert_eq!(loaded.rand, vec![7, 8, 9]);
+        assert_eq!(loaded.randomoption, 3);
+        assert_eq!(loaded.randomoptionseed, 99);
+        assert_eq!(loaded.keylog.len(), 3);
+        assert_eq!(loaded.keylog[0].time, -500);
+        assert_eq!(loaded.keylog[0].keycode, 0);
+        assert!(loaded.keylog[0].pressed);
+        assert_eq!(loaded.keylog[1].time, 0);
+        assert_eq!(loaded.keylog[1].keycode, 126);
+        assert!(!loaded.keylog[1].pressed);
+        assert_eq!(loaded.keylog[2].time, 999_999);
+        assert_eq!(loaded.keylog[2].keycode, 42);
+        assert!(loaded.keylog[2].pressed);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn replay_compression_roundtrip(
+            keylogs in prop::collection::vec(
+                (0i32..=126, any::<bool>(), -1_000_000i64..1_000_000),
+                0..100
+            )
+        ) {
+            let mut replay = ReplayData::new();
+            for (keycode, pressed, time) in &keylogs {
+                replay.keylog.push(KeyInputLog {
+                    keycode: *keycode,
+                    pressed: *pressed,
+                    time: *time,
+                });
+            }
+            let original_len = replay.keylog.len();
+            replay.shrink();
+            if original_len > 0 {
+                prop_assert!(replay.keyinput.is_some());
+                prop_assert!(replay.keylog.is_empty());
+                replay.validate();
+                prop_assert_eq!(replay.keylog.len(), original_len);
+                for (i, (keycode, pressed, time)) in keylogs.iter().enumerate() {
+                    prop_assert_eq!(replay.keylog[i].keycode, *keycode);
+                    prop_assert_eq!(replay.keylog[i].pressed, *pressed);
+                    prop_assert_eq!(replay.keylog[i].time, *time);
+                }
+            }
+        }
     }
 }

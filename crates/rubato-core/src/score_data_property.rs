@@ -116,29 +116,33 @@ impl ScoreDataProperty {
             let score = score.expect("score");
             match score.playmode {
                 Mode::BEAT_5K | Mode::BEAT_10K => {
-                    self.nowpoint = ((100000i64 * score.judge_count_total(0) as i64
+                    let raw = (100000i64 * score.judge_count_total(0) as i64
                         + 100000i64 * score.judge_count_total(1) as i64
                         + 50000i64 * score.judge_count_total(2) as i64)
-                        / totalnotes as i64) as i32;
+                        / totalnotes as i64;
+                    self.nowpoint = raw.clamp(0, i32::MAX as i64) as i32;
                 }
                 Mode::BEAT_7K | Mode::BEAT_14K => {
-                    self.nowpoint = ((150000i64 * score.judge_count_total(0) as i64
+                    let term1 = (150000i64 * score.judge_count_total(0) as i64
                         + 100000i64 * score.judge_count_total(1) as i64
                         + 20000i64 * score.judge_count_total(2) as i64)
-                        / totalnotes as i64) as i32
-                        + (50000i64 * score.maxcombo as i64 / totalnotes as i64) as i32;
+                        / totalnotes as i64;
+                    let term2 = 50000i64 * score.maxcombo as i64 / totalnotes as i64;
+                    self.nowpoint = (term1 + term2).clamp(0, i32::MAX as i64) as i32;
                 }
                 Mode::POPN_5K | Mode::POPN_9K => {
-                    self.nowpoint = ((100000i64 * score.judge_count_total(0) as i64
+                    let raw = (100000i64 * score.judge_count_total(0) as i64
                         + 70000i64 * score.judge_count_total(1) as i64
                         + 40000i64 * score.judge_count_total(2) as i64)
-                        / totalnotes as i64) as i32;
+                        / totalnotes as i64;
+                    self.nowpoint = raw.clamp(0, i32::MAX as i64) as i32;
                 }
                 _ => {
-                    self.nowpoint = ((1000000i64 * score.judge_count_total(0) as i64
+                    let raw = (1000000i64 * score.judge_count_total(0) as i64
                         + 700000i64 * score.judge_count_total(1) as i64
                         + 400000i64 * score.judge_count_total(2) as i64)
-                        / totalnotes as i64) as i32;
+                        / totalnotes as i64;
+                    self.nowpoint = raw.clamp(0, i32::MAX as i64) as i32;
                 }
             }
         } else {

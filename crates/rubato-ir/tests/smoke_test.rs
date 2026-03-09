@@ -41,26 +41,22 @@ fn lr2_ir_song_data_url_encode_empty_fields() {
 
 #[test]
 fn lr2_ir_song_data_url_encode_unicode() {
-    // Japanese text is NOT url-encoded by to_url_encoded_form() because it
-    // uses plain string formatting without percent-encoding. This test
-    // documents that behavior.
+    // Japanese text is now properly percent-encoded by to_url_encoded_form().
     let song = LR2IRSongData::new(
         "\u{6771}\u{65b9}\u{30d7}\u{30ed}\u{30b8}\u{30a7}\u{30af}\u{30c8}".to_string(), // "東方プロジェクト"
         "114328".to_string(),
     );
     let form = song.to_url_encoded_form();
 
-    // BUG: Unicode characters are passed through raw instead of being
-    // percent-encoded. Servers expecting application/x-www-form-urlencoded
-    // may reject or misparse this.
+    // Unicode characters should be percent-encoded for safe transmission.
     assert!(
-        form.contains("\u{6771}\u{65b9}"),
-        "Expected raw Unicode in form body (no percent-encoding), got: {}",
+        form.contains("%E6"),
+        "Unicode should be percent-encoded: {}",
         form
     );
     assert!(
-        !form.contains("%E6"),
-        "Unicode should NOT be percent-encoded (documenting existing behavior): {}",
+        !form.contains("\u{6771}"),
+        "Raw Unicode should not be present in encoded form: {}",
         form
     );
 }

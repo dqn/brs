@@ -82,13 +82,42 @@ fn init_noop_when_players_exist() {
     assert!(ids.contains(&"existing_player".to_string()));
 }
 
-#[ignore = "init() looks for playerscore.db relative to CWD, which makes this test environment-dependent"]
 #[test]
 fn init_copies_score_db_if_exists() {
-    // This test is intentionally ignored because PlayerConfig::init() looks for
-    // "playerscore.db" in the current working directory. Testing this properly
-    // would require changing CWD, which is not thread-safe and could interfere
-    // with other tests running in parallel.
+    let tempdir = TempDir::new().unwrap();
+    let mut config = config_with_playerpath(&tempdir, "players");
+
+    // Create a fake playerscore.db in a controlled source directory
+    let source_dir = TempDir::new().unwrap();
+    let score_db_path = source_dir.path().join("playerscore.db");
+    std::fs::write(&score_db_path, b"fake score data").unwrap();
+
+    // Use init_with_db_source_dir so the lookup is deterministic
+    PlayerConfig::init_with_db_source_dir(&mut config, Some(source_dir.path())).unwrap();
+
+    // Verify the score DB was copied to player1/score.db
+    let dest = std::path::Path::new(&config.paths.playerpath).join("player1/score.db");
+    assert!(dest.is_file(), "score.db should be copied to player1/");
+    let content = std::fs::read(&dest).unwrap();
+    assert_eq!(content, b"fake score data");
+}
+
+#[test]
+fn init_does_not_copy_score_db_when_absent() {
+    let tempdir = TempDir::new().unwrap();
+    let mut config = config_with_playerpath(&tempdir, "players");
+
+    // Use an empty source directory (no playerscore.db)
+    let source_dir = TempDir::new().unwrap();
+
+    PlayerConfig::init_with_db_source_dir(&mut config, Some(source_dir.path())).unwrap();
+
+    // Verify no score.db was created
+    let dest = std::path::Path::new(&config.paths.playerpath).join("player1/score.db");
+    assert!(
+        !dest.exists(),
+        "score.db should not exist when source is absent"
+    );
 }
 
 // ---------------------------------------------------------------------------

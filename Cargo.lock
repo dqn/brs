@@ -4225,6 +4225,7 @@ dependencies = [
  "gilrs",
  "log",
  "midir",
+ "proptest",
  "rubato-types",
  "tempfile",
 ]
@@ -4249,6 +4250,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "urlencoding",
 ]
 
 [[package]]

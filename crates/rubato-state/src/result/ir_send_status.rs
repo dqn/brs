@@ -61,7 +61,6 @@ impl IRSendStatusMain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_ir::ir_account::IRAccount;
     use rubato_ir::ir_chart_data::IRChartData;
     use rubato_ir::ir_course_data::IRCourseData;
     use rubato_ir::ir_player_data::IRPlayerData;

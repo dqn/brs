@@ -368,7 +368,6 @@ mod tests {
     use ::bms_model::note::Note;
     use rubato_audio::audio_driver::AudioDriver;
     use rubato_core::sprite_batch_helper::SpriteBatchHelper;
-    use rubato_ir::ranking_data::RankingData;
     use rubato_state::select::preview_music_processor::PreviewMusicProcessor;
     use rubato_types::main_controller_access::MainControllerAccess;
     use rubato_types::skin_render_context::SkinRenderContext;
@@ -526,7 +525,6 @@ mod tests {
         }
     }
     use rubato_core::config::Config;
-    use rubato_core::main_state::MainStateData;
     use rubato_core::player_config::PlayerConfig;
 
     fn make_test_controller() -> MainController {

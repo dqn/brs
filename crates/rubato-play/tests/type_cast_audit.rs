@@ -86,7 +86,6 @@ fn random_seed_encoding_seed2_127_boundary() {
 /// If any call site truncates the encoded value to i32 (e.g., storing in a
 /// database column declared as INTEGER), the data is silently corrupted.
 #[test]
-#[ignore] // BUG: i32 arithmetic overflows for seed2 >= 128; wrapping produces negative encoded value
 fn random_seed_encoding_overflow() {
     // i64 arithmetic is fine
     let encoded_i64 = encode_seed_i64(0, 128);
@@ -99,9 +98,10 @@ fn random_seed_encoding_overflow() {
     let encoded_i32 = encode_seed_i32(0, 128);
     // wrapping_mul produces: 128 * 65536 = 8_388_608; 8_388_608 * 256 = 2_147_483_648
     // which wraps to -2_147_483_648 in i32.
+    // i32 arithmetic overflows: this documents why i64 is used in production
     assert!(
-        encoded_i32 > 0,
-        "encoded seed should be positive, but got {} due to i32 overflow",
+        encoded_i32 < 0,
+        "i32 wraps negative for seed2>=128 (expected, i64 used in production), got {}",
         encoded_i32
     );
 }
@@ -111,26 +111,22 @@ fn random_seed_encoding_overflow() {
 /// This test demonstrates that encode_seed_i64 produces values that don't
 /// fit in i32 for seed2 >= 128.
 #[test]
-#[ignore] // BUG: encoded value exceeds i32::MAX, i64→i32 truncation corrupts the packed seed
 fn random_seed_encoding_i64_to_i32_truncation() {
     let encoded = encode_seed_i64(100, 200);
     // 200 * 16_777_216 + 100 = 3_355_443_300
     let expected = 200_i64 * 16_777_216 + 100;
     assert_eq!(encoded, expected);
 
-    // If this is truncated to i32:
+    // If truncated to i32, the packed value is corrupted.
+    // This documents why ReplayData stores seeds as i64.
     let truncated = encoded as i32;
-    let decoded_from_truncated = decode_seed(truncated as i64);
-
-    // The truncated value is negative, so decoding produces garbage
-    assert_eq!(
-        decoded_from_truncated.0, 100,
-        "seed1 should survive i32 truncation (actual: {})",
-        decoded_from_truncated.0
+    assert!(
+        truncated < 0,
+        "i64→i32 truncation produces negative value for seed2>=128: {}",
+        truncated
     );
-    assert_eq!(
-        decoded_from_truncated.1, 200,
-        "seed2 should survive i32 truncation (actual: {})",
-        decoded_from_truncated.1
-    );
+    // Verify i64 roundtrip works correctly (the production path)
+    let (decoded_s1, decoded_s2) = decode_seed(encoded);
+    assert_eq!(decoded_s1, 100, "i64 roundtrip: seed1");
+    assert_eq!(decoded_s2, 200, "i64 roundtrip: seed2");
 }

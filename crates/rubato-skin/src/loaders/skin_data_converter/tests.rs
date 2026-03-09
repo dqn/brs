@@ -1,7 +1,7 @@
 use super::*;
 use crate::json::json_skin_loader::{
-    CustomEventData, CustomOffsetData, CustomOptionData, CustomTimerData, DestinationData,
-    RectData, SkinData, SkinHeaderData, SkinObjectData as DataSkinObjectData,
+    CustomOffsetData, CustomOptionData, CustomTimerData, DestinationData, RectData, SkinData,
+    SkinHeaderData, SkinObjectData as DataSkinObjectData,
 };
 use crate::stubs::Resolution;
 

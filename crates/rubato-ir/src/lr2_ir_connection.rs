@@ -115,7 +115,11 @@ impl LR2IRConnection {
         if chart.md5.is_empty() {
             return (None, Vec::new());
         }
-        let request_url = format!("songmd5={}&id={}&lastupdate=", chart.md5, player_id);
+        let request_url = format!(
+            "songmd5={}&id={}&lastupdate=",
+            urlencoding::encode(&chart.md5),
+            urlencoding::encode(player_id),
+        );
 
         let score_data = {
             let cache = LR2_IR_RANKING_CACHE
@@ -187,7 +191,8 @@ impl LR2IRConnection {
     pub fn ghost_data(md5: &str, score_id: i64) -> Option<LR2GhostData> {
         let api = format!(
             "/getghost.cgi?songmd5={}&mode=top&targetid={}",
-            md5, score_id
+            urlencoding::encode(md5),
+            score_id // i64, no encoding needed
         );
         let url = format!("{}{}", IR_URL, api);
         let client = reqwest::blocking::Client::builder()
@@ -246,7 +251,9 @@ impl LR2IRSongData {
     pub fn to_url_encoded_form(&self) -> String {
         format!(
             "songmd5={}&id={}&lastupdate={}",
-            self.md5, self.id, self.last_update
+            urlencoding::encode(&self.md5),
+            urlencoding::encode(&self.id),
+            urlencoding::encode(&self.last_update),
         )
     }
 }

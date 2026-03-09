@@ -571,4 +571,192 @@ mod tests {
             assert!(state.is_key_pressed(i));
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Scroll tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_scroll_accumulation() {
+        let state = SharedKeyState::new();
+        state.add_scroll(1.0, 2.0);
+        state.add_scroll(3.0, 4.0);
+        let (dx, dy) = state.drain_scroll();
+        assert_eq!(dx, 4.0);
+        assert_eq!(dy, 6.0);
+    }
+
+    #[test]
+    fn test_scroll_drain_resets() {
+        let state = SharedKeyState::new();
+        state.add_scroll(5.0, 10.0);
+        let (dx, dy) = state.drain_scroll();
+        assert_eq!(dx, 5.0);
+        assert_eq!(dy, 10.0);
+
+        // Second drain should return zeros
+        let (dx2, dy2) = state.drain_scroll();
+        assert_eq!(dx2, 0.0);
+        assert_eq!(dy2, 0.0);
+    }
+
+    #[test]
+    fn test_scroll_drain_empty() {
+        let state = SharedKeyState::new();
+        // Drain without any scroll events
+        let (dx, dy) = state.drain_scroll();
+        assert_eq!(dx, 0.0);
+        assert_eq!(dy, 0.0);
+    }
+
+    // -----------------------------------------------------------------------
+    // Press-drag-release sequence
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_press_drag_release_sequence() {
+        let state = SharedKeyState::new();
+
+        // Step 1: Press left mouse button
+        state.set_mouse_button(MOUSE_BUTTON_LEFT, true);
+        assert!(state.is_mouse_button_pressed(MOUSE_BUTTON_LEFT));
+        assert_eq!(state.mouse_x(), 0);
+        assert_eq!(state.mouse_y(), 0);
+
+        // Step 2: Drag (move mouse while button is still pressed)
+        state.set_mouse_position(100, 200);
+        assert!(state.is_mouse_button_pressed(MOUSE_BUTTON_LEFT));
+        assert_eq!(state.mouse_x(), 100);
+        assert_eq!(state.mouse_y(), 200);
+
+        // Step 3: Release mouse button
+        state.set_mouse_button(MOUSE_BUTTON_LEFT, false);
+        assert!(!state.is_mouse_button_pressed(MOUSE_BUTTON_LEFT));
+        // Position should remain after release
+        assert_eq!(state.mouse_x(), 100);
+        assert_eq!(state.mouse_y(), 200);
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifier composite
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_modifier_keys_composite() {
+        let state = SharedKeyState::new();
+
+        // Press multiple modifier keys simultaneously
+        state.set_key_pressed(Keys::SHIFT_LEFT, true);
+        state.set_key_pressed(Keys::CONTROL_LEFT, true);
+        state.set_key_pressed(Keys::ALT_LEFT, true);
+
+        // Verify each independently
+        assert!(state.is_key_pressed(Keys::SHIFT_LEFT));
+        assert!(state.is_key_pressed(Keys::CONTROL_LEFT));
+        assert!(state.is_key_pressed(Keys::ALT_LEFT));
+
+        // Release one modifier
+        state.set_key_pressed(Keys::CONTROL_LEFT, false);
+
+        // Other modifiers should still be pressed
+        assert!(state.is_key_pressed(Keys::SHIFT_LEFT));
+        assert!(!state.is_key_pressed(Keys::CONTROL_LEFT));
+        assert!(state.is_key_pressed(Keys::ALT_LEFT));
+    }
+
+    // -----------------------------------------------------------------------
+    // Key isolation
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_key_state_isolation() {
+        let state = SharedKeyState::new();
+
+        // Press a single key
+        state.set_key_pressed(Keys::Z, true);
+
+        // Verify it does not affect neighboring or unrelated keys
+        assert!(state.is_key_pressed(Keys::Z));
+        assert!(!state.is_key_pressed(Keys::X));
+        assert!(!state.is_key_pressed(Keys::S));
+        assert!(!state.is_key_pressed(Keys::D));
+        assert!(!state.is_key_pressed(Keys::C));
+        assert!(!state.is_key_pressed(Keys::F));
+        assert!(!state.is_key_pressed(Keys::SHIFT_LEFT));
+        assert!(!state.is_key_pressed(Keys::CONTROL_LEFT));
+        assert!(!state.is_key_pressed(Keys::ALT_LEFT));
+    }
+}
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn scroll_accumulation_invariant(
+            deltas in prop::collection::vec(
+                (-100.0f32..100.0, -100.0f32..100.0),
+                0..50
+            )
+        ) {
+            let state = SharedKeyState::new();
+            let mut expected_x = 0.0f32;
+            let mut expected_y = 0.0f32;
+            for (dx, dy) in &deltas {
+                state.add_scroll(*dx, *dy);
+                expected_x += dx;
+                expected_y += dy;
+            }
+            let (actual_x, actual_y) = state.drain_scroll();
+            // Use approximate comparison for floating point
+            prop_assert!((actual_x - expected_x).abs() < 0.01,
+                "x: expected {}, got {}", expected_x, actual_x);
+            prop_assert!((actual_y - expected_y).abs() < 0.01,
+                "y: expected {}, got {}", expected_y, actual_y);
+        }
+    }
+
+    #[test]
+    fn concurrent_scroll_no_loss() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let state = Arc::new(SharedKeyState::new());
+        let n_threads = 4;
+        let n_per_thread = 100;
+
+        let handles: Vec<_> = (0..n_threads)
+            .map(|_| {
+                let s = Arc::clone(&state);
+                thread::spawn(move || {
+                    for _ in 0..n_per_thread {
+                        s.add_scroll(1.0, 1.0);
+                    }
+                })
+            })
+            .collect();
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let (x, y) = state.drain_scroll();
+        let expected = (n_threads * n_per_thread) as f32;
+        assert!(
+            (x - expected).abs() < 0.01,
+            "x: expected {}, got {}",
+            expected,
+            x
+        );
+        assert!(
+            (y - expected).abs() < 0.01,
+            "y: expected {}, got {}",
+            expected,
+            y
+        );
+    }
 }

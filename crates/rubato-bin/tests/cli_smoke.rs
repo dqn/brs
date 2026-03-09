@@ -122,6 +122,36 @@ fn invalid_flag_exits_error() {
     );
 }
 
+/// Verify that [`run_with_timeout`] actually terminates a long-running process.
+///
+/// This is a non-ignored infrastructure test that proves the timeout mechanism
+/// works in headless CI without needing a display or GPU.
+#[test]
+fn timeout_mechanism_terminates_long_running_process() {
+    let start = Instant::now();
+    let result = run_with_timeout(Command::new("sleep").arg("60"), Duration::from_secs(3));
+
+    let elapsed = start.elapsed();
+
+    // The process must have been killed by the timeout, not allowed to run for 60s.
+    assert!(
+        result.timed_out,
+        "expected run_with_timeout to flag timed_out for a 60s sleep with 3s timeout"
+    );
+
+    // Elapsed wall-clock time should be close to the timeout, not 60s.
+    assert!(
+        elapsed < Duration::from_secs(10),
+        "expected process to terminate within ~3s, but took {elapsed:?}"
+    );
+
+    // On Unix, a killed process should not have a normal exit code of 0.
+    assert!(
+        !result.output.status.success(),
+        "killed process should not report success"
+    );
+}
+
 /// Run the binary with no arguments in a clean tempdir (no config file).
 ///
 /// The binary will attempt to launch the configuration UI (eframe/egui),

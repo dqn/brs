@@ -1,7 +1,6 @@
 use super::*;
 use crate::select::bar::bar::Bar;
 use crate::select::bar::grade_bar::GradeBar;
-use crate::select::bar::selectable_bar::SelectableBarData;
 use crate::select::bar::song_bar::SongBar;
 use ::bms_model::bms_model::BMSModel;
 use ::bms_model::note::Note;
@@ -1390,4 +1389,302 @@ fn test_handle_skin_mouse_pressed_uses_selector_context() {
     <MusicSelector as MainState>::handle_skin_mouse_pressed(&mut selector, 0, 32, 48);
 
     assert_eq!(selector.pending_state_change, Some(MainStateType::Config));
+}
+
+// ============================================================
+// target_score_data regression tests
+// ============================================================
+
+#[test]
+fn target_score_data_returns_rival_score_when_rival_set() {
+    // Regression test: target_score_data() currently always returns the rival score,
+    // regardless of config.select_settings.targetid.
+    // TODO: Should resolve from targetid (MAX/RANK_NEXT/IR target) via TargetProperty.
+    let mut selector = MusicSelector::new();
+    let mut bar = make_song_bar("target-test", Some("/test/target.bms"));
+    let mut rival = ScoreData::default();
+    rival.clear = 7;
+    rival.notes = 500;
+    rival.judge_counts.epg = 200;
+    bar.set_rival_score(Some(rival));
+    set_selected_bar(&mut selector, bar);
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    let target = ctx.target_score_data().expect("should return rival score");
+    assert_eq!(target.clear, 7);
+    assert_eq!(target.notes, 500);
+    assert_eq!(target.judge_counts.epg, 200);
+}
+
+#[test]
+fn target_score_data_returns_none_when_no_rival_score() {
+    // When no rival score is set, target_score_data() returns None.
+    let mut selector = MusicSelector::new();
+    let bar = make_song_bar("no-rival", Some("/test/no-rival.bms"));
+    set_selected_bar(&mut selector, bar);
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    assert!(ctx.target_score_data().is_none());
+}
+
+#[test]
+fn target_score_data_ignores_targetid_config() {
+    // Regression test: even when targetid is set to something other than rival,
+    // target_score_data() still returns the rival score.
+    // TODO: Full fix requires TargetProperty integration in select state.
+    let mut selector = MusicSelector::new();
+    selector.config.select_settings.targetid = "MAX".to_string();
+
+    let mut bar = make_song_bar("targetid-test", Some("/test/targetid.bms"));
+    let mut rival = ScoreData::default();
+    rival.clear = 3;
+    bar.set_rival_score(Some(rival));
+    set_selected_bar(&mut selector, bar);
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    // Current (buggy) behavior: returns rival score regardless of targetid="MAX".
+    let target = ctx.target_score_data().expect("should return rival score");
+    assert_eq!(target.clear, 3);
+}
+
+#[test]
+fn target_score_data_returns_none_when_no_bar_selected() {
+    // No bar selected at all: target_score_data() returns None.
+    let mut selector = MusicSelector::new();
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    assert!(ctx.target_score_data().is_none());
+}
+
+#[test]
+fn target_score_data_matches_rival_score_data() {
+    // target_score_data() and rival_score_data_ref() should return the same value
+    // due to the current implementation.
+    let mut selector = MusicSelector::new();
+    let mut bar = make_song_bar("same-ref", Some("/test/same.bms"));
+    let mut rival = ScoreData::default();
+    rival.clear = 5;
+    rival.notes = 1000;
+    bar.set_rival_score(Some(rival));
+    set_selected_bar(&mut selector, bar);
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    let target = ctx.target_score_data();
+    let rival_ref = ctx.rival_score_data_ref();
+    assert!(target.is_some());
+    assert!(rival_ref.is_some());
+    assert_eq!(target.unwrap().clear, rival_ref.unwrap().clear);
+    assert_eq!(target.unwrap().notes, rival_ref.unwrap().notes);
+}
+
+// ============================================================
+// selected_play_config_mode tests
+// ============================================================
+
+#[test]
+fn selected_play_config_mode_song_bar_beat_7k() {
+    let mut selector = MusicSelector::new();
+    let mut song = make_song_data("mode-7k", Some("/test/7k.bms"));
+    song.chart.mode = bms_model::Mode::BEAT_7K.id();
+    set_selected_bar(&mut selector, Bar::Song(Box::new(SongBar::new(song))));
+
+    assert_eq!(
+        selector.selected_play_config_mode(),
+        Some(bms_model::Mode::BEAT_7K)
+    );
+}
+
+#[test]
+fn selected_play_config_mode_song_bar_beat_5k() {
+    let mut selector = MusicSelector::new();
+    let mut song = make_song_data("mode-5k", Some("/test/5k.bms"));
+    song.chart.mode = bms_model::Mode::BEAT_5K.id();
+    set_selected_bar(&mut selector, Bar::Song(Box::new(SongBar::new(song))));
+
+    assert_eq!(
+        selector.selected_play_config_mode(),
+        Some(bms_model::Mode::BEAT_5K)
+    );
+}
+
+#[test]
+fn selected_play_config_mode_grade_bar_uniform_mode() {
+    // GradeBar with all songs in BEAT_7K returns Some(BEAT_7K).
+    let mut selector = MusicSelector::new();
+    let mut song1 = make_song_data("s1", Some("/test/s1.bms"));
+    song1.chart.mode = bms_model::Mode::BEAT_7K.id();
+    let mut song2 = make_song_data("s2", Some("/test/s2.bms"));
+    song2.chart.mode = bms_model::Mode::BEAT_7K.id();
+    let course = CourseData {
+        name: Some("Uniform Course".to_string()),
+        hash: vec![song1, song2],
+        constraint: vec![],
+        trophy: vec![],
+        release: false,
+    };
+    selector.manager.currentsongs = vec![Bar::Grade(Box::new(GradeBar::new(course)))];
+    selector.manager.selectedindex = 0;
+
+    assert_eq!(
+        selector.selected_play_config_mode(),
+        Some(bms_model::Mode::BEAT_7K)
+    );
+}
+
+#[test]
+fn selected_play_config_mode_grade_bar_mixed_modes() {
+    // GradeBar with songs in BEAT_7K and BEAT_5K returns None.
+    let mut selector = MusicSelector::new();
+    let mut song1 = make_song_data("s1", Some("/test/s1.bms"));
+    song1.chart.mode = bms_model::Mode::BEAT_7K.id();
+    let mut song2 = make_song_data("s2", Some("/test/s2.bms"));
+    song2.chart.mode = bms_model::Mode::BEAT_5K.id();
+    let course = CourseData {
+        name: Some("Mixed Course".to_string()),
+        hash: vec![song1, song2],
+        constraint: vec![],
+        trophy: vec![],
+        release: false,
+    };
+    selector.manager.currentsongs = vec![Bar::Grade(Box::new(GradeBar::new(course)))];
+    selector.manager.selectedindex = 0;
+
+    assert_eq!(selector.selected_play_config_mode(), None);
+}
+
+#[test]
+fn selected_play_config_mode_grade_bar_popn_normalized() {
+    // GradeBar with POPN_5K and POPN_9K should normalize both to POPN_9K,
+    // so they match and return Some(POPN_9K).
+    // Note: Both POPN_5K and POPN_9K have mode id=9, so play_config_mode_from_song
+    // maps them to POPN_9K, and normalization makes them equal.
+    let mut selector = MusicSelector::new();
+    let mut song1 = make_song_data("s1", Some("/test/s1.bms"));
+    song1.chart.mode = 9; // POPN_9K id
+    let mut song2 = make_song_data("s2", Some("/test/s2.bms"));
+    song2.chart.mode = 9; // POPN_9K id
+    let course = CourseData {
+        name: Some("Popn Course".to_string()),
+        hash: vec![song1, song2],
+        constraint: vec![],
+        trophy: vec![],
+        release: false,
+    };
+    selector.manager.currentsongs = vec![Bar::Grade(Box::new(GradeBar::new(course)))];
+    selector.manager.selectedindex = 0;
+
+    assert_eq!(
+        selector.selected_play_config_mode(),
+        Some(bms_model::Mode::POPN_9K)
+    );
+}
+
+#[test]
+fn selected_play_config_mode_grade_bar_missing_song_path() {
+    // GradeBar where not all songs exist (missing path) falls through to player config.
+    let mut selector = MusicSelector::new();
+    selector.config.mode = Some(bms_model::Mode::BEAT_14K);
+    let mut song1 = make_song_data("s1", Some("/test/s1.bms"));
+    song1.chart.mode = bms_model::Mode::BEAT_7K.id();
+    let song2 = make_song_data("s2", None); // missing path
+    let course = CourseData {
+        name: Some("Incomplete Course".to_string()),
+        hash: vec![song1, song2],
+        constraint: vec![],
+        trophy: vec![],
+        release: false,
+    };
+    selector.manager.currentsongs = vec![Bar::Grade(Box::new(GradeBar::new(course)))];
+    selector.manager.selectedindex = 0;
+
+    // exists_all_songs() returns false, so falls through to player config mode.
+    assert_eq!(
+        selector.selected_play_config_mode(),
+        Some(bms_model::Mode::BEAT_14K)
+    );
+}
+
+#[test]
+fn selected_play_config_mode_no_selection_uses_player_config() {
+    // No bar selected: uses player config mode.
+    let mut selector = MusicSelector::new();
+    selector.config.mode = Some(bms_model::Mode::BEAT_5K);
+
+    assert_eq!(
+        selector.selected_play_config_mode(),
+        Some(bms_model::Mode::BEAT_5K)
+    );
+}
+
+#[test]
+fn selected_play_config_mode_no_selection_default_beat_7k() {
+    // No bar selected, no player config mode set: defaults to BEAT_7K.
+    let selector = MusicSelector::new();
+
+    assert_eq!(
+        selector.selected_play_config_mode(),
+        Some(bms_model::Mode::BEAT_7K)
+    );
+}
+
+#[test]
+fn selected_play_config_mode_song_bar_no_path_uses_player_config() {
+    // SongBar without a path (exists_song() returns false) falls through to player config.
+    let mut selector = MusicSelector::new();
+    selector.config.mode = Some(bms_model::Mode::BEAT_10K);
+    let mut song = make_song_data("no-path", None);
+    song.chart.mode = bms_model::Mode::BEAT_7K.id();
+    set_selected_bar(&mut selector, Bar::Song(Box::new(SongBar::new(song))));
+
+    assert_eq!(
+        selector.selected_play_config_mode(),
+        Some(bms_model::Mode::BEAT_10K)
+    );
+}
+
+#[test]
+fn selected_play_config_mode_grade_bar_single_song() {
+    // GradeBar with a single song returns that song's mode.
+    let mut selector = MusicSelector::new();
+    let mut song = make_song_data("s1", Some("/test/s1.bms"));
+    song.chart.mode = bms_model::Mode::BEAT_14K.id();
+    let course = CourseData {
+        name: Some("Single Song Course".to_string()),
+        hash: vec![song],
+        constraint: vec![],
+        trophy: vec![],
+        release: false,
+    };
+    selector.manager.currentsongs = vec![Bar::Grade(Box::new(GradeBar::new(course)))];
+    selector.manager.selectedindex = 0;
+
+    assert_eq!(
+        selector.selected_play_config_mode(),
+        Some(bms_model::Mode::BEAT_14K)
+    );
 }

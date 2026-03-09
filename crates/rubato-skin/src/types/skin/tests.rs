@@ -123,8 +123,6 @@ fn test_timer_only_main_state_returns_expected_values() {
 #[test]
 fn test_timer_manager_values_flow_through_to_skin_adapter() {
     use rubato_core::timer_manager::TimerManager;
-    use rubato_types::timer_access::TimerAccess;
-
     let mut tm = TimerManager::new();
     tm.update(); // Advance nowmicrotime from Instant::now()
     tm.set_timer_on(rubato_types::timer_id::TimerId::new(10)); // Timer 10 = ON at current micro time

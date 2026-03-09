@@ -638,7 +638,7 @@ impl BarManager {
             }
 
             // Random select bars
-            if let Some(ref ctx) = ctx
+            if let Some(ref mut ctx) = ctx
                 && ctx.player_config.select_settings.is_random_select
                 && !bar
                     .map(|b| matches!(b, Bar::ContextMenu(_)))
@@ -660,13 +660,16 @@ impl BarManager {
                         })
                         .collect();
 
-                    // TODO: Implement actual filter evaluation using score_cache and songdb.
-                    // Currently bypassed: random_folder.filter() criteria are ignored and all
-                    // targets are returned unfiltered. Needs &mut score_cache to evaluate
-                    // filter keys against each song's score data.
                     let filtered_targets = if random_folder.filter().is_some() {
-                        if let Some(ref mut _ctx_inner) = ctx.score_cache.as_ref() {
+                        if let Some(ref mut cache) = ctx.score_cache {
+                            let lnmode = ctx.player_config.play_settings.lnmode;
                             random_targets
+                                .into_iter()
+                                .filter(|sd| {
+                                    let score = cache.read_score_data(sd, lnmode);
+                                    random_folder.filter_song(score)
+                                })
+                                .collect()
                         } else {
                             random_targets
                         }

@@ -667,7 +667,7 @@ SCENETIME,9999\n\
 
     #[test]
     fn test_new_registers_csv_command_names() {
-        let state = make_state();
+        let _state = make_state();
         // Verify key command names are registered by checking the base state
         // accepts them via process_line_directives
         let expected_commands = [

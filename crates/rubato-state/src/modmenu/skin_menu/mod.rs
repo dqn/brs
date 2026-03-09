@@ -649,7 +649,7 @@ fn skin_config_offset(ui: &mut egui::Ui, offset: &CustomOffset) {
 mod tests {
     use super::super::stubs::CustomFile;
     use super::*;
-    use config::{matches_skin_file_pattern_case_insensitive, parse_custom_file};
+    use config::parse_custom_file;
 
     // ---- OffsetValue tests ----
 

@@ -271,4 +271,73 @@ mod tests {
         assert_eq!((4_i64.pow(3)) * 1000, 64000);
         assert_eq!((4_i64.pow(4)) * 1000, 256000);
     }
+
+    // -- Thread lifecycle tests --
+
+    #[test]
+    fn test_start_ir_resend_thread_spawns() {
+        // Verify the thread spawns and the shared status list remains accessible
+        let ir_send_status = Arc::new(Mutex::new(Vec::<IRSendStatusMain>::new()));
+        let ir_send_count = 5;
+
+        start_ir_resend_thread(Arc::clone(&ir_send_status), ir_send_count);
+
+        // The thread is running in the background; verify the shared list is still usable
+        let statuses = ir_send_status.lock().expect("mutex poisoned");
+        assert!(statuses.is_empty());
+    }
+
+    #[test]
+    fn test_resend_thread_removes_success() {
+        // Create a status that will succeed on first resend attempt.
+        // retry=1 with last_try=0 so the backoff condition is immediately met.
+        let conn: Arc<dyn IRConnection + Send + Sync> = Arc::new(MockIRSuccess::new());
+        let mut song = SongData::default();
+        song.metadata.title = "ThreadSuccessTest".to_string();
+        let score = rubato_core::score_data::ScoreData::default();
+        let mut status = IRSendStatusMain::new(conn, &song, &score);
+        status.retry = 1;
+        status.last_try = 0;
+
+        let ir_send_status = Arc::new(Mutex::new(vec![status]));
+
+        start_ir_resend_thread(Arc::clone(&ir_send_status), 5);
+
+        // Wait for the thread to process (it sleeps 3s between iterations,
+        // but the first iteration runs immediately)
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        let statuses = ir_send_status.lock().expect("mutex poisoned");
+        assert!(
+            statuses.is_empty(),
+            "successful status should be removed by the resend thread"
+        );
+    }
+
+    #[test]
+    fn test_resend_thread_removes_exhausted_retries() {
+        // Create a status whose retry count already exceeds the max.
+        // The thread should remove it on the first iteration without attempting to send.
+        let conn: Arc<dyn IRConnection + Send + Sync> = Arc::new(MockIRSuccess::new());
+        let mut song = SongData::default();
+        song.metadata.title = "ExhaustedRetryTest".to_string();
+        song.metadata.subtitle = "sub".to_string();
+        let score = rubato_core::score_data::ScoreData::default();
+        let mut status = IRSendStatusMain::new(conn, &song, &score);
+        status.retry = 10; // well above the limit of 5
+        status.last_try = 0;
+
+        let ir_send_status = Arc::new(Mutex::new(vec![status]));
+
+        start_ir_resend_thread(Arc::clone(&ir_send_status), 5);
+
+        // Wait for the thread to process the first iteration
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        let statuses = ir_send_status.lock().expect("mutex poisoned");
+        assert!(
+            statuses.is_empty(),
+            "exhausted-retry status should be removed by the resend thread"
+        );
+    }
 }

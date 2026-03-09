@@ -586,6 +586,17 @@ impl PlayerConfig {
     }
 
     pub fn init(config: &mut Config) -> anyhow::Result<()> {
+        Self::init_with_db_source_dir(config, None)
+    }
+
+    /// Like `init()`, but takes an explicit directory to search for `playerscore.db`
+    /// and `replay/` instead of using the current working directory.
+    ///
+    /// Pass `None` to use CWD (the default / backward-compatible behavior).
+    pub fn init_with_db_source_dir(
+        config: &mut Config,
+        db_source_dir: Option<&Path>,
+    ) -> anyhow::Result<()> {
         let playerpath = Path::new(&config.paths.playerpath);
         if !playerpath.exists() {
             std::fs::create_dir_all(playerpath)?;
@@ -599,7 +610,10 @@ impl PlayerConfig {
             // Copy score data if exists
             // Java parity: resolved relative to CWD (the beatoraja installation directory).
             // Requires the launcher to set CWD to the config root for migration to work.
-            let parent_score_db = PathBuf::from("playerscore.db");
+            let parent_score_db = match db_source_dir {
+                Some(dir) => dir.join("playerscore.db"),
+                None => PathBuf::from("playerscore.db"),
+            };
             if parent_score_db.exists() {
                 let dest = PathBuf::from(format!("{}/player1/score.db", config.paths.playerpath));
                 if let Err(e) = std::fs::copy(&parent_score_db, &dest) {
@@ -607,7 +621,7 @@ impl PlayerConfig {
                 }
             }
             // Copy replays
-            copy_replays(config);
+            copy_replays_from(config, db_source_dir);
 
             config.playername = Some("player1".to_string());
         }
@@ -683,9 +697,12 @@ pub fn create_player(playerpath: &str, playerid: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn copy_replays(config: &Config) {
+fn copy_replays_from(config: &Config, db_source_dir: Option<&Path>) {
     let player1_replay_dir = PathBuf::from(format!("{}/player1/replay", config.paths.playerpath));
-    let parent_replay_dir = PathBuf::from("replay");
+    let parent_replay_dir = match db_source_dir {
+        Some(dir) => dir.join("replay"),
+        None => PathBuf::from("replay"),
+    };
 
     if let Err(e) = std::fs::create_dir_all(&player1_replay_dir) {
         log::error!("Failed to create replay dir: {}", e);

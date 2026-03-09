@@ -391,7 +391,7 @@ mod tests {
 
     #[test]
     fn test_new_with_audio_driver_trait() {
-        let audio = MockAudioDriver::new();
+        let _audio = MockAudioDriver::new();
         let config = Config::default();
         let processor = PreviewMusicProcessor::new(&config);
         assert!(processor.song_data().is_none());
@@ -399,7 +399,7 @@ mod tests {
 
     #[test]
     fn test_set_default() {
-        let audio = MockAudioDriver::new();
+        let _audio = MockAudioDriver::new();
         let config = Config::default();
         let mut processor = PreviewMusicProcessor::new(&config);
         processor.set_default("/path/to/bgm.ogg");
@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_start_with_none_song() {
-        let audio = MockAudioDriver::new();
+        let _audio = MockAudioDriver::new();
         let config = Config::default();
         let mut processor = PreviewMusicProcessor::new(&config);
         processor.start(None);
@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn test_start_with_song() {
-        let audio = MockAudioDriver::new();
+        let _audio = MockAudioDriver::new();
         let config = Config::default();
         let mut processor = PreviewMusicProcessor::new(&config);
 
@@ -432,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_stop() {
-        let audio = MockAudioDriver::new();
+        let _audio = MockAudioDriver::new();
         let config = Config::default();
         let mut processor = PreviewMusicProcessor::new(&config);
         processor.preview_running.store(true, Ordering::SeqCst);

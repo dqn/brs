@@ -20,5 +20,6 @@ regex.workspace = true
 encoding_rs.workspace = true
 lazy_static.workspace = true
 quick-xml.workspace = true
+urlencoding.workspace = true
 
 [dev-dependencies]

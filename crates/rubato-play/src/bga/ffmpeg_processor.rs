@@ -462,6 +462,12 @@ impl FFmpegProcessor {
     }
 }
 
+impl Default for FFmpegProcessor {
+    fn default() -> Self {
+        Self::new(1)
+    }
+}
+
 impl MovieProcessor for FFmpegProcessor {
     fn frame(&mut self, time: i64) -> Option<Texture> {
         #[cfg(feature = "ffmpeg")]
@@ -543,5 +549,59 @@ impl MovieProcessor for FFmpegProcessor {
             }
             self._showing_tex = None;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dispose_without_create() {
+        // Calling dispose() without calling create() should not panic
+        let mut proc = FFmpegProcessor::new(30);
+        proc.dispose();
+    }
+
+    #[test]
+    fn test_double_dispose() {
+        // Calling dispose() twice should not panic
+        let mut proc = FFmpegProcessor::new(30);
+        // First dispose (no background thread exists)
+        proc.dispose();
+        // Second dispose
+        proc.dispose();
+    }
+
+    #[test]
+    fn test_frame_before_create() {
+        // Calling frame() before create() should return None
+        let mut proc = FFmpegProcessor::new(30);
+        let result = proc.frame(0);
+        assert!(
+            result.is_none(),
+            "frame() before create() should return None"
+        );
+
+        let result2 = proc.frame(1000);
+        assert!(
+            result2.is_none(),
+            "frame() before create() should return None for any time"
+        );
+    }
+
+    #[test]
+    fn test_stop_before_create() {
+        // Calling stop() before create() should not panic
+        let mut proc = FFmpegProcessor::new(30);
+        proc.stop();
+    }
+
+    #[test]
+    fn test_play_before_create() {
+        // Calling play() before create() should not panic
+        let mut proc = FFmpegProcessor::new(30);
+        proc.play(0, false);
+        proc.play(0, true);
     }
 }

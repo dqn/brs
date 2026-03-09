@@ -53,6 +53,7 @@ sha2 = "0.10"
 # Encoding
 encoding_rs = "0.8"
 base64 = "0.22"
+urlencoding = "2"
 
 # Logging
 log = "0.4"

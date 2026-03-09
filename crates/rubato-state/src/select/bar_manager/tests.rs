@@ -877,3 +877,425 @@ fn test_invisible_filtering_with_context() {
         "the remaining song should be the visible one"
     );
 }
+
+// ---- Random folder filter integration tests ----
+
+/// Helper: build a ScoreDataCache that returns a predetermined score for each sha256.
+fn make_score_cache(scores: Vec<(String, Option<ScoreData>)>) -> ScoreDataCache {
+    let map: HashMap<String, Option<ScoreData>> = scores.into_iter().collect();
+    let map_clone = map.clone();
+    ScoreDataCache::new(
+        Box::new(move |sd: &SongData, _lnmode: i32| {
+            map_clone.get(&sd.file.sha256).cloned().unwrap_or(None)
+        }),
+        Box::new(|_collector, _songs, _lnmode| {}),
+    )
+}
+
+#[test]
+fn test_random_folder_filter_excludes_songs_without_matching_score() {
+    // Setup: 3 songs, only 2 have clear >= 5
+    let mut sd_a = make_song_data("aaa", Some("/a.bms"));
+    sd_a.metadata.title = "song_a".to_string();
+    let mut sd_b = make_song_data("bbb", Some("/b.bms"));
+    sd_b.metadata.title = "song_b".to_string();
+    let mut sd_c = make_song_data("ccc", Some("/c.bms"));
+    sd_c.metadata.title = "song_c".to_string();
+
+    let children = vec![
+        Bar::Song(Box::new(SongBar::new(sd_a.clone()))),
+        Bar::Song(Box::new(SongBar::new(sd_b.clone()))),
+        Bar::Song(Box::new(SongBar::new(sd_c.clone()))),
+    ];
+    let container = ContainerBar::new("TestDir".to_string(), children);
+
+    // Scores: a=clear 7, b=clear 3, c=clear 5
+    let mut score_a = ScoreData::default();
+    score_a.clear = 7;
+    let mut score_b = ScoreData::default();
+    score_b.clear = 3;
+    let mut score_c = ScoreData::default();
+    score_c.clear = 5;
+    let mut cache = make_score_cache(vec![
+        ("aaa".to_string(), Some(score_a)),
+        ("bbb".to_string(), Some(score_b)),
+        ("ccc".to_string(), Some(score_c)),
+    ]);
+
+    // Random folder: filter clear >= 5
+    let mut filter = HashMap::new();
+    filter.insert(
+        "clear".to_string(),
+        serde_json::Value::String(">=5".to_string()),
+    );
+
+    let mut manager = BarManager::new();
+    manager.random_folder_list = vec![RandomFolder {
+        name: Some("FILTERED".to_string()),
+        filter: Some(filter),
+    }];
+
+    let config = Config::default();
+    let mut player_config = PlayerConfig::default();
+    player_config.select_settings.is_random_select = true;
+
+    let mut ctx = UpdateBarContext {
+        config: &config,
+        player_config: &mut player_config,
+        songdb: &crate::select::null_song_database_accessor::NullSongDatabaseAccessor,
+        score_cache: Some(&mut cache),
+        is_folderlamp: false,
+        max_search_bar_count: 10,
+    };
+
+    manager.update_bar_with_context(Some(&Bar::Container(Box::new(container))), Some(&mut ctx));
+
+    // Find the ExecutableBar (random folder bar) among currentsongs
+    let exec_bars: Vec<&Bar> = manager
+        .currentsongs
+        .iter()
+        .filter(|b| matches!(b, Bar::Executable(_)))
+        .collect();
+
+    assert_eq!(
+        exec_bars.len(),
+        1,
+        "should have exactly one random folder bar"
+    );
+    if let Bar::Executable(exec) = exec_bars[0] {
+        // Should contain only songs with clear >= 5 (a=7, c=5), NOT b=3
+        assert_eq!(
+            exec.songs.len(),
+            2,
+            "filter should keep only songs with clear >= 5"
+        );
+        let sha_set: std::collections::HashSet<&str> =
+            exec.songs.iter().map(|s| s.file.sha256.as_str()).collect();
+        assert!(
+            sha_set.contains("aaa"),
+            "song_a (clear=7) should be included"
+        );
+        assert!(
+            !sha_set.contains("bbb"),
+            "song_b (clear=3) should be excluded"
+        );
+        assert!(
+            sha_set.contains("ccc"),
+            "song_c (clear=5) should be included"
+        );
+    } else {
+        panic!("expected ExecutableBar");
+    }
+}
+
+#[test]
+fn test_random_folder_no_filter_includes_all_songs() {
+    let mut sd_a = make_song_data("aaa", Some("/a.bms"));
+    sd_a.metadata.title = "song_a".to_string();
+    let mut sd_b = make_song_data("bbb", Some("/b.bms"));
+    sd_b.metadata.title = "song_b".to_string();
+
+    let children = vec![
+        Bar::Song(Box::new(SongBar::new(sd_a.clone()))),
+        Bar::Song(Box::new(SongBar::new(sd_b.clone()))),
+    ];
+    let container = ContainerBar::new("TestDir".to_string(), children);
+
+    let mut manager = BarManager::new();
+    // No filter on the random folder
+    manager.random_folder_list = vec![RandomFolder {
+        name: Some("ALL".to_string()),
+        filter: None,
+    }];
+
+    let config = Config::default();
+    let mut player_config = PlayerConfig::default();
+    player_config.select_settings.is_random_select = true;
+
+    let mut ctx = UpdateBarContext {
+        config: &config,
+        player_config: &mut player_config,
+        songdb: &crate::select::null_song_database_accessor::NullSongDatabaseAccessor,
+        score_cache: None,
+        is_folderlamp: false,
+        max_search_bar_count: 10,
+    };
+
+    manager.update_bar_with_context(Some(&Bar::Container(Box::new(container))), Some(&mut ctx));
+
+    let exec_bars: Vec<&Bar> = manager
+        .currentsongs
+        .iter()
+        .filter(|b| matches!(b, Bar::Executable(_)))
+        .collect();
+
+    assert_eq!(exec_bars.len(), 1, "should have one random folder bar");
+    if let Bar::Executable(exec) = exec_bars[0] {
+        assert_eq!(exec.songs.len(), 2, "no filter should include all songs");
+    } else {
+        panic!("expected ExecutableBar");
+    }
+}
+
+#[test]
+fn test_random_folder_filter_no_cache_keeps_all_songs() {
+    // When filter exists but no score cache, all songs should pass through
+    let mut sd_a = make_song_data("aaa", Some("/a.bms"));
+    sd_a.metadata.title = "song_a".to_string();
+    let mut sd_b = make_song_data("bbb", Some("/b.bms"));
+    sd_b.metadata.title = "song_b".to_string();
+
+    let children = vec![
+        Bar::Song(Box::new(SongBar::new(sd_a.clone()))),
+        Bar::Song(Box::new(SongBar::new(sd_b.clone()))),
+    ];
+    let container = ContainerBar::new("TestDir".to_string(), children);
+
+    let mut filter = HashMap::new();
+    filter.insert(
+        "clear".to_string(),
+        serde_json::Value::String(">=5".to_string()),
+    );
+
+    let mut manager = BarManager::new();
+    manager.random_folder_list = vec![RandomFolder {
+        name: Some("FILTERED".to_string()),
+        filter: Some(filter),
+    }];
+
+    let config = Config::default();
+    let mut player_config = PlayerConfig::default();
+    player_config.select_settings.is_random_select = true;
+
+    // No score cache
+    let mut ctx = UpdateBarContext {
+        config: &config,
+        player_config: &mut player_config,
+        songdb: &crate::select::null_song_database_accessor::NullSongDatabaseAccessor,
+        score_cache: None,
+        is_folderlamp: false,
+        max_search_bar_count: 10,
+    };
+
+    manager.update_bar_with_context(Some(&Bar::Container(Box::new(container))), Some(&mut ctx));
+
+    let exec_bars: Vec<&Bar> = manager
+        .currentsongs
+        .iter()
+        .filter(|b| matches!(b, Bar::Executable(_)))
+        .collect();
+
+    // With filter but no cache, the threshold is 1 and all songs pass through unfiltered
+    assert_eq!(exec_bars.len(), 1, "should have one random folder bar");
+    if let Bar::Executable(exec) = exec_bars[0] {
+        assert_eq!(
+            exec.songs.len(),
+            2,
+            "without score cache, all songs should be kept"
+        );
+    } else {
+        panic!("expected ExecutableBar");
+    }
+}
+
+#[test]
+fn test_random_folder_filter_excludes_all_songs_removes_bar() {
+    // When filter excludes ALL songs, the ExecutableBar should not be created
+    // (threshold is 1 for filtered folders)
+    let mut sd_a = make_song_data("aaa", Some("/a.bms"));
+    sd_a.metadata.title = "song_a".to_string();
+
+    let children = vec![Bar::Song(Box::new(SongBar::new(sd_a.clone())))];
+    let container = ContainerBar::new("TestDir".to_string(), children);
+
+    let mut score_a = ScoreData::default();
+    score_a.clear = 1; // below threshold of >=5
+    let mut cache = make_score_cache(vec![("aaa".to_string(), Some(score_a))]);
+
+    let mut filter = HashMap::new();
+    filter.insert(
+        "clear".to_string(),
+        serde_json::Value::String(">=5".to_string()),
+    );
+
+    let mut manager = BarManager::new();
+    manager.random_folder_list = vec![RandomFolder {
+        name: Some("STRICT".to_string()),
+        filter: Some(filter),
+    }];
+
+    let config = Config::default();
+    let mut player_config = PlayerConfig::default();
+    player_config.select_settings.is_random_select = true;
+
+    let mut ctx = UpdateBarContext {
+        config: &config,
+        player_config: &mut player_config,
+        songdb: &crate::select::null_song_database_accessor::NullSongDatabaseAccessor,
+        score_cache: Some(&mut cache),
+        is_folderlamp: false,
+        max_search_bar_count: 10,
+    };
+
+    manager.update_bar_with_context(Some(&Bar::Container(Box::new(container))), Some(&mut ctx));
+
+    // No executable bars should exist since all songs were filtered out
+    let exec_count = manager
+        .currentsongs
+        .iter()
+        .filter(|b| matches!(b, Bar::Executable(_)))
+        .count();
+    assert_eq!(
+        exec_count, 0,
+        "when all songs are filtered out, no ExecutableBar should be created"
+    );
+}
+
+#[test]
+fn test_random_folder_filter_with_no_score_data_for_song() {
+    // Song with no score in cache should be treated as None score
+    let mut sd_a = make_song_data("aaa", Some("/a.bms"));
+    sd_a.metadata.title = "song_a".to_string();
+    let mut sd_b = make_song_data("bbb", Some("/b.bms"));
+    sd_b.metadata.title = "song_b".to_string();
+
+    let children = vec![
+        Bar::Song(Box::new(SongBar::new(sd_a.clone()))),
+        Bar::Song(Box::new(SongBar::new(sd_b.clone()))),
+    ];
+    let container = ContainerBar::new("TestDir".to_string(), children);
+
+    let mut score_a = ScoreData::default();
+    score_a.clear = 5;
+    // Only song_a has a score; song_b has None
+    let mut cache = make_score_cache(vec![
+        ("aaa".to_string(), Some(score_a)),
+        ("bbb".to_string(), None),
+    ]);
+
+    // Filter: clear >= 1 (non-zero required)
+    let mut filter = HashMap::new();
+    filter.insert(
+        "clear".to_string(),
+        serde_json::Value::String(">=1".to_string()),
+    );
+
+    let mut manager = BarManager::new();
+    manager.random_folder_list = vec![RandomFolder {
+        name: Some("HAS_SCORE".to_string()),
+        filter: Some(filter),
+    }];
+
+    let config = Config::default();
+    let mut player_config = PlayerConfig::default();
+    player_config.select_settings.is_random_select = true;
+
+    let mut ctx = UpdateBarContext {
+        config: &config,
+        player_config: &mut player_config,
+        songdb: &crate::select::null_song_database_accessor::NullSongDatabaseAccessor,
+        score_cache: Some(&mut cache),
+        is_folderlamp: false,
+        max_search_bar_count: 10,
+    };
+
+    manager.update_bar_with_context(Some(&Bar::Container(Box::new(container))), Some(&mut ctx));
+
+    let exec_bars: Vec<&Bar> = manager
+        .currentsongs
+        .iter()
+        .filter(|b| matches!(b, Bar::Executable(_)))
+        .collect();
+
+    assert_eq!(exec_bars.len(), 1);
+    if let Bar::Executable(exec) = exec_bars[0] {
+        // song_a has clear=5 (>=1), song_b has no score (clear=0, which is <1)
+        // filter_song with None score and ">=1" comparison: property_value=0 >= 1 is false
+        // Wait, actually filter_song for string comparisons with None score:
+        // the code goes to the else branch: "if !part.is_empty() && !part.starts_with('<')"
+        // ">=1" doesn't start with '<', so it returns false
+        assert_eq!(
+            exec.songs.len(),
+            1,
+            "only song_a with score should pass the filter"
+        );
+        assert_eq!(exec.songs[0].file.sha256, "aaa");
+    } else {
+        panic!("expected ExecutableBar");
+    }
+}
+
+#[test]
+fn test_random_folder_filter_and_compound() {
+    // Test compound filter: "clear": ">=3 && <=7"
+    let mut sd_a = make_song_data("aaa", Some("/a.bms"));
+    sd_a.metadata.title = "song_a".to_string();
+    let mut sd_b = make_song_data("bbb", Some("/b.bms"));
+    sd_b.metadata.title = "song_b".to_string();
+    let mut sd_c = make_song_data("ccc", Some("/c.bms"));
+    sd_c.metadata.title = "song_c".to_string();
+
+    let children = vec![
+        Bar::Song(Box::new(SongBar::new(sd_a.clone()))),
+        Bar::Song(Box::new(SongBar::new(sd_b.clone()))),
+        Bar::Song(Box::new(SongBar::new(sd_c.clone()))),
+    ];
+    let container = ContainerBar::new("TestDir".to_string(), children);
+
+    let mut score_a = ScoreData::default();
+    score_a.clear = 2; // below range
+    let mut score_b = ScoreData::default();
+    score_b.clear = 5; // in range
+    let mut score_c = ScoreData::default();
+    score_c.clear = 9; // above range
+    let mut cache = make_score_cache(vec![
+        ("aaa".to_string(), Some(score_a)),
+        ("bbb".to_string(), Some(score_b)),
+        ("ccc".to_string(), Some(score_c)),
+    ]);
+
+    let mut filter = HashMap::new();
+    filter.insert(
+        "clear".to_string(),
+        serde_json::Value::String(">=3&&<=7".to_string()),
+    );
+
+    let mut manager = BarManager::new();
+    manager.random_folder_list = vec![RandomFolder {
+        name: Some("RANGE".to_string()),
+        filter: Some(filter),
+    }];
+
+    let config = Config::default();
+    let mut player_config = PlayerConfig::default();
+    player_config.select_settings.is_random_select = true;
+
+    let mut ctx = UpdateBarContext {
+        config: &config,
+        player_config: &mut player_config,
+        songdb: &crate::select::null_song_database_accessor::NullSongDatabaseAccessor,
+        score_cache: Some(&mut cache),
+        is_folderlamp: false,
+        max_search_bar_count: 10,
+    };
+
+    manager.update_bar_with_context(Some(&Bar::Container(Box::new(container))), Some(&mut ctx));
+
+    let exec_bars: Vec<&Bar> = manager
+        .currentsongs
+        .iter()
+        .filter(|b| matches!(b, Bar::Executable(_)))
+        .collect();
+
+    assert_eq!(exec_bars.len(), 1);
+    if let Bar::Executable(exec) = exec_bars[0] {
+        assert_eq!(
+            exec.songs.len(),
+            1,
+            "only song_b (clear=5) should be in range 3..=7"
+        );
+        assert_eq!(exec.songs[0].file.sha256, "bbb");
+    } else {
+        panic!("expected ExecutableBar");
+    }
+}

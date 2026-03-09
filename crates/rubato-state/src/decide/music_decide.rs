@@ -351,7 +351,6 @@ mod tests {
     use rubato_core::main_state::SkinDrawable;
     use rubato_core::sprite_batch_helper::SpriteBatch;
     use rubato_types::main_controller_access::MainControllerAccess;
-    use rubato_types::timer_access::TimerAccess;
     use std::sync::{Arc, Mutex};
 
     /// Mock SkinDrawable for testing render logic with configurable timing values.

@@ -1117,4 +1117,55 @@ mod tests {
         let next = compute_next_reconnect_delay(0);
         assert_eq!(next, 0);
     }
+
+    // -- ObsWsClient lifecycle (disconnected state) --
+
+    fn make_test_config() -> Config {
+        Config::default()
+    }
+
+    #[test]
+    fn test_close_resets_flags() {
+        let config = make_test_config();
+        let client = ObsWsClient::new(&config).expect("failed to create client");
+
+        // Initial state: not connected, not identified
+        assert!(!client.is_connected());
+        assert!(!client.is_identified());
+        assert!(!client.is_recording());
+
+        // close() on an already-disconnected client should not panic
+        client.close();
+
+        // State remains disconnected
+        assert!(!client.is_connected());
+        assert!(!client.is_identified());
+        assert!(!client.is_recording());
+    }
+
+    #[test]
+    fn test_request_methods_before_connect() {
+        let config = make_test_config();
+        let client = ObsWsClient::new(&config).expect("failed to create client");
+
+        // All request methods should silently return when not connected (no panic)
+        client.request_start_record();
+        client.request_stop_record();
+        client.restart_recording();
+        client.set_scene("TestScene");
+        client.send_request("GetVersion");
+        client.send_request("GetSceneList");
+    }
+
+    #[test]
+    fn test_save_last_recording_disconnected() {
+        let config = make_test_config();
+        let client = ObsWsClient::new(&config).expect("failed to create client");
+
+        // save_last_recording should early-return when not connected (no panic)
+        client.save_last_recording("ON_SCREENSHOT");
+        client.save_last_recording("ON_REPLAY");
+        client.save_last_recording("KEEP_ALL");
+        client.save_last_recording("INVALID_REASON");
+    }
 }

@@ -24,6 +24,7 @@ mod tests {
     }"#;
 
     /// Skin JSON with `}{` (close-open) inside a string value, which fix_lenient_json corrupts.
+    #[allow(dead_code)]
     const SKIN_WITH_BRACES_IN_STRING: &str = r#"{"type":5,"name":"a}{b"}"#;
 
     #[test]

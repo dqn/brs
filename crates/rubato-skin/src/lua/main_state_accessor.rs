@@ -643,7 +643,7 @@ mod tests {
     fn test_rate_returns_now_rate() {
         let mut state = LuaTestState::default();
         state.score_data_property.nowrate = 0.85;
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let rate_fn: mlua::Function = table.get("rate").unwrap();
         let result: f64 = rate_fn.call(()).unwrap();
         assert!((result - 0.85).abs() < 0.001);
@@ -653,7 +653,7 @@ mod tests {
     fn test_exscore_returns_now_exscore() {
         let mut state = LuaTestState::default();
         state.score_data_property.nowscore = 1234;
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let exscore_fn: mlua::Function = table.get("exscore").unwrap();
         let result: f64 = exscore_fn.call(()).unwrap();
         assert_eq!(result, 1234.0);
@@ -663,7 +663,7 @@ mod tests {
     fn test_rate_best_returns_now_best_score_rate() {
         let mut state = LuaTestState::default();
         state.score_data_property.nowbestscorerate = 0.92;
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let rate_best_fn: mlua::Function = table.get("rate_best").unwrap();
         let result: f64 = rate_best_fn.call(()).unwrap();
         assert!((result - 0.92).abs() < 0.001);
@@ -673,7 +673,7 @@ mod tests {
     fn test_exscore_best_returns_best_score() {
         let mut state = LuaTestState::default();
         state.score_data_property.bestscore = 999;
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let exscore_best_fn: mlua::Function = table.get("exscore_best").unwrap();
         let result: f64 = exscore_best_fn.call(()).unwrap();
         assert_eq!(result, 999.0);
@@ -683,7 +683,7 @@ mod tests {
     fn test_rate_rival_returns_rival_score_rate() {
         let mut state = LuaTestState::default();
         state.score_data_property.rivalscorerate = 0.75;
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let rate_rival_fn: mlua::Function = table.get("rate_rival").unwrap();
         let result: f64 = rate_rival_fn.call(()).unwrap();
         assert!((result - 0.75).abs() < 0.001);
@@ -693,7 +693,7 @@ mod tests {
     fn test_exscore_rival_returns_rival_score() {
         let mut state = LuaTestState::default();
         state.score_data_property.rivalscore = 500;
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let exscore_rival_fn: mlua::Function = table.get("exscore_rival").unwrap();
         let result: f64 = exscore_rival_fn.call(()).unwrap();
         assert_eq!(result, 500.0);
@@ -706,7 +706,7 @@ mod tests {
             systemvolume: 0.8,
             ..Default::default()
         });
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let volume_sys_fn: mlua::Function = table.get("volume_sys").unwrap();
         let result: f64 = volume_sys_fn.call(()).unwrap();
         assert!((result - 0.8).abs() < 0.001);
@@ -719,7 +719,7 @@ mod tests {
             keyvolume: 0.6,
             ..Default::default()
         });
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let volume_key_fn: mlua::Function = table.get("volume_key").unwrap();
         let result: f64 = volume_key_fn.call(()).unwrap();
         assert!((result - 0.6).abs() < 0.001);
@@ -732,7 +732,7 @@ mod tests {
             bgvolume: 0.4,
             ..Default::default()
         });
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let volume_bg_fn: mlua::Function = table.get("volume_bg").unwrap();
         let result: f64 = volume_bg_fn.call(()).unwrap();
         assert!((result - 0.4).abs() < 0.001);
@@ -744,7 +744,7 @@ mod tests {
         // Judge index 0 (PGREAT): 50 fast + 30 slow = 80
         state.judge_counts.insert((0, true), 50);
         state.judge_counts.insert((0, false), 30);
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let judge_fn: mlua::Function = table.get("judge").unwrap();
         let result: i32 = judge_fn.call(0).unwrap();
         assert_eq!(result, 80);
@@ -753,7 +753,7 @@ mod tests {
     #[test]
     fn test_gauge_returns_zero_when_not_bms_player() {
         let mut state = LuaTestState::default();
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let gauge_fn: mlua::Function = table.get("gauge").unwrap();
         let result: f64 = gauge_fn.call(()).unwrap();
         assert_eq!(result, 0.0);
@@ -766,7 +766,7 @@ mod tests {
             gauge_value: 0.85,
             ..Default::default()
         };
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let gauge_fn: mlua::Function = table.get("gauge").unwrap();
         let result: f64 = gauge_fn.call(()).unwrap();
         assert!((result - 0.85).abs() < 0.001);
@@ -775,7 +775,7 @@ mod tests {
     #[test]
     fn test_gauge_type_returns_zero_when_not_bms_player() {
         let mut state = LuaTestState::default();
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let gauge_type_fn: mlua::Function = table.get("gauge_type").unwrap();
         let result: f64 = gauge_type_fn.call(()).unwrap();
         assert_eq!(result, 0.0);
@@ -788,7 +788,7 @@ mod tests {
             gauge_type: 2,
             ..Default::default()
         };
-        let (lua, table) = setup_lua_with_state(&mut state);
+        let (_lua, table) = setup_lua_with_state(&mut state);
         let gauge_type_fn: mlua::Function = table.get("gauge_type").unwrap();
         let result: f64 = gauge_type_fn.call(()).unwrap();
         assert_eq!(result, 2.0);

@@ -76,7 +76,6 @@ fn score_rate_3000_notes_consistent_no_overflow() {
 /// - Use i64 for nowpoint, or
 /// - Use saturating/checked casts.
 #[test]
-#[ignore] // BUG: `as i32` truncates silently when quotient exceeds i32::MAX
 fn score_rate_calculation_overflow() {
     let mut sd = ScoreData::new(Mode::KEYBOARD_24K);
     sd.notes = 1;
@@ -89,18 +88,12 @@ fn score_rate_calculation_overflow() {
     prop.update_score(Some(&sd));
 
     // The i64 quotient is 3_000_000_000, which exceeds i32::MAX.
-    // After `as i32`, this wraps to a negative value.
-    let expected_correct: i64 = 3_000_000_000;
+    // The result is clamped to i32::MAX instead of wrapping to negative.
+    let raw_quotient: i64 = 3_000_000_000;
     assert!(
-        expected_correct > i32::MAX as i64,
+        raw_quotient > i32::MAX as i64,
         "sanity check: quotient exceeds i32::MAX"
     );
 
-    // The correct value should be 3_000_000_000 (or clamped to i32::MAX).
-    // Due to the bug, nowpoint is negative (silent truncation).
-    assert!(
-        prop.nowpoint > 0,
-        "nowpoint should be positive for all-PG score, but got {} due to i32 truncation",
-        prop.nowpoint
-    );
+    assert_eq!(prop.nowpoint, i32::MAX);
 }

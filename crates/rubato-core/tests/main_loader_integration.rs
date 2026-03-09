@@ -31,7 +31,7 @@ impl MockSongDb {
         Self { songs: Vec::new() }
     }
 
-    fn with_songs(songs: Vec<SongData>) -> Self {
+    fn _with_songs(songs: Vec<SongData>) -> Self {
         Self { songs }
     }
 }
