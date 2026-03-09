@@ -109,6 +109,9 @@ impl FloatPCM {
             return FloatPCM::new(self.channels, sample, 0, 0, Vec::new());
         }
         let samples = self.get_sample(sample);
+        if samples.is_empty() {
+            return FloatPCM::new(self.channels, sample, 0, 0, Vec::new());
+        }
         let start = ((((self.start as i64) * (sample as i64) / (self.sample_rate as i64)) as i32)
             .min(samples.len() as i32 - 1)
             / self.channels)
@@ -164,8 +167,13 @@ impl FloatPCM {
                         (sample1 * (sample as i64 - modv) as f32 + sample2 * modv as f32)
                             / sample as f32;
                 } else {
+                    let idx = (position * self.channels as i64 + j as i64) as usize;
                     samples[(i * self.channels as i64 + j as i64) as usize] =
-                        self.sample[(position * self.channels as i64 + j as i64) as usize];
+                        if idx < self.sample.len() {
+                            self.sample[idx]
+                        } else {
+                            0.0
+                        };
                 }
             }
         }
@@ -174,6 +182,7 @@ impl FloatPCM {
     }
 
     /// Change channel count (mono/stereo conversion).
+    /// Java parity: stereo-to-mono uses channel 0 only (discards right channel).
     ///
     /// Translated from: FloatPCM.changeChannels
     pub fn change_channels(&self, channels: i32) -> FloatPCM {

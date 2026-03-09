@@ -266,7 +266,9 @@ impl MainController {
             input.poll();
         }
 
-        // Input gating by time delta
+        // Input gating by time delta (Java parity: System.currentTimeMillis)
+        // Note: SystemTime is not monotonic; NTP jumps could briefly gate input.
+        // Using Instant would be more robust but changes timing semantics vs Java.
         // Java: final long time = System.currentTimeMillis();
         //       if(time > prevtime) { prevtime = time; current.input(); ... }
         let time = std::time::SystemTime::now()

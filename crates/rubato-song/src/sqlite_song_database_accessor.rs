@@ -125,18 +125,29 @@ impl SQLiteSongDatabaseAccessor {
             .any(|(name, pk)| name == "sha256" && pk == 1);
 
         if has_sha256_pk {
-            conn.execute("ALTER TABLE [song] RENAME TO [old_song]", [])?;
-            self.base.validate(&conn)?;
-            conn.execute(
-                "INSERT INTO song SELECT \
-                 md5, sha256, title, subtitle, genre, artist, subartist, tag, path,\
-                 folder, stagefile, banner, backbmp, preview, parent, level, difficulty,\
-                 maxbpm, minbpm, length, mode, judge, feature, content,\
-                 date, favorite, notes, adddate, charthash \
-                 FROM old_song GROUP BY path HAVING MAX(adddate)",
-                [],
-            )?;
-            conn.execute("DROP TABLE old_song", [])?;
+            conn.execute_batch("BEGIN IMMEDIATE")?;
+            let migration_result = (|| -> anyhow::Result<()> {
+                conn.execute("ALTER TABLE [song] RENAME TO [old_song]", [])?;
+                self.base.validate(&conn)?;
+                conn.execute(
+                    "INSERT INTO song SELECT \
+                     md5, sha256, title, subtitle, genre, artist, subartist, tag, path,\
+                     folder, stagefile, banner, backbmp, preview, parent, level, difficulty,\
+                     maxbpm, minbpm, length, mode, judge, feature, content,\
+                     date, favorite, notes, adddate, charthash \
+                     FROM old_song GROUP BY path HAVING MAX(adddate)",
+                    [],
+                )?;
+                conn.execute("DROP TABLE old_song", [])?;
+                Ok(())
+            })();
+            match migration_result {
+                Ok(()) => conn.execute_batch("COMMIT")?,
+                Err(e) => {
+                    let _ = conn.execute_batch("ROLLBACK");
+                    return Err(e);
+                }
+            }
         }
 
         // FTS5 full-text search index for song text search

@@ -23,7 +23,7 @@ fn html_regexes() -> &'static HtmlRegexes {
     static REGEXES: OnceLock<HtmlRegexes> = OnceLock::new();
     REGEXES.get_or_init(|| HtmlRegexes {
         br: Regex::new(r"(?i)<br\s*/?>").expect("valid br regex"),
-        anchor: Regex::new(r"(?i)<a\s+href=.+'>|</a>").expect("valid anchor regex"),
+        anchor: Regex::new(r#"(?i)<a\s[^>]*>|</a>"#).expect("valid anchor regex"),
         avg_judge: Regex::new(r"Avg:.*JUDGE:[A-Z]+\s*").expect("valid avg_judge regex"),
     })
 }

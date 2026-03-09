@@ -40,7 +40,7 @@ pub struct HttpDownloadProcessor {
     // id => task
     tasks: Arc<Mutex<HashMap<i32, Arc<Mutex<DownloadTask>>>>>,
     // O(1) duplicate URL check without iterating/locking individual tasks
-    submitted_urls: Mutex<HashSet<String>>,
+    submitted_urls: Arc<Mutex<HashSet<String>>>,
     // In-memory self-add id generator
     id_generator: AtomicI32,
     // Active download thread count, enforces MAXIMUM_DOWNLOAD_COUNT
@@ -60,7 +60,7 @@ impl HttpDownloadProcessor {
             download_directory,
             tasks: Arc::new(Mutex::new(HashMap::new())),
             active_downloads: Arc::new(AtomicUsize::new(0)),
-            submitted_urls: Mutex::new(HashSet::new()),
+            submitted_urls: Arc::new(Mutex::new(HashSet::new())),
             id_generator: AtomicI32::new(0),
             main,
             http_download_source,
@@ -99,6 +99,8 @@ impl HttpDownloadProcessor {
         let download_url = match self.http_download_source.get_download_url_based_on_md5(md5) {
             Ok(url) => url,
             Err(e) => {
+                // Fragile: uses string comparison for error discrimination.
+                // Typed error enum would be more robust, but this matches the existing protocol.
                 let err_msg = e.to_string();
                 if err_msg == "FileNotFound" {
                     log::error!(
@@ -166,6 +168,7 @@ impl HttpDownloadProcessor {
                 "[HttpDownloadProcessor] Maximum concurrent downloads ({}) reached, rejecting task",
                 MAXIMUM_DOWNLOAD_COUNT
             );
+            ImGuiNotify::warning("Download queue is full, try again later");
             let mut task = download_task.lock().expect("download_task lock poisoned");
             task.set_download_task_status(DownloadTaskStatus::Error);
             return;
@@ -175,16 +178,24 @@ impl HttpDownloadProcessor {
         let main = self.main.clone();
         let source_name = self.http_download_source.name().to_string();
         let active_downloads = self.active_downloads.clone();
+        let submitted_urls = self.submitted_urls.clone();
         active_downloads.fetch_add(1, Ordering::AcqRel);
 
         thread::spawn(move || {
-            struct DownloadGuard(Arc<AtomicUsize>);
+            struct DownloadGuard {
+                active_downloads: Arc<AtomicUsize>,
+                submitted_urls: Arc<Mutex<HashSet<String>>>,
+                download_url: String,
+            }
             impl Drop for DownloadGuard {
                 fn drop(&mut self) {
-                    self.0.fetch_sub(1, Ordering::AcqRel);
+                    self.active_downloads.fetch_sub(1, Ordering::AcqRel);
+                    // Remove URL from submitted set so it can be retried
+                    if let Ok(mut urls) = self.submitted_urls.lock() {
+                        urls.remove(&self.download_url);
+                    }
                 }
             }
-            let _guard = DownloadGuard(active_downloads);
             let (task_name, download_url, hash) = {
                 let task = download_task.lock().expect("download_task lock poisoned");
                 (
@@ -192,6 +203,11 @@ impl HttpDownloadProcessor {
                     task.url().to_string(),
                     task.hash().to_string(),
                 )
+            };
+            let _guard = DownloadGuard {
+                active_downloads,
+                submitted_urls,
+                download_url: download_url.clone(),
             };
             log::info!(
                 "[HttpDownloadProcessor] Trying to kick new download task[{}]({})",
@@ -399,10 +415,13 @@ fn extract_compressed_file(
         .map(|e| e.path())
         .collect();
 
+    // Known limitation: sevenz_rust writes all entries before we can validate paths.
+    // A malicious archive could write outside `dest` before the canonical check below catches it.
+    // Full fix: extract to a temp directory, validate, then move into dest.
     sevenz_rust::decompress_file(file, &dest)
         .map_err(|e| anyhow::anyhow!("7z extraction failed: {}", e))?;
 
-    // Verify extracted entries are within the destination to guard against path traversal.
+    // Post-extraction path traversal check (best-effort).
     let canonical_dest = dest.canonicalize()?;
 
     // Find the first newly created subdirectory.

@@ -726,7 +726,9 @@ impl ObsWsClient {
         });
     }
 
-    /// Send a raw message through the WebSocket
+    /// Send a raw message through the WebSocket.
+    /// Note: if the future is cancelled between take() and put_back(), the sink is lost.
+    /// This is acceptable because tokio tasks in this crate are not cancelled externally.
     async fn send_raw(inner: &Arc<Mutex<ObsWsClientInner>>, message: &str) {
         let mut sink = {
             let mut guard = lock_or_recover(inner);
