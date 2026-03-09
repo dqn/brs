@@ -16,6 +16,7 @@ use crate::validatable::Validatable;
 
 /// Replay data. Contains key input log, pattern modification info, and gauge type.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ReplayData {
     pub player: Option<String>,
     pub sha256: Option<String>,
@@ -24,9 +25,11 @@ pub struct ReplayData {
     pub keyinput: Option<String>,
     pub gauge: i32,
     pub pattern: Option<Vec<PatternModifyLog>>,
+    #[serde(rename = "laneShufflePattern")]
     pub lane_shuffle_pattern: Option<Vec<Vec<i32>>>,
     pub rand: Vec<i32>,
     pub date: i64,
+    #[serde(rename = "sevenToNinePattern")]
     pub seven_to_nine_pattern: i32,
     pub randomoption: i32,
     pub randomoptionseed: i64,
@@ -727,6 +730,94 @@ mod tests {
         assert!(loaded.keylog[2].pressed);
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_serde_produces_camel_case_field_names() {
+        let mut rd = ReplayData::new();
+        rd.lane_shuffle_pattern = Some(vec![vec![0, 1, 2]]);
+        rd.seven_to_nine_pattern = 3;
+
+        let json = serde_json::to_string(&rd).unwrap();
+        // camelCase keys must appear in serialized output
+        assert!(
+            json.contains("\"laneShufflePattern\""),
+            "expected laneShufflePattern in JSON, got: {}",
+            json
+        );
+        assert!(
+            json.contains("\"sevenToNinePattern\""),
+            "expected sevenToNinePattern in JSON, got: {}",
+            json
+        );
+        // snake_case keys must NOT appear
+        assert!(
+            !json.contains("\"lane_shuffle_pattern\""),
+            "snake_case lane_shuffle_pattern should not appear in JSON"
+        );
+        assert!(
+            !json.contains("\"seven_to_nine_pattern\""),
+            "snake_case seven_to_nine_pattern should not appear in JSON"
+        );
+    }
+
+    #[test]
+    fn test_deserialize_from_camel_case_json() {
+        let json = r#"{
+            "player": "TestPlayer",
+            "sha256": "abc",
+            "mode": 7,
+            "keylog": [],
+            "gauge": 2,
+            "laneShufflePattern": [[1, 2], [3, 4]],
+            "rand": [10],
+            "date": 999,
+            "sevenToNinePattern": 5,
+            "randomoption": 1,
+            "randomoptionseed": 42,
+            "randomoption2": 0,
+            "randomoption2seed": -1,
+            "doubleoption": 0
+        }"#;
+
+        let rd: ReplayData = serde_json::from_str(json).unwrap();
+        assert_eq!(rd.player.as_deref(), Some("TestPlayer"));
+        assert_eq!(rd.mode, 7);
+        assert_eq!(rd.gauge, 2);
+        assert_eq!(rd.lane_shuffle_pattern, Some(vec![vec![1, 2], vec![3, 4]]));
+        assert_eq!(rd.seven_to_nine_pattern, 5);
+        assert_eq!(rd.randomoptionseed, 42);
+    }
+
+    #[test]
+    fn test_deserialize_missing_fields_uses_defaults() {
+        // Minimal JSON with only a subset of fields -- serde(default) fills the rest
+        let json = r#"{"mode": 3}"#;
+
+        let rd: ReplayData = serde_json::from_str(json).unwrap();
+        assert_eq!(rd.mode, 3);
+        // All other fields should be their Default values
+        assert!(rd.player.is_none());
+        assert!(rd.sha256.is_none());
+        assert!(rd.keylog.is_empty());
+        assert!(rd.keyinput.is_none());
+        assert_eq!(rd.gauge, 0);
+        assert!(rd.pattern.is_none());
+        assert!(rd.lane_shuffle_pattern.is_none());
+        assert!(rd.rand.is_empty());
+        assert_eq!(rd.date, 0);
+        assert_eq!(rd.seven_to_nine_pattern, 0);
+        assert_eq!(rd.randomoption, 0);
+        assert_eq!(rd.randomoptionseed, 0);
+        assert_eq!(rd.randomoption2, 0);
+        assert_eq!(rd.randomoption2seed, 0);
+        assert_eq!(rd.doubleoption, 0);
+        assert!(rd.config.is_none());
+
+        // Even an empty object should deserialize successfully
+        let rd_empty: ReplayData = serde_json::from_str("{}").unwrap();
+        assert_eq!(rd_empty.mode, 0);
+        assert!(rd_empty.keylog.is_empty());
     }
 }
 
