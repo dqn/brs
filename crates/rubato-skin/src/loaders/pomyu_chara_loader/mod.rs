@@ -1,7 +1,6 @@
 // PomyuCharaLoader.java -> pomyu_chara_loader.rs
 // Mechanical line-by-line translation.
 
-use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -174,15 +173,11 @@ impl<'a> PomyuCharaLoader<'a> {
             chp[..last_sep + 1].to_string()
         };
 
-        // Read the .chp file
-        if let Ok(file) = std::fs::File::open(&chp) {
-            let reader = BufReader::new(file);
-            // In Java, this uses MS932 encoding. In Rust, we just read as UTF-8/lossy.
-            for line_result in reader.lines() {
-                let line = match line_result {
-                    Ok(l) => l,
-                    Err(_) => continue,
-                };
+        // Read the .chp file as raw bytes, then decode as MS932 (Shift_JIS)
+        // to match Java's InputStreamReader(new FileInputStream(chp), "MS932").
+        if let Ok(raw_bytes) = std::fs::read(&chp) {
+            let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&raw_bytes);
+            for line in decoded.lines() {
                 if line.starts_with('#') {
                     let str_parts: Vec<&str> = line.split('\t').collect();
                     if str_parts.len() > 1 {
@@ -254,11 +249,11 @@ impl<'a> PomyuCharaLoader<'a> {
                         } else if str_parts[0].eq_ignore_ascii_case("#Patern")
                             || str_parts[0].eq_ignore_ascii_case("#Pattern")
                         {
-                            pattern_data[pattern_idx].push(line.clone());
+                            pattern_data[pattern_idx].push(line.to_string());
                         } else if str_parts[0].eq_ignore_ascii_case("#Texture") {
-                            pattern_data[texture_idx].push(line.clone());
+                            pattern_data[texture_idx].push(line.to_string());
                         } else if str_parts[0].eq_ignore_ascii_case("#Layer") {
-                            pattern_data[layer_idx].push(line.clone());
+                            pattern_data[layer_idx].push(line.to_string());
                         } else if str_parts[0].eq_ignore_ascii_case("#Flame")
                             || str_parts[0].eq_ignore_ascii_case("#Frame")
                         {
