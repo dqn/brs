@@ -179,7 +179,7 @@ impl SkinBPMGraph {
             if d[0] > 0.0 {
                 self.minbpm = self.minbpm.min(d[0]);
             }
-            self.maxbpm = self.maxbpm.min(d[0]); // Note: Java code has Math.min here too (likely a bug)
+            self.maxbpm = self.maxbpm.max(d[0]);
         }
         self.mainbpm = info.mainbpm;
 

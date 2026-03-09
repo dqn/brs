@@ -215,15 +215,16 @@ impl PlayDataAccessor {
         let log = self.update_score(&mut score, newscore, hash, update_score);
 
         // Trophy handling
-        let mut trophies: std::collections::HashSet<SongTrophy> = std::collections::HashSet::new();
+        let mut trophies: std::collections::BTreeSet<SongTrophy> =
+            std::collections::BTreeSet::new();
         for c in score.trophy.chars() {
             if let Some(t) = SongTrophy::trophy(c) {
                 trophies.insert(t);
             }
         }
 
-        let mut new_trophies: std::collections::HashSet<SongTrophy> =
-            std::collections::HashSet::new();
+        let mut new_trophies: std::collections::BTreeSet<SongTrophy> =
+            std::collections::BTreeSet::new();
         // Clear trophies
         let clear = newscore.clear;
         if newscore.play_option.gauge != -1 {

@@ -137,6 +137,9 @@ impl RichPresence {
         let header = self.connection.read(8)?;
         let _op_code = i32::from_le_bytes([header[0], header[1], header[2], header[3]]);
         let length = i32::from_le_bytes([header[4], header[5], header[6], header[7]]);
+        if !(0..=1024 * 1024).contains(&length) {
+            anyhow::bail!("Discord IPC: invalid packet length {}", length);
+        }
 
         let payload = self.connection.read(length as usize)?;
         Ok(payload)

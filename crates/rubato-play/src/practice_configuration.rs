@@ -281,6 +281,7 @@ impl PracticeConfiguration {
         model.total = property.total;
 
         // PracticeModifier: filter notes outside the time range (scaled by freq)
+        // freq is clamped to [50, 200] by update_config(), so division by zero cannot occur.
         let pm_start = (property.starttime as i64) * 100 / (property.freq as i64);
         let pm_end = (property.endtime as i64) * 100 / (property.freq as i64);
         let mut pm = PracticeModifier::new(pm_start, pm_end);
@@ -369,6 +370,14 @@ impl PracticeConfiguration {
                         && self.property.startgauge > 100
                     {
                         self.property.startgauge = 100;
+                    }
+                }
+                // Sync startgauge with the current gauge category's element values.
+                if let Some(category) = self.property.gaugecategory {
+                    let values = category.element_values();
+                    if (self.property.gaugetype as usize) < values.len() {
+                        self.property.startgauge =
+                            values[self.property.gaugetype as usize].init as i32;
                     }
                 }
             }

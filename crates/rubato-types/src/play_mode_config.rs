@@ -400,7 +400,7 @@ impl MouseScratchConfig {
     }
 
     pub fn key_string(&self, index: usize) -> Option<&'static str> {
-        let key = self.keys[index];
+        let key = *self.keys.get(index)?;
         if key < 0 || (key as usize) >= MOUSESCRATCH_STRING.len() {
             return None;
         }

@@ -171,6 +171,11 @@ impl LR2SkinCSVLoaderState {
                 }
             }
             "IMAGE" => {
+                if str_parts.len() <= 1 {
+                    warn!("IMAGE command missing path argument");
+                    self.imagelist.push(ImageListEntry::Null);
+                    return;
+                }
                 let imagefile =
                     lr2_skin_loader::lr2_path(&self.skinpath, &str_parts[1], &self.filemap);
                 let path = Path::new(&imagefile);
@@ -194,6 +199,11 @@ impl LR2SkinCSVLoaderState {
                 }
             }
             "LR2FONT" => {
+                if str_parts.len() <= 1 {
+                    warn!("LR2FONT command missing path argument");
+                    self.fontlist.push(None);
+                    return;
+                }
                 let imagefile =
                     lr2_skin_loader::lr2_path(&self.skinpath, &str_parts[1], &self.filemap);
                 let path = Path::new(&imagefile);
@@ -236,6 +246,10 @@ impl LR2SkinCSVLoaderState {
                 }
             }
             "INCLUDE" => {
+                if str_parts.len() <= 1 {
+                    warn!("INCLUDE command missing path argument");
+                    return;
+                }
                 let imagefile =
                     lr2_skin_loader::lr2_path(&self.skinpath, &str_parts[1], &self.filemap);
                 let path = Path::new(&imagefile);

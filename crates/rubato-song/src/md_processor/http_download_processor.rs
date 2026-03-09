@@ -399,10 +399,21 @@ fn extract_compressed_file(
     sevenz_rust::decompress_file(file, &dest)
         .map_err(|e| anyhow::anyhow!("7z extraction failed: {}", e))?;
 
+    // Verify extracted entries are within the destination to guard against path traversal.
+    let canonical_dest = dest.canonicalize()?;
+
     // Find the extracted directory (first subdirectory in dest)
     let mut extracted_dir = None;
     if let Ok(entries) = fs::read_dir(&dest) {
         for entry in entries.flatten() {
+            let canonical = entry.path().canonicalize().unwrap_or_default();
+            if !canonical.starts_with(&canonical_dest) {
+                log::warn!(
+                    "Skipping extracted path outside destination: {}",
+                    entry.path().display()
+                );
+                continue;
+            }
             if entry.path().is_dir() {
                 extracted_dir = Some(entry.path().to_string_lossy().to_string());
                 break;

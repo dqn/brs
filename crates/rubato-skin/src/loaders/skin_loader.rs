@@ -328,12 +328,10 @@ pub fn texture_with_mipmaps(path: &str, usecim: bool, use_mip_maps: bool) -> Opt
     // try { ... } catch (Throwable e) { ... }
     let modified_time = match std::fs::metadata(path) {
         Ok(meta) => match meta.modified() {
-            Ok(t) => {
-                t.duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs() as i64
-                    / 1000
-            }
+            Ok(t) => t
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64,
             Err(_) => 0,
         },
         Err(_) => return None,

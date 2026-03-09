@@ -76,7 +76,8 @@ impl ReplayData {
     /// Calls validate() after deserialization, matching Java PlayDataAccessor.readReplayData().
     pub fn read_brd(path: &Path) -> Result<ReplayData> {
         let file = fs::File::open(path)?;
-        let reader = BufReader::new(GzDecoder::new(file));
+        // Cap decompressed size to 64 MB to guard against decompression bombs.
+        let reader = BufReader::new(GzDecoder::new(file).take(64 * 1024 * 1024));
         let mut rd: ReplayData = serde_json::from_reader(reader)?;
         if !rd.validate() {
             anyhow::bail!("ReplayData validation failed for {:?}", path);
@@ -101,7 +102,8 @@ impl ReplayData {
     /// Calls validate() on each element, matching Java PlayDataAccessor.readReplayData(String[], ...).
     pub fn read_brd_course(path: &Path) -> Result<Vec<ReplayData>> {
         let file = fs::File::open(path)?;
-        let reader = BufReader::new(GzDecoder::new(file));
+        // Cap decompressed size to 64 MB to guard against decompression bombs.
+        let reader = BufReader::new(GzDecoder::new(file).take(64 * 1024 * 1024));
         let mut rds: Vec<ReplayData> = serde_json::from_reader(reader)?;
         for rd in &mut rds {
             if !rd.validate() {
@@ -132,7 +134,8 @@ impl Validatable for ReplayData {
         if let Some(keyinput) = self.keyinput.take()
             && let Ok(decoded) = URL_SAFE.decode(keyinput.as_bytes())
         {
-            let mut gz = GzDecoder::new(&decoded[..]);
+            // Cap decompressed size to 64 MB to guard against decompression bombs.
+            let mut gz = GzDecoder::new(&decoded[..]).take(64 * 1024 * 1024);
             let mut decompressed = Vec::new();
             if gz.read_to_end(&mut decompressed).is_ok() {
                 let mut keylogarray = Vec::with_capacity(decompressed.len() / 9);
