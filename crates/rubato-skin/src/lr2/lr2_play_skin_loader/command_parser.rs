@@ -242,16 +242,16 @@ impl LR2PlaySkinLoaderState {
                                 *hcn = ln.clone();
                             }
                         }
-                        // hcnbodyd falls back to hcnbody - can't zip self with self, use index
-                        for i in 0..self.hcnbodyd.len() {
-                            if self.hcnbodyd[i].is_none() {
-                                self.hcnbodyd[i] = self.hcnbody[i].clone();
+                        // hcnbodyd falls back to hcnbody
+                        for (hcnd, hcn) in self.hcnbodyd.iter_mut().zip(self.hcnbody.iter()) {
+                            if hcnd.is_none() {
+                                *hcnd = hcn.clone();
                             }
                         }
-                        // hcnbodyr falls back to hcnbodya - can't zip self with self, use index
-                        for i in 0..self.hcnbodyr.len() {
-                            if self.hcnbodyr[i].is_none() {
-                                self.hcnbodyr[i] = self.hcnbodya[i].clone();
+                        // hcnbodyr falls back to hcnbodya
+                        for (hcnr, hcna) in self.hcnbodyr.iter_mut().zip(self.hcnbodya.iter()) {
+                            if hcnr.is_none() {
+                                *hcnr = hcna.clone();
                             }
                         }
                         // lanerender = new SkinNote(note, lnss, mine)

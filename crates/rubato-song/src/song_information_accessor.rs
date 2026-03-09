@@ -74,15 +74,10 @@ impl SongInformationAccessor {
     }
 
     pub fn information_for_songs(&self, songs: &mut [SongData]) {
-        let song_length = songs.len();
-        let chunk_length = song_length.div_ceil(LOAD_CHUNK_SIZE);
         let mut infos: Vec<SongInformation> = Vec::new();
 
-        for i in 0..chunk_length {
-            let chunk_start = i * LOAD_CHUNK_SIZE;
-            let chunk_end = song_length.min((i + 1) * LOAD_CHUNK_SIZE);
-
-            for song in songs.iter().take(chunk_end).skip(chunk_start) {
+        for chunk in songs.chunks(LOAD_CHUNK_SIZE) {
+            for song in chunk {
                 let sha256 = song.file.sha256.clone();
                 if sha256.is_empty() {
                     continue;
