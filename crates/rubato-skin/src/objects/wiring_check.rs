@@ -107,6 +107,45 @@ impl WiringCheck for super::skin_image::SkinImage {
     }
 }
 
+// --- SkinGauge ---
+
+impl WiringCheck for super::skin_gauge::SkinGauge {
+    fn check_wiring(&self) -> Vec<WiringIssue> {
+        let mut issues = Vec::new();
+
+        if self.parts <= 0 {
+            issues.push(WiringIssue {
+                severity: Severity::Error,
+                component: "SkinGauge",
+                field: "parts".to_string(),
+                message: format!("parts={} - gauge will not render (needs > 0)", self.parts),
+            });
+        }
+
+        issues
+    }
+}
+
+// --- SkinBgaObject ---
+
+impl WiringCheck for super::skin_bga_object::SkinBgaObject {
+    fn check_wiring(&self) -> Vec<WiringIssue> {
+        let mut issues = Vec::new();
+
+        if !self.has_bga_draw() {
+            issues.push(WiringIssue {
+                severity: Severity::Warning,
+                component: "SkinBgaObject",
+                field: "bga_draw".to_string(),
+                message: "bga_draw not set - BGA will not render until set_bga_draw() is called"
+                    .to_string(),
+            });
+        }
+
+        issues
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,5 +199,43 @@ mod tests {
             .filter(|i| i.severity == Severity::Warning)
             .collect();
         assert_eq!(warnings.len(), 7, "should warn about 7 unwired lanes");
+    }
+
+    // --- SkinGauge ---
+
+    #[test]
+    fn gauge_with_valid_parts_reports_no_errors() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let gauge = crate::objects::skin_gauge::SkinGauge::new(images, 0, 0, 10, 0, 2, 100);
+        let issues = gauge.check_wiring();
+        assert!(
+            !issues.iter().any(|i| i.severity == Severity::Error),
+            "SkinGauge with parts=10 should have no errors"
+        );
+    }
+
+    #[test]
+    fn gauge_with_zero_parts_reports_error() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let gauge = crate::objects::skin_gauge::SkinGauge::new(images, 0, 0, 0, 0, 2, 100);
+        let issues = gauge.check_wiring();
+        assert!(
+            issues.iter().any(|i| i.severity == Severity::Error),
+            "SkinGauge with parts=0 should report an Error"
+        );
+    }
+
+    // --- SkinBgaObject ---
+
+    #[test]
+    fn bga_without_draw_reports_warning() {
+        let bga = crate::objects::skin_bga_object::SkinBgaObject::new(0);
+        let issues = bga.check_wiring();
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == Severity::Warning && i.component == "SkinBgaObject"),
+            "SkinBgaObject without bga_draw should report a Warning"
+        );
     }
 }
