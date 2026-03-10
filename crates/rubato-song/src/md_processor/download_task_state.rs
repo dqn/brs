@@ -69,11 +69,13 @@ impl DownloadTaskState {
             }
 
             let task = task_arc.lock().expect("task_arc lock poisoned");
-            let _state = task.download_task_status();
             let finished =
                 task.download_task_status().value() >= DownloadTaskStatus::Extracted.value();
-            let elapsed_nanos = now.elapsed().as_nanos() as i64;
-            let expired = finished && (5_000_000_000i64 < elapsed_nanos - task.time_finished());
+            let now_nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos() as i64;
+            let expired = finished && (now_nanos - task.time_finished() > 5_000_000_000i64);
 
             if expired {
                 inner.running_download_tasks.remove(&id);

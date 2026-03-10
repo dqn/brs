@@ -93,11 +93,19 @@ impl ScoreDataImporter {
                 ..Default::default()
             });
             old.scorehash = scorehash.to_string();
-            if is_new || old.update(score, true) {
-                if is_new {
-                    old.update(score, true);
-                }
+            if is_new {
+                old.update(score, true);
                 result.push(old);
+            } else {
+                // Always accumulate imported play/clear counts for existing scores
+                old.playcount = old.playcount.max(score.playcount);
+                old.clearcount = old.clearcount.max(score.clearcount);
+                if old.update(score, true) {
+                    result.push(old);
+                } else if score.playcount > 0 || score.clearcount > 0 {
+                    // Even if score metrics didn't improve, persist updated counters
+                    result.push(old);
+                }
             }
         }
 

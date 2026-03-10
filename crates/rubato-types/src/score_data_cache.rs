@@ -34,7 +34,7 @@ impl ScoreDataCache {
 
     fn cache_index(song: &SongData, lnmode: i32) -> usize {
         if song.chart.has_undefined_long_note() {
-            lnmode as usize
+            lnmode.clamp(0, 2) as usize
         } else {
             3
         }

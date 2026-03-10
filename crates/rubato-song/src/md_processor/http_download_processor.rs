@@ -164,6 +164,10 @@ impl HttpDownloadProcessor {
             );
             ImGuiNotify::warning("Download queue is full, try again later");
             let mut task = download_task.lock().expect("download_task lock poisoned");
+            // Release the URL from submitted_urls so the user can retry later
+            if let Ok(mut urls) = self.submitted_urls.lock() {
+                urls.remove(task.url());
+            }
             task.set_download_task_status(DownloadTaskStatus::Error);
             return;
         }

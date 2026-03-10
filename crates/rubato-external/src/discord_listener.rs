@@ -9,6 +9,10 @@ static APPLICATION_ID: &str = "1054234988167561277";
 /// Translated from Java: DiscordListener implements MainStateListener
 pub struct DiscordListener {
     rich_presence: Option<RichPresence>,
+    /// Cached start timestamp (Unix seconds), captured once per activity change
+    start_timestamp: i64,
+    /// Last observed screen type, used to detect activity changes
+    last_screen_type: Option<ScreenType>,
 }
 
 impl DiscordListener {
@@ -23,7 +27,11 @@ impl DiscordListener {
                 None
             }
         };
-        Self { rich_presence }
+        Self {
+            rich_presence,
+            start_timestamp: 0,
+            last_screen_type: None,
+        }
     }
 
     fn try_connect() -> anyhow::Result<RichPresence> {
@@ -53,16 +61,20 @@ impl MainStateListener for DiscordListener {
         };
 
         let result: Result<(), anyhow::Error> = (|| {
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as i64;
+            let screen_type = state.screen_type();
+
+            // Capture start_timestamp once when the activity (screen) changes
+            if self.last_screen_type != Some(screen_type) {
+                self.last_screen_type = Some(screen_type);
+                self.start_timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64;
+            }
 
             let mut data = RichPresenceData::new()
-                .set_start_timestamp(now)
+                .set_start_timestamp(self.start_timestamp)
                 .set_large_image("bms".to_string(), String::new());
-
-            let screen_type = state.screen_type();
 
             match screen_type {
                 ScreenType::MusicSelector => {
