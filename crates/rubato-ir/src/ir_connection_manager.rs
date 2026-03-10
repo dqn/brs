@@ -1,6 +1,6 @@
-use std::sync::OnceLock;
+use std::sync::Mutex;
 
-use log::error;
+use log::{error, warn};
 
 use crate::ir_connection::IRConnection;
 
@@ -17,16 +17,24 @@ pub struct IRConnectionEntry {
 ///
 /// In Java, this uses reflection and classpath scanning to discover IRConnection
 /// implementations. In Rust, we use a manual registry since there's no reflection.
-/// Implementations register themselves via `register_ir_connection`.
-static IR_CONNECTIONS: OnceLock<Vec<IRConnectionEntry>> = OnceLock::new();
+/// Implementations register themselves via `register_ir_connections`.
+///
+/// Uses Mutex instead of OnceLock so that connections can be registered at any
+/// time (including after first access). This matches the Java pattern where
+/// classpath scanning can discover JARs added at runtime.
+static IR_CONNECTIONS: Mutex<Vec<IRConnectionEntry>> = Mutex::new(Vec::new());
 
 pub struct IRConnectionManager;
 
 impl IRConnectionManager {
     /// Get all available IR connection names
     pub fn all_available_ir_connection_name() -> Vec<String> {
-        let entries = Self::all_available_ir_connection();
-        entries.iter().map(|e| e.name.clone()).collect()
+        let entries = IR_CONNECTIONS.lock().expect("IR_CONNECTIONS lock poisoned");
+        let names: Vec<String> = entries.iter().map(|e| e.name.clone()).collect();
+        if names.is_empty() {
+            warn!("No IR connections registered. IR features are disabled.");
+        }
+        names
     }
 
     /// Get an IRConnection instance by name. Returns None if not found.
@@ -34,8 +42,8 @@ impl IRConnectionManager {
         if name.is_empty() {
             return None;
         }
-        let entries = Self::all_available_ir_connection();
-        for entry in entries {
+        let entries = IR_CONNECTIONS.lock().expect("IR_CONNECTIONS lock poisoned");
+        for entry in entries.iter() {
             if entry.name == name {
                 return Some((entry.factory)());
             }
@@ -45,48 +53,32 @@ impl IRConnectionManager {
 
     /// Get the home URL for an IR by name. Returns None if not found.
     pub fn home_url(name: &str) -> Option<String> {
-        let entries = Self::all_available_ir_connection();
-        for entry in entries {
+        let entries = IR_CONNECTIONS.lock().expect("IR_CONNECTIONS lock poisoned");
+        for entry in entries.iter() {
             if entry.name == name {
                 return entry.home.clone();
             }
         }
         None
     }
-
-    fn all_available_ir_connection() -> &'static Vec<IRConnectionEntry> {
-        IR_CONNECTIONS.get_or_init(|| {
-            let mut connections = Vec::new();
-            // In Java, this scans classpath/JAR files for IRConnection implementations.
-            // In Rust, implementations must be registered manually.
-            // The LR2IRConnection is not a true IRConnection in Java either,
-            // so we don't register it here.
-            match Self::discover_ir_connections() {
-                Ok(discovered) => connections.extend(discovered),
-                Err(e) => {
-                    error!("Failed to load ir connections: {}", e);
-                }
-            }
-            connections
-        })
-    }
-
-    /// Discover IR connections. In Rust, this is a no-op placeholder.
-    /// Real implementations should call `register_ir_connection` to add entries.
-    fn discover_ir_connections() -> anyhow::Result<Vec<IRConnectionEntry>> {
-        // In Java, this scans:
-        // 1. ClassPath for classes implementing IRConnection with a NAME field
-        // 2. Custom directory JAR files
-        // In Rust, we return empty and rely on manual registration.
-        Ok(Vec::new())
-    }
 }
 
-/// Register an IR connection implementation.
-/// This must be called before `IRConnectionManager` methods are used.
+/// Register IR connection implementations.
 ///
-/// Note: Due to OnceLock, registrations after first access will be ignored.
-/// All registrations should happen at startup.
+/// Can be called at any time, including after `IRConnectionManager` methods
+/// have already been used. New entries are appended to the existing registry.
+///
+/// Duplicate names are allowed (first match wins in lookups).
 pub fn register_ir_connections(entries: Vec<IRConnectionEntry>) {
-    let _ = IR_CONNECTIONS.set(entries);
+    match IR_CONNECTIONS.lock() {
+        Ok(mut connections) => {
+            for entry in &entries {
+                log::info!("Registering IR connection: {}", entry.name);
+            }
+            connections.extend(entries);
+        }
+        Err(e) => {
+            error!("Failed to register IR connections (lock poisoned): {}", e);
+        }
+    }
 }

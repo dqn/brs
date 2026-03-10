@@ -164,8 +164,9 @@ impl MusicDownloadProcessor {
 }
 
 fn normalize_ipfs_path(path: &str) -> String {
-    if path.to_lowercase().starts_with("/ipfs/") {
-        path[5..].to_string()
+    // Case-insensitive prefix match: "/ipfs/" is 6 characters, strip to get bare CID
+    if path.len() >= 6 && path[..6].eq_ignore_ascii_case("/ipfs/") {
+        path[6..].to_string()
     } else {
         path.to_string()
     }
@@ -365,6 +366,7 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
                         let chunk_size = 1024 * 512;
                         let mut total: i64 = 0;
                         let mut offset = 0;
+                        let mut write_ok = true;
                         while offset < data.len() {
                             let end = std::cmp::min(offset + chunk_size, data.len());
                             let count = end - offset;
@@ -372,14 +374,17 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
                             *message.lock().expect("message lock poisoned") =
                                 format!("downloading:{} {}MB", path, total / 1024 / 1024);
                             if out.write_all(&data[offset..end]).is_err() {
+                                log::error!("Failed to write download data at offset {}", offset);
+                                write_ok = false;
                                 break;
                             }
                             offset = end;
                         }
-                        if out.flush().is_err() {
+                        if write_ok && out.flush().is_err() {
                             log::error!("Failed to flush output");
+                            write_ok = false;
                         }
-                        true
+                        write_ok
                     }
                     Err(_) => false,
                 }
@@ -465,13 +470,18 @@ mod tests {
 
     #[test]
     fn normalize_ipfs_path_strips_ipfs_prefix() {
-        assert_eq!(normalize_ipfs_path("/ipfs/QmMain"), "/QmMain");
-        assert_eq!(normalize_ipfs_path("/IPFS/QmUpper"), "/QmUpper");
+        assert_eq!(normalize_ipfs_path("/ipfs/QmMain"), "QmMain");
+        assert_eq!(normalize_ipfs_path("/IPFS/QmUpper"), "QmUpper");
     }
 
     #[test]
     fn normalize_ipfs_path_keeps_non_prefixed_paths() {
         assert_eq!(normalize_ipfs_path("QmMain"), "QmMain");
         assert_eq!(normalize_ipfs_path(""), String::new());
+    }
+
+    #[test]
+    fn normalize_ipfs_path_bare_prefix_only() {
+        assert_eq!(normalize_ipfs_path("/ipfs/"), "");
     }
 }

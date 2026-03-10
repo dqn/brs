@@ -80,10 +80,13 @@ impl TableBar {
             })
             .collect();
 
-        // children = levels + grades combined
-        // We cannot combine them into a Vec<Bar> without creating Bar enum variants
-        // This would require storing them differently
-        self.children = Vec::new(); // Will be populated when getChildren() is called
+        // children = levels + grades combined (same order as Java: levels first, then grades)
+        self.children = self
+            .levels
+            .iter()
+            .map(|h| Bar::Hash(Box::new(h.clone())))
+            .chain(self.grades.iter().map(|g| Bar::Grade(Box::new(g.clone()))))
+            .collect();
 
         self.td = td;
     }

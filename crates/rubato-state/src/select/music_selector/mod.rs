@@ -135,10 +135,21 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
     }
 
     fn target_score_data(&self) -> Option<&rubato_types::score_data::ScoreData> {
-        // TODO: Should resolve from config.select_settings.targetid, not just rival.
-        // When targetid is MAX/RANK_NEXT/IR target, this returns rival score instead of
-        // the configured target score. Full fix requires TargetProperty integration in select state.
-        self.selected_rival_score()
+        let targetid = &self.selector.config.select_settings.targetid;
+        if targetid.starts_with("RIVAL_") {
+            // Rival-based targets use the rival score from the selected bar
+            self.selected_rival_score()
+        } else if targetid == "MYBEST" {
+            // MYBEST target uses the player's own best score
+            self.selected_score()
+        } else if targetid.starts_with("RATE_") || targetid == "MAX" {
+            // Static rate targets use the pre-computed cached target score
+            self.selector.cached_target_score.as_ref()
+        } else {
+            // IR-based targets (IR_NEXT_*, IR_RANK_*) and RANK_NEXT cannot be
+            // resolved without MainController context; return None.
+            None
+        }
     }
 
     fn score_data_ref(&self) -> Option<&rubato_types::score_data::ScoreData> {
@@ -257,7 +268,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
             // Total notes
             350 => self.selected_song_data().map_or(0, |s| s.chart.notes),
             // System time
-            20 => 60, // placeholder FPS
+            20 => rubato_types::fps_counter::current_fps(),
             21 => {
                 let now = chrono::Local::now();
                 chrono::Datelike::year(&now)
@@ -603,6 +614,10 @@ pub struct MusicSelector {
     /// Local PlayerResource for BMS file loading in read_chart().
     /// Handed off to MainController via take_player_resource_box() during state transition.
     player_resource: Option<rubato_core::player_resource::PlayerResource>,
+
+    /// Cached target score for skin property display on the select screen.
+    /// Recomputed each frame based on config.select_settings.targetid and selected song notes.
+    cached_target_score: Option<rubato_types::score_data::ScoreData>,
 }
 
 pub static MODE: [Option<bms_model::Mode>; 8] = [

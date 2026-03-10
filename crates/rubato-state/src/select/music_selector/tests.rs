@@ -1397,10 +1397,10 @@ fn test_handle_skin_mouse_pressed_uses_selector_context() {
 
 #[test]
 fn target_score_data_returns_rival_score_when_rival_set() {
-    // Regression test: target_score_data() currently always returns the rival score,
-    // regardless of config.select_settings.targetid.
-    // TODO: Should resolve from targetid (MAX/RANK_NEXT/IR target) via TargetProperty.
+    // When targetid starts with "RIVAL_", target_score_data() returns the rival score
+    // from the selected bar.
     let mut selector = MusicSelector::new();
+    selector.config.select_settings.targetid = "RIVAL_1".to_string();
     let mut bar = make_song_bar("target-test", Some("/test/target.bms"));
     let mut rival = ScoreData::default();
     rival.clear = 7;
@@ -1438,18 +1438,22 @@ fn target_score_data_returns_none_when_no_rival_score() {
 }
 
 #[test]
-fn target_score_data_ignores_targetid_config() {
-    // Regression test: even when targetid is set to something other than rival,
-    // target_score_data() still returns the rival score.
-    // TODO: Full fix requires TargetProperty integration in select state.
+fn target_score_data_max_returns_cached_target_score() {
+    // When targetid is "MAX", target_score_data() returns the pre-computed
+    // cached target score (derived from total notes), not the rival score.
     let mut selector = MusicSelector::new();
     selector.config.select_settings.targetid = "MAX".to_string();
 
-    let mut bar = make_song_bar("targetid-test", Some("/test/targetid.bms"));
+    let mut song = make_song_data("targetid-test", Some("/test/targetid.bms"));
+    song.chart.notes = 1000;
+    let mut bar = Bar::Song(Box::new(SongBar::new(song)));
     let mut rival = ScoreData::default();
     rival.clear = 3;
     bar.set_rival_score(Some(rival));
     set_selected_bar(&mut selector, bar);
+
+    // Populate cached_target_score (normally called before render)
+    selector.refresh_cached_target_score();
 
     let mut timer = TimerManager::new();
     let ctx = SelectSkinContext {
@@ -1457,9 +1461,15 @@ fn target_score_data_ignores_targetid_config() {
         selector: &mut selector,
     };
 
-    // Current (buggy) behavior: returns rival score regardless of targetid="MAX".
-    let target = ctx.target_score_data().expect("should return rival score");
-    assert_eq!(target.clear, 3);
+    // MAX target: 100% rate -> exscore = ceil(1000 * 2 * 100 / 100) = 2000
+    // epg = 2000 / 2 = 1000, egr = 2000 % 2 = 0
+    let target = ctx
+        .target_score_data()
+        .expect("should return cached target score");
+    assert_eq!(target.judge_counts.epg, 1000);
+    assert_eq!(target.judge_counts.egr, 0);
+    // Rival score (clear=3) should NOT be returned for "MAX" target
+    assert_eq!(target.clear, 0);
 }
 
 #[test]
@@ -1477,10 +1487,11 @@ fn target_score_data_returns_none_when_no_bar_selected() {
 }
 
 #[test]
-fn target_score_data_matches_rival_score_data() {
-    // target_score_data() and rival_score_data_ref() should return the same value
-    // due to the current implementation.
+fn target_score_data_matches_rival_score_data_when_rival_target() {
+    // When targetid is "RIVAL_*", target_score_data() and rival_score_data_ref()
+    // return the same value.
     let mut selector = MusicSelector::new();
+    selector.config.select_settings.targetid = "RIVAL_1".to_string();
     let mut bar = make_song_bar("same-ref", Some("/test/same.bms"));
     let mut rival = ScoreData::default();
     rival.clear = 5;

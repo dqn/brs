@@ -262,6 +262,42 @@ impl MusicSelector {
         }
     }
 
+    /// Recompute cached_target_score based on config.select_settings.targetid
+    /// and the selected song's total notes. Called before rendering.
+    pub(super) fn refresh_cached_target_score(&mut self) {
+        let targetid = &self.config.select_settings.targetid;
+        // Only cache computed scores for static rate targets.
+        // MYBEST and RIVAL targets are resolved via existing bar data (no cache needed).
+        let rate = match targetid.as_str() {
+            "RATE_A-" => Some(100.0_f64 * 17.0 / 27.0),
+            "RATE_A" => Some(100.0_f64 * 18.0 / 27.0),
+            "RATE_A+" => Some(100.0_f64 * 19.0 / 27.0),
+            "RATE_AA-" => Some(100.0_f64 * 20.0 / 27.0),
+            "RATE_AA" => Some(100.0_f64 * 21.0 / 27.0),
+            "RATE_AA+" => Some(100.0_f64 * 22.0 / 27.0),
+            "RATE_AAA-" => Some(100.0_f64 * 23.0 / 27.0),
+            "RATE_AAA" => Some(100.0_f64 * 24.0 / 27.0),
+            "RATE_AAA+" => Some(100.0_f64 * 25.0 / 27.0),
+            "RATE_MAX-" => Some(100.0_f64 * 26.0 / 27.0),
+            "MAX" => Some(100.0_f64),
+            _ => None,
+        };
+
+        self.cached_target_score = rate.and_then(|rate| {
+            let total_notes = self
+                .manager
+                .selected()
+                .and_then(|b| b.as_song_bar())
+                .map(|sb| sb.song_data().chart.notes)?;
+            // Same formula as StaticTargetProperty::target()
+            let exscore = (total_notes as f64 * 2.0 * rate / 100.0).ceil() as i32;
+            let mut score = rubato_types::score_data::ScoreData::default();
+            score.judge_counts.epg = exscore / 2;
+            score.judge_counts.egr = exscore % 2;
+            Some(score)
+        });
+    }
+
     pub fn sort(&self) -> i32 {
         self.config.select_settings.sort
     }

@@ -201,6 +201,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
         display_mode,
         max_fps,
         last_frame_time: Instant::now(),
+        fps_tracker: rubato_types::fps_counter::FpsTracker::new(),
         initialized: false,
         key_state,
     };
@@ -234,6 +235,8 @@ struct RubatoApp {
     max_fps: i32,
     /// Last frame time for FPS capping
     last_frame_time: Instant,
+    /// FPS tracker for computing actual frame rate
+    fps_tracker: rubato_types::fps_counter::FpsTracker,
     initialized: bool,
     /// Shared key state bridging winit keyboard events to the input system
     key_state: rubato_input::winit_input_bridge::SharedKeyState,
@@ -579,6 +582,7 @@ impl RubatoApp {
             }
         }
         self.last_frame_time = Instant::now();
+        self.fps_tracker.tick();
 
         // Game logic update (timer, state render, sprite batch begin/end, input)
         self.controller.render();

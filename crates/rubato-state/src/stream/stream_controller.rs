@@ -1,4 +1,5 @@
 use std::io::{BufRead, BufReader};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -6,6 +7,8 @@ use crate::select::music_selector::MusicSelector;
 
 use super::stream_command::StreamCommand;
 use super::stream_request_command::StreamRequestCommand;
+
+type SharedCommands = Arc<Mutex<Vec<Box<dyn StreamCommand>>>>;
 
 /// Windows named pipe path for beatoraja stream commands.
 #[cfg(windows)]
@@ -24,6 +27,10 @@ pub struct StreamController {
     pub polling: Option<thread::JoinHandle<()>>,
     pub is_active: bool,
     pub selector: Arc<Mutex<MusicSelector>>,
+    /// Commands shared with the reader thread, so dispose() can reach them.
+    shared_commands: Option<SharedCommands>,
+    /// Shutdown flag: set to true by dispose() to signal reader thread exit.
+    shutdown: Arc<AtomicBool>,
 }
 
 impl StreamController {
@@ -45,6 +52,8 @@ impl StreamController {
             polling: None,
             is_active,
             selector,
+            shared_commands: None,
+            shutdown: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -85,13 +94,20 @@ impl StreamController {
         let commands: Vec<Box<dyn StreamCommand>> = std::mem::take(&mut self.commands);
         let commands = Arc::new(Mutex::new(commands));
         let commands_clone = Arc::clone(&commands);
+        let shutdown = Arc::clone(&self.shutdown);
+
+        // Keep a reference so dispose() can access commands
+        self.shared_commands = Some(Arc::clone(&commands));
 
         // In Java: busy-wait until pipeBuffer.ready()
-        // We skip this in Rust — readLine() will block anyway
+        // We skip this in Rust -- readLine() will block anyway
 
         let handle = thread::spawn(move || {
             let reader = pipe_buffer;
             for line_result in reader.lines() {
+                if shutdown.load(Ordering::SeqCst) {
+                    break;
+                }
                 match line_result {
                     Ok(line) => {
                         log::info!("Received: {}", line);
@@ -104,6 +120,11 @@ impl StreamController {
                     }
                 }
             }
+            // Thread exiting: dispose all commands
+            let mut cmds = commands_clone.lock().expect("commands_clone lock poisoned");
+            for cmd in cmds.iter_mut() {
+                cmd.dispose();
+            }
         });
 
         self.polling = Some(handle);
@@ -112,13 +133,30 @@ impl StreamController {
     }
 
     pub fn dispose(&mut self) {
+        // Signal the reader thread to stop
+        self.shutdown.store(true, Ordering::SeqCst);
+
+        // Dispose commands owned by the reader thread
+        if let Some(ref shared) = self.shared_commands
+            && let Ok(mut cmds) = shared.lock()
+        {
+            for cmd in cmds.iter_mut() {
+                cmd.dispose();
+            }
+        }
+        self.shared_commands = None;
+
         if let Some(handle) = self.polling.take() {
             // In Java: polling.interrupt(); polling = null;
+            // The reader thread will exit when the pipe is closed/EOF or on next line read
+            // after the shutdown flag is set. We drop the handle without joining to avoid
+            // blocking indefinitely on a pipe read.
             drop(handle);
         }
         // pipe_buffer is already moved or None
         self.pipe_buffer = None;
 
+        // Dispose any commands still owned by self (before run() was called)
         for cmd in self.commands.iter_mut() {
             cmd.dispose();
         }
@@ -158,19 +196,21 @@ mod tests {
     struct MockCommand {
         command_str: String,
         calls: Arc<StdMutex<Vec<String>>>,
-        disposed: bool,
+        disposed: Arc<AtomicBool>,
     }
 
     impl MockCommand {
-        fn new(command_str: &str) -> (Self, Arc<StdMutex<Vec<String>>>) {
+        fn new(command_str: &str) -> (Self, Arc<StdMutex<Vec<String>>>, Arc<AtomicBool>) {
             let calls = Arc::new(StdMutex::new(Vec::new()));
+            let disposed = Arc::new(AtomicBool::new(false));
             (
                 Self {
                     command_str: command_str.to_string(),
                     calls: Arc::clone(&calls),
-                    disposed: false,
+                    disposed: Arc::clone(&disposed),
                 },
                 calls,
+                disposed,
             )
         }
     }
@@ -185,13 +225,13 @@ mod tests {
         }
 
         fn dispose(&mut self) {
-            self.disposed = true;
+            self.disposed.store(true, Ordering::SeqCst);
         }
     }
 
     #[test]
     fn execute_commands_extracts_data_after_command_prefix() {
-        let (cmd, calls) = MockCommand::new("!!req");
+        let (cmd, calls, _disposed) = MockCommand::new("!!req");
         let mut commands: Vec<Box<dyn StreamCommand>> = vec![Box::new(cmd)];
 
         let sha256 = "a".repeat(64);
@@ -205,7 +245,7 @@ mod tests {
 
     #[test]
     fn execute_commands_passes_empty_string_when_no_match() {
-        let (cmd, calls) = MockCommand::new("!!req");
+        let (cmd, calls, _disposed) = MockCommand::new("!!req");
         let mut commands: Vec<Box<dyn StreamCommand>> = vec![Box::new(cmd)];
 
         // Line that doesn't contain "!!req "
@@ -219,7 +259,7 @@ mod tests {
 
     #[test]
     fn execute_commands_empty_line() {
-        let (cmd, calls) = MockCommand::new("!!req");
+        let (cmd, calls, _disposed) = MockCommand::new("!!req");
         let mut commands: Vec<Box<dyn StreamCommand>> = vec![Box::new(cmd)];
 
         StreamController::execute_commands(&mut commands, "");
@@ -231,8 +271,8 @@ mod tests {
 
     #[test]
     fn execute_commands_dispatches_to_multiple_commands() {
-        let (cmd1, calls1) = MockCommand::new("!!req");
-        let (cmd2, calls2) = MockCommand::new("!!play");
+        let (cmd1, calls1, _disposed1) = MockCommand::new("!!req");
+        let (cmd2, calls2, _disposed2) = MockCommand::new("!!play");
         let mut commands: Vec<Box<dyn StreamCommand>> = vec![Box::new(cmd1), Box::new(cmd2)];
 
         StreamController::execute_commands(&mut commands, "!!play some_data");

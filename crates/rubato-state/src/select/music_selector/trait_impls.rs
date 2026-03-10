@@ -318,6 +318,9 @@ impl MainState for MusicSelector {
             };
             let mut timer = std::mem::take(&mut self.main_state_data.timer);
 
+            // Refresh cached target score before creating the render context
+            self.refresh_cached_target_score();
+
             {
                 let mut ctx = SelectSkinContext {
                     timer: &mut timer,

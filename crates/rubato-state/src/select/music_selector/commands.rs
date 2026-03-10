@@ -29,6 +29,7 @@ impl MusicSelector {
             input_processor: None,
             pending_state_change: None,
             player_resource: None,
+            cached_target_score: None,
         }
     }
 

@@ -132,3 +132,6 @@ pub mod imgui_access;
 
 // Offset capabilities (shared boolean group for custom skin offsets)
 pub mod offset_capabilities;
+
+// Global FPS counter (main loop → skin property ID 20)
+pub mod fps_counter;
