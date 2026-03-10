@@ -1,5 +1,5 @@
-use super::gdx_key_name::gdx_key_name;
 use super::KeyConfiguration;
+use super::gdx_key_name::gdx_key_name;
 use crate::main_state::MainStateData;
 use crate::timer_manager::TimerManager;
 use bms_model::mode::Mode;

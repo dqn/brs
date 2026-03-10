@@ -4,8 +4,8 @@ mod ui;
 #[cfg(test)]
 mod tests;
 
-pub use constants::{PracticeColor, PracticeDrawCommand};
 use constants::{DPRANDOM, GAUGE, GRAPHTYPESTR, RANDOM};
+pub use constants::{PracticeColor, PracticeDrawCommand};
 
 use crate::bms_player_rule::BMSPlayerRule;
 use crate::gauge_property::GaugeProperty;

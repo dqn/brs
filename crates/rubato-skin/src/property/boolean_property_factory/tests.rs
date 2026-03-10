@@ -84,8 +84,7 @@ fn test_negated_boolean_property() {
     let state = BoolMockState::new(values);
 
     // Negative ID -> negated property
-    let prop =
-        boolean_property(-OPTION_GAUGE_GROOVE).expect("negated gauge_groove should exist");
+    let prop = boolean_property(-OPTION_GAUGE_GROOVE).expect("negated gauge_groove should exist");
     // Original is true, negated should be false
     assert!(!prop.get(&state));
     assert_eq!(prop.get_id(), -OPTION_GAUGE_GROOVE);
@@ -166,8 +165,7 @@ fn test_static_all_always_static() {
     let prop = boolean_property(OPTION_OFFLINE).unwrap();
     assert!(prop.is_static(&state), "OFFLINE should always be static");
 
-    let selector_state =
-        BoolMockState::new(std::collections::HashMap::new()).with_music_selector();
+    let selector_state = BoolMockState::new(std::collections::HashMap::new()).with_music_selector();
     assert!(
         prop.is_static(&selector_state),
         "OFFLINE should be static even in MusicSelector"

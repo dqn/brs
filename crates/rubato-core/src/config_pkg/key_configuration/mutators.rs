@@ -2,8 +2,8 @@ use rubato_types::play_mode_config::{
     ControllerConfig, KeyboardConfig, MidiConfig, MidiInput, PlayModeConfig,
 };
 
-use super::constants::{KEYSA, PLAYER_OFFSET};
 use super::KeyConfiguration;
+use super::constants::{KEYSA, PLAYER_OFFSET};
 
 impl KeyConfiguration {
     // -- Mutation helpers --

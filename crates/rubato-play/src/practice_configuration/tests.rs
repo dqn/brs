@@ -1,5 +1,5 @@
-use super::*;
 use super::constants::{DPRANDOM, GAUGE, GRAPHTYPESTR, RANDOM};
+use super::*;
 use bms_model::time_line::TimeLine;
 
 fn make_test_model(mode: &Mode, times: &[i32]) -> BMSModel {
@@ -326,9 +326,7 @@ fn draw_judge_counts_are_white() {
     let white_texts: Vec<_> = commands
         .iter()
         .filter_map(|c| match c {
-            PracticeDrawCommand::DrawText { text, color, .. }
-                if *color == PracticeColor::White =>
-            {
+            PracticeDrawCommand::DrawText { text, color, .. } if *color == PracticeColor::White => {
                 Some(text.clone())
             }
             _ => None,
