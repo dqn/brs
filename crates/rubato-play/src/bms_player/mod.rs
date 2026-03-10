@@ -361,8 +361,10 @@ pub struct BMSPlayer {
 }
 
 mod accessors;
+mod input_handling;
 mod main_state_impl;
 mod pattern;
+mod render_skin;
 mod scoring;
 mod skin_context;
 

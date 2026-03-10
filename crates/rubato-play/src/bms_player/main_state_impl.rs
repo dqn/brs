@@ -1,4 +1,3 @@
-use super::skin_context::{PlayMouseContext, PlayRenderContext};
 use super::*;
 
 impl MainState for BMSPlayer {
@@ -54,141 +53,15 @@ impl MainState for BMSPlayer {
     }
 
     fn render_skin(&mut self, sprite: &mut rubato_render::sprite_batch::SpriteBatch) {
-        let mut skin = match self.main_state_data.skin.take() {
-            Some(s) => s,
-            None => return,
-        };
-        let mut timer = std::mem::take(&mut self.main_state_data.timer);
-
-        // Compute note draw commands via the type-erased SkinDrawable bridge.
-        // This calls LaneRenderer::draw_lane() inside the skin to populate SkinNoteObject.draw_commands.
-        if let Some(ref mut lr) = self.lanerender {
-            let lane_count = self.model.mode().map_or(8, |m| m.key() as usize);
-            // Safety: DrawLaneContext is consumed synchronously within compute_note_draw_commands.
-            // self.model.timelines outlives the context because the function returns before
-            // self is accessed again.
-            let all_timelines: &'static [bms_model::time_line::TimeLine] =
-                unsafe { std::mem::transmute(self.model.timelines.as_slice()) };
-            let judge_table = self.judge.judge_table(false);
-            let bad_judge_time = judge_table.get(3).map_or(0, |jt| jt[1]);
-            let draw_ctx = crate::lane_renderer::DrawLaneContext {
-                time: timer.now_time(),
-                timer_play: if timer.is_timer_on(TIMER_PLAY) {
-                    Some(timer.now_time_for_id(TIMER_PLAY))
-                } else {
-                    None
-                },
-                timer_141: if timer.is_timer_on(TimerId::new(141)) {
-                    Some(timer.now_time_for_id(TimerId::new(141)))
-                } else {
-                    None
-                },
-                judge_timing: self.player_config.judge_settings.judgetiming as i64,
-                is_practice: self.state == PlayState::Practice
-                    || self.state == PlayState::PracticeFinished,
-                practice_start_time: self.practice.practice_property().starttime as i64,
-                now_time: timer.now_time(),
-                now_quarter_note_time: self
-                    .rhythm
-                    .as_ref()
-                    .map_or(0, |r| r.now_quarter_note_time()),
-                note_expansion_rate: self.play_skin.note_expansion_rate,
-                lane_group_regions: Vec::new(),
-                show_bpmguide: self.player_config.display_settings.bpmguide,
-                show_pastnote: self.player_config.display_settings.showpastnote,
-                mark_processednote: self.player_config.display_settings.markprocessednote,
-                show_hiddennote: self.player_config.display_settings.showhiddennote,
-                show_judgearea: self.player_config.display_settings.showjudgearea,
-                lntype: self.model.lntype(),
-                judge_time_regions: (0..lane_count)
-                    .map(|i| self.judge.judge_time_region(i).to_vec())
-                    .collect(),
-                processing_long_notes: (0..lane_count)
-                    .map(|i| self.judge.processing_long_note(i))
-                    .collect(),
-                passing_long_notes: (0..lane_count)
-                    .map(|i| self.judge.passing_long_note(i))
-                    .collect(),
-                hell_charge_judges: (0..lane_count)
-                    .map(|i| self.judge.hell_charge_judge(i))
-                    .collect(),
-                bad_judge_time,
-                model_bpm: self.model.bpm,
-                all_timelines,
-                forced_cn_endings: false,
-            };
-            skin.compute_note_draw_commands(lr, Box::new(draw_ctx));
-        }
-
-        {
-            let mut ctx = PlayRenderContext {
-                timer: &mut timer,
-                judge: &self.judge,
-                gauge: self.gauge.as_ref(),
-                player_config: &self.player_config,
-                option_info: &self.score.playinfo,
-                play_config: &self
-                    .player_config
-                    .play_config_ref(
-                        self.model
-                            .mode()
-                            .cloned()
-                            .unwrap_or(bms_model::mode::Mode::BEAT_7K),
-                    )
-                    .playconfig,
-                target_score: self.score.target_score.as_ref(),
-                playtime: self.playtime,
-                total_notes: self.total_notes,
-                play_mode: self.play_mode,
-                state: self.state,
-                media_load_finished: self.media_load_finished,
-            };
-            skin.update_custom_objects_timed(&mut ctx);
-            skin.swap_sprite_batch(sprite);
-            skin.draw_all_objects_timed(&mut ctx);
-            skin.swap_sprite_batch(sprite);
-        }
-
-        self.main_state_data.timer = timer;
-        self.main_state_data.skin = Some(skin);
+        self.render_skin_impl(sprite);
     }
 
     fn handle_skin_mouse_pressed(&mut self, button: i32, x: i32, y: i32) {
-        let mut skin = match self.main_state_data.skin.take() {
-            Some(s) => s,
-            None => return,
-        };
-        let mut timer = std::mem::take(&mut self.main_state_data.timer);
-
-        {
-            let mut ctx = PlayMouseContext {
-                timer: &mut timer,
-                player: self,
-            };
-            skin.mouse_pressed_at(&mut ctx, button, x, y);
-        }
-
-        self.main_state_data.timer = timer;
-        self.main_state_data.skin = Some(skin);
+        self.handle_skin_mouse_pressed_impl(button, x, y);
     }
 
     fn handle_skin_mouse_dragged(&mut self, button: i32, x: i32, y: i32) {
-        let mut skin = match self.main_state_data.skin.take() {
-            Some(s) => s,
-            None => return,
-        };
-        let mut timer = std::mem::take(&mut self.main_state_data.timer);
-
-        {
-            let mut ctx = PlayMouseContext {
-                timer: &mut timer,
-                player: self,
-            };
-            skin.mouse_dragged_at(&mut ctx, button, x, y);
-        }
-
-        self.main_state_data.timer = timer;
-        self.main_state_data.skin = Some(skin);
+        self.handle_skin_mouse_dragged_impl(button, x, y);
     }
 
     fn create(&mut self) {
@@ -1031,155 +904,19 @@ impl MainState for BMSPlayer {
     }
 
     fn input(&mut self) {
-        // Compute values before taking mutable borrows
-        let is_note_end = self.is_note_end();
-        let is_timer_play_on = self.main_state_data.timer.is_timer_on(TIMER_PLAY);
-        let now_millis = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64;
-
-        // Process control input (START+SELECT, lane cover, hispeed, etc.)
-        if let (Some(mut control), Some(lanerender)) =
-            (self.input.control.take(), self.lanerender.as_mut())
-        {
-            let pending_analog_resets = &mut self.input.pending_analog_resets;
-            let input_analog_recent_ms = &mut self.input.input_analog_recent_ms;
-            let input_analog_diff_ticks = &mut self.input.input_analog_diff_ticks;
-            let mut analog_diff_and_reset = |key: usize, ms_tolerance: i32| -> i32 {
-                if key >= input_analog_recent_ms.len() || key >= input_analog_diff_ticks.len() {
-                    return 0;
-                }
-                let d_ticks = if input_analog_recent_ms[key] <= ms_tolerance as i64 {
-                    0.max(input_analog_diff_ticks[key])
-                } else {
-                    0
-                };
-                input_analog_recent_ms[key] = i64::MAX;
-                input_analog_diff_ticks[key] = 0;
-                if !pending_analog_resets.contains(&key) {
-                    pending_analog_resets.push(key);
-                }
-                d_ticks
-            };
-            let mut ctx = crate::control_input_processor::ControlInputContext {
-                lanerender,
-                start_pressed: self.input.input_start_pressed,
-                select_pressed: self.input.input_select_pressed,
-                control_key_up: self.input.control_key_up,
-                control_key_down: self.input.control_key_down,
-                control_key_escape_pressed: self.input.control_key_escape_pressed,
-                control_key_num1: self.input.control_key_num1,
-                control_key_num2: self.input.control_key_num2,
-                control_key_num3: self.input.control_key_num3,
-                control_key_num4: self.input.control_key_num4,
-                key_states: &self.input.input_key_states,
-                scroll: self.input.input_scroll,
-                is_analog: &self.input.input_is_analog,
-                analog_diff_and_reset: &mut analog_diff_and_reset,
-                is_timer_play_on,
-                is_note_end,
-                window_hold: self.player_config.select_settings.is_window_hold,
-                autoplay_mode: self.play_mode.mode,
-                now_millis,
-            };
-
-            let result = control.input(&mut ctx);
-
-            // Apply result actions
-            if let Some(speed) = result.play_speed {
-                self.set_play_speed(speed);
-            }
-            if result.clear_start {
-                self.input.input_start_pressed = false;
-            }
-            if result.clear_select {
-                self.input.input_select_pressed = false;
-            }
-            if result.reset_scroll {
-                self.input.input_scroll = 0;
-            }
-            if result.stop_play {
-                // Restore control before stopping (stop_play may need it)
-                self.input.control = Some(control);
-                self.stop_play();
-            } else {
-                self.input.control = Some(control);
-            }
-        }
-
-        // Build InputContext for key input processing.
-        let auto_presstime = self.judge.auto_presstime().to_vec();
-        let now = self.main_state_data.timer.now_time();
-        let is_autoplay = self.play_mode.mode == rubato_core::bms_player_mode::Mode::Autoplay;
-        if let Some(ref mut keyinput) = self.input.keyinput {
-            let mut ctx = crate::key_input_processor::InputContext {
-                now,
-                key_states: &self.input.input_key_states,
-                auto_presstime: &auto_presstime,
-                is_autoplay,
-                timer: &mut self.main_state_data.timer,
-            };
-            keyinput.input(&mut ctx);
-        }
+        self.input_impl();
     }
 
     fn sync_input_from(&mut self, input: &BMSPlayerInputProcessor) {
-        self.input.input_start_pressed = input.start_pressed();
-        self.input.input_select_pressed = input.is_select_pressed();
-        self.input.input_key_states.clear();
-        self.input
-            .input_key_states
-            .extend((0..KEYSTATE_SIZE as i32).map(|i| input.key_state(i)));
-        self.input.input_key_changed_times.clear();
-        self.input
-            .input_key_changed_times
-            .extend((0..KEYSTATE_SIZE as i32).map(|i| input.key_changed_time(i)));
-        self.input.control_key_up = input.control_key_state(ControlKeys::Up);
-        self.input.control_key_down = input.control_key_state(ControlKeys::Down);
-        self.input.control_key_left = input.control_key_state(ControlKeys::Left);
-        self.input.control_key_right = input.control_key_state(ControlKeys::Right);
-        self.input.control_key_escape_pressed = input.control_key_state(ControlKeys::Escape);
-        self.input.control_key_num1 = input.control_key_state(ControlKeys::Num1);
-        self.input.control_key_num2 = input.control_key_state(ControlKeys::Num2);
-        self.input.control_key_num3 = input.control_key_state(ControlKeys::Num3);
-        self.input.control_key_num4 = input.control_key_state(ControlKeys::Num4);
-        self.input.input_scroll = input.scroll();
-        self.input.input_is_analog.clear();
-        self.input
-            .input_is_analog
-            .extend((0..KEYSTATE_SIZE).map(|i| input.is_analog_input(i)));
-        self.input.input_analog_diff_ticks.clear();
-        self.input
-            .input_analog_diff_ticks
-            .extend((0..KEYSTATE_SIZE).map(|i| input.analog_diff(i)));
-        self.input.input_analog_recent_ms.clear();
-        self.input
-            .input_analog_recent_ms
-            .extend((0..KEYSTATE_SIZE).map(|i| input.time_since_last_analog_reset(i)));
-        self.input.pending_analog_resets.clear();
-        self.device_type = input.device_type();
+        self.sync_input_from_impl(input);
     }
 
     fn sync_input_back_to(&mut self, input: &mut BMSPlayerInputProcessor) {
-        if !self.input.input_start_pressed {
-            input.start_changed(false);
-        }
-        if !self.input.input_select_pressed {
-            input.select_pressed = false;
-        }
-        if self.input.input_scroll == 0 {
-            input.reset_scroll();
-        }
-        for key in self.input.pending_analog_resets.drain(..) {
-            input.reset_analog_input(key);
-        }
+        self.sync_input_back_to_impl(input);
     }
 
     fn sync_audio(&mut self, audio: &mut dyn rubato_audio::audio_driver::AudioDriver) {
-        for cmd in self.drain_pending_bg_notes() {
-            audio.play_note(&cmd.note, cmd.volume, 0);
-        }
+        self.sync_audio_impl(audio);
     }
 
     fn pause(&mut self) {

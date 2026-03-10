@@ -1,4 +1,34 @@
-fn set_click_event_from_type(obj: &mut SkinObject, obj_type: &SkinObjectType) {
+use std::collections::HashMap;
+use std::path::Path;
+
+use log::{debug, warn};
+
+use crate::graphs::skin_bpm_graph::SkinBPMGraph;
+use crate::graphs::skin_graph::SkinGraph;
+use crate::graphs::skin_hit_error_visualizer::SkinHitErrorVisualizer;
+use crate::graphs::skin_note_distribution_graph::SkinNoteDistributionGraph;
+use crate::graphs::skin_timing_distribution_graph::SkinTimingDistributionGraph;
+use crate::graphs::skin_timing_visualizer::SkinTimingVisualizer;
+use crate::json::json_skin_loader::{SkinObjectType, SourceData};
+use crate::json::json_skin_object_loader::source_image;
+use crate::objects::skin_bga_object::SkinBgaObject;
+use crate::objects::skin_gauge::SkinGauge;
+use crate::objects::skin_gauge_graph_object::SkinGaugeGraphObject;
+use crate::objects::skin_hidden::SkinHidden;
+use crate::objects::skin_image::SkinImage;
+use crate::objects::skin_judge_object::SkinJudgeObject;
+use crate::objects::skin_note_object::SkinNoteObject;
+use crate::objects::skin_number::{NumberDisplayConfig, SkinNumber};
+use crate::objects::skin_slider::SkinSlider;
+use crate::property::string_property_factory;
+use crate::stubs::{SkinOffset, TextureRegion};
+use crate::text::skin_text_font::SkinTextFont;
+use crate::types::skin::SkinObject;
+use crate::types::skin_bar_object::SkinBarObject;
+
+use super::texture_resolution::{get_texture_for_src, resolve_image_set};
+
+pub(super) fn set_click_event_from_type(obj: &mut SkinObject, obj_type: &SkinObjectType) {
     match obj_type {
         SkinObjectType::Image {
             act: Some(act_id),
@@ -21,7 +51,7 @@ fn set_click_event_from_type(obj: &mut SkinObject, obj_type: &SkinObjectType) {
 }
 
 /// Converts a SkinObjectType into a SkinObject.
-fn convert_skin_object(
+pub(super) fn convert_skin_object(
     obj_type: &SkinObjectType,
     source_map: &mut HashMap<String, SourceData>,
     skin_path: &Path,
@@ -157,14 +187,7 @@ fn convert_skin_object(
                 if let Some(val) = value {
                     SkinNumber::new_with_int_timer(pn, Some(mn), timer_val, *cycle, config, *val)
                 } else {
-                    SkinNumber::new_with_int_timer(
-                        pn,
-                        Some(mn),
-                        timer_val,
-                        *cycle,
-                        config,
-                        *ref_id,
-                    )
+                    SkinNumber::new_with_int_timer(pn, Some(mn), timer_val, *cycle, config, *ref_id)
                 }
             } else {
                 // 10 or 11 digit images
@@ -506,8 +529,8 @@ fn convert_skin_object(
             transparent,
             draw_decay,
         } => {
-            let viz =
-                SkinHitErrorVisualizer::new(crate::skin_hit_error_visualizer::HitErrorVisualizerConfig {
+            let viz = SkinHitErrorVisualizer::new(
+                crate::skin_hit_error_visualizer::HitErrorVisualizerConfig {
                     width: *width,
                     judge_width_millis: *judge_width_millis,
                     line_width: *line_width,
@@ -526,7 +549,8 @@ fn convert_skin_object(
                     window_length: *window_length,
                     transparent: *transparent,
                     draw_decay: *draw_decay,
-                });
+                },
+            );
             Some(SkinObject::HitErrorVisualizer(viz))
         }
 
@@ -736,226 +760,9 @@ fn convert_skin_object(
     }
 }
 
-/// Loads a texture from the source map, resolving the source ID path.
-fn get_texture_for_src(
-    src_id: Option<&str>,
-    source_map: &mut HashMap<String, SourceData>,
-    skin_path: &Path,
-    _usecim: bool,
-) -> Option<crate::stubs::Texture> {
-    let src_id = src_id?;
-
-    // Check if already loaded
-    if let Some(data) = source_map.get(src_id) {
-        if data.loaded {
-            return match &data.data {
-                Some(SourceDataType::Texture(tex)) => Some(tex.clone()),
-                _ => None,
-            };
-        }
-    } else {
-        return None;
-    }
-
-    // Load the texture
-    let data_path = source_map.get(src_id)?.path.clone();
-    let parent = skin_path
-        .parent()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default();
-    let image_path = format!("{}/{}", parent, data_path);
-
-    let result = if std::path::Path::new(&image_path).exists() {
-        Some(SourceDataType::Texture(crate::stubs::Texture::new(
-            &image_path,
-        )))
-    } else {
-        None
-    };
-
-    let tex_result = match &result {
-        Some(SourceDataType::Texture(tex)) => Some(tex.clone()),
-        _ => None,
-    };
-
-    // Cache the result
-    if let Some(data) = source_map.get_mut(src_id) {
-        data.data = result;
-        data.loaded = true;
-    }
-
-    tex_result
-}
-
-/// Resolve an ImageSet into a multi-source SkinImage with actual textures.
-/// Each entry in the set is looked up and its texture resolved from source_map.
-fn resolve_image_set(
-    entries: &[ResolvedImageEntry],
-    ref_id: i32,
-    source_map: &mut HashMap<String, SourceData>,
-    skin_path: &Path,
-    usecim: bool,
-) -> Option<SkinObject> {
-    if entries.is_empty() {
-        return None;
-    }
-    let images: Vec<Vec<TextureRegion>> = entries
-        .iter()
-        .filter_map(|entry| {
-            let tex = get_texture_for_src(entry.src.as_deref(), source_map, skin_path, usecim)?;
-            Some(source_image(
-                &tex, entry.x, entry.y, entry.w, entry.h, entry.divx, entry.divy,
-            ))
-        })
-        .collect();
-    if images.is_empty() {
-        return None;
-    }
-    Some(SkinObject::Image(SkinImage::new_with_int_timer_ref_id(
-        images, 0, 0, ref_id,
-    )))
-}
-
-/// Build SelectBarData from resolved JSON SongList bar sub-objects.
-/// Each sub-SkinObjectData is converted to the appropriate skin type
-/// (SkinImage, SkinNumber, SkinTextFont) and stored in SelectBarData.
-fn build_select_bar_data(
-    bar_data: &SongListBarData,
-    center: i32,
-    clickable: &[i32],
-    source_map: &mut HashMap<String, SourceData>,
-    skin_path: &Path,
-    usecim: bool,
-    scale_y: f32,
-) -> crate::select_bar_data::SelectBarData {
-    crate::select_bar_data::SelectBarData {
-        barimageon: convert_bar_sub_images(
-            &bar_data.liston,
-            source_map,
-            skin_path,
-            usecim,
-            scale_y,
-        ),
-        barimageoff: convert_bar_sub_images(
-            &bar_data.listoff,
-            source_map,
-            skin_path,
-            usecim,
-            scale_y,
-        ),
-        center_bar: center,
-        clickable_bar: clickable.to_vec(),
-        barlevel: convert_bar_sub_numbers(&bar_data.level, source_map, skin_path, usecim, scale_y),
-        bartext: convert_bar_sub_text(&bar_data.text, source_map, skin_path, usecim, scale_y),
-        barlamp: convert_bar_sub_images(&bar_data.lamp, source_map, skin_path, usecim, scale_y),
-        barmylamp: convert_bar_sub_images(
-            &bar_data.playerlamp,
-            source_map,
-            skin_path,
-            usecim,
-            scale_y,
-        ),
-        barrivallamp: convert_bar_sub_images(
-            &bar_data.rivallamp,
-            source_map,
-            skin_path,
-            usecim,
-            scale_y,
-        ),
-        bartrophy: convert_bar_sub_images(&bar_data.trophy, source_map, skin_path, usecim, scale_y),
-        barlabel: convert_bar_sub_images(&bar_data.label, source_map, skin_path, usecim, scale_y),
-        // Known rendering gap: songlist.graph from JSON select skins is not propagated.
-        // Fix: resolve bar_data.graph into graph_type/graph_images/graph_region here.
-        graph_type: None,
-        graph_images: None,
-        graph_region: crate::stubs::Rectangle::default(),
-    }
-}
-
-fn convert_bar_sub_images(
-    objs: &[Option<LoaderSkinObjectData>],
-    source_map: &mut HashMap<String, SourceData>,
-    skin_path: &Path,
-    usecim: bool,
-    scale_y: f32,
-) -> Vec<Option<SkinImage>> {
-    objs.iter()
-        .map(|opt_obj| {
-            let obj_data = opt_obj.as_ref()?;
-            let skin_obj = convert_skin_object(
-                &obj_data.object_type,
-                source_map,
-                skin_path,
-                usecim,
-                scale_y,
-            )?;
-            if let SkinObject::Image(mut img) = skin_obj {
-                apply_destinations(&mut img.data, &obj_data.destinations);
-                Some(img)
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-fn convert_bar_sub_text(
-    objs: &[Option<LoaderSkinObjectData>],
-    source_map: &mut HashMap<String, SourceData>,
-    skin_path: &Path,
-    usecim: bool,
-    scale_y: f32,
-) -> Vec<Option<crate::skin_text::SkinTextEnum>> {
-    objs.iter()
-        .map(|opt_obj| {
-            let obj_data = opt_obj.as_ref()?;
-            let skin_obj = convert_skin_object(
-                &obj_data.object_type,
-                source_map,
-                skin_path,
-                usecim,
-                scale_y,
-            )?;
-            if let SkinObject::TextFont(mut stf) = skin_obj {
-                apply_destinations(&mut stf.text_data.data, &obj_data.destinations);
-                Some(crate::skin_text::SkinTextEnum::Font(stf))
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-fn convert_bar_sub_numbers(
-    objs: &[Option<LoaderSkinObjectData>],
-    source_map: &mut HashMap<String, SourceData>,
-    skin_path: &Path,
-    usecim: bool,
-    scale_y: f32,
-) -> Vec<Option<SkinNumber>> {
-    objs.iter()
-        .map(|opt_obj| {
-            let obj_data = opt_obj.as_ref()?;
-            let skin_obj = convert_skin_object(
-                &obj_data.object_type,
-                source_map,
-                skin_path,
-                usecim,
-                scale_y,
-            )?;
-            if let SkinObject::Number(mut num) = skin_obj {
-                apply_destinations(&mut num.data, &obj_data.destinations);
-                Some(num)
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
 /// Apply destination data from loader DestinationData to a runtime SkinObjectData.
 /// Sets the initial position/size from the destination keyframes.
-fn apply_destinations(
+pub(super) fn apply_destinations(
     data: &mut crate::skin_object::SkinObjectData,
     destinations: &[crate::json::json_skin_loader::DestinationData],
 ) {
@@ -983,4 +790,3 @@ fn apply_destinations(
         );
     }
 }
-

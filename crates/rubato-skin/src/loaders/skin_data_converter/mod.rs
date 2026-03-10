@@ -1,47 +1,31 @@
 // SkinData -> Skin converter (Phase 26b)
 // Converts the intermediate SkinData representation into the runtime Skin object.
 
+mod bar_data_converter;
+mod object_converter;
+mod texture_resolution;
+
 use std::collections::HashMap;
 use std::path::Path;
 
-use log::{debug, warn};
-
 use crate::core::custom_event::CustomEvent;
 use crate::core::custom_timer::CustomTimer;
-use crate::graphs::skin_bpm_graph::SkinBPMGraph;
-use crate::graphs::skin_graph::SkinGraph;
-use crate::graphs::skin_hit_error_visualizer::SkinHitErrorVisualizer;
-use crate::graphs::skin_note_distribution_graph::SkinNoteDistributionGraph;
-use crate::graphs::skin_timing_distribution_graph::SkinTimingDistributionGraph;
-use crate::graphs::skin_timing_visualizer::SkinTimingVisualizer;
 use crate::json::json_skin_loader::{
-    CustomCategoryData, CustomItemData, ResolvedImageEntry, SkinData, SkinHeaderData,
-    SkinObjectData as LoaderSkinObjectData, SkinObjectType, SongListBarData, SourceData,
-    SourceDataType,
+    CustomCategoryData, CustomItemData, SkinData, SkinHeaderData, SkinObjectType, SourceData,
 };
-use crate::json::json_skin_object_loader::source_image;
-use crate::objects::skin_bga_object::SkinBgaObject;
-use crate::objects::skin_gauge::SkinGauge;
-use crate::objects::skin_gauge_graph_object::SkinGaugeGraphObject;
-use crate::objects::skin_hidden::SkinHidden;
-use crate::objects::skin_image::SkinImage;
-use crate::objects::skin_judge_object::SkinJudgeObject;
-use crate::objects::skin_note_object::SkinNoteObject;
-use crate::objects::skin_number::{NumberDisplayConfig, SkinNumber};
-use crate::objects::skin_slider::SkinSlider;
 use crate::property::boolean_property_factory;
 use crate::property::event_factory;
-use crate::property::string_property_factory;
 use crate::property::timer_property_factory;
-use crate::stubs::{Resolution, SkinConfigOffset, SkinOffset, TextureRegion};
-use crate::text::skin_text_font::SkinTextFont;
-use crate::types::skin::{Skin, SkinObject};
-use crate::types::skin_bar_object::SkinBarObject;
+use crate::stubs::{Resolution, SkinConfigOffset};
+use crate::types::skin::Skin;
 use crate::types::skin_header::{
     CustomCategory, CustomFile, CustomItemEnum, CustomOffset, CustomOption, SkinHeader,
 };
 use crate::types::skin_object::DestinationParams;
 use crate::types::skin_type::SkinType;
+
+use bar_data_converter::build_select_bar_data;
+use object_converter::{convert_skin_object, set_click_event_from_type};
 
 /// Converts SkinHeaderData into a SkinHeader.
 pub fn convert_header_data(
@@ -373,8 +357,6 @@ pub fn convert_skin_data(
 
     Some(skin)
 }
-
-include!("object_converter.rs");
 
 #[cfg(test)]
 mod tests;
