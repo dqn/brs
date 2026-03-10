@@ -27,6 +27,15 @@ use rubato_core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDA
 mod render_context;
 mod score_handler;
 
+/// IR send result: (succeeded, had_sends, ranking_scores, newscore_clone, old_exscore).
+type IrSendResult = (
+    bool,
+    bool,
+    Option<Vec<rubato_ir::ir_score_data::IRScoreData>>,
+    Option<ScoreData>,
+    i32,
+);
+
 use render_context::*;
 use score_handler::*;
 
@@ -143,176 +152,225 @@ impl CourseResult {
         };
         self.data.ranking_offset = 0;
 
+        self.process_ir_scores(&newscore);
+        self.play_result_sound(&newscore);
+    }
+
+    /// Send scores to IR servers in a background thread and fetch ranking data.
+    /// Translates: CourseResult.prepare() IR block (Java lines ~200-290)
+    fn process_ir_scores(&mut self, newscore: &Option<ScoreData>) {
         let ir = self.main.ir_status();
-        if !ir.is_empty() && self.resource.play_mode().mode == BMSPlayerModeType::Play {
-            self.data.state = STATE_IR_PROCESSING;
-
-            let mut uln = false;
-            if let Some(models) = self.resource.course_bms_models() {
-                for model in models {
-                    if model.contains_undefined_long_note() {
-                        uln = true;
-                        break;
-                    }
-                }
-            }
-            let lnmode = if uln {
-                self.resource.player_config().play_settings.lnmode
-            } else {
-                0
-            };
-
-            for irc in ir {
-                let send = self.resource.is_update_course_score()
-                    && !self.resource.is_force_no_ir_send()
-                    && self
-                        .resource
-                        .course_data()
-                        .map(|cd| cd.release)
-                        .unwrap_or(false);
-                match irc.config.irsend {
-                    IR_SEND_ALWAYS => {}
-                    IR_SEND_COMPLETE_SONG => {
-                        // commented out in Java
-                    }
-                    IR_SEND_UPDATE_SCORE => {
-                        // commented out in Java
-                    }
-                    _ => {}
-                }
-
-                if send
-                    && let Some(ref ns) = newscore
-                    && let Some(course_data) = self.resource.course_data()
-                {
-                    self.ir_send_status.push(CourseIRSendStatus::new(
-                        irc.connection.clone(),
-                        course_data,
-                        lnmode,
-                        ns,
-                    ));
-                }
-            }
-
-            // IR processing in background thread (Java spawns a Thread)
-            let ir_send_count = self.main.config().network.ir_send_count;
-            if !self.ir_send_status.is_empty() {
-                self.data
-                    .timer
-                    .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_BEGIN, true);
-            }
-
-            // Move statuses into the thread
-            let mut statuses = std::mem::take(&mut self.ir_send_status);
-            let ir_connection = self.main.ir_status().first().map(|s| s.connection.clone());
-            let course_data_for_ranking = self.resource.course_data().cloned();
-            let oldscore_exscore = self.data.oldscore.exscore();
-            let newscore_clone = newscore.clone();
-
-            let (tx, rx) = std::sync::mpsc::channel();
-
-            std::thread::spawn(move || {
-                let mut succeed = true;
-                let mut irsend = 0;
-                let mut remove_indices: Vec<usize> = Vec::new();
-                for (idx, status) in statuses.iter_mut().enumerate() {
-                    irsend += 1;
-                    let send_ok = status.send();
-                    succeed &= send_ok;
-                    if status.retry < 0 || status.retry > ir_send_count {
-                        remove_indices.push(idx);
-                    }
-                }
-                for idx in remove_indices.into_iter().rev() {
-                    statuses.remove(idx);
-                }
-
-                // Fetch ranking from IR
-                let mut ranking_result = None;
-                if irsend > 0
-                    && let Some(ref conn) = ir_connection
-                    && let Some(ref cd) = course_data_for_ranking
-                {
-                    let ir_course_data = IRCourseData::new_with_lntype(cd, lnmode);
-                    let response = conn.get_course_play_data(None, &ir_course_data);
-                    if response.is_succeeded() {
-                        ranking_result = response.data().cloned();
-                        info!("IR score fetch succeeded: {}", response.message);
-                    } else {
-                        warn!("IR score fetch failed: {}", response.message);
-                    }
-                }
-
-                let _ = tx.send((
-                    succeed,
-                    irsend > 0,
-                    ranking_result,
-                    newscore_clone,
-                    oldscore_exscore,
-                ));
-            });
-
-            // Block briefly to receive results (matches Java's thread.join() behavior)
-            if let Ok((succeed, had_sends, ranking_scores, ns_clone, old_exscore)) = rx.recv()
-                && had_sends
-            {
-                if succeed {
-                    self.data
-                        .timer
-                        .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_SUCCESS, true);
-                } else {
-                    self.data
-                        .timer
-                        .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_FAIL, true);
-                }
-                if let Some(ir_scores) = ranking_scores {
-                    let use_newscore = ns_clone
-                        .as_ref()
-                        .map(|ns| ns.exscore() > old_exscore)
-                        .unwrap_or(false);
-                    let score_for_rank: Option<&rubato_core::score_data::ScoreData> =
-                        if use_newscore {
-                            ns_clone.as_ref()
-                        } else {
-                            Some(&self.data.oldscore)
-                        };
-                    if let Some(ref mut ranking) = self.data.ranking {
-                        ranking.update_score(&ir_scores, score_for_rank);
-                        if ranking.rank() > 10 {
-                            self.data.ranking_offset = ranking.rank() - 5;
-                        } else {
-                            self.data.ranking_offset = 0;
-                        }
-                    }
-                }
-            }
-            self.data.state = STATE_IR_FINISHED;
+        if ir.is_empty() || self.resource.play_mode().mode != BMSPlayerModeType::Play {
+            return;
         }
 
-        // Play result sound
-        if let Some(ref ns) = newscore {
-            let is_clear = ns.clear != ClearType::Failed.id();
-            let loop_sound = self
-                .resource
-                .config()
-                .audio
-                .as_ref()
-                .map(|ac| ac.is_loop_course_result_sound)
-                .unwrap_or(false);
-            if is_clear {
-                let sound = if self.main.sound_path(&SoundType::CourseClear).is_some() {
-                    SoundType::CourseClear
+        self.data.state = STATE_IR_PROCESSING;
+
+        let lnmode = self.determine_ir_lnmode();
+
+        for irc in ir {
+            let send = self.resource.is_update_course_score()
+                && !self.resource.is_force_no_ir_send()
+                && self
+                    .resource
+                    .course_data()
+                    .map(|cd| cd.release)
+                    .unwrap_or(false);
+            match irc.config.irsend {
+                IR_SEND_ALWAYS => {}
+                IR_SEND_COMPLETE_SONG => {
+                    // commented out in Java
+                }
+                IR_SEND_UPDATE_SCORE => {
+                    // commented out in Java
+                }
+                _ => {}
+            }
+
+            if send
+                && let Some(ns) = newscore
+                && let Some(course_data) = self.resource.course_data()
+            {
+                self.ir_send_status.push(CourseIRSendStatus::new(
+                    irc.connection.clone(),
+                    course_data,
+                    lnmode,
+                    ns,
+                ));
+            }
+        }
+
+        let ir_send_count = self.main.config().network.ir_send_count;
+        if !self.ir_send_status.is_empty() {
+            self.data
+                .timer
+                .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_BEGIN, true);
+        }
+
+        // Move statuses into the thread
+        let mut statuses = std::mem::take(&mut self.ir_send_status);
+        let ir_connection = self.main.ir_status().first().map(|s| s.connection.clone());
+        let course_data_for_ranking = self.resource.course_data().cloned();
+        let oldscore_exscore = self.data.oldscore.exscore();
+        let newscore_clone = newscore.clone();
+
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        std::thread::spawn(move || {
+            let mut succeed = true;
+            let mut irsend = 0;
+            let mut remove_indices: Vec<usize> = Vec::new();
+            for (idx, status) in statuses.iter_mut().enumerate() {
+                irsend += 1;
+                let send_ok = status.send();
+                succeed &= send_ok;
+                if status.retry < 0 || status.retry > ir_send_count {
+                    remove_indices.push(idx);
+                }
+            }
+            for idx in remove_indices.into_iter().rev() {
+                statuses.remove(idx);
+            }
+
+            // Fetch ranking from IR
+            let mut ranking_result = None;
+            if irsend > 0
+                && let Some(ref conn) = ir_connection
+                && let Some(ref cd) = course_data_for_ranking
+            {
+                let ir_course_data = IRCourseData::new_with_lntype(cd, lnmode);
+                let response = conn.get_course_play_data(None, &ir_course_data);
+                if response.is_succeeded() {
+                    ranking_result = response.data().cloned();
+                    info!("IR score fetch succeeded: {}", response.message);
                 } else {
-                    SoundType::ResultClear
-                };
-                self.main.play_sound(&sound, loop_sound);
+                    warn!("IR score fetch failed: {}", response.message);
+                }
+            }
+
+            let _ = tx.send((
+                succeed,
+                irsend > 0,
+                ranking_result,
+                newscore_clone,
+                oldscore_exscore,
+            ));
+        });
+
+        self.apply_ir_results(rx);
+        self.data.state = STATE_IR_FINISHED;
+    }
+
+    /// Determine LN mode for IR based on whether models contain undefined long notes.
+    fn determine_ir_lnmode(&self) -> i32 {
+        let has_uln = self
+            .resource
+            .course_bms_models()
+            .map(|models| models.iter().any(|m| m.contains_undefined_long_note()))
+            .unwrap_or(false);
+        if has_uln {
+            self.resource.player_config().play_settings.lnmode
+        } else {
+            0
+        }
+    }
+
+    /// Block to receive IR thread results and update ranking/timer state.
+    fn apply_ir_results(&mut self, rx: std::sync::mpsc::Receiver<IrSendResult>) {
+        if let Ok((succeed, had_sends, ranking_scores, ns_clone, old_exscore)) = rx.recv()
+            && had_sends
+        {
+            if succeed {
+                self.data
+                    .timer
+                    .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_SUCCESS, true);
             } else {
-                let sound = if self.main.sound_path(&SoundType::CourseFail).is_some() {
-                    SoundType::CourseFail
+                self.data
+                    .timer
+                    .switch_timer(rubato_skin::skin_property::TIMER_IR_CONNECT_FAIL, true);
+            }
+            if let Some(ir_scores) = ranking_scores {
+                let use_newscore = ns_clone
+                    .as_ref()
+                    .map(|ns| ns.exscore() > old_exscore)
+                    .unwrap_or(false);
+                let score_for_rank: Option<&rubato_core::score_data::ScoreData> = if use_newscore {
+                    ns_clone.as_ref()
                 } else {
-                    SoundType::ResultFail
+                    Some(&self.data.oldscore)
                 };
-                self.main.play_sound(&sound, loop_sound);
+                if let Some(ref mut ranking) = self.data.ranking {
+                    ranking.update_score(&ir_scores, score_for_rank);
+                    if ranking.rank() > 10 {
+                        self.data.ranking_offset = ranking.rank() - 5;
+                    } else {
+                        self.data.ranking_offset = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Play the appropriate result sound (clear/fail) with course-specific fallback.
+    fn play_result_sound(&mut self, newscore: &Option<ScoreData>) {
+        let Some(ns) = newscore else {
+            return;
+        };
+        let is_clear = ns.clear != ClearType::Failed.id();
+        let loop_sound = self
+            .resource
+            .config()
+            .audio
+            .as_ref()
+            .map(|ac| ac.is_loop_course_result_sound)
+            .unwrap_or(false);
+        let sound = if is_clear {
+            self.select_course_sound(SoundType::CourseClear, SoundType::ResultClear)
+        } else {
+            self.select_course_sound(SoundType::CourseFail, SoundType::ResultFail)
+        };
+        self.main.play_sound(&sound, loop_sound);
+    }
+
+    /// Select course-specific sound, falling back to the generic result sound.
+    fn select_course_sound(&self, course: SoundType, fallback: SoundType) -> SoundType {
+        if self.main.sound_path(&course).is_some() {
+            course
+        } else {
+            fallback
+        }
+    }
+
+    /// Check if a replay save key (Num1-4) was pressed and return the replay slot index.
+    fn get_replay_index_from_input(&mut self) -> Option<usize> {
+        let input_processor = self.main.input_processor();
+        if input_processor.is_control_key_pressed(ControlKeys::Num1) {
+            Some(0)
+        } else if input_processor.is_control_key_pressed(ControlKeys::Num2) {
+            Some(1)
+        } else if input_processor.is_control_key_pressed(ControlKeys::Num3) {
+            Some(2)
+        } else if input_processor.is_control_key_pressed(ControlKeys::Num4) {
+            Some(3)
+        } else {
+            None
+        }
+    }
+
+    /// Open the IR URL for the current course if the OpenIr command was activated.
+    fn try_open_ir_url(&mut self) {
+        let input_processor = self.main.input_processor();
+        if !input_processor.is_activated(KeyCommand::OpenIr) {
+            return;
+        }
+        if let Some(ir_status) = self.main.ir_status().first()
+            && let Some(coursedata) = self.resource.course_data()
+        {
+            let course = rubato_ir::ir_course_data::IRCourseData::new(coursedata);
+            if let Some(url) = ir_status.connection.get_course_url(&course)
+                && let Err(e) = open::that(&url)
+            {
+                log::error!("Failed to open IR URL: {}", e);
             }
         }
     }
@@ -408,39 +466,11 @@ impl CourseResult {
                 // play close sound
             }
 
-            let replay_index = {
-                let input_processor = self.main.input_processor();
-                if input_processor.is_control_key_pressed(ControlKeys::Num1) {
-                    Some(0)
-                } else if input_processor.is_control_key_pressed(ControlKeys::Num2) {
-                    Some(1)
-                } else if input_processor.is_control_key_pressed(ControlKeys::Num3) {
-                    Some(2)
-                } else if input_processor.is_control_key_pressed(ControlKeys::Num4) {
-                    Some(3)
-                } else {
-                    None
-                }
-            };
-            if let Some(idx) = replay_index {
+            if let Some(idx) = self.get_replay_index_from_input() {
                 self.save_replay_data(idx);
             }
 
-            let open_ir = {
-                let input_processor = self.main.input_processor();
-                input_processor.is_activated(KeyCommand::OpenIr)
-            };
-            if open_ir
-                && let Some(ir_status) = self.main.ir_status().first()
-                && let Some(coursedata) = self.resource.course_data()
-            {
-                let course = rubato_ir::ir_course_data::IRCourseData::new(coursedata);
-                if let Some(url) = ir_status.connection.get_course_url(&course)
-                    && let Err(e) = open::that(&url)
-                {
-                    log::error!("Failed to open IR URL: {}", e);
-                }
-            }
+            self.try_open_ir_url();
         }
     }
 

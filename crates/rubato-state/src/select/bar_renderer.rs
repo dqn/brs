@@ -348,7 +348,19 @@ impl BarRenderer {
             return;
         }
 
-        // Update bar text character set for font preparation
+        self.update_bar_text_charset(baro, ctx);
+        self.draw_bar_images(sprite, baro, ctx);
+        self.draw_distribution_graphs(sprite, baro, ctx);
+        self.draw_download_progress(sprite, baro, ctx);
+        self.draw_bar_text(sprite, baro, ctx);
+        self.draw_trophies(sprite, baro, ctx);
+        self.draw_lamps(sprite, baro, ctx);
+        self.draw_levels(sprite, baro, ctx);
+        self.draw_feature_labels(sprite, baro, ctx);
+    }
+
+    /// Refresh the bar text character set for font preparation when songs change.
+    fn update_bar_text_charset(&mut self, baro: &mut SkinBar, ctx: &RenderContext) {
         if self.bartextupdate {
             self.bartextupdate = false;
 
@@ -368,14 +380,18 @@ impl BarRenderer {
         }
 
         // Check terminated loader thread and load song images.
-        // In Java: if(manager.loader != null && manager.loader.getState() == TERMINATED) { ... }
-        // The caller sets loader_finished=true when the bar contents loader thread terminates,
-        // then calls MusicSelector.load_selected_song_images() after this render pass.
         if ctx.loader_finished {
             self.bartextupdate = true;
         }
+    }
 
-        // draw song bar
+    /// Draw bar background images for each bar slot.
+    fn draw_bar_images(
+        &self,
+        sprite: &mut SkinObjectRenderer,
+        baro: &mut SkinBar,
+        ctx: &RenderContext,
+    ) {
         let position = baro.position();
         for i in 0..self.barlength {
             let ba = &self.bararea[i];
@@ -407,8 +423,15 @@ impl BarRenderer {
                 );
             }
         }
+    }
 
-        // draw distribution graphs
+    /// Draw distribution graphs for directory and function bars.
+    fn draw_distribution_graphs(
+        &self,
+        sprite: &mut SkinObjectRenderer,
+        baro: &mut SkinBar,
+        ctx: &RenderContext,
+    ) {
         for i in 0..self.barlength {
             let ba = &self.bararea[i];
             if ba.value == -1 {
@@ -429,37 +452,52 @@ impl BarRenderer {
                 }
             }
         }
+    }
 
-        // download progress bars
+    /// Draw download progress bars for songs being downloaded.
+    fn draw_download_progress(
+        &self,
+        sprite: &mut SkinObjectRenderer,
+        baro: &mut SkinBar,
+        ctx: &RenderContext,
+    ) {
         let download_tasks =
             rubato_song::md_processor::download_task_state::DownloadTaskState::get_running_download_tasks();
-        if !download_tasks.is_empty() {
-            for i in 0..self.barlength {
-                let ba = &self.bararea[i];
-                if ba.value == -1 {
-                    continue;
-                }
-                if let Some(idx) = ba.sd {
-                    let sd = &ctx.currentsongs[idx];
-                    if let Some(song_bar) = sd.as_song_bar() {
-                        let song_md5 = &song_bar.song_data().file.md5;
-                        for task_arc in download_tasks.values() {
-                            let task = task_arc.lock().expect("task_arc lock poisoned");
-                            if task.hash() != song_md5 {
-                                continue;
-                            }
-                            if let Some(graph) = baro.graph()
-                                && graph.draw
-                            {
-                                graph.draw_song_bar_download(sprite, song_bar, &task, ba.x, ba.y);
-                            }
+        if download_tasks.is_empty() {
+            return;
+        }
+        for i in 0..self.barlength {
+            let ba = &self.bararea[i];
+            if ba.value == -1 {
+                continue;
+            }
+            if let Some(idx) = ba.sd {
+                let sd = &ctx.currentsongs[idx];
+                if let Some(song_bar) = sd.as_song_bar() {
+                    let song_md5 = &song_bar.song_data().file.md5;
+                    for task_arc in download_tasks.values() {
+                        let task = task_arc.lock().expect("task_arc lock poisoned");
+                        if task.hash() != song_md5 {
+                            continue;
+                        }
+                        if let Some(graph) = baro.graph()
+                            && graph.draw
+                        {
+                            graph.draw_song_bar_download(sprite, song_bar, &task, ba.x, ba.y);
                         }
                     }
                 }
             }
         }
+    }
 
-        // draw bar text
+    /// Draw song title text for each bar slot.
+    fn draw_bar_text(
+        &self,
+        sprite: &mut SkinObjectRenderer,
+        baro: &mut SkinBar,
+        ctx: &RenderContext,
+    ) {
         for i in 0..self.barlength {
             let ba = &self.bararea[i];
             if ba.value == -1 {
@@ -473,8 +511,15 @@ impl BarRenderer {
                 }
             }
         }
+    }
 
-        // draw trophies
+    /// Draw trophy icons for grade bars.
+    fn draw_trophies(
+        &self,
+        sprite: &mut SkinObjectRenderer,
+        baro: &mut SkinBar,
+        ctx: &RenderContext,
+    ) {
         for i in 0..self.barlength {
             let ba = &self.bararea[i];
             if ba.value == -1 {
@@ -495,8 +540,10 @@ impl BarRenderer {
                 }
             }
         }
+    }
 
-        // draw lamps
+    /// Draw clear lamp indicators for each bar.
+    fn draw_lamps(&self, sprite: &mut SkinObjectRenderer, baro: &mut SkinBar, ctx: &RenderContext) {
         for i in 0..self.barlength {
             let ba = &self.bararea[i];
             if ba.value == -1 {
@@ -530,8 +577,15 @@ impl BarRenderer {
                 }
             }
         }
+    }
 
-        // draw levels
+    /// Draw difficulty level numbers for song and function bars.
+    fn draw_levels(
+        &self,
+        sprite: &mut SkinObjectRenderer,
+        baro: &mut SkinBar,
+        ctx: &RenderContext,
+    ) {
         for i in 0..self.barlength {
             let ba = &self.bararea[i];
             if ba.value == -1 {
@@ -570,8 +624,15 @@ impl BarRenderer {
                 }
             }
         }
+    }
 
-        // draw feature labels (LN/MINE/RANDOM)
+    /// Draw feature labels (LN/MINE/RANDOM) for songs with special note types.
+    fn draw_feature_labels(
+        &self,
+        sprite: &mut SkinObjectRenderer,
+        baro: &mut SkinBar,
+        ctx: &RenderContext,
+    ) {
         for i in 0..self.barlength {
             let ba = &self.bararea[i];
             if ba.value == -1 {
