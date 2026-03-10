@@ -22,8 +22,6 @@ use crate::audio_driver::AudioDriver;
 pub type NoteEntries = Vec<(i64, i64)>;
 /// Load task: (wav_id, resolved_path, note_entries)
 pub type LoadTask = (i32, String, NoteEntries);
-/// Loaded sound: (wav_id, sound_data, note_entries)
-pub type LoadedSound = (i32, StaticSoundData, NoteEntries);
 
 /// File cache entry for keysound deduplication across songs.
 /// Translated from: ResourcePool.ResourceCacheElement

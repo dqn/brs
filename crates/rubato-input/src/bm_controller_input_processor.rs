@@ -4,6 +4,7 @@
 
 use crate::bms_player_input_device::{BMSPlayerInputDevice, DeviceType};
 use crate::stubs::{Controller, ControllerConfig};
+use rubato_types::play_mode_config::{ANALOG_SCRATCH_VER_1, ANALOG_SCRATCH_VER_2};
 
 /// BMKeys constants
 pub struct BMKeys;
@@ -388,12 +389,12 @@ impl BMControllerInputProcessor {
             let analog_scratch_threshold = controller_config.analog_scratch_threshold;
             for _ in 0..AXIS_LENGTH {
                 match controller_config.analog_scratch_mode {
-                    ControllerConfig::ANALOG_SCRATCH_VER_1 => {
+                    ANALOG_SCRATCH_VER_1 => {
                         analog_scratch_algorithm.push(Box::new(
                             AnalogScratchAlgorithmVersion1::new(analog_scratch_threshold),
                         ));
                     }
-                    ControllerConfig::ANALOG_SCRATCH_VER_2 => {
+                    ANALOG_SCRATCH_VER_2 => {
                         analog_scratch_algorithm.push(Box::new(
                             AnalogScratchAlgorithmVersion2::new(analog_scratch_threshold),
                         ));

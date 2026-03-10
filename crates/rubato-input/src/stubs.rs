@@ -1,8 +1,9 @@
 // Config types re-exported from beatoraja-types
 pub use rubato_types::config::Config;
 pub use rubato_types::play_mode_config::{
-    ControllerConfig, KeyboardConfig, MidiConfig, MidiInput, MidiInputType, MouseScratchConfig,
-    PlayModeConfig,
+    ANALOG_SCRATCH_VER_1, ANALOG_SCRATCH_VER_2, ControllerConfig, KeyboardConfig,
+    MOUSE_SCRATCH_VER_1, MOUSE_SCRATCH_VER_2, MidiConfig, MidiInput, MidiInputType,
+    MouseScratchConfig, PlayModeConfig,
 };
 pub use rubato_types::player_config::PlayerConfig;
 pub use rubato_types::resolution::Resolution;

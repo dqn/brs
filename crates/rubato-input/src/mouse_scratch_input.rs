@@ -3,7 +3,8 @@
 //! Translated from: bms.player.beatoraja.input.MouseScratchInput
 
 use crate::keyboard_input_processor::KeyboardCallback;
-use crate::stubs::{GdxInput, KeyboardConfig, MouseScratchConfig};
+use crate::stubs::{GdxInput, KeyboardConfig};
+use rubato_types::play_mode_config::{MOUSE_SCRATCH_VER_1, MOUSE_SCRATCH_VER_2};
 
 const _MOUSESCRATCH_RIGHT: usize = 0;
 const _MOUSESCRATCH_LEFT: usize = 1;
@@ -143,14 +144,14 @@ impl MouseScratchInput {
             for (i, alg_slot) in self.mouse_scratch_algorithm.iter_mut().enumerate() {
                 let x_axis = i == 0;
                 match msconfig.mouse_scratch_mode {
-                    MouseScratchConfig::MOUSE_SCRATCH_VER_1 => {
+                    MOUSE_SCRATCH_VER_1 => {
                         *alg_slot = Some(Box::new(MouseScratchAlgorithmVersion1::new(
                             msconfig.mouse_scratch_time_threshold,
                             &mouse_to_analog,
                             x_axis,
                         )));
                     }
-                    MouseScratchConfig::MOUSE_SCRATCH_VER_2 => {
+                    MOUSE_SCRATCH_VER_2 => {
                         *alg_slot = Some(Box::new(MouseScratchAlgorithmVersion2::new(
                             msconfig.mouse_scratch_time_threshold,
                             &mouse_to_analog,
