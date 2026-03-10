@@ -203,7 +203,7 @@ pub fn convert_skin_data(
 
     // Convert each SkinObjectData to a SkinObject
     for obj_data in &data.objects {
-        let scale_y = dstr.height / src.height;
+        let scale_y = crate::safe_div_f32(dstr.height, src.height);
         let skin_obj = convert_skin_object(
             &obj_data.object_type,
             source_map,

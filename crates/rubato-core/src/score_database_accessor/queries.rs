@@ -95,7 +95,7 @@ impl ScoreDatabaseAccessor {
             for chunk in songs.chunks(LOAD_CHUNK_SIZE) {
                 let mut chunk_hashes: Vec<String> = Vec::new();
                 for song in chunk {
-                    let has_uln = !song.file.sha256.is_empty();
+                    let has_uln = song.chart.has_undefined_long_note();
                     if (hasln && has_uln) || (!hasln && !has_uln) {
                         chunk_hashes.push(song.file.sha256.clone());
                     }

@@ -56,8 +56,8 @@ impl Skin {
         let dst = header.destination_resolution().clone();
         let width = dst.width;
         let height = dst.height;
-        let dw = dst.width / org.width;
-        let dh = dst.height / org.height;
+        let dw = crate::safe_div_f32(dst.width, org.width);
+        let dh = crate::safe_div_f32(dst.height, org.height);
 
         // MainController.debug is stubbed as false
         let debug = false;

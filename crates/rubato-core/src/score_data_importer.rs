@@ -22,19 +22,21 @@ impl<'a> ScoreDataImporter<'a> {
         for score in scores {
             let sha256 = &score.sha256;
             let mode = score.mode;
-            let mut oldsd = match self.scoredb.score_data(sha256, mode) {
-                Some(existing) => existing,
-                None => ScoreData {
-                    playcount: score.playcount,
-                    clearcount: score.clearcount,
-                    sha256: sha256.to_string(),
-                    mode,
-                    notes: score.notes,
-                    ..Default::default()
-                },
-            };
+            let existing = self.scoredb.score_data(sha256, mode);
+            let is_new = existing.is_none();
+            let mut oldsd = existing.unwrap_or_else(|| ScoreData {
+                playcount: score.playcount,
+                clearcount: score.clearcount,
+                sha256: sha256.to_string(),
+                mode,
+                notes: score.notes,
+                ..Default::default()
+            });
             oldsd.scorehash = scorehash.to_string();
-            if oldsd.update(score, true) {
+            if is_new || oldsd.update(score, true) {
+                if is_new {
+                    oldsd.update(score, true);
+                }
                 result.push(oldsd);
             }
         }

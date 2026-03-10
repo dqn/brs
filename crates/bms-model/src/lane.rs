@@ -68,23 +68,91 @@ impl Lane {
     }
 
     pub fn mark(&mut self, time: i32) {
-        while self.notebasepos < self.notes.len() - 1
-            && self.notes[self.notebasepos + 1].time() < time
-        {
-            self.notebasepos += 1;
-        }
-        while self.notebasepos > 0 && self.notes[self.notebasepos].time() > time {
-            self.notebasepos -= 1;
+        if !self.notes.is_empty() {
+            while self.notebasepos < self.notes.len() - 1
+                && self.notes[self.notebasepos + 1].time() < time
+            {
+                self.notebasepos += 1;
+            }
+            while self.notebasepos > 0 && self.notes[self.notebasepos].time() > time {
+                self.notebasepos -= 1;
+            }
         }
         self.noteseekpos = self.notebasepos;
-        while self.hiddenbasepos < self.hiddens.len() - 1
-            && self.hiddens[self.hiddenbasepos + 1].time() < time
-        {
-            self.hiddenbasepos += 1;
-        }
-        while self.hiddenbasepos > 0 && self.hiddens[self.hiddenbasepos].time() > time {
-            self.hiddenbasepos -= 1;
+        if !self.hiddens.is_empty() {
+            while self.hiddenbasepos < self.hiddens.len() - 1
+                && self.hiddens[self.hiddenbasepos + 1].time() < time
+            {
+                self.hiddenbasepos += 1;
+            }
+            while self.hiddenbasepos > 0 && self.hiddens[self.hiddenbasepos].time() > time {
+                self.hiddenbasepos -= 1;
+            }
         }
         self.hiddenseekpos = self.hiddenbasepos;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::note::{Note, NoteData};
+
+    fn make_note(time_us: i64) -> Note {
+        Note::Normal(NoteData {
+            time: time_us,
+            ..NoteData::new()
+        })
+    }
+
+    #[test]
+    fn mark_empty_notes_does_not_panic() {
+        let mut lane = Lane {
+            notes: vec![],
+            notebasepos: 0,
+            noteseekpos: 0,
+            hiddens: vec![],
+            hiddenbasepos: 0,
+            hiddenseekpos: 0,
+        };
+        lane.mark(1000);
+        assert_eq!(lane.notebasepos, 0);
+        assert_eq!(lane.hiddenbasepos, 0);
+    }
+
+    #[test]
+    fn mark_empty_hiddens_with_notes() {
+        let mut lane = Lane {
+            notes: vec![make_note(2_000_000), make_note(4_000_000)],
+            notebasepos: 0,
+            noteseekpos: 0,
+            hiddens: vec![],
+            hiddenbasepos: 0,
+            hiddenseekpos: 0,
+        };
+        // note[0].time()=2000 < 3000, but note[1].time()=4000 >= 3000
+        // so notebasepos stays at 0 (next note not yet passed)
+        lane.mark(3000);
+        assert_eq!(lane.notebasepos, 0);
+        assert_eq!(lane.hiddenbasepos, 0);
+    }
+
+    #[test]
+    fn mark_seeks_forward_correctly() {
+        let mut lane = Lane {
+            notes: vec![
+                make_note(1_000_000),
+                make_note(2_000_000),
+                make_note(3_000_000),
+            ],
+            notebasepos: 0,
+            noteseekpos: 0,
+            hiddens: vec![],
+            hiddenbasepos: 0,
+            hiddenseekpos: 0,
+        };
+        // time=2500 -> note[1].time()=2000 < 2500, note[2].time()=3000 >= 2500
+        lane.mark(2500);
+        assert_eq!(lane.notebasepos, 1);
     }
 }

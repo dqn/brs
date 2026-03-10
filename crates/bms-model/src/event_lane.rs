@@ -97,33 +97,93 @@ impl EventLane {
     }
 
     pub fn mark(&mut self, time: i32, timelines: &[TimeLine]) {
-        while self.sectionbasepos < self.sections.len() - 1
-            && timelines[self.sections[self.sectionbasepos + 1]].time() > time
-        {
-            self.sectionbasepos += 1;
+        if !self.sections.is_empty() {
+            while self.sectionbasepos < self.sections.len() - 1
+                && timelines[self.sections[self.sectionbasepos + 1]].time() < time
+            {
+                self.sectionbasepos += 1;
+            }
+            while self.sectionbasepos > 0
+                && timelines[self.sections[self.sectionbasepos]].time() > time
+            {
+                self.sectionbasepos -= 1;
+            }
         }
-        while self.sectionbasepos > 0 && timelines[self.sections[self.sectionbasepos]].time() < time
-        {
-            self.sectionbasepos -= 1;
+        if !self.bpms.is_empty() {
+            while self.bpmbasepos < self.bpms.len() - 1
+                && timelines[self.bpms[self.bpmbasepos + 1]].time() < time
+            {
+                self.bpmbasepos += 1;
+            }
+            while self.bpmbasepos > 0 && timelines[self.bpms[self.bpmbasepos]].time() > time {
+                self.bpmbasepos -= 1;
+            }
         }
-        while self.bpmbasepos < self.bpms.len() - 1
-            && timelines[self.bpms[self.bpmbasepos + 1]].time() > time
-        {
-            self.bpmbasepos += 1;
-        }
-        while self.bpmbasepos > 0 && timelines[self.bpms[self.bpmbasepos]].time() < time {
-            self.bpmbasepos -= 1;
-        }
-        while self.stopbasepos < self.stops.len() - 1
-            && timelines[self.stops[self.stopbasepos + 1]].time() > time
-        {
-            self.stopbasepos += 1;
-        }
-        while self.stopbasepos > 0 && timelines[self.stops[self.stopbasepos]].time() < time {
-            self.stopbasepos -= 1;
+        if !self.stops.is_empty() {
+            while self.stopbasepos < self.stops.len() - 1
+                && timelines[self.stops[self.stopbasepos + 1]].time() < time
+            {
+                self.stopbasepos += 1;
+            }
+            while self.stopbasepos > 0 && timelines[self.stops[self.stopbasepos]].time() > time {
+                self.stopbasepos -= 1;
+            }
         }
         self.sectionseekpos = self.sectionbasepos;
         self.bpmseekpos = self.bpmbasepos;
         self.stopseekpos = self.stopbasepos;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_timelines(times_us: &[i64]) -> Vec<TimeLine> {
+        times_us.iter().map(|&t| TimeLine::new(0.0, t, 0)).collect()
+    }
+
+    fn make_event_lane(section_indices: Vec<usize>) -> EventLane {
+        EventLane {
+            sections: section_indices,
+            sectionbasepos: 0,
+            sectionseekpos: 0,
+            bpms: vec![],
+            bpmbasepos: 0,
+            bpmseekpos: 0,
+            stops: vec![],
+            stopbasepos: 0,
+            stopseekpos: 0,
+        }
+    }
+
+    #[test]
+    fn mark_empty_sections_does_not_panic() {
+        let timelines = make_timelines(&[]);
+        let mut el = make_event_lane(vec![]);
+        el.mark(1000, &timelines);
+        assert_eq!(el.sectionbasepos, 0);
+    }
+
+    #[test]
+    fn mark_seeks_forward() {
+        // timelines at 1s, 2s, 3s (in microseconds)
+        let timelines = make_timelines(&[1_000_000, 2_000_000, 3_000_000]);
+        let mut el = make_event_lane(vec![0, 1, 2]);
+        // time=2500 -> tl[1].time()=2000 < 2500, tl[2].time()=3000 >= 2500
+        el.mark(2500, &timelines);
+        assert_eq!(el.sectionbasepos, 1);
+    }
+
+    #[test]
+    fn mark_seeks_backward() {
+        let timelines = make_timelines(&[1_000_000, 2_000_000, 3_000_000]);
+        let mut el = make_event_lane(vec![0, 1, 2]);
+        // First seek forward to end
+        el.mark(4000, &timelines);
+        assert_eq!(el.sectionbasepos, 2);
+        // Now seek backward to time=1500 -> tl[0].time()=1000 <= 1500
+        el.mark(1500, &timelines);
+        assert_eq!(el.sectionbasepos, 0);
     }
 }

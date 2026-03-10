@@ -105,7 +105,7 @@ impl RandomCourseData {
             let mut is_duplicate = false;
             for j in 0..index {
                 match &song_datas[j] {
-                    None => break,
+                    None => continue,
                     Some(prev) => {
                         if candidate.file.sha256 == prev.file.sha256 {
                             temp_lots.remove(ri);
@@ -148,5 +148,36 @@ impl RandomCourseDataConstraint {
             "distinct" => Some(RandomCourseDataConstraint::Distinct),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_song(sha256: &str) -> SongData {
+        let mut s = SongData::default();
+        s.file.sha256 = sha256.to_string();
+        s
+    }
+
+    #[test]
+    fn distinct_skips_empty_stages_and_still_deduplicates() {
+        // Stage 0: empty (no candidates), stage 1: picks "A", stage 2: should not pick "A" again
+        let lots = vec![make_song("A")];
+        let mut song_datas: Vec<Option<SongData>> = vec![None; 3];
+
+        // Stage 0: no lots -> stays None
+        // Stage 1: picks from lots
+        RandomCourseData::lottery_song_data(&mut song_datas, 1, &lots, true);
+        assert_eq!(song_datas[1].as_ref().unwrap().file.sha256, "A");
+
+        // Stage 2: lots has only "A", stage 0 is None but stage 1 has "A"
+        // With the fix, it should skip None and detect "A" as duplicate,
+        // exhaust temp_lots, then fall back to "A" (only option).
+        let lots2 = vec![make_song("A"), make_song("B")];
+        RandomCourseData::lottery_song_data(&mut song_datas, 2, &lots2, true);
+        // If duplicate check works, it should pick "B"
+        assert_eq!(song_datas[2].as_ref().unwrap().file.sha256, "B");
     }
 }

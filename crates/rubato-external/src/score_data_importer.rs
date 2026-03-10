@@ -82,22 +82,22 @@ impl ScoreDataImporter {
         let mut result: Vec<ScoreData> = Vec::new();
 
         for score in scores {
-            let mut oldsd = self.scoredb.score_data(&score.sha256, score.mode);
-            if oldsd.is_none() {
-                oldsd = Some(ScoreData {
-                    playcount: score.playcount,
-                    clearcount: score.clearcount,
-                    sha256: score.sha256.clone(),
-                    mode: score.mode,
-                    notes: score.notes,
-                    ..Default::default()
-                });
-            }
-            if let Some(ref mut old) = oldsd {
-                old.scorehash = scorehash.to_string();
-                if old.update(score, true) {
-                    result.push(old.clone());
+            let existing = self.scoredb.score_data(&score.sha256, score.mode);
+            let is_new = existing.is_none();
+            let mut old = existing.unwrap_or_else(|| ScoreData {
+                playcount: score.playcount,
+                clearcount: score.clearcount,
+                sha256: score.sha256.clone(),
+                mode: score.mode,
+                notes: score.notes,
+                ..Default::default()
+            });
+            old.scorehash = scorehash.to_string();
+            if is_new || old.update(score, true) {
+                if is_new {
+                    old.update(score, true);
                 }
+                result.push(old);
             }
         }
 
