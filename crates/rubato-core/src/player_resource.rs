@@ -168,7 +168,7 @@ impl PlayerResource {
     pub fn set_bms_file(&mut self, f: &Path, mode: BMSPlayerMode) -> bool {
         self.mode = Some(mode);
         self.replay = Some(ReplayData::new());
-        let result = Self::load_bms_model(f, self.pconfig.play_settings.lnmode);
+        let result = Self::load_bms_model(f, self.pconfig.play_settings.lnmode, None);
         if let Some((model, margin_time)) = result {
             if model.timelines.is_empty() {
                 return false;
@@ -210,8 +210,14 @@ impl PlayerResource {
     pub fn reload_bms_file(&mut self) {
         if let Some(path_str) = self.bms_model().and_then(|m| m.path()) {
             let path = PathBuf::from(&path_str);
+            // Preserve #RANDOM branch selections from replay data for deterministic reloads.
+            let randoms = self
+                .replay
+                .as_ref()
+                .filter(|rd| !rd.rand.is_empty())
+                .map(|rd| rd.rand.clone());
             if let Some((model, margin_time)) =
-                Self::load_bms_model(&path, self.pconfig.play_settings.lnmode)
+                Self::load_bms_model(&path, self.pconfig.play_settings.lnmode, randoms)
             {
                 self.margin_time = margin_time;
                 let songdata = SongData::new_from_model(model, false);
@@ -228,13 +234,22 @@ impl PlayerResource {
 
     /// Load a BMS model from path, applying start note time and validation.
     /// Returns (model, margin_time).
+    ///
+    /// `selected_randoms` preserves #RANDOM branch choices from a previous play/replay.
+    /// Pass `None` for fresh loads and `Some(rand)` for replay/retry to ensure the same
+    /// chart branches are decoded.
+    ///
     /// Java: PlayerResource.loadBMSModel(Path, int lnmode)
-    pub fn load_bms_model(path: &Path, lnmode: i32) -> Option<(BMSModel, i64)> {
+    pub fn load_bms_model(
+        path: &Path,
+        lnmode: i32,
+        selected_randoms: Option<Vec<i32>>,
+    ) -> Option<(BMSModel, i64)> {
         let mut decoder = chart_decoder::decoder(path)?;
         let info = ChartInformation::new(
             Some(path.to_path_buf()),
             bms_model::bms_model::LnType::from_i32(lnmode),
-            None,
+            selected_randoms,
         );
         let mut model = decoder.decode(info)?;
         let margin_time = set_start_note_time(&mut model, 1000);
@@ -314,7 +329,7 @@ impl PlayerResource {
         let lnmode = self.pconfig.play_settings.lnmode;
         let mut models = Vec::with_capacity(files.len());
         for f in files {
-            match Self::load_bms_model(f, lnmode) {
+            match Self::load_bms_model(f, lnmode, None) {
                 Some((model, _margin_time)) => models.push(model),
                 None => {
                     log::warn!("failed to load BMS model for course file: {:?}", f);

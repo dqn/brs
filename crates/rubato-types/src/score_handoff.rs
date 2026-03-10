@@ -2,6 +2,7 @@
 // Used when transitioning from Play to Result state.
 
 use crate::groove_gauge::GrooveGauge;
+use crate::replay_data::ReplayData;
 use crate::score_data::ScoreData;
 
 /// Data bundle produced by BMSPlayer at end of play for Result state consumption.
@@ -21,4 +22,7 @@ pub struct ScoreHandoff {
     pub groove_gauge: Option<GrooveGauge>,
     /// Assist flags
     pub assist: i32,
+    /// Replay data populated with key input log and pattern info from the play session.
+    /// Applied to PlayerResource.replay on handoff so save_replay_data() writes the live data.
+    pub replay_data: Option<ReplayData>,
 }

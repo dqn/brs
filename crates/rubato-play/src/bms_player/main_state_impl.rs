@@ -159,6 +159,43 @@ impl MainState for BMSPlayer {
         // Java: bga = resource.getBGAManager(); (BMSPlayer.java line 545)
         if let Ok(mut bga) = self.bga.lock() {
             bga.set_model_timelines(&self.model);
+
+            // Load BGA images and movies from model.bgamap.
+            // Java: BMSResource dispatches image/movie loading after setModel().
+            let base_dir = self
+                .model
+                .path()
+                .and_then(|p| std::path::Path::new(&p).parent().map(|d| d.to_path_buf()));
+            if let Some(ref dir) = base_dir {
+                bga.set_movie_count(self.model.bgamap.len());
+                for (id, entry) in self.model.bgamap.iter().enumerate() {
+                    if entry.is_empty() {
+                        continue;
+                    }
+                    let path = dir.join(entry);
+                    if !path.exists() {
+                        continue;
+                    }
+                    let ext = path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("")
+                        .to_ascii_lowercase();
+                    if crate::bga::bg_image_processor::PIC_EXTENSION
+                        .iter()
+                        .any(|&e| e == ext)
+                    {
+                        bga.put_image(id, &path);
+                    } else if crate::bga::bga_processor::MOV_EXTENSION
+                        .iter()
+                        .any(|&e| e == ext)
+                    {
+                        let mut mp = crate::bga::ffmpeg_processor::FFmpegProcessor::new(1);
+                        mp.create(&path.to_string_lossy());
+                        bga.set_movie(id, Box::new(mp));
+                    }
+                }
+            }
         }
 
         // Initialize gauge log
@@ -783,6 +820,7 @@ impl MainState for BMSPlayer {
                     } else {
                         None
                     };
+                    let replay = self.build_replay_data();
                     self.pending.pending_score_handoff =
                         Some(rubato_types::score_handoff::ScoreHandoff {
                             score_data: score,
@@ -791,6 +829,7 @@ impl MainState for BMSPlayer {
                             gauge: self.gaugelog.clone(),
                             groove_gauge: self.gauge.clone(),
                             assist: self.assist,
+                            replay_data: Some(replay),
                         });
                     // input.setEnable(true); input.setStartTime(0);
                     self.save_config();
@@ -846,6 +885,7 @@ impl MainState for BMSPlayer {
                         None
                     };
                     self.save_config();
+                    let replay = self.build_replay_data();
                     self.pending.pending_score_handoff =
                         Some(rubato_types::score_handoff::ScoreHandoff {
                             score_data: score,
@@ -854,6 +894,7 @@ impl MainState for BMSPlayer {
                             gauge: self.gaugelog.clone(),
                             groove_gauge: self.gauge.clone(),
                             assist: self.assist,
+                            replay_data: Some(replay),
                         });
                     // input.setEnable(true); input.setStartTime(0);
 

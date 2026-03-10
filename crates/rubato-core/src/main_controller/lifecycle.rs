@@ -230,6 +230,24 @@ impl MainController {
                 resource.set_groove_gauge(gg);
             }
             resource.assist = handoff.assist;
+
+            // Apply replay data with key input log from the input processor.
+            // BMSPlayer builds pattern info (random options, seeds, gauge type, etc.)
+            // and MainController appends the recorded key input log from BMSPlayerInputProcessor.
+            if let Some(mut rd) = handoff.replay_data {
+                if let Some(ref input) = self.input {
+                    rd.keylog = input
+                        .key_input_log()
+                        .iter()
+                        .map(|k| rubato_types::stubs::KeyInputLog {
+                            time: k.time(),
+                            keycode: k.keycode(),
+                            pressed: k.is_pressed(),
+                        })
+                        .collect();
+                }
+                resource.set_replay_data(rd);
+            }
         }
 
         // Reload BMS file (before state change so new Play state gets fresh model)

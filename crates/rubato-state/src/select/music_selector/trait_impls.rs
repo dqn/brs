@@ -505,7 +505,7 @@ impl MainState for MusicSelector {
                         if let Some(path) = path
                             && let Some((model, _margin)) =
                                 rubato_core::player_resource::PlayerResource::load_bms_model(
-                                    &path, lnmode,
+                                    &path, lnmode, None,
                                 )
                             && let Some(sd) =
                                 self.player_resource.as_mut().and_then(|r| r.songdata_mut())

@@ -240,7 +240,7 @@ impl SkinNoteDistributionGraph {
         let song_changed = match (&self.current, song) {
             (None, None) => false,
             (Some(_), None) | (None, Some(_)) => true,
-            (Some(_), Some(_)) => true, // simplified
+            (Some(prev), Some(cur)) => prev.file.sha256 != cur.file.sha256,
         };
 
         if self.shapetex.is_none() || song_changed || (!self.model_set && model.is_some()) {

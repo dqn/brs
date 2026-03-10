@@ -204,6 +204,29 @@ impl BMSPlayer {
         Some(score)
     }
 
+    /// Build replay data from the current play session's pattern info.
+    /// Key input log is NOT included here (it lives on BMSPlayerInputProcessor);
+    /// the caller (MainController) must copy it before writing to PlayerResource.
+    ///
+    /// Corresponds to Java: resource.getReplayData() population in BMSPlayer constructor
+    /// and dispose/result paths.
+    pub fn build_replay_data(&self) -> ReplayData {
+        let mut rd = self.score.playinfo.clone();
+        rd.sha256 = Some(self.model.sha256.clone());
+        rd.mode = self.model.mode().map(|m| m.id()).unwrap_or(0);
+        rd.date = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        if let Some(ref gauge) = self.gauge {
+            rd.gauge = gauge.gauge_type();
+        }
+        if let Some(ref config) = self.score.replay_config {
+            rd.config = Some(config.clone());
+        }
+        rd
+    }
+
     /// Corresponds to Java BMSPlayer.update(int judge, long time)
     pub fn update_judge(&mut self, judge: i32, time: i64) {
         if self.judge.combo() == 0 {
