@@ -1,11 +1,20 @@
 // Translated from ObsConfigurationView.java
 
 use std::collections::HashMap;
+use std::sync::mpsc;
 
 use egui;
 use rubato_core::config::Config;
 use rubato_core::main_state::MainStateType;
 use rubato_external::obs::obs_ws_client::{ObsVersionInfo, ObsWsClient, action_label, obs_actions};
+
+/// Events received from OBS WebSocket callbacks via channel.
+enum ObsEvent {
+    Error(String),
+    Close,
+    VersionReceived(ObsVersionInfo),
+    ScenesReceived(Vec<String>),
+}
 
 use crate::views::play_configuration_view::PlayConfigurationView;
 
@@ -37,6 +46,7 @@ pub struct ObsConfigurationView {
     states: Vec<String>,
     scene_boxes: HashMap<String, ComboBoxState>,
     action_boxes: HashMap<String, ComboBoxState>,
+    obs_event_rx: Option<mpsc::Receiver<ObsEvent>>,
 }
 
 /// ComboBoxState - represents the state of a ComboBox widget
@@ -68,6 +78,7 @@ impl ObsConfigurationView {
             states: Vec::new(),
             scene_boxes: HashMap::new(),
             action_boxes: HashMap::new(),
+            obs_event_rx: None,
         }
     }
 
@@ -291,19 +302,25 @@ impl ObsConfigurationView {
         };
         client.set_auto_reconnect(false);
 
-        // obsCfgClient.setOnError(this::handleObsError);
-        // obsCfgClient.setOnClose(this::handleObsClose);
-        // obsCfgClient.setOnVersionReceived(this::handleVersionReceived);
-        // obsCfgClient.setOnScenesReceived(this::handleScenesReceived);
-        // Note: In Rust, closures capturing &mut self require careful handling.
-        // The callbacks are set but actual error/close/version/scene handling
-        // would need Arc<Mutex<Self>> or channel-based communication.
-        // Stubbed here as todo.
+        // Wire callbacks via channel to avoid &mut self capture issues.
+        let (tx, rx) = mpsc::channel();
+        self.obs_event_rx = Some(rx);
 
-        // client.set_on_error(...);
-        // client.set_on_close(...);
-        // client.set_on_version_received(...);
-        // client.set_on_scenes_received(...);
+        let tx_err = tx.clone();
+        client.set_on_error(move |msg| {
+            let _ = tx_err.send(ObsEvent::Error(msg));
+        });
+        let tx_close = tx.clone();
+        client.set_on_close(move || {
+            let _ = tx_close.send(ObsEvent::Close);
+        });
+        let tx_ver = tx.clone();
+        client.set_on_version_received(move |v| {
+            let _ = tx_ver.send(ObsEvent::VersionReceived(v));
+        });
+        client.set_on_scenes_received(move |s| {
+            let _ = tx.send(ObsEvent::ScenesReceived(s));
+        });
 
         match client.connect() {
             Ok(()) => {}
@@ -325,26 +342,44 @@ impl ObsConfigurationView {
         self.obs_cfg_client = None;
     }
 
+    /// Poll for OBS callback events received via the channel.
+    /// Called from render() to process events on the UI thread.
+    fn poll_events(&mut self) {
+        let events: Vec<ObsEvent> = self
+            .obs_event_rx
+            .as_ref()
+            .map(|rx| std::iter::from_fn(|| rx.try_recv().ok()).collect())
+            .unwrap_or_default();
+        for event in events {
+            match event {
+                ObsEvent::Error(msg) => self.handle_obs_error(&msg),
+                ObsEvent::Close => self.handle_obs_close(),
+                ObsEvent::VersionReceived(v) => self.handle_version_received(&v),
+                ObsEvent::ScenesReceived(s) => self.handle_scenes_received(&s),
+            }
+        }
+    }
+
     /// handleObsError - called when OBS connection encounters an error
     fn handle_obs_error(&mut self, _ex: &str) {
         self.set_connection_status("connect_fail", "Failed to connect!");
     }
 
     /// handleObsClose - called when OBS connection is closed
-    fn _handle_obs_close(&mut self) {
+    fn handle_obs_close(&mut self) {
         if self.status == "connecting" {
             self.set_connection_status("auth_fail", "Authentication failed!");
         }
     }
 
     /// handleVersionReceived - called when OBS version info is received
-    fn _handle_version_received(&mut self, version: &ObsVersionInfo) {
+    fn handle_version_received(&mut self, version: &ObsVersionInfo) {
         self.set_connection_status("version_received", &version.to_string());
     }
 
     /// handleScenesReceived - called when OBS scene list is received
     /// In Java, this uses Platform.runLater() to update UI on the JavaFX thread.
-    fn _handle_scenes_received(&mut self, scenes: &[String]) {
+    fn handle_scenes_received(&mut self, scenes: &[String]) {
         // Platform.runLater(() -> { ... })
         // In egui, UI updates happen on the main thread during frame rendering.
 
@@ -437,6 +472,7 @@ impl ObsConfigurationView {
     /// Shows WebSocket connection settings, connect button with status,
     /// and per-state scene/action selectors.
     pub fn render(&mut self, ui: &mut egui::Ui) {
+        self.poll_events();
         ui.heading("OBS WebSocket Configuration");
 
         egui::Grid::new("obs_config_grid")

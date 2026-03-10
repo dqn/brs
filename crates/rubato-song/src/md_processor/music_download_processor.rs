@@ -164,11 +164,11 @@ impl MusicDownloadProcessor {
 }
 
 fn normalize_ipfs_path(path: &str) -> String {
-    // Case-insensitive prefix match: "/ipfs/" is 6 characters, strip to get bare CID
-    if path.len() >= 6 && path[..6].eq_ignore_ascii_case("/ipfs/") {
-        path[6..].to_string()
-    } else {
-        path.to_string()
+    // Case-insensitive prefix match: "/ipfs/" is 6 characters, strip to get bare CID.
+    // Use str::get() instead of direct slicing to avoid panics on non-ASCII char boundaries.
+    match path.get(..6) {
+        Some(prefix) if prefix.eq_ignore_ascii_case("/ipfs/") => path[6..].to_string(),
+        _ => path.to_string(),
     }
 }
 

@@ -474,7 +474,9 @@ impl BarManager {
                     }
                     Bar::Hash(b) => l.extend(b.children(songdb)),
                     Bar::Table(b) => {
-                        l.extend(b.children().iter().cloned());
+                        let mut table_clone = b.clone();
+                        table_clone.resolve_grades(songdb);
+                        l.extend(table_clone.children().iter().cloned());
                     }
                     Bar::SearchWord(b) => l.extend(b.children(songdb)),
                     Bar::ContextMenu(b) => l.extend(b.children(&self.tables, songdb)),

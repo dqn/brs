@@ -47,6 +47,8 @@ pub struct CourseResult {
     ir_send_status: Vec<CourseIRSendStatus>,
     property: ResultKeyProperty,
     skin: Option<ResultSkinData>,
+    /// Receiver for async IR results (non-blocking).
+    ir_rx: Option<std::sync::mpsc::Receiver<IrSendResult>>,
 }
 
 impl CourseResult {
@@ -63,6 +65,7 @@ impl CourseResult {
             ir_send_status: Vec::new(),
             property: ResultKeyProperty::beat_7k(),
             skin: None,
+            ir_rx: None,
         }
     }
 
@@ -257,8 +260,8 @@ impl CourseResult {
             ));
         });
 
-        self.apply_ir_results(rx);
-        self.data.state = STATE_IR_FINISHED;
+        // Store receiver for non-blocking polling in render loop
+        self.ir_rx = Some(rx);
     }
 
     /// Determine LN mode for IR based on whether models contain undefined long notes.
@@ -275,11 +278,48 @@ impl CourseResult {
         }
     }
 
-    /// Block to receive IR thread results and update ranking/timer state.
-    fn apply_ir_results(&mut self, rx: std::sync::mpsc::Receiver<IrSendResult>) {
-        if let Ok((succeed, had_sends, ranking_scores, ns_clone, old_exscore)) = rx.recv()
-            && had_sends
-        {
+    /// Poll for IR thread results (non-blocking) and update ranking/timer state.
+    /// Block until the IR background thread sends its result, then process it.
+    /// Used only in tests where we need to synchronously wait for the IR thread.
+    #[cfg(test)]
+    fn wait_and_poll_ir_results(&mut self) {
+        let rx = match self.ir_rx.take() {
+            Some(rx) => rx,
+            None => return,
+        };
+        // Block until the thread sends the result (or disconnects)
+        match rx.recv() {
+            Ok(result) => {
+                // Re-insert as a ready receiver so poll_ir_results can process it
+                let (tx, new_rx) = std::sync::mpsc::channel();
+                let _ = tx.send(result);
+                self.ir_rx = Some(new_rx);
+                self.poll_ir_results();
+            }
+            Err(_) => {
+                self.data.state = STATE_IR_FINISHED;
+            }
+        }
+    }
+
+    fn poll_ir_results(&mut self) {
+        let rx = match self.ir_rx.as_ref() {
+            Some(rx) => rx,
+            None => return,
+        };
+        let result = match rx.try_recv() {
+            Ok(r) => r,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                self.ir_rx = None;
+                self.data.state = STATE_IR_FINISHED;
+                return;
+            }
+        };
+        self.ir_rx = None;
+        let (succeed, had_sends, ranking_scores, ns_clone, old_exscore) = result;
+        self.data.state = STATE_IR_FINISHED;
+        if had_sends {
             if succeed {
                 self.data
                     .timer
@@ -396,6 +436,9 @@ impl CourseResult {
     }
 
     fn do_render(&mut self) {
+        // Poll for async IR results (non-blocking)
+        self.poll_ir_results();
+
         let time = self.data.timer.now_time();
         self.data.timer.switch_timer(TIMER_RESULTGRAPH_BEGIN, true);
         self.data.timer.switch_timer(TIMER_RESULTGRAPH_END, true);
@@ -1104,6 +1147,8 @@ mod tests {
         let mut cr = make_ir_course_result(ir_conn.clone());
 
         <CourseResult as MainState>::prepare(&mut cr);
+        // IR now runs async; wait for background thread and poll results
+        cr.wait_and_poll_ir_results();
 
         // IR processing should complete and set state to STATE_IR_FINISHED
         assert_eq!(
@@ -1118,6 +1163,8 @@ mod tests {
         let mut cr = make_ir_course_result(ir_conn.clone());
 
         <CourseResult as MainState>::prepare(&mut cr);
+        // IR now runs async; wait for background thread and poll results
+        cr.wait_and_poll_ir_results();
 
         // The IR send should have been called
         assert!(ir_conn.send_called.load(Ordering::SeqCst));
@@ -1129,6 +1176,8 @@ mod tests {
         let mut cr = make_ir_course_result(ir_conn.clone());
 
         <CourseResult as MainState>::prepare(&mut cr);
+        // IR now runs async; wait for background thread and poll results
+        cr.wait_and_poll_ir_results();
 
         // After sending, ranking should be fetched via get_course_play_data
         assert!(ir_conn.ranking_fetch_called.load(Ordering::SeqCst));
@@ -1140,6 +1189,8 @@ mod tests {
         let mut cr = make_ir_course_result(ir_conn.clone());
 
         <CourseResult as MainState>::prepare(&mut cr);
+        // IR now runs async; wait for background thread and poll results
+        cr.wait_and_poll_ir_results();
 
         // Even with send failure, state should transition to IR_FINISHED
         assert_eq!(

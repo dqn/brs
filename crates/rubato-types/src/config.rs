@@ -592,7 +592,9 @@ impl Config {
                     write_backup_config_file(&configpath);
                 }
             }
-        } else if configpath_old.exists() {
+        }
+        // Fall back to legacy config.json when config_sys.json is missing or corrupt
+        if config.is_none() && configpath_old.exists() {
             match std::fs::read_to_string(&configpath_old) {
                 Ok(data) => match serde_json::from_str::<Config>(&data) {
                     Ok(c) => config = Some(c),

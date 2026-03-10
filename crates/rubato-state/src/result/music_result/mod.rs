@@ -1,7 +1,7 @@
 // MusicResult.java -> music_result.rs
 // Mechanical line-by-line translation.
 
-use log::{info, warn};
+use log::info;
 
 use rubato_core::clear_type::ClearType;
 use rubato_core::main_state::{MainState, MainStateData, MainStateType};
@@ -28,6 +28,14 @@ mod score_handler;
 
 use render_context::*;
 
+/// IR send result for async processing.
+type MusicIrResult = (
+    bool,
+    bool,
+    Option<Vec<rubato_ir::ir_score_data::IRScoreData>>,
+    Option<ScoreData>,
+);
+
 pub struct MusicResult {
     pub data: AbstractResultData,
     pub main_data: MainStateData,
@@ -35,6 +43,8 @@ pub struct MusicResult {
     pub resource: PlayerResource,
     property: ResultKeyProperty,
     skin: Option<ResultSkinData>,
+    /// Receiver for async IR results (non-blocking).
+    ir_rx: Option<std::sync::mpsc::Receiver<MusicIrResult>>,
 }
 
 impl MusicResult {
@@ -46,6 +56,7 @@ impl MusicResult {
             resource,
             property: ResultKeyProperty::beat_7k(),
             skin: None,
+            ir_rx: None,
         }
     }
 
@@ -162,77 +173,57 @@ impl MusicResult {
                 self.main.ir_send_status_mut().push(status);
             }
 
-            // IR processing thread
-            // In Java this spawns a Thread. In Rust we'd use tokio::spawn or std::thread::spawn.
-            // The thread sends scores, fetches ranking, and updates state.
-            // For now, immediately mark as finished (blocking stub).
+            // Spawn IR processing thread (sends scores + fetches ranking)
             let ir_len = self.main.ir_status().len();
             let ir_send_count = self.main.config().network.ir_send_count;
-            let mut ir_send_list = self.main.ir_send_status_mut();
-            let mut irsend = 0;
-            let mut succeed = true;
-            let mut remove_indices: Vec<usize> = Vec::new();
-            let start = if ir_send_list.len() >= ir_len {
-                ir_send_list.len() - ir_len
-            } else {
-                0
-            };
-            for idx in start..ir_send_list.len() {
-                if irsend == 0 {
-                    self.data.timer.switch_timer(TIMER_IR_CONNECT_BEGIN, true);
-                }
-                irsend += 1;
-                let send_ok = ir_send_list[idx].send();
-                succeed &= send_ok;
-                if ir_send_list[idx].retry < 0 || ir_send_list[idx].retry > ir_send_count {
-                    remove_indices.push(idx);
-                }
-            }
-            // Remove in reverse order to preserve indices
-            for idx in remove_indices.into_iter().rev() {
-                ir_send_list.remove(idx);
-            }
-
-            if irsend > 0 {
-                if succeed {
-                    self.data.timer.switch_timer(TIMER_IR_CONNECT_SUCCESS, true);
+            let mut ir_send_list_snapshot: Vec<IRSendStatusMain> = {
+                let mut list = self.main.ir_send_status_mut();
+                let start = if list.len() >= ir_len {
+                    list.len() - ir_len
                 } else {
-                    self.data.timer.switch_timer(TIMER_IR_CONNECT_FAIL, true);
-                }
-                // Fetch ranking from IR
-                let ir_status = self.main.ir_status();
-                if !ir_status.is_empty()
-                    && let Some(songdata) = self.resource.songdata()
-                {
-                    let chart_data = rubato_ir::ir_chart_data::IRChartData::new(songdata);
-                    let response = ir_status[0].connection.get_play_data(None, &chart_data);
-                    if response.is_succeeded() {
-                        if let Some(ir_scores) = response.data() {
-                            let use_newscore = newscore_clone
-                                .as_ref()
-                                .map(|ns| ns.exscore() > self.data.oldscore.exscore())
-                                .unwrap_or(false);
-                            let score_for_rank: Option<&ScoreData> = if use_newscore {
-                                newscore_clone.as_ref()
-                            } else {
-                                Some(&self.data.oldscore)
-                            };
-                            if let Some(ref mut ranking) = self.data.ranking {
-                                ranking.update_score(ir_scores, score_for_rank);
-                                if ranking.rank() > 10 {
-                                    self.data.ranking_offset = ranking.rank() - 5;
-                                } else {
-                                    self.data.ranking_offset = 0;
-                                }
-                            }
-                        }
-                        info!("IR score fetch succeeded: {}", response.message);
-                    } else {
-                        warn!("IR score fetch failed: {}", response.message);
+                    0
+                };
+                list.drain(start..).collect()
+            };
+            let ir_connection = self.main.ir_status().first().map(|s| s.connection.clone());
+            let songdata_for_ranking = self.resource.songdata().cloned();
+            let _oldscore_exscore = self.data.oldscore.exscore();
+            let newscore_for_thread = newscore_clone.clone();
+
+            self.data.timer.switch_timer(TIMER_IR_CONNECT_BEGIN, true);
+
+            let (tx, rx) = std::sync::mpsc::channel();
+            self.ir_rx = Some(rx);
+
+            std::thread::spawn(move || {
+                let mut irsend = 0;
+                let mut succeed = true;
+                for status in &mut ir_send_list_snapshot {
+                    irsend += 1;
+                    let send_ok = status.send();
+                    succeed &= send_ok;
+                    if status.retry < 0 || status.retry > ir_send_count {
+                        // Discard failed sends (matches original removal logic)
                     }
                 }
-            }
-            self.data.state = STATE_IR_FINISHED;
+
+                let mut ranking_scores = None;
+                if irsend > 0
+                    && let Some(ref conn) = ir_connection
+                    && let Some(ref songdata) = songdata_for_ranking
+                {
+                    let chart_data = rubato_ir::ir_chart_data::IRChartData::new(songdata);
+                    let response = conn.get_play_data(None, &chart_data);
+                    if response.is_succeeded() {
+                        ranking_scores = response.data().cloned();
+                        log::info!("IR score fetch succeeded: {}", response.message);
+                    } else {
+                        log::warn!("IR score fetch failed: {}", response.message);
+                    }
+                }
+
+                let _ = tx.send((succeed, irsend > 0, ranking_scores, newscore_for_thread));
+            });
         }
 
         // Play result sound
@@ -261,7 +252,56 @@ impl MusicResult {
         self.stop_sound_inner(SoundType::ResultClose);
     }
 
+    /// Poll for async IR results (non-blocking) and update ranking/timer state.
+    fn poll_ir_results(&mut self) {
+        let rx = match self.ir_rx.as_ref() {
+            Some(rx) => rx,
+            None => return,
+        };
+        let result = match rx.try_recv() {
+            Ok(r) => r,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                self.ir_rx = None;
+                self.data.state = STATE_IR_FINISHED;
+                return;
+            }
+        };
+        self.ir_rx = None;
+        let (succeed, had_sends, ranking_scores, newscore_clone) = result;
+        self.data.state = STATE_IR_FINISHED;
+        if had_sends {
+            if succeed {
+                self.data.timer.switch_timer(TIMER_IR_CONNECT_SUCCESS, true);
+            } else {
+                self.data.timer.switch_timer(TIMER_IR_CONNECT_FAIL, true);
+            }
+            if let Some(ir_scores) = ranking_scores {
+                let use_newscore = newscore_clone
+                    .as_ref()
+                    .map(|ns| ns.exscore() > self.data.oldscore.exscore())
+                    .unwrap_or(false);
+                let score_for_rank: Option<&ScoreData> = if use_newscore {
+                    newscore_clone.as_ref()
+                } else {
+                    Some(&self.data.oldscore)
+                };
+                if let Some(ref mut ranking) = self.data.ranking {
+                    ranking.update_score(&ir_scores, score_for_rank);
+                    if ranking.rank() > 10 {
+                        self.data.ranking_offset = ranking.rank() - 5;
+                    } else {
+                        self.data.ranking_offset = 0;
+                    }
+                }
+            }
+        }
+    }
+
     fn do_render(&mut self) {
+        // Poll for async IR results (non-blocking)
+        self.poll_ir_results();
+
         let time = self.data.timer.now_time();
         self.data.timer.switch_timer(TIMER_RESULTGRAPH_BEGIN, true);
         self.data.timer.switch_timer(TIMER_RESULTGRAPH_END, true);
