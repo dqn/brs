@@ -55,6 +55,13 @@ pub struct InputContext<'a> {
     pub timer: &'a mut TimerManager,
 }
 
+/// Check if a key is currently active (physically pressed or auto-pressed).
+fn is_key_active(key: i32, ctx: &InputContext) -> bool {
+    let idx = key as usize;
+    (idx < ctx.key_states.len() && ctx.key_states[idx])
+        || (idx < ctx.auto_presstime.len() && ctx.auto_presstime[idx] != i64::MIN)
+}
+
 /// A single key state change to replay.
 /// Produced by JudgeThread::tick() for the caller to apply.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -282,8 +289,15 @@ impl KeyInputProccessor {
     ///
     /// Returns scratch angle values indexed by scratch index.
     /// The caller should write `result[s]` to `main.getOffset(OFFSET_SCRATCHANGLE_1P + s).r`.
-    #[allow(clippy::needless_range_loop)] // Multiple parallel arrays indexed by s/lane
     pub fn input(&mut self, ctx: &mut InputContext) {
+        self.update_lane_key_beams(ctx);
+        self.update_scratch_animation(ctx);
+        self.prevtime = ctx.now;
+    }
+
+    /// Update key beam on/off flags for each lane based on pressed keys.
+    #[allow(clippy::needless_range_loop)] // Multiple parallel arrays indexed by lane
+    fn update_lane_key_beams(&mut self, ctx: &mut InputContext) {
         let lane_offsets = self.lane_property.lane_skin_offset();
         let lane_keys = self.lane_property.lane_key_assign();
         let lane_scratch = self.lane_property.lane_scratch_assign();
@@ -296,11 +310,7 @@ impl KeyInputProccessor {
 
             if !self.key_beam_stop {
                 for &key in &lane_keys[lane] {
-                    let key_idx = key as usize;
-                    let is_key_active = (key_idx < ctx.key_states.len() && ctx.key_states[key_idx])
-                        || (key_idx < ctx.auto_presstime.len()
-                            && ctx.auto_presstime[key_idx] != i64::MIN);
-                    if is_key_active {
+                    if is_key_active(key, ctx) {
                         pressed = true;
                         let scratch_idx = lane_scratch[lane];
                         if scratch_idx != -1 {
@@ -329,65 +339,57 @@ impl KeyInputProccessor {
                 }
             }
         }
+    }
 
-        // Scratch turntable animation
-        if self.prevtime >= 0 {
-            let deltatime = (ctx.now - self.prevtime) as f32 / 1000.0;
-            let scratch_keys = self.lane_property.scratch_key_assign();
-            #[allow(clippy::needless_range_loop)]
-            for s in 0..self.scratch.len() {
-                let key0 = scratch_keys[s][1];
-                let key1 = scratch_keys[s][0];
-
-                let mut target_speed: f32 = 1.0;
-                let mut move_towards_speed: f32 = 4.0;
-
-                if !ctx.is_autoplay {
-                    let key0_idx = key0 as usize;
-                    let key1_idx = key1 as usize;
-                    let key0_active = (key0_idx < ctx.key_states.len() && ctx.key_states[key0_idx])
-                        || (key0_idx < ctx.auto_presstime.len()
-                            && ctx.auto_presstime[key0_idx] != i64::MIN);
-                    let key1_active = (key1_idx < ctx.key_states.len() && ctx.key_states[key1_idx])
-                        || (key1_idx < ctx.auto_presstime.len()
-                            && ctx.auto_presstime[key1_idx] != i64::MIN);
-
-                    if key0_active {
-                        target_speed = -0.75;
-                        move_towards_speed = 16.0;
-                        self.scratch_tt_graphic_speed[s] =
-                            self.scratch_tt_graphic_speed[s].min(0.0);
-                    } else if key1_active {
-                        target_speed = 2.0;
-                        move_towards_speed = 16.0;
-                        self.scratch_tt_graphic_speed[s] =
-                            self.scratch_tt_graphic_speed[s].max(0.0);
-                    }
-                }
-
-                // Move towards target speed
-                // Java uses constant 1.0f in the abs check (not targetSpeed)
-                if (1.0_f32 - self.scratch_tt_graphic_speed[s]).abs() <= deltatime {
-                    self.scratch_tt_graphic_speed[s] = target_speed;
-                } else {
-                    self.scratch_tt_graphic_speed[s] +=
-                        (target_speed - self.scratch_tt_graphic_speed[s]).signum()
-                            * deltatime
-                            * move_towards_speed;
-                }
-
-                // Apply TT speed to scratch angle
-                if self.scratch_tt_graphic_speed[s] > 0.0 {
-                    self.scratch[s] += 360.0 - self.scratch_tt_graphic_speed[s] * deltatime * 270.0;
-                } else if self.scratch_tt_graphic_speed[s] < 0.0 {
-                    self.scratch[s] += -self.scratch_tt_graphic_speed[s] * deltatime * 270.0;
-                }
-
-                self.scratch[s] %= 360.0;
-            }
+    /// Update scratch turntable rotation animation based on active scratch keys.
+    #[allow(clippy::needless_range_loop)] // Multiple parallel arrays indexed by s
+    fn update_scratch_animation(&mut self, ctx: &InputContext) {
+        if self.prevtime < 0 {
+            return;
         }
 
-        self.prevtime = ctx.now;
+        let deltatime = (ctx.now - self.prevtime) as f32 / 1000.0;
+        let scratch_keys = self.lane_property.scratch_key_assign();
+
+        for s in 0..self.scratch.len() {
+            let key0 = scratch_keys[s][1];
+            let key1 = scratch_keys[s][0];
+
+            let mut target_speed: f32 = 1.0;
+            let mut move_towards_speed: f32 = 4.0;
+
+            if !ctx.is_autoplay {
+                if is_key_active(key0, ctx) {
+                    target_speed = -0.75;
+                    move_towards_speed = 16.0;
+                    self.scratch_tt_graphic_speed[s] = self.scratch_tt_graphic_speed[s].min(0.0);
+                } else if is_key_active(key1, ctx) {
+                    target_speed = 2.0;
+                    move_towards_speed = 16.0;
+                    self.scratch_tt_graphic_speed[s] = self.scratch_tt_graphic_speed[s].max(0.0);
+                }
+            }
+
+            // Move towards target speed
+            // Java uses constant 1.0f in the abs check (not targetSpeed)
+            if (1.0_f32 - self.scratch_tt_graphic_speed[s]).abs() <= deltatime {
+                self.scratch_tt_graphic_speed[s] = target_speed;
+            } else {
+                self.scratch_tt_graphic_speed[s] +=
+                    (target_speed - self.scratch_tt_graphic_speed[s]).signum()
+                        * deltatime
+                        * move_towards_speed;
+            }
+
+            // Apply TT speed to scratch angle
+            if self.scratch_tt_graphic_speed[s] > 0.0 {
+                self.scratch[s] += 360.0 - self.scratch_tt_graphic_speed[s] * deltatime * 270.0;
+            } else if self.scratch_tt_graphic_speed[s] < 0.0 {
+                self.scratch[s] += -self.scratch_tt_graphic_speed[s] * deltatime * 270.0;
+            }
+
+            self.scratch[s] %= 360.0;
+        }
     }
 
     /// Returns the current scratch angle values.
