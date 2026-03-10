@@ -43,8 +43,16 @@ pub struct BitmapGlyph {
 
 impl BitmapFontData {
     /// Parse a .fnt file (AngelCode BMFont text format).
+    /// Tries UTF-8 first, then falls back to MS932 (Shift_JIS) for Japanese skin assets.
     pub fn from_fnt(path: &std::path::Path) -> Option<Self> {
-        let content = std::fs::read_to_string(path).ok()?;
+        let bytes = std::fs::read(path).ok()?;
+        let content = match std::str::from_utf8(&bytes) {
+            Ok(s) => s.to_string(),
+            Err(_) => {
+                let (cow, _, _) = encoding_rs::SHIFT_JIS.decode(&bytes);
+                cow.into_owned()
+            }
+        };
         Self::parse_fnt(&content, path.parent())
     }
 

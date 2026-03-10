@@ -482,6 +482,12 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
         info: Option<&str>,
     ) -> Vec<SongData> {
         let conn = self.conn.lock().expect("conn lock poisoned");
+
+        // Track which databases are attached so we can detach them on any exit path.
+        let mut attached_score = false;
+        let mut attached_scorelog = false;
+        let mut attached_info = false;
+
         let result: anyhow::Result<Vec<SongData>> = (|| {
             // ATTACH DATABASE doesn't support parameterized paths; escape single quotes
             let score_escaped = score.replace('\'', "''");
@@ -490,14 +496,17 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
                 &format!("ATTACH DATABASE '{}' as scoredb", score_escaped),
                 [],
             )?;
+            attached_score = true;
             conn.execute(
                 &format!("ATTACH DATABASE '{}' as scorelogdb", scorelog_escaped),
                 [],
             )?;
+            attached_scorelog = true;
 
             let songs = if let Some(info_path) = info {
                 let info_escaped = info_path.replace('\'', "''");
                 conn.execute(&format!("ATTACH DATABASE '{}' as infodb", info_escaped), [])?;
+                attached_info = true;
                 let query = format!(
                     "SELECT DISTINCT md5, song.sha256 AS sha256, title, subtitle, genre, artist, subartist,path,folder,stagefile,banner,backbmp,parent,level,difficulty,\
                      maxbpm,minbpm,song.mode AS mode, judge, feature, content, song.date AS date, favorite, song.notes AS notes, adddate, preview, length, charthash\
@@ -505,9 +514,7 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
                      ON song.sha256 = information.sha256 WHERE {}",
                     sql
                 );
-                let songs = Self::query_songs_with_conn(&conn, &query, &[]).unwrap_or_default();
-                let _ = conn.execute("DETACH DATABASE infodb", []);
-                songs
+                Self::query_songs_with_conn(&conn, &query, &[]).unwrap_or_default()
             } else {
                 let query = format!(
                     "SELECT DISTINCT md5, song.sha256 AS sha256, title, subtitle, genre, artist, subartist,path,folder,stagefile,banner,backbmp,parent,level,difficulty,\
@@ -518,11 +525,19 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
                 Self::query_songs_with_conn(&conn, &query, &[]).unwrap_or_default()
             };
 
-            let _ = conn.execute("DETACH DATABASE scorelogdb", []);
-            let _ = conn.execute("DETACH DATABASE scoredb", []);
-
             Ok(remove_invalid_elements_vec(songs))
         })();
+
+        // Always detach in reverse order, regardless of success or failure.
+        if attached_info {
+            let _ = conn.execute("DETACH DATABASE infodb", []);
+        }
+        if attached_scorelog {
+            let _ = conn.execute("DETACH DATABASE scorelogdb", []);
+        }
+        if attached_score {
+            let _ = conn.execute("DETACH DATABASE scoredb", []);
+        }
 
         match result {
             Ok(songs) => songs,

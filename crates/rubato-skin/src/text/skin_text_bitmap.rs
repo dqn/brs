@@ -395,7 +395,15 @@ impl SkinTextBitmapSource {
         // BMFont format:
         //   info face="..." size=32 bold=0 ...
         //   common lineHeight=32 base=26 scaleW=256 scaleH=256 ...
-        if let Ok(content) = std::fs::read_to_string(font_path) {
+        let content_result =
+            std::fs::read(font_path).map(|bytes| match std::str::from_utf8(&bytes) {
+                Ok(s) => s.to_string(),
+                Err(_) => {
+                    let (cow, _, _) = encoding_rs::SHIFT_JIS.decode(&bytes);
+                    cow.into_owned()
+                }
+            });
+        if let Ok(content) = content_result {
             let mut lines = content.lines();
             // First line: "info ..." — extract size=
             if let Some(line) = lines.next() {

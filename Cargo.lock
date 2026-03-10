@@ -4317,6 +4317,7 @@ dependencies = [
  "bytemuck",
  "egui",
  "egui-wgpu",
+ "encoding_rs",
  "image",
  "log",
  "tokio",

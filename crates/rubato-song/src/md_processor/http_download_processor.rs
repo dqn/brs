@@ -400,43 +400,96 @@ fn extract_compressed_file(
         fs::create_dir_all(&dest)?;
     }
 
-    // Record pre-existing directories so we only return newly extracted ones.
+    // Extract into a temp directory first, then validate paths before moving.
+    // This prevents path-traversal attacks via ../ entries in the archive.
+    let staging_dir = tempfile::tempdir_in(&dest)?;
+
+    sevenz_rust::decompress_file(file, staging_dir.path())
+        .map_err(|e| anyhow::anyhow!("7z extraction failed: {}", e))?;
+
+    // Validate all extracted paths stay within the staging directory.
+    let canonical_staging = staging_dir.path().canonicalize()?;
+    validate_extracted_paths(&canonical_staging)?;
+
+    // Record pre-existing entries so we can detect what was newly added.
     let pre_existing: std::collections::HashSet<_> = fs::read_dir(&dest)
         .into_iter()
         .flatten()
         .flatten()
-        .filter(|e| e.path().is_dir())
-        .map(|e| e.path())
+        .map(|e| e.file_name())
         .collect();
 
-    // Known limitation: sevenz_rust writes all entries before we can validate paths.
-    // A malicious archive could write outside `dest` before the canonical check below catches it.
-    // Full fix: extract to a temp directory, validate, then move into dest.
-    sevenz_rust::decompress_file(file, &dest)
-        .map_err(|e| anyhow::anyhow!("7z extraction failed: {}", e))?;
-
-    // Post-extraction path traversal check (best-effort).
-    let canonical_dest = dest.canonicalize()?;
+    // Move validated contents from staging into dest.
+    let mut has_new_files = false;
+    for entry in fs::read_dir(staging_dir.path())?.flatten() {
+        let target = dest.join(entry.file_name());
+        // rename may fail across mount points; fall back to copy+remove
+        if fs::rename(entry.path(), &target).is_err() {
+            if entry.path().is_dir() {
+                copy_dir_recursive(&entry.path(), &target)?;
+                fs::remove_dir_all(entry.path())?;
+            } else {
+                fs::copy(entry.path(), &target)?;
+                fs::remove_file(entry.path())?;
+            }
+        }
+        has_new_files = true;
+    }
 
     // Find the first newly created subdirectory.
     let mut extracted_dir = None;
     if let Ok(entries) = fs::read_dir(&dest) {
         for entry in entries.flatten() {
             let path = entry.path();
-            let canonical = path.canonicalize().unwrap_or_default();
-            if !canonical.starts_with(&canonical_dest) {
-                log::warn!(
-                    "Skipping extracted path outside destination: {}",
-                    path.display()
-                );
-                continue;
-            }
-            if path.is_dir() && !pre_existing.contains(&path) {
+            if path.is_dir() && !pre_existing.contains(&entry.file_name()) {
                 extracted_dir = Some(path.to_string_lossy().to_string());
                 break;
             }
         }
     }
 
+    // If files were extracted at root level (no subdirectory), return download_directory
+    // so that the song updater still rescans the location.
+    if extracted_dir.is_none() && has_new_files {
+        extracted_dir = Some(dest.to_string_lossy().to_string());
+    }
+
     Ok(extracted_dir)
+}
+
+/// Recursively validate that all paths under `root` are within `root` (no symlink escapes).
+fn validate_extracted_paths(root: &Path) -> anyhow::Result<()> {
+    validate_extracted_paths_recursive(root, root)
+}
+
+fn validate_extracted_paths_recursive(root: &Path, dir: &Path) -> anyhow::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let canonical = entry.path().canonicalize()?;
+        if !canonical.starts_with(root) {
+            return Err(anyhow::anyhow!(
+                "Path traversal detected: {} escapes {}",
+                entry.path().display(),
+                root.display()
+            ));
+        }
+        if entry.path().is_dir() {
+            validate_extracted_paths_recursive(root, &entry.path())?;
+        }
+    }
+    Ok(())
+}
+
+/// Recursively copy a directory tree.
+fn copy_dir_recursive(src: &Path, dst: &Path) -> anyhow::Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)?.flatten() {
+        let target = dst.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir_recursive(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
 }
