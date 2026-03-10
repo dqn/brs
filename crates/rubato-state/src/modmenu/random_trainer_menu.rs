@@ -1,5 +1,3 @@
-use super::random_trainer::RandomTrainer;
-
 use std::sync::Mutex;
 
 static RANDOM_TRAINER_ENABLED: Mutex<bool> = Mutex::new(false);
@@ -25,59 +23,6 @@ fn init_lane_order() {
 pub struct RandomTrainerMenu;
 
 impl RandomTrainerMenu {
-    #[allow(dead_code)]
-    fn random_history() {
-        // if (ImGui.treeNode("Random History"))
-        {
-            let history = RandomTrainer::random_history();
-            for entry in &history {
-                let _title = entry.title();
-                let _random = entry.random();
-                // Render table rows
-                // Double click to select as current random
-            }
-        }
-        // ImGui.treePop();
-    }
-
-    #[allow(dead_code)]
-    fn drag_and_drop_key_display() {
-        let lane_order = LANE_ORDER.lock().expect("LANE_ORDER lock poisoned");
-        let bw_permute = *BLACK_WHITE_RANDOM_PERMUTATION
-            .lock()
-            .expect("BLACK_WHITE_RANDOM_PERMUTATION lock poisoned");
-
-        for lane in lane_order.iter() {
-            let lane_char = lane.chars().next().unwrap_or('1');
-            let to_random = RandomTrainer::is_lane_to_random(lane_char);
-
-            // Color selection based on black/white keys and random state
-            if to_random {
-                // push pink style
-            } else if lane_char.to_digit(10).unwrap_or(0).is_multiple_of(2) {
-                // push dark blue style (black key)
-            } else {
-                // push light style (white key)
-            }
-
-            if bw_permute {
-                // ImGui.button("", 50, 80);
-            } else if to_random {
-                // ImGui.button("?", 50, 80);
-            } else {
-                // ImGui.button(lane_order[i], 50, 80);
-            }
-
-            // Drag & drop source/target for reordering
-            // Right-click to toggle random
-            if to_random {
-                // RandomTrainer.removeLaneToRandom(...)
-            } else {
-                // RandomTrainer.setLaneToRandom(...)
-            }
-        }
-    }
-
     pub fn mirror_lane_order() {
         let s = get_lane_order_string();
         let reversed: String = s.chars().rev().collect();

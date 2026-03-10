@@ -1085,15 +1085,13 @@ fn state_transition_flushes_audio_after_shutdown() {
 
 use std::sync::{Arc, Mutex};
 
-type StateCallLog = Arc<Mutex<Vec<(ScreenType, i32)>>>;
-
 /// A mock listener that records calls.
 struct MockStateListener {
-    calls: StateCallLog,
+    calls: Arc<Mutex<Vec<(ScreenType, i32)>>>,
 }
 
 impl MockStateListener {
-    fn new(calls: StateCallLog) -> Self {
+    fn new(calls: Arc<Mutex<Vec<(ScreenType, i32)>>>) -> Self {
         Self { calls }
     }
 }

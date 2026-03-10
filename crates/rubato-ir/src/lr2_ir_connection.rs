@@ -30,15 +30,13 @@ lazy_static::lazy_static! {
     // Unbounded cache keyed by (md5, player_id). Acceptable for game sessions
     // (typically <100 unique songs). If memory is a concern, consider LRU eviction.
     static ref LR2_IR_RANKING_CACHE: Mutex<HashMap<String, Vec<LeaderboardEntry>>> = Mutex::new(HashMap::new());
-    static ref SCORE_DATABASE_ACCESSOR: Mutex<Option<ScoreDatabaseAccessorRef>> = Mutex::new(None);
+    static ref SCORE_DATABASE_ACCESSOR: Mutex<Option<Box<dyn ScoreDatabaseAccess>>> = Mutex::new(None);
 }
 
 /// Trait for score database access (avoids direct dependency on ScoreDatabaseAccessor)
 pub trait ScoreDatabaseAccess: Send + Sync {
     fn score_data(&self, sha256: &str, mode: i32) -> Option<ScoreData>;
 }
-
-type ScoreDatabaseAccessorRef = Box<dyn ScoreDatabaseAccess>;
 
 pub struct LR2IRConnection;
 

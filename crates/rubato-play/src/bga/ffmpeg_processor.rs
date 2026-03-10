@@ -6,26 +6,6 @@
 use crate::Texture;
 use crate::bga::movie_processor::MovieProcessor;
 
-/// Processor status
-#[allow(dead_code)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum _ProcessorStatus {
-    TextureInactive,
-    TextureActive,
-    Disposed,
-}
-
-/// Commands for the movie seek thread.
-/// Translated from: FFmpegProcessor.Command
-#[allow(dead_code)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum _Command {
-    Play,
-    Loop,
-    Stop,
-    Halt,
-}
-
 /// Timer observer for movie playback
 pub trait TimerObserver {
     fn micro_time(&self) -> i64;

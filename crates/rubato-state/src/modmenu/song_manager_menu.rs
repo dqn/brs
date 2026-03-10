@@ -4,8 +4,6 @@ use rubato_types::last_played_sort;
 use std::sync::Mutex;
 
 static SELECTOR: Mutex<Option<Box<dyn SongSelectionAccess>>> = Mutex::new(None);
-#[allow(dead_code)]
-static CURRENT_REVERSE_LOOKUP_LIST: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 pub struct SongManagerMenu;
 
@@ -56,23 +54,6 @@ impl SongManagerMenu {
     }
 }
 
-#[allow(dead_code)]
-fn update_reverse_lookup_data(current_song_data: &Option<SongData>) {
-    if current_song_data.is_none() {
-        CURRENT_REVERSE_LOOKUP_LIST
-            .lock()
-            .expect("CURRENT_REVERSE_LOOKUP_LIST lock poisoned")
-            .clear();
-        return;
-    }
-
-    // Current song data is not used in this call, consider deleting upstream of this function
-    // getReverseLookupData uses the selectors resource object to get data for what song is currently selected
-    *CURRENT_REVERSE_LOOKUP_LIST
-        .lock()
-        .expect("CURRENT_REVERSE_LOOKUP_LIST lock poisoned") = get_reverse_lookup_data();
-}
-
 fn get_current_song_data() -> Option<SongData> {
     let selector = SELECTOR.lock().expect("SELECTOR lock poisoned");
     if let Some(ref sel) = *selector {
@@ -87,12 +68,4 @@ fn get_current_score_data() -> Option<ScoreData> {
         return sel.selected_score_data();
     }
     None
-}
-
-fn get_reverse_lookup_data() -> Vec<String> {
-    let selector = SELECTOR.lock().expect("SELECTOR lock poisoned");
-    if let Some(ref sel) = *selector {
-        return sel.reverse_lookup_data();
-    }
-    Vec::new()
 }

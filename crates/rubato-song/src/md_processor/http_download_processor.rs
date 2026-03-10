@@ -71,12 +71,6 @@ impl HttpDownloadProcessor {
         &wriggle_download_source::META
     }
 
-    #[allow(dead_code)]
-    fn get_task_by_id(&self, task_id: i32) -> Option<Arc<Mutex<DownloadTask>>> {
-        let tasks = self.tasks.lock().expect("tasks lock poisoned");
-        tasks.get(&task_id).cloned()
-    }
-
     // Would be best if this returned an immutable view over the tasks,
     // without creating a copy, in the interest of efficiency,
     // however I'm not sure if that is possible in java

@@ -25,8 +25,6 @@ static LANE_COVER_MARGIN_HIGH: Mutex<f32> = Mutex::new(0.0);
 static LANE_COVER_SWITCH_DURATION: Mutex<i32> = Mutex::new(0);
 static ENABLE_CONSTANT: Mutex<bool> = Mutex::new(false);
 static CONSTANT_VALUE: Mutex<i32> = Mutex::new(0);
-#[allow(dead_code)]
-static PROFILE_SWITCHER: Mutex<bool> = Mutex::new(false);
 static SELECTED_PLAYER: Mutex<i32> = Mutex::new(0);
 static PLAYERS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 

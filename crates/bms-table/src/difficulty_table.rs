@@ -30,14 +30,6 @@ impl DifficultyTable {
         &self.table.models
     }
 
-    #[allow(dead_code)]
-    fn index_of(&self, level: &str) -> i32 {
-        let desc = self.level_description();
-        desc.iter()
-            .position(|d| d == level)
-            .map_or(-1, |i| i as i32)
-    }
-
     pub fn level_description(&self) -> Vec<String> {
         if let Some(l) = self.table.values.get(LEVEL_ORDER)
             && let Some(arr) = l.as_array()

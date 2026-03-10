@@ -13,8 +13,6 @@ struct WatchStats {
 }
 
 static WATCH_DATA: Mutex<Vec<(String, WatchStats)>> = Mutex::new(Vec::new());
-#[allow(dead_code)]
-static LAST_STAT_UPDATE: Mutex<Option<Instant>> = Mutex::new(None);
 
 pub static FILTER_SHORT_THRESHOLD: Mutex<f32> = Mutex::new(1.0);
 static SORT_BY_DURATION: Mutex<bool> = Mutex::new(false);
@@ -132,57 +130,6 @@ impl PerformanceMonitor {
         }
         *EVENT_TREE.lock().expect("EVENT_TREE lock poisoned") = Some(new_tree);
     }
-}
-
-#[allow(dead_code)]
-fn update_watch_data() {
-    let now = Instant::now();
-    {
-        let last_update = LAST_STAT_UPDATE
-            .lock()
-            .expect("LAST_STAT_UPDATE lock poisoned");
-        let should_update = match &*last_update {
-            None => true,
-            Some(t) => now.duration_since(*t).as_nanos() > 100_000_000,
-        };
-        if !should_update {
-            return;
-        }
-    }
-    *LAST_STAT_UPDATE
-        .lock()
-        .expect("LAST_STAT_UPDATE lock poisoned") = Some(now);
-
-    let metrics = PerformanceMetrics::get();
-    let names = metrics.watch_names();
-    let mut new_watch_data = Vec::new();
-
-    for name in &names {
-        if let Some(record) = metrics.get_watch_records(name) {
-            if record.is_empty() {
-                new_watch_data.push((name.clone(), WatchStats { avg: 0.0, std: 0.0 }));
-                continue;
-            }
-
-            let mut sum: i64 = 0;
-            for &(_time, value) in &record {
-                sum += value;
-            }
-            let avg_us = (sum / record.len() as i64) as f32 / 1000.0;
-            let mut variance: f32 = 0.0;
-            for &(_time, value) in &record {
-                let us = value as f32 / 1000.0;
-                variance += (avg_us - us) * (avg_us - us);
-            }
-            variance /= record.len() as f32;
-            let std = variance.sqrt();
-            new_watch_data.push((name.clone(), WatchStats { avg: avg_us, std }));
-        } else {
-            new_watch_data.push((name.clone(), WatchStats { avg: 0.0, std: 0.0 }));
-        }
-    }
-
-    *WATCH_DATA.lock().expect("WATCH_DATA lock poisoned") = new_watch_data;
 }
 
 #[allow(dead_code)]
