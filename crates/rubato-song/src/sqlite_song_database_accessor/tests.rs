@@ -357,3 +357,33 @@ fn test_update_song_datas_auto_difficulty() {
         "Beginner subtitle should set difficulty to 1"
     );
 }
+
+#[test]
+fn escape_sql_like_no_wildcards() {
+    assert_eq!(escape_sql_like("normal/path"), "normal/path");
+}
+
+#[test]
+fn escape_sql_like_percent() {
+    assert_eq!(escape_sql_like("foo%bar"), "foo\\%bar");
+}
+
+#[test]
+fn escape_sql_like_underscore() {
+    assert_eq!(escape_sql_like("foo_bar"), "foo\\_bar");
+}
+
+#[test]
+fn escape_sql_like_backslash() {
+    assert_eq!(escape_sql_like("foo\\bar"), "foo\\\\bar");
+}
+
+#[test]
+fn escape_sql_like_mixed() {
+    assert_eq!(escape_sql_like("a%b_c\\d"), "a\\%b\\_c\\\\d");
+}
+
+#[test]
+fn escape_sql_like_empty() {
+    assert_eq!(escape_sql_like(""), "");
+}

@@ -157,19 +157,31 @@ impl HttpDownloadProcessor {
     /// 3. Update download directory
     /// 4. Delete the archive file
     pub fn execute_download_task(&self, download_task: Arc<Mutex<DownloadTask>>) {
-        if self.active_downloads.load(Ordering::Acquire) >= MAXIMUM_DOWNLOAD_COUNT {
-            log::warn!(
-                "[HttpDownloadProcessor] Maximum concurrent downloads ({}) reached, rejecting task",
-                MAXIMUM_DOWNLOAD_COUNT
-            );
-            ImGuiNotify::warning("Download queue is full, try again later");
-            let mut task = download_task.lock().expect("download_task lock poisoned");
-            // Release the URL from submitted_urls so the user can retry later
-            if let Ok(mut urls) = self.submitted_urls.lock() {
-                urls.remove(task.url());
+        // Reserve a download slot atomically using compare_exchange to prevent
+        // concurrent threads from exceeding MAXIMUM_DOWNLOAD_COUNT.
+        loop {
+            let current = self.active_downloads.load(Ordering::Acquire);
+            if current >= MAXIMUM_DOWNLOAD_COUNT {
+                log::warn!(
+                    "[HttpDownloadProcessor] Maximum concurrent downloads ({}) reached, rejecting task",
+                    MAXIMUM_DOWNLOAD_COUNT
+                );
+                ImGuiNotify::warning("Download queue is full, try again later");
+                let mut task = download_task.lock().expect("download_task lock poisoned");
+                // Release the URL from submitted_urls so the user can retry later
+                if let Ok(mut urls) = self.submitted_urls.lock() {
+                    urls.remove(task.url());
+                }
+                task.set_download_task_status(DownloadTaskStatus::Error);
+                return;
             }
-            task.set_download_task_status(DownloadTaskStatus::Error);
-            return;
+            if self
+                .active_downloads
+                .compare_exchange(current, current + 1, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
+                break;
+            }
         }
 
         let download_directory = self.download_directory.clone();
@@ -177,7 +189,6 @@ impl HttpDownloadProcessor {
         let source_name = self.http_download_source.name().to_string();
         let active_downloads = self.active_downloads.clone();
         let submitted_urls = self.submitted_urls.clone();
-        active_downloads.fetch_add(1, Ordering::AcqRel);
 
         thread::spawn(move || {
             struct DownloadGuard {

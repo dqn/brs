@@ -114,6 +114,9 @@ proptest = "1"
 # File dialog
 rfd = "0.15"
 
+# URL parsing
+url = "2"
+
 # Open URLs/files in default app
 open = "5"
 

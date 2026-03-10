@@ -7,6 +7,7 @@ use std::sync::OnceLock;
 use anyhow::Result;
 use regex::Regex;
 use serde_json::Value;
+use url::Url;
 
 use crate::bms_table_element::BmsTableElement;
 use crate::course::{Course, Trophy};
@@ -49,8 +50,9 @@ impl DifficultyTableParser {
 
     fn read_all_lines(&self, urlname: &str) -> Option<Vec<String>> {
         match reqwest::blocking::get(urlname) {
-            Ok(response) => match response.text() {
-                Ok(text) => {
+            Ok(response) => match response.bytes() {
+                Ok(bytes) => {
+                    let text = Self::decode_bytes_with_charset(&bytes);
                     let lines: Vec<String> = text.lines().map(|s| s.to_string()).collect();
                     Some(lines)
                 }
@@ -68,6 +70,65 @@ impl DifficultyTableParser {
                     e
                 );
                 None
+            }
+        }
+    }
+
+    /// Detect charset from `<meta>` tags in raw bytes and decode accordingly.
+    /// Falls back to Shift_JIS for non-UTF-8 content (common for Japanese BMS tables).
+    fn decode_bytes_with_charset(bytes: &[u8]) -> String {
+        // Try UTF-8 first; if it works cleanly, check for an explicit charset override.
+        let tentative = String::from_utf8_lossy(bytes);
+
+        // Look for <meta http-equiv="content-type" content="...charset=XXX">
+        // or <meta charset="XXX"> in the first few KB.
+        let probe = &tentative[..tentative.len().min(4096)];
+        let probe_lower = probe.to_lowercase();
+        let charset = if let Some(idx) = probe_lower.find("charset=") {
+            let rest = &probe[idx + 8..];
+            // Skip optional leading quote (charset="..." or charset='...')
+            let rest = rest
+                .strip_prefix('"')
+                .or_else(|| rest.strip_prefix('\''))
+                .unwrap_or(rest);
+            let end = rest
+                .find(|c: char| c == '"' || c == '\'' || c == ';' || c == '>' || c.is_whitespace())
+                .unwrap_or(rest.len());
+            Some(rest[..end].trim().to_lowercase())
+        } else {
+            None
+        };
+
+        match charset.as_deref() {
+            Some("utf-8" | "utf8") | None => {
+                // If UTF-8 decoded cleanly (no replacement chars), use it.
+                if !tentative.contains('\u{FFFD}') {
+                    return tentative.into_owned();
+                }
+                // Contains replacement chars and no explicit charset; try Shift_JIS.
+                let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(bytes);
+                decoded.into_owned()
+            }
+            Some("shift_jis" | "shift-jis" | "sjis" | "x-sjis" | "ms932" | "windows-31j") => {
+                let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(bytes);
+                decoded.into_owned()
+            }
+            Some("euc-jp" | "euc_jp" | "eucjp") => {
+                let (decoded, _, _) = encoding_rs::EUC_JP.decode(bytes);
+                decoded.into_owned()
+            }
+            Some("iso-2022-jp") => {
+                let (decoded, _, _) = encoding_rs::ISO_2022_JP.decode(bytes);
+                decoded.into_owned()
+            }
+            Some(other) => {
+                // Try to look up the encoding by label.
+                if let Some(encoding) = encoding_rs::Encoding::for_label(other.as_bytes()) {
+                    let (decoded, _, _) = encoding.decode(bytes);
+                    decoded.into_owned()
+                } else {
+                    tentative.into_owned()
+                }
             }
         }
     }
@@ -141,20 +202,25 @@ impl DifficultyTableParser {
     }
 
     fn get_absolute_url(&self, source: &str, path: &str) -> String {
+        // If path is already an absolute URL, return as-is.
+        if path.starts_with("http://") || path.starts_with("https://") {
+            return path.to_string();
+        }
+        // Use proper URL joining to handle root-relative (/path), parent-relative
+        // (../path), and current-relative (./path or bare path) links correctly.
+        if let Ok(base) = Url::parse(source)
+            && let Ok(resolved) = base.join(path)
+        {
+            return resolved.to_string();
+        }
+        // Fallback: simple concatenation with directory base.
         let urldir = if let Some(idx) = source.rfind('/') {
             &source[..idx + 1]
         } else {
             source
         };
-        if !path.starts_with("http") && !path.starts_with(urldir) {
-            let p = if let Some(stripped) = path.strip_prefix("./") {
-                stripped
-            } else {
-                path
-            };
-            return format!("{}{}", urldir, p);
-        }
-        path.to_string()
+        let p = path.strip_prefix("./").unwrap_or(path);
+        format!("{}{}", urldir, p)
     }
 
     pub fn decode_json_table(
@@ -1287,5 +1353,72 @@ mod tests {
         let result =
             parser.decode_json_table_header_from_file(&mut dt, Path::new("/nonexistent/file.json"));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_absolute_url_already_absolute() {
+        let parser = DifficultyTableParser::new();
+        let result =
+            parser.get_absolute_url("http://example.com/table/", "https://other.com/data.json");
+        assert_eq!(result, "https://other.com/data.json");
+    }
+
+    #[test]
+    fn test_get_absolute_url_relative_path() {
+        let parser = DifficultyTableParser::new();
+        let result = parser.get_absolute_url("http://example.com/table/index.html", "data.json");
+        assert_eq!(result, "http://example.com/table/data.json");
+    }
+
+    #[test]
+    fn test_get_absolute_url_dot_relative() {
+        let parser = DifficultyTableParser::new();
+        let result = parser.get_absolute_url("http://example.com/table/index.html", "./data.json");
+        assert_eq!(result, "http://example.com/table/data.json");
+    }
+
+    #[test]
+    fn test_get_absolute_url_root_relative() {
+        let parser = DifficultyTableParser::new();
+        let result =
+            parser.get_absolute_url("http://example.com/table/index.html", "/other/data.json");
+        assert_eq!(result, "http://example.com/other/data.json");
+    }
+
+    #[test]
+    fn test_get_absolute_url_parent_relative() {
+        let parser = DifficultyTableParser::new();
+        let result =
+            parser.get_absolute_url("http://example.com/table/sub/index.html", "../data.json");
+        assert_eq!(result, "http://example.com/table/data.json");
+    }
+
+    #[test]
+    fn test_decode_bytes_with_charset_utf8() {
+        let input = b"<html><head><meta charset=\"utf-8\"></head><body>Hello</body></html>";
+        let result = DifficultyTableParser::decode_bytes_with_charset(input);
+        assert!(result.contains("Hello"));
+    }
+
+    #[test]
+    fn test_decode_bytes_with_charset_shift_jis() {
+        // Create Shift_JIS encoded content with charset declaration
+        let html =
+            "<html><head><meta charset=\"Shift_JIS\"></head><body>\u{97f3}\u{697d}</body></html>";
+        let (encoded, _, _) = encoding_rs::SHIFT_JIS.encode(html);
+        let result = DifficultyTableParser::decode_bytes_with_charset(&encoded);
+        assert!(
+            result.contains("\u{97f3}\u{697d}"),
+            "Should decode Shift_JIS content correctly: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_decode_bytes_with_charset_content_type_meta() {
+        let html = "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=Shift_JIS\"></head></html>";
+        let (encoded, _, _) = encoding_rs::SHIFT_JIS.encode(html);
+        let result = DifficultyTableParser::decode_bytes_with_charset(&encoded);
+        assert!(result.contains("Content-Type"));
     }
 }

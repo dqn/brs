@@ -10,6 +10,8 @@ serde_json.workspace = true
 reqwest.workspace = true
 regex.workspace = true
 log.workspace = true
+url.workspace = true
+encoding_rs.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -13,7 +13,13 @@ pub fn crc32(path: &str, rootdirs: &[String], bmspath: &str) -> String {
         }
     }
 
-    if path.starts_with(bmspath) && path.len() > bmspath.len() + 1 {
+    if path.starts_with(bmspath)
+        && path.len() > bmspath.len() + 1
+        && path
+            .as_bytes()
+            .get(bmspath.len())
+            .is_some_and(|&b| b == b'/' || b == b'\\')
+    {
         path = path[bmspath.len() + 1..].to_string();
     }
 
@@ -205,6 +211,16 @@ mod tests {
     }
 
     #[test]
+    fn crc32_bmspath_not_stripped_for_sibling_directory() {
+        // /music/bms should NOT strip from /music/bms2/song.bme because
+        // the character after the prefix is '2', not a separator.
+        let rootdirs: Vec<String> = vec![];
+        let result = crc32("/music/bms2/song.bme", &rootdirs, "/music/bms");
+        let no_strip = raw_crc32("/music/bms2/song.bme");
+        assert_eq!(result, no_strip, "sibling dir should not be stripped");
+    }
+
+    #[test]
     fn crc32_different_paths_produce_different_hashes() {
         let a = raw_crc32("path/a.bms");
         let b = raw_crc32("path/b.bms");
@@ -220,13 +236,23 @@ mod tests {
     }
 
     #[test]
-    fn crc32_empty_bmspath_triggers_stripping() {
-        // Empty bmspath: starts_with("") is always true, so if path.len() > 0 + 1 = 1,
-        // the first byte is stripped. This is the actual behavior of the function.
+    fn crc32_empty_bmspath_no_stripping_without_separator() {
+        // Empty bmspath: starts_with("") is always true, but the separator check
+        // requires path[0] to be '/' or '\\'. Since "abcde" starts with 'a',
+        // no stripping occurs.
         let rootdirs: Vec<String> = vec![];
         let result = crc32("abcde", &rootdirs, "");
-        // Stripped path: "abcde"[1..] = "bcde"
-        let expected = raw_crc32("bcde");
+        let expected = raw_crc32("abcde");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn crc32_empty_bmspath_strips_when_path_starts_with_separator() {
+        // Empty bmspath with a path starting with '/': the separator check passes,
+        // so stripping removes the leading '/'.
+        let rootdirs: Vec<String> = vec![];
+        let result = crc32("/abcde", &rootdirs, "");
+        let expected = raw_crc32("abcde");
         assert_eq!(result, expected);
     }
 }

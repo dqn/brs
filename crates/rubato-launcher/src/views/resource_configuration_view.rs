@@ -645,6 +645,7 @@ impl ResourceConfigurationView {
             for path in &self.bmsroot {
                 if path == &target_path
                     || target_path.starts_with(&format!("{}{}", path, std::path::MAIN_SEPARATOR))
+                    || path.starts_with(&format!("{}{}", target_path, std::path::MAIN_SEPARATOR))
                 {
                     unique = false;
                     break;
@@ -684,6 +685,11 @@ impl ResourceConfigurationView {
                         || target_path.starts_with(&format!(
                             "{}{}",
                             path,
+                            std::path::MAIN_SEPARATOR
+                        ))
+                        || path.starts_with(&format!(
+                            "{}{}",
+                            target_path,
                             std::path::MAIN_SEPARATOR
                         ))
                     {

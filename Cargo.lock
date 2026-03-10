@@ -597,12 +597,14 @@ name = "bms-table"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "encoding_rs",
  "log",
  "regex",
  "reqwest",
  "serde",
  "serde_json",
  "tempfile",
+ "url",
 ]
 
 [[package]]

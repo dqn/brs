@@ -20,6 +20,22 @@ use crate::song_database_update_listener::SongDatabaseUpdateListener;
 use crate::song_utils;
 use rubato_types::song_information_db::SongInformationDb;
 
+/// Escape SQL LIKE wildcard characters (`%`, `_`, `\`) so that they are
+/// treated as literal characters in a `LIKE ... ESCAPE '\'` clause.
+fn escape_sql_like(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '%' | '_' | '\\' => {
+                out.push('\\');
+                out.push(ch);
+            }
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
 /// Plugin interface for song database accessor
 pub trait SongDatabaseAccessorPlugin: Send + Sync {
     fn update(&self, model: &BMSModel, song: &mut SongData);
@@ -770,6 +786,7 @@ impl<'a> SongDatabaseUpdater<'a> {
                     Ok(s) => s,
                     Err(e) => {
                         log::error!("Error preparing tag/favorite query: {}", e);
+                        let _ = conn.execute_batch("ROLLBACK");
                         return;
                     }
                 };
@@ -782,6 +799,7 @@ impl<'a> SongDatabaseUpdater<'a> {
                     Ok(r) => r,
                     Err(e) => {
                         log::error!("Error querying tags/favorites: {}", e);
+                        let _ = conn.execute_batch("ROLLBACK");
                         return;
                     }
                 };
@@ -804,8 +822,8 @@ impl<'a> SongDatabaseUpdater<'a> {
                 let mut dsql = String::new();
                 let mut params: Vec<String> = Vec::new();
                 for (i, root) in self.bmsroot.iter().enumerate() {
-                    dsql.push_str("path NOT LIKE ?");
-                    params.push(format!("{}%", root));
+                    dsql.push_str("path NOT LIKE ? ESCAPE '\\'");
+                    params.push(format!("{}%", escape_sql_like(root)));
                     if i < self.bmsroot.len() - 1 {
                         dsql.push_str(" AND ");
                     }
@@ -1052,14 +1070,14 @@ impl BMSFolder {
         // Delete folder records that no longer exist in directory
         // (matches Java: folders.parallelStream().filter(Objects::nonNull).forEach(...))
         folders.into_par_iter().flatten().for_each(|folder| {
-            let delete_path = format!("{}%", folder.path);
+            let delete_path = format!("{}%", escape_sql_like(&folder.path));
             let conn = accessor.conn.lock().expect("conn lock poisoned");
             let _ = conn.execute(
-                "DELETE FROM folder WHERE path LIKE ?1",
+                "DELETE FROM folder WHERE path LIKE ?1 ESCAPE '\\'",
                 rusqlite::params![delete_path],
             );
             let _ = conn.execute(
-                "DELETE FROM song WHERE path LIKE ?1",
+                "DELETE FROM song WHERE path LIKE ?1 ESCAPE '\\'",
                 rusqlite::params![delete_path],
             );
         });

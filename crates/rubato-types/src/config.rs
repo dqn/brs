@@ -667,9 +667,24 @@ impl Validatable for Config {
         if let Ok(cwd) = std::env::current_dir() {
             let bms_dir = cwd.join("bms");
             if bms_dir.is_dir() {
-                let bms_path = bms_dir.to_string_lossy().to_string();
-                if !self.paths.bmsroot.iter().any(|p| p == &bms_path) {
-                    self.paths.bmsroot.push(bms_path);
+                let bms_canonical = bms_dir.canonicalize().unwrap_or(bms_dir);
+                let already_present = self.paths.bmsroot.iter().any(|p| {
+                    let existing = std::path::Path::new(p);
+                    let existing_canonical = if existing.is_relative() {
+                        cwd.join(existing)
+                            .canonicalize()
+                            .unwrap_or_else(|_| cwd.join(existing))
+                    } else {
+                        existing
+                            .canonicalize()
+                            .unwrap_or_else(|_| existing.to_path_buf())
+                    };
+                    existing_canonical == bms_canonical
+                });
+                if !already_present {
+                    self.paths
+                        .bmsroot
+                        .push(bms_canonical.to_string_lossy().to_string());
                 }
             }
         }
