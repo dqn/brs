@@ -358,40 +358,47 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
     let _ = fs::remove_file("ipfs/bms.tar.gz");
 
     let download_ok = match reqwest::blocking::get(&url_str) {
-        Ok(response) => match response.bytes() {
-            Ok(bytes) => {
-                let _ = fs::create_dir_all("ipfs");
-                match fs::File::create("ipfs/bms.tar.gz") {
-                    Ok(mut out) => {
-                        let data = bytes.as_ref();
-                        let chunk_size = 1024 * 512;
-                        let mut total: i64 = 0;
-                        let mut offset = 0;
-                        let mut write_ok = true;
-                        while offset < data.len() {
-                            let end = std::cmp::min(offset + chunk_size, data.len());
-                            let count = end - offset;
-                            total += count as i64;
-                            *message.lock().expect("message lock poisoned") =
-                                format!("downloading:{} {}MB", path, total / 1024 / 1024);
-                            if out.write_all(&data[offset..end]).is_err() {
-                                log::error!("Failed to write download data at offset {}", offset);
+        Ok(mut response) => {
+            let _ = fs::create_dir_all("ipfs");
+            match fs::File::create("ipfs/bms.tar.gz") {
+                Ok(mut out) => {
+                    let chunk_size = 1024 * 512;
+                    let mut total: i64 = 0;
+                    let mut buf = vec![0u8; chunk_size];
+                    let mut write_ok = true;
+                    loop {
+                        use std::io::Read;
+                        match response.read(&mut buf) {
+                            Ok(0) => break,
+                            Ok(n) => {
+                                total += n as i64;
+                                *message.lock().expect("message lock poisoned") =
+                                    format!("downloading:{} {}MB", path, total / 1024 / 1024);
+                                if out.write_all(&buf[..n]).is_err() {
+                                    log::error!(
+                                        "Failed to write download data at offset {}",
+                                        total
+                                    );
+                                    write_ok = false;
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("Download read error: {}", e);
                                 write_ok = false;
                                 break;
                             }
-                            offset = end;
                         }
-                        if write_ok && out.flush().is_err() {
-                            log::error!("Failed to flush output");
-                            write_ok = false;
-                        }
-                        write_ok
                     }
-                    Err(_) => false,
+                    if write_ok && out.flush().is_err() {
+                        log::error!("Failed to flush output");
+                        write_ok = false;
+                    }
+                    write_ok
                 }
+                Err(_) => false,
             }
-            Err(_) => false,
-        },
+        }
         Err(_) => {
             log::info!("URL:{}に接続失敗。", url_str);
             false
@@ -411,8 +418,57 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
             };
             let decoder = flate2::read::GzDecoder::new(gz_file);
             let mut archive = tar::Archive::new(decoder);
-            if let Err(e) = archive.unpack("ipfs") {
-                log::error!("Failed to extract tar.gz: {}", e);
+            let dest = std::path::Path::new("ipfs");
+            let canonical_dest = dest.canonicalize().unwrap_or_else(|_| dest.to_path_buf());
+            match archive.entries() {
+                Ok(entries) => {
+                    for entry_result in entries {
+                        match entry_result {
+                            Ok(mut entry) => {
+                                let entry_path = match entry.path() {
+                                    Ok(p) => p.into_owned(),
+                                    Err(e) => {
+                                        log::warn!("Skipping tar entry with invalid path: {}", e);
+                                        continue;
+                                    }
+                                };
+                                // Reject entries with path traversal components
+                                let has_traversal = entry_path
+                                    .components()
+                                    .any(|c| matches!(c, std::path::Component::ParentDir))
+                                    || entry_path.is_absolute();
+                                if has_traversal {
+                                    log::warn!(
+                                        "Skipping tar entry with unsafe path: {:?}",
+                                        entry_path
+                                    );
+                                    continue;
+                                }
+                                let full_path = canonical_dest.join(&entry_path);
+                                if !full_path.starts_with(&canonical_dest) {
+                                    log::warn!(
+                                        "Skipping tar entry escaping destination: {:?}",
+                                        entry_path
+                                    );
+                                    continue;
+                                }
+                                if let Err(e) = entry.unpack(&full_path) {
+                                    log::warn!(
+                                        "Failed to extract tar entry {:?}: {}",
+                                        entry_path,
+                                        e
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                log::warn!("Skipping malformed tar entry: {}", e);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to read tar.gz entries: {}", e);
+                }
             }
             let _ = fs::remove_file(gz_path);
         }
