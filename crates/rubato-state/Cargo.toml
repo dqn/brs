@@ -28,6 +28,9 @@ arboard.workspace = true
 open.workspace = true
 egui.workspace = true
 
+[features]
+ffmpeg = ["rubato-play/ffmpeg"]
+
 [dev-dependencies]
 tempfile = { workspace = true }
 image = { workspace = true }

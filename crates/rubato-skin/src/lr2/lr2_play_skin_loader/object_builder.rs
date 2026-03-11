@@ -165,10 +165,10 @@ impl LR2PlaySkinLoaderState {
         play_skin.stop = vec![(); line_count];
     }
 
-    /// Get lane cover position (y coordinate when white number is 0)
+    /// Get lane cover position (y coordinate when white number is 0).
+    /// Returns the Y from the last DST_HIDDEN destination, or -1.0 if none was defined.
     pub fn lane_cover_position(&self) -> f32 {
-        // if skin.laneCover != null, return last destination's y
-        -1.0
+        self.lane_cover_dst_y
     }
 }
 

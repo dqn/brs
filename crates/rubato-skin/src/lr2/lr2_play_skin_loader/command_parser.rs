@@ -579,8 +579,14 @@ impl LR2PlaySkinLoaderState {
             }
             "DST_HIDDEN" => {
                 if self.hidden {
-                    let _values = lr2_skin_loader::parse_int(str_parts);
-                    // hidden.setDestination(...)
+                    let values = lr2_skin_loader::parse_int(str_parts);
+                    // Store the Y coordinate for lane cover position calculation.
+                    // Java: skin.laneCover.setDestination(...) then
+                    // getLaneCoverPosition() returns last destination's y.
+                    // DST format: [0]=?, [1]=?, [2]=time, [3]=x, [4]=y, [5]=w, [6]=h, ...
+                    let dsth = safe_div_f32(self.csv.dst.height, self.csv.src.height);
+                    self.lane_cover_dst_y =
+                        self.csv.dst.height - (values[4] + values[6]) as f32 * dsth;
                 }
             }
             "DST_LIFT" => {

@@ -114,6 +114,10 @@ pub struct LR2PlaySkinLoaderState {
     pub computed_judge_reg: Option<i32>,
     /// Computed line count (set by load_skin post-processing)
     pub computed_line_count: Option<usize>,
+
+    /// Lane cover Y position from the last DST_HIDDEN destination.
+    /// -1.0 means no lane cover was defined.
+    pub lane_cover_dst_y: f32,
 }
 
 impl LR2PlaySkinLoaderState {
@@ -174,6 +178,7 @@ impl LR2PlaySkinLoaderState {
             pmchara_entries: Vec::new(),
             computed_judge_reg: None,
             computed_line_count: None,
+            lane_cover_dst_y: -1.0,
         }
     }
 }
