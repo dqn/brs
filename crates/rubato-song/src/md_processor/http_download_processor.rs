@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
@@ -497,14 +497,20 @@ fn extract_compressed_file(
         fs::create_dir_all(&dest)?;
     }
 
+    // Pre-validate 7z entry names from archive metadata BEFORE extraction.
+    // This prevents path-traversal attacks via ../ entries in the archive;
+    // malicious entries are rejected before any bytes are written to disk.
+    validate_archive_entry_names(file)?;
+
     // Extract into a temp directory first, then validate paths before moving.
-    // This prevents path-traversal attacks via ../ entries in the archive.
+    // This prevents symlink-based escapes that metadata validation cannot catch.
     let staging_dir = tempfile::tempdir_in(&dest)?;
 
     sevenz_rust::decompress_file(file, staging_dir.path())
         .map_err(|e| anyhow::anyhow!("7z extraction failed: {}", e))?;
 
-    // Validate all extracted paths stay within the staging directory.
+    // Defense-in-depth: validate all extracted paths stay within the staging
+    // directory (catches symlink escapes that entry-name checks cannot detect).
     let canonical_staging = staging_dir.path().canonicalize()?;
     validate_extracted_paths(&canonical_staging)?;
 
@@ -552,6 +558,33 @@ fn extract_compressed_file(
     }
 
     Ok(extracted_dir)
+}
+
+/// Pre-validate 7z archive entry names for path traversal before extraction.
+///
+/// Rejects entries whose names contain parent-directory components (`..`) or
+/// are absolute paths, which could write files outside the intended directory.
+fn validate_archive_entry_names(file: &Path) -> anyhow::Result<()> {
+    let reader = sevenz_rust::SevenZReader::open(file, sevenz_rust::Password::empty())
+        .map_err(|e| anyhow::anyhow!("Failed to open 7z archive for validation: {}", e))?;
+    for entry in &reader.archive().files {
+        let entry_path = Path::new(&entry.name);
+        if entry_path.is_absolute() {
+            return Err(anyhow::anyhow!(
+                "Path traversal detected in archive: absolute path '{}'",
+                entry.name
+            ));
+        }
+        for component in entry_path.components() {
+            if matches!(component, Component::ParentDir) {
+                return Err(anyhow::anyhow!(
+                    "Path traversal detected in archive: parent directory component in '{}'",
+                    entry.name
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Recursively validate that all paths under `root` are within `root` (no symlink escapes).
@@ -764,6 +797,90 @@ mod tests {
             calls, 2,
             "Expected 2 calls for different md5s, got {}",
             calls
+        );
+    }
+
+    /// Helper: create a 7z archive with a single entry whose name is `entry_name`.
+    fn create_7z_with_entry_name(archive_path: &Path, entry_name: &str) {
+        let mut writer = sevenz_rust::SevenZWriter::create(archive_path).expect("create 7z writer");
+        // Use new() + field assignment to avoid private field issue with struct literal syntax.
+        let mut entry = sevenz_rust::SevenZArchiveEntry::new();
+        entry.name = entry_name.to_string();
+        entry.has_stream = true;
+        let data: &[u8] = b"malicious content";
+        writer
+            .push_archive_entry(entry, Some(std::io::Cursor::new(data)))
+            .expect("push entry");
+        writer.finish().expect("finish 7z");
+    }
+
+    /// Archives with parent-directory traversal (`../`) in entry names must be
+    /// rejected BEFORE extraction writes anything to disk.
+    #[test]
+    fn rejects_archive_with_parent_dir_traversal() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let archive_path = tmp.path().join("traversal.7z");
+        create_7z_with_entry_name(&archive_path, "../../etc/evil.txt");
+
+        let result = validate_archive_entry_names(&archive_path);
+        assert!(result.is_err(), "expected error for parent-dir traversal");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("parent directory component"),
+            "error should mention parent directory component, got: {}",
+            err_msg
+        );
+    }
+
+    /// Archives with absolute paths in entry names must be rejected.
+    #[test]
+    fn rejects_archive_with_absolute_path() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let archive_path = tmp.path().join("absolute.7z");
+        create_7z_with_entry_name(&archive_path, "/etc/passwd");
+
+        let result = validate_archive_entry_names(&archive_path);
+        assert!(result.is_err(), "expected error for absolute path");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("absolute path"),
+            "error should mention absolute path, got: {}",
+            err_msg
+        );
+    }
+
+    /// Archives with safe entry names should pass validation.
+    #[test]
+    fn accepts_archive_with_safe_entry_name() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let archive_path = tmp.path().join("safe.7z");
+        create_7z_with_entry_name(&archive_path, "songs/test/chart.bms");
+
+        let result = validate_archive_entry_names(&archive_path);
+        assert!(result.is_ok(), "expected safe entry to pass validation");
+    }
+
+    /// Full extract_compressed_file should reject archives with path traversal
+    /// entries before any files are written outside the staging directory.
+    #[test]
+    fn extract_rejects_path_traversal_archive() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let archive_path = tmp.path().join("evil.7z");
+        create_7z_with_entry_name(&archive_path, "../escape.txt");
+
+        let dest = tmp.path().join("output");
+        fs::create_dir_all(&dest).expect("create dest");
+
+        let result = extract_compressed_file(&archive_path, Some(&dest), &dest.to_string_lossy());
+        assert!(
+            result.is_err(),
+            "extract should fail for path-traversal archive"
+        );
+
+        // Verify no escaped file was written.
+        assert!(
+            !tmp.path().join("escape.txt").exists(),
+            "escaped file should not exist outside staging directory"
         );
     }
 }
