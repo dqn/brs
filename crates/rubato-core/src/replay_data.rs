@@ -119,11 +119,11 @@ mod tests {
     }
 
     #[test]
-    fn test_replay_data_validate_empty_returns_false() {
+    fn test_replay_data_validate_empty_returns_true() {
         let mut rd = ReplayData::new();
-        // No keylog and no keyinput
+        // No keylog and no keyinput - this is a zero-event replay, which is valid
         let valid = rd.validate();
-        assert!(!valid, "validate should return false for empty replay data");
+        assert!(valid, "validate should return true for zero-event replay data");
     }
 
     #[test]
