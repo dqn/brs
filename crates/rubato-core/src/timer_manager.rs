@@ -31,11 +31,8 @@ pub const TIMER_COUNT: usize = 3000;
 
 impl TimerManager {
     pub fn new() -> Self {
-        let mut timer = vec![i64::MIN; TIMER_COUNT];
         // Initialize all timers to OFF (Long.MIN_VALUE equivalent)
-        for t in timer.iter_mut() {
-            *t = i64::MIN;
-        }
+        let timer = vec![i64::MIN; TIMER_COUNT];
         Self {
             starttime: Instant::now(),
             start_mono_micros: rubato_types::monotonic_clock::monotonic_micros(),
