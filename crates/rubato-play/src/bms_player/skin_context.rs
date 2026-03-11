@@ -65,11 +65,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
     }
 
     fn now_judge(&self, player: i32) -> i32 {
-        self.judge.now_judge(player as usize)
+        self.judge.now_judge(player.max(0) as usize)
     }
 
     fn now_combo(&self, player: i32) -> i32 {
-        self.judge.now_combo(player as usize)
+        self.judge.now_combo(player.max(0) as usize)
     }
 
     fn judge_count(&self, judge: i32, fast: bool) -> i32 {
