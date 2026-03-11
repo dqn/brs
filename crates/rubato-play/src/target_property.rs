@@ -569,7 +569,7 @@ impl InternetRankingTargetProperty {
                     let lnmode = resource.player_config().play_settings.lnmode;
                     let local_score = main.read_score_data_by_hash(
                         &songdata.file.sha256,
-                        songdata.chart.has_long_note(),
+                        songdata.chart.has_undefined_long_note(),
                         lnmode,
                     );
                     self.initiate_load(conn_arc, chart, local_score, self.target, self.value);

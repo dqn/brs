@@ -306,7 +306,7 @@ impl SongData {
         self.metadata.set_artist(model.artist.clone());
         self.metadata.set_subartist(model.subartist.clone());
         if let Some(p) = model.path() {
-            self.file.path.push(p);
+            self.file.set_path(p);
         }
         self.file.md5 = model.md5.clone();
         self.file.sha256 = model.sha256.clone();
