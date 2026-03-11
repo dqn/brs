@@ -164,6 +164,17 @@ impl MusicDownloadProcessor {
     }
 }
 
+/// Returns `true` if the path contains `..` components or is absolute,
+/// indicating a potential path traversal attack.
+fn has_path_traversal(s: &str) -> bool {
+    let p = Path::new(s);
+    if p.is_absolute() {
+        return true;
+    }
+    p.components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+}
+
 fn normalize_ipfs_path(path: &str) -> String {
     // Case-insensitive prefix match: "/ipfs/" is 6 characters, strip to get bare CID.
     // Use str::get() instead of direct slicing to avoid panics on non-ASCII char boundaries.
@@ -230,6 +241,17 @@ fn download_daemon_thread_run(state: DownloadDaemonState) {
 
                 if !diffpath.is_empty() {
                     diffpath = normalize_ipfs_path(&diffpath);
+                }
+
+                // Reject paths with traversal components to prevent escaping
+                // the ipfs/ directory (e.g. "../../sensitive/file").
+                if has_path_traversal(&ipfspath) {
+                    log::warn!("Rejecting ipfspath with path traversal: {}", ipfspath);
+                    ipfspath = String::new();
+                }
+                if has_path_traversal(&diffpath) {
+                    log::warn!("Rejecting diffpath with path traversal: {}", diffpath);
+                    diffpath = String::new();
                 }
 
                 let orgmd5 = song.org_md5();
@@ -452,7 +474,7 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
                                     );
                                     continue;
                                 }
-                                if let Err(e) = entry.unpack(&full_path) {
+                                if let Err(e) = entry.unpack_in(&canonical_dest) {
                                     log::warn!(
                                         "Failed to extract tar entry {:?}: {}",
                                         entry_path,
@@ -629,5 +651,26 @@ mod tests {
 
         assert!(!result);
         assert!(!dest.exists());
+    }
+
+    #[test]
+    fn has_path_traversal_detects_parent_dir() {
+        assert!(has_path_traversal("../../etc/passwd"));
+        assert!(has_path_traversal("foo/../../../bar"));
+        assert!(has_path_traversal("../secret"));
+    }
+
+    #[test]
+    fn has_path_traversal_detects_absolute_paths() {
+        assert!(has_path_traversal("/etc/passwd"));
+        assert!(has_path_traversal("/tmp/evil"));
+    }
+
+    #[test]
+    fn has_path_traversal_allows_safe_paths() {
+        assert!(!has_path_traversal("QmSomeCID"));
+        assert!(!has_path_traversal("subdir/file.bms"));
+        assert!(!has_path_traversal(""));
+        assert!(!has_path_traversal("normal_cid_hash"));
     }
 }
