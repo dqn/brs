@@ -326,13 +326,13 @@ impl MainController {
                     if let Some(ref mut current) = self.current {
                         current.handle_skin_mouse_pressed(mouse_button, mouse_x, mouse_y);
                     }
-                    input.set_mouse_pressed();
+                    input.consume_mouse_pressed();
                 }
                 if mouse_dragged {
                     if let Some(ref mut current) = self.current {
                         current.handle_skin_mouse_dragged(mouse_button, mouse_x, mouse_y);
                     }
-                    input.set_mouse_dragged();
+                    input.consume_mouse_dragged();
                 }
 
                 // Mouse moved → cursor visibility timer

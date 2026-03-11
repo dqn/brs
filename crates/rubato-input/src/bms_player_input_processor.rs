@@ -552,7 +552,7 @@ impl BMSPlayerInputProcessor {
         self.mousepressed
     }
 
-    pub fn set_mouse_pressed(&mut self) {
+    pub fn consume_mouse_pressed(&mut self) {
         self.mousepressed = false;
     }
 
@@ -560,7 +560,7 @@ impl BMSPlayerInputProcessor {
         self.mousedragged
     }
 
-    pub fn set_mouse_dragged(&mut self) {
+    pub fn consume_mouse_dragged(&mut self) {
         self.mousedragged = false;
     }
 
