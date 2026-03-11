@@ -927,7 +927,10 @@ impl RubatoApp {
                 let path = format!("screenshot_{}.png", timestamp);
                 if let Some(img) = image::RgbaImage::from_raw(width, height, rgba) {
                     match img.save(&path) {
-                        Ok(()) => info!("Screenshot saved: {}", path),
+                        Ok(()) => {
+                            info!("Screenshot saved: {}", path);
+                            self.post_screenshot_actions(&path);
+                        }
                         Err(e) => warn!("Failed to save screenshot: {}", e),
                     }
                 } else {
@@ -937,6 +940,46 @@ impl RubatoApp {
             _ => {
                 warn!("Failed to map screenshot buffer");
             }
+        }
+    }
+
+    /// Run post-screenshot actions: clipboard copy and webhook send if configured.
+    fn post_screenshot_actions(&self, path: &str) {
+        let config = self.controller.config();
+
+        // Clipboard copy
+        if config.integration.set_clipboard_screenshot {
+            match rubato_external::clipboard_helper::ClipboardHelper::copy_image_to_clipboard(path)
+            {
+                Ok(()) => info!("Screenshot copied to clipboard"),
+                Err(e) => warn!("Failed to copy screenshot to clipboard: {}", e),
+            }
+        }
+
+        // Webhook send
+        if config.integration.webhook_option != 0 && !config.integration.webhook_url.is_empty() {
+            let webhook_urls = config.integration.webhook_url.clone();
+            let webhook_name = if config.integration.webhook_name.is_empty() {
+                "Endless Dream".to_string()
+            } else {
+                config.integration.webhook_name.clone()
+            };
+            let webhook_avatar = config.integration.webhook_avatar.clone();
+
+            // Build a minimal payload (state-aware rich embed requires MainState wiring)
+            let payload = serde_json::json!({
+                "username": webhook_name,
+                "avatar_url": webhook_avatar,
+            });
+            let payload_str = payload.to_string();
+            let path = path.to_string();
+
+            std::thread::spawn(move || {
+                let handler = rubato_external::webhook_handler::WebhookHandler::new();
+                for webhook_url in &webhook_urls {
+                    handler.send_webhook_with_image(&payload_str, &path, webhook_url);
+                }
+            });
         }
     }
 }
