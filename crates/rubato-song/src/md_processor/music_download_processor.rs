@@ -379,7 +379,11 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
     );
     let _ = fs::remove_file("ipfs/bms.tar.gz");
 
-    let download_ok = match reqwest::blocking::get(&url_str) {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()
+        .expect("failed to build HTTP client");
+    let download_ok = match client.get(&url_str).send() {
         Ok(mut response) => {
             let _ = fs::create_dir_all("ipfs");
             match fs::File::create("ipfs/bms.tar.gz") {

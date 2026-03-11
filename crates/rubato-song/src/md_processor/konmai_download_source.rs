@@ -3,6 +3,7 @@ use super::http_download_source::HttpDownloadSource;
 use super::http_download_source_meta::HttpDownloadSourceMeta;
 
 use std::sync::LazyLock;
+use std::time::Duration;
 
 use serde::Deserialize;
 
@@ -45,7 +46,10 @@ impl HttpDownloadSource for KonmaiDownloadSource {
     fn get_download_url_based_on_md5(&self, md5: &str) -> anyhow::Result<String> {
         let meta_url = self.download_query_url.replace("%s", md5);
         // Note: Server side doesn't provide auth currently
-        let response = reqwest::blocking::get(&meta_url)?;
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()?;
+        let response = client.get(&meta_url).send()?;
         let response_code = response.status();
 
         // Konmai backend doesn't offer an 404 status code

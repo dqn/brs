@@ -5,6 +5,7 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
+use std::time::Duration;
 
 use regex::Regex;
 
@@ -405,7 +406,10 @@ fn download_file_from_url(
         t.url().to_string()
     };
 
-    let response = reqwest::blocking::get(&url)?;
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()?;
+    let response = client.get(&url).send()?;
     let response_code = response.status();
     if response_code != reqwest::StatusCode::OK {
         if response_code == reqwest::StatusCode::NOT_FOUND {

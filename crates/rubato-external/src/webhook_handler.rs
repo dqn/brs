@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
+use std::time::Duration;
 
 use crate::screen_shot_exporter;
 use crate::stubs::{
@@ -71,7 +72,9 @@ impl WebhookHandler {
             Self::write_multipart_file(&mut body, &boundary, "files[0]", Path::new(image_path))?;
             body.write_all(format!("--{}--\r\n", boundary).as_bytes())?;
 
-            let client = reqwest::blocking::Client::new();
+            let client = reqwest::blocking::Client::builder()
+                .timeout(Duration::from_secs(30))
+                .build()?;
             let response = client
                 .post(webhook_url)
                 .header(

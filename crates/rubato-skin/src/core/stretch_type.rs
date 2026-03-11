@@ -176,6 +176,9 @@ fn fit_height(rectangle: &mut Rectangle, height: f32) {
 }
 
 fn fit_width_trimmed(rectangle: &mut Rectangle, scale: f32, image: &mut TextureRegion) {
+    if scale == 0.0 {
+        return;
+    }
     let width = scale * image.region_width as f32;
     if rectangle.width < width {
         let cx = image.region_x as f32 + image.region_width as f32 * 0.5;
@@ -188,6 +191,9 @@ fn fit_width_trimmed(rectangle: &mut Rectangle, scale: f32, image: &mut TextureR
 }
 
 fn fit_height_trimmed(rectangle: &mut Rectangle, scale: f32, image: &mut TextureRegion) {
+    if scale == 0.0 {
+        return;
+    }
     let height = scale * image.region_height as f32;
     if rectangle.height < height {
         let cy = image.region_y as f32 + image.region_height as f32 * 0.5;
@@ -267,5 +273,81 @@ mod tests {
 
             rect = Rectangle::new(10.0, 20.0, 100.0, 200.0);
         }
+    }
+
+    #[test]
+    fn stretch_rect_zero_rectangle_dimensions_does_not_produce_nan() {
+        // When rectangle width/height are 0, scale = 0.0 and fit_*_trimmed
+        // would divide by zero without the guard.
+        let image = TextureRegion {
+            region_width: 50,
+            region_height: 50,
+            ..TextureRegion::default()
+        };
+
+        for variant in StretchType::values() {
+            let mut rect = Rectangle::new(10.0, 20.0, 0.0, 0.0);
+            let mut trimmed = TextureRegion::default();
+            variant.stretch_rect(&mut rect, &mut trimmed, &image);
+
+            assert!(
+                rect.x.is_finite(),
+                "{variant:?} produced non-finite x with zero-size rect"
+            );
+            assert!(
+                rect.y.is_finite(),
+                "{variant:?} produced non-finite y with zero-size rect"
+            );
+            assert!(
+                rect.width.is_finite(),
+                "{variant:?} produced non-finite width with zero-size rect"
+            );
+            assert!(
+                rect.height.is_finite(),
+                "{variant:?} produced non-finite height with zero-size rect"
+            );
+        }
+    }
+
+    #[test]
+    fn fit_width_trimmed_zero_scale_is_noop() {
+        let mut rect = Rectangle::new(10.0, 20.0, 100.0, 200.0);
+        let mut image = TextureRegion {
+            region_width: 50,
+            region_height: 50,
+            ..TextureRegion::default()
+        };
+        let (orig_x, orig_y, orig_w, orig_h) = (rect.x, rect.y, rect.width, rect.height);
+        let (orig_rw, orig_rh) = (image.region_width, image.region_height);
+
+        fit_width_trimmed(&mut rect, 0.0, &mut image);
+
+        assert_eq!(rect.x, orig_x);
+        assert_eq!(rect.y, orig_y);
+        assert_eq!(rect.width, orig_w);
+        assert_eq!(rect.height, orig_h);
+        assert_eq!(image.region_width, orig_rw);
+        assert_eq!(image.region_height, orig_rh);
+    }
+
+    #[test]
+    fn fit_height_trimmed_zero_scale_is_noop() {
+        let mut rect = Rectangle::new(10.0, 20.0, 100.0, 200.0);
+        let mut image = TextureRegion {
+            region_width: 50,
+            region_height: 50,
+            ..TextureRegion::default()
+        };
+        let (orig_x, orig_y, orig_w, orig_h) = (rect.x, rect.y, rect.width, rect.height);
+        let (orig_rw, orig_rh) = (image.region_width, image.region_height);
+
+        fit_height_trimmed(&mut rect, 0.0, &mut image);
+
+        assert_eq!(rect.x, orig_x);
+        assert_eq!(rect.y, orig_y);
+        assert_eq!(rect.width, orig_w);
+        assert_eq!(rect.height, orig_h);
+        assert_eq!(image.region_width, orig_rw);
+        assert_eq!(image.region_height, orig_rh);
     }
 }
