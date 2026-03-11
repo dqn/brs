@@ -72,7 +72,7 @@ rubato/              # Cargo workspace (15 crates) at repo root
 
 ## Testing
 
-- **Test runner:** `just test` (excludes slow render snapshot tests) or `just test-all` (full).
+- **Test runner:** `just test` (excludes slow render snapshot tests and `rubato-bin` which requires ffmpeg system library) or `just test-all` (full, requires ffmpeg).
 - **Golden Master:** `just golden-master-test`. Fixtures: `golden-master/fixtures/*.json` (pre-generated).
 - **TDD:** Red-Green-Refactor.
 

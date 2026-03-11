@@ -3,15 +3,22 @@ run *ARGS:
     cargo run -p rubato-bin -- {{ARGS}}
 
 check:
-    cargo check --workspace
+    cargo check --workspace --exclude rubato-bin
 
+# Run tests (exclude rubato-bin which requires ffmpeg system library)
 test:
-    cargo nextest run --workspace -E 'not (test(render_snapshot_parity) | test(skin_ecfn))'
+    cargo nextest run --workspace --exclude rubato-bin -E 'not (test(render_snapshot_parity) | test(skin_ecfn))'
 
+# Run all tests including rubato-bin (requires ffmpeg system library)
 test-all:
     cargo nextest run --workspace
 
+# Run clippy (exclude rubato-bin which requires ffmpeg system library)
 clippy:
+    cargo clippy --workspace --exclude rubato-bin -- -D warnings
+
+# Run clippy on all crates including rubato-bin (requires ffmpeg system library)
+clippy-all:
     cargo clippy --workspace -- -D warnings
 
 fmt:
@@ -104,4 +111,5 @@ golden-master-real-bms-update:
 golden-master-ecfn-timepoint-update:
     UPDATE_ECFN_TIMEPOINT_SNAPSHOTS=1 cargo test -p golden-master --test skin_ecfn_integration skin_ecfn_timepoint_snapshot_regression -- --nocapture
 
+# Run all quality checks (excludes rubato-bin; use *-all variants for full coverage)
 all: check test clippy fmt-check
