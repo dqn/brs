@@ -132,8 +132,8 @@ impl Section {
                 SECTION_RATE => {
                     if let Some(colon_index) = line.find(':') {
                         match line[colon_index + 1..].parse::<f64>() {
-                            Ok(r) => rate = r,
-                            Err(_) => {
+                            Ok(r) if r.is_finite() && r >= 0.0 && r <= 1000.0 => rate = r,
+                            Ok(_) | Err(_) => {
                                 log.push(DecodeLog::new(
                                     State::Warning,
                                     format!("小節の拡大率が不正です : {}", line),
@@ -1478,6 +1478,81 @@ fn has_nonzero_data(line: &str, base: i32) -> bool {
 mod tests {
     use super::*;
     use crate::chart_decoder::TimeLineCache;
+
+    /// Helper to build a Section from a SECTION_RATE line and return its rate.
+    fn section_rate_from_line(rate_str: &str) -> (f64, Vec<DecodeLog>) {
+        let mut model = BMSModel::new();
+        let bpm = BTreeMap::new();
+        let stop = BTreeMap::new();
+        let scroll = BTreeMap::new();
+        let tables = SectionLookupTables {
+            bpm: &bpm,
+            stop: &stop,
+            scroll: &scroll,
+        };
+        let mut log = Vec::new();
+        // Channel 02 = SECTION_RATE; line format "#NNN02:<value>"
+        let line = format!("#00002:{}", rate_str);
+        let section = Section::new(&mut model, 0.0, 1.0, true, &[line], &tables, &mut log);
+        (section.rate(), log)
+    }
+
+    #[test]
+    fn test_section_rate_normal_value() {
+        let (rate, log) = section_rate_from_line("0.75");
+        assert!((rate - 0.75).abs() < f64::EPSILON);
+        assert!(log.is_empty());
+    }
+
+    #[test]
+    fn test_section_rate_rejects_nan() {
+        let (rate, log) = section_rate_from_line("NaN");
+        // Should fall back to default 1.0
+        assert!((rate - 1.0).abs() < f64::EPSILON);
+        assert_eq!(log.len(), 1);
+    }
+
+    #[test]
+    fn test_section_rate_rejects_infinity() {
+        let (rate, log) = section_rate_from_line("inf");
+        assert!((rate - 1.0).abs() < f64::EPSILON);
+        assert_eq!(log.len(), 1);
+    }
+
+    #[test]
+    fn test_section_rate_rejects_negative_infinity() {
+        let (rate, log) = section_rate_from_line("-inf");
+        assert!((rate - 1.0).abs() < f64::EPSILON);
+        assert_eq!(log.len(), 1);
+    }
+
+    #[test]
+    fn test_section_rate_rejects_negative() {
+        let (rate, log) = section_rate_from_line("-1.0");
+        assert!((rate - 1.0).abs() < f64::EPSILON);
+        assert_eq!(log.len(), 1);
+    }
+
+    #[test]
+    fn test_section_rate_rejects_above_upper_bound() {
+        let (rate, log) = section_rate_from_line("1001.0");
+        assert!((rate - 1.0).abs() < f64::EPSILON);
+        assert_eq!(log.len(), 1);
+    }
+
+    #[test]
+    fn test_section_rate_accepts_zero() {
+        let (rate, log) = section_rate_from_line("0.0");
+        assert!((rate - 0.0).abs() < f64::EPSILON);
+        assert!(log.is_empty());
+    }
+
+    #[test]
+    fn test_section_rate_accepts_upper_bound() {
+        let (rate, log) = section_rate_from_line("1000.0");
+        assert!((rate - 1000.0).abs() < f64::EPSILON);
+        assert!(log.is_empty());
+    }
 
     #[test]
     fn test_ensure_timeline_bpm_zero_no_inf() {
