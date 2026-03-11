@@ -238,6 +238,7 @@ fn test_loader_runs_on_empty_bars() {
         read_score_by_hash_fn: None,
         songdb: None,
         song_info_db: None,
+        command_bar_ctx: None,
     };
     loader.run(&mut bars, &mut ctx);
     // Should complete without errors
@@ -261,6 +262,7 @@ fn test_loader_stops_early_when_signaled() {
         read_score_by_hash_fn: None,
         songdb: None,
         song_info_db: None,
+        command_bar_ctx: None,
     };
     loader.run(&mut bars, &mut ctx);
     // Should return immediately due to stop flag
@@ -299,6 +301,7 @@ fn test_loader_loads_score_from_cache() {
         read_score_by_hash_fn: None,
         songdb: None,
         song_info_db: None,
+        command_bar_ctx: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -348,6 +351,7 @@ fn test_loader_loads_banner_via_pool() {
         read_score_by_hash_fn: None,
         songdb: None,
         song_info_db: None,
+        command_bar_ctx: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -390,6 +394,7 @@ fn test_loader_loads_stagefile_via_pool() {
         read_score_by_hash_fn: None,
         songdb: None,
         song_info_db: None,
+        command_bar_ctx: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -430,6 +435,7 @@ fn test_loader_no_pool_skips_banner_loading() {
         read_score_by_hash_fn: None,
         songdb: None,
         song_info_db: None,
+        command_bar_ctx: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -468,6 +474,7 @@ fn test_loader_nonexistent_banner_file_not_loaded() {
         read_score_by_hash_fn: None,
         songdb: None,
         song_info_db: None,
+        command_bar_ctx: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -1375,6 +1382,7 @@ fn test_loader_loads_grade_bar_scores_via_callback() {
         read_score_by_hash_fn: Some(&read_fn),
         songdb: None,
         song_info_db: None,
+        command_bar_ctx: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -1432,6 +1440,7 @@ fn test_loader_skips_grade_bar_when_not_all_songs_exist() {
         read_score_by_hash_fn: Some(&read_fn),
         songdb: None,
         song_info_db: None,
+        command_bar_ctx: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -1513,6 +1522,7 @@ fn test_loader_updates_search_word_bar_folder_status() {
         read_score_by_hash_fn: None,
         songdb: Some(&db),
         song_info_db: None,
+        command_bar_ctx: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -1592,6 +1602,7 @@ fn test_loader_loads_song_information() {
         read_score_by_hash_fn: None,
         songdb: None,
         song_info_db: Some(&info_db),
+        command_bar_ctx: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -1637,6 +1648,7 @@ fn test_loader_skips_song_info_when_already_loaded() {
         read_score_by_hash_fn: None,
         songdb: None,
         song_info_db: Some(&info_db),
+        command_bar_ctx: None,
     };
 
     loader.run(&mut bars, &mut ctx);

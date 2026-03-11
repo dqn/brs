@@ -277,9 +277,11 @@ impl BarContentsLoaderThread {
                     hb.update_folder_status(songdb);
                 } else if let Some(swb) = bar.as_search_word_bar_mut() {
                     swb.update_folder_status(songdb);
+                } else if let Bar::Command(cb) = bar
+                    && let Some(ref cmd_ctx) = ctx.command_bar_ctx
+                {
+                    cb.update_folder_status(songdb, cmd_ctx);
                 }
-                // CommandBar requires CommandBarContext (score/scorelog paths)
-                // which is not available here; skip for now.
             }
         }
 

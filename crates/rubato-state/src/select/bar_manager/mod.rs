@@ -57,6 +57,8 @@ pub struct LoaderContext<'a> {
     pub songdb: Option<&'a dyn SongDatabaseAccessor>,
     /// Song information database for loading mainbpm, density, etc.
     pub song_info_db: Option<&'a dyn rubato_types::song_information_db::SongInformationDb>,
+    /// CommandBar context for folder status updates (score/scorelog paths)
+    pub command_bar_ctx: Option<crate::select::bar::command_bar::CommandBarContext<'a>>,
 }
 
 /// Bar manager for managing the song bar hierarchy
