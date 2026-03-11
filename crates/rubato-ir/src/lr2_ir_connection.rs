@@ -66,7 +66,7 @@ impl LR2IRConnection {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
-            .unwrap_or_else(|_| reqwest::blocking::Client::new());
+            .expect("failed to build HTTP client");
         match client
             .post(&url)
             .header("Content-Type", "application/x-www-form-urlencoded")
@@ -132,10 +132,10 @@ impl LR2IRConnection {
                 match Self::make_post_request("/getrankingxml.cgi", &request_url) {
                     Some(res) => {
                         // Java: res.substring(1).replace("<lastupdate></lastupdate>", "")
-                        let xml = if res.len() > 1 {
-                            res[1..].replace("<lastupdate></lastupdate>", "")
-                        } else {
-                            res
+                        // Skip the first character safely (may be multi-byte after Shift_JIS decode)
+                        let xml = {
+                            let start = res.char_indices().nth(1).map_or(res.len(), |(i, _)| i);
+                            res[start..].replace("<lastupdate></lastupdate>", "")
                         };
                         match Self::convert_xml_to_ranking(&xml) {
                             Some(ranking) => {
