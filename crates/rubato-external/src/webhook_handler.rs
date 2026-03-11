@@ -465,6 +465,8 @@ impl GradeRank {
     }
 }
 
+// NOTE: The gaps (no B-, C-, D-, E-, F- entries) match the Java source intentionally.
+// Java WebhookHandler.GradeRank enum has exactly these 12 entries with the same numerators.
 static GRADE_RANKS: [GradeRank; 12] = [
     GradeRank::new(17.0, "MAX-"),
     GradeRank::new(16.0, "AAA+"),
