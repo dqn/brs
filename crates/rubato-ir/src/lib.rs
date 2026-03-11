@@ -24,6 +24,7 @@ pub mod leaderboard_entry;
 // LR2 IR
 pub mod lr2_ghost_data;
 pub mod lr2_ir_connection;
+pub mod lr2_ir_connection_adapter;
 
 // Ranking
 pub mod ranking_data;

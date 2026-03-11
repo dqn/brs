@@ -137,6 +137,17 @@ pub(crate) fn init_state_listeners(controller: &mut MainController) {
 
 /// Wire IR (Internet Ranking) initialization at startup.
 pub(crate) fn init_ir_config(controller: &mut MainController) {
+    // Register the LR2IR connection so IRConnectionManager can find it
+    rubato_ir::ir_connection_manager::register_ir_connections(vec![
+        rubato_ir::ir_connection_manager::IRConnectionEntry {
+            name: rubato_ir::lr2_ir_connection_adapter::LR2IR_NAME.to_string(),
+            home: Some("http://www.dream-pro.info/~lavalse/LR2IR/".to_string()),
+            factory: Box::new(|| {
+                Box::new(rubato_ir::lr2_ir_connection_adapter::LR2IRConnectionAdapter::new())
+            }),
+        },
+    ]);
+
     let player_config = controller.player_config().clone();
     let ir_statuses = rubato_state::result::ir_initializer::initialize_ir_config(&player_config);
     for ir_status in ir_statuses {

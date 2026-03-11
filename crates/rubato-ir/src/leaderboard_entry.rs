@@ -42,6 +42,10 @@ impl LeaderboardEntry {
         &self.ir_score
     }
 
+    pub fn into_ir_score(self) -> IRScoreData {
+        self.ir_score
+    }
+
     pub fn is_primary_ir(&self) -> bool {
         self.ir_type == IRType::Primary
     }
