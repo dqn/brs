@@ -394,6 +394,8 @@ impl MusicSelector {
             idx
         } else if let Some(suffix) = targetid.strip_prefix("IR_RANKRATE_")
             && let Ok(value) = suffix.parse::<i32>()
+            && value > 0
+            && value < 100
         {
             total * value / 100
         } else if let Some(suffix) = targetid.strip_prefix("IR_RANK_")
@@ -417,6 +419,7 @@ impl MusicSelector {
     }
 
     pub fn set_sort(&mut self, sort: i32) {
+        let sort = sort.rem_euclid(BarSorter::DEFAULT_SORTER.len() as i32);
         self.config.select_settings.sort = sort;
         self.config.select_settings.sortid =
             Some(BarSorter::DEFAULT_SORTER[sort as usize].name().to_string());
