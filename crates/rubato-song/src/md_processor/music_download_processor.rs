@@ -425,18 +425,30 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
             if !dest_path.exists() {
                 let _ = fs::create_dir_all(&dest_path);
             }
+            let mut all_moved = true;
             if let Ok(entries) = fs::read_dir(&dir) {
                 for entry in entries.flatten() {
                     let src = entry.path();
                     let dest =
                         PathBuf::from(format!("{}/{}", path, entry.file_name().to_string_lossy()));
-                    let _ = fs::rename(&src, &dest);
+                    if let Err(e) = fs::rename(&src, &dest) {
+                        log::error!("Failed to move {:?} to {:?}: {}", src, dest, e);
+                        all_moved = false;
+                    }
                 }
             }
+            if all_moved {
+                let _ = fs::remove_dir_all(&dir).or_else(|_| fs::remove_file(&dir));
+            } else {
+                log::error!("Skipping cleanup of {:?} due to move failures", dir);
+            }
         } else if !PathBuf::from(path).exists() {
-            let _ = fs::rename(&dir, PathBuf::from(path));
+            if let Err(e) = fs::rename(&dir, PathBuf::from(path)) {
+                log::error!("Failed to move {:?} to {}: {}", dir, path, e);
+            }
+        } else {
+            let _ = fs::remove_dir_all(&dir).or_else(|_| fs::remove_file(&dir));
         }
-        let _ = fs::remove_dir_all(&dir).or_else(|_| fs::remove_file(&dir));
     }
 }
 

@@ -915,7 +915,22 @@ impl BMSFolder {
         // Scan directory
         let mut auto_preview_file: Option<String> = None;
 
-        if let Ok(entries) = fs::read_dir(&self.path) {
+        let read_dir_result = fs::read_dir(&self.path);
+        if let Err(ref e) = read_dir_result {
+            log::error!(
+                "Cannot read directory {:?}, preserving existing DB records: {}",
+                self.path,
+                e
+            );
+            // Mark all records as matched so they are not deleted as "missing"
+            for record in records.iter_mut() {
+                *record = None;
+            }
+            for folder in folders.iter_mut() {
+                *folder = None;
+            }
+        }
+        if let Ok(entries) = read_dir_result {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
                 if entry_path.is_dir() {

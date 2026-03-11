@@ -576,8 +576,9 @@ impl InternetRankingTargetProperty {
 
         match self.target {
             IRTarget::Next => {
-                // Find the rank of the first score <= nowscore, then go 'value' ranks above
-                let mut target_index = 0;
+                // Find the rank of the first score <= nowscore, then go 'value' ranks above.
+                // Default to bottom of table when local score is below every IR entry.
+                let mut target_index = (total - self.value).max(0);
                 for i in 0..total {
                     if let Some(score) = ranking.score(i)
                         && score.exscore() <= nowscore

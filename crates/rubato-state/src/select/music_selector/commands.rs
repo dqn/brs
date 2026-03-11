@@ -207,7 +207,11 @@ impl MusicSelector {
                 self.play_option_change();
             }
             EventType::Target => {
-                let targets = rubato_play::target_property::TargetProperty::targets();
+                let mut targets = rubato_play::target_property::TargetProperty::targets();
+                if targets.is_empty() {
+                    // Fall back to config targetlist when global cache is not yet initialized
+                    targets = self.config.select_settings.targetlist.clone();
+                }
                 if !targets.is_empty() {
                     let mut index = None;
                     for (i, t) in targets.iter().enumerate() {

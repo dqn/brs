@@ -266,7 +266,9 @@ impl MusicSelector {
     /// and the selected song's total notes. Called before rendering.
     pub(super) fn refresh_cached_target_score(&mut self) {
         let targetid = self.config.select_settings.targetid.clone();
-        // MYBEST and RIVAL targets are resolved via existing bar data (no cache needed).
+        // MYBEST and direct RIVAL_N targets are resolved via existing bar data (no cache needed).
+        // RIVAL_RANK_* and RIVAL_NEXT_* need ranked rival data computed during gameplay;
+        // on the select screen they resolve to None (no cache).
 
         // Static rate targets
         let rate = match targetid.as_str() {
@@ -374,7 +376,8 @@ impl MusicSelector {
                 .and_then(|sb| sb.selectable.bar_data.score())
                 .map(|s| s.exscore())
                 .unwrap_or(0);
-            let mut idx = 0;
+            // Default to bottom of table when local score is below every IR entry.
+            let mut idx = (total - value).max(0);
             for i in 0..total {
                 if let Some(score) = rd.score(i)
                     && score.exscore() <= nowscore

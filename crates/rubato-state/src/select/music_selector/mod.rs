@@ -142,8 +142,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
 
     fn target_score_data(&self) -> Option<&rubato_types::score_data::ScoreData> {
         let targetid = &self.selector.config.select_settings.targetid;
-        if targetid.starts_with("RIVAL_") {
-            // Rival-based targets use the rival score from the selected bar
+        if targetid.starts_with("RIVAL_RANK_") || targetid.starts_with("RIVAL_NEXT_") {
+            // RIVAL_RANK_* and RIVAL_NEXT_* require ranked rival data which is
+            // computed during gameplay; on the select screen use the cached score.
+            self.selector.cached_target_score.as_ref()
+        } else if targetid.starts_with("RIVAL_") {
+            // Direct rival targets (RIVAL_1, RIVAL_2, ...) use the rival score
             self.selected_rival_score()
         } else if targetid == "MYBEST" {
             // MYBEST target uses the player's own best score
@@ -250,8 +254,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
             90 => self.selected_song_data().map_or(0, |s| s.chart.maxbpm),
             91 => self.selected_song_data().map_or(0, |s| s.chart.minbpm),
             92 => {
-                // mainbpm: use maxbpm as approximation
-                self.selected_song_data().map_or(0, |s| s.chart.maxbpm)
+                // mainbpm: prefer SongInformation.mainbpm when available
+                self.selected_song_data().map_or(0, |s| {
+                    s.info
+                        .as_ref()
+                        .map(|i| i.mainbpm as i32)
+                        .unwrap_or(s.chart.maxbpm)
+                })
             }
             // Song play/clear/fail counts
             77 => self.selected_score().map_or(0, |s| s.playcount),
