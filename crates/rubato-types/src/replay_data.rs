@@ -123,8 +123,9 @@ impl ReplayData {
         }
         self.shrink();
         let file = fs::File::create(path)?;
-        let encoder = GzEncoder::new(BufWriter::new(file), Compression::default());
-        serde_json::to_writer_pretty(encoder, &self)?;
+        let mut encoder = GzEncoder::new(BufWriter::new(file), Compression::default());
+        serde_json::to_writer_pretty(&mut encoder, &self)?;
+        encoder.finish()?;
         Ok(())
     }
 
@@ -153,8 +154,9 @@ impl ReplayData {
             rd.shrink();
         }
         let file = fs::File::create(path)?;
-        let encoder = GzEncoder::new(BufWriter::new(file), Compression::default());
-        serde_json::to_writer_pretty(encoder, &rds)?;
+        let mut encoder = GzEncoder::new(BufWriter::new(file), Compression::default());
+        serde_json::to_writer_pretty(&mut encoder, &rds)?;
+        encoder.finish()?;
         Ok(())
     }
 }
