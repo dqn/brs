@@ -4,6 +4,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
+use std::thread::JoinHandle;
 
 use log::error;
 
@@ -418,6 +419,9 @@ pub struct ResourceConfigurationView {
 
     // private String downloadDirectory;
     download_directory: String,
+
+    /// Background table loading thread handle
+    table_load_handle: Option<JoinHandle<()>>,
 }
 
 impl Default for ResourceConfigurationView {
@@ -440,6 +444,7 @@ impl ResourceConfigurationView {
             updatesong: false,
             config: None,
             download_directory: String::new(),
+            table_load_handle: None,
         }
     }
 
@@ -535,81 +540,85 @@ impl ResourceConfigurationView {
         }
     }
 
-    /// Translates: loadAllTables()
-    /// JavaFX progress bar and threading → simplified to synchronous call.
-    pub fn load_all_tables(&mut self) {
-        // commit();
-        self.commit();
-
-        if let Some(ref config) = self.config {
-            // Files.createDirectories(Paths.get(config.getTablepath()));
-            let _ = fs::create_dir_all(&config.paths.tablepath);
-
-            // Delete existing .bmt files
-            // paths.forEach((p) -> { if(p.toString().toLowerCase().endsWith(".bmt")) { Files.deleteIfExists(p); } });
-            if let Ok(entries) = fs::read_dir(&config.paths.tablepath) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.to_string_lossy().to_lowercase().ends_with(".bmt") {
-                        let _ = fs::remove_file(&path);
-                    }
-                }
-            }
-
-            // TableDataAccessor tda = new TableDataAccessor(config.getTablepath());
-            let tda = TableDataAccessor::new(&config.paths.tablepath);
-            // tda.updateTableData(config.getTableURL());
-            let url_refs: Vec<&str> = config.paths.table_url.iter().map(|s| s.as_str()).collect();
-            tda.update_table_data(&url_refs);
-            // refreshLocalTableInfo();
+    /// Poll for background table load completion. Call from the egui render
+    /// loop so that `refresh_local_table_info()` runs on the UI thread once
+    /// the background fetch finishes.
+    pub fn poll_table_load(&mut self) {
+        if let Some(ref handle) = self.table_load_handle
+            && handle.is_finished()
+        {
+            self.table_load_handle = None;
             self.refresh_local_table_info();
         }
     }
 
-    /// Translates: loadSelectedTables()
-    /// JavaFX progress bar and threading → simplified to synchronous call.
-    pub fn load_selected_tables(&mut self) {
-        // commit();
+    /// Returns true while a background table load is in progress.
+    pub fn is_table_loading(&self) -> bool {
+        self.table_load_handle.is_some()
+    }
+
+    /// Translates: loadAllTables()
+    /// Blocking HTTP work runs on a background thread so the egui event loop
+    /// is not frozen.
+    pub fn load_all_tables(&mut self) {
         self.commit();
 
         if let Some(ref config) = self.config {
-            // Files.createDirectories(Paths.get(config.getTablepath()));
             let _ = fs::create_dir_all(&config.paths.tablepath);
 
-            // TableDataAccessor tda = new TableDataAccessor(config.getTablepath());
-            let tda = TableDataAccessor::new(&config.paths.tablepath);
-            // String[] urls = TableInfo.toUrlArray(tableurl.getSelectionModel().getSelectedItems());
+            // Existing .bmt files are preserved until each replacement is
+            // successfully fetched and written by update_table_data(), so a
+            // refresh that fails mid-way (offline, timeout) does not wipe the
+            // local cache.
+
+            let tablepath = config.paths.tablepath.clone();
+            let urls: Vec<String> = config.paths.table_url.clone();
+            self.table_load_handle = Some(std::thread::spawn(move || {
+                let tda = TableDataAccessor::new(&tablepath);
+                let url_refs: Vec<&str> = urls.iter().map(|s| s.as_str()).collect();
+                tda.update_table_data(&url_refs);
+            }));
+        }
+    }
+
+    /// Translates: loadSelectedTables()
+    /// Blocking HTTP work runs on a background thread.
+    pub fn load_selected_tables(&mut self) {
+        self.commit();
+
+        if let Some(ref config) = self.config {
+            let _ = fs::create_dir_all(&config.paths.tablepath);
+
+            let tablepath = config.paths.tablepath.clone();
             let selected: Vec<TableInfo> = self
                 .tableurl_selected_items
                 .iter()
                 .filter_map(|&i| self.tableurl.get(i).cloned())
                 .collect();
-            let urls = TableInfo::to_url_array(&selected);
-            let url_refs: Vec<&str> = urls.iter().map(|s| s.as_str()).collect();
-            // tda.updateTableData(urls);
-            tda.update_table_data(&url_refs);
-            // refreshLocalTableInfo();
-            self.refresh_local_table_info();
+            let urls: Vec<String> = TableInfo::to_url_array(&selected);
+            self.table_load_handle = Some(std::thread::spawn(move || {
+                let tda = TableDataAccessor::new(&tablepath);
+                let url_refs: Vec<&str> = urls.iter().map(|s| s.as_str()).collect();
+                tda.update_table_data(&url_refs);
+            }));
         }
     }
 
     /// Translates: loadNewTables()
-    /// JavaFX progress bar and threading → simplified to synchronous call.
+    /// Blocking HTTP work runs on a background thread.
     pub fn load_new_tables(&mut self) {
-        // commit();
         self.commit();
 
         if let Some(ref config) = self.config {
-            // Files.createDirectories(Paths.get(config.getTablepath()));
             let _ = fs::create_dir_all(&config.paths.tablepath);
 
-            // TableDataAccessor tda = new TableDataAccessor(config.getTablepath());
-            let tda = TableDataAccessor::new(&config.paths.tablepath);
-            // tda.loadNewTableData(config.getTableURL());
-            let url_refs: Vec<&str> = config.paths.table_url.iter().map(|s| s.as_str()).collect();
-            tda.load_new_table_data(&url_refs);
-            // refreshLocalTableInfo();
-            self.refresh_local_table_info();
+            let tablepath = config.paths.tablepath.clone();
+            let urls: Vec<String> = config.paths.table_url.clone();
+            self.table_load_handle = Some(std::thread::spawn(move || {
+                let tda = TableDataAccessor::new(&tablepath);
+                let url_refs: Vec<&str> = urls.iter().map(|s| s.as_str()).collect();
+                tda.load_new_table_data(&url_refs);
+            }));
         }
     }
 
@@ -936,6 +945,7 @@ impl ResourceConfigurationView {
     /// Render the resource configuration UI.
     /// Translates JavaFX FXML layout to egui widgets.
     pub fn render(&mut self, ui: &mut egui::Ui) {
+        self.poll_table_load();
         ui.heading("Resource Configuration");
 
         // --- BMS Root Paths ---
@@ -1007,14 +1017,27 @@ impl ResourceConfigurationView {
             if ui.button("<<").clicked() {
                 self.move_table_url_out();
             }
-            if ui.button("Load All").clicked() {
+            let loading = self.is_table_loading();
+            if ui
+                .add_enabled(!loading, egui::Button::new("Load All"))
+                .clicked()
+            {
                 self.load_all_tables();
             }
-            if ui.button("Load Selected").clicked() {
+            if ui
+                .add_enabled(!loading, egui::Button::new("Load Selected"))
+                .clicked()
+            {
                 self.load_selected_tables();
             }
-            if ui.button("Load New").clicked() {
+            if ui
+                .add_enabled(!loading, egui::Button::new("Load New"))
+                .clicked()
+            {
                 self.load_new_tables();
+            }
+            if loading {
+                ui.spinner();
             }
             if ui.button("Refresh Info").clicked() {
                 self.refresh_local_table_info();

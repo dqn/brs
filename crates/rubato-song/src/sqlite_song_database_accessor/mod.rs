@@ -777,6 +777,9 @@ impl<'a> SongDatabaseUpdater<'a> {
             let conn = accessor.conn.lock().expect("conn lock poisoned");
             if let Err(e) = conn.execute_batch("BEGIN TRANSACTION") {
                 log::error!("Error starting transaction: {}", e);
+                if let Some(info) = self.info {
+                    info.end_update();
+                }
                 return;
             }
 
@@ -787,6 +790,9 @@ impl<'a> SongDatabaseUpdater<'a> {
                     Err(e) => {
                         log::error!("Error preparing tag/favorite query: {}", e);
                         let _ = conn.execute_batch("ROLLBACK");
+                        if let Some(info) = self.info {
+                            info.end_update();
+                        }
                         return;
                     }
                 };
@@ -800,6 +806,9 @@ impl<'a> SongDatabaseUpdater<'a> {
                     Err(e) => {
                         log::error!("Error querying tags/favorites: {}", e);
                         let _ = conn.execute_batch("ROLLBACK");
+                        if let Some(info) = self.info {
+                            info.end_update();
+                        }
                         return;
                     }
                 };
@@ -850,15 +859,22 @@ impl<'a> SongDatabaseUpdater<'a> {
         } // Release lock before parallel section
 
         // Parallel processing of root paths (matches Java: paths.parallel().forEach(...))
+        let had_error = std::sync::atomic::AtomicBool::new(false);
         paths.par_iter().for_each(|p| {
             let folder = BMSFolder::new(p.clone(), &self.bmsroot);
             if let Err(e) = folder.process_directory(accessor, &property) {
                 log::error!("Error during song database update: {}", e);
+                had_error.store(true, std::sync::atomic::Ordering::Relaxed);
             }
         });
 
         let conn = accessor.conn.lock().expect("conn lock poisoned");
-        let _ = conn.execute_batch("COMMIT");
+        if had_error.load(std::sync::atomic::Ordering::Relaxed) {
+            log::error!("Rolling back song database refresh due to worker errors");
+            let _ = conn.execute_batch("ROLLBACK");
+        } else {
+            let _ = conn.execute_batch("COMMIT");
+        }
 
         if let Some(info) = self.info {
             info.end_update();

@@ -424,7 +424,7 @@ impl SongData {
     pub fn shrink(&mut self) {
         self.metadata.fulltitle = None;
         self.metadata.fullartist = None;
-        self.file.path.clear();
+        self.file.clear_path();
         self.chart.date = 0;
         self.chart.adddate = 0;
         self.chart.level = 0;

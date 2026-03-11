@@ -226,19 +226,24 @@ pub fn lr2_path(skinpath: &str, imagepath: &str, filemap: &HashMap<String, Strin
             }
         }
         let ext_lower = ext.to_lowercase();
+        let star_pos = resolved.rfind('*').expect("contains '*'");
         let dir_path = if let Some(last_slash) = resolved.rfind('/') {
             &resolved[..last_slash]
         } else {
             "."
         };
+        // Extract the filename prefix before the '*' (e.g., "bg" from "bg*.png")
+        let prefix = if let Some(last_slash) = resolved[..star_pos].rfind('/') {
+            resolved[last_slash + 1..star_pos].to_lowercase()
+        } else {
+            resolved[..star_pos].to_lowercase()
+        };
         if let Ok(entries) = std::fs::read_dir(dir_path) {
             let matching: Vec<String> = entries
                 .filter_map(|e| e.ok())
                 .filter(|e| {
-                    e.path()
-                        .to_string_lossy()
-                        .to_lowercase()
-                        .ends_with(&ext_lower)
+                    let name = e.file_name().to_string_lossy().to_lowercase();
+                    name.starts_with(&prefix) && name.ends_with(&ext_lower)
                 })
                 .map(|e| e.path().to_string_lossy().into_owned())
                 .collect();

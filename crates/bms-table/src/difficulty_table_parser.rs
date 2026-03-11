@@ -82,7 +82,12 @@ impl DifficultyTableParser {
 
         // Look for <meta http-equiv="content-type" content="...charset=XXX">
         // or <meta charset="XXX"> in the first few KB.
-        let probe = &tentative[..tentative.len().min(4096)];
+        let mut end = tentative.len().min(4096);
+        // Walk backward to find a char boundary (MSRV-safe alternative to floor_char_boundary)
+        while end > 0 && !tentative.is_char_boundary(end) {
+            end -= 1;
+        }
+        let probe = &tentative[..end];
         let probe_lower = probe.to_lowercase();
         let charset = if let Some(idx) = probe_lower.find("charset=") {
             let rest = &probe[idx + 8..];
