@@ -61,6 +61,7 @@ fn lr2_judge_scaling(mut base: i64, judgerank: i32) -> i64 {
         base = -base;
         sign = -1;
     }
+    let judgerank = judgerank.max(0);
     if judgerank >= 100 {
         return sign * base * judgerank as i64 / 100;
     }
@@ -72,6 +73,7 @@ fn lr2_judge_scaling(mut base: i64, judgerank: i32) -> i64 {
     }
     let (x1, x2, d): (i64, i64, i64);
     if s < LR2_SCALING.len() {
+        debug_assert!(s >= 1, "lr2_judge_scaling: s must be >= 1 after base scan");
         let n = base - LR2_SCALING[s - 1][last];
         d = LR2_SCALING[s][last] - LR2_SCALING[s - 1][last];
         x1 = d * LR2_SCALING[s - 1][judgeindex]
