@@ -72,6 +72,10 @@ impl StretchType {
         trimmed_image: &mut TextureRegion,
         image: &TextureRegion,
     ) {
+        if image.region_width == 0 || image.region_height == 0 {
+            trimmed_image.set_from(image);
+            return;
+        }
         match self {
             StretchType::Stretch => {
                 trimmed_image.set_from(image);
@@ -192,5 +196,76 @@ fn fit_height_trimmed(rectangle: &mut Rectangle, scale: f32, image: &mut Texture
         image.region_height = h as i32;
     } else {
         fit_height(rectangle, height);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stretch_rect_zero_region_width_does_not_produce_nan() {
+        let mut rect = Rectangle::new(10.0, 20.0, 100.0, 200.0);
+        let image = TextureRegion {
+            region_width: 0,
+            region_height: 50,
+            ..TextureRegion::default()
+        };
+        let mut trimmed = TextureRegion::default();
+
+        for variant in StretchType::values() {
+            let (orig_rect_x, orig_rect_y, orig_rect_w, orig_rect_h) =
+                (rect.x, rect.y, rect.width, rect.height);
+            variant.stretch_rect(&mut rect, &mut trimmed, &image);
+
+            // trimmed_image should be a copy of image
+            assert_eq!(trimmed.region_width, image.region_width);
+            assert_eq!(trimmed.region_height, image.region_height);
+
+            // rectangle must not be corrupted with NaN/Inf
+            assert!(rect.x.is_finite(), "{variant:?} produced non-finite x");
+            assert!(rect.y.is_finite(), "{variant:?} produced non-finite y");
+            assert!(
+                rect.width.is_finite(),
+                "{variant:?} produced non-finite width"
+            );
+            assert!(
+                rect.height.is_finite(),
+                "{variant:?} produced non-finite height"
+            );
+
+            // Reset rect for next iteration
+            rect = Rectangle::new(orig_rect_x, orig_rect_y, orig_rect_w, orig_rect_h);
+        }
+    }
+
+    #[test]
+    fn stretch_rect_zero_region_height_does_not_produce_nan() {
+        let mut rect = Rectangle::new(10.0, 20.0, 100.0, 200.0);
+        let image = TextureRegion {
+            region_width: 50,
+            region_height: 0,
+            ..TextureRegion::default()
+        };
+        let mut trimmed = TextureRegion::default();
+
+        for variant in StretchType::values() {
+            variant.stretch_rect(&mut rect, &mut trimmed, &image);
+
+            assert_eq!(trimmed.region_width, image.region_width);
+            assert_eq!(trimmed.region_height, image.region_height);
+            assert!(rect.x.is_finite(), "{variant:?} produced non-finite x");
+            assert!(rect.y.is_finite(), "{variant:?} produced non-finite y");
+            assert!(
+                rect.width.is_finite(),
+                "{variant:?} produced non-finite width"
+            );
+            assert!(
+                rect.height.is_finite(),
+                "{variant:?} produced non-finite height"
+            );
+
+            rect = Rectangle::new(10.0, 20.0, 100.0, 200.0);
+        }
     }
 }
