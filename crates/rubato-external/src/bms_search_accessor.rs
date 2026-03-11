@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::Deserialize;
 
 use crate::stubs::{SongData, TableAccessor, TableData, TableDataAccessor, TableFolder};
@@ -77,15 +79,21 @@ impl BMSSearchAccessor {
         td
     }
 
+    fn http_client() -> anyhow::Result<reqwest::blocking::Client> {
+        Ok(reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()?)
+    }
+
     fn fetch_elements() -> anyhow::Result<Vec<BMSSearchElement>> {
-        let body = reqwest::blocking::get(API_STRING)?.text()?;
+        let body = Self::http_client()?.get(API_STRING).send()?.text()?;
         let elements: Vec<BMSSearchElement> = serde_json::from_str(&body)?;
         Ok(elements)
     }
 
     fn fetch_patterns(id: &str) -> anyhow::Result<Vec<BMSPatterns>> {
         let url = format!("https://api.bmssearch.net/v1/bmses/{}/patterns?limit=1", id);
-        let body = reqwest::blocking::get(&url)?.text()?;
+        let body = Self::http_client()?.get(&url).send()?.text()?;
         let patterns: Vec<BMSPatterns> = serde_json::from_str(&body)?;
         Ok(patterns)
     }

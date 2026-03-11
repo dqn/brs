@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use anyhow::Result;
 use regex::Regex;
@@ -40,6 +41,12 @@ impl DifficultyTableParser {
         }
     }
 
+    fn http_client() -> Result<reqwest::blocking::Client> {
+        Ok(reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()?)
+    }
+
     pub fn contains_header(&mut self, urlname: &str) -> bool {
         self.get_meta_tag(urlname, "bmstable").is_some()
     }
@@ -49,7 +56,7 @@ impl DifficultyTableParser {
     }
 
     fn read_all_lines(&self, urlname: &str) -> Option<Vec<String>> {
-        match reqwest::blocking::get(urlname) {
+        match Self::http_client().and_then(|c| Ok(c.get(urlname).send()?)) {
             Ok(response) => match response.bytes() {
                 Ok(bytes) => {
                     let text = Self::decode_bytes_with_charset(&bytes);
@@ -302,7 +309,7 @@ impl DifficultyTableParser {
         dt: &mut DifficultyTable,
         jsonheader_url: &str,
     ) -> Result<()> {
-        let response = reqwest::blocking::get(jsonheader_url)?;
+        let response = Self::http_client()?.get(jsonheader_url).send()?;
         let text = response.text()?;
         let result: HashMap<String, Value> = serde_json::from_str(&text)?;
         self.decode_json_table_header_internal(dt, &result)?;
@@ -446,7 +453,7 @@ impl DifficultyTableParser {
             "\u{96e3}\u{6613}\u{5ea6}\u{8868}\u{30c7}\u{30fc}\u{30bf}\u{8aad}\u{307f}\u{8fbc}\u{307f} - {}",
             jsondata_url
         );
-        let response = reqwest::blocking::get(jsondata_url)?;
+        let response = Self::http_client()?.get(jsondata_url).send()?;
         let text = response.text()?;
         let result: Vec<HashMap<String, Value>> = serde_json::from_str(&text)?;
         self.decode_json_table_data_internal(dt, &result, false);
