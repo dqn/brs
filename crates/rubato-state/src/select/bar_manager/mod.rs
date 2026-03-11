@@ -35,6 +35,9 @@ pub struct UpdateBarContext<'a> {
 /// Replay existence checker function type: (sha256, has_ln, lnmode, index) -> bool
 pub type ExistsReplayFn<'a> = &'a dyn Fn(&str, bool, i32, i32) -> bool;
 
+/// Course score reader function type: (combined_hash, has_ln, mode_val) -> Option<ScoreData>
+pub type ReadScoreByHashFn<'a> = &'a dyn Fn(&str, bool, i32) -> Option<ScoreData>;
+
 /// Context for loader thread operations.
 pub struct LoaderContext<'a> {
     pub player_config: &'a PlayerConfig,
@@ -48,6 +51,12 @@ pub struct LoaderContext<'a> {
     pub stagefile_resource: Option<&'a PixmapResourcePool>,
     /// Replay existence checker
     pub exists_replay_fn: Option<ExistsReplayFn<'a>>,
+    /// Course score reader: (hash, has_ln, mode_val) -> Option<ScoreData>
+    pub read_score_by_hash_fn: Option<ReadScoreByHashFn<'a>>,
+    /// Song database accessor for folder status updates
+    pub songdb: Option<&'a dyn SongDatabaseAccessor>,
+    /// Song information database for loading mainbpm, density, etc.
+    pub song_info_db: Option<&'a dyn rubato_types::song_information_db::SongInformationDb>,
 }
 
 /// Bar manager for managing the song bar hierarchy

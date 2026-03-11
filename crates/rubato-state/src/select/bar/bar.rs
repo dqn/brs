@@ -231,6 +231,14 @@ impl Bar {
         }
     }
 
+    pub fn as_folder_bar_mut(&mut self) -> Option<&mut super::folder_bar::FolderBar> {
+        if let Bar::Folder(b) = self {
+            Some(b)
+        } else {
+            None
+        }
+    }
+
     pub fn as_table_bar(&self) -> Option<&super::table_bar::TableBar> {
         if let Bar::Table(b) = self {
             Some(b)
@@ -247,6 +255,14 @@ impl Bar {
         }
     }
 
+    pub fn as_hash_bar_mut(&mut self) -> Option<&mut super::hash_bar::HashBar> {
+        if let Bar::Hash(b) = self {
+            Some(b)
+        } else {
+            None
+        }
+    }
+
     pub fn as_context_menu_bar(&self) -> Option<&super::context_menu_bar::ContextMenuBar> {
         if let Bar::ContextMenu(b) = self {
             Some(b)
@@ -256,6 +272,14 @@ impl Bar {
     }
 
     pub fn as_search_word_bar(&self) -> Option<&super::search_word_bar::SearchWordBar> {
+        if let Bar::SearchWord(b) = self {
+            Some(b)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_search_word_bar_mut(&mut self) -> Option<&mut super::search_word_bar::SearchWordBar> {
         if let Bar::SearchWord(b) = self {
             Some(b)
         } else {

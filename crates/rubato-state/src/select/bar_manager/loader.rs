@@ -248,21 +248,58 @@ impl BarContentsLoaderThread {
             } else if let Some(gb) = bar.as_grade_bar()
                 && gb.exists_all_songs()
             {
-                // Load grade scores
-                // Requires PlayDataAccessor.readScoreData(hash[], ...) - blocked
-                log::debug!("GradeBar score loading requires PlayDataAccessor");
+                // Load grade bar scores via combined hash
+                if let Some(read_fn) = &ctx.read_score_by_hash_fn {
+                    let lnmode = ctx.player_config.play_settings.lnmode;
+                    let songs = gb.song_datas();
+                    let combined_hash: String =
+                        songs.iter().map(|s| s.file.sha256.as_str()).collect();
+                    let has_ln = songs.iter().any(|s| s.chart.has_undefined_long_note());
+                    // option 0=normal, 1=mirror, 2=random
+                    let mode_base = if has_ln { lnmode } else { 0 };
+                    let score = read_fn(&combined_hash, has_ln, mode_base);
+                    bar.set_score(score);
+                    if let Some(gb_mut) = bar.as_grade_bar_mut() {
+                        gb_mut.mscore = read_fn(&combined_hash, has_ln, mode_base + 10);
+                        gb_mut.rscore = read_fn(&combined_hash, has_ln, mode_base + 20);
+                    }
+                }
             }
 
             // Update folder status
-            if ctx.is_folderlamp && bar.is_directory_bar() {
-                // Requires songdb access for folder status update
-                log::debug!("DirectoryBar folder status update requires songdb");
+            if ctx.is_folderlamp
+                && bar.is_directory_bar()
+                && let Some(songdb) = ctx.songdb
+            {
+                if let Some(fb) = bar.as_folder_bar_mut() {
+                    fb.update_folder_status(songdb);
+                } else if let Some(hb) = bar.as_hash_bar_mut() {
+                    hb.update_folder_status(songdb);
+                } else if let Some(swb) = bar.as_search_word_bar_mut() {
+                    swb.update_folder_status(songdb);
+                }
+                // CommandBar requires CommandBarContext (score/scorelog paths)
+                // which is not available here; skip for now.
             }
         }
 
         // Phase 2: Load song information
-        // Java: info.getInformation(songs)
-        // Requires SongInformationAccessor - blocked
+        if let Some(info_db) = ctx.song_info_db {
+            for bar in bars.iter_mut() {
+                if self.is_stopped() {
+                    return;
+                }
+                if let Some(sb) = bar.as_song_bar_mut()
+                    && sb.exists_song()
+                    && sb.song_data().info.is_none()
+                {
+                    let sha256 = sb.song_data().file.sha256.clone();
+                    if let Some(info) = info_db.information(&sha256) {
+                        sb.song_data_mut().info = Some(info);
+                    }
+                }
+            }
+        }
 
         // Phase 3: Load banners and stagefiles
         // Java: for (Bar bar : bars) { if (bar instanceof SongBar && ...) { ... } }

@@ -235,6 +235,9 @@ fn test_loader_runs_on_empty_bars() {
         banner_resource: None,
         stagefile_resource: None,
         exists_replay_fn: None,
+        read_score_by_hash_fn: None,
+        songdb: None,
+        song_info_db: None,
     };
     loader.run(&mut bars, &mut ctx);
     // Should complete without errors
@@ -255,6 +258,9 @@ fn test_loader_stops_early_when_signaled() {
         banner_resource: None,
         stagefile_resource: None,
         exists_replay_fn: None,
+        read_score_by_hash_fn: None,
+        songdb: None,
+        song_info_db: None,
     };
     loader.run(&mut bars, &mut ctx);
     // Should return immediately due to stop flag
@@ -290,6 +296,9 @@ fn test_loader_loads_score_from_cache() {
         banner_resource: None,
         stagefile_resource: None,
         exists_replay_fn: None,
+        read_score_by_hash_fn: None,
+        songdb: None,
+        song_info_db: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -336,6 +345,9 @@ fn test_loader_loads_banner_via_pool() {
         banner_resource: Some(&banner_pool),
         stagefile_resource: None,
         exists_replay_fn: None,
+        read_score_by_hash_fn: None,
+        songdb: None,
+        song_info_db: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -375,6 +387,9 @@ fn test_loader_loads_stagefile_via_pool() {
         banner_resource: None,
         stagefile_resource: Some(&stagefile_pool),
         exists_replay_fn: None,
+        read_score_by_hash_fn: None,
+        songdb: None,
+        song_info_db: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -412,6 +427,9 @@ fn test_loader_no_pool_skips_banner_loading() {
         banner_resource: None,
         stagefile_resource: None,
         exists_replay_fn: None,
+        read_score_by_hash_fn: None,
+        songdb: None,
+        song_info_db: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -447,6 +465,9 @@ fn test_loader_nonexistent_banner_file_not_loaded() {
         banner_resource: Some(&banner_pool),
         stagefile_resource: None,
         exists_replay_fn: None,
+        read_score_by_hash_fn: None,
+        songdb: None,
+        song_info_db: None,
     };
 
     loader.run(&mut bars, &mut ctx);
@@ -1305,4 +1326,322 @@ fn test_random_folder_filter_and_compound() {
     } else {
         panic!("expected ExecutableBar");
     }
+}
+
+// ---- grade bar score loading tests ----
+
+#[test]
+fn test_loader_loads_grade_bar_scores_via_callback() {
+    use crate::select::bar::grade_bar::GradeBar;
+
+    let mut song1 = SongData::default();
+    song1.file.sha256 = "aaa".to_string();
+    song1.file.set_path("/song1.bms".to_string());
+
+    let mut song2 = SongData::default();
+    song2.file.sha256 = "bbb".to_string();
+    song2.file.set_path("/song2.bms".to_string());
+
+    let mut course = CourseData::default();
+    course.hash = vec![song1, song2];
+
+    let gb = GradeBar::new(course);
+    let mut bars = vec![Bar::Grade(Box::new(gb))];
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let loader = BarContentsLoaderThread::new(stop);
+    let player_config = PlayerConfig::default();
+
+    let read_fn = |hash: &str, _has_ln: bool, mode_val: i32| -> Option<ScoreData> {
+        // Combined hash should be "aaabbb"
+        if hash == "aaabbb" {
+            let mut s = ScoreData::default();
+            s.clear = mode_val + 1; // distinguish by mode_val
+            Some(s)
+        } else {
+            None
+        }
+    };
+
+    let mut ctx = LoaderContext {
+        player_config: &player_config,
+        score_cache: None,
+        rival_cache: None,
+        rival_name: None,
+        is_folderlamp: false,
+        banner_resource: None,
+        stagefile_resource: None,
+        exists_replay_fn: None,
+        read_score_by_hash_fn: Some(&read_fn),
+        songdb: None,
+        song_info_db: None,
+    };
+
+    loader.run(&mut bars, &mut ctx);
+
+    // Normal score (mode_val=0) => clear=1
+    assert!(bars[0].score().is_some());
+    assert_eq!(bars[0].score().unwrap().clear, 1);
+
+    // Mirror score (mode_val=10) => clear=11
+    let gb = bars[0].as_grade_bar().unwrap();
+    assert!(gb.mscore.is_some());
+    assert_eq!(gb.mscore.as_ref().unwrap().clear, 11);
+
+    // Random score (mode_val=20) => clear=21
+    assert!(gb.rscore.is_some());
+    assert_eq!(gb.rscore.as_ref().unwrap().clear, 21);
+}
+
+#[test]
+fn test_loader_skips_grade_bar_when_not_all_songs_exist() {
+    use crate::select::bar::grade_bar::GradeBar;
+
+    // One song has no path => exists_all_songs() is false
+    let mut song1 = SongData::default();
+    song1.file.sha256 = "aaa".to_string();
+    song1.file.set_path("/song1.bms".to_string());
+
+    let mut song2 = SongData::default();
+    song2.file.sha256 = "bbb".to_string();
+    // no path set
+
+    let mut course = CourseData::default();
+    course.hash = vec![song1, song2];
+
+    let gb = GradeBar::new(course);
+    let mut bars = vec![Bar::Grade(Box::new(gb))];
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let loader = BarContentsLoaderThread::new(stop);
+    let player_config = PlayerConfig::default();
+
+    let read_fn = |_hash: &str, _has_ln: bool, _mode_val: i32| -> Option<ScoreData> {
+        Some(ScoreData::default())
+    };
+
+    let mut ctx = LoaderContext {
+        player_config: &player_config,
+        score_cache: None,
+        rival_cache: None,
+        rival_name: None,
+        is_folderlamp: false,
+        banner_resource: None,
+        stagefile_resource: None,
+        exists_replay_fn: None,
+        read_score_by_hash_fn: Some(&read_fn),
+        songdb: None,
+        song_info_db: None,
+    };
+
+    loader.run(&mut bars, &mut ctx);
+
+    // Score should NOT be loaded (not all songs exist)
+    assert!(bars[0].score().is_none());
+}
+
+// ---- folder status update tests ----
+
+/// Mock SongDatabaseAccessor for folder status tests
+struct FolderStatusMockDb {
+    songs_by_text: Vec<SongData>,
+}
+
+impl FolderStatusMockDb {
+    fn new(songs: Vec<SongData>) -> Self {
+        Self {
+            songs_by_text: songs,
+        }
+    }
+}
+
+impl SongDatabaseAccessor for FolderStatusMockDb {
+    fn song_datas(&self, _key: &str, _value: &str) -> Vec<SongData> {
+        Vec::new()
+    }
+    fn song_datas_by_hashes(&self, hashes: &[String]) -> Vec<SongData> {
+        self.songs_by_text
+            .iter()
+            .filter(|s| hashes.contains(&s.file.sha256))
+            .cloned()
+            .collect()
+    }
+    fn song_datas_by_sql(
+        &self,
+        _sql: &str,
+        _score: &str,
+        _scorelog: &str,
+        _info: Option<&str>,
+    ) -> Vec<SongData> {
+        Vec::new()
+    }
+    fn set_song_datas(&self, _songs: &[SongData]) {}
+    fn song_datas_by_text(&self, _text: &str) -> Vec<SongData> {
+        self.songs_by_text.clone()
+    }
+    fn folder_datas(&self, _key: &str, _value: &str) -> Vec<FolderData> {
+        Vec::new()
+    }
+}
+
+#[test]
+fn test_loader_updates_search_word_bar_folder_status() {
+    use crate::select::bar::search_word_bar::SearchWordBar;
+
+    let mut song = SongData::default();
+    song.file.sha256 = "s1".to_string();
+    song.file.set_path("/test.bms".to_string());
+
+    let db = FolderStatusMockDb::new(vec![song]);
+
+    let swb = SearchWordBar::new("test".to_string(), "query".to_string());
+    let mut bars: Vec<Bar> = vec![Bar::SearchWord(Box::new(swb))];
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let loader = BarContentsLoaderThread::new(stop);
+    let player_config = PlayerConfig::default();
+
+    let mut ctx = LoaderContext {
+        player_config: &player_config,
+        score_cache: None,
+        rival_cache: None,
+        rival_name: None,
+        is_folderlamp: true,
+        banner_resource: None,
+        stagefile_resource: None,
+        exists_replay_fn: None,
+        read_score_by_hash_fn: None,
+        songdb: Some(&db),
+        song_info_db: None,
+    };
+
+    loader.run(&mut bars, &mut ctx);
+
+    // After folder status update, lamps should be populated
+    let dir = bars[0].as_directory_bar().unwrap();
+    // 1 song with no score => lamp[0] += 1
+    assert_eq!(dir.lamps[0], 1);
+}
+
+// ---- song information loading tests ----
+
+/// Mock SongInformationDb for tests
+struct MockSongInfoDb {
+    entries: Vec<(String, rubato_types::song_information::SongInformation)>,
+}
+
+impl MockSongInfoDb {
+    fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
+
+    fn with_entry(mut self, sha256: &str, mainbpm: f64) -> Self {
+        let mut info = rubato_types::song_information::SongInformation::default();
+        info.sha256 = sha256.to_string();
+        info.mainbpm = mainbpm;
+        self.entries.push((sha256.to_string(), info));
+        self
+    }
+}
+
+impl rubato_types::song_information_db::SongInformationDb for MockSongInfoDb {
+    fn informations(&self, _sql: &str) -> Vec<rubato_types::song_information::SongInformation> {
+        Vec::new()
+    }
+    fn information(&self, sha256: &str) -> Option<rubato_types::song_information::SongInformation> {
+        self.entries
+            .iter()
+            .find(|(h, _)| h == sha256)
+            .map(|(_, info)| info.clone())
+    }
+    fn information_for_songs(&self, _songs: &mut [SongData]) {}
+    fn start_update(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn update(&self, _model: &::bms_model::bms_model::BMSModel) {}
+    fn end_update(&self) {}
+}
+
+#[test]
+fn test_loader_loads_song_information() {
+    let info_db = MockSongInfoDb::new()
+        .with_entry("hash_a", 150.0)
+        .with_entry("hash_b", 180.0);
+
+    let mut bars = vec![
+        make_song_bar("hash_a", Some("/a.bms")),
+        make_song_bar("hash_b", Some("/b.bms")),
+        make_song_bar("hash_c", Some("/c.bms")), // no info in db
+    ];
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let loader = BarContentsLoaderThread::new(stop);
+    let player_config = PlayerConfig::default();
+
+    let mut ctx = LoaderContext {
+        player_config: &player_config,
+        score_cache: None,
+        rival_cache: None,
+        rival_name: None,
+        is_folderlamp: false,
+        banner_resource: None,
+        stagefile_resource: None,
+        exists_replay_fn: None,
+        read_score_by_hash_fn: None,
+        songdb: None,
+        song_info_db: Some(&info_db),
+    };
+
+    loader.run(&mut bars, &mut ctx);
+
+    let sb_a = bars[0].as_song_bar().unwrap();
+    assert!(sb_a.song_data().info.is_some());
+    assert_eq!(sb_a.song_data().info.as_ref().unwrap().mainbpm, 150.0);
+
+    let sb_b = bars[1].as_song_bar().unwrap();
+    assert!(sb_b.song_data().info.is_some());
+    assert_eq!(sb_b.song_data().info.as_ref().unwrap().mainbpm, 180.0);
+
+    // hash_c has no entry in db, should remain None
+    let sb_c = bars[2].as_song_bar().unwrap();
+    assert!(sb_c.song_data().info.is_none());
+}
+
+#[test]
+fn test_loader_skips_song_info_when_already_loaded() {
+    let info_db = MockSongInfoDb::new().with_entry("hash_a", 150.0);
+
+    // Pre-populate song info
+    let mut sd = make_song_data("hash_a", Some("/a.bms"));
+    let mut existing_info = rubato_types::song_information::SongInformation::default();
+    existing_info.mainbpm = 999.0; // existing value
+    sd.info = Some(existing_info);
+
+    let mut bars = vec![Bar::Song(Box::new(SongBar::new(sd)))];
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let loader = BarContentsLoaderThread::new(stop);
+    let player_config = PlayerConfig::default();
+
+    let mut ctx = LoaderContext {
+        player_config: &player_config,
+        score_cache: None,
+        rival_cache: None,
+        rival_name: None,
+        is_folderlamp: false,
+        banner_resource: None,
+        stagefile_resource: None,
+        exists_replay_fn: None,
+        read_score_by_hash_fn: None,
+        songdb: None,
+        song_info_db: Some(&info_db),
+    };
+
+    loader.run(&mut bars, &mut ctx);
+
+    // Should NOT overwrite existing info
+    let sb = bars[0].as_song_bar().unwrap();
+    assert_eq!(sb.song_data().info.as_ref().unwrap().mainbpm, 999.0);
 }

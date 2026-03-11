@@ -35,6 +35,10 @@ impl SongBar {
         &self.song
     }
 
+    pub fn song_data_mut(&mut self) -> &mut SongData {
+        &mut self.song
+    }
+
     pub fn exists_song(&self) -> bool {
         self.song.file.path().is_some()
     }

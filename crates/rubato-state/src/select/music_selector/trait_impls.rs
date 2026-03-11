@@ -276,8 +276,11 @@ impl MainState for MusicSelector {
         // In Java: loadSkin(SkinType.MUSIC_SELECT)
         self.load_skin(SkinType::MusicSelect.id());
 
-        // In Java: search text field setup from skin region
-        // Blocked on MusicSelectSkin integration
+        // Initialize search text field
+        if self.search.is_none() {
+            let resolution = Resolution::default();
+            self.search = Some(SearchTextField::new(&() as &dyn std::any::Any, &resolution));
+        }
     }
 
     /// Override skin rendering to add BarRenderer prepare/render around the default cycle.
