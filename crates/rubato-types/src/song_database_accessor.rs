@@ -5,7 +5,7 @@ use crate::song_data::SongData;
 ///
 /// Update methods that depend on SongDatabaseUpdateListener/SongInformationAccessor
 /// remain as inherent methods on the concrete implementation in beatoraja-song.
-pub trait SongDatabaseAccessor: Send {
+pub trait SongDatabaseAccessor: Send + Sync {
     /// Get song data by key-value pair
     fn song_datas(&self, key: &str, value: &str) -> Vec<SongData>;
     /// Get song data by MD5/SHA256 hashes

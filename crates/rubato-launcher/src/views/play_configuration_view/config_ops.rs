@@ -11,14 +11,38 @@ impl PlayConfigurationView {
         log::info!("What's New popup: version {}", Version::get_version());
     }
 
-    /// Check for new version
+    /// Check for new version asynchronously.
     /// Translates: private void checkNewVersion()
+    ///
+    /// Spawns a background thread to avoid blocking the UI during the
+    /// GitHub API request. The result is polled in `poll_version_check`.
     pub fn check_new_version(&mut self) {
-        let mut version_checker = MainLoader::version_checker();
-        let message = version_checker.message().to_string();
-        let download_url = version_checker.download_url().map(|s| s.to_string());
-        self.newversion_text = message;
-        self.newversion_url = download_url;
+        let result = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let result_clone = std::sync::Arc::clone(&result);
+        std::thread::spawn(move || {
+            let mut version_checker = MainLoader::version_checker();
+            let message = version_checker.message().to_string();
+            let download_url = version_checker.download_url().map(|s| s.to_string());
+            if let Ok(mut guard) = result_clone.lock() {
+                *guard = Some((message, download_url));
+            }
+        });
+        self.pending_version_check = Some(result);
+    }
+
+    /// Poll for background version check result.
+    /// Call this from the render loop to pick up the result once available.
+    pub fn poll_version_check(&mut self) {
+        let result = self.pending_version_check.as_ref().and_then(|pending| {
+            let guard = pending.try_lock().ok()?;
+            let (message, url) = guard.as_ref()?;
+            Some((message.clone(), url.clone()))
+        });
+        if let Some((message, url)) = result {
+            self.newversion_text = message;
+            self.newversion_url = url;
+            self.pending_version_check = None;
+        }
     }
 
     /// Set BMS information loader

@@ -6,6 +6,9 @@ impl PlayConfigurationView {
     /// Replaces the JavaFX FXML layout. Groups config fields into collapsible
     /// sections so the long list of options remains navigable.
     pub fn render(&mut self, ui: &mut egui::Ui) {
+        // Poll background version check
+        self.poll_version_check();
+
         // ---- Player selector ----
         ui.heading("Player");
         egui::Grid::new("pcv_player_grid")

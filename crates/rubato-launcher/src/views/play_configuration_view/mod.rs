@@ -140,6 +140,9 @@ impl OptionListCell {
     }
 }
 
+/// Shared handle for a background version check: `(message, download_url)`.
+type VersionCheckHandle = Arc<std::sync::Mutex<Option<(String, Option<String>)>>>;
+
 /// Beatoraja configuration dialog
 ///
 /// Translated from PlayConfigurationView.java
@@ -147,6 +150,8 @@ pub struct PlayConfigurationView {
     // UI fields (JavaFX widgets → egui state)
     pub newversion_text: String,
     pub newversion_url: Option<String>,
+    /// Background version check result (message, download_url).
+    pub pending_version_check: Option<VersionCheckHandle>,
 
     // Player selector
     pub players: Vec<String>,

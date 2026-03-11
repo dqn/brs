@@ -582,13 +582,7 @@ impl BMSPlayerInputProcessor {
     }
 
     pub fn poll(&mut self) {
-        let now = {
-            let nanos = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos() as i64;
-            nanos / 1000 - self.starttime
-        };
+        let now = rubato_types::monotonic_clock::monotonic_micros() - self.starttime;
 
         // Poll keyboard
         // We need to use a temporary struct to act as callback since

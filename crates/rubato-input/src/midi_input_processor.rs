@@ -323,11 +323,7 @@ impl MidiInputProcessor {
 
     fn current_time(&self) -> i64 {
         // System.nanoTime() / 1000 - starttime
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as i64;
-        nanos / 1000 - self.starttime
+        rubato_types::monotonic_clock::monotonic_micros() - self.starttime
     }
 
     pub fn has_last_pressed_key(&self) -> bool {
@@ -363,13 +359,19 @@ impl MidiInputProcessor {
 
         match command {
             NOTE_OFF => {
-                self.note_off(data1 as usize, callback);
+                let note = data1 as usize;
+                if note < MAX_KEYS {
+                    self.note_off(note, callback);
+                }
             }
             NOTE_ON => {
-                if data2 == 0 {
-                    self.note_off(data1 as usize, callback);
-                } else {
-                    self.note_on(data1 as usize, callback);
+                let note = data1 as usize;
+                if note < MAX_KEYS {
+                    if data2 == 0 {
+                        self.note_off(note, callback);
+                    } else {
+                        self.note_on(note, callback);
+                    }
                 }
             }
             CONTROL_CHANGE => {

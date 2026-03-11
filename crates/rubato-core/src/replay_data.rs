@@ -123,7 +123,10 @@ mod tests {
         let mut rd = ReplayData::new();
         // No keylog and no keyinput - this is a zero-event replay, which is valid
         let valid = rd.validate();
-        assert!(valid, "validate should return true for zero-event replay data");
+        assert!(
+            valid,
+            "validate should return true for zero-event replay data"
+        );
     }
 
     #[test]

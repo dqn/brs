@@ -140,10 +140,24 @@ impl MainController {
                 "no"
             }
         );
-        let update_path = if path.is_empty() { None } else { Some(path) };
+        let update_path = if path.is_empty() {
+            None
+        } else {
+            Some(path.to_string())
+        };
         let bmsroot = self.config.paths.bmsroot.to_vec();
         if let Some(ref songdb) = self.db.songdb {
-            songdb.update_song_datas(update_path, &bmsroot, false, update_parent_when_missing);
+            // Spawn on a background thread to avoid blocking the main/render loop.
+            // Java: SongUpdateThread.
+            let songdb = std::sync::Arc::clone(songdb);
+            std::thread::spawn(move || {
+                songdb.update_song_datas(
+                    update_path.as_deref(),
+                    &bmsroot,
+                    false,
+                    update_parent_when_missing,
+                );
+            });
         }
     }
 
@@ -166,7 +180,7 @@ impl MainController {
     /// Set the song database accessor.
     /// Called by the application entry point (beatoraja-launcher) after creating the DB.
     pub fn set_song_database(&mut self, songdb: Box<dyn SongDatabaseAccessorTrait>) {
-        self.db.songdb = Some(songdb);
+        self.db.songdb = Some(std::sync::Arc::from(songdb));
     }
 
     /// Returns the current state.

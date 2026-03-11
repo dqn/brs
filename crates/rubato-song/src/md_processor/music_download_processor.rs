@@ -454,6 +454,16 @@ fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc
                                         continue;
                                     }
                                 };
+                                // Reject symlink entries to prevent symlink-based
+                                // directory escape attacks.
+                                let entry_type = entry.header().entry_type();
+                                if entry_type.is_symlink() || entry_type.is_hard_link() {
+                                    log::warn!(
+                                        "Skipping tar symlink/hardlink entry: {:?}",
+                                        entry_path
+                                    );
+                                    continue;
+                                }
                                 // Reject entries with path traversal components
                                 let has_traversal = entry_path
                                     .components()

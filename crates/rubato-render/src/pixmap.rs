@@ -161,8 +161,10 @@ impl Pixmap {
         }
         let x0 = x.max(0) as usize;
         let y0 = y.max(0) as usize;
-        let x1 = ((x + width) as usize).min(self.width as usize);
-        let y1 = ((y + height) as usize).min(self.height as usize);
+        let x1 = (x + width).max(0) as usize;
+        let y1 = (y + height).max(0) as usize;
+        let x1 = x1.min(self.width as usize);
+        let y1 = y1.min(self.height as usize);
         let w = self.width as usize;
         for py in y0..y1 {
             for px in x0..x1 {

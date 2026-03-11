@@ -135,3 +135,6 @@ pub mod offset_capabilities;
 
 // Global FPS counter (main loop → skin property ID 20)
 pub mod fps_counter;
+
+// Process-global monotonic clock (equivalent to Java System.nanoTime())
+pub mod monotonic_clock;

@@ -182,7 +182,7 @@ impl Default for LifecycleState {
 #[derive(Default)]
 pub struct DatabaseState {
     pub playdata: Option<PlayDataAccessor>,
-    pub songdb: Option<Box<dyn SongDatabaseAccessorTrait>>,
+    pub songdb: Option<std::sync::Arc<dyn SongDatabaseAccessorTrait>>,
     pub infodb: Option<Box<dyn SongInformationDb>>,
     pub rivals: RivalDataAccessor,
     pub ircache: Option<Box<dyn RankingDataCacheAccess>>,

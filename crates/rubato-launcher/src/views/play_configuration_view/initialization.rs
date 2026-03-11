@@ -5,6 +5,7 @@ impl PlayConfigurationView {
         PlayConfigurationView {
             newversion_text: String::new(),
             newversion_url: None,
+            pending_version_check: None,
             players: Vec::new(),
             players_selected: None,
             playername: String::new(),

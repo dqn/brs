@@ -9,6 +9,9 @@ use rubato_types::timer_id::TimerId;
 pub struct TimerManager {
     /// State start time (nanos from Instant)
     starttime: Instant,
+    /// Monotonic microseconds of starttime relative to the process-wide epoch.
+    /// This is the Rust equivalent of Java's `starttime / 1000` (nanos to micros).
+    start_mono_micros: i64,
     /// Current microsecond time (relative to starttime)
     nowmicrotime: i64,
     /// Whether time updates are frozen
@@ -35,6 +38,7 @@ impl TimerManager {
         }
         Self {
             starttime: Instant::now(),
+            start_mono_micros: rubato_types::monotonic_clock::monotonic_micros(),
             nowmicrotime: 0,
             frozen: false,
             timer,
@@ -46,13 +50,12 @@ impl TimerManager {
 
     pub fn start_time(&self) -> i64 {
         // starttime / 1000000 in Java (nanos to millis)
-        // In Rust we track relative time, so this returns 0 conceptually
-        0
+        self.start_mono_micros / 1000
     }
 
     pub fn start_micro_time(&self) -> i64 {
         // starttime / 1000 in Java (nanos to micros)
-        0
+        self.start_mono_micros
     }
 
     pub fn now_time(&self) -> i64 {
@@ -142,6 +145,7 @@ impl TimerManager {
             *t = i64::MIN;
         }
         self.starttime = Instant::now();
+        self.start_mono_micros = rubato_types::monotonic_clock::monotonic_micros();
         self.nowmicrotime = self.starttime.elapsed().as_micros() as i64;
     }
     pub fn set_recent_judges(&mut self, index: usize, judges: &[i64]) {
