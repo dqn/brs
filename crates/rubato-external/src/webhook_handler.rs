@@ -327,6 +327,9 @@ impl WebhookHandler {
     }
 
     fn format_percent(new_score: &ScoreData, max_score: i32) -> String {
+        if max_score == 0 {
+            return "(0.00%)".to_string();
+        }
         let percent = 100.0f32 * (new_score.exscore() as f32 / max_score as f32);
         format!("({:.2}%)", percent)
     }
@@ -335,7 +338,11 @@ impl WebhookHandler {
     // e.g "AAA-53 (86.53%) :arrow_up:"
     fn format_rank(current_state: &MainState, new_score: &ScoreData, max_score: i32) -> String {
         let ex = new_score.exscore();
-        let percent = 100.0f32 * (ex as f32 / max_score as f32);
+        let percent = if max_score == 0 {
+            0.0f32
+        } else {
+            100.0f32 * (ex as f32 / max_score as f32)
+        };
         let mut sb = String::new();
         let mut current_rank: i32 = 0;
         let mut old_rank: i32 = 0;
@@ -354,7 +361,11 @@ impl WebhookHandler {
 
         if let Some(result_state) = get_abstract_result(current_state) {
             let old_score = result_state.old_score();
-            let old_percent = 100.0f32 * old_score.exscore() as f32 / max_score as f32;
+            let old_percent = if max_score == 0 {
+                0.0f32
+            } else {
+                100.0f32 * old_score.exscore() as f32 / max_score as f32
+            };
             for rank in &GRADE_RANKS {
                 if old_percent > rank.percent() {
                     old_rank = ((rank.numerator() / 2.0f32).floor() * 2.0f32) as i32;

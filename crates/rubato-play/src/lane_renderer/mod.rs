@@ -292,7 +292,7 @@ impl LaneRenderer {
     }
 
     pub fn reset_hispeed(&mut self, target_bpm: f64) {
-        if self.fixhispeed != FIX_HISPEED_OFF {
+        if self.fixhispeed != FIX_HISPEED_OFF && target_bpm != 0.0 {
             let lc = if self.enable_lanecover {
                 self.lanecover
             } else {

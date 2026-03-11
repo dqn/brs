@@ -75,7 +75,9 @@ impl FloatProperty for RateProperty {
         } else {
             0
         };
-        if self.min < self.max {
+        if self.min == self.max {
+            0.0
+        } else if self.min < self.max {
             if value > self.max {
                 1.0
             } else if value < self.min {

@@ -257,6 +257,11 @@ impl SkinNumber {
             return;
         }
         let image = images.expect("images");
+        if image.len() < 12 {
+            self.length = 0.0;
+            self.data.draw = false;
+            return;
+        }
 
         if self.value != value || self.image_set.as_ref() != Some(&image) {
             self.value = value;

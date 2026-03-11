@@ -227,11 +227,11 @@ impl SkinGaugeGraphObject {
             if is_course_result {
                 self.gaugehistory = Vec::new();
                 for l in resource.course_gauge() {
-                    self.gaugehistory
-                        .extend_from_slice(&l[self.current_type as usize]);
-                    let prev = self.section.last().copied().unwrap_or(0);
-                    self.section
-                        .push(prev + l[self.current_type as usize].len() as i32);
+                    if let Some(gauge_data) = l.get(self.current_type as usize) {
+                        self.gaugehistory.extend_from_slice(gauge_data);
+                        let prev = self.section.last().copied().unwrap_or(0);
+                        self.section.push(prev + gauge_data.len() as i32);
+                    }
                 }
             }
             if let Some(groove_gauge) = resource.groove_gauge() {
@@ -279,55 +279,73 @@ impl SkinGaugeGraphObject {
 
             // Create background pixmap
             let mut shape = Pixmap::new(width, height, PixmapFormat::RGBA8888);
-            self.color = self.typetable[self.current_type as usize] as usize;
+            let type_idx = (self.current_type as usize).min(self.typetable.len().saturating_sub(1));
+            self.color = self.typetable[type_idx] as usize;
             shape.set_color(&self.graphcolor[self.color]);
             shape.fill();
 
             if let Some(ref gg) = self.gg {
                 let border = gg.border;
                 let max = gg.max;
-                shape.set_color(&self.bordercolor[self.color]);
-                shape.fill_rectangle(
-                    0,
-                    (height as f32 * border / max) as i32,
-                    width,
-                    (height as f32 * (max - border) / max) as i32,
-                );
+                if max > 0.0 {
+                    shape.set_color(&self.bordercolor[self.color]);
+                    shape.fill_rectangle(
+                        0,
+                        (height as f32 * border / max) as i32,
+                        width,
+                        (height as f32 * (max - border) / max) as i32,
+                    );
 
-                self.backtex = Some(TextureRegion::from_texture(Texture::from_pixmap(&shape)));
-                shape.dispose();
+                    self.backtex = Some(TextureRegion::from_texture(Texture::from_pixmap(&shape)));
+                    shape.dispose();
 
-                // Create graph pixmap
-                let mut shape = Pixmap::new(width, height, PixmapFormat::RGBA8888);
-                let mut f1: Option<f32> = None;
-                let mut last_gauge: f32 = -1.0;
-                let mut last_x: i32 = -1;
-                let mut last_y: i32 = -1;
-                let line_width = self.line_width;
+                    // Create graph pixmap
+                    let mut shape = Pixmap::new(width, height, PixmapFormat::RGBA8888);
+                    let mut f1: Option<f32> = None;
+                    let mut last_gauge: f32 = -1.0;
+                    let mut last_x: i32 = -1;
+                    let mut last_y: i32 = -1;
+                    let line_width = self.line_width;
 
-                let gauge_len = self.gaugehistory.len() as f32;
-                for (i, &f2) in self.gaugehistory.iter().enumerate() {
-                    if self.section.contains(&(i as i32)) {
-                        shape.set_color(&Color::value_of("ffffff"));
-                        shape.draw_line(
-                            (width as f32 * (i as f32 - 1.0) / gauge_len) as i32,
-                            0,
-                            (width as f32 * (i as f32 - 1.0) / gauge_len) as i32,
-                            height,
-                        );
-                    }
-                    if let Some(f1_val) = f1 {
-                        let x1 = (width as f32 * (i as f32 - 1.0) / gauge_len) as i32;
-                        let y1 = ((f1_val / max) * (height - line_width) as f32) as i32;
-                        let x2 = (width as f32 * i as f32 / gauge_len) as i32;
-                        let y2 = ((f2 / max) * (height - line_width) as f32) as i32;
-                        let yb = ((border / max) * (height - line_width) as f32) as i32;
-                        last_gauge = f2;
-                        last_x = x2;
-                        last_y = y2;
-                        if f1_val < border {
-                            if f2 < border {
-                                shape.set_color(&self.graphline[self.color]);
+                    let gauge_len = self.gaugehistory.len() as f32;
+                    for (i, &f2) in self.gaugehistory.iter().enumerate() {
+                        if self.section.contains(&(i as i32)) {
+                            shape.set_color(&Color::value_of("ffffff"));
+                            shape.draw_line(
+                                (width as f32 * (i as f32 - 1.0) / gauge_len) as i32,
+                                0,
+                                (width as f32 * (i as f32 - 1.0) / gauge_len) as i32,
+                                height,
+                            );
+                        }
+                        if let Some(f1_val) = f1 {
+                            let x1 = (width as f32 * (i as f32 - 1.0) / gauge_len) as i32;
+                            let y1 = ((f1_val / max) * (height - line_width) as f32) as i32;
+                            let x2 = (width as f32 * i as f32 / gauge_len) as i32;
+                            let y2 = ((f2 / max) * (height - line_width) as f32) as i32;
+                            let yb = ((border / max) * (height - line_width) as f32) as i32;
+                            last_gauge = f2;
+                            last_x = x2;
+                            last_y = y2;
+                            if f1_val < border {
+                                if f2 < border {
+                                    shape.set_color(&self.graphline[self.color]);
+                                    shape.fill_rectangle(
+                                        x1,
+                                        y1.min(y2),
+                                        line_width,
+                                        (y2 - y1).abs() + line_width,
+                                    );
+                                    shape.fill_rectangle(x1, y2, x2 - x1, line_width);
+                                } else {
+                                    shape.set_color(&self.graphline[self.color]);
+                                    shape.fill_rectangle(x1, y1, line_width, yb - y1);
+                                    shape.set_color(&self.borderline[self.color]);
+                                    shape.fill_rectangle(x1, yb, line_width, y2 - yb + line_width);
+                                    shape.fill_rectangle(x1, y2, x2 - x1, line_width);
+                                }
+                            } else if f2 >= border {
+                                shape.set_color(&self.borderline[self.color]);
                                 shape.fill_rectangle(
                                     x1,
                                     y1.min(y2),
@@ -336,43 +354,28 @@ impl SkinGaugeGraphObject {
                                 );
                                 shape.fill_rectangle(x1, y2, x2 - x1, line_width);
                             } else {
-                                shape.set_color(&self.graphline[self.color]);
-                                shape.fill_rectangle(x1, y1, line_width, yb - y1);
                                 shape.set_color(&self.borderline[self.color]);
-                                shape.fill_rectangle(x1, yb, line_width, y2 - yb + line_width);
+                                shape.fill_rectangle(x1, yb, line_width, y1 - yb + line_width);
+                                shape.set_color(&self.graphline[self.color]);
+                                shape.fill_rectangle(x1, y2, line_width, yb - y2);
                                 shape.fill_rectangle(x1, y2, x2 - x1, line_width);
                             }
-                        } else if f2 >= border {
-                            shape.set_color(&self.borderline[self.color]);
-                            shape.fill_rectangle(
-                                x1,
-                                y1.min(y2),
-                                line_width,
-                                (y2 - y1).abs() + line_width,
-                            );
-                            shape.fill_rectangle(x1, y2, x2 - x1, line_width);
+                        }
+                        f1 = Some(f2);
+                    }
+
+                    if last_gauge != -1.0 {
+                        if last_gauge < border {
+                            shape.set_color(&self.graphline[self.color]);
                         } else {
                             shape.set_color(&self.borderline[self.color]);
-                            shape.fill_rectangle(x1, yb, line_width, y1 - yb + line_width);
-                            shape.set_color(&self.graphline[self.color]);
-                            shape.fill_rectangle(x1, y2, line_width, yb - y2);
-                            shape.fill_rectangle(x1, y2, x2 - x1, line_width);
                         }
+                        shape.fill_rectangle(last_x, last_y, width - last_x, line_width);
                     }
-                    f1 = Some(f2);
-                }
 
-                if last_gauge != -1.0 {
-                    if last_gauge < border {
-                        shape.set_color(&self.graphline[self.color]);
-                    } else {
-                        shape.set_color(&self.borderline[self.color]);
-                    }
-                    shape.fill_rectangle(last_x, last_y, width - last_x, line_width);
+                    self.shapetex = Some(TextureRegion::from_texture(Texture::from_pixmap(&shape)));
+                    shape.dispose();
                 }
-
-                self.shapetex = Some(TextureRegion::from_texture(Texture::from_pixmap(&shape)));
-                shape.dispose();
             }
         }
 
