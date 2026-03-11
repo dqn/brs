@@ -259,8 +259,11 @@ pub fn path(imagepath: &str, filemap: &HashMap<String, String>) -> PathBuf {
     for (key, value) in filemap {
         if imagepath.starts_with(key.as_str()) {
             let foot = &imagepath[key.len()..];
-            let last_star = imagepath.rfind('*').unwrap_or(0);
-            imagefile = PathBuf::from(format!("{}{}{}", &imagepath[..last_star], value, foot));
+            if let Some(star_pos) = imagepath.rfind('*') {
+                imagefile = PathBuf::from(format!("{}{}{}", &imagepath[..star_pos], value, foot));
+            } else {
+                imagefile = PathBuf::from(format!("{}{}", value, foot));
+            }
             imagepath = String::new();
             break;
         }
