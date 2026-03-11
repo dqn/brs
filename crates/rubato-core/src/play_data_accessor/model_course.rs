@@ -63,9 +63,9 @@ impl PlayDataAccessor {
         model: &BMSModel,
         lnmode: i32,
         index: i32,
-    ) {
+    ) -> anyhow::Result<()> {
         let ln = model.contains_undefined_long_note();
-        self.write_replay_data(rd, &model.sha256, ln, lnmode, index);
+        self.write_replay_data(rd, &model.sha256, ln, lnmode, index)
     }
 
     /// Delete score data for a single BMSModel.
@@ -174,7 +174,7 @@ impl PlayDataAccessor {
         lnmode: i32,
         index: i32,
         constraint: &[CourseDataConstraint],
-    ) {
+    ) -> anyhow::Result<()> {
         let hashes: Vec<String> = models.iter().map(|m| m.sha256.clone()).collect();
         let hash_refs: Vec<&str> = hashes.iter().map(|s| s.as_str()).collect();
         let ln = models.iter().any(|m| m.contains_undefined_long_note());
@@ -182,11 +182,9 @@ impl PlayDataAccessor {
             "{}.brd",
             self.get_replay_data_file_path_course(&hash_refs, ln, lnmode, index, constraint)
         );
-        if let Err(e) = ReplayData::write_brd_course(rds, Path::new(&path)) {
-            log::error!("Failed to write course replay data: {}", e);
-        } else {
-            log::info!("Course replay saved: {}", path);
-        }
+        ReplayData::write_brd_course(rds, Path::new(&path))?;
+        log::info!("Course replay saved: {}", path);
+        Ok(())
     }
 
     // ========================================================================

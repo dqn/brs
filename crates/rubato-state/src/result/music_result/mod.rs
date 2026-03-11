@@ -565,14 +565,20 @@ impl MusicResult {
             && self.resource.is_update_score()
             && let Some(rd) = self.resource.replay_data()
         {
-            self.main.play_data_accessor().write_replay_data_model(
+            match self.main.play_data_accessor().write_replay_data_model(
                 &mut rd.clone(),
                 self.resource.bms_model(),
                 self.resource.player_config().play_settings.lnmode,
                 index as i32,
-            );
-            self.data.save_replay[index] = ReplayStatus::Saved;
-            self.main.save_last_recording("ON_REPLAY");
+            ) {
+                Ok(()) => {
+                    self.data.save_replay[index] = ReplayStatus::Saved;
+                    self.main.save_last_recording("ON_REPLAY");
+                }
+                Err(e) => {
+                    log::error!("Failed to save replay data: {}", e);
+                }
+            }
         }
     }
 

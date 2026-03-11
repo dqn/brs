@@ -508,14 +508,12 @@ impl PlayDataAccessor {
         ln: bool,
         lnmode: i32,
         index: i32,
-    ) {
+    ) -> anyhow::Result<()> {
         let path = format!(
             "{}.brd",
             self.get_replay_data_file_path(hash, ln, lnmode, index)
         );
-        if let Err(e) = rd.write_brd(Path::new(&path)) {
-            log::error!("Failed to write replay data: {}", e);
-        }
+        rd.write_brd(Path::new(&path))
     }
 
     pub fn delete_replay_data(&self, hash: &str, ln: bool, lnmode: i32, index: i32) {

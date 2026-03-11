@@ -647,16 +647,24 @@ impl CourseResult {
             if let Some(models) = self.resource.course_bms_models() {
                 // Clone replays for write (write_brd_course calls shrink on each)
                 let mut replays = self.resource.course_replay().to_vec();
-                self.main.play_data_accessor().write_replay_data_course(
+                match self.main.play_data_accessor().write_replay_data_course(
                     &mut replays,
                     models,
                     lnmode,
                     index as i32,
                     &constraint,
-                );
+                ) {
+                    Ok(()) => {
+                        self.data.save_replay[index] = ReplayStatus::Saved;
+                        self.main.save_last_recording("ON_REPLAY");
+                    }
+                    Err(e) => {
+                        log::error!("Failed to save course replay data: {}", e);
+                    }
+                }
+            } else {
+                log::warn!("Cannot save course replay: no course BMS models");
             }
-            self.data.save_replay[index] = ReplayStatus::Saved;
-            self.main.save_last_recording("ON_REPLAY");
         }
     }
 
