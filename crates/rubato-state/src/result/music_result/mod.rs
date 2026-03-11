@@ -143,8 +143,10 @@ impl MusicResult {
                         if let (Some(gauge_data), Some(groove_gauge)) =
                             (self.resource.gauge(), self.resource.groove_gauge())
                         {
-                            let gauge = &gauge_data[groove_gauge.gauge_type() as usize];
-                            send &= gauge.last().copied().unwrap_or(0.0) > 0.0;
+                            let idx = groove_gauge.gauge_type() as usize;
+                            if let Some(gauge) = gauge_data.get(idx) {
+                                send &= gauge.last().copied().unwrap_or(0.0) > 0.0;
+                            }
                         }
                     }
                     IR_SEND_UPDATE_SCORE => {

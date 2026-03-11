@@ -200,13 +200,14 @@ impl MusicResult {
             } else {
                 cs.clear = ClearType::Failed.id();
 
+                let current_idx = self.resource.course_index();
                 let mut b = false;
                 if let Some(models) = self.resource.course_bms_models() {
-                    for m in models {
+                    for (i, m) in models.iter().enumerate() {
                         if b {
                             cs.minbp += m.total_notes();
                         }
-                        if std::ptr::eq(m, self.resource.bms_model()) {
+                        if i == current_idx {
                             b = true;
                         }
                     }
