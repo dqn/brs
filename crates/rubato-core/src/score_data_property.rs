@@ -197,7 +197,7 @@ impl ScoreDataProperty {
             self.nowbestscore = if totalnotes == 0 {
                 0
             } else {
-                self.bestscore * notes / totalnotes
+                (self.bestscore as i64 * notes as i64 / totalnotes as i64) as i32
             };
             self.nowbestscorerate = if totalnotes == 0 {
                 0.0
@@ -222,7 +222,7 @@ impl ScoreDataProperty {
             self.nowrivalscore = if totalnotes == 0 {
                 0
             } else {
-                self.rivalscore * notes / totalnotes
+                (self.rivalscore as i64 * notes as i64 / totalnotes as i64) as i32
             };
             self.nowrivalscorerate = if totalnotes == 0 {
                 0.0

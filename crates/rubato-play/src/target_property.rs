@@ -473,7 +473,7 @@ impl InternetRankingTargetProperty {
                             idx
                         }
                         IRTarget::Rank => (value.min(total) - 1).max(0),
-                        IRTarget::RankRate => total * value / 100,
+                        IRTarget::RankRate => (total as i64 * value as i64 / 100) as i32,
                     };
                     if let Some(ir_score) = ranking.score(target_index) {
                         let exscore = ir_score.exscore();
@@ -629,30 +629,30 @@ impl InternetRankingTargetProperty {
             }
             IRTarget::RankRate => {
                 // top value% rank index (matches Java: totalPlayer * value / 100)
-                total * self.value / 100
+                (total as i64 * self.value as i64 / 100) as i32
             }
         }
     }
 
     pub fn from_id(id: &str) -> Option<TargetProperty> {
-        if id.starts_with("IR_NEXT_")
-            && let Ok(index) = id[8..].parse::<i32>()
+        if let Some(suffix) = id.strip_prefix("IR_NEXT_")
+            && let Ok(index) = suffix.parse::<i32>()
             && index > 0
         {
             return Some(TargetProperty::InternetRanking(
                 InternetRankingTargetProperty::new(IRTarget::Next, index),
             ));
         }
-        if id.starts_with("IR_RANK_")
-            && let Ok(index) = id[8..].parse::<i32>()
+        if let Some(suffix) = id.strip_prefix("IR_RANK_")
+            && let Ok(index) = suffix.parse::<i32>()
             && index > 0
         {
             return Some(TargetProperty::InternetRanking(
                 InternetRankingTargetProperty::new(IRTarget::Rank, index),
             ));
         }
-        if id.starts_with("IR_RANKRATE_")
-            && let Ok(index) = id[12..].parse::<i32>()
+        if let Some(suffix) = id.strip_prefix("IR_RANKRATE_")
+            && let Ok(index) = suffix.parse::<i32>()
             && index > 0
             && index < 100
         {
