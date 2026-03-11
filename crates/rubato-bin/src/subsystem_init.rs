@@ -15,6 +15,16 @@ use crate::{HttpDownloadProcessorWrapper, SongDbMainControllerRef, SongDbMusicDa
 /// Initialize the song database from config paths.
 /// Must be called before MainLoader::play() which calls take_score_database_accessor().
 pub(crate) fn init_song_database() {
+    init_song_database_impl(false, true);
+}
+
+/// Initialize the song database with explicit update_all flag.
+/// Called from the launcher for Load All BMS / Load Diff BMS actions.
+pub(crate) fn init_song_database_with_options(update_all: bool) {
+    init_song_database_impl(update_all, false);
+}
+
+fn init_song_database_impl(update_all: bool, set_accessor: bool) {
     use rubato_core::config::Config;
     use rubato_core::main_loader::MainLoader;
     use rubato_types::validatable::Validatable;
@@ -32,9 +42,11 @@ pub(crate) fn init_song_database() {
             // Scan BMS files and populate song.db so the select screen has songs.
             // Java: MainLoader calls updateSongDatas() before creating the controller.
             info!("Scanning BMS files from configured paths...");
-            accessor.update_song_datas(None, &config.paths.bmsroot, false, false, None);
+            accessor.update_song_datas(None, &config.paths.bmsroot, update_all, false, None);
             info!("Song database initialized: {}", &config.paths.songpath);
-            MainLoader::set_score_database_accessor(Box::new(accessor));
+            if set_accessor {
+                MainLoader::set_score_database_accessor(Box::new(accessor));
+            }
         }
         Err(e) => {
             warn!(
@@ -43,6 +55,50 @@ pub(crate) fn init_song_database() {
             );
         }
     }
+}
+
+/// Import scores from LR2 score database.
+/// Shows a file chooser dialog and imports the selected LR2 score.db.
+pub(crate) fn import_lr2_scores(config: &rubato_core::config::Config) {
+    let lr2_path = match rubato_launcher::platform::show_file_chooser("Select LR2 score database") {
+        Some(p) => p,
+        None => {
+            info!("Import Score cancelled - no file selected.");
+            return;
+        }
+    };
+
+    let player_name = config.playername.as_deref().unwrap_or("default");
+    let sep = std::path::MAIN_SEPARATOR;
+    let score_db_path = format!(
+        "{}{sep}{}{sep}score.db",
+        &config.paths.playerpath, player_name
+    );
+
+    let scoredb =
+        match rubato_core::score_database_accessor::ScoreDatabaseAccessor::new(&score_db_path) {
+            Ok(db) => db,
+            Err(e) => {
+                warn!("Failed to open score database {}: {}", score_db_path, e);
+                return;
+            }
+        };
+
+    let songdb = match rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
+        &config.paths.songpath,
+        &config.paths.bmsroot,
+    ) {
+        Ok(db) => db,
+        Err(e) => {
+            warn!("Failed to open song database: {}", e);
+            return;
+        }
+    };
+
+    info!("Importing scores from LR2 database: {}", lr2_path);
+    let importer = rubato_external::score_data_importer::ScoreDataImporter::new(scoredb);
+    importer.import_from_lr2_score_database(&lr2_path, &songdb);
+    info!("LR2 score import complete.");
 }
 
 /// Wire the Kira-based audio driver so keysounds, BGM, and UI sounds work.

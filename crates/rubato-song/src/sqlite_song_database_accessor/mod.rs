@@ -862,7 +862,7 @@ impl<'a> SongDatabaseUpdater<'a> {
         let had_error = std::sync::atomic::AtomicBool::new(false);
         paths.par_iter().for_each(|p| {
             let folder = BMSFolder::new(p.clone(), &self.bmsroot);
-            if let Err(e) = folder.process_directory(accessor, &property) {
+            if let Err(e) = folder.process_directory(accessor, &property, &had_error) {
                 log::error!("Error during song database update: {}", e);
                 had_error.store(true, std::sync::atomic::Ordering::Relaxed);
             }
@@ -909,6 +909,7 @@ impl BMSFolder {
         mut self,
         accessor: &SQLiteSongDatabaseAccessor,
         property: &SongDatabaseUpdaterProperty,
+        had_error: &std::sync::atomic::AtomicBool,
     ) -> anyhow::Result<()> {
         let root_str = accessor.root.to_string_lossy().to_string();
 
@@ -1046,8 +1047,9 @@ impl BMSFolder {
             // Parallel subdirectory recursion (matches Java: dirs.parallelStream().forEach(...))
             let dirs = std::mem::take(&mut self.dirs);
             dirs.into_par_iter().for_each(|bf| {
-                if let Err(e) = bf.process_directory(accessor, property) {
+                if let Err(e) = bf.process_directory(accessor, property, had_error) {
                     log::error!("Error during song database update: {}", e);
+                    had_error.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             });
         }
@@ -1095,6 +1097,7 @@ impl BMSFolder {
 
             if let Err(e) = accessor.insert_folder(&folder) {
                 log::error!("Error inserting folder: {}", e);
+                had_error.store(true, std::sync::atomic::Ordering::Relaxed);
             }
         }
 

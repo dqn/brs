@@ -443,6 +443,9 @@ impl InternetRankingTargetProperty {
         }
         self.loading_initiated = true;
 
+        // Capture the player's saved EX score for IRTarget::Next baseline
+        let nowscore = local_score.as_ref().map(|s| s.exscore()).unwrap_or(0);
+
         let (tx, rx) = std::sync::mpsc::channel();
         self.ir_result_rx = Some(rx);
 
@@ -456,8 +459,18 @@ impl InternetRankingTargetProperty {
                     let total = ranking.total_player();
                     let target_index = match target {
                         IRTarget::Next => {
-                            // In the async path, nowscore is 0 (game just started)
-                            (total - value).max(0)
+                            // Find the rank of the first score <= nowscore,
+                            // then go 'value' ranks above (same logic as sync path).
+                            let mut idx = (total - value).max(0);
+                            for i in 0..total {
+                                if let Some(ir_score) = ranking.score(i)
+                                    && ir_score.exscore() <= nowscore
+                                {
+                                    idx = (i - value).max(0);
+                                    break;
+                                }
+                            }
+                            idx
                         }
                         IRTarget::Rank => (value.min(total) - 1).max(0),
                         IRTarget::RankRate => total * value / 100,

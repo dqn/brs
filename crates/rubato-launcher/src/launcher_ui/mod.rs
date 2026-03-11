@@ -490,9 +490,13 @@ impl eframe::App for LauncherUi {
         }
 
         // Java: PlayConfigurationView.start() triggers MainLoader.play()
-        // The play_requested flag is checked by the caller after run_native() returns.
-        // When using eframe, we close the launcher window so play can begin.
-        if self.play_requested {
+        // The action flags are checked by the caller after run_native() returns.
+        // When using eframe, we close the launcher window so the action can begin.
+        if self.play_requested
+            || self.load_all_bms_requested
+            || self.load_diff_bms_requested
+            || self.import_score_requested
+        {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
     }

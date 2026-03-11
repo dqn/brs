@@ -24,6 +24,12 @@ pub(crate) use super::score_data_cache::ScoreDataCache;
 pub(crate) use super::search_text_field::SearchTextField;
 pub(crate) use super::stubs::*;
 
+/// Receiver for a background BMS model parse: (requested path, parsed model + margin).
+type PendingNoteGraphRx = (
+    std::path::PathBuf,
+    std::sync::mpsc::Receiver<Option<(::bms_model::bms_model::BMSModel, i64)>>,
+);
+
 fn delegated_event_type_from_id(event_id: i32) -> Option<EventType> {
     match event_id {
         17 => Some(EventType::OpenDocument),
@@ -637,13 +643,15 @@ pub struct MusicSelector {
     /// Recomputed each frame based on config.select_settings.targetid and selected song notes.
     cached_target_score: Option<rubato_types::score_data::ScoreData>,
 
-    /// Pending IR ranking fetch result (song). Background thread sends completed RankingData.
-    pending_ir_song_fetch: Option<std::sync::mpsc::Receiver<RankingData>>,
-    /// Pending IR ranking fetch result (course). Background thread sends completed RankingData.
-    pending_ir_course_fetch: Option<std::sync::mpsc::Receiver<RankingData>>,
-    /// Pending BMS model parse result. Background thread sends the parsed model.
-    pending_note_graph:
-        Option<std::sync::mpsc::Receiver<Option<(::bms_model::bms_model::BMSModel, i64)>>>,
+    /// Pending IR ranking fetch result (song).
+    /// Stores (requested SongData, lnmode, receiver) so the result is cached under the correct key.
+    pending_ir_song_fetch: Option<(SongData, i32, std::sync::mpsc::Receiver<RankingData>)>,
+    /// Pending IR ranking fetch result (course).
+    /// Stores (requested CourseData, lnmode, receiver) so the result is cached under the correct key.
+    pending_ir_course_fetch: Option<(CourseData, i32, std::sync::mpsc::Receiver<RankingData>)>,
+    /// Pending BMS model parse result.
+    /// Stores (requested path, receiver) so the result is applied to the correct song.
+    pending_note_graph: Option<PendingNoteGraphRx>,
 }
 
 pub static MODE: [Option<bms_model::Mode>; 8] = [

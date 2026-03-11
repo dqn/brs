@@ -118,6 +118,22 @@ fn launch() -> Result<()> {
     // eframe::run_native() blocks until the window is closed.
     let result = rubato_launcher::run_launcher(config, player, &title)?;
 
+    // Handle launcher actions
+    if result.load_all_bms_requested {
+        info!("Load All BMS requested, performing full song database scan...");
+        subsystem_init::init_song_database_with_options(true);
+        info!("Full song database scan complete.");
+    }
+    if result.load_diff_bms_requested {
+        info!("Load Diff BMS requested, performing incremental song database scan...");
+        subsystem_init::init_song_database_with_options(false);
+        info!("Incremental song database scan complete.");
+    }
+    if result.import_score_requested {
+        info!("Import Score requested, importing scores from LR2 database...");
+        subsystem_init::import_lr2_scores(&result.config);
+    }
+
     // Java: PlayConfigurationView.start() calls MainLoader.play()
     // Re-exec as a child process because winit does not allow creating a second
     // EventLoop in the same process (eframe already consumed the first one).

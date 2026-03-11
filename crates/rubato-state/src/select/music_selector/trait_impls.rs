@@ -490,11 +490,18 @@ impl MainState for MusicSelector {
                 }
 
                 // Check for completed BMS model parse from background thread
-                if let Some(rx) = self.pending_note_graph.as_ref() {
+                if let Some((ref requested_path, ref rx)) = self.pending_note_graph {
                     match rx.try_recv() {
                         Ok(Some((model, _margin))) => {
-                            if let Some(sd) =
-                                self.player_resource.as_mut().and_then(|r| r.songdata_mut())
+                            // Only apply if the current song's path still matches
+                            let current_path = song_bar
+                                .song_data()
+                                .file
+                                .path()
+                                .map(std::path::PathBuf::from);
+                            if current_path.as_ref() == Some(requested_path)
+                                && let Some(sd) =
+                                    self.player_resource.as_mut().and_then(|r| r.songdata_mut())
                             {
                                 sd.set_bms_model(model);
                             }
@@ -535,6 +542,7 @@ impl MainState for MusicSelector {
                         let lnmode = self.config.play_settings.lnmode;
                         if let Some(path) = path {
                             let (tx, rx) = std::sync::mpsc::channel();
+                            let requested_path = path.clone();
                             std::thread::spawn(move || {
                                 let result =
                                     rubato_core::player_resource::PlayerResource::load_bms_model(
@@ -542,7 +550,7 @@ impl MainState for MusicSelector {
                                     );
                                 let _ = tx.send(result);
                             });
-                            self.pending_note_graph = Some(rx);
+                            self.pending_note_graph = Some((requested_path, rx));
                         }
                     } else {
                         self.preview_state.show_note_graph = true;
@@ -556,35 +564,45 @@ impl MainState for MusicSelector {
         }
 
         // Check for completed IR song fetch from background thread
-        if let Some(rx) = self.pending_ir_song_fetch.as_ref()
+        if let Some((ref requested_song, req_lnmode, ref rx)) = self.pending_ir_song_fetch
             && let Ok(rd) = rx.try_recv()
         {
-            self.ranking.currentir = Some(rd.clone());
-            if let Some(main) = self.main.as_mut() {
-                let lnmode = main.player_config().play_settings.lnmode;
-                if let Some(song_bar) = self.manager.selected().and_then(|b| b.as_song_bar()) {
-                    let song = song_bar.song_data();
-                    if let Some(cache) = main.ranking_data_cache_mut() {
-                        cache.put_song_any(song, lnmode, Box::new(rd));
-                    }
-                }
+            // Always cache under the correct (requested) song key
+            if let Some(main) = self.main.as_mut()
+                && let Some(cache) = main.ranking_data_cache_mut()
+            {
+                cache.put_song_any(requested_song, req_lnmode, Box::new(rd.clone()));
+            }
+            // Only set currentir if the current selection still matches the requested song
+            let current_matches = self
+                .manager
+                .selected()
+                .and_then(|b| b.as_song_bar())
+                .is_some_and(|sb| sb.song_data().file.sha256 == requested_song.file.sha256);
+            if current_matches {
+                self.ranking.currentir = Some(rd);
             }
             self.pending_ir_song_fetch = None;
         }
 
         // Check for completed IR course fetch from background thread
-        if let Some(rx) = self.pending_ir_course_fetch.as_ref()
+        if let Some((ref requested_course, req_lnmode, ref rx)) = self.pending_ir_course_fetch
             && let Ok(rd) = rx.try_recv()
         {
-            self.ranking.currentir = Some(rd.clone());
-            if let Some(main) = self.main.as_mut() {
-                let lnmode = main.player_config().play_settings.lnmode;
-                if let Some(grade_bar) = self.manager.selected().and_then(|b| b.as_grade_bar()) {
-                    let course = grade_bar.course_data();
-                    if let Some(cache) = main.ranking_data_cache_mut() {
-                        cache.put_course_any(course, lnmode, Box::new(rd));
-                    }
-                }
+            // Always cache under the correct (requested) course key
+            if let Some(main) = self.main.as_mut()
+                && let Some(cache) = main.ranking_data_cache_mut()
+            {
+                cache.put_course_any(requested_course, req_lnmode, Box::new(rd.clone()));
+            }
+            // Only set currentir if the current selection still matches the requested course
+            let current_matches = self
+                .manager
+                .selected()
+                .and_then(|b| b.as_grade_bar())
+                .is_some();
+            if current_matches {
+                self.ranking.currentir = Some(rd);
             }
             self.pending_ir_course_fetch = None;
         }
@@ -646,7 +664,7 @@ impl MainState for MusicSelector {
                                 rd.load_song(conn_arc.as_ref(), &chart, local_score.as_ref());
                                 let _ = tx.send(rd);
                             });
-                            self.pending_ir_song_fetch = Some(rx);
+                            self.pending_ir_song_fetch = Some((song.clone(), lnmode, rx));
                         }
                     }
                 }
@@ -687,7 +705,7 @@ impl MainState for MusicSelector {
                                 rd.load_course(conn_arc.as_ref(), &ir_course, None);
                                 let _ = tx.send(rd);
                             });
-                            self.pending_ir_course_fetch = Some(rx);
+                            self.pending_ir_course_fetch = Some((course.clone(), lnmode, rx));
                         }
                     }
                 }
