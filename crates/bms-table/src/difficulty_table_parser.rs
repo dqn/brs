@@ -95,7 +95,7 @@ impl DifficultyTableParser {
             end -= 1;
         }
         let probe = &tentative[..end];
-        let probe_lower = probe.to_lowercase();
+        let probe_lower = probe.to_ascii_lowercase();
         let charset = if let Some(idx) = probe_lower.find("charset=") {
             let rest = &probe[idx + 8..];
             // Skip optional leading quote (charset="..." or charset='...')
@@ -1501,5 +1501,47 @@ mod tests {
         let (encoded, _, _) = encoding_rs::SHIFT_JIS.encode(html);
         let result = DifficultyTableParser::decode_bytes_with_charset(&encoded);
         assert!(result.contains("Content-Type"));
+    }
+
+    #[test]
+    fn test_decode_bytes_with_charset_unicode_before_charset_tag() {
+        // Regression: to_lowercase() on certain Unicode characters (e.g. uppercase Eszett
+        // U+1E9E -> "ss") changes byte length, making the index from the lowered string
+        // invalid for the original. to_ascii_lowercase() preserves byte positions for
+        // non-ASCII characters.
+        //
+        // U+1E9E (uppercase Eszett) is 3 bytes in UTF-8: [0xE1, 0xBA, 0x9E]
+        // to_lowercase() maps it to "ss" (2 bytes), shrinking the string by 1 byte.
+        // If we used that shrunken index on the original string, slicing would be off by 1,
+        // causing the parsed charset to be "=" instead of "shift_jis".
+        //
+        // Build a Shift_JIS page where the UTF-8 lossy decode puts U+1E9E before charset=.
+        // The raw bytes use 0xE1 0xBA 0x9E (UTF-8 for U+1E9E) which Shift_JIS interprets
+        // differently, but from_utf8_lossy on the mixed input still surfaces U+1E9E in the
+        // probe string when the non-Shift_JIS preamble is valid UTF-8.
+        let preamble = b"<html><head><title>";
+        let eszett_utf8: &[u8] = "\u{1E9E}".as_bytes(); // 3 bytes: [0xE1, 0xBA, 0x9E]
+        let mid = b"test</title><meta charset=\"Shift_JIS\"></head><body>";
+        // Shift_JIS bytes for Japanese text (U+97F3 U+697D = "music")
+        let body_sjis: &[u8] = &[0x89, 0xB9, 0x8A, 0x79]; // "ongaku" in Shift_JIS
+        let tail = b"</body></html>";
+
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(preamble);
+        bytes.extend_from_slice(eszett_utf8);
+        bytes.extend_from_slice(mid);
+        bytes.extend_from_slice(body_sjis);
+        bytes.extend_from_slice(tail);
+
+        let result = DifficultyTableParser::decode_bytes_with_charset(&bytes);
+        // Correct behavior: detect charset=Shift_JIS and decode body as Japanese text.
+        // With the bug, charset is misparsed as "=" which falls through to the
+        // encoding_rs::Encoding::for_label fallback (returns None), then falls back to
+        // UTF-8 lossy, corrupting the Shift_JIS body bytes.
+        assert!(
+            result.contains("\u{97F3}") || result.contains("\u{697D}"),
+            "Should decode Shift_JIS body correctly when charset is properly parsed, got: {}",
+            result
+        );
     }
 }

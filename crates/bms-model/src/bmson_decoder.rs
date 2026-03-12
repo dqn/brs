@@ -235,9 +235,19 @@ impl BMSONDecoder {
                     ensure_timeline(&mut tlcache, stopy, resolution, mode_key);
                     let tl = &mut tlcache.get_mut(&stopy).expect("timeline in cache").timeline;
                     let bpm = tl.bpm;
-                    tl.stop =
-                        ((1000.0 * 1000.0 * 60.0 * 4.0 * stop_events[stoppos].duration as f64)
-                            / (bpm * resolution)) as i64;
+                    if bpm > 0.0 {
+                        tl.stop =
+                            ((1000.0 * 1000.0 * 60.0 * 4.0 * stop_events[stoppos].duration as f64)
+                                / (bpm * resolution)) as i64;
+                    } else {
+                        self.log.push(DecodeLog::new(
+                            State::Warning,
+                            format!(
+                                "BPM is zero at STOP event, skipping - y : {} duration : {}",
+                                stop_events[stoppos].y, stop_events[stoppos].duration
+                            ),
+                        ));
+                    }
                 } else {
                     self.log.push(DecodeLog::new(
                         State::Warning,
@@ -1250,6 +1260,61 @@ mod tests {
             "time should be ~{}, got {}",
             expected,
             entry.time
+        );
+    }
+
+    #[test]
+    fn test_stop_event_with_zero_bpm_no_overflow() {
+        // When init_bpm is 0.0, the stop event computation `duration / (bpm * resolution)`
+        // would produce f64::INFINITY, which becomes i64::MAX when cast. The guard must
+        // skip the stop event and log a warning instead.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let path = dir.path().join("zero_bpm_stop.bmson");
+        let bmson_json = r#"{
+            "version": "1.0.0",
+            "info": {
+                "title": "Zero BPM Stop Test",
+                "mode_hint": "beat-7k",
+                "init_bpm": 0.0,
+                "resolution": 240,
+                "judge_rank": 100,
+                "total": 300.0,
+                "level": 1
+            },
+            "lines": [{"y": 0}, {"y": 960}],
+            "bpm_events": [],
+            "stop_events": [{"y": 480, "duration": 120}],
+            "scroll_events": [],
+            "sound_channels": [],
+            "mine_channels": [],
+            "key_channels": []
+        }"#;
+        std::fs::write(&path, bmson_json).expect("failed to write");
+
+        let mut decoder = BMSONDecoder::new(crate::bms_model::LnType::LongNote);
+        let model = decoder
+            .decode_path(&path)
+            .expect("decode_path should succeed even with zero BPM");
+
+        // The stop event at y=480 should be skipped (stop = 0) since BPM is 0
+        for tl in &model.timelines {
+            let stop = tl.micro_stop();
+            assert!(
+                stop != i64::MAX && stop.is_positive() == false || stop == 0,
+                "stop should not be i64::MAX from infinity cast, got {}",
+                stop
+            );
+        }
+
+        // Should have logged a warning about zero BPM at the stop event
+        let has_zero_bpm_warning = decoder
+            .log
+            .iter()
+            .any(|log| log.message.contains("BPM is zero at STOP event"));
+        assert!(
+            has_zero_bpm_warning,
+            "should log a warning about zero BPM at STOP event, logs: {:?}",
+            decoder.log.iter().map(|l| &l.message).collect::<Vec<_>>()
         );
     }
 }
