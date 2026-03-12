@@ -3131,3 +3131,640 @@ fn create_sets_rule_lr2_on_score() {
         Some(rubato_types::bms_player_rule::BMSPlayerRule::LR2),
     );
 }
+
+// --- PlayMouseContext property delegation tests ---
+
+/// Test skin that probes integer_value during mouse_pressed_at.
+struct ProbeMouseIntegerSkin {
+    id: i32,
+    observed: Arc<AtomicI32>,
+}
+
+impl SkinDrawable for ProbeMouseIntegerSkin {
+    fn draw_all_objects_timed(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+    ) {
+    }
+    fn update_custom_objects_timed(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+    ) {
+    }
+    fn mouse_pressed_at(
+        &mut self,
+        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _button: i32,
+        _x: i32,
+        _y: i32,
+    ) {
+        self.observed
+            .store(ctx.integer_value(self.id), Ordering::SeqCst);
+    }
+    fn mouse_dragged_at(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _button: i32,
+        _x: i32,
+        _y: i32,
+    ) {
+    }
+    fn prepare_skin(&mut self) {}
+    fn dispose_skin(&mut self) {}
+    fn fadeout(&self) -> i32 {
+        0
+    }
+    fn input(&self) -> i32 {
+        0
+    }
+    fn scene(&self) -> i32 {
+        0
+    }
+    fn get_width(&self) -> f32 {
+        0.0
+    }
+    fn get_height(&self) -> f32 {
+        0.0
+    }
+    fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+}
+
+/// Test skin that probes boolean_value during mouse_pressed_at.
+struct ProbeMouseBoolSkin {
+    id: i32,
+    observed: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl SkinDrawable for ProbeMouseBoolSkin {
+    fn draw_all_objects_timed(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+    ) {
+    }
+    fn update_custom_objects_timed(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+    ) {
+    }
+    fn mouse_pressed_at(
+        &mut self,
+        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _button: i32,
+        _x: i32,
+        _y: i32,
+    ) {
+        self.observed
+            .store(ctx.boolean_value(self.id), Ordering::SeqCst);
+    }
+    fn mouse_dragged_at(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _button: i32,
+        _x: i32,
+        _y: i32,
+    ) {
+    }
+    fn prepare_skin(&mut self) {}
+    fn dispose_skin(&mut self) {}
+    fn fadeout(&self) -> i32 {
+        0
+    }
+    fn input(&self) -> i32 {
+        0
+    }
+    fn scene(&self) -> i32 {
+        0
+    }
+    fn get_width(&self) -> f32 {
+        0.0
+    }
+    fn get_height(&self) -> f32 {
+        0.0
+    }
+    fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+}
+
+/// Test skin that probes gauge_value during mouse_pressed_at.
+struct ProbeMouseGaugeSkin {
+    observed: Arc<std::sync::Mutex<f32>>,
+}
+
+impl SkinDrawable for ProbeMouseGaugeSkin {
+    fn draw_all_objects_timed(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+    ) {
+    }
+    fn update_custom_objects_timed(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+    ) {
+    }
+    fn mouse_pressed_at(
+        &mut self,
+        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _button: i32,
+        _x: i32,
+        _y: i32,
+    ) {
+        *self.observed.lock().unwrap() = ctx.gauge_value();
+    }
+    fn mouse_dragged_at(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _button: i32,
+        _x: i32,
+        _y: i32,
+    ) {
+    }
+    fn prepare_skin(&mut self) {}
+    fn dispose_skin(&mut self) {}
+    fn fadeout(&self) -> i32 {
+        0
+    }
+    fn input(&self) -> i32 {
+        0
+    }
+    fn scene(&self) -> i32 {
+        0
+    }
+    fn get_width(&self) -> f32 {
+        0.0
+    }
+    fn get_height(&self) -> f32 {
+        0.0
+    }
+    fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+}
+
+/// Test skin that probes player_config_ref during mouse_pressed_at.
+struct ProbeMousePlayerConfigSkin {
+    observed: Arc<AtomicI32>,
+}
+
+impl SkinDrawable for ProbeMousePlayerConfigSkin {
+    fn draw_all_objects_timed(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+    ) {
+    }
+    fn update_custom_objects_timed(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+    ) {
+    }
+    fn mouse_pressed_at(
+        &mut self,
+        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _button: i32,
+        _x: i32,
+        _y: i32,
+    ) {
+        let val = ctx
+            .player_config_ref()
+            .map_or(-1, |c| c.judge_settings.judgetiming);
+        self.observed.store(val, Ordering::SeqCst);
+    }
+    fn mouse_dragged_at(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _button: i32,
+        _x: i32,
+        _y: i32,
+    ) {
+    }
+    fn prepare_skin(&mut self) {}
+    fn dispose_skin(&mut self) {}
+    fn fadeout(&self) -> i32 {
+        0
+    }
+    fn input(&self) -> i32 {
+        0
+    }
+    fn scene(&self) -> i32 {
+        0
+    }
+    fn get_width(&self) -> f32 {
+        0.0
+    }
+    fn get_height(&self) -> f32 {
+        0.0
+    }
+    fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+}
+
+#[test]
+fn mouse_context_delegates_integer_value_total_notes() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    let observed = Arc::new(AtomicI32::new(-1));
+    player.main_state_data.skin = Some(Box::new(ProbeMouseIntegerSkin {
+        id: 350,
+        observed: observed.clone(),
+    }));
+
+    <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
+
+    // total_notes is computed from model (0 notes in empty model)
+    assert_eq!(observed.load(Ordering::SeqCst), player.total_notes);
+}
+
+#[test]
+fn mouse_context_delegates_integer_value_playtime() {
+    let model = make_model_with_time(120);
+    let expected_playtime = model.last_note_time() + TIME_MARGIN;
+    let mut player = BMSPlayer::new(model);
+    let observed = Arc::new(AtomicI32::new(-1));
+    player.main_state_data.skin = Some(Box::new(ProbeMouseIntegerSkin {
+        id: 312,
+        observed: observed.clone(),
+    }));
+
+    <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
+
+    assert_eq!(observed.load(Ordering::SeqCst), expected_playtime);
+}
+
+#[test]
+fn mouse_context_delegates_integer_value_loading_progress() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.media_load_finished = true;
+    let observed = Arc::new(AtomicI32::new(-1));
+    player.main_state_data.skin = Some(Box::new(ProbeMouseIntegerSkin {
+        id: 165,
+        observed: observed.clone(),
+    }));
+
+    <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
+
+    assert_eq!(observed.load(Ordering::SeqCst), 100);
+}
+
+#[test]
+fn mouse_context_delegates_boolean_value_autoplay() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.play_mode = BMSPlayerMode::AUTOPLAY;
+    let observed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    player.main_state_data.skin = Some(Box::new(ProbeMouseBoolSkin {
+        id: 200,
+        observed: observed.clone(),
+    }));
+
+    <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
+
+    assert!(observed.load(Ordering::SeqCst));
+}
+
+#[test]
+fn mouse_context_delegates_boolean_value_preload() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    // Default state is Preload
+    assert_eq!(player.state(), PlayState::Preload);
+    let observed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    player.main_state_data.skin = Some(Box::new(ProbeMouseBoolSkin {
+        id: 80,
+        observed: observed.clone(),
+    }));
+
+    <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
+
+    assert!(observed.load(Ordering::SeqCst));
+}
+
+#[test]
+fn mouse_context_delegates_gauge_value() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    // Create a gauge with a known value
+    let gauge = crate::groove_gauge::create_groove_gauge(
+        &player.model,
+        rubato_types::groove_gauge::NORMAL,
+        0,
+        None,
+    )
+    .unwrap();
+    let expected_value = gauge.value();
+    player.gauge = Some(gauge);
+    let observed = Arc::new(std::sync::Mutex::new(-1.0_f32));
+    player.main_state_data.skin = Some(Box::new(ProbeMouseGaugeSkin {
+        observed: observed.clone(),
+    }));
+
+    <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
+
+    let result = *observed.lock().unwrap();
+    assert!(
+        (result - expected_value).abs() < 0.001,
+        "gauge_value should be {} but was {}",
+        expected_value,
+        result
+    );
+}
+
+#[test]
+fn mouse_context_delegates_player_config_ref() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.player_config.judge_settings.judgetiming = 42;
+    let observed = Arc::new(AtomicI32::new(-1));
+    player.main_state_data.skin = Some(Box::new(ProbeMousePlayerConfigSkin {
+        observed: observed.clone(),
+    }));
+
+    <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
+
+    assert_eq!(observed.load(Ordering::SeqCst), 42);
+}
+
+#[test]
+fn mouse_context_delegates_image_index_value_42() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.score.playinfo.randomoption = 3;
+    let observed = Arc::new(AtomicI32::new(-1));
+    // image_index_value(42) depends on replay_option_data(), which PlayMouseContext
+    // must delegate to return playinfo.randomoption.
+    player.main_state_data.skin = Some(Box::new(ProbeMouseImageIndexSkin {
+        id: 42,
+        observed: observed.clone(),
+    }));
+
+    <BMSPlayer as MainState>::handle_skin_mouse_pressed(&mut player, 0, 10, 10);
+
+    assert_eq!(observed.load(Ordering::SeqCst), 3);
+}
+
+/// Test skin that probes image_index_value during mouse_pressed_at.
+struct ProbeMouseImageIndexSkin {
+    id: i32,
+    observed: Arc<AtomicI32>,
+}
+
+impl SkinDrawable for ProbeMouseImageIndexSkin {
+    fn draw_all_objects_timed(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+    ) {
+    }
+    fn update_custom_objects_timed(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+    ) {
+    }
+    fn mouse_pressed_at(
+        &mut self,
+        ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _button: i32,
+        _x: i32,
+        _y: i32,
+    ) {
+        self.observed
+            .store(ctx.image_index_value(self.id), Ordering::SeqCst);
+    }
+    fn mouse_dragged_at(
+        &mut self,
+        _ctx: &mut dyn rubato_types::skin_render_context::SkinRenderContext,
+        _button: i32,
+        _x: i32,
+        _y: i32,
+    ) {
+    }
+    fn prepare_skin(&mut self) {}
+    fn dispose_skin(&mut self) {}
+    fn fadeout(&self) -> i32 {
+        0
+    }
+    fn input(&self) -> i32 {
+        0
+    }
+    fn scene(&self) -> i32 {
+        0
+    }
+    fn get_width(&self) -> f32 {
+        0.0
+    }
+    fn get_height(&self) -> f32 {
+        0.0
+    }
+    fn swap_sprite_batch(&mut self, _batch: &mut SpriteBatch) {}
+}
+
+// --- PlayRenderContext skin property tests ---
+
+/// Helper to create a PlayRenderContext with configurable BPM and volume values.
+fn make_play_render_context_with_bpm_volume<'a>(
+    timer: &'a mut rubato_core::timer_manager::TimerManager,
+    judge: &'a crate::judge::manager::JudgeManager,
+    player_config: &'a PlayerConfig,
+    play_config: &'a rubato_types::play_config::PlayConfig,
+    option_info: &'a rubato_types::replay_data::ReplayData,
+    bpm: (f64, f64, f64, f64),
+    volume: (f32, f32, f32),
+) -> skin_context::PlayRenderContext<'a> {
+    skin_context::PlayRenderContext {
+        timer,
+        judge,
+        gauge: None,
+        player_config,
+        option_info,
+        play_config,
+        target_score: None,
+        playtime: 60000,
+        total_notes: 500,
+        play_mode: BMSPlayerMode::PLAY,
+        state: PlayState::Play,
+        media_load_finished: true,
+        now_bpm: bpm.0,
+        min_bpm: bpm.1,
+        max_bpm: bpm.2,
+        main_bpm: bpm.3,
+        system_volume: volume.0,
+        key_volume: volume.1,
+        bg_volume: volume.2,
+    }
+}
+
+#[test]
+fn play_render_context_integer_bpm_ids() {
+    use rubato_types::skin_render_context::SkinRenderContext;
+
+    let mut timer = rubato_core::timer_manager::TimerManager::new();
+    let judge = crate::judge::manager::JudgeManager::new();
+    let pc = PlayerConfig::default();
+    let play_config = rubato_types::play_config::PlayConfig::default();
+    let option_info = rubato_types::replay_data::ReplayData::default();
+
+    let ctx = make_play_render_context_with_bpm_volume(
+        &mut timer,
+        &judge,
+        &pc,
+        &play_config,
+        &option_info,
+        (155.5, 120.0, 200.0, 150.0), // now, min, max, main
+        (0.5, 0.5, 0.5),
+    );
+
+    // 90 = maxbpm
+    assert_eq!(ctx.integer_value(90), 200);
+    // 91 = minbpm
+    assert_eq!(ctx.integer_value(91), 120);
+    // 92 = mainbpm
+    assert_eq!(ctx.integer_value(92), 150);
+    // 160 = nowbpm
+    assert_eq!(ctx.integer_value(160), 155);
+}
+
+#[test]
+fn play_render_context_integer_volume_ids() {
+    use rubato_types::skin_render_context::SkinRenderContext;
+
+    let mut timer = rubato_core::timer_manager::TimerManager::new();
+    let judge = crate::judge::manager::JudgeManager::new();
+    let pc = PlayerConfig::default();
+    let play_config = rubato_types::play_config::PlayConfig::default();
+    let option_info = rubato_types::replay_data::ReplayData::default();
+
+    let ctx = make_play_render_context_with_bpm_volume(
+        &mut timer,
+        &judge,
+        &pc,
+        &play_config,
+        &option_info,
+        (120.0, 120.0, 120.0, 120.0),
+        (0.8, 0.6, 0.4), // system, key, bg
+    );
+
+    // 57 = volume_system (0-100 scale)
+    assert_eq!(ctx.integer_value(57), 80);
+    // 58 = volume_key
+    assert_eq!(ctx.integer_value(58), 60);
+    // 59 = volume_background
+    assert_eq!(ctx.integer_value(59), 40);
+}
+
+#[test]
+fn play_render_context_float_volume_ids() {
+    use rubato_types::skin_render_context::SkinRenderContext;
+
+    let mut timer = rubato_core::timer_manager::TimerManager::new();
+    let judge = crate::judge::manager::JudgeManager::new();
+    let pc = PlayerConfig::default();
+    let play_config = rubato_types::play_config::PlayConfig::default();
+    let option_info = rubato_types::replay_data::ReplayData::default();
+
+    let ctx = make_play_render_context_with_bpm_volume(
+        &mut timer,
+        &judge,
+        &pc,
+        &play_config,
+        &option_info,
+        (120.0, 120.0, 120.0, 120.0),
+        (0.75, 0.5, 0.25), // system, key, bg
+    );
+
+    // 17 = mastervolume (0.0-1.0)
+    assert!((ctx.float_value(17) - 0.75).abs() < f32::EPSILON);
+    // 18 = keyvolume
+    assert!((ctx.float_value(18) - 0.5).abs() < f32::EPSILON);
+    // 19 = bgmvolume
+    assert!((ctx.float_value(19) - 0.25).abs() < f32::EPSILON);
+}
+
+#[test]
+fn play_render_context_float_loading_progress() {
+    use rubato_types::skin_render_context::SkinRenderContext;
+
+    let mut timer = rubato_core::timer_manager::TimerManager::new();
+    let judge = crate::judge::manager::JudgeManager::new();
+    let pc = PlayerConfig::default();
+    let play_config = rubato_types::play_config::PlayConfig::default();
+    let option_info = rubato_types::replay_data::ReplayData::default();
+
+    // media_load_finished = true -> 1.0
+    let ctx = make_play_render_context_with_bpm_volume(
+        &mut timer,
+        &judge,
+        &pc,
+        &play_config,
+        &option_info,
+        (120.0, 120.0, 120.0, 120.0),
+        (0.5, 0.5, 0.5),
+    );
+    assert!((ctx.float_value(165) - 1.0).abs() < f32::EPSILON);
+
+    // media_load_finished = false -> 0.0
+    let mut ctx2 = make_play_render_context_with_bpm_volume(
+        &mut timer,
+        &judge,
+        &pc,
+        &play_config,
+        &option_info,
+        (120.0, 120.0, 120.0, 120.0),
+        (0.5, 0.5, 0.5),
+    );
+    ctx2.media_load_finished = false;
+    assert!((ctx2.float_value(165)).abs() < f32::EPSILON);
+}
+
+#[test]
+fn play_render_context_existing_ids_unchanged() {
+    use rubato_types::skin_render_context::SkinRenderContext;
+
+    let mut timer = rubato_core::timer_manager::TimerManager::new();
+    let judge = crate::judge::manager::JudgeManager::new();
+    let pc = PlayerConfig::default();
+    let play_config = rubato_types::play_config::PlayConfig::default();
+    let option_info = rubato_types::replay_data::ReplayData::default();
+
+    let ctx = make_play_render_context_with_bpm_volume(
+        &mut timer,
+        &judge,
+        &pc,
+        &play_config,
+        &option_info,
+        (120.0, 120.0, 120.0, 120.0),
+        (0.5, 0.5, 0.5),
+    );
+
+    // 350 = total notes
+    assert_eq!(ctx.integer_value(350), 500);
+    // 312 = playtime
+    assert_eq!(ctx.integer_value(312), 60000);
+    // 165 = loading progress (integer: 100 when loaded)
+    assert_eq!(ctx.integer_value(165), 100);
+    // 1107 = gauge (no gauge -> 0.0)
+    assert!((ctx.float_value(1107)).abs() < f32::EPSILON);
+    // unknown IDs still return 0
+    assert_eq!(ctx.integer_value(9999), 0);
+    assert!((ctx.float_value(9999)).abs() < f32::EPSILON);
+}
+
+#[test]
+fn play_render_context_bpm_zero_when_no_lanerender() {
+    use rubato_types::skin_render_context::SkinRenderContext;
+
+    let mut timer = rubato_core::timer_manager::TimerManager::new();
+    let judge = crate::judge::manager::JudgeManager::new();
+    let pc = PlayerConfig::default();
+    let play_config = rubato_types::play_config::PlayConfig::default();
+    let option_info = rubato_types::replay_data::ReplayData::default();
+
+    // BPM = 0.0 simulates no LaneRenderer (default fallback in render_skin.rs)
+    let ctx = make_play_render_context_with_bpm_volume(
+        &mut timer,
+        &judge,
+        &pc,
+        &play_config,
+        &option_info,
+        (0.0, 0.0, 0.0, 0.0),
+        (0.5, 0.5, 0.5),
+    );
+
+    assert_eq!(ctx.integer_value(90), 0);
+    assert_eq!(ctx.integer_value(91), 0);
+    assert_eq!(ctx.integer_value(92), 0);
+    assert_eq!(ctx.integer_value(160), 0);
+}
