@@ -55,6 +55,18 @@ pub fn integer_value(data: &AbstractResultData, timer_now: i64, id: i32) -> i32 
         17 => (timer_now / 3_600_000) as i32,
         18 => ((timer_now % 3_600_000) / 60_000) as i32,
         19 => ((timer_now % 60_000) / 1_000) as i32,
+        // Average duration (ms integer part)
+        372 => (data.avgduration / 1000) as i32,
+        // Average duration (afterdot: tenths of ms)
+        373 => ((data.avgduration / 100) % 10) as i32,
+        // Timing average (ms integer part)
+        374 => (data.avg / 1000) as i32,
+        // Timing average (afterdot: tenths of ms)
+        375 => ((data.avg / 100) % 10) as i32,
+        // Timing stddev (ms integer part)
+        376 => (data.stddev / 1000) as i32,
+        // Timing stddev (afterdot: tenths of ms)
+        377 => ((data.stddev / 100) % 10) as i32,
         _ => 0,
     }
 }
@@ -115,4 +127,77 @@ pub fn rival_score_data_ref(
 
 pub fn song_data_ref(resource: &PlayerResource) -> Option<&rubato_types::song_data::SongData> {
     resource.songdata()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_integer_value_timing_stats_typical() {
+        let mut data = AbstractResultData::new();
+        // 2500 us = 2.5 ms
+        data.avgduration = 2500;
+        // -1300 us = -1.3 ms
+        data.avg = -1300;
+        // 4700 us = 4.7 ms
+        data.stddev = 4700;
+
+        // 372: duration_average integer part = 2500 / 1000 = 2
+        assert_eq!(integer_value(&data, 0, 372), 2);
+        // 373: duration_average afterdot = (2500 / 100) % 10 = 25 % 10 = 5
+        assert_eq!(integer_value(&data, 0, 373), 5);
+
+        // 374: timing_average integer part = -1300 / 1000 = -1
+        assert_eq!(integer_value(&data, 0, 374), -1);
+        // 375: timing_average afterdot = (-1300 / 100) % 10 = -13 % 10 = -3
+        assert_eq!(integer_value(&data, 0, 375), -3);
+
+        // 376: timing_stddev integer part = 4700 / 1000 = 4
+        assert_eq!(integer_value(&data, 0, 376), 4);
+        // 377: timing_stddev afterdot = (4700 / 100) % 10 = 47 % 10 = 7
+        assert_eq!(integer_value(&data, 0, 377), 7);
+    }
+
+    #[test]
+    fn test_integer_value_timing_stats_zero() {
+        let data = AbstractResultData::new();
+
+        assert_eq!(integer_value(&data, 0, 372), 0);
+        assert_eq!(integer_value(&data, 0, 373), 0);
+        assert_eq!(integer_value(&data, 0, 374), 0);
+        assert_eq!(integer_value(&data, 0, 375), 0);
+        assert_eq!(integer_value(&data, 0, 376), 0);
+        assert_eq!(integer_value(&data, 0, 377), 0);
+    }
+
+    #[test]
+    fn test_integer_value_timing_stats_large_values() {
+        let mut data = AbstractResultData::new();
+        // 12345 us = 12.3 ms (with remainder 45)
+        data.avgduration = 12345;
+        data.avg = 12345;
+        data.stddev = 12345;
+
+        assert_eq!(integer_value(&data, 0, 372), 12);
+        assert_eq!(integer_value(&data, 0, 373), 3);
+        assert_eq!(integer_value(&data, 0, 374), 12);
+        assert_eq!(integer_value(&data, 0, 375), 3);
+        assert_eq!(integer_value(&data, 0, 376), 12);
+        assert_eq!(integer_value(&data, 0, 377), 3);
+    }
+
+    #[test]
+    fn test_integer_value_existing_ids_unchanged() {
+        let data = AbstractResultData::new();
+
+        // Verify unknown IDs still return 0
+        assert_eq!(integer_value(&data, 0, 999), 0);
+
+        // Verify playtime IDs still work
+        // 3_661_000 ms = 1h 1m 1s
+        assert_eq!(integer_value(&data, 3_661_000, 17), 1);
+        assert_eq!(integer_value(&data, 3_661_000, 18), 1);
+        assert_eq!(integer_value(&data, 3_661_000, 19), 1);
+    }
 }
