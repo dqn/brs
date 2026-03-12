@@ -59,6 +59,9 @@ impl ScrollSpeedModifier {
 
 impl PatternModifier for ScrollSpeedModifier {
     fn modify(&mut self, model: &mut BMSModel) {
+        if model.timelines.is_empty() {
+            return;
+        }
         if self.mode == Mode::Remove {
             let mut assist = AssistLevel::None;
             let timelines = &mut model.timelines;
@@ -649,5 +652,26 @@ mod tests {
 
         // Add mode never modifies self.base.assist
         assert_eq!(modifier.assist_level(), AssistLevel::None);
+    }
+
+    // -- Edge case: empty timelines --
+
+    #[test]
+    fn remove_mode_empty_timelines_no_panic() {
+        let mut model = make_test_model(&BmsMode::BEAT_7K, vec![]);
+
+        let mut modifier = ScrollSpeedModifier::new(); // Remove mode
+        modifier.modify(&mut model);
+        // Should not panic on empty timelines
+        assert_eq!(modifier.assist_level(), AssistLevel::None);
+    }
+
+    #[test]
+    fn add_mode_empty_timelines_no_panic() {
+        let mut model = make_test_model(&BmsMode::BEAT_7K, vec![]);
+
+        let mut modifier = ScrollSpeedModifier::with_params(1, 1, 0.5); // Add mode
+        modifier.modify(&mut model);
+        // Should not panic on empty timelines
     }
 }

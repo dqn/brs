@@ -94,6 +94,9 @@ impl PatternModifier for LongNoteModifier {
 
             let timelines = &mut model.timelines;
             let tl_len = timelines.len();
+            if tl_len < 2 {
+                return;
+            }
             for i in 0..tl_len - 1 {
                 for lane in 0..mode_key {
                     let is_normal = timelines[i]
@@ -126,15 +129,16 @@ impl PatternModifier for LongNoteModifier {
 
                         let mut lnstart = Note::new_long_with_start_duration(wav, start, duration);
                         lnstart.set_long_note_type(lntype);
-                        let lnend = Note::new_long(-2);
+                        let mut lnend = Note::new_long(-2);
+                        lnend.set_end(true);
 
                         timelines[i].set_note(lane, Some(lnstart));
                         timelines[i + 1].set_note(lane, Some(lnend));
-                        // Note: pair setting would need timeline index tracking
                     }
                 }
             }
             self.base.assist = assist;
+            model.resolve_long_note_pairs();
         }
     }
 
@@ -501,6 +505,20 @@ mod tests {
         // Should not panic
     }
 
+    // -- Add mode with empty model: no usize underflow panic --
+
+    #[test]
+    fn add_mode_empty_model_no_panic() {
+        let mut model = make_test_model(&BmsMode::BEAT_7K, vec![]);
+
+        // AddLn with empty model: tl_len == 0, previously caused usize underflow
+        let mut modifier = LongNoteModifier::with_params(1, 1.0);
+        modifier.set_seed(42);
+        modifier.modify(&mut model);
+        // Should not panic
+        assert!(model.timelines.is_empty());
+    }
+
     // -- Single timeline in add mode: no conversion (need at least 2 timelines) --
 
     #[test]
@@ -510,13 +528,69 @@ mod tests {
 
         let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0]);
 
-        // With only 1 timeline, the loop `for i in 0..tl_len - 1` runs 0 times
-        // (tl_len - 1 = 0)
+        // With only 1 timeline, early return from tl_len < 2 guard
         let mut modifier = LongNoteModifier::with_params(1, 1.0);
         modifier.set_seed(42);
         modifier.modify(&mut model);
 
         let tls = model.timelines;
         assert!(tls[0].note(0).unwrap().is_normal());
+    }
+
+    // -- LN end note has is_end() == true after Add mode --
+
+    #[test]
+    fn add_ln_end_note_has_is_end_true() {
+        let mut tl0 = TimeLine::new(0.0, 0, 8);
+        tl0.set_note(0, Some(Note::new_normal(1)));
+
+        let tl1 = TimeLine::new(1.0, 1_000_000, 8);
+        let tl2 = TimeLine::new(2.0, 2_000_000, 8);
+
+        let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1, tl2]);
+
+        let mut modifier = LongNoteModifier::with_params(1, 1.0); // AddLn
+        modifier.set_seed(42);
+        modifier.modify(&mut model);
+
+        let tls = &model.timelines;
+        // tl[0] should have LN start (not end)
+        let note0 = tls[0].note(0).expect("should have LN start");
+        assert!(note0.is_long());
+        assert!(!note0.is_end());
+
+        // tl[1] should have LN end with is_end() == true
+        let note1 = tls[1].note(0).expect("should have LN end");
+        assert!(note1.is_long());
+        assert!(note1.is_end(), "LN end note must have is_end() == true");
+    }
+
+    // -- Add mode establishes LN pair indices via resolve_long_note_pairs --
+
+    #[test]
+    fn add_ln_resolves_pair_indices() {
+        let mut tl0 = TimeLine::new(0.0, 0, 8);
+        tl0.set_note(0, Some(Note::new_normal(1)));
+
+        let tl1 = TimeLine::new(1.0, 1_000_000, 8);
+        let tl2 = TimeLine::new(2.0, 2_000_000, 8);
+
+        let mut model = make_test_model(&BmsMode::BEAT_7K, vec![tl0, tl1, tl2]);
+
+        let mut modifier = LongNoteModifier::with_params(1, 1.0); // AddLn
+        modifier.set_seed(42);
+        modifier.modify(&mut model);
+
+        // The LN end note at tl[1] should have a pair_index pointing to the start at tl[0]
+        let end_note = model.timelines[1].note(0).expect("should have LN end");
+        assert!(
+            end_note.pair().is_some(),
+            "LN end note should have pair_index set by resolve_long_note_pairs"
+        );
+        assert_eq!(
+            end_note.pair().unwrap(),
+            0,
+            "LN end pair_index should point to tl[0]"
+        );
     }
 }

@@ -925,4 +925,42 @@ mod tests {
             "last_note_time should store full i64 without truncation"
         );
     }
+
+    // -- SpiralRandomizer: cycle == 0 must not panic --
+
+    #[test]
+    fn spiral_randomizer_cycle_zero_no_panic() {
+        // SpiralRandomizer with cycle == 0 (default, or set_modify_lanes with empty slice)
+        // must return identity permutation without modulo-by-zero panic
+        let mut r = SpiralRandomizer::new();
+        r.base.mode = Some(Mode::BEAT_7K);
+        // cycle is 0 by default (no set_modify_lanes called)
+        assert_eq!(r.cycle, 0);
+
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.set_note(0, Some(Note::new_normal(1)));
+
+        let perm = r.permutate(&mut tl);
+        // Should return identity permutation for BEAT_7K (key count = 8 with scratch)
+        let mode_key = Mode::BEAT_7K.key() as usize;
+        assert_eq!(perm.len(), mode_key);
+        for i in 0..mode_key {
+            assert_eq!(perm[i], i as i32);
+        }
+    }
+
+    #[test]
+    fn spiral_randomizer_empty_modify_lanes_no_panic() {
+        // set_modify_lanes with empty slice sets cycle = 0
+        let config = PlayerConfig::default();
+        let mut r = Randomizer::create(Random::Spiral, &Mode::BEAT_7K, &config);
+        r.set_modify_lanes(&[]);
+
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.set_note(0, Some(Note::new_normal(1)));
+
+        let perm = r.permutate(&mut tl);
+        let mode_key = Mode::BEAT_7K.key() as usize;
+        assert_eq!(perm.len(), mode_key);
+    }
 }

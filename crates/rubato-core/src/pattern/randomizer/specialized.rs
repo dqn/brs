@@ -120,6 +120,11 @@ impl SpiralRandomizer {
     }
 
     pub fn permutate(&mut self, tl: &mut TimeLine) -> Vec<i32> {
+        if self.cycle == 0 {
+            let mode_key = self.base.mode.as_ref().map(|m| m.key()).unwrap_or(0) as usize;
+            return (0..mode_key as i32).collect();
+        }
+
         let changeable = &self.base.changeable_lane;
         let mut rotate_map: HashMap<i32, i32> = HashMap::new();
 
