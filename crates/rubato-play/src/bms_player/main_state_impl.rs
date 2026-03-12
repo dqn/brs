@@ -771,7 +771,9 @@ impl MainState for BMSPlayer {
                                 // FAILED transition
                                 self.state = PlayState::Failed;
                                 self.main_state_data.timer.set_timer_on(TIMER_FAILED);
-                                // if resource.mediaLoadFinished() { main.getAudioProcessor().stop(null); }
+                                if self.media_load_finished {
+                                    self.pending.pending_stop_all_notes = true;
+                                }
                                 self.queue_sound(rubato_types::sound_type::SoundType::PlayStop);
                                 log::info!("PlayState::Failed");
                             }

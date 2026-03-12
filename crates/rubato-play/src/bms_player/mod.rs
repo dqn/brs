@@ -177,6 +177,10 @@ pub struct PendingActions {
     pub pending_reload_bms: bool,
     /// Pending global pitch to apply to the audio driver.
     pub pending_global_pitch: Option<f32>,
+    /// When true, stop all currently playing keysound notes via `audio.stop_note(None)`.
+    ///
+    /// Set at Failed/Aborted transitions to match Java `main.getAudioProcessor().stop(null)`.
+    pub pending_stop_all_notes: bool,
 }
 
 impl PendingActions {
@@ -187,6 +191,7 @@ impl PendingActions {
             pending_score_handoff: None,
             pending_reload_bms: false,
             pending_global_pitch: None,
+            pending_stop_all_notes: false,
         }
     }
 }

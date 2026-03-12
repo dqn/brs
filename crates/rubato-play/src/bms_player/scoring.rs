@@ -38,7 +38,9 @@ impl BMSPlayer {
                 keyinput.stop_judge();
             }
             self.keysound.stop_bg_play();
-            // if resource.mediaLoadFinished() { main.getAudioProcessor().stop(null); }
+            if self.media_load_finished {
+                self.pending.pending_stop_all_notes = true;
+            }
             self.state = PlayState::Aborted;
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
             return;
@@ -58,7 +60,9 @@ impl BMSPlayer {
             self.pending.pending_global_pitch = Some(1.0);
             self.state = PlayState::Failed;
             self.main_state_data.timer.set_timer_on(TIMER_FAILED);
-            // if resource.mediaLoadFinished() { main.getAudioProcessor().stop(null); }
+            if self.media_load_finished {
+                self.pending.pending_stop_all_notes = true;
+            }
             self.queue_sound(rubato_types::sound_type::SoundType::PlayStop);
             log::info!("PlayState::Failed");
         }

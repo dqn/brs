@@ -2880,6 +2880,7 @@ fn set_course_mode_persists() {
 struct NoteTrackingAudioDriver {
     global_pitch: f32,
     played_notes: Vec<(i32, f32)>, // (wav, volume)
+    stop_all_count: usize,
 }
 
 impl NoteTrackingAudioDriver {
@@ -2887,6 +2888,7 @@ impl NoteTrackingAudioDriver {
         Self {
             global_pitch: 1.0,
             played_notes: Vec::new(),
+            stop_all_count: 0,
         }
     }
 }
@@ -2909,7 +2911,11 @@ impl rubato_audio::audio_driver::AudioDriver for NoteTrackingAudioDriver {
         self.played_notes.push((n.wav(), volume));
     }
     fn play_judge(&mut self, _judge: i32, _fast: bool) {}
-    fn stop_note(&mut self, _n: Option<&bms_model::note::Note>) {}
+    fn stop_note(&mut self, n: Option<&bms_model::note::Note>) {
+        if n.is_none() {
+            self.stop_all_count += 1;
+        }
+    }
     fn set_volume_note(&mut self, _n: &bms_model::note::Note, _volume: f32) {}
     fn set_global_pitch(&mut self, pitch: f32) {
         self.global_pitch = pitch;
@@ -2959,6 +2965,44 @@ fn sync_audio_drains_pending_bg_notes() {
     assert_eq!(audio.played_notes[0].0, 1); // wav id
 
     player.keysound.stop_bg_play();
+}
+
+#[test]
+fn sync_audio_stops_all_notes_when_pending_flag_set() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+
+    // Set the pending flag
+    player.pending.pending_stop_all_notes = true;
+
+    let mut audio = NoteTrackingAudioDriver::new();
+    assert_eq!(audio.stop_all_count, 0);
+
+    player.sync_audio(&mut audio);
+
+    assert_eq!(
+        audio.stop_all_count, 1,
+        "sync_audio should call stop_note(None) when pending_stop_all_notes is set"
+    );
+    // Flag should be consumed
+    assert!(
+        !player.pending.pending_stop_all_notes,
+        "pending_stop_all_notes should be cleared after sync_audio"
+    );
+}
+
+#[test]
+fn sync_audio_does_not_stop_notes_when_flag_not_set() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+
+    let mut audio = NoteTrackingAudioDriver::new();
+    player.sync_audio(&mut audio);
+
+    assert_eq!(
+        audio.stop_all_count, 0,
+        "sync_audio should not call stop_note(None) when flag is not set"
+    );
 }
 
 // --- Gauge initialization in create() ---

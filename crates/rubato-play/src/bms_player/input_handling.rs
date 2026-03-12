@@ -199,6 +199,10 @@ impl BMSPlayer {
         &mut self,
         audio: &mut dyn rubato_audio::audio_driver::AudioDriver,
     ) {
+        if self.pending.pending_stop_all_notes {
+            self.pending.pending_stop_all_notes = false;
+            audio.stop_note(None);
+        }
         for cmd in self.drain_pending_bg_notes() {
             audio.play_note(&cmd.note, cmd.volume, 0);
         }
