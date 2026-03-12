@@ -1769,3 +1769,134 @@ fn float_value_310_returns_zero_when_no_bar_selected() {
     // With no bar selected but mode defaults to BEAT_7K, should still work
     assert!(value >= 0.0);
 }
+
+// ============================================================
+// Ranking image_index_value tests (IDs 390-399)
+// ============================================================
+
+fn make_ranking_data_with_scores() -> rubato_ir::ranking_data::RankingData {
+    use rubato_core::clear_type::ClearType;
+    use rubato_ir::ir_score_data::IRScoreData;
+
+    let mut rd = rubato_ir::ranking_data::RankingData::new();
+    // Build 3 scores with different clear types and ex-scores
+    let scores: Vec<IRScoreData> = vec![
+        {
+            let mut s = ScoreData::default();
+            s.judge_counts.epg = 100;
+            s.judge_counts.lpg = 100;
+            s.clear = ClearType::FullCombo.id(); // 8
+            IRScoreData::new(&s)
+        },
+        {
+            let mut s = ScoreData::default();
+            s.judge_counts.epg = 80;
+            s.judge_counts.lpg = 80;
+            s.clear = ClearType::Hard.id(); // 6
+            IRScoreData::new(&s)
+        },
+        {
+            let mut s = ScoreData::default();
+            s.judge_counts.epg = 50;
+            s.judge_counts.lpg = 50;
+            s.clear = ClearType::Normal.id(); // 5
+            IRScoreData::new(&s)
+        },
+    ];
+    rd.update_score(&scores, None);
+    rd
+}
+
+#[test]
+fn image_index_value_390_returns_ranking_clear_type_at_offset_0() {
+    let mut selector = MusicSelector::new();
+    selector.ranking.currentir = Some(make_ranking_data_with_scores());
+    selector.ranking.ranking_offset = 0;
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    // Slot 0 (ID 390) -> ranking[0+0] -> FullCombo (8)
+    assert_eq!(ctx.image_index_value(390), 8);
+    // Slot 1 (ID 391) -> ranking[0+1] -> Hard (6)
+    assert_eq!(ctx.image_index_value(391), 6);
+    // Slot 2 (ID 392) -> ranking[0+2] -> Normal (5)
+    assert_eq!(ctx.image_index_value(392), 5);
+}
+
+#[test]
+fn image_index_value_390_respects_ranking_offset() {
+    let mut selector = MusicSelector::new();
+    selector.ranking.currentir = Some(make_ranking_data_with_scores());
+    selector.ranking.ranking_offset = 1;
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    // Slot 0 (ID 390) -> ranking[1+0] -> Hard (6)
+    assert_eq!(ctx.image_index_value(390), 6);
+    // Slot 1 (ID 391) -> ranking[1+1] -> Normal (5)
+    assert_eq!(ctx.image_index_value(391), 5);
+    // Slot 2 (ID 392) -> ranking[1+2] -> out of bounds -> -1
+    assert_eq!(ctx.image_index_value(392), -1);
+}
+
+#[test]
+fn image_index_value_390_returns_minus_one_when_no_ranking_data() {
+    let mut selector = MusicSelector::new();
+    // No ranking data set
+    assert!(selector.ranking.currentir.is_none());
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    for id in 390..=399 {
+        assert_eq!(ctx.image_index_value(id), -1, "ID {} should return -1", id);
+    }
+}
+
+#[test]
+fn image_index_value_400_returns_constant_mode_flag() {
+    let mut selector = MusicSelector::new();
+    // Set up a 7K song bar so play config is resolved
+    selector.config.mode = Some(bms_model::Mode::BEAT_7K);
+    selector.config.mode7.playconfig.enable_constant = true;
+    let mut song = make_song_data("constant-test", Some("/test/constant.bms"));
+    song.chart.mode = bms_model::Mode::BEAT_7K.id();
+    set_selected_bar(&mut selector, Bar::Song(Box::new(SongBar::new(song))));
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    assert_eq!(ctx.image_index_value(400), 1);
+}
+
+#[test]
+fn image_index_value_400_returns_zero_when_constant_disabled() {
+    let mut selector = MusicSelector::new();
+    selector.config.mode = Some(bms_model::Mode::BEAT_7K);
+    selector.config.mode7.playconfig.enable_constant = false;
+    let mut song = make_song_data("constant-off", Some("/test/constant-off.bms"));
+    song.chart.mode = bms_model::Mode::BEAT_7K.id();
+    set_selected_bar(&mut selector, Bar::Song(Box::new(SongBar::new(song))));
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    assert_eq!(ctx.image_index_value(400), 0);
+}

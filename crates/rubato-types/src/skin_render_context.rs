@@ -229,6 +229,10 @@ pub trait SkinRenderContext: TimerAccess {
             }),
             370 => self.score_data_ref().map_or(-1, |score| score.clear),
             371 => self.rival_score_data_ref().map_or(-1, |score| score.clear),
+            390..=399 => self.ranking_score_clear_type(id - 390),
+            400 => self
+                .current_play_config_ref()
+                .map_or(-1, |config| if config.enable_constant { 1 } else { 0 }),
             _ => self.integer_value(id),
         }
     }
@@ -266,6 +270,20 @@ pub trait SkinRenderContext: TimerAccess {
     /// Returns the comparison score data when the current state exposes it.
     fn rival_score_data_ref(&self) -> Option<&crate::score_data::ScoreData> {
         None
+    }
+
+    /// Returns the clear type ID for the ranking score at the given slot
+    /// (0-based index relative to the current ranking offset).
+    /// Used by image_index IDs 390-399 (cleartype_ranking1-10).
+    /// Returns -1 when ranking data is unavailable or the slot is out of range.
+    fn ranking_score_clear_type(&self, _slot: i32) -> i32 {
+        -1
+    }
+
+    /// Returns the current ranking display offset.
+    /// Used together with `ranking_score_clear_type` to compute absolute indices.
+    fn ranking_offset(&self) -> i32 {
+        0
     }
 
     /// Returns the play config currently associated with the state.
@@ -365,5 +383,175 @@ pub trait SkinRenderContext: TimerAccess {
     /// Uses the skin event ID to avoid introducing a core dependency here.
     fn select_song_mode(&mut self, _event_id: i32) {
         // default no-op
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::timer_access::TimerAccess;
+    use crate::timer_id::TimerId;
+
+    /// Minimal stub implementing SkinRenderContext for testing default_image_index_value.
+    struct TestContext {
+        ranking_clear_types: Vec<i32>,
+        ranking_offset: i32,
+    }
+
+    impl TestContext {
+        fn new() -> Self {
+            Self {
+                ranking_clear_types: Vec::new(),
+                ranking_offset: 0,
+            }
+        }
+
+        fn with_ranking(clear_types: Vec<i32>, offset: i32) -> Self {
+            Self {
+                ranking_clear_types: clear_types,
+                ranking_offset: offset,
+            }
+        }
+    }
+
+    impl TimerAccess for TestContext {
+        fn now_time(&self) -> i64 {
+            0
+        }
+        fn now_micro_time(&self) -> i64 {
+            0
+        }
+        fn micro_timer(&self, _: TimerId) -> i64 {
+            i64::MIN
+        }
+        fn timer(&self, _: TimerId) -> i64 {
+            i64::MIN
+        }
+        fn now_time_for(&self, _: TimerId) -> i64 {
+            i64::MIN
+        }
+        fn is_timer_on(&self, _: TimerId) -> bool {
+            false
+        }
+    }
+
+    impl SkinRenderContext for TestContext {
+        fn ranking_score_clear_type(&self, slot: i32) -> i32 {
+            let index = (self.ranking_offset + slot) as usize;
+            self.ranking_clear_types.get(index).copied().unwrap_or(-1)
+        }
+
+        fn ranking_offset(&self) -> i32 {
+            self.ranking_offset
+        }
+
+        fn current_play_config_ref(&self) -> Option<&crate::play_config::PlayConfig> {
+            // Not easily constructible in a unit test without a static.
+            // Use image_index_value override for the constant test instead.
+            None
+        }
+    }
+
+    #[test]
+    fn default_image_index_390_to_399_delegate_to_ranking_score_clear_type() {
+        let ctx = TestContext::with_ranking(vec![8, 6, 5, 4, 3, 2, 1, 0, 9, 10], 0);
+
+        for (slot, expected) in [8, 6, 5, 4, 3, 2, 1, 0, 9, 10].iter().enumerate() {
+            let id = 390 + slot as i32;
+            assert_eq!(
+                ctx.default_image_index_value(id),
+                *expected,
+                "ID {} (slot {}) should return {}",
+                id,
+                slot,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn default_image_index_390_with_offset() {
+        // 3 scores, offset=1 -> slot 0 reads index 1, slot 1 reads index 2, slot 2 -> -1
+        let ctx = TestContext::with_ranking(vec![8, 6, 5], 1);
+
+        assert_eq!(ctx.default_image_index_value(390), 6);
+        assert_eq!(ctx.default_image_index_value(391), 5);
+        assert_eq!(ctx.default_image_index_value(392), -1);
+    }
+
+    #[test]
+    fn default_image_index_390_returns_minus_one_when_no_ranking() {
+        let ctx = TestContext::new();
+        for id in 390..=399 {
+            assert_eq!(
+                ctx.default_image_index_value(id),
+                -1,
+                "ID {} should return -1",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn default_image_index_400_returns_constant_flag() {
+        // To test ID 400 properly, we need a PlayConfig. Let's test via a context
+        // that has one. We'll use a static PlayConfig.
+        use std::sync::OnceLock;
+        static PLAY_CONFIG_ENABLED: OnceLock<crate::play_config::PlayConfig> = OnceLock::new();
+        static PLAY_CONFIG_DISABLED: OnceLock<crate::play_config::PlayConfig> = OnceLock::new();
+
+        struct ConstantTestContext {
+            config: &'static crate::play_config::PlayConfig,
+        }
+
+        impl TimerAccess for ConstantTestContext {
+            fn now_time(&self) -> i64 {
+                0
+            }
+            fn now_micro_time(&self) -> i64 {
+                0
+            }
+            fn micro_timer(&self, _: TimerId) -> i64 {
+                i64::MIN
+            }
+            fn timer(&self, _: TimerId) -> i64 {
+                i64::MIN
+            }
+            fn now_time_for(&self, _: TimerId) -> i64 {
+                i64::MIN
+            }
+            fn is_timer_on(&self, _: TimerId) -> bool {
+                false
+            }
+        }
+
+        impl SkinRenderContext for ConstantTestContext {
+            fn current_play_config_ref(&self) -> Option<&crate::play_config::PlayConfig> {
+                Some(self.config)
+            }
+        }
+
+        let enabled = PLAY_CONFIG_ENABLED.get_or_init(|| {
+            let mut pc = crate::play_config::PlayConfig::default();
+            pc.enable_constant = true;
+            pc
+        });
+        let disabled = PLAY_CONFIG_DISABLED.get_or_init(|| {
+            let mut pc = crate::play_config::PlayConfig::default();
+            pc.enable_constant = false;
+            pc
+        });
+
+        let ctx_on = ConstantTestContext { config: enabled };
+        assert_eq!(ctx_on.default_image_index_value(400), 1);
+
+        let ctx_off = ConstantTestContext { config: disabled };
+        assert_eq!(ctx_off.default_image_index_value(400), 0);
+    }
+
+    #[test]
+    fn default_image_index_400_returns_minus_one_when_no_play_config() {
+        let ctx = TestContext::new();
+        assert_eq!(ctx.default_image_index_value(400), -1);
     }
 }

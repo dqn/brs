@@ -129,6 +129,25 @@ pub fn song_data_ref(resource: &PlayerResource) -> Option<&rubato_types::song_da
     resource.songdata()
 }
 
+/// Returns the clear type ID for the ranking score at the given slot
+/// (0-based, relative to the ranking offset stored in AbstractResultData).
+pub fn ranking_score_clear_type(data: &AbstractResultData, slot: i32) -> i32 {
+    if let Some(ref ranking) = data.ranking {
+        let index = data.ranking_offset + slot;
+        ranking
+            .score(index)
+            .map(|score| score.clear.id())
+            .unwrap_or(-1)
+    } else {
+        -1
+    }
+}
+
+/// Returns the current ranking display offset.
+pub fn ranking_offset(data: &AbstractResultData) -> i32 {
+    data.ranking_offset
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,5 +250,87 @@ mod tests {
         data.oldscore.clear = ClearType::NoPlay.id();
         assert!(!boolean_value(&data, 90));
         assert!(boolean_value(&data, 91));
+    }
+
+    // ============================================================
+    // ranking_score_clear_type tests
+    // ============================================================
+
+    fn make_ranking_with_scores() -> rubato_ir::ranking_data::RankingData {
+        use rubato_ir::ir_score_data::IRScoreData;
+        use rubato_ir::ranking_data::RankingData;
+
+        let mut rd = RankingData::new();
+        let scores: Vec<IRScoreData> = vec![
+            {
+                let mut s = rubato_core::score_data::ScoreData::default();
+                s.judge_counts.epg = 100;
+                s.judge_counts.lpg = 100;
+                s.clear = ClearType::FullCombo.id(); // 8
+                IRScoreData::new(&s)
+            },
+            {
+                let mut s = rubato_core::score_data::ScoreData::default();
+                s.judge_counts.epg = 80;
+                s.judge_counts.lpg = 80;
+                s.clear = ClearType::Hard.id(); // 6
+                IRScoreData::new(&s)
+            },
+            {
+                let mut s = rubato_core::score_data::ScoreData::default();
+                s.judge_counts.epg = 50;
+                s.judge_counts.lpg = 50;
+                s.clear = ClearType::Easy.id(); // 4
+                IRScoreData::new(&s)
+            },
+        ];
+        rd.update_score(&scores, None);
+        rd
+    }
+
+    #[test]
+    fn test_ranking_score_clear_type_returns_clear_for_each_slot() {
+        let mut data = AbstractResultData::new();
+        data.ranking = Some(make_ranking_with_scores());
+        data.ranking_offset = 0;
+
+        assert_eq!(ranking_score_clear_type(&data, 0), 8); // FullCombo
+        assert_eq!(ranking_score_clear_type(&data, 1), 6); // Hard
+        assert_eq!(ranking_score_clear_type(&data, 2), 4); // Easy
+    }
+
+    #[test]
+    fn test_ranking_score_clear_type_respects_offset() {
+        let mut data = AbstractResultData::new();
+        data.ranking = Some(make_ranking_with_scores());
+        data.ranking_offset = 1;
+
+        assert_eq!(ranking_score_clear_type(&data, 0), 6); // Hard (offset 1 + slot 0)
+        assert_eq!(ranking_score_clear_type(&data, 1), 4); // Easy (offset 1 + slot 1)
+        assert_eq!(ranking_score_clear_type(&data, 2), -1); // out of bounds
+    }
+
+    #[test]
+    fn test_ranking_score_clear_type_returns_minus_one_when_no_ranking() {
+        let data = AbstractResultData::new();
+        assert!(data.ranking.is_none());
+
+        for slot in 0..10 {
+            assert_eq!(
+                ranking_score_clear_type(&data, slot),
+                -1,
+                "slot {} should return -1",
+                slot
+            );
+        }
+    }
+
+    #[test]
+    fn test_ranking_offset_returns_data_offset() {
+        let mut data = AbstractResultData::new();
+        assert_eq!(ranking_offset(&data), 0);
+
+        data.ranking_offset = 5;
+        assert_eq!(ranking_offset(&data), 5);
     }
 }

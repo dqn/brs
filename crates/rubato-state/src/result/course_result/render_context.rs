@@ -111,6 +111,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
         shared_render_context::integer_value(self.data, self.timer.now_time(), id)
     }
 
+    fn ranking_score_clear_type(&self, slot: i32) -> i32 {
+        shared_render_context::ranking_score_clear_type(self.data, slot)
+    }
+
+    fn ranking_offset(&self) -> i32 {
+        shared_render_context::ranking_offset(self.data)
+    }
+
     fn float_value(&self, id: i32) -> f32 {
         shared_render_context::float_value(self.data, id)
     }

@@ -227,6 +227,22 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
         }
     }
 
+    fn ranking_score_clear_type(&self, slot: i32) -> i32 {
+        if let Some(ref ranking) = self.selector.ranking.currentir {
+            let index = self.selector.ranking.ranking_offset + slot;
+            ranking
+                .score(index)
+                .map(|score| score.clear.id())
+                .unwrap_or(-1)
+        } else {
+            -1
+        }
+    }
+
+    fn ranking_offset(&self) -> i32 {
+        self.selector.ranking.ranking_offset
+    }
+
     fn integer_value(&self, id: i32) -> i32 {
         match id {
             // Volume (0-100 scale)
