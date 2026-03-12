@@ -259,11 +259,7 @@ pub fn path(imagepath: &str, filemap: &HashMap<String, String>) -> PathBuf {
     for (key, value) in filemap {
         if imagepath.starts_with(key.as_str()) {
             let foot = &imagepath[key.len()..];
-            if let Some(star_pos) = imagepath.rfind('*') {
-                imagefile = PathBuf::from(format!("{}{}{}", &imagepath[..star_pos], value, foot));
-            } else {
-                imagefile = PathBuf::from(format!("{}{}", value, foot));
-            }
+            imagefile = PathBuf::from(format!("{}{}", value, foot));
             imagepath = String::new();
             break;
         }
@@ -413,5 +409,37 @@ mod tests {
             skin.is_some(),
             "default decide skin should resolve even when the process starts in a crate directory"
         );
+    }
+
+    #[test]
+    fn path_filemap_replaces_prefix_without_wildcard() {
+        let mut filemap = HashMap::new();
+        filemap.insert("theme/".to_string(), "/custom/".to_string());
+        let result = path("theme/bg.png", &filemap);
+        assert_eq!(result, PathBuf::from("/custom/bg.png"));
+    }
+
+    #[test]
+    fn path_filemap_replaces_prefix_with_wildcard() {
+        // Regression: previously the code duplicated the segment between key.len() and star_pos.
+        let mut filemap = HashMap::new();
+        filemap.insert("theme/".to_string(), "/custom/".to_string());
+        let result = path("theme/bg*.png", &filemap);
+        assert_eq!(result, PathBuf::from("/custom/bg*.png"));
+    }
+
+    #[test]
+    fn path_filemap_wildcard_in_foot_preserved() {
+        let mut filemap = HashMap::new();
+        filemap.insert("images/".to_string(), "/replaced/".to_string());
+        let result = path("images/sub/bg*.jpg", &filemap);
+        assert_eq!(result, PathBuf::from("/replaced/sub/bg*.jpg"));
+    }
+
+    #[test]
+    fn path_no_filemap_match_passes_through() {
+        let filemap = HashMap::new();
+        let result = path("other/file.png", &filemap);
+        assert_eq!(result, PathBuf::from("other/file.png"));
     }
 }

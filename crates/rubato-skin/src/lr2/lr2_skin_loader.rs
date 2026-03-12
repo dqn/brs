@@ -197,12 +197,8 @@ pub fn lr2_path(skinpath: &str, imagepath: &str, filemap: &HashMap<String, Strin
     for (key, value) in filemap {
         if resolved.starts_with(key.as_str()) {
             let foot = &resolved[key.len()..];
-            if let Some(star_pos) = resolved.rfind('*') {
-                resolved = format!("{}{}{}", &resolved[..star_pos], value, foot);
-            } else {
-                resolved = format!("{}{}", value, foot);
-            }
-            // After filemap substitution, clear resolved to skip wildcard logic (matching Java)
+            resolved = format!("{}{}", value, foot);
+            // After filemap substitution, return immediately to skip wildcard logic (matching Java)
             return resolved;
         }
     }
@@ -427,4 +423,64 @@ pub fn read_offset_with_base(str_parts: &[String], start_index: usize, offset: &
         }
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lr2_path_filemap_replaces_prefix_without_wildcard() {
+        let mut filemap = HashMap::new();
+        filemap.insert("theme/".to_string(), "/custom/".to_string());
+        let result = lr2_path("skinroot", "theme/bg.png", &filemap);
+        assert_eq!(result, "/custom/bg.png");
+    }
+
+    #[test]
+    fn lr2_path_filemap_replaces_prefix_with_wildcard() {
+        // Regression: previously the code duplicated the segment between key.len() and star_pos,
+        // producing "theme/bg/custom/bg*.png" instead of "/custom/bg*.png".
+        let mut filemap = HashMap::new();
+        filemap.insert("theme/".to_string(), "/custom/".to_string());
+        let result = lr2_path("skinroot", "theme/bg*.png", &filemap);
+        assert_eq!(result, "/custom/bg*.png");
+    }
+
+    #[test]
+    fn lr2_path_filemap_exact_key_match() {
+        let mut filemap = HashMap::new();
+        filemap.insert("wallpaper.png".to_string(), "/my/wall.png".to_string());
+        let result = lr2_path("skinroot", "wallpaper.png", &filemap);
+        assert_eq!(result, "/my/wall.png");
+    }
+
+    #[test]
+    fn lr2_path_filemap_wildcard_in_foot_preserved() {
+        let mut filemap = HashMap::new();
+        filemap.insert("images/".to_string(), "/replaced/".to_string());
+        let result = lr2_path("skinroot", "images/sub/bg*.jpg", &filemap);
+        assert_eq!(result, "/replaced/sub/bg*.jpg");
+    }
+
+    #[test]
+    fn lr2_path_no_filemap_match_passes_through() {
+        let filemap = HashMap::new();
+        let result = lr2_path("skinroot", "other/file.png", &filemap);
+        assert_eq!(result, "other/file.png");
+    }
+
+    #[test]
+    fn lr2_path_replaces_lr2_theme_prefix() {
+        let filemap = HashMap::new();
+        let result = lr2_path("myskin", "LR2files\\Theme/bg.png", &filemap);
+        assert_eq!(result, "myskin/bg.png");
+    }
+
+    #[test]
+    fn lr2_path_backslash_normalized() {
+        let filemap = HashMap::new();
+        let result = lr2_path("skin", "path\\to\\file.png", &filemap);
+        assert_eq!(result, "path/to/file.png");
+    }
 }
