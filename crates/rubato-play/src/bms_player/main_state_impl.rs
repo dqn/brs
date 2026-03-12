@@ -79,7 +79,6 @@ impl MainState for BMSPlayer {
     fn create(&mut self) {
         let mode = self.model.mode().copied().unwrap_or(Mode::BEAT_7K);
         self.lane_property = Some(LaneProperty::new(&mode));
-        self.judge = JudgeManager::new();
         self.input.control = Some(ControlInputProcessor::new(mode));
         if let Some(ref lp) = self.lane_property {
             self.input.keyinput = Some(KeyInputProccessor::new(lp));
@@ -141,8 +140,89 @@ impl MainState for BMSPlayer {
             control.enable_control = false;
         }
 
-        self.judge.init(&self.model, 0, None, &[]);
+        // --- Judge initialization ---
+        // Translated from: Java BMSPlayer.create() judge.init() call.
+        // Uses from_config() which properly initializes lane_states, note_states,
+        // keyassign, sckey, auto_presstime, and all lane iteration state.
         self.judge_notes = bms_model::judge_note::build_judge_notes(&self.model);
+        let rule = BMSPlayerRule::for_mode(&mode);
+
+        // Compute judge window rates from player config, applying course constraints
+        let mut key_judge_window_rate = if self.player_config.judge_settings.custom_judge {
+            [
+                self.player_config
+                    .judge_settings
+                    .key_judge_window_rate_perfect_great,
+                self.player_config
+                    .judge_settings
+                    .key_judge_window_rate_great,
+                self.player_config.judge_settings.key_judge_window_rate_good,
+            ]
+        } else {
+            [100, 100, 100]
+        };
+        let mut scratch_judge_window_rate = if self.player_config.judge_settings.custom_judge {
+            [
+                self.player_config
+                    .judge_settings
+                    .scratch_judge_window_rate_perfect_great,
+                self.player_config
+                    .judge_settings
+                    .scratch_judge_window_rate_great,
+                self.player_config
+                    .judge_settings
+                    .scratch_judge_window_rate_good,
+            ]
+        } else {
+            [100, 100, 100]
+        };
+
+        // Apply course constraints to judge window rates
+        for con in &self.constraints {
+            match con {
+                CourseDataConstraint::NoGreat => {
+                    key_judge_window_rate[1] = 0;
+                    key_judge_window_rate[2] = 0;
+                    scratch_judge_window_rate[1] = 0;
+                    scratch_judge_window_rate[2] = 0;
+                }
+                CourseDataConstraint::NoGood => {
+                    key_judge_window_rate[2] = 0;
+                    scratch_judge_window_rate[2] = 0;
+                }
+                _ => {}
+            }
+        }
+
+        let autoplay = matches!(
+            self.play_mode.mode,
+            rubato_core::bms_player_mode::Mode::Autoplay
+        );
+        let is_play_or_practice = matches!(
+            self.play_mode.mode,
+            rubato_core::bms_player_mode::Mode::Play | rubato_core::bms_player_mode::Mode::Practice
+        );
+        let judgeregion = self.play_skin.judgeregion.max(1);
+
+        let judge_config = JudgeConfig {
+            notes: &self.judge_notes,
+            mode: &mode,
+            ln_type: self.model.lntype(),
+            judge_rank: self.model.judgerank,
+            judge_window_rate: key_judge_window_rate,
+            scratch_judge_window_rate,
+            algorithm: JudgeAlgorithm::Combo,
+            autoplay,
+            judge_property: &rule.judge,
+            lane_property: self.lane_property.as_ref(),
+            auto_adjust_enabled: self
+                .player_config
+                .judge_settings
+                .notes_display_timing_auto_adjust,
+            is_play_or_practice,
+            judgeregion,
+        };
+        self.judge = JudgeManager::from_config(&judge_config);
 
         // --- Gauge initialization ---
         // Translated from: BMSPlayer.create() Java line ~540
@@ -670,6 +750,12 @@ impl MainState for BMSPlayer {
                         for lane in judged {
                             keyinput.input_key_on(lane, &mut self.main_state_data.timer);
                         }
+                    }
+                    // Trigger per-judge side effects (BGA miss layer, score timers,
+                    // pomyu, fullcombo timer). Corresponds to Java BMSPlayer.update(judge, time).
+                    let events = self.judge.drain_judged_events();
+                    for (judge, mtime) in events {
+                        self.update_judge(judge, mtime);
                     }
                 }
 

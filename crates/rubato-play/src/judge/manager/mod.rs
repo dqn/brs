@@ -32,6 +32,9 @@ pub struct JudgeConfig<'a> {
     pub auto_adjust_enabled: bool,
     /// Whether the play mode is PLAY or PRACTICE (auto-adjust only works in these modes).
     pub is_play_or_practice: bool,
+    /// Number of judge display regions (1 for SP, 2 for DP). Controls the size of
+    /// judgenow/judgecombo/judgefast/mjudgefast arrays.
+    pub judgeregion: i32,
 }
 
 /// Internal per-note judge state (parallel to the external notes array).
@@ -287,6 +290,11 @@ pub struct JudgeManager {
     /// Lanes that received a new judgment during the last update() call.
     /// Drained by the caller after update() to trigger key beam timers.
     judged_lanes: Vec<usize>,
+    /// Judge events produced during update(). Each entry is (judge, mtime) where
+    /// judge is the judgment type (0=PG, 1=GR, ...) and mtime is the music time
+    /// at which the judgment occurred. Drained by the caller to trigger
+    /// update_judge() side effects (BGA miss layer, score timers, pomyu, etc.).
+    judged_events: Vec<(i32, i64)>,
 }
 
 impl Default for JudgeManager {

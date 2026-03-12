@@ -172,6 +172,7 @@ fn judge_manager_from_config_initializes_correctly() {
         lane_property: None,
         auto_adjust_enabled: false,
         is_play_or_practice: false,
+        judgeregion: 1,
     };
 
     let jm = JudgeManager::from_config(&config);
@@ -215,6 +216,7 @@ fn judge_manager_autoplay_judges_all_pgreat() {
         lane_property: None,
         auto_adjust_enabled: false,
         is_play_or_practice: false,
+        judgeregion: 1,
     };
 
     let mut jm = JudgeManager::from_config(&config);
@@ -367,6 +369,7 @@ fn manual_input_at_note_time_produces_pgreat() {
         lane_property: None,
         auto_adjust_enabled: false,
         is_play_or_practice: false,
+        judgeregion: 1,
     };
 
     let mut jm = JudgeManager::from_config(&config);
@@ -427,6 +430,7 @@ fn no_input_produces_all_miss() {
         lane_property: None,
         auto_adjust_enabled: false,
         is_play_or_practice: false,
+        judgeregion: 1,
     };
 
     let mut jm = JudgeManager::from_config(&config);

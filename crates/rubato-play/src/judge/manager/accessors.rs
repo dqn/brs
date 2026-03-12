@@ -279,4 +279,13 @@ impl JudgeManager {
     pub fn drain_judged_lanes(&mut self) -> Vec<usize> {
         std::mem::take(&mut self.judged_lanes)
     }
+
+    /// Drain judge events produced during the last update() call.
+    /// Each entry is (judge, mtime) where judge is the judgment type
+    /// (0=PG, 1=GR, 2=GD, 3=BD, 4=PR/MS) and mtime is the music time.
+    /// The caller uses this to trigger BMSPlayer::update_judge() side effects
+    /// (BGA miss layer, score timers, pomyu, fullcombo timer, etc.).
+    pub fn drain_judged_events(&mut self) -> Vec<(i32, i64)> {
+        std::mem::take(&mut self.judged_events)
+    }
 }

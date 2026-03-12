@@ -82,6 +82,7 @@ pub fn run_autoplay_simulation(model: &BMSModel, gauge_type: i32) -> SimulationR
         lane_property: None,
         auto_adjust_enabled: false,
         is_play_or_practice: false,
+        judgeregion: 1,
     };
 
     let mut jm = JudgeManager::from_config(&config);
@@ -173,6 +174,7 @@ pub fn run_manual_simulation(
         lane_property: None,
         auto_adjust_enabled: false,
         is_play_or_practice: false,
+        judgeregion: 1,
     };
 
     let mut jm = JudgeManager::from_config(&config);
@@ -279,6 +281,7 @@ pub fn run_course_simulation(models: &[&BMSModel], gauge_type: i32) -> CourseSim
             lane_property: None,
             auto_adjust_enabled: false,
             is_play_or_practice: false,
+            judgeregion: 1,
         };
 
         let mut jm = JudgeManager::from_config(&config);
@@ -372,6 +375,7 @@ pub fn run_course_simulation_manual(
             lane_property: None,
             auto_adjust_enabled: false,
             is_play_or_practice: false,
+            judgeregion: 1,
         };
 
         let mut jm = JudgeManager::from_config(&config);

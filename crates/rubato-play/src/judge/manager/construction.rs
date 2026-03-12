@@ -44,6 +44,7 @@ impl JudgeManager {
             multi_bad: MultiBadCollector::new(),
             lane_count: 0,
             judged_lanes: Vec::new(),
+            judged_events: Vec::new(),
         }
     }
 
@@ -166,6 +167,7 @@ impl JudgeManager {
         // Scratch key count
         let scratch_count = lp.scratch_key_assign().len();
 
+        let judgeregion = config.judgeregion.max(1) as usize;
         let mut jm = JudgeManager {
             lntype: config.ln_type,
             score: ScoreData::default(),
@@ -173,11 +175,11 @@ impl JudgeManager {
             coursecombo: 0,
             coursemaxcombo: 0,
             judge: vec![vec![0; keys_per_player + 1]; player_count],
-            judgenow: vec![0; 1], // Default judgeregion=1
-            judgecombo: vec![0; 1],
+            judgenow: vec![0; judgeregion],
+            judgecombo: vec![0; judgeregion],
             ghost: vec![JUDGE_PR; total_notes],
-            judgefast: vec![0; 1],
-            mjudgefast: vec![0; 1],
+            judgefast: vec![0; judgeregion],
+            mjudgefast: vec![0; judgeregion],
             keyassign: keyassign_vec,
             sckey: vec![0; scratch_count],
             nmjudge,
@@ -214,6 +216,7 @@ impl JudgeManager {
             multi_bad: MultiBadCollector::new(),
             lane_count,
             judged_lanes: Vec::new(),
+            judged_events: Vec::new(),
         };
         jm.score.notes = total_notes as i32;
         jm

@@ -1,11 +1,13 @@
 pub(crate) use std::sync::{Arc, Mutex};
 
 pub(crate) use crate::bga::bga_processor::BGAProcessor;
+pub(crate) use crate::bms_player_rule::BMSPlayerRule;
 pub(crate) use crate::groove_gauge::GrooveGauge;
 pub(crate) use crate::input::control_input::ControlInputProcessor;
 pub(crate) use crate::input::key_input::KeyInputProccessor;
 pub(crate) use crate::input::key_sound::KeySoundProcessor;
-pub(crate) use crate::judge::manager::JudgeManager;
+pub(crate) use crate::judge::algorithm::JudgeAlgorithm;
+pub(crate) use crate::judge::manager::{JudgeConfig, JudgeManager};
 pub(crate) use crate::lane_property::LaneProperty;
 pub(crate) use crate::lane_renderer::LaneRenderer;
 pub(crate) use crate::play_skin::PlaySkin;

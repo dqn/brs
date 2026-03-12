@@ -233,15 +233,16 @@ impl BMSPlayer {
     }
 
     /// Corresponds to Java BMSPlayer.update(int judge, long time)
+    ///
+    /// Note: gauge.update(judge) is NOT called here because it is already
+    /// called in JudgeManager::update_micro(). Calling it here would be a
+    /// double-update.
     pub fn update_judge(&mut self, judge: i32, time: i64) {
         if self.judge.combo() == 0 {
             self.bga
                 .lock()
                 .expect("bga lock poisoned")
                 .set_misslayer_tme(time);
-        }
-        if let Some(ref mut gauge) = self.gauge {
-            gauge.update(judge);
         }
 
         // Full combo check

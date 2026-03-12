@@ -66,6 +66,7 @@ fn make_judge_manager(model: &BMSModel) -> (JudgeManager, rubato_play::groove_ga
         lane_property: None,
         auto_adjust_enabled: false,
         is_play_or_practice: false,
+        judgeregion: 1,
     };
     let jm = JudgeManager::from_config(&config);
     let gg = create_groove_gauge(model, NORMAL, 0, None).unwrap();
@@ -411,6 +412,7 @@ fn multiple_simultaneous_judgments_produce_all_lanes() {
         lane_property: None,
         auto_adjust_enabled: false,
         is_play_or_practice: false,
+        judgeregion: 1,
     };
     let mut jm = JudgeManager::from_config(&config);
     let mut gg = create_groove_gauge(&model, NORMAL, 0, None).unwrap();

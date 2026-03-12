@@ -99,6 +99,7 @@ fn run_simulation(model: &BMSModel, tc: &JudgeTestCase) -> SimResult {
         lane_property: None,
         auto_adjust_enabled: false,
         is_play_or_practice: false,
+        judgeregion: 1,
     };
 
     let gauge_type = parse_gauge_type(&tc.gauge_type);

@@ -5,7 +5,7 @@ struct UpdateMicroParams<'a> {
     pub lane_idx: usize,
     pub note_idx: usize,
     pub notes: &'a [JudgeNote],
-    pub _mtime: i64,
+    pub mtime: i64,
     pub judge: i32,
     pub mfast: i64,
     pub judge_vanish: bool,
@@ -83,7 +83,7 @@ impl JudgeManager {
                             lane_idx,
                             note_idx,
                             notes,
-                            _mtime: mtime,
+                            mtime,
                             judge: 0,
                             mfast: 0,
                             judge_vanish: true,
@@ -113,7 +113,7 @@ impl JudgeManager {
                                     lane_idx,
                                     note_idx,
                                     notes,
-                                    _mtime: mtime,
+                                    mtime,
                                     judge: 0,
                                     mfast: 0,
                                     judge_vanish: true,
@@ -141,7 +141,7 @@ impl JudgeManager {
                                 lane_idx,
                                 note_idx,
                                 notes,
-                                _mtime: mtime,
+                                mtime,
                                 judge: 0,
                                 mfast: 0,
                                 judge_vanish: true,
@@ -253,7 +253,7 @@ impl JudgeManager {
                                 lane_idx,
                                 note_idx: proc_idx,
                                 notes,
-                                _mtime: mtime,
+                                mtime,
                                 judge: j as i32,
                                 mfast: dmtime,
                                 judge_vanish: true,
@@ -377,7 +377,7 @@ impl JudgeManager {
                                 lane_idx,
                                 note_idx: bad_idx,
                                 notes,
-                                _mtime: mtime,
+                                mtime,
                                 judge: 3,
                                 mfast: bad_time,
                                 judge_vanish: vanish,
@@ -421,7 +421,7 @@ impl JudgeManager {
                                         lane_idx,
                                         note_idx: tnote_idx,
                                         notes,
-                                        _mtime: mtime,
+                                        mtime,
                                         judge: best_judge,
                                         mfast: dmtime,
                                         judge_vanish: false,
@@ -454,7 +454,7 @@ impl JudgeManager {
                                     lane_idx,
                                     note_idx: tnote_idx,
                                     notes,
-                                    _mtime: mtime,
+                                    mtime,
                                     judge: best_judge,
                                     mfast: dmtime,
                                     judge_vanish: vanish,
@@ -474,7 +474,7 @@ impl JudgeManager {
                                 lane_idx,
                                 note_idx: tnote_idx,
                                 notes,
-                                _mtime: mtime,
+                                mtime,
                                 judge: best_judge,
                                 mfast: dmtime,
                                 judge_vanish: vanish,
@@ -531,7 +531,7 @@ impl JudgeManager {
                                     lane_idx,
                                     note_idx: proc_idx,
                                     notes,
-                                    _mtime: mtime,
+                                    mtime,
                                     judge,
                                     mfast: dmtime,
                                     judge_vanish: true,
@@ -570,7 +570,7 @@ impl JudgeManager {
                                     lane_idx,
                                     note_idx: judge_note,
                                     notes,
-                                    _mtime: mtime,
+                                    mtime,
                                     judge: judge.min(3),
                                     mfast: dmtime,
                                     judge_vanish: true,
@@ -618,7 +618,7 @@ impl JudgeManager {
                             lane_idx,
                             note_idx: pair_of_proc,
                             notes,
-                            _mtime: mtime,
+                            mtime,
                             judge: lnend_judge,
                             mfast: release_dmtime,
                             judge_vanish: true,
@@ -636,7 +636,7 @@ impl JudgeManager {
                             lane_idx,
                             note_idx: pair_of_proc,
                             notes,
-                            _mtime: mtime,
+                            mtime,
                             judge: lnstart_judge,
                             mfast: lnstart_duration,
                             judge_vanish: true,
@@ -657,7 +657,7 @@ impl JudgeManager {
                         lane_idx,
                         note_idx: proc_idx,
                         notes,
-                        _mtime: mtime,
+                        mtime,
                         judge: lnend_judge,
                         mfast: release_dmtime,
                         judge_vanish: true,
@@ -683,7 +683,7 @@ impl JudgeManager {
                         lane_idx,
                         note_idx,
                         notes,
-                        _mtime: mtime,
+                        mtime,
                         judge: 4,
                         mfast: mjud,
                         judge_vanish: true,
@@ -701,7 +701,7 @@ impl JudgeManager {
                                 lane_idx,
                                 note_idx,
                                 notes,
-                                _mtime: mtime,
+                                mtime,
                                 judge: 4,
                                 mfast: mjud,
                                 judge_vanish: true,
@@ -713,7 +713,7 @@ impl JudgeManager {
                                     lane_idx,
                                     note_idx: pair_idx,
                                     notes,
-                                    _mtime: mtime,
+                                    mtime,
                                     judge: 4,
                                     mfast: mjud,
                                     judge_vanish: true,
@@ -730,7 +730,7 @@ impl JudgeManager {
                                 lane_idx,
                                 note_idx,
                                 notes,
-                                _mtime: mtime,
+                                mtime,
                                 judge: 4,
                                 mfast: mjud,
                                 judge_vanish: true,
@@ -749,7 +749,7 @@ impl JudgeManager {
                             lane_idx,
                             note_idx,
                             notes,
-                            _mtime: mtime,
+                            mtime,
                             judge: 4,
                             mfast: mjud,
                             judge_vanish: true,
@@ -776,6 +776,7 @@ impl JudgeManager {
         let notes = p.notes;
         let judge = p.judge;
         let mfast = p.mfast;
+        let mtime = p.mtime;
         let judge_vanish = p.judge_vanish;
         let multi_bad = p.multi_bad;
         let gauge = p.gauge;
@@ -818,6 +819,23 @@ impl JudgeManager {
             self.coursecombo = 0;
         }
 
+        // Populate per-player judge display fields (Java JudgeManager.update2 lines 724-731)
+        if lane_idx < self.lane_states.len() {
+            let player = self.lane_states[lane_idx].player;
+            if player < self.judgenow.len() {
+                self.judgenow[player] = judge + 1;
+            }
+            if player < self.judgecombo.len() {
+                self.judgecombo[player] = self.combo;
+            }
+            if player < self.judgefast.len() {
+                self.judgefast[player] = mfast / 1000;
+            }
+            if player < self.mjudgefast.len() {
+                self.mjudgefast[player] = mfast;
+            }
+        }
+
         if judge != 4 {
             let player = self.lane_states[lane_idx].player;
             let offset = self.lane_states[lane_idx].offset;
@@ -832,6 +850,9 @@ impl JudgeManager {
 
         if !multi_bad {
             gauge.update(judge);
+            // Record judge event for the caller to trigger update_judge() side effects.
+            // multi_bad notes are not individually reported (Java behavior).
+            self.judged_events.push((judge, mtime));
         }
 
         // Timing auto-adjust (Java JudgeManager lines 754-768)
