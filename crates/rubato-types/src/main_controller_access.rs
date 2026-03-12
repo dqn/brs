@@ -35,6 +35,9 @@ pub enum MainControllerCommand {
     StopAudioPath(String),
     DisposeAudioPath(String),
     LoadNewProfile(Box<crate::player_config::PlayerConfig>),
+    /// Update the PlayConfig for a specific play mode.
+    /// Used by MiscSettingMenu to write back UI changes to MainController's PlayerConfig.
+    UpdatePlayConfig(bms_model::mode::Mode, Box<crate::play_config::PlayConfig>),
 }
 
 /// Shared command queue for state-facing MainController proxies.

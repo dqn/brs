@@ -284,6 +284,9 @@ impl MainController {
                 MainControllerCommand::LoadNewProfile(pc) => {
                     self.load_new_profile(*pc);
                 }
+                MainControllerCommand::UpdatePlayConfig(mode, play_config) => {
+                    self.player.play_config(mode).playconfig = *play_config;
+                }
             }
         }
 

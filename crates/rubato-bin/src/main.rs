@@ -175,6 +175,13 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     subsystem_init::init_download_processors(&mut main_controller);
     subsystem_init::init_stream_controller(&mut main_controller);
 
+    // Wire modmenu with real PlayerConfig and command queue so UI changes propagate back
+    rubato_state::modmenu::misc_setting_menu::MiscSettingMenu::set_player_config(
+        main_controller.player_config().clone(),
+        main_controller.config().clone(),
+        main_controller.controller_command_queue(),
+    );
+
     // Extract window config from the controller's Config
     // Java: these were set by MainLoader.play() → config.setWindowWidth/Height
     let config = main_controller.config();
