@@ -362,6 +362,9 @@ impl BarManager {
         bar: Option<&Bar>,
         mut ctx: Option<&mut UpdateBarContext>,
     ) -> bool {
+        if !self.currentsongs.is_empty() {
+            self.selectedindex = self.selectedindex.min(self.currentsongs.len() - 1);
+        }
         let prevbar_title = if !self.currentsongs.is_empty() {
             Some(self.currentsongs[self.selectedindex].title().to_owned())
         } else {
@@ -834,11 +837,7 @@ impl BarManager {
     }
 
     pub fn selected(&self) -> Option<&Bar> {
-        if self.currentsongs.is_empty() {
-            None
-        } else {
-            Some(&self.currentsongs[self.selectedindex])
-        }
+        self.currentsongs.get(self.selectedindex)
     }
 
     pub fn set_selected(&mut self, bar: &Bar) {

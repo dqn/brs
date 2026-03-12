@@ -1657,3 +1657,60 @@ fn test_loader_skips_song_info_when_already_loaded() {
     let sb = bars[0].as_song_bar().unwrap();
     assert_eq!(sb.song_data().info.as_ref().unwrap().mainbpm, 999.0);
 }
+
+// ---- selectedindex bounds safety tests ----
+
+#[test]
+fn test_update_bar_with_context_clamps_stale_selectedindex() {
+    let mut manager = BarManager::new();
+    // Populate with 3 bars, set selectedindex to 2 (last element)
+    manager.currentsongs = vec![
+        make_song_bar("aaa", Some("/a.bms")),
+        make_song_bar("bbb", Some("/b.bms")),
+        make_song_bar("ccc", Some("/c.bms")),
+    ];
+    manager.selectedindex = 2;
+
+    // Now shrink currentsongs to 1 element, leaving selectedindex stale at 2
+    manager.currentsongs = vec![make_song_bar("aaa", Some("/a.bms"))];
+    // selectedindex is now 2, but currentsongs.len() == 1
+
+    // update_bar_with_context should clamp selectedindex, not panic
+    manager.update_bar_with_context(None, None);
+
+    assert_eq!(
+        manager.selectedindex, 0,
+        "selectedindex should be clamped to last valid index"
+    );
+}
+
+#[test]
+fn test_selected_returns_none_for_out_of_bounds_index() {
+    let mut manager = BarManager::new();
+    manager.currentsongs = vec![make_song_bar("aaa", Some("/a.bms"))];
+    manager.selectedindex = 5; // out of bounds
+
+    // selected() should return None via .get(), not panic
+    assert!(
+        manager.selected().is_none(),
+        "selected() should return None when selectedindex is out of bounds"
+    );
+}
+
+#[test]
+fn test_selected_returns_correct_bar_for_valid_index() {
+    let mut manager = BarManager::new();
+    let mut sd_a = make_song_data("aaa", Some("/a.bms"));
+    sd_a.metadata.title = "song_a".to_string();
+    let mut sd_b = make_song_data("bbb", Some("/b.bms"));
+    sd_b.metadata.title = "song_b".to_string();
+    manager.currentsongs = vec![
+        Bar::Song(Box::new(SongBar::new(sd_a))),
+        Bar::Song(Box::new(SongBar::new(sd_b))),
+    ];
+    manager.selectedindex = 1;
+
+    let selected = manager.selected();
+    assert!(selected.is_some());
+    assert_eq!(selected.unwrap().title(), "song_b");
+}

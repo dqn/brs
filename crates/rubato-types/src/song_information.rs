@@ -173,7 +173,7 @@ impl SongInformation {
             info.density /= count as f64;
         }
 
-        let d = 5i32.min(data.len() as i32 - borderpos - 1);
+        let d = 5i32.min(data.len() as i32 - borderpos - 1).max(0);
         info.enddensity = 0.0;
         for i in borderpos..(data.len() as i32 - d) {
             let mut notes = 0;
@@ -451,5 +451,55 @@ impl Validatable for SongInformation {
             return false;
         }
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bms_model::mode::Mode;
+    use bms_model::note::Note;
+    use bms_model::time_line::TimeLine;
+
+    /// Build a minimal BMSModel with notes at specified microsecond times.
+    /// Each time gets one normal note on lane 0.
+    fn model_with_notes(total: f64, times_us: &[i64]) -> bms_model::bms_model::BMSModel {
+        let mut model = bms_model::bms_model::BMSModel::new();
+        model.total = total;
+        model.bpm = 120.0;
+        let mode = Mode::BEAT_7K; // key() = 8
+        for &t in times_us {
+            let mut tl = TimeLine::new(0.0, t, mode.key());
+            tl.bpm = 120.0;
+            tl.set_note(0, Some(Note::new_normal(1)));
+            model.timelines.push(tl);
+        }
+        model.set_mode(mode);
+        model
+    }
+
+    #[test]
+    fn enddensity_short_song_does_not_panic() {
+        // A very short song: all notes at time 0.
+        // data_len = 0/1000 + 2 = 2, borderpos could approach data_len.
+        let model = model_with_notes(200.0, &[0, 0, 0]);
+        let info = SongInformation::from_model(&model);
+        assert!(info.enddensity >= 0.0, "enddensity must be non-negative");
+    }
+
+    #[test]
+    fn enddensity_non_negative_with_high_border() {
+        // High total so border = total_notes * (1 - 100/total) is large,
+        // pushing borderpos close to data_len.
+        let model = model_with_notes(10000.0, &[0, 0, 0, 0, 0]);
+        let info = SongInformation::from_model(&model);
+        assert!(info.enddensity >= 0.0, "enddensity must be non-negative");
+    }
+
+    #[test]
+    fn enddensity_empty_model_returns_zero() {
+        let model = bms_model::bms_model::BMSModel::new();
+        let info = SongInformation::from_model(&model);
+        assert_eq!(info.enddensity, 0.0);
     }
 }
