@@ -645,6 +645,29 @@ mod tests {
     }
 
     #[test]
+    fn test_dst_note_empty_playerr_does_not_panic() {
+        // Regression: DST_NOTE divides by playerr.len() without .max(1) guard.
+        // With empty playerr this would divide by zero.
+        let mut state = make_state();
+        state.mode = Some(bms_model::mode::Mode::BEAT_7K);
+        // Initialize laner with 8 keys (matching BEAT_7K) but leave playerr empty
+        state.laner = vec![None; 8];
+        state.scale = vec![0.0; 8];
+        state.dstnote2 = vec![i32::MIN; 8];
+        assert!(state.playerr.is_empty());
+
+        // DST_NOTE with lane=1 (non-scratch lane) triggers the division
+        let parts = make_parts(
+            "DST_NOTE",
+            &[
+                0, 1, 0, 0, 0, 64, 480, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+        );
+        // Should not panic
+        state.process_play_command("DST_NOTE", &parts);
+    }
+
+    #[test]
     fn test_load_skin_initializes_arrays_from_mode() {
         let csv_content = "";
         let path = write_temp_csv("test_load_skin_init.lr2skin", csv_content);

@@ -737,7 +737,7 @@ impl LR2SelectSkinLoaderState {
                 }
                 let font_idx = values[2] as usize;
                 if font_idx < self.csv.fontlist.len()
-                    && let Some(source) = self.csv.fontlist[font_idx].take()
+                    && let Some(source) = self.csv.fontlist[font_idx].clone()
                 {
                     let text = crate::skin_text_image::SkinTextImage::new(source);
                     let idx = values[1] as usize;

@@ -709,7 +709,7 @@ impl Event for ChartReplicationModeEvent {
         let Some(config) = state.player_config_mut() else {
             return;
         };
-        let current_id = config.select_settings.sortid.clone().unwrap_or_default();
+        let current_id = config.play_settings.chart_replication_mode.clone();
         let mut found = false;
         for (i, name) in values.iter().enumerate() {
             if *name == current_id {
@@ -718,7 +718,7 @@ impl Event for ChartReplicationModeEvent {
                 } else {
                     (i + len - 1) % len
                 };
-                config.select_settings.sortid = Some(values[next].to_string());
+                config.play_settings.chart_replication_mode = values[next].to_string();
                 found = true;
                 break;
             }

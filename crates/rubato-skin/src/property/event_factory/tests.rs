@@ -675,6 +675,64 @@ fn test_all_event_types_have_matching_ids() {
 }
 
 #[test]
+fn test_chart_replication_mode_cycles_forward() {
+    let mut state = TestMainState::new();
+    state.player_config.play_settings.chart_replication_mode = "NONE".to_string();
+    let event = event_by_id(344).unwrap();
+    event.exec(&mut state, 1, 0);
+    assert_eq!(
+        state.player_config.play_settings.chart_replication_mode,
+        "RIVALCHART"
+    );
+    assert!(state.option_change_played);
+    // sortid must be unchanged
+    assert_eq!(state.player_config.select_settings.sortid, None);
+}
+
+#[test]
+fn test_chart_replication_mode_cycles_backward() {
+    let mut state = TestMainState::new();
+    state.player_config.play_settings.chart_replication_mode = "NONE".to_string();
+    let event = event_by_id(344).unwrap();
+    event.exec(&mut state, -1, 0);
+    assert_eq!(
+        state.player_config.play_settings.chart_replication_mode,
+        "RIVALOPTION"
+    );
+}
+
+#[test]
+fn test_chart_replication_mode_wraps() {
+    let mut state = TestMainState::new();
+    state.player_config.play_settings.chart_replication_mode = "RIVALOPTION".to_string();
+    let event = event_by_id(344).unwrap();
+    event.exec(&mut state, 1, 0);
+    assert_eq!(
+        state.player_config.play_settings.chart_replication_mode,
+        "NONE"
+    );
+}
+
+#[test]
+fn test_chart_replication_mode_does_not_corrupt_sortid() {
+    let mut state = TestMainState::new();
+    state.player_config.select_settings.sortid = Some("TITLE".to_string());
+    state.player_config.play_settings.chart_replication_mode = "NONE".to_string();
+    let event = event_by_id(344).unwrap();
+    event.exec(&mut state, 1, 0);
+    // sortid must remain unchanged
+    assert_eq!(
+        state.player_config.select_settings.sortid,
+        Some("TITLE".to_string())
+    );
+    // chart_replication_mode must have cycled
+    assert_eq!(
+        state.player_config.play_settings.chart_replication_mode,
+        "RIVALCHART"
+    );
+}
+
+#[test]
 fn test_create_helper_functions() {
     let e = create_zero_arg_event(42);
     assert_eq!(e.get_event_id(), EventId(42));

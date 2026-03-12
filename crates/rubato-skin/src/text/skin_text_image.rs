@@ -174,6 +174,7 @@ impl crate::skin_text::SkinText for SkinTextImage {
     }
 }
 
+#[derive(Clone)]
 pub struct SkinTextImageSource {
     pub size: i32,
     pub margin: i32,
@@ -245,11 +246,13 @@ impl SkinTextImageSource {
     }
 }
 
+#[derive(Clone)]
 struct SkinTextImageSourceElement {
     path: String,
     texture: Option<Texture>,
 }
 
+#[derive(Clone)]
 struct SkinTextImageSourceRegion {
     id: i32,
     x: i32,
@@ -349,6 +352,43 @@ mod tests {
             0,
             &[0],
         );
+    }
+
+    #[test]
+    fn test_skin_text_image_source_clone_preserves_data() {
+        let source = make_source_with_glyphs(&[('A', 20), ('B', 30)], 40, 2);
+        let cloned = source.clone();
+        assert_eq!(cloned.size, 40);
+        assert_eq!(cloned.margin, 2);
+
+        // Both original and clone should produce the same SkinTextImage text widths
+        let mut sti1 = SkinTextImage::new(source);
+        sti1.set_text("AB".to_string());
+        let mut sti2 = SkinTextImage::new(cloned);
+        sti2.set_text("AB".to_string());
+        assert_eq!(sti1.textwidth, sti2.textwidth);
+    }
+
+    #[test]
+    fn test_skin_text_image_source_clone_is_independent() {
+        // Cloning a SkinTextImageSource from an Option should not consume the original
+        let source = make_source_with_glyphs(&[('X', 10)], 24, 0);
+        let slot: Option<SkinTextImageSource> = Some(source);
+
+        // First clone should succeed
+        let first = slot.clone().unwrap();
+        assert!(slot.is_some()); // original still present
+
+        // Second clone should also succeed (regression: .take() would fail here)
+        let second = slot.clone().unwrap();
+        assert!(slot.is_some());
+
+        // Both should work
+        let mut sti1 = SkinTextImage::new(first);
+        sti1.set_text("X".to_string());
+        let mut sti2 = SkinTextImage::new(second);
+        sti2.set_text("X".to_string());
+        assert_eq!(sti1.textwidth, sti2.textwidth);
     }
 
     #[test]

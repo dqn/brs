@@ -199,12 +199,12 @@ impl LR2PlaySkinLoaderState {
                             -1
                         };
                     } else {
-                        let offset =
-                            (lane / 10) * (self.laner.len() as i32 / self.playerr.len() as i32);
+                        let offset = (lane / 10)
+                            * (self.laner.len() as i32 / self.playerr.len().max(1) as i32);
                         lane = if lane > 10 { lane - 11 } else { lane - 1 };
                         if lane
                             >= (self.laner.len() as i32 - mode.scratch_key().len() as i32)
-                                / self.playerr.len() as i32
+                                / self.playerr.len().max(1) as i32
                         {
                             lane = -1;
                         } else {
