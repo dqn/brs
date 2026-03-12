@@ -306,17 +306,21 @@ impl KeyBoardInputProcesseor {
                 }
             }
 
-            let startpressed = GdxInput::is_key_pressed(self.control[0]);
-            let ctrl0 = self.control[0] as usize;
-            if startpressed != self.keystate[ctrl0] {
-                self.keystate[ctrl0] = startpressed;
-                callback.start_changed(startpressed);
+            if self.control[0] >= 0 && (self.control[0] as usize) < self.keystate.len() {
+                let startpressed = GdxInput::is_key_pressed(self.control[0]);
+                let ctrl0 = self.control[0] as usize;
+                if startpressed != self.keystate[ctrl0] {
+                    self.keystate[ctrl0] = startpressed;
+                    callback.start_changed(startpressed);
+                }
             }
-            let selectpressed = GdxInput::is_key_pressed(self.control[1]);
-            let ctrl1 = self.control[1] as usize;
-            if selectpressed != self.keystate[ctrl1] {
-                self.keystate[ctrl1] = selectpressed;
-                callback.set_select_pressed(selectpressed);
+            if self.control[1] >= 0 && (self.control[1] as usize) < self.keystate.len() {
+                let selectpressed = GdxInput::is_key_pressed(self.control[1]);
+                let ctrl1 = self.control[1] as usize;
+                if selectpressed != self.keystate[ctrl1] {
+                    self.keystate[ctrl1] = selectpressed;
+                    callback.set_select_pressed(selectpressed);
+                }
             }
         }
 
@@ -350,10 +354,16 @@ impl KeyBoardInputProcesseor {
     }
 
     pub fn key_state(&self, keycode: i32) -> bool {
+        if keycode < 0 || keycode as usize >= self.keystate.len() {
+            return false;
+        }
         self.keystate[keycode as usize]
     }
 
     pub fn set_key_state(&mut self, keycode: i32, pressed: bool) {
+        if keycode < 0 || keycode as usize >= self.keystate.len() {
+            return;
+        }
         self.keystate[keycode as usize] = pressed;
     }
 
@@ -496,5 +506,117 @@ impl BMSPlayerInputDevice for KeyBoardInputProcesseor {
         self.keytime.fill(i64::MIN);
         self.last_pressed_key = -1;
         self.mouse_scratch_input.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::stubs::KeyboardConfig;
+    use crate::winit_input_bridge::SharedKeyState;
+
+    fn make_processor() -> KeyBoardInputProcesseor {
+        let config = KeyboardConfig::default();
+        let resolution = Resolution::FULLHD;
+        KeyBoardInputProcesseor::new(&config, resolution)
+    }
+
+    // -- Finding 2: control key polling bounds check --
+
+    #[test]
+    fn test_poll_with_negative_control_key_does_not_panic() {
+        let shared_state = SharedKeyState::new();
+        crate::gdx_compat::set_shared_key_state(shared_state);
+
+        let mut proc = make_processor();
+        // Set control keys to invalid negative values (corrupt config)
+        proc.control = vec![-1, -1];
+
+        let mut events = TestCallback::default();
+        // Should not panic due to usize wraparound
+        proc.poll(0, &mut events);
+        // No start/select change should be emitted for invalid keys
+        assert!(events.start_changed.is_none());
+        assert!(events.select_changed.is_none());
+    }
+
+    #[test]
+    fn test_poll_with_out_of_range_control_key_does_not_panic() {
+        let shared_state = SharedKeyState::new();
+        crate::gdx_compat::set_shared_key_state(shared_state);
+
+        let mut proc = make_processor();
+        // Set control keys to out-of-bounds values (>= 256)
+        proc.control = vec![300, 512];
+
+        let mut events = TestCallback::default();
+        proc.poll(0, &mut events);
+        assert!(events.start_changed.is_none());
+        assert!(events.select_changed.is_none());
+    }
+
+    // -- Finding 3: key_state/set_key_state bounds check --
+
+    #[test]
+    fn test_key_state_negative_keycode_returns_false() {
+        let proc = make_processor();
+        assert!(!proc.key_state(-1));
+        assert!(!proc.key_state(i32::MIN));
+    }
+
+    #[test]
+    fn test_key_state_out_of_range_keycode_returns_false() {
+        let proc = make_processor();
+        assert!(!proc.key_state(256));
+        assert!(!proc.key_state(1000));
+    }
+
+    #[test]
+    fn test_set_key_state_negative_keycode_does_not_panic() {
+        let mut proc = make_processor();
+        proc.set_key_state(-1, true); // should not panic
+        proc.set_key_state(i32::MIN, true); // should not panic
+    }
+
+    #[test]
+    fn test_set_key_state_out_of_range_keycode_does_not_panic() {
+        let mut proc = make_processor();
+        proc.set_key_state(256, true); // should not panic
+        proc.set_key_state(1000, true); // should not panic
+    }
+
+    #[test]
+    fn test_key_state_valid_keycode_works() {
+        let mut proc = make_processor();
+        proc.set_key_state(42, true);
+        assert!(proc.key_state(42));
+        proc.set_key_state(42, false);
+        assert!(!proc.key_state(42));
+    }
+
+    /// Minimal KeyboardCallback implementation for testing
+    #[derive(Default)]
+    struct TestCallback {
+        start_changed: Option<bool>,
+        select_changed: Option<bool>,
+    }
+
+    impl KeyboardCallback for TestCallback {
+        fn key_changed_from_keyboard(&mut self, _microtime: i64, _key: usize, _pressed: bool) {}
+        fn start_changed(&mut self, pressed: bool) {
+            self.start_changed = Some(pressed);
+        }
+        fn set_select_pressed(&mut self, pressed: bool) {
+            self.select_changed = Some(pressed);
+        }
+        fn set_analog_state(&mut self, _key: usize, _is_analog: bool, _value: f32) {}
+        fn set_mouse_moved(&mut self, _moved: bool) {}
+        fn set_mouse_x(&mut self, _x: i32) {}
+        fn set_mouse_y(&mut self, _y: i32) {}
+        fn set_mouse_button(&mut self, _button: i32) {}
+        fn set_mouse_pressed(&mut self, _pressed: bool) {}
+        fn set_mouse_dragged(&mut self, _dragged: bool) {}
+        fn add_scroll_x(&mut self, _amount: f32) {}
+        fn add_scroll_y(&mut self, _amount: f32) {}
     }
 }

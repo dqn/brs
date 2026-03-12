@@ -303,8 +303,7 @@ impl BMSPlayerInputProcessor {
 
     pub fn set_play_config(&mut self, playconfig: &mut PlayModeConfig) {
         // KB, controller, Midi exclusive button processing
-        let kbkeys = playconfig.keyboard.keys.to_vec();
-        let mut kbkeys = kbkeys;
+        let mut kbkeys = playconfig.keyboard.keys.to_vec();
         let mut exclusive = vec![false; kbkeys.len()];
         for i in kbkeys.len()..self.keystate.len() {
             self.keystate[i] = false;
@@ -312,6 +311,9 @@ impl BMSPlayerInputProcessor {
         }
 
         let kbcount = Self::set_play_config0(&mut kbkeys, &mut exclusive);
+        // Write back mutated keys so exclusive deduplication propagates
+        // (Java arrays are passed by reference; Rust clones need explicit write-back)
+        playconfig.keyboard.keys = kbkeys;
 
         let mut cokeys: Vec<Vec<i32>> = Vec::new();
         let mut cocount = 0;
@@ -321,9 +323,12 @@ impl BMSPlayerInputProcessor {
         for item in &mut cokeys {
             cocount += Self::set_play_config0(item, &mut exclusive);
         }
+        // Write back mutated controller keys
+        for (i, item) in cokeys.into_iter().enumerate() {
+            playconfig.controller[i].keys = item;
+        }
 
-        let midi_keys = playconfig.midi.keys.to_vec();
-        let mut midi_keys_mut = midi_keys;
+        let mut midi_keys_mut = playconfig.midi.keys.to_vec();
         let mut micount = 0;
         for (key, excl) in midi_keys_mut.iter_mut().zip(exclusive.iter_mut()) {
             if *excl {
@@ -333,6 +338,8 @@ impl BMSPlayerInputProcessor {
                 micount += 1;
             }
         }
+        // Write back mutated MIDI keys
+        playconfig.midi.keys = midi_keys_mut;
 
         // Set key configs for each device
         self.kbinput.set_config(&playconfig.keyboard);
@@ -1121,5 +1128,84 @@ mod tests {
             unique_names.push(name);
         }
         assert_eq!(unique_names, vec!["Pad A", "Pad B", "Pad C"]);
+    }
+
+    // -- Finding 1: exclusive key processing write-back --
+
+    #[test]
+    fn test_set_play_config_exclusive_keys_written_back_to_keyboard() {
+        use crate::stubs::PlayModeConfig;
+
+        let mut proc = make_input_processor();
+        let mut playconfig = PlayModeConfig::default();
+
+        // Set keyboard key[0] to some value
+        playconfig.keyboard.keys[0] = 42;
+        // Set controller key[0] to the same value (duplicate)
+        if !playconfig.controller.is_empty() {
+            playconfig.controller[0].keys[0] = 42;
+        }
+
+        proc.set_play_config(&mut playconfig);
+
+        // Keyboard processes first, so it keeps key[0] = 42.
+        // Controller key[0] should be set to -1 because it was exclusive-deduped.
+        assert_eq!(
+            playconfig.keyboard.keys[0], 42,
+            "keyboard key[0] should be preserved (processed first)"
+        );
+        if !playconfig.controller.is_empty() {
+            assert_eq!(
+                playconfig.controller[0].keys[0], -1,
+                "controller key[0] should be deduped to -1"
+            );
+        }
+    }
+
+    #[test]
+    fn test_set_play_config_exclusive_keys_written_back_to_midi() {
+        use crate::stubs::PlayModeConfig;
+
+        let mut proc = make_input_processor();
+        let mut playconfig = PlayModeConfig::default();
+
+        // Set keyboard key[0] to some non-negative value
+        playconfig.keyboard.keys[0] = 42;
+        // Set midi key[0] to Some
+        if !playconfig.midi.keys.is_empty() {
+            playconfig.midi.keys[0] = Some(crate::stubs::MidiInput::default());
+        }
+
+        proc.set_play_config(&mut playconfig);
+
+        // Keyboard processes first, taking exclusive ownership of slot 0.
+        // MIDI key[0] should be set to None because keyboard claimed slot 0.
+        if !playconfig.midi.keys.is_empty() {
+            assert!(
+                playconfig.midi.keys[0].is_none(),
+                "midi key[0] should be deduped to None"
+            );
+        }
+    }
+
+    #[test]
+    fn test_set_play_config0_exclusive_dedup() {
+        // Verify the core deduplication logic
+        let mut keys = vec![10, 20, 30];
+        let mut exclusive = vec![false, true, false];
+
+        BMSPlayerInputProcessor::set_play_config0(&mut keys, &mut exclusive);
+
+        // key[0]: exclusive[0] was false, key != -1 -> keep, mark exclusive
+        assert_eq!(keys[0], 10);
+        assert!(exclusive[0]);
+
+        // key[1]: exclusive[1] was true -> key set to -1
+        assert_eq!(keys[1], -1);
+        assert!(exclusive[1]);
+
+        // key[2]: exclusive[2] was false, key != -1 -> keep, mark exclusive
+        assert_eq!(keys[2], 30);
+        assert!(exclusive[2]);
     }
 }
