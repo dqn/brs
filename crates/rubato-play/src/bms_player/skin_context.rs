@@ -16,6 +16,15 @@ pub(super) struct PlayRenderContext<'a> {
     pub(super) play_mode: BMSPlayerMode,
     pub(super) state: PlayState,
     pub(super) media_load_finished: bool,
+    /// BPM values from LaneRenderer for skin property display.
+    pub(super) now_bpm: f64,
+    pub(super) min_bpm: f64,
+    pub(super) max_bpm: f64,
+    pub(super) main_bpm: f64,
+    /// Volume values from AudioConfig for skin property display.
+    pub(super) system_volume: f32,
+    pub(super) key_volume: f32,
+    pub(super) bg_volume: f32,
 }
 
 impl rubato_types::timer_access::TimerAccess for PlayRenderContext<'_> {
@@ -100,6 +109,15 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             17 => (self.timer.now_time() / 3_600_000) as i32,
             18 => ((self.timer.now_time() % 3_600_000) / 60_000) as i32,
             19 => ((self.timer.now_time() % 60_000) / 1_000) as i32,
+            // Volume (0-100 scale)
+            57 => (self.system_volume * 100.0) as i32,
+            58 => (self.key_volume * 100.0) as i32,
+            59 => (self.bg_volume * 100.0) as i32,
+            // BPM
+            90 => self.max_bpm as i32,
+            91 => self.min_bpm as i32,
+            92 => self.main_bpm as i32,
+            160 => self.now_bpm as i32,
             // Song duration
             312 => self.playtime,
             1163 => self.playtime / 60,
@@ -118,6 +136,18 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
 
     fn float_value(&self, id: i32) -> f32 {
         match id {
+            // Volume (0.0-1.0)
+            17 => self.system_volume,
+            18 => self.key_volume,
+            19 => self.bg_volume,
+            // Loading progress (0.0-1.0)
+            165 => {
+                if self.media_load_finished {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
             // Gauge value (0.0-1.0)
             1107 => self.gauge.map_or(0.0, |g| g.value()),
             // Hi-speed (from active play config, not always mode7)
@@ -186,7 +216,152 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
         self.timer.set_micro_timer(timer_id, micro_time);
     }
 
+    fn player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
+        Some(&self.player.player_config)
+    }
+
     fn player_config_mut(&mut self) -> Option<&mut rubato_types::player_config::PlayerConfig> {
         Some(&mut self.player.player_config)
+    }
+
+    fn replay_option_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+        Some(&self.player.score.playinfo)
+    }
+
+    fn target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+        self.player.score.target_score.as_ref()
+    }
+
+    fn current_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
+        Some(
+            &self
+                .player
+                .player_config
+                .play_config_ref(
+                    self.player
+                        .model
+                        .mode()
+                        .cloned()
+                        .unwrap_or(bms_model::mode::Mode::BEAT_7K),
+                )
+                .playconfig,
+        )
+    }
+
+    fn now_judge(&self, player: i32) -> i32 {
+        self.player.judge.now_judge(player.max(0) as usize)
+    }
+
+    fn now_combo(&self, player: i32) -> i32 {
+        self.player.judge.now_combo(player.max(0) as usize)
+    }
+
+    fn judge_count(&self, judge: i32, fast: bool) -> i32 {
+        self.player.judge.judge_count_fast(judge, fast)
+    }
+
+    fn gauge_value(&self) -> f32 {
+        self.player.gauge.as_ref().map_or(0.0, |g| g.value())
+    }
+
+    fn gauge_type(&self) -> i32 {
+        self.player.gauge.as_ref().map_or(0, |g| g.gauge_type())
+    }
+
+    fn recent_judges(&self) -> &[i64] {
+        rubato_types::skin_render_context::SkinRenderContext::recent_judges(self.timer)
+    }
+
+    fn recent_judges_index(&self) -> usize {
+        rubato_types::skin_render_context::SkinRenderContext::recent_judges_index(self.timer)
+    }
+
+    fn integer_value(&self, id: i32) -> i32 {
+        match id {
+            350 => self.player.total_notes,
+            17 => (self.timer.now_time() / 3_600_000) as i32,
+            18 => ((self.timer.now_time() % 3_600_000) / 60_000) as i32,
+            19 => ((self.timer.now_time() % 60_000) / 1_000) as i32,
+            // Volume (0-100 scale)
+            57 => (self.player.system_volume * 100.0) as i32,
+            58 => (self.player.key_volume * 100.0) as i32,
+            59 => (self.player.bg_volume * 100.0) as i32,
+            // BPM
+            90 => self
+                .player
+                .lanerender
+                .as_ref()
+                .map_or(0, |lr| lr.max_bpm() as i32),
+            91 => self
+                .player
+                .lanerender
+                .as_ref()
+                .map_or(0, |lr| lr.min_bpm() as i32),
+            92 => self
+                .player
+                .lanerender
+                .as_ref()
+                .map_or(0, |lr| lr.main_bpm() as i32),
+            160 => self
+                .player
+                .lanerender
+                .as_ref()
+                .map_or(0, |lr| lr.now_bpm() as i32),
+            312 => self.player.playtime,
+            1163 => self.player.playtime / 60,
+            1164 => self.player.playtime % 60,
+            165 => {
+                if self.player.media_load_finished {
+                    100
+                } else {
+                    0
+                }
+            }
+            _ => 0,
+        }
+    }
+
+    fn float_value(&self, id: i32) -> f32 {
+        match id {
+            // Volume (0.0-1.0)
+            17 => self.player.system_volume,
+            18 => self.player.key_volume,
+            19 => self.player.bg_volume,
+            // Loading progress (0.0-1.0)
+            165 => {
+                if self.player.media_load_finished {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+            1107 => self.player.gauge.as_ref().map_or(0.0, |g| g.value()),
+            310 => {
+                self.player
+                    .player_config
+                    .play_config_ref(
+                        self.player
+                            .model
+                            .mode()
+                            .cloned()
+                            .unwrap_or(bms_model::mode::Mode::BEAT_7K),
+                    )
+                    .playconfig
+                    .hispeed
+            }
+            _ => 0.0,
+        }
+    }
+
+    fn boolean_value(&self, id: i32) -> bool {
+        match id {
+            200 => {
+                self.player.play_mode.mode == rubato_core::bms_player_mode::Mode::Autoplay
+                    || self.player.play_mode.mode == rubato_core::bms_player_mode::Mode::Replay
+            }
+            201 => self.player.play_mode.mode == rubato_core::bms_player_mode::Mode::Practice,
+            80 => self.player.state == PlayState::Preload,
+            _ => false,
+        }
     }
 }

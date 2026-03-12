@@ -348,6 +348,12 @@ pub struct BMSPlayer {
     /// Used as fallback when adjusted_volume < 0.
     /// Set before create() by the caller.
     bg_volume: f32,
+    /// System volume from AudioConfig.systemvolume (0.0-1.0).
+    /// Cached for skin property display (integer ID 57, float ID 17).
+    system_volume: f32,
+    /// Key volume from AudioConfig.keyvolume (0.0-1.0).
+    /// Cached for skin property display (integer ID 58, float ID 18).
+    key_volume: f32,
     /// Play mode (PLAY, PRACTICE, AUTOPLAY, REPLAY).
     /// Set before create() by the caller. Determines input processor mode.
     play_mode: BMSPlayerMode,

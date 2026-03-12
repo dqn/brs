@@ -220,6 +220,8 @@ impl StateFactory for LauncherStateFactory {
                 if let Some(audio_config) = controller.config().audio_config() {
                     player.set_fast_forward_freq_option(audio_config.fast_forward);
                     player.set_bg_volume(audio_config.bgvolume);
+                    player.set_system_volume(audio_config.systemvolume);
+                    player.set_key_volume(audio_config.keyvolume);
                 }
 
                 // Wire replay data for REPLAY mode

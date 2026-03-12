@@ -41,6 +41,8 @@ impl BMSPlayer {
             pending: PendingActions::new(),
             fast_forward_freq_option: FrequencyType::UNPROCESSED,
             bg_volume: 0.5,
+            system_volume: 0.5,
+            key_volume: 0.5,
             play_mode: BMSPlayerMode::PLAY,
             constraints: Vec::new(),
             is_guide_se: false,
@@ -170,6 +172,18 @@ impl BMSPlayer {
     /// Should be called during initialization.
     pub fn set_bg_volume(&mut self, volume: f32) {
         self.bg_volume = volume;
+    }
+
+    /// Set the system volume from AudioConfig.systemvolume.
+    /// Should be called during initialization for skin property display.
+    pub fn set_system_volume(&mut self, volume: f32) {
+        self.system_volume = volume;
+    }
+
+    /// Set the key volume from AudioConfig.keyvolume.
+    /// Should be called during initialization for skin property display.
+    pub fn set_key_volume(&mut self, volume: f32) {
+        self.key_volume = volume;
     }
 
     /// Set play speed and optionally request global pitch change.

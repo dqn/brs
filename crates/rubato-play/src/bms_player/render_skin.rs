@@ -73,6 +73,7 @@ impl BMSPlayer {
         }
 
         {
+            let lr_ref = self.lanerender.as_ref();
             let mut ctx = PlayRenderContext {
                 timer: &mut timer,
                 judge: &self.judge,
@@ -94,6 +95,13 @@ impl BMSPlayer {
                 play_mode: self.play_mode,
                 state: self.state,
                 media_load_finished: self.media_load_finished,
+                now_bpm: lr_ref.map_or(0.0, |lr| lr.now_bpm()),
+                min_bpm: lr_ref.map_or(0.0, |lr| lr.min_bpm()),
+                max_bpm: lr_ref.map_or(0.0, |lr| lr.max_bpm()),
+                main_bpm: lr_ref.map_or(0.0, |lr| lr.main_bpm()),
+                system_volume: self.system_volume,
+                key_volume: self.key_volume,
+                bg_volume: self.bg_volume,
             };
             skin.update_custom_objects_timed(&mut ctx);
             skin.swap_sprite_batch(sprite);
