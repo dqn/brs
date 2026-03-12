@@ -369,14 +369,22 @@ fn download_daemon_thread_run(state: DownloadDaemonState) {
     alive.store(false, Ordering::SeqCst);
 }
 
+/// Build the IPFS gateway download URL, encoding the `ipfspath` argument
+/// so that metacharacters (`&`, `=`, `#`, etc.) cannot inject extra query
+/// parameters or truncate the URL.
+fn build_ipfs_download_url(gateway_base: &str, ipfspath: &str) -> String {
+    format!(
+        "{}api/v0/get?arg={}&archive=true&compress=true",
+        gateway_base,
+        urlencoding::encode(ipfspath)
+    )
+}
+
 fn download_ipfs_thread_run(ipfs: &str, ipfspath: &str, path: &str, message: Arc<Mutex<String>>) {
     *message.lock().expect("message lock poisoned") = format!("downloading:{}", path);
 
     // Download tar.gz from IPFS gateway
-    let url_str = format!(
-        "{}api/v0/get?arg={}&archive=true&compress=true",
-        ipfs, ipfspath
-    );
+    let url_str = build_ipfs_download_url(ipfs, ipfspath);
     let _ = fs::remove_file("ipfs/bms.tar.gz");
 
     let client = reqwest::blocking::Client::builder()
@@ -686,5 +694,43 @@ mod tests {
         assert!(!has_path_traversal("subdir/file.bms"));
         assert!(!has_path_traversal(""));
         assert!(!has_path_traversal("normal_cid_hash"));
+    }
+
+    #[test]
+    fn build_ipfs_download_url_encodes_plain_cid() {
+        let url = build_ipfs_download_url("https://gateway.ipfs.io/", "QmAbc123");
+        assert_eq!(
+            url,
+            "https://gateway.ipfs.io/api/v0/get?arg=QmAbc123&archive=true&compress=true"
+        );
+    }
+
+    #[test]
+    fn build_ipfs_download_url_encodes_metacharacters() {
+        // An IPFS path containing URL metacharacters must be percent-encoded
+        // so they do not inject extra query parameters or truncate the URL.
+        let url = build_ipfs_download_url("https://gateway.ipfs.io/", "Qm&evil=1#frag");
+        assert!(
+            !url.contains("&evil=1"),
+            "raw '&' in ipfspath must be encoded"
+        );
+        assert!(
+            !url.contains("#frag"),
+            "raw '#' in ipfspath must be encoded"
+        );
+        assert_eq!(
+            url,
+            "https://gateway.ipfs.io/api/v0/get?arg=Qm%26evil%3D1%23frag&archive=true&compress=true"
+        );
+    }
+
+    #[test]
+    fn build_ipfs_download_url_encodes_spaces_and_unicode() {
+        let url = build_ipfs_download_url("https://gw.example.com/", "Qm path/to file");
+        assert!(
+            !url.contains(' '),
+            "spaces in ipfspath must be percent-encoded"
+        );
+        assert!(url.contains("Qm%20path%2Fto%20file"));
     }
 }
