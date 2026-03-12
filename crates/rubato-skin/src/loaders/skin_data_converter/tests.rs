@@ -1,7 +1,7 @@
 use super::*;
 use crate::json::json_skin_loader::{
     CustomOffsetData, CustomOptionData, CustomTimerData, DestinationData, RectData, SkinData,
-    SkinHeaderData, SkinObjectData as DataSkinObjectData,
+    SkinHeaderData, SkinObjectData as DataSkinObjectData, SkinObjectType, SongListBarData,
 };
 use crate::stubs::Resolution;
 
@@ -722,4 +722,143 @@ fn test_note_judge_songlist_return_some() {
     );
     assert!(bar.is_some());
     assert_eq!(bar.unwrap().type_name(), "SkinBar");
+}
+
+#[test]
+fn build_select_bar_data_propagates_graph_from_songlist() {
+    let mut source_map = HashMap::new();
+    let skin_path = std::path::Path::new("/test/skin.json");
+
+    // Create a SongListBarData with a graph sub-object (DistributionGraph, type -1)
+    let graph_obj = DataSkinObjectData {
+        name: Some("bargraph".to_string()),
+        object_type: SkinObjectType::DistributionGraph {
+            src: None,
+            x: 0,
+            y: 0,
+            w: 100,
+            h: 20,
+            divx: 1,
+            divy: 1,
+            timer: None,
+            cycle: 0,
+            graph_type: -1,
+        },
+        destinations: vec![DestinationData {
+            x: 10,
+            y: 20,
+            w: 200,
+            h: 30,
+            ..DestinationData::default()
+        }],
+        ..Default::default()
+    };
+
+    let bar_data = SongListBarData {
+        graph: Some(graph_obj),
+        ..Default::default()
+    };
+
+    let result = bar_data_converter::build_select_bar_data(
+        &bar_data,
+        5,
+        &[],
+        &mut source_map,
+        skin_path,
+        false,
+        1.0,
+    );
+
+    // graph_type should be propagated from the DistributionGraph object
+    assert_eq!(result.graph_type, Some(-1));
+    // graph_region should be extracted from the first destination entry
+    assert_eq!(result.graph_region.x, 10.0);
+    assert_eq!(result.graph_region.y, 20.0);
+    assert_eq!(result.graph_region.width, 200.0);
+    assert_eq!(result.graph_region.height, 30.0);
+    // graph_images is None because no source texture is available (no src in source_map)
+    assert!(result.graph_images.is_none());
+}
+
+#[test]
+fn build_select_bar_data_without_graph_leaves_defaults() {
+    let mut source_map = HashMap::new();
+    let skin_path = std::path::Path::new("/test/skin.json");
+
+    let bar_data = SongListBarData::default();
+
+    let result = bar_data_converter::build_select_bar_data(
+        &bar_data,
+        3,
+        &[1, 2],
+        &mut source_map,
+        skin_path,
+        false,
+        1.0,
+    );
+
+    // When no graph is set, fields should remain at defaults
+    assert!(result.graph_type.is_none());
+    assert!(result.graph_images.is_none());
+    assert_eq!(result.graph_region.x, 0.0);
+    assert_eq!(result.graph_region.y, 0.0);
+    assert_eq!(result.graph_region.width, 0.0);
+    assert_eq!(result.graph_region.height, 0.0);
+}
+
+#[test]
+fn build_select_bar_data_propagates_graph_type_for_normal_graph() {
+    let mut source_map = HashMap::new();
+    let skin_path = std::path::Path::new("/test/skin.json");
+
+    // A normal Graph (type >= 0) should also propagate graph_type
+    let graph_obj = DataSkinObjectData {
+        name: Some("bargraph".to_string()),
+        object_type: SkinObjectType::Graph {
+            src: None,
+            x: 0,
+            y: 0,
+            w: 50,
+            h: 10,
+            divx: 1,
+            divy: 1,
+            timer: None,
+            cycle: 0,
+            angle: 0,
+            graph_type: 0,
+            value: None,
+            is_ref_num: false,
+            min: 0,
+            max: 100,
+        },
+        destinations: vec![DestinationData {
+            x: 5,
+            y: 15,
+            w: 100,
+            h: 25,
+            ..DestinationData::default()
+        }],
+        ..Default::default()
+    };
+
+    let bar_data = SongListBarData {
+        graph: Some(graph_obj),
+        ..Default::default()
+    };
+
+    let result = bar_data_converter::build_select_bar_data(
+        &bar_data,
+        0,
+        &[],
+        &mut source_map,
+        skin_path,
+        false,
+        1.0,
+    );
+
+    assert_eq!(result.graph_type, Some(0));
+    assert_eq!(result.graph_region.x, 5.0);
+    assert_eq!(result.graph_region.y, 15.0);
+    assert_eq!(result.graph_region.width, 100.0);
+    assert_eq!(result.graph_region.height, 25.0);
 }

@@ -2,13 +2,16 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::json::json_skin_loader::{
-    SkinObjectData as LoaderSkinObjectData, SongListBarData, SourceData,
+    SkinObjectData as LoaderSkinObjectData, SkinObjectType, SongListBarData, SourceData,
 };
+use crate::json::json_skin_object_loader::source_image;
 use crate::objects::skin_image::SkinImage;
 use crate::objects::skin_number::SkinNumber;
+use crate::stubs::{Rectangle, TextureRegion};
 use crate::types::skin::SkinObject;
 
 use super::object_converter::{apply_destinations, convert_skin_object};
+use super::texture_resolution::get_texture_for_src;
 
 /// Build SelectBarData from resolved JSON SongList bar sub-objects.
 /// Each sub-SkinObjectData is converted to the appropriate skin type
@@ -58,11 +61,9 @@ pub(super) fn build_select_bar_data(
         ),
         bartrophy: convert_bar_sub_images(&bar_data.trophy, source_map, skin_path, usecim, scale_y),
         barlabel: convert_bar_sub_images(&bar_data.label, source_map, skin_path, usecim, scale_y),
-        // Known rendering gap: songlist.graph from JSON select skins is not propagated.
-        // Fix: resolve bar_data.graph into graph_type/graph_images/graph_region here.
-        graph_type: None,
-        graph_images: None,
-        graph_region: crate::stubs::Rectangle::default(),
+        graph_type: resolve_graph_type(bar_data.graph.as_ref()),
+        graph_images: resolve_graph_images(bar_data.graph.as_ref(), source_map, skin_path, usecim),
+        graph_region: resolve_graph_region(bar_data.graph.as_ref()),
     }
 }
 
@@ -145,4 +146,62 @@ fn convert_bar_sub_numbers(
             }
         })
         .collect()
+}
+
+/// Extract graph_type from a resolved graph SkinObjectData.
+fn resolve_graph_type(graph: Option<&LoaderSkinObjectData>) -> Option<i32> {
+    let graph = graph?;
+    match &graph.object_type {
+        SkinObjectType::Graph { graph_type, .. }
+        | SkinObjectType::DistributionGraph { graph_type, .. } => Some(*graph_type),
+        _ => None,
+    }
+}
+
+/// Resolve graph source textures into TextureRegion vec for bar distribution graph.
+fn resolve_graph_images(
+    graph: Option<&LoaderSkinObjectData>,
+    source_map: &mut HashMap<String, SourceData>,
+    skin_path: &Path,
+    usecim: bool,
+) -> Option<Vec<TextureRegion>> {
+    let graph = graph?;
+    let (src, x, y, w, h, divx, divy) = match &graph.object_type {
+        SkinObjectType::Graph {
+            src,
+            x,
+            y,
+            w,
+            h,
+            divx,
+            divy,
+            ..
+        } => (src.as_deref(), *x, *y, *w, *h, *divx, *divy),
+        SkinObjectType::DistributionGraph {
+            src,
+            x,
+            y,
+            w,
+            h,
+            divx,
+            divy,
+            ..
+        } => (src.as_deref(), *x, *y, *w, *h, *divx, *divy),
+        _ => return None,
+    };
+    let tex = get_texture_for_src(src, source_map, skin_path, usecim)?;
+    Some(source_image(&tex, x, y, w, h, divx, divy))
+}
+
+/// Extract graph_region from the first destination entry of a resolved graph SkinObjectData.
+fn resolve_graph_region(graph: Option<&LoaderSkinObjectData>) -> Rectangle {
+    let graph = match graph {
+        Some(g) => g,
+        None => return Rectangle::default(),
+    };
+    // Use the first destination entry's x, y, w, h for the graph region
+    match graph.destinations.first() {
+        Some(dst) => Rectangle::new(dst.x as f32, dst.y as f32, dst.w as f32, dst.h as f32),
+        None => Rectangle::default(),
+    }
 }

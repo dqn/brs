@@ -609,6 +609,8 @@ pub struct SongListBarData {
     pub rivallamp: Vec<Option<SkinObjectData>>,
     pub trophy: Vec<Option<SkinObjectData>>,
     pub label: Vec<Option<SkinObjectData>>,
+    /// Distribution graph sub-object from songlist.graph
+    pub graph: Option<SkinObjectData>,
 }
 
 /// Offset data for SkinNumber/SkinFloat per-digit offsets

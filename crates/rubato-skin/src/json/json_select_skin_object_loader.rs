@@ -110,6 +110,15 @@ fn resolve_songlist_bar_data(
             .collect()
     };
 
+    // Resolve graph sub-destination (single optional destination, not an array)
+    let graph = songlist.graph.as_ref().and_then(|graph_dst| {
+        let mut obj =
+            json_skin_object_loader::load_base_skin_object(loader, skin, sk, graph_dst, p)?;
+        let mut dummy_skin = SkinData::new();
+        loader.set_destination(&mut dummy_skin, &mut obj, graph_dst);
+        Some(obj)
+    });
+
     SongListBarData {
         listoff: resolve_dests(loader, &songlist.listoff),
         liston: resolve_dests(loader, &songlist.liston),
@@ -120,6 +129,7 @@ fn resolve_songlist_bar_data(
         rivallamp: resolve_dests(loader, &songlist.rivallamp),
         trophy: resolve_dests(loader, &songlist.trophy),
         label: resolve_dests(loader, &songlist.label),
+        graph,
     }
 }
 
