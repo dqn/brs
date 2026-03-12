@@ -845,7 +845,7 @@ impl ObsWsClient {
     }
 
     pub fn save_last_recording(&self, reason: &str) {
-        let guard = lock_or_recover(&self.inner);
+        let mut guard = lock_or_recover(&self.inner);
         // Java original: if (!this.isConnected && !canSendRequest())
         // Simplified: the second conjunct is always true when !is_connected,
         // so the condition reduces to just !is_connected.
@@ -867,11 +867,9 @@ impl ObsWsClient {
             return;
         }
 
+        // Set flag under the same lock guard to avoid TOCTOU race.
+        guard.save_requested = true;
         drop(guard);
-        {
-            let mut guard = lock_or_recover(&self.inner);
-            guard.save_requested = true;
-        }
         ImGuiNotify::info("OBS: Recording will be kept.");
     }
 

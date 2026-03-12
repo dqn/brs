@@ -413,6 +413,13 @@ impl MainController {
         }
         // ShaderManager::dispose();
 
+        // Dispose audio driver to release Kira's AudioManager and its background
+        // cpal thread.
+        if let Some(ref mut audio) = self.audio {
+            audio.dispose();
+        }
+        self.audio = None;
+
         info!("All resources disposed");
     }
 

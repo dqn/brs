@@ -1,5 +1,6 @@
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
+use std::time::Duration;
 
 use super::connection::IPCConnection;
 use anyhow::Result;
@@ -60,6 +61,10 @@ impl IPCConnection for UnixIPCConnection {
             let ipc_path = format!("{}/discord-ipc-{}", base, slot);
             match UnixStream::connect(&ipc_path) {
                 Ok(stream) => {
+                    // Set timeouts to prevent blocking the render thread if Discord
+                    // IPC is slow or hung.
+                    stream.set_read_timeout(Some(Duration::from_millis(100)))?;
+                    stream.set_write_timeout(Some(Duration::from_millis(100)))?;
                     self.socket = Some(stream);
                     return Ok(());
                 }

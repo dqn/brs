@@ -215,7 +215,7 @@ mod ffmpeg_impl {
                 }
             }
 
-            let current_time = time.load(Ordering::Relaxed);
+            let current_time = time.load(Ordering::Acquire);
             let microtime = current_time * 1000 + state.offset;
 
             if microtime >= state.current_ts_us {
@@ -328,7 +328,7 @@ mod ffmpeg_impl {
         let _ = input_context.seek(0, ..0);
         decoder.flush();
         state.eof = false;
-        let current_time = time.load(Ordering::Relaxed);
+        let current_time = time.load(Ordering::Acquire);
         state.offset = -current_time * 1000;
         state.framecount = 1;
         state.current_ts_us = 0;
@@ -456,7 +456,7 @@ impl MovieProcessor for FFmpegProcessor {
                 // Update time for background thread
                 handle
                     .time
-                    .store(time, std::sync::atomic::Ordering::Relaxed);
+                    .store(time, std::sync::atomic::Ordering::Release);
                 // Check for new decoded frame
                 if let Ok(mut s) = handle.shared.lock() {
                     if s.status == ProcessorStatus::TextureActive {
@@ -487,7 +487,7 @@ impl MovieProcessor for FFmpegProcessor {
                 // Set time before sending command (matches Java: this.time = time; movieseek.exec())
                 handle
                     .time
-                    .store(time, std::sync::atomic::Ordering::Relaxed);
+                    .store(time, std::sync::atomic::Ordering::Release);
                 let cmd = if loop_play {
                     Command::Loop
                 } else {
