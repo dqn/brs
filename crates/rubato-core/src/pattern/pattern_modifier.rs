@@ -222,29 +222,14 @@ pub(crate) fn make_test_model(mode: &Mode, timelines: Vec<TimeLine>) -> BMSModel
 pub fn move_to_background(tls: &mut [TimeLine], tl_index: usize, lane: i32) {
     let note = tls[tl_index].note(lane).cloned();
     if let Some(ref n) = note {
-        if n.is_long() {
-            // Find the pair timeline
-            if let Some(_pair_idx) = n.pair() {
-                // In the Java code, pair is a direct reference. Here pair_idx is the timeline index
-                // where the pair note lives. We need to find the timeline where the pair note is.
-                // Actually, in our model, get_pair() returns an Option<usize> which is the pair index
-                // in the timelines array, but in the pattern context, we need to search by section.
-                // Let's search for the pair note by iterating over timelines.
-                for (i, tl_item) in tls.iter_mut().enumerate() {
-                    if i == tl_index {
-                        continue;
-                    }
-                    if let Some(pair_note) = tl_item.note(lane)
-                        && pair_note.is_long()
-                        && pair_note.is_end()
-                    {
-                        // Check if this is the matching pair
-                        let pair_note_clone = tl_item.take_note(lane);
-                        if let Some(pn) = pair_note_clone {
-                            tl_item.add_back_ground_note(pn);
-                        }
-                        break;
-                    }
+        if n.is_long() && !n.is_end() {
+            // LN start: move the paired LN end to background using pair index
+            if let Some(pair_idx) = n.pair()
+                && pair_idx < tls.len()
+            {
+                let pair_note = tls[pair_idx].take_note(lane);
+                if let Some(pn) = pair_note {
+                    tls[pair_idx].add_back_ground_note(pn);
                 }
             }
         }
@@ -508,5 +493,65 @@ mod tests {
 
         let tls = model.timelines;
         assert_eq!(tls[0].note(0).unwrap().wav(), 10);
+    }
+
+    #[test]
+    fn move_paired_ln_to_background_moves_both_start_and_end() {
+        // Setup: LN start at tl0 lane 0, LN end at tl2 lane 0, with pair indices set
+        let mut tl0 = TimeLine::new(0.0, 0, 8);
+        let mut ln_start = Note::new_long(1);
+        ln_start.set_pair_index(Some(2)); // points to tl2
+        tl0.set_note(0, Some(ln_start));
+
+        let tl1 = TimeLine::new(1.0, 1_000_000, 8);
+
+        let mut tl2 = TimeLine::new(2.0, 2_000_000, 8);
+        let mut ln_end = Note::new_long(1);
+        ln_end.set_end(true);
+        ln_end.set_pair_index(Some(0)); // points to tl0
+        tl2.set_note(0, Some(ln_end));
+
+        let mut tls = vec![tl0, tl1, tl2];
+
+        // Move the LN start to background
+        move_to_background(&mut tls, 0, 0);
+
+        // LN start should be moved to background at tl0
+        assert!(tls[0].note(0).is_none());
+        assert_eq!(tls[0].back_ground_notes().len(), 1);
+        assert!(tls[0].back_ground_notes()[0].is_long());
+
+        // LN end should also be moved to background at tl2
+        assert!(tls[2].note(0).is_none());
+        assert_eq!(tls[2].back_ground_notes().len(), 1);
+        assert!(tls[2].back_ground_notes()[0].is_long());
+        assert!(tls[2].back_ground_notes()[0].is_end());
+
+        // tl1 should be unaffected
+        assert!(tls[1].back_ground_notes().is_empty());
+    }
+
+    #[test]
+    fn move_ln_without_pair_index_does_not_move_end() {
+        // LN start with no pair index (pair == None)
+        let mut tl0 = TimeLine::new(0.0, 0, 8);
+        tl0.set_note(0, Some(Note::new_long(1)));
+
+        let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
+        let mut ln_end = Note::new_long(1);
+        ln_end.set_end(true);
+        tl1.set_note(0, Some(ln_end));
+
+        let mut tls = vec![tl0, tl1];
+
+        move_to_background(&mut tls, 0, 0);
+
+        // LN start moved to background
+        assert!(tls[0].note(0).is_none());
+        assert_eq!(tls[0].back_ground_notes().len(), 1);
+
+        // LN end should NOT be moved (no pair index)
+        assert!(tls[1].note(0).is_some());
+        assert!(tls[1].back_ground_notes().is_empty());
     }
 }

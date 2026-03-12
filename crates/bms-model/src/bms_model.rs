@@ -375,6 +375,41 @@ impl BMSModel {
         let key = self.mode().map(|m| m.key()).unwrap_or(0);
         (0..key).map(|i| Lane::new(self, i)).collect()
     }
+
+    /// Resolve LN pair indices after all timelines have been populated.
+    ///
+    /// For each lane, walks the timelines in order and pairs LN starts
+    /// (is_long && !is_end) with the next LN end (is_long && is_end)
+    /// by setting bidirectional pair indices.
+    pub fn resolve_long_note_pairs(&mut self) {
+        let keys = self.mode.as_ref().map(|m| m.key()).unwrap_or(0);
+        for lane in 0..keys {
+            let mut start_idx: Option<usize> = None;
+            for tl_idx in 0..self.timelines.len() {
+                let is_long_start;
+                let is_long_end;
+                if let Some(note) = self.timelines[tl_idx].note(lane) {
+                    is_long_start = note.is_long() && !note.is_end();
+                    is_long_end = note.is_long() && note.is_end();
+                } else {
+                    continue;
+                }
+
+                if is_long_start {
+                    start_idx = Some(tl_idx);
+                } else if is_long_end && let Some(s_idx) = start_idx.take() {
+                    // Pair end -> start
+                    if let Some(end_note) = self.timelines[tl_idx].note_mut(lane) {
+                        end_note.set_pair_index(Some(s_idx));
+                    }
+                    // Pair start -> end
+                    if let Some(start_note) = self.timelines[s_idx].note_mut(lane) {
+                        start_note.set_pair_index(Some(tl_idx));
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -903,5 +938,119 @@ mod tests {
 
         let lanes = model.lanes();
         assert!(lanes.is_empty());
+    }
+
+    #[test]
+    fn resolve_long_note_pairs_sets_bidirectional_indices() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        // Timeline 0: LN start on lane 0
+        let mut tl0 = TimeLine::new(0.0, 0, 8);
+        tl0.set_note(0, Some(Note::new_long(1)));
+
+        // Timeline 1: normal note on lane 1 (not related)
+        let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
+        tl1.set_note(1, Some(Note::new_normal(2)));
+
+        // Timeline 2: LN end on lane 0
+        let mut tl2 = TimeLine::new(2.0, 2_000_000, 8);
+        let mut ln_end = Note::new_long(1);
+        ln_end.set_end(true);
+        tl2.set_note(0, Some(ln_end));
+
+        model.timelines = vec![tl0, tl1, tl2];
+
+        // Before resolution, pairs are None
+        assert_eq!(model.timelines[0].note(0).unwrap().pair(), None);
+        assert_eq!(model.timelines[2].note(0).unwrap().pair(), None);
+
+        model.resolve_long_note_pairs();
+
+        // After resolution, start points to end (index 2) and end points to start (index 0)
+        assert_eq!(model.timelines[0].note(0).unwrap().pair(), Some(2));
+        assert_eq!(model.timelines[2].note(0).unwrap().pair(), Some(0));
+    }
+
+    #[test]
+    fn resolve_long_note_pairs_multiple_lanes() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        // Lane 0: LN at tl0-tl2, Lane 1: LN at tl1-tl3
+        let mut tl0 = TimeLine::new(0.0, 0, 8);
+        tl0.set_note(0, Some(Note::new_long(1)));
+
+        let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
+        tl1.set_note(1, Some(Note::new_long(2)));
+
+        let mut tl2 = TimeLine::new(2.0, 2_000_000, 8);
+        let mut end0 = Note::new_long(1);
+        end0.set_end(true);
+        tl2.set_note(0, Some(end0));
+
+        let mut tl3 = TimeLine::new(3.0, 3_000_000, 8);
+        let mut end1 = Note::new_long(2);
+        end1.set_end(true);
+        tl3.set_note(1, Some(end1));
+
+        model.timelines = vec![tl0, tl1, tl2, tl3];
+        model.resolve_long_note_pairs();
+
+        // Lane 0: start at 0, end at 2
+        assert_eq!(model.timelines[0].note(0).unwrap().pair(), Some(2));
+        assert_eq!(model.timelines[2].note(0).unwrap().pair(), Some(0));
+
+        // Lane 1: start at 1, end at 3
+        assert_eq!(model.timelines[1].note(1).unwrap().pair(), Some(3));
+        assert_eq!(model.timelines[3].note(1).unwrap().pair(), Some(1));
+    }
+
+    #[test]
+    fn resolve_long_note_pairs_no_mode_is_noop() {
+        let mut model = BMSModel::new();
+        // No mode set, key count is 0
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        tl.set_note(0, Some(Note::new_long(1)));
+        model.timelines = vec![tl];
+
+        model.resolve_long_note_pairs();
+
+        // No crash, pair stays None
+        assert_eq!(model.timelines[0].note(0).unwrap().pair(), None);
+    }
+
+    #[test]
+    fn resolve_long_note_pairs_consecutive_ln_pairs() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        // Two consecutive LN pairs on the same lane: start0-end0-start1-end1
+        let mut tl0 = TimeLine::new(0.0, 0, 8);
+        tl0.set_note(0, Some(Note::new_long(1)));
+
+        let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
+        let mut end0 = Note::new_long(1);
+        end0.set_end(true);
+        tl1.set_note(0, Some(end0));
+
+        let mut tl2 = TimeLine::new(2.0, 2_000_000, 8);
+        tl2.set_note(0, Some(Note::new_long(3)));
+
+        let mut tl3 = TimeLine::new(3.0, 3_000_000, 8);
+        let mut end1 = Note::new_long(3);
+        end1.set_end(true);
+        tl3.set_note(0, Some(end1));
+
+        model.timelines = vec![tl0, tl1, tl2, tl3];
+        model.resolve_long_note_pairs();
+
+        // First pair: 0 <-> 1
+        assert_eq!(model.timelines[0].note(0).unwrap().pair(), Some(1));
+        assert_eq!(model.timelines[1].note(0).unwrap().pair(), Some(0));
+
+        // Second pair: 2 <-> 3
+        assert_eq!(model.timelines[2].note(0).unwrap().pair(), Some(3));
+        assert_eq!(model.timelines[3].note(0).unwrap().pair(), Some(2));
     }
 }

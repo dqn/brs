@@ -781,6 +781,7 @@ impl BMSONDecoder {
 
         let timelines: Vec<TimeLine> = tlcache.into_values().map(|tlc| tlc.timeline).collect();
         model.timelines = timelines;
+        model.resolve_long_note_pairs();
 
         log::debug!("BMSONファイル解析完了 :{}", f.display());
 

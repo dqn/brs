@@ -138,6 +138,7 @@ impl BMSDecoder {
 
         let sections = self.build_sections(&mut model, maxsec);
         self.build_timelines(&mut model, &sections);
+        model.resolve_long_note_pairs();
 
         // Validate start BPM
         let all_tl = &model.timelines;

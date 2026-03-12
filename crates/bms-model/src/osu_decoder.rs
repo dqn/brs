@@ -321,6 +321,7 @@ impl OSUDecoder {
         model.wavmap = wavmap;
         let tl_vec: Vec<TimeLine> = timelines.into_values().collect();
         model.timelines = tl_vec;
+        model.resolve_long_note_pairs();
         model.bgamap = bga_list;
         model.info = Some(ChartInformation::new(
             Some(f.to_path_buf()),
