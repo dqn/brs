@@ -317,6 +317,9 @@ impl GrooveGauge {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bms_model::mode::Mode;
+    use bms_model::note::Note;
+    use bms_model::time_line::TimeLine;
 
     fn make_model() -> BMSModel {
         let mut model = BMSModel::new();
@@ -324,14 +327,31 @@ mod tests {
         model
     }
 
+    /// Create a model with `n` normal notes and total = 300.0.
+    fn make_model_with_notes(n: usize) -> BMSModel {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        model.total = 300.0;
+        let mut timelines = Vec::with_capacity(n);
+        for i in 0..n {
+            let mut tl = TimeLine::new(0.0, (i as i64) * 1_000_000, 8);
+            tl.set_note(0, Some(Note::new_normal(1)));
+            timelines.push(tl);
+        }
+        model.timelines = timelines;
+        model
+    }
+
     // -- GaugeModifier tests --
 
     #[test]
     fn test_gauge_modifier_total_positive() {
-        let model = make_model();
+        // Use a model with 100 notes so the formula path executes:
+        // f * model.total / model.total_notes() = 1.0 * 300.0 / 100.0 = 3.0
+        let model = make_model_with_notes(100);
+        assert_eq!(model.total_notes(), 100);
         let result = GaugeModifier::Total.modify(1.0, &model);
-        // total_notes = 0 for empty model, so modifier returns f unchanged
-        assert_eq!(result, 1.0);
+        assert_eq!(result, 3.0);
     }
 
     #[test]
@@ -625,6 +645,46 @@ mod tests {
         let gauge = gg.gauge_by_type_mut(100);
         gauge.set_value(55.0);
         assert_eq!(gg.value_by_type(0), 55.0);
+    }
+
+    #[test]
+    fn test_gauge_dead_is_irrecoverable() {
+        let model = make_model();
+        let element = GaugeElementProperty {
+            modifier: None,
+            value: vec![0.15, 0.12, 0.03, -5.0, -10.0, -5.0],
+            min: 0.0,
+            max: 100.0,
+            init: 50.0,
+            border: 0.0,
+            death: 2.0,
+            guts: vec![],
+        };
+        let mut gauge = Gauge::new(&model, element, ClearType::Hard);
+        assert_eq!(gauge.value(), 50.0);
+
+        // Drive gauge below death threshold, which sets value to 0 (dead)
+        gauge.set_value(1.0);
+        assert_eq!(
+            gauge.value(),
+            0.0,
+            "gauge should be dead after dropping below death threshold"
+        );
+
+        // Once dead (value == 0), set_value is a no-op: gauge is permanently dead
+        gauge.set_value(50.0);
+        assert_eq!(
+            gauge.value(),
+            0.0,
+            "dead gauge must remain at 0 after set_value(50.0)"
+        );
+
+        gauge.set_value(100.0);
+        assert_eq!(
+            gauge.value(),
+            0.0,
+            "dead gauge must remain at 0 after set_value(100.0)"
+        );
     }
 }
 

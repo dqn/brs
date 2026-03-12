@@ -108,13 +108,12 @@ fn init_sets_up_judge_tables() {
 #[test]
 fn init_sets_up_ghost_array() {
     let mut jm = JudgeManager::new();
-    let mut model = BMSModel::new();
-    model.set_mode(Mode::BEAT_7K);
-    model.judgerank = 100;
+    let model = make_model_with_notes(&[1_000_000, 2_000_000, 3_000_000]);
     jm.init(&model, 1, None, &[]);
 
     let ghost = jm.ghost();
     let total = model.total_notes() as usize;
+    assert_eq!(total, 3);
     assert_eq!(ghost.len(), total);
     for &g in ghost {
         assert_eq!(g, 4);

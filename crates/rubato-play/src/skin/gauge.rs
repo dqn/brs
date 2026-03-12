@@ -144,38 +144,57 @@ mod tests {
         SkinGauge::new(50, animation_type, animation_range, duration)
     }
 
+    fn make_groove_gauge() -> GrooveGauge {
+        use crate::groove_gauge::create_groove_gauge;
+        use bms_model::bms_model::BMSModel;
+        use bms_model::mode::Mode;
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+        create_groove_gauge(&model, 2, 0, None).unwrap()
+    }
+
     #[test]
     fn test_flickering_zero_duration_no_panic() {
+        let gauge = make_groove_gauge();
         let mut g = make_gauge(ANIMATION_FLICKERING, 4, 0);
-        g.prepare(1000, None);
+        g.prepare(1000, Some(&gauge));
+        // duration <= 0 triggers the guard at line 64, setting animation to 0
         assert_eq!(g.animation, 0);
     }
 
     #[test]
     fn test_random_negative_animation_range_no_panic() {
+        let gauge = make_groove_gauge();
         let mut g = make_gauge(ANIMATION_RANDOM, -1, 33);
-        g.prepare(1000, None);
+        g.prepare(1000, Some(&gauge));
+        // animation_range < 0 triggers the guard at line 64, setting animation to 0
         assert_eq!(g.animation, 0);
     }
 
     #[test]
     fn test_increase_negative_animation_range_no_panic() {
+        let gauge = make_groove_gauge();
         let mut g = make_gauge(ANIMATION_INCLEASE, -1, 33);
-        g.prepare(1000, None);
+        g.prepare(1000, Some(&gauge));
+        // animation_range < 0 triggers the guard at line 64, setting animation to 0
         assert_eq!(g.animation, 0);
     }
 
     #[test]
     fn test_decrease_negative_animation_range_no_panic() {
+        let gauge = make_groove_gauge();
         let mut g = make_gauge(ANIMATION_DECLEASE, -1, 33);
-        g.prepare(1000, None);
+        g.prepare(1000, Some(&gauge));
+        // animation_range < 0 triggers the guard at line 64, setting animation to 0
         assert_eq!(g.animation, 0);
     }
 
     #[test]
     fn test_flickering_negative_duration_no_panic() {
+        let gauge = make_groove_gauge();
         let mut g = make_gauge(ANIMATION_FLICKERING, 4, -10);
-        g.prepare(1000, None);
+        g.prepare(1000, Some(&gauge));
+        // duration <= 0 triggers the guard at line 64, setting animation to 0
         assert_eq!(g.animation, 0);
     }
 
