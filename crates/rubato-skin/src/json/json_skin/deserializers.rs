@@ -31,9 +31,16 @@ fn conditions_satisfied(conditions: &[serde_json::Value]) -> bool {
         let enabled = eo.borrow();
         match &*enabled {
             None => true, // No filter set -- include everything
-            Some(set) => conditions
-                .iter()
-                .all(|c| c.as_i64().is_some_and(|id| set.contains(&(id as i32)))),
+            Some(set) => conditions.iter().all(|c| {
+                if let Some(id) = c.as_i64() {
+                    set.contains(&(id as i32))
+                } else if let Some(arr) = c.as_array() {
+                    arr.iter()
+                        .any(|sub| sub.as_i64().is_some_and(|id| set.contains(&(id as i32))))
+                } else {
+                    false
+                }
+            }),
         }
     })
 }
@@ -305,4 +312,90 @@ where
 {
     let items: Vec<serde_json::Value> = Vec::deserialize(deserializer)?;
     deserialize_vec_with_conditionals(items).map_err(serde::de::Error::custom)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn conditions_satisfied_empty_returns_true() {
+        assert!(conditions_satisfied(&[]));
+    }
+
+    #[test]
+    fn conditions_satisfied_no_filter_returns_true() {
+        set_enabled_options(None);
+        assert!(conditions_satisfied(&[serde_json::json!(901)]));
+    }
+
+    #[test]
+    fn conditions_satisfied_flat_ids() {
+        let mut opts = HashSet::new();
+        opts.insert(901);
+        opts.insert(911);
+        set_enabled_options(Some(opts));
+
+        // All present -> true
+        assert!(conditions_satisfied(&[
+            serde_json::json!(901),
+            serde_json::json!(911),
+        ]));
+        // Missing 912 -> false
+        assert!(!conditions_satisfied(&[
+            serde_json::json!(901),
+            serde_json::json!(912),
+        ]));
+
+        set_enabled_options(None);
+    }
+
+    #[test]
+    fn conditions_satisfied_nested_or_group() {
+        let mut opts = HashSet::new();
+        opts.insert(902);
+        opts.insert(911);
+        set_enabled_options(Some(opts));
+
+        // [[901, 902], 911] -> (901 || 902) && 911 -> true (902 matches)
+        assert!(conditions_satisfied(&[
+            serde_json::json!([901, 902]),
+            serde_json::json!(911),
+        ]));
+
+        // [[901, 903], 911] -> (901 || 903) && 911 -> false (neither 901 nor 903)
+        assert!(!conditions_satisfied(&[
+            serde_json::json!([901, 903]),
+            serde_json::json!(911),
+        ]));
+
+        set_enabled_options(None);
+    }
+
+    #[test]
+    fn conditions_satisfied_nested_or_group_alone() {
+        let mut opts = HashSet::new();
+        opts.insert(902);
+        set_enabled_options(Some(opts));
+
+        // [[901, 902]] -> (901 || 902) -> true
+        assert!(conditions_satisfied(&[serde_json::json!([901, 902])]));
+
+        // [[903, 904]] -> (903 || 904) -> false
+        assert!(!conditions_satisfied(&[serde_json::json!([903, 904])]));
+
+        set_enabled_options(None);
+    }
+
+    #[test]
+    fn conditions_satisfied_non_integer_element_returns_false() {
+        let mut opts = HashSet::new();
+        opts.insert(901);
+        set_enabled_options(Some(opts));
+
+        // A string element is neither integer nor array -> false
+        assert!(!conditions_satisfied(&[serde_json::json!("not_a_number")]));
+
+        set_enabled_options(None);
+    }
 }
