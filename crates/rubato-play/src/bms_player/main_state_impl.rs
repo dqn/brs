@@ -815,9 +815,12 @@ impl MainState for BMSPlayer {
 
                 // Quick retry check (START xor SELECT)
                 // Translated from: Java BMSPlayer.render() lines 823-838
+                // Guard: skip if a state transition is already queued to avoid
+                // calling save_config() on every frame while keys are held.
                 if (self.input.input_start_pressed ^ self.input.input_select_pressed)
                     && !self.is_course_mode
                     && self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play
+                    && self.pending.pending_state_change.is_none()
                 {
                     self.pending.pending_global_pitch = Some(1.0);
                     self.save_config();
@@ -833,7 +836,7 @@ impl MainState for BMSPlayer {
                     if self.main_state_data.timer.is_timer_on(TIMER_PLAY) {
                         let failed_time = self.main_state_data.timer.timer(TIMER_FAILED);
                         let play_time = self.main_state_data.timer.timer(TIMER_PLAY);
-                        let mut l = failed_time - play_time;
+                        let mut l = (failed_time - play_time).max(0);
                         while l < self.playtime as i64 + 500 {
                             for glog in self.gaugelog.iter_mut() {
                                 glog.push(0.0);
