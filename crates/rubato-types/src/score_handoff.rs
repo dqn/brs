@@ -22,6 +22,10 @@ pub struct ScoreHandoff {
     pub groove_gauge: Option<GrooveGauge>,
     /// Assist flags
     pub assist: i32,
+    /// Whether frequency training is active (blocks score DB updates in result).
+    pub freq_on: bool,
+    /// Whether IR score submission should be blocked (e.g., frequency training active).
+    pub force_no_ir_send: bool,
     /// Replay data populated with key input log and pattern info from the play session.
     /// Applied to PlayerResource.replay on handoff so save_replay_data() writes the live data.
     pub replay_data: Option<ReplayData>,

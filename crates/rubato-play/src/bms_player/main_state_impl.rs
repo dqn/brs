@@ -475,6 +475,10 @@ impl MainState for BMSPlayer {
                         if self.fast_forward_freq_option == FrequencyType::FREQUENCY {
                             self.pending.pending_global_pitch = Some(property.freq as f32 / 100.0);
                         }
+                        // Block IR submission and mark frequency training active
+                        // (matches Java FreqTrainerResult semantics)
+                        self.freq_on = true;
+                        self.force_no_ir_send = true;
                     }
 
                     self.model.total = property.total;
@@ -860,6 +864,8 @@ impl MainState for BMSPlayer {
                             gauge: self.gaugelog.clone(),
                             groove_gauge: self.gauge.clone(),
                             assist: self.assist,
+                            freq_on: self.freq_on,
+                            force_no_ir_send: self.force_no_ir_send,
                             replay_data: Some(replay),
                         });
                     // input.setEnable(true); input.setStartTime(0);
@@ -925,6 +931,8 @@ impl MainState for BMSPlayer {
                             gauge: self.gaugelog.clone(),
                             groove_gauge: self.gauge.clone(),
                             assist: self.assist,
+                            freq_on: self.freq_on,
+                            force_no_ir_send: self.force_no_ir_send,
                             replay_data: Some(replay),
                         });
                     // input.setEnable(true); input.setStartTime(0);

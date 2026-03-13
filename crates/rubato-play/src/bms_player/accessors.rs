@@ -53,6 +53,8 @@ impl BMSPlayer {
             media_load_finished: false,
             is_course_mode: false,
             device_type: rubato_input::bms_player_input_device::DeviceType::Keyboard,
+            freq_on: false,
+            force_no_ir_send: false,
         }
     }
 

@@ -1500,3 +1500,155 @@ fn test_transition_to_play_calls_audio_set_model() {
         "audio.set_model() must be called when transitioning to a state that has a BMSModel"
     );
 }
+
+// --- ScoreHandoff transfer tests ---
+
+/// A test state that produces a ScoreHandoff on the first render() call.
+struct HandoffTestState {
+    state_data: MainStateData,
+    handoff: Option<rubato_types::score_handoff::ScoreHandoff>,
+}
+
+impl HandoffTestState {
+    fn new(handoff: rubato_types::score_handoff::ScoreHandoff) -> Self {
+        Self {
+            state_data: MainStateData::new(TimerManager::new()),
+            handoff: Some(handoff),
+        }
+    }
+}
+
+impl MainState for HandoffTestState {
+    fn state_type(&self) -> Option<MainStateType> {
+        Some(MainStateType::Play)
+    }
+
+    fn main_state_data(&self) -> &MainStateData {
+        &self.state_data
+    }
+
+    fn main_state_data_mut(&mut self) -> &mut MainStateData {
+        &mut self.state_data
+    }
+
+    fn create(&mut self) {}
+
+    fn render(&mut self) {}
+
+    fn take_score_handoff(&mut self) -> Option<rubato_types::score_handoff::ScoreHandoff> {
+        self.handoff.take()
+    }
+}
+
+fn make_handoff(
+    assist: i32,
+    freq_on: bool,
+    force_no_ir_send: bool,
+) -> rubato_types::score_handoff::ScoreHandoff {
+    rubato_types::score_handoff::ScoreHandoff {
+        score_data: None,
+        combo: 0,
+        maxcombo: 0,
+        gauge: vec![],
+        groove_gauge: None,
+        assist,
+        freq_on,
+        force_no_ir_send,
+        replay_data: None,
+    }
+}
+
+#[test]
+fn test_handoff_update_score_false_when_assist_nonzero() {
+    let mut mc = make_test_controller();
+    // Set up resource
+    mc.restore_player_resource(PlayerResource::new(
+        Config::default(),
+        PlayerConfig::default(),
+    ));
+    // Verify default
+    assert!(
+        mc.resource.as_ref().unwrap().update_score,
+        "update_score should default to true"
+    );
+
+    // Install a state that produces a handoff with assist=1
+    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
+        1, false, false,
+    ))));
+
+    mc.render();
+
+    let res = mc.resource.as_ref().unwrap();
+    assert_eq!(res.assist, 1);
+    assert!(
+        !res.update_score,
+        "update_score must be false when assist != 0"
+    );
+}
+
+#[test]
+fn test_handoff_update_score_true_when_assist_zero() {
+    let mut mc = make_test_controller();
+    mc.restore_player_resource(PlayerResource::new(
+        Config::default(),
+        PlayerConfig::default(),
+    ));
+
+    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
+        0, false, false,
+    ))));
+
+    mc.render();
+
+    let res = mc.resource.as_ref().unwrap();
+    assert_eq!(res.assist, 0);
+    assert!(
+        res.update_score,
+        "update_score must be true when assist == 0"
+    );
+}
+
+#[test]
+fn test_handoff_transfers_freq_on_and_force_no_ir_send() {
+    let mut mc = make_test_controller();
+    mc.restore_player_resource(PlayerResource::new(
+        Config::default(),
+        PlayerConfig::default(),
+    ));
+
+    // Verify defaults
+    let res = mc.resource.as_ref().unwrap();
+    assert!(!res.freq_on);
+    assert!(!res.force_no_ir_send);
+
+    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(0, true, true))));
+
+    mc.render();
+
+    let res = mc.resource.as_ref().unwrap();
+    assert!(res.freq_on, "freq_on must be transferred from handoff");
+    assert!(
+        res.force_no_ir_send,
+        "force_no_ir_send must be transferred from handoff"
+    );
+}
+
+#[test]
+fn test_handoff_freq_flags_false_by_default() {
+    let mut mc = make_test_controller();
+    mc.restore_player_resource(PlayerResource::new(
+        Config::default(),
+        PlayerConfig::default(),
+    ));
+
+    mc.current = Some(Box::new(HandoffTestState::new(make_handoff(
+        0, false, false,
+    ))));
+
+    mc.render();
+
+    let res = mc.resource.as_ref().unwrap();
+    assert!(!res.freq_on);
+    assert!(!res.force_no_ir_send);
+}

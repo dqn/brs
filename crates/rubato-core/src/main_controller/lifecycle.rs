@@ -230,6 +230,10 @@ impl MainController {
                 resource.set_groove_gauge(gg);
             }
             resource.assist = handoff.assist;
+            // Java: resource.setUpdateScore(assist == 0)
+            resource.update_score = handoff.assist == 0;
+            resource.freq_on = handoff.freq_on;
+            resource.force_no_ir_send = handoff.force_no_ir_send;
 
             // Apply replay data with key input log from the input processor.
             // BMSPlayer builds pattern info (random options, seeds, gauge type, etc.)

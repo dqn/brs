@@ -378,6 +378,10 @@ pub struct BMSPlayer {
     is_course_mode: bool,
     /// Input device type (for create_score_data). Set by the caller.
     device_type: rubato_input::bms_player_input_device::DeviceType,
+    /// Whether frequency training is active (set when freq != 100 in practice mode).
+    freq_on: bool,
+    /// Whether IR score submission should be blocked (set when freq != 100 in practice mode).
+    force_no_ir_send: bool,
 }
 
 mod accessors;
