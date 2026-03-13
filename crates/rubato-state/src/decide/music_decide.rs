@@ -82,6 +82,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
             350 => self.resource.songdata().map_or(0, |s| s.chart.notes),
             // Song duration
             312 => self.resource.songdata().map_or(0, |s| s.chart.length),
+            1163 => self
+                .resource
+                .songdata()
+                .map_or(0, |s| s.chart.length / 60000),
+            1164 => self
+                .resource
+                .songdata()
+                .map_or(0, |s| (s.chart.length % 60000) / 1000),
             // Playtime
             17 => (self.timer.now_time() / 3_600_000) as i32,
             18 => ((self.timer.now_time() % 3_600_000) / 60_000) as i32,
@@ -708,5 +716,191 @@ mod tests {
         let mut decide = make_decide();
         let _ = decide.main_state_data();
         let _ = decide.main_state_data_mut();
+    }
+
+    /// Mock PlayerResourceAccess that returns a SongData with a given chart.length.
+    struct SongLengthResource {
+        song: rubato_types::song_data::SongData,
+        config: rubato_types::config::Config,
+        player_config: rubato_types::player_config::PlayerConfig,
+    }
+
+    impl SongLengthResource {
+        fn with_length_ms(length: i32) -> Self {
+            let mut song = rubato_types::song_data::SongData::default();
+            song.chart.length = length;
+            Self {
+                song,
+                config: rubato_types::config::Config::default(),
+                player_config: rubato_types::player_config::PlayerConfig::default(),
+            }
+        }
+    }
+
+    impl PlayerResourceAccess for SongLengthResource {
+        fn into_any_send(self: Box<Self>) -> Box<dyn std::any::Any + Send> {
+            self
+        }
+        fn config(&self) -> &rubato_types::config::Config {
+            &self.config
+        }
+        fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
+            &self.player_config
+        }
+        fn score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+            None
+        }
+        fn rival_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+            None
+        }
+        fn target_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+            None
+        }
+        fn course_score_data(&self) -> Option<&rubato_core::score_data::ScoreData> {
+            None
+        }
+        fn set_course_score_data(&mut self, _score: rubato_core::score_data::ScoreData) {}
+        fn songdata(&self) -> Option<&rubato_types::song_data::SongData> {
+            Some(&self.song)
+        }
+        fn songdata_mut(&mut self) -> Option<&mut rubato_types::song_data::SongData> {
+            Some(&mut self.song)
+        }
+        fn set_songdata(&mut self, _data: Option<rubato_types::song_data::SongData>) {}
+        fn replay_data(&self) -> Option<&rubato_types::replay_data::ReplayData> {
+            None
+        }
+        fn replay_data_mut(&mut self) -> Option<&mut rubato_types::replay_data::ReplayData> {
+            None
+        }
+        fn course_replay(&self) -> &[rubato_types::replay_data::ReplayData] {
+            &[]
+        }
+        fn add_course_replay(&mut self, _rd: rubato_types::replay_data::ReplayData) {}
+        fn course_data(&self) -> Option<&rubato_types::course_data::CourseData> {
+            None
+        }
+        fn course_index(&self) -> usize {
+            0
+        }
+        fn next_course(&mut self) -> bool {
+            false
+        }
+        fn constraint(&self) -> Vec<rubato_types::course_data::CourseDataConstraint> {
+            vec![]
+        }
+        fn gauge(&self) -> Option<&Vec<Vec<f32>>> {
+            None
+        }
+        fn groove_gauge(&self) -> Option<&rubato_types::groove_gauge::GrooveGauge> {
+            None
+        }
+        fn course_gauge(&self) -> &Vec<Vec<Vec<f32>>> {
+            static EMPTY: Vec<Vec<Vec<f32>>> = Vec::new();
+            &EMPTY
+        }
+        fn add_course_gauge(&mut self, _gauge: Vec<Vec<f32>>) {}
+        fn course_gauge_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
+            static mut EMPTY: Vec<Vec<Vec<f32>>> = Vec::new();
+            // SAFETY: only used in tests, never concurrently
+            unsafe { &mut *std::ptr::addr_of_mut!(EMPTY) }
+        }
+        fn score_data_mut(&mut self) -> Option<&mut rubato_core::score_data::ScoreData> {
+            None
+        }
+        fn course_replay_mut(&mut self) -> &mut Vec<rubato_types::replay_data::ReplayData> {
+            static mut EMPTY: Vec<rubato_types::replay_data::ReplayData> = Vec::new();
+            // SAFETY: only used in tests, never concurrently
+            unsafe { &mut *std::ptr::addr_of_mut!(EMPTY) }
+        }
+        fn maxcombo(&self) -> i32 {
+            0
+        }
+        fn org_gauge_option(&self) -> i32 {
+            0
+        }
+        fn set_org_gauge_option(&mut self, _val: i32) {}
+        fn assist(&self) -> i32 {
+            0
+        }
+        fn is_update_score(&self) -> bool {
+            false
+        }
+        fn is_update_course_score(&self) -> bool {
+            false
+        }
+        fn is_force_no_ir_send(&self) -> bool {
+            false
+        }
+        fn is_freq_on(&self) -> bool {
+            false
+        }
+        fn reverse_lookup_data(&self) -> Vec<String> {
+            vec![]
+        }
+        fn reverse_lookup_levels(&self) -> Vec<String> {
+            vec![]
+        }
+        fn clear(&mut self) {}
+        fn set_bms_file(
+            &mut self,
+            _path: &std::path::Path,
+            _mode_type: i32,
+            _mode_id: i32,
+        ) -> bool {
+            false
+        }
+        fn set_course_bms_files(&mut self, _files: &[std::path::PathBuf]) -> bool {
+            false
+        }
+        fn set_tablename(&mut self, _name: &str) {}
+        fn set_tablelevel(&mut self, _level: &str) {}
+        fn set_rival_score_data_option(
+            &mut self,
+            _score: Option<rubato_core::score_data::ScoreData>,
+        ) {
+        }
+        fn set_chart_option_data(
+            &mut self,
+            _option: Option<rubato_types::replay_data::ReplayData>,
+        ) {
+        }
+        fn set_course_data(&mut self, _data: rubato_types::course_data::CourseData) {}
+        fn clear_course_data(&mut self) {}
+        fn course_song_data(&self) -> Vec<rubato_types::song_data::SongData> {
+            vec![]
+        }
+    }
+
+    #[test]
+    fn decide_render_context_song_duration_minutes_seconds() {
+        // 150_000 ms = 2 minutes 30 seconds
+        let resource = SongLengthResource::with_length_ms(150_000);
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(312), 150_000, "ID 312: raw ms");
+        assert_eq!(ctx.integer_value(1163), 2, "ID 1163: minutes");
+        assert_eq!(ctx.integer_value(1164), 30, "ID 1164: seconds");
+    }
+
+    #[test]
+    fn decide_render_context_song_duration_no_songdata() {
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let resource = NullPlayerResource::new();
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(1163), 0);
+        assert_eq!(ctx.integer_value(1164), 0);
     }
 }

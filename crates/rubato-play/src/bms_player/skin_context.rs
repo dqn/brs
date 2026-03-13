@@ -120,8 +120,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
             160 => self.now_bpm as i32,
             // Song duration
             312 => self.playtime,
-            1163 => self.playtime / 60,
-            1164 => self.playtime % 60,
+            1163 => self.playtime / 60000,
+            1164 => (self.playtime % 60000) / 1000,
             // Loading progress: 100 if media loaded, else 0
             165 => {
                 if self.media_load_finished {
@@ -308,8 +308,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
                 .as_ref()
                 .map_or(0, |lr| lr.now_bpm() as i32),
             312 => self.player.playtime,
-            1163 => self.player.playtime / 60,
-            1164 => self.player.playtime % 60,
+            1163 => self.player.playtime / 60000,
+            1164 => (self.player.playtime % 60000) / 1000,
             165 => {
                 if self.player.media_load_finished {
                     100
@@ -363,5 +363,90 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayMouseContext<'
             80 => self.player.state == PlayState::Preload,
             _ => false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rubato_types::skin_render_context::SkinRenderContext;
+
+    /// Build a minimal PlayRenderContext with the given playtime (in ms).
+    fn make_render_ctx(playtime: i32) -> PlayRenderContext<'static> {
+        // Use Box::leak for test-only references so we get 'static lifetimes.
+        let timer = Box::leak(Box::new(TimerManager::new()));
+        let judge = Box::leak(Box::new(JudgeManager::default()));
+        let player_config = Box::leak(Box::new(PlayerConfig::default()));
+        let option_info = Box::leak(Box::new(ReplayData::default()));
+        let play_config = Box::leak(Box::new(PlayConfig::default()));
+        PlayRenderContext {
+            timer,
+            judge,
+            gauge: None,
+            player_config,
+            option_info,
+            play_config,
+            target_score: None,
+            playtime,
+            total_notes: 0,
+            play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
+            state: PlayState::Play,
+            media_load_finished: false,
+            now_bpm: 0.0,
+            min_bpm: 0.0,
+            max_bpm: 0.0,
+            main_bpm: 0.0,
+            system_volume: 0.0,
+            key_volume: 0.0,
+            bg_volume: 0.0,
+        }
+    }
+
+    #[test]
+    fn playtime_minutes_and_seconds_from_milliseconds() {
+        // 150_000 ms = 2 minutes 30 seconds
+        let ctx = make_render_ctx(150_000);
+        assert_eq!(ctx.integer_value(1163), 2, "ID 1163 should return minutes");
+        assert_eq!(ctx.integer_value(1164), 30, "ID 1164 should return seconds");
+    }
+
+    #[test]
+    fn playtime_exactly_one_minute() {
+        let ctx = make_render_ctx(60_000);
+        assert_eq!(ctx.integer_value(1163), 1);
+        assert_eq!(ctx.integer_value(1164), 0);
+    }
+
+    #[test]
+    fn playtime_zero() {
+        let ctx = make_render_ctx(0);
+        assert_eq!(ctx.integer_value(1163), 0);
+        assert_eq!(ctx.integer_value(1164), 0);
+    }
+
+    #[test]
+    fn playtime_sub_second_truncated() {
+        // 61_999 ms = 1 min 1.999 sec -> minutes=1, seconds=1 (truncated)
+        let ctx = make_render_ctx(61_999);
+        assert_eq!(ctx.integer_value(1163), 1);
+        assert_eq!(ctx.integer_value(1164), 1);
+    }
+
+    #[test]
+    fn playtime_raw_ms_unchanged() {
+        let ctx = make_render_ctx(123_456);
+        assert_eq!(
+            ctx.integer_value(312),
+            123_456,
+            "ID 312 should return raw ms"
+        );
+    }
+
+    #[test]
+    fn playtime_large_value() {
+        // 7_200_000 ms = 120 minutes
+        let ctx = make_render_ctx(7_200_000);
+        assert_eq!(ctx.integer_value(1163), 120);
+        assert_eq!(ctx.integer_value(1164), 0);
     }
 }
