@@ -18,7 +18,7 @@ pub(super) const BUTTON_SKINSELECT_24KEY_BATTLE: i32 = 388;
 // Defined locally to avoid circular dependency on beatoraja-skin.
 
 pub(super) fn is_skin_customize_button(id: i32) -> bool {
-    (BUTTON_SKIN_CUSTOMIZE1..BUTTON_SKIN_CUSTOMIZE10).contains(&id)
+    (BUTTON_SKIN_CUSTOMIZE1..=BUTTON_SKIN_CUSTOMIZE10).contains(&id)
 }
 
 pub(super) fn skin_customize_index(id: i32) -> i32 {
@@ -163,4 +163,23 @@ pub(super) enum PersistAction {
         kind: usize,
         value: i32,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_skin_customize_button_includes_slot_10() {
+        assert!(is_skin_customize_button(BUTTON_SKIN_CUSTOMIZE1)); // 220
+        assert!(is_skin_customize_button(BUTTON_SKIN_CUSTOMIZE10)); // 229
+        for id in BUTTON_SKIN_CUSTOMIZE1..=BUTTON_SKIN_CUSTOMIZE10 {
+            assert!(
+                is_skin_customize_button(id),
+                "slot ID {id} should be recognized"
+            );
+        }
+        assert!(!is_skin_customize_button(BUTTON_SKIN_CUSTOMIZE1 - 1));
+        assert!(!is_skin_customize_button(BUTTON_SKIN_CUSTOMIZE10 + 1));
+    }
 }

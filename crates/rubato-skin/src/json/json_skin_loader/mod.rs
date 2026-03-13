@@ -277,16 +277,16 @@ mod tests {
     #[test]
     fn test_is_skin_customize_button_in_range() {
         // BUTTON_SKIN_CUSTOMIZE1 = 220, BUTTON_SKIN_CUSTOMIZE10 = 229
-        // Range is [220, 229) — 220..228 are customize buttons
+        // Range is [220, 229] inclusive — all 10 slots
         assert!(is_skin_customize_button(220)); // CUSTOMIZE1
         assert!(is_skin_customize_button(224)); // CUSTOMIZE5
         assert!(is_skin_customize_button(228)); // CUSTOMIZE9
+        assert!(is_skin_customize_button(229)); // CUSTOMIZE10
     }
 
     #[test]
     fn test_is_skin_customize_button_out_of_range() {
         assert!(!is_skin_customize_button(219)); // below range
-        assert!(!is_skin_customize_button(229)); // CUSTOMIZE10 is the exclusive upper bound
         assert!(!is_skin_customize_button(230)); // above range
         assert!(!is_skin_customize_button(0));
         assert!(!is_skin_customize_button(-1));
@@ -298,5 +298,6 @@ mod tests {
         assert_eq!(skin_customize_index(220), 0);
         assert_eq!(skin_customize_index(221), 1);
         assert_eq!(skin_customize_index(228), 8);
+        assert_eq!(skin_customize_index(229), 9);
     }
 }

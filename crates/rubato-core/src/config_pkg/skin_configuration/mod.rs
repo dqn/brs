@@ -843,12 +843,13 @@ mod tests {
 
     #[test]
     fn test_is_skin_customize_button() {
-        // Range: [220, 229) — exclusive upper bound
+        // Range: [220, 229] inclusive — all 10 slots
         assert!(is_skin_customize_button(220));
         assert!(is_skin_customize_button(224));
         assert!(is_skin_customize_button(228));
+        assert!(is_skin_customize_button(229)); // slot 10
         assert!(!is_skin_customize_button(219));
-        assert!(!is_skin_customize_button(229));
+        assert!(!is_skin_customize_button(230));
     }
 
     #[test]
@@ -856,6 +857,7 @@ mod tests {
         assert_eq!(skin_customize_index(220), 0);
         assert_eq!(skin_customize_index(225), 5);
         assert_eq!(skin_customize_index(228), 8);
+        assert_eq!(skin_customize_index(229), 9);
     }
 
     #[test]

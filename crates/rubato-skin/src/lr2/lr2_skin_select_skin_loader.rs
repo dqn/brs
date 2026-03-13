@@ -38,18 +38,101 @@ impl LR2SkinSelectSkinLoaderState {
         }
     }
 
-    /// After loading, count skin customize buttons
-    pub fn count_custom_properties(&mut self) {
-        // int count = 0;
-        // for (SkinObject obj : skin.getAllSkinObjects()) {
-        //     if (SkinPropertyMapper.isSkinCustomizeButton(obj.getClickeventId())) {
-        //         int index = SkinPropertyMapper.getSkinCustomizeIndex(obj.getClickeventId());
-        //         if (count <= index)
-        //             count = index + 1;
-        //     }
-        // }
-        // skin.setCustomPropertyCount(count);
-        // This requires SkinPropertyMapper and full skin object access
+    /// After loading, count skin customize buttons by scanning all skin objects
+    /// for the highest-indexed BUTTON_SKIN_CUSTOMIZE click event.
+    pub fn count_custom_properties(&mut self, skin: &crate::skin::Skin) {
+        use crate::skin_property_mapper::{is_skin_customize_button, skin_customize_index};
+
+        let mut count = 0i32;
+        for obj in skin.objects() {
+            let id = obj.data().clickevent_id();
+            if is_skin_customize_button(id) {
+                let index = skin_customize_index(id);
+                if count <= index {
+                    count = index + 1;
+                }
+            }
+        }
+        self.custom_property_count = count;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::objects::skin_image::SkinImage;
+    use crate::skin::Skin;
+    use crate::skin_header::SkinHeader;
+    use crate::skin_property::{BUTTON_SKIN_CUSTOMIZE1, BUTTON_SKIN_CUSTOMIZE10};
+    use crate::types::skin::SkinObject;
+
+    fn make_image_with_clickevent(event_id: i32) -> SkinObject {
+        let mut img = SkinImage::new_empty();
+        img.data.set_clickevent_by_id(event_id);
+        SkinObject::Image(img)
+    }
+
+    fn make_loader() -> LR2SkinSelectSkinLoaderState {
+        let res = Resolution {
+            width: 640.0,
+            height: 480.0,
+        };
+        LR2SkinSelectSkinLoaderState::new(res.clone(), res, false, String::new())
+    }
+
+    #[test]
+    fn count_custom_properties_empty_skin() {
+        let mut loader = make_loader();
+        let skin = Skin::new(SkinHeader::new());
+        loader.count_custom_properties(&skin);
+        assert_eq!(loader.custom_property_count, 0);
+    }
+
+    #[test]
+    fn count_custom_properties_single_slot() {
+        let mut loader = make_loader();
+        let mut skin = Skin::new(SkinHeader::new());
+        // Add object with customize button slot 1 (ID 220, index 0)
+        skin.add(make_image_with_clickevent(BUTTON_SKIN_CUSTOMIZE1));
+        loader.count_custom_properties(&skin);
+        assert_eq!(loader.custom_property_count, 1);
+    }
+
+    #[test]
+    fn count_custom_properties_slot_10() {
+        let mut loader = make_loader();
+        let mut skin = Skin::new(SkinHeader::new());
+        // Add object with customize button slot 10 (ID 229, index 9)
+        skin.add(make_image_with_clickevent(BUTTON_SKIN_CUSTOMIZE10));
+        loader.count_custom_properties(&skin);
+        assert_eq!(loader.custom_property_count, 10);
+    }
+
+    #[test]
+    fn count_custom_properties_highest_wins() {
+        let mut loader = make_loader();
+        let mut skin = Skin::new(SkinHeader::new());
+        // Add slots 1, 5, 3 (IDs 220, 224, 222)
+        skin.add(make_image_with_clickevent(BUTTON_SKIN_CUSTOMIZE1));
+        skin.add(make_image_with_clickevent(BUTTON_SKIN_CUSTOMIZE1 + 4));
+        skin.add(make_image_with_clickevent(BUTTON_SKIN_CUSTOMIZE1 + 2));
+        loader.count_custom_properties(&skin);
+        // Highest index is 4 (slot 5), so count = 4 + 1 = 5
+        assert_eq!(loader.custom_property_count, 5);
+    }
+
+    #[test]
+    fn count_custom_properties_ignores_non_customize_buttons() {
+        let mut loader = make_loader();
+        let mut skin = Skin::new(SkinHeader::new());
+        // Add a non-customize click event (ID 100)
+        skin.add(make_image_with_clickevent(100));
+        // Add one just below range
+        skin.add(make_image_with_clickevent(BUTTON_SKIN_CUSTOMIZE1 - 1));
+        // Add one just above range
+        skin.add(make_image_with_clickevent(BUTTON_SKIN_CUSTOMIZE10 + 1));
+        loader.count_custom_properties(&skin);
+        assert_eq!(loader.custom_property_count, 0);
     }
 }
 
@@ -58,7 +141,9 @@ impl LR2SkinLoaderAccess for LR2SkinSelectSkinLoaderState {
         &mut self.csv
     }
 
-    fn assemble_objects(&mut self, _skin: &mut crate::skin::Skin) {
+    fn assemble_objects(&mut self, skin: &mut crate::skin::Skin) {
         // Skin select skin has no LR2-specific objects beyond generic SRC/DST images.
+        // Count custom property buttons after all objects are assembled.
+        self.count_custom_properties(skin);
     }
 }

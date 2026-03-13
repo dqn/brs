@@ -164,9 +164,9 @@ pub fn skin_select_type_id(skin_type: &SkinType) -> i32 {
     }
 }
 
-/// Returns whether the button ID is a skin-customize button (slots 1-9).
+/// Returns whether the button ID is a skin-customize button (slots 1-10).
 pub fn is_skin_customize_button(id: i32) -> bool {
-    (BUTTON_SKIN_CUSTOMIZE1..BUTTON_SKIN_CUSTOMIZE10).contains(&id)
+    (BUTTON_SKIN_CUSTOMIZE1..=BUTTON_SKIN_CUSTOMIZE10).contains(&id)
 }
 
 /// Returns the 0-based customize slot index from a skin-customize button ID.
@@ -215,4 +215,33 @@ pub fn is_custom_timer_id(id: TimerId) -> bool {
 /// Returns whether the timer ID can be written by a skin (only custom timers).
 pub fn is_timer_writable_by_skin(id: TimerId) -> bool {
     is_custom_timer_id(id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_skin_customize_button_includes_slot_10() {
+        // BUTTON_SKIN_CUSTOMIZE1 = 220 (slot 1) through BUTTON_SKIN_CUSTOMIZE10 = 229 (slot 10)
+        assert!(is_skin_customize_button(BUTTON_SKIN_CUSTOMIZE1)); // 220
+        assert!(is_skin_customize_button(BUTTON_SKIN_CUSTOMIZE10)); // 229
+        // All 10 slots
+        for id in BUTTON_SKIN_CUSTOMIZE1..=BUTTON_SKIN_CUSTOMIZE10 {
+            assert!(
+                is_skin_customize_button(id),
+                "slot ID {id} should be recognized"
+            );
+        }
+        // Boundary: just outside
+        assert!(!is_skin_customize_button(BUTTON_SKIN_CUSTOMIZE1 - 1));
+        assert!(!is_skin_customize_button(BUTTON_SKIN_CUSTOMIZE10 + 1));
+    }
+
+    #[test]
+    fn skin_customize_index_for_all_slots() {
+        for i in 0..10 {
+            assert_eq!(skin_customize_index(BUTTON_SKIN_CUSTOMIZE1 + i), i);
+        }
+    }
 }
