@@ -98,6 +98,20 @@ impl GlyphAtlas {
             return None;
         }
 
+        // Skip glyphs wider than the atlas (atlas only grows vertically).
+        // Attempting to place such a glyph would waste rows without ever
+        // fitting, and the draw callback would clip the excess anyway.
+        if glyph_w > self.atlas_width {
+            log::warn!(
+                "Glyph {:?} at scale {} is {}px wide, exceeding atlas width {}; skipping",
+                glyph_id,
+                scale,
+                glyph_w,
+                self.atlas_width,
+            );
+            return None;
+        }
+
         // Check if glyph fits in current row
         if self.cursor_x + glyph_w > self.atlas_width {
             // Move to next row
@@ -303,6 +317,28 @@ mod tests {
         assert!(!atlas.dirty);
         atlas.flush_texture_if_dirty();
         assert_eq!(atlas.version, 2); // No change
+    }
+
+    #[test]
+    fn test_oversized_glyph_returns_none() {
+        use ab_glyph::Font;
+        let font = test_font();
+        let mut atlas = GlyphAtlas::new();
+
+        // Use a scale large enough that the glyph exceeds ATLAS_WIDTH (512px).
+        // A typical Latin glyph at scale 1000+ easily exceeds 512px width.
+        let glyph_id = font.glyph_id('W');
+        let result = atlas.get_or_rasterize(&font, glyph_id, 2000.0);
+        assert!(
+            result.is_none(),
+            "Glyph wider than atlas width should return None"
+        );
+        // Atlas state should not be corrupted
+        assert!(!atlas.dirty, "Oversized glyph should not mark atlas dirty");
+        assert!(
+            atlas.cache.is_empty(),
+            "Oversized glyph should not be cached"
+        );
     }
 
     #[test]

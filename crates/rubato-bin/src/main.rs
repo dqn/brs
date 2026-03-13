@@ -795,6 +795,11 @@ impl RubatoApp {
                 }
 
                 output.present();
+
+                // Evict GPU textures not used this frame (e.g., stale BGA video frames)
+                if let Some(texture_manager) = &mut self.texture_manager {
+                    texture_manager.evict_unused();
+                }
             }
             Err(e) => {
                 warn!("Failed to get surface texture: {}", e);

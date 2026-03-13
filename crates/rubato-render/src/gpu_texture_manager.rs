@@ -1,7 +1,7 @@
 // GPU texture upload and bind group cache.
 // Manages lazy upload of CPU-side RGBA data to wgpu textures.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::render_pipeline::SpriteRenderPipeline;
@@ -33,6 +33,10 @@ pub struct PendingTexture {
 
 /// Manages GPU texture uploads and bind group caching.
 /// Textures are uploaded lazily on first use and cached by path key.
+///
+/// Tracks which textures are referenced each frame via `ensure_uploaded()`.
+/// Call `evict_unused()` after rendering to free GPU textures that were
+/// not referenced in the current frame (e.g., stale BGA video frames).
 pub struct GpuTextureManager {
     entries: HashMap<Arc<str>, GpuTextureEntry>,
     /// Bind group for path-less textures (1x1 white fallback)
@@ -40,6 +44,8 @@ pub struct GpuTextureManager {
     fallback_bind_group_linear: wgpu::BindGroup,
     /// Counter for generating unique keys for path-less textures
     anon_counter: u64,
+    /// Keys passed to `ensure_uploaded()` in the current frame.
+    used_this_frame: HashSet<Arc<str>>,
 }
 
 impl GpuTextureManager {
@@ -122,11 +128,12 @@ impl GpuTextureManager {
             fallback_bind_group_nearest,
             fallback_bind_group_linear,
             anon_counter: 0,
+            used_this_frame: HashSet::new(),
         }
     }
 
     /// Upload a texture to the GPU if not already cached.
-    /// Returns the cache key.
+    /// Also marks the key as used for the current frame (see `evict_unused()`).
     pub fn ensure_uploaded(
         &mut self,
         key: &Arc<str>,
@@ -135,6 +142,7 @@ impl GpuTextureManager {
         rgba_data: &[u8],
         ctx: &TextureUploadContext<'_>,
     ) {
+        self.used_this_frame.insert(Arc::clone(key));
         if self.entries.contains_key(key) {
             return;
         }
@@ -283,6 +291,27 @@ impl GpuTextureManager {
         } else {
             &self.fallback_bind_group_nearest
         }
+    }
+
+    /// Remove a single texture entry by key, freeing its GPU resources.
+    pub fn remove(&mut self, key: &Arc<str>) {
+        self.entries.remove(key);
+    }
+
+    /// Evict all cached textures that were not passed to `ensure_uploaded()`
+    /// since the last call to `evict_unused()`. Call once per frame after
+    /// rendering to free stale GPU textures (e.g., old BGA video frames).
+    pub fn evict_unused(&mut self) {
+        if !self.used_this_frame.is_empty() {
+            let used = &self.used_this_frame;
+            self.entries.retain(|k, _| used.contains(k));
+        }
+        self.used_this_frame.clear();
+    }
+
+    /// Return the number of cached texture entries (for diagnostics).
+    pub fn entry_count(&self) -> usize {
+        self.entries.len()
     }
 }
 
