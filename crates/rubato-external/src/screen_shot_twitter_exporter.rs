@@ -46,12 +46,12 @@ impl ScreenShotExporter for ScreenShotTwitterExporter {
         // MusicSelector and MusicDecide: no-op (Java stub)
 
         if screen_type == ScreenType::BMSPlayer {
-            let tablename =
+            let _tablename =
                 StringPropertyFactory::string_property(STRING_TABLE_NAME).get(current_state);
             let tablelevel =
                 StringPropertyFactory::string_property(STRING_TABLE_LEVEL).get(current_state);
 
-            if !tablename.is_empty() {
+            if !tablelevel.is_empty() {
                 builder += &tablelevel;
             } else {
                 builder += &format!(
@@ -67,11 +67,11 @@ impl ScreenShotExporter for ScreenShotTwitterExporter {
         } else if screen_type == ScreenType::MusicResult || screen_type == ScreenType::CourseResult
         {
             if screen_type == ScreenType::MusicResult {
-                let tablename =
+                let _tablename =
                     StringPropertyFactory::string_property(STRING_TABLE_NAME).get(current_state);
                 let tablelevel =
                     StringPropertyFactory::string_property(STRING_TABLE_LEVEL).get(current_state);
-                if !tablename.is_empty() {
+                if !tablelevel.is_empty() {
                     builder += &tablelevel;
                 } else {
                     builder += &format!(
