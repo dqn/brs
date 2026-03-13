@@ -155,13 +155,11 @@ impl BMSModel {
         let keys = self.mode.as_ref().map(|m| m.key()).unwrap_or(0);
         for i in (0..self.timelines.len()).rev() {
             let tl = &self.timelines[i];
+            if !tl.back_ground_notes().is_empty() || tl.bga != -1 || tl.layer != -1 {
+                return tl.milli_time();
+            }
             for lane in 0..keys {
-                if tl.exist_note_at(lane)
-                    || tl.hidden_note(lane).is_some()
-                    || !tl.back_ground_notes().is_empty()
-                    || tl.bga != -1
-                    || tl.layer != -1
-                {
+                if tl.exist_note_at(lane) || tl.hidden_note(lane).is_some() {
                     return tl.milli_time();
                 }
             }
@@ -329,7 +327,8 @@ impl BMSModel {
                         Note::Long { end, note_type, .. } => {
                             if !end {
                                 let lnchars = ['l', 'L', 'C', 'H'];
-                                tlsb.push(lnchars[*note_type as usize]);
+                                let ch = lnchars.get(*note_type as usize).copied().unwrap_or('?');
+                                tlsb.push(ch);
                                 tlsb.push_str(&format!("{}", n.milli_duration()));
                                 write = true;
                             }
@@ -1052,5 +1051,120 @@ mod tests {
         // Second pair: 2 <-> 3
         assert_eq!(model.timelines[2].note(0).unwrap().pair(), Some(3));
         assert_eq!(model.timelines[3].note(0).unwrap().pair(), Some(2));
+    }
+
+    #[test]
+    fn to_chart_string_long_note_out_of_range_note_type_uses_fallback() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        let mut ln = Note::new_long(1);
+        // Set note_type to an out-of-range value (valid range is 0..=3)
+        ln.set_long_note_type(99);
+        tl.set_note(0, Some(ln));
+        model.timelines = vec![tl];
+
+        let chart_str = model.to_chart_string();
+        // Should contain '?' fallback character instead of panicking
+        assert!(chart_str.contains('?'));
+    }
+
+    #[test]
+    fn to_chart_string_long_note_negative_note_type_uses_fallback() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        let mut tl = TimeLine::new(0.0, 0, 8);
+        let mut ln = Note::new_long(1);
+        ln.set_long_note_type(-1);
+        tl.set_note(0, Some(ln));
+        model.timelines = vec![tl];
+
+        let chart_str = model.to_chart_string();
+        // Negative note_type wraps to a huge usize, so .get() returns None -> '?'
+        assert!(chart_str.contains('?'));
+    }
+
+    #[test]
+    fn to_chart_string_long_note_valid_note_types() {
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        let expected_chars = ['l', 'L', 'C', 'H'];
+        for (i, &expected_ch) in expected_chars.iter().enumerate() {
+            let mut tl = TimeLine::new(0.0, 0, 8);
+            let mut ln = Note::new_long(1);
+            ln.set_long_note_type(i as i32);
+            tl.set_note(0, Some(ln));
+            model.timelines = vec![tl];
+
+            let chart_str = model.to_chart_string();
+            assert!(
+                chart_str.contains(expected_ch),
+                "note_type {} should produce '{}', got: {}",
+                i,
+                expected_ch,
+                chart_str
+            );
+        }
+    }
+
+    #[test]
+    fn last_milli_time_with_bga_only_and_no_mode() {
+        // When mode is not set (keys == 0), BGA-only timelines should still be found
+        let mut model = BMSModel::new();
+        // Do NOT set mode -- keys will be 0
+
+        let tl0 = TimeLine::new(0.0, 0, 8);
+        let mut tl1 = TimeLine::new(1.0, 5_000_000, 8);
+        tl1.bga = 1; // has BGA
+        model.timelines = vec![tl0, tl1];
+
+        // Before fix, this returned 0 because the lane loop never executed
+        assert_eq!(model.last_milli_time(), 5000);
+    }
+
+    #[test]
+    fn last_milli_time_with_layer_only_and_no_mode() {
+        let mut model = BMSModel::new();
+
+        let tl0 = TimeLine::new(0.0, 0, 8);
+        let mut tl1 = TimeLine::new(1.0, 3_000_000, 8);
+        tl1.layer = 2;
+        model.timelines = vec![tl0, tl1];
+
+        assert_eq!(model.last_milli_time(), 3000);
+    }
+
+    #[test]
+    fn last_milli_time_with_bg_notes_only_and_no_mode() {
+        let mut model = BMSModel::new();
+
+        let tl0 = TimeLine::new(0.0, 0, 8);
+        let mut tl1 = TimeLine::new(1.0, 7_000_000, 8);
+        tl1.add_back_ground_note(Note::new_normal(1));
+        model.timelines = vec![tl0, tl1];
+
+        assert_eq!(model.last_milli_time(), 7000);
+    }
+
+    #[test]
+    fn last_milli_time_bga_at_earlier_timeline_than_notes() {
+        // BGA on an earlier timeline, notes on a later timeline.
+        // Should return the later timeline (notes).
+        let mut model = BMSModel::new();
+        model.set_mode(Mode::BEAT_7K);
+
+        let mut tl0 = TimeLine::new(0.0, 2_000_000, 8);
+        tl0.bga = 1;
+
+        let mut tl1 = TimeLine::new(1.0, 8_000_000, 8);
+        tl1.set_note(0, Some(Note::new_normal(1)));
+
+        model.timelines = vec![tl0, tl1];
+
+        // Reverse scan finds tl1 (notes) first at 8000ms
+        assert_eq!(model.last_milli_time(), 8000);
     }
 }
