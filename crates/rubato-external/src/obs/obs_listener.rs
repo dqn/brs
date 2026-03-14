@@ -82,7 +82,9 @@ impl ObsListener {
             {
                 let mut guard = lock_or_recover(&scheduled_stop_task);
                 if let Some(task) = guard.take() {
-                    task.abort();
+                    if !task.is_finished() {
+                        task.abort();
+                    }
                     client_clone.request_stop_record();
                 }
             }
@@ -119,7 +121,9 @@ impl ObsListener {
     fn cancel_scheduled_stop(&self) -> bool {
         let mut guard = lock_or_recover(&self.scheduled_stop_task);
         if let Some(task) = guard.take() {
-            task.abort();
+            if !task.is_finished() {
+                task.abort();
+            }
             return true;
         }
         false
@@ -199,7 +203,9 @@ impl ObsListener {
         // Cancel scheduled stop task
         {
             let mut guard = lock_or_recover(&self.scheduled_stop_task);
-            if let Some(task) = guard.take() {
+            if let Some(task) = guard.take()
+                && !task.is_finished()
+            {
                 task.abort();
             }
         }
@@ -375,6 +381,53 @@ mod tests {
     }
 
     // -- SCENE_NONE / ACTION_NONE constants --
+
+    /// Regression: cancel_scheduled_stop must not abort an already-finished task,
+    /// which would cause a spurious request_stop_record call at the call site.
+    #[tokio::test]
+    async fn cancel_scheduled_stop_skips_abort_on_finished_task() {
+        let listener = ObsListener::new_without_client(Config::default());
+
+        // Spawn a task that completes immediately
+        let handle = tokio::spawn(async {});
+        // Wait for it to finish
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(handle.is_finished(), "task should have completed");
+
+        {
+            let mut guard = lock_or_recover(&listener.scheduled_stop_task);
+            *guard = Some(handle);
+        }
+
+        // cancel_scheduled_stop returns true (slot was occupied) but does NOT
+        // call abort on the finished handle
+        assert!(listener.cancel_scheduled_stop());
+
+        // Slot is cleared
+        let guard = lock_or_recover(&listener.scheduled_stop_task);
+        assert!(guard.is_none());
+    }
+
+    /// Regression: close() must not abort an already-finished task.
+    #[tokio::test]
+    async fn close_skips_abort_on_finished_task() {
+        let listener = ObsListener::new_without_client(Config::default());
+
+        let handle = tokio::spawn(async {});
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(handle.is_finished());
+
+        {
+            let mut guard = lock_or_recover(&listener.scheduled_stop_task);
+            *guard = Some(handle);
+        }
+
+        // Should not panic when encountering a finished task
+        listener.close();
+
+        let guard = lock_or_recover(&listener.scheduled_stop_task);
+        assert!(guard.is_none());
+    }
 
     #[test]
     fn scene_none_and_action_none_are_expected_values() {

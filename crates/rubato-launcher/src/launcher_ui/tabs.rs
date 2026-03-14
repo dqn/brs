@@ -740,7 +740,7 @@ impl LauncherUi {
                 ui.label("Rec Stop Wait:");
                 ui.add(
                     egui::DragValue::new(&mut self.config.obs.obs_ws_rec_stop_wait)
-                        .range(0..=60000),
+                        .range(0..=10000),
                 );
                 ui.end_row();
             }

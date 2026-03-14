@@ -716,6 +716,7 @@ impl BMSPlayerInputProcessor {
     }
 
     pub fn sync_runtime_state_from(&mut self, source: &Self) {
+        self.enable = source.enable;
         self.kbinput.sync_runtime_state_from(&source.kbinput);
         self.keystate = source.keystate;
         self.time = source.time;
@@ -1230,6 +1231,37 @@ mod tests {
                 t,
             );
         }
+    }
+
+    /// Regression: sync_runtime_state_from must copy the enable field.
+    /// If the source is disabled, the destination must also become disabled,
+    /// otherwise key_changed_internal would still accept input on the copy.
+    #[test]
+    fn test_sync_runtime_state_from_copies_enable_field() {
+        let mut dst = make_input_processor();
+        let mut src = make_input_processor();
+
+        // Destination starts enabled (default)
+        assert!(dst.enable);
+
+        // Disable source
+        src.set_enable(false);
+        assert!(!src.enable);
+
+        // Sync should propagate the disabled state
+        dst.sync_runtime_state_from(&src);
+        assert!(
+            !dst.enable,
+            "sync_runtime_state_from must copy enable=false from source"
+        );
+
+        // Re-enable source and sync again
+        src.set_enable(true);
+        dst.sync_runtime_state_from(&src);
+        assert!(
+            dst.enable,
+            "sync_runtime_state_from must copy enable=true from source"
+        );
     }
 
     #[test]

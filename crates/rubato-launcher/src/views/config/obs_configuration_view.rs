@@ -511,7 +511,7 @@ impl ObsConfigurationView {
                     ui.end_row();
 
                     ui.label("Rec Stop Wait (ms):");
-                    ui.add(egui::DragValue::new(&mut self.obs_ws_rec_stop_wait).range(0..=60000));
+                    ui.add(egui::DragValue::new(&mut self.obs_ws_rec_stop_wait).range(0..=10000));
                     ui.end_row();
                 }
             });
