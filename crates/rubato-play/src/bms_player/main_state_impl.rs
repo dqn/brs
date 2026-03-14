@@ -569,6 +569,7 @@ impl MainState for BMSPlayer {
                     .map_or(0, |s| s.fadeout()) as i64;
                 if self.main_state_data.timer.now_time_for_id(TIMER_FADEOUT) > skin_fadeout {
                     // input.setEnable(true); input.setStartTime(0);
+                    self.pending.pending_global_pitch = Some(1.0);
                     self.pending.pending_state_change = Some(MainStateType::MusicSelect);
                     log::info!("Practice finished, transition to MUSICSELECT");
                 }

@@ -226,7 +226,13 @@ impl MainController {
             audio.set_global_pitch(pitch);
         }
 
-        // Apply score handoff to PlayerResource
+        // Apply score handoff to PlayerResource.
+        // ORDERING INVARIANT: The handoff must be applied BEFORE the state change
+        // at the end of this function. BMSPlayer::render() populates replay_data
+        // via build_replay_data() WITHOUT the keylog (it only has pattern/seed info).
+        // This section appends the keylog from BMSPlayerInputProcessor below.
+        // If the state change ran first, the input processor would be destroyed
+        // and the keylog would be lost.
         if let Some(handoff) = pending_handoff
             && let Some(ref mut resource) = self.resource
         {
