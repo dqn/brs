@@ -173,7 +173,17 @@ impl MainState for BMSPlayer {
         // gauge = GrooveGauge.create(model, gauge_type, grade)
         // For practice mode, gauge is initialized later in the practice loop (line 581).
         if self.play_mode.mode != rubato_core::bms_player_mode::Mode::Practice {
-            let gauge_type = self.player_config.play_settings.gauge;
+            // Java: gauge = GrooveGauge.create(model, replay != null ? replay.gauge : config.getGauge(), resource);
+            // In replay mode, use the gauge type from the replay data.
+            let gauge_type = if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Replay {
+                self.score
+                    .active_replay
+                    .as_ref()
+                    .map(|r| r.gauge)
+                    .unwrap_or(self.player_config.play_settings.gauge)
+            } else {
+                self.player_config.play_settings.gauge
+            };
             let grade = if self.is_course_mode { 1 } else { 0 };
             self.gauge =
                 crate::groove_gauge::create_groove_gauge(&self.model, gauge_type, grade, None);
@@ -541,6 +551,12 @@ impl MainState for BMSPlayer {
 
                     // Gauge, judgerank, judge, lane init
                     self.gauge = self.practice.gauge(&self.model);
+                    // Reinitialize gaugelog for the new gauge (practice restart).
+                    // Without this, stale entries from the previous practice run remain.
+                    if let Some(ref gauge) = self.gauge {
+                        self.gaugelog =
+                            (0..gauge.gauge_type_length()).map(|_| Vec::new()).collect();
+                    }
                     self.model.judgerank = property.judgerank;
                     let mode = self.model.mode().copied().unwrap_or(Mode::BEAT_7K);
                     self.rebuild_judge_system(&mode);

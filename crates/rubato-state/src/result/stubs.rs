@@ -265,6 +265,10 @@ pub use rubato_types::groove_gauge::GrooveGauge;
 /// Wrapper for bms.player.beatoraja.PlayerResource.
 /// Delegates to `Box<dyn PlayerResourceAccess>` for trait methods.
 /// Crate-local methods provide access to non-trait types (BMSModel, BMSPlayerMode, RankingData).
+///
+/// NOTE: `bms_model` is a snapshot taken at construction time. After `next_course()` updates the
+/// inner PlayerResource's model, this local field becomes stale. Use `inner.songdata()` for
+/// post-next_course data; the local `bms_model` must not be relied on after course advancement.
 pub struct PlayerResource {
     inner: Box<dyn PlayerResourceAccess>,
     pub bms_model: bms_model::bms_model::BMSModel,
