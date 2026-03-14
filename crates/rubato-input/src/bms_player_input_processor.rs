@@ -901,6 +901,7 @@ impl crate::midi_input_processor::MidiCallback for MidiEvents {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::stubs::{Config, Keys, PlayerConfig};

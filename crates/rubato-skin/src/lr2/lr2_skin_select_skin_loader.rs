@@ -57,6 +57,18 @@ impl LR2SkinSelectSkinLoaderState {
     }
 }
 
+impl LR2SkinLoaderAccess for LR2SkinSelectSkinLoaderState {
+    fn csv_mut(&mut self) -> &mut LR2SkinCSVLoaderState {
+        &mut self.csv
+    }
+
+    fn assemble_objects(&mut self, skin: &mut crate::skin::Skin) {
+        // Skin select skin has no LR2-specific objects beyond generic SRC/DST images.
+        // Count custom property buttons after all objects are assembled.
+        self.count_custom_properties(skin);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,17 +145,5 @@ mod tests {
         skin.add(make_image_with_clickevent(BUTTON_SKIN_CUSTOMIZE10 + 1));
         loader.count_custom_properties(&skin);
         assert_eq!(loader.custom_property_count, 0);
-    }
-}
-
-impl LR2SkinLoaderAccess for LR2SkinSelectSkinLoaderState {
-    fn csv_mut(&mut self) -> &mut LR2SkinCSVLoaderState {
-        &mut self.csv
-    }
-
-    fn assemble_objects(&mut self, skin: &mut crate::skin::Skin) {
-        // Skin select skin has no LR2-specific objects beyond generic SRC/DST images.
-        // Count custom property buttons after all objects are assembled.
-        self.count_custom_properties(skin);
     }
 }

@@ -690,10 +690,10 @@ mod tests {
     #[test]
     fn shrink_large_keylog() {
         let mut rd = ReplayData::new();
-        for i in 0..10_000 {
+        for i in 0..10_000_i32 {
             rd.keylog.push(KeyInputLog {
-                time: i as i64 * 1000,
-                keycode: (i % 127) as i32,
+                time: i64::from(i) * 1000,
+                keycode: i % 127,
                 pressed: i % 2 == 0,
             });
         }
@@ -702,10 +702,10 @@ mod tests {
         assert!(rd.keylog.is_empty());
         assert!(rd.validate());
         assert_eq!(rd.keylog.len(), 10_000);
-        for i in 0..10_000 {
-            assert_eq!(rd.keylog[i].time, i as i64 * 1000);
-            assert_eq!(rd.keylog[i].keycode, (i % 127) as i32);
-            assert_eq!(rd.keylog[i].pressed, i % 2 == 0);
+        for i in 0..10_000_i32 {
+            assert_eq!(rd.keylog[i as usize].time, i64::from(i) * 1000);
+            assert_eq!(rd.keylog[i as usize].keycode, i % 127);
+            assert_eq!(rd.keylog[i as usize].pressed, i % 2 == 0);
         }
     }
 

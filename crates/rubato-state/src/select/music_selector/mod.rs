@@ -738,4 +738,5 @@ mod song_selection;
 mod trait_impls;
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests;

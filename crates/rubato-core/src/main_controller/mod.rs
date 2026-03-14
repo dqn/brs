@@ -333,4 +333,5 @@ mod trait_impls;
 mod utilities;
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests;

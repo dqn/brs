@@ -76,6 +76,7 @@ pub fn initialize_ir_config(player: &PlayerConfig) -> Vec<IRStatus> {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
 

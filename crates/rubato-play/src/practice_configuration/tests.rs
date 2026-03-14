@@ -4,7 +4,7 @@ use bms_model::time_line::TimeLine;
 
 fn make_test_model(mode: &Mode, times: &[i32]) -> BMSModel {
     let mut model = BMSModel::new();
-    model.set_mode(mode.clone());
+    model.set_mode(*mode);
     let mut timelines = Vec::new();
     for &t in times {
         let mut tl = TimeLine::new(t.into(), 0, mode.key());
@@ -107,7 +107,7 @@ fn test_apply_to_model_starttime_below_1000() {
 /// Helper to make a model with real micro-times for practice tests.
 fn make_timed_model(mode: &Mode, time_millis: &[i32]) -> BMSModel {
     let mut model = BMSModel::new();
-    model.set_mode(mode.clone());
+    model.set_mode(*mode);
     let mut timelines = Vec::new();
     for &t_ms in time_millis {
         let micro = t_ms as i64 * 1000;
@@ -296,7 +296,7 @@ fn draw_cursor_position_colors_element_yellow() {
                     || text.starts_with("GRAPH")
                     || text.starts_with("OPTION") =>
             {
-                Some(color.clone())
+                Some(*color)
             }
             _ => None,
         })

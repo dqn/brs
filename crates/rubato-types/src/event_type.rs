@@ -41,7 +41,7 @@ mod tests {
     #[test]
     fn test_event_type_clone() {
         let e = EventType::Duration1p;
-        let e2 = e.clone();
+        let e2 = e;
         assert_eq!(e, e2);
     }
 }

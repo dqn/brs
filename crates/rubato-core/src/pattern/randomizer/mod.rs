@@ -869,7 +869,7 @@ mod tests {
         // All mapped notes should point to valid lanes
         for &assigned in result.values() {
             assert!(
-                assigned >= 0 && assigned < 3,
+                (0..3).contains(&assigned),
                 "assigned lane {} out of range",
                 assigned
             );
@@ -944,8 +944,8 @@ mod tests {
         // Should return identity permutation for BEAT_7K (key count = 8 with scratch)
         let mode_key = Mode::BEAT_7K.key() as usize;
         assert_eq!(perm.len(), mode_key);
-        for i in 0..mode_key {
-            assert_eq!(perm[i], i as i32);
+        for (i, &p) in perm.iter().enumerate().take(mode_key) {
+            assert_eq!(p, i as i32);
         }
     }
 

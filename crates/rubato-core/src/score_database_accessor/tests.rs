@@ -459,6 +459,7 @@ fn memory_accessor() -> ScoreDatabaseAccessor {
 }
 
 /// Build a valid ScoreData (passes validate()) with given sha256, mode, clear.
+#[allow(clippy::field_reassign_with_default)]
 fn make_score(sha256: &str, mode: i32, clear: i32) -> ScoreData {
     let mut sd = ScoreData::default();
     sd.sha256 = sha256.to_string();

@@ -13,7 +13,7 @@ use rubato_core::pattern::pattern_modifier::PatternModifier;
 fn make_test_model(mode: &Mode, timelines: Vec<TimeLine>) -> BMSModel {
     let mut model = BMSModel::new();
     model.timelines = timelines;
-    model.set_mode(mode.clone());
+    model.set_mode(*mode);
     model
 }
 

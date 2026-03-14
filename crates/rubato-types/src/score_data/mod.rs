@@ -11,4 +11,5 @@ pub use timing_stats::*;
 pub use trophy::*;
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests;

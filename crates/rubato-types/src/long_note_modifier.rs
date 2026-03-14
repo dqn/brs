@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn test_long_note_modifier_mode_clone_debug() {
         let m = Mode::Add;
-        let cloned = m.clone();
-        assert_eq!(format!("{:?}", cloned), "Add");
+        let copied = m;
+        assert_eq!(format!("{:?}", copied), "Add");
     }
 }

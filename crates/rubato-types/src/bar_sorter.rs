@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_bar_sorter_entry_clone() {
         let entry = BarSorterEntry { name: "CLEAR" };
-        let cloned = entry.clone();
-        assert_eq!(cloned.name(), "CLEAR");
+        let copied = entry;
+        assert_eq!(copied.name(), "CLEAR");
     }
 }

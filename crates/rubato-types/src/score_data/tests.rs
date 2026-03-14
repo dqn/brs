@@ -228,13 +228,21 @@ fn test_update_exscore() {
 
 #[test]
 fn test_update_no_change() {
-    let mut sd = ScoreData::default();
-    sd.clear = 5;
-    sd.judge_counts.epg = 100;
-    sd.judge_counts.lpg = 100;
-    sd.maxcombo = 200;
-    sd.minbp = 0;
-    sd.timing_stats.avgjudge = 0;
+    let mut sd = ScoreData {
+        clear: 5,
+        judge_counts: JudgeCounts {
+            epg: 100,
+            lpg: 100,
+            ..JudgeCounts::default()
+        },
+        maxcombo: 200,
+        minbp: 0,
+        timing_stats: TimingStats {
+            avgjudge: 0,
+            ..TimingStats::default()
+        },
+        ..ScoreData::default()
+    };
 
     let newscore = sd.clone();
     assert!(!sd.update(&newscore, true));
@@ -936,8 +944,10 @@ mod prop_tests {
     /// Negative notes should return None, not wrap to a huge usize.
     #[test]
     fn ghost_decode_negative_notes_returns_none() {
-        let mut score = ScoreData::default();
-        score.notes = 5;
+        let mut score = ScoreData {
+            notes: 5,
+            ..ScoreData::default()
+        };
         let ghost_data = vec![0, 1, 2, 3, 4];
         score.encode_ghost(Some(&ghost_data));
         assert!(!score.ghost.is_empty());
@@ -953,8 +963,10 @@ mod prop_tests {
     /// Zero notes should return None.
     #[test]
     fn ghost_decode_zero_notes_returns_none() {
-        let mut score = ScoreData::default();
-        score.notes = 5;
+        let mut score = ScoreData {
+            notes: 5,
+            ..ScoreData::default()
+        };
         let ghost_data = vec![0, 1, 2, 3, 4];
         score.encode_ghost(Some(&ghost_data));
         assert!(!score.ghost.is_empty());
@@ -982,8 +994,10 @@ mod prop_tests {
         encoder.write_all(&raw_bytes).unwrap();
         let compressed = encoder.finish().unwrap();
 
-        let mut score = ScoreData::default();
-        score.notes = 5;
+        let mut score = ScoreData {
+            notes: 5,
+            ..ScoreData::default()
+        };
         score.ghost = URL_SAFE.encode(&compressed);
 
         let decoded = score.decode_ghost().unwrap();

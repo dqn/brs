@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 // Integration test: CourseData parse -> validate pipeline
 //
 // Tests CourseData creation, constraint checking, validation,

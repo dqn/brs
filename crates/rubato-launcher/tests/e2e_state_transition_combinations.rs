@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 // E2E state transition combination tests.
 //
 // Tests additional state transition paths not covered by

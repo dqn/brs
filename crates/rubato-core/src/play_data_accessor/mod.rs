@@ -26,6 +26,7 @@ mod model_course;
 pub use self::core::{CourseScoreWriteContext, ScoreWriteContext};
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::config::Config;

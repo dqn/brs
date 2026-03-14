@@ -540,15 +540,13 @@ mod tests {
             }
         }
 
-        let enabled = PLAY_CONFIG_ENABLED.get_or_init(|| {
-            let mut pc = crate::play_config::PlayConfig::default();
-            pc.enable_constant = true;
-            pc
+        let enabled = PLAY_CONFIG_ENABLED.get_or_init(|| crate::play_config::PlayConfig {
+            enable_constant: true,
+            ..crate::play_config::PlayConfig::default()
         });
-        let disabled = PLAY_CONFIG_DISABLED.get_or_init(|| {
-            let mut pc = crate::play_config::PlayConfig::default();
-            pc.enable_constant = false;
-            pc
+        let disabled = PLAY_CONFIG_DISABLED.get_or_init(|| crate::play_config::PlayConfig {
+            enable_constant: false,
+            ..crate::play_config::PlayConfig::default()
         });
 
         let ctx_on = ConstantTestContext { config: enabled };

@@ -373,9 +373,11 @@ mod tests {
         assert!(valid.validate());
 
         // Invalid: no name
-        let mut no_name = TrophyData::default();
-        no_name.missrate = 5.0;
-        no_name.scorerate = 90.0;
+        let mut no_name = TrophyData {
+            missrate: 5.0,
+            scorerate: 90.0,
+            ..TrophyData::default()
+        };
         assert!(!no_name.validate());
 
         // Invalid: missrate <= 0

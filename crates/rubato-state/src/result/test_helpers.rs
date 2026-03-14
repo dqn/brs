@@ -1,8 +1,6 @@
 // Shared test helpers for music_result and course_result test modules.
 // Contains mock types that are identical between both result screen test suites.
 
-#![cfg(test)]
-
 use rubato_core::main_state::SkinDrawable;
 use rubato_core::sprite_batch_helper::SpriteBatch;
 use rubato_types::main_controller_access::MainControllerAccess;

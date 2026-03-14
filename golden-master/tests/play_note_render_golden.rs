@@ -196,7 +196,7 @@ fn capture_snapshot(
     NoteDrawSnapshot {
         commands: result.commands.iter().map(convert_command).collect(),
         lift_offset_y: result.lift_offset_y,
-        lanecover_offset_y: (result.lanecover_offset_y as f32 * 100.0).round() / 100.0,
+        lanecover_offset_y: (result.lanecover_offset_y * 100.0).round() / 100.0,
     }
 }
 

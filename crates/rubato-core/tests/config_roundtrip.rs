@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 // Integration test: Config serialize -> deserialize round-trip
 //
 // Creates a Config with non-default values, serializes to JSON,

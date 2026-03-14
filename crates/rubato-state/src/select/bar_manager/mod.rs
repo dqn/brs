@@ -941,4 +941,5 @@ pub use loader::*;
 use loader::{CourseTableAccessor, RandomCourseResult, bar_class_name};
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests;

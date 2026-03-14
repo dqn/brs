@@ -156,7 +156,7 @@ mod tests {
             disposed: false,
             ..Default::default()
         });
-        let orig_rect = rect.clone();
+        let orig_rect = rect;
         StretchType::Stretch.stretch_rect(&mut rect, &mut image);
         assert_eq!(rect.x, orig_rect.x);
         assert_eq!(rect.y, orig_rect.y);

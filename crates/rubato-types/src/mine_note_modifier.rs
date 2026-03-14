@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn test_mine_note_modifier_mode_clone_debug() {
         let m = Mode::Remove;
-        let cloned = m.clone();
-        assert_eq!(format!("{:?}", cloned), "Remove");
+        let copied = m;
+        assert_eq!(format!("{:?}", copied), "Remove");
     }
 }

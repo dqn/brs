@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn test_scroll_speed_modifier_mode_clone_debug() {
         let m = Mode::Variable;
-        let cloned = m.clone();
-        assert_eq!(format!("{:?}", cloned), "Variable");
+        let copied = m;
+        assert_eq!(format!("{:?}", copied), "Variable");
     }
 }

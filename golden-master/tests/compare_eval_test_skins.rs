@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 // Synthetic test skin evaluation tests.
 //
 // Verifies eval path coverage (interpolation modes, loop variants, draw conditions)

@@ -419,7 +419,7 @@ mod tests {
 
         let dm_144 = DisplayMode {
             refresh_rate_millihertz: 144000,
-            ..dm.clone()
+            ..dm
         };
         assert_eq!(dm_144.refresh_rate_hz(), 144);
     }
@@ -454,12 +454,12 @@ mod tests {
             refresh_rate_millihertz: 60000,
             bit_depth: 32,
         };
-        let dm2 = dm1.clone();
+        let dm2 = dm1;
         assert_eq!(dm1, dm2);
 
         let dm3 = DisplayMode {
             refresh_rate_millihertz: 144000,
-            ..dm1.clone()
+            ..dm1
         };
         assert_ne!(dm1, dm3);
     }

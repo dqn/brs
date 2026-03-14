@@ -540,7 +540,7 @@ mod tests {
             let state = MainState {
                 main: NullMainController,
                 resource: PlayerResource::default(),
-                screen_type: variant.clone(),
+                screen_type: variant,
             };
             assert_eq!(state.screen_type(), variant);
         }

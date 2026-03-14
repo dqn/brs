@@ -667,7 +667,7 @@ mod tests {
     #[test]
     fn test_offset_value_clone() {
         let ov = OffsetValue::new(10, 20, 30, 40, 50, 60);
-        let cloned = ov.clone();
+        let cloned = ov;
         assert_eq!(cloned.x, 10);
         assert_eq!(cloned.y, 20);
         assert_eq!(cloned.w, 30);

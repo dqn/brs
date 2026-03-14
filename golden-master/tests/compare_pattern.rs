@@ -21,7 +21,7 @@ fn fixture_dir() -> &'static Path {
 /// Create a minimal BMSModel with the specified mode for shuffle testing.
 fn make_model_for_mode(mode: &Mode) -> BMSModel {
     let mut model = BMSModel::new();
-    model.set_mode(mode.clone());
+    model.set_mode(*mode);
     model
 }
 

@@ -222,6 +222,7 @@ impl RankingData {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use rubato_core::clear_type::ClearType;

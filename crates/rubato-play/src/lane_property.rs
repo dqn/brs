@@ -215,8 +215,8 @@ mod tests {
         // Lane 5 is scratch (index 0)
         assert_eq!(scratch[5], 0);
         // Lanes 0-4 are not scratch
-        for i in 0..5 {
-            assert_eq!(scratch[i], -1);
+        for &s in &scratch[..5] {
+            assert_eq!(s, -1);
         }
     }
 
@@ -267,8 +267,8 @@ mod tests {
         let lp = LaneProperty::new(&Mode::BEAT_7K);
         let scratch = lp.lane_scratch_assign();
         assert_eq!(scratch[7], 0); // Lane 7 is scratch
-        for i in 0..7 {
-            assert_eq!(scratch[i], -1);
+        for &s in &scratch[..7] {
+            assert_eq!(s, -1);
         }
     }
 
@@ -322,12 +322,12 @@ mod tests {
         let players = lp.lane_player();
         assert_eq!(players.len(), 12);
         // First 6 lanes are player 0
-        for i in 0..6 {
-            assert_eq!(players[i], 0);
+        for &p in &players[..6] {
+            assert_eq!(p, 0);
         }
         // Last 6 lanes are player 1
-        for i in 6..12 {
-            assert_eq!(players[i], 1);
+        for &p in &players[6..12] {
+            assert_eq!(p, 1);
         }
     }
 
@@ -353,11 +353,11 @@ mod tests {
         let lp = LaneProperty::new(&Mode::BEAT_14K);
         let players = lp.lane_player();
         assert_eq!(players.len(), 16);
-        for i in 0..8 {
-            assert_eq!(players[i], 0);
+        for &p in &players[..8] {
+            assert_eq!(p, 0);
         }
-        for i in 8..16 {
-            assert_eq!(players[i], 1);
+        for &p in &players[8..16] {
+            assert_eq!(p, 1);
         }
     }
 
@@ -448,11 +448,11 @@ mod tests {
         let lp = LaneProperty::new(&Mode::KEYBOARD_24K_DOUBLE);
         let players = lp.lane_player();
         assert_eq!(players.len(), 52);
-        for i in 0..26 {
-            assert_eq!(players[i], 0);
+        for &p in &players[..26] {
+            assert_eq!(p, 0);
         }
-        for i in 26..52 {
-            assert_eq!(players[i], 1);
+        for &p in &players[26..52] {
+            assert_eq!(p, 1);
         }
     }
 

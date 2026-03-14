@@ -359,12 +359,12 @@ mod tests {
             refresh_rate_millihertz: 60000,
             bit_depth: 32,
         };
-        let mode2 = mode1.clone();
+        let mode2 = mode1;
         assert_eq!(mode1, mode2);
 
         let mode3 = VideoModeInfo {
             refresh_rate_millihertz: 144000,
-            ..mode1.clone()
+            ..mode1
         };
         assert_ne!(mode1, mode3);
     }

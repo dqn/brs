@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn test_bms_player_rule_clone_debug_eq() {
         let a = BMSPlayerRule::Beatoraja;
-        let b = a.clone();
+        let b = a;
         assert_eq!(a, b);
         assert_eq!(format!("{:?}", a), "Beatoraja");
     }

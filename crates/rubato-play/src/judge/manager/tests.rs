@@ -291,7 +291,7 @@ fn autoplay_judges_all_notes_as_pgreat() {
     assert_eq!(jm.max_combo(), 3);
     assert_eq!(jm.past_notes(), 3);
     for &g in jm.ghost() {
-        assert_eq!(g, JUDGE_PG as i32);
+        assert_eq!(g, JUDGE_PG);
     }
 }
 
@@ -336,7 +336,7 @@ fn miss_all_notes_without_input() {
 
     // Note should be miss-POOR (judge=4)
     assert_eq!(jm.past_notes(), 1);
-    assert_eq!(jm.ghost()[0], JUDGE_PR as i32);
+    assert_eq!(jm.ghost()[0], JUDGE_PR);
 }
 
 // --- Phase 36d: Custom judge rates and course constraints ---
@@ -833,7 +833,7 @@ fn from_config_has_nonzero_lane_count() {
 
     // BEAT_7K has 8 lanes (7 keys + 1 scratch)
     assert!(
-        jm.auto_presstime().len() > 0,
+        !jm.auto_presstime().is_empty(),
         "auto_presstime should be initialized (lane_count > 0)"
     );
 }

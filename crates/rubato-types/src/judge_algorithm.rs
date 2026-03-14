@@ -107,7 +107,7 @@ mod tests {
     #[test]
     fn test_judge_algorithm_clone_debug_eq() {
         let a = JudgeAlgorithm::Combo;
-        let b = a.clone();
+        let b = a;
         assert_eq!(a, b);
         assert_eq!(format!("{:?}", a), "Combo");
     }

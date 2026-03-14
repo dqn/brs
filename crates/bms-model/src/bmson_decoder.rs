@@ -1300,7 +1300,7 @@ mod tests {
         for tl in &model.timelines {
             let stop = tl.micro_stop();
             assert!(
-                stop != i64::MAX && stop.is_positive() == false || stop == 0,
+                stop != i64::MAX && !stop.is_positive() || stop == 0,
                 "stop should not be i64::MAX from infinity cast, got {}",
                 stop
             );
