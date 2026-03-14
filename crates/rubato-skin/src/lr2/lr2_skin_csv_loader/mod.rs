@@ -911,4 +911,44 @@ SCENETIME,9999\n\
         assert_eq!(gauge.len(), 1);
         assert_eq!(gauge[0].len(), 36);
     }
+
+    // --- SRC_BUTTON group_size == 0 guard ---
+
+    #[test]
+    fn test_src_button_length_exceeds_image_count_no_panic() {
+        // Regression: when SRC_BUTTON length > srcimg.len(), group_size becomes 0
+        // and chunks(0) would panic. The guard should produce an empty images vec.
+        let mut state = make_state();
+        let tex = Texture {
+            width: 20,
+            height: 20,
+            ..Default::default()
+        };
+        state.imagelist.push(ImageListEntry::TextureEntry(tex));
+
+        // SRC_BUTTON with: gr=0, x=0, y=0, w=20, h=20, divx=1, divy=1 -> 1 srcimg
+        // length=10 -> group_size = 1 / 10 = 0 -> must not panic
+        let parts = str_vec(&[
+            "#SRC_BUTTON",
+            "0",  // str_parts[1] unused for button id
+            "0",  // gr
+            "0",  // x
+            "0",  // y
+            "20", // w
+            "20", // h
+            "1",  // divx
+            "1",  // divy
+            "0",  // timer
+            "0",  // cycle
+            "0",  // ref_id
+            "0",  // clickevent
+            "0",  // _
+            "0",  // click_type
+            "10", // length (exceeds srcimg count of 1)
+        ]);
+        // Should not panic
+        state.process_csv_command("SRC_BUTTON", &parts, None);
+        // With group_size == 0, images is empty -> no button created
+        assert!(state.button.is_none());
+    }
 }

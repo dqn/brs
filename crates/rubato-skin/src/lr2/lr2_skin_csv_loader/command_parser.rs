@@ -311,13 +311,17 @@ impl LR2SkinCSVLoaderState {
                             Some(srcimg) => {
                                 let len = length as usize;
                                 let group_size = srcimg.len() / len;
-                                (0..len)
-                                    .map(|i| {
-                                        (0..group_size)
-                                            .map(|j| srcimg[i * group_size + j].clone())
-                                            .collect()
-                                    })
-                                    .collect()
+                                if group_size == 0 {
+                                    Vec::new()
+                                } else {
+                                    (0..len)
+                                        .map(|i| {
+                                            (0..group_size)
+                                                .map(|j| srcimg[i * group_size + j].clone())
+                                                .collect()
+                                        })
+                                        .collect()
+                                }
                             }
                             None => Vec::new(),
                         }
