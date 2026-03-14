@@ -5,6 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::sync::mpsc;
 
 use rayon::prelude::*;
 
@@ -17,7 +18,9 @@ use bms_model::note::Note;
 
 use crate::abstract_audio_driver::SliceWav;
 use crate::audio_driver::AudioDriver;
-use crate::gdx_sound_driver::{FileCacheEntry, LoadTask, add_note_entry, linear_to_db};
+use crate::gdx_sound_driver::{
+    BackgroundLoadResult, FileCacheEntry, LoadTask, add_note_entry, linear_to_db,
+};
 
 pub struct PortAudioDriver {
     manager: AudioManager,
@@ -40,6 +43,11 @@ pub struct PortAudioDriver {
     // Additional key sounds for judge playback: [6 judges][2: fast=0, late=1]
     additional_key_sounds: [[Option<StaticSoundData>; 2]; 6],
     additional_key_sound_handles: [[Option<StaticSoundHandle>; 2]; 6],
+    // Background loading state
+    loading_receiver: Option<mpsc::Receiver<BackgroundLoadResult>>,
+    pending_load_tasks: Option<Vec<LoadTask>>,
+    // Path sound cache for preloaded sounds (avoids blocking I/O on play_path)
+    path_sound_cache: HashMap<String, StaticSoundData>,
 }
 
 impl PortAudioDriver {
@@ -59,6 +67,9 @@ impl PortAudioDriver {
             file_cache: HashMap::new(),
             additional_key_sounds: Default::default(),
             additional_key_sound_handles: Default::default(),
+            loading_receiver: None,
+            pending_load_tasks: None,
+            path_sound_cache: HashMap::new(),
         })
     }
 }
@@ -74,23 +85,47 @@ impl AudioDriver for PortAudioDriver {
             handle.stop(Tween::default());
         }
 
-        // Try to load and play
+        // Check path sound cache first (populated by preload_path)
+        if let Some(sound_data) = self.path_sound_cache.get(path) {
+            let sound = sound_data.clone();
+            match self.manager.play(sound) {
+                Ok(mut handle) => {
+                    handle.set_volume(linear_to_db(volume), Tween::default());
+                    if loop_play {
+                        handle.set_loop_region(0.0..);
+                    }
+                    self.path_sounds.insert(path.to_string(), handle);
+                    return;
+                }
+                Err(e) => {
+                    log::warn!("Failed to play sound {}: {}", path, e);
+                }
+            }
+            return;
+        }
+
+        // Cache miss: load from file and cache for future use
         let candidates = crate::audio_driver::paths(path);
         for candidate in &candidates {
             match StaticSoundData::from_file(candidate) {
-                Ok(sound_data) => match self.manager.play(sound_data) {
-                    Ok(mut handle) => {
-                        handle.set_volume(linear_to_db(volume), Tween::default());
-                        if loop_play {
-                            handle.set_loop_region(0.0..);
+                Ok(sound_data) => {
+                    self.path_sound_cache
+                        .insert(path.to_string(), sound_data.clone());
+                    match self.manager.play(sound_data) {
+                        Ok(mut handle) => {
+                            handle.set_volume(linear_to_db(volume), Tween::default());
+                            if loop_play {
+                                handle.set_loop_region(0.0..);
+                            }
+                            self.path_sounds.insert(path.to_string(), handle);
+                            return;
                         }
-                        self.path_sounds.insert(path.to_string(), handle);
-                        return;
+                        Err(e) => {
+                            log::warn!("Failed to play sound {}: {}", path, e);
+                        }
                     }
-                    Err(e) => {
-                        log::warn!("Failed to play sound {}: {}", path, e);
-                    }
-                },
+                    return;
+                }
                 Err(_) => continue,
             }
         }
@@ -132,6 +167,10 @@ impl AudioDriver for PortAudioDriver {
         self.wav_handles.clear();
         self.slicesound.clear();
         self.slice_handles.clear();
+
+        // Cancel any in-progress background load
+        self.loading_receiver = None;
+        self.pending_load_tasks = None;
 
         // Set volume from model's volwav
         let volwav = model.volwav;
@@ -198,7 +237,7 @@ impl AudioDriver for PortAudioDriver {
             .collect();
 
         // Check file_cache for each unique path, collect uncached paths
-        // Translated from: AudioCache.get() — cache hit resets gen to 0
+        // Translated from: AudioCache.get() -- cache hit resets gen to 0
         let mut paths_to_load: HashSet<String> = HashSet::new();
         for (_, path, _) in &load_tasks {
             if let Some(entry) = self.file_cache.get_mut(path) {
@@ -208,78 +247,38 @@ impl AudioDriver for PortAudioDriver {
             }
         }
 
-        // Parallel load only uncached unique paths via rayon (matches Java parallelStream())
-        if !paths_to_load.is_empty() {
+        if paths_to_load.is_empty() {
+            // All paths are cached; finalize immediately without spawning a thread
+            self.finalize_load(&load_tasks);
+        } else {
+            // Spawn background thread for parallel loading of uncached paths
+            let (tx, rx) = mpsc::channel();
             let paths_vec: Vec<String> = paths_to_load.into_iter().collect();
-            let newly_loaded: Vec<(String, StaticSoundData)> = paths_vec
-                .par_iter()
-                .filter_map(|abs_path| {
-                    let candidates = crate::audio_driver::paths(abs_path);
-                    for candidate in &candidates {
-                        if let Ok(data) = StaticSoundData::from_file(candidate) {
-                            return Some((abs_path.clone(), data));
-                        }
-                    }
-                    log::debug!("Failed to load keysound: {}", abs_path);
-                    None
+
+            std::thread::Builder::new()
+                .name("keysound-loader".to_string())
+                .spawn(move || {
+                    let newly_loaded: Vec<(String, StaticSoundData)> = paths_vec
+                        .par_iter()
+                        .filter_map(|abs_path| {
+                            let candidates = crate::audio_driver::paths(abs_path);
+                            for candidate in &candidates {
+                                if let Ok(data) = StaticSoundData::from_file(candidate) {
+                                    return Some((abs_path.clone(), data));
+                                }
+                            }
+                            log::debug!("Failed to load keysound: {}", abs_path);
+                            None
+                        })
+                        .collect();
+
+                    let _ = tx.send(BackgroundLoadResult { newly_loaded });
                 })
-                .collect();
+                .expect("failed to spawn keysound-loader thread");
 
-            // Insert newly loaded into file_cache
-            for (path, sound) in newly_loaded {
-                self.file_cache.insert(
-                    path,
-                    FileCacheEntry {
-                        sound,
-                        generation: 0,
-                    },
-                );
-            }
+            self.loading_receiver = Some(rx);
+            self.pending_load_tasks = Some(load_tasks);
         }
-
-        // Build wav_sounds/slicesound from file_cache
-        // Translated from: AbstractAudioDriver.setModel() cache.get() → wavmap/slicesound
-        for (wav_id, path, note_entries) in &load_tasks {
-            if let Some(entry) = self.file_cache.get(path) {
-                let base_sound = &entry.sound;
-                for &(starttime, duration) in note_entries {
-                    if starttime == 0 && duration == 0 {
-                        self.wav_sounds.insert(*wav_id, base_sound.clone());
-                    } else {
-                        let sample_rate = base_sound.sample_rate as i64;
-                        let start_frame = (starttime * sample_rate / 1_000_000) as usize;
-                        let duration_frames = (duration * sample_rate / 1_000_000) as usize;
-                        let total_frames = base_sound.frames.len();
-                        // duration == 0 means "play from offset to EOF" (BMSON convention)
-                        let end_frame = if duration_frames == 0 {
-                            total_frames
-                        } else {
-                            (start_frame + duration_frames).min(total_frames)
-                        };
-
-                        if start_frame < total_frames {
-                            let mut sliced = base_sound.clone();
-                            sliced.slice = Some((start_frame, end_frame));
-
-                            self.slicesound
-                                .entry(*wav_id)
-                                .or_default()
-                                .push(SliceWav::new(starttime, duration, sliced));
-                        }
-                    }
-                }
-            }
-        }
-
-        // Generational eviction (matches Java ResourcePool.disposeOld() at end of setModel)
-        self.evict_old_cache();
-
-        log::info!(
-            "Keysound loading complete. Loaded: {} (sliced: {}) cache: {}",
-            self.wav_sounds.len(),
-            self.slicesound.values().map(|v| v.len()).sum::<usize>(),
-            self.file_cache.len()
-        );
     }
 
     fn set_additional_key_sound(&mut self, judge: i32, fast: bool, path: Option<&str>) {
@@ -297,9 +296,63 @@ impl AudioDriver for PortAudioDriver {
             }
         }
     }
-    fn abort(&mut self) {}
+    fn abort(&mut self) {
+        self.loading_receiver = None;
+        self.pending_load_tasks = None;
+    }
+
     fn get_progress(&self) -> f32 {
-        1.0
+        if self.loading_receiver.is_some() {
+            0.0
+        } else {
+            1.0
+        }
+    }
+
+    fn poll_loading(&mut self) -> bool {
+        let Some(rx) = &self.loading_receiver else {
+            return true;
+        };
+
+        match rx.try_recv() {
+            Ok(result) => {
+                for (path, sound) in result.newly_loaded {
+                    self.file_cache.insert(
+                        path,
+                        FileCacheEntry {
+                            sound,
+                            generation: 0,
+                        },
+                    );
+                }
+
+                let load_tasks = self.pending_load_tasks.take().unwrap_or_default();
+                self.loading_receiver = None;
+                self.finalize_load(&load_tasks);
+                true
+            }
+            Err(mpsc::TryRecvError::Empty) => false,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                log::warn!("Keysound loader thread disconnected unexpectedly");
+                let load_tasks = self.pending_load_tasks.take().unwrap_or_default();
+                self.loading_receiver = None;
+                self.finalize_load(&load_tasks);
+                true
+            }
+        }
+    }
+
+    fn preload_path(&mut self, path: &str) {
+        if path.is_empty() || self.path_sound_cache.contains_key(path) {
+            return;
+        }
+        let candidates = crate::audio_driver::paths(path);
+        for candidate in &candidates {
+            if let Ok(sound_data) = StaticSoundData::from_file(candidate) {
+                self.path_sound_cache.insert(path.to_string(), sound_data);
+                return;
+            }
+        }
     }
 
     fn play_note(&mut self, n: &Note, volume: f32, pitch: i32) {
@@ -389,10 +442,57 @@ impl AudioDriver for PortAudioDriver {
         self.file_cache.clear();
         self.additional_key_sounds = Default::default();
         self.additional_key_sound_handles = Default::default();
+        self.loading_receiver = None;
+        self.pending_load_tasks = None;
+        self.path_sound_cache.clear();
     }
 }
 
 impl PortAudioDriver {
+    /// Finalize keysound loading: build wav_sounds/slicesound from file_cache
+    /// and run generational eviction.
+    fn finalize_load(&mut self, load_tasks: &[LoadTask]) {
+        for (wav_id, path, note_entries) in load_tasks {
+            if let Some(entry) = self.file_cache.get(path) {
+                let base_sound = &entry.sound;
+                for &(starttime, duration) in note_entries {
+                    if starttime == 0 && duration == 0 {
+                        self.wav_sounds.insert(*wav_id, base_sound.clone());
+                    } else {
+                        let sample_rate = base_sound.sample_rate as i64;
+                        let start_frame = (starttime * sample_rate / 1_000_000) as usize;
+                        let duration_frames = (duration * sample_rate / 1_000_000) as usize;
+                        let total_frames = base_sound.frames.len();
+                        let end_frame = if duration_frames == 0 {
+                            total_frames
+                        } else {
+                            (start_frame + duration_frames).min(total_frames)
+                        };
+
+                        if start_frame < total_frames {
+                            let mut sliced = base_sound.clone();
+                            sliced.slice = Some((start_frame, end_frame));
+
+                            self.slicesound
+                                .entry(*wav_id)
+                                .or_default()
+                                .push(SliceWav::new(starttime, duration, sliced));
+                        }
+                    }
+                }
+            }
+        }
+
+        self.evict_old_cache();
+
+        log::info!(
+            "Keysound loading complete. Loaded: {} (sliced: {}) cache: {}",
+            self.wav_sounds.len(),
+            self.slicesound.values().map(|v| v.len()).sum::<usize>(),
+            self.file_cache.len()
+        );
+    }
+
     /// Load and cache a sound from path.
     /// Translated from AbstractAudioDriver.getSound()
     fn sound(&mut self, path: &str) -> Option<StaticSoundData> {

@@ -22,7 +22,9 @@ pub trait AudioDriver {
     /// Dispose the audio at the specified path
     fn dispose_path(&mut self, path: &str);
 
-    /// Load BMS audio data
+    /// Load BMS audio data. This initiates background loading of keysound files.
+    /// Call `poll_loading()` each frame to check for completion and finalize the
+    /// wav_sounds/slicesound maps.
     fn set_model(&mut self, model: &BMSModel);
 
     /// Define additional key sounds for judgement
@@ -33,6 +35,18 @@ pub trait AudioDriver {
 
     /// Returns audio loading progress (0.0 - 1.0)
     fn get_progress(&self) -> f32;
+
+    /// Poll background loading completion. Returns true when loading is finished
+    /// (or if no loading is in progress). Should be called each frame from the
+    /// render loop.
+    fn poll_loading(&mut self) -> bool {
+        true
+    }
+
+    /// Preload a sound file into the path sound cache without playing it.
+    /// Call during state `create()` for known system sounds to avoid blocking
+    /// I/O on first `play_path()`.
+    fn preload_path(&mut self, _path: &str) {}
 
     /// Play the sound for the specified Note
     fn play_note(&mut self, n: &Note, volume: f32, pitch: i32);
