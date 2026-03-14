@@ -1657,3 +1657,85 @@ fn test_handoff_freq_flags_false_by_default() {
     assert!(!res.freq_on);
     assert!(!res.force_no_ir_send);
 }
+
+// --- UpdatePlayConfig forwarding to current state ---
+
+/// Test state that captures play config updates via shared Arc for external inspection.
+struct PlayConfigReceiverState {
+    state_data: MainStateData,
+    received: Arc<Mutex<Vec<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)>>>,
+}
+
+impl PlayConfigReceiverState {
+    fn new(
+        received: Arc<Mutex<Vec<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)>>>,
+    ) -> Self {
+        Self {
+            state_data: MainStateData::new(TimerManager::new()),
+            received,
+        }
+    }
+}
+
+impl MainState for PlayConfigReceiverState {
+    fn state_type(&self) -> Option<MainStateType> {
+        Some(MainStateType::Play)
+    }
+
+    fn main_state_data(&self) -> &MainStateData {
+        &self.state_data
+    }
+
+    fn main_state_data_mut(&mut self) -> &mut MainStateData {
+        &mut self.state_data
+    }
+
+    fn create(&mut self) {}
+    fn render(&mut self) {}
+
+    fn receive_updated_play_config(
+        &mut self,
+        mode: bms_model::mode::Mode,
+        play_config: rubato_types::play_config::PlayConfig,
+    ) {
+        self.received.lock().unwrap().push((mode, play_config));
+    }
+}
+
+#[test]
+fn update_play_config_command_forwards_to_current_state() {
+    let mut mc = make_test_controller();
+    let received = Arc::new(Mutex::new(Vec::new()));
+    mc.current = Some(Box::new(PlayConfigReceiverState::new(received.clone())));
+
+    // Queue an UpdatePlayConfig command with a modified PlayConfig
+    let mut pc = rubato_types::play_config::PlayConfig::default();
+    pc.hispeed = 5.0;
+    pc.enablelift = true;
+    mc.command_queue.push(
+        rubato_types::main_controller_access::MainControllerCommand::UpdatePlayConfig(
+            bms_model::mode::Mode::BEAT_7K,
+            Box::new(pc),
+        ),
+    );
+
+    mc.process_queued_controller_commands();
+
+    // Verify MainController's authoritative PlayerConfig was updated
+    let mc_pc = &mc
+        .player
+        .play_config_ref(bms_model::mode::Mode::BEAT_7K)
+        .playconfig;
+    assert!((mc_pc.hispeed - 5.0).abs() < f32::EPSILON);
+    assert!(mc_pc.enablelift);
+
+    // Verify the current state received the forwarded config
+    let updates = received.lock().unwrap();
+    assert_eq!(updates.len(), 1, "state should receive exactly one update");
+    assert_eq!(updates[0].0, bms_model::mode::Mode::BEAT_7K);
+    assert!(
+        (updates[0].1.hispeed - 5.0).abs() < f32::EPSILON,
+        "forwarded hispeed should match"
+    );
+    assert!(updates[0].1.enablelift, "forwarded enablelift should match");
+}

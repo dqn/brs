@@ -51,6 +51,14 @@ impl MainState for BMSPlayer {
         self.pending.pending_play_config_update.take()
     }
 
+    fn receive_updated_play_config(
+        &mut self,
+        mode: bms_model::mode::Mode,
+        play_config: rubato_types::play_config::PlayConfig,
+    ) {
+        self.player_config.play_config(mode).playconfig = play_config;
+    }
+
     fn notify_media_load_finished(&mut self) {
         self.media_load_finished = true;
     }

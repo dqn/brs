@@ -287,7 +287,11 @@ impl MainController {
                     self.load_new_profile(*pc);
                 }
                 MainControllerCommand::UpdatePlayConfig(mode, play_config) => {
-                    self.player.play_config(mode).playconfig = *play_config;
+                    let pc = *play_config;
+                    self.player.play_config(mode).playconfig = pc.clone();
+                    if let Some(ref mut state) = self.current {
+                        state.receive_updated_play_config(mode, pc);
+                    }
                 }
             }
         }

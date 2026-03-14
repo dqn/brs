@@ -249,6 +249,20 @@ pub trait MainState {
         // Default no-op — only BMSPlayer uses this.
     }
 
+    /// Receive an updated PlayConfig pushed from MainController after modmenu changes.
+    ///
+    /// In Java, BMSPlayer accesses `main.getPlayerConfig()` (shared reference), so
+    /// modmenu changes take effect immediately when play resumes. In Rust, BMSPlayer
+    /// owns a clone of PlayerConfig, so MainController must push updates through
+    /// this method to keep the clone in sync.
+    fn receive_updated_play_config(
+        &mut self,
+        _mode: bms_model::mode::Mode,
+        _play_config: rubato_types::play_config::PlayConfig,
+    ) {
+        // Default no-op — only BMSPlayer uses this.
+    }
+
     /// Receive a reloaded BMS model from resource after reload_bms_file().
     /// Used by practice mode to get a fresh model without a full state change.
     fn receive_reloaded_model(&mut self, _model: bms_model::bms_model::BMSModel) {

@@ -3932,3 +3932,49 @@ fn take_pending_play_config_update_via_main_state_trait() {
         "take_pending_play_config_update should return None after consumption"
     );
 }
+
+#[test]
+fn receive_updated_play_config_updates_cloned_player_config() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+
+    // Verify default hispeed
+    let original_hispeed = player
+        .player_config
+        .play_config_ref(Mode::BEAT_7K)
+        .playconfig
+        .hispeed;
+
+    // Simulate modmenu pushing an updated PlayConfig
+    let mut updated_pc = player
+        .player_config
+        .play_config_ref(Mode::BEAT_7K)
+        .playconfig
+        .clone();
+    updated_pc.hispeed = original_hispeed + 1.5;
+    updated_pc.enablelift = true;
+
+    let state: &mut dyn MainState = &mut player;
+    state.receive_updated_play_config(Mode::BEAT_7K, updated_pc);
+
+    // BMSPlayer's cloned config should now reflect the update
+    assert!(
+        (player
+            .player_config
+            .play_config_ref(Mode::BEAT_7K)
+            .playconfig
+            .hispeed
+            - (original_hispeed + 1.5))
+            .abs()
+            < f32::EPSILON,
+        "hispeed should be updated after receive_updated_play_config"
+    );
+    assert!(
+        player
+            .player_config
+            .play_config_ref(Mode::BEAT_7K)
+            .playconfig
+            .enablelift,
+        "enablelift should be updated after receive_updated_play_config"
+    );
+}
