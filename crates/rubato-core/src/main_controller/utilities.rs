@@ -150,7 +150,7 @@ impl MainController {
             // Spawn on a background thread to avoid blocking the main/render loop.
             // Java: SongUpdateThread.
             let songdb = std::sync::Arc::clone(songdb);
-            std::thread::spawn(move || {
+            let handle = std::thread::spawn(move || {
                 songdb.update_song_datas(
                     update_path.as_deref(),
                     &bmsroot,
@@ -158,6 +158,7 @@ impl MainController {
                     update_parent_when_missing,
                 );
             });
+            self.background_threads.push(handle);
         }
     }
 
@@ -565,9 +566,10 @@ impl MainController {
     ) {
         let name = source.source_name();
         rubato_types::imgui_notify::ImGuiNotify::info(&format!("updating table : {name}"));
-        std::thread::spawn(move || {
+        let handle = std::thread::spawn(move || {
             source.refresh();
         });
+        self.background_threads.push(handle);
     }
 
     /// Start IPFS download message rendering thread.

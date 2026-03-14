@@ -278,6 +278,10 @@ pub struct MainController {
     /// Set by the launcher to wire SkinMenu/SongManagerMenu.
     state_references_callback: Option<Box<dyn StateReferencesCallback>>,
 
+    /// JoinHandles for background threads (song update, table update, etc.).
+    /// Joined on dispose() to ensure clean shutdown and release of DB handles.
+    background_threads: Vec<std::thread::JoinHandle<()>>,
+
     /// Exit requested flag.
     /// Uses AtomicBool because exit() takes &self (required by MainControllerAccess trait).
     ///

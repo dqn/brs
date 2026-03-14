@@ -295,6 +295,9 @@ impl MainController {
 
         self.process_queued_controller_commands();
 
+        // Prune finished background threads to avoid unbounded handle accumulation.
+        self.background_threads.retain(|h| !h.is_finished());
+
         self.periodic_config_save();
 
         PerformanceMetrics::get().commit();
@@ -433,6 +436,14 @@ impl MainController {
             resource.dispose();
         }
         // ShaderManager::dispose();
+
+        // Join background threads (song update, table update) to ensure clean
+        // shutdown and release of DB handles.
+        for handle in self.background_threads.drain(..) {
+            if let Err(e) = handle.join() {
+                log::warn!("Background thread panicked during shutdown: {:?}", e);
+            }
+        }
 
         // Dispose audio driver to release Kira's AudioManager and its background
         // cpal thread.

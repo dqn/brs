@@ -88,6 +88,7 @@ impl MainController {
             integration: IntegrationState::default(),
             shared_music_selector: None,
             state_references_callback: None,
+            background_threads: Vec::new(),
             exit_requested: AtomicBool::new(false),
             debug: false,
             loudness_analyzer: Some(

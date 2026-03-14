@@ -422,6 +422,9 @@ impl MainState for MusicSelector {
     /// Render state — handle song info display, preview music, BMS loading, IR ranking, play execution.
     /// Corresponds to Java MusicSelector.render()
     fn render(&mut self) {
+        // Prune finished background threads to avoid unbounded handle accumulation.
+        self.background_threads.retain(|h| !h.is_finished());
+
         let timer = &mut self.main_state_data.timer;
 
         // Start input timer after skin input delay
@@ -543,13 +546,14 @@ impl MainState for MusicSelector {
                         if let Some(path) = path {
                             let (tx, rx) = std::sync::mpsc::channel();
                             let requested_path = path.clone();
-                            std::thread::spawn(move || {
+                            let handle = std::thread::spawn(move || {
                                 let result =
                                     rubato_core::player_resource::PlayerResource::load_bms_model(
                                         &path, lnmode, None,
                                     );
                                 let _ = tx.send(result);
                             });
+                            self.background_threads.push(handle);
                             self.pending_note_graph = Some((requested_path, rx));
                         }
                     } else {
@@ -668,11 +672,12 @@ impl MainState for MusicSelector {
                                 lnmode,
                             );
                             let (tx, rx) = std::sync::mpsc::channel();
-                            std::thread::spawn(move || {
+                            let handle = std::thread::spawn(move || {
                                 let mut rd = RankingData::new();
                                 rd.load_song(conn_arc.as_ref(), &chart, local_score.as_ref());
                                 let _ = tx.send(rd);
                             });
+                            self.background_threads.push(handle);
                             self.pending_ir_song_fetch = Some((song.clone(), lnmode, rx));
                         }
                     }
@@ -709,11 +714,12 @@ impl MainState for MusicSelector {
                         }) {
                             let ir_course = IRCourseData::new_with_lntype(course, lnmode);
                             let (tx, rx) = std::sync::mpsc::channel();
-                            std::thread::spawn(move || {
+                            let handle = std::thread::spawn(move || {
                                 let mut rd = RankingData::new();
                                 rd.load_course(conn_arc.as_ref(), &ir_course, None);
                                 let _ = tx.send(rd);
                             });
+                            self.background_threads.push(handle);
                             self.pending_ir_course_fetch = Some((course.clone(), lnmode, rx));
                         }
                     }
@@ -946,7 +952,7 @@ impl MainState for MusicSelector {
         self.stagefiles.dispose_old();
     }
 
-    /// Dispose — clean up bar renderer, search field, and skin.
+    /// Dispose — clean up bar renderer, search field, skin, and background threads.
     /// Corresponds to Java MusicSelector.dispose()
     fn dispose(&mut self) {
         // Call parent dispose (clears skin and stage)
@@ -961,6 +967,17 @@ impl MainState for MusicSelector {
         if let Some(search) = &mut self.search {
             search.dispose();
             self.search = None;
+        }
+
+        // Join background threads (BMS parse, IR fetch) to ensure clean shutdown.
+        // Drop pending receivers first so sender-side threads can exit promptly.
+        self.pending_note_graph = None;
+        self.pending_ir_song_fetch = None;
+        self.pending_ir_course_fetch = None;
+        for handle in self.background_threads.drain(..) {
+            if let Err(e) = handle.join() {
+                log::warn!("MusicSelector background thread panicked: {:?}", e);
+            }
         }
     }
 }
