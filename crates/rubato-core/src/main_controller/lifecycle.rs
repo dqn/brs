@@ -194,12 +194,17 @@ impl MainController {
         let mut pending_handoff: Option<rubato_types::score_handoff::ScoreHandoff> = None;
         let mut pending_reload = false;
         let mut pending_change: Option<MainStateType> = None;
+        let mut pending_play_config: Option<(
+            bms_model::mode::Mode,
+            rubato_types::play_config::PlayConfig,
+        )> = None;
 
         if let Some(ref mut current) = self.current {
             pending_sounds = current.drain_pending_sounds();
             pending_pitch = current.take_pending_global_pitch();
             pending_handoff = current.take_score_handoff();
             pending_reload = current.take_pending_reload_bms();
+            pending_play_config = current.take_pending_play_config_update();
             pending_change = current.take_pending_state_change();
         }
 
@@ -257,6 +262,13 @@ impl MainController {
                 }
                 resource.set_replay_data(rd);
             }
+        }
+
+        // Apply play config update to MainController's PlayerConfig.
+        // BMSPlayer owns a clone; save_config() writes to that clone and pushes
+        // the updated PlayConfig back here so periodic_config_save() persists it.
+        if let Some((mode, play_config)) = pending_play_config {
+            self.player.play_config(mode).playconfig = play_config;
         }
 
         // Reload BMS file (before state change so new Play state gets fresh model)

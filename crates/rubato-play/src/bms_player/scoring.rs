@@ -344,6 +344,11 @@ impl BMSPlayer {
         pc.lanecover = lanecover;
         pc.lift = lift;
         pc.hidden = hidden;
+
+        // 6. Push updated config back to MainController via outbox.
+        // In Java, BMSPlayer writes directly to main.getPlayerConfig() (shared reference).
+        // In Rust, we own a clone, so we must push changes back explicitly.
+        self.pending.pending_play_config_update = Some((mode, pc.clone()));
     }
 
     /// Initialize playinfo from PlayerConfig.

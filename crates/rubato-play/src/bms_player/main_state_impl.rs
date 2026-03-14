@@ -45,6 +45,12 @@ impl MainState for BMSPlayer {
         std::mem::take(&mut self.pending.pending_reload_bms)
     }
 
+    fn take_pending_play_config_update(
+        &mut self,
+    ) -> Option<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)> {
+        self.pending.pending_play_config_update.take()
+    }
+
     fn notify_media_load_finished(&mut self) {
         self.media_load_finished = true;
     }

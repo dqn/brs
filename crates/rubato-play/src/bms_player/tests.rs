@@ -3799,3 +3799,136 @@ fn aborted_quick_retry_not_overwritten_by_fadeout() {
     let state_change = player.take_pending_state_change();
     assert_eq!(state_change, Some(MainStateType::Play));
 }
+
+// --- save_config outbox tests ---
+
+#[test]
+fn save_config_populates_pending_play_config_update() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+
+    // Verify no pending update before save_config
+    assert!(
+        player.pending.pending_play_config_update.is_none(),
+        "pending_play_config_update should be None before save_config"
+    );
+
+    player.save_config();
+
+    // Verify pending update is populated
+    let update = player
+        .pending
+        .pending_play_config_update
+        .as_ref()
+        .expect("save_config should populate pending_play_config_update");
+    assert_eq!(
+        update.0,
+        Mode::BEAT_7K,
+        "pending update should contain the model's mode"
+    );
+
+    // Verify the PlayConfig values match the lane renderer state
+    let lr = player.lanerender.as_ref().unwrap();
+    assert_eq!(update.1.lanecover, lr.lanecover());
+    assert_eq!(update.1.lift, lr.lift_region());
+    assert_eq!(update.1.hidden, lr.hidden_cover());
+}
+
+#[test]
+fn save_config_pending_update_contains_hispeed_when_fixhispeed_off() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+
+    // Set fixhispeed to OFF so hispeed (not duration) is saved
+    player
+        .player_config
+        .play_config(Mode::BEAT_7K)
+        .playconfig
+        .fixhispeed = rubato_types::play_config::FIX_HISPEED_OFF;
+
+    player.save_config();
+
+    let (mode, pc) = player
+        .pending
+        .pending_play_config_update
+        .as_ref()
+        .expect("save_config should populate pending_play_config_update");
+    assert_eq!(*mode, Mode::BEAT_7K);
+    let lr_hispeed = player.lanerender.as_ref().unwrap().hispeed();
+    assert_eq!(pc.hispeed, lr_hispeed);
+}
+
+#[test]
+fn save_config_pending_update_contains_duration_when_fixhispeed_on() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+
+    // Default fixhispeed is FIX_HISPEED_MAINBPM (not OFF), so duration should be saved
+    player.save_config();
+
+    let (_, pc) = player
+        .pending
+        .pending_play_config_update
+        .as_ref()
+        .expect("save_config should populate pending_play_config_update");
+    let lr_duration = player.lanerender.as_ref().unwrap().duration();
+    assert_eq!(pc.duration, lr_duration);
+}
+
+#[test]
+fn save_config_no_pending_update_when_no_speed_constraint() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.constraints = vec![CourseDataConstraint::NoSpeed];
+
+    player.save_config();
+
+    assert!(
+        player.pending.pending_play_config_update.is_none(),
+        "save_config should not populate pending update when NoSpeed constraint is set"
+    );
+}
+
+#[test]
+fn save_config_no_pending_update_when_no_lane_renderer() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    // No lanerender set
+
+    player.save_config();
+
+    assert!(
+        player.pending.pending_play_config_update.is_none(),
+        "save_config should not populate pending update when lane renderer is None"
+    );
+}
+
+#[test]
+fn take_pending_play_config_update_via_main_state_trait() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+
+    player.save_config();
+
+    // Access through the MainState trait method
+    let state: &mut dyn MainState = &mut player;
+    let update = state.take_pending_play_config_update();
+    assert!(
+        update.is_some(),
+        "take_pending_play_config_update should return the pending update"
+    );
+    let (mode, _pc) = update.unwrap();
+    assert_eq!(mode, Mode::BEAT_7K);
+
+    // Second call should return None (consumed)
+    let update2 = state.take_pending_play_config_update();
+    assert!(
+        update2.is_none(),
+        "take_pending_play_config_update should return None after consumption"
+    );
+}

@@ -183,6 +183,12 @@ pub struct PendingActions {
     ///
     /// Set at Failed/Aborted transitions to match Java `main.getAudioProcessor().stop(null)`.
     pub pending_stop_all_notes: bool,
+    /// Pending play config update to push back to MainController's PlayerConfig.
+    ///
+    /// In Java, BMSPlayer writes directly to `main.getPlayerConfig()` (shared reference).
+    /// In Rust, BMSPlayer owns a clone, so save_config() changes are local-only unless
+    /// we push them back via this outbox field.
+    pub pending_play_config_update: Option<(Mode, PlayConfig)>,
 }
 
 impl PendingActions {
@@ -194,6 +200,7 @@ impl PendingActions {
             pending_reload_bms: false,
             pending_global_pitch: None,
             pending_stop_all_notes: false,
+            pending_play_config_update: None,
         }
     }
 }

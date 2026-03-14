@@ -230,6 +230,16 @@ pub trait MainState {
         false
     }
 
+    /// Take pending play config update to push back to MainController's PlayerConfig.
+    ///
+    /// In Java, BMSPlayer writes directly to `main.getPlayerConfig()` (shared reference).
+    /// In Rust, BMSPlayer owns a clone, so save_config() must push changes back via this outbox.
+    fn take_pending_play_config_update(
+        &mut self,
+    ) -> Option<(bms_model::mode::Mode, rubato_types::play_config::PlayConfig)> {
+        None
+    }
+
     // --- Inbox pattern methods ---
     // MainController pushes data back into the current state after processing outbox items.
 
