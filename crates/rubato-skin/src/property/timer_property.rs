@@ -34,6 +34,7 @@ pub trait TimerProperty: Send + Sync {
 }
 
 /// Enum dispatch for TimerProperty, replacing `Box<dyn TimerProperty>`.
+#[derive(Clone)]
 pub enum TimerPropertyEnum {
     Impl(TimerPropertyImpl),
     Lua(LuaTimerProperty),

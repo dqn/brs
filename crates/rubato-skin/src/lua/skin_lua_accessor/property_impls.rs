@@ -185,6 +185,7 @@ impl StringProperty for LuaStringProperty {
     }
 }
 
+#[derive(Clone)]
 pub struct LuaTimerProperty {
     pub(crate) func_key: Arc<Mutex<LuaRegistryKey>>,
     pub(crate) lua: Arc<Lua>,

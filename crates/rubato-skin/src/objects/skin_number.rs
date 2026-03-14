@@ -136,6 +136,13 @@ impl SkinNumber {
         config: NumberDisplayConfig,
         id: i32,
     ) -> Self {
+        let mimage_source = mimage.map(|m| -> Box<dyn SkinSourceSet> {
+            Box::new(SkinSourceImageSet::new_with_timer_from_vecs(
+                m,
+                Some(timer.clone()),
+                cycle,
+            ))
+        });
         Self {
             data: SkinObjectData::new(),
             image: Box::new(SkinSourceImageSet::new_with_timer_from_vecs(
@@ -143,11 +150,7 @@ impl SkinNumber {
                 Some(timer),
                 cycle,
             )),
-            mimage: mimage.map(|m| -> Box<dyn SkinSourceSet> {
-                Box::new(SkinSourceImageSet::new_with_int_timer_from_vecs(
-                    m, 0, cycle,
-                ))
-            }),
+            mimage: mimage_source,
             ref_prop: integer_property_factory::integer_property_by_id(id),
             current_images: vec![None; config.keta.max(0) as usize],
             keta: config.keta,
@@ -171,6 +174,13 @@ impl SkinNumber {
         config: NumberDisplayConfig,
         ref_prop: Box<dyn IntegerProperty>,
     ) -> Self {
+        let mimage_source = mimage.map(|m| -> Box<dyn SkinSourceSet> {
+            Box::new(SkinSourceImageSet::new_with_timer_from_vecs(
+                m,
+                Some(timer.clone()),
+                cycle,
+            ))
+        });
         Self {
             data: SkinObjectData::new(),
             image: Box::new(SkinSourceImageSet::new_with_timer_from_vecs(
@@ -178,11 +188,7 @@ impl SkinNumber {
                 Some(timer),
                 cycle,
             )),
-            mimage: mimage.map(|m| -> Box<dyn SkinSourceSet> {
-                Box::new(SkinSourceImageSet::new_with_int_timer_from_vecs(
-                    m, 0, cycle,
-                ))
-            }),
+            mimage: mimage_source,
             ref_prop: Some(ref_prop),
             current_images: vec![None; config.keta.max(0) as usize],
             keta: config.keta,
@@ -728,6 +734,106 @@ mod tests {
 
         // length = (20 + 4) * (5 - 2) = 24 * 3 = 72
         assert_eq!(num.length(), 72.0);
+    }
+
+    #[test]
+    fn test_skin_number_mimage_uses_timer_property() {
+        // Regression: new_with_timer must pass the TimerPropertyEnum to mimage,
+        // not fall back to int timer 0 (which becomes None and ignores timer state).
+        //
+        // Setup: 2 animation frames for mimage, cycle=1000ms, timer 10 activated at t=0.
+        // At time=500ms the source should select frame index 1 (halfway through cycle).
+        // With the old bug (timer=None), frame index would always be 0.
+
+        use crate::property::timer_property_factory;
+
+        // Two sets of 12-digit images each (two animation frames).
+        let frame0: Vec<TextureRegion> = (0..12).map(|_| make_region(24, 32)).collect();
+        let mut frame1_digit: Vec<TextureRegion> = (0..12).map(|_| make_region(48, 32)).collect();
+        // Make frame1 distinguishable: use different region_width for digit 5.
+        frame1_digit[5] = make_region(99, 32);
+
+        let image_frames = vec![frame0.clone()];
+        let mimage_frames = vec![frame0, frame1_digit];
+
+        let timer = timer_property_factory::timer_property(10).unwrap();
+
+        let mut num = SkinNumber::new_with_timer(
+            image_frames,
+            Some(mimage_frames),
+            timer,
+            1000, // cycle = 1000ms
+            NumberDisplayConfig {
+                keta: 1,
+                zeropadding: 0,
+                space: 0,
+                align: 0,
+            },
+            0,
+        );
+        setup_data(&mut num.data, 0.0, 0.0, 24.0, 32.0);
+
+        // Activate timer 10 at micro-time 0.
+        let mut state = MockMainState::default();
+        state.timer.now_time = 500;
+        state.timer.now_micro_time = 500_000;
+        state.timer.set_timer_value(10, 0);
+
+        // Negative value triggers mimage path.
+        num.prepare_with_value(500, &state, -5, 0.0, 0.0);
+        assert!(
+            num.data.draw,
+            "mimage should draw when timer is ON and value is negative"
+        );
+    }
+
+    #[test]
+    fn test_skin_number_mimage_timer_ref_uses_timer_property() {
+        // Same regression test but for new_with_timer_ref.
+        use crate::property::timer_property_factory;
+
+        let frame0: Vec<TextureRegion> = (0..12).map(|_| make_region(24, 32)).collect();
+        let frame1: Vec<TextureRegion> = (0..12).map(|_| make_region(48, 32)).collect();
+
+        let image_frames = vec![frame0.clone()];
+        let mimage_frames = vec![frame0, frame1];
+
+        let timer = timer_property_factory::timer_property(10).unwrap();
+        let ref_prop: Box<dyn IntegerProperty> = Box::new(ConstIntProp(0));
+
+        let mut num = SkinNumber::new_with_timer_ref(
+            image_frames,
+            Some(mimage_frames),
+            timer,
+            1000,
+            NumberDisplayConfig {
+                keta: 1,
+                zeropadding: 0,
+                space: 0,
+                align: 0,
+            },
+            ref_prop,
+        );
+        setup_data(&mut num.data, 0.0, 0.0, 24.0, 32.0);
+
+        let mut state = MockMainState::default();
+        state.timer.now_time = 500;
+        state.timer.now_micro_time = 500_000;
+        state.timer.set_timer_value(10, 0);
+
+        num.prepare_with_value(500, &state, -5, 0.0, 0.0);
+        assert!(
+            num.data.draw,
+            "mimage should draw when timer is ON and value is negative"
+        );
+    }
+
+    /// Constant integer property for testing.
+    struct ConstIntProp(i32);
+    impl IntegerProperty for ConstIntProp {
+        fn get(&self, _state: &dyn crate::stubs::MainState) -> i32 {
+            self.0
+        }
     }
 
     #[test]

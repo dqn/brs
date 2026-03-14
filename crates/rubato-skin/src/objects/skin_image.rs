@@ -129,16 +129,16 @@ impl SkinImage {
         cycle: i32,
         ref_id: i32,
     ) -> Self {
-        // Each image set needs its own timer; for simplicity, use int timer 0
         let image: Vec<Option<Box<dyn SkinSource>>> = images
             .into_iter()
             .map(|img| -> Option<Box<dyn SkinSource>> {
-                Some(Box::new(SkinSourceImage::new_with_int_timer_from_vec(
-                    img, 0, cycle,
+                Some(Box::new(SkinSourceImage::new_with_timer_from_vec(
+                    img,
+                    Some(timer.clone()),
+                    cycle,
                 )))
             })
             .collect();
-        let _ = timer; // timer consumed but each source gets int timer 0 as approximation
         Self {
             data: SkinObjectData::new(),
             image,
@@ -602,6 +602,73 @@ mod tests {
         let v0 = &renderer.sprite.vertices()[0];
         assert!((v0.position[0] - 110.01).abs() < 0.02);
         assert!((v0.position[1] - 205.01).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_skin_image_timer_ref_id_uses_timer_property() {
+        // Regression: new_with_timer_ref_id must pass the TimerPropertyEnum to each
+        // source image, not drop it and use int timer 0 (which becomes None).
+        //
+        // Setup: 2 animation frames per source, cycle=1000ms, timer 10 activated at t=0.
+        // At time=500ms the source should select frame index 1 (halfway through cycle).
+        // With the old bug (timer dropped, int timer 0 used), frame 0 would always be selected.
+        use crate::property::timer_property_factory;
+
+        // Two animation frames with distinguishable region_width values.
+        let frame0 = make_region(10, 10);
+        let frame1 = make_region(99, 10);
+
+        // Single source with 2 animation frames.
+        let images = vec![vec![frame0, frame1]];
+
+        let timer = timer_property_factory::timer_property(10).unwrap();
+
+        let img = SkinImage::new_with_timer_ref_id(
+            images, timer, 1000, // cycle = 1000ms
+            0,    // ref_id
+        );
+
+        // Timer 10 is ON, activated at micro-time 0.
+        let mut state = MockMainState::default();
+        state.timer.now_time = 500;
+        state.timer.now_micro_time = 500_000;
+        state.timer.set_timer_value(10, 0);
+
+        // At time=500ms with cycle=1000ms and 2 frames:
+        // index = (500 * 2 / 1000) % 2 = 1
+        let result = img.image_at(0, 500, &state);
+        assert!(
+            result.is_some(),
+            "source should return an image when timer is ON"
+        );
+        let region = result.unwrap();
+        assert_eq!(
+            region.region_width, 99,
+            "at time=500ms with cycle=1000ms, frame index 1 (width=99) should be selected"
+        );
+    }
+
+    #[test]
+    fn test_skin_image_timer_ref_id_off_timer_returns_frame0() {
+        // When timer is OFF, source should return frame 0.
+        use crate::property::timer_property_factory;
+
+        let frame0 = make_region(10, 10);
+        let frame1 = make_region(99, 10);
+        let images = vec![vec![frame0, frame1]];
+
+        let timer = timer_property_factory::timer_property(10).unwrap();
+        let img = SkinImage::new_with_timer_ref_id(images, timer, 1000, 0);
+
+        // Timer 10 is OFF (not set).
+        let state = MockMainState::default();
+        let result = img.image_at(0, 500, &state);
+        assert!(result.is_some());
+        assert_eq!(
+            result.unwrap().region_width,
+            10,
+            "when timer is OFF, frame 0 (width=10) should be selected"
+        );
     }
 
     #[test]

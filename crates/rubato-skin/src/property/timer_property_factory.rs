@@ -14,6 +14,7 @@ pub fn timer_property(timer_id: i32) -> Option<TimerPropertyEnum> {
     }))
 }
 
+#[derive(Clone)]
 pub struct TimerPropertyImpl {
     pub(crate) timer_id: TimerId,
 }
