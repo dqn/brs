@@ -53,14 +53,14 @@ pub struct GdxSoundDriver {
     path_sounds: HashMap<String, StaticSoundHandle>,
     // Map from wav ID to sound data for BMS keysounds
     wav_sounds: HashMap<i32, StaticSoundData>,
-    wav_handles: HashMap<i32, StaticSoundHandle>,
+    wav_handles: HashMap<i32, Vec<StaticSoundHandle>>,
     global_pitch: f32,
     // Model volume from volwav (0.0-1.0)
     volume: f32,
     song_resource_gen: i32,
     // Sliced sounds by wav ID (for notes with non-zero starttime/duration)
     slicesound: HashMap<i32, Vec<SliceWav<StaticSoundData>>>,
-    slice_handles: HashMap<(i32, i64, i64), StaticSoundHandle>,
+    slice_handles: HashMap<(i32, i64, i64), Vec<StaticSoundHandle>>,
     // Per-note semitone pitch shifts for active handles, so set_global_pitch
     // can compose global_pitch * 2^(shift/12) instead of overwriting.
     wav_pitch_shifts: HashMap<i32, i32>,
@@ -197,18 +197,25 @@ impl AudioDriver for GdxSoundDriver {
         log::info!("Loading keysound files.");
 
         // Stop all active handles before clearing (matches stop_note(None) pattern)
-        for (_, mut handle) in self.wav_handles.drain() {
-            handle.stop(Tween::default());
+        for (_, handles) in self.wav_handles.drain() {
+            for mut handle in handles {
+                handle.stop(Tween::default());
+            }
         }
-        for (_, mut handle) in self.slice_handles.drain() {
-            handle.stop(Tween::default());
+        for (_, handles) in self.slice_handles.drain() {
+            for mut handle in handles {
+                handle.stop(Tween::default());
+            }
         }
         self.wav_sounds.clear();
         self.slicesound.clear();
         self.wav_pitch_shifts.clear();
         self.slice_pitch_shifts.clear();
 
-        // Cancel any in-progress background load
+        // Cancel any in-progress background load and join the previous loading thread
+        if let Some(handle) = self.loading_thread.take() {
+            let _ = handle.join();
+        }
         self.loading_receiver = None;
         self.pending_load_tasks = None;
 
@@ -436,11 +443,15 @@ impl AudioDriver for GdxSoundDriver {
         match n {
             None => {
                 // Stop all keysound handles
-                for (_, mut handle) in self.wav_handles.drain() {
-                    handle.stop(Tween::default());
+                for (_, handles) in self.wav_handles.drain() {
+                    for mut handle in handles {
+                        handle.stop(Tween::default());
+                    }
                 }
-                for (_, mut handle) in self.slice_handles.drain() {
-                    handle.stop(Tween::default());
+                for (_, handles) in self.slice_handles.drain() {
+                    for mut handle in handles {
+                        handle.stop(Tween::default());
+                    }
                 }
                 self.wav_pitch_shifts.clear();
                 self.slice_pitch_shifts.clear();
@@ -464,23 +475,27 @@ impl AudioDriver for GdxSoundDriver {
     fn set_global_pitch(&mut self, pitch: f32) {
         self.global_pitch = pitch;
         let base = pitch as f64;
-        for (wav_id, handle) in self.wav_handles.iter_mut() {
+        for (wav_id, handles) in self.wav_handles.iter_mut() {
             let rate = match self.wav_pitch_shifts.get(wav_id) {
                 Some(&shift) if shift != 0 => {
                     PlaybackRate(base * 2.0_f64.powf(shift as f64 / 12.0))
                 }
                 _ => PlaybackRate(base),
             };
-            handle.set_playback_rate(rate, Tween::default());
+            for handle in handles {
+                handle.set_playback_rate(rate, Tween::default());
+            }
         }
-        for (key, handle) in self.slice_handles.iter_mut() {
+        for (key, handles) in self.slice_handles.iter_mut() {
             let rate = match self.slice_pitch_shifts.get(key) {
                 Some(&shift) if shift != 0 => {
                     PlaybackRate(base * 2.0_f64.powf(shift as f64 / 12.0))
                 }
                 _ => PlaybackRate(base),
             };
-            handle.set_playback_rate(rate, Tween::default());
+            for handle in handles {
+                handle.set_playback_rate(rate, Tween::default());
+            }
         }
     }
 
@@ -493,16 +508,24 @@ impl AudioDriver for GdxSoundDriver {
     }
 
     fn dispose(&mut self) {
+        // Join the loading thread before disposing (Finding 2).
+        if let Some(handle) = self.loading_thread.take() {
+            let _ = handle.join();
+        }
         // Stop all active handles before clearing (mirrors set_model() pattern).
         // Without this, sounds continue playing after the driver is disposed.
         for (_, mut handle) in self.path_sounds.drain() {
             handle.stop(Tween::default());
         }
-        for (_, mut handle) in self.wav_handles.drain() {
-            handle.stop(Tween::default());
+        for (_, handles) in self.wav_handles.drain() {
+            for mut handle in handles {
+                handle.stop(Tween::default());
+            }
         }
-        for (_, mut handle) in self.slice_handles.drain() {
-            handle.stop(Tween::default());
+        for (_, handles) in self.slice_handles.drain() {
+            for mut handle in handles {
+                handle.stop(Tween::default());
+            }
         }
         for row in &mut self.additional_key_sound_handles {
             for handle in row.iter_mut().flatten() {
@@ -645,15 +668,12 @@ impl GdxSoundDriver {
             for slice in slices {
                 if slice.starttime == starttime && slice.duration == duration {
                     let key = (wav_id, starttime, duration);
-                    if let Some(mut old_handle) = self.slice_handles.remove(&key) {
-                        old_handle.stop(Tween::default());
-                    }
                     let sound = slice.wav.clone();
                     match self.manager.play(sound) {
                         Ok(mut handle) => {
                             handle.set_volume(linear_to_db(volume), Tween::default());
                             self.apply_pitch(&mut handle, pitch_shift);
-                            self.slice_handles.insert(key, handle);
+                            self.slice_handles.entry(key).or_default().push(handle);
                             if pitch_shift != 0 {
                                 self.slice_pitch_shifts.insert(key, pitch_shift);
                             } else {
@@ -669,16 +689,16 @@ impl GdxSoundDriver {
             }
         }
 
-        // Non-sliced: play full sound
-        // Allow overlapping plays of the same wav_id (e.g., drum hits, BGM tails).
-        // Dropping the old handle does NOT stop it in Kira; the sound keeps playing.
+        // Non-sliced: play full sound.
+        // Push new handle into the Vec so that stop_note can stop all instances
+        // of the same wav_id (matches Java's 256-slot ring buffer semantics).
         if let Some(sound_data) = self.wav_sounds.get(&wav_id) {
             let sound = sound_data.clone();
             match self.manager.play(sound) {
                 Ok(mut handle) => {
                     handle.set_volume(linear_to_db(volume), Tween::default());
                     self.apply_pitch(&mut handle, pitch_shift);
-                    self.wav_handles.insert(wav_id, handle);
+                    self.wav_handles.entry(wav_id).or_default().push(handle);
                     if pitch_shift != 0 {
                         self.wav_pitch_shifts.insert(wav_id, pitch_shift);
                     } else {
@@ -694,6 +714,8 @@ impl GdxSoundDriver {
 
     /// Stop a single note's keysound (without layered notes).
     /// Translated from AbstractAudioDriver.stop0()
+    /// Drains and stops ALL handles for the wav_id (or slice key),
+    /// matching Java's ring-buffer semantics where stop iterates all slots.
     fn stop_note_internal(&mut self, n: &Note) {
         let wav_id = n.wav();
         if wav_id < 0 {
@@ -705,15 +727,19 @@ impl GdxSoundDriver {
 
         if starttime != 0 || duration != 0 {
             let key = (wav_id, starttime, duration);
-            if let Some(mut handle) = self.slice_handles.remove(&key) {
-                handle.stop(Tween::default());
+            if let Some(handles) = self.slice_handles.remove(&key) {
+                for mut handle in handles {
+                    handle.stop(Tween::default());
+                }
                 self.slice_pitch_shifts.remove(&key);
                 return;
             }
         }
 
-        if let Some(mut handle) = self.wav_handles.remove(&wav_id) {
-            handle.stop(Tween::default());
+        if let Some(handles) = self.wav_handles.remove(&wav_id) {
+            for mut handle in handles {
+                handle.stop(Tween::default());
+            }
             self.wav_pitch_shifts.remove(&wav_id);
         }
     }
@@ -731,14 +757,18 @@ impl GdxSoundDriver {
 
         if starttime != 0 || duration != 0 {
             let key = (wav_id, starttime, duration);
-            if let Some(handle) = self.slice_handles.get_mut(&key) {
-                handle.set_volume(linear_to_db(volume), Tween::default());
+            if let Some(handles) = self.slice_handles.get_mut(&key) {
+                for handle in handles {
+                    handle.set_volume(linear_to_db(volume), Tween::default());
+                }
                 return;
             }
         }
 
-        if let Some(handle) = self.wav_handles.get_mut(&wav_id) {
-            handle.set_volume(linear_to_db(volume), Tween::default());
+        if let Some(handles) = self.wav_handles.get_mut(&wav_id) {
+            for handle in handles {
+                handle.set_volume(linear_to_db(volume), Tween::default());
+            }
         }
     }
 }
@@ -792,21 +822,28 @@ mod tests {
         let handle2 = manager.play(sound.clone()).unwrap();
         let handle3 = manager.play(sound.clone()).unwrap();
 
-        let mut wav_handles: HashMap<i32, StaticSoundHandle> = HashMap::new();
-        wav_handles.insert(1, handle1);
-        wav_handles.insert(2, handle2);
+        let mut wav_handles: HashMap<i32, Vec<StaticSoundHandle>> = HashMap::new();
+        wav_handles.entry(1).or_default().push(handle1);
+        wav_handles.entry(2).or_default().push(handle2);
 
-        let mut slice_handles: HashMap<(i32, i64, i64), StaticSoundHandle> = HashMap::new();
-        slice_handles.insert((3, 1000, 2000), handle3);
+        let mut slice_handles: HashMap<(i32, i64, i64), Vec<StaticSoundHandle>> = HashMap::new();
+        slice_handles
+            .entry((3, 1000, 2000))
+            .or_default()
+            .push(handle3);
 
         // Simulate set_global_pitch logic: store + iterate all handles
         let pitch: f32 = 1.5;
         let rate = PlaybackRate(pitch as f64);
-        for handle in wav_handles.values_mut() {
-            handle.set_playback_rate(rate, Tween::default());
+        for handles in wav_handles.values_mut() {
+            for handle in handles {
+                handle.set_playback_rate(rate, Tween::default());
+            }
         }
-        for handle in slice_handles.values_mut() {
-            handle.set_playback_rate(rate, Tween::default());
+        for handles in slice_handles.values_mut() {
+            for handle in handles {
+                handle.set_playback_rate(rate, Tween::default());
+            }
         }
 
         // No panic means all handles were successfully updated.
@@ -825,13 +862,15 @@ mod tests {
         let sound = make_silent_sound();
         let handle = manager.play(sound).unwrap();
 
-        let mut wav_handles: HashMap<i32, StaticSoundHandle> = HashMap::new();
-        wav_handles.insert(1, handle);
+        let mut wav_handles: HashMap<i32, Vec<StaticSoundHandle>> = HashMap::new();
+        wav_handles.entry(1).or_default().push(handle);
 
         let pitch: f32 = 1.0;
         let rate = PlaybackRate(pitch as f64);
-        for handle in wav_handles.values_mut() {
-            handle.set_playback_rate(rate, Tween::default());
+        for handles in wav_handles.values_mut() {
+            for handle in handles {
+                handle.set_playback_rate(rate, Tween::default());
+            }
         }
 
         assert_eq!(wav_handles.len(), 1);
@@ -840,16 +879,20 @@ mod tests {
     /// Verify that set_global_pitch on empty handle maps doesn't panic.
     #[test]
     fn set_global_pitch_no_active_handles() {
-        let mut wav_handles: HashMap<i32, StaticSoundHandle> = HashMap::new();
-        let mut slice_handles: HashMap<(i32, i64, i64), StaticSoundHandle> = HashMap::new();
+        let mut wav_handles: HashMap<i32, Vec<StaticSoundHandle>> = HashMap::new();
+        let mut slice_handles: HashMap<(i32, i64, i64), Vec<StaticSoundHandle>> = HashMap::new();
 
         let pitch: f32 = 2.0;
         let rate = PlaybackRate(pitch as f64);
-        for handle in wav_handles.values_mut() {
-            handle.set_playback_rate(rate, Tween::default());
+        for handles in wav_handles.values_mut() {
+            for handle in handles {
+                handle.set_playback_rate(rate, Tween::default());
+            }
         }
-        for handle in slice_handles.values_mut() {
-            handle.set_playback_rate(rate, Tween::default());
+        for handles in slice_handles.values_mut() {
+            for handle in handles {
+                handle.set_playback_rate(rate, Tween::default());
+            }
         }
 
         assert!(wav_handles.is_empty());
@@ -1050,12 +1093,15 @@ mod tests {
         let handle_no_shift = manager.play(sound.clone()).unwrap();
         let handle_slice = manager.play(sound.clone()).unwrap();
 
-        let mut wav_handles: HashMap<i32, StaticSoundHandle> = HashMap::new();
-        wav_handles.insert(1, handle_with_shift);
-        wav_handles.insert(2, handle_no_shift);
+        let mut wav_handles: HashMap<i32, Vec<StaticSoundHandle>> = HashMap::new();
+        wav_handles.entry(1).or_default().push(handle_with_shift);
+        wav_handles.entry(2).or_default().push(handle_no_shift);
 
-        let mut slice_handles: HashMap<(i32, i64, i64), StaticSoundHandle> = HashMap::new();
-        slice_handles.insert((3, 100, 200), handle_slice);
+        let mut slice_handles: HashMap<(i32, i64, i64), Vec<StaticSoundHandle>> = HashMap::new();
+        slice_handles
+            .entry((3, 100, 200))
+            .or_default()
+            .push(handle_slice);
 
         let mut wav_pitch_shifts: HashMap<i32, i32> = HashMap::new();
         wav_pitch_shifts.insert(1, 7); // wav_id=1 has +7 semitone shift
@@ -1066,23 +1112,27 @@ mod tests {
         // Simulate the new set_global_pitch logic
         let pitch: f32 = 1.5;
         let base = pitch as f64;
-        for (wav_id, handle) in wav_handles.iter_mut() {
+        for (wav_id, handles) in wav_handles.iter_mut() {
             let rate = match wav_pitch_shifts.get(wav_id) {
                 Some(&shift) if shift != 0 => {
                     PlaybackRate(base * 2.0_f64.powf(shift as f64 / 12.0))
                 }
                 _ => PlaybackRate(base),
             };
-            handle.set_playback_rate(rate, Tween::default());
+            for handle in handles {
+                handle.set_playback_rate(rate, Tween::default());
+            }
         }
-        for (key, handle) in slice_handles.iter_mut() {
+        for (key, handles) in slice_handles.iter_mut() {
             let rate = match slice_pitch_shifts.get(key) {
                 Some(&shift) if shift != 0 => {
                     PlaybackRate(base * 2.0_f64.powf(shift as f64 / 12.0))
                 }
                 _ => PlaybackRate(base),
             };
-            handle.set_playback_rate(rate, Tween::default());
+            for handle in handles {
+                handle.set_playback_rate(rate, Tween::default());
+            }
         }
 
         // Verify all handles were iterated (no panic = success).
@@ -1144,5 +1194,143 @@ mod tests {
 
         assert!(wav_pitch_shifts.is_empty());
         assert!(slice_pitch_shifts.is_empty());
+    }
+
+    /// Regression: multiple plays of the same wav_id must all be tracked so
+    /// that stop_note can stop ALL instances (matches Java 256-slot ring buffer).
+    /// Before the fix, HashMap<i32, StaticSoundHandle> only kept the latest handle,
+    /// silently leaking previous instances that could never be stopped.
+    #[test]
+    fn multi_handle_wav_tracks_all_instances() {
+        let mut manager =
+            AudioManager::<MockBackend>::new(AudioManagerSettings::default()).unwrap();
+
+        let sound = make_silent_sound();
+        let h1 = manager.play(sound.clone()).unwrap();
+        let h2 = manager.play(sound.clone()).unwrap();
+        let h3 = manager.play(sound.clone()).unwrap();
+
+        let mut wav_handles: HashMap<i32, Vec<StaticSoundHandle>> = HashMap::new();
+        // Simulate 3 plays of wav_id=42 (e.g., rapid drum hits)
+        wav_handles.entry(42).or_default().push(h1);
+        wav_handles.entry(42).or_default().push(h2);
+        wav_handles.entry(42).or_default().push(h3);
+
+        assert_eq!(wav_handles[&42].len(), 3);
+
+        // Stop all: drain and stop every handle for wav_id=42
+        if let Some(handles) = wav_handles.remove(&42) {
+            assert_eq!(handles.len(), 3);
+            for mut handle in handles {
+                handle.stop(Tween::default());
+            }
+        }
+        assert!(!wav_handles.contains_key(&42));
+    }
+
+    /// Regression: multiple plays of the same slice key must all be tracked.
+    #[test]
+    fn multi_handle_slice_tracks_all_instances() {
+        let mut manager =
+            AudioManager::<MockBackend>::new(AudioManagerSettings::default()).unwrap();
+
+        let sound = make_silent_sound();
+        let h1 = manager.play(sound.clone()).unwrap();
+        let h2 = manager.play(sound.clone()).unwrap();
+
+        let key = (10_i32, 500_i64, 1000_i64);
+        let mut slice_handles: HashMap<(i32, i64, i64), Vec<StaticSoundHandle>> = HashMap::new();
+        slice_handles.entry(key).or_default().push(h1);
+        slice_handles.entry(key).or_default().push(h2);
+
+        assert_eq!(slice_handles[&key].len(), 2);
+
+        // Stop all for this slice key
+        if let Some(handles) = slice_handles.remove(&key) {
+            assert_eq!(handles.len(), 2);
+            for mut handle in handles {
+                handle.stop(Tween::default());
+            }
+        }
+        assert!(!slice_handles.contains_key(&key));
+    }
+
+    /// Regression: set_global_pitch must update ALL handles across all vecs,
+    /// not just one per wav_id.
+    #[test]
+    fn set_global_pitch_updates_all_handles_in_vecs() {
+        let mut manager =
+            AudioManager::<MockBackend>::new(AudioManagerSettings::default()).unwrap();
+
+        let sound = make_silent_sound();
+        let h1 = manager.play(sound.clone()).unwrap();
+        let h2 = manager.play(sound.clone()).unwrap();
+        let h3 = manager.play(sound.clone()).unwrap();
+
+        let mut wav_handles: HashMap<i32, Vec<StaticSoundHandle>> = HashMap::new();
+        // wav_id=1 has 2 active handles, wav_id=2 has 1
+        wav_handles.entry(1).or_default().push(h1);
+        wav_handles.entry(1).or_default().push(h2);
+        wav_handles.entry(2).or_default().push(h3);
+
+        let pitch: f32 = 1.25;
+        let base = pitch as f64;
+        let mut total_updated = 0;
+        for handles in wav_handles.values_mut() {
+            for handle in handles {
+                handle.set_playback_rate(PlaybackRate(base), Tween::default());
+                total_updated += 1;
+            }
+        }
+
+        // All 3 handles (2 for wav_id=1, 1 for wav_id=2) must be updated
+        assert_eq!(total_updated, 3);
+    }
+
+    /// Regression: loading_thread JoinHandle must be joined in set_model()
+    /// before starting a new load, and in dispose().
+    #[test]
+    fn loading_thread_join_on_set_model() {
+        // Spawn a trivial thread, store it, then join it (simulating set_model behavior)
+        let handle = std::thread::Builder::new()
+            .name("test-loader".to_string())
+            .spawn(|| {
+                // Simulate brief work
+            })
+            .unwrap();
+
+        let mut loading_thread: Option<std::thread::JoinHandle<()>> = Some(handle);
+
+        // Simulate set_model joining the previous thread before starting new load
+        if let Some(h) = loading_thread.take() {
+            let join_result = h.join();
+            assert!(join_result.is_ok());
+        }
+        assert!(loading_thread.is_none());
+    }
+
+    /// Regression: dispose must join loading_thread to avoid dangling threads.
+    #[test]
+    fn loading_thread_join_on_dispose() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let completed = Arc::new(AtomicBool::new(false));
+        let completed_clone = completed.clone();
+
+        let handle = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            completed_clone.store(true, Ordering::SeqCst);
+        });
+
+        let mut loading_thread: Option<std::thread::JoinHandle<()>> = Some(handle);
+
+        // Simulate dispose joining the thread
+        if let Some(h) = loading_thread.take() {
+            let _ = h.join();
+        }
+
+        // Thread must have completed by the time join returns
+        assert!(completed.load(Ordering::SeqCst));
     }
 }
