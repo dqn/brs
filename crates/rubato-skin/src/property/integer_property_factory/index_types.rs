@@ -272,6 +272,14 @@ pub(super) static INDEX_TYPES: &[IndexTypeEntry] = &[
         name: "pattern_2p_7",
     },
     IndexTypeEntry {
+        id: ValueId(467),
+        name: "pattern_2p_8",
+    },
+    IndexTypeEntry {
+        id: ValueId(468),
+        name: "pattern_2p_9",
+    },
+    IndexTypeEntry {
         id: ValueId(469),
         name: "pattern_2p_SCR",
     },

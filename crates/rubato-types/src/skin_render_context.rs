@@ -233,6 +233,8 @@ pub trait SkinRenderContext: TimerAccess {
             400 => self
                 .current_play_config_ref()
                 .map_or(-1, |config| if config.enable_constant { 1 } else { 0 }),
+            450..=459 => self.lane_shuffle_pattern_value(0, (id - 450) as usize),
+            460..=469 => self.lane_shuffle_pattern_value(1, (id - 460) as usize),
             _ => self.integer_value(id),
         }
     }
@@ -294,6 +296,13 @@ pub trait SkinRenderContext: TimerAccess {
     /// Returns the active song data when the current state exposes it.
     fn song_data_ref(&self) -> Option<&crate::song_data::SongData> {
         None
+    }
+
+    /// Returns the lane shuffle pattern value for the given player (0=1P, 1=2P) and lane index.
+    /// Used by image-index IDs 450-459 (1P lanes) and 460-469 (2P lanes).
+    /// Returns -1 when lane shuffle data is unavailable or the indices are out of range.
+    fn lane_shuffle_pattern_value(&self, _player: usize, _lane: usize) -> i32 {
+        -1
     }
 
     /// Returns the LR2 image index for the mode selector when available.
@@ -553,5 +562,67 @@ mod tests {
     fn default_image_index_400_returns_minus_one_when_no_play_config() {
         let ctx = TestContext::new();
         assert_eq!(ctx.default_image_index_value(400), -1);
+    }
+
+    #[test]
+    fn default_image_index_450_to_469_delegate_to_lane_shuffle_pattern() {
+        struct PatternTestContext {
+            patterns: Vec<Vec<i32>>,
+        }
+
+        impl TimerAccess for PatternTestContext {
+            fn now_time(&self) -> i64 {
+                0
+            }
+            fn now_micro_time(&self) -> i64 {
+                0
+            }
+            fn micro_timer(&self, _: TimerId) -> i64 {
+                i64::MIN
+            }
+            fn timer(&self, _: TimerId) -> i64 {
+                i64::MIN
+            }
+            fn now_time_for(&self, _: TimerId) -> i64 {
+                i64::MIN
+            }
+            fn is_timer_on(&self, _: TimerId) -> bool {
+                false
+            }
+        }
+
+        impl SkinRenderContext for PatternTestContext {
+            fn lane_shuffle_pattern_value(&self, player: usize, lane: usize) -> i32 {
+                self.patterns
+                    .get(player)
+                    .and_then(|lanes| lanes.get(lane))
+                    .copied()
+                    .unwrap_or(-1)
+            }
+        }
+
+        let ctx = PatternTestContext {
+            patterns: vec![
+                vec![3, 1, 4, 1, 5, 9, 2, 6, 5, 7],
+                vec![8, 6, 7, 5, 3, 0, 9, 4, 2, 1],
+            ],
+        };
+
+        // 1P lanes (IDs 450-459)
+        assert_eq!(ctx.default_image_index_value(450), 3);
+        assert_eq!(ctx.default_image_index_value(451), 1);
+        assert_eq!(ctx.default_image_index_value(459), 7);
+
+        // 2P lanes (IDs 460-469)
+        assert_eq!(ctx.default_image_index_value(460), 8);
+        assert_eq!(ctx.default_image_index_value(461), 6);
+        assert_eq!(ctx.default_image_index_value(469), 1);
+    }
+
+    #[test]
+    fn default_image_index_450_returns_minus_one_when_no_pattern() {
+        let ctx = TestContext::new();
+        assert_eq!(ctx.default_image_index_value(450), -1);
+        assert_eq!(ctx.default_image_index_value(460), -1);
     }
 }

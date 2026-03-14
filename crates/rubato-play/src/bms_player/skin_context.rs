@@ -101,6 +101,16 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
         rubato_types::skin_render_context::SkinRenderContext::recent_judges_index(self.timer)
     }
 
+    fn lane_shuffle_pattern_value(&self, player: usize, lane: usize) -> i32 {
+        self.option_info
+            .lane_shuffle_pattern
+            .as_ref()
+            .and_then(|patterns| patterns.get(player))
+            .and_then(|lanes| lanes.get(lane))
+            .copied()
+            .unwrap_or(-1)
+    }
+
     fn integer_value(&self, id: i32) -> i32 {
         match id {
             // Total notes
@@ -448,5 +458,83 @@ mod tests {
         let ctx = make_render_ctx(7_200_000);
         assert_eq!(ctx.integer_value(1163), 120);
         assert_eq!(ctx.integer_value(1164), 0);
+    }
+
+    fn make_render_ctx_with_pattern(pattern: Option<Vec<Vec<i32>>>) -> PlayRenderContext<'static> {
+        let timer = Box::leak(Box::new(TimerManager::new()));
+        let judge = Box::leak(Box::new(JudgeManager::default()));
+        let player_config = Box::leak(Box::new(PlayerConfig::default()));
+        let option_info = Box::leak(Box::new(ReplayData {
+            lane_shuffle_pattern: pattern,
+            ..ReplayData::default()
+        }));
+        let play_config = Box::leak(Box::new(PlayConfig::default()));
+        PlayRenderContext {
+            timer,
+            judge,
+            gauge: None,
+            player_config,
+            option_info,
+            play_config,
+            target_score: None,
+            playtime: 0,
+            total_notes: 0,
+            play_mode: BMSPlayerMode::new(rubato_core::bms_player_mode::Mode::Play),
+            state: PlayState::Play,
+            media_load_finished: false,
+            now_bpm: 0.0,
+            min_bpm: 0.0,
+            max_bpm: 0.0,
+            main_bpm: 0.0,
+            system_volume: 0.0,
+            key_volume: 0.0,
+            bg_volume: 0.0,
+        }
+    }
+
+    #[test]
+    fn lane_shuffle_pattern_1p_returns_source_lane() {
+        let ctx = make_render_ctx_with_pattern(Some(vec![vec![2, 0, 1, 3, 4, 5, 6, 7, 8, 9]]));
+        // ID 450 = 1P lane 0 -> source lane 2
+        assert_eq!(ctx.image_index_value(450), 2);
+        // ID 451 = 1P lane 1 -> source lane 0
+        assert_eq!(ctx.image_index_value(451), 0);
+        // ID 452 = 1P lane 2 -> source lane 1
+        assert_eq!(ctx.image_index_value(452), 1);
+    }
+
+    #[test]
+    fn lane_shuffle_pattern_2p_returns_source_lane() {
+        let ctx = make_render_ctx_with_pattern(Some(vec![
+            vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            vec![5, 4, 3, 2, 1, 0, 6, 7, 8, 9],
+        ]));
+        // ID 460 = 2P lane 0 -> source lane 5
+        assert_eq!(ctx.image_index_value(460), 5);
+        // ID 461 = 2P lane 1 -> source lane 4
+        assert_eq!(ctx.image_index_value(461), 4);
+    }
+
+    #[test]
+    fn lane_shuffle_pattern_none_returns_minus_one() {
+        let ctx = make_render_ctx_with_pattern(None);
+        assert_eq!(ctx.image_index_value(450), -1);
+        assert_eq!(ctx.image_index_value(460), -1);
+    }
+
+    #[test]
+    fn lane_shuffle_pattern_out_of_range_returns_minus_one() {
+        let ctx = make_render_ctx_with_pattern(Some(vec![vec![0, 1, 2]]));
+        // Lane index 3 is out of range for a 3-element pattern
+        assert_eq!(ctx.image_index_value(453), -1);
+        // 2P not provided
+        assert_eq!(ctx.image_index_value(460), -1);
+    }
+
+    #[test]
+    fn lane_shuffle_pattern_scratch_1p() {
+        let ctx = make_render_ctx_with_pattern(Some(vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 42]]));
+        // ID 459 = 1P scratch (lane index 9) -> source lane 42
+        assert_eq!(ctx.image_index_value(459), 42);
     }
 }
