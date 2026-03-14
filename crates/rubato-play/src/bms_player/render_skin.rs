@@ -13,9 +13,27 @@ fn judge_note_idx_to_timeline_idx(
     timelines: &[bms_model::time_line::TimeLine],
 ) -> Option<usize> {
     let jn = judge_notes.get(note_idx)?;
-    timelines
-        .iter()
-        .position(|tl| tl.micro_time() == jn.time_us && tl.note(jn.lane as i32).is_some())
+    // Binary search by micro_time (timelines are sorted), then scan nearby
+    // for the matching lane. O(log n) instead of O(n).
+    let search_result = timelines.binary_search_by_key(&jn.time_us, |tl| tl.micro_time());
+    let start = match search_result {
+        Ok(idx) => idx,
+        Err(_) => return None,
+    };
+    // Scan backwards to find the first timeline at this time
+    let mut first = start;
+    while first > 0 && timelines[first - 1].micro_time() == jn.time_us {
+        first -= 1;
+    }
+    // Scan forward through all timelines at this time to find the lane match
+    let mut i = first;
+    while i < timelines.len() && timelines[i].micro_time() == jn.time_us {
+        if timelines[i].note(jn.lane as i32).is_some() {
+            return Some(i);
+        }
+        i += 1;
+    }
+    None
 }
 
 impl BMSPlayer {
@@ -46,14 +64,32 @@ impl BMSPlayer {
             let processing_long_notes: Vec<Option<usize>> = (0..lane_count)
                 .map(|i| {
                     self.judge.processing_long_note(i).and_then(|ni| {
-                        judge_note_idx_to_timeline_idx(ni, &self.judge_notes, &self.model.timelines)
+                        let result = judge_note_idx_to_timeline_idx(
+                            ni,
+                            &self.judge_notes,
+                            &self.model.timelines,
+                        );
+                        debug_assert!(
+                            result.is_some(),
+                            "processing LN note_idx={ni} lane={i} could not be mapped to timeline"
+                        );
+                        result
                     })
                 })
                 .collect();
             let passing_long_notes: Vec<Option<usize>> = (0..lane_count)
                 .map(|i| {
                     self.judge.passing_long_note(i).and_then(|ni| {
-                        judge_note_idx_to_timeline_idx(ni, &self.judge_notes, &self.model.timelines)
+                        let result = judge_note_idx_to_timeline_idx(
+                            ni,
+                            &self.judge_notes,
+                            &self.model.timelines,
+                        );
+                        debug_assert!(
+                            result.is_some(),
+                            "passing LN note_idx={ni} lane={i} could not be mapped to timeline"
+                        );
+                        result
                     })
                 })
                 .collect();
