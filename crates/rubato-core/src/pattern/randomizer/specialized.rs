@@ -1,12 +1,14 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
-use crate::pattern::java_random::JavaRandom;
-use crate::pattern::pattern_modifier::AssistLevel;
 use bms_model::mode::Mode;
 use bms_model::note::Note;
 use bms_model::time_line::TimeLine;
 
 use super::{RandomizerBase, TimeBasedRandomizerState};
+use crate::pattern::java_random::JavaRandom;
+use crate::pattern::pattern_modifier::AssistLevel;
 
 // ---- SRandomizer ----
 
@@ -626,19 +628,27 @@ impl ConvergeRandomizer {
         let mut changeable = self.base.changeable_lane.clone();
         let mut assignable = self.base.assignable_lane.clone();
 
-        let renda_count_clone = self.renda_count.clone();
-        let mut select_fn = |lane: &[i32], rng: &mut JavaRandom| -> usize {
-            let max = lane
-                .iter()
-                .map(|l| *renda_count_clone.get(l).unwrap_or(&0))
-                .max()
-                .unwrap_or(0);
-            let gya: Vec<i32> = lane
-                .iter()
-                .filter(|&&l| *renda_count_clone.get(&l).unwrap_or(&0) == max)
-                .copied()
-                .collect();
+        // Use Rc<RefCell<...>> so the closure can incrementally update renda_count
+        // during time_based_shuffle, matching Java's selectLane() behavior where
+        // rendaCount.put(l, rendaCount.get(l) + 1) is called inside the method.
+        let renda_count_shared = Rc::new(RefCell::new(self.renda_count.clone()));
+        let renda_rc = Rc::clone(&renda_count_shared);
+        let mut select_fn = move |lane: &[i32], rng: &mut JavaRandom| -> usize {
+            let gya = {
+                let rc = renda_rc.borrow();
+                let max = lane
+                    .iter()
+                    .map(|l| *rc.get(l).unwrap_or(&0))
+                    .max()
+                    .unwrap_or(0);
+                lane.iter()
+                    .filter(|&&l| *rc.get(&l).unwrap_or(&0) == max)
+                    .copied()
+                    .collect::<Vec<i32>>()
+            };
             let l = gya[rng.next_int_bounded(gya.len() as i32) as usize];
+            // Increment renda_count for the chosen lane (Java: rendaCount.put(l, rendaCount.get(l) + 1))
+            *renda_rc.borrow_mut().entry(l).or_insert(0) += 1;
             lane.iter().position(|&x| x == l).expect("position found")
         };
 
@@ -651,14 +661,11 @@ impl ConvergeRandomizer {
         );
         self.time_state.update_note_time(tl, &random_map);
 
-        // Update renda counts from selection (we need to track which lanes were chosen)
-        // The select_fn above increments the renda_count for the chosen lane
-        // We need to do it here since we can't mutate renda_count inside the closure
-        for (&_key, &val) in &random_map {
-            if tl.note(_key).is_some() && !tl.note(_key).map(|n| n.is_mine()).unwrap_or(false) {
-                *self.renda_count.entry(val).or_insert(0) += 1;
-            }
-        }
+        // Copy the incrementally updated renda_count back from the shared state
+        drop(select_fn);
+        self.renda_count = Rc::try_unwrap(renda_count_shared)
+            .expect("sole owner")
+            .into_inner();
 
         // Apply permutation
         let mut full_map = random_map;
