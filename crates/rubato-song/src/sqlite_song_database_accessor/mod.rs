@@ -852,34 +852,45 @@ impl<'a> SongDatabaseUpdater<'a> {
             let _ = tx.execute("DELETE FROM folder", []);
             let _ = tx.execute("DELETE FROM song", []);
         } else {
-            // Delete folders not contained in root directories
-            let mut dsql = String::new();
-            let mut params: Vec<String> = Vec::new();
-            for (i, root) in self.bmsroot.iter().enumerate() {
-                dsql.push_str("path NOT LIKE ? ESCAPE '\\'");
-                params.push(format!("{}%", escape_sql_like(root)));
-                if i < self.bmsroot.len() - 1 {
-                    dsql.push_str(" AND ");
+            // Filter out empty bmsroot entries: an empty string produces
+            // LIKE '%' which matches ALL rows and would delete everything.
+            let roots: Vec<&str> = self
+                .bmsroot
+                .iter()
+                .filter(|r| !r.is_empty())
+                .map(|r| r.as_str())
+                .collect();
+
+            if !roots.is_empty() {
+                // Delete folders not contained in root directories
+                let mut dsql = String::new();
+                let mut params: Vec<String> = Vec::new();
+                for (i, root) in roots.iter().enumerate() {
+                    dsql.push_str("path NOT LIKE ? ESCAPE '\\'");
+                    params.push(format!("{}%", escape_sql_like(root)));
+                    if i < roots.len() - 1 {
+                        dsql.push_str(" AND ");
+                    }
                 }
+
+                let delete_folder_sql = format!(
+                    "DELETE FROM folder WHERE path NOT LIKE 'LR2files%' AND path NOT LIKE '%.lr2folder' AND {}",
+                    dsql
+                );
+                let delete_song_sql = format!("DELETE FROM song WHERE {}", dsql);
+
+                // Execute with dynamic params
+                let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+                    .iter()
+                    .map(|p| p as &dyn rusqlite::types::ToSql)
+                    .collect();
+                let _ = tx.execute(&delete_folder_sql, param_refs.as_slice());
+                let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+                    .iter()
+                    .map(|p| p as &dyn rusqlite::types::ToSql)
+                    .collect();
+                let _ = tx.execute(&delete_song_sql, param_refs.as_slice());
             }
-
-            let delete_folder_sql = format!(
-                "DELETE FROM folder WHERE path NOT LIKE 'LR2files%' AND path NOT LIKE '%.lr2folder' AND {}",
-                dsql
-            );
-            let delete_song_sql = format!("DELETE FROM song WHERE {}", dsql);
-
-            // Execute with dynamic params
-            let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
-                .iter()
-                .map(|p| p as &dyn rusqlite::types::ToSql)
-                .collect();
-            let _ = tx.execute(&delete_folder_sql, param_refs.as_slice());
-            let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
-                .iter()
-                .map(|p| p as &dyn rusqlite::types::ToSql)
-                .collect();
-            let _ = tx.execute(&delete_song_sql, param_refs.as_slice());
         }
 
         // Process all paths serially while holding the transaction lock.

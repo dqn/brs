@@ -736,6 +736,46 @@ fn test_song_datas_by_sql_with_info_column_order() {
     assert_eq!(r.chart.notes, 500, "notes mismatch (index 27)");
 }
 
+/// Regression: if bmsroot contains an empty string, the LIKE pattern becomes
+/// '%' which matches ALL rows, causing the incremental DELETE to wipe the
+/// entire song/folder table. Empty roots must be filtered out.
+#[test]
+fn test_incremental_delete_ignores_empty_bmsroot() {
+    let tmpdir = tempfile::tempdir().unwrap();
+    let bms_dir = tmpdir.path().join("songs").join("pack");
+    fs::create_dir_all(&bms_dir).unwrap();
+
+    let bms_content = "\
+#TITLE EmptyRoot Guard\n\
+#BPM 120\n\
+#WAV01 kick.wav\n\
+#00111:01\n\
+";
+    fs::write(bms_dir.join("guard.bms"), bms_content).unwrap();
+
+    let db_path = tmpdir.path().join("song.db");
+    let real_root = tmpdir.path().join("songs").to_string_lossy().to_string();
+    let accessor =
+        SQLiteSongDatabaseAccessor::new(&db_path.to_string_lossy(), &[real_root.clone()]).unwrap();
+
+    // Initial full scan
+    accessor.update_song_datas(None, &[real_root.clone()], true, false, None);
+    let songs = accessor.song_datas("title", "EmptyRoot Guard");
+    assert_eq!(songs.len(), 1, "song should exist after initial scan");
+
+    // Incremental update with an empty string mixed into bmsroot.
+    // Before the fix, the empty string would produce LIKE '%' and delete everything.
+    let roots_with_empty = vec![real_root.clone(), "".to_string()];
+    accessor.update_song_datas(None, &roots_with_empty, false, false, None);
+
+    let songs = accessor.song_datas("title", "EmptyRoot Guard");
+    assert_eq!(
+        songs.len(),
+        1,
+        "song should NOT be deleted when bmsroot contains an empty string"
+    );
+}
+
 /// Regression test for R3: checked_parent must be populated after a folder
 /// query to avoid redundant lookups. When update_parent_when_missing is true
 /// and the parent folder already exists in the database, a second call with
