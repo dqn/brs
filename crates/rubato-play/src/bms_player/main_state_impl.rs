@@ -306,7 +306,7 @@ impl MainState for BMSPlayer {
         let micronow = self.main_state_data.timer.now_micro_time();
 
         // Input start timer
-        let input_time = self.play_skin.loadstart as i64; // skin.getInput() in Java
+        let input_time = self.main_state_data.skin.as_ref().map_or(0, |s| s.input()) as i64; // skin.getInput() in Java
         if micronow > input_time * 1000 {
             self.main_state_data
                 .timer
