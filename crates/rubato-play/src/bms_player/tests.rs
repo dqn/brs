@@ -471,21 +471,23 @@ fn create_score_data_timing_stats_with_hit_notes() {
 
 #[test]
 fn create_score_data_timing_stats_no_judged_notes() {
-    // Notes with state=0 (not judged) should not contribute to timing stats.
-    // Fields should stay at their initial values.
+    // Notes with state=0 (not judged) each get a 1,000,000μs penalty (Java parity).
+    // avg and stddev stay at defaults since no judged notes exist.
     let model = make_model_with_timed_notes(&[(0, 5000), (0, -3000)]);
     let mut player = BMSPlayer::new(model);
     player.state = PlayState::Aborted;
 
     let score = player.create_score_data(DeviceType::Keyboard).unwrap();
 
-    // No notes matched state 1-4:
-    // avgjudge and avg stay at initial i64::MAX (conditional set not entered)
-    assert_eq!(score.timing_stats.avgjudge, i64::MAX);
+    // 2 unjudged notes: total_duration = 2 * 1_000_000 = 2_000_000
+    assert_eq!(score.timing_stats.total_duration, 2_000_000);
+    // avgjudge = 2_000_000 / 2 = 1_000_000
+    assert_eq!(score.timing_stats.avgjudge, 1_000_000);
+    // avg stays at default (no judged notes for the Rust-only avg computation)
     assert_eq!(score.timing_stats.avg, i64::MAX);
-    // total_duration, total_avg, and stddev are unconditionally set to 0
-    assert_eq!(score.timing_stats.total_duration, 0);
+    // total_avg = 0 (no judged notes contributed signed times)
     assert_eq!(score.timing_stats.total_avg, 0);
+    // stddev stays at default (no judged notes)
     assert_eq!(score.timing_stats.stddev, 0);
 }
 
@@ -3976,5 +3978,124 @@ fn receive_updated_play_config_updates_cloned_player_config() {
             .playconfig
             .enablelift,
         "enablelift should be updated after receive_updated_play_config"
+    );
+}
+
+// --- create_score_data avgjudge unjudged-note penalty tests ---
+// Java BMSPlayer.createScoreData() applies a 1,000,000μs penalty for unjudged
+// notes and divides by the total note count (judged + unjudged), not just the
+// judged note count.
+
+#[test]
+fn create_score_data_avgjudge_includes_unjudged_penalty() {
+    // 2 judged notes (state 1,2) + 1 unjudged (state 0)
+    // Java behavior:
+    //   avgduration = |1000| + |2000| + 1_000_000 = 1_003_000
+    //   count = 3 (all playable notes)
+    //   avgjudge = 1_003_000 / 3 = 334_333
+    let model = make_model_with_timed_notes(&[(1, 1000), (2, 2000), (0, 9999)]);
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+
+    let score = player.create_score_data(DeviceType::Keyboard).unwrap();
+
+    // total_duration must include the 1,000,000 penalty for the unjudged note
+    assert_eq!(score.timing_stats.total_duration, 1_003_000);
+    // avgjudge denominator is total note count (3), not judged count (2)
+    assert_eq!(score.timing_stats.avgjudge, 1_003_000 / 3);
+}
+
+#[test]
+fn create_score_data_avgjudge_all_unjudged() {
+    // All notes unjudged (state 0): each gets 1,000,000 penalty
+    // Java behavior:
+    //   avgduration = 1_000_000 * 3 = 3_000_000
+    //   count = 3
+    //   avgjudge = 1_000_000
+    let model = make_model_with_timed_notes(&[(0, 100), (0, 200), (0, 300)]);
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+
+    let score = player.create_score_data(DeviceType::Keyboard).unwrap();
+
+    assert_eq!(score.timing_stats.total_duration, 3_000_000);
+    assert_eq!(score.timing_stats.avgjudge, 1_000_000);
+}
+
+#[test]
+fn create_score_data_avg_stddev_use_only_judged_notes() {
+    // avg and stddev (Rust-only additions) should continue using only judged notes.
+    // 2 judged + 1 unjudged
+    let model = make_model_with_timed_notes(&[(1, 1000), (2, -2000), (0, 9999)]);
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+
+    let score = player.create_score_data(DeviceType::Keyboard).unwrap();
+
+    // avg = (1000 + (-2000)) / 2 = -500  (judged notes only)
+    assert_eq!(score.timing_stats.avg, -500);
+    // stddev based on judged play_times only: [1000, -2000], mean = -500
+    let mean = -500_i64;
+    let var = ((1000 - mean).pow(2) + (-2000 - mean).pow(2)) / 2;
+    let expected_stddev = (var as f64).sqrt() as i64;
+    assert_eq!(score.timing_stats.stddev, expected_stddev);
+}
+
+#[test]
+fn create_score_data_avgjudge_single_unjudged_among_judged() {
+    // 1 judged + 1 unjudged: verifies the denominator difference matters
+    // Java: avgduration = |500| + 1_000_000 = 1_000_500, count = 2
+    //   avgjudge = 500_250
+    // Buggy Rust: avgduration = 500, count = 1 → avgjudge = 500
+    let model = make_model_with_timed_notes(&[(1, 500), (0, 0)]);
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::Aborted;
+
+    let score = player.create_score_data(DeviceType::Keyboard).unwrap();
+
+    assert_eq!(score.timing_stats.total_duration, 1_000_500);
+    assert_eq!(score.timing_stats.avgjudge, 1_000_500 / 2);
+}
+
+#[test]
+fn practice_finished_resets_global_pitch_on_transition_to_music_select() {
+    // Regression: when practice mode uses frequency training (freq != 100),
+    // the global pitch is set to freq/100.0. When transitioning from
+    // PracticeFinished to MusicSelect, the pitch must be reset to 1.0.
+    // Previously, only Failed/Finished/Aborted paths reset pitch.
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.state = PlayState::PracticeFinished;
+
+    // Simulate that frequency training previously set pitch to 0.75 and it
+    // was consumed by the main controller. The pending field is now None, but
+    // the audio driver still has pitch=0.75. PracticeFinished must queue a
+    // reset to 1.0 before transitioning.
+
+    // Set up TIMER_FADEOUT so the transition condition is met (fadeout > 0).
+    // With no skin, fadeout() returns 0, so any positive elapsed time triggers.
+    player.main_state_data.timer.update();
+    let now = player.main_state_data.timer.now_micro_time();
+    player
+        .main_state_data
+        .timer
+        .set_micro_timer(TIMER_FADEOUT, now - 2000); // 2ms ago
+
+    player.render();
+
+    // Verify transition to MusicSelect happened
+    let state_change = player.take_pending_state_change();
+    assert_eq!(
+        state_change,
+        Some(MainStateType::MusicSelect),
+        "PracticeFinished should transition to MusicSelect"
+    );
+
+    // Verify global pitch is reset to 1.0
+    let pitch = player.take_pending_global_pitch();
+    assert_eq!(
+        pitch,
+        Some(1.0),
+        "PracticeFinished must reset global pitch to 1.0 before transitioning to MusicSelect"
     );
 }

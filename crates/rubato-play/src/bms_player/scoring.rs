@@ -13,6 +13,9 @@ impl BMSPlayer {
         if self.state == PlayState::Preload || self.state == PlayState::Ready {
             self.pending.pending_global_pitch = Some(1.0);
             self.main_state_data.timer.set_timer_on(TIMER_FADEOUT);
+            // Deviation from Java: Java uses STATE_PRACTICE_FINISHED for all modes
+            // when stopping during Preload/Ready. Rust uses Aborted for Play mode
+            // to enable quick retry (reload BMS without returning to song select).
             if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play {
                 self.state = PlayState::Aborted;
             } else {
@@ -144,7 +147,16 @@ impl BMSPlayer {
             - self.judge.past_notes();
 
         // Timing statistics (Java BMSPlayer.createScoreData() lines 1053-1094)
+        //
+        // Java iterates ALL playable notes:
+        //   - Judged (state 1-4): adds abs(time) to avgduration
+        //   - Unjudged: adds 1,000,000 (1-second penalty) to avgduration
+        //   - count++ for every note (both judged and unjudged)
+        //   - avgjudge = avgduration / count
+        //
+        // The Rust-only avg and stddev computations use only judged notes.
         let mut avgduration: i64 = 0;
+        let mut total_count: i64 = 0;
         let mut average: i64 = 0;
         let mut play_times: Vec<i64> = Vec::new();
         let lanes = self.model.mode().map(|m| m.key()).unwrap_or(0);
@@ -165,10 +177,14 @@ impl BMSPlayer {
                     if include {
                         let state = note.state();
                         let time = note.micro_play_time();
+                        total_count += 1;
                         if (1..=4).contains(&state) {
                             play_times.push(time);
                             avgduration += time.saturating_abs();
                             average += time;
+                        } else {
+                            // Unjudged note: 1-second penalty (Java parity)
+                            avgduration += 1_000_000;
                         }
                     }
                 }
@@ -176,8 +192,12 @@ impl BMSPlayer {
         }
         score.timing_stats.total_duration = avgduration;
         score.timing_stats.total_avg = average;
+        if total_count > 0 {
+            // avgjudge uses total note count as denominator (Java parity)
+            score.timing_stats.avgjudge = avgduration / total_count;
+        }
         if !play_times.is_empty() {
-            score.timing_stats.avgjudge = avgduration / play_times.len() as i64;
+            // avg uses only judged note count (Rust-only stat)
             score.timing_stats.avg = average / play_times.len() as i64;
         }
 
