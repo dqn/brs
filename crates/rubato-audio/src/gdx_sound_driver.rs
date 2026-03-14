@@ -673,7 +673,9 @@ impl GdxSoundDriver {
                         Ok(mut handle) => {
                             handle.set_volume(linear_to_db(volume), Tween::default());
                             self.apply_pitch(&mut handle, pitch_shift);
-                            self.slice_handles.entry(key).or_default().push(handle);
+                            let handles = self.slice_handles.entry(key).or_default();
+                            handles.retain(|h| h.state() != PlaybackState::Stopped);
+                            handles.push(handle);
                             if pitch_shift != 0 {
                                 self.slice_pitch_shifts.insert(key, pitch_shift);
                             } else {
@@ -698,7 +700,9 @@ impl GdxSoundDriver {
                 Ok(mut handle) => {
                     handle.set_volume(linear_to_db(volume), Tween::default());
                     self.apply_pitch(&mut handle, pitch_shift);
-                    self.wav_handles.entry(wav_id).or_default().push(handle);
+                    let handles = self.wav_handles.entry(wav_id).or_default();
+                    handles.retain(|h| h.state() != PlaybackState::Stopped);
+                    handles.push(handle);
                     if pitch_shift != 0 {
                         self.wav_pitch_shifts.insert(wav_id, pitch_shift);
                     } else {
@@ -1332,5 +1336,87 @@ mod tests {
 
         // Thread must have completed by the time join returns
         assert!(completed.load(Ordering::SeqCst));
+    }
+
+    /// Create a StaticSoundData long enough to remain Playing through MockBackend ticks.
+    fn make_long_sound() -> StaticSoundData {
+        StaticSoundData {
+            sample_rate: 44100,
+            frames: Arc::from(vec![Frame::ZERO; 44100]), // 1 second
+            settings: StaticSoundSettings::default(),
+            slice: None,
+        }
+    }
+
+    /// Regression: stopped handles must be pruned when pushing new handles
+    /// to prevent unbounded Vec growth in wav_handles and slice_handles.
+    /// A 2000-note chart could otherwise accumulate thousands of finished
+    /// handles, slowing set_global_pitch and set_volume iterations.
+    #[test]
+    fn stopped_handles_pruned_on_push() {
+        use kira::backend::mock::MockBackendSettings;
+
+        // Use a high mock sample rate so each process() tick advances very
+        // little time (128 frames / 1_000_000 Hz = 0.128ms), keeping
+        // non-stopped sounds alive through the tick.
+        let settings = AudioManagerSettings::<MockBackend> {
+            backend_settings: MockBackendSettings {
+                sample_rate: 1_000_000,
+            },
+            ..Default::default()
+        };
+        let mut manager = AudioManager::<MockBackend>::new(settings).unwrap();
+
+        // Use a long sound so handles stay Playing through backend ticks
+        let sound = make_long_sound();
+
+        // Simulate wav_handles pruning
+        let mut wav_handles: HashMap<i32, Vec<StaticSoundHandle>> = HashMap::new();
+        let mut h1 = manager.play(sound.clone()).unwrap();
+        let h2 = manager.play(sound.clone()).unwrap();
+        // Stop h1 and tick the backend enough times to complete the 10ms
+        // default tween fade-out (Stopping -> Stopped). With sample_rate
+        // 1_000_000 and internal_buffer_size 128, each tick advances
+        // 0.128ms, so ~80 ticks covers the 10ms tween.
+        h1.stop(Tween::default());
+        for _ in 0..100 {
+            manager.backend_mut().on_start_processing();
+            manager.backend_mut().process();
+        }
+        assert_eq!(h1.state(), PlaybackState::Stopped);
+        assert_ne!(h2.state(), PlaybackState::Stopped);
+
+        wav_handles.entry(1).or_default().push(h1);
+        wav_handles.entry(1).or_default().push(h2);
+
+        // Now push a third handle with pruning (simulating play_note_internal logic)
+        let h3 = manager.play(sound.clone()).unwrap();
+        let handles = wav_handles.entry(1).or_default();
+        handles.retain(|h| h.state() != PlaybackState::Stopped);
+        handles.push(h3);
+
+        // h1 was stopped, so it should have been pruned; only h2 + h3 remain
+        assert_eq!(wav_handles[&1].len(), 2);
+
+        // Simulate slice_handles pruning
+        let mut slice_handles: HashMap<(i32, i64, i64), Vec<StaticSoundHandle>> = HashMap::new();
+        let key = (5_i32, 100_i64, 200_i64);
+        let mut sh1 = manager.play(sound.clone()).unwrap();
+        sh1.stop(Tween::default());
+        for _ in 0..100 {
+            manager.backend_mut().on_start_processing();
+            manager.backend_mut().process();
+        }
+        assert_eq!(sh1.state(), PlaybackState::Stopped);
+
+        slice_handles.entry(key).or_default().push(sh1);
+
+        let sh2 = manager.play(sound.clone()).unwrap();
+        let handles = slice_handles.entry(key).or_default();
+        handles.retain(|h| h.state() != PlaybackState::Stopped);
+        handles.push(sh2);
+
+        // sh1 was stopped and pruned; only sh2 remains
+        assert_eq!(slice_handles[&key].len(), 1);
     }
 }
