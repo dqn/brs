@@ -131,6 +131,11 @@ impl MainController {
             }
         }
 
+        // Poll background keysound loading (non-blocking check each frame)
+        if let Some(ref mut audio) = self.audio {
+            audio.poll_loading();
+        }
+
         // current.render()
         if let Some(ref mut current) = self.current {
             current.render();
