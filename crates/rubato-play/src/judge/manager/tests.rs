@@ -983,6 +983,72 @@ fn judgenow_judgecombo_populated_after_update_micro() {
 }
 
 #[test]
+fn judgecombo_uses_coursecombo_not_combo() {
+    // Regression: Java JudgeManager line 710 assigns getCourseCombo() to
+    // judgecombo, not getCombo(). In course mode (dan-i nintei), coursecombo
+    // carries over from the previous song via set_course_combo(), while combo
+    // resets to 0. If judgecombo incorrectly reads combo, the skin combo
+    // display resets to 0 at the start of each subsequent course song.
+    let model = make_model_with_notes(&[500_000, 1_000_000]);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: true,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    // Simulate course mode: carry over a combo of 50 from the previous song.
+    // combo stays at 0 (reset per-song), coursecombo starts at 50.
+    jm.set_course_combo(50);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_states = vec![false; key_count];
+    let key_times = vec![i64::MIN; key_count];
+
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    let mut time = 0i64;
+    while time <= 1_500_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        time += 1000;
+    }
+
+    // combo = 2 (reset per-song, only 2 notes hit)
+    // coursecombo = 50 + 2 = 52 (carried over from previous song)
+    assert_eq!(jm.combo(), 2, "per-song combo should be 2");
+    assert_eq!(
+        jm.course_combo(),
+        52,
+        "coursecombo should carry over (50 + 2)"
+    );
+
+    // The key assertion: now_combo (judgecombo) must reflect coursecombo, not combo.
+    // Before the fix, this would return 2 (combo) instead of 52 (coursecombo).
+    assert_eq!(
+        jm.now_combo(0),
+        52,
+        "judgecombo must use coursecombo (52), not combo (2)"
+    );
+}
+
+#[test]
 fn gauge_not_double_updated_via_judged_events() {
     // Verify gauge.update is called exactly once per judgment (in update_micro),
     // not again in the caller's update_judge. We do this by comparing gauge

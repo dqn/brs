@@ -830,7 +830,7 @@ impl JudgeManager {
                 self.judgenow[player] = judge + 1;
             }
             if player < self.judgecombo.len() {
-                self.judgecombo[player] = self.combo;
+                self.judgecombo[player] = self.coursecombo;
             }
             if player < self.judgefast.len() {
                 self.judgefast[player] = mfast / 1000;
