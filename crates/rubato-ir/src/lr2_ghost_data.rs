@@ -134,7 +134,7 @@ impl LR2GhostData {
         let mut rng = LR2Random::with_seed(seed);
         let mut targets: [i32; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         for lane in 1..7 {
-            let swap = lane + rng.next_int(7 - lane as i32 + 1) as usize;
+            let swap = (lane + rng.next_int(7 - lane as i32 + 1) as usize).min(7);
             targets.swap(lane, swap);
         }
         let mut lanes: [i32; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
