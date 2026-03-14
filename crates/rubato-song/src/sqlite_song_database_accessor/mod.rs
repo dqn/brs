@@ -299,68 +299,82 @@ impl SQLiteSongDatabaseAccessor {
         Ok(rows.flatten().collect())
     }
 
+    #[cfg(test)]
     fn insert_song(&self, sd: &SongData) -> anyhow::Result<()> {
         let conn = self.conn.lock().expect("conn lock poisoned");
-        self.base
-            .insert_with_values(&conn, "song", &|name: &str| -> rusqlite::types::Value {
-                match name {
-                    "md5" => rusqlite::types::Value::Text(sd.file.md5.clone()),
-                    "sha256" => rusqlite::types::Value::Text(sd.file.sha256.clone()),
-                    "title" => rusqlite::types::Value::Text(sd.metadata.title.clone()),
-                    "subtitle" => rusqlite::types::Value::Text(sd.metadata.subtitle.clone()),
-                    "genre" => rusqlite::types::Value::Text(sd.metadata.genre.clone()),
-                    "artist" => rusqlite::types::Value::Text(sd.metadata.artist.clone()),
-                    "subartist" => rusqlite::types::Value::Text(sd.metadata.subartist.clone()),
-                    "tag" => rusqlite::types::Value::Text(sd.metadata.tag.clone()),
-                    "path" => {
-                        rusqlite::types::Value::Text(sd.file.path().unwrap_or("").to_string())
-                    }
-                    "folder" => rusqlite::types::Value::Text(sd.folder.clone()),
-                    "stagefile" => rusqlite::types::Value::Text(sd.file.stagefile.clone()),
-                    "banner" => rusqlite::types::Value::Text(sd.file.banner.clone()),
-                    "backbmp" => rusqlite::types::Value::Text(sd.file.backbmp.clone()),
-                    "preview" => rusqlite::types::Value::Text(sd.file.preview.clone()),
-                    "parent" => rusqlite::types::Value::Text(sd.parent.clone()),
-                    "level" => rusqlite::types::Value::Integer(sd.chart.level as i64),
-                    "difficulty" => rusqlite::types::Value::Integer(sd.chart.difficulty as i64),
-                    "maxbpm" => rusqlite::types::Value::Integer(sd.chart.maxbpm as i64),
-                    "minbpm" => rusqlite::types::Value::Integer(sd.chart.minbpm as i64),
-                    "length" => rusqlite::types::Value::Integer(sd.chart.length as i64),
-                    "mode" => rusqlite::types::Value::Integer(sd.chart.mode as i64),
-                    "judge" => rusqlite::types::Value::Integer(sd.chart.judge as i64),
-                    "feature" => rusqlite::types::Value::Integer(sd.chart.feature as i64),
-                    "content" => rusqlite::types::Value::Integer(sd.chart.content as i64),
-                    "date" => rusqlite::types::Value::Integer(sd.chart.date as i64),
-                    "favorite" => rusqlite::types::Value::Integer(sd.favorite as i64),
-                    "adddate" => rusqlite::types::Value::Integer(sd.chart.adddate as i64),
-                    "notes" => rusqlite::types::Value::Integer(sd.chart.notes as i64),
-                    "charthash" => match &sd.file.charthash {
-                        Some(h) => rusqlite::types::Value::Text(h.clone()),
-                        None => rusqlite::types::Value::Null,
-                    },
-                    _ => rusqlite::types::Value::Null,
-                }
-            })
+        Self::insert_song_with_conn(&self.base, &conn, sd)
     }
 
+    fn insert_song_with_conn(
+        base: &SQLiteDatabaseAccessor,
+        conn: &Connection,
+        sd: &SongData,
+    ) -> anyhow::Result<()> {
+        base.insert_with_values(conn, "song", &|name: &str| -> rusqlite::types::Value {
+            match name {
+                "md5" => rusqlite::types::Value::Text(sd.file.md5.clone()),
+                "sha256" => rusqlite::types::Value::Text(sd.file.sha256.clone()),
+                "title" => rusqlite::types::Value::Text(sd.metadata.title.clone()),
+                "subtitle" => rusqlite::types::Value::Text(sd.metadata.subtitle.clone()),
+                "genre" => rusqlite::types::Value::Text(sd.metadata.genre.clone()),
+                "artist" => rusqlite::types::Value::Text(sd.metadata.artist.clone()),
+                "subartist" => rusqlite::types::Value::Text(sd.metadata.subartist.clone()),
+                "tag" => rusqlite::types::Value::Text(sd.metadata.tag.clone()),
+                "path" => rusqlite::types::Value::Text(sd.file.path().unwrap_or("").to_string()),
+                "folder" => rusqlite::types::Value::Text(sd.folder.clone()),
+                "stagefile" => rusqlite::types::Value::Text(sd.file.stagefile.clone()),
+                "banner" => rusqlite::types::Value::Text(sd.file.banner.clone()),
+                "backbmp" => rusqlite::types::Value::Text(sd.file.backbmp.clone()),
+                "preview" => rusqlite::types::Value::Text(sd.file.preview.clone()),
+                "parent" => rusqlite::types::Value::Text(sd.parent.clone()),
+                "level" => rusqlite::types::Value::Integer(sd.chart.level as i64),
+                "difficulty" => rusqlite::types::Value::Integer(sd.chart.difficulty as i64),
+                "maxbpm" => rusqlite::types::Value::Integer(sd.chart.maxbpm as i64),
+                "minbpm" => rusqlite::types::Value::Integer(sd.chart.minbpm as i64),
+                "length" => rusqlite::types::Value::Integer(sd.chart.length as i64),
+                "mode" => rusqlite::types::Value::Integer(sd.chart.mode as i64),
+                "judge" => rusqlite::types::Value::Integer(sd.chart.judge as i64),
+                "feature" => rusqlite::types::Value::Integer(sd.chart.feature as i64),
+                "content" => rusqlite::types::Value::Integer(sd.chart.content as i64),
+                "date" => rusqlite::types::Value::Integer(sd.chart.date as i64),
+                "favorite" => rusqlite::types::Value::Integer(sd.favorite as i64),
+                "adddate" => rusqlite::types::Value::Integer(sd.chart.adddate as i64),
+                "notes" => rusqlite::types::Value::Integer(sd.chart.notes as i64),
+                "charthash" => match &sd.file.charthash {
+                    Some(h) => rusqlite::types::Value::Text(h.clone()),
+                    None => rusqlite::types::Value::Null,
+                },
+                _ => rusqlite::types::Value::Null,
+            }
+        })
+    }
+
+    #[cfg(test)]
     fn insert_folder(&self, fd: &FolderData) -> anyhow::Result<()> {
         let conn = self.conn.lock().expect("conn lock poisoned");
-        self.base
-            .insert_with_values(&conn, "folder", &|name: &str| -> rusqlite::types::Value {
-                match name {
-                    "title" => rusqlite::types::Value::Text(fd.title.clone()),
-                    "subtitle" => rusqlite::types::Value::Text(fd.subtitle.clone()),
-                    "command" => rusqlite::types::Value::Text(fd.command.clone()),
-                    "path" => rusqlite::types::Value::Text(fd.path.clone()),
-                    "banner" => rusqlite::types::Value::Text(fd.banner.clone()),
-                    "parent" => rusqlite::types::Value::Text(fd.parent.clone()),
-                    "type" => rusqlite::types::Value::Integer(fd.folder_type as i64),
-                    "date" => rusqlite::types::Value::Integer(fd.date as i64),
-                    "adddate" => rusqlite::types::Value::Integer(fd.adddate as i64),
-                    "max" => rusqlite::types::Value::Integer(fd.max as i64),
-                    _ => rusqlite::types::Value::Null,
-                }
-            })
+        Self::insert_folder_with_conn(&self.base, &conn, fd)
+    }
+
+    fn insert_folder_with_conn(
+        base: &SQLiteDatabaseAccessor,
+        conn: &Connection,
+        fd: &FolderData,
+    ) -> anyhow::Result<()> {
+        base.insert_with_values(conn, "folder", &|name: &str| -> rusqlite::types::Value {
+            match name {
+                "title" => rusqlite::types::Value::Text(fd.title.clone()),
+                "subtitle" => rusqlite::types::Value::Text(fd.subtitle.clone()),
+                "command" => rusqlite::types::Value::Text(fd.command.clone()),
+                "path" => rusqlite::types::Value::Text(fd.path.clone()),
+                "banner" => rusqlite::types::Value::Text(fd.banner.clone()),
+                "parent" => rusqlite::types::Value::Text(fd.parent.clone()),
+                "type" => rusqlite::types::Value::Integer(fd.folder_type as i64),
+                "date" => rusqlite::types::Value::Integer(fd.date as i64),
+                "adddate" => rusqlite::types::Value::Integer(fd.adddate as i64),
+                "max" => rusqlite::types::Value::Integer(fd.max as i64),
+                _ => rusqlite::types::Value::Null,
+            }
+        })
     }
 }
 
@@ -596,27 +610,29 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
     }
 
     fn set_song_datas(&self, songs: &[SongData]) {
-        {
-            let conn = self.conn.lock().expect("conn lock poisoned");
-            if let Err(e) = conn.execute_batch("BEGIN TRANSACTION") {
+        let mut conn = self.conn.lock().expect("conn lock poisoned");
+        let tx = match conn.transaction() {
+            Ok(tx) => tx,
+            Err(e) => {
                 log::error!("Error starting transaction: {}", e);
                 return;
             }
-        }
+        };
 
         let mut had_error = false;
         for sd in songs {
-            if let Err(e) = self.insert_song(sd) {
+            if let Err(e) = Self::insert_song_with_conn(&self.base, &tx, sd) {
                 log::error!("Error inserting song: {}", e);
                 had_error = true;
             }
         }
 
-        let conn = self.conn.lock().expect("conn lock poisoned");
         if had_error {
             log::error!("Rolling back set_song_datas due to insert errors");
-            let _ = conn.execute_batch("ROLLBACK");
-        } else if let Err(e) = conn.execute_batch("COMMIT") {
+            if let Err(e) = tx.rollback() {
+                log::error!("Error rolling back transaction: {}", e);
+            }
+        } else if let Err(e) = tx.commit() {
             log::error!("Error committing transaction: {}", e);
         }
     }
@@ -777,46 +793,31 @@ impl<'a> SongDatabaseUpdater<'a> {
             let _ = info.start_update();
         }
 
-        // Acquire lock for transaction setup and tag/favorite preservation
-        {
-            let conn = accessor.conn.lock().expect("conn lock poisoned");
-            if let Err(e) = conn.execute_batch("BEGIN TRANSACTION") {
+        // Hold the lock for the entire transaction to prevent interleaving.
+        // Connection is passed through to all DB operations via _with_conn methods.
+        let mut conn = accessor.conn.lock().expect("conn lock poisoned");
+        let tx = match conn.transaction() {
+            Ok(tx) => tx,
+            Err(e) => {
                 log::error!("Error starting transaction: {}", e);
                 if let Some(info) = self.info {
                     info.end_update();
                 }
                 return;
             }
+        };
 
-            // Preserve tags and favorites
-            {
-                let mut stmt = match conn.prepare("SELECT sha256, tag, favorite FROM song") {
-                    Ok(s) => s,
-                    Err(e) => {
-                        log::error!("Error preparing tag/favorite query: {}", e);
-                        let _ = conn.execute_batch("ROLLBACK");
-                        if let Some(info) = self.info {
-                            info.end_update();
-                        }
-                        return;
-                    }
-                };
-                let rows = match stmt.query_map([], |row| {
+        // Preserve tags and favorites.
+        // On error, dropping `tx` auto-rolls-back the transaction.
+        {
+            let preserve_result: anyhow::Result<()> = (|| {
+                let mut stmt = tx.prepare("SELECT sha256, tag, favorite FROM song")?;
+                let rows = stmt.query_map([], |row| {
                     let sha256: String = row.get::<_, String>(0).unwrap_or_default();
                     let tag: String = row.get::<_, String>(1).unwrap_or_default();
                     let favorite: i32 = row.get::<_, i32>(2).unwrap_or(0);
                     Ok((sha256, tag, favorite))
-                }) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        log::error!("Error querying tags/favorites: {}", e);
-                        let _ = conn.execute_batch("ROLLBACK");
-                        if let Some(info) = self.info {
-                            info.end_update();
-                        }
-                        return;
-                    }
-                };
+                })?;
                 for row in rows.flatten() {
                     let (sha256, tag, favorite) = row;
                     if !tag.is_empty() {
@@ -826,59 +827,71 @@ impl<'a> SongDatabaseUpdater<'a> {
                         property.favorites.insert(sha256, favorite);
                     }
                 }
-            }
-
-            if self.update_all {
-                let _ = conn.execute("DELETE FROM folder", []);
-                let _ = conn.execute("DELETE FROM song", []);
-            } else {
-                // Delete folders not contained in root directories
-                let mut dsql = String::new();
-                let mut params: Vec<String> = Vec::new();
-                for (i, root) in self.bmsroot.iter().enumerate() {
-                    dsql.push_str("path NOT LIKE ? ESCAPE '\\'");
-                    params.push(format!("{}%", escape_sql_like(root)));
-                    if i < self.bmsroot.len() - 1 {
-                        dsql.push_str(" AND ");
-                    }
+                Ok(())
+            })();
+            if let Err(e) = preserve_result {
+                log::error!("Error preserving tags/favorites: {}", e);
+                drop(tx);
+                if let Some(info) = self.info {
+                    info.end_update();
                 }
-
-                let delete_folder_sql = format!(
-                    "DELETE FROM folder WHERE path NOT LIKE 'LR2files%' AND path NOT LIKE '%.lr2folder' AND {}",
-                    dsql
-                );
-                let delete_song_sql = format!("DELETE FROM song WHERE {}", dsql);
-
-                // Execute with dynamic params
-                let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
-                    .iter()
-                    .map(|p| p as &dyn rusqlite::types::ToSql)
-                    .collect();
-                let _ = conn.execute(&delete_folder_sql, param_refs.as_slice());
-                let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
-                    .iter()
-                    .map(|p| p as &dyn rusqlite::types::ToSql)
-                    .collect();
-                let _ = conn.execute(&delete_song_sql, param_refs.as_slice());
+                return;
             }
-        } // Release lock before parallel section
+        }
 
-        // Parallel processing of root paths (matches Java: paths.parallel().forEach(...))
-        let had_error = std::sync::atomic::AtomicBool::new(false);
-        paths.par_iter().for_each(|p| {
-            let folder = BMSFolder::new(p.clone(), &self.bmsroot);
-            if let Err(e) = folder.process_directory(accessor, &property, &had_error) {
-                log::error!("Error during song database update: {}", e);
-                had_error.store(true, std::sync::atomic::Ordering::Relaxed);
-            }
-        });
-
-        let conn = accessor.conn.lock().expect("conn lock poisoned");
-        if had_error.load(std::sync::atomic::Ordering::Relaxed) {
-            log::error!("Rolling back song database refresh due to worker errors");
-            let _ = conn.execute_batch("ROLLBACK");
+        if self.update_all {
+            let _ = tx.execute("DELETE FROM folder", []);
+            let _ = tx.execute("DELETE FROM song", []);
         } else {
-            let _ = conn.execute_batch("COMMIT");
+            // Delete folders not contained in root directories
+            let mut dsql = String::new();
+            let mut params: Vec<String> = Vec::new();
+            for (i, root) in self.bmsroot.iter().enumerate() {
+                dsql.push_str("path NOT LIKE ? ESCAPE '\\'");
+                params.push(format!("{}%", escape_sql_like(root)));
+                if i < self.bmsroot.len() - 1 {
+                    dsql.push_str(" AND ");
+                }
+            }
+
+            let delete_folder_sql = format!(
+                "DELETE FROM folder WHERE path NOT LIKE 'LR2files%' AND path NOT LIKE '%.lr2folder' AND {}",
+                dsql
+            );
+            let delete_song_sql = format!("DELETE FROM song WHERE {}", dsql);
+
+            // Execute with dynamic params
+            let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+                .iter()
+                .map(|p| p as &dyn rusqlite::types::ToSql)
+                .collect();
+            let _ = tx.execute(&delete_folder_sql, param_refs.as_slice());
+            let param_refs: Vec<&dyn rusqlite::types::ToSql> = params
+                .iter()
+                .map(|p| p as &dyn rusqlite::types::ToSql)
+                .collect();
+            let _ = tx.execute(&delete_song_sql, param_refs.as_slice());
+        }
+
+        // Process all paths serially while holding the transaction lock.
+        // BMS file decoding (CPU-bound) is parallelized within each directory
+        // via par_iter, but DB writes are serialized under the held transaction.
+        let mut had_error = false;
+        for p in paths {
+            let folder = BMSFolder::new(p.clone(), &self.bmsroot);
+            if let Err(e) = folder.process_directory(accessor, &tx, &property, &mut had_error) {
+                log::error!("Error during song database update: {}", e);
+                had_error = true;
+            }
+        }
+
+        if had_error {
+            log::error!("Rolling back song database refresh due to worker errors");
+            if let Err(e) = tx.rollback() {
+                log::error!("Error rolling back transaction: {}", e);
+            }
+        } else if let Err(e) = tx.commit() {
+            log::error!("Error committing transaction: {}", e);
         }
 
         if let Some(info) = self.info {
@@ -913,23 +926,39 @@ impl BMSFolder {
     fn process_directory(
         mut self,
         accessor: &SQLiteSongDatabaseAccessor,
+        conn: &Connection,
         property: &SongDatabaseUpdaterProperty,
-        had_error: &std::sync::atomic::AtomicBool,
+        had_error: &mut bool,
     ) -> anyhow::Result<()> {
         let root_str = accessor.root.to_string_lossy().to_string();
 
         let crc = song_utils::crc32(&self.path.to_string_lossy(), &self.bmsroot, &root_str);
 
         let records_sql = "SELECT * FROM song WHERE folder = ?1";
-        let mut records: Vec<Option<SongData>> = accessor
-            .query_songs(records_sql, &[&crc as &dyn rusqlite::types::ToSql])
-            .into_iter()
-            .map(Some)
-            .collect();
+        let mut records: Vec<Option<SongData>> = SQLiteSongDatabaseAccessor::query_songs_with_conn(
+            conn,
+            records_sql,
+            &[&crc as &dyn rusqlite::types::ToSql],
+        )
+        .unwrap_or_else(|e| {
+            log::error!("Error querying songs: {}", e);
+            Vec::new()
+        })
+        .into_iter()
+        .map(Some)
+        .collect();
 
         let folders_sql = "SELECT * FROM folder WHERE parent = ?1";
-        let mut folders: Vec<Option<FolderData>> = accessor
-            .query_folders(folders_sql, &[&crc as &dyn rusqlite::types::ToSql])
+        let mut folders: Vec<Option<FolderData>> =
+            SQLiteSongDatabaseAccessor::query_folders_with_conn(
+                conn,
+                folders_sql,
+                &[&crc as &dyn rusqlite::types::ToSql],
+            )
+            .unwrap_or_else(|e| {
+                log::error!("Error querying folders: {}", e);
+                Vec::new()
+            })
             .into_iter()
             .map(Some)
             .collect();
@@ -1003,7 +1032,8 @@ impl BMSFolder {
             .listener
             .add_bms_files_count(self.bmsfiles.len() as i32);
 
-        let (skip_count, new_count) = self.process_bms_folder(&mut records, accessor, property);
+        let (skip_count, new_count) =
+            self.process_bms_folder(&mut records, accessor, conn, property);
         property
             .listener
             .add_processed_bms_files_count(skip_count + new_count);
@@ -1049,14 +1079,15 @@ impl BMSFolder {
         }
 
         if !contains_bms {
-            // Parallel subdirectory recursion (matches Java: dirs.parallelStream().forEach(...))
+            // Serial subdirectory recursion with connection passed through.
+            // Connection is held for the entire transaction to prevent interleaving.
             let dirs = std::mem::take(&mut self.dirs);
-            dirs.into_par_iter().for_each(|bf| {
-                if let Err(e) = bf.process_directory(accessor, property, had_error) {
+            for bf in dirs {
+                if let Err(e) = bf.process_directory(accessor, conn, property, had_error) {
                     log::error!("Error during song database update: {}", e);
-                    had_error.store(true, std::sync::atomic::Ordering::Relaxed);
+                    *had_error = true;
                 }
-            });
+            }
         }
 
         // Update folder table
@@ -1100,17 +1131,17 @@ impl BMSFolder {
                 ..Default::default()
             };
 
-            if let Err(e) = accessor.insert_folder(&folder) {
+            if let Err(e) =
+                SQLiteSongDatabaseAccessor::insert_folder_with_conn(&accessor.base, conn, &folder)
+            {
                 log::error!("Error inserting folder: {}", e);
-                had_error.store(true, std::sync::atomic::Ordering::Relaxed);
+                *had_error = true;
             }
         }
 
         // Delete folder records that no longer exist in directory
-        // (matches Java: folders.parallelStream().filter(Objects::nonNull).forEach(...))
-        folders.into_par_iter().flatten().for_each(|folder| {
+        for folder in folders.into_iter().flatten() {
             let delete_path = format!("{}%", escape_sql_like(&folder.path));
-            let conn = accessor.conn.lock().expect("conn lock poisoned");
             let _ = conn.execute(
                 "DELETE FROM folder WHERE path LIKE ?1 ESCAPE '\\'",
                 rusqlite::params![delete_path],
@@ -1119,7 +1150,7 @@ impl BMSFolder {
                 "DELETE FROM song WHERE path LIKE ?1 ESCAPE '\\'",
                 rusqlite::params![delete_path],
             );
-        });
+        }
 
         Ok(())
     }
@@ -1128,14 +1159,21 @@ impl BMSFolder {
         &self,
         records: &mut [Option<SongData>],
         accessor: &SQLiteSongDatabaseAccessor,
+        conn: &Connection,
         property: &SongDatabaseUpdaterProperty,
     ) -> (i32, i32) {
         let mut skip_count = 0i32;
         let mut new_count = 0i32;
-        let mut bmsdecoder: Option<BMSDecoder> = None;
-        let mut bmsondecoder: Option<BMSONDecoder> = None;
-        let mut osudecoder: Option<OSUDecoder> = None;
         let root_str = accessor.root.to_string_lossy().to_string();
+
+        // Phase 1: Determine which files need parsing (check against existing records).
+        struct FileToProcess {
+            bmsfile_path: PathBuf,
+            pathname: String,
+            last_modified_time: i64,
+        }
+        let mut files_to_process: Vec<FileToProcess> = Vec::new();
+
         for bmsfile_path in &self.bmsfiles {
             let last_modified_time: i64 = fs::metadata(bmsfile_path)
                 .and_then(|m| m.modified())
@@ -1178,59 +1216,66 @@ impl BMSFolder {
                 continue;
             }
 
-            let model: Option<BMSModel> = if pathname.to_lowercase().ends_with(".bmson") {
-                if bmsondecoder.is_none() {
-                    bmsondecoder = Some(BMSONDecoder::new(LNTYPE_LONGNOTE));
-                }
-                match bmsondecoder
-                    .as_mut()
-                    .expect("bmsondecoder is Some")
-                    .decode_path(bmsfile_path)
-                {
-                    Some(m) => Some(m),
-                    None => {
-                        log::error!("Error while decoding bmson at path: {}", pathname);
-                        None
-                    }
-                }
-            } else if pathname.to_lowercase().ends_with(".osu") {
-                if osudecoder.is_none() {
-                    osudecoder = Some(OSUDecoder::new(LNTYPE_LONGNOTE));
-                }
-                match osudecoder
-                    .as_mut()
-                    .expect("osudecoder is Some")
-                    .decode_path(bmsfile_path)
-                {
-                    Some(m) => Some(m),
-                    None => {
-                        log::error!("Error while decoding osu at path: {}", pathname);
-                        None
-                    }
-                }
-            } else {
-                if bmsdecoder.is_none() {
-                    bmsdecoder = Some(BMSDecoder::new_with_lntype(LNTYPE_LONGNOTE));
-                }
-                match bmsdecoder
-                    .as_mut()
-                    .expect("bmsdecoder is Some")
-                    .decode_path(bmsfile_path)
-                {
-                    Some(m) => Some(m),
-                    None => {
-                        log::error!("Error while decoding bms at path: {}", pathname);
-                        None
-                    }
-                }
-            };
+            files_to_process.push(FileToProcess {
+                bmsfile_path: bmsfile_path.clone(),
+                pathname,
+                last_modified_time,
+            });
+        }
 
-            let model = match model {
-                Some(m) => m,
+        // Phase 2: Parallel BMS file decoding (CPU-bound, no DB access).
+        let decoded: Vec<(String, i64, Option<SongData>)> = files_to_process
+            .par_iter()
+            .map(|file_info| {
+                let model: Option<BMSModel> = if file_info
+                    .pathname
+                    .to_lowercase()
+                    .ends_with(".bmson")
+                {
+                    let mut decoder = BMSONDecoder::new(LNTYPE_LONGNOTE);
+                    match decoder.decode_path(&file_info.bmsfile_path) {
+                        Some(m) => Some(m),
+                        None => {
+                            log::error!(
+                                "Error while decoding bmson at path: {}",
+                                file_info.pathname
+                            );
+                            None
+                        }
+                    }
+                } else if file_info.pathname.to_lowercase().ends_with(".osu") {
+                    let mut decoder = OSUDecoder::new(LNTYPE_LONGNOTE);
+                    match decoder.decode_path(&file_info.bmsfile_path) {
+                        Some(m) => Some(m),
+                        None => {
+                            log::error!("Error while decoding osu at path: {}", file_info.pathname);
+                            None
+                        }
+                    }
+                } else {
+                    let mut decoder = BMSDecoder::new_with_lntype(LNTYPE_LONGNOTE);
+                    match decoder.decode_path(&file_info.bmsfile_path) {
+                        Some(m) => Some(m),
+                        None => {
+                            log::error!("Error while decoding bms at path: {}", file_info.pathname);
+                            None
+                        }
+                    }
+                };
+
+                let sd = model.map(|m| SongData::new_from_model(m, self.txt));
+                (file_info.pathname.clone(), file_info.last_modified_time, sd)
+            })
+            .collect();
+
+        // Phase 3: Serial DB inserts under the held connection.
+        for (pathname, last_modified_time, sd_opt) in &decoded {
+            let mut sd = match sd_opt {
+                Some(sd) => sd.clone(),
                 None => continue,
             };
 
-            let mut sd = SongData::new_from_model(model, self.txt);
+            let bmsfile_path = Path::new(pathname);
 
             if sd.chart.notes != 0 || !sd.model.as_ref().is_none_or(|m| m.wavmap.is_empty()) {
                 if sd.chart.difficulty == 0 {
@@ -1310,11 +1355,13 @@ impl BMSFolder {
                         );
                     }
                 }
-                sd.chart.date = last_modified_time as i32;
+                sd.chart.date = *last_modified_time as i32;
                 sd.favorite = favorite;
                 sd.chart.adddate = property.updatetime as i32;
 
-                if let Err(e) = accessor.insert_song(&sd) {
+                if let Err(e) =
+                    SQLiteSongDatabaseAccessor::insert_song_with_conn(&accessor.base, conn, &sd)
+                {
                     log::error!("Error inserting song: {}", e);
                 }
 
@@ -1326,7 +1373,6 @@ impl BMSFolder {
 
                 new_count += 1;
             } else {
-                let conn = accessor.conn.lock().expect("conn lock poisoned");
                 let _ = conn.execute(
                     "DELETE FROM song WHERE path = ?1",
                     rusqlite::params![pathname],
@@ -1335,13 +1381,11 @@ impl BMSFolder {
         }
 
         // Delete records that no longer exist in directory
-        // (matches Java: records.parallelStream().filter(Objects::nonNull).forEach(...))
-        records.par_iter().flatten().for_each(|record| {
+        for record in records.iter().flatten() {
             if let Some(path) = record.file.path() {
-                let conn = accessor.conn.lock().expect("conn lock poisoned");
                 let _ = conn.execute("DELETE FROM song WHERE path = ?1", rusqlite::params![path]);
             }
-        });
+        }
 
         (skip_count, new_count)
     }

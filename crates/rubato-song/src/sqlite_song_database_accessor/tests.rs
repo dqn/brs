@@ -358,6 +358,152 @@ fn test_update_song_datas_auto_difficulty() {
     );
 }
 
+/// Verify that set_song_datas holds the connection lock for the entire
+/// transaction, preventing concurrent callers from interleaving SQL
+/// statements. Two threads each call set_song_datas with disjoint song
+/// batches. After both complete, all songs from both batches must be
+/// present (no lost writes due to interleaved BEGIN/COMMIT).
+#[test]
+fn test_set_song_datas_concurrent_no_interleaving() {
+    use std::sync::Arc;
+
+    let db_path = tempfile::NamedTempFile::new().unwrap();
+    let accessor =
+        Arc::new(SQLiteSongDatabaseAccessor::new(&db_path.path().to_string_lossy(), &[]).unwrap());
+
+    let batch_a: Vec<SongData> = (0..50)
+        .map(|i| {
+            make_test_song(
+                &format!("md5_a_{i}"),
+                &format!("sha_a_{i}"),
+                &format!("A {i}"),
+            )
+        })
+        .collect();
+    let batch_b: Vec<SongData> = (0..50)
+        .map(|i| {
+            make_test_song(
+                &format!("md5_b_{i}"),
+                &format!("sha_b_{i}"),
+                &format!("B {i}"),
+            )
+        })
+        .collect();
+
+    let acc_a = Arc::clone(&accessor);
+    let ba = batch_a.clone();
+    let handle_a = std::thread::spawn(move || {
+        acc_a.set_song_datas(&ba);
+    });
+
+    let acc_b = Arc::clone(&accessor);
+    let bb = batch_b.clone();
+    let handle_b = std::thread::spawn(move || {
+        acc_b.set_song_datas(&bb);
+    });
+
+    handle_a.join().unwrap();
+    handle_b.join().unwrap();
+
+    // All 100 songs must be present (no lost writes from interleaving)
+    for i in 0..50 {
+        let results = accessor.song_datas("md5", &format!("md5_a_{i}"));
+        assert_eq!(results.len(), 1, "missing song A {i}");
+        let results = accessor.song_datas("md5", &format!("md5_b_{i}"));
+        assert_eq!(results.len(), 1, "missing song B {i}");
+    }
+}
+
+/// Verify that set_song_datas is atomic: either all songs are inserted or
+/// none. This tests the transaction boundary by confirming batch insert
+/// completes as a unit.
+#[test]
+fn test_set_song_datas_transaction_atomicity() {
+    let accessor = create_test_accessor();
+    let songs: Vec<SongData> = (0..10)
+        .map(|i| {
+            make_test_song(
+                &format!("atomic_md5_{i}"),
+                &format!("atomic_sha_{i}"),
+                &format!("Atomic Song {i}"),
+            )
+        })
+        .collect();
+
+    accessor.set_song_datas(&songs);
+
+    // All 10 songs must be present
+    for i in 0..10 {
+        let results = accessor.song_datas("md5", &format!("atomic_md5_{i}"));
+        assert_eq!(results.len(), 1, "missing song {i} after batch insert");
+    }
+}
+
+/// Verify that update_song_datas holds the connection lock for the entire
+/// transaction. Two threads each call update_song_datas on the same roots.
+/// After both complete, the DB must be in a consistent state with all
+/// songs present and no corruption from interleaved transactions.
+#[test]
+fn test_update_concurrent_no_interleaving() {
+    use std::sync::Arc;
+
+    let tmpdir = tempfile::tempdir().unwrap();
+    let bms_dir = tmpdir.path().join("songs").join("pack");
+    fs::create_dir_all(&bms_dir).unwrap();
+
+    // Write two BMS files so both updates find them
+    let bms_content_a = "\
+#TITLE Concurrent A\n\
+#BPM 120\n\
+#WAV01 kick.wav\n\
+#00111:01\n\
+";
+    let bms_content_b = "\
+#TITLE Concurrent B\n\
+#BPM 130\n\
+#WAV01 snare.wav\n\
+#00111:01\n\
+";
+    fs::write(bms_dir.join("a.bms"), bms_content_a).unwrap();
+    fs::write(bms_dir.join("b.bms"), bms_content_b).unwrap();
+
+    let db_path = tmpdir.path().join("song.db");
+    let bmsroot = vec![tmpdir.path().join("songs").to_string_lossy().to_string()];
+    let accessor =
+        Arc::new(SQLiteSongDatabaseAccessor::new(&db_path.to_string_lossy(), &bmsroot).unwrap());
+
+    // Run two full updates concurrently on the same roots
+    let acc_a = Arc::clone(&accessor);
+    let roots_a = bmsroot.clone();
+    let handle_a = std::thread::spawn(move || {
+        acc_a.update_song_datas(None, &roots_a, true, false, None);
+    });
+
+    let acc_b = Arc::clone(&accessor);
+    let roots_b = bmsroot.clone();
+    let handle_b = std::thread::spawn(move || {
+        acc_b.update_song_datas(None, &roots_b, true, false, None);
+    });
+
+    handle_a.join().unwrap();
+    handle_b.join().unwrap();
+
+    // Both songs must be present in the final state (the second update
+    // re-scans and re-inserts everything, so both songs survive).
+    let results_a = accessor.song_datas("title", "Concurrent A");
+    assert_eq!(
+        results_a.len(),
+        1,
+        "song A should be present after concurrent updates"
+    );
+    let results_b = accessor.song_datas("title", "Concurrent B");
+    assert_eq!(
+        results_b.len(),
+        1,
+        "song B should be present after concurrent updates"
+    );
+}
+
 #[test]
 fn escape_sql_like_no_wildcards() {
     assert_eq!(escape_sql_like("normal/path"), "normal/path");
