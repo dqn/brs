@@ -806,7 +806,7 @@ impl JudgeManager {
         self.note_states[note_idx].play_time = mfast;
         self.score.add_judge_count(judge, mfast >= 0, 1);
 
-        if judge < 4 {
+        if judge < 4 && !self.recent_judges.is_empty() {
             self.recent_judges_index = (self.recent_judges_index + 1) % self.recent_judges.len();
             self.recent_judges[self.recent_judges_index] = mfast / 1000;
             self.micro_recent_judges[self.recent_judges_index] = mfast;

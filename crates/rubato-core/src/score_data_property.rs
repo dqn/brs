@@ -325,15 +325,15 @@ impl ScoreDataProperty {
     }
 
     pub fn qualify_rank(&self, index: usize) -> bool {
-        self.rank[index]
+        self.rank.get(index).copied().unwrap_or(false)
     }
 
     pub fn qualify_now_rank(&self, index: usize) -> bool {
-        self.nowrank[index]
+        self.nowrank.get(index).copied().unwrap_or(false)
     }
 
     pub fn qualify_best_rank(&self, index: usize) -> bool {
-        self.bestrank[index]
+        self.bestrank.get(index).copied().unwrap_or(false)
     }
 
     pub fn now_rate(&self) -> f32 {
@@ -410,5 +410,41 @@ impl ScoreDataProperty {
 
     pub fn rival_score_data(&self) -> Option<&ScoreData> {
         self.rival.as_ref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn qualify_rank_out_of_bounds_returns_false() {
+        let prop = ScoreDataProperty::default();
+        // Array is [bool; 27], so index 27 is out of bounds.
+        assert!(!prop.qualify_rank(27));
+        assert!(!prop.qualify_rank(100));
+        assert!(!prop.qualify_rank(usize::MAX));
+    }
+
+    #[test]
+    fn qualify_now_rank_out_of_bounds_returns_false() {
+        let prop = ScoreDataProperty::default();
+        assert!(!prop.qualify_now_rank(27));
+        assert!(!prop.qualify_now_rank(100));
+    }
+
+    #[test]
+    fn qualify_best_rank_out_of_bounds_returns_false() {
+        let prop = ScoreDataProperty::default();
+        assert!(!prop.qualify_best_rank(27));
+        assert!(!prop.qualify_best_rank(100));
+    }
+
+    #[test]
+    fn qualify_rank_valid_index_returns_value() {
+        let mut prop = ScoreDataProperty::default();
+        prop.rank[18] = true;
+        assert!(prop.qualify_rank(18));
+        assert!(!prop.qualify_rank(17));
     }
 }

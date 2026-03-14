@@ -295,8 +295,19 @@ impl MainController {
 
         self.process_queued_controller_commands();
 
-        // Prune finished background threads to avoid unbounded handle accumulation.
-        self.background_threads.retain(|h| !h.is_finished());
+        // Prune finished background threads: join them to observe panics,
+        // then retain only the still-running handles.
+        let mut remaining = Vec::new();
+        for handle in self.background_threads.drain(..) {
+            if handle.is_finished() {
+                if let Err(e) = handle.join() {
+                    log::warn!("Background thread panicked: {:?}", e);
+                }
+            } else {
+                remaining.push(handle);
+            }
+        }
+        self.background_threads = remaining;
 
         self.periodic_config_save();
 

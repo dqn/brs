@@ -96,8 +96,9 @@ impl RhythmTimerProcessor {
         let play_speed = params.play_speed;
         let freq = params.freq;
         let play_timer_micro = params.play_timer_micro;
-        self.rhythmtimer +=
-            deltatime.saturating_mul(100 - (nowbpm * play_speed as f64 / 60.0) as i64) / 100;
+        let bpm_factor =
+            (nowbpm * play_speed as f64 / 60.0).clamp(i32::MIN as f64, i32::MAX as f64) as i64;
+        self.rhythmtimer += deltatime.saturating_mul(100 - bpm_factor) / 100;
 
         let mut rhythm_on = false;
         if freq > 0
@@ -157,6 +158,31 @@ mod tests {
             })
         }));
         assert!(result.is_ok(), "should not panic with extreme BPM");
+    }
+
+    /// Regression: bpm_factor cast from f64 to i64 must be clamped to prevent
+    /// intermediate overflow when nowbpm * play_speed / 60.0 exceeds i64::MAX.
+    #[test]
+    fn bpm_factor_clamp_prevents_intermediate_overflow() {
+        let model = BMSModel::default();
+        let mut processor = RhythmTimerProcessor::new(&model, false);
+
+        // f64 value that exceeds i64::MAX when cast without clamping
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            processor.update(&RhythmUpdateParams {
+                now: 1_000_000,
+                micronow: 1_000_000,
+                deltatime: 16667,
+                nowbpm: 1e18,
+                play_speed: 100,
+                freq: 100,
+                play_timer_micro: 1_000_000,
+            })
+        }));
+        assert!(
+            result.is_ok(),
+            "should not overflow when bpm_factor exceeds i64 range"
+        );
     }
 
     /// Regression: prev_index while-loop must not go out of bounds when float

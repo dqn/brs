@@ -498,9 +498,10 @@ impl MainState for BMSPlayer {
                     self.model.total = property.total;
 
                     // Apply practice modifier (time range)
+                    let freq = property.freq.max(1) as i64;
                     let mut pm = rubato_core::pattern::practice_modifier::PracticeModifier::new(
-                        property.starttime as i64 * 100 / property.freq as i64,
-                        property.endtime as i64 * 100 / property.freq as i64,
+                        property.starttime as i64 * 100 / freq,
+                        property.endtime as i64 * 100 / freq,
                     );
                     pm.modify(&mut self.model);
 
@@ -541,13 +542,12 @@ impl MainState for BMSPlayer {
                     self.play_skin.pomyu.init();
 
                     self.starttimeoffset = if property.starttime > 1000 {
-                        (property.starttime as i64 - 1000) * 100 / property.freq as i64
+                        (property.starttime as i64 - 1000) * 100 / freq
                     } else {
                         0
                     };
-                    self.playtime = ((property.endtime as i64 + 1000) * 100 / property.freq as i64)
-                        as i32
-                        + TIME_MARGIN;
+                    self.playtime =
+                        ((property.endtime as i64 + 1000) * 100 / freq) as i32 + TIME_MARGIN;
 
                     self.bga
                         .lock()
