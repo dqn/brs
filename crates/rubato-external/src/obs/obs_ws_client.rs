@@ -188,6 +188,11 @@ impl ObsWsClient {
         })
     }
 
+    /// Returns a handle to the client's tokio runtime.
+    pub fn runtime_handle(&self) -> &tokio::runtime::Handle {
+        self.runtime.handle()
+    }
+
     /// Connect asynchronously (non-blocking)
     pub fn connect_async(&self) {
         let inner = Arc::clone(&self.inner);

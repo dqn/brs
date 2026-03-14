@@ -60,6 +60,7 @@ impl ObsListener {
             client.restart_recording();
         }
         self.trigger_state_change_by_type(MainStateType::MusicSelect);
+        let runtime_handle = client.runtime_handle().clone();
         let client_clone = Arc::clone(client);
 
         // Capture config values for PLAY state before entering async block,
@@ -69,7 +70,7 @@ impl ObsListener {
         let stop_wait = self.config.obs.obs_ws_rec_stop_wait;
         let scheduled_stop_task = Arc::clone(&self.scheduled_stop_task);
 
-        tokio::spawn(async move {
+        runtime_handle.spawn(async move {
             tokio::time::sleep(Duration::from_millis(1000)).await;
             // Trigger PLAY state change after 1 second.
             // Inlined from trigger_state_change since self is not available in async context.
@@ -176,9 +177,10 @@ impl ObsListener {
                 if stop_record_now {
                     return;
                 }
+                let runtime_handle = client.runtime_handle().clone();
                 let client_clone = Arc::clone(client);
                 let scheduled_stop_task = Arc::clone(&self.scheduled_stop_task);
-                let handle = tokio::spawn(async move {
+                let handle = runtime_handle.spawn(async move {
                     tokio::time::sleep(Duration::from_millis(delay.max(0) as u64)).await;
                     client_clone.request_stop_record();
                     // Clear the task handle
