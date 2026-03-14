@@ -4,7 +4,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use crate::screen_shot_exporter;
-use crate::stubs::{
+use crate::{
     AbstractResultAccess, ImGuiNotify, IntegerPropertyFactory, MainState, Mode, NUMBER_MAXSCORE,
     ReplayData, STRING_FULLTITLE, STRING_TABLE_LEVEL, STRING_TABLE_NAME, ScoreData, ScreenType,
     StringPropertyFactory,
@@ -502,7 +502,7 @@ fn get_abstract_result(_state: &MainState) -> Option<&dyn AbstractResultAccess> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::stubs::NullMainController;
+    use crate::NullMainController;
 
     fn make_state(screen_type: ScreenType) -> MainState {
         MainState {

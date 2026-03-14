@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
-use crate::stubs::{SongData, TableAccessor, TableData, TableDataAccessor, TableFolder};
+use crate::{SongData, TableAccessor, TableData, TableDataAccessor, TableFolder};
 
 /// BMS Search accessor class.
 /// Translated from Java: BMSSearchAccessor extends TableDataAccessor.TableAccessor

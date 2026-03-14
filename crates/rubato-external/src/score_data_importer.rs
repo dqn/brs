@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::stubs::{ScoreData, ScoreDatabaseAccessor, SongDatabaseAccessor};
+use crate::{ScoreData, ScoreDatabaseAccessor, SongDatabaseAccessor};
 
 /// Score data importer.
 /// Translated from Java: ScoreDataImporter

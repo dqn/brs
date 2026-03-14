@@ -1,4 +1,4 @@
-use crate::stubs::{
+use crate::{
     BooleanPropertyFactory, IntegerPropertyFactory, MainState, NUMBER_CLEAR, OPTION_RESULT_A_1P,
     OPTION_RESULT_AA_1P, OPTION_RESULT_AAA_1P, OPTION_RESULT_B_1P, OPTION_RESULT_C_1P,
     OPTION_RESULT_D_1P, OPTION_RESULT_E_1P, OPTION_RESULT_F_1P,

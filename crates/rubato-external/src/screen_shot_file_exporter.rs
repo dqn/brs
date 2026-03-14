@@ -1,10 +1,10 @@
 use crate::screen_shot_exporter::{self, ScreenShotExporter};
-use crate::stubs::{
+use crate::webhook_handler::WebhookHandler;
+use crate::{
     BufferUtils, ClipboardHelper, GdxGraphics, ImGuiNotify, IntegerPropertyFactory, MainState,
     NUMBER_PLAYLEVEL, Pixmap, PixmapIO, STRING_FULLTITLE, STRING_TABLE_LEVEL, ScreenType,
     StringPropertyFactory,
 };
-use crate::webhook_handler::WebhookHandler;
 
 /// ScreenShotFileExporter - saves screenshots to file and optionally copies to clipboard / sends webhook.
 /// Translated from Java: ScreenShotFileExporter implements ScreenShotExporter
@@ -196,7 +196,7 @@ fn get_screen_type(state: &MainState) -> ScreenType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::stubs::NullMainController;
+    use crate::NullMainController;
 
     fn make_state(screen_type: ScreenType) -> MainState {
         MainState {

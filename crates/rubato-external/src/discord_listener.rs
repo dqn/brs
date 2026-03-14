@@ -1,6 +1,6 @@
 use crate::discord_rpc::rich_presence::{RichPresence, RichPresenceData};
 
-use crate::stubs::{MainStateListener, ScreenType};
+use crate::{MainStateListener, ScreenType};
 use rubato_types::main_state_access::MainStateAccess;
 
 static APPLICATION_ID: &str = "1054234988167561277";
