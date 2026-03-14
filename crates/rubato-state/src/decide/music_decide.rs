@@ -105,6 +105,13 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
             // Song BPM from songdata
             90 => self.resource.songdata().map_or(0, |s| s.chart.maxbpm),
             91 => self.resource.songdata().map_or(0, |s| s.chart.minbpm),
+            // mainbpm: prefer SongInformation.mainbpm when available
+            92 => self.resource.songdata().map_or(0, |s| {
+                s.info
+                    .as_ref()
+                    .map(|i| i.mainbpm as i32)
+                    .unwrap_or(s.chart.maxbpm)
+            }),
             // Total notes
             350 => self.resource.songdata().map_or(0, |s| s.chart.notes),
             // Song duration
@@ -380,6 +387,7 @@ impl MainState for MusicDecide {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::decide::stubs::{NullMainController, NullPlayerResource};
@@ -1018,5 +1026,58 @@ mod tests {
         use rubato_types::skin_render_context::SkinRenderContext;
         // ID 89 (favorite_song) should now return 1 instead of -1
         assert_eq!(ctx.image_index_value(89), 1);
+    }
+
+    #[test]
+    fn decide_render_context_mainbpm_from_song_information() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.maxbpm = 200;
+        resource.song.chart.minbpm = 100;
+        // Set SongInformation with mainbpm = 160
+        let mut info = rubato_types::song_information::SongInformation::default();
+        info.mainbpm = 160.0;
+        resource.song.info = Some(info);
+
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        // ID 92 should return mainbpm from SongInformation
+        assert_eq!(ctx.integer_value(92), 160);
+    }
+
+    #[test]
+    fn decide_render_context_mainbpm_falls_back_to_maxbpm() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.maxbpm = 180;
+        // No SongInformation set -> should fall back to maxbpm
+
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(92), 180);
+    }
+
+    #[test]
+    fn decide_render_context_mainbpm_no_songdata_returns_zero() {
+        let resource = NullPlayerResource::new();
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(92), 0);
     }
 }
