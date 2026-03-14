@@ -1,6 +1,7 @@
 {
   "database": "dolt",
-  "jsonl_export": "issues.jsonl",
   "backend": "dolt",
-  "dolt_database": "beads_brs"
+  "dolt_mode": "server",
+  "dolt_database": "rubato",
+  "project_id": "3e67e494-ad83-4490-9e10-5ed41338928e"
 }

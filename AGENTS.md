@@ -134,6 +134,49 @@ rubato/              # Cargo workspace (15 crates) at repo root
 - **File encoding consistency:** All file readers for Japanese-encoded formats (.chp, .lr2skin CSV, .bms) must decode with `encoding_rs::SHIFT_JIS`, not read as UTF-8. Use `std::fs::read()` + `SHIFT_JIS.decode()` instead of `BufReader::lines()`.
 - **String byte slicing safety:** Never slice strings at byte positions from external data without verifying char boundaries. Use `str::is_char_boundary()`, `floor_char_boundary()`, or `starts_with()`/`strip_prefix()` instead of `&s[n..]`.
 
+## Issue Tracking with bd (beads)
+
+This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
+
+### Quick Start
+
+```bash
+bd ready --json          # Check for unblocked work
+bd create "Title" --description="Context" -t bug|feature|task -p 0-4 --json
+bd update <id> --claim --json
+bd close <id> --reason "Completed" --json
+```
+
+### Issue Types
+
+- `bug` - Something broken
+- `feature` - New functionality
+- `task` - Work item (tests, docs, refactoring)
+- `epic` - Large feature with subtasks
+- `chore` - Maintenance (dependencies, tooling)
+
+### Priorities
+
+- `0` - Critical (security, data loss, broken builds)
+- `1` - High (major features, important bugs)
+- `2` - Medium (default, nice-to-have)
+- `3` - Low (polish, optimization)
+- `4` - Backlog (future ideas)
+
+### Workflow for AI Agents
+
+1. **Check ready work**: `bd ready` shows unblocked issues
+2. **Claim your task**: `bd update <id> --claim`
+3. **Work on it**: Implement, test, document
+4. **Discover new work?** Create linked issue:
+   - `bd create "Found bug" --description="Details" -p 1 --deps discovered-from:<parent-id>`
+5. **Complete**: `bd close <id> --reason "Done"`
+
+### Sync
+
+- Each write auto-commits to Dolt history
+- Use `bd dolt push` / `bd dolt pull` for remote sync
+
 ## Landing the Plane (Session Completion)
 
 1. **File issues for remaining work** - Create issues for anything that needs follow-up

@@ -33,3 +33,7 @@ crates/bms-model/fuzz/artifacts/
 crates/bms-model/fuzz/corpus/
 crates/bms-model/fuzz/target/
 crates/bms-model/fuzz/Cargo.lock
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
