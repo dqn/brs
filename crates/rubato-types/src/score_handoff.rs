@@ -29,4 +29,11 @@ pub struct ScoreHandoff {
     /// Replay data populated with key input log and pattern info from the play session.
     /// Applied to PlayerResource.replay on handoff so save_replay_data() writes the live data.
     pub replay_data: Option<ReplayData>,
+    /// BMSModel with judge states synced from JudgeManager.
+    ///
+    /// In Java, JudgeManager modifies Note objects in-place via shared references,
+    /// so the model always has current state/play_time values. In Rust, these are
+    /// synced explicitly and the updated model is passed through the handoff so that
+    /// the result screen can read note states for timing distribution computation.
+    pub updated_model: Option<bms_model::bms_model::BMSModel>,
 }

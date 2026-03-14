@@ -1,6 +1,36 @@
 use super::*;
 
 impl BMSPlayer {
+    /// Sync judge states from JudgeManager's internal note_states back to the
+    /// BMSModel's Note objects.
+    ///
+    /// In Java, JudgeManager modifies Note objects in-place via shared references.
+    /// In Rust, JudgeManager stores results in private `note_states: Vec<NoteJudgeState>`
+    /// which are never written back to the model. This method bridges the gap by
+    /// copying state and play_time from each JudgeNote's state into the corresponding
+    /// Note on the model's TimeLine.
+    ///
+    /// Must be called after `judge.update()` so that `create_score_data()` and the
+    /// result screen's timing distribution see correct values.
+    pub(super) fn sync_judge_states_to_model(&mut self) {
+        for (note_idx, &(tl_idx, lane)) in self.judge_note_to_model.iter().enumerate() {
+            if tl_idx == usize::MAX {
+                continue;
+            }
+            let state = self.judge.note_state(note_idx);
+            let play_time = self.judge.note_play_time(note_idx);
+            if state == 0 {
+                continue;
+            }
+            if let Some(tl) = self.model.timelines.get_mut(tl_idx)
+                && let Some(note) = tl.note_mut(lane)
+            {
+                note.set_state(state);
+                note.set_micro_play_time(play_time);
+            }
+        }
+    }
+
     /// Corresponds to Java BMSPlayer.stopPlay()
     pub fn stop_play(&mut self) {
         // if main.hasObsListener() { main.getObsListener().triggerPlayEnded(); }

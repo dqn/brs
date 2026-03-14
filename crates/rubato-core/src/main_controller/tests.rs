@@ -1560,6 +1560,7 @@ fn make_handoff(
         freq_on,
         force_no_ir_send,
         replay_data: None,
+        updated_model: None,
     }
 }
 
@@ -1894,5 +1895,66 @@ fn default_mainstate_dispose_calls_dispose_skin() {
     assert!(
         state.state_data.skin.is_none(),
         "skin should be None after dispose()"
+    );
+}
+
+#[test]
+fn test_handoff_updated_model_propagates_to_resource() {
+    let mut mc = make_test_controller();
+    mc.restore_player_resource(PlayerResource::new(
+        Config::default(),
+        PlayerConfig::default(),
+    ));
+
+    // Set up a model on the resource so songdata exists
+    {
+        let res = mc.resource.as_mut().unwrap();
+        let mut model = BMSModel::new();
+        model.set_mode(bms_model::mode::Mode::BEAT_7K);
+        model.judgerank = 100;
+        let mut tl = bms_model::time_line::TimeLine::new(0.0, 1_000_000, 8);
+        tl.set_note(0, Some(bms_model::note::Note::new_normal(1)));
+        model.timelines = vec![tl];
+        let sd = rubato_types::song_data::SongData::new_from_model(model, false);
+        res.set_songdata(sd);
+    }
+
+    // Verify the resource model note has state=0 initially
+    {
+        let res = mc.resource.as_ref().unwrap();
+        let note = res.bms_model().unwrap().timelines[0].note(0).unwrap();
+        assert_eq!(note.state(), 0, "Initial note state should be 0");
+    }
+
+    // Create a handoff with an updated model where note has state=1
+    let mut updated_model = BMSModel::new();
+    updated_model.set_mode(bms_model::mode::Mode::BEAT_7K);
+    updated_model.judgerank = 100;
+    let mut tl = bms_model::time_line::TimeLine::new(0.0, 1_000_000, 8);
+    let mut note = bms_model::note::Note::new_normal(1);
+    note.set_state(1);
+    note.set_micro_play_time(500);
+    tl.set_note(0, Some(note));
+    updated_model.timelines = vec![tl];
+
+    let mut handoff = make_handoff(0, false, false);
+    handoff.updated_model = Some(updated_model);
+
+    mc.current = Some(Box::new(HandoffTestState::new(handoff)));
+    mc.render();
+
+    // After handoff, the resource model should have the updated note states
+    let res = mc.resource.as_ref().unwrap();
+    let model = res.bms_model().unwrap();
+    let note = model.timelines[0].note(0).unwrap();
+    assert_eq!(
+        note.state(),
+        1,
+        "Note state should be updated from handoff model"
+    );
+    assert_eq!(
+        note.micro_play_time(),
+        500,
+        "Note play_time should be updated from handoff model"
     );
 }

@@ -1233,3 +1233,106 @@ fn from_config_sets_judge_algorithm_score_maps_to_timing() {
         Some(rubato_types::bms_player_rule::BMSPlayerRule::LR2),
     );
 }
+
+// --- note_state / note_play_time accessor tests ---
+
+#[test]
+fn note_state_returns_zero_for_unjudged() {
+    let mut model = BMSModel::new();
+    model.set_mode(Mode::BEAT_7K);
+    model.judgerank = 100;
+    let mut tl = TimeLine::new(0.0, 1_000_000, 8);
+    tl.set_note(0, Some(Note::new_normal(1)));
+    model.timelines = vec![tl];
+
+    let notes = build_judge_notes(&model);
+    let jp = BMSPlayerRule::for_mode(&Mode::BEAT_7K).judge;
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: model.lntype(),
+        judge_rank: model.judgerank,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: false,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let jm = JudgeManager::from_config(&config);
+
+    assert_eq!(jm.note_state(0), 0, "Unjudged note should have state 0");
+    assert_eq!(
+        jm.note_play_time(0),
+        0,
+        "Unjudged note should have play_time 0"
+    );
+    assert_eq!(jm.note_state_count(), 1, "Should have 1 note state");
+}
+
+#[test]
+fn note_state_out_of_bounds_returns_zero() {
+    let jm = JudgeManager::new();
+    assert_eq!(jm.note_state(0), 0);
+    assert_eq!(jm.note_state(999), 0);
+    assert_eq!(jm.note_play_time(0), 0);
+    assert_eq!(jm.note_play_time(999), 0);
+    assert_eq!(jm.note_state_count(), 0);
+}
+
+#[test]
+fn note_state_updated_after_autoplay_judgment() {
+    let mut model = BMSModel::new();
+    model.set_mode(Mode::BEAT_7K);
+    model.judgerank = 100;
+    let mut tl = TimeLine::new(0.0, 1_000_000, 8);
+    tl.set_note(0, Some(Note::new_normal(1)));
+    model.timelines = vec![tl];
+
+    let notes = build_judge_notes(&model);
+    let jp = BMSPlayerRule::for_mode(&Mode::BEAT_7K).judge;
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: model.lntype(),
+        judge_rank: model.judgerank,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: true,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+    let mut gauge = rubato_types::groove_gauge::GrooveGauge::new(
+        &model,
+        rubato_types::groove_gauge::NORMAL,
+        &rubato_types::gauge_property::GaugeProperty::SevenKeys,
+    );
+
+    // Autoplay at exactly note time -> PG (judge=0, state=1)
+    jm.update(
+        1_000_000,
+        &notes,
+        &vec![false; 256],
+        &vec![i64::MIN; 256],
+        &mut gauge,
+    );
+
+    assert_eq!(
+        jm.note_state(0),
+        1,
+        "Autoplay PG should set state to 1 (PG+1)"
+    );
+    assert_eq!(
+        jm.note_play_time(0),
+        0,
+        "Autoplay PG should have play_time 0"
+    );
+}

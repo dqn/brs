@@ -304,4 +304,24 @@ impl JudgeManager {
     pub fn drain_judged_events(&mut self) -> Vec<(i32, i64)> {
         std::mem::take(&mut self.judged_events)
     }
+
+    /// Get the judge state for a note at the given index.
+    ///
+    /// Returns 0 if unjudged, or judge+1 (1=PG, 2=GR, 3=GD, 4=BD, 5=PR/MS).
+    /// Returns 0 for out-of-bounds indices.
+    pub fn note_state(&self, note_idx: usize) -> i32 {
+        self.note_states.get(note_idx).map_or(0, |ns| ns.state)
+    }
+
+    /// Get the play time (timing difference in microseconds) for a note at the given index.
+    ///
+    /// Returns 0 for unjudged or out-of-bounds indices.
+    pub fn note_play_time(&self, note_idx: usize) -> i64 {
+        self.note_states.get(note_idx).map_or(0, |ns| ns.play_time)
+    }
+
+    /// Get the number of note states tracked by the judge manager.
+    pub fn note_state_count(&self) -> usize {
+        self.note_states.len()
+    }
 }

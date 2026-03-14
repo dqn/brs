@@ -268,6 +268,17 @@ impl MainController {
                 }
                 resource.set_replay_data(rd);
             }
+
+            // Update the model on PlayerResource with judge states synced from
+            // JudgeManager. In Java, JudgeManager modifies Note objects in-place
+            // via shared references; in Rust, the updated model is passed through
+            // the handoff so the result screen reads correct state/play_time values
+            // for timing distribution computation.
+            if let Some(updated_model) = handoff.updated_model
+                && let Some(sd) = resource.songdata_mut()
+            {
+                sd.set_bms_model(updated_model);
+            }
         }
 
         // Apply play config update to MainController's PlayerConfig.

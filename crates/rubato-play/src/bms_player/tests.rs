@@ -4173,3 +4173,199 @@ fn practice_finished_resets_global_pitch_on_transition_to_music_select() {
         "PracticeFinished must reset global pitch to 1.0 before transitioning to MusicSelect"
     );
 }
+
+// --- sync_judge_states_to_model tests ---
+
+/// Helper: create a model with normal notes at specific times (one note per timeline, lane 0).
+fn make_model_with_notes_at_times(times_us: &[i64]) -> BMSModel {
+    let mut model = BMSModel::new();
+    model.set_mode(Mode::BEAT_7K);
+    model.judgerank = 100;
+
+    let mut timelines = Vec::new();
+    for (i, &time_us) in times_us.iter().enumerate() {
+        let mut tl = bms_model::time_line::TimeLine::new(i as f64, time_us, 8);
+        tl.set_note(0, Some(bms_model::note::Note::new_normal(1)));
+        timelines.push(tl);
+    }
+    model.timelines = timelines;
+    model
+}
+
+#[test]
+fn sync_judge_states_writes_state_and_play_time_to_model_notes() {
+    // Create a model with two notes
+    let model = make_model_with_notes_at_times(&[1_000_000, 2_000_000]);
+    let mut player = BMSPlayer::new(model);
+
+    // Build judge system so judge_note_to_model is populated
+    let mode = player.model.mode().copied().unwrap_or(Mode::BEAT_7K);
+    player.rebuild_judge_system(&mode);
+
+    // Verify notes initially have state=0
+    assert_eq!(player.model.timelines[0].note(0).unwrap().state(), 0);
+    assert_eq!(player.model.timelines[1].note(0).unwrap().state(), 0);
+
+    // Simulate a judge: set note_states on the judge manager via autoplay update.
+    // Instead of going through the full update flow, we use the accessors:
+    // The judge has note_states initialized to state=0, play_time=0.
+    // We need to trigger a judgment. Let's use autoplay mode.
+    player.play_mode = BMSPlayerMode::AUTOPLAY;
+    player.rebuild_judge_system(&mode);
+
+    // Initialize gauge for update()
+    player.gauge = crate::groove_gauge::create_groove_gauge(
+        &player.model,
+        rubato_types::groove_gauge::NORMAL,
+        0,
+        None,
+    );
+
+    // Run update at time=1_000_000 - autoplay should judge the first note as PG
+    if let Some(ref mut gauge) = player.gauge {
+        player.judge.update(
+            1_000_000,
+            &player.judge_notes,
+            &vec![false; KEYSTATE_SIZE],
+            &vec![i64::MIN; KEYSTATE_SIZE],
+            gauge,
+        );
+    }
+
+    // Verify judge set the first note's state (PG = judge 0 => state = 0+1 = 1)
+    assert_eq!(player.judge.note_state(0), 1); // PG+1
+    assert_eq!(player.judge.note_play_time(0), 0); // perfect timing
+
+    // Before sync: model notes should still have state=0
+    assert_eq!(player.model.timelines[0].note(0).unwrap().state(), 0);
+
+    // Sync and verify
+    player.sync_judge_states_to_model();
+
+    assert_eq!(
+        player.model.timelines[0].note(0).unwrap().state(),
+        1,
+        "After sync, model note state should match judge state"
+    );
+    assert_eq!(
+        player.model.timelines[0].note(0).unwrap().micro_play_time(),
+        0,
+        "After sync, model note play_time should match judge play_time"
+    );
+
+    // Second note should still be unjudged
+    assert_eq!(
+        player.model.timelines[1].note(0).unwrap().state(),
+        0,
+        "Unjudged note should remain state=0"
+    );
+}
+
+#[test]
+fn create_score_data_uses_synced_judge_states() {
+    // Regression test: create_score_data() iterates model notes for timing stats.
+    // Before the fix, model notes always had state=0 so timing stats were empty.
+    let model = make_model_with_notes_at_times(&[1_000_000, 2_000_000]);
+    let mut player = BMSPlayer::new(model);
+    player.play_mode = BMSPlayerMode::AUTOPLAY;
+
+    let mode = player.model.mode().copied().unwrap_or(Mode::BEAT_7K);
+    player.rebuild_judge_system(&mode);
+    player.gauge = crate::groove_gauge::create_groove_gauge(
+        &player.model,
+        rubato_types::groove_gauge::NORMAL,
+        0,
+        None,
+    );
+
+    // Judge both notes via autoplay (advance time past both)
+    if let Some(ref mut gauge) = player.gauge {
+        player.judge.update(
+            1_000_000,
+            &player.judge_notes,
+            &vec![false; KEYSTATE_SIZE],
+            &vec![i64::MIN; KEYSTATE_SIZE],
+            gauge,
+        );
+        player.judge.update(
+            2_000_000,
+            &player.judge_notes,
+            &vec![false; KEYSTATE_SIZE],
+            &vec![i64::MIN; KEYSTATE_SIZE],
+            gauge,
+        );
+    }
+
+    // Sync judge states to model
+    player.sync_judge_states_to_model();
+
+    // Both notes should now have state >= 1
+    assert!(
+        player.model.timelines[0].note(0).unwrap().state() >= 1,
+        "Note 0 should be judged after autoplay"
+    );
+    assert!(
+        player.model.timelines[1].note(0).unwrap().state() >= 1,
+        "Note 1 should be judged after autoplay"
+    );
+
+    // create_score_data should now produce valid timing stats
+    player.state = PlayState::Aborted;
+    let score = player.create_score_data(DeviceType::Keyboard).unwrap();
+
+    // With autoplay, both notes are PG (play_time = 0), so:
+    // - total_duration should be |0| + |0| = 0 (not the 2*1_000_000 unjudged penalty)
+    // - avgjudge should be 0 (not 1_000_000)
+    assert_eq!(
+        score.timing_stats.total_duration, 0,
+        "With autoplay PG, total_duration should be 0 (not unjudged penalty)"
+    );
+    assert_eq!(
+        score.timing_stats.avgjudge, 0,
+        "With autoplay PG, avgjudge should be 0"
+    );
+}
+
+#[test]
+fn judge_note_to_model_reverse_index_built_correctly() {
+    let model = make_model_with_notes_at_times(&[500_000, 1_000_000, 2_000_000]);
+    let mut player = BMSPlayer::new(model);
+
+    let mode = player.model.mode().copied().unwrap_or(Mode::BEAT_7K);
+    player.rebuild_judge_system(&mode);
+
+    // All notes are on lane 0
+    assert_eq!(player.judge_note_to_model.len(), player.judge_notes.len());
+    for (i, &(tl_idx, lane)) in player.judge_note_to_model.iter().enumerate() {
+        assert_ne!(
+            tl_idx,
+            usize::MAX,
+            "JudgeNote {} should map to a valid timeline",
+            i
+        );
+        assert_eq!(lane, 0, "All notes are on lane 0");
+        // Verify the timeline time matches the judge note time
+        assert_eq!(
+            player.model.timelines[tl_idx].micro_time(),
+            player.judge_notes[i].time_us,
+            "Timeline time should match judge note time"
+        );
+    }
+}
+
+#[test]
+fn sync_judge_states_skips_out_of_range_indices() {
+    // Safety test: verify sync doesn't panic with empty/invalid reverse index
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+
+    // Clear the reverse index (simulates no notes or no rebuild)
+    player.judge_note_to_model = vec![];
+    // Should not panic
+    player.sync_judge_states_to_model();
+
+    // Add an entry with usize::MAX (unmapped)
+    player.judge_note_to_model = vec![(usize::MAX, 0)];
+    player.sync_judge_states_to_model();
+    // No assertion needed - just verifying no panic
+}

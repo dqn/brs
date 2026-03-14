@@ -404,6 +404,9 @@ pub struct BMSPlayer {
     /// this overrides the config setting for image_index_value ID 308.
     /// Set by the caller before create() via `set_lnmode_override()`.
     lnmode_override: Option<i32>,
+    /// Reverse index mapping JudgeNote index -> (timeline_index, lane) for syncing
+    /// judge states back to model notes. Built during `rebuild_judge_system()`.
+    judge_note_to_model: Vec<(usize, i32)>,
 }
 
 mod accessors;

@@ -724,6 +724,11 @@ impl MainState for BMSPlayer {
                     for (judge, mtime) in events {
                         self.update_judge(judge, mtime);
                     }
+                    // Sync judge states back to model notes so that create_score_data()
+                    // and the result screen can read correct state/play_time values.
+                    // In Java, JudgeManager modifies Note objects in-place via shared
+                    // references; in Rust we must explicitly copy the results back.
+                    self.sync_judge_states_to_model();
                 }
 
                 let ptime = self.main_state_data.timer.now_time_for_id(TIMER_PLAY);
@@ -887,6 +892,8 @@ impl MainState for BMSPlayer {
                             l += 500;
                         }
                     }
+                    // Ensure model notes have judge states before computing score data.
+                    self.sync_judge_states_to_model();
                     let score = if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play
                         || self.play_mode.mode == rubato_core::bms_player_mode::Mode::Replay
                     {
@@ -906,6 +913,7 @@ impl MainState for BMSPlayer {
                             freq_on: self.freq_on,
                             force_no_ir_send: self.force_no_ir_send,
                             replay_data: Some(replay),
+                            updated_model: Some(self.model.clone()),
                         });
                     // input.setEnable(true); input.setStartTime(0);
                     self.save_config();
@@ -953,6 +961,8 @@ impl MainState for BMSPlayer {
                 if self.main_state_data.timer.now_time_for_id(TIMER_FADEOUT) > skin_fadeout {
                     self.pending.pending_global_pitch = Some(1.0);
                     // resource.getBGAManager().stop();
+                    // Ensure model notes have judge states before computing score data.
+                    self.sync_judge_states_to_model();
                     let score = if self.play_mode.mode == rubato_core::bms_player_mode::Mode::Play
                         || self.play_mode.mode == rubato_core::bms_player_mode::Mode::Replay
                     {
@@ -973,6 +983,7 @@ impl MainState for BMSPlayer {
                             freq_on: self.freq_on,
                             force_no_ir_send: self.force_no_ir_send,
                             replay_data: Some(replay),
+                            updated_model: Some(self.model.clone()),
                         });
                     // input.setEnable(true); input.setStartTime(0);
 
@@ -1070,7 +1081,7 @@ impl BMSPlayer {
     ///
     /// Used during initial create() and practice mode restarts so that the judge
     /// system always references the current (possibly re-modified) model data.
-    fn rebuild_judge_system(&mut self, mode: &Mode) {
+    pub(super) fn rebuild_judge_system(&mut self, mode: &Mode) {
         self.judge_notes = bms_model::judge_note::build_judge_notes(&self.model);
         let rule = BMSPlayerRule::for_mode(mode);
 
@@ -1159,6 +1170,24 @@ impl BMSPlayer {
             judgeregion,
         };
         self.judge = JudgeManager::from_config(&judge_config);
+
+        // Build reverse index: JudgeNote index -> (timeline_index, lane)
+        // Used by sync_judge_states_to_model() to write judge results back to model notes.
+        self.judge_note_to_model = self
+            .judge_notes
+            .iter()
+            .map(|jn| {
+                let lane = jn.lane as i32;
+                // Binary search for the timeline with matching micro_time.
+                // Timelines are sorted by time (ascending).
+                let tl_idx = self
+                    .model
+                    .timelines
+                    .binary_search_by_key(&jn.time_us, |tl| tl.micro_time())
+                    .unwrap_or(usize::MAX);
+                (tl_idx, lane)
+            })
+            .collect();
 
         // Carry course combo from previous stage.
         // Translated from: JudgeManager.init() Java lines 211-214
