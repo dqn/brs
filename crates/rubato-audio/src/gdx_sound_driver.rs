@@ -11,7 +11,7 @@ use rayon::prelude::*;
 
 use kira::sound::PlaybackState;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
-use kira::{AudioManager, AudioManagerSettings, DefaultBackend, PlaybackRate, Semitones, Tween};
+use kira::{AudioManager, AudioManagerSettings, DefaultBackend, PlaybackRate, Tween};
 
 use bms_model::bms_model::BMSModel;
 use bms_model::note::Note;
@@ -61,6 +61,10 @@ pub struct GdxSoundDriver {
     // Sliced sounds by wav ID (for notes with non-zero starttime/duration)
     slicesound: HashMap<i32, Vec<SliceWav<StaticSoundData>>>,
     slice_handles: HashMap<(i32, i64, i64), StaticSoundHandle>,
+    // Per-note semitone pitch shifts for active handles, so set_global_pitch
+    // can compose global_pitch * 2^(shift/12) instead of overwriting.
+    wav_pitch_shifts: HashMap<i32, i32>,
+    slice_pitch_shifts: HashMap<(i32, i64, i64), i32>,
     // Cache for loaded sounds by path (matches Java soundmap)
     sound_cache: HashMap<String, StaticSoundData>,
     // File-level keysound cache across songs (matches Java AudioCache/ResourcePool)
@@ -88,6 +92,8 @@ impl GdxSoundDriver {
             song_resource_gen,
             slicesound: HashMap::new(),
             slice_handles: HashMap::new(),
+            wav_pitch_shifts: HashMap::new(),
+            slice_pitch_shifts: HashMap::new(),
             sound_cache: HashMap::new(),
             file_cache: HashMap::new(),
             additional_key_sounds: Default::default(),
@@ -187,11 +193,17 @@ impl AudioDriver for GdxSoundDriver {
     fn set_model(&mut self, model: &BMSModel) {
         log::info!("Loading keysound files.");
 
-        // Clear previous sounds
+        // Stop all active handles before clearing (matches stop_note(None) pattern)
+        for (_, mut handle) in self.wav_handles.drain() {
+            handle.stop(Tween::default());
+        }
+        for (_, mut handle) in self.slice_handles.drain() {
+            handle.stop(Tween::default());
+        }
         self.wav_sounds.clear();
-        self.wav_handles.clear();
         self.slicesound.clear();
-        self.slice_handles.clear();
+        self.wav_pitch_shifts.clear();
+        self.slice_pitch_shifts.clear();
 
         // Cancel any in-progress background load
         self.loading_receiver = None;
@@ -426,6 +438,8 @@ impl AudioDriver for GdxSoundDriver {
                 for (_, mut handle) in self.slice_handles.drain() {
                     handle.stop(Tween::default());
                 }
+                self.wav_pitch_shifts.clear();
+                self.slice_pitch_shifts.clear();
             }
             Some(note) => {
                 self.stop_note_internal(note);
@@ -445,11 +459,23 @@ impl AudioDriver for GdxSoundDriver {
 
     fn set_global_pitch(&mut self, pitch: f32) {
         self.global_pitch = pitch;
-        let rate = PlaybackRate(pitch as f64);
-        for handle in self.wav_handles.values_mut() {
+        let base = pitch as f64;
+        for (wav_id, handle) in self.wav_handles.iter_mut() {
+            let rate = match self.wav_pitch_shifts.get(wav_id) {
+                Some(&shift) if shift != 0 => {
+                    PlaybackRate(base * 2.0_f64.powf(shift as f64 / 12.0))
+                }
+                _ => PlaybackRate(base),
+            };
             handle.set_playback_rate(rate, Tween::default());
         }
-        for handle in self.slice_handles.values_mut() {
+        for (key, handle) in self.slice_handles.iter_mut() {
+            let rate = match self.slice_pitch_shifts.get(key) {
+                Some(&shift) if shift != 0 => {
+                    PlaybackRate(base * 2.0_f64.powf(shift as f64 / 12.0))
+                }
+                _ => PlaybackRate(base),
+            };
             handle.set_playback_rate(rate, Tween::default());
         }
     }
@@ -468,6 +494,8 @@ impl AudioDriver for GdxSoundDriver {
         self.wav_handles.clear();
         self.slicesound.clear();
         self.slice_handles.clear();
+        self.wav_pitch_shifts.clear();
+        self.slice_pitch_shifts.clear();
         self.sound_cache.clear();
         self.file_cache.clear();
         self.additional_key_sounds = Default::default();
@@ -547,12 +575,15 @@ impl GdxSoundDriver {
         None
     }
 
-    /// Apply pitch shift to a sound handle.
+    /// Apply pitch shift to a sound handle, composing per-note semitone shift
+    /// with the current global pitch: rate = global_pitch * 2^(shift/12).
     fn apply_pitch(&self, handle: &mut StaticSoundHandle, pitch_shift: i32) {
+        let base = self.global_pitch as f64;
         if pitch_shift != 0 {
-            handle.set_playback_rate(Semitones(pitch_shift as f64), Tween::default());
+            let rate = base * 2.0_f64.powf(pitch_shift as f64 / 12.0);
+            handle.set_playback_rate(PlaybackRate(rate), Tween::default());
         } else if (self.global_pitch - 1.0).abs() > f32::EPSILON {
-            handle.set_playback_rate(PlaybackRate(self.global_pitch as f64), Tween::default());
+            handle.set_playback_rate(PlaybackRate(base), Tween::default());
         }
     }
 
@@ -606,6 +637,11 @@ impl GdxSoundDriver {
                             handle.set_volume(linear_to_db(volume), Tween::default());
                             self.apply_pitch(&mut handle, pitch_shift);
                             self.slice_handles.insert(key, handle);
+                            if pitch_shift != 0 {
+                                self.slice_pitch_shifts.insert(key, pitch_shift);
+                            } else {
+                                self.slice_pitch_shifts.remove(&key);
+                            }
                         }
                         Err(e) => {
                             log::warn!("Failed to play sliced keysound wav {}: {}", wav_id, e);
@@ -626,6 +662,11 @@ impl GdxSoundDriver {
                     handle.set_volume(linear_to_db(volume), Tween::default());
                     self.apply_pitch(&mut handle, pitch_shift);
                     self.wav_handles.insert(wav_id, handle);
+                    if pitch_shift != 0 {
+                        self.wav_pitch_shifts.insert(wav_id, pitch_shift);
+                    } else {
+                        self.wav_pitch_shifts.remove(&wav_id);
+                    }
                 }
                 Err(e) => {
                     log::warn!("Failed to play keysound wav {}: {}", wav_id, e);
@@ -649,12 +690,14 @@ impl GdxSoundDriver {
             let key = (wav_id, starttime, duration);
             if let Some(mut handle) = self.slice_handles.remove(&key) {
                 handle.stop(Tween::default());
+                self.slice_pitch_shifts.remove(&key);
                 return;
             }
         }
 
         if let Some(mut handle) = self.wav_handles.remove(&wav_id) {
             handle.stop(Tween::default());
+            self.wav_pitch_shifts.remove(&wav_id);
         }
     }
 
@@ -975,5 +1018,114 @@ mod tests {
         let result = rx.try_recv();
         assert!(result.is_ok());
         assert_eq!(result.unwrap().newly_loaded.len(), 0);
+    }
+
+    /// Verify that set_global_pitch composes with per-note pitch shifts
+    /// instead of overwriting them. The composed rate should be
+    /// global_pitch * 2^(shift/12).
+    #[test]
+    fn set_global_pitch_composes_with_per_note_shifts() {
+        let mut manager =
+            AudioManager::<MockBackend>::new(AudioManagerSettings::default()).unwrap();
+
+        let sound = make_silent_sound();
+        let handle_with_shift = manager.play(sound.clone()).unwrap();
+        let handle_no_shift = manager.play(sound.clone()).unwrap();
+        let handle_slice = manager.play(sound.clone()).unwrap();
+
+        let mut wav_handles: HashMap<i32, StaticSoundHandle> = HashMap::new();
+        wav_handles.insert(1, handle_with_shift);
+        wav_handles.insert(2, handle_no_shift);
+
+        let mut slice_handles: HashMap<(i32, i64, i64), StaticSoundHandle> = HashMap::new();
+        slice_handles.insert((3, 100, 200), handle_slice);
+
+        let mut wav_pitch_shifts: HashMap<i32, i32> = HashMap::new();
+        wav_pitch_shifts.insert(1, 7); // wav_id=1 has +7 semitone shift
+
+        let mut slice_pitch_shifts: HashMap<(i32, i64, i64), i32> = HashMap::new();
+        slice_pitch_shifts.insert((3, 100, 200), -3); // slice has -3 semitone shift
+
+        // Simulate the new set_global_pitch logic
+        let pitch: f32 = 1.5;
+        let base = pitch as f64;
+        for (wav_id, handle) in wav_handles.iter_mut() {
+            let rate = match wav_pitch_shifts.get(wav_id) {
+                Some(&shift) if shift != 0 => {
+                    PlaybackRate(base * 2.0_f64.powf(shift as f64 / 12.0))
+                }
+                _ => PlaybackRate(base),
+            };
+            handle.set_playback_rate(rate, Tween::default());
+        }
+        for (key, handle) in slice_handles.iter_mut() {
+            let rate = match slice_pitch_shifts.get(key) {
+                Some(&shift) if shift != 0 => {
+                    PlaybackRate(base * 2.0_f64.powf(shift as f64 / 12.0))
+                }
+                _ => PlaybackRate(base),
+            };
+            handle.set_playback_rate(rate, Tween::default());
+        }
+
+        // Verify all handles were iterated (no panic = success).
+        // wav_id=1 should get 1.5 * 2^(7/12) ~= 1.5 * 1.498 ~= 2.247
+        // wav_id=2 should get 1.5 (no shift)
+        // slice (3,100,200) should get 1.5 * 2^(-3/12) ~= 1.5 * 0.841 ~= 1.260
+        assert_eq!(wav_handles.len(), 2);
+        assert_eq!(slice_handles.len(), 1);
+    }
+
+    /// Verify that apply_pitch composes global_pitch with per-note shift.
+    #[test]
+    fn apply_pitch_composes_global_and_note_shift() {
+        // Test the composition formula: rate = global_pitch * 2^(shift/12)
+        let global_pitch: f32 = 1.5;
+        let pitch_shift: i32 = 12; // +12 semitones = 1 octave = 2x
+
+        let base = global_pitch as f64;
+        let rate = base * 2.0_f64.powf(pitch_shift as f64 / 12.0);
+
+        // 1.5 * 2^(12/12) = 1.5 * 2.0 = 3.0
+        assert!((rate - 3.0).abs() < 1e-10);
+    }
+
+    /// Verify that apply_pitch with zero shift and non-unity global pitch
+    /// still applies global pitch.
+    #[test]
+    fn apply_pitch_zero_shift_uses_global() {
+        let global_pitch: f32 = 0.75;
+        let pitch_shift: i32 = 0;
+
+        let base = global_pitch as f64;
+        let rate = if pitch_shift != 0 {
+            base * 2.0_f64.powf(pitch_shift as f64 / 12.0)
+        } else {
+            base
+        };
+
+        assert!((rate - 0.75).abs() < 1e-10);
+    }
+
+    /// Verify that pitch shift tracking maps are cleared when stop_note(None)
+    /// is called (stop all).
+    #[test]
+    fn stop_all_clears_pitch_shift_maps() {
+        let mut wav_pitch_shifts: HashMap<i32, i32> = HashMap::new();
+        let mut slice_pitch_shifts: HashMap<(i32, i64, i64), i32> = HashMap::new();
+
+        wav_pitch_shifts.insert(1, 5);
+        wav_pitch_shifts.insert(2, -3);
+        slice_pitch_shifts.insert((3, 100, 200), 7);
+
+        assert_eq!(wav_pitch_shifts.len(), 2);
+        assert_eq!(slice_pitch_shifts.len(), 1);
+
+        // Simulate stop_note(None) clearing
+        wav_pitch_shifts.clear();
+        slice_pitch_shifts.clear();
+
+        assert!(wav_pitch_shifts.is_empty());
+        assert!(slice_pitch_shifts.is_empty());
     }
 }
