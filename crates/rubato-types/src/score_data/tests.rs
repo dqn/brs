@@ -978,6 +978,36 @@ mod prop_tests {
         );
     }
 
+    /// decode_ghost limits decompression size based on notes count.
+    /// Even when the compressed payload expands to far more bytes than
+    /// notes, only the needed bytes are read.
+    #[test]
+    fn ghost_decode_limits_decompression_size() {
+        use base64::Engine;
+        use base64::engine::general_purpose::URL_SAFE;
+        use flate2::Compression;
+        use flate2::write::GzEncoder;
+        use std::io::Write;
+
+        // Compress 10_000 bytes but set notes to only 5.
+        // Without the limit, all 10_000 bytes would be decompressed.
+        let raw_bytes = vec![1u8; 10_000];
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&raw_bytes).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let mut score = ScoreData {
+            notes: 5,
+            ..ScoreData::default()
+        };
+        score.ghost = URL_SAFE.encode(&compressed);
+
+        let decoded = score.decode_ghost().unwrap();
+        // Should still decode the first 5 notes correctly
+        assert_eq!(decoded.len(), 5);
+        assert_eq!(decoded, vec![1, 1, 1, 1, 1]);
+    }
+
     /// Ghost bytes > 127 should be treated as negative in Java signed-byte
     /// semantics and map to POOR (4).
     #[test]

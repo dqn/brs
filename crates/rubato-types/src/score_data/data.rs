@@ -223,7 +223,11 @@ impl ScoreData {
             Ok(d) => d,
             Err(_) => return None,
         };
-        let mut gz = GzDecoder::new(&decoded[..]);
+        // Limit decompression to prevent unbounded memory allocation from
+        // malicious/corrupted ghost data.  Java reads exactly `notes` bytes;
+        // add a small margin for gzip framing overhead.
+        let limit = (self.notes as u64).saturating_mul(4).saturating_add(1024);
+        let mut gz = GzDecoder::new(&decoded[..]).take(limit);
         let mut decompressed = Vec::new();
         if gz.read_to_end(&mut decompressed).is_err() {
             return None;
