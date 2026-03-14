@@ -225,7 +225,15 @@ impl UpdateBar {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     self.update();
                 }));
-                if result.is_err() {
+                if let Err(panic_info) = result {
+                    let msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else if let Some(s) = panic_info.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        "unknown panic".to_string()
+                    };
+                    log::error!("UpdateBar::update() panicked: {}", msg);
                     break;
                 }
             }
