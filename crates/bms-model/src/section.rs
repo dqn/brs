@@ -463,7 +463,11 @@ impl Section {
             let st = ste.map(|(k, _)| k).unwrap_or(2.0);
             let sc = sce.map(|(k, _)| k).unwrap_or(2.0);
 
-            if sc <= st && sc <= bc {
+            // Guard: all three event types must have positions <= 1.0 (within
+            // the section). Positions from process_data_collect are always
+            // < 1.0 in practice, but the guard prevents processing phantom
+            // events when the sentinel value 2.0 leaks through.
+            if sc <= st && sc <= bc && sc <= 1.0 {
                 let scroll_val = sce.expect("sce").1;
                 let section = self.sectionnum + sc * self.rate;
                 ensure_timeline(tlcache, section, mode_key);
@@ -473,7 +477,7 @@ impl Section {
                     .timeline;
                 tl.scroll = scroll_val;
                 sc_idx += 1;
-            } else if bc <= st {
+            } else if bc <= st && bc <= 1.0 {
                 let bpm_val = bce.expect("bce").1;
                 let section = self.sectionnum + bc * self.rate;
                 ensure_timeline(tlcache, section, mode_key);
@@ -1664,5 +1668,109 @@ mod tests {
         let mut log = Vec::new();
         let result = process_data_collect("#000XX:", 36, &mut log, "test");
         assert!(result.is_empty());
+    }
+
+    /// Helper to build a Section with specific BPM/STOP/SCROLL maps for
+    /// testing process_timing_events directly.
+    fn section_with_timing(
+        sectionnum: f64,
+        rate: f64,
+        bpmchange: BTreeMap<F64Key, f64>,
+        stop: BTreeMap<F64Key, f64>,
+        scroll: BTreeMap<F64Key, f64>,
+    ) -> Section {
+        Section {
+            rate,
+            poor: Vec::new(),
+            sectionnum,
+            channellines: Vec::new(),
+            bpmchange,
+            stop,
+            scroll,
+        }
+    }
+
+    /// Build a tlcache pre-seeded with section 0.0 at BPM 120.
+    fn seeded_tlcache(mode_key: i32) -> BTreeMap<u64, TimeLineCache> {
+        let mut tlcache: BTreeMap<u64, TimeLineCache> = BTreeMap::new();
+        let mut tl = TimeLine::new(0.0, 0, mode_key);
+        tl.bpm = 120.0;
+        tlcache.insert(f64_to_key(0.0), TimeLineCache::new(0.0, tl));
+        tlcache
+    }
+
+    #[test]
+    fn process_timing_events_guards_bpm_beyond_section_boundary() {
+        // BPM change at position 1.5 (beyond section boundary 1.0) should be
+        // skipped. Before the fix, only STOP had the <= 1.0 guard.
+        let mut bpmchange = BTreeMap::new();
+        bpmchange.insert(f64_key(1.5), 200.0);
+        let section = section_with_timing(0.0, 1.0, bpmchange, BTreeMap::new(), BTreeMap::new());
+
+        let mode_key = 8;
+        let mut tlcache = seeded_tlcache(mode_key);
+        section.process_timing_events(&mut tlcache, mode_key);
+
+        // The out-of-range BPM change should NOT create a timeline entry at
+        // section 0.0 + 1.5 * 1.0 = 1.5.
+        let key = f64_to_key(1.5);
+        assert!(
+            tlcache.get(&key).is_none(),
+            "BPM change beyond section boundary should be skipped"
+        );
+    }
+
+    #[test]
+    fn process_timing_events_guards_scroll_beyond_section_boundary() {
+        // SCROLL at position 1.5 (beyond section boundary 1.0) should be
+        // skipped. Before the fix, only STOP had the <= 1.0 guard.
+        let mut scroll = BTreeMap::new();
+        scroll.insert(f64_key(1.5), 2.0);
+        let section = section_with_timing(0.0, 1.0, BTreeMap::new(), BTreeMap::new(), scroll);
+
+        let mode_key = 8;
+        let mut tlcache = seeded_tlcache(mode_key);
+        section.process_timing_events(&mut tlcache, mode_key);
+
+        // The out-of-range SCROLL should NOT create a timeline entry at
+        // section 0.0 + 1.5 * 1.0 = 1.5.
+        let key = f64_to_key(1.5);
+        assert!(
+            tlcache.get(&key).is_none(),
+            "SCROLL beyond section boundary should be skipped"
+        );
+    }
+
+    #[test]
+    fn process_timing_events_processes_valid_bpm_and_scroll() {
+        // Verify that in-range events (position 0.5) are still processed after
+        // adding the guards.
+        let mut bpmchange = BTreeMap::new();
+        bpmchange.insert(f64_key(0.5), 180.0);
+        let mut scroll = BTreeMap::new();
+        scroll.insert(f64_key(0.25), 2.5);
+        let section = section_with_timing(0.0, 1.0, bpmchange, BTreeMap::new(), scroll);
+
+        let mode_key = 8;
+        let mut tlcache = seeded_tlcache(mode_key);
+        section.process_timing_events(&mut tlcache, mode_key);
+
+        let bpm_key = f64_to_key(0.5);
+        let bpm_entry = tlcache.get(&bpm_key).expect("BPM at 0.5 should exist");
+        assert!(
+            (bpm_entry.timeline.bpm - 180.0).abs() < f64::EPSILON,
+            "BPM should be 180.0, got {}",
+            bpm_entry.timeline.bpm
+        );
+
+        let scroll_key = f64_to_key(0.25);
+        let scroll_entry = tlcache
+            .get(&scroll_key)
+            .expect("SCROLL at 0.25 should exist");
+        assert!(
+            (scroll_entry.timeline.scroll - 2.5).abs() < f64::EPSILON,
+            "scroll should be 2.5, got {}",
+            scroll_entry.timeline.scroll
+        );
     }
 }
