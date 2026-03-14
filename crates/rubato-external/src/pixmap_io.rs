@@ -38,24 +38,45 @@ impl Pixmap {
 
 /// Global back buffer dimensions for Gdx.graphics.
 /// Set by the rendering system when the window/surface is created or resized.
+///
+/// Width and height are packed into a single AtomicU64 to prevent torn reads
+/// when a resize races with a consumer reading both dimensions.
 pub struct GdxGraphics;
 
-static BACK_BUFFER_WIDTH: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
-static BACK_BUFFER_HEIGHT: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+static BACK_BUFFER_SIZE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 impl GdxGraphics {
+    /// Pack width and height into a single u64: upper 32 bits = width, lower 32 bits = height.
+    fn pack_size(width: i32, height: i32) -> u64 {
+        ((width as u32 as u64) << 32) | (height as u32 as u64)
+    }
+
+    /// Unpack a u64 into (width, height).
+    fn unpack_size(packed: u64) -> (i32, i32) {
+        let width = (packed >> 32) as u32 as i32;
+        let height = packed as u32 as i32;
+        (width, height)
+    }
+
+    /// Returns both back buffer dimensions atomically.
+    pub fn back_buffer_size() -> (i32, i32) {
+        Self::unpack_size(BACK_BUFFER_SIZE.load(std::sync::atomic::Ordering::Relaxed))
+    }
+
     pub fn back_buffer_width() -> i32 {
-        BACK_BUFFER_WIDTH.load(std::sync::atomic::Ordering::Relaxed)
+        Self::back_buffer_size().0
     }
 
     pub fn back_buffer_height() -> i32 {
-        BACK_BUFFER_HEIGHT.load(std::sync::atomic::Ordering::Relaxed)
+        Self::back_buffer_size().1
     }
 
     /// Set the back buffer dimensions. Called by the rendering system on resize.
     pub fn set_back_buffer_size(width: i32, height: i32) {
-        BACK_BUFFER_WIDTH.store(width, std::sync::atomic::Ordering::Relaxed);
-        BACK_BUFFER_HEIGHT.store(height, std::sync::atomic::Ordering::Relaxed);
+        BACK_BUFFER_SIZE.store(
+            Self::pack_size(width, height),
+            std::sync::atomic::Ordering::Relaxed,
+        );
     }
 }
 
@@ -292,6 +313,81 @@ mod tests {
         assert_eq!(GdxGraphics::back_buffer_height(), 0);
     }
 
+    #[test]
+    fn test_gdx_graphics_back_buffer_size_returns_consistent_pair() {
+        // Regression: width and height must be read atomically as a pair.
+        // Previously they were stored in two separate AtomicI32 values,
+        // allowing a resize between the two loads to produce mismatched dimensions.
+        GdxGraphics::set_back_buffer_size(1920, 1080);
+        let (w, h) = GdxGraphics::back_buffer_size();
+        assert_eq!((w, h), (1920, 1080));
+
+        GdxGraphics::set_back_buffer_size(3840, 2160);
+        let (w, h) = GdxGraphics::back_buffer_size();
+        assert_eq!((w, h), (3840, 2160));
+    }
+
+    #[test]
+    fn test_gdx_graphics_pack_unpack_roundtrip() {
+        // Verify pack/unpack helpers preserve values across the i32 range.
+        let cases: &[(i32, i32)] = &[
+            (0, 0),
+            (1920, 1080),
+            (3840, 2160),
+            (i32::MAX, i32::MAX),
+            (-1, -1),
+            (i32::MIN, i32::MIN),
+        ];
+        for &(w, h) in cases {
+            let packed = GdxGraphics::pack_size(w, h);
+            let (uw, uh) = GdxGraphics::unpack_size(packed);
+            assert_eq!((uw, uh), (w, h), "roundtrip failed for ({}, {})", w, h);
+        }
+    }
+
+    #[test]
+    fn test_gdx_graphics_packed_atomic_prevents_torn_reads() {
+        // Stress test: a writer thread rapidly alternates between two packed
+        // sizes on a local AtomicU64 while the reader thread checks that every
+        // observed pair is one of the two valid combinations. With the old
+        // two-AtomicI32 design, a torn read could produce (1920, 600) or
+        // (800, 1080). Using a single AtomicU64 guarantees consistency.
+        //
+        // Uses a local AtomicU64 to avoid interfering with other tests that
+        // read the global BACK_BUFFER_SIZE.
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+        let packed = Arc::new(AtomicU64::new(GdxGraphics::pack_size(800, 600)));
+        let packed_w = Arc::clone(&packed);
+        let stop = Arc::new(AtomicBool::new(false));
+        let stop_w = Arc::clone(&stop);
+
+        let size_a = GdxGraphics::pack_size(1920, 1080);
+        let size_b = GdxGraphics::pack_size(800, 600);
+
+        let writer = std::thread::spawn(move || {
+            let mut toggle = false;
+            while !stop_w.load(Ordering::Relaxed) {
+                packed_w.store(if toggle { size_a } else { size_b }, Ordering::Relaxed);
+                toggle = !toggle;
+            }
+        });
+
+        for _ in 0..100_000 {
+            let (w, h) = GdxGraphics::unpack_size(packed.load(Ordering::Relaxed));
+            assert!(
+                (w == 1920 && h == 1080) || (w == 800 && h == 600),
+                "torn read detected: ({}, {})",
+                w,
+                h,
+            );
+        }
+
+        stop.store(true, Ordering::Relaxed);
+        writer.join().unwrap();
+    }
+
     // ============================================================
     // PixmapIO tests
     // ============================================================
@@ -384,8 +480,7 @@ mod tests {
         // 5. Verify output
 
         GdxGraphics::set_back_buffer_size(3, 2);
-        let width = GdxGraphics::back_buffer_width();
-        let height = GdxGraphics::back_buffer_height();
+        let (width, height) = GdxGraphics::back_buffer_size();
 
         // Simulate raw OpenGL pixel data (3x2 RGBA)
         #[rustfmt::skip]

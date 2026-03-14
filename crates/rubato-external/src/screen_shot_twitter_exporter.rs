@@ -115,8 +115,7 @@ impl ScreenShotExporter for ScreenShotTwitterExporter {
         let twitter_factory = TwitterFactory::new(cb.build());
         let twitter = twitter_factory.instance();
 
-        let width = GdxGraphics::back_buffer_width();
-        let height = GdxGraphics::back_buffer_height();
+        let (width, height) = GdxGraphics::back_buffer_size();
         let mut pixmap = Pixmap::new(width, height);
         let result: Result<bool, Box<dyn std::error::Error>> = (|| {
             // create png byte stream

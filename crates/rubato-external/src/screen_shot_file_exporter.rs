@@ -81,8 +81,7 @@ impl ScreenShotExporter for ScreenShotFileExporter {
             .replace('\t', " ");
         state_name = format!("_LR2oraja{}", state_name);
 
-        let width = GdxGraphics::back_buffer_width();
-        let height = GdxGraphics::back_buffer_height();
+        let (width, height) = GdxGraphics::back_buffer_size();
         let mut pixmap = Pixmap::new(width, height);
         let result: Result<bool, Box<dyn std::error::Error>> = {
             let path = format!("screenshot/{}{}.png", sdf, state_name);
