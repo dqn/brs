@@ -368,6 +368,9 @@ impl KeyBoardInputProcesseor {
     }
 
     pub fn is_key_pressed(&mut self, keycode: i32) -> bool {
+        if keycode < 0 || keycode as usize >= self.keystate.len() {
+            return false;
+        }
         let kc = keycode as usize;
         if self.keystate[kc] && self.keytime[kc] != i64::MIN {
             self.keytime[kc] = i64::MIN;
@@ -382,6 +385,9 @@ impl KeyBoardInputProcesseor {
         held_modifiers: i32,
         not_held_modifiers: &[i32],
     ) -> bool {
+        if keycode < 0 || keycode as usize >= self.keystate.len() {
+            return false;
+        }
         let kc = keycode as usize;
         if self.keystate[kc] && self.keytime[kc] != i64::MIN {
             let modifiers = self.keymodifiers[kc];
@@ -592,6 +598,34 @@ mod tests {
         assert!(proc.key_state(42));
         proc.set_key_state(42, false);
         assert!(!proc.key_state(42));
+    }
+
+    #[test]
+    fn test_is_key_pressed_negative_keycode_returns_false() {
+        let mut proc = make_processor();
+        assert!(!proc.is_key_pressed(-1));
+        assert!(!proc.is_key_pressed(i32::MIN));
+    }
+
+    #[test]
+    fn test_is_key_pressed_out_of_range_keycode_returns_false() {
+        let mut proc = make_processor();
+        assert!(!proc.is_key_pressed(256));
+        assert!(!proc.is_key_pressed(1000));
+    }
+
+    #[test]
+    fn test_is_key_pressed_with_modifiers_negative_keycode_returns_false() {
+        let mut proc = make_processor();
+        assert!(!proc.is_key_pressed_with_modifiers(-1, 0, &[]));
+        assert!(!proc.is_key_pressed_with_modifiers(i32::MIN, 0, &[]));
+    }
+
+    #[test]
+    fn test_is_key_pressed_with_modifiers_out_of_range_keycode_returns_false() {
+        let mut proc = make_processor();
+        assert!(!proc.is_key_pressed_with_modifiers(256, 0, &[]));
+        assert!(!proc.is_key_pressed_with_modifiers(1000, 0, &[]));
     }
 
     /// Minimal KeyboardCallback implementation for testing

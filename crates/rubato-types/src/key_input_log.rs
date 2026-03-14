@@ -12,7 +12,7 @@ pub struct KeyInputLog {
 
 impl KeyInputLog {
     pub fn validate(&self) -> bool {
-        true
+        self.time >= 0 && self.keycode >= 0
     }
 }
 
@@ -50,6 +50,36 @@ mod tests {
         assert_eq!(deserialized.time, 12345);
         assert_eq!(deserialized.keycode, 3);
         assert!(deserialized.pressed);
+    }
+
+    #[test]
+    fn test_key_input_log_validate_rejects_negative_time() {
+        let log = KeyInputLog {
+            time: -1,
+            keycode: 5,
+            pressed: true,
+        };
+        assert!(!log.validate());
+    }
+
+    #[test]
+    fn test_key_input_log_validate_rejects_negative_keycode() {
+        let log = KeyInputLog {
+            time: 1000,
+            keycode: -1,
+            pressed: true,
+        };
+        assert!(!log.validate());
+    }
+
+    #[test]
+    fn test_key_input_log_validate_accepts_zero_time_and_keycode() {
+        let log = KeyInputLog {
+            time: 0,
+            keycode: 0,
+            pressed: false,
+        };
+        assert!(log.validate());
     }
 
     #[test]

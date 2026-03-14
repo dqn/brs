@@ -732,11 +732,12 @@ mod tests {
         rd.shrink();
         assert!(rd.keyinput.is_some());
         assert!(rd.keylog.is_empty());
-        assert!(rd.validate());
-        assert_eq!(rd.keylog.len(), 3);
-        assert_eq!(rd.keylog[0].time, -999_999);
-        assert_eq!(rd.keylog[1].time, -1);
-        assert_eq!(rd.keylog[2].time, i64::MIN);
+        // validate() decompresses keyinput, then filters out entries with negative time
+        // via KeyInputLog::validate(). All 3 entries have negative time, so all are
+        // filtered out, leaving an empty keylog. Since keyinput was present but
+        // decompression produced no valid events, validate() returns false.
+        assert!(!rd.validate());
+        assert_eq!(rd.keylog.len(), 0);
     }
 
     #[test]
@@ -762,7 +763,7 @@ mod tests {
         rd.randomoptionseed = 99;
         rd.keylog = vec![
             KeyInputLog {
-                time: -500,
+                time: 500,
                 keycode: 0,
                 pressed: true,
             },
@@ -791,7 +792,7 @@ mod tests {
         assert_eq!(loaded.randomoption, 3);
         assert_eq!(loaded.randomoptionseed, 99);
         assert_eq!(loaded.keylog.len(), 3);
-        assert_eq!(loaded.keylog[0].time, -500);
+        assert_eq!(loaded.keylog[0].time, 500);
         assert_eq!(loaded.keylog[0].keycode, 0);
         assert!(loaded.keylog[0].pressed);
         assert_eq!(loaded.keylog[1].time, 0);
@@ -904,7 +905,7 @@ mod prop_tests {
         #[test]
         fn replay_compression_roundtrip(
             keylogs in prop::collection::vec(
-                (0i32..=126, any::<bool>(), -1_000_000i64..1_000_000),
+                (0i32..=126, any::<bool>(), 0i64..1_000_000),
                 0..100
             )
         ) {
