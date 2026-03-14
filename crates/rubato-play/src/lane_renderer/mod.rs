@@ -303,6 +303,25 @@ impl LaneRenderer {
         }
     }
 
+    /// Apply fields from an external PlayConfig to this renderer.
+    /// This is the reverse of `play_config()` which extracts a snapshot.
+    /// Used to propagate initial config during create() and modmenu updates
+    /// during gameplay via receive_updated_play_config().
+    pub fn apply_play_config(&mut self, pc: &PlayConfig) {
+        self.hispeed = pc.hispeed;
+        self.duration = pc.duration;
+        self.lanecover = pc.lanecover;
+        self.lift = pc.lift;
+        self.hidden = pc.hidden;
+        self.enable_lanecover = pc.enablelanecover;
+        self.enable_lift = pc.enablelift;
+        self.enable_hidden = pc.enablehidden;
+        self.enable_constant = pc.enable_constant;
+        self.constant_fadein_time = pc.constant_fadein_time as f32;
+        self.fixhispeed = pc.fixhispeed;
+        self.hispeedmargin = pc.hispeedmargin;
+    }
+
     pub fn set_lanecover(&mut self, lanecover: f32) {
         self.lanecover = lanecover.clamp(0.0, 1.0);
         let basebpm = self.basebpm;

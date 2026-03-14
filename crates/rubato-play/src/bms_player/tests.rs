@@ -3981,6 +3981,78 @@ fn receive_updated_play_config_updates_cloned_player_config() {
     );
 }
 
+#[test]
+fn receive_updated_play_config_propagates_to_lanerender() {
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+
+    // Verify LaneRenderer starts with defaults (not player config values)
+    let lr = player.lanerender.as_ref().unwrap();
+    assert!(!lr.is_enable_lanecover(), "lanecover should start disabled");
+    assert!(!lr.is_enable_lift(), "lift should start disabled");
+
+    // Simulate modmenu pushing an updated PlayConfig with non-default values
+    let updated_pc = rubato_types::play_config::PlayConfig {
+        hispeed: 4.0,
+        duration: 800,
+        lanecover: 0.35,
+        enablelanecover: true,
+        lift: 0.2,
+        enablelift: true,
+        hidden: 0.15,
+        enablehidden: true,
+        enable_constant: true,
+        constant_fadein_time: 150,
+        fixhispeed: 0,
+        hispeedmargin: 0.75,
+        ..Default::default()
+    };
+
+    let state: &mut dyn MainState = &mut player;
+    state.receive_updated_play_config(Mode::BEAT_7K, updated_pc);
+
+    // LaneRenderer must now reflect the updated values
+    let lr = player.lanerender.as_ref().unwrap();
+    assert!(
+        (lr.hispeed() - 4.0).abs() < f32::EPSILON,
+        "LaneRenderer hispeed should be propagated"
+    );
+    assert_eq!(
+        lr.duration(),
+        800,
+        "LaneRenderer duration should be propagated"
+    );
+    assert!(
+        (lr.lanecover() - 0.35).abs() < f32::EPSILON,
+        "LaneRenderer lanecover should be propagated"
+    );
+    assert!(
+        lr.is_enable_lanecover(),
+        "LaneRenderer enable_lanecover should be propagated"
+    );
+    assert!(
+        (lr.lift_region() - 0.2).abs() < f32::EPSILON,
+        "LaneRenderer lift should be propagated"
+    );
+    assert!(
+        lr.is_enable_lift(),
+        "LaneRenderer enable_lift should be propagated"
+    );
+    assert!(
+        (lr.hidden_cover() - 0.15).abs() < f32::EPSILON,
+        "LaneRenderer hidden should be propagated"
+    );
+    assert!(
+        lr.is_enable_hidden(),
+        "LaneRenderer enable_hidden should be propagated"
+    );
+    assert!(
+        (lr.hispeedmargin() - 0.75).abs() < f32::EPSILON,
+        "LaneRenderer hispeedmargin should be propagated"
+    );
+}
+
 // --- create_score_data avgjudge unjudged-note penalty tests ---
 // Java BMSPlayer.createScoreData() applies a 1,000,000μs penalty for unjudged
 // notes and divides by the total note count (judged + unjudged), not just the

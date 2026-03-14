@@ -56,6 +56,10 @@ impl MainState for BMSPlayer {
         mode: bms_model::mode::Mode,
         play_config: rubato_types::play_config::PlayConfig,
     ) {
+        if let Some(ref mut lr) = self.lanerender {
+            lr.apply_play_config(&play_config);
+            lr.init(&self.model);
+        }
         self.player_config.play_config(mode).playconfig = play_config;
     }
 
@@ -139,7 +143,11 @@ impl MainState for BMSPlayer {
             skin_type,
         });
 
-        self.lanerender = Some(LaneRenderer::new(&self.model));
+        let mut lr = LaneRenderer::new(&self.model);
+        let play_config = &self.player_config.play_config_ref(mode).playconfig;
+        lr.apply_play_config(play_config);
+        lr.init(&self.model);
+        self.lanerender = Some(lr);
 
         // --- NO_SPEED constraint ---
         // Translated from: BMSPlayer.create() Java lines 533-538

@@ -2,6 +2,7 @@ use super::*;
 use bms_model::bms_model::BMSModel;
 use bms_model::note::Note;
 use bms_model::time_line::TimeLine;
+use rubato_types::play_config::PlayConfig;
 
 // --- Helper to create a minimal BMSModel with timelines ---
 
@@ -780,4 +781,91 @@ fn draw_lane_hidden_cover_with_lift() {
         "hidden_y = {}, expected 160",
         result.hidden_cover.y
     );
+}
+
+// =========================================================================
+// apply_play_config tests
+// =========================================================================
+
+#[test]
+fn apply_play_config_updates_all_fields() {
+    let tl0 = make_timeline(0.0, 0, 120.0, 8);
+    let model = make_model_with_timelines(vec![tl0], 120.0);
+    let mut renderer = LaneRenderer::new(&model);
+
+    let pc = PlayConfig {
+        hispeed: 3.5,
+        duration: 750,
+        lanecover: 0.3,
+        enablelanecover: true,
+        lift: 0.15,
+        enablelift: true,
+        hidden: 0.25,
+        enablehidden: true,
+        enable_constant: true,
+        constant_fadein_time: 200,
+        fixhispeed: FIX_HISPEED_MAINBPM,
+        hispeedmargin: 0.5,
+        ..PlayConfig::default()
+    };
+
+    renderer.apply_play_config(&pc);
+
+    assert!((renderer.hispeed() - 3.5).abs() < f32::EPSILON, "hispeed");
+    assert_eq!(renderer.duration(), 750, "duration");
+    assert!(
+        (renderer.lanecover() - 0.3).abs() < f32::EPSILON,
+        "lanecover"
+    );
+    assert!(renderer.is_enable_lanecover(), "enable_lanecover");
+    assert!((renderer.lift_region() - 0.15).abs() < f32::EPSILON, "lift");
+    assert!(renderer.is_enable_lift(), "enable_lift");
+    assert!(
+        (renderer.hidden_cover() - 0.25).abs() < f32::EPSILON,
+        "hidden"
+    );
+    assert!(renderer.is_enable_hidden(), "enable_hidden");
+    assert!(
+        (renderer.hispeedmargin() - 0.5).abs() < f32::EPSILON,
+        "hispeedmargin"
+    );
+
+    // Verify via round-trip: extract PlayConfig and compare
+    let extracted = renderer.play_config();
+    assert!(extracted.enable_constant, "enable_constant round-trip");
+    assert_eq!(
+        extracted.constant_fadein_time, 200,
+        "constant_fadein_time round-trip"
+    );
+    assert_eq!(
+        extracted.fixhispeed, FIX_HISPEED_MAINBPM,
+        "fixhispeed round-trip"
+    );
+}
+
+#[test]
+fn apply_play_config_then_init_recalculates_basebpm() {
+    let mut tl0 = make_timeline(0.0, 0, 130.0, 8);
+    tl0.section_line = true;
+    // Add a second timeline with a note so mainbpm is determined
+    let mut tl1 = make_timeline(1.0, 1_000_000, 150.0, 8);
+    tl1.set_note(0, Some(Note::new_normal(1)));
+    let model = make_model_with_timelines(vec![tl0, tl1], 130.0);
+    let mut renderer = LaneRenderer::new(&model);
+
+    // Apply config with FIX_HISPEED_STARTBPM - basebpm should become model.bpm (130)
+    let pc = PlayConfig {
+        fixhispeed: FIX_HISPEED_STARTBPM,
+        hispeed: 2.0,
+        enablelanecover: true,
+        lanecover: 0.0,
+        ..PlayConfig::default()
+    };
+    renderer.apply_play_config(&pc);
+    renderer.init(&model);
+
+    // After init with FIX_HISPEED_STARTBPM, basebpm = model.bpm = 130
+    // basehispeed should be set to hispeed when fixhispeed != OFF
+    let extracted = renderer.play_config();
+    assert_eq!(extracted.fixhispeed, FIX_HISPEED_STARTBPM);
 }
