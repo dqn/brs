@@ -35,6 +35,36 @@ pub use queued_access::new_state_main_controller_access;
 use queued_access::{QueuedAudioDriver, QueuedControllerAccess};
 use shared_selector::SharedMusicSelectorState;
 
+/// Extract result-crate IR statuses from core MainController's type-erased IR statuses.
+///
+/// Core IRStatus stores connection as `Box<dyn Any>` and player_data as `Box<dyn Any>`.
+/// This downcasts them back to their concrete types to build result-crate IRStatus instances.
+fn extract_ir_statuses(
+    controller: &MainController,
+) -> Vec<rubato_state::result::ir_status::IRStatus> {
+    controller
+        .ir_status()
+        .iter()
+        .filter_map(|core_ir| {
+            let connection = core_ir
+                .connection
+                .as_ref()?
+                .downcast_ref::<Arc<dyn rubato_ir::ir_connection::IRConnection + Send + Sync>>()?
+                .clone();
+            let player = core_ir
+                .player_data
+                .as_ref()?
+                .downcast_ref::<rubato_ir::ir_player_data::IRPlayerData>()?
+                .clone();
+            Some(rubato_state::result::ir_status::IRStatus::new(
+                core_ir.config.clone(),
+                connection,
+                player,
+            ))
+        })
+        .collect()
+}
+
 /// LauncherStateFactory -- creates concrete state instances for all screen types.
 ///
 /// This is the concrete implementation of StateFactory that lives in beatoraja-launcher,
@@ -271,6 +301,7 @@ impl StateFactory for LauncherStateFactory {
             }
             MainStateType::Result => {
                 // Java: result = new MusicResult(this);
+                let ir_statuses = extract_ir_statuses(controller);
                 let command_queue = controller.controller_command_queue();
                 let mc_access =
                     QueuedControllerAccess::from_controller(controller, command_queue.clone());
@@ -294,9 +325,10 @@ impl StateFactory for LauncherStateFactory {
                     ResultPlayerResource::default()
                 };
                 let result = MusicResult::new(
-                    ResultMainController::with_audio(
+                    ResultMainController::with_audio_and_ir(
                         Box::new(mc_access),
                         Box::new(QueuedAudioDriver::new(command_queue)),
+                        ir_statuses,
                     ),
                     result_resource,
                     TimerManager::new(),
@@ -308,6 +340,7 @@ impl StateFactory for LauncherStateFactory {
             }
             MainStateType::CourseResult => {
                 // Java: gresult = new CourseResult(this);
+                let ir_statuses = extract_ir_statuses(controller);
                 let command_queue = controller.controller_command_queue();
                 let mc_access =
                     QueuedControllerAccess::from_controller(controller, command_queue.clone());
@@ -331,9 +364,10 @@ impl StateFactory for LauncherStateFactory {
                     ResultPlayerResource::default()
                 };
                 let course_result = CourseResult::new(
-                    ResultMainController::with_audio(
+                    ResultMainController::with_audio_and_ir(
                         Box::new(mc_access),
                         Box::new(QueuedAudioDriver::new(command_queue)),
+                        ir_statuses,
                     ),
                     result_resource,
                     TimerManager::new(),
@@ -922,6 +956,147 @@ mod tests {
                 .skin
                 .is_some(),
             "launcher-created play state should carry a loaded skin"
+        );
+    }
+
+    /// Minimal mock IRConnection for state_factory tests.
+    struct MockIRConnection;
+    impl rubato_ir::ir_connection::IRConnection for MockIRConnection {
+        fn get_rivals(
+            &self,
+        ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_player_data::IRPlayerData>>
+        {
+            rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+        }
+        fn get_table_datas(
+            &self,
+        ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_table_data::IRTableData>>
+        {
+            rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+        }
+        fn get_play_data(
+            &self,
+            _player: Option<&rubato_ir::ir_player_data::IRPlayerData>,
+            _chart: &rubato_ir::ir_chart_data::IRChartData,
+        ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
+        {
+            rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+        }
+        fn get_course_play_data(
+            &self,
+            _player: Option<&rubato_ir::ir_player_data::IRPlayerData>,
+            _course: &rubato_ir::ir_course_data::IRCourseData,
+        ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
+        {
+            rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+        }
+        fn send_play_data(
+            &self,
+            _model: &rubato_ir::ir_chart_data::IRChartData,
+            _score: &rubato_ir::ir_score_data::IRScoreData,
+        ) -> rubato_ir::ir_response::IRResponse<()> {
+            rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+        }
+        fn send_course_play_data(
+            &self,
+            _course: &rubato_ir::ir_course_data::IRCourseData,
+            _score: &rubato_ir::ir_score_data::IRScoreData,
+        ) -> rubato_ir::ir_response::IRResponse<()> {
+            rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+        }
+        fn get_song_url(&self, _chart: &rubato_ir::ir_chart_data::IRChartData) -> Option<String> {
+            None
+        }
+        fn get_course_url(
+            &self,
+            _course: &rubato_ir::ir_course_data::IRCourseData,
+        ) -> Option<String> {
+            None
+        }
+        fn get_player_url(
+            &self,
+            _player: &rubato_ir::ir_player_data::IRPlayerData,
+        ) -> Option<String> {
+            None
+        }
+        fn name(&self) -> &str {
+            "MockIR"
+        }
+    }
+
+    #[test]
+    fn test_extract_ir_statuses_from_core_controller() {
+        use rubato_ir::ir_player_data::IRPlayerData;
+
+        let mut mc = make_test_controller();
+        let conn: Arc<dyn rubato_ir::ir_connection::IRConnection + Send + Sync> =
+            Arc::new(MockIRConnection);
+        let player = IRPlayerData::new("test-id".into(), "TestPlayer".into(), "1st".into());
+        mc.ir_status_mut()
+            .push(rubato_core::main_controller::IRStatus {
+                config: rubato_core::ir_config::IRConfig::default(),
+                rival_provider: None,
+                connection: Some(Box::new(conn.clone())),
+                player_data: Some(Box::new(player.clone())),
+            });
+
+        let extracted = extract_ir_statuses(&mc);
+
+        assert_eq!(
+            extracted.len(),
+            1,
+            "extract_ir_statuses should recover 1 IR status from core controller"
+        );
+        assert_eq!(extracted[0].player.id, "test-id");
+        assert_eq!(extracted[0].player.name, "TestPlayer");
+    }
+
+    #[test]
+    fn test_extract_ir_statuses_skips_entries_without_player_data() {
+        let mut mc = make_test_controller();
+        mc.ir_status_mut()
+            .push(rubato_core::main_controller::IRStatus {
+                config: rubato_core::ir_config::IRConfig::default(),
+                rival_provider: None,
+                connection: None,
+                player_data: None,
+            });
+
+        let extracted = extract_ir_statuses(&mc);
+        assert!(
+            extracted.is_empty(),
+            "extract_ir_statuses should skip entries without connection or player_data"
+        );
+    }
+
+    #[test]
+    fn test_result_state_receives_ir_statuses_from_core_controller() {
+        use rubato_ir::ir_player_data::IRPlayerData;
+
+        let mut mc = make_test_controller();
+        mc.set_state_factory(Box::new(LauncherStateFactory::new()));
+        let conn: Arc<dyn rubato_ir::ir_connection::IRConnection + Send + Sync> =
+            Arc::new(MockIRConnection);
+        let player = IRPlayerData::new("ir-test".into(), "IRPlayer".into(), "2nd".into());
+        mc.ir_status_mut()
+            .push(rubato_core::main_controller::IRStatus {
+                config: rubato_core::ir_config::IRConfig::default(),
+                rival_provider: None,
+                connection: Some(Box::new(conn)),
+                player_data: Some(Box::new(player)),
+            });
+
+        // Create result state -- IR statuses should be wired through
+        mc.change_state(MainStateType::Result);
+
+        assert!(
+            mc.current_state().is_some(),
+            "result state should be created"
+        );
+        assert_eq!(
+            mc.current_state_type(),
+            Some(MainStateType::Result),
+            "current state should be Result"
         );
     }
 }

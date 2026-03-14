@@ -1150,4 +1150,95 @@ mod tests {
         assert!(mr.main_data.skin.is_none());
         assert!(mr.main_data.stage.is_none());
     }
+
+    #[test]
+    fn test_prepare_enters_ir_processing_when_ir_statuses_present() {
+        use rubato_ir::ir_player_data::IRPlayerData;
+        use std::sync::Arc;
+
+        struct MockIRConnection;
+        impl rubato_ir::ir_connection::IRConnection for MockIRConnection {
+            fn get_rivals(&self) -> rubato_ir::ir_response::IRResponse<Vec<IRPlayerData>> {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_table_datas(
+                &self,
+            ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_table_data::IRTableData>>
+            {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_play_data(
+                &self,
+                _player: Option<&IRPlayerData>,
+                _chart: &rubato_ir::ir_chart_data::IRChartData,
+            ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
+            {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_course_play_data(
+                &self,
+                _player: Option<&IRPlayerData>,
+                _course: &rubato_ir::ir_course_data::IRCourseData,
+            ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
+            {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn send_play_data(
+                &self,
+                _model: &rubato_ir::ir_chart_data::IRChartData,
+                _score: &rubato_ir::ir_score_data::IRScoreData,
+            ) -> rubato_ir::ir_response::IRResponse<()> {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn send_course_play_data(
+                &self,
+                _course: &rubato_ir::ir_course_data::IRCourseData,
+                _score: &rubato_ir::ir_score_data::IRScoreData,
+            ) -> rubato_ir::ir_response::IRResponse<()> {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_song_url(
+                &self,
+                _chart: &rubato_ir::ir_chart_data::IRChartData,
+            ) -> Option<String> {
+                None
+            }
+            fn get_course_url(
+                &self,
+                _course: &rubato_ir::ir_course_data::IRCourseData,
+            ) -> Option<String> {
+                None
+            }
+            fn get_player_url(&self, _player: &IRPlayerData) -> Option<String> {
+                None
+            }
+            fn name(&self) -> &str {
+                "MockIR"
+            }
+        }
+
+        let config = make_test_config("ir-prepare");
+        let ir_statuses = vec![super::super::ir_status::IRStatus::new(
+            rubato_core::ir_config::IRConfig::default(),
+            Arc::new(MockIRConnection)
+                as Arc<dyn rubato_ir::ir_connection::IRConnection + Send + Sync>,
+            IRPlayerData::new("id1".into(), "Player1".into(), "1st".into()),
+        )];
+        let main = MainController::with_ir_statuses(
+            Box::new(TestMainControllerAccess::new(config.clone())),
+            ir_statuses,
+        );
+        let resource = PlayerResource::new(
+            Box::new(MouseResultResourceAccess::new(config)),
+            crate::result::stubs::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        let mut mr = MusicResult::new(main, resource, TimerManager::new());
+
+        <MusicResult as MainState>::prepare(&mut mr);
+
+        assert_eq!(
+            mr.data.state, STATE_IR_PROCESSING,
+            "prepare() should enter IR_PROCESSING state when IR statuses are present"
+        );
+    }
 }

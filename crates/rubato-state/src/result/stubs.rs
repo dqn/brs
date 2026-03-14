@@ -115,6 +115,30 @@ impl MainController {
         }
     }
 
+    pub fn with_audio_and_ir(
+        inner: Box<dyn MainControllerAccess>,
+        audio: Box<dyn AudioDriver>,
+        ir_statuses: Vec<IRStatus>,
+    ) -> Self {
+        let config = inner.config();
+        let player_config = inner.player_config();
+        let input_processor = BMSPlayerInputProcessor::new(config, player_config);
+        let play_data_accessor = PlayDataAccessor::new(config);
+        let ranking_data_cache = inner
+            .ranking_data_cache()
+            .map(|cache| cache.clone_box())
+            .unwrap_or_else(|| Box::new(rubato_ir::ranking_data_cache::RankingDataCache::new()));
+        Self {
+            inner,
+            audio: Some(audio),
+            ir_statuses,
+            ir_send_statuses: crate::result::ir_resend::shared_ir_statuses(),
+            input_processor,
+            play_data_accessor,
+            ranking_data_cache,
+        }
+    }
+
     // ---- Trait-delegated methods ----
 
     pub fn config(&self) -> &Config {
@@ -627,5 +651,108 @@ mod tests {
             cached.is_some(),
             "result wrapper should reuse the ranking cache exposed by its inner controller access"
         );
+    }
+
+    #[test]
+    fn test_with_audio_and_ir_has_both_audio_and_ir_statuses() {
+        use rubato_ir::ir_player_data::IRPlayerData;
+        use std::sync::Arc;
+
+        struct MockIRConnection;
+        impl rubato_ir::ir_connection::IRConnection for MockIRConnection {
+            fn get_rivals(&self) -> rubato_ir::ir_response::IRResponse<Vec<IRPlayerData>> {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_table_datas(
+                &self,
+            ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_table_data::IRTableData>>
+            {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_play_data(
+                &self,
+                _player: Option<&IRPlayerData>,
+                _chart: &rubato_ir::ir_chart_data::IRChartData,
+            ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
+            {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_course_play_data(
+                &self,
+                _player: Option<&IRPlayerData>,
+                _course: &rubato_ir::ir_course_data::IRCourseData,
+            ) -> rubato_ir::ir_response::IRResponse<Vec<rubato_ir::ir_score_data::IRScoreData>>
+            {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn send_play_data(
+                &self,
+                _model: &rubato_ir::ir_chart_data::IRChartData,
+                _score: &rubato_ir::ir_score_data::IRScoreData,
+            ) -> rubato_ir::ir_response::IRResponse<()> {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn send_course_play_data(
+                &self,
+                _course: &rubato_ir::ir_course_data::IRCourseData,
+                _score: &rubato_ir::ir_score_data::IRScoreData,
+            ) -> rubato_ir::ir_response::IRResponse<()> {
+                rubato_ir::ir_response::IRResponse::failure("mock".to_string())
+            }
+            fn get_song_url(
+                &self,
+                _chart: &rubato_ir::ir_chart_data::IRChartData,
+            ) -> Option<String> {
+                None
+            }
+            fn get_course_url(
+                &self,
+                _course: &rubato_ir::ir_course_data::IRCourseData,
+            ) -> Option<String> {
+                None
+            }
+            fn get_player_url(&self, _player: &IRPlayerData) -> Option<String> {
+                None
+            }
+            fn name(&self) -> &str {
+                "MockIR"
+            }
+        }
+
+        let ir_statuses = vec![IRStatus::new(
+            rubato_core::ir_config::IRConfig::default(),
+            Arc::new(MockIRConnection)
+                as Arc<dyn rubato_ir::ir_connection::IRConnection + Send + Sync>,
+            IRPlayerData::new("id1".into(), "Player1".into(), "Rank1".into()),
+        )];
+
+        let mut mc = MainController::with_audio_and_ir(
+            Box::new(NullMainController),
+            Box::new(MockAudioDriver::new()),
+            ir_statuses,
+        );
+
+        assert!(
+            mc.audio_processor_mut().is_some(),
+            "with_audio_and_ir should provide audio"
+        );
+        assert_eq!(
+            mc.ir_status().len(),
+            1,
+            "with_audio_and_ir should carry IR statuses"
+        );
+        assert_eq!(mc.ir_status()[0].player.id, "id1");
+    }
+
+    #[test]
+    fn test_with_audio_and_ir_empty_ir_still_has_audio() {
+        let mut mc = MainController::with_audio_and_ir(
+            Box::new(NullMainController),
+            Box::new(MockAudioDriver::new()),
+            Vec::new(),
+        );
+
+        assert!(mc.audio_processor_mut().is_some());
+        assert!(mc.ir_status().is_empty());
     }
 }
