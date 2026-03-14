@@ -7,8 +7,8 @@ use serde::Deserialize;
 
 use super::super::bar::bar::Bar;
 use super::super::bar::grade_bar::GradeBar;
-use super::super::stubs::*;
 use super::LoaderContext;
+use crate::select::*;
 
 /// Get a string identifier for a Bar variant (simulates Java getClass())
 pub(super) fn bar_class_name(bar: &Bar) -> &'static str {

@@ -8,7 +8,7 @@ use super::bar::context_menu_bar::ContextMenuBar;
 use super::bar::same_folder_bar::SameFolderBar;
 use super::bar::song_bar::SongBar;
 use super::music_selector::{MusicSelector, REPLAY};
-use super::stubs::*;
+use super::*;
 
 /// Music select commands
 /// Translates: bms.player.beatoraja.select.MusicSelectCommand

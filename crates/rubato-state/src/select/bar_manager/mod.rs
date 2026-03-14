@@ -19,7 +19,7 @@ use super::bar::table_bar::TableBar;
 use super::bar_sorter::BarSorter;
 use super::music_selector::MODE;
 use super::score_data_cache::ScoreDataCache;
-use super::stubs::*;
+use super::*;
 
 /// Context for update_bar operations.
 /// Passed from MusicSelector to avoid storing references in BarManager.

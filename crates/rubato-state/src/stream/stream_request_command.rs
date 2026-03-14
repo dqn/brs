@@ -3,10 +3,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use crate::select::SongData;
 use crate::select::bar::bar::Bar;
 use crate::select::bar::hash_bar::HashBar;
 use crate::select::music_selector::MusicSelector;
-use crate::select::stubs::SongData;
 
 use super::ImGuiNotify;
 use super::stream_command::StreamCommand;

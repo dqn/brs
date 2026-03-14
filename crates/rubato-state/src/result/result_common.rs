@@ -3,8 +3,8 @@
 
 use rubato_core::system_sound_manager::SoundType;
 
-use super::stubs::MainController;
-use super::stubs::PlayerResource;
+use super::MainController;
+use super::PlayerResource;
 
 /// Check whether a sound asset exists for the given SoundType.
 #[inline]

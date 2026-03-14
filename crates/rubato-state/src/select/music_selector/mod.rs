@@ -22,7 +22,7 @@ pub(crate) use super::music_select_key_property::MusicSelectKeyProperty;
 pub(crate) use super::preview_music_processor::PreviewMusicProcessor;
 pub(crate) use super::score_data_cache::ScoreDataCache;
 pub(crate) use super::search_text_field::SearchTextField;
-pub(crate) use super::stubs::*;
+pub(crate) use super::*;
 
 /// Receiver for a background BMS model parse: (requested path, parsed model + margin).
 type PendingNoteGraphRx = (

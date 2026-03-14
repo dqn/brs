@@ -1,6 +1,6 @@
 use super::super::imgui_notify::ImGuiNotify;
 use super::super::imgui_renderer;
-use super::super::stubs::{Clipboard, ImFloat, Rectangle, SkinObjectDestination};
+use super::super::{Clipboard, ImFloat, Rectangle, SkinObjectDestination};
 use super::{
     EDITING_WIDGET_H, EDITING_WIDGET_W, EDITING_WIDGET_X, EDITING_WIDGET_Y, EVENT_HISTORY, Event,
     EventType, MOVE_OVERLAY_ENABLED, RESET_MOVE_OVERLAY, SkinWidget, SkinWidgetDestination,

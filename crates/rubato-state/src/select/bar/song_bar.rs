@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use super::bar::Bar;
 use super::selectable_bar::SelectableBarData;
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// Song bar for individual songs
 /// Translates: bms.player.beatoraja.select.bar.SongBar

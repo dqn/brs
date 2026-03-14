@@ -1,4 +1,4 @@
-use crate::select::stubs::ScoreData;
+use crate::select::ScoreData;
 
 /// Dispatch a method call uniformly across all 14 Bar variants.
 ///
@@ -342,7 +342,7 @@ mod tests {
     use crate::select::bar::search_word_bar::SearchWordBar;
     use crate::select::bar::song_bar::SongBar;
     use crate::select::bar::table_bar::TableBar;
-    use crate::select::stubs::*;
+    use crate::select::*;
     use std::sync::Arc;
 
     /// Stub TableAccessor for testing

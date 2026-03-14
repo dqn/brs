@@ -4,7 +4,7 @@ use super::bar::Bar;
 use super::directory_bar::DirectoryBarData;
 use super::grade_bar::GradeBar;
 use super::hash_bar::HashBar;
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// Difficulty table bar
 /// Translates: bms.player.beatoraja.select.bar.TableBar

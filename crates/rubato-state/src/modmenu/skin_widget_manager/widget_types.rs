@@ -1,5 +1,5 @@
 use super::super::imgui_notify::ImGuiNotify;
-use super::super::stubs::{SkinObject, SkinObjectDestination};
+use super::super::{SkinObject, SkinObjectDestination};
 use super::{EPS, EVENT_HISTORY};
 
 use std::collections::HashMap;

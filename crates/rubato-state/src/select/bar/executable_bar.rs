@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 
 use super::selectable_bar::SelectableBarData;
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// Queue length for random index generation
 const QUEUE_LENGTH: usize = 1000;

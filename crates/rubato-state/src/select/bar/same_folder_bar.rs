@@ -1,7 +1,7 @@
 use super::bar::Bar;
 use super::directory_bar::DirectoryBarData;
 use super::song_bar::SongBar;
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// Bar showing all charts in the same directory
 /// Translates: bms.player.beatoraja.select.bar.SameFolderBar

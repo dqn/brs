@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use super::bar::bar::Bar;
 use super::music_select_key_property::MusicSelectKey;
 use super::skin_bar::SkinBar;
-use super::stubs::*;
+use super::*;
 
 use types::BarArea;
 

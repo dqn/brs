@@ -3,7 +3,8 @@
 // Previously input_processor() used Box::leak to return references.
 // Now it returns a reference to an owned field, so repeated calls return the same address.
 
-use rubato_state::decide::stubs::{MainControllerRef, NullMainController};
+use rubato_state::decide::NullMainController;
+use rubato_state::decide::main_controller_ref::MainControllerRef;
 
 /// input_processor() returns the same stored instance on repeated calls.
 #[test]

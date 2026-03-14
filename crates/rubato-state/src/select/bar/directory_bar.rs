@@ -1,5 +1,5 @@
 use super::bar::{Bar, BarData};
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// Directory bar shared data
 /// Translates: bms.player.beatoraja.select.bar.DirectoryBar

@@ -1,5 +1,5 @@
 use super::skin_distribution_graph::SkinDistributionGraph;
-use super::stubs::*;
+use super::*;
 
 /// Skin object for rendering song bars
 /// Translates: bms.player.beatoraja.select.SkinBar

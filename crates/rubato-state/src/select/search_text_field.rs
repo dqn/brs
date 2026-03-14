@@ -1,4 +1,4 @@
-use super::stubs::*;
+use super::*;
 
 /// Search text field for song search
 /// Translates: bms.player.beatoraja.select.SearchTextField

@@ -1,7 +1,7 @@
 use super::bar::Bar;
 use super::directory_bar::DirectoryBarData;
 use super::song_bar::SongBar;
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// Context for CommandBar SQL queries.
 /// Provides the database paths needed for SQL-based song queries.

@@ -12,7 +12,7 @@ use log::info;
 use rubato_core::clear_type::ClearType;
 use rubato_core::score_data::ScoreData;
 
-use super::super::stubs::{BMSPlayerModeType, FreqTrainerMenu};
+use super::super::{BMSPlayerModeType, FreqTrainerMenu};
 use super::MusicResult;
 
 impl MusicResult {

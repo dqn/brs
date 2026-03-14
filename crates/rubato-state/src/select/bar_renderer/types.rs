@@ -1,7 +1,7 @@
 use super::super::bar::bar::Bar;
 use super::super::bar_manager::BarManager;
 use super::super::music_select_key_property::MusicSelectKeyProperty;
-use super::super::stubs::*;
+use crate::select::*;
 
 /// Bar area data for rendering
 pub(super) struct BarArea {

@@ -1,7 +1,7 @@
 use super::CourseResult;
 use crate::result::abstract_result::AbstractResultData;
 use crate::result::shared_render_context;
-use crate::result::stubs::{MainController, PlayerResource};
+use crate::result::{MainController, PlayerResource};
 
 pub(super) struct CourseResultRenderContext<'a> {
     pub(super) timer: &'a mut rubato_core::timer_manager::TimerManager,

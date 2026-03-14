@@ -3,7 +3,7 @@ use rubato_types::distribution_data::DistributionData;
 use super::bar::directory_bar::DirectoryBarData;
 use super::bar::function_bar::FunctionBar;
 use super::bar::song_bar::SongBar;
-use super::stubs::*;
+use super::*;
 
 /// Distribution graph for folder lamp/rank display
 /// Translates: bms.player.beatoraja.select.SkinDistributionGraph

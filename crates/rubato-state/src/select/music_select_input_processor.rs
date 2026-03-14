@@ -1,7 +1,7 @@
 use super::bar::bar::Bar;
 use super::music_select_command::MusicSelectCommand;
 use super::music_select_key_property::{MusicSelectKey, MusicSelectKeyProperty};
-use super::stubs::*;
+use super::*;
 
 /// Music select input processor
 /// Translates: bms.player.beatoraja.select.MusicSelectInputProcessor

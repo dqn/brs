@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use super::imgui_renderer;
-use super::stubs::{
+use super::{
     CustomCategoryItem, CustomFile, CustomOffset, CustomOption, MainController,
     OPTION_RANDOM_VALUE, PlayerConfig, SkinHeader, SkinType,
 };
@@ -647,7 +647,7 @@ fn skin_config_offset(ui: &mut egui::Ui, offset: &CustomOffset) {
 
 #[cfg(test)]
 mod tests {
-    use super::super::stubs::CustomFile;
+    use super::super::CustomFile;
     use super::*;
     use config::parse_custom_file;
 

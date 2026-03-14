@@ -1,5 +1,5 @@
 use super::selectable_bar::SelectableBarData;
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// Course selection bar
 /// Translates: bms.player.beatoraja.select.bar.GradeBar

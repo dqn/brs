@@ -1,6 +1,6 @@
 // Conversion helpers: SkinHeaderData / LR2SkinHeaderData -> SkinHeader.
 
-use super::super::stubs::{
+use super::super::{
     CustomCategory, CustomCategoryItem, CustomFile, CustomOffset, CustomOption, SkinHeader,
     SkinType,
 };

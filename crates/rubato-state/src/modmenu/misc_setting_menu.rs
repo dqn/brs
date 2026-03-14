@@ -1,7 +1,7 @@
 use bms_model::mode::Mode;
 
 use super::imgui_notify::{ImGuiNotify, NOTIFICATION_POSITIONS};
-use super::stubs::{Config, PlayConfig, PlayerConfig, read_all_player_id};
+use super::{Config, PlayConfig, PlayerConfig, read_all_player_id};
 use rubato_types::main_controller_access::{MainControllerCommand, MainControllerCommandQueue};
 
 use std::sync::Mutex;

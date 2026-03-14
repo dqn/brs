@@ -7,7 +7,7 @@ use super::performance_monitor::PerformanceMonitor;
 use super::random_trainer_menu::RandomTrainerMenu;
 use super::skin_menu::SkinMenu;
 use super::skin_widget_manager::SkinWidgetManager;
-use super::stubs::{Version, version};
+use super::{Version, version};
 
 use std::sync::Mutex;
 

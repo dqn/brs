@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use rubato_core::score_data::ScoreData;
 
-use crate::result::stubs::{IRConnection, IRCourseData, IRScoreData};
+use crate::result::{IRConnection, IRCourseData, IRScoreData};
 
 pub(super) struct CourseIRSendStatus {
     pub ir: Arc<dyn IRConnection + Send + Sync>,

@@ -15,11 +15,12 @@ use super::abstract_result::{
     AbstractResultData, REPLAY_SIZE, ReplayAutoSaveConstraint, ReplayStatus, STATE_IR_FINISHED,
     STATE_IR_PROCESSING, STATE_OFFLINE,
 };
+use super::ir_send_status::IRSendStatusMain;
 use super::result_key_property::{ResultKey, ResultKeyProperty};
 use super::result_skin_data::ResultSkinData;
-use super::stubs::{
-    BMSPlayerModeType, ControlKeys, IRSendStatusMain, KeyCommand, MainController,
-    NullMainController, PlayerResource, RankingData,
+use super::{
+    BMSPlayerModeType, ControlKeys, KeyCommand, MainController, NullMainController, PlayerResource,
+    RankingData,
 };
 use rubato_core::ir_config::{IR_SEND_ALWAYS, IR_SEND_COMPLETE_SONG, IR_SEND_UPDATE_SCORE};
 
@@ -927,7 +928,7 @@ mod tests {
         let main = MainController::new(Box::new(TestMainControllerAccess::new(config.clone())));
         let resource = PlayerResource::new(
             Box::new(MouseResultResourceAccess::new(config)),
-            crate::result::stubs::BMSPlayerMode::new(BMSPlayerModeType::Play),
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         MusicResult::new(main, resource, TimerManager::new())
     }
@@ -1233,7 +1234,7 @@ mod tests {
         );
         let resource = PlayerResource::new(
             Box::new(MouseResultResourceAccess::new(config)),
-            crate::result::stubs::BMSPlayerMode::new(BMSPlayerModeType::Play),
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let mut mr = MusicResult::new(main, resource, TimerManager::new());
 
@@ -1260,7 +1261,7 @@ mod tests {
         res_access.player_config.play_settings.lnmode = 99;
         let resource = PlayerResource::new(
             Box::new(res_access),
-            crate::result::stubs::BMSPlayerMode::new(BMSPlayerModeType::Play),
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         MusicResult::new(main, resource, TimerManager::new())
     }

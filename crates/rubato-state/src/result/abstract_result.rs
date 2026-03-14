@@ -5,7 +5,7 @@ use rubato_core::clear_type::ClearType;
 use rubato_core::score_data::ScoreData;
 use rubato_core::score_data_property::ScoreDataProperty;
 
-use super::stubs::{MainController, RankingData, TimerManager};
+use super::{MainController, RankingData, TimerManager};
 
 /// Replay data status
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

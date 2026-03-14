@@ -1,29 +1,19 @@
-// Stubs for external dependencies not yet available as proper imports.
-
 use rubato_audio::audio_driver::AudioDriver;
 use rubato_core::system_sound_manager::SoundType;
-
-// InputProcessorStub: replaced by pub use from beatoraja-input (Phase 18e-11)
-pub use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
-
-// ControlKeysStub: replaced by pub use from beatoraja-input (Phase 18e-11)
-pub use rubato_input::keyboard_input_processor::ControlKeys;
-
-// MainControllerAccess: real trait from beatoraja-types (Phase 41b)
-pub use rubato_types::main_controller_access::{MainControllerAccess, NullMainController};
+use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
 
 /// Wrapper for MainController reference.
 /// Delegates trait methods (change_state) to `Box<dyn MainControllerAccess>`.
 /// Stores BMSPlayerInputProcessor locally (type not available on MainControllerAccess trait).
-/// AudioDriver is stored directly (Phase 41c) — not on MainControllerAccess trait.
+/// AudioDriver is stored directly (Phase 41c) -- not on MainControllerAccess trait.
 pub struct MainControllerRef {
-    inner: Box<dyn MainControllerAccess>,
+    inner: Box<dyn rubato_types::main_controller_access::MainControllerAccess>,
     audio: Option<Box<dyn AudioDriver>>,
     input_processor: BMSPlayerInputProcessor,
 }
 
 impl MainControllerRef {
-    pub fn new(inner: Box<dyn MainControllerAccess>) -> Self {
+    pub fn new(inner: Box<dyn rubato_types::main_controller_access::MainControllerAccess>) -> Self {
         let config = inner.config();
         let player_config = inner.player_config();
         let input_processor = BMSPlayerInputProcessor::new(config, player_config);
@@ -34,7 +24,10 @@ impl MainControllerRef {
         }
     }
 
-    pub fn with_audio(inner: Box<dyn MainControllerAccess>, audio: Box<dyn AudioDriver>) -> Self {
+    pub fn with_audio(
+        inner: Box<dyn rubato_types::main_controller_access::MainControllerAccess>,
+        audio: Box<dyn AudioDriver>,
+    ) -> Self {
         let config = inner.config();
         let player_config = inner.player_config();
         let input_processor = BMSPlayerInputProcessor::new(config, player_config);
@@ -80,16 +73,11 @@ impl MainControllerRef {
     }
 }
 
-/// PlayerResourceAccess — re-exported from beatoraja-types (Phase 18e-2)
-pub use rubato_types::player_resource_access::PlayerResourceAccess;
-
-/// NullPlayerResource — re-exported from beatoraja-types for default construction
-pub use rubato_types::player_resource_access::NullPlayerResource;
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use rubato_audio::recording_audio_driver::RecordingAudioDriver;
+    use rubato_types::main_controller_access::NullMainController;
 
     #[test]
     fn test_main_controller_ref_new_has_no_audio() {

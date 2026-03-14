@@ -1,7 +1,7 @@
 use super::imgui_renderer;
-use super::stubs::{ImBoolean, ImFloat, Skin};
+use super::{ImBoolean, ImFloat, Skin};
 #[cfg(test)]
-use super::stubs::{Rectangle, SkinObject, SkinObjectDestination};
+use super::{Rectangle, SkinObject, SkinObjectDestination};
 
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};

@@ -1,4 +1,4 @@
-use super::stubs::{ScoreData, SongData, SongSelectionAccess};
+use super::{ScoreData, SongData, SongSelectionAccess};
 use rubato_types::last_played_sort;
 
 use std::sync::Mutex;

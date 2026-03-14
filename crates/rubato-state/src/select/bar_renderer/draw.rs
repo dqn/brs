@@ -1,7 +1,7 @@
 use super::super::skin_bar::SkinBar;
-use super::super::stubs::*;
 use super::BarRenderer;
 use super::types::RenderContext;
+use crate::select::*;
 
 impl BarRenderer {
     /// Refresh the bar text character set for font preparation when songs change.

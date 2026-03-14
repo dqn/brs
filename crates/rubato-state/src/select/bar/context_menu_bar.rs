@@ -16,7 +16,7 @@ use rubato_core::main_state::MainState;
 use rubato_types::http_download_submitter::HttpDownloadSubmitter;
 use rubato_types::song_database_accessor::SongDatabaseAccessor;
 
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// Context menu bar for right-click actions
 /// Translates: bms.player.beatoraja.select.bar.ContextMenuBar

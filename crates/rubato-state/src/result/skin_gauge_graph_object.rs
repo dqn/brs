@@ -1,7 +1,7 @@
 // SkinGaugeGraphObject.java -> skin_gauge_graph_object.rs
 // Mechanical line-by-line translation.
 
-use super::stubs::{
+use super::{
     Color, Pixmap, PixmapFormat, PlayerResource, SkinObjectData, SkinObjectRenderer, Texture,
     TextureRegion,
 };

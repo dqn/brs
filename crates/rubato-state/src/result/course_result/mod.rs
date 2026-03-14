@@ -18,7 +18,7 @@ use super::abstract_result::{
 use super::result_key_property::{ResultKey, ResultKeyProperty};
 use super::result_skin_data::ResultSkinData;
 
-use super::stubs::{
+use super::{
     BMSPlayerModeType, ControlKeys, IRCourseData, KeyCommand, MainController, PlayerResource,
     RankingData,
 };
@@ -684,7 +684,7 @@ impl CourseResult {
 
 impl Default for CourseResult {
     fn default() -> Self {
-        use super::stubs::NullMainController;
+        use super::NullMainController;
         Self::new(
             MainController::new(Box::new(NullMainController)),
             PlayerResource::default(),
@@ -724,7 +724,7 @@ mod tests {
 
     fn make_default() -> CourseResult {
         CourseResult::new(
-            MainController::new(Box::new(crate::result::stubs::NullMainController)),
+            MainController::new(Box::new(crate::result::NullMainController)),
             PlayerResource::default(),
             rubato_core::timer_manager::TimerManager::new(),
         )
@@ -735,7 +735,7 @@ mod tests {
         let main = MainController::new(Box::new(TestMainControllerAccess::new(config)));
         let mut resource = PlayerResource::new(
             Box::new(MockPlayerResourceForIR::new_with_course_score()),
-            crate::result::stubs::BMSPlayerMode::new(BMSPlayerModeType::Play),
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         resource.course_bms_models = Some(vec![bms_model::bms_model::BMSModel::default()]);
         resource
@@ -908,7 +908,7 @@ mod tests {
         }
     }
 
-    impl crate::result::stubs::IRConnection for MockCourseIR {
+    impl crate::result::IRConnection for MockCourseIR {
         fn get_rivals(&self) -> IRResponse<Vec<IRPlayerData>> {
             IRResponse::failure("mock".to_string())
         }
@@ -1131,7 +1131,7 @@ mod tests {
     }
 
     fn make_ir_course_result(
-        ir_conn: Arc<dyn crate::result::stubs::IRConnection + Send + Sync>,
+        ir_conn: Arc<dyn crate::result::IRConnection + Send + Sync>,
     ) -> CourseResult {
         use rubato_core::ir_config::IRConfig;
         let ir_status = IRStatusReal::new(
@@ -1140,12 +1140,12 @@ mod tests {
             IRPlayerData::new(String::new(), String::new(), String::new()),
         );
         let main = MainController::with_ir_statuses(
-            Box::new(crate::result::stubs::NullMainController),
+            Box::new(crate::result::NullMainController),
             vec![ir_status],
         );
         let resource = PlayerResource::new(
             Box::new(MockPlayerResourceForIR::new_with_course_score()),
-            crate::result::stubs::BMSPlayerMode::new(crate::result::stubs::BMSPlayerModeType::Play),
+            crate::result::BMSPlayerMode::new(crate::result::BMSPlayerModeType::Play),
         );
         CourseResult::new(
             main,
@@ -1384,10 +1384,10 @@ mod tests {
         mock.song_data = Some(song);
         let resource = PlayerResource::new(
             Box::new(mock),
-            crate::result::stubs::BMSPlayerMode::new(BMSPlayerModeType::Play),
+            crate::result::BMSPlayerMode::new(BMSPlayerModeType::Play),
         );
         let data = AbstractResultData::new();
-        let main = MainController::new(Box::new(crate::result::stubs::NullMainController));
+        let main = MainController::new(Box::new(crate::result::NullMainController));
         let mut timer = rubato_core::timer_manager::TimerManager::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,
@@ -1409,7 +1409,7 @@ mod tests {
         // When the resource has no songdata, song_data_ref() should return None.
         let resource = PlayerResource::default();
         let data = AbstractResultData::new();
-        let main = MainController::new(Box::new(crate::result::stubs::NullMainController));
+        let main = MainController::new(Box::new(crate::result::NullMainController));
         let mut timer = rubato_core::timer_manager::TimerManager::new();
         let ctx = CourseResultRenderContext {
             timer: &mut timer,

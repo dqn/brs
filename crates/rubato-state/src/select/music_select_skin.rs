@@ -1,4 +1,4 @@
-use super::stubs::*;
+use super::*;
 
 /// Music select skin
 /// Translates: bms.player.beatoraja.select.MusicSelectSkin

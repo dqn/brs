@@ -1,7 +1,7 @@
 use super::bar::Bar;
 use super::directory_bar::DirectoryBarData;
 use super::song_bar::SongBar;
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// File system-linked folder bar
 /// Translates: bms.player.beatoraja.select.bar.FolderBar

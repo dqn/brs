@@ -1,4 +1,4 @@
-use super::stubs::BMSPlayerInputProcessor;
+use super::BMSPlayerInputProcessor;
 
 /// Music select key assignments
 /// Translates: bms.player.beatoraja.select.MusicSelectKeyProperty

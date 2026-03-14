@@ -6,7 +6,7 @@ use rubato_core::clear_type::ClearType;
 use rubato_core::score_data::ScoreData;
 
 use super::abstract_result::{AbstractResultData, STATE_OFFLINE};
-use super::stubs::{MainController, PlayerResource};
+use super::{MainController, PlayerResource};
 
 /// Map event IDs to replay slot indices.
 /// Identical for both music and course result screens.
@@ -865,7 +865,7 @@ mod tests {
                 course_gauge: Vec::new(),
                 course_replay: Vec::new(),
             }),
-            crate::result::stubs::BMSPlayerMode::new(crate::result::stubs::BMSPlayerModeType::Play),
+            crate::result::BMSPlayerMode::new(crate::result::BMSPlayerModeType::Play),
         )
     }
 

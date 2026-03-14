@@ -7,7 +7,8 @@ use rubato_core::timer_manager::TimerManager;
 use rubato_skin::skin_property::{TIMER_FADEOUT, TIMER_STARTINPUT};
 use rubato_skin::skin_type::SkinType;
 
-use super::stubs::{ControlKeys, MainControllerRef, NullPlayerResource, PlayerResourceAccess};
+use super::main_controller_ref::MainControllerRef;
+use super::{ControlKeys, NullPlayerResource, PlayerResourceAccess};
 
 /// Render context adapter for decide screen skin rendering.
 /// Provides config access through SkinRenderContext.
@@ -395,7 +396,7 @@ impl MainState for MusicDecide {
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
-    use crate::decide::stubs::{NullMainController, NullPlayerResource};
+    use crate::decide::{NullMainController, NullPlayerResource};
     use rubato_core::main_state::SkinDrawable;
     use rubato_core::sprite_batch_helper::SpriteBatch;
     use rubato_types::main_controller_access::MainControllerAccess;

@@ -1,7 +1,7 @@
 // Unified result skin data (replaces MusicResultSkin and CourseResultSkin).
 // Both were structurally identical; this single type serves both music and course result screens.
 
-use super::stubs::{Skin, SkinHeader};
+use super::{Skin, SkinHeader};
 
 /// Result skin timing metadata shared by music and course result screens.
 pub struct ResultSkinData {

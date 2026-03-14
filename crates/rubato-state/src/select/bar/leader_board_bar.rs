@@ -1,7 +1,7 @@
 use super::bar::Bar;
 use super::directory_bar::DirectoryBarData;
 use super::function_bar::{FunctionBar, STYLE_COURSE, STYLE_TABLE};
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// Leaderboard display bar
 /// Translates: bms.player.beatoraja.select.bar.LeaderBoardBar

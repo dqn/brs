@@ -380,7 +380,7 @@ impl BarSorter {
 mod tests {
     use super::*;
     use crate::select::bar::song_bar::SongBar;
-    use crate::select::stubs::{ScoreData, SongData};
+    use crate::select::{ScoreData, SongData};
 
     /// Create a SongBar with no score
     fn song_bar_no_score(title: &str) -> Bar {

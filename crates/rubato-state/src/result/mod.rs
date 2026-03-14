@@ -1,7 +1,41 @@
-// Stubs for external dependencies
-pub mod stubs;
+// MainController and PlayerResource wrappers
+pub mod main_controller_wrapper;
+pub mod player_resource_wrapper;
 
-// IR types (moved from stubs.rs)
+// Re-exports (formerly in stubs.rs)
+pub use rubato_core::bms_player_mode::BMSPlayerMode;
+pub use rubato_core::bms_player_mode::Mode as BMSPlayerModeType;
+pub use rubato_core::play_data_accessor::PlayDataAccessor;
+pub use rubato_core::timer_manager::TimerManager;
+pub use rubato_input::bms_player_input_processor::BMSPlayerInputProcessor;
+pub use rubato_input::key_command::KeyCommand;
+pub use rubato_input::keyboard_input_processor::ControlKeys;
+pub use rubato_ir::ir_connection::IRConnection;
+pub use rubato_ir::ir_course_data::IRCourseData;
+pub use rubato_ir::ir_score_data::IRScoreData;
+pub use rubato_ir::ranking_data::RankingData;
+pub use rubato_skin::skin::Skin;
+pub use rubato_skin::skin_header::SkinHeader;
+pub use rubato_skin::skin_object::SkinObjectData;
+pub use rubato_skin::skin_object::SkinObjectRenderer;
+pub use rubato_skin::stubs::Color;
+pub use rubato_skin::stubs::Pixmap;
+pub use rubato_skin::stubs::PixmapFormat;
+pub use rubato_skin::stubs::Rectangle;
+pub use rubato_skin::stubs::Texture;
+pub use rubato_skin::stubs::TextureRegion;
+pub use rubato_types::groove_gauge::GrooveGauge;
+pub use rubato_types::main_controller_access::{MainControllerAccess, NullMainController};
+pub use rubato_types::player_resource_access::{NullPlayerResource, PlayerResourceAccess};
+
+// Convenience re-exports for the wrapper types
+pub use main_controller_wrapper::MainController;
+pub use player_resource_wrapper::PlayerResource;
+
+// FreqTrainerMenu re-export
+pub use crate::modmenu::freq_trainer_menu::FreqTrainerMenu;
+
+// IR types
 pub mod ir_initializer;
 pub mod ir_resend;
 pub mod ir_send_status;

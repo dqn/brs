@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::super::stubs::{
+use super::super::{
     CustomFile, CustomOffset, CustomOption, JSONSkinLoader, LR2SkinHeaderLoader, LuaSkinLoader,
     SkinConfig, SkinFilePath, SkinHeader, SkinOffset, SkinOption, SkinProperty, SkinType,
     TYPE_LR2SKIN, Validatable,

@@ -1,5 +1,5 @@
 use super::selectable_bar::SelectableBarData;
-use crate::select::stubs::*;
+use crate::select::*;
 
 /// Random course selection bar
 /// Translates: bms.player.beatoraja.select.bar.RandomCourseBar

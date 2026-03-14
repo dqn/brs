@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use rubato_audio::audio_driver::AudioDriver;
 use rubato_types::main_controller_access::MainControllerAccess;
 
-use super::stubs::*;
+use super::*;
 
 /// Preview music processor
 /// Translates: bms.player.beatoraja.select.PreviewMusicProcessor

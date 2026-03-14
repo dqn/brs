@@ -3,7 +3,7 @@ use rubato_core::timer_manager::TimerManager;
 use super::MusicResult;
 use crate::result::abstract_result::AbstractResultData;
 use crate::result::shared_render_context;
-use crate::result::stubs::{MainController, PlayerResource};
+use crate::result::{MainController, PlayerResource};
 
 /// Render context adapter for result screen skin rendering.
 /// Provides score data, gauge, config through SkinRenderContext.

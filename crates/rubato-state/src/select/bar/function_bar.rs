@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::selectable_bar::SelectableBarData;
-use crate::select::stubs::SongData;
+use crate::select::SongData;
 
 // Bar appearance ID constants
 pub const STYLE_SONG: i32 = 0;
