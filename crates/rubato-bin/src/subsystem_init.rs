@@ -164,6 +164,7 @@ pub(crate) fn init_ir_config(controller: &mut MainController) {
                 config: ir_status.config,
                 rival_provider: Some(Box::new(rival_provider)),
                 connection: Some(Box::new(ir_status.connection.clone())),
+                player_data: Some(Box::new(ir_status.player.clone())),
             });
     }
     // Wire IR resend service

@@ -103,10 +103,14 @@ pub struct IRStatus {
     pub config: IRConfig,
     /// IR rival provider (trait bridge for core→ir rival/score operations)
     pub rival_provider: Option<Box<dyn rubato_types::ir_rival_provider::IRRivalProvider>>,
-    /// IR connection (type-erased). The concrete type is `Box<dyn IRConnection + Send + Sync>`
+    /// IR connection (type-erased). The concrete type is `Arc<dyn IRConnection + Send + Sync>`
     /// from beatoraja-ir. Stored as `dyn Any` because beatoraja-core cannot depend on beatoraja-ir.
     /// Java: IRStatus.connection
     pub connection: Option<Box<dyn std::any::Any + Send + Sync>>,
+    /// IR player data (type-erased). The concrete type is `IRPlayerData` from beatoraja-ir.
+    /// Stored as `dyn Any` because beatoraja-core cannot depend on beatoraja-ir.
+    /// Java: IRStatus.player
+    pub player_data: Option<Box<dyn std::any::Any + Send + Sync>>,
 }
 
 // IRSendStatus stub removed — replaced by Box<dyn IrResendService> (brs-zd2)
