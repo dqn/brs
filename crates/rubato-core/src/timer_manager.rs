@@ -136,6 +136,15 @@ impl TimerManager {
         &self.timer
     }
 
+    /// Set the current microsecond time directly.
+    ///
+    /// This is intended for test harnesses that use `frozen = true` and
+    /// need deterministic time control. Production code should call
+    /// `update()` instead, which reads from `Instant::now()`.
+    pub fn set_now_micro_time(&mut self, time_us: i64) {
+        self.nowmicrotime = time_us;
+    }
+
     pub fn set_main_state(&mut self) {
         // Reset all timers
         for t in self.timer.iter_mut() {

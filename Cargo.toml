@@ -15,6 +15,7 @@ members = [
     "crates/rubato-bin",
     "crates/rubato-types",
     "crates/rubato-render",
+    "crates/rubato-e2e",
     "golden-master",
 ]
 resolver = "2"
