@@ -956,6 +956,9 @@ impl MainState for MusicSelector {
     /// Corresponds to Java MusicSelector.dispose()
     fn dispose(&mut self) {
         // Call parent dispose (clears skin and stage)
+        if let Some(ref mut skin) = self.main_state_data.skin {
+            skin.dispose_skin();
+        }
         self.main_state_data.skin = None;
         self.main_state_data.stage = None;
 
