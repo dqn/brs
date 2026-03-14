@@ -694,24 +694,14 @@ impl ObsWsClient {
     /// do_connect → on_close → schedule_reconnect → do_connect.
     /// All async work is inside the tokio::spawn.
     fn schedule_reconnect(inner: &Arc<Mutex<ObsWsClientInner>>) {
-        let (is_reconnecting, auto_reconnect, is_shutting_down, delay) = {
-            let guard = lock_or_recover(inner);
-            (
-                guard.is_reconnecting,
-                guard.auto_reconnect,
-                guard.is_shutting_down,
-                guard.current_reconnect_delay,
-            )
-        };
-
-        if is_reconnecting || !auto_reconnect || is_shutting_down {
-            return;
-        }
-
-        {
+        let delay = {
             let mut guard = lock_or_recover(inner);
+            if guard.is_reconnecting || !guard.auto_reconnect || guard.is_shutting_down {
+                return;
+            }
             guard.is_reconnecting = true;
-        }
+            guard.current_reconnect_delay
+        };
 
         let inner_clone = Arc::clone(inner);
         tokio::spawn(async move {
@@ -1346,5 +1336,54 @@ mod tests {
                 "close() should drop the ws_sender"
             );
         }
+    }
+
+    // -- schedule_reconnect atomicity --
+
+    #[test]
+    fn test_schedule_reconnect_concurrent_calls_only_one_wins() {
+        // Regression test for TOCTOU race: concurrent schedule_reconnect calls
+        // must not both observe is_reconnecting == false and both spawn reconnect
+        // tasks. Only one caller should set is_reconnecting = true.
+        let config = make_test_config();
+        let client = ObsWsClient::new(&config).expect("failed to create client");
+
+        // Enable auto_reconnect so schedule_reconnect proceeds past the guard
+        {
+            let mut guard = lock_or_recover(&client.inner);
+            guard.auto_reconnect = true;
+            guard.is_reconnecting = false;
+            guard.is_shutting_down = false;
+        }
+
+        let handle = client.runtime_handle().clone();
+        let barrier = Arc::new(std::sync::Barrier::new(10));
+
+        // Spawn 10 threads that all call schedule_reconnect concurrently.
+        // The tokio::spawn inside schedule_reconnect requires a runtime context,
+        // so we enter the runtime from each thread.
+        let threads: Vec<_> = (0..10)
+            .map(|_| {
+                let inner = Arc::clone(&client.inner);
+                let barrier = Arc::clone(&barrier);
+                let handle = handle.clone();
+                std::thread::spawn(move || {
+                    let _guard = handle.enter();
+                    barrier.wait();
+                    ObsWsClient::schedule_reconnect(&inner);
+                })
+            })
+            .collect();
+
+        for t in threads {
+            t.join().expect("thread should not panic");
+        }
+
+        // After all concurrent calls, is_reconnecting must be true
+        let guard = lock_or_recover(&client.inner);
+        assert!(
+            guard.is_reconnecting,
+            "is_reconnecting should be true after schedule_reconnect"
+        );
     }
 }
