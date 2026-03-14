@@ -28,8 +28,8 @@ pub struct PlayerResource {
     margin_time: i64,
     /// Current song data
     songdata: Option<SongData>,
-    /// Original BMS mode
-    orgmode: Option<()>,
+    /// Original BMS mode (before chart-option conversion, e.g. 7key->9key)
+    orgmode: Option<bms_model::mode::Mode>,
     /// Player data
     pub playerdata: PlayerData,
     /// Config reference
@@ -174,6 +174,9 @@ impl PlayerResource {
                 return false;
             }
             self.margin_time = margin_time;
+            // Java: orgmode = model.getMode()
+            // Capture the original mode before chart-option conversion.
+            self.orgmode = model.mode().copied();
             // Java: if(songdata != null) { songdata.setBMSModel(model); }
             //       else { songdata = new SongData(model, false); }
             // Preserves existing preview/difficulty during course play.
@@ -523,11 +526,11 @@ impl PlayerResource {
         self.chart_option = Some(chart_option);
     }
 
-    pub fn original_mode(&self) -> Option<()> {
+    pub fn original_mode(&self) -> Option<bms_model::mode::Mode> {
         self.orgmode
     }
 
-    pub fn set_original_mode(&mut self, orgmode: ()) {
+    pub fn set_original_mode(&mut self, orgmode: bms_model::mode::Mode) {
         self.orgmode = Some(orgmode);
     }
 

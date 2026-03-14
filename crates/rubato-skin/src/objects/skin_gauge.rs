@@ -51,6 +51,9 @@ pub struct SkinGauge {
     pub starttime: i32,
     /// Result screen: gauge fill animation end time (ms)
     pub endtime: i32,
+    /// Whether the mode-change border alignment check has been performed.
+    /// Java: isCheckedModeChanged
+    is_checked_mode_changed: bool,
 }
 
 impl SkinGauge {
@@ -82,6 +85,7 @@ impl SkinGauge {
             images: Vec::new(),
             starttime: 0,
             endtime: 500,
+            is_checked_mode_changed: false,
         }
     }
 
@@ -140,6 +144,34 @@ impl SkinGauge {
                 }
                 _ => {}
             }
+        }
+
+        // Adjust parts count so gauge borders divide evenly when the chart's
+        // mode was converted (e.g. 7-key -> 9-key).
+        // Java: SkinGauge.prepare() isCheckedModeChanged block
+        if !self.is_checked_mode_changed {
+            if state.is_mode_changed() {
+                let borders = state.gauge_element_borders();
+                let mut set_parts = self.parts;
+                for &(border, max) in &borders {
+                    if max <= 0.0 {
+                        continue;
+                    }
+                    let max_i = max as i32;
+                    for i in self.parts..=max_i {
+                        if i <= 0 {
+                            continue;
+                        }
+                        let step = max / i as f32;
+                        if step > 0.0 && border % step == 0.0 {
+                            set_parts = set_parts.max(i);
+                            break;
+                        }
+                    }
+                }
+                self.parts = set_parts;
+            }
+            self.is_checked_mode_changed = true;
         }
 
         // Get images from source
@@ -794,5 +826,197 @@ mod tests {
         assert!(gauge.images.is_empty());
         assert_eq!(gauge.starttime, 0);
         assert_eq!(gauge.endtime, 500);
+    }
+
+    // --- Mode-change parts adjustment tests ---
+    // Java: SkinGauge.prepare() isCheckedModeChanged block
+    // When the chart's original mode differs from the current mode (e.g. 7-key -> 9-key),
+    // parts is increased so that gauge borders divide evenly into the gauge bar segments.
+
+    /// MockMainState with configurable mode-change and gauge element properties.
+    struct ModeChangeMockState {
+        gauge_value: f32,
+        gauge_type: i32,
+        mode_changed: bool,
+        /// (border, max) for each gauge type
+        element_borders: Vec<(f32, f32)>,
+    }
+
+    impl crate::stubs::MainState for ModeChangeMockState {
+        fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
+            static TIMER: std::sync::OnceLock<crate::stubs::Timer> = std::sync::OnceLock::new();
+            TIMER.get_or_init(crate::stubs::Timer::default)
+        }
+        fn get_offset_value(&self, _id: i32) -> Option<&crate::stubs::SkinOffset> {
+            None
+        }
+        fn get_main(&self) -> &crate::stubs::MainController {
+            static MC: crate::stubs::MainController = crate::stubs::MainController { debug: false };
+            &MC
+        }
+        fn get_image(&self, _id: i32) -> Option<TextureRegion> {
+            None
+        }
+        fn get_resource(&self) -> &crate::stubs::PlayerResource {
+            static PR: crate::stubs::PlayerResource = crate::stubs::PlayerResource;
+            &PR
+        }
+        fn get_gauge_value(&self) -> f32 {
+            self.gauge_value
+        }
+        fn gauge_type(&self) -> i32 {
+            self.gauge_type
+        }
+        fn is_mode_changed(&self) -> bool {
+            self.mode_changed
+        }
+        fn gauge_element_borders(&self) -> Vec<(f32, f32)> {
+            self.element_borders.clone()
+        }
+    }
+
+    #[test]
+    fn mode_change_adjusts_parts_for_border_alignment() {
+        // Scenario: 7-key chart converted to 9-key.
+        // Normal gauge: border=80, max=100. With parts=50, step=100/50=2.0, 80%2.0=0 -> OK.
+        // Suppose border=75, max=100, parts=50: step=100/50=2.0, 75%2.0=1.0 != 0 -> not aligned.
+        // Loop from 50 to 100 looking for the first i where 75 % (100/i) == 0:
+        //   i=50: 100/50=2.0, 75%2.0=1.0 -> no
+        //   i=64: 100/64=1.5625, 75%1.5625=0.0 (75/1.5625=48 exact) -> yes!
+        // With multiple gauge types we take the max across all: max(50, 64) = 64.
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+
+        let state = ModeChangeMockState {
+            gauge_value: 50.0,
+            gauge_type: 0,
+            mode_changed: true,
+            element_borders: vec![
+                (80.0, 100.0), // border=80, max=100: 80 % (100/50=2) = 0 -> parts stays 50
+                (75.0, 100.0), // border=75, max=100: first i where aligned is 64
+            ],
+        };
+        gauge.prepare(100, &state);
+
+        assert_eq!(
+            gauge.parts, 64,
+            "parts should be increased to 64 for border=75 alignment"
+        );
+        assert!(
+            gauge.is_checked_mode_changed,
+            "flag should be set after check"
+        );
+    }
+
+    #[test]
+    fn no_mode_change_keeps_original_parts() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+
+        let state = ModeChangeMockState {
+            gauge_value: 50.0,
+            gauge_type: 0,
+            mode_changed: false,
+            element_borders: vec![(75.0, 100.0)],
+        };
+        gauge.prepare(100, &state);
+
+        assert_eq!(
+            gauge.parts, 50,
+            "parts should not change when mode is not changed"
+        );
+        assert!(
+            gauge.is_checked_mode_changed,
+            "flag should be set even without mode change"
+        );
+    }
+
+    #[test]
+    fn mode_change_check_runs_only_once() {
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+
+        let state = ModeChangeMockState {
+            gauge_value: 50.0,
+            gauge_type: 0,
+            mode_changed: true,
+            element_borders: vec![(80.0, 100.0)],
+        };
+        gauge.prepare(100, &state);
+        assert_eq!(gauge.parts, 50); // 80 % (100/50) = 0, no change needed
+
+        // Manually reset parts to verify second prepare doesn't re-run the check
+        gauge.parts = 30;
+        gauge.prepare(200, &state);
+        assert_eq!(
+            gauge.parts, 30,
+            "parts should not be re-adjusted on subsequent prepare calls"
+        );
+    }
+
+    #[test]
+    fn mode_change_already_aligned_no_increase() {
+        // When all borders already divide evenly, parts stays the same.
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+
+        let state = ModeChangeMockState {
+            gauge_value: 50.0,
+            gauge_type: 0,
+            mode_changed: true,
+            element_borders: vec![
+                (80.0, 100.0), // 80 % (100/50=2) = 0 -> OK
+                (60.0, 100.0), // 60 % (100/50=2) = 0 -> OK
+            ],
+        };
+        gauge.prepare(100, &state);
+
+        assert_eq!(
+            gauge.parts, 50,
+            "parts should remain 50 when borders already aligned"
+        );
+    }
+
+    #[test]
+    fn mode_change_zero_max_gauge_skipped() {
+        // Gauge types with max=0 should be skipped (guard against division by zero).
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+
+        let state = ModeChangeMockState {
+            gauge_value: 50.0,
+            gauge_type: 0,
+            mode_changed: true,
+            element_borders: vec![
+                (0.0, 0.0),    // degenerate gauge type, should be skipped
+                (80.0, 100.0), // normal gauge, already aligned
+            ],
+        };
+        gauge.prepare(100, &state);
+
+        assert_eq!(
+            gauge.parts, 50,
+            "parts should remain 50, degenerate gauge skipped"
+        );
+    }
+
+    #[test]
+    fn mode_change_empty_borders_no_change() {
+        // If no gauge element borders are returned, parts stays the same.
+        let images: Vec<Vec<Option<TextureRegion>>> = vec![vec![Some(TextureRegion::new()); 6]];
+        let mut gauge = SkinGauge::new(images, 0, 0, 50, ANIMATION_RANDOM, 2, 100);
+
+        let state = ModeChangeMockState {
+            gauge_value: 50.0,
+            gauge_type: 0,
+            mode_changed: true,
+            element_borders: vec![],
+        };
+        gauge.prepare(100, &state);
+
+        assert_eq!(
+            gauge.parts, 50,
+            "parts should remain 50 with no gauge elements"
+        );
     }
 }

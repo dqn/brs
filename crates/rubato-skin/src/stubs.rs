@@ -183,6 +183,19 @@ pub trait MainState {
         0
     }
 
+    /// Returns whether the chart's original mode differs from the current mode
+    /// (e.g. 7-key chart converted to 9-key via chart options).
+    /// Used by SkinGauge to adjust parts count for border alignment.
+    fn is_mode_changed(&self) -> bool {
+        false
+    }
+
+    /// Returns (border, max) for each gauge type.
+    /// Used by SkinGauge to adjust parts count so borders divide evenly.
+    fn gauge_element_borders(&self) -> Vec<(f32, f32)> {
+        Vec::new()
+    }
+
     /// Returns gauge history per gauge type for result screen gauge graph rendering.
     /// Each inner Vec<f32> is the gauge value at each note timing.
     fn gauge_history(&self) -> Option<&Vec<Vec<f32>>> {

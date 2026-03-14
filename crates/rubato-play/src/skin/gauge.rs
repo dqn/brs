@@ -32,7 +32,9 @@ pub struct SkinGauge {
     pub starttime: i32,
     /// Result mode end time (ms)
     pub endtime: i32,
-    /// Whether 7to9 border check is done
+    /// Whether 7to9 border check is done.
+    /// Note: the actual adjustment logic lives in rubato_skin::objects::skin_gauge::SkinGauge,
+    /// which is the rendering-side gauge that corresponds to Java's SkinGauge.
     _is_checked_seven_to_nine: bool,
 }
 

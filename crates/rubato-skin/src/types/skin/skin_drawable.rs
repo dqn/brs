@@ -143,6 +143,18 @@ impl crate::stubs::MainState for TimerOnlyMainState<'_> {
         self.ctx.as_deref().map_or(0, |c| c.gauge_type())
     }
 
+    fn is_mode_changed(&self) -> bool {
+        self.ctx
+            .as_deref()
+            .is_some_and(|c| c.is_mode_changed())
+    }
+
+    fn gauge_element_borders(&self) -> Vec<(f32, f32)> {
+        self.ctx
+            .as_deref()
+            .map_or_else(Vec::new, |c| c.gauge_element_borders())
+    }
+
     fn get_now_judge(&self, player: i32) -> i32 {
         self.ctx.as_deref().map_or(0, |c| c.now_judge(player))
     }

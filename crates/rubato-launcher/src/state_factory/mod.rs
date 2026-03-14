@@ -238,6 +238,22 @@ impl StateFactory for LauncherStateFactory {
                     player.set_margin_time(res.margin_time());
                 }
 
+                // Wire original mode for SkinGauge mode-change border alignment.
+                // Java: SkinGauge.prepare() checks resource.getOriginalMode() != model.getMode()
+                if let Some(res) = resource {
+                    player.set_orgmode(res.original_mode());
+                }
+
+                // Wire lnmode override from chart data for image_index_value ID 308.
+                // Java: IntegerPropertyFactory ID 308 checks SongData LN types on BMSPlayer.
+                if let Some(songdata) = resource.and_then(|r| r.songdata()) {
+                    player.set_lnmode_override(
+                        rubato_types::skin_render_context::compute_lnmode_from_chart(
+                            &songdata.chart,
+                        ),
+                    );
+                }
+
                 // Wire course constraints
                 if let Some(res) = resource {
                     player.set_constraints(res.constraint());
