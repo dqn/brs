@@ -1321,6 +1321,134 @@ fn test_internal_read_course_replay_skips_constraints() {
 }
 
 // ============================================================
+// _read_course per-song ranking data tests
+// ============================================================
+
+/// Mock MainControllerAccess that provides a real RankingDataCache
+/// for testing per-song ranking data population in _read_course.
+struct MockMainControllerWithCache {
+    state: Arc<Mutex<MockState>>,
+    resource: MockPlayerResource,
+    ranking_cache: rubato_ir::ranking_data_cache::RankingDataCache,
+    /// Type-erased IR connection marker for ir_connection_any().
+    /// When Some, _read_course will create new RankingData on cache miss.
+    ir_connection_marker: Option<Box<dyn std::any::Any + Send + Sync>>,
+}
+
+impl MockMainControllerWithCache {
+    fn new(state: Arc<Mutex<MockState>>) -> Self {
+        let resource = MockPlayerResource {
+            state: state.clone(),
+            course_gauge: Vec::new(),
+            course_replay: Vec::new(),
+        };
+        Self {
+            state,
+            resource,
+            ranking_cache: rubato_ir::ranking_data_cache::RankingDataCache::new(),
+            ir_connection_marker: None,
+        }
+    }
+
+    fn with_ir(mut self) -> Self {
+        // Store a dummy value as the IR connection marker.
+        // The actual type doesn't matter for _read_course; it only checks is_some().
+        self.ir_connection_marker = Some(Box::new(42_i32));
+        self
+    }
+}
+
+impl MainControllerAccess for MockMainControllerWithCache {
+    fn config(&self) -> &rubato_types::config::Config {
+        static CFG: std::sync::OnceLock<rubato_types::config::Config> = std::sync::OnceLock::new();
+        CFG.get_or_init(rubato_types::config::Config::default)
+    }
+    fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
+        static PC: std::sync::OnceLock<rubato_types::player_config::PlayerConfig> =
+            std::sync::OnceLock::new();
+        PC.get_or_init(rubato_types::player_config::PlayerConfig::default)
+    }
+    fn change_state(&mut self, state: MainStateType) {
+        self.state
+            .lock()
+            .expect("mutex poisoned")
+            .state_changes
+            .push(state);
+    }
+    fn save_config(&self) {}
+    fn exit(&self) {}
+    fn save_last_recording(&self, _reason: &str) {}
+    fn update_song(&mut self, _path: Option<&str>) {}
+    fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+        Some(&self.resource)
+    }
+    fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+        Some(&mut self.resource)
+    }
+    fn ranking_data_cache(
+        &self,
+    ) -> Option<&dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess> {
+        Some(&self.ranking_cache)
+    }
+    fn ranking_data_cache_mut(
+        &mut self,
+    ) -> Option<&mut (dyn rubato_types::ranking_data_cache_access::RankingDataCacheAccess + 'static)>
+    {
+        Some(&mut self.ranking_cache)
+    }
+    fn ir_connection_any(&self) -> Option<&dyn std::any::Any> {
+        self.ir_connection_marker
+            .as_ref()
+            .map(|b| b.as_ref() as &dyn std::any::Any)
+    }
+}
+
+#[test]
+fn test_internal_read_course_sets_per_song_ranking_data() {
+    // Regression: _read_course must look up or create per-song ranking data
+    // for the first course song (songs[0]) and set it on the PlayerResource.
+    // Java: RankingData songrank = main.getRankingDataCache().get(songs[0], ...)
+    //       resource.setRankingData(songrank)
+    let bms_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test-bms/5key.bms");
+    if !bms_path.exists() {
+        return;
+    }
+    let path_str = bms_path.to_string_lossy().to_string();
+
+    let state = Arc::new(Mutex::new(MockState {
+        course_files_result: true,
+        bms_file_result: true,
+        ..Default::default()
+    }));
+    let mock = MockMainControllerWithCache::new(state).with_ir();
+
+    let mut selector = MusicSelector::new();
+    selector.set_main_controller(Box::new(mock));
+
+    let course = CourseData {
+        name: Some("Ranking Test Course".to_string()),
+        hash: vec![make_song_data("s1", Some(&path_str))],
+        constraint: vec![],
+        trophy: vec![],
+        release: false,
+    };
+    let bar = Bar::Grade(Box::new(GradeBar::new(course)));
+
+    let result = selector._read_course(&BMSPlayerMode::PLAY, &bar);
+    assert!(result, "_read_course should return true on success");
+
+    // Verify that player_resource has ranking data set (per-song ranking for songs[0])
+    let res = selector
+        .player_resource
+        .as_ref()
+        .expect("player_resource should exist after _read_course");
+    assert!(
+        res.ranking_data_any().is_some(),
+        "PlayerResource should have per-song ranking data set for the first course song"
+    );
+}
+
+// ============================================================
 // read_random_course tests
 // ============================================================
 

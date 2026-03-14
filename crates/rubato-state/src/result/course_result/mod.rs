@@ -967,6 +967,7 @@ mod tests {
         course_gauge: Vec<Vec<Vec<f32>>>,
         course_replay: Vec<rubato_core::replay_data::ReplayData>,
         replay_data: Option<rubato_core::replay_data::ReplayData>,
+        song_data: Option<rubato_types::song_data::SongData>,
     }
 
     impl MockPlayerResourceForIR {
@@ -987,6 +988,7 @@ mod tests {
                 course_gauge: Vec::new(),
                 course_replay: Vec::new(),
                 replay_data: Some(rubato_core::replay_data::ReplayData::default()),
+                song_data: None,
             }
         }
     }
@@ -1022,10 +1024,10 @@ mod tests {
             self.course_score = Some(score);
         }
         fn songdata(&self) -> Option<&rubato_types::song_data::SongData> {
-            None
+            self.song_data.as_ref()
         }
         fn songdata_mut(&mut self) -> Option<&mut rubato_types::song_data::SongData> {
-            None
+            self.song_data.as_mut()
         }
         fn replay_data(&self) -> Option<&rubato_core::replay_data::ReplayData> {
             self.replay_data.as_ref()
@@ -1368,5 +1370,54 @@ mod tests {
         // BMSModel::default() has 0 total notes
         let model = bms_model::bms_model::BMSModel::default();
         assert_eq!(aggregate_total_notes(&[model]), 0);
+    }
+
+    #[test]
+    fn test_course_result_render_context_song_data_ref_returns_songdata() {
+        // Regression: CourseResultRenderContext must implement song_data_ref()
+        // so that image_index IDs 89/90 (favorite_song/favorite_chart) work
+        // on course result screens. Previously it fell through to the default
+        // (None), causing those IDs to always return -1.
+        let mut mock = MockPlayerResourceForIR::new_with_course_score();
+        let mut song = rubato_types::song_data::SongData::default();
+        song.metadata.title = "TestSong".to_string();
+        mock.song_data = Some(song);
+        let resource = PlayerResource::new(
+            Box::new(mock),
+            crate::result::stubs::BMSPlayerMode::new(BMSPlayerModeType::Play),
+        );
+        let data = AbstractResultData::new();
+        let main = MainController::new(Box::new(crate::result::stubs::NullMainController));
+        let mut timer = rubato_core::timer_manager::TimerManager::new();
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+
+        let sd = ctx.song_data_ref();
+        assert!(
+            sd.is_some(),
+            "song_data_ref() must return Some when resource has songdata"
+        );
+        assert_eq!(sd.unwrap().metadata.title, "TestSong");
+    }
+
+    #[test]
+    fn test_course_result_render_context_song_data_ref_returns_none_without_songdata() {
+        // When the resource has no songdata, song_data_ref() should return None.
+        let resource = PlayerResource::default();
+        let data = AbstractResultData::new();
+        let main = MainController::new(Box::new(crate::result::stubs::NullMainController));
+        let mut timer = rubato_core::timer_manager::TimerManager::new();
+        let ctx = CourseResultRenderContext {
+            timer: &mut timer,
+            data: &data,
+            resource: &resource,
+            main: &main,
+        };
+
+        assert!(ctx.song_data_ref().is_none());
     }
 }

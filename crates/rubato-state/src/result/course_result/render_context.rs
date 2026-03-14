@@ -91,6 +91,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
         )
     }
 
+    fn song_data_ref(&self) -> Option<&rubato_types::song_data::SongData> {
+        shared_render_context::song_data_ref(self.resource)
+    }
+
     fn set_timer_micro(&mut self, timer_id: rubato_types::timer_id::TimerId, micro_time: i64) {
         self.timer.set_micro_timer(timer_id, micro_time);
     }
@@ -120,7 +124,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
     }
 
     fn float_value(&self, id: i32) -> f32 {
-        shared_render_context::float_value(self.data, id)
+        match id {
+            // FLOAT_GROOVEGAUGE_1P (1107): needs PlayerResource for gauge data.
+            // Java: AbstractResult -> gauge[gaugeType].last()
+            1107 => shared_render_context::gauge_value(self.resource),
+            _ => shared_render_context::float_value(self.data, id),
+        }
     }
 
     fn boolean_value(&self, id: i32) -> bool {

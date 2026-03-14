@@ -482,6 +482,39 @@ impl MusicSelector {
                     }
                 }
             }
+            // Look up or create per-song ranking data for the first course song
+            // Java: RankingData songrank = main.getRankingDataCache().get(songs[0], config.getLnmode());
+            //       if(main.getIRStatus().length > 0 && songrank == null) { ... }
+            //       resource.setRankingData(songrank);
+            if let Some(ref mut main) = self.main {
+                use rubato_ir::ranking_data::RankingData as SongRankingData;
+                let lnmode = self.config.play_settings.lnmode;
+                let first_song = &songs[0];
+                let song_cached = main
+                    .ranking_data_cache()
+                    .and_then(|c| c.song_any(first_song, lnmode))
+                    .and_then(|a| a.downcast::<SongRankingData>().ok())
+                    .map(|ranking| *ranking);
+                let song_ranking = if let Some(sr) = song_cached {
+                    Some(sr)
+                } else if main.ir_connection_any().is_some() {
+                    let sr = SongRankingData::new();
+                    if let Some(cache) = main.ranking_data_cache_mut() {
+                        cache.put_song_any(first_song, lnmode, Box::new(sr.clone()));
+                    }
+                    Some(sr)
+                } else {
+                    None
+                };
+                let ranking_any =
+                    song_ranking.map(|rd| Box::new(rd) as Box<dyn std::any::Any + Send + Sync>);
+                let res = self
+                    .player_resource
+                    .as_mut()
+                    .expect("player_resource is Some");
+                res.set_ranking_data_any(ranking_any);
+            }
+
             // Set rival score/chart option to None for course play
             {
                 let res = self
