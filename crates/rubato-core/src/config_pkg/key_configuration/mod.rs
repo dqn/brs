@@ -232,6 +232,9 @@ impl MainState for KeyConfiguration {
         self.dispose_resources();
         // Call default trait dispose for skin/stage cleanup
         let data = self.main_state_data_mut();
+        if let Some(ref mut skin) = data.skin {
+            skin.dispose_skin();
+        }
         data.skin = None;
         data.stage = None;
     }

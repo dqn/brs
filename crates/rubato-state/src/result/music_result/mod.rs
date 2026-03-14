@@ -684,6 +684,9 @@ impl MainState for MusicResult {
     }
 
     fn dispose(&mut self) {
+        if let Some(ref mut skin) = self.main_data.skin {
+            skin.dispose_skin();
+        }
         self.main_data.skin = None;
         self.main_data.stage = None;
     }

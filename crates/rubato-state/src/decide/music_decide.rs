@@ -375,6 +375,9 @@ impl MainState for MusicDecide {
 
     fn dispose(&mut self) {
         // super.dispose()
+        if let Some(ref mut skin) = self.data.skin {
+            skin.dispose_skin();
+        }
         self.data.skin = None;
         self.data.stage = None;
     }

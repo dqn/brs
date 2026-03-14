@@ -674,6 +674,9 @@ impl CourseResult {
 
     pub fn dispose(&mut self) {
         // super.dispose() equivalent
+        if let Some(ref mut skin) = self.main_data.skin {
+            skin.dispose_skin();
+        }
         self.main_data.skin = None;
         self.main_data.stage = None;
     }
