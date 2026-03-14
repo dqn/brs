@@ -47,7 +47,7 @@ pub struct SQLiteSongDatabaseAccessor {
     conn: Mutex<Connection>,
     root: PathBuf,
     plugins: Vec<Box<dyn SongDatabaseAccessorPlugin>>,
-    checked_parent: HashSet<String>,
+    checked_parent: Mutex<HashSet<String>>,
 }
 
 impl SQLiteSongDatabaseAccessor {
@@ -115,7 +115,7 @@ impl SQLiteSongDatabaseAccessor {
             conn: Mutex::new(conn),
             root,
             plugins: Vec::new(),
-            checked_parent: HashSet::new(),
+            checked_parent: Mutex::new(HashSet::new()),
         };
         accessor.create_table()?;
         Ok(accessor)
@@ -538,8 +538,10 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
                 conn.execute(&format!("ATTACH DATABASE '{}' as infodb", info_escaped), [])?;
                 attached_info = true;
                 let query = format!(
-                    "SELECT DISTINCT md5, song.sha256 AS sha256, title, subtitle, genre, artist, subartist,path,folder,stagefile,banner,backbmp,parent,level,difficulty,\
-                     maxbpm,minbpm,song.mode AS mode, judge, feature, content, song.date AS date, favorite, song.notes AS notes, adddate, preview, length, charthash\
+                    "SELECT DISTINCT md5, song.sha256 AS sha256, title, subtitle, genre, artist, subartist, \
+                     tag, path, folder, stagefile, banner, backbmp, preview, parent, level, difficulty, \
+                     maxbpm, minbpm, length, song.mode AS mode, judge, feature, content, \
+                     song.date AS date, favorite, adddate, song.notes AS notes, charthash \
                      FROM song INNER JOIN (information LEFT OUTER JOIN (score LEFT OUTER JOIN scorelog ON score.sha256 = scorelog.sha256) ON information.sha256 = score.sha256) \
                      ON song.sha256 = information.sha256 WHERE {}",
                     sql
@@ -547,8 +549,10 @@ impl SongDatabaseAccessor for SQLiteSongDatabaseAccessor {
                 Self::query_songs_with_conn(&conn, &query, &[]).unwrap_or_default()
             } else {
                 let query = format!(
-                    "SELECT DISTINCT md5, song.sha256 AS sha256, title, subtitle, genre, artist, subartist,path,folder,stagefile,banner,backbmp,parent,level,difficulty,\
-                     maxbpm,minbpm,song.mode AS mode, judge, feature, content, song.date AS date, favorite, song.notes AS notes, adddate, preview, length, charthash\
+                    "SELECT DISTINCT md5, song.sha256 AS sha256, title, subtitle, genre, artist, subartist, \
+                     tag, path, folder, stagefile, banner, backbmp, preview, parent, level, difficulty, \
+                     maxbpm, minbpm, length, song.mode AS mode, judge, feature, content, \
+                     song.date AS date, favorite, adddate, song.notes AS notes, charthash \
                      FROM song LEFT OUTER JOIN (score LEFT OUTER JOIN scorelog ON score.sha256 = scorelog.sha256) ON song.sha256 = score.sha256 WHERE {}",
                     sql
                 );
@@ -714,9 +718,14 @@ impl SQLiteSongDatabaseAccessor {
                 .parent()
                 .map(|pp| pp.to_string_lossy().to_string())
                 .unwrap_or_default();
-            if !self.checked_parent.contains(&parent) {
+            let mut checked = self
+                .checked_parent
+                .lock()
+                .expect("checked_parent lock poisoned");
+            if !checked.contains(&parent) {
                 let query = "SELECT * FROM folder WHERE path = ?1";
                 let folders = self.query_folders(query, &[&parent as &dyn rusqlite::types::ToSql]);
+                checked.insert(parent.clone());
                 if folders.is_empty() {
                     path = Some(parent);
                 }

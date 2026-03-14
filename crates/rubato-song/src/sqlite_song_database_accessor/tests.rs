@@ -533,3 +533,251 @@ fn escape_sql_like_mixed() {
 fn escape_sql_like_empty() {
     assert_eq!(escape_sql_like(""), "");
 }
+
+/// Helper: create a minimal SQLite DB with `score` and `scorelog` tables
+/// that `song_datas_by_sql` can ATTACH.
+fn create_stub_score_db(path: &std::path::Path) {
+    let conn = rusqlite::Connection::open(path).unwrap();
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS score (sha256 TEXT PRIMARY KEY, mode INTEGER);
+         CREATE TABLE IF NOT EXISTS scorelog (sha256 TEXT PRIMARY KEY);",
+    )
+    .unwrap();
+}
+
+/// Regression test for R1: song_datas_by_sql column order must match
+/// query_songs_with_conn positional indices. Previously `tag` was omitted
+/// and several columns were reordered, causing every field from index 7
+/// onward to be misassigned.
+#[test]
+fn test_song_datas_by_sql_column_order() {
+    let tmpdir = tempfile::tempdir().unwrap();
+    let db_path = tmpdir.path().join("song.db");
+    let accessor = SQLiteSongDatabaseAccessor::new(&db_path.to_string_lossy(), &[]).unwrap();
+
+    // Insert a song with distinctive values in every field so we can
+    // detect any column-position mismatch.
+    let mut sd = SongData::new();
+    sd.file.md5 = "md5_sql_test".to_string();
+    sd.file.sha256 = "sha256_sql_test".to_string();
+    sd.metadata.title = "SQL Title".to_string();
+    sd.metadata.subtitle = "SQL Sub".to_string();
+    sd.metadata.genre = "SQL Genre".to_string();
+    sd.metadata.artist = "SQL Artist".to_string();
+    sd.metadata.subartist = "SQL SubArtist".to_string();
+    sd.metadata.tag = "SQL Tag".to_string();
+    sd.file.set_path("sql/path.bms".to_string());
+    sd.folder = "sql_folder".to_string();
+    sd.file.stagefile = "stage.png".to_string();
+    sd.file.banner = "banner.png".to_string();
+    sd.file.backbmp = "back.bmp".to_string();
+    sd.file.preview = "preview.ogg".to_string();
+    sd.parent = "sql_parent".to_string();
+    sd.chart.level = 7;
+    sd.chart.difficulty = 3;
+    sd.chart.maxbpm = 200;
+    sd.chart.minbpm = 100;
+    sd.chart.length = 120;
+    sd.chart.mode = 5;
+    sd.chart.judge = 2;
+    sd.chart.feature = 4;
+    sd.chart.content = 6;
+    sd.chart.date = 1000;
+    sd.favorite = 1;
+    sd.chart.adddate = 2000;
+    sd.chart.notes = 999;
+    sd.file.charthash = Some("charthash_test".to_string());
+    accessor.insert_song(&sd).unwrap();
+
+    // Create stub score/scorelog databases required by ATTACH
+    let score_path = tmpdir.path().join("score.db");
+    let scorelog_path = tmpdir.path().join("scorelog.db");
+    create_stub_score_db(&score_path);
+    create_stub_score_db(&scorelog_path);
+
+    let results = accessor.song_datas_by_sql(
+        "1=1",
+        &score_path.to_string_lossy(),
+        &scorelog_path.to_string_lossy(),
+        None,
+    );
+    assert_eq!(results.len(), 1, "Expected exactly one song from SQL query");
+    let r = &results[0];
+
+    // Verify every field was mapped to the correct column position.
+    assert_eq!(r.file.md5, "md5_sql_test", "md5 mismatch (index 0)");
+    assert_eq!(
+        r.file.sha256, "sha256_sql_test",
+        "sha256 mismatch (index 1)"
+    );
+    assert_eq!(r.metadata.title, "SQL Title", "title mismatch (index 2)");
+    assert_eq!(
+        r.metadata.subtitle, "SQL Sub",
+        "subtitle mismatch (index 3)"
+    );
+    assert_eq!(r.metadata.genre, "SQL Genre", "genre mismatch (index 4)");
+    assert_eq!(r.metadata.artist, "SQL Artist", "artist mismatch (index 5)");
+    assert_eq!(
+        r.metadata.subartist, "SQL SubArtist",
+        "subartist mismatch (index 6)"
+    );
+    assert_eq!(r.metadata.tag, "SQL Tag", "tag mismatch (index 7)");
+    assert_eq!(
+        r.file.path().unwrap_or(""),
+        "sql/path.bms",
+        "path mismatch (index 8)"
+    );
+    assert_eq!(r.folder, "sql_folder", "folder mismatch (index 9)");
+    assert_eq!(
+        r.file.stagefile, "stage.png",
+        "stagefile mismatch (index 10)"
+    );
+    assert_eq!(r.file.banner, "banner.png", "banner mismatch (index 11)");
+    assert_eq!(r.file.backbmp, "back.bmp", "backbmp mismatch (index 12)");
+    assert_eq!(r.file.preview, "preview.ogg", "preview mismatch (index 13)");
+    assert_eq!(r.parent, "sql_parent", "parent mismatch (index 14)");
+    assert_eq!(r.chart.level, 7, "level mismatch (index 15)");
+    assert_eq!(r.chart.difficulty, 3, "difficulty mismatch (index 16)");
+    assert_eq!(r.chart.maxbpm, 200, "maxbpm mismatch (index 17)");
+    assert_eq!(r.chart.minbpm, 100, "minbpm mismatch (index 18)");
+    assert_eq!(r.chart.length, 120, "length mismatch (index 19)");
+    assert_eq!(r.chart.mode, 5, "mode mismatch (index 20)");
+    assert_eq!(r.chart.judge, 2, "judge mismatch (index 21)");
+    assert_eq!(r.chart.feature, 4, "feature mismatch (index 22)");
+    assert_eq!(r.chart.content, 6, "content mismatch (index 23)");
+    assert_eq!(r.chart.date, 1000, "date mismatch (index 24)");
+    assert_eq!(r.favorite, 1, "favorite mismatch (index 25)");
+    assert_eq!(r.chart.adddate, 2000, "adddate mismatch (index 26)");
+    assert_eq!(r.chart.notes, 999, "notes mismatch (index 27)");
+    assert_eq!(
+        r.file.charthash.as_deref(),
+        Some("charthash_test"),
+        "charthash mismatch (index 28)"
+    );
+}
+
+/// Regression test for R1 (info path): song_datas_by_sql with an info database
+/// must also use the correct column order for the INNER JOIN query variant.
+#[test]
+fn test_song_datas_by_sql_with_info_column_order() {
+    let tmpdir = tempfile::tempdir().unwrap();
+    let db_path = tmpdir.path().join("song.db");
+    let accessor = SQLiteSongDatabaseAccessor::new(&db_path.to_string_lossy(), &[]).unwrap();
+
+    let mut sd = SongData::new();
+    sd.file.md5 = "md5_info_test".to_string();
+    sd.file.sha256 = "sha256_info_test".to_string();
+    sd.metadata.title = "Info Title".to_string();
+    sd.metadata.tag = "Info Tag".to_string();
+    sd.file.set_path("info/path.bms".to_string());
+    sd.folder = "info_folder".to_string();
+    sd.file.preview = "info_preview.ogg".to_string();
+    sd.chart.level = 12;
+    sd.chart.length = 90;
+    sd.chart.mode = 7;
+    sd.chart.notes = 500;
+    sd.chart.adddate = 3000;
+    accessor.insert_song(&sd).unwrap();
+
+    // Create stub databases
+    let score_path = tmpdir.path().join("score.db");
+    let scorelog_path = tmpdir.path().join("scorelog.db");
+    create_stub_score_db(&score_path);
+    create_stub_score_db(&scorelog_path);
+
+    // Create info DB with the `information` table containing the matching sha256
+    let info_path = tmpdir.path().join("info.db");
+    let info_conn = rusqlite::Connection::open(&info_path).unwrap();
+    info_conn
+        .execute_batch(
+            "CREATE TABLE IF NOT EXISTS information (sha256 TEXT PRIMARY KEY, n INTEGER, ln INTEGER, \
+             s INTEGER, ls INTEGER, total REAL, density REAL, peakdensity REAL, enddensity REAL, \
+             mainbpm REAL, distribution TEXT, speedchange TEXT, lanenotes TEXT);",
+        )
+        .unwrap();
+    info_conn
+        .execute(
+            "INSERT INTO information (sha256, n, ln, s, ls, total, density, peakdensity, enddensity, mainbpm, distribution, speedchange, lanenotes) \
+             VALUES ('sha256_info_test', 100, 0, 0, 0, 200.0, 5.0, 10.0, 3.0, 150.0, '', '', '')",
+            [],
+        )
+        .unwrap();
+    drop(info_conn);
+
+    let results = accessor.song_datas_by_sql(
+        "1=1",
+        &score_path.to_string_lossy(),
+        &scorelog_path.to_string_lossy(),
+        Some(&info_path.to_string_lossy()),
+    );
+    assert_eq!(
+        results.len(),
+        1,
+        "Expected one song from info-path SQL query"
+    );
+    let r = &results[0];
+
+    // Verify key fields that would be misassigned with the old column order
+    assert_eq!(r.metadata.tag, "Info Tag", "tag mismatch (index 7)");
+    assert_eq!(
+        r.file.path().unwrap_or(""),
+        "info/path.bms",
+        "path mismatch (index 8)"
+    );
+    assert_eq!(r.folder, "info_folder", "folder mismatch (index 9)");
+    assert_eq!(
+        r.file.preview, "info_preview.ogg",
+        "preview mismatch (index 13)"
+    );
+    assert_eq!(r.chart.level, 12, "level mismatch (index 15)");
+    assert_eq!(r.chart.length, 90, "length mismatch (index 19)");
+    assert_eq!(r.chart.mode, 7, "mode mismatch (index 20)");
+    assert_eq!(r.chart.adddate, 3000, "adddate mismatch (index 26)");
+    assert_eq!(r.chart.notes, 500, "notes mismatch (index 27)");
+}
+
+/// Regression test for R3: checked_parent must be populated after a folder
+/// query to avoid redundant lookups. When update_parent_when_missing is true
+/// and the parent folder already exists in the database, a second call with
+/// the same parent should skip the folder query (cached in checked_parent).
+#[test]
+fn test_checked_parent_populated_after_folder_query() {
+    let tmpdir = tempfile::tempdir().unwrap();
+    let bms_dir = tmpdir.path().join("songs").join("pack");
+    fs::create_dir_all(&bms_dir).unwrap();
+
+    let bms_content = "\
+#TITLE CheckedParent Test\n\
+#BPM 120\n\
+#WAV01 kick.wav\n\
+#00111:01\n\
+";
+    fs::write(bms_dir.join("cp.bms"), bms_content).unwrap();
+
+    let db_path = tmpdir.path().join("song.db");
+    let bmsroot = vec![tmpdir.path().join("songs").to_string_lossy().to_string()];
+    let accessor = SQLiteSongDatabaseAccessor::new(&db_path.to_string_lossy(), &bmsroot).unwrap();
+
+    // Initial scan to populate folder records
+    accessor.update_song_datas(None, &bmsroot, true, false, None);
+
+    let bms_path = bms_dir.join("cp.bms").to_string_lossy().to_string();
+
+    // First update with update_parent_when_missing=true
+    accessor.update_song_datas(Some(&bms_path), &bmsroot, false, true, None);
+
+    // After the first call, the parent should be in checked_parent
+    let checked = accessor
+        .checked_parent
+        .lock()
+        .expect("checked_parent lock poisoned");
+    let parent_path = Path::new(&bms_path)
+        .parent()
+        .map(|pp| pp.to_string_lossy().to_string())
+        .unwrap_or_default();
+    assert!(
+        checked.contains(&parent_path),
+        "checked_parent should contain '{}' after first update_parent_when_missing call",
+        parent_path
+    );
+}
