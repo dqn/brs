@@ -7,7 +7,10 @@ struct DrawLongNoteParams<'a> {
     pub height: f32,
     pub scale: f32,
     pub note: &'a Note,
+    /// Timeline Vec index of the LN end (pair) note.
     pub pair_tl_idx: usize,
+    /// Timeline Vec index of the current (start) note.
+    pub note_tl_idx: usize,
 }
 
 impl LaneRenderer {
@@ -334,21 +337,23 @@ impl LaneRenderer {
                     if let Some(note) = note {
                         match note {
                             Note::Long { end, pair, .. } => {
-                                // For LN: check if the end is still visible
-                                let pair_idx = if *end {
-                                    // This is the end note; check if pair (start) is still active
-                                    *pair
+                                // For LN: check if the end note's time is still visible.
+                                // Java: (ln.isEnd() ? ln : ln.getPair()).getMicroTime()
+                                // always uses the end note's time.
+                                let end_time = if *end {
+                                    // This IS the end note; use its own time
+                                    tl.micro_time()
                                 } else {
-                                    // This is the start note; check pair (end) time
-                                    *pair
-                                };
-                                if let Some(pair_tl_idx) = pair_idx {
-                                    let pair_tl = &all_tl[pair_tl_idx];
-                                    let pair_time = pair_tl.micro_time();
-                                    if pair_time >= microtime {
-                                        can_advance = false;
-                                        break;
+                                    // This is the start note; use pair (end) time
+                                    if let Some(pair_tl_idx) = pair {
+                                        all_tl[*pair_tl_idx].micro_time()
+                                    } else {
+                                        continue;
                                     }
+                                };
+                                if end_time >= microtime {
+                                    can_advance = false;
+                                    break;
                                 }
                             }
                             Note::Normal(_) => {
@@ -573,6 +578,7 @@ impl LaneRenderer {
                                                     scale: dsth,
                                                     note,
                                                     pair_tl_idx: *pair_tl_idx,
+                                                    note_tl_idx: timelines[i],
                                                 },
                                             );
                                         }
@@ -786,19 +792,11 @@ impl LaneRenderer {
             return;
         };
 
+        let note_tl_idx = params.note_tl_idx;
         let is_processing =
             ctx.processing_long_notes.get(lane).copied().flatten() == Some(pair_tl_idx);
-        let is_passing = ctx.passing_long_notes.get(lane).copied().flatten()
-            == Some(
-                self.timeline_indices
-                    .iter()
-                    .position(|&idx| {
-                        ctx.all_timelines.get(idx).is_some_and(|tl| {
-                            tl.note(lane as i32).is_some_and(|n| std::ptr::eq(n, note))
-                        })
-                    })
-                    .unwrap_or(usize::MAX),
-            );
+        let is_passing =
+            ctx.passing_long_notes.get(lane).copied().flatten() == Some(note_tl_idx);
         let hell_charge_ok = ctx.hell_charge_judges.get(lane).copied().unwrap_or(false);
 
         if (ctx.lntype == LNTYPE_HELLCHARGENOTE && *note_type == TYPE_UNDEFINED)

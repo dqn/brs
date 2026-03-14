@@ -1,6 +1,23 @@
 use super::skin_context::PlayRenderContext;
 use super::*;
 
+/// Convert a JudgeNote array index to a timeline Vec index.
+///
+/// The judge manager stores JudgeNote indices for `processing` and `passing`,
+/// but the draw code compares against timeline Vec indices. This function
+/// bridges those two index spaces by finding the timeline that contains a
+/// note at the same time and lane as the JudgeNote.
+fn judge_note_idx_to_timeline_idx(
+    note_idx: usize,
+    judge_notes: &[bms_model::judge_note::JudgeNote],
+    timelines: &[bms_model::time_line::TimeLine],
+) -> Option<usize> {
+    let jn = judge_notes.get(note_idx)?;
+    timelines
+        .iter()
+        .position(|tl| tl.micro_time() == jn.time_us && tl.note(jn.lane as i32).is_some())
+}
+
 impl BMSPlayer {
     pub(super) fn render_skin_impl(
         &mut self,
@@ -23,6 +40,23 @@ impl BMSPlayer {
                 unsafe { std::mem::transmute(self.model.timelines.as_slice()) };
             let judge_table = self.judge.judge_table(false);
             let bad_judge_time = judge_table.get(3).map_or(0, |jt| jt[1]);
+            // Convert JudgeNote indices to timeline indices for processing/passing LN state.
+            // The judge manager stores JudgeNote array indices, but the draw code
+            // compares against timeline Vec indices (a different index space).
+            let processing_long_notes: Vec<Option<usize>> = (0..lane_count)
+                .map(|i| {
+                    self.judge.processing_long_note(i).and_then(|ni| {
+                        judge_note_idx_to_timeline_idx(ni, &self.judge_notes, &self.model.timelines)
+                    })
+                })
+                .collect();
+            let passing_long_notes: Vec<Option<usize>> = (0..lane_count)
+                .map(|i| {
+                    self.judge.passing_long_note(i).and_then(|ni| {
+                        judge_note_idx_to_timeline_idx(ni, &self.judge_notes, &self.model.timelines)
+                    })
+                })
+                .collect();
             let draw_ctx = crate::lane_renderer::DrawLaneContext {
                 time: timer.now_time(),
                 timer_play: if timer.is_timer_on(TIMER_PLAY) {
@@ -55,12 +89,8 @@ impl BMSPlayer {
                 judge_time_regions: (0..lane_count)
                     .map(|i| self.judge.judge_time_region(i).to_vec())
                     .collect(),
-                processing_long_notes: (0..lane_count)
-                    .map(|i| self.judge.processing_long_note(i))
-                    .collect(),
-                passing_long_notes: (0..lane_count)
-                    .map(|i| self.judge.passing_long_note(i))
-                    .collect(),
+                processing_long_notes,
+                passing_long_notes,
                 hell_charge_judges: (0..lane_count)
                     .map(|i| self.judge.hell_charge_judge(i))
                     .collect(),
@@ -119,5 +149,100 @@ impl BMSPlayer {
 
         self.main_state_data.timer = timer;
         self.main_state_data.skin = Some(skin);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bms_model::judge_note::{JudgeNote, JudgeNoteKind};
+    use bms_model::note::Note;
+    use bms_model::time_line::TimeLine;
+
+    fn make_judge_note(time_us: i64, lane: usize) -> JudgeNote {
+        JudgeNote {
+            time_us,
+            end_time_us: 0,
+            lane,
+            wav: 0,
+            kind: JudgeNoteKind::Normal,
+            ln_type: 0,
+            damage: 0.0,
+            pair_index: None,
+        }
+    }
+
+    #[test]
+    fn judge_note_idx_to_timeline_idx_finds_matching_timeline() {
+        let mut tl0 = TimeLine::new(0.0, 1_000_000, 8);
+        tl0.set_note(0, Some(Note::new_normal(1)));
+        let mut tl1 = TimeLine::new(1.0, 2_000_000, 8);
+        tl1.set_note(2, Some(Note::new_normal(1)));
+        let timelines = vec![tl0, tl1];
+
+        let judge_notes = vec![make_judge_note(1_000_000, 0), make_judge_note(2_000_000, 2)];
+
+        // JudgeNote 0 (time=1s, lane=0) should map to timeline 0
+        assert_eq!(
+            judge_note_idx_to_timeline_idx(0, &judge_notes, &timelines),
+            Some(0)
+        );
+        // JudgeNote 1 (time=2s, lane=2) should map to timeline 1
+        assert_eq!(
+            judge_note_idx_to_timeline_idx(1, &judge_notes, &timelines),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn judge_note_idx_to_timeline_idx_returns_none_for_missing() {
+        let tl0 = TimeLine::new(0.0, 1_000_000, 8); // no notes
+        let timelines = vec![tl0];
+
+        let judge_notes = vec![make_judge_note(1_000_000, 0)];
+
+        // No note at lane 0 in timeline -> None
+        assert_eq!(
+            judge_note_idx_to_timeline_idx(0, &judge_notes, &timelines),
+            None
+        );
+    }
+
+    #[test]
+    fn judge_note_idx_to_timeline_idx_returns_none_for_out_of_bounds() {
+        let timelines = vec![];
+        let judge_notes = vec![];
+
+        // Index out of bounds -> None
+        assert_eq!(
+            judge_note_idx_to_timeline_idx(5, &judge_notes, &timelines),
+            None
+        );
+    }
+
+    #[test]
+    fn judge_note_idx_to_timeline_idx_distinguishes_lanes() {
+        // Two timelines at the same time but different lanes with notes
+        let mut tl0 = TimeLine::new(0.0, 1_000_000, 8);
+        tl0.set_note(0, Some(Note::new_normal(1)));
+        let mut tl1 = TimeLine::new(1.0, 1_000_000, 8);
+        tl1.set_note(3, Some(Note::new_normal(1)));
+        let timelines = vec![tl0, tl1];
+
+        let judge_notes = vec![
+            make_judge_note(1_000_000, 0), // lane 0
+            make_judge_note(1_000_000, 3), // lane 3
+        ];
+
+        // Lane 0 note maps to timeline 0 (which has note on lane 0)
+        assert_eq!(
+            judge_note_idx_to_timeline_idx(0, &judge_notes, &timelines),
+            Some(0)
+        );
+        // Lane 3 note maps to timeline 1 (which has note on lane 3)
+        assert_eq!(
+            judge_note_idx_to_timeline_idx(1, &judge_notes, &timelines),
+            Some(1)
+        );
     }
 }

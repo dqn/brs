@@ -111,9 +111,11 @@ pub struct DrawLaneContext<'a> {
     pub lntype: bms_model::bms_model::LnType,
     /// Judge time regions per lane (5 judge levels, [start, end])
     pub judge_time_regions: Vec<Vec<[i64; 2]>>,
-    /// Processing long note per lane (timeline index of the LN pair, if actively pressing)
+    /// Processing long note per lane (timeline Vec index of the LN end note, if actively pressing).
+    /// Converted from JudgeNote index to timeline index at construction time.
     pub processing_long_notes: Vec<Option<usize>>,
-    /// Passing long note per lane (timeline index, if LN is passing through)
+    /// Passing long note per lane (timeline Vec index of the HCN start note, if passing through).
+    /// Converted from JudgeNote index to timeline index at construction time.
     pub passing_long_notes: Vec<Option<usize>>,
     /// Hell charge judge per lane
     pub hell_charge_judges: Vec<bool>,

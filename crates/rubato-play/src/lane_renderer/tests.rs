@@ -981,6 +981,153 @@ fn fixhispeed_basebpm_set_correctly_for_each_mode() {
     }
 }
 
+/// Regression test: pos-advancement for LN end notes previously checked the
+/// pair's (start note's) time instead of the end note's own time. Java always
+/// uses: `(ln.isEnd() ? ln : ln.getPair()).getMicroTime()` -- the end note's time.
+///
+/// Scenario: LN start at tl1 (t=1s), LN end at tl2 (t=2s). At time 3s both
+/// notes are past, so pos should advance past tl1. Before the fix, the end note
+/// branch checked pair (start) time which is also past, but the logic was
+/// identical in both branches making it accidentally correct for this case.
+/// The real bug manifests when start and end notes have divergent visibility
+/// but this test verifies the code path doesn't regress.
+#[test]
+fn pos_advance_ln_end_uses_own_time() {
+    let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
+    tl0.bpm = 120.0;
+
+    // LN start at tl1 (t=1s), end at tl2 (t=2s)
+    let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
+    let mut tl2 = make_timeline(2.0, 2_000_000, 120.0, 8);
+
+    let mut start_note = Note::new_long(1);
+    start_note.set_pair_index(Some(2));
+    start_note.set_end(false);
+
+    let mut end_note = Note::new_long(1);
+    end_note.set_pair_index(Some(1));
+    end_note.set_end(true);
+
+    tl1.set_note(0, Some(start_note));
+    tl2.set_note(0, Some(end_note));
+
+    // Add a timeline after the LN to verify pos advancement
+    let mut tl3 = make_timeline(3.0, 3_000_000, 120.0, 8);
+    tl3.set_note(0, Some(Note::new_normal(1)));
+
+    let model = make_model_with_timelines(vec![tl0, tl1, tl2, tl3], 120.0);
+    let mut renderer = LaneRenderer::new(&model);
+
+    let all_tls = &model.timelines;
+    let mut ctx = default_ctx(all_tls);
+    // Set time well past both LN notes (end at 2s)
+    ctx.time = 2500; // 2.5 seconds
+    ctx.timer_play = Some(0);
+
+    let lanes = make_lanes(8);
+    renderer.draw_lane(&ctx, &lanes, &[]);
+
+    // pos should have advanced past tl1 (the LN start timeline)
+    // since the LN end time (2s) < current time (2.5s)
+    assert!(
+        renderer.pos > 0,
+        "pos should advance past LN timelines when end time is past, got pos={}",
+        renderer.pos
+    );
+}
+
+/// Regression test: LN end note in pos-advancement should NOT advance when
+/// the end note's own time is still in the future, even though the pair (start)
+/// time might be in the past.
+#[test]
+fn pos_advance_ln_end_blocks_when_end_note_future() {
+    let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
+    tl0.bpm = 120.0;
+
+    // LN start at tl1 (t=0.5s), end at tl2 (t=2s)
+    let mut tl1 = make_timeline(0.5, 500_000, 120.0, 8);
+    let mut tl2 = make_timeline(2.0, 2_000_000, 120.0, 8);
+
+    let mut start_note = Note::new_long(1);
+    start_note.set_pair_index(Some(2));
+    start_note.set_end(false);
+
+    let mut end_note = Note::new_long(1);
+    end_note.set_pair_index(Some(1));
+    end_note.set_end(true);
+
+    tl1.set_note(0, Some(start_note));
+    tl2.set_note(0, Some(end_note));
+
+    let model = make_model_with_timelines(vec![tl0, tl1, tl2], 120.0);
+    let mut renderer = LaneRenderer::new(&model);
+
+    let all_tls = &model.timelines;
+    let mut ctx = default_ctx(all_tls);
+    // Time is past start note (0.5s) but before end note (2s)
+    ctx.time = 1000; // 1 second
+    ctx.timer_play = Some(0);
+
+    let lanes = make_lanes(8);
+    renderer.draw_lane(&ctx, &lanes, &[]);
+
+    // The LN end at tl2 (t=2s) is still in the future, so tl1 should NOT be
+    // advanced past (the LN body is still visible).
+    // pos should remain at 0 because tl1 has a start note whose pair end is future.
+    assert_eq!(
+        renderer.pos, 0,
+        "pos should NOT advance past LN start when end note is still future"
+    );
+}
+
+/// Regression test: is_passing comparison used incompatible index spaces.
+/// With processing/passing now storing timeline indices (converted from JudgeNote
+/// indices in render_skin.rs), verify that matching timeline indices produce
+/// correct is_processing/is_passing state for LN body rendering.
+#[test]
+fn long_note_processing_uses_timeline_indices() {
+    let mut tl0 = make_timeline(0.0, 0, 120.0, 8);
+    tl0.bpm = 120.0;
+
+    // LN start at tl1 (t=1s), end at tl2 (t=3s)
+    let mut tl1 = make_timeline(1.0, 1_000_000, 120.0, 8);
+    let mut tl2 = make_timeline(3.0, 3_000_000, 120.0, 8);
+
+    let mut start_note = Note::new_long(1);
+    start_note.set_pair_index(Some(2));
+    start_note.set_end(false);
+
+    let mut end_note = Note::new_long(1);
+    end_note.set_pair_index(Some(1));
+    end_note.set_end(true);
+
+    tl1.set_note(0, Some(start_note));
+    tl2.set_note(0, Some(end_note));
+
+    let model = make_model_with_timelines(vec![tl0, tl1, tl2], 120.0);
+    let mut renderer = LaneRenderer::new(&model);
+
+    let all_tls = &model.timelines;
+    let mut ctx = default_ctx(all_tls);
+    // Set processing_long_notes[0] = Some(2) -- timeline index 2 (the end note)
+    // This simulates what render_skin.rs now produces after JudgeNote->timeline conversion
+    ctx.processing_long_notes = vec![Some(2), None, None, None, None, None, None, None];
+
+    let lanes = make_lanes(8);
+    let result = renderer.draw_lane(&ctx, &lanes, &[]);
+
+    // The LN should be drawn with active body (image_index 2 for CN)
+    // because processing_long_notes[0] == Some(2) matches pair_tl_idx == 2
+    let has_active_body = result
+        .commands
+        .iter()
+        .any(|c| matches!(c, DrawCommand::DrawLongNote { image_index: 2, .. }));
+    assert!(
+        has_active_body,
+        "LN should render with active body when processing matches pair timeline index"
+    );
+}
+
 #[test]
 fn apply_play_config_then_init_recalculates_basebpm() {
     let mut tl0 = make_timeline(0.0, 0, 130.0, 8);
