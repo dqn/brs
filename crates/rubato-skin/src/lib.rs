@@ -9,6 +9,12 @@ pub mod rendering_stubs;
 // Stubs for external dependencies (lifecycle types, Phase 7+)
 pub mod stubs;
 
+// Extracted from stubs: real implementations and standalone types
+pub mod main_state;
+pub mod skin_config_offset;
+pub mod skin_resolution;
+pub mod skin_timer;
+
 // Skin property enums (standalone, no subdir)
 pub mod skin_property;
 

@@ -5,78 +5,35 @@
 pub use crate::rendering_stubs::*;
 
 // ============================================================
-// beatoraja types (from other crates, stubbed for phase independence)
+// Re-exports from extracted modules (backward compatibility)
 // ============================================================
 
-/// Stub for beatoraja.MainState
-///
-/// Extends `SkinRenderContext` (which extends `TimerAccess`) so that all
-/// property value, config access, event, gauge, judge, audio, and timer
-/// methods are inherited from `SkinRenderContext`.
-///
-/// Only methods that depend on skin-crate-local types (`MainController`,
-/// `PlayerResource`, `TextureRegion`) remain here.
-pub trait MainState: rubato_types::skin_render_context::SkinRenderContext {
-    fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess;
-    fn get_main(&self) -> &MainController;
-    fn get_image(&self, id: i32) -> Option<TextureRegion>;
-    fn get_resource(&self) -> &PlayerResource;
+// MainState trait -- canonical definition in crate::main_state
+pub use crate::main_state::MainState;
 
-    /// Select a song with the given play mode.
-    /// Only meaningful for MusicSelector.
-    /// Note: SkinRenderContext has `select_song_mode(event_id: i32)` with a different signature.
-    fn select_song(&mut self, _mode: rubato_core::bms_player_mode::BMSPlayerMode) {
-        // default no-op
-    }
+// Timer -- canonical definition in crate::skin_timer
+pub use crate::skin_timer::Timer;
 
-    // ============================================================
-    // Backward-compatibility shims (Phase 3b)
-    // These delegate to the renamed SkinRenderContext methods so that
-    // existing callers continue to compile until Phase 3c migrates them.
-    // ============================================================
+// Resolution -- canonical definition in crate::skin_resolution
+pub use crate::skin_resolution::Resolution;
 
-    /// Deprecated: use `SkinRenderContext::gauge_value()` instead.
-    fn get_gauge_value(&self) -> f32 {
-        self.gauge_value()
-    }
+// SkinConfigOffset -- canonical definition in crate::skin_config_offset
+pub use crate::skin_config_offset::SkinConfigOffset;
 
-    /// Deprecated: use `SkinRenderContext::now_judge()` instead.
-    fn get_now_judge(&self, player: i32) -> i32 {
-        self.now_judge(player)
-    }
+// SkinOffset -- re-exported from rubato-types (Phase 25d-2)
+pub use rubato_types::skin_offset::SkinOffset;
 
-    /// Deprecated: use `SkinRenderContext::now_combo()` instead.
-    fn get_now_combo(&self, player: i32) -> i32 {
-        self.now_combo(player)
-    }
+// TimingDistribution -- re-exported from rubato-types (Phase 25d-2)
+pub use rubato_types::timing_distribution::TimingDistribution;
 
-    /// Deprecated: use `SkinRenderContext::player_config_ref()` instead.
-    fn get_player_config_ref(&self) -> Option<&rubato_types::player_config::PlayerConfig> {
-        self.player_config_ref()
-    }
+// beatoraja.song types (re-exports)
+pub use rubato_song::song_data::SongData;
+pub use rubato_song::song_information::SongInformation;
 
-    /// Deprecated: use `SkinRenderContext::config_ref()` instead.
-    fn get_config_ref(&self) -> Option<&rubato_types::config::Config> {
-        self.config_ref()
-    }
-
-    /// Deprecated: use `SkinRenderContext::config_mut()` instead.
-    fn get_config_mut(&mut self) -> Option<&mut rubato_types::config::Config> {
-        self.config_mut()
-    }
-
-    /// Deprecated: use `SkinRenderContext::selected_play_config_mut()` instead.
-    fn get_selected_play_config_mut(
-        &mut self,
-    ) -> Option<&mut rubato_types::play_config::PlayConfig> {
-        self.selected_play_config_mut()
-    }
-
-    /// Deprecated: use `SkinRenderContext::current_play_config_ref()` instead.
-    fn get_selected_play_config_ref(&self) -> Option<&rubato_types::play_config::PlayConfig> {
-        self.current_play_config_ref()
-    }
-}
+// ============================================================
+// Shadow types (stubs for cross-crate dependencies)
+// These remain until callers are migrated to SkinRenderContext methods.
+// ============================================================
 
 /// Stub for beatoraja.MainController
 pub struct MainController {
@@ -112,122 +69,6 @@ impl InputProcessor {
     pub fn mouse_y(&self) -> f32 {
         0.0
     }
-}
-
-// SkinOffset — re-exported from beatoraja-types (Phase 25d-2)
-pub use rubato_types::skin_offset::SkinOffset;
-
-/// Timer data carrier for skin rendering — implements TimerAccess from beatoraja-types.
-///
-/// Holds current time and per-timer-id activation times (snapshot from TimerManager).
-/// Previously returned 0 for all per-timer queries (frozen animations).
-#[derive(Clone, Debug, Default)]
-pub struct Timer {
-    pub now_time: i64,
-    pub now_micro_time: i64,
-    /// Per-timer-id activation times. Index = timer_id, value = micro-time when set
-    /// (i64::MIN = OFF). Populated from TimerManager's timer array.
-    timers: Vec<i64>,
-}
-
-impl Timer {
-    /// Create a Timer with time values and a timer array snapshot.
-    pub fn with_timers(now_time: i64, now_micro_time: i64, timers: Vec<i64>) -> Self {
-        Self {
-            now_time,
-            now_micro_time,
-            timers,
-        }
-    }
-
-    /// Set the activation time for a specific timer ID.
-    /// Grows the timers array as needed (new entries default to i64::MIN = OFF).
-    pub fn set_timer_value(&mut self, timer_id: i32, micro_time: i64) {
-        if timer_id < 0 {
-            return;
-        }
-        let idx = timer_id as usize;
-        if idx >= self.timers.len() {
-            self.timers.resize(idx + 1, i64::MIN);
-        }
-        self.timers[idx] = micro_time;
-    }
-
-    pub fn now_time(&self) -> i64 {
-        self.now_time
-    }
-
-    pub fn now_micro_time(&self) -> i64 {
-        self.now_micro_time
-    }
-
-    pub fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        let raw = timer_id.as_i32();
-        if raw >= 0 && (raw as usize) < self.timers.len() {
-            self.timers[raw as usize]
-        } else {
-            i64::MIN
-        }
-    }
-
-    pub fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        self.micro_timer(timer_id) / 1000
-    }
-
-    pub fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        if self.is_timer_on(timer_id) {
-            (self.now_micro_time - self.micro_timer(timer_id)) / 1000
-        } else {
-            0
-        }
-    }
-
-    pub fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
-        self.micro_timer(timer_id) != i64::MIN
-    }
-}
-
-impl rubato_types::skin_render_context::SkinRenderContext for Timer {}
-
-impl rubato_types::timer_access::TimerAccess for Timer {
-    fn now_time(&self) -> i64 {
-        self.now_time
-    }
-    fn now_micro_time(&self) -> i64 {
-        self.now_micro_time
-    }
-    fn micro_timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        Timer::micro_timer(self, timer_id)
-    }
-    fn timer(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        Timer::timer(self, timer_id)
-    }
-    fn now_time_for(&self, timer_id: rubato_types::timer_id::TimerId) -> i64 {
-        Timer::now_time_for(self, timer_id)
-    }
-    fn is_timer_on(&self, timer_id: rubato_types::timer_id::TimerId) -> bool {
-        Timer::is_timer_on(self, timer_id)
-    }
-}
-
-/// Stub for beatoraja.Resolution
-#[derive(Clone, Debug, Default)]
-pub struct Resolution {
-    pub width: f32,
-    pub height: f32,
-}
-
-/// Stub for beatoraja.SkinConfig.Offset
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
-pub struct SkinConfigOffset {
-    pub name: String,
-    pub x: f32,
-    pub y: f32,
-    pub w: f32,
-    pub h: f32,
-    pub r: f32,
-    pub a: f32,
-    pub enabled: bool,
 }
 
 // ============================================================
@@ -310,13 +151,6 @@ impl MusicResultResource {
         vec![]
     }
 }
-
-// TimingDistribution — re-exported from beatoraja-types (Phase 25d-2)
-pub use rubato_types::timing_distribution::TimingDistribution;
-
-// beatoraja.song types (re-exports)
-pub use rubato_song::song_data::SongData;
-pub use rubato_song::song_information::SongInformation;
 
 /// Stub for beatoraja.PlayerResource
 pub struct PlayerResource;
