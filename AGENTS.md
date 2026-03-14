@@ -64,6 +64,7 @@ rubato/              # Cargo workspace (15 crates) at repo root
     rubato-bin       # Entry point
   golden-master/   # Golden Master test infra
   test-bms/        # Test BMS files
+  .claude/tmp/beatoraja/  # Original Java source code (beatoraja fork)
 ```
 
 ## Key Invariants
