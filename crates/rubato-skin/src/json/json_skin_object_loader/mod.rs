@@ -1,7 +1,7 @@
 // Mechanical translation of JsonSkinObjectLoader.java
 // Object loader base class (abstract in Java, trait in Rust)
 
-mod utilities;
+pub(crate) mod utilities;
 
 #[cfg(test)]
 mod tests;

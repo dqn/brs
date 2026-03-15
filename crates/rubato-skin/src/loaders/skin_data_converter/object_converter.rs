@@ -481,26 +481,10 @@ pub(super) fn convert_skin_object(
             usecim,
         ),
 
-        SkinObjectType::Note {
-            lane_count,
-            lane_regions,
-        } => {
-            let mut note = SkinNoteObject::new(*lane_count);
-            // Set lane regions from note.dst definitions
-            for (i, &(x, y, w, h)) in lane_regions.iter().enumerate() {
-                note.inner.set_lane_region(
-                    i,
-                    &rubato_play::skin::note::LaneRegion {
-                        x,
-                        y,
-                        width: w,
-                        height: h,
-                        scale: 1.0,
-                        dstnote2: i32::MIN,
-                    },
-                );
-            }
-            Some(SkinObject::Note(note))
+        SkinObjectType::Note => {
+            // Note is handled as pre-built resolved_note in convert_skin_data.
+            // Fallback: create empty note (should not reach here with play loader).
+            Some(SkinObject::Note(SkinNoteObject::new(0)))
         }
         SkinObjectType::HiddenCover {
             src,

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct Image {
     #[serde(deserialize_with = "deserialize_optional_string_from_int", default)]
     pub id: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_string_from_int", default)]
     pub src: Option<String>,
     pub x: i32,
     pub y: i32,

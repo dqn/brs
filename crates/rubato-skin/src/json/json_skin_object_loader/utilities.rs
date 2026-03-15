@@ -43,8 +43,16 @@ pub fn texture(loader: &mut JSONSkinLoader, srcid: Option<&str>, p: &Path) -> Op
     let image_file = get_path_with_filemap(&image_path, &loader.filemap);
 
     let mut result: Option<Texture> = None;
-    if std::path::Path::new(&image_file).exists() {
-        let tex = Texture::new(&image_file);
+    let resolved_path = if std::path::Path::new(&image_file).exists() {
+        Some(image_file.clone())
+    } else if image_file.contains('*') {
+        // Simple wildcard expansion (e.g., "play/notes/*.png")
+        resolve_wildcard_path(&image_file)
+    } else {
+        None
+    };
+    if let Some(path) = resolved_path {
+        let tex = Texture::new(&path);
         result = Some(tex.clone());
         if let Some(data) = loader.source_map.get_mut(srcid) {
             data.data = Some(SourceDataType::Texture(tex));
@@ -65,14 +73,29 @@ pub fn note_texture(
 ) -> Vec<Option<Vec<TextureRegion>>> {
     let sk = match &loader.sk {
         Some(sk) => sk.clone(),
-        None => return vec![None; images.len()],
+        None => {
+            log::warn!("note_texture: loader.sk is None");
+            return vec![None; images.len()];
+        }
     };
     let mut note_images: Vec<Option<Vec<TextureRegion>>> = Vec::with_capacity(images.len());
     for image_id in images {
         let mut found = false;
         for img in &sk.image {
             if img.id.as_deref() == Some(image_id.as_str()) {
+                log::debug!(
+                    "note_texture: matched image_id={:?}, src={:?}",
+                    image_id,
+                    img.src
+                );
                 let tex = texture(loader, img.src.as_deref(), p);
+                if tex.is_none() {
+                    log::warn!(
+                        "note_texture: texture() returned None for src={:?}, source_map keys: {:?}",
+                        img.src,
+                        loader.source_map.keys().take(10).collect::<Vec<_>>()
+                    );
+                }
                 if let Some(tex) = tex {
                     let regions =
                         source_image(&tex, img.x, img.y, img.w, img.h, img.divx, img.divy);
@@ -222,4 +245,34 @@ pub fn parse_hex_color(hex: &str, fallback: Color) -> Color {
     } else {
         fallback
     }
+}
+
+/// Resolve a wildcard path like "skin/play/notes/*.png" to the first matching file.
+fn resolve_wildcard_path(pattern: &str) -> Option<String> {
+    let path = std::path::Path::new(pattern);
+    let parent = path.parent()?;
+    let filename_pattern = path.file_name()?.to_str()?;
+
+    if !parent.is_dir() {
+        return None;
+    }
+
+    let entries = std::fs::read_dir(parent).ok()?;
+    // Extract extension from pattern (e.g., "*.png" -> "png")
+    let ext = filename_pattern.rsplit('.').next().unwrap_or("");
+    let prefix = filename_pattern.split('*').next().unwrap_or("");
+
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        let matches = if !prefix.is_empty() {
+            name_str.starts_with(prefix) && name_str.ends_with(ext)
+        } else {
+            name_str.ends_with(ext)
+        };
+        if matches {
+            return Some(entry.path().to_string_lossy().to_string());
+        }
+    }
+    None
 }

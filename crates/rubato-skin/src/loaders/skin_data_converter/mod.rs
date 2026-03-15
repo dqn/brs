@@ -202,15 +202,21 @@ pub fn convert_skin_data(
     skin.scene = data.scene;
 
     // Convert each SkinObjectData to a SkinObject
-    for obj_data in &data.objects {
+    for mut obj_data in data.objects {
         let scale_y = crate::safe_div_f32(dstr.height, src.height);
-        let skin_obj = convert_skin_object(
-            &obj_data.object_type,
-            source_map,
-            skin_path,
-            usecim,
-            scale_y,
-        );
+
+        // Use pre-built resolved_note if available (from play skin loader)
+        let skin_obj = if let Some(resolved) = obj_data.resolved_note.take() {
+            Some(crate::types::skin::SkinObject::Note(resolved))
+        } else {
+            convert_skin_object(
+                &obj_data.object_type,
+                source_map,
+                skin_path,
+                usecim,
+                scale_y,
+            )
+        };
 
         if let Some(mut obj) = skin_obj {
             // Set name on the underlying SkinObjectData

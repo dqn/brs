@@ -158,6 +158,7 @@ fn test_convert_skin_data_with_image_by_id() {
         offset_ids: vec![],
         stretch: -1,
         mouse_rect: None,
+        resolved_note: None,
     });
 
     let mut source_map = HashMap::new();
@@ -358,6 +359,7 @@ fn test_convert_with_destinations() {
         offset_ids: vec![],
         stretch: -1,
         mouse_rect: None,
+        resolved_note: None,
     });
 
     let mut source_map = HashMap::new();
@@ -417,6 +419,7 @@ fn test_convert_with_mouse_rect() {
             w: 30,
             h: 40,
         }),
+        resolved_note: None,
     });
 
     let mut source_map = HashMap::new();
@@ -692,16 +695,7 @@ fn test_note_judge_songlist_return_some() {
     let mut source_map = HashMap::new();
     let path = Path::new("/test/skin.json");
 
-    let note = convert_skin_object(
-        &SkinObjectType::Note {
-            lane_count: 8,
-            lane_regions: vec![],
-        },
-        &mut source_map,
-        path,
-        false,
-        1.0,
-    );
+    let note = convert_skin_object(&SkinObjectType::Note, &mut source_map, path, false, 1.0);
     assert!(note.is_some());
     assert_eq!(note.unwrap().type_name(), "SkinNote");
 

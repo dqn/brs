@@ -390,11 +390,20 @@ impl rubato_core::main_state::SkinDrawable for Skin {
             if let SkinObject::Note(note) = obj {
                 let lanes = note.inner.lanes();
                 let result = lr.draw_lane(&ctx, lanes, &[]);
-                log::debug!(
-                    "compute_note_draw_commands: lanes={}, commands={}",
-                    lanes.len(),
-                    result.commands.len()
-                );
+                // One-shot detailed log of first frame's commands
+                static LOGGED: std::sync::Once = std::sync::Once::new();
+                LOGGED.call_once(|| {
+                    let draw_notes = result.commands.iter().filter(|c| matches!(c, rubato_play::lane_renderer::DrawCommand::DrawNote { .. })).count();
+                    let draw_ln = result.commands.iter().filter(|c| matches!(c, rubato_play::lane_renderer::DrawCommand::DrawLongNote { .. })).count();
+                    log::info!(
+                        "compute_note_draw_commands FIRST FRAME: lanes={}, total_cmds={}, DrawNote={}, DrawLongNote={}, note_images_wired={}",
+                        lanes.len(),
+                        result.commands.len(),
+                        draw_notes,
+                        draw_ln,
+                        note.note_images.iter().filter(|i| i.is_some()).count(),
+                    );
+                });
                 note.draw_commands = result.commands;
                 return;
             }

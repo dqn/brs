@@ -38,6 +38,9 @@ impl JsonSkinObjectLoader for JsonPlaySkinObjectLoader {
         if let Some(ref note) = sk.note
             && dst_id == note.id.as_deref().unwrap_or("")
         {
+            use crate::json::json_skin_object_loader::utilities::note_texture;
+            use crate::skin_note_object::SkinNoteObject;
+
             // Determine lane count from note.dst (per-lane regions) or note.note (image IDs)
             let lane_count = if !note.dst.is_empty() {
                 note.dst.len()
@@ -45,26 +48,56 @@ impl JsonSkinObjectLoader for JsonPlaySkinObjectLoader {
                 note.note.len()
             };
 
-            // Extract lane regions from note.dst (each Animation = one lane's position)
-            let lane_regions: Vec<(f32, f32, f32, f32)> = note
-                .dst
-                .iter()
-                .map(|anim| (anim.x as f32, anim.y as f32, anim.w as f32, anim.h as f32))
-                .collect();
+            let mut note_obj = SkinNoteObject::new(lane_count);
+
+            // Set lane regions from note.dst
+            for (i, anim) in note.dst.iter().enumerate() {
+                note_obj.inner.set_lane_region(
+                    i,
+                    &rubato_play::skin::note::LaneRegion {
+                        x: anim.x as f32,
+                        y: anim.y as f32,
+                        width: anim.w as f32,
+                        height: anim.h as f32,
+                        scale: 1.0,
+                        dstnote2: i32::MIN,
+                    },
+                );
+            }
+
+            // Resolve note textures (first frame of each lane's animation)
+            let note_textures = note_texture(loader, &note.note, p);
+            for (i, tex) in note_textures.iter().enumerate() {
+                if let Some(regions) = tex
+                    && let Some(first) = regions.first()
+                    && i < note_obj.note_images.len()
+                {
+                    note_obj.note_images[i] = Some(first.clone());
+                }
+            }
+
+            // Resolve mine textures
+            let mine_textures = note_texture(loader, &note.mine, p);
+            for (i, tex) in mine_textures.iter().enumerate() {
+                if let Some(regions) = tex
+                    && let Some(first) = regions.first()
+                    && i < note_obj.mine_images.len()
+                {
+                    note_obj.mine_images[i] = Some(first.clone());
+                }
+            }
 
             log::debug!(
-                "Note: lane_count={}, dst_count={}, note_images={}",
+                "Note: lane_count={}, note_images_wired={}, mine_images_wired={}",
                 lane_count,
-                note.dst.len(),
-                note.note.len()
+                note_obj.note_images.iter().filter(|i| i.is_some()).count(),
+                note_obj.mine_images.iter().filter(|i| i.is_some()).count(),
             );
 
             let obj = SkinObjectData {
                 name: note.id.clone(),
-                object_type: SkinObjectType::Note {
-                    lane_count,
-                    lane_regions,
-                },
+                object_type: SkinObjectType::Note,
+                resolved_note: Some(note_obj),
                 ..Default::default()
             };
             return Some(obj);

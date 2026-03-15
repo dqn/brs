@@ -531,13 +531,9 @@ pub enum SkinObjectType {
         starttime: i32,
         endtime: i32,
     },
-    /// SkinNote (play skin only)
-    Note {
-        /// Number of lanes (from note.dst or note.note length)
-        lane_count: usize,
-        /// Per-lane region (x, y, w, h) from note.dst
-        lane_regions: Vec<(f32, f32, f32, f32)>,
-    },
+    /// SkinNote (play skin only). Marker only; the actual SkinNoteObject
+    /// is stored in SkinObjectData.resolved_note.
+    Note,
     /// SkinHidden (hidden cover, play skin only)
     HiddenCover {
         src: Option<String>,
@@ -627,7 +623,7 @@ pub struct SkinNumberOffset {
     pub h: i32,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Default)]
 pub struct SkinObjectData {
     pub name: Option<String>,
     pub object_type: SkinObjectType,
@@ -635,6 +631,33 @@ pub struct SkinObjectData {
     pub offset_ids: Vec<i32>,
     pub stretch: i32,
     pub mouse_rect: Option<RectData>,
+    /// Pre-built SkinNoteObject (set by play skin loader, consumed by converter).
+    /// Not cloned -- Clone impl sets this to None.
+    pub resolved_note: Option<crate::skin_note_object::SkinNoteObject>,
+}
+
+impl Clone for SkinObjectData {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            object_type: self.object_type.clone(),
+            destinations: self.destinations.clone(),
+            offset_ids: self.offset_ids.clone(),
+            stretch: self.stretch,
+            mouse_rect: self.mouse_rect.clone(),
+            resolved_note: None, // Not cloneable; consumed during conversion
+        }
+    }
+}
+
+impl std::fmt::Debug for SkinObjectData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SkinObjectData")
+            .field("name", &self.name)
+            .field("object_type", &self.object_type)
+            .field("resolved_note", &self.resolved_note.is_some())
+            .finish()
+    }
 }
 
 impl SkinObjectData {
