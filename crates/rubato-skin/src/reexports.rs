@@ -2,7 +2,7 @@
 // All shadow types have been removed; callers use SkinRenderContext methods instead.
 
 // Re-export all rendering types (wgpu-backed LibGDX equivalents)
-pub use crate::rendering_stubs::*;
+pub use crate::render_reexports::*;
 
 // MainState trait -- canonical definition in crate::main_state
 pub use crate::main_state::MainState;
