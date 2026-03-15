@@ -432,6 +432,169 @@ mod tests {
     }
 
     #[test]
+    fn test_value_of_7_digit_hex_has_alpha_fallback() {
+        // 7 chars is < 8, so alpha defaults to 1.0
+        let c = Color::value_of("FF00007");
+        // Only parses first 6 for RGB, ignores partial alpha
+        assert_eq!(c.r, 1.0);
+        assert_eq!(c.g, 0.0);
+        assert_eq!(c.b, 0.0);
+        assert_eq!(c.a, 1.0);
+    }
+
+    #[test]
+    fn test_value_of_lowercase() {
+        let c = Color::value_of("ff0000");
+        assert_eq!(c.r, 1.0);
+        assert_eq!(c.g, 0.0);
+        assert_eq!(c.b, 0.0);
+    }
+
+    #[test]
+    fn test_value_of_mid_gray() {
+        let c = Color::value_of("808080");
+        // 0x80 = 128, 128/255 ~ 0.502
+        assert!((c.r - 128.0 / 255.0).abs() < f32::EPSILON);
+        assert!((c.g - 128.0 / 255.0).abs() < f32::EPSILON);
+        assert!((c.b - 128.0 / 255.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_rgba8888_half_values() {
+        let packed = Color::rgba8888(0.5, 0.5, 0.5, 0.5);
+        let r = ((packed >> 24) & 0xFF) as u8;
+        let g = ((packed >> 16) & 0xFF) as u8;
+        let b = ((packed >> 8) & 0xFF) as u8;
+        let a = (packed & 0xFF) as u8;
+        // 0.5 * 255 = 127 (truncated)
+        assert_eq!(r, 127);
+        assert_eq!(g, 127);
+        assert_eq!(b, 127);
+        assert_eq!(a, 127);
+    }
+
+    #[test]
+    fn test_to_int_bits_zeros() {
+        let bits = Color::to_int_bits(0, 0, 0, 0);
+        assert_eq!(bits, 0);
+    }
+
+    #[test]
+    fn test_color_equals_epsilon_boundary() {
+        // Colors that differ by exactly EPSILON should still be "equal"
+        let a = Color::new(0.5, 0.5, 0.5, 0.5);
+        let b = Color::new(0.5, 0.5, 0.5, 0.5);
+        assert!(a.equals(&b));
+    }
+
+    #[test]
+    fn test_color_not_equals_different_r() {
+        let a = Color::new(0.0, 0.5, 0.5, 0.5);
+        let b = Color::new(1.0, 0.5, 0.5, 0.5);
+        assert!(!a.equals(&b));
+    }
+
+    #[test]
+    fn test_color_not_equals_different_g() {
+        let a = Color::new(0.5, 0.0, 0.5, 0.5);
+        let b = Color::new(0.5, 1.0, 0.5, 0.5);
+        assert!(!a.equals(&b));
+    }
+
+    #[test]
+    fn test_color_not_equals_different_b() {
+        let a = Color::new(0.5, 0.5, 0.0, 0.5);
+        let b = Color::new(0.5, 0.5, 1.0, 0.5);
+        assert!(!a.equals(&b));
+    }
+
+    // --- Rectangle tests ---
+
+    #[test]
+    fn test_rectangle_new() {
+        let r = Rectangle::new(10.0, 20.0, 30.0, 40.0);
+        assert_eq!(r.x, 10.0);
+        assert_eq!(r.y, 20.0);
+        assert_eq!(r.width, 30.0);
+        assert_eq!(r.height, 40.0);
+    }
+
+    #[test]
+    fn test_rectangle_default_is_zero() {
+        let r = Rectangle::default();
+        assert_eq!(r.x, 0.0);
+        assert_eq!(r.y, 0.0);
+        assert_eq!(r.width, 0.0);
+        assert_eq!(r.height, 0.0);
+    }
+
+    #[test]
+    fn test_rectangle_contains_inside() {
+        let r = Rectangle::new(10.0, 20.0, 100.0, 50.0);
+        assert!(r.contains(50.0, 40.0));
+    }
+
+    #[test]
+    fn test_rectangle_contains_top_left_corner() {
+        let r = Rectangle::new(10.0, 20.0, 100.0, 50.0);
+        assert!(r.contains(10.0, 20.0));
+    }
+
+    #[test]
+    fn test_rectangle_not_contains_bottom_right_edge() {
+        // contains uses < for upper bound
+        let r = Rectangle::new(0.0, 0.0, 10.0, 10.0);
+        assert!(!r.contains(10.0, 5.0)); // x == x+width
+        assert!(!r.contains(5.0, 10.0)); // y == y+height
+    }
+
+    #[test]
+    fn test_rectangle_not_contains_outside() {
+        let r = Rectangle::new(10.0, 20.0, 100.0, 50.0);
+        assert!(!r.contains(5.0, 25.0)); // left of rect
+        assert!(!r.contains(50.0, 15.0)); // above rect
+    }
+
+    #[test]
+    fn test_rectangle_set() {
+        let mut r = Rectangle::default();
+        let other = Rectangle::new(1.0, 2.0, 3.0, 4.0);
+        r.set(&other);
+        assert!(r.equals(&other));
+    }
+
+    #[test]
+    fn test_rectangle_set_xywh() {
+        let mut r = Rectangle::default();
+        r.set_xywh(5.0, 10.0, 15.0, 20.0);
+        assert_eq!(r.x, 5.0);
+        assert_eq!(r.y, 10.0);
+        assert_eq!(r.width, 15.0);
+        assert_eq!(r.height, 20.0);
+    }
+
+    #[test]
+    fn test_rectangle_equals_same() {
+        let a = Rectangle::new(1.0, 2.0, 3.0, 4.0);
+        let b = Rectangle::new(1.0, 2.0, 3.0, 4.0);
+        assert!(a.equals(&b));
+    }
+
+    #[test]
+    fn test_rectangle_not_equals_different() {
+        let a = Rectangle::new(1.0, 2.0, 3.0, 4.0);
+        let b = Rectangle::new(1.0, 2.0, 3.0, 5.0);
+        assert!(!a.equals(&b));
+    }
+
+    #[test]
+    fn test_rectangle_contains_zero_size() {
+        // Zero-size rectangle contains nothing
+        let r = Rectangle::new(10.0, 10.0, 0.0, 0.0);
+        assert!(!r.contains(10.0, 10.0));
+    }
+
+    #[test]
     fn test_value_of_emoji_returns_fallback() {
         // Emoji: 4 bytes each, so 2 emoji = 8 bytes >= 6, but slicing panics without guard
         let c = Color::value_of("\u{1F600}\u{1F601}");

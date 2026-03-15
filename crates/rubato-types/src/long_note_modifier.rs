@@ -29,4 +29,24 @@ mod tests {
         let copied = m;
         assert_eq!(format!("{:?}", copied), "Add");
     }
+
+    #[test]
+    fn test_long_note_modifier_mode_off_debug() {
+        let m = Mode::Off;
+        assert_eq!(format!("{:?}", m), "Off");
+    }
+
+    #[test]
+    fn test_long_note_modifier_mode_remove_debug() {
+        let m = Mode::Remove;
+        assert_eq!(format!("{:?}", m), "Remove");
+    }
+
+    #[test]
+    fn test_long_note_modifier_mode_values_order() {
+        let values = Mode::values();
+        assert!(matches!(values[0], Mode::Off));
+        assert!(matches!(values[1], Mode::Add));
+        assert!(matches!(values[2], Mode::Remove));
+    }
 }

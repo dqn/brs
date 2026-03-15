@@ -374,3 +374,271 @@ impl LR2SkinHeaderLoader {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn write_temp_header(name: &str, content: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join("lr2_skin_header_tests");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(name);
+        std::fs::write(&path, content).unwrap();
+        path
+    }
+
+    #[test]
+    fn test_load_empty_file_returns_default_header() {
+        let path = write_temp_header("empty_header.lr2skin", "");
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert!(header.skin_type.is_none());
+        assert!(header.name.is_empty());
+        assert!(header.author.is_empty());
+        assert!(header.resolution.is_none());
+        assert!(header.custom_options.is_empty());
+        assert!(header.custom_files.is_empty());
+        assert!(header.custom_offsets.is_empty());
+    }
+
+    #[test]
+    fn test_information_command_parses_fields() {
+        let csv = "#INFORMATION,0,TestSkin,TestAuthor\n";
+        let path = write_temp_header("info.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert_eq!(header.name, "TestSkin");
+        assert_eq!(header.author, "TestAuthor");
+    }
+
+    #[test]
+    fn test_information_too_few_fields_no_panic() {
+        let csv = "#INFORMATION,0\n";
+        let path = write_temp_header("info_short.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert!(header.name.is_empty());
+    }
+
+    #[test]
+    fn test_resolution_sd() {
+        let csv = "#RESOLUTION,0\n";
+        let path = write_temp_header("res_sd.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        let res = header.resolution.unwrap();
+        assert_eq!(res.width, 640.0);
+        assert_eq!(res.height, 480.0);
+    }
+
+    #[test]
+    fn test_resolution_hd() {
+        let csv = "#RESOLUTION,1\n";
+        let path = write_temp_header("res_hd.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        let res = header.resolution.unwrap();
+        assert_eq!(res.width, 1280.0);
+        assert_eq!(res.height, 720.0);
+    }
+
+    #[test]
+    fn test_resolution_fullhd() {
+        let csv = "#RESOLUTION,2\n";
+        let path = write_temp_header("res_fullhd.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        let res = header.resolution.unwrap();
+        assert_eq!(res.width, 1920.0);
+        assert_eq!(res.height, 1080.0);
+    }
+
+    #[test]
+    fn test_resolution_ultrahd() {
+        let csv = "#RESOLUTION,3\n";
+        let path = write_temp_header("res_uhd.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        let res = header.resolution.unwrap();
+        assert_eq!(res.width, 3840.0);
+        assert_eq!(res.height, 2160.0);
+    }
+
+    #[test]
+    fn test_resolution_out_of_range_ignored() {
+        let csv = "#RESOLUTION,99\n";
+        let path = write_temp_header("res_oor.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert!(header.resolution.is_none());
+    }
+
+    #[test]
+    fn test_resolution_non_numeric_ignored() {
+        let csv = "#RESOLUTION,abc\n";
+        let path = write_temp_header("res_nan.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert!(header.resolution.is_none());
+    }
+
+    #[test]
+    fn test_customoption_basic() {
+        let csv = "#CUSTOMOPTION,Lane Style,100,Normal,Wide,Narrow\n";
+        let path = write_temp_header("customopt.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert_eq!(header.custom_options.len(), 1);
+        assert_eq!(header.custom_options[0].name, "Lane Style");
+        assert_eq!(header.custom_options[0].option, vec![100, 101, 102]);
+        assert_eq!(header.custom_options[0].contents.len(), 3);
+    }
+
+    #[test]
+    fn test_customoption_too_few_fields_no_panic() {
+        let csv = "#CUSTOMOPTION,Name\n";
+        let path = write_temp_header("customopt_short.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert!(header.custom_options.is_empty());
+    }
+
+    #[test]
+    fn test_customfile_basic() {
+        let csv = "#CUSTOMFILE,Background,LR2files\\Theme/bg*.png,default_bg.png\n";
+        let path = write_temp_header("customfile.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert_eq!(header.custom_files.len(), 1);
+        assert_eq!(header.custom_files[0].name, "Background");
+        assert_eq!(
+            header.custom_files[0].def,
+            Some("default_bg.png".to_string())
+        );
+    }
+
+    #[test]
+    fn test_customfile_no_default() {
+        let csv = "#CUSTOMFILE,BG,images/bg.png\n";
+        let path = write_temp_header("customfile_nodef.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert_eq!(header.custom_files.len(), 1);
+        assert!(header.custom_files[0].def.is_none());
+    }
+
+    #[test]
+    fn test_customoffset_basic() {
+        let csv = "#CUSTOMOFFSET,My Offset,50,1,1,0,0,1,0\n";
+        let path = write_temp_header("customoffset.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert_eq!(header.custom_offsets.len(), 1);
+        assert_eq!(header.custom_offsets[0].name, "My Offset");
+        assert_eq!(header.custom_offsets[0].id, 50);
+        assert!(header.custom_offsets[0].caps.x);
+        assert!(header.custom_offsets[0].caps.y);
+        assert!(!header.custom_offsets[0].caps.w);
+        assert!(!header.custom_offsets[0].caps.h);
+        assert!(header.custom_offsets[0].caps.r);
+        assert!(!header.custom_offsets[0].caps.a);
+    }
+
+    #[test]
+    fn test_customoffset_defaults_to_all_true() {
+        // When capability fields are missing, they default to true
+        let csv = "#CUSTOMOFFSET,Minimal,10\n";
+        let path = write_temp_header("customoffset_min.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert_eq!(header.custom_offsets.len(), 1);
+        let caps = &header.custom_offsets[0].caps;
+        assert!(caps.x);
+        assert!(caps.y);
+        assert!(caps.w);
+        assert!(caps.h);
+        assert!(caps.r);
+        assert!(caps.a);
+    }
+
+    #[test]
+    fn test_play_skin_type_adds_default_options_and_offsets() {
+        // INFORMATION type 0 = Play7Keys (has defaults)
+        let csv = "#INFORMATION,0,PlaySkin,Author\n";
+        let path = write_temp_header("play_defaults.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        // Play skins add default options: BGA Size, Ghost, Score Graph, Judge Detail
+        let option_names: Vec<&str> = header
+            .custom_options
+            .iter()
+            .map(|o| o.name.as_str())
+            .collect();
+        assert!(option_names.contains(&"BGA Size"));
+        assert!(option_names.contains(&"Ghost"));
+        assert!(option_names.contains(&"Score Graph"));
+        assert!(option_names.contains(&"Judge Detail"));
+        // Play skins add default offsets
+        assert!(!header.custom_offsets.is_empty());
+    }
+
+    #[test]
+    fn test_nonexistent_file_returns_error() {
+        let path = std::path::PathBuf::from("/nonexistent/skin.lr2skin");
+        let mut loader = LR2SkinHeaderLoader::new("/nonexistent");
+        assert!(loader.load_skin(&path, None).is_err());
+    }
+
+    #[test]
+    fn test_multiple_custom_options_accumulate() {
+        let csv = "\
+#CUSTOMOPTION,Opt1,100,A,B\n\
+#CUSTOMOPTION,Opt2,200,X,Y,Z\n";
+        let path = write_temp_header("multi_opts.lr2skin", csv);
+        let skinpath = path.parent().unwrap().to_str().unwrap();
+        let mut loader = LR2SkinHeaderLoader::new(skinpath);
+        let header = loader.load_skin(&path, None).unwrap();
+        assert_eq!(header.custom_options.len(), 2);
+        assert_eq!(header.custom_options[0].name, "Opt1");
+        assert_eq!(header.custom_options[1].name, "Opt2");
+        assert_eq!(header.custom_options[1].option, vec![200, 201, 202]);
+    }
+
+    #[test]
+    fn test_custom_option_selected_defaults_to_first() {
+        let co = CustomOption::new(
+            "Test",
+            vec![10, 11, 12],
+            vec!["A".into(), "B".into(), "C".into()],
+        );
+        assert_eq!(co.selected_option(), 10);
+    }
+
+    #[test]
+    fn test_custom_option_empty_option_vec() {
+        let co = CustomOption::new("Test", vec![], vec![]);
+        assert_eq!(co.selected_option(), 0); // Falls back to unwrap_or(0)
+    }
+
+    #[test]
+    fn test_custom_file_selected_filename_default_none() {
+        let cf = CustomFile::new("BG", "images/bg.png", Some("default.png"));
+        assert!(cf.selected_filename().is_none());
+    }
+}

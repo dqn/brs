@@ -150,4 +150,45 @@ mod tests {
             assert_eq!(*alg, parsed);
         }
     }
+
+    #[test]
+    fn test_judge_algorithm_index_matches_values_position() {
+        for (i, alg) in JudgeAlgorithm::values().iter().enumerate() {
+            assert_eq!(JudgeAlgorithm::index(&alg.to_string()), i as i32);
+        }
+    }
+
+    #[test]
+    fn test_judge_algorithm_from_str_case_sensitive() {
+        // FromStr is case-sensitive
+        assert!("combo".parse::<JudgeAlgorithm>().is_err());
+        assert!("COMBO".parse::<JudgeAlgorithm>().is_err());
+        assert!("duration".parse::<JudgeAlgorithm>().is_err());
+    }
+
+    #[test]
+    fn test_judge_algorithm_index_empty_string() {
+        assert_eq!(JudgeAlgorithm::index(""), -1);
+    }
+
+    #[test]
+    fn test_judge_algorithm_serde_all_variants() {
+        for alg in JudgeAlgorithm::values() {
+            let json = serde_json::to_string(alg).unwrap();
+            let back: JudgeAlgorithm = serde_json::from_str(&json).unwrap();
+            assert_eq!(*alg, back);
+        }
+    }
+
+    #[test]
+    fn test_judge_algorithm_serde_from_json_string() {
+        let alg: JudgeAlgorithm = serde_json::from_str("\"Timing\"").unwrap();
+        assert_eq!(alg, JudgeAlgorithm::Timing);
+    }
+
+    #[test]
+    fn test_judge_algorithm_serde_invalid_variant() {
+        let result: Result<JudgeAlgorithm, _> = serde_json::from_str("\"Invalid\"");
+        assert!(result.is_err());
+    }
 }

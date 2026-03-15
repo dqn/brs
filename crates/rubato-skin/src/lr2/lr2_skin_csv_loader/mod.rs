@@ -914,6 +914,210 @@ SCENETIME,9999\n\
 
     // --- SRC_BUTTON group_size == 0 guard ---
 
+    // --- IMAGE command edge cases ---
+
+    #[test]
+    fn test_image_command_missing_path_pushes_null() {
+        let mut state = make_state();
+        state.process_csv_command("IMAGE", &str_vec(&["#IMAGE"]), None);
+        assert_eq!(state.imagelist.len(), 1);
+        assert!(matches!(state.imagelist[0], ImageListEntry::Null));
+    }
+
+    #[test]
+    fn test_image_command_empty_path_pushes_null() {
+        let mut state = make_state();
+        state.process_csv_command("IMAGE", &str_vec(&["#IMAGE", ""]), None);
+        assert_eq!(state.imagelist.len(), 1);
+        assert!(matches!(state.imagelist[0], ImageListEntry::Null));
+    }
+
+    #[test]
+    fn test_image_movie_extensions_case_insensitive() {
+        let dir = std::env::temp_dir().join("lr2_skin_csv_tests");
+        std::fs::create_dir_all(&dir).unwrap();
+        for ext in &["MP4", "Mp4", "avi", "AVI", "mpg", "wmv", "m4v"] {
+            let movie_path = dir.join(format!("test_case.{}", ext));
+            std::fs::write(&movie_path, b"fake").unwrap();
+            let mut state = make_state();
+            state.process_csv_command(
+                "IMAGE",
+                &str_vec(&["#IMAGE", movie_path.to_str().unwrap()]),
+                None,
+            );
+            assert!(
+                matches!(state.imagelist[0], ImageListEntry::Movie(_)),
+                "Extension .{} should be detected as movie",
+                ext
+            );
+        }
+    }
+
+    // --- LR2FONT command edge cases ---
+
+    #[test]
+    fn test_lr2font_missing_path_pushes_none() {
+        let mut state = make_state();
+        state.process_csv_command("LR2FONT", &str_vec(&["#LR2FONT"]), None);
+        assert_eq!(state.fontlist.len(), 1);
+        assert!(state.fontlist[0].is_none());
+    }
+
+    // --- INCLUDE edge cases ---
+
+    #[test]
+    fn test_include_missing_path_no_panic() {
+        let mut state = make_state();
+        state.process_csv_command("INCLUDE", &str_vec(&["#INCLUDE"]), None);
+        // Should not panic
+        assert_eq!(state.skin_scene, None);
+    }
+
+    // --- source_image_from_texture edge cases ---
+
+    #[test]
+    fn test_source_image_from_texture_large_grid() {
+        let tex = Texture {
+            width: 100,
+            height: 100,
+            ..Default::default()
+        };
+        let images = LR2SkinCSVLoaderState::source_image_from_texture(&tex, 0, 0, 100, 100, 10, 10);
+        assert_eq!(images.len(), 100);
+        // Each cell should be 10x10
+        assert_eq!(images[0].region_width, 10);
+        assert_eq!(images[0].region_height, 10);
+    }
+
+    #[test]
+    fn test_source_image_from_texture_offset_xy() {
+        let tex = Texture {
+            width: 200,
+            height: 200,
+            ..Default::default()
+        };
+        let images = LR2SkinCSVLoaderState::source_image_from_texture(&tex, 50, 60, 100, 80, 2, 1);
+        assert_eq!(images.len(), 2);
+        assert_eq!(images[0].region_x, 50);
+        assert_eq!(images[0].region_y, 60);
+        assert_eq!(images[0].region_width, 50);
+        assert_eq!(images[0].region_height, 80);
+        assert_eq!(images[1].region_x, 100);
+        assert_eq!(images[1].region_y, 60);
+    }
+
+    #[test]
+    fn test_source_image_from_texture_single_cell() {
+        let tex = Texture {
+            width: 64,
+            height: 32,
+            ..Default::default()
+        };
+        let images = LR2SkinCSVLoaderState::source_image_from_texture(&tex, 0, 0, 64, 32, 1, 1);
+        assert_eq!(images.len(), 1);
+        assert_eq!(images[0].region_width, 64);
+        assert_eq!(images[0].region_height, 32);
+    }
+
+    #[test]
+    fn test_source_image_from_texture_w_h_zero_produces_zero_size_regions() {
+        let tex = Texture {
+            width: 64,
+            height: 64,
+            ..Default::default()
+        };
+        // w=0, h=0 (not -1) should produce zero-size regions
+        let images = LR2SkinCSVLoaderState::source_image_from_texture(&tex, 0, 0, 0, 0, 1, 1);
+        assert_eq!(images.len(), 1);
+        assert_eq!(images[0].region_width, 0);
+        assert_eq!(images[0].region_height, 0);
+    }
+
+    // --- build_gauge_image_array additional tests ---
+
+    #[test]
+    fn test_build_gauge_standard_two_states() {
+        let mut state = make_state();
+        let tex = Texture {
+            width: 160,
+            height: 20,
+            ..Default::default()
+        };
+        state.imagelist.push(ImageListEntry::TextureEntry(tex));
+        let mut values = [0i32; 22];
+        values[2] = 0;
+        values[3] = 0;
+        values[4] = 0;
+        values[5] = 160;
+        values[6] = 20;
+        values[14] = 0; // standard
+
+        // 8 divx, 1 divy -> total=8, standard: 4 per state = 2 states
+        let gauge = state.build_gauge_image_array(&values, 8, 1, 8, false);
+        assert_eq!(gauge.len(), 2);
+        assert_eq!(gauge[0].len(), 36);
+        assert_eq!(gauge[1].len(), 36);
+    }
+
+    #[test]
+    fn test_build_gauge_pms_two_states() {
+        let mut state = make_state();
+        let tex = Texture {
+            width: 240,
+            height: 20,
+            ..Default::default()
+        };
+        state.imagelist.push(ImageListEntry::TextureEntry(tex));
+        let mut values = [0i32; 22];
+        values[2] = 0;
+        values[3] = 0;
+        values[4] = 0;
+        values[5] = 240;
+        values[6] = 20;
+        values[14] = 3; // PMS mode
+
+        // 12 divx, 1 divy -> total=12, PMS: 6 per state = 2 states
+        let gauge = state.build_gauge_image_array(&values, 12, 1, 12, false);
+        assert_eq!(gauge.len(), 2);
+    }
+
+    // --- process_csv_command: multiple commands ---
+
+    #[test]
+    fn test_startinput_large_value() {
+        let mut state = make_state();
+        state.process_csv_command("STARTINPUT", &str_vec(&["STARTINPUT", "999999"]), None);
+        assert_eq!(state.skin_input, Some(999999));
+    }
+
+    #[test]
+    fn test_scenetime_max_i32() {
+        let mut state = make_state();
+        state.process_csv_command("SCENETIME", &str_vec(&["SCENETIME", "2147483647"]), None);
+        assert_eq!(state.skin_scene, Some(i32::MAX));
+    }
+
+    #[test]
+    fn test_fadeout_overflow_string_returns_none() {
+        let mut state = make_state();
+        state.process_csv_command("FADEOUT", &str_vec(&["FADEOUT", "99999999999"]), None);
+        // Overflow for i32 -> parse fails -> None
+        assert_eq!(state.skin_fadeout, None);
+    }
+
+    // --- finalize_active_objects collects objects ---
+
+    #[test]
+    fn test_finalize_collects_button_onmouse_gauger() {
+        // Just verify that finalize moves items from active slots to collected_objects
+        let mut state = make_state();
+        assert!(state.button.is_none());
+        assert!(state.onmouse.is_none());
+        assert!(state.gauger.is_none());
+        state.finalize_active_objects();
+        assert!(state.collected_objects.is_empty());
+    }
+
     #[test]
     fn test_src_button_length_exceeds_image_count_no_panic() {
         // Regression: when SRC_BUTTON length > srcimg.len(), group_size becomes 0

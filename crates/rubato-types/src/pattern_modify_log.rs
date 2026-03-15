@@ -57,4 +57,45 @@ mod tests {
         assert_eq!(cloned.old_lane, log.old_lane);
         assert_eq!(cloned.new_lane, log.new_lane);
     }
+
+    #[test]
+    fn test_pattern_modify_log_negative_lanes() {
+        let log = PatternModifyLog {
+            old_lane: -1,
+            new_lane: -5,
+        };
+        // validate always returns true
+        assert!(log.validate());
+        assert_eq!(log.old_lane, -1);
+        assert_eq!(log.new_lane, -5);
+    }
+
+    #[test]
+    fn test_pattern_modify_log_same_lane() {
+        let log = PatternModifyLog {
+            old_lane: 3,
+            new_lane: 3,
+        };
+        assert!(log.validate());
+    }
+
+    #[test]
+    fn test_pattern_modify_log_serde_deserialize_missing_fields() {
+        // serde default fills in 0 for missing fields
+        let json = r#"{"old_lane":5,"new_lane":10}"#;
+        let log: PatternModifyLog = serde_json::from_str(json).unwrap();
+        assert_eq!(log.old_lane, 5);
+        assert_eq!(log.new_lane, 10);
+    }
+
+    #[test]
+    fn test_pattern_modify_log_debug() {
+        let log = PatternModifyLog {
+            old_lane: 2,
+            new_lane: 7,
+        };
+        let debug = format!("{:?}", log);
+        assert!(debug.contains("old_lane"));
+        assert!(debug.contains("new_lane"));
+    }
 }

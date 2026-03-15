@@ -29,4 +29,24 @@ mod tests {
         let copied = m;
         assert_eq!(format!("{:?}", copied), "Variable");
     }
+
+    #[test]
+    fn test_scroll_speed_modifier_mode_off_debug() {
+        let m = Mode::Off;
+        assert_eq!(format!("{:?}", m), "Off");
+    }
+
+    #[test]
+    fn test_scroll_speed_modifier_mode_fixed_debug() {
+        let m = Mode::Fixed;
+        assert_eq!(format!("{:?}", m), "Fixed");
+    }
+
+    #[test]
+    fn test_scroll_speed_modifier_mode_values_order() {
+        let values = Mode::values();
+        assert!(matches!(values[0], Mode::Off));
+        assert!(matches!(values[1], Mode::Variable));
+        assert!(matches!(values[2], Mode::Fixed));
+    }
 }

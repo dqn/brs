@@ -94,4 +94,49 @@ mod tests {
         assert_eq!(cloned.keycode, log.keycode);
         assert_eq!(cloned.pressed, log.pressed);
     }
+
+    #[test]
+    fn test_key_input_log_validate_max_values() {
+        let log = KeyInputLog {
+            time: i64::MAX,
+            keycode: i32::MAX,
+            pressed: true,
+        };
+        assert!(log.validate());
+    }
+
+    #[test]
+    fn test_key_input_log_validate_both_negative() {
+        let log = KeyInputLog {
+            time: -100,
+            keycode: -50,
+            pressed: false,
+        };
+        assert!(!log.validate());
+    }
+
+    #[test]
+    fn test_key_input_log_serde_false_pressed() {
+        let log = KeyInputLog {
+            time: 0,
+            keycode: 0,
+            pressed: false,
+        };
+        let json = serde_json::to_string(&log).unwrap();
+        let back: KeyInputLog = serde_json::from_str(&json).unwrap();
+        assert!(!back.pressed);
+    }
+
+    #[test]
+    fn test_key_input_log_debug_format() {
+        let log = KeyInputLog {
+            time: 1234,
+            keycode: 5,
+            pressed: true,
+        };
+        let debug = format!("{:?}", log);
+        assert!(debug.contains("1234"));
+        assert!(debug.contains("5"));
+        assert!(debug.contains("true"));
+    }
 }

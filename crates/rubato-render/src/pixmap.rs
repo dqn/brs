@@ -392,6 +392,212 @@ mod tests {
     }
 
     #[test]
+    fn test_new_pixmap_zero_dimensions() {
+        let p = Pixmap::new(0, 0, PixmapFormat::RGBA8888);
+        assert_eq!(p.width, 0);
+        assert_eq!(p.height, 0);
+        assert!(p.data.is_empty());
+    }
+
+    #[test]
+    fn test_new_pixmap_negative_dimensions_clamped_to_zero() {
+        let p = Pixmap::new(-5, -3, PixmapFormat::RGBA8888);
+        assert_eq!(p.width, -5);
+        assert_eq!(p.height, -3);
+        // data size uses max(0) so no panic
+        assert!(p.data.is_empty());
+    }
+
+    #[test]
+    fn test_draw_pixel_out_of_bounds_no_panic() {
+        let mut p = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
+        // All out-of-bounds writes should be silently ignored
+        p.draw_pixel(-1, 0, 0xFF0000FF_u32 as i32);
+        p.draw_pixel(0, -1, 0xFF0000FF_u32 as i32);
+        p.draw_pixel(4, 0, 0xFF0000FF_u32 as i32);
+        p.draw_pixel(0, 4, 0xFF0000FF_u32 as i32);
+        // All pixels should remain zero
+        for y in 0..4 {
+            for x in 0..4 {
+                assert_eq!(p.pixel(x, y), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_fill_then_clear_rectangle() {
+        let mut p = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
+        p.set_color_rgba(1.0, 0.0, 0.0, 1.0);
+        p.fill();
+        // All red
+        assert_eq!(p.pixel(0, 0), 0xFF0000FF_u32 as i32);
+        // Now fill with transparent (black)
+        p.set_color_rgba(0.0, 0.0, 0.0, 0.0);
+        p.fill();
+        assert_eq!(p.pixel(0, 0), 0);
+    }
+
+    #[test]
+    fn test_set_color_clamps_values() {
+        let mut p = Pixmap::new(2, 2, PixmapFormat::RGBA8888);
+        p.set_color_rgba(2.0, -1.0, 0.5, 1.5);
+        p.fill();
+        // R=2.0 clamped to 1.0 -> 255, G=-1.0 clamped to 0.0 -> 0
+        // B=0.5 -> 127, A=1.5 clamped to 1.0 -> 255
+        let pixel = p.pixel(0, 0);
+        assert_eq!(((pixel >> 24) & 0xFF) as u8, 255); // R
+        assert_eq!(((pixel >> 16) & 0xFF) as u8, 0); // G
+        assert_eq!(((pixel >> 8) & 0xFF) as u8, 127); // B
+        assert_eq!((pixel & 0xFF) as u8, 255); // A
+    }
+
+    #[test]
+    fn test_fill_rectangle_clipped_to_bounds() {
+        let mut p = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
+        p.set_color_rgba(0.0, 1.0, 0.0, 1.0);
+        // Rectangle extends beyond pixmap bounds
+        p.fill_rectangle(2, 2, 10, 10);
+        // Only (2,2), (2,3), (3,2), (3,3) should be filled
+        assert_ne!(p.pixel(2, 2), 0);
+        assert_ne!(p.pixel(3, 3), 0);
+        assert_eq!(p.pixel(0, 0), 0);
+        assert_eq!(p.pixel(1, 1), 0);
+    }
+
+    #[test]
+    fn test_fill_rectangle_negative_xy_clipped() {
+        let mut p = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
+        p.set_color_rgba(1.0, 0.0, 0.0, 1.0);
+        // Starts at (-1, -1) with size 3x3 -> should fill (0,0) to (1,1)
+        p.fill_rectangle(-1, -1, 3, 3);
+        assert_ne!(p.pixel(0, 0), 0);
+        assert_ne!(p.pixel(1, 1), 0);
+        assert_eq!(p.pixel(2, 0), 0);
+    }
+
+    #[test]
+    fn test_draw_line_horizontal() {
+        let mut p = Pixmap::new(10, 10, PixmapFormat::RGBA8888);
+        p.set_color_rgba(1.0, 1.0, 1.0, 1.0);
+        p.draw_line(0, 5, 9, 5);
+        // All pixels on y=5 should be white
+        for x in 0..10 {
+            assert_ne!(p.pixel(x, 5), 0, "pixel ({x}, 5) should be drawn");
+        }
+        // Pixels on y=4 should remain empty
+        assert_eq!(p.pixel(0, 4), 0);
+    }
+
+    #[test]
+    fn test_draw_line_vertical() {
+        let mut p = Pixmap::new(10, 10, PixmapFormat::RGBA8888);
+        p.set_color_rgba(1.0, 1.0, 1.0, 1.0);
+        p.draw_line(3, 0, 3, 9);
+        for y in 0..10 {
+            assert_ne!(p.pixel(3, y), 0, "pixel (3, {y}) should be drawn");
+        }
+    }
+
+    #[test]
+    fn test_draw_line_single_point() {
+        let mut p = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
+        p.set_color_rgba(1.0, 0.0, 0.0, 1.0);
+        p.draw_line(2, 2, 2, 2);
+        assert_ne!(p.pixel(2, 2), 0);
+    }
+
+    #[test]
+    fn test_draw_pixmap_zero_size_rects_no_op() {
+        let mut dst = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
+        let src = Pixmap::new(2, 2, PixmapFormat::RGBA8888);
+        // Zero-size src rect should do nothing
+        dst.draw_pixmap(
+            &src,
+            BlitRect {
+                x: 0,
+                y: 0,
+                w: 0,
+                h: 0,
+            },
+            BlitRect {
+                x: 0,
+                y: 0,
+                w: 2,
+                h: 2,
+            },
+        );
+        assert_eq!(dst.pixel(0, 0), 0);
+        // Zero-size dst rect should do nothing
+        dst.draw_pixmap(
+            &src,
+            BlitRect {
+                x: 0,
+                y: 0,
+                w: 2,
+                h: 2,
+            },
+            BlitRect {
+                x: 0,
+                y: 0,
+                w: 0,
+                h: 0,
+            },
+        );
+        assert_eq!(dst.pixel(0, 0), 0);
+    }
+
+    #[test]
+    fn test_draw_pixmap_opaque_overwrite() {
+        let mut dst = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
+        dst.set_color_rgba(0.0, 0.0, 1.0, 1.0);
+        dst.fill();
+
+        let mut src = Pixmap::new(2, 2, PixmapFormat::RGBA8888);
+        src.set_color_rgba(1.0, 0.0, 0.0, 1.0);
+        src.fill();
+
+        dst.draw_pixmap(
+            &src,
+            BlitRect {
+                x: 0,
+                y: 0,
+                w: 2,
+                h: 2,
+            },
+            BlitRect {
+                x: 1,
+                y: 1,
+                w: 2,
+                h: 2,
+            },
+        );
+        // (1,1) should be red (src overwrites dst)
+        assert_eq!(dst.pixel(1, 1), 0xFF0000FF_u32 as i32);
+        // (0,0) should still be blue
+        assert_eq!(dst.pixel(0, 0), 0x0000FFFF_u32 as i32);
+    }
+
+    #[test]
+    fn test_dispose_clears_data() {
+        let mut p = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
+        assert!(!p.data.is_empty());
+        p.dispose();
+        assert!(p.data.is_empty());
+        assert_eq!(p.width, 0);
+        assert_eq!(p.height, 0);
+    }
+
+    #[test]
+    fn test_from_rgba_data() {
+        let data = vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 0, 0, 255];
+        let p = Pixmap::from_rgba_data(2, 2, data);
+        assert_eq!(p.width, 2);
+        assert_eq!(p.height, 2);
+        assert_eq!(p.pixel(0, 0), 0xFF0000FF_u32 as i32); // red
+        assert_eq!(p.pixel(1, 0), 0x00FF00FF_u32 as i32); // green
+    }
+
+    #[test]
     fn test_fill_rectangle_zero_width_draws_nothing() {
         let mut p = Pixmap::new(4, 4, PixmapFormat::RGBA8888);
         p.set_color_rgba(1.0, 0.0, 0.0, 1.0);

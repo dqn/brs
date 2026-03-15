@@ -103,4 +103,108 @@ mod tests {
         assert!(!input.is_activated(KeyCommand::ShowFps));
         assert_eq!(input.start_time(), 0);
     }
+
+    #[test]
+    fn test_control_keys_all_variants_distinct() {
+        let keys = [
+            ControlKeys::Num0,
+            ControlKeys::Num1,
+            ControlKeys::Num2,
+            ControlKeys::Num3,
+            ControlKeys::Num4,
+            ControlKeys::Num5,
+            ControlKeys::Num6,
+            ControlKeys::Num7,
+            ControlKeys::Num8,
+            ControlKeys::Num9,
+            ControlKeys::F1,
+            ControlKeys::F2,
+            ControlKeys::F3,
+            ControlKeys::F4,
+            ControlKeys::F5,
+            ControlKeys::F6,
+            ControlKeys::F7,
+            ControlKeys::F8,
+            ControlKeys::F9,
+            ControlKeys::F10,
+            ControlKeys::F11,
+            ControlKeys::F12,
+            ControlKeys::Up,
+            ControlKeys::Down,
+            ControlKeys::Left,
+            ControlKeys::Right,
+            ControlKeys::Enter,
+            ControlKeys::Insert,
+            ControlKeys::Del,
+            ControlKeys::Escape,
+            ControlKeys::KeyC,
+        ];
+        // Verify all are unique (no duplicates)
+        for i in 0..keys.len() {
+            for j in (i + 1)..keys.len() {
+                assert_ne!(
+                    keys[i], keys[j],
+                    "Keys at index {} and {} should be distinct",
+                    i, j
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_key_command_all_variants_distinct() {
+        let cmds = [
+            KeyCommand::ShowFps,
+            KeyCommand::UpdateFolder,
+            KeyCommand::OpenExplorer,
+            KeyCommand::CopySongMd5Hash,
+            KeyCommand::CopySongSha256Hash,
+            KeyCommand::SwitchScreenMode,
+            KeyCommand::SaveScreenshot,
+            KeyCommand::AddFavoriteSong,
+            KeyCommand::AddFavoriteChart,
+            KeyCommand::AutoplayFolder,
+            KeyCommand::OpenIr,
+            KeyCommand::OpenSkinConfiguration,
+            KeyCommand::ToggleModMenu,
+            KeyCommand::CopyHighlightedMenuText,
+        ];
+        for i in 0..cmds.len() {
+            for j in (i + 1)..cmds.len() {
+                assert_ne!(cmds[i], cmds[j]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_default_scroll_returns_zero() {
+        let input = TestInput;
+        assert_eq!(input.scroll(), 0);
+    }
+
+    #[test]
+    fn test_control_keys_clone_copy() {
+        let k = ControlKeys::Enter;
+        let k2 = k;
+        assert_eq!(k, k2);
+    }
+
+    #[test]
+    fn test_key_command_clone_copy() {
+        let c = KeyCommand::SaveScreenshot;
+        let c2 = c;
+        assert_eq!(c, c2);
+    }
+
+    #[test]
+    fn test_control_keys_debug() {
+        let k = ControlKeys::F12;
+        assert_eq!(format!("{:?}", k), "F12");
+    }
+
+    #[test]
+    fn test_key_command_debug() {
+        let c = KeyCommand::ToggleModMenu;
+        assert_eq!(format!("{:?}", c), "ToggleModMenu");
+    }
 }

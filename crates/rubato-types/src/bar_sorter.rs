@@ -76,4 +76,67 @@ mod tests {
         let copied = entry;
         assert_eq!(copied.name(), "CLEAR");
     }
+
+    #[test]
+    fn test_bar_sorter_all_sorter_count() {
+        assert_eq!(BarSorter::ALL_SORTER.len(), 12);
+    }
+
+    #[test]
+    fn test_bar_sorter_all_sorter_names() {
+        let names: Vec<&str> = BarSorter::ALL_SORTER.iter().map(|e| e.name()).collect();
+        assert_eq!(
+            names,
+            vec![
+                "TITLE",
+                "ARTIST",
+                "BPM",
+                "LENGTH",
+                "LEVEL",
+                "CLEAR",
+                "SCORE",
+                "MISSCOUNT",
+                "DURATION",
+                "LASTUPDATE",
+                "RIVALCOMPARECLEAR",
+                "RIVALCOMPARESCORE"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_bar_sorter_default_has_title_clear_score() {
+        // Key entries that must be in DEFAULT_SORTER
+        let names: Vec<&str> = BarSorter::DEFAULT_SORTER.iter().map(|e| e.name()).collect();
+        assert!(names.contains(&"TITLE"));
+        assert!(names.contains(&"CLEAR"));
+        assert!(names.contains(&"SCORE"));
+    }
+
+    #[test]
+    fn test_bar_sorter_all_superset_of_common_entries() {
+        // ALL_SORTER has TITLE, CLEAR, SCORE, MISSCOUNT, LEVEL from DEFAULT_SORTER
+        let all_names: Vec<&str> = BarSorter::ALL_SORTER.iter().map(|e| e.name()).collect();
+        for name in &["TITLE", "CLEAR", "SCORE", "MISSCOUNT", "LEVEL"] {
+            assert!(all_names.contains(name), "{} should be in ALL_SORTER", name);
+        }
+    }
+
+    #[test]
+    fn test_bar_sorter_all_has_additional_entries() {
+        let all_names: Vec<&str> = BarSorter::ALL_SORTER.iter().map(|e| e.name()).collect();
+        assert!(all_names.contains(&"ARTIST"));
+        assert!(all_names.contains(&"BPM"));
+        assert!(all_names.contains(&"LENGTH"));
+        assert!(all_names.contains(&"DURATION"));
+        assert!(all_names.contains(&"RIVALCOMPARECLEAR"));
+        assert!(all_names.contains(&"RIVALCOMPARESCORE"));
+    }
+
+    #[test]
+    fn test_bar_sorter_entry_debug() {
+        let entry = BarSorterEntry { name: "SCORE" };
+        let debug = format!("{:?}", entry);
+        assert!(debug.contains("SCORE"));
+    }
 }

@@ -391,3 +391,201 @@ pub struct FreeTypeFontParameter {
     pub color: Color,
     pub characters: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- BitmapFontData::parse_fnt tests ---
+
+    #[test]
+    fn parse_fnt_empty_string() {
+        let data = BitmapFontData::parse_fnt("", None);
+        assert!(data.is_some());
+        let data = data.unwrap();
+        assert!(data.glyphs.is_empty());
+        assert!(data.image_paths.is_empty());
+    }
+
+    #[test]
+    fn parse_fnt_info_line() {
+        let content = "info face=\"TestFont\" size=24 bold=0\n";
+        let data = BitmapFontData::parse_fnt(content, None).unwrap();
+        assert_eq!(data.font_size, 24.0);
+    }
+
+    #[test]
+    fn parse_fnt_common_line() {
+        let content = "common lineHeight=32 base=25 scaleW=512 scaleH=256\n";
+        let data = BitmapFontData::parse_fnt(content, None).unwrap();
+        assert_eq!(data.line_height, 32.0);
+        assert_eq!(data.base, 25.0);
+        assert_eq!(data.scale_w, 512.0);
+        assert_eq!(data.scale_h, 256.0);
+    }
+
+    #[test]
+    fn parse_fnt_page_line_with_quotes() {
+        let content = "page id=0 file=\"font_page0.png\"\n";
+        let data = BitmapFontData::parse_fnt(content, None).unwrap();
+        assert_eq!(data.image_paths.len(), 1);
+        assert_eq!(data.image_paths[0], "font_page0.png");
+    }
+
+    #[test]
+    fn parse_fnt_page_line_without_quotes() {
+        let content = "page id=0 file=font_page0.png\n";
+        let data = BitmapFontData::parse_fnt(content, None).unwrap();
+        assert_eq!(data.image_paths.len(), 1);
+        assert_eq!(data.image_paths[0], "font_page0.png");
+    }
+
+    #[test]
+    fn parse_fnt_char_line() {
+        let content =
+            "char id=65 x=10 y=20 width=30 height=40 xoffset=2 yoffset=3 xadvance=35 page=0\n";
+        let data = BitmapFontData::parse_fnt(content, None).unwrap();
+        assert_eq!(data.glyphs.len(), 1);
+        let glyph = data.glyphs.get(&65).unwrap();
+        assert_eq!(glyph.id, 65);
+        assert_eq!(glyph.x, 10);
+        assert_eq!(glyph.y, 20);
+        assert_eq!(glyph.width, 30);
+        assert_eq!(glyph.height, 40);
+        assert_eq!(glyph.xoffset, 2);
+        assert_eq!(glyph.yoffset, 3);
+        assert_eq!(glyph.xadvance, 35);
+        assert_eq!(glyph.page, 0);
+    }
+
+    #[test]
+    fn parse_fnt_multiple_chars() {
+        let content = "\
+char id=65 x=0 y=0 width=10 height=10 xoffset=0 yoffset=0 xadvance=12 page=0\n\
+char id=66 x=10 y=0 width=10 height=10 xoffset=0 yoffset=0 xadvance=12 page=0\n\
+char id=67 x=20 y=0 width=10 height=10 xoffset=0 yoffset=0 xadvance=12 page=0\n";
+        let data = BitmapFontData::parse_fnt(content, None).unwrap();
+        assert_eq!(data.glyphs.len(), 3);
+        assert!(data.glyphs.contains_key(&65));
+        assert!(data.glyphs.contains_key(&66));
+        assert!(data.glyphs.contains_key(&67));
+    }
+
+    #[test]
+    fn parse_fnt_ignores_unknown_lines() {
+        let content = "\
+kerning first=65 second=66 amount=-1\n\
+chars count=1\n\
+char id=65 x=0 y=0 width=10 height=10 xoffset=0 yoffset=0 xadvance=12 page=0\n";
+        let data = BitmapFontData::parse_fnt(content, None).unwrap();
+        assert_eq!(data.glyphs.len(), 1);
+    }
+
+    #[test]
+    fn parse_fnt_negative_offsets() {
+        let content =
+            "char id=65 x=0 y=0 width=10 height=10 xoffset=-2 yoffset=-3 xadvance=8 page=0\n";
+        let data = BitmapFontData::parse_fnt(content, None).unwrap();
+        let glyph = data.glyphs.get(&65).unwrap();
+        assert_eq!(glyph.xoffset, -2);
+        assert_eq!(glyph.yoffset, -3);
+    }
+
+    #[test]
+    fn parse_fnt_page_with_base_dir() {
+        let base_dir = std::path::Path::new("/fonts");
+        let content = "page id=0 file=\"atlas.png\"\n";
+        let data = BitmapFontData::parse_fnt(content, Some(base_dir)).unwrap();
+        assert_eq!(data.image_paths.len(), 1);
+        assert!(data.image_paths[0].contains("atlas.png"));
+        assert!(data.image_paths[0].starts_with("/fonts"));
+    }
+
+    // --- GlyphLayout tests ---
+
+    #[test]
+    fn glyph_layout_default() {
+        let layout = GlyphLayout::default();
+        assert_eq!(layout.width, 0.0);
+        assert_eq!(layout.height, 0.0);
+        assert!(layout.text.is_empty());
+    }
+
+    #[test]
+    fn glyph_layout_new_equals_default() {
+        let a = GlyphLayout::new();
+        let b = GlyphLayout::default();
+        assert_eq!(a.width, b.width);
+        assert_eq!(a.height, b.height);
+    }
+
+    // --- BitmapFont tests ---
+
+    #[test]
+    fn bitmap_font_default_scale() {
+        let font = BitmapFont::new();
+        assert_eq!(font.scale, 16.0);
+    }
+
+    #[test]
+    fn bitmap_font_no_font_loaded() {
+        let font = BitmapFont::new();
+        assert!(font.font().is_none());
+    }
+
+    #[test]
+    fn bitmap_font_from_nonexistent_file() {
+        let font = BitmapFont::from_file("/nonexistent/font.ttf", 24.0);
+        assert!(font.font().is_none());
+        assert_eq!(font.scale, 24.0);
+    }
+
+    #[test]
+    fn bitmap_font_measure_empty_text() {
+        let font = BitmapFont::new();
+        let layout = font.measure("");
+        assert_eq!(layout.width, 0.0);
+    }
+
+    #[test]
+    fn bitmap_font_regions_empty() {
+        let font = BitmapFont::new();
+        assert!(font.regions().is_empty());
+    }
+
+    #[test]
+    fn bitmap_font_clone() {
+        let font = BitmapFont::new();
+        let cloned = font.clone();
+        assert_eq!(font.scale, cloned.scale);
+    }
+
+    #[test]
+    fn bitmap_font_dispose() {
+        let mut font = BitmapFont::new();
+        font.dispose();
+        assert!(font.font().is_none());
+    }
+
+    #[test]
+    fn bitmap_font_set_color() {
+        let mut font = BitmapFont::new();
+        font.set_color(&Color::new(1.0, 0.0, 0.0, 0.5));
+        // Color is stored internally; verify it doesn't panic
+    }
+
+    // --- FreeTypeFontGenerator tests ---
+
+    #[test]
+    fn freetype_generator_new() {
+        let generator = FreeTypeFontGenerator::new("test.ttf");
+        let debug = format!("{:?}", generator);
+        assert!(debug.contains("test.ttf"));
+    }
+
+    #[test]
+    fn freetype_generator_dispose_no_panic() {
+        let mut generator = FreeTypeFontGenerator::new("test.ttf");
+        generator.dispose(); // Should not panic
+    }
+}

@@ -537,6 +537,236 @@ mod tests {
         );
     }
 
+    // --- parse_int edge cases ---
+
+    #[test]
+    fn parse_int_empty_array() {
+        let parts: Vec<String> = vec![];
+        let result = parse_int(&parts);
+        assert!(result.iter().all(|&v| v == 0));
+    }
+
+    #[test]
+    fn parse_int_single_element() {
+        let parts = vec!["#CMD".to_string()];
+        let result = parse_int(&parts);
+        assert!(result.iter().all(|&v| v == 0));
+    }
+
+    #[test]
+    fn parse_int_spaces_stripped() {
+        let parts: Vec<String> = vec!["#CMD".into(), " 10 ".into(), "  20  ".into()];
+        let result = parse_int(&parts);
+        assert_eq!(result[1], 10);
+        assert_eq!(result[2], 20);
+    }
+
+    #[test]
+    fn parse_int_bang_negative() {
+        let parts: Vec<String> = vec!["#CMD".into(), "!100".into()];
+        let result = parse_int(&parts);
+        assert_eq!(result[1], -100);
+    }
+
+    #[test]
+    fn parse_int_multiple_bangs() {
+        // "!!5" -> "--5" after replacement, parse as -5 (leading double minus)
+        let parts: Vec<String> = vec!["#CMD".into(), "!!5".into()];
+        let result = parse_int(&parts);
+        // "--5" after space removal -> parse attempt. Rust parse considers "--5" invalid.
+        // So it defaults to 0.
+        assert_eq!(result[1], 0);
+    }
+
+    #[test]
+    fn parse_int_index_zero_always_zero() {
+        // parse_int starts at index 1, so index 0 is always 0
+        let parts: Vec<String> = vec!["999".into(), "10".into()];
+        let result = parse_int(&parts);
+        assert_eq!(result[0], 0);
+        assert_eq!(result[1], 10);
+    }
+
+    #[test]
+    fn parse_int_exactly_22_parts() {
+        let mut parts: Vec<String> = vec!["#CMD".into()];
+        for i in 1..22 {
+            parts.push(i.to_string());
+        }
+        let result = parse_int(&parts);
+        for i in 1..22 {
+            assert_eq!(result[i], i as i32);
+        }
+    }
+
+    #[test]
+    fn parse_int_mixed_valid_invalid() {
+        let parts: Vec<String> = vec![
+            "#CMD".into(),
+            "42".into(),
+            "abc".into(),
+            "".into(),
+            "-7".into(),
+        ];
+        let result = parse_int(&parts);
+        assert_eq!(result[1], 42);
+        assert_eq!(result[2], 0); // "abc" -> 0
+        assert_eq!(result[3], 0); // "" -> 0
+        assert_eq!(result[4], -7);
+    }
+
+    // --- read_offset edge cases ---
+
+    #[test]
+    fn read_offset_with_base_prepends_base() {
+        let parts: Vec<String> = vec!["#DST".into(), "0".into(), "0".into()];
+        let offsets = read_offset_with_base(&parts, 1, &[100, 200]);
+        // base=[100, 200], then parts[1]="0", parts[2]="0"
+        assert_eq!(offsets[0], 100);
+        assert_eq!(offsets[1], 200);
+        assert_eq!(offsets[2], 0);
+        assert_eq!(offsets[3], 0);
+    }
+
+    #[test]
+    fn read_offset_non_numeric_parts_skipped() {
+        let parts: Vec<String> = vec![
+            "#DST".into(),
+            "abc".into(),
+            "10".into(),
+            "".into(),
+            "20".into(),
+        ];
+        let offsets = read_offset(&parts, 1);
+        // "abc" -> filtered to "" -> empty -> skipped
+        // "10" -> parsed
+        // "" -> empty -> skipped
+        // "20" -> parsed
+        assert_eq!(offsets, vec![10, 20]);
+    }
+
+    #[test]
+    fn read_offset_start_beyond_length() {
+        let parts: Vec<String> = vec!["#CMD".into()];
+        let offsets = read_offset(&parts, 100);
+        assert!(offsets.is_empty());
+    }
+
+    #[test]
+    fn read_offset_negative_values_parsed() {
+        let parts: Vec<String> = vec!["#CMD".into(), "-50".into(), "30".into()];
+        let offsets = read_offset(&parts, 1);
+        assert_eq!(offsets, vec![-50, 30]);
+    }
+
+    // --- str_at edge cases ---
+
+    #[test]
+    fn str_at_in_bounds() {
+        let parts: Vec<String> = vec!["a".into(), " hello ".into()];
+        assert_eq!(str_at(&parts, 1), "hello");
+    }
+
+    #[test]
+    fn str_at_out_of_bounds() {
+        let parts: Vec<String> = vec!["a".into()];
+        assert_eq!(str_at(&parts, 5), "");
+    }
+
+    #[test]
+    fn str_at_empty_vec() {
+        let parts: Vec<String> = vec![];
+        assert_eq!(str_at(&parts, 0), "");
+    }
+
+    // --- lr2_path additional edge cases ---
+
+    #[test]
+    fn lr2_path_empty_imagepath() {
+        let filemap = HashMap::new();
+        let result = lr2_path("skinroot", "", &filemap);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn lr2_path_backslash_in_filemap_value() {
+        let mut filemap = HashMap::new();
+        filemap.insert("key/".to_string(), "value\\path/".to_string());
+        let result = lr2_path("skinroot", "key/file.png", &filemap);
+        assert_eq!(result, "value\\path/file.png");
+    }
+
+    // --- LR2SkinLoaderState conditional directive tests ---
+
+    #[test]
+    fn process_line_directives_non_hash_line_returns_none() {
+        let mut state = LR2SkinLoaderState::new();
+        assert!(
+            state
+                .process_line_directives("SCENETIME,100", None)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn process_line_directives_empty_line_returns_none() {
+        let mut state = LR2SkinLoaderState::new();
+        assert!(state.process_line_directives("", None).is_none());
+    }
+
+    #[test]
+    fn process_line_directives_if_endif_resets_skip() {
+        let mut state = LR2SkinLoaderState::new();
+        state.op.insert(1, 0); // option 1 = false
+        state.process_line_directives("#IF,1", None);
+        assert!(state.skip); // should skip
+        state.process_line_directives("#ENDIF", None);
+        assert!(!state.skip); // skip reset
+    }
+
+    #[test]
+    fn process_line_directives_setoption() {
+        let mut state = LR2SkinLoaderState::new();
+        state.process_line_directives("#SETOPTION,42,1", None);
+        assert_eq!(state.op.get(&42), Some(&1));
+    }
+
+    #[test]
+    fn process_line_directives_setoption_zero_value() {
+        let mut state = LR2SkinLoaderState::new();
+        state.process_line_directives("#SETOPTION,10,0", None);
+        assert_eq!(state.op.get(&10), Some(&0));
+    }
+
+    #[test]
+    fn process_line_directives_negative_if_checks_negated_option() {
+        let mut state = LR2SkinLoaderState::new();
+        state.op.insert(5, 0); // option 5 = 0 (false)
+        // #IF,-5 means "if option 5 is false" -> should pass
+        state.process_line_directives("#IF,-5", None);
+        assert!(!state.skip); // condition met
+    }
+
+    #[test]
+    fn process_line_directives_elseif_after_true_if() {
+        let mut state = LR2SkinLoaderState::new();
+        state.op.insert(1, 1); // option 1 = true
+        state.process_line_directives("#IF,1", None);
+        assert!(!state.skip); // IF branch taken
+        state.process_line_directives("#ELSEIF,1", None);
+        assert!(state.skip); // ELSEIF skipped because IF was true
+    }
+
+    #[test]
+    fn process_line_directives_else_after_false_if() {
+        let mut state = LR2SkinLoaderState::new();
+        state.op.insert(1, 0); // option 1 = false
+        state.process_line_directives("#IF,1", None);
+        assert!(state.skip); // IF branch not taken
+        state.process_line_directives("#ELSE", None);
+        assert!(!state.skip); // ELSE branch taken
+    }
+
     #[test]
     fn process_dst_bpmchart_y_matches_java() {
         let src_height: f32 = 480.0;

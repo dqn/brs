@@ -640,6 +640,126 @@ mod tests {
     }
 
     #[test]
+    fn from_texture_region_zero_size_texture() {
+        let tex = make_texture(0, 0);
+        let region = TextureRegion::from_texture_region(tex, 0, 0, 0, 0);
+        // With zero-size texture, UV should fall back to defaults
+        assert_eq!(region.u, 0.0);
+        assert_eq!(region.v, 0.0);
+        assert_eq!(region.u2, 1.0);
+        assert_eq!(region.v2, 1.0);
+    }
+
+    #[test]
+    fn from_texture_covers_full_texture() {
+        let tex = make_texture(128, 64);
+        let region = TextureRegion::from_texture(tex);
+        assert_eq!(region.region_x, 0);
+        assert_eq!(region.region_y, 0);
+        assert_eq!(region.region_width, 128);
+        assert_eq!(region.region_height, 64);
+        assert_eq!(region.u, 0.0);
+        assert_eq!(region.v, 0.0);
+        assert_eq!(region.u2, 1.0);
+        assert_eq!(region.v2, 1.0);
+    }
+
+    #[test]
+    fn flip_both_axes() {
+        let tex = make_texture(100, 100);
+        let mut region = TextureRegion::from_texture_region(tex, 10, 20, 30, 40);
+        let orig_u = region.u;
+        let orig_v = region.v;
+        let orig_u2 = region.u2;
+        let orig_v2 = region.v2;
+        region.flip(true, true);
+        assert_eq!(region.u, orig_u2);
+        assert_eq!(region.u2, orig_u);
+        assert_eq!(region.v, orig_v2);
+        assert_eq!(region.v2, orig_v);
+    }
+
+    #[test]
+    fn flip_false_false_no_change() {
+        let tex = make_texture(100, 100);
+        let mut region = TextureRegion::from_texture_region(tex, 0, 0, 50, 50);
+        let u = region.u;
+        let v = region.v;
+        let u2 = region.u2;
+        let v2 = region.v2;
+        region.flip(false, false);
+        assert_eq!(region.u, u);
+        assert_eq!(region.v, v);
+        assert_eq!(region.u2, u2);
+        assert_eq!(region.v2, v2);
+    }
+
+    #[test]
+    fn set_from_copies_all_fields() {
+        let tex = make_texture(200, 200);
+        let source = TextureRegion::from_texture_region(tex, 10, 20, 30, 40);
+        let mut target = TextureRegion::new();
+        target.set_from(&source);
+        assert_eq!(target.u, source.u);
+        assert_eq!(target.v, source.v);
+        assert_eq!(target.u2, source.u2);
+        assert_eq!(target.v2, source.v2);
+        assert_eq!(target.region_x, source.region_x);
+        assert_eq!(target.region_y, source.region_y);
+        assert_eq!(target.region_width, source.region_width);
+        assert_eq!(target.region_height, source.region_height);
+        assert!(target.texture.is_some());
+    }
+
+    #[test]
+    fn texture_from_pixmap() {
+        let pixmap = Pixmap::from_rgba_data(2, 2, vec![0u8; 16]);
+        let tex = Texture::from_pixmap(&pixmap);
+        assert_eq!(tex.width, 2);
+        assert_eq!(tex.height, 2);
+        assert!(tex.rgba_data.is_some());
+        assert!(!tex.disposed);
+    }
+
+    #[test]
+    fn texture_new_sized() {
+        let tex = Texture::new_sized(64, 32, PixmapFormat::RGBA8888);
+        assert_eq!(tex.width, 64);
+        assert_eq!(tex.height, 32);
+        assert!(tex.rgba_data.is_none());
+    }
+
+    #[test]
+    fn texture_partial_eq() {
+        let a = make_texture(10, 20);
+        let b = make_texture(10, 20);
+        assert_eq!(a, b);
+        let c = make_texture(10, 30);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn texture_default() {
+        let tex = Texture::default();
+        assert_eq!(tex.width, 0);
+        assert_eq!(tex.height, 0);
+        assert!(!tex.disposed);
+        assert!(tex.path.is_none());
+        assert!(tex.rgba_data.is_none());
+    }
+
+    #[test]
+    fn set_region_from_parent_no_texture() {
+        let parent = TextureRegion::new(); // no texture
+        let mut child = TextureRegion::new();
+        child.u = 0.5;
+        child.set_region_from_parent(&parent, 0, 0, 10, 10);
+        // No texture -> UVs unchanged
+        assert_eq!(child.u, 0.5);
+        assert!(child.texture.is_none());
+    }
+
+    #[test]
     fn getters_return_none_by_default() {
         let tex = Texture::default();
         assert!(tex.gpu_texture().is_none());
