@@ -1,10 +1,7 @@
 // SkinTimingVisualizer.java -> skin_timing_visualizer.rs
 // Mechanical line-by-line translation.
 
-use crate::stubs::{
-    Color, MainState, MusicResultResource, Pixmap, PixmapFormat, PlayerResource, Texture,
-    TextureRegion,
-};
+use crate::stubs::{Color, MainState, Pixmap, PixmapFormat, Texture, TextureRegion};
 use crate::types::skin_object::{DrawImageAtParams, SkinObjectData, SkinObjectRenderer};
 
 /// Configuration for constructing a `SkinTimingVisualizer`.
@@ -264,63 +261,4 @@ pub fn color_string_validation(cs: &str) -> String {
     } else {
         cs.to_string()
     }
-}
-
-/// Gets judge area from player resource.
-/// Returns judge windows as Vec<Vec<i32>> (5 judge levels x [early, late]).
-pub fn judge_area(resource: &MusicResultResource) -> Vec<Vec<i32>> {
-    let model = resource.bms_model();
-    let mode = resource.original_mode();
-    let rule = rubato_play::bms_player_rule::BMSPlayerRule::for_mode(&mode);
-
-    let judgerank = model.judgerank;
-    let config = resource.player_config();
-    let mut judge_window_rate = if config.judge_settings.custom_judge {
-        vec![
-            config.judge_settings.key_judge_window_rate_perfect_great,
-            config.judge_settings.key_judge_window_rate_great,
-            config.judge_settings.key_judge_window_rate_good,
-        ]
-    } else {
-        vec![100, 100, 100]
-    };
-
-    for constraint in resource.constraint() {
-        match constraint {
-            rubato_core::course_data::CourseDataConstraint::NoGreat => {
-                judge_window_rate[1] = 0;
-                judge_window_rate[2] = 0;
-            }
-            rubato_core::course_data::CourseDataConstraint::NoGood => {
-                judge_window_rate[2] = 0;
-            }
-            _ => {}
-        }
-    }
-
-    rule.judge.note_judge(judgerank, &judge_window_rate)
-}
-
-/// Gets judge area from player resource (using the PlayerResource stub).
-pub fn judge_area_from_player_resource(resource: &PlayerResource) -> Vec<Vec<i32>> {
-    let model = resource.bms_model();
-    let mode = resource.original_mode();
-    let rule = rubato_play::bms_player_rule::BMSPlayerRule::for_mode(&mode);
-
-    let judgerank = model.judgerank;
-    let config = resource.player_config();
-    let judge_window_rate = if config.judge_settings.custom_judge {
-        vec![
-            config.judge_settings.key_judge_window_rate_perfect_great,
-            config.judge_settings.key_judge_window_rate_great,
-            config.judge_settings.key_judge_window_rate_good,
-        ]
-    } else {
-        vec![100, 100, 100]
-    };
-
-    // Constraint handling would mutate judge_window_rate
-    // Deferred to runtime when PlayerResource is fully available
-
-    rule.judge.note_judge(judgerank, &judge_window_rate)
 }

@@ -222,7 +222,9 @@ pub fn load_with_config(
 
     if skin_config_path.ends_with(".json") {
         // JSONSkinLoader
-        let config = _state.get_resource().config();
+        let config = _state
+            .config_ref()
+            .expect("config required for skin loading");
         let mut loader = crate::json::json_skin_loader::JSONSkinLoader::with_config(config);
         let result = loader.load_skin(Path::new(skin_config_path), skin_type, &property);
         // Dispose old resources after loading
@@ -234,7 +236,9 @@ pub fn load_with_config(
         result
     } else if skin_config_path.ends_with(".luaskin") {
         // LuaSkinLoader
-        let config = _state.get_resource().config();
+        let config = _state
+            .config_ref()
+            .expect("config required for skin loading");
         let mut loader = crate::lua::lua_skin_loader::LuaSkinLoader::new_with_state(_state, config);
         let result = loader.load_skin(Path::new(skin_config_path), skin_type, &property);
         if let Ok(guard) = RESOURCE.lock()

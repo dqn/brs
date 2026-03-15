@@ -5,9 +5,7 @@
 
 use std::collections::HashMap;
 
-use rubato_skin::stubs::{
-    MainController, MainState, PlayerResource, SkinOffset, TextureRegion, Timer,
-};
+use rubato_skin::stubs::{MainState, SkinOffset, Timer};
 use serde::{Deserialize, Serialize};
 
 /// Lightweight state provider for skin evaluation.
@@ -124,8 +122,6 @@ impl SkinStateProvider for StaticStateProvider {
 pub struct StaticMainStateAdapter<'a> {
     provider: &'a StaticStateProvider,
     timer: Timer,
-    main: MainController,
-    resource: PlayerResource,
 }
 
 impl<'a> StaticMainStateAdapter<'a> {
@@ -133,8 +129,6 @@ impl<'a> StaticMainStateAdapter<'a> {
         Self {
             provider,
             timer: Timer::with_timers(provider.time_ms, provider.time_ms * 1000, Vec::new()),
-            main: MainController { debug: false },
-            resource: PlayerResource,
         }
     }
 }
@@ -174,23 +168,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for StaticMainStateAda
     }
 }
 
-impl MainState for StaticMainStateAdapter<'_> {
-    fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-        &self.timer
-    }
-
-    fn get_main(&self) -> &MainController {
-        &self.main
-    }
-
-    fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-        None
-    }
-
-    fn get_resource(&self) -> &PlayerResource {
-        &self.resource
-    }
-}
+impl MainState for StaticMainStateAdapter<'_> {}
 
 #[cfg(test)]
 #[allow(clippy::field_reassign_with_default)]

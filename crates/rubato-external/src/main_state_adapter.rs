@@ -1,7 +1,6 @@
 // MainState concrete struct bridging external code to skin's property system.
 
 use rubato_core::config::Config;
-use rubato_types::main_controller_access::NullMainController;
 use rubato_types::screen_type::ScreenType;
 
 use crate::player_resource_adapter::PlayerResource;
@@ -9,7 +8,6 @@ use crate::player_resource_adapter::PlayerResource;
 /// Legacy MainState wrapper for external code that accesses `state.resource`.
 /// Implements MainStateAccess and provides direct field access for compatibility.
 pub struct MainState {
-    pub main: NullMainController,
     pub resource: PlayerResource,
     pub screen_type: ScreenType,
 }
@@ -31,7 +29,6 @@ impl rubato_types::main_state_access::MainStateAccess for MainState {
 impl Default for MainState {
     fn default() -> Self {
         Self {
-            main: NullMainController,
             resource: PlayerResource::default(),
             screen_type: ScreenType::Other,
         }
@@ -64,27 +61,7 @@ impl rubato_types::timer_access::TimerAccess for MainState {
 
 impl rubato_types::skin_render_context::SkinRenderContext for MainState {}
 
-impl rubato_skin::stubs::MainState for MainState {
-    fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-        static TIMER: std::sync::OnceLock<rubato_skin::stubs::Timer> = std::sync::OnceLock::new();
-        TIMER.get_or_init(rubato_skin::stubs::Timer::default)
-    }
-
-    fn get_main(&self) -> &rubato_skin::stubs::MainController {
-        static MAIN: rubato_skin::stubs::MainController =
-            rubato_skin::stubs::MainController { debug: false };
-        &MAIN
-    }
-
-    fn get_image(&self, _id: i32) -> Option<rubato_skin::rendering_stubs::TextureRegion> {
-        None
-    }
-
-    fn get_resource(&self) -> &rubato_skin::stubs::PlayerResource {
-        static RES: rubato_skin::stubs::PlayerResource = rubato_skin::stubs::PlayerResource;
-        &RES
-    }
-}
+impl rubato_skin::stubs::MainState for MainState {}
 
 #[cfg(test)]
 mod tests {
@@ -100,7 +77,6 @@ mod tests {
     #[test]
     fn main_state_with_screen_type_returns_correct_type() {
         let state = MainState {
-            main: NullMainController,
             resource: PlayerResource::default(),
             screen_type: ScreenType::MusicSelector,
         };
@@ -120,7 +96,6 @@ mod tests {
         ];
         for variant in variants {
             let state = MainState {
-                main: NullMainController,
                 resource: PlayerResource::default(),
                 screen_type: variant,
             };

@@ -441,13 +441,11 @@ impl FloatWriter for DelegateFloatWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::stubs::{MainController, PlayerResource, SkinOffset, TextureRegion, Timer};
+    use crate::stubs::Timer;
 
     /// MockMainState that returns configurable float values.
     struct FloatMockState {
         timer: Timer,
-        main: MainController,
-        resource: PlayerResource,
         /// Maps property ID to float value.
         values: std::collections::HashMap<i32, f32>,
         /// Records set_float_value calls: (id, value).
@@ -458,8 +456,6 @@ mod tests {
         fn new(values: std::collections::HashMap<i32, f32>) -> Self {
             Self {
                 timer: Timer::default(),
-                main: MainController { debug: false },
-                resource: PlayerResource,
                 values,
                 set_calls: std::cell::RefCell::new(Vec::new()),
             }
@@ -496,20 +492,7 @@ mod tests {
         }
     }
 
-    impl MainState for FloatMockState {
-        fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-            &self.timer
-        }
-        fn get_main(&self) -> &MainController {
-            &self.main
-        }
-        fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-            None
-        }
-        fn get_resource(&self) -> &PlayerResource {
-            &self.resource
-        }
-    }
+    impl MainState for FloatMockState {}
 
     #[test]
     fn test_delegate_float_property_reads_from_state() {

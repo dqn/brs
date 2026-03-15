@@ -6,8 +6,6 @@
 struct TimerOnlyMainState<'a> {
     timer: Option<&'a dyn rubato_types::timer_access::TimerAccess>,
     ctx: Option<&'a mut dyn rubato_types::skin_render_context::SkinRenderContext>,
-    main_controller: crate::stubs::MainController,
-    resource: crate::stubs::PlayerResource,
     state_type: Option<rubato_types::main_state_type::MainStateType>,
     image_registry: &'a HashMap<i32, TextureRegion>,
 }
@@ -19,8 +17,6 @@ impl<'a> TimerOnlyMainState<'a> {
         Self {
             timer: Some(timer),
             ctx: None,
-            main_controller: crate::stubs::MainController { debug: false },
-            resource: crate::stubs::PlayerResource,
             state_type: None,
             image_registry: &EMPTY,
         }
@@ -34,8 +30,6 @@ impl<'a> TimerOnlyMainState<'a> {
         Self {
             timer: None,
             ctx: Some(ctx),
-            main_controller: crate::stubs::MainController { debug: false },
-            resource: crate::stubs::PlayerResource,
             state_type,
             image_registry,
         }
@@ -272,24 +266,8 @@ impl rubato_types::skin_render_context::SkinRenderContext for TimerOnlyMainState
 }
 
 impl crate::stubs::MainState for TimerOnlyMainState<'_> {
-    fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-        if let Some(ctx) = self.ctx.as_deref() {
-            ctx
-        } else {
-            self.timer.expect("timer-only adapter must carry a timer")
-        }
-    }
-
-    fn get_main(&self) -> &crate::stubs::MainController {
-        &self.main_controller
-    }
-
-    fn get_image(&self, id: i32) -> Option<crate::rendering_stubs::TextureRegion> {
+    fn skin_image(&self, id: i32) -> Option<crate::rendering_stubs::TextureRegion> {
         self.image_registry.get(&id).cloned()
-    }
-
-    fn get_resource(&self) -> &crate::stubs::PlayerResource {
-        &self.resource
     }
 
     fn select_song(&mut self, mode: rubato_core::bms_player_mode::BMSPlayerMode) {

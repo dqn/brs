@@ -4,10 +4,12 @@
 // Property submodule (interfaces + factories)
 pub mod property;
 
-// Rendering stubs (LibGDX graphics types -- deferred to Phase 13 Bevy replacement)
+// Rendering re-exports (wgpu-backed LibGDX equivalents from rubato-render)
 pub mod rendering_stubs;
-// Stubs for external dependencies (lifecycle types, Phase 7+)
-pub mod stubs;
+// Re-exports for backward compatibility (all shadow types removed)
+pub mod reexports;
+/// Backward-compatible alias for `reexports` module.
+pub use reexports as stubs;
 
 // Extracted from stubs: real implementations and standalone types
 pub mod main_state;

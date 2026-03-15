@@ -196,11 +196,8 @@ fn get_screen_type(state: &MainState) -> ScreenType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::NullMainController;
-
     fn make_state(screen_type: ScreenType) -> MainState {
         MainState {
-            main: NullMainController,
             resource: Default::default(),
             screen_type,
         }

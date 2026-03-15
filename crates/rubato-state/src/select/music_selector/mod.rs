@@ -544,27 +544,7 @@ impl rubato_types::timer_access::TimerAccess for MinimalSkinMainState<'_> {
 
 impl rubato_types::skin_render_context::SkinRenderContext for MinimalSkinMainState<'_> {}
 
-impl rubato_skin::stubs::MainState for MinimalSkinMainState<'_> {
-    fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-        self.timer
-    }
-
-    fn get_main(&self) -> &rubato_skin::stubs::MainController {
-        static MC: std::sync::OnceLock<rubato_skin::stubs::MainController> =
-            std::sync::OnceLock::new();
-        MC.get_or_init(|| rubato_skin::stubs::MainController { debug: false })
-    }
-
-    fn get_image(&self, _id: i32) -> Option<rubato_skin::stubs::TextureRegion> {
-        None
-    }
-
-    fn get_resource(&self) -> &rubato_skin::stubs::PlayerResource {
-        static RES: std::sync::OnceLock<rubato_skin::stubs::PlayerResource> =
-            std::sync::OnceLock::new();
-        RES.get_or_init(|| rubato_skin::stubs::PlayerResource)
-    }
-}
+impl rubato_skin::stubs::MainState for MinimalSkinMainState<'_> {}
 
 /// Preview music and note graph state.
 pub struct PreviewState {

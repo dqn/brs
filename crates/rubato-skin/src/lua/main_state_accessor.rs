@@ -114,7 +114,7 @@ impl MainStateAccessor {
             let sp = self.state_ptr;
             let timer_func = lua.create_function(move |_, id: i32| {
                 let state = unsafe { &*sp.0 };
-                Ok(MainState::timer(state).micro_timer(rubato_types::timer_id::TimerId::new(id)))
+                Ok(state.micro_timer(rubato_types::timer_id::TimerId::new(id)))
             })?;
             table.set("timer", timer_func)?;
 
@@ -125,7 +125,7 @@ impl MainStateAccessor {
             let sp = self.state_ptr;
             let time_func = lua.create_function(move |_, ()| {
                 let state = unsafe { &*sp.0 };
-                Ok(MainState::timer(state).now_micro_time())
+                Ok(state.now_micro_time())
             })?;
             table.set("time", time_func)?;
 
@@ -255,7 +255,7 @@ impl MainStateAccessor {
             let volume_sys_func = lua.create_function(move |_, ()| {
                 let state = unsafe { &*sp.0 };
                 let vol = state
-                    .get_config_ref()
+                    .config_ref()
                     .and_then(|c| c.audio_config())
                     .map(|a| a.systemvolume)
                     .unwrap_or(0.0);
@@ -267,7 +267,7 @@ impl MainStateAccessor {
             let sp = self.state_ptr;
             let set_volume_sys_func = lua.create_function(move |_, value: f32| {
                 let state = unsafe { &mut *sp.0 };
-                if let Some(config) = state.get_config_mut()
+                if let Some(config) = state.config_mut()
                     && let Some(ref mut audio) = config.audio
                 {
                     audio.systemvolume = value;
@@ -281,7 +281,7 @@ impl MainStateAccessor {
             let volume_key_func = lua.create_function(move |_, ()| {
                 let state = unsafe { &*sp.0 };
                 let vol = state
-                    .get_config_ref()
+                    .config_ref()
                     .and_then(|c| c.audio_config())
                     .map(|a| a.keyvolume)
                     .unwrap_or(0.0);
@@ -293,7 +293,7 @@ impl MainStateAccessor {
             let sp = self.state_ptr;
             let set_volume_key_func = lua.create_function(move |_, value: f32| {
                 let state = unsafe { &mut *sp.0 };
-                if let Some(config) = state.get_config_mut()
+                if let Some(config) = state.config_mut()
                     && let Some(ref mut audio) = config.audio
                 {
                     audio.keyvolume = value;
@@ -307,7 +307,7 @@ impl MainStateAccessor {
             let volume_bg_func = lua.create_function(move |_, ()| {
                 let state = unsafe { &*sp.0 };
                 let vol = state
-                    .get_config_ref()
+                    .config_ref()
                     .and_then(|c| c.audio_config())
                     .map(|a| a.bgvolume)
                     .unwrap_or(0.0);
@@ -319,7 +319,7 @@ impl MainStateAccessor {
             let sp = self.state_ptr;
             let set_volume_bg_func = lua.create_function(move |_, value: f32| {
                 let state = unsafe { &mut *sp.0 };
-                if let Some(config) = state.get_config_mut()
+                if let Some(config) = state.config_mut()
                     && let Some(ref mut audio) = config.audio
                 {
                     audio.bgvolume = value;
@@ -342,7 +342,7 @@ impl MainStateAccessor {
             let gauge_func = lua.create_function(move |_, ()| {
                 let state = unsafe { &*sp.0 };
                 if state.is_bms_player() {
-                    Ok(state.get_gauge_value() as f64)
+                    Ok(state.gauge_value() as f64)
                 } else {
                     Ok(0.0f64)
                 }
@@ -373,7 +373,7 @@ impl MainStateAccessor {
                     };
                     let state = unsafe { &mut *sp.0 };
                     let sys_vol = state
-                        .get_config_ref()
+                        .config_ref()
                         .and_then(|c| c.audio_config())
                         .map(|a| a.systemvolume)
                         .unwrap_or(1.0);
@@ -394,7 +394,7 @@ impl MainStateAccessor {
                     };
                     let state = unsafe { &mut *sp.0 };
                     let sys_vol = state
-                        .get_config_ref()
+                        .config_ref()
                         .and_then(|c| c.audio_config())
                         .map(|a| a.systemvolume)
                         .unwrap_or(1.0);
@@ -468,7 +468,7 @@ pub fn event_index_fn(state: &dyn MainState, id: i32) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::stubs::{MainController, PlayerResource, SkinOffset, TextureRegion, Timer};
+    use crate::stubs::{SkinOffset, Timer};
     use std::cell::RefCell;
     use std::collections::HashMap;
 
@@ -476,8 +476,6 @@ mod tests {
     /// Provides controllable score, judge, gauge, volume, timer, and audio data.
     struct LuaTestState {
         timer: Timer,
-        main: MainController,
-        resource: PlayerResource,
         offsets: HashMap<i32, SkinOffset>,
         score_data_property: rubato_core::score_data_property::ScoreDataProperty,
         judge_counts: HashMap<(i32, bool), i32>,
@@ -497,8 +495,6 @@ mod tests {
         fn default() -> Self {
             Self {
                 timer: Timer::default(),
-                main: MainController { debug: false },
-                resource: PlayerResource,
                 offsets: HashMap::new(),
                 score_data_property: rubato_core::score_data_property::ScoreDataProperty::default(),
                 judge_counts: HashMap::new(),
@@ -586,23 +582,7 @@ mod tests {
         }
     }
 
-    impl MainState for LuaTestState {
-        fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-            &self.timer
-        }
-
-        fn get_main(&self) -> &MainController {
-            &self.main
-        }
-
-        fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-            None
-        }
-
-        fn get_resource(&self) -> &PlayerResource {
-            &self.resource
-        }
-    }
+    impl MainState for LuaTestState {}
 
     /// Helper: create accessor, export to Lua, and return (Lua, table) for testing.
     fn setup_lua_with_state(state: &mut dyn MainState) -> (mlua::Lua, mlua::Table) {

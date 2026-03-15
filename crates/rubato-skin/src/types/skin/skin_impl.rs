@@ -333,7 +333,7 @@ impl Skin {
 
         // Prepare frame rate throttle: microseconds per prepare cycle.
         // Java: prepareduration = fps > 0 ? 1_000_000 / fps : 1
-        let fps = state.get_main().config().display.prepare_frame_per_second;
+        let fps = state.prepare_fps();
         self.prepareduration = if fps > 0 { 1_000_000 / fps as i64 } else { 1 };
         self.nextpreparetime = -1;
     }
@@ -345,12 +345,12 @@ impl Skin {
             self.renderer = Some(SkinObjectRenderer::new());
         }
 
-        let microtime = MainState::timer(state).now_micro_time();
+        let microtime = state.now_micro_time();
         let debug = false; // MainController.debug stubbed as false
 
         if !debug {
             if self.nextpreparetime <= microtime {
-                let time = MainState::timer(state).now_time();
+                let time = state.now_time();
                 for idx in &self.objectarray_indices {
                     self.objects[*idx].prepare(time, state);
                 }

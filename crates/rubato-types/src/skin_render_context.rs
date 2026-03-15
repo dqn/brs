@@ -477,6 +477,13 @@ pub trait SkinRenderContext: TimerAccess {
         None
     }
 
+    /// Returns the judge area (timing windows per judge level) computed from
+    /// the current BMS model and player resource.
+    /// Used by SkinTimingDistributionGraph and SkinHitErrorVisualizer.
+    fn judge_area(&self) -> Option<Vec<Vec<i32>>> {
+        None
+    }
+
     // ============================================================
     // Score data property (for Lua rate/exscore accessors)
     // ============================================================

@@ -2,9 +2,7 @@
 // Mechanical line-by-line translation.
 
 use crate::graphs::skin_timing_visualizer::color_string_validation;
-use crate::stubs::{
-    Color, MainState, Pixmap, PixmapFormat, PlayerResource, Texture, TextureRegion,
-};
+use crate::stubs::{Color, MainState, Pixmap, PixmapFormat, Texture, TextureRegion};
 use crate::types::skin_object::{SkinObjectData, SkinObjectRenderer};
 
 /// Configuration for constructing a `SkinHitErrorVisualizer`.
@@ -300,12 +298,6 @@ impl SkinHitErrorVisualizer {
         self.index = index;
         self.recent = recent;
     }
-}
-
-/// Gets judge area from player resource.
-/// Same as SkinTimingVisualizer.getJudgeArea but with PlayerResource.
-pub fn judge_area(resource: &PlayerResource) -> Vec<Vec<i32>> {
-    crate::skin_timing_visualizer::judge_area_from_player_resource(resource)
 }
 
 /// Validates color string - delegates to SkinTimingVisualizer.

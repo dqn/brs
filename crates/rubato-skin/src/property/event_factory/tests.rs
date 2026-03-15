@@ -1,11 +1,9 @@
 use super::*;
-use crate::stubs::{MainController, PlayerResource, SkinOffset, TextureRegion, Timer};
+use crate::stubs::Timer;
 
 /// Test implementation of MainState that provides mutable config access
 struct TestMainState {
     timer: Timer,
-    main: MainController,
-    resource: PlayerResource,
     player_config: rubato_types::player_config::PlayerConfig,
     config: rubato_types::config::Config,
     play_config: rubato_types::play_config::PlayConfig,
@@ -21,8 +19,6 @@ impl TestMainState {
     fn new() -> Self {
         Self {
             timer: Timer::default(),
-            main: MainController { debug: false },
-            resource: PlayerResource,
             player_config: rubato_types::player_config::PlayerConfig::default(),
             config: rubato_types::config::Config::default(),
             play_config: rubato_types::play_config::PlayConfig::default(),
@@ -104,19 +100,6 @@ impl rubato_types::skin_render_context::SkinRenderContext for TestMainState {
 }
 
 impl MainState for TestMainState {
-    fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-        &self.timer
-    }
-    fn get_main(&self) -> &MainController {
-        &self.main
-    }
-    fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-        None
-    }
-    fn get_resource(&self) -> &PlayerResource {
-        &self.resource
-    }
-
     fn select_song(&mut self, mode: BMSPlayerMode) {
         self.selected_song = Some(mode);
     }

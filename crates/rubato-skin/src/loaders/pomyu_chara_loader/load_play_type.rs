@@ -170,8 +170,7 @@ impl<'a> PomyuCharaLoader<'a> {
                         && (TIMER_PM_CHARA_1P_NEUTRAL.as_i32()..TIMER_MUSIC_END.as_i32())
                             .contains(&timer)
                     {
-                        self.skin
-                            .pomyu
+                        self.pomyu
                             .set_pm_chara_time(timer - TIMER_PM_CHARA_1P_NEUTRAL.as_i32(), cycle);
                     }
 
@@ -433,7 +432,7 @@ impl<'a> PomyuCharaLoader<'a> {
                             op[2],
                             dst_offset,
                         );
-                        self.skin.add(part);
+                        self.images.push(part);
                     }
 
                     // Loop frames (from loop start to end)
@@ -527,7 +526,7 @@ impl<'a> PomyuCharaLoader<'a> {
                         op[2],
                         dst_offset,
                     );
-                    self.skin.add(part);
+                    self.images.push(part);
                 }
             }
         }

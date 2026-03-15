@@ -18,7 +18,7 @@ impl SkinSourceReference {
 
 impl SkinSource for SkinSourceReference {
     fn get_image(&self, _time: i64, state: &dyn MainState) -> Option<TextureRegion> {
-        state.get_image(self.id)
+        state.skin_image(self.id)
     }
 
     fn validate(&self) -> bool {

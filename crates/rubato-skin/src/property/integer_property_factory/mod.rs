@@ -90,8 +90,7 @@ impl IntegerProperty for DelegateImageIndexProperty {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rendering_stubs::TextureRegion;
-    use crate::stubs::{MainController, PlayerResource, SkinOffset, Timer};
+    use crate::stubs::Timer;
 
     struct TestState {
         timer: Timer,
@@ -140,25 +139,7 @@ mod tests {
         }
     }
 
-    impl MainState for TestState {
-        fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-            &self.timer
-        }
-
-        fn get_main(&self) -> &MainController {
-            static MAIN: MainController = MainController { debug: false };
-            &MAIN
-        }
-
-        fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-            None
-        }
-
-        fn get_resource(&self) -> &PlayerResource {
-            static RESOURCE: PlayerResource = PlayerResource;
-            &RESOURCE
-        }
-    }
+    impl MainState for TestState {}
 
     #[test]
     fn value_refs_read_integer_value() {

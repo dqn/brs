@@ -109,7 +109,7 @@ impl SkinGauge {
         self.data.prepare(time, state);
 
         // Sync gauge value and type from game state
-        self.value = state.get_gauge_value();
+        self.value = state.gauge_value();
         self.gauge_type = state.gauge_type();
 
         // Update animation
@@ -765,23 +765,7 @@ mod tests {
         }
     }
 
-    impl crate::stubs::MainState for GaugeMockState {
-        fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-            static TIMER: std::sync::OnceLock<crate::stubs::Timer> = std::sync::OnceLock::new();
-            TIMER.get_or_init(crate::stubs::Timer::default)
-        }
-        fn get_main(&self) -> &crate::stubs::MainController {
-            static MC: crate::stubs::MainController = crate::stubs::MainController { debug: false };
-            &MC
-        }
-        fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-            None
-        }
-        fn get_resource(&self) -> &crate::stubs::PlayerResource {
-            static PR: crate::stubs::PlayerResource = crate::stubs::PlayerResource;
-            &PR
-        }
-    }
+    impl crate::stubs::MainState for GaugeMockState {}
 
     #[test]
     fn prepare_syncs_gauge_value_from_state() {
@@ -940,23 +924,7 @@ mod tests {
         }
     }
 
-    impl crate::stubs::MainState for ModeChangeMockState {
-        fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-            static TIMER: std::sync::OnceLock<crate::stubs::Timer> = std::sync::OnceLock::new();
-            TIMER.get_or_init(crate::stubs::Timer::default)
-        }
-        fn get_main(&self) -> &crate::stubs::MainController {
-            static MC: crate::stubs::MainController = crate::stubs::MainController { debug: false };
-            &MC
-        }
-        fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-            None
-        }
-        fn get_resource(&self) -> &crate::stubs::PlayerResource {
-            static PR: crate::stubs::PlayerResource = crate::stubs::PlayerResource;
-            &PR
-        }
-    }
+    impl crate::stubs::MainState for ModeChangeMockState {}
 
     #[test]
     fn mode_change_adjusts_parts_for_border_alignment() {

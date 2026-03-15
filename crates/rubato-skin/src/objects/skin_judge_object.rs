@@ -77,7 +77,7 @@ impl SkinJudgeObject {
     /// Translated from: Java SkinJudge.prepare(long time, MainState state)
     pub fn prepare(&mut self, time: i64, state: &dyn MainState) {
         let player = self.inner.player();
-        let judgenow = state.get_now_judge(player) - 1;
+        let judgenow = state.now_judge(player) - 1;
         if judgenow < 0 {
             self.data.draw = false;
             return;
@@ -120,7 +120,7 @@ impl SkinJudgeObject {
         // Prepare count number
         if let Some(ci) = count_idx {
             if let Some(ref mut count) = self.judge_counts[ci] {
-                let combo = state.get_now_combo(player);
+                let combo = state.now_combo(player);
                 let judge_region = &self.judge_images[judge_idx]
                     .as_ref()
                     .expect("judge_images entry is Some")
@@ -175,13 +175,11 @@ impl SkinJudgeObject {
 mod tests {
     use super::*;
     use crate::objects::skin_number::NumberDisplayConfig;
-    use crate::stubs::{MainController, PlayerResource, SkinOffset, TextureRegion, Timer};
+    use crate::stubs::{TextureRegion, Timer};
 
     /// Mock MainState with configurable judge/combo values for testing SkinJudgeObject.
     struct JudgeMockState {
         timer: Timer,
-        main: MainController,
-        resource: PlayerResource,
         now_judge: i32,
         now_combo: i32,
         gauge_max: bool,
@@ -191,8 +189,6 @@ mod tests {
         fn new(now_judge: i32, now_combo: i32, gauge_max: bool) -> Self {
             Self {
                 timer: Timer::default(),
-                main: MainController { debug: false },
-                resource: PlayerResource,
                 now_judge,
                 now_combo,
                 gauge_max,
@@ -233,20 +229,7 @@ mod tests {
         }
     }
 
-    impl MainState for JudgeMockState {
-        fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-            &self.timer
-        }
-        fn get_main(&self) -> &MainController {
-            &self.main
-        }
-        fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-            None
-        }
-        fn get_resource(&self) -> &PlayerResource {
-            &self.resource
-        }
-    }
+    impl MainState for JudgeMockState {}
 
     fn make_test_image() -> SkinImage {
         let mut img = SkinImage::new_with_single(TextureRegion::new());

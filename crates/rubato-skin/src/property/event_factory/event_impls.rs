@@ -285,7 +285,7 @@ impl Event for PlayConfigCycleEvent {
         if !state.is_music_selector() {
             return;
         }
-        let Some(pc) = state.get_selected_play_config_mut() else {
+        let Some(pc) = state.selected_play_config_mut() else {
             return;
         };
         let current = (self.get)(pc);
@@ -319,7 +319,7 @@ impl Event for PlayConfigToggleEvent {
         if !state.is_music_selector() {
             return;
         }
-        let Some(pc) = state.get_selected_play_config_mut() else {
+        let Some(pc) = state.selected_play_config_mut() else {
             return;
         };
         let current = (self.get)(pc);
@@ -349,7 +349,7 @@ impl Event for ConfigCycleEvent {
         if !state.is_music_selector() {
             return;
         }
-        let Some(config) = state.get_config_mut() else {
+        let Some(config) = state.config_mut() else {
             return;
         };
         let current = (self.get)(config);
@@ -378,7 +378,7 @@ impl Event for HispeedEvent {
         if !state.is_music_selector() {
             return;
         }
-        let Some(pc) = state.get_selected_play_config_mut() else {
+        let Some(pc) = state.selected_play_config_mut() else {
             return;
         };
         let margin = pc.hispeedmargin;
@@ -407,7 +407,7 @@ impl Event for DurationEvent {
         if !state.is_music_selector() {
             return;
         }
-        let Some(pc) = state.get_selected_play_config_mut() else {
+        let Some(pc) = state.selected_play_config_mut() else {
             return;
         };
         let inc = if arg2 > 0 { arg2 } else { 1 };
@@ -436,7 +436,7 @@ impl Event for HispeedAutoAdjustEvent {
         if !state.is_music_selector() {
             return;
         }
-        let Some(pc) = state.get_selected_play_config_mut() else {
+        let Some(pc) = state.selected_play_config_mut() else {
             return;
         };
         pc.hispeedautoadjust = !pc.hispeedautoadjust;
@@ -644,7 +644,7 @@ impl Event for JudgeAlgorithmEvent {
         }
         let algorithms = DEFAULT_ALGORITHM;
         let alg_len = algorithms.len();
-        let Some(pc) = state.get_selected_play_config_mut() else {
+        let Some(pc) = state.selected_play_config_mut() else {
             return;
         };
         let jt = pc.judgetype.clone();

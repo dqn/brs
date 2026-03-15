@@ -1,7 +1,7 @@
 use super::*;
 use crate::select::bar::folder_bar::FolderBar;
 use crate::select::bar::song_bar::SongBar;
-use rubato_skin::stubs::{MainController, PlayerResource, SkinOffset, Timer};
+use rubato_skin::stubs::Timer;
 
 /// Create a test SkinImage with draw=true and specified region.
 /// Uses a default TextureRegion (no real texture, but valid for layout tests).
@@ -15,16 +15,12 @@ fn make_test_image(x: f32, y: f32, w: f32, h: f32) -> SkinImage {
 /// Mock MainState for testing (implements rubato_skin::stubs::MainState)
 struct MockMainState {
     timer: Timer,
-    main: MainController,
-    resource: PlayerResource,
 }
 
 impl Default for MockMainState {
     fn default() -> Self {
         Self {
             timer: Timer::default(),
-            main: MainController { debug: false },
-            resource: PlayerResource,
         }
     }
 }
@@ -52,20 +48,7 @@ impl rubato_types::timer_access::TimerAccess for MockMainState {
 
 impl rubato_types::skin_render_context::SkinRenderContext for MockMainState {}
 
-impl MainState for MockMainState {
-    fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-        &self.timer
-    }
-    fn get_main(&self) -> &MainController {
-        &self.main
-    }
-    fn get_image(&self, _id: i32) -> Option<rubato_skin::stubs::TextureRegion> {
-        None
-    }
-    fn get_resource(&self) -> &PlayerResource {
-        &self.resource
-    }
-}
+impl MainState for MockMainState {}
 
 fn make_song_data(sha256: &str, path: Option<&str>) -> SongData {
     let mut sd = SongData::default();

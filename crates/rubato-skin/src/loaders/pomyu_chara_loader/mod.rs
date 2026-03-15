@@ -8,7 +8,7 @@ use crate::objects::skin_image::SkinImage;
 use crate::property::timer_property::TimerProperty;
 use crate::skin_object::DestinationParams;
 use crate::skin_property::*;
-use crate::stubs::{Pixmap, PixmapFormat, PlaySkinStub, SkinLoaderStub, Texture, TextureRegion};
+use crate::stubs::{Pixmap, PixmapFormat, Texture, TextureRegion};
 
 pub const PLAY: i32 = 0;
 pub const BACKGROUND: i32 = 1;
@@ -42,12 +42,16 @@ pub struct PomyuCharaDestination {
 }
 
 pub struct PomyuCharaLoader<'a> {
-    skin: &'a mut PlaySkinStub,
+    images: &'a mut Vec<SkinImage>,
+    pub pomyu: rubato_play::pomyu_chara_processor::PomyuCharaProcessor,
 }
 
 impl<'a> PomyuCharaLoader<'a> {
-    pub fn new(skin: &'a mut PlaySkinStub) -> Self {
-        Self { skin }
+    pub fn new(images: &'a mut Vec<SkinImage>) -> Self {
+        Self {
+            images,
+            pomyu: rubato_play::pomyu_chara_processor::PomyuCharaProcessor::new(),
+        }
     }
 
     pub fn load_with_timer_property(
@@ -187,7 +191,7 @@ impl<'a> PomyuCharaLoader<'a> {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
                                 if let Some(slot) = char_bmp.get_mut(char_bmp_index) {
-                                    *slot = SkinLoaderStub::texture(&path, usecim);
+                                    *slot = crate::skin_loader::texture(&path, usecim);
                                 }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#CharBMP2P") {
@@ -195,7 +199,7 @@ impl<'a> PomyuCharaLoader<'a> {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
                                 if let Some(slot) = char_bmp.get_mut(char_bmp_index + 1) {
-                                    *slot = SkinLoaderStub::texture(&path, usecim);
+                                    *slot = crate::skin_loader::texture(&path, usecim);
                                 }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#CharTex") {
@@ -203,7 +207,7 @@ impl<'a> PomyuCharaLoader<'a> {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
                                 if let Some(slot) = char_bmp.get_mut(char_tex_index) {
-                                    *slot = SkinLoaderStub::texture(&path, usecim);
+                                    *slot = crate::skin_loader::texture(&path, usecim);
                                 }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#CharTex2P") {
@@ -211,7 +215,7 @@ impl<'a> PomyuCharaLoader<'a> {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
                                 if let Some(slot) = char_bmp.get_mut(char_tex_index + 1) {
-                                    *slot = SkinLoaderStub::texture(&path, usecim);
+                                    *slot = crate::skin_loader::texture(&path, usecim);
                                 }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#CharFace") {
@@ -219,7 +223,7 @@ impl<'a> PomyuCharaLoader<'a> {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
                                 if let Some(slot) = char_bmp.get_mut(char_face_index) {
-                                    *slot = SkinLoaderStub::texture(&path, usecim);
+                                    *slot = crate::skin_loader::texture(&path, usecim);
                                 }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#CharFace2P") {
@@ -227,7 +231,7 @@ impl<'a> PomyuCharaLoader<'a> {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
                                 if let Some(slot) = char_bmp.get_mut(char_face_index + 1) {
-                                    *slot = SkinLoaderStub::texture(&path, usecim);
+                                    *slot = crate::skin_loader::texture(&path, usecim);
                                 }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#SelectCG") {
@@ -235,7 +239,7 @@ impl<'a> PomyuCharaLoader<'a> {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
                                 if let Some(slot) = char_bmp.get_mut(select_cg_index) {
-                                    *slot = SkinLoaderStub::texture(&path, usecim);
+                                    *slot = crate::skin_loader::texture(&path, usecim);
                                 }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#SelectCG2P") {
@@ -243,7 +247,7 @@ impl<'a> PomyuCharaLoader<'a> {
                                 let path =
                                     format!("{}{}", chp_dir_prefix, data[1].replace('\\', "/"));
                                 if let Some(slot) = char_bmp.get_mut(select_cg_index + 1) {
-                                    *slot = SkinLoaderStub::texture(&path, usecim);
+                                    *slot = crate::skin_loader::texture(&path, usecim);
                                 }
                             }
                         } else if str_parts[0].eq_ignore_ascii_case("#Patern")
@@ -372,7 +376,7 @@ impl<'a> PomyuCharaLoader<'a> {
                     xywh[1][3],
                 );
                 let pm_chara_part = SkinImage::new_with_int_timer(vec![region], 0, 0);
-                self.skin.add(pm_chara_part);
+                self.images.push(pm_chara_part);
                 return None; // Java returns PMcharaPart, but skin.add already stores it
             }
             NAME => {
@@ -396,7 +400,7 @@ impl<'a> PomyuCharaLoader<'a> {
                     xywh[0][3],
                 );
                 let pm_chara_part = SkinImage::new_with_int_timer(vec![region], 0, 0);
-                self.skin.add(pm_chara_part);
+                self.images.push(pm_chara_part);
                 return None;
             }
             FACE_UPPER => {
@@ -426,7 +430,7 @@ impl<'a> PomyuCharaLoader<'a> {
                     char_face_upper_xywh[3],
                 );
                 let pm_chara_part = SkinImage::new_with_int_timer(vec![region], 0, 0);
-                self.skin.add(pm_chara_part);
+                self.images.push(pm_chara_part);
                 return None;
             }
             FACE_ALL => {
@@ -456,7 +460,7 @@ impl<'a> PomyuCharaLoader<'a> {
                     char_face_all_xywh[3],
                 );
                 let pm_chara_part = SkinImage::new_with_int_timer(vec![region], 0, 0);
-                self.skin.add(pm_chara_part);
+                self.images.push(pm_chara_part);
                 return None;
             }
             SELECT_CG => {
@@ -474,7 +478,7 @@ impl<'a> PomyuCharaLoader<'a> {
                 let h = set_bmp.height;
                 let region = TextureRegion::from_texture_region(set_bmp.clone(), 0, 0, w, h);
                 let pm_chara_part = SkinImage::new_with_int_timer(vec![region], 0, 0);
-                self.skin.add(pm_chara_part);
+                self.images.push(pm_chara_part);
                 return None;
             }
             NEUTRAL => {

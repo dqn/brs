@@ -1,21 +1,17 @@
 use super::*;
 use crate::property::float_property::FloatProperty;
 use crate::property::timer_property::TimerProperty;
-use crate::stubs::{MainController, PlayerResource, SkinOffset, TextureRegion, Timer};
+use crate::stubs::Timer;
 
 /// Minimal mock MainState for Lua property tests.
 struct MockMainState {
     timer: Timer,
-    main: MainController,
-    resource: PlayerResource,
 }
 
 impl Default for MockMainState {
     fn default() -> Self {
         Self {
             timer: Timer::default(),
-            main: MainController { debug: false },
-            resource: PlayerResource,
         }
     }
 }
@@ -43,20 +39,7 @@ impl rubato_types::timer_access::TimerAccess for MockMainState {
 
 impl rubato_types::skin_render_context::SkinRenderContext for MockMainState {}
 
-impl MainState for MockMainState {
-    fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-        &self.timer
-    }
-    fn get_main(&self) -> &MainController {
-        &self.main
-    }
-    fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-        None
-    }
-    fn get_resource(&self) -> &PlayerResource {
-        &self.resource
-    }
-}
+impl MainState for MockMainState {}
 
 #[test]
 fn boolean_property_works_on_creation_thread() {

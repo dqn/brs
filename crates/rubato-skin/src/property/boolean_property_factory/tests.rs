@@ -1,11 +1,9 @@
 use super::*;
-use crate::stubs::{MainController, MainState, PlayerResource, SkinOffset, TextureRegion, Timer};
+use crate::stubs::{MainState, Timer};
 
 /// MockMainState that returns configurable boolean values.
 struct BoolMockState {
     timer: Timer,
-    main: MainController,
-    resource: PlayerResource,
     /// Maps property ID to boolean value.
     values: std::collections::HashMap<i32, bool>,
     is_music_selector: bool,
@@ -16,8 +14,6 @@ impl BoolMockState {
     fn new(values: std::collections::HashMap<i32, bool>) -> Self {
         Self {
             timer: Timer::default(),
-            main: MainController { debug: false },
-            resource: PlayerResource,
             values,
             is_music_selector: false,
             is_result_state: false,
@@ -68,20 +64,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for BoolMockState {
     }
 }
 
-impl MainState for BoolMockState {
-    fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-        &self.timer
-    }
-    fn get_main(&self) -> &MainController {
-        &self.main
-    }
-    fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-        None
-    }
-    fn get_resource(&self) -> &PlayerResource {
-        &self.resource
-    }
-}
+impl MainState for BoolMockState {}
 
 #[test]
 fn test_delegate_boolean_property_reads_from_state() {

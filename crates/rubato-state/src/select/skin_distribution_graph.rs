@@ -90,7 +90,7 @@ impl SkinDistributionGraph {
         self.current_bar = state.get_distribution_data();
 
         let is_folderlamp = state
-            .get_config_ref()
+            .config_ref()
             .is_none_or(|config| config.select.folderlamp);
         if !is_folderlamp {
             self.draw = false;
@@ -218,7 +218,6 @@ impl SkinDistributionGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rubato_skin::stubs::{SkinOffset, TextureRegion};
     use rubato_song::md_processor::download_task::{DownloadTask, DownloadTaskStatus};
 
     #[test]
@@ -375,26 +374,7 @@ mod tests {
         }
     }
 
-    impl MainState for MockMainState {
-        fn timer(&self) -> &dyn rubato_types::timer_access::TimerAccess {
-            static NULL: rubato_types::timer_access::NullTimer =
-                rubato_types::timer_access::NullTimer;
-            &NULL
-        }
-        fn get_main(&self) -> &rubato_skin::stubs::MainController {
-            static MAIN: std::sync::OnceLock<rubato_skin::stubs::MainController> =
-                std::sync::OnceLock::new();
-            MAIN.get_or_init(|| rubato_skin::stubs::MainController { debug: false })
-        }
-        fn get_image(&self, _id: i32) -> Option<TextureRegion> {
-            None
-        }
-        fn get_resource(&self) -> &rubato_skin::stubs::PlayerResource {
-            static RES: std::sync::OnceLock<rubato_skin::stubs::PlayerResource> =
-                std::sync::OnceLock::new();
-            RES.get_or_init(|| rubato_skin::stubs::PlayerResource)
-        }
-    }
+    impl MainState for MockMainState {}
 
     /// Helper that mirrors the logic in draw_song_bar_download
     fn compute_download_percent(task: &DownloadTask) -> f32 {

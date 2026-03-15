@@ -341,8 +341,8 @@ fn test_load_type_constants() {
 
 #[test]
 fn test_load_invalid_load_type_returns_none() {
-    let mut skin = PlaySkinStub::new();
-    let mut loader = PomyuCharaLoader::new(&mut skin);
+    let mut images: Vec<SkinImage> = Vec::new();
+    let mut loader = PomyuCharaLoader::new(&mut images);
     let dst = PomyuCharaDestination {
         x: 0.0,
         y: 0.0,
@@ -367,8 +367,8 @@ fn test_load_invalid_load_type_returns_none() {
 
 #[test]
 fn test_load_negative_load_type_returns_none() {
-    let mut skin = PlaySkinStub::new();
-    let mut loader = PomyuCharaLoader::new(&mut skin);
+    let mut images: Vec<SkinImage> = Vec::new();
+    let mut loader = PomyuCharaLoader::new(&mut images);
     let dst = PomyuCharaDestination {
         x: 0.0,
         y: 0.0,
@@ -393,8 +393,8 @@ fn test_load_negative_load_type_returns_none() {
 
 #[test]
 fn test_load_nonexistent_path_returns_none() {
-    let mut skin = PlaySkinStub::new();
-    let mut loader = PomyuCharaLoader::new(&mut skin);
+    let mut images: Vec<SkinImage> = Vec::new();
+    let mut loader = PomyuCharaLoader::new(&mut images);
     let dst = PomyuCharaDestination {
         x: 0.0,
         y: 0.0,
@@ -422,8 +422,8 @@ fn test_load_nonexistent_path_returns_none() {
 
 #[test]
 fn test_load_nonexistent_directory_returns_none() {
-    let mut skin = PlaySkinStub::new();
-    let mut loader = PomyuCharaLoader::new(&mut skin);
+    let mut images: Vec<SkinImage> = Vec::new();
+    let mut loader = PomyuCharaLoader::new(&mut images);
     let dst = PomyuCharaDestination {
         x: 0.0,
         y: 0.0,

@@ -29,8 +29,8 @@ impl SkinObjectData {
         self.region.x += offset_x;
         self.region.y += offset_y;
         if let Some(ref mouse_rect) = self.mouse_rect {
-            let mx = state.get_main().input_processor().mouse_x() - self.region.x;
-            let my = state.get_main().input_processor().mouse_y() - self.region.y;
+            let mx = state.mouse_x() - self.region.x;
+            let my = state.mouse_y() - self.region.y;
             if !mouse_rect.contains(mx, my) {
                 self.draw = false;
                 return;
