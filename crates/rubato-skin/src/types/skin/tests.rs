@@ -677,3 +677,66 @@ fn test_skin_float_validate_returns_true() {
     // Float uses wildcard arm which defaults to true
     assert!(obj.validate());
 }
+
+// =========================================================================
+// SkinNoteObject pipeline gate tests
+// =========================================================================
+
+/// Two-phase lifecycle: SkinObject::Note must be drawable after prepare().
+/// This is the test that would have caught the missing setDestination() bug.
+#[test]
+fn test_skin_object_enum_two_phase_note() {
+    let note_obj = crate::skin_note_object::SkinNoteObject::new(7);
+    let mut obj = SkinObject::Note(note_obj);
+
+    let state = crate::test_helpers::MockMainState::default();
+
+    // Phase 1: prepare (via enum)
+    obj.prepare(0, &state);
+    assert!(
+        obj.is_draw(),
+        "SkinObject::Note must pass is_draw() after prepare()"
+    );
+    assert!(obj.is_visible());
+}
+
+/// Integration test: SkinNoteObject added to a Skin and drawn through
+/// draw_all_objects(). Verifies the full pipeline gate (prepare -> is_draw
+/// check -> draw) does not skip the note object.
+#[test]
+fn test_draw_all_objects_includes_note_object() {
+    use rubato_play::lane_renderer::{DrawCommand, NoteImageType};
+
+    let mut skin = make_test_skin();
+
+    // Create a note object with a draw command and a wired texture
+    let mut note_obj = crate::skin_note_object::SkinNoteObject::new(7);
+    note_obj.draw_commands = vec![DrawCommand::DrawNote {
+        lane: 0,
+        x: 10.0,
+        y: 20.0,
+        w: 30.0,
+        h: 5.0,
+        image_type: NoteImageType::Normal,
+    }];
+    // Wire a texture so the draw actually produces vertices
+    note_obj.note_images[0] = Some(make_region(32, 8));
+
+    skin.add(SkinObject::Note(note_obj));
+    // Register the object in the draw array
+    skin.objectarray_indices.push(skin.objects.len() - 1);
+
+    // Swap in a SpriteBatch and draw
+    let mut batch = rubato_render::sprite_batch::SpriteBatch::new();
+    skin.swap_sprite_batch(&mut batch);
+
+    let state = crate::test_helpers::MockMainState::default();
+    skin.draw_all_objects(&state);
+
+    // Swap out and check that the note was actually drawn
+    skin.swap_sprite_batch(&mut batch);
+    assert!(
+        !batch.vertices().is_empty(),
+        "Note object must produce vertices when drawn through draw_all_objects()"
+    );
+}

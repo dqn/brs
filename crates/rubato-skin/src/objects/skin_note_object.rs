@@ -205,6 +205,35 @@ mod tests {
         assert!(note.draw_commands.is_empty());
     }
 
+    /// Constructor post-condition: new() must produce a non-empty dst so that
+    /// prepare() can set draw=true. This matches Java SkinNote's constructor
+    /// which calls setDestination() to add a default DST entry.
+    #[test]
+    fn test_new_has_default_destination() {
+        let note = SkinNoteObject::new(7);
+        assert!(
+            !note.data.dst.is_empty(),
+            "SkinNoteObject must have at least one DST entry after construction"
+        );
+        assert!(
+            note.data.fixr.is_some(),
+            "First DST entry should set fixr for fast-path prepare"
+        );
+    }
+
+    /// Pipeline gate test: after prepare(), is_draw() must return true so that
+    /// draw_all_objects() does not skip this object.
+    #[test]
+    fn test_prepare_sets_draw_true() {
+        let mut note = SkinNoteObject::new(7);
+        let state = crate::test_helpers::MockMainState::default();
+        note.prepare(0, &state);
+        assert!(
+            note.data.draw,
+            "SkinNoteObject must be drawable after prepare()"
+        );
+    }
+
     #[test]
     fn test_set_draw_commands() {
         let mut note = SkinNoteObject::new(7);
