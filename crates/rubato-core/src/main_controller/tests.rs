@@ -1035,6 +1035,259 @@ fn state_transition_flushes_audio_before_and_after_shutdown() {
     assert_eq!(*shutdown_sync_calls.lock().expect("mutex poisoned"), 1);
 }
 
+// --- Flag-then-tick cross-boundary integration tests ---
+// These tests verify observable audio outcomes (not just call ordering)
+// when tick-based processors interact with the state machine lifecycle.
+
+/// A test state that simulates the PreviewMusicProcessor pattern:
+/// - While running, sync_audio plays a preview track on the audio driver
+/// - shutdown() sets a stop flag but does NOT directly stop audio
+/// - The next sync_audio tick sees the flag and actually stops audio
+///
+/// This catches the bug class where shutdown sets a flag but no tick
+/// follows to execute the side effect.
+struct TickBasedPreviewState {
+    state_data: MainStateData,
+    preview_path: String,
+    preview_started: bool,
+    should_stop: bool,
+}
+
+impl TickBasedPreviewState {
+    fn new(preview_path: &str) -> Self {
+        Self {
+            state_data: MainStateData::new(TimerManager::new()),
+            preview_path: preview_path.to_string(),
+            preview_started: false,
+            should_stop: false,
+        }
+    }
+}
+
+impl MainState for TickBasedPreviewState {
+    fn state_type(&self) -> Option<MainStateType> {
+        Some(MainStateType::MusicSelect)
+    }
+
+    fn main_state_data(&self) -> &MainStateData {
+        &self.state_data
+    }
+
+    fn main_state_data_mut(&mut self) -> &mut MainStateData {
+        &mut self.state_data
+    }
+
+    fn create(&mut self) {}
+
+    fn prepare(&mut self) {}
+
+    fn render(&mut self) {}
+
+    fn shutdown(&mut self) {
+        // Like PreviewMusicProcessor::stop(): only sets a flag.
+        // Actual audio stop requires a subsequent sync_audio tick.
+        self.should_stop = true;
+    }
+
+    fn sync_audio(&mut self, audio: &mut dyn AudioDriver) {
+        if self.should_stop {
+            // Post-shutdown tick: stop the audio.
+            if self.preview_started {
+                audio.stop_path(&self.preview_path);
+                audio.dispose_path(&self.preview_path);
+                self.preview_started = false;
+            }
+            return;
+        }
+        // Normal tick: start/keep preview playing.
+        if !self.preview_started {
+            audio.play_path(&self.preview_path, 0.5, true);
+            self.preview_started = true;
+        }
+    }
+}
+
+struct TickBasedPreviewStateFactory {
+    preview_path: String,
+}
+
+impl StateFactory for TickBasedPreviewStateFactory {
+    fn create_state(
+        &self,
+        state_type: MainStateType,
+        _controller: &mut MainController,
+    ) -> Option<StateCreateResult> {
+        if state_type == MainStateType::MusicSelect {
+            Some(StateCreateResult {
+                state: Box::new(TickBasedPreviewState::new(&self.preview_path)),
+                target_score: None,
+            })
+        } else {
+            Some(StateCreateResult {
+                state: Box::new(TestState::new(state_type)),
+                target_score: None,
+            })
+        }
+    }
+}
+
+#[test]
+fn state_transition_stops_tick_based_preview_audio() {
+    // Integration test: verify the OBSERVABLE OUTCOME (audio is not playing)
+    // rather than implementation details (sync_audio call count/order).
+    let preview_path = "/preview/song.ogg";
+
+    let config = Config::default();
+    let player = PlayerConfig::default();
+    let mut mc = MainController::new(None, config, player, None, false);
+    mc.set_state_factory(Box::new(TickBasedPreviewStateFactory {
+        preview_path: preview_path.to_string(),
+    }));
+    mc.set_audio_driver(Box::new(RecordingAudioDriver::new()));
+
+    // Enter MusicSelect: the pre-shutdown sync_audio tick starts preview.
+    mc.change_state(MainStateType::MusicSelect);
+    // Simulate a render frame so preview starts via sync_audio.
+    mc.render();
+
+    // Verify preview is actually playing before transition.
+    assert!(
+        mc.audio_processor()
+            .expect("audio driver should exist")
+            .is_playing_path(preview_path),
+        "Preview must be playing before transition"
+    );
+
+    // Transition to Decide: shutdown sets flag, post-shutdown tick must stop audio.
+    mc.change_state(MainStateType::Decide);
+
+    // Verify the observable outcome: audio driver no longer playing the preview.
+    assert!(
+        !mc.audio_processor()
+            .expect("audio driver should exist")
+            .is_playing_path(preview_path),
+        "Preview audio must not be playing after state transition"
+    );
+}
+
+/// A shared-state audio driver that records stop/dispose events for
+/// cross-boundary assertions without requiring downcast.
+struct EventTrackingAudioDriver {
+    inner: RecordingAudioDriver,
+    stopped: Arc<Mutex<Vec<String>>>,
+    disposed: Arc<Mutex<Vec<String>>>,
+}
+
+impl EventTrackingAudioDriver {
+    fn new(stopped: Arc<Mutex<Vec<String>>>, disposed: Arc<Mutex<Vec<String>>>) -> Self {
+        Self {
+            inner: RecordingAudioDriver::new(),
+            stopped,
+            disposed,
+        }
+    }
+}
+
+impl AudioDriver for EventTrackingAudioDriver {
+    fn play_path(&mut self, path: &str, volume: f32, loop_play: bool) {
+        self.inner.play_path(path, volume, loop_play);
+    }
+    fn set_volume_path(&mut self, path: &str, volume: f32) {
+        self.inner.set_volume_path(path, volume);
+    }
+    fn is_playing_path(&self, path: &str) -> bool {
+        self.inner.is_playing_path(path)
+    }
+    fn stop_path(&mut self, path: &str) {
+        self.inner.stop_path(path);
+        self.stopped
+            .lock()
+            .expect("mutex poisoned")
+            .push(path.to_string());
+    }
+    fn dispose_path(&mut self, path: &str) {
+        self.inner.dispose_path(path);
+        self.disposed
+            .lock()
+            .expect("mutex poisoned")
+            .push(path.to_string());
+    }
+    fn set_model(&mut self, model: &bms_model::bms_model::BMSModel) {
+        self.inner.set_model(model);
+    }
+    fn set_additional_key_sound(&mut self, judge: i32, fast: bool, path: Option<&str>) {
+        self.inner.set_additional_key_sound(judge, fast, path);
+    }
+    fn abort(&mut self) {
+        self.inner.abort();
+    }
+    fn get_progress(&self) -> f32 {
+        self.inner.get_progress()
+    }
+    fn preload_path(&mut self, path: &str) {
+        self.inner.preload_path(path);
+    }
+    fn play_note(&mut self, n: &bms_model::note::Note, volume: f32, pitch: i32) {
+        self.inner.play_note(n, volume, pitch);
+    }
+    fn play_judge(&mut self, judge: i32, fast: bool) {
+        self.inner.play_judge(judge, fast);
+    }
+    fn stop_note(&mut self, n: Option<&bms_model::note::Note>) {
+        self.inner.stop_note(n);
+    }
+    fn set_volume_note(&mut self, n: &bms_model::note::Note, volume: f32) {
+        self.inner.set_volume_note(n, volume);
+    }
+    fn set_global_pitch(&mut self, pitch: f32) {
+        self.inner.set_global_pitch(pitch);
+    }
+    fn get_global_pitch(&self) -> f32 {
+        self.inner.get_global_pitch()
+    }
+    fn dispose_old(&mut self) {
+        self.inner.dispose_old();
+    }
+    fn dispose(&mut self) {
+        self.inner.dispose();
+    }
+}
+
+#[test]
+fn state_transition_emits_stop_and_dispose_events_for_preview() {
+    // Verify that both stop_path and dispose_path are called for the preview
+    // track during state transition (not just is_playing check).
+    let preview_path = "/preview/track.ogg";
+    let stopped = Arc::new(Mutex::new(Vec::<String>::new()));
+    let disposed = Arc::new(Mutex::new(Vec::<String>::new()));
+
+    let config = Config::default();
+    let player = PlayerConfig::default();
+    let mut mc = MainController::new(None, config, player, None, false);
+    mc.set_state_factory(Box::new(TickBasedPreviewStateFactory {
+        preview_path: preview_path.to_string(),
+    }));
+    mc.set_audio_driver(Box::new(EventTrackingAudioDriver::new(
+        Arc::clone(&stopped),
+        Arc::clone(&disposed),
+    )));
+
+    mc.change_state(MainStateType::MusicSelect);
+    mc.render();
+    mc.change_state(MainStateType::Decide);
+
+    let stopped_paths = stopped.lock().expect("mutex poisoned");
+    let disposed_paths = disposed.lock().expect("mutex poisoned");
+    assert!(
+        stopped_paths.contains(&preview_path.to_string()),
+        "Preview path must be stopped during transition, got: {stopped_paths:?}"
+    );
+    assert!(
+        disposed_paths.contains(&preview_path.to_string()),
+        "Preview path must be disposed during transition, got: {disposed_paths:?}"
+    );
+}
+
 // --- Phase 24f: update_main_state_listener tests ---
 
 use std::sync::{Arc, Mutex};
