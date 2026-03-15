@@ -32,7 +32,7 @@ pub fn remove_empty_strings(arr: &[String]) -> Vec<String> {
 mod tests {
     use super::*;
 
-    struct AlwaysValid(i32);
+    struct AlwaysValid(#[allow(dead_code)] i32);
     impl Validatable for AlwaysValid {
         fn validate(&mut self) -> bool {
             true
