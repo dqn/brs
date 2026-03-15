@@ -162,6 +162,60 @@ impl E2eHarness {
         }
         max_frames
     }
+
+    // ============================================================
+    // Input injection (Phase 4c)
+    // ============================================================
+
+    /// Inject a key-down event for the given key index.
+    pub fn inject_key_down(&mut self, key: i32) {
+        let time = self.current_time_us();
+        if let Some(input) = self.controller.input_processor_mut() {
+            input.set_key_state(key, true, time);
+        }
+    }
+
+    /// Inject a key-up event for the given key index.
+    pub fn inject_key_up(&mut self, key: i32) {
+        let time = self.current_time_us();
+        if let Some(input) = self.controller.input_processor_mut() {
+            input.set_key_state(key, false, time);
+        }
+    }
+
+    /// Inject a key press: key-down, render n frames, then key-up.
+    pub fn inject_key_press(&mut self, key: i32, duration_frames: usize) {
+        self.inject_key_down(key);
+        self.render_frames(duration_frames);
+        self.inject_key_up(key);
+    }
+
+    // ============================================================
+    // Gameplay state inspection (Phase 4d)
+    // ============================================================
+
+    /// Returns the current score data from PlayerResource (if available).
+    pub fn score_data(&self) -> Option<&rubato_types::score_data::ScoreData> {
+        self.controller.player_resource()?.score_data()
+    }
+
+    /// Returns the current groove gauge value for the active gauge type,
+    /// or 0.0 if PlayerResource or GrooveGauge is unavailable.
+    pub fn gauge_value(&self) -> f32 {
+        self.controller
+            .player_resource()
+            .and_then(|r| r.groove_gauge())
+            .map(|g| g.value())
+            .unwrap_or(0.0)
+    }
+
+    /// Returns whether the player resource has a groove gauge set.
+    pub fn has_groove_gauge(&self) -> bool {
+        self.controller
+            .player_resource()
+            .and_then(|r| r.groove_gauge())
+            .is_some()
+    }
 }
 
 impl Default for E2eHarness {
@@ -279,5 +333,48 @@ mod tests {
         let frames = harness.render_until(|h| h.current_time_us() >= target_time, 100);
         assert!(frames <= 5);
         assert!(harness.current_time_us() >= target_time);
+    }
+
+    #[test]
+    fn inject_key_down_sets_key_state() {
+        let mut harness = E2eHarness::new();
+        harness.inject_key_down(0);
+        let pressed = harness
+            .controller()
+            .input_processor()
+            .map(|ip| ip.key_state(0))
+            .unwrap_or(false);
+        assert!(pressed, "key 0 should be pressed after inject_key_down");
+    }
+
+    #[test]
+    fn inject_key_up_clears_key_state() {
+        let mut harness = E2eHarness::new();
+        harness.inject_key_down(0);
+        harness.inject_key_up(0);
+        let pressed = harness
+            .controller()
+            .input_processor()
+            .map(|ip| ip.key_state(0))
+            .unwrap_or(true);
+        assert!(!pressed, "key 0 should not be pressed after inject_key_up");
+    }
+
+    #[test]
+    fn inject_key_press_presses_and_releases() {
+        let mut harness = E2eHarness::new();
+        harness.inject_key_press(5, 3);
+        // After inject_key_press, the key should be released
+        let pressed = harness
+            .controller()
+            .input_processor()
+            .map(|ip| ip.key_state(5))
+            .unwrap_or(true);
+        assert!(
+            !pressed,
+            "key 5 should be released after inject_key_press completes"
+        );
+        // Time should have advanced by 3 frames
+        assert_eq!(harness.current_time_us(), FRAME_DURATION_US * 3);
     }
 }
