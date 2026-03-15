@@ -8,4 +8,7 @@ mod behavioral {
     mod render_verification;
     mod score_pipeline;
     mod state_lifecycle;
+
+    // Phase 5f
+    mod gauge_types;
 }
