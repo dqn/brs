@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use rubato_e2e::{E2eHarness, MainStateType};
 use rubato_launcher::state_factory::LauncherStateFactory;
 use rubato_types::main_controller_access::MainControllerAccess;
+use rubato_types::timer_id::TimerId;
 
 fn test_bms_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -139,6 +140,37 @@ fn key_state_reflects_injection() {
     assert!(
         !input.key_state(3),
         "key 3 should be released after inject_key_up"
+    );
+}
+
+#[test]
+fn stale_key_state_is_cleared_when_entering_manual_play() {
+    let mut harness = harness_with_bms("minimal_7k.bms");
+
+    harness.inject_key_down(0);
+    let input = harness
+        .controller()
+        .input_processor()
+        .expect("input processor should exist before play transition");
+    assert!(
+        input.key_state(0),
+        "precondition: injected stale key should be set"
+    );
+
+    harness.change_state(MainStateType::Play);
+    harness.render_frame();
+
+    let input = harness
+        .controller()
+        .input_processor()
+        .expect("input processor should exist after play transition");
+    assert!(
+        !input.key_state(0),
+        "play transition must clear stale manual key state"
+    );
+    assert!(
+        !harness.controller().timer().is_timer_on(TimerId::new(101)),
+        "stale key state must not leave the first lane beam timer on"
     );
 }
 

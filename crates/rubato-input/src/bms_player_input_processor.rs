@@ -304,14 +304,24 @@ impl BMSPlayerInputProcessor {
         self.bminput.len() + 1
     }
 
+    fn clear_live_game_input_state(&mut self) {
+        self.reset_all_key_state();
+        self.kbinput.clear();
+        for bm in self.bminput.iter_mut() {
+            bm.clear();
+        }
+        self.midiinput.clear();
+    }
+
     pub fn set_play_config(&mut self, playconfig: &mut PlayModeConfig) {
+        // Changing the gameplay mapping must drop any pressed state carried
+        // over from the previous state, otherwise PLAY can start with held
+        // beams / judgments from stale inputs.
+        self.clear_live_game_input_state();
+
         // KB, controller, Midi exclusive button processing
         let mut kbkeys = playconfig.keyboard.keys.to_vec();
         let mut exclusive = vec![false; kbkeys.len()];
-        for i in kbkeys.len()..self.keystate.len() {
-            self.keystate[i] = false;
-            self.time[i] = i64::MIN;
-        }
 
         let kbcount = Self::set_play_config0(&mut kbkeys, &mut exclusive);
         // Write back mutated keys so exclusive deduplication propagates
@@ -379,12 +389,7 @@ impl BMSPlayerInputProcessor {
     pub fn set_enable(&mut self, enable: bool) {
         self.enable = enable;
         if !enable {
-            self.reset_all_key_state();
-            self.kbinput.clear();
-            for bm in self.bminput.iter_mut() {
-                bm.clear();
-            }
-            self.midiinput.clear();
+            self.clear_live_game_input_state();
         }
     }
 
@@ -1166,6 +1171,38 @@ mod tests {
                 "controller key[0] should be deduped to -1"
             );
         }
+    }
+
+    #[test]
+    fn test_set_play_config_clears_stale_game_key_state() {
+        use rubato_types::play_mode_config::PlayModeConfig;
+
+        let mut proc = make_input_processor();
+        let mut playconfig = PlayModeConfig::default();
+
+        proc.set_key_state(0, true, 123_456);
+        proc.set_key_state(1, true, 234_567);
+
+        proc.set_play_config(&mut playconfig);
+
+        assert!(
+            !proc.key_state(0),
+            "play config install must clear stale pressed state for key 0"
+        );
+        assert!(
+            !proc.key_state(1),
+            "play config install must clear stale pressed state for key 1"
+        );
+        assert_eq!(
+            proc.key_changed_time(0),
+            i64::MIN,
+            "play config install must clear stale change times for key 0"
+        );
+        assert_eq!(
+            proc.key_changed_time(1),
+            i64::MIN,
+            "play config install must clear stale change times for key 1"
+        );
     }
 
     #[test]
