@@ -390,9 +390,10 @@ impl rubato_core::main_state::SkinDrawable for Skin {
             if let SkinObject::Note(note) = obj {
                 let lanes = note.inner.lanes();
                 let result = lr.draw_lane(&ctx, lanes, &[]);
-                // One-shot detailed log of first frame's commands
-                static LOGGED: std::sync::Once = std::sync::Once::new();
-                LOGGED.call_once(|| {
+                // Log at frame 0 and frame 300
+                static FRAME_CTR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+                let note_frame = FRAME_CTR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if note_frame == 0 || note_frame == 300 {
                     let draw_notes = result.commands.iter().filter(|c| matches!(c, rubato_play::lane_renderer::DrawCommand::DrawNote { .. })).count();
                     let draw_ln = result.commands.iter().filter(|c| matches!(c, rubato_play::lane_renderer::DrawCommand::DrawLongNote { .. })).count();
                     log::info!(
@@ -403,7 +404,20 @@ impl rubato_core::main_state::SkinDrawable for Skin {
                         draw_ln,
                         note.note_images.iter().filter(|i| i.is_some()).count(),
                     );
-                });
+                    // Log lane regions
+                    for (i, lane) in lanes.iter().enumerate() {
+                        log::info!(
+                            "  lane[{}]: region=({}, {}, {}, {}), scale={}",
+                            i, lane.region_x, lane.region_y, lane.region_width, lane.region_height, lane.scale
+                        );
+                    }
+                    // Log first few DrawNote commands
+                    for cmd in result.commands.iter().take(15) {
+                        if let rubato_play::lane_renderer::DrawCommand::DrawNote { lane, x, y, w, h, .. } = cmd {
+                            log::info!("  DrawNote: lane={}, x={}, y={}, w={}, h={}", lane, x, y, w, h);
+                        }
+                    }
+                }
                 note.draw_commands = result.commands;
                 return;
             }

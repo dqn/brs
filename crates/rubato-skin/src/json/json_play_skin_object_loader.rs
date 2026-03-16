@@ -72,6 +72,12 @@ impl JsonSkinObjectLoader for JsonPlaySkinObjectLoader {
                     && let Some(first) = regions.first()
                     && i < note_obj.note_images.len()
                 {
+                    // Use note image height as scale (Java: scale = noteImage.getRegionHeight() * dy)
+                    if note.size.get(i).copied().unwrap_or(0.0) > 0.0 {
+                        note_obj.inner.lanes_mut()[i].scale = note.size[i];
+                    } else {
+                        note_obj.inner.lanes_mut()[i].scale = first.region_height as f32;
+                    }
                     note_obj.note_images[i] = Some(first.clone());
                 }
             }

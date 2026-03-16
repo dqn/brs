@@ -370,27 +370,44 @@ impl Skin {
                     * self.prepareduration;
             }
 
-            // One-shot diagnostic: log draw gate results by type on first frame
-            static LOGGED: std::sync::Once = std::sync::Once::new();
-            LOGGED.call_once(|| {
+            // Periodic diagnostic: log draw gate results every 300 frames
+            static FRAME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let frame_num = FRAME.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if frame_num.is_multiple_of(300) {
                 let mut drawable: std::collections::HashMap<&str, usize> =
                     std::collections::HashMap::new();
                 let mut skipped: std::collections::HashMap<&str, usize> =
                     std::collections::HashMap::new();
+                let mut no_dst_count = 0usize;
+                let mut has_timer_count = 0usize;
+                let mut no_timer_no_dst = 0usize;
                 for idx in &self.objectarray_indices {
                     let obj = &self.objects[*idx];
                     if obj.is_draw() && obj.is_visible() {
                         *drawable.entry(obj.type_name()).or_default() += 1;
                     } else {
                         *skipped.entry(obj.type_name()).or_default() += 1;
+                        let data = obj.data();
+                        if data.dst.is_empty() && data.fixr.is_none() {
+                            no_dst_count += 1;
+                        }
+                        if data.dsttimer.is_some() {
+                            has_timer_count += 1;
+                        } else if data.dst.is_empty() && data.fixr.is_none() {
+                            no_timer_no_dst += 1;
+                        }
                     }
                 }
-                log::debug!(
-                    "draw_all_objects first frame: drawable={:?}, skipped={:?}",
+                log::info!(
+                    "draw_all_objects frame {}: drawable={:?}, skipped={:?}, skipped_with_timer={}, no_dst={}, no_timer_no_dst={}",
+                    frame_num,
                     drawable,
-                    skipped
+                    skipped,
+                    has_timer_count,
+                    no_dst_count,
+                    no_timer_no_dst,
                 );
-            });
+            }
 
             let renderer = self.renderer.as_mut().expect("renderer is Some");
             for idx in &self.objectarray_indices {
