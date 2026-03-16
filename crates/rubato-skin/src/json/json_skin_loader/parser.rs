@@ -634,6 +634,9 @@ pub struct SkinObjectData {
     /// Pre-built SkinNoteObject (set by play skin loader, consumed by converter).
     /// Not cloned -- Clone impl sets this to None.
     pub resolved_note: Option<crate::skin_note_object::SkinNoteObject>,
+    /// Pre-built SkinJudgeObject (set by play skin loader, consumed by converter).
+    /// Not cloned -- Clone impl sets this to None.
+    pub resolved_judge: Option<crate::skin_judge_object::SkinJudgeObject>,
 }
 
 impl Clone for SkinObjectData {
@@ -646,6 +649,7 @@ impl Clone for SkinObjectData {
             stretch: self.stretch,
             mouse_rect: self.mouse_rect.clone(),
             resolved_note: None, // Not cloneable; consumed during conversion
+            resolved_judge: None, // Not cloneable; consumed during conversion
         }
     }
 }
@@ -656,6 +660,7 @@ impl std::fmt::Debug for SkinObjectData {
             .field("name", &self.name)
             .field("object_type", &self.object_type)
             .field("resolved_note", &self.resolved_note.is_some())
+            .field("resolved_judge", &self.resolved_judge.is_some())
             .finish()
     }
 }

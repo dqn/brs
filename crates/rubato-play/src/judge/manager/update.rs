@@ -826,6 +826,7 @@ impl JudgeManager {
         // Populate per-player judge display fields (Java JudgeManager.update2 lines 724-731)
         if lane_idx < self.lane_states.len() {
             let player = self.lane_states[lane_idx].player;
+            let offset = self.lane_states[lane_idx].offset;
             if player < self.judgenow.len() {
                 self.judgenow[player] = judge + 1;
             }
@@ -838,6 +839,11 @@ impl JudgeManager {
             if player < self.mjudgefast.len() {
                 self.mjudgefast[player] = mfast;
             }
+            self.judged_visual_events.push(JudgeVisualEvent {
+                player,
+                offset,
+                judge,
+            });
         }
 
         if judge != 4 {

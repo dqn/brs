@@ -295,6 +295,17 @@ pub struct JudgeManager {
     /// at which the judgment occurred. Drained by the caller to trigger
     /// update_judge() side effects (BGA miss layer, score timers, pomyu, etc.).
     judged_events: Vec<(i32, i64)>,
+    /// Visual side effects produced during update(). Each entry records the
+    /// player region, key offset, and judge so the caller can trigger skin
+    /// timers (judge text, combo timer, bomb animation) from the main thread.
+    judged_visual_events: Vec<JudgeVisualEvent>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct JudgeVisualEvent {
+    pub player: usize,
+    pub offset: usize,
+    pub judge: i32,
 }
 
 impl Default for JudgeManager {

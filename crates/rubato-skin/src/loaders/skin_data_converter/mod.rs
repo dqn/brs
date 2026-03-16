@@ -27,6 +27,16 @@ use crate::types::skin_type::SkinType;
 use bar_data_converter::build_select_bar_data;
 use object_converter::{convert_skin_object, set_click_event_from_type};
 
+pub(crate) fn convert_runtime_object(
+    object_type: &SkinObjectType,
+    source_map: &mut HashMap<String, SourceData>,
+    skin_path: &Path,
+    usecim: bool,
+    scale_y: f32,
+) -> Option<crate::types::skin::SkinObject> {
+    convert_skin_object(object_type, source_map, skin_path, usecim, scale_y)
+}
+
 /// Converts SkinHeaderData into a SkinHeader.
 pub fn convert_header_data(
     data: &SkinHeaderData,
@@ -208,14 +218,10 @@ pub fn convert_skin_data(
         // Use pre-built resolved_note if available (from play skin loader)
         let skin_obj = if let Some(resolved) = obj_data.resolved_note.take() {
             Some(crate::types::skin::SkinObject::Note(resolved))
+        } else if let Some(resolved) = obj_data.resolved_judge.take() {
+            Some(crate::types::skin::SkinObject::Judge(resolved))
         } else {
-            convert_skin_object(
-                &obj_data.object_type,
-                source_map,
-                skin_path,
-                usecim,
-                scale_y,
-            )
+            convert_runtime_object(&obj_data.object_type, source_map, skin_path, usecim, scale_y)
         };
 
         if let Some(mut obj) = skin_obj {

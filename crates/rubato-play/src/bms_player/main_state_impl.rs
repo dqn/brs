@@ -1,5 +1,35 @@
 use super::*;
 
+fn judge_timer_id(player: usize) -> rubato_types::timer_id::TimerId {
+    match player {
+        0 => rubato_types::timer_id::TimerId::new(46),
+        1 => rubato_types::timer_id::TimerId::new(47),
+        2 => rubato_types::timer_id::TimerId::new(247),
+        _ => rubato_types::timer_id::TimerId::UNDEFINED,
+    }
+}
+
+fn combo_timer_id(player: usize) -> rubato_types::timer_id::TimerId {
+    match player {
+        0 => rubato_types::timer_id::TimerId::new(446),
+        1 => rubato_types::timer_id::TimerId::new(447),
+        2 => rubato_types::timer_id::TimerId::new(448),
+        _ => rubato_types::timer_id::TimerId::UNDEFINED,
+    }
+}
+
+fn bomb_timer_id(player: i32, key: i32) -> rubato_types::timer_id::TimerId {
+    if player < 2 {
+        if key < 10 {
+            return rubato_types::timer_id::TimerId::new(50 + key + player * 10);
+        }
+        if key < 100 {
+            return rubato_types::timer_id::TimerId::new(1010 + key - 10 + player * 100);
+        }
+    }
+    rubato_types::timer_id::TimerId::UNDEFINED
+}
+
 impl MainState for BMSPlayer {
     fn state_type(&self) -> Option<MainStateType> {
         Some(MainStateType::Play)
@@ -716,6 +746,39 @@ impl MainState for BMSPlayer {
                     {
                         for lane in judged {
                             keyinput.input_key_on(lane, &mut self.main_state_data.timer);
+                        }
+                    }
+                    // Trigger judge/combo/bomb timers. Java does this inside
+                    // JudgeManager.update2(); Rust queues it so the main thread
+                    // owns all timer mutations.
+                    let visual_events = self.judge.drain_judged_visual_events();
+                    for event in visual_events {
+                        if event.judge <= self.play_skin.judgetimer {
+                            let bomb_timer = bomb_timer_id(event.player as i32, event.offset as i32);
+                            if bomb_timer != rubato_types::timer_id::TimerId::UNDEFINED {
+                                self.main_state_data.timer.set_timer_on(bomb_timer);
+                            }
+                        }
+
+                        let judge_timer = judge_timer_id(event.player);
+                        if judge_timer != rubato_types::timer_id::TimerId::UNDEFINED {
+                            self.main_state_data.timer.set_timer_on(judge_timer);
+                        }
+
+                        if self.play_skin.judgeregion >= 3 {
+                            for player in 0..3 {
+                                if player != event.player {
+                                    let combo_timer = combo_timer_id(player);
+                                    if combo_timer != rubato_types::timer_id::TimerId::UNDEFINED {
+                                        self.main_state_data.timer.set_timer_off(combo_timer);
+                                    }
+                                }
+                            }
+                        }
+
+                        let combo_timer = combo_timer_id(event.player);
+                        if combo_timer != rubato_types::timer_id::TimerId::UNDEFINED {
+                            self.main_state_data.timer.set_timer_on(combo_timer);
                         }
                     }
                     // Trigger per-judge side effects (BGA miss layer, score timers,

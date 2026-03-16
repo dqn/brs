@@ -45,6 +45,7 @@ impl JudgeManager {
             lane_count: 0,
             judged_lanes: Vec::new(),
             judged_events: Vec::new(),
+            judged_visual_events: Vec::new(),
         }
     }
 
@@ -217,6 +218,7 @@ impl JudgeManager {
             lane_count,
             judged_lanes: Vec::new(),
             judged_events: Vec::new(),
+            judged_visual_events: Vec::new(),
         };
         jm.score.notes = total_notes as i32;
 

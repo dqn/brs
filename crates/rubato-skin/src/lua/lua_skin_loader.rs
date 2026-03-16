@@ -319,6 +319,8 @@ mod tests {
     use std::path::PathBuf;
 
     use rubato_core::config::Config;
+    use crate::objects::wiring_check::{Severity, WiringCheck};
+    use crate::skin_type::SkinType;
 
     fn repo_path(relative: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -458,6 +460,54 @@ mod tests {
         assert!(
             skin.is_some(),
             "default play Lua skin should load fully without MainState"
+        );
+    }
+
+    #[test]
+    fn test_ecfn_play_lua_skin_wires_judge_images() {
+        let mut loader = LuaSkinLoader::new_without_state(&Config::default());
+        let path = repo_path("skin/ECFN/play/play7.luaskin");
+
+        let header = loader
+            .load_header(&path)
+            .expect("ECFN play Lua skin header should load");
+        let data = loader
+            .load(&path, &SkinType::Play7Keys, &SkinConfigProperty)
+            .expect("ECFN play Lua skin should load into SkinData");
+        let resolved_judge = data
+            .objects
+            .iter()
+            .find_map(|obj| obj.resolved_judge.as_ref())
+            .expect("ECFN play SkinData should contain a resolved judge object");
+        assert!(
+            resolved_judge.judge_images().iter().any(|image| image.is_some()),
+            "ECFN play SkinData should wire judge child images before conversion"
+        );
+        let skin = crate::skin_data_converter::convert_skin_data(
+            &header,
+            data,
+            &mut loader.json_loader.source_map,
+            &path,
+            loader.json_loader.usecim,
+            &loader.json_loader.dstr,
+        )
+        .expect("ECFN play Lua skin should convert into runtime Skin");
+
+        let judge = skin
+            .objects()
+            .iter()
+            .find_map(|obj| match obj {
+                crate::skin::SkinObject::Judge(judge) => Some(judge),
+                _ => None,
+            })
+            .expect("ECFN play skin should contain a judge object");
+        let issues = judge.check_wiring();
+
+        assert!(
+            !issues
+                .iter()
+                .any(|issue| issue.severity == Severity::Error),
+            "ECFN judge object should have its images wired, issues={issues:?}"
         );
     }
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::json::json_skin_loader::{ResolvedImageEntry, SourceData, SourceDataType};
-use crate::json::json_skin_object_loader::source_image;
+use crate::json::json_skin_object_loader::{source_image, utilities::resolve_wildcard_path};
 use crate::objects::skin_image::SkinImage;
 use crate::reexports::TextureRegion;
 use crate::types::skin::SkinObject;
@@ -36,9 +36,16 @@ pub(super) fn get_texture_for_src(
         .unwrap_or_default();
     let image_path = format!("{}/{}", parent, data_path);
 
-    let result = if std::path::Path::new(&image_path).exists() {
+    let resolved_path = if std::path::Path::new(&image_path).exists() {
+        Some(image_path)
+    } else if image_path.contains('*') {
+        resolve_wildcard_path(&image_path)
+    } else {
+        None
+    };
+    let result = if let Some(path) = resolved_path {
         Some(SourceDataType::Texture(crate::reexports::Texture::new(
-            &image_path,
+            &path,
         )))
     } else {
         None

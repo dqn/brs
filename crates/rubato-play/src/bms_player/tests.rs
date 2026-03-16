@@ -622,6 +622,43 @@ fn update_judge_updates_pomyu_chara_judge() {
     assert_eq!(player.play_skin.pomyu.pm_chara_judge, 3);
 }
 
+#[test]
+fn render_turns_on_judge_timer_after_autoplay_judgment() {
+    let model = make_model_with_notes_at_times(&[1_000_000]);
+    let mut player = BMSPlayer::new(model);
+    let mode = player.model.mode().copied().unwrap_or(Mode::BEAT_7K);
+
+    player.play_mode = BMSPlayerMode::AUTOPLAY;
+    player.rebuild_judge_system(&mode);
+    player.gauge = crate::groove_gauge::create_groove_gauge(
+        &player.model,
+        rubato_types::groove_gauge::NORMAL,
+        0,
+        None,
+    );
+    player.lanerender = Some(LaneRenderer::new(&player.model));
+    player.state = PlayState::Play;
+    player.playtime = 999_999;
+
+    player.main_state_data.timer.update();
+    let now = player.main_state_data.timer.now_micro_time();
+    player.prevtime = now;
+    player
+        .main_state_data
+        .timer
+        .set_micro_timer(TIMER_PLAY, now - 1_000_000);
+
+    player.render();
+
+    assert!(
+        player
+            .main_state_data
+            .timer
+            .is_timer_on(rubato_types::timer_id::TimerId::new(46)),
+        "judge timer 46 should turn on after an autoplay judgment"
+    );
+}
+
 // --- set_play_speed tests ---
 
 #[test]

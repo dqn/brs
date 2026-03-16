@@ -248,7 +248,7 @@ pub fn parse_hex_color(hex: &str, fallback: Color) -> Color {
 }
 
 /// Resolve a wildcard path like "skin/play/notes/*.png" to the first matching file.
-fn resolve_wildcard_path(pattern: &str) -> Option<String> {
+pub(crate) fn resolve_wildcard_path(pattern: &str) -> Option<String> {
     let path = std::path::Path::new(pattern);
     let parent = path.parent()?;
     let filename_pattern = path.file_name()?.to_str()?;

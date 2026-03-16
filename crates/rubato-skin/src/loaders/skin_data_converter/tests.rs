@@ -159,6 +159,7 @@ fn test_convert_skin_data_with_image_by_id() {
         stretch: -1,
         mouse_rect: None,
         resolved_note: None,
+        resolved_judge: None,
     });
 
     let mut source_map = HashMap::new();
@@ -360,6 +361,7 @@ fn test_convert_with_destinations() {
         stretch: -1,
         mouse_rect: None,
         resolved_note: None,
+        resolved_judge: None,
     });
 
     let mut source_map = HashMap::new();
@@ -420,6 +422,7 @@ fn test_convert_with_mouse_rect() {
             h: 40,
         }),
         resolved_note: None,
+        resolved_judge: None,
     });
 
     let mut source_map = HashMap::new();

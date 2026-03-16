@@ -450,9 +450,13 @@ impl JSONSkinLoader {
         // Populate source map
         for source in &sk.source {
             if let Some(ref id) = source.id {
+                let path = get_path_with_filemap(
+                    source.path.as_deref().unwrap_or_default(),
+                    &self.filemap,
+                );
                 self.source_map.insert(
                     id.clone(),
-                    SourceData::new(source.path.clone().unwrap_or_default()),
+                    SourceData::new(path),
                 );
             }
         }

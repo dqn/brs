@@ -305,6 +305,12 @@ impl JudgeManager {
         std::mem::take(&mut self.judged_events)
     }
 
+    /// Drain skin timer events produced during the last update() call.
+    /// The caller uses this to trigger judge/combo/bomb timers on the main thread.
+    pub fn drain_judged_visual_events(&mut self) -> Vec<JudgeVisualEvent> {
+        std::mem::take(&mut self.judged_visual_events)
+    }
+
     /// Get the judge state for a note at the given index.
     ///
     /// Returns 0 if unjudged, or judge+1 (1=PG, 2=GR, 3=GD, 4=BD, 5=PR/MS).

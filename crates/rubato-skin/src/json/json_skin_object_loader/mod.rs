@@ -10,7 +10,7 @@ use std::path::Path;
 
 use crate::json::json_skin;
 use crate::json::json_skin_loader::{
-    JSONSkinLoader, SkinData, SkinObjectData, SkinObjectType, SourceDataType,
+    JSONSkinLoader, SkinData, SkinObjectData, SkinObjectType,
 };
 
 use utilities::map_number_offsets;
@@ -68,35 +68,40 @@ fn load_image_object(
     loader: &mut JSONSkinLoader,
     sk: &json_skin::Skin,
     dst_id: &str,
-    p: &Path,
+    _p: &Path,
 ) -> Option<SkinObjectData> {
     for img in &sk.image {
         if dst_id == img.id.as_deref().unwrap_or("") {
-            let data = loader.source(img.src.as_deref().unwrap_or(""), p);
-            let is_movie = matches!(&data, Some(SourceDataType::Movie(_)));
-            if data.is_some() {
-                return Some(SkinObjectData {
-                    name: img.id.clone(),
-                    object_type: SkinObjectType::Image {
-                        src: img.src.clone(),
-                        x: img.x,
-                        y: img.y,
-                        w: img.w,
-                        h: img.h,
-                        divx: img.divx,
-                        divy: img.divy,
-                        timer: img.timer,
-                        cycle: img.cycle,
-                        len: img.len,
-                        ref_id: img.ref_id,
-                        act: img.act,
-                        click: img.click,
-                        is_movie,
-                    },
-                    ..Default::default()
-                });
-            }
-            return None;
+            let source_id = img.src.as_deref().unwrap_or("");
+            let source = loader.source_map.get(source_id)?;
+            let lower = source.path.to_lowercase();
+            let is_movie = lower.ends_with(".mpg")
+                || lower.ends_with(".mpeg")
+                || lower.ends_with(".avi")
+                || lower.ends_with(".wmv")
+                || lower.ends_with(".mp4")
+                || lower.ends_with(".m4v")
+                || lower.ends_with(".webm");
+            return Some(SkinObjectData {
+                name: img.id.clone(),
+                object_type: SkinObjectType::Image {
+                    src: img.src.clone(),
+                    x: img.x,
+                    y: img.y,
+                    w: img.w,
+                    h: img.h,
+                    divx: img.divx,
+                    divy: img.divy,
+                    timer: img.timer,
+                    cycle: img.cycle,
+                    len: img.len,
+                    ref_id: img.ref_id,
+                    act: img.act,
+                    click: img.click,
+                    is_movie,
+                },
+                ..Default::default()
+            });
         }
     }
     None
