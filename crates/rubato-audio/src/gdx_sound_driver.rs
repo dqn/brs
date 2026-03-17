@@ -47,6 +47,23 @@ pub fn linear_to_db(volume: f32) -> f32 {
     }
 }
 
+pub(crate) fn configure_sound_for_play(sound: &StaticSoundData, volume: f32) -> StaticSoundData {
+    sound.volume(linear_to_db(volume))
+}
+
+pub(crate) fn configure_path_sound_for_play(
+    sound: &StaticSoundData,
+    volume: f32,
+    loop_play: bool,
+) -> StaticSoundData {
+    let sound = configure_sound_for_play(sound, volume);
+    if loop_play {
+        sound.loop_region(0.0..)
+    } else {
+        sound
+    }
+}
+
 pub struct GdxSoundDriver {
     manager: AudioManager,
     // Map from path to sound handle
@@ -121,13 +138,9 @@ impl AudioDriver for GdxSoundDriver {
 
         // Check path sound cache first (populated by preload_path)
         if let Some(sound_data) = self.path_sound_cache.get(path) {
-            let sound = sound_data.clone();
+            let sound = configure_path_sound_for_play(sound_data, volume, loop_play);
             match self.manager.play(sound) {
-                Ok(mut handle) => {
-                    handle.set_volume(linear_to_db(volume), Tween::default());
-                    if loop_play {
-                        handle.set_loop_region(0.0..);
-                    }
+                Ok(handle) => {
                     self.path_sounds.insert(path.to_string(), handle);
                     return;
                 }
@@ -145,12 +158,9 @@ impl AudioDriver for GdxSoundDriver {
                 Ok(sound_data) => {
                     self.path_sound_cache
                         .insert(path.to_string(), sound_data.clone());
-                    match self.manager.play(sound_data) {
-                        Ok(mut handle) => {
-                            handle.set_volume(linear_to_db(volume), Tween::default());
-                            if loop_play {
-                                handle.set_loop_region(0.0..);
-                            }
+                    let sound = configure_path_sound_for_play(&sound_data, volume, loop_play);
+                    match self.manager.play(sound) {
+                        Ok(handle) => {
                             self.path_sounds.insert(path.to_string(), handle);
                             return;
                         }
@@ -430,10 +440,9 @@ impl AudioDriver for GdxSoundDriver {
             if let Some(mut handle) = self.additional_key_sound_handles[j][idx].take() {
                 handle.stop(Tween::default());
             }
-            let sound = sound_data.clone();
+            let sound = configure_sound_for_play(sound_data, self.volume);
             match self.manager.play(sound) {
-                Ok(mut handle) => {
-                    handle.set_volume(linear_to_db(self.volume), Tween::default());
+                Ok(handle) => {
                     self.additional_key_sound_handles[j][idx] = Some(handle);
                 }
                 Err(e) => {
@@ -680,10 +689,9 @@ impl GdxSoundDriver {
             for slice in slices {
                 if slice.starttime == starttime && slice.duration == duration {
                     let key = (wav_id, starttime, duration);
-                    let sound = slice.wav.clone();
+                    let sound = configure_sound_for_play(&slice.wav, volume);
                     match self.manager.play(sound) {
                         Ok(mut handle) => {
-                            handle.set_volume(linear_to_db(volume), Tween::default());
                             self.apply_pitch(&mut handle, pitch_shift);
                             let handles = self.slice_handles.entry(key).or_default();
                             handles.retain(|h| h.state() != PlaybackState::Stopped);
@@ -707,10 +715,9 @@ impl GdxSoundDriver {
         // Push new handle into the Vec so that stop_note can stop all instances
         // of the same wav_id (matches Java's 256-slot ring buffer semantics).
         if let Some(sound_data) = self.wav_sounds.get(&wav_id) {
-            let sound = sound_data.clone();
+            let sound = configure_sound_for_play(sound_data, volume);
             match self.manager.play(sound) {
                 Ok(mut handle) => {
-                    handle.set_volume(linear_to_db(volume), Tween::default());
                     self.apply_pitch(&mut handle, pitch_shift);
                     let handles = self.wav_handles.entry(wav_id).or_default();
                     handles.retain(|h| h.state() != PlaybackState::Stopped);
@@ -811,7 +818,9 @@ mod tests {
 
     use kira::AudioManager;
     use kira::AudioManagerSettings;
+    use kira::Decibels;
     use kira::Frame;
+    use kira::Value;
     use kira::backend::mock::MockBackend;
     use kira::sound::static_sound::{StaticSoundData, StaticSoundSettings};
 
@@ -823,6 +832,18 @@ mod tests {
             settings: StaticSoundSettings::default(),
             slice: None,
         }
+    }
+
+    #[test]
+    fn configure_sound_for_play_applies_initial_volume_before_playback() {
+        let sound = make_silent_sound();
+
+        let configured = configure_sound_for_play(&sound, 0.2);
+
+        assert_eq!(
+            configured.settings.volume,
+            Value::Fixed(Decibels(linear_to_db(0.2)))
+        );
     }
 
     /// Verify that set_global_pitch updates playback rate on currently-playing

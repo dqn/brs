@@ -19,7 +19,8 @@ use bms_model::note::Note;
 use crate::abstract_audio_driver::SliceWav;
 use crate::audio_driver::AudioDriver;
 use crate::gdx_sound_driver::{
-    BackgroundLoadResult, FileCacheEntry, LoadTask, add_note_entry, linear_to_db,
+    BackgroundLoadResult, FileCacheEntry, LoadTask, add_note_entry,
+    configure_path_sound_for_play, configure_sound_for_play, linear_to_db,
 };
 
 pub struct PortAudioDriver {
@@ -90,13 +91,9 @@ impl AudioDriver for PortAudioDriver {
 
         // Check path sound cache first (populated by preload_path)
         if let Some(sound_data) = self.path_sound_cache.get(path) {
-            let sound = sound_data.clone();
+            let sound = configure_path_sound_for_play(sound_data, volume, loop_play);
             match self.manager.play(sound) {
-                Ok(mut handle) => {
-                    handle.set_volume(linear_to_db(volume), Tween::default());
-                    if loop_play {
-                        handle.set_loop_region(0.0..);
-                    }
+                Ok(handle) => {
                     self.path_sounds.insert(path.to_string(), handle);
                     return;
                 }
@@ -114,12 +111,9 @@ impl AudioDriver for PortAudioDriver {
                 Ok(sound_data) => {
                     self.path_sound_cache
                         .insert(path.to_string(), sound_data.clone());
-                    match self.manager.play(sound_data) {
-                        Ok(mut handle) => {
-                            handle.set_volume(linear_to_db(volume), Tween::default());
-                            if loop_play {
-                                handle.set_loop_region(0.0..);
-                            }
+                    let sound = configure_path_sound_for_play(&sound_data, volume, loop_play);
+                    match self.manager.play(sound) {
+                        Ok(handle) => {
                             self.path_sounds.insert(path.to_string(), handle);
                             return;
                         }
@@ -383,10 +377,9 @@ impl AudioDriver for PortAudioDriver {
             if let Some(mut handle) = self.additional_key_sound_handles[j][idx].take() {
                 handle.stop(Tween::default());
             }
-            let sound = sound_data.clone();
+            let sound = configure_sound_for_play(sound_data, self.volume);
             match self.manager.play(sound) {
-                Ok(mut handle) => {
-                    handle.set_volume(linear_to_db(self.volume), Tween::default());
+                Ok(handle) => {
                     self.additional_key_sound_handles[j][idx] = Some(handle);
                 }
                 Err(e) => {
@@ -583,10 +576,9 @@ impl PortAudioDriver {
                     if let Some(mut old_handle) = self.slice_handles.remove(&key) {
                         old_handle.stop(Tween::default());
                     }
-                    let sound = slice.wav.clone();
+                    let sound = configure_sound_for_play(&slice.wav, volume);
                     match self.manager.play(sound) {
                         Ok(mut handle) => {
-                            handle.set_volume(linear_to_db(volume), Tween::default());
                             self.apply_pitch(&mut handle, pitch_shift);
                             self.slice_handles.insert(key, handle);
                         }
@@ -604,10 +596,9 @@ impl PortAudioDriver {
             if let Some(mut old_handle) = self.wav_handles.remove(&wav_id) {
                 old_handle.stop(Tween::default());
             }
-            let sound = sound_data.clone();
+            let sound = configure_sound_for_play(sound_data, volume);
             match self.manager.play(sound) {
                 Ok(mut handle) => {
-                    handle.set_volume(linear_to_db(volume), Tween::default());
                     self.apply_pitch(&mut handle, pitch_shift);
                     self.wav_handles.insert(wav_id, handle);
                 }
