@@ -212,10 +212,17 @@ impl BarContentsLoaderThread {
 
             if let Some(sd) = song_info {
                 // Load player score
-                if bar.score().is_none()
-                    && let Some(ref mut cache) = ctx.score_cache
-                {
-                    let score = cache.read_score_data(&sd, lnmode).cloned();
+                if bar.score().is_none() {
+                    let mut score = None;
+                    if let Some(ref mut cache) = ctx.score_cache {
+                        score = cache.read_score_data(&sd, lnmode).cloned();
+                    }
+                    if score.is_none()
+                        && let Some(read_fn) = ctx.read_score_by_hash_fn
+                    {
+                        let has_ln = sd.chart.has_undefined_long_note();
+                        score = read_fn(&sd.file.sha256, has_ln, lnmode);
+                    }
                     bar.set_score(score);
                 }
 

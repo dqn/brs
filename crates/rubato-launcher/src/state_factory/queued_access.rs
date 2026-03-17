@@ -20,6 +20,7 @@ use rubato_types::main_controller_access::{
 use rubato_types::player_information::PlayerInformation;
 use rubato_types::player_resource_access::PlayerResourceAccess;
 use rubato_types::score_data::ScoreData;
+use rubato_types::song_information_db::SongInformationDb;
 use rubato_types::sound_type::SoundType;
 
 pub(super) struct QueuedControllerAccess {
@@ -34,6 +35,7 @@ pub(super) struct QueuedControllerAccess {
     ipfs_download_alive: bool,
     http_downloader: Option<Arc<dyn rubato_types::http_download_submitter::HttpDownloadSubmitter>>,
     active_audio_paths: HashSet<String>,
+    info_database: Option<Box<dyn SongInformationDb>>,
 }
 
 fn ensure_controller_ranking_cache(controller: &mut MainController) {
@@ -61,6 +63,21 @@ impl QueuedControllerAccess {
             .ranking_data_cache()
             .map(|cache| cache.clone_box())
             .unwrap_or_else(|| Box::new(RankingDataCache::new()));
+        let info_database = controller.info_database().and_then(|_| {
+            rubato_song::song_information_accessor::SongInformationAccessor::new(
+                &config.paths.songinfopath,
+            )
+            .map(|db| Box::new(db) as Box<dyn SongInformationDb>)
+            .map_err(|e| {
+                log::warn!(
+                    "Failed to open queued song information database {}: {}",
+                    config.paths.songinfopath,
+                    e
+                );
+                e
+            })
+            .ok()
+        });
 
         Self {
             sound: SystemSoundManager::new(
@@ -77,6 +94,7 @@ impl QueuedControllerAccess {
             ir_connection,
             rivals,
             active_audio_paths: HashSet::new(),
+            info_database,
         }
     }
 }
@@ -278,6 +296,10 @@ impl MainControllerAccess for QueuedControllerAccess {
 
     fn read_player_data(&self) -> Option<rubato_types::player_data::PlayerData> {
         self.play_data_accessor.read_player_data()
+    }
+
+    fn info_database(&self) -> Option<&dyn SongInformationDb> {
+        self.info_database.as_deref()
     }
 
     fn ir_connection_any(&self) -> Option<&dyn Any> {

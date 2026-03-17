@@ -54,29 +54,108 @@ impl MusicSelector {
         self.main = Some(main);
     }
 
+    pub(super) fn ensure_local_score_cache(&mut self) {
+        if self.ranking.scorecache.is_some() {
+            return;
+        }
+
+        let accessor_config = self
+            .main
+            .as_ref()
+            .map(|main| main.config().clone())
+            .unwrap_or_else(|| self.app_config.clone());
+        let accessor = std::sync::Arc::new(std::sync::Mutex::new(
+            rubato_core::play_data_accessor::PlayDataAccessor::new(&accessor_config),
+        ));
+        let single_accessor = std::sync::Arc::clone(&accessor);
+        let multi_accessor = std::sync::Arc::clone(&accessor);
+
+        self.ranking.scorecache = Some(ScoreDataCache::new(
+            Box::new(move |song, lnmode| {
+                let has_ln = song.chart.has_undefined_long_note();
+                let accessor = match single_accessor.lock() {
+                    Ok(accessor) => accessor,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                accessor.read_score_data_by_hash(&song.file.sha256, has_ln, lnmode)
+            }),
+            Box::new(move |collector, songs, lnmode| {
+                let accessor = match multi_accessor.lock() {
+                    Ok(accessor) => accessor,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                for song in songs {
+                    let has_ln = song.chart.has_undefined_long_note();
+                    let score = accessor.read_score_data_by_hash(&song.file.sha256, has_ln, lnmode);
+                    collector(song, score.as_ref());
+                }
+            }),
+        ));
+    }
+
+    pub(super) fn load_bar_contents(&mut self) {
+        self.ensure_local_score_cache();
+
+        let main = self.main.as_deref();
+        let exists_replay = |sha256: &str, has_ln: bool, lnmode: i32, index: i32| {
+            main.is_some_and(|main| main.exists_replay_data(sha256, has_ln, lnmode, index))
+        };
+        let read_score_by_hash = |hash: &str, has_ln: bool, lnmode: i32| {
+            main.and_then(|main| main.read_score_data_by_hash(hash, has_ln, lnmode))
+        };
+
+        let mut ctx = crate::select::bar_manager::LoaderContext {
+            player_config: &self.config,
+            score_cache: self.ranking.scorecache.as_mut(),
+            rival_cache: self.ranking.rivalcache.as_mut(),
+            rival_name: self.rival.as_ref().map(|r| r.name().to_string()),
+            is_folderlamp: false,
+            banner_resource: Some(&self.banners),
+            stagefile_resource: Some(&self.stagefiles),
+            exists_replay_fn: main
+                .map(|_| &exists_replay as crate::select::bar_manager::ExistsReplayFn<'_>),
+            read_score_by_hash_fn: main
+                .map(|_| &read_score_by_hash as crate::select::bar_manager::ReadScoreByHashFn<'_>),
+            songdb: Some(&*self.songdb),
+            song_info_db: main.and_then(|main| main.info_database()),
+            command_bar_ctx: None,
+        };
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        crate::select::bar_manager::BarContentsLoaderThread::new(stop)
+            .run(&mut self.manager.currentsongs, &mut ctx);
+    }
+
     /// Refresh the bar list with song database context.
     /// Wraps BarManager::update_bar_refresh_with_context to supply the context
     /// from MusicSelector fields, ensuring songdb queries are not skipped.
     pub(super) fn refresh_bar_with_context(&mut self) {
+        self.ensure_local_score_cache();
         let mut ctx = BarManager::make_context(
             &self.app_config,
             &mut self.config,
             &*self.songdb,
             self.ranking.scorecache.as_mut(),
         );
-        self.manager.update_bar_refresh_with_context(Some(&mut ctx));
+        if self.manager.update_bar_refresh_with_context(Some(&mut ctx)) {
+            self.load_bar_contents();
+        }
     }
 
     /// Navigate into a bar (directory, folder, etc.) with song database context.
     /// Used by MusicSelectCommand and ContextMenuBar executors.
     pub fn update_bar_with_songdb_context(&mut self, bar: Option<&Bar>) -> bool {
+        self.ensure_local_score_cache();
         let mut ctx = BarManager::make_context(
             &self.app_config,
             &mut self.config,
             &*self.songdb,
             self.ranking.scorecache.as_mut(),
         );
-        self.manager.update_bar_with_context(bar, Some(&mut ctx))
+        let updated = self.manager.update_bar_with_context(bar, Some(&mut ctx));
+        if updated {
+            self.load_bar_contents();
+        }
+        updated
     }
 
     pub fn set_rival(&mut self, rival: Option<PlayerInformation>) {

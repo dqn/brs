@@ -100,6 +100,12 @@ impl SelectSkinContext<'_> {
         self.selector.manager.selected()
     }
 
+    fn selected_directory_data(
+        &self,
+    ) -> Option<&crate::select::bar::directory_bar::DirectoryBarData> {
+        self.selected_bar()?.as_directory_bar()
+    }
+
     fn selected_song_data(&self) -> Option<&rubato_types::song_data::SongData> {
         self.selected_bar()?.as_song_bar().map(|sb| sb.song_data())
     }
@@ -108,14 +114,65 @@ impl SelectSkinContext<'_> {
         self.selected_bar()?.score()
     }
 
+    fn selected_score_property(
+        &self,
+    ) -> Option<rubato_core::score_data_property::ScoreDataProperty> {
+        let score = self.selected_score()?;
+        let mut property = rubato_core::score_data_property::ScoreDataProperty::new();
+        property.update_score(Some(score));
+        Some(property)
+    }
+
     fn selected_rival_score(&self) -> Option<&rubato_types::score_data::ScoreData> {
         self.selected_bar()?.rival_score()
+    }
+
+    fn player_data(&self) -> Option<&rubato_types::player_data::PlayerData> {
+        self.selector
+            .player_resource
+            .as_ref()
+            .map(rubato_core::player_resource::PlayerResource::player_data)
     }
 
     fn selected_replay_exists(&self, slot: i32) -> bool {
         self.selected_bar()
             .and_then(|b| b.as_selectable_bar())
             .is_some_and(|sb| sb.exists_replay(slot))
+    }
+
+    fn search_word(&self) -> String {
+        self.selector
+            .search
+            .as_ref()
+            .map_or_else(String::new, |search| {
+                if search.text.is_empty() {
+                    search.message_text.clone()
+                } else {
+                    search.text.clone()
+                }
+            })
+    }
+
+    fn course_title_at(&self, index: usize) -> String {
+        if let Some(course_bar) = self.selected_bar().and_then(|bar| bar.as_grade_bar()) {
+            return course_bar
+                .song_datas()
+                .get(index)
+                .map_or_else(String::new, |song| {
+                    let title = song.metadata.title.clone();
+                    if song.file.path().is_some() {
+                        title
+                    } else {
+                        format!("(no song) {title}")
+                    }
+                });
+        }
+
+        self.selected_bar()
+            .and_then(|bar| bar.as_random_course_bar())
+            .and_then(|bar| bar.course_data().stage().get(index))
+            .map(|stage| stage.title.clone().unwrap_or_else(|| "----".to_string()))
+            .unwrap_or_default()
     }
 }
 
@@ -249,6 +306,11 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
 
     fn integer_value(&self, id: i32) -> i32 {
         match id {
+            // Player totals
+            30 => self.player_data().map_or(0, |data| data.playcount as i32),
+            333 => self.player_data().map_or(0, |data| {
+                (0..=3).map(|judge| data.judge_count(judge)).sum::<i64>() as i32
+            }),
             // Volume (0-100 scale)
             57 => {
                 (self
@@ -277,8 +339,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
             // Display timing
             12 => self.selector.config.judge_settings.judgetiming,
             // Song BPM
-            90 => self.selected_song_data().map_or(0, |s| s.chart.maxbpm),
-            91 => self.selected_song_data().map_or(0, |s| s.chart.minbpm),
+            90 => self
+                .selected_song_data()
+                .map_or(i32::MIN, |s| s.chart.maxbpm),
+            91 => self
+                .selected_song_data()
+                .map_or(i32::MIN, |s| s.chart.minbpm),
             92 => {
                 // mainbpm: prefer SongInformation.mainbpm when available.
                 // Java returns Integer.MIN_VALUE when SongInformation is absent,
@@ -290,13 +356,30 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
                         .unwrap_or(i32::MIN)
                 })
             }
+            96 => self
+                .selected_song_data()
+                .map_or(i32::MIN, |s| s.chart.level),
+            300 => self
+                .selected_directory_data()
+                .map(|directory| directory.lamps.iter().sum())
+                .unwrap_or(i32::MIN),
+            // Song score-related stats
+            71 => self.selected_score().map_or(i32::MIN, |s| s.exscore()),
+            75 => self.selected_score().map_or(i32::MIN, |s| s.maxcombo),
+            76 => self.selected_score().map_or(i32::MIN, |s| s.minbp),
             // Song play/clear/fail counts
-            77 => self.selected_score().map_or(0, |s| s.playcount),
-            78 => self.selected_score().map_or(0, |s| s.clearcount),
+            77 => self.selected_score().map_or(i32::MIN, |s| s.playcount),
+            78 => self.selected_score().map_or(i32::MIN, |s| s.clearcount),
             79 => {
                 let score = self.selected_score();
-                score.map_or(0, |s| s.playcount - s.clearcount)
+                score.map_or(i32::MIN, |s| s.playcount - s.clearcount)
             }
+            102 => self
+                .selected_score_property()
+                .map_or(i32::MIN, |property| property.now_rate_int()),
+            103 => self
+                .selected_score_property()
+                .map_or(i32::MIN, |property| property.now_rate_after_dot()),
             // Song duration
             312 => self.selected_song_data().map_or(0, |s| s.chart.length),
             1163 => self
@@ -373,20 +456,16 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
                     format!("{} {}", s.metadata.artist, s.metadata.subartist)
                 }
             }),
+            30 => self.search_word(),
+            150..=159 => self.course_title_at((id - 150) as usize),
             // Directory
-            1000 => self.selected_bar().map_or_else(String::new, |b| {
-                if let Some(sb) = b.as_song_bar() {
-                    sb.song_data().folder.clone()
-                } else {
-                    String::new()
-                }
-            }),
+            1000 => self.selector.manager.directory_string().to_string(),
             // Version
-            1010 => String::from("rubato"),
+            1010 => rubato_core::version::Version::get_version().to_string(),
             // Song hash
             1030 => self
                 .selected_song_data()
-                .map_or_else(String::new, |s| s.file.md5.clone()),
+                .map_or_else(String::new, |s| s.file.sha256.clone()),
             1031 => self
                 .selected_song_data()
                 .map_or_else(String::new, |s| s.file.sha256.clone()),

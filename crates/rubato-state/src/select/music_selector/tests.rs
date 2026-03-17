@@ -5,6 +5,7 @@ use crate::select::bar::song_bar::SongBar;
 use rubato_audio::recording_audio_driver::RecordingAudioDriver;
 use rubato_core::main_state::MainState;
 use rubato_types::skin_render_context::SkinRenderContext;
+use rubato_types::test_support::TestSongDb;
 
 fn make_song_data(sha256: &str, path: Option<&str>) -> SongData {
     let mut sd = SongData::default();
@@ -22,6 +23,89 @@ fn make_song_bar(sha256: &str, path: Option<&str>) -> Bar {
 fn set_selected_bar(selector: &mut MusicSelector, bar: Bar) {
     selector.manager.currentsongs = vec![bar];
     selector.manager.selectedindex = 0;
+}
+
+#[derive(Default)]
+struct MockSongInfoDb {
+    info: Option<rubato_types::song_information::SongInformation>,
+}
+
+impl rubato_types::song_information_db::SongInformationDb for MockSongInfoDb {
+    fn informations(&self, _sql: &str) -> Vec<rubato_types::song_information::SongInformation> {
+        self.info.clone().into_iter().collect()
+    }
+
+    fn information(&self, sha256: &str) -> Option<rubato_types::song_information::SongInformation> {
+        self.info
+            .as_ref()
+            .filter(|info| info.sha256 == sha256)
+            .cloned()
+    }
+
+    fn information_for_songs(&self, songs: &mut [SongData]) {
+        for song in songs {
+            if let Some(info) = self.information(&song.file.sha256) {
+                song.info = Some(info);
+            }
+        }
+    }
+
+    fn start_update(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn update(&self, _model: &::bms_model::bms_model::BMSModel) {}
+
+    fn end_update(&self) {}
+}
+
+struct MockMainControllerWithScoreAndInfo {
+    score_sha256: String,
+    score: ScoreData,
+    info_db: MockSongInfoDb,
+}
+
+impl MainControllerAccess for MockMainControllerWithScoreAndInfo {
+    fn config(&self) -> &rubato_types::config::Config {
+        static CFG: std::sync::OnceLock<rubato_types::config::Config> = std::sync::OnceLock::new();
+        CFG.get_or_init(rubato_types::config::Config::default)
+    }
+
+    fn player_config(&self) -> &rubato_types::player_config::PlayerConfig {
+        static PC: std::sync::OnceLock<rubato_types::player_config::PlayerConfig> =
+            std::sync::OnceLock::new();
+        PC.get_or_init(rubato_types::player_config::PlayerConfig::default)
+    }
+
+    fn change_state(&mut self, _state: MainStateType) {}
+
+    fn save_config(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn exit(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn save_last_recording(&self, _reason: &str) {}
+
+    fn update_song(&mut self, _path: Option<&str>) {}
+
+    fn player_resource(&self) -> Option<&dyn PlayerResourceAccess> {
+        None
+    }
+
+    fn player_resource_mut(&mut self) -> Option<&mut dyn PlayerResourceAccess> {
+        None
+    }
+
+    fn read_score_data_by_hash(&self, hash: &str, _ln: bool, _lnmode: i32) -> Option<ScoreData> {
+        (hash == self.score_sha256).then(|| self.score.clone())
+    }
+
+    fn info_database(&self) -> Option<&dyn rubato_types::song_information_db::SongInformationDb> {
+        Some(&self.info_db)
+    }
 }
 
 #[test]
@@ -274,6 +358,63 @@ fn test_create_clears_played_course() {
     selector.create();
 
     assert!(selector.playedcourse.is_none());
+}
+
+#[test]
+fn test_create_loads_selected_song_score_and_info_from_main_access() {
+    let mut song = make_song_data("score-info", Some("/test/song.bms"));
+    song.metadata.title = "Loaded Song".to_string();
+    song.chart.mode = bms_model::Mode::BEAT_7K.id();
+    song.chart.maxbpm = 180;
+    song.chart.minbpm = 90;
+
+    let song_db = TestSongDb::new().with_songs("parent", "e2977170", vec![song.clone()]);
+
+    let mut score = ScoreData::default();
+    score.judge_counts.epg = 80;
+    score.notes = 200;
+    score.maxcombo = 150;
+    score.minbp = 3;
+    score.playcount = 4;
+    score.clearcount = 2;
+
+    let info = rubato_types::song_information::SongInformation {
+        sha256: song.file.sha256.clone(),
+        mainbpm: 150.0,
+        ..Default::default()
+    };
+
+    let mut selector = MusicSelector::with_song_database(Box::new(song_db));
+    selector.set_main_controller(Box::new(MockMainControllerWithScoreAndInfo {
+        score_sha256: song.file.sha256.clone(),
+        score: score.clone(),
+        info_db: MockSongInfoDb { info: Some(info) },
+    }));
+
+    selector.create();
+
+    let selected = selector
+        .manager
+        .selected()
+        .expect("selected bar should exist");
+    let selected_song = selected
+        .as_song_bar()
+        .expect("root entry should be a song bar");
+
+    assert_eq!(
+        selected.score().map(|score| score.exscore()),
+        Some(score.exscore()),
+        "create() should load the local score into the selected song bar"
+    );
+    assert_eq!(
+        selected_song
+            .song_data()
+            .info
+            .as_ref()
+            .map(|info| info.mainbpm as i32),
+        Some(150),
+        "create() should load song information for the selected song bar"
+    );
 }
 
 #[test]
@@ -2106,6 +2247,47 @@ fn integer_value_92_mainbpm_returns_min_when_no_song_selected() {
     };
 
     assert_eq!(ctx.integer_value(92), i32::MIN);
+}
+
+#[test]
+fn integer_value_select_song_and_score_stats_follow_java_parity() {
+    let mut selector = MusicSelector::new();
+    let mut song = make_song_data("select-stats", Some("/test/select-stats.bms"));
+    song.chart.maxbpm = 180;
+    song.chart.minbpm = 90;
+    song.chart.level = 12;
+
+    let mut bar = Bar::Song(Box::new(SongBar::new(song)));
+    let mut score = ScoreData::default();
+    score.judge_counts.epg = 100;
+    score.judge_counts.lpg = 20;
+    score.judge_counts.egr = 15;
+    score.judge_counts.lgr = 5;
+    score.notes = 400;
+    score.maxcombo = 321;
+    score.minbp = 7;
+    score.playcount = 10;
+    score.clearcount = 6;
+    bar.set_score(Some(score));
+    set_selected_bar(&mut selector, bar);
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    assert_eq!(ctx.integer_value(90), 180);
+    assert_eq!(ctx.integer_value(91), 90);
+    assert_eq!(ctx.integer_value(96), 12);
+    assert_eq!(ctx.integer_value(71), 260);
+    assert_eq!(ctx.integer_value(75), 321);
+    assert_eq!(ctx.integer_value(76), 7);
+    assert_eq!(ctx.integer_value(77), 10);
+    assert_eq!(ctx.integer_value(78), 6);
+    assert_eq!(ctx.integer_value(79), 4);
+    assert_eq!(ctx.integer_value(102), 32);
+    assert_eq!(ctx.integer_value(103), 50);
 }
 
 #[test]

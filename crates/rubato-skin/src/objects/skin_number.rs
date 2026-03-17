@@ -244,6 +244,7 @@ impl SkinNumber {
             self.data.draw = false;
             return;
         }
+        let uses_signed_sheet = value < 0 && self.mimage.is_some();
         let images: Option<Vec<TextureRegion>> = if value >= 0 || self.mimage.is_none() {
             self.image.get_images(time, state)
         } else if let Some(ref mimage) = self.mimage {
@@ -263,11 +264,13 @@ impl SkinNumber {
             return;
         }
         let image = images.expect("images");
-        if image.len() < 12 {
+        let minimum_image_count = if uses_signed_sheet { 12 } else { 10 };
+        if image.len() < minimum_image_count {
             self.length = 0.0;
             self.data.draw = false;
             return;
         }
+        let blank_index = if image.len() > 10 { 10 } else { 0 };
 
         if self.value != value || self.image_set.as_ref() != Some(&image) {
             self.value = value;
@@ -281,14 +284,20 @@ impl SkinNumber {
                     } else if abs_value > 0 || j == self.current_images.len() - 1 {
                         self.current_images[j] = Some(image[(abs_value % 10) as usize].clone());
                     } else {
-                        self.current_images[j] =
-                            Some(image[if self.zeropadding == 2 { 10 } else { 0 }].clone());
+                        self.current_images[j] = Some(
+                            image[if self.zeropadding == 2 {
+                                blank_index
+                            } else {
+                                0
+                            }]
+                            .clone(),
+                        );
                     }
                 } else if abs_value > 0 || j == self.current_images.len() - 1 {
                     self.current_images[j] = Some(image[(abs_value % 10) as usize].clone());
                 } else {
                     self.current_images[j] = if self.zeropadding == 2 {
-                        Some(image[10].clone())
+                        Some(image[blank_index].clone())
                     } else if self.zeropadding == 1 {
                         Some(image[0].clone())
                     } else if self.mimage.is_some() {
@@ -414,6 +423,11 @@ mod tests {
     /// Helper: create digit images for SkinNumber (12 entries: digits 0-9, space=10, minus=11).
     fn make_digit_images() -> Vec<Vec<TextureRegion>> {
         let digits: Vec<TextureRegion> = (0..12).map(|_| make_region(24, 32)).collect();
+        vec![digits]
+    }
+
+    fn make_plain_digit_images() -> Vec<Vec<TextureRegion>> {
+        let digits: Vec<TextureRegion> = (0..10).map(|_| make_region(24, 32)).collect();
         vec![digits]
     }
 
@@ -858,5 +872,35 @@ mod tests {
 
         assert!(!num.data.draw);
         assert_eq!(num.length(), 0.0);
+    }
+
+    #[test]
+    fn test_skin_number_draws_with_plain_10_digit_sheet() {
+        let mut num = SkinNumber::new_with_int_timer(
+            make_plain_digit_images(),
+            None,
+            0,
+            0,
+            NumberDisplayConfig {
+                keta: 3,
+                zeropadding: 1,
+                space: 0,
+                align: 0,
+            },
+            0,
+        );
+        setup_data(&mut num.data, 10.0, 20.0, 24.0, 32.0);
+
+        let state = MockMainState::default();
+        num.prepare_with_value(0, &state, 42, 0.0, 0.0);
+
+        assert!(
+            num.data.draw,
+            "10-digit number sheets must remain drawable for JSON/LR2 value objects"
+        );
+
+        let mut renderer = SkinObjectRenderer::new();
+        num.draw(&mut renderer);
+        assert_eq!(renderer.sprite.vertices().len(), 18);
     }
 }

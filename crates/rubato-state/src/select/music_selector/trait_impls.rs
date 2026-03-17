@@ -273,6 +273,7 @@ impl MainState for MusicSelector {
         // Java: BarManager has direct access to MusicSelector fields; in Rust
         // we must pass them explicitly via UpdateBarContext.
         {
+            self.ensure_local_score_cache();
             let mut ctx = BarManager::make_context(
                 &self.app_config,
                 &mut self.config,
@@ -281,9 +282,13 @@ impl MainState for MusicSelector {
             );
             self.manager.update_bar_with_context(None, Some(&mut ctx));
         }
+        self.load_bar_contents();
 
         // In Java: loadSkin(SkinType.MUSIC_SELECT)
         self.load_skin(SkinType::MusicSelect.id());
+        if let Some(skin) = self.main_state_data.skin.as_mut() {
+            skin.prepare_skin();
+        }
 
         // Initialize search text field
         if self.search.is_none() {

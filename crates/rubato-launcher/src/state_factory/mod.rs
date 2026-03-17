@@ -446,12 +446,18 @@ impl StateFactory for LauncherStateFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rubato_core::score_database_accessor::ScoreDatabaseAccessor;
     use rubato_core::sprite_batch_helper::SpriteBatchHelper;
+    use rubato_song::song_information_accessor::SongInformationAccessor;
     use rubato_state::select::preview_music_processor::PreviewMusicProcessor;
     use rubato_types::main_controller_access::MainControllerAccess;
+    use rubato_types::skin_config::SkinConfig;
     use rubato_types::skin_render_context::SkinRenderContext;
+    use rubato_types::skin_type::SkinType;
     use rubato_types::song_data::SongData;
+    use rubato_types::song_information::SongInformation;
     use rubato_types::sound_type::SoundType;
+    use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
 
     struct MockSkin;
@@ -558,6 +564,18 @@ mod tests {
         let config = Config::default();
         let player = PlayerConfig::default();
         MainController::new(None, config, player, None, false)
+    }
+
+    fn write_song_info_row(path: &std::path::Path, info: &SongInformation) {
+        let conn = rusqlite::Connection::open(path).expect("song info db should open");
+        conn.execute(
+            "INSERT INTO information (
+                sha256, n, ln, s, ls, total, density, peakdensity, enddensity, mainbpm,
+                distribution, speedchange, lanenotes
+            ) VALUES (?1, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, ?2, '', '', '')",
+            rusqlite::params![info.sha256, info.mainbpm],
+        )
+        .expect("song info row should insert");
     }
 
     #[test]
@@ -762,6 +780,167 @@ mod tests {
                 )
             )
         ));
+    }
+
+    #[test]
+    fn queued_controller_access_exposes_song_info_database() {
+        let tempdir = tempfile::tempdir().expect("tempdir should be created");
+        let info_db_path = tempdir.path().join("songinfo.db");
+        let info = SongInformation {
+            sha256: "q".repeat(64),
+            mainbpm: 150.0,
+            ..Default::default()
+        };
+
+        let mut config = Config::default();
+        config.paths.songinfopath = info_db_path.to_string_lossy().to_string();
+        let player = PlayerConfig::default();
+        let mut controller = MainController::new(None, config, player, None, false);
+        controller.set_info_database(Box::new(
+            SongInformationAccessor::new(
+                info_db_path
+                    .to_str()
+                    .expect("song info db path should be valid UTF-8"),
+            )
+            .expect("song info db should open"),
+        ));
+        write_song_info_row(&info_db_path, &info);
+
+        let queue = controller.controller_command_queue();
+        let access = QueuedControllerAccess::from_controller(&mut controller, queue);
+
+        assert_eq!(
+            access
+                .info_database()
+                .and_then(|db| db.information(&info.sha256))
+                .map(|row| row.mainbpm as i32),
+            Some(150),
+            "queued access should preserve the song information database for select loading"
+        );
+    }
+
+    #[test]
+    fn standalone_music_select_create_loads_runtime_score_and_info() {
+        let tempdir = tempfile::tempdir().expect("tempdir should be created");
+        let song_db_path = tempdir.path().join("songdata.db");
+        let info_db_path = tempdir.path().join("songinfo.db");
+        let player_root = tempdir.path().join("player");
+        let player_dir = player_root.join("player1");
+        std::fs::create_dir_all(&player_dir).expect("player directory should be created");
+
+        let mut song = SongData::default();
+        song.metadata.title = "standalone-select".to_string();
+        song.chart.mode = 7;
+        song.chart.maxbpm = 180;
+        song.chart.minbpm = 90;
+        song.chart.level = 12;
+        song.file.sha256 = "s".repeat(64);
+        song.file.set_path(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("..")
+                .join("test-bms")
+                .join("minimal_7k.bms")
+                .to_string_lossy()
+                .to_string(),
+        );
+        song.parent = "e2977170".to_string();
+
+        let song_db = rubato_song::sqlite_song_database_accessor::SQLiteSongDatabaseAccessor::new(
+            &song_db_path.to_string_lossy(),
+            &[],
+        )
+        .expect("song db should open");
+        rubato_types::song_database_accessor::SongDatabaseAccessor::set_song_datas(
+            &song_db,
+            &[song.clone()],
+        )
+        .expect("song db should store the test song");
+
+        let mut score = rubato_core::score_data::ScoreData {
+            sha256: song.file.sha256.clone(),
+            ..Default::default()
+        };
+        score.judge_counts.epg = 100;
+        score.judge_counts.lpg = 20;
+        score.judge_counts.egr = 15;
+        score.judge_counts.lgr = 5;
+        score.notes = 400;
+        score.maxcombo = 321;
+        score.minbp = 7;
+        score.playcount = 10;
+        score.clearcount = 6;
+        let score_db = ScoreDatabaseAccessor::new(
+            player_dir
+                .join("score.db")
+                .to_str()
+                .expect("score db path should be valid UTF-8"),
+        )
+        .expect("score db should open");
+        score_db
+            .create_table()
+            .expect("score db schema should exist");
+        score_db.set_score_data(&score);
+
+        let info = SongInformation {
+            sha256: song.file.sha256.clone(),
+            mainbpm: 150.0,
+            ..Default::default()
+        };
+        let info_db = SongInformationAccessor::new(
+            info_db_path
+                .to_str()
+                .expect("song info db path should be valid UTF-8"),
+        )
+        .expect("song info db should open");
+        write_song_info_row(&info_db_path, &info);
+
+        let mut config = Config::default();
+        config.playername = Some("player1".to_string());
+        config.paths.playerpath = player_root.to_string_lossy().to_string();
+        config.paths.songpath = song_db_path.to_string_lossy().to_string();
+        config.paths.songinfopath = info_db_path.to_string_lossy().to_string();
+
+        let mut player = PlayerConfig::default();
+        player.skin[SkinType::MusicSelect.id() as usize] =
+            Some(SkinConfig::new_with_path("skin/default/select.json"));
+        player.validate();
+
+        let mut controller = MainController::new(None, config, player.clone(), None, false);
+        controller.set_info_database(Box::new(info_db));
+
+        let mut selector = MusicSelector::with_song_database(Box::new(song_db));
+        let queue = controller.controller_command_queue();
+        selector.set_main_controller(Box::new(QueuedControllerAccess::from_controller(
+            &mut controller,
+            queue,
+        )));
+        selector.config = player;
+        selector.create();
+
+        let selected = selector
+            .manager
+            .selected()
+            .and_then(|bar| bar.as_song_bar())
+            .expect("selected song bar should exist");
+        assert_eq!(
+            selected
+                .selectable
+                .bar_data
+                .score()
+                .map(|row| row.exscore()),
+            Some(score.exscore()),
+            "standalone MusicSelect create() should load score data from the runtime score DB"
+        );
+        assert_eq!(
+            selected
+                .song_data()
+                .info
+                .as_ref()
+                .map(|row| row.mainbpm as i32),
+            Some(150),
+            "standalone MusicSelect create() should load song information from the runtime song info DB"
+        );
     }
 
     #[test]

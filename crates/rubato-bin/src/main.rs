@@ -164,6 +164,7 @@ fn play(bms_path: Option<PathBuf>, player_mode: Option<BMSPlayerMode>) -> Result
     let mut main_controller = MainLoader::play(bms_path, player_mode, true, None, None, false)?;
 
     subsystem_init::init_audio_driver(&mut main_controller)?;
+    subsystem_init::init_song_information_database(&mut main_controller);
 
     // Set the state factory so that change_state() can create concrete state instances.
     // Without this, the controller has no factory and all state transitions silently fail,

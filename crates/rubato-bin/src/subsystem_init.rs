@@ -24,6 +24,31 @@ pub(crate) fn init_song_database_with_options(update_all: bool) {
     init_song_database_impl(update_all, false);
 }
 
+/// Initialize the song information database on MainController.
+///
+/// The select screen reads main BPM and density data through MainControllerAccess,
+/// so the controller must hold a live SongInformationDb before any queued/select
+/// state proxies are created.
+pub(crate) fn init_song_information_database(controller: &mut MainController) {
+    if controller.info_database().is_some() {
+        return;
+    }
+
+    let songinfo_path = controller.config().paths.songinfopath.clone();
+    match rubato_song::song_information_accessor::SongInformationAccessor::new(&songinfo_path) {
+        Ok(db) => {
+            controller.set_info_database(Box::new(db));
+            info!("Song information database initialized: {}", songinfo_path);
+        }
+        Err(e) => {
+            warn!(
+                "Song information database init failed: {}. Continuing without song info DB.",
+                e
+            );
+        }
+    }
+}
+
 fn init_song_database_impl(update_all: bool, set_accessor: bool) {
     use rubato_core::config::Config;
     use rubato_core::main_loader::MainLoader;
@@ -321,4 +346,33 @@ pub(crate) fn init_stream_controller(controller: &mut MainController) {
         rubato_state::stream::stream_controller::StreamController::new(selector);
     stream_controller.run();
     controller.set_stream_controller(Box::new(stream_controller));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rubato_core::config::Config;
+    use rubato_core::player_config::PlayerConfig;
+
+    #[test]
+    fn init_song_information_database_sets_controller_info_database() {
+        let tempdir = tempfile::tempdir().expect("tempdir should be created");
+        let info_db_path = tempdir.path().join("songinfo.db");
+        let mut config = Config::default();
+        config.paths.songinfopath = info_db_path.to_string_lossy().to_string();
+        let player = PlayerConfig::default();
+        let mut controller = MainController::new(None, config, player, None, false);
+
+        assert!(
+            controller.info_database().is_none(),
+            "controller should start without a song info database in this isolated test"
+        );
+
+        init_song_information_database(&mut controller);
+
+        assert!(
+            controller.info_database().is_some(),
+            "play initialization should wire the song information database into MainController"
+        );
+    }
 }

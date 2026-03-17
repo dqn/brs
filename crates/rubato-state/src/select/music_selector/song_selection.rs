@@ -5,16 +5,7 @@ impl MusicSelector {
     /// Corresponds to Java MusicSelector.select(Bar)
     pub fn select(&mut self, current: &Bar) {
         if current.is_directory_bar() {
-            let mut ctx = BarManager::make_context(
-                &self.app_config,
-                &mut self.config,
-                &*self.songdb,
-                self.ranking.scorecache.as_mut(),
-            );
-            if self
-                .manager
-                .update_bar_with_context(Some(current), Some(&mut ctx))
-            {
+            if self.update_bar_with_songdb_context(Some(current)) {
                 self.play_sound(SoundType::FolderOpen);
             }
             self.execute(MusicSelectCommand::ResetReplay);
@@ -148,6 +139,7 @@ impl MusicSelector {
                     self.select_song(mode);
                 }
                 InputEvent::BarManagerClose => {
+                    self.ensure_local_score_cache();
                     let mut ctx = BarManager::make_context(
                         &self.app_config,
                         &mut self.config,
@@ -155,9 +147,11 @@ impl MusicSelector {
                         self.ranking.scorecache.as_mut(),
                     );
                     self.manager.close_with_context(Some(&mut ctx));
+                    self.load_bar_contents();
                 }
                 InputEvent::OpenDirectory => {
                     // In Java: select.getBarManager().updateBar(dirbar)
+                    self.ensure_local_score_cache();
                     let mut ctx = BarManager::make_context(
                         &self.app_config,
                         &mut self.config,
@@ -168,6 +162,7 @@ impl MusicSelector {
                         .manager
                         .update_bar_with_selected_and_context(Some(&mut ctx));
                     if opened {
+                        self.load_bar_contents();
                         self.play_sound(SoundType::FolderOpen);
                     }
                 }
@@ -320,6 +315,7 @@ impl MusicSelector {
                 let dir_string = self.manager.directory_string().to_string();
                 self.manager.add_random_course(gb.clone(), dir_string);
                 {
+                    self.ensure_local_score_cache();
                     let mut ctx = BarManager::make_context(
                         &self.app_config,
                         &mut self.config,
@@ -328,6 +324,7 @@ impl MusicSelector {
                     );
                     self.manager.update_bar_with_context(None, Some(&mut ctx));
                 }
+                self.load_bar_contents();
                 self.manager.set_selected(&grade_bar);
             }
         } else {
