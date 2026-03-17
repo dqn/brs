@@ -112,6 +112,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for PlayRenderContext<
         self.gauge.map_or(0, |g| g.gauge_type())
     }
 
+    fn is_gauge_max(&self) -> bool {
+        self.gauge.is_some_and(|g| g.gauge().is_max())
+    }
+
     fn is_mode_changed(&self) -> bool {
         self.is_mode_changed
     }
@@ -782,5 +786,69 @@ mod tests {
         let prop = ctx.score_data_property();
         assert!((prop.now_rate() - 0.85).abs() < f32::EPSILON);
         assert_eq!(prop.now_ex_score(), 999);
+    }
+
+    // ============================================================
+    // is_gauge_max() tests
+    // ============================================================
+
+    #[test]
+    fn is_gauge_max_returns_true_when_gauge_at_max() {
+        let model = {
+            let mut m = bms_model::bms_model::BMSModel::new();
+            m.total = 300.0;
+            m
+        };
+        let gauge = Box::leak(Box::new(rubato_types::groove_gauge::GrooveGauge::new(
+            &model,
+            rubato_types::groove_gauge::NORMAL,
+            &rubato_types::gauge_property::GaugeProperty::SevenKeys,
+        )));
+        // Push gauge to max (init=20, max=100, add_value clamps)
+        gauge.add_value(200.0);
+        assert!(
+            gauge.gauge().is_max(),
+            "gauge should be at max after add_value"
+        );
+
+        let mut ctx = make_render_ctx(0);
+        ctx.gauge = Some(gauge);
+        assert!(
+            ctx.is_gauge_max(),
+            "PlayRenderContext::is_gauge_max() should return true when gauge is at max"
+        );
+    }
+
+    #[test]
+    fn is_gauge_max_returns_false_when_gauge_not_at_max() {
+        let model = {
+            let mut m = bms_model::bms_model::BMSModel::new();
+            m.total = 300.0;
+            m
+        };
+        let gauge = Box::leak(Box::new(rubato_types::groove_gauge::GrooveGauge::new(
+            &model,
+            rubato_types::groove_gauge::NORMAL,
+            &rubato_types::gauge_property::GaugeProperty::SevenKeys,
+        )));
+        // Gauge starts at init=20, not at max=100
+        assert!(!gauge.gauge().is_max());
+
+        let mut ctx = make_render_ctx(0);
+        ctx.gauge = Some(gauge);
+        assert!(
+            !ctx.is_gauge_max(),
+            "PlayRenderContext::is_gauge_max() should return false when gauge is not at max"
+        );
+    }
+
+    #[test]
+    fn is_gauge_max_returns_false_when_no_gauge() {
+        let ctx = make_render_ctx(0);
+        assert!(ctx.gauge.is_none());
+        assert!(
+            !ctx.is_gauge_max(),
+            "PlayRenderContext::is_gauge_max() should return false when gauge is None"
+        );
     }
 }
