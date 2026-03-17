@@ -56,7 +56,7 @@ impl DifficultyTableParser {
     }
 
     fn read_all_lines(&self, urlname: &str) -> Option<Vec<String>> {
-        match Self::http_client().and_then(|c| Ok(c.get(urlname).send()?)) {
+        match Self::http_client().and_then(|c| Ok(c.get(urlname).send()?.error_for_status()?)) {
             Ok(response) => match response.bytes() {
                 Ok(bytes) => {
                     let text = Self::decode_bytes_with_charset(&bytes);
@@ -309,7 +309,10 @@ impl DifficultyTableParser {
         dt: &mut DifficultyTable,
         jsonheader_url: &str,
     ) -> Result<()> {
-        let response = Self::http_client()?.get(jsonheader_url).send()?;
+        let response = Self::http_client()?
+            .get(jsonheader_url)
+            .send()?
+            .error_for_status()?;
         let bytes = response.bytes()?;
         let text = Self::decode_bytes_with_charset(&bytes);
         let result: HashMap<String, Value> = serde_json::from_str(&text)?;
@@ -454,7 +457,10 @@ impl DifficultyTableParser {
             "\u{96e3}\u{6613}\u{5ea6}\u{8868}\u{30c7}\u{30fc}\u{30bf}\u{8aad}\u{307f}\u{8fbc}\u{307f} - {}",
             jsondata_url
         );
-        let response = Self::http_client()?.get(jsondata_url).send()?;
+        let response = Self::http_client()?
+            .get(jsondata_url)
+            .send()?
+            .error_for_status()?;
         let bytes = response.bytes()?;
         let text = Self::decode_bytes_with_charset(&bytes);
         let result: Vec<HashMap<String, Value>> = serde_json::from_str(&text)?;
