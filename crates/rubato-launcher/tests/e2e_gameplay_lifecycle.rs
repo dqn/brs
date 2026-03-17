@@ -26,6 +26,7 @@ use rubato_input::gdx_compat::set_shared_key_state;
 use rubato_input::keys::Keys;
 use rubato_input::winit_input_bridge::SharedKeyState;
 use rubato_launcher::state_factory::LauncherStateFactory;
+use rubato_render::sprite_batch::CapturedDrawQuad;
 use rubato_song::song_information_accessor::SongInformationAccessor;
 use rubato_state::select::bar::bar::Bar;
 use rubato_state::select::bar::folder_bar::FolderBar;
@@ -161,6 +162,177 @@ fn write_song_info_row(path: &Path, info: &SongInformation) {
         rusqlite::params![info.sha256, info.mainbpm],
     )
     .expect("song info row should insert");
+}
+
+// ---------------------------------------------------------------------------
+// Reusable MusicSelect render test harness
+// ---------------------------------------------------------------------------
+
+/// Build a MainController with ECFN Lua skin + shared MusicSelector.
+/// Returns the controller and the shared selector for post-create modifications.
+fn build_ecfn_select_controller(bars: Vec<Bar>) -> (MainController, Arc<Mutex<MusicSelector>>) {
+    let player = ecfn_player_config();
+    let mut selector = MusicSelector::new();
+    selector.config = player.clone();
+    if !bars.is_empty() {
+        selector.manager.currentsongs = bars;
+        selector.manager.selectedindex = 0;
+    }
+    let shared = Arc::new(Mutex::new(selector));
+    let mut mc = MainController::new(None, Config::default(), player, None, false);
+    mc.set_state_factory(Box::new(LauncherStateFactory::new()));
+    mc.set_shared_music_selector(Box::new(Arc::clone(&shared)));
+    mc.create();
+    assert_eq!(mc.current_state_type(), Some(MainStateType::MusicSelect));
+    (mc, shared)
+}
+
+/// Enable capture, render the specified number of frames, and return all quads.
+fn capture_render_quads(mc: &mut MainController, frames: usize) -> Vec<CapturedDrawQuad> {
+    mc.sprite_batch_mut()
+        .expect("sprite batch should exist")
+        .enable_capture();
+    for _ in 0..frames {
+        mc.render();
+    }
+    mc.sprite_batch()
+        .expect("sprite batch should exist")
+        .captured_quads()
+        .to_vec()
+}
+
+// ---------------------------------------------------------------------------
+// Semantic capture assertion helpers
+// ---------------------------------------------------------------------------
+
+/// Filter criteria for captured draw quads.
+struct QuadFilter {
+    /// Texture key prefix requirement.
+    /// `None` = no texture requirement.
+    /// `Some("")` = must have a texture key (any).
+    /// `Some("__pixmap_")` = must start with that prefix.
+    texture_prefix: Option<&'static str>,
+    /// Spatial bounds.
+    min_x: f32,
+    max_x: f32,
+    min_y: f32,
+    max_y: f32,
+    /// Size upper limits (0.0 = no limit).
+    max_w: f32,
+    max_h: f32,
+}
+
+impl QuadFilter {
+    fn matches(&self, quad: &CapturedDrawQuad) -> bool {
+        if let Some(prefix) = self.texture_prefix {
+            match &quad.texture_key {
+                Some(key) if key.starts_with(prefix) => {}
+                _ => return false,
+            }
+        }
+        quad.x >= self.min_x
+            && quad.x < self.max_x
+            && quad.y >= self.min_y
+            && quad.y < self.max_y
+            && (self.max_w == 0.0 || quad.w <= self.max_w)
+            && (self.max_h == 0.0 || quad.h <= self.max_h)
+    }
+
+    fn apply<'a>(&self, quads: &'a [CapturedDrawQuad]) -> Vec<&'a CapturedDrawQuad> {
+        quads.iter().filter(|q| self.matches(q)).collect()
+    }
+
+    /// Assert that at least `min_count` quads match, with diagnostic output on failure.
+    fn assert_present(&self, quads: &[CapturedDrawQuad], min_count: usize, context: &str) {
+        let matched: Vec<_> = self.apply(quads);
+        if matched.len() >= min_count {
+            return;
+        }
+
+        // Diagnostic: expanded region (1.5x from center)
+        let cx = (self.min_x + self.max_x) / 2.0;
+        let cy = (self.min_y + self.max_y) / 2.0;
+        let hw = (self.max_x - self.min_x) * 0.75;
+        let hh = (self.max_y - self.min_y) * 0.75;
+        let expanded = QuadFilter {
+            texture_prefix: self.texture_prefix,
+            min_x: cx - hw,
+            max_x: cx + hw,
+            min_y: cy - hh,
+            max_y: cy + hh,
+            max_w: if self.max_w == 0.0 {
+                0.0
+            } else {
+                self.max_w * 1.5
+            },
+            max_h: if self.max_h == 0.0 {
+                0.0
+            } else {
+                self.max_h * 1.5
+            },
+        };
+        let nearby: Vec<_> = expanded
+            .apply(quads)
+            .iter()
+            .take(20)
+            .map(|q| {
+                format!(
+                    "  ({:.0},{:.0} {:.0}x{:.0} {:?})",
+                    q.x, q.y, q.w, q.h, q.texture_key
+                )
+            })
+            .collect();
+
+        // Diagnostic: all small textured quads
+        let small_textured: Vec<_> = quads
+            .iter()
+            .filter(|q| {
+                q.texture_key.is_some()
+                    && (self.max_w == 0.0 || q.w <= self.max_w * 1.5)
+                    && (self.max_h == 0.0 || q.h <= self.max_h * 1.5)
+            })
+            .take(30)
+            .map(|q| {
+                format!(
+                    "  ({:.0},{:.0} {:.0}x{:.0} {:?})",
+                    q.x, q.y, q.w, q.h, q.texture_key
+                )
+            })
+            .collect();
+
+        let matched_sample: Vec<_> = matched
+            .iter()
+            .take(10)
+            .map(|q| {
+                format!(
+                    "  ({:.0},{:.0} {:.0}x{:.0} {:?})",
+                    q.x, q.y, q.w, q.h, q.texture_key
+                )
+            })
+            .collect();
+
+        panic!(
+            "{context}: expected >= {min_count} quads, got {count}\n\
+             Filter: x[{min_x:.0}..{max_x:.0}] y[{min_y:.0}..{max_y:.0}] \
+             max_size({max_w:.0}x{max_h:.0}) prefix={prefix:?}\n\
+             Matched ({count}):\n{matched_str}\n\
+             Nearby (expanded region, {nearby_count}):\n{nearby_str}\n\
+             All small textured ({small_count}):\n{small_str}",
+            count = matched.len(),
+            min_x = self.min_x,
+            max_x = self.max_x,
+            min_y = self.min_y,
+            max_y = self.max_y,
+            max_w = self.max_w,
+            max_h = self.max_h,
+            prefix = self.texture_prefix,
+            matched_str = matched_sample.join("\n"),
+            nearby_count = nearby.len(),
+            nearby_str = nearby.join("\n"),
+            small_count = small_textured.len(),
+            small_str = small_textured.join("\n"),
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -378,44 +550,36 @@ fn e2e_music_select_standalone_default_json_skin_draws_runtime_numeric_value_qua
 
     assert_eq!(mc.current_state_type(), Some(MainStateType::MusicSelect));
 
-    mc.sprite_batch_mut()
-        .expect("sprite batch should exist after create")
-        .enable_capture();
-    for _ in 0..120 {
-        mc.render();
-    }
+    let quads = capture_render_quads(&mut mc, 120);
 
-    let quads = mc
-        .sprite_batch()
-        .expect("sprite batch should exist after rendering")
-        .captured_quads()
-        .to_vec();
-    let captured_digit_quads_in_region = |min_x: f32, max_x: f32, min_y: f32, max_y: f32| {
-        quads
-            .iter()
-            .filter(|quad| {
-                quad.x >= min_x
-                    && quad.x < max_x
-                    && quad.y >= min_y
-                    && quad.y < max_y
-                    && quad.w <= 18.1
-                    && quad.h <= 18.1
-            })
-            .count()
+    let bpm_filter = QuadFilter {
+        texture_prefix: None,
+        min_x: 370.0,
+        max_x: 470.0,
+        min_y: 512.0,
+        max_y: 530.5,
+        max_w: 18.1,
+        max_h: 18.1,
     };
-
-    let bpm_digits = captured_digit_quads_in_region(370.0, 470.0, 512.0, 530.5);
-    let score_digits = captured_digit_quads_in_region(200.0, 290.0, 372.0, 390.5);
-
-    assert!(
-        bpm_digits > 0,
-        "standalone MusicSelect should draw BPM digits from runtime chart data, got {} quads",
-        bpm_digits
+    bpm_filter.assert_present(
+        &quads,
+        1,
+        "standalone MusicSelect should draw BPM digits from runtime chart data",
     );
-    assert!(
-        score_digits > 0,
-        "standalone MusicSelect should draw score digits from the runtime score DB, got {} quads",
-        score_digits
+
+    let score_filter = QuadFilter {
+        texture_prefix: None,
+        min_x: 200.0,
+        max_x: 290.0,
+        min_y: 372.0,
+        max_y: 390.5,
+        max_w: 18.1,
+        max_h: 18.1,
+    };
+    score_filter.assert_present(
+        &quads,
+        1,
+        "standalone MusicSelect should draw score digits from the runtime score DB",
     );
 }
 
@@ -428,74 +592,22 @@ fn e2e_music_select_ecfn_skin_draws_japanese_title_bitmap_glyphs() {
         bms_path.display()
     );
 
-    let player = ecfn_player_config();
-    let mut selector = MusicSelector::new();
-    selector.config = player.clone();
-    selector.manager.currentsongs = vec![make_ecfn_title_song_bar(&bms_path)];
-    selector.manager.selectedindex = 0;
+    let (mut mc, _shared) = build_ecfn_select_controller(vec![make_ecfn_title_song_bar(&bms_path)]);
+    let quads = capture_render_quads(&mut mc, 120);
 
-    let mut mc = MainController::new(None, Config::default(), player, None, false);
-    mc.set_state_factory(Box::new(LauncherStateFactory::new()));
-    mc.set_shared_music_selector(Box::new(Arc::new(Mutex::new(selector))));
-    mc.create();
-
-    assert_eq!(mc.current_state_type(), Some(MainStateType::MusicSelect));
-
-    mc.sprite_batch_mut()
-        .expect("sprite batch should exist after create")
-        .enable_capture();
-    for _ in 0..120 {
-        mc.render();
-    }
-
-    let quads = mc
-        .sprite_batch()
-        .expect("sprite batch should exist after rendering")
-        .captured_quads()
-        .to_vec();
-    let title_candidates = quads
-        .iter()
-        .filter(|quad| {
-            quad.texture_key.is_some()
-                && quad.x >= 280.0
-                && quad.x < 780.0
-                && quad.y >= 450.0
-                && quad.y < 560.0
-                && quad.w <= 70.0
-                && quad.h <= 70.0
-        })
-        .map(|quad| {
-            (
-                quad.texture_key.clone(),
-                quad.x.round() as i32,
-                quad.y.round() as i32,
-                quad.w.round() as i32,
-                quad.h.round() as i32,
-            )
-        })
-        .collect::<Vec<_>>();
-    let title_quads = title_candidates.len();
-    let small_textured_quads = quads
-        .iter()
-        .filter(|quad| quad.texture_key.is_some() && quad.w <= 70.0 && quad.h <= 70.0)
-        .map(|quad| {
-            (
-                quad.texture_key.clone(),
-                quad.x.round() as i32,
-                quad.y.round() as i32,
-                quad.w.round() as i32,
-                quad.h.round() as i32,
-            )
-        })
-        .take(20)
-        .collect::<Vec<_>>();
-
-    assert!(
-        title_quads > 0,
-        "ECFN select skin should draw title-region bitmap font quads for Japanese song titles, got {} title candidates; sample title candidates: {:?}; sample small textured quads: {:?}",
-        title_quads,
-        title_candidates,
-        small_textured_quads
+    let filter = QuadFilter {
+        texture_prefix: Some(""),
+        min_x: 280.0,
+        max_x: 780.0,
+        min_y: 450.0,
+        max_y: 560.0,
+        max_w: 70.0,
+        max_h: 70.0,
+    };
+    filter.assert_present(
+        &quads,
+        1,
+        "ECFN select skin should draw title-region bitmap font quads for Japanese song titles",
     );
 }
 
@@ -508,17 +620,7 @@ fn e2e_music_select_ecfn_skin_draws_songlist_song_title_bitmap_glyphs() {
         bms_path.display()
     );
 
-    let player = ecfn_player_config();
-    let mut selector = MusicSelector::new();
-    selector.config = player.clone();
-    let shared_selector = Arc::new(Mutex::new(selector));
-
-    let mut mc = MainController::new(None, Config::default(), player, None, false);
-    mc.set_state_factory(Box::new(LauncherStateFactory::new()));
-    mc.set_shared_music_selector(Box::new(Arc::clone(&shared_selector)));
-    mc.create();
-
-    assert_eq!(mc.current_state_type(), Some(MainStateType::MusicSelect));
+    let (mut mc, shared_selector) = build_ecfn_select_controller(vec![]);
 
     {
         let mut selector = shared_selector.lock().expect("selector lock poisoned");
@@ -529,132 +631,31 @@ fn e2e_music_select_ecfn_skin_draws_songlist_song_title_bitmap_glyphs() {
         }
     }
 
-    mc.sprite_batch_mut()
-        .expect("sprite batch should exist after create")
-        .enable_capture();
-    for _ in 0..120 {
-        mc.render();
-    }
+    let quads = capture_render_quads(&mut mc, 120);
 
-    let quads = mc
-        .sprite_batch()
-        .expect("sprite batch should exist after rendering")
-        .captured_quads()
-        .to_vec();
-    let songlist_text_quads = quads
-        .iter()
-        .filter(|quad| {
-            quad.texture_key
-                .as_deref()
-                .is_some_and(|texture| texture.starts_with("__pixmap_"))
-                && quad.x >= 930.0
-                && quad.x < 1180.0
-                && quad.y >= 300.0
-                && quad.y < 460.0
-                && quad.w <= 60.0
-                && quad.h <= 60.0
-        })
-        .map(|quad| {
-            (
-                quad.texture_key.clone(),
-                quad.x.round() as i32,
-                quad.y.round() as i32,
-                quad.w.round() as i32,
-                quad.h.round() as i32,
-            )
-        })
-        .collect::<Vec<_>>();
-    let right_side_small_textured_quads = quads
-        .iter()
-        .filter(|quad| {
-            quad.texture_key
-                .as_deref()
-                .is_some_and(|texture| texture.starts_with("__pixmap_"))
-                && quad.x >= 800.0
-                && quad.x < 1220.0
-                && quad.y >= 250.0
-                && quad.y < 500.0
-                && quad.w <= 60.0
-                && quad.h <= 60.0
-        })
-        .map(|quad| {
-            (
-                quad.texture_key.clone(),
-                quad.x.round() as i32,
-                quad.y.round() as i32,
-                quad.w.round() as i32,
-                quad.h.round() as i32,
-            )
-        })
-        .take(30)
-        .collect::<Vec<_>>();
-    let all_small_textured_quads = quads
-        .iter()
-        .filter(|quad| {
-            quad.texture_key
-                .as_deref()
-                .is_some_and(|texture| texture.starts_with("__pixmap_"))
-                && quad.w <= 60.0
-                && quad.h <= 60.0
-        })
-        .map(|quad| {
-            (
-                quad.texture_key.clone(),
-                quad.x.round() as i32,
-                quad.y.round() as i32,
-                quad.w.round() as i32,
-                quad.h.round() as i32,
-            )
-        })
-        .take(60)
-        .collect::<Vec<_>>();
-    let right_side_any_textured_quads = quads
-        .iter()
-        .filter(|quad| {
-            quad.texture_key
-                .as_deref()
-                .is_some_and(|texture| texture.starts_with("__pixmap_"))
-                && quad.x >= 760.0
-                && quad.x < 1280.0
-                && quad.y >= 180.0
-                && quad.y < 560.0
-        })
-        .map(|quad| {
-            (
-                quad.texture_key.clone(),
-                quad.x.round() as i32,
-                quad.y.round() as i32,
-                quad.w.round() as i32,
-                quad.h.round() as i32,
-            )
-        })
-        .take(60)
-        .collect::<Vec<_>>();
-
-    assert!(
-        songlist_text_quads.len() >= 5,
-        "ECFN select skin should draw songlist title bitmap glyphs, got {} candidates: {:?}; sample right-side quads: {:?}; sample all small textured quads: {:?}; sample right-side textured quads: {:?}",
-        songlist_text_quads.len(),
-        songlist_text_quads,
-        right_side_small_textured_quads,
-        all_small_textured_quads,
-        right_side_any_textured_quads
+    let filter = QuadFilter {
+        texture_prefix: Some("__pixmap_"),
+        min_x: 930.0,
+        max_x: 1180.0,
+        min_y: 300.0,
+        max_y: 460.0,
+        max_w: 60.0,
+        max_h: 60.0,
+    };
+    filter.assert_present(
+        &quads,
+        5,
+        "ECFN select skin should draw songlist title bitmap glyphs",
     );
+
+    // Songlist draws glyph quads across multiple bar rows spanning a wide vertical range.
+    // QuadFilter already validates that quads are within the expected spatial region;
+    // asserting a single vertical center is inappropriate for multi-row rendering.
 }
 
 #[test]
 fn e2e_music_select_ecfn_skin_draws_songlist_folder_title_bitmap_glyphs() {
-    let player = ecfn_player_config();
-    let mut selector = MusicSelector::new();
-    selector.config = player.clone();
-    let shared_selector = Arc::new(Mutex::new(selector));
-
-    let mut mc = MainController::new(None, Config::default(), player, None, false);
-    mc.set_state_factory(Box::new(LauncherStateFactory::new()));
-    mc.set_shared_music_selector(Box::new(Arc::clone(&shared_selector)));
-    mc.create();
-
-    assert_eq!(mc.current_state_type(), Some(MainStateType::MusicSelect));
+    let (mut mc, shared_selector) = build_ecfn_select_controller(vec![]);
 
     {
         let mut selector = shared_selector.lock().expect("selector lock poisoned");
@@ -665,116 +666,21 @@ fn e2e_music_select_ecfn_skin_draws_songlist_folder_title_bitmap_glyphs() {
         }
     }
 
-    mc.sprite_batch_mut()
-        .expect("sprite batch should exist after create")
-        .enable_capture();
-    for _ in 0..120 {
-        mc.render();
-    }
+    let quads = capture_render_quads(&mut mc, 120);
 
-    let quads = mc
-        .sprite_batch()
-        .expect("sprite batch should exist after rendering")
-        .captured_quads()
-        .to_vec();
-    let songlist_text_quads = quads
-        .iter()
-        .filter(|quad| {
-            quad.texture_key
-                .as_deref()
-                .is_some_and(|texture| texture.starts_with("__pixmap_"))
-                && quad.x >= 860.0
-                && quad.x < 1180.0
-                && quad.y >= 300.0
-                && quad.y < 460.0
-                && quad.w <= 60.0
-                && quad.h <= 60.0
-        })
-        .map(|quad| {
-            (
-                quad.texture_key.clone(),
-                quad.x.round() as i32,
-                quad.y.round() as i32,
-                quad.w.round() as i32,
-                quad.h.round() as i32,
-            )
-        })
-        .collect::<Vec<_>>();
-    let right_side_small_textured_quads = quads
-        .iter()
-        .filter(|quad| {
-            quad.texture_key
-                .as_deref()
-                .is_some_and(|texture| texture.starts_with("__pixmap_"))
-                && quad.x >= 800.0
-                && quad.x < 1220.0
-                && quad.y >= 250.0
-                && quad.y < 500.0
-                && quad.w <= 60.0
-                && quad.h <= 60.0
-        })
-        .map(|quad| {
-            (
-                quad.texture_key.clone(),
-                quad.x.round() as i32,
-                quad.y.round() as i32,
-                quad.w.round() as i32,
-                quad.h.round() as i32,
-            )
-        })
-        .take(30)
-        .collect::<Vec<_>>();
-    let all_small_textured_quads = quads
-        .iter()
-        .filter(|quad| {
-            quad.texture_key
-                .as_deref()
-                .is_some_and(|texture| texture.starts_with("__pixmap_"))
-                && quad.w <= 60.0
-                && quad.h <= 60.0
-        })
-        .map(|quad| {
-            (
-                quad.texture_key.clone(),
-                quad.x.round() as i32,
-                quad.y.round() as i32,
-                quad.w.round() as i32,
-                quad.h.round() as i32,
-            )
-        })
-        .take(60)
-        .collect::<Vec<_>>();
-    let right_side_any_textured_quads = quads
-        .iter()
-        .filter(|quad| {
-            quad.texture_key
-                .as_deref()
-                .is_some_and(|texture| texture.starts_with("__pixmap_"))
-                && quad.x >= 760.0
-                && quad.x < 1280.0
-                && quad.y >= 180.0
-                && quad.y < 560.0
-        })
-        .map(|quad| {
-            (
-                quad.texture_key.clone(),
-                quad.x.round() as i32,
-                quad.y.round() as i32,
-                quad.w.round() as i32,
-                quad.h.round() as i32,
-            )
-        })
-        .take(60)
-        .collect::<Vec<_>>();
-
-    assert!(
-        songlist_text_quads.len() >= 5,
-        "ECFN select skin should draw folder-bar bitmap glyphs, got {} candidates: {:?}; sample right-side quads: {:?}; sample all small textured quads: {:?}; sample right-side textured quads: {:?}",
-        songlist_text_quads.len(),
-        songlist_text_quads,
-        right_side_small_textured_quads,
-        all_small_textured_quads,
-        right_side_any_textured_quads
+    let filter = QuadFilter {
+        texture_prefix: Some("__pixmap_"),
+        min_x: 860.0,
+        max_x: 1180.0,
+        min_y: 300.0,
+        max_y: 460.0,
+        max_w: 60.0,
+        max_h: 60.0,
+    };
+    filter.assert_present(
+        &quads,
+        5,
+        "ECFN select skin should draw folder-bar bitmap glyphs",
     );
 }
 

@@ -119,6 +119,17 @@ e2e:
 e2e-update-snapshots:
     UPDATE_E2E_SNAPSHOTS=1 cargo nextest run -p rubato-e2e
 
+# MusicSelect text/number/bitmap alignment regression suite.
+select-render-regression:
+    cargo test -p rubato-launcher --test e2e_gameplay_lifecycle \
+        e2e_music_select_standalone_default_json_skin_draws_runtime_numeric_value_quads \
+        e2e_music_select_ecfn_skin_draws_japanese_title_bitmap_glyphs \
+        e2e_music_select_ecfn_skin_draws_songlist_song_title_bitmap_glyphs \
+        e2e_music_select_ecfn_skin_draws_songlist_folder_title_bitmap_glyphs \
+        -- --nocapture
+    cargo test -p rubato-state test_bar_renderer_centers_ecfn_loaded_songlist_bitmap_bartext_vertically -- --nocapture
+    cargo test -p rubato-skin test_real_bitmap_font_lowercase_glyphs_do_not_top_align_with_uppercase -- --nocapture
+
 # Run all quality checks (excludes rubato-bin; use *-all variants for full coverage)
 all: check test clippy fmt-check
 

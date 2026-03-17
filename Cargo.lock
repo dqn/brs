@@ -4293,6 +4293,7 @@ dependencies = [
  "rubato-input",
  "rubato-ir",
  "rubato-play",
+ "rubato-render",
  "rubato-skin",
  "rubato-song",
  "rubato-state",
