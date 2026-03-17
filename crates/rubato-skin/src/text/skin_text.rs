@@ -173,6 +173,7 @@ pub trait SkinText: Send {
 }
 
 /// Enum dispatch for SkinText, replacing `Box<dyn SkinText>`.
+#[allow(clippy::large_enum_variant)]
 pub enum SkinTextEnum {
     Font(crate::text::skin_text_font::SkinTextFont),
     Bitmap(crate::text::skin_text_bitmap::SkinTextBitmap),

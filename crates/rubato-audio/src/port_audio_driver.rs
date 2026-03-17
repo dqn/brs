@@ -19,8 +19,8 @@ use bms_model::note::Note;
 use crate::abstract_audio_driver::SliceWav;
 use crate::audio_driver::AudioDriver;
 use crate::gdx_sound_driver::{
-    BackgroundLoadResult, FileCacheEntry, LoadTask, add_note_entry,
-    configure_path_sound_for_play, configure_sound_for_play, linear_to_db,
+    BackgroundLoadResult, FileCacheEntry, LoadTask, add_note_entry, configure_path_sound_for_play,
+    configure_sound_for_play, linear_to_db,
 };
 
 pub struct PortAudioDriver {

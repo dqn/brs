@@ -16,6 +16,7 @@ use super::texture_resolution::get_texture_for_src;
 /// Build SelectBarData from resolved JSON SongList bar sub-objects.
 /// Each sub-SkinObjectData is converted to the appropriate skin type
 /// (SkinImage, SkinNumber, SkinTextFont) and stored in SelectBarData.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn build_select_bar_data(
     bar_data: &SongListBarData,
     center: i32,
