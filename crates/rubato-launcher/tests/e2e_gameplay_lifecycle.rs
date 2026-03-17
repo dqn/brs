@@ -112,6 +112,22 @@ fn make_select_stats_score(sha256: &str) -> rubato_core::score_data::ScoreData {
     score
 }
 
+fn make_ecfn_title_song(path: &Path) -> SongData {
+    let mut song = SongData::default();
+    song.metadata.title = "ふぁんぶる！".to_string();
+    song.metadata.subtitle = "[SP NORMAL]".to_string();
+    song.metadata.genre = "Electronica".to_string();
+    song.metadata.artist = "藤原ハガネ feat. 重音テトSV".to_string();
+    song.chart.mode = 7;
+    song.file.sha256 = "e".repeat(64);
+    song.file.set_path(path.to_string_lossy().to_string());
+    song
+}
+
+fn make_ecfn_title_song_bar(path: &Path) -> Bar {
+    Bar::Song(Box::new(SongBar::new(make_ecfn_title_song(path))))
+}
+
 fn write_song_info_row(path: &Path, info: &SongInformation) {
     let conn = rusqlite::Connection::open(path).expect("song info db should open");
     conn.execute(
@@ -377,6 +393,86 @@ fn e2e_music_select_standalone_default_json_skin_draws_runtime_numeric_value_qua
         score_digits > 0,
         "standalone MusicSelect should draw score digits from the runtime score DB, got {} quads",
         score_digits
+    );
+}
+
+#[test]
+fn e2e_music_select_ecfn_skin_draws_japanese_title_bitmap_glyphs() {
+    let bms_path = test_bms_path();
+    assert!(
+        bms_path.exists(),
+        "Test BMS file not found: {}",
+        bms_path.display()
+    );
+
+    let player = ecfn_player_config();
+    let mut selector = MusicSelector::new();
+    selector.config = player.clone();
+    selector.manager.currentsongs = vec![make_ecfn_title_song_bar(&bms_path)];
+    selector.manager.selectedindex = 0;
+
+    let mut mc = MainController::new(None, Config::default(), player, None, false);
+    mc.set_state_factory(Box::new(LauncherStateFactory::new()));
+    mc.set_shared_music_selector(Box::new(Arc::new(Mutex::new(selector))));
+    mc.create();
+
+    assert_eq!(mc.current_state_type(), Some(MainStateType::MusicSelect));
+
+    mc.sprite_batch_mut()
+        .expect("sprite batch should exist after create")
+        .enable_capture();
+    for _ in 0..120 {
+        mc.render();
+    }
+
+    let quads = mc
+        .sprite_batch()
+        .expect("sprite batch should exist after rendering")
+        .captured_quads()
+        .to_vec();
+    let title_candidates = quads
+        .iter()
+        .filter(|quad| {
+            quad.texture_key.is_some()
+                && quad.x >= 280.0
+                && quad.x < 780.0
+                && quad.y >= 450.0
+                && quad.y < 560.0
+                && quad.w <= 70.0
+                && quad.h <= 70.0
+        })
+        .map(|quad| {
+            (
+                quad.texture_key.clone(),
+                quad.x.round() as i32,
+                quad.y.round() as i32,
+                quad.w.round() as i32,
+                quad.h.round() as i32,
+            )
+        })
+        .collect::<Vec<_>>();
+    let title_quads = title_candidates.len();
+    let small_textured_quads = quads
+        .iter()
+        .filter(|quad| quad.texture_key.is_some() && quad.w <= 70.0 && quad.h <= 70.0)
+        .map(|quad| {
+            (
+                quad.texture_key.clone(),
+                quad.x.round() as i32,
+                quad.y.round() as i32,
+                quad.w.round() as i32,
+                quad.h.round() as i32,
+            )
+        })
+        .take(20)
+        .collect::<Vec<_>>();
+
+    assert!(
+        title_quads > 0,
+        "ECFN select skin should draw title-region bitmap font quads for Japanese song titles, got {} title candidates; sample title candidates: {:?}; sample small textured quads: {:?}",
+        title_quads,
+        title_candidates,
+        small_textured_quads
     );
 }
 

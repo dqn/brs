@@ -3,6 +3,8 @@
 
 use std::path::PathBuf;
 
+use rubato_render::font::BitmapGlyph;
+
 use crate::loaders::skin_loader;
 use crate::property::string_property::StringProperty;
 use crate::reexports::{BitmapFont, BitmapFontData, Color, GlyphLayout, MainState, TextureRegion};
@@ -18,6 +20,14 @@ struct DrawTextGlyphsParams<'a> {
     pub y: f32,
     pub _layout_width: f32,
     pub region_width: f32,
+}
+
+struct PositionedBitmapGlyphRegion {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub region: TextureRegion,
 }
 
 pub struct SkinTextBitmap {
@@ -90,11 +100,6 @@ impl SkinTextBitmap {
         offset_x: f32,
         offset_y: f32,
     ) {
-        let font = match self.font.as_mut() {
-            Some(f) => f,
-            None => return,
-        };
-
         let original_size = self.source.original_size();
         if original_size <= 0.0 {
             return;
@@ -102,8 +107,10 @@ impl SkinTextBitmap {
         let scale = self.size / original_size;
 
         // Java: font.getData().setScale(scale)
-        let original_scale = font.scale();
-        font.scale = original_size * scale;
+        let original_scale = self.font.as_ref().map(BitmapFont::scale).unwrap_or(0.0);
+        if let Some(font) = self.font.as_mut() {
+            font.scale = original_size * scale;
+        }
 
         let region = &self.text_data.data.region;
         let align = self.text_data.align();
@@ -198,14 +205,22 @@ impl SkinTextBitmap {
         region_width: f32,
         _region_height: f32,
     ) -> f32 {
-        let font = match self.font.as_ref() {
-            Some(f) => f,
-            None => return 0.0,
+        let scale = if self.source.original_size() > 0.0 {
+            self.size / self.source.original_size()
+        } else {
+            0.0
+        };
+
+        let measure = || {
+            self.source
+                .measure_bitmap_text(text, scale)
+                .or_else(|| self.font.as_ref().map(|font| font.measure(text)))
+                .unwrap_or_default()
         };
 
         if self.text_data.is_wrapping() {
             // With wrapping, width is constrained to region width
-            let layout = font.measure(text);
+            let layout = measure();
             self.layout.width = layout.width;
             self.layout.height = layout.height;
             return layout.width;
@@ -213,39 +228,46 @@ impl SkinTextBitmap {
 
         match self.text_data.overflow() {
             OVERFLOW_OVERFLOW => {
-                let layout = font.measure(text);
+                let layout = measure();
                 self.layout.width = layout.width;
                 self.layout.height = layout.height;
                 layout.width
             }
             OVERFLOW_SHRINK => {
-                let layout = font.measure(text);
+                let layout = measure();
                 self.layout.width = layout.width;
                 self.layout.height = layout.height;
                 let actual_width = layout.width;
                 if actual_width > region_width && region_width > 0.0 {
-                    // Java: font.getData().setScale(scaleX * r.getWidth() / actualWidth, scaleY)
-                    // Scale down font horizontally to fit
-                    if let Some(f) = self.font.as_mut() {
-                        let current_scale = f.scale();
-                        f.scale = current_scale * region_width / actual_width;
-                        let shrunk = f.measure(text);
-                        self.layout.width = shrunk.width;
-                        self.layout.height = shrunk.height;
-                        return shrunk.width;
-                    }
+                    let shrunk_scale = scale * region_width / actual_width;
+                    let shrunk = self
+                        .source
+                        .measure_bitmap_text(text, shrunk_scale)
+                        .or_else(|| {
+                            self.font.as_mut().map(|font| {
+                                let current_scale = font.scale();
+                                font.scale = current_scale * region_width / actual_width;
+                                let shrunk = font.measure(text);
+                                font.scale = current_scale;
+                                shrunk
+                            })
+                        })
+                        .unwrap_or_default();
+                    self.layout.width = shrunk.width;
+                    self.layout.height = shrunk.height;
+                    return shrunk.width;
                 }
                 actual_width
             }
             OVERFLOW_TRUNCATE => {
                 // Truncate text to fit within region width
-                let layout = font.measure(text);
+                let layout = measure();
                 self.layout.width = layout.width.min(region_width);
                 self.layout.height = layout.height;
                 self.layout.width
             }
             _ => {
-                let layout = font.measure(text);
+                let layout = measure();
                 self.layout.width = layout.width;
                 self.layout.height = layout.height;
                 layout.width
@@ -263,15 +285,16 @@ impl SkinTextBitmap {
         let x = params.x;
         let y = params.y;
         let region_width = params.region_width;
-        let font = match self.font.as_ref() {
-            Some(f) => f,
-            None => return,
+        let scale = if self.source.original_size() > 0.0 {
+            self.size / self.source.original_size()
+        } else {
+            0.0
         };
-
-        let (glyphs, _total_width, line_height) = font.layout_glyphs(text);
-        if glyphs.is_empty() {
+        let Some((glyphs, _total_width, _line_height)) =
+            self.source.layout_bitmap_glyph_regions(text, scale)
+        else {
             return;
-        }
+        };
 
         let truncate =
             self.text_data.overflow() == OVERFLOW_TRUNCATE && !self.text_data.is_wrapping();
@@ -280,7 +303,7 @@ impl SkinTextBitmap {
 
         for glyph in &glyphs {
             let gx = x + glyph.x;
-            let gy = y - line_height + glyph.y;
+            let gy = y + glyph.y;
             let gw = glyph.width;
             let gh = glyph.height;
 
@@ -288,16 +311,10 @@ impl SkinTextBitmap {
             if truncate && (gx + gw - x) > region_width {
                 break;
             }
-
-            // Create a TextureRegion for the glyph
-            // In the full pipeline, this would reference a rasterized glyph texture.
-            // For now, we draw a placeholder quad that will be resolved by the GPU
-            // when glyph atlas textures are available.
-            let glyph_region = TextureRegion::new();
             self.text_data.data.draw_image_at_with_color(
                 sprite,
                 &DrawImageAtParams {
-                    image: &glyph_region,
+                    image: &glyph.region,
                     x: gx,
                     y: gy,
                     width: gw,
@@ -335,6 +352,8 @@ pub struct SkinTextBitmapSource {
     pub texture_options: TextureLoadOptions,
     pub font_path: PathBuf,
     pub font: Option<BitmapFont>,
+    pub font_data: Option<BitmapFontData>,
+    pub regions: Vec<TextureRegion>,
     pub original_size: f32,
     pub source_type: i32,
     pub page_width: f32,
@@ -371,6 +390,8 @@ impl SkinTextBitmapSource {
             texture_options,
             font_path,
             font: None,
+            font_data: None,
+            regions: Vec::new(),
             original_size: 0.0,
             source_type: 0,
             page_width: 0.0,
@@ -478,6 +499,8 @@ impl SkinTextBitmapSource {
         }
 
         if let Some(cached) = crate::bitmap_font_cache::get(&self.font_path) {
+            self.font_data = Some(cached.font_data.clone());
+            self.regions = cached.regions.clone();
             self.original_size = cached.original_size;
             self.source_type = cached.type_;
             self.page_width = cached.page_width;
@@ -502,6 +525,73 @@ impl SkinTextBitmapSource {
         self.original_size
     }
 
+    fn measure_bitmap_text(&self, text: &str, scale: f32) -> Option<GlyphLayout> {
+        let data = self.font_data.as_ref()?;
+        let space_advance = data
+            .glyphs
+            .get(&(b' ' as u32))
+            .map(|glyph| glyph.xadvance as f32 * scale)
+            .unwrap_or(0.0);
+        let width = text.chars().fold(0.0, |acc, ch| {
+            acc + data
+                .glyphs
+                .get(&(ch as u32))
+                .map(|glyph| glyph.xadvance as f32 * scale)
+                .unwrap_or(space_advance)
+        });
+        Some(GlyphLayout {
+            width,
+            height: data.line_height * scale,
+            text: text.to_string(),
+        })
+    }
+
+    fn layout_bitmap_glyph_regions(
+        &self,
+        text: &str,
+        scale: f32,
+    ) -> Option<(Vec<PositionedBitmapGlyphRegion>, f32, f32)> {
+        let data = self.font_data.as_ref()?;
+        let space_advance = data
+            .glyphs
+            .get(&(b' ' as u32))
+            .map(|glyph| glyph.xadvance as f32 * scale)
+            .unwrap_or(0.0);
+        let baseline_offset = data.base * scale;
+        let mut cursor_x = 0.0f32;
+        let mut glyphs = Vec::new();
+
+        for ch in text.chars() {
+            let Some(glyph) = data.glyphs.get(&(ch as u32)) else {
+                cursor_x += space_advance;
+                continue;
+            };
+            if let Some(region) = self.bitmap_glyph_region(glyph) {
+                glyphs.push(PositionedBitmapGlyphRegion {
+                    x: cursor_x + glyph.xoffset as f32 * scale,
+                    y: glyph.yoffset as f32 * scale - baseline_offset,
+                    width: glyph.width as f32 * scale,
+                    height: glyph.height as f32 * scale,
+                    region,
+                });
+            }
+            cursor_x += glyph.xadvance as f32 * scale;
+        }
+
+        Some((glyphs, cursor_x, data.line_height * scale))
+    }
+
+    fn bitmap_glyph_region(&self, glyph: &BitmapGlyph) -> Option<TextureRegion> {
+        let texture = self.regions.get(glyph.page as usize)?.texture.clone()?;
+        Some(TextureRegion::from_texture_region(
+            texture,
+            glyph.x,
+            glyph.y,
+            glyph.width,
+            glyph.height,
+        ))
+    }
+
     pub fn toast_type(&self) -> i32 {
         self.source_type
     }
@@ -519,6 +609,8 @@ impl SkinTextBitmapSource {
             font.dispose();
         }
         self.font = None;
+        self.font_data = None;
+        self.regions.clear();
     }
 }
 
@@ -535,11 +627,18 @@ mod tests {
             },
             font_path: PathBuf::from("test.fnt"),
             font: None,
+            font_data: None,
+            regions: Vec::new(),
             original_size,
             source_type,
             page_width: 512.0,
             page_height: 512.0,
         }
+    }
+
+    fn ecfn_select_song_font_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../skin/ECFN/_font/selectsongname.fnt")
     }
 
     #[test]
@@ -828,5 +927,41 @@ mod tests {
         assert_eq!(cached.original_size, 0.0);
         assert_eq!(cached.page_width, 0.0);
         assert_eq!(cached.page_height, 0.0);
+    }
+
+    #[test]
+    fn test_real_bitmap_font_japanese_text_emits_textured_quads() {
+        let font_path = ecfn_select_song_font_path();
+        assert!(
+            font_path.exists(),
+            "ECFN bitmap font should exist: {}",
+            font_path.display()
+        );
+
+        let source = SkinTextBitmapSource::new(font_path, false);
+        let mut bitmap = SkinTextBitmap::new(source, 50.0);
+        bitmap.text_data.data.draw = true;
+        bitmap.text_data.data.region = Rectangle::new(451.0, 742.0, 640.0, 24.0);
+        bitmap.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+        bitmap.set_text("ふぁんぶる！".to_string());
+
+        let mut renderer = SkinObjectRenderer::new();
+        renderer.sprite.enable_capture();
+        bitmap.draw_with_offset(&mut renderer, 0.0, 0.0);
+
+        let quads = renderer.sprite.captured_quads();
+        assert!(
+            !quads.is_empty(),
+            "bitmap title font should emit glyph quads for Japanese text"
+        );
+        assert!(
+            quads
+                .iter()
+                .all(|quad| quad.texture_key.is_some()),
+            "bitmap glyph quads should be backed by font textures, got {:?}",
+            quads.iter()
+                .map(|quad| quad.texture_key.clone())
+                .collect::<Vec<_>>()
+        );
     }
 }

@@ -568,6 +568,38 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_ecfn_select_lua_skin_converts_title_to_bitmap_text() {
+        let mut loader = LuaSkinLoader::new_without_state(&Config::default());
+        let path = repo_path("skin/ECFN/select/select.luaskin");
+
+        let header = loader
+            .load_header(&path)
+            .expect("ECFN select Lua skin header should load");
+        let data = loader
+            .load(&path, &SkinType::MusicSelect, &SkinConfigProperty)
+            .expect("ECFN select Lua skin should load into SkinData");
+        let skin = crate::skin_data_converter::convert_skin_data(
+            &header,
+            data,
+            &mut loader.json_loader.source_map,
+            &path,
+            loader.json_loader.usecim,
+            &loader.json_loader.dstr,
+        )
+        .expect("ECFN select Lua skin should convert into runtime Skin");
+
+        let has_title_bitmap = skin.objects().iter().any(|obj| {
+            matches!(obj, crate::skin::SkinObject::TextBitmap(_))
+                && obj.data().name.as_deref() == Some("title")
+        });
+
+        assert!(
+            has_title_bitmap,
+            "ECFN select Lua skin should convert title into a bitmap text object"
+        );
+    }
+
     // -----------------------------------------------------------------------
     // 3-layer coercion tests (numbers->strings, float->int, empty {}->remove)
     // -----------------------------------------------------------------------

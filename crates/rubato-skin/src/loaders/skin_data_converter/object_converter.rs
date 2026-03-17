@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use log::{debug, warn};
 
@@ -22,6 +22,7 @@ use crate::objects::skin_number::{NumberDisplayConfig, SkinNumber};
 use crate::objects::skin_slider::SkinSlider;
 use crate::property::string_property_factory;
 use crate::reexports::{SkinOffset, TextureRegion};
+use crate::text::skin_text_bitmap::{SkinTextBitmap, SkinTextBitmapSource};
 use crate::text::skin_text_font::SkinTextFont;
 use crate::types::skin::SkinObject;
 use crate::types::skin_bar_object::SkinBarObject;
@@ -210,6 +211,7 @@ pub(super) fn convert_skin_object(
             *shadow_offset_x,
             *shadow_offset_y,
             *shadow_smoothness,
+            usecim,
         ),
 
         SkinObjectType::Slider {
@@ -835,6 +837,7 @@ fn convert_text(
     shadow_offset_x: f32,
     shadow_offset_y: f32,
     shadow_smoothness: f32,
+    usecim: bool,
 ) -> Option<SkinObject> {
     if let Some(font_path) = font {
         let text_id = value.unwrap_or(ref_id);
@@ -843,30 +846,118 @@ fn convert_text(
         } else {
             None
         };
-        let mut stf = SkinTextFont::new_with_property(font_path, 0, size, 0, property);
-        // Apply JSON text layout fields
-        stf.text_data.align = align;
-        stf.text_data.wrapping = wrapping;
-        stf.text_data.overflow = overflow;
-        if let Some(ct) = constant_text {
-            stf.text_data.set_constant_text(ct.clone());
-        }
-        if !outline_color.is_empty() && outline_color != "ffffff00" {
+        let is_bitmap_font = Path::new(font_path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("fnt"));
+        if is_bitmap_font {
+            let source = SkinTextBitmapSource::new(PathBuf::from(font_path), usecim);
+            let mut stb = SkinTextBitmap::new_with_property(source, size as f32, property);
+            stb.text_data.align = align;
+            stb.text_data.wrapping = wrapping;
+            stb.text_data.overflow = overflow;
+            if let Some(ct) = constant_text {
+                stb.text_data.set_constant_text(ct.clone());
+            }
+            if !outline_color.is_empty() && outline_color != "ffffff00" {
+                stb.text_data
+                    .set_outline_color(crate::reexports::Color::value_of(outline_color));
+            }
+            stb.text_data.outline_width = outline_width;
+            if !shadow_color.is_empty() && shadow_color != "ffffff00" {
+                stb.text_data
+                    .set_shadow_color(crate::reexports::Color::value_of(shadow_color));
+            }
+            stb.text_data
+                .set_shadow_offset(shadow_offset_x, shadow_offset_y);
+            stb.text_data.shadow_smoothness = shadow_smoothness;
+            Some(SkinObject::TextBitmap(stb))
+        } else {
+            let mut stf = SkinTextFont::new_with_property(font_path, 0, size, 0, property);
+            // Apply JSON text layout fields
+            stf.text_data.align = align;
+            stf.text_data.wrapping = wrapping;
+            stf.text_data.overflow = overflow;
+            if let Some(ct) = constant_text {
+                stf.text_data.set_constant_text(ct.clone());
+            }
+            if !outline_color.is_empty() && outline_color != "ffffff00" {
+                stf.text_data
+                    .set_outline_color(crate::reexports::Color::value_of(outline_color));
+            }
+            stf.text_data.outline_width = outline_width;
+            if !shadow_color.is_empty() && shadow_color != "ffffff00" {
+                stf.text_data
+                    .set_shadow_color(crate::reexports::Color::value_of(shadow_color));
+            }
             stf.text_data
-                .set_outline_color(crate::reexports::Color::value_of(outline_color));
+                .set_shadow_offset(shadow_offset_x, shadow_offset_y);
+            stf.text_data.shadow_smoothness = shadow_smoothness;
+            Some(SkinObject::TextFont(stf))
         }
-        stf.text_data.outline_width = outline_width;
-        if !shadow_color.is_empty() && shadow_color != "ffffff00" {
-            stf.text_data
-                .set_shadow_color(crate::reexports::Color::value_of(shadow_color));
-        }
-        stf.text_data
-            .set_shadow_offset(shadow_offset_x, shadow_offset_y);
-        stf.text_data.shadow_smoothness = shadow_smoothness;
-        Some(SkinObject::TextFont(stf))
     } else {
         warn!("Text object without font path, skipping");
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::convert_text;
+    use crate::types::skin::SkinObject;
+
+    #[test]
+    fn convert_text_uses_bitmap_object_for_fnt_fonts() {
+        let obj = convert_text(
+            &Some("skin/ECFN/_font/selectsongname.fnt".to_string()),
+            50,
+            0,
+            10,
+            None,
+            &None,
+            false,
+            1,
+            &String::new(),
+            0.0,
+            &String::new(),
+            0.0,
+            0.0,
+            0.0,
+            false,
+        )
+        .expect("bitmap text object should be created");
+
+        assert!(
+            matches!(obj, SkinObject::TextBitmap(_)),
+            ".fnt fonts must become SkinObject::TextBitmap"
+        );
+    }
+
+    #[test]
+    fn convert_text_uses_font_object_for_ttf_fonts() {
+        let obj = convert_text(
+            &Some("skin/default/VL-Gothic-Regular.ttf".to_string()),
+            24,
+            0,
+            12,
+            None,
+            &None,
+            false,
+            1,
+            &String::new(),
+            0.0,
+            &String::new(),
+            0.0,
+            0.0,
+            0.0,
+            false,
+        )
+        .expect("font text object should be created");
+
+        assert!(
+            matches!(obj, SkinObject::TextFont(_)),
+            ".ttf fonts must remain SkinObject::TextFont"
+        );
     }
 }
 
