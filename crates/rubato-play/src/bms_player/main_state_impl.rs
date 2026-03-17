@@ -555,10 +555,11 @@ impl MainState for BMSPlayer {
                 }
                 // Process practice input navigation (UP/DOWN/LEFT/RIGHT)
                 // Translated from: Java BMSPlayer.render() line 680
-                let now_millis = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as i64;
+                // Java uses System.currentTimeMillis() here for key-repeat debounce.
+                // We use the monotonic game timer instead to avoid mixing clock domains
+                // (wall-clock vs game-timer). The presscount logic only needs a
+                // monotonically increasing millisecond value for rate-limiting.
+                let now_millis = self.main_state_data.timer.now_time();
                 // Control key states are read from input_key_states.
                 // In the Java version, these come from BMSPlayerInputProcessor control keys.
                 // For now we pass the input_start/select state as a proxy for key0 check.
@@ -1323,13 +1324,25 @@ impl BMSPlayer {
             .iter()
             .map(|jn| {
                 let lane = jn.lane as i32;
-                // Binary search for the timeline with matching micro_time.
-                // Timelines are sorted by time (ascending).
-                let tl_idx = self
+                // Binary search for a timeline with matching micro_time.
+                // Timelines are sorted by time (ascending), but multiple timelines
+                // can share the same micro_time (e.g., barline + note at same beat).
+                // binary_search_by_key returns an arbitrary match among duplicates,
+                // so we must scan forward and backward to find the one that actually
+                // contains a note on the target lane.
+                let tl_idx = match self
                     .model
                     .timelines
                     .binary_search_by_key(&jn.time_us, |tl| tl.micro_time())
-                    .unwrap_or(usize::MAX);
+                {
+                    Ok(idx) => Self::find_timeline_with_note_on_lane(
+                        &self.model.timelines,
+                        idx,
+                        jn.time_us,
+                        lane,
+                    ),
+                    Err(_) => usize::MAX,
+                };
                 (tl_idx, lane)
             })
             .collect();
@@ -1349,5 +1362,46 @@ impl BMSPlayer {
             self.judge.set_course_combo(self.initial_course_combo);
             self.judge.set_course_maxcombo(self.initial_course_maxcombo);
         }
+    }
+
+    /// Given a `binary_search_by_key` hit at `idx`, scan forward and backward
+    /// among timelines sharing the same `target_time` to find one that has a
+    /// note on the given `lane`. Falls back to `idx` if no matching timeline
+    /// is found (best-effort, preserves previous behavior).
+    fn find_timeline_with_note_on_lane(
+        timelines: &[bms_model::time_line::TimeLine],
+        idx: usize,
+        target_time: i64,
+        lane: i32,
+    ) -> usize {
+        // Check the initial hit first (common case: no duplicates).
+        if timelines[idx].note(lane).is_some() {
+            return idx;
+        }
+        // Scan backward while micro_time matches.
+        let mut i = idx;
+        while i > 0 {
+            i -= 1;
+            if timelines[i].micro_time() != target_time {
+                break;
+            }
+            if timelines[i].note(lane).is_some() {
+                return i;
+            }
+        }
+        // Scan forward while micro_time matches.
+        let mut i = idx + 1;
+        while i < timelines.len() {
+            if timelines[i].micro_time() != target_time {
+                break;
+            }
+            if timelines[i].note(lane).is_some() {
+                return i;
+            }
+            i += 1;
+        }
+        // No timeline at this time has a note on the target lane.
+        // Fall back to the original index (best-effort, matches previous behavior).
+        idx
     }
 }
