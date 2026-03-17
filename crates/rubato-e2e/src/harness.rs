@@ -24,6 +24,11 @@ pub struct E2eHarness {
     controller: MainController,
     audio_handle: Arc<Mutex<RecordingAudioDriver>>,
     state_event_log: Arc<Mutex<Vec<StateEvent>>>,
+    /// Monotonically increasing input gate time (milliseconds) used to override
+    /// the wall-clock check in `MainController::render()`. Incremented on each
+    /// `render_frame()` call so that the `time > prevtime` gate always passes,
+    /// regardless of actual wall-clock advancement.
+    input_gate_time_ms: i64,
 }
 
 impl E2eHarness {
@@ -54,6 +59,7 @@ impl E2eHarness {
             controller,
             audio_handle,
             state_event_log,
+            input_gate_time_ms: 0,
         };
         harness.sync_current_state_timer_to_controller();
         harness
@@ -175,8 +181,14 @@ impl E2eHarness {
     }
 
     /// Render one frame: advance timer by 1 frame, then call controller.render().
+    ///
+    /// Sets an input gate time override before each render() call so the
+    /// `time > prevtime` check always passes, regardless of wall-clock speed.
     pub fn render_frame(&mut self) {
         self.step_frame();
+        self.input_gate_time_ms += 1;
+        self.controller
+            .set_input_gate_time_override(self.input_gate_time_ms);
         self.controller.render();
         self.sync_current_state_timer_to_controller();
     }

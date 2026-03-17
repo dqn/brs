@@ -242,6 +242,13 @@ impl MainController {
         self.state_event_log = Some(log);
     }
 
+    /// Set the input gate time override for the next render() call.
+    /// The override is consumed (taken) during render(), so it must be
+    /// re-set before each call that needs deterministic input processing.
+    pub fn set_input_gate_time_override(&mut self, time_ms: i64) {
+        self.lifecycle.override_input_gate_time = Some(time_ms);
+    }
+
     /// Emit a state event to the log (if set). No-op when log is None.
     pub(super) fn emit_state_event(&self, event: rubato_types::state_event::StateEvent) {
         if let Some(ref log) = self.state_event_log

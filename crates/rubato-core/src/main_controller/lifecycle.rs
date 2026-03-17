@@ -371,10 +371,13 @@ impl MainController {
         // Using Instant would be more robust but changes timing semantics vs Java.
         // Java: final long time = System.currentTimeMillis();
         //       if(time > prevtime) { prevtime = time; current.input(); ... }
-        let time = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64;
+        let time = match self.lifecycle.override_input_gate_time.take() {
+            Some(t) => t,
+            None => std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as i64,
+        };
         if time > self.lifecycle.prevtime {
             self.lifecycle.prevtime = time;
             if let Some(ref input) = self.input

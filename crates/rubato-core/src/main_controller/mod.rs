@@ -163,6 +163,10 @@ pub struct LifecycleState {
     pub prevtime: i64,
     pub last_config_save: Instant,
     pub mouse_moved_time: i64,
+    /// Override for the input gate time. When Some, render() uses this instead
+    /// of SystemTime::now(). Used by test harnesses to ensure deterministic
+    /// input processing. Consumed (taken) on each render() call.
+    pub override_input_gate_time: Option<i64>,
 }
 
 impl LifecycleState {
@@ -173,6 +177,7 @@ impl LifecycleState {
             prevtime: 0,
             last_config_save: now,
             mouse_moved_time: 0,
+            override_input_gate_time: None,
         }
     }
 }

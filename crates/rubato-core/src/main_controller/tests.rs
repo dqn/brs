@@ -2160,3 +2160,122 @@ fn test_handoff_updated_model_propagates_to_resource() {
         "Note play_time should be updated from handoff model"
     );
 }
+
+// ============================================================
+// Input gate time override tests
+// ============================================================
+
+/// A state that counts how many times `input()` is called.
+struct InputCountingState {
+    state_data: MainStateData,
+    state_type: MainStateType,
+    input_count: Arc<Mutex<usize>>,
+}
+
+impl InputCountingState {
+    fn new(state_type: MainStateType, input_count: Arc<Mutex<usize>>) -> Self {
+        Self {
+            state_data: MainStateData::new(TimerManager::new()),
+            state_type,
+            input_count,
+        }
+    }
+}
+
+impl MainState for InputCountingState {
+    fn state_type(&self) -> Option<MainStateType> {
+        Some(self.state_type)
+    }
+    fn main_state_data(&self) -> &MainStateData {
+        &self.state_data
+    }
+    fn main_state_data_mut(&mut self) -> &mut MainStateData {
+        &mut self.state_data
+    }
+    fn create(&mut self) {}
+    fn render(&mut self) {}
+    fn input(&mut self) {
+        *self.input_count.lock().unwrap() += 1;
+    }
+}
+
+struct InputCountingFactory {
+    input_count: Arc<Mutex<usize>>,
+}
+
+impl StateFactory for InputCountingFactory {
+    fn create_state(
+        &self,
+        state_type: MainStateType,
+        _controller: &mut MainController,
+    ) -> Option<StateCreateResult> {
+        Some(StateCreateResult {
+            state: Box::new(InputCountingState::new(
+                state_type,
+                self.input_count.clone(),
+            )),
+            target_score: None,
+        })
+    }
+}
+
+#[test]
+fn input_gate_override_forces_input_processing() {
+    let input_count = Arc::new(Mutex::new(0usize));
+    let config = Config::default();
+    let player = PlayerConfig::default();
+    let mut mc = MainController::new(None, config, player, None, false);
+    mc.set_state_factory(Box::new(InputCountingFactory {
+        input_count: input_count.clone(),
+    }));
+    mc.change_state(MainStateType::MusicSelect);
+
+    // Set prevtime to far future so the wall-clock gate would never pass
+    mc.lifecycle.prevtime = i64::MAX / 2;
+
+    // Without override, render() should skip input processing
+    mc.render();
+    assert_eq!(
+        *input_count.lock().unwrap(),
+        0,
+        "input should NOT be called when wall-clock time <= prevtime"
+    );
+
+    // With override, render() should process input even though wall-clock < prevtime
+    mc.set_input_gate_time_override(mc.lifecycle.prevtime + 1);
+    mc.render();
+    assert_eq!(
+        *input_count.lock().unwrap(),
+        1,
+        "input SHOULD be called when override_input_gate_time is set"
+    );
+}
+
+#[test]
+fn input_gate_override_is_consumed_after_render() {
+    let input_count = Arc::new(Mutex::new(0usize));
+    let config = Config::default();
+    let player = PlayerConfig::default();
+    let mut mc = MainController::new(None, config, player, None, false);
+    mc.set_state_factory(Box::new(InputCountingFactory {
+        input_count: input_count.clone(),
+    }));
+    mc.change_state(MainStateType::MusicSelect);
+
+    // Set prevtime to far future
+    mc.lifecycle.prevtime = i64::MAX / 2;
+
+    // Set override once
+    mc.set_input_gate_time_override(mc.lifecycle.prevtime + 1);
+    mc.render();
+    assert_eq!(*input_count.lock().unwrap(), 1);
+
+    // Second render without re-setting override should skip input
+    // (override was consumed by .take())
+    mc.render();
+    assert_eq!(
+        *input_count.lock().unwrap(),
+        1,
+        "override should be consumed (taken) after one render call"
+    );
+}
