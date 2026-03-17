@@ -201,7 +201,7 @@ impl MusicSelector {
     /// Dispatch an EventType with arguments.
     /// Translated from Java MainState.executeEvent(EventType, int, int)
     /// which calls e.event.exec(this, arg1, arg2).
-    pub fn execute_event_with_args(&mut self, event: EventType, arg1: i32, _arg2: i32) {
+    pub fn execute_event_with_args(&mut self, event: EventType, arg1: i32, arg2: i32) {
         match event {
             EventType::Mode => {
                 let current_mode = self.config.mode().copied();
@@ -265,7 +265,7 @@ impl MusicSelector {
             }
             EventType::Duration1p => {
                 if let Some(pc) = self.get_selected_play_config_mut() {
-                    let delta = if _arg2 != 0 { _arg2 } else { 1 };
+                    let delta = if arg2 != 0 { arg2 } else { 1 };
                     let step = if arg1 >= 0 { delta } else { -delta };
                     let new_val = (pc.duration + step).clamp(1, 5000);
                     pc.duration = new_val;

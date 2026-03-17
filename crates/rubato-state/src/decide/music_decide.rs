@@ -104,8 +104,14 @@ impl rubato_types::skin_render_context::SkinRenderContext for DecideRenderContex
     fn integer_value(&self, id: i32) -> i32 {
         match id {
             // Song BPM from songdata
-            90 => self.resource.songdata().map_or(0, |s| s.chart.maxbpm),
-            91 => self.resource.songdata().map_or(0, |s| s.chart.minbpm),
+            90 => self
+                .resource
+                .songdata()
+                .map_or(i32::MIN, |s| s.chart.maxbpm),
+            91 => self
+                .resource
+                .songdata()
+                .map_or(i32::MIN, |s| s.chart.minbpm),
             // mainbpm: prefer SongInformation.mainbpm when available.
             // Java returns Integer.MIN_VALUE when SongInformation is absent,
             // signaling "no data" so skin renderers hide the value.
@@ -1129,6 +1135,68 @@ mod tests {
         };
         use rubato_types::skin_render_context::SkinRenderContext;
         assert_eq!(ctx.integer_value(92), i32::MIN);
+    }
+
+    #[test]
+    fn decide_render_context_maxbpm_no_songdata_returns_min_value() {
+        // When songdata is absent, ID 90 (maxbpm) should return i32::MIN
+        // so skin renderers hide the value, matching select screen behavior.
+        let resource = NullPlayerResource::new();
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(90), i32::MIN);
+    }
+
+    #[test]
+    fn decide_render_context_minbpm_no_songdata_returns_min_value() {
+        // When songdata is absent, ID 91 (minbpm) should return i32::MIN
+        // so skin renderers hide the value, matching select screen behavior.
+        let resource = NullPlayerResource::new();
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(91), i32::MIN);
+    }
+
+    #[test]
+    fn decide_render_context_maxbpm_with_songdata_returns_value() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.maxbpm = 200;
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(90), 200);
+    }
+
+    #[test]
+    fn decide_render_context_minbpm_with_songdata_returns_value() {
+        let mut resource = SongLengthResource::with_length_ms(0);
+        resource.song.chart.minbpm = 120;
+        let mut timer = TimerManager::new();
+        let main = MainControllerRef::new(Box::new(NullMainController));
+        let ctx = DecideRenderContext {
+            timer: &mut timer,
+            resource: &resource,
+            main: &main,
+        };
+        use rubato_types::skin_render_context::SkinRenderContext;
+        assert_eq!(ctx.integer_value(91), 120);
     }
 
     #[test]

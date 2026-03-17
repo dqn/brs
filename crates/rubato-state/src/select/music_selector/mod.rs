@@ -362,7 +362,12 @@ impl rubato_types::skin_render_context::SkinRenderContext for SelectSkinContext<
                 .map_or(i32::MIN, |s| s.chart.level),
             300 => self
                 .selected_directory_data()
-                .map(|directory| directory.lamps.iter().sum())
+                .map(|directory| {
+                    directory
+                        .lamps
+                        .iter()
+                        .fold(0i32, |acc, &x| acc.saturating_add(x))
+                })
                 .unwrap_or(i32::MIN),
             // Song score-related stats
             71 => self.selected_score().map_or(i32::MIN, |s| s.exscore()),
