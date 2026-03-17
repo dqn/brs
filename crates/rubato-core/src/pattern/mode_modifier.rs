@@ -119,6 +119,9 @@ impl PatternModifier for ModeModifier {
                                 }
                                 last_note_time[i] = tl.time();
                                 tl.set_note(i as i32, n);
+                                if is_end {
+                                    ln[i] = -1;
+                                }
                             }
                         } else {
                             last_note_time[i] = tl.time();
@@ -836,5 +839,73 @@ mod tests {
 
         // Note should still be at lane 0 (identity mapping)
         assert_eq!(model.timelines[0].note(0).unwrap().wav(), 1);
+    }
+
+    // -- Regression: LN end note at mismatched time must clear ln tracking --
+
+    #[test]
+    fn ln_end_at_mismatched_time_clears_ln_tracking() {
+        // Scenario: 7K -> 9K, pattern=0 (sc_lane=1, rest_lane=0), type=1.
+        //
+        // An LN start on source lane 7 (-> output sc_lane=1) has pair index
+        // pointing to a bogus timeline index, so end_ln_note_time = -1.
+        // The actual LN end note is on TL1 (time=1000). The time mismatch
+        // (1000 != -1) pushes the end note into the else branch, which sets
+        // ln[1] = 7 (source lane).
+        //
+        // TL2 has notes on source lanes 7 and 8, and timing is arranged so
+        // that the type=1 logic would swap: sc_lane=8, rest_lane=7. But the
+        // stale ln[1]=7 forces the active-LN branch: sc_lane=7, rest_lane=8.
+        //
+        // After fix: ln[1] is cleared to -1, so TL2 uses the type-based swap.
+
+        let mut config = PlayerConfig::default();
+        config.note_modifier_settings.seven_to_nine_pattern = 0;
+        config.note_modifier_settings.seven_to_nine_type = 1;
+        config.play_settings.hran_threshold_bpm = 100; // duration = ceil(15000/100) = 150
+
+        // Use POPN_9K for the model so set_mode doesn't truncate 9-lane timelines.
+        // The modifier's before_mode/after_mode are independent of the model's mode.
+        let mut tl0 = TimeLine::new(0.0, 0, 9);
+        let mut tl1 = TimeLine::new(0.0, 1_000_000, 9);
+        let mut tl2 = TimeLine::new(0.0, 1_100_000, 9);
+
+        // TL0: LN start on source lane 7. pair=Some(99) -> out of bounds ->
+        // end_ln_note_time = -1. On TL1: tl.time()=1000 != -1 -> mismatch.
+        let mut ln_start = Note::new_long(10);
+        ln_start.set_pair_index(Some(99));
+        tl0.set_note(7, Some(ln_start));
+
+        // TL1: LN end on source lane 7.
+        let mut ln_end = Note::new_long(10);
+        ln_end.set_end(true);
+        tl1.set_note(7, Some(ln_end));
+
+        // TL2: Notes on source lanes 7 and 8.
+        // type=1: now=1100, last_note_time[sc=1]=1000, last_note_time[rest=0]=-100.
+        // (1100-1000)=100 <= 150 AND 100 < 1200 -> swap: sc=8, rest=7.
+        // Stale activeln[1]=7 would force: sc=7, rest=8 (no swap).
+        tl2.set_note(7, Some(Note::new_normal(20)));
+        tl2.set_note(8, Some(Note::new_normal(30)));
+
+        let mut model = make_test_model(&Mode::POPN_9K, vec![tl0, tl1, tl2]);
+        let mut modifier = ModeModifier::new(Mode::BEAT_7K, Mode::POPN_9K, config);
+        modifier.modify(&mut model);
+
+        let tls = &model.timelines;
+        // With fix: type-based swap -> sc_lane=1 reads source 8 (wav=30),
+        //   rest_lane=0 reads source 7 (wav=20).
+        // Without fix: active-LN override -> sc_lane=1 reads source 7 (wav=20),
+        //   rest_lane=0 reads source 8 (wav=30).
+        assert_eq!(
+            tls[2].note(1).unwrap().wav(),
+            30,
+            "sc_lane should get source 8 (wav=30) via type-based swap, not source 7 from stale LN"
+        );
+        assert_eq!(
+            tls[2].note(0).unwrap().wav(),
+            20,
+            "rest_lane should get source 7 (wav=20) via type-based swap"
+        );
     }
 }
