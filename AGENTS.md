@@ -87,7 +87,7 @@ rubato/              # Cargo workspace (15 crates) at repo root
 
 ## Status
 
-**4146 tests.** All 62 phases complete. Zero clippy warnings. Zero regressions.
+**5674 tests.** All 62 phases complete. Zero clippy warnings. Zero regressions.
 
 - **Migration:** 4,279 Java methods resolved (4,049 direct + 230 architectural redesigns). 0 functional gaps. ast-compare retired.
 - **Stubs:** 0 remaining. All 151 resolved (Phase 58-62). All 32 debug stubs resolved (12 implemented, 20 compile-time comments).
@@ -153,6 +153,12 @@ rubato/              # Cargo workspace (15 crates) at repo root
 - **Lane renderer coordinate parity:** SpriteBatch uses Y-up projection. Keep Java's `hu`/`hl`/upward break condition/positive LN span semantics. Do not rewrite as Y-down.
 - **Selected play-config lookup:** Resolve play config from the selected bar's actual mode, not only the current selector mode.
 - **Target list fallback:** When `TargetProperty`'s global list is empty, fall back to `player_config.targetlist`.
+
+### Render Context Adapter Completeness
+
+- **Trait adapter delegation is the #1 blind spot in IS-A→composition ports (24% of RFL round 1 fixes).** Java `BMSPlayer extends MainState` means all methods are automatically inherited. Rust adapter structs (`PlayRenderContext`, `ResultRenderContext`, etc.) must explicitly delegate every `SkinRenderContext` method that skin objects call. Missing delegations silently return trait defaults (None, false, 0, empty Vec) instead of erroring. When adding a new render context or modifying the `SkinRenderContext` trait, enumerate ALL callers (skin objects, Lua accessors, property factories) and verify the adapter delegates each one.
+- **Course-mode-only data flows escape single-song testing.** Course gauge constraints, previous-stage gauge restoration, course aggregate score checks for clear/fail, and course gauge history are all gated by `is_course_mode()` conditions. Always test course-specific paths explicitly; single-song green tests prove nothing about course behavior.
+- **UTF-8 byte processing: never use `byte as char`.** Converting a raw byte to `char` via `u8 as char` expands it to its Latin-1 code point. For multi-byte UTF-8 (Japanese text), this silently corrupts every non-ASCII character. Use `Vec<u8>` output buffers with `String::from_utf8()` at the end.
 
 ### Testing & Verification
 
