@@ -189,6 +189,14 @@ pub struct PendingActions {
     /// In Rust, BMSPlayer owns a clone, so save_config() changes are local-only unless
     /// we push them back via this outbox field.
     pub pending_play_config_update: Option<(Mode, PlayConfig)>,
+    /// Pending keysound play commands from JudgeManager.
+    /// Each entry is a (Note, volume) pair resolved from JudgeNote indices.
+    /// Consumed by `sync_audio_impl` via `AudioDriver::play_note(note, volume, 0)`.
+    pub pending_keysound_plays: Vec<(Note, f32)>,
+    /// Pending keysound volume-set commands from JudgeManager.
+    /// Each entry is a (Note, volume) pair resolved from JudgeNote indices.
+    /// Consumed by `sync_audio_impl` via `AudioDriver::set_volume_note(note, volume)`.
+    pub pending_keysound_volume_sets: Vec<(Note, f32)>,
 }
 
 impl PendingActions {
@@ -201,6 +209,8 @@ impl PendingActions {
             pending_global_pitch: None,
             pending_stop_all_notes: false,
             pending_play_config_update: None,
+            pending_keysound_plays: Vec::new(),
+            pending_keysound_volume_sets: Vec::new(),
         }
     }
 }

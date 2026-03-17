@@ -46,6 +46,8 @@ impl JudgeManager {
             judged_lanes: Vec::new(),
             judged_events: Vec::new(),
             judged_visual_events: Vec::new(),
+            keysound_play_indices: Vec::new(),
+            keysound_volume_set_indices: Vec::new(),
         }
     }
 
@@ -219,6 +221,8 @@ impl JudgeManager {
             judged_lanes: Vec::new(),
             judged_events: Vec::new(),
             judged_visual_events: Vec::new(),
+            keysound_play_indices: Vec::new(),
+            keysound_volume_set_indices: Vec::new(),
         };
         jm.score.notes = total_notes as i32;
 

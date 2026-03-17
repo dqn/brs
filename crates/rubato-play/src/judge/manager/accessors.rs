@@ -311,6 +311,25 @@ impl JudgeManager {
         std::mem::take(&mut self.judged_visual_events)
     }
 
+    /// Drain keysound play events produced during the last update() call.
+    /// Each entry is a JudgeNote index that should be mapped to a model Note
+    /// and played via `AudioDriver::play_note(note, key_volume, 0)`.
+    ///
+    /// Corresponds to Java `keysound.play(note, keyvolume, 0)` in JudgeManager.update().
+    pub fn drain_keysound_play_indices(&mut self) -> Vec<usize> {
+        std::mem::take(&mut self.keysound_play_indices)
+    }
+
+    /// Drain keysound volume-set events produced during the last update() call.
+    /// Each entry is (JudgeNote index, volume) that should be mapped to a model
+    /// Note and applied via `AudioDriver::set_volume_note(note, volume)`.
+    ///
+    /// Corresponds to Java `keysound.setVolume(note, vol)` in JudgeManager.update()
+    /// for HCN processing.
+    pub fn drain_keysound_volume_set_indices(&mut self) -> Vec<(usize, f32)> {
+        std::mem::take(&mut self.keysound_volume_set_indices)
+    }
+
     /// Get the judge state for a note at the given index.
     ///
     /// Returns 0 if unjudged, or judge+1 (1=PG, 2=GR, 3=GD, 4=BD, 5=PR/MS).

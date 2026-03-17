@@ -31,6 +31,20 @@ impl BMSPlayer {
         }
     }
 
+    /// Resolve a JudgeNote index to the corresponding model Note.
+    ///
+    /// Uses `judge_note_to_model` to map the JudgeNote index to (timeline_index, lane),
+    /// then retrieves the Note from the model. Returns None if the index is out of bounds
+    /// or the mapping is invalid.
+    pub(super) fn resolve_judge_note(&self, note_idx: usize) -> Option<Note> {
+        let &(tl_idx, lane) = self.judge_note_to_model.get(note_idx)?;
+        if tl_idx == usize::MAX {
+            return None;
+        }
+        let tl = self.model.timelines.get(tl_idx)?;
+        tl.note(lane).cloned()
+    }
+
     /// Corresponds to Java BMSPlayer.stopPlay()
     pub fn stop_play(&mut self) {
         // if main.hasObsListener() { main.getObsListener().triggerPlayEnded(); }

@@ -1336,3 +1336,319 @@ fn note_state_updated_after_autoplay_judgment() {
         "Autoplay PG should have play_time 0"
     );
 }
+
+// --- Keysound event tests ---
+
+#[test]
+fn autoplay_produces_keysound_play_events() {
+    // Autoplay should produce keysound play events for each judged note.
+    // Java: keysound.play(note, keyvolume, 0) in autoplay normal note path.
+    let model = make_model_with_notes(&[500_000, 1_000_000, 1_500_000]);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: true,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_states = vec![false; key_count];
+    let key_times = vec![i64::MIN; key_count];
+
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    // Collect all keysound play events across the simulation
+    let mut all_keysound_plays = Vec::new();
+    let mut time = 0i64;
+    while time <= 2_500_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        all_keysound_plays.extend(jm.drain_keysound_play_indices());
+        time += 1000;
+    }
+
+    // All 3 notes should have produced keysound events
+    assert_eq!(
+        all_keysound_plays.len(),
+        3,
+        "Autoplay should produce 3 keysound play events for 3 normal notes"
+    );
+}
+
+#[test]
+fn drain_keysound_play_indices_clears_after_drain() {
+    let model = make_model_with_notes(&[500_000]);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: true,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_states = vec![false; key_count];
+    let key_times = vec![i64::MIN; key_count];
+
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    // Collect keysound events across frames
+    let mut all_events = Vec::new();
+    let mut time = 0i64;
+    while time <= 1_500_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        all_events.extend(jm.drain_keysound_play_indices());
+        time += 1000;
+    }
+
+    // Should have found at least one event
+    assert!(
+        !all_events.is_empty(),
+        "Should have keysound events after autoplay"
+    );
+
+    // Now do another update past any notes, drain should be empty
+    jm.update(2_000_000, &notes, &key_states, &key_times, &mut gauge);
+    let events2 = jm.drain_keysound_play_indices();
+    assert!(
+        events2.is_empty(),
+        "Drain after no-event update should return empty vec"
+    );
+
+    // Second consecutive drain (without update) should also be empty
+    let events3 = jm.drain_keysound_play_indices();
+    assert!(
+        events3.is_empty(),
+        "Second drain without update should return empty vec"
+    );
+}
+
+#[test]
+fn mine_note_hit_produces_keysound_play_event() {
+    // Mine note hit should produce a keysound play event.
+    // Java line 258: keysound.play(note, keyvolume, 0) on mine damage.
+    let mut model = BMSModel::new();
+    model.set_mode(Mode::BEAT_7K);
+    model.judgerank = 100;
+
+    let mut tl = TimeLine::new(0.0, 500_000, 8);
+    let mine = Note::new_mine(1, 0.5);
+    tl.set_note(0, Some(mine));
+    model.timelines = vec![tl];
+
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: false,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+
+    // Key for lane 0 must be pressed when the mine note passes through
+    let mut key_states = vec![false; key_count];
+    // Lane 0 key assignment: find the key index for lane 0
+    let key_lane_assign = lp.key_lane_assign();
+    for (key_idx, &lane) in key_lane_assign.iter().enumerate() {
+        if lane == 0 {
+            key_states[key_idx] = true;
+            break;
+        }
+    }
+
+    let key_times = vec![i64::MIN; key_count];
+
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    let mut all_keysound_plays = Vec::new();
+    let mut time = 0i64;
+    while time <= 1_000_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        all_keysound_plays.extend(jm.drain_keysound_play_indices());
+        time += 1000;
+    }
+
+    assert!(
+        !all_keysound_plays.is_empty(),
+        "Mine note hit should produce a keysound play event"
+    );
+}
+
+#[test]
+fn manual_key_press_produces_keysound_play_event() {
+    // Manual note judgment should produce a keysound play event.
+    // Java line 473: keysound.play(tnote, keyvolume, 0) on normal note hit.
+    let model = make_model_with_notes(&[500_000]);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: false,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_lane_assign = lp.key_lane_assign();
+
+    // Find the key index for lane 0
+    let mut lane0_key = 0;
+    for (key_idx, &lane) in key_lane_assign.iter().enumerate() {
+        if lane == 0 {
+            lane0_key = key_idx;
+            break;
+        }
+    }
+
+    let key_states_idle = vec![false; key_count];
+    let key_times_idle = vec![i64::MIN; key_count];
+
+    // Prime
+    jm.update(-1, &notes, &key_states_idle, &key_times_idle, &mut gauge);
+
+    // Advance to near the note time, then press the key
+    let mut time = 0i64;
+    while time < 499_000 {
+        jm.update(time, &notes, &key_states_idle, &key_times_idle, &mut gauge);
+        time += 1000;
+    }
+
+    // Now press: key pressed at 500_000 (exact time)
+    let mut key_states_pressed = vec![false; key_count];
+    key_states_pressed[lane0_key] = true;
+    let mut key_times_pressed = vec![i64::MIN; key_count];
+    key_times_pressed[lane0_key] = 500_000;
+
+    jm.update(
+        500_000,
+        &notes,
+        &key_states_pressed,
+        &key_times_pressed,
+        &mut gauge,
+    );
+    let plays = jm.drain_keysound_play_indices();
+
+    assert!(
+        !plays.is_empty(),
+        "Manual key press on a normal note should produce a keysound play event"
+    );
+}
+
+#[test]
+fn keysound_events_cleared_at_start_of_update() {
+    // Events from a previous update() should not leak into the next call.
+    let model = make_model_with_notes(&[500_000, 2_000_000]);
+    let notes = build_judge_notes(&model);
+    let jp = crate::judge_property::lr2();
+
+    let config = JudgeConfig {
+        notes: &notes,
+        mode: &Mode::BEAT_7K,
+        ln_type: LnType::LongNote,
+        judge_rank: 100,
+        judge_window_rate: [100, 100, 100],
+        scratch_judge_window_rate: [100, 100, 100],
+        algorithm: JudgeAlgorithm::Combo,
+        autoplay: true,
+        judge_property: &jp,
+        lane_property: None,
+        auto_adjust_enabled: false,
+        is_play_or_practice: false,
+        judgeregion: 1,
+    };
+    let mut jm = JudgeManager::from_config(&config);
+
+    let gp = crate::gauge_property::GaugeProperty::Lr2;
+    let mut gauge = GrooveGauge::new(&model, GrooveGauge::NORMAL, &gp);
+
+    let lp = LaneProperty::new(&Mode::BEAT_7K);
+    let key_count = lp.key_lane_assign().len();
+    let key_states = vec![false; key_count];
+    let key_times = vec![i64::MIN; key_count];
+
+    jm.update(-1, &notes, &key_states, &key_times, &mut gauge);
+
+    // Advance past first note
+    let mut time = 0i64;
+    while time <= 600_000 {
+        jm.update(time, &notes, &key_states, &key_times, &mut gauge);
+        time += 1000;
+    }
+    // Don't drain - keysound events are sitting in the vec
+
+    // Next update at a time where no new note is judged
+    jm.update(700_000, &notes, &key_states, &key_times, &mut gauge);
+
+    // The update() should have cleared old events before processing
+    let plays = jm.drain_keysound_play_indices();
+    // Should be 0 because the note at 500_000 was judged previously and
+    // update() clears at start
+    assert!(
+        plays.is_empty(),
+        "Keysound events from a previous update() should be cleared"
+    );
+}

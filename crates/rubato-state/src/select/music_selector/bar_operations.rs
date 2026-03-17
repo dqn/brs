@@ -54,9 +54,17 @@ impl MusicSelector {
 
     /// Read a chart for play.
     /// Corresponds to Java MusicSelector.readChart(SongData, Bar)
-    pub fn read_chart(&mut self, song: &SongData, current: &Bar) {
+    ///
+    /// `play_mode` is passed explicitly because the caller may have already
+    /// consumed `self.play` via `.take()` before reaching this point.
+    pub fn read_chart(
+        &mut self,
+        song: &SongData,
+        current: &Bar,
+        play_mode: Option<&BMSPlayerMode>,
+    ) {
         // Get play mode for set_bms_file encoding
-        let (mode_type, mode_id) = Self::encode_bms_player_mode(self.play.as_ref());
+        let (mode_type, mode_id) = Self::encode_bms_player_mode(play_mode);
 
         // Ensure local PlayerResource exists
         if self.player_resource.is_none() {

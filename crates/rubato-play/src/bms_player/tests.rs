@@ -3126,6 +3126,43 @@ fn sync_audio_does_not_stop_notes_when_flag_not_set() {
     );
 }
 
+// --- Keysound play events through sync_audio ---
+
+#[test]
+fn sync_audio_drains_pending_keysound_plays() {
+    use bms_model::note::Note;
+
+    let model = make_model();
+    let mut player = BMSPlayer::new(model);
+
+    // Manually push a keysound play event (simulating what render() does
+    // after resolving JudgeManager keysound_play_indices)
+    let note = Note::new_normal(42);
+    player.pending.pending_keysound_plays.push((note, 0.8));
+
+    let mut audio = NoteTrackingAudioDriver::new();
+    player.sync_audio(&mut audio);
+
+    assert_eq!(
+        audio.played_notes.len(),
+        1,
+        "sync_audio should play keysound notes from pending_keysound_plays"
+    );
+    assert_eq!(audio.played_notes[0].0, 42, "wav id should match");
+    assert!(
+        (audio.played_notes[0].1 - 0.8).abs() < f32::EPSILON,
+        "volume should match"
+    );
+
+    // Second sync should be empty (drained)
+    player.sync_audio(&mut audio);
+    assert_eq!(
+        audio.played_notes.len(),
+        1,
+        "pending_keysound_plays should be drained after sync_audio"
+    );
+}
+
 // --- Gauge initialization in create() ---
 
 #[test]
@@ -4406,6 +4443,47 @@ fn sync_judge_states_writes_state_and_play_time_to_model_notes() {
         player.model.timelines[1].note(0).unwrap().state(),
         0,
         "Unjudged note should remain state=0"
+    );
+}
+
+#[test]
+fn autoplay_render_produces_keysound_play_events() {
+    // Verify the full pipeline: render() calls judge.update() which produces
+    // keysound events, then render() resolves them through judge_note_to_model
+    // and pushes to pending.pending_keysound_plays.
+    let model = make_model_with_notes_at_times(&[1_000_000]);
+    let mut player = BMSPlayer::new(model);
+    player.play_mode = BMSPlayerMode::AUTOPLAY;
+    player.key_volume = 0.7;
+
+    // create() builds judge, gauge, and sets state to Play
+    player.create();
+    player.state = PlayState::Play;
+
+    // Start the play timer so render() enters the Playing branch
+    player.main_state_data.timer.set_main_state();
+    player.main_state_data.timer.set_timer_on(TIMER_PLAY);
+
+    // Advance time past the note at 1_000_000us = 1000ms
+    let timer_start = player.main_state_data.timer.micro_timer(TIMER_PLAY);
+    player.main_state_data.timer.frozen = true;
+    player
+        .main_state_data
+        .timer
+        .set_now_micro_time(timer_start + 1_500_000);
+
+    player.render();
+
+    assert!(
+        !player.pending.pending_keysound_plays.is_empty(),
+        "autoplay render should produce keysound play events for judged notes"
+    );
+    // Verify volume matches key_volume
+    let (_, vol) = &player.pending.pending_keysound_plays[0];
+    assert!(
+        (*vol - 0.7).abs() < f32::EPSILON,
+        "keysound volume should match configured key_volume, got {}",
+        vol
     );
 }
 

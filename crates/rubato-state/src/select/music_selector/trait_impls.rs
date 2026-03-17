@@ -859,7 +859,7 @@ impl MainState for MusicSelector {
             // Now perform mutations without holding a borrow on self.manager
             match action {
                 BarAction::SongChart { song, bar } => {
-                    self.read_chart(&song, &bar);
+                    self.read_chart(&song, &bar, Some(&play_mode));
                 }
                 BarAction::SongMissing { song } => {
                     // Java: MusicSelector lines 275-282 — IPFS/HTTP download fallback
@@ -886,7 +886,7 @@ impl MainState for MusicSelector {
                     }
                 }
                 BarAction::ExecutableChart { song, bar } => {
-                    self.read_chart(&song, &bar);
+                    self.read_chart(&song, &bar, Some(&play_mode));
                 }
                 BarAction::Grade => {
                     let mode = if play_mode.mode == BMSPlayerModeType::Practice {

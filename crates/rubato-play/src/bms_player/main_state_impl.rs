@@ -793,6 +793,28 @@ impl MainState for BMSPlayer {
                     // In Java, JudgeManager modifies Note objects in-place via shared
                     // references; in Rust we must explicitly copy the results back.
                     self.sync_judge_states_to_model();
+
+                    // Drain keysound events and resolve JudgeNote indices to model
+                    // Notes for audio playback. Corresponds to Java
+                    // keysound.play(note, keyvolume, 0) / keysound.setVolume(note, vol)
+                    // calls in JudgeManager.update().
+                    let key_volume = self.key_volume;
+                    let play_indices = self.judge.drain_keysound_play_indices();
+                    for note_idx in play_indices {
+                        if let Some(note) = self.resolve_judge_note(note_idx) {
+                            self.pending.pending_keysound_plays.push((note, key_volume));
+                        }
+                    }
+                    let vol_indices = self.judge.drain_keysound_volume_set_indices();
+                    for (note_idx, volume) in vol_indices {
+                        if let Some(note) = self.resolve_judge_note(note_idx) {
+                            // NaN sentinel means "use key_volume from config"
+                            let resolved_vol = if volume.is_nan() { key_volume } else { volume };
+                            self.pending
+                                .pending_keysound_volume_sets
+                                .push((note, resolved_vol));
+                        }
+                    }
                 }
 
                 let ptime = self.main_state_data.timer.now_time_for_id(TIMER_PLAY);

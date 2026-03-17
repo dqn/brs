@@ -206,5 +206,15 @@ impl BMSPlayer {
         for cmd in self.drain_pending_bg_notes() {
             audio.play_note(&cmd.note, cmd.volume, 0);
         }
+        // Gameplay lane keysound playback from JudgeManager events.
+        // Corresponds to Java keysound.play(note, keyvolume, 0) calls.
+        for (note, volume) in self.pending.pending_keysound_plays.drain(..) {
+            audio.play_note(&note, volume, 0);
+        }
+        // Gameplay lane keysound volume changes from JudgeManager events.
+        // Corresponds to Java keysound.setVolume(note, vol) calls.
+        for (note, volume) in self.pending.pending_keysound_volume_sets.drain(..) {
+            audio.set_volume_note(&note, volume);
+        }
     }
 }

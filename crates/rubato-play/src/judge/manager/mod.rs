@@ -299,6 +299,22 @@ pub struct JudgeManager {
     /// player region, key offset, and judge so the caller can trigger skin
     /// timers (judge text, combo timer, bomb animation) from the main thread.
     judged_visual_events: Vec<JudgeVisualEvent>,
+    /// Keysound play events produced during update(). Each entry is a JudgeNote
+    /// index that the caller should map to a model Note and play via
+    /// `AudioDriver::play_note(note, key_volume, 0)`.
+    ///
+    /// Corresponds to Java `keysound.play(note, keyvolume, 0)` calls in
+    /// JudgeManager.update(). The index refers to the JudgeNote slice passed
+    /// to update(); the caller uses `judge_note_to_model` to resolve the
+    /// actual model Note for the audio driver.
+    keysound_play_indices: Vec<usize>,
+    /// Keysound volume-set events produced during update(). Each entry is
+    /// (JudgeNote index, volume) that the caller should map to a model Note
+    /// and apply via `AudioDriver::set_volume_note(note, volume)`.
+    ///
+    /// Corresponds to Java `keysound.setVolume(note, vol)` calls in
+    /// JudgeManager.update() for HCN processing.
+    keysound_volume_set_indices: Vec<(usize, f32)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

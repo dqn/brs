@@ -1313,7 +1313,8 @@ fn test_read_chart_success_clears_resource_and_transitions() {
     let song = make_song_data("abc123", Some(&path_str));
     let bar = make_song_bar("abc123", Some(&path_str));
 
-    selector.read_chart(&song, &bar);
+    let play_mode = selector.play.clone();
+    selector.read_chart(&song, &bar, play_mode.as_ref());
 
     assert!(
         selector.player_resource.is_some(),
@@ -1342,7 +1343,8 @@ fn test_read_chart_failure_does_not_transition() {
     let song = make_song_data("abc123", Some("/nonexistent.bms"));
     let bar = make_song_bar("abc123", Some("/nonexistent.bms"));
 
-    selector.read_chart(&song, &bar);
+    let play_mode = selector.play.clone();
+    selector.read_chart(&song, &bar, play_mode.as_ref());
 
     assert!(
         selector.player_resource.is_some(),
@@ -1371,7 +1373,8 @@ fn test_read_chart_sets_rival_score_and_chart_option() {
     let song = make_song_data("abc123", Some(&path_str));
     let bar = make_song_bar("abc123", Some(&path_str));
 
-    selector.read_chart(&song, &bar);
+    let play_mode = selector.play.clone();
+    selector.read_chart(&song, &bar, play_mode.as_ref());
 
     // Verify chart was loaded successfully and state transition requested
     assert_eq!(
@@ -1390,7 +1393,8 @@ fn test_read_chart_without_main_controller_does_not_panic() {
     let bar = make_song_bar("abc123", Some("/test/song.bms"));
 
     // Should not panic, just log warning
-    selector.read_chart(&song, &bar);
+    let play_mode = selector.play.clone();
+    selector.read_chart(&song, &bar, play_mode.as_ref());
 }
 
 // ============================================================

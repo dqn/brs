@@ -27,6 +27,8 @@ impl JudgeManager {
         gauge: &mut GrooveGauge,
     ) {
         self.judged_lanes.clear();
+        self.keysound_play_indices.clear();
+        self.keysound_volume_set_indices.clear();
         let lane_count = self.lane_count;
 
         // --- Pass-through loop ---
@@ -72,6 +74,8 @@ impl JudgeManager {
                 } else if notes[note_idx].is_mine() && pressed {
                     // Mine note damage
                     gauge.add_value(-(notes[note_idx].damage as f32));
+                    // Java line 258: keysound.play(note, keyvolume, 0)
+                    self.keysound_play_indices.push(note_idx);
                 }
 
                 // Autoplay processing
@@ -79,6 +83,8 @@ impl JudgeManager {
                     if notes[note_idx].is_normal() && self.note_states[note_idx].state == 0 {
                         let first_key = self.lane_states[lane_idx].laneassign[0];
                         self.auto_presstime[first_key] = mtime;
+                        // Java line 265: keysound.play(note, keyvolume, 0)
+                        self.keysound_play_indices.push(note_idx);
                         self.update_micro(UpdateMicroParams {
                             lane_idx,
                             note_idx,
@@ -99,6 +105,8 @@ impl JudgeManager {
                         {
                             let first_key = self.lane_states[lane_idx].laneassign[0];
                             self.auto_presstime[first_key] = mtime;
+                            // Java line 272: keysound.play(note, keyvolume, 0)
+                            self.keysound_play_indices.push(note_idx);
                             if (self.lntype == LNTYPE_LONGNOTE && ln_type == TYPE_UNDEFINED)
                                 || ln_type == TYPE_LONGNOTE
                             {
@@ -148,6 +156,10 @@ impl JudgeManager {
                                 multi_bad: false,
                                 gauge,
                             });
+                            // Java line 292: keysound.play(state.processing, keyvolume, 0)
+                            if let Some(proc_idx) = self.lane_states[lane_idx].processing {
+                                self.keysound_play_indices.push(proc_idx);
+                            }
                             self.lane_states[lane_idx].processing = None;
                         }
                     }
@@ -198,11 +210,33 @@ impl JudgeManager {
                     gauge.update_with_rate(1, 0.5);
                     self.lane_states[lane_idx].mpassingcount -= HCN_MDURATION;
                 }
+                // Java line 333-334: if(state.passing.getPair().getState() > 3)
+                //   keysound.setVolume(state.passing, keyvolume)
+                let pair_idx = notes[passing_idx].pair_index;
+                let pair_state = pair_idx
+                    .filter(|&pi| pi < self.note_states.len())
+                    .map(|pi| self.note_states[pi].state)
+                    .unwrap_or(0);
+                if pair_state > 3 {
+                    // NaN signals "use key_volume from config" to the caller
+                    self.keysound_volume_set_indices
+                        .push((passing_idx, f32::NAN));
+                }
             } else {
                 self.lane_states[lane_idx].mpassingcount -= mtime - self.prevmtime;
                 if self.lane_states[lane_idx].mpassingcount < -HCN_MDURATION {
                     gauge.update_with_rate(3, 0.5);
                     self.lane_states[lane_idx].mpassingcount += HCN_MDURATION;
+                }
+                // Java line 345-346: if(state.passing.getPair().getState() > 3)
+                //   keysound.setVolume(state.passing, 0.0f)
+                let pair_idx = notes[passing_idx].pair_index;
+                let pair_state = pair_idx
+                    .filter(|&pi| pi < self.note_states.len())
+                    .map(|pi| self.note_states[pi].state)
+                    .unwrap_or(0);
+                if pair_state > 3 {
+                    self.keysound_volume_set_indices.push((passing_idx, 0.0));
                 }
             }
         }
@@ -251,6 +285,8 @@ impl JudgeManager {
                             {
                                 j += 1;
                             }
+                            // Java line 378: keysound.play(state.processing, keyvolume, 0)
+                            self.keysound_play_indices.push(proc_idx);
                             self.update_micro(UpdateMicroParams {
                                 lane_idx,
                                 note_idx: proc_idx,
@@ -370,6 +406,10 @@ impl JudgeManager {
                     self.multi_bad.filter(tnote, notes);
 
                     if let Some(tnote_idx) = tnote {
+                        // Java line 442/473: keysound.play(tnote, keyvolume, 0)
+                        // Keysound plays for both LN start and normal note hits.
+                        self.keysound_play_indices.push(tnote_idx);
+
                         // Process multi-bad notes
                         for i in self.multi_bad.array_start..self.multi_bad.size {
                             let bad_idx = self.multi_bad.note_list[i];
@@ -529,6 +569,8 @@ impl JudgeManager {
                                 self.lane_states[lane_idx].releasetime = mtime;
                                 self.lane_states[lane_idx].lnend_judge = judge;
                             } else {
+                                // Java line 537: keysound.play(state.processing, keyvolume, 0)
+                                self.keysound_play_indices.push(proc_idx);
                                 self.update_micro(UpdateMicroParams {
                                     lane_idx,
                                     note_idx: proc_idx,
@@ -568,6 +610,10 @@ impl JudgeManager {
                                 // Get pair of processing note for LN
                                 let pair_of_proc = notes[proc_idx].pair_index;
                                 let judge_note = pair_of_proc.unwrap_or(proc_idx);
+                                // Java line 564: keysound.play(state.processing, keyvolume, 0)
+                                // Note: Java plays state.processing (the LN end note),
+                                // not the pair used for updateMicro.
+                                self.keysound_play_indices.push(proc_idx);
                                 self.update_micro(UpdateMicroParams {
                                     lane_idx,
                                     note_idx: judge_note,
@@ -618,6 +664,8 @@ impl JudgeManager {
                         let lnend_judge = self.lane_states[lane_idx].lnend_judge;
                         let release_dmtime =
                             notes[proc_idx].time_us - self.lane_states[lane_idx].releasetime;
+                        // Java line 586: keysound.setVolume(state.processing.getPair(), 0.0f)
+                        self.keysound_volume_set_indices.push((pair_of_proc, 0.0));
                         self.update_micro(UpdateMicroParams {
                             lane_idx,
                             note_idx: pair_of_proc,
@@ -629,6 +677,8 @@ impl JudgeManager {
                             multi_bad: false,
                             gauge,
                         });
+                        // Java line 588: keysound.play(state.processing, keyvolume, 0)
+                        self.keysound_play_indices.push(proc_idx);
                         self.lane_states[lane_idx].processing = None;
                         self.lane_states[lane_idx].releasetime = i64::MIN;
                         self.lane_states[lane_idx].lnend_judge = i32::MIN;
@@ -647,6 +697,8 @@ impl JudgeManager {
                             multi_bad: false,
                             gauge,
                         });
+                        // Java line 594: keysound.play(state.processing, keyvolume, 0)
+                        self.keysound_play_indices.push(proc_idx);
                         self.lane_states[lane_idx].processing = None;
                         self.lane_states[lane_idx].releasetime = i64::MIN;
                         self.lane_states[lane_idx].lnend_judge = i32::MIN;
@@ -657,6 +709,12 @@ impl JudgeManager {
                     let lnend_judge = self.lane_states[lane_idx].lnend_judge;
                     let release_dmtime =
                         notes[proc_idx].time_us - self.lane_states[lane_idx].releasetime;
+                    // Java line 601-602: if(state.lnendJudge >= 3)
+                    //   keysound.setVolume(state.processing.getPair(), 0.0f)
+                    if lnend_judge >= 3 {
+                        let pair_of_proc = notes[proc_idx].pair_index.unwrap_or(proc_idx);
+                        self.keysound_volume_set_indices.push((pair_of_proc, 0.0));
+                    }
                     self.update_micro(UpdateMicroParams {
                         lane_idx,
                         note_idx: proc_idx,
@@ -668,6 +726,8 @@ impl JudgeManager {
                         multi_bad: false,
                         gauge,
                     });
+                    // Java line 605: keysound.play(state.processing, keyvolume, 0)
+                    self.keysound_play_indices.push(proc_idx);
                     self.lane_states[lane_idx].processing = None;
                     self.lane_states[lane_idx].releasetime = i64::MIN;
                     self.lane_states[lane_idx].lnend_judge = i32::MIN;
