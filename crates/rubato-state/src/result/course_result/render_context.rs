@@ -133,7 +133,7 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
     }
 
     fn boolean_value(&self, id: i32) -> bool {
-        shared_render_context::boolean_value(self.data, id)
+        shared_render_context::boolean_value(self.data, self.resource.course_score_data(), id)
     }
 
     fn string_value(&self, id: i32) -> String {
@@ -175,6 +175,10 @@ impl rubato_types::skin_render_context::SkinRenderContext for CourseResultRender
 
     fn score_data_property(&self) -> &rubato_types::score_data_property::ScoreDataProperty {
         shared_render_context::score_data_property(self.data)
+    }
+
+    fn judge_area(&self) -> Option<Vec<Vec<i32>>> {
+        shared_render_context::judge_area(self.resource)
     }
 }
 

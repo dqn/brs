@@ -435,24 +435,28 @@ pub fn float_value(data: &AbstractResultData, id: i32) -> f32 {
 /// Shared boolean_value accessor for result render contexts.
 ///
 /// Java reference (BooleanPropertyFactory):
-///   OPTION_RESULT_CLEAR (90): score.getClear() != Failed.id
-///   OPTION_RESULT_FAIL  (91): score.getClear() == Failed.id
-/// where `score` is getPlayerResource().getScoreData() (the current play's score).
+///   OPTION_RESULT_CLEAR (90): score.getClear() != Failed.id && (cscore == null || cscore.getClear() != Failed.id)
+///   OPTION_RESULT_FAIL  (91): score.getClear() == Failed.id || (cscore != null && cscore.getClear() == Failed.id)
+/// where `score` is getPlayerResource().getScoreData() and `cscore` is getCourseScoreData().
 #[inline]
-pub fn boolean_value(data: &AbstractResultData, id: i32) -> bool {
+pub fn boolean_value(data: &AbstractResultData, course_score: Option<&ScoreData>, id: i32) -> bool {
     match id {
-        // Clear result: current play's clear != Failed
-        90 => data
-            .score
-            .score
-            .as_ref()
-            .is_some_and(|s| s.clear != ClearType::Failed.id()),
-        // Fail result: current play's clear == Failed
-        91 => data
-            .score
-            .score
-            .as_ref()
-            .is_none_or(|s| s.clear == ClearType::Failed.id()),
+        // Clear result: current play's clear != Failed AND course aggregate (if present) != Failed
+        90 => {
+            data.score
+                .score
+                .as_ref()
+                .is_some_and(|s| s.clear != ClearType::Failed.id())
+                && course_score.is_none_or(|cs| cs.clear != ClearType::Failed.id())
+        }
+        // Fail result: current play's clear == Failed OR course aggregate (if present) == Failed
+        91 => {
+            data.score
+                .score
+                .as_ref()
+                .is_none_or(|s| s.clear == ClearType::Failed.id())
+                || course_score.is_some_and(|cs| cs.clear == ClearType::Failed.id())
+        }
         _ => false,
     }
 }
@@ -584,6 +588,53 @@ pub fn course_gauge_history(resource: &PlayerResource) -> &[Vec<Vec<f32>>] {
     resource.course_gauge()
 }
 
+/// Computes the judge area (timing windows per judge level in milliseconds) from
+/// the BMS model and player config.
+///
+/// Java reference: SkinTimingVisualizer.getJudgeArea(PlayerResource resource)
+///   1. Gets JudgeProperty from BMSPlayerRule for the original mode
+///   2. Gets judgerank from BMSModel
+///   3. Gets custom judge window rates from PlayerConfig (or [100,100,100])
+///   4. Applies course constraint NO_GREAT / NO_GOOD overrides
+///   5. Returns rule.getNoteJudge(judgerank, judgeWindowRate) as int[][]
+pub fn judge_area(resource: &PlayerResource) -> Option<Vec<Vec<i32>>> {
+    let model = resource.bms_model();
+    let mode = model
+        .mode()
+        .copied()
+        .unwrap_or(bms_model::mode::Mode::BEAT_7K);
+    let rule = rubato_play::bms_player_rule::BMSPlayerRule::for_mode(&mode);
+
+    let judgerank = model.judgerank;
+    let config = resource.player_config();
+    let mut judge_window_rate = if config.judge_settings.custom_judge {
+        [
+            config.judge_settings.key_judge_window_rate_perfect_great,
+            config.judge_settings.key_judge_window_rate_great,
+            config.judge_settings.key_judge_window_rate_good,
+        ]
+    } else {
+        [100, 100, 100]
+    };
+
+    // Apply course constraints
+    for constraint in &resource.constraint() {
+        use rubato_core::course_data::CourseDataConstraint;
+        match constraint {
+            CourseDataConstraint::NoGreat => {
+                judge_window_rate[1] = 0;
+                judge_window_rate[2] = 0;
+            }
+            CourseDataConstraint::NoGood => {
+                judge_window_rate[2] = 0;
+            }
+            _ => {}
+        }
+    }
+
+    Some(rule.judge.note_judge(judgerank, &judge_window_rate))
+}
+
 #[cfg(test)]
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
@@ -661,45 +712,103 @@ mod tests {
     fn test_boolean_value_uses_current_play_score_not_oldscore() {
         // Regression: boolean_value IDs 90/91 must check the current play's
         // score (data.score.score), not the old best score (data.oldscore).
-        // Java: OPTION_RESULT_CLEAR(90) = score.getClear() != Failed.id
-        //       OPTION_RESULT_FAIL(91)  = score.getClear() == Failed.id
+        // Java: OPTION_RESULT_CLEAR(90) = score.getClear() != Failed.id && (cscore == null || cscore.getClear() != Failed.id)
+        //       OPTION_RESULT_FAIL(91)  = score.getClear() == Failed.id || (cscore != null && cscore.getClear() == Failed.id)
         let failed_id = ClearType::Failed.id();
 
         let mut data = AbstractResultData::new();
 
-        // No score data -> ID 90 false (not cleared), ID 91 true (failed)
-        assert!(!boolean_value(&data, 90));
-        assert!(boolean_value(&data, 91));
+        // No score data, no course score -> ID 90 false (not cleared), ID 91 true (failed)
+        assert!(!boolean_value(&data, None, 90));
+        assert!(boolean_value(&data, None, 91));
 
         // Current play cleared (AssistEasy) -> clear=true, fail=false
         let mut score = rubato_core::score_data::ScoreData::default();
         score.clear = ClearType::AssistEasy.id();
         data.score.score = Some(score.clone());
-        assert!(boolean_value(&data, 90));
-        assert!(!boolean_value(&data, 91));
+        assert!(boolean_value(&data, None, 90));
+        assert!(!boolean_value(&data, None, 91));
 
         // Current play cleared (FullCombo) -> clear=true, fail=false
         score.clear = ClearType::FullCombo.id();
         data.score.score = Some(score.clone());
-        assert!(boolean_value(&data, 90));
-        assert!(!boolean_value(&data, 91));
+        assert!(boolean_value(&data, None, 90));
+        assert!(!boolean_value(&data, None, 91));
 
         // Current play failed -> clear=false, fail=true
         score.clear = failed_id;
         data.score.score = Some(score.clone());
-        assert!(!boolean_value(&data, 90));
-        assert!(boolean_value(&data, 91));
+        assert!(!boolean_value(&data, None, 90));
+        assert!(boolean_value(&data, None, 91));
 
         // NoPlay (0) is not Failed (1) -> clear=true, fail=false
         score.clear = ClearType::NoPlay.id();
         data.score.score = Some(score);
-        assert!(boolean_value(&data, 90));
-        assert!(!boolean_value(&data, 91));
+        assert!(boolean_value(&data, None, 90));
+        assert!(!boolean_value(&data, None, 91));
 
         // Verify oldscore does NOT affect the result
         data.oldscore.clear = failed_id;
-        assert!(boolean_value(&data, 90), "oldscore must not affect ID 90");
-        assert!(!boolean_value(&data, 91), "oldscore must not affect ID 91");
+        assert!(
+            boolean_value(&data, None, 90),
+            "oldscore must not affect ID 90"
+        );
+        assert!(
+            !boolean_value(&data, None, 91),
+            "oldscore must not affect ID 91"
+        );
+    }
+
+    #[test]
+    fn test_boolean_value_course_score_affects_clear_and_fail() {
+        // When course_score_data is present, it must also be checked:
+        // ID 90 (clear): stage clear AND course clear
+        // ID 91 (fail):  stage failed OR course failed
+        let failed_id = ClearType::Failed.id();
+
+        let mut data = AbstractResultData::new();
+        let mut stage_score = rubato_core::score_data::ScoreData::default();
+        stage_score.clear = ClearType::Normal.id();
+        data.score.score = Some(stage_score);
+
+        // Stage cleared, no course score -> clear
+        assert!(boolean_value(&data, None, 90));
+        assert!(!boolean_value(&data, None, 91));
+
+        // Stage cleared, course cleared -> still clear
+        let mut course_clear = rubato_core::score_data::ScoreData::default();
+        course_clear.clear = ClearType::Normal.id();
+        assert!(boolean_value(&data, Some(&course_clear), 90));
+        assert!(!boolean_value(&data, Some(&course_clear), 91));
+
+        // Stage cleared, but course failed -> NOT clear, IS fail
+        let mut course_fail = rubato_core::score_data::ScoreData::default();
+        course_fail.clear = failed_id;
+        assert!(
+            !boolean_value(&data, Some(&course_fail), 90),
+            "stage clear + course fail should NOT be clear"
+        );
+        assert!(
+            boolean_value(&data, Some(&course_fail), 91),
+            "stage clear + course fail should be fail"
+        );
+
+        // Stage failed, course cleared -> NOT clear, IS fail
+        let mut stage_fail = rubato_core::score_data::ScoreData::default();
+        stage_fail.clear = failed_id;
+        data.score.score = Some(stage_fail);
+        assert!(
+            !boolean_value(&data, Some(&course_clear), 90),
+            "stage fail + course clear should NOT be clear"
+        );
+        assert!(
+            boolean_value(&data, Some(&course_clear), 91),
+            "stage fail + course clear should be fail"
+        );
+
+        // Both failed -> NOT clear, IS fail
+        assert!(!boolean_value(&data, Some(&course_fail), 90));
+        assert!(boolean_value(&data, Some(&course_fail), 91));
     }
 
     // ============================================================
