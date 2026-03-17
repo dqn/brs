@@ -773,6 +773,7 @@ fn build_select_bar_data_propagates_graph_from_songlist() {
         skin_path,
         false,
         1.0,
+        1.0,
     );
 
     // graph_type should be propagated from the DistributionGraph object
@@ -784,6 +785,179 @@ fn build_select_bar_data_propagates_graph_from_songlist() {
     assert_eq!(result.graph_region.height, 30.0);
     // graph_images is None because no source texture is available (no src in source_map)
     assert!(result.graph_images.is_none());
+}
+
+#[test]
+fn build_select_bar_data_preserves_bitmap_bar_text_objects() {
+    let mut source_map = HashMap::new();
+    let skin_path = std::path::Path::new("/test/skin.json");
+    let bitmap_font_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../skin/ECFN/_font/barfont.fnt")
+        .to_string_lossy()
+        .to_string();
+
+    let text_obj = DataSkinObjectData {
+        name: Some("bartext".to_string()),
+        object_type: SkinObjectType::Text {
+            font: Some(bitmap_font_path),
+            size: 25,
+            align: 0,
+            ref_id: -1,
+            value: None,
+            constant_text: Some("Folder Title".to_string()),
+            wrapping: false,
+            overflow: 1,
+            outline_color: String::new(),
+            outline_width: 0.0,
+            shadow_color: String::new(),
+            shadow_offset_x: 0.0,
+            shadow_offset_y: 0.0,
+            shadow_smoothness: 0.0,
+        },
+        destinations: vec![DestinationData {
+            x: 155,
+            y: 13,
+            w: 580,
+            h: 24,
+            ..DestinationData::default()
+        }],
+        ..Default::default()
+    };
+
+    let bar_data = SongListBarData {
+        text: vec![Some(text_obj)],
+        ..Default::default()
+    };
+
+    let result = bar_data_converter::build_select_bar_data(
+        &bar_data,
+        5,
+        &[],
+        &mut source_map,
+        skin_path,
+        false,
+        1.0,
+        1.0,
+    );
+
+    assert!(
+        result
+            .bartext
+            .first()
+            .and_then(|text| text.as_ref())
+            .is_some(),
+        "bitmap .fnt bar text should survive songlist conversion"
+    );
+}
+
+#[test]
+fn build_select_bar_data_scales_bitmap_bar_text_and_graph_region() {
+    let mut source_map = HashMap::new();
+    let skin_path = std::path::Path::new("/test/skin.json");
+    let bitmap_font_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../skin/ECFN/_font/barfont.fnt")
+        .to_string_lossy()
+        .to_string();
+
+    let text_obj = DataSkinObjectData {
+        name: Some("bartext".to_string()),
+        object_type: SkinObjectType::Text {
+            font: Some(bitmap_font_path),
+            size: 25,
+            align: 0,
+            ref_id: -1,
+            value: None,
+            constant_text: Some("FolderSong abc".to_string()),
+            wrapping: false,
+            overflow: 1,
+            outline_color: String::new(),
+            outline_width: 0.0,
+            shadow_color: String::new(),
+            shadow_offset_x: 0.0,
+            shadow_offset_y: 0.0,
+            shadow_smoothness: 0.0,
+        },
+        destinations: vec![DestinationData {
+            x: 1258,
+            y: 538,
+            w: 580,
+            h: 24,
+            ..DestinationData::default()
+        }],
+        ..Default::default()
+    };
+    let graph_obj = DataSkinObjectData {
+        name: Some("bargraph".to_string()),
+        object_type: SkinObjectType::Graph {
+            src: None,
+            x: 0,
+            y: 0,
+            w: 50,
+            h: 10,
+            divx: 1,
+            divy: 1,
+            timer: None,
+            cycle: 0,
+            angle: 0,
+            graph_type: 0,
+            value: None,
+            is_ref_num: false,
+            min: 0,
+            max: 100,
+        },
+        destinations: vec![DestinationData {
+            x: 1300,
+            y: 600,
+            w: 200,
+            h: 30,
+            ..DestinationData::default()
+        }],
+        ..Default::default()
+    };
+    let bar_data = SongListBarData {
+        text: vec![Some(text_obj)],
+        graph: Some(graph_obj),
+        ..Default::default()
+    };
+
+    let scale_x = 1280.0 / 1920.0;
+    let scale_y = 720.0 / 1080.0;
+    let result = bar_data_converter::build_select_bar_data(
+        &bar_data,
+        5,
+        &[],
+        &mut source_map,
+        skin_path,
+        false,
+        scale_x,
+        scale_y,
+    );
+
+    let text = result
+        .bartext
+        .first()
+        .and_then(|text| text.as_ref())
+        .expect("bitmap .fnt bar text should survive songlist conversion");
+    let region = match text {
+        crate::skin_text::SkinTextEnum::Bitmap(bitmap) => {
+            bitmap
+                .text_data
+                .data
+                .all_destination()
+                .first()
+                .expect("bitmap bar text should store a destination")
+                .region
+        }
+        _ => panic!("bitmap .fnt bar text should convert into SkinTextBitmap"),
+    };
+    assert!((region.x - 1258.0 * scale_x).abs() < 0.01);
+    assert!((region.y - 538.0 * scale_y).abs() < 0.01);
+    assert!((region.width - 580.0 * scale_x).abs() < 0.01);
+    assert!((region.height - 24.0 * scale_y).abs() < 0.01);
+    assert!((result.graph_region.x - 1300.0 * scale_x).abs() < 0.01);
+    assert!((result.graph_region.y - 600.0 * scale_y).abs() < 0.01);
+    assert!((result.graph_region.width - 200.0 * scale_x).abs() < 0.01);
+    assert!((result.graph_region.height - 30.0 * scale_y).abs() < 0.01);
 }
 
 #[test]
@@ -800,6 +974,7 @@ fn build_select_bar_data_without_graph_leaves_defaults() {
         &mut source_map,
         skin_path,
         false,
+        1.0,
         1.0,
     );
 
@@ -859,6 +1034,7 @@ fn build_select_bar_data_propagates_graph_type_for_normal_graph() {
         &mut source_map,
         skin_path,
         false,
+        1.0,
         1.0,
     );
 

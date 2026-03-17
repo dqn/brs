@@ -2,9 +2,14 @@ use super::*;
 use crate::select::bar::bar::Bar;
 use crate::select::bar::grade_bar::GradeBar;
 use crate::select::bar::song_bar::SongBar;
+use crate::select::skin_bar::SkinBar;
 use rubato_audio::recording_audio_driver::RecordingAudioDriver;
 use rubato_core::main_state::MainState;
+use rubato_core::sprite_batch_helper::SpriteBatch;
+use rubato_skin::skin_text::SkinTextEnum;
+use rubato_types::skin_config::SkinConfig;
 use rubato_types::skin_render_context::SkinRenderContext;
+use rubato_types::skin_type::SkinType;
 use rubato_types::test_support::TestSongDb;
 
 fn make_song_data(sha256: &str, path: Option<&str>) -> SongData {
@@ -23,6 +28,18 @@ fn make_song_bar(sha256: &str, path: Option<&str>) -> Bar {
 fn set_selected_bar(selector: &mut MusicSelector, bar: Bar) {
     selector.manager.currentsongs = vec![bar];
     selector.manager.selectedindex = 0;
+}
+
+fn ecfn_select_skin_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../skin/ECFN/select/select.luaskin")
+}
+
+fn ecfn_player_config() -> PlayerConfig {
+    let mut player = PlayerConfig::default();
+    player.skin[SkinType::MusicSelect.id() as usize] =
+        Some(SkinConfig::new_with_path("skin/ECFN/select/select.luaskin"));
+    player.validate();
+    player
 }
 
 #[derive(Default)]
@@ -668,6 +685,148 @@ fn test_render_ir_timers_no_ir() {
             .main_state_data
             .timer
             .is_timer_on(skin_property::TIMER_IR_CONNECT_FAIL)
+    );
+}
+
+#[test]
+fn test_render_skin_draws_ecfn_songlist_bitmap_bartext_quads() {
+    let skin_path = ecfn_select_skin_path();
+    assert!(
+        skin_path.exists(),
+        "ECFN select skin should exist: {}",
+        skin_path.display()
+    );
+
+    let (mut selector, _state) = make_selector_with_mock();
+    selector.config = ecfn_player_config();
+    selector.load_skin(SkinType::MusicSelect.id());
+    selector
+        .main_state_data
+        .skin
+        .as_mut()
+        .expect("ECFN select skin should load")
+        .prepare_skin();
+    assert!(
+        matches!(
+            selector
+                .bar_rendering
+                .skin_bar
+                .as_ref()
+                .and_then(|skin_bar| skin_bar.text(SkinBar::BARTEXT_SONG_NORMAL)),
+            Some(SkinTextEnum::Bitmap(_))
+        ),
+        "ECFN select skin should transfer songlist SongBar text as bitmap text"
+    );
+
+    let mut song = SongData::default();
+    song.metadata.title = "FolderSong abc".to_string();
+    song.chart.mode = 7;
+    song.file.sha256 = "music-selector-ecfn-songlist".to_string();
+    song.file.set_path("/tmp/song.bms".to_string());
+    selector.manager.currentsongs = vec![Bar::Song(Box::new(SongBar::new(song)))];
+    selector.manager.selectedindex = 0;
+    selector
+        .bar_rendering
+        .bar
+        .as_mut()
+        .expect("ECFN select skin should expose a bar renderer")
+        .update_bar_text();
+
+    let (manual_bitmap_quads, manual_textured_quads) = {
+        let timer_snapshot = rubato_skin::reexports::Timer::with_timers(
+            selector.main_state_data.timer.now_time(),
+            selector.main_state_data.timer.now_micro_time(),
+            selector.main_state_data.timer.export_timer_array(),
+        );
+        let adapter = MinimalSkinMainState::new(&timer_snapshot);
+        let mut renderer = rubato_skin::skin_object::SkinObjectRenderer::new();
+        renderer.sprite.enable_capture();
+
+        let bar_renderer = selector
+            .bar_rendering
+            .bar
+            .as_mut()
+            .expect("ECFN select skin should expose a bar renderer");
+        let skin_bar = selector
+            .bar_rendering
+            .skin_bar
+            .as_mut()
+            .expect("ECFN select skin should expose a skin bar");
+
+        skin_bar.prepare(0, &adapter);
+        let prepare_ctx = crate::select::bar_renderer::PrepareContext {
+            center_bar: selector.bar_rendering.select_center_bar,
+            currentsongs: &selector.manager.currentsongs,
+            selectedindex: selector.manager.selectedindex,
+        };
+        bar_renderer.prepare(skin_bar, 0, &prepare_ctx);
+        let render_ctx = crate::select::bar_renderer::RenderContext {
+            center_bar: selector.bar_rendering.select_center_bar,
+            currentsongs: &selector.manager.currentsongs,
+            rival: false,
+            state: &adapter,
+            lnmode: selector.config.play_settings.lnmode,
+            loader_finished: false,
+        };
+        bar_renderer.render(&mut renderer, skin_bar, &render_ctx);
+
+        let textured_quads = renderer
+            .sprite
+            .captured_quads()
+            .iter()
+            .filter(|quad| quad.texture_key.is_some())
+            .map(|quad| {
+                (
+                    quad.texture_key.clone(),
+                    quad.x.round() as i32,
+                    quad.y.round() as i32,
+                    quad.w.round() as i32,
+                    quad.h.round() as i32,
+                )
+            })
+            .take(20)
+            .collect::<Vec<_>>();
+
+        let bitmap_quads = renderer
+            .sprite
+            .captured_quads()
+            .iter()
+            .filter(|quad| {
+                quad.texture_key
+                    .as_deref()
+                    .is_some_and(|texture| texture.starts_with("__pixmap_"))
+            })
+            .count();
+
+        (bitmap_quads, textured_quads)
+    };
+    assert!(
+        manual_bitmap_quads > 0,
+        "manual bar renderer should draw ECFN songlist bitmap bar text quads before render_skin; textured_quads={manual_textured_quads:?}"
+    );
+
+    let mut sprite = SpriteBatch::new();
+    sprite.enable_capture();
+    sprite.begin();
+    selector.render_skin(&mut sprite);
+    sprite.end();
+
+    let bitmap_quads = sprite
+        .captured_quads()
+        .iter()
+        .filter(|quad| {
+            quad.texture_key
+                .as_deref()
+                .is_some_and(|texture| texture.starts_with("__pixmap_"))
+                && quad.x >= 800.0
+                && quad.x < 1180.0
+                && quad.y >= 250.0
+                && quad.y < 460.0
+        })
+        .count();
+    assert!(
+        bitmap_quads > 0,
+        "MusicSelector::render_skin should draw ECFN songlist bitmap bar text quads"
     );
 }
 

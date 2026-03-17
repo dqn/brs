@@ -1370,34 +1370,3 @@ fn convert_pm_chara(src: &Option<String>, color: i32, chara_type: i32) -> Option
     );
     Some(SkinObject::Image(SkinImage::new_with_image_id(0)))
 }
-
-/// Apply destination data from loader DestinationData to a runtime SkinObjectData.
-/// Sets the initial position/size from the destination keyframes.
-pub(super) fn apply_destinations(
-    data: &mut crate::skin_object::SkinObjectData,
-    destinations: &[crate::json::json_skin_loader::DestinationData],
-) {
-    for dst in destinations {
-        data.set_destination_with_int_timer_ops(
-            &crate::skin_object::DestinationParams {
-                time: dst.time as i64,
-                x: dst.x as f32,
-                y: dst.y as f32,
-                w: dst.w as f32,
-                h: dst.h as f32,
-                acc: dst.acc,
-                a: dst.a,
-                r: dst.r,
-                g: dst.g,
-                b: dst.b,
-                blend: dst.blend,
-                filter: dst.filter,
-                angle: dst.angle,
-                center: dst.center,
-                loop_val: dst.loop_val,
-            },
-            dst.timer.unwrap_or(0),
-            &dst.op,
-        );
-    }
-}

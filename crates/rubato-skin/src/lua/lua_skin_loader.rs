@@ -332,6 +332,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::objects::wiring_check::{Severity, WiringCheck};
+    use crate::skin_object::SkinObjectRenderer;
     use crate::skin_type::SkinType;
     use crate::test_helpers::MockMainState;
     use rubato_core::config::Config;
@@ -597,6 +598,123 @@ mod tests {
         assert!(
             has_title_bitmap,
             "ECFN select Lua skin should convert title into a bitmap text object"
+        );
+    }
+
+    #[test]
+    fn test_ecfn_select_lua_skin_preserves_songlist_bitmap_bartext() {
+        let mut loader = LuaSkinLoader::new_without_state(&Config::default());
+        let path = repo_path("skin/ECFN/select/select.luaskin");
+
+        let header = loader
+            .load_header(&path)
+            .expect("ECFN select Lua skin header should load");
+        let data = loader
+            .load(&path, &SkinType::MusicSelect, &SkinConfigProperty)
+            .expect("ECFN select Lua skin should load into SkinData");
+        let mut skin = crate::skin_data_converter::convert_skin_data(
+            &header,
+            data,
+            &mut loader.json_loader.source_map,
+            &path,
+            loader.json_loader.usecim,
+            &loader.json_loader.dstr,
+        )
+        .expect("ECFN select Lua skin should convert into runtime Skin");
+
+        let bar_data = skin
+            .take_select_bar_data()
+            .expect("ECFN select Lua skin should expose SelectBarData");
+
+        assert!(
+            matches!(
+                bar_data.bartext.get(2).and_then(|text| text.as_ref()),
+                Some(crate::skin_text::SkinTextEnum::Bitmap(_))
+            ),
+            "ECFN songlist SongBar text should stay as bitmap text"
+        );
+        assert!(
+            matches!(
+                bar_data.bartext.get(4).and_then(|text| text.as_ref()),
+                Some(crate::skin_text::SkinTextEnum::Bitmap(_))
+            ),
+            "ECFN songlist FolderBar text should stay as bitmap text"
+        );
+    }
+
+    #[test]
+    fn test_ecfn_select_lua_skin_with_state_renders_songlist_bitmap_bartext() {
+        let mut state = MockMainState::default();
+        let mut loader = LuaSkinLoader::new_with_state(&mut state, &Config::default());
+        let path = repo_path("skin/ECFN/select/select.luaskin");
+
+        let header = loader
+            .load_header(&path)
+            .expect("ECFN select Lua skin header should load");
+        let data = loader
+            .load(&path, &SkinType::MusicSelect, &SkinConfigProperty)
+            .expect("ECFN select Lua skin should load into SkinData with state");
+        let mut skin = crate::skin_data_converter::convert_skin_data(
+            &header,
+            data,
+            &mut loader.json_loader.source_map,
+            &path,
+            loader.json_loader.usecim,
+            &loader.json_loader.dstr,
+        )
+        .expect("ECFN select Lua skin should convert into runtime Skin");
+
+        let mut bar_text = match skin
+            .take_select_bar_data()
+            .expect("ECFN select Lua skin should expose SelectBarData")
+            .bartext
+            .get_mut(2)
+            .and_then(Option::take)
+        {
+            Some(crate::skin_text::SkinTextEnum::Bitmap(text)) => text,
+            _ => panic!("expected bitmap songlist text"),
+        };
+        bar_text.text_data.data.draw = true;
+        bar_text.text_data.data.region = crate::reexports::Rectangle::new(155.0, 13.0, 580.0, 24.0);
+        bar_text.set_text("FolderSong abc".to_string());
+
+        let mut renderer = SkinObjectRenderer::new();
+        renderer.sprite.enable_capture();
+        bar_text.draw_with_offset(&mut renderer, 0.0, 0.0);
+
+        let textured_quads = renderer
+            .sprite
+            .captured_quads()
+            .iter()
+            .filter(|quad| quad.texture_key.is_some())
+            .map(|quad| {
+                (
+                    quad.texture_key.clone(),
+                    quad.x.round() as i32,
+                    quad.y.round() as i32,
+                    quad.w.round() as i32,
+                    quad.h.round() as i32,
+                )
+            })
+            .take(20)
+            .collect::<Vec<_>>();
+        let bitmap_quads = renderer
+            .sprite
+            .captured_quads()
+            .iter()
+            .filter(|quad| {
+                quad.texture_key
+                    .as_deref()
+                    .is_some_and(|texture| texture.starts_with("__pixmap_"))
+            })
+            .count();
+        assert!(
+            bitmap_quads > 0,
+            "stateful ECFN select Lua load should render songlist bitmap font quads; font_path={:?} original_size={} has_font_data={} region_count={} textured_quads={textured_quads:?}",
+            bar_text.debug_font_path(),
+            bar_text.debug_original_size(),
+            bar_text.debug_has_font_data(),
+            bar_text.debug_region_count()
         );
     }
 

@@ -213,6 +213,7 @@ pub fn convert_skin_data(
 
     // Convert each SkinObjectData to a SkinObject
     for mut obj_data in data.objects {
+        let scale_x = crate::safe_div_f32(dstr.width, src.width);
         let scale_y = crate::safe_div_f32(dstr.height, src.height);
 
         // Use pre-built resolved_note if available (from play skin loader)
@@ -346,7 +347,7 @@ pub fn convert_skin_data(
             } = &obj_data.object_type
             {
                 skin.select_bar_data = Some(build_select_bar_data(
-                    bar_data, *center, clickable, source_map, skin_path, usecim, scale_y,
+                    bar_data, *center, clickable, source_map, skin_path, usecim, scale_x, scale_y,
                 ));
             }
         }

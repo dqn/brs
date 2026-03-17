@@ -195,6 +195,26 @@ impl SkinTextBitmap {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn debug_font_path(&self) -> &std::path::Path {
+        &self.source.font_path
+    }
+
+    #[cfg(test)]
+    pub(crate) fn debug_original_size(&self) -> f32 {
+        self.source.original_size
+    }
+
+    #[cfg(test)]
+    pub(crate) fn debug_region_count(&self) -> usize {
+        self.source.regions.len()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn debug_has_font_data(&self) -> bool {
+        self.source.font_data.is_some()
+    }
+
     /// Compute layout width applying overflow mode.
     /// Corresponds to Java setLayout() logic for measuring and applying shrink/truncate.
     /// Returns the effective text width after overflow processing.
@@ -328,6 +348,32 @@ impl SkinTextBitmap {
 
     pub fn dispose(&mut self) {
         self.source.dispose();
+    }
+}
+
+impl crate::skin_text::SkinText for SkinTextBitmap {
+    fn get_text_data(&self) -> &SkinTextData {
+        &self.text_data
+    }
+
+    fn get_text_data_mut(&mut self) -> &mut SkinTextData {
+        &mut self.text_data
+    }
+
+    fn prepare_font(&mut self, text: &str) {
+        self.prepare_font(text);
+    }
+
+    fn prepare_text(&mut self, text: &str) {
+        self.prepare_text(text);
+    }
+
+    fn draw_with_offset(&mut self, sprite: &mut SkinObjectRenderer, offset_x: f32, offset_y: f32) {
+        self.draw_with_offset(sprite, offset_x, offset_y);
+    }
+
+    fn dispose(&mut self) {
+        self.dispose();
     }
 }
 
@@ -569,7 +615,10 @@ impl SkinTextBitmapSource {
             if let Some(region) = self.bitmap_glyph_region(glyph) {
                 glyphs.push(PositionedBitmapGlyphRegion {
                     x: cursor_x + glyph.xoffset as f32 * scale,
-                    y: glyph.yoffset as f32 * scale - baseline_offset,
+                    // BMFont yoffset is measured from the line top, while our sprite quads use
+                    // bottom-left coordinates. Convert through the baseline to preserve
+                    // lowercase/uppercase cap-height differences like LibGDX BitmapFont.
+                    y: baseline_offset - glyph.yoffset as f32 * scale - glyph.height as f32 * scale,
                     width: glyph.width as f32 * scale,
                     height: glyph.height as f32 * scale,
                     region,
@@ -617,6 +666,8 @@ impl SkinTextBitmapSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cmp::Ordering;
+
     use crate::reexports::Rectangle;
 
     fn make_source(original_size: f32, source_type: i32) -> SkinTextBitmapSource {
@@ -637,8 +688,7 @@ mod tests {
     }
 
     fn ecfn_select_song_font_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../skin/ECFN/_font/selectsongname.fnt")
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../skin/ECFN/_font/selectsongname.fnt")
     }
 
     #[test]
@@ -955,13 +1005,58 @@ mod tests {
             "bitmap title font should emit glyph quads for Japanese text"
         );
         assert!(
+            quads.iter().all(|quad| quad.texture_key.is_some()),
+            "bitmap glyph quads should be backed by font textures, got {:?}",
             quads
                 .iter()
-                .all(|quad| quad.texture_key.is_some()),
-            "bitmap glyph quads should be backed by font textures, got {:?}",
-            quads.iter()
                 .map(|quad| quad.texture_key.clone())
                 .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_real_bitmap_font_lowercase_glyphs_do_not_top_align_with_uppercase() {
+        let font_path = ecfn_select_song_font_path();
+        assert!(
+            font_path.exists(),
+            "ECFN bitmap font should exist: {}",
+            font_path.display()
+        );
+
+        let source = SkinTextBitmapSource::new(font_path, false);
+        let mut bitmap = SkinTextBitmap::new(source, 50.0);
+        bitmap.text_data.data.draw = true;
+        bitmap.text_data.data.region = Rectangle::new(0.0, 0.0, 200.0, 52.0);
+        bitmap.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+        bitmap.set_text("Aa".to_string());
+
+        let mut renderer = SkinObjectRenderer::new();
+        renderer.sprite.enable_capture();
+        bitmap.draw_with_offset(&mut renderer, 0.0, 0.0);
+
+        let mut quads = renderer
+            .sprite
+            .captured_quads()
+            .iter()
+            .map(|quad| (quad.x, quad.y, quad.w, quad.h))
+            .collect::<Vec<_>>();
+        quads.sort_by(|lhs, rhs| lhs.0.partial_cmp(&rhs.0).unwrap_or(Ordering::Equal));
+
+        assert!(
+            quads.len() >= 2,
+            "bitmap font should emit uppercase and lowercase glyph quads, got {:?}",
+            quads
+        );
+
+        let uppercase_top = quads[0].1 + quads[0].3;
+        let lowercase_top = quads[1].1 + quads[1].3;
+
+        assert!(
+            uppercase_top > lowercase_top + 5.0,
+            "uppercase and lowercase glyphs should keep different cap-height tops, got uppercase_top={}, lowercase_top={}, quads={:?}",
+            uppercase_top,
+            lowercase_top,
+            quads
         );
     }
 }

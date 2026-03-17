@@ -175,6 +175,7 @@ pub trait SkinText: Send {
 /// Enum dispatch for SkinText, replacing `Box<dyn SkinText>`.
 pub enum SkinTextEnum {
     Font(crate::text::skin_text_font::SkinTextFont),
+    Bitmap(crate::text::skin_text_bitmap::SkinTextBitmap),
     Image(crate::text::skin_text_image::SkinTextImage),
 }
 
@@ -182,6 +183,7 @@ impl SkinText for SkinTextEnum {
     fn get_text_data(&self) -> &SkinTextData {
         match self {
             Self::Font(inner) => inner.get_text_data(),
+            Self::Bitmap(inner) => inner.get_text_data(),
             Self::Image(inner) => inner.get_text_data(),
         }
     }
@@ -189,6 +191,7 @@ impl SkinText for SkinTextEnum {
     fn get_text_data_mut(&mut self) -> &mut SkinTextData {
         match self {
             Self::Font(inner) => inner.get_text_data_mut(),
+            Self::Bitmap(inner) => inner.get_text_data_mut(),
             Self::Image(inner) => inner.get_text_data_mut(),
         }
     }
@@ -196,6 +199,7 @@ impl SkinText for SkinTextEnum {
     fn prepare_font(&mut self, text: &str) {
         match self {
             Self::Font(inner) => inner.prepare_font(text),
+            Self::Bitmap(inner) => inner.prepare_font(text),
             Self::Image(inner) => inner.prepare_font(text),
         }
     }
@@ -203,6 +207,7 @@ impl SkinText for SkinTextEnum {
     fn prepare_text(&mut self, text: &str) {
         match self {
             Self::Font(inner) => inner.prepare_text(text),
+            Self::Bitmap(inner) => inner.prepare_text(text),
             Self::Image(inner) => inner.prepare_text(text),
         }
     }
@@ -210,6 +215,7 @@ impl SkinText for SkinTextEnum {
     fn draw_with_offset(&mut self, sprite: &mut SkinObjectRenderer, offset_x: f32, offset_y: f32) {
         match self {
             Self::Font(inner) => inner.draw_with_offset(sprite, offset_x, offset_y),
+            Self::Bitmap(inner) => inner.draw_with_offset(sprite, offset_x, offset_y),
             Self::Image(inner) => inner.draw_with_offset(sprite, offset_x, offset_y),
         }
     }
@@ -217,6 +223,7 @@ impl SkinText for SkinTextEnum {
     fn dispose(&mut self) {
         match self {
             Self::Font(inner) => inner.dispose(),
+            Self::Bitmap(inner) => inner.dispose(),
             Self::Image(inner) => inner.dispose(),
         }
     }

@@ -28,8 +28,10 @@ use rubato_input::winit_input_bridge::SharedKeyState;
 use rubato_launcher::state_factory::LauncherStateFactory;
 use rubato_song::song_information_accessor::SongInformationAccessor;
 use rubato_state::select::bar::bar::Bar;
+use rubato_state::select::bar::folder_bar::FolderBar;
 use rubato_state::select::bar::song_bar::SongBar;
 use rubato_state::select::music_selector::MusicSelector;
+use rubato_types::folder_data::FolderData;
 use rubato_types::main_controller_access::MainControllerAccess;
 use rubato_types::skin_config::SkinConfig;
 use rubato_types::skin_type::SkinType;
@@ -126,6 +128,27 @@ fn make_ecfn_title_song(path: &Path) -> SongData {
 
 fn make_ecfn_title_song_bar(path: &Path) -> Bar {
     Bar::Song(Box::new(SongBar::new(make_ecfn_title_song(path))))
+}
+
+fn make_ecfn_songlist_song_bar(path: &Path) -> Bar {
+    let mut song = SongData::default();
+    song.metadata.title = "FolderSong abc".to_string();
+    song.chart.mode = 7;
+    song.file.sha256 = "f".repeat(64);
+    song.file.set_path(path.to_string_lossy().to_string());
+    Bar::Song(Box::new(SongBar::new(song)))
+}
+
+fn make_ecfn_folder_bar() -> Bar {
+    let folder = FolderData {
+        title: "folder name abc".to_string(),
+        adddate: 0,
+        ..Default::default()
+    };
+    Bar::Folder(Box::new(FolderBar::new(
+        Some(folder),
+        "folder-bar-crc".to_string(),
+    )))
 }
 
 fn write_song_info_row(path: &Path, info: &SongInformation) {
@@ -473,6 +496,285 @@ fn e2e_music_select_ecfn_skin_draws_japanese_title_bitmap_glyphs() {
         title_quads,
         title_candidates,
         small_textured_quads
+    );
+}
+
+#[test]
+fn e2e_music_select_ecfn_skin_draws_songlist_song_title_bitmap_glyphs() {
+    let bms_path = test_bms_path();
+    assert!(
+        bms_path.exists(),
+        "Test BMS file not found: {}",
+        bms_path.display()
+    );
+
+    let player = ecfn_player_config();
+    let mut selector = MusicSelector::new();
+    selector.config = player.clone();
+    let shared_selector = Arc::new(Mutex::new(selector));
+
+    let mut mc = MainController::new(None, Config::default(), player, None, false);
+    mc.set_state_factory(Box::new(LauncherStateFactory::new()));
+    mc.set_shared_music_selector(Box::new(Arc::clone(&shared_selector)));
+    mc.create();
+
+    assert_eq!(mc.current_state_type(), Some(MainStateType::MusicSelect));
+
+    {
+        let mut selector = shared_selector.lock().expect("selector lock poisoned");
+        selector.manager.currentsongs = vec![make_ecfn_songlist_song_bar(&bms_path)];
+        selector.manager.selectedindex = 0;
+        if let Some(bar) = selector.bar_rendering.bar.as_mut() {
+            bar.update_bar_text();
+        }
+    }
+
+    mc.sprite_batch_mut()
+        .expect("sprite batch should exist after create")
+        .enable_capture();
+    for _ in 0..120 {
+        mc.render();
+    }
+
+    let quads = mc
+        .sprite_batch()
+        .expect("sprite batch should exist after rendering")
+        .captured_quads()
+        .to_vec();
+    let songlist_text_quads = quads
+        .iter()
+        .filter(|quad| {
+            quad.texture_key
+                .as_deref()
+                .is_some_and(|texture| texture.starts_with("__pixmap_"))
+                && quad.x >= 930.0
+                && quad.x < 1180.0
+                && quad.y >= 300.0
+                && quad.y < 460.0
+                && quad.w <= 60.0
+                && quad.h <= 60.0
+        })
+        .map(|quad| {
+            (
+                quad.texture_key.clone(),
+                quad.x.round() as i32,
+                quad.y.round() as i32,
+                quad.w.round() as i32,
+                quad.h.round() as i32,
+            )
+        })
+        .collect::<Vec<_>>();
+    let right_side_small_textured_quads = quads
+        .iter()
+        .filter(|quad| {
+            quad.texture_key
+                .as_deref()
+                .is_some_and(|texture| texture.starts_with("__pixmap_"))
+                && quad.x >= 800.0
+                && quad.x < 1220.0
+                && quad.y >= 250.0
+                && quad.y < 500.0
+                && quad.w <= 60.0
+                && quad.h <= 60.0
+        })
+        .map(|quad| {
+            (
+                quad.texture_key.clone(),
+                quad.x.round() as i32,
+                quad.y.round() as i32,
+                quad.w.round() as i32,
+                quad.h.round() as i32,
+            )
+        })
+        .take(30)
+        .collect::<Vec<_>>();
+    let all_small_textured_quads = quads
+        .iter()
+        .filter(|quad| {
+            quad.texture_key
+                .as_deref()
+                .is_some_and(|texture| texture.starts_with("__pixmap_"))
+                && quad.w <= 60.0
+                && quad.h <= 60.0
+        })
+        .map(|quad| {
+            (
+                quad.texture_key.clone(),
+                quad.x.round() as i32,
+                quad.y.round() as i32,
+                quad.w.round() as i32,
+                quad.h.round() as i32,
+            )
+        })
+        .take(60)
+        .collect::<Vec<_>>();
+    let right_side_any_textured_quads = quads
+        .iter()
+        .filter(|quad| {
+            quad.texture_key
+                .as_deref()
+                .is_some_and(|texture| texture.starts_with("__pixmap_"))
+                && quad.x >= 760.0
+                && quad.x < 1280.0
+                && quad.y >= 180.0
+                && quad.y < 560.0
+        })
+        .map(|quad| {
+            (
+                quad.texture_key.clone(),
+                quad.x.round() as i32,
+                quad.y.round() as i32,
+                quad.w.round() as i32,
+                quad.h.round() as i32,
+            )
+        })
+        .take(60)
+        .collect::<Vec<_>>();
+
+    assert!(
+        songlist_text_quads.len() >= 5,
+        "ECFN select skin should draw songlist title bitmap glyphs, got {} candidates: {:?}; sample right-side quads: {:?}; sample all small textured quads: {:?}; sample right-side textured quads: {:?}",
+        songlist_text_quads.len(),
+        songlist_text_quads,
+        right_side_small_textured_quads,
+        all_small_textured_quads,
+        right_side_any_textured_quads
+    );
+}
+
+#[test]
+fn e2e_music_select_ecfn_skin_draws_songlist_folder_title_bitmap_glyphs() {
+    let player = ecfn_player_config();
+    let mut selector = MusicSelector::new();
+    selector.config = player.clone();
+    let shared_selector = Arc::new(Mutex::new(selector));
+
+    let mut mc = MainController::new(None, Config::default(), player, None, false);
+    mc.set_state_factory(Box::new(LauncherStateFactory::new()));
+    mc.set_shared_music_selector(Box::new(Arc::clone(&shared_selector)));
+    mc.create();
+
+    assert_eq!(mc.current_state_type(), Some(MainStateType::MusicSelect));
+
+    {
+        let mut selector = shared_selector.lock().expect("selector lock poisoned");
+        selector.manager.currentsongs = vec![make_ecfn_folder_bar()];
+        selector.manager.selectedindex = 0;
+        if let Some(bar) = selector.bar_rendering.bar.as_mut() {
+            bar.update_bar_text();
+        }
+    }
+
+    mc.sprite_batch_mut()
+        .expect("sprite batch should exist after create")
+        .enable_capture();
+    for _ in 0..120 {
+        mc.render();
+    }
+
+    let quads = mc
+        .sprite_batch()
+        .expect("sprite batch should exist after rendering")
+        .captured_quads()
+        .to_vec();
+    let songlist_text_quads = quads
+        .iter()
+        .filter(|quad| {
+            quad.texture_key
+                .as_deref()
+                .is_some_and(|texture| texture.starts_with("__pixmap_"))
+                && quad.x >= 860.0
+                && quad.x < 1180.0
+                && quad.y >= 300.0
+                && quad.y < 460.0
+                && quad.w <= 60.0
+                && quad.h <= 60.0
+        })
+        .map(|quad| {
+            (
+                quad.texture_key.clone(),
+                quad.x.round() as i32,
+                quad.y.round() as i32,
+                quad.w.round() as i32,
+                quad.h.round() as i32,
+            )
+        })
+        .collect::<Vec<_>>();
+    let right_side_small_textured_quads = quads
+        .iter()
+        .filter(|quad| {
+            quad.texture_key
+                .as_deref()
+                .is_some_and(|texture| texture.starts_with("__pixmap_"))
+                && quad.x >= 800.0
+                && quad.x < 1220.0
+                && quad.y >= 250.0
+                && quad.y < 500.0
+                && quad.w <= 60.0
+                && quad.h <= 60.0
+        })
+        .map(|quad| {
+            (
+                quad.texture_key.clone(),
+                quad.x.round() as i32,
+                quad.y.round() as i32,
+                quad.w.round() as i32,
+                quad.h.round() as i32,
+            )
+        })
+        .take(30)
+        .collect::<Vec<_>>();
+    let all_small_textured_quads = quads
+        .iter()
+        .filter(|quad| {
+            quad.texture_key
+                .as_deref()
+                .is_some_and(|texture| texture.starts_with("__pixmap_"))
+                && quad.w <= 60.0
+                && quad.h <= 60.0
+        })
+        .map(|quad| {
+            (
+                quad.texture_key.clone(),
+                quad.x.round() as i32,
+                quad.y.round() as i32,
+                quad.w.round() as i32,
+                quad.h.round() as i32,
+            )
+        })
+        .take(60)
+        .collect::<Vec<_>>();
+    let right_side_any_textured_quads = quads
+        .iter()
+        .filter(|quad| {
+            quad.texture_key
+                .as_deref()
+                .is_some_and(|texture| texture.starts_with("__pixmap_"))
+                && quad.x >= 760.0
+                && quad.x < 1280.0
+                && quad.y >= 180.0
+                && quad.y < 560.0
+        })
+        .map(|quad| {
+            (
+                quad.texture_key.clone(),
+                quad.x.round() as i32,
+                quad.y.round() as i32,
+                quad.w.round() as i32,
+                quad.h.round() as i32,
+            )
+        })
+        .take(60)
+        .collect::<Vec<_>>();
+
+    assert!(
+        songlist_text_quads.len() >= 5,
+        "ECFN select skin should draw folder-bar bitmap glyphs, got {} candidates: {:?}; sample right-side quads: {:?}; sample all small textured quads: {:?}; sample right-side textured quads: {:?}",
+        songlist_text_quads.len(),
+        songlist_text_quads,
+        right_side_small_textured_quads,
+        all_small_textured_quads,
+        right_side_any_textured_quads
     );
 }
 

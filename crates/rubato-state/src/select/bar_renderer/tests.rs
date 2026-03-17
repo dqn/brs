@@ -1,7 +1,13 @@
 use super::*;
 use crate::select::bar::folder_bar::FolderBar;
 use crate::select::bar::song_bar::SongBar;
+use rubato_core::config::Config;
+use rubato_skin::json::json_skin_loader::SkinConfigProperty;
 use rubato_skin::reexports::Timer;
+use rubato_skin::skin_data_converter;
+use rubato_skin::skin_text::SkinTextEnum;
+use rubato_skin::text::skin_text_bitmap::{SkinTextBitmap, SkinTextBitmapSource};
+use rubato_types::skin_type::SkinType;
 
 /// Create a test SkinImage with draw=true and specified region.
 /// Uses a default TextureRegion (no real texture, but valid for layout tests).
@@ -61,6 +67,15 @@ fn make_song_data(sha256: &str, path: Option<&str>) -> SongData {
 
 fn make_song_bar_bar(sha256: &str, path: Option<&str>) -> Bar {
     Bar::Song(Box::new(SongBar::new(make_song_data(sha256, path))))
+}
+
+fn ecfn_barfont_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../skin/ECFN/_font/barfont.fnt")
+}
+
+fn ecfn_select_skin_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../skin/ECFN/select/select.luaskin")
 }
 
 #[test]
@@ -251,6 +266,145 @@ fn test_bar_renderer_render_bartextupdate_collects_chars() {
     assert!(!renderer.bartextcharset.is_empty());
     assert!(renderer.bartextcharset.contains(&'T'));
     assert!(renderer.bartextcharset.contains(&'e'));
+}
+
+#[test]
+fn test_bar_renderer_render_draws_bitmap_bartext_quads() {
+    let mut renderer = BarRenderer::new(300, 100, 5);
+    let mut bar = SkinBar::new(0);
+    let font_path = ecfn_barfont_path();
+    assert!(
+        font_path.exists(),
+        "ECFN bar bitmap font should exist: {}",
+        font_path.display()
+    );
+
+    let source = SkinTextBitmapSource::new(font_path, false);
+    let mut text = SkinTextBitmap::new(source, 25.0);
+    text.text_data.data.region = Rectangle::new(155.0, 13.0, 580.0, 24.0);
+    text.text_data.data.color = Color::new(1.0, 1.0, 1.0, 1.0);
+    bar.set_text(SkinBar::BARTEXT_SONG_NORMAL, SkinTextEnum::Bitmap(text));
+    bar.barimageon[0] = Some(make_test_image(1258.0, 538.0, 730.0, 52.0));
+    bar.barimageoff[0] = Some(make_test_image(1258.0, 538.0, 730.0, 52.0));
+
+    let mut sd = SongData::default();
+    sd.file.sha256 = "bitmap-bartext".to_string();
+    sd.file.set_path("/path.bms".to_string());
+    sd.metadata.title = "FolderSong abc".to_string();
+    let songs = vec![Bar::Song(Box::new(SongBar::new(sd)))];
+
+    let prep_ctx = PrepareContext {
+        center_bar: 0,
+        currentsongs: &songs,
+        selectedindex: 0,
+    };
+    renderer.prepare(&bar, 1000, &prep_ctx);
+
+    let state = MockMainState::default();
+    let render_ctx = RenderContext {
+        center_bar: 0,
+        currentsongs: &songs,
+        rival: false,
+        state: &state,
+        lnmode: 0,
+        loader_finished: false,
+    };
+
+    let mut sprite = SkinObjectRenderer::new();
+    sprite.sprite.enable_capture();
+    renderer.render(&mut sprite, &mut bar, &render_ctx);
+
+    let quads = sprite
+        .sprite
+        .captured_quads()
+        .iter()
+        .filter(|quad| quad.texture_key.is_some())
+        .collect::<Vec<_>>();
+    assert!(
+        !quads.is_empty(),
+        "bar renderer should emit textured glyph quads for bitmap bar text"
+    );
+}
+
+#[test]
+fn test_bar_renderer_render_draws_ecfn_loaded_songlist_bitmap_bartext_quads() {
+    let path = ecfn_select_skin_path();
+    assert!(
+        path.exists(),
+        "ECFN select skin should exist: {}",
+        path.display()
+    );
+
+    let mut loader =
+        rubato_skin::lua::lua_skin_loader::LuaSkinLoader::new_without_state(&Config::default());
+    let header = loader
+        .load_header(&path)
+        .expect("ECFN select Lua skin header should load");
+    let data = loader
+        .load(&path, &SkinType::MusicSelect, &SkinConfigProperty)
+        .expect("ECFN select Lua skin should load into SkinData");
+    let mut skin = skin_data_converter::convert_skin_data(
+        &header,
+        data,
+        &mut loader.json_loader.source_map,
+        &path,
+        loader.json_loader.usecim,
+        &loader.json_loader.dstr,
+    )
+    .expect("ECFN select Lua skin should convert into runtime Skin");
+    let mut bar_data = skin
+        .take_select_bar_data()
+        .expect("ECFN select skin should expose SelectBarData");
+
+    let mut renderer = BarRenderer::new(300, 100, 5);
+    let mut bar = SkinBar::new(0);
+    bar.set_text(
+        SkinBar::BARTEXT_SONG_NORMAL,
+        bar_data.bartext[SkinBar::BARTEXT_SONG_NORMAL]
+            .take()
+            .expect("ECFN select skin should provide songlist song text"),
+    );
+    bar.barimageon[0] = Some(make_test_image(1258.0, 538.0, 730.0, 52.0));
+    bar.barimageoff[0] = Some(make_test_image(1258.0, 538.0, 730.0, 52.0));
+
+    let mut sd = SongData::default();
+    sd.file.sha256 = "ecfn-loaded-bartext".to_string();
+    sd.file.set_path("/path.bms".to_string());
+    sd.metadata.title = "FolderSong abc".to_string();
+    let songs = vec![Bar::Song(Box::new(SongBar::new(sd)))];
+
+    let prep_ctx = PrepareContext {
+        center_bar: 0,
+        currentsongs: &songs,
+        selectedindex: 0,
+    };
+    renderer.prepare(&bar, 1000, &prep_ctx);
+
+    let state = MockMainState::default();
+    bar.prepare(1000, &state);
+    let render_ctx = RenderContext {
+        center_bar: 0,
+        currentsongs: &songs,
+        rival: false,
+        state: &state,
+        lnmode: 0,
+        loader_finished: false,
+    };
+
+    let mut sprite = SkinObjectRenderer::new();
+    sprite.sprite.enable_capture();
+    renderer.render(&mut sprite, &mut bar, &render_ctx);
+
+    let quads = sprite
+        .sprite
+        .captured_quads()
+        .iter()
+        .filter(|quad| quad.texture_key.is_some())
+        .collect::<Vec<_>>();
+    assert!(
+        !quads.is_empty(),
+        "bar renderer should emit textured glyph quads for ECFN-loaded bitmap bar text"
+    );
 }
 
 #[test]
