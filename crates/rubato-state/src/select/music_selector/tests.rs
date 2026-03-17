@@ -2832,3 +2832,25 @@ fn ir_rank_valid_returns_target() {
     assert_eq!(target.judge_counts.epg, 250);
     assert_eq!(target.judge_counts.egr, 0);
 }
+
+#[test]
+fn integer_value_300_directory_lamps_sum_saturates_on_overflow() {
+    // directory.lamps comes from the song database (external data).
+    // Summation must not panic on overflow in debug mode.
+    use crate::select::bar::folder_bar::FolderBar;
+
+    let mut selector = MusicSelector::new();
+    let mut folder_bar = FolderBar::new(None, "overflow-test".to_string());
+    // Fill all 11 lamp slots with i32::MAX to guarantee overflow with naive sum.
+    folder_bar.directory.lamps = [i32::MAX; 11];
+    set_selected_bar(&mut selector, Bar::Folder(Box::new(folder_bar)));
+
+    let mut timer = TimerManager::new();
+    let ctx = SelectSkinContext {
+        timer: &mut timer,
+        selector: &mut selector,
+    };
+
+    // Should saturate to i32::MAX instead of panicking.
+    assert_eq!(ctx.integer_value(300), i32::MAX);
+}
