@@ -43,13 +43,8 @@ pub(super) fn get_texture_for_src(
     } else {
         None
     };
-    let result = if let Some(path) = resolved_path {
-        Some(SourceDataType::Texture(crate::reexports::Texture::new(
-            &path,
-        )))
-    } else {
-        None
-    };
+    let result =
+        resolved_path.map(|path| SourceDataType::Texture(crate::reexports::Texture::new(&path)));
 
     let tex_result = match &result {
         Some(SourceDataType::Texture(tex)) => Some(tex.clone()),

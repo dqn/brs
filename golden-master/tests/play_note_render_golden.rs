@@ -2,8 +2,8 @@
 ///
 /// Verifies:
 /// - Notes at different times produce DrawNote commands with correct Y positions
-/// - Y-down coordinate system: future notes have smaller y (higher on screen),
-///   notes closer to the judge line have larger y (lower on screen)
+/// - Y-up coordinate system: future notes have larger y (further from judge line),
+///   notes closer to the judge line have smaller y (closer to region_y)
 /// - Long notes produce DrawLongNote commands with correct body/cap positions
 /// - Section lines are emitted at correct y offsets
 /// - DrawCommand output is stable (golden fixture regression)
@@ -325,7 +325,9 @@ fn play_note_draw_commands_golden() {
 
 #[test]
 fn note_y_increases_toward_judge_line() {
-    // Y-down: notes closer in time have larger y (closer to judge line at bottom).
+    // Y-up: notes further in time have larger y (further from judge line at region_y).
+    // The judge line sits at region_y (bottom of the lane region in screen space),
+    // and notes scroll upward (increasing y) as they approach from the future.
     let model = build_test_model();
     let lanes = make_lanes_7k();
     let ctx = make_ctx(&model.timelines);
@@ -359,14 +361,14 @@ fn note_y_increases_toward_judge_line() {
     );
 
     // Lane 0 note at 1000ms, lane 3 note at 1500ms.
-    // At time=0, lane 0 is closer. In Y-down: closer note has LARGER y.
+    // At time=0, lane 0 is closer to the judge line. In Y-up: closer note has SMALLER y.
     let lane0_note = note_ys.iter().find(|(lane, _)| *lane == 0);
     let lane3_note = note_ys.iter().find(|(lane, _)| *lane == 3);
 
     if let (Some((_, y_close)), Some((_, y_far))) = (lane0_note, lane3_note) {
         assert!(
-            y_close > y_far,
-            "Y-down violation: closer note (lane 0, 1000ms) y={} should be > further note (lane 3, 1500ms) y={}",
+            y_close < y_far,
+            "Y-up violation: closer note (lane 0, 1000ms) y={} should be < further note (lane 3, 1500ms) y={}",
             y_close,
             y_far
         );

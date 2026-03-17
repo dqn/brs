@@ -6,11 +6,11 @@
     },
     {
       "type": "DrawSectionLine",
-      "y_offset": -250
+      "y_offset": 250
     },
     {
       "type": "DrawSectionLine",
-      "y_offset": -500
+      "y_offset": 500
     },
     {
       "type": "SetColor",
@@ -40,7 +40,7 @@
       "type": "DrawNote",
       "lane": 3,
       "x": 220.0,
-      "y": 250.0,
+      "y": 750.0,
       "w": 38.0,
       "h": 8.0,
       "image_type": "Normal"
@@ -49,7 +49,7 @@
       "type": "DrawNote",
       "lane": 5,
       "x": 300.0,
-      "y": 125.0,
+      "y": 875.0,
       "w": 38.0,
       "h": 8.0,
       "image_type": "Mine"
