@@ -754,7 +754,8 @@ impl MainState for BMSPlayer {
                     let visual_events = self.judge.drain_judged_visual_events();
                     for event in visual_events {
                         if event.judge <= self.play_skin.judgetimer {
-                            let bomb_timer = bomb_timer_id(event.player as i32, event.offset as i32);
+                            let bomb_timer =
+                                bomb_timer_id(event.player as i32, event.offset as i32);
                             if bomb_timer != rubato_types::timer_id::TimerId::UNDEFINED {
                                 self.main_state_data.timer.set_timer_on(bomb_timer);
                             }

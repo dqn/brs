@@ -25,14 +25,14 @@ use rubato_input::gdx_compat::set_shared_key_state;
 use rubato_input::keys::Keys;
 use rubato_input::winit_input_bridge::SharedKeyState;
 use rubato_launcher::state_factory::LauncherStateFactory;
+use rubato_state::select::bar::bar::Bar;
+use rubato_state::select::bar::song_bar::SongBar;
+use rubato_state::select::music_selector::MusicSelector;
 use rubato_types::main_controller_access::MainControllerAccess;
 use rubato_types::skin_config::SkinConfig;
 use rubato_types::skin_type::SkinType;
 use rubato_types::song_data::SongData;
 use rubato_types::timer_id::TimerId;
-use rubato_state::select::bar::bar::Bar;
-use rubato_state::select::bar::song_bar::SongBar;
-use rubato_state::select::music_selector::MusicSelector;
 
 fn test_bms_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

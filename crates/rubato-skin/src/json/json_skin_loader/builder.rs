@@ -454,10 +454,7 @@ impl JSONSkinLoader {
                     source.path.as_deref().unwrap_or_default(),
                     &self.filemap,
                 );
-                self.source_map.insert(
-                    id.clone(),
-                    SourceData::new(path),
-                );
+                self.source_map.insert(id.clone(), SourceData::new(path));
             }
         }
 

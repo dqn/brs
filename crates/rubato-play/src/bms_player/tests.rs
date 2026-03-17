@@ -10,8 +10,8 @@ use rubato_input::bms_player_input_device::DeviceType;
 use rubato_input::bms_player_input_processor::{BMSPlayerInputProcessor, KEYSTATE_SIZE};
 use rubato_input::keyboard_input_processor::ControlKeys;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicI32, Ordering};
 
 fn make_model() -> BMSModel {
     let mut model = BMSModel::new();
@@ -3629,7 +3629,10 @@ fn render_skin_passes_timer_play_start_time_to_note_draw_context() {
     }));
 
     player.main_state_data.timer.set_now_micro_time(3_000_000);
-    player.main_state_data.timer.set_micro_timer(TIMER_PLAY, 1_000_000);
+    player
+        .main_state_data
+        .timer
+        .set_micro_timer(TIMER_PLAY, 1_000_000);
 
     let mut sprite = SpriteBatch::new();
     player.render_skin_impl(&mut sprite);

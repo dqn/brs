@@ -648,7 +648,7 @@ impl Clone for SkinObjectData {
             offset_ids: self.offset_ids.clone(),
             stretch: self.stretch,
             mouse_rect: self.mouse_rect.clone(),
-            resolved_note: None, // Not cloneable; consumed during conversion
+            resolved_note: None,  // Not cloneable; consumed during conversion
             resolved_judge: None, // Not cloneable; consumed during conversion
         }
     }

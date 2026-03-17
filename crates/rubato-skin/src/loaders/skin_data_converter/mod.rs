@@ -221,7 +221,13 @@ pub fn convert_skin_data(
         } else if let Some(resolved) = obj_data.resolved_judge.take() {
             Some(crate::types::skin::SkinObject::Judge(resolved))
         } else {
-            convert_runtime_object(&obj_data.object_type, source_map, skin_path, usecim, scale_y)
+            convert_runtime_object(
+                &obj_data.object_type,
+                source_map,
+                skin_path,
+                usecim,
+                scale_y,
+            )
         };
 
         if let Some(mut obj) = skin_obj {

@@ -405,13 +405,13 @@ impl JsonSkinObjectLoader for JsonPlaySkinObjectLoader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::json::json_skin_loader::{parse_skin_json, SkinConfigProperty};
     use crate::json::json_skin_loader::SkinHeaderData;
+    use crate::json::json_skin_loader::{SkinConfigProperty, parse_skin_json};
     use crate::json::json_skin_object_loader::JsonSkinObjectLoader;
     use crate::loaders::skin_data_converter::convert_skin_data;
     use crate::reexports::Resolution;
-    use crate::types::skin::SkinObject;
     use crate::skin_type::SkinType;
+    use crate::types::skin::SkinObject;
     use std::path::PathBuf;
 
     const MINIMAL_JUDGE_SKIN_JSON: &str = r#"{

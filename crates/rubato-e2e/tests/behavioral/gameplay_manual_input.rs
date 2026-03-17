@@ -186,13 +186,16 @@ fn manual_play_release_switches_keyon_to_keyoff() {
 
     let frames = harness.render_until(
         |h| {
-            h.controller().current_state().is_some_and(|state| {
-                state.main_state_data().timer.is_timer_on(timer_play)
-            })
+            h.controller()
+                .current_state()
+                .is_some_and(|state| state.main_state_data().timer.is_timer_on(timer_play))
         },
         240,
     );
-    assert!(frames < 240, "play state should start TIMER_PLAY within warmup");
+    assert!(
+        frames < 240,
+        "play state should start TIMER_PLAY within warmup"
+    );
 
     let play_start_us = harness
         .controller()
