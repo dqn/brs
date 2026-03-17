@@ -88,7 +88,13 @@ impl GpuContext {
             .iter()
             .find(|f| f.is_srgb())
             .copied()
-            .unwrap_or(surface_caps.formats[0]);
+            .unwrap_or_else(|| {
+                surface_caps
+                    .formats
+                    .first()
+                    .copied()
+                    .unwrap_or(wgpu::TextureFormat::Rgba8UnormSrgb)
+            });
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
