@@ -85,11 +85,7 @@ impl SkinHitErrorVisualizer {
         let hiterror_mode = config.hiterror_mode == 1;
         let color_mode = config.color_mode == 1;
         let draw_decay = config.draw_decay == 1;
-        let window_length = if config.window_length < 100 {
-            config.window_length
-        } else {
-            100
-        };
+        let window_length = config.window_length.clamp(1, 100);
 
         Self {
             data: SkinObjectData::new(),

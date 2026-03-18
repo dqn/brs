@@ -240,11 +240,10 @@ impl SkinBPMGraph {
             let height = self.data.region.height.abs() as i32;
             let mut shape_pixmap = Pixmap::new(width, height, PixmapFormat::RGBA8888);
 
-            let mut last_time = self.bpm_data[self.bpm_data.len() - 1][1] as i32;
+            let last_time = self.bpm_data[self.bpm_data.len() - 1][1] + 1000.0;
             // In Java: last_time = max(last_time, song.getInformation().getLastNoteTime() + 1000).
             // SkinBpmGraph does not have access to SongData here (it only receives bpm_data
             // via set_bpm_data). The +1000 padding provides a reasonable default end margin.
-            last_time += 1000;
 
             let safe_mainbpm = if self.mainbpm == 0.0 {
                 1.0
@@ -255,7 +254,7 @@ impl SkinBPMGraph {
             // Graph drawing
             for i in 1..self.bpm_data.len() {
                 // Vertical line
-                let x1 = (width as f64 * self.bpm_data[i][1] / last_time as f64) as i32;
+                let x1 = (width as f64 * self.bpm_data[i][1] / last_time) as i32;
                 let y1 = ((((self.bpm_data[i - 1][0] / safe_mainbpm)
                     .max(self.min_value)
                     .min(self.max_value))
@@ -281,7 +280,7 @@ impl SkinBPMGraph {
                     );
                 }
                 // Horizontal line
-                let x1 = (width as f64 * self.bpm_data[i - 1][1] / last_time as f64) as i32;
+                let x1 = (width as f64 * self.bpm_data[i - 1][1] / last_time) as i32;
                 let y1 = ((((self.bpm_data[i - 1][0] / safe_mainbpm)
                     .max(self.min_value)
                     .min(self.max_value))
@@ -289,7 +288,7 @@ impl SkinBPMGraph {
                     - self.min_value_log)
                     / (self.max_value_log - self.min_value_log)
                     * (height - self.line_width) as f64) as i32;
-                let x2 = (width as f64 * self.bpm_data[i][1] / last_time as f64) as i32;
+                let x2 = (width as f64 * self.bpm_data[i][1] / last_time) as i32;
                 let y2 = y1;
                 let line_color = if self.bpm_data[i - 1][0] == self.mainbpm {
                     &self.main_line_color
@@ -307,7 +306,7 @@ impl SkinBPMGraph {
             }
             // Last horizontal line
             let last_idx = self.bpm_data.len() - 1;
-            let x1 = (width as f64 * self.bpm_data[last_idx][1] / last_time as f64) as i32;
+            let x1 = (width as f64 * self.bpm_data[last_idx][1] / last_time) as i32;
             let y1 = ((((self.bpm_data[last_idx][0] / safe_mainbpm)
                 .max(self.min_value)
                 .min(self.max_value))

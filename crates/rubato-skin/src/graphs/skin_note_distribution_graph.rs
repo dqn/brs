@@ -358,7 +358,7 @@ impl SkinNoteDistributionGraph {
     fn update_graph(&mut self, model: Option<&BMSModel>) {
         if let Some(model) = model {
             let dl = DATA_LENGTH[self.graph_type as usize] as usize;
-            let data_len = (model.last_time() / 1000 + 1) as usize;
+            let data_len = ((model.last_time() / 1000 + 1) as usize).min(36_000);
             self.dist_data = vec![vec![0; dl]; data_len];
 
             self.update_data(model);

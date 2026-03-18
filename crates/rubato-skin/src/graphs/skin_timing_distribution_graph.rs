@@ -28,7 +28,6 @@ pub struct SkinTimingDistributionGraph {
     pub data: SkinObjectData,
 
     tex: Option<TextureRegion>,
-    shape: Option<Pixmap>,
 
     gx: i32,
     c: i32,
@@ -67,7 +66,6 @@ impl SkinTimingDistributionGraph {
         Self {
             data: SkinObjectData::new(),
             tex: None,
-            shape: None,
             gx,
             c,
             draw_average,
@@ -191,9 +189,6 @@ impl SkinTimingDistributionGraph {
             && let Some(t) = tex.texture.as_mut()
         {
             t.dispose();
-        }
-        if let Some(ref mut shape) = self.shape {
-            shape.dispose();
         }
     }
 }

@@ -810,9 +810,6 @@ fn convert_float(
     usecim: bool,
     filemap: &HashMap<String, String>,
 ) -> Option<SkinObject> {
-    // SkinFloat construction requires complex image splitting.
-    // For now, create a stub that won't crash but won't render either.
-    warn!("Float conversion creates placeholder (full SkinFloat image splitting deferred)");
     let tex = get_texture_for_src(src.as_deref(), source_map, skin_path, usecim, filemap);
     tex.as_ref()?;
     let tex = tex.expect("tex");
