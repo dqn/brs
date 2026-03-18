@@ -98,7 +98,10 @@ impl FloatFormatter {
                 + self.sign;
         }
 
-        let mut fval = (value * 10.0_f64.powi(self.fketa)) as i64;
+        // Use abs() for digit extraction; sign is handled separately via SIGNSYMBOL.
+        // Without this, negative values produce negative remainders (fval % 10 in -9..0)
+        // which are invalid sprite indices.
+        let mut fval = ((value * 10.0_f64.powi(self.fketa)) as i64).abs();
         let mut nowketa;
         if self.iketa == 0 {
             nowketa = self.fketa + self.sign + 1;
@@ -177,7 +180,7 @@ mod prop_tests {
             fketa in 0..=6i32,
             sign in proptest::bool::ANY,
             zeropadding in 0..=2i32,
-            value in 0.0..=999999.0f64,
+            value in -999999.0..=999999.0f64,
         ) {
             let mut formatter = FloatFormatter::new(iketa, fketa, sign, zeropadding);
             let digits = formatter.calculate_and_get_digits(value);
