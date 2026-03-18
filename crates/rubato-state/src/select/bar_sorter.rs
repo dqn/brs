@@ -306,8 +306,7 @@ impl BarSorter {
         if !exists2 {
             return Ordering::Less;
         }
-        let d = s1.timing_stats.avgjudge - s2.timing_stats.avgjudge;
-        d.cmp(&0)
+        s1.timing_stats.avgjudge.cmp(&s2.timing_stats.avgjudge)
     }
 
     fn compare_lastupdate(o1: &Bar, o2: &Bar) -> Ordering {
@@ -318,10 +317,7 @@ impl BarSorter {
             (None, None) => Ordering::Equal,
             (None, _) => Ordering::Greater,
             (_, None) => Ordering::Less,
-            (Some(s1), Some(s2)) => {
-                let d = s1.date - s2.date;
-                d.cmp(&0)
-            }
+            (Some(s1), Some(s2)) => s1.date.cmp(&s2.date),
         }
     }
 
